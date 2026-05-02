@@ -40,7 +40,7 @@ from ai_engineering.paths import resolve_project_root
 from ai_engineering.policy import gate_cache as gate_cache_module
 from ai_engineering.policy import mode_dispatch
 from ai_engineering.policy import orchestrator as orchestrator_module
-from ai_engineering.policy.gates import GateResult, run_gate
+from ai_engineering.policy.gates import GateResult, run_commit_msg_gate
 from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
 from ai_engineering.state.models import GateFindingsDocument, GateHook, GateSeverity
 from ai_engineering.state.service import StateService
@@ -95,8 +95,7 @@ def gate_pre_commit(
 ) -> None:
     """Run pre-commit gate checks (format, lint, gitleaks)."""
     root = resolve_project_root(target)
-    result = run_gate(GateHook.PRE_COMMIT, root)
-    _print_gate_result(result)
+    _run_gate_hook_via_kernel(GateHook.PRE_COMMIT, root)
 
 
 def gate_commit_msg(
@@ -111,7 +110,7 @@ def gate_commit_msg(
 ) -> None:
     """Run commit-msg gate checks (message format validation)."""
     root = resolve_project_root(target)
-    result = run_gate(GateHook.COMMIT_MSG, root, commit_msg_file=msg_file)
+    result = run_commit_msg_gate(root, commit_msg_file=msg_file)
     _print_gate_result(result)
 
 
@@ -123,8 +122,7 @@ def gate_pre_push(
 ) -> None:
     """Run pre-push gate checks (semgrep, pip-audit, tests, ty)."""
     root = resolve_project_root(target)
-    result = run_gate(GateHook.PRE_PUSH, root)
-    _print_gate_result(result)
+    _run_gate_hook_via_kernel(GateHook.PRE_PUSH, root)
 
 
 def _check_risk_inline(root: Path, strict: bool) -> bool:
@@ -202,12 +200,12 @@ def gate_all(
     """
     root = resolve_project_root(target)
     any_failed = False
-    all_results: list[GateResult] = []
+    all_documents: list[tuple[GateHook, GateFindingsDocument]] = []
 
     for hook in (GateHook.PRE_COMMIT, GateHook.PRE_PUSH):
-        result = run_gate(hook, root)
-        all_results.append(result)
-        if not result.passed:
+        document = _run_gate_hook_via_kernel(hook, root, emit_output=False, exit_on_failure=False)
+        all_documents.append((hook, document))
+        if _document_has_failure(document):
             any_failed = True
 
     risk_failed = _check_risk_inline(root, strict)
@@ -217,7 +215,7 @@ def gate_all(
     with contextlib.suppress(Exception):
         from ai_engineering.state.audit import emit_guard_gate
 
-        total_failed = sum(len(r.failed_checks) for r in all_results)
+        total_failed = sum(len(document.findings) for _hook, document in all_documents)
         emit_guard_gate(
             root,
             verdict="fail" if any_failed else "pass",
@@ -227,10 +225,15 @@ def gate_all(
 
     if is_json_mode():
         checks = []
-        for r in all_results:
-            checks.extend(
-                {"gate": r.hook.value, "name": c.name, "passed": c.passed, "output": c.output}
-                for c in r.checks
+        for hook, document in all_documents:
+            checks.append(
+                {
+                    "gate": hook.value,
+                    "findings": len(document.findings),
+                    "cache_hits": list(document.cache_hits),
+                    "cache_misses": list(document.cache_misses),
+                    "passed": not _document_has_failure(document),
+                }
             )
         emit_success(
             "ai-eng gate all",
@@ -242,11 +245,14 @@ def gate_all(
     else:
         overall = "PASS" if not any_failed else "FAIL"
         result_header("Gate All", overall)
-        for r in all_results:
-            header(f"gate {r.hook.value}")
-            for check in r.checks:
-                st = "ok" if check.passed else "fail"
-                status_line(st, check.name, "passed" if check.passed else "failed")
+        for hook, document in all_documents:
+            header(f"gate {hook.value}")
+            info(
+                "findings="
+                f"{len(document.findings)} "
+                f"cache_hits={len(document.cache_hits)} "
+                f"cache_misses={len(document.cache_misses)}"
+            )
         if any_failed:
             suggest_next(
                 [
@@ -316,37 +322,14 @@ def _persist_gate_findings(document: GateFindingsDocument, project_root: Path) -
     ``/ai-commit`` and ``/ai-pr`` skill instructions can reliably parse the
     JSON file after the orchestrator exits.
 
-    Uses tempfile + ``os.replace`` for atomic publish: readers either see the
-    previous version or the new one, never a partial write.
+    Delegates to the shared HX-04 publish helper so canonical sibling outputs
+    keep one durable-artifact path.
     """
-    import os
-    import tempfile
-
-    output_path = project_root / _GATE_FINDINGS_RELATIVE_PATH
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = document.model_dump_json(by_alias=True)
-
-    tmp_path: str | None = None
-    try:
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            dir=str(output_path.parent),
-            prefix=f"{output_path.name}.",
-            suffix=".tmp",
-            delete=False,
-            encoding="utf-8",
-        ) as tmp:
-            tmp_path = tmp.name
-            tmp.write(payload)
-            tmp.flush()
-            os.fsync(tmp.fileno())
-    except BaseException:
-        if tmp_path is not None:
-            with contextlib.suppress(OSError):
-                os.unlink(tmp_path)
-        raise
-    os.replace(tmp_path, str(output_path))
-    return output_path
+    return orchestrator_module.publish_gate_document(
+        document,
+        project_root,
+        output_name=_GATE_FINDINGS_RELATIVE_PATH.name,
+    )
 
 
 def _force_clear_cache(cache_dir: Path) -> None:
@@ -488,6 +471,65 @@ def _staged_files_from_git(project_root: Path) -> list[str]:
     if result.returncode != 0:
         return []
     return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def _run_gate_hook_via_kernel(
+    hook: GateHook,
+    project_root: Path,
+    *,
+    emit_output: bool = True,
+    exit_on_failure: bool = True,
+    no_color: bool = False,
+) -> GateFindingsDocument:
+    """Route hook-style gate commands through the shared kernel adapter."""
+    mode = "local" if hook == GateHook.PRE_COMMIT else "ci"
+    cache_dir = project_root / ".ai-engineering" / "state" / "gate-cache"
+    auto_stage_enabled = (
+        _resolve_auto_stage_enabled(project_root, cli_no_auto_stage=False)
+        if hook == GateHook.PRE_COMMIT
+        else False
+    )
+    document = run_orchestrator_gate(
+        _staged_files_from_git(project_root),
+        mode=mode,
+        disabled=False,
+        force=False,
+        cache_dir=cache_dir,
+        project_root=project_root,
+        produced_by="ai-commit",
+        auto_stage_enabled=auto_stage_enabled,
+    )
+
+    with contextlib.suppress(OSError):
+        _persist_gate_findings(document, project_root)
+
+    failed = _document_has_failure(document)
+    if emit_output:
+        _emit_auto_stage_lines(document, no_color=no_color)
+        result_header(f"Gate [{hook.value}]", "FAIL" if failed else "PASS")
+        info(
+            "findings="
+            f"{len(document.findings)} "
+            f"cache_hits={len(document.cache_hits)} "
+            f"cache_misses={len(document.cache_misses)}"
+        )
+
+        decision_store = None
+        with contextlib.suppress(Exception):
+            decision_store = StateService(project_root).load_decisions()
+
+        compact = orchestrator_module.format_gate_result_compact(
+            list(document.findings),
+            list(document.accepted_findings),
+            list(document.expiring_soon),
+            decision_store=decision_store,
+            no_color=no_color,
+        )
+        print_stdout(compact)
+
+    if exit_on_failure and failed:
+        raise typer.Exit(code=1)
+    return document
 
 
 def gate_run(

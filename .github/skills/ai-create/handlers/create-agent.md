@@ -7,7 +7,7 @@ Scaffold a new agent with standardized frontmatter, defined mandate, referenced 
 ## Procedure
 
 ### 1. Validate name
-- Must not conflict with existing agents (check `.github/agents/`)
+- Must not conflict with existing agents (check `.github/agents/internal/`)
 
 ### 2. Define identity
 - What is the agent's singular responsibility?

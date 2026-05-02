@@ -10,9 +10,8 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ai_engineering.state.io import read_json_model, write_json_model
 from ai_engineering.state.models import (
     DecisionStore,
     FrameworkCapabilitiesCatalog,
@@ -22,6 +21,9 @@ from ai_engineering.state.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ai_engineering.state.repository import DurableStateRepository
 
 
 class StateService:
@@ -36,17 +38,24 @@ class StateService:
         """Return the state directory path."""
         return self._state_dir
 
+    def _repository(self) -> DurableStateRepository:
+        """Return the durable-state repository backing this compatibility facade."""
+        # Delayed to avoid a module import cycle: repository imports install-state helpers below.
+        from ai_engineering.state.repository import DurableStateRepository
+
+        return DurableStateRepository(self._root)
+
     def load_decisions(self) -> DecisionStore:
         """Load the decision store."""
-        return read_json_model(self._state_dir / "decision-store.json", DecisionStore)
+        return self._repository().load_decisions()
 
     def save_decisions(self, store: DecisionStore) -> None:
         """Save the decision store."""
-        write_json_model(self._state_dir / "decision-store.json", store)
+        self._repository().save_decisions(store)
 
     def load_ownership(self) -> OwnershipMap:
         """Load the ownership map."""
-        return read_json_model(self._state_dir / "ownership-map.json", OwnershipMap)
+        return self._repository().load_ownership()
 
     def append_framework_event(self, entry: FrameworkEvent) -> None:
         """Append an entry to the canonical framework event stream.
@@ -66,7 +75,7 @@ class StateService:
 
     def save_framework_capabilities(self, catalog: FrameworkCapabilitiesCatalog) -> None:
         """Persist the canonical framework capability catalog."""
-        write_json_model(self._state_dir / "framework-capabilities.json", catalog)
+        self._repository().save_framework_capabilities(catalog)
 
 
 # ---------------------------------------------------------------------------

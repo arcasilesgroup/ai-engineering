@@ -4,6 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 117 | Harness Engineering Root Refactor Program | done | 2026-05-02 | main |
 | 114 | Telemetry Foundation Completion — Copilot DRY + Hot-Path SLO + NDJSON Reset + Clean Code | done | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
 | 113 | Linux Install Robustness + UX Polish (Alpine Validation) | approved | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
 | 112 | Telemetry Foundation — Fix + Cross-OS + Multi-IDE Unified + Reset + DRY + Hot-Path SLO + Clean Code Audit | done | 2026-04-29 | run/spec-110-111-112-2026-04-29 |

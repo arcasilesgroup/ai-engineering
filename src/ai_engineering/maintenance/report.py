@@ -9,6 +9,7 @@ Provides:
 from __future__ import annotations
 
 import subprocess
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,7 +17,14 @@ from typing import Any
 
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
-from ai_engineering.state.models import DecisionStore, FrameworkEvent
+from ai_engineering.state.locking import artifact_lock
+from ai_engineering.state.models import (
+    DecisionStore,
+    FrameworkEvent,
+    TaskLedgerTask,
+    TaskLifecycleState,
+)
+from ai_engineering.state.work_plane import read_task_ledger
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.protocol import VcsContext
 
@@ -50,6 +58,7 @@ class MaintenanceReport:
     open_prs: int = 0
     stale_branches: int = 0
     version_status: str = ""
+    task_scorecard: TaskScorecard = field(default_factory=lambda: TaskScorecard())
 
     @property
     def health_score(self) -> float:
@@ -93,6 +102,7 @@ class MaintenanceReport:
             "open_prs": self.open_prs,
             "stale_branches": self.stale_branches,
             "version_status": self.version_status,
+            "task_scorecard": self.task_scorecard.to_dict(),
             "warnings": self.warnings,
         }
 
@@ -126,7 +136,29 @@ class MaintenanceReport:
         lines.append(f"- Stale branches (>30d): {self.stale_branches}")
         if self.version_status:
             lines.append(f"- Version status: {self.version_status}")
+        lines.append(
+            f"- Task resolution: {self.task_scorecard.resolved_tasks}/{self.task_scorecard.total_tasks} "
+            f"({self.task_scorecard.resolution_score:.0%})"
+        )
+        lines.append(f"- Retrying tasks: {self.task_scorecard.retry_tasks}")
+        lines.append(f"- Reworked tasks: {self.task_scorecard.rework_tasks}")
+        lines.append(f"- Verification tax events: {self.task_scorecard.verification_tax_events}")
+        lines.append(f"- Drift events: {self.task_scorecard.drift_events}")
         lines.append("")
+
+        if self.task_scorecard.total_tasks or self.task_scorecard.drift_events:
+            lines.append("## Task Scorecard")
+            lines.append("")
+            lines.append(f"- Total tasks: {self.task_scorecard.total_tasks}")
+            lines.append(f"- Resolved tasks: {self.task_scorecard.resolved_tasks}")
+            lines.append(f"- Open tasks: {self.task_scorecard.open_tasks}")
+            lines.append(f"- Retrying tasks: {self.task_scorecard.retry_tasks}")
+            lines.append(f"- Reworked tasks: {self.task_scorecard.rework_tasks}")
+            lines.append(
+                f"- Verification tax events: {self.task_scorecard.verification_tax_events}"
+            )
+            lines.append(f"- Drift events: {self.task_scorecard.drift_events}")
+            lines.append("")
 
         if self.stale_files:
             lines.append("## Stale Files")
@@ -153,6 +185,144 @@ class MaintenanceReport:
 
 # Days after which a governance file is considered stale.
 _STALENESS_THRESHOLD_DAYS: int = 90
+
+
+@dataclass
+class TaskScorecard:
+    """Derived task and drift scorecard computed from authoritative state."""
+
+    total_tasks: int = 0
+    resolved_tasks: int = 0
+    open_tasks: int = 0
+    retry_tasks: int = 0
+    rework_tasks: int = 0
+    verification_tax_events: int = 0
+    drift_events: int = 0
+
+    @property
+    def resolution_score(self) -> float:
+        """Return the fraction of current tasks already resolved."""
+        if self.total_tasks == 0:
+            return 0.0
+        return self.resolved_tasks / self.total_tasks
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize the scorecard for JSON maintenance-report output."""
+        return {
+            "total_tasks": self.total_tasks,
+            "resolved_tasks": self.resolved_tasks,
+            "open_tasks": self.open_tasks,
+            "retry_tasks": self.retry_tasks,
+            "rework_tasks": self.rework_tasks,
+            "verification_tax_events": self.verification_tax_events,
+            "drift_events": self.drift_events,
+            "resolution_score": round(self.resolution_score, 4),
+        }
+
+
+def build_task_scorecard(target: Path) -> TaskScorecard:
+    """Derive task resolution and drift views from authoritative state inputs."""
+    tasks, events = _read_task_scorecard_inputs(target)
+    return _reduce_task_scorecard(tasks, events)
+
+
+def _read_task_scorecard_inputs(target: Path) -> tuple[list[TaskLedgerTask], list[FrameworkEvent]]:
+    """Read a consistent task-ledger and framework-events snapshot for reducers."""
+    events_path = target / ".ai-engineering" / "state" / "framework-events.ndjson"
+    with artifact_lock(target, "framework-events"):
+        ledger = read_task_ledger(target)
+        tasks = ledger.tasks if ledger is not None else []
+        events = read_ndjson_entries(events_path, FrameworkEvent)
+    return tasks, events
+
+
+def _reduce_task_scorecard(
+    tasks: list[TaskLedgerTask],
+    events: list[FrameworkEvent],
+) -> TaskScorecard:
+    phase_history: dict[str, list[str]] = defaultdict(list)
+    last_artifact_refs: dict[str, tuple[str, ...]] = {}
+    verification_tax_events = 0
+    drift_events = 0
+
+    for event in events:
+        if event.kind == "task_trace":
+            task_id = event.detail.get("task_id")
+            lifecycle_phase = event.detail.get("lifecycle_phase")
+            if not isinstance(task_id, str) or not task_id.strip():
+                continue
+            if not isinstance(lifecycle_phase, str) or not lifecycle_phase.strip():
+                continue
+
+            normalized_task_id = task_id.strip()
+            normalized_phase = lifecycle_phase.strip()
+            artifact_refs = _event_artifact_refs(event)
+            phases = phase_history[normalized_task_id]
+            last_phase = phases[-1] if phases else None
+            previous_refs = last_artifact_refs.get(normalized_task_id)
+
+            if (
+                last_phase == normalized_phase
+                and previous_refs is not None
+                and artifact_refs != previous_refs
+            ):
+                verification_tax_events += 1
+
+            if last_phase != normalized_phase:
+                phases.append(normalized_phase)
+
+            last_artifact_refs[normalized_task_id] = artifact_refs
+            continue
+
+        if event.kind != "control_outcome":
+            continue
+
+        control = event.detail.get("control")
+        drifted = event.detail.get("drifted", 0)
+        if control != "guard-drift":
+            continue
+        if event.outcome != "success":
+            drift_events += 1
+            continue
+        if isinstance(drifted, int) and drifted > 0:
+            drift_events += 1
+
+    resolved_tasks = sum(task.status == TaskLifecycleState.DONE for task in tasks)
+    retry_tasks = sum(
+        phases.count(TaskLifecycleState.IN_PROGRESS.value) > 1 for phases in phase_history.values()
+    )
+    rework_tasks = sum(
+        TaskLifecycleState.DONE.value in phases[:-1] and phases[-1] != TaskLifecycleState.DONE.value
+        for phases in phase_history.values()
+    )
+
+    return TaskScorecard(
+        total_tasks=len(tasks),
+        resolved_tasks=resolved_tasks,
+        open_tasks=max(len(tasks) - resolved_tasks, 0),
+        retry_tasks=retry_tasks,
+        rework_tasks=rework_tasks,
+        verification_tax_events=verification_tax_events,
+        drift_events=drift_events,
+    )
+
+
+def _event_artifact_refs(event: FrameworkEvent) -> tuple[str, ...]:
+    raw_refs = event.detail.get("artifact_refs")
+    if not isinstance(raw_refs, list):
+        return ()
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in raw_refs:
+        if not isinstance(value, str):
+            continue
+        ref = value.strip()
+        if not ref or ref in seen:
+            continue
+        seen.add(ref)
+        normalized.append(ref)
+    return tuple(normalized)
 
 
 def generate_report(
@@ -222,10 +392,9 @@ def generate_report(
         report.total_state_files = sum(1 for f in state_dir.iterdir() if f.is_file())
 
     # Count recent framework events
-    events_path = ai_eng_dir / "state" / "framework-events.ndjson"
-    if events_path.exists():
-        entries = read_ndjson_entries(events_path, FrameworkEvent)
-        report.recent_framework_events = len(entries)
+    tasks, entries = _read_task_scorecard_inputs(target)
+    report.recent_framework_events = len(entries)
+    report.task_scorecard = _reduce_task_scorecard(tasks, entries)
 
     # Risk acceptance status
     ds_path = ai_eng_dir / "state" / "decision-store.json"

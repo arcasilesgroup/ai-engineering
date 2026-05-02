@@ -5,6 +5,10 @@ effort: medium
 argument-hint: "single <pr>|batch"
 mode: agent
 tags: [meta, learning, continuous-improvement]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-learn/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

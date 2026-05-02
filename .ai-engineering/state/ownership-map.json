@@ -1,170 +1,140 @@
 {
-  "paths": [
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".ai-engineering/README.md"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
-      "pattern": ".ai-engineering/manifest.yml"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".ai-engineering/runbooks/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".ai-engineering/scripts/hooks/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".ai-engineering/contexts/languages/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".ai-engineering/contexts/frameworks/**"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
-      "pattern": ".ai-engineering/contexts/team/**"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
-      "pattern": ".ai-engineering/CONSTITUTION.md"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
-      "pattern": ".ai-engineering/contexts/product/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "system-managed",
-      "pattern": ".ai-engineering/state/install-state.json"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "system-managed",
-      "pattern": ".ai-engineering/state/ownership-map.json"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "system-managed",
-      "pattern": ".ai-engineering/state/decision-store.json"
-    },
-    {
-      "frameworkUpdate": "append-only",
-      "owner": "system-managed",
-      "pattern": ".ai-engineering/state/framework-events.ndjson"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "system-managed",
-      "pattern": ".ai-engineering/state/framework-capabilities.json"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": "CLAUDE.md"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": "AGENTS.md"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": "GEMINI.md"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".gitleaks.toml"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".semgrep.yml"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
-      "pattern": ".claude/settings.json"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".claude/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".codex/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".gemini/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".github/copilot-instructions.md"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
-      "pattern": ".github/CODEOWNERS"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
-      "pattern": ".github/dependabot.yml"
-    },
-    {
-      "frameworkUpdate": "deny",
-      "owner": "team-managed",
-      "pattern": ".github/pull_request_template.md"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".github/skills/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".github/agents/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".github/instructions/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".github/ISSUE_TEMPLATE/**"
-    },
-    {
-      "frameworkUpdate": "allow",
-      "owner": "framework-managed",
-      "pattern": ".github/hooks/**"
+    "paths": [
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".ai-engineering/README.md"
+        },
+        {
+            "frameworkUpdate": "deny",
+            "owner": "team-managed",
+            "pattern": ".ai-engineering/manifest.yml"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".ai-engineering/runbooks/**"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".ai-engineering/scripts/hooks/**"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".ai-engineering/contexts/languages/**"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".ai-engineering/contexts/frameworks/**"
+        },
+        {
+            "frameworkUpdate": "deny",
+            "owner": "team-managed",
+            "pattern": ".ai-engineering/contexts/team/**"
+        },
+        {
+            "frameworkUpdate": "append-only",
+            "owner": "team-managed",
+            "pattern": ".ai-engineering/LESSONS.md"
+        },
+        {"frameworkUpdate": "deny", "owner": "team-managed", "pattern": "CONSTITUTION.md"},
+        {
+            "frameworkUpdate": "deny",
+            "owner": "team-managed",
+            "pattern": ".ai-engineering/CONSTITUTION.md"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".ai-engineering/contexts/*.md"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/state/install-state.json"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/state/ownership-map.json"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/state/decision-store.json"
+        },
+        {
+            "frameworkUpdate": "append-only",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/state/framework-events.ndjson"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/state/framework-capabilities.json"
+        },
+        {
+            "frameworkUpdate": "append-only",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/state/instinct-observations.ndjson"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/instincts/instincts.yml"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/instincts/meta.json"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "system-managed",
+            "pattern": ".ai-engineering/instincts/proposals.md"
+        },
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": ".gitleaks.toml"},
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": ".semgrep.yml"},
+        {"frameworkUpdate": "deny", "owner": "team-managed", "pattern": ".claude/settings.json"},
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": ".claude/**"},
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": ".codex/**"},
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": ".gemini/**"},
+        {"frameworkUpdate": "deny", "owner": "team-managed", "pattern": ".github/CODEOWNERS"},
+        {"frameworkUpdate": "deny", "owner": "team-managed", "pattern": ".github/dependabot.yml"},
+        {
+            "frameworkUpdate": "deny",
+            "owner": "team-managed",
+            "pattern": ".github/pull_request_template.md"
+        },
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": ".github/skills/**"},
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": ".github/agents/**"},
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".github/instructions/**"
+        },
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".github/ISSUE_TEMPLATE/**"
+        },
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": ".github/hooks/**"},
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": "CLAUDE.md"},
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": "AGENTS.md"},
+        {"frameworkUpdate": "allow", "owner": "framework-managed", "pattern": "GEMINI.md"},
+        {
+            "frameworkUpdate": "allow",
+            "owner": "framework-managed",
+            "pattern": ".github/copilot-instructions.md"
+        }
+    ],
+    "schemaVersion": "1.0",
+    "updateMetadata": {
+        "expectedGain": "derived projection for downstream tooling; not a peer authority",
+        "potentialImpact": "regenerate this snapshot from ai_engineering.state.control_plane.resolve_control_plane_contract when the source contract changes",
+        "rationale": "generate path ownership map from ai_engineering.state.control_plane.resolve_control_plane_contract"
     }
-  ],
-  "schemaVersion": "1.0",
-  "updateMetadata": {
-    "expectedGain": "consistent framework state tracking",
-    "potentialImpact": "framework tools depend on this file",
-    "rationale": "initialize path ownership map"
-  }
 }

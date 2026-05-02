@@ -27,20 +27,36 @@ from _lib.observability import (
 _SKILL_RE = re.compile(r"^\s*/ai-([a-zA-Z-]+)")
 
 
+def _emit_unmatched_prompt(ctx, *, reason: str, trace_id: str | None) -> None:
+    emit_ide_hook_outcome(
+        ctx.project_root,
+        engine=ctx.engine,
+        hook_kind="user-prompt-submit",
+        component="hook.telemetry-skill",
+        outcome="warn",
+        source="hook",
+        session_id=ctx.session_id,
+        trace_id=trace_id,
+        metadata={"skill": None, "reason": reason},
+    )
+
+
 def main() -> None:
     ctx = get_hook_context()
     prompt = ctx.data.get("prompt", "")
+    trace_id = os.environ.get("CLAUDE_TRACE_ID")
     if not prompt:
+        _emit_unmatched_prompt(ctx, reason="empty_prompt", trace_id=trace_id)
         return
 
     match = _SKILL_RE.search(prompt)
     if not match:
+        _emit_unmatched_prompt(ctx, reason="no_ai_prefix", trace_id=trace_id)
         return
 
     raw = match.group(1)
     skill_name = f"ai-{raw.lower()}"
 
-    trace_id = os.environ.get("CLAUDE_TRACE_ID")
     entry = emit_skill_invoked(
         ctx.project_root,
         engine=ctx.engine,

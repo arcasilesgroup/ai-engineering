@@ -50,8 +50,26 @@ _REQUIRED_KEYS: tuple[str, ...] = (
 _ALLOWED_ENGINES: frozenset[str] = frozenset(
     {"claude_code", "codex", "gemini", "copilot", "ai_engineering"}
 )
+_ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
+_ALLOWED_KINDS: frozenset[str] = frozenset(
+    {
+        "skill_invoked",
+        "agent_dispatched",
+        "context_load",
+        "ide_hook",
+        "framework_error",
+        "git_hook",
+        "control_outcome",
+        "framework_operation",
+        "task_trace",
+    }
+)
 
 _FRAMEWORK_EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
+
+
+def _normalize_engine_id(engine: str) -> str:
+    return _ENGINE_ALIASES.get(engine, engine)
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +90,9 @@ def validate_event_schema(event: object) -> bool:
             return False
     engine = event_dict.get("engine")
     if not isinstance(engine, str) or engine not in _ALLOWED_ENGINES:
+        return False
+    kind = event_dict.get("kind")
+    if not isinstance(kind, str) or kind not in _ALLOWED_KINDS:
         return False
     detail = event_dict.get("detail", {})
     return isinstance(detail, dict)
@@ -176,16 +197,20 @@ def emit_event(project_root: Path, event: dict) -> bool:
     audit stream stays trustworthy. Spec-110 D-110-03: stamps
     `prev_event_hash` at the **root** of the on-disk JSON object.
     """
-    if not validate_event_schema(event):
+    normalized_event = dict(event)
+    engine = normalized_event.get("engine")
+    if isinstance(engine, str):
+        normalized_event["engine"] = _normalize_engine_id(engine)
+    if not validate_event_schema(normalized_event):
         logger.error(
             "hook-common: refusing to emit malformed event (kind=%s engine=%s)",
-            event.get("kind") if isinstance(event, dict) else None,
-            event.get("engine") if isinstance(event, dict) else None,
+            normalized_event.get("kind") if isinstance(normalized_event, dict) else None,
+            normalized_event.get("engine") if isinstance(normalized_event, dict) else None,
         )
         return False
     path = _events_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = dict(event)
+    payload = normalized_event
     payload["prev_event_hash"] = _read_prev_event_hash(path)
     line = json.dumps(payload, sort_keys=True, default=str)
     try:

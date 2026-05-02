@@ -6,7 +6,15 @@ import json
 from pathlib import Path
 
 from ai_engineering.state.io import read_ndjson_entries
-from ai_engineering.state.models import FrameworkCapabilitiesCatalog, FrameworkEvent
+from ai_engineering.state.models import (
+    CapabilityKind,
+    CapabilityToolScope,
+    FrameworkCapabilitiesCatalog,
+    FrameworkEvent,
+    MutationClass,
+    TopologyRole,
+    WriteScopeClass,
+)
 from ai_engineering.state.observability import (
     FRAMEWORK_CAPABILITIES_REL,
     FRAMEWORK_CAPABILITIES_SCHEMA_VERSION,
@@ -89,6 +97,7 @@ class TestFrameworkEvents:
         entries = read_ndjson_entries(event_path, FrameworkEvent)
         assert [entry.kind for entry in entries] == ["skill_invoked", "agent_dispatched"]
         assert entries[0].correlation_id == "corr-1"
+        assert entries[1].engine == "copilot"
         assert entries[1].correlation_id == "corr-2"
 
     def test_append_framework_event_never_writes_new_framework_data_to_audit_log(
@@ -150,6 +159,31 @@ class TestFrameworkCapabilities:
             "pre-push",
         }
 
+    def test_build_framework_capabilities_includes_authoritative_capability_cards(
+        self, tmp_path: Path
+    ) -> None:
+        _write_manifest(tmp_path)
+
+        catalog = build_framework_capabilities(tmp_path)
+        cards_by_name = {card.name: card for card in catalog.capability_cards}
+
+        assert set(cards_by_name) == {
+            "ai-brainstorm",
+            "ai-dispatch",
+            "ai-build",
+            "ai-plan",
+        }
+        build_card = cards_by_name["ai-build"]
+        assert build_card.capability_kind == CapabilityKind.AGENT
+        assert build_card.topology_role == TopologyRole.PUBLIC_FIRST_CLASS
+        assert MutationClass.CODE_WRITE in build_card.mutation_classes
+        assert WriteScopeClass.SOURCE in build_card.write_scope_classes
+        assert CapabilityToolScope.EDIT in build_card.tool_scope
+
+        plan_card = cards_by_name["ai-plan"]
+        assert MutationClass.SPEC_WRITE in plan_card.mutation_classes
+        assert MutationClass.CODE_WRITE not in plan_card.mutation_classes
+
     def test_write_framework_capabilities_persists_canonical_catalog(self, tmp_path: Path) -> None:
         _write_manifest(tmp_path)
 
@@ -164,4 +198,10 @@ class TestFrameworkCapabilities:
         assert {entry["name"] for entry in payload["contextClasses"]} >= {
             "language",
             "constitution",
+        }
+        assert {entry["name"] for entry in payload["capabilityCards"]} == {
+            "ai-brainstorm",
+            "ai-dispatch",
+            "ai-build",
+            "ai-plan",
         }

@@ -3,6 +3,10 @@ name: ai-dispatch
 description: Use when an approved plan.md exists and execution should begin. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'let's do this', 'run the plan', 'resume', or 'continue' after interruption. Not without an approved plan — run /ai-plan first. Orchestrates subagents per task with two-stage review, progress tracking, and automated delivery.
 effort: high
 argument-hint: "[spec-NNN or --resume]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-dispatch/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -20,7 +24,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 
 ## Process
 
-0. **Preflight dependencies** -- verify `.ai-engineering/specs/plan.md`, `.codex/skills/_shared/execution-kernel.md`, `.claude/skills/ai-dispatch/handlers/quality.md`, and `.claude/skills/ai-dispatch/handlers/deliver.md` exist. If any are missing: STOP and report the exact missing path(s). Never improvise missing orchestration logic.
+0. **Preflight dependencies** -- verify `.ai-engineering/specs/plan.md`, `.codex/skills/_shared/execution-kernel.md`, `.codex/skills/ai-dispatch/handlers/quality.md`, and `.codex/skills/ai-dispatch/handlers/deliver.md` exist. If any are missing: STOP and report the exact missing path(s). Never improvise missing orchestration logic.
 1. **Board sync (in_progress)** -- read `specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
 2. **Guard advisory** -- before dispatching any build task, invoke the Guard agent (`ai-guard`) in `gate` mode for governance advisory. Fail-open: if guard is unavailable or errors, log warning and continue -- never block dispatch.
 3. **Execute kernel**: see `.codex/skills/_shared/execution-kernel.md`. Dispatch wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build-verify-review -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain dispatch-specific.

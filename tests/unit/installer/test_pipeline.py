@@ -211,6 +211,26 @@ class TestPipelineRunner:
         summary = runner.run(_ctx(tmp_path))
         assert summary.completed_phases == ["a", "b"]
 
+    def test_runner_uses_reconciler_lifecycle(self, tmp_path, monkeypatch) -> None:
+        """Install phases are routed through the shared reconcile lifecycle."""
+        calls: list[tuple[str, bool]] = []
+
+        from ai_engineering.installer.phases import pipeline as pipeline_module
+
+        real_reconciler = pipeline_module.ResourceReconciler
+
+        class _TrackingReconciler(real_reconciler):
+            def run(self, adapter, context, *, preview: bool = False):
+                calls.append((adapter.name, preview))
+                return super().run(adapter, context, preview=preview)
+
+        monkeypatch.setattr(pipeline_module, "ResourceReconciler", _TrackingReconciler)
+
+        runner = PipelineRunner([_FakePhase("a"), _FakePhase("b")])
+        runner.run(_ctx(tmp_path))
+
+        assert calls == [("a", False), ("b", False)]
+
 
 # ---------------------------------------------------------------------------
 # PhasePlan security

@@ -117,12 +117,7 @@ The agents table above lists every agent shipped with the framework. Counts mirr
 
 Grouped by type. Invoke as `/ai-<name>`.
 
-**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
-**Delivery:** commit, pr, release-gate, cleanup, market
-**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
-**Teaching:** explain, guide, write, slides, media, video-editing
-**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
+__SKILL_GROUPS__
 
 ## Effort Levels
 
@@ -130,9 +125,7 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 
 | Effort | Count |
 |--------|-------|
-| max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
-| high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
+__EFFORT_ROWS__
 
 ## Quality Gates
 

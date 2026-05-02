@@ -27,7 +27,7 @@ Gather data from REAL project state -- never from old documentation:
 | `.ai-engineering/runbooks/` | Available operational runbooks |
 | `src/ai_engineering/` | Module structure, CLI commands, services, layers |
 | `.github/skills/` | Actual skill count and categories |
-| `.github/agents/` | Actual agent count, models, colors |
+| `.github/agents/internal/` | Actual agent count, models, colors |
 | `.github/hooks/` | Telemetry hook configuration |
 | `scripts/` | Sync, validation, work item scripts |
 

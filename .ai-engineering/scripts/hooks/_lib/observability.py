@@ -17,9 +17,25 @@ from pathlib import Path
 from uuid import uuid4
 
 FRAMEWORK_EVENT_SCHEMA_VERSION = "1.0"
-FRAMEWORK_EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
+_AI_ENGINEERING_DIR = Path(".ai-engineering")
+FRAMEWORK_EVENTS_REL = _AI_ENGINEERING_DIR / "state" / "framework-events.ndjson"
+_ACTIVE_WORK_PLANE_POINTER = _AI_ENGINEERING_DIR / "specs" / "active-work-plane.json"
+_ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
+_ALLOWED_KINDS: frozenset[str] = frozenset(
+    {
+        "skill_invoked",
+        "agent_dispatched",
+        "context_load",
+        "ide_hook",
+        "framework_error",
+        "git_hook",
+        "control_outcome",
+        "framework_operation",
+        "task_trace",
+    }
+)
 
-_DEGRADED_HOSTS: frozenset[str] = frozenset({"codex", "gemini"})
+_DEGRADED_HOSTS: frozenset[str] = frozenset({"codex"})
 _SECRET_RE = re.compile(
     r"(?i)(api_key|token|secret|password|authorization|credentials|auth)"
     r"([\"'\s:=]+)"
@@ -55,6 +71,10 @@ def _normalize_agent_name(agent_name: str) -> str:
     return normalized
 
 
+def _normalize_engine_id(engine: str) -> str:
+    return _ENGINE_ALIASES.get(engine, engine)
+
+
 def _capture_outcome(
     engine: str, *, session_id: str | None, trace_id: str | None
 ) -> tuple[str, list[str]]:
@@ -76,6 +96,18 @@ def _bounded_summary(text: str | None) -> str | None:
     return redacted[:_MAX_SUMMARY_LEN] + "...[truncated]"
 
 
+def _normalize_artifact_refs(artifact_refs: tuple[str, ...] | list[str] | None) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in artifact_refs or ():
+        path = value.strip()
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        normalized.append(path)
+    return normalized
+
+
 # ---------------------------------------------------------------------------
 # Core event building and persistence
 # ---------------------------------------------------------------------------
@@ -83,6 +115,50 @@ def _bounded_summary(text: str | None) -> str | None:
 
 def framework_events_path(project_root: Path) -> Path:
     return project_root / FRAMEWORK_EVENTS_REL
+
+
+def _pointer_specs_dir(project_root: Path) -> Path | None:
+    pointer_path = project_root / _ACTIVE_WORK_PLANE_POINTER
+    if not pointer_path.exists():
+        return None
+
+    try:
+        payload = json.loads(pointer_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    specs_dir_value = payload.get("specsDir")
+    if not isinstance(specs_dir_value, str) or not specs_dir_value.strip():
+        return None
+
+    raw_specs_dir = Path(specs_dir_value)
+    if raw_specs_dir.is_absolute():
+        return None
+
+    specs_dir = project_root / raw_specs_dir
+    try:
+        specs_dir.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return None
+    return specs_dir
+
+
+def _declared_work_plane_contexts(project_root: Path) -> tuple[tuple[str, str, Path], ...]:
+    specs_dir = _pointer_specs_dir(project_root) or (project_root / _AI_ENGINEERING_DIR / "specs")
+    return (
+        ("spec", "spec", specs_dir / "spec.md"),
+        ("plan", "plan", specs_dir / "plan.md"),
+    )
+
+
+def _resolve_constitution_context_path(project_root: Path) -> Path:
+    constitution_path = project_root / "CONSTITUTION.md"
+    if constitution_path.is_file():
+        return constitution_path
+    return project_root / _AI_ENGINEERING_DIR / "CONSTITUTION.md"
 
 
 def _compute_prev_event_hash(path: Path) -> str | None:
@@ -106,7 +182,7 @@ def _compute_prev_event_hash(path: Path) -> str | None:
         return None
     try:
         prior = json.loads(last_line)
-    except (json.JSONDecodeError, ValueError):
+    except ValueError:
         return None
     if not isinstance(prior, dict):
         return None
@@ -127,6 +203,11 @@ def append_framework_event(project_root: Path, entry: dict) -> None:
     # mirrors the package writer's behavior and keeps parity with the
     # ``model_dump``-based pkg path.
     payload = dict(entry)
+    kind = payload.get("kind")
+    if kind not in _ALLOWED_KINDS:
+        msg = f"Unsupported framework event kind: {kind!r}"
+        raise ValueError(msg)
+    payload["engine"] = _normalize_engine_id(str(payload["engine"]))
     payload["prev_event_hash"] = _compute_prev_event_hash(path)
     line = json.dumps(payload, sort_keys=True, default=_json_serializer)
     with path.open("a", encoding="utf-8") as f:
@@ -147,7 +228,12 @@ def build_framework_event(
     correlation_id: str | None = None,
     force_outcome: str | None = None,
 ) -> dict:
-    outcome, missing_fields = _capture_outcome(engine, session_id=session_id, trace_id=trace_id)
+    canonical_engine = _normalize_engine_id(engine)
+    outcome, missing_fields = _capture_outcome(
+        canonical_engine,
+        session_id=session_id,
+        trace_id=trace_id,
+    )
     payload = dict(detail or {})
     if missing_fields:
         payload["degraded_reason"] = "missing-host-metadata"
@@ -157,7 +243,7 @@ def build_framework_event(
         "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
         "timestamp": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "project": project_root.name,
-        "engine": engine,
+        "engine": canonical_engine,
         "kind": kind,
         "outcome": force_outcome or outcome,
         "component": component,
@@ -302,10 +388,11 @@ def emit_declared_context_loads(
     root = project_root / ".ai-engineering"
     events: list[dict] = []
 
+    constitution_path = _resolve_constitution_context_path(project_root)
+
     fixed_contexts = (
-        ("constitution", "constitution", root / "CONSTITUTION.md"),
-        ("spec", "spec", root / "specs" / "spec.md"),
-        ("plan", "plan", root / "specs" / "plan.md"),
+        ("constitution", "constitution", constitution_path),
+        *_declared_work_plane_contexts(project_root),
         ("decision-store", "decision-store", root / "state" / "decision-store.json"),
     )
     for ctx_class, ctx_name, ctx_path in fixed_contexts:
@@ -470,6 +557,49 @@ def emit_framework_operation(
         correlation_id=correlation_id,
         force_outcome=outcome,
         detail=detail,
+    )
+    append_framework_event(project_root, entry)
+    return entry
+
+
+def emit_task_trace(
+    project_root: Path,
+    *,
+    task_id: str,
+    lifecycle_phase: str,
+    component: str,
+    artifact_refs: tuple[str, ...] | list[str] | None = None,
+    engine: str = "ai_engineering",
+    source: str | None = None,
+    session_id: str | None = None,
+    trace_id: str | None = None,
+    parent_id: str | None = None,
+    correlation_id: str | None = None,
+) -> dict:
+    normalized_task_id = task_id.strip()
+    normalized_phase = lifecycle_phase.strip()
+    if not normalized_task_id:
+        msg = "task_trace requires a non-empty task_id"
+        raise ValueError(msg)
+    if not normalized_phase:
+        msg = "task_trace requires a non-empty lifecycle_phase"
+        raise ValueError(msg)
+
+    entry = build_framework_event(
+        project_root,
+        engine=engine,
+        kind="task_trace",
+        component=component,
+        source=source,
+        session_id=session_id,
+        trace_id=trace_id,
+        parent_id=parent_id,
+        correlation_id=correlation_id,
+        detail={
+            "task_id": normalized_task_id,
+            "lifecycle_phase": normalized_phase,
+            "artifact_refs": _normalize_artifact_refs(artifact_refs),
+        },
     )
     append_framework_event(project_root, entry)
     return entry

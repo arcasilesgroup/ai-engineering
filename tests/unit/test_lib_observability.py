@@ -415,6 +415,61 @@ class TestEmitDeclaredContextLoads:
         team_names = sorted(e["detail"]["context_name"] for e in team_events)
         assert team_names == ["conventions", "lessons"]
 
+    def test_root_constitution_is_preferred_when_present(self, project_root: Path) -> None:
+        (project_root / "CONSTITUTION.md").write_text("# Root Constitution\n", encoding="utf-8")
+
+        events = lib_obs.emit_declared_context_loads(
+            project_root,
+            engine="claude_code",
+            initiator_kind="skill",
+            initiator_name="ai-brainstorm",
+            component="hook/user-prompt-submit",
+        )
+
+        constitution_event = next(
+            event for event in events if event["detail"]["context_class"] == "constitution"
+        )
+        assert constitution_event["detail"]["path"] == "CONSTITUTION.md"
+
+    def test_nested_constitution_remains_compatibility_fallback(self, project_root: Path) -> None:
+        (project_root / ".ai-engineering" / "CONSTITUTION.md").unlink()
+
+        events = lib_obs.emit_declared_context_loads(
+            project_root,
+            engine="claude_code",
+            initiator_kind="skill",
+            initiator_name="ai-brainstorm",
+            component="hook/user-prompt-submit",
+        )
+
+        constitution_event = next(
+            event for event in events if event["detail"]["context_class"] == "constitution"
+        )
+        assert constitution_event["detail"]["path"] == ".ai-engineering/CONSTITUTION.md"
+
+    def test_active_pointer_redirects_declared_spec_contexts(self, project_root: Path) -> None:
+        resolved_specs_dir = project_root / "resolved-work-plane"
+        resolved_specs_dir.mkdir()
+        (resolved_specs_dir / "spec.md").write_text("resolved spec\n", encoding="utf-8")
+        (resolved_specs_dir / "plan.md").write_text("resolved plan\n", encoding="utf-8")
+        (project_root / ".ai-engineering" / "specs" / "active-work-plane.json").write_text(
+            json.dumps({"specsDir": "resolved-work-plane"}),
+            encoding="utf-8",
+        )
+
+        events = lib_obs.emit_declared_context_loads(
+            project_root,
+            engine="claude_code",
+            initiator_kind="skill",
+            initiator_name="ai-brainstorm",
+            component="hook/user-prompt-submit",
+        )
+
+        spec_event = next(e for e in events if e["detail"]["context_class"] == "spec")
+        plan_event = next(e for e in events if e["detail"]["context_class"] == "plan")
+        assert spec_event["detail"]["path"] == "resolved-work-plane/spec.md"
+        assert plan_event["detail"]["path"] == "resolved-work-plane/plan.md"
+
 
 # ---------------------------------------------------------------------------
 # 5. Secret redaction in _bounded_summary

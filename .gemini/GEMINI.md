@@ -113,16 +113,18 @@ Before writing or reviewing code, load the applicable context files:
 
 The agents table above lists every agent shipped with the framework. Counts mirror `.ai-engineering/manifest.yml` (`agents.total`).
 
-## Skills (49)
+## Skills (48)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
-**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
-**Delivery:** commit, pr, release-gate, cleanup, market
-**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
-**Teaching:** explain, guide, write, slides, media, video-editing
+**Workflow:** brainstorm, plan, dispatch, test, debug, code, verify, review, eval, research
+**Delivery:** commit, pr, release-gate, cleanup
+**Enterprise:** security, governance, pipeline, schema, docs, board-discover, board-sync, platform-audit, mcp-sentinel
+**Teaching:** explain, guide
+**Writing:** write, market, slides, media, video-editing
 **SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
+**Meta:** create, learn, prompt, start, instinct, autopilot, run, constitution, skill-evolve
+**Design:** design, animation, canvas
 
 ## Effort Levels
 
@@ -130,9 +132,9 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 
 | Effort | Count |
 |--------|-------|
-| max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
-| high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
+| max | 11 (brainstorm, verify, review, security, governance, schema, autopilot, run, eval, platform-audit, skill-evolve) |
+| high | 25 (plan, dispatch, test, debug, code, pr, release-gate, pipeline, docs, explain, guide, write, market, sprint, postmortem, support, create, slides, video-editing, board-discover, mcp-sentinel, design, animation, canvas, research) |
+| medium | 12 (commit, cleanup, note, standup, resolve-conflicts, learn, prompt, start, instinct, constitution, media, board-sync) |
 
 ## Quality Gates
 
@@ -171,7 +173,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (49) | `.gemini/skills/ai-<name>/SKILL.md` |
+| Skills (48) | `.gemini/skills/ai-<name>/SKILL.md` |
 | Agents (10) | `.gemini/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

@@ -21,6 +21,7 @@ from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_progress import spinner
 from ai_engineering.cli_ui import result_header, status_line, suggest_next
 from ai_engineering.paths import resolve_project_root
+from ai_engineering.state.locking import artifact_lock
 
 
 def sync_cmd(
@@ -69,7 +70,7 @@ def sync_cmd(
         cmd.append("--verbose")
 
     action = "Checking mirror sync..." if check else "Syncing mirrors..."
-    with spinner(action):
+    with artifact_lock(root, "mirror-sync"), spinner(action):
         result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(root))
 
     exit_code = result.returncode

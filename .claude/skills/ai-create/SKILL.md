@@ -6,7 +6,6 @@ argument-hint: "skill <name>|agent <name>"
 tags: [meta, framework, creation]
 ---
 
-
 # Create
 
 ## Purpose
@@ -93,20 +92,22 @@ Follow `handlers/create-agent.md`. Agents don't go through skill-creator (they'r
 
 The `description` field is the skill's search ranking — it determines whether the skill triggers. It must describe **triggering conditions**, not summarize functionality.
 
-| Bad (summary) | Good (CSO trigger) |
-|---------------|-------------------|
-| "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity" |
-| "Sprint planning tool" | "Use when planning a new sprint or running a retrospective" |
-| "Resolves git conflicts" | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
+| Bad (summary)             | Good (CSO trigger)                                                          |
+| ------------------------- | --------------------------------------------------------------------------- |
+| "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity"  |
+| "Sprint planning tool"    | "Use when planning a new sprint or running a retrospective"                 |
+| "Resolves git conflicts"  | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
 
 ## IDE-Compatibility Frontmatter
 
-| Field | Effect |
-|-------|--------|
-| `copilot_compatible: false` | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
-| `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills) |
+| Field                            | Effect                                                           |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `copilot_compatible: false`      | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
+| `codex_compatible: false`        | Excludes from `.codex/skills/` mirror                            |
+| `gemini_compatible: false`       | Excludes from `.gemini/skills/` mirror                           |
+| `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills)      |
 
-Currently only `ai-analyze-permissions` uses `copilot_compatible: false`.
+`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot, Codex, and Gemini mirrors.
 
 ## Quick Reference
 

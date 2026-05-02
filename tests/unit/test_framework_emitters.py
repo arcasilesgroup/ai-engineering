@@ -53,9 +53,10 @@ class TestCanonicalEmitters:
         )
 
         assert entry.outcome == "success"
+        assert entry.engine == "copilot"
         assert entry.detail["agent"] == "ai-build"
         stored = read_ndjson_entries(framework_events_path(tmp_path), FrameworkEvent)
-        assert stored[0].engine == "github_copilot"
+        assert stored[0].engine == "copilot"
         assert stored[0].kind == "agent_dispatched"
 
     def test_codex_skill_invoked_degrades_when_host_metadata_is_missing(

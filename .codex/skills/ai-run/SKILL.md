@@ -4,6 +4,10 @@ description: Use when a backlog of work items should run autonomously end to end
 effort: max
 argument-hint: "github|azure|markdown <source> [--single|--batch] [--resume] [--no-watch]"
 tags: [orchestration, autonomous, backlog, github, azure, delivery]
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-run/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

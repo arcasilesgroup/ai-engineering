@@ -3,6 +3,10 @@ name: ai-review
 description: "Use when code changes need human-quality judgment: PR reviews, file reviews, diff analysis, and architecture feedback. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', or 'is this merge-ready'. Default mode runs the full specialist roster through 3 macro-agents; use `--full` to run one agent per specialist. For evidence-backed gates, use /ai-verify instead."
 effort: max
 argument-hint: "[--full] [PR number or file paths]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-review/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -27,10 +31,10 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 Before dispatching any review agent, verify these files exist:
 
-- `.claude/skills/ai-review/handlers/review.md`
-- `.codex/agents/review-context-explorer.md`
-- `.codex/agents/review-finding-validator.md`
-- every required `.codex/agents/reviewer-*.md` file for the selected mode and detected diff scope
+- `.codex/skills/ai-review/handlers/review.md`
+- `.codex/agents/internal/review-context-explorer.md`
+- `.codex/agents/internal/review-finding-validator.md`
+- every required `.codex/agents/internal/reviewer-*.md` file for the selected mode and detected diff scope
 
 Required reviewer files are mode-sensitive:
 
@@ -70,7 +74,7 @@ Runs one agent per specialist with the same output contract and the same adversa
 | `frontend`        | `reviewer-frontend.md`        | React, hooks, a11y, TypeScript (conditional)               |
 | `design`          | `reviewer-design.md`          | CSS, animation, UI components, visual design (conditional) |
 
-All specialist agents are dispatched via the `Agent` tool from `.codex/agents/`. They are not read inline -- each runs in its own context window.
+All specialist agents are dispatched via the `Agent` tool from `.codex/agents/internal/`. They are not read inline -- each runs in its own context window.
 
 ## Dispatch Architecture
 

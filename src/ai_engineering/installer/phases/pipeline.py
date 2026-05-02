@@ -21,6 +21,14 @@ from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from ai_engineering.reconciler import (
+    ReconcileAction,
+    ReconcileApplyResult,
+    ReconcileInspection,
+    ReconcilePlan,
+    ReconcileVerification,
+    ResourceReconciler,
+)
 from ai_engineering.state.models import InstallState
 from ai_engineering.state.service import load_install_state, save_install_state
 
@@ -57,9 +65,12 @@ More detail: .ai-engineering/contexts/python-env-modes.md
 ================================================================================
 """
 
+_AI_ENGINEERING_DIR = ".ai-engineering"
+_STATE_DIR_REL = Path(_AI_ENGINEERING_DIR) / "state"
+
 
 def _state_file_path(target: Path) -> Path:
-    return target / ".ai-engineering" / "state" / "install-state.json"
+    return target / _STATE_DIR_REL / "install-state.json"
 
 
 def _load_or_default_state(target: Path) -> InstallState:
@@ -68,7 +79,7 @@ def _load_or_default_state(target: Path) -> InstallState:
     Returns a default ``InstallState`` (with ``breaking_banner_seen=False``)
     when the file is absent -- a fresh install -- so the banner fires.
     """
-    state_dir = target / ".ai-engineering" / "state"
+    state_dir = target / _STATE_DIR_REL
     try:
         return load_install_state(state_dir)
     except (OSError, ValueError):
@@ -109,7 +120,7 @@ def emit_breaking_banner_for_target(target: Path) -> None:
     flag still prevents double-emission on subsequent re-runs.
     """
     try:
-        state_dir = target / ".ai-engineering" / "state"
+        state_dir = target / _STATE_DIR_REL
         try:
             state = load_install_state(state_dir)
         except (OSError, ValueError):
@@ -160,6 +171,101 @@ class PipelineSummary:
     dry_run: bool = False
 
 
+class _InstallPhaseAdapter:
+    """Adapt legacy install phases to the shared reconciler contract."""
+
+    def __init__(self, phase: PhaseProtocol) -> None:
+        self._phase = phase
+
+    @property
+    def name(self) -> str:
+        return self._phase.name
+
+    def inspect(self, context: object) -> ReconcileInspection:
+        return ReconcileInspection(resource_name=self.name, payload=context)
+
+    def plan(self, _inspection: ReconcileInspection, context: object) -> ReconcilePlan:
+        install_context = self._coerce_context(context)
+        phase_plan = self._phase.plan(install_context)
+        actions = [
+            ReconcileAction(
+                action_id=f"{phase_plan.phase_name}:{index}",
+                action_type=action.action_type,
+                resource=action.destination or phase_plan.phase_name,
+                reason=action.rationale,
+                metadata={"source": action.source},
+            )
+            for index, action in enumerate(phase_plan.actions, start=1)
+        ]
+        return ReconcilePlan(resource_name=self.name, actions=actions, payload=phase_plan)
+
+    def apply(self, plan: ReconcilePlan, context: object) -> ReconcileApplyResult:
+        install_context = self._coerce_context(context)
+        phase_plan = self._coerce_plan(plan.payload)
+        result = self._phase.execute(phase_plan, install_context)
+        return ReconcileApplyResult(
+            resource_name=self.name,
+            applied_actions=list(result.created) + list(result.deleted),
+            skipped_actions=list(result.skipped),
+            failed_actions=list(result.failed),
+            payload=result,
+        )
+
+    def verify(
+        self,
+        apply_result: ReconcileApplyResult,
+        context: object,
+    ) -> ReconcileVerification:
+        install_context = self._coerce_context(context)
+        phase_result = self._coerce_result(apply_result.payload)
+        verdict = self._phase.verify(phase_result, install_context)
+        return ReconcileVerification(
+            resource_name=self.name,
+            passed=verdict.passed,
+            warnings=list(verdict.warnings),
+            errors=list(verdict.errors),
+            payload=verdict,
+        )
+
+    def rollback(
+        self,
+        _plan: ReconcilePlan,
+        _context: object,
+        _reason: BaseException | ReconcileVerification,
+    ) -> None:
+        return None
+
+    def finalize(
+        self,
+        _plan: ReconcilePlan,
+        _apply_result: ReconcileApplyResult,
+        _verification: ReconcileVerification,
+        _context: object,
+    ) -> None:
+        return None
+
+    @staticmethod
+    def _coerce_context(context: object) -> InstallContext:
+        if not isinstance(context, InstallContext):
+            msg = "install reconciler context must be InstallContext"
+            raise TypeError(msg)
+        return context
+
+    @staticmethod
+    def _coerce_plan(payload: object | None) -> PhasePlan:
+        if not isinstance(payload, PhasePlan):
+            msg = "install reconciler plan payload must be PhasePlan"
+            raise TypeError(msg)
+        return payload
+
+    @staticmethod
+    def _coerce_result(payload: object | None) -> PhaseResult:
+        if not isinstance(payload, PhaseResult):
+            msg = "install reconciler result payload must be PhaseResult"
+            raise TypeError(msg)
+        return payload
+
+
 class PipelineRunner:
     """Executes an ordered sequence of install phases."""
 
@@ -206,19 +312,28 @@ class PipelineRunner:
             _maybe_emit_breaking_banner(context)
 
         total = len(self._phases)
+        reconciler = ResourceReconciler()
         for index, phase in enumerate(self._phases, start=1):
             self._notify(f"[{index}/{total}] {phase.name}")
-            plan = phase.plan(context)
+            run = reconciler.run(_InstallPhaseAdapter(phase), context, preview=dry_run)
+            plan = _InstallPhaseAdapter._coerce_plan(run.plan.payload)
             summary.plans.append(plan)
 
             if dry_run:
                 summary.completed_phases.append(phase.name)
                 continue
 
-            result = phase.execute(plan, context)
+            if run.apply_result is None or run.verification is None:
+                msg = f"reconciler did not apply install phase {phase.name!r}"
+                raise RuntimeError(msg)
+            result = _InstallPhaseAdapter._coerce_result(run.apply_result.payload)
             summary.results.append(result)
 
-            verdict = phase.verify(result, context)
+            verdict_payload = run.verification.payload
+            if not isinstance(verdict_payload, PhaseVerdict):
+                msg = f"reconciler did not verify install phase {phase.name!r}"
+                raise RuntimeError(msg)
+            verdict = verdict_payload
             summary.verdicts.append(verdict)
 
             if not verdict.passed:

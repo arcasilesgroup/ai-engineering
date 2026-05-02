@@ -1,8 +1,8 @@
 """Tests for telemetry-skill.py skill name extraction (spec-112 T-1.1..T-1.3).
 
 Covers G-1: regex extraction of `^/ai-([a-zA-Z0-9_-]+)` from `payload.prompt`,
-including edge cases that emit `kind: skill_invoked_malformed` with
-`detail.skill: null`.
+including edge cases that now normalize through canonical `ide_hook` warnings
+instead of inventing an ad hoc event kind.
 """
 
 from __future__ import annotations
@@ -101,7 +101,7 @@ def test_skill_name_extraction(project_root: Path, prompt: str, expected: str) -
 
 # ---------------------------------------------------------------------------
 # 2 edge case fixtures: empty prompt + prompt without /ai- prefix
-# Both must emit `kind: skill_invoked_malformed` with `detail.skill: null`.
+# Both must emit canonical `ide_hook` warnings with `detail.skill: null`.
 # ---------------------------------------------------------------------------
 
 
@@ -109,17 +109,37 @@ def test_empty_prompt_emits_malformed(project_root: Path) -> None:
     rc = _run_hook(project_root, "")
     assert rc == 0
     events = _read_events(project_root)
-    malformed = [e for e in events if e.get("kind") == "skill_invoked_malformed"]
-    assert malformed, f"empty prompt must emit skill_invoked_malformed; events={events}"
-    assert malformed[-1]["detail"]["skill"] is None
-    assert malformed[-1]["detail"].get("reason") == "empty_prompt"
+    hook_events = [
+        e
+        for e in events
+        if e.get("kind") == "ide_hook"
+        and e.get("detail", {}).get("hook_kind") == "user-prompt-submit"
+    ]
+    assert hook_events, f"empty prompt must emit canonical ide_hook warning; events={events}"
+    warn_event = next(
+        event
+        for event in hook_events
+        if event.get("outcome") == "warn"
+        and event.get("detail", {}).get("reason") == "empty_prompt"
+    )
+    assert warn_event["detail"]["skill"] is None
 
 
 def test_prompt_without_ai_prefix_emits_malformed(project_root: Path) -> None:
     rc = _run_hook(project_root, "hello world without slash command")
     assert rc == 0
     events = _read_events(project_root)
-    malformed = [e for e in events if e.get("kind") == "skill_invoked_malformed"]
-    assert malformed, f"non-/ai- prompt must emit skill_invoked_malformed; events={events}"
-    assert malformed[-1]["detail"]["skill"] is None
-    assert malformed[-1]["detail"].get("reason") == "no_ai_prefix"
+    hook_events = [
+        e
+        for e in events
+        if e.get("kind") == "ide_hook"
+        and e.get("detail", {}).get("hook_kind") == "user-prompt-submit"
+    ]
+    assert hook_events, f"non-/ai- prompt must emit canonical ide_hook warning; events={events}"
+    warn_event = next(
+        event
+        for event in hook_events
+        if event.get("outcome") == "warn"
+        and event.get("detail", {}).get("reason") == "no_ai_prefix"
+    )
+    assert warn_event["detail"]["skill"] is None

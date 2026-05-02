@@ -3,6 +3,10 @@ name: ai-brainstorm
 description: "Use when the user wants to think through a problem before coding: designing a feature, exploring approaches, defining requirements, resolving ambiguity, or clarifying current state before a spec. Trigger for 'let's add X', 'how should we handle Y', 'what's the best approach', 'I'm thinking about', audit-style questions that still need a spec, or any work item lacking an approved spec. Not for existing specs — use /ai-plan instead. Produces a reviewed spec; no code until user approves."
 effort: max
 argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-brainstorm/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

@@ -4,15 +4,18 @@ description: Use when installing ai-engineering on a new project, when AI agents
 effort: medium
 argument-hint: "[generate|update|amend]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-constitution/SKILL.md
+edit_policy: generated-do-not-edit
 ---
-
 
 
 # Constitution
 
 ## Purpose
 
-Generate and maintain `.ai-engineering/CONSTITUTION.md` — the foundational governance document that defines who the project is, what it aims to achieve, what principles are non-negotiable, and what the AI must NEVER do.
+Generate and maintain `CONSTITUTION.md` — the foundational governance document that defines who the project is, what it aims to achieve, what principles are non-negotiable, and what the AI must NEVER do.
 
 This is the first document loaded at Step 0 of every skill and agent invocation. It governs all AI behavior in the project.
 
@@ -33,7 +36,7 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
    - Existing quality gate configuration
    - Framework version
 
-2. **Read existing** -- if `.ai-engineering/CONSTITUTION.md` exists, load current values as defaults.
+2. **Read existing** -- if `CONSTITUTION.md` exists, load current values as defaults. If only `.ai-engineering/CONSTITUTION.md` exists, load it as a compatibility fallback.
 
 3. **Interview** -- for any section that cannot be inferred, ask the user:
    - **Identity**: What does this project do? Who is it for? (1-3 sentences)
@@ -42,30 +45,37 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
    - **Prohibitions**: What must the AI NEVER do in this project?
    - **Boundaries**: What is framework-owned vs team-owned?
 
-4. **Write** -- save to `.ai-engineering/CONSTITUTION.md` using the 7-section structure. Minimal template skeleton:
+4. **Write** -- save to `CONSTITUTION.md` using the 7-section structure. Minimal template skeleton:
 
    ```markdown
    # CONSTITUTION
 
    ## 1. Identity
+
    <!-- Project name, purpose, audience -->
 
    ## 2. Mission
+
    <!-- Measurable goals, north star metric -->
 
    ## 3. Principles
+
    <!-- Non-negotiable rules for AI behavior -->
 
    ## 4. Prohibitions
+
    <!-- What the AI must NEVER do -->
 
    ## 5. Quality Gates
+
    <!-- Thresholds: coverage, complexity, security -->
 
    ## 6. Boundaries
+
    <!-- Framework-owned vs team-owned zones -->
 
    ## 7. Governance
+
    <!-- version: "1.0.0" -->
    <!-- ratified: "YYYY-MM-DD" -->
    <!-- last_amended: "YYYY-MM-DD" -->
@@ -94,7 +104,7 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 - **Called by**: installer (governance phase), `/ai-start`
 - **Reads**: `manifest.yml`, package files, existing `CONSTITUTION.md`
-- **Writes**: `.ai-engineering/CONSTITUTION.md`
+- **Writes**: `CONSTITUTION.md`
 - **Consumed by**: ALL skills and agents via Step 0 protocol
 
 $ARGUMENTS

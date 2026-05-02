@@ -39,6 +39,11 @@ ROOT = Path(__file__).resolve().parent.parent
 # Allow importing from src/ for shared utilities
 sys.path.insert(0, str(ROOT / "src"))
 
+from ai_engineering.config.mirror_inventory import (  # noqa: E402
+    get_generated_provenance_fields,
+    get_internal_specialist_agent_targets,
+)
+
 # ── Canonical source paths (repo root .claude/) ──────────────────────────
 CLAUDE_SKILLS = ROOT / ".claude" / "skills"
 CLAUDE_AGENTS = ROOT / ".claude" / "agents"
@@ -684,7 +689,7 @@ def discover_specialist_agents() -> list[Path]:
     """Discover specialist agents from .claude/agents/ (non-ai-* prefix).
 
     These are sub-agents dispatched by orchestrator agents (ai-review, ai-verify).
-    They are mirrored as-is (byte-for-byte copy) without metadata injection.
+    They are mirrored into provider-local internal roots with generated provenance.
     """
     specialists = []
     for agent_file in sorted(CLAUDE_AGENTS.glob("*.md")):
@@ -898,6 +903,29 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
     lines.append("---")
 
     return "\n".join(lines) + f"\n\n{body.rstrip()}\n"
+
+
+def generate_specialist_agent(agent_path: Path) -> str:
+    """Generate an internal specialist agent mirror with governed provenance."""
+    fm = read_frontmatter(agent_path)
+    body = read_body(agent_path)
+    fm.update(
+        get_generated_provenance_fields(
+            "specialist-agents",
+            canonical_source=f".claude/agents/{agent_path.name}",
+        )
+    )
+
+    return f"{_serialize_frontmatter(fm)}\n\n{body.rstrip()}\n"
+
+
+def _specialist_agent_output_paths(spec_path: Path) -> tuple[Path, ...]:
+    """Return all generated specialist-agent mirror paths for a canonical file."""
+    targets = [TPL_CLAUDE_AGENTS / spec_path.name]
+    for repo_rel, template_rel in get_internal_specialist_agent_targets().values():
+        targets.append(ROOT / repo_rel / spec_path.name)
+        targets.append(ROOT / template_rel / spec_path.name)
+    return tuple(targets)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1518,19 +1546,11 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
     # Surface 2b: specialist agents (reviewer-*, verifier-*, review-*, verify-*)
-    # Mirrored as byte-for-byte copies (no metadata injection).
+    # Mirrored into provider-local internal roots with generated provenance.
     specialists = discover_specialist_agents()
     for spec_path in specialists:
-        content = spec_path.read_text(encoding="utf-8")
-        for target in (
-            CODEX_AGENTS / spec_path.name,
-            TPL_CODEX_AGENTS / spec_path.name,
-            GEMINI_AGENTS / spec_path.name,
-            TPL_GEMINI_AGENTS / spec_path.name,
-            GITHUB_AGENTS / spec_path.name,
-            TPL_GITHUB_AGENTS / spec_path.name,
-            TPL_CLAUDE_AGENTS / spec_path.name,
-        ):
+        content = generate_specialist_agent(spec_path)
+        for target in _specialist_agent_output_paths(spec_path):
             _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
 
     # Surface 3: .github/skills/ai-<name>/SKILL.md + handlers/ (Agent Skills)
@@ -1831,21 +1851,27 @@ def _handle_orphans(
     _ORPHAN_SURFACES: list[tuple[Path, str, object]] = [
         (CODEX_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (CODEX_AGENTS, "glob", "*.md"),
+        (CODEX_AGENTS / "internal", "glob", "*.md"),
         (GEMINI_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (GEMINI_AGENTS, "glob", "*.md"),
+        (GEMINI_AGENTS / "internal", "glob", "*.md"),
         (GITHUB_INSTRUCTIONS, "glob", "*.instructions.md"),
         (GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (GITHUB_AGENTS, "glob", "*.md"),
+        (GITHUB_AGENTS / "internal", "glob", "*.md"),
         (TPL_CLAUDE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CLAUDE_AGENTS, "glob", "*.md"),
         (TPL_GEMINI_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_GEMINI_AGENTS, "glob", "*.md"),
+        (TPL_GEMINI_AGENTS / "internal", "glob", "*.md"),
         (TPL_CODEX_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CODEX_AGENTS, "glob", "*.md"),
+        (TPL_CODEX_AGENTS / "internal", "glob", "*.md"),
         (TPL_CODEX_HOOKS.parent, "glob", "hooks.json"),
         (TPL_CODEX_CONFIG.parent, "glob", "config.toml"),
         (TPL_GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_GITHUB_AGENTS, "glob", "*.md"),
+        (TPL_GITHUB_AGENTS / "internal", "glob", "*.md"),
     ]
 
     orphans: list[Path] = []

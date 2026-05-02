@@ -119,7 +119,7 @@ class TestGovernancePhase:
         assert team_actions == []
 
     def test_plan_includes_specs_directory_files(self, tmp_path: Path) -> None:
-        """Plan includes specs/spec.md and specs/plan.md as create actions."""
+        """Plan includes compatibility buffers and seeded HX-02 work-plane assets."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
@@ -129,6 +129,11 @@ class TestGovernancePhase:
         specs_dests = sorted(a.destination for a in specs_actions)
         assert ".ai-engineering/specs/plan.md" in specs_dests
         assert ".ai-engineering/specs/spec.md" in specs_dests
+        assert ".ai-engineering/specs/current-summary.md" in specs_dests
+        assert ".ai-engineering/specs/history-summary.md" in specs_dests
+        assert ".ai-engineering/specs/task-ledger.json" in specs_dests
+        assert ".ai-engineering/specs/handoffs/.gitkeep" in specs_dests
+        assert ".ai-engineering/specs/evidence/.gitkeep" in specs_dests
         for a in specs_actions:
             assert a.action_type == "create"
 
@@ -148,9 +153,14 @@ class TestGovernancePhase:
         assert (ai_dir / "LESSONS.md").is_file()
         assert (ai_dir / "contexts" / "cli-ux.md").is_file()
         assert (ai_dir / "contexts" / "mcp-integrations.md").is_file()
-        # Specs placeholders
+        # Specs placeholders + seeded HX-02 artifact topology
         assert (ai_dir / "specs" / "spec.md").is_file()
         assert (ai_dir / "specs" / "plan.md").is_file()
+        assert (ai_dir / "specs" / "current-summary.md").is_file()
+        assert (ai_dir / "specs" / "history-summary.md").is_file()
+        assert (ai_dir / "specs" / "task-ledger.json").is_file()
+        assert (ai_dir / "specs" / "handoffs").is_dir()
+        assert (ai_dir / "specs" / "evidence").is_dir()
 
 
 # ---------------------------------------------------------------------------

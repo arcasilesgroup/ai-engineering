@@ -9,12 +9,12 @@ cadence: weekly
 
 ## Objetivo
 
-Detect deviations between the running codebase and the declared architecture in `docs/solution-intent.md`, `.ai-engineering/CONSTITUTION.md`, and `.ai-engineering/state/decision-store.json`. This includes import-cycle violations, layer-boundary crossings, undocumented structural changes, and decisions that no longer match code reality. Runs weekly; produces task work items for every confirmed finding.
+Detect deviations between the running codebase and the declared architecture in `docs/solution-intent.md`, `CONSTITUTION.md`, and `.ai-engineering/state/decision-store.json`. This includes import-cycle violations, layer-boundary crossings, undocumented structural changes, and decisions that no longer match code reality. Runs weekly; produces task work items for every confirmed finding.
 
 ## Precondiciones
 
 - `docs/solution-intent.md` exists with a mermaid module graph (section 2.2) defining layers and allowed dependency directions
-- `.ai-engineering/CONSTITUTION.md` exists with boundary rules
+- `CONSTITUTION.md` exists with boundary rules. If only `.ai-engineering/CONSTITUTION.md` exists, treat it as a legacy compatibility input.
 - `.ai-engineering/state/decision-store.json` exists with active architecture decisions
 - Work items provider configured in `manifest.yml` (`github` or `azure_devops`)
 - CLI access: `gh` for GitHub, `az` for Azure DevOps
@@ -48,7 +48,7 @@ Record this as `$LAYER_MAP` for boundary checks in Step 5.
 Read the project identity to capture hard constraints that code must not violate.
 
 ```bash
-cat .ai-engineering/CONSTITUTION.md
+cat CONSTITUTION.md || cat .ai-engineering/CONSTITUTION.md
 ```
 
 Extract the boundary rules:

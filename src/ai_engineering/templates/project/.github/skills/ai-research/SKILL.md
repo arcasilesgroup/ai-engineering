@@ -4,6 +4,10 @@ description: "Use when the user needs evidence-backed research with verifiable c
 effort: high
 argument-hint: "<query> [--depth quick|standard|deep] [--reuse-notebook=<id>] [--persist] [--allowed-domains a,b] [--blocked-domains x,y]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-research/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

@@ -2,8 +2,8 @@
 
 The ``update()`` function should respect ``ai_providers.enabled`` from
 ``manifest.yml`` and only produce changes for the configured providers.
-When no manifest exists, all providers are included as a backward-compatible
-fallback.
+When the governed manifest is absent, updater initialization must fail fast
+instead of inventing an implicit provider set.
 
 RED-phase tests -- expected to FAIL until ``_evaluate_project_files``
 reads the manifest and passes the enabled providers to
@@ -199,29 +199,19 @@ class TestUpdateProviderFiltering:
             f"{[p for p in paths if _has_provider_paths({p}, _CODEX_PREFIXES)]}"
         )
 
-    def test_update_no_manifest_falls_back_to_all_providers(
+    def test_update_no_manifest_requires_manifest_contract(
         self,
         no_manifest_project: Path,
     ) -> None:
-        """T-R3: Without a manifest, update must fall back to all providers
-        (backward compatibility).
+        """T-R3: Without a manifest, updater must fail fast.
+
+        Phase 5 removes the historical implicit "all providers active"
+        fallback so provider resolution stays governed by the manifest.
         """
-        result = update(no_manifest_project, dry_run=True)
-
-        # All provider paths should be present (the project was installed with
-        # all defaults, then manifest was removed).
-        all_relative = {_safe_relative(c.path, no_manifest_project) for c in result.changes}
-
-        # At minimum, we expect paths from multiple providers to exist.
-        has_claude = _has_provider_paths(all_relative, _CLAUDE_PREFIXES)
-        has_copilot = _has_provider_paths(all_relative, _COPILOT_PREFIXES)
-        has_gemini = _has_provider_paths(all_relative, _GEMINI_PREFIXES)
-        has_codex = _has_provider_paths(all_relative, _CODEX_PREFIXES)
-
-        assert has_claude, "Expected claude paths in all-provider fallback"
-        assert has_copilot, "Expected copilot paths in all-provider fallback"
-        assert has_gemini, "Expected gemini paths in all-provider fallback"
-        assert has_codex, "Expected codex paths in all-provider fallback"
+        with pytest.raises(
+            FileNotFoundError, match="Manifest contract not found for updater context"
+        ):
+            update(no_manifest_project, dry_run=True)
 
 
 # ---------------------------------------------------------------------------

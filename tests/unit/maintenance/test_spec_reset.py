@@ -19,6 +19,12 @@ from ai_engineering.maintenance.spec_reset import (
     clear_spec_buffer,
     run_spec_reset,
 )
+from ai_engineering.state.work_plane import (
+    active_work_plane_pointer_path,
+    read_task_ledger,
+    resolve_active_work_plane,
+    write_active_work_plane_pointer,
+)
 
 
 def _create_spec_md(
@@ -183,6 +189,49 @@ class TestRunSpecReset:
 
         # Files unchanged
         assert "Feature Y" in (ai_eng / "specs" / "spec.md").read_text()
+
+    def test_resets_pointed_work_plane_back_to_legacy_buffer(self, tmp_path: Path) -> None:
+        """Reset clears the pointer and restores the legacy compatibility buffer."""
+        pointed_specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
+        pointed_specs_dir.mkdir(parents=True)
+        (pointed_specs_dir / "spec.md").write_text(
+            '---\nid: "117-02"\n---\n\n# Pointed Feature\n\nSpec content.\n',
+            encoding="utf-8",
+        )
+        (pointed_specs_dir / "plan.md").write_text(
+            "---\ntotal: 1\ncompleted: 1\n---\n\n# Plan\n\n- [x] Done\n",
+            encoding="utf-8",
+        )
+        write_active_work_plane_pointer(tmp_path, pointed_specs_dir)
+
+        result = run_spec_reset(tmp_path)
+
+        assert result.success is True
+        assert result.spec_title == "Pointed Feature"
+        assert active_work_plane_pointer_path(tmp_path).exists() is False
+        assert (
+            resolve_active_work_plane(tmp_path).specs_dir == tmp_path / ".ai-engineering" / "specs"
+        )
+        assert (
+            (tmp_path / ".ai-engineering" / "specs" / "spec.md")
+            .read_text(encoding="utf-8")
+            .startswith("# No active spec")
+        )
+        assert (
+            (tmp_path / ".ai-engineering" / "specs" / "plan.md")
+            .read_text(encoding="utf-8")
+            .startswith("# No active plan")
+        )
+        legacy_specs_dir = tmp_path / ".ai-engineering" / "specs"
+        assert read_task_ledger(tmp_path) is not None
+        assert read_task_ledger(tmp_path).tasks == []
+        assert (legacy_specs_dir / "current-summary.md").exists() is True
+        assert (legacy_specs_dir / "history-summary.md").exists() is True
+        assert (legacy_specs_dir / "handoffs").is_dir() is True
+        assert (legacy_specs_dir / "evidence").is_dir() is True
+        assert "| 117-02 | Pointed Feature |" in (
+            tmp_path / ".ai-engineering" / "specs" / "_history.md"
+        ).read_text(encoding="utf-8")
 
     def test_missing_specs_dir(self, tmp_path: Path) -> None:
         """Missing specs directory reports error."""

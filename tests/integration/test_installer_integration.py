@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.config.manifest import ManifestConfig
+from ai_engineering.config.manifest import ManifestConfig, RootEntryPointConfig
 from ai_engineering.installer.operations import (
     InstallerError,
     add_ide,
@@ -24,6 +24,8 @@ from ai_engineering.installer.templates import (
     copy_template_tree,
     get_ai_engineering_template_root,
     get_project_template_root,
+    resolve_instruction_file_destinations,
+    resolve_instruction_template_sources,
     resolve_template_maps,
 )
 
@@ -144,6 +146,48 @@ class TestCopyTemplateTree:
 
 class TestCopyProjectTemplates:
     """Tests for project template mapping."""
+
+    def test_instruction_template_sources_use_manifest_declared_paths(self) -> None:
+        root_entry_points = {
+            "AGENTS.md": RootEntryPointConfig(
+                owner="framework",
+                canonical_source="scripts/sync_command_mirrors.py:generate_agents_md",
+                runtime_role="shared-runtime-contract",
+                sync={
+                    "mode": "generate",
+                    "template_path": "src/ai_engineering/templates/project/custom/AGENTS.custom.md",
+                    "mirror_paths": [],
+                },
+            )
+        }
+
+        template_paths = resolve_instruction_template_sources(
+            ["AGENTS.md"],
+            root_entry_points=root_entry_points,
+        )
+
+        assert template_paths == ["src/ai_engineering/templates/project/custom/AGENTS.custom.md"]
+
+    def test_instruction_template_sources_require_root_entry_metadata(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Root entry point metadata is required to resolve instruction template sources",
+        ):
+            resolve_instruction_template_sources(["AGENTS.md"], root_entry_points=None)
+
+    def test_instruction_file_destinations_require_root_entry_metadata(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Root entry point metadata is required to resolve instruction file destinations",
+        ):
+            resolve_instruction_file_destinations(["github_copilot"], root_entry_points=None)
+
+    def test_instruction_file_destinations_require_explicit_providers(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Providers are required to resolve instruction file destinations",
+        ):
+            resolve_instruction_file_destinations(None, root_entry_points={})
 
     def test_copies_project_templates_to_correct_locations(
         self,

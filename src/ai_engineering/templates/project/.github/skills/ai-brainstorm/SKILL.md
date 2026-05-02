@@ -4,6 +4,10 @@ description: "Use when the user wants to think through a problem before coding: 
 effort: max
 argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-brainstorm/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

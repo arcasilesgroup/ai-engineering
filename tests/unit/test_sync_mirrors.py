@@ -313,6 +313,59 @@ class TestGenerationFunctions:
         assert "readFile" in content  # explore has limited tools
         assert "editFiles" not in content  # explore is read-only
 
+    def test_generate_specialist_agent_adds_internal_provenance(self) -> None:
+        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_specialist_agent
+
+        content = generate_specialist_agent(CLAUDE_AGENTS / "reviewer-correctness.md")
+
+        assert "mirror_family: specialist-agents" in content
+        assert "generated_by: ai-eng sync" in content
+        assert "canonical_source: .claude/agents/reviewer-correctness.md" in content
+        assert "edit_policy: generated-do-not-edit" in content
+        assert "You are a senior code reviewer specializing in FUNCTIONAL CORRECTNESS" in content
+
+    def test_specialist_agent_output_paths_are_provider_internal_roots(self) -> None:
+        from scripts.sync_command_mirrors import (
+            CLAUDE_AGENTS,
+            ROOT,
+            _specialist_agent_output_paths,
+        )
+
+        paths = {
+            path.relative_to(ROOT).as_posix()
+            for path in _specialist_agent_output_paths(CLAUDE_AGENTS / "reviewer-correctness.md")
+        }
+
+        assert paths == {
+            "src/ai_engineering/templates/project/.claude/agents/reviewer-correctness.md",
+            ".github/agents/internal/reviewer-correctness.md",
+            "src/ai_engineering/templates/project/agents/internal/reviewer-correctness.md",
+            ".gemini/agents/internal/reviewer-correctness.md",
+            "src/ai_engineering/templates/project/.gemini/agents/internal/reviewer-correctness.md",
+            ".codex/agents/internal/reviewer-correctness.md",
+            "src/ai_engineering/templates/project/.codex/agents/internal/reviewer-correctness.md",
+        }
+
+    def test_copilot_agent_tools_and_delegation_match_metadata(self) -> None:
+        from scripts.sync_command_mirrors import (
+            AGENT_METADATA,
+            CLAUDE_AGENTS,
+            generate_copilot_agent,
+        )
+
+        for name, meta in AGENT_METADATA.items():
+            content = generate_copilot_agent(name, meta, CLAUDE_AGENTS / f"ai-{name}.md")
+            frontmatter = content.split("---", 2)[1]
+            expected_tools = list(meta.copilot_tools)
+            if meta.copilot_agents:
+                expected_tools.append("agent")
+
+            assert f"tools: [{', '.join(expected_tools)}]" in frontmatter
+            if meta.copilot_agents:
+                assert f"agents: [{', '.join(meta.copilot_agents)}]" in frontmatter
+            else:
+                assert "\nagents:" not in frontmatter
+
     def test_generate_install_claude_skill_copies_content(self) -> None:
         from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_install_claude_skill
 

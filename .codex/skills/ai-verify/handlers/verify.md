@@ -34,7 +34,7 @@ Dispatch `verify-deterministic.md` via the **Agent** tool:
 
 ```
 Agent prompt: "You are the deterministic verification agent.
-Read and follow .codex/agents/verify-deterministic.md
+Read and follow .codex/agents/internal/verify-deterministic.md
 Execute all tool-driven checks against the current codebase.
 Read .ai-engineering/state/decision-store.json for accepted exceptions.
 Produce structured YAML output."
@@ -51,9 +51,9 @@ Agent prompt: "You are verifying this codebase with these specialist lenses:
 governance, architecture, feature.
 [deterministic evidence from Step 2]
 Read and follow these agent files:
-.codex/agents/verifier-governance.md
-.codex/agents/verifier-architecture.md
-.codex/agents/verifier-feature.md
+.codex/agents/internal/verifier-governance.md
+.codex/agents/internal/verifier-architecture.md
+.codex/agents/internal/verifier-feature.md
 Produce findings in YAML format attributed by original specialist."
 ```
 
@@ -63,7 +63,7 @@ Produce findings in YAML format attributed by original specialist."
 For each specialist (governance, architecture, feature):
 Agent prompt: "You are the [specialist] verification agent.
 [deterministic evidence from Step 2]
-Read and follow .codex/agents/verifier-[specialist].md
+Read and follow .codex/agents/internal/verifier-[specialist].md
 Produce findings in YAML format."
 ```
 

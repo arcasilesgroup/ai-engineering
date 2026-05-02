@@ -14,7 +14,7 @@ Before asking questions, gather context silently:
 2. Read existing patterns (Grep for conventions)
 3. Read related specs (check `specs/` for prior work)
 4. Read decision store for relevant architectural decisions
-5. Read constitution (`.ai-engineering/CONSTITUTION.md`) for project boundaries and stakeholders
+5. Read constitution (`CONSTITUTION.md`) for project boundaries and stakeholders. If it is absent, fall back to `.ai-engineering/CONSTITUTION.md` for legacy installs.
 
 Do NOT ask the user what you can learn from the code.
 

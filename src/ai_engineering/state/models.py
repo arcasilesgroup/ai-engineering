@@ -19,9 +19,18 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Literal
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
+from pydantic import (
+    UUID4,
+    BaseModel,
+    ConfigDict,
+    Field,
+    HttpUrl,
+    field_validator,
+    model_validator,
+)
 
 _PLACEHOLDER_LINEAGE_VALUES = frozenset({"", "RECONSTRUCTED"})
+
 
 # --- Enums ---
 
@@ -218,7 +227,6 @@ class Decision(BaseModel):
     accepted_by: str | None = Field(default=None, alias="acceptedBy")
     follow_up_action: str | None = Field(default=None, alias="followUpAction")
     status: DecisionStatus = Field(default=DecisionStatus.ACTIVE)
-    superseded_by: str | None = None
     renewed_from: str | None = Field(default=None, alias="renewedFrom")
     renewal_count: int = Field(default=0, alias="renewalCount")
 
@@ -362,6 +370,283 @@ class CapabilityDescriptor(BaseModel):
     tags: list[str] = Field(default_factory=list)
 
 
+class CapabilityKind(StrEnum):
+    """Capability card subject type."""
+
+    SKILL = "skill"
+    AGENT = "agent"
+
+
+class MutationClass(StrEnum):
+    """Mutation authority classes exposed by capability cards."""
+
+    READ = "read"
+    ADVISE = "advise"
+    SPEC_WRITE = "spec-write"
+    CODE_WRITE = "code-write"
+    STATE_WRITE = "state-write"
+    GIT_WRITE = "git-write"
+    BOARD_WRITE = "board-write"
+    TELEMETRY_EMIT = "telemetry-emit"
+
+
+class WriteScopeClass(StrEnum):
+    """Normalized artifact classes for task write scopes."""
+
+    NONE = "none"
+    SOURCE = "source"
+    TEST = "test"
+    SPEC = "spec"
+    STATE = "state"
+    MANIFEST = "manifest"
+    MIRROR = "mirror"
+    DOCUMENTATION = "documentation"
+    HOOK = "hook"
+    GENERATED = "generated"
+    GIT = "git"
+    BOARD = "board"
+    TELEMETRY = "telemetry"
+    UNKNOWN = "unknown"
+
+
+class CapabilityToolScope(StrEnum):
+    """Tool categories a capability may request while executing a packet."""
+
+    READ = "read"
+    SEARCH = "search"
+    EDIT = "edit"
+    TERMINAL = "terminal"
+    TEST = "test"
+    VALIDATE = "validate"
+    GIT = "git"
+    GITHUB = "github"
+    SUBAGENT = "subagent"
+    MEMORY = "memory"
+    BROWSER = "browser"
+    NOTEBOOK = "notebook"
+    POSTMAN = "postman"
+
+
+class TopologyRole(StrEnum):
+    """Execution topology role for first-class and internal capabilities."""
+
+    PUBLIC_FIRST_CLASS = "public-first-class"
+    ORCHESTRATOR = "orchestrator"
+    LEAF = "leaf"
+    INTERNAL_SPECIALIST = "internal-specialist"
+    SYSTEM_ACTOR = "system-actor"
+
+
+class ProviderCompatibilityStatus(StrEnum):
+    """Provider support state for a capability card."""
+
+    COMPATIBLE = "compatible"
+    DEGRADED = "degraded"
+    UNSUPPORTED = "unsupported"
+
+
+class ProviderCompatibility(BaseModel):
+    """Provider-specific support signal for a capability."""
+
+    provider: str
+    status: ProviderCompatibilityStatus = ProviderCompatibilityStatus.COMPATIBLE
+    reason: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CapabilityCard(BaseModel):
+    """Authoritative machine-readable capability contract for a skill or agent."""
+
+    name: str
+    capability_kind: CapabilityKind = Field(alias="capabilityKind")
+    topology_role: TopologyRole = Field(alias="topologyRole")
+    mutation_classes: list[MutationClass] = Field(alias="mutationClasses")
+    write_scope_classes: list[WriteScopeClass] = Field(alias="writeScopeClasses")
+    tool_scope: list[CapabilityToolScope] = Field(alias="toolScope")
+    provider_compatibility: list[ProviderCompatibility] = Field(
+        default_factory=list,
+        alias="providerCompatibility",
+    )
+    accepts_task_packets: bool = Field(default=True, alias="acceptsTaskPackets")
+    public: bool = True
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("name")
+    @classmethod
+    def _validate_non_empty_name(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            msg = "Capability cards require a non-empty name"
+            raise ValueError(msg)
+        return stripped
+
+    @field_validator("mutation_classes", "write_scope_classes", "tool_scope")
+    @classmethod
+    def _validate_non_empty_lists(cls, values: list[object]) -> list[object]:
+        if not values:
+            msg = "Capability card authority lists must be non-empty"
+            raise ValueError(msg)
+        return values
+
+
+class CapabilityTaskPacket(BaseModel):
+    """Task acceptance inputs derived from the HX-02 work plane."""
+
+    task_id: str = Field(alias="taskId")
+    owner_role: str = Field(alias="ownerRole")
+    mutation_classes: list[MutationClass] = Field(
+        default_factory=list,
+        alias="mutationClasses",
+    )
+    write_scope: list[str] = Field(default_factory=list, alias="writeScope")
+    tool_requests: list[CapabilityToolScope] = Field(
+        default_factory=list,
+        alias="toolRequests",
+    )
+    provider: str | None = None
+    dependencies: list[str] = Field(default_factory=list)
+    handoffs: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class CapabilityAcceptanceResult(BaseModel):
+    """Deterministic acceptance result for one capability/task packet pair."""
+
+    accepted: bool
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ContextPackSourceRole(StrEnum):
+    """Authority role for one context-pack source."""
+
+    AUTHORITATIVE = "authoritative"
+    DERIVED = "derived"
+    OPTIONAL_ADVISORY = "optional-advisory"
+    EXCLUDED_RESIDUE = "excluded-residue"
+
+
+class ContextPackSourcePlane(StrEnum):
+    """Plane that owns or produces a context-pack source."""
+
+    CONTROL_PLANE = "control-plane"
+    WORK_PLANE = "work-plane"
+    STATE_PLANE = "state-plane"
+    CAPABILITY_PLANE = "capability-plane"
+    LEARNING_FUNNEL = "learning-funnel"
+    RUNTIME_RESIDUE = "runtime-residue"
+
+
+class ContextPackSource(BaseModel):
+    """One classified source in a deterministic context pack."""
+
+    path: str
+    role: ContextPackSourceRole
+    source_plane: ContextPackSourcePlane = Field(alias="sourcePlane")
+    owner: str
+    inclusion_reason: str = Field(alias="inclusionReason")
+    inline_chars: int = Field(default=0, alias="inlineChars")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("path", "owner", "inclusion_reason")
+    @classmethod
+    def _validate_non_empty_text(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            msg = "Context-pack sources require non-empty path, owner, and reason"
+            raise ValueError(msg)
+        return stripped
+
+    @field_validator("inline_chars")
+    @classmethod
+    def _validate_inline_chars(cls, value: int) -> int:
+        if value < 0:
+            msg = "inlineChars cannot be negative"
+            raise ValueError(msg)
+        return value
+
+
+class ContextPackCeilings(BaseModel):
+    """Structural ceilings for generated context packs."""
+
+    max_sources: int = Field(default=32, alias="maxSources")
+    max_inline_chars: int = Field(default=0, alias="maxInlineChars")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ContextPackManifest(BaseModel):
+    """Deterministic context-pack manifest derived from authoritative inputs."""
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    task_id: str | None = Field(default=None, alias="taskId")
+    generated_at: datetime = Field(
+        default_factory=lambda: datetime.now(tz=UTC), alias="generatedAt"
+    )
+    sources: list[ContextPackSource] = Field(default_factory=list)
+    ceilings: ContextPackCeilings = Field(default_factory=ContextPackCeilings)
+    regeneration_inputs: list[str] = Field(default_factory=list, alias="regenerationInputs")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class HandoffCompact(BaseModel):
+    """Reference-first handoff compact that can be resumed from disk alone."""
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    task_id: str = Field(alias="taskId")
+    objective: str
+    authoritative_refs: list[str] = Field(alias="authoritativeRefs")
+    evidence_refs: list[str] = Field(default_factory=list, alias="evidenceRefs")
+    next_action: str | None = Field(default=None, alias="nextAction")
+    blockers: list[str] = Field(default_factory=list)
+    inline_notes: str = Field(default="", alias="inlineNotes")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class LearningArtifactKind(StrEnum):
+    """Learning-funnel artifact kind."""
+
+    NOTE = "note"
+    LESSON = "lesson"
+    INSTINCT = "instinct"
+    PROPOSAL = "proposal"
+
+
+class LearningArtifactStatus(StrEnum):
+    """Lifecycle state for a learning-funnel artifact."""
+
+    ADVISORY = "advisory"
+    PROMOTION_CANDIDATE = "promotion-candidate"
+    PROMOTED = "promoted"
+    REJECTED = "rejected"
+
+
+class LearningFunnelArtifact(BaseModel):
+    """Classified learning-funnel artifact with promotion boundaries."""
+
+    path: str
+    kind: LearningArtifactKind
+    status: LearningArtifactStatus = LearningArtifactStatus.ADVISORY
+    canonical_destination: str | None = Field(default=None, alias="canonicalDestination")
+    provenance_ref: str | None = Field(default=None, alias="provenanceRef")
+    backlink_ref: str | None = Field(default=None, alias="backlinkRef")
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class LearningFunnelAdvisoryResult(BaseModel):
+    """Deterministic advisory checks for learning-funnel promotion candidates."""
+
+    eligible: bool = True
+    warnings: list[str] = Field(default_factory=list)
+
+
 class FrameworkCapabilitiesCatalog(BaseModel):
     """Machine-readable catalog for skills, agents, contexts, and hooks."""
 
@@ -375,6 +660,8 @@ class FrameworkCapabilitiesCatalog(BaseModel):
         default_factory=list, alias="contextClasses"
     )
     hook_kinds: list[CapabilityDescriptor] = Field(default_factory=list, alias="hookKinds")
+    capability_cards: list[CapabilityCard] = Field(default_factory=list, alias="capabilityCards")
+    update_metadata: UpdateMetadata | None = Field(default=None, alias="updateMetadata")
 
     model_config = {"populate_by_name": True}
 
@@ -405,6 +692,153 @@ class InstinctMeta(BaseModel):
     delta_threshold: int = Field(default=20, alias="deltaThreshold")
 
     model_config = {"populate_by_name": True}
+
+
+# --- Work Plane Task Ledger (HX-02) ---
+
+
+class TaskLifecycleState(StrEnum):
+    """Lifecycle states for work-plane ledger tasks."""
+
+    PLANNED = "planned"
+    IN_PROGRESS = "in-progress"
+    REVIEW = "review"
+    VERIFY = "verify"
+    BLOCKED = "blocked"
+    DONE = "done"
+
+
+class HandoffRef(BaseModel):
+    """Reference to a handoff artifact rooted at the active work plane."""
+
+    kind: str
+    path: str
+    summary: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+    @field_validator("kind", "path")
+    @classmethod
+    def _validate_required_text(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            msg = "Artifact refs require non-empty kind and path"
+            raise ValueError(msg)
+        return stripped
+
+
+class EvidenceRef(BaseModel):
+    """Reference to an evidence artifact rooted at the active work plane."""
+
+    kind: str
+    path: str
+    summary: str | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+    @field_validator("kind", "path")
+    @classmethod
+    def _validate_required_text(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            msg = "Artifact refs require non-empty kind and path"
+            raise ValueError(msg)
+        return stripped
+
+
+class TaskLedgerTask(BaseModel):
+    """Single task entry inside the active work-plane ledger."""
+
+    id: str
+    title: str
+    status: TaskLifecycleState = TaskLifecycleState.PLANNED
+    owner_role: str = Field(alias="ownerRole")
+    dependencies: list[str] = Field(default_factory=list)
+    write_scope: list[str] = Field(default_factory=list, alias="writeScope")
+    blocked_reason: str | None = Field(default=None, alias="blockedReason")
+    handoffs: list[HandoffRef] = Field(default_factory=list)
+    evidence: list[EvidenceRef] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    @field_validator("id", "title", "owner_role")
+    @classmethod
+    def _validate_non_empty_text(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            msg = "Task fields must be non-empty strings"
+            raise ValueError(msg)
+        return stripped
+
+    @field_validator("status", mode="before")
+    @classmethod
+    def _normalize_status(cls, value: TaskLifecycleState | str) -> TaskLifecycleState | str:
+        if isinstance(value, str):
+            return value.strip().lower().replace("_", "-")
+        return value
+
+    @field_validator("dependencies")
+    @classmethod
+    def _validate_dependencies(cls, values: list[str]) -> list[str]:
+        normalized: list[str] = []
+        seen: set[str] = set()
+
+        for value in values:
+            dependency_id = value.strip()
+            if not dependency_id:
+                msg = "Dependencies must be non-empty"
+                raise ValueError(msg)
+            if dependency_id in seen:
+                msg = "Dependencies must be unique"
+                raise ValueError(msg)
+            seen.add(dependency_id)
+            normalized.append(dependency_id)
+
+        return normalized
+
+    @field_validator("write_scope")
+    @classmethod
+    def _validate_write_scope(cls, values: list[str]) -> list[str]:
+        normalized: list[str] = []
+
+        for value in values:
+            scope = value.strip()
+            if not scope:
+                msg = "Write scopes must be non-empty"
+                raise ValueError(msg)
+            normalized.append(scope)
+
+        return normalized
+
+    @model_validator(mode="after")
+    def _validate_task_consistency(self) -> TaskLedgerTask:
+        if self.id in self.dependencies:
+            msg = "Task cannot depend on itself"
+            raise ValueError(msg)
+        if self.status == TaskLifecycleState.BLOCKED and not (self.blocked_reason or "").strip():
+            msg = "Blocked tasks require blockedReason"
+            raise ValueError(msg)
+        if self.status != TaskLifecycleState.BLOCKED and (self.blocked_reason or "").strip():
+            msg = "blockedReason is only allowed for blocked tasks"
+            raise ValueError(msg)
+        return self
+
+
+class TaskLedger(BaseModel):
+    """Structured task ledger for the active work plane."""
+
+    schema_version: str = Field(default="1.0", alias="schemaVersion")
+    tasks: list[TaskLedgerTask] = Field(default_factory=list)
+
+    model_config = ConfigDict(populate_by_name=True, extra="allow")
+
+    @model_validator(mode="after")
+    def _validate_unique_task_ids(self) -> TaskLedger:
+        task_ids = [task.id for task in self.tasks]
+        if len(task_ids) != len(set(task_ids)):
+            msg = "Task ids must be unique"
+            raise ValueError(msg)
+        return self
 
 
 # --- spec-101: required_tools registry + per-tool install records ---

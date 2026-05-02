@@ -4,6 +4,10 @@ description: "Use when code changes need human-quality judgment: PR reviews, fil
 effort: max
 argument-hint: "[--full] [PR number or file paths]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-review/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -28,10 +32,10 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 Before dispatching any review agent, verify these files exist:
 
-- `.claude/skills/ai-review/handlers/review.md`
-- `.github/agents/review-context-explorer.md`
-- `.github/agents/review-finding-validator.md`
-- every required `.github/agents/reviewer-*.md` file for the selected mode and detected diff scope
+- `.github/skills/ai-review/handlers/review.md`
+- `.github/agents/internal/review-context-explorer.md`
+- `.github/agents/internal/review-finding-validator.md`
+- every required `.github/agents/internal/reviewer-*.md` file for the selected mode and detected diff scope
 
 Required reviewer files are mode-sensitive:
 
@@ -71,7 +75,7 @@ Runs one agent per specialist with the same output contract and the same adversa
 | `frontend`        | `reviewer-frontend.md`        | React, hooks, a11y, TypeScript (conditional)               |
 | `design`          | `reviewer-design.md`          | CSS, animation, UI components, visual design (conditional) |
 
-All specialist agents are dispatched via the `Agent` tool from `.github/agents/`. They are not read inline -- each runs in its own context window.
+All specialist agents are dispatched via the `Agent` tool from `.github/agents/internal/`. They are not read inline -- each runs in its own context window.
 
 ## Dispatch Architecture
 

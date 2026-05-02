@@ -5,6 +5,10 @@ effort: high
 argument-hint: "skill <name>|agent <name>"
 mode: agent
 tags: [meta, framework, creation]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-create/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -106,9 +110,11 @@ The `description` field is the skill's search ranking — it determines whether 
 | Field | Effect |
 |-------|--------|
 | `copilot_compatible: false` | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
+| `codex_compatible: false` | Excludes from `.codex/skills/` mirror |
+| `gemini_compatible: false` | Excludes from `.gemini/skills/` mirror |
 | `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills) |
 
-Currently only `ai-analyze-permissions` uses `copilot_compatible: false`.
+`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot, Codex, and Gemini mirrors.
 
 ## Quick Reference
 

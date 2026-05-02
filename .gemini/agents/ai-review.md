@@ -3,6 +3,10 @@ name: ai-review
 description: Code review orchestrator. Dispatches specialist agents via Agent tool for real parallel review with context isolation. Uses the canonical ai-review skill for profiles, roster, and output contract.
 model: opus
 color: red
+mirror_family: gemini-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-review.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -38,5 +42,5 @@ Principal reviewer orchestrator focused on finding real issues while filtering n
 - Read-only for source code
 - No independent `find` or `learn` behavior
 - No separate mode model beyond default `normal` and explicit `--full`
-- Agent files live in `.gemini/agents/`, not in the skill directory
+- Agent files live in `.gemini/agents/internal/`, not in the skill directory
 - Never skip the context explorer or finding validator steps

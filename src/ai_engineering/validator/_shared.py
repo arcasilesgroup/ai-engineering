@@ -9,6 +9,11 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from ai_engineering.config.mirror_inventory import (
+    get_manual_instruction_files,
+    get_validator_pair_roots,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -107,7 +112,9 @@ class IntegrityReport:
 _PATH_REF_PATTERN = re.compile(
     r"`?\.?(?:ai-engineering/)?(skills/[^\s`*]+\.md"
     r"|agents/[^\s`*]+\.md"
-    r"|contexts/[^\s`*]+\.md)`?"
+    r"|contexts/[^\s`*]+\.md"
+    r"|state/spec-[^\s`*]+\.json"
+    r"|specs/evidence/[^\s`*]+\.json)`?"
 )
 
 # Paths referenced in governance docs but only exist conditionally.
@@ -266,6 +273,10 @@ _COPILOT_AGENTS_MIRROR = (
     ".github/agents",
     "src/ai_engineering/templates/project/agents",
 )
+
+_VALIDATOR_PAIR_ROOTS = get_validator_pair_roots()
+_COPILOT_GENERATED_INSTRUCTIONS_MIRROR = _VALIDATOR_PAIR_ROOTS["generated-instructions"]
+_MANUAL_INSTRUCTION_FILES = get_manual_instruction_files()
 
 # Skill/agent listing patterns in instruction files (IDE-specific paths)
 _SKILL_PATH_PATTERN = re.compile(

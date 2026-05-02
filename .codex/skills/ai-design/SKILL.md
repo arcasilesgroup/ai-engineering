@@ -4,6 +4,10 @@ description: Use when designing or building user interfaces, creating design sys
 effort: high
 argument-hint: "[UI or design task description]"
 tags: [design, ui, ux, design-system, aesthetics]
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-design/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

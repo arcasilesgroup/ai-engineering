@@ -27,7 +27,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
-from ai_engineering.config.loader import load_manifest_config, update_manifest_field
+from ai_engineering.config.loader import (
+    load_manifest_config,
+    load_manifest_root_entry_points,
+    update_manifest_field,
+)
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.doctor.models import DoctorContext
 from ai_engineering.doctor.remediation import RemediationEngine
@@ -422,10 +426,13 @@ def _generate_state_files(
         List of state file paths that were created.
     """
     created: list[Path] = []
+    root_entry_points = load_manifest_root_entry_points(ai_eng_dir.parent)
 
     state_models = {
         _STATE_FILES["install-state"]: default_install_state(),
-        _STATE_FILES["ownership-map"]: default_ownership_map(),
+        _STATE_FILES["ownership-map"]: default_ownership_map(
+            root_entry_points=root_entry_points,
+        ),
         _STATE_FILES["decision-store"]: default_decision_store(),
     }
 

@@ -1,79 +1,54 @@
-# CONSTITUTION
+# WORKSPACE CHARTER
 
-## Identity
+This file is a compatibility alias retained for legacy installs.
+Root `CONSTITUTION.md` is the sole constitutional authority and the only Step 0
+input for the project. This workspace charter documents `.ai-engineering/`
+boundaries and local customization surfaces without superseding the root
+constitution.
 
-[Project name] -- [1-2 sentences: what this project does and who it serves].
+## Purpose
 
-## Mission
+- Preserve the legacy `.ai-engineering/CONSTITUTION.md` path while migration
+	completes.
+- Record workspace-local boundaries for `.ai-engineering/**`, IDE mirrors, and
+	other compatibility surfaces.
+- Keep hard rules, constitutional constraints, and Step 0 behavior in root
+	`CONSTITUTION.md` only.
 
-1. [Primary goal -- what success looks like]
-2. [Secondary goal]
-3. [Tertiary goal, if applicable]
+## Workspace Boundaries
 
-## Principles
-
-### I. [Principle Name]
-
-[Rule statement -- what must always be true. Why it matters.]
-
-### II. [Principle Name]
-
-[Rule statement -- what must always be true. Why it matters.]
-
-### III. [Principle Name]
-
-[Rule statement -- what must always be true. Why it matters.]
-
-## Prohibitions
-
-The AI must NEVER:
-
-1. Use `--no-verify` on any git command.
-2. Skip or silence a failing gate -- fix the root cause.
-3. Weaken gate severity or coverage thresholds without the full protocol.
-4. Modify hook scripts -- they are hash-verified.
-5. Push to protected branches (main, master).
-6. Dismiss security findings without a risk acceptance in `state/decision-store.json`.
-7. Disable or modify `.claude/settings.json` deny rules.
-8. Add suppression comments (`# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `# NOSONAR`, `// nolint`) to bypass quality gates.
-9. [Project-specific prohibition]
-
-## Quality Gates
-
-| Gate | Threshold |
-|------|-----------|
-| Test coverage | >= 80% |
-| Code duplication | <= 3% |
-| Cyclomatic complexity | <= 10 per function |
-| Cognitive complexity | <= 15 per function |
-| Blocker/critical issues | 0 |
-| Security findings (medium+) | 0 |
-| Secret leaks | 0 |
-| Dependency vulnerabilities | 0 |
-
-## Boundaries
-
-### Framework-owned (do not modify without coordination)
+### Framework-managed surfaces
 
 - [List framework-managed files and directories]
 
-### Team-owned (safe to customize)
+### Team-managed surfaces
 
 - `.ai-engineering/contexts/team/**` -- team conventions and lessons
-- `.ai-engineering/manifest.yml` (user configuration section only)
+- `.ai-engineering/manifest.yml` operator-authored configuration fields
+- Root `CONSTITUTION.md` -- the only constitutional document
 
 ### Coordination-required changes
 
 - [What changes require team notification or review]
 
+## Compatibility Notes
+
+- Legacy tooling may still read `.ai-engineering/CONSTITUTION.md` as a fallback
+	when root `CONSTITUTION.md` is absent.
+- New writers must update `CONSTITUTION.md`; this file is subordinate workspace
+	policy, not peer authority.
+- Any conflict between this file and root `CONSTITUTION.md` is resolved in favor
+	of the root constitution.
+
 ## Governance
 
-This document is the supreme governing authority for AI behavior in this project. It is loaded at Step 0 of every skill and agent invocation.
+This workspace charter is subordinate to root `CONSTITUTION.md`. It is not a
+second constitution and it is not loaded at Step 0.
 
-**Amendment process**: Changes to the CONSTITUTION require a pull request with explicit team review.
+**Amendment process**: Changes to this charter require team review and must
+remain consistent with root `CONSTITUTION.md`.
 
-**Versioning**: MAJOR for principle removals. MINOR for new principles. PATCH for clarifications.
-
-**Ownership**: TEAM_MANAGED. The framework will never overwrite this document during updates.
+**Ownership**: TEAM_MANAGED compatibility artifact. The framework preserves this
+path during the migration window unless a replacement spec removes it.
 
 **Version**: 1.0.0 | **Ratified**: [YYYY-MM-DD] | **Last Amended**: [YYYY-MM-DD]

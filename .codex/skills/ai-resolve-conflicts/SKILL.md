@@ -3,6 +3,10 @@ name: ai-resolve-conflicts
 description: Use whenever git reports conflicts, you see <<<<<<< markers, or git operations stop mid-flight. Trigger for 'I have conflicts', 'rebase failed', 'merge conflict', 'cherry-pick failed', 'unmerged paths', 'git stopped with conflicts', 'I see <<<<<<< in the file'. Categorizes conflicts by type — lock files (regenerate), migrations (ask user), generated files (accept theirs), config (AI merge), code (intent-aware resolution).
 effort: medium
 argument-hint: 
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-resolve-conflicts/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

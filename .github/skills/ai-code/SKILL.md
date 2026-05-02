@@ -4,6 +4,10 @@ description: "Use when writing new production code: implementing features, addin
 effort: high
 argument-hint: "[task description or file:target]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-code/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

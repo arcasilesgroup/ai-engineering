@@ -7,7 +7,6 @@ tags: [media, generation, fal-ai]
 requires: { mcp: ["fal-ai"] }
 ---
 
-
 # Media
 
 ## Purpose
@@ -39,6 +38,7 @@ Get an API key at [fal.ai](https://fal.ai).
 ### Step 2 -- Estimate Cost
 
 Before generating, always check estimated cost:
+
 ```
 estimate_cost(model_name: "fal-ai/...", input: {...})
 ```
@@ -56,6 +56,7 @@ Start with cheaper models for prompt iteration, then switch to production models
 ### Step 5 -- Deliver
 
 Provide the generated media with:
+
 - file path or URL
 - model used and parameters
 - cost incurred
@@ -65,49 +66,49 @@ Provide the generated media with:
 
 ### Model Table
 
-| Model | Type | Best For | Cost Tier |
-|-------|------|----------|-----------|
-| `fal-ai/nano-banana-2` | Image | Quick iterations, drafts, image editing | Low |
-| `fal-ai/nano-banana-pro` | Image | Production images, realism, typography | Medium |
-| `fal-ai/seedance-1-0-pro` | Video | Text-to-video, image-to-video, high motion | High |
-| `fal-ai/kling-video/v3/pro` | Video | Text/image-to-video with native audio | High |
-| `fal-ai/veo-3` | Video | Video with generated sound, high visual quality | High |
-| `fal-ai/csm-1b` | Audio | Conversational text-to-speech | Low |
-| `fal-ai/thinksound` | Audio | Video-to-audio (matching sounds from video) | Medium |
+| Model                       | Type  | Best For                                        | Cost Tier |
+| --------------------------- | ----- | ----------------------------------------------- | --------- |
+| `fal-ai/nano-banana-2`      | Image | Quick iterations, drafts, image editing         | Low       |
+| `fal-ai/nano-banana-pro`    | Image | Production images, realism, typography          | Medium    |
+| `fal-ai/seedance-1-0-pro`   | Video | Text-to-video, image-to-video, high motion      | High      |
+| `fal-ai/kling-video/v3/pro` | Video | Text/image-to-video with native audio           | High      |
+| `fal-ai/veo-3`              | Video | Video with generated sound, high visual quality | High      |
+| `fal-ai/csm-1b`             | Audio | Conversational text-to-speech                   | Low       |
+| `fal-ai/thinksound`         | Audio | Video-to-audio (matching sounds from video)     | Medium    |
 
 ### Image Parameters
 
-| Param | Type | Options | Notes |
-|-------|------|---------|-------|
-| `prompt` | string | required | Describe what you want |
-| `image_size` | string | `square`, `portrait_4_3`, `landscape_16_9`, `portrait_16_9`, `landscape_4_3` | Aspect ratio |
-| `num_images` | number | 1-4 | How many to generate |
-| `seed` | number | any integer | Reproducibility |
-| `guidance_scale` | number | 1-20 | How closely to follow the prompt (higher = more literal) |
+| Param            | Type   | Options                                                                      | Notes                                                    |
+| ---------------- | ------ | ---------------------------------------------------------------------------- | -------------------------------------------------------- |
+| `prompt`         | string | required                                                                     | Describe what you want                                   |
+| `image_size`     | string | `square`, `portrait_4_3`, `landscape_16_9`, `portrait_16_9`, `landscape_4_3` | Aspect ratio                                             |
+| `num_images`     | number | 1-4                                                                          | How many to generate                                     |
+| `seed`           | number | any integer                                                                  | Reproducibility                                          |
+| `guidance_scale` | number | 1-20                                                                         | How closely to follow the prompt (higher = more literal) |
 
 ### Video Parameters
 
-| Param | Type | Options | Notes |
-|-------|------|---------|-------|
-| `prompt` | string | required | Describe the video |
-| `duration` | string | `"5s"`, `"10s"` | Video length |
-| `aspect_ratio` | string | `"16:9"`, `"9:16"`, `"1:1"` | Frame ratio |
-| `seed` | number | any integer | Reproducibility |
-| `image_url` | string | URL | Source image for image-to-video |
+| Param          | Type   | Options                     | Notes                           |
+| -------------- | ------ | --------------------------- | ------------------------------- |
+| `prompt`       | string | required                    | Describe the video              |
+| `duration`     | string | `"5s"`, `"10s"`             | Video length                    |
+| `aspect_ratio` | string | `"16:9"`, `"9:16"`, `"1:1"` | Frame ratio                     |
+| `seed`         | number | any integer                 | Reproducibility                 |
+| `image_url`    | string | URL                         | Source image for image-to-video |
 
 ### MCP Tools Available
 
-| Tool | Purpose |
-|------|---------|
-| `search` | Find available models by keyword |
-| `find` | Get model details and parameters |
-| `generate` | Run a model with parameters |
-| `result` | Check async generation status |
-| `status` | Check job status |
-| `cancel` | Cancel a running job |
-| `estimate_cost` | Estimate generation cost |
-| `models` | List popular models |
-| `upload` | Upload files for use as inputs |
+| Tool            | Purpose                          |
+| --------------- | -------------------------------- |
+| `search`        | Find available models by keyword |
+| `find`          | Get model details and parameters |
+| `generate`      | Run a model with parameters      |
+| `result`        | Check async generation status    |
+| `status`        | Check job status                 |
+| `cancel`        | Cancel a running job             |
+| `estimate_cost` | Estimate generation cost         |
+| `models`        | List popular models              |
+| `upload`        | Upload files for use as inputs   |
 
 ## Progressive Quality Pattern
 
@@ -116,6 +117,7 @@ Iteration (low-cost) -> Production (high-cost): nano-banana-2 -> nano-banana-pro
 ## Image Editing
 
 Use Nano Banana 2 with an input image for inpainting, outpainting, or style transfer:
+
 ```
 upload(file_path: "/path/to/image.png")
 generate(model_name: "fal-ai/nano-banana-2", input: {

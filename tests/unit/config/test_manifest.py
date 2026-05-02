@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.config.loader import load_manifest_config, load_manifest_root_entry_points
 from ai_engineering.config.manifest import (
     AgentsConfig,
     CicdConfig,
@@ -38,12 +38,24 @@ from ai_engineering.release.version_bump import detect_current_version
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / ".ai-engineering" / "manifest.yml"
+TEMPLATE_MANIFEST_PATH = (
+    REPO_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
+)
 
 
 @pytest.fixture()
 def real_manifest_data() -> dict:
     """Load the real manifest.yml as a raw dict."""
     raw = MANIFEST_PATH.read_text(encoding="utf-8")
+    data = yaml.safe_load(raw)
+    assert isinstance(data, dict)
+    return data
+
+
+@pytest.fixture()
+def template_manifest_data() -> dict:
+    """Load the bundled template manifest.yml as a raw dict."""
+    raw = TEMPLATE_MANIFEST_PATH.read_text(encoding="utf-8")
     data = yaml.safe_load(raw)
     assert isinstance(data, dict)
     return data
@@ -64,6 +76,37 @@ def tmp_project(tmp_path: Path) -> Path:
 
 class TestRealManifest:
     """Parse the actual manifest.yml from this repository."""
+
+    @staticmethod
+    def _assert_control_plane_authority_model(manifest_data: dict) -> None:
+        control_plane = manifest_data.get("control_plane")
+        assert isinstance(control_plane, dict)
+
+        constitutional_authority = control_plane.get("constitutional_authority")
+        assert isinstance(constitutional_authority, dict)
+        assert constitutional_authority.get("primary") == "CONSTITUTION.md"
+
+        compatibility_aliases = constitutional_authority.get("compatibility_aliases")
+        assert isinstance(compatibility_aliases, list)
+        assert ".ai-engineering/CONSTITUTION.md" in compatibility_aliases
+
+        manifest_field_roles = control_plane.get("manifest_field_roles")
+        assert isinstance(manifest_field_roles, dict)
+
+        canonical_input = manifest_field_roles.get("canonical_input")
+        assert isinstance(canonical_input, list)
+        assert "session.context_files" in canonical_input
+        assert "ownership.root_entry_points" in canonical_input
+
+        generated_projection = manifest_field_roles.get("generated_projection")
+        assert isinstance(generated_projection, list)
+        assert "skills" in generated_projection
+        assert "agents" in generated_projection
+
+        descriptive_metadata = manifest_field_roles.get("descriptive_metadata")
+        assert isinstance(descriptive_metadata, list)
+        assert "framework_version" in descriptive_metadata
+        assert "version" in descriptive_metadata
 
     def test_model_validate_succeeds(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
@@ -86,6 +129,34 @@ class TestRealManifest:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert config.name == "ai-engineering"
         assert config.version == "1.0.0"
+
+    def test_session_context_prefers_root_constitution(self, real_manifest_data: dict) -> None:
+        session = real_manifest_data.get("session")
+        assert isinstance(session, dict)
+
+        context_files = session.get("context_files")
+        assert isinstance(context_files, list)
+        assert "CONSTITUTION.md" in context_files
+        assert ".ai-engineering/CONSTITUTION.md" not in context_files
+
+    def test_template_session_context_prefers_root_constitution(
+        self, template_manifest_data: dict
+    ) -> None:
+        session = template_manifest_data.get("session")
+        assert isinstance(session, dict)
+
+        context_files = session.get("context_files")
+        assert isinstance(context_files, list)
+        assert "CONSTITUTION.md" in context_files
+        assert ".ai-engineering/CONSTITUTION.md" not in context_files
+
+    def test_control_plane_authority_table_exists(self, real_manifest_data: dict) -> None:
+        self._assert_control_plane_authority_model(real_manifest_data)
+
+    def test_template_control_plane_authority_table_exists(
+        self, template_manifest_data: dict
+    ) -> None:
+        self._assert_control_plane_authority_model(template_manifest_data)
 
 
 # ---------------------------------------------------------------------------
@@ -385,6 +456,9 @@ class TestEmptyAndMissing:
         assert config.providers.vcs == "github"
         assert config.quality.coverage == 80
 
+    def test_missing_file_returns_no_root_entry_point_contract(self, tmp_path: Path) -> None:
+        assert load_manifest_root_entry_points(tmp_path) is None
+
     def test_yaml_only_comment_returns_defaults(self, tmp_project: Path) -> None:
         manifest = tmp_project / ".ai-engineering" / "manifest.yml"
         manifest.write_text("# just a comment\n")
@@ -393,6 +467,27 @@ class TestEmptyAndMissing:
 
         assert isinstance(config, ManifestConfig)
         assert config.name == ""
+
+    def test_present_manifest_returns_root_entry_point_contract(self, tmp_project: Path) -> None:
+        manifest = tmp_project / ".ai-engineering" / "manifest.yml"
+        manifest.write_text(
+            "ownership:\n"
+            "  root_entry_points:\n"
+            "    CLAUDE.md:\n"
+            "      owner: team\n"
+            "      canonical_source: CONSTITUTION.md\n"
+            "      runtime_role: ide-overlay\n"
+            "      sync:\n"
+            "        mode: copy\n"
+            "        template_path: src/ai_engineering/templates/project/CLAUDE.md\n"
+            "        mirror_paths: []\n",
+            encoding="utf-8",
+        )
+
+        root_entry_points = load_manifest_root_entry_points(tmp_project)
+
+        assert root_entry_points is not None
+        assert root_entry_points["CLAUDE.md"].owner == "team"
 
 
 # ---------------------------------------------------------------------------

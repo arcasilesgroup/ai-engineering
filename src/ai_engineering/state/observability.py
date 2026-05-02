@@ -9,18 +9,34 @@ from pathlib import Path
 from uuid import uuid4
 
 from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.state.capabilities import build_capability_cards
+from ai_engineering.state.control_plane import resolve_constitution_context_path
+from ai_engineering.state.defaults import projection_update_metadata
+from ai_engineering.state.event_schema import ALLOWED_EVENT_KINDS, normalize_engine_id
 from ai_engineering.state.io import _json_serializer, write_json_model
+from ai_engineering.state.locking import artifact_lock
 from ai_engineering.state.models import (
     CapabilityDescriptor,
     FrameworkCapabilitiesCatalog,
     FrameworkEvent,
 )
+from ai_engineering.state.work_plane import resolve_active_work_plane
 
 FRAMEWORK_EVENT_SCHEMA_VERSION = "1.0"
 FRAMEWORK_CAPABILITIES_SCHEMA_VERSION = "1.0"
 
 FRAMEWORK_EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 FRAMEWORK_CAPABILITIES_REL = Path(".ai-engineering") / "state" / "framework-capabilities.json"
+
+
+def _declared_work_plane_contexts(project_root: Path) -> tuple[tuple[str, str, Path], ...]:
+    """Return declared spec/plan context paths from the active work-plane contract."""
+    work_plane = resolve_active_work_plane(project_root)
+    return (
+        ("spec", "spec", work_plane.spec_path),
+        ("plan", "plan", work_plane.plan_path),
+    )
+
 
 CONTEXT_CLASS_NAMES: tuple[str, ...] = (
     "language",
@@ -93,7 +109,33 @@ def _read_prev_event_hash(path: Path) -> str | None:
     return compute_entry_hash(prior)
 
 
-def append_framework_event(project_root: Path, entry: FrameworkEvent) -> None:
+def _append_framework_event_locked(project_root: Path, entry: FrameworkEvent) -> None:
+    """Append a canonical framework event while the caller holds the event lock."""
+    path = framework_events_path(project_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    # Serialize the model first so the on-disk dict carries the canonical
+    # alias-based shape (e.g. ``correlationId``). We then add the chain
+    # pointer at the *root* of the dict before writing the line so that
+    # round-trip readers (state.audit_chain) find ``prev_event_hash`` as
+    # a top-level key.
+    data = entry.model_dump(by_alias=True, exclude_none=True)
+    kind = data.get("kind")
+    if kind not in ALLOWED_EVENT_KINDS:
+        msg = f"Unsupported framework event kind: {kind!r}"
+        raise ValueError(msg)
+    data["engine"] = normalize_engine_id(str(data["engine"]))
+    data["prev_event_hash"] = _read_prev_event_hash(path)
+    line = json.dumps(data, sort_keys=True, default=_json_serializer)
+    with path.open("a", encoding="utf-8") as f:
+        f.write(line + "\n")
+
+
+def append_framework_event(
+    project_root: Path,
+    entry: FrameworkEvent,
+    *,
+    lock_acquired: bool = False,
+) -> None:
     """Append a canonical framework event to the NDJSON stream.
 
     Spec-110 D-110-03: stamps the ``prev_event_hash`` chain pointer at
@@ -112,18 +154,12 @@ def append_framework_event(project_root: Path, entry: FrameworkEvent) -> None:
     ``emit_*`` helpers and stamps the pointer in :func:`append_framework_event`
     only on the on-disk copy).
     """
-    path = framework_events_path(project_root)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    # Serialize the model first so the on-disk dict carries the canonical
-    # alias-based shape (e.g. ``correlationId``). We then add the chain
-    # pointer at the *root* of the dict before writing the line so that
-    # round-trip readers (state.audit_chain) find ``prev_event_hash`` as
-    # a top-level key.
-    data = entry.model_dump(by_alias=True, exclude_none=True)
-    data["prev_event_hash"] = _read_prev_event_hash(path)
-    line = json.dumps(data, sort_keys=True, default=_json_serializer)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
+    if lock_acquired:
+        _append_framework_event_locked(project_root, entry)
+        return
+
+    with artifact_lock(project_root, "framework-events"):
+        _append_framework_event_locked(project_root, entry)
 
 
 def _project_name(project_root: Path) -> str:
@@ -167,6 +203,20 @@ def _bounded_summary(text: str | None) -> str | None:
     return redacted[:_MAX_SUMMARY_LEN] + "...[truncated]"
 
 
+def _normalize_artifact_refs(
+    artifact_refs: tuple[str, ...] | list[str] | None,
+) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in artifact_refs or ():
+        path = value.strip()
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        normalized.append(path)
+    return normalized
+
+
 def build_framework_event(
     project_root: Path,
     *,
@@ -182,7 +232,12 @@ def build_framework_event(
     force_outcome: str | None = None,
 ) -> FrameworkEvent:
     """Build a canonical framework event with explicit degraded capture semantics."""
-    outcome, missing_fields = _capture_outcome(engine, session_id=session_id, trace_id=trace_id)
+    canonical_engine = normalize_engine_id(engine)
+    outcome, missing_fields = _capture_outcome(
+        canonical_engine,
+        session_id=session_id,
+        trace_id=trace_id,
+    )
     payload = dict(detail or {})
     if missing_fields:
         payload["degraded_reason"] = "missing-host-metadata"
@@ -193,7 +248,7 @@ def build_framework_event(
             "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
             "timestamp": datetime.now(tz=UTC),
             "project": _project_name(project_root),
-            "engine": engine,
+            "engine": canonical_engine,
             "kind": kind,
             "outcome": force_outcome or outcome,
             "component": component,
@@ -334,11 +389,12 @@ def emit_declared_context_loads(
     config = load_manifest_config(project_root)
     events: list[FrameworkEvent] = []
 
+    constitution_path = resolve_constitution_context_path(project_root)
+
     # Static state/spec contexts required by the framework workflow.
     fixed_contexts = (
-        ("constitution", "constitution", root / "CONSTITUTION.md"),
-        ("spec", "spec", root / "specs" / "spec.md"),
-        ("plan", "plan", root / "specs" / "plan.md"),
+        ("constitution", "constitution", constitution_path),
+        *_declared_work_plane_contexts(project_root),
         ("decision-store", "decision-store", root / "state" / "decision-store.json"),
     )
     for context_class, context_name, path in fixed_contexts:
@@ -625,6 +681,51 @@ def emit_framework_operation(
     return entry
 
 
+def emit_task_trace(
+    project_root: Path,
+    *,
+    task_id: str,
+    lifecycle_phase: str,
+    component: str,
+    artifact_refs: tuple[str, ...] | list[str] | None = None,
+    engine: str = "ai_engineering",
+    source: str | None = None,
+    session_id: str | None = None,
+    trace_id: str | None = None,
+    parent_id: str | None = None,
+    correlation_id: str | None = None,
+    lock_acquired: bool = False,
+) -> FrameworkEvent:
+    """Emit an append-only task trace from an authoritative task mutation."""
+    normalized_task_id = task_id.strip()
+    normalized_phase = lifecycle_phase.strip()
+    if not normalized_task_id:
+        msg = "task_trace requires a non-empty task_id"
+        raise ValueError(msg)
+    if not normalized_phase:
+        msg = "task_trace requires a non-empty lifecycle_phase"
+        raise ValueError(msg)
+
+    entry = build_framework_event(
+        project_root,
+        engine=engine,
+        kind="task_trace",
+        component=component,
+        source=source,
+        session_id=session_id,
+        trace_id=trace_id,
+        parent_id=parent_id,
+        correlation_id=correlation_id,
+        detail={
+            "task_id": normalized_task_id,
+            "lifecycle_phase": normalized_phase,
+            "artifact_refs": _normalize_artifact_refs(artifact_refs),
+        },
+    )
+    append_framework_event(project_root, entry, lock_acquired=lock_acquired)
+    return entry
+
+
 def build_framework_capabilities(project_root: Path) -> FrameworkCapabilitiesCatalog:
     """Build the capability catalog from manifest registry metadata plus static taxonomy."""
     config = load_manifest_config(project_root)
@@ -641,14 +742,20 @@ def build_framework_capabilities(project_root: Path) -> FrameworkCapabilitiesCat
     hook_kinds = [
         CapabilityDescriptor(name=name, surface=surface) for name, surface in HOOK_KIND_DESCRIPTORS
     ]
+    capability_cards = build_capability_cards(config)
 
     return FrameworkCapabilitiesCatalog.model_validate(
         {
             "schemaVersion": FRAMEWORK_CAPABILITIES_SCHEMA_VERSION,
+            "updateMetadata": projection_update_metadata(
+                context="framework capability catalog",
+                source=".ai-engineering/manifest.yml registry metadata",
+            ),
             "skills": skills,
             "agents": agents,
             "contextClasses": context_classes,
             "hookKinds": hook_kinds,
+            "capabilityCards": capability_cards,
         }
     )
 

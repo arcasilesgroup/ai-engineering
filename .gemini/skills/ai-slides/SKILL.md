@@ -4,6 +4,10 @@ description: Use when creating a presentation deck from scratch, converting Powe
 effort: high
 argument-hint: "new|convert|enhance [topic]"
 tags: [presentation, html, css]
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-slides/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

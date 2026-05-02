@@ -5,9 +5,17 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ai_engineering.state.control_plane import resolve_state_plane_artifact_path
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DECISION_STORE_PATH = REPO_ROOT / ".ai-engineering" / "state" / "decision-store.json"
-AUDIT_FINDINGS_PATH = REPO_ROOT / ".ai-engineering" / "state" / "spec-116-t41-audit-findings.json"
+LEGACY_AUDIT_FINDINGS_PATH = (
+    REPO_ROOT / ".ai-engineering" / "state" / "spec-116-t41-audit-findings.json"
+)
+AUDIT_FINDINGS_PATH = resolve_state_plane_artifact_path(
+    REPO_ROOT,
+    ".ai-engineering/state/spec-116-t41-audit-findings.json",
+)
 
 RETIRED_BUCKETS = frozenset({"superseded history", "completed cleanup", "archive candidate"})
 LIVE_RISK_BUCKET = "live risk"
@@ -62,6 +70,13 @@ def _audit_bucket_by_id(audit_payload: dict[str, object]) -> dict[str, str]:
         for decision_id in _expand_audit_ids(audit_entry):
             buckets[decision_id] = bucket
     return buckets
+
+
+def test_spec_116_audit_findings_relocation_keeps_legacy_shim_readable() -> None:
+    assert AUDIT_FINDINGS_PATH.exists() is True
+    assert LEGACY_AUDIT_FINDINGS_PATH.exists() is True
+    assert AUDIT_FINDINGS_PATH != LEGACY_AUDIT_FINDINGS_PATH
+    assert _load_json(AUDIT_FINDINGS_PATH) == _load_json(LEGACY_AUDIT_FINDINGS_PATH)
 
 
 def test_normalized_active_slice_excludes_retired_lifecycle_entries() -> None:

@@ -8,7 +8,9 @@ and single-phase filtering.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from pathlib import Path
+from types import ModuleType
 
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.doctor.models import (
@@ -29,6 +31,14 @@ from ai_engineering.installer.phases import (
     PHASE_ORDER,
     PHASE_STATE,
     PHASE_TOOLS,
+)
+from ai_engineering.reconciler import (
+    ReconcileAction,
+    ReconcileApplyResult,
+    ReconcileInspection,
+    ReconcilePlan,
+    ReconcileVerification,
+    ResourceReconciler,
 )
 from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.state.service import load_install_state
@@ -57,6 +67,127 @@ _RUNTIME_MODULES: tuple[str, ...] = (
     "branch_policy",
     "version",
 )
+
+
+@dataclass(frozen=True)
+class _DoctorPlanPayload:
+    initial_results: list[CheckResult]
+    fixable: list[CheckResult]
+
+
+class _DoctorPhaseAdapter:
+    """Adapt doctor phase modules to the shared reconciler contract."""
+
+    def __init__(self, phase_name: str, phase_mod: ModuleType, *, fix: bool, dry_run: bool) -> None:
+        self._phase_name = phase_name
+        self._phase_mod = phase_mod
+        self._fix = fix
+        self._dry_run = dry_run
+
+    @property
+    def name(self) -> str:
+        return self._phase_name
+
+    def inspect(self, context: object) -> ReconcileInspection:
+        doctor_context = self._coerce_context(context)
+        check_fn = self._phase_mod.check
+        results = list(check_fn(doctor_context))
+        return ReconcileInspection(resource_name=self.name, payload=results)
+
+    def plan(self, inspection: ReconcileInspection, _context: object) -> ReconcilePlan:
+        initial_results = self._coerce_results(inspection.payload)
+        fixable = [
+            result
+            for result in initial_results
+            if result.status in (CheckStatus.FAIL, CheckStatus.WARN) and result.fixable
+        ]
+        actions = [
+            ReconcileAction(
+                action_id=f"{self.name}:{result.name}",
+                action_type="fix",
+                resource=result.name,
+                reason=result.message,
+            )
+            for result in fixable
+        ]
+        return ReconcilePlan(
+            resource_name=self.name,
+            actions=actions,
+            payload=_DoctorPlanPayload(initial_results=initial_results, fixable=fixable),
+        )
+
+    def apply(self, plan: ReconcilePlan, context: object) -> ReconcileApplyResult:
+        doctor_context = self._coerce_context(context)
+        payload = self._coerce_plan_payload(plan.payload)
+        results = list(payload.initial_results)
+
+        if self._fix and payload.fixable:
+            fix_fn = self._phase_mod.fix
+            fixed = list(fix_fn(doctor_context, payload.fixable, dry_run=self._dry_run))
+            fixed_names = {result.name for result in fixed}
+            results = [
+                next(
+                    (fixed_result for fixed_result in fixed if fixed_result.name == result.name),
+                    result,
+                )
+                if result.name in fixed_names
+                else result
+                for result in payload.initial_results
+            ]
+
+        return ReconcileApplyResult(
+            resource_name=self.name,
+            applied_actions=[action.action_id for action in plan.actions],
+            payload=results,
+        )
+
+    def verify(
+        self,
+        apply_result: ReconcileApplyResult,
+        _context: object,
+    ) -> ReconcileVerification:
+        return ReconcileVerification(
+            resource_name=self.name, passed=True, payload=apply_result.payload
+        )
+
+    def rollback(
+        self,
+        _plan: ReconcilePlan,
+        _context: object,
+        _reason: BaseException | ReconcileVerification,
+    ) -> None:
+        return None
+
+    def finalize(
+        self,
+        _plan: ReconcilePlan,
+        _apply_result: ReconcileApplyResult,
+        _verification: ReconcileVerification,
+        _context: object,
+    ) -> None:
+        return None
+
+    @staticmethod
+    def _coerce_context(context: object) -> DoctorContext:
+        if not isinstance(context, DoctorContext):
+            msg = "doctor reconciler context must be DoctorContext"
+            raise TypeError(msg)
+        return context
+
+    @staticmethod
+    def _coerce_results(payload: object | None) -> list[CheckResult]:
+        if not isinstance(payload, list):
+            msg = "doctor reconciler inspection payload must be a list"
+            raise TypeError(msg)
+        return payload
+
+    @staticmethod
+    def _coerce_plan_payload(payload: object | None) -> _DoctorPlanPayload:
+        if not isinstance(payload, _DoctorPlanPayload):
+            msg = "doctor reconciler plan payload must be _DoctorPlanPayload"
+            raise TypeError(msg)
+        return payload
+
 
 _PRE_INSTALL_RUNTIME: tuple[str, ...] = (
     "branch_policy",
@@ -172,21 +303,14 @@ def _run_phase(
     if phase_mod is None:
         msg = f"Unknown phase: {phase_name}"
         raise ValueError(msg)
-    results = phase_mod.check(ctx)
-
-    if fix:
-        fixable = [
-            r for r in results if r.status in (CheckStatus.FAIL, CheckStatus.WARN) and r.fixable
-        ]
-        if fixable:
-            fixed = phase_mod.fix(ctx, fixable, dry_run=dry_run)
-            # Replace matching results with their fixed versions
-            fixed_names = {r.name for r in fixed}
-            results = [
-                next((f for f in fixed if f.name == r.name), r) if r.name in fixed_names else r
-                for r in results
-            ]
-
+    run = ResourceReconciler().run(
+        _DoctorPhaseAdapter(phase_name, phase_mod, fix=fix, dry_run=dry_run),
+        ctx,
+    )
+    if run.apply_result is None:
+        msg = f"doctor reconciler did not apply phase {phase_name!r}"
+        raise RuntimeError(msg)
+    results = _DoctorPhaseAdapter._coerce_results(run.apply_result.payload)
     report.phases.append(PhaseReport(name=phase_name, checks=results))
 
 

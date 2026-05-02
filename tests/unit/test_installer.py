@@ -18,9 +18,12 @@ from ai_engineering.hooks.manager import HookInstallResult
 from ai_engineering.installer.service import (
     _STATE_FILES,
     InstallResult,
+    _generate_state_files,
     install,
 )
 from ai_engineering.installer.templates import CopyResult
+from ai_engineering.state.io import read_json_model
+from ai_engineering.state.models import OwnershipMap
 
 # ---------------------------------------------------------------------------
 # Module-level patch prefix shortcuts
@@ -148,6 +151,43 @@ class TestFrameworkCapabilitiesPath:
 
     def test_framework_capabilities_path_value(self) -> None:
         assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
+
+
+class TestGenerateStateFiles:
+    """Verify manifest-driven ownership is used when bootstrapping state files."""
+
+    def test_uses_manifest_root_entry_point_contract_for_ownership_map(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        ai_eng_dir = tmp_path / ".ai-engineering"
+        ai_eng_dir.mkdir(parents=True)
+        (ai_eng_dir / "manifest.yml").write_text(
+            "ownership:\n"
+            "  root_entry_points:\n"
+            "    CLAUDE.md:\n"
+            "      owner: team\n"
+            "      canonical_source: CONSTITUTION.md\n"
+            "      runtime_role: ide-overlay\n"
+            "      sync:\n"
+            "        mode: copy\n"
+            "        template_path: src/ai_engineering/templates/project/CLAUDE.md\n"
+            "        mirror_paths: []\n",
+            encoding="utf-8",
+        )
+
+        _generate_state_files(
+            ai_eng_dir,
+            stacks=None,
+            ides=None,
+        )
+
+        ownership = read_json_model(
+            ai_eng_dir / _STATE_FILES["ownership-map"],
+            OwnershipMap,
+        )
+        assert ownership.is_update_allowed("CLAUDE.md") is False
+        assert ownership.has_deny_rule("CLAUDE.md") is True
 
 
 # ---------------------------------------------------------------------------

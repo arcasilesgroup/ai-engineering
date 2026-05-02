@@ -27,7 +27,6 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
 from pydantic import BaseModel
 
 from ai_engineering.state.models import (
@@ -54,8 +53,6 @@ __all__ = [
     "load_sdk_prereqs",
 ]
 
-
-_MANIFEST_REL = Path(".ai-engineering") / "manifest.yml"
 
 # Canonical 9 SDK-required stacks (spec.md D-101-14).
 SDK_REQUIRED_STACKS: frozenset[str] = frozenset(
@@ -188,17 +185,10 @@ class _PythonEnvWrapper(BaseModel):
 
 def _read_raw_manifest(root: Path) -> dict[str, Any]:
     """Return the raw manifest dict, or ``{}`` when absent / unreadable."""
-    manifest_path = root / _MANIFEST_REL
-    if not manifest_path.is_file():
-        return {}
-    try:
-        raw = manifest_path.read_text(encoding="utf-8")
-        data = yaml.safe_load(raw)
-    except (OSError, yaml.YAMLError):
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    return data
+    # Delayed to keep projection imports acyclic while the repository wraps this module.
+    from ai_engineering.state.repository import ManifestRepository
+
+    return ManifestRepository(root).load_raw()
 
 
 def _normalise_os(current_os: str | None) -> Platform | None:

@@ -4,6 +4,10 @@ description: "Use when a customer or user reports a problem needing structured i
 effort: high
 argument-hint: "start <ticket-id>|find [query]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-support/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

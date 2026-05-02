@@ -5,6 +5,10 @@ effort: medium
 argument-hint: "<phase> <work-item-ref> [--comment <text>]"
 mode: agent
 tags: [board, sync, work-items]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-board-sync/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -104,7 +108,7 @@ The calling skill checks the return status for logging but NEVER stops its own e
 
 ## Scripts
 
-- `scripts/board-sync-github.sh <project-number> --owner <github_project.owner>` -- query GitHub Projects v2 items and summarize work item states. Read owner from `github_project.owner` in manifest. Path is relative to the skill directory (`.claude/skills/ai-board-sync/`).
+- `scripts/board-sync-github.sh <project-number> --owner <github_project.owner>` -- query GitHub Projects v2 items and summarize work item states. Read owner from `github_project.owner` in manifest. Path is relative to the skill directory (`.github/skills/ai-board-sync/`).
 
 ## Integration
 

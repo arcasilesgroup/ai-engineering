@@ -9,6 +9,7 @@ Covers:
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -18,10 +19,19 @@ import pytest
 from ai_engineering.maintenance.report import (
     MaintenanceReport,
     StaleFile,
+    TaskScorecard,
+    build_task_scorecard,
 )
 from ai_engineering.skills.service import (
     SkillStatus,
     list_local_skill_status,
+)
+from ai_engineering.state.io import append_ndjson, write_json_model
+from ai_engineering.state.models import (
+    FrameworkEvent,
+    TaskLedger,
+    TaskLedgerTask,
+    TaskLifecycleState,
 )
 
 # ---------------------------------------------------------------------------
@@ -245,3 +255,264 @@ class TestMaintenanceReport:
         assert len(report.warnings) == 2
         assert "Framework not installed" in report.warnings
         assert "Stale decision-store" in report.warnings
+
+    def test_task_scorecard_is_serialized_and_rendered(self) -> None:
+        report = MaintenanceReport(
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
+            task_scorecard=TaskScorecard(
+                total_tasks=3,
+                resolved_tasks=1,
+                open_tasks=2,
+                retry_tasks=2,
+                rework_tasks=1,
+                verification_tax_events=1,
+                drift_events=1,
+            ),
+        )
+
+        data = report.to_dict()
+        markdown = report.to_markdown()
+
+        assert data["task_scorecard"] == {
+            "total_tasks": 3,
+            "resolved_tasks": 1,
+            "open_tasks": 2,
+            "retry_tasks": 2,
+            "rework_tasks": 1,
+            "verification_tax_events": 1,
+            "drift_events": 1,
+            "resolution_score": pytest.approx(1 / 3, rel=1e-3),
+        }
+        assert "## Task Scorecard" in markdown
+        assert "Retrying tasks: 2" in markdown
+        assert "Verification tax events: 1" in markdown
+
+
+def test_build_task_scorecard_derives_counts_from_task_ledger_and_framework_events(
+    tmp_path: Path,
+) -> None:
+    ledger_path = tmp_path / ".ai-engineering" / "specs" / "task-ledger.json"
+    write_json_model(
+        ledger_path,
+        TaskLedger(
+            tasks=[
+                TaskLedgerTask(
+                    id="HX-05-T-A",
+                    title="Resolved task",
+                    status=TaskLifecycleState.DONE,
+                    ownerRole="Build",
+                    writeScope=["src/**"],
+                ),
+                TaskLedgerTask(
+                    id="HX-05-T-B",
+                    title="Retrying task",
+                    status=TaskLifecycleState.IN_PROGRESS,
+                    ownerRole="Build",
+                    writeScope=["src/**"],
+                ),
+                TaskLedgerTask(
+                    id="HX-05-T-C",
+                    title="Reworked task",
+                    status=TaskLifecycleState.REVIEW,
+                    ownerRole="Build",
+                    writeScope=["src/**"],
+                ),
+            ]
+        ),
+    )
+    events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
+
+    def _append_event(
+        *,
+        correlation_id: str,
+        kind: str,
+        detail: dict[str, object],
+        component: str = "state.task-ledger",
+        outcome: str = "success",
+    ) -> None:
+        append_ndjson(
+            events_path,
+            FrameworkEvent.model_validate(
+                {
+                    "schemaVersion": "1.0",
+                    "timestamp": "2026-05-01T12:00:00Z",
+                    "project": "demo-project",
+                    "engine": "ai_engineering",
+                    "kind": kind,
+                    "outcome": outcome,
+                    "component": component,
+                    "correlationId": correlation_id,
+                    "detail": detail,
+                }
+            ),
+        )
+
+    _append_event(
+        correlation_id="task-a-1",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-A",
+            "lifecycle_phase": "planned",
+            "artifact_refs": [],
+        },
+    )
+    _append_event(
+        correlation_id="task-a-2",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-A",
+            "lifecycle_phase": "in-progress",
+            "artifact_refs": ["handoffs/a.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-a-3",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-A",
+            "lifecycle_phase": "verify",
+            "artifact_refs": ["evidence/a.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-a-4",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-A",
+            "lifecycle_phase": "done",
+            "artifact_refs": ["evidence/a.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-b-1",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-B",
+            "lifecycle_phase": "planned",
+            "artifact_refs": [],
+        },
+    )
+    _append_event(
+        correlation_id="task-b-2",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-B",
+            "lifecycle_phase": "in-progress",
+            "artifact_refs": ["handoffs/b.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-b-3",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-B",
+            "lifecycle_phase": "verify",
+            "artifact_refs": ["evidence/b.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-b-4",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-B",
+            "lifecycle_phase": "in-progress",
+            "artifact_refs": ["evidence/b.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-b-5",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-B",
+            "lifecycle_phase": "in-progress",
+            "artifact_refs": ["evidence/b.md", "evidence/b-green.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-c-1",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-C",
+            "lifecycle_phase": "planned",
+            "artifact_refs": [],
+        },
+    )
+    _append_event(
+        correlation_id="task-c-2",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-C",
+            "lifecycle_phase": "in-progress",
+            "artifact_refs": ["handoffs/c.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-c-3",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-C",
+            "lifecycle_phase": "done",
+            "artifact_refs": ["evidence/c.md"],
+        },
+    )
+    _append_event(
+        correlation_id="task-c-4",
+        kind="task_trace",
+        detail={
+            "task_id": "HX-05-T-C",
+            "lifecycle_phase": "in-progress",
+            "artifact_refs": ["evidence/c.md", "evidence/c-rework.md"],
+        },
+    )
+    _append_event(
+        correlation_id="drift-1",
+        kind="control_outcome",
+        component="guard",
+        outcome="failure",
+        detail={"category": "governance", "control": "guard-drift", "drifted": 2},
+    )
+
+    scorecard = build_task_scorecard(tmp_path)
+
+    assert scorecard.total_tasks == 3
+    assert scorecard.resolved_tasks == 1
+    assert scorecard.open_tasks == 2
+    assert scorecard.retry_tasks == 2
+    assert scorecard.rework_tasks == 1
+    assert scorecard.verification_tax_events == 1
+    assert scorecard.drift_events == 1
+    assert scorecard.resolution_score == pytest.approx(1 / 3, rel=1e-3)
+
+
+def test_build_task_scorecard_reads_under_framework_events_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[Path, str]] = []
+
+    @contextmanager
+    def _lock_spy(project_root: Path, artifact_name: str):
+        calls.append((project_root, artifact_name))
+        yield project_root / ".ai-engineering" / "state" / "locks" / f"{artifact_name}.lock"
+
+    monkeypatch.setattr("ai_engineering.maintenance.report.artifact_lock", _lock_spy)
+
+    ledger_path = tmp_path / ".ai-engineering" / "specs" / "task-ledger.json"
+    write_json_model(
+        ledger_path,
+        TaskLedger(
+            tasks=[
+                TaskLedgerTask(
+                    id="HX-05-T-4.2",
+                    title="Read scorecard snapshot",
+                    status=TaskLifecycleState.DONE,
+                    ownerRole="Build",
+                    writeScope=["src/**"],
+                )
+            ]
+        ),
+    )
+
+    build_task_scorecard(tmp_path)
+
+    assert calls == [(tmp_path, "framework-events")]

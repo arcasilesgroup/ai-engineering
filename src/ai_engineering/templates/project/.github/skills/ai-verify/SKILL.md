@@ -4,6 +4,10 @@ description: "Use when verification with evidence is needed — not assumptions.
 effort: max
 argument-hint: "claim|governance|security|quality|feature|architecture|platform [--full]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-verify/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -28,9 +32,9 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 Before dispatching any verify agent, verify these files exist:
 
-- `.claude/skills/ai-verify/handlers/verify.md`
-- `.github/agents/verify-deterministic.md`
-- every required `.github/agents/verifier-*.md` file for the selected mode
+- `.github/skills/ai-verify/handlers/verify.md`
+- `.github/agents/internal/verify-deterministic.md`
+- every required `.github/agents/internal/verifier-*.md` file for the selected mode
 
 Required verifier files are mode-sensitive:
 
@@ -55,7 +59,7 @@ If the evidence-protocol file is unavailable, use this inline process: for each 
 | `architecture`  | `verifier-architecture.md` | Solution-intent alignment, layer violations (LLM judgment) |
 | `feature`       | `verifier-feature.md`      | Spec coverage, acceptance criteria (LLM judgment)          |
 
-All specialist agents are dispatched via the `Agent` tool from `.github/agents/`. They are not read inline -- each runs in its own context window.
+All specialist agents are dispatched via the `Agent` tool from `.github/agents/internal/`. They are not read inline -- each runs in its own context window.
 
 ### Dispatch Architecture
 

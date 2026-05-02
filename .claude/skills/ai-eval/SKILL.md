@@ -6,7 +6,6 @@ argument-hint: "define|check|report|regression [feature]"
 tags: [quality, evals, improvement]
 ---
 
-
 # Eval
 
 ## Purpose
@@ -36,16 +35,19 @@ Eval-Driven Development (EDD) treats evals as the unit tests of AI development. 
 ## EVAL DEFINITION: feature-xyz
 
 ### Capability Evals
+
 1. Can create new user account
 2. Can validate email format
 3. Can hash password securely
 
 ### Regression Evals
+
 1. Existing login still works
 2. Session management unchanged
 3. Logout flow intact
 
 ### Success Metrics
+
 - pass@3 > 90% for capability evals
 - pass^3 = 100% for regression evals
 ```
@@ -63,24 +65,23 @@ Eval-Driven Development (EDD) treats evals as the unit tests of AI development. 
 Run all capability + regression evals (per Mode: check), calculate pass@k and pass^k metrics, then generate the structured report:
 
 ```markdown
-EVAL REPORT: feature-xyz
-========================
+# EVAL REPORT: feature-xyz
 
 Capability Evals:
-  create-user:     PASS (pass@1)
-  validate-email:  PASS (pass@2)
-  hash-password:   PASS (pass@1)
-  Overall:         3/3 passed
+create-user: PASS (pass@1)
+validate-email: PASS (pass@2)
+hash-password: PASS (pass@1)
+Overall: 3/3 passed
 
 Regression Evals:
-  login-flow:      PASS
-  session-mgmt:    PASS
-  logout-flow:     PASS
-  Overall:         3/3 passed
+login-flow: PASS
+session-mgmt: PASS
+logout-flow: PASS
+Overall: 3/3 passed
 
 Metrics:
-  pass@1: 67% (2/3)
-  pass@3: 100% (3/3)
+pass@1: 67% (2/3)
+pass@3: 100% (3/3)
 
 Status: READY FOR REVIEW
 ```
@@ -100,31 +101,32 @@ Baseline is created automatically on the first `report` run. If `baseline.json` 
 [REGRESSION EVAL: feature-name]
 Baseline: SHA or checkpoint name
 Tests:
-  - existing-test-1: PASS/FAIL
-  - existing-test-2: PASS/FAIL
-  - existing-test-3: PASS/FAIL
-Result: X/Y passed (previously Y/Y)
+
+- existing-test-1: PASS/FAIL
+- existing-test-2: PASS/FAIL
+- existing-test-3: PASS/FAIL
+  Result: X/Y passed (previously Y/Y)
 ```
 
 ## Quick Reference
 
 ### Grader Types
 
-| Grader | How It Works | When to Use | Example |
-|--------|-------------|-------------|---------|
-| Code | Deterministic checks (grep, test runners, build) | Verifiable outputs, structured results | `grep -q "export function handleAuth" src/auth.ts && echo "PASS"` |
-| Model | Claude evaluates open-ended output (score 1-5) | Prose quality, code style, creative output | Prompt: "Does it solve the stated problem? Score 1-5" |
-| Human | Flag for manual review with risk level | Security decisions, UX judgment, ambiguous cases | `[HUMAN REVIEW REQUIRED] Risk Level: HIGH` |
+| Grader | How It Works                                     | When to Use                                      | Example                                                           |
+| ------ | ------------------------------------------------ | ------------------------------------------------ | ----------------------------------------------------------------- |
+| Code   | Deterministic checks (grep, test runners, build) | Verifiable outputs, structured results           | `grep -q "export function handleAuth" src/auth.ts && echo "PASS"` |
+| Model  | Claude evaluates open-ended output (score 1-5)   | Prose quality, code style, creative output       | Prompt: "Does it solve the stated problem? Score 1-5"             |
+| Human  | Flag for manual review with risk level           | Security decisions, UX judgment, ambiguous cases | `[HUMAN REVIEW REQUIRED] Risk Level: HIGH`                        |
 
 ### Metrics
 
-| Metric | Definition | Typical Target |
-|--------|-----------|----------------|
-| pass@1 | First attempt success rate | Varies by difficulty |
-| pass@3 | At least one success in 3 attempts | > 90% |
-| pass@k | At least one success in k attempts | Depends on criticality |
-| pass^3 | All 3 trials succeed | 100% for critical paths |
-| pass^k | All k trials succeed | Use for regression evals |
+| Metric | Definition                         | Typical Target           |
+| ------ | ---------------------------------- | ------------------------ |
+| pass@1 | First attempt success rate         | Varies by difficulty     |
+| pass@3 | At least one success in 3 attempts | > 90%                    |
+| pass@k | At least one success in k attempts | Depends on criticality   |
+| pass^3 | All 3 trials succeed               | 100% for critical paths  |
+| pass^k | All k trials succeed               | Use for regression evals |
 
 ## Storage
 

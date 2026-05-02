@@ -16,11 +16,27 @@ from __future__ import annotations
 
 from typing import Any, TypedDict
 
+_ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
+
 # Spec-112 D-112-02: `engine` is required at the root and must be one of
 # the values below. Adding a 5th IDE means appending here AND adding the
 # adapter; the validator keeps the surface honest.
 ALLOWED_ENGINES: frozenset[str] = frozenset(
     {"claude_code", "codex", "gemini", "copilot", "ai_engineering"}
+)
+
+ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(
+    {
+        "skill_invoked",
+        "agent_dispatched",
+        "context_load",
+        "ide_hook",
+        "framework_error",
+        "git_hook",
+        "control_outcome",
+        "framework_operation",
+        "task_trace",
+    }
 )
 
 # Spec-112 G-4: required-at-root keys for every event written to NDJSON.
@@ -66,6 +82,11 @@ class FrameworkEvent(TypedDict, total=False):
     detail: dict[str, Any]
 
 
+def normalize_engine_id(engine: str) -> str:
+    """Return the canonical engine identifier for framework events."""
+    return _ENGINE_ALIASES.get(engine, engine)
+
+
 def validate_event_schema(event: Any) -> bool:
     """Return True iff `event` matches the unified schema.
 
@@ -85,8 +106,17 @@ def validate_event_schema(event: Any) -> bool:
     engine = event.get("engine")
     if not isinstance(engine, str) or engine not in ALLOWED_ENGINES:
         return False
+    kind = event.get("kind")
+    if not isinstance(kind, str) or kind not in ALLOWED_EVENT_KINDS:
+        return False
     detail = event.get("detail", {})
     return isinstance(detail, dict)
 
 
-__all__ = ["ALLOWED_ENGINES", "FrameworkEvent", "validate_event_schema"]
+__all__ = [
+    "ALLOWED_ENGINES",
+    "ALLOWED_EVENT_KINDS",
+    "FrameworkEvent",
+    "normalize_engine_id",
+    "validate_event_schema",
+]

@@ -14,7 +14,8 @@ from ai_engineering.state.defaults import (
     default_install_state,
     default_ownership_map,
 )
-from ai_engineering.state.io import write_json_model
+from ai_engineering.state.io import read_json_model, write_json_model
+from ai_engineering.state.models import OwnershipMap
 
 
 @pytest.fixture()
@@ -231,6 +232,40 @@ class TestStateFix:
         assert "decision-store.json" in result.message
         # The other two should not appear in the message
         assert "install-state.json" not in result.message
+
+    def test_fix_uses_manifest_root_entry_point_contract_for_ownership_map(
+        self, tmp_path: Path
+    ) -> None:
+        sd = tmp_path / ".ai-engineering" / "state"
+        sd.mkdir(parents=True)
+        write_json_model(sd / "install-state.json", default_install_state())
+        write_json_model(sd / "decision-store.json", default_decision_store())
+
+        manifest_path = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(
+            "ownership:\n"
+            "  root_entry_points:\n"
+            "    CLAUDE.md:\n"
+            "      owner: team\n"
+            "      canonical_source: CONSTITUTION.md\n"
+            "      runtime_role: ide-overlay\n"
+            "      sync:\n"
+            "        mode: copy\n"
+            "        template_path: src/ai_engineering/templates/project/CLAUDE.md\n"
+            "        mirror_paths: []\n",
+            encoding="utf-8",
+        )
+
+        ctx = DoctorContext(target=tmp_path)
+        checks = state_phase.check(ctx)
+        fixable = [check for check in checks if check.fixable]
+
+        state_phase.fix(ctx, fixable)
+
+        ownership = read_json_model(sd / "ownership-map.json", OwnershipMap)
+        assert ownership.is_update_allowed("CLAUDE.md") is False
+        assert ownership.has_deny_rule("CLAUDE.md") is True
 
     def test_check_returns_three_results(self, ctx: DoctorContext) -> None:
         # spec-107 D-107-10 (T-6.5) added two WARN-only advisory checks for

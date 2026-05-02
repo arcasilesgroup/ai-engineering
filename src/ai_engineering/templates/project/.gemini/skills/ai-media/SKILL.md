@@ -7,6 +7,10 @@ tags: [media, generation, fal-ai]
 requires:
   mcp:
   - fal-ai
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-media/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

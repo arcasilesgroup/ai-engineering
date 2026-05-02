@@ -4,6 +4,10 @@ description: Activate at session start to silently observe corrections, recoveri
 effort: medium
 argument-hint: "[--review]"
 tags: [meta, learning, continuous-improvement]
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-instinct/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -13,12 +17,12 @@ Project-local instinct learning for `ai-engineering`. Two modes: passive observa
 
 ## Artifact Set
 
-| Artifact | Purpose |
-|----------|---------|
+| Artifact                                             | Purpose                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------- |
 | `.ai-engineering/state/instinct-observations.ndjson` | Append-only observation stream from hooks. Retain last 30 days. |
-| `.ai-engineering/instincts/instincts.yml` | Canonical project-local instinct store (v2 schema). |
-| `.ai-engineering/instincts/meta.json` | Checkpoints and thresholds for consolidation. |
-| `.ai-engineering/instincts/proposals.md` | Actionable proposals generated when thresholds are met. |
+| `.ai-engineering/instincts/instincts.yml`            | Canonical project-local instinct store (v2 schema).             |
+| `.ai-engineering/instincts/meta.json`                | Checkpoints and thresholds for consolidation.                   |
+| `.ai-engineering/instincts/proposals.md`             | Actionable proposals generated when thresholds are met.         |
 
 ## Supported Families (v2)
 
@@ -53,6 +57,7 @@ Review the current conversation for:
 - **Workflows**: skill invocation sequences and tool usage patterns.
 
 For each observation, identify:
+
 - `relatedSkill` -- which skill was active (e.g., `ai-code`, `ai-test`)
 - `diagnostic` -- the error message or correction signal
 - `skillIssue` -- what the skill got wrong or could improve
@@ -91,6 +96,7 @@ workflows:
 ```
 
 Merge rules:
+
 - If an existing entry matches the same pattern (fuzzy match on trigger + action), increment `evidenceCount` and update `lastSeen`. Match if the trigger and action describe the same behavioral pattern using different wording. When in doubt, increment the existing entry rather than creating a duplicate.
 - Apply confidence scoring: `confidence_for_count(evidenceCount)` yields 0.3/0.5/0.7/0.85 at thresholds 1/2/3/5+.
 - Drop entries with confidence below 0.2 (decay threshold).
@@ -101,13 +107,14 @@ Merge rules:
 Cross-reference the updated instincts with project knowledge to produce actionable proposals:
 
 1. Read `.ai-engineering/LESSONS.md` to check for already-captured patterns.
-2. Read project context: `.ai-engineering/CONSTITUTION.md`, `.ai-engineering/manifest.yml`, and the target artifact (e.g., `.codex/skills/ai-<skill>/SKILL.md` or `.codex/agents/ai-<agent>.md`) to understand the improvement surface.
+2. Read project context: `CONSTITUTION.md`, `.ai-engineering/manifest.yml`, and the target artifact (e.g., `.codex/skills/ai-<skill>/SKILL.md` or `.codex/agents/ai-<agent>.md`) to understand the improvement surface. If only `.ai-engineering/CONSTITUTION.md` exists, use it as a compatibility fallback.
 3. Filter instincts: only those with `confidence >= 0.7` AND `evidenceCount >= 3` qualify as proposals.
 4. For each qualifying instinct, check if the pattern is already captured in LESSONS.md -- if so, skip.
 5. Append a new `PROP-NNN` entry to `.ai-engineering/instincts/proposals.md`:
 
 ```markdown
 ## PROP-NNN: <title>
+
 - **Status**: proposed
 - **Source**: <family> instinct, confidence <N>, evidence <N>
 - **Pattern**: <what was observed>

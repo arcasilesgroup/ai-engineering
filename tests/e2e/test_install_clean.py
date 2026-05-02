@@ -43,7 +43,15 @@ class TestInstallClean:
         ]
         for dirname in required_dirs:
             assert (ai_dir / dirname).is_dir(), f"Missing dir: {dirname}"
-        assert (ai_dir / "CONSTITUTION.md").is_file(), "Missing: CONSTITUTION.md"
+        assert (ai_dir / "CONSTITUTION.md").is_file(), "Missing workspace charter: CONSTITUTION.md"
+
+    def test_install_creates_root_constitution(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        install(tmp_path, stacks=["python"], ides=["vscode"])
+
+        assert (tmp_path / "CONSTITUTION.md").is_file(), "Missing root CONSTITUTION.md"
 
     def test_install_creates_state_files(
         self,

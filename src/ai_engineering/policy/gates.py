@@ -17,6 +17,7 @@ are rejected.
 from __future__ import annotations
 
 import time as _time
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -52,6 +53,81 @@ class GateResult:
         return [c.name for c in self.checks if not c.passed]
 
 
+def _emit_gate_audit(project_root: Path, result: GateResult, *, started_at: float) -> None:
+    """Emit the standard gate audit event with elapsed time."""
+    elapsed_ms = int((_time.monotonic() - started_at) * 1000)
+    emit_gate_event(project_root, result, duration_ms=elapsed_ms)
+
+
+def _emit_build_complete_if_needed(project_root: Path, result: GateResult) -> None:
+    """Emit the build-complete event for successful pre-push runs."""
+    if not result.passed or result.hook != GateHook.PRE_PUSH:
+        return
+
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_build_event
+
+        stats = _git_diff_stats(project_root)
+        emit_build_event(
+            project_root,
+            mode="pre-push",
+            files_changed=stats["files"],
+            lines_added=stats["insertions"],
+            lines_removed=stats["deletions"],
+            stack=",".join(_get_active_stacks(project_root)),
+        )
+
+
+def _run_common_gate_guards(
+    project_root: Path,
+    result: GateResult,
+    *,
+    started_at: float,
+) -> bool:
+    """Run the common branch/version/hook guards for hook-style gates."""
+    from ai_engineering.policy.checks.branch_protection import (
+        check_branch_protection,
+        check_hook_integrity,
+        check_version_deprecation,
+    )
+
+    check_branch_protection(project_root, result)
+    if not result.passed:
+        _emit_gate_audit(project_root, result, started_at=started_at)
+        return False
+
+    check_version_deprecation(result)
+    if not result.passed:
+        _emit_gate_audit(project_root, result, started_at=started_at)
+        return False
+
+    check_hook_integrity(project_root, result)
+    if not result.passed:
+        _emit_gate_audit(project_root, result, started_at=started_at)
+        return False
+
+    return True
+
+
+def run_commit_msg_gate(
+    project_root: Path,
+    *,
+    commit_msg_file: Path | None = None,
+) -> GateResult:
+    """Execute the commit-msg hook through a thin dedicated adapter path."""
+    started_at = _time.monotonic()
+    result = GateResult(hook=GateHook.COMMIT_MSG)
+
+    if not _run_common_gate_guards(project_root, result, started_at=started_at):
+        return result
+
+    _run_commit_msg_checks(commit_msg_file, result)
+    _emit_gate_audit(project_root, result, started_at=started_at)
+    return result
+
+
 def run_gate(
     hook: GateHook,
     project_root: Path,
@@ -68,62 +144,28 @@ def run_gate(
     Returns:
         GateResult with all check outcomes.
     """
-    from ai_engineering.policy.checks.branch_protection import (
-        check_branch_protection,
-        check_hook_integrity,
-        check_version_deprecation,
+    warnings.warn(
+        "policy.gates.run_gate is the legacy gate engine and is deprecated; route CLI and hook flows through policy.orchestrator.run_gate instead.",
+        DeprecationWarning,
+        stacklevel=2,
     )
 
     t0 = _time.monotonic()
     result = GateResult(hook=hook)
 
-    # Branch protection check (all hooks)
-    check_branch_protection(project_root, result)
-    if not result.passed:
-        elapsed_ms = int((_time.monotonic() - t0) * 1000)
-        emit_gate_event(project_root, result, duration_ms=elapsed_ms)
-        return result
+    if hook == GateHook.COMMIT_MSG:
+        return run_commit_msg_gate(project_root, commit_msg_file=commit_msg_file)
 
-    # Version deprecation check (defense-in-depth, all hooks)
-    check_version_deprecation(result)
-    if not result.passed:
-        elapsed_ms = int((_time.monotonic() - t0) * 1000)
-        emit_gate_event(project_root, result, duration_ms=elapsed_ms)
-        return result
-
-    check_hook_integrity(project_root, result)
-    if not result.passed:
-        elapsed_ms = int((_time.monotonic() - t0) * 1000)
-        emit_gate_event(project_root, result, duration_ms=elapsed_ms)
+    if not _run_common_gate_guards(project_root, result, started_at=t0):
         return result
 
     if hook == GateHook.PRE_COMMIT:
         _run_pre_commit_checks(project_root, result)
-    elif hook == GateHook.COMMIT_MSG:
-        _run_commit_msg_checks(commit_msg_file, result)
     elif hook == GateHook.PRE_PUSH:
         _run_pre_push_checks(project_root, result)
 
-    # Emit audit event for observability with timing
-    elapsed_ms = int((_time.monotonic() - t0) * 1000)
-    emit_gate_event(project_root, result, duration_ms=elapsed_ms)
-
-    # Emit build_complete on successful pre-push
-    if result.passed and hook == GateHook.PRE_PUSH:
-        import contextlib
-
-        with contextlib.suppress(Exception):
-            from ai_engineering.state.audit import emit_build_event
-
-            stats = _git_diff_stats(project_root)
-            emit_build_event(
-                project_root,
-                mode="pre-push",
-                files_changed=stats["files"],
-                lines_added=stats["insertions"],
-                lines_removed=stats["deletions"],
-                stack=",".join(_get_active_stacks(project_root)),
-            )
+    _emit_gate_audit(project_root, result, started_at=t0)
+    _emit_build_complete_if_needed(project_root, result)
 
     return result
 

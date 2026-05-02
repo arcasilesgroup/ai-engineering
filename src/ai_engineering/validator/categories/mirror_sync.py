@@ -6,6 +6,10 @@ import re
 from collections.abc import Callable
 from pathlib import Path
 
+from ai_engineering.config.mirror_inventory import (
+    get_generated_provenance_fields,
+    get_internal_specialist_agent_targets,
+)
 from ai_engineering.validator._shared import (
     _CLAUDE_AGENTS_MIRROR,
     _CLAUDE_COMMANDS_MIRROR,
@@ -13,10 +17,12 @@ from ai_engineering.validator._shared import (
     _CODEX_AGENTS_MIRROR,
     _CODEX_SKILLS_MIRROR,
     _COPILOT_AGENTS_MIRROR,
+    _COPILOT_GENERATED_INSTRUCTIONS_MIRROR,
     _COPILOT_SKILLS_MIRROR,
     _GEMINI_AGENTS_MIRROR,
     _GEMINI_SKILLS_MIRROR,
     _GOVERNANCE_MIRROR,
+    _MANUAL_INSTRUCTION_FILES,
     FileCache,
     IntegrityCategory,
     IntegrityCheckResult,
@@ -54,6 +60,58 @@ _ROOT_PARITY_SOURCE_FALLBACKS: dict[str, str] = {
     "GEMINI.md": "AGENTS.md",
     ".github/copilot-instructions.md": "CLAUDE.md",
 }
+
+_SPECIALIST_AGENT_PREFIXES = ("reviewer-", "verifier-", "review-", "verify-")
+_FRONTMATTER_BLOCK_RE = re.compile(r"^---\n(.*?)\n---\n?", re.DOTALL)
+_GENERATED_PROVENANCE_SURFACES: tuple[tuple[str, str, str], ...] = (
+    ("codex-skills", _CODEX_SKILLS_MIRROR[0], "SKILL.md"),
+    ("codex-skills", _CODEX_SKILLS_MIRROR[1], "SKILL.md"),
+    ("codex-agents", _CODEX_AGENTS_MIRROR[0], "ai-*.md"),
+    ("codex-agents", _CODEX_AGENTS_MIRROR[1], "ai-*.md"),
+    ("gemini-skills", _GEMINI_SKILLS_MIRROR[0], "SKILL.md"),
+    ("gemini-skills", _GEMINI_SKILLS_MIRROR[1], "SKILL.md"),
+    ("gemini-agents", _GEMINI_AGENTS_MIRROR[0], "ai-*.md"),
+    ("gemini-agents", _GEMINI_AGENTS_MIRROR[1], "ai-*.md"),
+    ("copilot-skills", _COPILOT_SKILLS_MIRROR[0], "SKILL.md"),
+    ("copilot-skills", _COPILOT_SKILLS_MIRROR[1], "SKILL.md"),
+    ("copilot-agents", _COPILOT_AGENTS_MIRROR[0], "*.agent.md"),
+    ("copilot-agents", _COPILOT_AGENTS_MIRROR[1], "*.agent.md"),
+)
+_PUBLIC_AGENT_ROOTS: tuple[tuple[str, str], ...] = (
+    (_CODEX_AGENTS_MIRROR[0], "ai-*.md"),
+    (_CODEX_AGENTS_MIRROR[1], "ai-*.md"),
+    (_GEMINI_AGENTS_MIRROR[0], "ai-*.md"),
+    (_GEMINI_AGENTS_MIRROR[1], "ai-*.md"),
+    (_COPILOT_AGENTS_MIRROR[0], "*.agent.md"),
+    (_COPILOT_AGENTS_MIRROR[1], "*.agent.md"),
+)
+_PUBLIC_SKILL_ROOTS: tuple[str, ...] = (
+    _CODEX_SKILLS_MIRROR[0],
+    _CODEX_SKILLS_MIRROR[1],
+    _GEMINI_SKILLS_MIRROR[0],
+    _GEMINI_SKILLS_MIRROR[1],
+    _COPILOT_SKILLS_MIRROR[0],
+    _COPILOT_SKILLS_MIRROR[1],
+)
+_PUBLIC_SKILL_ROOT_PREFIXES = ("ai-", "_shared")
+_NON_CLAUDE_LOCAL_REFERENCE_ROOTS: tuple[str, ...] = (
+    _CODEX_SKILLS_MIRROR[0],
+    _CODEX_SKILLS_MIRROR[1],
+    _CODEX_AGENTS_MIRROR[0],
+    _CODEX_AGENTS_MIRROR[1],
+    _GEMINI_SKILLS_MIRROR[0],
+    _GEMINI_SKILLS_MIRROR[1],
+    _GEMINI_AGENTS_MIRROR[0],
+    _GEMINI_AGENTS_MIRROR[1],
+    _COPILOT_SKILLS_MIRROR[0],
+    _COPILOT_SKILLS_MIRROR[1],
+    _COPILOT_AGENTS_MIRROR[0],
+    _COPILOT_AGENTS_MIRROR[1],
+)
+_STRAY_CLAUDE_LOCAL_REF_RE = re.compile(r"\.claude/(skills|agents)/")
+_CANONICAL_SOURCE_LINE_RE = re.compile(
+    r"^canonical_source:\s+\.claude/(skills|agents)/.*$", re.MULTILINE
+)
 
 
 def _check_mirror_sync(
@@ -166,6 +224,7 @@ def _check_mirror_sync(
     # Claude skills/agents mirrors
     _check_claude_skills_mirror(target, report, _sha)
     _check_claude_agents_mirror(target, report, _sha)
+    _check_claude_specialist_agents_mirror(target, report)
 
     # Codex skills/agents mirrors
     _check_codex_skills_mirror(target, report, _sha)
@@ -178,6 +237,11 @@ def _check_mirror_sync(
     # Copilot skills and agents mirrors
     _check_copilot_skills_mirror(target, report, _sha)
     _check_copilot_agents_mirror(target, report, _sha)
+    _check_generated_instructions_mirror(target, report, _sha)
+    _check_generated_mirror_provenance(target, report)
+    _check_non_claude_local_reference_leaks(target, report)
+    _check_public_skill_root_contract(target, report)
+    _check_public_agent_root_contract(target, report)
 
     # Instruction file parity (CLAUDE.md <-> AGENTS.md section content)
     _check_instruction_parity(target, report)
@@ -202,6 +266,7 @@ def _check_pair_mirror(
     label: str,
     description: str,
     sha_fn: Callable[[Path], str] = _sha256,
+    exclude_relatives: frozenset[str] = frozenset(),
 ) -> None:
     """Check a canonical/mirror directory pair for SHA-256 parity."""
     canonical_root = target / canonical_rel
@@ -223,10 +288,12 @@ def _check_pair_mirror(
     canonical_files = {
         f.relative_to(canonical_root)
         for f in sorted(canonical_root.rglob(glob_pattern))
-        if f.is_file()
+        if f.is_file() and f.relative_to(canonical_root).as_posix() not in exclude_relatives
     }
     mirror_files = {
-        f.relative_to(mirror_root) for f in sorted(mirror_root.rglob(glob_pattern)) if f.is_file()
+        f.relative_to(mirror_root)
+        for f in sorted(mirror_root.rglob(glob_pattern))
+        if f.is_file() and f.relative_to(mirror_root).as_posix() not in exclude_relatives
     }
 
     mismatches = 0
@@ -326,11 +393,368 @@ def _check_claude_agents_mirror(
         target,
         report,
         *_CLAUDE_AGENTS_MIRROR,
-        "*.md",
+        "ai-*.md",
         "claude-agent",
         "Claude agent",
         sha_fn=sha_fn,
     )
+
+
+def _check_claude_specialist_agents_mirror(
+    target: Path,
+    report: IntegrityReport,
+) -> None:
+    """Check generated Claude specialist agent wrappers against canonical input."""
+    canonical_root = target / _CLAUDE_AGENTS_MIRROR[0]
+    mirror_root = target / _CLAUDE_AGENTS_MIRROR[1]
+
+    if not canonical_root.is_dir():
+        return
+    if not mirror_root.is_dir():
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="claude-specialist-agent-mirror-root",
+                status=IntegrityStatus.FAIL,
+                message="Claude specialist agent mirror directory not found",
+            )
+        )
+        return
+
+    specialist_files = [
+        agent_path
+        for agent_path in sorted(canonical_root.glob("*.md"))
+        if any(agent_path.stem.startswith(prefix) for prefix in _SPECIALIST_AGENT_PREFIXES)
+    ]
+
+    mismatches = 0
+    missing = 0
+    for canonical_path in specialist_files:
+        mirror_path = mirror_root / canonical_path.name
+        if not mirror_path.is_file():
+            missing += 1
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=f"claude-specialist-agent-missing-{canonical_path.name}",
+                    status=IntegrityStatus.FAIL,
+                    message=f"Claude specialist agent has no mirror: {canonical_path.name}",
+                    file_path=canonical_path.name,
+                )
+            )
+            continue
+
+        canonical_frontmatter, canonical_body = _split_frontmatter(
+            canonical_path.read_text(encoding="utf-8")
+        )
+        mirror_frontmatter, mirror_body = _split_frontmatter(
+            mirror_path.read_text(encoding="utf-8")
+        )
+        expected_frontmatter = {
+            **canonical_frontmatter,
+            **get_generated_provenance_fields(
+                "specialist-agents",
+                canonical_source=f".claude/agents/{canonical_path.name}",
+            ),
+        }
+        if mirror_frontmatter != expected_frontmatter or mirror_body.lstrip(
+            "\n"
+        ) != canonical_body.lstrip("\n"):
+            mismatches += 1
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=f"claude-specialist-agent-desync-{canonical_path.name}",
+                    status=IntegrityStatus.FAIL,
+                    message=f"Claude specialist agent mirror desync: {canonical_path.name}",
+                    file_path=canonical_path.name,
+                )
+            )
+
+    if mismatches == 0 and missing == 0:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="claude-specialist-agents-mirrors",
+                status=IntegrityStatus.OK,
+                message=(
+                    f"All {len(specialist_files)} Claude specialist agent mirrors "
+                    "match the generated contract"
+                ),
+            )
+        )
+
+
+def _check_generated_mirror_provenance(
+    target: Path,
+    report: IntegrityReport,
+) -> None:
+    """Validate provenance frontmatter on generated mirror surfaces.
+
+    Pair parity alone cannot catch regressions when both repo and template
+    surfaces drift in the same way. Generated mirrors that carry frontmatter
+    must retain their governed provenance markers.
+    """
+    checked = 0
+    failures = 0
+
+    surfaces = list(_GENERATED_PROVENANCE_SURFACES)
+    for repo_rel, template_rel in get_internal_specialist_agent_targets().values():
+        surfaces.append(("specialist-agents", repo_rel, "*.md"))
+        surfaces.append(("specialist-agents", template_rel, "*.md"))
+
+    for family_id, root_rel, glob_pattern in surfaces:
+        root = target / root_rel
+        if not root.is_dir():
+            continue
+
+        for path in sorted(root.rglob(glob_pattern)):
+            if not path.is_file():
+                continue
+
+            checked += 1
+            relative = path.relative_to(root)
+            frontmatter, _body = _split_frontmatter(path.read_text(encoding="utf-8"))
+            expected = get_generated_provenance_fields(
+                family_id,
+                _expected_generated_canonical_source(family_id, relative),
+            )
+            mismatched_keys = [
+                key
+                for key, expected_value in expected.items()
+                if frontmatter.get(key) != expected_value
+            ]
+            if mismatched_keys:
+                failures += 1
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.MIRROR_SYNC,
+                        name=(
+                            f"generated-provenance-{family_id}-"
+                            f"{path.relative_to(target).as_posix().replace('/', '-')}"
+                        ),
+                        status=IntegrityStatus.FAIL,
+                        message=(
+                            "Generated mirror provenance mismatch: "
+                            f"{path.relative_to(target).as_posix()} "
+                            f"(expected {', '.join(mismatched_keys)})"
+                        ),
+                        file_path=path.relative_to(target).as_posix(),
+                    )
+                )
+
+    if failures == 0 and checked > 0:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="generated-mirror-provenance",
+                status=IntegrityStatus.OK,
+                message=f"Validated provenance in {checked} generated mirror files",
+            )
+        )
+
+
+def _check_public_skill_root_contract(
+    target: Path,
+    report: IntegrityReport,
+) -> None:
+    """Reject ungoverned entries in public provider skill roots."""
+    checked_roots = 0
+    failures = 0
+
+    for root_rel in _PUBLIC_SKILL_ROOTS:
+        root = target / root_rel
+        if not root.is_dir():
+            continue
+        checked_roots += 1
+
+        for child in sorted(root.iterdir()):
+            if child.name.startswith("."):
+                continue
+            if child.is_dir() and any(
+                child.name.startswith(prefix) for prefix in _PUBLIC_SKILL_ROOT_PREFIXES
+            ):
+                continue
+
+            failures += 1
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.MIRROR_SYNC,
+                    name=(
+                        "ungoverned-public-skill-entry-"
+                        f"{child.relative_to(target).as_posix().replace('/', '-')}"
+                    ),
+                    status=IntegrityStatus.FAIL,
+                    message=(
+                        f"Ungoverned public skill entry: {child.relative_to(target).as_posix()}"
+                    ),
+                    file_path=child.relative_to(target).as_posix(),
+                )
+            )
+
+    if failures == 0 and checked_roots > 0:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="public-skill-root-contract",
+                status=IntegrityStatus.OK,
+                message=f"Validated governed public skill roots in {checked_roots} surfaces",
+            )
+        )
+
+
+def _check_public_agent_root_contract(
+    target: Path,
+    report: IntegrityReport,
+) -> None:
+    """Reject ungoverned entries in public provider agent roots.
+
+    Public agent roots may contain only governed public agent files and the
+    provider-local `internal/` specialist namespace.
+    """
+    checked_roots = 0
+    failures = 0
+
+    for root_rel, allowed_glob in _PUBLIC_AGENT_ROOTS:
+        root = target / root_rel
+        if not root.is_dir():
+            continue
+        checked_roots += 1
+
+        for child in sorted(root.iterdir()):
+            if child.name.startswith("."):
+                continue
+
+            if child.is_dir():
+                if child.name != "internal":
+                    failures += 1
+                    report.checks.append(
+                        IntegrityCheckResult(
+                            category=IntegrityCategory.MIRROR_SYNC,
+                            name=(
+                                "ungoverned-public-agent-entry-"
+                                f"{child.relative_to(target).as_posix().replace('/', '-')}"
+                            ),
+                            status=IntegrityStatus.FAIL,
+                            message=(
+                                "Ungoverned public agent directory: "
+                                f"{child.relative_to(target).as_posix()}"
+                            ),
+                            file_path=child.relative_to(target).as_posix(),
+                        )
+                    )
+                continue
+
+            if not child.match(allowed_glob):
+                failures += 1
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.MIRROR_SYNC,
+                        name=(
+                            "ungoverned-public-agent-entry-"
+                            f"{child.relative_to(target).as_posix().replace('/', '-')}"
+                        ),
+                        status=IntegrityStatus.FAIL,
+                        message=(
+                            f"Ungoverned public agent file: {child.relative_to(target).as_posix()}"
+                        ),
+                        file_path=child.relative_to(target).as_posix(),
+                    )
+                )
+
+    if failures == 0 and checked_roots > 0:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="public-agent-root-contract",
+                status=IntegrityStatus.OK,
+                message=f"Validated governed public agent roots in {checked_roots} surfaces",
+            )
+        )
+
+
+def _check_non_claude_local_reference_leaks(
+    target: Path,
+    report: IntegrityReport,
+) -> None:
+    """Reject leaked `.claude/skills|agents` references in non-Claude mirrors.
+
+    Generated non-Claude mirrors may keep `.claude/...` only in the provenance
+    `canonical_source` field. Any other `.claude/skills/` or `.claude/agents/`
+    occurrence means the generator failed to localize a provider-facing path.
+    """
+    checked = 0
+    failures = 0
+
+    for root_rel in _NON_CLAUDE_LOCAL_REFERENCE_ROOTS:
+        root = target / root_rel
+        if not root.is_dir():
+            continue
+
+        for path in sorted(root.rglob("*")):
+            if not path.is_file():
+                continue
+
+            checked += 1
+            text = path.read_text(encoding="utf-8", errors="replace")
+            searchable = _CANONICAL_SOURCE_LINE_RE.sub("", text)
+            if _STRAY_CLAUDE_LOCAL_REF_RE.search(searchable):
+                failures += 1
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.MIRROR_SYNC,
+                        name=(
+                            "non-claude-local-reference-leak-"
+                            f"{path.relative_to(target).as_posix().replace('/', '-')}"
+                        ),
+                        status=IntegrityStatus.FAIL,
+                        message=(
+                            "Stray .claude local reference leak in non-Claude mirror: "
+                            f"{path.relative_to(target).as_posix()}"
+                        ),
+                        file_path=path.relative_to(target).as_posix(),
+                    )
+                )
+
+    if failures == 0 and checked > 0:
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MIRROR_SYNC,
+                name="non-claude-local-reference-contract",
+                status=IntegrityStatus.OK,
+                message=f"Validated non-Claude local references in {checked} generated files",
+            )
+        )
+
+
+def _expected_generated_canonical_source(family_id: str, relative: Path) -> str:
+    """Return the canonical source path encoded into generated provenance."""
+    rel = relative.as_posix()
+    if family_id in {"codex-skills", "gemini-skills", "copilot-skills"}:
+        return f".claude/skills/{rel}"
+    if family_id in {"codex-agents", "gemini-agents"}:
+        return f".claude/agents/{rel}"
+    if family_id == "copilot-agents":
+        agent_name = relative.name.removesuffix(".agent.md")
+        canonical_name = agent_name if agent_name.startswith("ai-") else f"ai-{agent_name}"
+        return f".claude/agents/{canonical_name}.md"
+    if family_id == "specialist-agents":
+        return f".claude/agents/{relative.name}"
+    raise ValueError(f"Unsupported generated provenance family: {family_id}")
+
+
+def _split_frontmatter(text: str) -> tuple[dict[str, object], str]:
+    """Return parsed frontmatter and body from a markdown document."""
+    match = _FRONTMATTER_BLOCK_RE.match(text)
+    if not match:
+        return {}, text
+
+    import yaml
+
+    frontmatter = yaml.safe_load(match.group(1)) or {}
+    if not isinstance(frontmatter, dict):
+        frontmatter = {}
+    return frontmatter, text[match.end() :]
 
 
 def _check_codex_skills_mirror(
@@ -415,6 +839,24 @@ def _check_copilot_agents_mirror(
         "copilot-agent",
         "Copilot agent",
         sha_fn=sha_fn,
+    )
+
+
+def _check_generated_instructions_mirror(
+    target: Path,
+    report: IntegrityReport,
+    sha_fn: Callable[[Path], str] = _sha256,
+) -> None:
+    """Check generated Copilot instruction files for repo/template parity."""
+    _check_pair_mirror(
+        target,
+        report,
+        *_COPILOT_GENERATED_INSTRUCTIONS_MIRROR,
+        "*.instructions.md",
+        "copilot-generated-instruction",
+        "Generated instruction",
+        sha_fn=sha_fn,
+        exclude_relatives=_MANUAL_INSTRUCTION_FILES,
     )
 
 

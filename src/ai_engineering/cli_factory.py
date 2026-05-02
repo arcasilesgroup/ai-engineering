@@ -359,6 +359,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         help="Spec lifecycle: verify counters, list current spec.",
         no_args_is_help=True,
     )
+    spec_app.command("activate")(_safe(spec_cmd.spec_activate))
     spec_app.command("verify")(_safe(spec_cmd.spec_verify))
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     app.add_typer(spec_app, name="spec")

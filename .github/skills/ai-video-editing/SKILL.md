@@ -10,6 +10,10 @@ requires:
   - npx
   bins:
   - ffmpeg
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-video-editing/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

@@ -78,7 +78,7 @@ class _CompletedProcessStub:
     def __init__(
         self,
         *,
-        returncode: int = 0,
+        returncode: int,
         stdout: str = "",
         stderr: str = "",
         args: list[str] | None = None,
@@ -692,6 +692,48 @@ def test_wave1_skips_ruff_when_no_python_files(tmp_path: Path) -> None:
     )
 
 
+def test_wave1_passes_only_python_files_to_ruff_for_mixed_staged_set(
+    tmp_path: Path,
+) -> None:
+    """Mixed staged files must not send JSON/docs into ruff fixers."""
+    from ai_engineering.policy.orchestrator import run_wave1
+
+    observed_ruff_args: list[list[str]] = []
+
+    def fake_run(args: list[str], *_: Any, **__: Any) -> _CompletedProcessStub:
+        token = _classify_fixer(list(args))
+        if token in {"ruff-format", "ruff-check"}:
+            observed_ruff_args.append(list(args))
+            return (
+                _ruff_format_pass(list(args))
+                if token == "ruff-format"
+                else _ruff_check_pass(list(args))
+            )
+        if token == "spec-verify":
+            return _spec_verify_pass(list(args))
+        return _CompletedProcessStub(returncode=0, args=list(args))
+
+    py_file = tmp_path / "main.py"
+    py_file.write_text("x=1\n", encoding="utf-8")
+    json_file = tmp_path / "state.json"
+    json_file.write_text('{"ok": true}\n', encoding="utf-8")
+    md_file = tmp_path / "README.md"
+    md_file.write_text("# title\n", encoding="utf-8")
+
+    with mock.patch(
+        "ai_engineering.policy.orchestrator.subprocess.run",
+        side_effect=fake_run,
+    ):
+        result = run_wave1([py_file, json_file, md_file])
+
+    assert result.return_code == 0
+    assert observed_ruff_args, "ruff fixers should still run when a python file is staged"
+    for args in observed_ruff_args:
+        assert str(py_file) in args
+        assert str(json_file) not in args
+        assert str(md_file) not in args
+
+
 def test_wave1_handles_no_active_spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When ``.ai-engineering/specs/spec.md`` is the "No active spec" placeholder,
     skip ``spec verify --fix`` gracefully (no subprocess invoked).
@@ -755,3 +797,250 @@ def test_wave1_handles_no_active_spec(tmp_path: Path, monkeypatch: pytest.Monkey
         "Skipping spec-verify for placeholder spec must NOT raise return_code; "
         f"got {result.return_code!r}"
     )
+
+
+def test_wave1_runs_spec_verify_for_placeholder_spec_with_active_resolved_ledger(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A placeholder spec stays active when the resolved work plane has live tasks.
+
+    HX-02 T-5.1 cuts over Wave 1 readiness from placeholder prose alone to
+    the resolved work-plane ledger. This regression keeps the caller's
+    explicit ``project_root`` authoritative even when the current working
+    directory is elsewhere.
+    """
+    # Arrange
+    from ai_engineering.policy.orchestrator import run_wave1
+
+    project_root = tmp_path / "project"
+    legacy_specs_dir = project_root / ".ai-engineering" / "specs"
+    legacy_specs_dir.mkdir(parents=True)
+    (legacy_specs_dir / "spec.md").write_text(
+        "# No active spec\n\nUse `/ai-brainstorm` to start a new one.\n",
+        encoding="utf-8",
+    )
+    (legacy_specs_dir / "active-work-plane.json").write_text(
+        '{"specsDir": "resolved-work-plane"}',
+        encoding="utf-8",
+    )
+
+    resolved_specs_dir = project_root / "resolved-work-plane"
+    resolved_specs_dir.mkdir()
+    (resolved_specs_dir / "spec.md").write_text(
+        "# No active spec\n\nUse `/ai-brainstorm` to start a new one.\n",
+        encoding="utf-8",
+    )
+    (resolved_specs_dir / "task-ledger.json").write_text(
+        (
+            '{"schemaVersion": "1.0", "tasks": ['
+            '{"id": "HX-02-T-5.1", "title": "Cut over Wave 1 gate", '
+            '"status": "review", "ownerRole": "Build", '
+            '"writeScope": ["src/ai_engineering/policy/orchestrator.py"]}'
+            "]}"
+        ),
+        encoding="utf-8",
+    )
+
+    # Keep cwd away from the synthetic project to prove project_root controls
+    # the readiness check.
+    monkeypatch.chdir(tmp_path)
+
+    invocations: list[str] = []
+    spec_verify_cwds: list[Any] = []
+
+    def fake_run(args: list[str], *_: Any, **kwargs: Any) -> _CompletedProcessStub:
+        token = _classify_fixer(list(args))
+        invocations.append(token)
+        if token == "ruff-format":
+            return _ruff_format_pass(list(args))
+        if token == "ruff-check":
+            return _ruff_check_pass(list(args))
+        if token == "spec-verify":
+            spec_verify_cwds.append(kwargs.get("cwd"))
+            return _spec_verify_pass(list(args))
+        return _CompletedProcessStub(returncode=0, args=list(args))
+
+    py = project_root / "main.py"
+    py.write_text("z = 3\n", encoding="utf-8")
+
+    # Act
+    with mock.patch(
+        "ai_engineering.policy.orchestrator.subprocess.run",
+        side_effect=fake_run,
+    ):
+        result = run_wave1([py], project_root=project_root)
+
+    # Assert
+    assert "spec-verify" in invocations, (
+        "spec-verify --fix must run when the resolved work plane still has "
+        f"non-done ledger tasks; invocations={invocations!r}"
+    )
+    assert "spec-verify" in result.fixers_run, (
+        "Wave1Result.fixers_run must include spec-verify when the resolved "
+        f"ledger keeps the placeholder spec active; got {result.fixers_run!r}"
+    )
+    assert spec_verify_cwds == [project_root], (
+        "spec-verify must run with cwd forced to the caller's explicit "
+        f"project_root; got {spec_verify_cwds!r}"
+    )
+    assert result.return_code == 0
+
+
+def test_wave1_skips_spec_verify_for_placeholder_spec_with_done_resolved_ledger(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A pointed placeholder spec stays idle when the resolved ledger is done."""
+    from ai_engineering.policy.orchestrator import run_wave1
+
+    project_root = tmp_path / "project"
+    legacy_specs_dir = project_root / ".ai-engineering" / "specs"
+    legacy_specs_dir.mkdir(parents=True)
+    (legacy_specs_dir / "spec.md").write_text(
+        "# HX-02\n\nFallback surface must be ignored for the idle branch.\n",
+        encoding="utf-8",
+    )
+    (legacy_specs_dir / "active-work-plane.json").write_text(
+        '{"specsDir": "resolved-work-plane"}',
+        encoding="utf-8",
+    )
+
+    resolved_specs_dir = project_root / "resolved-work-plane"
+    resolved_specs_dir.mkdir()
+    (resolved_specs_dir / "spec.md").write_text(
+        "# No active spec\n\nUse `/ai-brainstorm` to start a new one.\n",
+        encoding="utf-8",
+    )
+    (resolved_specs_dir / "task-ledger.json").write_text(
+        (
+            '{"schemaVersion": "1.0", "tasks": ['
+            '{"id": "HX-02-T-5.1", "title": "Cut over Wave 1 gate", '
+            '"status": "done", "ownerRole": "Build", '
+            '"writeScope": ["src/ai_engineering/policy/orchestrator.py"]}'
+            "]}"
+        ),
+        encoding="utf-8",
+    )
+
+    cwd_specs_dir = tmp_path / ".ai-engineering" / "specs"
+    cwd_specs_dir.mkdir(parents=True)
+    (cwd_specs_dir / "spec.md").write_text(
+        "# HX-02\n\nCurrent cwd fallback must also be ignored.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.chdir(tmp_path)
+
+    invocations: list[str] = []
+    cwd_by_token: dict[str, list[Any]] = {
+        "ruff-format": [],
+        "ruff-check": [],
+        "spec-verify": [],
+    }
+
+    def fake_run(args: list[str], *_: Any, **kwargs: Any) -> _CompletedProcessStub:
+        token = _classify_fixer(list(args))
+        invocations.append(token)
+        if token in cwd_by_token:
+            cwd_by_token[token].append(kwargs.get("cwd"))
+        if token == "ruff-format":
+            return _ruff_format_pass(list(args))
+        if token == "ruff-check":
+            return _ruff_check_pass(list(args))
+        if token == "spec-verify":
+            return _spec_verify_pass(list(args))
+        return _CompletedProcessStub(returncode=0, args=list(args))
+
+    py = project_root / "main.py"
+    py.write_text("z = 3\n", encoding="utf-8")
+
+    with mock.patch(
+        "ai_engineering.policy.orchestrator.subprocess.run",
+        side_effect=fake_run,
+    ):
+        result = run_wave1([py], project_root=project_root)
+
+    assert "spec-verify" not in invocations, (
+        "spec-verify must stay skipped when the resolved work-plane ledger "
+        f"contains only done tasks; invocations={invocations!r}"
+    )
+    assert "spec-verify" not in result.fixers_run, (
+        "Wave1Result.fixers_run must omit spec-verify when the resolved "
+        f"ledger is fully done; got {result.fixers_run!r}"
+    )
+    assert cwd_by_token["ruff-format"] == [project_root], (
+        "ruff-format must run with cwd forced to the caller's explicit "
+        f"project_root; got {cwd_by_token['ruff-format']!r}"
+    )
+    assert cwd_by_token["ruff-check"] == [project_root], (
+        "ruff-check must run with cwd forced to the caller's explicit "
+        f"project_root; got {cwd_by_token['ruff-check']!r}"
+    )
+    assert result.return_code == 0
+
+
+def test_wave1_reruns_when_relative_staged_file_changes_under_project_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Relative staged paths still trigger convergence when project_root is explicit."""
+    from ai_engineering.policy.orchestrator import run_wave1
+
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    py = project_root / "main.py"
+    py.write_text("x = 1\n", encoding="utf-8")
+
+    monkeypatch.chdir(tmp_path)
+
+    pass_counter = {"ruff-format": 0, "ruff-check": 0}
+    cwd_by_token: dict[str, list[Any]] = {"ruff-format": [], "ruff-check": []}
+
+    def fake_run(args: list[str], *_: Any, **kwargs: Any) -> _CompletedProcessStub:
+        token = _classify_fixer(list(args))
+        if token in pass_counter:
+            pass_counter[token] += 1
+            cwd_by_token[token].append(kwargs.get("cwd"))
+
+        if token == "ruff-format":
+            if pass_counter[token] == 1:
+                py.write_text("x = 1  # reformatted\n", encoding="utf-8")
+                return _CompletedProcessStub(
+                    returncode=0,
+                    stdout="1 file reformatted\n",
+                    stderr="",
+                    args=list(args),
+                )
+            return _ruff_format_pass(list(args))
+        if token == "ruff-check":
+            return _ruff_check_pass(list(args))
+        return _CompletedProcessStub(returncode=0, args=list(args))
+
+    with mock.patch(
+        "ai_engineering.policy.orchestrator.subprocess.run",
+        side_effect=fake_run,
+    ):
+        result = run_wave1([Path("main.py")], project_root=project_root)
+
+    assert pass_counter["ruff-format"] == 2, (
+        "ruff-format must re-run when a relative staged file changes under "
+        f"the explicit project_root; counters={pass_counter!r}"
+    )
+    assert pass_counter["ruff-check"] == 2, (
+        "ruff-check must participate in the convergence re-run for relative "
+        f"staged files; counters={pass_counter!r}"
+    )
+    assert str(py) in result.files_modified, (
+        "Wave1Result.files_modified must report the project-root-resolved "
+        f"path for relative staged files; got {result.files_modified!r}"
+    )
+    assert cwd_by_token["ruff-format"] == [project_root, project_root], (
+        "ruff-format must run both passes with cwd fixed to project_root; "
+        f"got {cwd_by_token['ruff-format']!r}"
+    )
+    assert cwd_by_token["ruff-check"] == [project_root, project_root], (
+        "ruff-check must run both passes with cwd fixed to project_root; "
+        f"got {cwd_by_token['ruff-check']!r}"
+    )
+    assert result.return_code == 0

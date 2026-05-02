@@ -11,12 +11,13 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from ai_engineering.config.loader import load_manifest_root_entry_points
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.state.defaults import (
-    _DEFAULT_OWNERSHIP_PATHS,
     default_decision_store,
     default_install_state,
     default_ownership_map,
+    default_ownership_paths,
 )
 from ai_engineering.state.io import write_json_model
 from ai_engineering.state.models import InstallState, OwnershipMap
@@ -140,7 +141,12 @@ def _check_ownership_coverage(ctx: DoctorContext) -> CheckResult:
         )
 
     current_patterns = {entry.pattern for entry in omap.paths}
-    default_patterns = {p[0] for p in _DEFAULT_OWNERSHIP_PATHS}
+    default_patterns = {
+        pattern
+        for pattern, _, _ in default_ownership_paths(
+            root_entry_points=load_manifest_root_entry_points(ctx.target),
+        )
+    }
     missing = default_patterns - current_patterns
 
     if missing:
@@ -281,7 +287,12 @@ def fix(
 
         om_path = sd / "ownership-map.json"
         if not om_path.is_file():
-            write_json_model(om_path, default_ownership_map())
+            write_json_model(
+                om_path,
+                default_ownership_map(
+                    root_entry_points=load_manifest_root_entry_points(ctx.target),
+                ),
+            )
             regenerated.append("ownership-map.json")
 
         ds_path = sd / "decision-store.json"

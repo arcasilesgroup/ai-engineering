@@ -3,6 +3,10 @@ name: ai-build
 description: Implementation coordinator. The ONLY agent with code write permissions. Test-first, dispatch-driven, quality-gated.
 model: opus
 color: blue
+mirror_family: gemini-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-build.md
+edit_policy: generated-do-not-edit
 ---
 
 

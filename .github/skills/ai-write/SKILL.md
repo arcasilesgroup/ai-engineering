@@ -5,6 +5,10 @@ effort: high
 argument-hint: "content <type> [--audience developer|manager|executive]"
 mode: agent
 tags: [writing, content, communication]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-write/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

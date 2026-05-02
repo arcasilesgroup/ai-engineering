@@ -40,9 +40,9 @@ The context explorer output is serialized and passed to every specialist in thei
 Agent 1 prompt: "You are reviewing code with these specialist lenses:
 correctness, testing, compatibility. [shared context] [diff]
 Read and follow the instructions in these agent files:
-.codex/agents/reviewer-correctness.md
-.codex/agents/reviewer-testing.md
-.codex/agents/reviewer-compatibility.md
+.codex/agents/internal/reviewer-correctness.md
+.codex/agents/internal/reviewer-testing.md
+.codex/agents/internal/reviewer-compatibility.md
 Produce findings in YAML format attributed by original specialist."
 
 Agent 2 prompt: "... security, backend, performance ..."
@@ -55,7 +55,7 @@ Agent 3 prompt: "... architecture, maintainability, frontend ..."
 For each specialist:
 Agent prompt: "You are the [specialist] reviewer.
 [shared context] [diff]
-Read and follow .codex/agents/reviewer-[specialist].md
+Read and follow .codex/agents/internal/reviewer-[specialist].md
 Produce findings in YAML format."
 ```
 
@@ -92,7 +92,7 @@ disproof without knowing why the specialist flagged it.
 
 ```
 Agent prompt: "You are the finding validator.
-Read and follow .codex/agents/review-finding-validator.md
+Read and follow .codex/agents/internal/review-finding-validator.md
 Here are the findings to validate:
 [YAML finding blocks only -- no reasoning chain]
 For each finding, read the code at the cited location and
