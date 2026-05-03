@@ -30,6 +30,7 @@ from ai_engineering.cli_commands import (
     guide,
     internal,
     maintenance,
+    memory_cmd,
     provider,
     release,
     risk_cmd,
@@ -383,6 +384,9 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     workflow_app.command("pr")(_safe(workflow.workflow_pr))
     workflow_app.command("pr-only")(_safe(workflow.workflow_pr_only))
     app.add_typer(workflow_app, name="workflow")
+
+    # spec-118 memory layer (canonical at .ai-engineering/scripts/memory/)
+    app.add_typer(memory_cmd.memory_app, name="memory")
 
     internal_app = typer.Typer(
         name="internal",

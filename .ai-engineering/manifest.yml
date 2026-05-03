@@ -165,9 +165,9 @@ control_plane:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (49 skills)
+# Skills registry (51 skills)
 skills:
-  total: 49
+  total: 51
   prefix: "ai-"
   registry:
     # Core workflow
@@ -213,6 +213,9 @@ skills:
     ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec] }
     ai-run: { type: meta, tags: [orchestration, autonomous, backlog, no-hitl] }
     ai-constitution: { type: meta, tags: [governance] }
+    # spec-118 memory layer
+    ai-remember: { type: meta, tags: [memory, retrieval, cross-session] }
+    ai-dream: { type: meta, tags: [memory, consolidation, housekeeping] }
     # ECC Integration (spec-062)
     ai-slides: { type: writing, tags: [presentation, html, css] }
     ai-media: { type: writing, tags: [media, generation] }

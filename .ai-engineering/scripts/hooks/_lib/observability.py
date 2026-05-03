@@ -32,6 +32,8 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
         "control_outcome",
         "framework_operation",
         "task_trace",
+        # spec-118 memory layer
+        "memory_event",
     }
 )
 

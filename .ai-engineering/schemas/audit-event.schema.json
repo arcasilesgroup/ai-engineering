@@ -203,6 +203,45 @@
       },
       "required": ["pattern"],
       "additionalProperties": false
+    },
+    "detail_memory_event": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "episode_stored",
+            "knowledge_object_added",
+            "memory_retrieved",
+            "dream_run",
+            "decay_applied",
+            "knowledge_object_promoted",
+            "knowledge_object_retired"
+          ]
+        },
+        "episode_id": { "type": "string" },
+        "ko_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "ko_kind": { "type": "string" },
+        "query_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "retrieval_id": { "type": "string" },
+        "top_k": { "type": "integer", "minimum": 1 },
+        "result_count": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "model": { "type": "string" },
+        "embedding_dim": { "type": "integer", "minimum": 1 },
+        "embedding_status": {
+          "type": "string",
+          "enum": ["pending", "complete", "failed"]
+        },
+        "decay_factor": { "type": "number", "minimum": 0, "maximum": 1 },
+        "clusters_found": { "type": "integer", "minimum": 0 },
+        "promoted_count": { "type": "integer", "minimum": 0 },
+        "retired_count": { "type": "integer", "minimum": 0 },
+        "outcome": { "$ref": "#/$defs/nullableString" },
+        "failure_reason": { "$ref": "#/$defs/nullableString" }
+      },
+      "required": ["operation"],
+      "additionalProperties": false
     }
   },
   "type": "object",
@@ -346,6 +385,17 @@
       "then": {
         "properties": {
           "detail": { "$ref": "#/$defs/detail_instinct_extracted" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "event": { "const": "memory_event" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "detail": { "$ref": "#/$defs/detail_memory_event" }
         }
       }
     }

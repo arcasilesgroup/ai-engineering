@@ -162,3 +162,14 @@ credentials*.json
 .ai-engineering/state/gate-cache/
 .ai-engineering/learnings/
 .claude/session-topics/
+
+# Runtime hook state (session-scoped, not source of truth)
+.ai-engineering/state/runtime/
+
+# spec-118 Memory Layer durable state (per-user, not source of truth)
+.ai-engineering/state/memory.db
+.ai-engineering/state/memory.db-wal
+.ai-engineering/state/memory.db-shm
+.ai-engineering/state/memory/
+# Repair backups (instinct-observations or memory-related atomic rewrites)
+.ai-engineering/state/*.repair-backup

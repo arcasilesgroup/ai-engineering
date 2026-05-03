@@ -79,13 +79,28 @@ def _meta_path(project_root: Path) -> Path:
 
 
 def _read_ndjson(path: Path) -> list[dict[str, Any]]:
+    """Read NDJSON file, skipping malformed lines.
+
+    Malformed lines (truncated writes, partial flushes, manual edits) must
+    not crash the hook. The instinct ratchet relies on PostToolUse running
+    cleanly on every tool call; one bad line in the observations file
+    historically broke the entire self-improvement loop (caught via the
+    `Unterminated string starting at: line 1 column 1` framework_error
+    spam in framework-events.ndjson).
+    """
     if not path.exists():
         return []
     entries: list[dict[str, Any]] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if line:
-            entries.append(json.loads(line))
+        if not line:
+            continue
+        try:
+            parsed = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(parsed, dict):
+            entries.append(parsed)
     return entries
 
 
@@ -212,6 +227,12 @@ def _load_meta(project_root: Path) -> dict[str, Any]:
     raw = json.loads(path.read_text(encoding="utf-8"))
     meta = _default_meta()
     meta.update(raw)
+    # spec-118 WARN-coerce: legacy on-disk "lastExtractedAt: ''" must read as None
+    # so _parse_iso/_filter_new_observations behave consistently with first-run
+    # semantics. _parse_iso already returns None for falsy values; this makes the
+    # contract explicit at the load boundary.
+    if isinstance(meta.get("lastExtractedAt"), str) and not meta["lastExtractedAt"]:
+        meta["lastExtractedAt"] = None
     return meta
 
 

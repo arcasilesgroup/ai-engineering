@@ -17,6 +17,17 @@ dependencies = [
   "packaging>=24.0,<27.0",
 ]
 
+[project.optional-dependencies]
+# spec-118 memory layer; opt-in via `uv sync --extra memory`. Kept out of the
+# core deps so hook scripts (which must run without pip install) and minimal
+# CI lanes do not pay the fastembed/hdbscan footprint.
+memory = [
+  "sqlite-vec>=0.1,<0.2",
+  "fastembed>=0.3,<0.5",
+  "hdbscan>=0.8,<1.0",
+  "numpy>=1.26,<3.0",
+]
+
 [dependency-groups]
 dev = [
   "pytest>=8.0,<10.0",
@@ -101,6 +112,8 @@ markers = [
   "spec_105_red: spec-105 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_106_red: spec-106 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_107_red: spec-107 RED tests; excluded by default until corresponding GREEN phase commits",
+  "memory: spec-118 memory layer unit/integration tests; opt-in via -m memory; requires `uv sync --extra memory`",
+  "memory_slow: spec-118 memory layer tests that load the real fastembed model; opt-in via -m memory_slow",
 ]
 
 [build-system]
