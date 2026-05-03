@@ -2,8 +2,9 @@
 
 The ``update()`` function should respect ``ai_providers.enabled`` from
 ``manifest.yml`` and only produce changes for the configured providers.
-When the governed manifest is absent, updater initialization must fail fast
-instead of inventing an implicit provider set.
+When the governed manifest is absent, updater initialization must preserve
+the historical all-provider compatibility fallback so partial installs can
+migrate forward.
 
 RED-phase tests -- expected to FAIL until ``_evaluate_project_files``
 reads the manifest and passes the enabled providers to
@@ -199,19 +200,28 @@ class TestUpdateProviderFiltering:
             f"{[p for p in paths if _has_provider_paths({p}, _CODEX_PREFIXES)]}"
         )
 
-    def test_update_no_manifest_requires_manifest_contract(
+    def test_update_no_manifest_uses_compatibility_provider_fallback(
         self,
         no_manifest_project: Path,
     ) -> None:
-        """T-R3: Without a manifest, updater must fail fast.
-
-        Phase 5 removes the historical implicit "all providers active"
-        fallback so provider resolution stays governed by the manifest.
-        """
-        with pytest.raises(
-            FileNotFoundError, match="Manifest contract not found for updater context"
+        """T-R3: Without a manifest, updater keeps all providers active."""
+        for relative_path in (
+            "CLAUDE.md",
+            ".github/copilot-instructions.md",
+            "GEMINI.md",
+            ".codex/config.toml",
         ):
-            update(no_manifest_project, dry_run=True)
+            path = no_manifest_project / relative_path
+            if path.exists():
+                path.unlink()
+
+        result = update(no_manifest_project, dry_run=True)
+        paths = _changed_relative_paths(result, no_manifest_project)
+
+        assert _has_provider_paths(paths, _CLAUDE_PREFIXES)
+        assert _has_provider_paths(paths, _COPILOT_PREFIXES)
+        assert _has_provider_paths(paths, _GEMINI_PREFIXES)
+        assert _has_provider_paths(paths, _CODEX_PREFIXES)
 
 
 # ---------------------------------------------------------------------------

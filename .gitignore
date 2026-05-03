@@ -157,5 +157,8 @@ credentials*.json
 .ai-engineering/state/instinct-observations.ndjson
 .ai-engineering/state/strategic-compact.json
 .ai-engineering/state/*-report.json
+.ai-engineering/state/gate-findings.json
+.ai-engineering/state/watch-residuals.json
+.ai-engineering/state/gate-cache/
 .ai-engineering/learnings/
 .claude/session-topics/

@@ -174,7 +174,7 @@ class _UpdateSnapshot:
     ownership: OwnershipMap
     rules_added: bool
     vcs_provider: str | None
-    providers: list[str]
+    providers: list[str] | None
 
 
 @dataclass(frozen=True)
@@ -395,7 +395,7 @@ def _initialize_update_context(
     target: Path,
     *,
     dry_run: bool,
-) -> tuple[Path, Path, OwnershipMap, bool, str | None, list[str]]:
+) -> tuple[Path, Path, OwnershipMap, bool, str | None, list[str] | None]:
     """Load ownership and update state before evaluating changes."""
     ai_eng_dir = target / _AI_ENGINEERING_DIR
     state_dir = ai_eng_dir / "state"
@@ -418,16 +418,11 @@ def _initialize_update_context(
 
     install_state = load_install_state(state_dir)
 
-    # Read active AI providers from the governed manifest contract.
     root_entry_points = load_manifest_root_entry_points(target)
-    if root_entry_points is None:
-        manifest_path = target / _AI_ENGINEERING_DIR / "manifest.yml"
-        raise FileNotFoundError(
-            f"Manifest contract not found for updater context: {manifest_path.as_posix()}"
-        )
-
-    cfg = load_manifest_config(target)
-    providers = cfg.ai_providers.enabled
+    manifest_path = target / _AI_ENGINEERING_DIR / "manifest.yml"
+    providers = (
+        load_manifest_config(target).ai_providers.enabled if manifest_path.is_file() else None
+    )
 
     rules_added = _merge_missing_ownership_rules(
         ownership,
@@ -469,6 +464,12 @@ def update(
     if run.apply_result is None:
         msg = "update reconciler did not apply changes"
         raise RuntimeError(msg)
+    if run.rolled_back or (run.verification is not None and not run.verification.passed):
+        details = []
+        if run.verification is not None:
+            details.extend(run.verification.errors)
+        message = "; ".join(details) or "update verification failed"
+        raise RuntimeError(f"update verification failed; rolled back changes: {message}")
     payload = _UpdateAdapter._coerce_apply_payload(run.apply_result.payload)
     return payload.result
 

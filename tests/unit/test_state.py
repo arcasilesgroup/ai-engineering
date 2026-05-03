@@ -695,7 +695,7 @@ class TestAuditEnrichment:
         (specs_dir / "spec.md").write_text("---\ntitle: test\n---\n\n055-radical-simplification\n")
         assert _read_active_spec(tmp_path) == "055"
 
-    def test_read_active_spec_caches_result(self, tmp_path: Path) -> None:
+    def test_read_active_spec_reads_current_spec_each_call(self, tmp_path: Path) -> None:
         from ai_engineering.state.audit import _read_active_spec
 
         specs_dir = tmp_path / ".ai-engineering" / "specs"
@@ -703,7 +703,7 @@ class TestAuditEnrichment:
         (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n')
         assert _read_active_spec(tmp_path) == "055"
         (specs_dir / "spec.md").write_text('---\nid: "999"\n---\n')
-        assert _read_active_spec(tmp_path) == "055"
+        assert _read_active_spec(tmp_path) == "999"
 
     def test_read_active_stack_from_manifest_yml(self, tmp_path: Path) -> None:
         """_read_active_stack reads from manifest.yml (not install-manifest.json)."""

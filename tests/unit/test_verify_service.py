@@ -36,6 +36,7 @@ class FakeSubprocess:
 
     def __init__(self) -> None:
         self._responses: dict[str, subprocess.CompletedProcess[str]] = {}
+        self.calls: list[list[str]] = []
 
     def set_response(
         self,
@@ -54,6 +55,7 @@ class FakeSubprocess:
         *_args: object,
         **_kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
+        self.calls.append(cmd)
         cmd_str = " ".join(cmd)
         for key, response in self._responses.items():
             if key in cmd_str:
@@ -120,7 +122,8 @@ class TestVerifyQuality:
         monkeypatch.setattr(
             "ai_engineering.verify.service._run",
             lambda *_args, **_kwargs: pytest.fail(
-                "verify_quality must not execute tool subprocesses when gate-findings.json is present"
+                "verify_quality must not execute tool subprocesses when "
+                "gate-findings.json is present"
             ),
         )
 
@@ -182,8 +185,8 @@ class TestVerifyQuality:
 
 
 class TestVerifySecurity:
-    def test_gate_findings_artifact_drives_security_without_subprocess(
-        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    def test_gate_findings_artifact_augments_security_scans(
+        self, tmp_path: Path, fake_run: FakeSubprocess
     ) -> None:
         _write_gate_findings(
             tmp_path,
@@ -212,12 +215,8 @@ class TestVerifySecurity:
                 },
             ],
         )
-        monkeypatch.setattr(
-            "ai_engineering.verify.service._run",
-            lambda *_args, **_kwargs: pytest.fail(
-                "verify_security must not execute tool subprocesses when gate-findings.json is present"
-            ),
-        )
+        fake_run.set_response("gitleaks", returncode=0, stdout="")
+        fake_run.set_response("tls_pip_audit", returncode=0, stdout="")
 
         result = verify_security(tmp_path)
 
@@ -228,6 +227,9 @@ class TestVerifySecurity:
             "check.kernel.gitleaks",
             "check.kernel.pip_audit",
         }
+        command_log = [" ".join(call) for call in fake_run.calls]
+        assert any("gitleaks" in command for command in command_log)
+        assert any("tls_pip_audit" in command or "pip-audit" in command for command in command_log)
 
     def test_clean_scan_returns_score_100(self, fake_run: FakeSubprocess) -> None:
         # Arrange — both tools return clean

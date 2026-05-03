@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.state.control_plane import resolve_state_plane_contract
-from ai_engineering.state.work_plane import resolve_active_work_plane
+from ai_engineering.state.work_plane import ActiveWorkPlane, resolve_active_work_plane
 from ai_engineering.validator._shared import (
     _KNOWN_OPTIONAL_PATHS,
     _PATH_REF_PATTERN,
@@ -215,7 +215,7 @@ def _state_plane_repo_relative_path(ref_path: str) -> str | None:
     return None
 
 
-def _record_spec_buffer_result(report: IntegrityReport, work_plane: object) -> None:
+def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPlane) -> None:
     required_spec_files = {
         "spec.md": work_plane.spec_path,
         "plan.md": work_plane.plan_path,
@@ -244,7 +244,9 @@ def _record_spec_buffer_result(report: IntegrityReport, work_plane: object) -> N
     )
 
 
-def _record_work_plane_artifact_result(report: IntegrityReport, work_plane: object) -> None:
+def _record_work_plane_artifact_result(
+    report: IntegrityReport, work_plane: ActiveWorkPlane
+) -> None:
     required_work_plane_artifacts = {
         "task-ledger.json": work_plane.ledger_path,
         "current-summary.md": work_plane.current_summary_path,

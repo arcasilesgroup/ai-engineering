@@ -17,8 +17,10 @@ import re
 from pathlib import Path
 
 from ai_engineering.git.operations import current_branch, run_git
-from ai_engineering.state.models import TaskLifecycleState
-from ai_engineering.state.work_plane import read_task_ledger, resolve_active_work_plane
+from ai_engineering.state.work_plane import (
+    active_work_plane_placeholder_fallback_id,
+    resolve_active_work_plane,
+)
 
 
 def _active_spec_path(project_root: Path) -> Path:
@@ -291,13 +293,7 @@ def _read_active_spec(project_root: Path) -> str | None:
 
     # Placeholder means no active spec
     if text.strip().startswith("# No active spec"):
-        ledger = read_task_ledger(project_root)
-        if ledger is not None and any(
-            task.status != TaskLifecycleState.DONE for task in ledger.tasks
-        ):
-            fallback_id = work_plane.specs_dir.name.strip()
-            return fallback_id or None
-        return None
+        return active_work_plane_placeholder_fallback_id(project_root)
 
     # Try frontmatter id field
     match = re.search(r'^id:\s*["\']?(\S+?)["\']?\s*$', text, re.MULTILINE)

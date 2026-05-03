@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -144,11 +145,12 @@ class TestMergeMissingOwnershipRules:
 
 
 class TestInitializeUpdateContext:
-    def test_requires_manifest_contract(self, tmp_path: Path) -> None:
-        with pytest.raises(
-            FileNotFoundError, match="Manifest contract not found for updater context"
-        ):
+    def test_no_manifest_uses_compatibility_provider_fallback(self, tmp_path: Path) -> None:
+        _ai_eng_dir, _ownership_path, _ownership, _rules_added, _vcs_provider, providers = (
             _initialize_update_context(tmp_path, dry_run=True)
+        )
+
+        assert providers is None
 
     def test_dry_run_does_not_migrate_legacy_hooks(self, tmp_path: Path) -> None:
         _write_minimal_manifest(tmp_path)
@@ -178,3 +180,22 @@ class TestInitializeUpdateContext:
             update(tmp_path, dry_run=False)
 
         assert orphan.read_text(encoding="utf-8") == "legacy codex config\n"
+
+    def test_update_raises_when_reconciler_rolls_back(self, tmp_path: Path) -> None:
+        _write_minimal_manifest(tmp_path)
+        failed_run = SimpleNamespace(
+            plan=SimpleNamespace(payload=object()),
+            apply_result=object(),
+            verification=SimpleNamespace(
+                passed=False,
+                errors=["missing applied file: .github/skills/ai-code/SKILL.md"],
+            ),
+            rolled_back=True,
+        )
+
+        with (
+            patch("ai_engineering.updater.service.ResourceReconciler") as reconciler_factory,
+            pytest.raises(RuntimeError, match="rolled back changes"),
+        ):
+            reconciler_factory.return_value.run.return_value = failed_run
+            update(tmp_path, dry_run=False)

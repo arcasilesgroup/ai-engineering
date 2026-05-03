@@ -21,6 +21,7 @@ from ai_engineering.state.observability import (
     FRAMEWORK_EVENT_SCHEMA_VERSION,
     FRAMEWORK_EVENTS_REL,
     append_framework_event,
+    append_framework_events,
     build_framework_capabilities,
     framework_capabilities_path,
     framework_events_path,
@@ -122,6 +123,38 @@ class TestFrameworkEvents:
 
         assert audit_path.read_text(encoding="utf-8") == '{"event":"legacy"}\n'
         assert framework_events_path(tmp_path).exists()
+
+    def test_append_framework_events_chains_batch_without_rereading_file(
+        self, tmp_path: Path
+    ) -> None:
+        from ai_engineering.state.audit_chain import compute_entry_hash
+
+        first = FrameworkEvent(
+            project="demo-project",
+            engine="claude_code",
+            kind="skill_invoked",
+            outcome="success",
+            component="hook.skill",
+            correlationId="corr-1",
+            detail={"skill": "ai-brainstorm"},
+        )
+        second = FrameworkEvent(
+            project="demo-project",
+            engine="github_copilot",
+            kind="agent_dispatched",
+            outcome="success",
+            component="hook.agent",
+            correlationId="corr-2",
+            detail={"agent": "ai-build"},
+        )
+
+        append_framework_events(tmp_path, [first, second])
+
+        raw_lines = framework_events_path(tmp_path).read_text(encoding="utf-8").splitlines()
+        first_payload = json.loads(raw_lines[0])
+        second_payload = json.loads(raw_lines[1])
+        assert first_payload["prev_event_hash"] is None
+        assert second_payload["prev_event_hash"] == compute_entry_hash(first_payload)
 
 
 class TestFrameworkCapabilities:

@@ -12,12 +12,15 @@ Functions:
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config
-from ai_engineering.state.models import TaskLifecycleState
-from ai_engineering.state.work_plane import read_task_ledger, resolve_active_work_plane
+from ai_engineering.state.work_plane import (
+    resolve_active_work_plane,
+    task_ledger_has_open_tasks,
+)
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.protocol import IssueContext
 
@@ -188,13 +191,48 @@ def _handle_missing_issue(
 def _iter_sync_targets(project_root: Path, specs_dir: Path) -> list[tuple[str, Path]]:
     """Return syncable spec roots for legacy and spec-local work planes."""
     if _is_active_spec_dir(project_root, specs_dir):
-        return [(specs_dir.name, specs_dir)]
+        spec_id = _active_spec_sync_id(specs_dir)
+        return [(spec_id, specs_dir)] if spec_id else []
 
     return [
-        (entry.name, entry)
+        (_normalize_provider_spec_id(entry.name), entry)
         for entry in sorted(specs_dir.iterdir())
         if entry.name not in _SYNC_SKIP_ENTRIES and entry.is_dir()
     ]
+
+
+def _active_spec_sync_id(specs_dir: Path) -> str | None:
+    """Return the provider-facing spec id for an active work-plane root."""
+    if specs_dir.name != "specs":
+        return _normalize_provider_spec_id(specs_dir.name)
+
+    spec_md = specs_dir / _SPEC_FILENAME
+    try:
+        text = spec_md.read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+    declared_id = _declared_spec_id(text)
+    return _normalize_provider_spec_id(declared_id) if declared_id else None
+
+
+def _normalize_provider_spec_id(spec_id: str) -> str:
+    """Normalize a spec id before providers add their own ``spec-`` prefix."""
+    return spec_id.strip().removeprefix("spec-")
+
+
+def _declared_spec_id(text: str) -> str | None:
+    """Extract a spec id from lightweight frontmatter or heading conventions."""
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith(("id:", "spec:")):
+            value = stripped.partition(":")[2].strip().strip("\"'")
+            return value or None
+
+    match = re.search(r"^#\s+Spec\s+([^\n]+)", text, re.MULTILINE)
+    if match:
+        return match.group(1).strip().split(" — ", 1)[0].split(" - ", 1)[0]
+    return None
 
 
 def _is_active_spec_dir(project_root: Path, specs_dir: Path) -> bool:
@@ -213,10 +251,7 @@ def _is_active_spec_dir(project_root: Path, specs_dir: Path) -> bool:
     if not text.startswith("# No active spec"):
         return True
 
-    ledger = read_task_ledger(project_root)
-    if ledger is None:
-        return False
-    return any(task.status != TaskLifecycleState.DONE for task in ledger.tasks)
+    return task_ledger_has_open_tasks(project_root)
 
 
 def get_linked_issue_id(project_root: Path, spec_id: str) -> str | None:

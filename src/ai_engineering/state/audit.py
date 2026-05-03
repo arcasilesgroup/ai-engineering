@@ -11,13 +11,15 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-from ai_engineering.state.models import TaskLifecycleState
 from ai_engineering.state.observability import (
     emit_control_outcome,
     emit_framework_operation,
     emit_git_hook_outcome,
 )
-from ai_engineering.state.work_plane import read_task_ledger, resolve_active_work_plane
+from ai_engineering.state.work_plane import (
+    active_work_plane_placeholder_fallback_id,
+    resolve_active_work_plane,
+)
 
 if TYPE_CHECKING:
     from ai_engineering.policy.gates import GateResult
@@ -39,14 +41,7 @@ def _read_active_spec(root: Path) -> str | None:
             return None
         content = spec_path.read_text(encoding="utf-8")
         if content.strip().startswith("# No active spec"):
-            ledger = read_task_ledger(root)
-            if ledger is not None and any(
-                task.status != TaskLifecycleState.DONE for task in ledger.tasks
-            ):
-                fallback_id = work_plane.specs_dir.name.strip()
-                if fallback_id:
-                    return fallback_id
-            return None
+            return active_work_plane_placeholder_fallback_id(root)
         for line in content.splitlines():
             line_s = line.strip()
             if line_s.startswith("id:"):

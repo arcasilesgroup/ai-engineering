@@ -25,6 +25,7 @@ _HANDOFFS_DIRNAME = "handoffs"
 _EVIDENCE_DIRNAME = "evidence"
 _CURRENT_SUMMARY_PLACEHOLDER = "# Current Summary\n\nNo active current summary yet.\n"
 _HISTORY_SUMMARY_PLACEHOLDER = "# History Summary\n\nNo history summary yet.\n"
+_NO_ACTIVE_SPEC_PREFIX = "# No active spec"
 
 
 @dataclass(frozen=True)
@@ -110,9 +111,42 @@ def read_task_ledger(project_root: Path) -> TaskLedger | None:
         return None
 
 
+def task_ledger_has_open_tasks(project_root: Path) -> bool:
+    """Return True when the active task ledger has at least one non-done task."""
+    ledger = read_task_ledger(project_root)
+    if ledger is None:
+        return False
+    return any(task.status.value != "done" for task in ledger.tasks)
+
+
+def active_work_plane_placeholder_fallback_id(project_root: Path) -> str | None:
+    """Return the work-plane directory id when placeholder prose still has open tasks."""
+    if not task_ledger_has_open_tasks(project_root):
+        return None
+    fallback_id = resolve_active_work_plane(project_root).specs_dir.name.strip()
+    return fallback_id or None
+
+
+def active_work_plane_has_active_spec(project_root: Path) -> bool:
+    """Return True when spec.md or the open task ledger indicates active work."""
+    spec_path = resolve_active_work_plane(project_root).spec_path
+    if not spec_path.exists():
+        return False
+    try:
+        text = spec_path.read_text(encoding="utf-8").lstrip()
+    except OSError:
+        return False
+    if not text.startswith(_NO_ACTIVE_SPEC_PREFIX):
+        return True
+    return task_ledger_has_open_tasks(project_root)
+
+
 def write_task_ledger(project_root: Path, ledger: TaskLedger) -> Path:
     """Persist the task ledger at the active work-plane root."""
-    from ai_engineering.state.observability import emit_task_trace
+    from ai_engineering.state.observability import (
+        append_framework_events,
+        build_task_trace_event,
+    )
 
     with artifact_lock(project_root, "framework-events"):
         previous_ledger = read_task_ledger(project_root)
@@ -125,19 +159,27 @@ def write_task_ledger(project_root: Path, ledger: TaskLedger) -> Path:
             else {}
         )
 
+        trace_events = []
         for task in ledger.tasks:
             signature = _task_trace_signature(task)
             if previous_tasks.get(task.id) == signature:
                 continue
-            emit_task_trace(
-                project_root,
-                task_id=task.id,
-                lifecycle_phase=task.status.value,
-                component="state.task-ledger",
-                source="work-plane",
-                artifact_refs=_task_artifact_refs(task),
-                lock_acquired=True,
+            trace_events.append(
+                build_task_trace_event(
+                    project_root,
+                    task_id=task.id,
+                    lifecycle_phase=task.status.value,
+                    component="state.task-ledger",
+                    source="work-plane",
+                    artifact_refs=_task_artifact_refs(task),
+                )
             )
+
+        append_framework_events(
+            project_root,
+            trace_events,
+            lock_acquired=True,
+        )
 
     return ledger_path
 

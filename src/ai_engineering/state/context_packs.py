@@ -95,8 +95,9 @@ def build_context_pack(
 
     if task is not None:
         for ref_path in _task_artifact_paths(task):
-            _append_if_exists(
+            _append_task_artifact_if_exists(
                 project_root,
+                work_plane,
                 sources,
                 ref_path,
                 role=ContextPackSourceRole.AUTHORITATIVE,
@@ -292,6 +293,41 @@ def _append_if_exists(
             inlineChars=0,
         )
     )
+
+
+def _append_task_artifact_if_exists(
+    project_root: Path,
+    work_plane: ActiveWorkPlane,
+    sources: list[ContextPackSource],
+    relative_path: str,
+    *,
+    role: ContextPackSourceRole,
+    plane: ContextPackSourcePlane,
+    owner: str,
+    reason: str,
+) -> None:
+    declared_path = Path(relative_path)
+    if declared_path.is_absolute():
+        return
+
+    project_root_resolved = project_root.resolve()
+    for base_dir in (work_plane.specs_dir, project_root):
+        candidate = (base_dir / declared_path).resolve()
+        try:
+            source_path = candidate.relative_to(project_root_resolved).as_posix()
+        except ValueError:
+            continue
+        if candidate.exists():
+            _append_if_exists(
+                project_root,
+                sources,
+                source_path,
+                role=role,
+                plane=plane,
+                owner=owner,
+                reason=reason,
+            )
+            return
 
 
 def _dedupe_sources(sources: list[ContextPackSource]) -> list[ContextPackSource]:

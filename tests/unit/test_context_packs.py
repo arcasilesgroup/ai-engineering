@@ -89,6 +89,32 @@ def test_build_context_pack_classifies_authority_and_residue(tmp_path: Path) -> 
     assert all(source.inline_chars == 0 for source in manifest.sources)
 
 
+def test_context_pack_resolves_task_artifacts_relative_to_active_work_plane(
+    tmp_path: Path,
+) -> None:
+    _write_pack_fixture(tmp_path)
+    specs = tmp_path / ".ai-engineering" / "specs"
+    write_json_model(
+        specs / "task-ledger.json",
+        TaskLedger(
+            tasks=[
+                TaskLedgerTask(
+                    id="T-1",
+                    title="Build context pack",
+                    status=TaskLifecycleState.IN_PROGRESS,
+                    owner_role="Build",
+                    handoffs=[HandoffRef(kind="build", path="handoffs/build.md")],
+                )
+            ]
+        ),
+    )
+
+    manifest = build_context_pack(tmp_path, task_id="T-1")
+    sources = {source.path: source for source in manifest.sources}
+
+    assert ".ai-engineering/specs/handoffs/build.md" in sources
+
+
 def test_write_context_pack_persists_under_active_work_plane(tmp_path: Path) -> None:
     _write_pack_fixture(tmp_path)
 

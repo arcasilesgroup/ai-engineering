@@ -111,23 +111,35 @@ def _read_prev_event_hash(path: Path) -> str | None:
 
 def _append_framework_event_locked(project_root: Path, entry: FrameworkEvent) -> None:
     """Append a canonical framework event while the caller holds the event lock."""
+    _append_framework_events_locked(project_root, [entry])
+
+
+def _append_framework_events_locked(project_root: Path, entries: list[FrameworkEvent]) -> None:
+    """Append canonical framework events while the caller holds the event lock."""
+    if not entries:
+        return
+
     path = framework_events_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    # Serialize the model first so the on-disk dict carries the canonical
-    # alias-based shape (e.g. ``correlationId``). We then add the chain
-    # pointer at the *root* of the dict before writing the line so that
-    # round-trip readers (state.audit_chain) find ``prev_event_hash`` as
-    # a top-level key.
-    data = entry.model_dump(by_alias=True, exclude_none=True)
-    kind = data.get("kind")
-    if kind not in ALLOWED_EVENT_KINDS:
-        msg = f"Unsupported framework event kind: {kind!r}"
-        raise ValueError(msg)
-    data["engine"] = normalize_engine_id(str(data["engine"]))
-    data["prev_event_hash"] = _read_prev_event_hash(path)
-    line = json.dumps(data, sort_keys=True, default=_json_serializer)
+    from ai_engineering.state.audit_chain import compute_entry_hash
+
+    previous_hash = _read_prev_event_hash(path)
+    lines: list[str] = []
+    for entry in entries:
+        data = entry.model_dump(by_alias=True, exclude_none=True)
+        kind = data.get("kind")
+        if kind not in ALLOWED_EVENT_KINDS:
+            msg = f"Unsupported framework event kind: {kind!r}"
+            raise ValueError(msg)
+        data["engine"] = normalize_engine_id(str(data["engine"]))
+        data["prev_event_hash"] = previous_hash
+        line = json.dumps(data, sort_keys=True, default=_json_serializer)
+        lines.append(line)
+        previous_hash = compute_entry_hash(json.loads(line))
+
     with path.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
+        for line in lines:
+            f.write(line + "\n")
 
 
 def append_framework_event(
@@ -160,6 +172,21 @@ def append_framework_event(
 
     with artifact_lock(project_root, "framework-events"):
         _append_framework_event_locked(project_root, entry)
+
+
+def append_framework_events(
+    project_root: Path,
+    entries: list[FrameworkEvent],
+    *,
+    lock_acquired: bool = False,
+) -> None:
+    """Append multiple canonical framework events with one hash-chain read."""
+    if lock_acquired:
+        _append_framework_events_locked(project_root, entries)
+        return
+
+    with artifact_lock(project_root, "framework-events"):
+        _append_framework_events_locked(project_root, entries)
 
 
 def _project_name(project_root: Path) -> str:
@@ -681,6 +708,48 @@ def emit_framework_operation(
     return entry
 
 
+def build_task_trace_event(
+    project_root: Path,
+    *,
+    task_id: str,
+    lifecycle_phase: str,
+    component: str,
+    artifact_refs: tuple[str, ...] | list[str] | None = None,
+    engine: str = "ai_engineering",
+    source: str | None = None,
+    session_id: str | None = None,
+    trace_id: str | None = None,
+    parent_id: str | None = None,
+    correlation_id: str | None = None,
+) -> FrameworkEvent:
+    """Build an append-only task trace from an authoritative task mutation."""
+    normalized_task_id = task_id.strip()
+    normalized_phase = lifecycle_phase.strip()
+    if not normalized_task_id:
+        msg = "task_trace requires a non-empty task_id"
+        raise ValueError(msg)
+    if not normalized_phase:
+        msg = "task_trace requires a non-empty lifecycle_phase"
+        raise ValueError(msg)
+
+    return build_framework_event(
+        project_root,
+        engine=engine,
+        kind="task_trace",
+        component=component,
+        source=source,
+        session_id=session_id,
+        trace_id=trace_id,
+        parent_id=parent_id,
+        correlation_id=correlation_id,
+        detail={
+            "task_id": normalized_task_id,
+            "lifecycle_phase": normalized_phase,
+            "artifact_refs": _normalize_artifact_refs(artifact_refs),
+        },
+    )
+
+
 def emit_task_trace(
     project_root: Path,
     *,
@@ -697,30 +766,18 @@ def emit_task_trace(
     lock_acquired: bool = False,
 ) -> FrameworkEvent:
     """Emit an append-only task trace from an authoritative task mutation."""
-    normalized_task_id = task_id.strip()
-    normalized_phase = lifecycle_phase.strip()
-    if not normalized_task_id:
-        msg = "task_trace requires a non-empty task_id"
-        raise ValueError(msg)
-    if not normalized_phase:
-        msg = "task_trace requires a non-empty lifecycle_phase"
-        raise ValueError(msg)
-
-    entry = build_framework_event(
+    entry = build_task_trace_event(
         project_root,
-        engine=engine,
-        kind="task_trace",
+        task_id=task_id,
+        lifecycle_phase=lifecycle_phase,
         component=component,
+        artifact_refs=artifact_refs,
+        engine=engine,
         source=source,
         session_id=session_id,
         trace_id=trace_id,
         parent_id=parent_id,
         correlation_id=correlation_id,
-        detail={
-            "task_id": normalized_task_id,
-            "lifecycle_phase": normalized_phase,
-            "artifact_refs": _normalize_artifact_refs(artifact_refs),
-        },
     )
     append_framework_event(project_root, entry, lock_acquired=lock_acquired)
     return entry

@@ -250,9 +250,8 @@ def verify_security(project_root: Path, *, profile: str = "normal") -> VerifySco
     document = _load_gate_findings_document(project_root)
     if document is not None:
         _record_security_gate_findings(specialist, document)
-    else:
-        _record_gitleaks_findings(specialist, project_root)
-        _record_pip_audit_findings(specialist, project_root)
+    _record_gitleaks_findings(specialist, project_root)
+    _record_pip_audit_findings(specialist, project_root)
 
     return _finalize_specialist(report, specialist)
 

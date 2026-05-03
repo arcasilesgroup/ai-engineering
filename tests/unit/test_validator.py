@@ -1158,7 +1158,8 @@ class TestClaudeSpecialistAgentsMirror:
 
         specialist = canonical / "reviewer-correctness.md"
         specialist.write_text(
-            "---\nname: reviewer-correctness\ndescription: test\nmodel: opus\ncolor: cyan\ntools: [Read]\n---\n\nBody\n",
+            "---\nname: reviewer-correctness\ndescription: test\nmodel: opus\n"
+            "color: cyan\ntools: [Read]\n---\n\nBody\n",
             encoding="utf-8",
         )
         (mirror / specialist.name).write_text(
@@ -1186,7 +1187,8 @@ class TestClaudeSpecialistAgentsMirror:
 
         specialist = canonical / "reviewer-correctness.md"
         specialist.write_text(
-            "---\nname: reviewer-correctness\ndescription: test\nmodel: opus\ncolor: cyan\ntools: [Read]\n---\n\nBody\n",
+            "---\nname: reviewer-correctness\ndescription: test\nmodel: opus\n"
+            "color: cyan\ntools: [Read]\n---\n\nBody\n",
             encoding="utf-8",
         )
         (mirror / specialist.name).write_text("different", encoding="utf-8")
@@ -1749,6 +1751,43 @@ class TestManifestCoherence:
         assert "spec-117-hx-02" in fail_checks[0].message
         assert "spec-117-hx-06" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    def test_active_spec_missing_plan_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "plan.md").unlink()
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-spec-plan-coherence" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "without specs/plan.md" in fail_checks[0].message
+
+    def test_active_spec_idle_plan_placeholder_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "plan.md").write_text(
+            "# No active plan\n\nRun /ai-plan.\n",
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-spec-plan-coherence" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "idle placeholder" in fail_checks[0].message
 
     def test_active_spec_plan_declared_identity_match_passes(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
@@ -3087,12 +3126,14 @@ class TestInstructionFiles:
         assert any("templates" in f for f in files)
         assert len(files) == 6  # 3 base + 3 template
 
-    def test_non_source_repo_requires_manifest_contract(self, tmp_path: Path) -> None:
-        with pytest.raises(
-            FileNotFoundError,
-            match="Manifest contract not found for instruction resolution",
-        ):
-            _instruction_files(tmp_path)
+    def test_non_source_repo_without_manifest_uses_base_instruction_fallback(
+        self, tmp_path: Path
+    ) -> None:
+        assert _instruction_files(tmp_path) == [
+            ".github/copilot-instructions.md",
+            "AGENTS.md",
+            "CLAUDE.md",
+        ]
 
 
 class TestGlobFiles:

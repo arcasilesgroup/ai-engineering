@@ -99,6 +99,15 @@ def test_provider_maps_match_current_install_contract() -> None:
         ("agents", ".github/agents"),
         ("instructions", ".github/instructions"),
     ]
+    assert get_provider_tree_maps()["gemini"] == [
+        (".gemini", ".gemini"),
+    ]
+    assert set(get_provider_tree_maps()) == {
+        "claude_code",
+        "github_copilot",
+        "gemini",
+        "codex",
+    }
 
     assert get_internal_specialist_agent_targets() == {
         "github_copilot": (

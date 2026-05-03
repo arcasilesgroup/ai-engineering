@@ -48,12 +48,11 @@ from ai_engineering.state.models import (
     GateFinding,
     GateFindingsDocument,
     RiskCategory,
-    TaskLifecycleState,
     WallClockMs,
 )
 from ai_engineering.state.work_plane import (
     ACTIVE_WORK_PLANE_POINTER_REL,
-    read_task_ledger,
+    active_work_plane_has_active_spec,
     resolve_active_work_plane,
 )
 
@@ -220,20 +219,7 @@ def _has_active_spec(project_root: Path | None = None) -> bool:
     when the readable resolved task ledger still contains non-done tasks.
     """
     root = project_root if project_root is not None else Path.cwd()
-    spec_path = resolve_active_work_plane(root).spec_path
-    if not spec_path.exists():
-        return False
-    try:
-        text = spec_path.read_text(encoding="utf-8").lstrip()
-    except OSError:
-        return False
-    if not text.startswith("# No active spec"):
-        return True
-
-    ledger = read_task_ledger(root)
-    if ledger is None:
-        return False
-    return any(task.status != TaskLifecycleState.DONE for task in ledger.tasks)
+    return active_work_plane_has_active_spec(root)
 
 
 def _snapshot_mtimes(paths: list[Path]) -> dict[Path, int]:
@@ -965,7 +951,8 @@ def resolve_kernel_contract(
             resolved_gate_mode = mode_dispatch.resolve_mode(project_root)
         except Exception:
             logger.debug(
-                "mode_dispatch.resolve_mode failed while building kernel contract; defaulting to regulated",
+                "mode_dispatch.resolve_mode failed while building kernel contract; "
+                "defaulting to regulated",
                 exc_info=True,
             )
             resolved_gate_mode = "regulated"
@@ -1146,7 +1133,6 @@ def run_gate(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         checks=checks,
         gate_mode=gate_mode,
     )
-    resolved_gate_mode = kernel_contract.gate_mode
 
     # --- Wave 1 -------------------------------------------------------------
     wave1_paths = [Path(s) for s in staged_str]

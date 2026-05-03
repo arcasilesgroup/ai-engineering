@@ -129,11 +129,11 @@ def _staged_files_from_git(project_root: Path) -> list[str]:
 
 
 def run_orchestrator_pre_push_gate(project_root: Path) -> GateFindingsDocument:
-    """Run the shared kernel in CI mode for workflow pre-push checks."""
+    """Run the shared kernel fast slice for workflow pre-push checks."""
     cache_dir = project_root / ".ai-engineering" / "state" / "gate-cache"
     return orchestrator_module.run_gate(
         staged_files=_staged_files_from_git(project_root),
-        mode="ci",
+        mode="local",
         cache_dir=cache_dir,
         project_root=project_root,
         cache_disabled=False,
@@ -147,7 +147,7 @@ def _workflow_steps_from_gate_document(
     document: GateFindingsDocument,
 ) -> list[StepResult]:
     """Translate the kernel findings envelope into workflow-friendly step results."""
-    contract = orchestrator_module.resolve_kernel_contract(project_root, mode="ci")
+    contract = orchestrator_module.resolve_kernel_contract(project_root, mode="local")
     findings_by_check: dict[str, list[object]] = {}
     for finding in document.findings:
         findings_by_check.setdefault(finding.check, []).append(finding)

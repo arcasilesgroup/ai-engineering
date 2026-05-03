@@ -127,9 +127,40 @@ contexts:
 session:
   context_files:
     - .ai-engineering/LESSONS.md
-    - .ai-engineering/CONSTITUTION.md
+    - CONSTITUTION.md
     - .ai-engineering/manifest.yml
     - .ai-engineering/state/decision-store.json
+
+control_plane:
+  constitutional_authority:
+    primary: CONSTITUTION.md
+    workspace_charter: .ai-engineering/CONSTITUTION.md
+    compatibility_aliases:
+      - .ai-engineering/CONSTITUTION.md
+  manifest_field_roles:
+    canonical_input:
+      - providers
+      - ai_providers
+      - artifact_feeds
+      - work_items
+      - quality
+      - documentation
+      - cicd
+      - contexts.precedence
+      - session.context_files
+      - ownership.framework
+      - ownership.root_entry_points
+      - telemetry
+      - gates
+      - hot_path_slos
+    generated_projection:
+      - skills
+      - agents
+    descriptive_metadata:
+      - schema_version
+      - framework_version
+      - name
+      - version
 
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.

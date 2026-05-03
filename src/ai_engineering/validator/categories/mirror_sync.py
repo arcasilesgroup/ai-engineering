@@ -9,6 +9,7 @@ from pathlib import Path
 from ai_engineering.config.mirror_inventory import (
     get_generated_provenance_fields,
     get_internal_specialist_agent_targets,
+    get_mirror_families,
 )
 from ai_engineering.validator._shared import (
     _CLAUDE_AGENTS_MIRROR,
@@ -63,20 +64,14 @@ _ROOT_PARITY_SOURCE_FALLBACKS: dict[str, str] = {
 
 _SPECIALIST_AGENT_PREFIXES = ("reviewer-", "verifier-", "review-", "verify-")
 _FRONTMATTER_BLOCK_RE = re.compile(r"^---\n(.*?)\n---\n?", re.DOTALL)
-_GENERATED_PROVENANCE_SURFACES: tuple[tuple[str, str, str], ...] = (
-    ("codex-skills", _CODEX_SKILLS_MIRROR[0], "SKILL.md"),
-    ("codex-skills", _CODEX_SKILLS_MIRROR[1], "SKILL.md"),
-    ("codex-agents", _CODEX_AGENTS_MIRROR[0], "ai-*.md"),
-    ("codex-agents", _CODEX_AGENTS_MIRROR[1], "ai-*.md"),
-    ("gemini-skills", _GEMINI_SKILLS_MIRROR[0], "SKILL.md"),
-    ("gemini-skills", _GEMINI_SKILLS_MIRROR[1], "SKILL.md"),
-    ("gemini-agents", _GEMINI_AGENTS_MIRROR[0], "ai-*.md"),
-    ("gemini-agents", _GEMINI_AGENTS_MIRROR[1], "ai-*.md"),
-    ("copilot-skills", _COPILOT_SKILLS_MIRROR[0], "SKILL.md"),
-    ("copilot-skills", _COPILOT_SKILLS_MIRROR[1], "SKILL.md"),
-    ("copilot-agents", _COPILOT_AGENTS_MIRROR[0], "*.agent.md"),
-    ("copilot-agents", _COPILOT_AGENTS_MIRROR[1], "*.agent.md"),
-)
+_PROVENANCE_GLOB_BY_FAMILY: dict[str, str] = {
+    "codex-skills": "SKILL.md",
+    "codex-agents": "ai-*.md",
+    "gemini-skills": "SKILL.md",
+    "gemini-agents": "ai-*.md",
+    "copilot-skills": "SKILL.md",
+    "copilot-agents": "*.agent.md",
+}
 _PUBLIC_AGENT_ROOTS: tuple[tuple[str, str], ...] = (
     (_CODEX_AGENTS_MIRROR[0], "ai-*.md"),
     (_CODEX_AGENTS_MIRROR[1], "ai-*.md"),
@@ -498,7 +493,7 @@ def _check_generated_mirror_provenance(
     checked = 0
     failures = 0
 
-    surfaces = list(_GENERATED_PROVENANCE_SURFACES)
+    surfaces = list(_generated_provenance_surfaces())
     for repo_rel, template_rel in get_internal_specialist_agent_targets().values():
         surfaces.append(("specialist-agents", repo_rel, "*.md"))
         surfaces.append(("specialist-agents", template_rel, "*.md"))
@@ -552,6 +547,18 @@ def _check_generated_mirror_provenance(
                 message=f"Validated provenance in {checked} generated mirror files",
             )
         )
+
+
+def _generated_provenance_surfaces() -> tuple[tuple[str, str, str], ...]:
+    surfaces: list[tuple[str, str, str]] = []
+    for family in get_mirror_families():
+        glob_pattern = _PROVENANCE_GLOB_BY_FAMILY.get(family.family_id)
+        if glob_pattern is None:
+            continue
+        for root_rel in (family.repo_surface_rel, family.template_surface_rel):
+            if root_rel:
+                surfaces.append((family.family_id, root_rel, glob_pattern))
+    return tuple(surfaces)
 
 
 def _check_public_skill_root_contract(

@@ -291,9 +291,6 @@ class TestPRWorkflow:
             "ty",
             "pytest-smoke",
             "validate",
-            "semgrep",
-            "pip-audit",
-            "pytest-full",
         )
         mock_provider = type(
             "MockProvider",

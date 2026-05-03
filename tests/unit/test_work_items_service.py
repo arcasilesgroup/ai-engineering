@@ -255,8 +255,29 @@ class TestSyncSpecIssues:
         with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
-        assert "spec-117-hx-02" in report.created
+        assert "117-hx-02" in report.created
         provider.create_issue.assert_called_once()
+        issue_ctx = provider.find_issue.call_args.args[0]
+        assert issue_ctx.spec_id == "117-hx-02"
+        assert issue_ctx.labels == ("spec-117-hx-02",)
+
+    def test_syncs_legacy_active_spec_root_from_declared_spec_id(self, tmp_path: Path) -> None:
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text(
+            '---\nid: "117-hx-02"\n---\n\n# Spec 117 — Work Plane\n',
+            encoding="utf-8",
+        )
+
+        provider = _mock_provider(find_output="")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert "117-hx-02" in report.created
+        issue_ctx = provider.find_issue.call_args.args[0]
+        assert issue_ctx.spec_id == "117-hx-02"
+        assert issue_ctx.labels == ("spec-117-hx-02",)
 
     def test_syncs_placeholder_active_spec_root_when_resolved_ledger_has_live_task(
         self,
@@ -294,7 +315,7 @@ class TestSyncSpecIssues:
         with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
-        assert "spec-117-hx-02" in report.created
+        assert "117-hx-02" in report.created
         provider.create_issue.assert_called_once()
 
     def test_placeholder_active_spec_root_with_done_resolved_ledger_stays_idle(
