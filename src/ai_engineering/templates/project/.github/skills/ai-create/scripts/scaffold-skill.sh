@@ -26,7 +26,7 @@ SKILL_NAME="${SKILL_NAME#ai-}"
 SCRIPT_PATH="$(cd -- "$(dirname "$0")" && pwd)"
 case "$SCRIPT_PATH" in
   */.claude/*)
-    SKILL_DIR=".github/skills/ai-${SKILL_NAME}"
+    SKILL_DIR=".claude/skills/ai-${SKILL_NAME}"
     SKILL_FRONTMATTER_NAME="ai-${SKILL_NAME}"
     ;;
   */.github/*)

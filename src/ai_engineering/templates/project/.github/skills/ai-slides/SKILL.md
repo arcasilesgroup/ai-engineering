@@ -5,10 +5,6 @@ effort: high
 argument-hint: "new|convert|enhance [topic]"
 mode: agent
 tags: [presentation, html, css]
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-slides/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

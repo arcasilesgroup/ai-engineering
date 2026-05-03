@@ -3,10 +3,6 @@ name: ai-plan
 description: "Use when an approved spec exists and needs a phased execution plan: task decomposition, agent assignments, and gate criteria. Trigger for 'break this down', 'create a plan', 'what tasks do we need', 'let's start implementing', or when plan.md has placeholder content. Also for re-planning: 'scope changed', 'plan failed'. Not for ambiguous requirements — use /ai-brainstorm first."
 effort: high
 argument-hint: "[spec-NNN or topic]"
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-plan/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

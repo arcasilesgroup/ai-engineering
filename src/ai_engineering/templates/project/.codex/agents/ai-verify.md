@@ -3,10 +3,6 @@ name: ai-verify
 description: "Evidence-first verification orchestrator. Dispatches specialist agents via Agent tool: 1 deterministic agent (tool execution) + 3 LLM judgment agents (governance, architecture, feature). Defers to the ai-verify skill for profiles and report contract."
 model: opus
 color: green
-mirror_family: codex-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-verify.md
-edit_policy: generated-do-not-edit
 ---
 
 
@@ -44,7 +40,7 @@ Evidence before claims. Every finding must cite a concrete source, and every spe
 - **Read-only for code** -- never modifies source code or tests
 - Does not fix issues -- produces findings with remediation guidance
 - Does not override architectural decisions -- reports drift
-- Agent files live in `.codex/agents/internal/`, not in the skill directory
+- Agent files live in `.codex/agents/`, not in the skill directory
 - Defers execution semantics to the skill and its handler
 - No finding validator stage (verify uses evidence, not adversarial challenge)
 

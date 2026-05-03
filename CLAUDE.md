@@ -31,8 +31,105 @@ Claude Code reads its hook wiring from `.claude/settings.json`:
 - All hook outcomes flow to `.ai-engineering/state/framework-events.ndjson`
   for the audit chain.
 
-Hook scripts are hash-verified and the deny rules in `.claude/settings.json`
-are tracked in source control — treat both as read-only at the IDE layer.
+### Hook layout
+
+Canonical scripts live under `.ai-engineering/scripts/hooks/` so the
+cross-IDE mirrors (Copilot, Gemini, Codex) share the same source of
+truth. `.claude/hooks/` is a symlink to that canonical directory, so
+external tooling that follows the native Claude Code convention
+(`.claude/hooks/<name>.py`) resolves to the same file. Edits go in the
+canonical path; the symlink is read-only.
+
+### Integrity verification
+
+Hook bytes are pinned in `.ai-engineering/state/hooks-manifest.json`
+(sha256 per script). `run_hook_safe` verifies the calling script
+against this manifest on every invocation. Behaviour is governed by
+the env var `AIENG_HOOK_INTEGRITY_MODE`:
+
+- `warn` (default) — mismatch logs a `framework_error` event with
+  `detail.error_code = hook_integrity_violation` and continues. Use in
+  day-to-day development where hooks change often.
+- `enforce` — mismatch refuses execution (exit 2) and logs the same
+  audit event. Use in CI and any production-like context.
+- `off` — skip the check entirely.
+
+After any intentional edit to a hook script, regenerate the manifest:
+
+```
+python3 .ai-engineering/scripts/regenerate-hooks-manifest.py
+```
+
+Run with `--check` in pre-commit / CI to fail loudly on stale manifests
+without rewriting the file.
+
+The deny rules in `.claude/settings.json` are tracked in source control
+— treat them and the hooks manifest as read-only at the IDE layer.
+
+### Runtime layer hooks
+
+Spec-116 added a runtime layer that closes the harness gaps surfaced by
+the 2026 industry survey (Fowler, Osmani, OpenAI Codex, Anthropic):
+
+- **`runtime-progressive-disclosure.py`** (UserPromptSubmit) — ranks the
+  49 skills against the incoming prompt and surfaces the top-K so the
+  model considers a focused slash command before going free-form. No
+  effect on prompts that already start with `/ai-*`.
+- **`runtime-guard.py`** (PostToolUse) — combines tool-call offload and
+  loop detection. Outputs above `AIENG_TOOL_OFFLOAD_BYTES` (default 4
+  KB) move to `.ai-engineering/state/runtime/tool-outputs/<id>.txt`
+  with head + tail kept inline. A sliding window
+  (`AIENG_LOOP_WINDOW`, default 6) flags repeated signatures or
+  failures (`AIENG_LOOP_REPEAT_THRESHOLD`, default 3) and emits a
+  `framework_error` of kind `loop_detected`.
+- **`runtime-stop.py`** (Stop) — writes
+  `.ai-engineering/state/runtime/checkpoint.json` (active work-plane,
+  recent edits, last tool calls) and, when the recent history shows
+  failure markers, stamps `runtime/ralph-resume.json` so `/ai-start`
+  can resume mid-task. The Ralph retry counter is bounded by
+  `AIENG_RALPH_MAX_RETRIES` (default 5).
+- **`runtime-compact.py`** (PreCompact + PostCompact) — snapshots
+  critical runtime state before context compaction (Anthropic: "never
+  rely on compaction for critical rules") and emits a verification
+  event afterwards.
+
+Tunables (all optional, env-driven):
+
+```
+AIENG_TOOL_OFFLOAD_BYTES   # default 4096
+AIENG_TOOL_OFFLOAD_HEAD    # default 1024
+AIENG_TOOL_OFFLOAD_TAIL    # default 512
+AIENG_LOOP_WINDOW          # default 6
+AIENG_LOOP_REPEAT_THRESHOLD# default 3
+AIENG_TOOL_HISTORY_MAX     # default 500
+AIENG_RALPH_MAX_RETRIES    # default 5
+```
+
+State lives under `.ai-engineering/state/runtime/`. Checkpoint and
+tool-history files are intentionally local (gitignored) — they capture
+session state, not source of truth.
+
+### Cross-IDE coverage
+
+The runtime layer hooks are cross-IDE: a single Python script per
+primitive runs unchanged across Claude Code, Codex, Gemini CLI, and
+GitHub Copilot via `_lib/hook_context.py:get_hook_context()`. Wiring
+lives in each IDE's native config file. Event-name mapping:
+
+| Primitive                         | Claude Code  | Codex            | Gemini       | Copilot              |
+|-----------------------------------|--------------|------------------|--------------|----------------------|
+| Progressive disclosure            | UserPromptSubmit | UserPromptSubmit | BeforeAgent  | userPromptSubmitted  |
+| Tool-call offload + loop detect   | PostToolUse  | PostToolUse      | AfterTool    | postToolUse          |
+| Checkpoint + Ralph Loop           | Stop         | Stop             | AfterAgent   | sessionEnd           |
+| Pre/Post compact snapshot         | PreCompact / PostCompact | ❌ (event missing) | ❌ | ❌ |
+
+PreCompact / PostCompact are Claude-Code-only — the other runtimes do
+not surface compaction events, so the snapshot primitive degrades
+gracefully there (compaction still happens; it just isn't observed).
+Copilot uses bash + PowerShell wrappers
+(`copilot-runtime-{guard,stop,progressive-disclosure}.{sh,ps1}`) that
+translate the Copilot payload shape to the Claude convention before
+delegating to the canonical Python script.
 
 ## Hot-Path Discipline
 

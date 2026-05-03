@@ -4,10 +4,6 @@ description: "Use for marketing content and go-to-market execution: content stra
 effort: high
 argument-hint: "[mode] [topic]"
 tags: [marketing, content, social, investor, go-to-market]
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-market/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

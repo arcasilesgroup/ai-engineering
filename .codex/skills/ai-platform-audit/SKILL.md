@@ -4,10 +4,6 @@ description: Use when you need to verify that an IDE platform is genuinely suppo
 effort: max
 argument-hint: "claude-code|github-copilot|gemini|codex|all [--fix]"
 tags: [audit, platform, copilot, claude-code, governance]
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-platform-audit/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 
@@ -60,7 +56,7 @@ Any violation of the four checks below (paths use `.codex/`, copilot count formu
 - Disk scan: list every `.sh` and `.ps1` in `.ai-engineering/scripts/hooks/` — any not referenced in either hooks file is an **orphaned hook**
 
 **Skill / Agent Distribution + Counter Cross-Check**:
-- Count directories in `.codex/skills/`, `.github/skills/`, `.codex/skills/`, `.gemini/skills/`; same for `.codex/agents/internal/` etc.
+- Count directories in `.codex/skills/`, `.github/skills/`, `.codex/skills/`, `.gemini/skills/`; same for `.codex/agents/` etc.
 - Scan `.codex/skills/*/SKILL.md` frontmatter for `copilot_compatible: false`; read `skills.total` and `agents.total` from `.ai-engineering/manifest.yml`.
 - Expected: canonical mirrors (Claude/Codex/Gemini) match manifest totals exactly; `.github/skills/` is lower by exactly the `copilot_compatible: false` count.
 - Cross-check `Skills (N)` and `Agents (N)` extracted from each instruction file against the same formula.
@@ -97,7 +93,7 @@ enforcement lands in a future spec when ≥90% of projects pass cleanly.
 
 ### Check 6 — Agent naming consistency cross-IDE
 
-For every agent file under `.codex/agents/internal/`, `.github/agents/`,
+For every agent file under `.codex/agents/`, `.github/agents/`,
 `.codex/agents/`, and `.gemini/agents/`, extract the front-matter
 `name:` field. Flag whenever:
 

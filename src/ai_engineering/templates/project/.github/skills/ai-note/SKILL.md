@@ -4,10 +4,6 @@ description: "Use when you discover something worth saving for future sessions â
 effort: medium
 argument-hint: "find [query]|<slug>"
 mode: agent
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-note/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

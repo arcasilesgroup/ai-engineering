@@ -3,10 +3,6 @@ name: ai-research
 description: "Use when the user needs evidence-backed research with verifiable citations: 'what does the state of the art say about X', 'what patterns does the industry use for Y', 'compare options for Z', 'find sources on...', 'investigate...'. Multi-tier escalation (local → free MCPs → web → NotebookLM persistent). Citation hard-rule: every external claim is sourced [N] or marked [unsourced]. Not for refactors, business-logic debugging, or general programming concepts."
 effort: high
 argument-hint: "<query> [--depth quick|standard|deep] [--reuse-notebook=<id>] [--persist] [--allowed-domains a,b] [--blocked-domains x,y]"
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-research/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

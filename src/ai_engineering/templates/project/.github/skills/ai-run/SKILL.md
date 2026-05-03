@@ -5,10 +5,6 @@ effort: max
 argument-hint: "github|azure|markdown <source> [--single|--batch] [--resume] [--no-watch]"
 mode: agent
 tags: [orchestration, autonomous, backlog, github, azure, delivery]
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-run/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

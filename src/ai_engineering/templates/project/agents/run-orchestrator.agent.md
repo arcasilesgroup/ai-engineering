@@ -4,10 +4,6 @@ description: "Autonomous backlog orchestrator -- normalizes work items, plans sa
 color: purple
 model: opus
 tools: [codebase, githubRepo, readFile, runCommands, search, agent]
-mirror_family: copilot-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-run-orchestrator.md
-edit_policy: generated-do-not-edit
 agents: [Build, ai-explore, Verify, Review, Guard]
 ---
 
@@ -63,23 +59,23 @@ You coordinate the following agents and skills:
 
 ### 1. INTAKE
 
-Read `.github/skills/ai-run/handlers/phase-intake.md` and execute. Do not construct a DAG before the baseline exploration summary exists.
+Read `.claude/skills/ai-run/handlers/phase-intake.md` and execute. Do not construct a DAG before the baseline exploration summary exists.
 
 ### 2. ITEM PLAN
 
-Read `.github/skills/ai-run/handlers/phase-item-plan.md` and execute. Every runnable item must end with a local `spec.md` and `plan.md` under the run state.
+Read `.claude/skills/ai-run/handlers/phase-item-plan.md` and execute. Every runnable item must end with a local `spec.md` and `plan.md` under the run state.
 
 ### 3. ORCHESTRATE
 
-Read `.github/skills/ai-run/handlers/phase-orchestrate.md` and execute. Prefer correct serialization over optimistic parallelism.
+Read `.claude/skills/ai-run/handlers/phase-orchestrate.md` and execute. Prefer correct serialization over optimistic parallelism.
 
 ### 4. EXECUTE
 
-Read `.github/skills/ai-run/handlers/phase-execute.md` and execute. Delegate all code writing to `ai-build`. Every promoted item must pass item-level gates first.
+Read `.claude/skills/ai-run/handlers/phase-execute.md` and execute. Delegate all code writing to `ai-build`. Every promoted item must pass item-level gates first.
 
 ### 5. DELIVER
 
-Read `.github/skills/ai-run/handlers/phase-deliver.md` and execute. `ai-pr` owns remote delivery. You own the decision of what branch is ready to deliver.
+Read `.claude/skills/ai-run/handlers/phase-deliver.md` and execute. `ai-pr` owns remote delivery. You own the decision of what branch is ready to deliver.
 
 ## State Machine
 

@@ -3,10 +3,6 @@ name: ai-note
 description: "Use when you discover something worth saving for future sessions — a debugging insight, non-obvious behavior, workaround, or integration gotcha. Also for searching existing notes: 'do we have notes on X?'. Trigger for 'save this', 'note that', 'remember this finding', 'what did we find about'. If it took more than 30 minutes to figure out, save it."
 effort: medium
 argument-hint: "find [query]|<slug>"
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-note/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

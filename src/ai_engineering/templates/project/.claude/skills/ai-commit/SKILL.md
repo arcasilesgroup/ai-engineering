@@ -68,6 +68,7 @@ Compose message:
 `git push origin <current-branch>`. Block if on `main`/`master`.
 
 ### `/commit --only`
+
 Execute the full pipeline through Commit. Skip Push.
 
 ## Quick Reference

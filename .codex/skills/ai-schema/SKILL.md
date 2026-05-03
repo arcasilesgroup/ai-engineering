@@ -10,10 +10,6 @@ requires:
   - mysql
   - sqlite3
   - mongosh
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-schema/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

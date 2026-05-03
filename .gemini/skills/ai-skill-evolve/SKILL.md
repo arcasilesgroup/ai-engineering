@@ -4,10 +4,6 @@ description: Use to improve any existing skill in ai-engineering based on real p
 effort: max
 argument-hint: "<skill-name>|all [--dry-run]"
 tags: [meta, improvement, skills, optimization]
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-skill-evolve/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

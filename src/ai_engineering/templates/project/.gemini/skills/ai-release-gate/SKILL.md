@@ -7,10 +7,6 @@ tags: [quality, release, gate, go-no-go, delivery]
 requires:
   bins:
   - gitleaks
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-release-gate/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

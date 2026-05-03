@@ -33,6 +33,13 @@
             "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/telemetry-skill.py\"",
             "timeout": 10000,
             "description": "Log skill invocation telemetry"
+          },
+          {
+            "type": "command",
+            "name": "runtime-progressive-disclosure",
+            "command": "AIENG_HOOK_ENGINE=gemini CLAUDE_HOOK_EVENT_NAME=UserPromptSubmit python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-progressive-disclosure.py\"",
+            "timeout": 5000,
+            "description": "Rank skills by prompt relevance, surface top-K"
           }
         ]
       }
@@ -123,6 +130,18 @@
             "description": "Auto-format edited files"
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "runtime-guard",
+            "command": "AIENG_HOOK_ENGINE=gemini CLAUDE_HOOK_EVENT_NAME=PostToolUse python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-guard.py\"",
+            "timeout": 10000,
+            "description": "Tool-call offload + loop detection"
+          }
+        ]
       }
     ],
     "AfterAgent": [
@@ -135,6 +154,13 @@
             "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-extract.py\"",
             "timeout": 30000,
             "description": "Extract learned instincts from session"
+          },
+          {
+            "type": "command",
+            "name": "runtime-stop",
+            "command": "AIENG_HOOK_ENGINE=gemini CLAUDE_HOOK_EVENT_NAME=Stop python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-stop.py\"",
+            "timeout": 15000,
+            "description": "Checkpoint + Ralph Loop resume marker"
           }
         ]
       }

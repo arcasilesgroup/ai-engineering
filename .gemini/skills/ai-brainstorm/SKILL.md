@@ -3,12 +3,7 @@ name: ai-brainstorm
 description: "Use when the user wants to think through a problem before coding: designing a feature, exploring approaches, defining requirements, resolving ambiguity, or clarifying current state before a spec. Trigger for 'let's add X', 'how should we handle Y', 'what's the best approach', 'I'm thinking about', audit-style questions that still need a spec, or any work item lacking an approved spec. Not for existing specs — use /ai-plan instead. Produces a reviewed spec; no code until user approves."
 effort: max
 argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-brainstorm/SKILL.md
-edit_policy: generated-do-not-edit
 ---
-
 
 
 # Brainstorm
@@ -29,14 +24,12 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Process
 
 1. **Work item context** (only when a work item ID is provided, e.g., `AB#100` or `#45`):
-     a. Read `.ai-engineering/manifest.yml` `work_items` section for active provider and team config
-     b. Fetch work item and its hierarchy from the provider:
-        - **GitHub**: `gh issue view <number> --json title,body,labels,milestone,assignees`
-        - **Azure DevOps**: `az boards work-item show --id <number> --expand relations -o json`
-     c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
-     d. Use all standard and custom fields the platform provides
-     e. Pre-fill `refs` section in the generated spec frontmatter
-     f. Invoke `/ai-board-sync refinement <work-item-ref>` to transition the work item to refinement state (fail-open: do not block brainstorm if this fails)
+   a. Read `.ai-engineering/manifest.yml` `work_items` section for active provider and team config
+   b. Fetch work item and its hierarchy from the provider: - **GitHub**: `gh issue view <number> --json title,body,labels,milestone,assignees` - **Azure DevOps**: `az boards work-item show --id <number> --expand relations -o json`
+   c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
+   d. Use all standard and custom fields the platform provides
+   e. Pre-fill `refs` section in the generated spec frontmatter
+   f. Invoke `/ai-board-sync refinement <work-item-ref>` to transition the work item to refinement state (fail-open: do not block brainstorm if this fails)
 2. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input for clarity and specificity before interrogation
 3. **Evidence sweep** -- when the current state spans multiple repo or governance surfaces, dispatch parallel read-only `ai-explore` passes first, summarize the findings, and use that evidence to sharpen the next question or spec boundary
 4. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow

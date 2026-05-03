@@ -5,10 +5,6 @@ effort: high
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 mode: agent
 tags: [documentation, architecture, governance]
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-docs/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

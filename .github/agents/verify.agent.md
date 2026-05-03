@@ -4,10 +4,6 @@ description: "Evidence-first verification orchestrator -- dispatches determinist
 color: green
 model: opus
 tools: [codebase, githubRepo, problems, readFile, runCommands, search, agent]
-mirror_family: copilot-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-verify.md
-edit_policy: generated-do-not-edit
 agents: [ai-explore]
 handoffs:
 - label: 🔧 Fix Issues
@@ -51,7 +47,7 @@ Evidence before claims. Every finding must cite a concrete source, and every spe
 - **Read-only for code** -- never modifies source code or tests
 - Does not fix issues -- produces findings with remediation guidance
 - Does not override architectural decisions -- reports drift
-- Agent files live in `.github/agents/internal/`, not in the skill directory
+- Agent files live in `.github/agents/`, not in the skill directory
 - Defers execution semantics to the skill and its handler
 - No finding validator stage (verify uses evidence, not adversarial challenge)
 

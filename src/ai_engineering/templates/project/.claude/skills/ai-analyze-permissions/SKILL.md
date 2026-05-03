@@ -66,25 +66,29 @@ Output a structured report:
 ## Permission Analysis
 
 ### Settings Overview
+
 - settings.local.json: X entries
 - settings.json: Y entries (Z wildcards)
 
 ### Already Covered (can be removed)
+
 These entries in settings.local.json are redundant:
 
-| Entry | Covered by |
-|-------|------------|
-| Bash(git commit -m "...") | Bash(git commit:*) |
+| Entry                     | Covered by          |
+| ------------------------- | ------------------- |
+| Bash(git commit -m "...") | Bash(git commit:\*) |
 
 ### Suggested New Patterns
+
 These patterns would consolidate multiple specific entries:
 
-| Pattern | Covers | Scope | Safety |
-|---------|--------|-------|--------|
-| Bash(kubectl:*) | 4 entries | global | Safe (read-heavy) |
-| Bash(docker exec:*) | 3 entries | local | Review (can modify) |
+| Pattern              | Covers    | Scope  | Safety              |
+| -------------------- | --------- | ------ | ------------------- |
+| Bash(kubectl:\*)     | 4 entries | global | Safe (read-heavy)   |
+| Bash(docker exec:\*) | 3 entries | local  | Review (can modify) |
 
 ### Uncategorized
+
 These entries don't fit a pattern (one-offs):
 
 - Bash(some-specific-command)

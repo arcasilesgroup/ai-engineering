@@ -5,10 +5,6 @@ effort: medium
 argument-hint: "<text>|--skill <name>"
 mode: agent
 tags: [meta, optimization, prompts]
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-prompt/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

@@ -24,6 +24,13 @@
         "powershell": "./.ai-engineering/scripts/hooks/copilot-instinct-extract.ps1",
         "timeoutSec": 20,
         "comment": "Aggregate recent instinct observations into the canonical project instinct store"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-runtime-stop.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-runtime-stop.ps1",
+        "timeoutSec": 15,
+        "comment": "Write runtime checkpoint + Ralph Loop resume marker (runtime-stop)"
       }
     ],
     "userPromptSubmitted": [
@@ -33,6 +40,13 @@
         "powershell": "./.ai-engineering/scripts/hooks/copilot-skill.ps1",
         "timeoutSec": 10,
         "comment": "Emit skill_invoked telemetry on /ai-* commands"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-runtime-progressive-disclosure.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-runtime-progressive-disclosure.ps1",
+        "timeoutSec": 5,
+        "comment": "Rank skills by prompt relevance, surface top-K via additionalContext"
       }
     ],
     "preToolUse": [
@@ -93,6 +107,13 @@
         "powershell": "./.ai-engineering/scripts/hooks/copilot-auto-format.ps1",
         "timeoutSec": 15,
         "comment": "Auto-format edited files after tool use"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-runtime-guard.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-runtime-guard.ps1",
+        "timeoutSec": 10,
+        "comment": "Tool-call offload + loop detection (runtime-guard)"
       }
     ],
     "errorOccurred": [

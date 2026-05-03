@@ -4,10 +4,6 @@ description: "Code review orchestrator -- dispatches specialist agents for deep 
 color: red
 model: opus
 tools: [codebase, githubRepo, problems, readFile, search, agent]
-mirror_family: copilot-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-review.md
-edit_policy: generated-do-not-edit
 agents: [ai-explore]
 handoffs:
 - label: 🔧 Fix Issues
@@ -49,5 +45,5 @@ Principal reviewer orchestrator focused on finding real issues while filtering n
 - Read-only for source code
 - No independent `find` or `learn` behavior
 - No separate mode model beyond default `normal` and explicit `--full`
-- Agent files live in `.github/agents/internal/`, not in the skill directory
+- Agent files live in `.github/agents/`, not in the skill directory
 - Never skip the context explorer or finding validator steps

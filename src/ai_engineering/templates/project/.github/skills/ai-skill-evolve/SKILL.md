@@ -5,10 +5,6 @@ effort: max
 argument-hint: "<skill-name>|all [--dry-run]"
 mode: agent
 tags: [meta, improvement, skills, optimization]
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-skill-evolve/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

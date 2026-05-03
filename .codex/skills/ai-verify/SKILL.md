@@ -3,10 +3,6 @@ name: ai-verify
 description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works'. Runs 4 specialists (deterministic, governance, architecture, feature) with `normal` implicit and `--full` explicit. For narrative code review with human judgment, use /ai-review instead."
 effort: max
 argument-hint: "claim|governance|security|quality|feature|architecture|platform [--full]"
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-verify/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 
@@ -31,9 +27,9 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 Before dispatching any verify agent, verify these files exist:
 
-- `.codex/skills/ai-verify/handlers/verify.md`
-- `.codex/agents/internal/verify-deterministic.md`
-- every required `.codex/agents/internal/verifier-*.md` file for the selected mode
+- `.claude/skills/ai-verify/handlers/verify.md`
+- `.codex/agents/verify-deterministic.md`
+- every required `.codex/agents/verifier-*.md` file for the selected mode
 
 Required verifier files are mode-sensitive:
 
@@ -58,7 +54,7 @@ If the evidence-protocol file is unavailable, use this inline process: for each 
 | `architecture`  | `verifier-architecture.md` | Solution-intent alignment, layer violations (LLM judgment) |
 | `feature`       | `verifier-feature.md`      | Spec coverage, acceptance criteria (LLM judgment)          |
 
-All specialist agents are dispatched via the `Agent` tool from `.codex/agents/internal/`. They are not read inline -- each runs in its own context window.
+All specialist agents are dispatched via the `Agent` tool from `.codex/agents/`. They are not read inline -- each runs in its own context window.
 
 ### Dispatch Architecture
 

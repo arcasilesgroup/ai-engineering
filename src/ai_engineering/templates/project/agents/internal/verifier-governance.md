@@ -94,7 +94,7 @@ findings:
 3. **Modified hooks**: Any change to scripts/hooks/ files
 4. **Undocumented decisions**: Architectural choices not recorded in decision-store
 5. **Stale decisions**: Active decisions that contradict current code
-6. **Count drift**: CLAUDE.md says "9 agents" but 24 files exist in .github/agents/internal/
+6. **Count drift**: CLAUDE.md says "9 agents" but 24 files exist in .claude/agents/
 
 ## Evidence Requirements
 

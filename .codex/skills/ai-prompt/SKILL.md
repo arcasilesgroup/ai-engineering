@@ -4,10 +4,6 @@ description: "Use when a prompt, system message, or skill description is underpe
 effort: medium
 argument-hint: "<text>|--skill <name>"
 tags: [meta, optimization, prompts]
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-prompt/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

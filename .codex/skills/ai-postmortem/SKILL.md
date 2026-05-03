@@ -3,10 +3,6 @@ name: ai-postmortem
 description: "Use when documenting a production incident, outage, degradation, or near-miss. Guides through the DERP format (Detection, Escalation, Recovery, Prevention) with targeted interview questions per phase. Trigger for 'we had an incident', 'write up the outage', 'something went wrong in prod', 'postmortem', 'near-miss analysis', 'incident report'. Modes: start, continue, find, generate."
 effort: high
 argument-hint: "start|continue <id>|find [query]|generate"
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-postmortem/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

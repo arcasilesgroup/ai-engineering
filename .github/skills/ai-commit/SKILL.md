@@ -9,10 +9,6 @@ requires:
   bins:
   - gitleaks
   - ruff
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-commit/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 
@@ -74,6 +70,7 @@ Compose message:
 `git push origin <current-branch>`. Block if on `main`/`master`.
 
 ### `/commit --only`
+
 Execute the full pipeline through Commit. Skip Push.
 
 ## Quick Reference

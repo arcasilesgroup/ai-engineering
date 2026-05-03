@@ -3,10 +3,6 @@ name: ai-start
 description: Use at the start of every coding session to load project context, activate instinct observation, and display a welcome dashboard with recent activity, active work status, board items, and available commands. Trigger for 'hello', 'let's start', 'good morning', 'what's the status', 'get me up to speed', 'I'm back', or any session-opening message. Also invokable mid-session to re-bootstrap. Not for human onboarding — use /ai-guide for that.
 effort: medium
 argument-hint: 
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-start/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

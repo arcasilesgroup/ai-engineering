@@ -4,10 +4,6 @@ description: "Proactive governance advisor -- checks standards, decisions, and q
 color: yellow
 model: opus
 tools: [codebase, githubRepo, problems, readFile, search]
-mirror_family: copilot-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-guard.md
-edit_policy: generated-do-not-edit
 ---
 
 

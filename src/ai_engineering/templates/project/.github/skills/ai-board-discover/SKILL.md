@@ -5,10 +5,6 @@ effort: high
 argument-hint: "[--refresh]"
 mode: agent
 tags: [board, discovery, configuration]
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-board-discover/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

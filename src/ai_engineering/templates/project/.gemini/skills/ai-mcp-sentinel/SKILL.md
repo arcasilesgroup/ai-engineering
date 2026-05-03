@@ -4,10 +4,6 @@ description: "On-demand MCP/skill security audit using LLM coherence analysis. U
 effort: high
 argument-hint: "scan|audit-update <skill>|baseline set [--target <skill-or-all>]"
 tags: [security, mcp, audit, sentinel, governance]
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-mcp-sentinel/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

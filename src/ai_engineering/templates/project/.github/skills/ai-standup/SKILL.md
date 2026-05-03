@@ -4,10 +4,6 @@ description: Use when generating standup notes, daily status updates, or recent-
 effort: medium
 argument-hint: "--days N|--author <name>"
 mode: agent
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-standup/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

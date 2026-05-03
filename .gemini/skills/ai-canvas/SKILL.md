@@ -4,10 +4,6 @@ description: "Use when creating visual design artifacts: posters, banners, flyer
 effort: high
 argument-hint: "[visual artifact description or brief]"
 tags: [visual-design, poster, banner, branding, artifact]
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-canvas/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

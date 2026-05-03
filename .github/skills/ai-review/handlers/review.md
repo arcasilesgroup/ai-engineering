@@ -40,9 +40,9 @@ The context explorer output is serialized and passed to every specialist in thei
 Agent 1 prompt: "You are reviewing code with these specialist lenses:
 correctness, testing, compatibility. [shared context] [diff]
 Read and follow the instructions in these agent files:
-.github/agents/internal/reviewer-correctness.md
-.github/agents/internal/reviewer-testing.md
-.github/agents/internal/reviewer-compatibility.md
+.github/agents/reviewer-correctness.md
+.github/agents/reviewer-testing.md
+.github/agents/reviewer-compatibility.md
 Produce findings in YAML format attributed by original specialist."
 
 Agent 2 prompt: "... security, backend, performance ..."
@@ -55,7 +55,7 @@ Agent 3 prompt: "... architecture, maintainability, frontend ..."
 For each specialist:
 Agent prompt: "You are the [specialist] reviewer.
 [shared context] [diff]
-Read and follow .github/agents/internal/reviewer-[specialist].md
+Read and follow .github/agents/reviewer-[specialist].md
 Produce findings in YAML format."
 ```
 
@@ -92,7 +92,7 @@ disproof without knowing why the specialist flagged it.
 
 ```
 Agent prompt: "You are the finding validator.
-Read and follow .github/agents/internal/review-finding-validator.md
+Read and follow .github/agents/review-finding-validator.md
 Here are the findings to validate:
 [YAML finding blocks only -- no reasoning chain]
 For each finding, read the code at the cited location and

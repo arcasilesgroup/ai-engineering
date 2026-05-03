@@ -11,10 +11,6 @@ requires:
   - az
   bins:
   - gitleaks
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-pr/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

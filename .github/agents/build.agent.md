@@ -4,10 +4,6 @@ description: "Implementation across all stacks -- the only code write agent"
 color: blue
 model: opus
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures, agent]
-mirror_family: copilot-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-build.md
-edit_policy: generated-do-not-edit
 agents: [Guard, ai-explore]
 handoffs:
 - label: ✅ Verify Changes

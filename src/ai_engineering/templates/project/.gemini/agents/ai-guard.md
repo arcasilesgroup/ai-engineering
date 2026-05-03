@@ -3,10 +3,6 @@ name: ai-guard
 description: Proactive governance advisor. Checks standards, decisions, and quality trends during development. Always advisory, NEVER blocks.
 model: sonnet
 color: yellow
-mirror_family: gemini-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-guard.md
-edit_policy: generated-do-not-edit
 ---
 
 

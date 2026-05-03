@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""PostToolUse runtime guard: tool-call offload + loop detection (spec-116 G-2).
+
+Two harness primitives in one hook to avoid stacking another fork()
+on every tool invocation:
+
+* **Offload**: large stdout/stderr payloads (above
+  ``AIENG_TOOL_OFFLOAD_BYTES``, default 4 KB) are written to
+  ``.ai-engineering/state/runtime/tool-outputs/`` and a head+tail+pointer
+  hint is surfaced via ``hookSpecificOutput.additionalContext`` so the
+  model can read the full file on demand instead of bloating context.
+
+* **Loop detection**: a sliding window of recent tool signatures is
+  persisted in ``runtime/tool-history.ndjson``. When the same signature
+  (or repeated failures) crosses ``LOOP_REPEAT_THRESHOLD`` inside the
+  window, the hook emits a ``framework_error`` event and injects a hint
+  asking the model to change approach.
+
+Fail-open: never blocks the IDE. Exits 0 even on error.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent))
+
+from _lib.audit import passthrough_stdin
+from _lib.hook_common import (
+    emit_event,
+    get_correlation_id,
+    get_session_id,
+    run_hook_safe,
+)
+from _lib.hook_context import get_hook_context
+from _lib.runtime_state import (
+    LOOP_WINDOW,
+    ToolHistoryEntry,
+    append_tool_history,
+    derive_outcome,
+    detect_repetition,
+    extract_error_summary,
+    iso_now,
+    offload_large_text,
+    recent_tool_history,
+    tool_signature,
+)
+
+
+def _flatten_tool_response(response: object) -> str:
+    """Reduce arbitrary tool_response payloads to a single string."""
+    if response is None:
+        return ""
+    if isinstance(response, str):
+        return response
+    if isinstance(response, list):
+        chunks: list[str] = []
+        for item in response:
+            chunks.append(_flatten_tool_response(item))
+        return "\n".join(c for c in chunks if c)
+    if isinstance(response, dict):
+        for key in ("text", "content", "stdout", "result", "output"):
+            value = response.get(key)
+            if isinstance(value, str) and value:
+                return value
+        try:
+            return json.dumps(response, default=str)[:65536]
+        except (TypeError, ValueError):
+            return repr(response)[:65536]
+    return str(response)[:65536]
+
+
+def _emit_loop_warning(
+    *,
+    project_root: Path,
+    session_id: str | None,
+    correlation_id: str,
+    reason: str,
+    window_size: int,
+) -> None:
+    event: dict = {
+        "kind": "framework_error",
+        "engine": "claude_code",
+        "timestamp": iso_now(),
+        "component": "hook.runtime-guard",
+        "outcome": "failure",
+        "correlationId": correlation_id,
+        "schemaVersion": "1.0",
+        "project": project_root.name,
+        "source": "hook",
+        "detail": {
+            "error_code": "loop_detected",
+            "summary": reason[:200],
+            "window_size": window_size,
+            "hook_kind": "post-tool-use",
+        },
+    }
+    if session_id:
+        event["sessionId"] = session_id
+    emit_event(project_root, event)
+
+
+def main() -> None:
+    ctx = get_hook_context()
+    if ctx.event_name != "PostToolUse":
+        passthrough_stdin(ctx.data)
+        return
+
+    tool = str(ctx.data.get("tool_name") or "").strip()
+    if not tool:
+        passthrough_stdin(ctx.data)
+        return
+
+    correlation_id = get_correlation_id()
+    session_id = ctx.session_id or get_session_id()
+
+    # --- Loop detection -------------------------------------------------
+    sig = tool_signature(tool, dict(ctx.data.get("tool_input") or {}))
+    outcome = derive_outcome(ctx.data)
+    error_summary = extract_error_summary(ctx.data)
+    append_tool_history(
+        ctx.project_root,
+        ToolHistoryEntry(
+            timestamp=iso_now(),
+            session_id=session_id,
+            tool=tool,
+            signature=sig,
+            outcome=outcome,
+            error_summary=error_summary,
+        ),
+    )
+    history = recent_tool_history(ctx.project_root, session_id=session_id, limit=LOOP_WINDOW)
+    looped, loop_reason = detect_repetition(history)
+    hints: list[str] = []
+    if looped and loop_reason:
+        _emit_loop_warning(
+            project_root=ctx.project_root,
+            session_id=session_id,
+            correlation_id=correlation_id,
+            reason=loop_reason,
+            window_size=len(history),
+        )
+        hints.append(
+            "[runtime-guard] Loop detected: "
+            f"{loop_reason}. Change tool, inputs, or strategy before retrying."
+        )
+
+    # --- Tool-call offload ---------------------------------------------
+    raw_text = _flatten_tool_response(ctx.data.get("tool_response"))
+    if raw_text:
+        summary = offload_large_text(
+            ctx.project_root,
+            correlation_id=correlation_id,
+            tool_name=tool,
+            text=raw_text,
+        )
+        if summary["offloaded"]:
+            hints.append(
+                f"[runtime-guard] Tool output offloaded ({summary['totalBytes']} bytes). "
+                f"Head + tail kept in context; full payload at "
+                f"{summary['path']}. Read it on demand instead of pasting."
+            )
+
+    # --- Surface hints to the model ------------------------------------
+    if hints:
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": "PostToolUse",
+                        "additionalContext": "\n".join(hints),
+                    }
+                },
+                separators=(",", ":"),
+            )
+        )
+        sys.stdout.flush()
+    else:
+        passthrough_stdin(ctx.data)
+
+
+if __name__ == "__main__":
+    run_hook_safe(main, component="hook.runtime-guard", hook_kind="post-tool-use")

@@ -35,7 +35,7 @@ Collect authoritative data from ALL sources:
 - `.ai-engineering/specs/spec.md` -- current spec status
 - Recent spec closures (done.md files)
 - `.codex/skills/` -- actual skill count and categories
-- `.codex/agents/internal/` -- actual agent count
+- `.codex/agents/` -- actual agent count
 - Source code structure (`src/`) -- module layout, CLI commands
 - Quality/security tool outputs if available
 

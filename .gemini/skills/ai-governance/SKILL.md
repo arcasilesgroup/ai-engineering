@@ -4,10 +4,6 @@ description: Use for framework compliance validation, ownership boundary checks,
 effort: max
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-governance/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

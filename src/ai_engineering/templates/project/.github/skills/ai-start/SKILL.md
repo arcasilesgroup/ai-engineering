@@ -4,10 +4,6 @@ description: Use at the start of every coding session to load project context, a
 effort: medium
 argument-hint: 
 mode: agent
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-start/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

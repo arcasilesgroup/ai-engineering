@@ -4,10 +4,6 @@ description: "Autonomous multi-spec orchestrator -- splits large specs into focu
 color: purple
 model: opus
 tools: [codebase, githubRepo, readFile, runCommands, search, agent]
-mirror_family: copilot-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-autopilot.md
-edit_policy: generated-do-not-edit
 agents: [Build, ai-explore, Verify, Plan, Guard]
 handoffs:
 - label: 📋 Create PR

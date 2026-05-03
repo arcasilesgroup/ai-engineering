@@ -34,7 +34,7 @@ Dispatch `verify-deterministic.md` via the **Agent** tool:
 
 ```
 Agent prompt: "You are the deterministic verification agent.
-Read and follow .gemini/agents/internal/verify-deterministic.md
+Read and follow .gemini/agents/verify-deterministic.md
 Execute all tool-driven checks against the current codebase.
 Read .ai-engineering/state/decision-store.json for accepted exceptions.
 Produce structured YAML output."
@@ -51,9 +51,9 @@ Agent prompt: "You are verifying this codebase with these specialist lenses:
 governance, architecture, feature.
 [deterministic evidence from Step 2]
 Read and follow these agent files:
-.gemini/agents/internal/verifier-governance.md
-.gemini/agents/internal/verifier-architecture.md
-.gemini/agents/internal/verifier-feature.md
+.gemini/agents/verifier-governance.md
+.gemini/agents/verifier-architecture.md
+.gemini/agents/verifier-feature.md
 Produce findings in YAML format attributed by original specialist."
 ```
 
@@ -63,7 +63,7 @@ Produce findings in YAML format attributed by original specialist."
 For each specialist (governance, architecture, feature):
 Agent prompt: "You are the [specialist] verification agent.
 [deterministic evidence from Step 2]
-Read and follow .gemini/agents/internal/verifier-[specialist].md
+Read and follow .gemini/agents/verifier-[specialist].md
 Produce findings in YAML format."
 ```
 

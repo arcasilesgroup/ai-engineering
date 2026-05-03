@@ -113,18 +113,11 @@ Before writing or reviewing code, load the applicable context files:
 
 The agents table above lists every agent shipped with the framework. Counts mirror `.ai-engineering/manifest.yml` (`agents.total`).
 
-## Skills (48)
+## Skills (51)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
-**Workflow:** brainstorm, plan, dispatch, test, debug, code, verify, review, eval, research
-**Delivery:** commit, pr, release-gate, cleanup
-**Enterprise:** security, governance, pipeline, schema, docs, board-discover, board-sync, platform-audit, mcp-sentinel
-**Teaching:** explain, guide
-**Writing:** write, market, slides, media, video-editing
-**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, start, instinct, autopilot, run, constitution, skill-evolve
-**Design:** design, animation, canvas
+__SKILL_GROUPS__
 
 ## Effort Levels
 
@@ -132,9 +125,7 @@ Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
 
 | Effort | Count |
 |--------|-------|
-| max | 11 (brainstorm, verify, review, security, governance, schema, autopilot, run, eval, platform-audit, skill-evolve) |
-| high | 25 (plan, dispatch, test, debug, code, pr, release-gate, pipeline, docs, explain, guide, write, market, sprint, postmortem, support, create, slides, video-editing, board-discover, mcp-sentinel, design, animation, canvas, research) |
-| medium | 12 (commit, cleanup, note, standup, resolve-conflicts, learn, prompt, start, instinct, constitution, media, board-sync) |
+__EFFORT_ROWS__
 
 ## Quality Gates
 
@@ -173,7 +164,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (48) | `.gemini/skills/ai-<name>/SKILL.md` |
+| Skills (51) | `.gemini/skills/ai-<name>/SKILL.md` |
 | Agents (10) | `.gemini/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

@@ -4,10 +4,6 @@ description: Activate at session start to silently observe corrections, recoveri
 effort: medium
 argument-hint: "[--review]"
 tags: [meta, learning, continuous-improvement]
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-instinct/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

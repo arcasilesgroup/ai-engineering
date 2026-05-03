@@ -4,10 +4,6 @@ description: "Use when new to a project and need orientation, want to understand
 effort: high
 argument-hint: "tour|find <topic>|history <decision>|onboard"
 tags: [onboarding, architecture, teaching, archaeology]
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-guide/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

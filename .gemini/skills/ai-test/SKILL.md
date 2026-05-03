@@ -3,10 +3,6 @@ name: ai-test
 description: "Use when working with tests: writing new tests, enforcing TDD (RED-GREEN-REFACTOR), analyzing coverage gaps, or defining test strategy. Trigger for 'add tests for', 'write a test', 'I need 80% coverage', 'test this', 'am I testing enough', 'plan my test approach'. For failing tests where the fix is not obvious, use /ai-debug instead. Supports Python, TypeScript, .NET, Rust, Go."
 effort: high
 argument-hint: "plan|run|gap|tdd [target]"
-mirror_family: gemini-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-test/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

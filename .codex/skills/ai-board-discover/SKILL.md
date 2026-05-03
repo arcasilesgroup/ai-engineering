@@ -4,10 +4,6 @@ description: Use to discover and configure project board integration after frame
 effort: high
 argument-hint: "[--refresh]"
 tags: [board, discovery, configuration]
-mirror_family: codex-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-board-discover/SKILL.md
-edit_policy: generated-do-not-edit
 ---
 
 

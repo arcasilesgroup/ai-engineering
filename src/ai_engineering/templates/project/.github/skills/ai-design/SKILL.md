@@ -5,12 +5,7 @@ effort: high
 argument-hint: "[UI or design task description]"
 mode: agent
 tags: [design, ui, ux, design-system, aesthetics]
-mirror_family: copilot-skills
-generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-design/SKILL.md
-edit_policy: generated-do-not-edit
 ---
-
 
 
 # Design
@@ -53,18 +48,18 @@ Apply the design thinking framework from `handlers/aesthetics.md` (or directly i
 
 Use the priority ranking from `handlers/design-system.md`:
 
-| Priority | Category | Gate |
-|----------|----------|------|
-| 1 | Accessibility | CRITICAL -- never skip |
-| 2 | Touch & Interaction | CRITICAL -- never skip |
-| 3 | Performance | HIGH |
-| 4 | Style Selection | HIGH |
-| 5 | Layout & Responsive | HIGH |
-| 6 | Typography & Color | MEDIUM |
-| 7 | Animation | MEDIUM |
-| 8 | Forms & Feedback | MEDIUM |
-| 9 | Navigation Patterns | HIGH |
-| 10 | Charts & Data | LOW |
+| Priority | Category            | Gate                   |
+| -------- | ------------------- | ---------------------- |
+| 1        | Accessibility       | CRITICAL -- never skip |
+| 2        | Touch & Interaction | CRITICAL -- never skip |
+| 3        | Performance         | HIGH                   |
+| 4        | Style Selection     | HIGH                   |
+| 5        | Layout & Responsive | HIGH                   |
+| 6        | Typography & Color  | MEDIUM                 |
+| 7        | Animation           | MEDIUM                 |
+| 8        | Forms & Feedback    | MEDIUM                 |
+| 9        | Navigation Patterns | HIGH                   |
+| 10       | Charts & Data       | LOW                    |
 
 Address P1-P2 as hard gates. P3-P9 as design considerations. P10 only when data visualization is involved.
 

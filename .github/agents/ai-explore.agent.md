@@ -4,10 +4,6 @@ description: "Context gatherer -- deep codebase research, architecture mapping, 
 color: cyan
 model: opus
 tools: [codebase, githubRepo, readFile, search]
-mirror_family: copilot-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-explore.md
-edit_policy: generated-do-not-edit
 ---
 
 

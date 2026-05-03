@@ -3,10 +3,6 @@ name: ai-simplify
 description: Code simplification and complexity reduction. Guard clauses, method extraction, nesting flattening, dead code removal. Behavior preserved.
 model: sonnet
 color: green
-mirror_family: gemini-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/ai-simplify.md
-edit_policy: generated-do-not-edit
 ---
 
 

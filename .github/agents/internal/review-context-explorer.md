@@ -119,7 +119,7 @@ A realistic example for a change adding skill mirror sync to the updater:
 
 ```markdown
 ### Files Modified
-- `src/ai_engineering/updater/service.py`: Added `update_skill_mirrors()` that copies canonical `.github/skills/` to `.codex/skills/`, `.gemini/skills/`, and `.github/skills/`
+- `src/ai_engineering/updater/service.py`: Added `update_skill_mirrors()` that copies canonical `.claude/skills/` to `.codex/skills/`, `.gemini/skills/`, and `.github/skills/`
 - `src/ai_engineering/cli_commands/core.py`: Wired `update_skill_mirrors()` into the `update` command after template sync
 - `tests/unit/test_updater.py`: New test for mirror sync during update
 
