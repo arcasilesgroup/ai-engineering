@@ -39,7 +39,7 @@ PRECOMPACT_SNAPSHOT_REL = RUNTIME_DIR_REL / "precompact-snapshot.json"
 # ---------------------------------------------------------------------------
 
 
-def _env_int(name: str, default: int) -> int:
+def _env_int(name: str, default: int, *, ceiling: int | None = None) -> int:
     raw = os.environ.get(name, "").strip()
     if not raw:
         return default
@@ -47,21 +47,42 @@ def _env_int(name: str, default: int) -> int:
         value = int(raw)
     except ValueError:
         return default
-    return value if value > 0 else default
+    if value <= 0:
+        return default
+    if ceiling is not None and value > ceiling:
+        return ceiling
+    return value
 
 
 # Tool-call offload threshold (bytes). Outputs above this go to disk.
-TOOL_OFFLOAD_BYTES = _env_int("AIENG_TOOL_OFFLOAD_BYTES", 4096)
+# 16 KiB default: smaller outputs cost more in context-hint bytes than they save.
+TOOL_OFFLOAD_BYTES = _env_int("AIENG_TOOL_OFFLOAD_BYTES", 16384, ceiling=8 * 1024 * 1024)
 # Head/tail kept inline when offloading.
-TOOL_OFFLOAD_HEAD = _env_int("AIENG_TOOL_OFFLOAD_HEAD", 1024)
-TOOL_OFFLOAD_TAIL = _env_int("AIENG_TOOL_OFFLOAD_TAIL", 512)
+TOOL_OFFLOAD_HEAD = _env_int("AIENG_TOOL_OFFLOAD_HEAD", 1024, ceiling=64 * 1024)
+TOOL_OFFLOAD_TAIL = _env_int("AIENG_TOOL_OFFLOAD_TAIL", 512, ceiling=64 * 1024)
+
+# Cap for tool_response flatten before signature/offload eats memory.
+# Couples to TOOL_OFFLOAD_BYTES upper bound: never truncate below the offload threshold.
+TOOL_RESPONSE_FLATTEN_CAP = max(TOOL_OFFLOAD_BYTES * 4, 1 << 16)
+
+# Tools that already surface their full payload to the model (Read, Glob, Grep, etc.)
+# Offloading these wastes I/O and inflates context with a "fetch from path" hint.
+TOOL_OFFLOAD_SKIP = frozenset({"Read", "Glob", "Grep", "TodoWrite"})
+
+# Cap on number of files retained in tool-outputs/. Older files GC'd opportunistically.
+TOOL_OUTPUTS_FILE_CAP = _env_int("AIENG_TOOL_OUTPUTS_FILE_CAP", 200, ceiling=10_000)
 
 # Loop-detection: window size + repetition threshold.
-LOOP_WINDOW = _env_int("AIENG_LOOP_WINDOW", 6)
-LOOP_REPEAT_THRESHOLD = _env_int("AIENG_LOOP_REPEAT_THRESHOLD", 3)
+LOOP_WINDOW = _env_int("AIENG_LOOP_WINDOW", 6, ceiling=200)
+LOOP_REPEAT_THRESHOLD = _env_int("AIENG_LOOP_REPEAT_THRESHOLD", 3, ceiling=200)
 
 # Tool history retention (max records kept on disk).
-TOOL_HISTORY_MAX = _env_int("AIENG_TOOL_HISTORY_MAX", 500)
+TOOL_HISTORY_MAX = _env_int("AIENG_TOOL_HISTORY_MAX", 500, ceiling=10_000)
+# Trim threshold: amortise rewrites by only trimming when file grows beyond
+# steady-state (~180 B/line × TOOL_HISTORY_MAX × 1.5 buffer).
+_TOOL_HISTORY_TRIM_BYTES = max(256 * 1024, TOOL_HISTORY_MAX * 280)
+# NDJSON tail-byte read window: covers ~LOOP_WINDOW * 4 records of typical 180 B size.
+_NDJSON_TAIL_BYTES = 32 * 1024
 
 
 # ---------------------------------------------------------------------------
@@ -94,9 +115,19 @@ def precompact_snapshot_path(project_root: Path) -> Path:
 
 
 def ensure_runtime_dirs(project_root: Path) -> None:
-    """Create runtime/ + tool-outputs/ if missing. Idempotent."""
+    """Create runtime/ + tool-outputs/ if missing. Idempotent.
+
+    tool-outputs/ holds offloaded tool payloads that may include redacted-but-
+    sensitive content (file paths, env vars, diff bodies). Tightened to 0o700
+    so peers on a multi-user host can't enumerate or read.
+    """
     runtime_dir(project_root).mkdir(parents=True, exist_ok=True)
-    tool_outputs_dir(project_root).mkdir(parents=True, exist_ok=True)
+    out_dir = tool_outputs_dir(project_root)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        out_dir.chmod(0o700)
+    except OSError:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -139,22 +170,36 @@ def append_ndjson(path: Path, entry: dict) -> None:
 
 
 def read_ndjson_tail(path: Path, limit: int) -> list[dict]:
-    """Return up to `limit` most recent dict-typed records (skip bad lines)."""
+    """Return up to `limit` most recent dict-typed records (skip bad lines).
+
+    Tail-byte read: seek to end-window so cost is O(window) not O(file size).
+    Drops the first (possibly partial) line in the window to avoid mid-line splits.
+    """
     if not path.exists() or limit <= 0:
         return []
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        with path.open("rb") as fh:
+            fh.seek(0, 2)
+            size = fh.tell()
+            window = max(_NDJSON_TAIL_BYTES, limit * 512)
+            fh.seek(max(0, size - window))
+            buf = fh.read()
     except OSError:
         return []
+    text = buf.decode("utf-8", errors="replace")
+    lines = text.splitlines()
+    # If window started mid-file, the first line is likely a partial — drop it.
+    if size > window and lines:
+        lines = lines[1:]
     out: list[dict] = []
     for line in reversed(lines):
         if len(out) >= limit:
             break
-        line = line.strip()
-        if not line:
+        stripped = line.strip()
+        if not stripped:
             continue
         try:
-            parsed = json.loads(line)
+            parsed = json.loads(stripped)
         except (json.JSONDecodeError, ValueError):
             continue
         if isinstance(parsed, dict):
@@ -204,9 +249,14 @@ class ToolHistoryEntry:
     signature: str
     outcome: str
     error_summary: str | None
+    # File touched by Edit/Write/MultiEdit (None for non-file tools). Lets the
+    # checkpoint→episode bridge (runtime-stop) recover edited paths from a single
+    # source of truth instead of scanning framework-events for an event that
+    # auto-format never emits.
+    file_path: str | None = None
 
     def to_dict(self) -> dict:
-        return {
+        payload: dict = {
             "timestamp": self.timestamp,
             "sessionId": self.session_id,
             "tool": self.tool,
@@ -214,15 +264,21 @@ class ToolHistoryEntry:
             "outcome": self.outcome,
             "errorSummary": self.error_summary,
         }
+        if self.file_path:
+            payload["filePath"] = self.file_path
+        return payload
 
 
 def append_tool_history(project_root: Path, entry: ToolHistoryEntry) -> None:
-    """Append + truncate to TOOL_HISTORY_MAX so the file stays bounded."""
+    """Append + truncate to TOOL_HISTORY_MAX so the file stays bounded.
+
+    Trim threshold is set above steady-state file size so the trim path doesn't
+    run on every PostToolUse — only when the file actually grew unbounded.
+    """
     path = tool_history_path(project_root)
     append_ndjson(path, entry.to_dict())
-    # Cheap trim: only when file likely large enough to matter.
     try:
-        if path.stat().st_size < 64 * 1024:
+        if path.stat().st_size < _TOOL_HISTORY_TRIM_BYTES:
             return
     except OSError:
         return
@@ -234,6 +290,25 @@ def append_tool_history(project_root: Path, entry: ToolHistoryEntry) -> None:
         return
     keep = lines[-TOOL_HISTORY_MAX:]
     path.write_text("\n".join(keep) + "\n", encoding="utf-8")
+
+
+def _gc_tool_outputs(directory: Path, *, cap: int = TOOL_OUTPUTS_FILE_CAP) -> None:
+    """Drop oldest files when directory exceeds cap. Best-effort, swallows IO errors."""
+    try:
+        entries = list(directory.iterdir())
+    except OSError:
+        return
+    if len(entries) <= cap:
+        return
+    try:
+        entries.sort(key=lambda p: p.stat().st_mtime)
+    except OSError:
+        return
+    for old in entries[: len(entries) - cap]:
+        try:
+            old.unlink()
+        except OSError:
+            continue
 
 
 def recent_tool_history(
@@ -308,6 +383,14 @@ def offload_large_text(
 
     Returns a dict with the head/tail snippet, full path (when offloaded),
     and the byte counts. Caller decides how to surface this to the model.
+
+    Security posture:
+    * Payload is redacted via `redact()` before write (tool outputs routinely
+      contain `cat .env`, env dumps, HTTP bodies on a multi-user host).
+    * File written with mode 0o600 + O_NOFOLLOW so it's not world-readable
+      and a pre-existing symlink in tool-outputs/ cannot redirect the write.
+    * Directory mode tightened to 0o700 in `ensure_runtime_dirs`.
+    * Opportunistic GC keeps the directory bounded at TOOL_OUTPUTS_FILE_CAP.
     """
     encoded = text.encode("utf-8", errors="replace")
     total = len(encoded)
@@ -320,19 +403,65 @@ def offload_large_text(
         summary["preview"] = text
         return summary
     ensure_runtime_dirs(project_root)
+    out_dir = tool_outputs_dir(project_root)
     safe_id = re.sub(r"[^a-zA-Z0-9_-]", "_", correlation_id)[:48] or "anon"
-    out_path = tool_outputs_dir(project_root) / f"{iso_now().replace(':', '')}-{safe_id}.txt"
-    out_path.write_bytes(encoded)
+    redacted_text = redact(text)
+    redacted_encoded = redacted_text.encode("utf-8", errors="replace")
+    base_name = f"{iso_now().replace(':', '')}-{safe_id}"
+    out_path = out_dir / f"{base_name}.txt"
+    attempt = 0
+    while True:
+        try:
+            fd = os.open(
+                str(out_path),
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                0o600,
+            )
+        except FileExistsError:
+            attempt += 1
+            if attempt > 5:
+                # Give up rather than overwrite; head+tail still surfaces in summary.
+                break
+            out_path = out_dir / f"{base_name}-{attempt}.txt"
+            continue
+        except OSError:
+            break
+        try:
+            with os.fdopen(fd, "wb") as fh:
+                fh.write(redacted_encoded)
+        except OSError:
+            try:
+                out_path.unlink()
+            except OSError:
+                pass
+            break
+        head = redacted_encoded[:TOOL_OFFLOAD_HEAD].decode("utf-8", errors="replace")
+        tail = redacted_encoded[-TOOL_OFFLOAD_TAIL:].decode("utf-8", errors="replace")
+        summary.update(
+            {
+                "offloaded": True,
+                "head": head,
+                "tail": tail,
+                "headBytes": min(TOOL_OFFLOAD_HEAD, total),
+                "tailBytes": min(TOOL_OFFLOAD_TAIL, total),
+                "path": str(out_path.relative_to(project_root)),
+            }
+        )
+        _gc_tool_outputs(out_dir)
+        return summary
+    # Fall-through: write failed or filename collisions exhausted. Surface a
+    # head+tail-only summary so the caller still gets context, but flag offload as
+    # incomplete so the hook does not pretend a path exists.
     head = encoded[:TOOL_OFFLOAD_HEAD].decode("utf-8", errors="replace")
     tail = encoded[-TOOL_OFFLOAD_TAIL:].decode("utf-8", errors="replace")
     summary.update(
         {
-            "offloaded": True,
+            "offloaded": False,
             "head": head,
             "tail": tail,
             "headBytes": min(TOOL_OFFLOAD_HEAD, total),
             "tailBytes": min(TOOL_OFFLOAD_TAIL, total),
-            "path": str(out_path.relative_to(project_root)),
+            "writeFailed": True,
         }
     )
     return summary
@@ -382,8 +511,11 @@ __all__ = [
     "TOOL_HISTORY_REL",
     "TOOL_OFFLOAD_BYTES",
     "TOOL_OFFLOAD_HEAD",
+    "TOOL_OFFLOAD_SKIP",
     "TOOL_OFFLOAD_TAIL",
     "TOOL_OUTPUTS_DIR_REL",
+    "TOOL_OUTPUTS_FILE_CAP",
+    "TOOL_RESPONSE_FLATTEN_CAP",
     "ToolHistoryEntry",
     "append_ndjson",
     "append_tool_history",

@@ -90,4 +90,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.telemetry-skill", hook_kind="user-prompt-submit")
+    run_hook_safe(
+        main, component="hook.telemetry-skill", hook_kind="user-prompt-submit", script_path=__file__
+    )

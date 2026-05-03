@@ -97,8 +97,16 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    new_manifest = _build_manifest()
     existing = _read_existing()
+    new_manifest = _build_manifest()
+
+    # Preserve `generatedAt` when content is unchanged. Otherwise every
+    # regenerate run produces a 1-line diff (timestamp only) and pre-commit
+    # auto-regeneration creates no-op commits.
+    if _hooks_equal(new_manifest, existing) and isinstance(existing, dict):
+        prior_ts = existing.get("generatedAt")
+        if isinstance(prior_ts, str):
+            new_manifest["generatedAt"] = prior_ts
 
     if args.check:
         if _hooks_equal(new_manifest, existing):

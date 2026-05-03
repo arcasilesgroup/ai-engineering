@@ -32,6 +32,12 @@ _MANIFEST_REL = Path(".ai-engineering") / "state" / "hooks-manifest.json"
 _DEFAULT_MODE = "warn"
 _VALID_MODES: frozenset[str] = frozenset({"enforce", "warn", "off"})
 
+# Module-level cache: load_manifest is called on every hook invocation. Cache
+# keyed on (resolved path, mtime_ns) so edits during dev still bust the cache
+# but warm invocations within a single process pay zero disk I/O.
+_MANIFEST_CACHE: dict[tuple[str, int], dict[str, str]] = {}
+_MANIFEST_CACHE_MAX = 4
+
 
 def _resolve_mode() -> str:
     raw = (os.environ.get("AIENG_HOOK_INTEGRITY_MODE") or "").strip().lower()
@@ -50,27 +56,49 @@ def compute_file_sha256(path: Path) -> str:
 
 
 def load_manifest(project_root: Path) -> dict[str, str]:
-    """Return ``{relative_path: sha256}`` mapping; empty dict if absent."""
+    """Return ``{relative_path: sha256}`` mapping; empty dict if absent.
+
+    Memoized on (resolved manifest path, mtime_ns) so warm hook invocations
+    within a single process skip the JSON parse. Edits to the manifest still
+    bust the cache via mtime change.
+    """
     manifest_path = project_root / _MANIFEST_REL
-    if not manifest_path.exists():
+    try:
+        stat = manifest_path.stat()
+    except OSError:
         return {}
+    cache_key = (str(manifest_path.resolve()), stat.st_mtime_ns)
+    cached = _MANIFEST_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
     try:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, ValueError):
         return {}
     hooks = payload.get("hooks") if isinstance(payload, dict) else None
     if not isinstance(hooks, dict):
-        return {}
-    return {str(k): str(v) for k, v in hooks.items() if isinstance(v, str)}
+        result: dict[str, str] = {}
+    else:
+        result = {str(k): str(v) for k, v in hooks.items() if isinstance(v, str)}
+    if len(_MANIFEST_CACHE) >= _MANIFEST_CACHE_MAX:
+        _MANIFEST_CACHE.pop(next(iter(_MANIFEST_CACHE)))
+    _MANIFEST_CACHE[cache_key] = result
+    return result
 
 
 def verify_hook_integrity(script_path: Path, project_root: Path) -> tuple[bool, str | None]:
     """Verify ``script_path`` matches the committed manifest entry.
 
     Returns ``(ok, reason)``. ``ok=True`` means the script either matches
-    or has no manifest entry (forward-compat for new hooks not yet
-    enrolled). ``reason`` is a short human-readable string when ok is
-    False, suitable for telemetry summaries.
+    or has no manifest entry (in non-enforce modes — forward-compat for new
+    hooks not yet enrolled). ``reason`` is a short human-readable string when
+    ok is False, suitable for telemetry summaries.
+
+    In ``enforce`` mode an unenrolled hook is treated as a violation: dropping
+    a new file into ``.ai-engineering/scripts/hooks/`` and wiring it from
+    ``.claude/settings.json`` no longer skips the integrity check. ``warn``
+    and ``off`` keep the lenient behaviour so day-one installs after the
+    manifest landed don't brick.
     """
     manifest = load_manifest(project_root)
     if not manifest:
@@ -82,8 +110,8 @@ def verify_hook_integrity(script_path: Path, project_root: Path) -> tuple[bool, 
         return True, None
     expected = manifest.get(str(rel))
     if expected is None:
-        # New hook not yet enrolled; treat as pass to avoid bricking
-        # day-one installs after the manifest landed.
+        if _resolve_mode() == "enforce":
+            return False, f"hook {rel} not enrolled in hooks-manifest.json"
         return True, None
     actual = compute_file_sha256(script_path)
     if actual.lower() == expected.lower():

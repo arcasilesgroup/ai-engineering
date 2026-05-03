@@ -84,7 +84,11 @@ def test_propose_promotions_never_writes_to_lessons(memory_project):
 
 
 def test_run_dream_small_corpus_early_exit(memory_project):
-    """< 30 KOs short-circuits HDBSCAN per D-118-05."""
+    """< 30 KOs short-circuits HDBSCAN per D-118-05.
+
+    Tightened with negative side-effect assertions: the early-exit branch
+    must NOT write `memory-proposals.md` and must NOT mark any KO superseded.
+    """
     from memory import dreaming, knowledge, store
 
     store.bootstrap(memory_project)
@@ -96,6 +100,45 @@ def test_run_dream_small_corpus_early_exit(memory_project):
     report = dreaming.run_dream(memory_project)
     assert report.outcome == "noop_small_corpus"
     assert report.clusters_found == 0
+    proposals = memory_project / ".ai-engineering" / "instincts" / "memory-proposals.md"
+    assert proposals.exists() is False
+    with store.connect(memory_project) as conn:
+        superseded = conn.execute(
+            "SELECT COUNT(*) FROM knowledge_objects WHERE superseded_by IS NOT NULL"
+        ).fetchone()[0]
+    assert superseded == 0
+
+
+def test_cluster_with_hdbscan_returns_empty_below_threshold():
+    """Cluster primitive itself short-circuits below HDBSCAN_MIN_TOTAL."""
+    from memory import dreaming
+
+    sparse = [(f"ko-{i}", [0.0] * 384) for i in range(5)]
+    assert dreaming.cluster_with_hdbscan(sparse) == {}
+
+
+def test_cluster_with_hdbscan_drops_noise_label():
+    """`label == -1` (noise) entries must NOT appear as a cluster key."""
+    import sys
+
+    if "hdbscan" not in sys.modules:
+        # hdbscan is in the [memory] extra; skip when unavailable so the
+        # core test lane stays green.
+        import pytest
+
+        try:
+            import hdbscan  # noqa: F401
+        except ImportError:
+            pytest.skip("hdbscan not installed; covered by [memory] extra lane")
+
+    import numpy as np
+    from memory import dreaming
+
+    rng = np.random.RandomState(0)
+    # 30+ vectors all far apart -> HDBSCAN labels everything -1.
+    vectors = [(f"ko-{i}", rng.rand(384).astype("f4").tolist()) for i in range(30)]
+    clusters = dreaming.cluster_with_hdbscan(vectors, min_cluster_size=5)
+    assert -1 not in clusters
 
 
 def test_proposals_path_constant_is_explicit():

@@ -11,11 +11,26 @@ run `ai-eng memory repair --rebuild-vectors` to migrate.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import struct
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+
+class HotPathInvocationError(RuntimeError):
+    """Raised when a runtime hook accidentally imports the embedder.
+
+    `fastembed` cold-load is multi-hundred-millisecond (ONNX runtime init);
+    even warm-call latency is 30-80 ms per query. That's lethal in a hook
+    that fires on every PostToolUse / UserPromptSubmit / Stop. The runtime
+    layer sets ``AIENG_HOOK_RUNTIME=1`` in its execution context; this
+    function raises if a hook tries to take this path. Background CLI
+    processes (``ai-eng memory ...``) do not set the env var and run
+    normally.
+    """
+
 
 DEFAULT_MODEL_NAME = "BAAI/bge-small-en-v1.5"
 DEFAULT_DIM = 384
@@ -37,9 +52,29 @@ def _serialize_f32(vector: list[float]) -> bytes:
     return struct.pack(f"{len(vector)}f", *vector)
 
 
+def _assert_not_hot_path() -> None:
+    """Refuse to load the embedder from inside a runtime hook.
+
+    Hooks set ``AIENG_HOOK_RUNTIME=1`` as part of their execution context;
+    importing this module from a hook is fine (audit, model_name constants,
+    `assert_compatible_dim`, `upsert_vector` against pre-computed vectors —
+    none of these need the ONNX model). What is NOT fine is calling
+    `_get_embedder` / `embed_batch` / `query_vector` from a hook, because
+    those force the multi-hundred-ms model load on the hot path. Detected
+    via env var to keep the check zero-cost on the CLI happy path.
+    """
+    if os.environ.get("AIENG_HOOK_RUNTIME") == "1":
+        msg = (
+            "fastembed must not be loaded from a runtime hook (AIENG_HOOK_RUNTIME=1 "
+            "set). Defer embedding to the background CLI (memory_cmd) instead."
+        )
+        raise HotPathInvocationError(msg)
+
+
 def _get_embedder(model_name: str = DEFAULT_MODEL_NAME):
     """Lazy import + cache the fastembed model. ONNX weights download on first use."""
     global _EMBED_MODEL, _EMBED_MODEL_NAME
+    _assert_not_hot_path()
     if _EMBED_MODEL is None or model_name != _EMBED_MODEL_NAME:
         from fastembed import TextEmbedding  # type: ignore[import-not-found]
 

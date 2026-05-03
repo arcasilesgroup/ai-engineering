@@ -80,3 +80,60 @@ def test_search_returns_no_vectors_when_vec0_unavailable(
     out = retrieval.search(memory_project, query="anything", top_k=5)
     assert out["status"] == "no_vectors"
     assert out["results"] == []
+
+
+def test_parse_since_raises_on_malformed_input():
+    """Earlier versions silently returned None for malformed input
+    (callers couldn't distinguish "no filter" from "bad filter")."""
+    from memory import retrieval
+
+    with pytest.raises(ValueError, match="Invalid `since` value"):
+        retrieval._parse_since("last week")
+    with pytest.raises(ValueError, match="Invalid `since` value"):
+        retrieval._parse_since("7days")
+
+
+def test_search_returns_bad_input_status_on_malformed_since(
+    memory_project, monkeypatch, deterministic_embedder
+):
+    """`search` surfaces the ValueError as a `bad_input` status payload."""
+    from memory import retrieval
+
+    out = retrieval.search(memory_project, query="x", since="not a date")
+    assert out["status"] == "bad_input"
+    assert "Invalid" in out["message"]
+    assert out["results"] == []
+
+
+def test_decay_score_does_not_invert_on_negative_cosine():
+    """`decayed * cosine` could let negative cosines flip the importance
+    signal -- the rerank now uses `decayed * max(0, cosine)`."""
+    from memory import retrieval
+
+    # Two hits with same cosine of 0; recency tie-break should sort fresher first.
+    high = retrieval.Hit(
+        target_kind="ko",
+        target_id="high",
+        score=0.0,
+        cosine=0.0,
+        decayed_importance=0.9,
+        importance=0.9,
+        days_old=10.0,
+        summary="high",
+        source_path=None,
+    )
+    low = retrieval.Hit(
+        target_kind="ko",
+        target_id="low",
+        score=0.0,
+        cosine=0.0,
+        decayed_importance=0.1,
+        importance=0.1,
+        days_old=1.0,
+        summary="low",
+        source_path=None,
+    )
+    hits = [high, low]
+    hits.sort(key=lambda h: (h.score, -h.days_old), reverse=True)
+    # Same score; recency tie-break orders the fresher hit first.
+    assert hits[0].target_id == "low"

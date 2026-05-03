@@ -117,5 +117,21 @@ def main() -> None:
     passthrough_stdin(ctx.data)
 
 
+def _entry() -> None:
+    """Resolve hook_kind from the actual event so PostCompact telemetry is not
+    mislabelled as ``pre-compact``. Earlier versions pinned ``hook_kind`` at
+    the wrapper, so every PostCompact event was telemetered with the wrong
+    kind and audit queries filtering on ``hook_kind=post-compact`` returned
+    nothing."""
+    try:
+        ctx = get_hook_context()
+        kind = "pre-compact" if ctx.event_name == "PreCompact" else "post-compact"
+    except Exception:
+        kind = "pre-compact"
+    run_hook_safe(
+        main, component="hook.runtime-compact", hook_kind=kind, script_path=Path(__file__)
+    )
+
+
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.runtime-compact", hook_kind="pre-compact")
+    _entry()

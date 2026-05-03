@@ -171,4 +171,6 @@ def main() -> None:
 if __name__ == "__main__":
     # Lazy load so we can invoke run_hook_safe with the resolved module.
     hc_mod = _load_hook_common()
-    hc_mod.run_hook_safe(main, component="hook.codex-bridge", hook_kind="codex-bridge")
+    hc_mod.run_hook_safe(
+        main, component="hook.codex-bridge", hook_kind="codex-bridge", script_path=Path(__file__)
+    )

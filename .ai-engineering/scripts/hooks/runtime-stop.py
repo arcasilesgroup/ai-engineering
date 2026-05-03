@@ -36,13 +36,29 @@ from _lib.runtime_state import (
     iso_now,
     ralph_resume_path,
     read_json,
-    read_ndjson_tail,
     recent_tool_history,
+    redact,
     runtime_dir,
     write_json,
 )
 
-_RALPH_MAX_RETRIES = int(os.environ.get("AIENG_RALPH_MAX_RETRIES", "5") or 5)
+
+def _bounded_int_env(name: str, default: int, *, ceiling: int) -> int:
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    if value <= 0:
+        return default
+    return min(value, ceiling)
+
+
+# Bounded so a stray AIENG_RALPH_MAX_RETRIES=999999999 cannot keep the Ralph
+# Loop alive across many sessions.
+_RALPH_MAX_RETRIES = _bounded_int_env("AIENG_RALPH_MAX_RETRIES", 5, ceiling=50)
 _FAILURE_PATTERNS = (
     "test failed",
     "tests failed",
@@ -55,17 +71,24 @@ _FAILURE_PATTERNS = (
 )
 
 
-def _recent_edited_files(project_root: Path, limit: int = 10) -> list[str]:
-    """Pull recent file paths from framework-events ``Edit|Write`` hooks."""
-    events_path = project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
-    rows = read_ndjson_tail(events_path, 200)
+def _recent_edited_files(
+    project_root: Path,
+    *,
+    session_id: str | None,
+    limit: int = 10,
+) -> list[str]:
+    """Pull recent file paths from `tool-history.ndjson`.
+
+    Earlier versions filtered framework-events for ``component=='hook.auto-format'``
+    reading ``detail.file_path``, but auto-format relies on the generic hook
+    heartbeat and never emits a ``file_path`` field — so ``recent_edits`` was
+    permanently empty. ``ToolHistoryEntry`` now persists ``filePath`` for every
+    Edit/Write/MultiEdit, so this is the single source of truth.
+    """
+    rows = recent_tool_history(project_root, session_id=session_id, limit=200)
     paths: list[str] = []
     for row in rows:
-        component = row.get("component", "")
-        if component != "hook.auto-format":
-            continue
-        detail = row.get("detail", {}) or {}
-        candidate = detail.get("file_path") or detail.get("path")
+        candidate = row.get("filePath") or row.get("file_path")
         if isinstance(candidate, str) and candidate and candidate not in paths:
             paths.append(candidate)
         if len(paths) >= limit:
@@ -92,23 +115,27 @@ def _active_work_paths(project_root: Path) -> dict[str, str | None]:
 
 
 def _looks_incomplete(tool_history: list[dict]) -> tuple[bool, str | None]:
-    """Heuristic Ralph signal: recent failures or known failure markers."""
+    """Heuristic Ralph signal: most-recent call failed or the latest record matches a known marker.
+
+    Earlier versions returned True if **any** call in the window had failed. That
+    over-fired for sub-agents running red-phase tests (`pytest -m red` leaves a
+    `Traceback` in error_summary) — every Stop after a legitimate red phase
+    bumped the Ralph counter. Restricting to the most recent record means a
+    single stale failure no longer indicates active thrashing.
+    """
     if not tool_history:
         return False, None
-    failures = [r for r in tool_history if r.get("outcome") == "failure"]
-    if failures:
-        last = failures[-1]
+    last = tool_history[-1]
+    if last.get("outcome") == "failure":
         return True, (
-            f"{len(failures)} of last {len(tool_history)} tool calls failed "
-            f"(last={last.get('tool')}: {last.get('errorSummary') or 'no detail'})"
+            f"latest tool call failed "
+            f"(tool={last.get('tool')}: {last.get('errorSummary') or 'no detail'})"
         )
-    for record in tool_history:
-        summary = (record.get("errorSummary") or "").lower()
-        if not summary:
-            continue
+    summary = (last.get("errorSummary") or "").lower()
+    if summary:
         for pat in _FAILURE_PATTERNS:
             if pat.lower() in summary:
-                return True, f"failure marker '{pat}' in tool {record.get('tool')}"
+                return True, f"failure marker '{pat}' in tool {last.get('tool')}"
     return False, None
 
 
@@ -122,6 +149,7 @@ def _bump_ralph_state(
     path = ralph_resume_path(project_root)
     existing = read_json(path) or {}
     retries = int(existing.get("retries", 0)) + 1
+    exhausted = retries >= _RALPH_MAX_RETRIES
     payload = {
         "schemaVersion": "1.0",
         "createdAt": existing.get("createdAt") or iso_now(),
@@ -129,12 +157,20 @@ def _bump_ralph_state(
         "sessionId": session_id,
         "retries": retries,
         "maxRetries": _RALPH_MAX_RETRIES,
-        "exhausted": retries >= _RALPH_MAX_RETRIES,
+        "exhausted": exhausted,
         "reason": reason,
         "lastPrompt": last_prompt,
-        "active": True,
+        # Stop offering resume once retry budget is exhausted; operator must
+        # intervene (clear the file or unset Ralph) to re-arm. Earlier versions
+        # set `active: True` unconditionally and `AIENG_RALPH_MAX_RETRIES` had
+        # no effect.
+        "active": not exhausted,
     }
     write_json(path, payload)
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
     return payload
 
 
@@ -193,16 +229,20 @@ def main() -> None:
     runtime_dir(project_root).mkdir(parents=True, exist_ok=True)
 
     history = recent_tool_history(project_root, session_id=session_id, limit=LOOP_WINDOW * 4)
-    edited = _recent_edited_files(project_root)
+    edited = _recent_edited_files(project_root, session_id=session_id)
     work = _active_work_paths(project_root)
 
+    # Snake_case keys on this checkpoint match the consumer (memory/episodic.py).
+    # Earlier camelCase keys (`activeWork`, `recentEdits`, `recentToolCalls`)
+    # silently produced empty episodes because the reader looked for snake_case.
     checkpoint_payload = {
         "schemaVersion": "1.0",
-        "writtenAt": iso_now(),
-        "sessionId": session_id,
-        "activeWork": work,
-        "recentEdits": edited,
-        "recentToolCalls": [
+        "written_at": iso_now(),
+        "session_id": session_id,
+        "active_work": work,
+        "active_specs": [s for s in (work.get("spec"),) if isinstance(s, str)],
+        "recent_edits": edited,
+        "recent_tool_calls": [
             {
                 "tool": r.get("tool"),
                 "outcome": r.get("outcome"),
@@ -212,12 +252,19 @@ def main() -> None:
             for r in history[-10:]
         ],
     }
-    write_json(checkpoint_path(project_root), checkpoint_payload)
+    cp_path = checkpoint_path(project_root)
+    write_json(cp_path, checkpoint_payload)
+    try:
+        cp_path.chmod(0o600)
+    except OSError:
+        pass
 
     incomplete, reason = _looks_incomplete(history)
-    last_prompt = ctx.data.get("user_prompt") or ctx.data.get("prompt")
-    if isinstance(last_prompt, str):
-        last_prompt = last_prompt[:1000]
+    raw_prompt = ctx.data.get("user_prompt") or ctx.data.get("prompt")
+    if isinstance(raw_prompt, str):
+        # Redact before truncation: the 1000-char window is enough to leak an
+        # accidentally pasted env export or curl command otherwise.
+        last_prompt = redact(raw_prompt)[:1000]
     else:
         last_prompt = None
 
@@ -246,4 +293,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.runtime-stop", hook_kind="stop")
+    run_hook_safe(main, component="hook.runtime-stop", hook_kind="stop", script_path=__file__)

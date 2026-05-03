@@ -107,7 +107,15 @@ _STOPWORDS = frozenset(
         "si",
     }
 )
-_TOKEN_RE = re.compile(r"[a-zA-Z0-9_-]{2,}")
+# Unicode-aware so accented characters in non-English skills (Spanish, etc.)
+# survive token extraction and the stopword filter actually fires.
+_TOKEN_RE = re.compile(r"[\w-]{2,}", flags=re.UNICODE)
+
+# Skill index cache. Spec-117 originally re-read 51 SKILL.md files (~264 KB)
+# on every non-slash UserPromptSubmit. This persists a parsed + pre-tokenized
+# index keyed on the skills-dir mtime so warm prompts pay one stat() and one
+# JSON parse instead of 51 file opens.
+_SKILL_INDEX_REL = ".ai-engineering/state/runtime/skills-index.json"
 
 
 def _tokenise(text: str) -> set[str]:
@@ -115,12 +123,22 @@ def _tokenise(text: str) -> set[str]:
     return tokens - _STOPWORDS
 
 
-def _read_skill_descriptions(project_root: Path) -> list[tuple[str, str]]:
-    """Return ``[(skill_name, description)]`` for every SKILL.md found."""
-    out: list[tuple[str, str]] = []
-    skills_dir = project_root / ".claude" / "skills"
+def _skills_dir(project_root: Path) -> Path:
+    return project_root / ".claude" / "skills"
+
+
+def _skills_dir_mtime_ns(skills_dir: Path) -> int:
+    try:
+        return skills_dir.stat().st_mtime_ns
+    except OSError:
+        return 0
+
+
+def _scan_skill_descriptions(skills_dir: Path) -> list[dict]:
+    """Walk SKILL.md files; build canonical entries with pre-tokenized fields."""
+    entries: list[dict] = []
     if not skills_dir.is_dir():
-        return out
+        return entries
     for entry in sorted(skills_dir.iterdir()):
         if not entry.is_dir() or entry.name.startswith("_"):
             continue
@@ -131,26 +149,83 @@ def _read_skill_descriptions(project_root: Path) -> list[tuple[str, str]]:
             text = skill_md.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        # Description lives on the first non-empty `description:` line of the YAML preamble.
         match = re.search(r'^description:\s*"?([^"\n]+)"?', text, flags=re.MULTILINE)
         description = match.group(1).strip() if match else ""
-        out.append((entry.name, description))
-    return out
+        entries.append(
+            {
+                "name": entry.name,
+                "description": description,
+                "desc_tokens": sorted(_tokenise(description)),
+                "name_tokens": sorted(_tokenise(entry.name.replace("ai-", ""))),
+            }
+        )
+    return entries
+
+
+def _load_skill_index(project_root: Path) -> list[dict]:
+    """Return cached skill index, rebuilding on skills-dir mtime change."""
+    skills_dir = _skills_dir(project_root)
+    cache_path = project_root / _SKILL_INDEX_REL
+    current_mtime = _skills_dir_mtime_ns(skills_dir)
+    cached_mtime: int | None = None
+    cached_entries: list[dict] | None = None
+    if cache_path.is_file():
+        try:
+            payload = json.loads(cache_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, ValueError):
+            payload = None
+        if isinstance(payload, dict):
+            cached_mtime = payload.get("skills_mtime_ns")
+            entries = payload.get("entries")
+            if isinstance(entries, list):
+                cached_entries = [e for e in entries if isinstance(e, dict)]
+    if cached_entries is not None and cached_mtime == current_mtime:
+        return cached_entries
+    fresh = _scan_skill_descriptions(skills_dir)
+    try:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text(
+            json.dumps(
+                {"skills_mtime_ns": current_mtime, "entries": fresh},
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
+        )
+    except OSError:
+        pass
+    return fresh
+
+
+def _read_skill_descriptions(project_root: Path) -> list[tuple[str, str]]:
+    """Public-shape wrapper for tests / external callers."""
+    return [(e["name"], e["description"]) for e in _load_skill_index(project_root)]
 
 
 def _rank_skills(
-    prompt_tokens: set[str], skills: list[tuple[str, str]]
+    prompt_tokens: set[str],
+    skills: list[dict] | list[tuple[str, str]],
 ) -> list[tuple[int, str, str]]:
-    """Return ``[(score, name, description)]`` sorted desc."""
+    """Return ``[(score, name, description)]`` sorted desc.
+
+    Accepts either the cached dict shape (preferred — pre-tokenized) or the
+    legacy ``(name, description)`` tuple shape (recomputes tokens, slower).
+    """
     scored: list[tuple[int, str, str]] = []
-    for name, description in skills:
+    for item in skills:
+        if isinstance(item, dict):
+            name = item.get("name", "")
+            description = item.get("description", "")
+            desc_tokens = set(item.get("desc_tokens") or _tokenise(description))
+            name_tokens = set(item.get("name_tokens") or _tokenise(name.replace("ai-", "")))
+        else:
+            name, description = item
+            desc_tokens = _tokenise(description)
+            name_tokens = _tokenise(name.replace("ai-", ""))
         if not description:
             continue
-        desc_tokens = _tokenise(description)
         overlap = len(prompt_tokens & desc_tokens)
         if overlap == 0 and not any(t in name.lower() for t in prompt_tokens):
             continue
-        name_tokens = _tokenise(name.replace("ai-", ""))
         name_match = len(prompt_tokens & name_tokens)
         score = overlap + 2 * name_match
         scored.append((score, name, description))
@@ -207,7 +282,7 @@ def main() -> None:
         passthrough_stdin(ctx.data)
         return
 
-    skills = _read_skill_descriptions(ctx.project_root)
+    skills = _load_skill_index(ctx.project_root)
     if not skills:
         passthrough_stdin(ctx.data)
         return
@@ -253,4 +328,5 @@ if __name__ == "__main__":
         main,
         component="hook.runtime-progressive-disclosure",
         hook_kind="user-prompt-submit",
+        script_path=Path(__file__),
     )

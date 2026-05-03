@@ -1874,14 +1874,34 @@ def _handle_orphans(
         (TPL_GITHUB_AGENTS / "internal", "glob", "*.md"),
     ]
 
+    # Legacy reviewer/verifier path forwarders: spec-116 moved these agents
+    # from <surface>/agents/<name>.md to <surface>/agents/internal/<name>.md.
+    # The flat-path stubs are kept as deprecation aliases so external configs
+    # that reference the old path still resolve. They carry `deprecated: true`
+    # in their YAML frontmatter; treat them as legitimate, not orphan drift.
+    def _is_legacy_alias(path: Path) -> bool:
+        if path.suffix != ".md":
+            return False
+        name = path.name
+        if not any(name.startswith(p) for p in ("reviewer-", "verifier-", "review-", "verify-")):
+            return False
+        try:
+            head = path.read_text(encoding="utf-8", errors="replace")[:300]
+        except OSError:
+            return False
+        return "deprecated: true" in head and "canonical: agents/internal/" in head
+
     orphans: list[Path] = []
     for root, mode, pattern in _ORPHAN_SURFACES:
         if not root.is_dir():
             continue
         if mode == "glob":
             for f in root.glob(str(pattern)):
-                if f not in generated:
-                    orphans.append(f)
+                if f in generated:
+                    continue
+                if _is_legacy_alias(f):
+                    continue
+                orphans.append(f)
         elif mode == "rglob_subdirs":
             for sub in root.iterdir():
                 if not sub.is_dir():

@@ -182,4 +182,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component=_COMPONENT, hook_kind="session-start")
+    run_hook_safe(main, component=_COMPONENT, hook_kind="session-start", script_path=__file__)

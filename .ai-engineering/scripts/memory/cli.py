@@ -211,32 +211,45 @@ def stop(
 
     if not skip_embed:
         # Fire-and-forget child: detach via subprocess.Popen with no wait().
+        # `episode_id` is internally generated (`uuid4().hex`); validate
+        # explicitly so a future caller piping user input cannot inject argv.
         import os
+        import re
         import subprocess
 
-        scripts_dir = Path(__file__).resolve().parent.parent
-        child_env = {
-            **os.environ,
-            "PYTHONPATH": str(scripts_dir) + os.pathsep + os.environ.get("PYTHONPATH", ""),
-        }
-        try:
-            subprocess.Popen(
-                [
-                    sys.executable,
-                    "-m",
-                    "memory.cli",
-                    "embed-episode",
-                    "--episode-id",
-                    row.episode_id,
-                ],
-                cwd=str(root),
-                env=child_env,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                start_new_session=True,
+        if not re.fullmatch(r"[0-9a-f]{32}", row.episode_id):
+            # Unexpected shape — skip the embed dispatch rather than risk
+            # passing a hostile string into argv. The episode is still stored;
+            # the next `memory embed-pending` sweep will pick it up.
+            child_env = None
+        else:
+            scripts_dir = Path(__file__).resolve().parent.parent
+            # Restrict the child env to a minimal allowlist. The fastembed
+            # subprocess only needs PATH for python resolution, PYTHONPATH for
+            # the memory module, and HOME/LANG for ONNX runtime cache resolution.
+            allowlist = ("PATH", "HOME", "LANG", "LC_ALL", "TMPDIR", "CLAUDE_PROJECT_DIR")
+            child_env = {key: os.environ[key] for key in allowlist if key in os.environ}
+            child_env["PYTHONPATH"] = (
+                str(scripts_dir) + os.pathsep + os.environ.get("PYTHONPATH", "")
             )
-        except Exception:
-            pass
+            try:
+                subprocess.Popen(
+                    [
+                        sys.executable,
+                        "-m",
+                        "memory.cli",
+                        "embed-episode",
+                        "--episode-id",
+                        row.episode_id,
+                    ],
+                    cwd=str(root),
+                    env=child_env,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    start_new_session=True,
+                )
+            except Exception:
+                pass
 
     payload = {
         "episode_id": row.episode_id,

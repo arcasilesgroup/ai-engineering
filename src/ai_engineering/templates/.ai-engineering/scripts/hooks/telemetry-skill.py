@@ -13,21 +13,20 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-from datetime import UTC
-
+from _lib.hook_common import run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.instincts import extract_instincts
 from _lib.observability import (
     emit_declared_context_loads,
-    emit_framework_error,
     emit_ide_hook_outcome,
     emit_skill_invoked,
 )
 
-_SKILL_RE = re.compile(r"^\s*/ai-([a-zA-Z-]+)")
+_SKILL_RE = re.compile(r"^\s*/ai-([a-zA-Z0-9_-]+)")
 
 
-def _emit_unmatched_prompt(ctx, *, reason: str, trace_id: str | None) -> None:
+def _emit_malformed(ctx, *, reason: str, trace_id: str | None) -> None:
+    """Surface unmatched prompts through the canonical ide_hook contract."""
     emit_ide_hook_outcome(
         ctx.project_root,
         engine=ctx.engine,
@@ -46,17 +45,15 @@ def main() -> None:
     prompt = ctx.data.get("prompt", "")
     trace_id = os.environ.get("CLAUDE_TRACE_ID")
     if not prompt:
-        _emit_unmatched_prompt(ctx, reason="empty_prompt", trace_id=trace_id)
+        _emit_malformed(ctx, reason="empty_prompt", trace_id=trace_id)
         return
 
     match = _SKILL_RE.search(prompt)
     if not match:
-        _emit_unmatched_prompt(ctx, reason="no_ai_prefix", trace_id=trace_id)
+        _emit_malformed(ctx, reason="no_ai_prefix", trace_id=trace_id)
         return
 
-    raw = match.group(1)
-    skill_name = f"ai-{raw.lower()}"
-
+    skill_name = f"ai-{match.group(1).lower()}"
     entry = emit_skill_invoked(
         ctx.project_root,
         engine=ctx.engine,
@@ -91,51 +88,8 @@ def main() -> None:
     if skill_name == "ai-start":
         extract_instincts(ctx.project_root)
 
-    from _lib.audit import is_debug_mode
-
-    if is_debug_mode():
-        from datetime import datetime
-
-        debug_log = ctx.project_root / ".ai-engineering" / "state" / "telemetry-debug.log"
-        try:
-            timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-            with open(debug_log, "a", encoding="utf-8") as f:
-                f.write(f"[{timestamp}] skill_invoked: {skill_name}\n")
-        except Exception:
-            pass
-
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as exc:
-        try:
-            from _lib.audit import get_project_root
-
-            project_root = get_project_root()
-            engine = os.environ.get("AIENG_HOOK_ENGINE", "claude_code")
-            session_id = os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("GEMINI_SESSION_ID")
-            trace_id = os.environ.get("CLAUDE_TRACE_ID")
-            emit_ide_hook_outcome(
-                project_root,
-                engine=engine,
-                hook_kind="user-prompt-submit",
-                component="hook.telemetry-skill",
-                outcome="failure",
-                source="hook",
-                session_id=session_id,
-                trace_id=trace_id,
-            )
-            emit_framework_error(
-                project_root,
-                engine=engine,
-                component="hook.telemetry-skill",
-                error_code="hook_execution_failed",
-                summary=str(exc),
-                source="hook",
-                session_id=session_id,
-                trace_id=trace_id,
-            )
-        except Exception:
-            pass
-    sys.exit(0)
+    run_hook_safe(
+        main, component="hook.telemetry-skill", hook_kind="user-prompt-submit", script_path=__file__
+    )

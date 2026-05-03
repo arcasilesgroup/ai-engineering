@@ -88,8 +88,12 @@ _SCHEMA_STATEMENTS: tuple[str, ...] = (
         target_kind     TEXT NOT NULL CHECK (target_kind IN ('episode','knowledge_object')),
         target_id       TEXT NOT NULL,
         embedding_model TEXT NOT NULL,
-        embedding_dim   INTEGER NOT NULL,
+        embedding_dim   INTEGER NOT NULL CHECK (embedding_dim > 0),
         created_at      TEXT NOT NULL,
+        -- (model, dim) are coupled: rebuild-vectors must replace both. Without
+        -- this, INSERT OR IGNORE keeps the old row when an operator hand-changes
+        -- the dim, and the vec0 virtual table (created with the old dim) silently
+        -- truncates / zero-pads new vectors depending on the sqlite-vec version.
         UNIQUE (target_kind, target_id, embedding_model)
     )
     """,
@@ -129,23 +133,46 @@ def _try_load_vec0(conn: sqlite3.Connection) -> bool:
 
     Returns True if vec0 is available, False otherwise. Callers that need vec0
     must check the return value; the bootstrap path keeps working without it.
+
+    Defense-in-depth: after vec0 loads we install a SQL authorizer that
+    refuses any further `load_extension` calls on the connection. Even if a
+    future code path were to inject SQL containing `SELECT load_extension(...)`,
+    the authorizer denies it and the connection raises rather than picking up
+    an attacker-controlled shared object via LD_LIBRARY_PATH.
     """
     try:
         conn.enable_load_extension(True)
     except sqlite3.NotSupportedError:
         return False
+    loaded = False
     try:
         import sqlite_vec  # type: ignore[import-not-found]
 
         sqlite_vec.load(conn)
-        return True
+        loaded = True
     except Exception:
-        return False
+        loaded = False
     finally:
         try:
             conn.enable_load_extension(False)
         except sqlite3.NotSupportedError:
             pass
+    if loaded:
+        try:
+            conn.set_authorizer(_deny_further_load_extension)
+        except (sqlite3.NotSupportedError, AttributeError):
+            pass
+    return loaded
+
+
+def _deny_further_load_extension(action_code, arg1, arg2, db_name, trigger_name):
+    """SQL authorizer that denies any further extension loading on this conn."""
+    if action_code == sqlite3.SQLITE_FUNCTION and arg2 in {
+        "load_extension",
+        "sqlite3_load_extension",
+    }:
+        return sqlite3.SQLITE_DENY
+    return sqlite3.SQLITE_OK
 
 
 def ensure_vector_table(conn: sqlite3.Connection, *, dim: int = DEFAULT_EMBEDDING_DIM) -> bool:

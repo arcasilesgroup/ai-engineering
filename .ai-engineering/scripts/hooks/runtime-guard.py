@@ -37,6 +37,8 @@ from _lib.hook_common import (
 from _lib.hook_context import get_hook_context
 from _lib.runtime_state import (
     LOOP_WINDOW,
+    TOOL_OFFLOAD_SKIP,
+    TOOL_RESPONSE_FLATTEN_CAP,
     ToolHistoryEntry,
     append_tool_history,
     derive_outcome,
@@ -48,9 +50,22 @@ from _lib.runtime_state import (
     tool_signature,
 )
 
+# File-path-bearing tools whose tool_input.file_path we persist into the
+# tool-history record so runtime-stop can recover edited paths from a single
+# source of truth (rather than scanning framework-events for an event auto-format
+# never emits).
+_FILE_PATH_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit"})
+
 
 def _flatten_tool_response(response: object) -> str:
-    """Reduce arbitrary tool_response payloads to a single string."""
+    """Reduce arbitrary tool_response payloads to a single string.
+
+    Truncates at TOOL_RESPONSE_FLATTEN_CAP (≥ TOOL_OFFLOAD_BYTES) so that any
+    payload large enough to be flattened is also large enough to be offloaded
+    cleanly downstream. Earlier versions hard-coded 65536 in three places,
+    desynchronising from the offload threshold when AIENG_TOOL_OFFLOAD_BYTES
+    was raised.
+    """
     if response is None:
         return ""
     if isinstance(response, str):
@@ -66,10 +81,20 @@ def _flatten_tool_response(response: object) -> str:
             if isinstance(value, str) and value:
                 return value
         try:
-            return json.dumps(response, default=str)[:65536]
+            return json.dumps(response, default=str)[:TOOL_RESPONSE_FLATTEN_CAP]
         except (TypeError, ValueError):
-            return repr(response)[:65536]
-    return str(response)[:65536]
+            return repr(response)[:TOOL_RESPONSE_FLATTEN_CAP]
+    return str(response)[:TOOL_RESPONSE_FLATTEN_CAP]
+
+
+def _extract_file_path(tool: str, tool_input: dict) -> str | None:
+    """Return file_path from a file-touching tool, else None."""
+    if tool not in _FILE_PATH_TOOLS:
+        return None
+    candidate = tool_input.get("file_path") or tool_input.get("path")
+    if isinstance(candidate, str) and candidate:
+        return candidate
+    return None
 
 
 def _emit_loop_warning(
@@ -117,9 +142,11 @@ def main() -> None:
     session_id = ctx.session_id or get_session_id()
 
     # --- Loop detection -------------------------------------------------
-    sig = tool_signature(tool, dict(ctx.data.get("tool_input") or {}))
+    tool_input = dict(ctx.data.get("tool_input") or {})
+    sig = tool_signature(tool, tool_input)
     outcome = derive_outcome(ctx.data)
     error_summary = extract_error_summary(ctx.data)
+    file_path = _extract_file_path(tool, tool_input)
     append_tool_history(
         ctx.project_root,
         ToolHistoryEntry(
@@ -129,6 +156,7 @@ def main() -> None:
             signature=sig,
             outcome=outcome,
             error_summary=error_summary,
+            file_path=file_path,
         ),
     )
     history = recent_tool_history(ctx.project_root, session_id=session_id, limit=LOOP_WINDOW)
@@ -148,20 +176,24 @@ def main() -> None:
         )
 
     # --- Tool-call offload ---------------------------------------------
-    raw_text = _flatten_tool_response(ctx.data.get("tool_response"))
-    if raw_text:
-        summary = offload_large_text(
-            ctx.project_root,
-            correlation_id=correlation_id,
-            tool_name=tool,
-            text=raw_text,
-        )
-        if summary["offloaded"]:
-            hints.append(
-                f"[runtime-guard] Tool output offloaded ({summary['totalBytes']} bytes). "
-                f"Head + tail kept in context; full payload at "
-                f"{summary['path']}. Read it on demand instead of pasting."
+    # Skip tools whose responses the model already has in full (Read, Glob, Grep,
+    # TodoWrite). For those a "go fetch from a different path" hint inflates
+    # context without saving bytes.
+    if tool not in TOOL_OFFLOAD_SKIP:
+        raw_text = _flatten_tool_response(ctx.data.get("tool_response"))
+        if raw_text:
+            summary = offload_large_text(
+                ctx.project_root,
+                correlation_id=correlation_id,
+                tool_name=tool,
+                text=raw_text,
             )
+            if summary["offloaded"]:
+                hints.append(
+                    f"[runtime-guard] Tool output offloaded ({summary['totalBytes']} bytes). "
+                    f"Head + tail kept in context; full payload at "
+                    f"{summary['path']}. Read it on demand instead of pasting."
+                )
 
     # --- Surface hints to the model ------------------------------------
     if hints:
@@ -182,4 +214,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.runtime-guard", hook_kind="post-tool-use")
+    run_hook_safe(
+        main, component="hook.runtime-guard", hook_kind="post-tool-use", script_path=__file__
+    )

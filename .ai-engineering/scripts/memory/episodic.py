@@ -78,27 +78,39 @@ def _parse_iso(value: str | None) -> datetime | None:
         return None
 
 
+# Cap the reverse scan so the function stays bounded on monsters
+# (`framework-events.ndjson` can grow unbounded between cleanups). Tail line
+# count is generous enough that one Stop hook reads the whole working window of
+# any practical session in a single pass.
+_SESSION_SCAN_LINE_CAP = 50_000
+
+
 def _read_session_events(project_root: Path, session_id: str) -> list[dict]:
     """Filter framework-events.ndjson by sessionId. Return chronological list.
 
-    Per F-118-H5: reverse-iterate from EOF and stop after the first non-matching
-    line that follows at least one match. Sessions are contiguous in time so the
-    matching window is small; this bounds cost at O(session_events) instead of
-    O(total_events) which can grow unbounded over months on a busy install.
+    Earlier versions used an early-break optimisation that assumed sessions
+    were contiguous in time. That broke under sub-agents (ai-explore,
+    ai-debug-fast) emitting events with their own correlationId, two IDE
+    windows concurrently writing to the same per-project ndjson, and
+    idle-then-resume sessions — in all three cases the early-break truncated
+    the session to its tail, undercounting tools_used/skill_invocations and
+    misreporting started_at.
+
+    Bound is now enforced by tail line cap rather than contiguity.
     """
     path = project_root / FRAMEWORK_EVENTS_REL
     if not path.exists():
         return []
 
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    if len(lines) > _SESSION_SCAN_LINE_CAP:
+        lines = lines[-_SESSION_SCAN_LINE_CAP:]
+
     matches: list[dict] = []
-    saw_match = False
-    # readlines() loads the whole file but the in-process cost is dominated by
-    # json.loads on matching lines; for the bounded-window guarantee we still
-    # need to walk physical line ends. A streaming reverse scan via mmap could
-    # avoid the full read, but introduces complexity for marginal gain at the
-    # current scales. Iterate in reverse and bail early.
-    lines = path.read_text(encoding="utf-8").splitlines()
-    for line in reversed(lines):
+    for line in lines:
         if not line.strip():
             continue
         try:
@@ -107,13 +119,6 @@ def _read_session_events(project_root: Path, session_id: str) -> list[dict]:
             continue
         if entry.get("sessionId") == session_id:
             matches.append(entry)
-            saw_match = True
-        elif saw_match:
-            # Sessions are contiguous; once we saw a match and now hit a
-            # different sessionId, the session window is closed.
-            break
-
-    matches.reverse()  # restore chronological order for downstream callers
     return matches
 
 

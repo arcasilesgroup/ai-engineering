@@ -21,6 +21,14 @@ dependencies = [
 # spec-118 memory layer; opt-in via `uv sync --extra memory`. Kept out of the
 # core deps so hook scripts (which must run without pip install) and minimal
 # CI lanes do not pay the fastembed/hdbscan footprint.
+#
+# Approximate marginal cost on adoption (verify in your own environment for
+# regulated-industry vendor review — see spec-118 § Footprint):
+#   sqlite-vec       ~6 MB site-packages (compiled extension)
+#   fastembed        ~30 MB site-packages (onnxruntime + tokenizers)
+#   hdbscan + numpy  ~65 MB site-packages (numpy dominates)
+#   ONNX model cache ~130 MB at ~/.cache/huggingface after `ai-eng memory warmup`
+# Total: ~230 MB site-packages + ~130 MB model cache.
 memory = [
   "sqlite-vec>=0.1,<0.2",
   "fastembed>=0.3,<0.5",

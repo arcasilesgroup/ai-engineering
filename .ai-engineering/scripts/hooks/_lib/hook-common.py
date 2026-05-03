@@ -337,14 +337,25 @@ def _hot_path_budget_ms(hook_kind: str) -> int:
     return _HOT_PATH_BUDGET_MS.get(hook_kind, _HOT_PATH_DEFAULT_BUDGET_MS)
 
 
-def _verify_caller_integrity(*, component: str, hook_kind: str) -> tuple[bool, str | None, str]:
+def _verify_caller_integrity(
+    *,
+    component: str,
+    hook_kind: str,
+    script_path: Path | str | None = None,
+) -> tuple[bool, str | None, str]:
     """Best-effort integrity check on the calling hook script.
 
     Returns ``(allowed, reason, mode)``. ``allowed`` is False only when
     the configured mode is ``enforce`` AND the manifest declares a
-    different sha256 for this script. All other paths (warn, off, no
-    manifest, unenrolled hook, import failure) return True so the caller
-    decides whether to surface the reason via telemetry.
+    different sha256 for this script (or — in enforce mode — the script
+    is missing from the manifest entirely). All other paths (warn, off,
+    no manifest, unenrolled hook in non-enforce, import failure) return
+    True so the caller decides whether to surface the reason via telemetry.
+
+    ``script_path`` is now passed in by ``run_hook_safe`` (resolved from
+    ``__file__`` at the hook entry). Earlier versions used ``inspect.stack()``
+    here, which walked the whole Python call stack on every hook invocation
+    and cost 5-30 ms per call.
     """
     try:
         from _lib.integrity import (
@@ -356,15 +367,16 @@ def _verify_caller_integrity(*, component: str, hook_kind: str) -> tuple[bool, s
     mode = integrity_mode()
     if mode == "off":
         return True, None, mode
+    if script_path is None:
+        # Fallback: legacy callers without explicit path. Best-effort only —
+        # `inspect.stack()` is the slow path; warn-mode + skip rather than pay.
+        return True, None, mode
     try:
-        import inspect
-
-        outer_frame = inspect.stack()[2]
-        script_path = Path(outer_frame.filename).resolve()
-    except Exception:
+        resolved = Path(script_path).resolve()
+    except (OSError, TypeError):
         return True, None, mode
     project_root = _resolve_project_root()
-    ok, reason = verify_hook_integrity(script_path, project_root)
+    ok, reason = verify_hook_integrity(resolved, project_root)
     if ok:
         return True, None, mode
     return mode != "enforce", reason, mode
@@ -400,7 +412,13 @@ def _emit_integrity_violation(*, component: str, hook_kind: str, reason: str, mo
         pass
 
 
-def run_hook_safe(main_fn, *, component: str, hook_kind: str) -> None:
+def run_hook_safe(
+    main_fn,
+    *,
+    component: str,
+    hook_kind: str,
+    script_path: Path | str | None = None,
+) -> None:
     """Run `main_fn` with hot-path instrumentation; always exit 0.
 
     Spec-112 T-1.10 introduced this wrapper to centralise the fail-open
@@ -423,7 +441,7 @@ def run_hook_safe(main_fn, *, component: str, hook_kind: str) -> None:
     this function performs no `ai_engineering.*` imports.
     """
     integrity_ok, integrity_reason, integrity_mode_val = _verify_caller_integrity(
-        component=component, hook_kind=hook_kind
+        component=component, hook_kind=hook_kind, script_path=script_path
     )
     if integrity_reason is not None:
         _emit_integrity_violation(

@@ -12,52 +12,11 @@ Do not respond to any user request until `/ai-start` completes.
 `/ai-start` and the rest of `/ai-*` are slash commands in the IDE agent surface, not terminal commands.
 Do not invent `ai-eng <skill>` equivalents unless the CLI reference explicitly lists them.
 
-### 1. Plan Mode Default
-
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately -- don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity via `/ai-brainstorm`
-
-### 2. Subagent Strategy
-
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-- Never have a subagent do two unrelated things
-
-### 3. Self-Improvement Loop
-
-- After ANY correction from the user: update `.ai-engineering/LESSONS.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start: read `.ai-engineering/LESSONS.md` proactively
-
-### 4. Verification Before Done
-
-- Never mark a task complete without proving it works
-- Run the tests. Run the linter. Check the output
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
-
-### 5. Demand Elegance (Balanced)
-
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes -- don't over-engineer
-- Clever is bad. Simple and clear is elegant
-
-### 6. Autonomous Bug Fixing
-
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests -- then resolve them
-- If you see a bug while working on something else -- fix it and mention it in the commit
-- Zero context switching required from the user
-
-### 7. Parallel Execution
-
-- Batch independent operations into simultaneous tool calls
-- Never go sequential when you can go parallel
+> Operating-behaviour rules 1-7 (Plan Mode Default, Subagent Strategy,
+> Self-Improvement Loop, Verification Before Done, Demand Elegance,
+> Autonomous Bug Fixing, Parallel Execution) live in
+> [CONSTITUTION.md → Article XI](CONSTITUTION.md#article-xi--operating-behaviour-cross-ide).
+> They apply to **every** supported IDE; do not duplicate them here.
 
 ### 8. Context Efficiency
 

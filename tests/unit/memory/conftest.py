@@ -48,7 +48,22 @@ def deterministic_embedder(monkeypatch: pytest.MonkeyPatch):
 
         monkeypatch.setattr(semantic, "embed_batch", _embed)
         monkeypatch.setattr(semantic, "_get_embedder", lambda *a, **kw: None)
-    except ImportError:
-        # Phase 3 module not present yet -- harmless during Phase 1/2 tests.
-        pass
+    except ImportError as exc:
+        # Loud fallback: if the module exists on disk but failed to import,
+        # the patcher silently no-ops and downstream tests pull the *real*
+        # embedder, blowing CI run time by minutes per test. Refuse to
+        # silently degrade once Phase 3 has shipped.
+        semantic_path = (
+            Path(__file__).resolve().parents[3]
+            / ".ai-engineering"
+            / "scripts"
+            / "memory"
+            / "semantic.py"
+        )
+        if semantic_path.exists():
+            raise RuntimeError(
+                "deterministic_embedder cannot patch memory.semantic; "
+                "the module exists on disk but failed to import. Run the "
+                "real embedder will be hit instead — fix the import error."
+            ) from exc
     return _embed

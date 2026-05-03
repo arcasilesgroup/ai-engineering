@@ -8,7 +8,13 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# Gemini -> Claude event name normalization
+# Gemini -> Claude event name normalization.
+#
+# WARNING: BeforeAgent / AfterAgent are NOT symmetric with UserPromptSubmit /
+# Stop. Gemini's "agent" lifecycle is broader than a Claude "user prompt" — a
+# BeforeAgent may fire for non-prompt agent boots. Hooks gated to
+# UserPromptSubmit (e.g. runtime-progressive-disclosure) should add an extra
+# guard against ``ctx.engine == "gemini"`` if firing on agent-boot is unwanted.
 _EVENT_NAME_MAP: dict[str, str] = {
     "BeforeTool": "PreToolUse",
     "AfterTool": "PostToolUse",
@@ -50,7 +56,10 @@ def get_hook_context() -> HookContext:
     except (json.JSONDecodeError, OSError):
         data = {}
 
-    # Detect engine
+    # Detect engine. Earlier versions silently fell back to "claude_code"
+    # whenever no env var or filesystem marker matched, which misclassified
+    # any future runtime in audit telemetry. Now require an explicit env-var
+    # opt-in for the silent fallback so misconfiguration surfaces loudly.
     engine = os.environ.get("AIENG_HOOK_ENGINE", "").strip()
     if not engine:
         if os.environ.get("CLAUDE_PROJECT_DIR"):
@@ -64,8 +73,10 @@ def get_hook_context() -> HookContext:
                 engine = "codex"
             elif (cwd / ".gemini").is_dir():
                 engine = "gemini"
+            elif (cwd / ".claude").is_dir():
+                engine = "claude_code"
             else:
-                engine = "claude_code"  # default fallback
+                engine = os.environ.get("AIENG_HOOK_ENGINE_DEFAULT", "").strip() or "unknown"
 
     # Detect project root
     project_root_str = (

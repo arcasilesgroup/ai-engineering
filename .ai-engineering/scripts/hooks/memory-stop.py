@@ -17,6 +17,7 @@ Fail-open: any error degrades silently with a `framework_error` event.
 
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -95,7 +96,7 @@ def main() -> None:
             text=True,
             timeout=_SUBPROCESS_TIMEOUT_SEC,
             cwd=str(project_root),
-            env={**__import__("os").environ, **env},
+            env={**os.environ, **env},
             check=False,
         )
     except subprocess.TimeoutExpired:
@@ -125,4 +126,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component=_COMPONENT, hook_kind="stop")
+    run_hook_safe(main, component=_COMPONENT, hook_kind="stop", script_path=__file__)

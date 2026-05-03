@@ -67,9 +67,28 @@ def _synthesize_timestamps(line_count: int, file_mtime: datetime) -> list[str]:
 
 
 def _atomic_write(path: Path, lines: Iterable[str]) -> None:
+    """Atomic write with O_NOFOLLOW so a pre-existing symlink at the temp path
+    cannot redirect the write. Defense-in-depth: targets are hardcoded under
+    `.ai-engineering/state/`, but the function accepts a `--target` override
+    that could be exploited on shared hosts."""
+    import os
+
     tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    tmp.replace(path)
+    payload = ("\n".join(lines) + "\n").encode("utf-8")
+    flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC
+    nofollow = getattr(os, "O_NOFOLLOW", 0)
+    flags |= nofollow
+    fd = os.open(str(tmp), flags, 0o600)
+    try:
+        with os.fdopen(fd, "wb") as fh:
+            fh.write(payload)
+    except Exception:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+    os.replace(str(tmp), str(path))
 
 
 def backfill_timestamps(

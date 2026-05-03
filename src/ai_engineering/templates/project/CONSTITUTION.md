@@ -118,6 +118,36 @@ ADR-required.
 3. Articles I–VI are subject to a **stricter** amendment process: an
    ADR + 14-day public comment period.
 
+## Article XI — Operating Behaviour (Cross-IDE)
+
+The seven rules below are non-negotiable across **every** supported IDE
+(Claude Code, Codex, Gemini, GitHub Copilot). They were previously stated
+only in `GEMINI.md`; lifting them into the Constitution restores the
+"AGENTS.md is the canonical cross-IDE rulebook" contract that
+`manifest_coherence.py` validates.
+
+1. **Plan Mode Default** — enter plan mode for any non-trivial task
+   (3+ steps or architectural decisions). Stop and re-plan when something
+   goes sideways instead of pushing through. Verification work uses plan
+   mode too. Reduce ambiguity upfront via `/ai-brainstorm`.
+2. **Subagent Strategy** — offload research, exploration, and parallel
+   analysis to subagents. One task per subagent for focused execution.
+   Never have one subagent do two unrelated things.
+3. **Self-Improvement Loop** — after any user correction, update
+   `.ai-engineering/LESSONS.md` with the pattern. Iterate on lessons until
+   the mistake rate drops. Read lessons proactively at session start.
+4. **Verification Before Done** — never mark a task complete without
+   proving it works. Run tests, run the linter, check the output. Diff
+   behaviour when relevant. Ask: "would a staff engineer approve this?"
+5. **Demand Elegance (Balanced)** — pause and ask "is there a more
+   elegant way?" for non-trivial changes. Skip for simple, obvious
+   fixes. Clever is bad; simple and clear is elegant.
+6. **Autonomous Bug Fixing** — when given a bug report, fix it. Don't
+   ask for hand-holding. If you see a bug while working on something
+   else, fix it and mention it in the commit.
+7. **Parallel Execution** — batch independent operations into
+   simultaneous tool calls. Never go sequential when you can go parallel.
+
 ---
 
 <!--

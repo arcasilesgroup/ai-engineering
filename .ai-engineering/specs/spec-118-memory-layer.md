@@ -100,6 +100,68 @@ The new skills are authored canonically at `.claude/skills/ai-remember/SKILL.md`
 
 **Rationale**: Article V SSOT requires one canonical location. Calling through the CLI keeps the skill body small and shell-portable across IDE surfaces and avoids embedding Python imports inside skill markdown.
 
+## Footprint (`uv sync --extra memory`)
+
+Indicative on-disk costs (Python 3.12, macOS arm64). Adopters in regulated
+industries should verify before approving the extra:
+
+| Component | Approx size | Notes |
+|---|---|---|
+| `fastembed` site-packages | 30 MB | Pulls onnxruntime + tokenizers |
+| `sqlite-vec` site-packages | 6 MB | Compiled extension + Python shim |
+| `hdbscan` + `numpy` site-packages | 65 MB | numpy is the dominant cost |
+| `BAAI/bge-small-en-v1.5` ONNX cache | 130 MB | `~/.cache/huggingface` after first warmup |
+| `memory.db` per project (steady-state) | 5–50 MB | grows with episodes + KOs; archived rows compacted by `/ai-dream` |
+
+Total marginal install cost: **~230 MB site-packages + ~130 MB model cache**.
+
+The hook hot path stays stdlib-only — `memory-stop.py` and
+`memory-session-start.py` shell out to a subprocess for any fastembed work,
+so a project that does not run `uv sync --extra memory` still gets full
+hook integrity, just no semantic retrieval.
+
+## Evidence to Keep
+
+The full memory stack (episodic + semantic + dreaming) is justified only if
+adopters actually retrieve relevant prior context. After 30 days of real use
+the following metrics gate the **semantic** and **dreaming** tiers; if they
+miss, drop those tiers and keep only Phase 1 (episodic + keyword search):
+
+1. `ai-eng memory status` shows ≥ 100 episodes AND ≥ 30 knowledge objects
+   ingested from `LESSONS.md` / `decision-store.json` / instincts.
+2. At least 3 documented sessions where keyword/recency search over
+   `framework-events.ndjson` would have **missed** an obviously relevant
+   prior episode that semantic retrieval surfaced.
+3. Dreaming has produced at least 1 promotion proposal that a human
+   accepted into `LESSONS.md` or `instincts.yml`.
+
+If any condition fails after 30 days, follow the Removal Procedure below.
+
+## Removal Procedure
+
+If the memory hypothesis fails to clear the evidence bar:
+
+**Cheap to remove (clean delete):**
+- `.ai-engineering/scripts/memory/` (10 modules)
+- `.ai-engineering/scripts/hooks/memory-stop.py`, `memory-session-start.py`
+- `.claude/skills/ai-remember/`, `.claude/skills/ai-dream/` (× 4 mirrors)
+- `memory.db` (gitignored; per-project)
+- `[memory]` extra in `pyproject.toml`
+- Wire-up in `.claude/settings.json` (PostToolUseFailure + SessionStart)
+- This spec, `decision-store.json` D-118-* entries, and references in
+  spec-116 / spec-117
+
+**Sticky to remove (legacy support window):**
+- `memory_event` in `audit-event.schema.json` `_ALLOWED_KINDS` cannot be
+  removed cleanly once events are emitted to `framework-events.ndjson` —
+  external NDJSON validators would reject historical lines. Treat the
+  kind as **legacy-only**: keep schema acceptance, emit nothing new.
+- Any human-curated lesson promoted via `instincts/memory-proposals.md`
+  loses its lineage marker. Strip the marker on retire.
+
+Document the migration plan in a new spec (e.g. `spec-118-retirement.md`)
+and bump the framework minor version. Do not remove silently.
+
 ## Risks
 
 - **Latency drift on cold first run**: even with lazy fastembed, the first `/ai-remember` after a fresh install pays the ONNX download cost. **Mitigation**: `ai-eng memory warmup` documented in `/ai-start` flow; a slow-warmup test asserts < 5 s after warmup.

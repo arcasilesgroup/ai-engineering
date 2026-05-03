@@ -53,6 +53,14 @@ def _parse_iso(value: str | None) -> datetime | None:
 
 
 def _parse_since(value: str | None) -> datetime | None:
+    """Parse a relative window (`7d`/`2h`/`30m`) or ISO-8601 timestamp.
+
+    Earlier versions silently returned None for malformed input (e.g.
+    ``since="last week"`` or ``since="7days"``), and ``search()`` then treated
+    None as "no filter" — callers had no way to distinguish "no filter" from
+    "bad filter". Now raises ValueError on unparseable input so the caller can
+    surface a clear error.
+    """
     if not value:
         return None
     m = re.fullmatch(r"(\d+)([dhm])", value.strip())
@@ -60,7 +68,10 @@ def _parse_since(value: str | None) -> datetime | None:
         n, unit = int(m.group(1)), m.group(2)
         delta = {"d": timedelta(days=n), "h": timedelta(hours=n), "m": timedelta(minutes=n)}[unit]
         return datetime.now(tz=UTC) - delta
-    return _parse_iso(value)
+    parsed = _parse_iso(value)
+    if parsed is None:
+        raise ValueError(f"Invalid `since` value {value!r}; expected '7d'/'2h'/'30m' or ISO-8601")
+    return parsed
 
 
 def _serialize_f32(vector: list[float]) -> bytes:
@@ -144,57 +155,84 @@ def search(
         # spec-118 D-118-06: refuse-to-start on dim mismatch (read path).
         semantic.assert_compatible_dim(conn)
 
+        try:
+            since_dt = _parse_since(since)
+        except ValueError as exc:
+            return {
+                "status": "bad_input",
+                "message": str(exc),
+                "results": [],
+            }
+
         query_vec = semantic.query_vector(query)
-        # Pull a candidate pool 5x the requested top_k to give the rerank room.
+        # Expand pool when kind/since filters discard most candidates so we don't
+        # return an empty result while matching items exist further down the
+        # ranked list. Earlier versions used a fixed `max(top_k * 5, 20)` pool
+        # which silently returned zero results when knowledge objects were
+        # outnumbered by episodes (or vice versa) in the corpus.
+        pool_cap = 1000
         candidate_pool = max(top_k * 5, 20)
-        cur = conn.execute(
-            """
-            SELECT vm.target_kind, vm.target_id, mv.distance
-            FROM memory_vectors mv
-            JOIN vector_map vm ON mv.rowid = vm.rowid
-            WHERE mv.embedding MATCH ?
-              AND k = ?
-            ORDER BY mv.distance
-            """,
-            (_serialize_f32(query_vec), candidate_pool),
-        )
-        candidates = cur.fetchall()
-
-        since_dt = _parse_since(since)
         hits: list[Hit] = []
-        for row in candidates:
-            target_kind = row["target_kind"]
-            if kind_filter == "episode" and target_kind != "episode":
-                continue
-            if kind_filter == "knowledge" and target_kind != "knowledge_object":
-                continue
-            target_id = row["target_id"]
-            if target_kind == "episode":
-                summary, source_path, last_seen, importance = _resolve_episode(conn, target_id)
-            else:
-                summary, source_path, last_seen, importance = _resolve_ko(conn, target_id)
-            if summary is None:
-                continue
-            if since_dt is not None and last_seen is not None and last_seen < since_dt:
-                continue
-            cosine = _cosine_from_distance(float(row["distance"]))
-            decayed, days_old = _decay(importance, last_seen)
-            score = decayed * cosine
-            hits.append(
-                Hit(
-                    target_kind=target_kind,
-                    target_id=target_id,
-                    score=score,
-                    cosine=cosine,
-                    decayed_importance=decayed,
-                    importance=importance,
-                    days_old=days_old,
-                    summary=summary,
-                    source_path=source_path,
-                )
+        seen_ids: set[tuple[str, str]] = set()
+        while True:
+            cur = conn.execute(
+                """
+                SELECT vm.target_kind, vm.target_id, mv.distance
+                FROM memory_vectors mv
+                JOIN vector_map vm ON mv.rowid = vm.rowid
+                WHERE mv.embedding MATCH ?
+                  AND k = ?
+                ORDER BY mv.distance
+                """,
+                (_serialize_f32(query_vec), candidate_pool),
             )
+            candidates = cur.fetchall()
+            for row in candidates:
+                target_kind = row["target_kind"]
+                if kind_filter == "episode" and target_kind != "episode":
+                    continue
+                if kind_filter == "knowledge" and target_kind != "knowledge_object":
+                    continue
+                target_id = row["target_id"]
+                key = (target_kind, target_id)
+                if key in seen_ids:
+                    continue
+                seen_ids.add(key)
+                if target_kind == "episode":
+                    summary, source_path, last_seen, importance = _resolve_episode(conn, target_id)
+                else:
+                    summary, source_path, last_seen, importance = _resolve_ko(conn, target_id)
+                if summary is None:
+                    continue
+                if since_dt is not None and last_seen is not None and last_seen < since_dt:
+                    continue
+                cosine = _cosine_from_distance(float(row["distance"]))
+                decayed, days_old = _decay(importance, last_seen)
+                # Negative cosine means "worse than orthogonal"; multiplying
+                # by importance shouldn't invert that signal. Earlier versions
+                # let high-importance dissimilar rows score below truly
+                # worthless rows, breaking the rerank.
+                score = decayed * max(0.0, cosine)
+                hits.append(
+                    Hit(
+                        target_kind=target_kind,
+                        target_id=target_id,
+                        score=score,
+                        cosine=cosine,
+                        decayed_importance=decayed,
+                        importance=importance,
+                        days_old=days_old,
+                        summary=summary,
+                        source_path=source_path,
+                    )
+                )
+            if len(hits) >= top_k or candidate_pool >= pool_cap or len(candidates) < candidate_pool:
+                break
+            candidate_pool = min(candidate_pool * 2, pool_cap)
 
-        hits.sort(key=lambda h: h.score, reverse=True)
+        # Recency tie-break for the cosine==0 cluster (otherwise all-zero
+        # scores collapse the rerank order).
+        hits.sort(key=lambda h: (h.score, -h.days_old), reverse=True)
         top = hits[:top_k]
 
         # Bump retrieval_count + last_seen_at on returned items.
