@@ -366,6 +366,55 @@ def embed_episode_cmd(
 
 
 # ---------------------------------------------------------------------------
+# embed (worker for the pending-episode queue, P2.2 / 2026-05-04 gap closure)
+# ---------------------------------------------------------------------------
+
+
+@app.command()
+def embed(
+    once: bool = typer.Option(False, "--once", help="Process the current pending queue and exit."),
+    daemon: bool = typer.Option(False, "--daemon", help="Run as a long-lived poll-sleep loop."),
+    poll_interval_sec: int = typer.Option(60, "--poll-interval-sec"),
+    batch_size: int = typer.Option(32, "--batch-size"),
+    json_out: bool = typer.Option(False, "--json"),
+) -> None:
+    """Embed the pending-episode queue.
+
+    Backed by ``embed_worker.run_once`` / ``embed_worker.run_daemon``.
+    Defaults to ``--once`` (one-shot for cron). Either ``--once`` or
+    ``--daemon`` must be specified explicitly to make the chosen mode
+    auditable from the audit log.
+    """
+    if not once and not daemon:
+        once = True
+    if once and daemon:
+        typer.echo("Error: --once and --daemon are mutually exclusive (pick one).", err=True)
+        raise typer.Exit(code=2)
+
+    from memory import embed_worker
+
+    root = _project_root()
+    if daemon:
+        embed_worker.run_daemon(root, poll_interval_sec=poll_interval_sec, batch_size=batch_size)
+        return
+
+    report = embed_worker.run_once(root, batch_size=batch_size)
+    payload = {
+        "processed": report.processed,
+        "succeeded": report.succeeded,
+        "failed": report.failed,
+        "duration_ms": report.duration_ms,
+    }
+    if json_out:
+        typer.echo(json.dumps(payload, indent=2))
+    else:
+        typer.echo(
+            f"embed: processed={report.processed} succeeded={report.succeeded} "
+            f"failed={report.failed} ({report.duration_ms}ms)"
+        )
+
+
+# ---------------------------------------------------------------------------
 # warmup, remember, dream -- Phase 3+ stubs
 # ---------------------------------------------------------------------------
 

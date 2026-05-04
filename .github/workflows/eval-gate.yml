@@ -1,0 +1,63 @@
+# Spec-119 evaluation gate — harness gap closure 2026-05-04 (P2.1).
+#
+# On `pull_request`, run `ai-eng eval check --json` for advisory output that
+# surfaces eval drift in the PR conversation without blocking the merge.
+# On `push` to main, run `ai-eng eval enforce --json` so a NO_GO verdict
+# fails the job (and thus blocks any subsequent deploy step). Thresholds
+# come from `.ai-engineering/manifest.yml` `evaluation:` block (already
+# wired by spec-119 D-119-04).
+
+name: Eval Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Only one in-flight run per ref; cancel earlier ones to keep CI cheap.
+concurrency:
+  group: eval-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  eval-gate:
+    name: Run evaluation gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+        with:
+          version: ">=0.4"
+
+      - name: Sync project deps
+        run: uv sync --frozen
+
+      - name: Eval gate (advisory on PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: |
+          set -o pipefail
+          uv run ai-eng eval check --json | tee eval-gate.json
+        # Never blocks PR merge: `check` always exits 0 even when verdict is NO_GO.
+
+      - name: Eval gate (enforce on push to main)
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          set -o pipefail
+          uv run ai-eng eval enforce --json | tee eval-gate.json
+        # Exits 1 when verdict is NO_GO under blocking enforcement, failing the job.
+
+      - name: Upload eval-gate.json artefact
+        if: always()
+        uses: actions/upload-artifact@98c8b56a05089e7eb8a0fed10d1f0b06497c10d8 # v6.0.0
+        with:
+          name: eval-gate-${{ github.event_name }}
+          path: eval-gate.json
+          retention-days: 14
+          if-no-files-found: ignore

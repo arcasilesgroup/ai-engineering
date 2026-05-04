@@ -26,6 +26,7 @@ from ai_engineering.cli_commands import (
     audit_cmd,
     core,
     decisions_cmd,
+    eval_cmd,
     gate,
     guide,
     internal,
@@ -347,6 +348,22 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     audit_app.command("replay")(_safe(audit_cmd.audit_replay))
     audit_app.command("otel-export")(_safe(audit_cmd.audit_otel_export))
     app.add_typer(audit_app, name="audit")
+
+    # Eval sub-group (spec-119 evaluation gate; harness gap closure 2026-05-04
+    # surface so CI can call check / report / enforce without a Claude agent).
+    eval_app = typer.Typer(
+        name="eval",
+        help=(
+            "Run the spec-119 evaluation gate. ``check`` and ``report`` are "
+            "advisory; ``enforce`` returns a non-zero exit when the gate "
+            "verdict is NO_GO under blocking enforcement."
+        ),
+        no_args_is_help=True,
+    )
+    eval_app.command("check")(_safe(eval_cmd.eval_check))
+    eval_app.command("report")(_safe(eval_cmd.eval_report))
+    eval_app.command("enforce")(_safe(eval_cmd.eval_enforce))
+    app.add_typer(eval_app, name="eval")
 
     # Risk sub-group (spec-105: risk acceptance lifecycle CLI namespace)
     risk_app = typer.Typer(
