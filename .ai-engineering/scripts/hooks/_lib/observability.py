@@ -34,6 +34,8 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
         "task_trace",
         # spec-118 memory layer
         "memory_event",
+        # spec-119 evaluation layer
+        "eval_run",
     }
 )
 
@@ -605,3 +607,252 @@ def emit_task_trace(
     )
     append_framework_event(project_root, entry)
     return entry
+
+
+# ---------------------------------------------------------------------------
+# spec-119 evaluation layer emit helpers (D-119-01)
+# All eight emit_eval_* helpers route through _emit_eval_run, which in turn
+# routes through append_framework_event so the audit hash chain stays intact.
+# ---------------------------------------------------------------------------
+
+
+_EVAL_RUN_OPERATIONS: frozenset[str] = frozenset(
+    {
+        "eval_started",
+        "scenario_executed",
+        "pass_at_k_computed",
+        "hallucination_rate_computed",
+        "regression_detected",
+        "regression_cleared",
+        "eval_gated",
+        "baseline_updated",
+    }
+)
+
+
+def _emit_eval_run(
+    project_root: Path,
+    *,
+    operation: str,
+    component: str,
+    outcome: str = "success",
+    source: str | None = None,
+    correlation_id: str | None = None,
+    detail_extras: dict | None = None,
+) -> dict:
+    if operation not in _EVAL_RUN_OPERATIONS:
+        msg = f"eval_run operation must be one of {sorted(_EVAL_RUN_OPERATIONS)}; got {operation!r}"
+        raise ValueError(msg)
+    detail: dict = {"operation": operation}
+    if detail_extras:
+        detail.update(detail_extras)
+    entry = build_framework_event(
+        project_root,
+        engine="ai_engineering",
+        kind="eval_run",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        force_outcome=outcome,
+        detail=detail,
+    )
+    append_framework_event(project_root, entry)
+    return entry
+
+
+def emit_eval_started(
+    project_root: Path,
+    *,
+    component: str,
+    scenario_pack: str,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="eval_started",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={"scenario_pack": scenario_pack},
+    )
+
+
+def emit_scenario_executed(
+    project_root: Path,
+    *,
+    component: str,
+    scenario_id: str,
+    trial_id: int,
+    pass_: bool,
+    duration_ms: float | None = None,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    extras: dict = {
+        "scenario_id": scenario_id,
+        "trial_id": int(trial_id),
+        "pass": bool(pass_),
+    }
+    if duration_ms is not None:
+        extras["duration_ms"] = float(duration_ms)
+    return _emit_eval_run(
+        project_root,
+        operation="scenario_executed",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras=extras,
+    )
+
+
+def emit_pass_at_k_computed(
+    project_root: Path,
+    *,
+    component: str,
+    k: int,
+    pass_count: int,
+    total: int,
+    score: float,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="pass_at_k_computed",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={
+            "k": int(k),
+            "pass_count": int(pass_count),
+            "total": int(total),
+            "score": float(score),
+        },
+    )
+
+
+def emit_hallucination_rate_computed(
+    project_root: Path,
+    *,
+    component: str,
+    rate: float,
+    total_assertions: int,
+    failed_assertions: int,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="hallucination_rate_computed",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={
+            "rate": float(rate),
+            "total_assertions": int(total_assertions),
+            "failed_assertions": int(failed_assertions),
+        },
+    )
+
+
+def emit_regression_detected(
+    project_root: Path,
+    *,
+    component: str,
+    delta: float,
+    threshold: float,
+    tolerance: float,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="regression_detected",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        outcome="failure",
+        detail_extras={
+            "delta": float(delta),
+            "threshold": float(threshold),
+            "tolerance": float(tolerance),
+        },
+    )
+
+
+def emit_regression_cleared(
+    project_root: Path,
+    *,
+    component: str,
+    delta: float,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="regression_cleared",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={"delta": float(delta)},
+    )
+
+
+def emit_eval_gated(
+    project_root: Path,
+    *,
+    component: str,
+    verdict: str,
+    regression_delta_vs_baseline: float | None = None,
+    failed_scenarios: tuple[str, ...] | list[str] | None = None,
+    reason: str | None = None,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    allowed_verdicts = {"GO", "CONDITIONAL", "NO_GO", "SKIPPED"}
+    if verdict not in allowed_verdicts:
+        msg = f"eval_gated verdict must be one of {sorted(allowed_verdicts)}; got {verdict!r}"
+        raise ValueError(msg)
+    extras: dict = {"verdict": verdict}
+    if regression_delta_vs_baseline is not None:
+        extras["regression_delta_vs_baseline"] = float(regression_delta_vs_baseline)
+    if failed_scenarios:
+        extras["failed_scenarios"] = list(failed_scenarios)
+    if reason:
+        extras["reason"] = reason
+    # NO_GO and SKIPPED are non-success outcomes for downstream consumers.
+    outcome = "failure" if verdict == "NO_GO" else "success"
+    if verdict == "SKIPPED":
+        outcome = "degraded"
+    return _emit_eval_run(
+        project_root,
+        operation="eval_gated",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        outcome=outcome,
+        detail_extras=extras,
+    )
+
+
+def emit_baseline_updated(
+    project_root: Path,
+    *,
+    component: str,
+    prev_pass_at_k: float,
+    new_pass_at_k: float,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="baseline_updated",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={
+            "prev_pass_at_k": float(prev_pass_at_k),
+            "new_pass_at_k": float(new_pass_at_k),
+        },
+    )

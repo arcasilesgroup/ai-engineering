@@ -96,6 +96,25 @@ gates:
   pre_commit:
     auto_stage: true
 
+# spec-119 evaluation layer (D-119-04)
+# Eval thresholds consumed by /ai-eval-gate and the ai-evaluator agent.
+# - pass_at_k.k: number of trials per scenario.
+# - pass_at_k.threshold: minimum pass@k score required for GO verdict.
+# - hallucination_rate.max: maximum tolerated hallucination rate.
+# - regression_tolerance: maximum allowed drop vs baseline before NO_GO.
+# - scenario_packs: paths to scenario-pack JSON files (committed source).
+# - enforcement: blocking | advisory. blocking exits non-zero on NO_GO.
+evaluation:
+  pass_at_k:
+    k: 5
+    threshold: 0.8
+  hallucination_rate:
+    max: 0.1
+  regression_tolerance: 0.05
+  scenario_packs:
+    - .ai-engineering/evals/baseline.json
+  enforcement: blocking
+
 # Documentation auto-update
 # readme: true — recursively scans ALL README*.md files (root + subdirectories)
 #   and updates each in context of its directory.

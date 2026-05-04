@@ -36,6 +36,15 @@ memory = [
   "numpy>=1.26,<3.0",
 ]
 
+# spec-119 evaluation layer; opt-in via `uv sync --extra eval`. Kept out of the
+# core deps so hook scripts and minimal CI lanes do not pay the deepeval
+# transitive footprint (pydantic-extras, langchain shims, optional LLM grader
+# stubs). Deterministic graders ship with the core extra; LLM graders are
+# follow-up work and would land under a separate `eval-llm` extra.
+eval = [
+  "deepeval>=2.0,<3.0",
+]
+
 [dependency-groups]
 dev = [
   "pytest>=8.0,<10.0",
@@ -122,6 +131,8 @@ markers = [
   "spec_107_red: spec-107 RED tests; excluded by default until corresponding GREEN phase commits",
   "memory: spec-118 memory layer unit/integration tests; opt-in via -m memory; requires `uv sync --extra memory`",
   "memory_slow: spec-118 memory layer tests that load the real fastembed model; opt-in via -m memory_slow",
+  "eval: spec-119 evaluation layer unit/integration tests; opt-in via -m eval",
+  "eval_slow: spec-119 eval tests that load deepeval graders; opt-in via -m eval_slow; requires `uv sync --extra eval`",
 ]
 
 [build-system]

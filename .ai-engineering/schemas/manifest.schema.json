@@ -161,6 +161,58 @@
       "required": ["coverage", "duplication", "cyclomatic", "cognitive"],
       "additionalProperties": false
     },
+    "gates": {
+      "type": "object",
+      "description": "spec-105 gate execution mode and pre-commit options.",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": ["regulated", "prototyping"]
+        },
+        "pre_commit": {
+          "type": "object",
+          "properties": {
+            "auto_stage": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "evaluation": {
+      "type": "object",
+      "description": "spec-119 evaluation layer thresholds (D-119-04).",
+      "properties": {
+        "pass_at_k": {
+          "type": "object",
+          "properties": {
+            "k": { "type": "integer", "minimum": 1 },
+            "threshold": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["k", "threshold"],
+          "additionalProperties": false
+        },
+        "hallucination_rate": {
+          "type": "object",
+          "properties": {
+            "max": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "required": ["max"],
+          "additionalProperties": false
+        },
+        "regression_tolerance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "scenario_packs": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "enforcement": {
+          "type": "string",
+          "enum": ["blocking", "advisory"]
+        }
+      },
+      "required": ["pass_at_k", "hallucination_rate", "regression_tolerance", "scenario_packs", "enforcement"],
+      "additionalProperties": false
+    },
     "documentation": {
       "type": "object",
       "properties": {

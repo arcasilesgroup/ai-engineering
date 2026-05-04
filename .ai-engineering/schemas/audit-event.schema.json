@@ -242,6 +242,56 @@
       },
       "required": ["operation"],
       "additionalProperties": false
+    },
+    "detail_eval_run": {
+      "type": "object",
+      "description": "spec-119 evaluation layer event detail. Sub-typed via the operation enum per D-119-01.",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "eval_started",
+            "scenario_executed",
+            "pass_at_k_computed",
+            "hallucination_rate_computed",
+            "regression_detected",
+            "regression_cleared",
+            "eval_gated",
+            "baseline_updated"
+          ]
+        },
+        "scenario_pack": { "type": "string" },
+        "scenario_id": { "type": "string" },
+        "trial_id": { "type": "integer", "minimum": 0 },
+        "pass": { "type": "boolean" },
+        "k": { "type": "integer", "minimum": 1 },
+        "pass_count": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "total_assertions": { "type": "integer", "minimum": 0 },
+        "failed_assertions": { "type": "integer", "minimum": 0 },
+        "delta": { "type": "number" },
+        "threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "tolerance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "verdict": {
+          "type": "string",
+          "enum": ["GO", "CONDITIONAL", "NO_GO", "SKIPPED"]
+        },
+        "regression_delta_vs_baseline": { "type": "number" },
+        "failed_scenarios": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "prev_pass_at_k": { "type": "number", "minimum": 0, "maximum": 1 },
+        "new_pass_at_k": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reason": { "type": "string" },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "outcome": { "$ref": "#/$defs/nullableString" },
+        "failure_reason": { "$ref": "#/$defs/nullableString" }
+      },
+      "required": ["operation"],
+      "additionalProperties": false
     }
   },
   "type": "object",
@@ -396,6 +446,17 @@
       "then": {
         "properties": {
           "detail": { "$ref": "#/$defs/detail_memory_event" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "event": { "const": "eval_run" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "detail": { "$ref": "#/$defs/detail_eval_run" }
         }
       }
     }

@@ -1,0 +1,38 @@
+{
+  "version": "1",
+  "baseline": {
+    "pass_at_k": 0.85
+  },
+  "scenarios": [
+    {
+      "id": "spec-doc-present",
+      "k": 5,
+      "grader": "filesystem.expected_path",
+      "metadata": {
+        "description": "When /ai-brainstorm completes, a spec.md file is produced under .ai-engineering/specs/.",
+        "expected_path": ".ai-engineering/specs/spec-119-evaluation-layer.md",
+        "expected_content_substring": "## Acceptance Criteria"
+      }
+    },
+    {
+      "id": "plan-doc-present",
+      "k": 5,
+      "grader": "filesystem.expected_path",
+      "metadata": {
+        "description": "When /ai-plan completes, a plan-NNN-*.md file is produced under .ai-engineering/specs/.",
+        "expected_path": ".ai-engineering/specs/plan-119-evaluation-layer.md",
+        "expected_content_substring": "## Architecture"
+      }
+    },
+    {
+      "id": "review-skill-present",
+      "k": 5,
+      "grader": "filesystem.expected_path",
+      "metadata": {
+        "description": "/ai-review skill is registered and authored under .claude/skills/.",
+        "expected_path": ".claude/skills/ai-review/SKILL.md",
+        "expected_content_substring": "ai-review"
+      }
+    }
+  ]
+}

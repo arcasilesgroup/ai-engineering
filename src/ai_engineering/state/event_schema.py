@@ -36,6 +36,13 @@ ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(
         "control_outcome",
         "framework_operation",
         "task_trace",
+        # spec-118 memory layer (parity repair: canonical hook had this kind
+        # but the Python validator did not, so memory_event events emitted by
+        # the canonical hook would fail validate_event_schema in callers that
+        # used the Python library path)
+        "memory_event",
+        # spec-119 evaluation layer
+        "eval_run",
     }
 )
 
