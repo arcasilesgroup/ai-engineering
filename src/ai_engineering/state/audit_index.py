@@ -73,9 +73,20 @@ CREATE TABLE IF NOT EXISTS events (
   output_tokens      INTEGER,
   total_tokens       INTEGER,
   cost_usd           REAL,
+  severity           TEXT,
+  recovery_hint      TEXT,
   detail_json        TEXT NOT NULL
 )
 """
+
+# spec-122 / harness gap closure 2026-05-04: additive ALTERs migrate
+# existing DBs. Wrapped in TRY/EXCEPT inside _create_schema so a fresh
+# DB skips the no-op ALTER and an existing DB applies it once. SQLite
+# raises OperationalError on duplicate column add; we catch + ignore.
+_DDL_ALTERS_FOR_V11 = (
+    "ALTER TABLE events ADD COLUMN severity TEXT",
+    "ALTER TABLE events ADD COLUMN recovery_hint TEXT",
+)
 
 _DDL_INDEXES = (
     "CREATE INDEX IF NOT EXISTS idx_events_trace      ON events(trace_id)",
@@ -226,7 +237,14 @@ def open_index_readonly(project_root: Path) -> sqlite3.Connection:
 
 
 def _create_schema(conn: sqlite3.Connection) -> None:
-    """Apply the spec-120 §4.3 schema to ``conn``. Idempotent."""
+    """Apply the spec-120 §4.3 schema to ``conn``.
+
+    Idempotent. Spec-122 / 2026-05-04 gap closure adds two columns
+    (``severity``, ``recovery_hint``) for ACI-style structured error
+    events. The columns are part of the CREATE on fresh DBs and applied
+    via additive ALTER on existing DBs (try/except guards the duplicate-
+    column case so re-running is a safe no-op).
+    """
     conn.execute(_DDL_EVENTS)
     for ddl in _DDL_INDEXES:
         conn.execute(ddl)
@@ -234,6 +252,14 @@ def _create_schema(conn: sqlite3.Connection) -> None:
     conn.execute(_DDL_VIEW_SKILL_ROLLUP)
     conn.execute(_DDL_VIEW_AGENT_ROLLUP)
     conn.execute(_DDL_VIEW_SESSION_ROLLUP)
+    # Migration: ensure existing DBs gain the v1.1 columns. SQLite
+    # raises OperationalError when the column already exists; that is
+    # the success path for re-runs.
+    import contextlib
+
+    for alter in _DDL_ALTERS_FOR_V11:
+        with contextlib.suppress(sqlite3.OperationalError):
+            conn.execute(alter)
     conn.commit()
 
 
@@ -358,6 +384,17 @@ def _extract_columns(event: dict[str, Any], line_bytes: bytes) -> dict[str, Any]
 
     detail_json = json.dumps(detail_obj, sort_keys=True, separators=(",", ":"))
 
+    # spec-122 / 2026-05-04 gap closure (P3.2): ACI severity columns.
+    # Both fields live inside detail{} per the wire schema; project them
+    # to top-level columns so SQL queries / OTel exports can filter
+    # without json_extract() round-trips.
+    severity_raw = detail_obj.get("severity")
+    severity = severity_raw if isinstance(severity_raw, str) and severity_raw else None
+    recovery_hint_raw = detail_obj.get("recovery_hint")
+    recovery_hint = (
+        recovery_hint_raw if isinstance(recovery_hint_raw, str) and recovery_hint_raw else None
+    )
+
     return {
         "span_id": span_id,
         "trace_id": trace_id,
@@ -378,6 +415,8 @@ def _extract_columns(event: dict[str, Any], line_bytes: bytes) -> dict[str, Any]
         "output_tokens": output_tokens,
         "total_tokens": total_tokens,
         "cost_usd": cost_usd,
+        "severity": severity,
+        "recovery_hint": recovery_hint,
         "detail_json": detail_json,
     }
 
@@ -429,12 +468,14 @@ INSERT OR REPLACE INTO events (
   span_id, trace_id, parent_span_id, correlation_id, session_id,
   timestamp, ts_unix_ms, engine, kind, component, outcome,
   source, prev_event_hash, genai_system, genai_model,
-  input_tokens, output_tokens, total_tokens, cost_usd, detail_json
+  input_tokens, output_tokens, total_tokens, cost_usd,
+  severity, recovery_hint, detail_json
 ) VALUES (
   :span_id, :trace_id, :parent_span_id, :correlation_id, :session_id,
   :timestamp, :ts_unix_ms, :engine, :kind, :component, :outcome,
   :source, :prev_event_hash, :genai_system, :genai_model,
-  :input_tokens, :output_tokens, :total_tokens, :cost_usd, :detail_json
+  :input_tokens, :output_tokens, :total_tokens, :cost_usd,
+  :severity, :recovery_hint, :detail_json
 )
 """
 

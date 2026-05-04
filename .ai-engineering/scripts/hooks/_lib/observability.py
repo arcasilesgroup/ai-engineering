@@ -16,7 +16,13 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
-FRAMEWORK_EVENT_SCHEMA_VERSION = "1.0"
+# spec-122 / harness gap closure 2026-05-04 (P3.2): added optional
+# `detail.severity` and `detail.recovery_hint` to framework_error events
+# for ACI-style structured error reporting. Backward compatible: events
+# without the new fields parse fine; consumers default severity to
+# `advisory`. Bumped 1.0 -> 1.1 for projection schema migration.
+FRAMEWORK_EVENT_SCHEMA_VERSION = "1.1"
+ALLOWED_SEVERITY = frozenset({"recoverable", "terminal", "advisory"})
 _AI_ENGINEERING_DIR = Path(".ai-engineering")
 FRAMEWORK_EVENTS_REL = _AI_ENGINEERING_DIR / "state" / "framework-events.ndjson"
 _ACTIVE_WORK_PLANE_POINTER = _AI_ENGINEERING_DIR / "specs" / "active-work-plane.json"
@@ -642,11 +648,31 @@ def emit_framework_error(
     trace_id: str | None = None,
     correlation_id: str | None = None,
     metadata: dict | None = None,
+    severity: str | None = None,
+    recovery_hint: str | None = None,
 ) -> dict:
+    """Emit a framework_error event.
+
+    Spec-122 / harness gap closure 2026-05-04 (P3.2): added optional
+    ``severity`` and ``recovery_hint`` kwargs. Severity must be one of
+    ``recoverable | terminal | advisory`` when supplied; an invalid
+    value is silently coerced to ``advisory`` (the safe default) so a
+    typo never derails the audit chain. ``recovery_hint`` is a short
+    human-readable suggestion the operator can act on.
+
+    Both fields are *additive*: events without them remain
+    schemaVersion-1.0-compatible (consumers default severity to
+    ``advisory``).
+    """
     detail: dict = {"error_code": error_code}
     bounded = _bounded_summary(summary)
     if bounded:
         detail["summary"] = bounded
+    if severity is not None:
+        normalized_severity = severity if severity in ALLOWED_SEVERITY else "advisory"
+        detail["severity"] = normalized_severity
+    if recovery_hint:
+        detail["recovery_hint"] = recovery_hint[:500]
     if metadata:
         detail.update(metadata)
     entry = build_framework_event(

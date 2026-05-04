@@ -1,7 +1,8 @@
 {
-  "generatedAt": "2026-05-04T21:05:08Z",
-  "hookCount": 72,
+  "generatedAt": "2026-05-04T21:25:57Z",
+  "hookCount": 73,
   "hooks": {
+    ".ai-engineering/scripts/hooks/_lib/agent_protocol.py": "2f8cababdec61c883cf37a4a166e3bd3be1de5afbd994087d1868b084d37d97b",
     ".ai-engineering/scripts/hooks/_lib/audit.py": "14bfbad9f15b03db274362d026700ee154f391a96c69e753e643b3c7ab32fa19",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "ef4a571b410d6e7a0392bab1864c7cb382785ec6b4a0f9ff8a63ebc92c2bf1a6",
     ".ai-engineering/scripts/hooks/_lib/copilot-common.ps1": "dfda121aa9eda20c3647fd831ac4b95b3bbbeb98a3e74851b8e5c3492188dfd0",
@@ -14,7 +15,7 @@
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",
     ".ai-engineering/scripts/hooks/_lib/instincts.py": "c0028bc9456f59b7b727ccd1e545308f0075ad47dd71fcddc2165f1e4a57a464",
     ".ai-engineering/scripts/hooks/_lib/integrity.py": "8d7a6e2b3faa1cbfe20c727467572a844c1b65859b7f740b3b0fa3d0d4a25526",
-    ".ai-engineering/scripts/hooks/_lib/observability.py": "4121c4f2b9515e46856d7a4f9e9d143d8dbab5a20c0f6295d4604bb0f82f2ee5",
+    ".ai-engineering/scripts/hooks/_lib/observability.py": "fc9c73d4e6fa26c96c6d49848128905dae21ffbf752345fe5fb3d50020965a9e",
     ".ai-engineering/scripts/hooks/_lib/risk_accumulator.py": "abb86c04cbb45deed0e832bbf1d6b016e3359ccff0acde689d4c6d8b7f43abbb",
     ".ai-engineering/scripts/hooks/_lib/runtime_state.py": "a7a3449ba92f8fff14b7a2d0fe0497a8a5fa48d71ae86a687f55e18c957b4aaa",
     ".ai-engineering/scripts/hooks/_lib/trace_context.py": "f9623effb8adfbb4f2a97673e23585a2721c186604ce59905c2a456512df17cc",
