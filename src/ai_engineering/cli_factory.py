@@ -347,6 +347,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     audit_app.command("tokens")(_safe(audit_cmd.audit_tokens))
     audit_app.command("replay")(_safe(audit_cmd.audit_replay))
     audit_app.command("otel-export")(_safe(audit_cmd.audit_otel_export))
+    audit_app.command("otel-tail")(_safe(audit_cmd.audit_otel_tail))
     app.add_typer(audit_app, name="audit")
 
     # Eval sub-group (spec-119 evaluation gate; harness gap closure 2026-05-04

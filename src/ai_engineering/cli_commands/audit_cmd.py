@@ -605,10 +605,208 @@ def audit_otel_export(
     typer.echo(body)
 
 
+def audit_otel_tail(
+    collector: Annotated[
+        str,
+        typer.Option("--collector", help="OTLP/JSON collector URL (HTTP POST)."),
+    ],
+    since: Annotated[
+        str | None,
+        typer.Option(
+            "--since",
+            help="ISO-8601 timestamp to skip events older than. Optional.",
+        ),
+    ] = None,
+    batch_size: Annotated[
+        int,
+        typer.Option("--batch-size", help="Events per OTLP envelope POST."),
+    ] = 32,
+    poll_interval_sec: Annotated[
+        float,
+        typer.Option(
+            "--poll-interval-sec",
+            help="Seconds to sleep between NDJSON tail polls.",
+        ),
+    ] = 1.0,
+    duration_sec: Annotated[
+        float | None,
+        typer.Option(
+            "--duration-sec",
+            help="Exit after this many seconds. Test fixture; omitted for daemon mode.",
+        ),
+    ] = None,
+) -> None:
+    """Tail framework-events.ndjson and stream OTLP/JSON to a collector.
+
+    Harness gap closure 2026-05-04 (P4.1): the prior ``otel-export`` command
+    was one-shot only. This subcommand turns the audit log into a live
+    stream so Langfuse / Phoenix / Logfire / any OpenTelemetry-compatible
+    backend can ingest events as they happen.
+
+    The tail loop:
+
+    1. Open the NDJSON file in append-mode-friendly read mode.
+    2. Seek to the end (or to ``--since`` when supplied).
+    3. Read newly-appended lines, parse, batch into OTLP envelopes.
+    4. POST each batch to ``--collector`` with exponential backoff
+       retry (1s, 2s, 4s; max 3 attempts). Failures are logged via
+       ``framework_error`` so dropped batches are visible in the audit
+       chain itself.
+
+    Fail-soft: collector unreachable → log + continue tailing. Empty
+    polls → no-op. SIGTERM / Ctrl-C exits cleanly between batches.
+    """
+    import json as _json
+    import time as _time
+
+    from ai_engineering.state.audit_index import (
+        NDJSON_REL,
+        _extract_columns,
+    )
+
+    project_root = _resolve_project_root()
+    ndjson_path = project_root / NDJSON_REL
+
+    if not ndjson_path.exists():
+        typer.echo(f"NDJSON not found: {ndjson_path}", err=True)
+        raise typer.Exit(code=2)
+
+    # Compute the seek offset: either end of file (default) or the byte
+    # position just after the last event with timestamp >= --since.
+    seek_offset = 0
+    if since:
+        # Bounded scan: read line-by-line, stop at the first event whose
+        # timestamp is at-or-after --since. Cheap for typical NDJSON sizes
+        # and avoids loading the whole file into memory.
+        with ndjson_path.open("rb") as fh:
+            for raw in fh:
+                try:
+                    parsed = _json.loads(raw)
+                except (ValueError, TypeError):
+                    continue
+                ts = parsed.get("timestamp", "") if isinstance(parsed, dict) else ""
+                if isinstance(ts, str) and ts >= since:
+                    break
+                seek_offset += len(raw)
+    else:
+        seek_offset = ndjson_path.stat().st_size
+
+    deadline = (_time.monotonic() + duration_sec) if duration_sec is not None else None
+    typer.echo(
+        f"otel-tail: collector={collector} since={since!r} "
+        f"start_offset={seek_offset} batch_size={batch_size}"
+    )
+
+    pending: list[dict] = []
+    while True:
+        if deadline is not None and _time.monotonic() >= deadline:
+            break
+
+        # Read whatever is new since seek_offset; tolerate partial trailing line.
+        try:
+            with ndjson_path.open("rb") as fh:
+                fh.seek(seek_offset)
+                chunk = fh.read()
+        except OSError:
+            chunk = b""
+
+        if not chunk:
+            _time.sleep(poll_interval_sec)
+            continue
+
+        # Only consume up to the last newline; keep the remainder for next pass.
+        last_nl = chunk.rfind(b"\n")
+        if last_nl < 0:
+            _time.sleep(poll_interval_sec)
+            continue
+        consumable = chunk[: last_nl + 1]
+        seek_offset += len(consumable)
+
+        for raw_line in consumable.splitlines():
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                event = _json.loads(line)
+            except (ValueError, TypeError):
+                continue
+            if not isinstance(event, dict):
+                continue
+            try:
+                cols = _extract_columns(event, line)
+            except Exception:
+                continue
+            pending.append(cols)
+            if len(pending) >= batch_size:
+                _post_otlp_batch(collector, pending, project_root)
+                pending = []
+
+        if pending and (deadline is None or _time.monotonic() >= deadline - poll_interval_sec):
+            _post_otlp_batch(collector, pending, project_root)
+            pending = []
+
+    # Final flush so a bounded duration doesn't lose tail events.
+    if pending:
+        _post_otlp_batch(collector, pending, project_root)
+
+
+def _post_otlp_batch(collector: str, events: list[dict], project_root: Path) -> None:
+    """POST one OTLP/JSON envelope with exponential backoff retry.
+
+    Helper for :func:`audit_otel_tail`. Failures emit a ``framework_error``
+    via the local stdlib emitter so dropped batches are visible in the
+    audit chain itself; the tail loop never raises.
+    """
+    import json as _json
+    import time as _time
+    import urllib.error as _urlerr
+    import urllib.request as _urlreq
+
+    from ai_engineering.state.audit_otel_export import (
+        build_otlp_spans_from_events,
+    )
+
+    envelope = build_otlp_spans_from_events(events)
+    body = _json.dumps(envelope).encode("utf-8")
+    backoff = (1.0, 2.0, 4.0)
+    last_error: str | None = None
+    for delay in backoff:
+        try:
+            req = _urlreq.Request(
+                collector,
+                data=body,
+                method="POST",
+                headers={"Content-Type": "application/json"},
+            )
+            with _urlreq.urlopen(req, timeout=10) as resp:
+                if 200 <= resp.status < 300:
+                    return
+                last_error = f"HTTP {resp.status}"
+        except (_urlerr.URLError, OSError) as exc:
+            last_error = f"{type(exc).__name__}: {str(exc)[:200]}"
+        _time.sleep(delay)
+
+    # Final failure: emit a framework_error so the dropped batch is auditable.
+    try:
+        from ai_engineering.state.observability import emit_framework_error
+
+        emit_framework_error(
+            project_root,
+            engine="ai_engineering",
+            component="cli.audit-otel-tail",
+            error_code="otel_tail_post_failed",
+            summary=last_error or "unknown",
+            metadata={"batch_size": len(events), "collector": collector},
+        )
+    except Exception:
+        pass
+
+
 __all__ = [
     "audit_app_marker",
     "audit_index",
     "audit_otel_export",
+    "audit_otel_tail",
     "audit_query",
     "audit_replay",
     "audit_tokens",

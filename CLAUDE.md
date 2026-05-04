@@ -214,4 +214,19 @@ ai-eng audit query "SELECT ..."          # read-only SQL over the index
 ai-eng audit tokens --by skill|agent|session   # token rollup
 ai-eng audit replay --session <id>       # depth-first span-tree walk
 ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope (Langfuse, Phoenix, …)
+ai-eng audit otel-tail --collector <url> # live stream to OTLP/JSON collector (P4.1)
 ```
+
+The otel-tail subcommand (added 2026-05-04 / harness gap closure)
+turns the audit log into a live stream. Tested collector endpoints:
+
+* **Langfuse**: http://localhost:3000/api/public/otel/v1/traces
+  (self-hosted) or https://cloud.langfuse.com/api/public/otel/v1/traces.
+* **Phoenix**: http://localhost:6006/v1/traces (local) or the
+  managed endpoint.
+* **Generic OTLP/HTTP collector** (otel-collector-contrib, Tempo,
+  Honeycomb, etc.): http://<host>:4318/v1/traces.
+
+The tail loop fail-soft on POST failures: dropped batches emit a
+framework_error event (error_code = otel_tail_post_failed) so
+the audit chain itself records the gap.

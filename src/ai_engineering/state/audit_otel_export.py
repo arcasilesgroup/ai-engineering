@@ -288,6 +288,42 @@ def build_otlp_spans(
     }
 
 
+def build_otlp_spans_from_events(
+    events: list[dict[str, Any]],
+    *,
+    pkg_version: str = "spec-120",
+) -> dict[str, Any]:
+    """Variant of :func:`build_otlp_spans` that takes events directly.
+
+    Used by ``ai-eng audit otel-tail`` (harness gap closure 2026-05-04
+    P4.1) to project NDJSON lines into OTLP envelopes without going
+    through the SQLite index. Each event dict must already have the
+    column-shaped keys the shaper expects (span_id, trace_id,
+    parent_span_id, timestamp, kind, component, outcome,
+    genai_system, genai_model, input_tokens, output_tokens).
+
+    The tail caller is responsible for the NDJSON → column-dict
+    transformation (mirroring ``audit_index._extract_columns``).
+    """
+    spans = [_build_span(event) for event in events if event]
+    return {
+        "resourceSpans": [
+            {
+                "resource": {
+                    "attributes": [_attribute("service.name", _string_value(_SERVICE_NAME))],
+                },
+                "scopeSpans": [
+                    {
+                        "scope": {"name": _SCOPE_NAME, "version": pkg_version},
+                        "spans": spans,
+                    }
+                ],
+            }
+        ]
+    }
+
+
 __all__ = [
     "build_otlp_spans",
+    "build_otlp_spans_from_events",
 ]
