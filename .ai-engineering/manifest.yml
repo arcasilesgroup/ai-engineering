@@ -256,6 +256,12 @@ skills:
     # Research (spec-111)
     ai-research:
       { type: workflow, tags: [research, evidence, citations, multi-tier] }
+    # NOTE (spec-119): ai-eval-gate skill is described as a proposal at
+    # .ai-engineering/specs/spec-119-progress/proposed-ai-eval-gate-skill.md;
+    # auto-mode harness denied autonomous write into .claude/skills/. After
+    # the maintainer applies the proposal and creates the SKILL.md, bump
+    # `total` to 52 and add `ai-eval-gate: { type: delivery, tags: [...] }`
+    # below.
 
 # Agents (10)
 agents:

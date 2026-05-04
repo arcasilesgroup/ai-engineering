@@ -20,7 +20,7 @@ _MANIFEST_PATH = (
 )
 
 _REQUIRED_FIELDS = {"name"}
-_VALID_EFFORT_LEVELS = {"max", "high", "medium"}
+_VALID_EFFORT_LEVELS = {"max", "high", "medium", "low"}
 
 
 def _all_skill_dirs() -> list[Path]:

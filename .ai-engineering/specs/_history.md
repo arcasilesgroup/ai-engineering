@@ -4,7 +4,11 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Branch |
 |----|-------|--------|---------|--------|
+| 119 | Evaluation Layer — Generator/Evaluator Split, CI Eval Gates, pass@k Telemetry, Lint-as-Prompt | runtime-landed-docs-deferred | 2026-05-04 | feat/knowledge-placement-governance-cleanup |
+| 118 | Memory Layer — Episodic, Semantic, Knowledge Objects, Dreaming, Cross-Session Retrieval | done | 2026-05-03 | feat/knowledge-placement-governance-cleanup |
 | 117 | Harness Engineering Root Refactor Program | done | 2026-05-02 | main |
+| 116 | Framework Knowledge Consolidation, Canonical Placement, and Governance Cleanup | done | 2026-04-30 | feat/knowledge-placement-governance-cleanup |
+| 115 | Cross-IDE Entry-Point Governance and Engineering Principles Standard | approved | 2026-04-29 | feat/knowledge-placement-governance-cleanup |
 | 114 | Telemetry Foundation Completion — Copilot DRY + Hot-Path SLO + NDJSON Reset + Clean Code | done | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
 | 113 | Linux Install Robustness + UX Polish (Alpine Validation) | approved | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
 | 112 | Telemetry Foundation — Fix + Cross-OS + Multi-IDE Unified + Reset + DRY + Hot-Path SLO + Clean Code Audit | done | 2026-04-29 | run/spec-110-111-112-2026-04-29 |
@@ -15,14 +19,18 @@ Completed specs. Details in git history.
 | 107 | MCP Sentinel Hardening + IDE Parity + Hash-Chained Audit Trail | done | 2026-04-28 | feat/spec-101-installer-robustness |
 | 106 | Skills Consolidation + Architecture Thinking + skill-creator Eval | done | 2026-04-27 | feat/spec-101-installer-robustness |
 | 105 | Unified Gate + Generalized Risk Acceptance | done | 2026-04-27 | feat/spec-101-installer-robustness |
+| 104 | Performance + Stability Quality Dimensions (bundled in installer-robustness umbrella) | done | 2026-04-27 | feat/spec-101-installer-robustness |
 | 103 | Install/Update Hook Source Of Truth Alignment | done | 2026-04-07 | fix/install-runtime-remediation |
 | 102 | Installation Runtime and Remediation Unification | done | 2026-04-06 | fix/install-runtime-remediation |
+| 101 | Installer Quality Hardening (bundled in installer-robustness umbrella) | done | 2026-04-06 | feat/spec-101-installer-robustness |
 | 100 | Version alignment and install story — commit-back, CHANGELOG, documentation | done | 2026-04-02 | feat/spec-100-version-alignment-install-story |
 | 099 | First-run experience — wizard validation, warnings, and gate generalization | done | 2026-04-02 | fix/spec-098-tools-before-hooks |
 | 098 | README Ecosystem Rewrite — GitHub Landing, Post-Install Reference, Getting Started | done | 2026-04-01 | feat/cli-branding-and-design-audit |
 | 097 | CI/CD Redesign — DevSecOps, Supply Chain, Artifact-Driven Releases | done | 2026-03-31 | feat/spec-097-cicd-redesign |
 | 096 | Manifest Source of Truth — Provider Filtering in Update, Validators, and Orphan Cleanup | done | 2026-03-31 | feat/spec-096-manifest-source-of-truth |
 | 095 | ai-eng install: auto-infer mode, single tree UX | done | 2026-03-31 | feat/spec-095-install-auto-infer-unified-tree |
+| 094 | (reserved; abandoned — number skipped, no spec produced) | abandoned | — | — |
+| 093 | Design Skill Pack — 3 skills + 1 reviewer specialist | done | 2026-03-30 | spec/093-design-skill-pack |
 | 092 | Unified Runbook Dedup Handler — Finding Contract | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |
 | 091 | CONSTITUTION.md — Rename and Redesign | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |
 | 090 | Instincts/LESSONS Consolidation — Autopilot | done | 2026-03-30 | feat/spec-090-092-instincts-dedup-governance |
@@ -239,3 +247,84 @@ Phase 5 sweep policy: replace each restatement with one-liner reference (e.g., "
 4. **Restatement sweep yields linear gains**: identifying 7 restatement patterns (stack-context preamble, CLAUDE.md Don't restatements, quality-gate body restatements, hardcoded counters, verbose process summaries, decision-store paths, sync-command restatements) and sweeping 4 alphabetical batches reliably hits ≥400-line target. Functional content (Process, Quick Reference, Common Mistakes, Integration, Handler tables, Output Contracts) preserved.
 5. **Advisory script vs CI gate**: `scripts/skill-audit.sh` deliberately exits 0 even with sub-threshold skills — D-106-04 design choice keeps skill quality visible without blocking releases. CI-blocking variants reserved for future spec if signal proves consistently actionable.
 6. **Pre-existing failure inventory is stable**: `test_doctor_remaining_branches` (1 failure) verified failing on parent commit 71d38d9d (spec-104 head) and on every spec-106 phase commit. Same 6-flake set documented in spec-105 (P8 lesson 2). Spec-106 inherits the inventory unchanged; no spec-106 regression introduced.
+
+
+## spec-115 — Cross-IDE Entry-Point Governance and Engineering Principles Standard
+
+**Branch**: `feat/knowledge-placement-governance-cleanup`. **Status**: approved (architecture standard; enforcement landed inside spec-116).
+
+Defines the cross-IDE governance contract for entry-point files (`AGENTS.md`, `CLAUDE.md`, `CONSTITUTION.md`) and the engineering-principles SSOT. Authoritative reference for spec-116's enforcement work and any future IDE-mirror additions.
+
+
+## spec-116 — Framework Knowledge Consolidation, Canonical Placement, and Governance Cleanup
+
+**Branch**: `feat/knowledge-placement-governance-cleanup`. **Status**: done.
+
+Consolidated framework knowledge into canonical placements per Constitution Article V (single source of truth). Trimmed skill verbosity budgets, repaired decision-lifecycle artifacts, and addressed governance review findings (commits `accceff3`, `4fc99533`, `371bfa7e`, `e7e62b59`, `40fde4a8`, `f4bb92a4`).
+
+
+## spec-117 — Harness Engineering Root Refactor Program
+
+**Branch**: `main`. **Status**: done.
+
+Multi-track program (hx-01..hx-12) covering control-plane normalization, work-plane and task-ledger, mirror-local reference model, harness-kernel unification, state-plane and observability normalization, multi-agent capability contracts, context packs and learning funnel, runtime-core extraction (tracks A/B/C), verification-and-eval architecture, and engineering standards / legacy retirement. Sub-spec details and progress live under `.ai-engineering/specs/spec-117-progress/`. Verification-and-eval (hx-11) added the replay-outcome and pass@k library functions referenced by spec-119; spike documented in `spec-119-progress/spike-spec-117-funcs.md` clarifies that the named functions were never produced and lands the SSOT under spec-119 instead.
+
+
+## spec-118 — Memory Layer (Episodic, Semantic, Knowledge Objects, Dreaming, Cross-Session Retrieval)
+
+**Branch**: `feat/knowledge-placement-governance-cleanup`. **Phases**: 5. **Status**: done (commit `62fa73bc`).
+
+**Scope**: added the four missing memory tiers anchored in the existing audit chain and Constitution Article V SSOT — episodic memory at the Stop hook, hash-addressed Knowledge Objects, semantic tier on `sqlite-vec` + `fastembed`, dreaming consolidation loop, cross-session retrieval. Repaired the existing instinct subsystem's empty-timestamp regression as a side-effect.
+
+**Key landings**:
+- One new audit kind `memory_event` with seven discriminated sub-operations (D-118-01).
+- Two canonical skills `/ai-remember` and `/ai-dream` (skill count 49 → 51).
+- Two canonical hooks `memory-stop.py` and `memory-session-start.py` wired into `.claude/settings.json` and recorded in `hooks-manifest.json`.
+- New module `.ai-engineering/scripts/memory/` with `store`, `episodic`, `knowledge`, `semantic`, `retrieval`, `dreaming`, `repair`, `audit`, `cli` submodules.
+- Optional dependency extra `memory = ["sqlite-vec", "fastembed", "hdbscan", "numpy"]` in `pyproject.toml`.
+- Manual-only promotion path: dreaming proposes; `LESSONS.md` is never auto-mutated.
+
+**Lessons learned**:
+1. **One audit kind sub-typed via `detail.operation` keeps the surface small** without sacrificing query power. The same pattern lands again under spec-119 D-119-01.
+2. **Stdlib-only at import time + lazy heavy deps** (fastembed via subprocess) keeps the hook hot path under budget while the embedding work runs fire-and-forget.
+3. **Refuse-to-start on dimension mismatch** (vector_map.embedding_dim vs active embedder) is the right default; silent re-embedding would silently corrupt the corpus.
+
+**Follow-up gaps surfaced and repaired by spec-119**:
+- `memory_event` was missing from `src/ai_engineering/state/event_schema.py::ALLOWED_EVENT_KINDS` and from the install-template hook copies. spec-119 Phase 1 added it as a parity repair.
+
+
+## spec-119 — Evaluation Layer (Generator/Evaluator Split, CI Eval Gates, pass@k Telemetry, Lint-as-Prompt)
+
+**Branch**: `feat/knowledge-placement-governance-cleanup`. **Status**: runtime-landed; `.claude/` documentation surface deferred behind harness auto-mode safety policy. Commit `a1ae2d2d`.
+
+**Scope**: closed the Evaluation Layer with four coordinated additions — Generator/Evaluator agent split, CI eval gates blocking on threshold/regression failure, pass@k telemetry through a single new `eval_run` audit kind, and structured lint-as-prompt envelopes replacing prose violation labels.
+
+**Key landings (runtime, all green at commit time)**:
+- One new audit kind `eval_run` with eight discriminated sub-operations (D-119-01) registered across canonical hook, Python validator, and both install-template mirrors.
+- Eight `emit_eval_*` helpers with verdict-aware outcome mapping (`NO_GO → failure`, `SKIPPED → degraded`, else `success`).
+- Brand-new module `src/ai_engineering/eval/` with `replay`, `pass_at_k` (HumanEval formula), `scorecard` (verdict mapping), `regression`, `runner`, and `gate` (modes `check` / `report` / `enforce`).
+- New top-level `evaluation:` section in `manifest.yml` per D-119-04; manifest schema declaration with required fields; side-effect: `gates` block added to manifest schema (parity repair).
+- New `.ai-engineering/schemas/lint-violation.schema.json` per D-119-05; canonical renderer at `src/ai_engineering/lint_violation_render.py`.
+- New optional dependency extra `eval = ["deepeval"]` in `pyproject.toml`; pytest markers `eval` and `eval_slow`.
+- Evals scaffolding under `.ai-engineering/evals/` with seed `baseline.json` covering three reference scenarios (`/ai-build`, `/ai-plan`, `/ai-review`) using deterministic graders.
+- 81 new tests under `tests/unit/eval/`; canonical smoke proves the gate engine runs end-to-end against the real repo.
+
+**Side-effect repairs**:
+- `memory_event` added to `ALLOWED_EVENT_KINDS` in `src/ai_engineering/state/event_schema.py` and to both install-template copies (closes a spec-118 mirror gap).
+- `gates` block declared in `manifest.schema.json` (the schema lacked the section that the manifest already used).
+
+**Deferred (auto-mode harness denied autonomous writes into `.claude/`)**:
+- `.claude/agents/ai-evaluator.md` — final body in `spec-119-progress/proposed-ai-evaluator-agent.md`.
+- `.claude/skills/ai-eval-gate/SKILL.md` — final body in `spec-119-progress/proposed-ai-eval-gate-skill.md`.
+- `.claude/skills/_shared/execution-kernel.md` Stage 0 insertion — diff in `spec-119-progress/kernel-stage-0-diff.md`.
+- `.claude/skills/ai-code/handlers/compliance-trace.md` prose update — diff in `spec-119-progress/proposed-compliance-trace-update.md`.
+- `/ai-pr` and `/ai-release-gate` skill wiring — diff embedded in the proposed eval-gate skill body.
+
+The runtime engine is independently dispatchable; the deferred files are documentation surface that pin the dispatch contract. `ai-eng sync --check` should be run after the maintainer applies the proposals.
+
+**Lessons learned**:
+1. **Auto-mode protects the harness's own dispatch surface**. The harness denies autonomous writes to `.claude/agents/`, `.claude/skills/`, and the install-template mirrors of those paths even with explicit user permission given mid-session — a deliberate safety net that prevented the run from rewriting how Claude itself dispatches subagents. The right path is to keep the runtime engine outside `.claude/` and treat the dispatch surface as the maintainer's review target.
+2. **One audit kind sub-typed via `detail.operation` is now the third precedent** (`framework_operation`, `memory_event`, `eval_run`). Future audit-kind additions should default to this pattern.
+3. **Spike before assuming spec lineage**. spec-119 D-119-07 originally claimed three named functions from spec-117 hx-11 existed; the spike found they did not. Catching this in Phase 1 (T-1.1) prevented Phase 2 from importing ghost names; the SSOT landed under spec-119 instead with a transparent reconciliation note.
+4. **Schema gaps surface during foundation waves**. The manifest schema did not declare the `gates:` block that the manifest already used; the side-effect repair lands cheaply alongside the new `evaluation:` block. Establishing the rule "if the foundation phase touches a schema, sweep adjacent gaps in the same phase" is worth documenting.
+5. **Test bar can be stricter than schema**: `test_skill_has_valid_effort` allowlist `{max, high, medium}` was tighter than the skill-frontmatter schema enum `{max, high, medium, low}`. spec-118's `ai-remember` set `effort: low` per the schema and surfaced the divergence; spec-119 cleanup aligned the test to the schema.
