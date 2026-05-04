@@ -121,26 +121,26 @@ def test_load_manifest_busts_cache_on_edit(integ, tmp_path: Path) -> None:
     assert second["a.py"] == _sha("b")
 
 
-def test_default_mode_is_warn(integ, monkeypatch: pytest.MonkeyPatch) -> None:
-    """spec-120 follow-up: default reverted from ``enforce`` to ``warn``.
+def test_default_mode_is_enforce(integ, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Harness gap closure 2026-05-04: default flipped back to ``enforce``.
 
-    The enforce default created a chicken-and-egg self-lock during
-    development: editing any hook script changed its SHA, and the next
-    Bash/Edit invocation triggered the hook's own integrity check, which
-    refused to run before the manifest could be regenerated. Default is
-    now ``warn`` for active dev sessions; CI flips to ``enforce`` via
-    explicit ``AIENG_HOOK_INTEGRITY_MODE=enforce``."""
+    CLAUDE.md (Hooks Configuration → Integrity verification) commits to
+    fail-closed by default after the spec-120 governance review confirmed
+    the manifest stays clean under ``--check``. Dev workflows that change
+    hooks frequently opt out via ``AIENG_HOOK_INTEGRITY_MODE=warn`` in
+    their shell rc. Drift here means the security posture quietly weakened —
+    update CLAUDE.md first if the change is intentional."""
     monkeypatch.delenv("AIENG_HOOK_INTEGRITY_MODE", raising=False)
-    assert integ.integrity_mode() == "warn"
+    assert integ.integrity_mode() == "enforce"
 
 
-def test_unset_env_allows_unenrolled_hook_under_warn(
+def test_unset_env_refuses_unenrolled_hook_under_enforce(
     integ, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Unset env var inherits the warn default — unenrolled hooks pass
-    through with a None reason, matching the lenient developer-machine
-    posture. Enforce mode (CI) tightens this; covered by
-    ``test_enforce_mode_refuses_unenrolled_hook``."""
+    """Harness gap closure 2026-05-04: default is now ``enforce``, so
+    unenrolled hooks (those missing from the manifest) are refused when
+    no env var is set. Dev workflows that drop in new hooks opt into the
+    lenient posture via ``AIENG_HOOK_INTEGRITY_MODE=warn``."""
     monkeypatch.delenv("AIENG_HOOK_INTEGRITY_MODE", raising=False)
     integ._MANIFEST_CACHE.clear()
     project = tmp_path
@@ -148,13 +148,16 @@ def test_unset_env_allows_unenrolled_hook_under_warn(
     hook.write_text("anything")
     _write_manifest(project, {"other-hook.py": _sha("x")})
     ok, reason = integ.verify_hook_integrity(hook, project)
-    assert ok is True
-    assert reason is None
+    assert ok is False
+    assert reason is not None
+    assert "not enrolled" in reason
 
 
-def test_unrecognised_env_value_falls_back_to_warn(integ, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A typo or stale value (e.g. ``AIENG_HOOK_INTEGRITY_MODE=foo``) falls
-    back to the default ``warn`` mode. Operators who need fail-closed in
-    CI must set the env var explicitly to ``enforce``."""
+def test_unrecognised_env_value_falls_back_to_enforce(
+    integ, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Harness gap closure 2026-05-04: a typo or stale value falls back
+    to ``enforce`` (the safe default). Operators who need the lenient
+    posture must set the env var explicitly to ``warn`` or ``off``."""
     monkeypatch.setenv("AIENG_HOOK_INTEGRITY_MODE", "not-a-valid-mode")
-    assert integ.integrity_mode() == "warn"
+    assert integ.integrity_mode() == "enforce"

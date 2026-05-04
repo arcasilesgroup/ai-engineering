@@ -76,12 +76,14 @@ _RALPH_MAX_RETRIES = _bounded_int_env("AIENG_RALPH_MAX_RETRIES", 5, ceiling=50)
 # state, but never invokes ``check_convergence`` and never writes a
 # ``decision: block`` JSON to stdout.
 _RALPH_DISABLED = (os.environ.get("AIENG_RALPH_DISABLED") or "").strip() == "1"
-# Reinjection is opt-in. Default behavior: convergence runs and emits
-# telemetry (ralph_converged / ralph_reinject_observed) but never writes
-# a ``decision: block`` JSON to stdout. Repos with pre-existing lint or
-# test debt would otherwise block every Stop event. Set
-# ``AIENG_RALPH_BLOCK=1`` to enable the actual reinjection path.
-_RALPH_BLOCK_ENABLED = (os.environ.get("AIENG_RALPH_BLOCK") or "").strip() == "1"
+# Reinjection is enabled by default (harness gap closure 2026-05-04). The
+# convergence sweep is fast (~5s ruff + pytest --collect-only) and fail-open
+# on missing tools, so the previous opt-in default left ~200 lines of dead
+# code in production. Repos with pre-existing lint or test debt opt out
+# via ``AIENG_RALPH_BLOCK=0`` (or the broader ``AIENG_RALPH_DISABLED=1``
+# escape that also short-circuits convergence entirely). Telemetry
+# (ralph_converged / ralph_reinject) still emits in both modes.
+_RALPH_BLOCK_ENABLED = (os.environ.get("AIENG_RALPH_BLOCK", "1") or "").strip() != "0"
 _FAILURE_PATTERNS = (
     "test failed",
     "tests failed",

@@ -120,8 +120,14 @@ def test_converged_clears_resume_state_and_emits_event(
 def test_unconverged_observe_only_when_block_disabled(
     project: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Default behavior (no AIENG_RALPH_BLOCK): no stdout JSON, only telemetry."""
-    monkeypatch.delenv("AIENG_RALPH_BLOCK", raising=False)
+    """Opt-out behavior (AIENG_RALPH_BLOCK=0): no stdout JSON, only telemetry.
+
+    Harness gap closure 2026-05-04 flipped the default to enabled. This
+    test now exercises the explicit opt-out path with AIENG_RALPH_BLOCK=0
+    (and AIENG_RALPH_DISABLED is the broader short-circuit covered in
+    test_disabled_via_env_var). The default-enabled behaviour is pinned
+    in test_runtime_stop_ralph_default."""
+    monkeypatch.setenv("AIENG_RALPH_BLOCK", "0")
     monkeypatch.delenv("AIENG_RALPH_DISABLED", raising=False)
     rstop = _load_module(monkeypatch)
     # Sanity: the module must have read the env state correctly at import.

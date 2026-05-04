@@ -37,7 +37,7 @@ import os
 from pathlib import Path
 
 _MANIFEST_REL = Path(".ai-engineering") / "state" / "hooks-manifest.json"
-_DEFAULT_MODE = "warn"
+_DEFAULT_MODE = "enforce"
 _VALID_MODES: frozenset[str] = frozenset({"enforce", "warn", "off"})
 
 # Module-level cache: load_manifest is called on every hook invocation. Cache
