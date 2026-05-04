@@ -79,7 +79,7 @@ LOOP_REPEAT_THRESHOLD = _env_int("AIENG_LOOP_REPEAT_THRESHOLD", 3, ceiling=200)
 # Tool history retention (max records kept on disk).
 TOOL_HISTORY_MAX = _env_int("AIENG_TOOL_HISTORY_MAX", 500, ceiling=10_000)
 # Trim threshold: amortise rewrites by only trimming when file grows beyond
-# steady-state (~180 B/line × TOOL_HISTORY_MAX × 1.5 buffer).
+# steady-state (~180 B/line x TOOL_HISTORY_MAX x 1.5 buffer).
 _TOOL_HISTORY_TRIM_BYTES = max(256 * 1024, TOOL_HISTORY_MAX * 280)
 # NDJSON tail-byte read window: covers ~LOOP_WINDOW * 4 records of typical 180 B size.
 _NDJSON_TAIL_BYTES = 32 * 1024

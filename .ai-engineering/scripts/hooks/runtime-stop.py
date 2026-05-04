@@ -21,6 +21,7 @@ The hook never blocks ``Stop``; failures degrade silently.
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import sys
@@ -29,6 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import passthrough_stdin
+from _lib.convergence import ConvergenceResult, check_convergence
 from _lib.hook_common import emit_event, get_correlation_id, run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.observability import emit_framework_error, emit_framework_operation
@@ -68,6 +70,18 @@ def _bounded_int_env(name: str, default: int, *, ceiling: int) -> int:
 # Bounded so a stray AIENG_RALPH_MAX_RETRIES=999999999 cannot keep the Ralph
 # Loop alive across many sessions.
 _RALPH_MAX_RETRIES = _bounded_int_env("AIENG_RALPH_MAX_RETRIES", 5, ceiling=50)
+
+# Escape hatch for the convergence-driven reinjection block. When set the
+# Stop hook still writes the checkpoint and the legacy heuristic Ralph
+# state, but never invokes ``check_convergence`` and never writes a
+# ``decision: block`` JSON to stdout.
+_RALPH_DISABLED = (os.environ.get("AIENG_RALPH_DISABLED") or "").strip() == "1"
+# Reinjection is opt-in. Default behavior: convergence runs and emits
+# telemetry (ralph_converged / ralph_reinject_observed) but never writes
+# a ``decision: block`` JSON to stdout. Repos with pre-existing lint or
+# test debt would otherwise block every Stop event. Set
+# ``AIENG_RALPH_BLOCK=1`` to enable the actual reinjection path.
+_RALPH_BLOCK_ENABLED = (os.environ.get("AIENG_RALPH_BLOCK") or "").strip() == "1"
 _FAILURE_PATTERNS = (
     "test failed",
     "tests failed",
@@ -192,6 +206,206 @@ def _clear_ralph_state(project_root: Path) -> None:
         return
     existing.update({"active": False, "clearedAt": iso_now()})
     write_json(path, existing)
+
+
+def _ralph_retry_count(project_root: Path) -> int:
+    """Read the current Ralph retry count from ralph-resume.json."""
+    existing = read_json(ralph_resume_path(project_root)) or {}
+    try:
+        return int(existing.get("retries", 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _ralph_increment_retry(
+    project_root: Path,
+    *,
+    session_id: str | None,
+    failures: list[str],
+    last_prompt: str | None,
+) -> int:
+    """Bump the Ralph retry counter using the convergence-failure summary.
+
+    Distinct from ``_bump_ralph_state`` (which keys on the legacy
+    heuristic in ``_looks_incomplete``) — this path is reached only when
+    :func:`check_convergence` reports unmet criteria, so the persisted
+    ``reason`` records the actual failing checks rather than a tool-history
+    grep. Returns the new retry count.
+    """
+    path = ralph_resume_path(project_root)
+    existing = read_json(path) or {}
+    retries = int(existing.get("retries", 0)) + 1
+    exhausted = retries >= _RALPH_MAX_RETRIES
+    reason = "convergence_failed: " + "; ".join(failures[:3]) if failures else "convergence_failed"
+    payload = {
+        "schemaVersion": "1.0",
+        "createdAt": existing.get("createdAt") or iso_now(),
+        "updatedAt": iso_now(),
+        "sessionId": session_id,
+        "retries": retries,
+        "maxRetries": _RALPH_MAX_RETRIES,
+        "exhausted": exhausted,
+        "reason": reason,
+        "failures": failures[:5],
+        "lastPrompt": last_prompt,
+        "active": not exhausted,
+        "source": "convergence",
+    }
+    write_json(path, payload)
+    try:
+        path.chmod(0o600)
+    except OSError:
+        pass
+    return retries
+
+
+def _delete_ralph_state(project_root: Path) -> None:
+    """Remove ralph-resume.json entirely.
+
+    Used on convergence success (work done) and on max-retries-exceeded
+    (give up). Distinct from :func:`_clear_ralph_state`, which keeps the
+    file as a tombstone with ``active: false`` for the legacy heuristic
+    path so ``ai-eng ralph status`` can still see the prior history.
+    """
+    path = ralph_resume_path(project_root)
+    if path.exists():
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def _emit_reinjection(
+    *,
+    retries: int,
+    max_retries: int,
+    failures: list[str],
+) -> None:
+    """Write a ``decision: block`` JSON to stdout (Claude Code Stop hook contract).
+
+    Claude Code interprets the JSON object as a directive: ``decision:
+    block`` keeps the agent loop alive and ``additionalContext`` is
+    reinjected as the next user-turn context. The hook MUST flush
+    before exit because ``run_hook_safe`` calls ``sys.exit(0)``.
+    """
+    body_lines = [
+        f"Ralph Loop iteration {retries}/{max_retries} — convergence not reached.",
+        "Failures:",
+    ]
+    for failure in failures[:5]:
+        body_lines.append(f" - {failure}")
+    body_lines.append("Continue work until tests pass and lint is clean.")
+    payload = {
+        "decision": "block",
+        "additionalContext": "\n".join(body_lines),
+    }
+    sys.stdout.write(json.dumps(payload, separators=(",", ":")))
+    sys.stdout.flush()
+
+
+def _ralph_convergence_loop(
+    project_root: Path,
+    *,
+    session_id: str | None,
+    correlation_id: str,
+    last_prompt: str | None,
+) -> bool:
+    """Run convergence + Ralph retry/reinjection orchestration.
+
+    Returns ``True`` when the hook wrote the ``decision: block`` JSON to
+    stdout (caller MUST NOT call ``passthrough_stdin`` afterwards).
+    Returns ``False`` for every other terminal state (converged, max
+    retries exceeded, fail-open) so the caller continues with the
+    normal stdout passthrough.
+    """
+    if _RALPH_DISABLED:
+        return False
+
+    try:
+        result: ConvergenceResult = check_convergence(project_root, fast=True)
+    except Exception as exc:
+        # Belt-and-braces: convergence helpers already swallow per-tool
+        # failures, but a stray import error or path bug must never trap
+        # the user in a fake-failure loop.
+        emit_framework_error(
+            project_root,
+            engine="ai_engineering",
+            component=_HOOK_COMPONENT,
+            error_code="ralph_convergence_error",
+            source="hook",
+            session_id=session_id,
+            correlation_id=correlation_id,
+            metadata={"reason": f"{type(exc).__name__}: {str(exc)[:200]}"},
+        )
+        return False
+
+    # Fail-open: empty failures means "no checks ran" OR "everything
+    # passed". Either way we treat it as converged so a sandbox without
+    # python/ruff doesn't loop forever on synthetic failures.
+    if result.converged:
+        _delete_ralph_state(project_root)
+        emit_framework_operation(
+            project_root,
+            operation="ralph_converged",
+            component=_HOOK_COMPONENT,
+            source="hook",
+            correlation_id=correlation_id,
+            metadata={
+                "duration_ms": result.duration_ms,
+                "session_id": session_id,
+            },
+        )
+        return False
+
+    current_retries = _ralph_retry_count(project_root)
+    if current_retries >= _RALPH_MAX_RETRIES:
+        emit_framework_error(
+            project_root,
+            engine="ai_engineering",
+            component=_HOOK_COMPONENT,
+            error_code="ralph_max_retries_exceeded",
+            source="hook",
+            session_id=session_id,
+            correlation_id=correlation_id,
+            metadata={
+                "retries": current_retries,
+                "max_retries": _RALPH_MAX_RETRIES,
+                "failures": result.failures[:5],
+            },
+        )
+        _delete_ralph_state(project_root)
+        return False
+
+    new_retry_count = _ralph_increment_retry(
+        project_root,
+        session_id=session_id,
+        failures=result.failures,
+        last_prompt=last_prompt,
+    )
+    emit_framework_operation(
+        project_root,
+        operation="ralph_reinject",
+        component=_HOOK_COMPONENT,
+        source="hook",
+        correlation_id=correlation_id,
+        metadata={
+            "retries": new_retry_count,
+            "max_retries": _RALPH_MAX_RETRIES,
+            "failures": result.failures[:5],
+            "duration_ms": result.duration_ms,
+        },
+    )
+    if not _RALPH_BLOCK_ENABLED:
+        # Default observe-only path: telemetry already emitted above; do
+        # not write decision:block to stdout. Caller continues with the
+        # normal stdout passthrough.
+        return False
+    _emit_reinjection(
+        retries=new_retry_count,
+        max_retries=_RALPH_MAX_RETRIES,
+        failures=result.failures,
+    )
+    return True
 
 
 def _emit_summary_event(
@@ -466,7 +680,20 @@ def main() -> None:
         correlation_id=correlation_id,
     )
 
-    passthrough_stdin(ctx.data)
+    # Spec-120 R-2: convergence-driven Ralph reinjection. When the
+    # convergence checker reports failures and the retry budget is not
+    # exhausted, write a ``decision: block`` JSON to stdout so Claude
+    # Code reinjects ``additionalContext`` as the next turn. The
+    # passthrough_stdin call below is skipped in that branch — Claude
+    # Code reads exactly one JSON object per Stop hook.
+    reinjected = _ralph_convergence_loop(
+        project_root,
+        session_id=session_id,
+        correlation_id=correlation_id,
+        last_prompt=last_prompt,
+    )
+    if not reinjected:
+        passthrough_stdin(ctx.data)
 
 
 if __name__ == "__main__":

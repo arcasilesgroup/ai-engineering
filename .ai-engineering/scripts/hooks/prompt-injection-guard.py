@@ -48,7 +48,9 @@ from _lib.audit import is_debug_mode, passthrough_stdin
 from _lib.hook_common import run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.injection_patterns import PATTERNS
-from _lib.observability import emit_control_outcome
+from _lib.observability import (
+    emit_control_outcome,
+)
 
 _GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit"}
 _MIN_CONTENT_LEN = 10
