@@ -43,6 +43,7 @@ from _lib.runtime_state import (
     runtime_dir,
     write_json,
 )
+from _lib.transcript_usage import aggregate_session_usage, find_active_transcript
 
 # Spec-120 §4.3: SQLite projection of framework-events.ndjson. Path is
 # inlined here (mirrors `ai_engineering.state.audit_index.INDEX_REL`) so
@@ -295,22 +296,59 @@ def _emit_session_token_rollup(
         )
         return
 
-    if row is None:
-        # No rows for this session_id in the rollup view: nothing to
-        # emit. Not an error -- the view filters out NULL session_id
-        # rows and a brand-new session will simply have no entries yet.
+    # Transcript usage is the source of truth for token counts: the SQLite
+    # index aggregates `usage` blocks emitted by the hook stream, but no hook
+    # emits per-call usage today (spec-120 T-E2 was a NO-OP for that exact
+    # reason). Read directly from the Claude Code transcript and merge.
+    transcript_payload = _safe_transcript_aggregate(project_root, session_id=session_id)
+
+    if row is None and transcript_payload is None:
+        # Neither source has anything to roll up. Stay silent rather than
+        # emitting a zeroed event.
         return
 
-    metadata = {
-        "session_id": row[0],
-        "started_at": row[1],
-        "ended_at": row[2],
-        "events": row[3],
-        "input_tokens": row[4],
-        "output_tokens": row[5],
-        "total_tokens": row[6],
-        "cost_usd": row[7],
-    }
+    if row is not None:
+        metadata = {
+            "session_id": row[0],
+            "started_at": row[1],
+            "ended_at": row[2],
+            "events": row[3],
+            "input_tokens": row[4],
+            "output_tokens": row[5],
+            "total_tokens": row[6],
+            "cost_usd": row[7],
+        }
+        usage_source = "index"
+    else:
+        # Synthesise the rollup from the transcript only.
+        metadata = {
+            "session_id": session_id,
+            "started_at": None,
+            "ended_at": None,
+            "events": 0,
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cost_usd": None,
+        }
+        usage_source = "transcript"
+
+    if transcript_payload is not None:
+        # Merge: index numbers are usually zero today, so transcript wins on
+        # token counts. If the index ever starts carrying real numbers we
+        # take the larger of the two so we never undercount.
+        for key in ("input_tokens", "output_tokens", "total_tokens"):
+            transcript_val = transcript_payload.get(key, 0)
+            current = metadata.get(key) or 0
+            metadata[key] = max(current, transcript_val)
+        if transcript_payload.get("model"):
+            metadata["genai_model"] = transcript_payload["model"]
+        metadata["genai_system"] = transcript_payload.get("system", "anthropic")
+        if usage_source == "index":
+            usage_source = "merged"
+
+    metadata["usage_source"] = usage_source
+
     emit_framework_operation(
         project_root,
         operation="session_token_rollup",
@@ -319,6 +357,32 @@ def _emit_session_token_rollup(
         correlation_id=correlation_id,
         metadata=metadata,
     )
+
+
+def _safe_transcript_aggregate(project_root: Path, *, session_id: str | None) -> dict | None:
+    """Best-effort wrapper around ``aggregate_session_usage``.
+
+    Returns the aggregated usage dict when a transcript is found AND it
+    contains at least one assistant ``usage`` block. Returns ``None`` if no
+    transcript is available or the transcript carried zero usage data --
+    callers treat ``None`` as "transcript silent" rather than "zero tokens".
+    """
+    try:
+        transcript = find_active_transcript(project_root, session_id=session_id)
+        if transcript is None:
+            return None
+        payload = aggregate_session_usage(transcript)
+    except Exception:
+        # Transcript reading is purely advisory; never let it break the
+        # rollup emission contract.
+        return None
+    if (
+        not payload.get("input_tokens")
+        and not payload.get("output_tokens")
+        and not payload.get("model")
+    ):
+        return None
+    return payload
 
 
 def main() -> None:

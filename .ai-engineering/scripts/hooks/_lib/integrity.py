@@ -6,11 +6,19 @@ against a committed manifest, refusing to run (or warning) on mismatch.
 
 Modes (env: ``AIENG_HOOK_INTEGRITY_MODE``):
 
-* ``enforce`` -- fail-closed. Mismatch raises SystemExit(2) so the IDE
-  knows the hook refused. Use in CI / production.
-* ``warn`` (default) -- log a ``framework_error`` event but allow the
-  hook to run. Suits day-to-day development where hooks change often.
+* ``enforce`` (default, spec-120 follow-up) -- fail-closed. Mismatch raises
+  SystemExit(2) so the IDE knows the hook refused. Use in CI / production /
+  any branch with the manifest on disk and current.
+* ``warn`` -- log a ``framework_error`` event but allow the hook to run.
+  Use in dev workflows where hooks change frequently and you don't want to
+  regenerate the manifest after every edit. Set
+  ``AIENG_HOOK_INTEGRITY_MODE=warn`` in your shell rc.
 * ``off`` -- skip the check entirely (no audit event).
+
+The default flipped from ``warn`` to ``enforce`` after the spec-120
+governance review confirmed the manifest is regenerated cleanly and the
+``--check`` mode is stable. Fail-closed by default closes the gap where a
+hook on disk silently drifted from the committed bytes.
 
 The manifest path is ``.ai-engineering/state/hooks-manifest.json`` with
 shape ``{"hooks": {"<repo-relative-path>": "<sha256-hex>"}, ...}``.
@@ -29,7 +37,7 @@ import os
 from pathlib import Path
 
 _MANIFEST_REL = Path(".ai-engineering") / "state" / "hooks-manifest.json"
-_DEFAULT_MODE = "warn"
+_DEFAULT_MODE = "enforce"
 _VALID_MODES: frozenset[str] = frozenset({"enforce", "warn", "off"})
 
 # Module-level cache: load_manifest is called on every hook invocation. Cache

@@ -47,12 +47,18 @@ Hook bytes are pinned in `.ai-engineering/state/hooks-manifest.json`
 against this manifest on every invocation. Behaviour is governed by
 the env var `AIENG_HOOK_INTEGRITY_MODE`:
 
-- `warn` (default) — mismatch logs a `framework_error` event with
-  `detail.error_code = hook_integrity_violation` and continues. Use in
-  day-to-day development where hooks change often.
-- `enforce` — mismatch refuses execution (exit 2) and logs the same
-  audit event. Use in CI and any production-like context.
-- `off` — skip the check entirely.
+- `enforce` (default, spec-120 follow-up) — mismatch refuses execution
+  (exit 2) and logs a `framework_error` event with
+  `detail.error_code = hook_integrity_violation`. Use in CI and any
+  production-like context. Default flipped from `warn` after the
+  spec-120 governance review confirmed the manifest stays clean under
+  `--check`.
+- `warn` — mismatch logs the `framework_error` event but allows the
+  hook to run. Set `AIENG_HOOK_INTEGRITY_MODE=warn` in your shell rc
+  to opt out of fail-closed in dev workflows that change hooks
+  frequently and don't want to regenerate the manifest after every
+  edit.
+- `off` — skip the check entirely (no audit event).
 
 After any intentional edit to a hook script, regenerate the manifest:
 

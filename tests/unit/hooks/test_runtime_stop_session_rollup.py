@@ -296,3 +296,154 @@ def test_session_rollup_emits_framework_error_on_sqlite_failure(
     ]
     assert len(errors) == 1
     assert errors[0]["detail"]["reason"].startswith("sqlite_error:")
+
+
+# ---------------------------------------------------------------------------
+# Branch 6 (spec-120 follow-up Item C): transcript merge
+# ---------------------------------------------------------------------------
+
+
+def test_session_rollup_merges_transcript_usage(
+    rstop, project: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """When a Claude Code transcript is available, the rollup merges its
+    aggregated usage into the metadata. Index-side numbers are zero today
+    (because no hook emits per-call usage), so transcript wins and
+    ``usage_source`` reflects the merge."""
+    session_id = "sess-merge"
+    # Seed an index row with zero token counts (the realistic case today).
+    _seed_index(
+        project,
+        session_id=session_id,
+        totals={
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cost_usd": 0.0,
+        },
+    )
+
+    # Build a fake transcript discoverable via $HOME/.claude/projects/<slug>/.
+    fake_home = tmp_path / "home"
+    slug = str(project.resolve()).replace("/", "-")
+    transcripts_dir = fake_home / ".claude" / "projects" / slug
+    transcripts_dir.mkdir(parents=True)
+    transcript = transcripts_dir / f"{session_id}.jsonl"
+    import json as _json
+
+    transcript.write_text(
+        "\n".join(
+            [
+                _json.dumps(
+                    {
+                        "type": "assistant",
+                        "message": {
+                            "model": "claude-opus-4-7",
+                            "role": "assistant",
+                            "content": [],
+                            "usage": {"input_tokens": 1234, "output_tokens": 567},
+                        },
+                    }
+                ),
+                _json.dumps(
+                    {
+                        "type": "assistant",
+                        "message": {
+                            "model": "claude-opus-4-7",
+                            "role": "assistant",
+                            "content": [],
+                            "usage": {"input_tokens": 100, "output_tokens": 50},
+                        },
+                    }
+                ),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.delenv("CLAUDE_TRANSCRIPT_PATH", raising=False)
+
+    rstop._emit_session_token_rollup(project, session_id=session_id, correlation_id="corr-test")
+
+    events = _read_events(project)
+    rollup_events = [
+        e
+        for e in events
+        if e.get("kind") == "framework_operation"
+        and (e.get("detail") or {}).get("operation") == "session_token_rollup"
+    ]
+    assert len(rollup_events) == 1, f"expected one rollup event, got {events}"
+
+    detail = rollup_events[0]["detail"]
+    # Transcript wins on token counts (index had zero).
+    assert detail["input_tokens"] == 1334
+    assert detail["output_tokens"] == 617
+    assert detail["total_tokens"] == 1951
+    assert detail["genai_model"] == "claude-opus-4-7"
+    assert detail["genai_system"] == "anthropic"
+    assert detail["usage_source"] == "merged"
+
+
+def test_session_rollup_synthesised_from_transcript_when_no_index_row(
+    rstop, project: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Transcript-only path: no row in the index, but a transcript carries
+    usage. Emit a single rollup event marked ``usage_source = transcript``."""
+    session_id = "sess-transcript-only"
+    # Seed the index with a different session so the view exists but the
+    # query returns no row for our session_id.
+    _seed_index(
+        project,
+        session_id="sess-other",
+        totals={
+            "input_tokens": 1,
+            "output_tokens": 1,
+            "total_tokens": 2,
+            "cost_usd": 0.0,
+        },
+    )
+
+    fake_home = tmp_path / "home"
+    slug = str(project.resolve()).replace("/", "-")
+    transcripts_dir = fake_home / ".claude" / "projects" / slug
+    transcripts_dir.mkdir(parents=True)
+    transcript = transcripts_dir / f"{session_id}.jsonl"
+    import json as _json
+
+    transcript.write_text(
+        _json.dumps(
+            {
+                "type": "assistant",
+                "message": {
+                    "model": "claude-sonnet-4-5",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {"input_tokens": 42, "output_tokens": 8},
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setenv("HOME", str(fake_home))
+    monkeypatch.delenv("CLAUDE_TRANSCRIPT_PATH", raising=False)
+
+    rstop._emit_session_token_rollup(project, session_id=session_id, correlation_id="corr-test")
+
+    events = _read_events(project)
+    rollup_events = [
+        e
+        for e in events
+        if e.get("kind") == "framework_operation"
+        and (e.get("detail") or {}).get("operation") == "session_token_rollup"
+    ]
+    assert len(rollup_events) == 1
+    detail = rollup_events[0]["detail"]
+    assert detail["usage_source"] == "transcript"
+    assert detail["input_tokens"] == 42
+    assert detail["output_tokens"] == 8
+    assert detail["total_tokens"] == 50
+    assert detail["genai_model"] == "claude-sonnet-4-5"
