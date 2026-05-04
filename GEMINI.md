@@ -68,11 +68,11 @@ Before writing or reviewing code, load the applicable context files:
 | Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
 | Autonomous backlog execution | run-orchestrator | `/ai-run` |
 
-## Agents (10)
+## Agents (11)
 
 The agents table above lists every agent shipped with the framework. Counts mirror `.ai-engineering/manifest.yml` (`agents.total`).
 
-## Skills (51)
+## Skills (52)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -123,8 +123,8 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (51) | `.gemini/skills/ai-<name>/SKILL.md` |
-| Agents (10) | `.gemini/agents/ai-<name>.md` |
+| Skills (52) | `.gemini/skills/ai-<name>/SKILL.md` |
+| Agents (11) | `.gemini/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Active spec | `.ai-engineering/specs/spec.md` |

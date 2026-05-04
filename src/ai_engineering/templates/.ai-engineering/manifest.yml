@@ -143,9 +143,9 @@ control_plane:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (51 skills)
+# Skills registry (52 skills)
 skills:
-  total: 51
+  total: 52
   prefix: "ai-"
   registry:
     # Core workflow
@@ -215,16 +215,12 @@ skills:
     # spec-118 memory layer
     ai-remember: { type: meta, tags: [memory, retrieval, cross-session] }
     ai-dream: { type: meta, tags: [memory, consolidation, housekeeping] }
-    # NOTE (spec-119): ai-eval-gate skill is described as a proposal at
-    # .ai-engineering/specs/spec-119-progress/proposed-ai-eval-gate-skill.md;
-    # auto-mode harness denied autonomous write into .claude/skills/. After
-    # the maintainer applies the proposal and creates the SKILL.md, bump
-    # `total` to 52 and add `ai-eval-gate: { type: delivery, tags: [...] }`
-    # below.
+    # spec-119 evaluation layer
+    ai-eval-gate: { type: delivery, tags: [quality, evals, gate, ci] }
 
 # Agents (10)
 agents:
-  total: 10
+  total: 11
   names:
     [
       plan,
@@ -236,6 +232,7 @@ agents:
       guide,
       simplify,
       autopilot,
+      evaluator,
       run-orchestrator,
     ]
 

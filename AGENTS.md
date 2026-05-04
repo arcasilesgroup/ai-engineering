@@ -26,7 +26,7 @@ Implementation is spec-gated by default:
 4. `/ai-autopilot` executes the approved spec autonomously for large multi-concern work.
 5. If no approved spec exists, stop and return to `/ai-brainstorm` before implementation.
 
-## Skills (51)
+## Skills (52)
 
 The full registry is in `.ai-engineering/manifest.yml` under
 `skills.registry`. Canonical skill definitions live under
@@ -37,9 +37,9 @@ Invoke skills via `/ai-<name>` in the IDE agent surface (slash command).
 Do not invent `ai-eng <skill>` terminal equivalents unless the CLI
 reference explicitly lists them.
 
-## Agents (10)
+## Agents (11)
 
-The 10 first-class agents are listed in
+The 11 first-class agents are listed in
 `.ai-engineering/manifest.yml` under `agents.registry` and documented at
 `.claude/agents/ai-<name>.md`. Other IDE agent surfaces are generated
 mirrors; each runs in its own context window, so offload research and
@@ -64,8 +64,8 @@ and transcript viewing are delegated to the separately installed
 
 | What | Where |
 |------|-------|
-| Skills (51) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (10) | `.claude/agents/ai-<name>.md` |
+| Skills (52) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (11) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
