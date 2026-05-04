@@ -45,6 +45,30 @@
         "failure_reason": { "$ref": "#/$defs/nullableString" }
       }
     },
+    "genai_block": {
+      "type": "object",
+      "description": "Spec-120 §4.1: optional OTel GenAI semantic-convention block. Mirrors gen_ai.system, gen_ai.request.model, gen_ai.usage.* attributes from OTel GenAI conventions snapshot v1.27.0.",
+      "properties": {
+        "system":   { "type": "string" },
+        "provider": { "type": "string" },
+        "request":  {
+          "type": "object",
+          "properties": { "model": { "type": "string" } },
+          "additionalProperties": false
+        },
+        "usage":    {
+          "type": "object",
+          "properties": {
+            "input_tokens":  { "type": "integer", "minimum": 0 },
+            "output_tokens": { "type": "integer", "minimum": 0 },
+            "total_tokens":  { "type": "integer", "minimum": 0 },
+            "cost_usd":      { "type": "number",  "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "detail_skill_invoked": {
       "type": "object",
       "properties": {
@@ -53,7 +77,8 @@
         "failure_reason": { "$ref": "#/$defs/nullableString" },
         "tokens_in": { "type": "integer", "minimum": 0 },
         "tokens_out": { "type": "integer", "minimum": 0 },
-        "estimated_cost_usd": { "type": "number", "minimum": 0 }
+        "estimated_cost_usd": { "type": "number", "minimum": 0 },
+        "genai": { "$ref": "#/$defs/genai_block" }
       },
       "required": ["skill"],
       "additionalProperties": false
@@ -67,7 +92,8 @@
         "failure_reason": { "$ref": "#/$defs/nullableString" },
         "tokens_in": { "type": "integer", "minimum": 0 },
         "tokens_out": { "type": "integer", "minimum": 0 },
-        "estimated_cost_usd": { "type": "number", "minimum": 0 }
+        "estimated_cost_usd": { "type": "number", "minimum": 0 },
+        "genai": { "$ref": "#/$defs/genai_block" }
       },
       "required": ["agent"],
       "additionalProperties": false
@@ -313,7 +339,24 @@
     "vcs_repository": { "type": "string" },
     "duration_ms": { "type": "number", "minimum": 0 },
     "agent": { "type": "string" },
-    "detail": { "type": "object" }
+    "detail": { "type": "object" },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Spec-120 §4.1: optional W3C trace-context-style 32-hex trace identifier."
+    },
+    "spanId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "Spec-120 §4.1: optional 16-hex span identifier (unique per event)."
+    },
+    "parentSpanId": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        { "type": "null" }
+      ],
+      "description": "Spec-120 §4.1: optional 16-hex logical parent span identifier; null at the root span."
+    }
   },
   "required": ["timestamp", "event", "actor"],
   "allOf": [

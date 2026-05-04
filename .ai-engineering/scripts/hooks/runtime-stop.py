@@ -22,6 +22,7 @@ The hook never blocks ``Stop``; failures degrade silently.
 from __future__ import annotations
 
 import os
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -30,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from _lib.audit import passthrough_stdin
 from _lib.hook_common import emit_event, get_correlation_id, run_hook_safe
 from _lib.hook_context import get_hook_context
+from _lib.observability import emit_framework_error, emit_framework_operation
 from _lib.runtime_state import (
     LOOP_WINDOW,
     checkpoint_path,
@@ -41,6 +43,12 @@ from _lib.runtime_state import (
     runtime_dir,
     write_json,
 )
+
+# Spec-120 §4.3: SQLite projection of framework-events.ndjson. Path is
+# inlined here (mirrors `ai_engineering.state.audit_index.INDEX_REL`) so
+# the hook stays stdlib-only and never imports from the pkg.
+_AUDIT_INDEX_REL = Path(".ai-engineering") / "state" / "audit-index.sqlite"
+_HOOK_COMPONENT = "hook.runtime-stop"
 
 
 def _bounded_int_env(name: str, default: int, *, ceiling: int) -> int:
@@ -218,6 +226,101 @@ def _emit_summary_event(
     emit_event(project_root, event)
 
 
+def _emit_session_token_rollup(
+    project_root: Path,
+    *,
+    session_id: str | None,
+    correlation_id: str,
+) -> None:
+    """Spec-120 T-E1: stamp a session-end token rollup from the SQLite index.
+
+    Best-effort: SQLite missing, locked, or any exception → emit a
+    ``framework_error`` (``error_code = session_rollup_skipped``) and
+    continue. ``session_id is None`` → silent skip (no error event;
+    nothing meaningful to roll up).
+    """
+    if not session_id:
+        return
+
+    index_path = project_root / _AUDIT_INDEX_REL
+    if not index_path.exists():
+        emit_framework_error(
+            project_root,
+            engine="ai_engineering",
+            component=_HOOK_COMPONENT,
+            error_code="session_rollup_skipped",
+            source="hook",
+            session_id=session_id,
+            correlation_id=correlation_id,
+            metadata={"reason": "audit_index_missing"},
+        )
+        return
+
+    try:
+        # Read-only URI: the OS rejects writes even if the view query
+        # is somehow rewritten downstream.
+        uri = f"file:{index_path}?mode=ro"
+        conn = sqlite3.connect(uri, uri=True, timeout=2.0)
+        try:
+            row = conn.execute(
+                "SELECT session_id, started_at, ended_at, events, "
+                "input_tokens, output_tokens, total_tokens, cost_usd "
+                "FROM session_token_rollup WHERE session_id = ?",
+                (session_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
+        emit_framework_error(
+            project_root,
+            engine="ai_engineering",
+            component=_HOOK_COMPONENT,
+            error_code="session_rollup_skipped",
+            source="hook",
+            session_id=session_id,
+            correlation_id=correlation_id,
+            metadata={"reason": f"sqlite_error: {type(exc).__name__}"},
+        )
+        return
+    except Exception as exc:
+        emit_framework_error(
+            project_root,
+            engine="ai_engineering",
+            component=_HOOK_COMPONENT,
+            error_code="session_rollup_skipped",
+            source="hook",
+            session_id=session_id,
+            correlation_id=correlation_id,
+            metadata={"reason": f"unexpected_error: {type(exc).__name__}"},
+        )
+        return
+
+    if row is None:
+        # No rows for this session_id in the rollup view: nothing to
+        # emit. Not an error -- the view filters out NULL session_id
+        # rows and a brand-new session will simply have no entries yet.
+        return
+
+    metadata = {
+        "session_id": row[0],
+        "started_at": row[1],
+        "ended_at": row[2],
+        "events": row[3],
+        "input_tokens": row[4],
+        "output_tokens": row[5],
+        "total_tokens": row[6],
+        "cost_usd": row[7],
+    }
+    emit_framework_operation(
+        project_root,
+        operation="session_token_rollup",
+        component=_HOOK_COMPONENT,
+        source="hook",
+        correlation_id=correlation_id,
+        metadata=metadata,
+    )
+
+
 def main() -> None:
     ctx = get_hook_context()
     if ctx.event_name != "Stop":
@@ -279,14 +382,24 @@ def main() -> None:
     else:
         _clear_ralph_state(project_root)
 
+    correlation_id = get_correlation_id()
     _emit_summary_event(
         project_root,
         session_id=session_id,
-        correlation_id=get_correlation_id(),
+        correlation_id=correlation_id,
         checkpoint_written=True,
         ralph_active=bool(ralph_state and ralph_state.get("active")),
         ralph_reason=reason,
         ralph_retries=int((ralph_state or {}).get("retries", 0)),
+    )
+
+    # Spec-120 T-E1: stamp the session token rollup last so the rollup
+    # event lands after the summary in the NDJSON stream and includes
+    # the summary itself in any future re-run that re-indexes.
+    _emit_session_token_rollup(
+        project_root,
+        session_id=session_id,
+        correlation_id=correlation_id,
     )
 
     passthrough_stdin(ctx.data)

@@ -244,6 +244,60 @@ def _normalize_artifact_refs(
     return normalized
 
 
+def _shape_genai_block(usage: dict[str, object]) -> dict[str, object] | None:
+    """Reshape a flat ``usage`` dict into the OTel-mirroring nested block.
+
+    Spec-120 §4.1: callers pass a flat dict like
+    ``{"input_tokens": 1234, "output_tokens": 567,
+       "model": "claude-sonnet-4-5", "system": "anthropic",
+       "cost_usd": 0.0143}`` so call sites stay clean. This helper
+    reshapes it into the nested form mirroring OTel GenAI conventions:
+
+    .. code-block:: jsonc
+
+        {
+          "system":  "anthropic",
+          "request": {"model": "claude-sonnet-4-5"},
+          "usage":   {
+            "input_tokens":  1234,
+            "output_tokens": 567,
+            "total_tokens":  1801,
+            "cost_usd":      0.0143
+          }
+        }
+
+    Returns ``None`` when the input is malformed (missing required
+    ``input_tokens`` / ``output_tokens``); the caller surfaces a
+    ``framework_error`` with ``error_code = "genai_usage_malformed"``.
+    """
+    input_tokens = usage.get("input_tokens")
+    output_tokens = usage.get("output_tokens")
+    if not isinstance(input_tokens, int) or not isinstance(output_tokens, int):
+        return None
+
+    usage_block: dict[str, object] = {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+    }
+    total_tokens = usage.get("total_tokens")
+    if isinstance(total_tokens, int):
+        usage_block["total_tokens"] = total_tokens
+    else:
+        usage_block["total_tokens"] = input_tokens + output_tokens
+    cost_usd = usage.get("cost_usd")
+    if isinstance(cost_usd, (int, float)):
+        usage_block["cost_usd"] = cost_usd
+
+    block: dict[str, object] = {"usage": usage_block}
+    system = usage.get("system")
+    if isinstance(system, str):
+        block["system"] = system
+    model = usage.get("model")
+    if isinstance(model, str):
+        block["request"] = {"model": model}
+    return block
+
+
 def build_framework_event(
     project_root: Path,
     *,
@@ -257,9 +311,41 @@ def build_framework_event(
     parent_id: str | None = None,
     correlation_id: str | None = None,
     force_outcome: str | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict[str, object] | None = None,
 ) -> FrameworkEvent:
-    """Build a canonical framework event with explicit degraded capture semantics."""
+    """Build a canonical framework event with explicit degraded capture semantics.
+
+    Spec-120 §4.1 additions (all optional, additive):
+
+    * ``span_id`` -- 16-hex span identifier; auto-generated via
+      ``new_span_id()`` when omitted so every event carries a unique
+      span.
+    * ``parent_span_id`` -- 16-hex logical parent for span-tree
+      reconstruction; ``None`` for root spans.
+    * ``trace_id`` -- 32-hex W3C trace identifier; when omitted *and*
+      ``parent_span_id`` is also omitted, the helper inherits the active
+      context from
+      :func:`ai_engineering.state.trace_context.current_trace_context`
+      (which fresh-fallbacks to a brand-new trace_id with NULL parent
+      when no context exists).
+    * ``usage`` -- flat dict of token / model metadata (see
+      :func:`_shape_genai_block`); reshaped into ``detail.genai`` when
+      well-formed. Malformed payloads are dropped silently and a
+      ``framework_error`` of ``error_code = "genai_usage_malformed"`` is
+      emitted best-effort -- the original event is still built so the
+      caller's flow is not derailed.
+
+    Degradation semantics (codex without host metadata) are preserved:
+    ``_capture_outcome`` is called with the **original** (pre-auto-fill)
+    ``trace_id`` so a missing host trace still surfaces in
+    ``missing_fields``. Auto-fill happens after outcome capture solely
+    for wire-format completeness.
+    """
     canonical_engine = normalize_engine_id(engine)
+    # Capture degraded-host outcome BEFORE auto-fill so codex / similar
+    # hosts that omit a session/trace from their payload remain flagged.
     outcome, missing_fields = _capture_outcome(
         canonical_engine,
         session_id=session_id,
@@ -270,23 +356,89 @@ def build_framework_event(
         payload["degraded_reason"] = "missing-host-metadata"
         payload["missing_fields"] = missing_fields
 
-    return FrameworkEvent.model_validate(
-        {
-            "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
-            "timestamp": datetime.now(tz=UTC),
-            "project": _project_name(project_root),
-            "engine": canonical_engine,
-            "kind": kind,
-            "outcome": force_outcome or outcome,
-            "component": component,
-            "source": source,
-            "correlationId": correlation_id or uuid4().hex,
-            "sessionId": session_id,
-            "traceId": trace_id,
-            "parentId": parent_id,
-            "detail": payload,
-        }
-    )
+    # Spec-120 §4.1 trace-context auto-fill. Must lazy-import to avoid a
+    # circular import (`trace_context` corruption fallback emits a
+    # framework_error which itself imports observability).
+    from ai_engineering.state.trace_context import current_trace_context, new_span_id
+
+    resolved_span_id = span_id or new_span_id()
+    resolved_trace_id = trace_id
+    resolved_parent_span_id = parent_span_id
+    if trace_id is None and parent_span_id is None:
+        resolved_trace_id, resolved_parent_span_id = current_trace_context(project_root)
+
+    # Spec-120 §4.1 OTel `genai` block. Malformed `usage` is treated
+    # best-effort: surface a `framework_error` and skip the block, but
+    # still build the original event so the caller's flow is not
+    # derailed.
+    if usage is not None:
+        if isinstance(usage, dict):
+            shaped = _shape_genai_block(usage)
+            if shaped is not None:
+                payload["genai"] = shaped
+            else:
+                _emit_genai_usage_malformed(
+                    project_root,
+                    engine=canonical_engine,
+                    component=component,
+                    summary="missing input_tokens / output_tokens",
+                )
+        else:
+            _emit_genai_usage_malformed(
+                project_root,
+                engine=canonical_engine,
+                component=component,
+                summary=f"usage must be a dict, got {type(usage).__name__}",
+            )
+
+    event_data: dict[str, object] = {
+        "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
+        "timestamp": datetime.now(tz=UTC),
+        "project": _project_name(project_root),
+        "engine": canonical_engine,
+        "kind": kind,
+        "outcome": force_outcome or outcome,
+        "component": component,
+        "source": source,
+        "correlationId": correlation_id or uuid4().hex,
+        "sessionId": session_id,
+        "traceId": resolved_trace_id,
+        "parentId": parent_id,
+        "spanId": resolved_span_id,
+        "parentSpanId": resolved_parent_span_id,
+        "detail": payload,
+    }
+    return FrameworkEvent.model_validate(event_data)
+
+
+def _emit_genai_usage_malformed(
+    project_root: Path,
+    *,
+    engine: str,
+    component: str,
+    summary: str,
+) -> None:
+    """Best-effort framework_error emission for malformed `usage` payloads.
+
+    Spec-120 §4.1: malformed `usage` must NOT raise from the caller's
+    perspective -- the event is still built, the genai block is just
+    skipped. We surface the malformation as a framework_error so it
+    appears in the audit chain for debugging.
+
+    Best-effort: any exception during the error-emit is swallowed
+    (we don't want to compound a malformed-usage report into a hard
+    crash on the caller's flow).
+    """
+    import contextlib
+
+    with contextlib.suppress(Exception):  # defensive shield
+        emit_framework_error(
+            project_root,
+            engine=engine,
+            component=component,
+            error_code="genai_usage_malformed",
+            summary=summary,
+        )
 
 
 def emit_skill_invoked(
@@ -300,8 +452,20 @@ def emit_skill_invoked(
     trace_id: str | None = None,
     correlation_id: str | None = None,
     metadata: dict[str, object] | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict[str, object] | None = None,
 ) -> FrameworkEvent:
-    """Emit a canonical ``skill_invoked`` event."""
+    """Emit a canonical ``skill_invoked`` event.
+
+    Spec-120 §4.1 additive kwargs (``span_id`` / ``parent_span_id`` /
+    ``usage``) are forwarded as-is to :func:`build_framework_event`;
+    see that helper's docstring for the auto-fill and OTel-genai
+    semantics. All existing positional/keyword arguments stay
+    unchanged -- callers that ignore the new kwargs see no behaviour
+    change at the wire level beyond the new auto-filled
+    ``traceId`` / ``spanId`` fields.
+    """
     detail = {"skill": _normalize_skill_name(skill_name)}
     if metadata:
         detail.update(metadata)
@@ -315,6 +479,9 @@ def emit_skill_invoked(
         trace_id=trace_id,
         correlation_id=correlation_id,
         detail=detail,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        usage=usage,
     )
     append_framework_event(project_root, entry)
     return entry
@@ -331,8 +498,20 @@ def emit_agent_dispatched(
     trace_id: str | None = None,
     correlation_id: str | None = None,
     metadata: dict[str, object] | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict[str, object] | None = None,
 ) -> FrameworkEvent:
-    """Emit a canonical ``agent_dispatched`` event."""
+    """Emit a canonical ``agent_dispatched`` event.
+
+    Spec-120 §4.1 additive kwargs (``span_id`` / ``parent_span_id`` /
+    ``usage``) are forwarded as-is to :func:`build_framework_event`;
+    see that helper's docstring for the auto-fill and OTel-genai
+    semantics. All existing positional/keyword arguments stay
+    unchanged -- callers that ignore the new kwargs see no behaviour
+    change at the wire level beyond the new auto-filled
+    ``traceId`` / ``spanId`` fields.
+    """
     detail = {"agent": _normalize_agent_name(agent_name)}
     if metadata:
         detail.update(metadata)
@@ -346,6 +525,9 @@ def emit_agent_dispatched(
         trace_id=trace_id,
         correlation_id=correlation_id,
         detail=detail,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        usage=usage,
     )
     append_framework_event(project_root, entry)
     return entry

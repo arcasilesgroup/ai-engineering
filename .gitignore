@@ -166,6 +166,12 @@ credentials*.json
 # Runtime hook state (session-scoped, not source of truth)
 .ai-engineering/state/runtime/
 
+# spec-120 SQLite audit-index (derived projection of framework-events.ndjson)
+.ai-engineering/state/audit-index.sqlite
+.ai-engineering/state/audit-index.sqlite-journal
+.ai-engineering/state/audit-index.sqlite-wal
+.ai-engineering/state/audit-index.sqlite-shm
+
 # spec-118 Memory Layer durable state (per-user, not source of truth)
 .ai-engineering/state/memory.db
 .ai-engineering/state/memory.db-wal

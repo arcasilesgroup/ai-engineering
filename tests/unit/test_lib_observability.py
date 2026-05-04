@@ -135,8 +135,15 @@ class TestBuildFrameworkEvent:
         )
         assert "source" not in result
         assert "sessionId" not in result
-        assert "traceId" not in result
         assert "parentId" not in result
+        # Spec-120 §4.1: when no trace context exists yet,
+        # build_framework_event auto-fills a fresh 32-hex traceId and a
+        # fresh 16-hex spanId so every event participates in the span
+        # tree from the moment it is built. parentSpanId stays absent
+        # because this is a root span with no logical parent.
+        assert "traceId" in result
+        assert "spanId" in result
+        assert "parentSpanId" not in result
 
     def test_degraded_outcome_for_codex_without_session(self, project_root: Path) -> None:
         result = lib_obs.build_framework_event(
@@ -568,7 +575,16 @@ class TestNDJSONEquivalence:
     """Compare _lib output against the canonical ai_engineering.state.observability."""
 
     # Fields that are generated per-call and cannot match
-    _VOLATILE_KEYS: ClassVar[set[str]] = {"timestamp", "correlationId"}
+    # Spec-120 §4.1 added auto-generated traceId / spanId; both differ
+    # between two independent build_framework_event calls so they join
+    # the volatile-key set for parity comparison.
+    _VOLATILE_KEYS: ClassVar[set[str]] = {
+        "timestamp",
+        "correlationId",
+        "traceId",
+        "spanId",
+        "parentSpanId",
+    }
     # Spec-107 H2: ``prev_event_hash`` is a write-order-dependent chain
     # pointer (SHA256 of the prior entry on disk). When _lib writes first
     # then pkg writes second, the pkg entry's pointer references the _lib
@@ -681,6 +697,10 @@ class TestStdlibOnly:
         # Allowlist of stdlib modules used. Spec-107 H2 added ``hashlib``
         # for the audit-chain pointer (SHA256 of the prior entry's
         # canonical-JSON payload) -- pure stdlib, no third-party dep.
+        # Spec-120 §4.1 added ``contextlib`` for the
+        # ``contextlib.suppress`` defensive shield around the malformed
+        # `usage` framework_error emit (and `_lib.trace_context` is the
+        # relative-import sibling that drives auto-fill).
         allowed = {
             "json",
             "os",
@@ -690,6 +710,8 @@ class TestStdlibOnly:
             "pathlib",
             "__future__",
             "hashlib",
+            "contextlib",
+            "_lib",
         }
         import ast
 

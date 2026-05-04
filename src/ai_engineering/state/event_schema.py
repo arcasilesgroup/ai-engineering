@@ -14,9 +14,18 @@ is a bug; explicit error is a feature (per spec-112 G-4).
 
 from __future__ import annotations
 
+import re
 from typing import Any, TypedDict
 
 _ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
+
+# Spec-120 §4.1: optional OTel-mirroring identifiers at the event root.
+# `traceId` is 32 lowercase hex chars (W3C trace-context spec).
+# `spanId` and `parentSpanId` are 16 lowercase hex chars; `parentSpanId`
+# may also be None (root span has no logical parent). Compiled once at
+# module load to avoid regex re-compilation on every validate call.
+_TRACE_ID_RE: re.Pattern[str] = re.compile(r"^[0-9a-f]{32}$")
+_SPAN_ID_RE: re.Pattern[str] = re.compile(r"^[0-9a-f]{16}$")
 
 # Spec-112 D-112-02: `engine` is required at the root and must be one of
 # the values below. Adding a 5th IDE means appending here AND adding the
@@ -87,6 +96,12 @@ class FrameworkEvent(TypedDict, total=False):
     project: str
     source: str | None
     detail: dict[str, Any]
+    # Spec-120 §4.1: optional OTel-mirroring trace identifiers. All three
+    # are absent on legacy events; when present they must match the
+    # canonical hex shapes enforced by `validate_event_schema`.
+    traceId: str
+    spanId: str
+    parentSpanId: str | None
 
 
 def normalize_engine_id(engine: str) -> str:
@@ -117,7 +132,27 @@ def validate_event_schema(event: Any) -> bool:
     if not isinstance(kind, str) or kind not in ALLOWED_EVENT_KINDS:
         return False
     detail = event.get("detail", {})
-    return isinstance(detail, dict)
+    if not isinstance(detail, dict):
+        return False
+    # Spec-120 §4.1: ACCEPT-WHEN-PRESENT on optional trace identifiers.
+    # Absence is fine (legacy events have none); presence triggers a
+    # fail-closed shape check so malformed values cannot enter the stream.
+    if "traceId" in event:
+        trace_id = event["traceId"]
+        if not isinstance(trace_id, str) or not _TRACE_ID_RE.match(trace_id):
+            return False
+    if "spanId" in event:
+        span_id = event["spanId"]
+        if not isinstance(span_id, str) or not _SPAN_ID_RE.match(span_id):
+            return False
+    if "parentSpanId" in event:
+        parent_span_id = event["parentSpanId"]
+        # `parentSpanId` is allowed to be None (root span); otherwise it
+        # must match the same 16-hex shape as `spanId`.
+        if parent_span_id is not None:
+            if not isinstance(parent_span_id, str) or not _SPAN_ID_RE.match(parent_span_id):
+                return False
+    return True
 
 
 __all__ = [

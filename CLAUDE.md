@@ -165,3 +165,18 @@ Telemetry is automatic — refer to
 for the bootstrap that registers hooks. Session discovery and transcript
 viewing are delegated to the separately installed `agentsview` companion
 tool.
+
+### Audit observability (spec-120)
+
+The framework projects the NDJSON audit stream into a SQLite database
+and an OTLP/JSON exporter so sessions become queryable and portable.
+See [AGENTS.md → Audit observability (spec-120)](./AGENTS.md#audit-observability-spec-120)
+for the field-mapping reference; the five subcommands are:
+
+```bash
+ai-eng audit index                       # build / refresh the SQLite projection
+ai-eng audit query "SELECT ..."          # read-only SQL over the index
+ai-eng audit tokens --by skill|agent|session   # token rollup
+ai-eng audit replay --session <id>       # depth-first span-tree walk
+ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope (Langfuse, Phoenix, …)
+```

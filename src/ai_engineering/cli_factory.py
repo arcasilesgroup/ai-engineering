@@ -330,13 +330,22 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     decision_app.command("record")(_safe(decisions_cmd.decision_record))
     app.add_typer(decision_app, name="decision")
 
-    # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier)
+    # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier;
+    # spec-120 Phase B: SQLite-backed audit index, query, token rollups)
     audit_app = typer.Typer(
         name="audit",
-        help="Verify the hash-chained audit trail over events and decisions.",
+        help=(
+            "Verify the hash-chained audit trail and query the SQLite "
+            "projection of framework-events.ndjson."
+        ),
         no_args_is_help=True,
     )
     audit_app.command("verify")(_safe(audit_cmd.audit_verify))
+    audit_app.command("index")(_safe(audit_cmd.audit_index))
+    audit_app.command("query")(_safe(audit_cmd.audit_query))
+    audit_app.command("tokens")(_safe(audit_cmd.audit_tokens))
+    audit_app.command("replay")(_safe(audit_cmd.audit_replay))
+    audit_app.command("otel-export")(_safe(audit_cmd.audit_otel_export))
     app.add_typer(audit_app, name="audit")
 
     # Risk sub-group (spec-105: risk acceptance lifecycle CLI namespace)

@@ -356,6 +356,13 @@ class FrameworkEvent(BaseModel):
     session_id: str | None = Field(default=None, alias="sessionId")
     trace_id: str | None = Field(default=None, alias="traceId")
     parent_id: str | None = Field(default=None, alias="parentId")
+    # Spec-120 §4.1: optional OTel-mirroring span identifiers. When
+    # ``span_id`` is None the wire payload omits the alias; when it is
+    # set the value must match the 16-hex shape enforced by
+    # ``validate_event_schema``. ``parent_span_id`` may also be None at
+    # a root span.
+    span_id: str | None = Field(default=None, alias="spanId")
+    parent_span_id: str | None = Field(default=None, alias="parentSpanId")
     detail: dict[str, Any] = Field(default_factory=dict)
 
     model_config = {"populate_by_name": True}
