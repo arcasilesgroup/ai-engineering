@@ -4,6 +4,10 @@ description: "Use when code changes need human-quality judgment: PR reviews, fil
 effort: max
 argument-hint: "[--full] [PR number or file paths]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-review/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -28,7 +32,7 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 Before dispatching any review agent, verify these files exist:
 
-- `.claude/skills/ai-review/handlers/review.md`
+- `.github/skills/ai-review/handlers/review.md`
 - `.github/agents/review-context-explorer.md`
 - `.github/agents/review-finding-validator.md`
 - every required `.github/agents/reviewer-*.md` file for the selected mode and detected diff scope

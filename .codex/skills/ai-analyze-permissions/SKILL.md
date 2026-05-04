@@ -7,6 +7,10 @@ disable-model-invocation: True
 copilot_compatible: False
 codex_compatible: False
 gemini_compatible: False
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-analyze-permissions/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -113,7 +117,7 @@ Based on the action argument:
 
 **cleanup:**
 
-- Run `<project-root>/.claude/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
+- Run `<project-root>/.codex/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
 
 ### Step 5: Apply Patterns (if applying)
 
@@ -123,7 +127,7 @@ When adding patterns:
 2. Read the target settings file (`~/.claude/settings.json` for global, `<project-root>/.claude/settings.json` for project)
 3. Add new entries to the `permissions.allow` JSON array
 4. Write the updated JSON back (preserving all other fields)
-5. Run cleanup to remove now-redundant entries: `<project-root>/.claude/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
+5. Run cleanup to remove now-redundant entries: `<project-root>/.codex/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
 
 **Important**: Adding patterns to `settings.json` never removes existing entries. The cleanup script only cleans `settings.local.json`. To clean `settings.json` itself, manually remove redundant entries.
 

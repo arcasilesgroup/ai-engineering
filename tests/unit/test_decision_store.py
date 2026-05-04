@@ -140,5 +140,6 @@ def test_decision_store_schema_valid() -> None:
     assert isinstance(data["decisions"], list)
     for entry in data["decisions"]:
         assert "id" in entry
-        assert "title" in entry
+        # Spec-118+ entries use `decision` (or legacy `title`) for the human-readable summary.
+        assert "title" in entry or "decision" in entry
         assert "status" in entry

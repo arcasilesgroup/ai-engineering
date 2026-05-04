@@ -10,6 +10,10 @@ handoffs:
   agent: Autopilot
   prompt: Execute the plan outlined above following the approved spec.
   send: true
+mirror_family: copilot-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-plan.md
+edit_policy: generated-do-not-edit
 ---
 
 

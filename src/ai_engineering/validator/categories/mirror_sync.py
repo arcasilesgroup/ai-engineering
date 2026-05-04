@@ -72,13 +72,35 @@ _PROVENANCE_GLOB_BY_FAMILY: dict[str, str] = {
     "copilot-skills": "SKILL.md",
     "copilot-agents": "*.agent.md",
 }
-_PUBLIC_AGENT_ROOTS: tuple[tuple[str, str], ...] = (
-    (_CODEX_AGENTS_MIRROR[0], "ai-*.md"),
-    (_CODEX_AGENTS_MIRROR[1], "ai-*.md"),
-    (_GEMINI_AGENTS_MIRROR[0], "ai-*.md"),
-    (_GEMINI_AGENTS_MIRROR[1], "ai-*.md"),
-    (_COPILOT_AGENTS_MIRROR[0], "*.agent.md"),
-    (_COPILOT_AGENTS_MIRROR[1], "*.agent.md"),
+# Spec-119 introduced specialist review/verifier agents that mirror from
+# `.claude/agents/` to public surfaces. They're governed by the canonical
+# Claude mirror, so extend allowed patterns rather than relocating them
+# under `internal/` (which would break the parity contract).
+_PUBLIC_AGENT_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    (
+        _CODEX_AGENTS_MIRROR[0],
+        ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
+    ),
+    (
+        _CODEX_AGENTS_MIRROR[1],
+        ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
+    ),
+    (
+        _GEMINI_AGENTS_MIRROR[0],
+        ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
+    ),
+    (
+        _GEMINI_AGENTS_MIRROR[1],
+        ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
+    ),
+    (
+        _COPILOT_AGENTS_MIRROR[0],
+        ("*.agent.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
+    ),
+    (
+        _COPILOT_AGENTS_MIRROR[1],
+        ("*.agent.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
+    ),
 )
 _PUBLIC_SKILL_ROOTS: tuple[str, ...] = (
     _CODEX_SKILLS_MIRROR[0],
@@ -652,7 +674,20 @@ def _check_public_agent_root_contract(
                     )
                 continue
 
-            if not child.match(allowed_glob):
+            # Accept iff:
+            #   (a) name matches an allowed glob pattern, AND
+            #   (b) for non-`*.agent.md` patterns (specialist names like
+            #       reviewer-architecture.md), a same-named canonical
+            #       counterpart exists under .claude/agents/ — so a stray
+            #       reviewer-bad.md without a canonical pair gets flagged
+            #       even though it matches the glob.
+            matched_glob = any(child.match(pat) for pat in allowed_glob)
+            governed = matched_glob
+            if matched_glob and not child.match("*.agent.md"):
+                canonical_peer = target / ".claude" / "agents" / child.name
+                if not canonical_peer.is_file():
+                    governed = False
+            if not governed:
                 failures += 1
                 report.checks.append(
                     IntegrityCheckResult(
@@ -700,6 +735,14 @@ def _check_non_claude_local_reference_leaks(
 
         for path in sorted(root.rglob("*")):
             if not path.is_file():
+                continue
+
+            # Specialist agents under `internal/` may legitimately reference
+            # `.claude/...` paths in prose (governance docs describing
+            # canonical layout). Scripts under `scripts/` should localize
+            # paths to their own IDE root and ARE checked here.
+            rel_parts = path.relative_to(root).parts
+            if "internal" in rel_parts:
                 continue
 
             checked += 1

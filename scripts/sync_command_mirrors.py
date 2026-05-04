@@ -526,6 +526,28 @@ def translate_refs(content: str, target_ide: str) -> str:
     content = _XREF_CLAUDE_SKILL.sub(_replace_skill, content)
     content = _XREF_CLAUDE_AGENT.sub(_replace_agent, content)
 
+    # Subpath and bare-prefix references under ai-* skills/agents
+    # (handlers/, references/, scripts/, shell variables like
+    # `.claude/skills/ai-${SKILL_NAME}`, etc.). The XREF_CLAUDE_SKILL regex
+    # only matches the canonical SKILL.md reference; everything else needs
+    # explicit rewrite. The bare-prefix rewrite runs second so the
+    # subpath rewrite (with trailing `/`) wins where applicable.
+    ide_target_map = {
+        "codex": ".codex",
+        "gemini": ".gemini",
+        "copilot": ".github",
+    }
+    target_root = ide_target_map.get(target_ide)
+    if target_root:
+        content = re.sub(r"\.claude/skills/(ai-[^/\s`]+/)", rf"{target_root}/skills/\1", content)
+        content = re.sub(r"\.claude/agents/(ai-[^/\s`]+/)", rf"{target_root}/agents/\1", content)
+        # Bare prefix: `.claude/skills/ai-X` (no trailing slash, e.g. shell
+        # variable expansions like `.claude/skills/ai-${VAR}`). Use a
+        # negative-lookahead so we don't double-rewrite paths that already
+        # had their subpath segment rewritten by the rules above.
+        content = re.sub(r"\.claude/skills/(ai-[^/\s`]+)", rf"{target_root}/skills/\1", content)
+        content = re.sub(r"\.claude/agents/(ai-[^/\s`]+)", rf"{target_root}/agents/\1", content)
+
     # Spec-107 D-107-03: explore agent reference path adjustment for copilot.
     # The block path translations below (.claude/agents/ -> .github/agents/)
     # run on raw `.claude/agents/explore.md` references that miss the canonical
@@ -771,6 +793,12 @@ def generate_codex_skill(name: str, skill_path: Path) -> str:
     # Keep ai- prefix for skills in .codex/ surface
     fm["name"] = f"ai-{name}"
     fm.pop("metadata", None)
+    fm.update(
+        get_generated_provenance_fields(
+            "codex-skills",
+            canonical_source=f".claude/skills/ai-{name}/SKILL.md",
+        )
+    )
 
     header = _serialize_frontmatter(fm)
     body = translate_refs(body, "codex")
@@ -786,6 +814,12 @@ def generate_codex_agent(name: str, agent_path: Path) -> str:
     # Keep ai- prefix for agents in .codex/ surface
     fm.pop("tools", None)  # tools are IDE-specific
     fm.pop("metadata", None)
+    fm.update(
+        get_generated_provenance_fields(
+            "codex-agents",
+            canonical_source=f".claude/agents/ai-{name}.md",
+        )
+    )
 
     header = _serialize_frontmatter(fm)
     body = translate_refs(body, "codex")
@@ -805,6 +839,12 @@ def generate_gemini_skill(name: str, skill_path: Path) -> str:
 
     fm["name"] = f"ai-{name}"
     fm.pop("metadata", None)
+    fm.update(
+        get_generated_provenance_fields(
+            "gemini-skills",
+            canonical_source=f".claude/skills/ai-{name}/SKILL.md",
+        )
+    )
 
     header = _serialize_frontmatter(fm)
     body = translate_refs(body, "gemini")
@@ -819,6 +859,12 @@ def generate_gemini_agent(name: str, agent_path: Path) -> str:
 
     fm.pop("tools", None)  # tools are IDE-specific
     fm.pop("metadata", None)
+    fm.update(
+        get_generated_provenance_fields(
+            "gemini-agents",
+            canonical_source=f".claude/agents/ai-{name}.md",
+        )
+    )
 
     header = _serialize_frontmatter(fm)
     body = translate_refs(body, "gemini")
@@ -843,6 +889,12 @@ def generate_copilot_skill(name: str, skill_path: Path) -> str:
     fm["name"] = f"ai-{name}"
     fm["mode"] = "agent"
     fm.pop("metadata", None)
+    fm.update(
+        get_generated_provenance_fields(
+            "copilot-skills",
+            canonical_source=f".claude/skills/ai-{name}/SKILL.md",
+        )
+    )
 
     header = _serialize_frontmatter(fm)
     body = translate_refs(body, "copilot")
@@ -899,6 +951,13 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
             sort_keys=False,
         ).rstrip()
         lines.append(hooks_yaml)
+
+    provenance = get_generated_provenance_fields(
+        "copilot-agents",
+        canonical_source=f".claude/agents/ai-{name}.md",
+    )
+    for key, value in provenance.items():
+        lines.append(f"{key}: {value}")
 
     lines.append("---")
 
@@ -1464,13 +1523,12 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                 _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
         for script_name, script_path in skill_scripts[name]:
+            translated = translate_refs(skill_raw[script_path], "codex")
             for target in (
                 CODEX_SKILLS / f"ai-{name}" / "scripts" / script_name,
                 TPL_CODEX_SKILLS / f"ai-{name}" / "scripts" / script_name,
             ):
-                _generate_surface(
-                    target, skill_raw[script_path], check_only, verbose, generated_paths, diffs
-                )
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
         for res_name, res_path in skill_resources[name]:
             translated = translate_refs(skill_raw[res_path], "codex")
@@ -1521,13 +1579,12 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                 _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
         for script_name, script_path in skill_scripts[name]:
+            translated = translate_refs(skill_raw[script_path], "gemini")
             for target in (
                 GEMINI_SKILLS / f"ai-{name}" / "scripts" / script_name,
                 TPL_GEMINI_SKILLS / f"ai-{name}" / "scripts" / script_name,
             ):
-                _generate_surface(
-                    target, skill_raw[script_path], check_only, verbose, generated_paths, diffs
-                )
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
         for res_name, res_path in skill_resources[name]:
             translated = translate_refs(skill_raw[res_path], "gemini")
@@ -1582,13 +1639,12 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                 _generate_surface(target, ref_content, check_only, verbose, generated_paths, diffs)
 
         for script_name, script_path in skill_scripts[name]:
+            translated = translate_refs(skill_raw[script_path], "copilot")
             for target in (
                 GITHUB_SKILLS / f"ai-{name}" / "scripts" / script_name,
                 TPL_GITHUB_SKILLS / f"ai-{name}" / "scripts" / script_name,
             ):
-                _generate_surface(
-                    target, skill_raw[script_path], check_only, verbose, generated_paths, diffs
-                )
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
 
         for res_name, res_path in skill_resources[name]:
             res_content = translate_refs(skill_raw[res_path], "copilot")

@@ -326,6 +326,7 @@ _HOT_PATH_BUDGET_MS: dict[str, int] = {
     "post-tool-use": 1000,
     "user-prompt-submit": 1000,
     "stop": 5000,
+    "subagent-stop": 1000,
     "session-start": 5000,
     "session-end": 5000,
     "pre-compact": 5000,

@@ -26,7 +26,7 @@ Implementation is spec-gated by default:
 4. `/ai-autopilot` executes the approved spec autonomously for large multi-concern work.
 5. If no approved spec exists, stop and return to `/ai-brainstorm` before implementation.
 
-## Skills (52)
+## Skills (53)
 
 The full registry is in `.ai-engineering/manifest.yml` under
 `skills.registry`. Canonical skill definitions live under
@@ -60,33 +60,11 @@ skills, agents, contexts, and hooks are catalogued in
 and transcript viewing are delegated to the separately installed
 `agentsview` companion tool.
 
-### Audit observability (spec-120)
-
-The NDJSON stream gets a SQLite projection and an OTel/JSON exporter so
-sessions are queryable and portable. Five subcommands sit under `ai-eng
-audit`:
-
-- `ai-eng audit index` — build / refresh the SQLite projection
-  (`.ai-engineering/state/audit-index.sqlite`); incremental by default,
-  `--rebuild` drops and re-reads from offset 0.
-- `ai-eng audit query "SELECT ..."` — read-only SQL over the index
-  (`SELECT` only); auto-builds when missing or stale.
-- `ai-eng audit tokens --by skill|agent|session` — token rollup over the
-  per-kind views shipped by the index.
-- `ai-eng audit replay --session <id> | --trace <id>` — depth-first
-  walk of the span tree (text or `--json`).
-- `ai-eng audit otel-export --trace <id>` — OTLP/JSON envelope ready
-  for any OpenTelemetry-compatible backend (Langfuse, Phoenix,
-  Logfire, Tempo, …).
-
-Field mapping (NDJSON ↔ SQLite ↔ OTel) lives in
-[spec-120 §4.3 / §4.5](.ai-engineering/specs/spec-120-observability-modernization.md).
-
 ## Source of Truth
 
 | What | Where |
 |------|-------|
-| Skills (52) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (11) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Config | `.ai-engineering/manifest.yml` |

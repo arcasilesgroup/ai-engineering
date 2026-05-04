@@ -4,6 +4,10 @@ description: Use when adding a new slash command, building a new agent role, or 
 effort: high
 argument-hint: "skill <name>|agent <name>"
 tags: [meta, framework, creation]
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-create/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

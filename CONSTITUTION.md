@@ -136,9 +136,10 @@ only in `GEMINI.md`; lifting them into the Constitution restores the
 3. **Self-Improvement Loop** — after any user correction, update
    `.ai-engineering/LESSONS.md` with the pattern. Iterate on lessons until
    the mistake rate drops. Read lessons proactively at session start.
-4. **Verification Before Done** — never mark a task complete without
-   proving it works. Run tests, run the linter, check the output. Diff
-   behaviour when relevant. Ask: "would a staff engineer approve this?"
+4. **Verification Before Done** (proof-before-done) — never mark a task
+   complete without proving it works. Run tests, run the linter, check
+   the output. Diff behaviour when relevant. Ask: "would a staff
+   engineer approve this?"
 5. **Demand Elegance (Balanced)** — pause and ask "is there a more
    elegant way?" for non-trivial changes. Skip for simple, obvious
    fixes. Clever is bad; simple and clear is elegant.

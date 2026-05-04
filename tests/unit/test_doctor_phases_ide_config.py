@@ -30,6 +30,7 @@ def claude_project(tmp_path: Path) -> Path:
     # Common files
     (tmp_path / ".gitleaks.toml").write_text("", encoding="utf-8")
     (tmp_path / ".semgrep.yml").write_text("", encoding="utf-8")
+    (tmp_path / "CONSTITUTION.md").write_text("# Constitution\n", encoding="utf-8")
     return tmp_path
 
 
@@ -120,6 +121,7 @@ class TestProviderTemplates:
 
     def test_ok_when_copilot_files_present(self, tmp_path: Path, copilot_manifest: ManifestConfig):
         (tmp_path / "AGENTS.md").write_text("# Agents\n", encoding="utf-8")
+        (tmp_path / "CONSTITUTION.md").write_text("# Constitution\n", encoding="utf-8")
         (tmp_path / ".gitleaks.toml").write_text("", encoding="utf-8")
         (tmp_path / ".semgrep.yml").write_text("", encoding="utf-8")
         github_dir = tmp_path / ".github"

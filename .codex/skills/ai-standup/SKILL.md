@@ -3,6 +3,10 @@ name: ai-standup
 description: Use when generating standup notes, daily status updates, or recent-activity summaries from actual git commits and PRs. Trigger for 'write my standup', 'what did I do today', 'what did I ship this week', 'status update', 'handoff notes', 'end of day summary'. Reads real commit and PR history — accurate, not reconstructed from memory.
 effort: medium
 argument-hint: "--days N|--author <name>"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-standup/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

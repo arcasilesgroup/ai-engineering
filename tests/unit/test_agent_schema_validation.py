@@ -23,10 +23,12 @@ _AGENTS_DIR = (
 )
 
 # Post spec-091: 10 user-facing orchestrator agents (ai-*.md)
+# Post spec-116+: 11 (added ai-evaluator)
 _EXPECTED_ORCHESTRATORS = frozenset(
     {
         "ai-autopilot",
         "ai-build",
+        "ai-evaluator",
         "ai-explore",
         "ai-guard",
         "ai-guide",

@@ -2,6 +2,31 @@
 
 Shared reference for where durable framework knowledge belongs. This file captures the phase-1 placement contract from spec-116 so later cleanup tasks promote rules into the right governed surface instead of copying them across lessons, contexts, overlays, and generated mirrors.
 
+## 30-Second Decision Flow
+
+Most contributors only need to answer three questions:
+
+1. **Is this a hard rule the framework MUST enforce across IDEs?** → `CONSTITUTION.md`
+2. **Is this a one-time architecture or governance decision (with rationale)?** → `.ai-engineering/state/decision-store.json`
+3. **Anything else heuristic, observed, or tentative?** → `.ai-engineering/LESSONS.md` (auto-funnels into `instincts/instincts.yml` from observations)
+
+Skill / agent / manifest entries follow the matrix below; those are schema homes, not knowledge homes.
+
+> **`memory.db` is read-side only.** It is a retrieval index over the surfaces above (episodes + knowledge objects ingested from `LESSONS.md`, `decision-store.json`, instincts). It is **never** the canonical home for a new rule. `/ai-dream` proposes promotions in `instincts/memory-proposals.md`; humans curate from there.
+
+## Worked Examples
+
+| Concrete rule | Canonical home |
+|---|---|
+| "Article V — every concept has one canonical source of truth" | `CONSTITUTION.md` |
+| "DEC-003 — split planning (`/ai-plan`) from dispatch (`/ai-dispatch`)" | `decision-store.json` |
+| "gitleaks 8.x flag for staged files is `protect --staged`, not `detect --no-git --staged-only`" | `LESSONS.md` |
+| "After third user correction, propose a recovery instinct" | `instincts/instincts.yml` (auto-funnel) |
+| "Cross-IDE plan-mode default" | `CONSTITUTION.md` Article XI |
+| "Skill X triggers on prompt Y, runs script Z" | the skill's own `SKILL.md` |
+| "Skills live under `.claude/skills/ai-<name>/SKILL.md`" | `.ai-engineering/manifest.yml` (`framework_state.skills`) |
+| "Python style: prefer guard clauses over nested ifs" | `.ai-engineering/contexts/languages/python.md` |
+
 ## Placement Matrix
 
 | Knowledge class | Canonical home | Use this home when | Retain elsewhere when |

@@ -189,7 +189,17 @@ def test_write_task_ledger_emits_task_trace_for_new_or_changed_tasks(
             }
         )
 
-    monkeypatch.setattr("ai_engineering.state.observability.emit_task_trace", _emit_task_trace)
+    def _build_task_trace_event(project_root, **kwargs):
+        return _emit_task_trace(project_root, **kwargs)
+
+    monkeypatch.setattr(
+        "ai_engineering.state.observability.build_task_trace_event",
+        _build_task_trace_event,
+    )
+    monkeypatch.setattr(
+        "ai_engineering.state.observability.append_framework_events",
+        lambda *_args, **_kwargs: None,
+    )
 
     initial_ledger = TaskLedger(
         tasks=[

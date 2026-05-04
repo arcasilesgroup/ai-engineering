@@ -26,7 +26,7 @@ Implementation is spec-gated by default:
 4. `/ai-autopilot` executes the approved spec autonomously for large multi-concern work.
 5. If no approved spec exists, stop and return to `/ai-brainstorm` before implementation.
 
-## Skills (52)
+## Skills (53)
 
 The full registry is in `.ai-engineering/manifest.yml` under
 `skills.registry`. Canonical skill definitions live under
@@ -64,7 +64,7 @@ and transcript viewing are delegated to the separately installed
 
 | What | Where |
 |------|-------|
-| Skills (52) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (11) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Config | `.ai-engineering/manifest.yml` |

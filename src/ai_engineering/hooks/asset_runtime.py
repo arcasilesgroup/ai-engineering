@@ -124,6 +124,30 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
         rationale="Mirrors instinct capture needed by installed hook scripts.",
         packaged_counterpart="ai_engineering.state.instincts",
     ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "integrity.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale="Hook bytes integrity verification must run before packaged runtime is trusted.",
+    ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "runtime_state.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale="Spec-116 runtime layer state (checkpoint, tool history) must be writable from standalone hooks.",
+    ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "trace_context.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale="Spec-120 trace-context propagation must run before the packaged runtime is trusted.",
+    ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "transcript_usage.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale="Spec-120 transcript/token-usage capture runs from standalone hooks before the package is importable.",
+    ),
 )
 
 

@@ -5,6 +5,10 @@ effort: max
 argument-hint: "define|check|report|regression [feature]"
 mode: agent
 tags: [quality, evals, improvement]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-eval/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

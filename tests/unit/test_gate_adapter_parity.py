@@ -84,7 +84,7 @@ def test_gate_pre_commit_routes_through_kernel_adapter_not_legacy_engine(tmp_pat
             "ai_engineering.cli_commands.gate.run_orchestrator_gate", return_value=document
         ) as kernel_run,
         patch(
-            "ai_engineering.cli_commands.gate.run_gate",
+            "ai_engineering.policy.gates.run_gate",
             side_effect=AssertionError("legacy gate engine must not be used by gate pre-commit"),
         ),
     ):
@@ -107,7 +107,7 @@ def test_gate_pre_push_routes_through_kernel_adapter_not_legacy_engine(tmp_path:
             "ai_engineering.cli_commands.gate.run_orchestrator_gate", return_value=document
         ) as kernel_run,
         patch(
-            "ai_engineering.cli_commands.gate.run_gate",
+            "ai_engineering.policy.gates.run_gate",
             side_effect=AssertionError("legacy gate engine must not be used by gate pre-push"),
         ),
     ):
@@ -129,7 +129,7 @@ def test_gate_commit_msg_routes_through_thin_adapter_not_legacy_engine(tmp_path:
 
     with (
         patch(
-            "ai_engineering.cli_commands.gate.run_gate",
+            "ai_engineering.policy.gates.run_gate",
             side_effect=AssertionError("legacy gate engine must not be used by gate commit-msg"),
         ),
         patch("ai_engineering.policy.checks.branch_protection.check_branch_protection"),
@@ -157,7 +157,7 @@ def test_gate_all_routes_workflow_helpers_through_kernel_adapter(tmp_path: Path)
             "ai_engineering.cli_commands.gate.run_orchestrator_gate", return_value=document
         ) as kernel_run,
         patch(
-            "ai_engineering.cli_commands.gate.run_gate",
+            "ai_engineering.policy.gates.run_gate",
             side_effect=AssertionError("legacy gate engine must not be used by gate all"),
         ),
         patch("ai_engineering.cli_commands.gate._check_risk_inline", return_value=False),

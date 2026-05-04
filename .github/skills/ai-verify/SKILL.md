@@ -4,6 +4,10 @@ description: "Use when verification with evidence is needed — not assumptions.
 effort: max
 argument-hint: "claim|governance|security|quality|feature|architecture|platform [--full]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-verify/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -28,7 +32,7 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 Before dispatching any verify agent, verify these files exist:
 
-- `.claude/skills/ai-verify/handlers/verify.md`
+- `.github/skills/ai-verify/handlers/verify.md`
 - `.github/agents/verify-deterministic.md`
 - every required `.github/agents/verifier-*.md` file for the selected mode
 

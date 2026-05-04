@@ -200,6 +200,8 @@ def _instruction_files(target: Path) -> list[str]:
 
     base = _resolve_instruction_files(target)
     if _is_source_repo(target):
+        if root_entry_points is None:
+            return base
         seen = set(base)
         template_files: list[str] = []
         for template_path in resolve_instruction_template_sources(

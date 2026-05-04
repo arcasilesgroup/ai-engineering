@@ -72,7 +72,7 @@ Before writing or reviewing code, load the applicable context files:
 
 The agents table above lists every agent shipped with the framework. Counts mirror `.ai-engineering/manifest.yml` (`agents.total`).
 
-## Skills (52)
+## Skills (53)
 
 Grouped by type. Invoke as `/ai-<name>`.
 
@@ -123,7 +123,7 @@ Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor 
 
 | What | Where |
 |------|-------|
-| Skills (52) | `.gemini/skills/ai-<name>/SKILL.md` |
+| Skills (53) | `.gemini/skills/ai-<name>/SKILL.md` |
 | Agents (11) | `.gemini/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Decisions | `.ai-engineering/state/decision-store.json` |

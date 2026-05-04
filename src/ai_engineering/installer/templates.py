@@ -74,8 +74,16 @@ def resolve_instruction_file_destinations(
     ``ownership.root_entry_points[*].sync.mirror_paths`` are appended only for
     root destinations enabled by the selected providers.
     """
+    if root_entry_points is None:
+        raise ValueError(
+            "Root entry point metadata is required to resolve instruction file "
+            "destinations; pass manifest-declared root_entry_points."
+        )
     if providers is None:
-        providers = list(_PROVIDER_FILE_MAPS.keys())
+        raise ValueError(
+            "Providers are required to resolve instruction file destinations; "
+            "pass an explicit providers list."
+        )
 
     seen: set[str] = set()
     destinations: list[str] = []
@@ -111,6 +119,12 @@ def resolve_instruction_template_sources(
     present; otherwise the bundled provider template map is used as the
     compatibility fallback.
     """
+    if root_entry_points is None:
+        raise ValueError(
+            "Root entry point metadata is required to resolve instruction template "
+            "sources; pass manifest-declared root_entry_points."
+        )
+
     seen: set[str] = set()
     template_paths: list[str] = []
 
@@ -134,6 +148,7 @@ def resolve_instruction_template_sources(
 _COMMON_FILE_MAPS: dict[str, str] = {
     ".gitleaks.toml": ".gitleaks.toml",
     ".semgrep.yml": ".semgrep.yml",
+    "CONSTITUTION.md": "CONSTITUTION.md",
 }
 
 _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {

@@ -5,6 +5,10 @@ effort: max
 argument-hint: "'implement spec-NNN'|--resume|--no-watch"
 mode: agent
 tags: [orchestration, autonomous, multi-spec, pipeline, execution, dag, transparency]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-autopilot/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

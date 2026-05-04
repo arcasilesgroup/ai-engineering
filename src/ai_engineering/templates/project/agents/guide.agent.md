@@ -4,6 +4,10 @@ description: "Developer education and onboarding -- architecture tours, decision
 color: cyan
 model: opus
 tools: [codebase, fetch, githubRepo, readFile, search]
+mirror_family: copilot-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-guide.md
+edit_policy: generated-do-not-edit
 ---
 
 

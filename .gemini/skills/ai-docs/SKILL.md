@@ -4,6 +4,10 @@ description: "Use for documentation lifecycle: updating CHANGELOG.md, refreshing
 effort: high
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 tags: [documentation, architecture, governance]
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-docs/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

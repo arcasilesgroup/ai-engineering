@@ -5,6 +5,10 @@ effort: high
 argument-hint: "skill <name>|agent <name>"
 mode: agent
 tags: [meta, framework, creation]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-create/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

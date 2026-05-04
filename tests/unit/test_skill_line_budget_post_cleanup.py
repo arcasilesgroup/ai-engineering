@@ -34,6 +34,10 @@ TARGET_REDUCTION = 400
 SKILLS_ADDED_POST_BASELINE: tuple[str, ...] = (
     "ai-mcp-sentinel",  # spec-107 D-107-08 (Capa 3 LLM cold-path skill)
     "ai-research",  # spec-111 (multi-tier evidence-backed research skill)
+    "ai-design",  # spec-117/118 design-system skill
+    "ai-animation",  # spec-117/118 motion/interaction skill
+    "ai-canvas",  # spec-117/118 visual composition skill
+    "ai-eval-gate",  # spec-119 eval-gate delivery skill
 )
 
 # Functional additions to existing skills AFTER the spec-106 P5 baseline.

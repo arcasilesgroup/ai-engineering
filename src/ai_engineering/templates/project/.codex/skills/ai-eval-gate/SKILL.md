@@ -5,6 +5,10 @@ model: sonnet
 effort: medium
 color: orange
 tools: [Bash, Read]
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-eval-gate/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -52,10 +56,10 @@ evaluation:
 ## Invocation
 
 ```bash
-$CLAUDE_PROJECT_DIR/.claude/skills/ai-eval-gate/run.sh check
-$CLAUDE_PROJECT_DIR/.claude/skills/ai-eval-gate/run.sh report
-$CLAUDE_PROJECT_DIR/.claude/skills/ai-eval-gate/run.sh enforce
-$CLAUDE_PROJECT_DIR/.claude/skills/ai-eval-gate/run.sh enforce --skip --reason "scenarios pending"
+$CLAUDE_PROJECT_DIR/.codex/skills/ai-eval-gate/run.sh check
+$CLAUDE_PROJECT_DIR/.codex/skills/ai-eval-gate/run.sh report
+$CLAUDE_PROJECT_DIR/.codex/skills/ai-eval-gate/run.sh enforce
+$CLAUDE_PROJECT_DIR/.codex/skills/ai-eval-gate/run.sh enforce --skip --reason "scenarios pending"
 ```
 
 The `run.sh` shim invokes `_entry.py` (a Python entry script sibling) which dispatches into the Python engine in `src/ai_engineering/eval/gate.py`. Both files live next to this SKILL.md so the skill is self-contained.

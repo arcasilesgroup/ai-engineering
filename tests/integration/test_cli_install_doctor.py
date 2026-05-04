@@ -20,6 +20,9 @@ from typer.testing import CliRunner
 from ai_engineering.cli_factory import create_app
 
 runner = CliRunner()
+# Separate runner for tests that need to inspect stdout/stderr independently
+# (e.g., JSON-on-stdout assertions where merged output would corrupt parsing).
+runner_split = CliRunner(mix_stderr=False)
 
 
 @pytest.fixture()
@@ -116,7 +119,7 @@ class TestInstallCommand:
         installed_dir: Path,
         app: object,
     ) -> None:
-        result = runner.invoke(
+        result = runner_split.invoke(
             app,
             ["install", str(installed_dir), "--stack", "python", "--non-interactive"],
         )

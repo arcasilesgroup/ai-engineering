@@ -4,6 +4,10 @@ description: Use when the AI keeps repeating the same mistakes, when you want th
 effort: medium
 argument-hint: "single <pr>|batch"
 tags: [meta, learning, continuous-improvement]
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-learn/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

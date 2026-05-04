@@ -7,6 +7,10 @@ tags: [quality, release, gate, go-no-go, delivery]
 requires:
   bins:
   - gitleaks
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-release-gate/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -68,7 +72,7 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
    - Gate: wheel builds cleanly, no missing files.
 
 9. **Evals** (spec-119 D-119-04) -- verify behavioural pass@k holds against thresholds.
-   - Run `$CLAUDE_PROJECT_DIR/.claude/skills/ai-eval-gate/run.sh enforce`.
+   - Run `$CLAUDE_PROJECT_DIR/.gemini/skills/ai-eval-gate/run.sh enforce`.
    - Reads `manifest.yml` `evaluation:` section (`pass_at_k.k`, `pass_at_k.threshold`, `hallucination_rate.max`, `regression_tolerance`, `enforcement`).
    - Gate: verdict GO or CONDITIONAL passes; NO_GO fails. SKIPPED is acceptable only when `evaluation.enforcement: advisory` or no scenario pack applies.
    - Telemetry: every invocation emits an `eval_run/eval_gated` event chained into the audit log.

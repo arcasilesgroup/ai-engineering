@@ -1,13 +1,13 @@
 {
-  "generatedAt": "2026-05-04T07:33:32Z",
-  "hookCount": 61,
+  "generatedAt": "2026-05-04T12:20:43Z",
+  "hookCount": 63,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "14bfbad9f15b03db274362d026700ee154f391a96c69e753e643b3c7ab32fa19",
     ".ai-engineering/scripts/hooks/_lib/copilot-common.ps1": "dfda121aa9eda20c3647fd831ac4b95b3bbbeb98a3e74851b8e5c3492188dfd0",
     ".ai-engineering/scripts/hooks/_lib/copilot-common.sh": "0249a872a2760f35fb0ee5f734dadeb75d39a62e4b4d65e53583ca96e9033bea",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.ps1": "576913bb87dc2b8767d432404278c42d4115b2894b4b8f52adcc13eef3a08624",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.sh": "8a779c3458dc73835938ee2a42033a0770ebd5bbbd2178a6b563f94c60fed262",
-    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "b069bae7b2483fc18f1011a133b16eaa785a2eb0c5ee97741e10e1de18379972",
+    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "15a80fe573af25bd52e11550a414c9876715af4e52cde956e7dd72be5c72c780",
     ".ai-engineering/scripts/hooks/_lib/hook_context.py": "2c12de1c4bb932d94eb6a19b1ce9f316bdf5ef651a41a53de219a1e9d2f8d802",
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",
     ".ai-engineering/scripts/hooks/_lib/instincts.py": "c0028bc9456f59b7b727ccd1e545308f0075ad47dd71fcddc2165f1e4a57a464",
@@ -60,7 +60,9 @@
     ".ai-engineering/scripts/hooks/runtime-compact.py": "4fd15bac503962bd33eaf11400160d56adb2fa29f1360d5d930392530f0f4d5b",
     ".ai-engineering/scripts/hooks/runtime-guard.py": "49b613d3df83950dd45d18c92a832ff3acb48610f6a3cc7aee32c8c672c71a29",
     ".ai-engineering/scripts/hooks/runtime-progressive-disclosure.py": "7eaee4d1d38a23a0aad714bdf51916809ef4d4667d986d9255465c811b5ce5e4",
+    ".ai-engineering/scripts/hooks/runtime-session-start.py": "62820b5e80576b1c182c4a85d0ee8fb18875e3b3da34f36b4956fc12d4141258",
     ".ai-engineering/scripts/hooks/runtime-stop.py": "da129826d9587eaee1212cd62d5ab1d79c44cf224f7a8e8ad3133d9fcf64250f",
+    ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "e1bda43b4f2a24df679c8f0ac7743a9a61e005151e824e2e79ffda92b04c743f",
     ".ai-engineering/scripts/hooks/strategic-compact.py": "dedf97737c6a6f9608ab17f01bdf59acf4fcca9c697e37638741e141cfa556a8",
     ".ai-engineering/scripts/hooks/telemetry-skill.py": "a19e61f51cf05d1434cee6b638097ac50c764c84c03e43e3c4070de6feb8ae0f"
   },

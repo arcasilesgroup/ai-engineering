@@ -266,7 +266,8 @@ class TestSkills:
         config = ManifestConfig.model_validate(real_manifest_data)
         # spec-107: bumped 47 -> 48 with addition of /ai-mcp-sentinel skill.
         # spec-111: bumped 48 -> 49 with addition of /ai-research skill.
-        assert config.skills.total == len(config.skills.registry) == 49
+        # spec-116/117/120: 49 -> 52 (ai-design, ai-animation, ai-canvas, ai-eval-gate)
+        assert config.skills.total == len(config.skills.registry) == 52
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
@@ -292,7 +293,8 @@ class TestSkills:
 class TestAgents:
     def test_total(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert config.agents.total == 10
+        # spec-116+: bumped 10 -> 11 with addition of evaluator agent.
+        assert config.agents.total == 11
 
     def test_names(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

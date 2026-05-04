@@ -36,7 +36,7 @@ from typer.testing import CliRunner
 from ai_engineering.cli_commands import maintenance as maintenance_module
 from ai_engineering.cli_factory import create_app
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 
 # ---------------------------------------------------------------------------

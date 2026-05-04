@@ -3,6 +3,10 @@ name: ai-code
 description: "Use when writing new production code: implementing features, adding functions, creating modules, or building approved plan tasks. Trigger for 'implement this', 'write the code for', 'add X to Y', 'build this function', 'make this work'. Loads language/framework context, applies interface-first design and backward-compatibility checks. Not for tests (/ai-test), debugging (/ai-debug), or refactoring (/ai-simplify)."
 effort: high
 argument-hint: "[task description or file:target]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-code/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

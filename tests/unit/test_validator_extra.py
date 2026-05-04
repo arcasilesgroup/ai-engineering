@@ -13,8 +13,17 @@ def _mk(root: Path) -> Path:
     (ai / "agents").mkdir(parents=True, exist_ok=True)
     (ai / "contexts").mkdir(parents=True, exist_ok=True)
     (ai / "specs").mkdir(parents=True, exist_ok=True)
+    (ai / "specs" / "handoffs").mkdir(parents=True, exist_ok=True)
+    (ai / "specs" / "evidence").mkdir(parents=True, exist_ok=True)
     (ai / "state").mkdir(parents=True, exist_ok=True)
     (ai / "tasks").mkdir(parents=True, exist_ok=True)
+    # spec-117 work-plane artifacts required by validator
+    (ai / "specs" / "task-ledger.json").write_text("[]\n", encoding="utf-8")
+    (ai / "specs" / "current-summary.md").write_text("# current\n", encoding="utf-8")
+    (ai / "specs" / "history-summary.md").write_text("# history\n", encoding="utf-8")
+    # spec-120 control-plane artifacts
+    (ai / "state" / "ownership-map.json").write_text("{}\n", encoding="utf-8")
+    (ai / "state" / "framework-capabilities.json").write_text("{}\n", encoding="utf-8")
     return ai
 
 
@@ -114,11 +123,12 @@ def test_manifest_coherence_active_spec_branches(tmp_path: Path) -> None:
     r1 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
     assert r1.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
-    # Active spec passes
+    # Active spec passes (plan.md required to satisfy active-spec-plan-coherence)
     spec_path.write_text(
         '---\nid: "042"\n---\n\n# My Feature\n\nContent.\n',
         encoding="utf-8",
     )
+    (ai / "specs" / "plan.md").write_text("# Plan\n", encoding="utf-8")
     r2 = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
     assert r2.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
@@ -173,6 +183,53 @@ def test_manifest_coherence_placeholder_spec_passes(tmp_path: Path) -> None:
     assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
 
+_SOURCE_REPO_CONTROL_PLANE_YAML = """\
+session:
+  context_files:
+    - .ai-engineering/LESSONS.md
+    - CONSTITUTION.md
+    - .ai-engineering/manifest.yml
+    - .ai-engineering/state/decision-store.json
+control_plane:
+  constitutional_authority:
+    primary: CONSTITUTION.md
+    workspace_charter: .ai-engineering/CONSTITUTION.md
+    compatibility_aliases:
+      - .ai-engineering/CONSTITUTION.md
+  manifest_field_roles:
+    canonical_input:
+      - providers
+      - ai_providers
+      - artifact_feeds
+      - work_items
+      - quality
+      - documentation
+      - cicd
+      - contexts.precedence
+      - session.context_files
+      - ownership.framework
+      - ownership.root_entry_points
+      - telemetry
+      - gates
+      - hot_path_slos
+    generated_projection:
+      - skills
+      - agents
+    descriptive_metadata:
+      - schema_version
+      - framework_version
+      - name
+      - version
+"""
+
+_WORKSPACE_CHARTER_STUB = (
+    "# WORKSPACE CHARTER\n\n"
+    "Root `CONSTITUTION.md` is the sole constitutional authority.\n"
+    "This workspace charter is subordinate to root `CONSTITUTION.md`.\n"
+    "It is not loaded at Step 0 of skill or agent invocation.\n"
+)
+
+
 def test_manifest_coherence_checks_framework_version_for_source_repo(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
     (tmp_path / "pyproject.toml").write_text(
@@ -180,7 +237,7 @@ def test_manifest_coherence_checks_framework_version_for_source_repo(tmp_path: P
         encoding="utf-8",
     )
     (ai / "manifest.yml").write_text(
-        'framework_version: "0.4.0"\nname: x\n',
+        'framework_version: "0.4.0"\nname: x\n' + _SOURCE_REPO_CONTROL_PLANE_YAML,
         encoding="utf-8",
     )
     (ai / "specs" / "spec.md").write_text("# No active spec\n", encoding="utf-8")
@@ -188,7 +245,34 @@ def test_manifest_coherence_checks_framework_version_for_source_repo(tmp_path: P
         tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
     )
     template_manifest.parent.mkdir(parents=True, exist_ok=True)
-    template_manifest.write_text('framework_version: "0.4.0"\n', encoding="utf-8")
+    template_manifest.write_text(
+        'framework_version: "0.4.0"\n' + _SOURCE_REPO_CONTROL_PLANE_YAML,
+        encoding="utf-8",
+    )
+    # spec-117/120 workspace-charter + control-plane snapshot artifacts
+    (ai / "CONSTITUTION.md").write_text(_WORKSPACE_CHARTER_STUB, encoding="utf-8")
+    template_charter = template_manifest.parent / "CONSTITUTION.md"
+    template_charter.write_text(_WORKSPACE_CHARTER_STUB, encoding="utf-8")
+    # Materialize the executable contract snapshots the validator compares against.
+    # The validator computes the expected ownership-map and framework-capabilities
+    # from the same builders; writing those builder outputs makes the fixture
+    # match the contract regardless of future builder changes.
+    from ai_engineering.config.loader import load_manifest_root_entry_points
+    from ai_engineering.state.defaults import default_ownership_map
+    from ai_engineering.state.observability import build_framework_capabilities
+
+    ownership = default_ownership_map(
+        root_entry_points=load_manifest_root_entry_points(tmp_path),
+    )
+    (ai / "state" / "ownership-map.json").write_text(
+        ownership.model_dump_json(by_alias=True, exclude_none=True, indent=2),
+        encoding="utf-8",
+    )
+    capabilities = build_framework_capabilities(tmp_path)
+    (ai / "state" / "framework-capabilities.json").write_text(
+        capabilities.model_dump_json(by_alias=True, exclude_none=True, indent=2),
+        encoding="utf-8",
+    )
 
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MANIFEST_COHERENCE])
 

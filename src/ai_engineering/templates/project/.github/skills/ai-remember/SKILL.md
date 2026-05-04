@@ -8,6 +8,10 @@ argument-hint: "<query> [--kind=episode|knowledge] [--since=7d] [--top-k=10] [--
 mode: agent
 tags: [meta, memory, retrieval, cross-session]
 tools: Bash
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-remember/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

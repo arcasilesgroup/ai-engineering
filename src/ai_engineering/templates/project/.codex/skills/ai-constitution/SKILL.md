@@ -3,6 +3,10 @@ name: ai-constitution
 description: Use when installing ai-engineering on a new project, when AI agents need foundational rules about what this project is, what it aims to achieve, and what must NEVER be violated. Trigger for 'set up the constitution', 'define project principles', 'what are the rules for this project', 'agents keep breaking boundaries', 'update the constitution', 'new team member needs orientation'. Generates CONSTITUTION.md — the non-negotiable governance document consumed by ALL skills and agents at Step 0.
 effort: medium
 argument-hint: "[generate|update|amend]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-constitution/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

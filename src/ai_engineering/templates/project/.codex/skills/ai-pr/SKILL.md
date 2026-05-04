@@ -10,6 +10,10 @@ requires:
   - az
   bins:
   - gitleaks
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-pr/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -56,7 +60,7 @@ If exit non-zero, parse `.ai-engineering/state/gate-findings.json`, report findi
 Invoke `/ai-eval-gate enforce` after the pre-push gate clears. Reads `manifest.yml` `evaluation:` section and runs the configured scenario packs through deterministic graders.
 
 ```bash
-$CLAUDE_PROJECT_DIR/.claude/skills/ai-eval-gate/run.sh enforce
+$CLAUDE_PROJECT_DIR/.codex/skills/ai-eval-gate/run.sh enforce
 ```
 
 Exit code mapping:

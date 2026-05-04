@@ -8,6 +8,10 @@ argument-hint: "[--dry-run] [--decay-only]"
 mode: agent
 tags: [meta, memory, consolidation, housekeeping]
 tools: Bash, Read
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-dream/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

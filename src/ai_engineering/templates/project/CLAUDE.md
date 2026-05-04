@@ -47,12 +47,18 @@ Hook bytes are pinned in `.ai-engineering/state/hooks-manifest.json`
 against this manifest on every invocation. Behaviour is governed by
 the env var `AIENG_HOOK_INTEGRITY_MODE`:
 
-- `warn` (default) — mismatch logs a `framework_error` event with
-  `detail.error_code = hook_integrity_violation` and continues. Use in
-  day-to-day development where hooks change often.
-- `enforce` — mismatch refuses execution (exit 2) and logs the same
-  audit event. Use in CI and any production-like context.
-- `off` — skip the check entirely.
+- `enforce` (default, spec-120 follow-up) — mismatch refuses execution
+  (exit 2) and logs a `framework_error` event with
+  `detail.error_code = hook_integrity_violation`. Use in CI and any
+  production-like context. Default flipped from `warn` after the
+  spec-120 governance review confirmed the manifest stays clean under
+  `--check`.
+- `warn` — mismatch logs the `framework_error` event but allows the
+  hook to run. Set `AIENG_HOOK_INTEGRITY_MODE=warn` in your shell rc
+  to opt out of fail-closed in dev workflows that change hooks
+  frequently and don't want to regenerate the manifest after every
+  edit.
+- `off` — skip the check entirely (no audit event).
 
 After any intentional edit to a hook script, regenerate the manifest:
 
@@ -165,3 +171,18 @@ Telemetry is automatic — refer to
 for the bootstrap that registers hooks. Session discovery and transcript
 viewing are delegated to the separately installed `agentsview` companion
 tool.
+
+### Audit observability (spec-120)
+
+The framework projects the NDJSON audit stream into a SQLite database
+and an OTLP/JSON exporter so sessions become queryable and portable.
+See [AGENTS.md → Audit observability (spec-120)](./AGENTS.md#audit-observability-spec-120)
+for the field-mapping reference; the five subcommands are:
+
+```bash
+ai-eng audit index                       # build / refresh the SQLite projection
+ai-eng audit query "SELECT ..."          # read-only SQL over the index
+ai-eng audit tokens --by skill|agent|session   # token rollup
+ai-eng audit replay --session <id>       # depth-first span-tree walk
+ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope (Langfuse, Phoenix, …)
+```

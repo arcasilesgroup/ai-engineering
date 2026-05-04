@@ -3,6 +3,10 @@ name: ai-evaluator
 description: "Generator/Evaluator split (spec-119). Validates that ai-build output works end-to-end via k-trial scenarios. Computes pass@k, hallucination rate, and regression vs baseline. Returns a Scorecard verdict (GO | CONDITIONAL | NO_GO | SKIPPED). Distinct from ai-verify (static well-formedness) -- this agent answers does the code do what the spec says it should do."
 model: opus
 color: orange
+mirror_family: codex-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-evaluator.md
+edit_policy: generated-do-not-edit
 ---
 
 

@@ -4,6 +4,10 @@ description: "Use when working with tests: writing new tests, enforcing TDD (RED
 effort: high
 argument-hint: "plan|run|gap|tdd [target]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-test/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

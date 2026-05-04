@@ -4,6 +4,10 @@ description: Use when installing ai-engineering on a new project, when AI agents
 effort: medium
 argument-hint: "[generate|update|amend]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-constitution/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

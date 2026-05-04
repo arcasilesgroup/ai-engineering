@@ -18,7 +18,7 @@ from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
 
-runner = CliRunner()
+runner = CliRunner(mix_stderr=False)
 
 _CORE = "ai_engineering.cli_commands.core"
 

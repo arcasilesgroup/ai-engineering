@@ -3,6 +3,10 @@ name: ai-autopilot
 description: Autonomous 6-phase orchestrator. Decomposes specs into sub-specs, deep-plans each with parallel agents, builds a DAG, implements in waves, runs quality convergence loops (verify+guard+review x3), and delivers via PR with full integrity report.
 model: opus
 color: purple
+mirror_family: codex-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-autopilot.md
+edit_policy: generated-do-not-edit
 ---
 
 

@@ -139,7 +139,8 @@ Shared root contexts (`cli-ux.md`, `mcp-integrations.md`, etc.) are loaded when 
 
 Governance uses a deliberate hybrid split:
 
-- `CONSTITUTION.md` and `.ai-engineering/CONSTITUTION.md` keep the hard-rule subset: spec-driven development, TDD, and proof-before-done obligations.
+- `CONSTITUTION.md` is the sole constitutional surface: spec-driven development, TDD, and proof-before-done obligations live there.
+- `.ai-engineering/CONSTITUTION.md` is retained only as a subordinate workspace charter compatibility alias for legacy installs; new content goes in the root `CONSTITUTION.md`.
 - `.ai-engineering/contexts/operational-principles.md` is the single canonical source for the operational implementation and review subset.
 - Core implementation and review surfaces should reference that operational-principles context instead of restating the operational subset ad hoc.
 

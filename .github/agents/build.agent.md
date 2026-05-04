@@ -18,6 +18,10 @@ hooks:
   PostToolUse:
   - type: command
     command: ruff format --quiet
+mirror_family: copilot-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-build.md
+edit_policy: generated-do-not-edit
 ---
 
 

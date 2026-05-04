@@ -192,6 +192,23 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/memory-session-start.py\"",
             "timeout": 8
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-session-start.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-subagent-stop.py\"",
+            "timeout": 5
           }
         ]
       }
