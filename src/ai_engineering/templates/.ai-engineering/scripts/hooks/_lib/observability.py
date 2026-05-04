@@ -39,52 +39,6 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
     }
 )
 
-
-def _pointer_specs_dir(project_root: Path) -> Path | None:
-    pointer_path = project_root / _ACTIVE_WORK_PLANE_POINTER
-    if not pointer_path.exists():
-        return None
-
-    try:
-        payload = json.loads(pointer_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return None
-
-    if not isinstance(payload, dict):
-        return None
-
-    specs_dir_value = payload.get("specsDir")
-    if not isinstance(specs_dir_value, str) or not specs_dir_value.strip():
-        return None
-
-    raw_specs_dir = Path(specs_dir_value)
-    if raw_specs_dir.is_absolute():
-        return None
-
-    specs_dir = project_root / raw_specs_dir
-    try:
-        specs_dir.resolve().relative_to(project_root.resolve())
-    except ValueError:
-        return None
-    return specs_dir
-
-
-def _declared_work_plane_contexts(project_root: Path) -> tuple[tuple[str, str, Path], ...]:
-    """Return declared spec/plan context paths from the hook-local work plane."""
-    specs_dir = _pointer_specs_dir(project_root) or (project_root / _AI_ENGINEERING_DIR / "specs")
-    return (
-        ("spec", "spec", specs_dir / "spec.md"),
-        ("plan", "plan", specs_dir / "plan.md"),
-    )
-
-
-def _resolve_constitution_context_path(project_root: Path) -> Path:
-    constitution_path = project_root / "CONSTITUTION.md"
-    if constitution_path.is_file():
-        return constitution_path
-    return project_root / _AI_ENGINEERING_DIR / "CONSTITUTION.md"
-
-
 _DEGRADED_HOSTS: frozenset[str] = frozenset({"codex"})
 _SECRET_RE = re.compile(
     r"(?i)(api_key|token|secret|password|authorization|credentials|auth)"
@@ -167,6 +121,50 @@ def framework_events_path(project_root: Path) -> Path:
     return project_root / FRAMEWORK_EVENTS_REL
 
 
+def _pointer_specs_dir(project_root: Path) -> Path | None:
+    pointer_path = project_root / _ACTIVE_WORK_PLANE_POINTER
+    if not pointer_path.exists():
+        return None
+
+    try:
+        payload = json.loads(pointer_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    specs_dir_value = payload.get("specsDir")
+    if not isinstance(specs_dir_value, str) or not specs_dir_value.strip():
+        return None
+
+    raw_specs_dir = Path(specs_dir_value)
+    if raw_specs_dir.is_absolute():
+        return None
+
+    specs_dir = project_root / raw_specs_dir
+    try:
+        specs_dir.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return None
+    return specs_dir
+
+
+def _declared_work_plane_contexts(project_root: Path) -> tuple[tuple[str, str, Path], ...]:
+    specs_dir = _pointer_specs_dir(project_root) or (project_root / _AI_ENGINEERING_DIR / "specs")
+    return (
+        ("spec", "spec", specs_dir / "spec.md"),
+        ("plan", "plan", specs_dir / "plan.md"),
+    )
+
+
+def _resolve_constitution_context_path(project_root: Path) -> Path:
+    constitution_path = project_root / "CONSTITUTION.md"
+    if constitution_path.is_file():
+        return constitution_path
+    return project_root / _AI_ENGINEERING_DIR / "CONSTITUTION.md"
+
+
 def _compute_prev_event_hash(path: Path) -> str | None:
     """Spec-107 H2: SHA256 of the canonical-JSON payload of the last entry.
 
@@ -220,6 +218,43 @@ def append_framework_event(project_root: Path, entry: dict) -> None:
         f.write(line + "\n")
 
 
+def _shape_genai_block(usage: dict) -> dict | None:
+    """Reshape a flat ``usage`` dict into the OTel-mirroring nested block.
+
+    Stdlib-only mirror of
+    ``ai_engineering.state.observability._shape_genai_block``. Returns
+    ``None`` when the input is malformed (missing required
+    ``input_tokens`` / ``output_tokens``); the caller surfaces a
+    ``framework_error`` with ``error_code = "genai_usage_malformed"``.
+    """
+    input_tokens = usage.get("input_tokens")
+    output_tokens = usage.get("output_tokens")
+    if not isinstance(input_tokens, int) or not isinstance(output_tokens, int):
+        return None
+
+    usage_block: dict = {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+    }
+    total_tokens = usage.get("total_tokens")
+    if isinstance(total_tokens, int):
+        usage_block["total_tokens"] = total_tokens
+    else:
+        usage_block["total_tokens"] = input_tokens + output_tokens
+    cost_usd = usage.get("cost_usd")
+    if isinstance(cost_usd, (int, float)):
+        usage_block["cost_usd"] = cost_usd
+
+    block: dict = {"usage": usage_block}
+    system = usage.get("system")
+    if isinstance(system, str):
+        block["system"] = system
+    model = usage.get("model")
+    if isinstance(model, str):
+        block["request"] = {"model": model}
+    return block
+
+
 def build_framework_event(
     project_root: Path,
     *,
@@ -233,8 +268,34 @@ def build_framework_event(
     parent_id: str | None = None,
     correlation_id: str | None = None,
     force_outcome: str | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict | None = None,
 ) -> dict:
+    """Stdlib-only mirror of :func:`ai_engineering.state.observability.build_framework_event`.
+
+    Spec-120 §4.1 additive kwargs:
+
+    * ``span_id`` -- 16-hex; auto-generated via ``new_span_id()`` when
+      omitted.
+    * ``parent_span_id`` -- 16-hex logical parent (``None`` for root).
+    * ``trace_id`` -- 32-hex W3C trace identifier; when omitted *and*
+      ``parent_span_id`` is also omitted, inherits from
+      :func:`_lib.trace_context.current_trace_context` (which fresh-
+      fallbacks to a brand-new trace_id with NULL parent when no
+      context exists).
+    * ``usage`` -- flat dict; reshaped into ``detail.genai`` when
+      well-formed. Malformed payloads are dropped silently and a
+      ``framework_error`` of ``error_code = "genai_usage_malformed"`` is
+      emitted best-effort.
+
+    Degraded-host outcome capture runs against the **original**
+    pre-auto-fill ``trace_id`` so codex / similar still surface a
+    missing host trace in ``missing_fields``.
+    """
     canonical_engine = _normalize_engine_id(engine)
+    # Capture degraded-host outcome BEFORE auto-fill so codex / similar
+    # hosts that omit a session/trace from their payload remain flagged.
     outcome, missing_fields = _capture_outcome(
         canonical_engine,
         session_id=session_id,
@@ -244,6 +305,40 @@ def build_framework_event(
     if missing_fields:
         payload["degraded_reason"] = "missing-host-metadata"
         payload["missing_fields"] = missing_fields
+
+    # Spec-120 §4.1 trace-context auto-fill via the stdlib-only mirror.
+    # Lazy import keeps the module-load cost flat for hooks that never
+    # touch trace context.
+    from . import trace_context as _tc
+
+    resolved_span_id = span_id or _tc.new_span_id()
+    resolved_trace_id = trace_id
+    resolved_parent_span_id = parent_span_id
+    if trace_id is None and parent_span_id is None:
+        resolved_trace_id, resolved_parent_span_id = _tc.current_trace_context(project_root)
+
+    # Spec-120 §4.1 OTel `genai` block. Malformed `usage` is best-effort:
+    # surface a `framework_error` and skip the block, but still build
+    # the original event so the caller's flow is not derailed.
+    if usage is not None:
+        if isinstance(usage, dict):
+            shaped = _shape_genai_block(usage)
+            if shaped is not None:
+                payload["genai"] = shaped
+            else:
+                _emit_genai_usage_malformed(
+                    project_root,
+                    engine=canonical_engine,
+                    component=component,
+                    summary="missing input_tokens / output_tokens",
+                )
+        else:
+            _emit_genai_usage_malformed(
+                project_root,
+                engine=canonical_engine,
+                component=component,
+                summary=f"usage must be a dict, got {type(usage).__name__}",
+            )
 
     entry: dict = {
         "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
@@ -260,11 +355,42 @@ def build_framework_event(
         entry["source"] = source
     if session_id is not None:
         entry["sessionId"] = session_id
-    if trace_id is not None:
-        entry["traceId"] = trace_id
+    if resolved_trace_id is not None:
+        entry["traceId"] = resolved_trace_id
     if parent_id is not None:
         entry["parentId"] = parent_id
+    # Spec-120 §4.1: spanId is auto-filled (always present); parentSpanId
+    # may legitimately be None (root span) and is omitted in that case
+    # to match the pkg-side `exclude_none=True` model_dump semantics.
+    entry["spanId"] = resolved_span_id
+    if resolved_parent_span_id is not None:
+        entry["parentSpanId"] = resolved_parent_span_id
     return entry
+
+
+def _emit_genai_usage_malformed(
+    project_root: Path,
+    *,
+    engine: str,
+    component: str,
+    summary: str,
+) -> None:
+    """Best-effort framework_error emission for malformed `usage` payloads.
+
+    Mirrors the pkg-side helper; defensive shield around the actual
+    emit so a malformed-usage report never compounds into a hard crash
+    on the caller's flow.
+    """
+    import contextlib
+
+    with contextlib.suppress(Exception):  # defensive shield
+        emit_framework_error(
+            project_root,
+            engine=engine,
+            component=component,
+            error_code="genai_usage_malformed",
+            summary=summary,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +409,17 @@ def emit_skill_invoked(
     trace_id: str | None = None,
     correlation_id: str | None = None,
     metadata: dict | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict | None = None,
 ) -> dict:
+    """Stdlib-only mirror of the pkg-side ``emit_skill_invoked``.
+
+    Spec-120 §4.1 additive kwargs (``span_id`` / ``parent_span_id`` /
+    ``usage``) forward as-is to :func:`build_framework_event`; existing
+    positional/keyword arguments stay unchanged so legacy hook call
+    sites continue to work.
+    """
     detail: dict = {"skill": _normalize_skill_name(skill_name)}
     if metadata:
         detail.update(metadata)
@@ -297,6 +433,9 @@ def emit_skill_invoked(
         trace_id=trace_id,
         correlation_id=correlation_id,
         detail=detail,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        usage=usage,
     )
     append_framework_event(project_root, entry)
     return entry
@@ -313,7 +452,17 @@ def emit_agent_dispatched(
     trace_id: str | None = None,
     correlation_id: str | None = None,
     metadata: dict | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict | None = None,
 ) -> dict:
+    """Stdlib-only mirror of the pkg-side ``emit_agent_dispatched``.
+
+    Spec-120 §4.1 additive kwargs (``span_id`` / ``parent_span_id`` /
+    ``usage``) forward as-is to :func:`build_framework_event`; existing
+    positional/keyword arguments stay unchanged so legacy hook call
+    sites continue to work.
+    """
     detail: dict = {"agent": _normalize_agent_name(agent_name)}
     if metadata:
         detail.update(metadata)
@@ -327,6 +476,9 @@ def emit_agent_dispatched(
         trace_id=trace_id,
         correlation_id=correlation_id,
         detail=detail,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        usage=usage,
     )
     append_framework_event(project_root, entry)
     return entry
@@ -613,8 +765,8 @@ def emit_task_trace(
 
 # ---------------------------------------------------------------------------
 # spec-119 evaluation layer emit helpers (D-119-01)
-# Mirror of the canonical helpers in
-# .ai-engineering/scripts/hooks/_lib/observability.py.
+# All eight emit_eval_* helpers route through _emit_eval_run, which in turn
+# routes through append_framework_event so the audit hash chain stays intact.
 # ---------------------------------------------------------------------------
 
 
@@ -823,6 +975,7 @@ def emit_eval_gated(
         extras["failed_scenarios"] = list(failed_scenarios)
     if reason:
         extras["reason"] = reason
+    # NO_GO and SKIPPED are non-success outcomes for downstream consumers.
     outcome = "failure" if verdict == "NO_GO" else "success"
     if verdict == "SKIPPED":
         outcome = "degraded"
