@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-05-04T21:01:18Z",
-  "hookCount": 68,
+  "generatedAt": "2026-05-04T21:05:08Z",
+  "hookCount": 72,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "14bfbad9f15b03db274362d026700ee154f391a96c69e753e643b3c7ab32fa19",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "ef4a571b410d6e7a0392bab1864c7cb382785ec6b4a0f9ff8a63ebc92c2bf1a6",
@@ -38,6 +38,10 @@
     ".ai-engineering/scripts/hooks/copilot-instinct-observe.sh": "a2c6b630e616c1a0ecb2b1d785ce75f6dd72a59a48dabf2414d6627b11e632e1",
     ".ai-engineering/scripts/hooks/copilot-mcp-health.ps1": "dd9ddbca168b59ddb6647a91a94b2c854b3cec8c1e1a985b8c5235b9f73e8591",
     ".ai-engineering/scripts/hooks/copilot-mcp-health.sh": "cc8fef85ccd0b0adef9a04655da92145e151dc3fb8ea0f4a5d3b33516bd5a2b4",
+    ".ai-engineering/scripts/hooks/copilot-memory-session-start.ps1": "b75c30f3581b496cb1e140bd8ca915de586eddcd23d8a8500bddb5b0eab8add2",
+    ".ai-engineering/scripts/hooks/copilot-memory-session-start.sh": "f89b31229a54108449eb622cef642d4287eab3bc835151772b2e89ed6ebefdd9",
+    ".ai-engineering/scripts/hooks/copilot-memory-stop.ps1": "1d6b2160920ff0725ad5fb5fc01036c530613ff2c20ea5ab7b7385d384c47002",
+    ".ai-engineering/scripts/hooks/copilot-memory-stop.sh": "6a990f5f4a1a1304d5caa0ddc1c6187e3bd63cd925af1fd0246752fbf40c366a",
     ".ai-engineering/scripts/hooks/copilot-runtime-guard.ps1": "1f6e7ede3c9450e9d3830618c54cbdda33ec997e74ada100929122746e4e3ac6",
     ".ai-engineering/scripts/hooks/copilot-runtime-guard.sh": "13aff30a747e1518b9c6c3d222ebffdb2de86072a68cf108c9e10a35d8b201d2",
     ".ai-engineering/scripts/hooks/copilot-runtime-progressive-disclosure.ps1": "e165b80ebcf112f860e5fb764252039d89b849f6ac084f38722299e5b2c4322a",

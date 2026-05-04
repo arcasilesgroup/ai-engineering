@@ -40,6 +40,13 @@
             "command": "AIENG_HOOK_ENGINE=gemini CLAUDE_HOOK_EVENT_NAME=UserPromptSubmit python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-progressive-disclosure.py\"",
             "timeout": 5000,
             "description": "Rank skills by prompt relevance, surface top-K"
+          },
+          {
+            "type": "command",
+            "name": "memory-session-start",
+            "command": "AIENG_HOOK_ENGINE=gemini CLAUDE_HOOK_EVENT_NAME=SessionStart python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/memory-session-start.py\"",
+            "timeout": 10000,
+            "description": "Surface relevant memory episodes at session start"
           }
         ]
       }
@@ -161,6 +168,13 @@
             "command": "AIENG_HOOK_ENGINE=gemini CLAUDE_HOOK_EVENT_NAME=Stop python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-stop.py\"",
             "timeout": 15000,
             "description": "Checkpoint + Ralph Loop resume marker"
+          },
+          {
+            "type": "command",
+            "name": "memory-stop",
+            "command": "AIENG_HOOK_ENGINE=gemini CLAUDE_HOOK_EVENT_NAME=Stop python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/memory-stop.py\"",
+            "timeout": 25000,
+            "description": "Persist session as memory episode (cross-IDE memory layer)"
           }
         ]
       }

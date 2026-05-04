@@ -8,6 +8,13 @@
         "powershell": "./.ai-engineering/scripts/hooks/copilot-session-start.ps1",
         "timeoutSec": 10,
         "comment": "Emit session_start telemetry on session initialization"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-memory-session-start.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-memory-session-start.ps1",
+        "timeoutSec": 10,
+        "comment": "Surface relevant prior episodes via memory-session-start (cross-IDE memory layer)"
       }
     ],
     "sessionEnd": [
@@ -31,6 +38,13 @@
         "powershell": "./.ai-engineering/scripts/hooks/copilot-runtime-stop.ps1",
         "timeoutSec": 15,
         "comment": "Write runtime checkpoint + Ralph Loop resume marker (runtime-stop)"
+      },
+      {
+        "type": "command",
+        "bash": "./.ai-engineering/scripts/hooks/copilot-memory-stop.sh",
+        "powershell": "./.ai-engineering/scripts/hooks/copilot-memory-stop.ps1",
+        "timeoutSec": 25,
+        "comment": "Persist session as memory episode (cross-IDE memory layer)"
       }
     ],
     "userPromptSubmitted": [
