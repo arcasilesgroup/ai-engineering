@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-05-04T15:54:40Z",
-  "hookCount": 65,
+  "generatedAt": "2026-05-04T16:07:14Z",
+  "hookCount": 68,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "14bfbad9f15b03db274362d026700ee154f391a96c69e753e643b3c7ab32fa19",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "ef4a571b410d6e7a0392bab1864c7cb382785ec6b4a0f9ff8a63ebc92c2bf1a6",
@@ -10,6 +10,7 @@
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.sh": "8a779c3458dc73835938ee2a42033a0770ebd5bbbd2178a6b563f94c60fed262",
     ".ai-engineering/scripts/hooks/_lib/hook-common.py": "15a80fe573af25bd52e11550a414c9876715af4e52cde956e7dd72be5c72c780",
     ".ai-engineering/scripts/hooks/_lib/hook_context.py": "2c12de1c4bb932d94eb6a19b1ce9f316bdf5ef651a41a53de219a1e9d2f8d802",
+    ".ai-engineering/scripts/hooks/_lib/hook_http.py": "84a35db5a49ac1c01253b1c3385ae61ca974c7c597576a9d7c561b28eb94c64a",
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",
     ".ai-engineering/scripts/hooks/_lib/instincts.py": "c0028bc9456f59b7b727ccd1e545308f0075ad47dd71fcddc2165f1e4a57a464",
     ".ai-engineering/scripts/hooks/_lib/integrity.py": "d88f5e41c230368d3b5033dde623ab49a5ec12017f6508eea5f111dbe036b9ba",
@@ -61,7 +62,9 @@
     ".ai-engineering/scripts/hooks/prompt-injection-guard.py": "d77a6c5123291c1724ba6f7d93d429d766da635a9b67b43d3307178dea3d93e6",
     ".ai-engineering/scripts/hooks/runtime-compact.py": "4fd15bac503962bd33eaf11400160d56adb2fa29f1360d5d930392530f0f4d5b",
     ".ai-engineering/scripts/hooks/runtime-guard.py": "7af35008193a11e2df99338dc4279ca956e4ebd1db015e44b31a4d8d9f610798",
+    ".ai-engineering/scripts/hooks/runtime-notification.py": "82d0b13d64598f7cd475d874ac69b7698a3195c635bff14f2f880765739ceed6",
     ".ai-engineering/scripts/hooks/runtime-progressive-disclosure.py": "7eaee4d1d38a23a0aad714bdf51916809ef4d4667d986d9255465c811b5ce5e4",
+    ".ai-engineering/scripts/hooks/runtime-session-end.py": "b065ea0cd0cf36b0ab91f783e388ac69d09c8a0af8fcfbabd36a63c509a4e031",
     ".ai-engineering/scripts/hooks/runtime-session-start.py": "62820b5e80576b1c182c4a85d0ee8fb18875e3b3da34f36b4956fc12d4141258",
     ".ai-engineering/scripts/hooks/runtime-stop.py": "b7bd6c270082bc6434455bdb004bfbaecc46b7e3812e368e53cb5808fc01114f",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "e1bda43b4f2a24df679c8f0ac7743a9a61e005151e824e2e79ffda92b04c743f",

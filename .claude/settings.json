@@ -212,6 +212,30 @@
           }
         ]
       }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-notification.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-session-end.py\"",
+            "timeout": 5
+          }
+        ]
+      }
     ]
   }
 }

@@ -89,8 +89,21 @@ Each run emits one of:
 - **Scheduled by**: `/ai-schedule` via the `/schedule weekly /ai-entropy-gc` invocation pattern.
 - **Telemetry**: `framework_operation` events are aggregated by the spec-120 audit index.
 
+## Scheduled cadence (spec-121)
+
+The schedule layer should call the deterministic wrapper, not the slash command directly:
+
+```
+0 4 * * 1   <project>/.ai-engineering/scripts/scheduled/entropy-gc.sh
+```
+
+The wrapper resolves `$AIENG_PROJECT_ROOT` (or falls back to `git rev-parse --show-toplevel`), invokes `ai-eng simplify --conservative --no-pr` when the CLI is on PATH, and emits a `framework_operation` event (`operation=entropy_gc_scheduled_run`) with `outcome=success|failure|skipped` for every cycle. Never auto-merges; PR opening stays the responsibility of the slash-command path.
+
+Activate via `/ai-schedule weekly <project>/.ai-engineering/scripts/scheduled/entropy-gc.sh` or copy the cron line above into your scheduler.
+
 ## References
 
 - Skill source of truth: `.claude/skills/ai-entropy-gc/SKILL.md`
 - Related: `.claude/skills/ai-simplify/SKILL.md`, `.claude/skills/ai-schedule/SKILL.md`
 - Manifest entry: `.ai-engineering/manifest.yml` `skills.registry.ai-entropy-gc`
+- Scheduled wrapper: `.ai-engineering/scripts/scheduled/entropy-gc.sh`
