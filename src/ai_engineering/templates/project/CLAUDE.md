@@ -98,17 +98,46 @@ the 2026 industry survey (Fowler, Osmani, OpenAI Codex, Anthropic):
   critical runtime state before context compaction (Anthropic: "never
   rely on compaction for critical rules") and emits a verification
   event afterwards.
+- **Ralph Loop convergence** (in `runtime-stop.py` + `_lib/convergence.py`)
+  — convergence sweep on Stop. Fast mode runs `ruff check` +
+  `pytest --collect-only` (~5s budget); full mode adds `pytest -x` and
+  `ruff format --check` (~60s budget). Missing tools fail-open
+  (treat as converged). On non-converged state emits `ralph_reinject`
+  telemetry and increments `runtime/ralph-resume.json`. **Reinjection
+  is opt-in**: default observes only and never writes
+  `decision: block` to stdout (avoids trapping repos with pre-existing
+  lint/test debt). Set `AIENG_RALPH_BLOCK=1` to enable the actual
+  reinjection path. `AIENG_RALPH_DISABLED=1` skips the convergence
+  sweep entirely. Bounded by `AIENG_RALPH_MAX_RETRIES` (default 5,
+  ceiling 50).
+- **Risk accumulator (PRISM-style)** (in `_lib/risk_accumulator.py` +
+  wired into `prompt-injection-guard.py` and `runtime-guard.py`) —
+  per-session risk score with exponential decay and threshold ladder.
+  Severity mapping: `LOW=1`, `MEDIUM=5`, `HIGH=20`, `CRITICAL=50`.
+  Threshold ladder: `silent < 10 ≤ warn < 30 ≤ block < 60 ≤ force_stop`.
+  TTL decay `0.95^minute` (~13.5 min half-life, 0.1 noise floor).
+  Repeat-signal weighting: `1.5x` for 1 prior fire of the same IOC in
+  60 min, `2.5x` for 2+ fires. Block / force_stop applied by
+  `prompt-injection-guard.py` (exit 2 + framework_error). Warn surfaced
+  by `runtime-guard.py` as a hint in `additionalContext`. Disable via
+  `AIENG_RISK_ACCUMULATOR_DISABLED=1`. State at
+  `.ai-engineering/state/runtime/risk-score.json` (gitignored,
+  session-scoped, atomic writes, corruption-tolerant).
 
 Tunables (all optional, env-driven):
 
 ```
-AIENG_TOOL_OFFLOAD_BYTES   # default 4096
-AIENG_TOOL_OFFLOAD_HEAD    # default 1024
-AIENG_TOOL_OFFLOAD_TAIL    # default 512
-AIENG_LOOP_WINDOW          # default 6
-AIENG_LOOP_REPEAT_THRESHOLD# default 3
-AIENG_TOOL_HISTORY_MAX     # default 500
-AIENG_RALPH_MAX_RETRIES    # default 5
+AIENG_TOOL_OFFLOAD_BYTES         # default 4096
+AIENG_TOOL_OFFLOAD_HEAD          # default 1024
+AIENG_TOOL_OFFLOAD_TAIL          # default 512
+AIENG_LOOP_WINDOW                # default 6
+AIENG_LOOP_REPEAT_THRESHOLD      # default 3
+AIENG_TOOL_HISTORY_MAX           # default 500
+AIENG_RALPH_MAX_RETRIES          # default 5
+AIENG_RALPH_BLOCK                # default 0 (observe-only)
+AIENG_RALPH_DISABLED             # default 0
+AIENG_RISK_ACCUMULATOR_DISABLED  # default 0
+AIENG_HOOK_INTEGRITY_MODE        # default warn (set to enforce in CI)
 ```
 
 State lives under `.ai-engineering/state/runtime/`. Checkpoint and

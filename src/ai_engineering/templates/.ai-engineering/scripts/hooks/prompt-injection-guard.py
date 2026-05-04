@@ -35,6 +35,7 @@ installer's runtime.
 import contextlib
 import hashlib
 import json
+import os
 import re
 import shlex
 import sys
@@ -44,11 +45,112 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from _lib import risk_accumulator
 from _lib.audit import is_debug_mode, passthrough_stdin
-from _lib.hook_common import run_hook_safe
+from _lib.hook_common import get_correlation_id, run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.injection_patterns import PATTERNS
-from _lib.observability import emit_control_outcome
+from _lib.observability import (
+    emit_control_outcome,
+    emit_framework_error,
+    emit_framework_operation,
+)
+
+# spec-120 follow-up: PRISM-style risk accumulator wiring. Disable
+# entirely with ``AIENG_RISK_ACCUMULATOR_DISABLED=1`` (e.g. tests that
+# do not want risk-state.json side effects).
+RISK_DISABLED = (os.environ.get("AIENG_RISK_ACCUMULATOR_DISABLED") or "").strip() == "1"
+_RISK_COMPONENT = "hook.prompt-injection-guard"
+
+
+def _apply_risk(
+    project_root: Path,
+    *,
+    session_id: str | None,
+    severity: str,
+    ioc_id: str,
+    correlation_id: str,
+) -> None:
+    """Add a finding to the per-session risk accumulator and act on the threshold.
+
+    Pipeline:
+    1. ``risk_accumulator.add(...)`` to bump the running score (writes
+       ``runtime/risk-score.json``).
+    2. ``risk_accumulator.threshold_action(...)`` maps the new score
+       to one of ``silent | warn | block | force_stop``.
+    3. ``warn`` emits a ``framework_operation`` (``risk_warn``) so the
+       audit chain records the elevation. The hook does NOT block.
+    4. ``block`` emits a ``framework_error`` (``risk_threshold_block``)
+       and exits 2 — Claude Code interprets that as deny.
+    5. ``force_stop`` emits ``risk_force_stop``, writes a ``decision:
+       block`` JSON to stdout (so the user sees a deterministic
+       termination message), and exits 2.
+
+    Defensive: any exception inside the accumulator (corrupt state,
+    write race) is swallowed — the host hook MUST keep running.
+    Disable with ``AIENG_RISK_ACCUMULATOR_DISABLED=1``.
+    """
+    if RISK_DISABLED:
+        return
+    try:
+        state = risk_accumulator.add(
+            project_root,
+            session_id=session_id or "unknown",
+            severity=severity,
+            ioc_id=ioc_id,
+        )
+        action = risk_accumulator.threshold_action(state.score)
+    except Exception:
+        return  # fail-open: never let risk telemetry break the host hook.
+    if action == "warn":
+        with contextlib.suppress(Exception):
+            emit_framework_operation(
+                project_root,
+                operation="risk_warn",
+                component=_RISK_COMPONENT,
+                source="hook",
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+    elif action == "block":
+        with contextlib.suppress(Exception):
+            emit_framework_error(
+                project_root,
+                engine="ai_engineering",
+                component=_RISK_COMPONENT,
+                error_code="risk_threshold_block",
+                source="hook",
+                session_id=session_id,
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+        sys.exit(2)
+    elif action == "force_stop":
+        with contextlib.suppress(Exception):
+            emit_framework_error(
+                project_root,
+                engine="ai_engineering",
+                component=_RISK_COMPONENT,
+                error_code="risk_force_stop",
+                source="hook",
+                session_id=session_id,
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "decision": "block",
+                    "additionalContext": (
+                        f"Session terminated — accumulated risk "
+                        f"{state.score:.1f} exceeds force_stop threshold."
+                    ),
+                }
+            )
+        )
+        sys.stdout.flush()
+        sys.exit(2)
+
 
 _GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit"}
 _MIN_CONTENT_LEN = 10
@@ -461,6 +563,18 @@ def _emit_ioc_outcomes(project_root: Path, tool_name: str, result: dict[str, Any
                 outcome=outcome,
                 source="hook",
                 metadata=meta,
+            )
+        # spec-120 #17: feed risk accumulator. Severity inferred from the
+        # match category. CRITICAL on deny (un-accepted), HIGH otherwise.
+        finding_id = match.get("finding_id") or match.get("pattern") or "unknown"
+        severity = "CRITICAL" if (verdict == "deny" and not accepted) else "HIGH"
+        with contextlib.suppress(Exception):
+            _apply_risk(
+                project_root,
+                session_id=None,
+                severity=severity,
+                ioc_id=str(finding_id),
+                correlation_id=get_correlation_id(),
             )
 
 

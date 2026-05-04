@@ -22,6 +22,7 @@ Fail-open: never blocks the IDE. Exits 0 even on error.
 from __future__ import annotations
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -194,6 +195,25 @@ def main() -> None:
                     f"Head + tail kept in context; full payload at "
                     f"{summary['path']}. Read it on demand instead of pasting."
                 )
+
+    # --- PRISM risk warn-level surface (spec-120 #17) ------------------
+    # When accumulated session risk crosses the warn threshold, append a
+    # one-line hint so the model knows recent prompt-injection-guard
+    # findings have stacked up. Block / force_stop are handled by
+    # prompt-injection-guard.py itself; runtime-guard is observational.
+    risk_disabled = (os.environ.get("AIENG_RISK_ACCUMULATOR_DISABLED") or "").strip() == "1"
+    if not risk_disabled:
+        try:
+            from _lib import risk_accumulator  # type: ignore[import-not-found]
+
+            state = risk_accumulator.get(ctx.project_root, session_id=session_id or "unknown")
+            if risk_accumulator.threshold_action(state.score) == "warn":
+                hints.append(
+                    f"[runtime-guard] ⚠️ Session risk score {state.score:.1f} "
+                    "(warn threshold). Review recent prompt-injection-guard findings."
+                )
+        except Exception:
+            pass  # fail-open; never break runtime-guard
 
     # --- Surface hints to the model ------------------------------------
     if hints:
