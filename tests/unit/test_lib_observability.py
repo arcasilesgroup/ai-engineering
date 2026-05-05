@@ -438,21 +438,9 @@ class TestEmitDeclaredContextLoads:
         )
         assert constitution_event["detail"]["path"] == "CONSTITUTION.md"
 
-    def test_nested_constitution_remains_compatibility_fallback(self, project_root: Path) -> None:
-        (project_root / ".ai-engineering" / "CONSTITUTION.md").unlink()
-
-        events = lib_obs.emit_declared_context_loads(
-            project_root,
-            engine="claude_code",
-            initiator_kind="skill",
-            initiator_name="ai-brainstorm",
-            component="hook/user-prompt-submit",
-        )
-
-        constitution_event = next(
-            event for event in events if event["detail"]["context_class"] == "constitution"
-        )
-        assert constitution_event["detail"]["path"] == ".ai-engineering/CONSTITUTION.md"
+    # spec-123 D-123-17: test_nested_constitution_remains_compatibility_fallback
+    # removed — workspace-charter stub deleted; dual-path fallback no longer
+    # exists. Sole canonical source is CONSTITUTION.md at repo root.
 
     def test_active_pointer_redirects_declared_spec_contexts(self, project_root: Path) -> None:
         resolved_specs_dir = project_root / "resolved-work-plane"

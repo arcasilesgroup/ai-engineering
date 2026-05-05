@@ -54,8 +54,6 @@ _EXPECTED_SESSION_CONTEXT_FILES = [
 _EXPECTED_CONTROL_PLANE = {
     "constitutional_authority": {
         "primary": "CONSTITUTION.md",
-        "workspace_charter": ".ai-engineering/CONSTITUTION.md",
-        "compatibility_aliases": [".ai-engineering/CONSTITUTION.md"],
     },
     "manifest_field_roles": {
         "canonical_input": [
@@ -78,11 +76,6 @@ _EXPECTED_CONTROL_PLANE = {
         "descriptive_metadata": ["schema_version", "framework_version", "name", "version"],
     },
 }
-_WORKSPACE_CHARTER_REQUIRED_SNIPPETS = (
-    "Root `CONSTITUTION.md` is the sole constitutional authority",
-    "This workspace charter is subordinate to root `CONSTITUTION.md`.",
-    "not loaded at Step 0",
-)
 
 
 def _read_framework_version(manifest_path: Path) -> str | None:
@@ -182,66 +175,6 @@ def _check_source_repo_control_plane_contract(target: Path, report: IntegrityRep
             name="control-plane-authority-contract",
             status=IntegrityStatus.OK,
             message="Root and template manifests carry the normalized control-plane authority contract",
-        )
-    )
-
-
-def _check_source_repo_workspace_charter_role(target: Path, report: IntegrityReport) -> None:
-    """Verify the workspace charter remains a subordinate compatibility artifact."""
-    template_manifest_path = _template_manifest_path(target)
-    if not template_manifest_path.is_file():
-        return
-
-    charter_paths = [
-        (target / _AI_ENGINEERING_DIRNAME / "CONSTITUTION.md", "live workspace charter"),
-        (
-            target
-            / "src"
-            / "ai_engineering"
-            / "templates"
-            / _AI_ENGINEERING_DIRNAME
-            / "CONSTITUTION.md",
-            "template workspace charter",
-        ),
-    ]
-
-    mismatches: list[str] = []
-    for charter_path, label in charter_paths:
-        try:
-            content = charter_path.read_text(encoding="utf-8")
-        except OSError as exc:
-            mismatches.append(f"{label} could not be read: {exc}")
-            continue
-
-        missing_snippets = [
-            snippet for snippet in _WORKSPACE_CHARTER_REQUIRED_SNIPPETS if snippet not in content
-        ]
-        if missing_snippets:
-            mismatches.append(
-                f"{label} drifted from the normalized subordinate-charter role: {', '.join(missing_snippets)}"
-            )
-
-    if mismatches:
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MANIFEST_COHERENCE,
-                name="workspace-charter-role",
-                status=IntegrityStatus.FAIL,
-                message="; ".join(mismatches),
-                file_path=f"{_AI_ENGINEERING_PATH_PREFIX}CONSTITUTION.md",
-            )
-        )
-        return
-
-    report.checks.append(
-        IntegrityCheckResult(
-            category=IntegrityCategory.MANIFEST_COHERENCE,
-            name="workspace-charter-role",
-            status=IntegrityStatus.OK,
-            message=(
-                "Live and template workspace charters remain subordinate compatibility aliases "
-                "of root CONSTITUTION.md"
-            ),
         )
     )
 
@@ -528,7 +461,6 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
 
     _check_source_repo_framework_versions(target, report)
     _check_source_repo_control_plane_contract(target, report)
-    _check_source_repo_workspace_charter_role(target, report)
     _check_source_repo_ownership_snapshot(target, report)
     _check_source_repo_framework_capabilities_snapshot(target, report)
     _check_source_repo_capability_card_contract(target, report)

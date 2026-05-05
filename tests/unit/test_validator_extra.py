@@ -193,9 +193,6 @@ session:
 control_plane:
   constitutional_authority:
     primary: CONSTITUTION.md
-    workspace_charter: .ai-engineering/CONSTITUTION.md
-    compatibility_aliases:
-      - .ai-engineering/CONSTITUTION.md
   manifest_field_roles:
     canonical_input:
       - providers
@@ -222,13 +219,6 @@ control_plane:
       - version
 """
 
-_WORKSPACE_CHARTER_STUB = (
-    "# WORKSPACE CHARTER\n\n"
-    "Root `CONSTITUTION.md` is the sole constitutional authority.\n"
-    "This workspace charter is subordinate to root `CONSTITUTION.md`.\n"
-    "It is not loaded at Step 0 of skill or agent invocation.\n"
-)
-
 
 def test_manifest_coherence_checks_framework_version_for_source_repo(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
@@ -249,10 +239,6 @@ def test_manifest_coherence_checks_framework_version_for_source_repo(tmp_path: P
         'framework_version: "0.4.0"\n' + _SOURCE_REPO_CONTROL_PLANE_YAML,
         encoding="utf-8",
     )
-    # spec-117/120 workspace-charter + control-plane snapshot artifacts
-    (ai / "CONSTITUTION.md").write_text(_WORKSPACE_CHARTER_STUB, encoding="utf-8")
-    template_charter = template_manifest.parent / "CONSTITUTION.md"
-    template_charter.write_text(_WORKSPACE_CHARTER_STUB, encoding="utf-8")
     # Materialize the executable contract snapshots the validator compares against.
     # The validator computes the expected ownership-map and framework-capabilities
     # from the same builders; writing those builder outputs makes the fixture

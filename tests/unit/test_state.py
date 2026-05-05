@@ -171,8 +171,10 @@ class TestOwnershipMap:
 
     def test_constitution_denied(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/CONSTITUTION.md") is False
-        assert om.has_deny_rule(".ai-engineering/CONSTITUTION.md") is True
+        # spec-123 D-123-17: workspace-charter stub deleted; only root
+        # CONSTITUTION.md is governed; no compatibility alias.
+        assert om.is_update_allowed("CONSTITUTION.md") is False
+        assert om.has_deny_rule("CONSTITUTION.md") is True
 
     def test_gitleaks_allowed(self) -> None:
         om = default_ownership_map()

@@ -222,10 +222,10 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             family_id="control-plane-compatibility-surfaces",
             title="Control-plane compatibility surfaces",
             sequence=10,
-            status=LegacyRetirementStatus.PRESERVED,
+            status=LegacyRetirementStatus.RETIRED,
             replacement_owner="HX-01",
-            current_surfaces=("CONSTITUTION.md", ".ai-engineering/CONSTITUTION.md"),
-            replacement_refs=(".ai-engineering/manifest.yml",),
+            current_surfaces=("CONSTITUTION.md",),
+            replacement_refs=("CONSTITUTION.md", ".ai-engineering/manifest.yml"),
             parity_proofs=(
                 ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx01_t5_3_focused_end_to_end_proof.md",
             ),

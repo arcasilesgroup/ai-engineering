@@ -222,9 +222,6 @@ def _source_repo_manifest_text(version: str = "1.2.3") -> str:
         "control_plane:\n"
         "  constitutional_authority:\n"
         "    primary: CONSTITUTION.md\n"
-        "    workspace_charter: .ai-engineering/CONSTITUTION.md\n"
-        "    compatibility_aliases:\n"
-        "      - .ai-engineering/CONSTITUTION.md\n"
         "  manifest_field_roles:\n"
         "    canonical_input:\n"
         "      - providers\n"
@@ -268,33 +265,12 @@ def _write_source_repo_markers(root: Path, ai: Path, *, version: str = "1.2.3") 
 
 def _write_source_repo_control_plane_files(root: Path, ai: Path) -> None:
     (root / "CONSTITUTION.md").write_text("# Root Constitution\n", encoding="utf-8")
-    (ai / "CONSTITUTION.md").write_text(
-        "# WORKSPACE CHARTER\n\n"
-        "Root `CONSTITUTION.md` is the sole constitutional authority and the only Step 0 "
-        "input for this repository.\n\n"
-        "This workspace charter is subordinate to root `CONSTITUTION.md`. It is not a "
-        "second constitution and it is not loaded at Step 0.\n",
-        encoding="utf-8",
-    )
 
     project_template_constitution = (
         root / "src" / "ai_engineering" / "templates" / "project" / "CONSTITUTION.md"
     )
     project_template_constitution.parent.mkdir(parents=True, exist_ok=True)
     project_template_constitution.write_text("# Template Constitution\n", encoding="utf-8")
-
-    template_charter = (
-        root / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "CONSTITUTION.md"
-    )
-    template_charter.parent.mkdir(parents=True, exist_ok=True)
-    template_charter.write_text(
-        "# WORKSPACE CHARTER\n\n"
-        "Root `CONSTITUTION.md` is the sole constitutional authority and the only Step 0 "
-        "input for the project.\n\n"
-        "This workspace charter is subordinate to root `CONSTITUTION.md`. It is not a "
-        "second constitution and it is not loaded at Step 0.\n",
-        encoding="utf-8",
-    )
 
 
 def _write_work_plane(
@@ -2941,47 +2917,6 @@ class TestManifestCoherence:
             c
             for c in report.checks
             if c.name == "control-plane-authority-contract" and c.status == IntegrityStatus.FAIL
-        ]
-        assert len(fail_checks) == 1
-
-    def test_source_repo_workspace_charter_role_contract_passes(self, tmp_path: Path) -> None:
-        ai = _make_governance(tmp_path)
-        _write_source_repo_markers(tmp_path, ai)
-        _write_source_repo_control_plane_files(tmp_path, ai)
-        _write_active_spec(ai)
-
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.MANIFEST_COHERENCE],
-        )
-
-        ok_checks = [
-            c
-            for c in report.checks
-            if c.name == "workspace-charter-role" and c.status == IntegrityStatus.OK
-        ]
-        assert len(ok_checks) == 1
-
-    def test_source_repo_workspace_charter_role_contract_drift_fails(self, tmp_path: Path) -> None:
-        ai = _make_governance(tmp_path)
-        _write_source_repo_markers(tmp_path, ai)
-        _write_source_repo_control_plane_files(tmp_path, ai)
-        _write_active_spec(ai)
-
-        (ai / "CONSTITUTION.md").write_text(
-            "# CONSTITUTION\n\nThis file is a peer constitutional authority for the workspace.\n",
-            encoding="utf-8",
-        )
-
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.MANIFEST_COHERENCE],
-        )
-
-        fail_checks = [
-            c
-            for c in report.checks
-            if c.name == "workspace-charter-role" and c.status == IntegrityStatus.FAIL
         ]
         assert len(fail_checks) == 1
 

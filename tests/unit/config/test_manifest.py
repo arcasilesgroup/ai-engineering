@@ -86,9 +86,12 @@ class TestRealManifest:
         assert isinstance(constitutional_authority, dict)
         assert constitutional_authority.get("primary") == "CONSTITUTION.md"
 
+        # spec-123 D-123-17: workspace-charter stub deleted; compatibility
+        # aliases collapse to empty list. The single canonical source is
+        # CONSTITUTION.md at repo root.
         compatibility_aliases = constitutional_authority.get("compatibility_aliases")
         assert isinstance(compatibility_aliases, list)
-        assert ".ai-engineering/CONSTITUTION.md" in compatibility_aliases
+        assert compatibility_aliases == []
 
         manifest_field_roles = control_plane.get("manifest_field_roles")
         assert isinstance(manifest_field_roles, dict)
@@ -269,7 +272,9 @@ class TestSkills:
         # spec-116/117/120: 49 -> 52 (ai-design, ai-animation, ai-canvas,
         # ai-eval-gate). spec-122 (sub-001 hygiene): 52 -> 51 after pruning
         # the legacy /ai-eval-gate skill that duplicated /ai-release-gate.
-        assert config.skills.total == len(config.skills.registry) == 51
+        # spec-123 (D-123-08/10): 51 -> 49 after deleting the memory
+        # subsystem skills /ai-remember and /ai-dream.
+        assert config.skills.total == len(config.skills.registry) == 49
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

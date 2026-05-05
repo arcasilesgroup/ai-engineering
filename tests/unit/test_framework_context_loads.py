@@ -110,12 +110,11 @@ class TestDeclaredContextLoads:
         assert plan_event.outcome == "failure"
 
     def test_root_constitution_is_preferred_when_present(self, tmp_path: Path) -> None:
+        # spec-123 D-123-17: workspace-charter stub deleted; only root
+        # CONSTITUTION.md remains. Test asserts the canonical path emits.
         _seed_project(
             tmp_path,
-            constitution_paths=(
-                "CONSTITUTION.md",
-                ".ai-engineering/CONSTITUTION.md",
-            ),
+            constitution_paths=("CONSTITUTION.md",),
         )
 
         emit_declared_context_loads(
@@ -136,28 +135,6 @@ class TestDeclaredContextLoads:
         )
         assert constitution_event.outcome == "success"
         assert constitution_event.detail["path"] == "CONSTITUTION.md"
-
-    def test_nested_constitution_remains_compatibility_fallback(self, tmp_path: Path) -> None:
-        _seed_project(tmp_path, constitution_paths=(".ai-engineering/CONSTITUTION.md",))
-
-        emit_declared_context_loads(
-            tmp_path,
-            engine="claude_code",
-            initiator_kind="skill",
-            initiator_name="ai-start",
-            component="hook.telemetry-skill",
-            source="hook",
-            session_id="session-4",
-            trace_id="trace-4",
-            correlation_id="corr-4",
-        )
-
-        entries = read_ndjson_entries(framework_events_path(tmp_path), FrameworkEvent)
-        constitution_event = next(
-            entry for entry in entries if entry.detail["context_class"] == "constitution"
-        )
-        assert constitution_event.outcome == "success"
-        assert constitution_event.detail["path"] == ".ai-engineering/CONSTITUTION.md"
 
     def test_active_pointer_redirects_declared_spec_contexts(self, tmp_path: Path) -> None:
         _seed_project(tmp_path)

@@ -17,7 +17,7 @@ from ai_engineering.config.manifest import RootEntryPointConfig
 from .models import FrameworkUpdatePolicy, OwnershipEntry, OwnershipLevel
 
 _CONSTITUTIONAL_PRIMARY = "CONSTITUTION.md"
-_CONSTITUTIONAL_ALIASES: tuple[str, ...] = (".ai-engineering/CONSTITUTION.md",)
+_CONSTITUTIONAL_ALIASES: tuple[str, ...] = ()
 
 _DEFAULT_ROOT_ENTRY_POINT_PATHS: tuple[str, ...] = (
     "CLAUDE.md",
@@ -86,7 +86,6 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
     (".ai-engineering/contexts/team/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".ai-engineering/LESSONS.md", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.APPEND_ONLY),
     (_CONSTITUTIONAL_PRIMARY, OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
-    (_CONSTITUTIONAL_ALIASES[0], OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (
         ".ai-engineering/contexts/*.md",
         OwnershipLevel.FRAMEWORK_MANAGED,

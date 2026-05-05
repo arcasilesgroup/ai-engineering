@@ -20,9 +20,7 @@ from ai_engineering.validator._shared import (
 _SPECS_ROOT_LABEL = "specs/"
 _SOURCE_REPO_CONTROL_PLANE_PATHS = [
     "CONSTITUTION.md",
-    ".ai-engineering/CONSTITUTION.md",
     "src/ai_engineering/templates/project/CONSTITUTION.md",
-    "src/ai_engineering/templates/.ai-engineering/CONSTITUTION.md",
 ]
 
 

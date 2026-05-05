@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """spec-118 T-5.1 -- SessionStart hook: cross-session memory injection.
 
-Reads the active spec, plan, recent edits, and last failures from
-`runtime/checkpoint.json`, derives a recovery-context query, then shells out
-to `ai-eng memory remember --top-k 5 --json` (or `python3 -m memory.cli ...`)
-and renders an injection block on stdout for the IDE to surface.
+NOTE (spec-123 D-123-08): the framework memory subsystem has been removed.
+This hook fail-opens (passthrough) when `.ai-engineering/scripts/memory/`
+is absent, so it is safe to leave wired. A future spec may replace the
+subprocess target with an Engram-backed equivalent. See CHANGELOG.md.
 
 Stdlib-only. Fail-open: any error degrades silently. Latency budget < 1.5s
 p95; the subprocess is given 4s to keep the budget bounded.
