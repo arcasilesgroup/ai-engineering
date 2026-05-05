@@ -123,7 +123,7 @@ def run_commit_msg_gate(
     if not _run_common_gate_guards(project_root, result, started_at=started_at):
         return result
 
-    _run_commit_msg_checks(commit_msg_file, result)
+    _run_commit_msg_checks(commit_msg_file, result, project_root=project_root)
     _emit_gate_audit(project_root, result, started_at=started_at)
     return result
 
@@ -212,9 +212,23 @@ def _git_diff_stats(project_root: Path) -> dict[str, int]:
 def _run_commit_msg_checks(
     commit_msg_file: Path | None,
     result: GateResult,
+    *,
+    project_root: Path | None = None,
 ) -> None:
-    """Validate commit message format."""
-    from ai_engineering.policy.checks.commit_msg import inject_gate_trailer, validate_commit_message
+    """Validate commit message format.
+
+    Spec-122 Phase C T-3.11: when ``project_root`` is provided the format
+    check is delegated to OPA via
+    ``commit_msg.validate_commit_message_opa``; the legacy regex is
+    retained as a fallback for the OPA-unavailable path. Without
+    ``project_root`` we default to the regex-only check to preserve the
+    original signature for legacy test fixtures.
+    """
+    from ai_engineering.policy.checks.commit_msg import (
+        inject_gate_trailer,
+        validate_commit_message,
+        validate_commit_message_opa,
+    )
 
     if commit_msg_file is None or not commit_msg_file.is_file():
         result.checks.append(
@@ -238,7 +252,10 @@ def _run_commit_msg_checks(
         )
         return
 
-    errors = validate_commit_message(msg)
+    if project_root is not None:
+        errors = validate_commit_message_opa(msg, project_root=project_root)
+    else:
+        errors = validate_commit_message(msg)
     if errors:
         result.checks.append(
             GateCheckResult(

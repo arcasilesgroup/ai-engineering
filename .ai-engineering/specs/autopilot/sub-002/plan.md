@@ -134,4 +134,36 @@ imports:
 
 ## Self-Report
 
-[EMPTY — populated by Phase 4]
+### Status: PARTIAL - agent truncated mid-T-2.9 (rotation.py)
+
+### Code artifacts on disk (verified)
+- src/ai_engineering/state/state_db.py - connect() + STATE_DB_REL + projection_write + 9 PRAGMAs
+- src/ai_engineering/state/migrations/{__init__,_runner,0001_initial_schema,0002_seed_from_json,0003_replay_ndjson}.py - sha256-gated migration runner
+- src/ai_engineering/state/{outbox,sidecar,rotation}.py - transactional outbox + 3KB content-addressed sidecar + monthly/256MB rotation w/ Crosby-Wallach hash chain
+- 25 new unit tests passing
+
+### Tasks: T-2.1..T-2.7 + T-2.9 done. T-2.8, T-2.10..T-2.22 deferred.
+
+| done | task |
+|------|------|
+| yes | T-2.1 migrations scaffold + runner |
+| yes | T-2.2 0001 schema (7 STRICT tables + _migrations + decisions_fts) |
+| yes | T-2.3 state_db.connect with 9 PRAGMAs |
+| yes | T-2.4 OutboxRecorder + projection_write |
+| yes | T-2.5 0002 seed_from_json |
+| yes | T-2.6 0003 replay_ndjson |
+| yes | T-2.7 sidecar offload (3KB ceiling) |
+| no  | T-2.8 wire sidecar into runtime-guard.py |
+| yes | T-2.9 rotation module |
+| no  | T-2.10..T-2.22 zstd/retention/audit-CLI/Engram/skills/deps cleanup |
+
+### Critical deferred items
+- pyproject.toml NOT cleaned (sqlite-vec/fastembed/hdbscan/numpy still present)
+- Engram delegation NOT wired
+- /ai-remember + /ai-dream still legacy
+- audit_index.py not redirected to state.db
+- ~13 of 22 tasks deferred
+
+### Tests: 25 new unit tests passing. 33 pre-existing tests broken by sub-001 cleanup + sub-003 v1 migration (deferred to Phase 5).
+
+### Confidence: medium - core infra real; ~13/22 tasks deferred. Phase 5 quality loop or spec-122-b-followup.

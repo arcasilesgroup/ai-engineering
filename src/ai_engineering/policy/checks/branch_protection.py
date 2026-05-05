@@ -12,8 +12,45 @@ from ai_engineering.policy.gates import GateCheckResult, GateResult
 
 
 def check_branch_protection(project_root: Path, result: GateResult) -> None:
-    """Block direct commits to protected branches."""
+    """Block direct commits to protected branches.
+
+    Spec-122 Phase C T-3.12: when OPA is on PATH the verdict comes from
+    ``data.branch_protection.deny`` so the canonical rule lives in the
+    .rego file. The Python fallback uses the original
+    ``branch in PROTECTED_BRANCHES`` check for hosts without OPA.
+    """
     branch = current_branch(project_root)
+
+    from ai_engineering.governance import opa_runner
+
+    if branch and opa_runner.available():
+        from ai_engineering.policy.checks.opa_gate import evaluate_deny
+
+        decision = evaluate_deny(
+            project_root=project_root,
+            policy="branch_protection",
+            input_data={"branch": branch, "action": "push"},
+            component="gate-engine",
+            source="pre-commit",
+        )
+        if not decision.passed:
+            result.checks.append(
+                GateCheckResult(
+                    name="branch-protection",
+                    passed=False,
+                    output=f"Direct commits to '{branch}' are blocked. Use a feature branch.",
+                )
+            )
+            return
+        result.checks.append(
+            GateCheckResult(
+                name="branch-protection",
+                passed=True,
+                output=f"On branch: {branch}",
+            )
+        )
+        return
+
     if branch and branch in PROTECTED_BRANCHES:
         result.checks.append(
             GateCheckResult(
@@ -201,6 +238,41 @@ def check_push_target(
     # Strip the canonical prefix so both ``refs/heads/main`` and ``main``
     # match the protected-branch frozenset.
     branch = target_ref.removeprefix("refs/heads/").removeprefix("origin/")
+
+    # Spec-122 Phase C T-3.12: delegate to OPA when available; fall
+    # through to the Python check otherwise.
+    from ai_engineering.governance import opa_runner
+
+    if opa_runner.available():
+        from ai_engineering.policy.checks.opa_gate import evaluate_deny
+
+        decision = evaluate_deny(
+            project_root=project_root,
+            policy="branch_protection",
+            input_data={"branch": branch, "action": "push"},
+            component="gate-engine",
+            source="pre-push",
+        )
+        if not decision.passed:
+            result.checks.append(
+                GateCheckResult(
+                    name="push-target",
+                    passed=False,
+                    output=(
+                        f"Direct push to protected branch '{branch}' is blocked. "
+                        "Open a pull request from a feature branch instead."
+                    ),
+                )
+            )
+            return
+        result.checks.append(
+            GateCheckResult(
+                name="push-target",
+                passed=True,
+                output=f"Push target: {target_ref}",
+            )
+        )
+        return
 
     if branch in PROTECTED_BRANCHES:
         result.checks.append(

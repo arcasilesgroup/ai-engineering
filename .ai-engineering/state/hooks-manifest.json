@@ -1,14 +1,14 @@
 {
-  "generatedAt": "2026-05-05T15:59:01Z",
+  "generatedAt": "2026-05-05T16:14:04Z",
   "hookCount": 65,
   "hooks": {
-    ".ai-engineering/scripts/hooks/_lib/audit.py": "14bfbad9f15b03db274362d026700ee154f391a96c69e753e643b3c7ab32fa19",
+    ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "ef4a571b410d6e7a0392bab1864c7cb382785ec6b4a0f9ff8a63ebc92c2bf1a6",
     ".ai-engineering/scripts/hooks/_lib/copilot-common.ps1": "dfda121aa9eda20c3647fd831ac4b95b3bbbeb98a3e74851b8e5c3492188dfd0",
     ".ai-engineering/scripts/hooks/_lib/copilot-common.sh": "0249a872a2760f35fb0ee5f734dadeb75d39a62e4b4d65e53583ca96e9033bea",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.ps1": "576913bb87dc2b8767d432404278c42d4115b2894b4b8f52adcc13eef3a08624",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.sh": "8a779c3458dc73835938ee2a42033a0770ebd5bbbd2178a6b563f94c60fed262",
-    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "15a80fe573af25bd52e11550a414c9876715af4e52cde956e7dd72be5c72c780",
+    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "63949595d87277049d5a6e4c01e19597dedf57e821e55a66d73bce2bdb615360",
     ".ai-engineering/scripts/hooks/_lib/hook_context.py": "2c12de1c4bb932d94eb6a19b1ce9f316bdf5ef651a41a53de219a1e9d2f8d802",
     ".ai-engineering/scripts/hooks/_lib/hook_http.py": "84a35db5a49ac1c01253b1c3385ae61ca974c7c597576a9d7c561b28eb94c64a",
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",

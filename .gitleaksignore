@@ -7,3 +7,7 @@
 # contract — the literal must be present to assert the redaction hook strips
 # it from on-disk payloads.
 tests/unit/hooks/test_runtime_state.py:generic-api-key:85
+# OPA bundle signature (D-122-09 / spec-122-c): JWT signs file hashes for
+# bundle integrity. Not a credential — public key counterpart only ships
+# in repo; private key lives under ~/.config/ai-engineering/ mode 0600.
+.ai-engineering/policies/.signatures.json:jwt:3

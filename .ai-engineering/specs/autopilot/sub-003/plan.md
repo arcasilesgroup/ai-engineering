@@ -119,4 +119,46 @@ imports:
 
 ## Self-Report
 
-[EMPTY — populated by Phase 4]
+### Status: PARTIAL - agent truncated mid-T-3.14 (integration golden tests)
+
+### Code artifacts on disk (verified)
+- .ai-engineering/policies/{branch_protection,commit_conventional,risk_acceptance_ttl}.rego - migrated to OPA Rego v1
+- .ai-engineering/policies/{...}_test.rego - 3 companion test files
+- .ai-engineering/policies/.signatures.json + .manifest - JWT-signed bundle
+- src/ai_engineering/governance/{opa_runner,decision_log,bundle}.py - subprocess wrapper, decision log, bundle helpers
+- src/ai_engineering/policy/checks/opa_gate.py - pre-commit/pre-push wiring
+- ~21 new tests passing in governance.*, installer.*, integration.governance.*
+
+### Tasks: ~13/18 done. T-3.14..T-3.18 partial/deferred.
+
+| done | task |
+|------|------|
+| yes | T-3.1 .rego files migrated to v1 |
+| yes | T-3.2 _test.rego companions |
+| yes | T-3.3 opa added to tool registry + manifest baseline |
+| yes | T-3.4 opa install per OS test |
+| yes | T-3.5 opa_runner subprocess wrapper |
+| yes | T-3.6 opa_runner subprocess mocks |
+| yes | T-3.7 decision_log dual-write + sample mask |
+| yes | T-3.8 decision_log tests |
+| yes | T-3.9 bundle build + sign |
+| yes | T-3.10 bundle signing round-trip |
+| yes | T-3.11 wire OPA into pre-commit |
+| yes | T-3.12 wire OPA into pre-push |
+| partial | T-3.13 wire OPA into ai-eng risk accept |
+| partial | T-3.14 integration golden tests via opa eval subprocess |
+| no  | T-3.15 hot-path SLO test (pre-commit < 1s p95) |
+| **NO** | T-3.16 replace policy_engine.py with shim - **6 test failures because legacy interpreter cannot parse `import rego.v1`** |
+| no  | T-3.17 CI workflow for opa test --coverage gate |
+| no  | T-3.18 update ai-governance skill + manifest doctor wiring |
+
+### Critical follow-up: T-3.16 MUST land
+Legacy `src/ai_engineering/governance/policy_engine.py` still contains the custom mini-Rego interpreter. New .rego files use `import rego.v1` which the legacy interpreter rejects with `PolicyError: unsupported policy line`. Causes 6 failures in tests/unit/governance/test_policy_engine.py.
+
+Phase 5 must either:
+1. Delete policy_engine.py + update test_policy_engine.py to test opa_runner instead
+2. Convert policy_engine.py to thin shim calling opa_runner.evaluate()
+
+### Tests: ~21 new passing. 6 failures in test_policy_engine.py (deferred to Phase 5 / T-3.16).
+
+### Confidence: medium-high - most code real and tested; legacy-interpreter test failures = known deferred cleanup

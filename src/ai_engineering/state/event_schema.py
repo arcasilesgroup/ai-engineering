@@ -52,6 +52,11 @@ ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(
         "memory_event",
         # spec-119 evaluation layer
         "eval_run",
+        # spec-122 Phase C governance layer — OPA decision log (D-122-09).
+        # Each policy evaluation that fires (via gate hooks or `ai-eng risk
+        # accept`) emits one event; sample mask is applied at the caller in
+        # `governance.decision_log.emit_policy_decision`.
+        "policy_decision",
     }
 )
 

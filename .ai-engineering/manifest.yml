@@ -362,6 +362,7 @@ required_tools:
         unsupported_reason: "semgrep has no Windows release",
       }
     - { name: jq }
+    - { name: opa, version_range: ">=0.70.0,<2.0.0" }
   python:
     - { name: ruff }
     - { name: ty }

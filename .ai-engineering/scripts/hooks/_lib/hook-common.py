@@ -212,6 +212,17 @@ def emit_event(project_root: Path, event: dict) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = normalized_event
     payload["prev_event_hash"] = _read_prev_event_hash(path)
+    # Sidecar overflow (spec-122-b D-122-23): events whose serialised
+    # bytes exceed AIENG_EVENT_SIDECAR_BYTES (default 3 KB) are offloaded
+    # to .ai-engineering/state/runtime/event-sidecars/<sha256>.json and
+    # the inline NDJSON line carries only hash + summary. Keeps the
+    # cross-IDE concurrent append safely under POSIX_BUF.
+    try:
+        from _lib.audit import maybe_offload_event  # local import; stdlib-only
+
+        payload = maybe_offload_event(project_root, payload)
+    except Exception:  # fail-open: never block emit
+        pass
     line = json.dumps(payload, sort_keys=True, default=str)
     try:
         with path.open("a", encoding="utf-8") as f:

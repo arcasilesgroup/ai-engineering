@@ -1,0 +1,4 @@
+{
+  "revision": "spec-122-c-v1",
+  "roots": ["branch_protection", "commit_conventional", "risk_acceptance_ttl", "branch_protection_test", "commit_conventional_test", "risk_acceptance_ttl_test"]
+}
