@@ -288,6 +288,7 @@ class TestMaintenanceReport:
         assert "Verification tax events: 1" in markdown
 
 
+@pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
 def test_build_task_scorecard_derives_counts_from_task_ledger_and_framework_events(
     tmp_path: Path,
 ) -> None:

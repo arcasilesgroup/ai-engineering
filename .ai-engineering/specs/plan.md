@@ -96,15 +96,15 @@ No UI work. Routing skipped.
 
 **Gate**: specs/ contains exactly {spec.md, plan.md, _history.md}; CI guard test passes; no broken skill citations.
 
-- [ ] T-6.1: Migrate cited paths in skill bodies (decision-store query OR git-log fallback) (agent: build)
-- [ ] T-6.2: Delete all numbered archive specs (~50 files) (agent: build)
-- [ ] T-6.3: Delete all numbered plan archives (~16 files) (agent: build)
-- [ ] T-6.4: Delete spec-117 supporting + exploration companions (~17 files) (agent: build)
-- [ ] T-6.5: Delete progress dirs (spec-119-progress, spec-120-progress) (agent: build)
-- [ ] T-6.6: Delete dead work-plane artifacts (task-ledger.json, current-summary.md, history-summary.md, handoffs/, evidence/, context-packs/) (agent: build)
-- [ ] T-6.7: Move autopilot transient state to .ai-engineering/state/runtime/autopilot/ gitignored (agent: build)
-- [ ] T-6.8: Update HX-02 work_plane.py resolver to drop dead artifacts (agent: build)
-- [ ] T-6.9: New CI guard tests/unit/specs/test_canonical_structure.py (agent: build)
+- [x] T-6.1: Migrate cited paths in skill bodies (decision-store query OR git-log fallback) (agent: build)
+- [x] T-6.2: Delete all numbered archive specs (~50 files) (agent: build)
+- [x] T-6.3: Delete all numbered plan archives (~16 files) (agent: build)
+- [x] T-6.4: Delete spec-117 supporting + exploration companions (~17 files) (agent: build)
+- [x] T-6.5: Delete progress dirs (spec-119-progress, spec-120-progress) (agent: build)
+- [x] T-6.6: Delete dead work-plane artifacts (task-ledger.json, current-summary.md, history-summary.md, handoffs/, evidence/, context-packs/) (agent: build)
+- [x] T-6.7: Move autopilot transient state to .ai-engineering/state/runtime/autopilot/ gitignored (agent: build)
+- [x] T-6.8: Update HX-02 work_plane.py resolver to drop dead artifacts (agent: build)
+- [x] T-6.9: New CI guard tests/unit/specs/test_canonical_structure.py (agent: build)
 
 ---
 

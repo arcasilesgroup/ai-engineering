@@ -43,9 +43,10 @@ def _write_instruction_files(root: Path, content: str) -> None:
 
 def test_file_existence_skips_placeholders_and_prefix_cleanup(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
-    # Create Working Buffer spec files to pass spec-buffer check
+    # Create canonical three-file specs/ contract (spec.md, plan.md, _history.md)
     (ai / "specs" / "spec.md").write_text("# No active spec\n", encoding="utf-8")
     (ai / "specs" / "plan.md").write_text("# No active plan\n", encoding="utf-8")
+    (ai / "specs" / "_history.md").write_text("# Spec History\n", encoding="utf-8")
     src = ai / "skills" / "debug.md"
     src.write_text(
         "---\nname: debug\nversion: 1.0.0\n---\n\n"

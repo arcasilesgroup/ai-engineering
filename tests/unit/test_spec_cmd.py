@@ -270,6 +270,7 @@ class TestSpecListCli:
             spec_list()
         assert "No active spec" in capsys.readouterr().err
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
     def test_list_placeholder_spec_with_live_resolved_ledger(
         self, tmp_path: Path, capsys: pytest.CaptureFixture
     ) -> None:

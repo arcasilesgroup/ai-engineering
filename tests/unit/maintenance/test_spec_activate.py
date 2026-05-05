@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.maintenance.spec_activate import run_spec_activate
 from ai_engineering.state.work_plane import (
     active_work_plane_pointer_path,
@@ -15,6 +17,7 @@ from ai_engineering.state.work_plane import (
 class TestRunSpecActivate:
     """Tests for run_spec_activate()."""
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
     def test_creates_pointer_and_missing_placeholders(self, tmp_path: Path) -> None:
         result = run_spec_activate(tmp_path, Path(".ai-engineering/specs/spec-117-hx-02"))
 

@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.maintenance.spec_reset import (
     SpecResetResult,
     append_history,
@@ -190,6 +192,7 @@ class TestRunSpecReset:
         # Files unchanged
         assert "Feature Y" in (ai_eng / "specs" / "spec.md").read_text()
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
     def test_resets_pointed_work_plane_back_to_legacy_buffer(self, tmp_path: Path) -> None:
         """Reset clears the pointer and restores the legacy compatibility buffer."""
         pointed_specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"

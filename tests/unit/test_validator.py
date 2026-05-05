@@ -287,6 +287,12 @@ def _write_work_plane(
         "---\ntotal: 3\ncompleted: 1\n---\n\n# Plan\n\n- [x] Done\n- [ ] Todo\n- [ ] Todo\n",
         encoding="utf-8",
     )
+    (specs_dir / "_history.md").write_text(
+        "# Spec History\n\nNo lifecycle entries yet.\n",
+        encoding="utf-8",
+    )
+    # Spec-123: dead HX-02 work-plane artifacts no longer required, but the
+    # fixture continues to seed them for tests that exercise legacy paths.
     (specs_dir / "current-summary.md").write_text(
         "# Current Summary\n\nNo active current summary yet.\n",
         encoding="utf-8",
@@ -651,64 +657,28 @@ class TestFileExistence:
         ]
         assert len(ok_checks) == 1
 
-    def test_work_plane_artifacts_completeness(self, tmp_path: Path) -> None:
-        """Missing non-compatibility work-plane artifacts are flagged."""
-        ai = _setup_full_project(tmp_path)
-        (ai / "specs" / "current-summary.md").unlink()
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.FILE_EXISTENCE],
-        )
-        fail_checks = [
-            c
-            for c in report.checks
-            if c.name == "work-plane-artifacts" and c.status == IntegrityStatus.FAIL
-        ]
-        assert len(fail_checks) == 1
-        assert "current-summary.md" in fail_checks[0].message
-
-    def test_work_plane_artifacts_present_pass(self, tmp_path: Path) -> None:
-        """Seeded work-plane artifacts pass validation."""
-        _setup_full_project(tmp_path)
-        report = validate_content_integrity(
-            tmp_path,
-            categories=[IntegrityCategory.FILE_EXISTENCE],
-        )
-        ok_checks = [
-            c
-            for c in report.checks
-            if c.name == "work-plane-artifacts" and c.status == IntegrityStatus.OK
-        ]
-        assert len(ok_checks) == 1
-
     def test_spec_buffer_uses_resolved_work_plane_paths(
         self,
         tmp_path: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        # Spec-123: dead work-plane artifacts (task-ledger.json,
+        # current-summary.md, history-summary.md, handoffs/, evidence/)
+        # were removed. Spec buffer is now the canonical three-file
+        # contract: spec.md, plan.md, _history.md.
         ai = _setup_full_project(tmp_path)
         (ai / "specs" / "spec.md").unlink()
         (ai / "specs" / "plan.md").unlink()
+        (ai / "specs" / "_history.md").unlink()
 
         resolved_specs_dir = tmp_path / "resolved-work-plane"
         resolved_specs_dir.mkdir()
         resolved_spec = resolved_specs_dir / "spec.md"
         resolved_plan = resolved_specs_dir / "plan.md"
-        resolved_current_summary = resolved_specs_dir / "current-summary.md"
-        resolved_history_summary = resolved_specs_dir / "history-summary.md"
-        resolved_ledger = resolved_specs_dir / "task-ledger.json"
-        resolved_handoffs = resolved_specs_dir / "handoffs"
-        resolved_evidence = resolved_specs_dir / "evidence"
+        resolved_history = resolved_specs_dir / "_history.md"
         resolved_spec.write_text("# Spec\n", encoding="utf-8")
         resolved_plan.write_text("# Plan\n", encoding="utf-8")
-        resolved_current_summary.write_text("# Current Summary\n", encoding="utf-8")
-        resolved_history_summary.write_text("# History Summary\n", encoding="utf-8")
-        resolved_ledger.write_text(
-            '{\n  "schemaVersion": "1.0",\n  "tasks": []\n}\n',
-            encoding="utf-8",
-        )
-        resolved_handoffs.mkdir()
-        resolved_evidence.mkdir()
+        resolved_history.write_text("# History\n", encoding="utf-8")
 
         monkeypatch.setattr(
             "ai_engineering.validator.categories.file_existence.resolve_active_work_plane",
@@ -716,11 +686,7 @@ class TestFileExistence:
                 specs_dir=resolved_specs_dir,
                 spec_path=resolved_spec,
                 plan_path=resolved_plan,
-                current_summary_path=resolved_current_summary,
-                history_summary_path=resolved_history_summary,
-                ledger_path=resolved_ledger,
-                handoffs_dir=resolved_handoffs,
-                evidence_dir=resolved_evidence,
+                history_path=resolved_history,
             ),
         )
 
@@ -733,12 +699,6 @@ class TestFileExistence:
             c for c in report.checks if c.name == "spec-buffer" and c.status == IntegrityStatus.OK
         ]
         assert len(ok_checks) == 1
-        artifact_checks = [
-            c
-            for c in report.checks
-            if c.name == "work-plane-artifacts" and c.status == IntegrityStatus.OK
-        ]
-        assert len(artifact_checks) == 1
 
     def test_source_repo_control_plane_paths_present_pass(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
@@ -1685,6 +1645,8 @@ class TestManifestCoherence:
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
     def test_active_spec_valid(self, tmp_path: Path) -> None:
+        # Spec-123: task-ledger validation no longer emits checks; only the
+        # active-spec OK signal remains for valid spec.md/plan.md content.
         _setup_full_project(tmp_path)
         report = validate_content_integrity(
             tmp_path,
@@ -1695,12 +1657,9 @@ class TestManifestCoherence:
         ]
         assert len(ok_checks) == 1
 
-        ledger_checks = [
-            c
-            for c in report.checks
-            if c.name == "active-task-ledger" and c.status == IntegrityStatus.WARN
-        ]
-        assert len(ledger_checks) == 1
+        # Task-ledger checks are no longer emitted post-spec-123.
+        ledger_checks = [c for c in report.checks if c.name == "active-task-ledger"]
+        assert ledger_checks == []
 
     def test_active_spec_plan_declared_identity_mismatch_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
@@ -1789,6 +1748,7 @@ class TestManifestCoherence:
         assert len(ok_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_active_spec_placeholder(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         (ai / "specs" / "spec.md").write_text(
@@ -1817,6 +1777,7 @@ class TestManifestCoherence:
         ]
         assert write_scope_checks == []
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_active_spec_placeholder_with_non_done_task_in_resolved_ledger_fails(
         self, tmp_path: Path
     ) -> None:
@@ -1864,6 +1825,7 @@ class TestManifestCoherence:
         assert ledger_checks == []
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_active_spec_placeholder_with_malformed_task_ledger_warns(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         (ai / "specs" / "spec.md").write_text(
@@ -1901,6 +1863,7 @@ class TestManifestCoherence:
         assert write_scope_checks == []
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_active_spec_with_non_done_task_in_ledger_passes(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -1936,6 +1899,7 @@ class TestManifestCoherence:
         ]
         assert len(artifact_checks) == 1
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_capability_acceptance_passes_for_build_source_write(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         _write_manifest_with_capabilities(ai)
@@ -1967,6 +1931,7 @@ class TestManifestCoherence:
         assert len(ok_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_context_pack_manifest_contract_passes_for_generated_pack(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -1997,6 +1962,7 @@ class TestManifestCoherence:
         assert len(ok_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_context_pack_manifest_contract_fails_when_pack_drifts(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2035,6 +2001,7 @@ class TestManifestCoherence:
         assert "does not match deterministic pack output" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_capability_acceptance_rejects_illegal_source_writer(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         _write_manifest_with_capabilities(ai)
@@ -2068,6 +2035,7 @@ class TestManifestCoherence:
         assert "cannot perform mutation classes: code-write" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_capability_acceptance_rejects_illegal_tool_request(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         _write_manifest_with_capabilities(ai)
@@ -2101,6 +2069,7 @@ class TestManifestCoherence:
         assert "cannot request tool scopes: edit" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_capability_acceptance_rejects_provider_incompatible_packet(
         self, tmp_path: Path
     ) -> None:
@@ -2136,6 +2105,7 @@ class TestManifestCoherence:
         assert "incompatible with provider github_copilot" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_duplicate_write_scope_across_in_progress_tasks_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2177,6 +2147,7 @@ class TestManifestCoherence:
         assert "T-2" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_distinct_write_scope_across_in_progress_tasks_passes(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2214,6 +2185,7 @@ class TestManifestCoherence:
         assert len(ok_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_overlapping_but_non_identical_write_scope_strings_fail(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2254,6 +2226,7 @@ class TestManifestCoherence:
         assert "src/ai_engineering/**" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_duplicate_write_scope_with_fewer_than_two_in_progress_tasks_passes(
         self, tmp_path: Path
     ) -> None:
@@ -2293,6 +2266,7 @@ class TestManifestCoherence:
         assert len(ok_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_malformed_task_ledger_warns_and_skips_dependency_validation(
         self, tmp_path: Path
     ) -> None:
@@ -2326,6 +2300,7 @@ class TestManifestCoherence:
         assert write_scope_checks == []
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_ledger_with_missing_dependency_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2357,6 +2332,7 @@ class TestManifestCoherence:
         assert len(fail_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_ledger_with_valid_dependencies_passes(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         handoff_ref, evidence_ref = _write_task_artifacts(ai / "specs", "T-1")
@@ -2398,6 +2374,7 @@ class TestManifestCoherence:
         assert len(ok_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_done_task_with_missing_dependency_stays_in_dependency_validation(
         self, tmp_path: Path
     ) -> None:
@@ -2431,6 +2408,7 @@ class TestManifestCoherence:
         assert state_checks == []
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_done_task_with_incomplete_dependency_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2469,6 +2447,7 @@ class TestManifestCoherence:
         assert len(fail_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_done_task_with_done_dependency_passes(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         first_handoff_ref, first_evidence_ref = _write_task_artifacts(ai / "specs", "T-1")
@@ -2513,6 +2492,7 @@ class TestManifestCoherence:
         assert len(ok_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_review_task_without_handoff_ref_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2545,6 +2525,7 @@ class TestManifestCoherence:
         assert "handoff" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_verify_task_without_evidence_ref_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         handoff_ref, _evidence_ref = _write_task_artifacts(ai / "specs", "T-1")
@@ -2579,6 +2560,7 @@ class TestManifestCoherence:
         assert "evidence" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_with_missing_handoff_ref_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2615,6 +2597,7 @@ class TestManifestCoherence:
         assert len(fail_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_with_missing_evidence_ref_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2646,6 +2629,7 @@ class TestManifestCoherence:
         assert len(fail_checks) == 1
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_with_absolute_artifact_ref_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2683,6 +2667,7 @@ class TestManifestCoherence:
         assert "is absolute" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_with_escaping_relative_artifact_ref_fails(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(
@@ -2715,6 +2700,7 @@ class TestManifestCoherence:
         assert "escapes the active work plane" in fail_checks[0].message
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_task_artifact_refs_use_resolved_active_work_plane(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         write_json_model(

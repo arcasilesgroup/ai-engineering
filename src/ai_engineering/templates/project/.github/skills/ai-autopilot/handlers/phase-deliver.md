@@ -7,15 +7,15 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 ## Prerequisites
 
 - Phase 5 (QUALITY LOOP) is complete: either PASS (0 blockers/criticals/highs) or exhausted (round 3 reached with only criticals/highs remaining).
-- Manifest at `.ai-engineering/specs/autopilot/manifest.md` has `## Quality Rounds` section with round log.
-- Sub-spec directories exist at `.ai-engineering/specs/autopilot/sub-NNN/` with `plan.md` containing populated `## Self-Report` sections from Phase 4 implementation agents.
+- Manifest at `.ai-engineering/state/runtime/autopilot/manifest.md` has `## Quality Rounds` section with round log.
+- Sub-spec directories exist at `.ai-engineering/state/runtime/autopilot/sub-NNN/` with `plan.md` containing populated `## Self-Report` sections from Phase 4 implementation agents.
 - Parent spec is available at `.ai-engineering/specs/spec.md`.
 
 ## Procedure
 
 ### Step 1: Build Transparency Report
 
-1. Glob `.ai-engineering/specs/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
+1. Glob `.ai-engineering/state/runtime/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
 2. Read the manifest's `## Quality Rounds` section. Extract the consolidated findings from Phase 5: final state (CLEAN or remaining issues with severity breakdown), number of rounds executed, and per-round summaries.
 3. If any sub-specs have status `blocked` or `cascade-blocked` in the manifest: collect their ID, title, scope, and blocking reason. These form the "Blocked / Undelivered" section.
 4. Aggregate all classifications across sub-specs into totals. Cross-reference against quality findings -- a file classified as "real" in a Self-Report but failing checks in Phase 5 should be reclassified as "failing".
@@ -83,7 +83,7 @@ Execute after the PR merges (detected by the watch loop), or immediately after P
 
 1. **Delete autopilot directory**:
    ```
-   rm -rf .ai-engineering/specs/autopilot/
+   rm -rf .ai-engineering/state/runtime/autopilot/
    ```
 
 2. **Clear `.ai-engineering/specs/spec.md`** with:
@@ -143,7 +143,7 @@ Field sources:
 
 ## Resume Protocol
 
-When the autopilot is invoked with `--resume`, read `.ai-engineering/specs/autopilot/manifest.md` and re-enter the pipeline at the correct phase. Resume NEVER re-executes completed phases. The manifest is the single source of truth for all resume decisions.
+When the autopilot is invoked with `--resume`, read `.ai-engineering/state/runtime/autopilot/manifest.md` and re-enter the pipeline at the correct phase. Resume NEVER re-executes completed phases. The manifest is the single source of truth for all resume decisions.
 
 ### Resume Decision Logic
 
@@ -164,7 +164,7 @@ Read the manifest. Inspect sub-spec statuses, section presence, and wave complet
 ### Resume Safeguards
 
 - Never re-execute a phase whose artifacts are already complete and valid.
-- If the manifest is missing or corrupted (unparseable): STOP. Report: "Manifest is missing or corrupted. Cannot resume. Inspect `.ai-engineering/specs/autopilot/manifest.md` manually."
+- If the manifest is missing or corrupted (unparseable): STOP. Report: "Manifest is missing or corrupted. Cannot resume. Inspect `.ai-engineering/state/runtime/autopilot/manifest.md` manually."
 - If the manifest exists but no sub-specs files are found: STOP. Report: "Manifest exists but sub-spec files are missing. Pipeline state is inconsistent."
 - After determining the re-entry point, report to the user before proceeding:
   ```
@@ -176,7 +176,7 @@ Read the manifest. Inspect sub-spec statuses, section presence, and wave complet
 ## Output
 
 - PR created with Integrity Report, Sub-Spec Completion table, and standard ai-pr sections.
-- Autopilot state cleaned: `.ai-engineering/specs/autopilot/` deleted, `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` cleared.
+- Autopilot state cleaned: `.ai-engineering/state/runtime/autopilot/` deleted, `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` cleared.
 - Entry added to `specs/_history.md`.
 - Final report printed to user.
 

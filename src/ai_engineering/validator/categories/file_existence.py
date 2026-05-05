@@ -56,11 +56,10 @@ def _check_file_existence(
     )
     _record_broken_reference_results(report, broken_refs)
 
-    # Verify Working Buffer spec files exist
+    # Verify canonical three-file specs/ contract: spec.md, plan.md, _history.md
     work_plane = resolve_active_work_plane(target)
     if work_plane.specs_dir.is_dir():
         _record_spec_buffer_result(report, work_plane)
-        _record_work_plane_artifact_result(report, work_plane)
 
     if _is_source_repo(target):
         _record_source_repo_control_plane_paths(report, target)
@@ -214,9 +213,11 @@ def _state_plane_repo_relative_path(ref_path: str) -> str | None:
 
 
 def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPlane) -> None:
+    """Verify the canonical three-file specs/ contract: spec.md, plan.md, _history.md."""
     required_spec_files = {
         "spec.md": work_plane.spec_path,
         "plan.md": work_plane.plan_path,
+        "_history.md": work_plane.history_path,
     }
     missing_spec = [name for name, path in required_spec_files.items() if not path.exists()]
     if missing_spec:
@@ -236,46 +237,7 @@ def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPl
             category=IntegrityCategory.FILE_EXISTENCE,
             name="spec-buffer",
             status=IntegrityStatus.OK,
-            message="Spec buffer files present (spec.md, plan.md)",
-            file_path=_SPECS_ROOT_LABEL,
-        )
-    )
-
-
-def _record_work_plane_artifact_result(
-    report: IntegrityReport, work_plane: ActiveWorkPlane
-) -> None:
-    required_work_plane_artifacts = {
-        "task-ledger.json": work_plane.ledger_path,
-        "current-summary.md": work_plane.current_summary_path,
-        "history-summary.md": work_plane.history_summary_path,
-        "handoffs/": work_plane.handoffs_dir,
-        "evidence/": work_plane.evidence_dir,
-    }
-    missing_artifacts = [
-        name for name, path in required_work_plane_artifacts.items() if not path.exists()
-    ]
-    if missing_artifacts:
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.FILE_EXISTENCE,
-                name="work-plane-artifacts",
-                status=IntegrityStatus.FAIL,
-                message="Missing work-plane artifacts: " + ", ".join(missing_artifacts),
-                file_path=_SPECS_ROOT_LABEL,
-            )
-        )
-        return
-
-    report.checks.append(
-        IntegrityCheckResult(
-            category=IntegrityCategory.FILE_EXISTENCE,
-            name="work-plane-artifacts",
-            status=IntegrityStatus.OK,
-            message=(
-                "Work-plane artifacts present (task-ledger.json, current-summary.md, "
-                "history-summary.md, handoffs/, evidence/)"
-            ),
+            message="Spec buffer files present (spec.md, plan.md, _history.md)",
             file_path=_SPECS_ROOT_LABEL,
         )
     )

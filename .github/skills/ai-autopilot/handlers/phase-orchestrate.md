@@ -9,7 +9,7 @@ Analyze all N enriched sub-spec plans together, detect file overlaps and import 
 Phase 2 (Deep Plan) complete. All non-failed sub-specs have enriched `## Exploration` sections (in `sub-NNN/spec.md`) and `## Plan` sections (in `sub-NNN/plan.md`). Each plan declares `exports:` and `imports:` lists -- Phase 3 uses these structured declarations for DAG construction, not code analysis.
 
 Required state:
-- `.ai-engineering/specs/autopilot/manifest.md` exists with sub-spec list and statuses
+- `.ai-engineering/state/runtime/autopilot/manifest.md` exists with sub-spec list and statuses
 - Non-failed sub-specs (`planning` or `planned`) have non-empty `## Plan` sections in their `sub-NNN/plan.md`
 - Sub-specs marked `plan-failed` are excluded from DAG construction
 
@@ -17,7 +17,7 @@ Required state:
 
 ### Step 1 -- Extract Declarations
 
-Read all non-failed sub-spec directories from `.ai-engineering/specs/autopilot/sub-*/`. For each sub-spec, extract:
+Read all non-failed sub-spec directories from `.ai-engineering/state/runtime/autopilot/sub-*/`. For each sub-spec, extract:
 
 1. **files**: the `files:` list from `sub-NNN/spec.md` frontmatter (refined by Phase 2)
 2. **exports**: the `exports:` declarations from `sub-NNN/plan.md` `## Plan` section (modules, classes, or functions this sub-spec creates)
@@ -104,7 +104,7 @@ If a merge produces a sub-spec with more than 7 work units, consider splitting d
 
 ### Step 6 -- Write DAG to Manifest
 
-Append the `## Execution DAG` section to `.ai-engineering/specs/autopilot/manifest.md`:
+Append the `## Execution DAG` section to `.ai-engineering/state/runtime/autopilot/manifest.md`:
 
 ```markdown
 ## Execution DAG
@@ -135,7 +135,7 @@ Run two validation checks:
 ## Output
 
 Artifacts written:
-- Updated `.ai-engineering/specs/autopilot/manifest.md` with `## Execution DAG` section
+- Updated `.ai-engineering/state/runtime/autopilot/manifest.md` with `## Execution DAG` section
 - Updated sub-spec `spec.md` and `plan.md` files (only if merges occurred in Step 5)
 
 Report to orchestrator:

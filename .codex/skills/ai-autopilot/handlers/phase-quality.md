@@ -10,7 +10,7 @@ Converge on quality through assessment and targeted fixing. Dispatch the verify 
 |-----------|--------|
 | Phase 4 complete | All waves committed. Manifest updated with per-sub-spec statuses. |
 | Sub-spec Self-Reports exist | Each implemented sub-spec has a Self-Report section in its `sub-NNN/plan.md` with classifications (real/aspirational/stub/failing/invented/hallucinated). |
-| Manifest has sub-spec statuses | `.ai-engineering/specs/autopilot/manifest.md` shows `complete` or `blocked` per sub-spec. |
+| Manifest has sub-spec statuses | `.ai-engineering/state/runtime/autopilot/manifest.md` shows `complete` or `blocked` per sub-spec. |
 
 ## Thin Orchestrator
 
@@ -28,7 +28,7 @@ These protocols are embedded verbatim into subagent prompts at dispatch time. Wh
 
 ### Step 1 -- Scope the Changeset
 
-Check `.ai-engineering/specs/autopilot/manifest.md` for blocked or cascade-blocked sub-specs.
+Check `.ai-engineering/state/runtime/autopilot/manifest.md` for blocked or cascade-blocked sub-specs.
 
 - If all sub-specs are `complete`: quality loop covers the full changeset.
 - If partial (some sub-specs `blocked`): note which scope was not delivered. The quality loop verifies only the implemented subset. Record the gap:
@@ -45,7 +45,7 @@ Compute the changeset diff: `git diff main...HEAD` -- this is the input for all 
 Read the following files ONCE and cache their content for the entire quality loop:
 
 1. **Skill files**: `.codex/skills/ai-verify/SKILL.md`, `.codex/skills/ai-review/SKILL.md`, `.codex/skills/ai-governance/SKILL.md`
-2. **Self-Reports**: glob `.ai-engineering/specs/autopilot/sub-*/plan.md`, extract `## Self-Report` sections from each
+2. **Self-Reports**: glob `.ai-engineering/state/runtime/autopilot/sub-*/plan.md`, extract `## Self-Report` sections from each
 3. **Changeset diff**: the `git diff main...HEAD` computed in Step 1
 
 These are static during the quality loop. Do NOT re-read them per round. Assessment agents in round 2+ receive the cached content plus a delta of fixes applied since the previous round.
@@ -152,7 +152,7 @@ For each finding at blocker, critical, or high unified severity:
 
 ### Step 3 -- Record Quality Rounds
 
-After the loop completes (pass or exhausted), write the quality rounds log to `.ai-engineering/specs/autopilot/manifest.md` under a `## Quality Rounds` section:
+After the loop completes (pass or exhausted), write the quality rounds log to `.ai-engineering/state/runtime/autopilot/manifest.md` under a `## Quality Rounds` section:
 
 ```markdown
 ## Quality Rounds

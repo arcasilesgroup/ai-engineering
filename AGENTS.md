@@ -60,14 +60,6 @@ skills, agents, contexts, and hooks are catalogued in
 and transcript viewing are delegated to the separately installed
 `agentsview` companion tool.
 
-## Optional: Engram (third-party memory)
-
-ai-engineering ships **without** a built-in memory layer. `ai-eng install`
-prompts: `Install Engram for memory persistence? [y/N]`. Yes runs Engram's
-official install per OS (brew/winget/binary) + `engram setup <ide>` for
-detected agent. Skip is fine. Force: `--engram` (yes) or `--no-engram` (skip).
-CI defaults to skip. Engram is a peer product, not a dependency.
-
 ## Source of Truth
 
 | What | Where |

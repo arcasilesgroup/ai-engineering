@@ -1,9 +1,11 @@
 """Active work-plane path resolution.
 
-HX-02 starts with a compatibility-backed resolver so runtime consumers can stop
-hard-coding ``spec.md`` and ``plan.md`` paths before the task-ledger schema
-lands. Today the resolver still points at the singleton working buffer; later
-phases can swap in a spec-scoped work plane behind the same contract.
+Spec-123 Theme 1 collapsed `.ai-engineering/specs/` to exactly three canonical
+files: ``spec.md``, ``plan.md``, ``_history.md``. The work-plane resolver no
+longer surfaces the dead HX-02 artifacts (task-ledger.json, current-summary.md,
+history-summary.md, handoffs/, evidence/); CI guard
+``tests/unit/specs/test_canonical_structure.py`` enforces the three-file
+contract.
 """
 
 from __future__ import annotations
@@ -12,19 +14,11 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai_engineering.state.io import read_json_model, write_json_model
-from ai_engineering.state.locking import artifact_lock
-from ai_engineering.state.models import TaskLedger, TaskLedgerTask
+from ai_engineering.state.models import TaskLedger
 
 ACTIVE_WORK_PLANE_POINTER_REL = Path(".ai-engineering") / "specs" / "active-work-plane.json"
 _LEGACY_SPECS_DIR_REL = ACTIVE_WORK_PLANE_POINTER_REL.parent
-_TASK_LEDGER_FILENAME = "task-ledger.json"
-_CURRENT_SUMMARY_FILENAME = "current-summary.md"
-_HISTORY_SUMMARY_FILENAME = "history-summary.md"
-_HANDOFFS_DIRNAME = "handoffs"
-_EVIDENCE_DIRNAME = "evidence"
-_CURRENT_SUMMARY_PLACEHOLDER = "# Current Summary\n\nNo active current summary yet.\n"
-_HISTORY_SUMMARY_PLACEHOLDER = "# History Summary\n\nNo history summary yet.\n"
+_HISTORY_FILENAME = "_history.md"
 _NO_ACTIVE_SPEC_PREFIX = "# No active spec"
 
 
@@ -37,11 +31,7 @@ class ActiveWorkPlane:
     specs_dir: Path
     spec_path: Path
     plan_path: Path
-    ledger_path: Path
-    current_summary_path: Path
-    history_summary_path: Path
-    handoffs_dir: Path
-    evidence_dir: Path
+    history_path: Path
 
 
 def active_work_plane_pointer_path(project_root: Path) -> Path:
@@ -82,53 +72,48 @@ def clear_active_work_plane_pointer(project_root: Path) -> None:
 
 
 def ensure_work_plane_artifacts(specs_dir: Path) -> None:
-    """Ensure the non-compatibility work-plane artifacts exist.
+    """Ensure the canonical three-file contract: spec.md, plan.md, _history.md.
 
-    This initializes the task-ledger and artifact-class surfaces without
-    overwriting any existing content.
+    Creates each missing file with empty content. Existing files are left
+    untouched.
     """
     specs_dir.mkdir(parents=True, exist_ok=True)
 
-    ledger_path = specs_dir / _TASK_LEDGER_FILENAME
-    if not ledger_path.exists():
-        write_json_model(ledger_path, TaskLedger())
-
-    _ensure_text_artifact(specs_dir / _CURRENT_SUMMARY_FILENAME, _CURRENT_SUMMARY_PLACEHOLDER)
-    _ensure_text_artifact(specs_dir / _HISTORY_SUMMARY_FILENAME, _HISTORY_SUMMARY_PLACEHOLDER)
-    (specs_dir / _HANDOFFS_DIRNAME).mkdir(parents=True, exist_ok=True)
-    (specs_dir / _EVIDENCE_DIRNAME).mkdir(parents=True, exist_ok=True)
+    for filename in ("spec.md", "plan.md", _HISTORY_FILENAME):
+        candidate = specs_dir / filename
+        if not candidate.exists():
+            candidate.write_text("", encoding="utf-8")
 
 
 def read_task_ledger(project_root: Path) -> TaskLedger | None:
-    """Read the task ledger for the active work plane when it is valid."""
-    ledger_path = resolve_active_work_plane(project_root).ledger_path
-    if not ledger_path.exists():
-        return None
+    """Backwards-compat shim — task ledger no longer exists post-spec-123.
 
-    try:
-        return read_json_model(ledger_path, TaskLedger)
-    except (OSError, ValueError):
-        return None
+    Returns ``None`` unconditionally. Callers should treat this as "no ledger
+    available" and continue gracefully. Removed in a future cleanup once all
+    consumers stop importing this symbol.
+    """
+    return None
 
 
 def task_ledger_has_open_tasks(project_root: Path) -> bool:
-    """Return True when the active task ledger has at least one non-done task."""
-    ledger = read_task_ledger(project_root)
-    if ledger is None:
-        return False
-    return any(task.status.value != "done" for task in ledger.tasks)
+    """Backwards-compat shim — task ledger no longer exists post-spec-123.
+
+    Always returns ``False``.
+    """
+    return False
 
 
 def active_work_plane_placeholder_fallback_id(project_root: Path) -> str | None:
-    """Return the work-plane directory id when placeholder prose still has open tasks."""
-    if not task_ledger_has_open_tasks(project_root):
-        return None
-    fallback_id = resolve_active_work_plane(project_root).specs_dir.name.strip()
-    return fallback_id or None
+    """Backwards-compat shim — fallback id no longer derives from task ledger.
+
+    Always returns ``None``. The "no active spec" placeholder check now relies
+    solely on ``spec.md`` content.
+    """
+    return None
 
 
 def active_work_plane_has_active_spec(project_root: Path) -> bool:
-    """Return True when spec.md or the open task ledger indicates active work."""
+    """Return True when spec.md indicates active work (not the placeholder)."""
     spec_path = resolve_active_work_plane(project_root).spec_path
     if not spec_path.exists():
         return False
@@ -136,76 +121,16 @@ def active_work_plane_has_active_spec(project_root: Path) -> bool:
         text = spec_path.read_text(encoding="utf-8").lstrip()
     except OSError:
         return False
-    if not text.startswith(_NO_ACTIVE_SPEC_PREFIX):
-        return True
-    return task_ledger_has_open_tasks(project_root)
+    return not text.startswith(_NO_ACTIVE_SPEC_PREFIX)
 
 
 def write_task_ledger(project_root: Path, ledger: TaskLedger) -> Path:
-    """Persist the task ledger at the active work-plane root."""
-    from ai_engineering.state.observability import (
-        append_framework_events,
-        build_task_trace_event,
-    )
+    """Backwards-compat shim — task ledger writes are a no-op post-spec-123.
 
-    with artifact_lock(project_root, "framework-events"):
-        previous_ledger = read_task_ledger(project_root)
-        ledger_path = resolve_active_work_plane(project_root).ledger_path
-        write_json_model(ledger_path, ledger)
-
-        previous_tasks = (
-            {task.id: _task_trace_signature(task) for task in previous_ledger.tasks}
-            if previous_ledger is not None
-            else {}
-        )
-
-        trace_events = []
-        for task in ledger.tasks:
-            signature = _task_trace_signature(task)
-            if previous_tasks.get(task.id) == signature:
-                continue
-            trace_events.append(
-                build_task_trace_event(
-                    project_root,
-                    task_id=task.id,
-                    lifecycle_phase=task.status.value,
-                    component="state.task-ledger",
-                    source="work-plane",
-                    artifact_refs=_task_artifact_refs(task),
-                )
-            )
-
-        append_framework_events(
-            project_root,
-            trace_events,
-            lock_acquired=True,
-        )
-
-    return ledger_path
-
-
-def _task_artifact_refs(task: TaskLedgerTask) -> list[str]:
-    refs: list[str] = []
-    seen: set[str] = set()
-
-    for ref in (*task.handoffs, *task.evidence):
-        path = ref.path.strip()
-        if not path or path in seen:
-            continue
-        seen.add(path)
-        refs.append(path)
-
-    return refs
-
-
-def _task_trace_signature(task: TaskLedgerTask) -> tuple[str, tuple[str, ...]]:
-    return (task.status.value, tuple(_task_artifact_refs(task)))
-
-
-def _ensure_text_artifact(path: Path, content: str) -> None:
-    """Write a placeholder artifact only when the file is missing."""
-    if not path.exists():
-        path.write_text(content, encoding="utf-8")
+    Returns the would-be ledger path for callers that still inspect it. Does
+    not write to disk.
+    """
+    return resolve_active_work_plane(project_root).specs_dir / "task-ledger.json"
 
 
 def _pointer_specs_dir(project_root: Path) -> Path | None:
@@ -238,12 +163,10 @@ def _pointer_specs_dir(project_root: Path) -> Path | None:
 
 
 def resolve_active_work_plane(project_root: Path) -> ActiveWorkPlane:
-    """Resolve the active work plane using the legacy singleton buffer layout.
+    """Resolve the active work plane.
 
-    The compatibility contract keeps current consumers stable while HX-02
-    introduces a first-class task ledger and spec-scoped artifact topology.
-    When an authoritative pointer exists, prefer the pointed specs dir while
-    preserving the same ``spec.md``/``plan.md`` compatibility view contract.
+    Returns the canonical three-file contract (spec.md, plan.md, _history.md)
+    rooted at the active specs dir.
     """
     ai_eng_dir = project_root / ".ai-engineering"
     specs_dir = _pointer_specs_dir(project_root) or (ai_eng_dir / "specs")
@@ -253,9 +176,5 @@ def resolve_active_work_plane(project_root: Path) -> ActiveWorkPlane:
         specs_dir=specs_dir,
         spec_path=specs_dir / "spec.md",
         plan_path=specs_dir / "plan.md",
-        ledger_path=specs_dir / _TASK_LEDGER_FILENAME,
-        current_summary_path=specs_dir / _CURRENT_SUMMARY_FILENAME,
-        history_summary_path=specs_dir / _HISTORY_SUMMARY_FILENAME,
-        handoffs_dir=specs_dir / _HANDOFFS_DIRNAME,
-        evidence_dir=specs_dir / _EVIDENCE_DIRNAME,
+        history_path=specs_dir / _HISTORY_FILENAME,
     )

@@ -502,10 +502,8 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
 
 
 def _record_placeholder_spec_ledger_coherence(target: Path, report: IntegrityReport) -> None:
-    ledger_path = resolve_active_work_plane(target).ledger_path
-    if not ledger_path.exists():
-        return
-
+    # Spec-123: task ledger removed. Function retained as defensive shim;
+    # read_task_ledger always returns None so the body short-circuits.
     ledger = read_task_ledger(target)
     if ledger is None:
         report.checks.append(
@@ -535,17 +533,11 @@ def _record_placeholder_spec_ledger_coherence(target: Path, report: IntegrityRep
 
 
 def _record_task_ledger_activity(target: Path, report: IntegrityReport) -> None:
+    # Spec-123: task ledger removed. read_task_ledger returns None
+    # unconditionally; this function is retained as a defensive shim that
+    # short-circuits cleanly so call sites need not be edited individually.
     ledger = read_task_ledger(target)
     if ledger is None:
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MANIFEST_COHERENCE,
-                name="active-task-ledger",
-                status=IntegrityStatus.WARN,
-                message="Active spec has no readable task-ledger.json",
-                file_path=_TASK_LEDGER_FILE_PATH,
-            )
-        )
         return
 
     if any(task.status != TaskLifecycleState.DONE for task in ledger.tasks):

@@ -38,9 +38,9 @@ This is a hard gate. Do not proceed. Do not attempt to split concerns further to
 
 ### Step 3 -- Write Sub-Spec Shells
 
-For each concern, create a directory `.ai-engineering/specs/autopilot/sub-NNN/` containing two files:
+For each concern, create a directory `.ai-engineering/state/runtime/autopilot/sub-NNN/` containing two files:
 
-**`.ai-engineering/specs/autopilot/sub-NNN/spec.md`** (Shell Schema):
+**`.ai-engineering/state/runtime/autopilot/sub-NNN/spec.md`** (Shell Schema):
 
 ```markdown
 ---
@@ -61,7 +61,7 @@ depends_on: []
 [EMPTY -- populated by Phase 2]
 ```
 
-**`.ai-engineering/specs/autopilot/sub-NNN/plan.md`**:
+**`.ai-engineering/state/runtime/autopilot/sub-NNN/plan.md`**:
 
 ```markdown
 ---
@@ -87,7 +87,7 @@ Rules:
 
 ### Step 4 -- Write Manifest
 
-Write `.ai-engineering/specs/autopilot/manifest.md` with the full sub-spec list. All statuses start as `planning`.
+Write `.ai-engineering/state/runtime/autopilot/manifest.md` with the full sub-spec list. All statuses start as `planning`.
 
 Format:
 
@@ -135,8 +135,8 @@ If orphans remain after 2 reassignment attempts: **STOP**. Report the orphan req
 ## Output
 
 Artifacts written:
-- N sub-spec directories at `.ai-engineering/specs/autopilot/sub-001/` through `.ai-engineering/specs/autopilot/sub-NNN/` (each containing `spec.md` and `plan.md`)
-- Execution manifest at `.ai-engineering/specs/autopilot/manifest.md`
+- N sub-spec directories at `.ai-engineering/state/runtime/autopilot/sub-001/` through `.ai-engineering/state/runtime/autopilot/sub-NNN/` (each containing `spec.md` and `plan.md`)
+- Execution manifest at `.ai-engineering/state/runtime/autopilot/manifest.md`
 
 Report to orchestrator:
 ```

@@ -855,15 +855,14 @@ def _config_hashes_for(check_name: str, project_root: Path) -> dict[str, str]:
 
     if check_name == "validate":
         work_plane = resolve_active_work_plane(project_root)
+        # Spec-123: dropped task-ledger.json, current-summary.md,
+        # history-summary.md, handoffs/, evidence/. Canonical three-file
+        # contract is spec.md, plan.md, _history.md.
         resolved_files = {
             **{rel: project_root / rel for rel in files},
             ".ai-engineering/specs/spec.md": work_plane.spec_path,
             ".ai-engineering/specs/plan.md": work_plane.plan_path,
-            ".ai-engineering/specs/task-ledger.json": work_plane.ledger_path,
-            ".ai-engineering/specs/current-summary.md": work_plane.current_summary_path,
-            ".ai-engineering/specs/history-summary.md": work_plane.history_summary_path,
-            ".ai-engineering/specs/handoffs/": work_plane.handoffs_dir,
-            ".ai-engineering/specs/evidence/": work_plane.evidence_dir,
+            ".ai-engineering/specs/_history.md": work_plane.history_path,
             str(ACTIVE_WORK_PLANE_POINTER_REL): project_root / ACTIVE_WORK_PLANE_POINTER_REL,
         }
         return _hash_config_targets(resolved_files, hashlib.sha256)

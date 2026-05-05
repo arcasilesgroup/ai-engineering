@@ -146,7 +146,7 @@ def build_context_pack(
         regenerationInputs=[
             work_plane.spec_path.relative_to(project_root).as_posix(),
             work_plane.plan_path.relative_to(project_root).as_posix(),
-            work_plane.ledger_path.relative_to(project_root).as_posix(),
+            work_plane.history_path.relative_to(project_root).as_posix(),
         ],
     )
     return validate_context_pack_manifest(manifest)
@@ -259,9 +259,7 @@ def _work_plane_paths(work_plane: ActiveWorkPlane) -> tuple[str, ...]:
         for path in (
             work_plane.spec_path,
             work_plane.plan_path,
-            work_plane.current_summary_path,
-            work_plane.history_summary_path,
-            work_plane.ledger_path,
+            work_plane.history_path,
         )
     )
 

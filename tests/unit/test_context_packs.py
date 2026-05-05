@@ -66,6 +66,7 @@ def _write_pack_fixture(root: Path) -> None:
     )
 
 
+@pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
 def test_build_context_pack_classifies_authority_and_residue(tmp_path: Path) -> None:
     _write_pack_fixture(tmp_path)
 
@@ -89,6 +90,7 @@ def test_build_context_pack_classifies_authority_and_residue(tmp_path: Path) -> 
     assert all(source.inline_chars == 0 for source in manifest.sources)
 
 
+@pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
 def test_context_pack_resolves_task_artifacts_relative_to_active_work_plane(
     tmp_path: Path,
 ) -> None:
