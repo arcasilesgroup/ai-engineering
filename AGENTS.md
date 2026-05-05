@@ -26,7 +26,7 @@ Implementation is spec-gated by default:
 4. `/ai-autopilot` executes the approved spec autonomously for large multi-concern work.
 5. If no approved spec exists, stop and return to `/ai-brainstorm` before implementation.
 
-## Skills (51)
+## Skills (49)
 
 The full registry is in `.ai-engineering/manifest.yml` under
 `skills.registry`. Canonical skill definitions live under
@@ -60,11 +60,19 @@ skills, agents, contexts, and hooks are catalogued in
 and transcript viewing are delegated to the separately installed
 `agentsview` companion tool.
 
+## Optional: Engram (third-party memory)
+
+ai-engineering ships **without** a built-in memory layer. `ai-eng install`
+prompts: `Install Engram for memory persistence? [y/N]`. Yes runs Engram's
+official install per OS (brew/winget/binary) + `engram setup <ide>` for
+detected agent. Skip is fine. Force: `--engram` (yes) or `--no-engram` (skip).
+CI defaults to skip. Engram is a peer product, not a dependency.
+
 ## Source of Truth
 
 | What | Where |
 |------|-------|
-| Skills (51) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (49) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (10) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Config | `.ai-engineering/manifest.yml` |

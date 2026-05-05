@@ -198,6 +198,18 @@ adding new logic to the hook.
 - Treat `/ai-start` as the session bootstrap — it loads only what the
   current task needs and avoids re-reading already-loaded context.
 
+## Optional: Engram (third-party memory)
+
+`ai-engineering` ships **without** a built-in memory layer. During
+`ai-eng install` you'll be prompted: `Install Engram for memory
+persistence? [y/N]`. Yes triggers Engram's official install per OS
+(`brew install engram` on macOS, `winget install Engram` on Windows,
+direct binary on Linux) followed by `engram setup claude_code` for
+this IDE. Skip is fine — Claude Code works without Engram. Force
+deterministically: `--engram` (yes) or `--no-engram` (skip). CI defaults
+to skip. [Engram](https://github.com/Gentleman-Programming/engram) is
+a peer product, not an `ai-engineering` dependency.
+
 ## Observability
 
 Telemetry is automatic — refer to

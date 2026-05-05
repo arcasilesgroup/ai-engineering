@@ -21,7 +21,7 @@ from ai_engineering.doctor.models import (
     PhaseReport,
 )
 from ai_engineering.doctor.phases import detect, governance, hooks, ide_config, state, tools
-from ai_engineering.doctor.runtime import branch_policy, feeds, vcs_auth, version
+from ai_engineering.doctor.runtime import branch_policy, feeds, opa_health, vcs_auth, version
 from ai_engineering.doctor.runtime.feeds import validate_feeds_for_install
 from ai_engineering.installer.phases import (
     PHASE_DETECT,
@@ -59,6 +59,7 @@ _RUNTIME_CHECK_MODULES = {
     "feeds": feeds,
     "branch_policy": branch_policy,
     "version": version,
+    "opa_health": opa_health,
 }
 
 _RUNTIME_MODULES: tuple[str, ...] = (
@@ -66,6 +67,7 @@ _RUNTIME_MODULES: tuple[str, ...] = (
     "feeds",
     "branch_policy",
     "version",
+    "opa_health",
 )
 
 

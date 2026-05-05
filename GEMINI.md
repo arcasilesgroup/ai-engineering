@@ -31,7 +31,7 @@ Gemini CLI; the snapshot primitive degrades gracefully.
 
 | What | Where |
 |------|-------|
-| Skills (51) | `.gemini/skills/ai-<name>/SKILL.md` |
+| Skills (49) | `.gemini/skills/ai-<name>/SKILL.md` |
 | Agents (10) | `.gemini/agents/ai-<name>.md` |
 | Hook scripts | `.ai-engineering/scripts/hooks/` (shared) |
 | CLI | `ai-eng <command>` |
@@ -42,7 +42,7 @@ defined once in [AGENTS.md](AGENTS.md). Do not duplicate.
 
 ## Skills
 
-See [AGENTS.md → Skills](AGENTS.md#skills-51) for the
+See [AGENTS.md → Skills](AGENTS.md#skills-49) for the
 canonical skill list and dispatch surface. The Gemini surface mirrors
 that registry under `.gemini/skills/`.
 

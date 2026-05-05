@@ -84,6 +84,16 @@ ai-eng doctor
 
 **Telemetry**: strict-opt-in, default disabled. The audit chain is local NDJSON; external emitters require explicit operator opt-in (see `.ai-engineering/manifest.yml` `telemetry.*`).
 
+### Optional: Engram (third-party memory)
+
+`ai-engineering` ships **without** a built-in memory layer. During `ai-eng install` you'll be prompted:
+
+```
+Install Engram for memory persistence? [y/N]
+```
+
+Answering **yes** triggers Engram's official install path for your host (`brew install engram` on macOS, `winget install Engram` on Windows, direct binary download on Linux) followed by `engram setup <ide>` for the detected agent. Skip is fine — the framework is fully functional without Engram. Bypass the prompt deterministically with `--engram` (force install) or `--no-engram` (skip). Non-interactive sessions (CI) default to skip. [Engram](https://github.com/Gentleman-Programming/engram) is a peer product, not an `ai-engineering` dependency.
+
 See [GETTING_STARTED.md](GETTING_STARTED.md) for the full tutorial.
 
 ## What's new in 0.5.0

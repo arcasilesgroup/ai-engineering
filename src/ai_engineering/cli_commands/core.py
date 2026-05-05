@@ -170,6 +170,27 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
             ),
         ),
     ] = False,
+    engram: Annotated[
+        bool,
+        typer.Option(
+            "--engram",
+            help=(
+                "Install the third-party Engram memory product without prompting "
+                "(spec-123 D-123-12). Engram is a peer product, not a framework "
+                "dependency."
+            ),
+        ),
+    ] = False,
+    no_engram: Annotated[
+        bool,
+        typer.Option(
+            "--no-engram",
+            help=(
+                "Skip the Engram install prompt (spec-123 D-123-12). Default "
+                "behaviour for non-interactive sessions."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Install the ai-engineering governance framework."""
     if non_interactive:
@@ -283,6 +304,17 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         auto_remediation_report=auto_remediation_report,
         no_auto_remediate=no_auto_remediate,
     )
+
+    # spec-123 D-123-12 / D-123-29: Engram is a third-party memory product
+    # wired at install time. Prompt fires post-deps; --engram / --no-engram
+    # flags bypass deterministically; non-interactive sessions skip silently.
+    _maybe_run_engram_install(
+        root,
+        engram=engram,
+        no_engram=no_engram,
+        non_interactive=non_interactive,
+    )
+
     _render_install_success(
         root,
         result,
@@ -675,6 +707,64 @@ def _raise_install_failures(
         )
     error(message)
     raise typer.Exit(code=EXIT_TOOLS_FAILED)
+
+
+def _maybe_run_engram_install(
+    root: Path,
+    *,
+    engram: bool,
+    no_engram: bool,
+    non_interactive: bool,
+) -> None:
+    """Drive the spec-123 Engram install prompt.
+
+    Engram is a third-party peer product, not an ai-engineering
+    dependency.  This helper resolves the ``--engram`` / ``--no-engram``
+    flags into the boolean ``force`` argument expected by
+    :func:`maybe_install_engram`, then renders a one-line summary of
+    the outcome to stderr.  Failures are non-blocking: the install
+    continues regardless so a missing Engram never trips the framework
+    install.
+    """
+
+    from ai_engineering.installer.engram import maybe_install_engram
+
+    if engram and no_engram:
+        # Conflicting flags -- prefer the explicit opt-out (safer).
+        force: bool | None = False
+    elif engram:
+        force = True
+    elif no_engram:
+        force = False
+    else:
+        force = None
+
+    interactive = not non_interactive and sys.stdin.isatty()
+
+    try:
+        outcome = maybe_install_engram(
+            force=force,
+            interactive=interactive,
+            project_root=root,
+        )
+    except Exception as exc:  # pragma: no cover - defensive non-blocking guard.
+        typer.echo(
+            f"[engram] install attempt raised an unexpected error: {exc}",
+            err=True,
+        )
+        return
+
+    if outcome.skipped:
+        return
+    prefix = "[engram]"
+    if outcome.success:
+        typer.echo(f"{prefix} {outcome.message}", err=True)
+    else:
+        typer.echo(
+            f"{prefix} install incomplete: {outcome.message}. "
+            f"Re-run with `ai-eng install --engram` once resolved.",
+            err=True,
+        )
 
 
 def _render_install_success(

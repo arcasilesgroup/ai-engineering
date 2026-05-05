@@ -110,6 +110,24 @@ jobs:
       - name: Check code duplication
         run: uv run python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3
 
+  opa-policies:
+    name: OPA Policy Tests & Coverage
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: open-policy-agent/setup-opa@34a30e8a924d1b03ce2cf7abe97250bbb1f332b5 # v2.2.0
+        with:
+          version: latest
+      - name: opa fmt --diff
+        run: opa fmt --diff .ai-engineering/policies/
+      - name: opa test (verbose)
+        run: opa test --verbose .ai-engineering/policies/
+      - name: opa test --coverage (≥90% gate)
+        run: python3 scripts/check_opa_coverage.py --threshold 90
+
   risk-acceptance:
     name: Risk Acceptance Check
     needs: [change-scope]
@@ -689,6 +707,7 @@ jobs:
         change-scope,
         lint,
         duplication,
+        opa-policies,
         risk-acceptance,
         typecheck,
         test-unit,
@@ -724,6 +743,7 @@ jobs:
           code_conditional=(
             "lint:${{ needs.lint.result }}"
             "duplication:${{ needs.duplication.result }}"
+            "opa-policies:${{ needs.opa-policies.result }}"
             "risk-acceptance:${{ needs.risk-acceptance.result }}"
             "typecheck:${{ needs.typecheck.result }}"
             "test-unit:${{ needs.test-unit.result }}"

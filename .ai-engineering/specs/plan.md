@@ -73,10 +73,10 @@ No UI work. Routing skipped.
 
 **Gate**: 4 OPA closure tasks done; CI workflow with 90% coverage gate; doctor includes opa-health.
 
-- [ ] T-4.1: Wire OPA into ai-eng risk accept (T-3.13) (agent: build)
-- [ ] T-4.2: Integration golden tests for 3 policies via opa eval subprocess (T-3.14) (agent: build)
-- [ ] T-4.3: CI workflow opa test --coverage 90% gate (T-3.17) (agent: build)
-- [ ] T-4.4: /ai-governance skill update + ai-eng doctor opa-health (T-3.18) (agent: build)
+- [x] T-4.1: Wire OPA into ai-eng risk accept (T-3.13) (agent: build)
+- [x] T-4.2: Integration golden tests for 3 policies via opa eval subprocess (T-3.14) (agent: build)
+- [x] T-4.3: CI workflow opa test --coverage 90% gate (T-3.17) (agent: build)
+- [x] T-4.4: /ai-governance skill update + ai-eng doctor opa-health (T-3.18) (agent: build)
 
 ---
 
@@ -84,11 +84,11 @@ No UI work. Routing skipped.
 
 **Gate**: install prompt callable; OS+IDE detection works; engram setup invocation tested with mocked subprocess.
 
-- [ ] T-5.1: TDD-RED — failing test for ai-eng install Engram prompt (agent: build)
-- [ ] T-5.2: TDD-GREEN — implement _install_engram() with OS+IDE detection (agent: build)
-- [ ] T-5.3: Add interactive prompt to install pipeline (agent: build)
-- [ ] T-5.4: README + CLAUDE.md + AGENTS.md update for Engram install flow (agent: build)
-- [ ] T-5.5: Phase 5 verification — install prompt tests + dry-run (agent: verify)
+- [x] T-5.1: TDD-RED — failing test for ai-eng install Engram prompt (agent: build)
+- [x] T-5.2: TDD-GREEN — implement _install_engram() with OS+IDE detection (agent: build)
+- [x] T-5.3: Add interactive prompt to install pipeline (agent: build)
+- [x] T-5.4: README + CLAUDE.md + AGENTS.md update for Engram install flow (agent: build)
+- [x] T-5.5: Phase 5 verification — install prompt tests + dry-run (agent: verify)
 
 ---
 
