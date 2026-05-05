@@ -149,6 +149,39 @@ only in `GEMINI.md`; lifting them into the Constitution restores the
 7. **Parallel Execution** — batch independent operations into
    simultaneous tool calls. Never go sequential when you can go parallel.
 
+## Article XIII — Active Spec Workflow Contract
+
+The framework enforces a single canonical spec-workflow flow. Every
+skill that touches `.ai-engineering/specs/` MUST follow the identical
+sequence; depth scales with spec size, but process steps are invariant.
+
+1. **Canonical flow** — the only authorized spec lifecycle is:
+   `/ai-brainstorm → /ai-plan → /ai-dispatch | /ai-autopilot → /ai-pr`.
+   No skill may bypass, reorder, or substitute these stages.
+2. **Depth scaling** — `/ai-autopilot` is the execution surface for
+   specs with ≥3 concerns or ≥10 file changes; `/ai-dispatch` handles
+   smaller specs. Both share the upstream brainstorm + plan stages and
+   the downstream PR stage; only the execution intensity varies.
+3. **Three-file specs/ surface** — `.ai-engineering/specs/` contains
+   exactly three files: `spec.md` (active spec), `plan.md` (active
+   plan), `_history.md` (one-line ledger of completed lifecycles). No
+   subdirectories, no numbered archives, no progress dirs, no
+   work-plane artifacts. Numbered archive specs are recoverable via
+   `git log -- .ai-engineering/specs/spec-NNN-*.md`. Decisions are
+   authoritative in `state.db.decisions`. Autopilot transient state
+   lives at `.ai-engineering/state/runtime/autopilot/` (gitignored) —
+   never under `specs/`.
+4. **Hard rule for skills** — any skill that reads or writes `specs/`
+   MUST consume only the canonical 3 files. Reading numbered archives
+   from disk is forbidden; query `state.db.decisions` or git history
+   instead.
+5. **Enforcement** — `tests/unit/specs/test_canonical_structure.py`
+   asserts the 3-file invariant on every CI run.
+   `tests/unit/specs/test_active_workflow_compliance.py` asserts that
+   each lifecycle skill (`/ai-brainstorm`, `/ai-plan`,
+   `/ai-dispatch`, `/ai-autopilot`, `/ai-pr`) exists and references
+   the canonical surface. Any deviation fails CI.
+
 ---
 
 <!--

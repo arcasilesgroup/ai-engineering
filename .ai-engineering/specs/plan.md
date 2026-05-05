@@ -112,10 +112,10 @@ No UI work. Routing skipped.
 
 **Gate**: CONSTITUTION article landed; autopilot phase-deliver verified; ai-implement scrub clean.
 
-- [ ] T-7.1: Add Article XIII "Active Spec Workflow Contract" to CONSTITUTION.md (agent: build)
-- [ ] T-7.2: Fix autopilot phase-deliver.md cleanup execution + verification gate (D-123-27) (agent: build)
-- [ ] T-7.3: Scrub remaining ai-implement references repo-wide (D-123-28) (agent: build)
-- [ ] T-7.4: New CI guard tests/unit/specs/test_active_workflow_compliance.py (agent: build)
+- [x] T-7.1: Add Article XIII "Active Spec Workflow Contract" to CONSTITUTION.md (agent: build)
+- [x] T-7.2: Fix autopilot phase-deliver.md cleanup execution + verification gate (D-123-27) (agent: build)
+- [x] T-7.3: Scrub remaining ai-implement references repo-wide (D-123-28) (agent: build)
+- [x] T-7.4: New CI guard tests/unit/specs/test_active_workflow_compliance.py (agent: build)
 
 ---
 

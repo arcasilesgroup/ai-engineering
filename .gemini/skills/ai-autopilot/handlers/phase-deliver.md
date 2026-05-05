@@ -79,28 +79,28 @@ This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
 
 ### Step 3: Cleanup
 
-Execute after the PR merges (detected by the watch loop), or immediately after PR creation if `--no-watch` was passed.
+Execute after the PR merges (detected by the watch loop), or immediately after PR creation if `--no-watch` was passed. **Each sub-step MUST be invoked explicitly via the Bash/Write tools — no implicit assumptions.** Per spec-123 D-123-27, this section was historically skipped; the verification gate in Step 3.6 now asserts the actual on-disk state.
 
-1. **Delete autopilot directory**:
-   ```
+1. **Delete autopilot transient directory** (NEW path per spec-123 D-123-05; was `.ai-engineering/specs/autopilot/` pre-spec-123):
+   ```bash
    rm -rf .ai-engineering/state/runtime/autopilot/
    ```
 
-2. **Clear `.ai-engineering/specs/spec.md`** with:
+2. **Clear `.ai-engineering/specs/spec.md`** to placeholder via Write tool. Exact content:
    ```markdown
    # No active spec
 
    Run /ai-brainstorm to start a new spec.
    ```
 
-3. **Clear `.ai-engineering/specs/plan.md`** with:
+3. **Clear `.ai-engineering/specs/plan.md`** to placeholder via Write tool. Exact content:
    ```markdown
    # No active plan
 
    Run /ai-plan after brainstorm approval.
    ```
 
-4. **Add entry to `specs/_history.md`** with the spec ID, title, date, and PR number. If `_history.md` does not exist, create it with this header first:
+4. **Append entry to `.ai-engineering/specs/_history.md`** with the spec ID, title, date, and PR number. If `_history.md` does not exist, create it with this header first:
    ```markdown
    # Spec History
 
@@ -109,14 +109,44 @@ Execute after the PR merges (detected by the watch loop), or immediately after P
    | ID | Title | Status | Created | Branch |
    |----|-------|--------|---------|--------|
    ```
-   Then append the new entry row to the table.
-
-5. **Verify cleanup** (lesson from spec-056): re-read `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` after clearing. If either file still contains old spec content (anything other than the placeholder text), clear it again. This is a hard verification -- do not trust the write succeeded without reading back.
-
-6. **Stage and commit** all cleanup changes:
+   Then append a one-line lifecycle entry to the table:
+   ```markdown
+   | spec-NNN | <title> | merged | YYYY-MM-DD | <branch> |
    ```
-   chore: clear autopilot state after spec-NNN delivery
+
+5. **Stage and commit** all cleanup changes:
+   ```bash
+   git add .ai-engineering/specs/spec.md .ai-engineering/specs/plan.md .ai-engineering/specs/_history.md
+   git commit -m "chore: clear autopilot state after spec-NNN delivery"
    ```
+
+6. **Verification gate** — MUST execute before reporting Phase 6 complete (spec-123 D-123-27). Run each assertion explicitly; any failure aborts Phase 6 with a clear diagnostic and instructs the user to retry the failed sub-step manually:
+
+   ```bash
+   # Assertion 1: autopilot transient dir removed
+   test ! -d .ai-engineering/state/runtime/autopilot/ \
+     || { echo "FAIL: .ai-engineering/state/runtime/autopilot/ still exists"; exit 1; }
+
+   # Assertion 2: specs/ contains exactly 3 canonical files
+   actual=$(ls -A .ai-engineering/specs/ | sort | tr '\n' ' ')
+   expected="_history.md plan.md spec.md "
+   test "$actual" = "$expected" \
+     || { echo "FAIL: specs/ contains '$actual' (expected '$expected')"; exit 1; }
+
+   # Assertion 3: spec.md is placeholder
+   grep -q "^# No active spec" .ai-engineering/specs/spec.md \
+     || { echo "FAIL: spec.md is not placeholder"; exit 1; }
+
+   # Assertion 4: plan.md is placeholder
+   grep -q "^# No active plan" .ai-engineering/specs/plan.md \
+     || { echo "FAIL: plan.md is not placeholder"; exit 1; }
+
+   # Assertion 5: _history.md exists and has at least one lifecycle entry row
+   test -f .ai-engineering/specs/_history.md \
+     || { echo "FAIL: _history.md missing"; exit 1; }
+   ```
+
+   Lesson from spec-056 + spec-123 D-123-27: re-read `spec.md` and `plan.md` after writing. If either still contains pre-cleanup content (anything other than placeholder), invoke the Write tool again. Do not trust the write succeeded without reading back. The bash assertions above formalize this hard verification.
 
 ### Step 4: Final Report
 

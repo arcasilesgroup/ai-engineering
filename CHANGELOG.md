@@ -373,10 +373,10 @@ quiet. Dry-run installs do not emit the banner.
 - **Hot-path SLO tests (D-122-28)** — pre-commit < 1 s p95,
   pre-push < 5 s p95, single-invocation < 500 ms p95 (CI ×1.2
   slack). Tests at `tests/unit/hooks/test_hot_path_slo.py`.
-- **`/ai-implement` → `/ai-dispatch`** in `CONSTITUTION.md` and the
-  project template. CI guard at
-  `tests/unit/docs/test_skill_references_exist.py` ensures every
-  `/ai-<name>` reference in canonical docs resolves to a real
+- **Legacy implement-skill rename to dispatch** in `CONSTITUTION.md`
+  and the project template (the previous skill name was retired). CI
+  guard at `tests/unit/docs/test_skill_references_exist.py` ensures
+  every `/ai-<name>` reference in canonical docs resolves to a real
   skill.
 - **`docs/cli-reference.md` audit section** added documenting
   `ai-eng audit verify/index/query/tokens/replay/otel-export`.
