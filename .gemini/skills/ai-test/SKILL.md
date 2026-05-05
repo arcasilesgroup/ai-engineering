@@ -120,6 +120,6 @@ If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to
 - **Called by**: `/ai-dispatch` (build tasks), `ai-build agent` (TDD mode), user directly
 - **Calls**: stack-specific test runners
 - **Transitions to**: `ai-build` (GREEN phase), `/ai-verify` (coverage validation)
-- **See also**: `/ai-debug` (diagnose failing tests), `/ai-eval` (measure reliability over time)
+- **See also**: `/ai-debug` (diagnose failing tests), `/ai-verify` (coverage + acceptance gate)
 
 $ARGUMENTS

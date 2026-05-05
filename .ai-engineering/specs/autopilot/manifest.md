@@ -44,6 +44,7 @@ Wave 3: [sub-004]
 ## Wave Commits
 
 - Wave 1 (sub-001): `7ce3c3ef` — feat(spec-122-a): hygiene + config + delete evals
+- Wave 2 (sub-002+003): `3351dcef` — feat(spec-122-bc): state.db infra + OPA proper switch (PARTIAL — see Self-Reports)
 
 ## Wave 1 Notes
 

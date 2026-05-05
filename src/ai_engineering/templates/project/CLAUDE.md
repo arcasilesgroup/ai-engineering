@@ -22,7 +22,12 @@
 
 ## Hooks Configuration
 
-Claude Code reads its hook wiring from `.claude/settings.json`:
+Claude Code reads its hook wiring from `.claude/settings.json`. The
+project registers **11 canonical hook events** (audited in spec-122-d
+D-122-27, CI-guarded by `tests/unit/hooks/test_canonical_events_count.py`):
+`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`,
+`Stop`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStop`,
+`Notification`, `SessionEnd`.
 
 - `UserPromptSubmit` runs the `/ai-*` dispatcher and emits `skill_invoked`
   telemetry events.

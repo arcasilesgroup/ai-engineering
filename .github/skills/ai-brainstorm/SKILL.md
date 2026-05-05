@@ -43,7 +43,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
    present the resolution directly and STOP. No spec needed. Log the decision
    in the conversation. The HARD GATE only applies to implementation-grade work.
 6. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
-7. **Draft spec** -- write spec to `specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
+7. **Draft spec** -- write spec to `.ai-engineering/specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
 8. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board-sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
 9. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
 10. **STOP** -- present approved spec. User runs `/ai-plan` to continue.

@@ -47,6 +47,32 @@ ai-eng ide remove vscode           # Remove IDE integration
 ai-eng ide list                    # List active IDEs
 ```
 
+## Audit and observability
+
+The audit chain is the append-only ledger at
+`.ai-engineering/state/framework-events.ndjson` plus the
+SQLite-projection at `.ai-engineering/state/audit-index.sqlite`
+(spec-120 D-120-04). All commands are read-only.
+
+```bash
+ai-eng audit verify                           # Verify hash chain (events + decisions)
+ai-eng audit verify --decisions               # Decision ledger only
+ai-eng audit index                            # Build / refresh the SQLite projection
+ai-eng audit index --force                    # Rebuild from scratch
+ai-eng audit query "SELECT ..."               # Run a read-only SQL query
+ai-eng audit tokens --by skill                # Token usage by skill
+ai-eng audit tokens --by agent                # Token usage by agent
+ai-eng audit tokens --by session              # Token usage by session
+ai-eng audit replay --session <id>            # Walk a session as a span tree
+ai-eng audit otel-export --trace <id>         # Export trace as OTLP/JSON
+```
+
+> Spec-122-b (sub-002) also planned `audit retention`, `rotate`,
+> `compress`, `verify-chain`, `health`, `vacuum` subcommands as part of
+> the unified `state.db` rollout. Those landed as infrastructure
+> primitives in sub-002; the user-facing CLI verbs are queued for a
+> follow-up release once the rotation policy is finalised.
+
 ## Quality gates
 
 Git hooks invoke these automatically, but you can run them manually:

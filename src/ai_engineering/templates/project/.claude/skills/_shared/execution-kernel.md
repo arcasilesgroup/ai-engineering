@@ -91,7 +91,7 @@ Artifacts persist to disk so any phase can be audited post-hoc and so `--resume`
 
 ## Sub-flow 4: Board sync
 
-For each work-item reference in `specs/spec.md` frontmatter `refs` whose hierarchy rule is NOT `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync` with the appropriate state transition (`in_progress` at task start, terminal state at task close).
+For each work-item reference in `.ai-engineering/specs/spec.md` frontmatter `refs` whose hierarchy rule is NOT `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync` with the appropriate state transition (`in_progress` at task start, terminal state at task close).
 
 Board sync is **fail-open**: do NOT block execution if the provider is unreachable, the credential is missing, or the work item type is read-only at the configured hierarchy. Log a warning and continue. Delivery and governance gates remain fail-closed; only board sync is fail-open.
 

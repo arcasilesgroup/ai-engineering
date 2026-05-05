@@ -7,7 +7,7 @@ Deliver the dispatch changeset via PR. Build a lightweight Quality Report from P
 ## Prerequisites
 
 - Phase 3 (Quality Check) is complete: either PASS (0 blockers/criticals/highs) or exhausted (max rounds reached with only non-blocking issues remaining).
-- All task statuses in `specs/plan.md` are `DONE` or `DONE_WITH_CONCERNS` (no `BLOCKED` tasks that would prevent delivery).
+- All task statuses in `.ai-engineering/specs/plan.md` are `DONE` or `DONE_WITH_CONCERNS` (no `BLOCKED` tasks that would prevent delivery).
 - Branch has commits from per-task execution and per-quality-round fixes.
 
 ## Procedure
@@ -45,14 +45,14 @@ This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
 
 Execute after the PR merges (detected by the watch loop), or immediately after PR creation if `--no-watch` was passed.
 
-1. **Clear `specs/spec.md`** with:
+1. **Clear `.ai-engineering/specs/spec.md`** with:
    ```markdown
    # No active spec
 
    Run /ai-brainstorm to start a new spec.
    ```
 
-2. **Clear `specs/plan.md`** with:
+2. **Clear `.ai-engineering/specs/plan.md`** with:
    ```markdown
    # No active plan
 
@@ -70,7 +70,7 @@ Execute after the PR merges (detected by the watch loop), or immediately after P
    ```
    Then append the new entry row to the table.
 
-4. **Verify cleanup**: re-read `specs/spec.md` and `specs/plan.md` after clearing. If either file still contains old spec content (anything other than the placeholder text), clear it again. Do not trust the write succeeded without reading back.
+4. **Verify cleanup**: re-read `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` after clearing. If either file still contains old spec content (anything other than the placeholder text), clear it again. Do not trust the write succeeded without reading back.
 
 5. **Stage and commit** all cleanup changes:
    ```
@@ -91,8 +91,8 @@ PR: #NNN (merged|pending)
 ```
 
 Field sources:
-- **Spec**: from `specs/spec.md` frontmatter (read before cleanup clears it).
-- **Tasks**: count from `specs/plan.md`. "completed" = status `DONE`. "with concerns" = status `DONE_WITH_CONCERNS`.
+- **Spec**: from `.ai-engineering/specs/spec.md` frontmatter (read before cleanup clears it).
+- **Tasks**: count from `.ai-engineering/specs/plan.md`. "completed" = status `DONE`. "with concerns" = status `DONE_WITH_CONCERNS`.
 - **Quality rounds**: from Phase 3 execution log.
 - **PR**: number from the PR creation step. State is "merged" if watch loop confirmed merge, "pending" if `--no-watch` was used.
 

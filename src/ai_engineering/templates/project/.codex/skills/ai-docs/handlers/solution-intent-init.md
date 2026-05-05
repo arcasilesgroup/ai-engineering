@@ -82,7 +82,7 @@ Each section MUST have at least one Mermaid diagram or table. If data is not ava
 - 7.1 Roadmap (table: phase, description, status)
 - 7.2 Active Epics / Features (table: epic, description, priority, status, target)
 - 7.3 KPIs (table: metric, target, current)
-- 7.4 Active Spec (pointer to `specs/spec.md`)
+- 7.4 Active Spec (pointer to `.ai-engineering/specs/spec.md`)
 - 7.5 Blockers and Risks (table: ID, description, severity, owner, expiry)
 
 ### 4. Write

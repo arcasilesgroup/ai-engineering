@@ -98,19 +98,20 @@ C4Context
 
 ### 2.2 Functional Requirements by Domain
 
-#### Skills (47)
+#### Skills (51)
 
 | Type | Skills | Count |
 |------|--------|-------|
-| Workflow | brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema | 10 |
+| Workflow | brainstorm, plan, dispatch, code, test, debug, verify, review, schema | 9 |
 | Delivery | commit, pr, release-gate, cleanup, market | 5 |
 | Enterprise | security, governance, pipeline, docs, board-discover, board-sync, platform-audit | 7 |
 | Teaching | explain, guide, write, slides, media, video-editing | 6 |
 | Design | design, animation, canvas | 3 |
 | SDLC | note, standup, sprint, postmortem, support, resolve-conflicts | 6 |
-| Meta | create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve | 10 |
+| Meta | create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve, mcp-sentinel, dream, remember, entropy-gc, research | 15 |
 
-**Effort distribution**: 11 max, 23 high, 13 medium.
+**Effort distribution** (post spec-122-a): `eval` skill removed with the
+`evals/` directory; net count reflects current `.claude/skills/`.
 
 #### Agents (10)
 
