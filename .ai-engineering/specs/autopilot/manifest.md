@@ -39,7 +39,19 @@ Wave 3: [sub-004]
 
 ## Quality Rounds
 
-(populated by Phase 5)
+- Round 1 commit `abe563fd` — chore(spec-122): phase 5 convergence
+  - T-3.16: legacy policy_engine.py → 64-LOC shim over opa_runner; test_policy_engine.py deleted (coverage redundant with opa_runner + opa_eval tests)
+  - T-2.20: removed sqlite-vec, fastembed, hdbscan + memory optional-deps extra; uv.lock regenerated
+  - Test failure cleanup: 82 → 0 (5020 passed / 15 skipped / 1 xpassed)
+  - T-3.15: hot-path SLO budget kept at 1s p95 (OPA cold-start ~94ms; well within budget)
+  - Convergence achieved in single round; Phase 6 ready
+
+### Phase 6 known follow-ups
+
+1. Engram delegation (T-2.13–T-2.18): skill templates `/ai-remember`, `/ai-dream` still reference legacy `ai-eng memory ...` CLI; `.ai-engineering/scripts/memory/` and `memory_cmd.py` still ship. Will fail at import if invoked since memory deps are gone. Track as spec-122-b-followup or Phase 6 patch.
+2. 47 pre-existing ruff issues (long lines, etc) — out of spec-122 scope.
+3. Stale archive directory at `.ai-engineering/state/archive/pre-spec-122-reset-20260505/` intentionally left untracked.
+4. `.ai-engineering/instincts/{instincts.yml,meta.json}` session telemetry updates left unstaged (autopilot-side state).
 
 ## Wave Commits
 
