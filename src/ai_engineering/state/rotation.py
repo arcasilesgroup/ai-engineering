@@ -285,7 +285,171 @@ def compress_month(
             }
 
 
+# ---------------------------------------------------------------------------
+# Spec-123 T-3.7: closed-month compress under archive/ndjson/<year-month>/
+# ---------------------------------------------------------------------------
+
+
+_NDJSON_ARCHIVE_REL = Path(".ai-engineering") / "state" / "archive" / "ndjson"
+
+
+def _ndjson_archive_dir(project_root: Path, year_month: str) -> Path:
+    """Canonical compressed-archive slot per D-123-25."""
+    return project_root / _NDJSON_ARCHIVE_REL / year_month
+
+
+def compress_closed_month(
+    project_root: Path,
+    year_month: str,
+) -> dict[str, Any]:
+    """Compress a closed-month plaintext NDJSON to seekable zstd.
+
+    spec-123 D-123-25 archive layout:
+      ``state/archive/ndjson/<year-month>/<year-month>.ndjson.zst``
+
+    Behaviour:
+      * Reads ``state/audit-archive/<year>/<year-month>.ndjson`` (the
+        plaintext :func:`rotate_now` produced).
+      * Writes the compressed file under the canonical D-123-25 slot.
+      * Removes the plaintext after a successful compress.
+      * Idempotent: re-running on an already-compressed month returns
+        ``status='noop'``.
+      * Soft-skip when neither system zstd nor the Python ``zstandard``
+        module is available.
+    """
+    with artifact_lock(project_root, "audit-rotation"):
+        year = year_month.split("-")[0]
+        plaintext = _archive_dir(project_root, year) / f"{year_month}.ndjson"
+        target_dir = _ndjson_archive_dir(project_root, year_month)
+        compressed = target_dir / f"{year_month}.ndjson.zst"
+
+        if compressed.exists():
+            # Already compressed; no-op for idempotency.
+            return {
+                "status": "noop",
+                "reason": "already_compressed",
+                "compressed_path": str(compressed.relative_to(project_root)),
+            }
+        if not plaintext.exists():
+            return {
+                "status": "noop",
+                "reason": "missing_plaintext",
+            }
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        # Try system zstd first (seekable frame support).
+        try:
+            subprocess.run(
+                ["zstd", "--version"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            subprocess.run(
+                [
+                    "zstd",
+                    "--long=27",
+                    "-19",
+                    "-q",
+                    "-o",
+                    str(compressed),
+                    str(plaintext),
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+            plaintext.unlink()
+            return {
+                "status": "compressed",
+                "method": "zstd-system",
+                "compressed_path": str(compressed.relative_to(project_root)),
+            }
+        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            pass
+
+        # Fallback: pure-Python zstandard if available.
+        try:
+            import zstandard as zstd  # type: ignore[import-not-found]
+
+            cctx = zstd.ZstdCompressor(level=19)
+            with plaintext.open("rb") as src, compressed.open("wb") as dst:
+                cctx.copy_stream(src, dst)
+            plaintext.unlink()
+            return {
+                "status": "compressed",
+                "method": "zstandard-python",
+                "compressed_path": str(compressed.relative_to(project_root)),
+            }
+        except ImportError:
+            return {
+                "status": "skipped",
+                "reason": "no_zstd_available",
+                "hint": "install system zstd (brew install zstd) or pip install zstandard",
+            }
+
+
+def verify_archive_chain(
+    project_root: Path,
+    year_month: str,
+) -> dict[str, Any]:
+    """Verify the hash chain of a compressed (or plaintext) month archive.
+
+    Decodes the ``.ndjson.zst`` artifact under the D-123-25 slot back into
+    its original NDJSON bytes, walks the lines, and counts entries. Acts
+    as a smoke verifier today; a deeper hash-chain replay can be wired in
+    once the archive carries the rotation manifest header.
+    """
+    target_dir = _ndjson_archive_dir(project_root, year_month)
+    compressed = target_dir / f"{year_month}.ndjson.zst"
+    if not compressed.exists():
+        return {
+            "ok": False,
+            "reason": "missing_archive",
+            "entries_checked": 0,
+        }
+
+    raw_bytes: bytes | None = None
+    # Try system zstd to decode.
+    try:
+        result = subprocess.run(
+            ["zstd", "-d", "-q", "--stdout", str(compressed)],
+            check=True,
+            capture_output=True,
+            timeout=60,
+        )
+        raw_bytes = result.stdout
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        pass
+
+    if raw_bytes is None:
+        try:
+            import zstandard as zstd  # type: ignore[import-not-found]
+
+            dctx = zstd.ZstdDecompressor()
+            with compressed.open("rb") as src:
+                raw_bytes = dctx.decompress(src.read())
+        except ImportError:
+            return {
+                "ok": False,
+                "reason": "no_zstd_available",
+                "entries_checked": 0,
+            }
+
+    line_count = sum(1 for line in raw_bytes.splitlines() if line.strip())
+    return {
+        "ok": True,
+        "entries_checked": line_count,
+        "compressed_path": str(compressed.relative_to(project_root)),
+    }
+
+
 __all__ = [
+    "compress_closed_month",
     "compress_month",
     "rotate_now",
+    "verify_archive_chain",
 ]

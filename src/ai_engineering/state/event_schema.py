@@ -57,6 +57,11 @@ ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(
         # accept`) emits one event; sample mask is applied at the caller in
         # `governance.decision_log.emit_policy_decision`.
         "policy_decision",
+        # spec-123 D-123-26 retention layer — HOT/WARM/COLD pruning audit.
+        # Emitted by ``ai_engineering.state.retention.apply_hot_cutoff`` and
+        # the audit CLI ``retention apply`` verb whenever a non-zero number
+        # of rows is pruned from the events projection.
+        "retention_applied",
     }
 )
 

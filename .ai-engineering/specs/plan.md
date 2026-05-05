@@ -55,17 +55,17 @@ No UI work. Routing skipped.
 
 **Gate**: state.db exists with 7 tables populated; NDJSON replay populates events table; 5 JSON files migrated; sidecar wired; 6 audit CLI verbs callable; audit_index redirected.
 
-- [ ] T-3.1: TDD-RED — failing test for lazy state_db.connect() bootstrap (agent: build)
-- [ ] T-3.2: TDD-GREEN — implement lazy bootstrap in state_db.py (agent: build)
-- [ ] T-3.3: Wire migration apply into ai-eng install pipeline (idempotent) (agent: build)
-- [ ] T-3.4: Verify NDJSON replay populates events table (agent: verify)
-- [ ] T-3.5: Verify 5 JSON files migrated to respective tables (agent: verify)
-- [ ] T-3.6: Wire sidecar offload into runtime-guard.py for events 3KB+ (T-2.8) (agent: build)
-- [ ] T-3.7: TDD-RED+GREEN — zstd seekable compress for closed NDJSON months (T-2.10) (agent: build)
-- [ ] T-3.8: TDD-RED+GREEN — retention module 90d HOT cutoff (T-2.11) (agent: build)
-- [ ] T-3.9: Implement 6 audit CLI verbs (retention apply, rotate, compress, verify-chain, health, vacuum) (T-2.12) (agent: build)
-- [ ] T-3.10: Implement audit_index.py redirect to state.db (T-2.22) (agent: build)
-- [ ] T-3.11: Phase 3 verification — full state.db smoke + integration test (agent: verify)
+- [x] T-3.1: TDD-RED — failing test for lazy state_db.connect() bootstrap (agent: build)
+- [x] T-3.2: TDD-GREEN — implement lazy bootstrap in state_db.py (agent: build)
+- [x] T-3.3: Wire migration apply into ai-eng install pipeline (idempotent) (agent: build)
+- [x] T-3.4: Verify NDJSON replay populates events table (agent: verify)
+- [x] T-3.5: Verify 5 JSON files migrated to respective tables (agent: verify)
+- [x] T-3.6: Wire sidecar offload into runtime-guard.py for events 3KB+ (T-2.8) (agent: build)
+- [x] T-3.7: TDD-RED+GREEN — zstd seekable compress for closed NDJSON months (T-2.10) (agent: build)
+- [x] T-3.8: TDD-RED+GREEN — retention module 90d HOT cutoff (T-2.11) (agent: build)
+- [x] T-3.9: Implement 6 audit CLI verbs (retention apply, rotate, compress, verify-chain, health, vacuum) (T-2.12) (agent: build)
+- [x] T-3.10: Implement audit_index.py redirect to state.db (T-2.22) (agent: build)
+- [x] T-3.11: Phase 3 verification — full state.db smoke + integration test (agent: verify)
 
 ---
 

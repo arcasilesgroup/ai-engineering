@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import logging
+
+from ai_engineering.state import state_db
 from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_state,
@@ -16,6 +19,8 @@ from ai_engineering.state.observability import (
 from ai_engineering.state.service import remove_legacy_audit_log
 
 from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict, PlannedAction
+
+_logger = logging.getLogger(__name__)
 
 _SD = ".ai-engineering/state"
 _STATE = f"{_SD}/install-state.json"
@@ -85,6 +90,23 @@ class StatePhase:
 
         legacy_audit_log_removed = remove_legacy_audit_log(context.target)
 
+        # spec-123 T-3.3: bootstrap state.db now that the JSON state files
+        # are on disk. The lazy connect() runs migrations and replays the
+        # NDJSON; subsequent installs no-op (ledger already records every
+        # migration). Failure is logged but never blocks the install --
+        # the projection is rebuildable from NDJSON, so a one-off failure
+        # here does not lose source-of-truth data.
+        state_db_bootstrapped = False
+        try:
+            conn = state_db.connect(context.target)
+            try:
+                ledger_rows = conn.execute("SELECT count(*) FROM _migrations").fetchone()[0]
+            finally:
+                conn.close()
+            state_db_bootstrapped = bool(ledger_rows)
+        except Exception as exc:  # pragma: no cover -- defensive
+            _logger.warning("state.db bootstrap failed during install: %s", exc)
+
         emit_framework_operation(
             context.target,
             operation="install-state-phase",
@@ -94,6 +116,7 @@ class StatePhase:
                 "mode": context.mode.value,
                 "providers": context.providers,
                 "legacy_audit_log_removed": legacy_audit_log_removed,
+                "state_db_bootstrapped": state_db_bootstrapped,
             },
         )
         return result

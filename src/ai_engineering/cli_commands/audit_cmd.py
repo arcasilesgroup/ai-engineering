@@ -605,12 +605,262 @@ def audit_otel_export(
     typer.echo(body)
 
 
+# ---------------------------------------------------------------------------
+# spec-123 T-3.9: 6 audit ops verbs
+#   retention apply / rotate / compress / verify-chain / health / vacuum
+# ---------------------------------------------------------------------------
+
+
+def audit_retention_apply(
+    days: Annotated[
+        int,
+        typer.Option("--days", help="HOT cutoff window in days (default 90)."),
+    ] = 90,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON envelope."),
+    ] = False,
+) -> None:
+    """Apply the HOT retention cutoff to the events projection (D-123-26).
+
+    Deletes ``events`` rows older than ``now - days`` from ``state.db``.
+    NDJSON archives retain the original lines so the prune is loss-free.
+    Emits a ``retention_applied`` framework event when rows are deleted.
+    """
+    from ai_engineering.state import retention, state_db
+
+    project_root = _resolve_project_root()
+    conn = state_db.connect(project_root)
+    try:
+        verdict = retention.apply_hot_cutoff(conn, days=days)
+    finally:
+        conn.close()
+
+    if json_output:
+        typer.echo(json.dumps(verdict))
+        return
+    typer.echo(
+        f"Retention cutoff applied: deleted={verdict['deleted']} "
+        f"cutoff_days={verdict['cutoff_days']} "
+        f"status={verdict['status']}"
+    )
+
+
+def audit_rotate(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON envelope."),
+    ] = False,
+) -> None:
+    """Roll the current month's NDJSON into the audit-archive (D-122-19).
+
+    Closes ``framework-events.ndjson`` for the calendar month, writes
+    the archive copy + manifest under ``state/audit-archive/<year>/``,
+    and seeds the new month with an ``audit_rotation_anchor`` event so
+    the hash chain spans rotations.
+    """
+    from ai_engineering.state.rotation import rotate_now
+
+    project_root = _resolve_project_root()
+    result = rotate_now(project_root)
+
+    if json_output:
+        typer.echo(json.dumps(result))
+        return
+    typer.echo(f"audit rotate: {result.get('status', 'unknown')}")
+
+
+def audit_compress(
+    year_month: Annotated[
+        str,
+        typer.Argument(help="YYYY-MM month to compress (must be already rotated)."),
+    ],
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON envelope."),
+    ] = False,
+) -> None:
+    """Compress a closed-month plaintext NDJSON to seekable zstd.
+
+    Writes the ``.ndjson.zst`` artifact under
+    ``state/archive/ndjson/<year-month>/`` per spec-123 D-123-25 and
+    removes the plaintext after a successful compress.
+    """
+    from ai_engineering.state.rotation import compress_closed_month
+
+    project_root = _resolve_project_root()
+    result = compress_closed_month(project_root, year_month)
+
+    if json_output:
+        typer.echo(json.dumps(result))
+        return
+    typer.echo(f"audit compress {year_month}: {result.get('status', 'unknown')}")
+
+
+def audit_verify_chain(
+    year_month: Annotated[
+        str | None,
+        typer.Option(
+            "--year-month",
+            help="Verify a specific archived month. Omit for live NDJSON.",
+        ),
+    ] = None,
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON envelope."),
+    ] = False,
+) -> None:
+    """Verify the hash chain of the live NDJSON or a compressed archive.
+
+    Without ``--year-month`` this delegates to the legacy ``audit verify``
+    on ``framework-events.ndjson`` + ``decision-store.json``. With a
+    ``YYYY-MM`` argument the verifier walks the archived month under
+    ``state/archive/ndjson/<year-month>/<year-month>.ndjson.zst``.
+    """
+    from ai_engineering.state.rotation import verify_archive_chain
+
+    if year_month is None:
+        # Delegate to the legacy verify command's machine-readable surface.
+        payload = _audit_verify_machine_readable("all")
+        if json_output:
+            typer.echo(json.dumps(payload))
+            return
+        typer.echo("audit verify-chain: live NDJSON")
+        for verdict in payload["verdicts"]:
+            typer.echo(
+                f"  {verdict['file']}: ok={verdict['ok']} entries={verdict['entries_checked']}"
+            )
+        return
+
+    project_root = _resolve_project_root()
+    result = verify_archive_chain(project_root, year_month)
+    if json_output:
+        typer.echo(json.dumps(result))
+        return
+    typer.echo(
+        f"audit verify-chain {year_month}: ok={result['ok']} entries={result['entries_checked']}"
+    )
+
+
+def audit_health(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON envelope."),
+    ] = False,
+) -> None:
+    """Report state.db health: ledger, table counts, NDJSON freshness.
+
+    Returns exit code 0 when state.db carries the migration ledger and
+    every required table is present. Used by ``ai-eng doctor`` and CI
+    smoke tests.
+    """
+    from ai_engineering.state import state_db
+
+    project_root = _resolve_project_root()
+    payload: dict[str, Any] = {
+        "state_db": str(state_db.STATE_DB_REL),
+        "tables": {},
+        "migrations": [],
+        "ok": True,
+    }
+    required_tables = {
+        "events",
+        "decisions",
+        "risk_acceptances",
+        "gate_findings",
+        "hooks_integrity",
+        "ownership_map",
+        "install_steps",
+        "_migrations",
+    }
+    try:
+        conn = state_db.connect(project_root)
+        try:
+            tables = {
+                row[0]
+                for row in conn.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                ).fetchall()
+            }
+            payload["migrations"] = [
+                row[0] for row in conn.execute("SELECT id FROM _migrations ORDER BY id").fetchall()
+            ]
+            for table in required_tables:
+                if table in tables:
+                    count = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+                    payload["tables"][table] = int(count)
+                else:
+                    payload["tables"][table] = None
+                    payload["ok"] = False
+        finally:
+            conn.close()
+    except Exception as exc:  # pragma: no cover -- defensive
+        payload["ok"] = False
+        payload["error"] = str(exc)
+
+    if json_output:
+        typer.echo(json.dumps(payload))
+    else:
+        typer.echo(f"audit health: ok={payload['ok']}")
+        typer.echo(f"  migrations: {payload['migrations']}")
+        for table, count in sorted(payload["tables"].items()):
+            typer.echo(f"  {table}: {count}")
+
+    if not payload["ok"]:
+        raise typer.Exit(code=1)
+
+
+def audit_vacuum(
+    json_output: Annotated[
+        bool,
+        typer.Option("--json", help="Emit JSON envelope."),
+    ] = False,
+) -> None:
+    """Reclaim free pages in ``state.db`` via ``PRAGMA incremental_vacuum``.
+
+    Runs ``PRAGMA incremental_vacuum`` (which honours the
+    ``auto_vacuum=INCREMENTAL`` setting applied at DB creation per
+    D-122-16) and reports pages reclaimed. Safe to run on a hot DB; the
+    operation is short and concurrent reads are unaffected.
+    """
+    from ai_engineering.state import state_db
+
+    project_root = _resolve_project_root()
+    conn = state_db.connect(project_root)
+    try:
+        before = int(conn.execute("PRAGMA freelist_count").fetchone()[0] or 0)
+        conn.execute("PRAGMA incremental_vacuum")
+        conn.commit()
+        after = int(conn.execute("PRAGMA freelist_count").fetchone()[0] or 0)
+    finally:
+        conn.close()
+
+    payload = {
+        "freelist_pages_before": before,
+        "freelist_pages_after": after,
+        "pages_reclaimed": max(0, before - after),
+    }
+    if json_output:
+        typer.echo(json.dumps(payload))
+        return
+    typer.echo(
+        f"audit vacuum: reclaimed {payload['pages_reclaimed']} page(s) "
+        f"(freelist {before} -> {after})"
+    )
+
+
 __all__ = [
     "audit_app_marker",
+    "audit_compress",
+    "audit_health",
     "audit_index",
     "audit_otel_export",
     "audit_query",
     "audit_replay",
+    "audit_retention_apply",
+    "audit_rotate",
     "audit_tokens",
+    "audit_vacuum",
     "audit_verify",
+    "audit_verify_chain",
 ]

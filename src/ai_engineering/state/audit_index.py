@@ -1,30 +1,35 @@
-"""SQLite projection of the framework-events NDJSON stream (spec-120 §4.3).
+"""SQLite projection of the framework-events NDJSON stream.
 
-Reads ``.ai-engineering/state/framework-events.ndjson`` line-by-line and
-materialises a SQLite database at ``.ai-engineering/state/audit-index.sqlite``
-that mirrors the schema declared in spec-120 §4.3. The index is a **derived
-artifact** -- gitignored, rebuildable from NDJSON, never the source of truth.
+spec-123 T-3.10 / D-123-22 redirect
+-----------------------------------
+Originally (spec-120 §4.3) the projection lived at
+``.ai-engineering/state/audit-index.sqlite`` with its own schema. After
+spec-122/123 consolidation the index is folded into the unified
+``state.db`` so a single SQLite file carries every framework projection
+(events, decisions, gate findings, ownership, etc.). The public API
+shape is preserved so audit CLI verbs and external consumers don't need
+to relearn anything:
 
-Public API
-----------
 * :class:`IndexResult` -- frozen dataclass returned by :func:`build_index`.
-* :func:`index_path` -- canonical SQLite path for a given project root.
-* :func:`build_index` -- read the NDJSON, write/append SQLite. Idempotent
-  and incremental (``indexed_lines.last_offset``); ``rebuild=True`` drops
-  and recreates the schema before re-reading from offset 0.
-* :func:`open_index_readonly` -- read-only :class:`sqlite3.Connection` for
-  query callers (CLI ``audit query``, ``audit tokens``, ``audit replay``).
+* :func:`index_path` -- now points to ``state.db`` rather than
+  ``audit-index.sqlite``.
+* :func:`build_index` -- read the NDJSON, write into ``state.db.events``.
+  Idempotent and incremental via the per-row ``span_id`` PK
+  (``ON CONFLICT DO NOTHING``); ``rebuild=True`` deletes existing rows
+  before re-reading.
+* :func:`open_index_readonly` -- read-only :class:`sqlite3.Connection`
+  on ``state.db`` for query callers (CLI ``audit query``, ``audit
+  tokens``, ``audit replay``).
+
+The legacy ``audit-index.sqlite`` is removed lazily on the first call
+through :func:`build_index` / :func:`open_index_readonly`.
 
 Robustness contract
 -------------------
 * Missing NDJSON file -> soft success (empty :class:`IndexResult`).
-* Malformed JSON line -> stderr warning, skip the line, continue. The
-  index does NOT emit ``framework_error`` events from this path -- doing
-  so during indexing risks an unbounded feedback loop (the new error
-  event would itself need indexing).
+* Malformed JSON line -> stderr warning, skip the line, continue.
 * DB lock / WAL contention -> ``timeout=10.0`` plus ``PRAGMA
-  journal_mode=WAL`` for the writer; reads use ``?mode=ro`` URI so
-  concurrent rebuilds cannot accidentally corrupt the read side.
+  journal_mode=WAL`` (already enforced by ``state_db.connect``).
 
 Stdlib-only by design (``sqlite3`` + ``json`` + ``hashlib`` + ``pathlib``
 + ``time`` + ``sys`` + ``datetime``). No third-party dependencies.
@@ -47,7 +52,10 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
-INDEX_REL = Path(".ai-engineering") / "state" / "audit-index.sqlite"
+# spec-123 D-123-22: index path now points at the unified state.db. The
+# legacy audit-index.sqlite is deleted on first use.
+INDEX_REL = Path(".ai-engineering") / "state" / "state.db"
+_LEGACY_INDEX_REL = Path(".ai-engineering") / "state" / "audit-index.sqlite"
 
 # Spec-120 §4.3 schema. CREATE statements are IF NOT EXISTS so the writer
 # can run on a fresh DB or an existing one without an explicit migration
@@ -191,31 +199,61 @@ def _ndjson_path(project_root: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def _connect_writer(path: Path) -> sqlite3.Connection:
-    """Open a writer connection with WAL + reasonable lock timeout.
+def _delete_legacy_index(project_root: Path) -> None:
+    """Best-effort cleanup of the pre-spec-123 audit-index.sqlite.
 
-    WAL keeps readers unblocked while we're writing. ``timeout=10.0``
-    matches the longest expected indexing transaction; longer waits get
-    raised as :class:`sqlite3.OperationalError` so the caller surfaces
-    the contention rather than hanging indefinitely.
+    The redirect lands every consumer on ``state.db``; the legacy file
+    becomes dead state. We delete it (and its WAL/SHM siblings) on the
+    first call through this module so a stale projection doesn't quietly
+    drift away from the unified DB.
     """
-    path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path), timeout=10.0)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=NORMAL")
-    return conn
+    legacy = project_root / _LEGACY_INDEX_REL
+    for suffix in ("", "-wal", "-shm"):
+        candidate = legacy.with_name(legacy.name + suffix) if suffix else legacy
+        if candidate.exists():
+            try:
+                candidate.unlink()
+            except OSError:
+                pass
+
+
+def _connect_writer(project_root: Path) -> sqlite3.Connection:
+    """Open a writer connection on ``state.db`` (lazy bootstrap aware).
+
+    Routes through :func:`ai_engineering.state.state_db.connect` so the
+    PRAGMA suite, lazy migration runner, and connection lifetime stay in
+    one place. Lazy bootstrap means a fresh project picks up the schema
+    transparently before the first write.
+    """
+    from ai_engineering.state import state_db as _state_db
+
+    _delete_legacy_index(project_root)
+    return _state_db.connect(project_root)
 
 
 def open_index_readonly(project_root: Path) -> sqlite3.Connection:
-    """Open the SQLite index in read-only mode.
+    """Open ``state.db`` in read-only mode for query consumers.
 
     Uses the ``file:?mode=ro`` URI so the OS-level filesystem still
     enforces write rejection -- attempting to ``INSERT`` / ``UPDATE`` /
     ``DELETE`` on the returned connection raises
     :class:`sqlite3.OperationalError`. Read paths (CLI ``query``,
     ``tokens``, ``replay``) are expected to use this entry point.
+
+    On first invocation, ensures ``state.db`` is bootstrapped so a
+    read-only caller on a fresh project still gets a populated DB. The
+    bootstrap is performed via a brief writer connection and then
+    discarded.
     """
+    from ai_engineering.state import state_db as _state_db
+
+    _delete_legacy_index(project_root)
     path = index_path(project_root)
+    if not path.exists() or path.stat().st_size == 0:
+        # Lazy bootstrap from the writer side so the read URI below has
+        # a populated DB to attach to.
+        bootstrap = _state_db.connect(project_root)
+        bootstrap.close()
     uri = f"file:{path}?mode=ro"
     return sqlite3.connect(uri, uri=True, timeout=10.0)
 
@@ -226,10 +264,13 @@ def open_index_readonly(project_root: Path) -> sqlite3.Connection:
 
 
 def _create_schema(conn: sqlite3.Connection) -> None:
-    """Apply the spec-120 §4.3 schema to ``conn``. Idempotent."""
-    conn.execute(_DDL_EVENTS)
-    for ddl in _DDL_INDEXES:
-        conn.execute(ddl)
+    """Ensure the rollup views and resume-offset table exist on ``state.db``.
+
+    ``state.db`` ships with the ``events`` table and indexes from migration
+    ``0001_initial_schema``. The three rollup views and the
+    ``indexed_lines`` resume-offset table are ``audit_index``-specific
+    additive surfaces, idempotent ``CREATE ... IF NOT EXISTS``.
+    """
     conn.execute(_DDL_INDEXED_LINES)
     conn.execute(_DDL_VIEW_SKILL_ROLLUP)
     conn.execute(_DDL_VIEW_AGENT_ROLLUP)
@@ -238,17 +279,18 @@ def _create_schema(conn: sqlite3.Connection) -> None:
 
 
 def _drop_schema(conn: sqlite3.Connection) -> None:
-    """Drop every spec-120 §4.3 object so ``rebuild=True`` starts clean.
+    """Truncate the audit_index-specific projection state for a clean rebuild.
 
-    DROP order is views -> tables; indexes vanish with their parent
-    table. ``IF EXISTS`` guards each statement so a partially-built DB
-    still drops cleanly.
+    Drops the views and the resume-offset table, then ``DELETE FROM events``
+    so the ``ON CONFLICT DO NOTHING`` insert path treats every NDJSON line
+    as new. The events table itself is **not** dropped because state.db
+    schema is owned by the migration runner.
     """
     conn.execute("DROP VIEW IF EXISTS skill_token_rollup")
     conn.execute("DROP VIEW IF EXISTS agent_token_rollup")
     conn.execute("DROP VIEW IF EXISTS session_token_rollup")
-    conn.execute("DROP TABLE IF EXISTS events")
     conn.execute("DROP TABLE IF EXISTS indexed_lines")
+    conn.execute("DELETE FROM events")
     conn.commit()
 
 
@@ -288,11 +330,19 @@ def _extract_columns(event: dict[str, Any], line_bytes: bytes) -> dict[str, Any]
     written before spec-120 had no ``spanId`` and would otherwise
     collide on the PRIMARY KEY.
     """
-    span_id_raw = event.get("spanId")
+    # spec-123 D-123-22: align synthetic span_id with migration 0003
+    # (replay_ndjson) so the lazy-bootstrap path and audit_index path
+    # produce identical PKs for the same legacy event. Otherwise the
+    # ``ON CONFLICT(span_id) DO NOTHING`` no-op is missed and we would
+    # double-insert each pre-spec-120 event.
+    span_id_raw = event.get("spanId") or event.get("span_id")
     if isinstance(span_id_raw, str) and span_id_raw:
         span_id = span_id_raw
     else:
-        span_id = hashlib.sha256(line_bytes).hexdigest()[:16]
+        canonical = json.dumps(
+            event, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+        span_id = "synthetic:" + hashlib.sha256(canonical).hexdigest()[:24]
 
     trace_id = event.get("traceId") if isinstance(event.get("traceId"), str) else None
     parent_span_id_raw = event.get("parentSpanId")
@@ -425,17 +475,18 @@ def _float_or_none(value: Any) -> float | None:
 
 
 _INSERT_SQL = """
-INSERT OR REPLACE INTO events (
+INSERT INTO events (
   span_id, trace_id, parent_span_id, correlation_id, session_id,
-  timestamp, ts_unix_ms, engine, kind, component, outcome,
+  timestamp, engine, kind, component, outcome,
   source, prev_event_hash, genai_system, genai_model,
   input_tokens, output_tokens, total_tokens, cost_usd, detail_json
 ) VALUES (
   :span_id, :trace_id, :parent_span_id, :correlation_id, :session_id,
-  :timestamp, :ts_unix_ms, :engine, :kind, :component, :outcome,
+  :timestamp, :engine, :kind, :component, :outcome,
   :source, :prev_event_hash, :genai_system, :genai_model,
   :input_tokens, :output_tokens, :total_tokens, :cost_usd, :detail_json
 )
+ON CONFLICT(span_id) DO NOTHING
 """
 
 
@@ -515,7 +566,7 @@ def build_index(project_root: Path, *, rebuild: bool = False) -> IndexResult:
             rebuilt=rebuild,
         )
 
-    conn = _connect_writer(sqlite_path)
+    conn = _connect_writer(project_root)
     try:
         if rebuild:
             _drop_schema(conn)

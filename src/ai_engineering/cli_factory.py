@@ -345,6 +345,21 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     audit_app.command("tokens")(_safe(audit_cmd.audit_tokens))
     audit_app.command("replay")(_safe(audit_cmd.audit_replay))
     audit_app.command("otel-export")(_safe(audit_cmd.audit_otel_export))
+    # spec-123 T-3.9: 6 ops verbs against state.db / NDJSON archive.
+    audit_app.command("rotate")(_safe(audit_cmd.audit_rotate))
+    audit_app.command("compress")(_safe(audit_cmd.audit_compress))
+    audit_app.command("verify-chain")(_safe(audit_cmd.audit_verify_chain))
+    audit_app.command("health")(_safe(audit_cmd.audit_health))
+    audit_app.command("vacuum")(_safe(audit_cmd.audit_vacuum))
+    # ``retention apply`` lives under a nested sub-Typer so the surface is
+    # ``ai-eng audit retention apply``.
+    retention_app = typer.Typer(
+        name="retention",
+        help="Apply HOT/WARM/COLD retention windows on state.db + archives.",
+        no_args_is_help=True,
+    )
+    retention_app.command("apply")(_safe(audit_cmd.audit_retention_apply))
+    audit_app.add_typer(retention_app, name="retention")
     app.add_typer(audit_app, name="audit")
 
     # Risk sub-group (spec-105: risk acceptance lifecycle CLI namespace)

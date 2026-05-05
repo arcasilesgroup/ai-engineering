@@ -68,30 +68,62 @@ def _apply_pragmas(conn: sqlite3.Connection, *, fresh_db: bool) -> None:
     cur.execute("PRAGMA journal_size_limit = 67108864")
 
 
+def _is_bootstrapped(conn: sqlite3.Connection) -> bool:
+    """Return ``True`` when ``state.db`` already carries the migration ledger.
+
+    Idempotency hinges on detecting whether a previous boot already ran
+    the migration runner. We check for the ``_migrations`` ledger table
+    (created by :func:`ai_engineering.state.migrations._runner._ensure_ledger`)
+    rather than any business table so the check stays decoupled from the
+    specific schema migrations (additions and re-orderings of business
+    tables remain safe).
+    """
+    cur = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name='_migrations' LIMIT 1"
+    )
+    return cur.fetchone() is not None
+
+
 def connect(
     project_root: Path,
     *,
     read_only: bool = False,
-    apply_migrations: bool = False,
+    apply_migrations: bool | None = None,
 ) -> sqlite3.Connection:
     """Open a connection to ``state.db`` with the D-122-16 PRAGMA suite.
+
+    Lazy bootstrap (spec-123 D-123-13)
+    ----------------------------------
+    On the first writer call against a missing or empty ``state.db``, the
+    connection helper transparently runs the migration runner so the
+    seven STRICT business tables, the ``_migrations`` ledger, and the
+    NDJSON replay all land before the connection is returned. Subsequent
+    calls observe the ledger and skip the runner.
 
     Args:
         project_root: Project root holding ``.ai-engineering/``.
         read_only: When ``True``, opens the DB via ``mode=ro`` URI so
             concurrent writers cannot accidentally corrupt the read side.
-        apply_migrations: When ``True``, run pending migrations after
-            opening (writers only).
+            Read-only mode never triggers the bootstrap; callers expect
+            an existing DB.
+        apply_migrations: Force-on (``True``) or force-off (``False``) the
+            migration runner. Default ``None`` opts into the lazy
+            bootstrap: run migrations only when the ledger is missing.
 
     Returns:
         A configured :class:`sqlite3.Connection`.
     """
     db_path = state_db_path(project_root)
     db_path.parent.mkdir(parents=True, exist_ok=True)
-    fresh_db = not db_path.exists()
+    # Treat both 'file missing' and 'file present but 0 bytes' (e.g.
+    # touched-by-installer placeholder) as 'fresh DB' so the bootstrap
+    # branch fires and PRAGMA auto_vacuum can still take effect before
+    # the first write.
+    fresh_db = (not db_path.exists()) or db_path.stat().st_size == 0
 
     if read_only:
-        # Use URI form so SQLite honours the read-only flag.
+        # Use URI form so SQLite honours the read-only flag. Read-only
+        # callers never bootstrap; they expect an existing DB.
         uri = f"file:{db_path}?mode=ro"
         conn = sqlite3.connect(uri, uri=True, timeout=10.0)
     else:
@@ -100,7 +132,20 @@ def connect(
     _apply_pragmas(conn, fresh_db=fresh_db and not read_only)
     conn.row_factory = sqlite3.Row
 
-    if apply_migrations and not read_only:
+    if read_only:
+        return conn
+
+    # Decide whether to invoke the migration runner.
+    #
+    # * ``apply_migrations=True``  -> always run (legacy callers).
+    # * ``apply_migrations=False`` -> never run (tests / explicit skip).
+    # * ``apply_migrations=None``  -> lazy: run iff ledger missing.
+    if apply_migrations is None:
+        should_run = not _is_bootstrapped(conn)
+    else:
+        should_run = bool(apply_migrations)
+
+    if should_run:
         from ai_engineering.state.migrations import run_pending
 
         run_pending(conn)

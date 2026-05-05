@@ -26,7 +26,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-BODY_SHA256 = "43d58c5b26b4485798aea8d876ce7d31d0614f8be6b03eab620af15587806d27"
+BODY_SHA256 = "412ea3a2d23c3f2f24f530bb1dfed0ed3c01f987fca10a7d10a4d15004cdbf70"
 
 _NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 
@@ -71,7 +71,17 @@ def _columns_for_row(event: dict) -> tuple:
         if isinstance(detail, dict) or isinstance(detail, list)
         else "{}"
     )
-    genai = event.get("genai") if isinstance(event.get("genai"), dict) else {}
+    # spec-123 D-123-22: genai metadata may live at the event root or
+    # nested under ``detail`` depending on whether the line was emitted
+    # before or after the spec-120 schema rev. Check root first, fall
+    # back to ``detail.genai``.
+    root_genai = event.get("genai") if isinstance(event.get("genai"), dict) else None
+    detail_genai = (
+        detail.get("genai")
+        if isinstance(detail, dict) and isinstance(detail.get("genai"), dict)
+        else None
+    )
+    genai = root_genai or detail_genai or {}
     genai_system = genai.get("system") if isinstance(genai, dict) else None
     request = genai.get("request") if isinstance(genai, dict) else None
     genai_model = request.get("model") if isinstance(request, dict) else None
@@ -96,12 +106,39 @@ def _columns_for_row(event: dict) -> tuple:
         event.get("prev_event_hash") or event.get("prevEventHash"),
         genai_system,
         genai_model,
-        input_tokens if isinstance(input_tokens, int) else None,
-        output_tokens if isinstance(output_tokens, int) else None,
-        total_tokens if isinstance(total_tokens, int) else None,
-        cost_usd if isinstance(cost_usd, (int, float)) else None,
+        _int_or_none(input_tokens),
+        _int_or_none(output_tokens),
+        _int_or_none(total_tokens),
+        _float_or_none(cost_usd),
         detail_json,
     )
+
+
+def _int_or_none(value: object) -> int | None:
+    """Coerce ``value`` to int when possible; otherwise None.
+
+    Accepts integers and integral floats (e.g. ``150.0``). Booleans,
+    strings, and non-integral floats become None to keep the column
+    forensically clean.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value.is_integer():
+            return int(value)
+        return None
+    return None
+
+
+def _float_or_none(value: object) -> float | None:
+    """Coerce to float when possible; otherwise None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
 
 
 def apply(conn: sqlite3.Connection) -> None:

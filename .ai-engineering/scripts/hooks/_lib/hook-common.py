@@ -62,6 +62,14 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
         "control_outcome",
         "framework_operation",
         "task_trace",
+        # spec-118 memory layer
+        "memory_event",
+        # spec-119 evaluation layer
+        "eval_run",
+        # spec-122 Phase C governance — OPA policy_decision
+        "policy_decision",
+        # spec-123 D-123-26 retention layer
+        "retention_applied",
     }
 )
 

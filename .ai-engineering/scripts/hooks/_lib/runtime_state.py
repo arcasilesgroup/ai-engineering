@@ -14,6 +14,7 @@ Sealed contract: stdlib-only. Same constraint as the rest of ``_lib``.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -33,6 +34,10 @@ TOOL_HISTORY_REL = RUNTIME_DIR_REL / "tool-history.ndjson"
 CHECKPOINT_REL = RUNTIME_DIR_REL / "checkpoint.json"
 RALPH_RESUME_REL = RUNTIME_DIR_REL / "ralph-resume.json"
 PRECOMPACT_SNAPSHOT_REL = RUNTIME_DIR_REL / "precompact-snapshot.json"
+# spec-123 D-123-23: oversized framework events offload to a content-addressed
+# sidecar dir under runtime/ so the inline NDJSON line stays under the
+# POSIX_BUF (4 KB) atomic-append guarantee.
+EVENT_SIDECARS_DIR_REL = RUNTIME_DIR_REL / "event-sidecars"
 
 # ---------------------------------------------------------------------------
 # Tunables (override via env if site needs different thresholds)
@@ -78,6 +83,13 @@ LOOP_REPEAT_THRESHOLD = _env_int("AIENG_LOOP_REPEAT_THRESHOLD", 3, ceiling=200)
 
 # Tool history retention (max records kept on disk).
 TOOL_HISTORY_MAX = _env_int("AIENG_TOOL_HISTORY_MAX", 500, ceiling=10_000)
+
+# spec-123 D-123-23: oversized event-sidecar offload threshold (bytes).
+# Events whose serialised JSON exceeds this ceiling are written to a
+# content-addressed sidecar file under runtime/event-sidecars/ and the
+# inline event carries only the sha256 + summary. Default 3 KB sits
+# below the 4 KB POSIX PIPE_BUF guarantee for atomic appends.
+EVENT_SIDECAR_BYTES = _env_int("AIENG_EVENT_SIDECAR_BYTES", 3072, ceiling=64 * 1024)
 # Trim threshold: amortise rewrites by only trimming when file grows beyond
 # steady-state (~180 B/line x TOOL_HISTORY_MAX x 1.5 buffer).
 _TOOL_HISTORY_TRIM_BYTES = max(256 * 1024, TOOL_HISTORY_MAX * 280)
@@ -112,6 +124,10 @@ def ralph_resume_path(project_root: Path) -> Path:
 
 def precompact_snapshot_path(project_root: Path) -> Path:
     return project_root / PRECOMPACT_SNAPSHOT_REL
+
+
+def event_sidecars_dir(project_root: Path) -> Path:
+    return project_root / EVENT_SIDECARS_DIR_REL
 
 
 def ensure_runtime_dirs(project_root: Path) -> None:
@@ -468,6 +484,106 @@ def offload_large_text(
 
 
 # ---------------------------------------------------------------------------
+# Event sidecar offload (spec-123 D-123-23)
+# ---------------------------------------------------------------------------
+
+
+def _serialise_event(event: dict) -> bytes:
+    """Canonical JSON encoding of an event (sorted keys, compact separators).
+
+    Matches :func:`ai_engineering.state.sidecar._serialize` so the bytes
+    counted here are the same bytes that would land in the NDJSON line.
+    """
+    return json.dumps(event, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
+
+
+def _event_summary(event: dict, max_chars: int = 160) -> str:
+    """Build a stable one-line summary for an oversized event."""
+    kind = event.get("kind") or "unknown"
+    component = event.get("component") or ""
+    detail = event.get("detail")
+    detail_summary: str
+    if isinstance(detail, dict):
+        fragments: list[str] = []
+        for key in ("operation", "tool", "skill", "agent", "error_code"):
+            value = detail.get(key)
+            if isinstance(value, str) and value:
+                fragments.append(f"{key}={value}")
+        detail_summary = " ".join(fragments) if fragments else f"keys={','.join(sorted(detail))}"
+    elif isinstance(detail, list):
+        detail_summary = f"list[{len(detail)}]"
+    else:
+        detail_summary = ""
+    base = f"[{kind}@{component}] {detail_summary}".strip()
+    return base[:max_chars]
+
+
+def maybe_offload_event(
+    project_root: Path,
+    event: dict,
+    *,
+    ceiling: int | None = None,
+) -> dict:
+    """Offload oversized events to a content-addressed sidecar.
+
+    Returns the original event unchanged when its serialised form is at or
+    below ``ceiling`` bytes. Otherwise writes the full event to
+    ``runtime/event-sidecars/<sha256>.json`` and returns a small inline
+    replacement carrying the sha256 + summary + correlation pointers so
+    audit-chain reasoning still works on the projection.
+
+    Mirrors :func:`ai_engineering.state.sidecar.maybe_offload` but lives in
+    ``_lib`` so the hook layer (which intentionally avoids importing
+    ``ai_engineering`` to stay stdlib-only and fast) can call it directly.
+    """
+    threshold = ceiling if ceiling is not None else EVENT_SIDECAR_BYTES
+    payload = _serialise_event(event)
+    if len(payload) <= threshold:
+        return event
+
+    digest = hashlib.sha256(payload).hexdigest()
+    sidecar_dir = event_sidecars_dir(project_root)
+    sidecar_dir.mkdir(parents=True, exist_ok=True)
+    sidecar_path = sidecar_dir / f"{digest}.json"
+    if not sidecar_path.exists():
+        # Atomic write via tmp + rename to avoid partial-write windows.
+        tmp_path = sidecar_path.with_suffix(".json.tmp")
+        try:
+            tmp_path.write_bytes(payload)
+            os.replace(tmp_path, sidecar_path)
+        except OSError:
+            # Fail-open: surface the original event rather than dropping it.
+            with contextlib.suppress(OSError):
+                tmp_path.unlink()
+            return event
+
+    inline: dict[str, Any] = {
+        "kind": event.get("kind") or "unknown",
+        "engine": event.get("engine") or "unknown",
+        "component": event.get("component") or "unknown",
+        "outcome": event.get("outcome") or "success",
+        "timestamp": event.get("timestamp") or "",
+        "sidecar_sha256": digest,
+        "sidecar_size_bytes": len(payload),
+        "summary": _event_summary(event),
+    }
+    for key in (
+        "correlationId",
+        "correlation_id",
+        "session_id",
+        "trace_id",
+        "span_id",
+        "parent_span_id",
+        "prev_event_hash",
+    ):
+        if key in event and event[key] is not None:
+            inline[key] = event[key]
+    return inline
+
+
+# ---------------------------------------------------------------------------
 # Misc helpers consumed by hooks
 # ---------------------------------------------------------------------------
 
@@ -502,6 +618,8 @@ def extract_error_summary(data: dict) -> str | None:
 
 __all__ = [
     "CHECKPOINT_REL",
+    "EVENT_SIDECARS_DIR_REL",
+    "EVENT_SIDECAR_BYTES",
     "LOOP_REPEAT_THRESHOLD",
     "LOOP_WINDOW",
     "PRECOMPACT_SNAPSHOT_REL",
@@ -523,8 +641,10 @@ __all__ = [
     "derive_outcome",
     "detect_repetition",
     "ensure_runtime_dirs",
+    "event_sidecars_dir",
     "extract_error_summary",
     "iso_now",
+    "maybe_offload_event",
     "offload_large_text",
     "precompact_snapshot_path",
     "ralph_resume_path",

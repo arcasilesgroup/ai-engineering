@@ -166,10 +166,14 @@ def _genai_detail(
 
 
 def test_index_path_under_state_dir(tmp_path: Path) -> None:
-    """``index_path`` returns the canonical SQLite location."""
-    expected = tmp_path / ".ai-engineering" / "state" / "audit-index.sqlite"
+    """``index_path`` returns the canonical SQLite location.
+
+    spec-123 D-123-22 redirected the projection from
+    ``audit-index.sqlite`` to the unified ``state.db``.
+    """
+    expected = tmp_path / ".ai-engineering" / "state" / "state.db"
     assert index_path(tmp_path) == expected
-    assert Path(".ai-engineering") / "state" / "audit-index.sqlite" == INDEX_REL
+    assert Path(".ai-engineering") / "state" / "state.db" == INDEX_REL
 
 
 def test_ndjson_rel_constant() -> None:
@@ -288,13 +292,12 @@ def test_rebuild_flag_drops_and_recreates(project_root: Path) -> None:
     direct = sqlite3.connect(str(sqlite_path), timeout=10.0)
     try:
         direct.execute(
-            "INSERT INTO events (span_id, correlation_id, timestamp, ts_unix_ms, "
-            "engine, kind, component, outcome, detail_json) VALUES (?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO events (span_id, correlation_id, timestamp, "
+            "engine, kind, component, outcome, detail_json) VALUES (?,?,?,?,?,?,?,?)",
             (
                 "deadbeefdeadbeef",
                 "synthetic-bypass",
-                "2026-01-01T00:00:00Z",
-                0,
+                "2025-01-01T00:00:00Z",
                 "claude_code",
                 "skill_invoked",
                 "synth.bypass",
@@ -328,7 +331,12 @@ def test_rebuild_flag_drops_and_recreates(project_root: Path) -> None:
 
 
 def test_legacy_events_get_synthetic_pk(project_root: Path) -> None:
-    """Events without ``spanId`` get a deterministic 16-hex PK."""
+    """Events without ``spanId`` get a deterministic synthetic PK.
+
+    spec-123 D-123-22: synthetic IDs match migration 0003's
+    ``synthetic:<24hex>`` format so the lazy-bootstrap path and the
+    ``audit_index`` rebuild path produce identical PKs (no double-insert).
+    """
     events = [_make_event(index=i, span_id=None, trace_id=None) for i in range(5)]
     _write_ndjson(_ndjson_target(project_root), events)
 
@@ -345,8 +353,10 @@ def test_legacy_events_get_synthetic_pk(project_root: Path) -> None:
     assert len(span_ids) == 5  # synthetic PKs must be unique
     for span_id in span_ids:
         assert isinstance(span_id, str)
-        assert len(span_id) == 16
-        assert all(ch in "0123456789abcdef" for ch in span_id)
+        assert span_id.startswith("synthetic:")
+        digest = span_id.removeprefix("synthetic:")
+        assert len(digest) == 24
+        assert all(ch in "0123456789abcdef" for ch in digest)
 
 
 def test_legacy_event_synthetic_pk_is_deterministic(project_root: Path) -> None:
@@ -683,7 +693,15 @@ def test_legacy_event_with_missing_required_fields_still_indexes(
     project_root: Path,
 ) -> None:
     """Legacy event without ``engine`` / ``component`` / ``outcome`` /
-    ``correlationId`` still produces a row with placeholder values."""
+    ``correlationId`` still produces a row with placeholder values.
+
+    spec-123 D-123-22: the projection target is now state.db owned by
+    migration 0003. Defaults align with that migration -- ``unknown`` for
+    engine/kind/component, ``success`` for outcome (audit-chain still
+    captures the missing-fields condition via ``degraded_reason``).
+    correlation_id is now nullable in state.db so legacy events no longer
+    need a synthesised placeholder.
+    """
     minimal: dict[str, Any] = {
         "kind": "framework_operation",
         "timestamp": "",
@@ -704,9 +722,14 @@ def test_legacy_event_with_missing_required_fields_still_indexes(
 
     assert row[0] == "unknown"
     assert row[1] == "unknown"
-    assert row[2] == "unknown"
-    assert row[3].startswith("missing-")
-    assert row[4] == 0  # empty timestamp -> 0 unix ms, row preserved
+    # Migration 0003 keeps the schema NOT NULL contract by defaulting
+    # missing outcome to 'success' (degraded conditions are surfaced via
+    # detail.degraded_reason, not the column).
+    assert row[2] == "success"
+    # correlation_id is now nullable; missing input -> NULL.
+    assert row[3] is None
+    # ts_unix_ms is GENERATED on state.db -- empty timestamp yields NULL.
+    assert row[4] is None
 
 
 def test_camelcase_prev_event_hash_alias(project_root: Path) -> None:
@@ -726,7 +749,12 @@ def test_camelcase_prev_event_hash_alias(project_root: Path) -> None:
 
 
 def test_unparseable_timestamp_falls_back_to_zero(project_root: Path) -> None:
-    """A garbage ``timestamp`` value preserves the raw text, parses to 0."""
+    """A garbage ``timestamp`` value preserves the raw text.
+
+    spec-123 D-123-22: ``ts_unix_ms`` is a SQLite GENERATED column on
+    state.db, so an unparseable timestamp yields NULL (not 0). The raw
+    text is still preserved in the ``timestamp`` column for forensics.
+    """
     event = _make_event(index=0, timestamp="not-an-iso-string")
     _write_ndjson(_ndjson_target(project_root), [event])
     build_index(project_root)
@@ -736,7 +764,7 @@ def test_unparseable_timestamp_falls_back_to_zero(project_root: Path) -> None:
     finally:
         conn.close()
     assert row[0] == "not-an-iso-string"
-    assert row[1] == 0
+    assert row[1] is None
 
 
 def test_float_token_value_coerced_to_int(project_root: Path) -> None:
