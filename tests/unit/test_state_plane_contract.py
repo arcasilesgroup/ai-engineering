@@ -47,7 +47,9 @@ _RESIDUE_OUTPUTS: tuple[str, ...] = (
     ".ai-engineering/state/gate-findings.json",
     ".ai-engineering/state/watch-residuals.json",
     ".ai-engineering/state/gate-cache/pre-commit.json",
-    ".ai-engineering/state/strategic-compact.json",
+    # spec-122 sub-001 deleted scripts/hooks/strategic-compact.py and the
+    # corresponding strategic-compact.json sidecar; it is no longer a
+    # state-plane artifact.
     ".ai-engineering/state/locks/gate-findings.lock",
 )
 

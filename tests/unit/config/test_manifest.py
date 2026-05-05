@@ -266,8 +266,10 @@ class TestSkills:
         config = ManifestConfig.model_validate(real_manifest_data)
         # spec-107: bumped 47 -> 48 with addition of /ai-mcp-sentinel skill.
         # spec-111: bumped 48 -> 49 with addition of /ai-research skill.
-        # spec-116/117/120: 49 -> 52 (ai-design, ai-animation, ai-canvas, ai-eval-gate)
-        assert config.skills.total == len(config.skills.registry) == 52
+        # spec-116/117/120: 49 -> 52 (ai-design, ai-animation, ai-canvas,
+        # ai-eval-gate). spec-122 (sub-001 hygiene): 52 -> 51 after pruning
+        # the legacy /ai-eval-gate skill that duplicated /ai-release-gate.
+        assert config.skills.total == len(config.skills.registry) == 51
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
@@ -294,7 +296,9 @@ class TestAgents:
     def test_total(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         # spec-116+: bumped 10 -> 11 with addition of evaluator agent.
-        assert config.agents.total == 11
+        # spec-122 (sub-001 hygiene): 11 -> 10 after retiring the standalone
+        # `evaluator` agent in favour of the consolidated verify pipeline.
+        assert config.agents.total == 10
 
     def test_names(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

@@ -123,7 +123,14 @@ def test_decision_expire_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_decision_store_schema_valid() -> None:
-    """The actual decision-store.json in the repo is valid JSON with expected schema."""
+    """The actual decision-store.json in the repo is valid JSON with expected schema.
+
+    Two shapes are accepted post spec-122 sub-001 reset:
+      * Legacy (pre-reset): ``schemaVersion`` + ``decisions[...]``.
+      * Current (post-reset): ``version`` + ``active_decisions[...]`` and
+        ``superseded[...]`` arrays.
+    Either is structurally valid; production callers normalise on read.
+    """
     # Arrange
     store_path = (
         Path(__file__).resolve().parents[2] / ".ai-engineering" / "state" / "decision-store.json"
@@ -134,11 +141,22 @@ def test_decision_store_schema_valid() -> None:
     # Act
     data = json.loads(store_path.read_text(encoding="utf-8"))
 
-    # Assert
-    assert "schemaVersion" in data
-    assert "decisions" in data
-    assert isinstance(data["decisions"], list)
-    for entry in data["decisions"]:
+    # Assert — accept either schema shape.
+    has_legacy_shape = "schemaVersion" in data and "decisions" in data
+    has_current_shape = "version" in data and "active_decisions" in data and "superseded" in data
+    assert has_legacy_shape or has_current_shape, (
+        f"decision-store.json missing both legacy and current schema markers: {sorted(data)}"
+    )
+
+    if has_legacy_shape:
+        assert isinstance(data["decisions"], list)
+        decisions = data["decisions"]
+    else:
+        assert isinstance(data["active_decisions"], list)
+        assert isinstance(data["superseded"], list)
+        decisions = list(data["active_decisions"]) + list(data["superseded"])
+
+    for entry in decisions:
         assert "id" in entry
         # Spec-118+ entries use `decision` (or legacy `title`) for the human-readable summary.
         assert "title" in entry or "decision" in entry

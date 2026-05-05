@@ -18,24 +18,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# spec-118 memory layer; opt-in via `uv sync --extra memory`. Kept out of the
-# core deps so hook scripts (which must run without pip install) and minimal
-# CI lanes do not pay the fastembed/hdbscan footprint.
-#
-# Approximate marginal cost on adoption (verify in your own environment for
-# regulated-industry vendor review — see spec-118 § Footprint):
-#   sqlite-vec       ~6 MB site-packages (compiled extension)
-#   fastembed        ~30 MB site-packages (onnxruntime + tokenizers)
-#   hdbscan + numpy  ~65 MB site-packages (numpy dominates)
-#   ONNX model cache ~130 MB at ~/.cache/huggingface after `ai-eng memory warmup`
-# Total: ~230 MB site-packages + ~130 MB model cache.
-memory = [
-  "sqlite-vec>=0.1,<0.2",
-  "fastembed>=0.3,<0.5",
-  "hdbscan>=0.8,<1.0",
-  "numpy>=1.26,<3.0",
-]
-
 # spec-119 evaluation layer; opt-in via `uv sync --extra eval`. Kept out of the
 # core deps so hook scripts and minimal CI lanes do not pay the deepeval
 # transitive footprint (pydantic-extras, langchain shims, optional LLM grader
@@ -129,8 +111,6 @@ markers = [
   "spec_105_red: spec-105 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_106_red: spec-106 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_107_red: spec-107 RED tests; excluded by default until corresponding GREEN phase commits",
-  "memory: spec-118 memory layer unit/integration tests; opt-in via -m memory; requires `uv sync --extra memory`",
-  "memory_slow: spec-118 memory layer tests that load the real fastembed model; opt-in via -m memory_slow",
   "eval: spec-119 evaluation layer unit/integration tests; opt-in via -m eval",
   "eval_slow: spec-119 eval tests that load deepeval graders; opt-in via -m eval_slow; requires `uv sync --extra eval`",
 ]

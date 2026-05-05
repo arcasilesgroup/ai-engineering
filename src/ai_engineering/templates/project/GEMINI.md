@@ -39,3 +39,21 @@ Gemini CLI; the snapshot primitive degrades gracefully.
 All other content (skill list, agent list, quality gates, hard rules,
 observability stanza, telemetry default, source-of-truth table) is
 defined once in [AGENTS.md](AGENTS.md). Do not duplicate.
+
+## Skills
+
+See [AGENTS.md → Skills](AGENTS.md#skills-__SKILL_COUNT__) for the
+canonical skill list and dispatch surface. The Gemini surface mirrors
+that registry under `.gemini/skills/`.
+
+## Observability
+
+See [AGENTS.md → Observability](AGENTS.md#observability) for the
+canonical telemetry posture and audit chain wiring. Gemini-specific
+hook events are listed under `Hooks Wiring (Gemini-specific)` above.
+
+## Source of Truth
+
+See [AGENTS.md → Source of Truth](AGENTS.md#source-of-truth) for the
+canonical source-of-truth table covering CONSTITUTION.md, AGENTS.md,
+and the per-IDE overlay charters.

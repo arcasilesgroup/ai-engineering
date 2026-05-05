@@ -75,11 +75,19 @@ def test_shared_kernel_requires_immediate_plan_updates() -> None:
 
 
 def test_dispatch_explicitly_forbids_deferred_plan_updates() -> None:
-    """Top-level dispatch guidance must reinforce immediate plan writes."""
+    """Top-level dispatch guidance must reinforce immediate plan writes.
+
+    Post spec-122 sub-004 path canonicalization, plan.md references are
+    rewritten as ``.ai-engineering/specs/plan.md`` (full canonical path)
+    instead of the legacy short ``specs/plan.md``. The contract is the
+    same — plan updates must happen immediately, not batched at end of
+    phase — only the path prefix changed.
+    """
     text = DISPATCH.read_text(encoding="utf-8")
-    assert "update `specs/plan.md` immediately before dispatching the next task" in text, (
-        "ai-dispatch/SKILL.md must require immediate plan.md updates after each terminal task state"
-    )
+    assert (
+        "update `.ai-engineering/specs/plan.md` immediately before dispatching the next task"
+        in text
+    ), "ai-dispatch/SKILL.md must require immediate plan.md updates after each terminal task state"
     assert (
         "Do not defer checkbox/status writes to the end of the phase or the end of the spec" in text
     ), (

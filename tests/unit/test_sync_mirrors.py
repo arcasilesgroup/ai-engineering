@@ -275,8 +275,12 @@ class TestGenerationFunctions:
 
         content = generate_copilot_instructions(discover_skills(), discover_agents())
 
-        assert "`/ai-start` and other `/ai-*` entries are IDE slash commands" in content
-        assert "Never translate `/ai-<name>` into `ai-eng <name>`" in content
+        # Slash-command boundary preserved post-sub-004 simplification: copilot
+        # instructions explicitly call out that `/ai-*` are IDE slash commands
+        # rather than `ai-eng` CLI subcommands.
+        assert "`/ai-start`" in content
+        assert "`/ai-*` are IDE slash" in content
+        assert "not `ai-eng` CLI subcommands" in content
 
     def test_generate_codex_agent_wrapper_format(self) -> None:
         from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_codex_agent
@@ -444,9 +448,10 @@ class TestValidationFunctions:
     """Test validation logic -- uses tmp_path for filesystem state."""
 
     def test_validate_runbooks_warns_when_empty(self, tmp_path: Path) -> None:
-        # Arrange -- empty runbooks dir (monkeypatch RUNBOOKS_ROOT)
-        import scripts.sync_command_mirrors as mod
+        # Arrange -- empty runbooks dir (monkeypatch RUNBOOKS_ROOT on the
+        # canonical core module; the legacy shim re-exports from there).
         from scripts.sync_command_mirrors import validate_runbooks
+        from scripts.sync_mirrors import core as mod
 
         original = mod.RUNBOOKS_ROOT
         mod.RUNBOOKS_ROOT = tmp_path / "nonexistent"
@@ -462,87 +467,83 @@ class TestValidationFunctions:
 
     def test_check_or_write_unchanged_returns_none(self, tmp_path: Path) -> None:
         from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with same content
         test_file = tmp_path / "test.md"
         test_file.write_text("hello", encoding="utf-8")
 
-        import scripts.sync_command_mirrors as mod
-
         original_root = mod.ROOT
         mod.ROOT = tmp_path
 
-        # Act
-        result = _check_or_write(test_file, "hello", check_only=False)
-
-        # Assert
-        assert result is None  # unchanged
-
-        mod.ROOT = original_root
+        try:
+            # Act
+            result = _check_or_write(test_file, "hello", check_only=False)
+            # Assert
+            assert result is None  # unchanged
+        finally:
+            mod.ROOT = original_root
 
     def test_check_or_write_drift_updates_file(self, tmp_path: Path) -> None:
         from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with different content
         test_file = tmp_path / "test.md"
         test_file.write_text("old content", encoding="utf-8")
 
-        import scripts.sync_command_mirrors as mod
-
         original_root = mod.ROOT
         mod.ROOT = tmp_path
 
-        # Act
-        result = _check_or_write(test_file, "new content", check_only=False)
-
-        # Assert
-        assert result is not None
-        assert "UPDATED" in result
-        assert test_file.read_text() == "new content"
-
-        mod.ROOT = original_root
+        try:
+            # Act
+            result = _check_or_write(test_file, "new content", check_only=False)
+            # Assert
+            assert result is not None
+            assert "UPDATED" in result
+            assert test_file.read_text() == "new content"
+        finally:
+            mod.ROOT = original_root
 
     def test_check_or_write_missing_creates_file(self, tmp_path: Path) -> None:
         from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import core as mod
 
         # Arrange -- file doesn't exist
         test_file = tmp_path / "subdir" / "new.md"
 
-        import scripts.sync_command_mirrors as mod
-
         original_root = mod.ROOT
         mod.ROOT = tmp_path
 
-        # Act
-        result = _check_or_write(test_file, "created", check_only=False)
-
-        # Assert
-        assert result is not None
-        assert "CREATED" in result
-        assert test_file.read_text() == "created"
-
-        mod.ROOT = original_root
+        try:
+            # Act
+            result = _check_or_write(test_file, "created", check_only=False)
+            # Assert
+            assert result is not None
+            assert "CREATED" in result
+            assert test_file.read_text() == "created"
+        finally:
+            mod.ROOT = original_root
 
     def test_check_or_write_check_only_does_not_write(self, tmp_path: Path) -> None:
         from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with different content
         test_file = tmp_path / "test.md"
         test_file.write_text("old", encoding="utf-8")
 
-        import scripts.sync_command_mirrors as mod
-
         original_root = mod.ROOT
         mod.ROOT = tmp_path
 
-        # Act
-        result = _check_or_write(test_file, "new", check_only=True)
-
-        # Assert
-        assert "DRIFT" in result
-        assert test_file.read_text() == "old"  # NOT modified
-
-        mod.ROOT = original_root
+        try:
+            # Act
+            result = _check_or_write(test_file, "new", check_only=True)
+            # Assert
+            assert "DRIFT" in result
+            assert test_file.read_text() == "old"  # NOT modified
+        finally:
+            mod.ROOT = original_root
 
 
 # -- Canonical content helpers --

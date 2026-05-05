@@ -25,3 +25,9 @@ Hook config in `.github/hooks/hooks.json`. Canonical script in
 
 PreCompact / PostCompact not surfaced by Copilot; snapshot
 primitive degrades gracefully.
+
+## Observability
+
+See [AGENTS.md → Observability](../AGENTS.md#observability) for the
+canonical telemetry posture and audit chain wiring. Copilot-specific
+hook events are listed in the table above.

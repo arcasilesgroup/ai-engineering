@@ -1178,6 +1178,12 @@ def generate_copilot_instructions(
         "\n"
         "PreCompact / PostCompact not surfaced by Copilot; snapshot\n"
         "primitive degrades gracefully.\n"
+        "\n"
+        "## Observability\n"
+        "\n"
+        "See [AGENTS.md → Observability](../AGENTS.md#observability) for the\n"
+        "canonical telemetry posture and audit chain wiring. Copilot-specific\n"
+        "hook events are listed in the table above.\n"
     )
 
 

@@ -148,6 +148,33 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
         import_policy=_STDLIB_ONLY,
         rationale="Spec-120 transcript/token-usage capture runs from standalone hooks before the package is importable.",
     ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "convergence.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale=(
+            "Spec-116 Ralph Loop convergence sweep runs from "
+            "runtime-stop.py before the packaged runtime is trusted."
+        ),
+    ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "hook_http.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale=(
+            "Spec-121 fail-open HTTP sink for opt-in audit telemetry; must "
+            "run from standalone hooks before the package is importable."
+        ),
+    ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "risk_accumulator.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale=(
+            "Spec-120 PRISM-style session risk accumulator runs from "
+            "prompt-injection-guard before the packaged runtime is available."
+        ),
+    ),
 )
 
 

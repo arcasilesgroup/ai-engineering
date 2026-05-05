@@ -124,9 +124,12 @@ control_plane:
     canonical_input:
       - providers
       - ai_providers
+      - artifact_feeds
       - work_items
       - quality
       - documentation
+      - cicd
+      - contexts.precedence
       - session.context_files
       - ownership.framework
       - ownership.root_entry_points

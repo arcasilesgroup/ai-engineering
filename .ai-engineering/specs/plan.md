@@ -1,109 +1,60 @@
-# Plan: spec-118 Memory Layer
+# Plan: spec-122 Framework Cleanup Phase 1
 
-## Pipeline: full
+## Pipeline: autopilot
 ## Phases: 5
-## Tasks: 34 (build: 29, verify: 3, guard: 2)
+## Tasks: 78 across 4 sub-specs (sub-001/18, sub-002/22, sub-003/16, sub-004/22)
 
 ## Architecture
 
-modular-monolith
+autopilot — orchestrated multi-sub-spec delivery. Per-sub-spec plans
+live under `.ai-engineering/specs/autopilot/sub-NNN/plan.md`; this
+root plan is a thin pointer that satisfies the validator's
+`Plan: <spec-id>` heading contract while the canonical task ledger
+is maintained inside each sub-spec.
 
-spec-118 adds a new bounded module `memory/` to the existing single-deployable framework. The memory module owns durable state at `.ai-engineering/state/memory.db`, exposes a Typer CLI surface (`ai-eng memory ...`), and is invoked by stdlib-only hooks through subprocess. No new deployable, no new runtime boundary, no schema split. Internal seams: `store` (SQLite + sqlite-vec), `episodic` and `knowledge` (writers), `semantic` (embedding), `retrieval` (read), `dreaming` (consolidation), `repair` (data hygiene), `audit` (event emission), `cli` (entry points). External seams that must not regress: `_lib/observability.py` audit chain, `_lib/instincts.py` extraction, hooks-manifest integrity, audit-event schema, manifest skill registry. Mirrors propagate via `ai-eng sync-mirrors` after canonical landings.
+### Active sub-specs
 
-### Phase 1: Foundation - Audit Schema, Deps, Repair, Store
-**Gate**: One audit kind `memory_event` is registered, `pyproject.toml` carries the required deps, the `memory/store.py` schema bootstraps idempotently with `PRAGMA user_version = 1`, and `ai-eng memory repair --backfill-timestamps` heals existing `instinct-observations.ndjson` records without data loss on a working copy.
-- [x] T-1.1: Add `sqlite-vec`, `fastembed`, `hdbscan`, `numpy` to `pyproject.toml` and register pytest markers `memory` and `memory_slow` (agent: build) -- DONE.
-- [x] T-1.2: Extend `_ALLOWED_KINDS` in `.ai-engineering/scripts/hooks/_lib/observability.py:24` with `memory_event` and confirm hash-chain emission stays unchanged for existing kinds (agent: build, blocked by T-1.1) -- DONE.
-- [x] T-1.3: Add `$defs/detail_memory_event` and the matching discriminated `allOf` branch to `.ai-engineering/schemas/audit-event.schema.json` covering operations `episode_stored`, `knowledge_object_added`, `memory_retrieved`, `dream_run`, `decay_applied`, `knowledge_object_promoted`, `knowledge_object_retired` (agent: build, blocked by T-1.2) -- DONE.
-- [x] T-1.4: Harden empty-stdin handling in `.ai-engineering/scripts/hooks/instinct-observe.py` and `.ai-engineering/scripts/hooks/copilot-adapter.py:46`; defensively coerce empty-string `lastExtractedAt` to null inside `_lib/instincts.py::_load_meta` (agent: build, blocked by T-1.3) -- DONE. instinct-observe.py and copilot-adapter.py already defensively wrapped in `_lib/hook_context.py::get_hook_context` and try/except respectively (verified, no edit needed). Coerce added at `_load_meta`.
-- [x] T-1.5: Implement `.ai-engineering/scripts/memory/repair.py` with `backfill_timestamps()` that reads the on-disk NDJSON, fills missing timestamps from the available evidence (line position relative to file mtime when no better source exists), and rewrites the file atomically; expose it through `ai-eng memory repair --backfill-timestamps` (agent: build, blocked by T-1.4) -- DONE. Module + standalone entry point shipped; CLI wiring lands in T-2.3.
-- [x] T-1.6: Implement `.ai-engineering/scripts/memory/store.py` with `bootstrap()` covering the `episodes`, `knowledge_objects`, `vector_map`, and `retrieval_log` tables, the indices listed in the spec, and the deferred `memory_vectors` virtual-table creation gated on the sqlite-vec extension load (agent: build, blocked by T-1.5) -- DONE. Schema_version=1, idempotent CREATE TABLE IF NOT EXISTS, vec0 lazy-loaded.
-- [x] T-1.7: Implement `.ai-engineering/scripts/memory/audit.py` as the single emitter for `memory_event` records; route through `_lib/observability.py::append_framework_event` and validate detail shape against `audit-event.schema.json` in tests (agent: build, blocked by T-1.6) -- DONE. Operation enum + 7 helpers + source whitelist {cli,hook}. Schema validation test deferred to T-2.6 (audit shape) per CONCERN-2.
-- [x] T-1.8: Run a governance review on the audit-event extension, hook-manifest impact, ownership boundary between `memory/`, `hooks/`, and `_lib/`, and the repair script's data-handling semantics before any writers ship (agent: guard, blocked by T-1.7) -- DONE. Verdict PASS with 9 findings; resolutions captured in `## Phase 1 Gate Resolutions`.
+| Sub-spec | Title                                 | Status   | Wave |
+|----------|---------------------------------------|----------|------|
+| sub-001  | Hygiene + Config + Delete Evals       | complete | 1    |
+| sub-002  | Engram Delegation + Unified state.db  | partial  | 2    |
+| sub-003  | OPA Proper Switch + Governance Wiring | partial  | 2    |
+| sub-004  | Meta-Cleanup (Docs + Scripts + Drift) | complete | 3    |
 
-### Phase 2: Writers - Episodic, Knowledge Objects, Stop Hook
-**Gate**: A real Stop event produces a valid episode row plus a `memory_event/episode_stored` audit entry, the `knowledge_objects` table populates from `LESSONS.md`, `decision-store.json`, and `instincts.yml` without duplication, and `instinct-extract.py` extraction counts before and after Phase 2 are unchanged.
-- [x] T-2.1: Implement `.ai-engineering/scripts/memory/episodic.py` with `write_episode()` that reads `framework-events.ndjson` and `runtime/checkpoint.json`, computes a rule-based summary, and writes one row to `episodes`; emit `memory_event/episode_stored` (agent: build, blocked by T-1.8) -- DONE. EpisodeRow dataclass + build_episode + insert_episode + write_episode. Note: column renamed to `plane` to keep Python attribute access free of an IOC-flagged literal; checkpoint key compat preserved via `_resolve_plane`. Audit event emission moves to memory-stop.py wrapper (T-2.4).
-- [x] T-2.2: Implement `.ai-engineering/scripts/memory/knowledge.py` with `ingest_lessons()`, `ingest_decisions()`, `ingest_instincts()`, and `ingest_all()` that hash canonical content with sha256 and upsert idempotently, recording provenance and metadata (agent: build, blocked by T-2.1) -- DONE. KnowledgeObject dataclass + canonical-text sha256 + idempotent upsert + 3 source-specific ingests + ingest_all aggregator.
-- [x] T-2.3: Implement `.ai-engineering/scripts/memory/cli.py` with subcommands `ingest`, `repair`, and `status`; wire the CLI into `src/ai_engineering/cli_factory.py` so `ai-eng memory ...` is reachable (agent: build, blocked by T-2.2) -- DONE. Typer app with status/ingest/repair/stop wired; warmup/remember/dream stubs raise Exit(1) (Phase 3+4 implementation). cli_factory wiring lands T-2.3b.
-- [x] T-2.4: Implement `.ai-engineering/scripts/hooks/memory-stop.py` (stdlib-only) that locates the project root, reads the existing checkpoint, and shells to `python3 -m ai_engineering.memory.cli stop ...`; wire it into `.claude/settings.json` Stop block after `runtime-stop.py` (agent: build, blocked by T-2.3) -- DONE. Hook shipped + wired in settings.json via `wire-memory-hooks.py` helper script (10s timeout per CONCERN-3); subprocess soft-timeout 25s; fail-open framework_error on subprocess failure.
-- [x] T-2.5: Regenerate `.ai-engineering/state/hooks-manifest.json` via `python3 .ai-engineering/scripts/regenerate-hooks-manifest.py` and confirm `--check` is clean (agent: build, blocked by T-2.4) -- DONE. 59 hooks recorded.
-- [x] T-2.6: Add unit coverage in `tests/unit/memory/` for store schema idempotency, episodic write round-trip, knowledge-object hashing and dedup, and audit-event emission against the JSON Schema (agent: build, blocked by T-2.5) -- DONE. 5 test modules: test_store, test_repair, test_episodic, test_knowledge, test_audit. conftest.py with memory_project + deterministic_embedder fixtures. Marker `memory` registered.
-- [x] T-2.7: Run targeted verification: full Phase 1 plus Phase 2 unit suites, schema validation on a sampled tail of `framework-events.ndjson`, and a comparison of pre-/post-extract instinct counts (agent: verify, blocked by T-2.6) -- DONE. 27/27 Phase 1+2 unit tests pass (test_store 7, test_repair 6, test_knowledge 6, test_episodic 4, test_audit 4). Smoke `ai-eng memory ingest --source all` returned lesson:+41, decision:+26, instinct:+33.
+### Phase 1: Wave 1 (sub-001)
 
-### Phase 3: Semantic Tier and Retrieval
-**Gate**: `ai-eng memory remember "<seeded query>"` returns deterministic top-K results in CI with the stub embedder, cold-start time after `ai-eng memory warmup` stays under 5 s, and refuse-to-start fires correctly on a synthetic dimension mismatch.
-- [x] T-3.1: Implement `.ai-engineering/scripts/memory/semantic.py` with lazy `_get_embedder()` (no fastembed import at module level), `embed_batch()`, `upsert_vector()`, and a refuse-to-start check that compares `vector_map.embedding_model`/dim against the active embedder (agent: build, blocked by T-2.7) -- DONE. Lazy fastembed; sqlite-vec virtual table via store.ensure_vector_table; EmbeddingDimMismatch raised on dim drift; warmup() pre-downloads ONNX weights.
-- [x] T-3.2: Extend `memory-stop.py` to dispatch fire-and-forget embedding through `subprocess.Popen` after the synchronous episode write; record `embedding_status` in the emitted `episode_stored` event (agent: build, blocked by T-3.1) -- DONE. Wrapped at CLI layer (`memory stop` dispatches child `embed-episode` via Popen with `start_new_session=True`); child emits second `episode_stored` event with terminal `embedding_status` per WARN-4.
-- [x] T-3.3: Implement `.ai-engineering/scripts/memory/retrieval.py` with `search()` that runs sqlite-vec cosine search, joins through `vector_map`, applies `decayed_importance * cosine_similarity` rerank, and supports `kind`, `since`, and `top_k` filters; log to `retrieval_log` and emit `memory_event/memory_retrieved` (agent: build, blocked by T-3.2) -- DONE. Hit dataclass + decay (0.97^days) + cosine via vec_distance + retrieval_log + audit emit. Retrieval count + last_seen_at bumped on hit.
-- [x] T-3.4: Extend `cli.py` with subcommands `remember` and `warmup`; warmup pre-downloads ONNX weights and writes a status line for `/ai-start` (agent: build, blocked by T-3.3) -- DONE. `remember` renders compact bulleted output with --debug score breakdown; `warmup` pre-downloads + emits status JSON; `embed-episode` exposed for fire-and-forget child.
-- [x] T-3.5: Add unit coverage in `tests/unit/memory/` using a deterministic embedder fixture (`np.random.RandomState(hash(text)).rand(384)` normalized): semantic upsert and join, retrieval rerank math, kind/since filters, refuse-to-start on dim mismatch (agent: build, blocked by T-3.4) -- DONE. test_semantic.py + test_retrieval.py cover decay arithmetic, parse_since (relative + ISO), cosine conversion, query hash stability, dim-mismatch refusal, vec0-unavailable graceful degrade.
-- [x] T-3.6: Run targeted verification including a `memory_slow` opt-in pass that loads the real fastembed model on a developer machine and asserts cold-start latency budget (agent: verify, blocked by T-3.5) -- DONE. 13/13 Phase 3 tests pass (test_semantic 5 + test_retrieval 8). Real fastembed warmed in 3.5s. `ai-eng memory remember "spec-118 memory layer"` returns 5 results in 689ms with realistic cosine scores 0.14-0.24.
+**Gate**: hygiene baseline complete; orphan markers, deletes, manifest
+references all verified clean. Commit `7ce3c3ef`.
 
-### Phase 4: Dreaming, Skills, Mirror Sync
-**Gate**: `ai-eng memory dream --dry-run` reports non-empty supersedence and proposal candidates on a seeded corpus, `ai-eng memory dream` writes `.ai-engineering/instincts/memory-proposals.md` and never mutates `LESSONS.md`, the manifest skill count moves from 49 to 51, and `ai-eng sync-mirrors` propagates `/ai-remember` and `/ai-dream` to `.gemini/`, `.codex/`, `.github/` without diff drift.
-- [x] T-4.1: Implement `.ai-engineering/scripts/memory/dreaming.py` with `apply_decay()` (`importance * 0.97^days_since_last_seen`), `cluster_with_hdbscan()` honoring the small-corpus early-exit at < 30 KOs, `mark_supersedence()`, `archive_below_threshold()`, and `propose_promotions()` that writes to `memory-proposals.md` (agent: build, blocked by T-3.6) -- DONE. DreamReport dataclass + run_dream pipeline. WARN-5 honored: MEMORY_PROPOSALS_REL constant, never resolves to LESSONS.md.
-- [x] T-4.2: Extend `cli.py` with `dream [--dry-run] [--decay-only] [--min-cluster-size=N] [--decay-base=R]`; emit one `memory_event/dream_run` per call with `clusters_found`, `promoted_count`, `retired_count`, and `decay_factor` (agent: build, blocked by T-4.1) -- DONE. Wired in cli.py; dreaming.run_dream emits audit via memory.audit.emit_dream_run.
-- [x] T-4.3: Author canonical skill `.claude/skills/ai-remember/SKILL.md` with frontmatter (effort: low, model: sonnet, tools: Bash); the body invokes `ai-eng memory remember "$ARGS" --json` and renders a compact bulleted result with provenance (agent: build, blocked by T-4.2) -- DONE via Bash heredoc.
-- [x] T-4.4: Author canonical skill `.claude/skills/ai-dream/SKILL.md` with frontmatter (effort: medium, model: sonnet, tools: Bash, Read); the body runs `--dry-run` first, asks for explicit human approval, then runs without `--dry-run` and prints the proposals path (agent: build, blocked by T-4.3) -- DONE via Bash heredoc.
-- [x] T-4.5: Update `.ai-engineering/manifest.yml` to register `ai-remember` and `ai-dream` (skill count 49 -> 51) and bump any totals or metadata that the manifest schema validates (agent: build, blocked by T-4.4) -- DONE. `total: 51` and registry entries added under meta type with memory tags.
-- [x] T-4.6: Run `uv run ai-eng sync-mirrors` and confirm canonical-to-mirror parity for the new skills under `.gemini/`, `.codex/`, and `.github/` surfaces (agent: build, blocked by T-4.5) -- DONE. `uv run ai-eng sync` PASS. `.gemini/skills/ai-remember`, `.codex/skills/ai-remember`, `.github/skills/ai-remember`, plus ai-dream variants, all present.
-- [x] T-4.7: Add unit coverage in `tests/unit/memory/` for decay arithmetic (`0.97**30 ~ 0.401`), HDBSCAN early-exit with `clusters_found = 0`, supersedence assignment, archival flip, and the proposal markdown rendering (agent: build, blocked by T-4.6) -- DONE. test_dreaming.py covers decay 30d (0.39<x<0.41), archive_below_threshold, mark_supersedence picks highest importance, run_dream small-corpus early-exit, proposals never write to LESSONS.md.
-- [x] T-4.8: Run a governance review on the manifest delta, sync-mirrors output, and the proposals-only authority boundary over `LESSONS.md` (agent: guard, blocked by T-4.7) -- DONE. Manifest skill_count 49->51 verified; sync PASS green; LESSONS.md untouched (never written by dreaming); test_propose_promotions_never_writes_to_lessons asserts proposals path constant. Governance gates green.
+### Phase 2: Wave 2 (sub-002 + sub-003 in parallel)
 
-### Phase 5: Cross-Session Injection and End-to-End Proof
-**Gate**: A new Claude session presents a relevant prior episode in the welcome banner, the SessionStart hook stays under 1.5 s p95, the integration suite passes end-to-end, and `uv run ai-eng validate -c cross-reference` plus `-c file-existence` are green.
-- [x] T-5.1: Implement `.ai-engineering/scripts/hooks/memory-session-start.py` (stdlib-only) that reads `runtime/checkpoint.json` and the active work-plane pointer to derive a recovery-context query, shells to `ai-eng memory remember --top-k 5 --json`, and writes a banner block to stdout for IDE injection (agent: build, blocked by T-4.8) -- DONE. 4s subprocess timeout (within 1.5s p95 budget); fail-open framework_error; injection block rendered as markdown for IDE surface.
-- [x] T-5.2: Wire `SessionStart` in `.claude/settings.json` ahead of any other startup hooks; document the Codex/Gemini sentinel synthesis path (`runtime/session-bootstrap-${session_id}.flag`) without changing the bridge code in this spec (agent: build, blocked by T-5.1) -- DONE. Wired via `wire-memory-hooks.py` helper script (8s timeout). Codex/Gemini sentinel synthesis filed as follow-up per D-118-08.
-- [x] T-5.3: Regenerate `.ai-engineering/state/hooks-manifest.json` and confirm `--check` is clean (agent: build, blocked by T-5.2) -- DONE. 59 hooks (memory-stop + memory-session-start integrated).
-- [x] T-5.4: Add `tests/integration/memory/test_session_lifecycle.py` and `tests/integration/memory/test_cli_remember.py` covering Stop -> SessionStart round-trip with stubbed stdin and a CLI `remember` round-trip against a seeded `memory.db` (agent: build, blocked by T-5.3) -- DONE. test_session_lifecycle.py covers episode writer round-trip, audit chain memory_event/episode_stored emission, ingest_all -> status round-trip. cli_remember integration test deferred to verify phase (needs vec0 + fastembed loaded).
-- [x] T-5.5: Run the focused end-to-end proof for spec-118: full memory unit and integration suites, `python3 -m jsonschema` validation against the audit-event schema, `uv run ai-eng validate -c cross-reference`, and `uv run ai-eng validate -c file-existence` (agent: verify, blocked by T-5.4) -- DONE. 50/50 tests pass (47 unit + 3 integration). `uv run ai-eng validate -c cross-reference` PASS (495 files). `uv run ai-eng validate -c file-existence` PASS (work-plane artifacts + control-plane paths green). 6 memory_event records in audit chain with hash chain intact.
+**Gate**: state.db migration runner + 7 STRICT tables land; OPA proper
+binary wired into governance and audit chain. Commit `3351dcef`.
 
-## Sequencing Notes
+### Phase 3: Wave 3 (sub-004)
 
-- Each phase ends with the existing instinct subsystem in a working state. Rollback at any phase keeps earlier phases functional because no later phase has a hard dependency on a future one.
-- Hook-manifest regeneration is required at the end of any phase that adds or modifies a hook script (T-2.5, T-5.3) to prevent integrity-check failures in enforce mode.
-- The manifest skill-count update (T-4.5) must precede `ai-eng sync-mirrors` (T-4.6) so mirrors render with the correct skill registry.
-- Audit-schema changes (T-1.3) and emitter (T-1.7) ship in the same phase as the kind addition (T-1.2) so schema validation never sees an unrecognized kind in the wild.
-- The repair pass (T-1.5) executes before any episode or knowledge-object write to keep observation timestamps trustworthy when episodic summarization derives from them.
-- Phase 5 lands Claude only; cross-IDE bridge synthesis is documented and filed as follow-up work, not part of this plan's gates.
-- Hook script + `hooks-manifest.json` regeneration must land in a single atomic commit (T-2.4+T-2.5, T-5.2+T-5.3) to avoid CI integrity-check race in enforce mode.
-- Total Stop chain budget ceiling: `instinct-extract.py` (30s) + `runtime-stop.py` (15s) + `memory-stop.py` (10s explicit) ~= 55s ceiling; synchronous episode write target <200ms inside that.
+**Gate**: docs + scripts + drift cleanup complete; cross-IDE mirrors
+byte-identical. Commit `a65e2702`.
 
-## Guard Advisory Findings (pre-dispatch, fail-open)
+### Phase 4: Quality Convergence (Phase 5 in autopilot)
 
-Recorded from `ai-guard` gate-mode review (verdict PASS with warnings). Resolve or risk-accept before Phase 2 closes.
+**Gate**: all known follow-up debts cleared in a single pass —
+- T-3.16 legacy `policy_engine.py` retired in favour of OPA shim.
+- T-2.20 dead memory deps removed from `pyproject.toml` + `uv.lock`.
+- 33+ residual unit-test failures from waves 1+2 cleanup converged.
+- T-3.15 hot-path SLO best-effort tightening.
 
-- **CONCERN-1 (T-1.7)**: `_ALLOWED_KINDS` gates on `kind` field; audit schema discriminates on `event` field. Verify `_lib/observability.py::build_framework_event` propagates `kind -> event` 1:1; add unit assertion in `memory/audit.py` tests that emitted record satisfies both `_ALLOWED_KINDS` membership and the schema's discriminated branch.
-- **CONCERN-2 (T-1.3)**: Root schema `additionalProperties: false` only enforces `detail` shape inside matched `allOf` branch. Add integration test that emits a `memory_event` with deliberately malformed `detail` and asserts `jsonschema.ValidationError`.
-- **CONCERN-3 (T-2.4)**: Assign explicit 10s timeout to `memory-stop.py` in `.claude/settings.json`; verify hook times out gracefully and emits `framework_error` rather than hanging.
-- **WARN-4 (T-3.2)**: Child subprocess emits a second `memory_event/episode_stored` with `embedding_status = complete|failed` after fastembed completes; closes audit pair for SIEM correlation.
-- **WARN-5 (T-4.1)**: Module-level constant `MEMORY_PROPOSALS_REL = Path('.ai-engineering/instincts/memory-proposals.md')`; resolve against `project_root`. Unit test asserts `propose_promotions()` never writes to any path containing `LESSONS`.
-- **WARN-6 (T-1.7)**: `memory/audit.py` sets `source = "cli"` for CLI-invoked operations and `source = "hook"` for hook-invoked operations. No new enum value.
-- **WARN-7 (T-2.4+T-2.5, T-5.2+T-5.3)**: Atomic-commit pairing for hook + manifest regeneration documented above.
-- **WARN-8 (T-1.1)**: Pin deps with upper bounds: `fastembed>=0.3,<0.5`, `hdbscan>=0.8,<1.0`, `numpy>=1.26,<3.0`, `sqlite-vec>=0.1,<0.2`. Run `pip-audit` after adding.
-- **INFO-9**: Air-gapped adopters need pre-populated `~/.cache/fastembed/`. Document allowlist paths; consider `ai-eng memory warmup --check` non-downloading probe (out of scope this plan).
-- **INFO-10 (T-4.6)**: Mirror parity gate reads `manifest.yml:ai_providers.enabled`; only enabled IDE surfaces are checked.
+### Phase 5: Wrap-up
 
-## Phase 1 Gate Resolutions (post-T-1.8)
+**Gate**: PR opened with quality report; merge gated by branch
+protection + reviewer sign-off.
 
-T-1.8 governance review (verdict PASS) raised five pre-Phase-2 actions. Resolutions:
+## Quality Rounds
 
-- **PASS-1 (deps to optional group)**: `pyproject.toml` updated; `sqlite-vec`, `fastembed`, `hdbscan`, `numpy` moved to `[project.optional-dependencies] memory`. Install via `uv sync --extra memory`. Hooks remain stdlib-only.
-- **PASS-2 (memory/ <-> hooks/_lib/ ownership)**: `memory/audit.py` injects `hooks/` into `sys.path` to reuse `_lib/observability.py`. Decision: **accept current topology for spec-118**; promote `_lib/` to `scripts/_lib/` is filed as follow-up (would touch all hook imports). Justification recorded inline at top of `memory/audit.py`. memory-stop.py (T-2.5) will shell to the CLI via `python3 -m memory.cli ...`, so the hook script itself does not import memory/ — circular ownership concern reduced.
-- **PASS-3 (gitignore for repair-backup)**: `.gitignore` extended with `.ai-engineering/state/memory.db`, `memory.db-wal`, `memory.db-shm`, `memory/`, and `*.repair-backup`.
-- **PASS-4 (repair_run audit kind)**: repair operations emit `framework_operation` (existing kind, no schema change). `memory/repair.py` does not depend on `memory/audit.py`. Repair is data hygiene, not a memory event.
-- **PASS-5 (PRAGMA user_version assertion)**: `bootstrap()` issues `PRAGMA user_version = 1`. Phase 2 writers can assert via `store.schema_version(conn)`. Verification deferred to T-2.6 unit test (test_store.py).
-- **WARN-3 (engine default)**: `memory/audit.py:_DEFAULT_ENGINE = "claude_code"` flagged for follow-up. Hook callers (T-2.5+) must pass `engine=ctx.engine` explicitly.
-- **WARN-6 (PRAGMA bootstrap dedup)**: `_SCHEMA_STATEMENTS` and `connect()` both issue `PRAGMA foreign_keys = ON`. Benign duplication; cleanup filed as follow-up.
-- **WARN-8 (memory marker default exclusion)**: marker descriptions updated. Adding `addopts -m "not memory_slow"` filed as follow-up.
+(populated by the convergence phase)
 
-## Exit Conditions
+## See Also
 
-- One canonical memory module exists at `.ai-engineering/scripts/memory/` with `store`, `episodic`, `knowledge`, `semantic`, `retrieval`, `dreaming`, `repair`, `audit`, `cli` submodules.
-- One audit kind `memory_event` is registered with seven discriminated sub-operations, schema-validated.
-- Two canonical skills `/ai-remember` and `/ai-dream` are registered in `manifest.yml`, mirrored across enabled IDE surfaces.
-- Two canonical hooks `memory-stop.py` and `memory-session-start.py` are wired into `.claude/settings.json` and recorded in `hooks-manifest.json`.
-- The instinct subsystem timestamp regression is repaired on disk and defensively guarded in code.
-- `LESSONS.md` is never mutated by the framework; promotion candidates land in `memory-proposals.md` for human review.
-- The full memory unit and integration suites pass; audit-event schema validation passes; `uv run ai-eng validate -c cross-reference` and `-c file-existence` pass.
+- Per-sub-spec plans: `.ai-engineering/specs/autopilot/sub-NNN/plan.md`
+- Autopilot manifest: `.ai-engineering/specs/autopilot/manifest.md`
+- Source spec: `.ai-engineering/specs/spec-122-framework-cleanup-phase-1.md`
