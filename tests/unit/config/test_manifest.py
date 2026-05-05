@@ -330,10 +330,13 @@ class TestOwnership:
 
 class TestTooling:
     def test_tooling_list(self, real_manifest_data: dict) -> None:
+        # spec-122-a (D-122-07): the `tooling` top-level key was removed from
+        # manifest.yml because it duplicated `required_tools` (the spec-101
+        # source of truth for `ai-eng install` / `ai-eng doctor --fix`). The
+        # Pydantic field stays for back-compat with old manifests; new
+        # manifests resolve it to the default empty list.
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert "ruff" in config.tooling
-        assert "pytest" in config.tooling
-        assert "gitleaks" in config.tooling
+        assert config.tooling == []
 
 
 # ---------------------------------------------------------------------------

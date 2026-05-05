@@ -179,3 +179,5 @@ credentials*.json
 .ai-engineering/state/memory/
 # Repair backups (instinct-observations or memory-related atomic rewrites)
 .ai-engineering/state/*.repair-backup
+.skill-map/settings.local.json
+.skill-map/skill-map.db

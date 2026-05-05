@@ -56,20 +56,6 @@ If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-instinct --review`
 
 If exit non-zero, parse `.ai-engineering/state/gate-findings.json`, report findings, STOP. Do not proceed unless all medium+ severity findings are resolved or accepted via `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` (each acceptance creates a DEC entry with TTL; see `.ai-engineering/contexts/risk-acceptance-flow.md`).
 
-### 9b. Eval gate (spec-119 D-119-04)
-
-Invoke `/ai-eval-gate enforce` after the pre-push gate clears. Reads `manifest.yml` `evaluation:` section and runs the configured scenario packs through deterministic graders.
-
-```bash
-$CLAUDE_PROJECT_DIR/.github/skills/ai-eval-gate/run.sh enforce
-```
-
-Exit code mapping:
-- `0` (verdict GO / CONDITIONAL / SKIPPED): proceed to step 10.
-- `1` (verdict NO_GO): STOP. Report the failed scenarios and the regression delta vs baseline. Do not create or update the PR. Resolve the regression or accept the risk via `ai-eng risk accept --finding-id <eval-finding-id> ...` (each acceptance creates a DEC entry with TTL).
-
-Escape hatch (audited): if the user explicitly passes `--skip-eval-gate`, run `run.sh enforce --skip --reason "<text>"` instead. The skip path emits an `eval_run/eval_gated` event with `verdict: SKIPPED` and `reason: <text>` so the bypass is traceable. Never silence the gate by removing this step.
-
 ### 10. Work item context
 
 Read `.ai-engineering/manifest.yml` `work_items` and `.ai-engineering/specs/spec.md` frontmatter `refs`:

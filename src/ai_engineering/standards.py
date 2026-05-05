@@ -227,7 +227,7 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             current_surfaces=("CONSTITUTION.md", ".ai-engineering/CONSTITUTION.md"),
             replacement_refs=(".ai-engineering/manifest.yml",),
             parity_proofs=(
-                ".ai-engineering/specs/spec-117-progress/verify_hx01_t5_3_focused_end_to_end_proof.md",
+                ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx01_t5_3_focused_end_to_end_proof.md",
             ),
             rollback="Restore compatibility readers and rerun cross-reference validation.",
         ),
@@ -244,7 +244,7 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             ),
             replacement_refs=("scripts/sync_command_mirrors.py",),
             parity_proofs=(
-                ".ai-engineering/specs/spec-117-progress/verify_hx03_t5_3_focused_end_to_end_proof.md",
+                ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx03_t5_3_focused_end_to_end_proof.md",
             ),
             rollback="Re-enable manual family preservation and regenerate mirrors.",
         ),
@@ -257,7 +257,7 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             current_surfaces=("src/ai_engineering/policy/orchestrator.py",),
             replacement_refs=("src/ai_engineering/verify/taxonomy.py",),
             parity_proofs=(
-                ".ai-engineering/specs/spec-117-progress/verify_hx11_verification_eval_architecture.md",
+                ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx11_verification_eval_architecture.md",
             ),
             rollback="Restore prior gate routing and rerun verify taxonomy coverage.",
         ),
@@ -270,7 +270,7 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             current_surfaces=(".ai-engineering/state/",),
             replacement_refs=("src/ai_engineering/state/control_plane.py",),
             parity_proofs=(
-                ".ai-engineering/specs/spec-117-progress/verify_hx05_t4_2_framework_events_snapshot_sequencing.md",
+                ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx05_t4_2_framework_events_snapshot_sequencing.md",
             ),
             rollback="Restore legacy state readers and rerun manifest-coherence validation.",
         ),
@@ -283,7 +283,7 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             current_surfaces=("src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/",),
             replacement_refs=("src/ai_engineering/hooks/asset_runtime.py",),
             parity_proofs=(
-                ".ai-engineering/specs/spec-117-progress/verify_hx10_runtime_core_extraction_track_c.md",
+                ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx10_runtime_core_extraction_track_c.md",
             ),
             rollback="Restore stdlib-only helper mirrors and rerun hook asset runtime tests.",
         ),
@@ -296,7 +296,7 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             current_surfaces=("README.md", "GETTING_STARTED.md"),
             replacement_refs=(".ai-engineering/contexts/harness-adoption.md",),
             parity_proofs=(
-                ".ai-engineering/specs/spec-117-progress/verify_hx12_engineering_standards_and_legacy_retirement.md",
+                ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx12_engineering_standards_and_legacy_retirement.md",
             ),
             rollback="Keep root docs trailing framework contexts until runtime commands are proven.",
         ),

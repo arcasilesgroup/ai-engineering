@@ -11,7 +11,7 @@ runtime sentinel matching.
 - **Vendor commit hash**: `7677eca5e0313198daf39d2e3929760c80602ef8`
 - **Vendor date**: 2026-04-28
 - **Schema version**: 1.0 (preserved verbatim from upstream)
-- **Upstream snapshot date** (`last_updated`): 2026-04-17
+- **Upstream snapshot date** (`last_updated`): 2026-05-05
 
 ## License
 
@@ -36,9 +36,13 @@ spec-107 contracts:
 | `malicious_domains`    | `suspicious_network`   |
 | `shell_patterns`       | `dangerous_commands`   |
 
-The aliases are additive — both keys point to the same payload so
-upstream tooling and spec-107 callers consume the same IOC body without
-divergence.
+**spec-122-a (D-122-04): pointer-map dedupe.** The on-disk catalog
+stores each canonical category exactly once. Alias keys
+(`malicious_domains`, `shell_patterns`) are listed in a
+`spec107_aliases` block (`alias -> canonical_key` pointers). The
+loader in `prompt-injection-guard.py` dereferences the alias map at
+load time so callers that index by the alias name still receive the
+canonical payload — without ~30 LOC of duplicated body in the JSON.
 
 ## Refresh process
 

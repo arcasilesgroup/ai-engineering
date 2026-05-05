@@ -58,18 +58,6 @@
         ]
       },
       {
-        "matcher": "edit_file|write_file|replace",
-        "hooks": [
-          {
-            "type": "command",
-            "name": "strategic-compact",
-            "command": "AIENG_HOOK_ENGINE=gemini python3 \"$GEMINI_PROJECT_DIR/.ai-engineering/scripts/hooks/strategic-compact.py\"",
-            "timeout": 5000,
-            "description": "Optimize context for large files"
-          }
-        ]
-      },
-      {
         "matcher": "mcp_.*",
         "hooks": [
           {

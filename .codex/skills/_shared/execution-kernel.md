@@ -42,18 +42,7 @@ DAG construction (independent vs dependent):
 
 ## Sub-flow 2: Build-verify-review loop (per task)
 
-After the dispatched agent completes, run a behavioural-eval pass first, then two-stage review on the deliverable BEFORE marking the task DONE.
-
-### Stage 0 -- Behavioural evaluation (spec-119 D-119-06)
-
-Dispatch `ai-evaluator` against the build Context Output Contract. The evaluator runs the manifest-configured scenario packs through deterministic graders, computes pass@k via `ai_engineering.eval`, and returns a Scorecard verdict (`GO`, `CONDITIONAL`, `NO_GO`, `SKIPPED`).
-
-- **GO**: continue to Stage 1.
-- **CONDITIONAL**: continue to Stage 1; surface the regression delta to the consumer for visibility.
-- **NO_GO**: short-circuit. Mark the task `BLOCKED` with reason `eval_no_go` and STOP. Do not run Stage 1 / Stage 2 -- there is no point validating layer violations on code that does not run.
-- **SKIPPED**: only valid when the manifest sets `evaluation.enforcement: advisory`, when no scenario packs apply to the deliverable, or when the consumer passes `--skip-eval-gate` (audited via `eval_run/eval_gated` event with `verdict: SKIPPED`).
-
-Telemetry: every Stage 0 invocation emits a structured `eval_run` event sequence -- one `eval_started`, N `scenario_executed`, one `pass_at_k_computed`, one `eval_gated`. See `.ai-engineering/scripts/hooks/_lib/observability.py` `emit_eval_*` helpers.
+After the dispatched agent completes, run two-stage review on the deliverable BEFORE marking the task DONE.
 
 ### Stage 1 -- Spec compliance
 - Deliverable matches the task description?

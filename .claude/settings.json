@@ -54,16 +54,6 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/strategic-compact.py\"",
-            "timeout": 5
-          }
-        ]
-      },
-      {
         "matcher": "mcp__",
         "hooks": [
           {

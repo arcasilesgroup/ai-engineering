@@ -37,7 +37,7 @@ SKILLS_ADDED_POST_BASELINE: tuple[str, ...] = (
     "ai-design",  # spec-117/118 design-system skill
     "ai-animation",  # spec-117/118 motion/interaction skill
     "ai-canvas",  # spec-117/118 visual composition skill
-    "ai-eval-gate",  # spec-119 eval-gate delivery skill
+    # spec-122-a (D-122-08): ai-eval-gate removed alongside the eval surfaces.
 )
 
 # Functional additions to existing skills AFTER the spec-106 P5 baseline.

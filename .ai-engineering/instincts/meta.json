@@ -1,8 +1,8 @@
 {
-    "schemaVersion": "2.0",
-    "lastExtractedAt": "2026-04-29T13:30:00Z",
-    "lastContextGeneratedAt": null,
-    "pendingContextRefresh": false,
-    "deltaThreshold": 10,
-    "contextMaxAgeHours": 24
+  "schemaVersion": "2.0",
+  "lastExtractedAt": "2026-05-05T15:55:53Z",
+  "deltaThreshold": 10,
+  "lastContextGeneratedAt": null,
+  "pendingContextRefresh": false,
+  "contextMaxAgeHours": 24
 }

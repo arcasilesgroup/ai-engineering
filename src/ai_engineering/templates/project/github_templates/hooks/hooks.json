@@ -59,13 +59,6 @@
       },
       {
         "type": "command",
-        "bash": "./.ai-engineering/scripts/hooks/copilot-strategic-compact.sh",
-        "powershell": "./.ai-engineering/scripts/hooks/copilot-strategic-compact.ps1",
-        "timeoutSec": 5,
-        "comment": "Advise compacting context at strategic intervals during long sessions"
-      },
-      {
-        "type": "command",
         "bash": "./.ai-engineering/scripts/hooks/copilot-instinct-observe.sh pre",
         "powershell": "./.ai-engineering/scripts/hooks/copilot-instinct-observe.ps1 pre",
         "timeoutSec": 10,

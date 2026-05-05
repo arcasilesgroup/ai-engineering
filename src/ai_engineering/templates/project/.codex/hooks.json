@@ -38,11 +38,6 @@
           },
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/strategic-compact.py",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
             "timeout": 10
           }

@@ -1,10 +1,16 @@
+---
+spec: 121
+title: "Self-Improvement Loop Completion + Hook Event Coverage"
+status: approved
+effort: high
+---
+
 # spec-121: Self-Improvement Loop Completion + Hook Event Coverage
 
-**Status**: approved (autonomous)
-**Owner**: ai-engineering
-**Date**: 2026-05-04
-**Branch**: feat/spec-120-observability-modernization (continuation)
-**Predecessors**: spec-120 (observability modernization), spec-118 (memory), spec-119 (eval)
+> **Owner**: ai-engineering ·
+> **Date**: 2026-05-04 ·
+> **Branch**: feat/spec-120-observability-modernization (continuation) ·
+> **Predecessors**: spec-120 (observability modernization), spec-118 (memory), spec-119 (eval)
 
 ## Problem
 

@@ -1131,144 +1131,47 @@ def generate_copilot_instructions(
     skills: list[tuple[str, dict[str, str], Path]],
     agents: list[tuple[str, dict[str, str], Path]],
 ) -> str:
-    """Generate .github/copilot-instructions.md from CLAUDE.md.
+    """Generate .github/copilot-instructions.md (slim Copilot overlay).
 
-    Produces a condensed Copilot-specific version with:
-    - Source of Truth (condensed)
-    - FIRST ACTION -- Mandatory (auto-trigger /ai-start)
-    - Plan/Execute Flow (from Task Management)
-    - Absolute Prohibitions (from Don't, excluding Claude-specific items)
-    - Observability (Copilot hook event names)
-    - Subagent Orchestration (from AGENT_METADATA)
-    - Quick Reference (counts and paths)
+    spec-122-a (D-122-01): the Copilot overlay is now ≤30 lines and only
+    contains Copilot-specific content (hook event-name mapping +
+    first-action). Skills, agents, source-of-truth, observability, hard
+    rules, quality gates are all delegated to AGENTS.md / CONSTITUTION.md.
+
+    The `skills` and `agents` parameters are kept for API compatibility
+    with `--check` callers that still pass them in.
     """
-    skill_count = sum(1 for _n, _fm, sp in skills if is_copilot_compatible(sp))
-    agent_count = len(agents)
+    _ = skills, agents  # parity with prior signature; counts are in AGENTS.md
 
-    lines: list[str] = []
-
-    # Header
-    lines.append("# GitHub Copilot Instructions")
-    lines.append("")
-    lines.append("Project instructions are canonical in `.ai-engineering/`.")
-    lines.append("")
-    lines.append(
-        "> See [AGENTS.md](../AGENTS.md) for the canonical cross-IDE rules"
-        " (Step 0, available skills, agents, and the hard rules that delegate"
-        " to [CONSTITUTION.md](../CONSTITUTION.md)). Read those first; this"
-        " file only adds Copilot-specific specifics."
+    return (
+        "# GitHub Copilot Instructions\n"
+        "\n"
+        "> See [AGENTS.md](../AGENTS.md) for canonical cross-IDE rules\n"
+        "> (Step 0, skills, agents, hard rules, quality gates, observability,\n"
+        "> source of truth). Non-negotiable rules in\n"
+        "> [CONSTITUTION.md](../CONSTITUTION.md). Read those first.\n"
+        "\n"
+        "## FIRST ACTION — Mandatory\n"
+        "\n"
+        "Run `/ai-start` first in every session. `/ai-*` are IDE slash\n"
+        "commands, not `ai-eng` CLI subcommands.\n"
+        "\n"
+        "## Hooks Wiring (Copilot-specific)\n"
+        "\n"
+        "Hook config in `.github/hooks/hooks.json`. Canonical script in\n"
+        "`.ai-engineering/scripts/hooks/` via bash/PowerShell adapter.\n"
+        "\n"
+        "| Cross-IDE primitive        | Copilot event |\n"
+        "|----------------------------|---------------|\n"
+        "| Progressive disclosure     | `userPromptSubmitted` |\n"
+        "| Tool offload + loop detect | `postToolUse` |\n"
+        "| Checkpoint + Ralph Loop    | `sessionEnd` |\n"
+        "| Deny-list enforcement      | `preToolUse` |\n"
+        "| Error capture              | `errorOccurred` |\n"
+        "\n"
+        "PreCompact / PostCompact not surfaced by Copilot; snapshot\n"
+        "primitive degrades gracefully.\n"
     )
-    lines.append("")
-
-    # Source of Truth (condensed)
-    lines.append("## Source of Truth")
-    lines.append("")
-    lines.append("- Config: `.ai-engineering/manifest.yml`")
-    lines.append("- Decisions: `.ai-engineering/state/decision-store.json`")
-    lines.append("- Contexts: `.ai-engineering/contexts/` (languages, frameworks, team)")
-    lines.append("")
-
-    # FIRST ACTION -- Mandatory
-    lines.append("## FIRST ACTION -- Mandatory")
-    lines.append("")
-    lines.append("Your first action in every session MUST be to run `/ai-start`.")
-    lines.append("Do not respond to any user request until `/ai-start` completes.")
-    lines.append(
-        "`/ai-start` and other `/ai-*` entries are IDE slash commands,"
-        " not `ai-eng` CLI subcommands."
-    )
-    lines.append(
-        "Never translate `/ai-<name>` into `ai-eng <name>` unless the CLI"
-        " reference explicitly documents that command."
-    )
-    lines.append("")
-
-    lines.append(
-        "Cross-IDE workflow rules, including the spec-gated `/ai-brainstorm`"
-        " -> `/ai-plan` -> `/ai-dispatch` flow, live in"
-        " [AGENTS.md](../AGENTS.md)."
-    )
-    lines.append("")
-
-    # Hard Rules — delegate to CONSTITUTION/AGENTS to avoid verbatim duplication
-    lines.append("## Hard Rules")
-    lines.append("")
-    lines.append(
-        "The non-negotiable rules live in [CONSTITUTION.md](../CONSTITUTION.md),"
-        " summarised in [AGENTS.md](../AGENTS.md). Do not restate them here —"
-        " read those first. Gate failure: diagnose -> fix -> retry."
-    )
-    lines.append("")
-
-    # Observability (Copilot hook event names)
-    lines.append("## Observability")
-    lines.append("")
-    lines.append(
-        "Telemetry is **automatic via hooks** -- configured in `.github/hooks/hooks.json`."
-    )
-    lines.append("- `userPromptSubmitted` hook emits `skill_invoked` events on `/ai-*` commands")
-    lines.append("- `preToolUse` hook enforces deny-list (blocks dangerous operations)")
-    lines.append("- `postToolUse` hook emits `agent_dispatched` and `ide_hook` events on agent use")
-    lines.append("- `errorOccurred` hook emits `framework_error` and `ide_hook` events on failures")
-    lines.append(
-        "- Hook, gate, governance, security, and quality outcomes flow to "
-        "`.ai-engineering/state/framework-events.ndjson`"
-    )
-    lines.append(
-        "- Registered skills, agents, contexts, and hooks are catalogued in "
-        "`.ai-engineering/state/framework-capabilities.json`"
-    )
-    lines.append(
-        "- Session discovery and transcript viewing are delegated to separately "
-        "installed `agentsview`"
-    )
-    lines.append("")
-
-    # Subagent Orchestration (from AGENT_METADATA)
-    lines.append("## Subagent Orchestration")
-    lines.append("")
-    lines.append(
-        "Orchestrator agents can delegate tasks to specialized subagents via the `agent` tool:"
-    )
-    lines.append("")
-    lines.append("| Orchestrator | Delegates To | Handoffs |")
-    lines.append("|-------------|-------------|----------|")
-    for _name, meta in AGENT_METADATA.items():
-        if not meta.copilot_agents:
-            continue
-        delegates = ", ".join(meta.copilot_agents)
-        if meta.copilot_handoffs:
-            handoffs = ", ".join(f"-> {h['agent']}" for h in meta.copilot_handoffs)
-        else:
-            handoffs = "--"
-        lines.append(f"| {meta.display_name} | {delegates} | {handoffs} |")
-
-    # Add leaf agents note
-    leaf_agents = [meta.display_name for meta in AGENT_METADATA.values() if not meta.copilot_agents]
-    lines.append("")
-    lines.append(
-        f"Leaf agents ({', '.join(sorted(leaf_agents))})"
-        " cannot delegate -- they are terminal nodes."
-    )
-    lines.append("")
-    lines.append(
-        "Handoffs provide guided transitions between agents in VS Code (buttons after responses)."
-    )
-    lines.append(
-        "Per-agent hooks (e.g., auto-format in Build) require `chat.useCustomAgentHooks: true`."
-    )
-    lines.append("")
-
-    # Quick Reference
-    lines.append("## Quick Reference")
-    lines.append("")
-    lines.append(f"- Skills ({skill_count}): `.github/skills/ai-<name>/SKILL.md`")
-    lines.append(f"- Agents ({agent_count}): `.github/agents/<name>.agent.md`")
-    lines.append("- Quality: coverage 80%, duplication <=3%, cyclomatic <=10, cognitive <=15")
-    lines.append("- Security: zero medium+ findings, zero leaks, zero dependency vulns")
-    lines.append("")
-
-    return "\n".join(lines)
 
 
 # ═══════════════════════════════════════════════════════════════════════════

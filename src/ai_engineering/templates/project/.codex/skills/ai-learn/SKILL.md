@@ -1,10 +1,15 @@
 ---
 name: ai-learn
-description: "Use when the AI keeps repeating the same mistakes, when you want the framework to learn from merged PR review feedback, or when enough corrections have accumulated to update standards. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Analyzes PRs, identifies missed checks, and writes lessons directly to LESSONS.md."
+description: Use when the AI keeps repeating the same mistakes, when you want the framework to learn from merged PR review feedback, or when enough corrections have accumulated to update standards. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Analyzes PRs, identifies missed checks, and writes lessons directly to LESSONS.md.
 effort: medium
 argument-hint: "single <pr>|batch"
 tags: [meta, learning, continuous-improvement]
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-learn/SKILL.md
+edit_policy: generated-do-not-edit
 ---
+
 
 
 # Learn

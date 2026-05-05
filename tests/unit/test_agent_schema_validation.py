@@ -23,12 +23,11 @@ _AGENTS_DIR = (
 )
 
 # Post spec-091: 10 user-facing orchestrator agents (ai-*.md)
-# Post spec-116+: 11 (added ai-evaluator)
+# spec-122-a (D-122-08): ai-evaluator removed alongside the eval surfaces.
 _EXPECTED_ORCHESTRATORS = frozenset(
     {
         "ai-autopilot",
         "ai-build",
-        "ai-evaluator",
         "ai-explore",
         "ai-guard",
         "ai-guide",

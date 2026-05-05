@@ -1,3 +1,9 @@
 # Gitleaks fingerprint allowlist
 # These are example API keys in deleted documentation files (stacks/*/security.md).
 # They are not real secrets — they were illustrative examples for security best practices.
+#
+# Synthetic redaction fixture: tests/unit/hooks/test_runtime_state.py exercises
+# the offload-write redaction path with a fixed literal token. That is the test
+# contract — the literal must be present to assert the redaction hook strips
+# it from on-disk payloads.
+tests/unit/hooks/test_runtime_state.py:generic-api-key:85

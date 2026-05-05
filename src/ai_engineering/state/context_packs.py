@@ -43,7 +43,6 @@ _OPTIONAL_LEARNING_FUNNEL = (
 _EXCLUDED_RESIDUE = (
     ".ai-engineering/state/framework-events.ndjson",
     ".ai-engineering/state/instinct-observations.ndjson",
-    ".ai-engineering/state/strategic-compact.json",
 )
 
 

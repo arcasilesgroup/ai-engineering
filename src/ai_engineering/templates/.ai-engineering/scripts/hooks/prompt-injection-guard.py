@@ -261,6 +261,15 @@ def load_iocs(project_root: Path) -> dict[str, Any]:
     catalog never blocks the host. This is the deliberate fail-open
     posture: spec-107 D-107-05 prefers availability over secret-leak
     blocking when the catalog itself is absent (e.g. fresh checkout).
+
+    spec-122-a (D-122-04): the catalog now stores only canonical
+    category keys (``suspicious_network``, ``dangerous_commands``).
+    Alias keys that legacy callers depend on (``malicious_domains``,
+    ``shell_patterns``) are derived at load time from the
+    ``spec107_aliases`` pointer map, which removes ~30 LOC of
+    duplicated payload from ``iocs.json``. Pointers to unknown
+    canonical keys are silently skipped (defensive: malformed catalog
+    must never break callers).
     """
     path = _ioc_catalog_path(project_root)
     if not path.exists():
@@ -272,6 +281,24 @@ def load_iocs(project_root: Path) -> dict[str, Any]:
         return {}
     if not isinstance(payload, dict):
         return {}
+
+    # Dereference spec107_aliases: alias_key -> canonical_key. Inject the
+    # canonical payload under the alias name so downstream evaluators that
+    # reference the alias key continue to work without per-callsite changes.
+    aliases = payload.get("spec107_aliases")
+    if isinstance(aliases, dict):
+        for alias_key, canonical_key in aliases.items():
+            if not isinstance(alias_key, str) or not isinstance(canonical_key, str):
+                continue
+            if alias_key in payload:
+                # Don't clobber an explicit (non-alias) entry.
+                continue
+            canonical = payload.get(canonical_key)
+            if canonical is None:
+                # Pointer to a missing canonical — skip silently (fail-open).
+                continue
+            payload[alias_key] = canonical
+
     return payload
 
 

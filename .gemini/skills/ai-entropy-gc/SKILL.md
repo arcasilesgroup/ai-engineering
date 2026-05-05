@@ -1,13 +1,18 @@
 ---
 name: ai-entropy-gc
 description: "Scheduled wrapper around /ai-simplify that runs weekly, gates the resulting diff, and opens a draft PR for human review. Trigger for 'weekly entropy sweep', 'scheduled simplification', 'entropy gc'. Hard rule: never auto-merges; always opens a draft PR. Recommended cadence: weekly via /schedule."
-effort: medium
 model: sonnet
+effort: medium
 color: teal
-tools: [Bash, Read]
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, simplification, entropy, scheduled, autonomous]
+tools: [Bash, Read]
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-entropy-gc/SKILL.md
+edit_policy: generated-do-not-edit
 ---
+
 
 # Entropy GC
 
@@ -31,7 +36,7 @@ Codebases accumulate entropy: dead branches, redundant guards, copy-pasted helpe
 
 ### Step 1 — Invoke `/ai-simplify` in non-interactive mode
 
-Read `.claude/skills/ai-simplify/SKILL.md` (when present) to confirm whether an explicit `--auto` flag exists. If not, invoke with conservative defaults equivalent to:
+Read `.gemini/skills/ai-simplify/SKILL.md` (when present) to confirm whether an explicit `--auto` flag exists. If not, invoke with conservative defaults equivalent to:
 
 ```
 /ai-simplify --conservative
@@ -103,7 +108,7 @@ Activate via `/ai-schedule weekly <project>/.ai-engineering/scripts/scheduled/en
 
 ## References
 
-- Skill source of truth: `.claude/skills/ai-entropy-gc/SKILL.md`
-- Related: `.claude/skills/ai-simplify/SKILL.md`, `.claude/skills/ai-schedule/SKILL.md`
+- Skill source of truth: `.gemini/skills/ai-entropy-gc/SKILL.md`
+- Related: `.gemini/skills/ai-simplify/SKILL.md`, `.gemini/skills/ai-schedule/SKILL.md`
 - Manifest entry: `.ai-engineering/manifest.yml` `skills.registry.ai-entropy-gc`
 - Scheduled wrapper: `.ai-engineering/scripts/scheduled/entropy-gc.sh`

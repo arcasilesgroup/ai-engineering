@@ -1,6 +1,6 @@
 ---
 name: ai-release-gate
-description: "Use when checking release readiness: 'is this ready to ship?', 'can we release?', 'run the release checks', 'what's blocking the release?', 'pre-release checklist', 'GO/NO-GO'. Runs aggregated gate across 9 dimensions — coverage, security, tests, lint, dependencies, types, docs, packaging, evals (spec-119) — against manifest thresholds and produces a structured GO / CONDITIONAL GO / NO-GO verdict."
+description: "Use when checking release readiness: 'is this ready to ship?', 'can we release?', 'run the release checks', 'what's blocking the release?', 'pre-release checklist', 'GO/NO-GO'. Runs aggregated gate across 8 dimensions — coverage, security, tests, lint, dependencies, types, docs, packaging — against manifest thresholds and produces a structured GO / CONDITIONAL GO / NO-GO verdict."
 effort: high
 argument-hint: "[version]|--check-only"
 tags: [quality, release, gate, go-no-go, delivery]
@@ -66,12 +66,6 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
    - Run `uv build` or equivalent.
    - Gate: wheel builds cleanly, no missing files.
 
-9. **Evals** (spec-119 D-119-04) -- verify behavioural pass@k holds against thresholds.
-   - Run `$CLAUDE_PROJECT_DIR/.claude/skills/ai-eval-gate/run.sh enforce`.
-   - Reads `manifest.yml` `evaluation:` section (`pass_at_k.k`, `pass_at_k.threshold`, `hallucination_rate.max`, `regression_tolerance`, `enforcement`).
-   - Gate: verdict GO or CONDITIONAL passes; NO_GO fails. SKIPPED is acceptable only when `evaluation.enforcement: advisory` or no scenario pack applies.
-   - Telemetry: every invocation emits an `eval_run/eval_gated` event chained into the audit log.
-
 ### Phase 2: Aggregate Verdict
 
 10. **Determine verdict**:
@@ -101,7 +95,6 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
 | Types | PASS | 0 errors |
 | Docs | PASS | CHANGELOG current |
 | Packaging | PASS | wheel builds |
-| Evals | PASS | pass@5=0.86, no regression |
 
 ### Blockers (if NO-GO)
 - [Issue, severity, fix suggestion]

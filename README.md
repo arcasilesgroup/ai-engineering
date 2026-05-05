@@ -82,6 +82,8 @@ ai-eng doctor
 
 `install` scaffolds the governance root, detects your stack, and mirrors skills to every configured IDE. It also auto-installs missing tools (`ruff`, `gitleaks`, `ty`, `pip-audit`) via your OS package manager. `doctor` validates the installation, checks tooling, and reports anything that needs attention.
 
+**Telemetry**: strict-opt-in, default disabled. The audit chain is local NDJSON; external emitters require explicit operator opt-in (see `.ai-engineering/manifest.yml` `telemetry.*`).
+
 See [GETTING_STARTED.md](GETTING_STARTED.md) for the full tutorial.
 
 ## What's new in 0.5.0

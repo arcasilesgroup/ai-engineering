@@ -1849,7 +1849,9 @@ class TestManifestCoherence:
             "---\nid: legacy-spec\n---\n\n# Legacy Active Spec\n",
             encoding="utf-8",
         )
-        pointed_specs_dir = _write_work_plane(ai / "specs" / "spec-117-progress", "117-progress")
+        pointed_specs_dir = _write_work_plane(
+            ai / "specs" / "spec-fixture-progress", "fixture-progress"
+        )
         (pointed_specs_dir / "spec.md").write_text(
             "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
             encoding="utf-8",
@@ -2616,7 +2618,7 @@ class TestManifestCoherence:
                         handoffs=[
                             HandoffRef(
                                 kind="build",
-                                path=".ai-engineering/specs/spec-117-progress/missing-handoff.md",
+                                path=".ai-engineering/state/archive/delivery-logs/spec-117/missing-handoff.md",
                             )
                         ],
                     )

@@ -201,6 +201,11 @@ for the bootstrap that registers hooks. Session discovery and transcript
 viewing are delegated to the separately installed `agentsview` companion
 tool.
 
+**Telemetry consent posture**: `telemetry.consent: strict-opt-in` and
+`telemetry.default: disabled` in `.ai-engineering/manifest.yml`. No
+external emitters run unless the operator explicitly enables them; the
+default audit chain is local-only NDJSON.
+
 ### Audit observability (spec-120)
 
 The framework projects the NDJSON audit stream into a SQLite database

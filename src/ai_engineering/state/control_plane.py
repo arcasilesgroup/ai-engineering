@@ -176,7 +176,6 @@ _STATE_PLANE_RESIDUE_RULES: tuple[str, ...] = (
     ".ai-engineering/state/gate-findings.json",
     ".ai-engineering/state/watch-residuals.json",
     ".ai-engineering/state/gate-cache/**",
-    ".ai-engineering/state/strategic-compact.json",
     ".ai-engineering/state/locks/**",
 )
 

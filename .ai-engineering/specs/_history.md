@@ -328,3 +328,8 @@ The runtime engine is independently dispatchable; the deferred files are documen
 3. **Spike before assuming spec lineage**. spec-119 D-119-07 originally claimed three named functions from spec-117 hx-11 existed; the spike found they did not. Catching this in Phase 1 (T-1.1) prevented Phase 2 from importing ghost names; the SSOT landed under spec-119 instead with a transparent reconciliation note.
 4. **Schema gaps surface during foundation waves**. The manifest schema did not declare the `gates:` block that the manifest already used; the side-effect repair lands cheaply alongside the new `evaluation:` block. Establishing the rule "if the foundation phase touches a schema, sweep adjacent gaps in the same phase" is worth documenting.
 5. **Test bar can be stricter than schema**: `test_skill_has_valid_effort` allowlist `{max, high, medium}` was tighter than the skill-frontmatter schema enum `{max, high, medium, low}`. spec-118's `ai-remember` set `effort: low` per the schema and surfaced the divergence; spec-119 cleanup aligned the test to the schema.
+
+
+## 2026-05-05 — spec-122-a / sub-001 (Hygiene + Config + Delete Evals)
+
+**Relocation**: `git mv .ai-engineering/specs/spec-117-progress/` → `.ai-engineering/state/archive/delivery-logs/spec-117/` (197 build/verify proof markdowns). The originating spec (117) is `done`; the per-task progress logs are reclassified as durable delivery logs under the state-plane archive (matches the spec-117 hx-05 state-plane archive contract). Path references in `src/ai_engineering/standards.py` (6 entries) and `tests/unit/test_validator.py` (2 fixture paths) updated in the same commit. Empty scaffolds (`v2/`, `handoffs/`, `harness-gap-2026-05-04/`, `evidence/`) deleted.
