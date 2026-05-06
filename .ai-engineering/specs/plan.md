@@ -40,11 +40,11 @@ No UI work beyond CLI rendering polish (D-124-03/04/05/06). `.ai-engineering/con
 
 **Gate**: tool installer phase + git-hooks phase emit per-tool events visible in CLI; throttled to 100ms.
 
-- [ ] T-2.1: TDD-RED — failing test for per-tool progress callbacks in installer phase (agent: build)
-- [ ] T-2.2: TDD-GREEN — implement `tool_started/tool_finished` event emission in tool installer phase (agent: build)
-- [ ] T-2.3: Same for git-hooks phase (agent: build)
-- [ ] T-2.4: UI layer renders Rich Status spinner with current tool name; 100ms throttle (agent: build)
-- [ ] T-2.5: Phase 2 verification — manual ai-eng install on test project; visual confirm progress visible (agent: verify)
+- [x] T-2.1: TDD-RED — failing test for per-tool progress callbacks in installer phase (agent: build)
+- [x] T-2.2: TDD-GREEN — implement `tool_started/tool_finished` event emission in tool installer phase (agent: build)
+- [x] T-2.3: Same for git-hooks phase (agent: build)
+- [x] T-2.4: UI layer renders Rich Status spinner with current tool name; 100ms throttle (agent: build)
+- [x] T-2.5: Phase 2 verification — manual ai-eng install on test project; visual confirm progress visible (agent: verify)
 
 ---
 

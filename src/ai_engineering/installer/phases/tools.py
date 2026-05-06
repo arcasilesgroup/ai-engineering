@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import logging
 import platform
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
@@ -194,6 +195,26 @@ def _ensure_install_state(context: InstallContext) -> InstallState:
     return context.existing_state
 
 
+def _make_progress_emitter(context: InstallContext):
+    """Return a callable that forwards messages to ``context.progress_callback``.
+
+    spec-124 D-124-03: phases emit fine-grained sub-step events (per-tool /
+    per-hook) so the CLI surface can render a Rich Status spinner that
+    updates as work proceeds, rather than freezing on the phase line.
+    Callback exceptions are swallowed (fail-open) so progress UI failures
+    cannot break the install pipeline.
+    """
+
+    def emit(message: str) -> None:
+        callback = context.progress_callback
+        if callback is None:
+            return
+        with suppress(Exception):
+            callback(message)
+
+    return emit
+
+
 # ---------------------------------------------------------------------------
 # ToolsPhase
 # ---------------------------------------------------------------------------
@@ -278,17 +299,29 @@ class ToolsPhase:
         # skip predicate compares the recorded value BEFORE this stamp.
         new_mode_recorded = current_python_env_mode
 
+        # spec-124 D-124-03: per-tool progress callback. Emit a
+        # ``tool_started:<name>`` event before the install attempt and
+        # ``tool_finished:<name>`` after, regardless of success / failure /
+        # skip. The CLI surface translates these into a Rich Status spinner
+        # sub-step. Callback exceptions are swallowed (fail-open) so a
+        # broken UI never breaks the install pipeline.
+        emit_progress = _make_progress_emitter(context)
+
         for tool in load_result:
-            self._install_one(
-                tool,
-                os_key=os_key,
-                result=result,
-                state=install_state,
-                current_os_release=current_os_release,
-                current_python_env_mode=current_python_env_mode,
-                force=force,
-                tool_spec=TOOL_REGISTRY.get(tool.name) or {},
-            )
+            emit_progress(f"tool_started:{tool.name}")
+            try:
+                self._install_one(
+                    tool,
+                    os_key=os_key,
+                    result=result,
+                    state=install_state,
+                    current_os_release=current_os_release,
+                    current_python_env_mode=current_python_env_mode,
+                    force=force,
+                    tool_spec=TOOL_REGISTRY.get(tool.name) or {},
+                )
+            finally:
+                emit_progress(f"tool_finished:{tool.name}")
 
         # spec-101 T-2.28: project_local-only stacks. When at least one tool
         # was project_local-skipped above, emit a per-stack info message

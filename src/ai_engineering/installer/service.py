@@ -244,6 +244,11 @@ def install_with_pipeline(
             logger.warning("Cannot read existing install state: %s", exc)
 
     # Build context
+    # spec-124 D-124-03: thread the same ``progress_callback`` into the
+    # context so phases (ToolsPhase / HooksPhase) can emit per-sub-step
+    # events (e.g. ``tool_started:ruff``) alongside the pipeline-level
+    # phase events (``[5/6] tools``). The CLI surface translates both
+    # into Rich Status spinner updates.
     context = InstallContext(
         target=target,
         mode=mode,
@@ -253,6 +258,7 @@ def install_with_pipeline(
         ides=ides or [],
         existing_state=existing_state,
         force=force,
+        progress_callback=progress_callback,
     )
 
     if not dry_run:

@@ -12,9 +12,10 @@ import json
 import os
 import shutil
 import stat
+from contextlib import suppress
 from pathlib import Path
 
-from ai_engineering.hooks.manager import install_hooks
+from ai_engineering.hooks.manager import HookInstallResult, install_hooks
 from ai_engineering.installer.merge import merge_settings
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
@@ -23,6 +24,7 @@ from ai_engineering.installer.templates import (
     get_project_template_root,
     resolve_template_maps,
 )
+from ai_engineering.state.models import GateHook
 
 from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict, PlannedAction
 
@@ -96,12 +98,60 @@ class HooksPhase:
                 ):
                     script.chmod(script.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
-        hr = install_hooks(context.target)
+        # spec-124 D-124-03: per-hook progress callback. We iterate the
+        # canonical ``GateHook`` enum and call ``install_hooks`` once per
+        # hook so the CLI surface can render fine-grained progress (e.g.
+        # ``hook_started:pre-commit`` -> spinner ``Installing pre-commit
+        # hook...``). The aggregate ``HookInstallResult`` is reconstructed
+        # from the per-hook calls for downstream consumers. Callback
+        # exceptions are swallowed (fail-open) so a broken UI never breaks
+        # the install pipeline.
+        hr = self._install_hooks_with_progress(context)
         result.created.extend(f".git/hooks/{h}" for h in hr.installed)
         result.skipped.extend(f".git/hooks/{h}" for h in hr.skipped)
 
         self._handle_settings(plan, context, pr, result)
         return result
+
+    @staticmethod
+    def _emit_progress(context: InstallContext, message: str) -> None:
+        """Forward a progress message to ``context.progress_callback``.
+
+        Fail-open: callback exceptions are suppressed so a broken progress
+        UI cannot break the install pipeline.
+        """
+        callback = context.progress_callback
+        if callback is None:
+            return
+        with suppress(Exception):
+            callback(message)
+
+    def _install_hooks_with_progress(self, context: InstallContext) -> HookInstallResult:
+        """Iterate ``GateHook`` enum and emit per-hook progress events.
+
+        Calls :func:`install_hooks` once per hook so the CLI surface sees
+        fine-grained ``hook_started:<name>`` / ``hook_finished:<name>``
+        events. The per-hook results are merged into a single
+        :class:`HookInstallResult` with the union of installed / skipped /
+        conflict entries so downstream consumers see the same shape.
+        """
+        aggregate = HookInstallResult()
+        # Conflict detection is identical across per-hook calls (it only
+        # reads project_root markers), so capture conflicts once from the
+        # first call and skip duplicates from subsequent calls.
+        captured_conflicts = False
+        for hook in GateHook:
+            self._emit_progress(context, f"hook_started:{hook.value}")
+            try:
+                per_hook = install_hooks(context.target, hooks=[hook])
+            finally:
+                self._emit_progress(context, f"hook_finished:{hook.value}")
+            aggregate.installed.extend(getattr(per_hook, "installed", []) or [])
+            aggregate.skipped.extend(getattr(per_hook, "skipped", []) or [])
+            if not captured_conflicts:
+                aggregate.conflicts.extend(getattr(per_hook, "conflicts", []) or [])
+                captured_conflicts = True
+        return aggregate
 
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
         w: list[str] = []

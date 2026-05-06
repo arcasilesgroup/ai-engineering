@@ -7,6 +7,7 @@ that drives behavioral branching.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -181,6 +182,15 @@ class InstallContext:
     # spec-101 T-2.16: ``--force`` plumbing. When True, ToolsPhase bypasses
     # the D-101-07 skip predicate and re-installs every tool unconditionally.
     force: bool = False
+    # spec-124 D-124-03: per-sub-step progress callback. Phases may call
+    # ``progress_callback(message)`` to surface fine-grained progress (e.g.
+    # ``"tool_started:ruff"`` / ``"hook_started:pre-commit"``) that the CLI
+    # surface translates into a Rich Status spinner sub-step. This is in
+    # addition to the pipeline-level callback in :class:`PipelineRunner`,
+    # which only fires once per phase. Defaults to ``None`` for backward
+    # compatibility -- phases that emit events without a registered listener
+    # are no-ops.
+    progress_callback: Callable[[str], None] | None = None
 
 
 # ---------------------------------------------------------------------------

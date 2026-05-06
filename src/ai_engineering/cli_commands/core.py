@@ -623,7 +623,29 @@ def _render_install_phase_progress(message: str, *, tracker: Any) -> None:
     spec-124 D-124-04: StepTracker adds its own ``[N/M]`` prefix, so
     strip the incoming prefix from the pipeline notifier to avoid
     duplicate ``[5/6] [5/6] Installing required tools`` rendering.
+
+    spec-124 D-124-03: per-tool / per-hook sub-step events from the
+    InstallContext callback (``tool_started:<name>`` /
+    ``hook_started:<name>``) refine the spinner WITHOUT incrementing
+    the phase counter. ``tool_finished`` / ``hook_finished`` events
+    are no-ops at the UI layer -- the next ``tool_started`` overrides
+    the spinner anyway, and the parent step's label is preserved by
+    the tracker so the spinner falls back gracefully when work
+    transitions between tools.
     """
+    if message.startswith("tool_started:"):
+        tool_name = message.split(":", 1)[1]
+        tracker.substep(f"Installing {tool_name}...")
+        return
+    if message.startswith("hook_started:"):
+        hook_name = message.split(":", 1)[1]
+        tracker.substep(f"Installing {hook_name} hook...")
+        return
+    if message.startswith("tool_finished:") or message.startswith("hook_finished:"):
+        # Sub-step end is a no-op; the parent step or the next
+        # tool_started/hook_started event drives the next spinner update.
+        return
+
     try:
         _prefix, name = message.split(" ", 1)
     except ValueError:
