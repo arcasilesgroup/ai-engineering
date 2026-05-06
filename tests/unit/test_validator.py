@@ -222,6 +222,7 @@ def _source_repo_manifest_text(version: str = "1.2.3") -> str:
         "control_plane:\n"
         "  constitutional_authority:\n"
         "    primary: CONSTITUTION.md\n"
+        "    compatibility_aliases: []\n"
         "  manifest_field_roles:\n"
         "    canonical_input:\n"
         "      - providers\n"

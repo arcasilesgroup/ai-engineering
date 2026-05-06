@@ -54,6 +54,7 @@ _EXPECTED_SESSION_CONTEXT_FILES = [
 _EXPECTED_CONTROL_PLANE = {
     "constitutional_authority": {
         "primary": "CONSTITUTION.md",
+        "compatibility_aliases": [],
     },
     "manifest_field_roles": {
         "canonical_input": [

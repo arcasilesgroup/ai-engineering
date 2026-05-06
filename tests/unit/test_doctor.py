@@ -27,7 +27,7 @@ from ai_engineering.installer.phases import PHASE_ORDER
 
 # -- Fixture: mock phase + runtime modules -----------------------------------
 
-_RUNTIME_MODULES = ("vcs_auth", "feeds", "branch_policy", "version")
+_RUNTIME_MODULES = ("vcs_auth", "feeds", "branch_policy", "version", "opa_health")
 
 
 def _make_ok_check(name: str = "stub") -> MagicMock:

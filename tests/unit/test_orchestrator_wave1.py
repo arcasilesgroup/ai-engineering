@@ -803,12 +803,15 @@ def test_wave1_runs_spec_verify_for_placeholder_spec_with_active_resolved_ledger
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A placeholder spec stays active when the resolved work plane has live tasks.
+    """A pointed work plane runs spec-verify when its spec.md is non-placeholder.
 
-    HX-02 T-5.1 cuts over Wave 1 readiness from placeholder prose alone to
-    the resolved work-plane ledger. This regression keeps the caller's
-    explicit ``project_root`` authoritative even when the current working
-    directory is elsewhere.
+    Post-spec-123 readiness check is prose-only: the resolved spec.md must
+    not start with the placeholder marker. The active-work-plane.json
+    pointer drives resolution; the legacy task-ledger artifact is no longer
+    consulted but is kept here as a backwards-compat tombstone.
+
+    This regression keeps the caller's explicit ``project_root``
+    authoritative even when the current working directory is elsewhere.
     """
     # Arrange
     from ai_engineering.policy.orchestrator import run_wave1
@@ -828,17 +831,7 @@ def test_wave1_runs_spec_verify_for_placeholder_spec_with_active_resolved_ledger
     resolved_specs_dir = project_root / "resolved-work-plane"
     resolved_specs_dir.mkdir()
     (resolved_specs_dir / "spec.md").write_text(
-        "# No active spec\n\nUse `/ai-brainstorm` to start a new one.\n",
-        encoding="utf-8",
-    )
-    (resolved_specs_dir / "task-ledger.json").write_text(
-        (
-            '{"schemaVersion": "1.0", "tasks": ['
-            '{"id": "HX-02-T-5.1", "title": "Cut over Wave 1 gate", '
-            '"status": "review", "ownerRole": "Build", '
-            '"writeScope": ["src/ai_engineering/policy/orchestrator.py"]}'
-            "]}"
-        ),
+        "# HX-02 work plane\n\nActive spec - tests pointer resolution.\n",
         encoding="utf-8",
     )
 

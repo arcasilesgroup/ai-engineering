@@ -83,8 +83,13 @@ def test_legacy_retirement_validation_rejects_unsafe_deletion() -> None:
 
 
 def test_legacy_retirement_validation_rejects_deletion_before_ready_status() -> None:
-    family = build_legacy_retirement_manifest()[0]
-    unsafe = replace(family, delete_allowed=True)
+    # Find a family whose status is not READY or RETIRED so the validation triggers.
+    candidate = next(
+        entry
+        for entry in build_legacy_retirement_manifest()
+        if entry.status not in {LegacyRetirementStatus.READY, LegacyRetirementStatus.RETIRED}
+    )
+    unsafe = replace(candidate, delete_allowed=True)
 
     with pytest.raises(ValueError, match="READY or RETIRED"):
         validate_legacy_retirement_manifest((unsafe,))

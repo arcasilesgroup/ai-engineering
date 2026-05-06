@@ -194,6 +194,7 @@ session:
 control_plane:
   constitutional_authority:
     primary: CONSTITUTION.md
+    compatibility_aliases: []
   manifest_field_roles:
     canonical_input:
       - providers

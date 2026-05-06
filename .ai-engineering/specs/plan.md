@@ -123,16 +123,16 @@ No UI work. Routing skipped.
 
 **Gate**: all checks green; ready for /ai-pr.
 
-- [ ] T-8.1: Full unit test suite (agent: verify)
-- [ ] T-8.2: Integration tests (state, governance, sync, memory) (agent: verify)
-- [ ] T-8.3: ruff format + lint baseline preserved (agent: verify)
-- [ ] T-8.4: gitleaks (agent: verify)
-- [ ] T-8.5: Hot-path SLO p95 < 1s (agent: verify)
-- [ ] T-8.6: ai-eng spec verify --all + ai-eng doctor (agent: verify)
-- [ ] T-8.7: ai-eng audit health + verify-chain (agent: verify)
-- [ ] T-8.8: governance pre-pr review (agent: guard)
-- [ ] T-8.9: spec compliance pre-pr (agent: guard)
-- [ ] T-8.10: spec-folder compliance check (3 files only) (agent: guard)
+- [x] T-8.1: Full unit test suite (agent: verify)
+- [x] T-8.2: Integration tests (state, governance, sync, memory) (agent: verify)
+- [x] T-8.3: ruff format + lint baseline preserved (agent: verify)
+- [x] T-8.4: gitleaks (agent: verify)
+- [x] T-8.5: Hot-path SLO p95 < 1s (agent: verify)
+- [x] T-8.6: ai-eng spec verify --all + ai-eng doctor (agent: verify)
+- [x] T-8.7: ai-eng audit health + verify-chain (agent: verify)
+- [x] T-8.8: governance pre-pr review (agent: guard)
+- [x] T-8.9: spec compliance pre-pr (agent: guard)
+- [x] T-8.10: spec-folder compliance check (3 files only) (agent: guard)
 
 ---
 

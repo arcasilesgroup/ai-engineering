@@ -47,11 +47,19 @@ def _check_file_existence(
     specs_dir = ai_dir / "specs"
     specs_exists = specs_dir.is_dir()
 
+    # Exclude state/runtime/ from reference checking (spec-123 T-8.x). This
+    # subtree is gitignored ephemeral state — autopilot wave artifacts, hook
+    # checkpoints, tool outputs, etc. — and should never gate CI. Stale
+    # references to retired skills/agents inside these artifacts are expected
+    # operational debris between cleanup waves.
+    runtime_dir = ai_dir / "state" / "runtime"
+
     broken_refs = _collect_broken_references(
         target=target,
         ai_dir=ai_dir,
         specs_dir=specs_dir,
         specs_exists=specs_exists,
+        runtime_dir=runtime_dir,
         cache=cache,
     )
     _record_broken_reference_results(report, broken_refs)
@@ -71,11 +79,15 @@ def _collect_broken_references(
     ai_dir: Path,
     specs_dir: Path,
     specs_exists: bool,
+    runtime_dir: Path,
     cache: FileCache | None,
 ) -> list[tuple[str, str, str, str]]:
     broken_refs: list[tuple[str, str, str, str]] = []
+    runtime_exists = runtime_dir.is_dir()
     for md_file in _markdown_files(ai_dir, cache):
         if specs_exists and md_file.is_relative_to(specs_dir):
+            continue
+        if runtime_exists and md_file.is_relative_to(runtime_dir):
             continue
         content = md_file.read_text(encoding="utf-8", errors="replace")
         for match in _PATH_REF_PATTERN.finditer(content):
