@@ -52,15 +52,15 @@ No UI work beyond CLI rendering polish (D-124-03/04/05/06). `.ai-engineering/con
 
 **Gate**: fresh `ai-eng install` followed by `ai-eng doctor` returns 0 warnings for ownership-coverage + opa-bundle-load + opa-bundle-signature. Bundle + signature + private key all present at expected paths.
 
-- [ ] T-3.1: Seed default ownership map at install time (D-124-07) — invoke `default_ownership_map()` in state install phase (agent: build)
-- [ ] T-3.2: New `src/ai_engineering/installer/opa.py` — keygen + build + sign helpers (agent: build)
-- [ ] T-3.3: Add `.rego` policies + `.manifest` to install template `src/ai_engineering/templates/.ai-engineering/policies/` (agent: build)
-- [ ] T-3.4: Wire OPA bundle generation into governance install phase (D-124-08) (agent: build)
+- [x] T-3.1: Seed default ownership map at install time (D-124-07) — invoke `default_ownership_map()` in state install phase (agent: build)
+- [x] T-3.2: New `src/ai_engineering/installer/opa.py` — keygen + build + sign helpers (agent: build)
+- [x] T-3.3: Add `.rego` policies + `.manifest` to install template `src/ai_engineering/templates/.ai-engineering/policies/` (agent: build)
+- [x] T-3.4: Wire OPA bundle generation into governance install phase (D-124-08) (agent: build)
 - [ ] T-3.5: Add `--rotate-opa-keys` flag to `ai-eng install` for keypair regeneration (agent: build)
 - [ ] T-3.6: Trace + identify origin of `keys/opa-bundle-signing-dev.pub.pem` (D-124-11) (agent: verify)
-- [ ] T-3.7: Clean up source repo keys/ artifact (delete or document install-output-only path) (agent: build)
+- [x] T-3.7: Clean up source repo keys/ artifact (delete or document install-output-only path) (agent: build)
 - [ ] T-3.8: Tests for opa.py (mock subprocess) (agent: build)
-- [ ] T-3.9: Phase 3 verification — fresh install + doctor 0 warnings (agent: verify)
+- [x] T-3.9: Phase 3 verification — fresh install + doctor 0 warnings (agent: verify)
 
 ---
 

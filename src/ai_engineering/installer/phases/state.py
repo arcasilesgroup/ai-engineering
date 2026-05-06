@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 
+from ai_engineering.config.loader import load_manifest_root_entry_points
 from ai_engineering.state import state_db
 from ai_engineering.state.defaults import (
     default_decision_store,
@@ -55,9 +56,20 @@ class StatePhase:
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
         legacy_audit_log_removed = False
+
+        # Spec-124 T-3.1: seed ownership map with manifest-derived root-entry
+        # patterns (CLAUDE.md, AGENTS.md, GEMINI.md, .github/copilot-instructions.md)
+        # so doctor's `ownership-coverage` probe passes on fresh install.
+        # The manifest is already on disk by the time the state phase runs
+        # (governance phase precedes state phase in pipeline.py).
+        root_entry_points = load_manifest_root_entry_points(context.target)
+
+        def _seeded_ownership_map():
+            return default_ownership_map(root_entry_points=root_entry_points)
+
         generators = {
             _STATE: default_install_state,
-            _OWNERSHIP: default_ownership_map,
+            _OWNERSHIP: _seeded_ownership_map,
             _DECISIONS: default_decision_store,
         }
 
