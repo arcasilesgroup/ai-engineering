@@ -48,15 +48,17 @@ _logger = logging.getLogger(__name__)
 # Canonical relative path. Callers compose with their ``project_root``.
 STATE_DB_REL = Path(".ai-engineering") / "state" / "state.db"
 
-# spec-124 D-124-12: JSON state files migrated to state.db. Their
-# presence on disk indicates either a pre-spec-124 install or a manual
-# write that bypasses the canonical projection. The startup assertion
-# warns when we detect lingering fallbacks so operators can replay or
-# remove them before the next migration cycle.
+# spec-124 D-124-12 + spec-125 D-125-03: JSON state files migrated to
+# state.db. Their presence on disk indicates either a pre-spec-125
+# install or a manual write that bypasses the canonical projection. The
+# startup assertion warns when we detect lingering fallbacks so
+# operators can replay or remove them before the next migration cycle.
 _DEPRECATED_JSON_FALLBACKS = (
     "decision-store.json",
     "gate-findings.json",
     "ownership-map.json",
+    "install-state.json",
+    "framework-capabilities.json",
 )
 
 
@@ -171,7 +173,8 @@ def connect(
 
 
 def _warn_on_deprecated_fallbacks(state_dir: Path) -> None:
-    """Log a one-line WARNING per stale JSON fallback (spec-124 D-124-12).
+    """Log a one-line WARNING per stale JSON fallback (spec-124 D-124-12,
+    extended in spec-125 D-125-03).
 
     Called from :func:`connect` after the migration runner. The check
     is best-effort: missing directory or ``OSError`` are swallowed so
@@ -185,9 +188,8 @@ def _warn_on_deprecated_fallbacks(state_dir: Path) -> None:
             if stale.is_file():
                 _logger.warning(
                     "stale state JSON fallback found at %s; "
-                    "state.db is canonical (spec-124 D-124-12). "
-                    "Remove or migrate via `ai-eng audit migrate-fallback` "
-                    "(deprecated, removed in spec-125).",
+                    "state.db is canonical (spec-124 D-124-12, spec-125). "
+                    "Remove the file -- state.db tables are the source of truth.",
                     stale,
                 )
     except OSError:

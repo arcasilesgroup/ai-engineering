@@ -18,33 +18,33 @@ Routing decision: `skipped`. Rationale: infrastructure refactor with zero UI sur
 
 **Gate**: `install-state.json` + `framework-capabilities.json` deleted from disk + codebase. state.db has populated `install_state` + `tool_capabilities` tables. All 14 source readers + 14 test fixtures refactored. `pytest tests/unit/state/ tests/integration/state/ -v` passes. `_warn_on_deprecated_fallbacks()` extended to detect both files.
 
-- [ ] T-1.1: Add `install-state.json` and `framework-capabilities.json` to `_DEPRECATED_JSON_FALLBACKS` tuple at `src/ai_engineering/state/state_db.py:56-60` (agent: build)
-- [ ] T-1.2: Write failing tests for `install_state` table contract: schema columns, idempotent ingestion, round-trip read/write — `tests/unit/state/test_install_state_table.py` (TDD RED) (agent: build)
-- [ ] T-1.3: Create migration `src/ai_engineering/state/migrations/0004_migrate_install_state.py` — CREATE TABLE `install_state` + INSERT FROM JSON via `_runner.py` interface (`run(conn)` function) — must pass T-1.2 (agent: build)
-- [ ] T-1.4: Refactor `src/ai_engineering/cli_commands/setup.py:195,202,295,308,386,397` — replace JSON read/write with state.db queries (agent: build)
-- [ ] T-1.5: Refactor `src/ai_engineering/cli_commands/core.py:375` — state.db read (agent: build)
-- [ ] T-1.6: Refactor `src/ai_engineering/cli_commands/guide.py:24` — state.db read (agent: build)
-- [ ] T-1.7: Refactor `src/ai_engineering/detector/readiness.py:313` — state.db read (agent: build)
-- [ ] T-1.8: Refactor `src/ai_engineering/doctor/phases/detect.py:3,51,57` — state.db read (agent: build)
-- [ ] T-1.9a: Update install-state e2e tests — `tests/e2e/test_install_clean.py:64,77,82`, `tests/e2e/test_install_existing.py:78`, `tests/e2e/test_install_pipeline.py:74` (agent: build)
-- [ ] T-1.9b: Update install-state integration tests — `tests/integration/state/test_db_migration.py:78`, `tests/integration/test_cli_command_modules.py:25,27,174`, `tests/integration/test_doctor_fix_go_stack.py:35,63`, `tests/integration/test_doctor_fix_node_stack.py:75`, `tests/integration/test_doctor_integration.py:153` (agent: build)
-- [ ] T-1.9c: Update install-state unit tests — `tests/unit/state/test_install_state.py:431,444,447`, `tests/unit/state/test_migration.py:29` (agent: build)
-- [ ] T-1.10: Write failing tests for `tool_capabilities` table contract — `tests/unit/state/test_tool_capabilities_table.py` (TDD RED) (agent: build)
-- [ ] T-1.11: Create migration `src/ai_engineering/state/migrations/0005_migrate_framework_capabilities.py` — CREATE TABLE `tool_capabilities` + INSERT FROM JSON — must pass T-1.10 (agent: build)
-- [ ] T-1.12: Refactor `src/ai_engineering/installer/phases/state.py:30` (`write_framework_capabilities` writer) — state.db (agent: build)
-- [ ] T-1.13: Refactor `src/ai_engineering/installer/service.py:68,100,464,466` — state.db (agent: build)
-- [ ] T-1.14: Refactor `src/ai_engineering/state/agentsview.py:12,14,57,59,66` — state.db (agent: build)
-- [ ] T-1.15: Refactor `src/ai_engineering/state/context_packs.py:37` (`DERIVED_CAPABILITY_PLANE` constant) — state.db (agent: build)
-- [ ] T-1.16: Refactor `src/ai_engineering/state/control_plane.py:115,171` — state.db (agent: build)
-- [ ] T-1.17: Refactor `src/ai_engineering/state/observability.py:29,79,968,1002-1005` (`FRAMEWORK_CAPABILITIES_REL`, `build_framework_capabilities`) — state.db (agent: build)
-- [ ] T-1.18: Refactor `src/ai_engineering/state/repository.py:137-143` (`load_framework_capabilities`, `save_framework_capabilities`) — state.db (agent: build)
-- [ ] T-1.19: Refactor `src/ai_engineering/validator/categories/manifest_coherence.py:340` — state.db (agent: build)
-- [ ] T-1.20a: Update framework-capabilities e2e + integration tests — `tests/e2e/test_install_clean.py:67`, `tests/integration/test_installer_integration.py:301` (agent: build)
-- [ ] T-1.20b: Update framework-capabilities unit tests — `tests/unit/test_context_packs.py:39,80`, `tests/unit/test_installer.py:138,153`, `tests/unit/test_runtime_repositories.py:70,86`, `tests/unit/test_state_plane_contract.py:43`, `tests/unit/test_state.py:109` (agent: build)
-- [ ] T-1.21: Delete `.ai-engineering/state/install-state.json` + `.ai-engineering/state/framework-capabilities.json` from disk (agent: build)
-- [ ] T-1.22: Run `pytest tests/unit/state/ tests/integration/state/ tests/integration/test_installer*.py tests/integration/test_doctor*.py tests/integration/test_cli_command_modules.py tests/e2e/ -v` — must pass (agent: verify)
-- [ ] T-1.23: Run `ai-eng doctor` on clean checkout — confirm no probe regression (agent: verify)
-- [ ] T-1.24: Verify `_warn_on_deprecated_fallbacks()` triggers `framework_error` event when test recreates JSON files temporarily — `tests/unit/state/test_state_db_fallback_warning.py` extended assertion (agent: build)
+- [x] T-1.1: Add `install-state.json` and `framework-capabilities.json` to `_DEPRECATED_JSON_FALLBACKS` tuple at `src/ai_engineering/state/state_db.py:56-60` (agent: build) -- DONE
+- [x] T-1.2: Write failing tests for `install_state` table contract: schema columns, idempotent ingestion, round-trip read/write — `tests/unit/state/test_install_state_table.py` (TDD RED) (agent: build) -- DONE
+- [x] T-1.3: Create migration `src/ai_engineering/state/migrations/0004_migrate_install_state.py` — CREATE TABLE `install_state` + INSERT FROM JSON via `_runner.py` interface (`run(conn)` function) — must pass T-1.2 (agent: build) -- DONE
+- [x] T-1.4: Refactor `src/ai_engineering/cli_commands/setup.py:195,202,295,308,386,397` — replace JSON read/write with state.db queries (agent: build) -- DONE
+- [x] T-1.5: Refactor `src/ai_engineering/cli_commands/core.py:375` — state.db read (agent: build) -- DONE
+- [x] T-1.6: Refactor `src/ai_engineering/cli_commands/guide.py:24` — state.db read (agent: build) -- DONE
+- [x] T-1.7: Refactor `src/ai_engineering/detector/readiness.py:313` — state.db read (agent: build) -- DONE
+- [x] T-1.8: Refactor `src/ai_engineering/doctor/phases/detect.py:3,51,57` — state.db read (agent: build) -- DONE
+- [x] T-1.9a: Update install-state e2e tests — `tests/e2e/test_install_clean.py:64,77,82`, `tests/e2e/test_install_existing.py:78`, `tests/e2e/test_install_pipeline.py:74` (agent: build) -- DONE
+- [x] T-1.9b: Update install-state integration tests — `tests/integration/state/test_db_migration.py:78`, `tests/integration/test_cli_command_modules.py:25,27,174`, `tests/integration/test_doctor_fix_go_stack.py:35,63`, `tests/integration/test_doctor_fix_node_stack.py:75`, `tests/integration/test_doctor_integration.py:153` (agent: build) -- DONE
+- [x] T-1.9c: Update install-state unit tests — `tests/unit/state/test_install_state.py:431,444,447`, `tests/unit/state/test_migration.py:29` (agent: build) -- DONE
+- [x] T-1.10: Write failing tests for `tool_capabilities` table contract — `tests/unit/state/test_tool_capabilities_table.py` (TDD RED) (agent: build) -- DONE
+- [x] T-1.11: Create migration `src/ai_engineering/state/migrations/0005_migrate_framework_capabilities.py` — CREATE TABLE `tool_capabilities` + INSERT FROM JSON — must pass T-1.10 (agent: build) -- DONE
+- [x] T-1.12: Refactor `src/ai_engineering/installer/phases/state.py:30` (`write_framework_capabilities` writer) — state.db (agent: build) -- DONE
+- [x] T-1.13: Refactor `src/ai_engineering/installer/service.py:68,100,464,466` — state.db (agent: build) -- DONE
+- [x] T-1.14: Refactor `src/ai_engineering/state/agentsview.py:12,14,57,59,66` — state.db (agent: build) -- DONE
+- [x] T-1.15: Refactor `src/ai_engineering/state/context_packs.py:37` (`DERIVED_CAPABILITY_PLANE` constant) — state.db (agent: build) -- DONE
+- [x] T-1.16: Refactor `src/ai_engineering/state/control_plane.py:115,171` — state.db (agent: build) -- DONE
+- [x] T-1.17: Refactor `src/ai_engineering/state/observability.py:29,79,968,1002-1005` (`FRAMEWORK_CAPABILITIES_REL`, `build_framework_capabilities`) — state.db (agent: build) -- DONE
+- [x] T-1.18: Refactor `src/ai_engineering/state/repository.py:137-143` (`load_framework_capabilities`, `save_framework_capabilities`) — state.db (agent: build) -- DONE
+- [x] T-1.19: Refactor `src/ai_engineering/validator/categories/manifest_coherence.py:340` — state.db (agent: build) -- DONE
+- [x] T-1.20a: Update framework-capabilities e2e + integration tests — `tests/e2e/test_install_clean.py:67`, `tests/integration/test_installer_integration.py:301` (agent: build) -- DONE
+- [x] T-1.20b: Update framework-capabilities unit tests — `tests/unit/test_context_packs.py:39,80`, `tests/unit/test_installer.py:138,153`, `tests/unit/test_runtime_repositories.py:70,86`, `tests/unit/test_state_plane_contract.py:43`, `tests/unit/test_state.py:109` (agent: build) -- DONE
+- [x] T-1.21: Delete `.ai-engineering/state/install-state.json` + `.ai-engineering/state/framework-capabilities.json` from disk (agent: build) -- DONE
+- [x] T-1.22: Run `pytest tests/unit/state/ tests/integration/state/ tests/integration/test_installer*.py tests/integration/test_doctor*.py tests/integration/test_cli_command_modules.py tests/e2e/ -v` — must pass (agent: verify) -- DONE (341 passed, 165s)
+- [x] T-1.23: Run `ai-eng doctor` on clean checkout — confirm no probe regression (agent: verify) -- DONE (all probes PASS)
+- [x] T-1.24: Verify `_warn_on_deprecated_fallbacks()` triggers `framework_error` event when test recreates JSON files temporarily — `tests/unit/state/test_state_db_fallback_warning.py` extended assertion (agent: build) -- DONE (5 tests created)
 
 ## Phase 2 — Theme B: Subdir Relocation (Wave 2)
 

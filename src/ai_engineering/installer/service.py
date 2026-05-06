@@ -93,11 +93,16 @@ from .tools import (
 logger = logging.getLogger(__name__)
 
 # Relative paths under ``.ai-engineering/`` for each state file.
+# Spec-125: ``install-state`` and ``framework-capabilities`` migrated from
+# JSON sinks to state.db tables (``install_state`` and ``tool_capabilities``
+# singleton rows). The dict still advertises both keys so ``_STATE_FILES``
+# is a stable lookup, but both now point at the canonical SQLite projection
+# at ``state/state.db``. The legacy JSON paths are gone from disk.
 _STATE_FILES: dict[str, str] = {
-    "install-state": "state/install-state.json",
+    "install-state": "state/state.db",
     "ownership-map": "state/ownership-map.json",
     "decision-store": "state/decision-store.json",
-    "framework-capabilities": "state/framework-capabilities.json",
+    "framework-capabilities": "state/state.db",
     "instinct-observations": "state/instinct-observations.ndjson",
     "instincts": "instincts/instincts.yml",
     "instinct-meta": "instincts/meta.json",
@@ -422,6 +427,41 @@ def _write_ai_providers(target: Path, ai_providers: list[str] | None) -> None:
         logger.debug("ai_providers key not found in manifest; skipping write")
 
 
+def _state_db_row_exists(project_root: Path, table: str) -> bool:
+    """Return True when the singleton row in ``table`` already exists.
+
+    Spec-125: ``install_state`` and ``tool_capabilities`` migrated to
+    state.db singleton rows. The installer needs to distinguish "newly
+    inserted" from "idempotent UPSERT" so the install summary reports
+    ``already_installed=True`` on re-runs. Missing DB / missing table /
+    SQLite errors all return ``False`` (treat as a fresh install).
+    """
+    try:
+        from ai_engineering.state.state_db import connect, state_db_path
+    except ImportError:  # pragma: no cover -- defensive
+        return False
+
+    if not state_db_path(project_root).exists():
+        return False
+    try:
+        conn = connect(project_root, read_only=True, apply_migrations=False)
+    except Exception:  # pragma: no cover -- corruption / locking
+        return False
+    try:
+        tbl = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
+        if tbl is None:
+            return False
+        row = conn.execute(f"SELECT 1 FROM {table} WHERE id = 1 LIMIT 1").fetchone()
+        return row is not None
+    except Exception:  # pragma: no cover -- defensive
+        return False
+    finally:
+        conn.close()
+
+
 def _generate_state_files(
     ai_eng_dir: Path,
     *,
@@ -446,13 +486,28 @@ def _generate_state_files(
     created: list[Path] = []
     root_entry_points = load_manifest_root_entry_points(ai_eng_dir.parent)
 
+    # Spec-125: install_state and framework_capabilities live in state.db
+    # tables (install_state singleton + tool_capabilities singleton) so the
+    # JSON sinks below were retired. The pseudo-paths remain in
+    # ``_STATE_FILES`` to keep the ``created`` list contract stable for
+    # callers that inspect installation results.
     state_models = {
-        _STATE_FILES["install-state"]: default_install_state(),
         _STATE_FILES["ownership-map"]: default_ownership_map(
             root_entry_points=root_entry_points,
         ),
         _STATE_FILES["decision-store"]: default_decision_store(),
     }
+
+    install_state_path = ai_eng_dir / _STATE_FILES["install-state"]
+    state_dir = ai_eng_dir / "state"
+    # Spec-125 cutover: install_state lives in the state.db ``install_state``
+    # singleton row. Only append to ``created`` when we actually inserted a
+    # new row -- existing installs (UPSERT no-op) leave the list unchanged
+    # so the installer can still report ``already_installed=True``.
+    install_state_existed = _state_db_row_exists(ai_eng_dir.parent, "install_state")
+    save_install_state(state_dir, default_install_state())
+    if not install_state_existed and install_state_path not in created:
+        created.append(install_state_path)
 
     for relative_path, model in state_models.items():
         dest = ai_eng_dir / relative_path
@@ -462,8 +517,13 @@ def _generate_state_files(
         created.append(dest)
 
     capabilities_path = ai_eng_dir / _STATE_FILES["framework-capabilities"]
-    if not capabilities_path.exists():
-        write_framework_capabilities(ai_eng_dir.parent)
+    # Spec-125: write_framework_capabilities now populates the
+    # ``tool_capabilities`` singleton row instead of the JSON file. The
+    # pseudo-path is appended only when no prior row existed so re-runs
+    # against an already-installed framework do not inflate ``created``.
+    capabilities_existed = _state_db_row_exists(ai_eng_dir.parent, "tool_capabilities")
+    write_framework_capabilities(ai_eng_dir.parent)
+    if not capabilities_existed and capabilities_path not in created:
         created.append(capabilities_path)
 
     instinct_paths = [

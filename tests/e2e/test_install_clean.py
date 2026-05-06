@@ -12,8 +12,8 @@ import subprocess
 from pathlib import Path
 
 from ai_engineering.installer.service import install
-from ai_engineering.state.io import read_json_model, read_ndjson_entries
-from ai_engineering.state.models import FrameworkEvent, InstallState
+from ai_engineering.state.io import read_ndjson_entries
+from ai_engineering.state.models import FrameworkEvent
 from ai_engineering.updater.service import update
 
 
@@ -60,16 +60,19 @@ class TestInstallClean:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         state_dir = tmp_path / ".ai-engineering" / "state"
 
+        # Spec-125: install_state + framework_capabilities live in state.db.
+        # Only the audit + instincts NDJSON streams + the canonical SQLite
+        # projection remain on disk.
         expected_files = [
-            "install-state.json",
-            "ownership-map.json",
-            "decision-store.json",
-            "framework-capabilities.json",
+            "state.db",
             "instinct-observations.ndjson",
         ]
         for fname in expected_files:
             assert (state_dir / fname).is_file(), f"Missing: {fname}"
         assert not (state_dir / "audit-log.ndjson").exists()
+        # Spec-125 cutover: legacy JSON files MUST NOT be recreated.
+        assert not (state_dir / "install-state.json").exists()
+        assert not (state_dir / "framework-capabilities.json").exists()
         instincts_dir = tmp_path / ".ai-engineering" / "instincts"
         assert (instincts_dir / "instincts.yml").is_file()
         assert (instincts_dir / "meta.json").is_file()
@@ -79,8 +82,10 @@ class TestInstallClean:
         tmp_path: Path,
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
-        state_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-        state = read_json_model(state_path, InstallState)
+        # Spec-125: read the install_state singleton row from state.db.
+        from ai_engineering.state.service import load_install_state
+
+        state = load_install_state(tmp_path / ".ai-engineering" / "state")
         assert state.schema_version == "2.0"
 
     def test_install_creates_framework_operation(

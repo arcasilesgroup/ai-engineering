@@ -287,10 +287,11 @@ class TestInstallOnEmptyRepo:
         assert (tmp_path / ".ai-engineering" / "manifest.yml").is_file()
         assert (tmp_path / ".ai-engineering" / "contexts" / "languages" / "python.md").is_file()
 
-        # State files generated
-        assert (tmp_path / ".ai-engineering" / "state" / "install-state.json").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "ownership-map.json").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "decision-store.json").is_file()
+        # spec-125 D-125-01: install_state, decisions, ownership_map, and
+        # tool_capabilities live in state.db tables. The JSON fallbacks were
+        # deleted in spec-124 wave 5 (decision-store, ownership-map) and
+        # spec-125 wave 1 (install-state, framework-capabilities).
+        assert (tmp_path / ".ai-engineering" / "state" / "state.db").is_file()
 
         # Project files created
         assert (tmp_path / "CLAUDE.md").is_file()
@@ -298,15 +299,17 @@ class TestInstallOnEmptyRepo:
 
         # Canonical state artifacts written
         assert (tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "framework-capabilities.json").is_file()
 
     def test_state_files_contain_valid_json(self, tmp_path: Path) -> None:
+        # spec-125 D-125-01: install_state lives in state.db; the JSON
+        # fallback was deleted in wave 1.
         install(tmp_path)
 
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-        data = json.loads(manifest_path.read_text())
-        assert data["schema_version"] == "2.0"
-        assert "operational_readiness" in data
+        from ai_engineering.state.repository import DurableStateRepository
+
+        state = DurableStateRepository(tmp_path).load_install_state()
+        assert state.schema_version == "2.0"
+        assert state.operational_readiness is not None
 
     def test_custom_stacks_and_ides(self, tmp_path: Path) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "terminal"])

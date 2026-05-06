@@ -105,8 +105,10 @@ class TestOwnershipMap:
         assert om.is_update_allowed(".ai-engineering/state/framework-events.ndjson") is False
 
     def test_update_allowed_for_framework_capabilities_catalog(self) -> None:
+        # spec-125 D-125-01: framework-capabilities lives in state.db.tool_capabilities;
+        # state.db is the canonical projection target with ALLOW policy.
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/state/framework-capabilities.json") is True
+        assert om.is_update_allowed(".ai-engineering/state/state.db") is True
 
     def test_update_denied_for_instinct_observation_log(self) -> None:
         om = default_ownership_map()

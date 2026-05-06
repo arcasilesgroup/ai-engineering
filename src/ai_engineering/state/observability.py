@@ -13,7 +13,7 @@ from ai_engineering.state.capabilities import build_capability_cards
 from ai_engineering.state.control_plane import resolve_constitution_context_path
 from ai_engineering.state.defaults import projection_update_metadata
 from ai_engineering.state.event_schema import ALLOWED_EVENT_KINDS, normalize_engine_id
-from ai_engineering.state.io import _json_serializer, write_json_model
+from ai_engineering.state.io import _json_serializer
 from ai_engineering.state.locking import artifact_lock
 from ai_engineering.state.models import (
     CapabilityDescriptor,
@@ -1000,7 +1000,64 @@ def build_framework_capabilities(project_root: Path) -> FrameworkCapabilitiesCat
 
 
 def write_framework_capabilities(project_root: Path) -> FrameworkCapabilitiesCatalog:
-    """Persist the canonical capability catalog under ``.ai-engineering/state``."""
+    """Persist the canonical capability catalog into state.db.
+
+    Spec-125 cutover: the capability catalog moved from
+    ``framework-capabilities.json`` to the ``tool_capabilities``
+    singleton row in state.db (table created by migration 0005). The
+    JSON sink is retired; this writer now UPSERTs the row.
+    """
     catalog = build_framework_capabilities(project_root)
-    write_json_model(framework_capabilities_path(project_root), catalog)
+
+    # Lazy imports keep ``observability`` free of an eager dependency on
+    # the state-db connection helpers.
+    import json as _json
+    from datetime import UTC as _UTC
+    from datetime import datetime as _datetime
+
+    from ai_engineering.state.state_db import connect, projection_write
+
+    # Lazy bootstrap so a fresh state.db has the ``tool_capabilities``
+    # table before the UPSERT. ``projection_write`` itself uses
+    # ``apply_migrations=False`` to avoid double work on warm DBs.
+    _bootstrap = connect(project_root, read_only=False, apply_migrations=None)
+    _bootstrap.close()
+
+    payload = catalog.model_dump(mode="json", by_alias=True)
+    schema_version = str(payload.get("schemaVersion", "1.0"))
+    generated_at = payload.get("generatedAt", "")
+    if not isinstance(generated_at, str):
+        generated_at = str(generated_at)
+    agents = payload.get("agents") or []
+    skills = payload.get("skills") or []
+    cards = payload.get("capabilityCards") or []
+    catalog_json = _json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    updated_at = _datetime.now(_UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+    with projection_write(project_root) as conn:
+        conn.execute(
+            """
+            INSERT INTO tool_capabilities
+              (id, schema_version, generated_at, agents_count,
+               skills_count, capability_cards_count, catalog_json, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              schema_version          = excluded.schema_version,
+              generated_at            = excluded.generated_at,
+              agents_count            = excluded.agents_count,
+              skills_count            = excluded.skills_count,
+              capability_cards_count  = excluded.capability_cards_count,
+              catalog_json            = excluded.catalog_json,
+              updated_at              = excluded.updated_at
+            """,
+            (
+                schema_version,
+                generated_at,
+                len(agents),
+                len(skills),
+                len(cards),
+                catalog_json,
+                updated_at,
+            ),
+        )
     return catalog

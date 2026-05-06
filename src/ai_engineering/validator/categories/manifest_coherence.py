@@ -332,22 +332,28 @@ def _check_source_repo_framework_capabilities_snapshot(
     target: Path,
     report: IntegrityReport,
 ) -> None:
-    """Verify the committed framework capabilities snapshot matches the semantic builder output."""
+    """Verify the framework capabilities catalog stored in state.db matches the semantic builder output.
+
+    Spec-125 D-125-01: the framework-capabilities catalog moved from a JSON
+    snapshot at `state/framework-capabilities.json` to the
+    `tool_capabilities` singleton row in state.db.
+    """
     template_manifest_path = _template_manifest_path(target)
     if not template_manifest_path.is_file():
         return
 
-    snapshot_path = target / _AI_ENGINEERING_DIRNAME / "state" / "framework-capabilities.json"
-    relative_path = str(snapshot_path.relative_to(target))
+    from ai_engineering.state.repository import DurableStateRepository
+
+    relative_path = ".ai-engineering/state/state.db (tool_capabilities)"
     try:
-        snapshot = read_json_model(snapshot_path, FrameworkCapabilitiesCatalog)
+        snapshot = DurableStateRepository(target).load_framework_capabilities()
     except (OSError, ValueError) as exc:
         report.checks.append(
             IntegrityCheckResult(
                 category=IntegrityCategory.MANIFEST_COHERENCE,
                 name="framework-capabilities-snapshot",
                 status=IntegrityStatus.FAIL,
-                message=f"Unable to read committed framework capabilities snapshot: {exc}",
+                message=f"Unable to read framework capabilities from state.db: {exc}",
                 file_path=relative_path,
             )
         )

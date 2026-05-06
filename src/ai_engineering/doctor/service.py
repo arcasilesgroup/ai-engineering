@@ -232,15 +232,37 @@ def diagnose(
         Phase-grouped diagnostic report.
     """
     # -- 1. Load state --------------------------------------------------------
+    # Spec-125: install_state moved from JSON file to state.db's
+    # install_state singleton row. Treat the absence of state.db OR the
+    # absence of the singleton row at id=1 as "not installed yet" so
+    # diagnose() falls into pre-install mode (matching pre-spec-125
+    # semantics where the missing JSON file did the same). The probe
+    # MUST NOT lazy-bootstrap state.db: doctor on a tmp_path with no
+    # ``.ai-engineering`` directory must observe a missing DB and report
+    # ``installed=False`` (test_fails_on_missing_ai_engineering_dir).
     state_dir = target / ".ai-engineering" / "state"
-    try:
-        install_state = load_install_state(state_dir)
-        # A default InstallState with vcs_provider=None means no real install
-        state_file = state_dir / "install-state.json"
-        if not state_file.exists():
+    db_path = state_dir / "state.db"
+    install_state = None
+    if db_path.is_file():
+        import sqlite3 as _sqlite3
+
+        try:
+            _conn = _sqlite3.connect(db_path, timeout=2)
+            try:
+                _tbl = _conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='install_state'"
+                ).fetchone()
+                if _tbl is not None:
+                    _row = _conn.execute("SELECT 1 FROM install_state WHERE id = 1").fetchone()
+                    if _row is not None:
+                        try:
+                            install_state = load_install_state(state_dir)
+                        except Exception:
+                            install_state = None
+            finally:
+                _conn.close()
+        except _sqlite3.Error:
             install_state = None
-    except Exception:
-        install_state = None
 
     # -- 2. Load manifest config ----------------------------------------------
     try:

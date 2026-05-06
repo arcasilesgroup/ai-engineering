@@ -98,6 +98,19 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _read_state_dict(state_dir: Path) -> dict:
+    """Read the install_state singleton row as a dict (spec-125).
+
+    Replaces direct JSON file reads now that ``install-state.json`` is
+    no longer the source of truth. Loads via the canonical service then
+    serializes back to a dict so existing assertion shapes still work.
+    """
+    from ai_engineering.state.service import load_install_state
+
+    state = load_install_state(state_dir)
+    return state.model_dump(mode="json")
+
+
 # ---------------------------------------------------------------------------
 # T-2.3.1  install-manifest.json -> install-state.json
 # ---------------------------------------------------------------------------
@@ -122,11 +135,10 @@ class TestMigrateInstallManifest:
         # Old file gone
         assert not (ai_eng / "state" / "install-manifest.json").exists()
 
-        # New file written
-        new_path = ai_eng / "state" / "install-state.json"
-        assert new_path.exists()
-
-        data = _read_json(new_path)
+        # Spec-125: install_state lives in state.db, not a JSON file.
+        # The legacy JSON sink is gone; read the singleton row instead.
+        assert not (ai_eng / "state" / "install-state.json").exists()
+        data = _read_state_dict(ai_eng / "state")
 
         # Config fields absent
         assert "installedStacks" not in data
@@ -166,7 +178,8 @@ class TestMigrateToolsJson:
         assert result is True
         assert not (ai_eng / "state" / "tools.json").exists()
 
-        data = _read_json(ai_eng / "state" / "install-state.json")
+        # Spec-125: read from state.db, not the JSON file.
+        data = _read_state_dict(ai_eng / "state")
         assert "sonar" in data["platforms"]
         assert data["platforms"]["sonar"]["configured"] is True
         assert data["platforms"]["sonar"]["url"] == "https://sonarcloud.io"
@@ -217,8 +230,11 @@ class TestOldOverwritesNew:
         ai_eng = tmp_path / ".ai-engineering"
         state_dir = ai_eng / "state"
 
-        # Write a pre-existing install-state.json with different data
-        existing_state = {
+        # Spec-125: pre-existing state is a state.db row, not a JSON file.
+        from ai_engineering.state.models import InstallState as _IS
+        from ai_engineering.state.service import save_install_state as _save_is
+
+        _existing_state = {
             "schema_version": "2.0",
             "installed_at": "2026-01-01T00:00:00Z",
             "tooling": {},
@@ -227,7 +243,7 @@ class TestOldOverwritesNew:
             "operational_readiness": {"status": "pending", "pending_steps": []},
             "release": {"last_version": "0.1.0"},
         }
-        _write_json(state_dir / "install-state.json", existing_state)
+        _save_is(state_dir, _IS.model_validate(_existing_state))
         _write_json(state_dir / "install-manifest.json", _LEGACY_MANIFEST)
 
         # Act
@@ -237,7 +253,7 @@ class TestOldOverwritesNew:
         assert result is True
         assert not (state_dir / "install-manifest.json").exists()
 
-        data = _read_json(state_dir / "install-state.json")
+        data = _read_state_dict(state_dir)
         assert data["branch_policy"]["applied"] is True  # from legacy, was False
         assert data["release"]["last_version"] == "0.3.0"  # from legacy, was 0.1.0
 
@@ -251,20 +267,20 @@ class TestIdempotent:
     """Running migration twice produces the same result; second is a no-op."""
 
     def test_manifest_migration_idempotent(self, tmp_path: Path) -> None:
-        """First run returns True and creates file. Second run returns False."""
+        """First run returns True and writes the row. Second run returns False."""
         # Arrange
         ai_eng = tmp_path / ".ai-engineering"
         _write_json(ai_eng / "state" / "install-manifest.json", _LEGACY_MANIFEST)
 
         # First run
         assert _migrate_install_manifest(ai_eng) is True
-        first_data = _read_json(ai_eng / "state" / "install-state.json")
+        first_data = _read_state_dict(ai_eng / "state")
 
         # Second run -- old file is gone, no-op
         assert _migrate_install_manifest(ai_eng) is False
 
         # Data unchanged
-        second_data = _read_json(ai_eng / "state" / "install-state.json")
+        second_data = _read_state_dict(ai_eng / "state")
         assert first_data == second_data
 
     def test_tools_migration_idempotent(self, tmp_path: Path) -> None:
@@ -275,11 +291,11 @@ class TestIdempotent:
 
         # First run
         assert _migrate_tools_json(ai_eng) is True
-        first_data = _read_json(ai_eng / "state" / "install-state.json")
+        first_data = _read_state_dict(ai_eng / "state")
 
         # Second run -- tools.json gone
         assert _migrate_tools_json(ai_eng) is False
-        second_data = _read_json(ai_eng / "state" / "install-state.json")
+        second_data = _read_state_dict(ai_eng / "state")
         assert first_data == second_data
 
 
@@ -323,7 +339,11 @@ class TestToolsMergedIntoExisting:
             "operational_readiness": {"status": "READY", "pending_steps": []},
             "release": {"last_version": "0.3.0"},
         }
-        _write_json(state_dir / "install-state.json", existing_state)
+        # Spec-125: pre-existing state lives in state.db, not a JSON file.
+        from ai_engineering.state.models import InstallState as _IS2
+        from ai_engineering.state.service import save_install_state as _save_is2
+
+        _save_is2(state_dir, _IS2.model_validate(existing_state))
         _write_json(state_dir / "tools.json", _TOOLS_JSON)
 
         # Act
@@ -333,7 +353,7 @@ class TestToolsMergedIntoExisting:
         assert result is True
         assert not (state_dir / "tools.json").exists()
 
-        data = _read_json(state_dir / "install-state.json")
+        data = _read_state_dict(state_dir)
 
         # Tooling preserved
         assert data["tooling"]["gh"]["installed"] is True

@@ -4,10 +4,12 @@ When ``state.db`` is missing under ``<project_root>/.ai-engineering/state/``,
 the first ``state_db.connect(project_root)`` call must:
 
 1. Create the database file (via :func:`sqlite3.connect`).
-2. Apply every pending migration (so all 7 STRICT business tables exist
-   plus the ``_migrations`` ledger). The 3 currently-shipped migrations
-   are ``0001_initial_schema``, ``0002_seed_from_json``, and
-   ``0003_replay_ndjson`` — the ledger should record exactly these IDs.
+2. Apply every pending migration (so all STRICT business tables exist
+   plus the ``_migrations`` ledger). The currently-shipped migrations
+   are ``0001_initial_schema``, ``0002_seed_from_json``,
+   ``0003_replay_ndjson``, ``0004_migrate_install_state``, and
+   ``0005_migrate_framework_capabilities`` (spec-125 D-125-01) — the
+   ledger should record exactly these IDs.
 3. Replay any existing ``framework-events.ndjson`` lines into the
    ``events`` table (by virtue of migration ``0003``).
 
@@ -48,6 +50,8 @@ def _expected_migration_ids() -> set[str]:
         "0001_initial_schema",
         "0002_seed_from_json",
         "0003_replay_ndjson",
+        "0004_migrate_install_state",
+        "0005_migrate_framework_capabilities",
     }
 
 
@@ -118,6 +122,8 @@ class TestLazyBootstrap:
             "hooks_integrity",
             "ownership_map",
             "install_steps",
+            "install_state",
+            "tool_capabilities",
             "_migrations",
         }
         missing = expected - tables
@@ -209,7 +215,7 @@ class TestLazyBootstrap:
         finally:
             conn.close()
 
-        assert first_ledger == second_ledger == 3
+        assert first_ledger == second_ledger == 5
         assert first_events == 1
         assert second_events == 1
 

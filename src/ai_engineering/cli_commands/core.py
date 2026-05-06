@@ -371,8 +371,32 @@ def _emit_install_dry_run_plan(
 
 
 def _is_reinstall(root: Path) -> bool:
-    """Return whether the target already has install state."""
-    return (root / ".ai-engineering" / "state" / "install-state.json").exists()
+    """Return whether the target already has install state.
+
+    Spec-125: install_state lives in state.db. The presence of state.db
+    plus a populated singleton row is the new reinstall signal. Falls
+    back to ``False`` when state.db is missing or unreadable so first
+    install flows continue to work.
+    """
+    db_path = root / ".ai-engineering" / "state" / "state.db"
+    if not db_path.is_file():
+        return False
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(db_path, timeout=2)
+        try:
+            tbl = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='install_state'"
+            ).fetchone()
+            if tbl is None:
+                return False
+            row = conn.execute("SELECT 1 FROM install_state WHERE id = 1").fetchone()
+            return row is not None
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return False
 
 
 def _resolve_install_mode(

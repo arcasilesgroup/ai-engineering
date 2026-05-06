@@ -69,12 +69,15 @@ required_tools:
     bin_dir = project / "node_modules" / ".bin"
     bin_dir.mkdir(parents=True)
 
-    # State directory (so the doctor sees an installed framework).
+    # Spec-125: install_state lives in state.db, not a JSON file.
     state_dir = project / ".ai-engineering" / "state"
     state_dir.mkdir()
-    (state_dir / "install-state.json").write_text(
-        '{"schema_version": "2.0", "vcs_provider": "github", "required_tools_state": {}}\n',
-        encoding="utf-8",
+    from ai_engineering.state.models import InstallState
+    from ai_engineering.state.service import save_install_state
+
+    save_install_state(
+        state_dir,
+        InstallState(schema_version="2.0", vcs_provider="github"),
     )
 
     return project

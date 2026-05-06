@@ -92,17 +92,7 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
         FrameworkUpdatePolicy.ALLOW,
     ),
     (
-        ".ai-engineering/state/install-state.json",
-        OwnershipLevel.SYSTEM_MANAGED,
-        FrameworkUpdatePolicy.ALLOW,
-    ),
-    (
-        ".ai-engineering/state/ownership-map.json",
-        OwnershipLevel.SYSTEM_MANAGED,
-        FrameworkUpdatePolicy.ALLOW,
-    ),
-    (
-        ".ai-engineering/state/decision-store.json",
+        ".ai-engineering/state/state.db",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
@@ -110,11 +100,6 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
         ".ai-engineering/state/framework-events.ndjson",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.APPEND_ONLY,
-    ),
-    (
-        ".ai-engineering/state/framework-capabilities.json",
-        OwnershipLevel.SYSTEM_MANAGED,
-        FrameworkUpdatePolicy.ALLOW,
     ),
     (
         ".ai-engineering/state/instinct-observations.ndjson",
@@ -161,15 +146,14 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
 )
 
 _STATE_PLANE_DURABLE_RULES: tuple[str, ...] = (
-    ".ai-engineering/state/decision-store.json",
+    ".ai-engineering/state/state.db",
     ".ai-engineering/state/framework-events.ndjson",
-    ".ai-engineering/state/install-state.json",
 )
 
-_STATE_PLANE_DERIVED_RULES: tuple[str, ...] = (
-    ".ai-engineering/state/ownership-map.json",
-    ".ai-engineering/state/framework-capabilities.json",
-)
+# spec-125 D-125-01: derived projections moved into state.db tables
+# (decisions, ownership_map, install_state, tool_capabilities). The JSON
+# fallbacks were deleted; this tuple is intentionally empty.
+_STATE_PLANE_DERIVED_RULES: tuple[str, ...] = ()
 
 _STATE_PLANE_RESIDUE_RULES: tuple[str, ...] = (
     ".ai-engineering/state/gate-findings.json",

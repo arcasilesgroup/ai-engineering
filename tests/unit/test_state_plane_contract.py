@@ -32,16 +32,17 @@ assertions themselves never change.
 
 from __future__ import annotations
 
+# spec-125 D-125-01: state-plane durables consolidated into state.db
+# (singleton SQLite projection) + framework-events.ndjson (Article III SoT).
+# Derived projections (decisions, ownership_map, install_state,
+# tool_capabilities) live as tables inside state.db, not as separate JSON
+# files.
 _DURABLE_CORE: tuple[str, ...] = (
-    ".ai-engineering/state/decision-store.json",
+    ".ai-engineering/state/state.db",
     ".ai-engineering/state/framework-events.ndjson",
-    ".ai-engineering/state/install-state.json",
 )
 
-_DERIVED_CURRENT_PROJECTIONS: tuple[str, ...] = (
-    ".ai-engineering/state/ownership-map.json",
-    ".ai-engineering/state/framework-capabilities.json",
-)
+_DERIVED_CURRENT_PROJECTIONS: tuple[str, ...] = ()
 
 _RESIDUE_OUTPUTS: tuple[str, ...] = (
     ".ai-engineering/state/gate-findings.json",

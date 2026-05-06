@@ -1,25 +1,30 @@
 """Doctor phase: detect -- validates install-state presence and coherence.
 
-Mirrors the ``detect`` installer phase. Checks that install-state.json
-exists, parses correctly, has the expected schema version, that the
-detected VCS provider matches the current git remote, and that manifest
-stacks match file-system-detected stacks.
+Mirrors the ``detect`` installer phase. Checks that the install_state
+singleton row in state.db exists, parses correctly, has the expected
+schema version, that the detected VCS provider matches the current git
+remote, and that manifest stacks match file-system-detected stacks.
+
+Spec-125: install_state moved from a JSON file (``install-state.json``)
+to the ``install_state`` table in ``state.db``. The check now verifies
+the singleton row at ``id=1`` is present and decodes to a valid
+``InstallState`` model.
 """
 
 from __future__ import annotations
 
-import json
 import logging
+import sqlite3
 import subprocess
 from pathlib import Path
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.installer.autodetect import detect_stacks
-from ai_engineering.state.models import InstallState
+from ai_engineering.state.service import load_install_state
 
 logger = logging.getLogger(__name__)
 
-_STATE_REL = ".ai-engineering/state/install-state.json"
+_STATE_DB_REL = ".ai-engineering/state/state.db"
 
 
 def check(ctx: DoctorContext) -> list[CheckResult]:
@@ -48,34 +53,60 @@ def fix(
 
 
 def _check_install_state_exists(ctx: DoctorContext) -> CheckResult:
-    """Verify install-state.json exists and is parseable as InstallState."""
-    state_path = ctx.target / _STATE_REL
-    if not state_path.is_file():
+    """Verify the install_state singleton row exists and parses cleanly.
+
+    Spec-125: probes ``state.db`` for the ``install_state`` table and
+    reads the singleton row at ``id=1``. The legacy JSON file at
+    ``.ai-engineering/state/install-state.json`` is no longer the
+    source of truth.
+    """
+    db_path = ctx.target / _STATE_DB_REL
+    if not db_path.is_file():
         return CheckResult(
             name="install-state-exists",
             status=CheckStatus.FAIL,
-            message=f"install-state.json not found at {state_path}",
+            message=f"state.db not found at {db_path}",
         )
     try:
-        raw = state_path.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        InstallState.model_validate(data)
-    except (json.JSONDecodeError, OSError) as exc:
+        conn = sqlite3.connect(db_path, timeout=2)
+        try:
+            tbl = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='install_state'"
+            ).fetchone()
+            if tbl is None:
+                return CheckResult(
+                    name="install-state-exists",
+                    status=CheckStatus.FAIL,
+                    message="install_state table missing in state.db",
+                )
+            row = conn.execute("SELECT 1 FROM install_state WHERE id = 1").fetchone()
+            if row is None:
+                return CheckResult(
+                    name="install-state-exists",
+                    status=CheckStatus.FAIL,
+                    message="install_state singleton row (id=1) missing",
+                )
+        finally:
+            conn.close()
+    except sqlite3.Error as exc:
         return CheckResult(
             name="install-state-exists",
             status=CheckStatus.FAIL,
-            message=f"install-state.json not parseable: {exc}",
+            message=f"state.db unreadable: {exc}",
         )
+
+    try:
+        load_install_state(ctx.target / ".ai-engineering" / "state")
     except Exception as exc:
         return CheckResult(
             name="install-state-exists",
             status=CheckStatus.FAIL,
-            message=f"install-state.json validation failed: {exc}",
+            message=f"install_state row validation failed: {exc}",
         )
     return CheckResult(
         name="install-state-exists",
         status=CheckStatus.OK,
-        message="install-state.json present and valid",
+        message="install_state row present and valid",
     )
 
 

@@ -119,11 +119,17 @@ class TestInstallResultDefaults:
 
 
 class TestStateFilesConstant:
-    """Verify _STATE_FILES contains expected entries."""
+    """Verify _STATE_FILES contains expected entries.
+
+    Spec-125: ``install-state`` and ``framework-capabilities`` migrated
+    from JSON sinks to state.db tables. Both keys remain in the dict so
+    callers that look up the pseudo-path still resolve, but they now
+    reference the canonical SQLite projection at ``state/state.db``.
+    """
 
     def test_contains_install_state(self) -> None:
         assert "install-state" in _STATE_FILES
-        assert _STATE_FILES["install-state"] == "state/install-state.json"
+        assert _STATE_FILES["install-state"] == "state/state.db"
 
     def test_contains_ownership_map(self) -> None:
         assert "ownership-map" in _STATE_FILES
@@ -135,7 +141,7 @@ class TestStateFilesConstant:
 
     def test_contains_framework_capabilities(self) -> None:
         assert "framework-capabilities" in _STATE_FILES
-        assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
+        assert _STATE_FILES["framework-capabilities"] == "state/state.db"
 
     def test_contains_instinct_artifacts(self) -> None:
         assert _STATE_FILES["instinct-observations"] == "state/instinct-observations.ndjson"
@@ -150,7 +156,10 @@ class TestFrameworkCapabilitiesPath:
     """Verify installer state files include the canonical capability catalog."""
 
     def test_framework_capabilities_path_value(self) -> None:
-        assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
+        # Spec-125: framework_capabilities now lives in state.db
+        # (``tool_capabilities`` singleton row). The pseudo-path still
+        # resolves through the dict but points at the SQLite projection.
+        assert _STATE_FILES["framework-capabilities"] == "state/state.db"
 
 
 class TestGenerateStateFiles:
@@ -470,6 +479,12 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["default_install_state"] = MagicMock()
     mocks["default_ownership_map"] = MagicMock()
     mocks["default_decision_store"] = MagicMock()
+    # Spec-125: ``_state_db_row_exists`` decides whether to append the
+    # state.db pseudo-paths to ``created``. Mirror the mocked
+    # ``Path.exists`` semantics so each individual test can drive
+    # "fresh install" (False) or "already installed" (True) behavior
+    # via ``patched["state_db_row_exists"].return_value``.
+    mocks["state_db_row_exists"] = MagicMock(return_value=False)
 
     return mocks
 
@@ -517,6 +532,7 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     stack.enter_context(patch(f"{_SVC}.default_install_state", mocks["default_install_state"]))
     stack.enter_context(patch(f"{_SVC}.default_ownership_map", mocks["default_ownership_map"]))
     stack.enter_context(patch(f"{_SVC}.default_decision_store", mocks["default_decision_store"]))
+    stack.enter_context(patch(f"{_SVC}._state_db_row_exists", mocks["state_db_row_exists"]))
     return stack
 
 
@@ -575,14 +591,21 @@ class TestInstallCreatesStateFiles:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python"])
 
-        # Assert
-        assert len(result.state_files) == 7
+        # Assert -- spec-125: install_state + framework_capabilities both
+        # resolve to ``state/state.db``; the deduped ``created`` list
+        # therefore contains 6 distinct paths instead of the legacy 7.
+        assert len(result.state_files) == 6
 
 
 class TestInstallSkipsExistingStateFiles:
     """install() skips state files that already exist."""
 
     def test_no_writes_when_all_exist(self, patched, tmp_path: Path) -> None:
+        # Spec-125: signal that the state.db rows already exist so the
+        # installer treats the run as idempotent and reports no fresh
+        # state writes.
+        patched["state_db_row_exists"].return_value = True
+
         # Act
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
@@ -598,14 +621,16 @@ class TestInstallCreatesDefaultState:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python", "dotnet"], ides=["vscode", "terminal"])
 
-        assert len(result.state_files) == 7
+        # Spec-125: install_state + framework_capabilities collapse to
+        # state/state.db so the deduped ``created`` list contains 6 paths.
+        assert len(result.state_files) == 6
 
     def test_default_stacks_none_passes(self, patched, tmp_path: Path) -> None:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path)
 
-        # State files still created
-        assert len(result.state_files) == 7
+        # State files still created (6 distinct paths post spec-125 cutover).
+        assert len(result.state_files) == 6
 
 
 class TestInstallCallsInstallHooks:
@@ -896,6 +921,10 @@ class TestInstallAlreadyInstalled:
             created=[],
             skipped=[Path("b")],
         )
+        # Spec-125: also signal that the state.db singletons already
+        # exist so the install summary stays empty and ``already_installed``
+        # remains True.
+        patched["state_db_row_exists"].return_value = True
 
         # Act
         with patch.object(Path, "exists", return_value=True):

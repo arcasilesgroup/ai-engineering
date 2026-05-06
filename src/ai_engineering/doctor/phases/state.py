@@ -1,10 +1,10 @@
 """Doctor phase: state file validation.
 
 Checks:
-- state-files-parseable: install-state.json exists and parses (the
-  remaining JSON state file post-spec-124 D-124-12; decision-store
-  and ownership-map migrated to state.db).
-- state-schema: install-state.json has schema_version "2.0" and required fields.
+- state-files-parseable: state.db install_state singleton row loads via the
+  canonical state.db reader (post-spec-125 D-125-01; install-state.json
+  + framework-capabilities.json migrated to state.db tables).
+- state-schema: install_state row has schema_version "2.0" and required fields.
 - ownership-coverage: state.db.ownership_map covers all defaults from state/defaults.py.
 """
 
@@ -28,73 +28,59 @@ def _state_dir(ctx: DoctorContext) -> Path:
 
 
 def _check_files_parseable(ctx: DoctorContext) -> CheckResult:
-    """Validate that surviving JSON state files are parseable.
+    """Validate that the canonical state.db projections load cleanly.
 
-    spec-124 D-124-12: ``decision-store.json`` and ``ownership-map.json``
-    were migrated to ``state.db`` and deleted in wave 5. Only
-    ``install-state.json`` remains as a JSON projection (deletion
-    deferred to spec-125).
+    spec-125 D-125-01: ``install-state.json`` + ``framework-capabilities.json``
+    migrated to state.db tables (``install_state``, ``tool_capabilities``).
+    Validation now hits the SQLite singleton rows via the canonical
+    repository readers; missing rows surface as FAIL.
     """
-    sd = _state_dir(ctx)
-    files = {
-        "install-state.json": InstallState,
-    }
-    missing: list[str] = []
-    unparseable: list[str] = []
+    from ai_engineering.state.repository import DurableStateRepository
 
-    for filename, model_cls in files.items():
-        path = sd / filename
-        if not path.is_file():
-            missing.append(filename)
-            continue
-        try:
-            raw = path.read_text(encoding="utf-8")
-            data = json.loads(raw)
-            if model_cls is not None:
-                model_cls.model_validate(data)
-        except (json.JSONDecodeError, ValueError, OSError):
-            unparseable.append(filename)
+    repo = DurableStateRepository(ctx.target)
+    failures: list[str] = []
 
-    if missing or unparseable:
-        parts: list[str] = []
-        if missing:
-            parts.append(f"missing: {', '.join(missing)}")
-        if unparseable:
-            parts.append(f"unparseable: {', '.join(unparseable)}")
+    try:
+        state = repo.load_install_state()
+        InstallState.model_validate(state.model_dump(mode="python"))
+    except (ValueError, OSError) as exc:
+        failures.append(f"install_state: {exc}")
+
+    try:
+        repo.load_framework_capabilities()
+    except (ValueError, OSError) as exc:
+        failures.append(f"tool_capabilities: {exc}")
+
+    if failures:
         return CheckResult(
             name="state-files-parseable",
             status=CheckStatus.FAIL,
-            message="; ".join(parts),
+            message="; ".join(failures),
             fixable=True,
         )
 
     return CheckResult(
         name="state-files-parseable",
         status=CheckStatus.OK,
-        message="all state files present and parseable",
+        message="state.db projections load cleanly",
     )
 
 
 def _check_state_schema(ctx: DoctorContext) -> CheckResult:
-    """Check install-state has schema_version 2.0 and required fields."""
-    sd = _state_dir(ctx)
-    path = sd / "install-state.json"
-    if not path.is_file():
-        return CheckResult(
-            name="state-schema",
-            status=CheckStatus.WARN,
-            message="install-state.json not found; cannot validate schema",
-        )
+    """Check install_state singleton row has schema_version 2.0 and required fields.
+
+    spec-125 D-125-01: install_state lives in state.db; the JSON fallback
+    was deleted in wave 1.
+    """
+    from ai_engineering.state.repository import DurableStateRepository
 
     try:
-        raw = path.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        state = InstallState.model_validate(data)
-    except (json.JSONDecodeError, ValueError, OSError):
+        state = DurableStateRepository(ctx.target).load_install_state()
+    except (ValueError, OSError):
         return CheckResult(
             name="state-schema",
             status=CheckStatus.WARN,
-            message="install-state.json unparseable; cannot validate schema",
+            message="state.db install_state row unloadable; cannot validate schema",
         )
 
     if state.schema_version != "2.0":
@@ -104,21 +90,17 @@ def _check_state_schema(ctx: DoctorContext) -> CheckResult:
             message=f"schema_version is '{state.schema_version}', expected '2.0'",
         )
 
-    # Check required fields are present in the raw data
-    required_keys = {"schema_version", "installed_at"}
-    raw_keys = set(data.keys())
-    missing = required_keys - raw_keys
-    if missing:
+    if state.installed_at is None:
         return CheckResult(
             name="state-schema",
             status=CheckStatus.WARN,
-            message=f"missing required fields: {', '.join(sorted(missing))}",
+            message="missing required field: installed_at",
         )
 
     return CheckResult(
         name="state-schema",
         status=CheckStatus.OK,
-        message="install-state schema valid (v2.0)",
+        message="install_state schema valid (v2.0)",
     )
 
 
