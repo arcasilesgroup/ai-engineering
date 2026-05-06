@@ -84,6 +84,10 @@ ai-eng doctor
 
 **Telemetry**: strict-opt-in, default disabled. The audit chain is local NDJSON; external emitters require explicit operator opt-in (see `.ai-engineering/manifest.yml` `telemetry.*`).
 
+### Secrets-gate (defense in depth)
+
+`ai-eng install` wires two git hooks. **Pre-commit** runs `gitleaks` against staged hunks plus `ruff format`/`ruff check` (sub-1s budget). **Pre-push** runs `semgrep --config .semgrep.yml`, `pip-audit`, and the test suite before anything reaches the remote. CI re-runs every gate. Configurations live at `.gitleaks.toml`, `.gitleaksignore`, and `.semgrep.yml`; the semgrep update model (manual quarterly bump of pinned community packs) is documented in [`.ai-engineering/contexts/semgrep-update-model.md`](.ai-engineering/contexts/semgrep-update-model.md). See [CONSTITUTION.md Article XII](CONSTITUTION.md#article-xii--secrets-gate-defense-in-depth) for the full contract. `ai-eng doctor` surfaces a `secrets_gate` runtime probe that verifies the binaries, configurations, and hook wiring are present.
+
 ### Optional: Engram (third-party memory)
 
 `ai-engineering` ships **without** a built-in memory layer. During `ai-eng install` you'll be prompted:

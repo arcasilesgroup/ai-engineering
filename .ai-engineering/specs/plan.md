@@ -68,13 +68,13 @@ No UI work beyond CLI rendering polish (D-124-03/04/05/06). `.ai-engineering/con
 
 **Gate**: ai-eng doctor surfaces secrets-gate probe; CONSTITUTION + README documents gate; semgrep-update-model.md present.
 
-- [ ] T-4.1: New `src/ai_engineering/doctor/runtime/secrets_gate.py` probe (D-124-09) — 7 checks (agent: build)
-- [ ] T-4.2: Register secrets_gate in doctor runtime modules list (agent: build)
-- [ ] T-4.3: Tests for secrets_gate probe (agent: build)
-- [ ] T-4.4: CONSTITUTION.md documentation block on secrets-gate (D-124-10) (agent: build)
-- [ ] T-4.5: README.md install section secrets-gate paragraph (agent: build)
-- [ ] T-4.6: New `.ai-engineering/contexts/semgrep-update-model.md` (D-124-13) (agent: build)
-- [ ] T-4.7: Phase 4 verification — doctor shows secrets-gate; CONSTITUTION links to context doc (agent: verify)
+- [x] T-4.1: New `src/ai_engineering/doctor/runtime/secrets_gate.py` probe (D-124-09) — 7 checks (agent: build)
+- [x] T-4.2: Register secrets_gate in doctor runtime modules list (agent: build)
+- [x] T-4.3: Tests for secrets_gate probe (agent: build)
+- [x] T-4.4: CONSTITUTION.md documentation block on secrets-gate (D-124-10) (agent: build)
+- [x] T-4.5: README.md install section secrets-gate paragraph (agent: build)
+- [x] T-4.6: New `.ai-engineering/contexts/semgrep-update-model.md` (D-124-13) (agent: build)
+- [x] T-4.7: Phase 4 verification — doctor shows secrets-gate; CONSTITUTION links to context doc (agent: verify)
 
 ---
 

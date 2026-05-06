@@ -27,7 +27,14 @@ from ai_engineering.installer.phases import PHASE_ORDER
 
 # -- Fixture: mock phase + runtime modules -----------------------------------
 
-_RUNTIME_MODULES = ("vcs_auth", "feeds", "branch_policy", "version", "opa_health")
+_RUNTIME_MODULES = (
+    "vcs_auth",
+    "feeds",
+    "branch_policy",
+    "version",
+    "opa_health",
+    "secrets_gate",
+)
 
 
 def _make_ok_check(name: str = "stub") -> MagicMock:
@@ -62,6 +69,7 @@ def _mock_all_modules(monkeypatch: pytest.MonkeyPatch) -> dict[str, MagicMock]:
 
     monkeypatch.setattr("ai_engineering.doctor.service._PHASE_MODULES", phase_modules)
     monkeypatch.setattr("ai_engineering.doctor.service._RUNTIME_CHECK_MODULES", runtime_modules)
+    monkeypatch.setattr("ai_engineering.doctor.service._RUNTIME_MODULES", _RUNTIME_MODULES)
 
     # Mock state/config loading to simulate an installed project
     monkeypatch.setattr(

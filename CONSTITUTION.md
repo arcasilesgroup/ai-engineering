@@ -149,6 +149,43 @@ only in `GEMINI.md`; lifting them into the Constitution restores the
 7. **Parallel Execution** — batch independent operations into
    simultaneous tool calls. Never go sequential when you can go parallel.
 
+## Article XII — Secrets-Gate Defense in Depth
+
+The framework ships a two-stage secrets pipeline that fires on every
+commit and every push. Findings BLOCK at `CRITICAL`, `HIGH`, and
+`MEDIUM`; `LOW` warns. Suppression is forbidden (Article VII). Every
+acceptance flows through the risk-acceptance ledger -- never via inline
+allowlists or `# nosec` markers.
+
+1. **Pre-commit gate** (sub-1s p95) -- `ai-eng gate pre-commit` runs
+   `gitleaks protect --staged`, `ruff format --check`, `ruff check`,
+   and `ai-eng spec verify` on staged hunks only. Anything heavier
+   belongs on the pre-push or CI surface, not the local hot path.
+2. **Pre-push gate** (under 5s p95) -- `ai-eng gate pre-push` runs
+   `semgrep --config .semgrep.yml`, `pip-audit`, the unit-test suite,
+   and `ty` static type-checking. Defense-in-depth catches what
+   pre-commit cannot afford to scan.
+3. **CI** -- re-runs every gate above, plus the slower checks
+   (integration tests, SonarCloud, Scorecard, SBOM diff). CI is the
+   final authority; local gates are an early-warning layer.
+4. **Configuration** -- `.semgrep.yml` extends version-pinned
+   community packs (`p/python`, `p/bash`, `p/owasp-top-ten`,
+   `p/security-audit`). `.gitleaks.toml` + `.gitleaksignore` scope the
+   secrets-detector. The semgrep update model is documented in
+   `.ai-engineering/contexts/semgrep-update-model.md` -- pinned packs
+   require quarterly manual review.
+5. **Risk acceptance** -- when remediation cannot land before the
+   publish window closes, run
+   `ai-eng risk accept --finding <hash>` to log the bypass with a TTL,
+   owner, and spec reference (see Article VII).
+   `.ai-engineering/contexts/risk-acceptance-flow.md` documents the
+   full lifecycle.
+6. **Visibility** -- `ai-eng doctor` surfaces a `secrets_gate` runtime
+   probe that verifies the binaries (`gitleaks`, `semgrep`),
+   configurations, and the pre-commit / pre-push hook wiring. The
+   probe is advisory: a missing tool warns, never fails the doctor
+   summary.
+
 ## Article XIII — Active Spec Workflow Contract
 
 The framework enforces a single canonical spec-workflow flow. Every
