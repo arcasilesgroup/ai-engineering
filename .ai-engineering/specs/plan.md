@@ -82,12 +82,12 @@ No UI work beyond CLI rendering polish (D-124-03/04/05/06). `.ai-engineering/con
 
 **Gate**: state/ contains only canonical entries; CI guard test passes; consumers read from state.db.
 
-- [ ] T-5.1: Pre-deletion grep — find all consumers of the 5 JSON files (agent: verify)
-- [ ] T-5.2: Migrate any laggard consumers to state.db.read_* helpers (agent: build)
-- [ ] T-5.3: Delete 5 JSON files (agent: build)
-- [ ] T-5.4: Add startup migration assertion (warn if file present + suggest ai-eng audit migrate-fallback) (agent: build)
-- [ ] T-5.5: New `tests/unit/specs/test_state_canonical.py` CI guard (agent: build)
-- [ ] T-5.6: Phase 5 verification — state/ correct, CI guard passes (agent: verify)
+- [x] T-5.1: Pre-deletion grep — find all consumers of the 5 JSON files (agent: verify)
+- [x] T-5.2: Migrate any laggard consumers to state.db.read_* helpers (agent: build)
+- [x] T-5.3: Delete 3 of 5 JSON files (decision-store, gate-findings, ownership-map; per spec safety valve install-state + framework-capabilities deferred to spec-125) (agent: build)
+- [x] T-5.4: Add startup migration assertion (warn if file present + suggest ai-eng audit migrate-fallback) (agent: build)
+- [x] T-5.5: New `tests/unit/specs/test_state_canonical.py` CI guard (agent: build)
+- [x] T-5.6: Phase 5 verification — state/ correct, CI guard passes (agent: verify)
 
 ---
 

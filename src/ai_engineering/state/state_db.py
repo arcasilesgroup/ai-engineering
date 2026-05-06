@@ -37,13 +37,27 @@ PRAGMA list (D-122-16)
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+_logger = logging.getLogger(__name__)
+
 # Canonical relative path. Callers compose with their ``project_root``.
 STATE_DB_REL = Path(".ai-engineering") / "state" / "state.db"
+
+# spec-124 D-124-12: JSON state files migrated to state.db. Their
+# presence on disk indicates either a pre-spec-124 install or a manual
+# write that bypasses the canonical projection. The startup assertion
+# warns when we detect lingering fallbacks so operators can replay or
+# remove them before the next migration cycle.
+_DEPRECATED_JSON_FALLBACKS = (
+    "decision-store.json",
+    "gate-findings.json",
+    "ownership-map.json",
+)
 
 
 def state_db_path(project_root: Path) -> Path:
@@ -149,7 +163,36 @@ def connect(
         from ai_engineering.state.migrations import run_pending
 
         run_pending(conn)
+
+    # spec-124 D-124-12: warn (not block) when deprecated JSON
+    # fallbacks reappear post-migration. Source-of-truth is state.db.
+    _warn_on_deprecated_fallbacks(db_path.parent)
     return conn
+
+
+def _warn_on_deprecated_fallbacks(state_dir: Path) -> None:
+    """Log a one-line WARNING per stale JSON fallback (spec-124 D-124-12).
+
+    Called from :func:`connect` after the migration runner. The check
+    is best-effort: missing directory or ``OSError`` are swallowed so
+    state.db bootstrap never blocks on filesystem oddities.
+    """
+    try:
+        if not state_dir.is_dir():
+            return
+        for name in _DEPRECATED_JSON_FALLBACKS:
+            stale = state_dir / name
+            if stale.is_file():
+                _logger.warning(
+                    "stale state JSON fallback found at %s; "
+                    "state.db is canonical (spec-124 D-124-12). "
+                    "Remove or migrate via `ai-eng audit migrate-fallback` "
+                    "(deprecated, removed in spec-125).",
+                    stale,
+                )
+    except OSError:
+        # Filesystem quirks should never block state.db bootstrap.
+        return
 
 
 @contextmanager

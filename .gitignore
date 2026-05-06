@@ -168,6 +168,10 @@ credentials*.json
 .ai-engineering/state/*-report.json
 .ai-engineering/state/gate-findings.json
 .ai-engineering/state/watch-residuals.json
+# spec-124 D-124-12: deprecated JSON fallbacks. state.db is canonical;
+# any regeneration on disk must NOT be committed.
+.ai-engineering/state/decision-store.json
+.ai-engineering/state/ownership-map.json
 .ai-engineering/state/gate-cache/
 .ai-engineering/learnings/
 .claude/session-topics/

@@ -1,9 +1,11 @@
 """Doctor phase: state file validation.
 
 Checks:
-- state-files-parseable: All 3 state files exist and parse into their models.
+- state-files-parseable: install-state.json exists and parses (the
+  remaining JSON state file post-spec-124 D-124-12; decision-store
+  and ownership-map migrated to state.db).
 - state-schema: install-state.json has schema_version "2.0" and required fields.
-- ownership-coverage: ownership-map patterns cover all defaults from state/defaults.py.
+- ownership-coverage: state.db.ownership_map covers all defaults from state/defaults.py.
 """
 
 from __future__ import annotations
@@ -14,9 +16,7 @@ from pathlib import Path
 from ai_engineering.config.loader import load_manifest_root_entry_points
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.state.defaults import (
-    default_decision_store,
     default_install_state,
-    default_ownership_map,
     default_ownership_paths,
 )
 from ai_engineering.state.io import write_json_model
@@ -28,12 +28,16 @@ def _state_dir(ctx: DoctorContext) -> Path:
 
 
 def _check_files_parseable(ctx: DoctorContext) -> CheckResult:
-    """Validate that all 3 state files exist and are parseable."""
+    """Validate that surviving JSON state files are parseable.
+
+    spec-124 D-124-12: ``decision-store.json`` and ``ownership-map.json``
+    were migrated to ``state.db`` and deleted in wave 5. Only
+    ``install-state.json`` remains as a JSON projection (deletion
+    deferred to spec-125).
+    """
     sd = _state_dir(ctx)
     files = {
         "install-state.json": InstallState,
-        "ownership-map.json": OwnershipMap,
-        "decision-store.json": None,  # generic JSON parse
     }
     missing: list[str] = []
     unparseable: list[str] = []
@@ -119,28 +123,49 @@ def _check_state_schema(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_ownership_coverage(ctx: DoctorContext) -> CheckResult:
-    """Compare ownership map patterns against defaults."""
+    """Compare ownership map patterns against defaults.
+
+    spec-124 D-124-12: prefer ``state.db.ownership_map`` (canonical) and
+    fall back to a lingering ``ownership-map.json`` only when state.db
+    is unavailable.
+    """
     sd = _state_dir(ctx)
-    path = sd / "ownership-map.json"
-    if not path.is_file():
-        return CheckResult(
-            name="ownership-coverage",
-            status=CheckStatus.WARN,
-            message="ownership-map.json not found; cannot check coverage",
-        )
-
+    current_patterns: set[str] = set()
+    source_label = "state.db"
     try:
-        raw = path.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        omap = OwnershipMap.model_validate(data)
-    except (json.JSONDecodeError, ValueError, OSError):
-        return CheckResult(
-            name="ownership-coverage",
-            status=CheckStatus.WARN,
-            message="ownership-map.json unparseable; cannot check coverage",
-        )
+        from ai_engineering.state import state_db as _state_db_mod
 
-    current_patterns = {entry.pattern for entry in omap.paths}
+        conn = _state_db_mod.connect(ctx.target, read_only=False)
+        try:
+            cur = conn.execute("SELECT path_pattern FROM ownership_map")
+            current_patterns = {row[0] for row in cur.fetchall()}
+        finally:
+            conn.close()
+    except Exception:
+        # Fall back to JSON projection if state.db unavailable.
+        path = sd / "ownership-map.json"
+        source_label = "ownership-map.json"
+        if not path.is_file():
+            return CheckResult(
+                name="ownership-coverage",
+                status=CheckStatus.WARN,
+                message=(
+                    "state.db unreadable and ownership-map.json absent; cannot check coverage"
+                ),
+            )
+        try:
+            raw = path.read_text(encoding="utf-8")
+            data = json.loads(raw)
+            omap = OwnershipMap.model_validate(data)
+        except (json.JSONDecodeError, ValueError, OSError):
+            return CheckResult(
+                name="ownership-coverage",
+                status=CheckStatus.WARN,
+                message="ownership-map.json unparseable; cannot check coverage",
+            )
+        current_patterns = {entry.pattern for entry in omap.paths}
+
+    _ = source_label  # acknowledge fallback path; kept for diagnostics
     default_patterns = {
         pattern
         for pattern, _, _ in default_ownership_paths(
@@ -207,6 +232,10 @@ def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
     WARN advisory: never FAIL, never block. Legacy decisions written
     before spec-107 lack the field and are treated as valid by the
     verifier (additive backward-compat per D-107-10).
+
+    spec-124 D-124-12: ``decision-store.json`` migrated to state.db; the
+    JSON-array hash-chain check no longer applies on disk. State.db
+    rows carry their own audit hash via the ``decisions`` table.
     """
     from ai_engineering.state.audit_chain import verify_audit_chain
 
@@ -217,7 +246,10 @@ def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
         return CheckResult(
             name=advisory_name,
             status=CheckStatus.OK,
-            message="decision-store.json not present; chain vacuously valid",
+            message=(
+                "decision-store.json not present (spec-124 D-124-12); "
+                "state.db.decisions is canonical"
+            ),
         )
     verdict = verify_audit_chain(decisions_path, mode="json_array")
     if verdict.ok:
@@ -276,7 +308,10 @@ def fix(
             )
             continue
 
-        # Regenerate missing files
+        # Regenerate missing files. Only ``install-state.json`` is regenerated
+        # post-spec-124 D-124-12 -- ``ownership-map.json`` and
+        # ``decision-store.json`` were migrated to ``state.db`` in wave 5
+        # and must not be recreated on disk.
         sd.mkdir(parents=True, exist_ok=True)
         regenerated: list[str] = []
 
@@ -284,21 +319,6 @@ def fix(
         if not is_path.is_file():
             write_json_model(is_path, default_install_state())
             regenerated.append("install-state.json")
-
-        om_path = sd / "ownership-map.json"
-        if not om_path.is_file():
-            write_json_model(
-                om_path,
-                default_ownership_map(
-                    root_entry_points=load_manifest_root_entry_points(ctx.target),
-                ),
-            )
-            regenerated.append("ownership-map.json")
-
-        ds_path = sd / "decision-store.json"
-        if not ds_path.is_file():
-            write_json_model(ds_path, default_decision_store())
-            regenerated.append("decision-store.json")
 
         if regenerated:
             results.append(

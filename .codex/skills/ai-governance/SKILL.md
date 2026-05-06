@@ -48,7 +48,7 @@ Verify files live in correct ownership zones.
 
 Sub-modes: `accept`, `resolve`, `renew`.
 
-**Accept**: record time-limited risk in `decision-store.json`.
+**Accept**: record time-limited risk in `state.db` `decisions` table (spec-124 D-124-12).
 
 - Classify finding, determine severity, register with mandatory `follow_up_action`.
 - Auto-expiry: Critical 15d, High 30d, Medium 60d, Low 90d.
@@ -175,7 +175,7 @@ Scoring: start at 100. Deduct: blocker -25, critical -15, major -5, minor -1. Fl
 ## References
 
 - `.ai-engineering/manifest.yml` -- governance non-negotiables and quality thresholds.
-- `state/decision-store.json` -- risk acceptance records.
+- `state/state.db` -- risk acceptance records in `decisions` table (spec-124 D-124-12).
 - `.ai-engineering/policies/branch_protection.rego` -- branch-push policy (spec-122 Phase C).
 - `.ai-engineering/policies/commit_conventional.rego` -- conventional-commits policy.
 - `.ai-engineering/policies/risk_acceptance_ttl.rego` -- risk-acceptance TTL policy.

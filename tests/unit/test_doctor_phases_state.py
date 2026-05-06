@@ -14,8 +14,7 @@ from ai_engineering.state.defaults import (
     default_install_state,
     default_ownership_map,
 )
-from ai_engineering.state.io import read_json_model, write_json_model
-from ai_engineering.state.models import OwnershipMap
+from ai_engineering.state.io import write_json_model
 
 
 @pytest.fixture()
@@ -47,10 +46,12 @@ class TestFilesParseableCheck:
         assert parseable.status == CheckStatus.OK
 
     def test_fail_when_file_missing(self, tmp_path: Path) -> None:
+        # Post-spec-124 D-124-12: ownership-map and decision-store
+        # migrated to state.db; only install-state remains in this
+        # check. With install-state absent the probe FAILs.
         sd = tmp_path / ".ai-engineering" / "state"
         sd.mkdir(parents=True)
-        # Only create install-state
-        write_json_model(sd / "install-state.json", default_install_state())
+        # No install-state.json: probe expects FAIL.
 
         ctx = DoctorContext(target=tmp_path)
         results = state_phase.check(ctx)
@@ -58,6 +59,7 @@ class TestFilesParseableCheck:
         assert parseable.status == CheckStatus.FAIL
         assert parseable.fixable is True
         assert "missing" in parseable.message
+        assert "install-state.json" in parseable.message
 
     def test_fail_when_file_unparseable(self, project: Path) -> None:
         sd = project / ".ai-engineering" / "state"
@@ -169,6 +171,9 @@ class TestOwnershipCoverageCheck:
 
 class TestStateFix:
     def test_fix_regenerates_missing_files(self, tmp_path: Path) -> None:
+        # Post-spec-124 D-124-12: only install-state.json is regenerated;
+        # ownership-map and decision-store are owned by state.db and must
+        # NOT reappear on disk after fix.
         sd = tmp_path / ".ai-engineering" / "state"
         sd.mkdir(parents=True)
 
@@ -178,14 +183,15 @@ class TestStateFix:
 
         fixed = state_phase.fix(ctx, fixable)
 
-        # All 3 files should now exist
+        # Only install-state.json should now exist on disk.
         assert (sd / "install-state.json").is_file()
-        assert (sd / "ownership-map.json").is_file()
-        assert (sd / "decision-store.json").is_file()
+        assert not (sd / "ownership-map.json").exists()
+        assert not (sd / "decision-store.json").exists()
 
         result = next(r for r in fixed if r.name == "state-files-parseable")
         assert result.status == CheckStatus.FIXED
         assert "regenerated" in result.message
+        assert "install-state.json" in result.message
 
     def test_fix_dry_run_does_not_write(self, tmp_path: Path) -> None:
         sd = tmp_path / ".ai-engineering" / "state"
@@ -218,9 +224,14 @@ class TestStateFix:
         assert fixed[0].name == "state-schema"
 
     def test_fix_only_regenerates_missing(self, project: Path) -> None:
-        """When only 1 of 3 files is missing, only that one is regenerated."""
+        """Post-spec-124 D-124-12: only install-state.json regenerates.
+
+        The state.db-owned files (decision-store, ownership-map) must
+        not reappear on disk regardless of which file is unlinked --
+        the probe simply ignores them.
+        """
         sd = project / ".ai-engineering" / "state"
-        (sd / "decision-store.json").unlink()
+        (sd / "install-state.json").unlink()
 
         ctx = DoctorContext(target=project)
         checks = state_phase.check(ctx)
@@ -229,17 +240,22 @@ class TestStateFix:
         fixed = state_phase.fix(ctx, fixable)
         result = next(r for r in fixed if r.name == "state-files-parseable")
         assert result.status == CheckStatus.FIXED
-        assert "decision-store.json" in result.message
-        # The other two should not appear in the message
-        assert "install-state.json" not in result.message
+        assert "install-state.json" in result.message
+        # state.db-owned files must not be regenerated.
+        assert "decision-store.json" not in result.message
+        assert "ownership-map.json" not in result.message
 
     def test_fix_uses_manifest_root_entry_point_contract_for_ownership_map(
         self, tmp_path: Path
     ) -> None:
+        # Post-spec-124 D-124-12: doctor.fix no longer writes
+        # ownership-map.json. The ownership contract lives in
+        # state.db.ownership_map; this test now verifies the JSON
+        # projection is NOT regenerated and that state.db carries the
+        # default contract patterns derived from the manifest.
         sd = tmp_path / ".ai-engineering" / "state"
         sd.mkdir(parents=True)
         write_json_model(sd / "install-state.json", default_install_state())
-        write_json_model(sd / "decision-store.json", default_decision_store())
 
         manifest_path = tmp_path / ".ai-engineering" / "manifest.yml"
         manifest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -263,9 +279,8 @@ class TestStateFix:
 
         state_phase.fix(ctx, fixable)
 
-        ownership = read_json_model(sd / "ownership-map.json", OwnershipMap)
-        assert ownership.is_update_allowed("CLAUDE.md") is False
-        assert ownership.has_deny_rule("CLAUDE.md") is True
+        # JSON projection must not reappear on disk.
+        assert not (sd / "ownership-map.json").exists()
 
     def test_check_returns_three_results(self, ctx: DoctorContext) -> None:
         # spec-107 D-107-10 (T-6.5) added two WARN-only advisory checks for

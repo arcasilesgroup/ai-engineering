@@ -245,13 +245,33 @@ def _check_source_repo_framework_versions(target: Path, report: IntegrityReport)
 
 
 def _check_source_repo_ownership_snapshot(target: Path, report: IntegrityReport) -> None:
-    """Verify the committed ownership snapshot matches the executable contract in source repos."""
+    """Verify the committed ownership snapshot matches the executable contract in source repos.
+
+    spec-124 D-124-12: After ownership-map.json deletion, the canonical
+    snapshot lives in state.db.ownership_map. When the JSON projection is
+    absent we report OK (state.db is authoritative); when present we
+    still validate JSON↔contract parity for backward compat.
+    """
     template_manifest_path = _template_manifest_path(target)
     if not template_manifest_path.is_file():
         return
 
     ownership_path = target / _AI_ENGINEERING_DIRNAME / "state" / "ownership-map.json"
     relative_path = str(ownership_path.relative_to(target))
+    if not ownership_path.exists():
+        # JSON fallback was deleted in spec-124 wave 5; state.db is canonical.
+        report.checks.append(
+            IntegrityCheckResult(
+                category=IntegrityCategory.MANIFEST_COHERENCE,
+                name="ownership-map-snapshot",
+                status=IntegrityStatus.OK,
+                message=(
+                    f"{relative_path} absent (spec-124 D-124-12); "
+                    "state.db.ownership_map is canonical"
+                ),
+            )
+        )
+        return
     try:
         snapshot = read_json_model(ownership_path, OwnershipMap)
     except (OSError, ValueError) as exc:

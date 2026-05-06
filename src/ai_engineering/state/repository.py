@@ -100,7 +100,17 @@ class DurableStateRepository:
         return load_install_state(self.state_dir)
 
     def load_decisions(self) -> DecisionStore:
-        """Load the decision-store family."""
+        """Load the decision-store family.
+
+        spec-124 D-124-12: After the JSON fallback was deleted in
+        wave 5, return an empty default when the file is missing.
+        State.db is the canonical source; the JSON projection is
+        rewritten on-demand only when explicitly saved.
+        """
+        if not self.decision_store_path.exists():
+            from ai_engineering.state.defaults import default_decision_store
+
+            return default_decision_store()
         return read_json_model(self.decision_store_path, DecisionStore)
 
     def save_decisions(self, store: DecisionStore) -> None:
@@ -108,7 +118,16 @@ class DurableStateRepository:
         write_json_model(self.decision_store_path, store)
 
     def load_ownership(self) -> OwnershipMap:
-        """Load the ownership-map family."""
+        """Load the ownership-map family.
+
+        spec-124 D-124-12: After the JSON fallback was deleted in
+        wave 5, return an empty default when the file is missing.
+        State.db.ownership_map is the canonical source.
+        """
+        if not self.ownership_map_path.exists():
+            from ai_engineering.state.defaults import default_ownership_map
+
+            return default_ownership_map()
         return read_json_model(self.ownership_map_path, OwnershipMap)
 
     def save_ownership(self, ownership: OwnershipMap) -> None:
