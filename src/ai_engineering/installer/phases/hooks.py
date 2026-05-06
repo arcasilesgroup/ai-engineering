@@ -3,7 +3,7 @@
 Copies the governance-managed hook runtime into
 ``.ai-engineering/scripts/hooks/``, installs gate hooks into ``.git/hooks/``,
 and performs an intelligent merge of ``.claude/settings.json`` when the
-``claude_code`` provider is active.
+``claude-code`` provider is active.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ class HooksPhase:
 
         actions.append(PlannedAction("create", "", ".git/hooks", "install git gate hooks"))
 
-        if "claude_code" in context.providers:
+        if "claude-code" in context.providers:
             pr = get_project_template_root()
             src = pr / ".claude" / "settings.json"
             if src.is_file():

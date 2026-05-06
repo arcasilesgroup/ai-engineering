@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-124 (Wave 1) — Post-install UX polish
+
+- **IDE keys renamed to hyphenated vendor-product form**: `claude_code` → `claude-code`, `gemini` → `gemini-cli`, `github_copilot` / `copilot` → `github-copilot`. Manifest read shim translates old underscore values for one release courtesy (removed in spec-125). External scripts hardcoding old keys must update — pointer: see `--ide` help text.
+- **"What's new" install banner removed**: install pipeline starts directly with phase output. No more one-shot notice.
+- **Tool installation header**: shortened helper text + fixed `[5/6] [5/6]` duplication.
+- **Hooks count reported correctly** in Install Complete summary (was always 0; pipeline result wasn't populating `result.hooks.installed`).
+- **Visual breathing room** added between "Open your AI assistant…" line and the Install Complete panel.
+
 ### TL;DR
 
 ai-engineering 0.5.0 turns the installer into a hard, observable contract, makes Python tooling worktree-fast, ships a single-pass local gate with caching, and graduates risk acceptance to a first-class CLI. Cross-IDE polish lands on Copilot.

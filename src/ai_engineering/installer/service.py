@@ -151,7 +151,7 @@ def install(
         stacks: Initial stacks to install. Defaults to ``["python"]``.
         ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
         vcs_provider: Primary VCS provider. Defaults to ``"github"``.
-        ai_providers: AI providers to enable. Defaults to ``["claude_code"]``.
+        ai_providers: AI providers to enable. Defaults to ``["claude-code"]``.
 
     Returns:
         InstallResult with details of created and skipped files.
@@ -227,7 +227,7 @@ def install_with_pipeline(
         stacks: Initial stacks to install. Defaults to ``["python"]``.
         ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
         vcs_provider: Primary VCS provider. Defaults to ``"github"``.
-        ai_providers: AI providers to enable. Defaults to ``["claude_code"]``.
+        ai_providers: AI providers to enable. Defaults to ``["claude-code"]``.
         external_references: External reference URLs for the manifest.
         dry_run: When True, only plan without writing files.
 
@@ -339,7 +339,19 @@ def _summary_to_install_result(
         if phase_result.phase_name == PHASE_GOVERNANCE:
             governance_created.extend(Path(p) for p in phase_result.created)
             governance_skipped.extend(Path(p) for p in phase_result.skipped)
-        elif phase_result.phase_name in (PHASE_IDE_CONFIG, PHASE_HOOKS):
+        elif phase_result.phase_name == PHASE_HOOKS:
+            # spec-124 D-124-05: HOOKS phase output populates BOTH project_files
+            # (so file_count math is right) AND result.hooks.installed (so the
+            # Install Complete summary reports a true hook count instead of 0).
+            project_created.extend(Path(p) for p in phase_result.created)
+            project_skipped.extend(Path(p) for p in phase_result.skipped)
+            # Each hook phase emits two artifacts per hook (Bash dispatcher +
+            # PowerShell companion). Dedupe to canonical hook names by stem.
+            hook_names = sorted(
+                {Path(p).name for p in phase_result.created if not str(p).endswith(".ps1")}
+            )
+            result.hooks.installed = hook_names
+        elif phase_result.phase_name == PHASE_IDE_CONFIG:
             project_created.extend(Path(p) for p in phase_result.created)
             project_skipped.extend(Path(p) for p in phase_result.skipped)
         elif phase_result.phase_name == PHASE_STATE:
@@ -393,7 +405,7 @@ def _write_ai_providers(target: Path, ai_providers: list[str] | None) -> None:
     Called after governance templates are copied so that the manifest
     reflects the actual provider selection rather than template defaults.
     """
-    providers = ai_providers or ["claude_code"]
+    providers = ai_providers or ["claude-code"]
     manifest_path = target / ".ai-engineering" / "manifest.yml"
     if not manifest_path.is_file():
         return

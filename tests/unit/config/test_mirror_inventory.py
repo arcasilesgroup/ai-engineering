@@ -72,14 +72,14 @@ def test_provider_maps_match_current_install_contract() -> None:
         get_provider_tree_maps,
     )
 
-    assert get_provider_file_maps()["claude_code"] == {
+    assert get_provider_file_maps()["claude-code"] == {
         "CLAUDE.md": "CLAUDE.md",
     }
-    assert get_provider_file_maps()["github_copilot"] == {
+    assert get_provider_file_maps()["github-copilot"] == {
         "AGENTS.md": "AGENTS.md",
         "copilot-instructions.md": ".github/copilot-instructions.md",
     }
-    assert get_provider_file_maps()["gemini"] == {
+    assert get_provider_file_maps()["gemini-cli"] == {
         "AGENTS.md": "AGENTS.md",
         "GEMINI.md": "GEMINI.md",
     }
@@ -87,34 +87,34 @@ def test_provider_maps_match_current_install_contract() -> None:
         "AGENTS.md": "AGENTS.md",
     }
 
-    assert get_provider_tree_maps()["claude_code"] == [
+    assert get_provider_tree_maps()["claude-code"] == [
         (".claude", ".claude"),
     ]
     assert get_provider_tree_maps()["codex"] == [
         (".codex", ".codex"),
     ]
-    assert get_provider_tree_maps()["github_copilot"] == [
+    assert get_provider_tree_maps()["github-copilot"] == [
         (".github/skills", ".github/skills"),
         (".github/hooks", ".github/hooks"),
         ("agents", ".github/agents"),
         ("instructions", ".github/instructions"),
     ]
-    assert get_provider_tree_maps()["gemini"] == [
+    assert get_provider_tree_maps()["gemini-cli"] == [
         (".gemini", ".gemini"),
     ]
     assert set(get_provider_tree_maps()) == {
-        "claude_code",
-        "github_copilot",
-        "gemini",
+        "claude-code",
+        "github-copilot",
+        "gemini-cli",
         "codex",
     }
 
     assert get_internal_specialist_agent_targets() == {
-        "github_copilot": (
+        "github-copilot": (
             ".github/agents/internal",
             "src/ai_engineering/templates/project/agents/internal",
         ),
-        "gemini": (
+        "gemini-cli": (
             ".gemini/agents/internal",
             "src/ai_engineering/templates/project/.gemini/agents/internal",
         ),

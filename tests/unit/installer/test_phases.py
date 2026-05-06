@@ -25,7 +25,7 @@ def _ctx(
     return InstallContext(
         target=tmp_path,
         mode=mode,
-        providers=providers or ["claude_code"],
+        providers=providers or ["claude-code"],
         vcs_provider="github",
         stacks=["python"],
         ides=["terminal"],
@@ -174,7 +174,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code"])
+        ctx = _ctx(tmp_path, providers=["claude-code"])
         plan = phase.plan(ctx)
         dests = [a.destination for a in plan.actions if a.action_type != "skip"]
         assert any("claude" in d.lower() or "CLAUDE" in d for d in dests)
@@ -184,7 +184,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code", "github_copilot"])
+        ctx = _ctx(tmp_path, providers=["claude-code", "github-copilot"])
         plan = phase.plan(ctx)
         dests = " ".join(a.destination for a in plan.actions)
         assert "claude" in dests.lower() or "CLAUDE" in dests
@@ -195,7 +195,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code"])
+        ctx = _ctx(tmp_path, providers=["claude-code"])
         plan = phase.plan(ctx)
         result = phase.execute(plan, ctx)
         assert len(result.created) > 0
@@ -347,18 +347,18 @@ class TestIdeConfigReconfigure:
             "schema_version": "2.0",
             "framework_version": "0.1.0",
             "name": "test",
-            "providers": {"vcs": "github", "ides": ["claude_code", "github_copilot"], "stacks": []},
+            "providers": {"vcs": "github", "ides": ["claude-code", "github-copilot"], "stacks": []},
         }
         (ai_dir / "manifest.yml").write_text(yaml.dump(manifest_data))
 
-        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, providers=["claude_code"])
+        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, providers=["claude-code"])
         ctx.existing_state = InstallState()
 
         phase = IdeConfigPhase()
         plan = phase.plan(ctx)
         delete_actions = [a for a in plan.actions if a.action_type == "delete"]
         assert len(delete_actions) > 0
-        assert any("github_copilot" in a.rationale for a in delete_actions)
+        assert any("github-copilot" in a.rationale for a in delete_actions)
 
     def test_reconfigure_deletions_use_deleted_field(self, tmp_path: Path) -> None:
         """RECONFIGURE deletions go to PhaseResult.deleted, not created."""

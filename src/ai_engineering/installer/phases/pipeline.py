@@ -6,20 +6,15 @@ verification the pipeline stops and remaining phases are skipped.
 
 A ``dry_run`` flag collects plans without executing or verifying.
 
-Spec-101 T-5.2: before the first phase fires the runner emits a one-shot
-BREAKING banner advising users of the new EXIT 80 / EXIT 81 codes, the
-``python_env.mode`` default, and 14-stack ``required_tools`` coverage.
-The banner is gated by ``InstallState.breaking_banner_seen`` so it only
-ever shows up once per project.
+spec-124 D-124-02: removed first-run BREAKING banner. Install pipeline
+emits phase output directly without preamble notice.
 """
 
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from ai_engineering.reconciler import (
     ReconcileAction,
@@ -29,127 +24,14 @@ from ai_engineering.reconciler import (
     ReconcileVerification,
     ResourceReconciler,
 )
-from ai_engineering.state.models import InstallState
-from ai_engineering.state.service import load_install_state, save_install_state
 
 from . import InstallContext, PhasePlan, PhaseProtocol, PhaseResult, PhaseVerdict
 
-# ---------------------------------------------------------------------------
-# First-run welcome banner
-# ---------------------------------------------------------------------------
-# spec-109 follow-up: replaced the spec-101 [BREAKING] banner with friendlier
-# copy — same three pieces of information, no spec ID / EXIT-code jargon.
+# spec-124 D-124-02: removed first-run welcome banner. The "What's new"
+# notice was noise without ongoing value; install pipeline now starts
+# directly with the phase output.
 
-_BREAKING_BANNER = """\
-================================================================================
-What's new in ai-engineering
-================================================================================
-Three things to know about this project (this notice appears once):
-
-  1. Missing tools now stop the install
-     If a required tool can't be installed, the CLI tells you exactly what's
-     missing and how to install it — no more silent partial setups.
-
-  2. Tools install once per machine, not per project
-     Python tools (ruff, ty, pip-audit, semgrep) live in
-     ~/.local/share/uv/tools/, so creating a new git worktree no longer
-     re-installs them. To opt back into the per-project .venv, set
-     `python_env.mode: venv` in .ai-engineering/manifest.yml.
-
-  3. Each language stack ships with its own toolchain
-     Python, TypeScript, Java, Rust, Go, and 9 more stacks have their tool
-     lists declared in your manifest. If you add a stack later, ai-eng will
-     prompt you for the missing tools instead of failing silently.
-
-More detail: .ai-engineering/contexts/python-env-modes.md
-================================================================================
-"""
-
-_AI_ENGINEERING_DIR = ".ai-engineering"
-_STATE_DIR_REL = Path(_AI_ENGINEERING_DIR) / "state"
-
-
-def _state_file_path(target: Path) -> Path:
-    return target / _STATE_DIR_REL / "install-state.json"
-
-
-def _load_or_default_state(target: Path) -> InstallState:
-    """Load install-state.json from *target*, falling back to defaults.
-
-    Returns a default ``InstallState`` (with ``breaking_banner_seen=False``)
-    when the file is absent -- a fresh install -- so the banner fires.
-    """
-    state_dir = target / _STATE_DIR_REL
-    try:
-        return load_install_state(state_dir)
-    except (OSError, ValueError):
-        # Corrupt or unreadable state file: treat as fresh so the banner
-        # still fires once. Safer than silently swallowing the contract.
-        return InstallState()
-
-
-def _maybe_emit_breaking_banner(context: InstallContext) -> None:
-    """Emit the spec-101 BREAKING banner once per project.
-
-    Side effects:
-      - Writes the banner to ``sys.stderr``.
-      - Persists ``InstallState.breaking_banner_seen=True`` to install-state.json
-        so subsequent runs stay quiet.
-
-    The function is **fail-open**: any state-load or state-save error degrades
-    to "do nothing" rather than blocking install. The contract is "ideally
-    once, never twice" -- never an install-blocker.
-
-    JSON mode (``--non-interactive`` / piped output) suppresses the banner
-    entirely so machine consumers receive only the structured envelope on
-    stdout. The persistence flag is still set so an interactive re-run on the
-    same project also stays quiet -- the banner remains a one-shot event.
-    """
-    emit_breaking_banner_for_target(context.target)
-
-
-def emit_breaking_banner_for_target(target: Path) -> None:
-    """Public wrapper so callers outside the pipeline can fire the banner.
-
-    spec-101 Compat-2 (Wave 27): the banner used to fire from inside the
-    pipeline runner, after the prereq gates. A first-upgrade run that
-    failed at the uv / SDK prereq gate exited via ``EXIT_PREREQS_MISSING``
-    BEFORE the pipeline ran, so the user never saw the banner explaining
-    the new contract. Hoisting the emit out of the pipeline lets the CLI
-    fire it before any gate, and the existing ``breaking_banner_seen``
-    flag still prevents double-emission on subsequent re-runs.
-    """
-    try:
-        state_dir = target / _STATE_DIR_REL
-        try:
-            state = load_install_state(state_dir)
-        except (OSError, ValueError):
-            state = InstallState()
-    except Exception:  # pragma: no cover - defensive fail-open
-        return
-
-    if state.breaking_banner_seen:
-        return
-
-    # JSON mode: suppress human-facing banner; CliRunner mixes stderr with
-    # stdout when ``mix_stderr`` is the default, which would corrupt the
-    # JSON envelope downstream consumers parse.
-    from ai_engineering.cli_output import is_json_mode
-
-    if not is_json_mode():
-        sys.stderr.write(_BREAKING_BANNER)
-        sys.stderr.flush()
-
-    # Persist the flag so the next run stays quiet. We round-trip through
-    # the loaded model rather than constructing a fresh default to preserve
-    # any existing state already written by an earlier phase or a manual edit.
-    try:
-        state.breaking_banner_seen = True
-        save_install_state(state_dir, state)
-    except OSError:  # pragma: no cover - defensive fail-open
-        # Filesystem read-only / permission error: banner still showed,
-        # but the flag won't persist. Acceptable degradation.
-        pass
+# spec-124 D-124-02: banner code removed; CLI starts with phase output directly.
 
 
 @dataclass
@@ -304,12 +186,7 @@ class PipelineRunner:
         """
         summary = PipelineSummary(dry_run=dry_run)
 
-        # spec-101 T-5.2: emit the one-shot BREAKING banner before the first
-        # phase, but only on a real (non-dry-run) install. Dry-run is a
-        # preview surface -- the banner's persistence side-effect would be
-        # surprising there.
-        if not dry_run:
-            _maybe_emit_breaking_banner(context)
+        # spec-124 D-124-02: removed BREAKING banner emission point.
 
         total = len(self._phases)
         reconciler = ResourceReconciler()

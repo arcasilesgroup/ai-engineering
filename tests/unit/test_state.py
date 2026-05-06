@@ -641,9 +641,9 @@ class TestAiProvider:
     def test_enum_values(self) -> None:
         from ai_engineering.state.models import AiProvider
 
-        assert AiProvider.CLAUDE_CODE == "claude_code"
-        assert AiProvider.GITHUB_COPILOT == "github_copilot"
-        assert AiProvider.GEMINI == "gemini"
+        assert AiProvider.CLAUDE_CODE == "claude-code"
+        assert AiProvider.GITHUB_COPILOT == "github-copilot"
+        assert AiProvider.GEMINI == "gemini-cli"
         assert AiProvider.CODEX == "codex"
 
     def test_is_str_enum(self) -> None:

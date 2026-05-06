@@ -91,7 +91,7 @@ def _has_provider_paths(paths: set[str], prefixes: tuple[str, ...]) -> bool:
 def claude_only_project(tmp_path: Path) -> Path:
     """Install a project with only ``claude_code`` as AI provider."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code"])
+    install(tmp_path, ai_providers=["claude-code"])
     return tmp_path
 
 
@@ -99,7 +99,7 @@ def claude_only_project(tmp_path: Path) -> Path:
 def claude_copilot_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``github_copilot``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code", "github_copilot"])
+    install(tmp_path, ai_providers=["claude-code", "github-copilot"])
     return tmp_path
 
 
@@ -107,7 +107,7 @@ def claude_copilot_project(tmp_path: Path) -> Path:
 def claude_gemini_project(tmp_path: Path) -> Path:
     """Install a project with ``claude_code`` and ``gemini``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code", "gemini"])
+    install(tmp_path, ai_providers=["claude-code", "gemini-cli"])
     return tmp_path
 
 

@@ -38,8 +38,8 @@ def claude_project(tmp_path: Path) -> Path:
 def claude_manifest() -> ManifestConfig:
     """ManifestConfig with claude_code as the only AI provider."""
     return ManifestConfig(
-        providers=ProvidersConfig(vcs="github", ides=["claude_code"]),
-        ai_providers=AiProvidersConfig(enabled=["claude_code"], primary="claude_code"),
+        providers=ProvidersConfig(vcs="github", ides=["claude-code"]),
+        ai_providers=AiProvidersConfig(enabled=["claude-code"], primary="claude-code"),
     )
 
 
@@ -47,8 +47,8 @@ def claude_manifest() -> ManifestConfig:
 def copilot_manifest() -> ManifestConfig:
     """ManifestConfig with github_copilot as the only AI provider."""
     return ManifestConfig(
-        providers=ProvidersConfig(vcs="github", ides=["github_copilot"]),
-        ai_providers=AiProvidersConfig(enabled=["github_copilot"], primary="github_copilot"),
+        providers=ProvidersConfig(vcs="github", ides=["github-copilot"]),
+        ai_providers=AiProvidersConfig(enabled=["github-copilot"], primary="github-copilot"),
     )
 
 

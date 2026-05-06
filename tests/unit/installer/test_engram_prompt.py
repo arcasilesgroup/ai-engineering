@@ -62,7 +62,7 @@ def test_prompt_accept_invokes_install(mock_subprocess: mock.MagicMock) -> None:
     """A 'y' answer must call ``install_engram`` with the detected OS+IDE."""
 
     detected_os = "macos"
-    detected_ide = "claude_code"
+    detected_ide = "claude-code"
 
     with (
         mock.patch("builtins.input", return_value="y"),
@@ -160,9 +160,9 @@ def test_detect_os_returns_canonical_name(platform_value: str, expected: str) ->
 @pytest.mark.parametrize(
     "marker, expected",
     [
-        (".claude", "claude_code"),
+        (".claude", "claude-code"),
         (".codex", "codex"),
-        (".gemini", "gemini"),
+        (".gemini", "gemini-cli"),
     ],
 )
 def test_detect_ide_via_directory_marker(
@@ -182,7 +182,7 @@ def test_detect_ide_via_copilot_instructions_file(tmp_path: Path) -> None:
     github_dir = tmp_path / ".github"
     github_dir.mkdir()
     (github_dir / "copilot-instructions.md").write_text("hello", encoding="utf-8")
-    assert engram.detect_ide(tmp_path) == "copilot"
+    assert engram.detect_ide(tmp_path) == "github-copilot"
 
 
 def test_detect_ide_returns_unknown_when_no_markers(tmp_path: Path) -> None:
@@ -199,7 +199,7 @@ def test_detect_ide_returns_unknown_when_no_markers(tmp_path: Path) -> None:
 def test_install_engram_macos_uses_brew(mock_subprocess: mock.MagicMock) -> None:
     """macOS installs must shell out to ``brew install engram``."""
 
-    result = engram.install_engram("macos", "claude_code")
+    result = engram.install_engram("macos", "claude-code")
 
     install_calls = [call_args for call_args in mock_subprocess.call_args_list if call_args.args]
     assert any(
@@ -236,10 +236,10 @@ def test_install_engram_linux_downloads_binary(mock_subprocess: mock.MagicMock) 
 def test_install_engram_runs_setup_after_install(mock_subprocess: mock.MagicMock) -> None:
     """After a successful install the IDE-specific ``engram setup`` runs."""
 
-    engram.install_engram("macos", "claude_code")
+    engram.install_engram("macos", "claude-code")
 
     invocations = [list(call.args[0]) for call in mock_subprocess.call_args_list if call.args]
-    assert ["engram", "setup", "claude_code"] in invocations, (
+    assert ["engram", "setup", "claude-code"] in invocations, (
         "engram setup <ide> must be the final invocation"
     )
 
@@ -253,18 +253,18 @@ def test_install_engram_failure_is_non_blocking(mock_subprocess: mock.MagicMock)
         stderr="brew: formula not found",
     )
 
-    result = engram.install_engram("macos", "claude_code")
+    result = engram.install_engram("macos", "claude-code")
 
     assert result.success is False
     assert result.os_name == "macos"
-    assert result.ide_name == "claude_code"
+    assert result.ide_name == "claude-code"
     assert result.message  # Non-empty diagnostic message.
 
 
 def test_install_engram_unknown_os_returns_failure(mock_subprocess: mock.MagicMock) -> None:
     """An unsupported OS must short-circuit without subprocess calls."""
 
-    result = engram.install_engram("unknown", "claude_code")
+    result = engram.install_engram("unknown", "claude-code")
 
     mock_subprocess.assert_not_called()
     assert result.success is False

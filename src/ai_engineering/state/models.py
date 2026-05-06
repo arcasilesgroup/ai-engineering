@@ -63,9 +63,9 @@ class GateHook(StrEnum):
 class AiProvider(StrEnum):
     """Supported AI coding assistant providers."""
 
-    CLAUDE_CODE = "claude_code"
-    GITHUB_COPILOT = "github_copilot"
-    GEMINI = "gemini"
+    CLAUDE_CODE = "claude-code"
+    GITHUB_COPILOT = "github-copilot"
+    GEMINI = "gemini-cli"
     CODEX = "codex"
 
 
@@ -1146,11 +1146,10 @@ class InstallState(BaseModel):
     # spec-101 extensions: per-tool install outcomes + python_env mode echo.
     required_tools_state: dict[str, ToolInstallRecord] = Field(default_factory=dict)
     python_env_mode_recorded: PythonEnvMode | None = None
-    # spec-101 T-5.2: idempotency flag for the first-run BREAKING banner.
-    # The PipelineRunner emits the banner exactly once per project, then sets
-    # this to True so subsequent runs stay quiet. Persisted alongside the
-    # rest of install-state.json.
-    breaking_banner_seen: bool = False
+    # spec-124 D-124-02: removed breaking_banner_seen field. Banner deleted;
+    # field retained as deprecated read-only no-op for one release courtesy
+    # so existing install-state.json files still parse without ValidationError.
+    breaking_banner_seen: bool = False  # DEPRECATED — remove in spec-125
     # spec-107 D-107-09 (H1): per-tool SHA256 hash baseline for rug-pull
     # detection. Maps "stack:tool" -> hex digest. Empty dict on first install
     # is interpreted as "populate baseline silently"; non-empty dict triggers

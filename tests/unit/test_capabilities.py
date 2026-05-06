@@ -36,7 +36,7 @@ def _manifest_config() -> ManifestConfig:
         ),
         agents=AgentsConfig(total=3, names=["plan", "build", "explore"]),
         ai_providers=AiProvidersConfig(
-            enabled=["claude_code", "github_copilot", "gemini", "codex"],
+            enabled=["claude_code", "github-copilot", "gemini", "codex"],
             primary="claude_code",
         ),
     )
@@ -64,7 +64,7 @@ def test_build_capability_cards_models_provider_scoped_skills() -> None:
     statuses = {entry.provider: entry.status for entry in permissions_card.provider_compatibility}
 
     assert statuses["claude_code"] == ProviderCompatibilityStatus.COMPATIBLE
-    assert statuses["github_copilot"] == ProviderCompatibilityStatus.UNSUPPORTED
+    assert statuses["github-copilot"] == ProviderCompatibilityStatus.UNSUPPORTED
 
 
 def test_internal_specialist_agent_names_never_become_public_capabilities() -> None:
@@ -130,13 +130,13 @@ def test_provider_incompatible_skill_packet_rejects_provider_binding() -> None:
     packet = CapabilityTaskPacket(
         taskId="T-provider",
         ownerRole="ai-analyze-permissions",
-        provider="github_copilot",
+        provider="github-copilot",
     )
 
     result = validate_task_packet_acceptance(cards, packet)
 
     assert result.accepted is False
-    assert any("incompatible with provider github_copilot" in error for error in result.errors)
+    assert any("incompatible with provider github-copilot" in error for error in result.errors)
 
 
 def test_unknown_owner_rejects_packet() -> None:

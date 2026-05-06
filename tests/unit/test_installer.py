@@ -303,7 +303,7 @@ class TestCopyProjectTemplatesCommonFiles:
         from ai_engineering.installer.templates import copy_project_templates
 
         # Act
-        result = copy_project_templates(tmp_path, providers=["claude_code"])
+        result = copy_project_templates(tmp_path, providers=["claude-code"])
 
         # Assert — common files deployed regardless of provider
         gitleaks = tmp_path / ".gitleaks.toml"
@@ -321,7 +321,7 @@ class TestCopyProjectTemplatesCommonFiles:
         (tmp_path / ".semgrep.yml").write_text("custom")
 
         # Act
-        copy_project_templates(tmp_path, providers=["claude_code"])
+        copy_project_templates(tmp_path, providers=["claude-code"])
 
         # Assert — existing files not overwritten
         assert (tmp_path / ".gitleaks.toml").read_text() == "custom"
@@ -334,7 +334,7 @@ class TestCopilotInstructionsTreeMap:
     def test_copilot_tree_in_provider_tree_maps(self) -> None:
         from ai_engineering.installer.templates import _PROVIDER_TREE_MAPS
 
-        copilot_trees = _PROVIDER_TREE_MAPS["github_copilot"]
+        copilot_trees = _PROVIDER_TREE_MAPS["github-copilot"]
         assert (".github/skills", ".github/skills") in copilot_trees
         assert ("agents", ".github/agents") in copilot_trees
         assert ("instructions", ".github/instructions") in copilot_trees
@@ -345,7 +345,7 @@ class TestCopilotInstructionsTreeMap:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["github_copilot"],
+            providers=["github-copilot"],
         )
 
         # Assert
@@ -362,7 +362,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
         )
 
@@ -375,7 +375,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
         )
 
@@ -388,7 +388,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude_code"],
+            providers=["claude-code"],
         )
 
         # Assert — no VCS-specific files without vcs_provider

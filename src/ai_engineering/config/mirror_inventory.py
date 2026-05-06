@@ -41,7 +41,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="claude-commands",
-        provider="claude_code",
+        provider="claude-code",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -51,7 +51,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="claude-skills",
-        provider="claude_code",
+        provider="claude-code",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -61,7 +61,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="claude-agents",
-        provider="claude_code",
+        provider="claude-code",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -91,7 +91,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="gemini-skills",
-        provider="gemini",
+        provider="gemini-cli",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -101,7 +101,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="gemini-agents",
-        provider="gemini",
+        provider="gemini-cli",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -111,7 +111,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="copilot-skills",
-        provider="github_copilot",
+        provider="github-copilot",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -121,7 +121,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="copilot-agents",
-        provider="github_copilot",
+        provider="github-copilot",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -131,7 +131,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="specialist-agents",
-        provider="github_copilot",
+        provider="github-copilot",
         public=False,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -141,7 +141,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="generated-instructions",
-        provider="github_copilot",
+        provider="github-copilot",
         public=False,
         generated=True,
         edit_policy="generated-do-not-edit",
@@ -151,7 +151,7 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
     ),
     MirrorFamily(
         family_id="manual-instructions",
-        provider="github_copilot",
+        provider="github-copilot",
         public=False,
         generated=False,
         edit_policy="manual",
@@ -218,14 +218,14 @@ _MANUAL_INSTRUCTION_FILES: tuple[str, ...] = (
 )
 
 _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
-    "claude_code": {
+    "claude-code": {
         "CLAUDE.md": "CLAUDE.md",
     },
-    "github_copilot": {
+    "github-copilot": {
         "AGENTS.md": "AGENTS.md",
         "copilot-instructions.md": ".github/copilot-instructions.md",
     },
-    "gemini": {
+    "gemini-cli": {
         "AGENTS.md": "AGENTS.md",
         "GEMINI.md": "GEMINI.md",
     },
@@ -235,16 +235,16 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
 }
 
 _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
-    "claude_code": [
+    "claude-code": [
         (".claude", ".claude"),
     ],
-    "github_copilot": [
+    "github-copilot": [
         (".github/skills", ".github/skills"),
         (".github/hooks", ".github/hooks"),
         ("agents", ".github/agents"),
         ("instructions", ".github/instructions"),
     ],
-    "gemini": [
+    "gemini-cli": [
         (".gemini", ".gemini"),
     ],
     "codex": [
@@ -253,11 +253,11 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
 }
 
 _SPECIALIST_AGENT_TARGETS: dict[str, tuple[str, str]] = {
-    "github_copilot": (
+    "github-copilot": (
         ".github/agents/internal",
         "src/ai_engineering/templates/project/agents/internal",
     ),
-    "gemini": (
+    "gemini-cli": (
         ".gemini/agents/internal",
         "src/ai_engineering/templates/project/.gemini/agents/internal",
     ),

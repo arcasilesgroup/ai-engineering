@@ -153,6 +153,6 @@ class TestNonInteractiveSkipsPrompts:
             assert result.exit_code == 0, f"Unexpected exit: {result.output}"
             call_kwargs = mock_install.call_args
             assert call_kwargs is not None
-            assert call_kwargs.kwargs.get("ai_providers") == ["claude_code"] or (
-                len(call_kwargs.args) > 0 and "claude_code" in str(call_kwargs)
+            assert call_kwargs.kwargs.get("ai_providers") == ["claude-code"] or (
+                len(call_kwargs.args) > 0 and "claude-code" in str(call_kwargs)
             )

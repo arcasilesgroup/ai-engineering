@@ -38,7 +38,7 @@ class WizardResult:
 
 # Valid AI provider identifiers (popularity ordered).
 _VALID_AI_PROVIDERS: list[str] = _order_by_popularity(
-    ["claude_code", "github_copilot", "gemini", "codex"],
+    ["claude-code", "github-copilot", "gemini-cli", "codex"],
     _PROVIDER_POPULARITY,
 )
 

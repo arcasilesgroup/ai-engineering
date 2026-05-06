@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 OsName = Literal["macos", "linux", "windows", "unknown"]
-IdeName = Literal["claude_code", "codex", "gemini", "copilot", "unknown"]
+IdeName = Literal["claude-code", "codex", "gemini-cli", "github-copilot", "unknown"]
 
 
 @dataclass(frozen=True)
@@ -103,10 +103,10 @@ def detect_ide(project_root: Path | None = None) -> IdeName:
     The detection looks for the canonical configuration directories
     each agent ships:
 
-    - ``.claude/``                       -> ``claude_code``
+    - ``.claude/``                       -> ``claude-code``
     - ``.codex/``                        -> ``codex``
-    - ``.gemini/``                       -> ``gemini``
-    - ``.github/copilot-instructions.md``-> ``copilot``
+    - ``.gemini/``                       -> ``gemini-cli``
+    - ``.github/copilot-instructions.md``-> ``github-copilot``
 
     Args:
         project_root: Directory to inspect.  Defaults to the current
@@ -119,13 +119,13 @@ def detect_ide(project_root: Path | None = None) -> IdeName:
 
     root = project_root if project_root is not None else Path.cwd()
     if (root / ".claude").is_dir():
-        return "claude_code"
+        return "claude-code"
     if (root / ".codex").is_dir():
         return "codex"
     if (root / ".gemini").is_dir():
-        return "gemini"
+        return "gemini-cli"
     if (root / ".github" / "copilot-instructions.md").is_file():
-        return "copilot"
+        return "github-copilot"
     return "unknown"
 
 
@@ -220,11 +220,14 @@ def _run_engram_setup(ide_name: str) -> tuple[bool, str]:
     """Run ``engram setup <ide>`` after a successful install.
 
     Skips silently when the IDE is ``unknown`` (we still want the binary
-    on PATH so the user can run setup themselves later).
+    on PATH so the user can run setup themselves later).  Also skips for
+    ``github-copilot`` -- Engram does not support that IDE today.
     """
 
     if ide_name == "unknown":
         return True, "skipped engram setup (unknown IDE)"
+    if ide_name == "github-copilot":
+        return True, "engram setup not run for github-copilot: not supported by Engram"
     result = _run(["engram", "setup", ide_name])
     if result.returncode == 0:
         return True, f"engram setup {ide_name} succeeded"

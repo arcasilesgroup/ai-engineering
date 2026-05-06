@@ -34,14 +34,14 @@ PROJECT_TEMPLATES: str = "project"
 # AGENTS.md is used by multiple providers but deduplication is handled at copy time.
 
 _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
-    "claude_code": {
+    "claude-code": {
         "CLAUDE.md": "CLAUDE.md",
     },
-    "github_copilot": {
+    "github-copilot": {
         "AGENTS.md": "AGENTS.md",
         "copilot-instructions.md": ".github/copilot-instructions.md",
     },
-    "gemini": {
+    "gemini-cli": {
         "AGENTS.md": "AGENTS.md",
         "GEMINI.md": "GEMINI.md",
     },
@@ -152,16 +152,16 @@ _COMMON_FILE_MAPS: dict[str, str] = {
 }
 
 _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
-    "claude_code": [
+    "claude-code": [
         (".claude", ".claude"),
     ],
-    "github_copilot": [
+    "github-copilot": [
         (".github/skills", ".github/skills"),
         (".github/hooks", ".github/hooks"),
         ("agents", ".github/agents"),
         ("instructions", ".github/instructions"),
     ],
-    "gemini": [
+    "gemini-cli": [
         (".gemini", ".gemini"),
     ],
     "codex": [
@@ -515,7 +515,7 @@ def remove_provider_templates(
     """Remove templates installed by a provider.
 
     Does NOT remove files that are still needed by another active provider
-    (e.g., AGENTS.md shared between github_copilot, gemini, and codex).
+    (e.g., AGENTS.md shared between github-copilot, gemini-cli, and codex).
 
     Args:
         target: Target project root directory.

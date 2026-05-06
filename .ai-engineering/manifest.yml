@@ -16,8 +16,8 @@ providers:
 
 # AI Providers
 ai_providers:
-  enabled: [claude_code, github_copilot, gemini, codex]
-  primary: claude_code
+  enabled: [claude-code, github-copilot, gemini-cli, codex]
+  primary: claude-code
 
 # Work items — board/issue tracker integration
 # Configure your team's area path (Azure DevOps) or team label (GitHub Issues).

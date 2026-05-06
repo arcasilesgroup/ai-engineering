@@ -152,9 +152,9 @@ _ORCHESTRATOR_TOOLS = {
 
 _PROVIDER_SCOPED_SKILLS = {
     "ai-analyze-permissions": {
-        "claude_code": ProviderCompatibilityStatus.COMPATIBLE,
-        "github_copilot": ProviderCompatibilityStatus.UNSUPPORTED,
-        "gemini": ProviderCompatibilityStatus.UNSUPPORTED,
+        "claude-code": ProviderCompatibilityStatus.COMPATIBLE,
+        "github-copilot": ProviderCompatibilityStatus.UNSUPPORTED,
+        "gemini-cli": ProviderCompatibilityStatus.UNSUPPORTED,
         "codex": ProviderCompatibilityStatus.UNSUPPORTED,
     }
 }
@@ -428,7 +428,7 @@ def _provider_compatibility(
     provider_names: list[str],
 ) -> list[ProviderCompatibility]:
     scoped_status = _PROVIDER_SCOPED_SKILLS.get(capability_name, {})
-    providers = provider_names or ["claude_code"]
+    providers = provider_names or ["claude-code"]
     return [
         ProviderCompatibility(
             provider=provider,

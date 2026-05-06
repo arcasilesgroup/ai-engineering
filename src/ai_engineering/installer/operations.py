@@ -18,9 +18,9 @@ _KNOWN_IDES: frozenset[str] = frozenset(
 # Valid AI provider identifiers.
 _VALID_AI_PROVIDERS: frozenset[str] = frozenset(
     {
-        "claude_code",
-        "github_copilot",
-        "gemini",
+        "claude-code",
+        "github-copilot",
+        "gemini-cli",
         "codex",
     }
 )
@@ -243,7 +243,7 @@ def add_provider(target: Path, provider: str) -> ManifestConfig:
 
     Args:
         target: Root directory of the target project.
-        provider: Provider identifier to add (e.g., ``"github_copilot"``).
+        provider: Provider identifier to add (e.g., ``"github-copilot"``).
 
     Returns:
         Updated ManifestConfig.

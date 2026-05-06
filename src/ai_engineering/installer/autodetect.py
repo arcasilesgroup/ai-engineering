@@ -59,9 +59,9 @@ _IDE_POPULARITY: tuple[str, ...] = (
 )
 
 _PROVIDER_POPULARITY: tuple[str, ...] = (
-    "github_copilot",
-    "claude_code",
-    "gemini",
+    "github-copilot",
+    "claude-code",
+    "gemini-cli",
     "codex",
 )
 
@@ -200,15 +200,15 @@ def detect_ai_providers(root: Path) -> list[str]:
     providers: list[str] = []
 
     if (root / ".claude").is_dir():
-        providers.append("claude_code")
+        providers.append("claude-code")
 
     if (root / ".gemini").is_dir() or (root / "GEMINI.md").is_file():
-        providers.append("gemini")
+        providers.append("gemini-cli")
 
     copilot_instructions = (root / ".github" / "copilot-instructions.md").is_file()
     copilot_skills = (root / ".github" / "skills").is_dir()
     if copilot_instructions or copilot_skills:
-        providers.append("github_copilot")
+        providers.append("github-copilot")
 
     codex_instruction_file = (root / "AGENTS.md").is_file()
     codex_tree = (root / ".codex").is_dir()

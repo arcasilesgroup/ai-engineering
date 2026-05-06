@@ -1,144 +1,109 @@
-# Plan: spec-123 Phase 1 Closure
+# Plan: spec-124 Post-Install UX + Doctor Provisioning + Security Visibility
 
 ## Pipeline: full
-## Phases: 8
-## Tasks: 58 (build: 40, verify: 15, guard: 3)
+## Phases: 6
+## Tasks: 38 (build: 27, verify: 8, guard: 3)
 
 ## Architecture
 
-**Modular Monolith + CQRS with Transactional Outbox + Sidecar (Engram)**
-
-Per `.ai-engineering/contexts/architecture-patterns.md`:
-
-- **Modular Monolith** — single Python project (`src/ai_engineering/`) with clean module boundaries (`state/`, `governance/`, `installer/`, `policy/`, `validator/`, `cli_commands/`, `hooks/`). Spec-123 reinforces module boundaries.
-- **CQRS with Transactional Outbox** — NDJSON `framework-events.ndjson` is immutable command-side write log (Article III SoT); `state.db` is rebuildable read-model projection.
-- **Sidecar (Engram)** — Engram runs as separate process (CLI binary) installed by `ai-eng install` per OS/IDE. Framework does not embed Engram code.
-
-Single architecture statement: ai-engineering is a modular monolith Python framework whose state plane follows CQRS+outbox over NDJSON-projects-into-SQLite topology, with Engram bolted on as optional sidecar.
+Modular Monolith + CQRS+Outbox + Sidecar (same as spec-123). Targeted polish across existing modules; no new architectural pattern.
 
 ## Design
 
-No UI work. Routing skipped.
+No UI work beyond CLI rendering polish (D-124-03/04/05/06). `.ai-engineering/contexts/cli-ux.md` color semantics.
 
 ---
 
-### Phase 1 — Workspace-charter stub deletion (T-1.2 carry-over)
+### Phase 1 — Wave 1: IDE rename + install UX bugs (D-124-01,02,04,05,06)
 
-**Gate**: pytest validator + state + constitution_skill_paths green; ai-eng doctor 0; grep negative for workspace-charter refs.
+**Gate**: pytest installer tests green; ai-eng install on test project shows: NO "What's new" banner, NO truncated header, NO duplicated [N/M], hooks count > 0, blank line before Install Complete; manifest read shim translates old keys.
 
-- [x] T-1.1: Pre-deletion grep for workspace-charter callers (agent: verify)
-- [x] T-1.2: Update control_plane.py `_CONSTITUTIONAL_ALIASES` to empty tuple + callers (agent: build)
-- [x] T-1.3: Delete workspace-charter validation block in manifest_coherence.py (agent: build)
-- [x] T-1.4: Update file_existence.py `_SOURCE_REPO_CONTROL_PLANE_PATHS` (agent: build)
-- [x] T-1.5: Update standards.py legacy-retirement family `current_surfaces` (agent: build)
-- [x] T-1.6: Update 7 test fixtures in lockstep (agent: build)
-- [x] T-1.7: Delete .ai-engineering/CONSTITUTION.md stub + 2 template stubs (agent: build)
-- [x] T-1.8: Phase 1 verification — pytest + ai-eng doctor + grep negative (agent: verify)
-
----
-
-### Phase 2 — Memory subsystem nuke
-
-**Gate**: zero ghost references; framework imports clean; skill registry counts updated.
-
-- [x] T-2.1: Pre-deletion grep for ai-eng memory references repo-wide (agent: verify)
-- [x] T-2.2: Delete .ai-engineering/scripts/memory/ (9 files) (agent: build)
-- [x] T-2.3: Delete src/ai_engineering/cli_commands/memory_cmd.py + CLI registration (agent: build)
-- [x] T-2.4: Delete /ai-remember + /ai-dream skills (16 files: canonical + 3 mirrors + 4 templates) (agent: build)
-- [x] T-2.5: Scrub ai-eng memory references in skill bodies + docs (agent: build)
-- [x] T-2.6: Decrement manifest.yml skills.total (51 to 49) (agent: build)
-- [x] T-2.7: Phase 2 verification — import smoke + skill registry validation (agent: verify)
+- [x] T-1.1: Pre-rename grep — inventory `claude_code`, `"gemini"`, `github_copilot`, `"copilot"` references repo-wide (agent: verify)
+- [x] T-1.2: Update `IdeName` Literal type + `detect_ide()` returns in `installer/engram.py` (agent: build)
+- [x] T-1.3: Mass rename Python literals: `claude_code → claude-code`, `gemini → gemini-cli`, `github_copilot → github-copilot`, `"copilot" → "github-copilot"` (agent: build)
+- [x] T-1.4: Update manifest schema enum + add backwards-compat read shim with WARN log (agent: build)
+- [x] T-1.5: Update CLI flags + help text (Click/Typer in cli_commands/) (agent: build)
+- [x] T-1.6: Update `.ai-engineering/manifest.yml` + template manifest values (agent: build)
+- [x] T-1.7: Update tests (mass rename in tests/) (agent: build)
+- [x] T-1.8: Update README + CLAUDE.md + AGENTS.md + GEMINI.md + CHANGELOG one-line (agent: build)
+- [x] T-1.9: Remove "What's new" banner (D-124-02) — delete `_BREAKING_BANNER` + function + call site (agent: build)
+- [x] T-1.10: Drop `breaking_banner_seen` field from `InstallState` (agent: build)
+- [x] T-1.11: Fix tool header truncation (D-124-04) — shorten helper text (agent: build)
+- [x] T-1.12: Fix `[N/M] [N/M]` duplication — trace `core.py:604` phase callback (agent: build)
+- [x] T-1.13: Fix hooks count always 0 (D-124-05) — populate `result.hooks.installed` (agent: build)
+- [x] T-1.14: Add spacing before Install Complete panel (D-124-06) (agent: build)
+- [x] T-1.15: Phase 1 verification — pytest installer + manual ai-eng install dry-run (agent: verify)
 
 ---
 
-### Phase 3 — State.db bootstrap + sub-002 closure
+### Phase 2 — Wave 2: Per-tool progress UX (D-124-03)
 
-**Gate**: state.db exists with 7 tables populated; NDJSON replay populates events table; 5 JSON files migrated; sidecar wired; 6 audit CLI verbs callable; audit_index redirected.
+**Gate**: tool installer phase + git-hooks phase emit per-tool events visible in CLI; throttled to 100ms.
 
-- [x] T-3.1: TDD-RED — failing test for lazy state_db.connect() bootstrap (agent: build)
-- [x] T-3.2: TDD-GREEN — implement lazy bootstrap in state_db.py (agent: build)
-- [x] T-3.3: Wire migration apply into ai-eng install pipeline (idempotent) (agent: build)
-- [x] T-3.4: Verify NDJSON replay populates events table (agent: verify)
-- [x] T-3.5: Verify 5 JSON files migrated to respective tables (agent: verify)
-- [x] T-3.6: Wire sidecar offload into runtime-guard.py for events 3KB+ (T-2.8) (agent: build)
-- [x] T-3.7: TDD-RED+GREEN — zstd seekable compress for closed NDJSON months (T-2.10) (agent: build)
-- [x] T-3.8: TDD-RED+GREEN — retention module 90d HOT cutoff (T-2.11) (agent: build)
-- [x] T-3.9: Implement 6 audit CLI verbs (retention apply, rotate, compress, verify-chain, health, vacuum) (T-2.12) (agent: build)
-- [x] T-3.10: Implement audit_index.py redirect to state.db (T-2.22) (agent: build)
-- [x] T-3.11: Phase 3 verification — full state.db smoke + integration test (agent: verify)
+- [ ] T-2.1: TDD-RED — failing test for per-tool progress callbacks in installer phase (agent: build)
+- [ ] T-2.2: TDD-GREEN — implement `tool_started/tool_finished` event emission in tool installer phase (agent: build)
+- [ ] T-2.3: Same for git-hooks phase (agent: build)
+- [ ] T-2.4: UI layer renders Rich Status spinner with current tool name; 100ms throttle (agent: build)
+- [ ] T-2.5: Phase 2 verification — manual ai-eng install on test project; visual confirm progress visible (agent: verify)
 
 ---
 
-### Phase 4 — OPA closure (parallel-ok with Phase 5)
+### Phase 3 — Wave 3: Doctor provisioning + OPA per-install + keys cleanup (D-124-07,08,11)
 
-**Gate**: 4 OPA closure tasks done; CI workflow with 90% coverage gate; doctor includes opa-health.
+**Gate**: fresh `ai-eng install` followed by `ai-eng doctor` returns 0 warnings for ownership-coverage + opa-bundle-load + opa-bundle-signature. Bundle + signature + private key all present at expected paths.
 
-- [x] T-4.1: Wire OPA into ai-eng risk accept (T-3.13) (agent: build)
-- [x] T-4.2: Integration golden tests for 3 policies via opa eval subprocess (T-3.14) (agent: build)
-- [x] T-4.3: CI workflow opa test --coverage 90% gate (T-3.17) (agent: build)
-- [x] T-4.4: /ai-governance skill update + ai-eng doctor opa-health (T-3.18) (agent: build)
-
----
-
-### Phase 5 — Engram third-party integration (parallel-ok with Phase 4)
-
-**Gate**: install prompt callable; OS+IDE detection works; engram setup invocation tested with mocked subprocess.
-
-- [x] T-5.1: TDD-RED — failing test for ai-eng install Engram prompt (agent: build)
-- [x] T-5.2: TDD-GREEN — implement _install_engram() with OS+IDE detection (agent: build)
-- [x] T-5.3: Add interactive prompt to install pipeline (agent: build)
-- [x] T-5.4: README + CLAUDE.md + AGENTS.md update for Engram install flow (agent: build)
-- [x] T-5.5: Phase 5 verification — install prompt tests + dry-run (agent: verify)
+- [ ] T-3.1: Seed default ownership map at install time (D-124-07) — invoke `default_ownership_map()` in state install phase (agent: build)
+- [ ] T-3.2: New `src/ai_engineering/installer/opa.py` — keygen + build + sign helpers (agent: build)
+- [ ] T-3.3: Add `.rego` policies + `.manifest` to install template `src/ai_engineering/templates/.ai-engineering/policies/` (agent: build)
+- [ ] T-3.4: Wire OPA bundle generation into governance install phase (D-124-08) (agent: build)
+- [ ] T-3.5: Add `--rotate-opa-keys` flag to `ai-eng install` for keypair regeneration (agent: build)
+- [ ] T-3.6: Trace + identify origin of `keys/opa-bundle-signing-dev.pub.pem` (D-124-11) (agent: verify)
+- [ ] T-3.7: Clean up source repo keys/ artifact (delete or document install-output-only path) (agent: build)
+- [ ] T-3.8: Tests for opa.py (mock subprocess) (agent: build)
+- [ ] T-3.9: Phase 3 verification — fresh install + doctor 0 warnings (agent: verify)
 
 ---
 
-### Phase 6 — specs/ canonical structure migration
+### Phase 4 — Wave 4: Secrets-gate visibility + docs (D-124-09,10,13)
 
-**Gate**: specs/ contains exactly {spec.md, plan.md, _history.md}; CI guard test passes; no broken skill citations.
+**Gate**: ai-eng doctor surfaces secrets-gate probe; CONSTITUTION + README documents gate; semgrep-update-model.md present.
 
-- [x] T-6.1: Migrate cited paths in skill bodies (decision-store query OR git-log fallback) (agent: build)
-- [x] T-6.2: Delete all numbered archive specs (~50 files) (agent: build)
-- [x] T-6.3: Delete all numbered plan archives (~16 files) (agent: build)
-- [x] T-6.4: Delete spec-117 supporting + exploration companions (~17 files) (agent: build)
-- [x] T-6.5: Delete progress dirs (spec-119-progress, spec-120-progress) (agent: build)
-- [x] T-6.6: Delete dead work-plane artifacts (task-ledger.json, current-summary.md, history-summary.md, handoffs/, evidence/, context-packs/) (agent: build)
-- [x] T-6.7: Move autopilot transient state to .ai-engineering/state/runtime/autopilot/ gitignored (agent: build)
-- [x] T-6.8: Update HX-02 work_plane.py resolver to drop dead artifacts (agent: build)
-- [x] T-6.9: New CI guard tests/unit/specs/test_canonical_structure.py (agent: build)
+- [ ] T-4.1: New `src/ai_engineering/doctor/runtime/secrets_gate.py` probe (D-124-09) — 7 checks (agent: build)
+- [ ] T-4.2: Register secrets_gate in doctor runtime modules list (agent: build)
+- [ ] T-4.3: Tests for secrets_gate probe (agent: build)
+- [ ] T-4.4: CONSTITUTION.md documentation block on secrets-gate (D-124-10) (agent: build)
+- [ ] T-4.5: README.md install section secrets-gate paragraph (agent: build)
+- [ ] T-4.6: New `.ai-engineering/contexts/semgrep-update-model.md` (D-124-13) (agent: build)
+- [ ] T-4.7: Phase 4 verification — doctor shows secrets-gate; CONSTITUTION links to context doc (agent: verify)
 
 ---
 
-### Phase 7 — CONSTITUTION article + autopilot bug fix + doc drift
+### Phase 5 — Wave 5: state/ JSON cleanup + canonical guard (D-124-12)
 
-**Gate**: CONSTITUTION article landed; autopilot phase-deliver verified; ai-implement scrub clean.
+**Gate**: state/ contains only canonical entries; CI guard test passes; consumers read from state.db.
 
-- [x] T-7.1: Add Article XIII "Active Spec Workflow Contract" to CONSTITUTION.md (agent: build)
-- [x] T-7.2: Fix autopilot phase-deliver.md cleanup execution + verification gate (D-123-27) (agent: build)
-- [x] T-7.3: Scrub remaining ai-implement references repo-wide (D-123-28) (agent: build)
-- [x] T-7.4: New CI guard tests/unit/specs/test_active_workflow_compliance.py (agent: build)
-
----
-
-### Phase 8 — Quality convergence + final verification
-
-**Gate**: all checks green; ready for /ai-pr.
-
-- [x] T-8.1: Full unit test suite (agent: verify)
-- [x] T-8.2: Integration tests (state, governance, sync, memory) (agent: verify)
-- [x] T-8.3: ruff format + lint baseline preserved (agent: verify)
-- [x] T-8.4: gitleaks (agent: verify)
-- [x] T-8.5: Hot-path SLO p95 < 1s (agent: verify)
-- [x] T-8.6: ai-eng spec verify --all + ai-eng doctor (agent: verify)
-- [x] T-8.7: ai-eng audit health + verify-chain (agent: verify)
-- [x] T-8.8: governance pre-pr review (agent: guard)
-- [x] T-8.9: spec compliance pre-pr (agent: guard)
-- [x] T-8.10: spec-folder compliance check (3 files only) (agent: guard)
+- [ ] T-5.1: Pre-deletion grep — find all consumers of the 5 JSON files (agent: verify)
+- [ ] T-5.2: Migrate any laggard consumers to state.db.read_* helpers (agent: build)
+- [ ] T-5.3: Delete 5 JSON files (agent: build)
+- [ ] T-5.4: Add startup migration assertion (warn if file present + suggest ai-eng audit migrate-fallback) (agent: build)
+- [ ] T-5.5: New `tests/unit/specs/test_state_canonical.py` CI guard (agent: build)
+- [ ] T-5.6: Phase 5 verification — state/ correct, CI guard passes (agent: verify)
 
 ---
 
-### Phase 9 — Deliver via /ai-pr (out of /ai-plan scope)
+### Phase 6 — Wave 6: Quality convergence + PR
 
-User invokes /ai-pr after Phase 8 gate.
+**Gate**: all green; ready for PR update.
+
+- [ ] T-6.1: Full unit test suite (agent: verify)
+- [ ] T-6.2: Integration tests (agent: verify)
+- [ ] T-6.3: ruff format + lint baseline preserved (agent: verify)
+- [ ] T-6.4: gitleaks (agent: verify)
+- [ ] T-6.5: Hot-path SLO (agent: verify)
+- [ ] T-6.6: ai-eng spec verify --all + ai-eng doctor (agent: verify)
+- [ ] T-6.7: governance pre-pr review (agent: guard)
+- [ ] T-6.8: spec compliance pre-pr (agent: guard)
+- [ ] T-6.9: Update PR #505 with spec-124 commits OR open new PR (agent: guard)
 
 ---
 
@@ -146,48 +111,38 @@ User invokes /ai-pr after Phase 8 gate.
 
 | Phase | Tasks | build | verify | guard |
 |-------|-------|-------|--------|-------|
-| 1 Workspace-charter | 8 | 6 | 2 | 0 |
-| 2 Memory nuke | 7 | 5 | 2 | 0 |
-| 3 State.db bootstrap | 11 | 9 | 2 | 0 |
-| 4 OPA closure | 4 | 4 | 0 | 0 |
-| 5 Engram integration | 5 | 4 | 1 | 0 |
-| 6 Specs/ canonical | 9 | 8 | 1 | 0 |
-| 7 CONSTITUTION + autopilot fix + drift | 4 | 4 | 0 | 0 |
-| 8 Quality convergence | 10 | 0 | 7 | 3 |
-| **Total** | **58** | **40** | **15** | **3** |
+| 1 IDE rename + UX bugs | 15 | 13 | 2 | 0 |
+| 2 Per-tool progress | 5 | 4 | 1 | 0 |
+| 3 Doctor + OPA per-install | 9 | 6 | 3 | 0 |
+| 4 Secrets-gate + docs | 7 | 6 | 1 | 0 |
+| 5 state/ cleanup | 6 | 4 | 2 | 0 |
+| 6 Quality convergence | 9 | 0 | 6 | 3 |
+| **Total** | **51** | **33** | **15** | **3** |
+
+(Updated: 51 tasks vs initial 38 estimate — Phase 1 expanded with explicit IDE rename steps.)
 
 ## Critical path
 
 ```
-Phase 1 paralelo Phase 2
+Phase 1 (IDE rename + UX bugs)
         |
-   Phase 3 (state.db)
+   Phase 2 (per-tool progress)
         |
-Phase 4 paralelo Phase 5
+Phase 3 (doctor provisioning + OPA per-install)
         |
-   Phase 6 (specs/ canonical - most blast)
+   Phase 4 (secrets-gate visibility + docs)
         |
-Phase 7 (CONSTITUTION + autopilot fix + drift)
+   Phase 5 (state/ JSON cleanup)
         |
-Phase 8 (quality convergence)
-        |
-Phase 9 (/ai-pr)
+   Phase 6 (quality + PR)
 ```
 
-## Estimated effort
-
-5-7 hours agent-execution-time. Wall-clock varies with autopilot truncation.
+Phase 1 + 2 chain because both touch installer UX surface. Phase 3..5 could parallelize but small enough to serialize for clean review.
 
 ## Recommended execution path
 
-`/ai-autopilot spec-123` matches autopilot threshold. Spec-122 lessons applied:
-- Per-task verification gates in agent prompts (ls, pytest specific, grep expected) survive truncation
-- Smaller waves: P1+P2 wave-1; P3 wave-2; P4+P5 wave-3; P6 wave-4; P7 wave-5; P8 wave-6
-- Phase 6 isolated wave because most-disruptive single phase
-- D-123-27 fixes autopilot phase-deliver bug during Phase 7
-
-Alternative: /ai-dispatch with manual checkpointing per phase.
+Same as spec-123: `/ai-autopilot` with per-task verification gates in agent prompts. Smaller waves than spec-122/123. Phase 6 = PR delivery (update PR #505 since same branch, or new PR if branch policy demands).
 
 ## STOP — Hard gate
 
-/ai-plan is planning-only. No implementation. User runs /ai-dispatch or /ai-autopilot to execute.
+`/ai-plan` is planning-only. Implementation runs via `/ai-autopilot` or `/ai-dispatch`.

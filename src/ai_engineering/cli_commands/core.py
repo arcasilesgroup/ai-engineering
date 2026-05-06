@@ -115,7 +115,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         typer.Option(
             "--provider",
             "-p",
-            help="AI providers to enable (e.g. claude_code, github_copilot).",
+            help="AI providers to enable (e.g. claude-code, github-copilot).",
         ),
     ] = None,
     non_interactive: Annotated[
@@ -244,16 +244,9 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
 
     _render_install_detection_if_needed(resolved_vcs, resolved_providers)
 
-    # spec-101 Compat-2 (Wave 27): emit the one-shot BREAKING banner BEFORE
-    # the prereq gates so a first-upgrade run hitting EXIT 81 still gets
-    # the banner explaining the new EXIT 80 / EXIT 81 contract. The
-    # banner_seen flag (persisted to install-state.json) prevents
-    # double-emission on subsequent runs.
-    from ai_engineering.installer.phases.pipeline import (
-        emit_breaking_banner_for_target,
-    )
+    # spec-124 D-124-02: removed one-shot "What's new" banner. Install
+    # pipeline starts directly with the prereq gates and phase output.
 
-    emit_breaking_banner_for_target(root)
     _check_install_prerequisites(root, resolved_stacks)
 
     result, summary = _run_install_pipeline(
@@ -363,7 +356,7 @@ def _emit_install_dry_run_plan(
     detected = _detect_all(root)
     resolved_vcs = vcs or detected.vcs
     resolved_providers = (
-        _resolve_ai_providers(providers) if providers else (detected.providers or ["claude_code"])
+        _resolve_ai_providers(providers) if providers else (detected.providers or ["claude-code"])
     )
     _result, summary = install_with_pipeline(
         root,
@@ -474,7 +467,7 @@ def _resolve_reinstall_configuration(
     config = load_manifest_config(root)
     return (
         overrides.get("stacks", config.providers.stacks or ["python"]),
-        overrides.get("providers", config.ai_providers.enabled or ["claude_code"]),
+        overrides.get("providers", config.ai_providers.enabled or ["claude-code"]),
         overrides.get("ides", config.providers.ides or ["terminal"]),
         overrides.get("vcs", config.providers.vcs),
     )
@@ -488,7 +481,7 @@ def _resolve_first_install_configuration(
     if overrides or is_json_mode() or not sys.stdin.isatty():
         return (
             overrides.get("stacks", detected.stacks or ["python"]),
-            overrides.get("providers", detected.providers or ["claude_code"]),
+            overrides.get("providers", detected.providers or ["claude-code"]),
             overrides.get("ides", detected.ides or ["terminal"]),
             overrides.get("vcs", detected.vcs),
         )
@@ -625,14 +618,19 @@ _PHASE_LABELS_PRETTY = {
 
 
 def _render_install_phase_progress(message: str, *, tracker: Any) -> None:
-    """Translate pipeline progress phase names into human labels."""
+    """Translate pipeline progress phase names into human labels.
+
+    spec-124 D-124-04: StepTracker adds its own ``[N/M]`` prefix, so
+    strip the incoming prefix from the pipeline notifier to avoid
+    duplicate ``[5/6] [5/6] Installing required tools`` rendering.
+    """
     try:
-        prefix, name = message.split(" ", 1)
+        _prefix, name = message.split(" ", 1)
     except ValueError:
         tracker.step(message)
         return
     label = _PHASE_LABELS_PRETTY.get(name.strip(), name.strip())
-    tracker.step(f"{prefix} {label}")
+    tracker.step(label)
 
 
 def _emit_noninteractive_skipped_tools(summary: Any, *, non_interactive: bool) -> None:
@@ -867,6 +865,8 @@ def _render_install_success_human(
         "Open your AI assistant (Claude Code / Copilot / Codex / Gemini) "
         "and run /ai-start to begin the first governed session."
     )
+    # spec-124 D-124-06: visual breathing room before the Install Complete panel
+    typer.echo("")
     _render_install_summary_panel(result)
     if result.guide_text:
         typer.echo("")
@@ -1123,9 +1123,14 @@ def _copy_plan_action_source(action: Any, dest: Path, template_roots: list[Path]
 
 
 _PROVIDER_ALIASES: dict[str, str] = {
-    "claude": "claude_code",
-    "copilot": "github_copilot",
-    "gemini": "gemini",
+    "claude": "claude-code",
+    "claude_code": "claude-code",
+    "claude-code": "claude-code",
+    "copilot": "github-copilot",
+    "github_copilot": "github-copilot",
+    "github-copilot": "github-copilot",
+    "gemini": "gemini-cli",
+    "gemini-cli": "gemini-cli",
     "codex": "codex",
 }
 
@@ -1143,7 +1148,7 @@ def _resolve_ai_providers(providers: list[str] | None) -> list[str]:
     """
     if providers:
         return [_PROVIDER_ALIASES.get(p, p) for p in providers]
-    return ["claude_code"]
+    return ["claude-code"]
 
 
 def update_cmd(

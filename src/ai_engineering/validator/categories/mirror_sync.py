@@ -1043,9 +1043,9 @@ def _check_instruction_parity(  # audit:exempt:pre-existing-debt-out-of-spec-114
             )
 
     # Determine which instruction files to check for parity
-    has_claude = "claude_code" in enabled
-    # Providers that use AGENTS.md: github_copilot, gemini, codex
-    has_agents_provider = bool(enabled & {"github_copilot", "gemini", "codex"})
+    has_claude = "claude-code" in enabled
+    # Providers that use AGENTS.md: github-copilot, gemini-cli, codex
+    has_agents_provider = bool(enabled & {"github-copilot", "gemini-cli", "codex"})
 
     claude_md = target / "CLAUDE.md"
     agents_md = target / "AGENTS.md"
