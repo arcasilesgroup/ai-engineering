@@ -40,6 +40,8 @@ from __future__ import annotations
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 from ai_engineering.state.models import GateFindingsDocument
 
 _LOCAL_REGULATED_REGISTRATION: tuple[str, ...] = (
@@ -103,13 +105,21 @@ def test_kernel_contract_local_registration_matches_regulated_mode(tmp_path: Pat
     )
 
 
-def test_kernel_contract_feature_branch_honors_prototyping_registration(tmp_path: Path) -> None:
+def test_kernel_contract_feature_branch_honors_prototyping_registration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Feature-branch prototyping must drop Tier 2 local registration.
 
     The Phase 2 kernel contract must make the resolved mode and resulting local
     registration explicit in one place; otherwise check registration and mode
     resolution continue to drift independently.
     """
+    # CI sentinels (CI / GITHUB_ACTIONS / TF_BUILD) escalate to regulated
+    # before the manifest mode is consulted (D-105-03 trigger 1). Clear them
+    # so the test exercises the manifest-honoring path on hosted CI runners.
+    for sentinel in ("CI", "GITHUB_ACTIONS", "TF_BUILD", "AIENG_PUSH_TARGET_REF"):
+        monkeypatch.delenv(sentinel, raising=False)
+
     _seed_manifest(tmp_path, declared_mode="prototyping")
 
     with mock.patch("subprocess.check_output", return_value="feature/hx04\n"):

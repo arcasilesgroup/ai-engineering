@@ -374,11 +374,19 @@ def _is_reinstall(root: Path) -> bool:
     """Return whether the target already has install state.
 
     Spec-125: install_state lives in state.db. The presence of state.db
-    plus a populated singleton row is the new reinstall signal. Falls
-    back to ``False`` when state.db is missing or unreadable so first
-    install flows continue to work.
+    plus a populated singleton row is the new reinstall signal. A
+    legacy ``install-state.json`` on disk also counts as an existing
+    install (pre-spec-125 deployments) so the reinstall preview path
+    still fires for upgrade scenarios. Falls back to ``False`` when
+    nothing on disk indicates a previous install.
     """
-    db_path = root / ".ai-engineering" / "state" / "state.db"
+    state_dir = root / ".ai-engineering" / "state"
+    db_path = state_dir / "state.db"
+    legacy_json = state_dir / "install-state.json"
+
+    if legacy_json.exists():
+        return True
+
     if not db_path.is_file():
         return False
     import sqlite3

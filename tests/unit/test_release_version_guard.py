@@ -153,6 +153,13 @@ def test_main_reads_pr_context_and_passes(monkeypatch: pytest.MonkeyPatch, tmp_p
 
 
 def test_main_fails_when_pull_request_context_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
+    # CI runners expose GITHUB_BASE_REF / GITHUB_EVENT_NAME / GITHUB_HEAD_REF
+    # via the workflow runtime; argparse defaults consult ``os.getenv`` so
+    # the missing-context guard would silently use those values. Clear them
+    # to exercise the truly-empty branch.
+    for env_var in ("GITHUB_BASE_REF", "GITHUB_HEAD_REF", "GITHUB_EVENT_NAME"):
+        monkeypatch.delenv(env_var, raising=False)
+
     monkeypatch.setattr(
         sys,
         "argv",
