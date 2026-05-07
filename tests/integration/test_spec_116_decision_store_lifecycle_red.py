@@ -1,14 +1,31 @@
-"""RED lifecycle invariants for spec-116 decision-store normalization."""
+"""RED lifecycle invariants for spec-116 decision-store normalization.
+
+Spec-125 D-125-09 deleted the canonical ``decision-store.json`` file and
+moved the projection into the state.db ``decisions`` table; the JSON
+shape these RED tests pin no longer exists on disk. The whole module
+is skipped when the artifact is missing so the lifecycle invariants
+remain auditable in branches that still carry the legacy file but
+don't break CI on the modern surface.
+"""
 
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.state.control_plane import resolve_state_plane_artifact_path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DECISION_STORE_PATH = REPO_ROOT / ".ai-engineering" / "state" / "decision-store.json"
+
+if not DECISION_STORE_PATH.exists():
+    pytest.skip(
+        "decision-store.json removed in spec-125 D-125-09; lifecycle "
+        "invariants migrated to state.db.decisions queries.",
+        allow_module_level=True,
+    )
 LEGACY_AUDIT_FINDINGS_PATH = (
     REPO_ROOT / ".ai-engineering" / "state" / "spec-116-t41-audit-findings.json"
 )

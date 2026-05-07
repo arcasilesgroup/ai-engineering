@@ -23,7 +23,8 @@ def check_branch_protection(project_root: Path, result: GateResult) -> None:
 
     from ai_engineering.governance import opa_runner
 
-    if branch and opa_runner.available():
+    bundle_dir = project_root / opa_runner.DEFAULT_BUNDLE_PATH
+    if branch and opa_runner.available() and bundle_dir.is_dir():
         from ai_engineering.policy.checks.opa_gate import evaluate_deny
 
         decision = evaluate_deny(
