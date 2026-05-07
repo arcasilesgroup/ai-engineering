@@ -89,7 +89,12 @@ def validate_commit_message_opa(
     from ai_engineering.governance import opa_runner
     from ai_engineering.policy.checks.opa_gate import evaluate_deny
 
-    if not opa_runner.available():
+    bundle_dir = project_root / opa_runner.DEFAULT_BUNDLE_PATH
+    if not opa_runner.available() or not bundle_dir.is_dir():
+        # OPA binary missing OR the policy bundle is not present at the
+        # caller's project root — fall back to the in-process regex so
+        # tests / out-of-tree contexts still validate. Prevents a noisy
+        # "bundle not found" OpaError from masquerading as a real deny.
         if not _CONVENTIONAL_RE.match(first_line):
             errors.append(_format_error(first_line))
         return errors
