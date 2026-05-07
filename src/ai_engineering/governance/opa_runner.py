@@ -290,6 +290,11 @@ def _extract_deny_messages(value: Any) -> list[str]:
         return []
     if isinstance(value, list):
         return [str(item) for item in value if item is not None]
+    if isinstance(value, dict):
+        # Legacy ``deny["msg"]`` (and ``deny["msg"] if ...``) assigns
+        # produce a set-as-object shape ``{"msg": true, ...}``. The
+        # message is the key, not the value.
+        return [str(key) for key in value if key is not None]
     return [str(value)]
 
 

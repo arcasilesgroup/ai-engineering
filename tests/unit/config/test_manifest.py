@@ -274,7 +274,8 @@ class TestSkills:
         # the legacy /ai-eval-gate skill that duplicated /ai-release-gate.
         # spec-123 (D-123-08/10): 51 -> 49 after deleting the memory
         # subsystem skills /ai-remember and /ai-dream.
-        assert config.skills.total == len(config.skills.registry) == 49
+        # spec-119 (registered post-squash): 49 -> 50 with /ai-eval skill.
+        assert config.skills.total == len(config.skills.registry) == 50
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
