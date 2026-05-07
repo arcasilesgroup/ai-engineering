@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-05-07T15:33:37Z",
-  "hookCount": 67,
+  "generatedAt": "2026-05-07T17:28:22Z",
+  "hookCount": 70,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "ef4a571b410d6e7a0392bab1864c7cb382785ec6b4a0f9ff8a63ebc92c2bf1a6",
@@ -52,6 +52,8 @@
     ".ai-engineering/scripts/hooks/copilot-session-start.sh": "8ffc4b65e4d92e704bffc4f635f7769e3c14972dbaabc73042aad3e4c037825e",
     ".ai-engineering/scripts/hooks/copilot-skill.ps1": "0e91a3003506bc96facda0a51f04655733b157ee7ac64a52edd9b31ce8c50117",
     ".ai-engineering/scripts/hooks/copilot-skill.sh": "2f40280962e2ec50025157b1916becfc730588a910cb46bfe4cac6e6fbb5afce",
+    ".ai-engineering/scripts/hooks/copilot-strategic-compact.ps1": "2ab31e5b2847cf09d29bbb1e270abb5909a498462717c4cc2a8576dad62a49b1",
+    ".ai-engineering/scripts/hooks/copilot-strategic-compact.sh": "387235c2057cb4c159005b4d33503cf4ac016e5ea2ff5a8f0f1feede444dca44",
     ".ai-engineering/scripts/hooks/gemini-hook-bridge.py": "a45f7eb3836b3d8d60dbeeb10a57e854999a69d30878431c2d45eb69736f1308",
     ".ai-engineering/scripts/hooks/instinct-extract.py": "9f6b6829f85a8b16154b47b529212b0fae55f8e352ae8a306f184c00d62b78e2",
     ".ai-engineering/scripts/hooks/instinct-observe.py": "f974cfde95605cea0955c00b3ae60652ae7f50f34a4d61c64a4cd2cfa30f19c4",
@@ -68,6 +70,7 @@
     ".ai-engineering/scripts/hooks/runtime-session-start.py": "2f8d497f55a031f2df7e6a36c30fcf95a129c9dab127cc447eab83d2fbe3b90f",
     ".ai-engineering/scripts/hooks/runtime-stop.py": "a14c4e252516b4ad5f1475949c5c0c60239c53b9172b28da3c56453b347768c3",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "e1bda43b4f2a24df679c8f0ac7743a9a61e005151e824e2e79ffda92b04c743f",
+    ".ai-engineering/scripts/hooks/strategic-compact.py": "428582f228cea31d5b512d49be3f5e0970ba621bb5d4a3f22edb8afb08ae42aa",
     ".ai-engineering/scripts/hooks/telemetry-skill.py": "a19e61f51cf05d1434cee6b638097ac50c764c84c03e43e3c4070de6feb8ae0f"
   },
   "schemaVersion": "1.0"
