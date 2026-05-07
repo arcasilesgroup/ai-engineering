@@ -13,7 +13,10 @@ Covers:
 from __future__ import annotations
 
 import json
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -26,8 +29,27 @@ from ai_engineering.commands.workflows import (
     run_pr_workflow,
 )
 from ai_engineering.installer.service import install
-from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
+from ai_engineering.state.models import GateFindingsDocument
 from ai_engineering.vcs.protocol import VcsResult
+
+
+def _kernel_gate_document() -> GateFindingsDocument:
+    return GateFindingsDocument.model_validate(
+        {
+            "schema": "ai-engineering/gate-findings/v1",
+            "session_id": str(uuid.uuid4()),
+            "produced_by": "ai-pr",
+            "produced_at": datetime.now(UTC).isoformat(),
+            "branch": "feature/test",
+            "commit_sha": "0" * 40,
+            "findings": [],
+            "auto_fixed": [],
+            "cache_hits": [],
+            "cache_misses": [],
+            "wall_clock_ms": {"wave1_fixers": 10, "wave2_checkers": 20, "total": 30},
+        }
+    )
+
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -262,13 +284,14 @@ class TestPRWorkflow:
         self,
         git_project: Path,
     ) -> None:
-        gate_result = GateResult(hook=GateHook.PRE_PUSH)
-        gate_result.checks = [
-            GateCheckResult(name="semgrep", passed=True, output="ok"),
-            GateCheckResult(name="pip-audit", passed=True, output="ok"),
-            GateCheckResult(name="stack-tests", passed=True, output="ok"),
-            GateCheckResult(name="ty-check", passed=True, output="ok"),
-        ]
+        kernel_document = _kernel_gate_document()
+        kernel_registration = (
+            "gitleaks",
+            "ruff",
+            "ty",
+            "pytest-smoke",
+            "validate",
+        )
         mock_provider = type(
             "MockProvider",
             (),
@@ -288,7 +311,19 @@ class TestPRWorkflow:
             ),
             patch(
                 "ai_engineering.commands.workflows.run_gate",
-                return_value=gate_result,
+                side_effect=AssertionError(
+                    "legacy gate engine must not be used by workflow pre-push checks"
+                ),
+                create=True,
+            ),
+            patch(
+                "ai_engineering.commands.workflows.run_orchestrator_pre_push_gate",
+                return_value=kernel_document,
+                create=True,
+            ) as kernel_run,
+            patch(
+                "ai_engineering.commands.workflows.orchestrator_module.resolve_kernel_contract",
+                return_value=SimpleNamespace(check_registration=kernel_registration),
             ),
             patch(
                 "ai_engineering.commands.workflows.get_provider",
@@ -299,12 +334,11 @@ class TestPRWorkflow:
 
         step_names = [s.name for s in result.steps]
         assert "check-existing-pr" in step_names
-        assert "semgrep" in step_names
-        assert "pip-audit" in step_names
-        assert "stack-tests" in step_names
-        assert "ty-check" in step_names
+        for check_name in kernel_registration:
+            assert check_name in step_names
         assert "create-pr" in step_names
         assert "auto-complete" in step_names
+        assert kernel_run.call_count == 1
         assert result.passed is True
 
     def test_pr_workflow_stops_on_commit_failure(

@@ -10,6 +10,10 @@ handoffs:
   agent: Build
   prompt: Fix the issues identified in the review above.
   send: true
+mirror_family: copilot-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-review.md
+edit_policy: generated-do-not-edit
 ---
 
 

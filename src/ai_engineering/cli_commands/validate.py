@@ -19,6 +19,7 @@ from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_progress import spinner
 from ai_engineering.cli_ui import kv, result_header, status_line, suggest_next
 from ai_engineering.paths import resolve_project_root
+from ai_engineering.state.locking import artifact_lock
 from ai_engineering.validator.service import (
     IntegrityCategory,
     validate_content_integrity,
@@ -26,6 +27,13 @@ from ai_engineering.validator.service import (
 
 # Map CLI-friendly names to enum values
 _CATEGORY_NAMES: dict[str, IntegrityCategory] = {cat.value: cat for cat in IntegrityCategory}
+
+
+def _validation_lock(project_root: Path, categories: list[IntegrityCategory] | None):
+    """Serialize mirror-affecting validation with mirror sync adapters."""
+    if categories is None or IntegrityCategory.MIRROR_SYNC in categories:
+        return artifact_lock(project_root, "mirror-sync")
+    return contextlib.nullcontext()
 
 
 def validate_cmd(
@@ -64,7 +72,7 @@ def validate_cmd(
         categories = [_CATEGORY_NAMES[category]]
 
     t0 = _time.monotonic()
-    with spinner("Validating content integrity..."):
+    with _validation_lock(root, categories), spinner("Validating content integrity..."):
         report = validate_content_integrity(root, categories=categories)
     elapsed_ms = int((_time.monotonic() - t0) * 1000)
 

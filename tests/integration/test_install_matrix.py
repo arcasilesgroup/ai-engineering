@@ -10,8 +10,8 @@ from ai_engineering.installer.service import install
 
 # Matrix: (providers, vcs, expected_files)
 _SINGLE_PROVIDER_CASES = [
-    (["claude_code"], "github", ["CLAUDE.md", ".claude"]),
-    (["claude_code"], "azure_devops", ["CLAUDE.md", ".claude"]),
+    (["claude-code"], "github", ["CLAUDE.md", ".claude"]),
+    (["claude-code"], "azure_devops", ["CLAUDE.md", ".claude"]),
     (["github_copilot"], "github", ["AGENTS.md", ".github/copilot-instructions.md"]),
     (
         ["github_copilot"],
@@ -26,12 +26,12 @@ _SINGLE_PROVIDER_CASES = [
 
 _MULTI_PROVIDER_CASES = [
     (
-        ["claude_code", "github_copilot"],
+        ["claude-code", "github_copilot"],
         "github",
         ["CLAUDE.md", "AGENTS.md", ".claude", ".github/copilot-instructions.md"],
     ),
     (
-        ["claude_code", "gemini"],
+        ["claude-code", "gemini"],
         "github",
         ["CLAUDE.md", "GEMINI.md", ".claude", ".gemini"],
     ),

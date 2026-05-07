@@ -54,8 +54,9 @@ After the dispatched agent completes, run two-stage review on the deliverable BE
 - No new lint warnings introduced
 - Test coverage maintained or improved
 - No governance advisory warnings from `ai-guard`
+- Lint findings emitted as structured envelopes per `.ai-engineering/schemas/lint-violation.schema.json` (spec-119 D-119-05) -- prose violation labels are deprecated.
 
-If either stage fails: dispatch a fix attempt and re-review. Max 2 retries per stage. After 2 failed retries, mark task BLOCKED and STOP execution -- never loop silently, never retry the same approach more than twice.
+If any stage fails: dispatch a fix attempt and re-review. Max 2 retries per stage. After 2 failed retries, mark task BLOCKED and STOP execution -- never loop silently, never retry the same approach more than twice.
 
 Task statuses (all consumers honor the same vocabulary):
 
@@ -75,7 +76,7 @@ Each task contributes artifacts that the next phase or consumer-specific quality
 - **Code changes** -- staged in working tree, batched by consumer (per-task for dispatch, per-wave for autopilot, per-item for run).
 - **Self-Report** -- the agent writes a real/aspirational/stub/failing/invented/hallucinated classification for what it produced. Stored alongside the task deliverable (e.g., `sub-NNN/plan.md` for autopilot, `items/<id>/plan.md` for run, inline checkbox notes for dispatch).
 - **Telemetry events** -- emitted via the hook system at phase transitions (e.g., `subspec_complete`, `quality_round`, `subspec_failed`). Never recorded only in agent memory.
-- **Progress** -- update `plan.md` checkboxes in real time so the user can see current state at a glance:
+- **Progress** -- update `plan.md` checkboxes in real time so the user can see current state at a glance. The moment a task reaches a terminal state (`DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`), write that status to disk before dispatching the next task. Never batch checkbox/status updates at phase end, quality time, or only after the whole spec finishes:
 
 ```markdown
 - [x] T-1.1: Create config module @ai-build -- DONE
@@ -90,7 +91,7 @@ Artifacts persist to disk so any phase can be audited post-hoc and so `--resume`
 
 ## Sub-flow 4: Board sync
 
-For each work-item reference in `specs/spec.md` frontmatter `refs` whose hierarchy rule is NOT `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync` with the appropriate state transition (`in_progress` at task start, terminal state at task close).
+For each work-item reference in `.ai-engineering/specs/spec.md` frontmatter `refs` whose hierarchy rule is NOT `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync` with the appropriate state transition (`in_progress` at task start, terminal state at task close).
 
 Board sync is **fail-open**: do NOT block execution if the provider is unreachable, the credential is missing, or the work item type is read-only at the configured hierarchy. Log a warning and continue. Delivery and governance gates remain fail-closed; only board sync is fail-open.
 

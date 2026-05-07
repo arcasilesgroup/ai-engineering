@@ -329,13 +329,36 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     decision_app.command("record")(_safe(decisions_cmd.decision_record))
     app.add_typer(decision_app, name="decision")
 
-    # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier)
+    # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier;
+    # spec-120 Phase B: SQLite-backed audit index, query, token rollups)
     audit_app = typer.Typer(
         name="audit",
-        help="Verify the hash-chained audit trail over events and decisions.",
+        help=(
+            "Verify the hash-chained audit trail and query the SQLite "
+            "projection of framework-events.ndjson."
+        ),
         no_args_is_help=True,
     )
     audit_app.command("verify")(_safe(audit_cmd.audit_verify))
+    audit_app.command("index")(_safe(audit_cmd.audit_index))
+    audit_app.command("query")(_safe(audit_cmd.audit_query))
+    audit_app.command("tokens")(_safe(audit_cmd.audit_tokens))
+    audit_app.command("replay")(_safe(audit_cmd.audit_replay))
+    audit_app.command("otel-export")(_safe(audit_cmd.audit_otel_export))
+    # spec-125 T-3.8: rotate/compress/verify-chain removed with archive plane.
+    # The single immutable append-only `framework-events.ndjson` is the only
+    # ledger; chain integrity is covered by `audit verify`.
+    audit_app.command("health")(_safe(audit_cmd.audit_health))
+    audit_app.command("vacuum")(_safe(audit_cmd.audit_vacuum))
+    # ``retention apply`` lives under a nested sub-Typer so the surface is
+    # ``ai-eng audit retention apply``.
+    retention_app = typer.Typer(
+        name="retention",
+        help="Apply HOT/WARM/COLD retention windows on state.db + archives.",
+        no_args_is_help=True,
+    )
+    retention_app.command("apply")(_safe(audit_cmd.audit_retention_apply))
+    audit_app.add_typer(retention_app, name="retention")
     app.add_typer(audit_app, name="audit")
 
     # Risk sub-group (spec-105: risk acceptance lifecycle CLI namespace)
@@ -359,6 +382,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         help="Spec lifecycle: verify counters, list current spec.",
         no_args_is_help=True,
     )
+    spec_app.command("activate")(_safe(spec_cmd.spec_activate))
     spec_app.command("verify")(_safe(spec_cmd.spec_verify))
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     app.add_typer(spec_app, name="spec")

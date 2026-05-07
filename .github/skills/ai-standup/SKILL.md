@@ -4,6 +4,10 @@ description: Use when generating standup notes, daily status updates, or recent-
 effort: medium
 argument-hint: "--days N|--author <name>"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-standup/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -44,7 +48,7 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 2. **Collect activity** -- use the commands from `.ai-engineering/contexts/gather-activity-data.md` to scan:
    a. Local commits (git log with author filter)
    b. PRs (provider-specific query)
-   c. Active spec tasks from `.ai-engineering/specs/spec.md` and `specs/plan.md` -- current work
+   c. Active spec tasks from `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` -- current work
 
 3. **Classify items** into three groups:
 

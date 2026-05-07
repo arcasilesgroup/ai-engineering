@@ -82,7 +82,7 @@ jobs:
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: .ai-engineering/state/gate-cache/
+          path: .ai-engineering/cache/gate/
           key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
           restore-keys: |
             gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
@@ -109,6 +109,24 @@ jobs:
         run: uv sync --dev
       - name: Check code duplication
         run: uv run python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3
+
+  opa-policies:
+    name: OPA Policy Tests & Coverage
+    needs: [change-scope]
+    if: needs.change-scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: open-policy-agent/setup-opa@b2b258e089860efaadaaf71bf6e3aecb4a3eeff1 # v2.4.0
+        with:
+          version: v1.16.1
+      - name: opa fmt --diff
+        run: opa fmt --diff .ai-engineering/policies/
+      - name: opa test (verbose)
+        run: opa test --verbose .ai-engineering/policies/
+      - name: opa test --coverage (≥90% gate)
+        run: python3 scripts/check_opa_coverage.py --threshold 90
 
   risk-acceptance:
     name: Risk Acceptance Check
@@ -140,7 +158,7 @@ jobs:
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: .ai-engineering/state/gate-cache/
+          path: .ai-engineering/cache/gate/
           key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
           restore-keys: |
             gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
@@ -174,7 +192,7 @@ jobs:
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: .ai-engineering/state/gate-cache/
+          path: .ai-engineering/cache/gate/
           key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
           restore-keys: |
             gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
@@ -261,7 +279,7 @@ jobs:
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
-          path: .ai-engineering/state/gate-cache/
+          path: .ai-engineering/cache/gate/
           key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
           restore-keys: |
             gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
@@ -559,7 +577,21 @@ jobs:
         run: |
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
       - name: gitleaks
-        run: gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
+        # Article XII §4: scope to the PR's commits, not full repo history.
+        # Historical fakes in deleted docs (pre-spec-126) would otherwise
+        # always block the gate. Tracked as a follow-up: spec for
+        # git-filter-repo scrub OR migrate to `ai-eng gate pre-commit`.
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ] && [ -n "${{ github.event.pull_request.head.sha }}" ]; then
+            gitleaks detect \
+              --source . \
+              --config .gitleaks.toml \
+              --no-banner \
+              --redact \
+              --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
+          fi
       - name: pip-audit
         run: uv run python -m ai_engineering.verify.tls_pip_audit
       - name: Install semgrep
@@ -591,11 +623,19 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
         with:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --dev
+      - name: Guard governed version surfaces
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_BASE_REF: ${{ github.base_ref }}
+        run: uv run python -m ai_engineering.policy.release_version_guard
       - name: Validate content integrity
         run: uv run ai-eng validate
       - name: Governance consistency
@@ -681,6 +721,7 @@ jobs:
         change-scope,
         lint,
         duplication,
+        opa-policies,
         risk-acceptance,
         typecheck,
         test-unit,
@@ -716,6 +757,7 @@ jobs:
           code_conditional=(
             "lint:${{ needs.lint.result }}"
             "duplication:${{ needs.duplication.result }}"
+            "opa-policies:${{ needs.opa-policies.result }}"
             "risk-acceptance:${{ needs.risk-acceptance.result }}"
             "typecheck:${{ needs.typecheck.result }}"
             "test-unit:${{ needs.test-unit.result }}"

@@ -2,8 +2,9 @@
 
 The ``update()`` function should respect ``ai_providers.enabled`` from
 ``manifest.yml`` and only produce changes for the configured providers.
-When no manifest exists, all providers are included as a backward-compatible
-fallback.
+When the governed manifest is absent, updater initialization must preserve
+the historical all-provider compatibility fallback so partial installs can
+migrate forward.
 
 RED-phase tests -- expected to FAIL until ``_evaluate_project_files``
 reads the manifest and passes the enabled providers to
@@ -88,25 +89,25 @@ def _has_provider_paths(paths: set[str], prefixes: tuple[str, ...]) -> bool:
 
 @pytest.fixture()
 def claude_only_project(tmp_path: Path) -> Path:
-    """Install a project with only ``claude_code`` as AI provider."""
+    """Install a project with only ``claude-code`` as AI provider."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code"])
+    install(tmp_path, ai_providers=["claude-code"])
     return tmp_path
 
 
 @pytest.fixture()
 def claude_copilot_project(tmp_path: Path) -> Path:
-    """Install a project with ``claude_code`` and ``github_copilot``."""
+    """Install a project with ``claude-code`` and ``github-copilot``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code", "github_copilot"])
+    install(tmp_path, ai_providers=["claude-code", "github-copilot"])
     return tmp_path
 
 
 @pytest.fixture()
 def claude_gemini_project(tmp_path: Path) -> Path:
-    """Install a project with ``claude_code`` and ``gemini``."""
+    """Install a project with ``claude-code`` and ``gemini-cli``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code", "gemini"])
+    install(tmp_path, ai_providers=["claude-code", "gemini-cli"])
     return tmp_path
 
 
@@ -133,7 +134,7 @@ class TestUpdateProviderFiltering:
         self,
         claude_only_project: Path,
     ) -> None:
-        """T1: When only claude_code is enabled, update must not produce
+        """T1: When only claude-code is enabled, update must not produce
         changes for github_copilot, gemini, or codex paths.
         """
         result = update(claude_only_project, dry_run=True)
@@ -158,7 +159,7 @@ class TestUpdateProviderFiltering:
         self,
         claude_copilot_project: Path,
     ) -> None:
-        """T2: When claude_code + github_copilot are enabled, update must
+        """T2: When claude-code + github-copilot are enabled, update must
         include .claude/ and .github/ paths but NOT .codex/ or .gemini/.
         """
         result = update(claude_copilot_project, dry_run=True)
@@ -177,7 +178,7 @@ class TestUpdateProviderFiltering:
         self,
         claude_gemini_project: Path,
     ) -> None:
-        """T3: When claude_code + gemini are enabled, update must include
+        """T3: When claude-code + gemini-cli are enabled, update must include
         .claude/ and .gemini/ paths but NOT .github/ or .codex/.
         """
         result = update(claude_gemini_project, dry_run=True)
@@ -199,29 +200,28 @@ class TestUpdateProviderFiltering:
             f"{[p for p in paths if _has_provider_paths({p}, _CODEX_PREFIXES)]}"
         )
 
-    def test_update_no_manifest_falls_back_to_all_providers(
+    def test_update_no_manifest_uses_compatibility_provider_fallback(
         self,
         no_manifest_project: Path,
     ) -> None:
-        """T-R3: Without a manifest, update must fall back to all providers
-        (backward compatibility).
-        """
+        """T-R3: Without a manifest, updater keeps all providers active."""
+        for relative_path in (
+            "CLAUDE.md",
+            ".github/copilot-instructions.md",
+            "GEMINI.md",
+            ".codex/config.toml",
+        ):
+            path = no_manifest_project / relative_path
+            if path.exists():
+                path.unlink()
+
         result = update(no_manifest_project, dry_run=True)
+        paths = _changed_relative_paths(result, no_manifest_project)
 
-        # All provider paths should be present (the project was installed with
-        # all defaults, then manifest was removed).
-        all_relative = {_safe_relative(c.path, no_manifest_project) for c in result.changes}
-
-        # At minimum, we expect paths from multiple providers to exist.
-        has_claude = _has_provider_paths(all_relative, _CLAUDE_PREFIXES)
-        has_copilot = _has_provider_paths(all_relative, _COPILOT_PREFIXES)
-        has_gemini = _has_provider_paths(all_relative, _GEMINI_PREFIXES)
-        has_codex = _has_provider_paths(all_relative, _CODEX_PREFIXES)
-
-        assert has_claude, "Expected claude paths in all-provider fallback"
-        assert has_copilot, "Expected copilot paths in all-provider fallback"
-        assert has_gemini, "Expected gemini paths in all-provider fallback"
-        assert has_codex, "Expected codex paths in all-provider fallback"
+        assert _has_provider_paths(paths, _CLAUDE_PREFIXES)
+        assert _has_provider_paths(paths, _COPILOT_PREFIXES)
+        assert _has_provider_paths(paths, _GEMINI_PREFIXES)
+        assert _has_provider_paths(paths, _CODEX_PREFIXES)
 
 
 # ---------------------------------------------------------------------------

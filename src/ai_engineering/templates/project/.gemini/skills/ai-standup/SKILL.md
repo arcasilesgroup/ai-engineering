@@ -3,6 +3,10 @@ name: ai-standup
 description: Use when generating standup notes, daily status updates, or recent-activity summaries from actual git commits and PRs. Trigger for 'write my standup', 'what did I do today', 'what did I ship this week', 'status update', 'handoff notes', 'end of day summary'. Reads real commit and PR history — accurate, not reconstructed from memory.
 effort: medium
 argument-hint: "--days N|--author <name>"
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-standup/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -43,7 +47,7 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 2. **Collect activity** -- use the commands from `.ai-engineering/contexts/gather-activity-data.md` to scan:
    a. Local commits (git log with author filter)
    b. PRs (provider-specific query)
-   c. Active spec tasks from `.ai-engineering/specs/spec.md` and `specs/plan.md` -- current work
+   c. Active spec tasks from `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` -- current work
 
 3. **Classify items** into three groups:
 

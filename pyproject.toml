@@ -15,6 +15,19 @@ dependencies = [
   "questionary>=2.0,<3.0",
   "ruamel-yaml>=0.18,<1.0",
   "packaging>=24.0,<27.0",
+  # Transitive via typer; pinned to avoid CVE-2026-7246 (SNYK-PYTHON-CLICK-16347201)
+  # Command injection in edit_files() shell=True; affects 8.2.0–8.3.2, fixed in 8.3.3.
+  "click>=8.3.3,<9.0",
+]
+
+[project.optional-dependencies]
+# spec-119 evaluation layer; opt-in via `uv sync --extra eval`. Kept out of the
+# core deps so hook scripts and minimal CI lanes do not pay the deepeval
+# transitive footprint (pydantic-extras, langchain shims, optional LLM grader
+# stubs). Deterministic graders ship with the core extra; LLM graders are
+# follow-up work and would land under a separate `eval-llm` extra.
+eval = [
+  "deepeval>=2.0,<3.0",
 ]
 
 [dependency-groups]
@@ -91,7 +104,7 @@ known-first-party = ["ai_engineering"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v"
+addopts = "-v -m 'not slow'"
 markers = [
   "unit: Pure logic tests, no I/O, fast (<1s per test)",
   "integration: Tests with local I/O (filesystem, git)",
@@ -101,6 +114,9 @@ markers = [
   "spec_105_red: spec-105 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_106_red: spec-106 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_107_red: spec-107 RED tests; excluded by default until corresponding GREEN phase commits",
+  "eval: spec-119 evaluation layer unit/integration tests; opt-in via -m eval",
+  "eval_slow: spec-119 eval tests that load deepeval graders; opt-in via -m eval_slow; requires `uv sync --extra eval`",
+  "slow: marks tests as slow (concurrent stress, real I/O); deselected by default",
 ]
 
 [build-system]

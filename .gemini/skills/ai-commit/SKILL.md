@@ -8,8 +8,11 @@ requires:
   bins:
   - gitleaks
   - ruff
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-commit/SKILL.md
+edit_policy: generated-do-not-edit
 ---
-
 
 
 # Commit Workflow
@@ -26,19 +29,19 @@ Governed commit pipeline: stage specific files, format, lint, secret-detect, com
 
 If current branch is `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate descriptive slug (kebab-case, max 50 chars), `git checkout -b <prefix>/<slug>`, report new branch.
 
-### 0.5. Work item context (optional)
+### 1. Work item context (optional)
 
 If `.ai-engineering/specs/spec.md` frontmatter has `refs`: include work item refs as commit body trailers (`Refs: AB#101, AB#102, #45`). Only include `close_on_pr` items — never features.
 
-### 0.6. Instinct consolidation
+### 2. Instinct consolidation
 
 If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-instinct --review` to consolidate session observations before committing.
 
-### 1. Stage changes
+### 3. Stage changes
 
 `git add <file1> <file2>` selectively. Use `git add -A` only when explicitly requested. Exclude generated files, secrets, large binaries.
 
-### 2. Run gate orchestrator
+### 4. Run gate orchestrator
 
 ```
 ai-eng gate run --cache-aware --json --mode=local
@@ -46,14 +49,21 @@ ai-eng gate run --cache-aware --json --mode=local
 
 The orchestrator runs the 2-wave collector (Wave 1 fixers serial -> Wave 2 checkers parallel) with cache-aware lookup, emitting `.ai-engineering/state/gate-findings.json` (schema v1) covering every check. After Wave 1 fixers rewrite files, the orchestrator re-stages the safe `S_pre & M_post` intersection (spec-105 D-105-09); pass `--no-auto-stage` to disable, or set `gates.pre_commit.auto_stage: false` in the manifest.
 
-- **Exit 0** -- all checks PASS or auto-fixed. Continue to step 7.
+### 5. Handle gate result
+
+- **Exit 0** -- all checks PASS or auto-fixed. Continue to Commit.
 - **Exit non-zero** -- parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, **STOP**. Fix root cause, re-stage, re-run `/ai-commit`. Override only when remediation is tracked elsewhere and the publish window forces it: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` writes one DEC entry per finding with severity-default TTL (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
+
+### 6. Confirm commit readiness
+
+The documentation gate inside the orchestrator is mandatory.
 
 See `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI authoritative split.
 
 ### 7. Commit
 
 Compose message:
+
 - **With active spec**: `feat(spec-NNN): Task X.Y -- <desc>`, `fix(spec-NNN): <desc>`, `chore(spec-NNN): <desc>`.
 - **Without spec**: `type(scope): description` (conventional commits, imperative mood). Valid types: `feat`, `fix`, `perf`, `refactor`, `style`, `docs`, `test`, `build`, `ci`, `chore`, `revert`.
 - `--force` skips preview; otherwise preview and confirm.
@@ -64,21 +74,11 @@ Compose message:
 
 ### `/commit --only`
 
-Execute steps 1-7. Skip push.
+Execute the full pipeline through Commit. Skip Push.
 
 ## Quick Reference
 
-```
-/ai-commit                   # full: stage + lint + scan + commit + push
-/ai-commit --only            # commit without push
-/ai-commit --force "msg"     # skip preview, use provided message hint
-```
-
-## Common Mistakes
-
-- `git add -A` blindly -- always review staged files for secrets/binaries.
-- Committing on `main` -- the skill auto-branches, but verify.
-- Skipping documentation gate -- CHANGELOG updates are mandatory for functional changes.
+`/ai-commit` runs the full pipeline; `/ai-commit --only` stops before push; `/ai-commit --force "msg"` skips preview and uses the provided hint.
 
 ## Integration
 
@@ -86,4 +86,4 @@ Execute steps 1-7. Skip push.
 - **PR workflow** (`/ai-pr`) calls steps 0-6 before creating the PR.
 - **Spec system** auto-corrects task counters via `ai-eng spec verify --fix` (Wave 1 fixer in step 2).
 - Quality gates and non-negotiables sourced from `.ai-engineering/manifest.yml`; changelog formatting from `.gemini/skills/ai-write/SKILL.md`.
-$ARGUMENTS
+  $ARGUMENTS

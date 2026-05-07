@@ -110,8 +110,12 @@ def _emit_skill_or_malformed(
     if not match:
         event = _build_event(
             project_root=project_root,
-            kind="skill_invoked_malformed",
-            detail={"reason": "no_ai_prefix" if prompt else "empty_prompt"},
+            kind="ide_hook",
+            detail={
+                "hook_kind": "user-prompt-submit",
+                "reason": "no_ai_prefix" if prompt else "empty_prompt",
+                "skill": None,
+            },
             correlation_id=correlation_id,
             session_id=session_id,
             outcome="warn",

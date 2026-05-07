@@ -3,8 +3,11 @@ name: ai-code
 description: "Use when writing new production code: implementing features, adding functions, creating modules, or building approved plan tasks. Trigger for 'implement this', 'write the code for', 'add X to Y', 'build this function', 'make this work'. Loads language/framework context, applies interface-first design and backward-compatibility checks. Not for tests (/ai-test), debugging (/ai-debug), or refactoring (/ai-simplify)."
 effort: high
 argument-hint: "[task description or file:target]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-code/SKILL.md
+edit_policy: generated-do-not-edit
 ---
-
 
 
 # Code
@@ -32,7 +35,7 @@ Before writing any code:
 1. **Restate the task** in one sentence -- confirm understanding
 2. **Identify target files** -- existing files to modify or new files to create
 3. **Search for existing patterns** -- grep for similar implementations in the codebase to match conventions
-4. **Check decision-store.json** -- read `.ai-engineering/state/decision-store.json` for relevant architectural decisions
+4. **Check state.db.decisions** -- read `.ai-engineering/state/state.db.decisions` for relevant architectural decisions
 
 ### Step 2: File Placement Protocol
 
@@ -50,7 +53,7 @@ Before writing any code:
 
 ### Step 4: Write Code
 
-Implement following all loaded context standards. Apply stack-specific conventions from Step 0. Use YAGNI -- write the minimal code that satisfies the requirement.
+Implement following all loaded context standards. Apply stack-specific conventions from Step 0 and `.ai-engineering/contexts/operational-principles.md`. Write the minimal code that satisfies the requirement.
 
 ### Step 5: Backward Compatibility Check
 

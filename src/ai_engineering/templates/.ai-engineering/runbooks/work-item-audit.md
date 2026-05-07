@@ -24,7 +24,7 @@ This runbook is the standard hygiene step that runs before `consolidate`.
 - CLI access: `gh` for GitHub, `az` for Azure DevOps
 - Repository cloned locally with full access to `src/`, `tests/`,
   `.ai-engineering/specs/`, `.ai-engineering/state/decision-store.json`, and
-  `.ai-engineering/CONSTITUTION.md`
+  `CONSTITUTION.md` (fall back to `.ai-engineering/CONSTITUTION.md` for legacy installs)
 - Candidate work items are non-functional findings or maintenance items, not
   normal feature backlog
 - Parallel analysis capacity available for bounded batch execution
@@ -126,7 +126,7 @@ git log --oneline --all --grep="<keyword>" -- src/ tests/ .ai-engineering/
 
 Always read:
 
-- `.ai-engineering/CONSTITUTION.md`
+- `CONSTITUTION.md` (fall back to `.ai-engineering/CONSTITUTION.md` for legacy installs)
 - `.ai-engineering/state/decision-store.json`
 - `.ai-engineering/specs/_history.md`
 

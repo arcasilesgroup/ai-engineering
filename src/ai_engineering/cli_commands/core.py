@@ -7,6 +7,7 @@ Human-first Rich output by default; ``--json`` for agent consumption.
 from __future__ import annotations
 
 import sys
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any
 
@@ -38,6 +39,11 @@ from ai_engineering.cli_ui import (
     status_line,
     suggest_next,
     warning,
+)
+from ai_engineering.commands.update_workflow import (
+    UpdateWorkflowResult,
+    UpdateWorkflowStatus,
+    run_update_workflow,
 )
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.doctor.service import diagnose
@@ -109,7 +115,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         typer.Option(
             "--provider",
             "-p",
-            help="AI providers to enable (e.g. claude_code, github_copilot).",
+            help="AI providers to enable (e.g. claude-code, github-copilot).",
         ),
     ] = None,
     non_interactive: Annotated[
@@ -164,266 +170,101 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
             ),
         ),
     ] = False,
+    engram: Annotated[
+        bool,
+        typer.Option(
+            "--engram",
+            help=(
+                "Install the third-party Engram memory product without prompting "
+                "(spec-123 D-123-12). Engram is a peer product, not a framework "
+                "dependency."
+            ),
+        ),
+    ] = False,
+    no_engram: Annotated[
+        bool,
+        typer.Option(
+            "--no-engram",
+            help=(
+                "Skip the Engram install prompt (spec-123 D-123-12). Default "
+                "behaviour for non-interactive sessions."
+            ),
+        ),
+    ] = False,
 ) -> None:
     """Install the ai-engineering governance framework."""
     if non_interactive:
         set_json_mode(True)
 
     root = resolve_project_root(target)
+    _validate_install_target(root, non_interactive=non_interactive)
 
-    # --- Project validation guard ---
-    _PROJECT_SIGNALS = (
-        ".git",
-        "pyproject.toml",
-        "package.json",
-        "go.mod",
-        "Cargo.toml",
-        "tsconfig.json",
-    )
-    has_project = any((root / s).exists() for s in _PROJECT_SIGNALS) or list(root.glob("*.sln"))
-    if not has_project:
-        if non_interactive:
-            typer.echo(f"Error: no project files detected in {root}.", err=True)
-            raise typer.Exit(code=1)
-        if not typer.confirm(f"No project files detected in {root}. Continue anyway?", abort=True):
-            raise typer.Exit(code=1)
-
-    # Dry-run mode: use pipeline, output JSON plan
     if dry_run:
-        set_json_mode(True)
-        from ai_engineering.installer.autodetect import detect_all as _detect_all
-
-        _detected = _detect_all(root)
-        resolved_vcs = vcs or _detected.vcs
-        resolved_providers = (
-            [_PROVIDER_ALIASES.get(p, p) for p in providers]
-            if providers
-            else (_detected.providers or ["claude_code"])
-        )
-        _result, summary = install_with_pipeline(
+        _emit_install_dry_run_plan(
             root,
-            stacks=stacks or _detected.stacks or [],
-            ides=ides or _detected.ides or ["terminal"],
-            vcs_provider=resolved_vcs,
-            ai_providers=resolved_providers,
-            dry_run=True,
+            stacks=stacks,
+            ides=ides,
+            vcs=vcs,
+            providers=providers,
         )
-        import json
-
-        plans = [p.to_dict() for p in summary.plans]
-        print(json.dumps({"schema_version": "1", "plans": plans}, indent=2))
         return
 
-    # Plan replay mode
     if plan_file:
         _replay_plan(root, plan_file)
         return
 
-    # Detect existing installation
-    state_path = root / ".ai-engineering" / "state" / "install-state.json"
-    is_reinstall = state_path.exists()
-    mode = InstallMode.INSTALL
-
-    if is_reinstall:
-        # --- Reinstall path: no menu, mode from flags or auto-infer ---
-        if fresh:
-            mode = InstallMode.FRESH
-        elif reconfigure:
-            mode = InstallMode.RECONFIGURE
-        else:
-            mode = InstallMode.REPAIR
-
-        if non_interactive:
-            mode = InstallMode.REPAIR
-    # First install: mode stays INSTALL (handled below)
-
-    # --- Resolve configuration selections ---
-    from ai_engineering.installer.autodetect import detect_all
-
-    detected = detect_all(root)
-
-    # Build resolved dict from CLI flags
-    resolved: dict[str, Any] = {}
-    if stacks:
-        resolved["stacks"] = stacks
-    if providers:
-        resolved["providers"] = [_PROVIDER_ALIASES.get(p, p) for p in providers]
-    if ides:
-        resolved["ides"] = ides
-    if vcs is not None:
-        resolved["vcs"] = "azure_devops" if vcs == "azdo" else vcs
-
-    if is_reinstall and mode == InstallMode.RECONFIGURE:
-        # --reconfigure: run wizard for new selections
-        if not is_json_mode():
-            _show_detection_summary(detected)
-        from ai_engineering.installer.wizard import run_wizard
-
-        wizard_result = run_wizard(detected, resolved if resolved else None)
-        resolved_stacks = wizard_result.stacks
-        resolved_providers = wizard_result.providers
-        resolved_ides = wizard_result.ides
-        resolved_vcs = wizard_result.vcs
-    elif is_reinstall:
-        # Default/fresh reinstall: read config from existing manifest.yml
-        config = load_manifest_config(root)
-        resolved_stacks = resolved.get("stacks", config.providers.stacks or ["python"])
-        resolved_providers = resolved.get(
-            "providers", config.ai_providers.enabled or ["claude_code"]
-        )
-        resolved_ides = resolved.get("ides", config.providers.ides or ["terminal"])
-        resolved_vcs = resolved.get("vcs", config.providers.vcs)
-    else:
-        # First install: flags > wizard > detection > defaults
-        any_resolved = bool(resolved)
-
-        if any_resolved or is_json_mode() or not sys.stdin.isatty():
-            resolved_stacks = resolved.get("stacks", detected.stacks or ["python"])
-            resolved_providers = resolved.get("providers", detected.providers or ["claude_code"])
-            resolved_ides = resolved.get("ides", detected.ides or ["terminal"])
-            resolved_vcs = resolved.get("vcs", detected.vcs)
-        else:
-            # First install in interactive TTY: run the wizard
-            if not is_json_mode():
-                _show_detection_summary(detected)
-
-            from ai_engineering.installer.wizard import run_wizard
-
-            wizard_result = run_wizard(detected, resolved if resolved else None)
-            resolved_stacks = wizard_result.stacks
-            resolved_providers = wizard_result.providers
-            resolved_ides = wizard_result.ides
-            resolved_vcs = wizard_result.vcs
-
-    # --- Reinstall confirmation gates ---
-    if is_reinstall and not non_interactive:
-        if mode == InstallMode.FRESH:
-            # Show all files as overwrite
-            typer.echo("\nAll framework files will be overwritten:")
-            typer.echo("  [overwrite] .ai-engineering/ (all governance files)")
-            typer.echo("  [overwrite] IDE configurations")
-            typer.echo("  [overwrite] hook scripts")
-            confirmation = typer.prompt(
-                "\nType 'fresh' to confirm full overwrite, or anything else to cancel",
-                default="",
-            )
-            if confirmation != "fresh":
-                typer.echo("Cancelled. No changes were made.")
-                raise typer.Exit(0)
-        elif mode == InstallMode.RECONFIGURE:
-            # Show diff tree with added/removed markers
-            typer.echo("\nReconfiguration preview:")
-            typer.echo(f"  [added] New providers: {', '.join(resolved_providers)}")
-            typer.echo(f"  [added] New stacks: {', '.join(resolved_stacks)}")
-            typer.echo(f"  [added] New IDEs: {', '.join(resolved_ides)}")
-            if not typer.confirm("Proceed?", default=True):
-                raise typer.Exit(0)
-        else:
-            # Default REPAIR: preview + Y/n
-            typer.echo("\nReinstall preview (repair mode):")
-            typer.echo(f"  Stacks: {', '.join(resolved_stacks)}")
-            typer.echo(f"  Providers: {', '.join(resolved_providers)}")
-            typer.echo(f"  IDEs: {', '.join(resolved_ides)}")
-            if not typer.confirm("Proceed?", default=True):
-                raise typer.Exit(0)
-
-    # Show tool availability in interactive mode
-    if not is_json_mode():
-        import shutil as _shutil
-
-        tools = {
-            "gh": _shutil.which("gh") is not None,
-            "gitleaks": _shutil.which("gitleaks") is not None,
-            "ruff": _shutil.which("ruff") is not None,
-        }
-        render_detection(resolved_vcs, resolved_providers, tools)
-
-    # spec-101 Compat-2 (Wave 27): emit the one-shot BREAKING banner BEFORE
-    # the prereq gates so a first-upgrade run hitting EXIT 81 still gets
-    # the banner explaining the new EXIT 80 / EXIT 81 contract. The
-    # banner_seen flag (persisted to install-state.json) prevents
-    # double-emission on subsequent runs.
-    from ai_engineering.installer.phases.pipeline import (
-        emit_breaking_banner_for_target,
+    is_reinstall = _is_reinstall(root)
+    mode = _resolve_install_mode(
+        is_reinstall,
+        fresh=fresh,
+        reconfigure=reconfigure,
+        non_interactive=non_interactive,
     )
 
-    emit_breaking_banner_for_target(root)
-
-    # spec-101 D-101-11: prereqs precede tools. Missing/out-of-range uv yields
-    # EXIT 81 BEFORE the tools phase ever runs. Strict precedence -- when the
-    # user's environment is broken at the prereq layer, the tools phase never
-    # gets a chance to surface its own EXIT 80.
-    try:
-        check_uv_prereq(root)
-    except PrereqMissing as exc:
-        error(str(exc))
-        raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
-
-    # spec-101 D-101-14: per-stack SDK prereq gate. Iterates the 9 SDK-required
-    # stacks declared by the project, applies the D-101-13 stack-level carve-out
-    # (e.g. swift on linux is filtered before probing), and probes each SDK via
-    # ``prereqs/sdk.py.probe_sdk``. Any absent/out-of-range SDK aggregates into
-    # a single EXIT 81 with install links + verify commands per failing stack.
-    try:
-        check_sdk_prereqs(resolved_stacks, root=root)
-    except PrereqMissing as exc:
-        error(str(exc))
-        raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
-
-    # spec-109 D-109-07: live multi-step progress replaces the single-spinner
-    # UX. Each phase reports its name as it begins; the CLI shows
-    # "[N/M] phase_name" so the user can see exactly what's happening.
-    from ai_engineering.installer.phases import PHASE_ORDER as _PHASE_ORDER
-
-    _phase_labels_pretty = {
-        PHASE_DETECT: "Detecting environment",
-        PHASE_GOVERNANCE: "Copying governance framework",
-        PHASE_IDE_CONFIG: "Configuring IDE integrations",
-        PHASE_STATE: "Initializing state files",
-        PHASE_TOOLS: "Installing required tools",
-        PHASE_HOOKS: "Installing git hooks",
-    }
-
-    with step_progress(
-        total=len(_PHASE_ORDER), description="Installing ai-engineering framework..."
-    ) as _tracker:
-
-        def _phase_progress(message: str) -> None:
-            # message arrives as "[i/N] phase_name"; translate phase_name to a
-            # human label when known, keep the [i/N] prefix verbatim.
-            try:
-                prefix, name = message.split(" ", 1)
-            except ValueError:
-                _tracker.step(message)
-                return
-            label = _phase_labels_pretty.get(name.strip(), name.strip())
-            _tracker.step(f"{prefix} {label}")
-
-        result, summary = install_with_pipeline(
+    resolved_stacks, resolved_providers, resolved_ides, resolved_vcs = (
+        _resolve_install_configuration(
             root,
+            is_reinstall=is_reinstall,
             mode=mode,
-            stacks=resolved_stacks,
-            ides=resolved_ides,
-            vcs_provider=resolved_vcs,
-            ai_providers=resolved_providers,
-            force=force,
-            progress_callback=_phase_progress,
+            stacks=stacks,
+            providers=providers,
+            ides=ides,
+            vcs=vcs,
         )
+    )
+
+    _confirm_reinstall_if_needed(
+        is_reinstall=is_reinstall,
+        non_interactive=non_interactive,
+        mode=mode,
+        resolved_stacks=resolved_stacks,
+        resolved_providers=resolved_providers,
+        resolved_ides=resolved_ides,
+    )
+
+    _render_install_detection_if_needed(resolved_vcs, resolved_providers)
+
+    # spec-124 D-124-02: removed one-shot "What's new" banner. Install
+    # pipeline starts directly with the prereq gates and phase output.
+
+    _check_install_prerequisites(root, resolved_stacks)
+
+    result, summary = _run_install_pipeline(
+        root,
+        mode=mode,
+        resolved_stacks=resolved_stacks,
+        resolved_ides=resolved_ides,
+        resolved_vcs=resolved_vcs,
+        resolved_providers=resolved_providers,
+        force=force,
+    )
 
     # spec-101 Corr-1 (Wave 28): in --non-interactive mode, emit one line
     # per skipped tool entry so downstream verifiers (the smoke-test
     # idempotence assertion) can match the ``tool:<name>:<marker>``
     # signature. Markers go to stderr to preserve stdout JSON purity for
     # --non-interactive consumers.
-    if non_interactive:
-        tools_phase_result = next(
-            (r for r in summary.results if r.phase_name == PHASE_TOOLS),
-            None,
-        )
-        if tools_phase_result is not None and tools_phase_result.skipped:
-            for skipped_entry in tools_phase_result.skipped:
-                if skipped_entry.startswith("tool:"):
-                    print_stderr(skipped_entry)
+    _emit_noninteractive_skipped_tools(summary, non_interactive=non_interactive)
 
     # spec-109 D-109-04: ALWAYS render the pipeline step report BEFORE deciding
     # the exit code. The pre-spec-109 flow exited 80 first and rendered later,
@@ -436,23 +277,12 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     # so the user does not have to run `ai-eng doctor --fix` manually.
     # spec-109 R-109-01: --no-auto-remediate disables the second pass so CI
     # callers can detect first-attempt failures (e.g. regression detection).
-    from ai_engineering.installer.auto_remediate import (
-        AutoRemediateReport,
-        auto_remediate_after_install,
+    non_critical_failures_list = _coerce_non_critical_failures(summary)
+    auto_remediation_report = _run_auto_remediation(
+        root,
+        non_critical_failures_list,
+        no_auto_remediate=no_auto_remediate,
     )
-
-    # Coerce to a real list so MagicMock-shaped test summaries do not surface
-    # as truthy non-critical failures with empty iteration.
-    raw_failures = getattr(summary, "non_critical_failures", None) or []
-    try:
-        non_critical_failures_list = list(raw_failures)
-    except TypeError:
-        non_critical_failures_list = []
-
-    if no_auto_remediate:
-        auto_remediation_report = AutoRemediateReport()
-    else:
-        auto_remediation_report = auto_remediate_after_install(root, non_critical_failures_list)
 
     if auto_remediation_report.invoked and not is_json_mode():
         _render_auto_remediation_summary(auto_remediation_report)
@@ -461,133 +291,657 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     # - Critical phase failure  -> EXIT 80 (unchanged).
     # - Non-critical failure that auto-remediated successfully -> EXIT 0.
     # - Non-critical failure that survived remediation -> EXIT 80.
+    _raise_install_failures(
+        summary,
+        non_critical_failures_list=non_critical_failures_list,
+        auto_remediation_report=auto_remediation_report,
+        no_auto_remediate=no_auto_remediate,
+    )
+
+    # spec-123 D-123-12 / D-123-29: Engram is a third-party memory product
+    # wired at install time. Prompt fires post-deps; --engram / --no-engram
+    # flags bypass deterministically; non-interactive sessions skip silently.
+    _maybe_run_engram_install(
+        root,
+        engram=engram,
+        no_engram=no_engram,
+        non_interactive=non_interactive,
+    )
+
+    _render_install_success(
+        root,
+        result,
+        resolved_vcs=resolved_vcs,
+        auto_remediation_report=auto_remediation_report,
+    )
+
+
+_PROJECT_SIGNALS = (
+    ".git",
+    "pyproject.toml",
+    "package.json",
+    "go.mod",
+    "Cargo.toml",
+    "tsconfig.json",
+)
+
+
+def _validate_install_target(root: Path, *, non_interactive: bool) -> None:
+    """Confirm the selected root looks like a project."""
+    has_project = any((root / signal).exists() for signal in _PROJECT_SIGNALS)
+    has_project = has_project or bool(list(root.glob("*.sln")))
+    if has_project:
+        return
+    if non_interactive:
+        typer.echo(f"Error: no project files detected in {root}.", err=True)
+        raise typer.Exit(code=1)
+    if not typer.confirm(f"No project files detected in {root}. Continue anyway?", abort=True):
+        raise typer.Exit(code=1)
+
+
+def _emit_install_dry_run_plan(
+    root: Path,
+    *,
+    stacks: list[str] | None,
+    ides: list[str] | None,
+    vcs: str | None,
+    providers: list[str] | None,
+) -> None:
+    """Run install dry-run mode and emit the JSON plan."""
+    import json
+
+    set_json_mode(True)
+    from ai_engineering.installer.autodetect import detect_all as _detect_all
+
+    detected = _detect_all(root)
+    resolved_vcs = vcs or detected.vcs
+    resolved_providers = (
+        _resolve_ai_providers(providers) if providers else (detected.providers or ["claude-code"])
+    )
+    _result, summary = install_with_pipeline(
+        root,
+        stacks=stacks or detected.stacks or [],
+        ides=ides or detected.ides or ["terminal"],
+        vcs_provider=resolved_vcs,
+        ai_providers=resolved_providers,
+        dry_run=True,
+    )
+    plans = [p.to_dict() for p in summary.plans]
+    print(json.dumps({"schema_version": "1", "plans": plans}, indent=2))
+
+
+def _is_reinstall(root: Path) -> bool:
+    """Return whether the target already has install state.
+
+    Spec-125: install_state lives in state.db. The presence of state.db
+    plus a populated singleton row is the new reinstall signal. Falls
+    back to ``False`` when state.db is missing or unreadable so first
+    install flows continue to work.
+    """
+    db_path = root / ".ai-engineering" / "state" / "state.db"
+    if not db_path.is_file():
+        return False
+    import sqlite3
+
+    try:
+        conn = sqlite3.connect(db_path, timeout=2)
+        try:
+            tbl = conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='install_state'"
+            ).fetchone()
+            if tbl is None:
+                return False
+            row = conn.execute("SELECT 1 FROM install_state WHERE id = 1").fetchone()
+            return row is not None
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return False
+
+
+def _resolve_install_mode(
+    is_reinstall: bool,
+    *,
+    fresh: bool,
+    reconfigure: bool,
+    non_interactive: bool,
+) -> InstallMode:
+    """Resolve install mode from reinstall state and flags."""
+    if not is_reinstall:
+        return InstallMode.INSTALL
+    if non_interactive:
+        return InstallMode.REPAIR
+    if fresh:
+        return InstallMode.FRESH
+    if reconfigure:
+        return InstallMode.RECONFIGURE
+    return InstallMode.REPAIR
+
+
+def _build_install_overrides(
+    *,
+    stacks: list[str] | None,
+    providers: list[str] | None,
+    ides: list[str] | None,
+    vcs: str | None,
+) -> dict[str, Any]:
+    """Convert CLI selection flags into installer override keys."""
+    resolved: dict[str, Any] = {}
+    if stacks:
+        resolved["stacks"] = stacks
+    if providers:
+        resolved["providers"] = _resolve_ai_providers(providers)
+    if ides:
+        resolved["ides"] = ides
+    if vcs is not None:
+        resolved["vcs"] = "azure_devops" if vcs == "azdo" else vcs
+    return resolved
+
+
+def _resolve_install_configuration(
+    root: Path,
+    *,
+    is_reinstall: bool,
+    mode: InstallMode,
+    stacks: list[str] | None,
+    providers: list[str] | None,
+    ides: list[str] | None,
+    vcs: str | None,
+) -> tuple[list[str], list[str], list[str], str | None]:
+    """Resolve install stacks, providers, IDEs, and VCS selections."""
+    from ai_engineering.installer.autodetect import detect_all
+
+    detected = detect_all(root)
+    overrides = _build_install_overrides(
+        stacks=stacks,
+        providers=providers,
+        ides=ides,
+        vcs=vcs,
+    )
+    if is_reinstall and mode == InstallMode.RECONFIGURE:
+        return _resolve_wizard_configuration(detected, overrides)
+    if is_reinstall:
+        return _resolve_reinstall_configuration(root, overrides)
+    return _resolve_first_install_configuration(detected, overrides)
+
+
+def _resolve_wizard_configuration(
+    detected: Any,
+    overrides: dict[str, Any],
+) -> tuple[list[str], list[str], list[str], str | None]:
+    """Run the interactive wizard and return its selections."""
+    if not is_json_mode():
+        _show_detection_summary(detected)
+    from ai_engineering.installer.wizard import run_wizard
+
+    wizard_result = run_wizard(detected, overrides if overrides else None)
+    return (
+        wizard_result.stacks,
+        wizard_result.providers,
+        wizard_result.ides,
+        wizard_result.vcs,
+    )
+
+
+def _resolve_reinstall_configuration(
+    root: Path,
+    overrides: dict[str, Any],
+) -> tuple[list[str], list[str], list[str], str | None]:
+    """Resolve reinstall selections from current manifest plus CLI overrides."""
+    config = load_manifest_config(root)
+    return (
+        overrides.get("stacks", config.providers.stacks or ["python"]),
+        overrides.get("providers", config.ai_providers.enabled or ["claude-code"]),
+        overrides.get("ides", config.providers.ides or ["terminal"]),
+        overrides.get("vcs", config.providers.vcs),
+    )
+
+
+def _resolve_first_install_configuration(
+    detected: Any,
+    overrides: dict[str, Any],
+) -> tuple[list[str], list[str], list[str], str | None]:
+    """Resolve first-install selections from flags, detection, or wizard."""
+    if overrides or is_json_mode() or not sys.stdin.isatty():
+        return (
+            overrides.get("stacks", detected.stacks or ["python"]),
+            overrides.get("providers", detected.providers or ["claude-code"]),
+            overrides.get("ides", detected.ides or ["terminal"]),
+            overrides.get("vcs", detected.vcs),
+        )
+    return _resolve_wizard_configuration(detected, overrides)
+
+
+def _confirm_reinstall_if_needed(
+    *,
+    is_reinstall: bool,
+    non_interactive: bool,
+    mode: InstallMode,
+    resolved_stacks: list[str],
+    resolved_providers: list[str],
+    resolved_ides: list[str],
+) -> None:
+    """Render reinstall confirmation prompts when the command is interactive."""
+    if not is_reinstall or non_interactive:
+        return
+    if mode == InstallMode.FRESH:
+        _confirm_fresh_reinstall()
+    elif mode == InstallMode.RECONFIGURE:
+        _confirm_reconfigure(resolved_stacks, resolved_providers, resolved_ides)
+    else:
+        _confirm_repair(resolved_stacks, resolved_providers, resolved_ides)
+
+
+def _confirm_fresh_reinstall() -> None:
+    """Ask for typed confirmation before a fresh reinstall."""
+    typer.echo("\nAll framework files will be overwritten:")
+    typer.echo("  [overwrite] .ai-engineering/ (all governance files)")
+    typer.echo("  [overwrite] IDE configurations")
+    typer.echo("  [overwrite] hook scripts")
+    confirmation = typer.prompt(
+        "\nType 'fresh' to confirm full overwrite, or anything else to cancel",
+        default="",
+    )
+    if confirmation != "fresh":
+        typer.echo("Cancelled. No changes were made.")
+        raise typer.Exit(0)
+
+
+def _confirm_reconfigure(
+    resolved_stacks: list[str],
+    resolved_providers: list[str],
+    resolved_ides: list[str],
+) -> None:
+    """Render the reconfigure preview and confirmation."""
+    typer.echo("\nReconfiguration preview:")
+    typer.echo(f"  [added] New providers: {', '.join(resolved_providers)}")
+    typer.echo(f"  [added] New stacks: {', '.join(resolved_stacks)}")
+    typer.echo(f"  [added] New IDEs: {', '.join(resolved_ides)}")
+    if not typer.confirm("Proceed?", default=True):
+        raise typer.Exit(0)
+
+
+def _confirm_repair(
+    resolved_stacks: list[str],
+    resolved_providers: list[str],
+    resolved_ides: list[str],
+) -> None:
+    """Render the repair preview and confirmation."""
+    typer.echo("\nReinstall preview (repair mode):")
+    typer.echo(f"  Stacks: {', '.join(resolved_stacks)}")
+    typer.echo(f"  Providers: {', '.join(resolved_providers)}")
+    typer.echo(f"  IDEs: {', '.join(resolved_ides)}")
+    if not typer.confirm("Proceed?", default=True):
+        raise typer.Exit(0)
+
+
+def _render_install_detection_if_needed(
+    resolved_vcs: str | None,
+    resolved_providers: list[str],
+) -> None:
+    """Show tool availability in interactive mode."""
+    if is_json_mode():
+        return
+    import shutil as _shutil
+
+    tools = {
+        "gh": _shutil.which("gh") is not None,
+        "gitleaks": _shutil.which("gitleaks") is not None,
+        "ruff": _shutil.which("ruff") is not None,
+    }
+    render_detection(resolved_vcs, resolved_providers, tools)  # ty:ignore[invalid-argument-type]
+
+
+def _check_install_prerequisites(root: Path, resolved_stacks: list[str]) -> None:
+    """Run install prerequisite gates before tool installation."""
+    try:
+        check_uv_prereq(root)
+        check_sdk_prereqs(resolved_stacks, root=root)
+    except PrereqMissing as exc:
+        error(str(exc))
+        raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
+
+
+def _run_install_pipeline(
+    root: Path,
+    *,
+    mode: InstallMode,
+    resolved_stacks: list[str],
+    resolved_ides: list[str],
+    resolved_vcs: str | None,
+    resolved_providers: list[str],
+    force: bool,
+) -> tuple[Any, Any]:
+    """Run the installer pipeline with progress translation."""
+    from ai_engineering.installer.phases import PHASE_ORDER as _PHASE_ORDER
+
+    with step_progress(
+        total=len(_PHASE_ORDER), description="Installing ai-engineering framework..."
+    ) as tracker:
+        progress = partial(_render_install_phase_progress, tracker=tracker)
+        return install_with_pipeline(
+            root,
+            mode=mode,
+            stacks=resolved_stacks,
+            ides=resolved_ides,
+            vcs_provider=resolved_vcs,  # ty:ignore[invalid-argument-type]
+            ai_providers=resolved_providers,
+            force=force,
+            progress_callback=progress,
+        )
+
+
+_PHASE_LABELS_PRETTY = {
+    PHASE_DETECT: "Detecting environment",
+    PHASE_GOVERNANCE: "Copying governance framework",
+    PHASE_IDE_CONFIG: "Configuring IDE integrations",
+    PHASE_STATE: "Initializing state files",
+    PHASE_TOOLS: "Installing required tools",
+    PHASE_HOOKS: "Installing git hooks",
+}
+
+
+def _render_install_phase_progress(message: str, *, tracker: Any) -> None:
+    """Translate pipeline progress phase names into human labels.
+
+    spec-124 D-124-04: StepTracker adds its own ``[N/M]`` prefix, so
+    strip the incoming prefix from the pipeline notifier to avoid
+    duplicate ``[5/6] [5/6] Installing required tools`` rendering.
+
+    spec-124 D-124-03: per-tool / per-hook sub-step events from the
+    InstallContext callback (``tool_started:<name>`` /
+    ``hook_started:<name>``) refine the spinner WITHOUT incrementing
+    the phase counter. ``tool_finished`` / ``hook_finished`` events
+    are no-ops at the UI layer -- the next ``tool_started`` overrides
+    the spinner anyway, and the parent step's label is preserved by
+    the tracker so the spinner falls back gracefully when work
+    transitions between tools.
+    """
+    if message.startswith("tool_started:"):
+        tool_name = message.split(":", 1)[1]
+        tracker.substep(f"Installing {tool_name}...")
+        return
+    if message.startswith("hook_started:"):
+        hook_name = message.split(":", 1)[1]
+        tracker.substep(f"Installing {hook_name} hook...")
+        return
+    if message.startswith("tool_finished:") or message.startswith("hook_finished:"):
+        # Sub-step end is a no-op; the parent step or the next
+        # tool_started/hook_started event drives the next spinner update.
+        return
+
+    try:
+        _prefix, name = message.split(" ", 1)
+    except ValueError:
+        tracker.step(message)
+        return
+    label = _PHASE_LABELS_PRETTY.get(name.strip(), name.strip())
+    tracker.step(label)
+
+
+def _emit_noninteractive_skipped_tools(summary: Any, *, non_interactive: bool) -> None:
+    """Print skipped tool markers for non-interactive verification."""
+    if not non_interactive:
+        return
+    tools_phase_result = next(
+        (r for r in summary.results if r.phase_name == PHASE_TOOLS),
+        None,
+    )
+    if tools_phase_result is None or not tools_phase_result.skipped:
+        return
+    for skipped_entry in tools_phase_result.skipped:
+        if skipped_entry.startswith("tool:"):
+            print_stderr(skipped_entry)
+
+
+def _coerce_non_critical_failures(summary: Any) -> list[Any]:
+    """Coerce summary non-critical failures into a real list."""
+    raw_failures = getattr(summary, "non_critical_failures", None) or []
+    try:
+        return list(raw_failures)
+    except TypeError:
+        return []
+
+
+def _run_auto_remediation(
+    root: Path,
+    non_critical_failures: list[Any],
+    *,
+    no_auto_remediate: bool,
+) -> Any:
+    """Run or skip post-install auto-remediation."""
+    from ai_engineering.installer.auto_remediate import (
+        AutoRemediateReport,
+        auto_remediate_after_install,
+    )
+
+    if no_auto_remediate:
+        return AutoRemediateReport()
+    return auto_remediate_after_install(root, non_critical_failures)
+
+
+def _raise_install_failures(
+    summary: Any,
+    *,
+    non_critical_failures_list: list[Any],
+    auto_remediation_report: Any,
+    no_auto_remediate: bool,
+) -> None:
+    """Raise the install command's compatibility exit codes."""
     if summary.failed_phase is not None:
         error(
             f"Install pipeline failed at phase {summary.failed_phase!r}. "
-            "Run 'ai-eng doctor' for diagnostics."
+            f"Run '{_DOCTOR_COMMAND}' for diagnostics."
         )
         raise typer.Exit(code=EXIT_TOOLS_FAILED)
 
-    if non_critical_failures_list and not auto_remediation_report.success:
-        # When auto-remediate is disabled (--no-auto-remediate) any non-critical
-        # failure also surfaces EXIT 80 -- preserves CI fail-on-first-attempt
-        # detection per spec-109 R-109-01.
-        if no_auto_remediate:
-            error(
-                "Install pipeline finished with non-critical failures; "
-                "auto-remediation disabled (--no-auto-remediate). "
-                "Run 'ai-eng doctor --fix' to repair."
-            )
-        else:
-            error(
-                "Install pipeline finished with unresolved issues; "
-                "auto-remediation could not fix every gap. "
-                "Run 'ai-eng doctor --fix' to retry."
-            )
-        raise typer.Exit(code=EXIT_TOOLS_FAILED)
+    if not non_critical_failures_list or auto_remediation_report.success:
+        return
+    if no_auto_remediate:
+        message = (
+            "Install pipeline finished with non-critical failures; "
+            "auto-remediation disabled (--no-auto-remediate). "
+            f"Run '{_DOCTOR_FIX_COMMAND}' to repair."
+        )
+    else:
+        message = (
+            "Install pipeline finished with unresolved issues; "
+            "auto-remediation could not fix every gap. "
+            f"Run '{_DOCTOR_FIX_COMMAND}' to retry."
+        )
+    error(message)
+    raise typer.Exit(code=EXIT_TOOLS_FAILED)
 
+
+def _maybe_run_engram_install(
+    root: Path,
+    *,
+    engram: bool,
+    no_engram: bool,
+    non_interactive: bool,
+) -> None:
+    """Drive the spec-123 Engram install prompt.
+
+    Engram is a third-party peer product, not an ai-engineering
+    dependency.  This helper resolves the ``--engram`` / ``--no-engram``
+    flags into the boolean ``force`` argument expected by
+    :func:`maybe_install_engram`, then renders a one-line summary of
+    the outcome to stderr.  Failures are non-blocking: the install
+    continues regardless so a missing Engram never trips the framework
+    install.
+    """
+
+    from ai_engineering.installer.engram import maybe_install_engram
+
+    if engram and no_engram:
+        # Conflicting flags -- prefer the explicit opt-out (safer).
+        force: bool | None = False
+    elif engram:
+        force = True
+    elif no_engram:
+        force = False
+    else:
+        force = None
+
+    interactive = not non_interactive and sys.stdin.isatty()
+
+    try:
+        outcome = maybe_install_engram(
+            force=force,
+            interactive=interactive,
+            project_root=root,
+        )
+    except Exception as exc:  # pragma: no cover - defensive non-blocking guard.
+        typer.echo(
+            f"[engram] install attempt raised an unexpected error: {exc}",
+            err=True,
+        )
+        return
+
+    if outcome.skipped:
+        return
+    prefix = "[engram]"
+    if outcome.success:
+        typer.echo(f"{prefix} {outcome.message}", err=True)
+    else:
+        typer.echo(
+            f"{prefix} install incomplete: {outcome.message}. "
+            f"Re-run with `ai-eng install --engram` once resolved.",
+            err=True,
+        )
+
+
+def _render_install_success(
+    root: Path,
+    result: Any,
+    *,
+    resolved_vcs: str | None,
+    auto_remediation_report: Any,
+) -> None:
+    """Render install success in JSON or human mode."""
     canonical_config = load_manifest_config(root)
     active_providers = list(canonical_config.ai_providers.enabled)
     primary_provider = canonical_config.ai_providers.primary or (
         active_providers[0] if active_providers else "none"
     )
-    ai_label = ", ".join(active_providers)
-
     if is_json_mode():
-        emit_success(
-            "ai-eng install",
-            {
-                "root": str(root),
-                "governance_files": len(result.governance_files.created),
-                "project_files": len(result.project_files.created),
-                "state_files": len(result.state_files),
-                "vcs_provider": resolved_vcs,
-                "ai_providers": active_providers,
-                "primary_ai_provider": primary_provider,
-                "readiness_status": result.readiness_status,
-                "already_installed": result.already_installed,
-                "manual_steps": result.manual_steps,
-                "guide_text": result.guide_text,
-                # spec-109 D-109-05: auto_remediation is additive; CI consumers
-                # who want to detect "first attempt failed but auto-fixed" can
-                # check `auto_remediation.invoked == True` while the install
-                # itself succeeded.
-                "auto_remediation": auto_remediation_report.to_dict(),
-            },
-            [
-                NextAction(command="ai-eng doctor", description="Run health diagnostics"),
-                NextAction(
-                    command="/ai-start",
-                    description=(
-                        "IDE assistant slash-command (Claude Code / Copilot / Codex / "
-                        "Gemini): begin the first governed session"
-                    ),
+        _emit_install_success_json(
+            root,
+            result,
+            resolved_vcs=resolved_vcs,
+            active_providers=active_providers,
+            primary_provider=primary_provider,
+            auto_remediation_report=auto_remediation_report,
+        )
+        return
+    _render_install_success_human(
+        root,
+        result,
+        resolved_vcs=resolved_vcs,
+        active_providers=active_providers,
+    )
+
+
+def _emit_install_success_json(
+    root: Path,
+    result: Any,
+    *,
+    resolved_vcs: str | None,
+    active_providers: list[str],
+    primary_provider: str,
+    auto_remediation_report: Any,
+) -> None:
+    """Emit install success through the JSON envelope."""
+    emit_success(
+        "ai-eng install",
+        {
+            "root": str(root),
+            "governance_files": len(result.governance_files.created),
+            "project_files": len(result.project_files.created),
+            "state_files": len(result.state_files),
+            "vcs_provider": resolved_vcs,
+            "ai_providers": active_providers,
+            "primary_ai_provider": primary_provider,
+            "readiness_status": result.readiness_status,
+            "already_installed": result.already_installed,
+            "manual_steps": result.manual_steps,
+            "guide_text": result.guide_text,
+            "auto_remediation": auto_remediation_report.to_dict(),
+        },
+        [
+            NextAction(command=_DOCTOR_COMMAND, description="Run health diagnostics"),
+            NextAction(
+                command="/ai-start",
+                description=(
+                    "IDE assistant slash-command (Claude Code / Copilot / Codex / "
+                    "Gemini): begin the first governed session"
                 ),
-            ],
-        )
-    else:
-        # Primary result on stdout (preserves test assertions)
-        print_stdout(f"Installed to: {root}")
+            ),
+        ],
+    )
 
-        # Decorated output on stderr
-        file_count("Governance", len(result.governance_files.created))
-        file_count("Project", len(result.project_files.created))
-        kv("State", f"{len(result.state_files)} files")
-        kv("VCS", "azdo" if resolved_vcs == "azure_devops" else resolved_vcs)
-        kv("AI Providers", ai_label)
-        kv("Readiness", result.readiness_status)
 
+def _render_install_success_human(
+    root: Path,
+    result: Any,
+    *,
+    resolved_vcs: str | None,
+    active_providers: list[str],
+) -> None:
+    """Render install success for humans."""
+    print_stdout(f"Installed to: {root}")
+    file_count("Governance", len(result.governance_files.created))
+    file_count("Project", len(result.project_files.created))
+    kv("State", f"{len(result.state_files)} files")
+    kv("VCS", "azdo" if resolved_vcs == "azure_devops" else resolved_vcs)
+    kv("AI Providers", ", ".join(active_providers))
+    kv("Readiness", result.readiness_status)
+
+    typer.echo("")
+    _render_manual_install_steps(result.manual_steps)
+    if result.already_installed:
+        print_stdout("  (framework was already installed — skipped existing files)")
+
+    typer.echo("")
+    next_steps = [(_DOCTOR_COMMAND, "Run health diagnostics")]
+    if result.guide_text:
+        next_steps.append(("ai-eng guide", "View branch policy setup guide"))
+    suggest_next(next_steps)
+    info(
+        "Open your AI assistant (Claude Code / Copilot / Codex / Gemini) "
+        "and run /ai-start to begin the first governed session."
+    )
+    # spec-124 D-124-06: visual breathing room before the Install Complete panel
+    typer.echo("")
+    _render_install_summary_panel(result)
+    if result.guide_text:
         typer.echo("")
-        if result.manual_steps:
-            warning("Manual steps required:")
-            for step in result.manual_steps:
-                print_stdout(f"    - {step}")
+        warning("Automatic branch policy application was not possible.")
+        warning("You must configure branch protection manually to enforce governance gates.")
 
-        if result.already_installed:
-            print_stdout("  (framework was already installed \u2014 skipped existing files)")
 
-        typer.echo("")
-        # spec-109 follow-up: /ai-start is an IDE assistant slash command,
-        # NOT a shell command. Surface only ``ai-eng *`` shell commands here;
-        # the IDE-side hint is rendered as a separate guidance line below.
-        next_steps = [
-            ("ai-eng doctor", "Run health diagnostics"),
-        ]
-        if result.guide_text:
-            next_steps.append(("ai-eng guide", "View branch policy setup guide"))
-        suggest_next(next_steps)
+def _render_manual_install_steps(manual_steps: list[str]) -> None:
+    """Render manual follow-up steps when install reports any."""
+    if not manual_steps:
+        return
+    warning("Manual steps required:")
+    for step in manual_steps:
+        print_stdout(f"    - {step}")
 
-        # IDE assistant guidance (separate from shell next steps).
-        info(
-            "Open your AI assistant (Claude Code / Copilot / Codex / Gemini) "
-            "and run /ai-start to begin the first governed session."
-        )
 
-        # Summary panel with next steps
-        pending_setup: list[tuple[str, str]] = []
-        next_steps_list: list[tuple[str, str]] = [
-            ("ai-eng doctor", "Verify everything works"),
-        ]
-        if result.manual_steps:
-            for step in result.manual_steps:
-                if "setup" in step.lower():
-                    pending_setup.append(("ai-eng setup", step))
-
-        hooks_count = len(result.hooks.installed) if result.hooks.installed else 0
-
-        render_summary(
-            files_created=result.total_created,
-            hooks_installed=hooks_count,
-            warnings=[s for s in result.manual_steps if s],
-            pending_setup=pending_setup,
-            next_steps=next_steps_list,
-        )
-
-        # Branch policy guide at the END -- only when automation failed
-        if result.guide_text:
-            typer.echo("")
-            warning("Automatic branch policy application was not possible.")
-            warning("You must configure branch protection manually to enforce governance gates.")
+def _render_install_summary_panel(result: Any) -> None:
+    """Render the final Rich summary panel for install."""
+    pending_setup = [
+        ("ai-eng setup", step) for step in result.manual_steps if "setup" in step.lower()
+    ]
+    hooks_count = len(result.hooks.installed) if result.hooks.installed else 0
+    render_summary(
+        files_created=result.total_created,
+        hooks_installed=hooks_count,
+        warnings=[step for step in result.manual_steps if step],
+        pending_setup=pending_setup,
+        next_steps=[(_DOCTOR_COMMAND, "Verify everything works")],
+    )
 
 
 def _render_auto_remediation_summary(report: object) -> None:
@@ -642,7 +996,9 @@ def _render_auto_remediation_summary(report: object) -> None:
                 f"manual action ({residue_labels})"
             )
         else:
-            warning("Auto-remediation: no remediation applied; run 'ai-eng doctor --fix' to retry.")
+            warning(
+                f"Auto-remediation: no remediation applied; run '{_DOCTOR_FIX_COMMAND}' to retry."
+            )
 
     for entry in report.applied:
         print_stderr(f"  → fixed   {entry}")
@@ -662,50 +1018,12 @@ def _render_pipeline_steps(summary: object) -> None:
     from ai_engineering.installer.phases import PHASE_ORDER
 
     phase_names = list(PHASE_ORDER)
-    phase_labels = {
-        PHASE_DETECT: "Detection",
-        PHASE_GOVERNANCE: "Governance framework",
-        PHASE_IDE_CONFIG: "IDE configuration",
-        PHASE_HOOKS: "Git hooks",
-        PHASE_STATE: "State initialization",
-        PHASE_TOOLS: "Tool verification",
-    }
-
     non_critical_failures = set(getattr(summary, "non_critical_failures", []) or [])
 
     for i, name in enumerate(phase_names):
-        phase_result = next((r for r in summary.results if r.phase_name == name), None)
-        status = "ok"
-        detail = ""
-        if phase_result:
-            count = len(phase_result.created)
-            del_count = len(phase_result.deleted)
-            parts = []
-            if count:
-                parts.append(f"{count} files")
-            if del_count:
-                parts.append(f"{del_count} deleted")
-            detail = ", ".join(parts) if parts else "up to date"
-            # spec-109 D-109-02: a non-critical failure is rendered as WARN
-            # rather than FAIL because the pipeline kept going AND auto-remediate
-            # gets a second chance. Critical failures still surface as FAIL.
-            if name in non_critical_failures:
-                status = "warn"
-                detail = (
-                    "non-critical failure (auto-remediate will retry)"
-                    if not detail or detail == "up to date"
-                    else f"{detail} — non-critical (auto-remediate will retry)"
-                )
-            elif phase_result.failed:
-                status = "fail"
-            elif phase_result.warnings:
-                status = "warn"
-        elif summary.failed_phase and name not in summary.completed_phases:
-            status = "skip"
-            detail = "skipped"
-
-        label = phase_labels.get(name, name)
-        desc = f"{'Setting up' if status != 'skip' else 'Skipped'} {label.lower()}..."
+        status, detail = _pipeline_step_status(summary, name, non_critical_failures)
+        label = _PHASE_LABELS.get(name, name)
+        desc = _pipeline_step_description(label, status)
         render_step(
             StepStatus(
                 number=i + 1,
@@ -716,6 +1034,66 @@ def _render_pipeline_steps(summary: object) -> None:
                 detail=detail,
             )
         )
+
+
+_PHASE_LABELS = {
+    PHASE_DETECT: "Detection",
+    PHASE_GOVERNANCE: "Governance framework",
+    PHASE_IDE_CONFIG: "IDE configuration",
+    PHASE_HOOKS: "Git hooks",
+    PHASE_STATE: "State initialization",
+    PHASE_TOOLS: "Tool verification",
+}
+
+
+def _pipeline_step_status(
+    summary: Any,
+    name: str,
+    non_critical_failures: set[str],
+) -> tuple[str, str]:
+    """Return the display status and detail for one pipeline phase."""
+    phase_result = next((r for r in summary.results if r.phase_name == name), None)
+    if phase_result is None:
+        return _missing_pipeline_step_status(summary, name)
+    detail = _pipeline_step_detail(phase_result)
+    if name in non_critical_failures:
+        return "warn", _non_critical_pipeline_detail(detail)
+    if phase_result.failed:
+        return "fail", detail
+    if phase_result.warnings:
+        return "warn", detail
+    return "ok", detail
+
+
+def _missing_pipeline_step_status(summary: Any, name: str) -> tuple[str, str]:
+    """Return the status for a phase that produced no result."""
+    if summary.failed_phase and name not in summary.completed_phases:
+        return "skip", "skipped"
+    return "ok", ""
+
+
+def _pipeline_step_detail(phase_result: Any) -> str:
+    """Describe created and deleted file counts for a pipeline phase."""
+    parts = []
+    if phase_result.created:
+        parts.append(f"{len(phase_result.created)} files")
+    if phase_result.deleted:
+        parts.append(f"{len(phase_result.deleted)} deleted")
+    return ", ".join(parts) if parts else "up to date"
+
+
+def _non_critical_pipeline_detail(detail: str) -> str:
+    """Annotate a non-critical phase failure for auto-remediation."""
+    retry_detail = "non-critical failure (auto-remediate will retry)"
+    if not detail or detail == "up to date":
+        return retry_detail
+    return f"{detail} — non-critical (auto-remediate will retry)"
+
+
+def _pipeline_step_description(label: str, status: str) -> str:
+    """Build the user-facing pipeline step description."""
+    prefix = "Skipped" if status == "skip" else "Setting up"
+    return f"{prefix} {label.lower()}..."
 
 
 def _show_detection_summary(detected: DetectionResult) -> None:
@@ -744,7 +1122,6 @@ def _replay_plan(root: Path, plan_path: Path) -> None:
         plan_path: Path to the JSON plan file.
     """
     import json
-    import shutil
 
     data = json.loads(plan_path.read_text(encoding="utf-8"))
 
@@ -761,34 +1138,51 @@ def _replay_plan(root: Path, plan_path: Path) -> None:
         get_project_template_root,
     )
 
+    template_roots = [get_project_template_root(), get_ai_engineering_template_root()]
     for plan_data in data.get("plans", []):
         plan = PhasePlan.from_dict(plan_data)  # validates path security
         for action in plan.actions:
-            if action.action_type == "skip":
-                continue
-            dest = root / action.destination
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            if action.source:
-                for template_root in [
-                    get_project_template_root(),
-                    get_ai_engineering_template_root(),
-                ]:
-                    src = template_root / action.source
-                    if src.exists():
-                        shutil.copy2(src, dest)
-                        break
+            _replay_plan_action(root, action, template_roots)
 
     typer.echo(f"Plan replayed successfully to {root}")
 
 
+def _replay_plan_action(root: Path, action: Any, template_roots: list[Path]) -> None:
+    """Replay one validated install-plan action."""
+    if action.action_type == "skip":
+        return
+    dest = root / action.destination
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if action.source:
+        _copy_plan_action_source(action, dest, template_roots)
+
+
+def _copy_plan_action_source(action: Any, dest: Path, template_roots: list[Path]) -> None:
+    """Copy a source-backed install-plan action when its template exists."""
+    import shutil
+
+    for template_root in template_roots:
+        src = template_root / action.source
+        if src.exists():
+            shutil.copy2(src, dest)
+            return
+
+
 _PROVIDER_ALIASES: dict[str, str] = {
-    "claude": "claude_code",
-    "copilot": "github_copilot",
-    "gemini": "gemini",
+    "claude": "claude-code",
+    "claude-code": "claude-code",
+    "copilot": "github-copilot",
+    "github_copilot": "github-copilot",
+    "github-copilot": "github-copilot",
+    "gemini": "gemini-cli",
+    "gemini-cli": "gemini-cli",
     "codex": "codex",
 }
 
+_DOCTOR_COMMAND = "ai-eng doctor"
+_DOCTOR_FIX_COMMAND = "ai-eng doctor --fix"
 _UPDATE_COMMAND = "ai-eng update"
+_UPDATE_APPLY_COMMAND = "ai-eng update --apply"
 
 
 def _resolve_ai_providers(providers: list[str] | None) -> list[str]:
@@ -799,7 +1193,7 @@ def _resolve_ai_providers(providers: list[str] | None) -> list[str]:
     """
     if providers:
         return [_PROVIDER_ALIASES.get(p, p) for p in providers]
-    return ["claude_code"]
+    return ["claude-code"]
 
 
 def update_cmd(
@@ -824,43 +1218,22 @@ def update_cmd(
     root = resolve_project_root(target)
     json_requested = is_json_mode() or output_json
     interactive_tty = not json_requested and sys.stdin.isatty()
-
-    if interactive_tty:
-        with spinner("Previewing framework updates..."):
-            preview = update(root, dry_run=True)
-        _render_update_result(preview, root=root, show_diff=show_diff)
-        if preview.available_count == 0 and preview.orphan_count == 0:
-            info("No framework-managed files require changes.")
-            return
-
-        orphan_suffix = ""
-        if preview.orphan_count:
-            orphan_suffix = f", {preview.orphan_count} orphaned (will be removed)"
-        prompt_msg = (
-            f"{preview.available_count} available{orphan_suffix}. "
-            "Apply these framework updates now?"
-        )
-        should_apply = typer.confirm(prompt_msg, default=apply)
-        if not should_apply:
-            warning("Preview only. No changes were applied.")
-            suggest_next(
-                [("ai-eng update --apply", "Apply the previewed changes non-interactively")]
-            )
-            return
-
-        try:
-            with spinner("Applying framework updates..."):
-                applied_result = update(root, dry_run=False)
-        except Exception as exc:
-            error(f"Update failed while applying changes: {exc}")
-            raise typer.Exit(code=1) from exc
-
-        _render_update_result(applied_result, root=root, show_diff=show_diff)
-        return
+    update_runner = partial(_run_update_with_spinner, interactive_tty=interactive_tty)
+    confirm_apply = partial(
+        _confirm_update_apply,
+        root=root,
+        show_diff=show_diff,
+        apply=apply,
+    )
 
     try:
-        with spinner("Checking for updates..."):
-            result = update(root, dry_run=not apply)
+        workflow_result = run_update_workflow(
+            root,
+            apply=apply,
+            interactive=interactive_tty,
+            confirm_apply=confirm_apply if interactive_tty else None,
+            update_runner=update_runner,
+        )
     except Exception as exc:
         if json_requested:
             from ai_engineering.cli_envelope import emit_error
@@ -882,6 +1255,15 @@ def update_cmd(
         error(f"Update failed while applying changes: {exc}")
         raise typer.Exit(code=1) from exc
 
+    if _handle_interactive_update_result(
+        workflow_result,
+        root=root,
+        show_diff=show_diff,
+    ):
+        return
+
+    result = workflow_result.result
+
     if json_requested:
         result_data = result.to_dict()
         result_data["root"] = str(root)
@@ -889,13 +1271,70 @@ def update_cmd(
             _UPDATE_COMMAND,
             result_data,
             [
-                NextAction(command="ai-eng doctor", description="Verify framework health"),
-                NextAction(command="ai-eng update --apply", description="Apply changes"),
+                NextAction(command=_DOCTOR_COMMAND, description="Verify framework health"),
+                NextAction(command=_UPDATE_APPLY_COMMAND, description="Apply changes"),
             ],
         )
         return
 
     _render_update_result(result, root=root, show_diff=show_diff)
+
+
+def _run_update_with_spinner(
+    target_root: Path,
+    *,
+    dry_run: bool,
+    interactive_tty: bool,
+) -> Any:
+    """Run the updater with CLI progress rendering."""
+    if interactive_tty:
+        message = "Previewing framework updates..." if dry_run else "Applying framework updates..."
+    else:
+        message = "Checking for updates..."
+    with spinner(message):
+        return update(target_root, dry_run=dry_run)
+
+
+def _confirm_update_apply(
+    preview: Any,
+    *,
+    root: Path,
+    show_diff: bool,
+    apply: bool,
+) -> bool:
+    """Render the preview and ask whether the update should be applied."""
+    _render_update_result(preview, root=root, show_diff=show_diff)
+    orphan_suffix = ""
+    if preview.orphan_count:
+        orphan_suffix = f", {preview.orphan_count} orphaned (will be removed)"
+    prompt_msg = (
+        f"{preview.available_count} available{orphan_suffix}. Apply these framework updates now?"
+    )
+    return typer.confirm(prompt_msg, default=apply)
+
+
+def _handle_interactive_update_result(
+    workflow_result: UpdateWorkflowResult,
+    *,
+    root: Path,
+    show_diff: bool,
+) -> bool:
+    """Handle interactive-only update workflow statuses."""
+    if workflow_result.status == UpdateWorkflowStatus.DECLINED:
+        warning("Preview only. No changes were applied.")
+        suggest_next([("ai-eng update --apply", "Apply the previewed changes non-interactively")])
+        return True
+    if workflow_result.status == UpdateWorkflowStatus.NO_CHANGES:
+        _render_update_result(workflow_result.result, root=root, show_diff=show_diff)
+        info("No framework-managed files require changes.")
+        return True
+    if (
+        workflow_result.preview is not None
+        and workflow_result.status == UpdateWorkflowStatus.APPLIED
+    ):
+        _render_update_result(workflow_result.result, root=root, show_diff=show_diff)
+        return True
+    return False
 
 
 def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
@@ -954,29 +1393,38 @@ def _render_update_change(change: Any, *, dry_run: bool, show_diff: bool) -> Non
     status_line(status, f"diff {change.path}", change.explanation)
 
     if change.action == "orphan" and change.path.is_file():
-        try:
-            content = change.path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
-            typer.echo("    [binary or unreadable file]")
-        else:
-            lines = content.splitlines(keepends=True)
-            if len(lines) > _DIFF_MAX_LINES:
-                lines = lines[:_DIFF_MAX_LINES]
-                remaining = len(content.splitlines()) - _DIFF_MAX_LINES
-                lines.append(f"    ... ({remaining} more lines)\n")
-            for line in lines:
-                typer.echo(f"    -{line}", nl=False)
-            if lines and not lines[-1].endswith("\n"):
-                typer.echo("")
+        _render_orphan_update_diff(change.path)
     elif change.diff:
-        diff_text = change.diff
-        lines = diff_text.splitlines(keepends=True)
-        if len(lines) > _DIFF_MAX_LINES:
-            lines = lines[:_DIFF_MAX_LINES]
-            remaining = len(diff_text.splitlines()) - _DIFF_MAX_LINES
-            lines.append(f"    ... ({remaining} more lines)\n")
-        for line in lines:
-            typer.echo(f"    {line}", nl=False)
+        _render_limited_update_diff(change.diff)
+
+
+def _render_orphan_update_diff(path: Path) -> None:
+    """Render an orphaned file body as removed diff lines."""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        typer.echo("    [binary or unreadable file]")
+        return
+    lines = _limited_diff_lines(content)
+    for line in lines:
+        typer.echo(f"    -{line}", nl=False)
+    if lines and not lines[-1].endswith("\n"):
+        typer.echo("")
+
+
+def _render_limited_update_diff(diff_text: str) -> None:
+    """Render a unified diff with the CLI diff line cap."""
+    for line in _limited_diff_lines(diff_text):
+        typer.echo(f"    {line}", nl=False)
+
+
+def _limited_diff_lines(text: str) -> list[str]:
+    """Return diff lines capped to the configured maximum."""
+    lines = text.splitlines(keepends=True)
+    if len(lines) <= _DIFF_MAX_LINES:
+        return lines
+    remaining = len(text.splitlines()) - _DIFF_MAX_LINES
+    return [*lines[:_DIFF_MAX_LINES], f"    ... ({remaining} more lines)\n"]
 
 
 def doctor_cmd(
@@ -1019,13 +1467,8 @@ def doctor_cmd(
         set_json_mode(True)
     root = resolve_project_root(target)
 
-    if focused_check == "hot-path":
-        from ai_engineering.cli_commands.doctor_hot_path import run_hot_path_check
-
-        run_hot_path_check(root)
+    if _run_focused_doctor_check(root, focused_check):
         return
-    if focused_check is not None:
-        raise typer.BadParameter(f"Unknown --check value: {focused_check!r}. Supported: hot-path.")
 
     if dry_run and not fix:
         fix = True  # --dry-run implies --fix
@@ -1038,58 +1481,111 @@ def doctor_cmd(
         _interactive_fix(root, report, phase)
 
     if is_json_mode():
-        report_dict = report.to_dict()
-        next_actions = []
-        if fixable_count:
-            next_actions = [
-                NextAction(
-                    command="ai-eng doctor --fix",
-                    description="Attempt automatic repairs for fixable issues",
-                ),
-            ]
-        emit_success("ai-eng doctor", report_dict, next_actions)
+        _emit_doctor_json(report, fixable_count=fixable_count)
     else:
-        status = "PASS" if report.passed else "FAIL"
-        result_header("Doctor", status, str(root))
+        _render_doctor_human(
+            root,
+            report,
+            fixable_count=fixable_count,
+            manual_count=manual_count,
+        )
+    _exit_for_doctor_report(report)
 
-        if not report.installed:
-            warning("Framework not installed. Run 'ai-eng install' first.")
 
-        kv("Summary", report.summary)
-        if fixable_count:
-            kv("Auto-fix", f"{fixable_count} issue(s) can be attempted with ai-eng doctor --fix")
-        if manual_count:
-            kv("Manual follow-up", f"{manual_count} issue(s) require manual action")
+def _run_focused_doctor_check(root: Path, focused_check: str | None) -> bool:
+    """Run a focused doctor sub-check when requested."""
+    if focused_check is None:
+        return False
+    if focused_check != "hot-path":
+        raise typer.BadParameter(f"Unknown --check value: {focused_check!r}. Supported: hot-path.")
+    from ai_engineering.cli_commands.doctor_hot_path import run_hot_path_check
 
-        for phase_report in report.phases:
-            typer.echo(f"\n  {phase_report.name} [{phase_report.status.value}]")
-            for doctor_check in phase_report.checks:
-                status_line(
-                    doctor_check.status.value,
-                    doctor_check.name,
-                    doctor_check.message,
-                )
+    run_hot_path_check(root)
+    return True
 
-        if report.runtime:
-            typer.echo("\n  runtime")
-            for doctor_check in report.runtime:
-                status_line(
-                    doctor_check.status.value,
-                    doctor_check.name,
-                    doctor_check.message,
-                )
 
-        if fixable_count:
-            suggest_next([("ai-eng doctor --fix", "Attempt automatic repairs for fixable issues")])
-        elif manual_count:
-            # Distinguish failing checks (blocking) from warnings (advisory).
-            # `report.passed` is True when no FAIL exists — only WARN-level
-            # follow-ups remain, so the project is functional.
-            if report.passed:
-                warning(f"{manual_count} warning(s) for review above; project is functional.")
-            else:
-                warning("Manual follow-up required. Review the failing checks above.")
+def _emit_doctor_json(report: DoctorReport, *, fixable_count: int) -> None:
+    """Emit doctor results through the JSON envelope."""
+    next_actions = []
+    if fixable_count:
+        next_actions = [
+            NextAction(
+                command=_DOCTOR_FIX_COMMAND,
+                description="Attempt automatic repairs for fixable issues",
+            ),
+        ]
+    emit_success(_DOCTOR_COMMAND, report.to_dict(), next_actions)
 
+
+def _render_doctor_human(
+    root: Path,
+    report: DoctorReport,
+    *,
+    fixable_count: int,
+    manual_count: int,
+) -> None:
+    """Render doctor results for humans."""
+    status = "PASS" if report.passed else "FAIL"
+    result_header("Doctor", status, str(root))
+    if not report.installed:
+        warning("Framework not installed. Run 'ai-eng install' first.")
+
+    kv("Summary", report.summary)
+    if fixable_count:
+        kv("Auto-fix", f"{fixable_count} issue(s) can be attempted with {_DOCTOR_FIX_COMMAND}")
+    if manual_count:
+        kv("Manual follow-up", f"{manual_count} issue(s) require manual action")
+
+    _render_doctor_phase_checks(report)
+    _render_doctor_runtime_checks(report)
+    _render_doctor_next_steps(report, fixable_count=fixable_count, manual_count=manual_count)
+
+
+def _render_doctor_phase_checks(report: DoctorReport) -> None:
+    """Render phase-level doctor checks."""
+    for phase_report in report.phases:
+        typer.echo(f"\n  {phase_report.name} [{phase_report.status.value}]")
+        for doctor_check in phase_report.checks:
+            status_line(
+                doctor_check.status.value,
+                doctor_check.name,
+                doctor_check.message,
+            )
+
+
+def _render_doctor_runtime_checks(report: DoctorReport) -> None:
+    """Render runtime doctor checks."""
+    if not report.runtime:
+        return
+    typer.echo("\n  runtime")
+    for doctor_check in report.runtime:
+        status_line(
+            doctor_check.status.value,
+            doctor_check.name,
+            doctor_check.message,
+        )
+
+
+def _render_doctor_next_steps(
+    report: DoctorReport,
+    *,
+    fixable_count: int,
+    manual_count: int,
+) -> None:
+    """Render doctor follow-up guidance."""
+    if fixable_count:
+        suggest_next([(_DOCTOR_FIX_COMMAND, "Attempt automatic repairs for fixable issues")])
+        return
+    if not manual_count:
+        return
+    if report.passed:
+        warning(f"{manual_count} warning(s) for review above; project is functional.")
+    else:
+        warning("Manual follow-up required. Review the failing checks above.")
+
+
+def _exit_for_doctor_report(report: DoctorReport) -> None:
+    """Apply the doctor command's compatibility exit-code contract."""
     if not report.passed:
         raise typer.Exit(code=1)
     if report.has_warnings:
@@ -1100,25 +1596,12 @@ def _interactive_fix(root: Path, report: DoctorReport, phase_filter: str | None)
     """Re-run diagnostics with interactive confirmation for each fixable failure."""
     from ai_engineering.doctor.models import CheckStatus
 
-    fixable = []
-    for phase_report in report.phases:
-        for check in phase_report.checks:
-            if check.status in (CheckStatus.FAIL, CheckStatus.WARN) and check.fixable:
-                fixable.append((phase_report.name, check))
-
+    fixable = _collect_fixable_doctor_checks(report)
     if not fixable:
         return
 
     typer.echo(f"\nFound {len(fixable)} fixable issue(s):\n")
-    approve_all = False
-    for phase_name, check in fixable:
-        typer.echo(f"  [{phase_name}] {check.name}: {check.message}")
-        if not approve_all:
-            response = typer.prompt("  Fix? (y/n/all)", default="y")
-            if response.lower() == "all":
-                approve_all = True
-            elif response.lower() != "y":
-                continue
+    _prompt_for_doctor_fixes(fixable)
 
     # Re-run with fix enabled (fixes were already applied in diagnose with fix=True)
     typer.echo("\nRe-verifying fixes...")
@@ -1132,6 +1615,34 @@ def _interactive_fix(root: Path, report: DoctorReport, phase_filter: str | None)
     # Update the report with re-verification results
     report.phases = re_report.phases
     report.runtime = re_report.runtime
+
+
+def _collect_fixable_doctor_checks(report: DoctorReport) -> list[tuple[str, Any]]:
+    """Collect failing or warning checks that support automatic fixes."""
+    from ai_engineering.doctor.models import CheckStatus
+
+    fixable = []
+    for phase_report in report.phases:
+        for check in phase_report.checks:
+            if check.status in (CheckStatus.FAIL, CheckStatus.WARN) and check.fixable:
+                fixable.append((phase_report.name, check))
+    return fixable
+
+
+def _prompt_for_doctor_fixes(fixable: list[tuple[str, Any]]) -> None:
+    """Prompt through fixable doctor checks before re-verification."""
+    approve_all = False
+    for phase_name, check in fixable:
+        typer.echo(f"  [{phase_name}] {check.name}: {check.message}")
+        approve_all = _prompt_for_doctor_fix(approve_all)
+
+
+def _prompt_for_doctor_fix(approve_all: bool) -> bool:
+    """Prompt for one doctor fix and return whether all remaining are approved."""
+    if approve_all:
+        return True
+    response = typer.prompt("  Fix? (y/n/all)", default="y")
+    return response.lower() == "all"
 
 
 def version_cmd() -> None:

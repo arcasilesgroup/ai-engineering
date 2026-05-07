@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
+from ai_engineering.state.work_plane import write_task_ledger
 from ai_engineering.vcs.protocol import VcsResult
 from ai_engineering.work_items.service import (
     SyncReport,
@@ -207,6 +212,179 @@ class TestSyncSpecIssues:
         # Assert
         provider.find_issue.assert_not_called()
         assert report == SyncReport()
+
+    def test_uses_resolved_work_plane_specs_dir(self, tmp_path: Path, monkeypatch) -> None:
+        resolved_specs_dir = tmp_path / "resolved-work-plane"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": "resolved-work-plane"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "_history.md").write_text("# History", encoding="utf-8")
+        spec_dir = resolved_specs_dir / "037-sync"
+        spec_dir.mkdir()
+        (spec_dir / "spec.md").write_text(
+            "# Spec 037 — Sync\n\n## Problem\n\nNeed sync.",
+            encoding="utf-8",
+        )
+
+        provider = _mock_provider(find_output="")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert "037-sync" in report.created
+        provider.create_issue.assert_called_once()
+
+    def test_syncs_when_resolved_work_plane_is_the_active_spec_root(self, tmp_path: Path) -> None:
+        resolved_specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": ".ai-engineering/specs/spec-117-hx-02"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "spec.md").write_text(
+            "# Spec 117 — Work Plane and Task Ledger\n\n## Problem\n\nNeed activation-aware sync.",
+            encoding="utf-8",
+        )
+
+        provider = _mock_provider(find_output="")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert "117-hx-02" in report.created
+        provider.create_issue.assert_called_once()
+        issue_ctx = provider.find_issue.call_args.args[0]
+        assert issue_ctx.spec_id == "117-hx-02"
+        assert issue_ctx.labels == ("spec-117-hx-02",)
+
+    def test_syncs_legacy_active_spec_root_from_declared_spec_id(self, tmp_path: Path) -> None:
+        specs_dir = tmp_path / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True)
+        (specs_dir / "spec.md").write_text(
+            '---\nid: "117-hx-02"\n---\n\n# Spec 117 — Work Plane\n',
+            encoding="utf-8",
+        )
+
+        provider = _mock_provider(find_output="")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert "117-hx-02" in report.created
+        issue_ctx = provider.find_issue.call_args.args[0]
+        assert issue_ctx.spec_id == "117-hx-02"
+        assert issue_ctx.labels == ("spec-117-hx-02",)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
+    def test_syncs_placeholder_active_spec_root_when_resolved_ledger_has_live_task(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        resolved_specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": ".ai-engineering/specs/spec-117-hx-02"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+            encoding="utf-8",
+        )
+        write_task_ledger(
+            tmp_path,
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="HX-02-T-5.1-work-items-ledger-aware-active-spec-dir",
+                        title="Cut work-item sync over to the resolved ledger",
+                        ownerRole="Build",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        writeScope=["src/ai_engineering/work_items/service.py"],
+                    )
+                ]
+            ),
+        )
+
+        provider = _mock_provider(find_output="")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert "117-hx-02" in report.created
+        provider.create_issue.assert_called_once()
+
+    def test_placeholder_active_spec_root_with_done_resolved_ledger_stays_idle(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        resolved_specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": ".ai-engineering/specs/spec-117-hx-02"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+            encoding="utf-8",
+        )
+        write_task_ledger(
+            tmp_path,
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="HX-02-T-5.1-work-items-ledger-aware-active-spec-dir",
+                        title="Cut work-item sync over to the resolved ledger",
+                        ownerRole="Build",
+                        status=TaskLifecycleState.DONE,
+                        writeScope=["src/ai_engineering/work_items/service.py"],
+                    )
+                ]
+            ),
+        )
+
+        provider = _mock_provider(find_output="")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert report == SyncReport()
+        provider.find_issue.assert_not_called()
+
+    def test_placeholder_active_spec_root_with_unreadable_resolved_ledger_stays_idle(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        resolved_specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": ".ai-engineering/specs/spec-117-hx-02"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "task-ledger.json").write_text("{not-json", encoding="utf-8")
+
+        provider = _mock_provider(find_output="")
+
+        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+            report = sync_spec_issues(tmp_path)
+
+        assert report == SyncReport()
+        provider.find_issue.assert_not_called()
 
 
 # ── get_linked_issue_id ──────────────────────────────────────────

@@ -101,6 +101,24 @@ def test_bump_python_version_works_without_version_file(tmp_path: Path) -> None:
     assert len(result.files_modified) == 1
 
 
+def test_bump_python_version_syncs_framework_manifests_in_source_repo(tmp_path: Path) -> None:
+    _write_project(tmp_path, "0.1.0")
+    root_manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+    root_manifest.parent.mkdir(parents=True, exist_ok=True)
+    root_manifest.write_text('framework_version: "0.1.0"\n', encoding="utf-8")
+    template_manifest = (
+        tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
+    )
+    template_manifest.parent.mkdir(parents=True, exist_ok=True)
+    template_manifest.write_text('framework_version: "0.1.0"\n', encoding="utf-8")
+
+    result = bump_python_version(tmp_path, "0.2.0")
+
+    assert len(result.files_modified) == 3
+    assert 'framework_version: "0.2.0"' in root_manifest.read_text(encoding="utf-8")
+    assert 'framework_version: "0.2.0"' in template_manifest.read_text(encoding="utf-8")
+
+
 def _write_registry(tmp_path: Path, versions: list[dict[str, str]]) -> Path:
     registry_path = tmp_path / "src" / "ai_engineering" / "version" / "registry.json"
     registry_path.parent.mkdir(parents=True, exist_ok=True)

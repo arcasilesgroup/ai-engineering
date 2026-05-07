@@ -7,15 +7,15 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 ## Prerequisites
 
 - Phase 5 (QUALITY LOOP) is complete: either PASS (0 blockers/criticals/highs) or exhausted (round 3 reached with only criticals/highs remaining).
-- Manifest at `specs/autopilot/manifest.md` has `## Quality Rounds` section with round log.
-- Sub-spec directories exist at `specs/autopilot/sub-NNN/` with `plan.md` containing populated `## Self-Report` sections from Phase 4 implementation agents.
-- Parent spec is available at `specs/spec.md`.
+- Manifest at `.ai-engineering/runtime/autopilot/manifest.md` has `## Quality Rounds` section with round log.
+- Sub-spec directories exist at `.ai-engineering/runtime/autopilot/sub-NNN/` with `plan.md` containing populated `## Self-Report` sections from Phase 4 implementation agents.
+- Parent spec is available at `.ai-engineering/specs/spec.md`.
 
 ## Procedure
 
 ### Step 1: Build Transparency Report
 
-1. Glob `specs/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
+1. Glob `.ai-engineering/runtime/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
 2. Read the manifest's `## Quality Rounds` section. Extract the consolidated findings from Phase 5: final state (CLEAN or remaining issues with severity breakdown), number of rounds executed, and per-round summaries.
 3. If any sub-specs have status `blocked` or `cascade-blocked` in the manifest: collect their ID, title, scope, and blocking reason. These form the "Blocked / Undelivered" section.
 4. Aggregate all classifications across sub-specs into totals. Cross-reference against quality findings -- a file classified as "real" in a Self-Report but failing checks in Phase 5 should be reclassified as "failing".
@@ -61,7 +61,7 @@ Classification rules:
 
 This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
 
-1. Read `.claude/skills/ai-pr/SKILL.md`. Follow its FULL procedure -- all steps, in order. Note: ai-pr Step 6.5 dispatches 2 consolidated documentation subagents (CHANGELOG+README, docs-portal+quality-gate) rather than 5 separate agents.
+1. Read `.claude/skills/ai-pr/SKILL.md`. Follow its FULL procedure -- all steps, in order. Note: ai-pr Step 7 dispatches 2 consolidated documentation subagents (CHANGELOG+README, docs-portal+quality-gate) rather than 5 separate agents.
 2. The PR body MUST include the following sections in addition to the standard ai-pr structure:
    - The `## Integrity Report` from Step 1 as a dedicated section.
    - A `## Sub-Spec Completion` table:
@@ -74,33 +74,33 @@ This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
      | sub-003 | [title] | blocked | -- |
      ```
    - Standard PR sections (Summary, Test Plan, Checklist) per ai-pr protocol.
-3. Enable auto-complete with squash merge per ai-pr Step 13.
-4. Enter the watch-and-fix loop per ai-pr Step 14, unless `--no-watch` flag was passed. If `--no-watch`: skip the loop and proceed directly to Step 3 (Cleanup).
+3. Enable auto-complete with squash merge per ai-pr Step 15.
+4. Enter the watch-and-fix loop per ai-pr Step 16, unless `--no-watch` flag was passed. If `--no-watch`: skip the loop and proceed directly to Step 3 (Cleanup).
 
 ### Step 3: Cleanup
 
-Execute after the PR merges (detected by the watch loop), or immediately after PR creation if `--no-watch` was passed.
+Execute after the PR merges (detected by the watch loop), or immediately after PR creation if `--no-watch` was passed. **Each sub-step MUST be invoked explicitly via the Bash/Write tools — no implicit assumptions.** Per spec-123 D-123-27, this section was historically skipped; the verification gate in Step 3.6 now asserts the actual on-disk state.
 
-1. **Delete autopilot directory**:
-   ```
-   rm -rf .ai-engineering/specs/autopilot/
+1. **Delete autopilot transient directory** (NEW path per spec-123 D-123-05; was `.ai-engineering/specs/autopilot/` pre-spec-123):
+   ```bash
+   rm -rf .ai-engineering/runtime/autopilot/
    ```
 
-2. **Clear `specs/spec.md`** with:
+2. **Clear `.ai-engineering/specs/spec.md`** to placeholder via Write tool. Exact content:
    ```markdown
    # No active spec
 
    Run /ai-brainstorm to start a new spec.
    ```
 
-3. **Clear `specs/plan.md`** with:
+3. **Clear `.ai-engineering/specs/plan.md`** to placeholder via Write tool. Exact content:
    ```markdown
    # No active plan
 
    Run /ai-plan after brainstorm approval.
    ```
 
-4. **Add entry to `specs/_history.md`** with the spec ID, title, date, and PR number. If `_history.md` does not exist, create it with this header first:
+4. **Append entry to `.ai-engineering/specs/_history.md`** with the spec ID, title, date, and PR number. If `_history.md` does not exist, create it with this header first:
    ```markdown
    # Spec History
 
@@ -109,14 +109,44 @@ Execute after the PR merges (detected by the watch loop), or immediately after P
    | ID | Title | Status | Created | Branch |
    |----|-------|--------|---------|--------|
    ```
-   Then append the new entry row to the table.
-
-5. **Verify cleanup** (lesson from spec-056): re-read `specs/spec.md` and `specs/plan.md` after clearing. If either file still contains old spec content (anything other than the placeholder text), clear it again. This is a hard verification -- do not trust the write succeeded without reading back.
-
-6. **Stage and commit** all cleanup changes:
+   Then append a one-line lifecycle entry to the table:
+   ```markdown
+   | spec-NNN | <title> | merged | YYYY-MM-DD | <branch> |
    ```
-   chore: clear autopilot state after spec-NNN delivery
+
+5. **Stage and commit** all cleanup changes:
+   ```bash
+   git add .ai-engineering/specs/spec.md .ai-engineering/specs/plan.md .ai-engineering/specs/_history.md
+   git commit -m "chore: clear autopilot state after spec-NNN delivery"
    ```
+
+6. **Verification gate** — MUST execute before reporting Phase 6 complete (spec-123 D-123-27). Run each assertion explicitly; any failure aborts Phase 6 with a clear diagnostic and instructs the user to retry the failed sub-step manually:
+
+   ```bash
+   # Assertion 1: autopilot transient dir removed
+   test ! -d .ai-engineering/runtime/autopilot/ \
+     || { echo "FAIL: .ai-engineering/runtime/autopilot/ still exists"; exit 1; }
+
+   # Assertion 2: specs/ contains exactly 3 canonical files
+   actual=$(ls -A .ai-engineering/specs/ | sort | tr '\n' ' ')
+   expected="_history.md plan.md spec.md "
+   test "$actual" = "$expected" \
+     || { echo "FAIL: specs/ contains '$actual' (expected '$expected')"; exit 1; }
+
+   # Assertion 3: spec.md is placeholder
+   grep -q "^# No active spec" .ai-engineering/specs/spec.md \
+     || { echo "FAIL: spec.md is not placeholder"; exit 1; }
+
+   # Assertion 4: plan.md is placeholder
+   grep -q "^# No active plan" .ai-engineering/specs/plan.md \
+     || { echo "FAIL: plan.md is not placeholder"; exit 1; }
+
+   # Assertion 5: _history.md exists and has at least one lifecycle entry row
+   test -f .ai-engineering/specs/_history.md \
+     || { echo "FAIL: _history.md missing"; exit 1; }
+   ```
+
+   Lesson from spec-056 + spec-123 D-123-27: re-read `spec.md` and `plan.md` after writing. If either still contains pre-cleanup content (anything other than placeholder), invoke the Write tool again. Do not trust the write succeeded without reading back. The bash assertions above formalize this hard verification.
 
 ### Step 4: Final Report
 
@@ -134,7 +164,7 @@ Integrity: N real, N aspirational, N stub, N failing, N invented, N hallucinated
 ```
 
 Field sources:
-- **Spec**: from `specs/spec.md` frontmatter (read before cleanup clears it).
+- **Spec**: from `.ai-engineering/specs/spec.md` frontmatter (read before cleanup clears it).
 - **Sub-specs**: count from manifest. "completed" = status `complete`. "blocked" = status `blocked` or `cascade-blocked`.
 - **Waves**: count from manifest's `## Execution DAG` section.
 - **Quality rounds**: from manifest's `## Quality Rounds` section.
@@ -143,7 +173,7 @@ Field sources:
 
 ## Resume Protocol
 
-When the autopilot is invoked with `--resume`, read `specs/autopilot/manifest.md` and re-enter the pipeline at the correct phase. Resume NEVER re-executes completed phases. The manifest is the single source of truth for all resume decisions.
+When the autopilot is invoked with `--resume`, read `.ai-engineering/runtime/autopilot/manifest.md` and re-enter the pipeline at the correct phase. Resume NEVER re-executes completed phases. The manifest is the single source of truth for all resume decisions.
 
 ### Resume Decision Logic
 
@@ -164,7 +194,7 @@ Read the manifest. Inspect sub-spec statuses, section presence, and wave complet
 ### Resume Safeguards
 
 - Never re-execute a phase whose artifacts are already complete and valid.
-- If the manifest is missing or corrupted (unparseable): STOP. Report: "Manifest is missing or corrupted. Cannot resume. Inspect `specs/autopilot/manifest.md` manually."
+- If the manifest is missing or corrupted (unparseable): STOP. Report: "Manifest is missing or corrupted. Cannot resume. Inspect `.ai-engineering/runtime/autopilot/manifest.md` manually."
 - If the manifest exists but no sub-specs files are found: STOP. Report: "Manifest exists but sub-spec files are missing. Pipeline state is inconsistent."
 - After determining the re-entry point, report to the user before proceeding:
   ```
@@ -176,7 +206,7 @@ Read the manifest. Inspect sub-spec statuses, section presence, and wave complet
 ## Output
 
 - PR created with Integrity Report, Sub-Spec Completion table, and standard ai-pr sections.
-- Autopilot state cleaned: `specs/autopilot/` deleted, `specs/spec.md` and `specs/plan.md` cleared.
+- Autopilot state cleaned: `.ai-engineering/runtime/autopilot/` deleted, `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` cleared.
 - Entry added to `specs/_history.md`.
 - Final report printed to user.
 

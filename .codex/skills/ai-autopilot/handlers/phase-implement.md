@@ -7,15 +7,15 @@ Execute the implementation plan following the DAG. For each wave, dispatch the b
 ## Prerequisites
 
 - Phase 3 (Orchestrate) complete.
-- Manifest at `specs/autopilot/manifest.md` contains a `## Execution DAG` section with wave assignments.
+- Manifest at `.ai-engineering/runtime/autopilot/manifest.md` contains a `## Execution DAG` section with wave assignments.
 - All sub-specs targeted for implementation have enriched Exploration, Plan, and file ownership sections (populated by Phase 2 and refined by Phase 3).
-- Decision-store at `state/decision-store.json` is readable (constraints apply to all agents).
+- Decision-store at `state/state.db.decisions` is readable (constraints apply to all agents).
 
 ## Procedure
 
 ### Step 1 -- Parse Execution DAG
 
-Read `specs/autopilot/manifest.md`. Extract the `## Execution DAG` section. Parse:
+Read `.ai-engineering/runtime/autopilot/manifest.md`. Extract the `## Execution DAG` section. Parse:
 
 - Wave numbers (Wave 1, Wave 2, ..., Wave N) in execution order.
 - Sub-spec assignments per wave (which sub-specs execute in each wave).
@@ -48,9 +48,9 @@ If all sub-specs in the wave are blocked, the wave is empty. Log and proceed to 
 
 For each non-blocked sub-spec in the wave, dispatch the build agent with a fresh context containing:
 
-1. **Sub-spec scope and exploration** -- from `specs/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
-1b. **Sub-spec plan** -- from `specs/autopilot/sub-NNN/plan.md` (task checkboxes).
-2. **Decision-store constraints** -- relevant entries from `state/decision-store.json` that apply to this sub-spec's domain.
+1. **Sub-spec scope and exploration** -- from `.ai-engineering/runtime/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
+1b. **Sub-spec plan** -- from `.ai-engineering/runtime/autopilot/sub-NNN/plan.md` (task checkboxes).
+2. **Decision-store constraints** -- relevant entries from `state/state.db.decisions` that apply to this sub-spec's domain.
 3. **Stack standards** -- passed as file path references from the `context_paths` list resolved in Phase 0. Agents read these files on demand if they need stack guidance. Do NOT embed full context file content in the dispatch prompt — pass paths only: `"Stack guidance available at: [context_paths]. Read on demand if needed."`.
 4. **Inline guard suppression** -- when dispatched by autopilot, include this directive: `"skip_inline_guard: true — governance advisory is handled at wave level, not per-file. Do NOT dispatch the guard agent on individual file edits."` This overrides the build agent's default per-file guard behavior within the autopilot context only.
 5. **File boundary enforcement** -- explicit instruction embedded in the agent prompt:
@@ -75,11 +75,11 @@ Each build agent executes the plan tasks listed in its sub-spec's `plan.md`, in 
 - Fix validation failures (max 3 attempts per file, then report failure).
 - Respect quality gates: no suppression comments, no weakened thresholds.
 
-After completing task T-N.K, edit `specs/autopilot/sub-NNN/plan.md` to change `- [ ] T-N.K` to `- [x] T-N.K`.
+After completing task T-N.K, edit `.ai-engineering/runtime/autopilot/sub-NNN/plan.md` to change `- [ ] T-N.K` to `- [x] T-N.K`.
 
 #### 2d -- Agent Writes Self-Report
 
-After completing (or failing) its plan tasks, each agent appends a `## Self-Report` section to `specs/autopilot/sub-NNN/plan.md` using the Transparency Protocol:
+After completing (or failing) its plan tasks, each agent appends a `## Self-Report` section to `.ai-engineering/runtime/autopilot/sub-NNN/plan.md` using the Transparency Protocol:
 
 ```markdown
 ## Self-Report
@@ -136,7 +136,7 @@ This replaces per-file guard dispatches within individual build agents. One guar
 
 ### Step 4 -- Update Manifest
 
-After the wave commit, update `specs/autopilot/manifest.md`:
+After the wave commit, update `.ai-engineering/runtime/autopilot/manifest.md`:
 
 - Mark each successfully completed sub-spec in the wave as `implemented`.
 - Mark each failed sub-spec (agent could not complete its plan) as `blocked`.
@@ -179,8 +179,8 @@ IMPLEMENT COMPLETE
 
 Artifacts produced:
 - Committed waves -- one commit per wave with implementation changes.
-- Self-Reports -- appended to each `specs/autopilot/sub-NNN/plan.md`.
-- Updated manifest -- `specs/autopilot/manifest.md` with `implemented`, `blocked`, or `cascade-blocked` statuses per sub-spec, plus wave commit hashes.
+- Self-Reports -- appended to each `.ai-engineering/runtime/autopilot/sub-NNN/plan.md`.
+- Updated manifest -- `.ai-engineering/runtime/autopilot/manifest.md` with `implemented`, `blocked`, or `cascade-blocked` statuses per sub-spec, plus wave commit hashes.
 
 ## Gate
 

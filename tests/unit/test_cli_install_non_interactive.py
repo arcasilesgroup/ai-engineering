@@ -132,7 +132,7 @@ class TestNonInteractiveSkipsPrompts:
             )
 
     def test_non_interactive_uses_default_ai_providers(self, tmp_path: Path) -> None:
-        """In non-interactive mode without --provider, default ['claude_code'] must be used."""
+        """In non-interactive mode without --provider, default ['claude-code'] must be used."""
         # Arrange
         app = create_app()
         mock_install = _mock_install_with_pipeline()
@@ -153,6 +153,6 @@ class TestNonInteractiveSkipsPrompts:
             assert result.exit_code == 0, f"Unexpected exit: {result.output}"
             call_kwargs = mock_install.call_args
             assert call_kwargs is not None
-            assert call_kwargs.kwargs.get("ai_providers") == ["claude_code"] or (
-                len(call_kwargs.args) > 0 and "claude_code" in str(call_kwargs)
+            assert call_kwargs.kwargs.get("ai_providers") == ["claude-code"] or (
+                len(call_kwargs.args) > 0 and "claude-code" in str(call_kwargs)
             )

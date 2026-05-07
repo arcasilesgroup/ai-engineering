@@ -7,12 +7,15 @@ Covers:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
 from ai_engineering.cli_commands.spec_cmd import _auto_correct_frontmatter
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
+from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
+from ai_engineering.state.work_plane import write_task_ledger
 
 
 def _create_plan_md(
@@ -225,6 +228,26 @@ class TestSpecVerifyCli:
         assert "auto-fixed" in err.lower()
 
 
+class TestSpecActivateCli:
+    """Tests for spec_activate CLI function."""
+
+    def test_activate_work_plane(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_activate
+        from ai_engineering.state.work_plane import resolve_active_work_plane
+
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_activate(specs_dir=Path(".ai-engineering/specs/spec-117-hx-02"))
+
+        err = capsys.readouterr().err
+        assert "Active work plane updated" in err
+        assert "spec-117-hx-02" in err
+        assert resolve_active_work_plane(tmp_path).specs_dir == (
+            tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
+        )
+
+
 class TestSpecListCli:
     """Tests for spec_list CLI function."""
 
@@ -246,6 +269,89 @@ class TestSpecListCli:
         with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
             spec_list()
         assert "No active spec" in capsys.readouterr().err
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
+    def test_list_placeholder_spec_with_live_resolved_ledger(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_list
+
+        resolved_specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": ".ai-engineering/specs/spec-117-hx-02"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+            encoding="utf-8",
+        )
+        write_task_ledger(
+            tmp_path,
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="HX-02-T-5.1-spec-list-ledger-aware-active-work-plane",
+                        title="Cut spec list over to resolved-ledger activity",
+                        ownerRole="Build",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        writeScope=["src/ai_engineering/cli_commands/spec_cmd.py"],
+                    )
+                ]
+            ),
+        )
+
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_list()
+
+        err = capsys.readouterr().err
+        assert "No active spec" not in err
+        assert "spec-117-hx-02" in err
+
+    def test_list_placeholder_spec_with_done_resolved_ledger(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture
+    ) -> None:
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands.spec_cmd import spec_list
+
+        resolved_specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": ".ai-engineering/specs/spec-117-hx-02"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+            encoding="utf-8",
+        )
+        write_task_ledger(
+            tmp_path,
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="HX-02-T-5.1-spec-list-ledger-aware-active-work-plane",
+                        title="Cut spec list over to resolved-ledger activity",
+                        ownerRole="Build",
+                        status=TaskLifecycleState.DONE,
+                        writeScope=["src/ai_engineering/cli_commands/spec_cmd.py"],
+                    )
+                ]
+            ),
+        )
+
+        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
+            spec_list()
+
+        err = capsys.readouterr().err
+        assert "No active spec" in err
+        assert "spec-117-hx-02" not in err
 
     def test_list_active_spec_with_plan(
         self, tmp_path: Path, capsys: pytest.CaptureFixture

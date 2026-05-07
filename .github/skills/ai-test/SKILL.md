@@ -4,6 +4,10 @@ description: "Use when working with tests: writing new tests, enforcing TDD (RED
 effort: high
 argument-hint: "plan|run|gap|tdd [target]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-test/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -117,6 +121,6 @@ If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to
 - **Called by**: `/ai-dispatch` (build tasks), `ai-build agent` (TDD mode), user directly
 - **Calls**: stack-specific test runners
 - **Transitions to**: `ai-build` (GREEN phase), `/ai-verify` (coverage validation)
-- **See also**: `/ai-debug` (diagnose failing tests), `/ai-eval` (measure reliability over time)
+- **See also**: `/ai-debug` (diagnose failing tests), `/ai-verify` (coverage + acceptance gate)
 
 $ARGUMENTS

@@ -15,7 +15,7 @@ ADR-required.
 
 1. **Every implementation traces back to an approved spec** under
    `.ai-engineering/specs/spec-NNN-<slug>.md`.
-2. `/ai-implement` cannot run without `plan.md` marked ready and a user
+2. `/ai-dispatch` cannot run without `plan.md` marked ready and a user
    approval signal.
 3. Trivial pipeline (typo / comment-only / single-line) is permitted
    to skip discovery + architecture phases; the spec still exists,
@@ -117,6 +117,127 @@ ADR-required.
 2. Amendments take effect at the next minor version.
 3. Articles I–VI are subject to a **stricter** amendment process: an
    ADR + 14-day public comment period.
+
+## Article XI — Operating Behaviour (Cross-IDE)
+
+The seven rules below are non-negotiable across **every** supported IDE
+(Claude Code, Codex, Gemini, GitHub Copilot). They were previously stated
+only in `GEMINI.md`; lifting them into the Constitution restores the
+"AGENTS.md is the canonical cross-IDE rulebook" contract that
+`manifest_coherence.py` validates.
+
+1. **Plan Mode Default** — enter plan mode for any non-trivial task
+   (3+ steps or architectural decisions). Stop and re-plan when something
+   goes sideways instead of pushing through. Verification work uses plan
+   mode too. Reduce ambiguity upfront via `/ai-brainstorm`.
+2. **Subagent Strategy** — offload research, exploration, and parallel
+   analysis to subagents. One task per subagent for focused execution.
+   Never have one subagent do two unrelated things.
+3. **Self-Improvement Loop** — after any user correction, update
+   `.ai-engineering/LESSONS.md` with the pattern. Iterate on lessons until
+   the mistake rate drops. Read lessons proactively at session start.
+4. **Verification Before Done** (proof-before-done) — never mark a task
+   complete without proving it works. Run tests, run the linter, check
+   the output. Diff behaviour when relevant. Ask: "would a staff
+   engineer approve this?"
+5. **Demand Elegance (Balanced)** — pause and ask "is there a more
+   elegant way?" for non-trivial changes. Skip for simple, obvious
+   fixes. Clever is bad; simple and clear is elegant.
+6. **Autonomous Bug Fixing** — when given a bug report, fix it. Don't
+   ask for hand-holding. If you see a bug while working on something
+   else, fix it and mention it in the commit.
+7. **Parallel Execution** — batch independent operations into
+   simultaneous tool calls. Never go sequential when you can go parallel.
+
+## Article XII — Secrets-Gate Defense in Depth
+
+The framework ships a two-stage secrets pipeline that fires on every
+commit and every push. Findings BLOCK at `CRITICAL`, `HIGH`, and
+`MEDIUM`; `LOW` warns. Suppression is forbidden (Article VII). Every
+acceptance flows through the risk-acceptance ledger -- never via inline
+allowlists or `# nosec` markers.
+
+1. **Pre-commit gate** (sub-1s p95) -- `ai-eng gate pre-commit` runs
+   `gitleaks protect --staged`, `ruff format --check`, `ruff check`,
+   and `ai-eng spec verify` on staged hunks only. Anything heavier
+   belongs on the pre-push or CI surface, not the local hot path.
+2. **Pre-push gate** (under 5s p95) -- `ai-eng gate pre-push` runs
+   `semgrep --config .semgrep.yml`, `pip-audit`, the unit-test suite,
+   and `ty` static type-checking. Defense-in-depth catches what
+   pre-commit cannot afford to scan.
+3. **CI** -- re-runs every gate above, plus the slower checks
+   (integration tests, SonarCloud, Scorecard, SBOM diff). CI is the
+   final authority; local gates are an early-warning layer.
+4. **Configuration** -- `.semgrep.yml` extends version-pinned
+   community packs (`p/python`, `p/bash`, `p/owasp-top-ten`,
+   `p/security-audit`). `.gitleaks.toml` + `.gitleaksignore` scope the
+   secrets-detector. The semgrep update model is documented in
+   `.ai-engineering/contexts/semgrep-update-model.md` -- pinned packs
+   require quarterly manual review.
+
+   **Allowlist hard rule (binding on framework + every project that
+   installs ai-engineering):**
+   - `.gitleaks.toml [allowlist] paths` MUST list **explicit individual
+     files**, never wildcards. A pattern like
+     `\.ai-engineering/state/.*\.json$` masks any future state-file
+     leak; that is a violation of this article and Article VII.
+   - `.gitleaks.toml [allowlist] regexes` and `stopwords` are
+     **forbidden** for suppressing real-secret findings. Any regex
+     allowlist is suppression and falls under Article VII's no-
+     suppression rule.
+   - When a known finding cannot be remediated immediately (e.g.
+     fake/educational secret in deleted-file git history), the
+     bypass goes through the risk-acceptance ledger via
+     `ai-eng risk accept --finding-id <rule_id> --justification
+     <text> --spec <id> --follow-up <plan>`. The acceptance is
+     time-bounded, owner-attributed, spec-referenced, and visible to
+     `ai-eng gate risk-check`. CI workflows that scan secrets MUST
+     route through `ai-eng gate pre-commit` (which consumes the
+     ledger) rather than calling `gitleaks` directly.
+5. **Risk acceptance** -- when remediation cannot land before the
+   publish window closes, run
+   `ai-eng risk accept --finding <hash>` to log the bypass with a TTL,
+   owner, and spec reference (see Article VII).
+   `.ai-engineering/contexts/risk-acceptance-flow.md` documents the
+   full lifecycle.
+6. **Visibility** -- `ai-eng doctor` surfaces a `secrets_gate` runtime
+   probe that verifies the binaries (`gitleaks`, `semgrep`),
+   configurations, and the pre-commit / pre-push hook wiring. The
+   probe is advisory: a missing tool warns, never fails the doctor
+   summary.
+
+## Article XIII — Active Spec Workflow Contract
+
+The framework enforces a single canonical spec-workflow flow. Every
+skill that touches `.ai-engineering/specs/` MUST follow the identical
+sequence; depth scales with spec size, but process steps are invariant.
+
+1. **Canonical flow** — the only authorized spec lifecycle is:
+   `/ai-brainstorm → /ai-plan → /ai-dispatch | /ai-autopilot → /ai-pr`.
+   No skill may bypass, reorder, or substitute these stages.
+2. **Depth scaling** — `/ai-autopilot` is the execution surface for
+   specs with ≥3 concerns or ≥10 file changes; `/ai-dispatch` handles
+   smaller specs. Both share the upstream brainstorm + plan stages and
+   the downstream PR stage; only the execution intensity varies.
+3. **Three-file specs/ surface** — `.ai-engineering/specs/` contains
+   exactly three files: `spec.md` (active spec), `plan.md` (active
+   plan), `_history.md` (one-line ledger of completed lifecycles). No
+   subdirectories, no numbered archives, no progress dirs, no
+   work-plane artifacts. Numbered archive specs are recoverable via
+   `git log -- .ai-engineering/specs/spec-NNN-*.md`. Decisions are
+   authoritative in `state.db.decisions`. Autopilot transient state
+   lives at `.ai-engineering/runtime/autopilot/` (gitignored) —
+   never under `specs/`.
+4. **Hard rule for skills** — any skill that reads or writes `specs/`
+   MUST consume only the canonical 3 files. Reading numbered archives
+   from disk is forbidden; query `state.db.decisions` or git history
+   instead.
+5. **Enforcement** — `tests/unit/specs/test_canonical_structure.py`
+   asserts the 3-file invariant on every CI run.
+   `tests/unit/specs/test_active_workflow_compliance.py` asserts that
+   each lifecycle skill (`/ai-brainstorm`, `/ai-plan`,
+   `/ai-dispatch`, `/ai-autopilot`, `/ai-pr`) exists and references
+   the canonical surface. Any deviation fails CI.
 
 ---
 

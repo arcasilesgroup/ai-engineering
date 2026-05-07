@@ -3,6 +3,10 @@ name: ai-verify
 description: "Evidence-first verification orchestrator. Dispatches specialist agents via Agent tool: 1 deterministic agent (tool execution) + 3 LLM judgment agents (governance, architecture, feature). Defers to the ai-verify skill for profiles and report contract."
 model: opus
 color: green
+mirror_family: codex-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-verify.md
+edit_policy: generated-do-not-edit
 ---
 
 

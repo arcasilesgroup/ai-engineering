@@ -25,7 +25,7 @@ def _ctx(
     return InstallContext(
         target=tmp_path,
         mode=mode,
-        providers=providers or ["claude_code"],
+        providers=providers or ["claude-code"],
         vcs_provider="github",
         stacks=["python"],
         ides=["terminal"],
@@ -73,21 +73,18 @@ class TestGovernancePhase:
         verdict = phase.verify(result, ctx)
         assert verdict.passed
 
-    def test_plan_install_creates_team_seed_actions(self, tmp_path: Path) -> None:
-        """INSTALL mode produces create actions for team seed files."""
+    def test_plan_install_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """INSTALL mode no longer seeds team files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "create"
-            assert a.rationale == "team seed file"
+        assert team_actions == []
 
-    def test_plan_install_skips_team_if_exists(self, tmp_path: Path) -> None:
-        """INSTALL mode with existing team files produces skip actions."""
+    def test_plan_install_ignores_existing_team_files(self, tmp_path: Path) -> None:
+        """INSTALL mode does not plan team actions even if team files already exist."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         # Pre-create team files
@@ -99,38 +96,30 @@ class TestGovernancePhase:
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "skip"
-            assert a.rationale == "team seed already exists"
+        assert team_actions == []
 
-    def test_plan_fresh_overwrites_team_seeds(self, tmp_path: Path) -> None:
-        """FRESH mode produces overwrite actions for team files."""
+    def test_plan_fresh_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """FRESH mode does not plan team seed files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "overwrite"
+        assert team_actions == []
 
-    def test_plan_repair_skips_team(self, tmp_path: Path) -> None:
-        """REPAIR mode skips team files."""
+    def test_plan_repair_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """REPAIR mode does not plan team seed files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.REPAIR)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "skip"
-            assert a.rationale == "team-owned file"
+        assert team_actions == []
 
     def test_plan_includes_specs_directory_files(self, tmp_path: Path) -> None:
-        """Plan includes specs/spec.md and specs/plan.md as create actions."""
+        """Plan includes compatibility buffers and seeded HX-02 work-plane assets."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
@@ -140,11 +129,16 @@ class TestGovernancePhase:
         specs_dests = sorted(a.destination for a in specs_actions)
         assert ".ai-engineering/specs/plan.md" in specs_dests
         assert ".ai-engineering/specs/spec.md" in specs_dests
+        assert ".ai-engineering/specs/current-summary.md" in specs_dests
+        assert ".ai-engineering/specs/history-summary.md" in specs_dests
+        assert ".ai-engineering/specs/task-ledger.json" in specs_dests
+        assert ".ai-engineering/specs/handoffs/.gitkeep" in specs_dests
+        assert ".ai-engineering/specs/evidence/.gitkeep" in specs_dests
         for a in specs_actions:
             assert a.action_type == "create"
 
-    def test_execute_creates_team_and_specs(self, tmp_path: Path) -> None:
-        """Execute in INSTALL mode creates team seed files and specs placeholders."""
+    def test_execute_creates_specs_without_team_seed_files(self, tmp_path: Path) -> None:
+        """Execute in INSTALL mode creates specs placeholders without seeding team files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
@@ -153,15 +147,20 @@ class TestGovernancePhase:
         phase.execute(plan, ctx)
 
         ai_dir = tmp_path / ".ai-engineering"
-        # Team seed files
-        assert (ai_dir / "contexts" / "team" / "README.md").is_file()
+        # Team context remains an optional user-owned layer and is not seeded.
+        assert not (ai_dir / "contexts" / "team").exists()
         # LESSONS.md is now at .ai-engineering/ root
         assert (ai_dir / "LESSONS.md").is_file()
         assert (ai_dir / "contexts" / "cli-ux.md").is_file()
         assert (ai_dir / "contexts" / "mcp-integrations.md").is_file()
-        # Specs placeholders
+        # Specs placeholders + seeded HX-02 artifact topology
         assert (ai_dir / "specs" / "spec.md").is_file()
         assert (ai_dir / "specs" / "plan.md").is_file()
+        assert (ai_dir / "specs" / "current-summary.md").is_file()
+        assert (ai_dir / "specs" / "history-summary.md").is_file()
+        assert (ai_dir / "specs" / "task-ledger.json").is_file()
+        assert (ai_dir / "specs" / "handoffs").is_dir()
+        assert (ai_dir / "specs" / "evidence").is_dir()
 
 
 # ---------------------------------------------------------------------------
@@ -171,11 +170,11 @@ class TestGovernancePhase:
 
 class TestIdeConfigPhase:
     def test_plan_claude_code(self, tmp_path: Path) -> None:
-        """Plan with claude_code produces .claude tree."""
+        """Plan with claude-code produces .claude tree."""
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code"])
+        ctx = _ctx(tmp_path, providers=["claude-code"])
         plan = phase.plan(ctx)
         dests = [a.destination for a in plan.actions if a.action_type != "skip"]
         assert any("claude" in d.lower() or "CLAUDE" in d for d in dests)
@@ -185,7 +184,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code", "github_copilot"])
+        ctx = _ctx(tmp_path, providers=["claude-code", "github-copilot"])
         plan = phase.plan(ctx)
         dests = " ".join(a.destination for a in plan.actions)
         assert "claude" in dests.lower() or "CLAUDE" in dests
@@ -196,7 +195,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code"])
+        ctx = _ctx(tmp_path, providers=["claude-code"])
         plan = phase.plan(ctx)
         result = phase.execute(plan, ctx)
         assert len(result.created) > 0
@@ -341,25 +340,25 @@ class TestIdeConfigReconfigure:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
         from ai_engineering.state.models import InstallState
 
-        # Write a manifest.yml with old providers (claude_code + github_copilot)
+        # Write a manifest.yml with old providers (claude-code + github_copilot)
         ai_dir = tmp_path / ".ai-engineering"
         ai_dir.mkdir(parents=True)
         manifest_data = {
             "schema_version": "2.0",
             "framework_version": "0.1.0",
             "name": "test",
-            "providers": {"vcs": "github", "ides": ["claude_code", "github_copilot"], "stacks": []},
+            "providers": {"vcs": "github", "ides": ["claude-code", "github-copilot"], "stacks": []},
         }
         (ai_dir / "manifest.yml").write_text(yaml.dump(manifest_data))
 
-        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, providers=["claude_code"])
+        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, providers=["claude-code"])
         ctx.existing_state = InstallState()
 
         phase = IdeConfigPhase()
         plan = phase.plan(ctx)
         delete_actions = [a for a in plan.actions if a.action_type == "delete"]
         assert len(delete_actions) > 0
-        assert any("github_copilot" in a.rationale for a in delete_actions)
+        assert any("github-copilot" in a.rationale for a in delete_actions)
 
     def test_reconfigure_deletions_use_deleted_field(self, tmp_path: Path) -> None:
         """RECONFIGURE deletions go to PhaseResult.deleted, not created."""

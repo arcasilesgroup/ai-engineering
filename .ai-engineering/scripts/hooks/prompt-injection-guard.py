@@ -35,6 +35,7 @@ installer's runtime.
 import contextlib
 import hashlib
 import json
+import os
 import re
 import shlex
 import sys
@@ -44,11 +45,112 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from _lib import risk_accumulator
 from _lib.audit import is_debug_mode, passthrough_stdin
-from _lib.hook_common import run_hook_safe
+from _lib.hook_common import get_correlation_id, run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.injection_patterns import PATTERNS
-from _lib.observability import emit_control_outcome
+from _lib.observability import (
+    emit_control_outcome,
+    emit_framework_error,
+    emit_framework_operation,
+)
+
+# spec-120 follow-up: PRISM-style risk accumulator wiring. Disable
+# entirely with ``AIENG_RISK_ACCUMULATOR_DISABLED=1`` (e.g. tests that
+# do not want risk-state.json side effects).
+RISK_DISABLED = (os.environ.get("AIENG_RISK_ACCUMULATOR_DISABLED") or "").strip() == "1"
+_RISK_COMPONENT = "hook.prompt-injection-guard"
+
+
+def _apply_risk(
+    project_root: Path,
+    *,
+    session_id: str | None,
+    severity: str,
+    ioc_id: str,
+    correlation_id: str,
+) -> None:
+    """Add a finding to the per-session risk accumulator and act on the threshold.
+
+    Pipeline:
+    1. ``risk_accumulator.add(...)`` to bump the running score (writes
+       ``runtime/risk-score.json``).
+    2. ``risk_accumulator.threshold_action(...)`` maps the new score
+       to one of ``silent | warn | block | force_stop``.
+    3. ``warn`` emits a ``framework_operation`` (``risk_warn``) so the
+       audit chain records the elevation. The hook does NOT block.
+    4. ``block`` emits a ``framework_error`` (``risk_threshold_block``)
+       and exits 2 — Claude Code interprets that as deny.
+    5. ``force_stop`` emits ``risk_force_stop``, writes a ``decision:
+       block`` JSON to stdout (so the user sees a deterministic
+       termination message), and exits 2.
+
+    Defensive: any exception inside the accumulator (corrupt state,
+    write race) is swallowed — the host hook MUST keep running.
+    Disable with ``AIENG_RISK_ACCUMULATOR_DISABLED=1``.
+    """
+    if RISK_DISABLED:
+        return
+    try:
+        state = risk_accumulator.add(
+            project_root,
+            session_id=session_id or "unknown",
+            severity=severity,
+            ioc_id=ioc_id,
+        )
+        action = risk_accumulator.threshold_action(state.score)
+    except Exception:
+        return  # fail-open: never let risk telemetry break the host hook.
+    if action == "warn":
+        with contextlib.suppress(Exception):
+            emit_framework_operation(
+                project_root,
+                operation="risk_warn",
+                component=_RISK_COMPONENT,
+                source="hook",
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+    elif action == "block":
+        with contextlib.suppress(Exception):
+            emit_framework_error(
+                project_root,
+                engine="ai_engineering",
+                component=_RISK_COMPONENT,
+                error_code="risk_threshold_block",
+                source="hook",
+                session_id=session_id,
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+        sys.exit(2)
+    elif action == "force_stop":
+        with contextlib.suppress(Exception):
+            emit_framework_error(
+                project_root,
+                engine="ai_engineering",
+                component=_RISK_COMPONENT,
+                error_code="risk_force_stop",
+                source="hook",
+                session_id=session_id,
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "decision": "block",
+                    "additionalContext": (
+                        f"Session terminated — accumulated risk "
+                        f"{state.score:.1f} exceeds force_stop threshold."
+                    ),
+                }
+            )
+        )
+        sys.stdout.flush()
+        sys.exit(2)
+
 
 _GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit"}
 _MIN_CONTENT_LEN = 10
@@ -159,6 +261,15 @@ def load_iocs(project_root: Path) -> dict[str, Any]:
     catalog never blocks the host. This is the deliberate fail-open
     posture: spec-107 D-107-05 prefers availability over secret-leak
     blocking when the catalog itself is absent (e.g. fresh checkout).
+
+    spec-122-a (D-122-04): the catalog now stores only canonical
+    category keys (``suspicious_network``, ``dangerous_commands``).
+    Alias keys that legacy callers depend on (``malicious_domains``,
+    ``shell_patterns``) are derived at load time from the
+    ``spec107_aliases`` pointer map, which removes ~30 LOC of
+    duplicated payload from ``iocs.json``. Pointers to unknown
+    canonical keys are silently skipped (defensive: malformed catalog
+    must never break callers).
     """
     path = _ioc_catalog_path(project_root)
     if not path.exists():
@@ -170,6 +281,24 @@ def load_iocs(project_root: Path) -> dict[str, Any]:
         return {}
     if not isinstance(payload, dict):
         return {}
+
+    # Dereference spec107_aliases: alias_key -> canonical_key. Inject the
+    # canonical payload under the alias name so downstream evaluators that
+    # reference the alias key continue to work without per-callsite changes.
+    aliases = payload.get("spec107_aliases")
+    if isinstance(aliases, dict):
+        for alias_key, canonical_key in aliases.items():
+            if not isinstance(alias_key, str) or not isinstance(canonical_key, str):
+                continue
+            if alias_key in payload:
+                # Don't clobber an explicit (non-alias) entry.
+                continue
+            canonical = payload.get(canonical_key)
+            if canonical is None:
+                # Pointer to a missing canonical — skip silently (fail-open).
+                continue
+            payload[alias_key] = canonical
+
     return payload
 
 
@@ -462,6 +591,18 @@ def _emit_ioc_outcomes(project_root: Path, tool_name: str, result: dict[str, Any
                 source="hook",
                 metadata=meta,
             )
+        # spec-120 #17: feed risk accumulator. Severity inferred from the
+        # match category. CRITICAL on deny (un-accepted), HIGH otherwise.
+        finding_id = match.get("finding_id") or match.get("pattern") or "unknown"
+        severity = "CRITICAL" if (verdict == "deny" and not accepted) else "HIGH"
+        with contextlib.suppress(Exception):
+            _apply_risk(
+                project_root,
+                session_id=None,
+                severity=severity,
+                ioc_id=str(finding_id),
+                correlation_id=get_correlation_id(),
+            )
 
 
 def main() -> None:
@@ -620,4 +761,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.prompt-injection-guard", hook_kind="pre-tool-use")
+    run_hook_safe(
+        main,
+        component="hook.prompt-injection-guard",
+        hook_kind="pre-tool-use",
+        script_path=__file__,
+    )

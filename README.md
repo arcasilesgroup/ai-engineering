@@ -82,6 +82,22 @@ ai-eng doctor
 
 `install` scaffolds the governance root, detects your stack, and mirrors skills to every configured IDE. It also auto-installs missing tools (`ruff`, `gitleaks`, `ty`, `pip-audit`) via your OS package manager. `doctor` validates the installation, checks tooling, and reports anything that needs attention.
 
+**Telemetry**: strict-opt-in, default disabled. The audit chain is local NDJSON; external emitters require explicit operator opt-in (see `.ai-engineering/manifest.yml` `telemetry.*`).
+
+### Secrets-gate (defense in depth)
+
+`ai-eng install` wires two git hooks. **Pre-commit** runs `gitleaks` against staged hunks plus `ruff format`/`ruff check` (sub-1s budget). **Pre-push** runs `semgrep --config .semgrep.yml`, `pip-audit`, and the test suite before anything reaches the remote. CI re-runs every gate. Configurations live at `.gitleaks.toml`, `.gitleaksignore`, and `.semgrep.yml`; the semgrep update model (manual quarterly bump of pinned community packs) is documented in [`.ai-engineering/contexts/semgrep-update-model.md`](.ai-engineering/contexts/semgrep-update-model.md). See [CONSTITUTION.md Article XII](CONSTITUTION.md#article-xii--secrets-gate-defense-in-depth) for the full contract. `ai-eng doctor` surfaces a `secrets_gate` runtime probe that verifies the binaries, configurations, and hook wiring are present.
+
+### Optional: Engram (third-party memory)
+
+`ai-engineering` ships **without** a built-in memory layer. During `ai-eng install` you'll be prompted:
+
+```
+Install Engram for memory persistence? [y/N]
+```
+
+Answering **yes** triggers Engram's official install path for your host (`brew install engram` on macOS, `winget install Engram` on Windows, direct binary download on Linux) followed by `engram setup <ide>` for the detected agent. Skip is fine — the framework is fully functional without Engram. Bypass the prompt deterministically with `--engram` (force install) or `--no-engram` (skip). Non-interactive sessions (CI) default to skip. [Engram](https://github.com/Gentleman-Programming/engram) is a peer product, not an `ai-engineering` dependency.
+
 See [GETTING_STARTED.md](GETTING_STARTED.md) for the full tutorial.
 
 ## What's new in 0.5.0
@@ -95,7 +111,7 @@ Highlights:
 - **Live progress UI.** Replaces the single spinner with `[N/M] phase_label`.
 - **Python tooling is worktree-fast.** `python_env.mode` defaults to `uv-tool` (tools live once in `~/.local/share/uv/tools/`). Two escape hatches remain: `venv` (legacy per-cwd) and `shared-parent` (single `.venv` shared across worktrees).
 - **Single-pass local gate.** Wave-1 fixers then Wave-2 checkers in parallel, with a 24h SHA-256 cache. ~2-3x faster on warm checkouts. Try `ai-eng gate run --cache-aware --json`.
-- **First-class risk acceptance.** New `ai-eng risk accept | accept-all | renew | resolve | revoke | list | show` namespace. No more hand-edited `decision-store.json`.
+- **First-class risk acceptance.** New `ai-eng risk accept | accept-all | renew | resolve | revoke | list | show` namespace. No more hand-edited decision stores — decisions are persisted in `state.db.decisions`.
 - **`gates > mode: prototyping`.** Skip Tier 2 governance for spike work. CI auto-detects and forces `regulated`.
 - **Copilot agent rename.** `@Explorer` is now `@ai-explore`, matching Claude / Codex / Gemini.
 
@@ -111,7 +127,7 @@ ai-eng doctor                        # verify
 
 If your team relies on `source .venv/bin/activate`, set `python_env > mode: venv` in `.ai-engineering/manifest.yml` *before* the second step.
 
-The first install after upgrading prints a one-shot BREAKING banner to stderr, recorded once via `breaking_banner_seen` in `.ai-engineering/state/install-state.json`.
+The first install after upgrading prints a one-shot BREAKING banner to stderr, recorded once via `breaking_banner_seen` in `state.db.install_state`.
 
 ## Upgrade reference -- spec-101 install contract (BREAKING)
 
@@ -195,7 +211,7 @@ Plus a universal `baseline` block (`gitleaks`, `semgrep`, `jq`) that applies to 
 
 ### First-run banner
 
-The first install after upgrading prints a one-shot BREAKING banner to stderr. The banner mentions EXIT 80/81, the `python_env.mode` flip, and the 14-stack scope. It only fires once per project -- the flag persists in `.ai-engineering/state/install-state.json` (`breaking_banner_seen`).
+The first install after upgrading prints a one-shot BREAKING banner to stderr. The banner mentions EXIT 80/81, the `python_env.mode` flip, and the 14-stack scope. It only fires once per project -- the flag persists in `state.db.install_state` (`breaking_banner_seen`).
 
 ## What You Get
 
@@ -320,6 +336,11 @@ your-project/
 | `ai-eng skill status` | Show skill installation status |
 | `ai-eng vcs status\|set-primary` | Version control configuration |
 | `ai-eng guide` | Interactive onboarding |
+
+Release discipline: do not bump framework versions by hand across files. Use `ai-eng release <VERSION>`
+as the single operational entry point. The release workflow updates the package version in
+`pyproject.toml`, syncs the bundled version registry and source-repo `framework_version` manifests,
+promotes `CHANGELOG.md`, and records release metadata in install state.
 
 ## Slash Commands
 

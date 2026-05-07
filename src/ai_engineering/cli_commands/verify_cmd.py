@@ -19,7 +19,15 @@ from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_progress import spinner
 from ai_engineering.cli_ui import kv, result_header, status_line, suggest_next
 from ai_engineering.paths import resolve_project_root
+from ai_engineering.state.locking import artifact_lock
 from ai_engineering.verify.service import MODES
+
+
+def _verify_execution_lock(project_root: Path, mode: str):
+    """Serialize governance verification with mirror-affecting adapter flows."""
+    if mode == "governance":
+        return artifact_lock(project_root, "mirror-sync")
+    return contextlib.nullcontext()
 
 
 def verify_cmd(
@@ -56,7 +64,7 @@ def verify_cmd(
     profile = "full" if full else "normal"
 
     t0 = _time.monotonic()
-    with spinner(f"Running {mode} verification..."):
+    with _verify_execution_lock(root, mode), spinner(f"Running {mode} verification..."):
         result = func(root, profile=profile)
     elapsed_ms = int((_time.monotonic() - t0) * 1000)
 

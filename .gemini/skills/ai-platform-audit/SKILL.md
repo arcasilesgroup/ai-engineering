@@ -4,6 +4,10 @@ description: Use when you need to verify that an IDE platform is genuinely suppo
 effort: max
 argument-hint: "claude-code|github-copilot|gemini|codex|all [--fix]"
 tags: [audit, platform, copilot, claude-code, governance]
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-platform-audit/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

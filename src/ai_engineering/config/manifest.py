@@ -17,15 +17,15 @@ from pydantic import BaseModel, Field
 class AiProvidersConfig(BaseModel):
     """AI coding assistant provider configuration."""
 
-    enabled: list[str] = Field(default_factory=lambda: ["claude_code"])
-    primary: str = "claude_code"
+    enabled: list[str] = Field(default_factory=lambda: ["claude-code"])
+    primary: str = "claude-code"
 
 
 class ProvidersConfig(BaseModel):
     """VCS, IDE, and stack provider configuration."""
 
     vcs: str = "github"
-    ides: list[str] = Field(default_factory=lambda: ["claude_code"])
+    ides: list[str] = Field(default_factory=lambda: ["claude-code"])
     stacks: list[str] = Field(default_factory=lambda: ["python"])
 
 
@@ -131,10 +131,28 @@ class AgentsConfig(BaseModel):
     names: list[str] = Field(default_factory=list)
 
 
+class RootEntryPointSyncConfig(BaseModel):
+    """Structured sync metadata for a governed root entry point."""
+
+    mode: str = ""
+    template_path: str = ""
+    mirror_paths: list[str] = Field(default_factory=list)
+
+
+class RootEntryPointConfig(BaseModel):
+    """Manifest ownership metadata for a governed root instruction surface."""
+
+    owner: str = ""
+    canonical_source: str = ""
+    runtime_role: str = ""
+    sync: RootEntryPointSyncConfig = Field(default_factory=RootEntryPointSyncConfig)
+
+
 class OwnershipConfig(BaseModel):
     """Path-ownership glob patterns."""
 
     framework: list[str] = Field(default_factory=list)
+    root_entry_points: dict[str, RootEntryPointConfig] = Field(default_factory=dict)
     team: list[str] = Field(default_factory=list)
     system: list[str] = Field(default_factory=list)
 

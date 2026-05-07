@@ -7,16 +7,16 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 ## Prerequisites
 
 - Phase 1 (DECOMPOSE) is complete.
-- Sub-spec directories exist at `specs/autopilot/sub-NNN/` with `spec.md` (Scope + `files:` frontmatter) and `plan.md` (Plan placeholder).
-- Manifest exists at `specs/autopilot/manifest.md` with all sub-spec statuses set to `planning`.
-- Parent spec is available at `specs/spec.md`.
-- Decision store is loaded from `state/decision-store.json`.
+- Sub-spec directories exist at `.ai-engineering/runtime/autopilot/sub-NNN/` with `spec.md` (Scope + `files:` frontmatter) and `plan.md` (Plan placeholder).
+- Manifest exists at `.ai-engineering/runtime/autopilot/manifest.md` with all sub-spec statuses set to `planning`.
+- Parent spec is available at `.ai-engineering/specs/spec.md`.
+- Decision store is loaded from `state/state.db.decisions`.
 
 ## Procedure
 
 ### Step 1: Load Sub-Specs
 
-1. Glob `specs/autopilot/sub-*/spec.md`. Collect the full list of sub-spec directories.
+1. Glob `.ai-engineering/runtime/autopilot/sub-*/spec.md`. Collect the full list of sub-spec directories.
 2. For each `sub-NNN/spec.md`, extract:
    - `id` from frontmatter (e.g., `sub-001`)
    - `title` from frontmatter
@@ -151,7 +151,7 @@ Write a summary line to the manifest:
 
 ## Output
 
-- N enriched sub-spec directories at `specs/autopilot/sub-NNN/`:
+- N enriched sub-spec directories at `.ai-engineering/runtime/autopilot/sub-NNN/`:
   - `spec.md` containing populated `## Exploration` and updated `files:` frontmatter reflecting actual discovered files.
   - `plan.md` containing `## Plan` with checkbox-formatted tasks, `exports:`/`imports:` declarations, and confidence assessment.
 - Updated manifest with `planned` or `plan-failed` statuses.

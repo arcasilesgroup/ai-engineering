@@ -4,6 +4,10 @@ description: "Use when something is broken and you need to find out why: test fa
 effort: high
 argument-hint: "[error description or file:line]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-debug/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

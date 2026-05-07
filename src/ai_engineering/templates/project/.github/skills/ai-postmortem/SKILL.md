@@ -4,6 +4,10 @@ description: "Use when documenting a production incident, outage, degradation, o
 effort: high
 argument-hint: "start|continue <id>|find [query]|generate"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-postmortem/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

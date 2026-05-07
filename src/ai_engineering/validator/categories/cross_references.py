@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.validator._shared import (
+    _KNOWN_OPTIONAL_PATHS,
     _REF_LINE,
     _REFERENCES_SECTION,
     FileCache,
@@ -60,6 +61,11 @@ def _check_cross_references(
         for ref in refs:
             ref_clean = ref.strip()
             if not ref_clean:
+                continue
+            # Skip runtime/gitignored paths (e.g. state/state.db) that are
+            # documented in skill prose but only exist on installed projects.
+            # The allowlist is shared with file_existence._should_skip_reference_path.
+            if ref_clean in _KNOWN_OPTIONAL_PATHS:
                 continue
             ref_path = target / ref_clean
             # References to standards/context/state are relative to .ai-engineering/

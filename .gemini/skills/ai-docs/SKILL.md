@@ -4,8 +4,11 @@ description: "Use for documentation lifecycle: updating CHANGELOG.md, refreshing
 effort: high
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 tags: [documentation, architecture, governance]
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-docs/SKILL.md
+edit_policy: generated-do-not-edit
 ---
-
 
 
 # Documentation
@@ -34,15 +37,15 @@ Unified documentation skill covering the full project documentation lifecycle. S
 
 ## Routing Table
 
-| Argument | Handler | Gate Flag |
-|----------|---------|-----------|
-| `changelog` | `handlers/changelog.md` | `documentation.auto_update.changelog` |
-| `readme` | `handlers/readme.md` | `documentation.auto_update.readme` |
-| `solution-intent-init` | `handlers/solution-intent-init.md` | none (manual invocation) |
-| `solution-intent-sync` | `handlers/solution-intent-sync.md` | `documentation.auto_update.solution_intent` |
-| `solution-intent-validate` | `handlers/solution-intent-validate.md` | none (read-only) |
-| `docs-portal` | `handlers/docs-portal.md` | `documentation.external_portal.enabled` |
-| `docs-quality-gate` | `handlers/docs-quality-gate.md` | none (always runs when dispatched) |
+| Argument                   | Handler                                | Gate Flag                                   |
+| -------------------------- | -------------------------------------- | ------------------------------------------- |
+| `changelog`                | `handlers/changelog.md`                | `documentation.auto_update.changelog`       |
+| `readme`                   | `handlers/readme.md`                   | `documentation.auto_update.readme`          |
+| `solution-intent-init`     | `handlers/solution-intent-init.md`     | none (manual invocation)                    |
+| `solution-intent-sync`     | `handlers/solution-intent-sync.md`     | `documentation.auto_update.solution_intent` |
+| `solution-intent-validate` | `handlers/solution-intent-validate.md` | none (read-only)                            |
+| `docs-portal`              | `handlers/docs-portal.md`              | `documentation.external_portal.enabled`     |
+| `docs-quality-gate`        | `handlers/docs-quality-gate.md`        | none (always runs when dispatched)          |
 
 If no argument is provided, display the routing table above and ask the user which handler to use.
 
@@ -60,9 +63,9 @@ If no argument is provided, display the routing table above and ask the user whi
 
 ## Integration
 
-- **Called by**: `/ai-pr` (step 6.5) via parallel subagent dispatch
+- **Called by**: `/ai-pr` (step 7) via parallel subagent dispatch
 - **Calls**: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-init.md`, `handlers/solution-intent-sync.md`, `handlers/solution-intent-validate.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`
-- **Reads**: `.ai-engineering/manifest.yml` (auto_update flags, external_portal config), `docs/solution-intent.md`, `.ai-engineering/state/decision-store.json`
+- **Reads**: `.ai-engineering/manifest.yml` (auto_update flags, external_portal config), `docs/solution-intent.md`, `.ai-engineering/state/state.db.decisions`
 - **NOT** `/ai-write` -- for prose content (blog posts, pitch decks) use `/ai-write` instead
 
 ## Governance Notes
@@ -80,4 +83,4 @@ If no argument is provided, display the routing table above and ask the user whi
 - `.gemini/skills/ai-pr/SKILL.md` -- PR workflow that dispatches documentation subagents
 - `.gemini/skills/ai-write/SKILL.md` -- documentation writing patterns
 - `.ai-engineering/manifest.yml` -- documentation flags and portal config
-$ARGUMENTS
+  $ARGUMENTS

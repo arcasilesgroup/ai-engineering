@@ -4,6 +4,10 @@ description: "Use when new to a project and need orientation, want to understand
 effort: high
 argument-hint: "tour|find <topic>|history <decision>|onboard"
 tags: [onboarding, architecture, teaching, archaeology]
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-guide/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -35,14 +39,14 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 ### find -- Topic Search
 
 1. **Search codebase** -- Grep/Glob for the topic across source, config, docs.
-2. **Search decisions** -- check `.ai-engineering/state/decision-store.json` for related decisions.
+2. **Search decisions** -- check `.ai-engineering/state/state.db` `decisions` table for related decisions.
 3. **Search specs** -- look in `.ai-engineering/specs/` for relevant specifications.
 4. **Present results** -- files, functions, and context around the topic.
 5. **Answer the question** -- "where does X happen?", "how do I add a Y?", "what tests cover Z?"
 
 ### history -- Decision Archaeology
 
-1. **Search decision store** -- `.ai-engineering/state/decision-store.json` for formal decisions.
+1. **Search decision store** -- `.ai-engineering/state/state.db` `decisions` table for formal decisions.
 2. **Search git history** -- `git log --all --grep` for related commits.
 3. **Search specs** -- `.ai-engineering/specs/` for specs that introduced the decision.
 4. **Reconstruct context** -- what was known, what constraints existed, what alternatives were considered.
@@ -79,7 +83,7 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 ## Integration
 
 - Uses `/ai-explain` for 3-tier depth explanations.
-- Reads `.ai-engineering/state/decision-store.json` for decision context.
+- Reads `.ai-engineering/state/state.db` `decisions` table for decision context.
 - Reads `.ai-engineering/state/framework-events.ndjson` for framework activity context (privacy by design).
 - **NOT** `/ai-start` -- guide is for humans exploring a codebase; start bootstraps AI agent session context
 
@@ -87,5 +91,5 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 
 - `.codex/skills/ai-explain/SKILL.md` -- 3-tier depth model.
 - `.ai-engineering/manifest.yml` -- governance structure.
-- `.ai-engineering/state/decision-store.json` -- decision records.
+- `.ai-engineering/state/state.db` `decisions` table -- decision records.
 $ARGUMENTS

@@ -5,6 +5,10 @@ effort: high
 argument-hint: "<topic>|--depth brief|standard|deep"
 mode: agent
 tags: [explanation, teaching, analysis, architecture]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-explain/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

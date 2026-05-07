@@ -3,8 +3,46 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
-from ai_engineering.updater.service import _migrate_legacy_dirs
+import pytest
+
+from ai_engineering.config.manifest import RootEntryPointConfig, RootEntryPointSyncConfig
+from ai_engineering.state.models import OwnershipMap
+from ai_engineering.updater.service import (
+    _initialize_update_context,
+    _merge_missing_ownership_rules,
+    _migrate_legacy_dirs,
+    update,
+)
+
+
+def _root_entry_point(owner: str) -> RootEntryPointConfig:
+    return RootEntryPointConfig(
+        owner=owner,
+        canonical_source="CONSTITUTION.md",
+        runtime_role="ide-overlay",
+        sync=RootEntryPointSyncConfig(
+            mode="copy",
+            template_path="src/ai_engineering/templates/project/CLAUDE.md",
+            mirror_paths=[],
+        ),
+    )
+
+
+def _write_minimal_manifest(project: Path) -> None:
+    ai_eng_dir = project / ".ai-engineering"
+    (ai_eng_dir / "state").mkdir(parents=True)
+    (ai_eng_dir / "manifest.yml").write_text(
+        "ai_providers:\n"
+        "  enabled: []\n"
+        "providers:\n"
+        "  stacks: [python]\n"
+        "ownership:\n"
+        "  root_entry_points: {}\n",
+        encoding="utf-8",
+    )
 
 
 class TestMigrateLegacyDirs:
@@ -76,3 +114,88 @@ class TestMigrateLegacyDirs:
 
         assert not (ai / "skills").exists()
         assert removed == ["skills"]
+
+
+class TestMergeMissingOwnershipRules:
+    def test_uses_manifest_root_entry_point_contract(self) -> None:
+        ownership = OwnershipMap()
+
+        changed = _merge_missing_ownership_rules(
+            ownership,
+            root_entry_points={
+                "CLAUDE.md": _root_entry_point("team"),
+            },
+        )
+
+        assert changed is True
+        assert ownership.is_update_allowed("CLAUDE.md") is False
+        assert ownership.has_deny_rule("CLAUDE.md") is True
+
+    def test_missing_root_entry_point_metadata_does_not_invent_root_rules(self) -> None:
+        ownership = OwnershipMap()
+
+        changed = _merge_missing_ownership_rules(ownership, root_entry_points=None)
+
+        assert changed is True
+        assert ownership.is_update_allowed(".ai-engineering/README.md") is True
+        assert ownership.is_update_allowed("CLAUDE.md") is False
+        assert ownership.has_deny_rule("CLAUDE.md") is False
+        assert ownership.is_update_allowed("AGENTS.md") is False
+        assert ownership.has_deny_rule("AGENTS.md") is False
+
+
+class TestInitializeUpdateContext:
+    def test_no_manifest_uses_compatibility_provider_fallback(self, tmp_path: Path) -> None:
+        _ai_eng_dir, _ownership_path, _ownership, _rules_added, _vcs_provider, providers = (
+            _initialize_update_context(tmp_path, dry_run=True)
+        )
+
+        assert providers is None
+
+    def test_dry_run_does_not_migrate_legacy_hooks(self, tmp_path: Path) -> None:
+        _write_minimal_manifest(tmp_path)
+
+        legacy_hooks = tmp_path / "scripts" / "hooks"
+        legacy_hooks.mkdir(parents=True)
+        (legacy_hooks / "pre-commit.py").write_text("print('legacy')\n", encoding="utf-8")
+
+        result = update(tmp_path, dry_run=True)
+
+        assert result.dry_run is True
+        assert (legacy_hooks / "pre-commit.py").is_file()
+        assert not (tmp_path / ".ai-engineering" / "scripts" / "hooks").exists()
+
+    def test_apply_failure_restores_deleted_orphans(self, tmp_path: Path) -> None:
+        _write_minimal_manifest(tmp_path)
+        orphan = tmp_path / ".codex" / "config.toml"
+        orphan.parent.mkdir(parents=True)
+        orphan.write_text("legacy codex config\n", encoding="utf-8")
+
+        with (
+            patch("ai_engineering.updater.service._evaluate_governance_files", return_value=[]),
+            patch("ai_engineering.updater.service._evaluate_project_files", return_value=[]),
+            patch("ai_engineering.updater.service.write_json_model", side_effect=OSError("boom")),
+            pytest.raises(OSError, match="boom"),
+        ):
+            update(tmp_path, dry_run=False)
+
+        assert orphan.read_text(encoding="utf-8") == "legacy codex config\n"
+
+    def test_update_raises_when_reconciler_rolls_back(self, tmp_path: Path) -> None:
+        _write_minimal_manifest(tmp_path)
+        failed_run = SimpleNamespace(
+            plan=SimpleNamespace(payload=object()),
+            apply_result=object(),
+            verification=SimpleNamespace(
+                passed=False,
+                errors=["missing applied file: .github/skills/ai-code/SKILL.md"],
+            ),
+            rolled_back=True,
+        )
+
+        with (
+            patch("ai_engineering.updater.service.ResourceReconciler") as reconciler_factory,
+            pytest.raises(RuntimeError, match="rolled back changes"),
+        ):
+            reconciler_factory.return_value.run.return_value = failed_run
+            update(tmp_path, dry_run=False)

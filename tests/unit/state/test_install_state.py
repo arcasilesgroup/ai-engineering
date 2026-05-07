@@ -422,13 +422,13 @@ class TestFromLegacyDict:
             "installedAt": "2026-01-01T00:00:00Z",
             "providers": {"primary": "github", "enabled": ["github"]},
             "ai_providers": {
-                "primary": "claude_code",
-                "enabled": ["claude_code", "github_copilot"],
+                "primary": "claude-code",
+                "enabled": ["claude-code", "github-copilot"],
             },
         }
         state = InstallState.from_legacy_dict(legacy)
         assert state.vcs_provider == "github"
-        assert state.ai_providers == ["claude_code", "github_copilot"]
+        assert state.ai_providers == ["claude-code", "github-copilot"]
 
     def test_legacy_without_providers_key(self) -> None:
         """Without providers key, vcs_provider defaults to None."""
@@ -441,10 +441,10 @@ class TestFromLegacyDict:
         """Legacy manifests may use camelCase aiProviders."""
         legacy = {
             "installedAt": "2026-01-01T00:00:00Z",
-            "aiProviders": {"primary": "claude_code", "enabled": ["claude_code"]},
+            "aiProviders": {"primary": "claude-code", "enabled": ["claude-code"]},
         }
         state = InstallState.from_legacy_dict(legacy)
-        assert state.ai_providers == ["claude_code"]
+        assert state.ai_providers == ["claude-code"]
 
 
 # -- Tooling Dict Flexibility ---------------------------------------------

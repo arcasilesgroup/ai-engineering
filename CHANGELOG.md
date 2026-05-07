@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-124 (Wave 1) — Post-install UX polish
+
+- **IDE keys renamed to hyphenated vendor-product form**: `claude_code` → `claude-code`, `gemini` → `gemini-cli`, `github_copilot` / `copilot` → `github-copilot`. Manifest read shim translates old underscore values for one release courtesy (removed in spec-125). External scripts hardcoding old keys must update — pointer: see `--ide` help text.
+- **"What's new" install banner removed**: install pipeline starts directly with phase output. No more one-shot notice.
+- **Tool installation header**: shortened helper text + fixed `[5/6] [5/6]` duplication.
+- **Hooks count reported correctly** in Install Complete summary (was always 0; pipeline result wasn't populating `result.hooks.installed`).
+- **Visual breathing room** added between "Open your AI assistant…" line and the Install Complete panel.
+
 ### TL;DR
 
 ai-engineering 0.5.0 turns the installer into a hard, observable contract, makes Python tooling worktree-fast, ships a single-pass local gate with caching, and graduates risk acceptance to a first-class CLI. Cross-IDE polish lands on Copilot.
@@ -328,6 +336,83 @@ quiet. Dry-run installs do not emit the banner.
 ##### Migration note
 
 `AIENG_LEGACY_PIPELINE=1` env var restores the pre-spec-104 sequential local-only gate behavior (no orchestrator, no cache, no parallel Wave 2). Use solo si surge una regresión que requiera audit trail comparison contra el flujo previo. CI cache reuse via `actions/cache@v4` con la misma key schema que el local; storage físico independiente (CI no monta el cache local del dev).
+
+<!-- AUTO -->
+<!-- Entries below this marker are auto-managed by /ai-pr / autopilot
+     deliver. Manual edits go ABOVE the marker; edits below may be
+     overwritten on next sub-spec wave. -->
+
+### Added (spec-122-a)
+- **Spec-122 Phase 1 hygiene wave** — manifest cleanup, governance
+  metadata, `evals/` directory removal (44 files), telemetry
+  consent posture switched to `strict-opt-in`. Sub-001 / wave 1.
+
+### Added (spec-122-b)
+- **Unified `state.db` infrastructure** — single SQLite projection
+  replacing scattered `*.db` files; migration scaffolding +
+  rotation primitives. Sub-002 / wave 2 (CLI verbs queued for
+  follow-up release).
+- **Engram delegation surface** — memory layer subprocess boundary
+  formalised; per-IDE templates consolidate via `engram setup`.
+
+### Changed (spec-122-c)
+- **OPA proper switch** — governance now uses Open Policy Agent
+  bundles in place of the legacy custom Rego subset interpreter.
+  Pre-commit OPA check is wired and active. Sub-003 / wave 2.
+  Legacy `policy_engine.py` interpreter remains for backwards
+  compat; full removal queued for spec-123.
+
+### Changed (spec-122-d)
+- **`scripts/sync_command_mirrors.py` (82 KB) → `scripts/sync_mirrors/`
+  package** — split per-concern (`core`, `frontmatter`, `manifest_sync`,
+  `claude_target`, `codex_target`, `gemini_target`, `copilot_target`).
+  Backwards-compat shim ≤ 2 KB at original path. Parity guarded by
+  `tests/integration/sync/test_sync_compat.py`.
+- **Spec path canonicalization (D-122-40)** — 45 skill markdown
+  files (204 occurrences) rewritten from legacy `specs/spec.md` /
+  `specs/plan.md` / `specs/autopilot/` to the resolver-canonical
+  `.ai-engineering/specs/spec.md`. CI guard added at
+  `tests/unit/skills/test_spec_path_canonical.py` (idempotency-safe
+  via negative-lookbehind regex).
+- **Hook canonical event count (D-122-27)** — audited
+  `.claude/settings.json`: 11 events, 0 dead wirings. CLAUDE.md
+  documents the count; CI guard at
+  `tests/unit/hooks/test_canonical_events_count.py`.
+- **Hot-path SLO tests (D-122-28)** — pre-commit < 1 s p95,
+  pre-push < 5 s p95, single-invocation < 500 ms p95 (CI ×1.2
+  slack). Tests at `tests/unit/hooks/test_hot_path_slo.py`.
+- **Legacy implement-skill rename to dispatch** in `CONSTITUTION.md`
+  and the project template (the previous skill name was retired). CI
+  guard at `tests/unit/docs/test_skill_references_exist.py` ensures
+  every `/ai-<name>` reference in canonical docs resolves to a real
+  skill.
+- **`docs/cli-reference.md` audit section** added documenting
+  `ai-eng audit verify/index/query/tokens/replay/otel-export`.
+- **`docs/solution-intent.md`** — Skills table refreshed (47 → 51).
+- **`.gitignore`** hardened: explicit `**/.DS_Store`, `**/Thumbs.db`,
+  `**/desktop.ini`, editor swap files; `state.db*` patterns at
+  root and under `.ai-engineering/state/`.
+
+### Removed (spec-122-d)
+- **`scripts/skill-audit.sh`** (spec-106 advisory) — every entry was
+  `eval-failed-cli-missing` because the `ai-eng skill eval` verb
+  never landed. Provides no signal; deleted with its tests
+  (`tests/unit/test_audit_report_schema.py`,
+  `tests/integration/test_skill_audit_advisory.py`).
+- Working-tree `.DS_Store` files in tracked directories
+  (`docs/`, `.claude/`, `.github/`, `tests/`, etc.). Index was
+  already clean from sub-001; this is a working-tree purge to
+  prevent re-adds. No history rewrite (deferred per master spec
+  Risks).
+
+### Known follow-ups
+- `pyproject.toml` `sqlite-vec`, `fastembed`, `hdbscan`, `numpy`
+  dependencies still listed (sub-002 deferred T-2.20). Removal
+  scheduled for next minor release.
+- 33 unit-test failures from waves 1+2 cleanup debt + Rego v1
+  migration; queued for Phase 5 quality loop.
+- `policy_engine.py` legacy Rego interpreter still present
+  (sub-003 T-3.16 deferred). Removal scheduled for spec-123.
 
 ## [0.4.6] - 2026-04-07
 

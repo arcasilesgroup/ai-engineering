@@ -4,6 +4,10 @@ description: "On-demand MCP/skill security audit using LLM coherence analysis. U
 effort: high
 argument-hint: "scan|audit-update <skill>|baseline set [--target <skill-or-all>]"
 tags: [security, mcp, audit, sentinel, governance]
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-mcp-sentinel/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -76,7 +80,7 @@ Anchors snapshot to `.ai-engineering/state/sentinel-baseline.json`. Per skill: S
 
 - `.ai-engineering/state/sentinel-baseline.json` — trusted snapshot (Mode 3 writes; Mode 2 reads).
 - `.ai-engineering/state/sentinel-scan-report.json` — most recent Mode 1 output.
-- `.ai-engineering/state/decision-store.json` — risk-acceptance entries for accepted ROJO verdicts (`sentinel-coherence-<skill>` finding-id, spec-105 lifecycle).
+- `.ai-engineering/state/state.db.decisions` — risk-acceptance entries for accepted ROJO verdicts (`sentinel-coherence-<skill>` finding-id, spec-105 lifecycle).
 
 ## References
 

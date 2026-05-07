@@ -3,6 +3,9 @@
 Implements the public surface required by the IMMUTABLE RED test contracts:
 
 * ``Wave1Result`` / ``Wave2Result`` dataclasses
+* ``KernelContract`` / ``resolve_kernel_contract(...)`` -- shared Phase 2
+    contract for local registration, resolved mode, findings envelope, residual
+    compatibility, and explicit publish ownership.
 * ``run_wave1(staged_files)`` -- serial fixers (ruff format, ruff check --fix,
   spec verify --fix) with intra-wave convergence re-run.
 * ``run_wave2(staged_files, mode)`` -- parallel checkers via
@@ -37,6 +40,7 @@ from typing import Any
 from ai_engineering.policy import auto_stage, gate_cache, mode_dispatch
 from ai_engineering.policy.checks._accept_lookup import apply_risk_acceptances
 from ai_engineering.state.decision_logic import _WARN_BEFORE_EXPIRY_DAYS
+from ai_engineering.state.locking import artifact_lock
 from ai_engineering.state.models import (
     AcceptedFinding,
     DecisionStatus,
@@ -45,6 +49,11 @@ from ai_engineering.state.models import (
     GateFindingsDocument,
     RiskCategory,
     WallClockMs,
+)
+from ai_engineering.state.work_plane import (
+    ACTIVE_WORK_PLANE_POINTER_REL,
+    active_work_plane_has_active_spec,
+    resolve_active_work_plane,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,6 +95,39 @@ class Wave2Result:
     wall_clock_ms: int = 0
 
 
+@dataclass(frozen=True)
+class KernelContract:
+    """Shared HX-04 kernel contract for the owned orchestrator/gate path.
+
+    The Phase 2 first cut does not yet move every adapter onto the kernel, but
+    it does make the current owned contract explicit in one place so tests and
+    adapters stop inferring it from split tables.
+    """
+
+    check_registration: tuple[str, ...]
+    gate_mode: mode_dispatch.GateMode
+    findings_document_model: type[GateFindingsDocument]
+    findings_schema: str
+    residual_document_model: type[GateFindingsDocument]
+    residual_output_name: str
+    publish_owner: str
+    retry_ceiling: int
+    active_loop_cap: timedelta
+    passive_loop_cap: timedelta
+    blocked_disposition: KernelBlockedDisposition
+    check_specs: tuple[dict[str, Any], ...] = field(default_factory=tuple, repr=False)
+
+
+@dataclass(frozen=True)
+class KernelBlockedDisposition:
+    """Actionable blocked-output contract for the first HX-04 kernel cut."""
+
+    status: str
+    exit_code: int
+    residual_output_name: str
+    next_action_command: str
+
+
 # --- Wave 2 checker sets ----------------------------------------------------
 #
 # Single canonical local-mode set per D-104-01 / D-104-02 (5 checkers). The
@@ -114,6 +156,18 @@ _WAVE2_LOCAL_CHECKERS: tuple[str, ...] = LOCAL_CHECKERS
 _WAVE2_CI_EXTRA: tuple[str, ...] = CI_EXTRA_CHECKERS
 _RUN_GATE_LOCAL_CHECKERS: tuple[str, ...] = LOCAL_CHECKERS
 _RUN_GATE_CI_EXTRA: tuple[str, ...] = CI_EXTRA_CHECKERS
+
+_DEFAULT_FINDINGS_SCHEMA = "ai-engineering/gate-findings/v1"
+_DEFAULT_RESIDUAL_OUTPUT_NAME = "watch-residuals.json"
+_DEFAULT_PUBLISH_OWNER = "adapter"
+_DEFAULT_RETRY_CEILING = 3
+_DEFAULT_ACTIVE_LOOP_CAP = timedelta(minutes=30)
+_DEFAULT_PASSIVE_LOOP_CAP = timedelta(hours=4)
+_DEFAULT_BLOCKED_STATUS = "blocked"
+_DEFAULT_BLOCKED_EXIT_CODE = 90
+_DEFAULT_BLOCKED_NEXT_ACTION = (
+    f"ai-eng risk accept-all .ai-engineering/state/{_DEFAULT_RESIDUAL_OUTPUT_NAME}"
+)
 
 
 # --- Strict env-var parsing -------------------------------------------------
@@ -158,20 +212,14 @@ def _classify_fixer(args: list[str]) -> str:
 
 
 def _has_active_spec(project_root: Path | None = None) -> bool:
-    """Return True when ``.ai-engineering/specs/spec.md`` is not the placeholder.
+    """Return True when the resolved work plane still has active spec work.
 
     Placeholder marker per ``cli_commands/spec_cmd.py`` is the literal line
-    ``# No active spec`` at file start.
+    ``# No active spec`` at file start. HX-02 keeps placeholder prose active
+    when the readable resolved task ledger still contains non-done tasks.
     """
     root = project_root if project_root is not None else Path.cwd()
-    spec_path = root / ".ai-engineering" / "specs" / "spec.md"
-    if not spec_path.exists():
-        return False
-    try:
-        text = spec_path.read_text(encoding="utf-8").lstrip()
-    except OSError:
-        return False
-    return not text.startswith("# No active spec")
+    return active_work_plane_has_active_spec(root)
 
 
 def _snapshot_mtimes(paths: list[Path]) -> dict[Path, int]:
@@ -196,14 +244,22 @@ def _modified_since(pre: dict[Path, int]) -> list[str]:
     return modified
 
 
+def _resolve_wave1_path(path: Path, project_root: Path | None) -> Path:
+    if project_root is not None and not path.is_absolute():
+        return project_root / path
+    return path
+
+
 def _run_pass(
     fixer_specs: list[tuple[str, list[str]]],
     fixers_run: list[str],
     return_codes: list[int],
+    *,
+    cwd: Path | None = None,
 ) -> None:
     """Execute one pass of all fixers serial; update ``fixers_run`` + ``return_codes``."""
     for name, cmd in fixer_specs:
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd)
         fixers_run.append(name)
         return_codes.append(result.returncode)
 
@@ -235,13 +291,16 @@ def run_wave1(
     fixers_run: list[str] = []
     files_modified: list[str] = []
     return_codes: list[int] = []
+    resolved_staged_files = [
+        _resolve_wave1_path(Path(staged_file), project_root) for staged_file in staged_files
+    ]
 
-    has_python = any(Path(f).suffix == ".py" for f in staged_files)
-    has_active_spec = _has_active_spec()
+    has_python = any(path.suffix == ".py" for path in resolved_staged_files)
+    has_active_spec = _has_active_spec(project_root)
 
     fixer_specs: list[tuple[str, list[str]]] = []
     if has_python:
-        py_paths = [str(f) for f in staged_files]
+        py_paths = [str(path) for path in resolved_staged_files if path.suffix == ".py"]
         fixer_specs.append(("ruff-format", ["ruff", "format", *py_paths]))
         fixer_specs.append(("ruff-check", ["ruff", "check", "--fix", *py_paths]))
     if has_active_spec:
@@ -260,15 +319,15 @@ def run_wave1(
             s_pre = None
 
     # Pass 1: snapshot mtimes, run all fixers, collect modifications.
-    pre1 = _snapshot_mtimes([Path(f) for f in staged_files])
-    _run_pass(fixer_specs, fixers_run, return_codes)
+    pre1 = _snapshot_mtimes(resolved_staged_files)
+    _run_pass(fixer_specs, fixers_run, return_codes, cwd=project_root)
     pass1_modified = _modified_since(pre1)
     files_modified.extend(pass1_modified)
 
     # Convergence re-run (max one re-pass) if pass 1 modified files.
     if pass1_modified:
-        pre2 = _snapshot_mtimes([Path(f) for f in staged_files])
-        _run_pass(fixer_specs, fixers_run, return_codes)
+        pre2 = _snapshot_mtimes(resolved_staged_files)
+        _run_pass(fixer_specs, fixers_run, return_codes, cwd=project_root)
         files_modified.extend(_modified_since(pre2))
 
     # Deduplicate while preserving first-seen ordering.
@@ -538,6 +597,28 @@ def _atomic_write_text(path: Path, payload: str) -> None:
     os.replace(tmp_path, str(path))
 
 
+def publish_gate_document(
+    document: GateFindingsDocument,
+    project_root: Path,
+    *,
+    output_name: str = "gate-findings.json",
+) -> Path:
+    """Persist a canonical gate-document sibling under ``.ai-engineering/state``.
+
+    HX-04 keeps publication adapter-owned, but the actual on-disk publish
+    mechanics for findings/residual siblings should stay in one helper so cache
+    metadata, schema shape, and artifact serialization do not drift.
+    """
+    output_path = project_root / ".ai-engineering" / "state" / output_name
+    artifact_name = Path(output_name).stem
+    payload = document.model_dump_json(by_alias=True)
+
+    with artifact_lock(project_root, artifact_name):
+        _atomic_write_text(output_path, payload)
+
+    return output_path
+
+
 def _normalize_auto_fixed(raw: Any) -> list[dict[str, Any]]:
     """Convert wave1.auto_fixed (dicts or AutoFixedEntry) to JSON-friendly dicts."""
     out: list[dict[str, Any]] = []
@@ -762,14 +843,57 @@ def _config_hashes_for(check_name: str, project_root: Path) -> dict[str, str]:
 
     files = gate_cache._CONFIG_FILE_WHITELIST.get(check_name, [])
     out: dict[str, str] = {}
+
+    if check_name == "spec-verify":
+        work_plane = resolve_active_work_plane(project_root)
+        resolved_files = {
+            ".ai-engineering/specs/spec.md": work_plane.spec_path,
+            ".ai-engineering/specs/plan.md": work_plane.plan_path,
+            str(ACTIVE_WORK_PLANE_POINTER_REL): project_root / ACTIVE_WORK_PLANE_POINTER_REL,
+        }
+        return _hash_config_targets(resolved_files, hashlib.sha256)
+
+    if check_name == "validate":
+        work_plane = resolve_active_work_plane(project_root)
+        # Spec-123: dropped task-ledger.json, current-summary.md,
+        # history-summary.md, handoffs/, evidence/. Canonical three-file
+        # contract is spec.md, plan.md, _history.md.
+        resolved_files = {
+            **{rel: project_root / rel for rel in files},
+            ".ai-engineering/specs/spec.md": work_plane.spec_path,
+            ".ai-engineering/specs/plan.md": work_plane.plan_path,
+            ".ai-engineering/specs/_history.md": work_plane.history_path,
+            str(ACTIVE_WORK_PLANE_POINTER_REL): project_root / ACTIVE_WORK_PLANE_POINTER_REL,
+        }
+        return _hash_config_targets(resolved_files, hashlib.sha256)
+
     for rel in files:
         path = project_root / rel
         try:
             data = path.read_bytes()
-        except (FileNotFoundError, IsADirectoryError, PermissionError, OSError):
+        except OSError:
             data = b""
         out[rel] = hashlib.sha256(data).hexdigest()
     return out
+
+
+def _hash_config_targets(
+    targets: dict[str, Path],
+    sha256: Any,
+) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for rel, path in targets.items():
+        out[rel] = sha256(_config_target_bytes(path)).hexdigest()
+    return out
+
+
+def _config_target_bytes(path: Path) -> bytes:
+    if path.exists() and path.is_dir():
+        return b"directory-present"
+    try:
+        return path.read_bytes()
+    except OSError:
+        return b""
 
 
 # spec-105 D-105-04: Tier 2 checker names that LOCAL_CHECKERS exposes today.
@@ -804,6 +928,60 @@ def _checks_for_run_gate(
     if gate_mode == "prototyping":
         names = [n for n in names if n not in _TIER_2_LOCAL_DISPATCH_NAMES]
     return [{"name": n, "wave": 2} for n in names]
+
+
+def resolve_kernel_contract(
+    project_root: Path,
+    *,
+    mode: str = "local",
+    checks: list[dict[str, Any]] | None = None,
+    gate_mode: str | None = None,
+) -> KernelContract:
+    """Resolve the explicit HX-04 kernel contract for the current run.
+
+    This is the first shared contract surface for the owned orchestrator/gate
+    path. Phase 2 uses it to unify registration, resolved gate mode, envelope
+    family, residual compatibility, and publish ownership before wider adapter
+    cutover begins.
+    """
+    resolved_gate_mode: mode_dispatch.GateMode
+    if gate_mode is None:
+        try:
+            resolved_gate_mode = mode_dispatch.resolve_mode(project_root)
+        except Exception:
+            logger.debug(
+                "mode_dispatch.resolve_mode failed while building kernel contract; "
+                "defaulting to regulated",
+                exc_info=True,
+            )
+            resolved_gate_mode = "regulated"
+    else:
+        resolved_gate_mode = gate_mode if gate_mode in {"regulated", "prototyping"} else "regulated"  # ty:ignore[invalid-assignment]
+
+    check_specs = tuple(_checks_for_run_gate(checks, mode, gate_mode=resolved_gate_mode))
+    registration = tuple(
+        str(spec.get("name") or spec.get("check") or "unknown") for spec in check_specs
+    )
+
+    return KernelContract(
+        check_registration=registration,
+        gate_mode=resolved_gate_mode,
+        findings_document_model=GateFindingsDocument,
+        findings_schema=_DEFAULT_FINDINGS_SCHEMA,
+        residual_document_model=GateFindingsDocument,
+        residual_output_name=_DEFAULT_RESIDUAL_OUTPUT_NAME,
+        publish_owner=_DEFAULT_PUBLISH_OWNER,
+        retry_ceiling=_DEFAULT_RETRY_CEILING,
+        active_loop_cap=_DEFAULT_ACTIVE_LOOP_CAP,
+        passive_loop_cap=_DEFAULT_PASSIVE_LOOP_CAP,
+        blocked_disposition=KernelBlockedDisposition(
+            status=_DEFAULT_BLOCKED_STATUS,
+            exit_code=_DEFAULT_BLOCKED_EXIT_CODE,
+            residual_output_name=_DEFAULT_RESIDUAL_OUTPUT_NAME,
+            next_action_command=_DEFAULT_BLOCKED_NEXT_ACTION,
+        ),
+        check_specs=check_specs,
+    )
 
 
 def _dispatch_one_check(
@@ -948,16 +1126,12 @@ def run_gate(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     # pass an explicit ``gate_mode``; otherwise fall back to the resolver
     # which considers manifest + branch + CI + push-target signals. The
     # resolved mode controls whether Tier 2 checks ship in the dispatch list.
-    if gate_mode is None:
-        try:
-            resolved_gate_mode: str = mode_dispatch.resolve_mode(project_root)
-        except Exception:
-            logger.debug(
-                "mode_dispatch.resolve_mode failed; defaulting to regulated", exc_info=True
-            )
-            resolved_gate_mode = "regulated"
-    else:
-        resolved_gate_mode = gate_mode
+    kernel_contract = resolve_kernel_contract(
+        project_root,
+        mode=mode,
+        checks=checks,
+        gate_mode=gate_mode,
+    )
 
     # --- Wave 1 -------------------------------------------------------------
     wave1_paths = [Path(s) for s in staged_str]
@@ -1006,7 +1180,7 @@ def run_gate(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         _attach_auto_stage_result(document, wave1.auto_stage_result)
         return document
 
-    spec_list = _checks_for_run_gate(checks, mode, gate_mode=resolved_gate_mode)
+    spec_list = [dict(spec) for spec in kernel_contract.check_specs]
 
     # Effective cache dir (may be None when caller doesn't care).
     effective_cache_dir = cache_dir if cache_dir is not None else (project_root / ".cache")

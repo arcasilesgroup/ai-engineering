@@ -4,7 +4,26 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
+
+from ai_engineering.config.mirror_inventory import get_generated_provenance_fields
+from ai_engineering.state.context_packs import write_context_pack
+from ai_engineering.state.defaults import default_ownership_map
+from ai_engineering.state.io import write_json_model
+from ai_engineering.state.models import (
+    EvidenceRef,
+    HandoffRef,
+    TaskLedger,
+    TaskLedgerTask,
+    TaskLifecycleState,
+)
+from ai_engineering.state.observability import (
+    framework_capabilities_path,
+    write_framework_capabilities,
+)
+from ai_engineering.state.work_plane import write_active_work_plane_pointer
 from ai_engineering.validator._shared import (
     FileCache,
     _extract_listings,
@@ -121,24 +140,145 @@ def _write_all_instruction_files(
         f.write_text(text, encoding="utf-8")
 
 
-def _write_manifest(ai: Path) -> None:
+def _write_manifest(
+    ai: Path,
+    *,
+    providers: tuple[str, ...] = ("claude-code", "github_copilot"),
+    skills_total: int | None = None,
+    agents_total: int | None = None,
+) -> None:
     """Write a minimal manifest.yml."""
     m = ai / "manifest.yml"
+    skills_block = f"skills:\n  total: {skills_total}\n" if skills_total is not None else ""
+    agents_block = f"agents:\n  total: {agents_total}\n" if agents_total is not None else ""
     m.write_text(
         "name: test-project\nversion: 1.0.0\n"
-        "ai_providers:\n  enabled: [claude_code, github_copilot]\n  primary: claude_code\n"
-        "ownership:\n  external_framework_managed:\n"
-        "    - AGENTS.md\n    - CLAUDE.md\n",
+        f"{skills_block}{agents_block}"
+        f"ai_providers:\n  enabled: [{', '.join(providers)}]\n  primary: {providers[0]}\n"
+        "ownership:\n"
+        '  framework: [".ai-engineering/**"]\n'
+        "  root_entry_points:\n"
+        "    CLAUDE.md:\n"
+        "      owner: framework\n"
+        "      canonical_source: CLAUDE.md\n"
+        "      runtime_role: ide-overlay\n"
+        "      sync:\n"
+        "        mode: copy\n"
+        "        template_path: src/ai_engineering/templates/project/CLAUDE.md\n"
+        "        mirror_paths: []\n"
+        "    AGENTS.md:\n"
+        "      owner: framework\n"
+        "      canonical_source: scripts/sync_command_mirrors.py:generate_agents_md\n"
+        "      runtime_role: shared-runtime-contract\n"
+        "      sync:\n"
+        "        mode: generate\n"
+        "        template_path: src/ai_engineering/templates/project/AGENTS.md\n"
+        "        mirror_paths: []\n"
+        '    ".github/copilot-instructions.md":\n'
+        "      owner: framework\n"
+        "      canonical_source: CLAUDE.md\n"
+        "      runtime_role: ide-overlay\n"
+        "      sync:\n"
+        "        mode: generate\n"
+        "        template_path: src/ai_engineering/templates/project/copilot-instructions.md\n"
+        "        mirror_paths: []\n"
+        '  team: [".ai-engineering/contexts/team/**"]\n'
+        '  system: [".ai-engineering/state/**"]\n',
         encoding="utf-8",
     )
 
 
-def _write_active_spec(
-    ai: Path,
+def _write_manifest_with_capabilities(ai: Path) -> None:
+    """Write a manifest fixture with enough registry data for capability cards."""
+    _write_manifest(ai)
+    manifest = ai / "manifest.yml"
+    manifest.write_text(
+        manifest.read_text(encoding="utf-8")
+        + "skills:\n"
+        + "  total: 2\n"
+        + "  registry:\n"
+        + "    ai-code:\n"
+        + "      type: workflow\n"
+        + "      tags: [implementation]\n"
+        + "    ai-analyze-permissions:\n"
+        + "      type: meta\n"
+        + "      tags: [permissions]\n"
+        + "agents:\n"
+        + "  total: 3\n"
+        + "  names: [plan, build, explore]\n",
+        encoding="utf-8",
+    )
+
+
+def _source_repo_manifest_text(version: str = "1.2.3") -> str:
+    return (
+        f'framework_version: "{version}"\n'
+        "session:\n"
+        "  context_files:\n"
+        "    - .ai-engineering/LESSONS.md\n"
+        "    - CONSTITUTION.md\n"
+        "    - .ai-engineering/manifest.yml\n"
+        "    - .ai-engineering/state/decision-store.json\n"
+        "control_plane:\n"
+        "  constitutional_authority:\n"
+        "    primary: CONSTITUTION.md\n"
+        "    compatibility_aliases: []\n"
+        "  manifest_field_roles:\n"
+        "    canonical_input:\n"
+        "      - providers\n"
+        "      - ai_providers\n"
+        "      - artifact_feeds\n"
+        "      - work_items\n"
+        "      - quality\n"
+        "      - documentation\n"
+        "      - cicd\n"
+        "      - contexts.precedence\n"
+        "      - session.context_files\n"
+        "      - ownership.framework\n"
+        "      - ownership.root_entry_points\n"
+        "      - telemetry\n"
+        "      - gates\n"
+        "      - hot_path_slos\n"
+        "    generated_projection:\n"
+        "      - skills\n"
+        "      - agents\n"
+        "    descriptive_metadata:\n"
+        "      - schema_version\n"
+        "      - framework_version\n"
+        "      - name\n"
+        "      - version\n"
+    )
+
+
+def _write_source_repo_markers(root: Path, ai: Path, *, version: str = "1.2.3") -> None:
+    """Add the minimal source-repo files that enable source-only validator checks."""
+    (root / "pyproject.toml").write_text(
+        f'[project]\nname = "test-project"\nversion = "{version}"\n',
+        encoding="utf-8",
+    )
+    (ai / "manifest.yml").write_text(_source_repo_manifest_text(version), encoding="utf-8")
+    template_manifest = (
+        root / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
+    )
+    template_manifest.parent.mkdir(parents=True, exist_ok=True)
+    template_manifest.write_text(_source_repo_manifest_text(version), encoding="utf-8")
+
+
+def _write_source_repo_control_plane_files(root: Path, ai: Path) -> None:
+    (root / "CONSTITUTION.md").write_text("# Root Constitution\n", encoding="utf-8")
+
+    project_template_constitution = (
+        root / "src" / "ai_engineering" / "templates" / "project" / "CONSTITUTION.md"
+    )
+    project_template_constitution.parent.mkdir(parents=True, exist_ok=True)
+    project_template_constitution.write_text("# Template Constitution\n", encoding="utf-8")
+
+
+def _write_work_plane(
+    specs_dir: Path,
     spec_name: str = "006-test",
 ) -> Path:
-    """Write Working Buffer spec.md and plan.md."""
-    specs_dir = ai / "specs"
+    """Write compatibility files and seeded work-plane assets at a specs root."""
     specs_dir.mkdir(parents=True, exist_ok=True)
     (specs_dir / "spec.md").write_text(
         f'---\nid: "006"\n---\n\n# {spec_name}\n\nTest spec.\n',
@@ -148,7 +288,50 @@ def _write_active_spec(
         "---\ntotal: 3\ncompleted: 1\n---\n\n# Plan\n\n- [x] Done\n- [ ] Todo\n- [ ] Todo\n",
         encoding="utf-8",
     )
+    (specs_dir / "_history.md").write_text(
+        "# Spec History\n\nNo lifecycle entries yet.\n",
+        encoding="utf-8",
+    )
+    # Spec-123: dead HX-02 work-plane artifacts no longer required, but the
+    # fixture continues to seed them for tests that exercise legacy paths.
+    (specs_dir / "current-summary.md").write_text(
+        "# Current Summary\n\nNo active current summary yet.\n",
+        encoding="utf-8",
+    )
+    (specs_dir / "history-summary.md").write_text(
+        "# History Summary\n\nNo history summary yet.\n",
+        encoding="utf-8",
+    )
+    (specs_dir / "task-ledger.json").write_text(
+        '{\n  "schemaVersion": "1.0",\n  "tasks": []\n}\n',
+        encoding="utf-8",
+    )
+    (specs_dir / "handoffs").mkdir(exist_ok=True)
+    (specs_dir / "evidence").mkdir(exist_ok=True)
     return specs_dir
+
+
+def _write_task_artifacts(
+    specs_dir: Path,
+    task_id: str,
+) -> tuple[HandoffRef, EvidenceRef]:
+    """Write handoff and evidence files for a task-ledger test task."""
+    handoff_path = specs_dir / "handoffs" / f"{task_id}.md"
+    evidence_path = specs_dir / "evidence" / f"{task_id}.log"
+    handoff_path.write_text(f"# Handoff {task_id}\n", encoding="utf-8")
+    evidence_path.write_text(f"evidence for {task_id}\n", encoding="utf-8")
+    return (
+        HandoffRef(kind="build", path=f"handoffs/{task_id}.md"),
+        EvidenceRef(kind="pytest", path=f"evidence/{task_id}.log"),
+    )
+
+
+def _write_active_spec(
+    ai: Path,
+    spec_name: str = "006-test",
+) -> Path:
+    """Write Working Buffer compatibility files and seeded work-plane assets."""
+    return _write_work_plane(ai / "specs", spec_name)
 
 
 def _write_readme(ai: Path) -> None:
@@ -166,6 +349,7 @@ def _setup_full_project(root: Path) -> Path:
         _write_skill(ai, a)
     _write_all_instruction_files(root)
     _write_manifest(ai)
+    _write_source_repo_control_plane_files(root, ai)
     _write_readme(ai)
     _write_active_spec(ai)
     return ai
@@ -411,6 +595,42 @@ class TestFileExistence:
         ]
         assert len(fail_checks) >= 1
 
+    def test_legacy_state_plane_reference_requires_canonical_path(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        legacy_path = ai / "state" / "spec-116-t31-audit-classification.json"
+        canonical_path = (
+            ai / "specs" / "evidence" / "spec-116" / "spec-116-t31-audit-classification.json"
+        )
+        legacy_path.parent.mkdir(parents=True, exist_ok=True)
+        canonical_path.parent.mkdir(parents=True, exist_ok=True)
+        legacy_path.write_text('{"source": "legacy"}\n', encoding="utf-8")
+        canonical_path.write_text('{"source": "canonical"}\n', encoding="utf-8")
+
+        doc = ai / "contexts" / "languages" / "legacy-state-plane.md"
+        doc.parent.mkdir(parents=True, exist_ok=True)
+        doc.write_text(
+            "# Legacy State Plane\n\n"
+            "See `state/spec-116-t31-audit-classification.json` for details.\n",
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.category == IntegrityCategory.FILE_EXISTENCE and c.status == IntegrityStatus.FAIL
+        ]
+        assert any(
+            c.name == "legacy-state-plane-reference"
+            and "state/spec-116-t31-audit-classification.json" in c.message
+            and "specs/evidence/spec-116/spec-116-t31-audit-classification.json" in c.message
+            for c in fail_checks
+        )
+
     def test_spec_buffer_completeness(self, tmp_path: Path) -> None:
         """Missing spec buffer files (spec.md or plan.md) are flagged."""
         ai = _setup_full_project(tmp_path)
@@ -437,6 +657,87 @@ class TestFileExistence:
             c for c in report.checks if c.name == "spec-buffer" and c.status == IntegrityStatus.OK
         ]
         assert len(ok_checks) == 1
+
+    def test_spec_buffer_uses_resolved_work_plane_paths(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        # Spec-123: dead work-plane artifacts (task-ledger.json,
+        # current-summary.md, history-summary.md, handoffs/, evidence/)
+        # were removed. Spec buffer is now the canonical three-file
+        # contract: spec.md, plan.md, _history.md.
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "spec.md").unlink()
+        (ai / "specs" / "plan.md").unlink()
+        (ai / "specs" / "_history.md").unlink()
+
+        resolved_specs_dir = tmp_path / "resolved-work-plane"
+        resolved_specs_dir.mkdir()
+        resolved_spec = resolved_specs_dir / "spec.md"
+        resolved_plan = resolved_specs_dir / "plan.md"
+        resolved_history = resolved_specs_dir / "_history.md"
+        resolved_spec.write_text("# Spec\n", encoding="utf-8")
+        resolved_plan.write_text("# Plan\n", encoding="utf-8")
+        resolved_history.write_text("# History\n", encoding="utf-8")
+
+        monkeypatch.setattr(
+            "ai_engineering.validator.categories.file_existence.resolve_active_work_plane",
+            lambda _root: SimpleNamespace(
+                specs_dir=resolved_specs_dir,
+                spec_path=resolved_spec,
+                plan_path=resolved_plan,
+                history_path=resolved_history,
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
+        )
+
+        ok_checks = [
+            c for c in report.checks if c.name == "spec-buffer" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_source_repo_control_plane_paths_present_pass(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        _write_source_repo_markers(tmp_path, ai)
+        _write_source_repo_control_plane_files(tmp_path, ai)
+        _write_active_spec(ai)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "control-plane-paths" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_source_repo_missing_project_constitution_template_fails(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        _write_source_repo_markers(tmp_path, ai)
+        _write_source_repo_control_plane_files(tmp_path, ai)
+        _write_active_spec(ai)
+        (tmp_path / "src" / "ai_engineering" / "templates" / "project" / "CONSTITUTION.md").unlink()
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.FILE_EXISTENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "control-plane-paths" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "src/ai_engineering/templates/project/CONSTITUTION.md" in fail_checks[0].message
 
 
 # -- Category 2: Mirror Sync ----------------------------------------------
@@ -556,6 +857,20 @@ def _setup_governance_mirror(root: Path) -> None:
             dest.write_bytes(src.read_bytes())
 
 
+def _frontmatter_with_provenance(
+    base_fields: list[tuple[str, str]],
+    *,
+    family_id: str,
+    canonical_source: str,
+    body: str,
+) -> str:
+    """Build a markdown document with generated provenance frontmatter."""
+    frontmatter_lines = [f"{key}: {value}" for key, value in base_fields]
+    for key, value in get_generated_provenance_fields(family_id, canonical_source).items():
+        frontmatter_lines.append(f"{key}: {value}")
+    return "---\n" + "\n".join(frontmatter_lines) + f"\n---\n\n{body}"
+
+
 class TestCopilotSkillsMirror:
     """Tests for Copilot skills mirror-sync validation."""
 
@@ -575,7 +890,12 @@ class TestCopilotSkillsMirror:
         )
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
-        content = "---\nname: ai-test\nmode: agent\n---\nTest skill.\n"
+        content = _frontmatter_with_provenance(
+            [("name", "ai-test"), ("mode", "agent")],
+            family_id="copilot-skills",
+            canonical_source=".claude/skills/ai-test/SKILL.md",
+            body="Test skill.\n",
+        )
         (canonical / "SKILL.md").write_text(content, encoding="utf-8")
         (mirror / "SKILL.md").write_text(content, encoding="utf-8")
         report = validate_content_integrity(
@@ -758,6 +1078,68 @@ class TestClaudeAgentsMirror:
         assert len(fail_checks) >= 1
 
 
+class TestClaudeSpecialistAgentsMirror:
+    """Tests for generated Claude specialist agent mirror-sync validation."""
+
+    def test_claude_specialist_agents_mirror_sync_ok(self, tmp_path: Path) -> None:
+        from scripts.sync_command_mirrors import generate_specialist_agent
+
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".claude" / "agents"
+        mirror = (
+            tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "agents"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+
+        specialist = canonical / "reviewer-correctness.md"
+        specialist.write_text(
+            "---\nname: reviewer-correctness\ndescription: test\nmodel: opus\n"
+            "color: cyan\ntools: [Read]\n---\n\nBody\n",
+            encoding="utf-8",
+        )
+        (mirror / specialist.name).write_text(
+            generate_specialist_agent(specialist),
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "claude-specialist-agents-mirrors" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_claude_specialist_agents_mirror_desync(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".claude" / "agents"
+        mirror = (
+            tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "agents"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+
+        specialist = canonical / "reviewer-correctness.md"
+        specialist.write_text(
+            "---\nname: reviewer-correctness\ndescription: test\nmodel: opus\n"
+            "color: cyan\ntools: [Read]\n---\n\nBody\n",
+            encoding="utf-8",
+        )
+        (mirror / specialist.name).write_text("different", encoding="utf-8")
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL
+            and "claude-specialist-agent-desync-reviewer-correctness.md" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+
 class TestCodexSkillsMirror:
     """Tests for .codex skills mirror-sync validation."""
 
@@ -777,7 +1159,12 @@ class TestCodexSkillsMirror:
         )
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
-        content = "---\nname: test\nmode: agent\n---\nSkill.\n"
+        content = _frontmatter_with_provenance(
+            [("name", "ai-test"), ("mode", "agent")],
+            family_id="codex-skills",
+            canonical_source=".claude/skills/ai-test/SKILL.md",
+            body="Skill.\n",
+        )
         (canonical / "SKILL.md").write_text(content, encoding="utf-8")
         (mirror / "SKILL.md").write_text(content, encoding="utf-8")
         report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
@@ -799,7 +1186,12 @@ class TestCodexAgentsMirror:
         mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / ".codex" / "agents"
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
-        content = "---\nname: ai-test\ndescription: test\n---\nAgent.\n"
+        content = _frontmatter_with_provenance(
+            [("name", "ai-test"), ("description", "test")],
+            family_id="codex-agents",
+            canonical_source=".claude/agents/ai-test.md",
+            body="Agent.\n",
+        )
         (canonical / "ai-test.md").write_text(content, encoding="utf-8")
         (mirror / "ai-test.md").write_text(content, encoding="utf-8")
         report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
@@ -821,7 +1213,12 @@ class TestCopilotAgentsMirror:
         mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "agents"
         canonical.mkdir(parents=True)
         mirror.mkdir(parents=True)
-        content = "---\nname: Test\ndescription: test\n---\nTest agent.\n"
+        content = _frontmatter_with_provenance(
+            [("name", "Test"), ("description", "test")],
+            family_id="copilot-agents",
+            canonical_source=".claude/agents/ai-test.md",
+            body="Test agent.\n",
+        )
         (canonical / "test.agent.md").write_text(content, encoding="utf-8")
         (mirror / "test.agent.md").write_text(content, encoding="utf-8")
         report = validate_content_integrity(
@@ -888,6 +1285,221 @@ class TestCopilotAgentsMirror:
             c
             for c in report.checks
             if c.status == IntegrityStatus.FAIL and "copilot-agent-missing" in c.name
+        ]
+        assert len(fail_checks) >= 1
+
+
+class TestGeneratedMirrorProvenance:
+    """Tests for negative provenance validation on generated mirrors."""
+
+    def test_generated_codex_skill_missing_provenance_fails_even_when_pair_matches(
+        self, tmp_path: Path
+    ) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".codex" / "skills" / "ai-test"
+        mirror = (
+            tmp_path
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".codex"
+            / "skills"
+            / "ai-test"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+
+        content = "---\nname: ai-test\nmode: agent\n---\n\nSkill.\n"
+        (canonical / "SKILL.md").write_text(content, encoding="utf-8")
+        (mirror / "SKILL.md").write_text(content, encoding="utf-8")
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL
+            and c.name.startswith("generated-provenance-codex-skills")
+        ]
+        assert len(fail_checks) >= 1
+        assert report.category_passed(IntegrityCategory.MIRROR_SYNC) is False
+
+
+class TestPublicAgentRootContract:
+    """Tests for rejecting ungoverned entries in public agent roots."""
+
+    def test_copilot_public_agent_root_rejects_stray_specialist_peer(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "agents"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "agents"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+
+        content = "---\nname: reviewer-bad\ndescription: test\n---\n\nBad peer.\n"
+        (canonical / "reviewer-bad.md").write_text(content, encoding="utf-8")
+        (mirror / "reviewer-bad.md").write_text(content, encoding="utf-8")
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL
+            and c.name.startswith("ungoverned-public-agent-entry-")
+        ]
+        assert len(fail_checks) >= 1
+        assert report.category_passed(IntegrityCategory.MIRROR_SYNC) is False
+
+
+class TestPublicSkillRootContract:
+    """Tests for rejecting ungoverned entries in public skill roots."""
+
+    def test_copilot_public_skill_root_rejects_ungoverned_directory(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "skills" / "reviewer-bad"
+        mirror = (
+            tmp_path
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".github"
+            / "skills"
+            / "reviewer-bad"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+        (canonical / "SKILL.md").write_text("# Bad skill\n", encoding="utf-8")
+        (mirror / "SKILL.md").write_text("# Bad skill\n", encoding="utf-8")
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL
+            and c.name.startswith("ungoverned-public-skill-entry-")
+        ]
+        assert len(fail_checks) >= 1
+        assert report.category_passed(IntegrityCategory.MIRROR_SYNC) is False
+
+
+class TestNonClaudeLocalReferenceLeaks:
+    """Tests for rejecting leaked Claude-local skill/agent paths."""
+
+    def test_copilot_skill_script_rejects_claude_skill_path_leak_even_when_pair_matches(
+        self, tmp_path: Path
+    ) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "skills" / "ai-test" / "scripts"
+        mirror = (
+            tmp_path
+            / "src"
+            / "ai_engineering"
+            / "templates"
+            / "project"
+            / ".github"
+            / "skills"
+            / "ai-test"
+            / "scripts"
+        )
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+
+        content = 'SKILL_DIR=".claude/skills/ai-${SKILL_NAME}"\n'
+        (canonical / "scaffold-skill.sh").write_text(content, encoding="utf-8")
+        (mirror / "scaffold-skill.sh").write_text(content, encoding="utf-8")
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL
+            and c.name.startswith("non-claude-local-reference-leak-")
+        ]
+        assert len(fail_checks) >= 1
+        assert report.category_passed(IntegrityCategory.MIRROR_SYNC) is False
+
+    def test_generated_copilot_agent_wrong_canonical_source_fails_even_when_pair_matches(
+        self, tmp_path: Path
+    ) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "agents"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "agents"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+
+        content = _frontmatter_with_provenance(
+            [("name", "Test"), ("description", "test")],
+            family_id="copilot-agents",
+            canonical_source=".claude/agents/build.md",
+            body="Test agent.\n",
+        )
+        (canonical / "test.agent.md").write_text(content, encoding="utf-8")
+        (mirror / "test.agent.md").write_text(content, encoding="utf-8")
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL
+            and c.name.startswith("generated-provenance-copilot-agents")
+        ]
+        assert len(fail_checks) >= 1
+        assert report.category_passed(IntegrityCategory.MIRROR_SYNC) is False
+
+
+class TestGeneratedInstructionsMirror:
+    """Tests for generated Copilot instruction mirror-sync validation."""
+
+    def test_generated_instructions_mirror_sync_ok_excludes_manual_files(
+        self, tmp_path: Path
+    ) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "instructions"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "instructions"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+
+        content = '---\napplyTo: "**/*.py"\n---\n\n# Python Instructions\n'
+        (canonical / "python.instructions.md").write_text(content, encoding="utf-8")
+        (mirror / "python.instructions.md").write_text(content, encoding="utf-8")
+        (canonical / "testing.instructions.md").write_text("manual", encoding="utf-8")
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "copilot-generated-instructions-mirrors" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_generated_instructions_mirror_desync(self, tmp_path: Path) -> None:
+        _setup_full_project(tmp_path)
+        _setup_governance_mirror(tmp_path)
+        canonical = tmp_path / ".github" / "instructions"
+        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "instructions"
+        canonical.mkdir(parents=True)
+        mirror.mkdir(parents=True)
+
+        (canonical / "python.instructions.md").write_text("canonical", encoding="utf-8")
+        (mirror / "python.instructions.md").write_text("different", encoding="utf-8")
+
+        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.status == IntegrityStatus.FAIL
+            and "copilot-generated-instruction-desync-python.instructions.md" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -1034,6 +1646,8 @@ class TestManifestCoherence:
         assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
 
     def test_active_spec_valid(self, tmp_path: Path) -> None:
+        # Spec-123: task-ledger validation no longer emits checks; only the
+        # active-spec OK signal remains for valid spec.md/plan.md content.
         _setup_full_project(tmp_path)
         report = validate_content_integrity(
             tmp_path,
@@ -1044,6 +1658,98 @@ class TestManifestCoherence:
         ]
         assert len(ok_checks) == 1
 
+        # Task-ledger checks are no longer emitted post-spec-123.
+        ledger_checks = [c for c in report.checks if c.name == "active-task-ledger"]
+        assert ledger_checks == []
+
+    def test_active_spec_plan_declared_identity_mismatch_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "spec.md").write_text(
+            "---\nspec: spec-117-hx-02\n---\n\n# HX-02 Work Plane\n",
+            encoding="utf-8",
+        )
+        (ai / "specs" / "plan.md").write_text(
+            "---\ntotal: 1\ncompleted: 0\n---\n\n# Plan: spec-117-hx-06 Other Work\n",
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-spec-plan-coherence" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "spec-117-hx-02" in fail_checks[0].message
+        assert "spec-117-hx-06" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    def test_active_spec_missing_plan_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "plan.md").unlink()
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-spec-plan-coherence" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "without specs/plan.md" in fail_checks[0].message
+
+    def test_active_spec_idle_plan_placeholder_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "plan.md").write_text(
+            "# No active plan\n\nRun /ai-plan.\n",
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-spec-plan-coherence" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "idle placeholder" in fail_checks[0].message
+
+    def test_active_spec_plan_declared_identity_match_passes(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "spec.md").write_text(
+            "---\nspec: spec-117-hx-02\n---\n\n# HX-02 Work Plane\n",
+            encoding="utf-8",
+        )
+        (ai / "specs" / "plan.md").write_text(
+            "---\ntotal: 1\ncompleted: 0\n---\n\n# Plan: spec-117-hx-02 Work Plane\n",
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-spec-plan-coherence" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
     def test_active_spec_placeholder(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
         (ai / "specs" / "spec.md").write_text(
@@ -1059,6 +1765,1006 @@ class TestManifestCoherence:
         ]
         assert len(ok_checks) == 1
 
+        ledger_checks = [c for c in report.checks if c.name == "active-task-ledger"]
+        assert ledger_checks == []
+        coherence_checks = [c for c in report.checks if c.name == "active-spec-ledger-coherence"]
+        assert coherence_checks == []
+        artifact_checks = [
+            c for c in report.checks if c.name == "task-artifact-reference-validation"
+        ]
+        assert artifact_checks == []
+        write_scope_checks = [
+            c for c in report.checks if c.name == "task-write-scope-duplicate-validation"
+        ]
+        assert write_scope_checks == []
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_active_spec_placeholder_with_non_done_task_in_resolved_ledger_fails(
+        self, tmp_path: Path
+    ) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "spec.md").write_text(
+            "---\nid: legacy-spec\n---\n\n# Legacy Active Spec\n",
+            encoding="utf-8",
+        )
+        pointed_specs_dir = _write_work_plane(
+            ai / "specs" / "spec-fixture-progress", "fixture-progress"
+        )
+        (pointed_specs_dir / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+            encoding="utf-8",
+        )
+        write_json_model(
+            pointed_specs_dir / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Active task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    )
+                ]
+            ),
+        )
+        write_active_work_plane_pointer(tmp_path, pointed_specs_dir)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-spec-ledger-coherence" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+
+        ledger_checks = [c for c in report.checks if c.name == "active-task-ledger"]
+        assert ledger_checks == []
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_active_spec_placeholder_with_malformed_task_ledger_warns(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
+            encoding="utf-8",
+        )
+        (ai / "specs" / "task-ledger.json").write_text(
+            '{"schemaVersion": "1.0", "tasks": [}\n',
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ledger_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-task-ledger" and c.status == IntegrityStatus.WARN
+        ]
+        assert len(ledger_checks) == 1
+
+        coherence_checks = [c for c in report.checks if c.name == "active-spec-ledger-coherence"]
+        assert coherence_checks == []
+        dependency_checks = [c for c in report.checks if c.name == "task-dependency-validation"]
+        assert dependency_checks == []
+        artifact_checks = [
+            c for c in report.checks if c.name == "task-artifact-reference-validation"
+        ]
+        assert artifact_checks == []
+        write_scope_checks = [
+            c for c in report.checks if c.name == "task-write-scope-duplicate-validation"
+        ]
+        assert write_scope_checks == []
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_active_spec_with_non_done_task_in_ledger_passes(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Active task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-task-ledger" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        artifact_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-artifact-reference-validation" and c.status == IntegrityStatus.OK
+        ]
+        assert len(artifact_checks) == 1
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_capability_acceptance_passes_for_build_source_write(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        _write_manifest_with_capabilities(ai)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-build",
+                        title="Build source change",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/ai_engineering/state/models.py"],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-capability-acceptance-validation" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_context_pack_manifest_contract_passes_for_generated_pack(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-pack",
+                        title="Build context pack",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                    )
+                ]
+            ),
+        )
+        write_context_pack(tmp_path, task_id="T-pack")
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "context-pack-manifest-contract" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_context_pack_manifest_contract_fails_when_pack_drifts(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-pack",
+                        title="Build context pack",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                    )
+                ]
+            ),
+        )
+        pack_path = tmp_path / ".ai-engineering" / "specs" / "context-packs" / "T-pack.json"
+        write_context_pack(tmp_path, task_id="T-pack")
+        pack_path.write_text(
+            pack_path.read_text(encoding="utf-8").replace(
+                '"taskId": "T-pack"', '"taskId": "wrong"'
+            ),
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "context-pack-manifest-contract" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "does not match deterministic pack output" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_capability_acceptance_rejects_illegal_source_writer(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        _write_manifest_with_capabilities(ai)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-plan",
+                        title="Plan source change",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Plan",
+                        write_scope=["src/ai_engineering/state/models.py"],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-capability-acceptance-validation"
+            and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "cannot perform mutation classes: code-write" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_capability_acceptance_rejects_illegal_tool_request(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        _write_manifest_with_capabilities(ai)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-explore",
+                        title="Explore cannot edit",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Explore",
+                        toolRequests=["edit"],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-capability-acceptance-validation"
+            and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "cannot request tool scopes: edit" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_capability_acceptance_rejects_provider_incompatible_packet(
+        self, tmp_path: Path
+    ) -> None:
+        ai = _setup_full_project(tmp_path)
+        _write_manifest_with_capabilities(ai)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-provider",
+                        title="Provider-specific skill",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="ai-analyze-permissions",
+                        provider="github_copilot",
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-capability-acceptance-validation"
+            and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "incompatible with provider github_copilot" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_duplicate_write_scope_across_in_progress_tasks_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="First active task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    ),
+                    TaskLedgerTask(
+                        id="T-2",
+                        title="Second active task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    ),
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-write-scope-duplicate-validation"
+            and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "src/**" in fail_checks[0].message
+        assert "T-1" in fail_checks[0].message
+        assert "T-2" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_distinct_write_scope_across_in_progress_tasks_passes(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Source task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    ),
+                    TaskLedgerTask(
+                        id="T-2",
+                        title="Test task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["tests/**"],
+                    ),
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-write-scope-duplicate-validation" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_overlapping_but_non_identical_write_scope_strings_fail(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Broad source task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    ),
+                    TaskLedgerTask(
+                        id="T-2",
+                        title="Nested source task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/ai_engineering/**"],
+                    ),
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-write-scope-duplicate-validation"
+            and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "src/**" in fail_checks[0].message
+        assert "src/ai_engineering/**" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_duplicate_write_scope_with_fewer_than_two_in_progress_tasks_passes(
+        self, tmp_path: Path
+    ) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Active task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    ),
+                    TaskLedgerTask(
+                        id="T-2",
+                        title="Planned task",
+                        status=TaskLifecycleState.PLANNED,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    ),
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-write-scope-duplicate-validation" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_malformed_task_ledger_warns_and_skips_dependency_validation(
+        self, tmp_path: Path
+    ) -> None:
+        ai = _setup_full_project(tmp_path)
+        (ai / "specs" / "task-ledger.json").write_text(
+            '{"schemaVersion": "1.0", "tasks": [}\n',
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ledger_checks = [
+            c
+            for c in report.checks
+            if c.name == "active-task-ledger" and c.status == IntegrityStatus.WARN
+        ]
+        assert len(ledger_checks) == 1
+
+        dependency_checks = [c for c in report.checks if c.name == "task-dependency-validation"]
+        assert dependency_checks == []
+        artifact_checks = [
+            c for c in report.checks if c.name == "task-artifact-reference-validation"
+        ]
+        assert artifact_checks == []
+        write_scope_checks = [
+            c for c in report.checks if c.name == "task-write-scope-duplicate-validation"
+        ]
+        assert write_scope_checks == []
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_ledger_with_missing_dependency_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Active task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        dependencies=["T-2"],
+                        write_scope=["src/**"],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-dependency-validation" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_ledger_with_valid_dependencies_passes(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        handoff_ref, evidence_ref = _write_task_artifacts(ai / "specs", "T-1")
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Dependency task",
+                        status=TaskLifecycleState.DONE,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                        handoffs=[handoff_ref],
+                        evidence=[evidence_ref],
+                    ),
+                    TaskLedgerTask(
+                        id="T-2",
+                        title="Active task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        dependencies=["T-1"],
+                        write_scope=["tests/**"],
+                    ),
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-dependency-validation" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_done_task_with_missing_dependency_stays_in_dependency_validation(
+        self, tmp_path: Path
+    ) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Completed task",
+                        status=TaskLifecycleState.DONE,
+                        owner_role="Build",
+                        dependencies=["T-2"],
+                        write_scope=["tests/**"],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        dependency_checks = [c for c in report.checks if c.name == "task-dependency-validation"]
+        state_checks = [c for c in report.checks if c.name == "task-state-consistency"]
+
+        assert len(dependency_checks) == 1
+        assert dependency_checks[0].status == IntegrityStatus.FAIL
+        assert state_checks == []
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_done_task_with_incomplete_dependency_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Dependency task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    ),
+                    TaskLedgerTask(
+                        id="T-2",
+                        title="Completed task",
+                        status=TaskLifecycleState.DONE,
+                        owner_role="Build",
+                        dependencies=["T-1"],
+                        write_scope=["tests/**"],
+                    ),
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-state-consistency" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_done_task_with_done_dependency_passes(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        first_handoff_ref, first_evidence_ref = _write_task_artifacts(ai / "specs", "T-1")
+        second_handoff_ref, second_evidence_ref = _write_task_artifacts(ai / "specs", "T-2")
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Dependency task",
+                        status=TaskLifecycleState.DONE,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                        handoffs=[first_handoff_ref],
+                        evidence=[first_evidence_ref],
+                    ),
+                    TaskLedgerTask(
+                        id="T-2",
+                        title="Completed task",
+                        status=TaskLifecycleState.DONE,
+                        owner_role="Build",
+                        dependencies=["T-1"],
+                        write_scope=["tests/**"],
+                        handoffs=[second_handoff_ref],
+                        evidence=[second_evidence_ref],
+                    ),
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-state-consistency" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_review_task_without_handoff_ref_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Ready for review",
+                        status=TaskLifecycleState.REVIEW,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-lifecycle-artifact-validation" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "T-1" in fail_checks[0].message
+        assert "handoff" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_verify_task_without_evidence_ref_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        handoff_ref, _evidence_ref = _write_task_artifacts(ai / "specs", "T-1")
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Ready for verify",
+                        status=TaskLifecycleState.VERIFY,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                        handoffs=[handoff_ref],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-lifecycle-artifact-validation" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "T-1" in fail_checks[0].message
+        assert "evidence" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_with_missing_handoff_ref_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Produce handoff",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                        handoffs=[
+                            HandoffRef(
+                                kind="build",
+                                path=".ai-engineering/state/archive/delivery-logs/spec-117/missing-handoff.md",
+                            )
+                        ],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-artifact-reference-validation" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_with_missing_evidence_ref_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Collect evidence",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["tests/**"],
+                        evidence=[EvidenceRef(kind="pytest", path="evidence/missing-verify.log")],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-artifact-reference-validation" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_with_absolute_artifact_ref_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Absolute handoff path",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                        handoffs=[
+                            HandoffRef(
+                                kind="build",
+                                path=str(tmp_path / "outside.md"),
+                            )
+                        ],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-artifact-reference-validation" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "is absolute" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_with_escaping_relative_artifact_ref_fails(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-1",
+                        title="Escaping evidence path",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["tests/**"],
+                        evidence=[EvidenceRef(kind="pytest", path="../outside.md")],
+                    )
+                ]
+            ),
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-artifact-reference-validation" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+        assert "escapes the active work plane" in fail_checks[0].message
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE) is False
+
+    @pytest.mark.skip(reason="Spec-123 removed task-ledger validation surface")
+    def test_task_artifact_refs_use_resolved_active_work_plane(self, tmp_path: Path) -> None:
+        ai = _setup_full_project(tmp_path)
+        write_json_model(
+            ai / "specs" / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-legacy",
+                        title="Legacy work plane task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                        handoffs=[HandoffRef(kind="build", path="handoffs/legacy-missing.md")],
+                    )
+                ]
+            ),
+        )
+
+        pointed_specs_dir = _write_work_plane(
+            tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02",
+            spec_name="006-pointed",
+        )
+        (pointed_specs_dir / "build-note.md").write_text("Build handoff\n", encoding="utf-8")
+        (pointed_specs_dir / "evidence" / "verify.log").write_text(
+            "verify output\n",
+            encoding="utf-8",
+        )
+        write_json_model(
+            pointed_specs_dir / "task-ledger.json",
+            TaskLedger(
+                tasks=[
+                    TaskLedgerTask(
+                        id="T-pointed",
+                        title="Pointed work plane task",
+                        status=TaskLifecycleState.IN_PROGRESS,
+                        owner_role="Build",
+                        write_scope=["src/**"],
+                        handoffs=[
+                            HandoffRef(
+                                kind="build",
+                                path=".ai-engineering/specs/spec-117-hx-02/build-note.md",
+                            )
+                        ],
+                        evidence=[EvidenceRef(kind="pytest", path="evidence/verify.log")],
+                    )
+                ]
+            ),
+        )
+        write_active_work_plane_pointer(tmp_path, pointed_specs_dir)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "task-artifact-reference-validation" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+        assert report.category_passed(IntegrityCategory.MANIFEST_COHERENCE)
+
     def test_missing_ownership_directory(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
         _write_manifest(ai)
@@ -1073,6 +2779,133 @@ class TestManifestCoherence:
             c for c in report.checks if c.status == IntegrityStatus.FAIL and "contexts" in c.name
         ]
         assert len(fail_checks) >= 1
+
+    def test_source_repo_ownership_snapshot_matches_default_contract(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        _write_source_repo_markers(tmp_path, ai)
+        _write_active_spec(ai)
+        write_json_model(ai / "state" / "ownership-map.json", default_ownership_map())
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "ownership-map-snapshot" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_source_repo_ownership_snapshot_drift_fails(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        _write_source_repo_markers(tmp_path, ai)
+        _write_active_spec(ai)
+        drifted = default_ownership_map()
+        drifted.paths = []
+        write_json_model(ai / "state" / "ownership-map.json", drifted)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "ownership-map-snapshot" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+
+    def test_source_repo_framework_capabilities_snapshot_matches_builder(
+        self, tmp_path: Path
+    ) -> None:
+        ai = _make_governance(tmp_path)
+        _write_source_repo_markers(tmp_path, ai)
+        _write_active_spec(ai)
+        write_framework_capabilities(tmp_path)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "framework-capabilities-snapshot" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_source_repo_framework_capabilities_snapshot_drift_fails(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        _write_source_repo_markers(tmp_path, ai)
+        _write_active_spec(ai)
+        drifted = write_framework_capabilities(tmp_path)
+        drifted.context_classes = drifted.context_classes[:-1]
+        write_json_model(framework_capabilities_path(tmp_path), drifted)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "framework-capabilities-snapshot" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
+
+    def test_source_repo_control_plane_authority_contract_passes(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        _write_source_repo_markers(tmp_path, ai)
+        _write_active_spec(ai)
+        write_json_model(ai / "state" / "ownership-map.json", default_ownership_map())
+        write_framework_capabilities(tmp_path)
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        ok_checks = [
+            c
+            for c in report.checks
+            if c.name == "control-plane-authority-contract" and c.status == IntegrityStatus.OK
+        ]
+        assert len(ok_checks) == 1
+
+    def test_source_repo_control_plane_authority_contract_drift_fails(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        _write_source_repo_markers(tmp_path, ai)
+        _write_active_spec(ai)
+        write_json_model(ai / "state" / "ownership-map.json", default_ownership_map())
+        write_framework_capabilities(tmp_path)
+
+        template_manifest = (
+            tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
+        )
+        template_manifest.write_text(
+            _source_repo_manifest_text().replace(
+                "    - CONSTITUTION.md\n",
+                "    - .ai-engineering/CONSTITUTION.md\n",
+            ),
+            encoding="utf-8",
+        )
+
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.MANIFEST_COHERENCE],
+        )
+
+        fail_checks = [
+            c
+            for c in report.checks
+            if c.name == "control-plane-authority-contract" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail_checks) == 1
 
 
 # -- Category 7: Skill Frontmatter ----------------------------------------
@@ -1177,15 +3010,54 @@ class TestInstructionFiles:
     """Tests for _instruction_files returning correct list by repo type."""
 
     def test_source_repo_includes_templates(self, tmp_path: Path) -> None:
+        (tmp_path / ".ai-engineering").mkdir(parents=True)
+        (tmp_path / ".ai-engineering" / "manifest.yml").write_text(
+            "name: test-project\n"
+            "version: 1.0.0\n"
+            "ai_providers:\n"
+            "  enabled: [claude-code, github_copilot]\n"
+            "  primary: claude-code\n"
+            "ownership:\n"
+            "  root_entry_points:\n"
+            "    CLAUDE.md:\n"
+            "      owner: framework\n"
+            "      canonical_source: CLAUDE.md\n"
+            "      runtime_role: ide-overlay\n"
+            "      sync:\n"
+            "        mode: copy\n"
+            "        template_path: src/ai_engineering/templates/project/CLAUDE.md\n"
+            "        mirror_paths: []\n"
+            "    AGENTS.md:\n"
+            "      owner: framework\n"
+            "      canonical_source: scripts/sync_command_mirrors.py:generate_agents_md\n"
+            "      runtime_role: shared-runtime-contract\n"
+            "      sync:\n"
+            "        mode: generate\n"
+            "        template_path: src/ai_engineering/templates/project/AGENTS.md\n"
+            "        mirror_paths: []\n"
+            "    .github/copilot-instructions.md:\n"
+            "      owner: framework\n"
+            "      canonical_source: src/ai_engineering/templates/project/copilot-instructions.md\n"
+            "      runtime_role: ide-overlay\n"
+            "      sync:\n"
+            "        mode: generate\n"
+            "        template_path: src/ai_engineering/templates/project/copilot-instructions.md\n"
+            "        mirror_paths: []\n",
+            encoding="utf-8",
+        )
         (tmp_path / "src" / "ai_engineering" / "templates").mkdir(parents=True)
         files = _instruction_files(tmp_path)
         assert any("templates" in f for f in files)
         assert len(files) == 6  # 3 base + 3 template
 
-    def test_non_source_repo_base_only(self, tmp_path: Path) -> None:
-        files = _instruction_files(tmp_path)
-        assert len(files) == 3
-        assert all("templates" not in f for f in files)
+    def test_non_source_repo_without_manifest_uses_base_instruction_fallback(
+        self, tmp_path: Path
+    ) -> None:
+        assert _instruction_files(tmp_path) == [
+            ".github/copilot-instructions.md",
+            "AGENTS.md",
+            "CLAUDE.md",
+        ]
 
 
 class TestGlobFiles:
@@ -1482,9 +3354,11 @@ class TestCounterAccuracyManifest:
         _write_readme(ai)
         _write_active_spec(ai)
         # Manifest with skills.total = 99 (wrong)
-        (ai / "manifest.yml").write_text(
-            "name: test\nskills:\n  total: 99\nagents:\n  total: 0\n",
-            encoding="utf-8",
+        _write_manifest(
+            ai,
+            providers=("claude-code",),
+            skills_total=99,
+            agents_total=0,
         )
         _write_all_instruction_files(tmp_path)
         report = validate_content_integrity(
@@ -1505,9 +3379,11 @@ class TestCounterAccuracyManifest:
         _write_readme(ai)
         _write_active_spec(ai)
         skill_count = len(_SKILL_PATHS)
-        (ai / "manifest.yml").write_text(
-            f"name: test\nskills:\n  total: {skill_count}\nagents:\n  total: 0\n",
-            encoding="utf-8",
+        _write_manifest(
+            ai,
+            providers=("claude-code",),
+            skills_total=skill_count,
+            agents_total=0,
         )
         _write_all_instruction_files(tmp_path)
         report = validate_content_integrity(
@@ -1526,9 +3402,11 @@ class TestCounterAccuracyManifest:
         ai = _make_governance(tmp_path)
         _write_readme(ai)
         _write_active_spec(ai)
-        (ai / "manifest.yml").write_text(
-            "name: test\nskills:\n  total: 0\nagents:\n  total: 99\n",
-            encoding="utf-8",
+        _write_manifest(
+            ai,
+            providers=("claude-code",),
+            skills_total=0,
+            agents_total=99,
         )
         _write_all_instruction_files(tmp_path)
         report = validate_content_integrity(
@@ -1549,9 +3427,11 @@ class TestCounterAccuracyManifest:
         _write_readme(ai)
         _write_active_spec(ai)
         agent_count = len(_AGENT_PATHS)
-        (ai / "manifest.yml").write_text(
-            f"name: test\nskills:\n  total: 0\nagents:\n  total: {agent_count}\n",
-            encoding="utf-8",
+        _write_manifest(
+            ai,
+            providers=("claude-code",),
+            skills_total=0,
+            agents_total=agent_count,
         )
         _write_all_instruction_files(tmp_path)
         report = validate_content_integrity(

@@ -6,7 +6,6 @@ argument-hint: "all|compliance|ownership|risk|integrity|--report"
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
 ---
 
-
 # Governance
 
 Compliance validation for regulated industries. Modes: `compliance` (quality gates), `ownership` (boundary verification), `risk` (decision-store lifecycle), `integrity` (framework consistency). Default: compliance.
@@ -44,15 +43,18 @@ Verify files live in correct ownership zones.
 
 Sub-modes: `accept`, `resolve`, `renew`.
 
-**Accept**: record time-limited risk in `decision-store.json`.
+**Accept**: record time-limited risk in `state.db` `decisions` table (spec-124 D-124-12).
+
 - Classify finding, determine severity, register with mandatory `follow_up_action`.
 - Auto-expiry: Critical 15d, High 30d, Medium 60d, Low 90d.
 
 **Resolve**: close after remediation.
+
 - Validate fix committed, scan clean, no regression.
 - Mark `remediated` (preserved for audit trail, not deleted).
 
 **Renew**: extend before expiry (max 2 renewals).
+
 - Check eligibility (`renewal_count < 2`). Require justification.
 - Create new decision with `renewed_from` reference.
 
@@ -67,46 +69,52 @@ Validate manifest claims match disk reality.
 
 ## Policy Engine Integration
 
-Spec-110 Phase 3 ships a Rego-subset evaluator at
-`src/ai_engineering/governance/policy_engine.py`. Use it whenever a gate
-can be expressed as a `.rego` rule under `.ai-engineering/policies/` rather
-than ad-hoc Python.
+Use the policy engine when a governance gate already exists, or can be expressed cleanly, as a `.rego` policy under `.ai-engineering/policies/` rather than ad-hoc procedural checks. Spec-122 Phase C swapped the in-tree mini-Rego interpreter for the upstream OPA binary; spec-123 finished wiring it into all three governance touchpoints (pre-commit, pre-push, `risk accept`).
 
-### Active Policies
+Operational contract for this skill:
 
-| Policy file | Input shape | Purpose |
-|-------------|-------------|---------|
-| `branch_protection.rego` | `{"branch": str, "action": str}` | Deny pushes to `main`/`master`. |
-| `commit_conventional.rego` | `{"subject": str}` | Require Conventional Commits subject. |
-| `risk_acceptance_ttl.rego` | `{"now": RFC-3339, "ttl_expires_at": RFC-3339}` | Allow only while not expired. |
+- Prefer existing policy files over re-implementing the same gate in skill prose.
+- Treat the evaluator (`src/ai_engineering/governance/opa_runner.py`) as an implementation detail owned by the governance code, not by this skill.
+- If a needed rule appears to require grammar or engine capabilities beyond what OPA supports, STOP and escalate to spec/implementation work instead of extending policy behavior inline from the skill.
 
-### Invocation
+For OPA invocation semantics, use `src/ai_engineering/governance/opa_runner.py`. For DEC lineage and risk-acceptance lifecycle details, use `.ai-engineering/contexts/risk-acceptance-flow.md`.
 
-```python
-from pathlib import Path
-from ai_engineering.governance.policy_engine import evaluate, Decision
+### Policy Decision Audit (spec-122/123)
 
-policy = Path(".ai-engineering/policies/branch_protection.rego")
-decision: Decision = evaluate(policy, {"branch": "main", "action": "push"})
-if not decision.allow:
-    raise SystemExit(f"governance gate failed: {decision.reason}")
+Every OPA evaluation (allow or block) is recorded in the canonical state.db audit projection. Inspect recent decisions when investigating a blocked commit, push, or risk acceptance:
+
+```bash
+# Last 10 policy decisions, newest first
+ai-eng audit query "
+  SELECT created_at, source, policy, decision, deny_messages
+  FROM events
+  WHERE kind = 'policy_decision'
+  ORDER BY created_at DESC
+  LIMIT 10
+"
+
+# Filter to a single policy package
+ai-eng audit query "
+  SELECT created_at, source, decision, deny_messages
+  FROM events
+  WHERE kind = 'policy_decision' AND policy = 'risk_acceptance_ttl'
+  ORDER BY created_at DESC
+  LIMIT 20
+"
 ```
 
-The first firing `allow if` wins; otherwise the first firing `deny if`
-wins (its message becomes `reason`); otherwise `default allow := <bool>`
-applies.
+The `events.kind = 'policy_decision'` rows are emitted by `src/ai_engineering/governance/decision_log.py::emit_policy_decision`. The `source` column carries one of `pre-commit`, `pre-push`, `risk-cmd` so you can scope the query to a single touchpoint.
 
-### Engine Scope (per D-110-04)
+### OPA Health (`ai-eng doctor`)
 
-The evaluator is a *subset* of OPA Rego, not a full OPA daemon -- this
-avoids a Go runtime in CI and Claude hooks. New policies must stay in
-grammar: `package`/`default allow`, `allow if`/`deny[<msg>] if`/`deny if`,
-`input.<dotted.path>`, literals (numbers, bools, `null`, strings),
-comparisons (`==`/`!=`/`<`/`<=`/`>`/`>=`), boolean ops (`and`/`or`/`not`)
-with parentheses, and built-ins `regex.match` and `time.parse_rfc3339_ns`.
-Anything outside raises `PolicyError`; escalate per spec-110 R-4 instead
-of extending silently. Cover new policies with `tests/unit/governance/`
-and update the Active Policies table.
+`ai-eng doctor` runs four advisory probes under the runtime stage:
+
+- `opa-binary` — `shutil.which('opa')` returns a real path.
+- `opa-version` — installed OPA is at or above 0.70.0 (the floor exercised in CI).
+- `opa-bundle-load` — `opa eval --bundle` parses the three policies cleanly.
+- `opa-bundle-signature` — `.signatures.json` accompanies `.manifest`.
+
+Failures surface as `WARN` (advisory, non-blocking) so a missing OPA does not break diagnose runs in environments where governance is not yet bootstrapped.
 
 ### `--report` -- Formal Report
 
@@ -118,12 +126,15 @@ Generate structured compliance report suitable for audit:
 # Governance Report: [mode]
 
 ## Score: N/100
+
 ## Verdict: PASS (>=90) | WARN (>=70) | FAIL (<70)
 
 ## Findings
+
 | # | Severity | Category | Description | Location | Remediation |
 
 ## Gate Check
+
 - Blocker: N (threshold: 0)
 - Critical: N (threshold: 0)
 ```
@@ -159,10 +170,13 @@ Scoring: start at 100. Deduct: blocker -25, critical -15, major -5, minor -1. Fl
 ## References
 
 - `.ai-engineering/manifest.yml` -- governance non-negotiables and quality thresholds.
-- `state/decision-store.json` -- risk acceptance records.
-- `.ai-engineering/policies/branch_protection.rego` -- branch-push policy (spec-110 Phase 3).
+- `state/state.db` -- risk acceptance records in `decisions` table (spec-124 D-124-12).
+- `.ai-engineering/policies/branch_protection.rego` -- branch-push policy (spec-122 Phase C).
 - `.ai-engineering/policies/commit_conventional.rego` -- conventional-commits policy.
 - `.ai-engineering/policies/risk_acceptance_ttl.rego` -- risk-acceptance TTL policy.
-- `src/ai_engineering/governance/policy_engine.py` -- Rego-subset evaluator (spec-110 T-3.8..T-3.10).
-- `.ai-engineering/specs/spec-110-governance-v3-harvest.md` -- lineage and D-110-04.
-$ARGUMENTS
+- `src/ai_engineering/governance/opa_runner.py` -- OPA subprocess wrapper.
+- `src/ai_engineering/governance/decision_log.py` -- emits `kind='policy_decision'` events.
+- `src/ai_engineering/policy/checks/opa_gate.py` -- shared deny-rule adapter.
+- `src/ai_engineering/doctor/runtime/opa_health.py` -- advisory health probes.
+- `.ai-engineering/contexts/risk-acceptance-flow.md` -- DEC lineage and risk-acceptance lifecycle.
+  $ARGUMENTS

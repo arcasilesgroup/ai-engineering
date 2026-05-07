@@ -66,6 +66,18 @@ Never skip these steps. Verify by reading the files after clearing.
 **Learning**: Do not frame knowledge promotion as "extract reusable content by default." Most team-local context should stay local unless it clearly improves the shared framework.
 **Rule**: Treat promotion from team space into framework space as an explicit value test: only promote guidance that materially helps ai-engineering users outside this repository.
 
+### Autonomous orchestrators must define consolidation, not only execution
+
+**Context**: When proposing an autonomous multi-branch orchestrator, the initial design described issue intake, worker branches, and validation loops but did not explicitly define how changes converge back into a stable branch and then promote safely to `main`.
+**Learning**: Parallel execution is incomplete without a consolidation strategy. In autonomous systems, branch topology, integration points, and promotion rules are first-class design concerns, not implementation details.
+**Rule**: When designing any autonomous runbook, skill, or agent that fans work out across branches or subagents, always specify the full consolidation path: worker branch/worktree -> integration branch or PR layer -> final promotion PR/merge queue -> protected main branch.
+
+### Baseline exploration must happen before DAG and wave planning
+
+**Context**: In the first `ai-run` orchestration sketch, dependency and wave planning happened before the repository had been explored with `ai-explore`, which would have forced overlap decisions to rely only on issue metadata and assumptions.
+**Learning**: Safe parallelism depends on architectural evidence, not just backlog text. Baseline exploration has to precede overlap prediction, dependency classification, and batch sizing.
+**Rule**: For any autonomous orchestrator that normalizes multiple work items, always run a repository-wide baseline exploration before item enrichment, DAG construction, or wave assignment.
+
 ### A one-time audit is not a justification to invent a new permanent workflow
 
 **Context**: The user clarified that, for now, they only want this brainstorm to analyze the current state and decide what to do with existing artifacts. They do not want a new agent, skill, or separate process created for promotions.
@@ -209,12 +221,6 @@ Never skip these steps. Verify by reading the files after clearing.
 **Context**: For `ai-eng update`, the user provided a concrete tree-view image and asked for the same shape with ai-engineering CLI branding.
 **Learning**: When the user provides a visual reference, convert it into a precise UX requirement in the spec instead of leaving it as a loose aesthetic note.
 **Rule**: Encode user-provided UI references as explicit rendering targets with project-specific branding constraints.
-
-### Brainstorm parallel-explore workflow
-
-**Context**: During `/ai-brainstorm`, the agent often needs to understand multiple parts of the codebase simultaneously to evaluate approaches.
-**Learning**: Launch parallel `ai-explore` agents (via Agent tool with subagent_type=Explore) at the start of brainstorm to gather architectural context from different areas concurrently. This dramatically reduces brainstorm duration and produces better-informed specs. Each explore agent should focus on one concern (e.g., one explores the data layer, another the API layer, another the test patterns).
-**Rule**: When brainstorming features that touch 3+ modules, dispatch 2-4 parallel explore agents before writing the spec. Synthesize findings before proposing approaches.
 
 ### manifest.yml es la fuente de verdad absoluta
 

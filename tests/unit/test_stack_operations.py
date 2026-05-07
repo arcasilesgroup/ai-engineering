@@ -29,8 +29,8 @@ providers:
   ides: []
   stacks: [python]
 ai_providers:
-  enabled: [claude_code]
-  primary: claude_code
+  enabled: [claude-code]
+  primary: claude-code
 """
 
 _MANIFEST_DUAL = """\
@@ -40,8 +40,8 @@ providers:
   ides: []
   stacks: [python, rust]
 ai_providers:
-  enabled: [claude_code]
-  primary: claude_code
+  enabled: [claude-code]
+  primary: claude-code
 """
 
 

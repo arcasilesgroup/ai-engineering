@@ -11,6 +11,10 @@ requires:
   bins:
   - gitleaks
   - semgrep
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-security/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -126,7 +130,7 @@ When `--fix` is passed, attempt automatic remediation:
 - Pre-commit hook runs `gitleaks protect --staged` automatically.
 - Pre-push hook runs `semgrep` and `pip-audit`.
 - Release gate (`/ai-release-gate`) aggregates security results.
-- Risk acceptances go to `state/decision-store.json` via `/ai-governance risk`.
+- Risk acceptances go to `state.db.decisions` via `/ai-governance risk` (or `ai-eng risk accept`).
 
 ## References
 

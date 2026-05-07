@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -22,6 +23,7 @@ from ai_engineering.cli_commands import (
 from ai_engineering.cli_output import set_json_mode
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
 from ai_engineering.state.defaults import default_install_state
+from ai_engineering.state.models import GateFindingsDocument
 from ai_engineering.state.service import save_install_state
 from ai_engineering.updater.service import FileChange, UpdateResult
 
@@ -35,6 +37,39 @@ def _reset_json_mode() -> None:
 
 def _pass_gate_result(hook: GateHook = GateHook.PRE_COMMIT) -> GateResult:
     return GateResult(hook=hook, checks=[GateCheckResult(name="ok", passed=True, output="ok")])
+
+
+def _gate_document(*, severity: str | None = None) -> GateFindingsDocument:
+    findings = []
+    if severity is not None:
+        findings.append(
+            {
+                "check": "pytest-smoke",
+                "rule_id": "PYTEST-001",
+                "file": "tests/example.py",
+                "line": 1,
+                "column": 1,
+                "severity": severity,
+                "message": f"example {severity} finding",
+                "auto_fixable": False,
+                "auto_fix_command": None,
+            }
+        )
+    return GateFindingsDocument.model_validate(
+        {
+            "schema": "ai-engineering/gate-findings/v1",
+            "session_id": str(uuid.uuid4()),
+            "produced_by": "ai-commit",
+            "produced_at": datetime.now(UTC).isoformat(),
+            "branch": "feature/test",
+            "commit_sha": "0" * 40,
+            "findings": findings,
+            "auto_fixed": [],
+            "cache_hits": [],
+            "cache_misses": [],
+            "wall_clock_ms": {"wave1_fixers": 0, "wave2_checkers": 0, "total": 0},
+        }
+    )
 
 
 def test_gate_print_failure_shows_first_five_lines(capsys: pytest.CaptureFixture[str]) -> None:
@@ -693,8 +728,8 @@ def test_gate_pre_push_and_risk_expiring_paths(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     with patch(
-        "ai_engineering.cli_commands.gate.run_gate",
-        return_value=_pass_gate_result(GateHook.PRE_PUSH),
+        "ai_engineering.cli_commands.gate.run_orchestrator_gate",
+        return_value=_gate_document(),
     ):
         gate.gate_pre_push(target=tmp_path)
 
@@ -774,8 +809,8 @@ def test_skills_cli_branches(tmp_path: Path, capsys: pytest.CaptureFixture[str])
 def test_gate_all_combined_pass(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     with (
         patch(
-            "ai_engineering.cli_commands.gate.run_gate",
-            return_value=_pass_gate_result(GateHook.PRE_COMMIT),
+            "ai_engineering.cli_commands.gate.run_orchestrator_gate",
+            return_value=_gate_document(),
         ),
     ):
         gate.gate_all(target=tmp_path)
@@ -785,12 +820,11 @@ def test_gate_all_combined_pass(tmp_path: Path, capsys: pytest.CaptureFixture[st
 
 
 def test_gate_all_any_fail_exits(tmp_path: Path) -> None:
-    fail_result = GateResult(
-        hook=GateHook.PRE_COMMIT,
-        checks=[GateCheckResult(name="bad", passed=False, output="err")],
-    )
     with (
-        patch("ai_engineering.cli_commands.gate.run_gate", return_value=fail_result),
+        patch(
+            "ai_engineering.cli_commands.gate.run_orchestrator_gate",
+            return_value=_gate_document(severity="medium"),
+        ),
         pytest.raises(typer.Exit),
     ):
         gate.gate_all(target=tmp_path)

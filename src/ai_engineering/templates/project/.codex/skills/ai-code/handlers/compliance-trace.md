@@ -38,17 +38,38 @@ If a context file has no H2 header matching a category, that category is `n/a` f
 | Error handling | n/a | {lang}.md has no error handling section |
 ```
 
+> **spec-119 D-119-05** This handler emits structured violation envelopes
+> per `.ai-engineering/schemas/lint-violation.schema.json`. The markdown
+> table below is a *derived view* rendered through
+> `src/ai_engineering/lint_violation_render.py:render_table`. The
+> canonical form is the JSON envelope:
+>
+> ```json
+> {
+>   "rule_id": "stable-kebab-id",
+>   "severity": "error | warning | info",
+>   "expected": "concrete representation",
+>   "actual": "concrete representation",
+>   "fix_hint": "one-line directive",
+>   "file": "optional/path",
+>   "line": 42
+> }
+> ```
+>
+> Tools that consume compliance results MUST read the structured form
+> directly. The markdown table is only for human review.
+
 Status values:
 - `checked` -- validated against loaded context, no violations found
-- `deviation` -- violation found; Details column names the specific rule and location
+- `deviation` -- structured violation envelope written to the compliance trace. The envelope's `severity` field maps to the legacy table's status: `error` was `deviation`, `warning` was `risk`, `info` was `note`.
 - `n/a` -- loaded context file has no section for this category
 
 ## 6e. Deviation-found behavior
 
-If any category has status `deviation`, fix the violation before proceeding to post-edit validation. After fixing, update the compliance trace to record the fix:
+If any envelope has `severity: error`, fix the violation before proceeding to post-edit validation. After fixing, append a `resolved: true` flag and a `resolution_note` field to the envelope so the audit chain records the fix.
 
 ```
 | Anti-patterns | deviation (fixed) | bare except at line 42 -- fixed to except ValueError per python.md |
 ```
 
-Do not proceed with a `deviation` status that has not been fixed. If a deviation is intentional and cannot be fixed, document the justification in the Details column and escalate to the user for approval.
+Do not proceed with an unresolved `severity: error` envelope. If a violation is intentional and cannot be fixed, set `severity` to `info` and use `fix_hint` to document the justification; the `/ai-review` skill will surface the entry as accepted-risk for human review.

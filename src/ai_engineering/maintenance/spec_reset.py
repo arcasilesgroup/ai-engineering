@@ -18,6 +18,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from ai_engineering.lib.parsing import parse_frontmatter as _parse_frontmatter
+from ai_engineering.state.work_plane import (
+    clear_active_work_plane_pointer,
+    ensure_work_plane_artifacts,
+    resolve_active_work_plane,
+)
 
 _SPEC_PLACEHOLDER = "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n"
 _PLAN_PLACEHOLDER = "# No active plan\n\nRun /ai-plan after brainstorm approval.\n"
@@ -88,7 +93,7 @@ def check_active_spec(ai_eng_dir: Path) -> tuple[str | None, str | None]:
     Returns:
         Tuple of (title_or_None, spec_id_or_None).
     """
-    spec_path = ai_eng_dir / "specs" / "spec.md"
+    spec_path = resolve_active_work_plane(ai_eng_dir.parent).spec_path
     if not spec_path.exists():
         return None, None
 
@@ -131,6 +136,7 @@ def append_history(
     Returns:
         True if the entry was appended.
     """
+    specs_dir.mkdir(parents=True, exist_ok=True)
     history_path = specs_dir / "_history.md"
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
 
@@ -153,8 +159,28 @@ def clear_spec_buffer(specs_dir: Path) -> None:
     Args:
         specs_dir: Path to ``specs/`` directory.
     """
-    (specs_dir / "spec.md").write_text(_SPEC_PLACEHOLDER, encoding="utf-8")
-    (specs_dir / "plan.md").write_text(_PLAN_PLACEHOLDER, encoding="utf-8")
+    ensure_spec_buffer_files(specs_dir, overwrite=True)
+
+
+def ensure_spec_buffer_files(specs_dir: Path, *, overwrite: bool = False) -> tuple[bool, bool]:
+    """Ensure compatibility buffer files exist, optionally overwriting them.
+
+    Returns:
+        Tuple of ``(spec_written, plan_written)``.
+    """
+    specs_dir.mkdir(parents=True, exist_ok=True)
+
+    spec_path = specs_dir / "spec.md"
+    plan_path = specs_dir / "plan.md"
+    spec_written = overwrite or not spec_path.exists()
+    plan_written = overwrite or not plan_path.exists()
+
+    if spec_written:
+        spec_path.write_text(_SPEC_PLACEHOLDER, encoding="utf-8")
+    if plan_written:
+        plan_path.write_text(_PLAN_PLACEHOLDER, encoding="utf-8")
+
+    return spec_written, plan_written
 
 
 def run_spec_reset(
@@ -177,10 +203,11 @@ def run_spec_reset(
         SpecResetResult with operation details.
     """
     result = SpecResetResult()
-    ai_eng_dir = project_root / ".ai-engineering"
-    specs_dir = ai_eng_dir / "specs"
+    work_plane = resolve_active_work_plane(project_root)
+    ai_eng_dir = work_plane.ai_eng_dir
+    legacy_specs_dir = ai_eng_dir / "specs"
 
-    if not specs_dir.is_dir():
+    if not work_plane.specs_dir.is_dir():
         result.errors.append("Specs directory not found")
         return result
 
@@ -195,15 +222,19 @@ def run_spec_reset(
     if dry_run:
         return result
 
-    # Append to history
+    # History and compatibility placeholders stay on the legacy singleton
+    # surface even when the active work plane is spec-scoped.
     try:
-        result.history_updated = append_history(specs_dir, spec_id, title)
+        result.history_updated = append_history(legacy_specs_dir, spec_id, title)
     except OSError as e:
         result.errors.append(f"Failed to update history: {e}")
 
-    # Clear the buffer
+    # Clear the compatibility buffer and then drop the pointer so consumers
+    # fall back to the legacy singleton layout for the next activation.
     try:
-        clear_spec_buffer(specs_dir)
+        clear_spec_buffer(legacy_specs_dir)
+        ensure_work_plane_artifacts(legacy_specs_dir)
+        clear_active_work_plane_pointer(project_root)
         result.files_cleared = True
     except OSError as e:
         result.errors.append(f"Failed to clear spec buffer: {e}")

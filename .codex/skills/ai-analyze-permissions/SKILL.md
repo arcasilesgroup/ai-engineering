@@ -1,10 +1,16 @@
 ---
 name: ai-analyze-permissions
-description: Use when Claude Code keeps asking to approve commands you have already approved, when settings.local.json has grown large, or when you want to consolidate permission grants into wildcard patterns. Trigger for 'too many permission prompts', 'clean up permissions', 'audit my settings', 'consolidate allow rules'. Claude Code only — not available in GitHub Copilot.
+description: Use when Claude Code keeps asking to approve commands you have already approved, when settings.local.json has grown large, or when you want to consolidate permission grants into wildcard patterns. Trigger for 'too many permission prompts', 'clean up permissions', 'audit my settings', 'consolidate allow rules'. Claude Code only — not available in GitHub Copilot, Gemini, or Codex.
 effort: medium
 argument-hint: "[analyze|apply|cleanup]"
 disable-model-invocation: True
 copilot_compatible: False
+codex_compatible: False
+gemini_compatible: False
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-analyze-permissions/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -65,25 +71,29 @@ Output a structured report:
 ## Permission Analysis
 
 ### Settings Overview
+
 - settings.local.json: X entries
 - settings.json: Y entries (Z wildcards)
 
 ### Already Covered (can be removed)
+
 These entries in settings.local.json are redundant:
 
-| Entry | Covered by |
-|-------|------------|
-| Bash(git commit -m "...") | Bash(git commit:*) |
+| Entry                     | Covered by          |
+| ------------------------- | ------------------- |
+| Bash(git commit -m "...") | Bash(git commit:\*) |
 
 ### Suggested New Patterns
+
 These patterns would consolidate multiple specific entries:
 
-| Pattern | Covers | Scope | Safety |
-|---------|--------|-------|--------|
-| Bash(kubectl:*) | 4 entries | global | Safe (read-heavy) |
-| Bash(docker exec:*) | 3 entries | local | Review (can modify) |
+| Pattern              | Covers    | Scope  | Safety              |
+| -------------------- | --------- | ------ | ------------------- |
+| Bash(kubectl:\*)     | 4 entries | global | Safe (read-heavy)   |
+| Bash(docker exec:\*) | 3 entries | local  | Review (can modify) |
 
 ### Uncategorized
+
 These entries don't fit a pattern (one-offs):
 
 - Bash(some-specific-command)
@@ -107,7 +117,7 @@ Based on the action argument:
 
 **cleanup:**
 
-- Run `<project-root>/.claude/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
+- Run `<project-root>/.codex/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
 
 ### Step 5: Apply Patterns (if applying)
 
@@ -117,7 +127,7 @@ When adding patterns:
 2. Read the target settings file (`~/.claude/settings.json` for global, `<project-root>/.claude/settings.json` for project)
 3. Add new entries to the `permissions.allow` JSON array
 4. Write the updated JSON back (preserving all other fields)
-5. Run cleanup to remove now-redundant entries: `<project-root>/.claude/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
+5. Run cleanup to remove now-redundant entries: `<project-root>/.codex/skills/ai-analyze-permissions/scripts/cleanup-settings-local.sh`
 
 **Important**: Adding patterns to `settings.json` never removes existing entries. The cleanup script only cleans `settings.local.json`. To clean `settings.json` itself, manually remove redundant entries.
 

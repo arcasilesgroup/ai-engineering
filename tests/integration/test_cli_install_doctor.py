@@ -20,6 +20,8 @@ from typer.testing import CliRunner
 from ai_engineering.cli_factory import create_app
 
 runner = CliRunner()
+# Click 8.2+ splits stdout/stderr by default; mix_stderr was removed.
+runner_split = CliRunner()
 
 
 @pytest.fixture()
@@ -116,7 +118,7 @@ class TestInstallCommand:
         installed_dir: Path,
         app: object,
     ) -> None:
-        result = runner.invoke(
+        result = runner_split.invoke(
             app,
             ["install", str(installed_dir), "--stack", "python", "--non-interactive"],
         )

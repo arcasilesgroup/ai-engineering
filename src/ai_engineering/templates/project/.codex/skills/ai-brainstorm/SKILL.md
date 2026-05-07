@@ -1,10 +1,13 @@
 ---
 name: ai-brainstorm
-description: "Use when the user wants to think through a problem before coding: designing a feature, exploring approaches, defining requirements, or resolving ambiguity. Trigger for 'let's add X', 'how should we handle Y', 'what's the best approach', 'I'm thinking about', or any work item lacking an approved spec. Not for existing specs — use /ai-plan instead. Produces a reviewed spec; no code until user approves."
+description: "Use when the user wants to think through a problem before coding: designing a feature, exploring approaches, defining requirements, resolving ambiguity, or clarifying current state before a spec. Trigger for 'let's add X', 'how should we handle Y', 'what's the best approach', 'I'm thinking about', audit-style questions that still need a spec, or any work item lacking an approved spec. Not for existing specs — use /ai-plan instead. Produces a reviewed spec; no code until user approves."
 effort: max
 argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-brainstorm/SKILL.md
+edit_policy: generated-do-not-edit
 ---
-
 
 
 # Brainstorm
@@ -19,30 +22,30 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 
 - User says "I want to build...", "how should we...", "let's design..."
 - New feature, architecture change, or ambiguous requirement
+- The spec depends on evidence scattered across multiple repo or governance surfaces
 - Any work where jumping straight to code would be premature
 
 ## Process
 
 1. **Work item context** (only when a work item ID is provided, e.g., `AB#100` or `#45`):
-     a. Read `.ai-engineering/manifest.yml` `work_items` section for active provider and team config
-     b. Fetch work item and its hierarchy from the provider:
-        - **GitHub**: `gh issue view <number> --json title,body,labels,milestone,assignees`
-        - **Azure DevOps**: `az boards work-item show --id <number> --expand relations -o json`
-     c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
-     d. Use all standard and custom fields the platform provides
-     e. Pre-fill `refs` section in the generated spec frontmatter
-     f. Invoke `/ai-board-sync refinement <work-item-ref>` to transition the work item to refinement state (fail-open: do not block brainstorm if this fails)
+   a. Read `.ai-engineering/manifest.yml` `work_items` section for active provider and team config
+   b. Fetch work item and its hierarchy from the provider: - **GitHub**: `gh issue view <number> --json title,body,labels,milestone,assignees` - **Azure DevOps**: `az boards work-item show --id <number> --expand relations -o json`
+   c. Walk the hierarchy: Feature → User Story → Tasks (follow parent/child relations)
+   d. Use all standard and custom fields the platform provides
+   e. Pre-fill `refs` section in the generated spec frontmatter
+   f. Invoke `/ai-board-sync refinement <work-item-ref>` to transition the work item to refinement state (fail-open: do not block brainstorm if this fails)
 2. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input for clarity and specificity before interrogation
-3. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
-4. **Scope check** -- if interrogation reveals the work is small enough to resolve
+3. **Evidence sweep** -- when the current state spans multiple repo or governance surfaces, dispatch parallel read-only `ai-explore` passes first, summarize the findings, and use that evidence to sharpen the next question or spec boundary
+4. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
+5. **Scope check** -- if interrogation reveals the work is small enough to resolve
    without a spec (e.g., audit questions, maintenance fixes, < 3 file changes),
    present the resolution directly and STOP. No spec needed. Log the decision
    in the conversation. The HARD GATE only applies to implementation-grade work.
-5. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
-6. **Draft spec** -- write spec to `specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
-7. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board-sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
-8. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
-9. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
+6. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
+7. **Draft spec** -- write spec to `.ai-engineering/specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
+8. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board-sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
+9. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
+10. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 
 ## Questioning Rules
 

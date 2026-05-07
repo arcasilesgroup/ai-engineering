@@ -60,7 +60,14 @@ def test_template_no_hardcoded_counts() -> None:
 
 
 def test_rendered_gemini_md_substitutes_placeholders() -> None:
-    """G-5: post-sync `.gemini/GEMINI.md` shows numeric counts, not placeholders."""
+    """G-5: post-sync `.gemini/GEMINI.md` shows numeric counts, not placeholders.
+
+    Post sub-004 meta-cleanup, the rendered template references skill /
+    agent counts inside the `Surface Pointers` table rather than as H2
+    headings. The contract is unchanged — placeholders must be replaced
+    with positive integers — but the matching pattern follows the new
+    table layout.
+    """
     assert GEMINI_RENDERED.is_file(), (
         f"rendered file missing: {GEMINI_RENDERED}; run `ai-eng sync` first"
     )
@@ -73,10 +80,10 @@ def test_rendered_gemini_md_substitutes_placeholders() -> None:
         "rendered GEMINI.md still contains placeholder; sync renderer is "
         "not substituting __AGENT_COUNT__"
     )
-    skill_match = re.search(r"^## Skills \((\d+)\)", text, re.MULTILINE)
-    agent_match = re.search(r"^## Agents \((\d+)\)", text, re.MULTILINE)
-    assert skill_match is not None, "rendered GEMINI.md missing canonical `## Skills (N)` header"
-    assert agent_match is not None, "rendered GEMINI.md missing canonical `## Agents (N)` header"
+    skill_match = re.search(r"Skills \((\d+)\)", text)
+    agent_match = re.search(r"Agents \((\d+)\)", text)
+    assert skill_match is not None, "rendered GEMINI.md missing canonical `Skills (N)` reference"
+    assert agent_match is not None, "rendered GEMINI.md missing canonical `Agents (N)` reference"
     skill_count = int(skill_match.group(1))
     agent_count = int(agent_match.group(1))
     assert skill_count > 0, "rendered skill count must be a positive integer"
@@ -84,11 +91,23 @@ def test_rendered_gemini_md_substitutes_placeholders() -> None:
 
 
 def test_sync_script_exposes_write_gemini_md() -> None:
-    """G-5: sync script must expose `write_gemini_md` rendering function."""
-    sync_script = REPO_ROOT / "scripts" / "sync_command_mirrors.py"
-    assert sync_script.is_file()
-    text = sync_script.read_text(encoding="utf-8")
-    assert "def write_gemini_md(" in text, (
-        "sync_command_mirrors.py missing `write_gemini_md` function — "
-        "Phase 3 T-3.5 must wire the renderer into the main sync flow"
+    """G-5: sync script must expose `write_gemini_md` rendering function.
+
+    Post spec-122-d D-122-24, the implementation moved into
+    `scripts/sync_mirrors/core.py`; the legacy `sync_command_mirrors.py`
+    is a backwards-compat shim that re-exports from there. Either the
+    canonical module or the shim re-export satisfies the contract.
+    """
+    canonical = REPO_ROOT / "scripts" / "sync_mirrors" / "core.py"
+    shim = REPO_ROOT / "scripts" / "sync_command_mirrors.py"
+    assert canonical.is_file() or shim.is_file()
+    canonical_text = canonical.read_text(encoding="utf-8") if canonical.is_file() else ""
+    shim_text = shim.read_text(encoding="utf-8") if shim.is_file() else ""
+    assert (
+        "def write_gemini_md(" in canonical_text
+        or "def write_gemini_md(" in shim_text
+        or "write_gemini_md" in shim_text  # shim re-exports via `from core import *`
+    ), (
+        "neither sync_mirrors/core.py nor sync_command_mirrors.py exposes "
+        "`write_gemini_md` — Phase 3 T-3.5 wiring lost"
     )

@@ -11,6 +11,56 @@ from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+_MANIFEST_TEMPLATE = """\
+name: test-project
+version: 1.0.0
+ai_providers:
+    enabled: [{providers}]
+    primary: {primary}
+"""
+
+_ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE = """\
+name: test-project
+version: 1.0.0
+ai_providers:
+    enabled: [{providers}]
+    primary: {primary}
+ownership:
+    root_entry_points:
+        "CLAUDE.md":
+            owner: framework
+            canonical_source: CLAUDE.md
+            runtime_role: ide-overlay
+            sync:
+                mode: copy
+                template_path: src/ai_engineering/templates/project/CLAUDE.md
+                mirror_paths: [".claude/ignored-CLAUDE.md"]
+        "AGENTS.md":
+            owner: framework
+            canonical_source: scripts/sync_command_mirrors.py:generate_agents_md
+            runtime_role: shared-runtime-contract
+            sync:
+                mode: generate
+                template_path: src/ai_engineering/templates/project/AGENTS.md
+                mirror_paths: []
+        "GEMINI.md":
+            owner: framework
+            canonical_source: src/ai_engineering/templates/project/GEMINI.md
+            runtime_role: ide-overlay
+            sync:
+                mode: render
+                template_path: src/ai_engineering/templates/project/GEMINI.md
+                mirror_paths: [".gemini/custom-GEMINI.md"]
+        ".github/copilot-instructions.md":
+            owner: framework
+            canonical_source: src/ai_engineering/templates/project/copilot-instructions.md
+            runtime_role: ide-overlay
+            sync:
+                mode: render
+                template_path: src/ai_engineering/templates/project/copilot-instructions.md
+                mirror_paths: []
+"""
+
 # Expected architecture values (post spec-091 ai-run orchestration)
 _EXPECTED_AGENT_COUNT = 10
 _EXPECTED_AGENT_NAMES = frozenset(
@@ -57,6 +107,90 @@ class TestSyncScriptMetadata:
             assert meta.color, f"{name}: missing color"
             assert meta.copilot_tools, f"{name}: empty copilot_tools"
             assert meta.claude_tools, f"{name}: empty claude_tools"
+
+
+class TestCrossReferenceResolution:
+    """Verify sync cross-reference validation follows enabled root surfaces."""
+
+    def _write_manifest(self, root: Path, providers: list[str]) -> None:
+        manifest = root / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(
+            _MANIFEST_TEMPLATE.format(
+                providers=", ".join(providers),
+                primary=providers[0],
+            ),
+            encoding="utf-8",
+        )
+
+    def _write_manifest_with_root_entry_points(self, root: Path, providers: list[str]) -> None:
+        manifest = root / ".ai-engineering" / "manifest.yml"
+        manifest.parent.mkdir(parents=True, exist_ok=True)
+        manifest.write_text(
+            _ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE.format(
+                providers=", ".join(providers),
+                primary=providers[0],
+            ),
+            encoding="utf-8",
+        )
+
+    def test_resolve_cross_reference_files_includes_gemini_when_enabled(
+        self, tmp_path: Path
+    ) -> None:
+        self._write_manifest(tmp_path, ["claude-code", "github_copilot", "gemini"])
+
+        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+
+        resolved = {
+            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+        }
+
+        assert resolved == {
+            ".github/copilot-instructions.md",
+            "AGENTS.md",
+            "CLAUDE.md",
+            "GEMINI.md",
+        }
+
+    def test_resolve_cross_reference_files_uses_enabled_providers_only(
+        self, tmp_path: Path
+    ) -> None:
+        self._write_manifest(tmp_path, ["github_copilot"])
+
+        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+
+        resolved = {
+            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+        }
+
+        assert resolved == {
+            ".github/copilot-instructions.md",
+            "AGENTS.md",
+        }
+
+    def test_resolve_cross_reference_files_includes_manifest_declared_mirror_paths(
+        self, tmp_path: Path
+    ) -> None:
+        self._write_manifest_with_root_entry_points(
+            tmp_path,
+            ["github_copilot", "gemini"],
+        )
+
+        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+
+        resolved = {
+            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+        }
+
+        assert resolved == {
+            ".gemini/custom-GEMINI.md",
+            ".github/copilot-instructions.md",
+            "AGENTS.md",
+            "GEMINI.md",
+        }, (
+            "_resolve_cross_reference_files should include manifest-declared mirror_paths "
+            "for enabled root entry points and ignore disabled-provider root surfaces"
+        )
 
 
 class TestSyncDriftDetection:
@@ -141,8 +275,12 @@ class TestGenerationFunctions:
 
         content = generate_copilot_instructions(discover_skills(), discover_agents())
 
-        assert "`/ai-start` and other `/ai-*` entries are IDE slash commands" in content
-        assert "Never translate `/ai-<name>` into `ai-eng <name>`" in content
+        # Slash-command boundary preserved post-sub-004 simplification: copilot
+        # instructions explicitly call out that `/ai-*` are IDE slash commands
+        # rather than `ai-eng` CLI subcommands.
+        assert "`/ai-start`" in content
+        assert "`/ai-*` are IDE slash" in content
+        assert "not `ai-eng` CLI subcommands" in content
 
     def test_generate_codex_agent_wrapper_format(self) -> None:
         from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_codex_agent
@@ -179,6 +317,59 @@ class TestGenerationFunctions:
         assert "readFile" in content  # explore has limited tools
         assert "editFiles" not in content  # explore is read-only
 
+    def test_generate_specialist_agent_adds_internal_provenance(self) -> None:
+        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_specialist_agent
+
+        content = generate_specialist_agent(CLAUDE_AGENTS / "reviewer-correctness.md")
+
+        assert "mirror_family: specialist-agents" in content
+        assert "generated_by: ai-eng sync" in content
+        assert "canonical_source: .claude/agents/reviewer-correctness.md" in content
+        assert "edit_policy: generated-do-not-edit" in content
+        assert "You are a senior code reviewer specializing in FUNCTIONAL CORRECTNESS" in content
+
+    def test_specialist_agent_output_paths_are_provider_internal_roots(self) -> None:
+        from scripts.sync_command_mirrors import (
+            CLAUDE_AGENTS,
+            ROOT,
+            _specialist_agent_output_paths,
+        )
+
+        paths = {
+            path.relative_to(ROOT).as_posix()
+            for path in _specialist_agent_output_paths(CLAUDE_AGENTS / "reviewer-correctness.md")
+        }
+
+        assert paths == {
+            "src/ai_engineering/templates/project/.claude/agents/reviewer-correctness.md",
+            ".github/agents/internal/reviewer-correctness.md",
+            "src/ai_engineering/templates/project/agents/internal/reviewer-correctness.md",
+            ".gemini/agents/internal/reviewer-correctness.md",
+            "src/ai_engineering/templates/project/.gemini/agents/internal/reviewer-correctness.md",
+            ".codex/agents/internal/reviewer-correctness.md",
+            "src/ai_engineering/templates/project/.codex/agents/internal/reviewer-correctness.md",
+        }
+
+    def test_copilot_agent_tools_and_delegation_match_metadata(self) -> None:
+        from scripts.sync_command_mirrors import (
+            AGENT_METADATA,
+            CLAUDE_AGENTS,
+            generate_copilot_agent,
+        )
+
+        for name, meta in AGENT_METADATA.items():
+            content = generate_copilot_agent(name, meta, CLAUDE_AGENTS / f"ai-{name}.md")
+            frontmatter = content.split("---", 2)[1]
+            expected_tools = list(meta.copilot_tools)
+            if meta.copilot_agents:
+                expected_tools.append("agent")
+
+            assert f"tools: [{', '.join(expected_tools)}]" in frontmatter
+            if meta.copilot_agents:
+                assert f"agents: [{', '.join(meta.copilot_agents)}]" in frontmatter
+            else:
+                assert "\nagents:" not in frontmatter
+
     def test_generate_install_claude_skill_copies_content(self) -> None:
         from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_install_claude_skill
 
@@ -206,11 +397,15 @@ class TestGenerationFunctions:
 
         content = generate_agents_md(skill_count=len(skills), agent_count=len(agents))
 
-        # Platform Mirrors table removed (spec-087) -- only check Skills header
+        # Platform Mirrors table removed (spec-087) -- only check the current
+        # shared runtime contract content.
         assert f"## Skills ({len(skills)})" in content
-        # Source-of-Truth uses .codex/ paths (AGENTS.md is Codex-only)
-        assert f"| Skills ({len(skills)}) | `.codex/skills/ai-<name>/SKILL.md` |" in content
-        assert f"| Agents ({len(agents)}) | `.codex/agents/ai-<name>.md` |" in content
+        assert "Canonical skills and agents live under `.claude/`" in content
+        assert f"| Skills ({len(skills)}) | `.claude/skills/ai-<name>/SKILL.md` |" in content
+        assert f"| Agents ({len(agents)}) | `.claude/agents/ai-<name>.md` |" in content
+        assert (
+            "| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |" in content
+        )
 
     def test_codex_provider_surfaces_match_install_templates(self) -> None:
         root_hooks = (_PROJECT_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8")
@@ -253,9 +448,10 @@ class TestValidationFunctions:
     """Test validation logic -- uses tmp_path for filesystem state."""
 
     def test_validate_runbooks_warns_when_empty(self, tmp_path: Path) -> None:
-        # Arrange -- empty runbooks dir (monkeypatch RUNBOOKS_ROOT)
-        import scripts.sync_command_mirrors as mod
+        # Arrange -- empty runbooks dir (monkeypatch RUNBOOKS_ROOT on the
+        # canonical core module; the legacy shim re-exports from there).
         from scripts.sync_command_mirrors import validate_runbooks
+        from scripts.sync_mirrors import core as mod
 
         original = mod.RUNBOOKS_ROOT
         mod.RUNBOOKS_ROOT = tmp_path / "nonexistent"
@@ -271,87 +467,83 @@ class TestValidationFunctions:
 
     def test_check_or_write_unchanged_returns_none(self, tmp_path: Path) -> None:
         from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with same content
         test_file = tmp_path / "test.md"
         test_file.write_text("hello", encoding="utf-8")
 
-        import scripts.sync_command_mirrors as mod
-
         original_root = mod.ROOT
         mod.ROOT = tmp_path
 
-        # Act
-        result = _check_or_write(test_file, "hello", check_only=False)
-
-        # Assert
-        assert result is None  # unchanged
-
-        mod.ROOT = original_root
+        try:
+            # Act
+            result = _check_or_write(test_file, "hello", check_only=False)
+            # Assert
+            assert result is None  # unchanged
+        finally:
+            mod.ROOT = original_root
 
     def test_check_or_write_drift_updates_file(self, tmp_path: Path) -> None:
         from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with different content
         test_file = tmp_path / "test.md"
         test_file.write_text("old content", encoding="utf-8")
 
-        import scripts.sync_command_mirrors as mod
-
         original_root = mod.ROOT
         mod.ROOT = tmp_path
 
-        # Act
-        result = _check_or_write(test_file, "new content", check_only=False)
-
-        # Assert
-        assert result is not None
-        assert "UPDATED" in result
-        assert test_file.read_text() == "new content"
-
-        mod.ROOT = original_root
+        try:
+            # Act
+            result = _check_or_write(test_file, "new content", check_only=False)
+            # Assert
+            assert result is not None
+            assert "UPDATED" in result
+            assert test_file.read_text() == "new content"
+        finally:
+            mod.ROOT = original_root
 
     def test_check_or_write_missing_creates_file(self, tmp_path: Path) -> None:
         from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import core as mod
 
         # Arrange -- file doesn't exist
         test_file = tmp_path / "subdir" / "new.md"
 
-        import scripts.sync_command_mirrors as mod
-
         original_root = mod.ROOT
         mod.ROOT = tmp_path
 
-        # Act
-        result = _check_or_write(test_file, "created", check_only=False)
-
-        # Assert
-        assert result is not None
-        assert "CREATED" in result
-        assert test_file.read_text() == "created"
-
-        mod.ROOT = original_root
+        try:
+            # Act
+            result = _check_or_write(test_file, "created", check_only=False)
+            # Assert
+            assert result is not None
+            assert "CREATED" in result
+            assert test_file.read_text() == "created"
+        finally:
+            mod.ROOT = original_root
 
     def test_check_or_write_check_only_does_not_write(self, tmp_path: Path) -> None:
         from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with different content
         test_file = tmp_path / "test.md"
         test_file.write_text("old", encoding="utf-8")
 
-        import scripts.sync_command_mirrors as mod
-
         original_root = mod.ROOT
         mod.ROOT = tmp_path
 
-        # Act
-        result = _check_or_write(test_file, "new", check_only=True)
-
-        # Assert
-        assert "DRIFT" in result
-        assert test_file.read_text() == "old"  # NOT modified
-
-        mod.ROOT = original_root
+        try:
+            # Act
+            result = _check_or_write(test_file, "new", check_only=True)
+            # Assert
+            assert "DRIFT" in result
+            assert test_file.read_text() == "old"  # NOT modified
+        finally:
+            mod.ROOT = original_root
 
 
 # -- Canonical content helpers --

@@ -3,6 +3,10 @@ name: ai-explore
 description: Deep codebase research. Architecture mapping. Dependency tracing. Pattern identification. Strictly read-only.
 model: sonnet
 color: cyan
+mirror_family: gemini-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-explore.md
+edit_policy: generated-do-not-edit
 ---
 
 

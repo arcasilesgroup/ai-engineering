@@ -21,7 +21,7 @@ Before any specialist runs:
 1. Read the full diff (`git diff --stat` and `git diff`)
 2. Dispatch `review-context-explorer.md` via the **Agent** tool to gather architectural context
 3. Load relevant language and framework contexts from `.ai-engineering/contexts/`
-4. Read `.ai-engineering/state/decision-store.json` for applicable architectural decisions
+4. Read `.ai-engineering/state/state.db.decisions` for applicable architectural decisions
 
 The context explorer output is serialized and passed to every specialist in their Agent prompt. Do not re-run ad hoc exploration inside each specialist.
 

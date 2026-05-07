@@ -3,6 +3,10 @@ name: ai-run-orchestrator
 description: Autonomous backlog orchestrator. Normalizes work items, performs baseline exploration before DAG planning, dispatches ai-build packets, coordinates local promotion, and delivers through the existing PR workflow.
 model: opus
 color: purple
+mirror_family: gemini-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-run-orchestrator.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -57,23 +61,23 @@ You coordinate the following agents and skills:
 
 ### 1. INTAKE
 
-Read `.claude/skills/ai-run/handlers/phase-intake.md` and execute. Do not construct a DAG before the baseline exploration summary exists.
+Read `.gemini/skills/ai-run/handlers/phase-intake.md` and execute. Do not construct a DAG before the baseline exploration summary exists.
 
 ### 2. ITEM PLAN
 
-Read `.claude/skills/ai-run/handlers/phase-item-plan.md` and execute. Every runnable item must end with a local `spec.md` and `plan.md` under the run state.
+Read `.gemini/skills/ai-run/handlers/phase-item-plan.md` and execute. Every runnable item must end with a local `spec.md` and `plan.md` under the run state.
 
 ### 3. ORCHESTRATE
 
-Read `.claude/skills/ai-run/handlers/phase-orchestrate.md` and execute. Prefer correct serialization over optimistic parallelism.
+Read `.gemini/skills/ai-run/handlers/phase-orchestrate.md` and execute. Prefer correct serialization over optimistic parallelism.
 
 ### 4. EXECUTE
 
-Read `.claude/skills/ai-run/handlers/phase-execute.md` and execute. Delegate all code writing to `ai-build`. Every promoted item must pass item-level gates first.
+Read `.gemini/skills/ai-run/handlers/phase-execute.md` and execute. Delegate all code writing to `ai-build`. Every promoted item must pass item-level gates first.
 
 ### 5. DELIVER
 
-Read `.claude/skills/ai-run/handlers/phase-deliver.md` and execute. `ai-pr` owns remote delivery. You own the decision of what branch is ready to deliver.
+Read `.gemini/skills/ai-run/handlers/phase-deliver.md` and execute. `ai-pr` owns remote delivery. You own the decision of what branch is ready to deliver.
 
 ## State Machine
 

@@ -9,8 +9,11 @@ circular dependency on FrameworkEvent via Pydantic.
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 import re
+import sys
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
@@ -79,13 +82,28 @@ def _meta_path(project_root: Path) -> Path:
 
 
 def _read_ndjson(path: Path) -> list[dict[str, Any]]:
+    """Read NDJSON file, skipping malformed lines.
+
+    Malformed lines (truncated writes, partial flushes, manual edits) must
+    not crash the hook. The instinct ratchet relies on PostToolUse running
+    cleanly on every tool call; one bad line in the observations file
+    historically broke the entire self-improvement loop (caught via the
+    `Unterminated string starting at: line 1 column 1` framework_error
+    spam in framework-events.ndjson).
+    """
     if not path.exists():
         return []
     entries: list[dict[str, Any]] = []
     for line in path.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if line:
-            entries.append(json.loads(line))
+        if not line:
+            continue
+        try:
+            parsed = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(parsed, dict):
+            entries.append(parsed)
     return entries
 
 
@@ -96,9 +114,27 @@ def _append_ndjson(path: Path, entry: dict[str, Any]) -> None:
 
 
 def _write_ndjson(path: Path, entries: list[dict[str, Any]]) -> None:
+    """Atomically replace ``path`` with NDJSON for ``entries``.
+
+    Concurrent hooks (PreToolUse + PostToolUse + extract_instincts) write the
+    same observations file. ``Path.write_text`` truncates first, so a reader
+    that lands in between truncate and flush sees an empty / partial file —
+    that race is exactly what produced the 8713 ``Unterminated string``
+    framework_error events on this project. Writing to a sibling ``.tmp`` and
+    then ``os.replace``'ing makes the swap atomic on POSIX and Windows.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(e, sort_keys=True, default=_json_serializer) for e in entries]
-    path.write_text(("\n".join(lines) + ("\n" if lines else "")), encoding="utf-8")
+    payload = "\n".join(lines) + ("\n" if lines else "")
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        # Best-effort cleanup so a half-written .tmp doesn't shadow future writes.
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -129,27 +165,51 @@ def _parse_iso(value: str | None) -> datetime | None:
 
 
 def _load_yaml_or_json(path: Path) -> dict[str, Any]:
-    """Load a YAML or JSON file, gracefully handling missing yaml lib."""
-    if not path.exists():
+    """Load a YAML or JSON file, gracefully handling missing yaml lib.
+
+    Fail-open on parse / IO errors: a partial / truncated read mid-write by a
+    sibling hook must NOT take the instinct ratchet down. Returns ``{}`` on
+    any failure and writes a one-line diagnostic to stderr so the IDE log
+    still surfaces it.
+    """
+    try:
+        if not path.exists():
+            return {}
+        raw = path.read_text(encoding="utf-8").strip()
+    except OSError as exc:
+        print(f"[instincts] _load_yaml_or_json IO error on {path}: {exc}", file=sys.stderr)
         return {}
-    raw = path.read_text(encoding="utf-8").strip()
     if not raw:
         return {}
-    if _HAS_YAML:
-        return yaml.safe_load(raw) or {}
-    return json.loads(raw) if raw else {}
+    try:
+        parsed = yaml.safe_load(raw) or {} if _HAS_YAML else (json.loads(raw) if raw else {})
+    except (
+        Exception
+    ) as exc:  # yaml.YAMLError + json.JSONDecodeError + anything weird; best-effort by contract
+        print(f"[instincts] _load_yaml_or_json parse error on {path}: {exc}", file=sys.stderr)
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
 
 
 def _dump_yaml_or_json(path: Path, data: dict[str, Any]) -> None:
-    """Write a dict as YAML (preferred) or JSON (fallback)."""
+    """Write a dict as YAML (preferred) or JSON (fallback).
+
+    Atomic via ``.tmp`` + ``os.replace`` so concurrent readers never see a
+    half-written instincts document.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     if _HAS_YAML:
-        path.write_text(yaml.safe_dump(data, sort_keys=False), encoding="utf-8")
+        payload = yaml.safe_dump(data, sort_keys=False)
     else:
-        path.write_text(
-            json.dumps(data, indent=2, sort_keys=False, default=_json_serializer) + "\n",
-            encoding="utf-8",
-        )
+        payload = json.dumps(data, indent=2, sort_keys=False, default=_json_serializer) + "\n"
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -207,21 +267,54 @@ def ensure_instinct_artifacts(project_root: Path) -> None:
 
 
 def _load_meta(project_root: Path) -> dict[str, Any]:
+    """Load instinct meta.json, fail-open on any read/parse error.
+
+    Concurrent hooks can race a writer mid-flush, producing a truncated or
+    empty file. The original implementation re-raised, which is what spammed
+    8713 ``Unterminated string starting at: line 1 column 1 (char 0)``
+    framework_error events on this project. Now we fall back to the default
+    meta dict and log a one-line diagnostic to stderr so the IDE log still
+    surfaces the corruption without breaking the ratchet.
+    """
     ensure_instinct_artifacts(project_root)
     path = _meta_path(project_root)
-    raw = json.loads(path.read_text(encoding="utf-8"))
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, ValueError, OSError) as exc:
+        print(f"[instincts] _load_meta could not parse {path}: {exc}", file=sys.stderr)
+        return _default_meta()
+    if not isinstance(raw, dict):
+        # ``meta.update(raw)`` would raise on a list / scalar. Treat as
+        # corrupt-but-recoverable.
+        print(
+            f"[instincts] _load_meta got non-dict payload at {path} ({type(raw).__name__})",
+            file=sys.stderr,
+        )
+        return _default_meta()
     meta = _default_meta()
     meta.update(raw)
+    # spec-118 WARN-coerce: legacy on-disk "lastExtractedAt: ''" must read as None
+    # so _parse_iso/_filter_new_observations behave consistently with first-run
+    # semantics. _parse_iso already returns None for falsy values; this makes the
+    # contract explicit at the load boundary.
+    if isinstance(meta.get("lastExtractedAt"), str) and not meta["lastExtractedAt"]:
+        meta["lastExtractedAt"] = None
     return meta
 
 
 def _save_meta(project_root: Path, meta: dict[str, Any]) -> None:
+    """Atomic save of instinct meta.json (``.tmp`` + ``os.replace``)."""
     path = _meta_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        json.dumps(meta, indent=2, default=_json_serializer) + "\n",
-        encoding="utf-8",
-    )
+    payload = json.dumps(meta, indent=2, default=_json_serializer) + "\n"
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(payload, encoding="utf-8")
+        os.replace(tmp, path)
+    except OSError:
+        with contextlib.suppress(OSError):
+            tmp.unlink()
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -655,29 +748,43 @@ def append_instinct_observation(
     data: dict[str, Any],
     session_id: str | None = None,
 ) -> dict[str, Any] | None:
-    """Append a single instinct observation.  Returns the dict or None."""
-    ensure_instinct_artifacts(project_root)
+    """Append a single instinct observation.  Returns the dict or None.
 
-    tool = str(data.get("tool_name") or "").strip()
-    if not tool:
+    Fail-open: if anything inside this function raises (corrupt meta, I/O
+    glitch, malformed observation file, race with a sibling writer), swallow
+    the exception, log a one-line diagnostic to stderr, and return None. The
+    instinct ratchet is best-effort by contract — never let it take down the
+    PostToolUse chain.
+    """
+    try:
+        ensure_instinct_artifacts(project_root)
+
+        tool = str(data.get("tool_name") or "").strip()
+        if not tool:
+            return None
+
+        observation: dict[str, Any] = {
+            "schemaVersion": "1.0",
+            "timestamp": _iso_now(),
+            "engine": engine,
+            "kind": "tool_start" if hook_event == "PreToolUse" else "tool_complete",
+            "tool": tool,
+            "outcome": _derive_outcome(data),
+            "sessionId": session_id or _extract_session_id(data),
+            "detail": _build_observation_detail(data, hook_event=hook_event),
+        }
+
+        # Prune old entries, then append new
+        entries = prune_instinct_observations(project_root)
+        entries.append(observation)
+        _write_observations(project_root, entries)
+        return observation
+    except Exception as exc:
+        print(
+            f"[instincts] append_instinct_observation swallowed {type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
         return None
-
-    observation: dict[str, Any] = {
-        "schemaVersion": "1.0",
-        "timestamp": _iso_now(),
-        "engine": engine,
-        "kind": "tool_start" if hook_event == "PreToolUse" else "tool_complete",
-        "tool": tool,
-        "outcome": _derive_outcome(data),
-        "sessionId": session_id or _extract_session_id(data),
-        "detail": _build_observation_detail(data, hook_event=hook_event),
-    }
-
-    # Prune old entries, then append new
-    entries = prune_instinct_observations(project_root)
-    entries.append(observation)
-    _write_observations(project_root, entries)
-    return observation
 
 
 def extract_instincts(project_root: Path) -> bool:

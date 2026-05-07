@@ -3,6 +3,10 @@ name: ai-debug
 description: "Use when something is broken and you need to find out why: test failures, runtime errors, crashes, regressions, or unexpected behavior. Trigger for 'it's not working', 'something broke', 'this used to work', 'I'm getting an error', 'CI is failing', 'the output is wrong', or 'why is X happening'. Systematic 4-phase diagnosis — never patches symptoms without finding the root cause."
 effort: high
 argument-hint: "[error description or file:line]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-debug/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 

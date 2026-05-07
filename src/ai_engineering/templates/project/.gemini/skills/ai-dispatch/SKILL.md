@@ -3,8 +3,11 @@ name: ai-dispatch
 description: Use when an approved plan.md exists and execution should begin. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'let's do this', 'run the plan', 'resume', or 'continue' after interruption. Not without an approved plan — run /ai-plan first. Orchestrates subagents per task with two-stage review, progress tracking, and automated delivery.
 effort: high
 argument-hint: "[spec-NNN or --resume]"
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-dispatch/SKILL.md
+edit_policy: generated-do-not-edit
 ---
-
 
 
 # Dispatch
@@ -21,27 +24,29 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 
 ## Process
 
-1. **Board sync (in_progress)** -- read `specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
+0. **Preflight dependencies** -- verify `.ai-engineering/specs/plan.md`, `.gemini/skills/_shared/execution-kernel.md`, `.gemini/skills/ai-dispatch/handlers/quality.md`, and `.gemini/skills/ai-dispatch/handlers/deliver.md` exist. If any are missing: STOP and report the exact missing path(s). Never improvise missing orchestration logic.
+1. **Board sync (in_progress)** -- read `.ai-engineering/specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
 2. **Guard advisory** -- before dispatching any build task, invoke the Guard agent (`ai-guard`) in `gate` mode for governance advisory. Fail-open: if guard is unavailable or errors, log warning and continue -- never block dispatch.
-3. **Execute kernel**: see `.gemini/skills/_shared/execution-kernel.md`. Dispatch wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build-verify-review -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). The pre/post wrappers above and below remain dispatch-specific.
+3. **Execute kernel**: see `.gemini/skills/_shared/execution-kernel.md`. Dispatch wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build-verify-review -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain dispatch-specific.
 4. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, max 2 rounds.
 5. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report.
 
 ## Resume Protocol
 
-When invoked with `--resume`, read `specs/plan.md` and determine re-entry point:
+When invoked with `--resume`, use observable evidence only. Never guess hidden state:
 
-1. **Incomplete tasks remain**: resume at the first incomplete phase. Skip completed tasks.
-2. **All tasks DONE but no quality check recorded**: resume at the Quality Check step. Read `handlers/quality.md`.
-3. **Quality passed but no PR created**: resume at the Deliver step. Read `handlers/deliver.md`.
-4. **PR exists but not merged**: resume at watch-and-fix loop per `handlers/deliver.md`.
+1. **Missing or placeholder plan**: if `.ai-engineering/specs/plan.md` is missing or still contains the placeholder `# No active plan`, STOP and run `/ai-plan`.
+2. **Incomplete task execution**: if `.ai-engineering/specs/plan.md` still has unchecked task checkboxes, resume at the first incomplete phase. Skip completed tasks.
+3. **Quality evidence missing**: if all task checkboxes are complete but `.ai-engineering/specs/plan.md` does not contain a `## Quality Rounds` section, resume at the Quality Check step. Read `handlers/quality.md`.
+4. **Quality evidence present**: resume at the Deliver step. `handlers/deliver.md` is responsible for detecting whether an open PR already exists and either entering the watch-and-fix loop or creating/updating the PR.
+5. **Conflicting evidence**: choose the earliest safe step and log why. Safety wins over convenience.
 
 ## Handler Dispatch Table
 
-| Phase | Handler | Agent Pattern |
-|-------|---------|---------------|
+| Phase         | Handler               | Agent Pattern            |
+| ------------- | --------------------- | ------------------------ |
 | Quality Check | `handlers/quality.md` | Verify + Review parallel |
-| Deliver | `handlers/deliver.md` | PR pipeline + cleanup |
+| Deliver       | `handlers/deliver.md` | PR pipeline + cleanup    |
 
 ## Common Mistakes
 
@@ -49,6 +54,7 @@ When invoked with `--resume`, read `specs/plan.md` and determine re-entry point:
 - Giving subagents the entire codebase context (scope them tightly).
 - Skipping the two-stage review.
 - Continuing past a BLOCKED task without user input.
+- Batch-updating `plan.md` only at the end instead of updating it when each task closes.
 - Modifying test files from a RED phase during a GREEN phase task.
 - Skipping the quality check after task execution.
 

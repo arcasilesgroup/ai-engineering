@@ -40,4 +40,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.instinct-extract", hook_kind="stop")
+    run_hook_safe(main, component="hook.instinct-extract", hook_kind="stop", script_path=__file__)

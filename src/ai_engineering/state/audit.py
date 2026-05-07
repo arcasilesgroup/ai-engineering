@@ -16,6 +16,10 @@ from ai_engineering.state.observability import (
     emit_framework_operation,
     emit_git_hook_outcome,
 )
+from ai_engineering.state.work_plane import (
+    active_work_plane_placeholder_fallback_id,
+    resolve_active_work_plane,
+)
 
 if TYPE_CHECKING:
     from ai_engineering.policy.gates import GateResult
@@ -25,42 +29,33 @@ logger = logging.getLogger(__name__)
 
 _UNSET = object()
 
-_cached_spec_id: str | None | object = _UNSET
 _cached_stack: str | None | object = _UNSET
 
 
 def _read_active_spec(root: Path) -> str | None:
     """Read active spec ID from ``spec.md`` frontmatter (fail-open, cached)."""
-    global _cached_spec_id
-    if _cached_spec_id is not _UNSET:
-        return cast("str | None", _cached_spec_id)
     try:
-        spec_path = root / ".ai-engineering" / "specs" / "spec.md"
+        work_plane = resolve_active_work_plane(root)
+        spec_path = work_plane.spec_path
         if not spec_path.exists():
-            _cached_spec_id = None
             return None
         content = spec_path.read_text(encoding="utf-8")
         if content.strip().startswith("# No active spec"):
-            _cached_spec_id = None
-            return None
+            return active_work_plane_placeholder_fallback_id(root)
         for line in content.splitlines():
             line_s = line.strip()
             if line_s.startswith("id:"):
                 value = line_s.split(":", 1)[1].strip().strip("\"'")
                 if value:
-                    _cached_spec_id = value
-                    return _cached_spec_id
+                    return value
         for line in content.splitlines():
             line_s = line.strip()
             if line_s and not line_s.startswith("#") and not line_s.startswith("<!--"):
                 match = re.search(r"(\d{3})-", line_s)
                 if match:
-                    _cached_spec_id = match.group(1)
-                    return _cached_spec_id
-        _cached_spec_id = None
+                    return match.group(1)
         return None
     except Exception:
-        _cached_spec_id = None
         return None
 
 
@@ -83,8 +78,7 @@ def _read_active_stack(root: Path) -> str | None:
 
 def _reset_enrichment_cache() -> None:
     """Reset enrichment caches for tests."""
-    global _cached_spec_id, _cached_stack
-    _cached_spec_id = _UNSET
+    global _cached_stack
     _cached_stack = _UNSET
 
 

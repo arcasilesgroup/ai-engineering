@@ -33,7 +33,7 @@ Report: total violations, by severity, top rule IDs. Any error-level finding is 
 uv run python -m ai_engineering.verify.tls_pip_audit --desc 2>&1 || true
 ```
 
-Report: number of vulnerable packages, CVE IDs, severity levels. Check decision-store for accepted vulnerabilities before flagging.
+Report: number of vulnerable packages, CVE IDs, severity levels. Check `state.db.decisions` for accepted vulnerabilities before flagging.
 
 ### Step 4: Test Suite (pytest)
 
@@ -79,7 +79,7 @@ scans:
     tool: pip-audit
     verdict: PASS|FAIL
     vulnerabilities: N
-    accepted: [CVE-IDs from decision-store]
+    accepted: [CVE-IDs from state.db.decisions]
   tests:
     tool: pytest
     verdict: PASS|FAIL
@@ -107,7 +107,7 @@ scans:
 
 - **Run every command.** Do not skip scans because they seem unnecessary.
 - **Report exit codes.** A tool that exits 0 with warnings is different from exit 1.
-- **Check decision-store.** Read `.ai-engineering/state/decision-store.json` for accepted vulnerabilities before flagging them.
+- **Check decision-store.** Query `state.db.decisions` (via `ai-eng audit query`) for accepted vulnerabilities before flagging them.
 - **No opinions.** Report what the tools say. Do not interpret, minimize, or editorialize.
 - **Fail-open on missing tools.** If a tool is not installed, report it as `tool_missing` and continue.
 
@@ -126,7 +126,7 @@ For each scan:
 2. Capture stdout and stderr
 3. Record the exit code
 4. Parse the output into structured findings
-5. Check decision-store for accepted exceptions
+5. Check `state.db.decisions` for accepted exceptions
 6. Classify the verdict
 
 ## Error Handling

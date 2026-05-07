@@ -98,6 +98,23 @@ Written by the framework at runtime. Read these for observability; do not hand-e
 - `instincts/**`
 - Generated review and schema artifacts
 
+### Governed Root Entry Points
+
+The repo root carries four framework-owned instruction entry points with an explicit
+contract in `ownership.root_entry_points` inside `manifest.yml`. `AGENTS.md` is the
+generated cross-IDE root runtime contract, and `contexts/knowledge-placement.md` is
+the canonical placement reference for deciding whether durable behavior belongs in a
+root entry point, a skill, an agent, a context, or manifest metadata. `ai-eng sync`
+(implemented by `scripts/sync_command_mirrors.py`) is the only supported way to
+regenerate generated root surfaces.
+
+| Surface | Canonical source | Sync model |
+|---------|------------------|------------|
+| `CLAUDE.md` | `CLAUDE.md` | Root-authored source copied to template surfaces by `ai-eng sync` |
+| `AGENTS.md` | `scripts/sync_command_mirrors.py:generate_agents_md` | Generated cross-IDE root runtime contract at the repo root and install templates by `ai-eng sync` |
+| `GEMINI.md` | `src/ai_engineering/templates/project/GEMINI.md` | Rendered to the repo root and `.gemini/` by `ai-eng sync` |
+| `.github/copilot-instructions.md` | `CLAUDE.md` | Generated from the Claude overlay for the repo root and install templates by `ai-eng sync` |
+
 ## Context System
 
 Contexts are Markdown files that skills auto-load at Step 0 based on the stacks declared in `manifest.yml`. Three families exist:
@@ -117,6 +134,15 @@ team > frameworks > languages
 When conventions conflict across layers, the first layer in the precedence list wins. Team conventions override framework guidance, which overrides language defaults.
 
 Shared root contexts (`cli-ux.md`, `mcp-integrations.md`, etc.) are loaded when relevant to the task -- CLI work loads `cli-ux.md`, MCP/server usage loads `mcp-integrations.md`.
+
+### Principle Split
+
+Governance uses a deliberate hybrid split:
+
+- `CONSTITUTION.md` is the sole constitutional surface: spec-driven development, TDD, and proof-before-done obligations live there.
+- `.ai-engineering/CONSTITUTION.md` is retained only as a subordinate workspace charter compatibility alias for legacy installs; new content goes in the root `CONSTITUTION.md`.
+- `.ai-engineering/contexts/operational-principles.md` is the single canonical source for the operational implementation and review subset.
+- Core implementation and review surfaces should reference that operational-principles context instead of restating the operational subset ad hoc.
 
 ## Runbooks
 
@@ -251,15 +277,18 @@ These are chat slash commands, not terminal commands, and they do not imply matc
 ## Mirrors Outside This Folder
 
 The framework writes provider-specific surfaces next to `.ai-engineering/` in the project root.
+Canonical skill and agent content lives under `.claude/`; the other provider directories and
+root overlays are mirrored distribution surfaces.
 
 | Path | Purpose |
 |------|---------|
-| `.claude/skills/` and `.claude/agents/` | Claude Code skills and agents |
-| `.codex/skills/` and `.codex/agents/` | Codex CLI skills and agents |
-| `.gemini/skills/` and `.gemini/agents/` | Gemini CLI skills and agents |
-| `.github/skills/` and `.github/agents/` | GitHub Copilot skills and agents |
+| `.claude/skills/` and `.claude/agents/` | Canonical Claude Code skills and agents |
+| `.codex/skills/` and `.codex/agents/` | Generated Codex CLI skills and agents |
+| `.gemini/skills/` and `.gemini/agents/` | Generated Gemini CLI skills and agents |
+| `.github/skills/` and `.github/agents/` | Generated GitHub Copilot skills and agents |
+| `.github/copilot-instructions.md` | GitHub Copilot root instruction overlay |
 | `CLAUDE.md` | Claude Code instruction file |
-| `AGENTS.md` | Codex / GitHub Copilot instruction file |
+| `AGENTS.md` | Generated cross-IDE instruction contract for Codex and GitHub Copilot |
 | `GEMINI.md` | Gemini CLI instruction file |
 
-These mirrors are generated artifacts. Use `ai-eng sync` to regenerate them after framework changes. Do not hand-edit -- changes will be overwritten on the next sync.
+Except for the canonical `.claude/` skill and agent source, these surfaces are generated artifacts. Use `contexts/knowledge-placement.md` when deciding where new durable guidance belongs, and use `ai-eng sync` to regenerate mirrors after framework changes. Do not hand-edit generated surfaces -- changes will be overwritten on the next sync.

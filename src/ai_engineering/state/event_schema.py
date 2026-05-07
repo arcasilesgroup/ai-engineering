@@ -14,13 +14,55 @@ is a bug; explicit error is a feature (per spec-112 G-4).
 
 from __future__ import annotations
 
+import re
 from typing import Any, TypedDict
+
+_ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
+
+# Spec-120 §4.1: optional OTel-mirroring identifiers at the event root.
+# `traceId` is 32 lowercase hex chars (W3C trace-context spec).
+# `spanId` and `parentSpanId` are 16 lowercase hex chars; `parentSpanId`
+# may also be None (root span has no logical parent). Compiled once at
+# module load to avoid regex re-compilation on every validate call.
+_TRACE_ID_RE: re.Pattern[str] = re.compile(r"^[0-9a-f]{32}$")
+_SPAN_ID_RE: re.Pattern[str] = re.compile(r"^[0-9a-f]{16}$")
 
 # Spec-112 D-112-02: `engine` is required at the root and must be one of
 # the values below. Adding a 5th IDE means appending here AND adding the
 # adapter; the validator keeps the surface honest.
 ALLOWED_ENGINES: frozenset[str] = frozenset(
     {"claude_code", "codex", "gemini", "copilot", "ai_engineering"}
+)
+
+ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(
+    {
+        "skill_invoked",
+        "agent_dispatched",
+        "context_load",
+        "ide_hook",
+        "framework_error",
+        "git_hook",
+        "control_outcome",
+        "framework_operation",
+        "task_trace",
+        # spec-118 memory layer (parity repair: canonical hook had this kind
+        # but the Python validator did not, so memory_event events emitted by
+        # the canonical hook would fail validate_event_schema in callers that
+        # used the Python library path)
+        "memory_event",
+        # spec-119 evaluation layer
+        "eval_run",
+        # spec-122 Phase C governance layer — OPA decision log (D-122-09).
+        # Each policy evaluation that fires (via gate hooks or `ai-eng risk
+        # accept`) emits one event; sample mask is applied at the caller in
+        # `governance.decision_log.emit_policy_decision`.
+        "policy_decision",
+        # spec-123 D-123-26 retention layer — HOT/WARM/COLD pruning audit.
+        # Emitted by ``ai_engineering.state.retention.apply_hot_cutoff`` and
+        # the audit CLI ``retention apply`` verb whenever a non-zero number
+        # of rows is pruned from the events projection.
+        "retention_applied",
+    }
 )
 
 # Spec-112 G-4: required-at-root keys for every event written to NDJSON.
@@ -64,6 +106,17 @@ class FrameworkEvent(TypedDict, total=False):
     project: str
     source: str | None
     detail: dict[str, Any]
+    # Spec-120 §4.1: optional OTel-mirroring trace identifiers. All three
+    # are absent on legacy events; when present they must match the
+    # canonical hex shapes enforced by `validate_event_schema`.
+    traceId: str
+    spanId: str
+    parentSpanId: str | None
+
+
+def normalize_engine_id(engine: str) -> str:
+    """Return the canonical engine identifier for framework events."""
+    return _ENGINE_ALIASES.get(engine, engine)
 
 
 def validate_event_schema(event: Any) -> bool:
@@ -85,8 +138,37 @@ def validate_event_schema(event: Any) -> bool:
     engine = event.get("engine")
     if not isinstance(engine, str) or engine not in ALLOWED_ENGINES:
         return False
+    kind = event.get("kind")
+    if not isinstance(kind, str) or kind not in ALLOWED_EVENT_KINDS:
+        return False
     detail = event.get("detail", {})
-    return isinstance(detail, dict)
+    if not isinstance(detail, dict):
+        return False
+    # Spec-120 §4.1: ACCEPT-WHEN-PRESENT on optional trace identifiers.
+    # Absence is fine (legacy events have none); presence triggers a
+    # fail-closed shape check so malformed values cannot enter the stream.
+    if "traceId" in event:
+        trace_id = event["traceId"]
+        if not isinstance(trace_id, str) or not _TRACE_ID_RE.match(trace_id):
+            return False
+    if "spanId" in event:
+        span_id = event["spanId"]
+        if not isinstance(span_id, str) or not _SPAN_ID_RE.match(span_id):
+            return False
+    if "parentSpanId" in event:
+        parent_span_id = event["parentSpanId"]
+        # `parentSpanId` is allowed to be None (root span); otherwise it
+        # must match the same 16-hex shape as `spanId`.
+        if parent_span_id is not None:  # noqa: SIM102
+            if not isinstance(parent_span_id, str) or not _SPAN_ID_RE.match(parent_span_id):
+                return False
+    return True
 
 
-__all__ = ["ALLOWED_ENGINES", "FrameworkEvent", "validate_event_schema"]
+__all__ = [
+    "ALLOWED_ENGINES",
+    "ALLOWED_EVENT_KINDS",
+    "FrameworkEvent",
+    "normalize_engine_id",
+    "validate_event_schema",
+]

@@ -74,13 +74,16 @@ class TestInstallExisting:
     ) -> None:
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
-        # Snapshot state before update
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-        before = manifest_path.read_text(encoding="utf-8")
+        # Spec-125: snapshot the install_state singleton row in state.db
+        # (JSON file no longer exists).
+        from ai_engineering.state.service import load_install_state
+
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        before = load_install_state(state_dir).model_dump_json()
 
         result = update(tmp_path, dry_run=True)
 
-        after = manifest_path.read_text(encoding="utf-8")
+        after = load_install_state(state_dir).model_dump_json()
         assert before == after
         assert result.dry_run is True
 

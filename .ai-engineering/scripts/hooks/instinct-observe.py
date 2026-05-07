@@ -37,4 +37,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.instinct-observe", hook_kind="post-tool-use")
+    run_hook_safe(
+        main, component="hook.instinct-observe", hook_kind="post-tool-use", script_path=__file__
+    )

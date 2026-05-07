@@ -1,3 +1,13 @@
 # Gitleaks fingerprint allowlist
 # These are example API keys in deleted documentation files (stacks/*/security.md).
 # They are not real secrets — they were illustrative examples for security best practices.
+#
+# Synthetic redaction fixture: tests/unit/hooks/test_runtime_state.py exercises
+# the offload-write redaction path with a fixed literal token. That is the test
+# contract — the literal must be present to assert the redaction hook strips
+# it from on-disk payloads.
+tests/unit/hooks/test_runtime_state.py:generic-api-key:85
+# OPA bundle signature (D-122-09 / spec-122-c): JWT signs file hashes for
+# bundle integrity. Not a credential — public key counterpart only ships
+# in repo; private key lives under ~/.config/ai-engineering/ mode 0600.
+.ai-engineering/policies/.signatures.json:jwt:3
