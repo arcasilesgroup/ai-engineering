@@ -252,18 +252,24 @@ def add_provider(target: Path, provider: str) -> ManifestConfig:
         InstallerError: If the framework is not installed, provider already
             exists, or provider name is not recognised.
     """
-    if provider not in _VALID_AI_PROVIDERS:
+    from ai_engineering.installer.templates import _canonicalize_provider
+
+    canonical = _canonicalize_provider(provider)
+    if canonical not in _VALID_AI_PROVIDERS:
         msg = f"Unknown provider '{provider}'. Available: {', '.join(sorted(_VALID_AI_PROVIDERS))}"
         raise InstallerError(msg)
 
     _ensure_framework_install(target)
     config = _load_config(target)
 
-    if provider in config.ai_providers.enabled:
+    # Compare against canonicalized enabled list so alias forms (github_copilot)
+    # don't double-add when canonical is already present.
+    enabled_canonical = {_canonicalize_provider(p) for p in config.ai_providers.enabled}
+    if canonical in enabled_canonical:
         msg = f"Provider '{provider}' is already enabled."
         raise InstallerError(msg)
 
-    # Copy provider templates
+    # Copy provider templates (canonicalisation happens internally).
     copy_project_templates(target, providers=[provider])
 
     # Persist to manifest
@@ -293,14 +299,19 @@ def remove_provider(target: Path, provider: str) -> ManifestConfig:
         InstallerError: If the framework is not installed, provider not found,
             or it is the last remaining provider.
     """
+    from ai_engineering.installer.templates import _canonicalize_provider
+
+    canonical = _canonicalize_provider(provider)
     _ensure_framework_install(target)
     config = _load_config(target)
 
-    if provider not in config.ai_providers.enabled:
+    enabled = list(config.ai_providers.enabled)
+    matching = [p for p in enabled if _canonicalize_provider(p) == canonical]
+    if not matching:
         msg = f"Provider '{provider}' is not enabled."
         raise InstallerError(msg)
 
-    remaining = [p for p in config.ai_providers.enabled if p != provider]
+    remaining = [p for p in enabled if _canonicalize_provider(p) != canonical]
 
     if not remaining:
         msg = "Cannot remove the last AI provider."
