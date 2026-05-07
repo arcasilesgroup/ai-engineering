@@ -138,7 +138,11 @@ def test_locked_append_retries_after_two_failures_then_succeeds(
     assert not _sidecar(project_root).exists(), (
         "no telemetry expected when retry eventually succeeds"
     )
-    assert 90 <= elapsed_ms <= 400, (
+    # Windows hosted runners take ~5x the POSIX wall-clock for the
+    # same retry path (NTFS metadata flush per acquire). Widen the
+    # ceiling there while keeping the POSIX assertion tight.
+    upper_ms = 800 if sys.platform.startswith("win") else 400
+    assert 90 <= elapsed_ms <= upper_ms, (
         f"expected ~100ms (2x50ms backoff) plus overhead, got {elapsed_ms:.1f}ms"
     )
 
