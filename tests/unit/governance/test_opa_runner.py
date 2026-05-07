@@ -25,8 +25,17 @@ from ai_engineering.governance import opa_runner
 
 
 @pytest.fixture(autouse=True)
-def _reset_path_cache() -> None:
-    """Each test starts with a clean which() cache."""
+def _reset_path_cache() -> Any:
+    """Each test starts AND ends with a clean which() cache.
+
+    Tests in this file ``monkeypatch.setattr(opa_runner.shutil, "which", ...)``
+    which propagates into ``opa_runner.which()``'s memoisation and leaks
+    across test files (the cache is module-level state in
+    ``opa_runner``). Resetting on teardown keeps neighbouring suites
+    such as ``test_policy_engine`` clean.
+    """
+    opa_runner.reset_path_cache()
+    yield
     opa_runner.reset_path_cache()
 
 

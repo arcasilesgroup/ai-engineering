@@ -32,7 +32,6 @@ persist mutated state so doctor + downstream consumers see the records.
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -72,9 +71,16 @@ def fixture_manifest_root(tmp_path: Path) -> Path:
 
 
 def _read_install_state(project_root: Path) -> dict[str, object]:
-    """Return the parsed ``install-state.json`` payload."""
-    state_path = project_root / ".ai-engineering" / "state" / "install-state.json"
-    return json.loads(state_path.read_text(encoding="utf-8"))
+    """Return the install_state payload as a dict.
+
+    Spec-125 D-125-01: install_state moved from
+    ``install-state.json`` to the ``install_state`` singleton row in
+    state.db. Probe the canonical row via the repository reader.
+    """
+    from ai_engineering.state.repository import DurableStateRepository
+
+    state = DurableStateRepository(project_root).load_install_state()
+    return state.model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------

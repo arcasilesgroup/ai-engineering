@@ -175,6 +175,24 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
             "prompt-injection-guard before the packaged runtime is available."
         ),
     ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "locking.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale=(
+            "Spec-126 cross-platform NDJSON lock primitive must run from "
+            "standalone hooks before the packaged runtime is importable."
+        ),
+    ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "locked_append.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale=(
+            "Spec-126 NDJSON locked-append helper guards framework-events "
+            "writes from concurrent hook invocations."
+        ),
+    ),
 )
 
 

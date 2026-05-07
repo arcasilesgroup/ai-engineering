@@ -20,7 +20,6 @@ from ai_engineering.state.models import (
     TaskLifecycleState,
 )
 from ai_engineering.state.observability import (
-    framework_capabilities_path,
     write_framework_capabilities,
 )
 from ai_engineering.state.work_plane import write_active_work_plane_pointer
@@ -2839,12 +2838,19 @@ class TestManifestCoherence:
         assert len(ok_checks) == 1
 
     def test_source_repo_framework_capabilities_snapshot_drift_fails(self, tmp_path: Path) -> None:
+        """Spec-125 cutover: drift is induced by mutating the state.db
+        ``tool_capabilities`` row directly (the legacy JSON sink is
+        forbidden). The validator reads the catalog from state.db so
+        the snapshot check picks up the divergence.
+        """
+        from ai_engineering.state.repository import DurableStateRepository
+
         ai = _make_governance(tmp_path)
         _write_source_repo_markers(tmp_path, ai)
         _write_active_spec(ai)
         drifted = write_framework_capabilities(tmp_path)
         drifted.context_classes = drifted.context_classes[:-1]
-        write_json_model(framework_capabilities_path(tmp_path), drifted)
+        DurableStateRepository(tmp_path).save_framework_capabilities(drifted)
 
         report = validate_content_integrity(
             tmp_path,
