@@ -123,6 +123,15 @@ markers = [
 requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
+[tool.uv]
+# Override transitive gitpython pulled in by python-semantic-release.
+# CVE-2026-44244 affects 3.1.47; 3.1.49 carries the fix. Direct override
+# unblocks the Security Audit `pip-audit` gate without waiting for the
+# upstream semantic-release release.
+override-dependencies = [
+  "gitpython>=3.1.49",
+]
+
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
 commit_parser = "conventional"

@@ -24,7 +24,7 @@ from . import (
     PlannedAction,
 )
 
-_EXCLUDE_PREFIXES = ("agents/", "skills/")
+_EXCLUDE_PREFIXES = ("agents/", "skills/", "contexts/team/")
 
 _TEAM_OWNED = "contexts/team/"
 _STATE_PREFIX = "state/"

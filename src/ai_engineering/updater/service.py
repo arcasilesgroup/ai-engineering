@@ -714,13 +714,17 @@ def _detect_orphan_files(
     if active_providers is None:
         return []
 
+    from ai_engineering.installer.templates import _canonicalize_provider
+
+    canonical_active = [_canonicalize_provider(p) for p in active_providers]
+
     all_known = set(_PROVIDER_FILE_MAPS.keys()) | set(_PROVIDER_TREE_MAPS.keys())
-    disabled = all_known - set(active_providers)
+    disabled = all_known - set(canonical_active)
 
     if not disabled:
         return []
 
-    active_file_dests, active_tree_dests = _active_provider_destinations(active_providers)
+    active_file_dests, active_tree_dests = _active_provider_destinations(canonical_active)
     return [
         orphan
         for provider in sorted(disabled)
