@@ -1,7 +1,7 @@
 """Trace-context lifecycle for spec-120 §4.1 (pkg side).
 
 Maintains a tiny per-project state file
-(`.ai-engineering/state/runtime/trace-context.json`) that records the
+(`.ai-engineering/runtime/trace-context.json`) that records the
 active W3C-style trace identifier and a stack of nested span IDs. The
 file is local-only (gitignored under `runtime/`) and rebuildable -- if
 it goes missing or corrupts, the next read returns a fresh trace_id and
@@ -42,7 +42,11 @@ from uuid import uuid4
 # Paths + constants
 # ---------------------------------------------------------------------------
 
-TRACE_CONTEXT_REL = Path(".ai-engineering") / "state" / "runtime" / "trace-context.json"
+# spec-125 Wave 2 (T-2.21): canonical runtime dir is ``.ai-engineering/runtime``
+# (per ``hook_context.RUNTIME_DIR`` SSOT). Literal duplicated here to avoid
+# CLI/state→hook-lib import boundary violation; same pattern as
+# ``cli_commands/gate.py`` cache_dir resolution (T-2.13).
+TRACE_CONTEXT_REL = Path(".ai-engineering") / "runtime" / "trace-context.json"
 FRAMEWORK_EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 SCHEMA_VERSION = "1.0"
 

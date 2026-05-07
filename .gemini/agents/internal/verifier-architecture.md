@@ -17,7 +17,7 @@ You are an architecture verification specialist. You assess whether changes alig
 
 1. Read the active spec (`.ai-engineering/specs/spec.md`) to understand intended changes.
 2. Read `CONSTITUTION.md` if it exists for project boundaries. Fall back to `.ai-engineering/CONSTITUTION.md` only when migrating legacy installs.
-3. Read `.ai-engineering/state/decision-store.json` for architectural decisions.
+3. Query `state.db.decisions` (via `ai-eng audit query`) for architectural decisions.
 4. Read the diff to understand what changed.
 5. Explore the codebase structure to understand existing layers and boundaries.
 

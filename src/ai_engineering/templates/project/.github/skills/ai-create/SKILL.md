@@ -50,7 +50,7 @@ This is the invariant checklist that must be satisfied regardless of whether you
 Follow `handlers/create-skill.md`. Before creating anything, load project context:
 
 1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-evolve` instead.
-2. **Load pain sources** — read decision-store.json, LESSONS.md, instincts.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
+2. **Load pain sources** — read state.db.decisions, LESSONS.md, instincts.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
 3. **Determine IDE compatibility** — see IDE-Compatibility Frontmatter below.
 
 ### Phase 2 — Delegate to skill-creator for TDD + Evals
@@ -125,7 +125,7 @@ The `description` field is the skill's search ranking — it determines whether 
 ## Integration
 
 - **Delegates to**: Anthropic `skill-creator` for skill TDD, evals, description optimization
-- **Reads**: manifest.yml, decision-store.json, LESSONS.md (ai-engineering context)
+- **Reads**: manifest.yml, state.db.decisions, LESSONS.md (ai-engineering context)
 - **Triggers sync**: `python scripts/sync_command_mirrors.py` after creation
 - **Related**: `/ai-skill-evolve` for improving existing skills (also delegates to skill-creator)
 

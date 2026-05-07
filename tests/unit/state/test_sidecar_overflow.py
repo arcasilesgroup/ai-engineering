@@ -27,7 +27,7 @@ def test_small_event_passes_through(tmp_path):
     }
     result = maybe_offload(event, project_root=tmp_path)
     assert result is event
-    sidecar_dir = tmp_path / ".ai-engineering" / "state" / "runtime" / "event-sidecars"
+    sidecar_dir = tmp_path / ".ai-engineering" / "runtime" / "event-sidecars"
     assert not sidecar_dir.exists() or not list(sidecar_dir.iterdir())
 
 
@@ -51,7 +51,6 @@ def test_large_event_offloaded(tmp_path):
     sidecar_path = (
         tmp_path
         / ".ai-engineering"
-        / "state"
         / "runtime"
         / "event-sidecars"
         / f"{result['sidecar_sha256']}.json"
@@ -90,12 +89,7 @@ def test_collision_safe(tmp_path):
     }
     a = maybe_offload(event, project_root=tmp_path)
     sidecar_path = (
-        tmp_path
-        / ".ai-engineering"
-        / "state"
-        / "runtime"
-        / "event-sidecars"
-        / f"{a['sidecar_sha256']}.json"
+        tmp_path / ".ai-engineering" / "runtime" / "event-sidecars" / f"{a['sidecar_sha256']}.json"
     )
     mtime_before = sidecar_path.stat().st_mtime_ns
     # Idempotent re-call

@@ -66,6 +66,10 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
         "memory_event",
         # spec-119 evaluation layer
         "eval_run",
+        # spec-122 Phase C governance — OPA policy_decision
+        "policy_decision",
+        # spec-123 D-123-26 retention layer
+        "retention_applied",
     }
 )
 
@@ -216,6 +220,18 @@ def emit_event(project_root: Path, event: dict) -> bool:
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = normalized_event
     payload["prev_event_hash"] = _read_prev_event_hash(path)
+    # Sidecar overflow (spec-122-b D-122-23): events whose serialised
+    # bytes exceed AIENG_EVENT_SIDECAR_BYTES (default 3 KB) are offloaded
+    # to ``RUNTIME_DIR(project_root) / "event-sidecars" / <sha256>.json``
+    # (canonical ``.ai-engineering/runtime/event-sidecars/``) and the
+    # inline NDJSON line carries only hash + summary. Keeps the
+    # cross-IDE concurrent append safely under POSIX_BUF.
+    try:
+        from _lib.audit import maybe_offload_event  # local import; stdlib-only
+
+        payload = maybe_offload_event(project_root, payload)
+    except Exception:  # fail-open: never block emit
+        pass
     line = json.dumps(payload, sort_keys=True, default=str)
     try:
         with path.open("a", encoding="utf-8") as f:
@@ -330,6 +346,7 @@ _HOT_PATH_BUDGET_MS: dict[str, int] = {
     "post-tool-use": 1000,
     "user-prompt-submit": 1000,
     "stop": 5000,
+    "subagent-stop": 1000,
     "session-start": 5000,
     "session-end": 5000,
     "pre-compact": 5000,

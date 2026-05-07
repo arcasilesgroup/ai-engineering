@@ -36,12 +36,12 @@ def rstop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    (tmp_path / ".ai-engineering" / "state" / "runtime").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".ai-engineering" / "runtime").mkdir(parents=True, exist_ok=True)
     return tmp_path
 
 
 def _read_resume(project: Path) -> dict:
-    path = project / ".ai-engineering" / "state" / "runtime" / "ralph-resume.json"
+    path = project / ".ai-engineering" / "runtime" / "ralph-resume.json"
     return json.loads(path.read_text())
 
 
@@ -67,7 +67,7 @@ def test_ralph_clears_active_at_max_retries(rstop, project: Path) -> None:
 
 def test_ralph_resume_file_mode_is_user_only(rstop, project: Path) -> None:
     rstop._bump_ralph_state(project, session_id="s", reason="r", last_prompt="p")
-    path = project / ".ai-engineering" / "state" / "runtime" / "ralph-resume.json"
+    path = project / ".ai-engineering" / "runtime" / "ralph-resume.json"
     mode = path.stat().st_mode & 0o777
     assert mode == 0o600
 
@@ -98,7 +98,7 @@ def test_recent_edited_files_reads_from_tool_history(rstop, project: Path) -> No
     """The `_recent_edited_files` regression: must read filePath from
     tool-history.ndjson (not the auto-format event detail, which never carries
     file_path)."""
-    history_path = project / ".ai-engineering" / "state" / "runtime" / "tool-history.ndjson"
+    history_path = project / ".ai-engineering" / "runtime" / "tool-history.ndjson"
     lines = [
         json.dumps(
             {

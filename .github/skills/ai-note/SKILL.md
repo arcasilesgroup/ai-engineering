@@ -33,7 +33,7 @@ Knowledge management for technical discoveries. Captures debugging insights, non
 
 ## When NOT to Use
 
-- **Architecture decisions** -- use `decision-store.json` via `/ai-governance`
+- **Architecture decisions** -- use `state.db.decisions` via `/ai-governance`
 - **Incident analysis** -- use `/ai-postmortem`
 - **Customer issues** -- use `/ai-support`
 

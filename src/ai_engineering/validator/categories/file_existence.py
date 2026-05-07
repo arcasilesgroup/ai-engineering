@@ -47,12 +47,13 @@ def _check_file_existence(
     specs_dir = ai_dir / "specs"
     specs_exists = specs_dir.is_dir()
 
-    # Exclude state/runtime/ from reference checking (spec-123 T-8.x). This
-    # subtree is gitignored ephemeral state — autopilot wave artifacts, hook
+    # Exclude runtime/ from reference checking (spec-123 T-8.x; relocated
+    # under ``.ai-engineering/runtime/`` by spec-125 Wave 2). This subtree is
+    # gitignored ephemeral state — autopilot wave artifacts, hook
     # checkpoints, tool outputs, etc. — and should never gate CI. Stale
     # references to retired skills/agents inside these artifacts are expected
     # operational debris between cleanup waves.
-    runtime_dir = ai_dir / "state" / "runtime"
+    runtime_dir = ai_dir / "runtime"
 
     broken_refs = _collect_broken_references(
         target=target,

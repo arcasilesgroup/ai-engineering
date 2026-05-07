@@ -245,7 +245,7 @@ class TestInstallerPhaseEndToEnd:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
             ides=["terminal"],
@@ -331,7 +331,7 @@ class TestInstallerPhaseEndToEnd:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
             ides=["terminal"],

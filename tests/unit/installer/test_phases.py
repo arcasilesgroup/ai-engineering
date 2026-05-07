@@ -170,7 +170,7 @@ class TestGovernancePhase:
 
 class TestIdeConfigPhase:
     def test_plan_claude_code(self, tmp_path: Path) -> None:
-        """Plan with claude_code produces .claude tree."""
+        """Plan with claude-code produces .claude tree."""
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
@@ -340,7 +340,7 @@ class TestIdeConfigReconfigure:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
         from ai_engineering.state.models import InstallState
 
-        # Write a manifest.yml with old providers (claude_code + github_copilot)
+        # Write a manifest.yml with old providers (claude-code + github_copilot)
         ai_dir = tmp_path / ".ai-engineering"
         ai_dir.mkdir(parents=True)
         manifest_data = {

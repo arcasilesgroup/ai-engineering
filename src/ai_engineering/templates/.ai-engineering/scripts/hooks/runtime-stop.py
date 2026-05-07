@@ -4,14 +4,16 @@
 Two responsibilities consolidated to keep ``Stop`` cheap (the IDE serialises
 shutdown):
 
-* **Checkpoint**: write ``runtime/checkpoint.json`` with the active
+* **Checkpoint**: write ``RUNTIME_DIR(project_root) / "checkpoint.json"``
+  (canonical ``.ai-engineering/runtime/checkpoint.json``) with the active
   spec/plan paths, recently edited files, recent failures, and the
   outcome of the most recent tool calls. ``/ai-start`` reads this so a
   new session can resume mid-task instead of starting cold.
 
 * **Ralph Loop marker**: scan the recent tool history for "task
   incomplete" signals — failing tests, broken builds, lingering errors,
-  or unmerged spec/plan work — and stamp ``runtime/ralph-resume.json``
+  or unmerged spec/plan work — and stamp ``RUNTIME_DIR(project_root) /
+  "ralph-resume.json"`` (canonical ``.ai-engineering/runtime/ralph-resume.json``)
   with the original prompt + retry count. The next ``/ai-start`` checks
   this file and offers to resume; ``ai-eng ralph status`` (CLI) surfaces
   the same.

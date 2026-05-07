@@ -19,7 +19,7 @@ class TestProviderAdd:
     """Tests for add_provider operation."""
 
     def test_add_provider_to_installed_project(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude_code"])
+        install(tmp_path, ai_providers=["claude-code"])
         manifest = add_provider(tmp_path, "github_copilot")
         assert "github_copilot" in manifest.ai_providers.enabled
         # Verify copilot files were created
@@ -29,7 +29,7 @@ class TestProviderAdd:
     def test_add_duplicate_provider_raises(self, tmp_path: Path) -> None:
         install(tmp_path)
         with pytest.raises(InstallerError, match="already enabled"):
-            add_provider(tmp_path, "claude_code")
+            add_provider(tmp_path, "claude-code")
 
     def test_add_unknown_provider_raises(self, tmp_path: Path) -> None:
         install(tmp_path)
@@ -50,15 +50,15 @@ class TestProviderRemove:
     """Tests for remove_provider operation."""
 
     def test_remove_provider(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude_code", "github_copilot"])
+        install(tmp_path, ai_providers=["claude-code", "github_copilot"])
         manifest = remove_provider(tmp_path, "github_copilot")
         assert "github_copilot" not in manifest.ai_providers.enabled
-        assert "claude_code" in manifest.ai_providers.enabled
+        assert "claude-code" in manifest.ai_providers.enabled
 
     def test_remove_last_provider_raises(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude_code"])
+        install(tmp_path, ai_providers=["claude-code"])
         with pytest.raises(InstallerError, match="Cannot remove the last"):
-            remove_provider(tmp_path, "claude_code")
+            remove_provider(tmp_path, "claude-code")
 
     def test_remove_nonexistent_provider_raises(self, tmp_path: Path) -> None:
         install(tmp_path)
@@ -66,8 +66,8 @@ class TestProviderRemove:
             remove_provider(tmp_path, "gemini")
 
     def test_remove_primary_promotes_next(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude_code", "github_copilot"])
-        manifest = remove_provider(tmp_path, "claude_code")
+        install(tmp_path, ai_providers=["claude-code", "github_copilot"])
+        manifest = remove_provider(tmp_path, "claude-code")
         assert manifest.ai_providers.primary == "github_copilot"
 
     def test_remove_does_not_delete_shared_agents_md(
@@ -90,8 +90,8 @@ class TestProviderList:
     def test_list_default_providers(self, tmp_path: Path) -> None:
         install(tmp_path)
         manifest = list_status(tmp_path)
-        assert manifest.ai_providers.primary == "claude_code"
-        assert "claude_code" in manifest.ai_providers.enabled
+        assert manifest.ai_providers.primary == "claude-code"
+        assert "claude-code" in manifest.ai_providers.enabled
 
     def test_list_custom_providers(self, tmp_path: Path) -> None:
         install(tmp_path, ai_providers=["github_copilot", "gemini"])
@@ -104,7 +104,7 @@ class TestProviderAwareInstall:
     """Tests for provider-aware install behavior."""
 
     def test_install_claude_only(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude_code"])
+        install(tmp_path, ai_providers=["claude-code"])
         assert (tmp_path / "CLAUDE.md").is_file()
         assert (tmp_path / ".claude").is_dir()
         # Should NOT create copilot files
@@ -122,7 +122,7 @@ class TestProviderAwareInstall:
     def test_install_multiple_providers(self, tmp_path: Path) -> None:
         install(
             tmp_path,
-            ai_providers=["claude_code", "github_copilot"],
+            ai_providers=["claude-code", "github_copilot"],
         )
         assert (tmp_path / "CLAUDE.md").is_file()
         assert (tmp_path / ".claude").is_dir()
@@ -130,6 +130,6 @@ class TestProviderAwareInstall:
         assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
 
     def test_install_default_providers_copies_all(self, tmp_path: Path) -> None:
-        """When no --provider flag, defaults to claude_code."""
+        """When no --provider flag, defaults to claude-code."""
         install(tmp_path)
         assert (tmp_path / "CLAUDE.md").is_file()

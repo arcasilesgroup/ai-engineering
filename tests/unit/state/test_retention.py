@@ -7,8 +7,9 @@ The retention module enforces the per-tier window from D-123-26:
   COLD (zstd archive)           24 months
   PURGE                         > 24 months
 
-This test suite covers the HOT tier only -- the warm/cold cutoffs are
-exercised by :mod:`test_compress` and the rotation manifest tests.
+This test suite covers the HOT tier only. WARM/COLD cutoffs were
+removed in spec-125 along with `rotation.py` / `test_compress.py`
+(no archive plane in single-immutable-append-only mode).
 
 Public surface
 --------------

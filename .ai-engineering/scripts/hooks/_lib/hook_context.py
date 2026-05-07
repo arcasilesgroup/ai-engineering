@@ -30,6 +30,29 @@ _EVENT_NAME_MAP: dict[str, str] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Canonical state-plane subdir locations (spec-125 Wave 2).
+#
+# Source of truth for the relocated subdirs. Hook scripts and cross-IDE
+# wrappers import these helpers instead of hardcoding the path so a
+# future move only requires editing this file. Both helpers take the
+# already-resolved ``project_root`` (see ``get_hook_context``) and return
+# the absolute directory path. Callers are responsible for ``mkdir`` as
+# needed; the helpers perform pure path arithmetic so they remain safe
+# to call inside fast-path probes.
+# ---------------------------------------------------------------------------
+
+
+def RUNTIME_DIR(project_root: Path) -> Path:
+    """Return ``<project_root>/.ai-engineering/runtime`` (canonical runtime dir)."""
+    return project_root / ".ai-engineering" / "runtime"
+
+
+def CACHE_DIR(project_root: Path) -> Path:
+    """Return ``<project_root>/.ai-engineering/cache`` (canonical cache umbrella)."""
+    return project_root / ".ai-engineering" / "cache"
+
+
 @dataclass
 class HookContext:
     engine: str  # claude_code, gemini, github_copilot, codex

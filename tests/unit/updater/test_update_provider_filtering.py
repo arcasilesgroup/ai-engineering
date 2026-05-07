@@ -89,7 +89,7 @@ def _has_provider_paths(paths: set[str], prefixes: tuple[str, ...]) -> bool:
 
 @pytest.fixture()
 def claude_only_project(tmp_path: Path) -> Path:
-    """Install a project with only ``claude_code`` as AI provider."""
+    """Install a project with only ``claude-code`` as AI provider."""
     _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude-code"])
     return tmp_path
@@ -97,7 +97,7 @@ def claude_only_project(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def claude_copilot_project(tmp_path: Path) -> Path:
-    """Install a project with ``claude_code`` and ``github_copilot``."""
+    """Install a project with ``claude-code`` and ``github-copilot``."""
     _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude-code", "github-copilot"])
     return tmp_path
@@ -105,7 +105,7 @@ def claude_copilot_project(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def claude_gemini_project(tmp_path: Path) -> Path:
-    """Install a project with ``claude_code`` and ``gemini``."""
+    """Install a project with ``claude-code`` and ``gemini-cli``."""
     _ensure_git_repo(tmp_path)
     install(tmp_path, ai_providers=["claude-code", "gemini-cli"])
     return tmp_path
@@ -134,7 +134,7 @@ class TestUpdateProviderFiltering:
         self,
         claude_only_project: Path,
     ) -> None:
-        """T1: When only claude_code is enabled, update must not produce
+        """T1: When only claude-code is enabled, update must not produce
         changes for github_copilot, gemini, or codex paths.
         """
         result = update(claude_only_project, dry_run=True)
@@ -159,7 +159,7 @@ class TestUpdateProviderFiltering:
         self,
         claude_copilot_project: Path,
     ) -> None:
-        """T2: When claude_code + github_copilot are enabled, update must
+        """T2: When claude-code + github-copilot are enabled, update must
         include .claude/ and .github/ paths but NOT .codex/ or .gemini/.
         """
         result = update(claude_copilot_project, dry_run=True)
@@ -178,7 +178,7 @@ class TestUpdateProviderFiltering:
         self,
         claude_gemini_project: Path,
     ) -> None:
-        """T3: When claude_code + gemini are enabled, update must include
+        """T3: When claude-code + gemini-cli are enabled, update must include
         .claude/ and .gemini/ paths but NOT .github/ or .codex/.
         """
         result = update(claude_gemini_project, dry_run=True)

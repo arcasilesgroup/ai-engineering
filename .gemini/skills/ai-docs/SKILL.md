@@ -65,7 +65,7 @@ If no argument is provided, display the routing table above and ask the user whi
 
 - **Called by**: `/ai-pr` (step 7) via parallel subagent dispatch
 - **Calls**: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-init.md`, `handlers/solution-intent-sync.md`, `handlers/solution-intent-validate.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`
-- **Reads**: `.ai-engineering/manifest.yml` (auto_update flags, external_portal config), `docs/solution-intent.md`, `.ai-engineering/state/decision-store.json`
+- **Reads**: `.ai-engineering/manifest.yml` (auto_update flags, external_portal config), `docs/solution-intent.md`, `.ai-engineering/state/state.db.decisions`
 - **NOT** `/ai-write` -- for prose content (blog posts, pitch decks) use `/ai-write` instead
 
 ## Governance Notes

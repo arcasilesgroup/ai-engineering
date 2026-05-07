@@ -21,7 +21,7 @@ Gather data from REAL project state -- never from old documentation:
 |--------|----------------|
 | `pyproject.toml` | Name, version, description, license, Python version, dependencies |
 | `.ai-engineering/manifest.yml` | Skills count, agents, stacks, providers, IDEs, quality gates, tooling, ownership |
-| `.ai-engineering/state/decision-store.json` | Active decisions, risk acceptances |
+| `.ai-engineering/state/state.db.decisions` | Active decisions, risk acceptances |
 | `.ai-engineering/specs/spec.md` | Current spec, status |
 | `.ai-engineering/contexts/` | Available language/framework/team contexts |
 | `.ai-engineering/runbooks/` | Available operational runbooks |

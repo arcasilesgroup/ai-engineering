@@ -144,7 +144,9 @@ def end_mod():
 def test_session_end_emits_summary_with_checkpoint(
     end_mod, project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    runtime_dir = project / ".ai-engineering" / "state" / "runtime"
+    # spec-125 Wave 2: canonical checkpoint location moved from
+    # ``state/runtime/`` to ``runtime/`` (hook reads via RUNTIME_DIR factory).
+    runtime_dir = project / ".ai-engineering" / "runtime"
     runtime_dir.mkdir(parents=True, exist_ok=True)
     (runtime_dir / "checkpoint.json").write_text(
         json.dumps(

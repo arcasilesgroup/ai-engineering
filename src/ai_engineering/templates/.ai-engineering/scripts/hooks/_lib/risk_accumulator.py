@@ -25,8 +25,9 @@ Design contract (mirrors the rest of ``_lib``):
   forensic trail records the rebuild.
 * Atomic writes -- ``.tmp`` + ``os.replace`` so a crash mid-write
   never leaves the state file half-rewritten.
-* State is local-only -- ``.ai-engineering/state/runtime/`` is
-  gitignored; this captures session telemetry, not source of truth.
+* State is local-only -- ``RUNTIME_DIR(project_root)`` (canonical
+  ``.ai-engineering/runtime/``) is gitignored; this captures session
+  telemetry, not source of truth.
 
 Severity mapping:
 
@@ -63,13 +64,20 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from _lib.hook_context import RUNTIME_DIR
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 SCHEMA_VERSION = "1.0"
+# Spec-125 Wave 2: legacy ``state/runtime`` constants retained for
+# backwards-compatible re-export only. Active path resolution flows through
+# the ``RUNTIME_DIR(project_root)`` factory in ``_lib/hook_context.py``
+# (canonical ``.ai-engineering/runtime/``); see ``_state_path`` below.
 RUNTIME_DIR_REL = Path(".ai-engineering") / "state" / "runtime"
 RISK_STATE_REL = RUNTIME_DIR_REL / "risk-score.json"
+_RISK_STATE_FILENAME = "risk-score.json"
 
 SEVERITY_SCORES: dict[str, float] = {
     "LOW": 1.0,
@@ -132,7 +140,7 @@ class RiskState:
 
 
 def _state_path(project_root: Path) -> Path:
-    return project_root / RISK_STATE_REL
+    return RUNTIME_DIR(project_root) / _RISK_STATE_FILENAME
 
 
 def _utcnow() -> datetime:

@@ -69,8 +69,8 @@ def _manifest_body(
         f"  stacks: {stacks}\n"
         "\n"
         "ai_providers:\n"
-        "  enabled: [claude_code]\n"
-        "  primary: claude_code\n"
+        "  enabled: [claude-code]\n"
+        "  primary: claude-code\n"
     )
     parts = [head]
     if prereqs:

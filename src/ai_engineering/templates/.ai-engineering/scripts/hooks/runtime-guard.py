@@ -6,7 +6,8 @@ on every tool invocation:
 
 * **Offload**: large stdout/stderr payloads (above
   ``AIENG_TOOL_OFFLOAD_BYTES``, default 4 KB) are written to
-  ``.ai-engineering/state/runtime/tool-outputs/`` and a head+tail+pointer
+  ``RUNTIME_DIR(project_root) / "tool-outputs"`` (canonical
+  ``.ai-engineering/runtime/tool-outputs/``) and a head+tail+pointer
   hint is surfaced via ``hookSpecificOutput.additionalContext`` so the
   model can read the full file on demand instead of bloating context.
 

@@ -9,7 +9,7 @@ spec-104 D-104-10 adds:
 * ``ai-eng gate cache --status`` — read-only enumeration of cache entries with
   remaining max-age and total size.
 * ``ai-eng gate cache --clear`` — interactive (or ``--yes``) wipe of the
-  ``.ai-engineering/state/gate-cache/`` directory only — sibling state files
+  ``.ai-engineering/cache/gate/`` directory only — sibling state files
   are preserved.
 """
 
@@ -483,7 +483,9 @@ def _run_gate_hook_via_kernel(
 ) -> GateFindingsDocument:
     """Route hook-style gate commands through the shared kernel adapter."""
     mode = "local" if hook == GateHook.PRE_COMMIT else "ci"
-    cache_dir = project_root / ".ai-engineering" / "state" / "gate-cache"
+    # Cache root parent (.ai-engineering/cache/) is canonical per hook_context.CACHE_DIR.
+    # Defined inline here to avoid CLI→hook-lib import boundary violation.
+    cache_dir = project_root / ".ai-engineering" / "cache" / "gate"
     auto_stage_enabled = (
         _resolve_auto_stage_enabled(project_root, cli_no_auto_stage=False)
         if hook == GateHook.PRE_COMMIT
@@ -664,7 +666,7 @@ def gate_run(
     env_disabled = _os.environ.get("AIENG_CACHE_DISABLED") == "1"
     cache_disabled = bool(no_cache or force or env_disabled or not cache_aware)
 
-    cache_dir = root / ".ai-engineering" / "state" / "gate-cache"
+    cache_dir = root / ".ai-engineering" / "cache" / "gate"
     staged = _staged_files_from_git(root)
 
     # spec-105 D-105-02 / D-105-03: emit the mode banner BEFORE the run so
@@ -816,7 +818,7 @@ def _read_cache_entry_meta(path: Path) -> tuple[datetime | None, int]:
 def _gate_cache_status(cache_dir: Path) -> None:
     """Print human-readable cache status + total size to stdout."""
     if not cache_dir.exists():
-        print_stdout("no cache entries (gate-cache directory absent)")
+        print_stdout("no cache entries (cache/gate directory absent)")
         return
 
     entries = sorted(cache_dir.glob("*.json"))
@@ -899,7 +901,7 @@ def gate_cache(
         raise typer.Exit(code=2)
 
     root = resolve_project_root(target)
-    cache_dir = root / ".ai-engineering" / "state" / "gate-cache"
+    cache_dir = root / ".ai-engineering" / "cache" / "gate"
 
     if status:
         _gate_cache_status(cache_dir)

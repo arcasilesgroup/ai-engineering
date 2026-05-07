@@ -137,7 +137,7 @@ class TestCrossReferenceResolution:
     def test_resolve_cross_reference_files_includes_gemini_when_enabled(
         self, tmp_path: Path
     ) -> None:
-        self._write_manifest(tmp_path, ["claude_code", "github_copilot", "gemini"])
+        self._write_manifest(tmp_path, ["claude-code", "github_copilot", "gemini"])
 
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
 

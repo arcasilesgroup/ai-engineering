@@ -4,7 +4,7 @@ Cross-IDE concurrent writers append to ``framework-events.ndjson`` via
 POSIX ``O_APPEND``. POSIX guarantees atomic append for writes ≤ ``PIPE_BUF``
 (4 KB on Linux/macOS). To stay safely under that ceiling we cap every
 inline NDJSON line at **3 KB**; any event whose serialised JSON exceeds
-that ceiling is offloaded to ``state/runtime/event-sidecars/<sha256>.json``
+that ceiling is offloaded to ``runtime/event-sidecars/<sha256>.json``
 and the inline NDJSON line carries only the hash + a short summary.
 
 Public surface
@@ -30,7 +30,11 @@ from typing import Any
 # margin (timestamps, line terminator, future schema additions).
 SIDECAR_CEILING_BYTES = 3072
 
-_SIDECAR_DIR_REL = Path(".ai-engineering") / "state" / "runtime" / "event-sidecars"
+# spec-125 Wave 2 (T-2.21): canonical runtime dir is ``.ai-engineering/runtime``
+# (per ``hook_context.RUNTIME_DIR`` SSOT). Literal duplicated here to avoid
+# CLI/state→hook-lib import boundary violation; same pattern as
+# ``cli_commands/gate.py`` cache_dir resolution (T-2.13).
+_SIDECAR_DIR_REL = Path(".ai-engineering") / "runtime" / "event-sidecars"
 
 
 def _serialize(event: dict[str, Any]) -> bytes:
@@ -78,7 +82,7 @@ def maybe_offload(
 
     If the serialised event is at or below ``ceiling`` bytes, returns the
     original dict unchanged. Otherwise writes the full event to
-    ``state/runtime/event-sidecars/<sha256>.json`` and returns a small
+    ``runtime/event-sidecars/<sha256>.json`` and returns a small
     inline dict carrying the hash + summary.
     """
     payload = _serialize(event)

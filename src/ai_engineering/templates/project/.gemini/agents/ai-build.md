@@ -132,7 +132,7 @@ Every build task produces this structured output to enable downstream agents (ve
 - Does not bypass quality gates
 - Does not execute destructive DDL without explicit user approval
 - Does not execute `terraform apply` without explicit user approval
-- Records decisions in `state/decision-store.json` when risk acceptance is needed
+- Records decisions in `state.db.decisions` (via `ai-eng risk accept`) when risk acceptance is needed
 
 ## Write Scope
 

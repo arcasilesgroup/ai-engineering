@@ -63,7 +63,7 @@ ownership:
 
 def _write_manifest(ai: Path, providers: list[str]) -> None:
     """Write a manifest.yml with the given AI providers."""
-    primary = providers[0] if providers else "claude_code"
+    primary = providers[0] if providers else "claude-code"
     content = _MANIFEST_TEMPLATE.format(
         providers=", ".join(providers),
         primary=primary,
@@ -80,7 +80,7 @@ def _write_manifest_with_root_entry_points(
     agents_template_path: str,
 ) -> None:
     """Write a manifest.yml that declares root entry point sync metadata."""
-    primary = providers[0] if providers else "claude_code"
+    primary = providers[0] if providers else "claude-code"
     content = _ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE.format(
         providers=", ".join(providers),
         primary=primary,
@@ -106,16 +106,16 @@ def _make_governance(root: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# T10: instruction files — claude_code only
+# T10: instruction files — claude-code only
 # ---------------------------------------------------------------------------
 
 
 class TestInstructionFilesClaudeOnly:
-    """With only claude_code enabled, only CLAUDE.md paths are returned."""
+    """With only claude-code enabled, only CLAUDE.md paths are returned."""
 
     def test_instruction_files_claude_only(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code"])
+        _write_manifest(ai, ["claude-code"])
 
         files = _instruction_files(tmp_path)
 
@@ -133,21 +133,21 @@ class TestInstructionFilesClaudeOnly:
 
 
 # ---------------------------------------------------------------------------
-# T11: instruction files — claude_code + github_copilot
+# T11: instruction files — claude-code + github_copilot
 # ---------------------------------------------------------------------------
 
 
 class TestInstructionFilesClaudeCopilot:
-    """With claude_code and github_copilot enabled, all three file types appear."""
+    """With claude-code and github_copilot enabled, all three file types appear."""
 
     def test_instruction_files_claude_copilot(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code", "github_copilot"])
+        _write_manifest(ai, ["claude-code", "github_copilot"])
 
         files = _instruction_files(tmp_path)
 
         assert any("CLAUDE.md" in f for f in files), (
-            "CLAUDE.md must be present when claude_code is enabled"
+            "CLAUDE.md must be present when claude-code is enabled"
         )
         assert any("AGENTS.md" in f for f in files), (
             "AGENTS.md must be present when github_copilot is enabled"
@@ -168,7 +168,7 @@ class TestInstructionFilesClaudeCopilot:
         )
         assert not any("CLAUDE.md" in f for f in files), (
             "_instruction_files must not return CLAUDE.md "
-            "when claude_code is not in ai_providers.enabled"
+            "when claude-code is not in ai_providers.enabled"
         )
 
 
@@ -210,7 +210,7 @@ class TestValidatorErrorOnMissingInstructionFile:
 
     def test_validator_errors_on_missing_instruction_file(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code"])
+        _write_manifest(ai, ["claude-code"])
         # Deliberately do NOT create CLAUDE.md on disk.
 
         report = IntegrityReport()
@@ -246,7 +246,7 @@ class TestValidatorNoErrorForDisabledProvider:
 
     def test_validator_no_error_for_disabled_provider(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code"])
+        _write_manifest(ai, ["claude-code"])
         # Create CLAUDE.md so the enabled provider passes
         (tmp_path / "CLAUDE.md").write_text("# Instructions\n", encoding="utf-8")
         # Deliberately do NOT create AGENTS.md or copilot-instructions.md
@@ -316,7 +316,7 @@ class TestMirrorSyncEnabledProviders:
 
     def test_mirror_sync_checks_only_enabled_providers(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code"])
+        _write_manifest(ai, ["claude-code"])
 
         # Create CLAUDE.md with required sections
         claude_content = "# Instructions\n\n## Skills\n\n- skill1\n\n## Agents\n\n- agent1\n\n"

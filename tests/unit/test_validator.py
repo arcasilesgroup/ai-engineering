@@ -143,7 +143,7 @@ def _write_all_instruction_files(
 def _write_manifest(
     ai: Path,
     *,
-    providers: tuple[str, ...] = ("claude_code", "github_copilot"),
+    providers: tuple[str, ...] = ("claude-code", "github_copilot"),
     skills_total: int | None = None,
     agents_total: int | None = None,
 ) -> None:
@@ -3015,8 +3015,8 @@ class TestInstructionFiles:
             "name: test-project\n"
             "version: 1.0.0\n"
             "ai_providers:\n"
-            "  enabled: [claude_code, github_copilot]\n"
-            "  primary: claude_code\n"
+            "  enabled: [claude-code, github_copilot]\n"
+            "  primary: claude-code\n"
             "ownership:\n"
             "  root_entry_points:\n"
             "    CLAUDE.md:\n"
@@ -3356,7 +3356,7 @@ class TestCounterAccuracyManifest:
         # Manifest with skills.total = 99 (wrong)
         _write_manifest(
             ai,
-            providers=("claude_code",),
+            providers=("claude-code",),
             skills_total=99,
             agents_total=0,
         )
@@ -3381,7 +3381,7 @@ class TestCounterAccuracyManifest:
         skill_count = len(_SKILL_PATHS)
         _write_manifest(
             ai,
-            providers=("claude_code",),
+            providers=("claude-code",),
             skills_total=skill_count,
             agents_total=0,
         )
@@ -3404,7 +3404,7 @@ class TestCounterAccuracyManifest:
         _write_active_spec(ai)
         _write_manifest(
             ai,
-            providers=("claude_code",),
+            providers=("claude-code",),
             skills_total=0,
             agents_total=99,
         )
@@ -3429,7 +3429,7 @@ class TestCounterAccuracyManifest:
         agent_count = len(_AGENT_PATHS)
         _write_manifest(
             ai,
-            providers=("claude_code",),
+            providers=("claude-code",),
             skills_total=0,
             agents_total=agent_count,
         )

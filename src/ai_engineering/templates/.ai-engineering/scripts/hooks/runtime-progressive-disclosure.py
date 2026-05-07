@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import passthrough_stdin
 from _lib.hook_common import emit_event, get_correlation_id, run_hook_safe
-from _lib.hook_context import get_hook_context
+from _lib.hook_context import RUNTIME_DIR, get_hook_context
 from _lib.runtime_state import iso_now
 
 _TOP_K = 5
@@ -115,7 +115,10 @@ _TOKEN_RE = re.compile(r"[\w-]{2,}", flags=re.UNICODE)
 # on every non-slash UserPromptSubmit. This persists a parsed + pre-tokenized
 # index keyed on the skills-dir mtime so warm prompts pay one stat() and one
 # JSON parse instead of 51 file opens.
-_SKILL_INDEX_REL = ".ai-engineering/state/runtime/skills-index.json"
+#
+# spec-125 Wave 2: path resolved per-call via RUNTIME_DIR(project_root) factory
+# (canonical ``.ai-engineering/runtime/skills-index.json``).
+_SKILL_INDEX_FILENAME = "skills-index.json"
 
 
 def _tokenise(text: str) -> set[str]:
@@ -165,7 +168,7 @@ def _scan_skill_descriptions(skills_dir: Path) -> list[dict]:
 def _load_skill_index(project_root: Path) -> list[dict]:
     """Return cached skill index, rebuilding on skills-dir mtime change."""
     skills_dir = _skills_dir(project_root)
-    cache_path = project_root / _SKILL_INDEX_REL
+    cache_path = RUNTIME_DIR(project_root) / _SKILL_INDEX_FILENAME
     current_mtime = _skills_dir_mtime_ns(skills_dir)
     cached_mtime: int | None = None
     cached_entries: list[dict] | None = None

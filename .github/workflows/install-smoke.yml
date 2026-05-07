@@ -376,30 +376,12 @@ jobs:
             cat install-2.log
             exit 1
           fi
-          # Synthetic os_release bump should invalidate skip and trigger
-          # re-verify on the third run.
-          STATE_FILE="idemp-target/.ai-engineering/state/install-state.json"
-          if [ -f "$STATE_FILE" ]; then
-            python3 -c "
-          import json, pathlib
-          p = pathlib.Path('$STATE_FILE')
-          data = json.loads(p.read_text())
-          tools = data.get('required_tools_state', {})
-          for record in tools.values():
-              if isinstance(record, dict):
-                  record['os_release'] = '99.99'
-          p.write_text(json.dumps(data, indent=2))
-          "
-            # Merge stderr into stdout for marker visibility (see Wave 28).
-            ai-eng install idemp-target --non-interactive 2>&1 | tee install-3.log
-            if ! grep -Eqi '(reverified|already_installed|already-installed|os_release.*mismatch|re-?probe|re-?verify)' install-3.log; then
-              echo "Third run after os_release bump did not trigger re-probe"
-              cat install-3.log
-              exit 1
-            fi
-          else
-            echo "install-state.json not found — skipping os_release re-probe assertion"
-          fi
+          # TODO(spec-125): os_release bump assertion needs port to state.db.
+          # install-state.json was migrated to state.db.install_state table
+          # (D-125-01). Mutating required_tools_state via SQLite UPDATE to
+          # trigger re-probe on a subsequent install requires a fresh helper.
+          # Skipping the third-run re-probe assertion until the helper lands.
+          echo "os_release re-probe assertion skipped (spec-125 state.db migration TODO)"
 
       - name: T-4.5 idempotence + os_release re-probe (Windows)
         if: runner.os == 'Windows'
@@ -417,24 +399,12 @@ jobs:
           if ($second -notmatch '(?i)(0 reinstall|reinstalls: 0|already_installed|already-installed|already installed|skipped \(verify passed\))') {
             throw "Second run did not report 0 reinstalls"
           }
-          $stateFile = "idemp-target/.ai-engineering/state/install-state.json"
-          if (Test-Path $stateFile) {
-            python3 -c "
-          import json, pathlib
-          p = pathlib.Path('$stateFile')
-          data = json.loads(p.read_text())
-          tools = data.get('required_tools_state', {})
-          for record in tools.values():
-              if isinstance(record, dict):
-                  record['os_release'] = '99.99'
-          p.write_text(json.dumps(data, indent=2))
-          "
-            ai-eng install idemp-target --non-interactive 2>&1 | Tee-Object install-3.log
-            $third = Get-Content install-3.log -Raw
-            if ($third -notmatch '(?i)(reverified|already_installed|already-installed|os_release.*mismatch|re-?probe|re-?verify)') {
-              throw "Third run after os_release bump did not trigger re-probe"
-            }
-          }
+          # TODO(spec-125): os_release bump assertion needs port to state.db.
+          # install-state.json was migrated to state.db.install_state table
+          # (D-125-01). Mutating required_tools_state via SQLite UPDATE to
+          # trigger re-probe on a subsequent install requires a fresh helper.
+          # Skipping the third-run re-probe assertion until the helper lands.
+          Write-Host "os_release re-probe assertion skipped (spec-125 state.db migration TODO)"
 
       - name: Upload syscall evidence (7-day retention)
         if: always()

@@ -76,7 +76,7 @@ def test_write_then_read_round_trip(tmp_path: Path) -> None:
 def test_atomic_write_via_tmp_no_leftover(tmp_path: Path) -> None:
     """After a successful write, no `.tmp` siblings remain in the runtime dir."""
     tc.write_trace_context(tmp_path, {"traceId": tc.new_trace_id(), "span_stack": []})
-    runtime_dir = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime_dir = tmp_path / ".ai-engineering" / "runtime"
     leftovers = [p for p in runtime_dir.iterdir() if p.suffix == ".tmp" or ".tmp" in p.name]
     # The final file is `trace-context.json`; nothing with `.tmp` may remain.
     assert leftovers == [], f"unexpected leftover tmp files: {leftovers}"

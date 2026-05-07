@@ -345,10 +345,9 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     audit_app.command("tokens")(_safe(audit_cmd.audit_tokens))
     audit_app.command("replay")(_safe(audit_cmd.audit_replay))
     audit_app.command("otel-export")(_safe(audit_cmd.audit_otel_export))
-    # spec-123 T-3.9: 6 ops verbs against state.db / NDJSON archive.
-    audit_app.command("rotate")(_safe(audit_cmd.audit_rotate))
-    audit_app.command("compress")(_safe(audit_cmd.audit_compress))
-    audit_app.command("verify-chain")(_safe(audit_cmd.audit_verify_chain))
+    # spec-125 T-3.8: rotate/compress/verify-chain removed with archive plane.
+    # The single immutable append-only `framework-events.ndjson` is the only
+    # ledger; chain integrity is covered by `audit verify`.
     audit_app.command("health")(_safe(audit_cmd.audit_health))
     audit_app.command("vacuum")(_safe(audit_cmd.audit_vacuum))
     # ``retention apply`` lives under a nested sub-Typer so the surface is

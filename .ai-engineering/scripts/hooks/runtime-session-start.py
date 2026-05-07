@@ -8,10 +8,10 @@ runner — this hook runs alongside it, not as a replacement):
 1. Stamp a ``framework_operation`` event with
    ``operation=session_started`` so the audit chain has an explicit
    anchor at the start of every IDE session.
-2. Initialise ``.ai-engineering/state/runtime/trace-context.json`` with
-   a fresh ``traceId`` (via the spec-120 helper
-   ``_lib/trace_context.write_trace_context``) so subsequent emit
-   calls inside the session inherit a stable context.
+2. Initialise ``RUNTIME_DIR(project_root) / "trace-context.json"`` (canonical
+   ``.ai-engineering/runtime/trace-context.json``) with a fresh ``traceId``
+   (via the spec-120 helper ``_lib/trace_context.write_trace_context``) so
+   subsequent emit calls inside the session inherit a stable context.
 3. Best-effort load + log how many KO entries (corrections, recoveries,
    workflows) currently live in the instincts cache. Informational —
    logged into ``metadata.instincts_count`` so a downstream session

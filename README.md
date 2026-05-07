@@ -111,7 +111,7 @@ Highlights:
 - **Live progress UI.** Replaces the single spinner with `[N/M] phase_label`.
 - **Python tooling is worktree-fast.** `python_env.mode` defaults to `uv-tool` (tools live once in `~/.local/share/uv/tools/`). Two escape hatches remain: `venv` (legacy per-cwd) and `shared-parent` (single `.venv` shared across worktrees).
 - **Single-pass local gate.** Wave-1 fixers then Wave-2 checkers in parallel, with a 24h SHA-256 cache. ~2-3x faster on warm checkouts. Try `ai-eng gate run --cache-aware --json`.
-- **First-class risk acceptance.** New `ai-eng risk accept | accept-all | renew | resolve | revoke | list | show` namespace. No more hand-edited `decision-store.json`.
+- **First-class risk acceptance.** New `ai-eng risk accept | accept-all | renew | resolve | revoke | list | show` namespace. No more hand-edited decision stores — decisions are persisted in `state.db.decisions`.
 - **`gates > mode: prototyping`.** Skip Tier 2 governance for spike work. CI auto-detects and forces `regulated`.
 - **Copilot agent rename.** `@Explorer` is now `@ai-explore`, matching Claude / Codex / Gemini.
 
@@ -127,7 +127,7 @@ ai-eng doctor                        # verify
 
 If your team relies on `source .venv/bin/activate`, set `python_env > mode: venv` in `.ai-engineering/manifest.yml` *before* the second step.
 
-The first install after upgrading prints a one-shot BREAKING banner to stderr, recorded once via `breaking_banner_seen` in `.ai-engineering/state/install-state.json`.
+The first install after upgrading prints a one-shot BREAKING banner to stderr, recorded once via `breaking_banner_seen` in `state.db.install_state`.
 
 ## Upgrade reference -- spec-101 install contract (BREAKING)
 
@@ -211,7 +211,7 @@ Plus a universal `baseline` block (`gitleaks`, `semgrep`, `jq`) that applies to 
 
 ### First-run banner
 
-The first install after upgrading prints a one-shot BREAKING banner to stderr. The banner mentions EXIT 80/81, the `python_env.mode` flip, and the 14-stack scope. It only fires once per project -- the flag persists in `.ai-engineering/state/install-state.json` (`breaking_banner_seen`).
+The first install after upgrading prints a one-shot BREAKING banner to stderr. The banner mentions EXIT 80/81, the `python_env.mode` flip, and the 14-stack scope. It only fires once per project -- the flag persists in `state.db.install_state` (`breaking_banner_seen`).
 
 ## What You Get
 

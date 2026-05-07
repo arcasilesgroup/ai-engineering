@@ -51,12 +51,12 @@ def risk(monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    (tmp_path / ".ai-engineering" / "state" / "runtime").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".ai-engineering" / "runtime").mkdir(parents=True, exist_ok=True)
     return tmp_path
 
 
 def _state_path(project: Path) -> Path:
-    return project / ".ai-engineering" / "state" / "runtime" / "risk-score.json"
+    return project / ".ai-engineering" / "runtime" / "risk-score.json"
 
 
 def test_severity_to_score_mapping(risk) -> None:
@@ -185,7 +185,7 @@ def test_ring_buffer_limit(risk, project: Path) -> None:
 def test_atomic_write_no_tmp_leftover(risk, project: Path) -> None:
     """Happy-path add() must not leave a ``.tmp`` sibling behind."""
     risk.add(project, session_id="s1", severity="HIGH", ioc_id="ioc-z")
-    runtime = project / ".ai-engineering" / "state" / "runtime"
+    runtime = project / ".ai-engineering" / "runtime"
     leftovers = [p.name for p in runtime.iterdir() if p.suffix == ".tmp"]
     assert leftovers == [], f"unexpected .tmp leftovers: {leftovers}"
 

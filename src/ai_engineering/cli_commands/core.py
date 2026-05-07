@@ -1170,7 +1170,6 @@ def _copy_plan_action_source(action: Any, dest: Path, template_roots: list[Path]
 
 _PROVIDER_ALIASES: dict[str, str] = {
     "claude": "claude-code",
-    "claude_code": "claude-code",
     "claude-code": "claude-code",
     "copilot": "github-copilot",
     "github_copilot": "github-copilot",

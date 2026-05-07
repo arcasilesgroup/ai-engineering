@@ -22,7 +22,7 @@ def _write_manifest(root: Path) -> Path:
         "# preserved comment\n"
         "providers:\n"
         "  vcs: github\n"
-        "  ides: [claude_code]\n"
+        "  ides: [claude-code]\n"
         "  stacks: [python, typescript]\n"
         "quality:\n"
         "  coverage: 80\n",
@@ -45,7 +45,7 @@ def test_manifest_repository_supports_typed_raw_partial_and_patch(tmp_path: Path
     assert raw["quality"]["coverage"] == 80
     assert providers == {
         "vcs": "github",
-        "ides": ["claude_code"],
+        "ides": ["claude-code"],
         "stacks": ["python", "typescript"],
     }
     updated_text = manifest_path.read_text(encoding="utf-8")

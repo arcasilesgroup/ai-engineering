@@ -58,7 +58,7 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
 
 5. **Dependency vulnerabilities** -- verify clean dependency tree.
    - Run `uv run python -m ai_engineering.verify.tls_pip_audit --strict`.
-   - Gate: zero known vulnerabilities. Accepted risks must be in `decision-store.json`.
+   - Gate: zero known vulnerabilities. Accepted risks must be in `state.db.decisions`.
 
 6. **Type checking** -- verify type correctness.
    - Run `ty check src/`.
@@ -76,7 +76,7 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
 
 10. **Determine verdict**:
    - **GO**: all dimensions pass.
-   - **CONDITIONAL GO**: all pass except non-critical items with risk acceptance in `decision-store.json`.
+   - **CONDITIONAL GO**: all pass except non-critical items with risk acceptance in `state.db.decisions`.
    - **NO-GO**: one or more blocking issues without risk acceptance.
 
 11. **Produce closure path** (for NO-GO):
@@ -106,7 +106,7 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
 - [Issue, severity, fix suggestion]
 
 ### Residual Risk
-- [Risk acceptances from decision-store.json]
+- [Risk acceptances from state.db.decisions]
 ```
 
 ## Quick Reference
@@ -120,14 +120,14 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
 ## Common Mistakes
 
 - Running release gate on a dirty working tree -- commit first.
-- Ignoring CONDITIONAL GO risks -- each must have a `decision-store.json` entry.
+- Ignoring CONDITIONAL GO risks -- each must have a `state.db.decisions` entry.
 - Skipping packaging integrity -- wheel build failures are release blockers.
 
 ## Integration
 
 - Aggregates results from `/ai-security`, `/ai-verify quality`, `/ai-test`.
 - Reads thresholds from `manifest.yml`.
-- Risk acceptances from `state/decision-store.json`.
+- Risk acceptances from `state/state.db.decisions`.
 
 ## References
 

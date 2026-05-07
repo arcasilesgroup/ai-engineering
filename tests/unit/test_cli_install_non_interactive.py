@@ -132,7 +132,7 @@ class TestNonInteractiveSkipsPrompts:
             )
 
     def test_non_interactive_uses_default_ai_providers(self, tmp_path: Path) -> None:
-        """In non-interactive mode without --provider, default ['claude_code'] must be used."""
+        """In non-interactive mode without --provider, default ['claude-code'] must be used."""
         # Arrange
         app = create_app()
         mock_install = _mock_install_with_pipeline()

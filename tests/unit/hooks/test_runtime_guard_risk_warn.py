@@ -27,7 +27,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 GUARD_PATH = REPO / ".ai-engineering" / "scripts" / "hooks" / "runtime-guard.py"
-RISK_REL = Path(".ai-engineering") / "state" / "runtime" / "risk-score.json"
+RISK_REL = Path(".ai-engineering") / "runtime" / "risk-score.json"
 
 
 def _load_guard(monkeypatch):

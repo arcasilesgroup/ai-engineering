@@ -81,7 +81,7 @@ Anchors snapshot to `.ai-engineering/state/sentinel-baseline.json`. Per skill: S
 
 - `.ai-engineering/state/sentinel-baseline.json` — trusted snapshot (Mode 3 writes; Mode 2 reads).
 - `.ai-engineering/state/sentinel-scan-report.json` — most recent Mode 1 output.
-- `.ai-engineering/state/decision-store.json` — risk-acceptance entries for accepted ROJO verdicts (`sentinel-coherence-<skill>` finding-id, spec-105 lifecycle).
+- `.ai-engineering/state/state.db.decisions` — risk-acceptance entries for accepted ROJO verdicts (`sentinel-coherence-<skill>` finding-id, spec-105 lifecycle).
 
 ## References
 

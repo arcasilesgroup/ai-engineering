@@ -2,12 +2,88 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
 from pathlib import Path
 
 _AIE_MARKER = ".ai-engineering"
+
+# Sidecar overflow ceiling (spec-122-b D-122-23). Override via
+# ``AIENG_EVENT_SIDECAR_BYTES`` for ops that need a different threshold.
+_DEFAULT_EVENT_SIDECAR_BYTES = 3072
+_SIDECAR_DIR_REL = (".ai-engineering", "state", "runtime", "event-sidecars")
+
+
+def _event_sidecar_ceiling() -> int:
+    raw = os.environ.get("AIENG_EVENT_SIDECAR_BYTES", "").strip()
+    if not raw:
+        return _DEFAULT_EVENT_SIDECAR_BYTES
+    try:
+        value = int(raw)
+    except ValueError:
+        return _DEFAULT_EVENT_SIDECAR_BYTES
+    if value <= 0:
+        return _DEFAULT_EVENT_SIDECAR_BYTES
+    return value
+
+
+def maybe_offload_event(project_root: Path, event: dict) -> dict:
+    """Return ``event`` or a sidecar-shrunken replacement (D-122-23).
+
+    Stdlib-only mirror of :func:`ai_engineering.state.sidecar.maybe_offload`
+    so hook scripts that import ``audit.py`` can stay free of third-party
+    deps.
+    """
+    try:
+        payload = json.dumps(
+            event, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+    except (TypeError, ValueError):
+        return event
+    ceiling = _event_sidecar_ceiling()
+    if len(payload) <= ceiling:
+        return event
+    digest = hashlib.sha256(payload).hexdigest()
+    sidecar_dir = project_root.joinpath(*_SIDECAR_DIR_REL)
+    try:
+        sidecar_dir.mkdir(parents=True, exist_ok=True)
+        sidecar_path = sidecar_dir / f"{digest}.json"
+        if not sidecar_path.exists():
+            tmp_path = sidecar_path.with_suffix(".json.tmp")
+            tmp_path.write_bytes(payload)
+            os.replace(str(tmp_path), str(sidecar_path))
+    except OSError:
+        return event  # fail-open: keep oversized inline rather than dropping
+    detail = event.get("detail") if isinstance(event, dict) else None
+    summary_bits = []
+    if isinstance(detail, dict):
+        for key in ("operation", "tool", "skill", "agent", "error_code"):
+            value = detail.get(key)
+            if isinstance(value, str) and value:
+                summary_bits.append(f"{key}={value}")
+    summary = " ".join(summary_bits) if summary_bits else (event.get("kind") or "event")
+    inline = {
+        "kind": event.get("kind") or "unknown",
+        "engine": event.get("engine") or "unknown",
+        "component": event.get("component") or "unknown",
+        "outcome": event.get("outcome") or "success",
+        "timestamp": event.get("timestamp") or "",
+        "sidecar_sha256": digest,
+        "sidecar_size_bytes": len(payload),
+        "summary": summary[:160],
+    }
+    for key in (
+        "correlationId",
+        "correlation_id",
+        "session_id",
+        "trace_id",
+        "prev_event_hash",
+    ):
+        if isinstance(event, dict) and event.get(key) is not None:
+            inline[key] = event[key]
+    return inline
 
 
 def get_project_root() -> Path:

@@ -33,9 +33,9 @@ Take an approved spec. Decompose into N focused sub-specs. Deep-plan each with p
 You coordinate specialized agents across 6 phases:
 
 1. **Explore + Plan** (Phase 2): Dispatch Agent(Explore) combined with Agent(Plan) per sub-spec in parallel. Each agent deep-explores the codebase and writes a detailed implementation plan with exports/imports declarations.
-2. **Implement** (Phase 4): Dispatch Agent(Build) per sub-spec per wave. Each agent receives: full sub-spec content, decision-store constraints, stack standards, and hard file boundaries. Each writes a Self-Report classifying every piece of work.
+2. **Implement** (Phase 4): Dispatch Agent(Build) per sub-spec per wave. Each agent receives: full sub-spec content, decision constraints (from `state.db.decisions`), stack standards, and hard file boundaries. Each writes a Self-Report classifying every piece of work.
 3. **Verify** (Phase 5): Dispatch Agent(Verify) in `platform` mode for full quality assessment (7 scan modes).
-4. **Govern** (Phase 5): Dispatch Agent(Guard) in `advise` mode for governance checks against decision-store. Always advisory, never blocking.
+4. **Govern** (Phase 5): Dispatch Agent(Guard) in `advise` mode for governance checks against `state.db.decisions`. Always advisory, never blocking.
 5. **Review** (Phase 5): Dispatch Agent(Review) for 8-agent parallel code review with self-challenge protocol.
 6. **Fix** (Phase 5): Dispatch Agent(Build) per finding for quality-loop fixes.
 
@@ -73,7 +73,7 @@ All handoff between phases happens through files on disk, never through agent me
 
 | State | Reads | Writes | Next |
 |-------|-------|--------|------|
-| loading | spec.md, decision-store.json | -- | decomposing |
+| loading | spec.md, state.db.decisions | -- | decomposing |
 | decomposing | spec.md | autopilot/sub-NNN.md, autopilot/manifest.md | deep-planning |
 | deep-planning | sub-NNN.md shells, codebase | enriched sub-NNN.md, manifest (planned) | orchestrating |
 | orchestrating | all sub-NNN.md plans | manifest (DAG + waves) | implementing |

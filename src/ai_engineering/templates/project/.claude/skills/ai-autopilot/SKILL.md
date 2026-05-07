@@ -41,13 +41,13 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 ### Step 0: Validate
 
 1. Confirm `.ai-engineering/specs/spec.md` is not a placeholder. If it is: STOP. Report: "No approved spec. Run `/ai-brainstorm` first."
-2. If `--resume` flag: read `.ai-engineering/state/runtime/autopilot/manifest.md` and jump to the Resume Protocol (Phase 6 handler).
+2. If `--resume` flag: read `.ai-engineering/runtime/autopilot/manifest.md` and jump to the Resume Protocol (Phase 6 handler).
 3. Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`; resolve paths into `context_paths` and pass paths (not content) to subagent prompts.
 4. Note: plan.md is NOT required. Phase 2 agents generate their own plans (D7).
 
 ### Step 1: DECOMPOSE
 
-Read `handlers/phase-decompose.md` and execute. Extract N independent concerns; abort if N < 3 (recommend `/ai-dispatch`); write sub-spec dirs `.ai-engineering/state/runtime/autopilot/sub-NNN/` with `spec.md` + `plan.md` shells; write execution manifest to `.ai-engineering/state/runtime/autopilot/manifest.md`.
+Read `handlers/phase-decompose.md` and execute. Extract N independent concerns; abort if N < 3 (recommend `/ai-dispatch`); write sub-spec dirs `.ai-engineering/runtime/autopilot/sub-NNN/` with `spec.md` + `plan.md` shells; write execution manifest to `.ai-engineering/runtime/autopilot/manifest.md`.
 
 ### Step 2: DEEP PLAN
 
@@ -74,7 +74,7 @@ Read `handlers/phase-quality.md` and execute:
 
 ### Step 6: DELIVER
 
-Read `handlers/phase-deliver.md` and execute. Build Integrity Report from Self-Reports + quality audit; follow `/ai-pr` SKILL.md in full; cleanup `.ai-engineering/state/runtime/autopilot/`; clear spec.md + plan.md; verify cleanup. Resume Protocol handles mid-pipeline re-entry via `--resume`.
+Read `handlers/phase-deliver.md` and execute. Build Integrity Report from Self-Reports + quality audit; follow `/ai-pr` SKILL.md in full; cleanup `.ai-engineering/runtime/autopilot/`; clear spec.md + plan.md; verify cleanup. Resume Protocol handles mid-pipeline re-entry via `--resume`.
 
 Handler dispatch per phase: see Steps 1-6 above (each cites its `handlers/phase-*.md`). Agent pattern per phase: 1=orchestrator, 2=explore+plan x N parallel, 3=orchestrator, 4=build x N per wave, 5=verify+guard+review parallel (build for fixes), 6=PR pipeline + cleanup.
 
@@ -82,7 +82,7 @@ Handler dispatch per phase: see Steps 1-6 above (each cites its `handlers/phase-
 
 | Flag         | Behavior                                                                                                                              |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `--resume`   | Read `.ai-engineering/state/runtime/autopilot/manifest.md`, determine pipeline state, re-enter at the correct phase/wave. Never re-executes completed phases. |
+| `--resume`   | Read `.ai-engineering/runtime/autopilot/manifest.md`, determine pipeline state, re-enter at the correct phase/wave. Never re-executes completed phases. |
 | `--no-watch` | Create PR without the watch-and-fix loop. Useful for draft delivery or when CI is managed externally.                                 |
 
 Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions into subagent prompts (no inline implementation). When those skills improve, autopilot inherits the improvement.
@@ -93,7 +93,7 @@ DEC-023: User invocation of `/ai-autopilot` is the single approval gate. All int
 
 The consolidation path is mandatory: sub-spec branch/worktree -> wave or integration commits -> final PR -> protected main.
 
-State transitions are recorded on disk in `.ai-engineering/state/runtime/autopilot/manifest.md` -- never in agent memory. Any phase can be audited post-hoc.
+State transitions are recorded on disk in `.ai-engineering/runtime/autopilot/manifest.md` -- never in agent memory. Any phase can be audited post-hoc.
 
 D7: plan.md is not required. Phase 2 agents generate their own detailed plans per sub-spec.
 

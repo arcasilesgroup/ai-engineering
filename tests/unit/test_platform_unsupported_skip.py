@@ -100,7 +100,7 @@ class TestToolLevelSkip:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["python"],
             ides=["terminal"],
@@ -147,7 +147,7 @@ class TestToolLevelSkip:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["python"],
             ides=["terminal"],
@@ -200,7 +200,7 @@ class TestStackLevelSkip:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
             ides=["terminal"],
@@ -258,7 +258,7 @@ class TestStackLevelSkip:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
             ides=["terminal"],
@@ -321,7 +321,7 @@ class TestBothLevelsCoexist:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
             ides=["terminal"],

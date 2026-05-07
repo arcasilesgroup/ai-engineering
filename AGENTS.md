@@ -12,7 +12,7 @@ Every session, the first action is:
 
 1. Read [CONSTITUTION.md](CONSTITUTION.md) (non-negotiable rules).
 2. Read `.ai-engineering/manifest.yml` (configuration source of truth).
-3. Read `.ai-engineering/state/decision-store.json` (active decisions and risk posture).
+3. Query `.ai-engineering/state/state.db` `decisions` table (active decisions and risk posture).
 4. No implementation without an approved spec — invoke `/ai-brainstorm`
    first when a task has no spec.
 
@@ -56,7 +56,7 @@ failure: diagnose, fix, retry. Use `ai-eng doctor --fix` when needed.
 Hook, gate, governance, security, and quality outcomes flow to
 `.ai-engineering/state/framework-events.ndjson` (audit chain). Registered
 skills, agents, contexts, and hooks are catalogued in
-`.ai-engineering/state/framework-capabilities.json`. Session discovery
+`.ai-engineering/state/state.db` `tool_capabilities` table. Session discovery
 and transcript viewing are delegated to the separately installed
 `agentsview` companion tool.
 
@@ -68,6 +68,6 @@ and transcript viewing are delegated to the separately installed
 | Agents (10) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Config | `.ai-engineering/manifest.yml` |
-| Decisions | `.ai-engineering/state/decision-store.json` |
+| Decisions | `.ai-engineering/state/state.db` `decisions` table |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |
 | Constitution | [CONSTITUTION.md](CONSTITUTION.md) |

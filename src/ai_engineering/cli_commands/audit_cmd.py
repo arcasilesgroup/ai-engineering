@@ -646,102 +646,6 @@ def audit_retention_apply(
     )
 
 
-def audit_rotate(
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Emit JSON envelope."),
-    ] = False,
-) -> None:
-    """Roll the current month's NDJSON into the audit-archive (D-122-19).
-
-    Closes ``framework-events.ndjson`` for the calendar month, writes
-    the archive copy + manifest under ``state/audit-archive/<year>/``,
-    and seeds the new month with an ``audit_rotation_anchor`` event so
-    the hash chain spans rotations.
-    """
-    from ai_engineering.state.rotation import rotate_now
-
-    project_root = _resolve_project_root()
-    result = rotate_now(project_root)
-
-    if json_output:
-        typer.echo(json.dumps(result))
-        return
-    typer.echo(f"audit rotate: {result.get('status', 'unknown')}")
-
-
-def audit_compress(
-    year_month: Annotated[
-        str,
-        typer.Argument(help="YYYY-MM month to compress (must be already rotated)."),
-    ],
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Emit JSON envelope."),
-    ] = False,
-) -> None:
-    """Compress a closed-month plaintext NDJSON to seekable zstd.
-
-    Writes the ``.ndjson.zst`` artifact under
-    ``state/archive/ndjson/<year-month>/`` per spec-123 D-123-25 and
-    removes the plaintext after a successful compress.
-    """
-    from ai_engineering.state.rotation import compress_closed_month
-
-    project_root = _resolve_project_root()
-    result = compress_closed_month(project_root, year_month)
-
-    if json_output:
-        typer.echo(json.dumps(result))
-        return
-    typer.echo(f"audit compress {year_month}: {result.get('status', 'unknown')}")
-
-
-def audit_verify_chain(
-    year_month: Annotated[
-        str | None,
-        typer.Option(
-            "--year-month",
-            help="Verify a specific archived month. Omit for live NDJSON.",
-        ),
-    ] = None,
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Emit JSON envelope."),
-    ] = False,
-) -> None:
-    """Verify the hash chain of the live NDJSON or a compressed archive.
-
-    Without ``--year-month`` this delegates to the legacy ``audit verify``
-    on ``framework-events.ndjson`` + ``decision-store.json``. With a
-    ``YYYY-MM`` argument the verifier walks the archived month under
-    ``state/archive/ndjson/<year-month>/<year-month>.ndjson.zst``.
-    """
-    from ai_engineering.state.rotation import verify_archive_chain
-
-    if year_month is None:
-        # Delegate to the legacy verify command's machine-readable surface.
-        payload = _audit_verify_machine_readable("all")
-        if json_output:
-            typer.echo(json.dumps(payload))
-            return
-        typer.echo("audit verify-chain: live NDJSON")
-        for verdict in payload["verdicts"]:
-            typer.echo(
-                f"  {verdict['file']}: ok={verdict['ok']} entries={verdict['entries_checked']}"
-            )
-        return
-
-    project_root = _resolve_project_root()
-    result = verify_archive_chain(project_root, year_month)
-    if json_output:
-        typer.echo(json.dumps(result))
-        return
-    typer.echo(
-        f"audit verify-chain {year_month}: ok={result['ok']} entries={result['entries_checked']}"
-    )
-
-
 def audit_health(
     json_output: Annotated[
         bool,
@@ -851,16 +755,13 @@ def audit_vacuum(
 
 __all__ = [
     "audit_app_marker",
-    "audit_compress",
     "audit_health",
     "audit_index",
     "audit_otel_export",
     "audit_query",
     "audit_replay",
     "audit_retention_apply",
-    "audit_rotate",
     "audit_tokens",
     "audit_vacuum",
     "audit_verify",
-    "audit_verify_chain",
 ]

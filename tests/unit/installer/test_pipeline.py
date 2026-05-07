@@ -77,7 +77,7 @@ def _ctx(tmp_path):
     return InstallContext(
         target=tmp_path,
         mode=InstallMode.INSTALL,
-        providers=["claude_code"],
+        providers=["claude-code"],
         vcs_provider="github",
         stacks=["python"],
         ides=["terminal"],

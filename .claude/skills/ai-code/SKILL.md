@@ -30,7 +30,7 @@ Before writing any code:
 1. **Restate the task** in one sentence -- confirm understanding
 2. **Identify target files** -- existing files to modify or new files to create
 3. **Search for existing patterns** -- grep for similar implementations in the codebase to match conventions
-4. **Check decision-store.json** -- read `.ai-engineering/state/decision-store.json` for relevant architectural decisions
+4. **Check state.db.decisions** -- read `.ai-engineering/state/state.db.decisions` for relevant architectural decisions
 
 ### Step 2: File Placement Protocol
 

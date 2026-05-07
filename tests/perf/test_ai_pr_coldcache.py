@@ -15,10 +15,11 @@ Methodology
    roughly 5 staged python files. This mirrors the typical commit-size
    payload feeding ``/ai-pr`` step 7 (pre-push gate orchestrator).
 2. For each of ``_RUN_COUNT`` iterations: ``rm -rf
-   .ai-engineering/state/gate-cache/`` so every iteration is a true cold
-   start (D-104-03 storage contract -- the cache lives per-cwd in that
-   directory and clearing it forces ``gate_cache.lookup`` to miss for
-   every Wave 2 check).
+   .ai-engineering/cache/gate/`` so every iteration is a true cold
+   start (D-104-03 storage contract relocated under ``cache/gate/`` by
+   spec-125 Wave 2 T-2.13 -- the cache lives per-cwd in that directory
+   and clearing it forces ``gate_cache.lookup`` to miss for every
+   Wave 2 check).
 3. Invoke ``uv run ai-eng gate run --cache-aware --json --mode=local`` via
    ``subprocess.run`` in the fixture cwd; measure wall-clock with
    ``time.perf_counter()`` bracketing the call.
@@ -105,13 +106,15 @@ def _opt_in_enabled() -> bool:
 
 
 def _clear_gate_cache(project_root: Path) -> None:
-    """Remove the ``.ai-engineering/state/gate-cache/`` directory.
+    """Remove the ``.ai-engineering/cache/gate/`` directory.
 
-    D-104-03 storage contract: gate cache is per-cwd at this exact path.
-    Removing the directory forces every Wave 2 check to miss on the next
-    ``ai-eng gate run`` invocation -- the definition of a cold start.
+    D-104-03 storage contract (relocated under ``cache/gate/`` by spec-125
+    Wave 2 T-2.13; per ``hook_context.CACHE_DIR`` SSOT): gate cache is
+    per-cwd at this exact path. Removing the directory forces every Wave 2
+    check to miss on the next ``ai-eng gate run`` invocation -- the
+    definition of a cold start.
     """
-    cache_dir = project_root / ".ai-engineering" / "state" / "gate-cache"
+    cache_dir = project_root / ".ai-engineering" / "cache" / "gate"
     if cache_dir.exists():
         shutil.rmtree(cache_dir)
 
@@ -290,7 +293,7 @@ def test_ai_pr_coldcache_wall_clock_budget(coldcache_project: Path) -> None:
     Methodology
     -----------
     Run ``_RUN_COUNT`` iterations. Before each iteration, ``rm -rf
-    .ai-engineering/state/gate-cache/`` so the cache lookup misses for
+    .ai-engineering/cache/gate/`` so the cache lookup misses for
     every Wave 2 check. Capture wall-clock per iteration with
     ``time.perf_counter()``. Take the median to tolerate single-run
     runner-load jitter; assert ``median <= _BUDGET_SECONDS``.

@@ -18,7 +18,7 @@ from ai_engineering.doctor.phases import ide_config
 
 @pytest.fixture()
 def claude_project(tmp_path: Path) -> Path:
-    """Create a project with claude_code provider templates deployed."""
+    """Create a project with claude-code provider templates deployed."""
     # CLAUDE.md (provider file)
     (tmp_path / "CLAUDE.md").write_text("# Claude\n", encoding="utf-8")
     # .claude/ directory (provider tree)
@@ -36,7 +36,7 @@ def claude_project(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def claude_manifest() -> ManifestConfig:
-    """ManifestConfig with claude_code as the only AI provider."""
+    """ManifestConfig with claude-code as the only AI provider."""
     return ManifestConfig(
         providers=ProvidersConfig(vcs="github", ides=["claude-code"]),
         ai_providers=AiProvidersConfig(enabled=["claude-code"], primary="claude-code"),

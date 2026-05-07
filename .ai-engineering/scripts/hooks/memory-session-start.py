@@ -22,11 +22,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import passthrough_stdin
 from _lib.hook_common import emit_event, run_hook_safe
-from _lib.hook_context import get_hook_context
+from _lib.hook_context import RUNTIME_DIR, get_hook_context
 
 _SUBPROCESS_TIMEOUT_SEC = 4
 _TOP_K = 5
 _COMPONENT = "hook.memory-session-start"
+_CHECKPOINT_NAME = "checkpoint.json"
 
 
 def _resolve_memory_dir() -> Path:
@@ -34,7 +35,10 @@ def _resolve_memory_dir() -> Path:
 
 
 def _read_checkpoint(project_root: Path) -> dict:
-    path = project_root / ".ai-engineering" / "state" / "runtime" / "checkpoint.json"
+    # spec-125 Wave 2: checkpoint lives at ``.ai-engineering/runtime/checkpoint.json``
+    # (canonical), resolved via ``RUNTIME_DIR`` so a future move only touches
+    # ``_lib/hook_context.py``.
+    path = RUNTIME_DIR(project_root) / _CHECKPOINT_NAME
     if not path.exists():
         return {}
     try:

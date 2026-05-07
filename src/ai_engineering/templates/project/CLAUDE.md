@@ -88,13 +88,13 @@ the 2026 industry survey (Fowler, Osmani, OpenAI Codex, Anthropic):
   effect on prompts that already start with `/ai-*`.
 - **`runtime-guard.py`** (PostToolUse) — combines tool-call offload and
   loop detection. Outputs above `AIENG_TOOL_OFFLOAD_BYTES` (default 4
-  KB) move to `.ai-engineering/state/runtime/tool-outputs/<id>.txt`
+  KB) move to `.ai-engineering/runtime/tool-outputs/<id>.txt`
   with head + tail kept inline. A sliding window
   (`AIENG_LOOP_WINDOW`, default 6) flags repeated signatures or
   failures (`AIENG_LOOP_REPEAT_THRESHOLD`, default 3) and emits a
   `framework_error` of kind `loop_detected`.
 - **`runtime-stop.py`** (Stop) — writes
-  `.ai-engineering/state/runtime/checkpoint.json` (active work-plane,
+  `.ai-engineering/runtime/checkpoint.json` (active work-plane,
   recent edits, last tool calls) and, when the recent history shows
   failure markers, stamps `runtime/ralph-resume.json` so `/ai-start`
   can resume mid-task. The Ralph retry counter is bounded by
@@ -126,7 +126,7 @@ the 2026 industry survey (Fowler, Osmani, OpenAI Codex, Anthropic):
   `prompt-injection-guard.py` (exit 2 + framework_error). Warn surfaced
   by `runtime-guard.py` as a hint in `additionalContext`. Disable via
   `AIENG_RISK_ACCUMULATOR_DISABLED=1`. State at
-  `.ai-engineering/state/runtime/risk-score.json` (gitignored,
+  `.ai-engineering/runtime/risk-score.json` (gitignored,
   session-scoped, atomic writes, corruption-tolerant).
 
 Tunables (all optional, env-driven):
@@ -145,7 +145,7 @@ AIENG_RISK_ACCUMULATOR_DISABLED  # default 0
 AIENG_HOOK_INTEGRITY_MODE        # default warn (set to enforce in CI)
 ```
 
-State lives under `.ai-engineering/state/runtime/`. Checkpoint and
+State lives under `.ai-engineering/runtime/`. Checkpoint and
 tool-history files are intentionally local (gitignored) — they capture
 session state, not source of truth.
 

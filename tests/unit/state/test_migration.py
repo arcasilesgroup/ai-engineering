@@ -26,7 +26,7 @@ _LEGACY_MANIFEST = {
     "installedAt": "2026-03-25T10:00:00Z",
     "installedStacks": ["python"],
     "installedIdes": ["terminal"],
-    "aiProviders": {"primary": "claude_code", "enabled": ["claude_code"]},
+    "aiProviders": {"primary": "claude-code", "enabled": ["claude-code"]},
     "providers": {
         "primary": "github",
         "enabled": ["github"],

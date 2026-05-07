@@ -14,6 +14,7 @@ Sealed contract: stdlib-only. Same constraint as the rest of ``_lib``.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
@@ -23,16 +24,49 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from _lib.hook_context import RUNTIME_DIR
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
+#
+# Spec-125 Wave 2b corrective: every active path resolution flows through
+# the ``RUNTIME_DIR(project_root)`` factory in ``_lib/hook_context.py``
+# (canonical ``.ai-engineering/runtime/...``). The ``*_REL`` constants
+# below are retained as backwards-compatible re-exports in ``__all__`` so
+# any out-of-tree consumer that imports them keeps loading, but they are
+# *not* used by the helper functions. Updating a path now means editing
+# ``hook_context.RUNTIME_DIR`` plus the per-file leaf names below.
+#
+# Choice: factory-functions-take-project-root. Selected because every
+# existing call site already passes ``project_root`` to the helpers
+# (``runtime_dir(project_root)``, ``tool_outputs_dir(project_root)``,
+# ...). Module-level constants would have required threading
+# ``project_root`` through additional code paths.
 
+# Filename leaves -- single source of truth for the basenames.
+_TOOL_OUTPUTS_NAME = "tool-outputs"
+_TOOL_HISTORY_NAME = "tool-history.ndjson"
+_CHECKPOINT_NAME = "checkpoint.json"
+_RALPH_RESUME_NAME = "ralph-resume.json"
+_PRECOMPACT_SNAPSHOT_NAME = "precompact-snapshot.json"
+_EVENT_SIDECARS_NAME = "event-sidecars"
+
+# Legacy ``*_REL`` constants retained for backwards-compatible re-export
+# only -- do NOT use these for new code. They reference the pre-Wave-2b
+# ``state/runtime`` location and are kept solely so any external import
+# path keeps resolving. Active path resolution flows through the
+# helper functions below (which use ``RUNTIME_DIR``).
 RUNTIME_DIR_REL = Path(".ai-engineering") / "state" / "runtime"
-TOOL_OUTPUTS_DIR_REL = RUNTIME_DIR_REL / "tool-outputs"
-TOOL_HISTORY_REL = RUNTIME_DIR_REL / "tool-history.ndjson"
-CHECKPOINT_REL = RUNTIME_DIR_REL / "checkpoint.json"
-RALPH_RESUME_REL = RUNTIME_DIR_REL / "ralph-resume.json"
-PRECOMPACT_SNAPSHOT_REL = RUNTIME_DIR_REL / "precompact-snapshot.json"
+TOOL_OUTPUTS_DIR_REL = RUNTIME_DIR_REL / _TOOL_OUTPUTS_NAME
+TOOL_HISTORY_REL = RUNTIME_DIR_REL / _TOOL_HISTORY_NAME
+CHECKPOINT_REL = RUNTIME_DIR_REL / _CHECKPOINT_NAME
+RALPH_RESUME_REL = RUNTIME_DIR_REL / _RALPH_RESUME_NAME
+PRECOMPACT_SNAPSHOT_REL = RUNTIME_DIR_REL / _PRECOMPACT_SNAPSHOT_NAME
+# spec-123 D-123-23: oversized framework events offload to a content-addressed
+# sidecar dir under runtime/ so the inline NDJSON line stays under the
+# POSIX_BUF (4 KB) atomic-append guarantee.
+EVENT_SIDECARS_DIR_REL = RUNTIME_DIR_REL / _EVENT_SIDECARS_NAME
 
 # ---------------------------------------------------------------------------
 # Tunables (override via env if site needs different thresholds)
@@ -78,8 +112,15 @@ LOOP_REPEAT_THRESHOLD = _env_int("AIENG_LOOP_REPEAT_THRESHOLD", 3, ceiling=200)
 
 # Tool history retention (max records kept on disk).
 TOOL_HISTORY_MAX = _env_int("AIENG_TOOL_HISTORY_MAX", 500, ceiling=10_000)
+
+# spec-123 D-123-23: oversized event-sidecar offload threshold (bytes).
+# Events whose serialised JSON exceeds this ceiling are written to a
+# content-addressed sidecar file under runtime/event-sidecars/ and the
+# inline event carries only the sha256 + summary. Default 3 KB sits
+# below the 4 KB POSIX PIPE_BUF guarantee for atomic appends.
+EVENT_SIDECAR_BYTES = _env_int("AIENG_EVENT_SIDECAR_BYTES", 3072, ceiling=64 * 1024)
 # Trim threshold: amortise rewrites by only trimming when file grows beyond
-# steady-state (~180 B/line × TOOL_HISTORY_MAX × 1.5 buffer).
+# steady-state (~180 B/line x TOOL_HISTORY_MAX x 1.5 buffer).
 _TOOL_HISTORY_TRIM_BYTES = max(256 * 1024, TOOL_HISTORY_MAX * 280)
 # NDJSON tail-byte read window: covers ~LOOP_WINDOW * 4 records of typical 180 B size.
 _NDJSON_TAIL_BYTES = 32 * 1024
@@ -91,27 +132,31 @@ _NDJSON_TAIL_BYTES = 32 * 1024
 
 
 def runtime_dir(project_root: Path) -> Path:
-    return project_root / RUNTIME_DIR_REL
+    return RUNTIME_DIR(project_root)
 
 
 def tool_outputs_dir(project_root: Path) -> Path:
-    return project_root / TOOL_OUTPUTS_DIR_REL
+    return RUNTIME_DIR(project_root) / _TOOL_OUTPUTS_NAME
 
 
 def tool_history_path(project_root: Path) -> Path:
-    return project_root / TOOL_HISTORY_REL
+    return RUNTIME_DIR(project_root) / _TOOL_HISTORY_NAME
 
 
 def checkpoint_path(project_root: Path) -> Path:
-    return project_root / CHECKPOINT_REL
+    return RUNTIME_DIR(project_root) / _CHECKPOINT_NAME
 
 
 def ralph_resume_path(project_root: Path) -> Path:
-    return project_root / RALPH_RESUME_REL
+    return RUNTIME_DIR(project_root) / _RALPH_RESUME_NAME
 
 
 def precompact_snapshot_path(project_root: Path) -> Path:
-    return project_root / PRECOMPACT_SNAPSHOT_REL
+    return RUNTIME_DIR(project_root) / _PRECOMPACT_SNAPSHOT_NAME
+
+
+def event_sidecars_dir(project_root: Path) -> Path:
+    return RUNTIME_DIR(project_root) / _EVENT_SIDECARS_NAME
 
 
 def ensure_runtime_dirs(project_root: Path) -> None:
@@ -468,6 +513,106 @@ def offload_large_text(
 
 
 # ---------------------------------------------------------------------------
+# Event sidecar offload (spec-123 D-123-23)
+# ---------------------------------------------------------------------------
+
+
+def _serialise_event(event: dict) -> bytes:
+    """Canonical JSON encoding of an event (sorted keys, compact separators).
+
+    Matches :func:`ai_engineering.state.sidecar._serialize` so the bytes
+    counted here are the same bytes that would land in the NDJSON line.
+    """
+    return json.dumps(event, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode(
+        "utf-8"
+    )
+
+
+def _event_summary(event: dict, max_chars: int = 160) -> str:
+    """Build a stable one-line summary for an oversized event."""
+    kind = event.get("kind") or "unknown"
+    component = event.get("component") or ""
+    detail = event.get("detail")
+    detail_summary: str
+    if isinstance(detail, dict):
+        fragments: list[str] = []
+        for key in ("operation", "tool", "skill", "agent", "error_code"):
+            value = detail.get(key)
+            if isinstance(value, str) and value:
+                fragments.append(f"{key}={value}")
+        detail_summary = " ".join(fragments) if fragments else f"keys={','.join(sorted(detail))}"
+    elif isinstance(detail, list):
+        detail_summary = f"list[{len(detail)}]"
+    else:
+        detail_summary = ""
+    base = f"[{kind}@{component}] {detail_summary}".strip()
+    return base[:max_chars]
+
+
+def maybe_offload_event(
+    project_root: Path,
+    event: dict,
+    *,
+    ceiling: int | None = None,
+) -> dict:
+    """Offload oversized events to a content-addressed sidecar.
+
+    Returns the original event unchanged when its serialised form is at or
+    below ``ceiling`` bytes. Otherwise writes the full event to
+    ``runtime/event-sidecars/<sha256>.json`` and returns a small inline
+    replacement carrying the sha256 + summary + correlation pointers so
+    audit-chain reasoning still works on the projection.
+
+    Mirrors :func:`ai_engineering.state.sidecar.maybe_offload` but lives in
+    ``_lib`` so the hook layer (which intentionally avoids importing
+    ``ai_engineering`` to stay stdlib-only and fast) can call it directly.
+    """
+    threshold = ceiling if ceiling is not None else EVENT_SIDECAR_BYTES
+    payload = _serialise_event(event)
+    if len(payload) <= threshold:
+        return event
+
+    digest = hashlib.sha256(payload).hexdigest()
+    sidecar_dir = event_sidecars_dir(project_root)
+    sidecar_dir.mkdir(parents=True, exist_ok=True)
+    sidecar_path = sidecar_dir / f"{digest}.json"
+    if not sidecar_path.exists():
+        # Atomic write via tmp + rename to avoid partial-write windows.
+        tmp_path = sidecar_path.with_suffix(".json.tmp")
+        try:
+            tmp_path.write_bytes(payload)
+            os.replace(tmp_path, sidecar_path)
+        except OSError:
+            # Fail-open: surface the original event rather than dropping it.
+            with contextlib.suppress(OSError):
+                tmp_path.unlink()
+            return event
+
+    inline: dict[str, Any] = {
+        "kind": event.get("kind") or "unknown",
+        "engine": event.get("engine") or "unknown",
+        "component": event.get("component") or "unknown",
+        "outcome": event.get("outcome") or "success",
+        "timestamp": event.get("timestamp") or "",
+        "sidecar_sha256": digest,
+        "sidecar_size_bytes": len(payload),
+        "summary": _event_summary(event),
+    }
+    for key in (
+        "correlationId",
+        "correlation_id",
+        "session_id",
+        "trace_id",
+        "span_id",
+        "parent_span_id",
+        "prev_event_hash",
+    ):
+        if key in event and event[key] is not None:
+            inline[key] = event[key]
+    return inline
+
+
+# ---------------------------------------------------------------------------
 # Misc helpers consumed by hooks
 # ---------------------------------------------------------------------------
 
@@ -502,6 +647,8 @@ def extract_error_summary(data: dict) -> str | None:
 
 __all__ = [
     "CHECKPOINT_REL",
+    "EVENT_SIDECARS_DIR_REL",
+    "EVENT_SIDECAR_BYTES",
     "LOOP_REPEAT_THRESHOLD",
     "LOOP_WINDOW",
     "PRECOMPACT_SNAPSHOT_REL",
@@ -523,8 +670,10 @@ __all__ = [
     "derive_outcome",
     "detect_repetition",
     "ensure_runtime_dirs",
+    "event_sidecars_dir",
     "extract_error_summary",
     "iso_now",
+    "maybe_offload_event",
     "offload_large_text",
     "precompact_snapshot_path",
     "ralph_resume_path",

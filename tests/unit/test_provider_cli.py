@@ -52,7 +52,7 @@ class _FakeManifest:
     def __init__(
         self,
         *providers: str,
-        primary: str = "claude_code",
+        primary: str = "claude-code",
         enabled: list[str] | None = None,
         ides: list[str] | None = None,
     ) -> None:
@@ -73,7 +73,7 @@ class _FakeManifest:
 
 def _manifest(
     *providers: str,
-    primary: str = "claude_code",
+    primary: str = "claude-code",
     enabled: list[str] | None = None,
     ides: list[str] | None = None,
 ) -> _FakeManifest:
@@ -113,7 +113,7 @@ class TestProviderAddCli:
         # Arrange
         ops = mocked_provider_ops
         ops["add"].return_value = _manifest(
-            "claude_code",
+            "claude-code",
             "github_copilot",
             ides=["vscode", "terminal"],
         )
@@ -140,7 +140,7 @@ class TestProviderAddCli:
         # Act
         result = runner.invoke(
             app,
-            ["provider", "add", "claude_code", "--target", str(ops["tmp_path"])],
+            ["provider", "add", "claude-code", "--target", str(ops["tmp_path"])],
         )
 
         # Assert
@@ -150,7 +150,7 @@ class TestProviderAddCli:
         # Arrange
         ops = mocked_provider_ops
         ops["json_mode"].return_value = True
-        ops["add"].return_value = _manifest("claude_code", "gemini")
+        ops["add"].return_value = _manifest("claude-code", "gemini")
         app = create_app()
 
         # Act
@@ -189,7 +189,7 @@ class TestProviderRemoveCli:
     def test_remove_success(self, mocked_provider_ops):
         # Arrange
         ops = mocked_provider_ops
-        ops["remove"].return_value = _manifest("claude_code", ides=["vscode"])
+        ops["remove"].return_value = _manifest("claude-code", ides=["vscode"])
         app = create_app()
 
         # Act
@@ -201,7 +201,7 @@ class TestProviderRemoveCli:
         # Assert
         assert result.exit_code == 0
         ops["remove"].assert_called_once_with(ops["tmp_path"], "github_copilot")
-        assert "claude_code" in result.output
+        assert "claude-code" in result.output
         assert "vscode" not in result.output
 
     def test_remove_last_error(self, mocked_provider_ops):
@@ -213,7 +213,7 @@ class TestProviderRemoveCli:
         # Act
         result = runner.invoke(
             app,
-            ["provider", "remove", "claude_code", "--target", str(ops["tmp_path"])],
+            ["provider", "remove", "claude-code", "--target", str(ops["tmp_path"])],
         )
 
         # Assert
@@ -223,7 +223,7 @@ class TestProviderRemoveCli:
         # Arrange
         ops = mocked_provider_ops
         ops["json_mode"].return_value = True
-        ops["remove"].return_value = _manifest("claude_code")
+        ops["remove"].return_value = _manifest("claude-code")
         app = create_app()
 
         # Act
@@ -305,7 +305,7 @@ class TestProviderListCli:
         # Arrange
         ops = mocked_provider_ops
         ops["json_mode"].return_value = True
-        ops["list"].return_value = _manifest("claude_code", ides=["vscode"])
+        ops["list"].return_value = _manifest("claude-code", ides=["vscode"])
         app = create_app()
 
         # Act
@@ -315,7 +315,7 @@ class TestProviderListCli:
 
         # Assert
         assert result.exit_code == 0
-        assert "claude_code" in result.output
+        assert "claude-code" in result.output
         assert "vscode" not in result.output
 
     def test_list_error_json_mode(self, mocked_provider_ops):

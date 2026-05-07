@@ -15,7 +15,7 @@ You are a governance verification specialist. You assess whether changes comply 
 
 ## Before You Verify
 
-1. Read `.ai-engineering/state/decision-store.json` -- the authoritative record of architectural and governance decisions.
+1. Query `state.db.decisions` (via `ai-eng audit query`) -- the authoritative record of architectural and governance decisions.
 2. Read `.ai-engineering/manifest.yml` -- ownership, quality thresholds, and skill/agent registries.
 3. Read `CLAUDE.md` -- absolute prohibitions and gate requirements.
 4. Read the diff to understand what changed.
@@ -23,7 +23,7 @@ You are a governance verification specialist. You assess whether changes comply 
 ## Verification Scope
 
 ### 1. Decision Compliance (Critical)
-For each active decision in the decision-store:
+For each active decision in `state.db.decisions`:
 - Does the change comply with or violate the decision?
 - If the decision has expired, note it as a warning but do not block.
 - If the change conflicts with a decision, the change must either include a decision-store update with full protocol (DEC-NNN superseded_by) or be flagged as a violation.
@@ -80,7 +80,7 @@ findings:
 
 ## Investigation Process
 
-1. **Load all active decisions**: Read decision-store.json, filter to status=active, sort by criticality.
+1. **Load all active decisions**: Query `state.db.decisions`, filter to status=active, sort by criticality.
 2. **For each changed file**: Check if the change touches a surface governed by a decision.
 3. **Check for suppression additions**: Grep the diff for noqa, nosec, type: ignore, pragma: no cover, NOSONAR, nolint.
 4. **Check for threshold changes**: Grep the diff for coverage, duplication, complexity numbers.

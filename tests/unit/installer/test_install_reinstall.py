@@ -61,7 +61,7 @@ def _setup_existing_install(tmp_path: Path) -> Path:
         "  stacks: [python]\n"
         "  ides: [terminal]\n"
         "  vcs: github\n"
-        "  ai_providers: [claude_code]\n"
+        "  ai_providers: [claude-code]\n"
     )
     manifest.write_text(manifest_content, encoding="utf-8")
     return tmp_path
@@ -231,7 +231,7 @@ class TestReconfigureFlagLaunchesWizard:
 
         mock_wizard_result = MagicMock(
             stacks=["python"],
-            providers=["claude_code"],
+            providers=["claude-code"],
             ides=["terminal"],
             vcs="github",
         )
@@ -261,7 +261,7 @@ class TestReconfigureFlagLaunchesWizard:
 
         mock_wizard_result = MagicMock(
             stacks=["python", "typescript"],
-            providers=["claude_code", "github_copilot"],
+            providers=["claude-code", "github_copilot"],
             ides=["terminal", "vscode"],
             vcs="github",
         )

@@ -24,20 +24,49 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from _lib.hook_context import RUNTIME_DIR
+
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
+#
+# Spec-125 Wave 2b corrective: every active path resolution flows through
+# the ``RUNTIME_DIR(project_root)`` factory in ``_lib/hook_context.py``
+# (canonical ``.ai-engineering/runtime/...``). The ``*_REL`` constants
+# below are retained as backwards-compatible re-exports in ``__all__`` so
+# any out-of-tree consumer that imports them keeps loading, but they are
+# *not* used by the helper functions. Updating a path now means editing
+# ``hook_context.RUNTIME_DIR`` plus the per-file leaf names below.
+#
+# Choice: factory-functions-take-project-root. Selected because every
+# existing call site already passes ``project_root`` to the helpers
+# (``runtime_dir(project_root)``, ``tool_outputs_dir(project_root)``,
+# ...). Module-level constants would have required threading
+# ``project_root`` through additional code paths.
 
+# Filename leaves -- single source of truth for the basenames.
+_TOOL_OUTPUTS_NAME = "tool-outputs"
+_TOOL_HISTORY_NAME = "tool-history.ndjson"
+_CHECKPOINT_NAME = "checkpoint.json"
+_RALPH_RESUME_NAME = "ralph-resume.json"
+_PRECOMPACT_SNAPSHOT_NAME = "precompact-snapshot.json"
+_EVENT_SIDECARS_NAME = "event-sidecars"
+
+# Legacy ``*_REL`` constants retained for backwards-compatible re-export
+# only -- do NOT use these for new code. They reference the pre-Wave-2b
+# ``state/runtime`` location and are kept solely so any external import
+# path keeps resolving. Active path resolution flows through the
+# helper functions below (which use ``RUNTIME_DIR``).
 RUNTIME_DIR_REL = Path(".ai-engineering") / "state" / "runtime"
-TOOL_OUTPUTS_DIR_REL = RUNTIME_DIR_REL / "tool-outputs"
-TOOL_HISTORY_REL = RUNTIME_DIR_REL / "tool-history.ndjson"
-CHECKPOINT_REL = RUNTIME_DIR_REL / "checkpoint.json"
-RALPH_RESUME_REL = RUNTIME_DIR_REL / "ralph-resume.json"
-PRECOMPACT_SNAPSHOT_REL = RUNTIME_DIR_REL / "precompact-snapshot.json"
+TOOL_OUTPUTS_DIR_REL = RUNTIME_DIR_REL / _TOOL_OUTPUTS_NAME
+TOOL_HISTORY_REL = RUNTIME_DIR_REL / _TOOL_HISTORY_NAME
+CHECKPOINT_REL = RUNTIME_DIR_REL / _CHECKPOINT_NAME
+RALPH_RESUME_REL = RUNTIME_DIR_REL / _RALPH_RESUME_NAME
+PRECOMPACT_SNAPSHOT_REL = RUNTIME_DIR_REL / _PRECOMPACT_SNAPSHOT_NAME
 # spec-123 D-123-23: oversized framework events offload to a content-addressed
 # sidecar dir under runtime/ so the inline NDJSON line stays under the
 # POSIX_BUF (4 KB) atomic-append guarantee.
-EVENT_SIDECARS_DIR_REL = RUNTIME_DIR_REL / "event-sidecars"
+EVENT_SIDECARS_DIR_REL = RUNTIME_DIR_REL / _EVENT_SIDECARS_NAME
 
 # ---------------------------------------------------------------------------
 # Tunables (override via env if site needs different thresholds)
@@ -103,31 +132,31 @@ _NDJSON_TAIL_BYTES = 32 * 1024
 
 
 def runtime_dir(project_root: Path) -> Path:
-    return project_root / RUNTIME_DIR_REL
+    return RUNTIME_DIR(project_root)
 
 
 def tool_outputs_dir(project_root: Path) -> Path:
-    return project_root / TOOL_OUTPUTS_DIR_REL
+    return RUNTIME_DIR(project_root) / _TOOL_OUTPUTS_NAME
 
 
 def tool_history_path(project_root: Path) -> Path:
-    return project_root / TOOL_HISTORY_REL
+    return RUNTIME_DIR(project_root) / _TOOL_HISTORY_NAME
 
 
 def checkpoint_path(project_root: Path) -> Path:
-    return project_root / CHECKPOINT_REL
+    return RUNTIME_DIR(project_root) / _CHECKPOINT_NAME
 
 
 def ralph_resume_path(project_root: Path) -> Path:
-    return project_root / RALPH_RESUME_REL
+    return RUNTIME_DIR(project_root) / _RALPH_RESUME_NAME
 
 
 def precompact_snapshot_path(project_root: Path) -> Path:
-    return project_root / PRECOMPACT_SNAPSHOT_REL
+    return RUNTIME_DIR(project_root) / _PRECOMPACT_SNAPSHOT_NAME
 
 
 def event_sidecars_dir(project_root: Path) -> Path:
-    return project_root / EVENT_SIDECARS_DIR_REL
+    return RUNTIME_DIR(project_root) / _EVENT_SIDECARS_NAME
 
 
 def ensure_runtime_dirs(project_root: Path) -> None:

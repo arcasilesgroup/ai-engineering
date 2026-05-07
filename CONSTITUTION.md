@@ -206,7 +206,7 @@ sequence; depth scales with spec size, but process steps are invariant.
    work-plane artifacts. Numbered archive specs are recoverable via
    `git log -- .ai-engineering/specs/spec-NNN-*.md`. Decisions are
    authoritative in `state.db.decisions`. Autopilot transient state
-   lives at `.ai-engineering/state/runtime/autopilot/` (gitignored) —
+   lives at `.ai-engineering/runtime/autopilot/` (gitignored) —
    never under `specs/`.
 4. **Hard rule for skills** — any skill that reads or writes `specs/`
    MUST consume only the canonical 3 files. Reading numbered archives

@@ -36,8 +36,8 @@ def _manifest_config() -> ManifestConfig:
         ),
         agents=AgentsConfig(total=3, names=["plan", "build", "explore"]),
         ai_providers=AiProvidersConfig(
-            enabled=["claude_code", "github-copilot", "gemini", "codex"],
-            primary="claude_code",
+            enabled=["claude-code", "github-copilot", "gemini", "codex"],
+            primary="claude-code",
         ),
     )
 
@@ -63,7 +63,7 @@ def test_build_capability_cards_models_provider_scoped_skills() -> None:
     permissions_card = next(card for card in cards if card.name == "ai-analyze-permissions")
     statuses = {entry.provider: entry.status for entry in permissions_card.provider_compatibility}
 
-    assert statuses["claude_code"] == ProviderCompatibilityStatus.COMPATIBLE
+    assert statuses["claude-code"] == ProviderCompatibilityStatus.COMPATIBLE
     assert statuses["github-copilot"] == ProviderCompatibilityStatus.UNSUPPORTED
 
 

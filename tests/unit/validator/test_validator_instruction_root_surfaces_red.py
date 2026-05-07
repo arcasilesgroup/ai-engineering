@@ -53,8 +53,8 @@ def _write_file(path: Path, content: str) -> None:
 @pytest.mark.parametrize(
     ("providers", "missing_surface"),
     [
-        (["claude_code", "github_copilot"], ".github/copilot-instructions.md"),
-        (["claude_code", "gemini"], "GEMINI.md"),
+        (["claude-code", "github_copilot"], ".github/copilot-instructions.md"),
+        (["claude-code", "gemini"], "GEMINI.md"),
     ],
 )
 def test_instruction_parity_flags_missing_enabled_provider_root_surface(
@@ -107,6 +107,6 @@ def test_instruction_parity_validates_codex_root_entrypoint_without_claude(
         for check in report.checks
     ), (
         "_check_instruction_parity should validate Codex's AGENTS.md root "
-        "entry point even when claude_code is disabled, but got "
+        "entry point even when claude-code is disabled, but got "
         f"{observed_checks}"
     )

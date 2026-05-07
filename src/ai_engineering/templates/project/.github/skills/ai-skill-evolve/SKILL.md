@@ -65,7 +65,7 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ### Phase 1 — Load Pain Context
 
-Before touching any skill, read these ground-truth sources: `.ai-engineering/state/decision-store.json` (decisions/risks), `.ai-engineering/LESSONS.md` (corrections), `.ai-engineering/instincts/instincts.yml` (tool sequences/recoveries), `.ai-engineering/instincts/proposals.md` (improvement proposals), `.ai-engineering/instincts/meta.json` (freshness/thresholds), `.ai-engineering/manifest.yml` (registry/gates/ownership), `CLAUDE.md` (workflow rules).
+Before touching any skill, read these ground-truth sources: `.ai-engineering/state/state.db.decisions` (decisions/risks), `.ai-engineering/LESSONS.md` (corrections), `.ai-engineering/instincts/instincts.yml` (tool sequences/recoveries), `.ai-engineering/instincts/proposals.md` (improvement proposals), `.ai-engineering/instincts/meta.json` (freshness/thresholds), `.ai-engineering/manifest.yml` (registry/gates/ownership), `CLAUDE.md` (workflow rules).
 
 **Extract a pain profile**: for each source, note patterns that relate to skills:
 - Lessons that say "skill X keeps doing Y" or "always do Z before invoking skill X"
@@ -176,7 +176,7 @@ When `$ARGUMENTS` is `all`:
 
 ## Integration
 
-- **Reads**: decision-store.json, LESSONS.md, instincts.yml, proposals.md, manifest.yml
+- **Reads**: state.db.decisions, LESSONS.md, instincts.yml, proposals.md, manifest.yml
 - **Writes**: target SKILL.md files (via rewrite), mirror sync
 - **Calls**: `python scripts/sync_command_mirrors.py` after rewrites
 - **Delegates to**: Anthropic `skill-creator` for eval/grade/benchmark pipeline (Phase 5)

@@ -39,7 +39,7 @@ import pytest
 
 REPO = Path(__file__).resolve().parents[3]
 RUNTIME_STOP_PATH = REPO / ".ai-engineering" / "scripts" / "hooks" / "runtime-stop.py"
-RESUME_REL = Path(".ai-engineering") / "state" / "runtime" / "ralph-resume.json"
+RESUME_REL = Path(".ai-engineering") / "runtime" / "ralph-resume.json"
 EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 
 
@@ -57,7 +57,7 @@ def _load_module(monkeypatch: pytest.MonkeyPatch):
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
     """Project root with the runtime + state dirs preallocated."""
-    (tmp_path / ".ai-engineering" / "state" / "runtime").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".ai-engineering" / "runtime").mkdir(parents=True, exist_ok=True)
     return tmp_path
 
 
