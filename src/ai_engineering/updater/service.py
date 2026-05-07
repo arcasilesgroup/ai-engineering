@@ -496,7 +496,11 @@ def _apply_actionable_file_changes(changes: list[FileChange], target: Path) -> P
                 msg = f"refusing to write outside target: {resolved} (target={target_resolved})"
                 raise RuntimeError(msg) from exc
             change.path.parent.mkdir(parents=True, exist_ok=True)
-            change.path.write_bytes(change.src.read_bytes())
+            # NOSONAR: pythonsecurity:S2083 — destination path validated above
+            # (resolved.relative_to(target_resolved)); SonarCloud taint
+            # analysis can't see the dynamic guard.
+            safe_path = resolved
+            safe_path.write_bytes(change.src.read_bytes())
     except Exception:
         _rollback_created_files(changes)
         if backup_dir is not None:
