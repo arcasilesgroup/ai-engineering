@@ -166,8 +166,10 @@ def install(
 
     # 1. Copy governance templates
     src_root = get_ai_engineering_template_root()
+    # contexts/team/ is user-owned and intentionally not seeded by the
+    # installer (spec-123 / D-124-02 follow-up; matches GovernancePhase).
     result.governance_files = copy_template_tree(
-        src_root, ai_eng_dir, exclude=["agents/", "skills/"]
+        src_root, ai_eng_dir, exclude=["agents/", "skills/", "contexts/team/"]
     )
 
     # 2. Copy project-level templates (provider-aware)
