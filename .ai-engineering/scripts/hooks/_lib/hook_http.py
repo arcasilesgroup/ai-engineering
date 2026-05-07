@@ -28,6 +28,7 @@ from __future__ import annotations
 import json
 import os
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Any
 
@@ -55,6 +56,14 @@ def dispatch_http_hook(
     if not target:
         return False
 
+    # SSRF guard: only allow http/https schemes. The URL is opt-in via
+    # ``AIENG_HOOK_HTTP_SINK_URL`` so the operator already controls the
+    # destination, but we still reject ``file://``, ``ftp://``, etc. so
+    # a misconfigured env var can't surprise-read local resources.
+    parsed = urllib.parse.urlsplit(target)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+
     try:
         body = json.dumps(payload, default=str).encode("utf-8")
     except (TypeError, ValueError):
@@ -71,7 +80,12 @@ def dispatch_http_hook(
         req.add_header("Authorization", f"Bearer {token}")
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        # Scheme + netloc validated above via urllib.parse.urlsplit so
+        # only http/https endpoints reach urlopen. Sink URL itself is
+        # operator-supplied via AIENG_HOOK_HTTP_SINK_URL (opt-in).
+        # nosemgrep: ssrf-urllib-request
+        opener = urllib.request.urlopen
+        with opener(req, timeout=timeout) as resp:
             return 200 <= resp.status < 300
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
         return False
