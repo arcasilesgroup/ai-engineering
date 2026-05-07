@@ -74,6 +74,21 @@ def _ensure_canonical_state_surface():
             target = state_dir / required
             if not target.exists():
                 target.touch()
+        # state.db is gitignored too; bootstrap a minimal SQLite DB so
+        # the canonical-surface guard passes on fresh CI checkouts.
+        # ``state_db.connect`` runs migrations under the hood, producing
+        # the canonical schema without a separate install run.
+        if not (state_dir / "state.db").exists():
+            try:
+                from ai_engineering.state.state_db import connect
+
+                conn = connect(Path.cwd(), read_only=False, apply_migrations=None)
+                conn.close()
+            except Exception:
+                # Fail-open: leave the file absent so the canonical-
+                # surface assertion fires loudly rather than masking a
+                # real environmental problem.
+                pass
     yield
 
 
