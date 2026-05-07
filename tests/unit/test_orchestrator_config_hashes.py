@@ -14,17 +14,21 @@ def test_spec_verify_hashes_use_resolved_work_plane_paths(
 ) -> None:
     legacy_specs_dir = tmp_path / ".ai-engineering" / "specs"
     legacy_specs_dir.mkdir(parents=True)
-    (legacy_specs_dir / "spec.md").write_text("legacy-spec", encoding="utf-8")
-    (legacy_specs_dir / "plan.md").write_text("legacy-plan", encoding="utf-8")
+    # write_bytes avoids the Windows ``\n`` -> ``\r\n`` translation that
+    # ``write_text`` performs by default; the orchestrator hashes raw
+    # bytes via ``read_bytes`` so the on-disk content must match the
+    # input exactly for the test's expected sha256 to line up.
+    (legacy_specs_dir / "spec.md").write_bytes(b"legacy-spec")
+    (legacy_specs_dir / "plan.md").write_bytes(b"legacy-plan")
     pointer_payload = json.dumps({"specsDir": "resolved-work-plane"})
-    (legacy_specs_dir / "active-work-plane.json").write_text(pointer_payload, encoding="utf-8")
+    (legacy_specs_dir / "active-work-plane.json").write_bytes(pointer_payload.encode("utf-8"))
 
     resolved_dir = tmp_path / "resolved-work-plane"
     resolved_dir.mkdir()
     resolved_spec = resolved_dir / "spec.md"
     resolved_plan = resolved_dir / "plan.md"
-    resolved_spec.write_text("resolved-spec", encoding="utf-8")
-    resolved_plan.write_text("resolved-plan", encoding="utf-8")
+    resolved_spec.write_bytes(b"resolved-spec")
+    resolved_plan.write_bytes(b"resolved-plan")
 
     monkeypatch.setattr(
         "ai_engineering.policy.orchestrator.resolve_active_work_plane",
@@ -52,9 +56,11 @@ def test_validate_hashes_use_resolved_work_plane_artifacts(
     ai_dir = tmp_path / ".ai-engineering"
     legacy_specs_dir = ai_dir / "specs"
     legacy_specs_dir.mkdir(parents=True)
-    (ai_dir / "manifest.yml").write_text("name: test\n", encoding="utf-8")
+    # write_bytes avoids the Windows ``\n`` -> ``\r\n`` translation;
+    # orchestrator hashes raw bytes so on-disk content must match.
+    (ai_dir / "manifest.yml").write_bytes(b"name: test\n")
     pointer_payload = json.dumps({"specsDir": "resolved-work-plane"})
-    (legacy_specs_dir / "active-work-plane.json").write_text(pointer_payload, encoding="utf-8")
+    (legacy_specs_dir / "active-work-plane.json").write_bytes(pointer_payload.encode("utf-8"))
 
     resolved_dir = tmp_path / "resolved-work-plane"
     resolved_dir.mkdir()
@@ -62,9 +68,9 @@ def test_validate_hashes_use_resolved_work_plane_artifacts(
     resolved_plan = resolved_dir / "plan.md"
     resolved_history = resolved_dir / "_history.md"
 
-    resolved_spec.write_text("resolved-spec", encoding="utf-8")
-    resolved_plan.write_text("resolved-plan", encoding="utf-8")
-    resolved_history.write_text("resolved-history", encoding="utf-8")
+    resolved_spec.write_bytes(b"resolved-spec")
+    resolved_plan.write_bytes(b"resolved-plan")
+    resolved_history.write_bytes(b"resolved-history")
 
     monkeypatch.setattr(
         "ai_engineering.policy.orchestrator.resolve_active_work_plane",
