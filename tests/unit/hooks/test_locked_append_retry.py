@@ -187,6 +187,10 @@ def test_locked_append_three_failures_falls_back_unlocked_with_telemetry(
     assert err["detail"]["max_retries"] == 3
     assert "persistent" in err["detail"].get("summary", "")
 
-    assert elapsed_ms <= 400, (
+    # Windows hosted runners take longer per acquire+sleep cycle than POSIX
+    # tmpfs because of NTFS metadata churn; widen the ceiling there. The
+    # POSIX assertion stays tight to catch real regressions.
+    budget_ms = 800 if sys.platform.startswith("win") else 400
+    assert elapsed_ms <= budget_ms, (
         f"fail-open path must stay within retry budget, got {elapsed_ms:.1f}ms"
     )
