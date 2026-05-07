@@ -242,7 +242,13 @@ def diagnose(
     # ``installed=False`` (test_fails_on_missing_ai_engineering_dir).
     state_dir = target / ".ai-engineering" / "state"
     db_path = state_dir / "state.db"
+    legacy_install_json = state_dir / "install-state.json"
     install_state = None
+    # Treat the project as installed when EITHER the canonical state.db
+    # carries the install_state singleton row OR a legacy
+    # ``install-state.json`` is on disk (pre-spec-125 install path).
+    # Tests that need pre-install behaviour intentionally create
+    # state_dir empty so neither branch fires.
     if db_path.is_file():
         import sqlite3 as _sqlite3
 
@@ -262,6 +268,11 @@ def diagnose(
             finally:
                 _conn.close()
         except _sqlite3.Error:
+            install_state = None
+    elif legacy_install_json.exists():
+        try:
+            install_state = load_install_state(state_dir)
+        except Exception:
             install_state = None
 
     # -- 2. Load manifest config ----------------------------------------------

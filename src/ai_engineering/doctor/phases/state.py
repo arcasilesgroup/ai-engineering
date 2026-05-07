@@ -34,8 +34,48 @@ def _check_files_parseable(ctx: DoctorContext) -> CheckResult:
     migrated to state.db tables (``install_state``, ``tool_capabilities``).
     Validation now hits the SQLite singleton rows via the canonical
     repository readers; missing rows surface as FAIL.
+
+    Spec-125 also retains a one-time migration path for the legacy
+    ``install-state.json`` so a pre-cutover install can still be
+    detected. The probe therefore reports FAIL only when neither
+    ``state.db`` nor the legacy JSON is present (truly uninstalled),
+    or when the JSON exists but is unparseable.
     """
     from ai_engineering.state.repository import DurableStateRepository
+
+    state_dir = _state_dir(ctx)
+    db_path = state_dir / "state.db"
+    legacy_json = state_dir / "install-state.json"
+
+    if not state_dir.is_dir():
+        return CheckResult(
+            name="state-files-parseable",
+            status=CheckStatus.FAIL,
+            message=(
+                "state directory missing — install-state.json and state.db "
+                "absent at .ai-engineering/state/"
+            ),
+            fixable=True,
+        )
+
+    if not db_path.is_file() and not legacy_json.exists():
+        return CheckResult(
+            name="state-files-parseable",
+            status=CheckStatus.FAIL,
+            message="install-state.json missing and no state.db present",
+            fixable=True,
+        )
+
+    if legacy_json.exists():
+        try:
+            json.loads(legacy_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            return CheckResult(
+                name="state-files-parseable",
+                status=CheckStatus.FAIL,
+                message=f"install-state.json unparseable: {exc}",
+                fixable=True,
+            )
 
     repo = DurableStateRepository(ctx.target)
     failures: list[str] = []
@@ -70,9 +110,33 @@ def _check_state_schema(ctx: DoctorContext) -> CheckResult:
     """Check install_state singleton row has schema_version 2.0 and required fields.
 
     spec-125 D-125-01: install_state lives in state.db; the JSON fallback
-    was deleted in wave 1.
+    was deleted in wave 1. The probe WARNs (rather than fixing) when the
+    state surface is absent: schema validation is not the right place to
+    create state, and ``_check_files_parseable`` reports the FAIL with a
+    fixer.
     """
     from ai_engineering.state.repository import DurableStateRepository
+
+    state_dir = _state_dir(ctx)
+    db_path = state_dir / "state.db"
+    legacy_json = state_dir / "install-state.json"
+
+    if not db_path.is_file() and not legacy_json.exists():
+        return CheckResult(
+            name="state-schema",
+            status=CheckStatus.WARN,
+            message="install_state row missing; schema cannot be validated",
+        )
+
+    if legacy_json.exists():
+        try:
+            json.loads(legacy_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            return CheckResult(
+                name="state-schema",
+                status=CheckStatus.WARN,
+                message="install-state.json unparseable; schema cannot be validated",
+            )
 
     try:
         state = DurableStateRepository(ctx.target).load_install_state()

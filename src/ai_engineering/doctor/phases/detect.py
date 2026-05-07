@@ -13,8 +13,8 @@ the singleton row at ``id=1`` is present and decodes to a valid
 
 from __future__ import annotations
 
+import json
 import logging
-import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -55,48 +55,34 @@ def fix(
 def _check_install_state_exists(ctx: DoctorContext) -> CheckResult:
     """Verify the install_state singleton row exists and parses cleanly.
 
-    Spec-125: probes ``state.db`` for the ``install_state`` table and
-    reads the singleton row at ``id=1``. The legacy JSON file at
-    ``.ai-engineering/state/install-state.json`` is no longer the
-    source of truth.
+    Spec-125: ``state.db`` is canonical. A legacy ``install-state.json``
+    file is migrated by ``load_install_state`` on first read, so this
+    probe delegates to it: present + valid JSON → OK; unparseable JSON
+    → FAIL("not parseable"); nothing on disk → FAIL("not found").
     """
+    state_dir = ctx.target / ".ai-engineering" / "state"
     db_path = ctx.target / _STATE_DB_REL
-    if not db_path.is_file():
+    legacy_json = state_dir / "install-state.json"
+
+    if not db_path.is_file() and not legacy_json.exists():
         return CheckResult(
             name="install-state-exists",
             status=CheckStatus.FAIL,
-            message=f"state.db not found at {db_path}",
-        )
-    try:
-        conn = sqlite3.connect(db_path, timeout=2)
-        try:
-            tbl = conn.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='install_state'"
-            ).fetchone()
-            if tbl is None:
-                return CheckResult(
-                    name="install-state-exists",
-                    status=CheckStatus.FAIL,
-                    message="install_state table missing in state.db",
-                )
-            row = conn.execute("SELECT 1 FROM install_state WHERE id = 1").fetchone()
-            if row is None:
-                return CheckResult(
-                    name="install-state-exists",
-                    status=CheckStatus.FAIL,
-                    message="install_state singleton row (id=1) missing",
-                )
-        finally:
-            conn.close()
-    except sqlite3.Error as exc:
-        return CheckResult(
-            name="install-state-exists",
-            status=CheckStatus.FAIL,
-            message=f"state.db unreadable: {exc}",
+            message=f"install state not found (no state.db at {db_path})",
         )
 
+    if legacy_json.exists():
+        try:
+            json.loads(legacy_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            return CheckResult(
+                name="install-state-exists",
+                status=CheckStatus.FAIL,
+                message=f"install-state.json not parseable: {exc}",
+            )
+
     try:
-        load_install_state(ctx.target / ".ai-engineering" / "state")
+        load_install_state(state_dir)
     except Exception as exc:
         return CheckResult(
             name="install-state-exists",
@@ -106,7 +92,7 @@ def _check_install_state_exists(ctx: DoctorContext) -> CheckResult:
     return CheckResult(
         name="install-state-exists",
         status=CheckStatus.OK,
-        message="install_state row present and valid",
+        message="install_state present and valid",
     )
 
 
