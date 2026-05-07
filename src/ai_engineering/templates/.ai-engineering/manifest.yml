@@ -141,9 +141,9 @@ control_plane:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (49 skills)
+# Skills registry (50 skills)
 skills:
-  total: 49
+  total: 50
   prefix: "ai-"
   registry:
     # Core workflow
@@ -212,6 +212,8 @@ skills:
     # spec-120 follow-up: scheduled entropy garbage collection
     ai-entropy-gc:
       { type: meta, tags: [simplification, entropy, scheduled, autonomous] }
+    # Evaluation (spec-119)
+    ai-eval: { type: workflow, tags: [evaluation, gate, regression, pass-at-k] }
 
 # Agents (10)
 agents:

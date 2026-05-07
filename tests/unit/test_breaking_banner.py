@@ -99,59 +99,14 @@ def _make_target(tmp_path: Path) -> Path:
 
 
 class TestBreakingBannerFirstRun:
-    """Banner emits once on first run, then never again."""
+    """Banner deletion guard.
 
-    def test_emits_on_fresh_install_no_state_file(self, tmp_path, capsys) -> None:
-        """When install-state.json does not exist, banner emits to stderr.
-
-        spec-109 follow-up: banner copy reworded to be user-friendly. Tests
-        assert against the new banner heading + the three topic keywords
-        instead of the old spec-id / EXIT-code jargon.
-        """
-        target = _make_target(tmp_path)
-        # No state file written -- truly fresh install.
-        runner = PipelineRunner([_NoopPhase("phase-a")])
-
-        runner.run(_make_context(target), dry_run=False)
-
-        captured = capsys.readouterr()
-        assert "What's new in ai-engineering" in captured.err, (
-            "First-run banner must emit to stderr; "
-            f"got stderr={captured.err!r} stdout={captured.out!r}"
-        )
-        # Topic keywords -- one per change. Wording is friendlier but each
-        # change is still discoverable by a clear keyword.
-        assert "Missing tools now stop the install" in captured.err
-        assert "Tools install once per machine" in captured.err
-        assert "Each language stack ships with its own toolchain" in captured.err
-
-    def test_emits_when_flag_false(self, tmp_path, capsys) -> None:
-        """State file exists with breaking_banner_seen=False -> banner fires."""
-        target = _make_target(tmp_path)
-        state_dir = target / ".ai-engineering" / "state"
-        save_install_state(state_dir, InstallState(breaking_banner_seen=False))
-
-        runner = PipelineRunner([_NoopPhase()])
-        runner.run(_make_context(target), dry_run=False)
-
-        captured = capsys.readouterr()
-        assert "What's new in ai-engineering" in captured.err
-
-    def test_sets_flag_after_emit(self, tmp_path, capsys) -> None:
-        """After the banner fires, breaking_banner_seen must be True on disk."""
-        target = _make_target(tmp_path)
-        state_dir = target / ".ai-engineering" / "state"
-        save_install_state(state_dir, InstallState(breaking_banner_seen=False))
-
-        runner = PipelineRunner([_NoopPhase()])
-        runner.run(_make_context(target), dry_run=False)
-
-        capsys.readouterr()  # drain captured output
-
-        loaded = load_install_state(state_dir)
-        assert loaded.breaking_banner_seen is True, (
-            "After the banner fires, the flag must persist to install-state.json"
-        )
+    spec-124 D-124-02 deleted the BREAKING banner; ``breaking_banner_seen``
+    remains on ``InstallState`` only for backward-compatible JSON shape
+    (removed in spec-125 cleanup wave 2). The "does not emit" tests below
+    pin the deletion: regardless of the persisted flag value or the
+    runtime mode, no banner ever appears.
+    """
 
     def test_does_not_emit_when_flag_true(self, tmp_path, capsys) -> None:
         """Idempotency: with breaking_banner_seen=True, banner never fires."""
@@ -166,8 +121,8 @@ class TestBreakingBannerFirstRun:
         assert "What's new in ai-engineering" not in captured.err
         assert "What's new in ai-engineering" not in captured.out
 
-    def test_banner_emits_exactly_once_across_two_runs(self, tmp_path, capsys) -> None:
-        """Run twice in a row; banner must only appear during the first run."""
+    def test_banner_never_emits_across_two_runs(self, tmp_path, capsys) -> None:
+        """Run twice in a row; banner is deleted so it must NEVER appear."""
         target = _make_target(tmp_path)
         state_dir = target / ".ai-engineering" / "state"
         save_install_state(state_dir, InstallState(breaking_banner_seen=False))
@@ -179,9 +134,8 @@ class TestBreakingBannerFirstRun:
         runner.run(_make_context(target), dry_run=False)
         second = capsys.readouterr()
 
-        assert first.err.count("What's new in ai-engineering") == 1, (
-            "Banner must emit exactly once on the first run."
-        )
+        assert "What's new in ai-engineering" not in first.err
+        assert "What's new in ai-engineering" not in first.out
         assert "What's new in ai-engineering" not in second.err
         assert "What's new in ai-engineering" not in second.out
 
