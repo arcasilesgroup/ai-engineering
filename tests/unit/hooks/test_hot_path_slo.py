@@ -51,12 +51,26 @@ SINGLE_HOOK_BUDGET_S = 0.05  # 50 ms
 
 # CI slack factor (per master spec D-122-28 risk mitigation).
 CI_SLACK = 1.2
+# Coverage instrumentation (`pytest --cov` etc.) adds ~2-3x to startup
+# cost; without slack the ubuntu/3.12 coverage cell trips the budget
+# while the other Unit cells stay green.
+COVERAGE_SLACK = 3.0
+
+
+def _coverage_active() -> bool:
+    """True when pytest-cov / coverage.py instrumentation is on."""
+    return any(
+        os.getenv(name) for name in ("COVERAGE_RUN", "COVERAGE_PROCESS_START", "COV_CORE_SOURCE")
+    ) or "coverage" in os.getenv("PYTEST_ADDOPTS", "")
 
 
 def _budget(base: float) -> float:
+    multiplier = 1.0
     if os.getenv("CI"):
-        return base * CI_SLACK
-    return base
+        multiplier *= CI_SLACK
+    if _coverage_active():
+        multiplier *= COVERAGE_SLACK
+    return base * multiplier
 
 
 def _iterations() -> int:
