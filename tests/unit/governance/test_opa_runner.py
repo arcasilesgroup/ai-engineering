@@ -214,7 +214,11 @@ def test_evaluate_forwards_bundle_path(monkeypatch: pytest.MonkeyPatch) -> None:
 
     argv = captured["argv"]
     assert "--bundle" in argv
-    assert "/tmp/custom-bundle" in argv
+    # Path stringification uses os.sep on Windows (\tmp\custom-bundle); accept
+    # either form so the test exercises argv structure rather than OS quirks.
+    assert any("tmp" in part and "custom-bundle" in part for part in argv), (
+        f"bundle path argv missing custom-bundle: {argv!r}"
+    )
     assert "--stdin-input" in argv
     assert "--format" in argv
     assert "json" in argv

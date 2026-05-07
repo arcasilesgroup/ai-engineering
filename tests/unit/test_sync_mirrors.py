@@ -142,7 +142,8 @@ class TestCrossReferenceResolution:
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
 
         resolved = {
-            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+            path.relative_to(tmp_path).as_posix()
+            for path in _resolve_cross_reference_files(tmp_path)
         }
 
         assert resolved == {
@@ -160,7 +161,8 @@ class TestCrossReferenceResolution:
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
 
         resolved = {
-            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+            path.relative_to(tmp_path).as_posix()
+            for path in _resolve_cross_reference_files(tmp_path)
         }
 
         assert resolved == {
@@ -179,7 +181,8 @@ class TestCrossReferenceResolution:
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
 
         resolved = {
-            str(path.relative_to(tmp_path)) for path in _resolve_cross_reference_files(tmp_path)
+            path.relative_to(tmp_path).as_posix()
+            for path in _resolve_cross_reference_files(tmp_path)
         }
 
         assert resolved == {

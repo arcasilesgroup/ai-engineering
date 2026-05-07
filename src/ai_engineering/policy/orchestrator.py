@@ -51,6 +51,7 @@ from ai_engineering.state.models import (
     WallClockMs,
 )
 from ai_engineering.state.work_plane import (
+    ACTIVE_WORK_PLANE_POINTER_KEY,
     ACTIVE_WORK_PLANE_POINTER_REL,
     active_work_plane_has_active_spec,
     resolve_active_work_plane,
@@ -849,7 +850,7 @@ def _config_hashes_for(check_name: str, project_root: Path) -> dict[str, str]:
         resolved_files = {
             ".ai-engineering/specs/spec.md": work_plane.spec_path,
             ".ai-engineering/specs/plan.md": work_plane.plan_path,
-            str(ACTIVE_WORK_PLANE_POINTER_REL): project_root / ACTIVE_WORK_PLANE_POINTER_REL,
+            ACTIVE_WORK_PLANE_POINTER_KEY: project_root / ACTIVE_WORK_PLANE_POINTER_REL,
         }
         return _hash_config_targets(resolved_files, hashlib.sha256)
 
@@ -863,7 +864,7 @@ def _config_hashes_for(check_name: str, project_root: Path) -> dict[str, str]:
             ".ai-engineering/specs/spec.md": work_plane.spec_path,
             ".ai-engineering/specs/plan.md": work_plane.plan_path,
             ".ai-engineering/specs/_history.md": work_plane.history_path,
-            str(ACTIVE_WORK_PLANE_POINTER_REL): project_root / ACTIVE_WORK_PLANE_POINTER_REL,
+            ACTIVE_WORK_PLANE_POINTER_KEY: project_root / ACTIVE_WORK_PLANE_POINTER_REL,
         }
         return _hash_config_targets(resolved_files, hashlib.sha256)
 

@@ -135,9 +135,14 @@ def _linux_install_dir() -> Path:
     ``/usr/local/bin`` for root; ``~/.local/bin`` otherwise.  The
     fallback path is the de-facto Linux user-bin convention and is
     almost always already on ``$PATH`` for interactive shells.
+
+    ``os.geteuid`` is POSIX-only; on Windows callers exercising this
+    helper through the test surface get the user-bin default without
+    raising AttributeError.
     """
 
-    if os.geteuid() == 0:
+    geteuid = getattr(os, "geteuid", None)
+    if geteuid is not None and geteuid() == 0:
         return Path("/usr/local/bin")
     return Path.home() / ".local" / "bin"
 

@@ -231,6 +231,7 @@ jobs:
             --deselect tests/unit/test_gate_cache_persist.py::test_atomic_write_atomic_under_concurrent_writes \
             --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_intra_wave_rerun_on_changes \
             --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_records_files_modified \
+            --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_reruns_when_relative_staged_file_changes_under_project_root \
             | tee test-output.log
       - name: Run unit tests with coverage (ubuntu/3.12 only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
@@ -241,6 +242,7 @@ jobs:
             --deselect tests/unit/test_gate_cache_persist.py::test_atomic_write_atomic_under_concurrent_writes \
             --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_intra_wave_rerun_on_changes \
             --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_records_files_modified \
+            --deselect tests/unit/test_orchestrator_wave1.py::test_wave1_reruns_when_relative_staged_file_changes_under_project_root \
             --cov=src/ai_engineering --cov-report=xml:coverage-unit.xml
       - name: Upload slow-tests artifact
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'

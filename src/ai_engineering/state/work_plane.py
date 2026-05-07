@@ -17,6 +17,9 @@ from pathlib import Path
 from ai_engineering.state.models import TaskLedger
 
 ACTIVE_WORK_PLANE_POINTER_REL = Path(".ai-engineering") / "specs" / "active-work-plane.json"
+# POSIX-style relative key used by gate config-hash maps so the dictionary
+# keys stay platform-agnostic (Path.__str__ uses os.sep on Windows).
+ACTIVE_WORK_PLANE_POINTER_KEY = ".ai-engineering/specs/active-work-plane.json"
 _LEGACY_SPECS_DIR_REL = ACTIVE_WORK_PLANE_POINTER_REL.parent
 _HISTORY_FILENAME = "_history.md"
 _NO_ACTIVE_SPEC_PREFIX = "# No active spec"
