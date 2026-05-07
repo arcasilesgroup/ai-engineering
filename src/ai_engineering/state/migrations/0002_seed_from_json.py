@@ -25,7 +25,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-BODY_SHA256 = "e7480b6349b7a50c8af4221a97b610e5f9d3d061d21f432efadd25f2fa07f764"
+BODY_SHA256 = "f09285c9940ca09422b771c969f5d453399404e406017567435edac6b070bfe8"
 
 _STATE_REL = Path(".ai-engineering") / "state"
 _ARCHIVE_REL = _STATE_REL / "archive" / "pre-state-db"
@@ -216,7 +216,6 @@ def apply(conn: sqlite3.Connection) -> None:
     """Seed the four JSON sources and archive originals."""
     project_root = _project_root_from_db(conn)
     state_dir = project_root / _STATE_REL
-    project_root / _ARCHIVE_REL
 
     decision_store = state_dir / "decision-store.json"
     gate_findings = state_dir / "gate-findings.json"

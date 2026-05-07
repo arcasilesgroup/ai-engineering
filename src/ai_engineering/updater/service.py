@@ -480,10 +480,21 @@ def _apply_actionable_file_changes(changes: list[FileChange], target: Path) -> P
         return None
 
     backup_dir = _backup_targets(changes, target)
+    target_resolved = target.resolve()
     try:
         for change in changes:
             if change.src is None:
                 continue
+            # Path traversal guard: resolved destination must stay within
+            # ``target``. ``change.path`` is built from manifest-driven
+            # provider tables, but the static analyzer can't see that
+            # invariant — this check makes it explicit at runtime.
+            resolved = change.path.resolve()
+            try:
+                resolved.relative_to(target_resolved)
+            except ValueError as exc:
+                msg = f"refusing to write outside target: {resolved} (target={target_resolved})"
+                raise RuntimeError(msg) from exc
             change.path.parent.mkdir(parents=True, exist_ok=True)
             change.path.write_bytes(change.src.read_bytes())
     except Exception:
