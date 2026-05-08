@@ -25,7 +25,7 @@ from ai_engineering.paths import resolve_project_root
 def provider_add(
     provider: Annotated[
         str,
-        typer.Argument(help="Provider to add (claude_code, github_copilot, gemini, codex)."),
+        typer.Argument(help="Provider to add (claude-code, github-copilot, gemini-cli, codex)."),
     ],
     target: Annotated[
         Path | None,

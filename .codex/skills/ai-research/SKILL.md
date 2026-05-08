@@ -1,8 +1,12 @@
 ---
 name: ai-research
-description: "Use when the user needs evidence-backed research with verifiable citations: 'what does the state of the art say about X', 'what patterns does the industry use for Y', 'compare options for Z', 'find sources on...', 'investigate...'. Multi-tier escalation (local → free MCPs → web → NotebookLM persistent). Citation hard-rule: every external claim is sourced [N] or marked [unsourced]. Not for refactors, business-logic debugging, or general programming concepts."
+description: "Performs evidence-backed research with verifiable citations using a multi-tier escalation (local → free MCPs → web → NotebookLM persistent). Trigger for 'what does the state of the art say about', 'compare options for', 'find sources on', 'investigate this question', 'research this'. Citation hard-rule: every external claim is sourced [N] or marked [unsourced]. Not for refactors; use /ai-simplify instead. Not for business-logic debugging; use /ai-debug instead."
 effort: high
-argument-hint: "<query> [--depth quick|standard|deep] [--reuse-notebook=<id>] [--persist] [--allowed-domains a,b] [--blocked-domains x,y]"
+argument-hint: "[query] [--depth quick|standard|deep] [--reuse-notebook=id] [--persist]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-research/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -69,10 +73,30 @@ Synthesized response in agent context PLUS, when persisted, a Markdown artifact 
 - Not deduplicating Tier 1 results (Context7 and `gh search` can return overlapping URLs).
 - Forgetting to probe `server_info` before Tier 3 (silent failures when auth expires).
 
+## Examples
+
+### Example 1 — quick state-of-the-art lookup
+
+User: "what's the current best practice for OAuth refresh-token rotation?"
+
+```
+/ai-research "OAuth refresh-token rotation best practices" --depth quick
+```
+
+Tier 0 checks local research artifacts; Tier 1 queries Context7 and Microsoft Learn; emits a Findings block with `[N]` citations.
+
+### Example 2 — deep dive persisted as a reusable notebook
+
+User: "deep research on event-sourcing vs CQRS for fintech ledgers, save it for next time"
+
+```
+/ai-research "event sourcing vs CQRS for fintech ledgers" --depth deep --persist
+```
+
+Escalates through all 4 tiers including NotebookLM; writes `.ai-engineering/research/<slug>-<date>.md` so future invocations short-circuit at Tier 0.
+
 ## Integration
 
-- **Called by**: user directly, or `/ai-brainstorm` (its interrogate handler) when a question requires external evidence.
-- **Calls**: `handlers/classify-query.md`, `handlers/tier0-local.md`, `handlers/tier1-free-mcps.md`, `handlers/tier2-web.md`, `handlers/tier3-notebooklm.md`, `handlers/synthesize-with-citations.md`, `handlers/persist-artifact.md`.
-- **Produces**: `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` (when Tier 3 invoked or `--persist`).
+Called by: user directly, `/ai-brainstorm` (interrogate handler). Calls: tier0–tier3 handlers, `synthesize-with-citations.md`, `persist-artifact.md`. Produces: `.ai-engineering/research/<slug>-<date>.md`. See also: `/ai-brainstorm` (consumes research as evidence).
 
 $ARGUMENTS

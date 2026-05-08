@@ -1,8 +1,8 @@
 ---
 name: ai-learn
-description: "Use when the AI keeps repeating the same mistakes, when you want the framework to learn from merged PR review feedback, or when enough corrections have accumulated to update standards. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Analyzes PRs, identifies missed checks, and writes lessons directly to LESSONS.md."
+description: "Extracts lessons from merged PR review feedback by analyzing what reviewers caught, identifying missed checks, and writing entries directly to LESSONS.md. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Not for in-session observation; use /ai-observe instead. Not for skill-level rewrites; use /ai-skill-tune instead."
 effort: medium
-argument-hint: "single <pr>|batch"
+argument-hint: "single [pr]|batch"
 tags: [meta, learning, continuous-improvement]
 ---
 
@@ -19,6 +19,16 @@ Continuous improvement from delivery outcomes. Analyzes merged PRs to find where
 - Context: after PR merge (single), periodic review (batch).
 
 Step 0: read `.ai-engineering/LESSONS.md` for pre-existing patterns; load contexts per `.ai-engineering/contexts/stack-context.md`.
+
+## Workflow
+
+Two modes: `single <pr>` (analyze one PR) and `batch` (analyze all merged PRs since last lesson update). Both follow the same loop:
+
+1. Read PR review comments + code-change diff.
+2. For each comment, classify the lesson category (Pattern Categories below).
+3. Check for duplicates against existing LESSONS.md entries.
+4. Append new lessons with category + evidence link.
+5. When enough lessons accumulate per category, optionally draft an AGENTS.md proposal.
 
 ## Modes
 
@@ -78,9 +88,61 @@ Step 0: read `.ai-engineering/LESSONS.md` for pre-existing patterns; load contex
 - Batch tracking: `lastAnalyzedAt` field in LESSONS.md YAML frontmatter
 - Format: Markdown with Context/Learning/Rule sections (same as manually-written lessons)
 
+## AGENTS.md proposal mode (spec-121)
+
+Single-PR analysis writes to LESSONS.md. Procedural memory (AGENTS.md, CONSTITUTION.md) is the durable layer agents read on every session — when a category of lessons crosses threshold, it should be reinforced *there*, not buried in LESSONS.md.
+
+After every batch run (or at the end of a single run), perform a category sweep:
+
+1. Group all lessons in `.ai-engineering/LESSONS.md` by Pattern Category (Missed check / Over-flagging / Missing context / Style drift / custom).
+2. For any category whose count is **≥ 5** AND that has **not** already been reflected in AGENTS.md (grep AGENTS.md for the category name or a representative phrase), draft a proposal block.
+3. Append the proposal to `.ai-engineering/state/agents-proposals.md` (create if absent). **Never** edit AGENTS.md directly — same constraint as `/ai-dream` (D-118-04). Humans review and merge proposals manually via PR.
+
+Proposal block format:
+
+```markdown
+## Proposal — <ISO date> — <Category name>
+
+**Trigger**: <N> lessons in category "<Category>" since <oldest>; AGENTS.md does not yet codify this rule.
+
+**Suggested AGENTS.md addition** (under section `## Hard rules` or appropriate):
+
+> <single-sentence imperative rule derived from the lessons>
+
+**Evidence** (lesson titles, PR refs):
+- <lesson 1>
+- <lesson 2>
+- ...
+
+**Action**: open a PR adding the rule above to AGENTS.md if accepted.
+```
+
+Emit a `framework_operation` event with `operation=agents_proposal_drafted`, `category=<name>`, `lesson_count=<N>` so the audit chain records each proposal cycle.
+
+## Examples
+
+### Example 1 — extract lessons from a single merged PR
+
+User: "learn from PR #128"
+
+```
+/ai-learn single 128
+```
+
+Reads PR #128 review comments, classifies each into pattern categories, appends new entries to LESSONS.md, deduplicates against existing entries.
+
+### Example 2 — batch analysis of recent merges
+
+User: "synthesize lessons from everything merged this sprint"
+
+```
+/ai-learn batch
+```
+
+Walks merged PRs since last lesson update, applies the loop per PR, drafts AGENTS.md proposals when categories accumulate enough evidence.
+
 ## Integration
 
-- **See also**: `/ai-note` (save individual findings before synthesizing)
-- **Correction capture is owned by `/ai-instinct`** -- when the AI makes repeated mistakes, run `/ai-instinct --review` to consolidate observations into the instinct store and generate improvement proposals.
+Called by: user directly, post-merge automation. Reads: `gh pr view`, `LESSONS.md`. Writes: `LESSONS.md` (append-only). See also: `/ai-note` (individual findings), `/ai-observe` (in-session corrections), `/ai-skill-tune` (acts on accumulated lessons).
 
 $ARGUMENTS

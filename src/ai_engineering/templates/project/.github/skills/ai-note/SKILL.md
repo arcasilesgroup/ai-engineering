@@ -1,9 +1,13 @@
 ---
 name: ai-note
-description: "Use when you discover something worth saving for future sessions — a debugging insight, non-obvious behavior, workaround, or integration gotcha. Also for searching existing notes: 'do we have notes on X?'. Trigger for 'save this', 'note that', 'remember this finding', 'what did we find about'. If it took more than 30 minutes to figure out, save it."
+description: "Saves persistent technical discoveries (debugging insights, non-obvious behaviors, workarounds, integration gotchas) and searches them across sessions. Trigger for 'save this', 'note that', 'remember this finding', 'what did we find about', 'do we have notes on'. Rule of thumb: if it took more than 30 minutes to figure out, save it. Not for cross-session learning patterns; use /ai-observe or /ai-learn instead."
 effort: medium
-argument-hint: "find [query]|<slug>"
+argument-hint: "find [query]|[slug]"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-note/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -29,11 +33,11 @@ Knowledge management for technical discoveries. Captures debugging insights, non
 
 ## When NOT to Use
 
-- **Architecture decisions** -- use `decision-store.json` via `/ai-governance`
+- **Architecture decisions** -- use `state.db.decisions` via `/ai-governance`
 - **Incident analysis** -- use `/ai-postmortem`
 - **Customer issues** -- use `/ai-support`
 
-## Procedure
+## Workflow
 
 ### Mode: find
 
@@ -105,8 +109,30 @@ Knowledge management for technical discoveries. Captures debugging insights, non
 - Naming: kebab-case slugs, descriptive, max 50 chars
 - Index: notes are flat files, searched by content -- no separate index needed
 
+## Examples
+
+### Example 1 — save a debugging insight
+
+User: "save this finding: pip-audit returns exit 1 even with no vulnerabilities when --dry-run is set"
+
+```
+/ai-note pip-audit-dry-run-exit-code
+```
+
+Writes `.ai-engineering/notes/pip-audit-dry-run-exit-code.md` with Problem / Findings / Code Examples / Pitfalls sections.
+
+### Example 2 — search past discoveries
+
+User: "do we have notes on flaky tests in CI?"
+
+```
+/ai-note find flaky tests
+```
+
+Scans `.ai-engineering/notes/`, ranks by relevance, presents matching slugs + summaries.
+
 ## Integration
 
-- **See also**: `/ai-learn` (synthesize patterns from accumulated notes)
+Called by: user directly. Reads + writes: `.ai-engineering/notes/`. See also: `/ai-learn` (synthesize patterns), `/ai-observe` (in-session corrections), `/ai-debug`, `/ai-postmortem`.
 
 $ARGUMENTS

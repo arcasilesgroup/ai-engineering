@@ -68,7 +68,7 @@ def _build_typescript_context(target: Path) -> InstallContext:
     return InstallContext(
         target=target,
         mode=InstallMode.INSTALL,
-        providers=["claude_code"],
+        providers=["claude-code"],
         vcs_provider="github",
         stacks=["typescript"],
         ides=["terminal"],

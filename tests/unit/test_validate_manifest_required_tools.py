@@ -75,8 +75,8 @@ def _valid_manifest_body(stacks: str = "[python]", required_tools: str | None = 
       stacks: {stacks}
 
     ai_providers:
-      enabled: [claude_code]
-      primary: claude_code
+      enabled: [claude-code]
+      primary: claude-code
 
     prereqs:
       uv:
@@ -415,8 +415,8 @@ class TestRequiredToolsBlockPresence:
           stacks: [python]
 
         ai_providers:
-          enabled: [claude_code]
-          primary: claude_code
+          enabled: [claude-code]
+          primary: claude-code
         # NOTE: required_tools block intentionally absent.
         """
         _write_manifest(tmp_path, body)

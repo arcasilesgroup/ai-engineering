@@ -1,8 +1,12 @@
 ---
 name: ai-support
-description: "Use when a customer or user reports a problem needing structured investigation: reproducing the issue, tracing to code, documenting resolution. Trigger for 'a user is reporting that', 'customer complaint', 'support ticket', 'investigate this bug report', 'reproduce the issue', 'search past support cases'. Builds a searchable knowledge base organized by ticket ID."
+description: "Investigates customer-reported issues with structure: reproduces, traces to code, documents resolution, builds a searchable knowledge base organized by ticket ID. Trigger for 'a user is reporting that', 'customer complaint', 'support ticket', 'investigate this bug report', 'search past support cases'. Not for production incidents; use /ai-postmortem instead. Not for internal dev bugs; use /ai-debug instead."
 effort: high
-argument-hint: "start <ticket-id>|find [query]"
+argument-hint: "start [ticket-id]|find [query]"
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-support/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -81,7 +85,7 @@ Structured customer support investigation. Organizes findings by ticket, links t
 2. **Rank** -- prioritize by recency, then relevance.
 3. **Present** -- list ticket-id, date, title, status, and resolution summary.
 
-## Procedure for Investigation
+## Workflow
 
 1. **Reproduce** -- attempt to reproduce the issue locally using the reported steps.
 2. **Isolate** -- narrow down to the specific code path, configuration, or data condition.
@@ -105,5 +109,31 @@ Structured customer support investigation. Organizes findings by ticket, links t
 
 - Location: `.ai-engineering/support/{YYYY-MM-DD}/{ticket-id}/investigation.md`
 - Organized by date for natural chronological browsing
+
+## Examples
+
+### Example 1 — start a new investigation from a ticket
+
+User: "a user is reporting timeouts on TICKET-4521, investigate"
+
+```
+/ai-support start TICKET-4521
+```
+
+Scaffolds `.ai-engineering/support/2026-05-08/TICKET-4521/investigation.md`, attempts to reproduce the issue, traces affected code paths, documents findings.
+
+### Example 2 — search past cases for a recurring symptom
+
+User: "have we seen timeouts in this area before?"
+
+```
+/ai-support find timeout
+```
+
+Scans the support directory tree for matches, ranks by recency + relevance, lists ticket-id, date, status, and resolution summary.
+
+## Integration
+
+Called by: user directly when triaging a customer report. Calls: `/ai-pr` (when fixing requires a code change). See also: `/ai-postmortem` (production incidents), `/ai-debug` (internal-only bugs), `/ai-note` (cross-link findings).
 
 $ARGUMENTS

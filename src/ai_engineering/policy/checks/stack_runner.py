@@ -150,6 +150,18 @@ PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
             name="gitleaks",
             cmd=["gitleaks", "protect", "--staged", "--no-banner"],
         ),
+        # spec-127 M1 (sub-002 T-F.1): conformance lint over SKILL.md +
+        # agent .md files. Runs in parallel with the other common checks
+        # (executor parallelises common entries). Hot-path budget per
+        # D-127-08: ≤200 ms over 50 skills. Required because the
+        # rubric is the gate that surfaces Grade D / >2 Grade C
+        # violations before they reach review.
+        CheckConfig(
+            name="skill_lint",
+            cmd=["python", "-m", "skill_lint", "--check"],
+            required=False,
+            timeout=10,
+        ),
     ],
     "python": [
         CheckConfig(name="ruff-format", cmd=["ruff", "format", "--check", "."]),

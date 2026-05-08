@@ -27,7 +27,6 @@ for the end-to-end layer.
 
 from __future__ import annotations
 
-import json
 import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -97,9 +96,15 @@ def _names(specs: Iterable[object]) -> list[str]:
 
 
 def _read_install_state_dict(project_root: Path) -> dict[str, object]:
-    """Return the raw ``install-state.json`` payload as a dict."""
-    state_path = project_root / ".ai-engineering" / "state" / "install-state.json"
-    return json.loads(state_path.read_text(encoding="utf-8"))
+    """Return the install_state payload as a dict.
+
+    Spec-125 D-125-01: install_state moved from JSON to the
+    ``install_state`` singleton row in state.db.
+    """
+    from ai_engineering.state.repository import DurableStateRepository
+
+    state = DurableStateRepository(project_root).load_install_state()
+    return state.model_dump(mode="json")
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +250,7 @@ class TestInstallerPhaseEndToEnd:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
             ides=["terminal"],
@@ -331,7 +336,7 @@ class TestInstallerPhaseEndToEnd:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
             ides=["terminal"],

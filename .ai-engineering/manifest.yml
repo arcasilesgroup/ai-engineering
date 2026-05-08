@@ -11,18 +11,13 @@ version: "1.0.0"
 # Providers
 providers:
   vcs: github
-  ides: [terminal]
+  ides: [terminal, vscode]
   stacks: [python]
 
 # AI Providers
 ai_providers:
-  enabled: [claude_code, github_copilot, gemini, codex]
-  primary: claude_code
-
-# Artifact feeds — configure your private feed in pyproject.toml [tool.uv.index]
-# See the commented section in pyproject.toml for instructions.
-artifact_feeds:
-  python: pyproject.toml  # pointer to actual config location
+  enabled: [claude-code, github-copilot, gemini-cli, codex]
+  primary: claude-code
 
 # Work items — board/issue tracker integration
 # Configure your team's area path (Azure DevOps) or team label (GitHub Issues).
@@ -111,59 +106,81 @@ documentation:
     source: null
     update_method: "pr"
 
-# CI/CD standards
-# Set standards_url to your team's CI/CD documentation.
-# /ai-pipeline reads this URL to generate compliant pipelines.
-cicd:
-  standards_url: null
-
-# Context loading precedence
-# When conventions from different context layers conflict,
-# the first layer in the list wins (team overrides framework, framework overrides language).
-contexts:
-  precedence: [team, frameworks, languages]
-
 # Session context — files loaded by /ai-start at session start
 session:
   context_files:
     - .ai-engineering/LESSONS.md
-    - .ai-engineering/CONSTITUTION.md
+    - CONSTITUTION.md
     - .ai-engineering/manifest.yml
     - .ai-engineering/state/decision-store.json
+
+control_plane:
+  constitutional_authority:
+    primary: CONSTITUTION.md
+    compatibility_aliases: []
+  manifest_field_roles:
+    canonical_input:
+      - providers
+      - ai_providers
+      - artifact_feeds
+      - work_items
+      - quality
+      - documentation
+      - cicd
+      - contexts.precedence
+      - session.context_files
+      - ownership.framework
+      - ownership.root_entry_points
+      - telemetry
+      - gates
+      - hot_path_slos
+    generated_projection:
+      - skills
+      - agents
+    descriptive_metadata:
+      - schema_version
+      - framework_version
+      - name
+      - version
 
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (49 skills)
+# Skills registry (47 skills) — spec-127 sub-005 (M4) renames + mergers
+# landed; Wave 8 (D-127-10 strict-count enforcement) demoted `/ai-help` to
+# a reference file under `.claude/skills/ai-cleanup/references/`. The
+# umbrella spec target was 46; achieved disk count is 47 because the
+# `/ai-board` discover+sync merger target is a net addition that wasn't
+# in the D-127-10 arithmetic. See CHANGELOG Wave 8 entry for the gap.
 skills:
-  total: 49
+  total: 47
   prefix: "ai-"
   registry:
     # Core workflow
     ai-brainstorm: { type: workflow, tags: [planning] }
     ai-plan: { type: workflow, tags: [planning] }
-    ai-dispatch: { type: workflow, tags: [execution] }
+    ai-build: { type: workflow, tags: [execution, implementation] }
     ai-test: { type: workflow, tags: [quality] }
     ai-debug: { type: workflow, tags: [quality] }
     ai-code: { type: workflow, tags: [implementation] }
-    ai-verify: { type: workflow, tags: [quality] }
+    ai-verify: { type: workflow, tags: [quality, release] }
     ai-review: { type: workflow, tags: [quality] }
     # Delivery
     ai-commit: { type: delivery, tags: [git] }
     ai-pr: { type: delivery, tags: [git] }
-    ai-release-gate: { type: delivery, tags: [release] }
     ai-cleanup: { type: delivery, tags: [git] }
     # Enterprise
     ai-security: { type: enterprise, tags: [security] }
     ai-governance: { type: enterprise, tags: [compliance] }
     ai-pipeline: { type: enterprise, tags: [cicd] }
     ai-schema: { type: enterprise, tags: [database] }
-    ai-docs: { type: enterprise, tags: [documentation, architecture, governance] }
+    ai-docs:
+      { type: enterprise, tags: [documentation, architecture, governance] }
     # Teaching + Writing
     ai-explain: { type: teaching, tags: [learning] }
     ai-guide: { type: teaching, tags: [onboarding] }
     ai-write: { type: writing, tags: [content] }
-    ai-market: { type: writing, tags: [marketing, go-to-market] }
+    ai-gtm: { type: writing, tags: [gtm, marketing, go-to-market] }
     # SDLC
     ai-note: { type: sdlc, tags: [knowledge] }
     ai-standup: { type: sdlc, tags: [reporting] }
@@ -177,43 +194,103 @@ skills:
     ai-prompt: { type: meta, tags: [optimization] }
     ai-start: { type: meta, tags: [bootstrap] }
     ai-analyze-permissions: { type: meta, tags: [permissions] }
-    ai-instinct: { type: meta, tags: [meta, learning, continuous-improvement] }
-    ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec] }
-    ai-run: { type: meta, tags: [orchestration, autonomous, backlog, no-hitl] }
+    ai-observe: { type: meta, tags: [meta, learning, continuous-improvement, observe] }
+    ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec, backlog] }
     ai-constitution: { type: meta, tags: [governance] }
     # ECC Integration (spec-062)
     ai-slides: { type: writing, tags: [presentation, html, css] }
     ai-media: { type: writing, tags: [media, generation] }
     ai-video-editing: { type: writing, tags: [video, editing] }
-    ai-eval: { type: workflow, tags: [quality, evals] }
-    # Board integration
-    ai-board-discover: { type: enterprise, tags: [board, discovery] }
-    ai-board-sync: { type: enterprise, tags: [board, sync] }
+    # Board integration (D-127-10 merger of ai-board-discover + ai-board-sync)
+    ai-board: { type: enterprise, tags: [board, discovery, sync, work-items] }
     # Platform governance
-    ai-platform-audit: { type: enterprise, tags: [audit, platform, governance] }
-    ai-skill-evolve: { type: meta, tags: [improvement, skills, optimization] }
+    ai-ide-audit: { type: enterprise, tags: [audit, ide, governance] }
+    ai-skill-tune: { type: meta, tags: [improvement, skills, optimization, tune] }
     # Security (spec-107)
-    ai-mcp-sentinel: { type: enterprise, tags: [security, mcp, audit, sentinel, governance] }
+    ai-mcp-audit:
+      { type: enterprise, tags: [security, mcp, audit, governance] }
     # Design (spec-093)
     ai-design: { type: design, tags: [design, ui, ux, aesthetic] }
     ai-animation: { type: design, tags: [animation, motion, interaction] }
-    ai-canvas: { type: design, tags: [visual, art, composition, marketing] }
+    ai-visual: { type: design, tags: [visual, art, composition, marketing] }
     # Research (spec-111)
-    ai-research: { type: workflow, tags: [research, evidence, citations, multi-tier] }
+    ai-research:
+      { type: workflow, tags: [research, evidence, citations, multi-tier] }
+    # spec-120 follow-up: scheduled simplification sweep (renamed from ai-entropy-gc)
+    ai-simplify-sweep:
+      { type: meta, tags: [simplification, scheduled, autonomous] }
+    # Evaluation (spec-119)
+    ai-eval: { type: workflow, tags: [evaluation, gate, regression, pass-at-k] }
 
-# Agents (10)
+# Agents (orchestrators) — spec-127 sub-005: 10 → 9 orchestrators after
+# `run-orchestrator` deletion (functionality absorbed into `autopilot --backlog`).
+# `total` here counts orchestrator (ai-*) agents only; specialists (reviewer-*,
+# verifier-*, verify-*) are tracked separately by the sync script.
+# Total .claude/agents/*.md disk count: 24 (spec target 23 — see CHANGELOG M4).
 agents:
-  total: 10
-  names: [plan, build, verify, guard, review, explore, guide, simplify, autopilot, run-orchestrator]
+  total: 9
+  names:
+    [
+      plan,
+      build,
+      verify,
+      guard,
+      review,
+      explore,
+      guide,
+      simplify,
+      autopilot,
+    ]
 
 # Ownership
 ownership:
-  framework: [".claude/skills/**", ".claude/agents/**", ".ai-engineering/**", ".github/agents/**", ".github/skills/**", ".github/hooks/**", ".github/copilot-instructions.md", ".codex/**", ".gemini/**"]
+  framework:
+    [
+      ".claude/skills/**",
+      ".claude/agents/**",
+      ".ai-engineering/**",
+      ".github/agents/**",
+      ".github/skills/**",
+      ".github/hooks/**",
+      ".github/copilot-instructions.md",
+      ".codex/**",
+      ".gemini/**",
+    ]
+  root_entry_points:
+    CLAUDE.md:
+      owner: framework
+      canonical_source: CLAUDE.md
+      runtime_role: ide-overlay
+      sync:
+        mode: copy
+        template_path: src/ai_engineering/templates/project/CLAUDE.md
+        mirror_paths: []
+    AGENTS.md:
+      owner: framework
+      canonical_source: scripts/sync_command_mirrors.py:generate_agents_md
+      runtime_role: shared-runtime-contract
+      sync:
+        mode: generate
+        template_path: src/ai_engineering/templates/project/AGENTS.md
+        mirror_paths: []
+    GEMINI.md:
+      owner: framework
+      canonical_source: src/ai_engineering/templates/project/GEMINI.md
+      runtime_role: ide-overlay
+      sync:
+        mode: render
+        template_path: src/ai_engineering/templates/project/GEMINI.md
+        mirror_paths: [.gemini/GEMINI.md]
+    ".github/copilot-instructions.md":
+      owner: framework
+      canonical_source: CLAUDE.md
+      runtime_role: ide-overlay
+      sync:
+        mode: generate
+        template_path: src/ai_engineering/templates/project/copilot-instructions.md
+        mirror_paths: []
   team: [".ai-engineering/contexts/team/**"]
   system: [".ai-engineering/state/**"]
-
-# Tooling
-tooling: [uv, ruff, gitleaks, pytest, ty, pip-audit]
 
 # Telemetry
 telemetry:
@@ -237,6 +314,13 @@ hot_path_slos:
 # after `required_tools:` — siblings at column 0 confuse it). Keep
 # `required_tools:` as the LAST top-level key in this file.
 
+# Python environment mode (spec-101 D-101-12). `uv-tool` (default) installs
+# Python tools to `~/.local/share/uv/tools/` so worktree creation never
+# triggers a `.venv/` re-install. Alternatives: `venv` (legacy, per-cwd
+# `.venv/`) and `shared-parent` (worktree-aware, requires a git repo).
+python_env:
+  mode: uv-tool
+
 # Prereqs — hard prerequisites the user must install before `ai-eng install`
 # (spec-101 D-101-14). `uv` covers the framework's own Python tool install
 # path; `sdk_per_stack` covers the 9 stacks whose toolchains the framework
@@ -245,22 +329,28 @@ prereqs:
   uv:
     version_range: ">=0.4.0,<1.0"
   sdk_per_stack:
-    java: {name: JDK, min_version: "21", install_link: "https://adoptium.net/"}
-    kotlin: {name: JDK, min_version: "21", install_link: "https://adoptium.net/"}
-    swift: {name: Swift toolchain, install_link: "https://www.swift.org/install/"}
-    dart: {name: Dart SDK, install_link: "https://dart.dev/get-dart"}
-    csharp: {name: ".NET SDK", min_version: "9", install_link: "https://dotnet.microsoft.com/download"}
-    go: {name: Go toolchain, install_link: "https://go.dev/dl/"}
-    rust: {name: Rust toolchain, install_link: "https://rustup.rs/"}
-    php: {name: PHP, min_version: "8.2", install_link: "https://www.php.net/downloads"}
-    cpp: {name: clang/LLVM, install_link: "https://llvm.org/builds/"}
-
-# Python environment mode (spec-101 D-101-12). `uv-tool` (default) installs
-# Python tools to `~/.local/share/uv/tools/` so worktree creation never
-# triggers a `.venv/` re-install. Alternatives: `venv` (legacy, per-cwd
-# `.venv/`) and `shared-parent` (worktree-aware, requires a git repo).
-python_env:
-  mode: uv-tool
+    java:
+      { name: JDK, min_version: "21", install_link: "https://adoptium.net/" }
+    kotlin:
+      { name: JDK, min_version: "21", install_link: "https://adoptium.net/" }
+    swift:
+      { name: Swift toolchain, install_link: "https://www.swift.org/install/" }
+    dart: { name: Dart SDK, install_link: "https://dart.dev/get-dart" }
+    csharp:
+      {
+        name: ".NET SDK",
+        min_version: "9",
+        install_link: "https://dotnet.microsoft.com/download",
+      }
+    go: { name: Go toolchain, install_link: "https://go.dev/dl/" }
+    rust: { name: Rust toolchain, install_link: "https://rustup.rs/" }
+    php:
+      {
+        name: PHP,
+        min_version: "8.2",
+        install_link: "https://www.php.net/downloads",
+      }
+    cpp: { name: clang/LLVM, install_link: "https://llvm.org/builds/" }
 
 # Required tools — single source of truth for `ai-eng install` / `ai-eng doctor --fix`
 # (spec-101 D-101-01). Covers a universal `baseline` plus per-stack tools for the
@@ -270,53 +360,58 @@ python_env:
 # top-level key in this file (see lint-normaliser note above).
 required_tools:
   baseline:
-    - {name: gitleaks}
-    - {name: semgrep, platform_unsupported: [windows], unsupported_reason: "semgrep has no Windows release"}
-    - {name: jq}
+    - { name: gitleaks }
+    - {
+        name: semgrep,
+        platform_unsupported: [windows],
+        unsupported_reason: "semgrep has no Windows release",
+      }
+    - { name: jq }
+    - { name: opa, version_range: ">=0.70.0,<2.0.0" }
   python:
-    - {name: ruff}
-    - {name: ty}
-    - {name: pip-audit}
-    - {name: pytest, scope: user_global}
+    - { name: ruff }
+    - { name: ty }
+    - { name: pip-audit }
+    - { name: pytest, scope: user_global }
   typescript:
-    - {name: prettier, scope: project_local}
-    - {name: eslint, scope: project_local}
-    - {name: tsc, scope: project_local}
-    - {name: vitest, scope: project_local}
+    - { name: prettier, scope: project_local }
+    - { name: eslint, scope: project_local }
+    - { name: tsc, scope: project_local }
+    - { name: vitest, scope: project_local }
   javascript:
-    - {name: prettier, scope: project_local}
-    - {name: eslint, scope: project_local}
-    - {name: vitest, scope: project_local}
+    - { name: prettier, scope: project_local }
+    - { name: eslint, scope: project_local }
+    - { name: vitest, scope: project_local }
   java:
-    - {name: checkstyle}
-    - {name: google-java-format}
+    - { name: checkstyle }
+    - { name: google-java-format }
   csharp:
-    - {name: dotnet-format}
+    - { name: dotnet-format }
   go:
-    - {name: staticcheck}
-    - {name: govulncheck}
+    - { name: staticcheck }
+    - { name: govulncheck }
   php:
-    - {name: phpstan}
-    - {name: php-cs-fixer}
-    - {name: composer}
+    - { name: phpstan }
+    - { name: php-cs-fixer }
+    - { name: composer }
   rust:
-    - {name: cargo-audit}
+    - { name: cargo-audit }
   kotlin:
-    - {name: ktlint}
+    - { name: ktlint }
   swift:
     platform_unsupported_stack: [linux, windows]
     unsupported_reason: "swiftlint and swift-format have no Linux/Windows binaries"
     tools:
-      - {name: swiftlint}
-      - {name: swift-format}
+      - { name: swiftlint }
+      - { name: swift-format }
   dart:
-    - {name: dart-stack-marker}
+    - { name: dart-stack-marker }
   sql:
-    - {name: sqlfluff}
+    - { name: sqlfluff }
   bash:
-    - {name: shellcheck}
-    - {name: shfmt}
+    - { name: shellcheck }
+    - { name: shfmt }
   cpp:
-    - {name: clang-tidy}
-    - {name: clang-format}
-    - {name: cppcheck}
+    - { name: clang-tidy }
+    - { name: clang-format }
+    - { name: cppcheck }

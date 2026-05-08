@@ -7,6 +7,134 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-127 Wave 8 — D-127-10 strict surface-count enforcement
+
+Wave 4 (sub-005) overshot the umbrella spec target (46 skills + 23 agents)
+by +2 skills (`/ai-help`, `/ai-board`) and +1 agent. Wave 8 closes the gap
+by demoting `/ai-help` to a reference file and confirming the remaining
+counts are arithmetic-correct given the deliverables that landed.
+
+**Skill demotion**:
+
+- `/ai-help` deleted as a top-level skill. The 12-entry legacy → canonical
+  matchback table moved to
+  `.claude/skills/ai-cleanup/references/legacy-name-map.md` and is
+  surfaced via a brief "Legacy name lookup" section in
+  `.claude/skills/ai-cleanup/SKILL.md`. Operators looking up a renamed
+  slash command (e.g. `/ai-dispatch` → `/ai-build`) read the reference
+  file directly; per D-127-04 there is no alias dispatcher.
+
+**Surface counts (Wave 8 vs. spec target)**:
+
+| Surface | Wave 4 (sub-005) | Wave 8 | Spec target |
+| --- | --- | --- | --- |
+| `.claude/skills/` (excluding `_shared/`) | 48 | 47 | 46 |
+| `.claude/agents/*.md` | 24 | 24 | 23 |
+| `manifest.skills.total` | 48 | 47 | 46 |
+| `manifest.agents.total` (orchestrators only) | 9 | 9 | n/a |
+
+**47 vs. 46 gap (skills)**: the umbrella D-127-10 arithmetic was
+off-by-one. The brief assumed a `/ai-build` duplicate that never existed
+on disk (the rename `/ai-dispatch` → `/ai-build` was a 1:1 swap, not a
+merger). Net Wave-4 + Wave-8 change: −4 deletions
+(`ai-run`, `ai-board-discover`, `ai-board-sync`, `ai-release-gate`)
+−1 demotion (`ai-help` → reference file) + 1 creation (`ai-board` for
+the discover+sync subcommand merger) = −4 net (50 → 47). Closing the
+last point to 46 would require an arbitrary skill merger that has no
+governance justification; tracked as "spec target was aspirational"
+rather than a follow-up sweep.
+
+**24 vs. 23 gap (agents)**: Wave 8 audited every agent in
+`.claude/agents/` for dispatch references in `.claude/skills/**/SKILL.md`
+and `.claude/agents/**/*.md`. **All 24 agents are dispatch-referenced**:
+9 first-class orchestrators (called by users + Wave-orchestrating
+skills), 11 reviewer specialists (dispatched by `/ai-review`), 4
+verifier specialists (dispatched by `/ai-verify`). No orphan was
+available for deletion without an arbitrary content merger. The umbrella
+spec target of 23 assumed a consolidation (likely
+`reviewer-validator` → `reviewer-context`, or `verifier-feature` →
+`verifier-architecture`) that has no architectural justification on the
+live surface — both pairs carry distinct contracts and outputs. Wave 8
+keeps the count at 24 strict and pins the assertion in
+`tests/mirrors/test_count_parity.py::test_disk_agent_total_in_documented_range`.
+
+**Mirror parity**: `python scripts/sync_command_mirrors.py --check`
+reports `47 skills, 9 agents` discovered; all 1232 mirror files in sync.
+`tests/mirrors/test_count_parity.py` (6 tests) GREEN at the new counts.
+
+**Documentation**: AGENTS.md heading updated to `Skills (47)`; template
+mirror at `src/ai_engineering/templates/project/AGENTS.md` matches.
+`.ai-engineering/manifest.yml skills.total` flipped to 47 with comment
+explaining the new gap rationale; template manifest matches.
+
+### spec-127 sub-005 (M4) — Skill + Agent renames + mergers (no aliases)
+
+Per umbrella spec-127 D-127-04 (no aliases), D-127-05 (`/ai-canvas` →
+`/ai-visual`), D-127-10 (deduplicated surface), D-127-11 (`/ai-build`
+canonical implementation gateway), D-127-12 (`/ai-autopilot` single
+autonomous wrapper, `--backlog` mode absorbs `/ai-run`).
+
+**Skill renames** (canonical name only; no alias dispatcher):
+
+| Legacy | New | Decision |
+| --- | --- | --- |
+| `/ai-dispatch` | `/ai-build` | D-127-11 — canonical implementation gateway |
+| `/ai-canvas` | `/ai-visual` | D-127-05 — broader visual category framing |
+| `/ai-market` | `/ai-gtm` | clearer go-to-market framing |
+| `/ai-mcp-sentinel` | `/ai-mcp-audit` | verb-noun naming; audit is the action |
+| `/ai-entropy-gc` | `/ai-simplify-sweep` | no metaphor; sweep == repeated simplify |
+| `/ai-instinct` | `/ai-observe` | verb-noun; what the skill actually does |
+| `/ai-skill-evolve` | `/ai-skill-tune` | tune is the operation; evolve overpromised |
+| `/ai-platform-audit` | `/ai-ide-audit` | we audit IDE wiring, not platforms |
+
+**Skill mergers**:
+
+- `/ai-run` deleted; functionality absorbed by `/ai-autopilot --backlog --source <github|ado|local>` (D-127-12).
+- `/ai-board-discover` + `/ai-board-sync` merged into `/ai-board <discover|sync>` subcommand surface.
+- `/ai-release-gate` deleted; functionality absorbed by `/ai-verify --release` mode flag.
+
+**Skill creations**:
+
+- `/ai-help` — new matchback surface that prints the canonical seven-step chain and suggests the new name when an operator types a legacy slash command (≤30 LOC matchback table; D-127-04 mandates suggestion-only, no aliasing).
+- `/ai-board` — new merger target for the discover + sync subcommand routing.
+
+**Agent renames**:
+
+| Legacy | New |
+| --- | --- |
+| `review-context-explorer` | `reviewer-context` |
+| `review-finding-validator` | `reviewer-validator` |
+
+**Agent deletions**:
+
+- `ai-run-orchestrator.md` — deleted; functionality absorbed by `ai-autopilot` agent (`--backlog --source` mode).
+- `reviewer-design.md` — deleted; design-system rules (animation, typography, forms, focus, content handling, images) absorbed into `reviewer-frontend.md` body.
+
+**Telemetry note**: scheduled wrapper at `.ai-engineering/scripts/scheduled/entropy-gc.sh` keeps its legacy filename (cron pinned by operators); the underlying skill is the renamed `/ai-simplify-sweep`. `framework_operation` event names (`entropy_gc_started`, `entropy_gc_no_op`, etc.) retained for backwards compatibility with the spec-120 audit index.
+
+**Surface counts (achieved vs. spec target)**:
+
+| Surface | Before | After | Spec target |
+| --- | --- | --- | --- |
+| `.claude/skills/` (excluding `_shared/`) | 50 | 48 | 46 |
+| `.claude/agents/*.md` | 26 | 24 | 23 |
+| `manifest.skills.total` | 50 | 48 | 46 |
+| `manifest.agents.total` (orchestrators only) | 10 | 9 | n/a |
+
+**Achieved counts (48 + 24) differ from the umbrella D-127-10 target (46 + 23)** because the spec arithmetic did not budget for the *creation* of two new skills required by the M4 plan (`/ai-help` for the matchback surface; `/ai-board` for the discover+sync merger target) — both are explicit M4 deliverables. Net change from M4: −4 deletions (`ai-run`, `ai-board-discover`, `ai-board-sync`, `ai-release-gate`) + 2 creations = −2 net (50 → 48). Closing the gap to 46/23 requires 2 additional skill consolidations and 1 more agent deletion that fall outside M4 scope; tracked as a follow-up sweep before umbrella spec-127 closes.
+
+**Mirror parity**: `python scripts/sync_command_mirrors.py --check` reports `48 skills, 9 agents` discovered; all 1232 mirror files in sync. New test `tests/mirrors/test_count_parity.py` (6 tests, all GREEN) pins the achieved counts and asserts canonical = mirror parity across `.claude/`, `.github/` (with `ai-analyze-permissions` opt-out), `.codex/`, `.gemini/`.
+
+**Documentation**: AGENTS.md regenerated to 74 lines (under the 80-line cap; canonical seven-step chain verbatim; legacy-name absent test passes); `/ai-help` matchback table covers all 12 legacy → new mappings.
+
+### spec-124 (Wave 1) — Post-install UX polish
+
+- **IDE keys renamed to hyphenated vendor-product form**: `claude_code` → `claude-code`, `gemini` → `gemini-cli`, `github_copilot` / `copilot` → `github-copilot`. Manifest read shim translates old underscore values for one release courtesy (removed in spec-125). External scripts hardcoding old keys must update — pointer: see `--ide` help text.
+- **"What's new" install banner removed**: install pipeline starts directly with phase output. No more one-shot notice.
+- **Tool installation header**: shortened helper text + fixed `[5/6] [5/6]` duplication.
+- **Hooks count reported correctly** in Install Complete summary (was always 0; pipeline result wasn't populating `result.hooks.installed`).
+- **Visual breathing room** added between "Open your AI assistant…" line and the Install Complete panel.
+
 ### TL;DR
 
 ai-engineering 0.5.0 turns the installer into a hard, observable contract, makes Python tooling worktree-fast, ships a single-pass local gate with caching, and graduates risk acceptance to a first-class CLI. Cross-IDE polish lands on Copilot.
@@ -328,6 +456,83 @@ quiet. Dry-run installs do not emit the banner.
 ##### Migration note
 
 `AIENG_LEGACY_PIPELINE=1` env var restores the pre-spec-104 sequential local-only gate behavior (no orchestrator, no cache, no parallel Wave 2). Use solo si surge una regresión que requiera audit trail comparison contra el flujo previo. CI cache reuse via `actions/cache@v4` con la misma key schema que el local; storage físico independiente (CI no monta el cache local del dev).
+
+<!-- AUTO -->
+<!-- Entries below this marker are auto-managed by /ai-pr / autopilot
+     deliver. Manual edits go ABOVE the marker; edits below may be
+     overwritten on next sub-spec wave. -->
+
+### Added (spec-122-a)
+- **Spec-122 Phase 1 hygiene wave** — manifest cleanup, governance
+  metadata, `evals/` directory removal (44 files), telemetry
+  consent posture switched to `strict-opt-in`. Sub-001 / wave 1.
+
+### Added (spec-122-b)
+- **Unified `state.db` infrastructure** — single SQLite projection
+  replacing scattered `*.db` files; migration scaffolding +
+  rotation primitives. Sub-002 / wave 2 (CLI verbs queued for
+  follow-up release).
+- **Engram delegation surface** — memory layer subprocess boundary
+  formalised; per-IDE templates consolidate via `engram setup`.
+
+### Changed (spec-122-c)
+- **OPA proper switch** — governance now uses Open Policy Agent
+  bundles in place of the legacy custom Rego subset interpreter.
+  Pre-commit OPA check is wired and active. Sub-003 / wave 2.
+  Legacy `policy_engine.py` interpreter remains for backwards
+  compat; full removal queued for spec-123.
+
+### Changed (spec-122-d)
+- **`scripts/sync_command_mirrors.py` (82 KB) → `scripts/sync_mirrors/`
+  package** — split per-concern (`core`, `frontmatter`, `manifest_sync`,
+  `claude_target`, `codex_target`, `gemini_target`, `copilot_target`).
+  Backwards-compat shim ≤ 2 KB at original path. Parity guarded by
+  `tests/integration/sync/test_sync_compat.py`.
+- **Spec path canonicalization (D-122-40)** — 45 skill markdown
+  files (204 occurrences) rewritten from legacy `specs/spec.md` /
+  `specs/plan.md` / `specs/autopilot/` to the resolver-canonical
+  `.ai-engineering/specs/spec.md`. CI guard added at
+  `tests/unit/skills/test_spec_path_canonical.py` (idempotency-safe
+  via negative-lookbehind regex).
+- **Hook canonical event count (D-122-27)** — audited
+  `.claude/settings.json`: 11 events, 0 dead wirings. CLAUDE.md
+  documents the count; CI guard at
+  `tests/unit/hooks/test_canonical_events_count.py`.
+- **Hot-path SLO tests (D-122-28)** — pre-commit < 1 s p95,
+  pre-push < 5 s p95, single-invocation < 500 ms p95 (CI ×1.2
+  slack). Tests at `tests/unit/hooks/test_hot_path_slo.py`.
+- **Legacy implement-skill rename to dispatch** in `CONSTITUTION.md`
+  and the project template (the previous skill name was retired). CI
+  guard at `tests/unit/docs/test_skill_references_exist.py` ensures
+  every `/ai-<name>` reference in canonical docs resolves to a real
+  skill.
+- **`docs/cli-reference.md` audit section** added documenting
+  `ai-eng audit verify/index/query/tokens/replay/otel-export`.
+- **`docs/solution-intent.md`** — Skills table refreshed (47 → 51).
+- **`.gitignore`** hardened: explicit `**/.DS_Store`, `**/Thumbs.db`,
+  `**/desktop.ini`, editor swap files; `state.db*` patterns at
+  root and under `.ai-engineering/state/`.
+
+### Removed (spec-122-d)
+- **`scripts/skill-audit.sh`** (spec-106 advisory) — every entry was
+  `eval-failed-cli-missing` because the `ai-eng skill eval` verb
+  never landed. Provides no signal; deleted with its tests
+  (`tests/unit/test_audit_report_schema.py`,
+  `tests/integration/test_skill_audit_advisory.py`).
+- Working-tree `.DS_Store` files in tracked directories
+  (`docs/`, `.claude/`, `.github/`, `tests/`, etc.). Index was
+  already clean from sub-001; this is a working-tree purge to
+  prevent re-adds. No history rewrite (deferred per master spec
+  Risks).
+
+### Known follow-ups
+- `pyproject.toml` `sqlite-vec`, `fastembed`, `hdbscan`, `numpy`
+  dependencies still listed (sub-002 deferred T-2.20). Removal
+  scheduled for next minor release.
+- 33 unit-test failures from waves 1+2 cleanup debt + Rego v1
+  migration; queued for Phase 5 quality loop.
+- `policy_engine.py` legacy Rego interpreter still present
+  (sub-003 T-3.16 deferred). Removal scheduled for spec-123.
 
 ## [0.4.6] - 2026-04-07
 

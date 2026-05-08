@@ -1,5 +1,15 @@
 # Semgrep configuration for ai-engineering
 # https://semgrep.dev/docs/
+#
+# Community packs are pinned to specific versions; refresh accountability
+# is tracked alongside the package version in pyproject.toml.
+# To refresh: bump the version below and re-run `semgrep scan` over src/ + scripts/.
+
+extends:
+  - p/python@1.96.0
+  - p/bash@1.96.0
+  - p/owasp-top-ten@1.96.0
+  - p/security-audit@1.96.0
 
 rules:
   # --- Injection Prevention ---
@@ -135,3 +145,159 @@ rules:
     metadata:
       cwe: "CWE-918"
       owasp: "A10:2021"
+
+  - id: ssrf-urllib-request
+    patterns:
+      - pattern: urllib.request.urlopen($URL, ...)
+      - pattern-not: urllib.request.urlopen("...", ...)
+    message: "Potential SSRF: urllib.request.urlopen with non-literal URL. Validate and allowlist target URLs."
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-918: Server-Side Request Forgery"
+      owasp: "A10:2021"
+      category: security
+
+  - id: ssrf-httpx
+    patterns:
+      - pattern-either:
+          - pattern: httpx.$METHOD($URL, ...)
+          - pattern: httpx.AsyncClient(...).$METHOD($URL, ...)
+          - pattern: httpx.Client(...).$METHOD($URL, ...)
+      - pattern-not: httpx.$METHOD("...", ...)
+      - pattern-not: httpx.AsyncClient(...).$METHOD("...", ...)
+      - pattern-not: httpx.Client(...).$METHOD("...", ...)
+    message: "Potential SSRF: httpx call with non-literal URL. Validate and allowlist target URLs."
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-918: Server-Side Request Forgery"
+      owasp: "A10:2021"
+      category: security
+
+  - id: ssrf-aiohttp
+    patterns:
+      - pattern-either:
+          - pattern: aiohttp.ClientSession(...).$METHOD($URL, ...)
+          - pattern: aiohttp.request($METHOD, $URL, ...)
+      - pattern-not: aiohttp.ClientSession(...).$METHOD("...", ...)
+      - pattern-not: aiohttp.request($METHOD, "...", ...)
+    message: "Potential SSRF: aiohttp call with non-literal URL. Validate and allowlist target URLs."
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-918: Server-Side Request Forgery"
+      owasp: "A10:2021"
+      category: security
+
+  # --- Weak Cryptography ---
+
+  - id: weak-crypto-md5
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5($X)
+          - pattern: hashlib.md5($X, $Y)
+          - pattern: hashlib.new("md5", ...)
+          - pattern: hashlib.new('md5', ...)
+      - pattern-not: hashlib.md5(..., usedforsecurity=False)
+      - pattern-not: hashlib.md5(..., usedforsecurity=False, ...)
+    message: >
+      MD5 is cryptographically broken. Use hashlib.sha256() or hashlib.blake2b()
+      for security-sensitive hashes. If used for non-security checksums, pass
+      usedforsecurity=False to make intent explicit.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 Cryptographic Failures"
+      category: security
+
+  - id: weak-crypto-sha1
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.sha1($X)
+          - pattern: hashlib.sha1($X, $Y)
+          - pattern: hashlib.new("sha1", ...)
+          - pattern: hashlib.new('sha1', ...)
+      - pattern-not: hashlib.sha1(..., usedforsecurity=False)
+      - pattern-not: hashlib.sha1(..., usedforsecurity=False, ...)
+    message: >
+      SHA-1 is cryptographically broken for collision-resistant uses. Use
+      hashlib.sha256() or stronger. Pass usedforsecurity=False if intent is
+      a non-security checksum (e.g., git plumbing).
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-327: Use of a Broken or Risky Cryptographic Algorithm"
+      owasp: "A02:2021 Cryptographic Failures"
+      category: security
+
+  - id: weak-random-for-secrets
+    patterns:
+      - pattern-either:
+          - pattern: random.random()
+          - pattern: random.randint(...)
+          - pattern: random.choice(...)
+          - pattern: random.choices(...)
+          - pattern: random.uniform(...)
+          - pattern: random.sample(...)
+      - pattern-inside: |
+          def $FUNC(...):
+            ...
+      - metavariable-regex:
+          metavariable: $FUNC
+          regex: "(?i).*(token|secret|password|key|nonce|salt|otp|session|auth).*"
+    message: >
+      The `random` module is not cryptographically secure. For tokens, secrets,
+      session IDs, nonces, or any value that must be unpredictable, use
+      `secrets` module (secrets.token_bytes, secrets.token_urlsafe, etc.).
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-330: Use of Insufficiently Random Values"
+      owasp: "A02:2021 Cryptographic Failures"
+      category: security
+
+  # --- Prompt Injection (LLM safety) ---
+
+  - id: prompt-injection-llm-client-fstring
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $CLIENT.messages.create(..., system=f"...{$UNTRUSTED}...", ...)
+          - pattern: |
+              $CLIENT.completions.create(..., prompt=f"...{$UNTRUSTED}...", ...)
+          - pattern: |
+              $CLIENT.chat.completions.create(..., messages=[..., {"role": "system", "content": f"...{$UNTRUSTED}..."}, ...], ...)
+    message: >
+      Potential prompt injection: f-string with untrusted content reaching an
+      LLM system or completion prompt. Sanitize input, use structured prompt
+      templates, or rely on the model provider's tool/structured-output APIs.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cwe: "CWE-94: Code Injection"
+      category: security
+      references:
+        - "https://owasp.org/www-project-top-10-for-large-language-model-applications/"
+
+  - id: prompt-injection-direct-system-role
+    patterns:
+      - pattern-either:
+          - pattern: |
+              {"role": "system", "content": $UNTRUSTED}
+          - pattern: |
+              {'role': 'system', 'content': $UNTRUSTED}
+      - pattern-not: |
+          {"role": "system", "content": "..."}
+      - pattern-not: |
+          {'role': 'system', 'content': '...'}
+    message: >
+      System-role message content is not a literal — risk of prompt injection
+      escalating user input into instructions. Treat the system prompt as a
+      trust boundary; never let untrusted strings reach it directly.
+    languages: [python]
+    severity: ERROR
+    metadata:
+      cwe: "CWE-94: Code Injection"
+      category: security

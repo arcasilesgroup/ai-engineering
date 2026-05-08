@@ -33,13 +33,13 @@ version: "1.0.0"
 # Providers
 providers:
   vcs: github
-  ides: [claude_code, github_copilot]
+  ides: [claude-code, github-copilot]
   stacks: [python]
 
 # AI Providers
 ai_providers:
-  enabled: [claude_code, github_copilot]
-  primary: claude_code
+  enabled: [claude-code, github-copilot]
+  primary: claude-code
 
 # Work items
 work_items:
@@ -92,7 +92,7 @@ class TestCommentPreservation:
         assert "# Quality gates" in raw
 
     def test_update_ides_preserves_comments(self, manifest_project: Path) -> None:
-        update_manifest_field(manifest_project, "providers.ides", ["claude_code"])
+        update_manifest_field(manifest_project, "providers.ides", ["claude-code"])
 
         raw = (manifest_project / ".ai-engineering" / "manifest.yml").read_text(encoding="utf-8")
 
@@ -126,11 +126,11 @@ class TestValueUpdates:
         update_manifest_field(
             manifest_project,
             "providers.ides",
-            ["claude_code", "github_copilot", "codex"],
+            ["claude-code", "github-copilot", "codex"],
         )
 
         config = load_manifest_config(manifest_project)
-        assert config.providers.ides == ["claude_code", "github_copilot", "codex"]
+        assert config.providers.ides == ["claude-code", "github-copilot", "codex"]
 
     def test_update_work_items_provider(self, manifest_project: Path) -> None:
         update_manifest_field(manifest_project, "work_items.provider", "azure_devops")
@@ -156,7 +156,7 @@ class TestValueUpdates:
         config = load_manifest_config(manifest_project)
         # Other fields remain as set in the fixture
         assert config.providers.vcs == "github"
-        assert config.providers.ides == ["claude_code", "github_copilot"]
+        assert config.providers.ides == ["claude-code", "github-copilot"]
         assert config.work_items.provider == "github"
         assert config.quality.coverage == 80
         assert config.name == "test-project"

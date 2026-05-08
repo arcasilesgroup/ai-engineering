@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.config.manifest import ManifestConfig
+from ai_engineering.config.manifest import ManifestConfig, RootEntryPointConfig
 from ai_engineering.installer.operations import (
     InstallerError,
     add_ide,
@@ -24,6 +24,8 @@ from ai_engineering.installer.templates import (
     copy_template_tree,
     get_ai_engineering_template_root,
     get_project_template_root,
+    resolve_instruction_file_destinations,
+    resolve_instruction_template_sources,
     resolve_template_maps,
 )
 
@@ -145,6 +147,48 @@ class TestCopyTemplateTree:
 class TestCopyProjectTemplates:
     """Tests for project template mapping."""
 
+    def test_instruction_template_sources_use_manifest_declared_paths(self) -> None:
+        root_entry_points = {
+            "AGENTS.md": RootEntryPointConfig(
+                owner="framework",
+                canonical_source="scripts/sync_command_mirrors.py:generate_agents_md",
+                runtime_role="shared-runtime-contract",
+                sync={
+                    "mode": "generate",
+                    "template_path": "src/ai_engineering/templates/project/custom/AGENTS.custom.md",
+                    "mirror_paths": [],
+                },
+            )
+        }
+
+        template_paths = resolve_instruction_template_sources(
+            ["AGENTS.md"],
+            root_entry_points=root_entry_points,
+        )
+
+        assert template_paths == ["src/ai_engineering/templates/project/custom/AGENTS.custom.md"]
+
+    def test_instruction_template_sources_require_root_entry_metadata(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Root entry point metadata is required to resolve instruction template sources",
+        ):
+            resolve_instruction_template_sources(["AGENTS.md"], root_entry_points=None)
+
+    def test_instruction_file_destinations_require_root_entry_metadata(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Root entry point metadata is required to resolve instruction file destinations",
+        ):
+            resolve_instruction_file_destinations(["github_copilot"], root_entry_points=None)
+
+    def test_instruction_file_destinations_require_explicit_providers(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Providers are required to resolve instruction file destinations",
+        ):
+            resolve_instruction_file_destinations(None, root_entry_points={})
+
     def test_copies_project_templates_to_correct_locations(
         self,
         tmp_path: Path,
@@ -243,10 +287,11 @@ class TestInstallOnEmptyRepo:
         assert (tmp_path / ".ai-engineering" / "manifest.yml").is_file()
         assert (tmp_path / ".ai-engineering" / "contexts" / "languages" / "python.md").is_file()
 
-        # State files generated
-        assert (tmp_path / ".ai-engineering" / "state" / "install-state.json").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "ownership-map.json").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "decision-store.json").is_file()
+        # spec-125 D-125-01: install_state, decisions, ownership_map, and
+        # tool_capabilities live in state.db tables. The JSON fallbacks were
+        # deleted in spec-124 wave 5 (decision-store, ownership-map) and
+        # spec-125 wave 1 (install-state, framework-capabilities).
+        assert (tmp_path / ".ai-engineering" / "state" / "state.db").is_file()
 
         # Project files created
         assert (tmp_path / "CLAUDE.md").is_file()
@@ -254,15 +299,17 @@ class TestInstallOnEmptyRepo:
 
         # Canonical state artifacts written
         assert (tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "framework-capabilities.json").is_file()
 
     def test_state_files_contain_valid_json(self, tmp_path: Path) -> None:
+        # spec-125 D-125-01: install_state lives in state.db; the JSON
+        # fallback was deleted in wave 1.
         install(tmp_path)
 
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-        data = json.loads(manifest_path.read_text())
-        assert data["schema_version"] == "2.0"
-        assert "operational_readiness" in data
+        from ai_engineering.state.repository import DurableStateRepository
+
+        state = DurableStateRepository(tmp_path).load_install_state()
+        assert state.schema_version == "2.0"
+        assert state.operational_readiness is not None
 
     def test_custom_stacks_and_ides(self, tmp_path: Path) -> None:
         install(tmp_path, stacks=["python", "node"], ides=["vscode", "terminal"])

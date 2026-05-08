@@ -17,17 +17,27 @@ import json
 import logging
 import shutil
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
 
-from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.config.loader import load_manifest_config, load_manifest_root_entry_points
+from ai_engineering.config.manifest import RootEntryPointConfig
 from ai_engineering.installer.templates import (
     _PROVIDER_FILE_MAPS,
     _PROVIDER_TREE_MAPS,
     get_ai_engineering_template_root,
     get_project_template_root,
     resolve_template_maps,
+)
+from ai_engineering.reconciler import (
+    ReconcileAction,
+    ReconcileApplyResult,
+    ReconcileInspection,
+    ReconcilePlan,
+    ReconcileVerification,
+    ResourceReconciler,
 )
 from ai_engineering.state.defaults import default_ownership_map
 from ai_engineering.state.io import read_json_model, write_json_model
@@ -60,6 +70,9 @@ _SKIP_DIR_NAMES: frozenset[str] = frozenset({"__pycache__"})
 
 Python bytecode caches are machine-specific and auto-generated;
 they must never be compared or synced between template and target."""
+
+_AI_ENGINEERING_DIR = ".ai-engineering"
+_GITHUB_DIR = ".github"
 
 
 @dataclass
@@ -154,13 +167,237 @@ class UpdateResult:
         }
 
 
+@dataclass(frozen=True)
+class _UpdateSnapshot:
+    ai_eng_dir: Path
+    ownership_path: Path
+    ownership: OwnershipMap
+    rules_added: bool
+    vcs_provider: str | None
+    providers: list[str] | None
+
+
+@dataclass(frozen=True)
+class _UpdatePlanPayload:
+    result: UpdateResult
+    actionable: list[FileChange]
+    orphan_changes: list[FileChange]
+    rules_added: bool
+    ai_eng_dir: Path
+    ownership_path: Path
+    ownership: OwnershipMap
+
+
+@dataclass(frozen=True)
+class _UpdateApplyPayload:
+    result: UpdateResult
+    backup_dir: Path | None
+    orphan_backup_dir: Path | None
+    actionable: list[FileChange]
+    orphan_changes: list[FileChange]
+    removed_legacy_dirs: list[str]
+    legacy_audit_log_removed: bool
+
+
+class _UpdateAdapter:
+    """Adapt framework update to inspect/plan/apply/verify reconciliation."""
+
+    def __init__(self, target: Path, *, dry_run: bool) -> None:
+        self._target = target
+        self._dry_run = dry_run
+        self._pending_apply_payload: _UpdateApplyPayload | None = None
+
+    @property
+    def name(self) -> str:
+        return "updater"
+
+    def inspect(self, _context: object) -> ReconcileInspection:
+        ai_eng_dir, ownership_path, ownership, rules_added, vcs_provider, providers = (
+            _initialize_update_context(self._target, dry_run=self._dry_run)
+        )
+        return ReconcileInspection(
+            resource_name=self.name,
+            payload=_UpdateSnapshot(
+                ai_eng_dir=ai_eng_dir,
+                ownership_path=ownership_path,
+                ownership=ownership,
+                rules_added=rules_added,
+                vcs_provider=vcs_provider,
+                providers=providers,
+            ),
+        )
+
+    def plan(self, inspection: ReconcileInspection, _context: object) -> ReconcilePlan:
+        snapshot = self._coerce_snapshot(inspection.payload)
+        changes: list[FileChange] = []
+        changes.extend(_evaluate_governance_files(snapshot.ai_eng_dir, snapshot.ownership))
+        changes.extend(
+            _evaluate_project_files(
+                self._target,
+                snapshot.ownership,
+                vcs_provider=snapshot.vcs_provider,
+                providers=snapshot.providers,
+            )
+        )
+        orphan_changes = _detect_orphan_files(self._target, snapshot.providers)
+        changes.extend(orphan_changes)
+        result = UpdateResult(dry_run=self._dry_run, changes=changes)
+        actionable = [change for change in changes if change.action in ("create", "update")]
+        actions = [
+            self._action_from_change(change, index) for index, change in enumerate(changes, 1)
+        ]
+        return ReconcilePlan(
+            resource_name=self.name,
+            actions=actions,
+            payload=_UpdatePlanPayload(
+                result=result,
+                actionable=actionable,
+                orphan_changes=orphan_changes,
+                rules_added=snapshot.rules_added,
+                ai_eng_dir=snapshot.ai_eng_dir,
+                ownership_path=snapshot.ownership_path,
+                ownership=snapshot.ownership,
+            ),
+        )
+
+    def apply(self, plan: ReconcilePlan, _context: object) -> ReconcileApplyResult:
+        payload = self._coerce_plan_payload(plan.payload)
+        backup_dir = _apply_actionable_file_changes(payload.actionable, self._target)
+        orphan_backup_dir = _backup_orphan_targets(payload.orphan_changes, self._target)
+        self._pending_apply_payload = _UpdateApplyPayload(
+            result=payload.result,
+            backup_dir=backup_dir,
+            orphan_backup_dir=orphan_backup_dir,
+            actionable=payload.actionable,
+            orphan_changes=payload.orphan_changes,
+            removed_legacy_dirs=[],
+            legacy_audit_log_removed=False,
+        )
+
+        if payload.orphan_changes:
+            _apply_orphan_deletions(payload.orphan_changes, self._target)
+
+        if payload.rules_added:
+            write_json_model(payload.ownership_path, payload.ownership)
+
+        removed_legacy_dirs = _migrate_legacy_dirs(self._target, payload.ai_eng_dir)
+        legacy_audit_log_removed = remove_legacy_audit_log(self._target)
+        apply_payload = _UpdateApplyPayload(
+            result=payload.result,
+            backup_dir=backup_dir,
+            orphan_backup_dir=orphan_backup_dir,
+            actionable=payload.actionable,
+            orphan_changes=payload.orphan_changes,
+            removed_legacy_dirs=removed_legacy_dirs,
+            legacy_audit_log_removed=legacy_audit_log_removed,
+        )
+        self._pending_apply_payload = apply_payload
+        return ReconcileApplyResult(
+            resource_name=self.name,
+            applied_actions=[
+                action.action_id for action in plan.actions if action.action_type != "skip"
+            ],
+            skipped_actions=[
+                action.action_id for action in plan.actions if action.action_type == "skip"
+            ],
+            payload=apply_payload,
+        )
+
+    def verify(
+        self,
+        apply_result: ReconcileApplyResult,
+        _context: object,
+    ) -> ReconcileVerification:
+        payload = self._coerce_apply_payload(apply_result.payload)
+        errors = _verify_update_postconditions(payload, self._target)
+        return ReconcileVerification(
+            resource_name=self.name,
+            passed=not errors,
+            errors=errors,
+            payload=payload,
+        )
+
+    def rollback(
+        self,
+        plan: ReconcilePlan,
+        _context: object,
+        reason: BaseException | ReconcileVerification,
+    ) -> None:
+        payload = plan.payload
+        if not isinstance(payload, _UpdatePlanPayload):
+            return
+        apply_payload = getattr(reason, "payload", None)
+        if not isinstance(apply_payload, _UpdateApplyPayload):
+            apply_payload = self._pending_apply_payload
+        if isinstance(apply_payload, _UpdateApplyPayload):
+            _rollback_update_payload(apply_payload, self._target)
+
+    def finalize(
+        self,
+        plan: ReconcilePlan,
+        apply_result: ReconcileApplyResult,
+        _verification: ReconcileVerification,
+        _context: object,
+    ) -> None:
+        plan_payload = self._coerce_plan_payload(plan.payload)
+        payload = self._coerce_apply_payload(apply_result.payload)
+        if (
+            payload.actionable
+            or plan_payload.rules_added
+            or payload.removed_legacy_dirs
+            or payload.legacy_audit_log_removed
+        ):
+            _log_update_event(
+                plan_payload.ai_eng_dir,
+                payload.result,
+                legacy_audit_log_removed=payload.legacy_audit_log_removed,
+            )
+        if payload.backup_dir is not None:
+            shutil.rmtree(payload.backup_dir, ignore_errors=True)
+        if payload.orphan_backup_dir is not None:
+            shutil.rmtree(payload.orphan_backup_dir, ignore_errors=True)
+        self._pending_apply_payload = None
+
+    @staticmethod
+    def _action_from_change(change: FileChange, index: int) -> ReconcileAction:
+        action_type = "skip" if change.action.startswith("skip-") else change.action
+        return ReconcileAction(
+            action_id=f"update:{index}",
+            action_type=action_type,
+            resource=change.path.as_posix(),
+            reason=change.reason_code,
+            metadata={"explanation": change.explanation},
+        )
+
+    @staticmethod
+    def _coerce_snapshot(payload: object | None) -> _UpdateSnapshot:
+        if not isinstance(payload, _UpdateSnapshot):
+            msg = "update reconciler inspection payload must be _UpdateSnapshot"
+            raise TypeError(msg)
+        return payload
+
+    @staticmethod
+    def _coerce_plan_payload(payload: object | None) -> _UpdatePlanPayload:
+        if not isinstance(payload, _UpdatePlanPayload):
+            msg = "update reconciler plan payload must be _UpdatePlanPayload"
+            raise TypeError(msg)
+        return payload
+
+    @staticmethod
+    def _coerce_apply_payload(payload: object | None) -> _UpdateApplyPayload:
+        if not isinstance(payload, _UpdateApplyPayload):
+            msg = "update reconciler apply payload must be _UpdateApplyPayload"
+            raise TypeError(msg)
+        return payload
+
+
 def _initialize_update_context(
     target: Path,
     *,
     dry_run: bool,
 ) -> tuple[Path, Path, OwnershipMap, bool, str | None, list[str] | None]:
     """Load ownership and update state before evaluating changes."""
-    ai_eng_dir = target / ".ai-engineering"
+    ai_eng_dir = target / _AI_ENGINEERING_DIR
     state_dir = ai_eng_dir / "state"
 
     ownership_path = state_dir / "ownership-map.json"
@@ -169,28 +406,28 @@ def _initialize_update_context(
     else:
         ownership = OwnershipMap()
 
-    rules_added = _merge_missing_ownership_rules(ownership)
-
     if not dry_run:
         _migrate_install_manifest(ai_eng_dir)
         _migrate_tools_json(ai_eng_dir)
 
-    _migrate_hooks_dir(target)
+    if not dry_run:
+        _migrate_hooks_dir(target)
 
     if not dry_run:
         _cleanup_legacy_prompts(target)
 
     install_state = load_install_state(state_dir)
 
-    # Read active AI providers from manifest (source of truth).
-    # Fall back to None (all providers) when manifest is absent or has no
-    # ai_providers section, preserving backward compatibility.
-    manifest_path = ai_eng_dir / "manifest.yml"
-    if manifest_path.is_file():
-        cfg = load_manifest_config(target)
-        providers: list[str] | None = cfg.ai_providers.enabled
-    else:
-        providers = None
+    root_entry_points = load_manifest_root_entry_points(target)
+    manifest_path = target / _AI_ENGINEERING_DIR / "manifest.yml"
+    providers = (
+        load_manifest_config(target).ai_providers.enabled if manifest_path.is_file() else None
+    )
+
+    rules_added = _merge_missing_ownership_rules(
+        ownership,
+        root_entry_points=root_entry_points,
+    )
 
     return ai_eng_dir, ownership_path, ownership, rules_added, install_state.vcs_provider, providers
 
@@ -217,65 +454,135 @@ def update(
     Returns:
         UpdateResult with details of all changes.
     """
-    ai_eng_dir, ownership_path, ownership, rules_added, vcs_provider, providers = (
-        _initialize_update_context(
-            target,
-            dry_run=dry_run,
-        )
-    )
-
-    # --- Phase 1: evaluate all changes (pure, no disk writes) ---
-    changes: list[FileChange] = []
-    changes.extend(_evaluate_governance_files(ai_eng_dir, ownership))
-    changes.extend(
-        _evaluate_project_files(target, ownership, vcs_provider=vcs_provider, providers=providers)
-    )
-
-    # --- Phase 1b: detect orphan files from disabled providers ---
-    orphan_changes = _detect_orphan_files(target, providers)
-    changes.extend(orphan_changes)
-
-    result = UpdateResult(dry_run=dry_run, changes=changes)
+    adapter = _UpdateAdapter(target, dry_run=dry_run)
+    run = ResourceReconciler().run(adapter, target, preview=dry_run)  # ty:ignore[invalid-argument-type]
 
     if dry_run:
-        return result
+        payload = _UpdateAdapter._coerce_plan_payload(run.plan.payload)
+        return payload.result
 
-    # --- Phase 2: apply with backup/rollback ---
-    actionable = [c for c in changes if c.action in ("create", "update")]
+    if run.apply_result is None:
+        msg = "update reconciler did not apply changes"
+        raise RuntimeError(msg)
+    if run.rolled_back or (run.verification is not None and not run.verification.passed):
+        details = []
+        if run.verification is not None:
+            details.extend(run.verification.errors)
+        message = "; ".join(details) or "update verification failed"
+        raise RuntimeError(f"update verification failed; rolled back changes: {message}")
+    payload = _UpdateAdapter._coerce_apply_payload(run.apply_result.payload)
+    return payload.result
 
-    if actionable:
-        backup_dir = _backup_targets(actionable, target)
+
+def _apply_actionable_file_changes(changes: list[FileChange], target: Path) -> Path | None:
+    """Apply file create/update actions and keep rollback material until finalize."""
+    if not changes:
+        return None
+
+    backup_dir = _backup_targets(changes, target)
+    target_resolved = target.resolve()
+    try:
+        for change in changes:
+            if change.src is None:
+                continue
+            # Path traversal guard: resolved destination must stay within
+            # ``target``. ``change.path`` is built from manifest-driven
+            # provider tables, but the static analyzer can't see that
+            # invariant — this check makes it explicit at runtime.
+            resolved = change.path.resolve()
+            try:
+                resolved.relative_to(target_resolved)
+            except ValueError as exc:
+                msg = f"refusing to write outside target: {resolved} (target={target_resolved})"
+                raise RuntimeError(msg) from exc
+            change.path.parent.mkdir(parents=True, exist_ok=True)
+            # Destination path validated above via resolved.relative_to
+            # (target_resolved); SonarCloud's taint analysis can't see
+            # the dynamic guard, so suppress S2083 on the sink line.
+            safe_path = resolved
+            safe_path.write_bytes(change.src.read_bytes())  # NOSONAR(pythonsecurity:S2083)
+    except Exception:
+        _rollback_created_files(changes)
+        if backup_dir is not None:
+            _restore_backup(backup_dir, target)
+            shutil.rmtree(backup_dir, ignore_errors=True)
+        raise
+    return backup_dir
+
+
+def _backup_orphan_targets(orphan_changes: list[FileChange], target: Path) -> Path | None:
+    """Back up orphan files before deletion so failed applies can restore them."""
+    existing = [change for change in orphan_changes if change.path.is_file()]
+    if not existing:
+        return None
+
+    backup_dir = Path(tempfile.mkdtemp(prefix="ai-eng-orphan-backup-"))
+    for change in existing:
         try:
-            for change in actionable:
-                if change.src is None:
-                    continue
-                change.path.parent.mkdir(parents=True, exist_ok=True)
-                change.path.write_bytes(change.src.read_bytes())
-        except Exception:
-            if backup_dir is not None:
-                _restore_backup(backup_dir, target)
-            raise
-        else:
-            if backup_dir is not None:
-                shutil.rmtree(backup_dir, ignore_errors=True)
+            relative = change.path.relative_to(target)
+        except ValueError:
+            continue
+        backup_file = backup_dir / relative
+        backup_file.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(change.path, backup_file)
+    return backup_dir
 
-    # --- Phase 2b: delete orphan files ---
-    if orphan_changes:
-        _apply_orphan_deletions(orphan_changes, target)
 
-    # --- Phase 3: persist merged ownership rules ---
-    if rules_added:
-        write_json_model(ownership_path, ownership)
+def _restore_orphan_backup(backup_dir: Path, target: Path) -> None:
+    """Restore orphan files deleted during a failed update apply pass."""
+    for backup_file in backup_dir.rglob("*"):
+        if not backup_file.is_file():
+            continue
+        relative = backup_file.relative_to(backup_dir)
+        dest = target / relative
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(backup_file, dest)
 
-    # --- Phase 4: migrate legacy agents/skills directories ---
-    removed_legacy_dirs = _migrate_legacy_dirs(target, ai_eng_dir)
 
-    # --- Phase 5: remove legacy state and emit canonical event ---
-    legacy_audit_log_removed = remove_legacy_audit_log(target)
-    if actionable or rules_added or removed_legacy_dirs or legacy_audit_log_removed:
-        _log_update_event(ai_eng_dir, result, legacy_audit_log_removed=legacy_audit_log_removed)
+def _verify_update_postconditions(payload: _UpdateApplyPayload, target: Path) -> list[str]:
+    """Return postcondition errors after an update apply pass."""
+    errors: list[str] = []
+    for change in payload.actionable:
+        if change.src is None:
+            continue
+        if not change.path.is_file():
+            errors.append(f"missing applied file: {change.path.relative_to(target).as_posix()}")
+            continue
+        if change.path.read_bytes() != change.src.read_bytes():
+            errors.append(
+                f"content mismatch after update: {change.path.relative_to(target).as_posix()}"
+            )
 
-    return result
+    remaining_orphans = [
+        change.path.relative_to(target).as_posix()
+        for change in payload.orphan_changes
+        if change.path.exists()
+    ]
+    for orphan in remaining_orphans:
+        errors.append(f"orphan still exists after update: {orphan}")
+    return errors
+
+
+def _rollback_update_payload(payload: _UpdateApplyPayload, target: Path) -> None:
+    """Roll back applied file changes owned by the update reconciler."""
+    _rollback_created_files(payload.actionable)
+    if payload.backup_dir is not None:
+        _restore_backup(payload.backup_dir, target)
+        shutil.rmtree(payload.backup_dir, ignore_errors=True)
+    if payload.orphan_backup_dir is not None:
+        _restore_orphan_backup(payload.orphan_backup_dir, target)
+        shutil.rmtree(payload.orphan_backup_dir, ignore_errors=True)
+
+
+def _rollback_created_files(changes: list[FileChange]) -> None:
+    """Remove files created by a failed update apply pass."""
+    for change in changes:
+        if change.action != "create" or not change.path.exists():
+            continue
+        try:
+            change.path.unlink()
+        except OSError:
+            logger.debug("could not roll back created file: %s", change.path)
 
 
 # ---------------------------------------------------------------------------
@@ -283,7 +590,11 @@ def update(
 # ---------------------------------------------------------------------------
 
 
-def _merge_missing_ownership_rules(ownership: OwnershipMap) -> bool:
+def _merge_missing_ownership_rules(
+    ownership: OwnershipMap,
+    *,
+    root_entry_points: Mapping[str, RootEntryPointConfig] | None = None,
+) -> bool:
     """Add missing default ownership rules to an existing map.
 
     Inserts new rules at the START of the list so that specific patterns
@@ -298,7 +609,7 @@ def _merge_missing_ownership_rules(ownership: OwnershipMap) -> bool:
         True if any rules were added, False if already up-to-date.
     """
     existing_patterns = {entry.pattern for entry in ownership.paths}
-    defaults = default_ownership_map()
+    defaults = default_ownership_map(root_entry_points=root_entry_points)
     to_add = [entry for entry in defaults.paths if entry.pattern not in existing_patterns]
 
     if not to_add:
@@ -338,7 +649,7 @@ def _evaluate_governance_files(
         if any(relative_posix.startswith(p) for p in _GOVERNANCE_EXCLUDE_PREFIXES):
             continue
 
-        ownership_path = f".ai-engineering/{relative_posix}"
+        ownership_path = f"{_AI_ENGINEERING_DIR}/{relative_posix}"
         dest = ai_eng_dir / relative
 
         change = _evaluate_file_change(src_file, dest, ownership_path, ownership)
@@ -418,62 +729,103 @@ def _detect_orphan_files(
     if active_providers is None:
         return []
 
+    from ai_engineering.installer.templates import _canonicalize_provider
+
+    canonical_active = [_canonicalize_provider(p) for p in active_providers]
+
     all_known = set(_PROVIDER_FILE_MAPS.keys()) | set(_PROVIDER_TREE_MAPS.keys())
-    disabled = all_known - set(active_providers)
+    disabled = all_known - set(canonical_active)
 
     if not disabled:
         return []
 
-    # Build the set of destination paths used by active providers for
-    # the shared-file check.
+    active_file_dests, active_tree_dests = _active_provider_destinations(canonical_active)
+    return [
+        orphan
+        for provider in sorted(disabled)
+        for orphan in _provider_orphan_changes(
+            target,
+            provider,
+            active_file_dests=active_file_dests,
+            active_tree_dests=active_tree_dests,
+        )
+    ]
+
+
+def _active_provider_destinations(active_providers: list[str]) -> tuple[set[str], set[str]]:
+    """Return file and tree destinations still owned by active providers."""
     active_file_dests: set[str] = set()
     active_tree_dests: set[str] = set()
-    for prov in active_providers:
-        for _src, dst in _PROVIDER_FILE_MAPS.get(prov, {}).items():
-            active_file_dests.add(dst)
-        for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(prov, []):
-            active_tree_dests.add(dest_tree)
+    for provider in active_providers:
+        active_file_dests.update(_PROVIDER_FILE_MAPS.get(provider, {}).values())
+        active_tree_dests.update(dest for _src_tree, dest in _PROVIDER_TREE_MAPS.get(provider, []))
+    return active_file_dests, active_tree_dests
 
+
+def _provider_orphan_changes(
+    target: Path,
+    provider: str,
+    *,
+    active_file_dests: set[str],
+    active_tree_dests: set[str],
+) -> list[FileChange]:
+    """Return orphan changes for one disabled provider."""
+    return [
+        *_provider_file_orphans(target, provider, active_file_dests),
+        *_provider_tree_orphans(target, provider, active_tree_dests),
+    ]
+
+
+def _provider_file_orphans(
+    target: Path,
+    provider: str,
+    active_file_dests: set[str],
+) -> list[FileChange]:
+    """Return orphaned individual-file mappings for one disabled provider."""
     orphans: list[FileChange] = []
-
-    for prov in sorted(disabled):
-        # Check individual file mappings
-        for _src, dst in _PROVIDER_FILE_MAPS.get(prov, {}).items():
-            if dst in active_file_dests:
-                continue
-            dest = target / dst
-            if dest.is_file():
-                orphans.append(
-                    FileChange(
-                        path=dest,
-                        action="orphan",
-                        reason_code="disabled-provider",
-                        explanation=f"provider '{prov}' is no longer enabled",
-                    )
-                )
-
-        # Check tree mappings
-        for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(prov, []):
-            if dest_tree in active_tree_dests:
-                continue
-            tree_path = target / dest_tree
-            if not tree_path.is_dir():
-                continue
-            for f in sorted(tree_path.rglob("*")):
-                if not f.is_file():
-                    continue
-                if _SKIP_DIR_NAMES & set(f.relative_to(tree_path).parts):
-                    continue
-                orphans.append(
-                    FileChange(
-                        path=f,
-                        action="orphan",
-                        reason_code="disabled-provider",
-                        explanation=f"provider '{prov}' is no longer enabled",
-                    )
-                )
-
+    for destination in _PROVIDER_FILE_MAPS.get(provider, {}).values():
+        if destination in active_file_dests:
+            continue
+        dest = target / destination
+        if dest.is_file():
+            orphans.append(_orphan_change(dest, provider))
     return orphans
+
+
+def _provider_tree_orphans(
+    target: Path,
+    provider: str,
+    active_tree_dests: set[str],
+) -> list[FileChange]:
+    """Return orphaned tree-mapping files for one disabled provider."""
+    orphans: list[FileChange] = []
+    for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(provider, []):
+        if dest_tree in active_tree_dests:
+            continue
+        tree_path = target / dest_tree
+        if not tree_path.is_dir():
+            continue
+        orphans.extend(_orphan_files_in_tree(tree_path, provider))
+    return orphans
+
+
+def _orphan_files_in_tree(tree_path: Path, provider: str) -> list[FileChange]:
+    """Return orphan changes for files below a disabled provider tree."""
+    return [
+        _orphan_change(path, provider)
+        for path in sorted(tree_path.rglob("*"))
+        if path.is_file() and not (_SKIP_DIR_NAMES & set(path.relative_to(tree_path).parts))
+    ]
+
+
+def _orphan_change(path: Path, provider: str) -> FileChange:
+    """Build the standard disabled-provider orphan change."""
+    return FileChange(
+        path=path,
+        action="orphan",
+        reason_code="disabled-provider",
+        explanation=f"provider '{provider}' is no longer enabled",
+    )
 
 
 def _apply_orphan_deletions(orphan_changes: list[FileChange], target: Path) -> None:
@@ -813,8 +1165,8 @@ def _cleanup_legacy_prompts(target: Path) -> None:
     Skills in spec-077.  Projects that upgrade retain orphaned prompt files
     that may confuse Copilot if both directories are present.
     """
-    legacy = target / ".github" / "prompts"
-    new = target / ".github" / "skills"
+    legacy = target / _GITHUB_DIR / "prompts"
+    new = target / _GITHUB_DIR / "skills"
     if not legacy.is_dir() or not new.is_dir():
         return
     for f in sorted(legacy.rglob("*"), reverse=True):
@@ -836,7 +1188,7 @@ def _migrate_hooks_dir(target: Path) -> None:
     Idempotent: if the new path already exists, skip silently.
     """
     old_hooks = target / "scripts" / "hooks"
-    new_hooks = target / ".ai-engineering" / "scripts" / "hooks"
+    new_hooks = target / _AI_ENGINEERING_DIR / "scripts" / "hooks"
 
     if not old_hooks.is_dir():
         return
@@ -882,7 +1234,7 @@ def _migrate_legacy_dirs(target: Path, ai_eng_dir: Path) -> list[str]:
     # .codex/, .gemini/).
     ide_candidates = [
         target / ".claude",
-        target / ".github" / "agents",
+        target / _GITHUB_DIR / "agents",
         target / ".codex",
         target / ".gemini",
     ]

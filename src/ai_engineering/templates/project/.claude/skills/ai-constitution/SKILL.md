@@ -1,24 +1,15 @@
 ---
 name: ai-constitution
-description: >-
-  Use when installing ai-engineering on a new project, when AI agents need
-  foundational rules about what this project is, what it aims to achieve,
-  and what must NEVER be violated. Trigger for 'set up the constitution',
-  'define project principles', 'what are the rules for this project',
-  'agents keep breaking boundaries', 'update the constitution',
-  'new team member needs orientation'. Generates CONSTITUTION.md —
-  the non-negotiable governance document consumed by ALL skills and agents
-  at Step 0.
+description: "Generates and maintains CONSTITUTION.md — the non-negotiable governance document loaded by every skill and agent at Step 0 (identity, mission, principles, prohibitions, gates, boundaries). Trigger for 'set up the constitution', 'define project principles', 'what are the rules for this project', 'agents keep breaking boundaries', 'update the constitution'. Not for ad-hoc decision capture; use /ai-learn or /ai-note instead. Not for spec governance; use /ai-governance instead."
 effort: medium
 argument-hint: "[generate|update|amend]"
 ---
-
 
 # Constitution
 
 ## Purpose
 
-Generate and maintain `.ai-engineering/CONSTITUTION.md` — the foundational governance document that defines who the project is, what it aims to achieve, what principles are non-negotiable, and what the AI must NEVER do.
+Generate and maintain `CONSTITUTION.md` — the foundational governance document that defines who the project is, what it aims to achieve, what principles are non-negotiable, and what the AI must NEVER do.
 
 This is the first document loaded at Step 0 of every skill and agent invocation. It governs all AI behavior in the project.
 
@@ -39,7 +30,7 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
    - Existing quality gate configuration
    - Framework version
 
-2. **Read existing** -- if `.ai-engineering/CONSTITUTION.md` exists, load current values as defaults.
+2. **Read existing** -- if `CONSTITUTION.md` exists, load current values as defaults. If only `.ai-engineering/CONSTITUTION.md` exists, load it as a compatibility fallback.
 
 3. **Interview** -- for any section that cannot be inferred, ask the user:
    - **Identity**: What does this project do? Who is it for? (1-3 sentences)
@@ -48,30 +39,37 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
    - **Prohibitions**: What must the AI NEVER do in this project?
    - **Boundaries**: What is framework-owned vs team-owned?
 
-4. **Write** -- save to `.ai-engineering/CONSTITUTION.md` using the 7-section structure. Minimal template skeleton:
+4. **Write** -- save to `CONSTITUTION.md` using the 7-section structure. Minimal template skeleton:
 
    ```markdown
    # CONSTITUTION
 
    ## 1. Identity
+
    <!-- Project name, purpose, audience -->
 
    ## 2. Mission
+
    <!-- Measurable goals, north star metric -->
 
    ## 3. Principles
+
    <!-- Non-negotiable rules for AI behavior -->
 
    ## 4. Prohibitions
+
    <!-- What the AI must NEVER do -->
 
    ## 5. Quality Gates
+
    <!-- Thresholds: coverage, complexity, security -->
 
    ## 6. Boundaries
+
    <!-- Framework-owned vs team-owned zones -->
 
    ## 7. Governance
+
    <!-- version: "1.0.0" -->
    <!-- ratified: "YYYY-MM-DD" -->
    <!-- last_amended: "YYYY-MM-DD" -->
@@ -96,11 +94,30 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 /ai-constitution amend      # formal amendment with version bump
 ```
 
+## Examples
+
+### Example 1 — generate constitution on first install
+
+User: "set up the constitution for this project"
+
+```
+/ai-constitution generate
+```
+
+Auto-detects stack/manifest, interviews for the 7 sections (identity, mission, principles, prohibitions, gates, boundaries, governance), writes `CONSTITUTION.md` with version `1.0.0` and the ratified date.
+
+### Example 2 — formal amendment with version bump
+
+User: "amend the constitution: relax the test coverage threshold from 90 to 85"
+
+```
+/ai-constitution amend
+```
+
+Bumps the semantic version, records the amendment in governance metadata, emits a framework event, preserves all other sections.
+
 ## Integration
 
-- **Called by**: installer (governance phase), `/ai-start`
-- **Reads**: `manifest.yml`, package files, existing `CONSTITUTION.md`
-- **Writes**: `.ai-engineering/CONSTITUTION.md`
-- **Consumed by**: ALL skills and agents via Step 0 protocol
+Called by: installer (governance phase), `/ai-start`. Reads: `manifest.yml`, package files, existing `CONSTITUTION.md`. Writes: `CONSTITUTION.md`. Consumed by: ALL skills and agents via Step 0 protocol. See also: `/ai-governance` (compliance against the constitution).
 
 $ARGUMENTS

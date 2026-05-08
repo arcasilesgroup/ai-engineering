@@ -22,6 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ai_engineering.policy import orchestrator as orchestrator_module
 from ai_engineering.state.models import (
     GateFinding,
     GateFindingsDocument,
@@ -30,6 +31,42 @@ from ai_engineering.state.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _canonical_project_root(output_path: Path) -> Path | None:
+    """Return the project root when ``output_path`` matches the canonical sibling path."""
+    if output_path.name != "watch-residuals.json":
+        return None
+    state_dir = output_path.parent
+    if state_dir.name != "state":
+        return None
+    ai_dir = state_dir.parent
+    if ai_dir.name != ".ai-engineering":
+        return None
+    return ai_dir.parent
+
+
+def _publish_direct(document: GateFindingsDocument, output_path: Path) -> Path:
+    """Publish to an arbitrary override path while preserving atomic replace semantics."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = document.model_dump_json(by_alias=True)
+
+    # Atomic publish: write to a sibling tempfile then os.replace into place.
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        dir=str(output_path.parent),
+        prefix=f"{output_path.name}.",
+        suffix=".tmp",
+        delete=False,
+        encoding="utf-8",
+    ) as tmp:
+        tmp.write(payload)
+        tmp.flush()
+        os.fsync(tmp.fileno())
+        tmp_path = tmp.name
+
+    os.replace(tmp_path, str(output_path))
+    return output_path
 
 
 def _git_branch() -> str:
@@ -83,6 +120,7 @@ def emit(
         The :class:`~pathlib.Path` written. Identical to ``output_path``
         when provided.
     """
+    default_output = output_path is None
     if output_path is None:
         output_path = Path.cwd() / ".ai-engineering" / "state" / "watch-residuals.json"
 
@@ -105,22 +143,13 @@ def emit(
         wall_clock_ms=WallClockMs(wave1_fixers=0, wave2_checkers=0, total=0),
     )
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    payload = doc.model_dump_json(by_alias=True)
+    project_root = _canonical_project_root(output_path)
+    if default_output or project_root is not None:
+        resolved_root = project_root if project_root is not None else Path.cwd()
+        return orchestrator_module.publish_gate_document(
+            doc,
+            resolved_root,
+            output_name="watch-residuals.json",
+        )
 
-    # Atomic publish: write to a sibling tempfile then os.replace into place.
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        dir=str(output_path.parent),
-        prefix=f"{output_path.name}.",
-        suffix=".tmp",
-        delete=False,
-        encoding="utf-8",
-    ) as tmp:
-        tmp.write(payload)
-        tmp.flush()
-        os.fsync(tmp.fileno())
-        tmp_path = tmp.name
-
-    os.replace(tmp_path, str(output_path))
-    return output_path
+    return _publish_direct(doc, output_path)

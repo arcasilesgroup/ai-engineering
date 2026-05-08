@@ -658,7 +658,7 @@ class TestInstallCleanOutput:
                 "--stack",
                 "python",
                 "--provider",
-                "claude_code",
+                "claude-code",
                 "--ide",
                 "terminal",
             ],

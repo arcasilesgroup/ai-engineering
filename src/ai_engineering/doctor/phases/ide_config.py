@@ -89,7 +89,7 @@ def _check_provider_templates(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_settings_merge(ctx: DoctorContext) -> CheckResult:
-    """Check Claude Code settings.json for deny rules if claude_code is active."""
+    """Check Claude Code settings.json for deny rules if claude-code is active."""
     if ctx.manifest_config is None:
         return CheckResult(
             name="settings-merge",
@@ -97,7 +97,7 @@ def _check_settings_merge(ctx: DoctorContext) -> CheckResult:
             message="No manifest config available; skipping settings check",
         )
     ai_providers = ctx.manifest_config.ai_providers.enabled
-    if "claude_code" not in ai_providers:
+    if "claude-code" not in ai_providers:
         return CheckResult(
             name="settings-merge",
             status=CheckStatus.OK,

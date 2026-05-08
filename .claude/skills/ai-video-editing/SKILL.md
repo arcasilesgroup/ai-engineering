@@ -1,18 +1,33 @@
 ---
 name: ai-video-editing
-description: "Use when editing real video footage: cutting recordings into highlights, transcribing and structuring raw footage, running FFmpeg operations (trim, concat, reframe, normalize audio), creating Remotion overlays, or preparing social platform cuts. Trigger for 'cut this video', 'edit the recording', 'make a highlight reel', 'reframe for TikTok'. Not for generating videos from prompts — use /ai-media."
+description: "Edits real video footage: cuts recordings into highlights, transcribes and structures raw footage, runs FFmpeg operations (trim, concat, reframe, normalize audio), creates Remotion overlays, prepares social-platform cuts. Trigger for 'cut this video', 'edit the recording', 'make a highlight reel', 'reframe for TikTok', 'transcribe this footage'. Not for generating videos from prompts; use /ai-media instead. Not for animation specs; use /ai-animation instead."
 effort: high
 argument-hint: "plan|organize|cut|compose [source]"
 tags: [video, editing, ffmpeg]
 requires: { bins: ["ffmpeg"], anyBins: ["npx"] }
 ---
 
-
 # Video Editing
 
-## Purpose
+## Quick start
 
-AI-assisted editing for real footage. Not generation from prompts. The core thesis: AI video editing is useful when you stop asking it to create the whole video and start using it to compress, structure, and augment real footage. **The value is not generation. The value is compression.**
+```
+/ai-video-editing plan recording.mp4               # plan structure from raw footage
+/ai-video-editing organize raw.mp4                 # transcribe + edit decision list
+/ai-video-editing cut --edl cuts.txt               # deterministic FFmpeg cuts
+/ai-video-editing compose --source demo.mp4 --aspect 9:16
+```
+
+## Workflow
+
+AI-assisted editing for real footage. Not generation from prompts. Core thesis: **the value is not generation. The value is compression.**
+
+1. **Gate check** — verify `ffmpeg` is available (`ffmpeg -version`); install via `brew install ffmpeg` / `apt install ffmpeg` / `choco install ffmpeg`.
+2. **Pick mode** — `plan` (structure), `organize` (transcribe + EDL), `cut` (FFmpeg deterministic), `compose` (Remotion overlays, optional).
+3. **Run the 6-layer pipeline** — Capture → Organization → Deterministic Cuts → Programmable Composition → Generated Assets → Final Polish (human).
+4. **Cross-reference** `ai-media` for Layer 5 generated assets (voiceover, music/SFX, b-roll).
+
+> Detail: see [the 6-layer pipeline + tool table](references/six-layer-pipeline.md), [FFmpeg recipes (extract / batch-cut / concat / proxy / silence detect)](references/ffmpeg-recipes.md), [social-platform reframing presets](references/social-presets.md).
 
 ## When to Use
 
@@ -21,167 +36,40 @@ AI-assisted editing for real footage. Not generation from prompts. The core thes
 - `cut`: deterministic FFmpeg operations (trim, split, concatenate, reframe, normalize)
 - `compose`: programmable overlays and compositions via Remotion (optional)
 
-## Process
-
-### Gate Check -- FFmpeg Required
-
-Verify `ffmpeg` is available: `ffmpeg -version`. If not installed, provide platform-specific install instructions (`brew install ffmpeg` / `apt install ffmpeg` / `choco install ffmpeg`).
-
-### The 6-Layer Pipeline
-
-Six layers (do not skip; one tool does not do everything): Capture → Organization → Deterministic Cuts → Programmable Composition (optional) → Generated Assets → Final Polish (human).
-
-### Layer 1 -- Capture
-
-Collect the source material:
-- **Screen Studio**: polished screen recordings for app demos, coding sessions
-- **Raw camera footage**: vlog footage, interviews, event recordings
-- **Desktop capture**: session recording with real-time context
-
-Output: raw files ready for organization.
-
-### Layer 2 -- Organization
-
-Use Claude to:
-- **Transcribe and label**: generate transcript, identify topics and themes
-- **Plan structure**: decide what stays, what gets cut, what order works
-- **Identify dead sections**: find pauses, tangents, repeated takes
-- **Generate edit decision list**: timestamps for cuts, segments to keep
-- **Scaffold FFmpeg commands**: generate the cut commands and concat lists
-
-This layer is about structure, not final creative taste.
-
-### Layer 3 -- Deterministic Cuts (FFmpeg)
-
-FFmpeg handles the boring but critical work.
-
-**Extract segment by timestamp:**
-```bash
-ffmpeg -i raw.mp4 -ss 00:12:30 -to 00:15:45 -c copy segment_01.mp4
-```
-
-**Batch cut from edit decision list:**
-```bash
-while IFS=, read -r start end label; do
-  ffmpeg -i raw.mp4 -ss "$start" -to "$end" -c copy "segments/${label}.mp4"
-done < cuts.txt
-```
-
-**Concatenate segments:**
-```bash
-for f in segments/*.mp4; do echo "file '$f'"; done > concat.txt
-ffmpeg -f concat -safe 0 -i concat.txt -c copy assembled.mp4
-```
-
-**Create proxy for faster editing:**
-```bash
-ffmpeg -i raw.mp4 -vf "scale=960:-2" -c:v libx264 -preset ultrafast -crf 28 proxy.mp4
-```
-
-**Extract audio for transcription:**
-```bash
-ffmpeg -i raw.mp4 -vn -acodec pcm_s16le -ar 16000 audio.wav
-```
-
-**Normalize audio levels:**
-```bash
-ffmpeg -i segment.mp4 -af loudnorm=I=-16:TP=-1.5:LRA=11 -c:v copy normalized.mp4
-```
-
-**Scene detection:**
-```bash
-ffmpeg -i input.mp4 -vf "select='gt(scene,0.3)',showinfo" -vsync vfr -f null - 2>&1 | grep showinfo
-```
-
-**Silence detection (find dead air):**
-```bash
-ffmpeg -i input.mp4 -af silencedetect=noise=-30dB:d=2 -f null - 2>&1 | grep silence
-```
-
-### Layer 4 -- Programmable Composition (Remotion) [Optional]
-
-Remotion turns editing problems into composable code. Use it when you need:
-- Overlays: text, images, branding, lower thirds
-- Data visualizations: charts, stats, animated numbers
-- Motion graphics: transitions, explainer animations
-- Composable scenes: reusable templates across videos
-
-```bash
-npx remotion render src/index.ts VlogComposition output.mp4
-```
-
-Remotion requires Node.js. Skip this layer if the user does not need programmable compositions. See the [Remotion docs](https://www.remotion.dev/docs) (external reference -- may require manual verification) for API reference.
-
-### Layer 5 -- Generated Assets
-
-Generate only what you need. Do not generate the whole video.
-
-Cross-reference the `ai-media` skill for:
-- Voiceover (ElevenLabs or CSM-1B)
-- Background music and SFX (fal.ai ThinkSound, VideoDB)
-- Insert shots, thumbnails, or b-roll that does not exist (fal.ai image models)
-
-### Layer 6 -- Final Polish (Human Layer)
-
-The last layer is human. Use a traditional editor for:
-- **Pacing**: adjust cuts that feel too fast or slow
-- **Captions**: auto-generated, then manually cleaned
-- **Color grading**: basic correction and mood
-- **Final audio mix**: balance voice, music, and SFX levels
-- **Export**: platform-specific formats and quality settings
-
-This is where taste lives. AI clears the repetitive work. You make the final calls.
-
-## Quick Reference
-
-### Tool-Per-Job Table
-
-| Tool | Strength | Weakness |
-|------|----------|----------|
-| Claude | Organization, planning, code generation | Not the creative taste layer |
-| FFmpeg | Deterministic cuts, batch processing, format conversion | No visual editing UI |
-| Remotion | Programmable overlays, composable scenes, reusable templates | Learning curve, requires Node.js |
-| Screen Studio | Polished screen recordings immediately | Only screen capture |
-| ElevenLabs | Voice, narration, music, SFX | Not the center of the workflow |
-| Descript / CapCut | Final pacing, captions, polish | Manual, not automatable |
-
-### Social Media Reframing
-
-| Platform | Aspect Ratio | Resolution |
-|----------|-------------|------------|
-| YouTube | 16:9 | 1920x1080 |
-| TikTok / Reels | 9:16 | 1080x1920 |
-| Instagram Feed | 1:1 | 1080x1080 |
-| X / Twitter | 16:9 or 1:1 | 1280x720 or 720x720 |
-
-**Reframe with FFmpeg:**
-```bash
-# 16:9 to 9:16 (center crop)
-ffmpeg -i input.mp4 -vf "crop=ih*9/16:ih,scale=1080:1920" vertical.mp4
-
-# 16:9 to 1:1 (center crop)
-ffmpeg -i input.mp4 -vf "crop=ih:ih,scale=1080:1080" square.mp4
-```
-
-## Key Principles
-
-1. **Remotion for repeatability.** If you will do it more than once, make it a Remotion component.
-2. **Generate selectively.** Only use AI generation for assets that don't exist, not for everything.
-
-## Integration
-
-- **Called by**: user directly, `/ai-dispatch`
-- **Calls**: FFmpeg (deterministic cuts), Remotion (optional compositions), `ai-media` (Layer 5 generated assets)
-- **Related**: `ai-slides` (presentations from video content), `ai-media` (asset generation)
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ## Common Mistakes
 
-- Trying to generate the whole video instead of editing real footage
-- Skipping Layer 2 (organization) and jumping straight to cuts
-- Making one tool do everything instead of respecting layer boundaries
-- Using AI generation for assets that already exist as footage
-- Forgetting to normalize audio levels before final assembly
-- Not creating proxies for large files (FFmpeg editing on 4K originals is slow)
-- Skipping the human polish layer -- AI handles structure, humans handle taste
+- Trying to generate the whole video instead of compressing real footage.
+- Skipping organization or final polish.
+- Forcing one tool to span every layer.
+- Ignoring proxy / audio-normalization hygiene.
+- Replacing usable footage with generated assets.
+
+## Examples
+
+### Example 1 — highlight reel from a recording
+
+User: "cut this 60-minute talk into a 90-second highlight reel"
+
+```
+/ai-video-editing plan recording.mp4
+```
+
+Plans cuts, transcribes, identifies highlight beats, runs FFmpeg trim+concat, normalizes audio, outputs the reel.
+
+### Example 2 — reframe for TikTok
+
+User: "reframe this 16:9 demo for TikTok 9:16"
+
+```
+/ai-video-editing compose --source demo.mp4 --aspect 9:16
+```
+
+Center-crop reframe with subject tracking via Remotion overlay, audio normalization, social-platform-ready output.
+
+## Integration
+
+Called by: user directly, `/ai-build`. Calls: `ffmpeg` (deterministic cuts), Remotion (compositions), `/ai-media` (Layer 5 generated assets). See also: `/ai-media` (asset generation), `/ai-slides` (deck embeds), `/ai-visual` (cover art).
 
 $ARGUMENTS

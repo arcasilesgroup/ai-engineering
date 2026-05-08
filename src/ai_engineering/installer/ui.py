@@ -108,10 +108,7 @@ def render_detection(vcs: str, providers: list[str], tools: dict[str, bool]) -> 
             status = "[green]\u2713[/]" if available else "[yellow]\u2717[/]"
             tool_lines.append(f"{status} {name}")
         _console.print(f"  Tools (PATH):  {' | '.join(tool_lines)}")
-        _console.print(
-            "  [dim](\u2713 means visible on PATH; install may use uv tool / package "
-            "manager regardless)[/]"
-        )
+        _console.print("  [dim](\u2713 means tool found on PATH)[/]")
     else:
         print("\nAuto-detected configuration:", file=sys.stderr)
         print(f"  VCS provider:  {vcs_display}", file=sys.stderr)

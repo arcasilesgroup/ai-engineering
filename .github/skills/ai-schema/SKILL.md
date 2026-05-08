@@ -1,6 +1,6 @@
 ---
 name: ai-schema
-description: "Use for database engineering: designing schemas, planning safe migrations with rollback scripts, optimizing slow queries, index recommendations, data retention policies, or GDPR right-to-erasure. Trigger for 'add a column', 'we need a migration', 'the query is slow', 'generate a migration', 'define a retention policy', 'GDPR compliance for data'. Supports PostgreSQL, MySQL, SQLite, MongoDB."
+description: Designs schemas, plans safe migrations with rollback scripts, optimizes slow queries with index recommendations, defines data retention and GDPR right-to-erasure policies. Supports PostgreSQL, MySQL, SQLite, MongoDB. Trigger for 'add a column', 'we need a migration', 'the query is slow', 'define a retention policy', 'GDPR compliance for data'. Not for application-layer ORMs without DB schema; use /ai-code instead. Not for security audits; use /ai-security instead.
 effort: max
 argument-hint: "design|migrate|optimize|lifecycle"
 mode: agent
@@ -11,6 +11,10 @@ requires:
   - mysql
   - sqlite3
   - mongosh
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-schema/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -82,13 +86,34 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 - Denormalizing without documenting why -- future developers will re-normalize.
 - Running DDL without `--dry-run` first -- destructive DDL requires explicit user approval.
 
+## Examples
+
+### Example 1 — design + safe migration
+
+User: "we need to add a soft-delete column to users with a backfill"
+
+```
+/ai-schema migrate
+```
+
+Generates the up + down migration, default-backed-fill-strategy, lock-impact analysis, rollback script, dry-run preview.
+
+### Example 2 — optimize a slow query
+
+User: "this analytics query is 5 seconds — make it fast"
+
+```
+/ai-schema optimize
+```
+
+EXPLAIN ANALYZE, identifies missing indexes, recommends index with write-impact estimate, verifies with re-run.
+
 ## Integration
 
-- Migration files integrate with ORM migration systems (Alembic, Prisma Migrate, EF Migrations).
-- Schema changes trigger `/ai-security` for injection pattern review.
-- Destructive DDL (DROP, TRUNCATE) requires explicit user approval.
+Calls: `psql` / `mysql` / `sqlite3` / `mongosh` (verification). Triggers: `/ai-security` (injection pattern review). Integrates with: ORM migration systems (Alembic, Prisma Migrate, EF Migrations). See also: `/ai-security`, `/ai-governance` (destructive DDL approval).
 
 ## References
 
 - `.ai-engineering/manifest.yml` -- governance rules for destructive operations.
+
 $ARGUMENTS

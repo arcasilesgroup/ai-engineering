@@ -27,7 +27,6 @@ Test fixture inventory (≥25 IOC fixtures):
 from __future__ import annotations
 
 import importlib.util
-import json
 from pathlib import Path
 
 import pytest
@@ -93,10 +92,23 @@ def test_iocs_attribution_documented() -> None:
         assert keyword in text, f"IOCS_ATTRIBUTION.md missing keyword '{keyword}'"
 
 
-def test_iocs_schema_four_categories() -> None:
-    """G-8 prerequisite: vendored catalog preserves the 4-category schema."""
+def test_iocs_schema_four_categories(hook_module, tmp_path: Path) -> None:
+    """G-8 prerequisite: catalog exposes the 4-category schema (post-dedupe).
+
+    spec-122-a (D-122-04) deduped iocs.json: ``malicious_domains`` and
+    ``shell_patterns`` are now derived at load time from the
+    ``spec107_aliases`` pointer map (canonical keys are
+    ``suspicious_network`` and ``dangerous_commands``). The 4-category
+    contract is preserved via the loader, not the on-disk payload —
+    this test reflects that contract.
+    """
     assert IOCS_PATH.is_file(), "preconditions: iocs.json must exist first"
-    payload = json.loads(IOCS_PATH.read_text(encoding="utf-8"))
+    # Load via the runtime loader (it dereferences spec107_aliases) so the
+    # 4-category invariant remains testable post-dedupe.
+    refs = tmp_path / ".ai-engineering" / "references"
+    refs.mkdir(parents=True)
+    (refs / "iocs.json").write_text(IOCS_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    payload = hook_module.load_iocs(tmp_path)
     expected_categories = {
         "sensitive_paths",
         "sensitive_env_vars",
@@ -106,8 +118,9 @@ def test_iocs_schema_four_categories() -> None:
     found = {key for key in payload if key in expected_categories}
     missing = expected_categories - found
     assert not missing, (
-        f"vendored iocs.json missing categories: {sorted(missing)}; "
-        "spec-107 D-107-05 requires verbatim 4-category schema preserved"
+        f"loaded iocs.json missing categories: {sorted(missing)}; "
+        "spec-107 D-107-05 + spec-122 D-122-04 require 4-category schema "
+        "via loader (canonical keys + spec107_aliases pointer map)"
     )
 
 

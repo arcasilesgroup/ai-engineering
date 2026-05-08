@@ -10,9 +10,8 @@ import json
 import logging
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ai_engineering.state.io import read_json_model, write_json_model
 from ai_engineering.state.models import (
     DecisionStore,
     FrameworkCapabilitiesCatalog,
@@ -22,6 +21,9 @@ from ai_engineering.state.models import (
 )
 
 logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:  # pragma: no cover - typing only
+    from ai_engineering.state.repository import DurableStateRepository
 
 
 class StateService:
@@ -36,17 +38,24 @@ class StateService:
         """Return the state directory path."""
         return self._state_dir
 
+    def _repository(self) -> DurableStateRepository:
+        """Return the durable-state repository backing this compatibility facade."""
+        # Delayed to avoid a module import cycle: repository imports install-state helpers below.
+        from ai_engineering.state.repository import DurableStateRepository
+
+        return DurableStateRepository(self._root)
+
     def load_decisions(self) -> DecisionStore:
         """Load the decision store."""
-        return read_json_model(self._state_dir / "decision-store.json", DecisionStore)
+        return self._repository().load_decisions()
 
     def save_decisions(self, store: DecisionStore) -> None:
         """Save the decision store."""
-        write_json_model(self._state_dir / "decision-store.json", store)
+        self._repository().save_decisions(store)
 
     def load_ownership(self) -> OwnershipMap:
         """Load the ownership map."""
-        return read_json_model(self._state_dir / "ownership-map.json", OwnershipMap)
+        return self._repository().load_ownership()
 
     def append_framework_event(self, entry: FrameworkEvent) -> None:
         """Append an entry to the canonical framework event stream.
@@ -66,7 +75,15 @@ class StateService:
 
     def save_framework_capabilities(self, catalog: FrameworkCapabilitiesCatalog) -> None:
         """Persist the canonical framework capability catalog."""
-        write_json_model(self._state_dir / "framework-capabilities.json", catalog)
+        self._repository().save_framework_capabilities(catalog)
+
+    def load_framework_capabilities(self) -> FrameworkCapabilitiesCatalog:
+        """Load the canonical framework capability catalog (spec-125).
+
+        Reads from the ``tool_capabilities`` singleton row in state.db
+        instead of the legacy ``framework-capabilities.json`` file.
+        """
+        return self._repository().load_framework_capabilities()
 
 
 # ---------------------------------------------------------------------------
@@ -78,42 +95,129 @@ _LEGACY_AUDIT_LOG_FILENAME = "audit-log.ndjson"
 
 
 def load_install_state(state_dir: Path) -> InstallState:
-    """Load ``install-state.json`` from *state_dir*, returning defaults if absent.
+    """Load the install state from the state.db ``install_state`` table.
 
-    Follows the same pattern as ``CredentialService.load_tools_state()``:
-    file-present -> parse + validate, file-absent -> sensible defaults.
+    Spec-125 cutover: state.db is now canonical; the JSON file is gone.
+    This function preserves its public signature (``state_dir`` parameter
+    accepted for back-compat) but reads from the singleton row at
+    ``install_state.id = 1``. Callers receive defaults when the table is
+    empty so first-install flows still work.
 
-    When the file is structurally legacy (per spec-101 R-10) -- missing the
-    ``required_tools_state`` key OR carrying a tool record without the
-    ``os_release`` field -- it is renamed to
-    ``install-state.json.legacy-<ISO-ts>``, a fresh modern state is written
-    in its place, and a ``state_migration`` framework event is emitted.
-    Caller receives the fresh state. The renamed file is preserved
-    read-only as the rollback path.
-
-    Wave 23 fix: the fresh state preserves carry-forward keys
-    (``tooling``, ``platforms``, ``branch_policy``,
-    ``operational_readiness``, ``release``, ``vcs_provider``,
-    ``ai_providers``, ``installed_at``) from the legacy payload so
-    downstream consumers (VCS factory's ``tooling.gh.mode`` lookup, the
-    breaking-banner persistence, etc.) keep operating on the user's
-    real configuration. Only the spec-101 fields (``required_tools_state``,
-    ``python_env_mode_recorded``) are reset to defaults.
+    The legacy migration path (renaming ``install-state.json`` to a
+    timestamped backup when a structurally-legacy payload is found) is
+    retained as a one-time fallback: if the JSON file is still on disk
+    (pre-spec-125 install), we ingest it once into the table, then leave
+    the JSON alone so spec-125 T-1.21 can remove it as part of the same
+    wave.
 
     Args:
-        state_dir: The ``.ai-engineering/state/`` directory.
+        state_dir: The ``.ai-engineering/state/`` directory. Used to
+            recover the project root for the state.db connection.
 
     Returns:
-        Parsed ``InstallState``, or a default instance when the file
-        does not exist.
+        Parsed ``InstallState``, or a default instance when the table
+        is empty AND no fallback JSON is present.
     """
-    path = state_dir / _INSTALL_STATE_FILENAME
-    if path.exists():
-        data = json.loads(path.read_text(encoding="utf-8"))
+    project_root = state_dir.parent.parent
+    payload = _load_state_json_from_db(project_root)
+    if payload is not None:
+        if isinstance(payload, dict) and _is_legacy_install_state(payload):
+            # Legacy payload migration: renames the on-disk JSON if it
+            # still exists, refreshes the dict, and persists the merged
+            # form back into the table.
+            payload = _migrate_legacy_install_state(state_dir / _INSTALL_STATE_FILENAME, payload)
+            _save_state_to_db(project_root, InstallState.model_validate(payload))
+        return InstallState.model_validate(payload)
+
+    # state.db row missing -- check the legacy JSON one last time so a
+    # pre-spec-125 install does not lose data on first connect. The
+    # singleton row is then written so subsequent loads stay on the DB
+    # path.
+    legacy_path = state_dir / _INSTALL_STATE_FILENAME
+    if legacy_path.exists():
+        data = json.loads(legacy_path.read_text(encoding="utf-8"))
         if isinstance(data, dict) and _is_legacy_install_state(data):
-            data = _migrate_legacy_install_state(path, data)
-        return InstallState.model_validate(data)
+            data = _migrate_legacy_install_state(legacy_path, data)
+        state = InstallState.model_validate(data)
+        _save_state_to_db(project_root, state)
+        return state
+
     return InstallState()
+
+
+def _load_state_json_from_db(project_root: Path) -> dict[str, Any] | None:
+    """Return the install_state.state_json payload as a dict, or None when absent.
+
+    Lazy import keeps ``state.service`` free of an eager dependency on
+    ``state.state_db`` (which itself imports the migration runner).
+    """
+    from ai_engineering.state.state_db import connect
+
+    conn = connect(project_root, read_only=False, apply_migrations=None)
+    try:
+        row = conn.execute("SELECT state_json FROM install_state WHERE id = 1").fetchone()
+    finally:
+        conn.close()
+    if row is None:
+        return None
+    raw = row[0] if not hasattr(row, "keys") else row["state_json"]
+    if not raw:
+        return None
+    return json.loads(raw)
+
+
+def _save_state_to_db(project_root: Path, state: InstallState) -> None:
+    """UPSERT the singleton ``install_state`` row from *state*.
+
+    Spec-125: when called against a fresh ``state.db`` (test or first
+    install), perform a one-shot lazy bootstrap so the ``install_state``
+    table exists before the INSERT. ``projection_write`` itself uses
+    ``apply_migrations=False`` to avoid double work in normal flows.
+    """
+    from ai_engineering.state.state_db import connect, projection_write
+
+    # Lazy bootstrap: cheaply ensure the schema is in place. ``connect``
+    # with ``apply_migrations=None`` runs the migration ladder iff the
+    # ``_migrations`` ledger is missing, so this is a no-op on fully
+    # bootstrapped DBs.
+    bootstrap_conn = connect(project_root, read_only=False, apply_migrations=None)
+    bootstrap_conn.close()
+
+    payload = state.model_dump(mode="json")
+    schema_version = str(payload.get("schema_version", "2.0"))
+    vcs_provider = payload.get("vcs_provider")
+    installed_at = payload.get("installed_at")
+    operational = payload.get("operational_readiness") or {}
+    operational_status = (
+        operational.get("status") if isinstance(operational, dict) else None
+    ) or "pending"
+    state_json = json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    updated_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+    with projection_write(project_root) as conn:
+        conn.execute(
+            """
+            INSERT INTO install_state
+              (id, schema_version, vcs_provider, installed_at,
+               operational_status, state_json, updated_at)
+            VALUES (1, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              schema_version    = excluded.schema_version,
+              vcs_provider      = excluded.vcs_provider,
+              installed_at      = excluded.installed_at,
+              operational_status = excluded.operational_status,
+              state_json        = excluded.state_json,
+              updated_at        = excluded.updated_at
+            """,
+            (
+                schema_version,
+                vcs_provider,
+                installed_at,
+                operational_status,
+                state_json,
+                updated_at,
+            ),
+        )
 
 
 def _is_legacy_install_state(data: dict[str, Any]) -> bool:
@@ -270,21 +374,23 @@ def _legacy_trigger_reason(data: dict[str, Any]) -> str:
 
 
 def save_install_state(state_dir: Path, state: InstallState) -> None:
-    """Persist *state* to ``install-state.json`` in *state_dir*.
+    """Persist *state* into the ``install_state`` state.db table.
 
-    Creates *state_dir* (and parents) when it does not yet exist.
+    Spec-125 cutover: the JSON file is no longer the source of truth.
+    The function still accepts ``state_dir`` for back-compat with
+    callers; it derives the project root and writes the singleton row.
+    Creates the state directory only when needed (older tests assume
+    the directory exists post-call).
 
     Args:
-        state_dir: The ``.ai-engineering/state/`` directory.
+        state_dir: The ``.ai-engineering/state/`` directory. Used to
+            recover the project root for the state.db connection.
         state: The ``InstallState`` model to write.
     """
     state_dir.mkdir(parents=True, exist_ok=True)
-    path = state_dir / _INSTALL_STATE_FILENAME
-    path.write_text(
-        state.model_dump_json(indent=2) + "\n",
-        encoding="utf-8",
-    )
-    logger.debug("install-state.json written to %s", path)
+    project_root = state_dir.parent.parent
+    _save_state_to_db(project_root, state)
+    logger.debug("install_state row written for project root %s", project_root)
 
 
 def legacy_audit_log_path(project_root: Path) -> Path:

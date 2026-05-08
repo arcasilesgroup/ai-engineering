@@ -37,7 +37,7 @@ _STACKS = [
     "universal",
 ]
 
-_PROVIDERS = ["github_copilot", "claude_code", "gemini", "codex"]
+_PROVIDERS = ["github-copilot", "claude-code", "gemini-cli", "codex"]
 
 _IDES = ["vscode", "jetbrains", "cursor", "terminal"]
 
@@ -75,7 +75,7 @@ class TestDetectedPreselection:
         mock_checkbox = MagicMock()
         mock_checkbox.return_value.ask.side_effect = [
             ["python", "go"],
-            ["claude_code"],
+            ["claude-code"],
             ["vscode"],
         ]
         mock_select = MagicMock()
@@ -100,12 +100,12 @@ class TestDetectedPreselection:
     def test_detected_providers_are_checked(self) -> None:
         from ai_engineering.installer.wizard import run_wizard
 
-        detected = _detected(providers=["claude_code", "github_copilot"])
+        detected = _detected(providers=["claude-code", "github-copilot"])
 
         mock_checkbox = MagicMock()
         mock_checkbox.return_value.ask.side_effect = [
             ["python"],
-            ["claude_code", "github_copilot"],
+            ["claude-code", "github-copilot"],
             ["terminal"],
         ]
         mock_select = MagicMock()
@@ -122,8 +122,8 @@ class TestDetectedPreselection:
             providers_call = mock_checkbox.call_args_list[1]
             choices = providers_call.kwargs.get("choices", [])
             checked_names = {c.title for c in choices if c.checked}
-            assert "claude_code" in checked_names
-            assert "github_copilot" in checked_names
+            assert "claude-code" in checked_names
+            assert "github-copilot" in checked_names
 
     def test_detected_ides_are_checked(self) -> None:
         from ai_engineering.installer.wizard import run_wizard
@@ -133,7 +133,7 @@ class TestDetectedPreselection:
         mock_checkbox = MagicMock()
         mock_checkbox.return_value.ask.side_effect = [
             ["python"],
-            ["claude_code"],
+            ["claude-code"],
             ["vscode", "jetbrains"],
         ]
         mock_select = MagicMock()
@@ -170,7 +170,7 @@ class TestAllOptionsShown:
         mock_checkbox = MagicMock()
         mock_checkbox.return_value.ask.side_effect = [
             ["python"],
-            ["claude_code"],
+            ["claude-code"],
             ["terminal"],
         ]
         mock_select = MagicMock()
@@ -197,12 +197,12 @@ class TestAllOptionsShown:
     def test_all_providers_shown_popularity_ordered(self) -> None:
         from ai_engineering.installer.wizard import run_wizard
 
-        detected = _detected(providers=["claude_code"])
+        detected = _detected(providers=["claude-code"])
 
         mock_checkbox = MagicMock()
         mock_checkbox.return_value.ask.side_effect = [
             ["python"],
-            ["claude_code"],
+            ["claude-code"],
             ["terminal"],
         ]
         mock_select = MagicMock()
@@ -219,7 +219,7 @@ class TestAllOptionsShown:
             choices = providers_call.kwargs.get("choices", [])
             choice_names = [c.title for c in choices]
             assert choice_names == _PROVIDERS
-            assert choice_names[0] == "github_copilot"
+            assert choice_names[0] == "github-copilot"
 
     def test_all_ides_shown_popularity_ordered(self) -> None:
         from ai_engineering.installer.wizard import run_wizard
@@ -229,7 +229,7 @@ class TestAllOptionsShown:
         mock_checkbox = MagicMock()
         mock_checkbox.return_value.ask.side_effect = [
             ["python"],
-            ["claude_code"],
+            ["claude-code"],
             ["vscode"],
         ]
         mock_select = MagicMock()
@@ -260,7 +260,7 @@ class TestAllOptionsShown:
         with patch("ai_engineering.installer.wizard.questionary") as mock_q:
             mock_q.checkbox.return_value.ask.side_effect = [
                 ["python"],
-                ["claude_code"],
+                ["claude-code"],
                 ["terminal"],
             ]
             mock_q.select.return_value.ask.return_value = "github"
@@ -289,7 +289,7 @@ class TestEmptyDetection:
         mock_checkbox = MagicMock()
         mock_checkbox.return_value.ask.side_effect = [
             ["python"],
-            ["claude_code"],
+            ["claude-code"],
             ["terminal"],
         ]
         mock_select = MagicMock()
@@ -315,7 +315,7 @@ class TestEmptyDetection:
         mock_checkbox = MagicMock()
         mock_checkbox.return_value.ask.side_effect = [
             [],
-            ["claude_code"],
+            ["claude-code"],
             ["terminal"],
         ]
         mock_select = MagicMock()
@@ -376,7 +376,7 @@ class TestVCSUsesSelect:
         with patch("ai_engineering.installer.wizard.questionary") as mock_q:
             mock_q.checkbox.return_value.ask.side_effect = [
                 ["python"],
-                ["claude_code"],
+                ["claude-code"],
                 ["terminal"],
             ]
             mock_q.select.return_value.ask.return_value = "azure_devops"
@@ -439,12 +439,12 @@ class TestWizardResult:
     def test_returns_wizard_result(self) -> None:
         from ai_engineering.installer.wizard import WizardResult, run_wizard
 
-        detected = _detected(stacks=["python"], providers=["claude_code"])
+        detected = _detected(stacks=["python"], providers=["claude-code"])
 
         with patch("ai_engineering.installer.wizard.questionary") as mock_q:
             mock_q.checkbox.return_value.ask.side_effect = [
                 ["python", "go"],
-                ["claude_code"],
+                ["claude-code"],
                 ["vscode", "terminal"],
             ]
             mock_q.select.return_value.ask.return_value = "github"
@@ -453,7 +453,7 @@ class TestWizardResult:
 
             assert isinstance(result, WizardResult)
             assert result.stacks == ["python", "go"]
-            assert result.providers == ["claude_code"]
+            assert result.providers == ["claude-code"]
             assert result.ides == ["vscode", "terminal"]
             assert result.vcs == "github"
 
@@ -462,12 +462,12 @@ class TestWizardResult:
 
         result = WizardResult(
             stacks=["python"],
-            providers=["claude_code"],
+            providers=["claude-code"],
             ides=["terminal"],
             vcs="github",
         )
         assert result.stacks == ["python"]
-        assert result.providers == ["claude_code"]
+        assert result.providers == ["claude-code"]
         assert result.ides == ["terminal"]
         assert result.vcs == "github"
 
@@ -489,7 +489,7 @@ class TestPartialResolution:
         with patch("ai_engineering.installer.wizard.questionary") as mock_q:
             # Only 2 checkbox calls: providers, ides (stacks skipped)
             mock_q.checkbox.return_value.ask.side_effect = [
-                ["claude_code"],
+                ["claude-code"],
                 ["terminal"],
             ]
             mock_q.select.return_value.ask.return_value = "github"
@@ -509,7 +509,7 @@ class TestPartialResolution:
         detected = _detected()
         resolved = {
             "stacks": ["python"],
-            "providers": ["claude_code"],
+            "providers": ["claude-code"],
             "ides": ["terminal"],
             "vcs": "github",
         }
@@ -520,7 +520,7 @@ class TestPartialResolution:
             mock_q.checkbox.assert_not_called()
             mock_q.select.assert_not_called()
             assert result.stacks == ["python"]
-            assert result.providers == ["claude_code"]
+            assert result.providers == ["claude-code"]
             assert result.ides == ["terminal"]
             assert result.vcs == "github"
 
@@ -533,7 +533,7 @@ class TestPartialResolution:
         with patch("ai_engineering.installer.wizard.questionary") as mock_q:
             mock_q.checkbox.return_value.ask.side_effect = [
                 ["python"],
-                ["claude_code"],
+                ["claude-code"],
                 ["terminal"],
             ]
 
@@ -547,7 +547,7 @@ class TestPartialResolution:
 
         detected = _detected(stacks=["python"])
         resolved = {
-            "providers": ["claude_code", "github_copilot"],
+            "providers": ["claude-code", "github-copilot"],
             "ides": ["vscode"],
         }
 
@@ -561,7 +561,7 @@ class TestPartialResolution:
             result = run_wizard(detected, resolved=resolved)
 
             assert result.stacks == ["python", "go"]
-            assert result.providers == ["claude_code", "github_copilot"]
+            assert result.providers == ["claude-code", "github-copilot"]
             assert result.ides == ["vscode"]
             assert mock_q.checkbox.call_count == 1
 
@@ -603,7 +603,7 @@ class TestInterruptHandling:
         with patch("ai_engineering.installer.wizard.questionary") as mock_q:
             mock_q.checkbox.return_value.ask.side_effect = [
                 ["python"],
-                ["claude_code"],
+                ["claude-code"],
                 ["terminal"],
             ]
             mock_q.select.return_value.ask.return_value = None
@@ -630,7 +630,7 @@ class TestEmptySelection:
         with patch("ai_engineering.installer.wizard.questionary") as mock_q:
             mock_q.checkbox.return_value.ask.side_effect = [
                 [],  # user deselected everything
-                ["claude_code"],
+                ["claude-code"],
                 ["terminal"],
             ]
             mock_q.select.return_value.ask.return_value = "github"

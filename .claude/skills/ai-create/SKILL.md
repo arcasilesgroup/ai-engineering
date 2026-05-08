@@ -1,11 +1,10 @@
 ---
 name: ai-create
-description: "Use when adding a new slash command, building a new agent role, or extending the ai-engineering framework with a capability it does not yet have. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for X', 'build a new agent'. Covers skill scaffold, TDD pressure testing, description optimization, registration, and mirror sync."
+description: "Creates new ai-engineering skills or agents end-to-end: scaffold, TDD pressure-test, optimize description, register in manifest, sync mirrors. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for', 'build a new agent', 'scaffold a skill for'. Not for evolving existing skills; use /ai-skill-tune instead. Not for description-only optimization; use /ai-prompt instead."
 effort: high
-argument-hint: "skill <name>|agent <name>"
+argument-hint: "skill [name]|agent [name]"
 tags: [meta, framework, creation]
 ---
-
 
 # Create
 
@@ -38,14 +37,21 @@ This is the invariant checklist that must be satisfied regardless of whether you
 
 ---
 
+## Workflow
+
+Two modes:
+
+- **skill `<name>`** — context load (overlap check + pain sources), delegate to skill-creator for TDD + evals, register in `manifest.yml`, sync mirrors.
+- **agent `<name>`** — scaffold the agent file, declare frontmatter (description, model, tools, dispatch source), register in `manifest.yml`, sync mirrors.
+
 ## Mode: skill <name>
 
 ### Phase 1 — ai-engineering Context (this skill owns this)
 
 Follow `handlers/create-skill.md`. Before creating anything, load project context:
 
-1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-evolve` instead.
-2. **Load pain sources** — read decision-store.json, LESSONS.md, instincts.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
+1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-tune` instead.
+2. **Load pain sources** — read state.db.decisions, LESSONS.md, observations.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
 3. **Determine IDE compatibility** — see IDE-Compatibility Frontmatter below.
 
 ### Phase 2 — Delegate to skill-creator for TDD + Evals
@@ -93,20 +99,22 @@ Follow `handlers/create-agent.md`. Agents don't go through skill-creator (they'r
 
 The `description` field is the skill's search ranking — it determines whether the skill triggers. It must describe **triggering conditions**, not summarize functionality.
 
-| Bad (summary) | Good (CSO trigger) |
-|---------------|-------------------|
-| "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity" |
-| "Sprint planning tool" | "Use when planning a new sprint or running a retrospective" |
-| "Resolves git conflicts" | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
+| Bad (summary)             | Good (CSO trigger)                                                          |
+| ------------------------- | --------------------------------------------------------------------------- |
+| "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity"  |
+| "Sprint planning tool"    | "Use when planning a new sprint or running a retrospective"                 |
+| "Resolves git conflicts"  | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
 
 ## IDE-Compatibility Frontmatter
 
-| Field | Effect |
-|-------|--------|
-| `copilot_compatible: false` | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
-| `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills) |
+| Field                            | Effect                                                           |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `copilot_compatible: false`      | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
+| `codex_compatible: false`        | Excludes from `.codex/skills/` mirror                            |
+| `gemini_compatible: false`       | Excludes from `.gemini/skills/` mirror                           |
+| `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills)      |
 
-Currently only `ai-analyze-permissions` uses `copilot_compatible: false`.
+`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot, Codex, and Gemini mirrors.
 
 ## Quick Reference
 
@@ -115,11 +123,30 @@ Currently only `ai-analyze-permissions` uses `copilot_compatible: false`.
 /ai-create agent reviewer    # create a new reviewer agent (direct scaffold)
 ```
 
+## Examples
+
+### Example 1 — create a brand-new skill
+
+User: "the framework needs a capability for OpenAPI schema validation — create the skill"
+
+```
+/ai-create skill ai-openapi
+```
+
+Loads pain context, delegates draft + TDD to `skill-creator`, registers in `manifest.yml`, runs `sync_command_mirrors.py`, verifies tests still pass.
+
+### Example 2 — scaffold a new specialist agent
+
+User: "add a new reviewer agent for accessibility"
+
+```
+/ai-create agent reviewer-accessibility
+```
+
+Scaffolds the agent file with CSO description, `tools` whitelist, `model: sonnet`, dispatch-source comment; registers in manifest; syncs mirrors.
+
 ## Integration
 
-- **Delegates to**: Anthropic `skill-creator` for skill TDD, evals, description optimization
-- **Reads**: manifest.yml, decision-store.json, LESSONS.md (ai-engineering context)
-- **Triggers sync**: `python scripts/sync_command_mirrors.py` after creation
-- **Related**: `/ai-skill-evolve` for improving existing skills (also delegates to skill-creator)
+Delegates to: Anthropic `skill-creator` (TDD + evals + description optimization). Reads: `manifest.yml`, `state.db.decisions`, `LESSONS.md`. Calls: `python scripts/sync_command_mirrors.py`. See also: `/ai-skill-tune` (improve existing), `/ai-prompt` (description-only).
 
 $ARGUMENTS

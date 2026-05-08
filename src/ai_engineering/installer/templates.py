@@ -10,8 +10,11 @@ Provides:
 from __future__ import annotations
 
 import shutil
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from ai_engineering.config.manifest import RootEntryPointConfig
 
 TEMPLATES_ROOT: Path = Path(__file__).resolve().parent.parent / "templates"
 """Root directory containing bundled template trees."""
@@ -31,14 +34,14 @@ PROJECT_TEMPLATES: str = "project"
 # AGENTS.md is used by multiple providers but deduplication is handled at copy time.
 
 _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
-    "claude_code": {
+    "claude-code": {
         "CLAUDE.md": "CLAUDE.md",
     },
-    "github_copilot": {
+    "github-copilot": {
         "AGENTS.md": "AGENTS.md",
         "copilot-instructions.md": ".github/copilot-instructions.md",
     },
-    "gemini": {
+    "gemini-cli": {
         "AGENTS.md": "AGENTS.md",
         "GEMINI.md": "GEMINI.md",
     },
@@ -47,23 +50,150 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
     },
 }
 
+# Provider name aliases (underscore variants, short forms). Mirror of
+# ``_PROVIDER_ALIASES`` in ``cli_commands/core.py``; downstream callers may
+# pass either canonical hyphenated IDs or these alias forms.
+_PROVIDER_ALIASES: dict[str, str] = {
+    "claude": "claude-code",
+    "claude-code": "claude-code",
+    "claude_code": "claude-code",
+    "copilot": "github-copilot",
+    "github-copilot": "github-copilot",
+    "github_copilot": "github-copilot",
+    "gemini": "gemini-cli",
+    "gemini-cli": "gemini-cli",
+    "gemini_cli": "gemini-cli",
+    "codex": "codex",
+}
+
+
+def _canonicalize_provider(provider: str) -> str:
+    """Return canonical hyphenated provider ID, accepting alias forms."""
+    return _PROVIDER_ALIASES.get(provider, provider)
+
+
+_DEFAULT_ROOT_TEMPLATE_PATHS: dict[str, str] = {}
+for provider_file_map in _PROVIDER_FILE_MAPS.values():
+    for src_relative, dest_relative in provider_file_map.items():
+        _DEFAULT_ROOT_TEMPLATE_PATHS.setdefault(
+            dest_relative,
+            f"src/ai_engineering/templates/project/{src_relative}",
+        )
+
+
+def resolve_instruction_file_destinations(
+    providers: list[str] | None = None,
+    *,
+    root_entry_points: Mapping[str, RootEntryPointConfig] | None = None,
+    include_mirror_paths: bool = False,
+) -> list[str]:
+    """Return metadata-aware root instruction destinations for the providers.
+
+    This is the shared source for provider-aware root instruction surfaces used
+    by install, validator, and sync workflows.
+
+    When ``include_mirror_paths`` is true, manifest-declared
+    ``ownership.root_entry_points[*].sync.mirror_paths`` are appended only for
+    root destinations enabled by the selected providers.
+    """
+    if root_entry_points is None:
+        raise ValueError(
+            "Root entry point metadata is required to resolve instruction file "
+            "destinations; pass manifest-declared root_entry_points."
+        )
+    if providers is None:
+        raise ValueError(
+            "Providers are required to resolve instruction file destinations; "
+            "pass an explicit providers list."
+        )
+
+    seen: set[str] = set()
+    destinations: list[str] = []
+    for provider in providers:
+        canonical = _canonicalize_provider(provider)
+        for dest in _PROVIDER_FILE_MAPS.get(canonical, {}).values():
+            if dest in seen:
+                continue
+            seen.add(dest)
+            destinations.append(dest)
+
+    if include_mirror_paths and root_entry_points:
+        for destination in list(destinations):
+            root_entry = root_entry_points.get(destination)
+            if root_entry is None:
+                continue
+            for mirror_path in root_entry.sync.mirror_paths:
+                if mirror_path in seen:
+                    continue
+                seen.add(mirror_path)
+                destinations.append(mirror_path)
+
+    return destinations
+
+
+def resolve_instruction_template_sources(
+    destinations: list[str],
+    *,
+    root_entry_points: Mapping[str, RootEntryPointConfig] | None = None,
+) -> list[str]:
+    """Return template counterparts for governed root instruction destinations.
+
+    Manifest-declared ``sync.template_path`` values take precedence when
+    present; otherwise the bundled provider template map is used as the
+    compatibility fallback.
+    """
+    if root_entry_points is None:
+        raise ValueError(
+            "Root entry point metadata is required to resolve instruction template "
+            "sources; pass manifest-declared root_entry_points."
+        )
+
+    seen: set[str] = set()
+    template_paths: list[str] = []
+
+    for destination in destinations:
+        template_path = ""
+        if root_entry_points:
+            root_entry = root_entry_points.get(destination)
+            if root_entry is not None:
+                template_path = root_entry.sync.template_path
+        if not template_path:
+            template_path = _DEFAULT_ROOT_TEMPLATE_PATHS.get(destination, "")
+        if not template_path or template_path in seen:
+            continue
+        seen.add(template_path)
+        template_paths.append(template_path)
+
+    return template_paths
+
+
 # Files deployed regardless of AI provider (security, quality tooling).
+# CONSTITUTION.md gets two destinations: root (project charter) and
+# `.ai-engineering/` (governance plane). Both are validated by e2e tests
+# (`test_install_creates_required_dirs` and `test_install_creates_root_constitution`).
 _COMMON_FILE_MAPS: dict[str, str] = {
     ".gitleaks.toml": ".gitleaks.toml",
     ".semgrep.yml": ".semgrep.yml",
+    "CONSTITUTION.md": "CONSTITUTION.md",
+}
+
+# Additional destinations for files that need to land in multiple paths.
+# Source path (relative to template root) → list of destination paths.
+_COMMON_FILE_EXTRA_DESTS: dict[str, list[str]] = {
+    "CONSTITUTION.md": [".ai-engineering/CONSTITUTION.md"],
 }
 
 _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
-    "claude_code": [
+    "claude-code": [
         (".claude", ".claude"),
     ],
-    "github_copilot": [
+    "github-copilot": [
         (".github/skills", ".github/skills"),
         (".github/hooks", ".github/hooks"),
         ("agents", ".github/agents"),
         ("instructions", ".github/instructions"),
     ],
-    "gemini": [
+    "gemini-cli": [
         (".gemini", ".gemini"),
     ],
     "codex": [
@@ -269,10 +399,11 @@ def _resolve_provider_maps(
     seen_trees: set[tuple[str, str]] = set()
 
     for prov in providers:
-        for src, dst in _PROVIDER_FILE_MAPS.get(prov, {}).items():
+        canonical = _canonicalize_provider(prov)
+        for src, dst in _PROVIDER_FILE_MAPS.get(canonical, {}).items():
             if src not in file_map:
                 file_map[src] = dst
-        for entry in _PROVIDER_TREE_MAPS.get(prov, []):
+        for entry in _PROVIDER_TREE_MAPS.get(canonical, []):
             if entry not in seen_trees:
                 tree_list.append(entry)
                 seen_trees.add(entry)
@@ -339,6 +470,13 @@ def copy_project_templates(
             result.created.append(dest_file)
         else:
             result.skipped.append(dest_file)
+        # Some common files need to land in additional destinations.
+        for extra_dest in _COMMON_FILE_EXTRA_DESTS.get(src_relative, []):
+            extra_path = target / extra_dest
+            if copy_file_if_missing(src_file, extra_path):
+                result.created.append(extra_path)
+            else:
+                result.skipped.append(extra_path)
 
     # Common tree templates (shared project content)
     for src_tree, dest_tree in _COMMON_TREE_MAPS:
@@ -374,10 +512,11 @@ def provider_template_dest_paths(provider: str) -> list[str]:
         List of destination paths relative to the project root.
     """
     paths: list[str] = []
-    for _src, dst in _PROVIDER_FILE_MAPS.get(provider, {}).items():
+    canonical = _canonicalize_provider(provider)
+    for _src, dst in _PROVIDER_FILE_MAPS.get(canonical, {}).items():
         paths.append(dst)
     # Tree destinations are directory roots; files inside are enumerated at runtime
-    for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(provider, []):
+    for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(canonical, []):
         paths.append(dest_tree)
     return paths
 
@@ -397,13 +536,15 @@ def _dest_path_used_by_other_providers(
     Returns:
         True if another active provider also maps to this destination path.
     """
+    canonical_provider = _canonicalize_provider(provider)
     for other in active_providers:
-        if other == provider:
+        canonical_other = _canonicalize_provider(other)
+        if canonical_other == canonical_provider:
             continue
-        other_files = _PROVIDER_FILE_MAPS.get(other, {})
+        other_files = _PROVIDER_FILE_MAPS.get(canonical_other, {})
         if dest_path in other_files.values():
             return True
-        for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(other, []):
+        for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(canonical_other, []):
             if dest_path == dest_tree:
                 return True
     return False
@@ -417,7 +558,7 @@ def remove_provider_templates(
     """Remove templates installed by a provider.
 
     Does NOT remove files that are still needed by another active provider
-    (e.g., AGENTS.md shared between github_copilot, gemini, and codex).
+    (e.g., AGENTS.md shared between github-copilot, gemini-cli, and codex).
 
     Args:
         target: Target project root directory.

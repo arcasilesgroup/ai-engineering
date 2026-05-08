@@ -1,8 +1,12 @@
 ---
 name: ai-standup
-description: Use when generating standup notes, daily status updates, or recent-activity summaries from actual git commits and PRs. Trigger for 'write my standup', 'what did I do today', 'what did I ship this week', 'status update', 'handoff notes', 'end of day summary'. Reads real commit and PR history — accurate, not reconstructed from memory.
+description: Generates standup notes and status updates from actual git commits and PRs — never reconstructed from memory. Trigger for 'write my standup', 'what did I do today', 'what did I ship this week', 'status update', 'handoff notes', 'end of day summary'. Not for pitch or blog content; use /ai-write instead. Not for sprint retrospectives; use /ai-sprint instead.
 effort: medium
-argument-hint: "--days N|--author <name>"
+argument-hint: "--days N|--author [name]"
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-standup/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -36,14 +40,14 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 2. Read `.ai-engineering/contexts/gather-activity-data.md` for the canonical git log, PR query, and work item commands.
 3. Use the active provider to gather work item data and include status in standup notes when available.
 
-## Procedure
+## Workflow
 
 1. **Determine lookback** -- default: 1 working day. Override with `--days N`. Skip weekends unless `--days` explicitly covers them.
 
 2. **Collect activity** -- use the commands from `.ai-engineering/contexts/gather-activity-data.md` to scan:
    a. Local commits (git log with author filter)
    b. PRs (provider-specific query)
-   c. Active spec tasks from `.ai-engineering/specs/spec.md` and `specs/plan.md` -- current work
+   c. Active spec tasks from `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` -- current work
 
 3. **Classify items** into three groups:
 
@@ -93,8 +97,30 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 - Designed for copy-paste into Slack, Teams, or standup tools
 - Each item includes a link when available
 
+## Examples
+
+### Example 1 — daily standup before the morning sync
+
+User: "write my standup for today"
+
+```
+/ai-standup
+```
+
+Reads commits + PRs from the last 24h, groups into Yesterday / Today / Blockers, formats for Slack copy-paste.
+
+### Example 2 — weekly summary for handoff
+
+User: "what did I ship this week?"
+
+```
+/ai-standup --days 7
+```
+
+7-day window, groups by PR status, includes links per item.
+
 ## Integration
 
-- **See also**: `/ai-sprint` (full sprint view -- standup covers daily slice)
+Called by: user directly. Calls: `git log`, `gh pr list`, `az repos pr list`. See also: `/ai-sprint` (full sprint view), `/ai-write content sprint-review`, `/ai-note`.
 
 $ARGUMENTS

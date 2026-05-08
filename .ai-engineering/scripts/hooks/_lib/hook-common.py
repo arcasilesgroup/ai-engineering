@@ -50,8 +50,34 @@ _REQUIRED_KEYS: tuple[str, ...] = (
 _ALLOWED_ENGINES: frozenset[str] = frozenset(
     {"claude_code", "codex", "gemini", "copilot", "ai_engineering"}
 )
+_ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
+_ALLOWED_KINDS: frozenset[str] = frozenset(
+    {
+        "skill_invoked",
+        "agent_dispatched",
+        "context_load",
+        "ide_hook",
+        "framework_error",
+        "git_hook",
+        "control_outcome",
+        "framework_operation",
+        "task_trace",
+        # spec-118 memory layer
+        "memory_event",
+        # spec-119 evaluation layer
+        "eval_run",
+        # spec-122 Phase C governance — OPA policy_decision
+        "policy_decision",
+        # spec-123 D-123-26 retention layer
+        "retention_applied",
+    }
+)
 
 _FRAMEWORK_EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
+
+
+def _normalize_engine_id(engine: str) -> str:
+    return _ENGINE_ALIASES.get(engine, engine)
 
 
 # ---------------------------------------------------------------------------
@@ -72,6 +98,9 @@ def validate_event_schema(event: object) -> bool:
             return False
     engine = event_dict.get("engine")
     if not isinstance(engine, str) or engine not in _ALLOWED_ENGINES:
+        return False
+    kind = event_dict.get("kind")
+    if not isinstance(kind, str) or kind not in _ALLOWED_KINDS:
         return False
     detail = event_dict.get("detail", {})
     return isinstance(detail, dict)
@@ -176,25 +205,93 @@ def emit_event(project_root: Path, event: dict) -> bool:
     audit stream stays trustworthy. Spec-110 D-110-03: stamps
     `prev_event_hash` at the **root** of the on-disk JSON object.
     """
-    if not validate_event_schema(event):
+    normalized_event = dict(event)
+    engine = normalized_event.get("engine")
+    if isinstance(engine, str):
+        normalized_event["engine"] = _normalize_engine_id(engine)
+    if not validate_event_schema(normalized_event):
         logger.error(
             "hook-common: refusing to emit malformed event (kind=%s engine=%s)",
-            event.get("kind") if isinstance(event, dict) else None,
-            event.get("engine") if isinstance(event, dict) else None,
+            normalized_event.get("kind") if isinstance(normalized_event, dict) else None,
+            normalized_event.get("engine") if isinstance(normalized_event, dict) else None,
         )
         return False
     path = _events_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
-    payload = dict(event)
-    payload["prev_event_hash"] = _read_prev_event_hash(path)
-    line = json.dumps(payload, sort_keys=True, default=str)
+    payload = normalized_event
+    # Sidecar overflow (spec-122-b D-122-23): events whose serialised
+    # bytes exceed AIENG_EVENT_SIDECAR_BYTES (default 3 KB) are offloaded
+    # to ``RUNTIME_DIR(project_root) / "event-sidecars" / <sha256>.json``
+    # (canonical ``.ai-engineering/runtime/event-sidecars/``) and the
+    # inline NDJSON line carries only hash + summary. Keeps the
+    # cross-IDE concurrent append safely under POSIX_BUF.
+    #
+    # Spec-126 T-3.4: ``maybe_offload_event`` does NOT mutate the
+    # shared chain file (writes only to the per-event sidecar named
+    # by content hash) so it stays OUTSIDE the lock. The hash compute
+    # (``_read_prev_event_hash``) and the actual append on the chain
+    # file move INSIDE the lock to prevent the TOCTOU race.
     try:
-        with path.open("a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        from _lib.audit import maybe_offload_event  # local import; stdlib-only
+
+        payload = maybe_offload_event(project_root, payload)
+    except Exception:  # fail-open: never block emit
+        pass
+
+    # Spec-126 D-126-05 / T-3.4: hash compute + write under
+    # ``with_lock_retry``. Lazy import keeps cold-start hooks fast.
+    # Fallback to file-path load when ``_lib`` is not on ``sys.path``
+    # (this module is sometimes loaded via ``spec_from_file_location``
+    # under a different package name in tests / hook bootstraps).
+    with_lock_retry = _load_with_lock_retry()
+
+    try:
+        with with_lock_retry(project_root, "framework-events") as _locked:
+            payload["prev_event_hash"] = _read_prev_event_hash(path)
+            line = json.dumps(payload, sort_keys=True, default=str)
+            with path.open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
     except OSError as exc:
         logger.error("hook-common: failed to append event: %s", exc)
         return False
     return True
+
+
+def _load_with_lock_retry():
+    """Resolve ``with_lock_retry`` even when ``_lib`` is not on ``sys.path``.
+
+    The hook-common module is sometimes loaded via
+    ``spec_from_file_location`` (tests, ad-hoc hook bootstrap shims)
+    under a synthetic package name like ``aieng_hook_common``. In that
+    case the canonical ``from _lib.locked_append import with_lock_retry``
+    raises ``ModuleNotFoundError``. Fall back to a temporary
+    ``sys.path`` prepend so the canonical package import resolves
+    cleanly, then restore ``sys.path`` to avoid leaking state into
+    other tests / hook entry points.
+    """
+    try:
+        from _lib.locked_append import with_lock_retry as _wlr  # type: ignore[import-not-found]
+
+        return _wlr
+    except ModuleNotFoundError:
+        # Prepend the hooks parent dir so ``_lib`` resolves as a normal
+        # implicit-namespace package; do NOT mutate ``sys.modules`` with
+        # a synthetic ``_lib`` (would shadow downstream loads of sibling
+        # modules like ``_lib.hook_common`` and ``_lib.observability``).
+        import contextlib
+        import importlib
+
+        hooks_parent = str(Path(__file__).parent.parent)
+        added = hooks_parent not in sys.path
+        if added:
+            sys.path.insert(0, hooks_parent)
+        try:
+            module = importlib.import_module("_lib.locked_append")
+            return module.with_lock_retry
+        finally:
+            if added:
+                with contextlib.suppress(ValueError):
+                    sys.path.remove(hooks_parent)
 
 
 # ---------------------------------------------------------------------------
@@ -214,16 +311,35 @@ def now_monotonic_ms() -> int:
 # ---------------------------------------------------------------------------
 
 
-def _emit_hook_heartbeat(*, component: str, hook_kind: str, duration_ms: int, outcome: str) -> None:
+def _emit_hook_heartbeat(
+    *,
+    component: str,
+    hook_kind: str,
+    duration_ms: int,
+    outcome: str,
+    budget_ms: int | None = None,
+    over_budget: bool = False,
+) -> None:
     """Append a hot-path heartbeat event carrying duration_ms (spec-114 G-2).
 
     Best-effort: any failure here is swallowed so the hook still exits 0.
     The event uses `kind: ide_hook` so existing readers (doctor, audit
     chain) treat it as a normal hook outcome record.
+
+    Spec-115 G-1 adds `budget_ms` and `over_budget` to surface SLO breaches
+    inline so downstream rollups don't have to re-derive thresholds.
     """
     try:
         project_root = _resolve_project_root()
         engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        detail: dict = {
+            "hook_kind": hook_kind,
+            "outcome": outcome,
+            "duration_ms": duration_ms,
+        }
+        if budget_ms is not None:
+            detail["budget_ms"] = budget_ms
+            detail["over_budget"] = over_budget
         event = {
             "kind": "ide_hook",
             "engine": engine,
@@ -234,11 +350,7 @@ def _emit_hook_heartbeat(*, component: str, hook_kind: str, duration_ms: int, ou
             "schemaVersion": "1.0",
             "project": project_root.name,
             "source": "hook",
-            "detail": {
-                "hook_kind": hook_kind,
-                "outcome": outcome,
-                "duration_ms": duration_ms,
-            },
+            "detail": detail,
         }
         session_id = get_session_id()
         if session_id:
@@ -277,13 +389,122 @@ def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> N
         pass
 
 
-def run_hook_safe(main_fn, *, component: str, hook_kind: str) -> None:
+# Hot-path SLO budgets (spec-114 G-2 follow-up). Heartbeats whose
+# `duration_ms` exceeds the matching budget tag the event with
+# `detail.over_budget = True` so `ai-eng doctor --check hot-path` and the
+# offline rollups can flag regressions without re-deriving thresholds.
+_HOT_PATH_BUDGET_MS: dict[str, int] = {
+    "pre-tool-use": 1000,
+    "post-tool-use": 1000,
+    "user-prompt-submit": 1000,
+    "stop": 5000,
+    "subagent-stop": 1000,
+    "session-start": 5000,
+    "session-end": 5000,
+    "pre-compact": 5000,
+}
+_HOT_PATH_DEFAULT_BUDGET_MS = 1000
+
+
+def _hot_path_budget_ms(hook_kind: str) -> int:
+    return _HOT_PATH_BUDGET_MS.get(hook_kind, _HOT_PATH_DEFAULT_BUDGET_MS)
+
+
+def _verify_caller_integrity(
+    *,
+    component: str,
+    hook_kind: str,
+    script_path: Path | str | None = None,
+) -> tuple[bool, str | None, str]:
+    """Best-effort integrity check on the calling hook script.
+
+    Returns ``(allowed, reason, mode)``. ``allowed`` is False only when
+    the configured mode is ``enforce`` AND the manifest declares a
+    different sha256 for this script (or — in enforce mode — the script
+    is missing from the manifest entirely). All other paths (warn, off,
+    no manifest, unenrolled hook in non-enforce, import failure) return
+    True so the caller decides whether to surface the reason via telemetry.
+
+    ``script_path`` is now passed in by ``run_hook_safe`` (resolved from
+    ``__file__`` at the hook entry). Earlier versions used ``inspect.stack()``
+    here, which walked the whole Python call stack on every hook invocation
+    and cost 5-30 ms per call.
+    """
+    try:
+        from _lib.integrity import (
+            integrity_mode,
+            verify_hook_integrity,
+        )
+    except Exception:  # pragma: no cover - defensive
+        return True, None, "off"
+    mode = integrity_mode()
+    if mode == "off":
+        return True, None, mode
+    if script_path is None:
+        # Fallback: legacy callers without explicit path. Best-effort only —
+        # `inspect.stack()` is the slow path; warn-mode + skip rather than pay.
+        return True, None, mode
+    try:
+        resolved = Path(script_path).resolve()
+    except (OSError, TypeError):
+        return True, None, mode
+    project_root = _resolve_project_root()
+    ok, reason = verify_hook_integrity(resolved, project_root)
+    if ok:
+        return True, None, mode
+    return mode != "enforce", reason, mode
+
+
+def _emit_integrity_violation(*, component: str, hook_kind: str, reason: str, mode: str) -> None:
+    """Log integrity mismatch as ``framework_error`` regardless of mode."""
+    try:
+        project_root = _resolve_project_root()
+        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        event = {
+            "kind": "framework_error",
+            "engine": engine,
+            "timestamp": _now_iso(),
+            "component": component,
+            "outcome": "failure",
+            "correlationId": get_correlation_id(),
+            "schemaVersion": "1.0",
+            "project": project_root.name,
+            "source": "hook",
+            "detail": {
+                "error_code": "hook_integrity_violation",
+                "summary": reason[:200],
+                "hook_kind": hook_kind,
+                "mode": mode,
+            },
+        }
+        session_id = get_session_id()
+        if session_id:
+            event["sessionId"] = session_id
+        emit_event(project_root, event)
+    except Exception:
+        pass
+
+
+def run_hook_safe(
+    main_fn,
+    *,
+    component: str,
+    hook_kind: str,
+    script_path: Path | str | None = None,
+) -> None:
     """Run `main_fn` with hot-path instrumentation; always exit 0.
 
     Spec-112 T-1.10 introduced this wrapper to centralise the fail-open
     boilerplate. Spec-114 G-2 extends it with `time.perf_counter()`
     measurement and a heartbeat event carrying `detail.duration_ms` so
     `ai-eng doctor --check hot-path` can compute rolling p95 per hook.
+
+    Spec-115 G-1 layers two extras on top:
+      * Hot-path budget tagging (`detail.over_budget`) using the
+        per-hook-kind table in ``_HOT_PATH_BUDGET_MS``.
+      * Hook script integrity verification against
+        ``hooks-manifest.json``. Mode is governed by env
+        ``AIENG_HOOK_INTEGRITY_MODE`` (warn|enforce|off).
 
     Hooks may exit non-zero intentionally via `SystemExit` (e.g.
     injection-guard deny); we re-raise without writing the heartbeat
@@ -292,6 +513,21 @@ def run_hook_safe(main_fn, *, component: str, hook_kind: str) -> None:
     Imported lazily by hooks; the seal contract still holds because
     this function performs no `ai_engineering.*` imports.
     """
+    integrity_ok, integrity_reason, integrity_mode_val = _verify_caller_integrity(
+        component=component, hook_kind=hook_kind, script_path=script_path
+    )
+    if integrity_reason is not None:
+        _emit_integrity_violation(
+            component=component,
+            hook_kind=hook_kind,
+            reason=integrity_reason,
+            mode=integrity_mode_val,
+        )
+    if not integrity_ok:
+        # Enforce-mode mismatch: refuse execution. Exit 2 mirrors the
+        # injection-guard deny semantics so operators can grep for it.
+        sys.exit(2)
+
     start = time.perf_counter()
     outcome = "success"
     raised: BaseException | None = None
@@ -305,8 +541,15 @@ def run_hook_safe(main_fn, *, component: str, hook_kind: str) -> None:
         outcome = "failure"
         raised = exc
     duration_ms = max(0, round((time.perf_counter() - start) * 1000))
+    budget_ms = _hot_path_budget_ms(hook_kind)
+    over_budget = duration_ms > budget_ms
     _emit_hook_heartbeat(
-        component=component, hook_kind=hook_kind, duration_ms=duration_ms, outcome=outcome
+        component=component,
+        hook_kind=hook_kind,
+        duration_ms=duration_ms,
+        outcome=outcome,
+        budget_ms=budget_ms,
+        over_budget=over_budget,
     )
     if raised is not None:
         _emit_hook_error(component=component, hook_kind=hook_kind, exc=raised)

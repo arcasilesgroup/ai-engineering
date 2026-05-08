@@ -150,25 +150,25 @@ class TestDetectAIProviders:
 
     def test_claude_dir(self, tmp_path: Path) -> None:
         (tmp_path / ".claude").mkdir()
-        assert detect_ai_providers(tmp_path) == ["claude_code"]
+        assert detect_ai_providers(tmp_path) == ["claude-code"]
 
     def test_copilot_instructions_file(self, tmp_path: Path) -> None:
         gh = tmp_path / ".github"
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
-        assert detect_ai_providers(tmp_path) == ["github_copilot"]
+        assert detect_ai_providers(tmp_path) == ["github-copilot"]
 
     def test_copilot_skills_directory(self, tmp_path: Path) -> None:
         skills = tmp_path / ".github" / "skills"
         skills.mkdir(parents=True)
-        assert detect_ai_providers(tmp_path) == ["github_copilot"]
+        assert detect_ai_providers(tmp_path) == ["github-copilot"]
 
     def test_both_providers(self, tmp_path: Path) -> None:
         (tmp_path / ".claude").mkdir()
         gh = tmp_path / ".github"
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
-        assert detect_ai_providers(tmp_path) == ["claude_code", "github_copilot"]
+        assert detect_ai_providers(tmp_path) == ["claude-code", "github-copilot"]
 
     def test_codex_detected_from_codex_dir(self, tmp_path: Path) -> None:
         (tmp_path / ".codex").mkdir()
@@ -186,10 +186,10 @@ class TestDetectAIProviders:
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
         assert detect_ai_providers(tmp_path) == [
-            "claude_code",
+            "claude-code",
             "codex",
-            "gemini",
-            "github_copilot",
+            "gemini-cli",
+            "github-copilot",
         ]
 
     def test_empty_dir(self, tmp_path: Path) -> None:
@@ -277,7 +277,7 @@ class TestDetectAll:
 
         assert isinstance(result, DetectionResult)
         assert result.stacks == ["python"]
-        assert result.providers == ["claude_code"]
+        assert result.providers == ["claude-code"]
         assert result.ides == ["vscode"]
         assert result.vcs == "github"
 
@@ -309,7 +309,7 @@ class TestDetectAll:
             result = detect_all(tmp_path)
 
         assert result.stacks == ["go", "rust"]
-        assert result.providers == ["claude_code", "github_copilot"]
+        assert result.providers == ["claude-code", "github-copilot"]
         assert result.ides == ["jetbrains"]
         assert result.vcs == "azure_devops"
 

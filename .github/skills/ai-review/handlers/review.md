@@ -19,9 +19,9 @@ Use that as the authoritative stack list for context loading and language-handle
 Before any specialist runs:
 
 1. Read the full diff (`git diff --stat` and `git diff`)
-2. Dispatch `review-context-explorer.md` via the **Agent** tool to gather architectural context
+2. Dispatch `reviewer-context.md` via the **Agent** tool to gather architectural context
 3. Load relevant language and framework contexts from `.ai-engineering/contexts/`
-4. Read `.ai-engineering/state/decision-store.json` for applicable architectural decisions
+4. Read `.ai-engineering/state/state.db.decisions` for applicable architectural decisions
 
 The context explorer output is serialized and passed to every specialist in their Agent prompt. Do not re-run ad hoc exploration inside each specialist.
 
@@ -84,7 +84,7 @@ After all specialists report:
 
 ### Step 5 -- Adversarial Validation
 
-Dispatch `review-finding-validator.md` via the **Agent** tool.
+Dispatch `reviewer-validator.md` via the **Agent** tool.
 
 **Critical**: Pass ONLY the YAML finding blocks to the validator -- strip the
 specialist's reasoning chain. The validator reads the code fresh and attempts
@@ -92,7 +92,7 @@ disproof without knowing why the specialist flagged it.
 
 ```
 Agent prompt: "You are the finding validator.
-Read and follow .github/agents/review-finding-validator.md
+Read and follow .github/agents/reviewer-validator.md
 Here are the findings to validate:
 [YAML finding blocks only -- no reasoning chain]
 For each finding, read the code at the cited location and

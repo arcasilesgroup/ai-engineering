@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import json
 import subprocess
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
+from ai_engineering.state.models import GateFindingsDocument
 from ai_engineering.verify.scoring import FindingSeverity, Verdict
 from ai_engineering.verify.service import (
     MODES,
@@ -23,6 +26,8 @@ from ai_engineering.verify.service import (
     verify_security,
 )
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 # ── Fake subprocess ───────────────────────────────────────────────────────
 
 
@@ -31,6 +36,7 @@ class FakeSubprocess:
 
     def __init__(self) -> None:
         self._responses: dict[str, subprocess.CompletedProcess[str]] = {}
+        self.calls: list[list[str]] = []
 
     def set_response(
         self,
@@ -49,6 +55,7 @@ class FakeSubprocess:
         *_args: object,
         **_kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
+        self.calls.append(cmd)
         cmd_str = " ".join(cmd)
         for key, response in self._responses.items():
             if key in cmd_str:
@@ -64,10 +71,69 @@ def fake_run(monkeypatch: pytest.MonkeyPatch) -> FakeSubprocess:
     return fake
 
 
+def _write_gate_findings(
+    project_root: Path,
+    *,
+    findings: list[dict[str, object]],
+) -> Path:
+    payload = {
+        "schema": "ai-engineering/gate-findings/v1",
+        "session_id": str(uuid.uuid4()),
+        "produced_by": "ai-commit",
+        "produced_at": datetime.now(UTC).isoformat(),
+        "branch": "feature/hx04",
+        "commit_sha": "0" * 40,
+        "findings": findings,
+        "auto_fixed": [],
+        "cache_hits": [],
+        "cache_misses": [],
+        "wall_clock_ms": {"wave1_fixers": 10, "wave2_checkers": 20, "total": 30},
+    }
+    document = GateFindingsDocument.model_validate(payload)
+    output_path = project_root / ".ai-engineering" / "state" / "gate-findings.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(document.model_dump_json(by_alias=True), encoding="utf-8")
+    return output_path
+
+
 # ── verify_quality ────────────────────────────────────────────────────────
 
 
 class TestVerifyQuality:
+    def test_gate_findings_artifact_drives_quality_without_subprocess(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _write_gate_findings(
+            tmp_path,
+            findings=[
+                {
+                    "check": "ruff-check",
+                    "rule_id": "F401",
+                    "file": "src/example.py",
+                    "line": 7,
+                    "column": 1,
+                    "severity": "medium",
+                    "message": "unused import",
+                    "auto_fixable": False,
+                    "auto_fix_command": None,
+                }
+            ],
+        )
+        monkeypatch.setattr(
+            "ai_engineering.verify.service._run",
+            lambda *_args, **_kwargs: pytest.fail(
+                "verify_quality must not execute tool subprocesses when "
+                "gate-findings.json is present"
+            ),
+        )
+
+        result = verify_quality(tmp_path)
+
+        assert any(f.category == "lint" for f in result.findings)
+        assert any(f.message == "unused import" for f in result.findings)
+        assert result.findings[0].stable_id == "check.kernel.ruff"
+        assert result.findings[0].primary_plane == "kernel"
+
     def test_clean_run_returns_score_100(self, fake_run: FakeSubprocess) -> None:
         # Arrange — ruff returns clean
         fake_run.set_response("ruff", returncode=0, stdout="")
@@ -119,6 +185,52 @@ class TestVerifyQuality:
 
 
 class TestVerifySecurity:
+    def test_gate_findings_artifact_augments_security_scans(
+        self, tmp_path: Path, fake_run: FakeSubprocess
+    ) -> None:
+        _write_gate_findings(
+            tmp_path,
+            findings=[
+                {
+                    "check": "gitleaks",
+                    "rule_id": "gitleaks-aws-key",
+                    "file": "config.py",
+                    "line": 5,
+                    "column": 1,
+                    "severity": "critical",
+                    "message": "aws key exposed",
+                    "auto_fixable": False,
+                    "auto_fix_command": None,
+                },
+                {
+                    "check": "pip-audit",
+                    "rule_id": "CVE-2026-0001",
+                    "file": "pyproject.toml",
+                    "line": 1,
+                    "column": 1,
+                    "severity": "high",
+                    "message": "dependency vulnerability",
+                    "auto_fixable": False,
+                    "auto_fix_command": None,
+                },
+            ],
+        )
+        fake_run.set_response("gitleaks", returncode=0, stdout="")
+        fake_run.set_response("tls_pip_audit", returncode=0, stdout="")
+
+        result = verify_security(tmp_path)
+
+        categories = {finding.category for finding in result.findings}
+        assert "secrets" in categories
+        assert "dependency" in categories
+        assert {finding.stable_id for finding in result.findings} == {
+            "check.kernel.gitleaks",
+            "check.kernel.pip_audit",
+        }
+        command_log = [" ".join(call) for call in fake_run.calls]
+        assert any("gitleaks" in command for command in command_log)
+        assert any("tls_pip_audit" in command or "pip-audit" in command for command in command_log)
+
     def test_clean_scan_returns_score_100(self, fake_run: FakeSubprocess) -> None:
         # Arrange — both tools return clean
         fake_run.set_response("gitleaks", returncode=0, stdout="")
@@ -242,6 +354,8 @@ class TestVerifyGovernance:
         assert len(result.findings) == 1
         assert result.findings[0].severity == FindingSeverity.CRITICAL
         assert result.findings[0].category == "mirror-sync"
+        assert result.findings[0].stable_id == "check.repo_governance.mirror_sync"
+        assert result.findings[0].primary_plane == "repo-governance"
 
     def test_validate_warn_reports_minor(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Arrange — report with a WARN check
@@ -398,6 +512,47 @@ class TestAdditionalSpecialists:
         assert result.findings == []
         assert result.specialists[0].applicable is True
 
+    def test_verify_feature_reports_resolved_work_plane_paths(self, tmp_path: Path) -> None:
+        resolved_specs_dir = tmp_path / "resolved-work-plane"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": "resolved-work-plane"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "spec.md").write_text(
+            "---\nstatus: draft\napproval: pending\n---\n# Spec\n",
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "plan.md").write_text("# No active plan\n", encoding="utf-8")
+
+        result = verify_feature(tmp_path)
+
+        files = {finding.category: finding.file for finding in result.findings}
+        assert files["spec-status"] == "resolved-work-plane/spec.md"
+        assert files["spec-approval"] == "resolved-work-plane/spec.md"
+        assert files["plan-status"] == "resolved-work-plane/plan.md"
+
+    def test_verify_feature_missing_spec_uses_resolved_work_plane_path_in_rationale(
+        self, tmp_path: Path
+    ) -> None:
+        resolved_specs_dir = tmp_path / "resolved-work-plane"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": "resolved-work-plane"}),
+            encoding="utf-8",
+        )
+
+        result = verify_feature(tmp_path)
+
+        assert result.specialists[0].applicable is False
+        assert result.specialists[0].rationale == (
+            "No active spec was found under resolved-work-plane/spec.md."
+        )
+
 
 # ── MODES dict ────────────────────────────────────────────────────────────
 
@@ -439,7 +594,7 @@ class TestVerifyCmdJsonFlag:
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.resolve_project_root",
-            lambda _t: Path("/tmp"),
+            lambda _t: _PROJECT_ROOT,
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.is_json_mode",
@@ -495,7 +650,7 @@ class TestVerifyCmdJsonFlag:
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.resolve_project_root",
-            lambda _t: Path("/tmp"),
+            lambda _t: _PROJECT_ROOT,
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.is_json_mode",

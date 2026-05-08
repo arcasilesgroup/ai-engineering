@@ -18,9 +18,12 @@ from ai_engineering.hooks.manager import HookInstallResult
 from ai_engineering.installer.service import (
     _STATE_FILES,
     InstallResult,
+    _generate_state_files,
     install,
 )
 from ai_engineering.installer.templates import CopyResult
+from ai_engineering.state.io import read_json_model
+from ai_engineering.state.models import OwnershipMap
 
 # ---------------------------------------------------------------------------
 # Module-level patch prefix shortcuts
@@ -116,11 +119,17 @@ class TestInstallResultDefaults:
 
 
 class TestStateFilesConstant:
-    """Verify _STATE_FILES contains expected entries."""
+    """Verify _STATE_FILES contains expected entries.
+
+    Spec-125: ``install-state`` and ``framework-capabilities`` migrated
+    from JSON sinks to state.db tables. Both keys remain in the dict so
+    callers that look up the pseudo-path still resolve, but they now
+    reference the canonical SQLite projection at ``state/state.db``.
+    """
 
     def test_contains_install_state(self) -> None:
         assert "install-state" in _STATE_FILES
-        assert _STATE_FILES["install-state"] == "state/install-state.json"
+        assert _STATE_FILES["install-state"] == "state/state.db"
 
     def test_contains_ownership_map(self) -> None:
         assert "ownership-map" in _STATE_FILES
@@ -132,12 +141,12 @@ class TestStateFilesConstant:
 
     def test_contains_framework_capabilities(self) -> None:
         assert "framework-capabilities" in _STATE_FILES
-        assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
+        assert _STATE_FILES["framework-capabilities"] == "state/state.db"
 
     def test_contains_instinct_artifacts(self) -> None:
-        assert _STATE_FILES["instinct-observations"] == "state/instinct-observations.ndjson"
-        assert _STATE_FILES["instincts"] == "instincts/instincts.yml"
-        assert _STATE_FILES["instinct-meta"] == "instincts/meta.json"
+        assert _STATE_FILES["observation-events"] == "state/observation-events.ndjson"
+        assert _STATE_FILES["instincts"] == "observations/observations.yml"
+        assert _STATE_FILES["instinct-meta"] == "observations/meta.json"
 
     def test_has_exactly_seven_entries(self) -> None:
         assert len(_STATE_FILES) == 7
@@ -147,7 +156,47 @@ class TestFrameworkCapabilitiesPath:
     """Verify installer state files include the canonical capability catalog."""
 
     def test_framework_capabilities_path_value(self) -> None:
-        assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
+        # Spec-125: framework_capabilities now lives in state.db
+        # (``tool_capabilities`` singleton row). The pseudo-path still
+        # resolves through the dict but points at the SQLite projection.
+        assert _STATE_FILES["framework-capabilities"] == "state/state.db"
+
+
+class TestGenerateStateFiles:
+    """Verify manifest-driven ownership is used when bootstrapping state files."""
+
+    def test_uses_manifest_root_entry_point_contract_for_ownership_map(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        ai_eng_dir = tmp_path / ".ai-engineering"
+        ai_eng_dir.mkdir(parents=True)
+        (ai_eng_dir / "manifest.yml").write_text(
+            "ownership:\n"
+            "  root_entry_points:\n"
+            "    CLAUDE.md:\n"
+            "      owner: team\n"
+            "      canonical_source: CONSTITUTION.md\n"
+            "      runtime_role: ide-overlay\n"
+            "      sync:\n"
+            "        mode: copy\n"
+            "        template_path: src/ai_engineering/templates/project/CLAUDE.md\n"
+            "        mirror_paths: []\n",
+            encoding="utf-8",
+        )
+
+        _generate_state_files(
+            ai_eng_dir,
+            stacks=None,
+            ides=None,
+        )
+
+        ownership = read_json_model(
+            ai_eng_dir / _STATE_FILES["ownership-map"],
+            OwnershipMap,
+        )
+        assert ownership.is_update_allowed("CLAUDE.md") is False
+        assert ownership.has_deny_rule("CLAUDE.md") is True
 
 
 # ---------------------------------------------------------------------------
@@ -263,7 +312,7 @@ class TestCopyProjectTemplatesCommonFiles:
         from ai_engineering.installer.templates import copy_project_templates
 
         # Act
-        result = copy_project_templates(tmp_path, providers=["claude_code"])
+        result = copy_project_templates(tmp_path, providers=["claude-code"])
 
         # Assert — common files deployed regardless of provider
         gitleaks = tmp_path / ".gitleaks.toml"
@@ -281,7 +330,7 @@ class TestCopyProjectTemplatesCommonFiles:
         (tmp_path / ".semgrep.yml").write_text("custom")
 
         # Act
-        copy_project_templates(tmp_path, providers=["claude_code"])
+        copy_project_templates(tmp_path, providers=["claude-code"])
 
         # Assert — existing files not overwritten
         assert (tmp_path / ".gitleaks.toml").read_text() == "custom"
@@ -294,7 +343,7 @@ class TestCopilotInstructionsTreeMap:
     def test_copilot_tree_in_provider_tree_maps(self) -> None:
         from ai_engineering.installer.templates import _PROVIDER_TREE_MAPS
 
-        copilot_trees = _PROVIDER_TREE_MAPS["github_copilot"]
+        copilot_trees = _PROVIDER_TREE_MAPS["github-copilot"]
         assert (".github/skills", ".github/skills") in copilot_trees
         assert ("agents", ".github/agents") in copilot_trees
         assert ("instructions", ".github/instructions") in copilot_trees
@@ -305,7 +354,7 @@ class TestCopilotInstructionsTreeMap:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["github_copilot"],
+            providers=["github-copilot"],
         )
 
         # Assert
@@ -322,7 +371,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
         )
 
@@ -335,7 +384,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude_code"],
+            providers=["claude-code"],
             vcs_provider="github",
         )
 
@@ -348,7 +397,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude_code"],
+            providers=["claude-code"],
         )
 
         # Assert — no VCS-specific files without vcs_provider
@@ -430,6 +479,12 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["default_install_state"] = MagicMock()
     mocks["default_ownership_map"] = MagicMock()
     mocks["default_decision_store"] = MagicMock()
+    # Spec-125: ``_state_db_row_exists`` decides whether to append the
+    # state.db pseudo-paths to ``created``. Mirror the mocked
+    # ``Path.exists`` semantics so each individual test can drive
+    # "fresh install" (False) or "already installed" (True) behavior
+    # via ``patched["state_db_row_exists"].return_value``.
+    mocks["state_db_row_exists"] = MagicMock(return_value=False)
 
     return mocks
 
@@ -477,6 +532,7 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     stack.enter_context(patch(f"{_SVC}.default_install_state", mocks["default_install_state"]))
     stack.enter_context(patch(f"{_SVC}.default_ownership_map", mocks["default_ownership_map"]))
     stack.enter_context(patch(f"{_SVC}.default_decision_store", mocks["default_decision_store"]))
+    stack.enter_context(patch(f"{_SVC}._state_db_row_exists", mocks["state_db_row_exists"]))
     return stack
 
 
@@ -508,7 +564,7 @@ class TestInstallCallsCopyTemplateTree:
         patched["copy_template_tree"].assert_called_once_with(
             Path("/fake/templates"),
             tmp_path / ".ai-engineering",
-            exclude=["agents/", "skills/"],
+            exclude=["agents/", "skills/", "contexts/team/"],
         )
 
 
@@ -535,14 +591,21 @@ class TestInstallCreatesStateFiles:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python"])
 
-        # Assert
-        assert len(result.state_files) == 7
+        # Assert -- spec-125: install_state + framework_capabilities both
+        # resolve to ``state/state.db``; the deduped ``created`` list
+        # therefore contains 6 distinct paths instead of the legacy 7.
+        assert len(result.state_files) == 6
 
 
 class TestInstallSkipsExistingStateFiles:
     """install() skips state files that already exist."""
 
     def test_no_writes_when_all_exist(self, patched, tmp_path: Path) -> None:
+        # Spec-125: signal that the state.db rows already exist so the
+        # installer treats the run as idempotent and reports no fresh
+        # state writes.
+        patched["state_db_row_exists"].return_value = True
+
         # Act
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
@@ -558,14 +621,16 @@ class TestInstallCreatesDefaultState:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python", "dotnet"], ides=["vscode", "terminal"])
 
-        assert len(result.state_files) == 7
+        # Spec-125: install_state + framework_capabilities collapse to
+        # state/state.db so the deduped ``created`` list contains 6 paths.
+        assert len(result.state_files) == 6
 
     def test_default_stacks_none_passes(self, patched, tmp_path: Path) -> None:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path)
 
-        # State files still created
-        assert len(result.state_files) == 7
+        # State files still created (6 distinct paths post spec-125 cutover).
+        assert len(result.state_files) == 6
 
 
 class TestInstallCallsInstallHooks:
@@ -856,6 +921,10 @@ class TestInstallAlreadyInstalled:
             created=[],
             skipped=[Path("b")],
         )
+        # Spec-125: also signal that the state.db singletons already
+        # exist so the install summary stays empty and ``already_installed``
+        # remains True.
+        patched["state_db_row_exists"].return_value = True
 
         # Act
         with patch.object(Path, "exists", return_value=True):

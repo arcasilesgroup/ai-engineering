@@ -135,8 +135,15 @@ class TestBuildFrameworkEvent:
         )
         assert "source" not in result
         assert "sessionId" not in result
-        assert "traceId" not in result
         assert "parentId" not in result
+        # Spec-120 §4.1: when no trace context exists yet,
+        # build_framework_event auto-fills a fresh 32-hex traceId and a
+        # fresh 16-hex spanId so every event participates in the span
+        # tree from the moment it is built. parentSpanId stays absent
+        # because this is a root span with no logical parent.
+        assert "traceId" in result
+        assert "spanId" in result
+        assert "parentSpanId" not in result
 
     def test_degraded_outcome_for_codex_without_session(self, project_root: Path) -> None:
         result = lib_obs.build_framework_event(
@@ -415,6 +422,49 @@ class TestEmitDeclaredContextLoads:
         team_names = sorted(e["detail"]["context_name"] for e in team_events)
         assert team_names == ["conventions", "lessons"]
 
+    def test_root_constitution_is_preferred_when_present(self, project_root: Path) -> None:
+        (project_root / "CONSTITUTION.md").write_text("# Root Constitution\n", encoding="utf-8")
+
+        events = lib_obs.emit_declared_context_loads(
+            project_root,
+            engine="claude_code",
+            initiator_kind="skill",
+            initiator_name="ai-brainstorm",
+            component="hook/user-prompt-submit",
+        )
+
+        constitution_event = next(
+            event for event in events if event["detail"]["context_class"] == "constitution"
+        )
+        assert constitution_event["detail"]["path"] == "CONSTITUTION.md"
+
+    # spec-123 D-123-17: test_nested_constitution_remains_compatibility_fallback
+    # removed — workspace-charter stub deleted; dual-path fallback no longer
+    # exists. Sole canonical source is CONSTITUTION.md at repo root.
+
+    def test_active_pointer_redirects_declared_spec_contexts(self, project_root: Path) -> None:
+        resolved_specs_dir = project_root / "resolved-work-plane"
+        resolved_specs_dir.mkdir()
+        (resolved_specs_dir / "spec.md").write_text("resolved spec\n", encoding="utf-8")
+        (resolved_specs_dir / "plan.md").write_text("resolved plan\n", encoding="utf-8")
+        (project_root / ".ai-engineering" / "specs" / "active-work-plane.json").write_text(
+            json.dumps({"specsDir": "resolved-work-plane"}),
+            encoding="utf-8",
+        )
+
+        events = lib_obs.emit_declared_context_loads(
+            project_root,
+            engine="claude_code",
+            initiator_kind="skill",
+            initiator_name="ai-brainstorm",
+            component="hook/user-prompt-submit",
+        )
+
+        spec_event = next(e for e in events if e["detail"]["context_class"] == "spec")
+        plan_event = next(e for e in events if e["detail"]["context_class"] == "plan")
+        assert spec_event["detail"]["path"] == "resolved-work-plane/spec.md"
+        assert plan_event["detail"]["path"] == "resolved-work-plane/plan.md"
+
 
 # ---------------------------------------------------------------------------
 # 5. Secret redaction in _bounded_summary
@@ -513,7 +563,16 @@ class TestNDJSONEquivalence:
     """Compare _lib output against the canonical ai_engineering.state.observability."""
 
     # Fields that are generated per-call and cannot match
-    _VOLATILE_KEYS: ClassVar[set[str]] = {"timestamp", "correlationId"}
+    # Spec-120 §4.1 added auto-generated traceId / spanId; both differ
+    # between two independent build_framework_event calls so they join
+    # the volatile-key set for parity comparison.
+    _VOLATILE_KEYS: ClassVar[set[str]] = {
+        "timestamp",
+        "correlationId",
+        "traceId",
+        "spanId",
+        "parentSpanId",
+    }
     # Spec-107 H2: ``prev_event_hash`` is a write-order-dependent chain
     # pointer (SHA256 of the prior entry on disk). When _lib writes first
     # then pkg writes second, the pkg entry's pointer references the _lib
@@ -626,6 +685,10 @@ class TestStdlibOnly:
         # Allowlist of stdlib modules used. Spec-107 H2 added ``hashlib``
         # for the audit-chain pointer (SHA256 of the prior entry's
         # canonical-JSON payload) -- pure stdlib, no third-party dep.
+        # Spec-120 §4.1 added ``contextlib`` for the
+        # ``contextlib.suppress`` defensive shield around the malformed
+        # `usage` framework_error emit (and `_lib.trace_context` is the
+        # relative-import sibling that drives auto-fill).
         allowed = {
             "json",
             "os",
@@ -635,6 +698,8 @@ class TestStdlibOnly:
             "pathlib",
             "__future__",
             "hashlib",
+            "contextlib",
+            "_lib",
         }
         import ast
 

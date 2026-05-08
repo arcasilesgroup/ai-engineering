@@ -9,6 +9,11 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from ai_engineering.config.mirror_inventory import (
+    get_manual_instruction_files,
+    get_validator_pair_roots,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -107,12 +112,23 @@ class IntegrityReport:
 _PATH_REF_PATTERN = re.compile(
     r"`?\.?(?:ai-engineering/)?(skills/[^\s`*]+\.md"
     r"|agents/[^\s`*]+\.md"
-    r"|contexts/[^\s`*]+\.md)`?"
+    r"|contexts/[^\s`*]+\.md"
+    r"|state/spec-[^\s`*]+\.json"
+    r"|specs/evidence/[^\s`*]+\.json)`?"
 )
 
 # Paths referenced in governance docs but only exist conditionally.
 # The file-existence checker skips these to avoid false positives.
-_KNOWN_OPTIONAL_PATHS: set[str] = set()
+#
+# Runtime artifacts (gitignored, created on demand) are listed here so
+# documentation that explains them does not trip the cross-reference
+# validator. Adding new entries requires the path be (a) gitignored or
+# documented as runtime-only and (b) referenced from at least one
+# canonical skill/agent doc.
+_KNOWN_OPTIONAL_PATHS: set[str] = {
+    "state/state.db",
+    ".ai-engineering/state/state.db",
+}
 
 # Legacy hardcoded instruction file lists — kept as fallback when
 # manifest is absent.  New code uses ``_resolve_instruction_files``.
@@ -128,17 +144,6 @@ _FALLBACK_TEMPLATE_INSTRUCTION_FILES: list[str] = [
     "src/ai_engineering/templates/project/CLAUDE.md",
 ]
 
-# Template source-path → destination-path for resolving template
-# counterparts of base instruction files.
-_TPL_PREFIX = "src/ai_engineering/templates/project"
-
-_TEMPLATE_SRC_TO_DEST: dict[str, str] = {
-    "CLAUDE.md": f"{_TPL_PREFIX}/CLAUDE.md",
-    "AGENTS.md": f"{_TPL_PREFIX}/AGENTS.md",
-    ".github/copilot-instructions.md": f"{_TPL_PREFIX}/copilot-instructions.md",
-    "GEMINI.md": f"{_TPL_PREFIX}/GEMINI.md",
-}
-
 
 def _resolve_instruction_files(target: Path) -> list[str]:
     """Resolve instruction files from ``ai_providers.enabled`` in manifest.
@@ -150,7 +155,7 @@ def _resolve_instruction_files(target: Path) -> list[str]:
         Deduplicated list of destination paths for enabled providers.
     """
     from ai_engineering.config.loader import load_manifest_config
-    from ai_engineering.installer.templates import _PROVIDER_FILE_MAPS
+    from ai_engineering.installer.templates import resolve_instruction_file_destinations
 
     manifest_path = target / ".ai-engineering" / "manifest.yml"
     if not manifest_path.is_file():
@@ -158,18 +163,10 @@ def _resolve_instruction_files(target: Path) -> list[str]:
         return list(_FALLBACK_BASE_INSTRUCTION_FILES)
 
     cfg = load_manifest_config(target)
-    enabled = cfg.ai_providers.enabled
-
-    seen: set[str] = set()
-    files: list[str] = []
-    for provider in enabled:
-        provider_map = _PROVIDER_FILE_MAPS.get(provider, {})
-        for dest in provider_map.values():
-            if dest not in seen:
-                seen.add(dest)
-                files.append(dest)
-
-    return files
+    return resolve_instruction_file_destinations(
+        cfg.ai_providers.enabled,
+        root_entry_points=cfg.ownership.root_entry_points,
+    )
 
 
 # Platform-filtered instruction files may intentionally have a lower skill count
@@ -201,15 +198,29 @@ def _instruction_files(target: Path) -> list[str]:
     instruction files should exist.  In the source repo, also includes
     the template counterparts.
     """
+    from ai_engineering.config.loader import load_manifest_config
+    from ai_engineering.installer.templates import resolve_instruction_template_sources
+
+    manifest_path = target / ".ai-engineering" / "manifest.yml"
+    root_entry_points = None
+    if manifest_path.is_file():
+        cfg = load_manifest_config(target)
+        root_entry_points = cfg.ownership.root_entry_points
+
     base = _resolve_instruction_files(target)
     if _is_source_repo(target):
-        template_files: list[str] = []
+        if root_entry_points is None:
+            return base
         seen = set(base)
-        for dest in base:
-            tpl = _TEMPLATE_SRC_TO_DEST.get(dest)
-            if tpl and tpl not in seen:
-                seen.add(tpl)
-                template_files.append(tpl)
+        template_files: list[str] = []
+        for template_path in resolve_instruction_template_sources(
+            base,
+            root_entry_points=root_entry_points,
+        ):
+            if template_path in seen:
+                continue
+            seen.add(template_path)
+            template_files.append(template_path)
         return base + template_files
     return base
 
@@ -273,6 +284,10 @@ _COPILOT_AGENTS_MIRROR = (
     ".github/agents",
     "src/ai_engineering/templates/project/agents",
 )
+
+_VALIDATOR_PAIR_ROOTS = get_validator_pair_roots()
+_COPILOT_GENERATED_INSTRUCTIONS_MIRROR = _VALIDATOR_PAIR_ROOTS["generated-instructions"]
+_MANUAL_INSTRUCTION_FILES = get_manual_instruction_files()
 
 # Skill/agent listing patterns in instruction files (IDE-specific paths)
 _SKILL_PATH_PATTERN = re.compile(

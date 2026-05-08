@@ -21,7 +21,7 @@ from typing import Any
 import yaml
 from ruamel.yaml import YAML
 
-from ai_engineering.config.manifest import ManifestConfig
+from ai_engineering.config.manifest import ManifestConfig, RootEntryPointConfig
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,25 @@ def load_manifest_config(root: Path) -> ManifestConfig:
     return ManifestConfig.model_validate(data)
 
 
+def load_manifest_root_entry_points(root: Path) -> dict[str, RootEntryPointConfig] | None:
+    """Load governed root-entry metadata when a manifest file is present.
+
+    Returns ``None`` when the manifest file does not exist so callers can
+    preserve backward-compatible fallback behavior that distinguishes
+    "manifest absent" from "manifest present but empty/defaulted".
+    """
+    manifest_path = root / _MANIFEST_REL
+    if not manifest_path.is_file():
+        logger.debug("Manifest not found at %s, root entry points unavailable", manifest_path)
+        return None
+
+    return load_manifest_config(root).ownership.root_entry_points
+
+
 # Known AI provider identifiers (mirrored from operations.py).
-_AI_PROVIDER_IDS: frozenset[str] = frozenset({"claude_code", "github_copilot", "gemini", "codex"})
+_AI_PROVIDER_IDS: frozenset[str] = frozenset(
+    {"claude-code", "github-copilot", "gemini-cli", "codex"}
+)
 
 
 def _migrate_ai_providers(data: dict[str, Any]) -> None:

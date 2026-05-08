@@ -202,6 +202,42 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
         # jq emits "jq-1.7.1" -- regex MUST tolerate the `jq-\d+` shape.
         "verify": _verify(["jq", "--version"], _RE_JQ),
     },
+    "opa": {
+        # spec-122 Phase C (D-122-09): OPA replaces the custom mini-Rego
+        # interpreter that lived under `governance.policy_engine`. The
+        # ~50 MB CNCF Go binary is install-on-demand; the install chain
+        # mirrors gitleaks (brew → GitHub release on darwin; GitHub
+        # release on linux; winget → scoop → GitHub release on win32).
+        #
+        # Verify probe parses the first line of `opa version`, which
+        # reads `Version: 1.16.1`. The semver regex tolerates the
+        # leading "Version: " label.
+        "darwin": [
+            BrewMechanism("opa"),
+            GitHubReleaseBinaryMechanism(
+                repo="open-policy-agent/opa",
+                binary="opa",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
+            ),
+        ],
+        "linux": [
+            GitHubReleaseBinaryMechanism(
+                repo="open-policy-agent/opa",
+                binary="opa",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
+            ),
+        ],
+        "win32": [
+            WingetMechanism("OpenPolicyAgent.OPA"),
+            ScoopMechanism("opa"),
+            GitHubReleaseBinaryMechanism(
+                repo="open-policy-agent/opa",
+                binary="opa.exe",
+                sha256_pinned=False,  # TODO(DEC-038): populate real pins from upstream releases
+            ),
+        ],
+        "verify": _verify(["opa", "version"], _RE_SEMVER),
+    },
     # -----------------------------------------------------------------
     # Python (D-101-12: uv-tool by default)
     # -----------------------------------------------------------------

@@ -2,7 +2,7 @@
 
 ## Kernel: dispatch agent per task -> build-verify-review loop -> artifact collection -> board sync
 
-Canonical inner loop reused by `/ai-dispatch`, `/ai-autopilot`, and `/ai-run`. Each consumer wraps the kernel with its own pre/post logic (single-task vs multi-spec waves vs backlog packets) but the per-task execution pattern is identical.
+Canonical inner loop reused by `/ai-build` and `/ai-autopilot` (single autonomous wrapper, includes `--backlog` mode for backlog packets per D-127-12). Each consumer wraps the kernel with its own pre/post logic (single-task vs multi-spec waves vs backlog packets) but the per-task execution pattern is identical.
 
 This file is read by an orchestrator at task time. It is NOT a skill (no frontmatter, not user-invocable) and does NOT replace consumer-specific governance, telemetry, or delivery sections.
 
@@ -54,8 +54,9 @@ After the dispatched agent completes, run two-stage review on the deliverable BE
 - No new lint warnings introduced
 - Test coverage maintained or improved
 - No governance advisory warnings from `ai-guard`
+- Lint findings emitted as structured envelopes per `.ai-engineering/schemas/lint-violation.schema.json` (spec-119 D-119-05) -- prose violation labels are deprecated.
 
-If either stage fails: dispatch a fix attempt and re-review. Max 2 retries per stage. After 2 failed retries, mark task BLOCKED and STOP execution -- never loop silently, never retry the same approach more than twice.
+If any stage fails: dispatch a fix attempt and re-review. Max 2 retries per stage. After 2 failed retries, mark task BLOCKED and STOP execution -- never loop silently, never retry the same approach more than twice.
 
 Task statuses (all consumers honor the same vocabulary):
 
@@ -75,7 +76,7 @@ Each task contributes artifacts that the next phase or consumer-specific quality
 - **Code changes** -- staged in working tree, batched by consumer (per-task for dispatch, per-wave for autopilot, per-item for run).
 - **Self-Report** -- the agent writes a real/aspirational/stub/failing/invented/hallucinated classification for what it produced. Stored alongside the task deliverable (e.g., `sub-NNN/plan.md` for autopilot, `items/<id>/plan.md` for run, inline checkbox notes for dispatch).
 - **Telemetry events** -- emitted via the hook system at phase transitions (e.g., `subspec_complete`, `quality_round`, `subspec_failed`). Never recorded only in agent memory.
-- **Progress** -- update `plan.md` checkboxes in real time so the user can see current state at a glance:
+- **Progress** -- update `plan.md` checkboxes in real time so the user can see current state at a glance. The moment a task reaches a terminal state (`DONE`, `DONE_WITH_CONCERNS`, `NEEDS_CONTEXT`, or `BLOCKED`), write that status to disk before dispatching the next task. Never batch checkbox/status updates at phase end, quality time, or only after the whole spec finishes:
 
 ```markdown
 - [x] T-1.1: Create config module @ai-build -- DONE
@@ -90,11 +91,11 @@ Artifacts persist to disk so any phase can be audited post-hoc and so `--resume`
 
 ## Sub-flow 4: Board sync
 
-For each work-item reference in `specs/spec.md` frontmatter `refs` whose hierarchy rule is NOT `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board-sync` with the appropriate state transition (`in_progress` at task start, terminal state at task close).
+For each work-item reference in `.ai-engineering/specs/spec.md` frontmatter `refs` whose hierarchy rule is NOT `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board sync` with the appropriate state transition (`in_progress` at task start, terminal state at task close).
 
 Board sync is **fail-open**: do NOT block execution if the provider is unreachable, the credential is missing, or the work item type is read-only at the configured hierarchy. Log a warning and continue. Delivery and governance gates remain fail-closed; only board sync is fail-open.
 
-Rationale: provider readiness should never gate local execution. The user can reconcile board state later via `/ai-board-sync --resume` once the provider is reachable.
+Rationale: provider readiness should never gate local execution. The user can reconcile board state later via `/ai-board sync --resume` once the provider is reachable.
 
 ---
 
@@ -114,8 +115,8 @@ Never loop silently. Never retry the same approach more than twice. Cascade-bloc
 
 This kernel is consumed by:
 
-- `.gemini/skills/ai-dispatch/SKILL.md` -- single-plan execution; consumer wraps the kernel per-task and runs Phase 5 quality + Phase 6 deliver after the loop completes.
+- `.gemini/skills/ai-build/SKILL.md` -- single-plan execution; consumer wraps the kernel per-task and runs Phase 5 quality + Phase 6 deliver after the loop completes.
 - `.gemini/skills/ai-autopilot/SKILL.md` -- multi-spec autonomous execution; consumer wraps the kernel per-wave (parallel sub-specs within a wave, DAG-driven across waves) before Phase 5 quality loop and Phase 6 deliver.
-- `.gemini/skills/ai-run/SKILL.md` -- backlog execution; consumer wraps the kernel per-item with bounded `ai-build` packets, integration gates after every promotion, and `ai-pr` for delivery.
+- `.gemini/skills/ai-autopilot/SKILL.md` `--backlog` mode -- absorbs the legacy `/ai-run` skill (D-127-12); consumer wraps the kernel per-item with bounded `ai-build` packets, integration gates after every promotion, and `ai-pr` for delivery.
 
-When this kernel improves, all three orchestrators inherit the improvement automatically.
+When this kernel improves, all consumers inherit the improvement automatically.

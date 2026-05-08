@@ -65,10 +65,20 @@ def test_chatmode_alias_exists() -> None:
 
 
 def test_sync_metadata_canonical_name() -> None:
-    """G-4: `AGENT_METADATA["explore"]["name"]` is `ai-explore`, not Explorer."""
-    sync_script = REPO_ROOT / "scripts" / "sync_command_mirrors.py"
-    assert sync_script.is_file(), f"sync script missing: {sync_script}; cannot validate metadata"
-    text = sync_script.read_text(encoding="utf-8")
+    """G-4: `AGENT_METADATA["explore"]["display_name"]` is `ai-explore`, not Explorer.
+
+    Spec-122-d D-122-24 moved `AGENT_METADATA` from
+    ``scripts/sync_command_mirrors.py`` (now a thin shim) to
+    ``scripts/sync_mirrors/core.py``. The shim re-exports the table via
+    ``from scripts.sync_mirrors.core import *`` so a textual grep on the
+    shim itself no longer surfaces the canonical name. This test follows
+    the canonical metadata to its new home.
+    """
+    metadata_module = REPO_ROOT / "scripts" / "sync_mirrors" / "core.py"
+    assert metadata_module.is_file(), (
+        f"sync metadata module missing: {metadata_module}; cannot validate metadata"
+    )
+    text = metadata_module.read_text(encoding="utf-8")
     # Crude but reliable: the canonical name string must appear at least
     # once near the explore entry, and the legacy "Explorer" label must
     # not be the active value.

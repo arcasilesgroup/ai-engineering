@@ -1,15 +1,35 @@
 ---
 name: ai-write
-description: "Use when writing content: blog posts, pitch decks, sprint review summaries, architecture board reports, or solution intent documents. Audience targeting (developer/manager/executive) adjusts tone automatically. Not for documentation artifacts like changelogs or READMEs — use /ai-docs. Not for marketing content — use /ai-market."
+description: Writes content (blog posts, pitch decks, sprint review summaries, architecture board reports, solution intent documents) with automatic audience targeting (developer/manager/executive). Trigger for 'write a blog post', 'pitch this', 'sprint review summary', 'architecture board doc', 'solution intent for'. Not for documentation artifacts like CHANGELOG or README; use /ai-docs instead. Not for marketing/social content; use /ai-gtm instead. Not for code-level explanations; use /ai-explain instead.
 effort: high
-argument-hint: "content <type> [--audience developer|manager|executive]"
+argument-hint: "content [type] [--audience developer|manager|executive]"
 mode: agent
 tags: [writing, content, communication]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-write/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
 
 # Technical Writing
+
+## Quick start
+
+```
+/ai-write content blog
+/ai-write content sprint-review --audience manager
+/ai-write content architecture-board
+```
+
+## Workflow
+
+1. Detect content type from prompt (blog / pitch / sprint-review / architecture-board / solution-intent / presentation).
+2. Read existing source material — notes, transcripts, data, real output.
+3. Pick audience (developer / manager / executive); apply tone + jargon table.
+4. Edit, do not generate. Every sentence earns its place.
+5. Apply shared rules: active voice, present tense, no filler ("basically", "simply", "just").
 
 Router skill for content writing. Dispatches to handler files based on content type. Always: clear structure, audience-appropriate, no fluff.
 
@@ -17,7 +37,7 @@ Router skill for content writing. Dispatches to handler files based on content t
 
 - Creating pitch decks, sprint reviews, blog posts, architecture board presentations, solution intent documents.
 - NOT for documentation artifacts (README, CHANGELOG, API docs) -- use `/ai-docs`.
-- NOT for marketing content (social posts, investor materials, outreach) -- use `/ai-market`.
+- NOT for marketing content (social posts, investor materials, outreach) -- use `/ai-gtm`.
 - NOT for code explanations -- use `/ai-explain`.
 
 ## Writing Philosophy
@@ -58,8 +78,30 @@ Default: `developer`.
 - Every section earns its place -- cut anything that does not serve the reader.
 - Audience determines vocabulary, not quality.
 
+## Examples
+
+### Example 1 — sprint review for a manager audience
+
+User: "write the sprint review summary for this week"
+
+```
+/ai-write content sprint-review --audience manager
+```
+
+Reads recent commits + closed issues, generates a results-oriented summary with impact + timeline framing, omits implementation jargon.
+
+### Example 2 — pitch deck for executive review
+
+User: "draft an elevator pitch for the new auth product"
+
+```
+/ai-write content pitch --audience executive
+```
+
+Strategic framing, business value first, no technical vocabulary, ≤90 words.
+
 ## Integration
 
-Content mode adapts to audience tier (developer/manager/executive). See When to Use for boundaries with `/ai-docs` and `/ai-market`.
+Called by: user directly. Dispatches to: `handlers/content.md`. See also: `/ai-docs` (CHANGELOG/README), `/ai-gtm` (social/outreach), `/ai-explain` (code-level), `/ai-slides` (deck rendering).
 
 $ARGUMENTS

@@ -10,8 +10,20 @@ useDefault = true
 [allowlist]
 description = "Global allowlist"
 paths = [
-  '''\.ai-engineering/state/.*\.json$''',
-  '''\.ai-engineering/state/.*\.ndjson$''',
+  # Explicit framework state files known to contain non-secret structured data.
+  # The wildcard '\.ai-engineering/state/.*\.json$' was removed (2026-05) to
+  # tighten the allowlist surface; new state files require an explicit entry.
+  '''\.ai-engineering/state/decision-store\.json$''',
+  '''\.ai-engineering/state/ownership-map\.json$''',
+  '''\.ai-engineering/state/install-state\.json$''',
+  '''\.ai-engineering/state/hooks-manifest\.json$''',
+  '''\.ai-engineering/state/framework-capabilities\.json$''',
+  '''\.ai-engineering/state/gate-findings\.json$''',
+  '''\.ai-engineering/state/runtime/checkpoint\.json$''',
+  '''\.ai-engineering/state/runtime/skills-index\.json$''',
+  '''\.ai-engineering/state/runtime/ralph-resume\.json$''',
+  # Append-only audit stream — never holds secrets by contract.
+  '''\.ai-engineering/state/framework-events\.ndjson$''',
   '''node_modules/''',
   '''\.venv/''',
   '''__pycache__/''',

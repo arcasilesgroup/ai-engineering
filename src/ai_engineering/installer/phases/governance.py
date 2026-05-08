@@ -24,7 +24,7 @@ from . import (
     PlannedAction,
 )
 
-_EXCLUDE_PREFIXES = ("agents/", "skills/")
+_EXCLUDE_PREFIXES = ("agents/", "skills/", "contexts/team/")
 
 _TEAM_OWNED = "contexts/team/"
 _STATE_PREFIX = "state/"
@@ -119,6 +119,18 @@ class GovernancePhase:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src, dest)
                 result.created.append(action.destination)
+
+        # spec-124 D-124-08: per-install OPA bundle build + sign so the
+        # `opa-bundle-load` and `opa-bundle-signature` doctor probes pass
+        # on a fresh install. Fail-open: missing opa/openssl just adds a
+        # manual_step note via the result.skipped channel.
+        from ai_engineering.installer import opa as _opa
+
+        bundle_state = _opa.ensure_bundle_signed(context.target)
+        if not bundle_state["signed"]:
+            result.skipped.append(
+                f".ai-engineering/policies/.signatures.json (deferred: {bundle_state['message']})"
+            )
 
         return result
 

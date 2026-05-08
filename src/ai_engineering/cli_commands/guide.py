@@ -21,9 +21,11 @@ def guide_cmd(
 ) -> None:
     """Display branch policy setup instructions."""
     root = resolve_project_root(target)
-    state_path = root / ".ai-engineering" / "state" / "install-state.json"
-
-    if not state_path.exists():
+    # spec-125: install state lives in state.db's install_state table.
+    # Treat the presence of state.db + a populated singleton row as the
+    # framework-installed signal.
+    db_path = root / ".ai-engineering" / "state" / "state.db"
+    if not db_path.is_file():
         warning("Framework not installed. Run 'ai-eng install' first.")
         raise typer.Exit(code=1)
 

@@ -1,15 +1,27 @@
 ---
 name: ai-explain
-description: Use when a developer asks 'how does this work?', 'why does it do X?', 'trace through this', 'explain this pattern', or needs engineer-grade technical explanations anchored in real codebase examples. 3-tier depth (brief/standard/deep) with ASCII diagrams and execution traces. Not for documentation (/ai-write) or fixing code (/ai-dispatch).
+description: "Explains code, concepts, patterns, and architecture with engineer-grade depth: 3-tier control (brief/standard/deep), ASCII diagrams, execution traces, anchored to real file:line references. Trigger for 'how does this work', 'why does it do X', 'trace through this', 'explain this pattern', 'walk me through'. Not for documentation artifacts; use /ai-write or /ai-docs instead. Not for fixing code; use /ai-debug or /ai-build instead."
 effort: high
-argument-hint: "<topic>|--depth brief|standard|deep"
+argument-hint: "[topic]|--depth brief|standard|deep"
 mode: agent
 tags: [explanation, teaching, analysis, architecture]
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-explain/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
 
 # Explain
+
+## Quick start
+
+```
+/ai-explain "how does the audit chain work" --depth brief
+/ai-explain auth-handler.ts:42-90 --depth standard
+/ai-explain "spec lifecycle FSM" --depth deep
+```
 
 Engineer-grade technical explanations of code, concepts, patterns, and architecture. 3-tier depth control scales detail to what the developer needs. Anchored in the actual codebase with `file:line` references, ASCII diagrams, and execution traces.
 
@@ -17,7 +29,7 @@ Engineer-grade technical explanations of code, concepts, patterns, and architect
 
 - "How does this work?", "What is this?", "Why does this do X?", "Trace this."
 - NOT for generating documentation -- use `/ai-write`.
-- NOT for writing/fixing code -- use `/ai-dispatch` or `/ai-debug`.
+- NOT for writing/fixing code -- use `/ai-build` or `/ai-debug`.
 
 ## Process
 
@@ -71,7 +83,30 @@ Sections per depth: see step 3 table.
 - Generic gotchas ("be careful with null") -- must be specific to the code under review.
 - Using "basically", "simply", "just" -- these minimize real complexity.
 
+## Examples
+
+### Example 1 — quick orientation on an unfamiliar pattern
+
+User: "how does the audit chain work in this repo?"
+
+```
+/ai-explain "audit chain" --depth brief
+```
+
+Anchors to `framework-events.ndjson`, the audit indexer, and the projection schema; emits a 3-paragraph overview with a small ASCII flow.
+
+### Example 2 — deep walk-through of a tricky function
+
+User: "trace through how spec_lifecycle.start_new handles the FSM"
+
+```
+/ai-explain spec_lifecycle.py:start_new --depth deep
+```
+
+Reads the function, produces an execution trace per state transition, calls out the atomic-write boundary, references tests that exercise each branch.
+
 ## Integration
 
-Read-only. Shared by `/ai-guide` for teaching mode. Related: `/ai-verify` (architecture assessment mode).
+Called by: user directly, `/ai-guide` (teaching mode). Read-only. See also: `/ai-debug`, `/ai-write content blog`, `/ai-verify` (architecture assessment).
+
 $ARGUMENTS

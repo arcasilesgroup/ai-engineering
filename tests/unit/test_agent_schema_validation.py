@@ -22,7 +22,10 @@ _AGENTS_DIR = (
     / "agents"
 )
 
-# Post spec-091: 10 user-facing orchestrator agents (ai-*.md)
+# spec-127 sub-005 (M4): 9 user-facing orchestrator agents (ai-*.md)
+# Bumped 10 → 9 by deleting `ai-run-orchestrator.md`; functionality
+# absorbed by `ai-autopilot --backlog --source <github|ado|local>`
+# (D-127-12).
 _EXPECTED_ORCHESTRATORS = frozenset(
     {
         "ai-autopilot",
@@ -31,17 +34,19 @@ _EXPECTED_ORCHESTRATORS = frozenset(
         "ai-guard",
         "ai-guide",
         "ai-review",
-        "ai-run-orchestrator",
         "ai-simplify",
         "ai-verify",
         "ai-plan",
     }
 )
 
-# Post spec-086: 15 specialist sub-agents dispatched by orchestrators
+# spec-127 sub-005 (M4): 15 specialist sub-agents (was 16 — bumped by
+# deleting `reviewer-design.md` whose rules now live in `reviewer-frontend.md`,
+# and renaming `review-context-explorer` → `reviewer-context` +
+# `review-finding-validator` → `reviewer-validator` per D-127-04 / D-127-10).
 _EXPECTED_SPECIALISTS = frozenset(
     {
-        "review-context-explorer",
+        "reviewer-context",
         "reviewer-security",
         "reviewer-backend",
         "reviewer-performance",
@@ -51,8 +56,7 @@ _EXPECTED_SPECIALISTS = frozenset(
         "reviewer-architecture",
         "reviewer-maintainability",
         "reviewer-frontend",
-        "reviewer-design",
-        "review-finding-validator",
+        "reviewer-validator",
         "verify-deterministic",
         "verifier-governance",
         "verifier-architecture",
@@ -96,7 +100,7 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
 
 
 def test_orchestrator_count_matches_expected() -> None:
-    """There should be exactly 10 orchestrator agents on disk."""
+    """There should be exactly 9 orchestrator agents on disk (post-spec-127 sub-005)."""
     agents = _orchestrator_files()
     names = {f.stem for f in agents}
     assert len(agents) == len(_EXPECTED_ORCHESTRATORS), (

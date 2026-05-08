@@ -91,7 +91,7 @@ Systematic root-cause analysis, not guesswork. The workflow follows a strict seq
 ```
 
 ```
-/ai-dispatch
+/ai-build
 ```
 
 This is the core governed workflow, and it runs in three distinct steps:
@@ -100,9 +100,9 @@ This is the core governed workflow, and it runs in three distinct steps:
 
 2. **Plan** decomposes the approved spec into concrete tasks. Each task gets an agent assignment, dependencies, and acceptance criteria. The plan lives in `plan.md` with checkable items so progress is visible.
 
-3. **Dispatch** executes the approved plan. Tasks run in dependency order. Each task gets a two-stage review: spec compliance (does it match what was planned?) and code quality (is it well-written?). Progress is tracked in the plan file as tasks complete.
+3. **Build** executes the approved plan. Tasks run in dependency order. Each task gets a two-stage review: spec compliance (does it match what was planned?) and code quality (is it well-written?). Progress is tracked in the plan file as tasks complete.
 
-You can also run `/ai-autopilot` instead of `/ai-dispatch` for fully autonomous multi-spec execution -- more on that in Phase 3.
+You can also run `/ai-autopilot` instead of `/ai-build` for fully autonomous multi-spec execution -- more on that in Phase 3.
 
 ### Review code changes
 
@@ -210,7 +210,7 @@ State is persisted to disk at every phase. If anything fails, you resume from wh
 ### Backlog execution
 
 ```
-/ai-run
+/ai-autopilot --backlog
 ```
 
 Point at your GitHub Issues or Azure Boards backlog and let the AI execute items end-to-end:
@@ -227,10 +227,10 @@ This is fully autonomous, no-HITL (human-in-the-loop) execution. The AI picks up
 ### Continuous improvement
 
 ```
-/ai-instinct
+/ai-observe
 ```
 
-Passively observes your session. When you correct the AI, change its output, or establish a pattern, instinct captures that as a project-specific learning. Over time, the AI gets better at your project because it remembers how you work.
+Passively observes your session. When you correct the AI, change its output, or establish a pattern, the observer captures that as a project-specific learning. Over time, the AI gets better at your project because it remembers how you work.
 
 ```
 /ai-learn
@@ -253,7 +253,7 @@ Full security analysis: SAST scanning, dependency vulnerability audit, secrets d
 Compliance and ownership tracking: who owns what code, what policies apply, risk lifecycle management, and audit trail generation.
 
 ```
-/ai-release-gate
+/ai-verify --release
 ```
 
 GO/NO-GO decision across 8 dimensions before any release ships. Aggregates quality, security, test coverage, documentation, governance, and dependency health into a single verdict.
@@ -285,7 +285,7 @@ Presentation deck generation from specs, code, or plain descriptions. Produces s
 Technical writing: documentation, blog posts, release notes, architecture decision records, and runbooks.
 
 ```
-/ai-canvas
+/ai-visual
 ```
 
 Visual artifact creation for marketing materials, diagrams, and compositional layouts.
@@ -294,7 +294,7 @@ Visual artifact creation for marketing materials, diagrams, and compositional la
 
 ## The full skill map
 
-All 47 skills grouped by category. Each is invoked as `/ai-<name>`.
+All 48 skills grouped by category. Each is invoked as `/ai-<name>`.
 
 ### Workflow (10 skills)
 
@@ -302,7 +302,7 @@ All 47 skills grouped by category. Each is invoked as `/ai-<name>`.
 |-------|---------|
 | `brainstorm` | Interrogate requirements, produce a spec |
 | `plan` | Decompose spec into tasks with agent assignments |
-| `dispatch` | Execute an approved plan with two-stage review |
+| `build` | Execute an approved plan with two-stage review |
 | `code` | Context-aware implementation with self-review |
 | `test` | TDD enforcement with RED-GREEN-REFACTOR |
 | `debug` | Systematic root-cause analysis and fix |
@@ -317,9 +317,9 @@ All 47 skills grouped by category. Each is invoked as `/ai-<name>`.
 |-------|---------|
 | `commit` | Governed commit with format, lint, and secrets scan |
 | `pr` | Pull request creation with gates and docs subagents |
-| `release-gate` | GO/NO-GO decision across 8 dimensions |
+| `verify --release` | GO/NO-GO decision across 8 dimensions |
 | `cleanup` | Branch and artifact cleanup |
-| `market` | Go-to-market content and messaging |
+| `gtm` | Go-to-market content and messaging |
 
 ### Enterprise (7 skills)
 
@@ -329,9 +329,9 @@ All 47 skills grouped by category. Each is invoked as `/ai-<name>`.
 | `governance` | Compliance, ownership, risk lifecycle |
 | `pipeline` | CI/CD pipeline generation |
 | `docs` | Documentation generation and maintenance |
-| `board-discover` | Discover and map project board structure |
-| `board-sync` | Synchronize work items with project boards |
-| `platform-audit` | Platform-wide governance audit |
+| `board discover` | Discover and map project board structure |
+| `board sync` | Synchronize work items with project boards |
+| `ide-audit` | Platform-wide governance audit |
 
 ### Teaching (6 skills)
 
@@ -350,7 +350,7 @@ All 47 skills grouped by category. Each is invoked as `/ai-<name>`.
 |-------|---------|
 | `design` | UI/UX design systems |
 | `animation` | Motion design specifications |
-| `canvas` | Visual artifacts and compositions |
+| `visual` | Visual artifacts and compositions |
 
 ### SDLC (6 skills)
 
@@ -372,11 +372,11 @@ All 47 skills grouped by category. Each is invoked as `/ai-<name>`.
 | `learn` | Extract patterns from merged PR feedback |
 | `prompt` | Prompt optimization |
 | `analyze-permissions` | Permission and access analysis |
-| `instinct` | Session observation and pattern capture |
+| `observe` | Session observation and pattern capture |
 | `autopilot` | Autonomous multi-spec delivery |
-| `run` | Backlog-driven autonomous execution |
+| `autopilot --backlog` | Backlog-driven autonomous execution |
 | `constitution` | Framework governance initialization |
-| `skill-evolve` | Skill improvement and optimization |
+| `skill-tune` | Skill improvement and optimization |
 
 ---
 
@@ -409,7 +409,7 @@ ai-engineering works identically across four AI coding assistants:
 - **OpenAI Codex** -- `.codex/skills/` and `.codex/agents/`
 - **Gemini CLI** -- `.gemini/skills/` and `.gemini/agents/`
 
-The `.claude/` directory is the canonical source. All other IDE directories are mirrors generated by `ai-eng sync`. When framework content changes, run `ai-eng sync` to regenerate mirrors. Same 47 skills, same 10 agents, same governance -- regardless of which AI assistant you use.
+The `.claude/` directory is the canonical source. All other IDE directories are mirrors generated by `ai-eng sync`. When framework content changes, run `ai-eng sync` to regenerate mirrors. Same 48 skills, same 10 agents, same governance -- regardless of which AI assistant you use.
 
 ---
 

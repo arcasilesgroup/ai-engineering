@@ -1,47 +1,53 @@
 ---
 name: ai-review
-description: "Use when code changes need human-quality judgment: PR reviews, file reviews, diff analysis, and architecture feedback. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', or 'is this merge-ready'. Default mode runs the full specialist roster through 3 macro-agents; use `--full` to run one agent per specialist. For evidence-backed gates, use /ai-verify instead."
+description: "Reviews code changes with human-quality judgment: PR reviews, file reviews, diff analysis, architecture feedback. Default mode runs the full specialist roster through 3 macro-agents; pass `--full` for one agent per specialist. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', 'is this merge-ready'. Not for evidence-backed gates; use /ai-verify instead. Not for narrative writing; use /ai-write instead."
 effort: max
 argument-hint: "[--full] [PR number or file paths]"
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-review/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
 # Review
 
-## Purpose
+## Quick start
 
-High-signal code review with full specialist coverage and aggressive false-positive control.
-`review` is review-only. It no longer owns `find` or `learn`.
+```
+/ai-review                      # normal: 3 macro-agents, validator stage
+/ai-review --full               # one agent per specialist (8-10)
+/ai-review 42                   # review PR #42
+/ai-review src/auth/            # review specific paths
+```
+
+## Workflow
+
+High-signal code review with full specialist coverage and aggressive false-positive control. `review` is review-only. This SKILL.md owns the user-facing contract; reviewer agent files provide specialist lenses and validation stages, not a competing surface.
+
+1. **Step 0** — load contexts per `.ai-engineering/contexts/stack-context.md`.
+2. **Detect target** — PR number, file paths, or current diff.
+3. **Dependency preflight** — verify `.gemini/skills/ai-review/handlers/review.md`, `reviewer-context.md`, `reviewer-validator.md`, plus required `.gemini/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
+4. **Pre-review** — dispatch `reviewer-context.md` via Agent tool; serialize output for every specialist.
+5. **Specialists** — `normal` = 3 macro-agents; `--full` = one agent per specialist. Both run the full roster — grouping controls cost only.
+6. **Validate** — dispatch `reviewer-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
+7. **Emit** — Findings / Risks / Recommendations / Self-Challenge, attributed by original specialist lens.
+
+## Dispatch threshold
+
+Dispatch the `ai-review` agent for any narrative review (PR, branch, diff, or path scope). Each specialist runs in its own context window via the Agent tool. The agent file (`.gemini/agents/ai-review.md`) is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
 
 ## When to Use
 
 - Before merging a PR
 - After completing a feature
 - When reviewing someone else's code
-- When you need architecture-aware feedback instead of deterministic gates
-
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
-
-## Profiles
-
-### Default: `normal`
-
-Runs the full specialist roster through 3 fixed macro-agents:
-
-1. `correctness` + `testing` + `compatibility`
-2. `security` + `backend` + `performance`
-3. `architecture` + `maintainability` + `frontend` + `design`
-
-All specialist lenses still run. The grouping controls cost only. Final output stays attributed by original specialist lens.
-
-### Explicit: `--full`
-
-Runs one agent per specialist with the same output contract and the same adversarial validation stage.
+- When you need architecture-aware feedback instead of deterministic gates (use `/ai-verify` for evidence gates).
 
 ## Specialist Roster
 
 | Specialist | Agent File | Focus |
-|------------|-----------|-------|
+| --- | --- | --- |
 | `security` | `reviewer-security.md` | vulnerabilities, auth, data exposure, dependency risk |
 | `backend` | `reviewer-backend.md` | API boundaries, service logic, persistence, jobs |
 | `performance` | `reviewer-performance.md` | query shape, complexity, hot paths, memory |
@@ -50,66 +56,50 @@ Runs one agent per specialist with the same output contract and the same adversa
 | `compatibility` | `reviewer-compatibility.md` | breaking changes, backwards compat, migrations |
 | `architecture` | `reviewer-architecture.md` | necessity, patterns, reuse, proportionality |
 | `maintainability` | `reviewer-maintainability.md` | complexity, readability, naming, duplication |
-| `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript (conditional) |
-| `design` | `reviewer-design.md` | CSS, animation, UI components, visual design (conditional) |
+| `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript, animation, typography, forms (conditional; absorbs the legacy `design` lens per D-127-10) |
 
-All specialist agents are dispatched via the `Agent` tool from `.gemini/agents/`. They are not read inline -- each runs in its own context window.
-
-## Dispatch Architecture
-
-### Pre-Review Phase
-- **Context Explorer** (`review-context-explorer.md`): Dispatched via `Agent` tool. Gathers architectural context beyond the diff. Output is serialized and passed to every specialist.
-
-### Specialist Phase
-- **Normal mode**: 3 macro-agent dispatches via `Agent` tool. Each macro-agent receives the specialist instructions for its group + shared context.
-- **Full mode**: 10 individual agent dispatches via `Agent` tool. Each specialist agent runs independently.
-
-### Validation Phase
-- **Finding Validator** (`review-finding-validator.md`): Dispatched via `Agent` tool. Receives ONLY the YAML finding blocks (no reasoning chain). Reads code fresh. Issues CONFIRMED or DISMISSED verdict per finding.
+`normal` macro-agent grouping: (1) correctness + testing + compatibility, (2) security + backend + performance, (3) architecture + maintainability + frontend.
 
 ## Output Contract
 
-Every report should:
+Group findings by severity first, then specialist lens. Keep attribution by original specialist even in `normal`. Include `not_applicable` / `low_signal` outcomes when a specialist had little to contribute. Show which findings survived adversarial validation.
 
-- group findings by severity first and specialist lens second
-- keep attribution by original specialist even in `normal`
-- include `not_applicable` or `low_signal` outcomes when a specialist had little to contribute
-- show which findings survived adversarial validation
+## Language Handlers
+
+For each language detected in the diff, load the matching handler from `handlers/lang-{generic,cpp,flutter,go,java,kotlin,python,rust,typescript}.md` for language-specific review criteria.
 
 ## Common Mistakes
 
-- Treating the 3 macro-agents in `normal` as reduced coverage. They are not.
+- Treating the 3 macro-agents in `normal` as reduced coverage — they are not.
 - Reporting by macro-agent instead of original specialist lens.
-- Skipping context exploration before review.
+- Skipping context exploration before review, or skipping the validator stage.
 - Treating style preferences as blocking findings.
-- Leaving findings unchallenged by the validator stage.
 - Reading specialist agent files inline instead of dispatching via Agent tool.
 
-## Handlers
+## Examples
 
-### Orchestration
-Load `handlers/review.md` for the main review dispatch logic.
+### Example 1 — review a PR before approval
 
-### Language-Specific Review Criteria
-For each language detected in the diff, load the corresponding handler for language-specific review criteria.
+User: "review PR #42"
 
-| Handler | Trigger | File |
-|---------|---------|------|
-| Generic | Default for unrecognized languages | `handlers/lang-generic.md` |
-| C++ | `.cpp`, `.h`, `.hpp` files | `handlers/lang-cpp.md` |
-| Flutter | `.dart` files | `handlers/lang-flutter.md` |
-| Go | `.go` files | `handlers/lang-go.md` |
-| Java | `.java` files | `handlers/lang-java.md` |
-| Kotlin | `.kt` files | `handlers/lang-kotlin.md` |
-| Python | `.py` files | `handlers/lang-python.md` |
-| Rust | `.rs` files | `handlers/lang-rust.md` |
-| TypeScript | `.ts`, `.tsx` files | `handlers/lang-typescript.md` |
+```
+/ai-review 42
+```
+
+Dispatches the 3 macro-agents (correctness, frontend, security/perf) over the diff, aggregates findings with corroboration, emits the Findings table with severity + remediation.
+
+### Example 2 — full-coverage review on a complex diff
+
+User: "do the full reviewer roster on this branch"
+
+```
+/ai-review --full
+```
+
+Dispatches one agent per specialist (correctness, security, performance, architecture, testing, frontend, backend, maintainability, compatibility), runs the validator stage, deduplicates and ranks findings.
 
 ## Integration
 
-- **Called by**: user directly, `/ai-pr`, `/ai-dispatch`
-- **Dispatches**: `review-context-explorer.md`, `reviewer-*.md`, `review-finding-validator.md` (all via Agent tool)
-- **Read-only**: never modifies source code
-- **See also**: after merge, `/ai-learn single <pr>` can extract review patterns
+Called by: user directly, `/ai-pr`, `/ai-build`, `/ai-autopilot` (Phase 5). Dispatches: `reviewer-context`, `reviewer-*`, `reviewer-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
 
 $ARGUMENTS

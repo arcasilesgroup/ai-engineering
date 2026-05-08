@@ -17,36 +17,27 @@ from _lib.hook_common import run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.instincts import extract_instincts
 from _lib.observability import (
-    append_framework_event,
-    build_framework_event,
     emit_declared_context_loads,
     emit_ide_hook_outcome,
     emit_skill_invoked,
 )
 
-# Spec-112 G-1: regex extracts skill name from `^/ai-([a-zA-Z0-9_-]+)` against
-# `payload.prompt`. The character class is intentionally narrowed at the
-# emission boundary in observability._normalize_skill_name; the regex itself
-# tolerates digits/underscores so unusual user prompts still surface as
-# `skill_invoked_malformed` with a clear `detail.reason` rather than being
-# dropped silently.
 _SKILL_RE = re.compile(r"^\s*/ai-([a-zA-Z0-9_-]+)")
 
 
 def _emit_malformed(ctx, *, reason: str, trace_id: str | None) -> None:
-    """Surface edge cases as `skill_invoked_malformed` (spec-112 G-1)."""
-    entry = build_framework_event(
+    """Surface unmatched prompts through the canonical ide_hook contract."""
+    emit_ide_hook_outcome(
         ctx.project_root,
         engine=ctx.engine,
-        kind="skill_invoked_malformed",
+        hook_kind="user-prompt-submit",
         component="hook.telemetry-skill",
+        outcome="warn",
         source="hook",
         session_id=ctx.session_id,
         trace_id=trace_id,
-        force_outcome="warn",
-        detail={"skill": None, "reason": reason},
+        metadata={"skill": None, "reason": reason},
     )
-    append_framework_event(ctx.project_root, entry)
 
 
 def main() -> None:
@@ -99,4 +90,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.telemetry-skill", hook_kind="user-prompt-submit")
+    run_hook_safe(
+        main, component="hook.telemetry-skill", hook_kind="user-prompt-submit", script_path=__file__
+    )

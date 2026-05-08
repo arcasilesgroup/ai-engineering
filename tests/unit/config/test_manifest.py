@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from ai_engineering.config.loader import load_manifest_config
+from ai_engineering.config.loader import load_manifest_config, load_manifest_root_entry_points
 from ai_engineering.config.manifest import (
     AgentsConfig,
     CicdConfig,
@@ -30,6 +30,7 @@ from ai_engineering.config.manifest import (
     TelemetryConfig,
     WorkItemsConfig,
 )
+from ai_engineering.release.version_bump import detect_current_version
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -37,12 +38,24 @@ from ai_engineering.config.manifest import (
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST_PATH = REPO_ROOT / ".ai-engineering" / "manifest.yml"
+TEMPLATE_MANIFEST_PATH = (
+    REPO_ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
+)
 
 
 @pytest.fixture()
 def real_manifest_data() -> dict:
     """Load the real manifest.yml as a raw dict."""
     raw = MANIFEST_PATH.read_text(encoding="utf-8")
+    data = yaml.safe_load(raw)
+    assert isinstance(data, dict)
+    return data
+
+
+@pytest.fixture()
+def template_manifest_data() -> dict:
+    """Load the bundled template manifest.yml as a raw dict."""
+    raw = TEMPLATE_MANIFEST_PATH.read_text(encoding="utf-8")
     data = yaml.safe_load(raw)
     assert isinstance(data, dict)
     return data
@@ -64,6 +77,40 @@ def tmp_project(tmp_path: Path) -> Path:
 class TestRealManifest:
     """Parse the actual manifest.yml from this repository."""
 
+    @staticmethod
+    def _assert_control_plane_authority_model(manifest_data: dict) -> None:
+        control_plane = manifest_data.get("control_plane")
+        assert isinstance(control_plane, dict)
+
+        constitutional_authority = control_plane.get("constitutional_authority")
+        assert isinstance(constitutional_authority, dict)
+        assert constitutional_authority.get("primary") == "CONSTITUTION.md"
+
+        # spec-123 D-123-17: workspace-charter stub deleted; compatibility
+        # aliases collapse to empty list. The single canonical source is
+        # CONSTITUTION.md at repo root.
+        compatibility_aliases = constitutional_authority.get("compatibility_aliases")
+        assert isinstance(compatibility_aliases, list)
+        assert compatibility_aliases == []
+
+        manifest_field_roles = control_plane.get("manifest_field_roles")
+        assert isinstance(manifest_field_roles, dict)
+
+        canonical_input = manifest_field_roles.get("canonical_input")
+        assert isinstance(canonical_input, list)
+        assert "session.context_files" in canonical_input
+        assert "ownership.root_entry_points" in canonical_input
+
+        generated_projection = manifest_field_roles.get("generated_projection")
+        assert isinstance(generated_projection, list)
+        assert "skills" in generated_projection
+        assert "agents" in generated_projection
+
+        descriptive_metadata = manifest_field_roles.get("descriptive_metadata")
+        assert isinstance(descriptive_metadata, list)
+        assert "framework_version" in descriptive_metadata
+        assert "version" in descriptive_metadata
+
     def test_model_validate_succeeds(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert isinstance(config, ManifestConfig)
@@ -79,12 +126,40 @@ class TestRealManifest:
 
     def test_framework_version(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert config.framework_version == "0.4.0"
+        assert config.framework_version == detect_current_version(REPO_ROOT)
 
     def test_name_and_version(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert config.name == "ai-engineering"
         assert config.version == "1.0.0"
+
+    def test_session_context_prefers_root_constitution(self, real_manifest_data: dict) -> None:
+        session = real_manifest_data.get("session")
+        assert isinstance(session, dict)
+
+        context_files = session.get("context_files")
+        assert isinstance(context_files, list)
+        assert "CONSTITUTION.md" in context_files
+        assert ".ai-engineering/CONSTITUTION.md" not in context_files
+
+    def test_template_session_context_prefers_root_constitution(
+        self, template_manifest_data: dict
+    ) -> None:
+        session = template_manifest_data.get("session")
+        assert isinstance(session, dict)
+
+        context_files = session.get("context_files")
+        assert isinstance(context_files, list)
+        assert "CONSTITUTION.md" in context_files
+        assert ".ai-engineering/CONSTITUTION.md" not in context_files
+
+    def test_control_plane_authority_table_exists(self, real_manifest_data: dict) -> None:
+        self._assert_control_plane_authority_model(real_manifest_data)
+
+    def test_template_control_plane_authority_table_exists(
+        self, template_manifest_data: dict
+    ) -> None:
+        self._assert_control_plane_authority_model(template_manifest_data)
 
 
 # ---------------------------------------------------------------------------
@@ -100,8 +175,8 @@ class TestProviders:
     def test_ides(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert "terminal" in config.providers.ides
-        assert "claude_code" in config.ai_providers.enabled
-        assert "github_copilot" in config.ai_providers.enabled
+        assert "claude-code" in config.ai_providers.enabled
+        assert "github-copilot" in config.ai_providers.enabled
 
     def test_stacks(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
@@ -194,7 +269,21 @@ class TestSkills:
         config = ManifestConfig.model_validate(real_manifest_data)
         # spec-107: bumped 47 -> 48 with addition of /ai-mcp-sentinel skill.
         # spec-111: bumped 48 -> 49 with addition of /ai-research skill.
-        assert config.skills.total == len(config.skills.registry) == 49
+        # spec-116/117/120: 49 -> 52 (ai-design, ai-animation, ai-canvas,
+        # ai-eval-gate). spec-122 (sub-001 hygiene): 52 -> 51 after pruning
+        # the legacy /ai-eval-gate skill that duplicated /ai-release-gate.
+        # spec-123 (D-123-08/10): 51 -> 49 after deleting the memory
+        # subsystem skills /ai-remember and /ai-dream.
+        # spec-119 (registered post-squash): 49 -> 50 with /ai-eval skill.
+        # spec-127 sub-005 (M4 D-127-04/10/11/12): 50 -> 48 after renames + mergers
+        # (delete ai-run, ai-board-discover, ai-board-sync, ai-release-gate;
+        # create ai-help, ai-board; rename 8 skills). spec-127 Wave 8
+        # (D-127-10 strict-count enforcement): 48 -> 47 after demoting
+        # `/ai-help` to a reference file under
+        # `.claude/skills/ai-cleanup/references/legacy-name-map.md`. Spec
+        # target was 46; achieved 47 — `/ai-board` is the remaining net
+        # addition (see CHANGELOG Wave 8 section for the gap explanation).
+        assert config.skills.total == len(config.skills.registry) == 47
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
@@ -220,12 +309,17 @@ class TestSkills:
 class TestAgents:
     def test_total(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert config.agents.total == 10
+        # spec-116+: bumped 10 -> 11 with addition of evaluator agent.
+        # spec-122 (sub-001 hygiene): 11 -> 10 after retiring the standalone
+        # `evaluator` agent in favour of the consolidated verify pipeline.
+        # spec-127 sub-005 (M4 D-127-12): 10 -> 9 after deleting
+        # `run-orchestrator` (functionality absorbed by `autopilot --backlog`).
+        assert config.agents.total == 9
 
     def test_names(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert "build" in config.agents.names
-        assert "run-orchestrator" in config.agents.names
+        assert "autopilot" in config.agents.names
         assert "verify" in config.agents.names
 
 
@@ -256,10 +350,13 @@ class TestOwnership:
 
 class TestTooling:
     def test_tooling_list(self, real_manifest_data: dict) -> None:
+        # spec-122-a (D-122-07): the `tooling` top-level key was removed from
+        # manifest.yml because it duplicated `required_tools` (the spec-101
+        # source of truth for `ai-eng install` / `ai-eng doctor --fix`). The
+        # Pydantic field stays for back-compat with old manifests; new
+        # manifests resolve it to the default empty list.
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert "ruff" in config.tooling
-        assert "pytest" in config.tooling
-        assert "gitleaks" in config.tooling
+        assert config.tooling == []
 
 
 # ---------------------------------------------------------------------------
@@ -384,6 +481,9 @@ class TestEmptyAndMissing:
         assert config.providers.vcs == "github"
         assert config.quality.coverage == 80
 
+    def test_missing_file_returns_no_root_entry_point_contract(self, tmp_path: Path) -> None:
+        assert load_manifest_root_entry_points(tmp_path) is None
+
     def test_yaml_only_comment_returns_defaults(self, tmp_project: Path) -> None:
         manifest = tmp_project / ".ai-engineering" / "manifest.yml"
         manifest.write_text("# just a comment\n")
@@ -392,6 +492,27 @@ class TestEmptyAndMissing:
 
         assert isinstance(config, ManifestConfig)
         assert config.name == ""
+
+    def test_present_manifest_returns_root_entry_point_contract(self, tmp_project: Path) -> None:
+        manifest = tmp_project / ".ai-engineering" / "manifest.yml"
+        manifest.write_text(
+            "ownership:\n"
+            "  root_entry_points:\n"
+            "    CLAUDE.md:\n"
+            "      owner: team\n"
+            "      canonical_source: CONSTITUTION.md\n"
+            "      runtime_role: ide-overlay\n"
+            "      sync:\n"
+            "        mode: copy\n"
+            "        template_path: src/ai_engineering/templates/project/CLAUDE.md\n"
+            "        mirror_paths: []\n",
+            encoding="utf-8",
+        )
+
+        root_entry_points = load_manifest_root_entry_points(tmp_project)
+
+        assert root_entry_points is not None
+        assert root_entry_points["CLAUDE.md"].owner == "team"
 
 
 # ---------------------------------------------------------------------------

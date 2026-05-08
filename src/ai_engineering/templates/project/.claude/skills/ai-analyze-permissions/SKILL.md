@@ -1,10 +1,12 @@
 ---
 name: ai-analyze-permissions
-description: "Use when Claude Code keeps asking to approve commands you have already approved, when settings.local.json has grown large, or when you want to consolidate permission grants into wildcard patterns. Trigger for 'too many permission prompts', 'clean up permissions', 'audit my settings', 'consolidate allow rules'. Claude Code only — not available in GitHub Copilot."
+description: "Use when Claude Code keeps asking to approve commands you have already approved, when settings.local.json has grown large, or when you want to consolidate permission grants into wildcard patterns. Trigger for 'too many permission prompts', 'clean up permissions', 'audit my settings', 'consolidate allow rules'. Claude Code only — not available in GitHub Copilot, Gemini, or Codex."
 effort: medium
 argument-hint: "[analyze|apply|cleanup]"
 disable-model-invocation: true
 copilot_compatible: false
+codex_compatible: false
+gemini_compatible: false
 ---
 
 # Analyze Permissions
@@ -64,25 +66,29 @@ Output a structured report:
 ## Permission Analysis
 
 ### Settings Overview
+
 - settings.local.json: X entries
 - settings.json: Y entries (Z wildcards)
 
 ### Already Covered (can be removed)
+
 These entries in settings.local.json are redundant:
 
-| Entry | Covered by |
-|-------|------------|
-| Bash(git commit -m "...") | Bash(git commit:*) |
+| Entry                     | Covered by          |
+| ------------------------- | ------------------- |
+| Bash(git commit -m "...") | Bash(git commit:\*) |
 
 ### Suggested New Patterns
+
 These patterns would consolidate multiple specific entries:
 
-| Pattern | Covers | Scope | Safety |
-|---------|--------|-------|--------|
-| Bash(kubectl:*) | 4 entries | global | Safe (read-heavy) |
-| Bash(docker exec:*) | 3 entries | local | Review (can modify) |
+| Pattern              | Covers    | Scope  | Safety              |
+| -------------------- | --------- | ------ | ------------------- |
+| Bash(kubectl:\*)     | 4 entries | global | Safe (read-heavy)   |
+| Bash(docker exec:\*) | 3 entries | local  | Review (can modify) |
 
 ### Uncategorized
+
 These entries don't fit a pattern (one-offs):
 
 - Bash(some-specific-command)

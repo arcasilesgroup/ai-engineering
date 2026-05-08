@@ -17,6 +17,20 @@ import re
 from pathlib import Path
 
 from ai_engineering.git.operations import current_branch, run_git
+from ai_engineering.state.work_plane import (
+    active_work_plane_placeholder_fallback_id,
+    resolve_active_work_plane,
+)
+
+
+def _active_spec_path(project_root: Path) -> Path:
+    """Return the resolved active spec path from the work-plane contract."""
+    return resolve_active_work_plane(project_root).spec_path
+
+
+def _active_spec_relpath(project_root: Path) -> str:
+    """Return the active spec path relative to the project root."""
+    return _active_spec_path(project_root).relative_to(project_root).as_posix()
 
 
 def build_pr_title(project_root: Path) -> str:
@@ -35,7 +49,7 @@ def build_pr_title(project_root: Path) -> str:
     slug = _humanize_branch(branch)
     spec = _read_active_spec(project_root)
     if spec:
-        return f"feat(spec-{spec}): {slug}"
+        return f"feat(spec-{_normalize_spec_identifier(spec)}): {slug}"
     return slug
 
 
@@ -53,83 +67,18 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
     Returns:
         Multi-line Markdown string suitable for PR body.
     """
-    lines: list[str] = []
-
     spec = _read_active_spec(project_root)
     branch = current_branch(project_root)
     commits = _recent_commit_subjects(project_root, max_commits=max_commits)
+    ctx = _read_spec_context(project_root, spec) if spec else _empty_spec_context()
 
-    # -- What ----------------------------------------------------------
-    if spec:
-        ctx = _read_spec_context(project_root, spec)
-        spec_id = spec.split("-")[0] if "-" in spec else spec
-        title = ctx["title"] or _humanize_branch(branch)
-        lines.append(f"## What\n\nImplements Spec {spec_id} — {title}.\n")
-    else:
-        lines.append(f"## What\n\n{_humanize_branch(branch)}.\n")
-
-    # -- Why -----------------------------------------------------------
-    if spec:
-        ctx = ctx if "ctx" in dir() else _read_spec_context(project_root, spec)
-        if ctx["problem"]:
-            lines.append(f"## Why\n\n{ctx['problem']}\n")
-        spec_url = _build_spec_url(project_root, spec)
-        if spec_url:
-            lines.append(f"**Spec**: [{spec}]({spec_url})\n")
-        else:
-            lines.append(f"**Spec**: `{spec}`\n")
-
-    # -- How -----------------------------------------------------------
-    if commits:
-        lines.append("## How\n")
-        for subject in commits:
-            lines.append(f"- {subject}")
-        lines.append("")
-
-    # -- Issue link -----------------------------------------------------
-    if spec:
-        spec_refs = _read_spec_refs(project_root)
-        if spec_refs:
-            closeable, mention_only = _resolve_refs(project_root, spec_refs)
-            if closeable or mention_only:
-                for ref in closeable:
-                    if ref.startswith("AB#"):
-                        lines.append(ref)
-                    else:
-                        lines.append(f"Closes {ref}")
-                for ref in mention_only:
-                    lines.append(f"Related: {ref}")
-                lines.append("")
-            else:
-                # Refs present but nothing resolved — fall back
-                issue_ref = _build_issue_reference(project_root, spec)
-                if issue_ref:
-                    lines.append(f"{issue_ref}\n")
-        else:
-            # No frontmatter refs — use legacy lookup
-            issue_ref = _build_issue_reference(project_root, spec)
-            if issue_ref:
-                lines.append(f"{issue_ref}\n")
-
-    # -- Checklist -----------------------------------------------------
-    lines.append("## Checklist\n")
-    lines.append("- [ ] All tests pass")
-    lines.append("- [ ] `ruff check` clean")
-    lines.append("- [ ] `ty check` clean")
-    lines.append("- [ ] `gitleaks` — no leaks")
-    lines.append("- [ ] CHANGELOG.md updated")
-    lines.append("")
-
-    # -- Stats ---------------------------------------------------------
-    stats = _git_diff_stats(project_root)
-    commit_count = len(commits)
-    if stats or commit_count:
-        lines.append("## Stats\n")
-        if stats:
-            lines.append(f"- {stats}")
-        if commit_count:
-            lines.append(f"- {commit_count} commits on `{branch}`")
-        lines.append("")
+    lines: list[str] = []
+    lines.extend(_what_section_lines(spec, branch, ctx))
+    lines.extend(_why_section_lines(project_root, spec, ctx))
+    lines.extend(_how_section_lines(commits))
+    lines.extend(_issue_section_lines(project_root, spec))
+    lines.extend(_checklist_section_lines())
+    lines.extend(_stats_section_lines(project_root, branch, commits))
 
     return "\n".join(lines) if lines else "No description generated."
 
@@ -137,6 +86,104 @@ def build_pr_description(project_root: Path, *, max_commits: int = 20) -> str:
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _empty_spec_context() -> dict[str, str]:
+    """Return an empty spec context payload."""
+    return {"title": "", "problem": "", "solution": ""}
+
+
+def _what_section_lines(spec: str | None, branch: str, ctx: dict[str, str]) -> list[str]:
+    """Build the What section for the PR description."""
+    if not spec:
+        return [f"## What\n\n{_humanize_branch(branch)}.\n"]
+
+    normalized_spec = _normalize_spec_identifier(spec)
+    spec_id = normalized_spec.split("-")[0] if "-" in normalized_spec else normalized_spec
+    title = ctx["title"] or _humanize_branch(branch)
+    return [f"## What\n\nImplements Spec {spec_id} — {title}.\n"]
+
+
+def _why_section_lines(project_root: Path, spec: str | None, ctx: dict[str, str]) -> list[str]:
+    """Build the Why section plus spec link lines."""
+    if not spec:
+        return []
+
+    lines: list[str] = []
+    if ctx["problem"]:
+        lines.append(f"## Why\n\n{ctx['problem']}\n")
+
+    spec_url = _build_spec_url(project_root, spec)
+    display_spec = _normalize_spec_identifier(spec)
+    lines.append(
+        f"**Spec**: [{display_spec}]({spec_url})\n" if spec_url else f"**Spec**: `{display_spec}`\n"
+    )
+    return lines
+
+
+def _how_section_lines(commits: list[str]) -> list[str]:
+    """Build the How section from commit subjects."""
+    if not commits:
+        return []
+
+    return ["## How\n", *[f"- {subject}" for subject in commits], ""]
+
+
+def _issue_section_lines(project_root: Path, spec: str | None) -> list[str]:
+    """Build issue reference lines for the PR body."""
+    if not spec:
+        return []
+
+    spec_refs = _read_spec_refs(project_root)
+    if spec_refs:
+        closeable, mention_only = _resolve_refs(project_root, spec_refs)
+        if closeable or mention_only:
+            return _resolved_issue_lines(closeable, mention_only)
+    return _legacy_issue_lines(project_root, spec)
+
+
+def _resolved_issue_lines(closeable: list[str], mention_only: list[str]) -> list[str]:
+    """Format resolved closeable and mention-only refs."""
+    lines = [ref if ref.startswith("AB#") else f"Closes {ref}" for ref in closeable]
+    lines.extend(f"Related: {ref}" for ref in mention_only)
+    if lines:
+        lines.append("")
+    return lines
+
+
+def _legacy_issue_lines(project_root: Path, spec: str) -> list[str]:
+    """Build legacy issue-closing lines from provider lookup."""
+    issue_ref = _build_issue_reference(project_root, spec)
+    return [f"{issue_ref}\n"] if issue_ref else []
+
+
+def _checklist_section_lines() -> list[str]:
+    """Build the static checklist section."""
+    return [
+        "## Checklist\n",
+        "- [ ] All tests pass",
+        "- [ ] `ruff check` clean",
+        "- [ ] `ty check` clean",
+        "- [ ] `gitleaks` — no leaks",
+        "- [ ] CHANGELOG.md updated",
+        "",
+    ]
+
+
+def _stats_section_lines(project_root: Path, branch: str, commits: list[str]) -> list[str]:
+    """Build the Stats section when diff or commit data is available."""
+    stats = _git_diff_stats(project_root)
+    commit_count = len(commits)
+    if not stats and not commit_count:
+        return []
+
+    lines = ["## Stats\n"]
+    if stats:
+        lines.append(f"- {stats}")
+    if commit_count:
+        lines.append(f"- {commit_count} commits on `{branch}`")
+    lines.append("")
+    return lines
 
 
 def _get_repo_url(project_root: Path) -> str | None:
@@ -189,11 +236,10 @@ def _get_repo_url(project_root: Path) -> str | None:
 
 
 def _build_spec_url(project_root: Path, spec: str) -> str | None:
-    """Build a clickeable URL to the spec directory.
+    """Build a clickable URL to the active spec file.
 
-    Checks both the active ``specs/{slug}/`` and archived
-    ``specs/archive/{slug}/`` locations on disk so the URL stays valid
-    after spec-reset archives the directory.
+    The URL follows the resolved active work-plane contract rather than
+    assuming the legacy singleton ``.ai-engineering/specs/spec.md`` path.
 
     Args:
         project_root: Root directory of the project.
@@ -206,8 +252,7 @@ def _build_spec_url(project_root: Path, spec: str) -> str | None:
     if not repo_url:
         return None
 
-    # Working Buffer model: spec lives at fixed path
-    spec_path = ".ai-engineering/specs/spec.md"
+    spec_path = _active_spec_relpath(project_root)
 
     if "github.com" in repo_url:
         return f"{repo_url}/blob/main/{spec_path}"
@@ -218,8 +263,13 @@ def _build_spec_url(project_root: Path, spec: str) -> str | None:
     return None
 
 
+def _normalize_spec_identifier(spec: str) -> str:
+    """Normalize a spec identifier for user-facing rendering."""
+    return spec.removeprefix("spec-")
+
+
 def _read_active_spec(project_root: Path) -> str | None:
-    """Read the active spec identifier from ``specs/spec.md``.
+    """Read the active spec identifier from the resolved work plane.
 
     Extracts the ``id`` field from YAML frontmatter, or falls back
     to scanning for a ``# Spec NNN`` heading pattern.
@@ -231,7 +281,8 @@ def _read_active_spec(project_root: Path) -> str | None:
         Active spec identifier (e.g. ``"055"``),
         or None if no spec is active or file is missing.
     """
-    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
+    work_plane = resolve_active_work_plane(project_root)
+    spec_path = work_plane.spec_path
     if not spec_path.exists():
         return None
 
@@ -242,7 +293,7 @@ def _read_active_spec(project_root: Path) -> str | None:
 
     # Placeholder means no active spec
     if text.strip().startswith("# No active spec"):
-        return None
+        return active_work_plane_placeholder_fallback_id(project_root)
 
     # Try frontmatter id field
     match = re.search(r'^id:\s*["\']?(\S+?)["\']?\s*$', text, re.MULTILINE)
@@ -279,7 +330,7 @@ def _read_spec_refs(project_root: Path) -> dict[str, list[str]]:
         ``issues`` (each a list of strings).  Empty dict if no refs
         or no frontmatter found.
     """
-    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
+    spec_path = _active_spec_path(project_root)
     if not spec_path.exists():
         return {}
 
@@ -339,9 +390,9 @@ def _resolve_refs(
 
 
 def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
-    """Read ``specs/spec.md`` and extract key sections for the PR description.
+    """Read the resolved active spec and extract key sections for the PR description.
 
-    Uses the Working Buffer model: spec lives at ``specs/spec.md`` (fixed path).
+    Uses the active work-plane resolver to locate the current spec surface.
 
     Args:
         project_root: Root directory of the project.
@@ -351,7 +402,7 @@ def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
         Dict with ``title``, ``problem``, ``solution`` (may be empty strings).
     """
     empty: dict[str, str] = {"title": "", "problem": "", "solution": ""}
-    spec_path = project_root / ".ai-engineering" / "specs" / "spec.md"
+    spec_path = _active_spec_path(project_root)
     if not spec_path.exists():
         return empty
 
@@ -360,11 +411,7 @@ def _read_spec_context(project_root: Path, spec: str) -> dict[str, str]:
     except OSError:
         return empty
 
-    # Title from first H1: "# Spec NNN — <Title>"
-    title = ""
-    title_match = re.search(r"^# [^\n]+? — (.+)$", text, re.MULTILINE)
-    if title_match:
-        title = title_match.group(1).strip()
+    title = _extract_spec_title(text)
 
     problem = _extract_section(text, "Problem")
     solution = _extract_section(text, "Solution")
@@ -382,13 +429,34 @@ def _extract_section(text: str, heading: str) -> str:
     Returns:
         First paragraph of the section, or empty string if not found.
     """
-    pattern = rf"^## {heading}[ \t]*\n(.*?)(?=(?:^## )|\Z)"
-    match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
-    if not match:
+    target_heading = f"## {heading}"
+    collecting = False
+    lines: list[str] = []
+    for line in text.splitlines():
+        stripped = line.rstrip()
+        if stripped.startswith("## "):
+            if collecting:
+                break
+            collecting = stripped == target_heading
+            continue
+        if collecting:
+            lines.append(line)
+
+    content = "\n".join(lines).strip()
+    if not content:
         return ""
-    content = match.group(1).strip()
     paragraphs = content.split("\n\n")
     return paragraphs[0].strip() if paragraphs else ""
+
+
+def _extract_spec_title(text: str) -> str:
+    """Extract the title suffix from the first level-1 spec heading."""
+    for line in text.splitlines():
+        if not line.startswith("# "):
+            continue
+        _, separator, tail = line.partition(" — ")
+        return tail.strip() if separator else ""
+    return ""
 
 
 def _git_diff_stats(project_root: Path) -> str | None:

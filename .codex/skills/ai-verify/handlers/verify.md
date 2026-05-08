@@ -36,7 +36,7 @@ Dispatch `verify-deterministic.md` via the **Agent** tool:
 Agent prompt: "You are the deterministic verification agent.
 Read and follow .codex/agents/verify-deterministic.md
 Execute all tool-driven checks against the current codebase.
-Read .ai-engineering/state/decision-store.json for accepted exceptions.
+Query state.db.decisions (via `ai-eng audit query`) for accepted exceptions.
 Produce structured YAML output."
 ```
 

@@ -1,6 +1,6 @@
 ---
 name: ai-start
-description: "Use at the start of every coding session to load project context, activate instinct observation, and display a welcome dashboard with recent activity, active work status, board items, and available commands. Trigger for 'hello', 'let's start', 'good morning', 'what's the status', 'get me up to speed', 'I'm back', or any session-opening message. Also invokable mid-session to re-bootstrap. Not for human onboarding — use /ai-guide for that."
+description: "Bootstraps a coding session: loads project context, activates session observation, displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-guide instead. Not for governance review; use /ai-governance instead."
 effort: medium
 argument-hint: ""
 ---
@@ -9,30 +9,29 @@ argument-hint: ""
 
 ## Purpose
 
-Session welcome dashboard. Loads project context, activates instinct observation, and shows everything needed to begin working. Users run this because the dashboard is useful — context loading is a built-in benefit.
+Session welcome dashboard. Loads project context, activates session observation, and shows everything needed to begin working. Users run this because the dashboard is useful — context loading is a built-in benefit.
 This skill is invoked as an IDE slash command (`/ai-start`). It is not an `ai-eng start` terminal command, and no CLI fallback should be inferred unless the CLI docs explicitly define one.
 
 ## Process
 
-### Step 1: Load context
+### Step 1: Bootstrap (deterministic, <300ms)
 
-Read `session.context_files` from `.ai-engineering/manifest.yml` to discover which files to load. If `manifest.yml` is missing or `session.context_files` is not defined, skip context loading and note in the dashboard: 'manifest not found — run `/ai-constitution` to initialize'. Read each file. Count meaningful data for the summary line (e.g., number of lessons, number of decisions, active risks).
+Run `python3 .ai-engineering/scripts/session_bootstrap.py` and parse the JSON dashboard. Fields: `branch`, `last_commit`, `active_spec` (id/state/title/tasks_total/tasks_done), `recent_events_7d`, `hooks_health`. Use these directly — no LLM data shuffle.
 
-### Step 2: Activate instinct
+### Step 2: Load context
 
-Run `/ai-instinct` to enter observation mode for this session.
+Read `session.context_files` from `.ai-engineering/manifest.yml`. If `manifest.yml` is missing or `session.context_files` is not defined, skip and note in the dashboard: 'manifest not found — run `/ai-constitution` to initialize'.
 
-### Step 3: Gather status
+### Step 3: Activate observation
 
-Collect these in parallel:
+Run `/ai-observe` to enter observation mode for this session.
 
-- **Active spec**: read `.ai-engineering/specs/spec.md` frontmatter — extract title and status. Spec frontmatter is YAML between `---` delimiters. Extract `title` and `status` fields. If file missing or empty: `no active spec`.
-- **Plan progress**: read `.ai-engineering/specs/plan.md` — count checked `[x]` vs total `[ ]` tasks. If missing: `no active plan`.
-- **Recent activity**: run `git log --oneline -5` and generate a 3-5 line human-readable summary. Not the raw log — explain what happened in plain language.
+### Step 4: Gather supplementary status (LLM-only where genuinely needed)
+
+- **Recent activity narrative**: run `git log --oneline -5` and generate a 3-line human-readable summary. Plain language, not raw log.
 - **Board status**: follow the Board Display section below.
-- **Instinct proposals**: read `.ai-engineering/instincts/proposals.md` — if it has content beyond the header, count proposals.
 
-### Step 4: Display dashboard
+### Step 5: Display dashboard
 
 Render the welcome dashboard as raw Markdown — NOT inside a code block. Markdown renders natively across Claude Code, claude.ai, GitHub Copilot, Codex, and Gemini CLI.
 
@@ -44,7 +43,7 @@ Template (output directly as Markdown, replacing placeholders):
 ## ◈ [name]
 
 > LESSONS (N) · CONSTITUTION · manifest (N skills, N agents) · decisions (N active, N risks)
-> instinct · observation mode active
+> observation mode active
 
 ---
 
@@ -62,7 +61,7 @@ Template (output directly as Markdown, replacing placeholders):
 ### ▸ Board · [provider] [project]
 
 - N items — Status1: N · Status2: N
-- or: not configured — run `/ai-board-discover`
+- or: not configured — run `/ai-board discover`
 
 ---
 
@@ -96,7 +95,7 @@ Formatting rules:
 
 Show count grouped by status. Keep it to 1-3 lines.
 
-If `work_items` section missing from manifest: show `not configured — run /ai-board-discover`.
+If `work_items` section missing from manifest: show `not configured — run /ai-board discover`.
 If API call fails: show `board unavailable` and continue. Never block the dashboard.
 
 ## Context Budget
@@ -111,8 +110,28 @@ If API call fails: show `board unavailable` and continue. Never block the dashbo
 | Proposals (if any) | 3 |
 | **Total** | **≤ 50** |
 
+## Examples
+
+### Example 1 — morning bootstrap
+
+User: "good morning, where did I leave off?"
+
+```
+/ai-start
+```
+
+Loads context, activates instinct, prints the dashboard: recent activity, active spec, board status, suggested next command.
+
+### Example 2 — mid-session re-bootstrap after `/clear`
+
+User: "I cleared context — get me back up to speed"
+
+```
+/ai-start
+```
+
+Re-loads project context without rebuilding the conversation; shorter dashboard since recent activity is limited to commits since last bootstrap.
+
 ## Integration
 
-- **Called by**: user directly, IDE instruction files (FIRST ACTION mandate)
-- **Calls**: `/ai-instinct` (observation mode)
-- **Suggests**: `/ai-board-discover` (board not configured), `/ai-brainstorm` (no active spec)
+Called by: user directly, IDE instruction files (FIRST ACTION mandate). Calls: `/ai-observe` (observation mode). Suggests: `/ai-board discover` (board not configured), `/ai-brainstorm` (no active spec). See also: `/ai-guide` (human onboarding), `/ai-cleanup` (pre-start hygiene).

@@ -3,6 +3,10 @@ name: ai-guard
 description: Proactive governance advisor. Checks standards, decisions, and quality trends during development. Always advisory, NEVER blocks.
 model: sonnet
 color: yellow
+mirror_family: gemini-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-guard.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -40,7 +44,7 @@ Always advisory, NEVER blocks. Catch compliance issues before they reach the gat
 
 1. **Identify changes** -- collect files from `git diff --staged` or recently modified
 2. **Load applicable standards** -- cross-cutting (`core.md`, `quality/core.md`) plus stack-specific
-3. **Load relevant decisions** -- filter `state/decision-store.json` to active decisions intersecting changed files
+3. **Load relevant decisions** -- query `state.db.decisions` (via `ai-eng audit query`) for active decisions intersecting changed files
 4. **Analyze alignment** -- for each changed file, check:
    - Naming violations against stack conventions
    - Architectural boundary crossings
@@ -58,7 +62,7 @@ Always advisory, NEVER blocks. Catch compliance issues before they reach the gat
 
 ### Mode: drift
 
-1. **Load active architectural decisions** from `state/decision-store.json`
+1. **Load active architectural decisions** from `state.db.decisions` (via `ai-eng audit query`)
 2. **Map decisions to code** -- identify governed locations from decision scope
 3. **Check alignment** -- verify current code matches each decision's intent
 4. **Classify drift** -- `none`, `minor` (cosmetic), `major` (structural), `critical` (contradicts)
@@ -84,7 +88,7 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.gemini/skills/ai-dispatch/SKILL.md` -- guard advisory entry point during build execution
+- `.gemini/skills/ai-build/SKILL.md` -- guard advisory entry point during build execution
 - `.gemini/skills/ai-governance/SKILL.md` -- shared governance validation patterns
 
 ## Boundaries
@@ -92,7 +96,7 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 - **NEVER** modifies source code -- advisory only
 - **NEVER** blocks execution -- fail-open always
 - **NEVER** produces FAIL/BLOCK verdicts -- those belong to verify and git hooks
-- **Read-write** limited to `state/decision-store.json` (drift annotations) and `state/framework-events.ndjson` (canonical outcomes)
+- **Read-write** limited to `state.db.decisions` (drift annotations, via the audit API) and `state/framework-events.ndjson` (canonical outcomes)
 - **Read-only** for all other files
 - Does not replace verify or git hooks
 

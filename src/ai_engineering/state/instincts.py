@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
 from itertools import pairwise
@@ -11,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import ValidationError
 
 from ai_engineering.state.io import read_ndjson_entries, write_json_model
 from ai_engineering.state.models import FrameworkEvent, InstinctMeta, InstinctObservation
@@ -19,9 +21,9 @@ from ai_engineering.state.observability import framework_events_path
 OBSERVATION_RETENTION_DAYS = 30
 MAX_SUMMARY_LEN = 160
 INSTINCTS_SCHEMA_VERSION = "2.0"
-INSTINCT_OBSERVATIONS_REL = Path(".ai-engineering/state/instinct-observations.ndjson")
-INSTINCTS_REL = Path(".ai-engineering/instincts/instincts.yml")
-INSTINCT_META_REL = Path(".ai-engineering/instincts/meta.json")
+INSTINCT_OBSERVATIONS_REL = Path(".ai-engineering/state/observation-events.ndjson")
+INSTINCTS_REL = Path(".ai-engineering/observations/observations.yml")
+INSTINCT_META_REL = Path(".ai-engineering/observations/meta.json")
 
 _SECRET_RE = re.compile(
     r"(?i)(api_key|token|secret|password|authorization|credentials|auth)"
@@ -84,9 +86,27 @@ def ensure_instinct_artifacts(project_root: Path) -> None:
 
 
 def load_instinct_meta(project_root: Path) -> InstinctMeta:
+    """Load instinct meta, fail-open on parse / IO errors.
+
+    A concurrent writer can race a reader mid-flush. Returning a fresh
+    default on corruption is safer than re-raising and breaking the
+    extract-instincts pipeline.
+    """
     ensure_instinct_artifacts(project_root)
     path = instinct_meta_path(project_root)
-    return InstinctMeta.model_validate(json.loads(path.read_text(encoding="utf-8")))
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, ValueError, OSError) as exc:
+        print(f"[instincts] load_instinct_meta could not parse {path}: {exc}", file=sys.stderr)
+        return InstinctMeta()
+    try:
+        return InstinctMeta.model_validate(raw)
+    except ValidationError as exc:
+        print(
+            f"[instincts] load_instinct_meta validation error on {path}: {exc}",
+            file=sys.stderr,
+        )
+        return InstinctMeta()
 
 
 def save_instinct_meta(project_root: Path, meta: InstinctMeta) -> None:
@@ -94,9 +114,19 @@ def save_instinct_meta(project_root: Path, meta: InstinctMeta) -> None:
 
 
 def load_instincts_document(project_root: Path) -> dict[str, Any]:
+    """Load observations.yml, fail-open on parse / IO errors."""
     ensure_instinct_artifacts(project_root)
     path = instincts_path(project_root)
-    raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (yaml.YAMLError, OSError, ValueError) as exc:
+        print(
+            f"[instincts] load_instincts_document parse/IO error on {path}: {exc}",
+            file=sys.stderr,
+        )
+        raw = {}
+    if not isinstance(raw, dict):
+        raw = {}
     if raw.get("schemaVersion") != "2.0":
         raw = _migrate_v1_to_v2(raw)
     doc = default_instincts_document()

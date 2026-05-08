@@ -1,9 +1,13 @@
 ---
 name: ai-postmortem
-description: "Use when documenting a production incident, outage, degradation, or near-miss. Guides through the DERP format (Detection, Escalation, Recovery, Prevention) with targeted interview questions per phase. Trigger for 'we had an incident', 'write up the outage', 'something went wrong in prod', 'postmortem', 'near-miss analysis', 'incident report'. Modes: start, continue, find, generate."
+description: Documents production incidents, outages, degradations, and near-misses using the DERP format (Detection, Escalation, Recovery, Prevention) with targeted interview questions per phase. Trigger for 'we had an incident', 'write up the outage', 'something went wrong in prod', 'postmortem', 'near-miss analysis', 'incident report'. Not for customer support investigations; use /ai-support instead. Not for internal dev bugs; use /ai-debug instead.
 effort: high
-argument-hint: "start|continue <id>|find [query]|generate"
+argument-hint: "start|continue [id]|find [query]|generate"
 mode: agent
+mirror_family: copilot-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-postmortem/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -18,6 +22,15 @@ Structured incident postmortem using the DERP model. Guides through Detection, E
 
 - Command: `/ai-postmortem start|continue|find|generate`
 - Context: incident occurred, production failure, outage resolution, near-miss analysis.
+
+## Workflow
+
+Four modes follow the DERP loop:
+
+1. `start` — scaffold a new postmortem under `.ai-engineering/postmortems/PM-YYYY-NNN.md` from the template; pose Detection-phase questions.
+2. `continue <id>` — resume an in-progress postmortem; advance through Escalation → Recovery → Prevention.
+3. `generate` — synthesize from existing session context (recent commits, alerts, logs).
+4. `find [query]` — search past postmortems for similar patterns.
 
 ## Modes
 
@@ -110,8 +123,30 @@ Ask ONE section at a time. Wait for answers before proceeding to the next DERP p
 
 Storage: `.ai-engineering/postmortems/{id}.md` (ID format `PM-YYYY-NNN`).
 
+## Examples
+
+### Example 1 — start a new postmortem after an outage
+
+User: "we had an outage in checkout this morning, write it up"
+
+```
+/ai-postmortem start
+```
+
+Scaffolds `PM-2026-001.md`, asks Detection-phase interview questions (when/how detected, time-to-page, alert quality), advances to Escalation when answered.
+
+### Example 2 — generate from session context
+
+User: "synthesize a near-miss postmortem from this debug session"
+
+```
+/ai-postmortem generate
+```
+
+Reads recent debug session, alerts, commits; drafts DERP sections with TBD markers where data is incomplete.
+
 ## Integration
 
-- **See also**: `/ai-debug` (root cause analysis), `/ai-support` (customer-facing incident tracking)
+Called by: user directly. Reads: alerts, runbooks, `/ai-debug` outputs, recent commits. Writes: `.ai-engineering/postmortems/PM-YYYY-NNN.md`. See also: `/ai-debug` (root cause), `/ai-support` (customer-facing), `/ai-learn` (post-incident lessons).
 
 $ARGUMENTS

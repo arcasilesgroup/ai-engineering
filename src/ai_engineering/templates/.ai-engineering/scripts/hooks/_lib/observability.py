@@ -17,9 +17,29 @@ from pathlib import Path
 from uuid import uuid4
 
 FRAMEWORK_EVENT_SCHEMA_VERSION = "1.0"
-FRAMEWORK_EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
+_AI_ENGINEERING_DIR = Path(".ai-engineering")
+FRAMEWORK_EVENTS_REL = _AI_ENGINEERING_DIR / "state" / "framework-events.ndjson"
+_ACTIVE_WORK_PLANE_POINTER = _AI_ENGINEERING_DIR / "specs" / "active-work-plane.json"
+_ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
+_ALLOWED_KINDS: frozenset[str] = frozenset(
+    {
+        "skill_invoked",
+        "agent_dispatched",
+        "context_load",
+        "ide_hook",
+        "framework_error",
+        "git_hook",
+        "control_outcome",
+        "framework_operation",
+        "task_trace",
+        # spec-118 memory layer
+        "memory_event",
+        # spec-119 evaluation layer
+        "eval_run",
+    }
+)
 
-_DEGRADED_HOSTS: frozenset[str] = frozenset({"codex", "gemini"})
+_DEGRADED_HOSTS: frozenset[str] = frozenset({"codex"})
 _SECRET_RE = re.compile(
     r"(?i)(api_key|token|secret|password|authorization|credentials|auth)"
     r"([\"'\s:=]+)"
@@ -55,6 +75,10 @@ def _normalize_agent_name(agent_name: str) -> str:
     return normalized
 
 
+def _normalize_engine_id(engine: str) -> str:
+    return _ENGINE_ALIASES.get(engine, engine)
+
+
 def _capture_outcome(
     engine: str, *, session_id: str | None, trace_id: str | None
 ) -> tuple[str, list[str]]:
@@ -76,6 +100,18 @@ def _bounded_summary(text: str | None) -> str | None:
     return redacted[:_MAX_SUMMARY_LEN] + "...[truncated]"
 
 
+def _normalize_artifact_refs(artifact_refs: tuple[str, ...] | list[str] | None) -> list[str]:
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for value in artifact_refs or ():
+        path = value.strip()
+        if not path or path in seen:
+            continue
+        seen.add(path)
+        normalized.append(path)
+    return normalized
+
+
 # ---------------------------------------------------------------------------
 # Core event building and persistence
 # ---------------------------------------------------------------------------
@@ -83,6 +119,50 @@ def _bounded_summary(text: str | None) -> str | None:
 
 def framework_events_path(project_root: Path) -> Path:
     return project_root / FRAMEWORK_EVENTS_REL
+
+
+def _pointer_specs_dir(project_root: Path) -> Path | None:
+    pointer_path = project_root / _ACTIVE_WORK_PLANE_POINTER
+    if not pointer_path.exists():
+        return None
+
+    try:
+        payload = json.loads(pointer_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    specs_dir_value = payload.get("specsDir")
+    if not isinstance(specs_dir_value, str) or not specs_dir_value.strip():
+        return None
+
+    raw_specs_dir = Path(specs_dir_value)
+    if raw_specs_dir.is_absolute():
+        return None
+
+    specs_dir = project_root / raw_specs_dir
+    try:
+        specs_dir.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return None
+    return specs_dir
+
+
+def _declared_work_plane_contexts(project_root: Path) -> tuple[tuple[str, str, Path], ...]:
+    specs_dir = _pointer_specs_dir(project_root) or (project_root / _AI_ENGINEERING_DIR / "specs")
+    return (
+        ("spec", "spec", specs_dir / "spec.md"),
+        ("plan", "plan", specs_dir / "plan.md"),
+    )
+
+
+def _resolve_constitution_context_path(project_root: Path) -> Path:
+    constitution_path = project_root / "CONSTITUTION.md"
+    if constitution_path.is_file():
+        return constitution_path
+    return project_root / _AI_ENGINEERING_DIR / "CONSTITUTION.md"
 
 
 def _compute_prev_event_hash(path: Path) -> str | None:
@@ -106,7 +186,7 @@ def _compute_prev_event_hash(path: Path) -> str | None:
         return None
     try:
         prior = json.loads(last_line)
-    except (json.JSONDecodeError, ValueError):
+    except ValueError:
         return None
     if not isinstance(prior, dict):
         return None
@@ -127,10 +207,52 @@ def append_framework_event(project_root: Path, entry: dict) -> None:
     # mirrors the package writer's behavior and keeps parity with the
     # ``model_dump``-based pkg path.
     payload = dict(entry)
+    kind = payload.get("kind")
+    if kind not in _ALLOWED_KINDS:
+        msg = f"Unsupported framework event kind: {kind!r}"
+        raise ValueError(msg)
+    payload["engine"] = _normalize_engine_id(str(payload["engine"]))
     payload["prev_event_hash"] = _compute_prev_event_hash(path)
     line = json.dumps(payload, sort_keys=True, default=_json_serializer)
     with path.open("a", encoding="utf-8") as f:
         f.write(line + "\n")
+
+
+def _shape_genai_block(usage: dict) -> dict | None:
+    """Reshape a flat ``usage`` dict into the OTel-mirroring nested block.
+
+    Stdlib-only mirror of
+    ``ai_engineering.state.observability._shape_genai_block``. Returns
+    ``None`` when the input is malformed (missing required
+    ``input_tokens`` / ``output_tokens``); the caller surfaces a
+    ``framework_error`` with ``error_code = "genai_usage_malformed"``.
+    """
+    input_tokens = usage.get("input_tokens")
+    output_tokens = usage.get("output_tokens")
+    if not isinstance(input_tokens, int) or not isinstance(output_tokens, int):
+        return None
+
+    usage_block: dict = {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+    }
+    total_tokens = usage.get("total_tokens")
+    if isinstance(total_tokens, int):
+        usage_block["total_tokens"] = total_tokens
+    else:
+        usage_block["total_tokens"] = input_tokens + output_tokens
+    cost_usd = usage.get("cost_usd")
+    if isinstance(cost_usd, (int, float)):
+        usage_block["cost_usd"] = cost_usd
+
+    block: dict = {"usage": usage_block}
+    system = usage.get("system")
+    if isinstance(system, str):
+        block["system"] = system
+    model = usage.get("model")
+    if isinstance(model, str):
+        block["request"] = {"model": model}
+    return block
 
 
 def build_framework_event(
@@ -146,18 +268,83 @@ def build_framework_event(
     parent_id: str | None = None,
     correlation_id: str | None = None,
     force_outcome: str | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict | None = None,
 ) -> dict:
-    outcome, missing_fields = _capture_outcome(engine, session_id=session_id, trace_id=trace_id)
+    """Stdlib-only mirror of :func:`ai_engineering.state.observability.build_framework_event`.
+
+    Spec-120 §4.1 additive kwargs:
+
+    * ``span_id`` -- 16-hex; auto-generated via ``new_span_id()`` when
+      omitted.
+    * ``parent_span_id`` -- 16-hex logical parent (``None`` for root).
+    * ``trace_id`` -- 32-hex W3C trace identifier; when omitted *and*
+      ``parent_span_id`` is also omitted, inherits from
+      :func:`_lib.trace_context.current_trace_context` (which fresh-
+      fallbacks to a brand-new trace_id with NULL parent when no
+      context exists).
+    * ``usage`` -- flat dict; reshaped into ``detail.genai`` when
+      well-formed. Malformed payloads are dropped silently and a
+      ``framework_error`` of ``error_code = "genai_usage_malformed"`` is
+      emitted best-effort.
+
+    Degraded-host outcome capture runs against the **original**
+    pre-auto-fill ``trace_id`` so codex / similar still surface a
+    missing host trace in ``missing_fields``.
+    """
+    canonical_engine = _normalize_engine_id(engine)
+    # Capture degraded-host outcome BEFORE auto-fill so codex / similar
+    # hosts that omit a session/trace from their payload remain flagged.
+    outcome, missing_fields = _capture_outcome(
+        canonical_engine,
+        session_id=session_id,
+        trace_id=trace_id,
+    )
     payload = dict(detail or {})
     if missing_fields:
         payload["degraded_reason"] = "missing-host-metadata"
         payload["missing_fields"] = missing_fields
 
+    # Spec-120 §4.1 trace-context auto-fill via the stdlib-only mirror.
+    # Lazy import keeps the module-load cost flat for hooks that never
+    # touch trace context.
+    from . import trace_context as _tc
+
+    resolved_span_id = span_id or _tc.new_span_id()
+    resolved_trace_id = trace_id
+    resolved_parent_span_id = parent_span_id
+    if trace_id is None and parent_span_id is None:
+        resolved_trace_id, resolved_parent_span_id = _tc.current_trace_context(project_root)
+
+    # Spec-120 §4.1 OTel `genai` block. Malformed `usage` is best-effort:
+    # surface a `framework_error` and skip the block, but still build
+    # the original event so the caller's flow is not derailed.
+    if usage is not None:
+        if isinstance(usage, dict):
+            shaped = _shape_genai_block(usage)
+            if shaped is not None:
+                payload["genai"] = shaped
+            else:
+                _emit_genai_usage_malformed(
+                    project_root,
+                    engine=canonical_engine,
+                    component=component,
+                    summary="missing input_tokens / output_tokens",
+                )
+        else:
+            _emit_genai_usage_malformed(
+                project_root,
+                engine=canonical_engine,
+                component=component,
+                summary=f"usage must be a dict, got {type(usage).__name__}",
+            )
+
     entry: dict = {
         "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
         "timestamp": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "project": project_root.name,
-        "engine": engine,
+        "engine": canonical_engine,
         "kind": kind,
         "outcome": force_outcome or outcome,
         "component": component,
@@ -168,11 +355,42 @@ def build_framework_event(
         entry["source"] = source
     if session_id is not None:
         entry["sessionId"] = session_id
-    if trace_id is not None:
-        entry["traceId"] = trace_id
+    if resolved_trace_id is not None:
+        entry["traceId"] = resolved_trace_id
     if parent_id is not None:
         entry["parentId"] = parent_id
+    # Spec-120 §4.1: spanId is auto-filled (always present); parentSpanId
+    # may legitimately be None (root span) and is omitted in that case
+    # to match the pkg-side `exclude_none=True` model_dump semantics.
+    entry["spanId"] = resolved_span_id
+    if resolved_parent_span_id is not None:
+        entry["parentSpanId"] = resolved_parent_span_id
     return entry
+
+
+def _emit_genai_usage_malformed(
+    project_root: Path,
+    *,
+    engine: str,
+    component: str,
+    summary: str,
+) -> None:
+    """Best-effort framework_error emission for malformed `usage` payloads.
+
+    Mirrors the pkg-side helper; defensive shield around the actual
+    emit so a malformed-usage report never compounds into a hard crash
+    on the caller's flow.
+    """
+    import contextlib
+
+    with contextlib.suppress(Exception):  # defensive shield
+        emit_framework_error(
+            project_root,
+            engine=engine,
+            component=component,
+            error_code="genai_usage_malformed",
+            summary=summary,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +409,17 @@ def emit_skill_invoked(
     trace_id: str | None = None,
     correlation_id: str | None = None,
     metadata: dict | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict | None = None,
 ) -> dict:
+    """Stdlib-only mirror of the pkg-side ``emit_skill_invoked``.
+
+    Spec-120 §4.1 additive kwargs (``span_id`` / ``parent_span_id`` /
+    ``usage``) forward as-is to :func:`build_framework_event`; existing
+    positional/keyword arguments stay unchanged so legacy hook call
+    sites continue to work.
+    """
     detail: dict = {"skill": _normalize_skill_name(skill_name)}
     if metadata:
         detail.update(metadata)
@@ -205,6 +433,9 @@ def emit_skill_invoked(
         trace_id=trace_id,
         correlation_id=correlation_id,
         detail=detail,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        usage=usage,
     )
     append_framework_event(project_root, entry)
     return entry
@@ -221,7 +452,17 @@ def emit_agent_dispatched(
     trace_id: str | None = None,
     correlation_id: str | None = None,
     metadata: dict | None = None,
+    span_id: str | None = None,
+    parent_span_id: str | None = None,
+    usage: dict | None = None,
 ) -> dict:
+    """Stdlib-only mirror of the pkg-side ``emit_agent_dispatched``.
+
+    Spec-120 §4.1 additive kwargs (``span_id`` / ``parent_span_id`` /
+    ``usage``) forward as-is to :func:`build_framework_event`; existing
+    positional/keyword arguments stay unchanged so legacy hook call
+    sites continue to work.
+    """
     detail: dict = {"agent": _normalize_agent_name(agent_name)}
     if metadata:
         detail.update(metadata)
@@ -235,6 +476,9 @@ def emit_agent_dispatched(
         trace_id=trace_id,
         correlation_id=correlation_id,
         detail=detail,
+        span_id=span_id,
+        parent_span_id=parent_span_id,
+        usage=usage,
     )
     append_framework_event(project_root, entry)
     return entry
@@ -302,10 +546,11 @@ def emit_declared_context_loads(
     root = project_root / ".ai-engineering"
     events: list[dict] = []
 
+    constitution_path = _resolve_constitution_context_path(project_root)
+
     fixed_contexts = (
-        ("constitution", "constitution", root / "CONSTITUTION.md"),
-        ("spec", "spec", root / "specs" / "spec.md"),
-        ("plan", "plan", root / "specs" / "plan.md"),
+        ("constitution", "constitution", constitution_path),
+        *_declared_work_plane_contexts(project_root),
         ("decision-store", "decision-store", root / "state" / "decision-store.json"),
     )
     for ctx_class, ctx_name, ctx_path in fixed_contexts:
@@ -473,3 +718,295 @@ def emit_framework_operation(
     )
     append_framework_event(project_root, entry)
     return entry
+
+
+def emit_task_trace(
+    project_root: Path,
+    *,
+    task_id: str,
+    lifecycle_phase: str,
+    component: str,
+    artifact_refs: tuple[str, ...] | list[str] | None = None,
+    engine: str = "ai_engineering",
+    source: str | None = None,
+    session_id: str | None = None,
+    trace_id: str | None = None,
+    parent_id: str | None = None,
+    correlation_id: str | None = None,
+) -> dict:
+    normalized_task_id = task_id.strip()
+    normalized_phase = lifecycle_phase.strip()
+    if not normalized_task_id:
+        msg = "task_trace requires a non-empty task_id"
+        raise ValueError(msg)
+    if not normalized_phase:
+        msg = "task_trace requires a non-empty lifecycle_phase"
+        raise ValueError(msg)
+
+    entry = build_framework_event(
+        project_root,
+        engine=engine,
+        kind="task_trace",
+        component=component,
+        source=source,
+        session_id=session_id,
+        trace_id=trace_id,
+        parent_id=parent_id,
+        correlation_id=correlation_id,
+        detail={
+            "task_id": normalized_task_id,
+            "lifecycle_phase": normalized_phase,
+            "artifact_refs": _normalize_artifact_refs(artifact_refs),
+        },
+    )
+    append_framework_event(project_root, entry)
+    return entry
+
+
+# ---------------------------------------------------------------------------
+# spec-119 evaluation layer emit helpers (D-119-01)
+# All eight emit_eval_* helpers route through _emit_eval_run, which in turn
+# routes through append_framework_event so the audit hash chain stays intact.
+# ---------------------------------------------------------------------------
+
+
+_EVAL_RUN_OPERATIONS: frozenset[str] = frozenset(
+    {
+        "eval_started",
+        "scenario_executed",
+        "pass_at_k_computed",
+        "hallucination_rate_computed",
+        "regression_detected",
+        "regression_cleared",
+        "eval_gated",
+        "baseline_updated",
+    }
+)
+
+
+def _emit_eval_run(
+    project_root: Path,
+    *,
+    operation: str,
+    component: str,
+    outcome: str = "success",
+    source: str | None = None,
+    correlation_id: str | None = None,
+    detail_extras: dict | None = None,
+) -> dict:
+    if operation not in _EVAL_RUN_OPERATIONS:
+        msg = f"eval_run operation must be one of {sorted(_EVAL_RUN_OPERATIONS)}; got {operation!r}"
+        raise ValueError(msg)
+    detail: dict = {"operation": operation}
+    if detail_extras:
+        detail.update(detail_extras)
+    entry = build_framework_event(
+        project_root,
+        engine="ai_engineering",
+        kind="eval_run",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        force_outcome=outcome,
+        detail=detail,
+    )
+    append_framework_event(project_root, entry)
+    return entry
+
+
+def emit_eval_started(
+    project_root: Path,
+    *,
+    component: str,
+    scenario_pack: str,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="eval_started",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={"scenario_pack": scenario_pack},
+    )
+
+
+def emit_scenario_executed(
+    project_root: Path,
+    *,
+    component: str,
+    scenario_id: str,
+    trial_id: int,
+    pass_: bool,
+    duration_ms: float | None = None,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    extras: dict = {
+        "scenario_id": scenario_id,
+        "trial_id": int(trial_id),
+        "pass": bool(pass_),
+    }
+    if duration_ms is not None:
+        extras["duration_ms"] = float(duration_ms)
+    return _emit_eval_run(
+        project_root,
+        operation="scenario_executed",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras=extras,
+    )
+
+
+def emit_pass_at_k_computed(
+    project_root: Path,
+    *,
+    component: str,
+    k: int,
+    pass_count: int,
+    total: int,
+    score: float,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="pass_at_k_computed",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={
+            "k": int(k),
+            "pass_count": int(pass_count),
+            "total": int(total),
+            "score": float(score),
+        },
+    )
+
+
+def emit_hallucination_rate_computed(
+    project_root: Path,
+    *,
+    component: str,
+    rate: float,
+    total_assertions: int,
+    failed_assertions: int,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="hallucination_rate_computed",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={
+            "rate": float(rate),
+            "total_assertions": int(total_assertions),
+            "failed_assertions": int(failed_assertions),
+        },
+    )
+
+
+def emit_regression_detected(
+    project_root: Path,
+    *,
+    component: str,
+    delta: float,
+    threshold: float,
+    tolerance: float,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="regression_detected",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        outcome="failure",
+        detail_extras={
+            "delta": float(delta),
+            "threshold": float(threshold),
+            "tolerance": float(tolerance),
+        },
+    )
+
+
+def emit_regression_cleared(
+    project_root: Path,
+    *,
+    component: str,
+    delta: float,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="regression_cleared",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={"delta": float(delta)},
+    )
+
+
+def emit_eval_gated(
+    project_root: Path,
+    *,
+    component: str,
+    verdict: str,
+    regression_delta_vs_baseline: float | None = None,
+    failed_scenarios: tuple[str, ...] | list[str] | None = None,
+    reason: str | None = None,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    allowed_verdicts = {"GO", "CONDITIONAL", "NO_GO", "SKIPPED"}
+    if verdict not in allowed_verdicts:
+        msg = f"eval_gated verdict must be one of {sorted(allowed_verdicts)}; got {verdict!r}"
+        raise ValueError(msg)
+    extras: dict = {"verdict": verdict}
+    if regression_delta_vs_baseline is not None:
+        extras["regression_delta_vs_baseline"] = float(regression_delta_vs_baseline)
+    if failed_scenarios:
+        extras["failed_scenarios"] = list(failed_scenarios)
+    if reason:
+        extras["reason"] = reason
+    # NO_GO and SKIPPED are non-success outcomes for downstream consumers.
+    outcome = "failure" if verdict == "NO_GO" else "success"
+    if verdict == "SKIPPED":
+        outcome = "degraded"
+    return _emit_eval_run(
+        project_root,
+        operation="eval_gated",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        outcome=outcome,
+        detail_extras=extras,
+    )
+
+
+def emit_baseline_updated(
+    project_root: Path,
+    *,
+    component: str,
+    prev_pass_at_k: float,
+    new_pass_at_k: float,
+    correlation_id: str | None = None,
+    source: str | None = None,
+) -> dict:
+    return _emit_eval_run(
+        project_root,
+        operation="baseline_updated",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail_extras={
+            "prev_pass_at_k": float(prev_pass_at_k),
+            "new_pass_at_k": float(new_pass_at_k),
+        },
+    )

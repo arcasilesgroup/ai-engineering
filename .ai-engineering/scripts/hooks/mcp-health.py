@@ -598,4 +598,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.mcp-health", hook_kind="pre-tool-use")
+    run_hook_safe(main, component="hook.mcp-health", hook_kind="pre-tool-use", script_path=__file__)

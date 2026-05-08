@@ -1,6 +1,6 @@
 # Spec Schema
 
-Contract for `specs/spec.md` files produced by `/ai-brainstorm` and consumed by `/ai-plan`.
+Contract for `.ai-engineering/specs/spec.md` files produced by `/ai-brainstorm` and consumed by `/ai-plan`.
 
 ## Required Frontmatter
 

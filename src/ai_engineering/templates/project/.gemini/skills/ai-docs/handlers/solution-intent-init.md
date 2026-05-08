@@ -21,7 +21,7 @@ Gather data from REAL project state -- never from old documentation:
 |--------|----------------|
 | `pyproject.toml` | Name, version, description, license, Python version, dependencies |
 | `.ai-engineering/manifest.yml` | Skills count, agents, stacks, providers, IDEs, quality gates, tooling, ownership |
-| `.ai-engineering/state/decision-store.json` | Active decisions, risk acceptances |
+| `.ai-engineering/state/state.db.decisions` | Active decisions, risk acceptances |
 | `.ai-engineering/specs/spec.md` | Current spec, status |
 | `.ai-engineering/contexts/` | Available language/framework/team contexts |
 | `.ai-engineering/runbooks/` | Available operational runbooks |
@@ -82,7 +82,7 @@ Each section MUST have at least one Mermaid diagram or table. If data is not ava
 - 7.1 Roadmap (table: phase, description, status)
 - 7.2 Active Epics / Features (table: epic, description, priority, status, target)
 - 7.3 KPIs (table: metric, target, current)
-- 7.4 Active Spec (pointer to `specs/spec.md`)
+- 7.4 Active Spec (pointer to `.ai-engineering/specs/spec.md`)
 - 7.5 Blockers and Risks (table: ID, description, severity, owner, expiry)
 
 ### 4. Write

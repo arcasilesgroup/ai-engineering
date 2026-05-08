@@ -109,14 +109,14 @@ def _place_codex_files(root: Path) -> list[Path]:
 
 @pytest.fixture()
 def claude_codex_project(tmp_path: Path) -> Path:
-    """Install a project with ``claude_code`` and ``codex``, then
-    reconfigure to ``claude_code`` only -- leaving .codex/ files as orphans.
+    """Install a project with ``claude-code`` and ``codex``, then
+    reconfigure to ``claude-code`` only -- leaving .codex/ files as orphans.
     """
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code", "codex"])
-    # Shrink enabled providers in the manifest to only claude_code.
-    update_manifest_field(tmp_path, "ai_providers.enabled", ["claude_code"])
-    update_manifest_field(tmp_path, "ai_providers.primary", "claude_code")
+    install(tmp_path, ai_providers=["claude-code", "codex"])
+    # Shrink enabled providers in the manifest to only claude-code.
+    update_manifest_field(tmp_path, "ai_providers.enabled", ["claude-code"])
+    update_manifest_field(tmp_path, "ai_providers.primary", "claude-code")
     # Ensure .codex/ files exist on disk (some may have been installed,
     # but place extras to guarantee orphan detection has files to find).
     _place_codex_files(tmp_path)
@@ -125,17 +125,17 @@ def claude_codex_project(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def claude_gemini_project(tmp_path: Path) -> Path:
-    """Install a project with ``claude_code`` and ``gemini``."""
+    """Install a project with ``claude-code`` and ``gemini``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code", "gemini"])
+    install(tmp_path, ai_providers=["claude-code", "gemini"])
     return tmp_path
 
 
 @pytest.fixture()
 def claude_only_project(tmp_path: Path) -> Path:
-    """Install a project with only ``claude_code``."""
+    """Install a project with only ``claude-code``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude_code"])
+    install(tmp_path, ai_providers=["claude-code"])
     return tmp_path
 
 
@@ -241,7 +241,7 @@ class TestSharedFileOrphanRules:
         self,
         claude_gemini_project: Path,
     ) -> None:
-        """T8: With [claude_code, gemini] active and codex disabled,
+        """T8: With [claude-code, gemini] active and codex disabled,
         AGENTS.md must NOT appear as an orphan because gemini still uses it.
         """
         # Ensure AGENTS.md exists on disk (gemini install should create it).
@@ -260,7 +260,7 @@ class TestSharedFileOrphanRules:
         self,
         claude_only_project: Path,
     ) -> None:
-        """T9: With only [claude_code] active (no copilot, gemini, codex),
+        """T9: With only [claude-code] active (no copilot, gemini, codex),
         AGENTS.md must appear as an orphan because no active provider uses it.
         """
         # Place AGENTS.md on disk manually (it should not have been installed
