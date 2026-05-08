@@ -1,8 +1,8 @@
 ---
 name: ai-mcp-sentinel
-description: "On-demand MCP/skill security audit using LLM coherence analysis. Use for: skill installation review, post-update rug-pull detection, baseline-vs-current diff. Cold-path LLM (NOT runtime); for runtime protection see prompt-injection-guard hook (Capa 1)."
+description: "Audits MCP servers and skills on demand using LLM coherence analysis to catch capability drift and rug-pulls. Trigger for 'audit this skill', 'is this MCP safe', 'check coherence', 'detect rug-pull', 'snapshot baseline'. Three modes: scan (declared-vs-observed), audit-update (post-update diff), baseline set (anchor known-good). Not for runtime payload inspection; use prompt-injection-guard hook instead. Not for CVE scanning; use /ai-security instead."
 effort: high
-argument-hint: "scan|audit-update <skill>|baseline set [--target <skill-or-all>]"
+argument-hint: "scan|audit-update [skill]|baseline set [--target skill-or-all]"
 mode: agent
 tags: [security, mcp, audit, sentinel, governance]
 mirror_family: copilot-skills
@@ -13,6 +13,17 @@ edit_policy: generated-do-not-edit
 
 
 # MCP Sentinel — On-Demand Skill & MCP Server Security Audit
+
+## Quick start
+
+```
+/ai-mcp-sentinel scan                          # coherence analysis (all surfaces)
+/ai-mcp-sentinel scan --target <skill-name>    # scoped scan (cost-saving)
+/ai-mcp-sentinel audit-update <skill-name>     # rug-pull detection vs baseline
+/ai-mcp-sentinel baseline set --target all     # anchor known-good snapshot
+```
+
+## Workflow
 
 Cold-path LLM-driven security audit (spec-107 D-107-08). Three modes:
 
@@ -82,6 +93,28 @@ Anchors snapshot to `.ai-engineering/state/sentinel-baseline.json`. Per skill: S
 - `.ai-engineering/state/sentinel-baseline.json` — trusted snapshot (Mode 3 writes; Mode 2 reads).
 - `.ai-engineering/state/sentinel-scan-report.json` — most recent Mode 1 output.
 - `.ai-engineering/state/state.db.decisions` — risk-acceptance entries for accepted ROJO verdicts (`sentinel-coherence-<skill>` finding-id, spec-105 lifecycle).
+
+## Examples
+
+### Example 1 — coherence scan after installing a new skill
+
+User: "I just installed a new skill from a third-party repo, audit it"
+
+```
+/ai-mcp-sentinel scan --target ai-foo-bar
+```
+
+Runs LLM coherence analysis comparing the declared `description` against actual handler code. Emits VERDE / ROJO verdict per surface; ROJO triggers risk-acceptance flow.
+
+### Example 2 — rug-pull detection after auto-update
+
+User: "did the latest update to ai-skill-x silently change capabilities?"
+
+```
+/ai-mcp-sentinel audit-update ai-skill-x
+```
+
+Diffs the current files against the trusted baseline. Reports new network calls, file accesses, env reads, or capability claims with severity HIGH / MEDIUM / LOW.
 
 ## References
 

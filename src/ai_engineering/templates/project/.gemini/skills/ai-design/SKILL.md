@@ -1,6 +1,6 @@
 ---
 name: ai-design
-description: Use when designing or building user interfaces, creating design systems, choosing aesthetic direction, defining color palettes, typography, spatial composition, or structuring text-based information architecture for web, mobile, CLI, or documentation-heavy experiences. Trigger for 'design this page', 'create a design system', 'what style should we use', 'UI for this feature', 'color palette for', 'typography for', 'diseña la interfaz', 'estilo para', or requests where hierarchy, flow, and presentation are the design problem. Not for animation-specific work (use /ai-animation) or visual art/posters/banners (use /ai-canvas).
+description: "Designs user interfaces and design systems for web, mobile, CLI, and documentation-heavy experiences: aesthetic direction, color palettes, typography, spatial composition, information architecture. Trigger for 'design this page', 'create a design system', 'what style should we use', 'UI for this feature', 'color palette for', 'typography for'. Not for animation; use /ai-animation instead. Not for static visual art (posters, banners); use /ai-canvas instead. Not for slide decks; use /ai-slides instead."
 effort: high
 argument-hint: "[UI or design task description]"
 tags: [design, ui, ux, design-system, aesthetics]
@@ -102,5 +102,27 @@ Before delivering any design work, run `handlers/checklist.md` and verify all it
 - Skipping the differentiation question -- every design must answer what makes it unforgettable
 - Ignoring accessibility as a hard gate (contrast, touch targets, keyboard nav)
 - Treating dark mode as an afterthought instead of designing both themes simultaneously
+
+## Examples
+
+### Example 1 — design system from scratch
+
+User: "create a design system for our internal admin tool"
+
+```
+/ai-design create design system for internal admin tool
+```
+
+Picks aesthetic direction (with rationale), defines color tokens, typography stack, spatial system; runs the pre-delivery checklist before handing off.
+
+### Example 2 — UI for a specific feature
+
+User: "design the empty state for the search results page"
+
+```
+/ai-design empty state for search results page
+```
+
+Specific opinionated decisions: layout, micro-copy, illustration vs icon, accessibility checks, light + dark mode simultaneously.
 
 $ARGUMENTS

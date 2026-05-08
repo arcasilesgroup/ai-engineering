@@ -1,6 +1,6 @@
 ---
 name: ai-autopilot
-description: Use after /ai-brainstorm approval when a spec is large (3+ independent concerns or 10+ files) and needs autonomous end-to-end delivery. Decomposes into sub-specs, plans with parallel agents, builds a dependency DAG, implements in waves, runs quality convergence loops, and delivers via PR. Invocation is the approval gate — no further confirmation requested. Not for small tasks — use /ai-dispatch.
+description: "Delivers large multi-concern specs autonomously: decomposes into sub-specs, deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs quality convergence loops (verify+guard+review), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-dispatch instead. Not for ambiguous requirements; use /ai-brainstorm first."
 effort: max
 argument-hint: "'implement spec-NNN'|--resume|--no-watch"
 tags: [orchestration, autonomous, multi-spec, pipeline, execution, dag, transparency]
@@ -118,11 +118,30 @@ Events emitted at each phase transition via hook system: `autopilot.started`, `a
 
 Do not run on draft or under-scoped specs, cross repositories, carry context between sub-specs, hand-edit mirrors, or keep patching after the quality loop says escalate.
 
+## Examples
+
+### Example 1 — autonomous end-to-end delivery
+
+User: "implement spec-127 end to end"
+
+```
+/ai-autopilot "implement spec-127"
+```
+
+Phase 1 decompose into sub-specs, Phase 2 deep-plan in parallel, Phase 3 build DAG, Phase 4 implement in waves, Phase 5 quality loop (verify+guard+review max 3 rounds), Phase 6 deliver via PR.
+
+### Example 2 — resume after interruption
+
+User: "resume the autopilot run that crashed yesterday"
+
+```
+/ai-autopilot --resume
+```
+
+Reads the manifest, identifies the last completed phase, re-enters at the correct state without re-doing finished work.
+
 ## Integration
 
-- **Called by**: user directly (after `/ai-brainstorm` approval)
-- **Reads**: `.codex/skills/_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`
-- **Delegates to**: explore agent (research), build agent (implementation), verify agent (gates), guard agent (governance advisory), review agent (code review)
-- **Transitions to**: `/ai-cleanup` after merge, or back to user on failure
+Called by: user directly post-`/ai-brainstorm` approval. Reads: `_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`. Delegates to: `ai-explore`, `ai-build`, `ai-verify`, `ai-guard`, `ai-review` agents. Transitions to: `/ai-cleanup`. See also: `/ai-dispatch` (smaller scope), `/ai-run` (backlog).
 
 $ARGUMENTS

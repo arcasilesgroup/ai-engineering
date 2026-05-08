@@ -1,6 +1,6 @@
 ---
 name: ai-animation
-description: Use when adding motion, transitions, or micro-interactions to UI components. Trigger for 'animate this', 'add transitions', 'micro-interactions for', 'spring animation', 'gesture design', 'swipe to dismiss', 'review the motion', 'easing for this', 'stagger animation', 'stagger the', 'animar esto', 'transicion para'. Not for design systems or aesthetic direction (use /ai-design), visual art (use /ai-canvas), testing animation code (use /ai-test), or debugging broken animations (use /ai-debug).
+description: "Designs motion, transitions, and micro-interactions for UI components: spring animations, gestures, easing, staggers — taste-driven detail compounding. Trigger for 'animate this', 'add transitions', 'micro-interactions for', 'gesture design', 'swipe to dismiss', 'easing for this', 'stagger the'. Not for design systems; use /ai-design instead. Not for visual art; use /ai-canvas instead. Not for testing animation code; use /ai-test instead."
 effort: high
 argument-hint: "[component or interaction to animate]"
 tags: [animation, motion, transitions, micro-interactions, css]
@@ -48,45 +48,27 @@ Core philosophy: animation is about feel, not decoration. Full design philosophy
 
 ### 1. Should this animate at all?
 
-Ask: How often will users see this animation?
-
 | Frequency | Decision |
 | --- | --- |
-| 100+ times/day (keyboard shortcuts, command palette) | No animation. Ever. |
-| Tens of times/day (hover effects, navigation) | Remove or drastically reduce |
+| 100+ times/day (keyboard shortcuts) | No animation. Ever. |
+| Tens of times/day (hover, navigation) | Drastically reduce |
 | Occasional (modals, drawers, toasts) | Standard animation |
-| Rare/first-time (onboarding, feedback, celebrations) | Can add delight |
+| Rare (onboarding, celebrations) | Can add delight |
 
-**Never animate keyboard-initiated actions.** These repeat hundreds of times daily. Animation makes them feel slow, delayed, and disconnected from user intent.
-
-Raycast has no open/close animation. That's optimal for something used hundreds of times daily.
+**Never animate keyboard-initiated actions.** Raycast has no open/close animation; that's optimal for something used hundreds of times daily.
 
 ### 2. What is the purpose?
 
-Every animation needs a clear answer: "Why does this animate?"
-
-Valid purposes:
-- **Spatial consistency:** toast enters/exits from same direction; swipe-to-dismiss feels intuitive
-- **State indication:** morphing feedback button shows state change
-- **Explanation:** marketing animation demonstrates feature function
-- **Feedback:** button scales down on press, confirming the interface heard the user
-- **Preventing jarring changes:** elements appearing/disappearing without transition feel broken
-
-If the purpose is just "it looks cool" and users see it often, don't animate.
+Valid: spatial consistency, state indication, explanation, feedback, preventing jarring changes. If the purpose is just "looks cool" and users see it often, don't animate.
 
 ### 3. What easing should it use?
 
-Decision tree:
-
-Is the element entering or exiting?
-- **Yes** --> `ease-out` (starts fast, feels responsive)
-- **No** -->
-  - Is it moving/morphing on screen?
-    - **Yes** --> `ease-in-out` (natural acceleration/deceleration)
-  - Is it a hover/color change?
-    - **Yes** --> `ease`
-  - Is it constant motion (marquee, progress bar)?
-    - **Yes** --> `linear`
+| Element behavior | Easing |
+| --- | --- |
+| Entering or exiting | `ease-out` (responsive) |
+| Moving/morphing on screen | `ease-in-out` |
+| Hover/color change | `ease` |
+| Constant motion (marquee, progress) | `linear` |
   - Default --> `ease-out`
 
 **Critical:** Use custom easing curves. Built-in CSS easings lack punch and feel weak.
@@ -120,37 +102,26 @@ Is the element entering or exiting?
 
 ## Review Format (Required)
 
-When reviewing animation code, use a markdown table with Before/After/Why columns. Never use separate "Before:" and "After:" lines:
+When reviewing animation code, use a markdown table with Before/After/Why columns (never separate "Before:" / "After:" lines):
 
 | Before | After | Why |
 | --- | --- | --- |
-| `transition: all 300ms` | `transition: transform 200ms ease-out` | Specify exact properties; avoid `all` |
-| `transform: scale(0)` | `transform: scale(0.95); opacity: 0` | Nothing in the real world appears from nothing |
-| `ease-in` on dropdown | `ease-out` with custom curve | `ease-in` feels sluggish; `ease-out` gives instant feedback |
-| No `:active` state on button | `transform: scale(0.97)` on `:active` | Buttons must feel responsive to press |
-| `transform-origin: center` on popover | `transform-origin: var(--radix-popover-content-transform-origin)` | Popovers should scale from their trigger (not modals -- modals stay centered) |
-
-Never use this format:
-```
-Before: transition: all 300ms
-After: transition: transform 200ms ease-out
-```
+| `transition: all 300ms` | `transition: transform 200ms ease-out` | Specify properties; avoid `all` |
+| `scale(0)` | `scale(0.95); opacity: 0` | Nothing in the real world appears from nothing |
+| `ease-in` on dropdown | `ease-out` w/ custom curve | `ease-in` feels sluggish |
+| No `:active` on button | `transform: scale(0.97)` on `:active` | Buttons must feel responsive |
+| `transform-origin: center` on popover | Bind to trigger CSS var | Popovers scale from trigger (modals stay centered) |
 
 ## Review Checklist
 
 | Issue | Fix |
 | --- | --- |
-| `transition: all` | Specify exact properties: `transition: transform 200ms ease-out` |
-| `scale(0)` entry animation | Start from `scale(0.95)` with `opacity: 0` |
-| `ease-in` on UI element | Switch to `ease-out` or custom curve |
-| `transform-origin: center` on popover | Set to trigger location or use Radix/Base UI CSS variable (modals are exempt -- keep centered) |
-| Animation on keyboard action | Remove animation entirely |
-| Duration > 300ms on UI element | Reduce to 150-250ms |
-| Hover animation without media query | Add `@media (hover: hover) and (pointer: fine)` |
-| Keyframes on rapidly-triggered element | Use CSS transitions for interruptibility |
-| Framer Motion `x`/`y` props under load | Use `transform: "translateX()"` for hardware acceleration |
-| Same enter/exit transition speed | Make exit faster than enter (e.g., enter 2s, exit 200ms) |
-| Elements all appear at once | Add stagger delay (30-80ms between items) |
+| `transition: all` / `scale(0)` entry / `ease-in` on UI | Specify properties; start `scale(0.95)`; switch to `ease-out` |
+| `transform-origin: center` on popover | Set to trigger location (modals exempt) |
+| Animation on keyboard action / duration > 300ms | Remove; or reduce to 150-250ms |
+| Hover without media query / keyframes on rapid element | `@media (hover: hover)`; switch to CSS transitions |
+| Framer Motion `x`/`y` under load / same enter+exit speed | Use `transform: "translateX()"`; exit faster than enter |
+| Elements appear at once | Stagger 30-80ms between items |
 
 ## Accessibility
 
@@ -183,51 +154,46 @@ Touch devices trigger hover on tap, causing false positives. Gate hover animatio
 
 ## Stagger Animations
 
-When multiple elements enter together, stagger their appearance. Each element animates in with small delay after previous one.
+When multiple elements enter together, stagger 30-80ms between items. Long delays make interface feel slow. Decorative — never block interaction.
 
 ```css
-.item {
-  opacity: 0;
-  transform: translateY(8px);
-  animation: fadeIn 300ms ease-out forwards;
-}
-
+.item { opacity: 0; transform: translateY(8px); animation: fadeIn 300ms ease-out forwards; }
 .item:nth-child(1) { animation-delay: 0ms; }
 .item:nth-child(2) { animation-delay: 50ms; }
 .item:nth-child(3) { animation-delay: 100ms; }
-.item:nth-child(4) { animation-delay: 150ms; }
-
-@keyframes fadeIn {
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+@keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
 ```
-
-Keep stagger delays short (30-80ms between items). Long delays make interface feel slow. Stagger is decorative--never block interaction while stagger animations are playing.
 
 ## Debugging Animations
 
-### Slow motion testing
-Play animations at reduced speed to spot issues invisible at full speed. Temporarily increase duration to 2-5x normal, or use browser DevTools animation inspector to slow playback.
+- **Slow motion**: temporarily 2-5x duration, watch for color overlap, abrupt easing, wrong transform-origin, out-of-sync properties.
+- **Frame-by-frame**: Chrome DevTools Animations panel for timing between coordinated properties.
+- **Real devices**: gesture testing requires physical hardware (USB + Safari remote devtools); simulators miss touch latency.
 
-Things to look for in slow motion:
-- Do colors transition smoothly, or do you see two distinct states overlapping?
-- Does easing feel right, or does it start/stop abruptly?
-- Is transform-origin correct, or does element scale from wrong point?
-- Are multiple animated properties (opacity, transform, color) in sync?
+## Examples
 
-### Frame-by-frame inspection
-Step through animations frame by frame in Chrome DevTools (Animations panel). This reveals timing issues between coordinated properties you cannot see at full speed.
+### Example 1 — micro-interaction for a save button
 
-### Test on real devices
-For touch interactions (drawers, swipe gestures), test on physical devices. Connect phone via USB, visit local dev server by IP address, and use Safari's remote devtools. Xcode Simulator is alternative but real hardware is better for gesture testing.
+User: "animate the save button to feel responsive"
+
+```
+/ai-animation save button
+```
+
+Picks easing (cubic-bezier), duration (150-200ms), state choreography (idle → loading → success), hands off CSS/JSX with `prefers-reduced-motion` gate.
+
+### Example 2 — swipe-to-dismiss gesture
+
+User: "design the swipe-to-dismiss interaction for the toast component"
+
+```
+/ai-animation swipe-to-dismiss for toast component
+```
+
+Spring config, threshold velocity, horizontal-only constraint, accessibility fallback, real-device test plan.
 
 ## Integration
 
-- **Called by**: user directly, `/ai-design` (when motion is needed).
-- **Consumed by**: ai-slides (transitions), ai-code (frontend micro-interactions).
-- **Transitions to**: implementation via `/ai-code` or `/ai-dispatch` — hand off animation specifications (easing curves, durations, CSS/JS code).
+Called by: user directly, `/ai-design` (motion direction), `/ai-slides` (transitions), `/ai-code` (frontend micro-interactions). Hands off: CSS/JSX specs to `/ai-code` or `/ai-dispatch`. See also: `/ai-design`, `/ai-test` (animation code), `/ai-debug` (broken motion).
 
 $ARGUMENTS

@@ -1,6 +1,6 @@
 ---
 name: ai-security
-description: "Use for any security concern: pre-release security gates, dependency vulnerability checks ('is this package safe?'), secret or credential exposure, SBOM generation for compliance, SAST with OWASP/CWE mapping. Trigger for 'is this secure?', 'audit dependencies', 'check for secrets', 'security report', 'compliance review'. Also before merging large PRs or adding external packages."
+description: "Runs security gates: SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, SBOM generation for compliance, pre-release security verdict. Trigger for 'is this secure', 'audit dependencies', 'check for secrets', 'security report', 'is this package safe', 'compliance review'. Not for governance process; use /ai-governance instead. Not for runtime payload inspection; use prompt-injection-guard hook instead."
 effort: max
 argument-hint: "all|static|deps|secrets|sbom|--fix"
 tags: [security, sast, dependencies, sbom, owasp, enterprise]
@@ -15,6 +15,16 @@ requires:
 
 
 # Security Scanning
+
+## Quick start
+
+```
+/ai-security all       # full sweep (static + deps + secrets + sbom)
+/ai-security deps      # dependency audit only
+/ai-security secrets   # gitleaks scan
+/ai-security sbom      # CycloneDX SBOM for compliance
+/ai-security --fix     # auto-remediate where safe
+```
 
 Unified security assessment for regulated industries. Modes: `static` (SAST with semgrep), `deps` (pip-audit/npm audit), `secrets` (gitleaks), `sbom` (CycloneDX). Zero tolerance for medium+ findings. Each finding includes severity, location, fix suggestion, and CWE reference.
 
@@ -118,17 +128,35 @@ When `--fix` is passed, attempt automatic remediation:
 - Ignoring transitive dependency vulns -- they are still exploitable.
 - Running `gitleaks detect` on the full repo for pre-commit -- use `gitleaks protect --staged`.
 
+## Examples
+
+### Example 1 — pre-merge security sweep
+
+User: "is this PR secure to merge?"
+
+```
+/ai-security all
+```
+
+Runs SAST + deps + secrets + (optional) SBOM, scores against the gate, emits PASS / WARN / FAIL with fix hints per finding.
+
+### Example 2 — dependency audit before adding a new package
+
+User: "is this new npm package safe?"
+
+```
+/ai-security deps
+```
+
+Runs pip-audit / npm audit / cargo-audit per stack, flags CVEs with severity + remediation.
+
 ## Integration
 
-- **Called by**: `/ai-verify` (security mode delegation)
-
-- Pre-commit hook runs `gitleaks protect --staged` automatically.
-- Pre-push hook runs `semgrep` and `pip-audit`.
-- Release gate (`/ai-release-gate`) aggregates security results.
-- Risk acceptances go to `state.db.decisions` via `/ai-governance risk` (or `ai-eng risk accept`).
+Called by: `/ai-verify` (security mode delegation), `/ai-release-gate` (aggregates results), pre-commit hooks (gitleaks protect --staged), pre-push hooks (semgrep, pip-audit). Risk acceptances go to: `state.db.decisions` via `/ai-governance risk`. See also: `/ai-governance`, `/ai-mcp-sentinel` (skill behavior), `/ai-pipeline` (CI security).
 
 ## References
 
 - `.ai-engineering/contexts/frameworks/` -- security and OWASP control mapping.
 - `.ai-engineering/manifest.yml` -- non-negotiables and gate thresholds.
+
 $ARGUMENTS

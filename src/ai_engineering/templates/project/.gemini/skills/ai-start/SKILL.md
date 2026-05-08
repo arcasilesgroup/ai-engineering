@@ -1,6 +1,6 @@
 ---
 name: ai-start
-description: Use at the start of every coding session to load project context, activate instinct observation, and display a welcome dashboard with recent activity, active work status, board items, and available commands. Trigger for 'hello', 'let's start', 'good morning', 'what's the status', 'get me up to speed', 'I'm back', or any session-opening message. Also invokable mid-session to re-bootstrap. Not for human onboarding — use /ai-guide for that.
+description: "Bootstraps a coding session: loads project context, activates instinct observation, displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-guide instead. Not for governance review; use /ai-governance instead."
 effort: medium
 argument-hint: 
 mirror_family: gemini-skills
@@ -116,8 +116,28 @@ If API call fails: show `board unavailable` and continue. Never block the dashbo
 | Proposals (if any) | 3 |
 | **Total** | **≤ 50** |
 
+## Examples
+
+### Example 1 — morning bootstrap
+
+User: "good morning, where did I leave off?"
+
+```
+/ai-start
+```
+
+Loads context, activates instinct, prints the dashboard: recent activity, active spec, board status, suggested next command.
+
+### Example 2 — mid-session re-bootstrap after `/clear`
+
+User: "I cleared context — get me back up to speed"
+
+```
+/ai-start
+```
+
+Re-loads project context without rebuilding the conversation; shorter dashboard since recent activity is limited to commits since last bootstrap.
+
 ## Integration
 
-- **Called by**: user directly, IDE instruction files (FIRST ACTION mandate)
-- **Calls**: `/ai-instinct` (observation mode)
-- **Suggests**: `/ai-board-discover` (board not configured), `/ai-brainstorm` (no active spec)
+Called by: user directly, IDE instruction files (FIRST ACTION mandate). Calls: `/ai-instinct` (observation mode). Suggests: `/ai-board-discover` (board not configured), `/ai-brainstorm` (no active spec). See also: `/ai-guide` (human onboarding), `/ai-cleanup` (pre-start hygiene).

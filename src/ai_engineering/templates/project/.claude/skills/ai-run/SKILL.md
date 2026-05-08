@@ -1,8 +1,8 @@
 ---
 name: ai-run
-description: "Use when a backlog of work items should run autonomously end to end without waiting for human checkpoints after invocation. Trigger for 'run these backlog items', 'execute these GitHub issues', 'process the sprint backlog'. Not for spec-driven multi-concern work — use /ai-autopilot. Supports GitHub Issues, Azure Boards, and local markdown task lists; plans safely, executes through ai-build, converges with review and verify, and delivers via PR."
+description: "Executes a backlog of work items end-to-end without human checkpoints: normalizes items, plans a safe DAG, dispatches /ai-build per packet, converges via review and verify, delivers a PR. Trigger for 'run these backlog items', 'execute these GitHub issues', 'process the sprint backlog', 'work through this markdown task list'. Not for spec-driven multi-concern work; use /ai-autopilot instead. Not for a single approved task graph; use /ai-dispatch instead."
 effort: max
-argument-hint: "github|azure|markdown <source> [--single|--batch] [--resume] [--no-watch]"
+argument-hint: "github|azure|markdown source [--single|--batch] [--resume] [--no-watch]"
 tags: [orchestration, autonomous, backlog, github, azure, delivery]
 ---
 
@@ -86,10 +86,33 @@ Thin orchestrator: `ai-run` does not embed provider/build/review/PR logic. It re
 /ai-run azure "AB#120,AB#121" --no-watch
 ```
 
+## Examples
+
+### Example 1 — execute a GitHub issue backlog
+
+User: "run all open issues with the ready-to-work label, no human checkpoints"
+
+```
+/ai-run github "label:ready-to-work is:open"
+```
+
+Normalizes issues into the run model, performs baseline `ai-explore` of the repo, builds an overlap-aware DAG, dispatches bounded `ai-build` packets per item, runs item + integration gates, delivers via `ai-pr`.
+
+### Example 2 — resume an interrupted markdown run
+
+User: "resume yesterday's run from the manifest"
+
+```
+/ai-run markdown docs/mega-plan.md --resume
+```
+
+Reads `.ai-engineering/runs/<run-id>/manifest.md`, rejoins at the last completed phase, and continues without re-doing finished items.
+
 ## Integration
 
 - **Called by**: user directly when no-HITL backlog execution is desired.
 - **Calls**: `ai-explore`, `ai-build`, `ai-review`, `ai-verify`, `ai-pr`, `ai-board-sync`, `ai-resolve-conflicts`
+- **Dispatches via**: `ai-run-orchestrator` agent (the orchestration coordinator that wraps this skill's per-item kernel)
 - **Reads**: `.claude/skills/_shared/execution-kernel.md`, `references/*` (intake/orchestrate phase contracts)
 - **Writes state to**: `.ai-engineering/runs/<run-id>/`
 - **Transitions to**: merged PR, blocker report, or deferred run state

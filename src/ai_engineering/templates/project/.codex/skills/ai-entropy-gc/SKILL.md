@@ -1,12 +1,9 @@
 ---
 name: ai-entropy-gc
-description: "Scheduled wrapper around /ai-simplify that runs weekly, gates the resulting diff, and opens a draft PR for human review. Trigger for 'weekly entropy sweep', 'scheduled simplification', 'entropy gc'. Hard rule: never auto-merges; always opens a draft PR. Recommended cadence: weekly via /schedule."
-model: sonnet
+description: Sweeps stale code entropy weekly via a scheduled /ai-simplify wrapper, gates the diff, and opens a draft PR for human review. Trigger for 'weekly entropy sweep', 'scheduled simplification', 'entropy garbage collection'. Never auto-merges. Not for in-flight feature work; use /ai-simplify instead. Not for security cleanup; use /ai-security instead.
 effort: medium
-color: teal
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, simplification, entropy, scheduled, autonomous]
-tools: [Bash, Read]
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-entropy-gc/SKILL.md
@@ -88,11 +85,33 @@ Each run emits one of:
 - Running aggressive simplify modes. Conservative only — entropy GC trades surface area for safety.
 - Scheduling more frequently than weekly. Sub-weekly cadence floods reviewers with noisy PRs.
 
+## Examples
+
+### Example 1 — manual weekly run
+
+User: "run the weekly entropy gc on this repo"
+
+```
+/ai-entropy-gc
+```
+
+Invokes `/ai-simplify --conservative`, gates the diff, and opens a draft PR titled `chore(entropy-gc): weekly simplification`.
+
+### Example 2 — dry-run before scheduling
+
+User: "preview what the entropy sweep would touch this week"
+
+```
+/ai-entropy-gc --dry-run
+```
+
+Runs the simplify pass and prints the diff without staging a commit or PR — useful for reviewing scope before enabling a cron entry.
+
 ## Integration
 
-- **Calls**: `/ai-simplify` (conservative mode), `ai-eng gate run`, `/ai-commit`, `/ai-pr --draft`.
-- **Scheduled by**: `/ai-schedule` via the `/schedule weekly /ai-entropy-gc` invocation pattern.
-- **Telemetry**: `framework_operation` events are aggregated by the spec-120 audit index.
+Called by: `/ai-schedule` (weekly cron) or operator manually. Calls: `/ai-simplify` (conservative mode), `/ai-commit`, `/ai-pr --draft`. See also: `/ai-cleanup` (lifecycle sweep), `/ai-skill-evolve` (skill-level improvement).
+
+- Telemetry: `framework_operation` events aggregated by the spec-120 audit index.
 
 ## Scheduled cadence (spec-121)
 

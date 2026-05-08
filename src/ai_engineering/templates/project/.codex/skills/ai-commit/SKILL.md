@@ -1,6 +1,6 @@
 ---
 name: ai-commit
-description: "Use when committing, saving, or pushing code to git. Trigger for 'commit my changes', 'save my work', 'push this to remote', 'stage these files', 'I'm done with this task', 'ship it'. Runs governed pipeline: auto-branch from protected branches, selective staging, ruff format+lint, gitleaks secret scan, documentation gate, conventional commit message, and push. Use /ai-pr instead when a pull request is the goal."
+description: "Runs the governed commit pipeline: auto-branches from protected, stages selectively, formats and lints, scans for secrets, gates docs, composes a conventional message, pushes. Trigger for 'commit my changes', 'save my work', 'push this to remote', 'stage these files', 'ship it'. Not for opening a PR; use /ai-pr instead. Not for branch hygiene; use /ai-cleanup instead."
 effort: medium
 argument-hint: "--force|--only|[message hint]"
 tags: [git, commit, push, hooks, delivery]
@@ -16,6 +16,14 @@ edit_policy: generated-do-not-edit
 
 
 # Commit Workflow
+
+## Quick start
+
+```
+/ai-commit                          # auto-stage, format, lint, scan, commit, push
+/ai-commit --only path/to/file.py   # stage only the named files
+/ai-commit "fix(auth): ..."         # provide a message hint
+```
 
 Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. Honors CLAUDE.md Don't rules (binding).
 
@@ -80,10 +88,30 @@ Execute the full pipeline through Commit. Skip Push.
 
 `/ai-commit` runs the full pipeline; `/ai-commit --only` stops before push; `/ai-commit --force "msg"` skips preview and uses the provided hint.
 
+## Examples
+
+### Example 1 — full happy path
+
+User: "commit and push these changes"
+
+```
+/ai-commit
+```
+
+Auto-branches from `main` if needed, stages, runs ruff format + lint, gitleaks scan, doc gate, composes conventional message, commits, pushes.
+
+### Example 2 — staged subset only, no push
+
+User: "commit only the spec files and don't push yet"
+
+```
+/ai-commit --only .ai-engineering/specs/
+```
+
+Stages only the named paths, runs the pipeline through commit, stops before push.
+
 ## Integration
 
-- **Pre-commit hooks** enforce the same checks; this skill runs them explicitly for visibility.
-- **PR workflow** (`/ai-pr`) calls steps 0-6 before creating the PR.
-- **Spec system** auto-corrects task counters via `ai-eng spec verify --fix` (Wave 1 fixer in step 2).
-- Quality gates and non-negotiables sourced from `.ai-engineering/manifest.yml`; changelog formatting from `.codex/skills/ai-write/SKILL.md`.
-  $ARGUMENTS
+Called by: `/ai-pr` (steps 0-6), user directly. Calls: `git`, `ruff`, `gitleaks`, `ai-eng spec verify --fix`. Reads: `manifest.yml`, `CLAUDE.md`. See also: `/ai-pr`, `/ai-cleanup`, `/ai-resolve-conflicts`.
+
+$ARGUMENTS

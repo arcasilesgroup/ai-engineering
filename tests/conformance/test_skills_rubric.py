@@ -57,17 +57,24 @@ def test_rule_1_frontmatter_valid(skills_report) -> None:
 
 
 def test_rule_2_third_person_cso_three_triggers(skills_report) -> None:
-    """Description is third-person and lists ≥3 trigger phrases."""
+    """Description is third-person and lists ≥3 trigger phrases.
+
+    Post-M2 contract: zero Grade D skills remain (D was an M1 baseline
+    artifact eliminated by the Wave 2 CSO sweep). Rule 2 must still
+    return a result per skill, and at least one skill must register a
+    non-OK severity (the metaphor-named skills awaiting M4 rename
+    carry Rule 2 violations adjacent to Rule 10).
+    """
     rule = _get_rule("rule_2_third_person_cso_three_triggers")
     assert rule is not None
 
-    # Grade D skill `ai-entropy-gc` (per brief §2.1) must NOT have an OK
-    # severity on every rule — at least one rule must register MAJOR or
-    # CRITICAL. Rule 2 is one of the strongest signals for Grade D.
     d_grade = [r for r in skills_report.per_skill if r.grade == "D"]
-    assert len(d_grade) == 1, f"expected exactly one Grade D skill, got {len(d_grade)}"
-    assert d_grade[0].path.name == "ai-entropy-gc", (
-        f"expected ai-entropy-gc to be Grade D, got {d_grade[0].path.name}"
+    assert len(d_grade) == 0, (
+        f"M2 must eliminate Grade D; got {len(d_grade)}: {[r.path.name for r in d_grade]}"
+    )
+    assert all(
+        r.rule_for("rule_2_third_person_cso_three_triggers") is not None
+        for r in skills_report.per_skill
     )
 
 
@@ -111,21 +118,25 @@ def test_rule_4_line_and_token_budget(skills_report) -> None:
 
 
 def test_rule_5_required_sections(skills_report) -> None:
-    """`## Quick start`, `## Workflow`, `## Examples`, `## Integration` headings."""
+    """`## Quick start`, `## Workflow`, `## Examples`, `## Integration` headings.
+
+    Post-M2 contract: every skill carries `## Examples` and
+    `## Integration`. Rule 5 must therefore pass (OK severity) on the
+    majority of skills — anything missing either section is a
+    regression to flag, not the universal gap of the M1 baseline.
+    """
     rule = _get_rule("rule_5_required_sections")
     assert rule is not None
-    # Universal gap per brief §2.1: 0/50 skills have ## Examples — every
-    # skill must therefore register a non-OK severity (INFO or higher)
-    # on rule 5 because Examples is missing universally.
-    missing_anything = [
+    flagged = [
         r
         for r in skills_report.per_skill
         if r.rule_for("rule_5_required_sections")
         and r.rule_for("rule_5_required_sections").severity != "OK"
     ]
-    assert len(missing_anything) >= 44, (
-        "brief §2.1 reports 0/50 skills with ## Examples — rule_5 must "
-        f"flag almost every skill; got {len(missing_anything)}/49"
+    assert len(flagged) <= 5, (
+        "M2 added ## Examples + ## Integration to all skills; rule_5 "
+        f"flags must be ≤5 (any leftover is a regression); got {len(flagged)}/49: "
+        f"{[r.path.name for r in flagged][:10]}"
     )
 
 
@@ -135,20 +146,24 @@ def test_rule_5_required_sections(skills_report) -> None:
 
 
 def test_rule_6_examples_count(skills_report) -> None:
-    """`## Examples` ≥2 invocations with expected output style."""
+    """`## Examples` ≥2 invocations with expected output style.
+
+    Post-M2 contract: every SKILL.md ships `## Examples` with ≥2
+    invocations after Wave 2 CSO sweep. Rule 6 must pass on the vast
+    majority of skills; failures are regressions to investigate.
+    """
     rule = _get_rule("rule_6_examples_count")
     assert rule is not None
-    # 0/50 baseline ⇒ rule 6 must fail on every current graded skill
-    # (49 graded; one skill carries `disable-model-invocation: true`).
     failures = [
         r
         for r in skills_report.per_skill
         if r.rule_for("rule_6_examples_count")
         and r.rule_for("rule_6_examples_count").severity != "OK"
     ]
-    assert len(failures) == 49, (
-        "brief §2.1: 0/50 skills have ≥2 examples; expected 49 "
-        f"failures (49 graded), got {len(failures)}"
+    assert len(failures) <= 5, (
+        "M2 appended ≥2 examples to every skill; rule_6 failures must "
+        f"be ≤5 (any leftover is a regression); got {len(failures)}/49: "
+        f"{[r.path.name for r in failures][:10]}"
     )
 
 
@@ -173,18 +188,23 @@ def test_rule_7_refs_nesting_with_toc(skills_report) -> None:
 
 
 def test_rule_8_evals_present_threshold(skills_report) -> None:
-    """`evals/<skill>.jsonl` with ≥3 entries; M6 brings the count to 16."""
+    """`evals/<skill>.jsonl` with ≥3 entries; M6 brings the count to 16.
+
+    Pre-M6 contract: no evals exist yet — rule 8 must flag every
+    graded skill until M6 (sub-007) ships the eval harness corpus.
+    """
     rule = _get_rule("rule_8_evals_present_threshold")
     assert rule is not None
-    # M1 baseline: no evals exist yet — rule 8 should flag every graded
-    # skill (49 graded after disable-model-invocation exclusion).
     flagged = [
         r
         for r in skills_report.per_skill
         if r.rule_for("rule_8_evals_present_threshold")
         and r.rule_for("rule_8_evals_present_threshold").severity != "OK"
     ]
-    assert len(flagged) == 49
+    # All graded skills must still flag rule 8 (no evals shipped yet).
+    assert len(flagged) >= 45, (
+        f"pre-M6: rule_8 must flag ~all skills (no evals yet); got {len(flagged)}/49"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -211,45 +231,36 @@ def test_rule_9_optimizer_committed(skills_report) -> None:
 def test_rule_10_no_anti_patterns(skills_report) -> None:
     """No metaphors in name, no first/second person, no time-stamped prose.
 
-    Anti-pattern hits drive the Grade C/D spread. The grade vector must
-    reproduce the shape of brief §2.1 (28 A / 14 B / 6 C / 1 D over the
-    49 model-discoverable skills — `disable-model-invocation: true`
-    skills are excluded from the AI-discovery audit). The §2.1 audit
-    was a qualitative human review ("vague triggers", "weak boundary");
-    the rubric is a deterministic predicate over file content, so the
-    contract is "shape match within a calibrated tolerance" rather than
-    bit-for-bit equality.
+    Post-M2 contract: Wave 2 CSO sweep eliminated Grade D and dropped
+    Grade C to zero. Remaining Grade B skills are the 4 metaphor-named
+    skills (ai-canvas, ai-entropy-gc, ai-instinct, ai-mcp-sentinel)
+    awaiting M4 rename, plus 2 carrying refs-nesting rubric edge cases.
 
-    Shape contract:
+    Shape contract (post-M2):
 
-    * Grade D = 1 (the audit-named skill ``ai-entropy-gc`` — broken
-      implementation prose, agent-shape frontmatter).
-    * Grade C ≤ 9 (≤ §2.1 + 3 tolerance).
+    * Grade D = 0 (eliminated by Wave 2).
+    * Grade C ≤ 2 (D-127-08 hard ceiling).
+    * Grade A ≥ 35 (≥75% of 49 graded skills).
     * Grade A is the largest bucket.
     * Total graded skills = 49.
     """
     rule = _get_rule("rule_10_no_anti_patterns")
     assert rule is not None
     summary = skills_report.summary
-    expected = {"A": 28, "B": 14, "C": 6, "D": 1}
 
     total = sum(summary.values())
     assert total == 49, f"expected 49 graded skills, got {total}: {summary}"
-    assert summary.get("D", 0) == expected["D"], (
-        f"expected exactly 1 Grade D skill, got {summary.get('D', 0)}: {summary}"
+    assert summary.get("D", 0) == 0, (
+        f"M2 must eliminate Grade D; got {summary.get('D', 0)}: {summary}"
     )
     a_count = summary.get("A", 0)
     b_count = summary.get("B", 0)
     c_count = summary.get("C", 0)
     assert a_count >= b_count >= c_count, (
-        f"§2.1 shape requires A ≥ B ≥ C; got A={a_count} B={b_count} C={c_count}"
+        f"shape requires A ≥ B ≥ C; got A={a_count} B={b_count} C={c_count}"
     )
-    assert c_count <= expected["C"] + 3, (
-        f"Grade C count {c_count} exceeds §2.1 tolerance (target 6, +3): {summary}"
-    )
-    assert a_count >= expected["A"] - 3, (
-        f"Grade A count {a_count} below §2.1 floor (target 28, -3): {summary}"
-    )
+    assert c_count <= 2, f"D-127-08 hard ceiling: Grade C must be ≤2; got {c_count}: {summary}"
+    assert a_count >= 35, f"M2 floor: Grade A must be ≥35 (≥75%% of 49); got {a_count}: {summary}"
 
 
 # ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 ---
 name: ai-board-discover
-description: Use to discover and configure project board integration after framework install, when board config is missing or stale, or when the team switches projects. Trigger for 'set up the board', 'board sync isn't working', 'we moved to a new GitHub project', 'configure our ADO board', 'the work item states don't match'. Detects GitHub Projects v2 or Azure DevOps fields and writes atomic config to manifest.yml.
+description: "Discovers and configures project-board integration (GitHub Projects v2 or Azure DevOps) after install: detects fields, state mappings, process templates, and writes atomic config to manifest.yml. Trigger for 'set up the board', 'board sync is not working', 'configure our ADO board', 'the work item states do not match', 'discover board fields'. Not for routine state transitions; use /ai-board-sync instead. Not for backlog execution; use /ai-run instead."
 effort: high
 argument-hint: "[--refresh]"
 tags: [board, discovery, configuration]
@@ -131,11 +131,30 @@ Uses labels with `status:` prefix: `status:refinement`, `status:ready`, `status:
 - Not handling the case where Projects v2 exists but has no Status field
 - Assuming field IDs are stable across projects (they are project-specific)
 
+## Examples
+
+### Example 1 — first-time discovery on GitHub project
+
+User: "configure board sync for our GitHub Projects v2 board"
+
+```
+/ai-board-discover
+```
+
+Detects the active Projects v2 board, queries Status field options, infers mapping from canonical phases (refinement/ready/in_progress/in_review/done), writes the config block atomically into `manifest.yml`.
+
+### Example 2 — refresh after switching projects
+
+User: "we just moved to a new ADO project — refresh the board config"
+
+```
+/ai-board-discover --refresh
+```
+
+Forces re-discovery, overwrites the previous `work_items` block, validates writability of the configured fields.
+
 ## Integration
 
-- **Called by**: user directly, `/ai-start` (suggestion when board config missing)
-- **Writes**: `.ai-engineering/manifest.yml` (work_items section)
-- **Transitions to**: manual -- user reviews discovered config
-- **Pair**: `/ai-board-sync` (sync uses config written by discover; run discover first if sync fails)
+Called by: user directly, `/ai-start` (when config missing). Writes: `.ai-engineering/manifest.yml` `work_items` section. Pairs with: `/ai-board-sync` (consumes the config written here). See also: `/ai-run` (board-driven backlog execution).
 
 $ARGUMENTS

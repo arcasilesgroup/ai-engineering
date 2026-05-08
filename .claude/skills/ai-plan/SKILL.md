@@ -1,6 +1,6 @@
 ---
 name: ai-plan
-description: "Use when an approved spec exists and needs a phased execution plan: task decomposition, agent assignments, and gate criteria. Trigger for 'break this down', 'create a plan', 'what tasks do we need', 'let's start implementing', or when plan.md has placeholder content. Also for re-planning: 'scope changed', 'plan failed'. Not for ambiguous requirements — use /ai-brainstorm first."
+description: "Decomposes an approved spec into a phased execution plan with bite-sized tasks, agent assignments, and gate criteria — the contract /ai-dispatch executes. Trigger for 'break this down', 'create a plan', 'what tasks do we need', 'lets start implementing', 'scope changed re-plan'. Hard gate: user approves before /ai-dispatch can run. Not for ambiguous requirements; use /ai-brainstorm instead. Not for execution; use /ai-dispatch instead."
 effort: high
 argument-hint: "[spec-NNN or topic]"
 ---
@@ -108,10 +108,30 @@ It MAY:
 - Write the plan to `.ai-engineering/specs/plan.md`
 - Run codebase exploration (read-only)
 
+## Examples
+
+### Example 1 — plan from an approved spec
+
+User: "the spec is approved, break it down into a phased plan"
+
+```
+/ai-plan
+```
+
+Reads `.ai-engineering/specs/spec.md`, runs read-only exploration, decomposes into phases with task assignments + gates, writes `plan.md`, presents for approval.
+
+### Example 2 — re-plan after scope change
+
+User: "scope changed — re-plan from the updated spec"
+
+```
+/ai-plan
+```
+
+Diffs against the existing plan, regenerates affected phases, preserves completed checkboxes where the task is unchanged.
+
 ## Integration
 
-- **Called by**: user directly, or after `/ai-brainstorm` approval
-- **Calls**: Explore agent (`ai-explore`) for codebase context, write (artifact creation)
-- **Transitions to**: `/ai-dispatch` (ONLY -- user must invoke explicitly)
+Called by: user directly, post-`/ai-brainstorm` approval. Calls: `ai-explore` agent (codebase context). Transitions to: `/ai-dispatch` (only after user approves). See also: `/ai-brainstorm`, `/ai-dispatch`, `/ai-autopilot` (multi-concern alternative).
 
 $ARGUMENTS

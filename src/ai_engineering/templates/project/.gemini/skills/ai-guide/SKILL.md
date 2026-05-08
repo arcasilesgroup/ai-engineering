@@ -1,8 +1,8 @@
 ---
 name: ai-guide
-description: "Use when new to a project and need orientation, want to understand component relationships, need to find where something happens ('where does auth happen?'), or understand why a technology decision was made. Modes: tour (architecture overview), find (topic search), history (decision archaeology), onboard (structured human onboarding). Read-only. Not for agent session bootstrap — use /ai-start."
+description: "Onboards humans to a project: architecture tours, topic search, decision archaeology, structured new-team-member orientation. Read-only — never modifies code. Trigger for 'where does auth happen', 'what is the architecture here', 'history of this decision', 'onboard me to this repo', 'tour the codebase'. Not for agent session bootstrap; use /ai-start instead. Not for code-level explanation; use /ai-explain instead."
 effort: high
-argument-hint: "tour|find <topic>|history <decision>|onboard"
+argument-hint: "tour|find [topic]|history [decision]|onboard"
 tags: [onboarding, architecture, teaching, archaeology]
 mirror_family: gemini-skills
 generated_by: ai-eng sync
@@ -13,6 +13,24 @@ edit_policy: generated-do-not-edit
 
 
 # Guide
+
+## Quick start
+
+```
+/ai-guide tour                # architecture overview
+/ai-guide find auth           # find where auth happens
+/ai-guide history DEC-003     # decision archaeology
+/ai-guide onboard             # structured new-member onboarding
+```
+
+## Workflow
+
+Four modes:
+
+1. `tour` — high-level architecture diagram + module ownership map.
+2. `find [topic]` — locate where a concept lives (file:line refs).
+3. `history [decision]` — decision archaeology: why was this chosen?
+4. `onboard` — guided multi-step onboarding for a new team member.
 
 Project onboarding, architecture tours, and decision archaeology. Optimized for the human, not the code. Reads everything, modifies nothing. Teaches understanding, not artifacts.
 
@@ -80,16 +98,36 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 - Over-quizzing -- max 2 Socratic questions per interaction.
 - Teaching below the developer's level -- match cues to Bloom's taxonomy.
 
+## Examples
+
+### Example 1 — onboard a new team member
+
+User: "give me an architecture tour of this repo, I'm new"
+
+```
+/ai-guide tour
+```
+
+High-level overview, module ownership map, key boundaries, suggested deeper-dive paths. Read-only.
+
+### Example 2 — decision archaeology
+
+User: "why did we choose hexagonal architecture for this codebase?"
+
+```
+/ai-guide history hexagonal-architecture
+```
+
+Reads `state.db.decisions` for the matching record, surfaces the original tradeoffs, links to the spec or commit that ratified it.
+
 ## Integration
 
-- Uses `/ai-explain` for 3-tier depth explanations.
-- Reads `.ai-engineering/state/state.db` `decisions` table for decision context.
-- Reads `.ai-engineering/state/framework-events.ndjson` for framework activity context (privacy by design).
-- **NOT** `/ai-start` -- guide is for humans exploring a codebase; start bootstraps AI agent session context
+Calls: `/ai-explain` (3-tier depth). Reads: `state.db.decisions`, `framework-events.ndjson`, `manifest.yml`. See also: `/ai-start` (agent session bootstrap), `/ai-explain` (code-level), `/ai-research` (external evidence).
 
 ## References
 
 - `.gemini/skills/ai-explain/SKILL.md` -- 3-tier depth model.
 - `.ai-engineering/manifest.yml` -- governance structure.
 - `.ai-engineering/state/state.db` `decisions` table -- decision records.
+
 $ARGUMENTS

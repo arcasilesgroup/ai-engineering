@@ -1,8 +1,8 @@
 ---
 name: ai-sprint
-description: "Use to manage sprint lifecycle: plan a new sprint from backlog, run a data-driven retrospective comparing planned vs shipped, check goal status mid-sprint, or generate sprint review presentations. Trigger for 'start sprint planning', 'kick off the sprint', 'let's do the retro', 'what did we deliver last sprint?', 'are we on track?', 'sprint goals check', 'generate the sprint review deck'. Works with GitHub Projects and Azure DevOps."
+description: "Manages sprint lifecycle: plans a new sprint from backlog, runs data-driven retros comparing planned vs shipped, checks mid-sprint goal status, generates sprint review presentations. Works with GitHub Projects and Azure DevOps. Trigger for 'start sprint planning', 'kick off the sprint', 'lets do the retro', 'what did we deliver last sprint', 'sprint goals check', 'generate the sprint review deck'. Not for daily standup; use /ai-standup instead. Not for solo PR retro; use /ai-learn instead."
 effort: high
-argument-hint: "plan|retro|goals|review [--sprint <name>]"
+argument-hint: "plan|retro|goals|review [--sprint name]"
 requires:
   anyBins:
   - gh
@@ -37,6 +37,15 @@ Sprint lifecycle management: plan new sprints from backlog, run data-driven retr
    - **Azure DevOps**: filter by `area_path`, auto-detect current `iteration_path`
    - **GitHub**: filter by `team_label`, use milestones for sprint boundaries
 5. Use all standard and custom fields the platform provides.
+
+## Workflow
+
+Four modes follow the sprint lifecycle:
+
+1. `plan` — read backlog, propose sprint goals, scope items, write sprint file.
+2. `goals` — mid-sprint progress check vs the planned goals.
+3. `retro` — data-driven retrospective comparing planned vs shipped.
+4. `review` — generate the sprint review deck (delegates to `/ai-slides`).
 
 ## Modes
 
@@ -119,8 +128,30 @@ Modes (`plan`, `retro`, `goals`, `review`) per Modes above. Flags:
 - Sprint files: `.ai-engineering/sprints/{name}.md`
 - Naming convention: `YYYY-wNN` (ISO week) or custom names
 
+## Examples
+
+### Example 1 — plan a new sprint
+
+User: "kick off sprint 2026-w19 from the backlog"
+
+```
+/ai-sprint plan --sprint 2026-w19
+```
+
+Reads the backlog (GitHub Projects v2 or Azure Boards), proposes sprint goals, scopes items, writes `.ai-engineering/sprints/2026-w19.md`.
+
+### Example 2 — retro at sprint end
+
+User: "lets do the retro for the sprint that just ended"
+
+```
+/ai-sprint retro --sprint 2026-w18
+```
+
+Compares planned vs shipped, surfaces velocity trends, identifies blockers, writes the retro section.
+
 ## Integration
 
-- **See also**: `/ai-standup` (daily activity detail)
+Called by: user directly. Calls: `gh project item-list`, `az boards query`, `/ai-slides` (for `review` mode). See also: `/ai-standup` (daily slice), `/ai-write content sprint-review`, `/ai-board-discover`.
 
 $ARGUMENTS

@@ -1,6 +1,6 @@
 ---
 name: ai-dispatch
-description: "Use when an approved plan.md exists and execution should begin. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'let's do this', 'run the plan', 'resume', or 'continue' after interruption. Not without an approved plan — run /ai-plan first. Orchestrates subagents per task with two-stage review, progress tracking, and automated delivery."
+description: "Executes an approved plan.md by orchestrating subagents per task with two-stage review, progress tracking, and automated delivery. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'run the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead. Not for backlog execution; use /ai-run instead."
 effort: high
 argument-hint: "[spec-NNN or --resume]"
 ---
@@ -53,11 +53,30 @@ When invoked with `--resume`, use observable evidence only. Never guess hidden s
 - Modifying test files from a RED phase during a GREEN phase task.
 - Skipping the quality check after task execution.
 
+## Examples
+
+### Example 1 — start fresh execution
+
+User: "the plan is approved, go"
+
+```
+/ai-dispatch
+```
+
+Reads `plan.md`, dispatches one agent per task with fresh context, runs two-stage review per deliverable, updates `plan.md` checkboxes, transitions board state, hands off to `/ai-pr` for delivery.
+
+### Example 2 — resume after interruption
+
+User: "resume the dispatch from where we crashed"
+
+```
+/ai-dispatch --resume
+```
+
+Reads `plan.md`, identifies the next un-checked task, re-enters at the correct state.
+
 ## Integration
 
-- **Called by**: user directly (after `/ai-plan` approval)
-- **Calls**: `ai-build` (build tasks), `ai-verify` (scan tasks, quality check), `ai-review` (quality check), `ai-pr` (deliver), `/ai-board-sync` (in_progress transition)
-- **Reads**: `.claude/skills/_shared/execution-kernel.md` (per-task loop), `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-pr/SKILL.md` (thin orchestrator, embedded at dispatch time)
-- **Transitions to**: PR merge (after deliver), or back to `/ai-plan` (if re-plan needed)
+Called by: user directly post-`/ai-plan` approval. Calls: `ai-build`, `ai-verify`, `ai-review`, `/ai-pr`, `/ai-board-sync`. Reads: `_shared/execution-kernel.md`. Transitions to: PR merge, or back to `/ai-plan`. See also: `/ai-autopilot` (multi-concern), `/ai-run` (backlog), `/ai-resolve-conflicts`.
 
 $ARGUMENTS

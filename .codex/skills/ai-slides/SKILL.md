@@ -1,6 +1,6 @@
 ---
 name: ai-slides
-description: Use when creating a presentation deck from scratch, converting PowerPoint to browser-native HTML, or improving layout and motion in existing HTML slides. Trigger for 'create a talk deck', 'pitch deck', 'workshop slides', 'convert my PPTX', 'presentation for the all-hands'. Generates zero-dependency self-contained HTML with keyboard/touch navigation and viewport-safe layout.
+description: "Generates zero-dependency self-contained HTML presentations with keyboard/touch navigation and viewport-safe layout. Three modes: new (from scratch), convert (PPTX to HTML), enhance (improve existing). Trigger for 'create a talk deck', 'pitch deck', 'workshop slides', 'convert my PPTX', 'presentation for the all-hands'. Not for static visual art; use /ai-canvas instead. Not for marketing collateral; use /ai-market instead."
 effort: high
 argument-hint: "new|convert|enhance [topic]"
 tags: [presentation, html, css]
@@ -135,13 +135,6 @@ Every presentation must include:
 - Use abstract shapes, gradients, grids, noise, and geometry rather than illustrations
 - Use inline CSS and JS unless the user explicitly wants a multi-file project
 
-## Integration
-
-- **Called by**: user directly, `/ai-dispatch`
-- **References**: `STYLE_PRESETS.md` (same directory) for CSS base, presets, and validation rules
-- **Related**: `ai-media` (generated visuals for insert shots)
-- **See also**: `/ai-write` (prose content); `/ai-slides` handles presentation format, `/ai-write` handles narrative
-
 ## Common Mistakes
 
 - Generic startup gradients with no visual identity
@@ -151,5 +144,31 @@ Every presentation must include:
 - Fixed-height content boxes that break on short screens
 - Skipping the viewport validation step
 - Generating previews when the user already named a preset
+
+## Examples
+
+### Example 1 — pitch deck from scratch
+
+User: "create a pitch deck for our seed round"
+
+```
+/ai-slides new "seed round pitch deck"
+```
+
+Picks aesthetic preset, generates self-contained HTML with viewport-safe layout, keyboard/touch navigation, and inline CSS/JS.
+
+### Example 2 — convert a PowerPoint
+
+User: "convert this PPTX to browser-native HTML"
+
+```
+/ai-slides convert /path/to/deck.pptx
+```
+
+Parses the PPTX, maps each slide to the HTML template, preserves images, validates viewport fit per slide.
+
+## Integration
+
+Called by: user directly, `/ai-dispatch`. References: `STYLE_PRESETS.md`. See also: `/ai-write` (prose content), `/ai-canvas` (visual artifacts), `/ai-media` (generated insert visuals), `/ai-design` (aesthetic direction).
 
 $ARGUMENTS

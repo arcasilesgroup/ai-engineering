@@ -1,6 +1,6 @@
 ---
 name: ai-debug
-description: "Use when something is broken and you need to find out why: test failures, runtime errors, crashes, regressions, or unexpected behavior. Trigger for 'it's not working', 'something broke', 'this used to work', 'I'm getting an error', 'CI is failing', 'the output is wrong', or 'why is X happening'. Systematic 4-phase diagnosis — never patches symptoms without finding the root cause."
+description: "Diagnoses broken behavior systematically with a 4-phase root-cause loop: test failures, runtime errors, crashes, regressions. Never patches symptoms. Trigger for 'it is not working', 'something broke', 'this used to work', 'I am getting an error', 'CI is failing', 'why is X happening'. Not for adding tests; use /ai-test instead. Not for security findings; use /ai-security instead."
 effort: high
 argument-hint: "[error description or file:line]"
 mirror_family: gemini-skills
@@ -124,11 +124,30 @@ When the error involves a build or compilation failure, load the language-specif
 | Rust | `.rs` files or `cargo` errors | `handlers/rust.md` |
 | TypeScript Build | `.ts`, `.tsx` files or tsc/webpack/vite errors | `handlers/typescript-build.md` |
 
+## Examples
+
+### Example 1 — failing test with unclear root cause
+
+User: "test_user_signup is failing with 'invalid email format' but the email looks valid"
+
+```
+/ai-debug test_user_signup
+```
+
+Phase 1 reproduce, Phase 2 hypothesize (regex anchors? trailing whitespace? unicode?), Phase 3 instrument, Phase 4 confirm + add regression test before patching.
+
+### Example 2 — CI failure on a fresh branch
+
+User: "CI is failing only on this branch — what changed?"
+
+```
+/ai-debug "CI failing on feat/new-auth"
+```
+
+Walks the diff vs `main`, isolates the suspect change, reproduces locally, identifies root cause without symptom-patching.
+
 ## Integration
 
-- **Called by**: `/ai-dispatch` (debug tasks), `ai-build agent` (when tests fail), user directly
-- **Calls**: test runners (to reproduce), `/ai-test` (regression test)
-- **Transitions to**: `ai-build` (fix implementation), `/ai-commit` (after verified fix)
-- **See also**: `/ai-test` (reproduce failures before fixing), `/ai-postmortem` (for production incidents)
+Called by: `/ai-dispatch`, `/ai-build` (test fail), user directly. Calls: test runners (reproduction), `/ai-test` (regression test). Transitions to: `/ai-build` (fix), `/ai-commit` (verified). See also: `/ai-test`, `/ai-postmortem`, `/ai-resolve-conflicts`.
 
 $ARGUMENTS

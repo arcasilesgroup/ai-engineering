@@ -1,8 +1,8 @@
 ---
 name: ai-board-sync
-description: "Use to update work item state on the project board at lifecycle phase transitions. Automatically invoked by /ai-brainstorm (refinement, ready), /ai-dispatch (in_progress), and /ai-pr (in_review). Also invoke manually for 'move this issue to in-review', 'update the board', 'mark as in progress', 'sync the work item state'. Fail-open: never blocks the calling workflow."
+description: "Updates work-item state on the project board at lifecycle transitions (refinement, ready, in_progress, in_review, done). Trigger for 'move this issue to in-review', 'update the board', 'mark as in progress', 'sync the work item state', 'transition this ticket'. Auto-invoked by /ai-brainstorm, /ai-dispatch, and /ai-pr. Fail-open: never blocks the calling workflow. Not for board configuration; use /ai-board-discover instead."
 effort: medium
-argument-hint: "<phase> <work-item-ref> [--comment <text>]"
+argument-hint: "[phase] [work-item-ref] [--comment text]"
 mode: agent
 tags: [board, sync, work-items]
 mirror_family: copilot-skills
@@ -110,11 +110,31 @@ The calling skill checks the return status for logging but NEVER stops its own e
 
 - `scripts/board-sync-github.sh <project-number> --owner <github_project.owner>` -- query GitHub Projects v2 items and summarize work item states. Read owner from `github_project.owner` in manifest. Path is relative to the skill directory (`.github/skills/ai-board-sync/`).
 
+## Examples
+
+### Example 1 — manual transition to in-review
+
+User: "move issue #123 to in-review on the board"
+
+```
+/ai-board-sync in_review #123
+```
+
+Looks up the project item, applies the configured state transition, optionally posts a comment with context.
+
+### Example 2 — auto-invocation by /ai-pr
+
+User: "open a PR for this branch" (calls /ai-pr internally)
+
+```
+# /ai-pr triggers internally:
+/ai-board-sync in_review AB#456
+```
+
+PR creation calls this skill to flip the linked Azure Boards work item; failures are logged but do not block PR creation (fail-open).
+
 ## Integration
 
-- **Called by**: `ai-brainstorm`, `ai-dispatch`, `ai-pr` (internal calls, not user-facing)
-- **Reads**: `.ai-engineering/manifest.yml` (work_items section)
-- **Writes**: external only (provider board state, work item comments)
-- **Pair**: `/ai-board-discover` (discover writes the config this skill reads; run discover if sync fails)
+Called by: `/ai-brainstorm`, `/ai-dispatch`, `/ai-pr` (internal). Reads: `.ai-engineering/manifest.yml` `work_items` section. Writes: external provider board state. Pairs with: `/ai-board-discover`.
 
 $ARGUMENTS

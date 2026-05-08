@@ -1,6 +1,6 @@
 ---
 name: ai-review
-description: "Use when code changes need human-quality judgment: PR reviews, file reviews, diff analysis, and architecture feedback. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', or 'is this merge-ready'. Default mode runs the full specialist roster through 3 macro-agents; use `--full` to run one agent per specialist. For evidence-backed gates, use /ai-verify instead."
+description: "Reviews code changes with human-quality judgment: PR reviews, file reviews, diff analysis, architecture feedback. Default mode runs the full specialist roster through 3 macro-agents; pass `--full` for one agent per specialist. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', 'is this merge-ready'. Not for evidence-backed gates; use /ai-verify instead. Not for narrative writing; use /ai-write instead."
 effort: max
 argument-hint: "[--full] [PR number or file paths]"
 mode: agent
@@ -43,6 +43,14 @@ Required reviewer files are mode-sensitive:
 - `--full`: one file per specialist lens, with the same conditional `frontend` and `design` behavior.
 
 If any required file is missing: STOP and report the exact missing path(s). Never paraphrase missing reviewer instructions inline.
+
+## Workflow
+
+1. Detect target (PR number, file paths, or current diff).
+2. Pick profile (`normal` = 3 macro-agents; `--full` = 8 specialist agents).
+3. Dispatch agents in parallel via the Agent tool.
+4. Aggregate findings, deduplicate, classify by severity, apply false-positive control.
+5. Emit the structured output contract (Findings / Risks / Recommendations / Self-Challenge).
 
 ## Profiles
 
@@ -132,11 +140,30 @@ For each language detected in the diff, load the corresponding handler for langu
 | Rust       | `.rs` files                        | `handlers/lang-rust.md`       |
 | TypeScript | `.ts`, `.tsx` files                | `handlers/lang-typescript.md` |
 
+## Examples
+
+### Example 1 — review a PR before approval
+
+User: "review PR #42"
+
+```
+/ai-review 42
+```
+
+Dispatches the 3 macro-agents (correctness, design, security/perf) over the diff, aggregates findings with corroboration, emits the Findings table with severity + remediation.
+
+### Example 2 — full-coverage review on a complex diff
+
+User: "do the full reviewer roster on this branch"
+
+```
+/ai-review --full
+```
+
+Dispatches one agent per specialist (correctness, design, security, performance, architecture, testing, frontend, backend), runs the validator stage, deduplicates and ranks findings.
+
 ## Integration
 
-- **Called by**: user directly, `/ai-pr`, `/ai-dispatch`
-- **Dispatches**: `review-context-explorer.md`, `reviewer-*.md`, `review-finding-validator.md` (all via Agent tool)
-- **Read-only**: never modifies source code
-- **See also**: after merge, `/ai-learn single <pr>` can extract review patterns
+Called by: user directly, `/ai-pr`, `/ai-dispatch`, `/ai-autopilot` (Phase 5). Dispatches: `review-context-explorer`, `reviewer-*`, `review-finding-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
 
 $ARGUMENTS

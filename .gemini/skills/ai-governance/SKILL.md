@@ -1,6 +1,6 @@
 ---
 name: ai-governance
-description: Use for framework compliance validation, ownership boundary checks, risk acceptance lifecycle, and manifest integrity verification. Trigger for 'are quality gates enforced?', 'who owns this?', 'formally accept a known risk', 'is the framework consistent?', 'pre-release compliance check', 'governance report for auditors'. Complements /ai-security (scanning) — this validates governance process, not code content.
+description: Validates framework compliance, ownership boundaries, risk acceptance lifecycle, and manifest integrity for regulated environments. Trigger for 'are quality gates enforced', 'who owns this file', 'formally accept a known risk', 'pre-release compliance check', 'governance report for auditors'. Not for code quality; use /ai-verify instead. Not for security scanning; use /ai-security instead — this validates governance process, not code content.
 effort: max
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
@@ -13,7 +13,26 @@ edit_policy: generated-do-not-edit
 
 # Governance
 
-Compliance validation for regulated industries. Modes: `compliance` (quality gates), `ownership` (boundary verification), `risk` (decision-store lifecycle), `integrity` (framework consistency). Default: compliance.
+## Quick start
+
+```
+/ai-governance              # compliance mode (default)
+/ai-governance all          # all four modes
+/ai-governance risk accept  # accept a new risk (TTL by severity)
+/ai-governance integrity    # framework consistency check
+/ai-governance --report     # formal report (score + verdict)
+```
+
+## Workflow
+
+Compliance validation for regulated industries. Default mode is `compliance`. Pick a mode, run the checks, surface findings; with `--report`, generate a scored audit document.
+
+1. **compliance** — verify quality-gate enforcement (hooks, CI workflows, non-negotiables, security contract).
+2. **ownership** — map files to ownership zones (framework / team / project / system); verify modification history.
+3. **risk** — record / resolve / renew risk acceptances in `state.db.decisions` with severity-based TTL.
+4. **integrity** — manifest counters vs disk reality; agent-skill cross-refs; state-file schemas.
+
+Compliance validation for regulated industries. Modes: `compliance` (quality gates), `ownership` (boundary verification), `risk` (decision-store lifecycle), `integrity` (framework consistency).
 
 ## When to Use
 
@@ -74,52 +93,15 @@ Validate manifest claims match disk reality.
 
 ## Policy Engine Integration
 
-Use the policy engine when a governance gate already exists, or can be expressed cleanly, as a `.rego` policy under `.ai-engineering/policies/` rather than ad-hoc procedural checks. Spec-122 Phase C swapped the in-tree mini-Rego interpreter for the upstream OPA binary; spec-123 finished wiring it into all three governance touchpoints (pre-commit, pre-push, `risk accept`).
+Use OPA `.rego` policies under `.ai-engineering/policies/` over ad-hoc procedural checks. Spec-122 Phase C swapped the in-tree mini-Rego interpreter for upstream OPA; spec-123 wired it into pre-commit, pre-push, and `risk accept`.
 
-Operational contract for this skill:
+- Prefer existing policy files over re-implementing the same gate.
+- The evaluator (`src/ai_engineering/governance/opa_runner.py`) is owned by governance code, not by this skill.
+- If a rule exceeds OPA's grammar, STOP and escalate to spec/implementation work.
 
-- Prefer existing policy files over re-implementing the same gate in skill prose.
-- Treat the evaluator (`src/ai_engineering/governance/opa_runner.py`) as an implementation detail owned by the governance code, not by this skill.
-- If a needed rule appears to require grammar or engine capabilities beyond what OPA supports, STOP and escalate to spec/implementation work instead of extending policy behavior inline from the skill.
+Every OPA evaluation is recorded in the state.db audit projection. Inspect via `ai-eng audit query "SELECT created_at, source, policy, decision, deny_messages FROM events WHERE kind = 'policy_decision' ORDER BY created_at DESC LIMIT 10"`.
 
-For OPA invocation semantics, use `src/ai_engineering/governance/opa_runner.py`. For DEC lineage and risk-acceptance lifecycle details, use `.ai-engineering/contexts/risk-acceptance-flow.md`.
-
-### Policy Decision Audit (spec-122/123)
-
-Every OPA evaluation (allow or block) is recorded in the canonical state.db audit projection. Inspect recent decisions when investigating a blocked commit, push, or risk acceptance:
-
-```bash
-# Last 10 policy decisions, newest first
-ai-eng audit query "
-  SELECT created_at, source, policy, decision, deny_messages
-  FROM events
-  WHERE kind = 'policy_decision'
-  ORDER BY created_at DESC
-  LIMIT 10
-"
-
-# Filter to a single policy package
-ai-eng audit query "
-  SELECT created_at, source, decision, deny_messages
-  FROM events
-  WHERE kind = 'policy_decision' AND policy = 'risk_acceptance_ttl'
-  ORDER BY created_at DESC
-  LIMIT 20
-"
-```
-
-The `events.kind = 'policy_decision'` rows are emitted by `src/ai_engineering/governance/decision_log.py::emit_policy_decision`. The `source` column carries one of `pre-commit`, `pre-push`, `risk-cmd` so you can scope the query to a single touchpoint.
-
-### OPA Health (`ai-eng doctor`)
-
-`ai-eng doctor` runs four advisory probes under the runtime stage:
-
-- `opa-binary` — `shutil.which('opa')` returns a real path.
-- `opa-version` — installed OPA is at or above 0.70.0 (the floor exercised in CI).
-- `opa-bundle-load` — `opa eval --bundle` parses the three policies cleanly.
-- `opa-bundle-signature` — `.signatures.json` accompanies `.manifest`.
-
-Failures surface as `WARN` (advisory, non-blocking) so a missing OPA does not break diagnose runs in environments where governance is not yet bootstrapped.
+`ai-eng doctor` runs four advisory OPA probes (binary, version, bundle-load, bundle-signature). Failures surface as WARN (non-blocking).
 
 ### `--report` -- Formal Report
 
@@ -162,6 +144,28 @@ Scoring: start at 100. Deduct: blocker -25, critical -15, major -5, minor -1. Fl
 - Running governance mid-implementation -- best between phases or before releases.
 - Accepting risk without `follow_up_action` -- mandatory field.
 - Exceeding 2 renewals -- remediation becomes mandatory.
+
+## Examples
+
+### Example 1 — pre-release compliance report
+
+User: "generate a formal compliance report I can hand to auditors"
+
+```
+/ai-governance --report
+```
+
+Walks the compliance checks, scores against the rubric, emits a Markdown report with findings table, gate status, and verdict (PASS / WARN / FAIL).
+
+### Example 2 — accept a known risk
+
+User: "we've reviewed the gitleaks finding and want to accept it for 30 days"
+
+```
+/ai-governance risk accept
+```
+
+Records a risk-acceptance entry in `state.db.decisions` with severity-based TTL, mandatory `follow_up_action`, and an audit trail consumed by pre-push.
 
 ## Integration
 

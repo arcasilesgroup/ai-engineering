@@ -1,6 +1,6 @@
 ---
 name: ai-instinct
-description: Activate at session start to silently observe corrections, recoveries, and workflow patterns. Run with --review before commits or PRs to consolidate observations into project instincts. Trigger for 'start observing', 'learn from this session', 'consolidate instincts', 'review what you learned', 'instinct review'. Listening mode is passive -- review mode extracts, enriches, and writes.
+description: Observes session corrections, recoveries, and workflow patterns silently, then consolidates them into project-local instincts on demand. Trigger for 'start observing', 'learn from this session', 'consolidate instincts', 'review what was learned'. Listening mode is passive; review mode extracts and writes. Not for cross-project learning; use /ai-learn instead. Not for skill rewrites; use /ai-skill-evolve instead.
 effort: medium
 argument-hint: "[--review]"
 mode: agent
@@ -15,6 +15,20 @@ edit_policy: generated-do-not-edit
 # ai-instinct
 
 Project-local instinct learning for `ai-engineering`. Two modes: passive observation during a session, and active consolidation on demand. No daemons, no background workers -- the LLM itself is the observer.
+
+## Quick start
+
+```
+/ai-instinct           # passive observation mode (silent until --review)
+/ai-instinct --review  # consolidate observations into instincts.yml
+```
+
+## Workflow
+
+1. Session start: invoke `/ai-instinct` to enter listening mode.
+2. As work happens, the model passively notes corrections, error recoveries, and skill-invocation sequences.
+3. Before a commit or PR, invoke `/ai-instinct --review` to run the 5-step consolidation: extract → enrich → write → evaluate → create work items.
+4. High-confidence proposals (>= 0.7, evidence >= 3) auto-generate work items via `gh issue create` or `az boards work-item create`.
 
 ## Artifact Set
 
@@ -155,5 +169,31 @@ Structured summary: observations extracted (count per family), entries upserted 
 - Do not create instincts outside `.ai-engineering/instincts/`.
 - Do not invent unsupported pattern types beyond corrections/recoveries/workflows.
 - Do not claim the system supports promotion, evolution, or global libraries.
+
+## Examples
+
+### Example 1 — start a passive observation session
+
+User: "begin observing this session for instinct learning"
+
+```
+/ai-instinct
+```
+
+Outputs `instinct is observing the session...` and goes silent. The model passively notes corrections, error recoveries, and workflow sequences as the session continues. No further output until `--review`.
+
+### Example 2 — consolidate before committing
+
+User: "review what was learned in this session before I commit"
+
+```
+/ai-instinct --review
+```
+
+Runs the 5-step consolidation: extract observations from the conversation, enrich with hook events, upsert into `instincts.yml`, evaluate against LESSONS.md, and create work items for high-confidence proposals.
+
+## Integration
+
+Called by: user directly at session start. Calls: `gh issue create` / `az boards work-item create` (Step 5 work-item creation). Reads: `state.db.decisions`, `LESSONS.md`, `instincts.yml`, `proposals.md`. See also: `/ai-learn` (cross-session retro), `/ai-skill-evolve` (acts on high-confidence proposals).
 
 $ARGUMENTS

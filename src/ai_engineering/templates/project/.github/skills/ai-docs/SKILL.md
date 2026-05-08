@@ -1,6 +1,6 @@
 ---
 name: ai-docs
-description: "Use for documentation lifecycle: updating CHANGELOG.md, refreshing README files, scaffolding or syncing solution intent architecture docs, pushing to external docs portals, and verifying documentation coverage. Also invoked automatically by /ai-pr. Trigger for 'update the changelog', 'the README is stale', 'document this feature', 'docs portal needs updating', 'did we document all changes'."
+description: "Manages the documentation lifecycle: CHANGELOG, README, solution-intent architecture docs, external docs portals, and documentation quality gates. Auto-invoked by /ai-pr. Trigger for 'update the changelog', 'the README is stale', 'document this feature', 'docs portal needs updating', 'did we document all changes'. Not for blog or pitch content; use /ai-write instead. Not for marketing collateral; use /ai-market instead."
 effort: high
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 mode: agent
@@ -62,12 +62,31 @@ If no argument is provided, display the routing table above and ask the user whi
 /ai-docs docs-quality-gate        # verify doc coverage of all changes
 ```
 
+## Examples
+
+### Example 1 — sync the changelog before a release
+
+User: "update the changelog with everything since v1.2"
+
+```
+/ai-docs changelog
+```
+
+Reads recent commits + closed PRs since the last tagged release, drafts a Keep-a-Changelog formatted entry, opens for review.
+
+### Example 2 — verify doc coverage before merge
+
+User: "did we document all the changes in this PR?"
+
+```
+/ai-docs docs-quality-gate
+```
+
+Diffs changed surfaces against documentation; flags un-documented public APIs or feature flags.
+
 ## Integration
 
-- **Called by**: `/ai-pr` (step 7) via parallel subagent dispatch
-- **Calls**: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-init.md`, `handlers/solution-intent-sync.md`, `handlers/solution-intent-validate.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`
-- **Reads**: `.ai-engineering/manifest.yml` (auto_update flags, external_portal config), `docs/solution-intent.md`, `.ai-engineering/state/state.db.decisions`
-- **NOT** `/ai-write` -- for prose content (blog posts, pitch decks) use `/ai-write` instead
+Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-*.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`. Reads: `manifest.yml`, `docs/solution-intent.md`, `state.db.decisions`. See also: `/ai-write` (prose content), `/ai-market` (outreach).
 
 ## Governance Notes
 

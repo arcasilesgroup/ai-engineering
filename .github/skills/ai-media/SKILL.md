@@ -1,6 +1,6 @@
 ---
 name: ai-media
-description: Use when generating images (thumbnails, hero images), videos (demos, b-roll, social clips), or audio (voiceover, music, SFX) using AI models. Requires fal-ai MCP server. Estimates cost before generation. Uses cheap models for iteration, production models for finals. Trigger for 'generate an image', 'create a thumbnail', 'make a voiceover', 'AI video'.
+description: "Generates images, videos, and audio via AI models (fal-ai MCP): cheap iteration models, expensive production finals, cost-estimate before generation. Trigger for 'generate an image', 'create a thumbnail', 'make a voiceover', 'AI video', 'text to speech for'. Not for design composition; use /ai-canvas instead. Not for animation specs; use /ai-animation instead."
 effort: medium
 argument-hint: "image|video|audio [description]"
 mode: agent
@@ -137,14 +137,34 @@ generate(model_name: "fal-ai/nano-banana-2", input: {
 
 For non-MCP integrations (ElevenLabs, VideoDB), follow `handlers/external-apis.md`.
 
-## Integration
-
-- **Called by**: user directly, `/ai-dispatch`, `ai-video-editing` (Layer 5 generated assets)
-- **Calls**: fal.ai MCP tools, ElevenLabs API, VideoDB API
-- **Related**: `ai-slides` (generated visuals for presentations), `ai-video-editing` (asset generation for video pipeline)
-
 ## Common Mistakes
 
 Do not skip `estimate_cost`, use production models for first-pass iteration, ignore `seed`, choose pure text-to-video when image-to-video is more controlled, or assume fal.ai access covers ElevenLabs credentials.
+
+## Examples
+
+### Example 1 — generate a hero image for a blog post
+
+User: "create a hero image for the blog post about parallel agent planning"
+
+```
+/ai-media image hero for parallel agent planning blog
+```
+
+Iterates with `nano-banana-2` (cheap), locks composition with `seed`, switches to `nano-banana-pro` for the production final, returns URL + cost.
+
+### Example 2 — voiceover for a demo video
+
+User: "make a 30-second voiceover for the v1.0 demo"
+
+```
+/ai-media audio voiceover for v1.0 demo
+```
+
+Iterates with `csm-1b` for cheap previews, finalizes with ElevenLabs for production-quality output.
+
+## Integration
+
+Called by: user directly, `/ai-dispatch`, `ai-video-editing` (Layer 5 generated assets). Calls: fal.ai MCP, ElevenLabs API, VideoDB API. See also: `/ai-canvas` (composed visuals), `/ai-slides` (deck visuals), `/ai-animation`.
 
 $ARGUMENTS

@@ -1,6 +1,6 @@
 ---
 name: ai-platform-audit
-description: Use when you need to verify that an IDE platform is genuinely supported in ai-engineering — not just assumed. Trigger for 'audit platform support', 'is Copilot wired up correctly?', 'check Claude Code integration', 'are there orphaned hooks?', 'platform support audit', 'verify IDE setup', 'check platform gaps', 'are skill counts correct per platform?', 'do all hooks work?', or any time platform configuration feels off. Accepts Claude Code, GitHub Copilot, Gemini, Codex, or 'all'. Also trigger proactively after any sync-mirrors run, installer change, or new hook added.
+description: Audits an IDE platform end-to-end (instruction surface, hooks, skills, agents, installer wiring) using strict file-evidence — never assumptions. Trigger for 'audit platform support', 'is Copilot wired up correctly', 'check Claude Code integration', 'are there orphaned hooks', 'verify IDE setup'. Accepts Claude Code, GitHub Copilot, Gemini, Codex, or all. Not for code quality; use /ai-verify instead. Not for security scanning; use /ai-security instead.
 effort: max
 argument-hint: "claude-code|github-copilot|gemini|codex|all [--fix]"
 tags: [audit, platform, copilot, claude-code, governance]
@@ -13,7 +13,24 @@ edit_policy: generated-do-not-edit
 
 # Platform Support Audit
 
+## Quick start
+
+```
+/ai-platform-audit all              # audit all platforms
+/ai-platform-audit github-copilot   # Copilot only
+/ai-platform-audit claude-code      # Claude Code only
+/ai-platform-audit all --fix        # audit + auto-fix P0 issues
+```
+
+## Workflow
+
 Strict evidence-based audit of IDE platform support in ai-engineering. No assumptions — every claim cites a file path. Output is always the structured report below, no matter how many platforms are requested.
+
+1. Write the report skeleton from `references/report-template.md` BEFORE collecting evidence.
+2. Dispatch a single `Explore` subagent to read instruction surfaces, hook configs, mirror dirs, and `manifest.yml` counts.
+3. Classify each capability per platform (SUPPORTED / PARTIAL / UNSUPPORTED) using the matrix below.
+4. Run Spec-107 advisory checks (6/7/8) — agent naming, GEMINI.md skill count, generic count scan.
+5. With `--fix`, auto-remediate P0 issues only; re-run mirror sync; verify tests still pass.
 
 ## When to Use
 
@@ -91,63 +108,14 @@ Mark PARTIAL whenever you find evidence of the capability but with a measurable 
 
 ## Spec-107 Advisory Checks (6/7/8)
 
-These three checks are **advisory-only** per spec-107 NG-11. They surface
-naming + count drift across IDE surfaces but never hard-fail. Hard-gate
-enforcement lands in a future spec when ≥90% of projects pass cleanly.
+Advisory-only per spec-107 NG-11 (never hard-fail; hard-gate lands in a
+future spec when ≥90% projects pass cleanly).
 
-### Check 6 — Agent naming consistency cross-IDE
+- **Check 6 — Agent naming**: for every agent file across `.claude`/`.github`/`.codex`/`.gemini`/agents, flag when `name != basename(file).removesuffix(".md")`. Catches Explorer-style slug drift.
+- **Check 7 — GEMINI.md count**: extract `N` from `## Skills (N)`; compare with `len(glob(".gemini/skills/ai-*/SKILL.md"))`. Catches `__SKILL_COUNT__` placeholder removal.
+- **Check 8 — Generic count scan**: regex `^## Skills \((\d+)\)$` / `^## Agents \((\d+)\)$` across every instruction file; compare to `manifest.yml` `skills.total` / `agents.total`. Defense-in-depth across future IDE adapters.
 
-For every agent file under `.codex/agents/`, `.github/agents/`,
-`.codex/agents/`, and `.gemini/agents/`, extract the front-matter
-`name:` field. Flag whenever:
-
-```
-name != basename(file).removesuffix(".agent.md").removesuffix(".md")
-```
-
-This catches future Explorer-style mismatches where the on-disk filename
-diverges from the canonical agent slug (e.g., `explore.agent.md` declaring
-`name: Explorer` instead of `ai-explore`). Spec-107 D-107-03 normalised the
-explore agent to `ai-explore`; Check 6 ensures every other Copilot agent
-keeps slug parity going forward.
-
-Severity: **advisory WARN**. Output lists the file path, observed name,
-expected slug, and remediation pointer (`scripts/sync_command_mirrors.py`).
-
-### Check 7 — GEMINI.md skill count freshness
-
-Extract the count `N` from the `## Skills (N)` header in `.gemini/GEMINI.md`.
-Compare with `len(glob(".gemini/skills/ai-*/SKILL.md"))` (the disk reality).
-Flag any mismatch.
-
-Spec-107 D-107-04 replaced the hand-maintained count with a
-`__SKILL_COUNT__` placeholder rendered by
-`scripts/sync_command_mirrors.py write_gemini_md`; Check 7 detects future
-template drift where the placeholder is accidentally removed and replaced
-with a stale literal.
-
-Severity: **advisory WARN**. Remediation: re-run `ai-eng sync`.
-
-### Check 8 — Generic instruction-file count scan
-
-Walk every canonical instruction file and extract h2 count headers. Surface
-covered:
-
-- `CLAUDE.md`
-- `AGENTS.md`
-- `.github/copilot-instructions.md`
-- `.gemini/GEMINI.md`
-
-For each file, regex match `^## Skills \((\d+)\)$` and `^## Agents \((\d+)\)$`.
-Compare each captured `N` against the canonical count from
-`.ai-engineering/manifest.yml` (`skills.total`, `agents.total`). Flag any
-mismatch with the source file path so reviewers can trace drift.
-
-This is defense-in-depth: even if a future IDE adapter introduces a new
-instruction file, the regex pattern is generic enough to catch stale counts
-across the whole surface.
-
-Severity: **advisory WARN**. Remediation: re-run `ai-eng sync`.
+Severity: advisory WARN. Remediation: re-run `ai-eng sync`.
 
 ---
 
@@ -168,19 +136,30 @@ Do not mark the audit complete if tests fail.
 
 ---
 
-## Quick Reference
+## Examples
+
+### Example 1 — full platform sweep before a release
+
+User: "audit every IDE platform we ship support for, then auto-fix the P0 issues"
 
 ```
-/ai-platform-audit all              # audit all platforms
-/ai-platform-audit github-copilot   # Copilot only
-/ai-platform-audit claude-code      # Claude Code only
-/ai-platform-audit all --fix        # audit + auto-fix P0 issues
+/ai-platform-audit all --fix
 ```
+
+Walks every IDE surface, scores SUPPORTED / PARTIAL / UNSUPPORTED per capability, fixes orphaned hooks and stale counts, re-runs mirror sync, re-runs unit tests.
+
+### Example 2 — quick Copilot health check after sync
+
+User: "did the sync_command_mirrors run leave Copilot in a good state?"
+
+```
+/ai-platform-audit github-copilot
+```
+
+Verifies `.github/copilot-instructions.md`, `.github/hooks/hooks.json`, `.github/skills/`, `.github/agents/` against the canonical formula and flags any drift.
 
 ## Integration
 
-- **Triggered after**: installer changes, sync-mirrors runs, new hook added
-- **Calls**: `python scripts/sync_command_mirrors.py` (when fixing sync-generated files)
-- **Feeds into**: `/ai-governance` for risk acceptance of UNSUPPORTED gaps
+Triggered after: installer changes, `sync_command_mirrors.py` runs, new hooks added. Calls: `python scripts/sync_command_mirrors.py` (with `--fix`). Feeds into: `/ai-governance` (risk acceptance for UNSUPPORTED gaps). See also: `/ai-verify`, `/ai-security`.
 
 $ARGUMENTS

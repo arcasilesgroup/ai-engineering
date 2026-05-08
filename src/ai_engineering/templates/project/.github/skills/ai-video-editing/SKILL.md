@@ -1,6 +1,6 @@
 ---
 name: ai-video-editing
-description: "Use when editing real video footage: cutting recordings into highlights, transcribing and structuring raw footage, running FFmpeg operations (trim, concat, reframe, normalize audio), creating Remotion overlays, or preparing social platform cuts. Trigger for 'cut this video', 'edit the recording', 'make a highlight reel', 'reframe for TikTok'. Not for generating videos from prompts — use /ai-media."
+description: "Edits real video footage: cuts recordings into highlights, transcribes and structures raw footage, runs FFmpeg operations (trim, concat, reframe, normalize audio), creates Remotion overlays, prepares social-platform cuts. Trigger for 'cut this video', 'edit the recording', 'make a highlight reel', 'reframe for TikTok', 'transcribe this footage'. Not for generating videos from prompts; use /ai-media instead. Not for animation specs; use /ai-animation instead."
 effort: high
 argument-hint: "plan|organize|cut|compose [source]"
 mode: agent
@@ -87,72 +87,27 @@ for f in segments/*.mp4; do echo "file '$f'"; done > concat.txt
 ffmpeg -f concat -safe 0 -i concat.txt -c copy assembled.mp4
 ```
 
-**Create proxy for faster editing:**
+**Common FFmpeg recipes:**
 
 ```bash
-ffmpeg -i raw.mp4 -vf "scale=960:-2" -c:v libx264 -preset ultrafast -crf 28 proxy.mp4
-```
-
-**Extract audio for transcription:**
-
-```bash
-ffmpeg -i raw.mp4 -vn -acodec pcm_s16le -ar 16000 audio.wav
-```
-
-**Normalize audio levels:**
-
-```bash
-ffmpeg -i segment.mp4 -af loudnorm=I=-16:TP=-1.5:LRA=11 -c:v copy normalized.mp4
-```
-
-**Scene detection:**
-
-```bash
-ffmpeg -i input.mp4 -vf "select='gt(scene,0.3)',showinfo" -vsync vfr -f null - 2>&1 | grep showinfo
-```
-
-**Silence detection (find dead air):**
-
-```bash
-ffmpeg -i input.mp4 -af silencedetect=noise=-30dB:d=2 -f null - 2>&1 | grep silence
+# Proxy:    ffmpeg -i raw.mp4 -vf "scale=960:-2" -c:v libx264 -preset ultrafast -crf 28 proxy.mp4
+# Audio:    ffmpeg -i raw.mp4 -vn -acodec pcm_s16le -ar 16000 audio.wav
+# Normalize: ffmpeg -i seg.mp4 -af loudnorm=I=-16:TP=-1.5:LRA=11 -c:v copy normalized.mp4
+# Scene:    ffmpeg -i input.mp4 -vf "select='gt(scene,0.3)',showinfo" -vsync vfr -f null - 2>&1 | grep showinfo
+# Silence:  ffmpeg -i input.mp4 -af silencedetect=noise=-30dB:d=2 -f null - 2>&1 | grep silence
 ```
 
 ### Layer 4 -- Programmable Composition (Remotion) [Optional]
 
-Remotion turns editing problems into composable code. Use it when you need:
-
-- Overlays: text, images, branding, lower thirds
-- Data visualizations: charts, stats, animated numbers
-- Motion graphics: transitions, explainer animations
-- Composable scenes: reusable templates across videos
-
-```bash
-npx remotion render src/index.ts VlogComposition output.mp4
-```
-
-Remotion requires Node.js. Skip this layer if the user does not need programmable compositions. See the [Remotion docs](https://www.remotion.dev/docs) (external reference -- may require manual verification) for API reference.
+Use Remotion for overlays (text, branding, lower thirds), data visualizations, motion graphics, and reusable scene templates. Requires Node.js. `npx remotion render src/index.ts VlogComposition output.mp4`. Skip when programmable compositions are not needed.
 
 ### Layer 5 -- Generated Assets
 
-Generate only what you need. Do not generate the whole video.
-
-Cross-reference the `ai-media` skill for:
-
-- Voiceover (ElevenLabs or CSM-1B)
-- Background music and SFX (fal.ai ThinkSound, VideoDB)
-- Insert shots, thumbnails, or b-roll that does not exist (fal.ai image models)
+Cross-reference `ai-media` for voiceover (ElevenLabs/CSM-1B), music/SFX (fal.ai ThinkSound, VideoDB), insert shots/b-roll (fal.ai image models). Generate only what is missing.
 
 ### Layer 6 -- Final Polish (Human Layer)
 
-The last layer is human. Use a traditional editor for:
-
-- **Pacing**: adjust cuts that feel too fast or slow
-- **Captions**: auto-generated, then manually cleaned
-- **Color grading**: basic correction and mood
-- **Final audio mix**: balance voice, music, and SFX levels
-- **Export**: platform-specific formats and quality settings
-
-This is where taste lives. AI clears the repetitive work. You make the final calls.
+Traditional editor for pacing, caption cleanup, color grading, final audio mix, platform-specific export. AI clears repetitive work; humans make the final calls.
 
 ## Quick Reference
 
@@ -191,14 +146,34 @@ ffmpeg -i input.mp4 -vf "crop=ih:ih,scale=1080:1080" square.mp4
 1. **Remotion for repeatability.** If you will do it more than once, make it a Remotion component.
 2. **Generate selectively.** Only use AI generation for assets that don't exist, not for everything.
 
-## Integration
-
-- **Called by**: user directly, `/ai-dispatch`
-- **Calls**: FFmpeg (deterministic cuts), Remotion (optional compositions), `ai-media` (Layer 5 generated assets)
-- **Related**: `ai-slides` (presentations from video content), `ai-media` (asset generation)
-
 ## Common Mistakes
 
 Do not try to generate the whole video, skip organization or polish, force one tool to do every layer, ignore proxy/audio normalization hygiene, or replace usable footage with generated assets.
+
+## Examples
+
+### Example 1 — highlight reel from a recording
+
+User: "cut this 60-minute talk into a 90-second highlight reel"
+
+```
+/ai-video-editing plan recording.mp4
+```
+
+Plans cuts, transcribes, identifies highlight beats, runs FFmpeg trim+concat, normalizes audio, outputs the reel.
+
+### Example 2 — reframe for TikTok
+
+User: "reframe this 16:9 demo for TikTok 9:16"
+
+```
+/ai-video-editing compose --source demo.mp4 --aspect 9:16
+```
+
+Center-crop reframe with subject tracking via Remotion overlay, audio normalization, social-platform-ready output.
+
+## Integration
+
+Called by: user directly, `/ai-dispatch`. Calls: `ffmpeg` (deterministic cuts), Remotion (compositions), `/ai-media` (Layer 5 generated assets). See also: `/ai-media` (asset generation), `/ai-slides` (deck embeds), `/ai-canvas` (cover art).
 
 $ARGUMENTS

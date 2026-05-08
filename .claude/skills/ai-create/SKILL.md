@@ -1,8 +1,8 @@
 ---
 name: ai-create
-description: "Use when adding a new slash command, building a new agent role, or extending the ai-engineering framework with a capability it does not yet have. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for X', 'build a new agent'. Covers skill scaffold, TDD pressure testing, description optimization, registration, and mirror sync."
+description: "Creates new ai-engineering skills or agents end-to-end: scaffold, TDD pressure-test, optimize description, register in manifest, sync mirrors. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for', 'build a new agent', 'scaffold a skill for'. Not for evolving existing skills; use /ai-skill-evolve instead. Not for description-only optimization; use /ai-prompt instead."
 effort: high
-argument-hint: "skill <name>|agent <name>"
+argument-hint: "skill [name]|agent [name]"
 tags: [meta, framework, creation]
 ---
 
@@ -36,6 +36,13 @@ This is the invariant checklist that must be satisfied regardless of whether you
 ```
 
 ---
+
+## Workflow
+
+Two modes:
+
+- **skill `<name>`** — context load (overlap check + pain sources), delegate to skill-creator for TDD + evals, register in `manifest.yml`, sync mirrors.
+- **agent `<name>`** — scaffold the agent file, declare frontmatter (description, model, tools, dispatch source), register in `manifest.yml`, sync mirrors.
 
 ## Mode: skill <name>
 
@@ -116,11 +123,30 @@ The `description` field is the skill's search ranking — it determines whether 
 /ai-create agent reviewer    # create a new reviewer agent (direct scaffold)
 ```
 
+## Examples
+
+### Example 1 — create a brand-new skill
+
+User: "the framework needs a capability for OpenAPI schema validation — create the skill"
+
+```
+/ai-create skill ai-openapi
+```
+
+Loads pain context, delegates draft + TDD to `skill-creator`, registers in `manifest.yml`, runs `sync_command_mirrors.py`, verifies tests still pass.
+
+### Example 2 — scaffold a new specialist agent
+
+User: "add a new reviewer agent for accessibility"
+
+```
+/ai-create agent reviewer-accessibility
+```
+
+Scaffolds the agent file with CSO description, `tools` whitelist, `model: sonnet`, dispatch-source comment; registers in manifest; syncs mirrors.
+
 ## Integration
 
-- **Delegates to**: Anthropic `skill-creator` for skill TDD, evals, description optimization
-- **Reads**: manifest.yml, state.db.decisions, LESSONS.md (ai-engineering context)
-- **Triggers sync**: `python scripts/sync_command_mirrors.py` after creation
-- **Related**: `/ai-skill-evolve` for improving existing skills (also delegates to skill-creator)
+Delegates to: Anthropic `skill-creator` (TDD + evals + description optimization). Reads: `manifest.yml`, `state.db.decisions`, `LESSONS.md`. Calls: `python scripts/sync_command_mirrors.py`. See also: `/ai-skill-evolve` (improve existing), `/ai-prompt` (description-only).
 
 $ARGUMENTS

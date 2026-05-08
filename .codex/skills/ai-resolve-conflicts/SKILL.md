@@ -1,6 +1,6 @@
 ---
 name: ai-resolve-conflicts
-description: Use whenever git reports conflicts, you see <<<<<<< markers, or git operations stop mid-flight. Trigger for 'I have conflicts', 'rebase failed', 'merge conflict', 'cherry-pick failed', 'unmerged paths', 'git stopped with conflicts', 'I see <<<<<<< in the file'. Categorizes conflicts by type — lock files (regenerate), migrations (ask user), generated files (accept theirs), config (AI merge), code (intent-aware resolution).
+description: "Resolves git conflicts intent-aware: categorizes by type (lock files, migrations, generated, config, code), regenerates or merges per category, never blindly accepts. Trigger for 'I have conflicts', 'rebase failed', 'merge conflict', 'cherry-pick failed', 'unmerged paths'. Not for branch hygiene; use /ai-cleanup instead. Not for committing the resolution; use /ai-commit instead."
 effort: medium
 argument-hint: 
 mirror_family: codex-skills
@@ -23,7 +23,7 @@ Intelligent git conflict resolution. Detects conflict type, categorizes files by
 - Context: git operation resulted in conflicts (rebase, merge, cherry-pick, revert).
 - Auto-detect: `git status` shows "Unmerged paths" or "both modified".
 
-## Procedure
+## Workflow
 
 1. **Detect conflict type** -- determine the operation that caused conflicts:
 
@@ -75,12 +75,6 @@ Intelligent git conflict resolution. Detects conflict type, categorizes files by
 
    If the continue operation produces new conflicts (common during multi-commit rebases), loop back to the conflict detection step and resolve the next round. Repeat until the operation completes.
 
-## Integration
-
-- **Called by**: `/ai-pr` watch-and-fix loop (Step 5, automated CI repair), user directly
-- **Calls**: git (rebase, merge, cherry-pick continuation commands)
-- **Transitions to**: calling workflow resumes after conflicts resolved
-
 ## Quick Reference
 
 ```
@@ -88,5 +82,31 @@ Intelligent git conflict resolution. Detects conflict type, categorizes files by
 ```
 
 No arguments needed -- the skill reads git state directly.
+
+## Examples
+
+### Example 1 — rebase that hit a lock-file conflict
+
+User: "rebase failed on package-lock.json"
+
+```
+/ai-resolve-conflicts
+```
+
+Detects the rebase-in-progress, classifies `package-lock.json` as a generated file, regenerates via `npm install`, stages the result, runs `git rebase --continue`.
+
+### Example 2 — merge with code conflict needing intent-aware resolution
+
+User: "merge conflict in src/auth.ts, both branches changed the token validator"
+
+```
+/ai-resolve-conflicts
+```
+
+Reads both sides, detects category = code, applies intent-aware resolution (preserves both validators if non-overlapping; otherwise asks the user with a unified diff).
+
+## Integration
+
+Called by: `/ai-pr` watch-and-fix loop (CI repair), user directly. Calls: git (rebase / merge / cherry-pick continuation), package managers (lock-file regeneration). See also: `/ai-cleanup` (after resolution), `/ai-commit` (commit the resolved state).
 
 $ARGUMENTS

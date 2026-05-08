@@ -1,6 +1,6 @@
 ---
 name: ai-release-gate
-description: "Use when checking release readiness: 'is this ready to ship?', 'can we release?', 'run the release checks', 'what's blocking the release?', 'pre-release checklist', 'GO/NO-GO'. Runs aggregated gate across 8 dimensions — coverage, security, tests, lint, dependencies, types, docs, packaging — against manifest thresholds and produces a structured GO / CONDITIONAL GO / NO-GO verdict."
+description: Aggregates 8-dimension release readiness (coverage, security, tests, lint, dependencies, types, docs, packaging) against manifest thresholds and emits GO / CONDITIONAL GO / NO-GO. Trigger for 'is this ready to ship', 'can we release', 'run the release checks', 'whats blocking the release', 'pre-release checklist', 'GO/NO-GO'. Not for code quality alone; use /ai-verify instead. Not for security scan in isolation; use /ai-security instead.
 effort: high
 argument-hint: "[version]|--check-only"
 tags: [quality, release, gate, go-no-go, delivery]
@@ -16,6 +16,14 @@ edit_policy: generated-do-not-edit
 
 
 # Release Gate
+
+## Quick start
+
+```
+/ai-release-gate              # aggregate gate against current branch
+/ai-release-gate v2.0         # tag-specific run
+/ai-release-gate --check-only # report-only, never block
+```
 
 Aggregated GO/NO-GO release readiness gate. Checks every quality dimension against `manifest.yml` thresholds and produces a verdict with evidence. Run before version tagging or merge-to-main.
 
@@ -122,15 +130,36 @@ Map each gate dimension to the stack-appropriate tool. If multiple configs are f
 - Ignoring CONDITIONAL GO risks -- each must have a `state.db.decisions` entry.
 - Skipping packaging integrity -- wheel build failures are release blockers.
 
+## Examples
+
+### Example 1 — pre-release sweep
+
+User: "is the v2.0 branch ready to ship?"
+
+```
+/ai-release-gate v2.0
+```
+
+Aggregates 8 dimensions, scores against manifest thresholds, emits GO / CONDITIONAL GO / NO-GO with evidence per dimension and remediation hints.
+
+### Example 2 — report-only check during planning
+
+User: "what would block a release if we cut today?"
+
+```
+/ai-release-gate --check-only
+```
+
+Same evaluation, never blocks; useful as input to `/ai-sprint` or `/ai-write content sprint-review`.
+
 ## Integration
 
-- Aggregates results from `/ai-security`, `/ai-verify quality`, `/ai-test`.
-- Reads thresholds from `manifest.yml`.
-- Risk acceptances from `state/state.db.decisions`.
+Aggregates results from: `/ai-security`, `/ai-verify quality`, `/ai-test`. Reads thresholds from: `manifest.yml`. Reads risk acceptances from: `state.db.decisions`. See also: `/ai-governance` (compliance), `/ai-pr` (precedes release).
 
 ## References
 
 - `.codex/skills/ai-security/SKILL.md` -- security gate.
 - `.codex/skills/ai-governance/SKILL.md` -- compliance and risk.
 - `.ai-engineering/manifest.yml` -- quality thresholds.
+
 $ARGUMENTS

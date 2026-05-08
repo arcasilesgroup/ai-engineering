@@ -150,10 +150,30 @@ Every scan mode produces:
 - Using forbidden words ("should work") instead of evidence
 - Reading specialist agent files inline instead of dispatching via Agent tool
 
+## Examples
+
+### Example 1 — pre-merge platform sweep
+
+User: "is this branch ready to merge?"
+
+```
+/ai-verify platform
+```
+
+Dispatches all 4 specialist agents in parallel, aggregates findings, scores against the gate, returns PASS / WARN / FAIL with evidence per finding.
+
+### Example 2 — quality-only sweep mid-implementation
+
+User: "before I keep going, run the quality checks"
+
+```
+/ai-verify quality
+```
+
+Runs the deterministic specialist (lint, format, type-check, tests, coverage), reports findings inline so the build loop can fix in place.
+
 ## Integration
 
-- **Called by**: `/ai-dispatch` (post-task review), `ai-build` agent handoffs, user directly
-- **Dispatches**: `verify-deterministic.md`, `verifier-governance.md`, `verifier-architecture.md`, `verifier-feature.md` (all via Agent tool)
-- **Read-only**: never modifies source code -- produces findings with remediation
+Called by: `/ai-dispatch` (post-task), `/ai-autopilot` (Phase 5), `/ai-build` (handoff), user directly. Dispatches: `verify-deterministic`, `verifier-governance`, `verifier-architecture`, `verifier-feature` agents. Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-eval` (AI reliability over time).
 
 $ARGUMENTS

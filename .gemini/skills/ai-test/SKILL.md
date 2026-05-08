@@ -1,6 +1,6 @@
 ---
 name: ai-test
-description: "Use when working with tests: writing new tests, enforcing TDD (RED-GREEN-REFACTOR), analyzing coverage gaps, or defining test strategy. Trigger for 'add tests for', 'write a test', 'I need 80% coverage', 'test this', 'am I testing enough', 'plan my test approach'. For failing tests where the fix is not obvious, use /ai-debug instead. Supports Python, TypeScript, .NET, Rust, Go."
+description: Writes tests, enforces TDD (RED-GREEN-REFACTOR), analyzes coverage gaps, defines test strategy across Python, TypeScript, .NET, Rust, Go. Trigger for 'add tests for', 'write a test', 'I need 80 percent coverage', 'plan my test approach', 'TDD this'. Not for failing tests where the fix is unclear; use /ai-debug instead. Not for AI reliability over time; use /ai-eval instead.
 effort: high
 argument-hint: "plan|run|gap|tdd [target]"
 mirror_family: gemini-skills
@@ -115,11 +115,30 @@ If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to
 | E2E Testing | `handlers/e2e.md` | Activated when `*.spec.ts`, `playwright.config.ts`, or `e2e/` directory detected |
 | TDD Mode | `handlers/tdd.md` | Activated when `mode=tdd` |
 
+## Examples
+
+### Example 1 — TDD a new feature
+
+User: "I'm building a JWT validator. Walk me through TDD."
+
+```
+/ai-test tdd jwt-validator
+```
+
+RED: writes failing tests for valid token, expired token, malformed signature. Confirms FAIL for the expected reason. GREEN: hands off to `ai-build` for minimal implementation. REFACTOR: stays green.
+
+### Example 2 — coverage gap analysis
+
+User: "where am I light on tests?"
+
+```
+/ai-test gap
+```
+
+Runs the stack-specific coverage tool, ranks files by coverage delta, suggests the highest-leverage test to add next.
+
 ## Integration
 
-- **Called by**: `/ai-dispatch` (build tasks), `ai-build agent` (TDD mode), user directly
-- **Calls**: stack-specific test runners
-- **Transitions to**: `ai-build` (GREEN phase), `/ai-verify` (coverage validation)
-- **See also**: `/ai-debug` (diagnose failing tests), `/ai-verify` (coverage + acceptance gate)
+Called by: `/ai-dispatch` (build tasks), `/ai-build` (TDD mode), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-eval`.
 
 $ARGUMENTS

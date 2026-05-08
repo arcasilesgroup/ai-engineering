@@ -1,6 +1,6 @@
 ---
 name: ai-constitution
-description: Use when installing ai-engineering on a new project, when AI agents need foundational rules about what this project is, what it aims to achieve, and what must NEVER be violated. Trigger for 'set up the constitution', 'define project principles', 'what are the rules for this project', 'agents keep breaking boundaries', 'update the constitution', 'new team member needs orientation'. Generates CONSTITUTION.md — the non-negotiable governance document consumed by ALL skills and agents at Step 0.
+description: Generates and maintains CONSTITUTION.md — the non-negotiable governance document loaded by every skill and agent at Step 0 (identity, mission, principles, prohibitions, gates, boundaries). Trigger for 'set up the constitution', 'define project principles', 'what are the rules for this project', 'agents keep breaking boundaries', 'update the constitution'. Not for ad-hoc decision capture; use /ai-learn or /ai-note instead. Not for spec governance; use /ai-governance instead.
 effort: medium
 argument-hint: "[generate|update|amend]"
 mirror_family: gemini-skills
@@ -99,11 +99,30 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 /ai-constitution amend      # formal amendment with version bump
 ```
 
+## Examples
+
+### Example 1 — generate constitution on first install
+
+User: "set up the constitution for this project"
+
+```
+/ai-constitution generate
+```
+
+Auto-detects stack/manifest, interviews for the 7 sections (identity, mission, principles, prohibitions, gates, boundaries, governance), writes `CONSTITUTION.md` with version `1.0.0` and the ratified date.
+
+### Example 2 — formal amendment with version bump
+
+User: "amend the constitution: relax the test coverage threshold from 90 to 85"
+
+```
+/ai-constitution amend
+```
+
+Bumps the semantic version, records the amendment in governance metadata, emits a framework event, preserves all other sections.
+
 ## Integration
 
-- **Called by**: installer (governance phase), `/ai-start`
-- **Reads**: `manifest.yml`, package files, existing `CONSTITUTION.md`
-- **Writes**: `CONSTITUTION.md`
-- **Consumed by**: ALL skills and agents via Step 0 protocol
+Called by: installer (governance phase), `/ai-start`. Reads: `manifest.yml`, package files, existing `CONSTITUTION.md`. Writes: `CONSTITUTION.md`. Consumed by: ALL skills and agents via Step 0 protocol. See also: `/ai-governance` (compliance against the constitution).
 
 $ARGUMENTS

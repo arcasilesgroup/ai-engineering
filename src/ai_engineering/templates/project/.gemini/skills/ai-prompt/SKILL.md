@@ -1,8 +1,8 @@
 ---
 name: ai-prompt
-description: "Use when a prompt, system message, or skill description is underperforming and needs optimization. Trigger for 'this prompt isn't working', 'optimize this skill description', 'improve triggering', 'rewrite this instruction'. Use /ai-prompt --skill <name> to optimize any skill's description field. Applies explicit-over-implicit, show-don't-tell, and rationale-embedding techniques."
+description: "Optimizes prompts, system messages, and skill descriptions using explicit-over-implicit, show-do-not-tell, and rationale-embedding techniques. Trigger for 'this prompt is not working', 'optimize this skill description', 'improve triggering', 'rewrite this instruction', 'CSO-optimize'. Pass `--skill name` to optimize any skill's description field. Not for creating new skills; use /ai-create instead. Not for evolving the entire skill body; use /ai-skill-evolve instead."
 effort: medium
-argument-hint: "<text>|--skill <name>"
+argument-hint: "[text]|--skill [name]"
 tags: [meta, optimization, prompts]
 mirror_family: gemini-skills
 generated_by: ai-eng sync
@@ -93,7 +93,7 @@ For skills that enforce process (guard, verify, commit):
 - **Consistency**: reference past decisions and established patterns
 - **Social proof**: "teams that skip this step spend 3x longer debugging"
 
-## Procedure
+## Workflow
 
 ### Optimizing text
 
@@ -126,5 +126,31 @@ For skills that enforce process (guard, verify, commit):
 | Optimizing for length (making it longer = better) | Concise and specific beats long and vague |
 | Adding hedging language ("try to", "if possible") | Be direct: state the expected behavior |
 | Removing context while shortening | Keep the WHY, remove the fluff |
+
+## Examples
+
+### Example 1 — optimize a vague text prompt
+
+User: 'optimize this: "check if the code follows our standards"'
+
+```
+/ai-prompt "check if the code follows our standards"
+```
+
+Rewrites to a specific, observable instruction (e.g. "Run ruff on the staged hunks; flag any violation of lines 1-N of `.ai-engineering/contexts/python-stack.md`; report findings as a Markdown table"), shows before/after with annotations.
+
+### Example 2 — CSO-optimize a skill's description
+
+User: "optimize the description for /ai-governance"
+
+```
+/ai-prompt --skill ai-governance
+```
+
+Reads `.gemini/skills/ai-governance/SKILL.md`, rewrites the description with explicit triggers + negative scoping, presents before/after, applies on approval, runs `sync_command_mirrors.py`.
+
+## Integration
+
+Called by: user directly, `/ai-skill-evolve` (Phase 4 rewrite). Calls: `python scripts/sync_command_mirrors.py` (after `--skill` updates). See also: `/ai-create` (new skills), `/ai-skill-evolve` (full skill rewrite from pain).
 
 $ARGUMENTS

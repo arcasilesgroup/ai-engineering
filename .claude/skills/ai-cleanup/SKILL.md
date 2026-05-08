@@ -1,6 +1,6 @@
 ---
 name: ai-cleanup
-description: "Use after merging a PR, at session start, or to tidy up branches. Trigger for 'tidy up', 'clean up branches', 'sync to main', 'get back to main', 'delete old branches', 'what branches do I have', 'start fresh'. Also automatically invoked by /ai-pr after merge. Safely switches to default branch, prunes merged and squash-merged branches, produces per-branch status report."
+description: "Tidies the repository safely: switches to default branch, prunes merged and squash-merged branches, syncs to remote, sweeps stale specs. Trigger for 'tidy up', 'clean up branches', 'sync to main', 'delete old branches', 'start fresh'. Auto-invoked by /ai-pr after merge. Not for committing changes; use /ai-commit instead. Not for code-level dead-code removal; use /ai-simplify instead."
 effort: medium
 argument-hint: "--branches|--sync|--specs|--all"
 tags: [git, branch, cleanup, hygiene, status, delivery]
@@ -11,6 +11,15 @@ requires:
 
 
 # Repository Cleanup
+
+## Quick start
+
+```
+/ai-cleanup              # full: sync + branch cleanup + spec sweep + report
+/ai-cleanup --sync       # sync to default branch only
+/ai-cleanup --branches   # branch cleanup only
+/ai-cleanup --specs      # spec lifecycle sweep
+```
 
 Full repository hygiene: safely migrate to the default branch, delete merged and squash-merged branches, and produce a per-branch status report. No destructive operations without confirmation.
 
@@ -90,9 +99,31 @@ load-bearing hot path here.
 
 - Force-pulling when ff-only fails -- STOP and resolve manually.
 
+## Examples
+
+### Example 1 — full hygiene at session start
+
+User: "tidy up before I start a new task"
+
+```
+/ai-cleanup
+```
+
+Switches to `main`, ff-pulls, prunes merged + squash-merged branches, sweeps stale spec drafts, prints the per-branch report.
+
+### Example 2 — branches only after a long session
+
+User: "just clean up old branches, leave the specs alone"
+
+```
+/ai-cleanup --branches
+```
+
+Skips sync and spec sweep; runs branch classification + delete + report only.
+
 ## Integration
 
-Run before `/ai-brainstorm` to start clean. Composes with session start protocol.
+Called by: `/ai-pr` (auto after merge), `/ai-start` (session bootstrap). Calls: `git`, `python .ai-engineering/scripts/spec_lifecycle.py sweep`. See also: `/ai-brainstorm` (run before new spec), `/ai-simplify` (code-level cleanup).
 
 ## References
 

@@ -1,14 +1,31 @@
 ---
 name: ai-skill-evolve
-description: "Use to improve any existing skill in ai-engineering based on real project pain — not theory. Reads decision-store, LESSONS.md, instincts, and proposals to understand what actually hurts, then evaluates the skill against realistic test prompts, grades the output, and rewrites the SKILL.md to be more effective. Trigger for 'evolve this skill', 'improve /ai-plan', 'make /ai-review better', 'the commit skill keeps doing X wrong', 'optimize all skills', 'batch improve skills', 'this skill isn't working well', 'evolve the framework'. Accepts a single skill name or 'all' for batch mode."
+description: "Improves an existing skill based on real project pain (decision-store, LESSONS.md, instincts, proposals) by evaluating it against realistic prompts, grading the output, and rewriting the SKILL.md. Trigger for 'evolve this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch improve skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-create instead. Not for platform audit; use /ai-platform-audit instead."
 effort: max
-argument-hint: "<skill-name>|all [--dry-run]"
+argument-hint: "[skill-name]|all [--dry-run]"
 tags: [meta, improvement, skills, optimization]
 ---
 
 # ai-skill-evolve
 
-Improve existing skills using evidence from real project pain (decision-store, LESSONS.md, instincts, proposals). Owns pain diagnosis and rewrite strategy; delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator` (grader agents, benchmark aggregation, HTML viewer, description optimization).
+## Quick start
+
+```
+/ai-skill-evolve ai-plan          # evolve one skill
+/ai-skill-evolve all --dry-run    # preview every skill
+/ai-skill-evolve all              # batch evolve with evals
+```
+
+## Workflow
+
+Improve existing skills using evidence from real project pain (decision-store, LESSONS.md, instincts, proposals). The skill owns pain diagnosis and rewrite strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator`.
+
+1. Load pain context (Phase 1) — read decision-store, LESSONS.md, instincts.yml, proposals.md.
+2. Analyze the target skill (Phase 2) — score 5 dimensions.
+3. Generate test prompts (Phase 3) — exercise the failing pattern.
+4. Rewrite the skill (Phase 4) — apply Start-Here, pain-injection, scope-gates patterns.
+5. Hand off to skill-creator (Phase 5) — eval, grade, benchmark.
+6. Verify improvement (Phase 6) — pass-rate delta vs prior iteration.
 
 ## When to Use
 
@@ -88,35 +105,25 @@ Write 2-3 test prompts that exercise the skill in contexts where the pain source
 
 ### Phase 4 — Rewrite the Skill (dry-run first)
 
-Based on the pain profile and analysis, rewrite the SKILL.md. Apply `/ai-prompt` techniques for general optimization, plus these skill-specific patterns (empirically validated during `ai-platform-audit` development):
+Apply `/ai-prompt` techniques plus these skill-specific patterns (validated during `ai-platform-audit` development):
 
-1. **"Start Here" pattern** — If the skill has an output contract, move it BEFORE the process instructions. The agent sees the output skeleton first and fills it in as it works.
+1. **"Start Here" pattern** — output contract before process; agent fills skeleton as it works.
+2. **Pain injection** — embed specific LESSONS.md patterns, do not just reference them.
+3. **Scope gates** — explicit narrowing when a parameter restricts output.
+4. **Classification vocabulary** — structured labels beat paragraphs; tables beat prose.
+5. **Explain the why** — every instruction includes its motivation.
+6. **Remove dead weight** — drop instructions that change no behavior.
 
-2. **Pain injection** — Weave relevant lessons and decisions directly into the skill's instructions. Don't just reference LESSONS.md — embed the specific patterns that affect this skill so the agent sees them in context.
-
-3. **Scope gates** — Add explicit scope control when the skill handles a parameter that narrows focus. "If X is not 'all', restrict output to X only."
-
-4. **Classification vocabulary** — Replace prose with structured labels where possible. Tables with fixed columns beat paragraphs.
-
-5. **Explain the why** — For every instruction, explain why it matters. LLMs respond better to reasoning than to directives.
-
-6. **Remove dead weight** — If an instruction adds no behavioral difference, remove it. Leaner skills perform better.
-
-If `--dry-run` was passed, show the proposed diff in the report and stop here. Otherwise, apply the rewrite and continue to Phase 5.
-
-After rewriting: run `python scripts/sync_command_mirrors.py` and verify tests pass:
-```bash
-source .venv/bin/activate && python -m pytest tests/unit/ -q
-```
+If `--dry-run`, stop after showing the diff. Otherwise apply, run `python scripts/sync_command_mirrors.py`, verify `python -m pytest tests/unit/ -q`.
 
 ### Phase 5 — Eval with skill-creator
 
 Delegate eval/grade/benchmark to Anthropic's `skill-creator` (parallel with/without runs, grader agents, benchmark aggregation, HTML viewer, description-optimization loop). Invoke with context:
 ```
-I have an existing skill at .claude/skills/<name>/SKILL.md that I just rewrote
-based on pain analysis. Here are 2-3 test prompts to evaluate it:
+The skill at .claude/skills/<name>/SKILL.md was just rewritten based on pain
+analysis. Test prompts for evaluation are below:
 [pass the test cases from Phase 3]
-Run the evals, grade them, and show me the benchmark comparison.
+Run the evals, grade them, and produce the benchmark comparison.
 ```
 
 This skill adds the pain-informed inputs (test cases from real decision-store/LESSONS/instincts, dimensional analysis, rewrite strategy, project governance) that skill-creator does not own.
@@ -138,15 +145,8 @@ Record the final delta in the report's Improvement Delta table.
 
 When `$ARGUMENTS` is `all`:
 
-1. List all skills from `.claude/skills/` sorted by priority tier:
-   - **Tier 1** (workflow): plan, dispatch, review, verify, commit, pr, code, test
-   - **Tier 2** (enterprise): security, governance, pipeline, docs, release-gate, debug
-   - **Tier 3** (meta/teaching): create, learn, onboard, explain, guide, instinct
-   - **Tier 4** (specialized): the rest
-
-2. For each skill, run the full evolution loop (Phases 1-6).
-
-3. Between skills, re-read LESSONS.md — previous improvements may have updated it.
+1. List skills from `.claude/skills/` in priority order: Tier 1 workflow (plan, dispatch, review, verify, commit, pr, code, test), Tier 2 enterprise (security, governance, pipeline, docs, release-gate, debug), Tier 3 meta/teaching (create, learn, explain, guide, instinct), Tier 4 specialized.
+2. Run Phases 1-6 per skill; re-read LESSONS.md between skills (previous improvements may update it).
 
 4. After all skills: run the full test suite and produce a summary:
    ```
@@ -168,12 +168,30 @@ When `$ARGUMENTS` is `all`:
 /ai-skill-evolve all              # batch evolve with evals
 ```
 
+## Examples
+
+### Example 1 — single-skill evolution from accumulated pain
+
+User: "the /ai-plan skill keeps producing decomposition that ignores constraint X. Evolve it."
+
+```
+/ai-skill-evolve ai-plan
+```
+
+Loads pain context from LESSONS.md and proposals.md, scores ai-plan on 5 dimensions, generates 2-3 test prompts that exercise the failing pattern, rewrites SKILL.md, hands off to skill-creator for eval, reports the delta.
+
+### Example 2 — dry-run batch preview
+
+User: "preview what evolving every skill would change before I commit time to running evals"
+
+```
+/ai-skill-evolve all --dry-run
+```
+
+Walks every skill in priority tier order, shows the proposed diff per skill, and stops short of running the eval pipeline.
+
 ## Integration
 
-- **Reads**: state.db.decisions, LESSONS.md, instincts.yml, proposals.md, manifest.yml
-- **Writes**: target SKILL.md files (via rewrite), mirror sync
-- **Calls**: `python scripts/sync_command_mirrors.py` after rewrites
-- **Delegates to**: Anthropic `skill-creator` for eval/grade/benchmark pipeline (Phase 5)
-- **Feeds into**: `/ai-learn` (improvements discovered during evolution become lessons)
+Reads: state.db.decisions, LESSONS.md, instincts.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `python scripts/sync_command_mirrors.py` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-create` (new skills), `/ai-platform-audit` (cross-IDE).
 
 $ARGUMENTS

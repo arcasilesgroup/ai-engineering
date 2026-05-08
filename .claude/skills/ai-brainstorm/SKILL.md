@@ -1,8 +1,8 @@
 ---
 name: ai-brainstorm
-description: "Use when the user wants to think through a problem before coding: designing a feature, exploring approaches, defining requirements, resolving ambiguity, or clarifying current state before a spec. Trigger for 'let's add X', 'how should we handle Y', 'what's the best approach', 'I'm thinking about', audit-style questions that still need a spec, or any work item lacking an approved spec. Not for existing specs — use /ai-plan instead. Produces a reviewed spec; no code until user approves."
+description: "Forces rigorous design interrogation BEFORE any code: explores approaches, surfaces ambiguity, gathers evidence, produces an approved spec that becomes the contract for /ai-plan. Trigger for 'lets add X', 'how should we handle Y', 'whats the best approach', 'I am thinking about', 'what should we build for'. Not for existing approved specs; use /ai-plan instead. Not for execution; use /ai-dispatch instead."
 effort: max
-argument-hint: "[feature or problem description] [optional: work item ID e.g. AB#100, #45]"
+argument-hint: "[feature or problem description] [work item ID]"
 ---
 
 # Brainstorm
@@ -73,5 +73,27 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 - **Called by**: user directly, or `/ai-plan` when requirements are unclear
 - **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board-sync` (refinement + ready transitions), `.ai-engineering/scripts/spec_lifecycle.py start_new` (fail-open lifecycle bootstrap)
 - **Transitions to**: `/ai-plan` (ONLY -- never directly to `ai-build` or `/ai-dispatch`)
+
+## Examples
+
+### Example 1 — design a new feature from a vague request
+
+User: "lets add multi-tenant support"
+
+```
+/ai-brainstorm "multi-tenant support"
+```
+
+Interrogates: what's the isolation model? per-row, per-schema, per-database? What about data residency? Existing user migration? Produces an approved spec at `.ai-engineering/specs/spec.md` with decisions recorded.
+
+### Example 2 — resolve ambiguity in a work item
+
+User: "AB#456 says 'improve search performance' — what does that even mean?"
+
+```
+/ai-brainstorm AB#456
+```
+
+Pulls the work item, surfaces ambiguity, drives the user to specific measurable acceptance criteria, links the spec to the work item.
 
 $ARGUMENTS

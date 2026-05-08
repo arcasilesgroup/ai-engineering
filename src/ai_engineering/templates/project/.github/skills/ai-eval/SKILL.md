@@ -1,6 +1,6 @@
 ---
 name: ai-eval
-description: "Use when measuring AI system reliability over time: defining pass/fail criteria before implementation, running capability checks, detecting regressions after prompt or model changes, or tracking pass@k metrics. Trigger for 'how reliable is this', 'did my changes break anything', 'measure AI performance', 'define success criteria', 'eval this'. Distinct from /ai-test (code correctness) and /ai-verify (quality gates) — evals measure AI task completion consistency."
+description: "Measures AI system reliability over time by defining pass/fail criteria before implementation, running capability checks, and tracking regression via pass@k metrics. Trigger for 'how reliable is this', 'did my changes break anything', 'measure AI performance', 'define success criteria', 'eval this feature'. Not for code correctness; use /ai-test instead. Not for quality gates; use /ai-verify instead — evals measure AI task completion consistency."
 effort: max
 argument-hint: "define|check|report|regression [feature]"
 mode: agent
@@ -149,12 +149,31 @@ Result: X/Y passed (previously Y/Y)
 3. **Keep evals fast** -- slow evals don't get run
 4. **Version evals with code** -- evals are first-class artifacts
 
+## Examples
+
+### Example 1 — define evals before implementing
+
+User: "I'm about to add a new auth flow. Define evals first."
+
+```
+/ai-eval define auth-flow
+```
+
+Walks through capability evals (can-create-account, can-validate-email, can-hash-password) and regression evals (login-still-works), sets pass@3 targets, writes `.ai-engineering/evals/auth-flow.md`.
+
+### Example 2 — regression check after model change
+
+User: "I bumped the model version, did anything regress?"
+
+```
+/ai-eval regression
+```
+
+Loads `.ai-engineering/evals/baseline.json`, runs all regression evals against the new model, flags degradation.
+
 ## Integration
 
-- **Called by**: user directly, `/ai-dispatch`, `/ai-verify` (can trigger regression evals)
-- **Calls**: test runners (code graders), Claude (model graders), stack-specific tools
-- **Complements**: `ai-verify` (verify = current quality gates, eval = AI reliability over time), `ai-test` (tests verify code correctness, evals verify AI task completion)
-- **See also**: `/ai-test` (write tests first; eval measures reliability of AI outputs)
+Called by: user directly, `/ai-dispatch`, `/ai-verify` (regression mode). Calls: test runners (code graders), the model (model graders), stack-specific tools. See also: `/ai-test` (code correctness), `/ai-verify` (current quality gates).
 
 ## Common Mistakes
 

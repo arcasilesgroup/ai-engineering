@@ -1,6 +1,6 @@
 ---
 name: ai-pr
-description: "Use when creating, submitting, or updating a pull request, or when ready for review. Trigger for 'open a PR', 'submit this for review', 'I'm ready for review', 'merge this into main', 'draft PR', 'update the PR'. Also after /ai-commit when work needs review. Runs commit pipeline, pre-push gates, generates structured PR body from spec, watches and fixes CI until merged."
+description: "Creates and updates pull requests with governance: runs the commit pipeline, enforces pre-push gates, generates structured PR body from spec, watches and fixes CI until merged. Trigger for 'open a PR', 'submit this for review', 'I am ready for review', 'merge this into main', 'draft PR', 'update the PR'. Not for commit-only flows; use /ai-commit instead. Not for narrative review; use /ai-review instead."
 effort: high
 argument-hint: "review|create|update|--draft|--only|[title]"
 tags: [git, pull-request, ci, merge, delivery]
@@ -13,6 +13,15 @@ requires:
 ---
 
 # PR Workflow
+
+## Quick start
+
+```
+/ai-pr                  # full pipeline + create or update PR
+/ai-pr --draft          # open as draft (no review request)
+/ai-pr review           # request review on existing PR
+/ai-pr update           # refresh PR body + push amended commit
+```
 
 Governed PR creation: run full commit pipeline, execute pre-push gates, create or update PR with structured summary and test plan, enable auto-complete with squash merge and branch deletion.
 
@@ -127,9 +136,30 @@ Once `state == "MERGED"`: run `/ai-cleanup --all` and report.
 
 `/ai-pr` runs the full commit pipeline + pre-push gate + PR flow; `/ai-pr --only` skips the commit pipeline; `/ai-pr --draft` opens a draft; `/ai-pr "title hint"` seeds the PR title.
 
+## Examples
+
+### Example 1 — open a PR after finishing a feature
+
+User: "I'm ready for review on this branch"
+
+```
+/ai-pr
+```
+
+Runs commit pipeline (0-6), pre-push gates, generates PR body from the spec's Summary + Test Plan, opens via `gh pr create`, transitions board state, watches CI.
+
+### Example 2 — draft PR for early feedback
+
+User: "open a draft so the team can comment on the approach"
+
+```
+/ai-pr --draft
+```
+
+Same pipeline, but opens with `--draft` and skips the review request; reviewers get notified once `/ai-pr review` is invoked.
+
 ## Integration
 
-- Invokes `/ai-commit` pipeline (steps 0-6) as prerequisite; consolidates `/ai-docs` subagents (CHANGELOG+README, docs-portal+quality-gate); invokes `/ai-board-sync` after new PR creation (step 15).
-- Links work items from frontmatter refs (features never closed; user stories/tasks/bugs/issues closed on merge).
-- Step 14 monitors PR via `handlers/watch.md`. Quality gates and non-negotiables sourced from `.ai-engineering/manifest.yml`.
-  $ARGUMENTS
+Calls: `/ai-commit` (steps 0-6 prereq), `/ai-docs` subagents (CHANGELOG, README, portal, quality-gate), `/ai-board-sync` (post-create), `gh pr create` / `az repos pr create`. Watches: CI via `handlers/watch.md`. Reads: `manifest.yml`, spec frontmatter for linked work items. See also: `/ai-commit`, `/ai-review`, `/ai-resolve-conflicts`.
+
+$ARGUMENTS

@@ -1,6 +1,6 @@
 ---
 name: ai-market
-description: "Use for marketing content and go-to-market execution: content strategy, blog posts for distribution, social media crossposting, market research, investor materials, investor outreach, and X/Twitter API automation. Trigger for 'write a blog post to publish', 'crosspost to socials', 'market research for X', 'investor deck', 'outreach campaign', 'content engine', 'post to Twitter/X'. NOT for internal documentation — use /ai-docs. NOT for reports or solution intent — use /ai-write."
+description: "Produces marketing content and go-to-market execution: blog posts for distribution, social crossposts, investor materials, market research, outreach campaigns, X/Twitter automation. Trigger for 'write a blog post to publish', 'crosspost to socials', 'market research for', 'investor deck', 'outreach campaign', 'content engine'. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-write instead."
 effort: high
 argument-hint: "[mode] [topic]"
 mode: agent
@@ -15,7 +15,24 @@ edit_policy: generated-do-not-edit
 
 # Market
 
+## Quick start
+
+```
+/ai-market blog "topic"               # public-facing blog post
+/ai-market crosspost                  # syndicate latest post across platforms
+/ai-market research "competitor"      # market research
+/ai-market investor-deck              # investor pitch
+/ai-market x-api                      # post to X/Twitter
+```
+
+## Workflow
+
 Router skill for marketing content and go-to-market execution. Dispatches to handler files based on content type.
+
+1. Detect mode (blog / crosspost / research / investor / outreach / x-api).
+2. Load relevant handler.
+3. Apply audience tone (public, never internal).
+4. For social: schedule + monitor.
 
 ## When to Use
 
@@ -56,8 +73,30 @@ If no sub-command is provided, display the routing table above and ask the user 
 /ai-market x-api                            # post to X/Twitter via API
 ```
 
+## Examples
+
+### Example 1 — public blog post for distribution
+
+User: "write a blog post about how we shipped our DAG planner"
+
+```
+/ai-market content-engine "DAG-based parallel agent planning"
+```
+
+Picks public-facing tone, structures for SEO, includes social hooks for crosspost.
+
+### Example 2 — crosspost to socials
+
+User: "syndicate the latest blog post"
+
+```
+/ai-market crosspost
+```
+
+Reads the latest published blog post, generates platform-specific variants (X thread, LinkedIn long-form, Mastodon), schedules.
+
 ## Integration
 
-See When NOT to Use for boundaries with `/ai-docs`, `/ai-write`, `/ai-explain`.
+Calls: x-api handler (X/Twitter), platform-specific handlers. See When NOT to Use for boundaries with `/ai-docs`, `/ai-write`, `/ai-explain`. See also: `/ai-write` (sprint review, solution intent), `/ai-canvas` (visual collateral).
 
 $ARGUMENTS

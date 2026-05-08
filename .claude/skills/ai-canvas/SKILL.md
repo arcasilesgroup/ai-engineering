@@ -1,6 +1,6 @@
 ---
 name: ai-canvas
-description: "Use when creating visual design artifacts: posters, banners, flyers, branding pieces, marketing materials, cover art, identity compositions, or any static visual output (PDF/PNG). Trigger for 'create a poster', 'design a banner', 'visual composition for', 'branding piece', 'marketing visual', 'cover art for', 'promotional graphic', 'cartel para', 'material de comunicacion visual', 'diseño visual para'. Not for UI interfaces (use /ai-design), animation (use /ai-animation), presentation decks (use /ai-slides), or AI-generated images (use /ai-media)."
+description: "Generates static visual design artifacts (posters, banners, flyers, branding pieces, cover art) by composing aesthetic philosophies into HTML/SVG and rendering to PDF/PNG. Trigger for 'create a poster', 'design a banner', 'branding visual', 'marketing graphic', 'cover art for'. Not for UI interfaces; use /ai-design instead. Not for animation; use /ai-animation instead. Not for presentation decks; use /ai-slides instead. Not for AI-generated photographs; use /ai-media instead."
 effort: high
 argument-hint: "[visual artifact description or brief]"
 tags: [visual-design, poster, banner, branding, artifact]
@@ -52,9 +52,29 @@ Additional pages should follow the same design philosophy but distinctly vary. B
 
 ## Integration
 
-- **Called by**: user directly, `/ai-design` (visual artifacts), `/ai-media` (visual direction).
-- **Consumed by**: ai-slides (aesthetic philosophy), ai-media (visual direction for generated assets).
-- Does NOT call other skills — produces final artifacts.
+Called by: user directly, `/ai-design`, `/ai-media`. Consumed by: `/ai-slides` (aesthetic philosophy), `/ai-media` (visual direction). Calls: none — produces final artifacts. See also: `/ai-design` (UI), `/ai-animation` (motion).
+
+## Examples
+
+### Example 1 — event poster
+
+User: "design a poster for a developer conference called 'Edge Runtime 2026'"
+
+```
+/ai-canvas event poster for Edge Runtime 2026 developer conference
+```
+
+Defines a movement (e.g. "Brutalist Compute"), articulates philosophy across space/color/composition, and renders an HTML→PDF poster with 90% visual / 10% text emphasis.
+
+### Example 2 — branding piece for product launch
+
+User: "create cover art for the v1.0 release announcement"
+
+```
+/ai-canvas cover art for product v1.0 release announcement
+```
+
+Generates a multi-page PDF where each page follows the same philosophy with distinct variation, suitable for press kit and social.
 
 ## Common Mistakes
 
