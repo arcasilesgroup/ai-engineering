@@ -676,23 +676,25 @@ def emit_declared_context_loads(
                 )
             )
 
-    language_dir = root / "contexts" / "languages"
-    framework_dir = root / "contexts" / "frameworks"
+    # spec-128 D-128-08: language + framework taxonomy collapsed to stack.
+    # contexts/languages/ and contexts/frameworks/ deleted; overrides/<stack>/conventions.md
+    # is the new canonical surface. _shared/ surfaces as shared-stack class.
+    overrides_dir = project_root / ".ai-engineering" / "overrides"
     for name in config.providers.stacks:
-        language_path = language_dir / f"{name}.md"
-        if language_path.exists():
+        conventions_path = overrides_dir / name / "conventions.md"
+        if conventions_path.exists():
             events.append(
                 emit_context_load(
                     project_root,
                     engine=engine,
-                    context_class="language",
+                    context_class="stack",
                     context_name=name,
                     component=component,
                     source=source,
                     initiator_kind=initiator_kind,
                     initiator_name=initiator_name,
                     load_mode="declared",
-                    path=language_path.relative_to(project_root).as_posix(),
+                    path=conventions_path.relative_to(project_root).as_posix(),
                     session_id=session_id,
                     trace_id=trace_id,
                     correlation_id=correlation_id,
@@ -700,26 +702,26 @@ def emit_declared_context_loads(
                 )
             )
 
-        framework_path = framework_dir / f"{name}.md"
-        if framework_path.exists():
-            events.append(
-                emit_context_load(
-                    project_root,
-                    engine=engine,
-                    context_class="framework",
-                    context_name=name,
-                    component=component,
-                    source=source,
-                    initiator_kind=initiator_kind,
-                    initiator_name=initiator_name,
-                    load_mode="declared",
-                    path=framework_path.relative_to(project_root).as_posix(),
-                    session_id=session_id,
-                    trace_id=trace_id,
-                    correlation_id=correlation_id,
-                    force_outcome="success",
-                )
+    shared_path = overrides_dir / "_shared" / "conventions.md"
+    if shared_path.exists():
+        events.append(
+            emit_context_load(
+                project_root,
+                engine=engine,
+                context_class="shared-stack",
+                context_name="_shared",
+                component=component,
+                source=source,
+                initiator_kind=initiator_kind,
+                initiator_name=initiator_name,
+                load_mode="declared",
+                path=shared_path.relative_to(project_root).as_posix(),
+                session_id=session_id,
+                trace_id=trace_id,
+                correlation_id=correlation_id,
+                force_outcome="success",
             )
+        )
 
     return events
 

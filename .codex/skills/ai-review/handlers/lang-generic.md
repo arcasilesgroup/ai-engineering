@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Generic language review handler for languages without a dedicated `lang-{language}.md` handler. Applies standards from the language's context file (`.ai-engineering/contexts/languages/{lang}.md`) to the diff.
+Generic language review handler for languages without a dedicated `lang-{language}.md` handler. Applies standards from the stack's overrides file (`.ai-engineering/overrides/{stack}/conventions.md`) to the diff.
 
 > **Build vs Review validation**: Build-time validation in /ai-code performs a lightweight self-check of 3 critical categories (naming conventions, anti-patterns, error handling) as a first line of defense. This handler provides the exhaustive review-time validation of all 5 categories, including idiomatic patterns and testing -- the comprehensive second pass that catches anything build-time missed.
 
@@ -33,7 +33,7 @@ Dispatched as **Step 2b** (between Step 2 dispatch and Step 3 aggregate). Findin
    | `.sh`, `.bash` | bash |
    | `.sql` | sql |
 
-2. Read `.ai-engineering/contexts/languages/{language}.md` for loaded standards
+2. Read `.ai-engineering/overrides/{stack}/conventions.md` for loaded standards
 3. If no context file exists for the detected language, apply only the universal best practices from the concern agents in Step 2 -- do not produce lang-generic findings
 4. Skip this handler entirely if all detected languages have a dedicated `lang-{language}.md` handler
 

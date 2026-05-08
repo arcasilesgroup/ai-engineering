@@ -6,7 +6,7 @@ Self-review protocol for build-time compliance checking. Lightweight check cover
 
 ## 6a. Identify applicable context file
 
-For each file touched, identify the language from its extension (same mapping as lang-generic.md Step 1). The applicable context file `.ai-engineering/contexts/languages/{lang}.md` was already loaded in Step 0.
+For each file touched, identify the language from its extension (same mapping as lang-generic.md Step 1). The applicable context file `.ai-engineering/overrides/{stack}/conventions.md` was already loaded in Step 0.
 
 ## 6b. Map categories to context file sections
 

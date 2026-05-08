@@ -21,7 +21,7 @@ Dispatched as **Step 2b** (between Step 2 dispatch and Step 3 aggregate). Findin
    - `<thread>`, `<mutex>`, `<atomic>` -> enable concurrency checks
    - `<memory>` -> validate smart pointer usage
    - Qt / Boost / Abseil headers -> enable framework-specific checks
-5. Read `.ai-engineering/contexts/languages/cpp.md` if not already loaded
+5. Read `.ai-engineering/overrides/cpp/conventions.md` if not already loaded
 
 ### Step 2 -- Critical Findings (severity: critical)
 

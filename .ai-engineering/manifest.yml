@@ -9,6 +9,9 @@ name: ai-engineering
 version: "1.0.0"
 
 # Providers
+# spec-128 D-128-09, D-128-11: stacks accepts bare-language tokens
+# matching .ai-engineering/overrides/<stack>/ directory names.
+# Supported: python, typescript, go, rust, swift, csharp, kotlin.
 providers:
   vcs: github
   ides: [terminal, vscode]

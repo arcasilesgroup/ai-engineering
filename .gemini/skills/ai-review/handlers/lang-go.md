@@ -19,7 +19,7 @@ Dispatched as **Step 2b** (between Step 2 dispatch and Step 3 aggregate). Findin
    - `net/http` / `gin` / `echo` / `chi` -> enable HTTP handler checks
    - `database/sql` / `gorm` / `sqlx` -> enable database checks
    - `grpc` -> enable gRPC checks
-5. Read `.ai-engineering/contexts/languages/go.md` if not already loaded
+5. Read `.ai-engineering/overrides/go/conventions.md` if not already loaded
 
 ### Step 2 -- Critical Findings (severity: critical)
 

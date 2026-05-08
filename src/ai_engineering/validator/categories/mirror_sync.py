@@ -18,12 +18,10 @@ from ai_engineering.validator._shared import (
     _CODEX_AGENTS_MIRROR,
     _CODEX_SKILLS_MIRROR,
     _COPILOT_AGENTS_MIRROR,
-    _COPILOT_GENERATED_INSTRUCTIONS_MIRROR,
     _COPILOT_SKILLS_MIRROR,
     _GEMINI_AGENTS_MIRROR,
     _GEMINI_SKILLS_MIRROR,
     _GOVERNANCE_MIRROR,
-    _MANUAL_INSTRUCTION_FILES,
     FileCache,
     IntegrityCategory,
     IntegrityCheckResult,
@@ -254,7 +252,7 @@ def _check_mirror_sync(
     # Copilot skills and agents mirrors
     _check_copilot_skills_mirror(target, report, _sha)
     _check_copilot_agents_mirror(target, report, _sha)
-    _check_generated_instructions_mirror(target, report, _sha)
+    # spec-128 D-128-04, D-128-07: generated-instructions mirror surface removed.
     _check_generated_mirror_provenance(target, report)
     _check_non_claude_local_reference_leaks(target, report)
     _check_public_skill_root_contract(target, report)
@@ -892,22 +890,7 @@ def _check_copilot_agents_mirror(
     )
 
 
-def _check_generated_instructions_mirror(
-    target: Path,
-    report: IntegrityReport,
-    sha_fn: Callable[[Path], str] = _sha256,
-) -> None:
-    """Check generated Copilot instruction files for repo/template parity."""
-    _check_pair_mirror(
-        target,
-        report,
-        *_COPILOT_GENERATED_INSTRUCTIONS_MIRROR,
-        "*.instructions.md",
-        "copilot-generated-instruction",
-        "Generated instruction",
-        sha_fn=sha_fn,
-        exclude_relatives=_MANUAL_INSTRUCTION_FILES,  # ty:ignore[invalid-argument-type]
-    )
+# spec-128 D-128-04, D-128-07: _check_generated_instructions_mirror removed.
 
 
 def _check_instruction_parity(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope

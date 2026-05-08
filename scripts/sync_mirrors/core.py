@@ -64,7 +64,7 @@ GEMINI_SKILLS = ROOT / ".gemini" / "skills"
 GEMINI_AGENTS = ROOT / ".gemini" / "agents"
 GITHUB_SKILLS = ROOT / ".github" / "skills"
 GITHUB_AGENTS = ROOT / ".github" / "agents"
-GITHUB_INSTRUCTIONS = ROOT / ".github" / "instructions"
+# spec-128 D-128-04, D-128-07: .github/instructions/ surface deleted entirely.
 
 # ── Template project paths (for ai-eng install) ────────────────────────
 TPL_PROJECT = ROOT / "src" / "ai_engineering" / "templates" / "project"
@@ -316,46 +316,9 @@ AGENT_METADATA: dict[str, AgentMeta] = {
 
 
 # ── Cross-reference validation targets ──────────────────────────────────────
-# ── Instruction generation from contexts ─────────────────────────────────────
-CONTEXTS_LANGUAGES = ROOT / ".ai-engineering" / "contexts" / "languages"
-TPL_INSTRUCTIONS = TPL_PROJECT / "instructions"
-
-# Maps language context file stem to Copilot applyTo glob pattern
-LANG_EXTENSIONS: dict[str, str] = {
-    "python": "**/*.py",
-    "typescript": "**/*.ts,**/*.tsx",
-    "javascript": "**/*.js,**/*.jsx",
-    "rust": "**/*.rs",
-    "go": "**/*.go",
-    "java": "**/*.java",
-    "kotlin": "**/*.kt,**/*.kts",
-    "csharp": "**/*.cs",
-    "swift": "**/*.swift",
-    "dart": "**/*.dart",
-    "cpp": "**/*.cpp,**/*.cc,**/*.cxx,**/*.h,**/*.hpp",
-    "php": "**/*.php",
-    "bash": "**/*.sh,**/*.bash",
-    "sql": "**/*.sql",
-}
-
-# Hand-maintained instruction files (not auto-generated)
-MANUAL_INSTRUCTIONS: set[str] = {
-    "testing.instructions.md",
-    "markdown.instructions.md",
-    "sonarqube_mcp.instructions.md",
-}
-
-
-def generate_instruction_from_context(lang: str, context_path: Path) -> str:
-    """Generate an instructions file from a language context.
-
-    Wraps context content with applyTo frontmatter for Copilot auto-injection.
-    """
-    apply_to = LANG_EXTENSIONS.get(lang, f"**/*.{lang}")
-    content = context_path.read_text(encoding="utf-8")
-    source = f".ai-engineering/contexts/languages/{lang}.md"
-    header = f"# {lang.title()} Instructions"
-    return f'---\napplyTo: "{apply_to}"\n---\n\n{header}\n\nGenerated from `{source}`.\n\n{content}'
+# spec-128 D-128-07: lang instructions generator surface removed.
+# AGENTS.md (next surface) and copilot-instructions.md provide instruction
+# coverage per GitHub Copilot official guidance.
 
 
 _FALLBACK_CROSS_REFERENCE_FILES: list[Path] = [
@@ -1650,29 +1613,9 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         ):
             _generate_surface(target, copilot_content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 6: instructions/{lang}.instructions.md (generated from contexts)
-    if CONTEXTS_LANGUAGES.is_dir():
-        for ctx_file in sorted(CONTEXTS_LANGUAGES.glob("*.md")):
-            lang = ctx_file.stem
-            if lang in LANG_EXTENSIONS:
-                content = generate_instruction_from_context(lang, ctx_file)
-                for target in (
-                    GITHUB_INSTRUCTIONS / f"{lang}.instructions.md",
-                    TPL_INSTRUCTIONS / f"{lang}.instructions.md",
-                ):
-                    _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
-
-    for manual_name in sorted(MANUAL_INSTRUCTIONS):
-        source = TPL_INSTRUCTIONS / manual_name
-        if source.is_file():
-            _generate_surface(
-                GITHUB_INSTRUCTIONS / manual_name,
-                source.read_text(encoding="utf-8"),
-                check_only,
-                verbose,
-                generated_paths,
-                diffs,
-            )
+    # spec-128 D-128-07: lang instructions generator removed.
+    # spec-128 D-128-04: Manual instruction files (testing/markdown/sonarqube_mcp)
+    # also removed — copilot-instructions.md + AGENTS.md provide coverage.
 
     # Surface 7: AGENTS.md (root + template, generated from CLAUDE.md)
     agents_md_content = generate_agents_md(skill_count=skill_count, agent_count=agent_count)
@@ -1811,7 +1754,7 @@ def _handle_orphans(
         (GEMINI_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (GEMINI_AGENTS, "glob", "*.md"),
         (GEMINI_AGENTS / "internal", "glob", "*.md"),
-        (GITHUB_INSTRUCTIONS, "glob", "*.instructions.md"),
+        # spec-128 D-128-07: GITHUB_INSTRUCTIONS orphan surface entry removed.
         (GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (GITHUB_AGENTS, "glob", "*.md"),
         (GITHUB_AGENTS / "internal", "glob", "*.md"),

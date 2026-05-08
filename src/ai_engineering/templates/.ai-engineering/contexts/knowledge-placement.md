@@ -25,7 +25,7 @@ Skill / agent / manifest entries follow the matrix below; those are schema homes
 | "Cross-IDE plan-mode default" | `CONSTITUTION.md` Article XI |
 | "Skill X triggers on prompt Y, runs script Z" | the skill's own `SKILL.md` |
 | "Skills live under `.claude/skills/ai-<name>/SKILL.md`" | `.ai-engineering/manifest.yml` (`framework_state.skills`) |
-| "Python style: prefer guard clauses over nested ifs" | `.ai-engineering/contexts/languages/python.md` |
+| "Python style: prefer guard clauses over nested ifs" | `.ai-engineering/overrides/python/conventions.md` |
 
 ## Placement Matrix
 

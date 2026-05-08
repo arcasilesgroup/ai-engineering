@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "adapters" / "rust"
+_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "overrides" / "rust"
 
 
 def test_conventions_names_clippy() -> None:

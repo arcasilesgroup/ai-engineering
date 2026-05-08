@@ -20,7 +20,7 @@ Dispatched as **Step 2b** (between Step 2 dispatch and Step 3 aggregate). Findin
    - `io.quarkus` -> enable Quarkus checks
    - `io.micronaut` -> enable Micronaut checks
 4. Check Java version from `pom.xml` (`maven.compiler.source`) or `build.gradle` (`sourceCompatibility`)
-5. Read `.ai-engineering/contexts/languages/java.md` if not already loaded
+5. Read `.ai-engineering/overrides/java/conventions.md` if not already loaded
 
 ### Step 2 -- Critical Findings (severity: critical)
 

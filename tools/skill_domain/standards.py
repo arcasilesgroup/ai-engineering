@@ -233,20 +233,20 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
         ),
         LegacyRetirementFamily(
             family_id="manual-instruction-families",
-            title="Manual instruction families retained after mirror cutover",
+            title="Manual instruction families retired with .github/instructions surface (spec-128)",
             sequence=20,
-            status=LegacyRetirementStatus.BLOCKED,
+            status=LegacyRetirementStatus.RETIRED,
             replacement_owner="HX-03/HX-12",
-            current_surfaces=(
-                ".github/instructions/testing.instructions.md",
-                ".github/instructions/markdown.instructions.md",
-                ".github/instructions/sonarqube_mcp.instructions.md",
+            current_surfaces=(),
+            replacement_refs=(
+                ".github/copilot-instructions.md",
+                "AGENTS.md",
             ),
-            replacement_refs=("scripts/sync_command_mirrors.py",),
             parity_proofs=(
                 ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx03_t5_3_focused_end_to_end_proof.md",
+                ".ai-engineering/specs/spec.md",  # spec-128
             ),
-            rollback="Re-enable manual family preservation and regenerate mirrors.",
+            rollback="Restore .github/instructions/*.instructions.md and re-add Surface 6 in scripts/sync_mirrors/core.py.",
         ),
         LegacyRetirementFamily(
             family_id="harness-gate-families",
@@ -320,7 +320,9 @@ def _validate_retirement_family(entry: LegacyRetirementFamily) -> None:
     _require_text(entry.family_id, "legacy family id")
     _require_text(entry.title, "legacy family title")
     _require_text(entry.replacement_owner, "replacement owner")
-    _require_items(entry.current_surfaces, "current surfaces")
+    # spec-128: RETIRED families may have empty current_surfaces (nothing left to retire).
+    if entry.status is not LegacyRetirementStatus.RETIRED:
+        _require_items(entry.current_surfaces, "current surfaces")
     _require_items(entry.replacement_refs, "replacement refs")
     _require_text(entry.rollback, "rollback")
     if not entry.parity_proofs:

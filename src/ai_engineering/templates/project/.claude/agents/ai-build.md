@@ -30,10 +30,9 @@ Read `.ai-engineering/manifest.yml` field `providers.stacks` to determine the pr
 
 After detecting the stack, read the applicable context files:
 
-1. **Languages** -- read `.ai-engineering/contexts/languages/{lang}.md` for each detected language.
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-2. **Frameworks** -- read `.ai-engineering/contexts/frameworks/{fw}.md` for each detected framework.
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
+1. **Stack overrides** -- read `.ai-engineering/overrides/{stack}/conventions.md` for the resolved stack.
+   Supported (7): python, typescript, go, rust, swift, csharp, kotlin (spec-128 D-128-09).
+2. **Shared overrides** -- read `.ai-engineering/overrides/_shared/conventions.md` for cross-stack rules.
 3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
 
 Apply loaded standards to all subsequent code generation.

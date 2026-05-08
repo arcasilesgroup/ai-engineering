@@ -22,7 +22,7 @@ Dispatched as **Step 2b** (between Step 2 dispatch and Step 3 aggregate). Findin
 4. Detect architecture from directory structure:
    - `lib/domain/`, `lib/data/`, `lib/presentation/` -> clean architecture
    - `lib/features/` -> feature-first organization
-5. Read `.ai-engineering/contexts/languages/dart.md` or `flutter.md` if not already loaded
+5. Read `.ai-engineering/overrides/dart/conventions.md` or `flutter.md` if not already loaded
 
 ### Step 2 -- Critical Findings (severity: critical)
 

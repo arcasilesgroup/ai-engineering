@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "adapters" / "csharp"
+_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "overrides" / "csharp"
 
 
 def test_conventions_names_dotnet_format() -> None:

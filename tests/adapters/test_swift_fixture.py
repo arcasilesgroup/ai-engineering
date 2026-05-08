@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "adapters" / "swift"
+_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "overrides" / "swift"
 
 
 def test_conventions_names_swiftlint() -> None:

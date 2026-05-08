@@ -1456,51 +1456,8 @@ class TestNonClaudeLocalReferenceLeaks:
         assert report.category_passed(IntegrityCategory.MIRROR_SYNC) is False
 
 
-class TestGeneratedInstructionsMirror:
-    """Tests for generated Copilot instruction mirror-sync validation."""
-
-    def test_generated_instructions_mirror_sync_ok_excludes_manual_files(
-        self, tmp_path: Path
-    ) -> None:
-        _setup_full_project(tmp_path)
-        _setup_governance_mirror(tmp_path)
-        canonical = tmp_path / ".github" / "instructions"
-        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "instructions"
-        canonical.mkdir(parents=True)
-        mirror.mkdir(parents=True)
-
-        content = '---\napplyTo: "**/*.py"\n---\n\n# Python Instructions\n'
-        (canonical / "python.instructions.md").write_text(content, encoding="utf-8")
-        (mirror / "python.instructions.md").write_text(content, encoding="utf-8")
-        (canonical / "testing.instructions.md").write_text("manual", encoding="utf-8")
-
-        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
-        ok_checks = [
-            c
-            for c in report.checks
-            if c.name == "copilot-generated-instructions-mirrors" and c.status == IntegrityStatus.OK
-        ]
-        assert len(ok_checks) == 1
-
-    def test_generated_instructions_mirror_desync(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        _setup_governance_mirror(tmp_path)
-        canonical = tmp_path / ".github" / "instructions"
-        mirror = tmp_path / "src" / "ai_engineering" / "templates" / "project" / "instructions"
-        canonical.mkdir(parents=True)
-        mirror.mkdir(parents=True)
-
-        (canonical / "python.instructions.md").write_text("canonical", encoding="utf-8")
-        (mirror / "python.instructions.md").write_text("different", encoding="utf-8")
-
-        report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
-        fail_checks = [
-            c
-            for c in report.checks
-            if c.status == IntegrityStatus.FAIL
-            and "copilot-generated-instruction-desync-python.instructions.md" in c.name
-        ]
-        assert len(fail_checks) >= 1
+# spec-128 D-128-04, D-128-07: TestGeneratedInstructionsMirror class removed.
+# .github/instructions/ surface deleted entirely; mirror validation no longer applies.
 
 
 # -- Category 3: Counter Accuracy -----------------------------------------

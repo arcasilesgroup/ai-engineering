@@ -20,7 +20,7 @@ Dispatched as **Step 2b** (between Step 2 dispatch and Step 3 aggregate). Findin
    - `actix-web` / `axum` / `rocket` -> enable web framework checks
    - `diesel` / `sqlx` / `sea-orm` -> enable database checks
    - `serde` -> enable serialization checks
-5. Read `.ai-engineering/contexts/languages/rust.md` if not already loaded
+5. Read `.ai-engineering/overrides/rust/conventions.md` if not already loaded
 
 ### Step 2 -- Critical Findings (severity: critical)
 

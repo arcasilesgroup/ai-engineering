@@ -20,7 +20,7 @@ Dispatched as **Step 2b** (between Step 2 dispatch and Step 3 aggregate). Findin
    - `@Composable` imports -> enable Compose checks
    - `kotlinx.coroutines` imports -> enable coroutine checks
    - Multi-module project -> enable module boundary checks
-4. Read `.ai-engineering/contexts/languages/kotlin.md` if not already loaded
+4. Read `.ai-engineering/overrides/kotlin/conventions.md` if not already loaded
 5. Map module structure: identify `domain`, `data`, `presentation`, `app` modules
 
 ### Step 2 -- Critical Findings (severity: critical)

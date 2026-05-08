@@ -139,26 +139,8 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
         repo_surface_rel=".github/agents",
         template_surface_rel="src/ai_engineering/templates/project/agents",
     ),
-    MirrorFamily(
-        family_id="generated-instructions",
-        provider="github-copilot",
-        public=False,
-        generated=True,
-        edit_policy="generated-do-not-edit",
-        transform_mode="render-from-context",
-        repo_surface_rel=".github/instructions",
-        template_surface_rel="src/ai_engineering/templates/project/instructions",
-    ),
-    MirrorFamily(
-        family_id="manual-instructions",
-        provider="github-copilot",
-        public=False,
-        generated=False,
-        edit_policy="manual",
-        transform_mode="manual",
-        repo_surface_rel=".github/instructions",
-        template_surface_rel="src/ai_engineering/templates/project/instructions",
-    ),
+    # spec-128 D-128-04, D-128-07: generated-instructions and manual-instructions
+    # families removed — .github/instructions/ surface deleted entirely.
 )
 
 _GOVERNANCE_MIRROR_RULE = GovernanceMirrorRule(
@@ -201,21 +183,15 @@ _VALIDATOR_PAIR_ROOTS: dict[str, tuple[str, str]] = {
         ".github/skills",
         "src/ai_engineering/templates/project/.github/skills",
     ),
-    "generated-instructions": (
-        ".github/instructions",
-        "src/ai_engineering/templates/project/instructions",
-    ),
+    # spec-128 D-128-04, D-128-07: generated-instructions removed.
     "copilot-agents": (
         ".github/agents",
         "src/ai_engineering/templates/project/agents",
     ),
 }
 
-_MANUAL_INSTRUCTION_FILES: tuple[str, ...] = (
-    "testing.instructions.md",
-    "markdown.instructions.md",
-    "sonarqube_mcp.instructions.md",
-)
+# spec-128 D-128-04: manual instruction files removed entirely.
+_MANUAL_INSTRUCTION_FILES: tuple[str, ...] = ()
 
 _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
     "claude-code": {

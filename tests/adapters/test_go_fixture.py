@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "adapters" / "go"
+_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "overrides" / "go"
 
 
 def test_conventions_names_gofmt() -> None:

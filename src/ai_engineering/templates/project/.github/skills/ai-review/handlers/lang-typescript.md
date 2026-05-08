@@ -27,7 +27,7 @@ Before analyzing code, check PR health:
    - `react` imports -> enable React checks
    - `next` imports or `next.config.*` -> enable Next.js checks
    - `express` / `fastify` / `nestjs` imports -> enable Node.js server checks
-4. Read `.ai-engineering/contexts/languages/typescript.md` if not already loaded
+4. Read `.ai-engineering/overrides/typescript/conventions.md` if not already loaded
 5. Check `tsconfig.json` for `strict` mode -- if disabled, increase confidence on type findings
 
 ### Step 3 -- Critical Findings (severity: critical)

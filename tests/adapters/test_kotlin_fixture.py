@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "adapters" / "kotlin"
+_ADAPTER = Path(__file__).resolve().parents[2] / ".ai-engineering" / "overrides" / "kotlin"
 
 
 def test_conventions_names_ktlint() -> None:

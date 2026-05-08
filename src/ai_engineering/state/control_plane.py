@@ -73,13 +73,9 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
         OwnershipLevel.FRAMEWORK_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
+    # spec-128 D-128-03: contexts/languages/ + contexts/frameworks/ deleted.
     (
-        ".ai-engineering/contexts/languages/**",
-        OwnershipLevel.FRAMEWORK_MANAGED,
-        FrameworkUpdatePolicy.ALLOW,
-    ),
-    (
-        ".ai-engineering/contexts/frameworks/**",
+        ".ai-engineering/overrides/**",
         OwnershipLevel.FRAMEWORK_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),

@@ -21,15 +21,17 @@ def _seed_project(
         """
 name: demo-project
 providers:
-  stacks: [python, react]
+  stacks: [python, typescript]
 """.strip()
         + "\n",
         encoding="utf-8",
     )
 
     for rel in (
-        ".ai-engineering/contexts/languages/python.md",
-        ".ai-engineering/contexts/frameworks/react.md",
+        # spec-128 D-128-08: language + framework taxonomy collapsed to stack.
+        ".ai-engineering/overrides/python/conventions.md",
+        ".ai-engineering/overrides/typescript/conventions.md",
+        ".ai-engineering/overrides/_shared/conventions.md",
         ".ai-engineering/contexts/team/conventions.md",
         ".ai-engineering/contexts/cli-ux.md",
         ".ai-engineering/contexts/mcp-integrations.md",
@@ -68,9 +70,11 @@ class TestDeclaredContextLoads:
         entries = read_ndjson_entries(framework_events_path(tmp_path), FrameworkEvent)
         classes = {entry.detail["context_class"] for entry in entries}
 
+        # spec-128 D-128-08: language + framework collapsed to stack.
+        # _shared sub-dir under overrides/ surfaces as the shared-stack class.
         assert classes == {
-            "language",
-            "framework",
+            "stack",
+            "shared-stack",
             "shared-framework",
             "team",
             "constitution",
@@ -78,6 +82,18 @@ class TestDeclaredContextLoads:
             "plan",
             "decision-store",
         }
+        stack_names = {
+            entry.detail["context_name"]
+            for entry in entries
+            if entry.detail["context_class"] == "stack"
+        }
+        assert stack_names == {"python", "typescript"}
+        shared_stack_names = {
+            entry.detail["context_name"]
+            for entry in entries
+            if entry.detail["context_class"] == "shared-stack"
+        }
+        assert shared_stack_names == {"_shared"}
         shared_context_names = {
             entry.detail["context_name"]
             for entry in entries

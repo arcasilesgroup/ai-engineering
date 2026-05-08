@@ -10,7 +10,7 @@ in ``tools/skill_app/deterministic_router.py``. The router must:
    stack (no extension match, no explicit hint).
 4. Run under 50 ms p95 — measured with ``time.perf_counter`` over a
    warm-loop of 1000 calls.
-5. Return a real ``Path`` rooted at ``.ai-engineering/adapters/<stack>``.
+5. Return a real ``Path`` rooted at ``.ai-engineering/overrides/<stack>`` (spec-128 D-128-01).
 
 The test imports from ``skill_app.deterministic_router`` (the
 distribution-package form per ``pyproject.toml`` ``pythonpath`` setting),
@@ -28,7 +28,8 @@ import pytest
 from skill_app.deterministic_router import UnknownStackError, resolve_adapter
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_ADAPTERS_ROOT = _REPO_ROOT / ".ai-engineering" / "adapters"
+# spec-128 D-128-01: adapters/ renamed to overrides/.
+_OVERRIDES_ROOT = _REPO_ROOT / ".ai-engineering" / "overrides"
 
 _STACKS: tuple[str, ...] = (
     "typescript",
@@ -59,7 +60,7 @@ _EXT_FIXTURES: tuple[tuple[str, str], ...] = (
 def test_resolves_via_explicit_spec_stack(stack: str) -> None:
     """``spec_stack`` wins over path inference for every supported stack."""
     result = resolve_adapter(Path("README.md"), spec_stack=stack)
-    expected = _ADAPTERS_ROOT / stack
+    expected = _OVERRIDES_ROOT / stack
     assert result == expected
 
 
@@ -67,7 +68,7 @@ def test_resolves_via_explicit_spec_stack(stack: str) -> None:
 def test_infers_from_path_extension(path: str, expected_stack: str) -> None:
     """When ``spec_stack`` is None, the path's extension picks the stack."""
     result = resolve_adapter(Path(path), spec_stack=None)
-    assert result == _ADAPTERS_ROOT / expected_stack
+    assert result == _OVERRIDES_ROOT / expected_stack
 
 
 @pytest.mark.parametrize("path,expected_stack", _EXT_FIXTURES)
@@ -77,7 +78,7 @@ def test_explicit_stack_overrides_path_extension(path: str, expected_stack: str)
     # _STACKS tuple so we never accidentally pick the same one.
     other_stack = _STACKS[(_STACKS.index(expected_stack) + 1) % len(_STACKS)]
     result = resolve_adapter(Path(path), spec_stack=other_stack)
-    assert result == _ADAPTERS_ROOT / other_stack
+    assert result == _OVERRIDES_ROOT / other_stack
 
 
 def test_raises_when_neither_input_resolves() -> None:
@@ -93,9 +94,9 @@ def test_raises_for_unsupported_explicit_stack() -> None:
 
 
 def test_returns_path_inside_adapters_root() -> None:
-    """Returned path is rooted at .ai-engineering/adapters/."""
+    """Returned path is rooted at .ai-engineering/overrides/ (spec-128)."""
     result = resolve_adapter(Path("foo.py"), spec_stack=None)
-    assert result.is_relative_to(_ADAPTERS_ROOT)
+    assert result.is_relative_to(_OVERRIDES_ROOT)
 
 
 def test_returned_directory_exists_on_disk() -> None:

@@ -8,6 +8,8 @@ def test_inventory_contains_expected_families() -> None:
 
     families = {family.family_id: family for family in get_mirror_families()}
 
+    # spec-128 D-128-04, D-128-07: generated-instructions + manual-instructions
+    # families removed (.github/instructions surface deleted entirely).
     assert {
         "governance-template",
         "claude-commands",
@@ -20,9 +22,9 @@ def test_inventory_contains_expected_families() -> None:
         "copilot-skills",
         "copilot-agents",
         "specialist-agents",
-        "generated-instructions",
-        "manual-instructions",
     }.issubset(families)
+    assert "generated-instructions" not in families
+    assert "manual-instructions" not in families
 
 
 def test_public_inventory_excludes_internal_and_manual_families() -> None:
@@ -35,10 +37,9 @@ def test_public_inventory_excludes_internal_and_manual_families() -> None:
     public_ids = get_public_mirror_family_ids()
 
     assert families["specialist-agents"].public is False
-    assert families["generated-instructions"].generated is True
-    assert families["generated-instructions"].edit_policy == "generated-do-not-edit"
-    assert families["manual-instructions"].generated is False
-    assert families["manual-instructions"].edit_policy == "manual"
+    # spec-128: generated-instructions + manual-instructions families removed.
+    assert "generated-instructions" not in families
+    assert "manual-instructions" not in families
     assert "specialist-agents" not in public_ids
     assert "generated-instructions" not in public_ids
     assert "manual-instructions" not in public_ids
@@ -123,11 +124,8 @@ def test_provider_maps_match_current_install_contract() -> None:
             "src/ai_engineering/templates/project/.codex/agents/internal",
         ),
     }
-    assert get_manual_instruction_files() == (
-        "testing.instructions.md",
-        "markdown.instructions.md",
-        "sonarqube_mcp.instructions.md",
-    )
+    # spec-128 D-128-04: manual instruction files removed entirely.
+    assert get_manual_instruction_files() == ()
 
 
 def test_validator_pairs_and_sync_roots_follow_inventory_contract() -> None:
@@ -149,7 +147,6 @@ def test_validator_pairs_and_sync_roots_follow_inventory_contract() -> None:
         CODEX_SKILLS,
         GEMINI_AGENTS,
         GITHUB_AGENTS,
-        GITHUB_INSTRUCTIONS,
         GITHUB_SKILLS,
         ROOT,
         TPL_CODEX_AGENTS,
@@ -169,10 +166,12 @@ def test_validator_pairs_and_sync_roots_follow_inventory_contract() -> None:
     assert validator_pairs["gemini-agents"] == _GEMINI_AGENTS_MIRROR
     assert validator_pairs["copilot-skills"] == _COPILOT_SKILLS_MIRROR
     assert validator_pairs["copilot-agents"] == _COPILOT_AGENTS_MIRROR
-    assert validator_pairs["generated-instructions"] == (
-        ".github/instructions",
-        "src/ai_engineering/templates/project/instructions",
-    )
+    # spec-128 D-128-04, D-128-07: generated-instructions + manual-instructions
+    # families removed; .github/instructions/ surface deleted entirely.
+    assert "generated-instructions" not in families
+    assert "manual-instructions" not in families
+    assert "generated-instructions" not in validator_pairs
+    assert "manual-instructions" not in validator_pairs
 
     assert ROOT / families["codex-skills"].repo_surface_rel == CODEX_SKILLS
     assert ROOT / families["codex-skills"].template_surface_rel == TPL_CODEX_SKILLS
@@ -184,5 +183,3 @@ def test_validator_pairs_and_sync_roots_follow_inventory_contract() -> None:
     assert ROOT / families["copilot-skills"].template_surface_rel == TPL_GITHUB_SKILLS
     assert ROOT / families["copilot-agents"].repo_surface_rel == GITHUB_AGENTS
     assert ROOT / families["copilot-agents"].template_surface_rel == TPL_GITHUB_AGENTS
-    assert ROOT / families["generated-instructions"].repo_surface_rel == GITHUB_INSTRUCTIONS
-    assert ROOT / families["manual-instructions"].repo_surface_rel == GITHUB_INSTRUCTIONS

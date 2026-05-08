@@ -1,7 +1,7 @@
-"""Deterministic stack-to-adapter router.
+"""Deterministic stack-to-overrides router.
 
-App-layer pure function; resolves a build task to its adapter prose
-directory under ``.ai-engineering/adapters/<stack>/``. Stdlib only — no
+App-layer pure function; resolves a build task to its overrides prose
+directory under ``.ai-engineering/overrides/<stack>/``. Stdlib only — no
 domain or infra deps. Hot-path budget: p95 < 50 ms over 1000 calls.
 
 Resolution order:
@@ -11,6 +11,7 @@ Resolution order:
 3. ``UnknownStackError`` when neither yields a supported stack.
 
 Spec ref: spec-127 sub-008 (M7 adapter library), D-127-06, D-127-11.
+spec-128 D-128-01: ``adapters/`` renamed to ``overrides/``.
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ class UnknownStackError(ValueError):
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_ADAPTERS_ROOT = _REPO_ROOT / ".ai-engineering" / "adapters"
+_OVERRIDES_ROOT = _REPO_ROOT / ".ai-engineering" / "overrides"
 
 _SUPPORTED_STACKS: frozenset[str] = frozenset(
     {"typescript", "python", "go", "rust", "swift", "csharp", "kotlin"}
@@ -53,7 +54,7 @@ def resolve_adapter(task_path: Path, spec_stack: str | None) -> Path:
             over inference. ``None`` triggers inference.
 
     Returns:
-        Path under ``.ai-engineering/adapters/<stack>/``.
+        Path under ``.ai-engineering/overrides/<stack>/``.
 
     Raises:
         UnknownStackError: when ``spec_stack`` is unsupported, or
@@ -65,11 +66,11 @@ def resolve_adapter(task_path: Path, spec_stack: str | None) -> Path:
                 f"unsupported spec_stack {spec_stack!r}; "
                 f"expected one of {sorted(_SUPPORTED_STACKS)}"
             )
-        return _ADAPTERS_ROOT / spec_stack
+        return _OVERRIDES_ROOT / spec_stack
 
     inferred = _EXT_TO_STACK.get(task_path.suffix)
     if inferred is None:
         raise UnknownStackError(
             f"cannot infer stack from path {task_path!s} (no spec_stack, unsupported extension)"
         )
-    return _ADAPTERS_ROOT / inferred
+    return _OVERRIDES_ROOT / inferred

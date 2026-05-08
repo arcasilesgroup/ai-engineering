@@ -286,7 +286,7 @@ _COPILOT_AGENTS_MIRROR = (
 )
 
 _VALIDATOR_PAIR_ROOTS = get_validator_pair_roots()
-_COPILOT_GENERATED_INSTRUCTIONS_MIRROR = _VALIDATOR_PAIR_ROOTS["generated-instructions"]
+# spec-128 D-128-04, D-128-07: generated-instructions removed; mirror dropped.
 _MANUAL_INSTRUCTION_FILES = get_manual_instruction_files()
 
 # Skill/agent listing patterns in instruction files (IDE-specific paths)

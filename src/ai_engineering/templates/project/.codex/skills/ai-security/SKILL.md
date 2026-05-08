@@ -161,7 +161,8 @@ Called by: `/ai-verify` (security mode delegation), `/ai-verify --release` (aggr
 
 ## References
 
-- `.ai-engineering/contexts/frameworks/` -- security and OWASP control mapping.
+- Per-stack security minimums under `.ai-engineering/overrides/` (each `<stack>/security_floor.md`).
+- `.ai-engineering/overrides/_shared/security_floor.md` -- cross-stack security floor.
 - `.ai-engineering/manifest.yml` -- non-negotiables and gate thresholds.
 
 $ARGUMENTS

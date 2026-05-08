@@ -25,8 +25,8 @@ constraints:
   - "Follow existing pattern in <ref-file>"
   - "TDD: test files from earlier RED phase are IMMUTABLE"
 contexts:
-  languages: [".ai-engineering/contexts/languages/<lang>.md"]
-  frameworks: [".ai-engineering/contexts/frameworks/<fw>.md"]
+  stack: [".ai-engineering/overrides/<stack>/conventions.md"]
+  shared: [".ai-engineering/overrides/_shared/conventions.md"]
   team: [".ai-engineering/contexts/team/*.md"]
 gate:
   post: ["ruff check", "pytest <file>"]   # stack-specific deterministic linters
