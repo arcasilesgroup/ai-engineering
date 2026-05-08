@@ -62,7 +62,7 @@ def test_skill_registered_in_manifest() -> None:
     registry = skills.get("registry") or {}
     assert isinstance(registry, dict)
     assert "ai-simplify-sweep" in registry, (
-        "ai-simplify-sweep must be registered in .ai-engineering/manifest.yml under skills.registry."
+        "ai-simplify-sweep must be registered in manifest.yml under skills.registry."
     )
     entry = registry["ai-simplify-sweep"]
     assert isinstance(entry, dict)

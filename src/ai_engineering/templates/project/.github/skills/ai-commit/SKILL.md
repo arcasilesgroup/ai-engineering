@@ -18,19 +18,13 @@ edit_policy: generated-do-not-edit
 
 # Commit Workflow
 
-## Quick start
+Governed commit pipeline: stage, format, lint, secret-detect, compose message, push. Honors CLAUDE.md Don't rules (binding). Use `/ai-pr` when the goal is a pull request.
 
 ```
 /ai-commit                          # auto-stage, format, lint, scan, commit, push
 /ai-commit --only path/to/file.py   # stage only the named files
 /ai-commit "fix(auth): ..."         # provide a message hint
 ```
-
-Governed commit pipeline: stage specific files, format, lint, secret-detect, compose message, and push. Honors CLAUDE.md Don't rules (binding).
-
-## When to Use
-
-- Committing with quality enforcement. Use `/ai-pr` instead when the goal is a pull request.
 
 ## Process
 
@@ -85,10 +79,6 @@ Compose message:
 
 Execute the full pipeline through Commit. Skip Push.
 
-## Quick Reference
-
-`/ai-commit` runs the full pipeline; `/ai-commit --only` stops before push; `/ai-commit --force "msg"` skips preview and uses the provided hint.
-
 ## Examples
 
 ### Example 1 — full happy path
@@ -110,6 +100,16 @@ User: "commit only the spec files and don't push yet"
 ```
 
 Stages only the named paths, runs the pipeline through commit, stops before push.
+
+## Quick Reference
+
+| Goal | Command |
+|------|---------|
+| Auto-stage, format, lint, scan, commit, push | `/ai-commit` |
+| Stage only named files | `/ai-commit --only path/to/file.py` |
+| Provide a message hint | `/ai-commit "fix(auth): ..."` |
+| Skip preview | `/ai-commit --force` |
+| Stop before push | `/ai-commit --only ...` |
 
 ## Integration
 

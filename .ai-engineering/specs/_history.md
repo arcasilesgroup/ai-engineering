@@ -4,6 +4,7 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Shipped | PR | Branch |
 |----|-------|--------|---------|---------|----|--------|
+| 126 | Hook-side NDJSON Append Lock Parity (Windows multi-IDE concurrency fix) | done | 2026-05-07 | 2026-05-07 | #506 | feat/spec-126-hook-ndjson-lock-parity |
 | 125 | state/ Canonical Hardening — Eliminate Optional Category, Relocate Cache/Runtime, Migrate JSON Fallbacks | approved | 2026-05-07 | — | — | feat/spec-122-framework-cleanup-phase-1 |
 | 119 | Evaluation Layer — Generator/Evaluator Split, CI Eval Gates, pass@k Telemetry, Lint-as-Prompt | runtime-landed-docs-deferred | 2026-05-04 | — | — | feat/knowledge-placement-governance-cleanup |
 | 118 | Memory Layer — Episodic, Semantic, Knowledge Objects, Dreaming, Cross-Session Retrieval | done | 2026-05-03 | — | — | feat/knowledge-placement-governance-cleanup |

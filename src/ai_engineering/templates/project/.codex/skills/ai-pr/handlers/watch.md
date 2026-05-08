@@ -1,12 +1,6 @@
 # Handler: Watch and Fix
 
-## Purpose
-
-Post-PR monitoring loop with autonomous repair. Fixes CI failures, resolves merge conflicts, and handles review comments. Team members and org-internal bots are autonomous; external commenters require user confirmation. Exits when PR is merged or user stops.
-
-## Prerequisites
-
-- PR exists, PR number known, VCS provider detected, PR is NOT a draft.
+Post-PR monitoring loop with autonomous repair: fixes CI failures, resolves merge conflicts, handles review comments. Team/org-internal bots are autonomous; external commenters need confirmation. Exits when PR is merged or user stops. Prereqs: PR exists, number known, VCS detected, not draft.
 
 ## State (track across iterations)
 

@@ -14,7 +14,7 @@ requires:
 
 # PR Workflow
 
-## Quick start
+Governed PR creation: full commit pipeline, pre-push gates, structured PR with summary + test plan, auto-complete with squash merge and branch deletion. Use `/ai-commit` for commit-only flows.
 
 ```
 /ai-pr                  # full pipeline + create or update PR
@@ -22,12 +22,6 @@ requires:
 /ai-pr review           # request review on existing PR
 /ai-pr update           # refresh PR body + push amended commit
 ```
-
-Governed PR creation: run full commit pipeline, execute pre-push gates, create or update PR with structured summary and test plan, enable auto-complete with squash merge and branch deletion.
-
-## When to Use
-
-- Creating or updating a PR with governance enforcement. Use `/ai-commit` for commit-only or draft explorations.
 
 ## Process
 
@@ -107,34 +101,11 @@ Once `state == "MERGED"`: run `/ai-cleanup --all` and report.
 
 ### `/pr --only` / `/pr --draft`
 
-`--only`: create PR without commit pipeline (verify branch is pushed, detect VCS, create/update PR, enable auto-complete). `--draft`: same as default but create as draft.
+`--only`: skip commit pipeline (verify branch pushed, detect VCS, create/update PR, enable auto-complete). `--draft`: open as draft.
 
 ## PR Structure
 
-```markdown
-## Summary
-
-- [2-3 bullets: what changed and why]
-
-## Test Plan
-
-- [ ] [Specific verification steps + edge cases]
-
-## Work Items
-
-- Closes AB#101 (user story), Closes AB#102 (task), Closes #45 (issue)
-- Related: AB#100 (feature — never closed)
-
-## Checklist
-
-- [ ] Lint/format pass, secret scan clean, tests pass, CHANGELOG updated, breaking changes documented
-```
-
-**Title**: `type(scope): description` or `spec-NNN: Task X.Y -- description`. Max 72 chars.
-
-## Quick Reference
-
-`/ai-pr` runs the full commit pipeline + pre-push gate + PR flow; `/ai-pr --only` skips the commit pipeline; `/ai-pr --draft` opens a draft; `/ai-pr "title hint"` seeds the PR title.
+Title: `type(scope): description` or `spec-NNN: Task X.Y -- description` (max 72 chars). Body: `## Summary` (2-3 bullets), `## Test Plan` (verification steps), `## Work Items` (Closes AB#NNN — only `close_on_pr` items), `## Checklist` (lint/secret/tests/CHANGELOG/breaking-changes).
 
 ## Examples
 
@@ -157,6 +128,16 @@ User: "open a draft so the team can comment on the approach"
 ```
 
 Same pipeline, but opens with `--draft` and skips the review request; reviewers get notified once `/ai-pr review` is invoked.
+
+## Quick Reference
+
+| Goal | Command |
+|------|---------|
+| Open PR (default) | `/ai-pr` |
+| Open as draft | `/ai-pr --draft` |
+| Skip CI watch | `/ai-pr --no-watch` |
+| Update existing PR | `/ai-pr --update` |
+| Resume after merge | `/ai-cleanup` (auto-invoked) |
 
 ## Integration
 

@@ -56,10 +56,10 @@ spec-127 conformance bar in code and fail PRs that drift:
 - **`test_layer_isolation`** (`tests/architecture/test_layer_isolation.py`)
   — proves any `tools/skill_domain` import of `tools/skill_infra` raises
   `ImportError`, keeping the hexagonal seam enforced.
-- **eval regression gate** (`tests/eval/regression_gate.py`) — replays
+- **eval regression gate** (`tests/integration/test_eval_regression_gate.py`) — replays
   `evals/<skill>.jsonl` (≥16 cases per skill, 8 should-trigger / 8
   near-miss) on PRs touching `.claude/skills/**`. Regressions block merge.
-- **hot-path budgets** (`tests/perf/test_hot_path_budgets.py`) — pre-commit
+- **hot-path budgets** (`tests/perf/test_skill_lint_budget.py`) — pre-commit
   ≤1.0 s (ceiling 1.5 s), pre-push ≤5.0 s (ceiling 7.0 s), `/ai-commit`
   ≤1.5 s, `/ai-pr` ≤8.0 s, `/ai-verify` PASS path ≤1.0 s. Regressions
   > 25 % block the PR.

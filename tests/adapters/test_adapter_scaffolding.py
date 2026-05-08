@@ -51,7 +51,7 @@ def test_adapter_directory_exists(stack: str) -> None:
     stack_dir = _ADAPTERS_ROOT / stack
     assert stack_dir.is_dir(), (
         f"adapter directory missing: {stack_dir.relative_to(_REPO_ROOT)}. "
-        f"Expected per sub-008 D-127-06 — 7 stacks × adapter prose."
+        f"Expected per sub-008 D-127-06 - 7 stacks x adapter prose."
     )
 
 

@@ -1,6 +1,6 @@
 ---
 name: ai-skill-tune
-description: Tunes an existing skill based on real project pain (decision-store, LESSONS.md, instincts, proposals) by evaluating it against realistic prompts, grading the output, and rewriting the SKILL.md. Trigger for 'tune this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch tune skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-create instead. Not for platform audit; use /ai-ide-audit instead.
+description: Tunes an existing skill based on real project pain (prior eval corpora under evals/, Engram cross-session observations, LESSONS.md, decision-store, instincts, proposals) by analysing the failure pattern, rewriting SKILL.md, and emitting the proposed delta as a PR comment only — no auto-merge. Trigger for 'tune this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch tune skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-create instead. Not for platform audit; use /ai-ide-audit instead.
 effort: max
 argument-hint: "[skill-name]|all [--dry-run]"
 mode: agent
@@ -24,14 +24,15 @@ edit_policy: generated-do-not-edit
 
 ## Workflow
 
-Improve existing skills using evidence from real project pain (decision-store, LESSONS.md, instincts, proposals). The skill owns pain diagnosis and rewrite strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator`.
+Improve existing skills using evidence from real project pain (prior eval corpora under `evals/`, Engram cross-session observations via `MemoryPort`, `LESSONS.md` operator notes, decision-store, instincts, proposals). The skill owns pain diagnosis and rewrite strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator`. **Output is PR-comment only — never auto-merged** (sub-007 M6).
 
-1. **Phase 1** — load pain context (decision-store, LESSONS.md, instincts.yml, proposals.md).
-2. **Phase 2** — analyze the target skill, score the 5 dimensions.
-3. **Phase 3** — generate test prompts that exercise the failing pattern.
-4. **Phase 4** — rewrite the skill (Start-Here, pain-injection, scope-gates, structured classification).
-5. **Phase 5** — hand off to `skill-creator` (eval, grade, benchmark).
-6. **Phase 6** — verify improvement (pass-rate delta vs prior iteration).
+1. **Phase 0.5** — load corpora (`evals/<skill>.jsonl`), Engram observations (`/ai-memory` MCP), and `LESSONS.md` H3 sections that mention the target skill.
+2. **Phase 1** — load remaining pain context (decision-store, instincts.yml, proposals.md).
+3. **Phase 2** — analyze the target skill, score the 5 dimensions.
+4. **Phase 3** — generate test prompts that exercise the failing pattern.
+5. **Phase 4** — rewrite the skill (Start-Here, pain-injection, scope-gates, structured classification).
+6. **Phase 5** — emit the proposed SKILL.md diff as a PR comment via `gh pr comment`. **Do not commit or push.** Operator review is the merge gate.
+7. **Phase 6** — verify improvement on the operator's branch (pass-rate delta vs prior iteration).
 
 > Detail: see [audit document skeleton](references/output-skeleton.md), [the six-phase protocol (load → analyze → generate → rewrite → eval → verify)](references/six-phase-protocol.md), [batch mode for `all`](references/batch-mode.md).
 
