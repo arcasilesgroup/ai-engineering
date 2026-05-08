@@ -73,9 +73,9 @@ class TestInstallClean:
         # Spec-125 cutover: legacy JSON files MUST NOT be recreated.
         assert not (state_dir / "install-state.json").exists()
         assert not (state_dir / "framework-capabilities.json").exists()
-        instincts_dir = tmp_path / ".ai-engineering" / "instincts"
-        assert (instincts_dir / "observations.yml").is_file()
-        assert (instincts_dir / "meta.json").is_file()
+        observations_dir = tmp_path / ".ai-engineering" / "observations"
+        assert (observations_dir / "observations.yml").is_file()
+        assert (observations_dir / "meta.json").is_file()
 
     def test_install_state_roundtrips(
         self,

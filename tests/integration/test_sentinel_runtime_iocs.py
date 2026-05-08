@@ -32,8 +32,8 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-IOCS_PATH = REPO_ROOT / ".ai-engineering" / "references" / "iocs.json"
-ATTRIBUTION_PATH = REPO_ROOT / ".ai-engineering" / "references" / "IOCS_ATTRIBUTION.md"
+IOCS_PATH = REPO_ROOT / ".ai-engineering" / "security" / "iocs" / "iocs.json"
+ATTRIBUTION_PATH = REPO_ROOT / ".ai-engineering" / "security" / "iocs" / "IOCS_ATTRIBUTION.md"
 HOOK_PATH = REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "prompt-injection-guard.py"
 
 
@@ -55,14 +55,14 @@ def hook_module():
 def project_root(tmp_path: Path) -> Path:
     root = tmp_path / "project"
     (root / ".ai-engineering" / "state").mkdir(parents=True)
-    (root / ".ai-engineering" / "references").mkdir(parents=True)
+    (root / ".ai-engineering" / "security" / "iocs").mkdir(parents=True)
     return root
 
 
 @pytest.fixture()
 def project_with_iocs(project_root: Path) -> Path:
     """Project root with vendored IOCs copied in (canonical happy path)."""
-    target = project_root / ".ai-engineering" / "references" / "iocs.json"
+    target = project_root / ".ai-engineering" / "security" / "iocs" / "iocs.json"
     target.write_text(IOCS_PATH.read_text(encoding="utf-8"), encoding="utf-8")
     return project_root
 
@@ -105,7 +105,7 @@ def test_iocs_schema_four_categories(hook_module, tmp_path: Path) -> None:
     assert IOCS_PATH.is_file(), "preconditions: iocs.json must exist first"
     # Load via the runtime loader (it dereferences spec107_aliases) so the
     # 4-category invariant remains testable post-dedupe.
-    refs = tmp_path / ".ai-engineering" / "references"
+    refs = tmp_path / ".ai-engineering" / "security" / "iocs"
     refs.mkdir(parents=True)
     (refs / "iocs.json").write_text(IOCS_PATH.read_text(encoding="utf-8"), encoding="utf-8")
     payload = hook_module.load_iocs(tmp_path)
@@ -136,7 +136,7 @@ def test_hook_exposes_load_iocs_fail_open(hook_module, project_root: Path) -> No
     assert result == {}, "load_iocs must return empty dict when file missing"
 
     # Corrupt JSON -> also returns empty dict.
-    corrupt = project_root / ".ai-engineering" / "references" / "iocs.json"
+    corrupt = project_root / ".ai-engineering" / "security" / "iocs" / "iocs.json"
     corrupt.write_text("{not valid json", encoding="utf-8")
     result_corrupt = hook_module.load_iocs(project_root)
     assert result_corrupt == {}, "load_iocs must return empty dict on JSON error"
@@ -184,7 +184,7 @@ def test_hook_evaluator_returns_three_valued_verdict(hook_module, project_with_i
 def test_hook_fail_open_when_catalog_missing(hook_module, project_root: Path) -> None:
     """G-8: missing catalog -> evaluator returns allow (no false-positive deny)."""
     # No IOC file shipped to project_root.
-    assert not (project_root / ".ai-engineering" / "references" / "iocs.json").exists()
+    assert not (project_root / ".ai-engineering" / "security" / "iocs" / "iocs.json").exists()
     result = hook_module.evaluate_against_iocs(project_root, "cat ~/.ssh/id_rsa")
     assert result["verdict"] == "allow", (
         "missing catalog must be fail-open; evaluator returned non-allow verdict"
@@ -341,7 +341,8 @@ def test_iocs_template_byte_equivalent() -> None:
         / "ai_engineering"
         / "templates"
         / ".ai-engineering"
-        / "references"
+        / "security"
+        / "iocs"
         / "iocs.json"
     )
     assert template_iocs.is_file(), (

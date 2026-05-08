@@ -62,8 +62,11 @@ def test_compute_tool_spec_hash_helper_exists() -> None:
 
 def test_install_state_carries_tool_spec_hashes_field() -> None:
     """G-11: InstallState model has `tool_spec_hashes: dict[str, str]` field."""
-    models_path = REPO_ROOT / "src" / "ai_engineering" / "state" / "models.py"
-    assert models_path.is_file(), f"state.models missing: {models_path}"
+    # spec-127 D-127-13 hex move: canonical state model lives under
+    # tools/skill_domain/; src/ai_engineering/state/models.py is now a
+    # re-export shim. Grep the canonical source for the field declaration.
+    models_path = REPO_ROOT / "tools" / "skill_domain" / "state_models.py"
+    assert models_path.is_file(), f"state_models missing: {models_path}"
     text = models_path.read_text(encoding="utf-8")
     assert "tool_spec_hashes" in text, (
         "InstallState model missing `tool_spec_hashes: dict[str, str]` — "
