@@ -27,7 +27,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOK_PATH = REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "prompt-injection-guard.py"
-IOCS_PATH = REPO_ROOT / ".ai-engineering" / "references" / "iocs.json"
+IOCS_PATH = REPO_ROOT / ".ai-engineering" / "security" / "iocs" / "iocs.json"
 
 
 def _load_hook_module():
@@ -47,8 +47,8 @@ def hook_module():
 def project_root(tmp_path: Path) -> Path:
     root = tmp_path / "project"
     (root / ".ai-engineering" / "state").mkdir(parents=True)
-    (root / ".ai-engineering" / "references").mkdir(parents=True)
-    target = root / ".ai-engineering" / "references" / "iocs.json"
+    (root / ".ai-engineering" / "security" / "iocs").mkdir(parents=True)
+    target = root / ".ai-engineering" / "security" / "iocs" / "iocs.json"
     target.write_text(IOCS_PATH.read_text(encoding="utf-8"), encoding="utf-8")
     return root
 
