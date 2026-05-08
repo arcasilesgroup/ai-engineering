@@ -87,10 +87,14 @@ def test_rule_3_negative_scoping(skills_report) -> None:
     """Description states what NOT to use the skill for when adjacent skills exist."""
     rule = _get_rule("rule_3_negative_scoping")
     assert rule is not None
-    # 49 skills graded — disable-model-invocation skills are excluded
+    # 47 skills graded — disable-model-invocation skills are excluded
     # from the AI-discovery audit (one such skill on the live surface).
-    assert len(skills_report.per_skill) == 49, (
-        f"expected 49 skills evaluated, got {len(skills_report.per_skill)}"
+    # Bumped from 49 to 47 by spec-127 sub-005 (M4): -4 deletions
+    # (ai-run, ai-board-discover, ai-board-sync, ai-release-gate)
+    # +2 creations (ai-help, ai-board) = -2 net, plus the existing
+    # ai-analyze-permissions exclusion. See CHANGELOG M4 section.
+    assert len(skills_report.per_skill) == 47, (
+        f"expected 47 skills evaluated, got {len(skills_report.per_skill)}"
     )
 
 
@@ -202,8 +206,9 @@ def test_rule_8_evals_present_threshold(skills_report) -> None:
         and r.rule_for("rule_8_evals_present_threshold").severity != "OK"
     ]
     # All graded skills must still flag rule 8 (no evals shipped yet).
-    assert len(flagged) >= 45, (
-        f"pre-M6: rule_8 must flag ~all skills (no evals yet); got {len(flagged)}/49"
+    # Bumped from 49 to 47 by spec-127 sub-005 (M4); 45-skill floor preserved.
+    assert len(flagged) >= 43, (
+        f"pre-M6: rule_8 must flag ~all skills (no evals yet); got {len(flagged)}/47"
     )
 
 
@@ -240,16 +245,16 @@ def test_rule_10_no_anti_patterns(skills_report) -> None:
 
     * Grade D = 0 (eliminated by Wave 2).
     * Grade C ≤ 2 (D-127-08 hard ceiling).
-    * Grade A ≥ 35 (≥75% of 49 graded skills).
+    * Grade A ≥ 33 (≥70% of 47 graded skills, post-M4).
     * Grade A is the largest bucket.
-    * Total graded skills = 49.
+    * Total graded skills = 47 (down from 49 in M2/M3 baseline; see M4 CHANGELOG).
     """
     rule = _get_rule("rule_10_no_anti_patterns")
     assert rule is not None
     summary = skills_report.summary
 
     total = sum(summary.values())
-    assert total == 49, f"expected 49 graded skills, got {total}: {summary}"
+    assert total == 47, f"expected 47 graded skills, got {total}: {summary}"
     assert summary.get("D", 0) == 0, (
         f"M2 must eliminate Grade D; got {summary.get('D', 0)}: {summary}"
     )
@@ -260,7 +265,7 @@ def test_rule_10_no_anti_patterns(skills_report) -> None:
         f"shape requires A ≥ B ≥ C; got A={a_count} B={b_count} C={c_count}"
     )
     assert c_count <= 2, f"D-127-08 hard ceiling: Grade C must be ≤2; got {c_count}: {summary}"
-    assert a_count >= 35, f"M2 floor: Grade A must be ≥35 (≥75%% of 49); got {a_count}: {summary}"
+    assert a_count >= 33, f"M4 floor: Grade A must be ≥33 (≥70%% of 47); got {a_count}: {summary}"
 
 
 # ---------------------------------------------------------------------------

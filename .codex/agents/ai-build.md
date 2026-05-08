@@ -123,7 +123,7 @@ Every build task produces this structured output to enable downstream agents (ve
 
 - `.codex/skills/ai-code/SKILL.md`, `.codex/skills/ai-test/SKILL.md`, `.codex/skills/ai-debug/SKILL.md`
 - `.codex/skills/ai-schema/SKILL.md`, `.codex/skills/ai-pipeline/SKILL.md`
-- `.codex/skills/ai-dispatch/SKILL.md` -- task dispatch and agent coordination
+- `.codex/skills/ai-build/SKILL.md` -- task dispatch and agent coordination (canonical gateway, D-127-11)
 
 ## Boundaries
 

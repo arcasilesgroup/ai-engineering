@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Auto-detect UI/frontend specs and route through `/ai-design` before task decomposition. UI work is common in target audience and `/ai-design` opt-in only means UI specs reach `/ai-dispatch` without design intent -- the developer pays the late cost. This handler inverts the default: route by keyword detection, allow `--skip-design` opt-out.
+Auto-detect UI/frontend specs and route through `/ai-design` before task decomposition. UI work is common in target audience and `/ai-design` opt-in only means UI specs reach `/ai-build` without design intent -- the developer pays the late cost. This handler inverts the default: route by keyword detection, allow `--skip-design` opt-out.
 
 This file is read by `/ai-plan` at planning time. It is NOT a user-invocable skill (no frontmatter) and does NOT replace `/ai-design` itself -- it only decides whether `/ai-design` should run before task decomposition.
 
@@ -76,7 +76,7 @@ When routing occurred (`route_required=True` AND override NOT set), `/ai-plan` a
 Design intent captured at `.ai-engineering/specs/<spec-id>/design-intent.md` (auto-routed from /ai-plan because matched keywords: page, dashboard).
 ```
 
-This makes the design context discoverable to `/ai-dispatch` and downstream agents without re-running `/ai-design`. If the user wants to re-generate the design intent, they invoke `/ai-design` directly.
+This makes the design context discoverable to `/ai-build` and downstream agents without re-running `/ai-design`. If the user wants to re-generate the design intent, they invoke `/ai-design` directly.
 
 When routing was skipped (no keywords matched OR `--skip-design` set), no `## Design` section is added.
 

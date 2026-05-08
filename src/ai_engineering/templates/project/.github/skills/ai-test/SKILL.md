@@ -140,6 +140,6 @@ Runs the stack-specific coverage tool, ranks files by coverage delta, suggests t
 
 ## Integration
 
-Called by: `/ai-dispatch` (build tasks), `/ai-build` (TDD mode), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-eval`.
+Called by: `/ai-build` (build tasks), `/ai-build` (TDD mode), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-eval`.
 
 $ARGUMENTS

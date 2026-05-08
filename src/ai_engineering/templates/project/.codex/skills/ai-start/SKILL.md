@@ -25,7 +25,7 @@ Read `session.context_files` from `.ai-engineering/manifest.yml` to discover whi
 
 ### Step 2: Activate instinct
 
-Run `/ai-instinct` to enter observation mode for this session.
+Run `/ai-observe` to enter observation mode for this session.
 
 ### Step 3: Gather status
 
@@ -67,7 +67,7 @@ Template (output directly as Markdown, replacing placeholders):
 ### ▸ Board · [provider] [project]
 
 - N items — Status1: N · Status2: N
-- or: not configured — run `/ai-board-discover`
+- or: not configured — run `/ai-board discover`
 
 ---
 
@@ -101,7 +101,7 @@ Formatting rules:
 
 Show count grouped by status. Keep it to 1-3 lines.
 
-If `work_items` section missing from manifest: show `not configured — run /ai-board-discover`.
+If `work_items` section missing from manifest: show `not configured — run /ai-board discover`.
 If API call fails: show `board unavailable` and continue. Never block the dashboard.
 
 ## Context Budget
@@ -140,4 +140,4 @@ Re-loads project context without rebuilding the conversation; shorter dashboard 
 
 ## Integration
 
-Called by: user directly, IDE instruction files (FIRST ACTION mandate). Calls: `/ai-instinct` (observation mode). Suggests: `/ai-board-discover` (board not configured), `/ai-brainstorm` (no active spec). See also: `/ai-guide` (human onboarding), `/ai-cleanup` (pre-start hygiene).
+Called by: user directly, IDE instruction files (FIRST ACTION mandate). Calls: `/ai-observe` (observation mode). Suggests: `/ai-board discover` (board not configured), `/ai-brainstorm` (no active spec). See also: `/ai-guide` (human onboarding), `/ai-cleanup` (pre-start hygiene).

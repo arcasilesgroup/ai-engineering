@@ -1,6 +1,6 @@
 ---
 name: ai-learn
-description: Extracts lessons from merged PR review feedback by analyzing what reviewers caught, identifying missed checks, and writing entries directly to LESSONS.md. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Not for in-session observation; use /ai-instinct instead. Not for skill-level rewrites; use /ai-skill-evolve instead.
+description: Extracts lessons from merged PR review feedback by analyzing what reviewers caught, identifying missed checks, and writing entries directly to LESSONS.md. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Not for in-session observation; use /ai-observe instead. Not for skill-level rewrites; use /ai-skill-tune instead.
 effort: medium
 argument-hint: "single [pr]|batch"
 mode: agent
@@ -149,6 +149,6 @@ Walks merged PRs since last lesson update, applies the loop per PR, drafts AGENT
 
 ## Integration
 
-Called by: user directly, post-merge automation. Reads: `gh pr view`, `LESSONS.md`. Writes: `LESSONS.md` (append-only). See also: `/ai-note` (individual findings), `/ai-instinct` (in-session corrections), `/ai-skill-evolve` (acts on accumulated lessons).
+Called by: user directly, post-merge automation. Reads: `gh pr view`, `LESSONS.md`. Writes: `LESSONS.md` (append-only). See also: `/ai-note` (individual findings), `/ai-observe` (in-session corrections), `/ai-skill-tune` (acts on accumulated lessons).
 
 $ARGUMENTS

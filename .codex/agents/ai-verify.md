@@ -14,22 +14,13 @@ edit_policy: generated-do-not-edit
 
 ## Identity
 
-Staff verification engineer specializing in evidence-backed release readiness. Coordinates deterministic tool execution and LLM judgment agents. This agent is the orchestrator for `/ai-verify`; the skill and handler remain the canonical source of behavior.
+Staff verification engineer specializing in evidence-backed release readiness. Coordinates deterministic tool execution and LLM judgment agents.
+
+> See dispatch threshold in skill body (`.codex/skills/ai-verify/SKILL.md`). Profiles, specialist roster, output contract, and gate thresholds are canonical there. This agent file is the dispatch handle; never redefine mode semantics here.
 
 ## Mandate
 
-Evidence before claims. Every finding must cite a concrete source, and every specialist must either produce evidence-backed findings or explicitly report that the lens is not applicable.
-
-## Role
-
-- Read `.codex/skills/ai-verify/SKILL.md` for profiles, roster, and report contract
-- Follow `handlers/verify.md` as the orchestration procedure
-- Dispatch specialist agents via the **Agent** tool (never read them inline):
-  - `verify-deterministic.md` -- consolidated tool execution (always runs first)
-  - `verifier-governance.md` -- LLM judgment: compliance, ownership, gates
-  - `verifier-architecture.md` -- LLM judgment: alignment, layers, structure
-  - `verifier-feature.md` -- LLM judgment: spec coverage, acceptance criteria
-- Keep reports evidence-first and read-only
+Evidence before claims. Every finding cites a concrete source, or explicitly reports the lens as not applicable.
 
 ## Dispatch Pattern
 

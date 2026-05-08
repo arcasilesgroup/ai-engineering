@@ -1,6 +1,6 @@
 ---
 name: ai-note
-description: "Saves persistent technical discoveries (debugging insights, non-obvious behaviors, workarounds, integration gotchas) and searches them across sessions. Trigger for 'save this', 'note that', 'remember this finding', 'what did we find about', 'do we have notes on'. Rule of thumb: if it took more than 30 minutes to figure out, save it. Not for cross-session learning patterns; use /ai-instinct or /ai-learn instead."
+description: "Saves persistent technical discoveries (debugging insights, non-obvious behaviors, workarounds, integration gotchas) and searches them across sessions. Trigger for 'save this', 'note that', 'remember this finding', 'what did we find about', 'do we have notes on'. Rule of thumb: if it took more than 30 minutes to figure out, save it. Not for cross-session learning patterns; use /ai-observe or /ai-learn instead."
 effort: medium
 argument-hint: "find [query]|[slug]"
 mode: agent
@@ -133,6 +133,6 @@ Scans `.ai-engineering/notes/`, ranks by relevance, presents matching slugs + su
 
 ## Integration
 
-Called by: user directly. Reads + writes: `.ai-engineering/notes/`. See also: `/ai-learn` (synthesize patterns), `/ai-instinct` (in-session corrections), `/ai-debug`, `/ai-postmortem`.
+Called by: user directly. Reads + writes: `.ai-engineering/notes/`. See also: `/ai-learn` (synthesize patterns), `/ai-observe` (in-session corrections), `/ai-debug`, `/ai-postmortem`.
 
 $ARGUMENTS

@@ -275,7 +275,11 @@ class TestSkills:
         # spec-123 (D-123-08/10): 51 -> 49 after deleting the memory
         # subsystem skills /ai-remember and /ai-dream.
         # spec-119 (registered post-squash): 49 -> 50 with /ai-eval skill.
-        assert config.skills.total == len(config.skills.registry) == 50
+        # spec-127 sub-005 (M4 D-127-04/10/11/12): 50 -> 48 after renames + mergers
+        # (delete ai-run, ai-board-discover, ai-board-sync, ai-release-gate;
+        # create ai-help, ai-board; rename 8 skills). Spec target was 46;
+        # achieved 48 — see CHANGELOG M4 section for the gap explanation.
+        assert config.skills.total == len(config.skills.registry) == 48
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
@@ -304,12 +308,14 @@ class TestAgents:
         # spec-116+: bumped 10 -> 11 with addition of evaluator agent.
         # spec-122 (sub-001 hygiene): 11 -> 10 after retiring the standalone
         # `evaluator` agent in favour of the consolidated verify pipeline.
-        assert config.agents.total == 10
+        # spec-127 sub-005 (M4 D-127-12): 10 -> 9 after deleting
+        # `run-orchestrator` (functionality absorbed by `autopilot --backlog`).
+        assert config.agents.total == 9
 
     def test_names(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert "build" in config.agents.names
-        assert "run-orchestrator" in config.agents.names
+        assert "autopilot" in config.agents.names
         assert "verify" in config.agents.names
 
 

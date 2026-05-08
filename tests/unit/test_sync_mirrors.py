@@ -61,8 +61,9 @@ ownership:
                 mirror_paths: []
 """
 
-# Expected architecture values (post spec-091 ai-run orchestration)
-_EXPECTED_AGENT_COUNT = 10
+# Expected architecture values (post spec-127 sub-005 D-127-12 — run-orchestrator
+# absorbed by autopilot --backlog).
+_EXPECTED_AGENT_COUNT = 9
 _EXPECTED_AGENT_NAMES = frozenset(
     {
         "autopilot",
@@ -72,7 +73,6 @@ _EXPECTED_AGENT_NAMES = frozenset(
         "guide",
         "plan",
         "review",
-        "run-orchestrator",
         "simplify",
         "verify",
     }

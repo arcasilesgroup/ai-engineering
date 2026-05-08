@@ -22,10 +22,10 @@ High-signal code review with full specialist coverage and aggressive false-posit
 
 1. **Step 0** — load contexts per `.ai-engineering/contexts/stack-context.md`.
 2. **Detect target** — PR number, file paths, or current diff.
-3. **Dependency preflight** — verify `.claude/skills/ai-review/handlers/review.md`, `review-context-explorer.md`, `review-finding-validator.md`, plus required `.claude/agents/reviewer-*.md` files for the selected mode and detected diff scope (frontend/design conditional on UI work). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
-4. **Pre-review** — dispatch `review-context-explorer.md` via Agent tool; serialize output for every specialist.
+3. **Dependency preflight** — verify `.claude/skills/ai-review/handlers/review.md`, `reviewer-context.md`, `reviewer-validator.md`, plus required `.claude/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
+4. **Pre-review** — dispatch `reviewer-context.md` via Agent tool; serialize output for every specialist.
 5. **Specialists** — `normal` = 3 macro-agents; `--full` = one agent per specialist. Both run the full roster — grouping controls cost only.
-6. **Validate** — dispatch `review-finding-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
+6. **Validate** — dispatch `reviewer-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
 7. **Emit** — Findings / Risks / Recommendations / Self-Challenge, attributed by original specialist lens.
 
 ## Dispatch threshold
@@ -51,10 +51,9 @@ Dispatch the `ai-review` agent for any narrative review (PR, branch, diff, or pa
 | `compatibility` | `reviewer-compatibility.md` | breaking changes, backwards compat, migrations |
 | `architecture` | `reviewer-architecture.md` | necessity, patterns, reuse, proportionality |
 | `maintainability` | `reviewer-maintainability.md` | complexity, readability, naming, duplication |
-| `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript (conditional) |
-| `design` | `reviewer-design.md` | CSS, animation, UI, visual design (conditional) |
+| `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript, animation, typography, forms (conditional; absorbs the legacy `design` lens per D-127-10) |
 
-`normal` macro-agent grouping: (1) correctness + testing + compatibility, (2) security + backend + performance, (3) architecture + maintainability + frontend + design.
+`normal` macro-agent grouping: (1) correctness + testing + compatibility, (2) security + backend + performance, (3) architecture + maintainability + frontend.
 
 ## Output Contract
 
@@ -82,7 +81,7 @@ User: "review PR #42"
 /ai-review 42
 ```
 
-Dispatches the 3 macro-agents (correctness, design, security/perf) over the diff, aggregates findings with corroboration, emits the Findings table with severity + remediation.
+Dispatches the 3 macro-agents (correctness, frontend, security/perf) over the diff, aggregates findings with corroboration, emits the Findings table with severity + remediation.
 
 ### Example 2 — full-coverage review on a complex diff
 
@@ -92,10 +91,10 @@ User: "do the full reviewer roster on this branch"
 /ai-review --full
 ```
 
-Dispatches one agent per specialist (correctness, design, security, performance, architecture, testing, frontend, backend), runs the validator stage, deduplicates and ranks findings.
+Dispatches one agent per specialist (correctness, security, performance, architecture, testing, frontend, backend, maintainability, compatibility), runs the validator stage, deduplicates and ranks findings.
 
 ## Integration
 
-Called by: user directly, `/ai-pr`, `/ai-dispatch`, `/ai-autopilot` (Phase 5). Dispatches: `review-context-explorer`, `reviewer-*`, `review-finding-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
+Called by: user directly, `/ai-pr`, `/ai-build`, `/ai-autopilot` (Phase 5). Dispatches: `reviewer-context`, `reviewer-*`, `reviewer-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
 
 $ARGUMENTS

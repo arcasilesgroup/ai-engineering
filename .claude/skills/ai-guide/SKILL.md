@@ -36,7 +36,7 @@ Dispatch the `ai-guide` agent for any human-onboarding, archaeology, or codebase
 - New to a project and need orientation.
 - Want to understand component relationships and data flow.
 - Asking "why was X chosen over Y?".
-- NOT for writing code — use `/ai-dispatch`.
+- NOT for writing code — use `/ai-build`.
 - NOT for generating docs — use `/ai-write`.
 
 ## Common Mistakes

@@ -102,7 +102,7 @@ CI loop iterations: 7+ over the night (see "CI fix waves" below). Final state pe
   - `malicious_domains`: known C2 / exfil patterns.
   - `shell_patterns`: `nc -e`, `bash -i >&`, `socat exec:`, `IEX iwr`, etc.
 - `policy/sentinel/runtime.py` — PreToolUse hook checker (deterministic, hot-path).
-- `.claude/skills/ai-mcp-sentinel/SKILL.md` — cold-path LLM audit. 4 análisis del prompt sentinel:
+- `.claude/skills/ai-mcp-audit/SKILL.md` — cold-path LLM audit. 4 análisis del prompt sentinel:
   1. Detección de código malicioso oculto (env / token exfil).
   2. Inyecciones (cadena de suministro / supply-chain).
   3. Coherencia (verde/rojo: acciones coherentes vs sospechosas).

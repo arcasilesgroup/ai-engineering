@@ -51,7 +51,7 @@ Total wall-clock = `max(docs, pre-push)`, NOT `sum`. Docs subagents and the pre-
 
 ### 8. Instinct consolidation
 
-If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-instinct --review`.
+If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-observe --review`.
 
 ### 9. Pre-push gate (Lane 3 of step 7)
 
@@ -97,7 +97,7 @@ Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README s
 
 ### 15. Board sync + enable auto-complete
 
-For new PRs with `refs`: invoke `/ai-board-sync in_review <ref>` for each non-`never_close` ref (fail-open: never block on failure). Then enable auto-complete: `gh pr merge --auto --squash --delete-branch` or `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`.
+For new PRs with `refs`: invoke `/ai-board sync in_review <ref>` for each non-`never_close` ref (fail-open: never block on failure). Then enable auto-complete: `gh pr merge --auto --squash --delete-branch` or `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`.
 
 ### 16. Watch and fix until merge
 
@@ -160,6 +160,6 @@ Same pipeline, but opens with `--draft` and skips the review request; reviewers 
 
 ## Integration
 
-Calls: `/ai-commit` (steps 0-6 prereq), `/ai-docs` subagents (CHANGELOG, README, portal, quality-gate), `/ai-board-sync` (post-create), `gh pr create` / `az repos pr create`. Watches: CI via `handlers/watch.md`. Reads: `manifest.yml`, spec frontmatter for linked work items. See also: `/ai-commit`, `/ai-review`, `/ai-resolve-conflicts`.
+Calls: `/ai-commit` (steps 0-6 prereq), `/ai-docs` subagents (CHANGELOG, README, portal, quality-gate), `/ai-board sync` (post-create), `gh pr create` / `az repos pr create`. Watches: CI via `handlers/watch.md`. Reads: `manifest.yml`, spec frontmatter for linked work items. See also: `/ai-commit`, `/ai-review`, `/ai-resolve-conflicts`.
 
 $ARGUMENTS

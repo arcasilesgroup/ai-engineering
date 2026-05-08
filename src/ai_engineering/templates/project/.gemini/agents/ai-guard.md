@@ -88,7 +88,7 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.gemini/skills/ai-dispatch/SKILL.md` -- guard advisory entry point during build execution
+- `.gemini/skills/ai-build/SKILL.md` -- guard advisory entry point during build execution
 - `.gemini/skills/ai-governance/SKILL.md` -- shared governance validation patterns
 
 ## Boundaries

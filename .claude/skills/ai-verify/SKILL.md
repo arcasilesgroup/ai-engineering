@@ -1,8 +1,8 @@
 ---
 name: ai-verify
-description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works'. Runs 4 specialists (deterministic, governance, architecture, feature) with `normal` implicit and `--full` explicit. For narrative code review with human judgment, use /ai-review instead."
+description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works', 'is this ready to ship', 'run the release checks', 'pre-release checklist', 'GO/NO-GO'. Runs 4 specialists (deterministic, governance, architecture, feature) with `normal` implicit and `--full` explicit; the `--release` mode flag aggregates 8-dimension release readiness (coverage, security, tests, lint, dependencies, types, docs, packaging) and emits GO/CONDITIONAL GO/NO-GO. For narrative code review with human judgment, use /ai-review instead."
 effort: max
-argument-hint: "claim|governance|security|quality|feature|architecture|platform [--full]"
+argument-hint: "claim|governance|security|quality|feature|architecture|platform|--release [version] [--full]"
 ---
 
 # Verify
@@ -14,6 +14,8 @@ argument-hint: "claim|governance|security|quality|feature|architecture|platform 
 /ai-verify --full               # one agent per specialist
 /ai-verify quality              # deterministic quality scan only
 /ai-verify platform             # 4-specialist aggregate verdict
+/ai-verify --release            # 8-dimension release-readiness gate (GO|CONDITIONAL GO|NO-GO)
+/ai-verify --release v2.0       # tag-specific release run
 ```
 
 ## Workflow
@@ -52,6 +54,7 @@ Dispatch the `ai-verify` agent for any merge-readiness check, scan, or evidence-
 | `quality` / `security` | Deterministic agent only (one scan slice) |
 | `governance` / `architecture` / `feature` | That specialist only |
 | `platform` | 4-specialist aggregate verdict |
+| `--release [version]` | 8-dimension release-readiness gate (D-127-10, absorbs the legacy `/ai-verify --release` skill). Stack-detected (Python/JS/Rust/Go); aggregates **coverage** (≥ manifest threshold), **security** (gitleaks + semgrep + pip-audit, zero crit/high), **tests** (100% pass), **lint** (zero unfixable), **dependency vulns** (zero known CVEs unless risk-accepted in `state.db.decisions`), **types** (zero errors), **documentation coherence** (CHANGELOG current), **packaging integrity** (build clean). Verdict is **GO** (all PASS) / **CONDITIONAL GO** (PASS with risk acceptances) / **NO-GO** (≥1 blocker). Closure path printed for NO-GO. |
 
 Both profiles run the same four specialists — difference is grouping, not coverage. Deterministic always runs first and feeds every judgment path. See `handlers/verify.md` for orchestration.
 
@@ -107,8 +110,18 @@ User: "before I keep going, run the quality checks"
 
 Runs the deterministic specialist (lint, format, type-check, tests, coverage), reports findings inline so the build loop can fix in place.
 
+### Example 3 — release readiness gate
+
+User: "is the v2.0 branch ready to ship?"
+
+```
+/ai-verify --release v2.0
+```
+
+Aggregates 8 dimensions, scores against manifest thresholds, emits GO / CONDITIONAL GO / NO-GO with evidence per dimension and remediation hints (D-127-10; replaces `/ai-verify --release`).
+
 ## Integration
 
-Called by: `/ai-dispatch` (post-task), `/ai-autopilot` (Phase 5), `/ai-build` (handoff), user directly. Dispatches: `verify-deterministic`, `verifier-governance`, `verifier-architecture`, `verifier-feature` agents. Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-eval` (AI reliability over time).
+Called by: `/ai-build` (post-task), `/ai-autopilot` (Phase 5), user directly. Dispatches: `verify-deterministic`, `verifier-governance`, `verifier-architecture`, `verifier-feature` agents. Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-eval` (AI reliability over time), `/ai-security` (deep CVE/SBOM only), `/ai-governance` (compliance, risk acceptance).
 
 $ARGUMENTS

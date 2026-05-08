@@ -21,16 +21,21 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 SHARED_KERNEL = REPO_ROOT / ".claude" / "skills" / "_shared" / "execution-kernel.md"
-DISPATCH = REPO_ROOT / ".claude" / "skills" / "ai-dispatch" / "SKILL.md"
+# spec-127 sub-005 (M4): /ai-dispatch renamed to /ai-build (D-127-11);
+# /ai-run merged into /ai-autopilot --backlog (D-127-12). The kernel
+# now has 2 consumers: build + autopilot (autopilot has both single-spec
+# and --backlog modes, so it counts as both former roles).
+DISPATCH = REPO_ROOT / ".claude" / "skills" / "ai-build" / "SKILL.md"
 AUTOPILOT = REPO_ROOT / ".claude" / "skills" / "ai-autopilot" / "SKILL.md"
-RUN = REPO_ROOT / ".claude" / "skills" / "ai-run" / "SKILL.md"
+RUN = REPO_ROOT / ".claude" / "skills" / "ai-autopilot" / "SKILL.md"
 
 # Pre-extraction baseline (measured 2026-04-27 BEFORE T-1.3 edits via wc -l):
-#   ai-dispatch/SKILL.md   157
+#   ai-dispatch/SKILL.md   157  (now ai-build/SKILL.md)
 #   ai-autopilot/SKILL.md  192
-#   ai-run/SKILL.md        145
+#   ai-run/SKILL.md        145  (deleted; absorbed into autopilot)
 #   ----------------------------
 #   combined               494
+# Post M4: ai-build + ai-autopilot only (run-orchestrator absorbed).
 PRE_BASELINE_LINES = 494
 LINE_REDUCTION_TARGET = 150
 POST_BUDGET = PRE_BASELINE_LINES - LINE_REDUCTION_TARGET  # 344

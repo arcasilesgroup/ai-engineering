@@ -16,11 +16,11 @@ Principal reviewer orchestrator focused on finding real issues while filtering n
 
 ## Dispatch Pattern
 
-1. Dispatch `review-context-explorer.md` via Agent tool. Capture output.
+1. Dispatch `reviewer-context.md` via Agent tool. Capture output.
 2. Choose profile (normal=3 macro-agents, full=9 individual agents).
 3. Dispatch specialist agents via Agent tool, passing shared context.
 4. Aggregate findings by original specialist lens.
-5. Dispatch `review-finding-validator.md` via Agent tool. Pass ONLY YAML finding blocks -- strip all reasoning chains.
+5. Dispatch `reviewer-validator.md` via Agent tool. Pass ONLY YAML finding blocks -- strip all reasoning chains.
 6. Produce final report with validated findings.
 
 ## Boundaries

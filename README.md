@@ -351,17 +351,17 @@ Skills are invoked as slash commands inside your IDE. The two primary flows:
 The default path for planned work after install and health-check:
 
 ```text
-/ai-start  -->  /ai-brainstorm  -->  /ai-plan  -->  /ai-dispatch  -->  /ai-verify  -->  /ai-pr
-  (start)       (spec)              (plan)        (execute)          (evidence)       (ship)
+/ai-start  -->  /ai-brainstorm  -->  /ai-plan  -->  /ai-build  -->  /ai-verify  -->  /ai-pr
+  (start)       (spec)              (plan)        (execute)        (evidence)       (ship)
 ```
 
 ### Backlog-driven flow
 
-Autonomous execution against a work-item backlog:
+Autonomous execution against a work-item backlog (D-127-12; replaces the legacy backlog runner skill):
 
 ```text
-/ai-run  -->  intake  -->  explore  -->  waves  -->  /ai-pr
- (start)    (filter)    (context)    (execute)     (ship)
+/ai-autopilot --backlog --source <github|ado|local>  -->  intake  -->  explore  -->  waves  -->  /ai-pr
+ (start)                                                  (filter)    (context)    (execute)     (ship)
 ```
 
 ### Key commands
@@ -371,9 +371,8 @@ Autonomous execution against a work-item backlog:
 | `/ai-start` | Bootstrap the session with context, dashboard, and active work |
 | `/ai-brainstorm` | Define requirements as a structured spec |
 | `/ai-plan` | Decompose a spec into executable tasks |
-| `/ai-dispatch` | Execute one approved plan |
-| `/ai-autopilot` | Execute a multi-spec DAG autonomously |
-| `/ai-run` | Execute a source-driven backlog run |
+| `/ai-build` | Execute one approved plan (D-127-11 canonical implementation gateway) |
+| `/ai-autopilot` | Execute a multi-spec DAG autonomously; `--backlog` mode for source-driven backlog runs |
 | `/ai-review` | Architecture-aware code review (9 specialist lenses) |
 | `/ai-verify` | Evidence-backed verification (7 specialist lenses) |
 | `/ai-pr` | Open, watch, and merge the pull request |

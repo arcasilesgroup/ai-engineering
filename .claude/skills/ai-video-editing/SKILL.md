@@ -70,6 +70,6 @@ Center-crop reframe with subject tracking via Remotion overlay, audio normalizat
 
 ## Integration
 
-Called by: user directly, `/ai-dispatch`. Calls: `ffmpeg` (deterministic cuts), Remotion (compositions), `/ai-media` (Layer 5 generated assets). See also: `/ai-media` (asset generation), `/ai-slides` (deck embeds), `/ai-canvas` (cover art).
+Called by: user directly, `/ai-build`. Calls: `ffmpeg` (deterministic cuts), Remotion (compositions), `/ai-media` (Layer 5 generated assets). See also: `/ai-media` (asset generation), `/ai-slides` (deck embeds), `/ai-visual` (cover art).
 
 $ARGUMENTS

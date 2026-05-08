@@ -70,7 +70,7 @@ Records a risk-acceptance entry in `state.db.decisions` with severity-based TTL,
 - **Called by**: `/ai-verify` (governance mode delegation).
 - CLI layer: `ai-eng validate --category <mode>`, `ai-eng doctor`, `ai-eng maintenance risk-status`. The LLM performs checks directly by reading files and running tools; `ai-eng validate` and `ai-eng doctor` are CLI equivalents for non-interactive use.
 - Risk acceptances block pre-push when expired.
-- Release gate (`/ai-release-gate`) checks governance status.
+- Release gate (`/ai-verify --release`) checks governance status.
 - **Boundary**: `/ai-pipeline` generates workflow files; `/ai-governance` validates that governance gates are enforced in them.
 
 ## Key Files

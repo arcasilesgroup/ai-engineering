@@ -15,7 +15,7 @@
 2. **GEMINI.md stale**: `src/ai_engineering/templates/project/GEMINI.md:110` hardcodea `## Skills (44)`, disk count real = 47. Template hand-maintained, no auto-regenera.
 3. **Sin chatmodes**: no existe `.github/chatmodes/` para crear un alias slash-command `/ai-explore` en Copilot.
 
-### `/ai-platform-audit` gaps
+### `/ai-ide-audit` gaps
 - No verifica naming consistency entre IDEs (solo counts).
 - No flaggea GEMINI.md staleness.
 
@@ -37,7 +37,7 @@
 
 ### Qué paridad SÍ funciona bien
 - 47/47 skills en Claude/Codex/Gemini, 46/47 en Copilot (ai-analyze-permissions excluido por diseño con `copilot_compatible: false`).
-- `/ai-platform-audit` skill YA existe en `.claude/skills/ai-platform-audit/SKILL.md` — solo hay que extenderlo.
+- `/ai-ide-audit` skill YA existe en `.claude/skills/ai-ide-audit/SKILL.md` — solo hay que extenderlo.
 
 ## Code Examples
 
@@ -107,9 +107,9 @@ def write_gemini_md(canonical_skills: list[Skill]):
 #   ## Skills (__SKILL_COUNT__)
 ```
 
-### 5. `/ai-platform-audit` extender
+### 5. `/ai-ide-audit` extender
 ```markdown
-# .claude/skills/ai-platform-audit/SKILL.md nuevos checks:
+# .claude/skills/ai-ide-audit/SKILL.md nuevos checks:
 
 6. Agent naming consistency:
    Extract `name:` from .{claude,github,codex,gemini}/agents/*.md.
@@ -139,7 +139,7 @@ def write_gemini_md(canonical_skills: list[Skill]):
   - `.claude/settings.json`
   - `scripts/sync_command_mirrors.py` (GEMINI.md generation, AGENT_METADATA naming)
   - `src/ai_engineering/templates/project/GEMINI.md` (placeholder `__SKILL_COUNT__`)
-  - `.claude/skills/ai-platform-audit/SKILL.md` (new checks 6 + 7)
+  - `.claude/skills/ai-ide-audit/SKILL.md` (new checks 6 + 7)
   - `.github/chatmodes/ai-explore.chatmode.md` (nuevo, si opt por alias path)
 
 ---

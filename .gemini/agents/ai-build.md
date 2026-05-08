@@ -123,7 +123,7 @@ Every build task produces this structured output to enable downstream agents (ve
 
 - `.gemini/skills/ai-code/SKILL.md`, `.gemini/skills/ai-test/SKILL.md`, `.gemini/skills/ai-debug/SKILL.md`
 - `.gemini/skills/ai-schema/SKILL.md`, `.gemini/skills/ai-pipeline/SKILL.md`
-- `.gemini/skills/ai-dispatch/SKILL.md` -- task dispatch and agent coordination
+- `.gemini/skills/ai-build/SKILL.md` -- task dispatch and agent coordination (canonical gateway, D-127-11)
 
 ## Boundaries
 

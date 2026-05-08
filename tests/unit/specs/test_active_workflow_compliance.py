@@ -2,7 +2,8 @@
 
 Article XIII codifies the single canonical spec lifecycle:
 
-    /ai-brainstorm -> /ai-plan -> /ai-dispatch | /ai-autopilot -> /ai-pr
+    /ai-brainstorm -> /ai-plan -> /ai-build | /ai-autopilot -> /ai-pr
+    (post spec-127 D-127-11 — `/ai-dispatch` renamed to `/ai-build`).
 
 This test asserts:
 
@@ -27,7 +28,7 @@ SKILLS_ROOT = PROJECT_ROOT / ".claude" / "skills"
 LIFECYCLE_SKILLS = (
     "ai-brainstorm",
     "ai-plan",
-    "ai-dispatch",
+    "ai-build",  # spec-127 D-127-11: renamed from ai-dispatch
     "ai-autopilot",
     "ai-pr",
 )
@@ -60,7 +61,7 @@ def test_lifecycle_skills_exist() -> None:
     assert not missing, (
         "Lifecycle skill(s) missing per Article XIII: "
         f"{missing}. The canonical flow /ai-brainstorm -> /ai-plan -> "
-        "/ai-dispatch | /ai-autopilot -> /ai-pr requires all five surfaces."
+        "/ai-build | /ai-autopilot -> /ai-pr requires all five surfaces."
     )
 
 

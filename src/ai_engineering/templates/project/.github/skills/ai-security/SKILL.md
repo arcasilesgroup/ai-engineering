@@ -158,7 +158,7 @@ Runs pip-audit / npm audit / cargo-audit per stack, flags CVEs with severity + r
 
 ## Integration
 
-Called by: `/ai-verify` (security mode delegation), `/ai-release-gate` (aggregates results), pre-commit hooks (gitleaks protect --staged), pre-push hooks (semgrep, pip-audit). Risk acceptances go to: `state.db.decisions` via `/ai-governance risk`. See also: `/ai-governance`, `/ai-mcp-sentinel` (skill behavior), `/ai-pipeline` (CI security).
+Called by: `/ai-verify` (security mode delegation), `/ai-verify --release` (aggregates results), pre-commit hooks (gitleaks protect --staged), pre-push hooks (semgrep, pip-audit). Risk acceptances go to: `state.db.decisions` via `/ai-governance risk`. See also: `/ai-governance`, `/ai-mcp-audit` (skill behavior), `/ai-pipeline` (CI security).
 
 ## References
 

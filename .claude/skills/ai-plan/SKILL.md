@@ -1,6 +1,6 @@
 ---
 name: ai-plan
-description: "Decomposes an approved spec into a phased execution plan with bite-sized tasks, agent assignments, and gate criteria — the contract /ai-dispatch executes. Trigger for 'break this down', 'create a plan', 'what tasks do we need', 'lets start implementing', 'scope changed re-plan'. Hard gate: user approves before /ai-dispatch can run. Not for ambiguous requirements; use /ai-brainstorm instead. Not for execution; use /ai-dispatch instead."
+description: "Decomposes an approved spec into a phased execution plan with bite-sized tasks, agent assignments, and gate criteria — the contract /ai-build executes. Trigger for 'break this down', 'create a plan', 'what tasks do we need', 'lets start implementing', 'scope changed re-plan'. Hard gate: user approves before /ai-build can run. Not for ambiguous requirements; use /ai-brainstorm instead. Not for execution; use /ai-build instead."
 effort: high
 argument-hint: "[spec-NNN or topic]"
 ---
@@ -18,9 +18,9 @@ argument-hint: "[spec-NNN or topic]"
 
 ## Workflow
 
-Implementation planning. Takes an approved spec (from `/ai-brainstorm` or manual creation) and produces a phased execution plan with bite-sized tasks, agent assignments, and gate criteria. The plan is the contract that `/ai-dispatch` executes.
+Implementation planning. Takes an approved spec (from `/ai-brainstorm` or manual creation) and produces a phased execution plan with bite-sized tasks, agent assignments, and gate criteria. The plan is the contract that `/ai-build` executes.
 
-**HARD GATE**: user must approve the plan before `/ai-dispatch` can run.
+**HARD GATE**: user must approve the plan before `/ai-build` can run.
 
 1. **Read spec** — load `.ai-engineering/specs/spec.md`; flag missing sections per `.ai-engineering/contexts/spec-schema.md`.
 2. **Explore codebase** (read-only) — understand current architecture, patterns, and affected files.
@@ -32,11 +32,11 @@ Implementation planning. Takes an approved spec (from `/ai-brainstorm` or manual
 8. **Order phases** + gate criteria.
 9. **Self-review** (spec-reviewer pattern, max 2 iterations).
 10. **Write** to `.ai-engineering/specs/plan.md`.
-11. **STOP** — present plan; user runs `/ai-dispatch`.
+11. **STOP** — present plan; user runs `/ai-build`.
 
 ## Dispatch threshold
 
-Dispatch the `ai-plan` agent for any approved spec needing decomposition. Hand off to `/ai-dispatch` only after explicit user approval. The agent file (`.claude/agents/ai-plan.md`) is the interrogator handle; pipeline classification, decomposition rules, and the no-execution protocol live here.
+Dispatch the `ai-plan` agent for any approved spec needing decomposition. Hand off to `/ai-build` only after explicit user approval. The agent file (`.claude/agents/ai-plan.md`) is the interrogator handle; pipeline classification, decomposition rules, and the no-execution protocol live here.
 
 ## When to Use
 
@@ -64,7 +64,7 @@ Each task: bite-sized (2-5 min), single-agent (build / verify / guard), single-c
 
 ## No-Execution Protocol
 
-`/ai-plan` is planning-only. MUST NOT invoke `ai-build agent` or `/ai-dispatch` for task execution; MUST NOT modify source code; MUST NOT check off implementation tasks. MAY write `.ai-engineering/specs/plan.md` and run read-only codebase exploration.
+`/ai-plan` is planning-only. MUST NOT invoke `ai-build agent` or `/ai-build` for task execution; MUST NOT modify source code; MUST NOT check off implementation tasks. MAY write `.ai-engineering/specs/plan.md` and run read-only codebase exploration.
 
 ## Common Mistakes
 
@@ -99,6 +99,6 @@ Diffs against the existing plan, regenerates affected phases, preserves complete
 
 ## Integration
 
-Called by: user directly, post-`/ai-brainstorm` approval. Calls: `ai-explore` agent (codebase context). Transitions to: `/ai-dispatch` (only after user approves). See also: `/ai-brainstorm`, `/ai-dispatch`, `/ai-autopilot` (multi-concern alternative).
+Called by: user directly, post-`/ai-brainstorm` approval. Calls: `ai-explore` agent (codebase context). Transitions to: `/ai-build` (only after user approves). See also: `/ai-brainstorm`, `/ai-build`, `/ai-autopilot` (multi-concern alternative).
 
 $ARGUMENTS

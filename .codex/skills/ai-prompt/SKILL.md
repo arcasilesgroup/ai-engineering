@@ -1,6 +1,6 @@
 ---
 name: ai-prompt
-description: "Optimizes prompts, system messages, and skill descriptions using explicit-over-implicit, show-do-not-tell, and rationale-embedding techniques. Trigger for 'this prompt is not working', 'optimize this skill description', 'improve triggering', 'rewrite this instruction', 'CSO-optimize'. Pass `--skill name` to optimize any skill's description field. Not for creating new skills; use /ai-create instead. Not for evolving the entire skill body; use /ai-skill-evolve instead."
+description: "Optimizes prompts, system messages, and skill descriptions using explicit-over-implicit, show-do-not-tell, and rationale-embedding techniques. Trigger for 'this prompt is not working', 'optimize this skill description', 'improve triggering', 'rewrite this instruction', 'CSO-optimize'. Pass `--skill name` to optimize any skill's description field. Not for creating new skills; use /ai-create instead. Not for evolving the entire skill body; use /ai-skill-tune instead."
 effort: medium
 argument-hint: "[text]|--skill [name]"
 tags: [meta, optimization, prompts]
@@ -151,6 +151,6 @@ Reads `.codex/skills/ai-governance/SKILL.md`, rewrites the description with expl
 
 ## Integration
 
-Called by: user directly, `/ai-skill-evolve` (Phase 4 rewrite). Calls: `python scripts/sync_command_mirrors.py` (after `--skill` updates). See also: `/ai-create` (new skills), `/ai-skill-evolve` (full skill rewrite from pain).
+Called by: user directly, `/ai-skill-tune` (Phase 4 rewrite). Calls: `python scripts/sync_command_mirrors.py` (after `--skill` updates). See also: `/ai-create` (new skills), `/ai-skill-tune` (full skill rewrite from pain).
 
 $ARGUMENTS

@@ -310,25 +310,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             },
         ),
     ),
-    "run-orchestrator": AgentMeta(
-        display_name="Run",
-        description=(
-            "Autonomous backlog orchestrator -- normalizes work items,"
-            " plans safely from architectural evidence, executes through"
-            " build, consolidates locally, and delivers through PRs."
-        ),
-        model="opus",
-        color="purple",
-        copilot_tools=(
-            "codebase",
-            "githubRepo",
-            "readFile",
-            "runCommands",
-            "search",
-        ),
-        claude_tools=("Read", "Glob", "Grep", "Bash"),
-        copilot_agents=("Build", "ai-explore", "Verify", "Review", "Guard"),
-    ),
+    # Note: `run-orchestrator` AgentMeta deleted per spec-127 D-127-12.
+    # Functionality absorbed by `ai-autopilot --backlog --source <github|ado|local>`.
 }
 
 
@@ -1046,15 +1029,16 @@ Every session, the first action is:
 4. No implementation without an approved spec — invoke `/ai-brainstorm`
    first when a task has no spec.
 
-## Workflow
+## Workflow — the seven-step chain
 
-Implementation is spec-gated by default:
+Canonical chain verbatim:
+**/ai-brainstorm → /ai-plan → /ai-build → /ai-verify → /ai-review → /ai-commit → /ai-pr**
 
-1. `/ai-brainstorm` produces or refines the approved spec when scope is unclear or missing.
-2. `/ai-plan` decomposes the approved spec into concrete tasks without writing production code.
-3. `/ai-dispatch` executes the approved plan for standard scoped work.
-4. `/ai-autopilot` executes the approved spec autonomously for large multi-concern work.
-5. If no approved spec exists, stop and return to `/ai-brainstorm` before implementation.
+`/ai-build` is the multi-stack implementation gateway (D-127-11). No
+approved spec? Stop and return to `/ai-brainstorm`. `/ai-autopilot`
+wraps the chain for autonomous multi-concern + backlog work (D-127-12).
+Each spec carries `plan.md` (task ledger) and `LESSONS.md` (append-only
+retro). Humans review both at PR time.
 
 ## Skills ({skill_count})
 

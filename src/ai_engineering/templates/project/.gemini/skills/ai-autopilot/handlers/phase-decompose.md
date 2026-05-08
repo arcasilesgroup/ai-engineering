@@ -31,7 +31,7 @@ If N < 3: **ABORT**. Report to orchestrator:
 
 ```
 DECOMPOSE ABORTED: Spec has N concerns -- below autopilot threshold (3).
-Recommendation: Use /ai-dispatch for direct execution.
+Recommendation: Use /ai-build for direct execution.
 ```
 
 This is a hard gate. Do not proceed. Do not attempt to split concerns further to meet the threshold -- that produces artificial granularity.
@@ -153,7 +153,7 @@ DECOMPOSE COMPLETE
 | Condition | Action |
 |-----------|--------|
 | Spec is placeholder or draft (no real requirements) | STOP. Report: "No approved spec. Run `/ai-brainstorm` first." |
-| < 3 concerns extracted | ABORT. Report concern count and recommend `/ai-dispatch`. |
+| < 3 concerns extracted | ABORT. Report concern count and recommend `/ai-build`. |
 | Orphan requirements after 2 reassignment attempts | STOP. Report orphan list with spec section references for human review. |
 | Spec references external systems not in the repo | Flag as constraint in manifest. Do not block -- Phase 2 agents will assess feasibility. |
 | Ambiguous scope boundaries between concerns | Prefer larger concerns over artificial splits. Note the ambiguity in the manifest for Phase 3 resolution. |

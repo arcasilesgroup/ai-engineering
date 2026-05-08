@@ -173,7 +173,7 @@ Loads `.ai-engineering/evals/baseline.json`, runs all regression evals against t
 
 ## Integration
 
-Called by: user directly, `/ai-dispatch`, `/ai-verify` (regression mode). Calls: test runners (code graders), the model (model graders), stack-specific tools. See also: `/ai-test` (code correctness), `/ai-verify` (current quality gates).
+Called by: user directly, `/ai-build`, `/ai-verify` (regression mode). Calls: test runners (code graders), the model (model graders), stack-specific tools. See also: `/ai-test` (code correctness), `/ai-verify` (current quality gates).
 
 ## Common Mistakes
 

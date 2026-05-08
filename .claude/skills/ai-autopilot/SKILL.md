@@ -1,13 +1,14 @@
 ---
 name: ai-autopilot
-description: "Delivers large multi-concern specs autonomously: decomposes into sub-specs, deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs quality convergence loops (verify+guard+review), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-dispatch instead. Not for ambiguous requirements; use /ai-brainstorm first."
+description: "Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs quality convergence loops (verify+guard+review), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship', 'run the backlog', 'execute these GitHub issues', 'process the sprint backlog'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-build instead. Not for ambiguous requirements; use /ai-brainstorm first."
 effort: max
-argument-hint: "'implement spec-NNN'|--resume|--no-watch"
+argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 tags:
   [
     orchestration,
     autonomous,
     multi-spec,
+    backlog,
     pipeline,
     execution,
     dag,
@@ -25,14 +26,15 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 - Spec has >= 3 independent concerns or touches >= 10 files
 - After `/ai-brainstorm` approval (spec.md exists and is not a placeholder)
-- When manual `/ai-dispatch` would overflow context within a single session
+- Backlog runs with `--backlog --source <github|ado|local>` to absorb GitHub issues, Azure Boards items, or markdown task lists into the DAG (D-127-12; replaces the legacy `/ai-run` skill)
+- When manual `/ai-build` would overflow context within a single session
 - Multi-concern work that benefits from parallel intelligence gathering and DAG-driven execution
 
 ## When NOT to Use
 
-- < 3 concerns -- use `/ai-dispatch` directly (autopilot overhead not justified)
+- < 3 concerns -- use `/ai-build` directly (autopilot overhead not justified)
 - Draft or unapproved spec -- run `/ai-brainstorm` first
-- Need human review between phases -- use `/ai-dispatch` with manual checkpoints
+- Need human review between phases -- use `/ai-build` with manual checkpoints
 - Cross-repo changes -- coordinate manually
 - Data migrations with destructive DDL -- require explicit user approval per step
 
@@ -40,7 +42,7 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 **Step 0 — Validate**: confirm `.ai-engineering/specs/spec.md` is not a placeholder (else STOP and report `/ai-brainstorm`). On `--resume`, read `.ai-engineering/runtime/autopilot/manifest.md` and re-enter at the Resume Protocol. Load contexts per `.ai-engineering/contexts/stack-context.md` and pass paths (not content) to subagents. plan.md is not required — Phase 2 agents generate their own.
 
-**Step 1 — DECOMPOSE** (`handlers/phase-decompose.md`): extract N independent concerns; abort if N<3 (recommend `/ai-dispatch`); write sub-spec dirs and the execution manifest.
+**Step 1 — DECOMPOSE** (`handlers/phase-decompose.md`): extract N independent concerns; abort if N<3 (recommend `/ai-build`); write sub-spec dirs and the execution manifest.
 
 **Step 2 — DEEP PLAN** (`handlers/phase-deep-plan.md`): dispatch explore+plan agents in parallel; each enriches `sub-NNN/spec.md` (Exploration) + `plan.md` (checkbox tasks with exports/imports). Failed agents retry once → mark `plan-failed`.
 
@@ -58,12 +60,13 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
 | `--resume`   | Read `.ai-engineering/runtime/autopilot/manifest.md`, determine pipeline state, re-enter at the correct phase/wave. Never re-executes completed phases. |
 | `--no-watch` | Create PR without the watch-and-fix loop. Useful for draft delivery or when CI is managed externally.                                 |
+| `--backlog --source <github|ado|local>` | Backlog mode (D-127-12, absorbs the legacy `/ai-run` skill). Normalizes work items from the named source into the run model: `github` (Issues + GitHub Projects v2), `ado` (Azure Boards work items), `local` (a markdown task list path). The 6-phase pipeline still runs; Phase 1 DECOMPOSE is replaced by intake + per-item planning, Phase 4 IMPLEMENT dispatches one bounded build per item. |
 
 Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions into subagent prompts (no inline implementation). When those skills improve, autopilot inherits the improvement.
 
 ## Dispatch threshold
 
-Dispatch the `ai-autopilot` agent when the work matches the "When to Use" criteria above (≥3 concerns, ≥10 files, post-`/ai-brainstorm` approval). For smaller scope, hand off to `/ai-dispatch` directly. The agent file (`.claude/agents/ai-autopilot.md`) is the orchestrator handle; the procedural contract lives in this SKILL.md.
+Dispatch the `ai-autopilot` agent when the work matches the "When to Use" criteria above (≥3 concerns, ≥10 files, post-`/ai-brainstorm` approval, or any backlog with `--backlog`). For smaller scope, hand off to `/ai-build` directly. The agent file (`.claude/agents/ai-autopilot.md`) is the orchestrator handle; the procedural contract lives in this SKILL.md.
 
 ## Governance
 
@@ -108,8 +111,18 @@ User: "resume the autopilot run that crashed yesterday"
 
 Reads the manifest, identifies the last completed phase, re-enters at the correct state without re-doing finished work.
 
+### Example 3 — backlog run from GitHub Issues
+
+User: "run all open issues with the ready-to-work label, no human checkpoints"
+
+```
+/ai-autopilot --backlog --source github "label:ready-to-work is:open"
+```
+
+Normalizes issues into the run model, performs baseline `ai-explore` of the repo, builds an overlap-aware DAG, dispatches bounded `ai-build` packets per item, runs item + integration gates, delivers via `ai-pr` (D-127-12; replaces `/ai-run`).
+
 ## Integration
 
-Called by: user directly post-`/ai-brainstorm` approval. Reads: `_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`. Delegates to: `ai-explore`, `ai-build`, `ai-verify`, `ai-guard`, `ai-review` agents. Transitions to: `/ai-cleanup`. See also: `/ai-dispatch` (smaller scope), `/ai-run` (backlog).
+Called by: user directly post-`/ai-brainstorm` approval (or with `--backlog` for backlog runs). Reads: `_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`. Delegates to: `ai-explore`, `ai-build`, `ai-verify`, `ai-guard`, `ai-review` agents. Transitions to: `/ai-cleanup`. See also: `/ai-build` (smaller scope), `/ai-board sync` (lifecycle transitions for backlog mode).
 
 $ARGUMENTS

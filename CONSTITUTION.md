@@ -15,7 +15,7 @@ ADR-required.
 
 1. **Every implementation traces back to an approved spec** under
    `.ai-engineering/specs/spec-NNN-<slug>.md`.
-2. `/ai-dispatch` cannot run without `plan.md` marked ready and a user
+2. `/ai-build` cannot run without `plan.md` marked ready and a user
    approval signal.
 3. Trivial pipeline (typo / comment-only / single-line) is permitted
    to skip discovery + architecture phases; the spec still exists,
@@ -213,12 +213,13 @@ skill that touches `.ai-engineering/specs/` MUST follow the identical
 sequence; depth scales with spec size, but process steps are invariant.
 
 1. **Canonical flow** — the only authorized spec lifecycle is:
-   `/ai-brainstorm → /ai-plan → /ai-dispatch | /ai-autopilot → /ai-pr`.
+   `/ai-brainstorm → /ai-plan → /ai-build | /ai-autopilot → /ai-pr`.
    No skill may bypass, reorder, or substitute these stages.
 2. **Depth scaling** — `/ai-autopilot` is the execution surface for
-   specs with ≥3 concerns or ≥10 file changes; `/ai-dispatch` handles
-   smaller specs. Both share the upstream brainstorm + plan stages and
-   the downstream PR stage; only the execution intensity varies.
+   specs with ≥3 concerns or ≥10 file changes; `/ai-build` handles
+   smaller specs (D-127-11 canonical implementation gateway). Both
+   share the upstream brainstorm + plan stages and the downstream PR
+   stage; only the execution intensity varies.
 3. **Three-file specs/ surface** — `.ai-engineering/specs/` contains
    exactly three files: `spec.md` (active spec), `plan.md` (active
    plan), `_history.md` (one-line ledger of completed lifecycles). No
@@ -236,7 +237,7 @@ sequence; depth scales with spec size, but process steps are invariant.
    asserts the 3-file invariant on every CI run.
    `tests/unit/specs/test_active_workflow_compliance.py` asserts that
    each lifecycle skill (`/ai-brainstorm`, `/ai-plan`,
-   `/ai-dispatch`, `/ai-autopilot`, `/ai-pr`) exists and references
+   `/ai-build`, `/ai-autopilot`, `/ai-pr`) exists and references
    the canonical surface. Any deviation fails CI.
 
 ---

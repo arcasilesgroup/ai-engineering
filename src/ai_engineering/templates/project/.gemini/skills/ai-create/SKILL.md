@@ -1,6 +1,6 @@
 ---
 name: ai-create
-description: "Creates new ai-engineering skills or agents end-to-end: scaffold, TDD pressure-test, optimize description, register in manifest, sync mirrors. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for', 'build a new agent', 'scaffold a skill for'. Not for evolving existing skills; use /ai-skill-evolve instead. Not for description-only optimization; use /ai-prompt instead."
+description: "Creates new ai-engineering skills or agents end-to-end: scaffold, TDD pressure-test, optimize description, register in manifest, sync mirrors. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for', 'build a new agent', 'scaffold a skill for'. Not for evolving existing skills; use /ai-skill-tune instead. Not for description-only optimization; use /ai-prompt instead."
 effort: high
 argument-hint: "skill [name]|agent [name]"
 tags: [meta, framework, creation]
@@ -55,7 +55,7 @@ Two modes:
 
 Follow `handlers/create-skill.md`. Before creating anything, load project context:
 
-1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-evolve` instead.
+1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-tune` instead.
 2. **Load pain sources** — read state.db.decisions, LESSONS.md, instincts.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
 3. **Determine IDE compatibility** — see IDE-Compatibility Frontmatter below.
 
@@ -152,6 +152,6 @@ Scaffolds the agent file with CSO description, `tools` whitelist, `model: sonnet
 
 ## Integration
 
-Delegates to: Anthropic `skill-creator` (TDD + evals + description optimization). Reads: `manifest.yml`, `state.db.decisions`, `LESSONS.md`. Calls: `python scripts/sync_command_mirrors.py`. See also: `/ai-skill-evolve` (improve existing), `/ai-prompt` (description-only).
+Delegates to: Anthropic `skill-creator` (TDD + evals + description optimization). Reads: `manifest.yml`, `state.db.decisions`, `LESSONS.md`. Calls: `python scripts/sync_command_mirrors.py`. See also: `/ai-skill-tune` (improve existing), `/ai-prompt` (description-only).
 
 $ARGUMENTS

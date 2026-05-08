@@ -100,6 +100,6 @@ Greps for callers, defines additive flag with default that matches current behav
 
 ## Integration
 
-Called by: `ai-build` agent, `/ai-dispatch`, user directly. Calls: stack-specific linters (post-edit validation via `ai-build` Step 4). Transitions to: `/ai-test` (GREEN), `/ai-verify` (quality), `/ai-review` (review). See also: `/ai-test`, `/ai-debug`, `/ai-simplify`.
+Called by: `ai-build` agent, `/ai-build`, user directly. Calls: stack-specific linters (post-edit validation via `ai-build` Step 4). Transitions to: `/ai-test` (GREEN), `/ai-verify` (quality), `/ai-review` (review). See also: `/ai-test`, `/ai-debug`, `/ai-simplify`.
 
 $ARGUMENTS

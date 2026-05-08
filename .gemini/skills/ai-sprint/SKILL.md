@@ -152,6 +152,6 @@ Compares planned vs shipped, surfaces velocity trends, identifies blockers, writ
 
 ## Integration
 
-Called by: user directly. Calls: `gh project item-list`, `az boards query`, `/ai-slides` (for `review` mode). See also: `/ai-standup` (daily slice), `/ai-write content sprint-review`, `/ai-board-discover`.
+Called by: user directly. Calls: `gh project item-list`, `az boards query`, `/ai-slides` (for `review` mode). See also: `/ai-standup` (daily slice), `/ai-write content sprint-review`, `/ai-board discover`.
 
 $ARGUMENTS

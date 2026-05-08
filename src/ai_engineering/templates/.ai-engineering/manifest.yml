@@ -141,24 +141,26 @@ control_plane:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (50 skills)
+# Skills registry (48 skills) — spec-127 sub-005 (M4) renames + mergers landed.
+# The umbrella spec target was 46; the achieved disk count is 48 because
+# `/ai-help` (matchback surface) and `/ai-board` (subcommand merger target)
+# are net additions that weren't accounted for in the D-127-10 arithmetic.
 skills:
-  total: 50
+  total: 48
   prefix: "ai-"
   registry:
     # Core workflow
     ai-brainstorm: { type: workflow, tags: [planning] }
     ai-plan: { type: workflow, tags: [planning] }
-    ai-dispatch: { type: workflow, tags: [execution] }
+    ai-build: { type: workflow, tags: [execution, implementation] }
     ai-test: { type: workflow, tags: [quality] }
     ai-debug: { type: workflow, tags: [quality] }
     ai-code: { type: workflow, tags: [implementation] }
-    ai-verify: { type: workflow, tags: [quality] }
+    ai-verify: { type: workflow, tags: [quality, release] }
     ai-review: { type: workflow, tags: [quality] }
     # Delivery
     ai-commit: { type: delivery, tags: [git] }
     ai-pr: { type: delivery, tags: [git] }
-    ai-release-gate: { type: delivery, tags: [release] }
     ai-cleanup: { type: delivery, tags: [git] }
     # Enterprise
     ai-security: { type: enterprise, tags: [security] }
@@ -171,7 +173,7 @@ skills:
     ai-explain: { type: teaching, tags: [learning] }
     ai-guide: { type: teaching, tags: [onboarding] }
     ai-write: { type: writing, tags: [content] }
-    ai-market: { type: writing, tags: [marketing, go-to-market] }
+    ai-gtm: { type: writing, tags: [gtm, marketing, go-to-market] }
     # SDLC
     ai-note: { type: sdlc, tags: [knowledge] }
     ai-standup: { type: sdlc, tags: [reporting] }
@@ -184,40 +186,40 @@ skills:
     ai-learn: { type: meta, tags: [improvement] }
     ai-prompt: { type: meta, tags: [optimization] }
     ai-start: { type: meta, tags: [bootstrap] }
+    ai-help: { type: meta, tags: [help, discovery, matchback] }
     ai-analyze-permissions: { type: meta, tags: [permissions] }
-    ai-instinct: { type: meta, tags: [meta, learning, continuous-improvement] }
-    ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec] }
-    ai-run: { type: meta, tags: [orchestration, autonomous, backlog, no-hitl] }
+    ai-observe: { type: meta, tags: [meta, learning, continuous-improvement, observe] }
+    ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec, backlog] }
     ai-constitution: { type: meta, tags: [governance] }
     # ECC Integration (spec-062)
     ai-slides: { type: writing, tags: [presentation, html, css] }
     ai-media: { type: writing, tags: [media, generation] }
     ai-video-editing: { type: writing, tags: [video, editing] }
-    # Board integration
-    ai-board-discover: { type: enterprise, tags: [board, discovery] }
-    ai-board-sync: { type: enterprise, tags: [board, sync] }
+    # Board integration (D-127-10 merger of ai-board-discover + ai-board-sync)
+    ai-board: { type: enterprise, tags: [board, discovery, sync, work-items] }
     # Platform governance
-    ai-platform-audit: { type: enterprise, tags: [audit, platform, governance] }
-    ai-skill-evolve: { type: meta, tags: [improvement, skills, optimization] }
+    ai-ide-audit: { type: enterprise, tags: [audit, ide, governance] }
+    ai-skill-tune: { type: meta, tags: [improvement, skills, optimization, tune] }
     # Security (spec-107)
-    ai-mcp-sentinel:
-      { type: enterprise, tags: [security, mcp, audit, sentinel, governance] }
+    ai-mcp-audit:
+      { type: enterprise, tags: [security, mcp, audit, governance] }
     # Design (spec-093)
     ai-design: { type: design, tags: [design, ui, ux, aesthetic] }
     ai-animation: { type: design, tags: [animation, motion, interaction] }
-    ai-canvas: { type: design, tags: [visual, art, composition, marketing] }
+    ai-visual: { type: design, tags: [visual, art, composition, marketing] }
     # Research (spec-111)
     ai-research:
       { type: workflow, tags: [research, evidence, citations, multi-tier] }
-    # spec-120 follow-up: scheduled entropy garbage collection
-    ai-entropy-gc:
-      { type: meta, tags: [simplification, entropy, scheduled, autonomous] }
+    # spec-120 follow-up: scheduled simplification sweep (renamed from ai-entropy-gc)
+    ai-simplify-sweep:
+      { type: meta, tags: [simplification, scheduled, autonomous] }
     # Evaluation (spec-119)
     ai-eval: { type: workflow, tags: [evaluation, gate, regression, pass-at-k] }
 
-# Agents (10)
+# Agents (orchestrators) — spec-127 sub-005: 10 → 9 orchestrators after
+# `run-orchestrator` deletion (functionality absorbed into `autopilot --backlog`).
 agents:
-  total: 10
+  total: 9
   names:
     [
       plan,
@@ -229,7 +231,6 @@ agents:
       guide,
       simplify,
       autopilot,
-      run-orchestrator,
     ]
 
 # Ownership

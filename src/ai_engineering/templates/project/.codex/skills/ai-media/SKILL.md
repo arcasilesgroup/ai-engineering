@@ -1,6 +1,6 @@
 ---
 name: ai-media
-description: "Generates images, videos, and audio via AI models (fal-ai MCP): cheap iteration models, expensive production finals, cost-estimate before generation. Trigger for 'generate an image', 'create a thumbnail', 'make a voiceover', 'AI video', 'text to speech for'. Not for design composition; use /ai-canvas instead. Not for animation specs; use /ai-animation instead."
+description: "Generates images, videos, and audio via AI models (fal-ai MCP): cheap iteration models, expensive production finals, cost-estimate before generation. Trigger for 'generate an image', 'create a thumbnail', 'make a voiceover', 'AI video', 'text to speech for'. Not for design composition; use /ai-visual instead. Not for animation specs; use /ai-animation instead."
 effort: medium
 argument-hint: "image|video|audio [description]"
 tags: [media, generation, fal-ai]
@@ -164,6 +164,6 @@ Iterates with `csm-1b` for cheap previews, finalizes with ElevenLabs for product
 
 ## Integration
 
-Called by: user directly, `/ai-dispatch`, `ai-video-editing` (Layer 5 generated assets). Calls: fal.ai MCP, ElevenLabs API, VideoDB API. See also: `/ai-canvas` (composed visuals), `/ai-slides` (deck visuals), `/ai-animation`.
+Called by: user directly, `/ai-build`, `ai-video-editing` (Layer 5 generated assets). Calls: fal.ai MCP, ElevenLabs API, VideoDB API. See also: `/ai-visual` (composed visuals), `/ai-slides` (deck visuals), `/ai-animation`.
 
 $ARGUMENTS

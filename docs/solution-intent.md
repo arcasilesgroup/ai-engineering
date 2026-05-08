@@ -55,8 +55,8 @@ AI coding assistants operate without guardrails. In regulated industries, this c
 
 | Persona | Journey | Primary actions |
 |---------|---------|----------------|
-| Developer | Code -> commit -> PR -> merge | `/ai-brainstorm`, `/ai-dispatch`, `/ai-commit`, `/ai-pr` |
-| Tech Lead | Review -> approve -> release | `/ai-review`, `/ai-release-gate`, `/ai-verify` |
+| Developer | Code -> commit -> PR -> merge | `/ai-brainstorm`, `/ai-build`, `/ai-commit`, `/ai-pr` |
+| Tech Lead | Review -> approve -> release | `/ai-review`, `/ai-verify --release`, `/ai-verify` |
 | Security Officer | Audit -> scan -> accept risk | `/ai-security`, `/ai-governance`, decision-store |
 | DevOps Engineer | Pipeline -> deploy -> monitor | `/ai-pipeline`, `ai-eng doctor`, runbooks |
 | New Team Member | Onboard -> learn -> contribute | `/ai-start`, `/ai-guide`, `/ai-explain` |

@@ -1,6 +1,6 @@
 ---
 name: ai-write
-description: Writes content (blog posts, pitch decks, sprint review summaries, architecture board reports, solution intent documents) with automatic audience targeting (developer/manager/executive). Trigger for 'write a blog post', 'pitch this', 'sprint review summary', 'architecture board doc', 'solution intent for'. Not for documentation artifacts like CHANGELOG or README; use /ai-docs instead. Not for marketing/social content; use /ai-market instead. Not for code-level explanations; use /ai-explain instead.
+description: Writes content (blog posts, pitch decks, sprint review summaries, architecture board reports, solution intent documents) with automatic audience targeting (developer/manager/executive). Trigger for 'write a blog post', 'pitch this', 'sprint review summary', 'architecture board doc', 'solution intent for'. Not for documentation artifacts like CHANGELOG or README; use /ai-docs instead. Not for marketing/social content; use /ai-gtm instead. Not for code-level explanations; use /ai-explain instead.
 effort: high
 argument-hint: "content [type] [--audience developer|manager|executive]"
 mode: agent
@@ -37,7 +37,7 @@ Router skill for content writing. Dispatches to handler files based on content t
 
 - Creating pitch decks, sprint reviews, blog posts, architecture board presentations, solution intent documents.
 - NOT for documentation artifacts (README, CHANGELOG, API docs) -- use `/ai-docs`.
-- NOT for marketing content (social posts, investor materials, outreach) -- use `/ai-market`.
+- NOT for marketing content (social posts, investor materials, outreach) -- use `/ai-gtm`.
 - NOT for code explanations -- use `/ai-explain`.
 
 ## Writing Philosophy
@@ -102,6 +102,6 @@ Strategic framing, business value first, no technical vocabulary, ≤90 words.
 
 ## Integration
 
-Called by: user directly. Dispatches to: `handlers/content.md`. See also: `/ai-docs` (CHANGELOG/README), `/ai-market` (social/outreach), `/ai-explain` (code-level), `/ai-slides` (deck rendering).
+Called by: user directly. Dispatches to: `handlers/content.md`. See also: `/ai-docs` (CHANGELOG/README), `/ai-gtm` (social/outreach), `/ai-explain` (code-level), `/ai-slides` (deck rendering).
 
 $ARGUMENTS

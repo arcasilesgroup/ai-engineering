@@ -38,7 +38,7 @@ If `.ai-engineering/specs/spec.md` frontmatter has `refs`: include work item ref
 
 ### 2. Instinct consolidation
 
-If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-instinct --review` to consolidate session observations before committing.
+If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-observe --review` to consolidate session observations before committing.
 
 ### 3. Stage changes
 

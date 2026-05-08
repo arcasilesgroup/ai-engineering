@@ -148,6 +148,6 @@ Walks the diff vs `main`, isolates the suspect change, reproduces locally, ident
 
 ## Integration
 
-Called by: `/ai-dispatch`, `/ai-build` (test fail), user directly. Calls: test runners (reproduction), `/ai-test` (regression test). Transitions to: `/ai-build` (fix), `/ai-commit` (verified). See also: `/ai-test`, `/ai-postmortem`, `/ai-resolve-conflicts`.
+Called by: `/ai-build`, `/ai-build` (test fail), user directly. Calls: test runners (reproduction), `/ai-test` (regression test). Transitions to: `/ai-build` (fix), `/ai-commit` (verified). See also: `/ai-test`, `/ai-postmortem`, `/ai-resolve-conflicts`.
 
 $ARGUMENTS

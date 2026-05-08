@@ -88,7 +88,7 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.codex/skills/ai-dispatch/SKILL.md` -- guard advisory entry point during build execution
+- `.codex/skills/ai-build/SKILL.md` -- guard advisory entry point during build execution
 - `.codex/skills/ai-governance/SKILL.md` -- shared governance validation patterns
 
 ## Boundaries

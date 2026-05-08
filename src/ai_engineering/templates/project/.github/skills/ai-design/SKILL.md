@@ -1,6 +1,6 @@
 ---
 name: ai-design
-description: "Designs user interfaces and design systems for web, mobile, CLI, and documentation-heavy experiences: aesthetic direction, color palettes, typography, spatial composition, information architecture. Trigger for 'design this page', 'create a design system', 'what style should we use', 'UI for this feature', 'color palette for', 'typography for'. Not for animation; use /ai-animation instead. Not for static visual art (posters, banners); use /ai-canvas instead. Not for slide decks; use /ai-slides instead."
+description: "Designs user interfaces and design systems for web, mobile, CLI, and documentation-heavy experiences: aesthetic direction, color palettes, typography, spatial composition, information architecture. Trigger for 'design this page', 'create a design system', 'what style should we use', 'UI for this feature', 'color palette for', 'typography for'. Not for animation; use /ai-animation instead. Not for static visual art (posters, banners); use /ai-visual instead. Not for slide decks; use /ai-slides instead."
 effort: high
 argument-hint: "[UI or design task description]"
 mode: agent
@@ -81,7 +81,7 @@ Produce specific choices, not vague guidance:
 ### Step 6 -- Delegate Specialized Work
 
 - If motion/animation design is needed beyond micro-interactions, invoke `/ai-animation`
-- If visual artifacts (posters, banners, illustrations) are needed, invoke `/ai-canvas`
+- If visual artifacts (posters, banners, illustrations) are needed, invoke `/ai-visual`
 - If presentation design, invoke `/ai-slides` (which consumes this skill's output)
 
 ### Step 7 -- Pre-Delivery Quality Check
@@ -90,8 +90,8 @@ Before delivering any design work, run `handlers/checklist.md` and verify all it
 
 ## Integration
 
-- **Called by**: user directly, `/ai-slides`, `/ai-media`, `/ai-dispatch`
-- **Calls**: `handlers/aesthetics.md`, `handlers/design-system.md`, `handlers/checklist.md`, `/ai-animation`, `/ai-canvas`
+- **Called by**: user directly, `/ai-slides`, `/ai-media`, `/ai-build`
+- **Calls**: `handlers/aesthetics.md`, `handlers/design-system.md`, `handlers/checklist.md`, `/ai-animation`, `/ai-visual`
 - **Consumed by**: `/ai-slides` (presentation aesthetics), `/ai-media` (visual asset direction)
 
 ## Common Mistakes
