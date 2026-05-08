@@ -121,7 +121,8 @@ def test_seven_stacks_total() -> None:
     on_disk = {p.name for p in _OVERRIDES_ROOT.iterdir() if p.is_dir() and p.name != "_shared"}
     expected = set(_STACKS)
     assert expected.issubset(on_disk), (
-        f"missing override dirs: {sorted(expected - on_disk)}. spec-128 D-128-09 requires all 7 stacks."
+        f"missing override dirs: {sorted(expected - on_disk)}. "
+        "spec-128 D-128-09 requires all 7 stacks."
     )
 
 
