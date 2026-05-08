@@ -261,7 +261,10 @@ def test_mismatch_without_dec_appends_remediation_banner(tmp_path: Path) -> None
 
 @pytest.mark.skipif(
     sys.platform == "darwin" and __import__("os").environ.get("CI") == "true",
-    reason="Spec-126 follow-up: 5 macOS-CI-only flake on apply_risk_acceptances DEC matching; investigate once main CI is green",
+    reason=(
+        "Spec-126 follow-up: 5 macOS-CI-only flake on apply_risk_acceptances "
+        "DEC matching; investigate once main CI is green"
+    ),
 )
 def test_mismatch_with_active_dec_permits_and_updates_baseline(tmp_path: Path) -> None:
     """Active DEC permits mismatch + updates baseline + suppresses banner."""

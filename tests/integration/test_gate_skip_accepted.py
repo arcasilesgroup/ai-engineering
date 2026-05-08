@@ -57,7 +57,10 @@ def _seed_decision_for_finding(root: Path, dec_id: str, rule_id: str) -> None:
 
 @pytest.mark.skipif(
     sys.platform == "darwin" and __import__("os").environ.get("CI") == "true",
-    reason="Spec-126 follow-up: 5 macOS-CI-only flake on apply_risk_acceptances DEC matching; investigate once main CI is green",
+    reason=(
+        "Spec-126 follow-up: 5 macOS-CI-only flake on apply_risk_acceptances "
+        "DEC matching; investigate once main CI is green"
+    ),
 )
 def test_gate_run_emits_accepted_finding_after_accept(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -130,7 +133,10 @@ def test_gate_run_emits_accepted_finding_after_accept(
 
 @pytest.mark.skipif(
     sys.platform == "darwin" and __import__("os").environ.get("CI") == "true",
-    reason="Spec-126 follow-up: 5 macOS-CI-only flake on apply_risk_acceptances DEC matching; investigate once main CI is green",
+    reason=(
+        "Spec-126 follow-up: 5 macOS-CI-only flake on apply_risk_acceptances "
+        "DEC matching; investigate once main CI is green"
+    ),
 )
 def test_gate_run_emits_telemetry_for_accepted_finding(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
