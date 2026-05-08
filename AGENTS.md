@@ -27,7 +27,7 @@ wraps the chain for autonomous multi-concern + backlog work (D-127-12).
 Each spec carries `plan.md` (task ledger) and `LESSONS.md` (append-only
 retro). Humans review both at PR time.
 
-## Skills (48)
+## Skills (47)
 
 The full registry is in `.ai-engineering/manifest.yml` under
 `skills.registry`. Canonical skill definitions live under
@@ -65,7 +65,7 @@ and transcript viewing are delegated to the separately installed
 
 | What | Where |
 |------|-------|
-| Skills (48) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (47) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Config | `.ai-engineering/manifest.yml` |

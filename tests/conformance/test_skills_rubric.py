@@ -87,14 +87,16 @@ def test_rule_3_negative_scoping(skills_report) -> None:
     """Description states what NOT to use the skill for when adjacent skills exist."""
     rule = _get_rule("rule_3_negative_scoping")
     assert rule is not None
-    # 47 skills graded — disable-model-invocation skills are excluded
+    # 46 skills graded — disable-model-invocation skills are excluded
     # from the AI-discovery audit (one such skill on the live surface).
     # Bumped from 49 to 47 by spec-127 sub-005 (M4): -4 deletions
     # (ai-run, ai-board-discover, ai-board-sync, ai-release-gate)
     # +2 creations (ai-help, ai-board) = -2 net, plus the existing
-    # ai-analyze-permissions exclusion. See CHANGELOG M4 section.
-    assert len(skills_report.per_skill) == 47, (
-        f"expected 47 skills evaluated, got {len(skills_report.per_skill)}"
+    # ai-analyze-permissions exclusion. spec-127 Wave 8 (D-127-10
+    # strict-count enforcement): 47 -> 46 after demoting `/ai-help`
+    # to a reference file. See CHANGELOG Wave 8 section.
+    assert len(skills_report.per_skill) == 46, (
+        f"expected 46 skills evaluated, got {len(skills_report.per_skill)}"
     )
 
 
@@ -240,20 +242,21 @@ def test_rule_10_no_anti_patterns(skills_report) -> None:
     Grade C to zero. M4 rename retired the metaphor-named skills, leaving
     only refs-nesting rubric edge cases as Grade B.
 
-    Shape contract (post-M4):
+    Shape contract (post-Wave-8):
 
     * Grade D = 0 (eliminated by Wave 2).
     * Grade C ≤ 2 (D-127-08 hard ceiling).
-    * Grade A ≥ 33 (≥70% of 47 graded skills, post-M4).
+    * Grade A ≥ 32 (≥70% of 46 graded skills, post-Wave-8).
     * Grade A is the largest bucket.
-    * Total graded skills = 47 (down from 49 in M2/M3 baseline; see M4 CHANGELOG).
+    * Total graded skills = 46 (down from 47 after Wave 8 demoted
+      `/ai-help` to a reference file; see Wave 8 CHANGELOG entry).
     """
     rule = _get_rule("rule_10_no_anti_patterns")
     assert rule is not None
     summary = skills_report.summary
 
     total = sum(summary.values())
-    assert total == 47, f"expected 47 graded skills, got {total}: {summary}"
+    assert total == 46, f"expected 46 graded skills, got {total}: {summary}"
     assert summary.get("D", 0) == 0, (
         f"M2 must eliminate Grade D; got {summary.get('D', 0)}: {summary}"
     )
@@ -264,7 +267,9 @@ def test_rule_10_no_anti_patterns(skills_report) -> None:
         f"shape requires A ≥ B ≥ C; got A={a_count} B={b_count} C={c_count}"
     )
     assert c_count <= 2, f"D-127-08 hard ceiling: Grade C must be ≤2; got {c_count}: {summary}"
-    assert a_count >= 33, f"M4 floor: Grade A must be ≥33 (≥70%% of 47); got {a_count}: {summary}"
+    assert a_count >= 32, (
+        f"Wave 8 floor: Grade A must be ≥32 (≥70%% of 46); got {a_count}: {summary}"
+    )
 
 
 # ---------------------------------------------------------------------------

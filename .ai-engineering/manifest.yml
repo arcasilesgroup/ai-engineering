@@ -146,13 +146,14 @@ control_plane:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (48 skills) — spec-127 sub-005 (M4) renames + mergers landed.
-# The umbrella spec target was 46; the achieved disk count is 48 because
-# `/ai-help` (matchback surface) and `/ai-board` (subcommand merger target)
-# are net additions that weren't accounted for in the D-127-10 arithmetic.
-# Operator audit needed if 46 is the hard ceiling — see CHANGELOG M4 entry.
+# Skills registry (47 skills) — spec-127 sub-005 (M4) renames + mergers
+# landed; Wave 8 (D-127-10 strict-count enforcement) demoted `/ai-help` to
+# a reference file under `.claude/skills/ai-cleanup/references/`. The
+# umbrella spec target was 46; achieved disk count is 47 because the
+# `/ai-board` discover+sync merger target is a net addition that wasn't
+# in the D-127-10 arithmetic. See CHANGELOG Wave 8 entry for the gap.
 skills:
-  total: 48
+  total: 47
   prefix: "ai-"
   registry:
     # Core workflow
@@ -192,7 +193,6 @@ skills:
     ai-learn: { type: meta, tags: [improvement] }
     ai-prompt: { type: meta, tags: [optimization] }
     ai-start: { type: meta, tags: [bootstrap] }
-    ai-help: { type: meta, tags: [help, discovery, matchback] }
     ai-analyze-permissions: { type: meta, tags: [permissions] }
     ai-observe: { type: meta, tags: [meta, learning, continuous-improvement, observe] }
     ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec, backlog] }

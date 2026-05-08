@@ -9,10 +9,13 @@ Asserts the canonical surface counts are stable across all IDE mirror trees:
 
 The disk count target landed by sub-005 is documented in
 `.ai-engineering/manifest.yml skills.total`. The umbrella spec target was
-46/23; sub-005 achieved 48 skills and 24 agents on disk (see CHANGELOG M4
-section for the gap explanation). The test reads the achieved counts from
-the manifest as the single source of truth so it remains correct under
-future rename / merger waves without churn here.
+46/23; sub-005 achieved 48 skills and 24 agents on disk; Wave 8
+(D-127-10 strict-count enforcement) demoted `/ai-help` to a reference
+file under `.claude/skills/ai-cleanup/references/`, leaving 47 skills
+and 24 agents (see CHANGELOG Wave 8 section for the gap explanation).
+The test reads the achieved counts from the manifest as the single
+source of truth so it remains correct under future rename / merger
+waves without churn here.
 
 Each test surfaces the *count parity* invariant — every IDE mirror tree
 must contain the same number of skill directories as the canonical
@@ -161,12 +164,15 @@ class TestAgentCountParity:
         24 (`reviewer-design` content was merged into `reviewer-frontend`,
         `ai-run-orchestrator` deleted; the 23 target also assumed an
         additional consolidation that did not materialise — see CHANGELOG
-        M4 section for the explanation). This test pins the achieved
-        count so future regressions are caught loudly.
+        Wave 8 section for the explanation). Wave 8 (D-127-10 strict-count
+        audit) confirmed all 24 agents are dispatch-referenced from a
+        live SKILL.md, so no orphan deletion was available without an
+        arbitrary merger; the count stays at 24. This test pins the
+        achieved count so future regressions are caught loudly.
         """
         actual = _count_agent_files(CLAUDE_AGENTS)
         assert actual == 24, (
-            f"`.claude/agents/*.md` count is {actual}; sub-005 "
-            f"committed 24 (M4 audit). If you intentionally adjusted this, "
-            f"update the assertion + CHANGELOG."
+            f"`.claude/agents/*.md` count is {actual}; Wave 8 "
+            f"committed 24 (audit confirmed no orphan agents). If you "
+            f"intentionally adjusted this, update the assertion + CHANGELOG."
         )

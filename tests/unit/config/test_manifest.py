@@ -277,9 +277,13 @@ class TestSkills:
         # spec-119 (registered post-squash): 49 -> 50 with /ai-eval skill.
         # spec-127 sub-005 (M4 D-127-04/10/11/12): 50 -> 48 after renames + mergers
         # (delete ai-run, ai-board-discover, ai-board-sync, ai-release-gate;
-        # create ai-help, ai-board; rename 8 skills). Spec target was 46;
-        # achieved 48 — see CHANGELOG M4 section for the gap explanation.
-        assert config.skills.total == len(config.skills.registry) == 48
+        # create ai-help, ai-board; rename 8 skills). spec-127 Wave 8
+        # (D-127-10 strict-count enforcement): 48 -> 47 after demoting
+        # `/ai-help` to a reference file under
+        # `.claude/skills/ai-cleanup/references/legacy-name-map.md`. Spec
+        # target was 46; achieved 47 — `/ai-board` is the remaining net
+        # addition (see CHANGELOG Wave 8 section for the gap explanation).
+        assert config.skills.total == len(config.skills.registry) == 47
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

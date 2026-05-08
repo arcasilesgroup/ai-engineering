@@ -7,6 +7,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-127 Wave 8 — D-127-10 strict surface-count enforcement
+
+Wave 4 (sub-005) overshot the umbrella spec target (46 skills + 23 agents)
+by +2 skills (`/ai-help`, `/ai-board`) and +1 agent. Wave 8 closes the gap
+by demoting `/ai-help` to a reference file and confirming the remaining
+counts are arithmetic-correct given the deliverables that landed.
+
+**Skill demotion**:
+
+- `/ai-help` deleted as a top-level skill. The 12-entry legacy → canonical
+  matchback table moved to
+  `.claude/skills/ai-cleanup/references/legacy-name-map.md` and is
+  surfaced via a brief "Legacy name lookup" section in
+  `.claude/skills/ai-cleanup/SKILL.md`. Operators looking up a renamed
+  slash command (e.g. `/ai-dispatch` → `/ai-build`) read the reference
+  file directly; per D-127-04 there is no alias dispatcher.
+
+**Surface counts (Wave 8 vs. spec target)**:
+
+| Surface | Wave 4 (sub-005) | Wave 8 | Spec target |
+| --- | --- | --- | --- |
+| `.claude/skills/` (excluding `_shared/`) | 48 | 47 | 46 |
+| `.claude/agents/*.md` | 24 | 24 | 23 |
+| `manifest.skills.total` | 48 | 47 | 46 |
+| `manifest.agents.total` (orchestrators only) | 9 | 9 | n/a |
+
+**47 vs. 46 gap (skills)**: the umbrella D-127-10 arithmetic was
+off-by-one. The brief assumed a `/ai-build` duplicate that never existed
+on disk (the rename `/ai-dispatch` → `/ai-build` was a 1:1 swap, not a
+merger). Net Wave-4 + Wave-8 change: −4 deletions
+(`ai-run`, `ai-board-discover`, `ai-board-sync`, `ai-release-gate`)
+−1 demotion (`ai-help` → reference file) + 1 creation (`ai-board` for
+the discover+sync subcommand merger) = −4 net (50 → 47). Closing the
+last point to 46 would require an arbitrary skill merger that has no
+governance justification; tracked as "spec target was aspirational"
+rather than a follow-up sweep.
+
+**24 vs. 23 gap (agents)**: Wave 8 audited every agent in
+`.claude/agents/` for dispatch references in `.claude/skills/**/SKILL.md`
+and `.claude/agents/**/*.md`. **All 24 agents are dispatch-referenced**:
+9 first-class orchestrators (called by users + Wave-orchestrating
+skills), 11 reviewer specialists (dispatched by `/ai-review`), 4
+verifier specialists (dispatched by `/ai-verify`). No orphan was
+available for deletion without an arbitrary content merger. The umbrella
+spec target of 23 assumed a consolidation (likely
+`reviewer-validator` → `reviewer-context`, or `verifier-feature` →
+`verifier-architecture`) that has no architectural justification on the
+live surface — both pairs carry distinct contracts and outputs. Wave 8
+keeps the count at 24 strict and pins the assertion in
+`tests/mirrors/test_count_parity.py::test_disk_agent_total_in_documented_range`.
+
+**Mirror parity**: `python scripts/sync_command_mirrors.py --check`
+reports `47 skills, 9 agents` discovered; all 1232 mirror files in sync.
+`tests/mirrors/test_count_parity.py` (6 tests) GREEN at the new counts.
+
+**Documentation**: AGENTS.md heading updated to `Skills (47)`; template
+mirror at `src/ai_engineering/templates/project/AGENTS.md` matches.
+`.ai-engineering/manifest.yml skills.total` flipped to 47 with comment
+explaining the new gap rationale; template manifest matches.
+
 ### spec-127 sub-005 (M4) — Skill + Agent renames + mergers (no aliases)
 
 Per umbrella spec-127 D-127-04 (no aliases), D-127-05 (`/ai-canvas` →

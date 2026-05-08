@@ -130,8 +130,17 @@ Skips sync and spec sweep; runs branch classification + delete + report only.
 
 Called by: `/ai-pr` (auto after merge), `/ai-start` (session bootstrap). Calls: `git`, `python .ai-engineering/scripts/spec_lifecycle.py sweep`. See also: `/ai-brainstorm` (run before new spec), `/ai-simplify` (code-level cleanup).
 
+## Legacy name lookup
+
+When an operator types a renamed slash command (e.g. `/ai-dispatch`,
+`/ai-canvas`), suggest the new name from
+`.gemini/skills/ai-cleanup/references/legacy-name-map.md` and stop. The
+table covers all 12 spec-127 D-127-04 renames + mergers; per D-127-04
+there is no alias dispatcher — suggestion only.
+
 ## References
 
 - `.ai-engineering/manifest.yml` -- protected branch rules.
 - `.gemini/skills/ai-brainstorm/SKILL.md` -- spec creation composes cleanup.
+- `.gemini/skills/ai-cleanup/references/legacy-name-map.md` -- legacy → canonical map (D-127-04).
 $ARGUMENTS
