@@ -38,45 +38,19 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 ## Process
 
-### Step 0: Validate
+**Step 0 — Validate**: confirm `.ai-engineering/specs/spec.md` is not a placeholder (else STOP and report `/ai-brainstorm`). On `--resume`, read `.ai-engineering/runtime/autopilot/manifest.md` and re-enter at the Resume Protocol. Load contexts per `.ai-engineering/contexts/stack-context.md` and pass paths (not content) to subagents. plan.md is not required — Phase 2 agents generate their own.
 
-1. Confirm `.ai-engineering/specs/spec.md` is not a placeholder. If it is: STOP. Report: "No approved spec. Run `/ai-brainstorm` first."
-2. If `--resume` flag: read `.ai-engineering/runtime/autopilot/manifest.md` and jump to the Resume Protocol (Phase 6 handler).
-3. Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`; resolve paths into `context_paths` and pass paths (not content) to subagent prompts.
-4. Note: plan.md is NOT required. Phase 2 agents generate their own plans (D7).
+**Step 1 — DECOMPOSE** (`handlers/phase-decompose.md`): extract N independent concerns; abort if N<3 (recommend `/ai-dispatch`); write sub-spec dirs and the execution manifest.
 
-### Step 1: DECOMPOSE
+**Step 2 — DEEP PLAN** (`handlers/phase-deep-plan.md`): dispatch explore+plan agents in parallel; each enriches `sub-NNN/spec.md` (Exploration) + `plan.md` (checkbox tasks with exports/imports). Failed agents retry once → mark `plan-failed`.
 
-Read `handlers/phase-decompose.md` and execute. Extract N independent concerns; abort if N < 3 (recommend `/ai-dispatch`); write sub-spec dirs `.ai-engineering/runtime/autopilot/sub-NNN/` with `spec.md` + `plan.md` shells; write execution manifest to `.ai-engineering/runtime/autopilot/manifest.md`.
+**Step 3 — ORCHESTRATE** (`handlers/phase-orchestrate.md`): build the file-overlap matrix and import-chain graph from Phase-2 evidence (never from spec text alone); construct the wave-assigned DAG; merge unresolvable conflicts.
 
-### Step 2: DEEP PLAN
+**Step 4 — IMPLEMENT** (`handlers/phase-implement.md`): per-wave kernel from `.claude/skills/_shared/execution-kernel.md`. Dispatch build agents per sub-spec in parallel within a wave; run build-verify-review per task; collect Self-Reports + per-wave commits. Cascade-block dependents of failed sub-specs.
 
-Read `handlers/phase-deep-plan.md` and execute. Dispatch explore + plan agents in parallel (one per sub-spec); each agent enriches `sub-NNN/spec.md` (Exploration) and `sub-NNN/plan.md` (checkbox tasks with exports/imports declarations). Do not infer overlap, exports/imports, or wave boundaries from spec text alone; Phase 2 must gather exploration evidence first. Failed agents retry once then mark `plan-failed`.
+**Step 5 — QUALITY LOOP** (`handlers/phase-quality.md`): read ai-verify / ai-review / ai-governance SKILL.md once at loop entry; dispatch verify+guard+review in parallel on the full changeset; consolidate findings (unified severity). Clean → Phase 6. Blockers + round<3 → fix and re-assess. Round=3: blockers STOP, criticals/highs flag and proceed.
 
-### Step 3: ORCHESTRATE
-
-Read `handlers/phase-orchestrate.md` and execute. Build file-overlap matrix and import-chain graph from the Phase 2 exploration + plan artifacts; never build the execution DAG from spec text alone. Construct execution DAG with wave assignments; merge sub-specs with unresolvable conflicts.
-
-### Step 4: IMPLEMENT
-
-Read `handlers/phase-implement.md` and execute. **Per-wave kernel**: see `.claude/skills/_shared/execution-kernel.md`. Autopilot wraps the kernel per-wave -- dispatch the build agent per sub-spec in parallel within a wave (Sub-flow 1), run the build-verify-review loop per task (Sub-flow 2), collect Self-Reports + per-wave commits (Sub-flow 3), advance board state (Sub-flow 4). Cascade-block dependents of failed sub-specs.
-
-### Step 5: QUALITY LOOP
-
-Read `handlers/phase-quality.md` and execute:
-
-1. Read skill files once at loop entry: ai-verify, ai-review, ai-governance SKILL.md. Compute `git diff main...HEAD` once. Read Self-Reports once. Reused across rounds -- not re-read per round.
-2. Dispatch verify + guard + review agents in parallel on full changeset (1 round by default).
-3. Consolidate findings with unified severity mapping.
-4. If clean (0 blockers): proceed to Phase 6. Critical/high findings flagged in PR but do not trigger additional rounds.
-5. If blockers found and round < 3: dispatch fix agents, commit, re-assess.
-6. If round = 3: blockers -> STOP; criticals/highs -> Phase 6 flagged.
-
-### Step 6: DELIVER
-
-Read `handlers/phase-deliver.md` and execute. Build Integrity Report from Self-Reports + quality audit; follow `/ai-pr` SKILL.md in full; cleanup `.ai-engineering/runtime/autopilot/`; clear spec.md + plan.md; verify cleanup. Resume Protocol handles mid-pipeline re-entry via `--resume`.
-
-Handler dispatch per phase: see Steps 1-6 above (each cites its `handlers/phase-*.md`). Agent pattern per phase: 1=orchestrator, 2=explore+plan x N parallel, 3=orchestrator, 4=build x N per wave, 5=verify+guard+review parallel (build for fixes), 6=PR pipeline + cleanup.
+**Step 6 — DELIVER** (`handlers/phase-deliver.md`): build the Integrity Report; follow `/ai-pr` SKILL.md; cleanup runtime dir; clear spec.md + plan.md; verify cleanup. `--resume` handles mid-pipeline re-entry.
 
 ## Flags
 
@@ -87,36 +61,26 @@ Handler dispatch per phase: see Steps 1-6 above (each cites its `handlers/phase-
 
 Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions into subagent prompts (no inline implementation). When those skills improve, autopilot inherits the improvement.
 
+## Dispatch threshold
+
+Dispatch the `ai-autopilot` agent when the work matches the "When to Use" criteria above (≥3 concerns, ≥10 files, post-`/ai-brainstorm` approval). For smaller scope, hand off to `/ai-dispatch` directly. The agent file (`.claude/agents/ai-autopilot.md`) is the orchestrator handle; the procedural contract lives in this SKILL.md.
+
 ## Governance
 
-DEC-023: User invocation of `/ai-autopilot` is the single approval gate. All internal gates (sub-spec validation, DAG verification, quality convergence) are automatic and cannot be bypassed.
+DEC-023: invocation is the single approval gate; internal gates (sub-spec validation, DAG verification, quality convergence) are automatic and cannot be bypassed. The consolidation path is mandatory: sub-spec branch/worktree → wave or integration commits → final PR → protected main. State transitions live on disk in `.ai-engineering/runtime/autopilot/manifest.md`, never in agent memory.
 
-The consolidation path is mandatory: sub-spec branch/worktree -> wave or integration commits -> final PR -> protected main.
+## Failure Recovery & Telemetry
 
-State transitions are recorded on disk in `.ai-engineering/runtime/autopilot/manifest.md` -- never in agent memory. Any phase can be audited post-hoc.
+| Scenario | Recovery |
+| --- | --- |
+| Phase 2 agent fails | Retry once → mark `plan-failed`; evaluate subset viability. |
+| Build agent fails in Phase 4 | Mark sub-spec `blocked`; cascade-block dependents; continue wave. |
+| Quality loop exhausted with blockers | STOP. Do NOT create PR. Escalate to user. |
+| Quality loop exhausted with only criticals/highs | Phase 6 with PR flagged; Integrity Report documents issues. |
+| Mid-pipeline crash | Run `/ai-autopilot --resume`. |
+| Final cleanup fails | Warn but do not block — PR is already delivered. |
 
-D7: plan.md is not required. Phase 2 agents generate their own detailed plans per sub-spec.
-
-## Failure Recovery
-
-| Scenario                                         | Recovery                                                                                     |
-| ------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| Phase 2 agent fails                              | Retry once. If second attempt fails: mark sub-spec `plan-failed`. Evaluate subset viability. |
-| Build agent fails in Phase 4                     | Mark sub-spec `blocked`. Cascade-block dependents. Continue remaining sub-specs in wave.     |
-| Quality loop exhausted (3 rounds) with blockers  | STOP. Do NOT create PR. Escalate to user.                                                    |
-| Quality loop exhausted with only criticals/highs | Proceed to Phase 6. PR created but flagged. Integrity Report documents remaining issues.     |
-| Mid-pipeline crash                               | Run `/ai-autopilot --resume`. Reads manifest, continues from last incomplete phase/wave.     |
-| Final cleanup fails                              | Warn but do not block -- PR is already delivered.                                            |
-
-Rollback: `git reset --soft HEAD~N` where N = number of wave + quality-fix commits. Included in failure reports.
-
-## Telemetry
-
-Events emitted at each phase transition via hook system: `autopilot.started`, `autopilot.decompose_complete`, `autopilot.deep_plan_complete`, `autopilot.dag_built`, `autopilot.subspec_complete`, `autopilot.quality_round`, `autopilot.subspec_failed`, `autopilot.final_verify`, `autopilot.pr_created`, `autopilot.done`.
-
-## Quick Reference
-
-`/ai-autopilot "implement spec-065"` runs the full 6-phase pipeline; `--resume` continues from failure; `--no-watch` skips the PR watch loop.
+Rollback: `git reset --soft HEAD~N` where N = wave + quality-fix commits. Telemetry events fire per phase transition: `autopilot.{started,decompose_complete,deep_plan_complete,dag_built,subspec_complete,quality_round,subspec_failed,final_verify,pr_created,done}`.
 
 ## Common Mistakes
 

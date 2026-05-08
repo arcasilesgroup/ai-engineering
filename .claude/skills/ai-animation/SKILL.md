@@ -6,14 +6,26 @@ argument-hint: "[component or interaction to animate]"
 tags: [animation, motion, transitions, micro-interactions, css]
 ---
 
-
 # Animation
 
-## Purpose
+## Quick start
 
-Motion design skill based on Emil Kowalski's design engineering philosophy. Builds interfaces where every animation detail compounds into something that feels right. In competitive markets where functionality is table-stakes, taste becomes the differentiator.
+```
+/ai-animation save button                       # micro-interaction
+/ai-animation swipe-to-dismiss for toast        # gesture design
+/ai-animation review the modal entry            # review existing motion
+```
 
-Core philosophy: animation is about feel, not decoration. Full design philosophy in `handlers/motion-principles.md`.
+## Workflow
+
+Motion design based on Emil Kowalski's design-engineering philosophy: animation is about feel, not decoration. In competitive markets where functionality is table-stakes, taste becomes the differentiator.
+
+1. **Run the Decision Framework** (4 questions): should it animate, what purpose, what easing, how fast?
+2. **Load the relevant handler** for the work type (motion principles, components, clip-path, gestures, performance, sonner-principles).
+3. **Apply the rules** from the loaded handler.
+4. **Review** with the checklist; **test on real devices** for gestures (simulator misses touch latency).
+
+> Detail: see [decision framework](references/decision-framework.md), [easing curves and review checklist](references/easing-curves.md), [accessibility (reduced motion + touch hover)](references/accessibility.md), [stagger + debugging](references/stagger-and-debug.md).
 
 ## When to Use
 
@@ -25,145 +37,26 @@ Core philosophy: animation is about feel, not decoration. Full design philosophy
 - Implementing scroll-triggered animations
 - Building loading/skeleton animations
 
-## Process
+## Handler Map
 
-1. **Read the Animation Decision Framework** (below) -- answer the 4 questions in order before writing any animation code
-2. **Load relevant handler** based on the type of work:
-   - Motion principles --> `handlers/motion-principles.md` (springs, easing, durations)
-   - Component interactions --> `handlers/components.md` (buttons, popovers, tooltips, blur)
-   - Clip-path animations --> `handlers/clip-path.md` (tabs, reveals, sliders)
-   - Gesture/drag --> `handlers/gestures.md` (momentum, damping, pointer capture)
-   - Performance concerns --> `handlers/performance.md` (GPU, WAAPI, CSS vs JS)
-   - Building loved components --> `handlers/sonner-principles.md` (DX, defaults, cohesion)
-3. **Apply the rules** from the loaded handler
-4. **Review using the checklist** at the bottom of this file
-5. **Test on real devices** for gesture interactions -- simulator is not enough
-
-## The Animation Decision Framework
-
-### 1. Should this animate at all?
-
-| Frequency | Decision |
+| Concern | Handler |
 | --- | --- |
-| 100+ times/day (keyboard shortcuts) | No animation. Ever. |
-| Tens of times/day (hover, navigation) | Drastically reduce |
-| Occasional (modals, drawers, toasts) | Standard animation |
-| Rare (onboarding, celebrations) | Can add delight |
+| Springs, easing, durations | `handlers/motion-principles.md` |
+| Buttons, popovers, tooltips, blur | `handlers/components.md` |
+| Tabs, reveals, sliders | `handlers/clip-path.md` |
+| Momentum, damping, pointer capture | `handlers/gestures.md` |
+| GPU, WAAPI, CSS vs JS | `handlers/performance.md` |
+| DX, defaults, cohesion | `handlers/sonner-principles.md` |
 
-**Never animate keyboard-initiated actions.** Raycast has no open/close animation; that's optimal for something used hundreds of times daily.
+Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
-### 2. What is the purpose?
+## Common Mistakes
 
-Valid: spatial consistency, state indication, explanation, feedback, preventing jarring changes. If the purpose is just "looks cool" and users see it often, don't animate.
-
-### 3. What easing should it use?
-
-| Element behavior | Easing |
-| --- | --- |
-| Entering or exiting | `ease-out` (responsive) |
-| Moving/morphing on screen | `ease-in-out` |
-| Hover/color change | `ease` |
-| Constant motion (marquee, progress) | `linear` |
-  - Default --> `ease-out`
-
-**Critical:** Use custom easing curves. Built-in CSS easings lack punch and feel weak.
-
-```css
-/* Strong ease-out for UI interactions */
---ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-
-/* Strong ease-in-out for on-screen movement */
---ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
-
-/* iOS-like drawer curve (from Ionic Framework) */
---ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
-```
-
-**Never use `ease-in` for UI animations.** It starts slow, making interfaces feel sluggish and unresponsive. A dropdown with `ease-in` at 300ms feels slower than `ease-out` at the same duration because `ease-in` delays initial movement--precisely when users watch most closely.
-
-**Easing resources:** Don't create curves from scratch. Use easing.dev or easings.co to find stronger custom variants.
-
-### 4. How fast should it be?
-
-| Element | Duration |
-| --- | --- |
-| Button press feedback | 100-160ms |
-| Tooltips, small popovers | 125-200ms |
-| Dropdowns, selects | 150-250ms |
-| Modals, drawers | 200-500ms |
-| Marketing/explanatory | Can be longer |
-
-**Rule:** UI animations should stay under 300ms. A 180ms dropdown feels more responsive than a 400ms one. Perception of speed matters as much as actual speed: `ease-out` at 200ms feels faster than `ease-in` at 200ms because users see immediate movement. Instant tooltips after the first one (skip delay + animation) make toolbars feel faster.
-
-## Review Format (Required)
-
-When reviewing animation code, use a markdown table with Before/After/Why columns (never separate "Before:" / "After:" lines):
-
-| Before | After | Why |
-| --- | --- | --- |
-| `transition: all 300ms` | `transition: transform 200ms ease-out` | Specify properties; avoid `all` |
-| `scale(0)` | `scale(0.95); opacity: 0` | Nothing in the real world appears from nothing |
-| `ease-in` on dropdown | `ease-out` w/ custom curve | `ease-in` feels sluggish |
-| No `:active` on button | `transform: scale(0.97)` on `:active` | Buttons must feel responsive |
-| `transform-origin: center` on popover | Bind to trigger CSS var | Popovers scale from trigger (modals stay centered) |
-
-## Review Checklist
-
-| Issue | Fix |
-| --- | --- |
-| `transition: all` / `scale(0)` entry / `ease-in` on UI | Specify properties; start `scale(0.95)`; switch to `ease-out` |
-| `transform-origin: center` on popover | Set to trigger location (modals exempt) |
-| Animation on keyboard action / duration > 300ms | Remove; or reduce to 150-250ms |
-| Hover without media query / keyframes on rapid element | `@media (hover: hover)`; switch to CSS transitions |
-| Framer Motion `x`/`y` under load / same enter+exit speed | Use `transform: "translateX()"`; exit faster than enter |
-| Elements appear at once | Stagger 30-80ms between items |
-
-## Accessibility
-
-### prefers-reduced-motion
-Animations can cause motion sickness. Reduced motion means fewer and gentler animations, not zero. Keep opacity and color transitions that aid comprehension. Remove movement and position animations.
-
-```css
-@media (prefers-reduced-motion: reduce) {
-  .element {
-    animation: fade 0.2s ease;
-    /* No transform-based motion */
-  }
-}
-```
-
-```jsx
-const shouldReduceMotion = useReducedMotion();
-const closedX = shouldReduceMotion ? 0 : '-100%';
-```
-
-### Touch device hover states
-```css
-@media (hover: hover) and (pointer: fine) {
-  .element:hover {
-    transform: scale(1.05);
-  }
-}
-```
-Touch devices trigger hover on tap, causing false positives. Gate hover animations behind this media query.
-
-## Stagger Animations
-
-When multiple elements enter together, stagger 30-80ms between items. Long delays make interface feel slow. Decorative — never block interaction.
-
-```css
-.item { opacity: 0; transform: translateY(8px); animation: fadeIn 300ms ease-out forwards; }
-.item:nth-child(1) { animation-delay: 0ms; }
-.item:nth-child(2) { animation-delay: 50ms; }
-.item:nth-child(3) { animation-delay: 100ms; }
-@keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
-```
-
-## Debugging Animations
-
-- **Slow motion**: temporarily 2-5x duration, watch for color overlap, abrupt easing, wrong transform-origin, out-of-sync properties.
-- **Frame-by-frame**: Chrome DevTools Animations panel for timing between coordinated properties.
-- **Real devices**: gesture testing requires physical hardware (USB + Safari remote devtools); simulators miss touch latency.
+- Animating keyboard-initiated actions (kills perceived speed).
+- `transition: all` instead of named properties.
+- `scale(0)` entry — nothing in the real world appears from nothing.
+- `ease-in` on UI — feels sluggish.
+- Skipping `prefers-reduced-motion` and the touch-hover media query.
 
 ## Examples
 

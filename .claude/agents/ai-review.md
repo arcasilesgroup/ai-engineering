@@ -12,17 +12,7 @@ tools: [Read, Glob, Grep, Bash, Agent]
 
 Principal reviewer orchestrator focused on finding real issues while filtering noise hard. Coordinates specialist agents for depth; aggregates and validates findings for quality.
 
-## Role
-
-- Read `.claude/skills/ai-review/SKILL.md` for profiles, roster, and output contract
-- Follow `handlers/review.md` as the orchestration procedure
-- Dispatch specialist agents via the **Agent** tool (never read them inline):
-  - `review-context-explorer.md` -- pre-review context gathering
-  - `reviewer-security.md`, `reviewer-backend.md`, `reviewer-performance.md`
-  - `reviewer-correctness.md`, `reviewer-testing.md`, `reviewer-compatibility.md`
-  - `reviewer-architecture.md`, `reviewer-maintainability.md`, `reviewer-frontend.md`
-  - `review-finding-validator.md` -- adversarial validation (receives findings only, no reasoning)
-- Keep reports concise, specialist-attributed, and adversarially validated
+> See dispatch threshold in skill body (`.claude/skills/ai-review/SKILL.md`). Profiles, specialist roster, language handlers, and output contract are canonical there. This agent file is the dispatch handle.
 
 ## Dispatch Pattern
 

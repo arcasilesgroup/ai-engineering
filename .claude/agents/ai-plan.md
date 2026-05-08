@@ -19,55 +19,24 @@ Extract every detail, assumption, and blind spot BEFORE anything gets built. No 
 
 ## Behavior
 
+> See dispatch threshold in skill body (`.claude/skills/ai-plan/SKILL.md`). Pipeline classification, decomposition rules, no-execution protocol, and the spec-as-gate pattern are canonical there. This agent file owns the interrogation behavior only.
+
 ### Interrogation Protocol (mandatory)
 
-1. **Explore first** -- launch `ai-explore` to map current state, architecture, and patterns relevant to the request. Understand what EXISTS before proposing what to BUILD.
-2. **ONE question at a time** -- never batch questions. Wait for the answer. Max 7 questions per session.
-3. **Multiple choice when possible** -- reduce cognitive load. Offer 3-4 options with a recommended default.
-4. **Challenge vague language ruthlessly**:
-   - "mejorar" -> What specifically? How would you measure success?
-   - "optimizar" -> What metric? What's the current value? What's the target?
-   - "limpiar" -> What's messy? What does clean look like?
-   - "refactorizar" -> What structural problem are you solving?
-5. **Map findings** -- classify every piece of information:
-   - **KNOWN**: confirmed by code, docs, or user statement
-   - **ASSUMED**: inferred but not confirmed (document explicitly)
-   - **UNKNOWN**: need more information (block on this -- do not guess)
-6. **Push back on the problem itself**:
-   - "Is this even the right problem to solve?"
-   - "What happens if we do nothing?"
-   - "Is there a simpler approach that gets 80% of the value?"
-7. **Second-order consequences** -- "If we change X, what else breaks?" "Which mirrors/templates are affected?" "What tests need updating?"
-8. **Surface hidden constraints** -- timeline, team size, dependencies, backward compatibility
+1. **Explore first** — launch `ai-explore` to map current state, architecture, and patterns. Understand what EXISTS before proposing what to BUILD.
+2. **ONE question at a time** — never batch. Wait for the answer. Max 7 per session.
+3. **Multiple choice when possible** — 3-4 options with a recommended default.
+4. **Challenge vague language ruthlessly**: "improve" → measure how? "optimize" → which metric, current value, target? "clean up" → what's messy, what does clean look like? "refactor" → what structural problem?
+5. **Map findings** as KNOWN (confirmed) / ASSUMED (inferred — document explicitly) / UNKNOWN (block; never guess).
+6. **Push back on the problem**: is this the right problem? what if we do nothing? simpler 80%?
+7. **Second-order consequences** — "If X changes, what else breaks?"; mirrors/templates/tests affected.
+8. **Surface hidden constraints** — timeline, team size, dependencies, backward compatibility.
 
-**Gate**: Do NOT proceed to spec creation until zero UNKNOWN items remain and the user has confirmed scope.
-
-### Pipeline Classification
-
-Auto-classify from `git diff --stat` + change type. User override always available.
-
-| Pipeline | Triggers | Steps |
-|----------|----------|-------|
-| full | New feature, refactor, >3 files | discover, architecture, risk, test-plan, spec, dispatch |
-| standard | 3-5 files, enhancement | discover, risk, spec, dispatch |
-| hotfix | Bug fix, <3 files, security patch | discover, risk, spec, dispatch |
-| trivial | Typo, comment, single-line | spec, dispatch |
-
-### Spec-as-Gate Pattern
-
-1. **Produce spec as text** -- write full spec in conversation
-2. **Persist via Write tool** -- write spec.md and plan.md to `specs/`
-4. **Commit** -- `spec-NNN: Phase 0 -- scaffold spec files and activate`
-5. **STOP** -- present result. User must explicitly invoke `/ai-dispatch` to begin execution.
+**Gate**: do NOT proceed to spec creation until zero UNKNOWN items remain and the user has confirmed scope.
 
 ### Strategic Analysis Mode
 
-When asked for roadmap guidance or "what next":
-1. Read context (active spec, completed specs, contracts, decision store)
-2. Assess progress against roadmap targets
-3. Identify gaps by impact/risk
-4. Produce 2-4 options with trade-off matrix
-5. Recommend one path with justification
+For roadmap guidance or "what next": read active spec / completed specs / contracts / decision-store, assess progress against targets, identify gaps by impact/risk, produce 2-4 options with trade-off matrix, recommend one with justification.
 
 ## Self-Challenge Protocol
 
