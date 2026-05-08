@@ -236,12 +236,11 @@ def test_rule_9_optimizer_committed(skills_report) -> None:
 def test_rule_10_no_anti_patterns(skills_report) -> None:
     """No metaphors in name, no first/second person, no time-stamped prose.
 
-    Post-M2 contract: Wave 2 CSO sweep eliminated Grade D and dropped
-    Grade C to zero. Remaining Grade B skills are the 4 metaphor-named
-    skills (ai-canvas, ai-entropy-gc, ai-instinct, ai-mcp-sentinel)
-    awaiting M4 rename, plus 2 carrying refs-nesting rubric edge cases.
+    Post-M4 contract: Wave 2 CSO sweep eliminated Grade D and dropped
+    Grade C to zero. M4 rename retired the metaphor-named skills, leaving
+    only refs-nesting rubric edge cases as Grade B.
 
-    Shape contract (post-M2):
+    Shape contract (post-M4):
 
     * Grade D = 0 (eliminated by Wave 2).
     * Grade C ≤ 2 (D-127-08 hard ceiling).

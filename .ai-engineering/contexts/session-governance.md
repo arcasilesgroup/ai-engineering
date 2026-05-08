@@ -27,13 +27,13 @@ When the user's request matches these patterns, enforce the corresponding skill:
 
 | User intent pattern | Required skill |
 |-------------------|----------------|
-| "implement", "build", "add feature" | `/ai-brainstorm` then `/ai-plan` then `/ai-dispatch` |
+| "implement", "build", "add feature" | `/ai-brainstorm` then `/ai-plan` then `/ai-build` |
 | "fix", "bug", "broken", "not working" | `/ai-debug` |
 | "test", "coverage", "verify" | `/ai-test` or `/ai-verify` |
 | "refactor", "restructure", "move" | `/ai-brainstorm` then `/ai-plan` |
 | "explain", "how does", "what is" | `/ai-explain` |
 | "commit", "push", "save" | `/ai-commit` |
 | "PR", "pull request", "review" | `/ai-pr` or `/ai-review` |
-| "deploy", "release", "publish" | `/ai-release-gate` |
+| "deploy", "release", "publish" | `/ai-verify --release` |
 | "conflict", "merge conflict" | `/ai-resolve-conflicts` |
 | "incident", "outage", "postmortem" | `/ai-postmortem` |

@@ -26,8 +26,6 @@ _AGENT_ALIASES = {
     "guide": "ai-guide",
     "plan": "ai-plan",
     "review": "ai-review",
-    "run": "ai-run-orchestrator",
-    "run-orchestrator": "ai-run-orchestrator",
     "simplify": "ai-simplify",
     "verify": "ai-verify",
 }
@@ -36,7 +34,6 @@ _INTERNAL_SPECIALIST_PREFIXES = ("reviewer-", "verifier-", "review-", "verify-")
 
 _AGENT_TOPOLOGY = {
     "ai-autopilot": TopologyRole.ORCHESTRATOR,
-    "ai-run-orchestrator": TopologyRole.ORCHESTRATOR,
     "ai-plan": TopologyRole.ORCHESTRATOR,
     "ai-review": TopologyRole.ORCHESTRATOR,
     "ai-verify": TopologyRole.ORCHESTRATOR,
@@ -79,15 +76,6 @@ _AGENT_MUTATIONS = {
         MutationClass.STATE_WRITE,
     },
     "ai-review": {MutationClass.READ, MutationClass.ADVISE, MutationClass.SPEC_WRITE},
-    "ai-run-orchestrator": {
-        MutationClass.READ,
-        MutationClass.ADVISE,
-        MutationClass.SPEC_WRITE,
-        MutationClass.STATE_WRITE,
-        MutationClass.GIT_WRITE,
-        MutationClass.BOARD_WRITE,
-        MutationClass.TELEMETRY_EMIT,
-    },
     "ai-simplify": {MutationClass.READ, MutationClass.ADVISE, MutationClass.CODE_WRITE},
     "ai-verify": {MutationClass.READ, MutationClass.ADVISE, MutationClass.SPEC_WRITE},
 }
@@ -117,14 +105,6 @@ _AGENT_WRITE_SCOPES = {
     "ai-guide": {WriteScopeClass.NONE},
     "ai-plan": {WriteScopeClass.SPEC, WriteScopeClass.STATE, WriteScopeClass.DOCUMENTATION},
     "ai-review": {WriteScopeClass.SPEC, WriteScopeClass.DOCUMENTATION},
-    "ai-run-orchestrator": {
-        WriteScopeClass.SPEC,
-        WriteScopeClass.STATE,
-        WriteScopeClass.DOCUMENTATION,
-        WriteScopeClass.GIT,
-        WriteScopeClass.BOARD,
-        WriteScopeClass.TELEMETRY,
-    },
     "ai-simplify": {WriteScopeClass.SOURCE, WriteScopeClass.TEST},
     "ai-verify": {WriteScopeClass.SPEC, WriteScopeClass.DOCUMENTATION},
 }

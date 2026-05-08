@@ -98,22 +98,22 @@ C4Context
 
 ### 2.2 Functional Requirements by Domain
 
-#### Skills (51)
+#### Skills (47)
 
 | Type | Skills | Count |
 |------|--------|-------|
-| Workflow | brainstorm, plan, dispatch, code, test, debug, verify, review, schema | 9 |
-| Delivery | commit, pr, release-gate, cleanup, market | 5 |
-| Enterprise | security, governance, pipeline, docs, board-discover, board-sync, platform-audit | 7 |
+| Workflow | brainstorm, plan, build, code, test, debug, verify, review, schema | 9 |
+| Delivery | commit, pr, cleanup, gtm | 4 |
+| Enterprise | security, governance, pipeline, docs, board, ide-audit | 6 |
 | Teaching | explain, guide, write, slides, media, video-editing | 6 |
-| Design | design, animation, canvas | 3 |
+| Design | design, animation, visual | 3 |
 | SDLC | note, standup, sprint, postmortem, support, resolve-conflicts | 6 |
-| Meta | create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve, mcp-sentinel, dream, remember, entropy-gc, research | 15 |
+| Meta | create, learn, prompt, start, analyze-permissions, autopilot, constitution, skill-tune, mcp-audit, observe, simplify-sweep, research, help | 13 |
 
 **Effort distribution** (post spec-122-a): `eval` skill removed with the
 `evals/` directory; net count reflects current `.claude/skills/`.
 
-#### Agents (10)
+#### Agents (9)
 
 | Agent | Model | Role | Boundary |
 |-------|-------|------|----------|
@@ -125,15 +125,14 @@ C4Context
 | explore | sonnet | Deep codebase research | Read-only exploration |
 | guide | sonnet | Teaching and onboarding | Read-only, educational |
 | simplify | sonnet | Code simplification | Proposes changes, build executes |
-| autopilot | opus | Autonomous multi-spec orchestrator | Decomposes, plans, builds, verifies |
-| run-orchestrator | opus | Autonomous backlog execution | Plans, builds, converges work items |
+| autopilot | opus | Autonomous multi-spec orchestrator + backlog execution | Decomposes, plans, builds, verifies |
 
 **Specialist sub-agents (15):**
 
 | Sub-agent | Parent | Focus |
 |-----------|--------|-------|
-| review-context-explorer | review | Pre-review architectural context |
-| review-finding-validator | review | Adversarial finding disproof |
+| reviewer-context | review | Pre-review architectural context |
+| reviewer-validator | review | Adversarial finding disproof |
 | reviewer-architecture | review | Necessity, simplicity, patterns |
 | reviewer-backend | review | API boundaries, persistence |
 | reviewer-compatibility | review | Breaking changes to shipped code |

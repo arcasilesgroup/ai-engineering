@@ -24,7 +24,10 @@ Strict evidence-based audit of IDE support in ai-engineering. No assumptions —
 1. **Write the report skeleton first** from `references/report-template.md` BEFORE collecting evidence.
 2. **Dispatch a single `Explore` subagent** to read instruction surfaces, hook configs, mirror dirs, and `manifest.yml` counts.
 3. **Classify each capability per platform** (SUPPORTED / PARTIAL / UNSUPPORTED) using the capability matrix.
-4. **Run Spec-107 advisory checks** (6/7/8) — agent naming, GEMINI.md skill count, generic count scan.
+4. **Run spec-107 advisory checks** (advisory-only per NG-11):
+   - **Check 6** — agent naming consistency cross-IDE: every agent file's frontmatter `name:` must equal its slug.
+   - **Check 7** — GEMINI.md skill count freshness: extract `## Skills (N)` from rendered GEMINI.md and compare against disk count.
+   - **Check 8** — generic instruction-file count scan: walk every CLAUDE.md / AGENTS.md / GEMINI.md / copilot-instructions.md and validate `## Skills (N)` + `## Agents (N)` headers vs canonical counts.
 5. **With `--fix`**, auto-remediate P0 issues only; re-run mirror sync; verify tests still pass.
 
 > Detail: see [evidence collection (instruction surfaces, hooks, mirrors, sync script)](references/evidence-collection.md), [capability matrix + advisory checks + auto-fix policy](references/capability-matrix.md), [audit document skeleton](references/report-template.md).

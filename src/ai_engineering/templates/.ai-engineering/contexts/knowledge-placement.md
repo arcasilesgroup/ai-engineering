@@ -19,7 +19,7 @@ Skill / agent / manifest entries follow the matrix below; those are schema homes
 | Concrete rule | Canonical home |
 |---|---|
 | "Article V — every concept has one canonical source of truth" | `CONSTITUTION.md` |
-| "DEC-003 — split planning (`/ai-plan`) from dispatch (`/ai-dispatch`)" | `decision-store.json` |
+| "DEC-003 — split planning (`/ai-plan`) from dispatch (`/ai-build`)" | `decision-store.json` |
 | "gitleaks 8.x flag for staged files is `protect --staged`, not `detect --no-git --staged-only`" | `LESSONS.md` |
 | "After third user correction, propose a recovery instinct" | `instincts/instincts.yml` (auto-funnel) |
 | "Cross-IDE plan-mode default" | `CONSTITUTION.md` Article XI |

@@ -59,7 +59,11 @@ SQLITE_WAL_SIBLINGS = frozenset({"state.db-shm", "state.db-wal"})
 # gitignored, consumed by ``risk`` subcommands. Documented transient
 # artifact (same posture as SQLite WAL), not a canonical state artifact.
 # Path pinned by 14+ tests + risk_cmd.py UX.
-DOCUMENTED_TRANSIENT_FILES = frozenset({"gate-findings.json"})
+#
+# strategic-compact.json is the strategic-compact hook output (session-scoped
+# day-bucket counter). Gitignored per spec-125 D-125-09 comment. Documented
+# transient artifact — written on PreCompact / PostCompact hook events.
+DOCUMENTED_TRANSIENT_FILES = frozenset({"gate-findings.json", "strategic-compact.json"})
 
 # Files that MUST NOT be present (deprecated, deleted in spec-125).
 FORBIDDEN_FILES = (

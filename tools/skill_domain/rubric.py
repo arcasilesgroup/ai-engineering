@@ -518,7 +518,7 @@ def _rule_10_no_anti_patterns(skill: Skill) -> RubricResult:
     if not hits:
         return RubricResult("rule_10_no_anti_patterns", "OK", "no anti-patterns")
     # Metaphor in name is the heaviest anti-pattern signal (per §2.4
-    # bottom-10 list — entropy-gc / instinct / mcp-sentinel / canvas).
+    # bottom-10 list — historical metaphor names retired in M4 rename).
     metaphor_hit = next((h for h in hits if h.startswith("metaphor in name")), None)
     # Metaphor name + agent-shape frontmatter is the §2.1 D-grade
     # signature ("broken — implementation prose, no triggers"): the

@@ -1,6 +1,6 @@
-"""GREEN test for spec-107 G-10 — /ai-mcp-sentinel skill 3 modes.
+"""GREEN test for spec-107 G-10 — /ai-mcp-audit skill 3 modes.
 
-Spec-107 D-107-08 introduces the `/ai-mcp-sentinel` skill with three
+Spec-107 D-107-08 introduces the `/ai-mcp-audit` skill with three
 modes propagated to all four IDE locations (Claude Code, GitHub
 Copilot, Codex, Gemini):
 
@@ -22,18 +22,18 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SKILL_PATHS = [
-    REPO_ROOT / ".claude" / "skills" / "ai-mcp-sentinel" / "SKILL.md",
-    REPO_ROOT / ".github" / "skills" / "ai-mcp-sentinel" / "SKILL.md",
-    REPO_ROOT / ".codex" / "skills" / "ai-mcp-sentinel" / "SKILL.md",
-    REPO_ROOT / ".gemini" / "skills" / "ai-mcp-sentinel" / "SKILL.md",
+    REPO_ROOT / ".claude" / "skills" / "ai-mcp-audit" / "SKILL.md",
+    REPO_ROOT / ".github" / "skills" / "ai-mcp-audit" / "SKILL.md",
+    REPO_ROOT / ".codex" / "skills" / "ai-mcp-audit" / "SKILL.md",
+    REPO_ROOT / ".gemini" / "skills" / "ai-mcp-audit" / "SKILL.md",
 ]
 
 
 def test_skill_exists_in_all_four_ide_surfaces() -> None:
-    """G-10: ai-mcp-sentinel skill must ship in 4 IDE surface directories."""
+    """G-10: ai-mcp-audit skill must ship in 4 IDE surface directories."""
     missing = [p for p in SKILL_PATHS if not p.is_file()]
     assert not missing, (
-        f"ai-mcp-sentinel skill missing from: {[str(p) for p in missing]} "
+        f"ai-mcp-audit skill missing from: {[str(p) for p in missing]} "
         "— Phase 5 T-5.1 / T-5.5 must create the canonical Claude Code "
         "SKILL.md and sync it to .github/.codex/.gemini/ via "
         "scripts/sync_command_mirrors.py"
@@ -60,7 +60,7 @@ def test_skill_frontmatter_declares_effort_high() -> None:
         pytest.skip("canonical SKILL.md missing — covered by sibling test")
     text = canonical.read_text(encoding="utf-8")
     assert "effort: high" in text or "effort:high" in text, (
-        "ai-mcp-sentinel/SKILL.md frontmatter missing `effort: high` — "
+        "ai-mcp-audit/SKILL.md frontmatter missing `effort: high` — "
         "spec-107 D-107-08 mandates high-effort classification (security)"
     )
 
@@ -72,20 +72,20 @@ def test_skill_references_baseline_state_file() -> None:
         pytest.skip("canonical SKILL.md missing — covered by sibling test")
     text = canonical.read_text(encoding="utf-8")
     assert "sentinel-baseline.json" in text, (
-        "ai-mcp-sentinel/SKILL.md missing reference to "
+        "ai-mcp-audit/SKILL.md missing reference to "
         "state/sentinel-baseline.json — Phase 5 T-5.4 must document the "
         "baseline snapshot location for Mode 3"
     )
 
 
 def test_skill_frontmatter_declares_canonical_name() -> None:
-    """G-10: skill frontmatter must declare the canonical name `ai-mcp-sentinel`."""
+    """G-10: skill frontmatter must declare the canonical name `ai-mcp-audit`."""
     canonical = SKILL_PATHS[0]
     if not canonical.is_file():
         pytest.skip("canonical SKILL.md missing — covered by sibling test")
     text = canonical.read_text(encoding="utf-8")
-    assert "name: ai-mcp-sentinel" in text, (
-        "ai-mcp-sentinel/SKILL.md frontmatter missing `name: ai-mcp-sentinel` — "
+    assert "name: ai-mcp-audit" in text, (
+        "ai-mcp-audit/SKILL.md frontmatter missing `name: ai-mcp-audit` — "
         "Phase 5 T-5.1 must declare canonical skill name"
     )
 
@@ -97,10 +97,10 @@ def test_skill_documents_cold_path_and_hot_path_distinction() -> None:
         pytest.skip("canonical SKILL.md missing — covered by sibling test")
     text = canonical.read_text(encoding="utf-8").lower()
     assert "cold" in text and "hot" in text, (
-        "ai-mcp-sentinel/SKILL.md missing cold-path vs hot-path division — "
+        "ai-mcp-audit/SKILL.md missing cold-path vs hot-path division — "
         "spec-107 D-107-08 mandates explicit hot/cold path documentation"
     )
     assert "prompt-injection-guard" in text, (
-        "ai-mcp-sentinel/SKILL.md missing reference to prompt-injection-guard — "
+        "ai-mcp-audit/SKILL.md missing reference to prompt-injection-guard — "
         "spec-107 D-107-08 cross-references the runtime hot-path counterpart"
     )

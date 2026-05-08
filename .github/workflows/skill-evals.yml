@@ -45,19 +45,15 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
         with:
           enable-cache: true
+          python-version: '3.12'
 
       - name: Install dependencies
         run: |
@@ -79,7 +75,7 @@ jobs:
 
       - name: Upload regression report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.6.2
         with:
           name: skill-evals-regression-report
           path: regression-report.json

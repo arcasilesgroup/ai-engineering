@@ -39,7 +39,7 @@ Read `.codex/skills/ai-simplify/SKILL.md` (when present) to confirm whether an e
 /ai-simplify --conservative
 ```
 
-Capture the diff. If the diff is empty, emit a `framework_operation` event with `operation=entropy_gc_no_op` and exit 0.
+Capture the diff. If the diff is empty, emit a `framework_operation` event with `operation=simplify_sweep_no_op` and exit 0.
 
 ### Step 2 — Gate the diff
 
@@ -49,7 +49,7 @@ If the diff is non-empty, run the standard pre-commit gate locally:
 ai-eng gate run --cache-aware --json --mode=local
 ```
 
-If the gate fails, emit `operation=entropy_gc_gate_failed` with the failure summary and exit 1 — do NOT open a PR with broken code.
+If the gate fails, emit `operation=simplify_sweep_gate_failed` with the failure summary and exit 1 — do NOT open a PR with broken code.
 
 ### Step 3 — Commit + open draft PR
 
@@ -74,10 +74,10 @@ This skill does NOT auto-create the cron entry — that requires user authorizat
 
 Each run emits one of:
 
-- `framework_operation` `operation=entropy_gc_started` — at invocation.
-- `framework_operation` `operation=entropy_gc_no_op` — empty diff, no PR opened.
-- `framework_operation` `operation=entropy_gc_gate_failed` — diff produced but gate refused.
-- `framework_operation` `operation=entropy_gc_pr_opened` — happy path, includes `pr_url`.
+- `framework_operation` `operation=simplify_sweep_started` — at invocation.
+- `framework_operation` `operation=simplify_sweep_no_op` — empty diff, no PR opened.
+- `framework_operation` `operation=simplify_sweep_gate_failed` — diff produced but gate refused.
+- `framework_operation` `operation=simplify_sweep_pr_opened` — happy path, includes `pr_url`.
 
 ## Common Mistakes
 
@@ -118,16 +118,16 @@ Called by: `/ai-schedule` (weekly cron) or operator manually. Calls: `/ai-simpli
 The schedule layer should call the deterministic wrapper, not the slash command directly:
 
 ```
-0 4 * * 1   <project>/.ai-engineering/scripts/scheduled/entropy-gc.sh
+0 4 * * 1   <project>/.ai-engineering/scripts/scheduled/simplify-sweep.sh
 ```
 
-The wrapper resolves `$AIENG_PROJECT_ROOT` (or falls back to `git rev-parse --show-toplevel`), invokes `ai-eng simplify --conservative --no-pr` when the CLI is on PATH, and emits a `framework_operation` event (`operation=entropy_gc_scheduled_run`) with `outcome=success|failure|skipped` for every cycle. Never auto-merges; PR opening stays the responsibility of the slash-command path.
+The wrapper resolves `$AIENG_PROJECT_ROOT` (or falls back to `git rev-parse --show-toplevel`), invokes `ai-eng simplify --conservative --no-pr` when the CLI is on PATH, and emits a `framework_operation` event (`operation=simplify_sweep_scheduled_run`) with `outcome=success|failure|skipped` for every cycle. Never auto-merges; PR opening stays the responsibility of the slash-command path.
 
-Activate via `/ai-schedule weekly <project>/.ai-engineering/scripts/scheduled/entropy-gc.sh` or copy the cron line above into your scheduler.
+Activate via `/ai-schedule weekly <project>/.ai-engineering/scripts/scheduled/simplify-sweep.sh` or copy the cron line above into your scheduler.
 
 ## References
 
 - Skill source of truth: `.codex/skills/ai-simplify-sweep/SKILL.md`
 - Related: `.codex/skills/ai-simplify/SKILL.md`, `.codex/skills/ai-schedule/SKILL.md`
 - Manifest entry: `.ai-engineering/manifest.yml` `skills.registry.ai-simplify-sweep`
-- Scheduled wrapper: `.ai-engineering/scripts/scheduled/entropy-gc.sh` (legacy filename, kept for backwards compatibility — the wrapper is invoked by cron and renaming would break installed schedules)
+- Scheduled wrapper: `.ai-engineering/scripts/scheduled/simplify-sweep.sh`

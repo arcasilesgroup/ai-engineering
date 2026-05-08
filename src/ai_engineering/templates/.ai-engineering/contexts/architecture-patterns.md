@@ -1,6 +1,6 @@
 # Architecture Patterns
 
-Curated catalog of canonical software architecture patterns. Loaded on-demand by `/ai-plan` to identify the fitting pattern for a spec. The chosen pattern (or `ad-hoc` with explanation) is recorded in `plan.md` under the `## Architecture` section so downstream agents (`/ai-dispatch`, `/ai-verify`, `/ai-review`) inherit the architectural intent without re-deriving it.
+Curated catalog of canonical software architecture patterns. Loaded on-demand by `/ai-plan` to identify the fitting pattern for a spec. The chosen pattern (or `ad-hoc` with explanation) is recorded in `plan.md` under the `## Architecture` section so downstream agents (`/ai-build`, `/ai-verify`, `/ai-review`) inherit the architectural intent without re-deriving it.
 
 This file is NOT preloaded for every skill trigger. Token cost is amortized to `/ai-plan` invocations only. Per-pattern entries follow the same schema (`Description`, `When to use`, `When NOT to use`, `Example`) so consumers can reason about applicability deterministically.
 

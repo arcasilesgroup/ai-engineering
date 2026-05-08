@@ -15,7 +15,7 @@ ADR-required.
 
 1. **Every implementation traces back to an approved spec** under
    `.ai-engineering/specs/spec-NNN-<slug>.md`.
-2. `/ai-dispatch` cannot run without `plan.md` marked ready and a user
+2. `/ai-build` cannot run without `plan.md` marked ready and a user
    approval signal.
 3. Trivial pipeline (typo / comment-only / single-line) is permitted
    to skip discovery + architecture phases; the spec still exists,
