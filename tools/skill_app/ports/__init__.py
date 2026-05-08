@@ -11,15 +11,23 @@ Re-exports follow the brief §22 split contract: importing a port from
 its dedicated submodule (``skill_app.ports.skill``, etc.). The
 top-level ``skill_app.ports`` module (the legacy ``ports.py`` shim
 kept for backward compatibility) re-exports from this package.
+
+Sub-007 M6 added four ports for the eval-harness pilot
+(``OptimizerPort``, ``LLMPort``, ``GitLogPort``, ``LessonsPort``),
+bringing the total to 12 (8 from sub-006 + 4 here).
 """
 
 from __future__ import annotations
 
 from skill_app.ports.agent import AgentScannerPort
 from skill_app.ports.board import BoardPort
+from skill_app.ports.git_log import GitLogPort
 from skill_app.ports.hook import HookPort
+from skill_app.ports.lessons import LessonsPort
+from skill_app.ports.llm import LLMPort
 from skill_app.ports.memory import MemoryPort
 from skill_app.ports.mirror import MirrorPort, ReporterPort
+from skill_app.ports.optimizer import OptimizerPort
 from skill_app.ports.research import ResearchPort
 from skill_app.ports.skill import SkillScannerPort
 from skill_app.ports.telemetry import TelemetryPort
@@ -27,9 +35,13 @@ from skill_app.ports.telemetry import TelemetryPort
 __all__ = [
     "AgentScannerPort",
     "BoardPort",
+    "GitLogPort",
     "HookPort",
+    "LLMPort",
+    "LessonsPort",
     "MemoryPort",
     "MirrorPort",
+    "OptimizerPort",
     "ReporterPort",
     "ResearchPort",
     "SkillScannerPort",
