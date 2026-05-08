@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-07T17:28:22Z",
+  "generatedAt": "2026-05-08T08:19:20Z",
   "hookCount": 70,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -10,9 +10,9 @@
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.sh": "8a779c3458dc73835938ee2a42033a0770ebd5bbbd2178a6b563f94c60fed262",
     ".ai-engineering/scripts/hooks/_lib/hook-common.py": "3f8a9462b276c6f557afe1590721e0fe6420a90c34ce2d9759af1f62313e898a",
     ".ai-engineering/scripts/hooks/_lib/hook_context.py": "4ca41e87a81796699f071d2547541c4f7b5eae1a3745489da00f73636e8f269b",
-    ".ai-engineering/scripts/hooks/_lib/hook_http.py": "84a35db5a49ac1c01253b1c3385ae61ca974c7c597576a9d7c561b28eb94c64a",
+    ".ai-engineering/scripts/hooks/_lib/hook_http.py": "1f9a541a3d38bc3be967de875105aed06a9768476eeaf75a74715f172fc4d5e1",
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",
-    ".ai-engineering/scripts/hooks/_lib/instincts.py": "00c4d0619539759298b5a3e91b71e2aac86cfb2607b6161f503deecc405afaca",
+    ".ai-engineering/scripts/hooks/_lib/instincts.py": "077cffa6e4050d4c22c1549d7e00c7e7688e54f7cc8bfb29bc6ce1f51c1069b4",
     ".ai-engineering/scripts/hooks/_lib/integrity.py": "d88f5e41c230368d3b5033dde623ab49a5ec12017f6508eea5f111dbe036b9ba",
     ".ai-engineering/scripts/hooks/_lib/locked_append.py": "c865b4703eb680b59cd033a78030c2077d956da49dd81e8115082be1cc0fcd88",
     ".ai-engineering/scripts/hooks/_lib/locking.py": "33717578f361f9518dd016a21ccf5d2359ab25801557801cd2a7b07f32f0ba7f",
@@ -61,7 +61,7 @@
     ".ai-engineering/scripts/hooks/memory-session-start.py": "5508a2d0d4d2d8d4fc8532f6a6e11c663834762d647443002352b4c06717f495",
     ".ai-engineering/scripts/hooks/memory-stop.py": "010eb4647b335e6203d98816acd24cadab4bbe2c5956aa2a7ed75fdda31afe4f",
     ".ai-engineering/scripts/hooks/observe.py": "cb8ce2a1614248e2726f6dbd53b752bf3c785f84d2f0ff85806d5dceb55c2e43",
-    ".ai-engineering/scripts/hooks/prompt-injection-guard.py": "38dbff4f753169ff867bf2b4574e912c38d0722197871f8a6c21e6a760be1052",
+    ".ai-engineering/scripts/hooks/prompt-injection-guard.py": "bb06aff9313dc1fb54504cae9071d6da139274b10f184ec8f246d6ffba54564c",
     ".ai-engineering/scripts/hooks/runtime-compact.py": "4fd15bac503962bd33eaf11400160d56adb2fa29f1360d5d930392530f0f4d5b",
     ".ai-engineering/scripts/hooks/runtime-guard.py": "918efa4847df819b3b91e2b0f7a56828a95ee15ad4d03452f54970dfb784a3ff",
     ".ai-engineering/scripts/hooks/runtime-notification.py": "82d0b13d64598f7cd475d874ac69b7698a3195c635bff14f2f880765739ceed6",

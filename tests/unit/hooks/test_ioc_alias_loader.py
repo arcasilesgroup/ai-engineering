@@ -36,7 +36,7 @@ def test_loader_dereferences_canonical_and_alias_to_same_payload(
     guard = _load_guard_module()
 
     # Build a minimal catalog: one canonical entry + alias pointer.
-    refs = tmp_path / ".ai-engineering" / "references"
+    refs = tmp_path / ".ai-engineering" / "security" / "iocs"
     refs.mkdir(parents=True)
     (refs / "iocs.json").write_text(
         "{\n"
@@ -83,7 +83,7 @@ def test_loader_handles_missing_alias_pointer_map(tmp_path: Path) -> None:
     """When the spec107_aliases block is absent, alias keys MUST stay absent."""
     guard = _load_guard_module()
 
-    refs = tmp_path / ".ai-engineering" / "references"
+    refs = tmp_path / ".ai-engineering" / "security" / "iocs"
     refs.mkdir(parents=True)
     (refs / "iocs.json").write_text(
         "{\n"
@@ -104,7 +104,7 @@ def test_loader_ignores_pointer_to_unknown_canonical(tmp_path: Path) -> None:
     """Pointers to unknown canonical keys MUST NOT crash and MUST be skipped."""
     guard = _load_guard_module()
 
-    refs = tmp_path / ".ai-engineering" / "references"
+    refs = tmp_path / ".ai-engineering" / "security" / "iocs"
     refs.mkdir(parents=True)
     (refs / "iocs.json").write_text(
         "{\n"

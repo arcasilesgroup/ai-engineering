@@ -163,6 +163,9 @@ credentials*.json
 .ai-engineering/.cache/
 .ai-engineering/state/framework-events.ndjson
 .ai-engineering/state/framework-capabilities.json
+.ai-engineering/state/observation-events.ndjson
+# spec-127 cleanup: legacy artifacts (post-rename, prevent resurrection if stale processes run)
+.ai-engineering/instincts/
 .ai-engineering/state/instinct-observations.ndjson
 .ai-engineering/learnings/
 .claude/session-topics/
@@ -170,6 +173,9 @@ credentials*.json
 # spec-125 D-125-04/05: relocated runtime + cache subtrees
 .ai-engineering/runtime/
 .ai-engineering/cache/
+# spec-127 cleanup: agent-runtime working dirs (transient autopilot output)
+.ai-engineering/runs/
+.ai-engineering/notes/
 
 .skill-map/settings.local.json
 .skill-map/skill-map.db

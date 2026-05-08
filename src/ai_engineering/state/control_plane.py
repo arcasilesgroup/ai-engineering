@@ -102,22 +102,22 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
         FrameworkUpdatePolicy.APPEND_ONLY,
     ),
     (
-        ".ai-engineering/state/instinct-observations.ndjson",
+        ".ai-engineering/state/observation-events.ndjson",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.APPEND_ONLY,
     ),
     (
-        ".ai-engineering/instincts/instincts.yml",
+        ".ai-engineering/observations/observations.yml",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
     (
-        ".ai-engineering/instincts/meta.json",
+        ".ai-engineering/observations/meta.json",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
     (
-        ".ai-engineering/instincts/proposals.md",
+        ".ai-engineering/observations/proposals.md",
         OwnershipLevel.SYSTEM_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
@@ -169,9 +169,7 @@ _STATE_PLANE_SPEC_LOCAL_EVIDENCE_RULES: tuple[str, ...] = (
     ".ai-engineering/specs/evidence/spec-116/spec-116-t41-audit-findings.json",
 )
 
-_STATE_PLANE_DEFERRED_RULES: tuple[str, ...] = (
-    ".ai-engineering/state/instinct-observations.ndjson",
-)
+_STATE_PLANE_DEFERRED_RULES: tuple[str, ...] = (".ai-engineering/state/observation-events.ndjson",)
 
 _STATE_PLANE_SPEC_LOCAL_EVIDENCE_RELOCATION_MAP: dict[str, str] = {
     ".ai-engineering/state/spec-116-t31-audit-classification.json": (

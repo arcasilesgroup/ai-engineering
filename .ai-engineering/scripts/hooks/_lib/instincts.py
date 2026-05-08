@@ -36,9 +36,9 @@ MAX_SUMMARY_LEN = 160
 MAX_CONTEXT_ITEMS = 5
 INSTINCTS_SCHEMA_VERSION = "2.0"
 
-INSTINCT_OBSERVATIONS_REL = ".ai-engineering/state/instinct-observations.ndjson"
-INSTINCTS_REL = ".ai-engineering/instincts/instincts.yml"
-INSTINCT_META_REL = ".ai-engineering/instincts/meta.json"
+INSTINCT_OBSERVATIONS_REL = ".ai-engineering/state/observation-events.ndjson"
+INSTINCTS_REL = ".ai-engineering/observations/observations.yml"
+INSTINCT_META_REL = ".ai-engineering/observations/meta.json"
 FRAMEWORK_EVENTS_REL = ".ai-engineering/state/framework-events.ndjson"
 
 _SECRET_RE = re.compile(

@@ -32,9 +32,9 @@ _STATE = f"{_SD}/install-state.json"
 _OWNERSHIP = f"{_SD}/ownership-map.json"
 _DECISIONS = f"{_SD}/decision-store.json"
 _FRAMEWORK_CAPABILITIES = f"{_SD}/framework-capabilities.json"
-_INSTINCT_OBSERVATIONS = f"{_SD}/instinct-observations.ndjson"
-_INSTINCTS = ".ai-engineering/instincts/instincts.yml"
-_INSTINCT_META = ".ai-engineering/instincts/meta.json"
+_INSTINCT_OBSERVATIONS = f"{_SD}/observation-events.ndjson"
+_INSTINCTS = ".ai-engineering/observations/observations.yml"
+_INSTINCT_META = ".ai-engineering/observations/meta.json"
 _LEGACY_AUDIT_LOG = f"{_SD}/audit-log.ndjson"
 
 # Pseudo-paths backed by state.db tables (spec-125 cutover). These keys

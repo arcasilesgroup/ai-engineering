@@ -2,7 +2,7 @@
 
 ## Phase 1 — Load Pain Context
 
-Before touching any skill, read these ground-truth sources: `.ai-engineering/state/state.db.decisions` (decisions/risks), `.ai-engineering/LESSONS.md` (corrections), `.ai-engineering/instincts/instincts.yml` (tool sequences/recoveries), `.ai-engineering/instincts/proposals.md` (improvement proposals), `.ai-engineering/instincts/meta.json` (freshness/thresholds), `.ai-engineering/manifest.yml` (registry/gates/ownership), `CLAUDE.md` (workflow rules).
+Before touching any skill, read these ground-truth sources: `.ai-engineering/state/state.db.decisions` (decisions/risks), `.ai-engineering/LESSONS.md` (corrections), `.ai-engineering/observations/observations.yml` (tool sequences/recoveries), `.ai-engineering/observations/proposals.md` (improvement proposals), `.ai-engineering/observations/meta.json` (freshness/thresholds), `.ai-engineering/manifest.yml` (registry/gates/ownership), `CLAUDE.md` (workflow rules).
 
 **Extract a pain profile**: for each source, note patterns that relate to skills:
 

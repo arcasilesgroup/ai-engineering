@@ -57,7 +57,7 @@ def _git_test_isolation():
 def _ensure_canonical_state_surface():
     """Ensure spec-125 D-125-09 canonical NDJSON files exist before tests run.
 
-    ``framework-events.ndjson`` and ``instinct-observations.ndjson`` are
+    ``framework-events.ndjson`` and ``observation-events.ndjson`` are
     append-only audit logs — gitignored, created by installer / runtime
     on first write. On fresh CI checkouts they don't exist yet, which
     breaks ``tests/unit/specs/test_state_canonical.py::test_required_files_present``
@@ -70,7 +70,7 @@ def _ensure_canonical_state_surface():
     """
     state_dir = Path.cwd() / ".ai-engineering" / "state"
     if state_dir.is_dir():
-        for required in ("framework-events.ndjson", "instinct-observations.ndjson"):
+        for required in ("framework-events.ndjson", "observation-events.ndjson"):
             target = state_dir / required
             if not target.exists():
                 target.touch()

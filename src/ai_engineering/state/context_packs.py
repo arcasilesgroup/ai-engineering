@@ -40,12 +40,12 @@ _AUTHORITATIVE_CONTROL_PLANE = (
 _DERIVED_CAPABILITY_PLANE = (".ai-engineering/state/state.db",)
 _OPTIONAL_LEARNING_FUNNEL = (
     ".ai-engineering/LESSONS.md",
-    ".ai-engineering/instincts/instincts.yml",
-    ".ai-engineering/instincts/proposals.md",
+    ".ai-engineering/observations/observations.yml",
+    ".ai-engineering/observations/proposals.md",
 )
 _EXCLUDED_RESIDUE = (
     ".ai-engineering/state/framework-events.ndjson",
-    ".ai-engineering/state/instinct-observations.ndjson",
+    ".ai-engineering/state/observation-events.ndjson",
 )
 
 

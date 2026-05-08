@@ -41,7 +41,7 @@ def _write_pack_fixture(root: Path) -> None:
     (ai / "state" / "strategic-compact.json").write_text("{}\n", encoding="utf-8")
     (ai / "LESSONS.md").write_text("# Lessons\n", encoding="utf-8")
     (ai / "instincts").mkdir()
-    (ai / "instincts" / "instincts.yml").write_text("schemaVersion: '2.0'\n", encoding="utf-8")
+    (ai / "instincts" / "observations.yml").write_text("schemaVersion: '2.0'\n", encoding="utf-8")
     (specs / "spec.md").write_text("# Spec\n", encoding="utf-8")
     (specs / "plan.md").write_text("# Plan\n", encoding="utf-8")
     (specs / "current-summary.md").write_text("# Current\n", encoding="utf-8")
@@ -155,7 +155,7 @@ def test_handoff_compact_requires_reference_first_resume_fields() -> None:
 
 
 def test_learning_artifact_classification_is_advisory_by_default() -> None:
-    artifact = classify_learning_artifact(".ai-engineering/instincts/proposals.md")
+    artifact = classify_learning_artifact(".ai-engineering/observations/proposals.md")
 
     assert artifact.kind == LearningArtifactKind.PROPOSAL
     assert artifact.status == LearningArtifactStatus.ADVISORY
@@ -163,17 +163,17 @@ def test_learning_artifact_classification_is_advisory_by_default() -> None:
 
 
 def test_learning_artifact_promotion_requires_canonical_destination() -> None:
-    artifact = classify_learning_artifact(".ai-engineering/instincts/proposals.md")
+    artifact = classify_learning_artifact(".ai-engineering/observations/proposals.md")
 
     promoted = promote_learning_artifact(
         artifact,
         canonical_destination=".ai-engineering/state/decision-store.json",
-        backlink_ref=".ai-engineering/instincts/proposals.md",
+        backlink_ref=".ai-engineering/observations/proposals.md",
     )
 
     assert promoted.status == LearningArtifactStatus.PROMOTED
     assert promoted.canonical_destination == ".ai-engineering/state/decision-store.json"
-    assert promoted.backlink_ref == ".ai-engineering/instincts/proposals.md"
+    assert promoted.backlink_ref == ".ai-engineering/observations/proposals.md"
 
     with pytest.raises(ValueError, match="canonicalDestination"):
         promote_learning_artifact(

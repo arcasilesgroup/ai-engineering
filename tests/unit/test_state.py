@@ -112,17 +112,16 @@ class TestOwnershipMap:
 
     def test_update_denied_for_instinct_observation_log(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/state/instinct-observations.ndjson") is False
+        assert om.is_update_allowed(".ai-engineering/state/observation-events.ndjson") is False
         assert (
-            om.is_writable_by_framework(".ai-engineering/state/instinct-observations.ndjson")
-            is True
+            om.is_writable_by_framework(".ai-engineering/state/observation-events.ndjson") is True
         )
 
     def test_update_allowed_for_instinct_artifacts(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/instincts/instincts.yml") is True
-        assert om.is_update_allowed(".ai-engineering/instincts/meta.json") is True
-        assert om.is_update_allowed(".ai-engineering/instincts/proposals.md") is True
+        assert om.is_update_allowed(".ai-engineering/observations/observations.yml") is True
+        assert om.is_update_allowed(".ai-engineering/observations/meta.json") is True
+        assert om.is_update_allowed(".ai-engineering/observations/proposals.md") is True
 
     def test_update_denied_for_no_match(self) -> None:
         om = default_ownership_map()

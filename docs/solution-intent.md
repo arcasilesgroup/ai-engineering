@@ -764,7 +764,7 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 | Constitution | `CONSTITUTION.md` |
 | Workspace charter (compatibility alias) | `.ai-engineering/CONSTITUTION.md` |
 | Lessons | `.ai-engineering/LESSONS.md` |
-| Instincts | `.ai-engineering/instincts/` |
+| Instincts | `.ai-engineering/observations/` |
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Framework events | `.ai-engineering/state/framework-events.ndjson` |
 | Framework capabilities | `.ai-engineering/state/framework-capabilities.json` |

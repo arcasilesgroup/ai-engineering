@@ -65,7 +65,7 @@ class TestInstallClean:
         # projection remain on disk.
         expected_files = [
             "state.db",
-            "instinct-observations.ndjson",
+            "observation-events.ndjson",
         ]
         for fname in expected_files:
             assert (state_dir / fname).is_file(), f"Missing: {fname}"
@@ -74,7 +74,7 @@ class TestInstallClean:
         assert not (state_dir / "install-state.json").exists()
         assert not (state_dir / "framework-capabilities.json").exists()
         instincts_dir = tmp_path / ".ai-engineering" / "instincts"
-        assert (instincts_dir / "instincts.yml").is_file()
+        assert (instincts_dir / "observations.yml").is_file()
         assert (instincts_dir / "meta.json").is_file()
 
     def test_install_state_roundtrips(

@@ -144,9 +144,9 @@ class TestStateFilesConstant:
         assert _STATE_FILES["framework-capabilities"] == "state/state.db"
 
     def test_contains_instinct_artifacts(self) -> None:
-        assert _STATE_FILES["instinct-observations"] == "state/instinct-observations.ndjson"
-        assert _STATE_FILES["instincts"] == "instincts/instincts.yml"
-        assert _STATE_FILES["instinct-meta"] == "instincts/meta.json"
+        assert _STATE_FILES["observation-events"] == "state/observation-events.ndjson"
+        assert _STATE_FILES["instincts"] == "observations/observations.yml"
+        assert _STATE_FILES["instinct-meta"] == "observations/meta.json"
 
     def test_has_exactly_seven_entries(self) -> None:
         assert len(_STATE_FILES) == 7

@@ -1,8 +1,8 @@
 ---
 name: ai-cleanup
-description: "Tidies the repository safely: switches to default branch, prunes merged and squash-merged branches, syncs to remote, sweeps stale specs. Trigger for 'tidy up', 'clean up branches', 'sync to main', 'delete old branches', 'start fresh'. Auto-invoked by /ai-pr after merge. Not for committing changes; use /ai-commit instead. Not for code-level dead-code removal; use /ai-simplify instead."
+description: "Tidies the repository safely: switches to default branch, prunes merged and squash-merged branches, syncs to remote, sweeps stale specs, rotates `.ai-engineering/runtime/` per retention policy. Trigger for 'tidy up', 'clean up branches', 'sync to main', 'delete old branches', 'start fresh', 'rotate runtime'. Auto-invoked by /ai-pr after merge. Not for committing changes; use /ai-commit instead. Not for code-level dead-code removal; use /ai-simplify instead."
 effort: medium
-argument-hint: "--branches|--sync|--specs|--all"
+argument-hint: "--branches|--sync|--specs|--runtime|--all"
 mode: agent
 tags: [git, branch, cleanup, hygiene, status, delivery]
 requires:
@@ -21,13 +21,14 @@ edit_policy: generated-do-not-edit
 ## Quick start
 
 ```
-/ai-cleanup              # full: sync + branch cleanup + spec sweep + report
+/ai-cleanup              # full: sync + branch cleanup + spec sweep + runtime rotate + report
 /ai-cleanup --sync       # sync to default branch only
 /ai-cleanup --branches   # branch cleanup only
 /ai-cleanup --specs      # spec lifecycle sweep
+/ai-cleanup --runtime    # rotate .ai-engineering/runtime/ per retention policy
 ```
 
-Full repository hygiene: safely migrate to the default branch, delete merged and squash-merged branches, and produce a per-branch status report. No destructive operations without confirmation.
+Full repository hygiene: safely migrate to the default branch, delete merged and squash-merged branches, rotate runtime artifacts, and produce a per-branch status report. No destructive operations without confirmation.
 
 ## When to Use
 
@@ -73,6 +74,21 @@ and emitted as a `framework_operation` audit event. **Fail-open**: a missing
 script or locked sidecar logs and continues — branch cleanup is the
 load-bearing hot path here.
 
+### Phase 4: Runtime rotation (`--runtime` or `--all`)
+
+Rotate `.ai-engineering/runtime/` so transient observability data does
+not bloat the working tree. Invoke
+`python .ai-engineering/scripts/runtime_rotate.py`:
+
+| Subtree                           | Retention          | Action      |
+|-----------------------------------|--------------------|-------------|
+| `runtime/tool-outputs/*.txt`      | 7 days             | unlink      |
+| `runtime/autopilot/sub-*`         | 30 days            | rmtree      |
+| `runtime/tool-history.ndjson`     | 10000 lines / 5 MB | tail-truncate |
+
+Hot-path budget <100 ms; stdlib only; idempotent; fail-open on missing
+dirs; emits a `runtime-rotate` `framework_event` per run.
+
 ### Phase 2: Status Report
 
 11. **Build per-branch table**:
@@ -94,10 +110,11 @@ load-bearing hot path here.
 ## Quick Reference
 
 ```
-/ai-cleanup              # full: sync + branch cleanup + spec sweep + report
+/ai-cleanup              # full: sync + branch cleanup + spec sweep + runtime rotate + report
 /ai-cleanup --sync       # sync to default branch only
 /ai-cleanup --branches   # branch cleanup only (no migration)
 /ai-cleanup --specs      # spec lifecycle sweep only (DRAFT > 14d → ABANDONED)
+/ai-cleanup --runtime    # runtime rotation only
 /ai-cleanup --all        # explicit full cleanup
 ```
 
@@ -129,19 +146,10 @@ Skips sync and spec sweep; runs branch classification + delete + report only.
 
 ## Integration
 
-Called by: `/ai-pr` (auto after merge), `/ai-start` (session bootstrap). Calls: `git`, `python .ai-engineering/scripts/spec_lifecycle.py sweep`. See also: `/ai-brainstorm` (run before new spec), `/ai-simplify` (code-level cleanup).
-
-## Legacy name lookup
-
-When an operator types a renamed slash command (e.g. `/ai-dispatch`,
-`/ai-canvas`), suggest the new name from
-`.github/skills/ai-cleanup/references/legacy-name-map.md` and stop. The
-table covers all 12 spec-127 D-127-04 renames + mergers; per D-127-04
-there is no alias dispatcher — suggestion only.
+Called by: `/ai-pr` (auto after merge), `/ai-start` (session bootstrap). Calls: `git`, `python .ai-engineering/scripts/spec_lifecycle.py sweep`, `python .ai-engineering/scripts/runtime_rotate.py`. See also: `/ai-brainstorm` (run before new spec), `/ai-simplify` (code-level cleanup).
 
 ## References
 
 - `.ai-engineering/manifest.yml` -- protected branch rules.
 - `.github/skills/ai-brainstorm/SKILL.md` -- spec creation composes cleanup.
-- `.github/skills/ai-cleanup/references/legacy-name-map.md` -- legacy → canonical map (D-127-04).
 $ARGUMENTS

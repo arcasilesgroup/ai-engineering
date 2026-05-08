@@ -51,7 +51,7 @@ Total wall-clock = `max(docs, pre-push)`, NOT `sum`. Docs subagents and the pre-
 
 ### 8. Instinct consolidation
 
-If `.ai-engineering/instincts/instincts.yml` exists, run `/ai-observe --review`.
+If `.ai-engineering/observations/observations.yml` exists, run `/ai-observe --review`.
 
 ### 9. Pre-push gate (Lane 3 of step 7)
 

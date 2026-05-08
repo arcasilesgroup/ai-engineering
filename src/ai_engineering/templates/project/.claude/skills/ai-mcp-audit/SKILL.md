@@ -114,5 +114,5 @@ Diffs the current files against the trusted baseline. Reports new network calls,
 
 - `.ai-engineering/specs/spec.md` — D-107-08 design rationale.
 - `.ai-engineering/scripts/hooks/prompt-injection-guard.py` — hot-path runtime counterpart.
-- `.ai-engineering/references/IOCS_ATTRIBUTION.md` — IOC catalog provenance.
+- `.ai-engineering/security/iocs/IOCS_ATTRIBUTION.md` — IOC catalog provenance.
 - `.ai-engineering/contexts/sentinel-iocs-update.md` — refresh process.

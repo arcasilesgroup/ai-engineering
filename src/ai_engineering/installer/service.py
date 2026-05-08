@@ -103,9 +103,9 @@ _STATE_FILES: dict[str, str] = {
     "ownership-map": "state/ownership-map.json",
     "decision-store": "state/decision-store.json",
     "framework-capabilities": "state/state.db",
-    "instinct-observations": "state/instinct-observations.ndjson",
-    "instincts": "instincts/instincts.yml",
-    "instinct-meta": "instincts/meta.json",
+    "observation-events": "state/observation-events.ndjson",
+    "instincts": "observations/observations.yml",
+    "instinct-meta": "observations/meta.json",
 }
 
 
@@ -539,7 +539,7 @@ def _generate_state_files(
         created.append(capabilities_path)
 
     instinct_paths = [
-        ai_eng_dir / _STATE_FILES["instinct-observations"],
+        ai_eng_dir / _STATE_FILES["observation-events"],
         ai_eng_dir / _STATE_FILES["instincts"],
         ai_eng_dir / _STATE_FILES["instinct-meta"],
     ]

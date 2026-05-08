@@ -12,7 +12,7 @@ CRITICAL. Whitelisted invocations bypass the pattern scan but still emit
 a telemetry event so the bypass is auditable.
 
 spec-107 D-107-05/06/07 (Phase 4): the hook also matches tool inputs
-against a vendored IOC catalog (``.ai-engineering/references/iocs.json``)
+against a vendored IOC catalog (``.ai-engineering/security/iocs/iocs.json``)
 and emits a 3-valued verdict per IOC match:
 
 - ``allow``: no IOC match (default, fast path).
@@ -160,7 +160,7 @@ _MAX_CONTENT_LEN = 4000
 # upstream catalog also exposes ``suspicious_network`` and
 # ``dangerous_commands`` aliases; both names index the same payload.
 _IOC_CATEGORIES = ("sensitive_paths", "sensitive_env_vars", "malicious_domains", "shell_patterns")
-_IOC_RELATIVE = Path(".ai-engineering") / "references" / "iocs.json"
+_IOC_RELATIVE = Path(".ai-engineering") / "security" / "iocs" / "iocs.json"
 
 # spec-105 G-12: commands that legitimately handle gate-findings JSON
 # embedding secret-related rule names. Match by argv[0..2] joined with

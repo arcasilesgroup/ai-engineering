@@ -8,7 +8,7 @@ Canonical files (REQUIRED_FILES)
 --------------------------------
 - ``state.db``                    -- unified SQLite projection (spec-122-b D-122-06)
 - ``framework-events.ndjson``     -- immutable Article-III source-of-truth
-- ``instinct-observations.ndjson``-- instinct learning log
+- ``observation-events.ndjson``-- instinct learning log
 - ``hooks-manifest.json``         -- sha256-pinned hook integrity ledger
 
 Canonical directories (REQUIRED_DIRS)
@@ -43,7 +43,7 @@ STATE_DIR = PROJECT_ROOT / ".ai-engineering" / "state"
 REQUIRED_FILES = (
     "framework-events.ndjson",
     "hooks-manifest.json",
-    "instinct-observations.ndjson",
+    "observation-events.ndjson",
     "state.db",
 )
 

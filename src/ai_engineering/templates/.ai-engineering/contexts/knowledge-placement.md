@@ -8,7 +8,7 @@ Most contributors only need to answer three questions:
 
 1. **Is this a hard rule the framework MUST enforce across IDEs?** → `CONSTITUTION.md`
 2. **Is this a one-time architecture or governance decision (with rationale)?** → `.ai-engineering/state/decision-store.json`
-3. **Anything else heuristic, observed, or tentative?** → `.ai-engineering/LESSONS.md` (auto-funnels into `instincts/instincts.yml` from observations)
+3. **Anything else heuristic, observed, or tentative?** → `.ai-engineering/LESSONS.md` (auto-funnels into `observations/observations.yml` from observations)
 
 Skill / agent / manifest entries follow the matrix below; those are schema homes, not knowledge homes.
 
@@ -21,7 +21,7 @@ Skill / agent / manifest entries follow the matrix below; those are schema homes
 | "Article V — every concept has one canonical source of truth" | `CONSTITUTION.md` |
 | "DEC-003 — split planning (`/ai-plan`) from dispatch (`/ai-build`)" | `decision-store.json` |
 | "gitleaks 8.x flag for staged files is `protect --staged`, not `detect --no-git --staged-only`" | `LESSONS.md` |
-| "After third user correction, propose a recovery instinct" | `instincts/instincts.yml` (auto-funnel) |
+| "After third user correction, propose a recovery instinct" | `observations/observations.yml` (auto-funnel) |
 | "Cross-IDE plan-mode default" | `CONSTITUTION.md` Article XI |
 | "Skill X triggers on prompt Y, runs script Z" | the skill's own `SKILL.md` |
 | "Skills live under `.claude/skills/ai-<name>/SKILL.md`" | `.ai-engineering/manifest.yml` (`framework_state.skills`) |
@@ -36,7 +36,7 @@ Skill / agent / manifest entries follow the matrix below; those are schema homes
 | Machine-readable metadata | `.ai-engineering/manifest.yml` | The content is structured, bounded, and consumed by validators, sync, install, hooks, or runtime logic | The content is explanatory prose, rationale, or operator guidance |
 | Cross-IDE governance rules | `AGENTS.md` or the relevant framework-owned root entry-point overlay | The rule governs root startup, host-specific behavior, mirror expectations, or the cross-IDE operating contract | The rule is reusable framework guidance or a mirror-path detail that does not need separate governance |
 | Reusable framework guidance | Shared root context under `.ai-engineering/contexts/` | The rule is durable across multiple skills, agents, or IDE surfaces and is best read as guidance rather than schema | The rule is team-specific or belongs in Constitution-level hard rules |
-| Learning funnel artifacts | `.ai-engineering/LESSONS.md`, `.ai-engineering/instincts/instincts.yml`, `.ai-engineering/instincts/proposals.md` | The content is newly observed, heuristic, disputed, incomplete, or waiting for a better governed home | The rule has become repeatable and a canonical surface can own it |
+| Learning funnel artifacts | `.ai-engineering/LESSONS.md`, `.ai-engineering/observations/observations.yml`, `.ai-engineering/observations/proposals.md` | The content is newly observed, heuristic, disputed, incomplete, or waiting for a better governed home | The rule has become repeatable and a canonical surface can own it |
 | Decision and risk records | `.ai-engineering/state/decision-store.json` | The entry is a formal architecture or governance decision, or an active or accepted risk that needs lifecycle metadata | The content is a solved implementation note, style advice, or temporary audit finding |
 | Team-local conventions | `.ai-engineering/contexts/team/**` | The rule is project-specific, organization-specific, or intentionally overrides framework defaults | The rule generalizes across repositories and should move to a framework-owned surface |
 
@@ -48,7 +48,7 @@ Skill / agent / manifest entries follow the matrix below; those are schema homes
 
 ## Promotion Test
 
-Move a finding out of `.ai-engineering/LESSONS.md`, `.ai-engineering/instincts/instincts.yml`, or `.ai-engineering/instincts/proposals.md` only when all of these are true:
+Move a finding out of `.ai-engineering/LESSONS.md`, `.ai-engineering/observations/observations.yml`, or `.ai-engineering/observations/proposals.md` only when all of these are true:
 
 1. The pattern repeated across more than one task, review, or framework surface.
 2. A governed canonical home can own or validate it today.

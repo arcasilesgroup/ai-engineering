@@ -57,7 +57,7 @@ Two modes:
 Follow `handlers/create-skill.md`. Before creating anything, load project context:
 
 1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-tune` instead.
-2. **Load pain sources** — read state.db.decisions, LESSONS.md, instincts.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
+2. **Load pain sources** — read state.db.decisions, LESSONS.md, observations.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
 3. **Determine IDE compatibility** — see IDE-Compatibility Frontmatter below.
 
 ### Phase 2 — Delegate to skill-creator for TDD + Evals

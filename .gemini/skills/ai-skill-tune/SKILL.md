@@ -26,7 +26,7 @@ edit_policy: generated-do-not-edit
 Improve existing skills using evidence from real project pain (prior eval corpora under `evals/`, Engram cross-session observations via `MemoryPort`, `LESSONS.md` operator notes, decision-store, instincts, proposals). The skill owns pain diagnosis and rewrite strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator`. **Output is PR-comment only — never auto-merged** (sub-007 M6).
 
 1. **Phase 0.5** — load corpora (`evals/<skill>.jsonl`), Engram observations (`/ai-memory` MCP), and `LESSONS.md` H3 sections that mention the target skill.
-2. **Phase 1** — load remaining pain context (decision-store, instincts.yml, proposals.md).
+2. **Phase 1** — load remaining pain context (decision-store, observations.yml, proposals.md).
 3. **Phase 2** — analyze the target skill, score the 5 dimensions.
 4. **Phase 3** — generate test prompts that exercise the failing pattern.
 5. **Phase 4** — rewrite the skill (Start-Here, pain-injection, scope-gates, structured classification).
@@ -77,6 +77,6 @@ Walks every skill in priority tier order, shows the proposed diff per skill, and
 
 ## Integration
 
-Reads: state.db.decisions, LESSONS.md, instincts.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `python scripts/sync_command_mirrors.py` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-create` (new skills), `/ai-ide-audit` (cross-IDE).
+Reads: state.db.decisions, LESSONS.md, observations.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `python scripts/sync_command_mirrors.py` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-create` (new skills), `/ai-ide-audit` (cross-IDE).
 
 $ARGUMENTS

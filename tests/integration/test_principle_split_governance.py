@@ -36,7 +36,7 @@ CORE_OPERATIONAL_SURFACE_PATHS: tuple[Path, ...] = (
 EXCLUDED_OPERATIONAL_PREFIXES: tuple[str, ...] = (
     ".ai-engineering/specs",
     ".ai-engineering/state",
-    ".ai-engineering/instincts",
+    ".ai-engineering/observations",
 )
 
 HARD_RULE_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {

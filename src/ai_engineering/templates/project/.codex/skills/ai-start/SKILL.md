@@ -1,6 +1,6 @@
 ---
 name: ai-start
-description: "Bootstraps a coding session: loads project context, activates instinct observation, displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-guide instead. Not for governance review; use /ai-governance instead."
+description: "Bootstraps a coding session: loads project context, activates session observation, displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-guide instead. Not for governance review; use /ai-governance instead."
 effort: medium
 argument-hint: 
 mirror_family: codex-skills
@@ -14,7 +14,7 @@ edit_policy: generated-do-not-edit
 
 ## Purpose
 
-Session welcome dashboard. Loads project context, activates instinct observation, and shows everything needed to begin working. Users run this because the dashboard is useful — context loading is a built-in benefit.
+Session welcome dashboard. Loads project context, activates session observation, and shows everything needed to begin working. Users run this because the dashboard is useful — context loading is a built-in benefit.
 This skill is invoked as an IDE slash command (`/ai-start`). It is not an `ai-eng start` terminal command, and no CLI fallback should be inferred unless the CLI docs explicitly define one.
 
 ## Process
@@ -27,7 +27,7 @@ Run `python3 .ai-engineering/scripts/session_bootstrap.py` and parse the JSON da
 
 Read `session.context_files` from `.ai-engineering/manifest.yml`. If `manifest.yml` is missing or `session.context_files` is not defined, skip and note in the dashboard: 'manifest not found — run `/ai-constitution` to initialize'.
 
-### Step 3: Activate instinct
+### Step 3: Activate observation
 
 Run `/ai-observe` to enter observation mode for this session.
 
@@ -48,7 +48,7 @@ Template (output directly as Markdown, replacing placeholders):
 ## ◈ [name]
 
 > LESSONS (N) · CONSTITUTION · manifest (N skills, N agents) · decisions (N active, N risks)
-> instinct · observation mode active
+> observation mode active
 
 ---
 

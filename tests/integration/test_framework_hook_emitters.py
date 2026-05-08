@@ -237,11 +237,11 @@ class TestClaudeHookEmitters:
         )
 
         assert extract.returncode == 0
-        instincts = (project_root / ".ai-engineering" / "instincts" / "instincts.yml").read_text(
+        instincts = (project_root / ".ai-engineering" / "instincts" / "observations.yml").read_text(
             encoding="utf-8"
         )
         observations = read_ndjson_entries(
-            project_root / ".ai-engineering" / "state" / "instinct-observations.ndjson",
+            project_root / ".ai-engineering" / "state" / "observation-events.ndjson",
             InstinctObservation,
         )
         assert observations
@@ -288,7 +288,7 @@ class TestClaudeHookEmitters:
 
         assert onboard.returncode == 0
         assert "Bash -> Grep" in (
-            project_root / ".ai-engineering" / "instincts" / "instincts.yml"
+            project_root / ".ai-engineering" / "instincts" / "observations.yml"
         ).read_text(encoding="utf-8")
 
 
@@ -449,11 +449,11 @@ class TestCopilotHookEmitters:
         )
 
         assert extract.returncode == 0
-        instincts = (project_root / ".ai-engineering" / "instincts" / "instincts.yml").read_text(
+        instincts = (project_root / ".ai-engineering" / "instincts" / "observations.yml").read_text(
             encoding="utf-8"
         )
         observations = read_ndjson_entries(
-            project_root / ".ai-engineering" / "state" / "instinct-observations.ndjson",
+            project_root / ".ai-engineering" / "state" / "observation-events.ndjson",
             InstinctObservation,
         )
         assert observations
@@ -495,7 +495,7 @@ class TestCopilotHookEmitters:
 
         assert onboard.returncode == 0
         assert "Bash -> Grep" in (
-            project_root / ".ai-engineering" / "instincts" / "instincts.yml"
+            project_root / ".ai-engineering" / "instincts" / "observations.yml"
         ).read_text(encoding="utf-8")
 
     def test_prompt_injection_guard_uses_project_runtime(self, tmp_path: Path) -> None:

@@ -21,9 +21,9 @@ from ai_engineering.state.observability import framework_events_path
 OBSERVATION_RETENTION_DAYS = 30
 MAX_SUMMARY_LEN = 160
 INSTINCTS_SCHEMA_VERSION = "2.0"
-INSTINCT_OBSERVATIONS_REL = Path(".ai-engineering/state/instinct-observations.ndjson")
-INSTINCTS_REL = Path(".ai-engineering/instincts/instincts.yml")
-INSTINCT_META_REL = Path(".ai-engineering/instincts/meta.json")
+INSTINCT_OBSERVATIONS_REL = Path(".ai-engineering/state/observation-events.ndjson")
+INSTINCTS_REL = Path(".ai-engineering/observations/observations.yml")
+INSTINCT_META_REL = Path(".ai-engineering/observations/meta.json")
 
 _SECRET_RE = re.compile(
     r"(?i)(api_key|token|secret|password|authorization|credentials|auth)"
@@ -114,7 +114,7 @@ def save_instinct_meta(project_root: Path, meta: InstinctMeta) -> None:
 
 
 def load_instincts_document(project_root: Path) -> dict[str, Any]:
-    """Load instincts.yml, fail-open on parse / IO errors."""
+    """Load observations.yml, fail-open on parse / IO errors."""
     ensure_instinct_artifacts(project_root)
     path = instincts_path(project_root)
     try:

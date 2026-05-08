@@ -216,15 +216,15 @@ def test_append_observation_fail_open_on_corruption(instincts, project: Path) ->
     (project / ".ai-engineering" / "instincts" / "meta.json").write_text(
         "{not-json", encoding="utf-8"
     )
-    (project / ".ai-engineering" / "instincts" / "instincts.yml").write_text(
+    (project / ".ai-engineering" / "instincts" / "observations.yml").write_text(
         "[: not yaml :]", encoding="utf-8"
     )
-    (project / ".ai-engineering" / "state" / "instinct-observations.ndjson").write_text(
+    (project / ".ai-engineering" / "state" / "observation-events.ndjson").write_text(
         '{"truncated', encoding="utf-8"
     )
 
     # Ought to return a dict (the new observation) and NOT raise -- corruption
-    # of meta and instincts.yml shouldn't bubble up because they're loaded
+    # of meta and observations.yml shouldn't bubble up because they're loaded
     # fail-open. The observation file's malformed line is skipped by
     # ``_read_ndjson``.
     out = instincts.append_instinct_observation(

@@ -14,7 +14,7 @@ Project-local instinct learning for `ai-engineering`. Two modes: passive observa
 
 ```
 /ai-observe           # passive observation mode (silent until --review)
-/ai-observe --review  # consolidate observations into instincts.yml
+/ai-observe --review  # consolidate observations into observations.yml
 ```
 
 ## Workflow
@@ -28,10 +28,10 @@ Project-local instinct learning for `ai-engineering`. Two modes: passive observa
 
 | Artifact                                             | Purpose                                                         |
 | ---------------------------------------------------- | --------------------------------------------------------------- |
-| `.ai-engineering/state/instinct-observations.ndjson` | Append-only observation stream from hooks. Retain last 30 days. |
-| `.ai-engineering/instincts/instincts.yml`            | Canonical project-local instinct store (v2 schema).             |
-| `.ai-engineering/instincts/meta.json`                | Checkpoints and thresholds for consolidation.                   |
-| `.ai-engineering/instincts/proposals.md`             | Actionable proposals generated when thresholds are met.         |
+| `.ai-engineering/state/observation-events.ndjson` | Append-only observation stream from hooks. Retain last 30 days. |
+| `.ai-engineering/observations/observations.yml`            | Canonical project-local instinct store (v2 schema).             |
+| `.ai-engineering/observations/meta.json`                | Checkpoints and thresholds for consolidation.                   |
+| `.ai-engineering/observations/proposals.md`             | Actionable proposals generated when thresholds are met.         |
 
 ## Supported Families (v2)
 
@@ -73,7 +73,7 @@ For each observation, identify:
 
 #### Step 2: ENRICH
 
-1. Read `.ai-engineering/state/instinct-observations.ndjson` for hook-detected recoveries.
+1. Read `.ai-engineering/state/observation-events.ndjson` for hook-detected recoveries.
 2. Read `.ai-engineering/state/framework-events.ndjson` for `skill_invoked` events to detect workflow patterns.
 3. For each extracted observation, add semantic fields:
    - `trigger` -- what condition causes this pattern (e.g., "user says 'no, do X instead'")
@@ -81,7 +81,7 @@ For each observation, identify:
 
 #### Step 3: WRITE
 
-Upsert entries into `.ai-engineering/instincts/instincts.yml` using the v2 schema. Each family entry shares: `pattern`, `trigger`, `action`, `relatedSkill`, `confidence` (0.0-1.0), `evidenceCount`, `domain` (project|stack|team), `lastSeen` (ISO 8601). `corrections` and `recoveries` add `diagnostic` + `skillIssue`.
+Upsert entries into `.ai-engineering/observations/observations.yml` using the v2 schema. Each family entry shares: `pattern`, `trigger`, `action`, `relatedSkill`, `confidence` (0.0-1.0), `evidenceCount`, `domain` (project|stack|team), `lastSeen` (ISO 8601). `corrections` and `recoveries` add `diagnostic` + `skillIssue`.
 
 ```yaml
 schemaVersion: "2.0"
@@ -109,7 +109,7 @@ Merge rules:
 - If an existing entry matches the same pattern (fuzzy match on trigger + action), increment `evidenceCount` and update `lastSeen`. Match if the trigger and action describe the same behavioral pattern using different wording. When in doubt, increment the existing entry rather than creating a duplicate.
 - Apply confidence scoring: `confidence_for_count(evidenceCount)` yields 0.3/0.5/0.7/0.85 at thresholds 1/2/3/5+.
 - Drop entries with confidence below 0.2 (decay threshold).
-- Update `.ai-engineering/instincts/meta.json` with new checkpoint.
+- Update `.ai-engineering/observations/meta.json` with new checkpoint.
 
 #### Step 4: EVALUATE
 
@@ -119,7 +119,7 @@ Cross-reference the updated instincts with project knowledge to produce actionab
 2. Read project context: `CONSTITUTION.md`, `.ai-engineering/manifest.yml`, and the target artifact (e.g., `.claude/skills/ai-<skill>/SKILL.md` or `.claude/agents/ai-<agent>.md`) to understand the improvement surface. If only `.ai-engineering/CONSTITUTION.md` exists, use it as a compatibility fallback.
 3. Filter instincts: only those with `confidence >= 0.7` AND `evidenceCount >= 3` qualify as proposals.
 4. For each qualifying instinct, check if the pattern is already captured in LESSONS.md -- if so, skip.
-5. Append a new `PROP-NNN` entry to `.ai-engineering/instincts/proposals.md`:
+5. Append a new `PROP-NNN` entry to `.ai-engineering/observations/proposals.md`:
 
 ```markdown
 ## PROP-NNN: <title>
@@ -147,7 +147,7 @@ If `.ai-engineering/manifest.yml` has a `work_items` section, create trackable w
 3. Create the work item:
    - **GitHub** (`work_items.provider: github`): `gh issue create --title "instinct: [target] - [diagnostic]" --body "<proposal body>" --label "ai-engineering,instinct"`
    - **Azure DevOps** (`work_items.provider: azure_devops`): `az boards work-item create --title "instinct: [target] - [diagnostic]" --description "<proposal body>" --type "Task"`
-4. Update the proposal entry in `.ai-engineering/instincts/proposals.md`: set `Status` to `work-item-created` and append `- **Work item**: <ref>` (e.g., `#45` or `AB#100`).
+4. Update the proposal entry in `.ai-engineering/observations/proposals.md`: set `Status` to `work-item-created` and append `- **Work item**: <ref>` (e.g., `#45` or `AB#100`).
 5. If no `work_items` section in manifest, skip silently.
 6. Fail-open: if CLI is not authenticated, project is not found, or command fails -- log a warning with remediation hint (e.g., `gh auth login`) but do not block the review.
 
@@ -158,9 +158,9 @@ Structured summary: observations extracted (count per family), entries upserted 
 ## Boundaries
 
 - Project-local only. No global instinct scope.
-- One canonical `instincts.yml`, not one file per instinct.
+- One canonical `observations.yml`, not one file per instinct.
 - Never store transcripts, prompts, responses, or raw tool payloads.
-- Do not create instincts outside `.ai-engineering/instincts/`.
+- Do not create instincts outside `.ai-engineering/observations/`.
 - Do not invent unsupported pattern types beyond corrections/recoveries/workflows.
 - Do not claim the system supports promotion, evolution, or global libraries.
 
@@ -184,10 +184,10 @@ User: "review what was learned in this session before I commit"
 /ai-observe --review
 ```
 
-Runs the 5-step consolidation: extract observations from the conversation, enrich with hook events, upsert into `instincts.yml`, evaluate against LESSONS.md, and create work items for high-confidence proposals.
+Runs the 5-step consolidation: extract observations from the conversation, enrich with hook events, upsert into `observations.yml`, evaluate against LESSONS.md, and create work items for high-confidence proposals.
 
 ## Integration
 
-Called by: user directly at session start. Calls: `gh issue create` / `az boards work-item create` (Step 5 work-item creation). Reads: `state.db.decisions`, `LESSONS.md`, `instincts.yml`, `proposals.md`. See also: `/ai-learn` (cross-session retro), `/ai-skill-tune` (acts on high-confidence proposals).
+Called by: user directly at session start. Calls: `gh issue create` / `az boards work-item create` (Step 5 work-item creation). Reads: `state.db.decisions`, `LESSONS.md`, `observations.yml`, `proposals.md`. See also: `/ai-learn` (cross-session retro), `/ai-skill-tune` (acts on high-confidence proposals).
 
 $ARGUMENTS
