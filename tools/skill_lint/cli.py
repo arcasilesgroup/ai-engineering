@@ -23,6 +23,7 @@ from skill_app.lint_agents import LintAgentsUseCase
 from skill_app.lint_skills import LintSkillsUseCase
 from skill_infra.fs_scanner import FilesystemAgentScanner, FilesystemSkillScanner
 from skill_infra.markdown_reporter import MarkdownReporter
+from skill_lint.checks.pair_aware import check_pair_consistency
 
 _DEFAULT_SKILLS_ROOT = Path(".claude/skills")
 _DEFAULT_AGENTS_ROOT = Path(".claude/agents")
@@ -81,6 +82,11 @@ def main(argv: list[str] | None = None) -> int:
 
     skills_report = LintSkillsUseCase(skill_scanner).run()
     agents_report = LintAgentsUseCase(agent_scanner).run()
+    # Brief §22.5: pair-aware checks. Advisory-grade by default — aggregate
+    # severity counts surface in the summary line so operators see them
+    # without the gate hard-failing the legacy surface (gates added in
+    # follow-up wave once the §22.3 caps are met).
+    pair_results = check_pair_consistency(args.skills_root, args.agents_root)
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -96,6 +102,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write("\n")
 
     if args.check:
+        # Pair-aware severity counts (advisory): surface so operators
+        # see the §22.5 picture without changing exit-code semantics.
+        pair_counts: dict[str, int] = {}
+        for _slug, result in pair_results:
+            pair_counts[result.severity] = pair_counts.get(result.severity, 0) + 1
         # Print a one-line summary so CI logs surface the result.
         sys.stdout.write(
             "skill_lint: skills "
@@ -103,6 +114,11 @@ def main(argv: list[str] | None = None) -> int:
             f"B={skills_report.summary.get('B', 0)} "
             f"C={skills_report.summary.get('C', 0)} "
             f"D={skills_report.summary.get('D', 0)} "
+            f"| pairs "
+            f"OK={pair_counts.get('OK', 0)} "
+            f"INFO={pair_counts.get('INFO', 0)} "
+            f"MINOR={pair_counts.get('MINOR', 0)} "
+            f"MAJOR={pair_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
         return _exit_code(skills_report.summary)

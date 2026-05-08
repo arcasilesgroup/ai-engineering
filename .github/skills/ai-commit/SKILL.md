@@ -30,7 +30,7 @@ Governed commit pipeline: stage, format, lint, secret-detect, compose message, p
 
 ### 0. Auto-branch from protected
 
-If current branch is `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate descriptive slug (kebab-case, max 50 chars), `git checkout -b <prefix>/<slug>`, report new branch.
+If current branch is `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate slug deterministically with `python3 .ai-engineering/scripts/branch_slug.py --prefix <type>` (reads spec.md frontmatter), then `git checkout -b <output>`, report new branch.
 
 ### 1. Work item context (optional)
 
@@ -65,7 +65,7 @@ See `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI auth
 
 ### 7. Commit
 
-Compose message:
+Compose message via `python3 .ai-engineering/scripts/commit_compose.py --type <type> [--task X.Y] [--desc "<desc>"]`. Without `--desc`, the script returns the template with a `<DESC>` placeholder for the LLM to fill (the only LLM call on the commit hot-path). Doc-gate via `python3 .ai-engineering/scripts/doc_gate.py --changed-paths "<staged>"` (exit 1 → block; CHANGELOG.md or README.md must accompany changes under `src/`, `tools/`, `.github/skills/`).
 
 - **With active spec**: `feat(spec-NNN): Task X.Y -- <desc>`, `fix(spec-NNN): <desc>`, `chore(spec-NNN): <desc>`.
 - **Without spec**: `type(scope): description` (conventional commits, imperative mood). Valid types: `feat`, `fix`, `perf`, `refactor`, `style`, `docs`, `test`, `build`, `ci`, `chore`, `revert`.

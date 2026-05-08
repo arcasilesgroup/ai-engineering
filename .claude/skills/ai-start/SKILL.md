@@ -14,25 +14,24 @@ This skill is invoked as an IDE slash command (`/ai-start`). It is not an `ai-en
 
 ## Process
 
-### Step 1: Load context
+### Step 1: Bootstrap (deterministic, <300ms)
 
-Read `session.context_files` from `.ai-engineering/manifest.yml` to discover which files to load. If `manifest.yml` is missing or `session.context_files` is not defined, skip context loading and note in the dashboard: 'manifest not found — run `/ai-constitution` to initialize'. Read each file. Count meaningful data for the summary line (e.g., number of lessons, number of decisions, active risks).
+Run `python3 .ai-engineering/scripts/session_bootstrap.py` and parse the JSON dashboard. Fields: `branch`, `last_commit`, `active_spec` (id/state/title/tasks_total/tasks_done), `recent_events_7d`, `hooks_health`. Use these directly — no LLM data shuffle.
 
-### Step 2: Activate instinct
+### Step 2: Load context
+
+Read `session.context_files` from `.ai-engineering/manifest.yml`. If `manifest.yml` is missing or `session.context_files` is not defined, skip and note in the dashboard: 'manifest not found — run `/ai-constitution` to initialize'.
+
+### Step 3: Activate instinct
 
 Run `/ai-observe` to enter observation mode for this session.
 
-### Step 3: Gather status
+### Step 4: Gather supplementary status (LLM-only where genuinely needed)
 
-Collect these in parallel:
-
-- **Active spec**: read `.ai-engineering/specs/spec.md` frontmatter — extract title and status. Spec frontmatter is YAML between `---` delimiters. Extract `title` and `status` fields. If file missing or empty: `no active spec`.
-- **Plan progress**: read `.ai-engineering/specs/plan.md` — count checked `[x]` vs total `[ ]` tasks. If missing: `no active plan`.
-- **Recent activity**: run `git log --oneline -5` and generate a 3-5 line human-readable summary. Not the raw log — explain what happened in plain language.
+- **Recent activity narrative**: run `git log --oneline -5` and generate a 3-line human-readable summary. Plain language, not raw log.
 - **Board status**: follow the Board Display section below.
-- **Instinct proposals**: read `.ai-engineering/instincts/proposals.md` — if it has content beyond the header, count proposals.
 
-### Step 4: Display dashboard
+### Step 5: Display dashboard
 
 Render the welcome dashboard as raw Markdown — NOT inside a code block. Markdown renders natively across Claude Code, claude.ai, GitHub Copilot, Codex, and Gemini CLI.
 

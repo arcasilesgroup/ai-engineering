@@ -83,7 +83,7 @@ Commit, push to current branch (block on `main`/`master`). Detect provider via `
 
 ### 14. Create or update PR
 
-Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README staged, gate passed).
+Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README staged, gate passed). Compose body deterministically: `python3 .ai-engineering/scripts/pr_body_compose.py [--bullets-prompt "<llm-bullets>"]` reads spec.md/plan.md frontmatter and emits Summary, Test Plan, Work Items, Checklist sections. Use `--bullets-prompt` only when the LLM needs to author Summary bullets that the spec frontmatter does not capture.
 
 **New**: `gh pr create --title "<t>" --body "<b>"` or `az repos pr create --source-branch <b> --target-branch <t> --title "<t>" --description "<b>"`.
 
