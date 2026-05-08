@@ -89,6 +89,9 @@ dev = [
 
 [project.scripts]
 ai-eng = "ai_engineering.cli:app"
+# spec-127 M1: conformance lint over SKILL.md + agent .md files.
+# Top-level package names per D-127-13 (PEP 8 underscore naming).
+skill_lint = "skill_lint.cli:main"
 
 [tool.ruff]
 line-length = 100
@@ -99,12 +102,23 @@ extend-exclude = ["tests/fixtures/**/*.json"]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ai_engineering"]
+known-first-party = [
+  "ai_engineering",
+  "skill_domain",
+  "skill_app",
+  "skill_infra",
+  "skill_lint",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = "-v -m 'not slow'"
+# spec-127 M1: expose ``tools/`` so ``skill_domain``, ``skill_app``,
+# ``skill_infra``, and ``skill_lint`` import as top-level packages
+# without a project-root ``tools/__init__.py`` (which would make
+# ``tools`` a namespace package and shadow other tooling).
+pythonpath = ["src", "tools"]
 markers = [
   "unit: Pure logic tests, no I/O, fast (<1s per test)",
   "integration: Tests with local I/O (filesystem, git)",
@@ -148,7 +162,16 @@ minor_types = ["feat"]
 patch_types = ["fix", "perf"]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/ai_engineering"]
+# spec-127 M1: top-level conformance lint packages live under ``tools/``
+# but ship as top-level distribution packages (``skill_domain``,
+# ``skill_app``, ``skill_infra``, ``skill_lint``) per D-127-13.
+packages = [
+  "src/ai_engineering",
+  "tools/skill_domain",
+  "tools/skill_app",
+  "tools/skill_infra",
+  "tools/skill_lint",
+]
 include = [
   "src/ai_engineering/templates/**/*.md",
   "src/ai_engineering/templates/**/*.yml",

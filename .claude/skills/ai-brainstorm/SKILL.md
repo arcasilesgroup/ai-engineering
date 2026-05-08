@@ -22,6 +22,12 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 
 ## Process
 
+0. **Spec lifecycle bootstrap** (before evidence sweep) — call
+   `python .ai-engineering/scripts/spec_lifecycle.py start_new <slug> <title>`
+   to mint (or no-op refresh) the DRAFT record under
+   `.ai-engineering/state/specs/<slug>.json`. **Fail-open**: if the script
+   exits non-zero (missing dependency, locked sidecar), log the failure and
+   continue — interrogation must not be blocked by lifecycle plumbing.
 1. **Work item context** (only when a work item ID is provided, e.g., `AB#100` or `#45`):
    a. Read `.ai-engineering/manifest.yml` `work_items` section for active provider and team config
    b. Fetch work item and its hierarchy from the provider: - **GitHub**: `gh issue view <number> --json title,body,labels,milestone,assignees` - **Azure DevOps**: `az boards work-item show --id <number> --expand relations -o json`
@@ -65,7 +71,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Integration
 
 - **Called by**: user directly, or `/ai-plan` when requirements are unclear
-- **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board-sync` (refinement + ready transitions)
+- **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board-sync` (refinement + ready transitions), `.ai-engineering/scripts/spec_lifecycle.py start_new` (fail-open lifecycle bootstrap)
 - **Transitions to**: `/ai-plan` (ONLY -- never directly to `ai-build` or `/ai-dispatch`)
 
 $ARGUMENTS

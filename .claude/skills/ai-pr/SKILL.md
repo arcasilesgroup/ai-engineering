@@ -64,7 +64,7 @@ refs:
 
 ### 11. Spec operations
 
-If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use updated content for PR body (Summary from spec, Test Plan from plan); add entry to `specs/_history.md` (`| ID | Title | date | branch |`); clear spec.md and plan.md to placeholders; stage cleared files.
+If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use updated content for PR body (Summary from spec, Test Plan from plan). After PR merge, invoke `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-id> <pr> <branch>` to walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED, append the canonical 7-col `_history.md` row, and emit the `framework_operation` audit event. **Fail-open**: lifecycle write failure logs but does not block merge. Then clear spec.md and plan.md to placeholders; stage cleared files.
 
 ### 12. Work item references
 

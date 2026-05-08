@@ -2,7 +2,7 @@
 name: ai-cleanup
 description: "Use after merging a PR, at session start, or to tidy up branches. Trigger for 'tidy up', 'clean up branches', 'sync to main', 'get back to main', 'delete old branches', 'what branches do I have', 'start fresh'. Also automatically invoked by /ai-pr after merge. Safely switches to default branch, prunes merged and squash-merged branches, produces per-branch status report."
 effort: medium
-argument-hint: "--branches|--sync|--all"
+argument-hint: "--branches|--sync|--specs|--all"
 tags: [git, branch, cleanup, hygiene, status, delivery]
 requires:
   bins:
@@ -49,6 +49,15 @@ Default (no flags) is equivalent to `--all`: runs sync, branch cleanup, and repo
 
 10. **Delete eligible** -- merged with `-d`, squash-merged and gone-safe with `-D`.
 
+### Phase 3: Spec sweep (`--specs` or `--all`)
+
+Reap stale spec drafts so the lifecycle ledger does not accumulate
+abandonware. Invoke `python .ai-engineering/scripts/spec_lifecycle.py sweep`:
+DRAFTs older than 14 days move to ABANDONED; counts are returned as JSON
+and emitted as a `framework_operation` audit event. **Fail-open**: a missing
+script or locked sidecar logs and continues — branch cleanup is the
+load-bearing hot path here.
+
 ### Phase 2: Status Report
 
 11. **Build per-branch table**:
@@ -70,9 +79,10 @@ Default (no flags) is equivalent to `--all`: runs sync, branch cleanup, and repo
 ## Quick Reference
 
 ```
-/ai-cleanup              # full: sync + branch cleanup + report
+/ai-cleanup              # full: sync + branch cleanup + spec sweep + report
 /ai-cleanup --sync       # sync to default branch only
 /ai-cleanup --branches   # branch cleanup only (no migration)
+/ai-cleanup --specs      # spec lifecycle sweep only (DRAFT > 14d → ABANDONED)
 /ai-cleanup --all        # explicit full cleanup
 ```
 
