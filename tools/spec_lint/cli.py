@@ -24,6 +24,7 @@ from pathlib import Path
 from spec_lint.checks.decisions import check_decisions
 from spec_lint.checks.frontmatter import check_frontmatter
 from spec_lint.checks.non_goals import check_non_goals
+from spec_lint.checks.plan import check_plan
 from spec_lint.checks.references import check_references
 from spec_lint.checks.sections import check_sections
 
@@ -86,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
     results.extend(check_decisions(spec_path))
     results.extend(check_non_goals(spec_path))
     results.extend(check_references(spec_path))
+    results.extend(check_plan(spec_path))
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -99,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     quiet_ok = args.quiet and not blockers and not advisories
     if args.check and not quiet_ok:
         sys.stdout.write(
-            "spec_lint: 5/5 checks "
+            "spec_lint: 6/6 checks "
             f"(BLOCKERS={len(blockers)} "
             f"ADVISORIES={len(advisories)}, "
             f"file={spec_path}, "

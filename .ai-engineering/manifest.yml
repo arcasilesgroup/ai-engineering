@@ -109,13 +109,15 @@ documentation:
     source: null
     update_method: "pr"
 
-# Session context — files loaded by /ai-start at session start
+# Session context — files loaded by /ai-start at session start.
+# The active-decisions count comes from .ai-engineering/state/state.db
+# (decisions table); decision-store.json was removed in spec-128 but the
+# entry lingered here and produced spurious "missing artifact" warnings.
 session:
   context_files:
     - .ai-engineering/LESSONS.md
     - CONSTITUTION.md
     - .ai-engineering/manifest.yml
-    - .ai-engineering/state/decision-store.json
 
 control_plane:
   constitutional_authority:

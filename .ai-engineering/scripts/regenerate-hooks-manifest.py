@@ -57,6 +57,8 @@ TRUSTED_SCRIPTS: list[Path] = [
 ]
 TRUSTED_ARGVS: list[str] = [
     "uv run python .ai-engineering/scripts/session_bootstrap.py",
+    "uv run python .ai-engineering/scripts/session_bootstrap.py --format=markdown",
+    "uv run python .ai-engineering/scripts/session_bootstrap.py --format=json",
 ]
 
 

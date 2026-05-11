@@ -552,3 +552,97 @@ def test_references_section_absent_passes(tmp_path: Path) -> None:
     spec_path = _write(tmp_path, text)
     results = check_references(spec_path)
     assert results == [], results
+
+
+# ---------------------------------------------------------------------------
+# Plan check (plan-schema.md)
+# ---------------------------------------------------------------------------
+
+from spec_lint.checks.plan import check_plan  # noqa: E402
+
+
+def _spec_and_plan(tmp_path: Path, plan_text: str) -> Path:
+    spec_path = _write(
+        tmp_path, "---\nspec: spec-test\ntitle: t\nstatus: approved\neffort: small\n---\n"
+    )
+    (tmp_path / "plan.md").write_text(plan_text, encoding="utf-8")
+    return spec_path
+
+
+@pytest.mark.unit
+def test_plan_no_file_skips_silently(tmp_path: Path) -> None:
+    spec_path = _write(tmp_path, "---\nspec: x\ntitle: t\nstatus: draft\neffort: small\n---\n")
+    assert check_plan(spec_path) == []
+
+
+@pytest.mark.unit
+def test_plan_active_with_tasks_passes(tmp_path: Path) -> None:
+    plan = (
+        "---\nspec: spec-test\ntitle: T\nstatus: in-progress\n---\n"
+        "# Plan\n\n- [x] **T-1.1**: done\n- [ ] **T-1.2**: pending\n"
+    )
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert [r for r in results if r.severity == "BLOCKER"] == []
+
+
+@pytest.mark.unit
+def test_plan_active_without_tasks_is_blocker(tmp_path: Path) -> None:
+    plan = "---\nspec: spec-test\ntitle: T\nstatus: approved\n---\n# Plan\n\nNo tasks here.\n"
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert any(r.check_name == "plan_tasks_missing" and r.severity == "BLOCKER" for r in results)
+
+
+@pytest.mark.unit
+def test_plan_shipped_without_tasks_passes(tmp_path: Path) -> None:
+    plan = (
+        "---\nspec: spec-test\ntitle: T\nstatus: shipped-pending-pr-merge\n---\n"
+        "# Plan — shipped aggregate index\n\n- **Wave 1**: summary\n- **Wave 2**: summary\n"
+    )
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert [r for r in results if r.severity == "BLOCKER"] == []
+
+
+@pytest.mark.unit
+def test_plan_invalid_marker_is_blocker(tmp_path: Path) -> None:
+    plan = (
+        "---\nspec: spec-test\ntitle: T\nstatus: in-progress\n---\n"
+        "# Plan\n\n- [?] **T-1.1**: bad marker\n- [x] **T-1.2**: ok\n"
+    )
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert any(
+        r.check_name == "plan_task_marker_invalid" and r.severity == "BLOCKER" for r in results
+    )
+
+
+@pytest.mark.unit
+def test_plan_missing_frontmatter_is_blocker(tmp_path: Path) -> None:
+    plan = "# Plan\n\n- [x] T-1.1: thing\n"
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert any(r.check_name == "plan_frontmatter_missing" for r in results)
+
+
+@pytest.mark.unit
+def test_plan_invalid_status_enum_is_blocker(tmp_path: Path) -> None:
+    plan = "---\nspec: x\ntitle: T\nstatus: weird-state\n---\n# Plan\n\n- [x] T-1.1: a\n"
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert any(r.check_name == "plan_status_invalid" and r.severity == "BLOCKER" for r in results)
+
+
+@pytest.mark.unit
+def test_plan_duplicate_task_id_is_advisory(tmp_path: Path) -> None:
+    plan = (
+        "---\nspec: x\ntitle: T\nstatus: in-progress\n---\n# Plan\n\n"
+        "- [x] **T-1.1**: first\n- [ ] **T-1.1**: dup\n"
+    )
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert any(
+        r.check_name == "plan_task_id_duplicate" and r.severity == "ADVISORY" for r in results
+    )
+    assert [r for r in results if r.severity == "BLOCKER"] == []

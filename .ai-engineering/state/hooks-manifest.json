@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-11T18:24:53Z",
+  "generatedAt": "2026-05-11T22:03:07Z",
   "hookCount": 71,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -72,14 +72,16 @@
     ".ai-engineering/scripts/hooks/runtime-stop.py": "6e128af923c5e9393e0c695a672096aac6da3310160b406b841f6ddcf57510a8",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "e1bda43b4f2a24df679c8f0ac7743a9a61e005151e824e2e79ffda92b04c743f",
     ".ai-engineering/scripts/hooks/strategic-compact.py": "428582f228cea31d5b512d49be3f5e0970ba621bb5d4a3f22edb8afb08ae42aa",
-    ".ai-engineering/scripts/hooks/telemetry-skill.py": "a19e61f51cf05d1434cee6b638097ac50c764c84c03e43e3c4070de6feb8ae0f"
+    ".ai-engineering/scripts/hooks/telemetry-skill.py": "b400039e292936d8ab4aa03cd0a7e07e9e7c557d73f712ff3d58ff99cf190254"
   },
   "schemaVersion": "1.0",
   "trustedArgvs": [
-    "uv run python .ai-engineering/scripts/session_bootstrap.py"
+    "uv run python .ai-engineering/scripts/session_bootstrap.py",
+    "uv run python .ai-engineering/scripts/session_bootstrap.py --format=markdown",
+    "uv run python .ai-engineering/scripts/session_bootstrap.py --format=json"
   ],
   "trustedScripts": {
     ".ai-engineering/scripts/hooks/no-verify-guard.py": "1863867bece3aba1c262bcf335c674bdafa2e64530ff0e53fbf1424b5c56063e",
-    ".ai-engineering/scripts/session_bootstrap.py": "3def27165bcb99815c96b71a5f05cb26fb276fad09b492b29e0df2722d0c4ad5"
+    ".ai-engineering/scripts/session_bootstrap.py": "f1313220a70dd7cf366097e8deeb5fd2c5a29dd8b386fe9c1483352cdf82b441"
   }
 }
