@@ -1,13 +1,13 @@
 ---
-spec: spec-131
-title: DX Excellence Refactor — Trimmed
+spec: spec-132
+title: spec-132 — CLI UX & Architecture Overhaul (single-PR full-brief delivery)
 pipeline: autopilot
 phases: 6
 sub-specs: 7
 status: shipped-pending-pr-merge
 ---
 
-# Plan — spec-131 DX Excellence Refactor
+# Plan — spec-132 CLI UX Overhaul (aggregate of spec-128/129/131/132 in PR #509)
 
 > Per spec-131 D-131-13, the deep plan lives per-sub-spec under
 > `.ai-engineering/runtime/autopilot/sub-NNN/plan.md`. This file is
