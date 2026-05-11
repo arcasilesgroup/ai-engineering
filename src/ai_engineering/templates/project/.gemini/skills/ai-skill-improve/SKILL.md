@@ -1,20 +1,25 @@
 ---
-name: ai-skill-tune
-description: "Tunes an existing skill based on real project pain (prior eval corpora under evals/, Engram cross-session observations, LESSONS.md, decision-store, instincts, proposals) by analysing the failure pattern, rewriting SKILL.md, and emitting the proposed delta as a PR comment only — no auto-merge. Trigger for 'tune this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch tune skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-create instead. Not for platform audit; use /ai-ide-audit instead."
+name: ai-skill-improve
+description: Improves an existing skill based on real project pain (prior eval corpora under evals/, Engram cross-session observations, LESSONS.md, decision-store, instincts, proposals) by analysing the failure pattern, rewriting SKILL.md, and emitting the proposed delta as a PR comment only — no auto-merge. Trigger for 'improve this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch improve skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-create instead. Not for platform audit; use /ai-ide-audit instead.
 effort: mid
-model_tier: sonnet
 argument-hint: "[skill-name]|all [--dry-run]"
-tags: [meta, improvement, skills, optimization, tune]
+tags: [meta, improvement, skills, optimization, improve]
+model_tier: sonnet
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-skill-improve/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
-# ai-skill-tune
+
+# ai-skill-improve
 
 ## Quick start
 
 ```
-/ai-skill-tune ai-plan          # evolve one skill
-/ai-skill-tune all --dry-run    # preview every skill
-/ai-skill-tune all              # batch evolve with evals
+/ai-skill-improve ai-plan          # evolve one skill
+/ai-skill-improve all --dry-run    # preview every skill
+/ai-skill-improve all              # batch evolve with evals
 ```
 
 ## Workflow
@@ -53,20 +58,20 @@ Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
 
 ### Example 1 — single-skill evolution from accumulated pain
 
-User: "the /ai-plan skill keeps producing decomposition that ignores constraint X. Tune it."
+User: "the /ai-plan skill keeps producing decomposition that ignores constraint X. Improve it."
 
 ```
-/ai-skill-tune ai-plan
+/ai-skill-improve ai-plan
 ```
 
 Loads pain context from LESSONS.md and proposals.md, scores ai-plan on 5 dimensions, generates 2-3 test prompts that exercise the failing pattern, rewrites SKILL.md, hands off to skill-creator for eval, reports the delta.
 
 ### Example 2 — dry-run batch preview
 
-User: "preview what tuning every skill would change before I commit time to running evals"
+User: "preview what improving every skill would change before I commit time to running evals"
 
 ```
-/ai-skill-tune all --dry-run
+/ai-skill-improve all --dry-run
 ```
 
 Walks every skill in priority tier order, shows the proposed diff per skill, and stops short of running the eval pipeline.

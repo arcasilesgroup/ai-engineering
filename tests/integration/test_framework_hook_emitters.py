@@ -252,7 +252,13 @@ class TestClaudeHookEmitters:
         observe_script = (
             project_root / ".ai-engineering" / "scripts" / "hooks" / "instinct-observe.py"
         )
-        skill_script = project_root / ".ai-engineering" / "scripts" / "hooks" / "telemetry-skill.py"
+        # Spec-131 sub-002 moved eager `extract_instincts` off telemetry-skill.py
+        # (UserPromptSubmit) into the Stop-hook `instinct-extract.py` so
+        # /ai-start stays under the 5s ceiling. The consolidation contract
+        # now lives on Stop.
+        extract_script = (
+            project_root / ".ai-engineering" / "scripts" / "hooks" / "instinct-extract.py"
+        )
         env = os.environ | {
             "CLAUDE_PROJECT_DIR": str(project_root),
             "CLAUDE_SESSION_ID": "session-onboard",
@@ -277,12 +283,12 @@ class TestClaudeHookEmitters:
             assert result.returncode == 0
 
         onboard = subprocess.run(
-            [sys.executable, str(skill_script)],
-            input=json.dumps({"prompt": "/ai-start"}),
+            [sys.executable, str(extract_script)],
+            input=json.dumps({}),
             text=True,
             capture_output=True,
             cwd=project_root,
-            env=env,
+            env=env | {"CLAUDE_HOOK_EVENT_NAME": "Stop"},
             check=False,
         )
 
@@ -464,7 +470,12 @@ class TestCopilotHookEmitters:
         observe_script = (
             project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-instinct-observe.sh"
         )
-        skill_script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-skill.sh"
+        # Spec-131 sub-002 moved eager `extract_instincts` off the
+        # UserPromptSubmit lane (copilot-skill.sh) into the session-end
+        # Stop hook (`copilot-instinct-extract.sh`).
+        extract_script = (
+            project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-instinct-extract.sh"
+        )
         env = _copilot_env(project_root, tmp_path)
 
         for phase, payload in (
@@ -484,8 +495,8 @@ class TestCopilotHookEmitters:
             assert result.returncode == 0
 
         onboard = subprocess.run(
-            _copilot_hook_command(skill_script),
-            input=json.dumps({"prompt": "/ai-start"}),
+            _copilot_hook_command(extract_script),
+            input=json.dumps({}),
             text=True,
             capture_output=True,
             cwd=project_root,
