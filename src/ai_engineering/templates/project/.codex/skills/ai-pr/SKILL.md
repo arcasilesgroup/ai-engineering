@@ -57,11 +57,15 @@ Total wall-clock = `max(docs, pre-push)`, NOT `sum`. Docs subagents and the pre-
 
 4. **Stage all docs files** produced by lanes 1-2 BEFORE PR creation. spec-104 NG-7 forbids deferring docs to a separate commit -- regulated audience requires clean audit history.
 
-### 8. Pre-push gate (Lane 3 of step 7)
+### 8. Instinct consolidation
 
-`ai-eng gate run --cache-aware --json --mode=local` runs Wave 1 fixers (`ruff format` → `ruff check --fix` → `spec verify --fix`) then Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate). CI uses `--mode=ci` (adds `semgrep`, `pip-audit`, full `pytest` matrix). Non-zero exit → parse `gate-findings.json`, report, STOP; resolve or accept via `ai-eng risk accept-all` (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
+See Step 2 — `/ai-observe --review` runs once before commit if `.ai-engineering/observations/observations.yml` exists.
 
-### 9. Work item context
+### 9. Pre-push gate (concurrent Lane 3 of step 7)
+
+Dispatched concurrently with the docs lanes — total wall-clock is `max(docs, pre-push)`, not the legacy sum. `ai-eng gate run --cache-aware --json --mode=local` runs Wave 1 fixers (`ruff format` → `ruff check --fix` → `spec verify --fix`) in parallel with Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate). CI uses `--mode=ci` (adds `semgrep`, `pip-audit`, full `pytest` matrix). Non-zero exit → parse `gate-findings.json`, report, STOP; resolve or accept via `ai-eng risk accept-all` (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
+
+### 10. Work item context
 
 Read `.ai-engineering/manifest.yml` `work_items` and spec.md frontmatter `refs` (yaml shape: `features` never close, `user_stories`/`tasks`/`bugs`/`issues` close on PR merge).
 
