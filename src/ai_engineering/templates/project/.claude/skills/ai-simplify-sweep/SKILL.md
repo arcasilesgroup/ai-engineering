@@ -1,7 +1,8 @@
 ---
 name: ai-simplify-sweep
 description: "Sweeps stale code complexity weekly via a scheduled /ai-simplify wrapper, gates the diff, and opens a draft PR for human review. Trigger for 'weekly simplify sweep', 'scheduled simplification', 'simplification sweep', 'simplify pass'. Never auto-merges. Not for in-flight feature work; use /ai-simplify instead. Not for security cleanup; use /ai-security instead."
-effort: medium
+effort: cheap
+model_tier: haiku
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, simplification, scheduled, autonomous]
 ---

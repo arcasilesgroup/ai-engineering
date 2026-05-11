@@ -1,9 +1,10 @@
 ---
 name: ai-build
 description: "Canonical implementation gateway: reads approved plan.md, resolves stack from manifest, deterministic-routes each task to its adapter, dispatches the build agent in an isolated worktree, runs TDD self-validation per task, then a single final quality loop on the full changeset before /ai-pr. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'build the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead."
-effort: high
+effort: cheap
 argument-hint: "[spec-NNN or --resume]"
 mode: agent
+model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-build/SKILL.md
@@ -29,6 +30,11 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 1. **Board sync (in_progress)** -- read `.ai-engineering/specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
 2. **Guard advisory** -- before dispatching any build task, invoke the Guard agent (`ai-guard`) in `gate` mode for governance advisory. Fail-open: if guard is unavailable or errors, log warning and continue -- never block dispatch.
 2b. **Stack overrides routing (D-127-06 / sub-008, spec-128 D-128-01)** -- per task, call `tools.skill_app.deterministic_router.resolve_adapter(task_path, spec_stack)` to obtain the overrides directory under `.ai-engineering/overrides/<stack>/`. Pass the resolved path to the build agent so it loads `conventions.md`, `tdd_harness.md`, `security_floor.md`, and `examples/` into context before writing code. `spec_stack` precedence: spec frontmatter `stack:` field over file-extension inference. `UnknownStackError` halts the task with a clear "no overrides for this stack" message.
+2c. **Model dispatch routing (D-131-08 / sub-003, §10.4 DRY)** -- per task, inspect the plan.md task block to pick the model tier. Decision matrix:
+    * `Patch (deterministic):` present AND no synthesis-required hint → dispatch with `model_tier=haiku, effort=cheap` (cheap-tier, mechanical execution).
+    * Patch absent OR synthesis hint present → dispatch with `model_tier=sonnet, effort=mid` (mid-tier, judgment required).
+    * Operator opt-in `--max-effort` flag OR plan task tagged `architecture: true` → dispatch with `model_tier=opus, effort=high` (deep-architecture override).
+    Pass the resolved tier to the build agent via env var `AIENG_MODEL_TIER`. Log the decision via `emit_agent_dispatched(..., metadata={"model_tier": <tier>, "effort": <effort>, "patch_present": <bool>})`. Investing in `/ai-plan` (high-tier, exhaustive patch-ready output) is what unlocks cheap-tier execution everywhere downstream (brief §2.6 / spec D-131-08).
 3. **Execute kernel**: see `.github/skills/_shared/execution-kernel.md`. Build wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build self-validation (TDD RED/GREEN/REFACTOR) -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain build-specific.
 4. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, single round, fail-loud. Blockers → STOP + escalate (no auto-retry).
 5. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report.

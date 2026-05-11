@@ -1,9 +1,10 @@
 ---
 name: ai-ide-audit
 description: Audits an IDE end-to-end (instruction surface, hooks, skills, agents, installer wiring) using strict file-evidence — never assumptions. Trigger for 'audit IDE support', 'is Copilot wired up correctly', 'check Claude Code integration', 'are there orphaned hooks', 'verify IDE setup'. Accepts Claude Code, GitHub Copilot, Gemini, Codex, Antigravity, or all. Not for code quality; use /ai-verify instead. Not for security scanning; use /ai-security instead.
-effort: max
+effort: high
 argument-hint: "claude-code|github-copilot|gemini|codex|antigravity|all [--fix]"
 tags: [audit, ide, copilot, claude-code, governance]
+model_tier: opus
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-ide-audit/SKILL.md

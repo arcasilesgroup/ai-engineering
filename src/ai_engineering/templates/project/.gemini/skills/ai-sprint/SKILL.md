@@ -1,7 +1,7 @@
 ---
 name: ai-sprint
 description: "Manages sprint lifecycle: plans a new sprint from backlog, runs data-driven retros comparing planned vs shipped, checks mid-sprint goal status, generates sprint review presentations. Works with GitHub Projects and Azure DevOps. Trigger for 'start sprint planning', 'kick off the sprint', 'lets do the retro', 'what did we deliver last sprint', 'sprint goals check', 'generate the sprint review deck'. Not for daily standup; use /ai-standup instead. Not for solo PR retro; use /ai-learn instead."
-effort: high
+effort: mid
 argument-hint: "plan|retro|goals|review [--sprint name]"
 requires:
   anyBins:
@@ -9,6 +9,7 @@ requires:
   - az
   bins:
   - python3
+model_tier: sonnet
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-sprint/SKILL.md

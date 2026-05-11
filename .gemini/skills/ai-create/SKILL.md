@@ -1,9 +1,10 @@
 ---
 name: ai-create
 description: "Creates new ai-engineering skills or agents end-to-end: scaffold, TDD pressure-test, optimize description, register in manifest, sync mirrors. Trigger for 'create a new skill', 'add a slash command', 'the framework needs a capability for', 'build a new agent', 'scaffold a skill for'. Not for evolving existing skills; use /ai-skill-tune instead. Not for description-only optimization; use /ai-prompt instead."
-effort: high
+effort: mid
 argument-hint: "skill [name]|agent [name]"
 tags: [meta, framework, creation]
+model_tier: sonnet
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-create/SKILL.md

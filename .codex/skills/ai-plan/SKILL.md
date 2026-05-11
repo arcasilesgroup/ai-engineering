@@ -3,12 +3,12 @@ name: ai-plan
 description: "Decomposes an approved spec into a phased execution plan with bite-sized tasks, agent assignments, and gate criteria — the contract /ai-build executes. Trigger for 'break this down', 'create a plan', 'what tasks do we need', 'lets start implementing', 'scope changed re-plan'. Hard gate: user approves before /ai-build can run. Not for ambiguous requirements; use /ai-brainstorm instead. Not for execution; use /ai-build instead."
 effort: high
 argument-hint: "[spec-NNN or topic]"
+model_tier: opus
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-plan/SKILL.md
 edit_policy: generated-do-not-edit
 ---
-
 
 
 # Plan
@@ -23,21 +23,31 @@ edit_policy: generated-do-not-edit
 
 ## Workflow
 
-Implementation planning. Takes an approved spec (from `/ai-brainstorm` or manual creation) and produces a phased execution plan with bite-sized tasks, agent assignments, and gate criteria. The plan is the contract that `/ai-build` executes.
+Takes an approved spec and produces a phased execution plan — bite-sized tasks, agent assignments, gate criteria. The plan is the contract `/ai-build` executes. **HARD GATE**: operator must approve before `/ai-build` runs (§10.6 SDD).
 
-**HARD GATE**: user must approve the plan before `/ai-build` can run.
-
-1. **Read spec** — load `.ai-engineering/specs/spec.md`; flag missing sections per `.ai-engineering/contexts/spec-schema.md`.
-2. **Explore codebase** (read-only) — understand current architecture, patterns, and affected files.
+1. **Read spec** — load `.ai-engineering/specs/spec.md`; flag missing sections per `spec-schema.md`.
+2. **Explore codebase** (read-only) — current architecture, patterns, affected files (§10.3 SOLID).
 3. **Classify pipeline** — full / standard / hotfix / trivial.
-4. **Design routing** — invoke `handlers/design-routing.md`; if routed, capture `/ai-design` output at `.ai-engineering/specs/<spec-id>/design-intent.md` and link it under `## Design`. `--skip-design` logs reason and proceeds.
-5. **Identify architecture pattern** — read `.ai-engineering/contexts/architecture-patterns.md`. Pick a canonical pattern (layered, hexagonal, CQRS, event-sourcing, ports-and-adapters, clean-architecture, pipes-and-filters, repository, unit-of-work, microservices, modular-monolith) or `ad-hoc`. Record under `## Architecture` with one-paragraph justification BEFORE task decomposition.
-6. **Decompose into tasks** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered.
-7. **Assign agents** — capability-match (build = code; verify = read-only scan; guard = advisory).
-8. **Order phases** + gate criteria.
-9. **Self-review** (spec-reviewer pattern, max 2 iterations).
-10. **Write** to `.ai-engineering/specs/plan.md`.
-11. **STOP** — present plan; user runs `/ai-build`.
+4. **Design routing** — invoke `handlers/design-routing.md`; capture output at `.ai-engineering/specs/<spec-id>/design-intent.md` under `## Design`. `--skip-design` logs reason and proceeds.
+5. **Identify architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`. Record under `## Architecture` BEFORE decomposition.
+6. **Decompose into tasks** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered. Apply the **exhaustive patch-ready output template** below (D-131-08 / sub-003).
+7. **Assign agents** — capability-match (build = code; verify = read-only; guard = advisory).
+8. **Order phases** + gate criteria. **TDD pairs** (§10.5): write a RED test task before any GREEN implementation task.
+9. **Self-review** (§10.7 Clean Code) — spec-reviewer pattern, max 2 iterations.
+10. **Write** to `.ai-engineering/specs/plan.md` and **STOP** — operator runs `/ai-build`.
+
+### Output template — exhaustive patch-ready (D-131-08)
+
+Each task block carries five lines so `/ai-build` can route to the cheap model tier when the work is mechanical:
+
+- `- [ ] T-N — <task title>`
+- `- Agent: <build/verify/guard>`
+- `- Files: <path/to/file:line>`
+- `- Principles applied: §10.x ...` — cite at least one anchor from CANONICAL.md §10 (e.g., §10.3 SOLID, §10.5 TDD, §10.7 Clean Code).
+- `- Patch (deterministic):` — include a unified-diff hunk when the edit is mechanical (rename, copy, frontmatter add); omit and add prose only when judgment is required.
+- `- Gate: <test/check>`
+
+Patch hunk present → `/ai-build` dispatches `effort: cheap / model_tier: haiku`. Absent patch or synthesis hint → `effort: mid / model_tier: sonnet`. Operator `--max-effort` → `effort: high / model_tier: opus`.
 
 ## Dispatch threshold
 
@@ -58,15 +68,6 @@ Dispatch the `ai-plan` agent for any approved spec needing decomposition. Hand o
 | `hotfix` | Bug fix, security patch, <3 files | discover, risk, spec, dispatch |
 | `trivial` | Typo, comment, single-line | spec, dispatch |
 
-## Task Decomposition Rules
-
-Each task: bite-sized (2-5 min), single-agent (build / verify / guard), single-concern, verifiable (clear done condition), ordered (explicit dependencies).
-
-**TDD enforcement**: for features needing tests, paired tasks:
-
-- `T-N: Write failing tests for [feature]` (RED) — build/test mode.
-- `T-N+1: Implement [feature] to pass tests` (GREEN, blocked by T-N) — build/code mode, constraint: "DO NOT modify test files from T-N".
-
 ## No-Execution Protocol
 
 `/ai-plan` is planning-only. MUST NOT invoke `ai-build agent` or `/ai-build` for task execution; MUST NOT modify source code; MUST NOT check off implementation tasks. MAY write `.ai-engineering/specs/plan.md` and run read-only codebase exploration.
@@ -78,7 +79,7 @@ Each task: bite-sized (2-5 min), single-agent (build / verify / guard), single-c
 - Assigning code-write tasks to verify (verify is read-only).
 - Not pairing RED/GREEN tasks for TDD.
 - Planning implementation details (plan says WHAT, code says HOW).
-- Skipping the review step.
+- Omitting the `Patch (deterministic):` block when the edit is mechanical — costs `/ai-build` the cheap-tier dispatch.
 
 ## Examples
 

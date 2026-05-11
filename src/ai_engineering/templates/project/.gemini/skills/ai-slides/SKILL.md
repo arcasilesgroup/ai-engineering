@@ -1,9 +1,10 @@
 ---
 name: ai-slides
 description: "Generates zero-dependency self-contained HTML presentations with keyboard/touch navigation and viewport-safe layout. Three modes: new (from scratch), convert (PPTX to HTML), enhance (improve existing). Trigger for 'create a talk deck', 'pitch deck', 'workshop slides', 'convert my PPTX', 'presentation for the all-hands'. Not for static visual art; use /ai-visual instead. Not for marketing collateral; use /ai-gtm instead."
-effort: high
+effort: mid
 argument-hint: "new|convert|enhance [topic]"
 tags: [presentation, html, css]
+model_tier: sonnet
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-slides/SKILL.md

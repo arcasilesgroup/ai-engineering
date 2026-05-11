@@ -1,7 +1,8 @@
 ---
 name: ai-guide
 description: "Onboards humans to a project: architecture tours, topic search, decision archaeology, structured new-team-member orientation. Read-only — never modifies code. Trigger for 'where does auth happen', 'what is the architecture here', 'history of this decision', 'onboard me to this repo', 'tour the codebase'. Not for agent session bootstrap; use /ai-start instead. Not for code-level explanation; use /ai-explain instead."
-effort: high
+effort: mid
+model_tier: sonnet
 argument-hint: "tour|find [topic]|history [decision]|onboard"
 tags: [onboarding, architecture, teaching, archaeology]
 ---

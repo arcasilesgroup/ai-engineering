@@ -1,7 +1,8 @@
 ---
 name: ai-governance
 description: "Validates framework compliance, ownership boundaries, risk acceptance lifecycle, and manifest integrity for regulated environments. Trigger for 'are quality gates enforced', 'who owns this file', 'formally accept a known risk', 'pre-release compliance check', 'governance report for auditors'. Not for code quality; use /ai-verify instead. Not for security scanning; use /ai-security instead — this validates governance process, not code content."
-effort: max
+effort: high
+model_tier: opus
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
 ---

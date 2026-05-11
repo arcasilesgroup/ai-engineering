@@ -1,7 +1,8 @@
 ---
 name: ai-docs
 description: "Manages the documentation lifecycle: CHANGELOG, README, solution-intent architecture docs, external docs portals, and documentation quality gates. Auto-invoked by /ai-pr. Trigger for 'update the changelog', 'the README is stale', 'document this feature', 'docs portal needs updating', 'did we document all changes'. Not for blog or pitch content; use /ai-write instead. Not for marketing collateral; use /ai-gtm instead."
-effort: high
+effort: mid
+model_tier: sonnet
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 tags: [documentation, architecture, governance]
 ---

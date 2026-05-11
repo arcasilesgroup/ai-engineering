@@ -1,9 +1,10 @@
 ---
 name: ai-gtm
 description: "Drives go-to-market execution and marketing content: blog posts for distribution, social crossposts, investor materials, market research, outreach campaigns, X/Twitter automation. Trigger for 'go to market', 'gtm plan', 'write a blog post to publish', 'crosspost to socials', 'market research for', 'investor deck', 'outreach campaign', 'content engine'. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-write instead."
-effort: high
+effort: mid
 argument-hint: "[mode] [topic]"
 tags: [gtm, marketing, content, social, investor, go-to-market]
+model_tier: sonnet
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-gtm/SKILL.md

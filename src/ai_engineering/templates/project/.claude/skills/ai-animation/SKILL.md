@@ -2,6 +2,7 @@
 name: ai-animation
 description: "Designs motion, transitions, and micro-interactions for UI components: spring animations, gestures, easing, staggers — taste-driven detail compounding. Trigger for 'animate this', 'add transitions', 'micro-interactions for', 'gesture design', 'swipe to dismiss', 'easing for this', 'stagger the'. Not for design systems; use /ai-design instead. Not for visual art; use /ai-visual instead. Not for testing animation code; use /ai-test instead."
 effort: high
+model_tier: opus
 argument-hint: "[component or interaction to animate]"
 tags: [animation, motion, transitions, micro-interactions, css]
 ---

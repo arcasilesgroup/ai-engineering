@@ -23,6 +23,8 @@ from skill_app.lint_agents import LintAgentsUseCase
 from skill_app.lint_skills import LintSkillsUseCase
 from skill_infra.fs_scanner import FilesystemAgentScanner, FilesystemSkillScanner
 from skill_infra.markdown_reporter import MarkdownReporter
+from skill_lint.checks.effort import check_all_skills as check_effort_all
+from skill_lint.checks.effort import load_policy as load_dispatch_policy
 from skill_lint.checks.md_mirror import check_md_mirror_consistency
 from skill_lint.checks.naming import check_naming
 from skill_lint.checks.pair_aware import check_pair_consistency
@@ -33,12 +35,14 @@ _DEFAULT_AGENTS_ROOT = Path(".claude/agents")
 _DEFAULT_REPO_ROOT = Path(".")
 _DEFAULT_HOOKS_ROOT = Path(".ai-engineering/scripts/hooks")
 _DEFAULT_SCHEDULED_ROOT = Path(".ai-engineering/scripts/scheduled")
+_DEFAULT_POLICY_PATH = Path("docs/model-dispatch-policy.md")
 
 
 def _exit_code(
     grade_counts: dict[str, int],
     md_mirror_results: list | None = None,
     principles_results: list | None = None,
+    effort_results: list | None = None,
 ) -> int:
     """Map grade counts + extra-check severities to a CLI exit code.
 
@@ -52,6 +56,11 @@ def _exit_code(
         never drives exit code. S6 SKILL audit upgrades MAJOR to
         blocking once every shipped SKILL.md emits the "Principles
         applied" line via the patch-ready ``/ai-plan`` output.
+
+    spec-131 S3 (sub-003) addition:
+      * Any MAJOR / CRITICAL from ``effort`` → exit 1 (D-131-08).
+        ``model_tier`` MINORs stay advisory during the R-131-09 grace
+        window — they surface in the summary but do not block.
     """
     # principles_results intentionally consumed for signature parity;
     # advisory-only in sub-001 (R-1.6).
@@ -60,6 +69,10 @@ def _exit_code(
         return 1
     if md_mirror_results and any(
         getattr(r, "severity", "OK") == "CRITICAL" for r in md_mirror_results
+    ):
+        return 1
+    if effort_results and any(
+        getattr(r, "severity", "OK") in ("MAJOR", "CRITICAL") for _path, r in effort_results
     ):
         return 1
     if grade_counts.get("C", 0) > 2:
@@ -112,6 +125,17 @@ def _build_parser() -> argparse.ArgumentParser:
         default=_DEFAULT_SCHEDULED_ROOT,
         help="Path to the scheduled directory for naming R4/R5 (default: .ai-engineering/scripts/scheduled).",
     )
+    parser.add_argument(
+        "--policy-path",
+        type=Path,
+        default=_DEFAULT_POLICY_PATH,
+        help="Path to docs/model-dispatch-policy.md (default: docs/model-dispatch-policy.md).",
+    )
+    parser.add_argument(
+        "--enforce-tier",
+        action="store_true",
+        help="Promote `model_tier:` violations from MINOR to MAJOR (flip after R-131-09 grace).",
+    )
     return parser
 
 
@@ -150,6 +174,15 @@ def main(argv: list[str] | None = None) -> int:
         args.hooks_root,
         args.scheduled_root,
     )
+    # spec-131 S3 (sub-003): effort + model_tier frontmatter contract.
+    # MAJOR (effort_declared, policy mismatch) blocks; model_tier MINOR
+    # stays advisory during the R-131-09 grace window.
+    dispatch_policy = load_dispatch_policy(args.policy_path)
+    effort_results = check_effort_all(
+        args.skills_root,
+        dispatch_policy,
+        enforce_tier=args.enforce_tier,
+    )
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -179,6 +212,10 @@ def main(argv: list[str] | None = None) -> int:
         naming_counts: dict[str, int] = {}
         for _path, result in naming_results:
             naming_counts[result.severity] = naming_counts.get(result.severity, 0) + 1
+        # spec-131 S3 (sub-003): effort + model_tier counters.
+        effort_counts: dict[str, int] = {}
+        for _path, result in effort_results:
+            effort_counts[result.severity] = effort_counts.get(result.severity, 0) + 1
         # Print a one-line summary so CI logs surface the result.
         sys.stdout.write(
             "skill_lint: skills "
@@ -201,12 +238,17 @@ def main(argv: list[str] | None = None) -> int:
             f"INFO={naming_counts.get('INFO', 0)} "
             f"MINOR={naming_counts.get('MINOR', 0)} "
             f"MAJOR={naming_counts.get('MAJOR', 0)} "
+            f"| effort "
+            f"OK={effort_counts.get('OK', 0)} "
+            f"MINOR={effort_counts.get('MINOR', 0)} "
+            f"MAJOR={effort_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
         return _exit_code(
             skills_report.summary,
             md_mirror_results=md_mirror_results,
             principles_results=principles_results,
+            effort_results=effort_results,
         )
 
     return 0

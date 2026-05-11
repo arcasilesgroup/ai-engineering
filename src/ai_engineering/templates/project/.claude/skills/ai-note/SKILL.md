@@ -1,7 +1,8 @@
 ---
 name: ai-note
 description: "Saves persistent technical discoveries (debugging insights, non-obvious behaviors, workarounds, integration gotchas) and searches them across sessions. Trigger for 'save this', 'note that', 'remember this finding', 'what did we find about', 'do we have notes on'. Rule of thumb: if it took more than 30 minutes to figure out, save it. Not for cross-session learning patterns; use /ai-observe or /ai-learn instead."
-effort: medium
+effort: cheap
+model_tier: haiku
 argument-hint: "find [query]|[slug]"
 ---
 

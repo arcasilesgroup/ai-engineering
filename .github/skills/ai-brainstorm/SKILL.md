@@ -1,9 +1,10 @@
 ---
 name: ai-brainstorm
 description: "Forces rigorous design interrogation BEFORE any code: explores approaches, surfaces ambiguity, gathers evidence, produces an approved spec that becomes the contract for /ai-plan. Trigger for 'lets add X', 'how should we handle Y', 'whats the best approach', 'I am thinking about', 'what should we build for'. Not for existing approved specs; use /ai-plan instead. Not for execution; use /ai-build instead."
-effort: max
+effort: mid
 argument-hint: "[feature or problem description] [work item ID] | --consolidate-spec <slug>"
 mode: agent
+model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-brainstorm/SKILL.md

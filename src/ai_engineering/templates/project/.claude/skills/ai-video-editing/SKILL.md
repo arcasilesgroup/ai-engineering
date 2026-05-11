@@ -1,7 +1,8 @@
 ---
 name: ai-video-editing
 description: "Edits real video footage: cuts recordings into highlights, transcribes and structures raw footage, runs FFmpeg operations (trim, concat, reframe, normalize audio), creates Remotion overlays, prepares social-platform cuts. Trigger for 'cut this video', 'edit the recording', 'make a highlight reel', 'reframe for TikTok', 'transcribe this footage'. Not for generating videos from prompts; use /ai-media instead. Not for animation specs; use /ai-animation instead."
-effort: high
+effort: mid
+model_tier: sonnet
 argument-hint: "plan|organize|cut|compose [source]"
 tags: [video, editing, ffmpeg]
 requires: { bins: ["ffmpeg"], anyBins: ["npx"] }

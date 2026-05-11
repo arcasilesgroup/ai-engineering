@@ -1,7 +1,8 @@
 ---
 name: ai-observe
 description: "Observes session corrections, recoveries, and workflow patterns silently, then consolidates them into project-local observations on demand. Trigger for 'start observing', 'learn from this session', 'consolidate observations', 'review what was learned', 'observe this session'. Listening mode is passive; review mode extracts and writes. Not for cross-project learning; use /ai-learn instead. Not for skill rewrites; use /ai-skill-tune instead."
-effort: medium
+effort: mid
+model_tier: sonnet
 argument-hint: "[--review]"
 tags: [meta, learning, continuous-improvement, observe]
 ---

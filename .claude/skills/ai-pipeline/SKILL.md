@@ -1,7 +1,8 @@
 ---
 name: ai-pipeline
 description: "Generates, evolves, and validates CI/CD pipelines for GitHub Actions or Azure Pipelines, enforcing SHA pinning, timeouts, secret handling, and concurrency policy. Trigger for 'set up CI/CD', 'add a deployment pipeline', 'is this workflow secure', 'check workflow policy', 'add a security scan to CI'. Not for running pipelines; that is the CI system's job. Not for governance audits; use /ai-governance instead."
-effort: high
+effort: mid
+model_tier: sonnet
 argument-hint: "generate|evolve|validate|--provider github|azure"
 tags: [ci-cd, github-actions, azure-pipelines, enterprise]
 requires:

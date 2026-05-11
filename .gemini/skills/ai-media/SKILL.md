@@ -1,12 +1,13 @@
 ---
 name: ai-media
 description: "Generates images, videos, and audio via AI models (fal-ai MCP): cheap iteration models, expensive production finals, cost-estimate before generation. Trigger for 'generate an image', 'create a thumbnail', 'make a voiceover', 'AI video', 'text to speech for'. Not for design composition; use /ai-visual instead. Not for animation specs; use /ai-animation instead."
-effort: medium
+effort: mid
 argument-hint: "image|video|audio [description]"
 tags: [media, generation, fal-ai]
 requires:
   mcp:
   - fal-ai
+model_tier: sonnet
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-media/SKILL.md

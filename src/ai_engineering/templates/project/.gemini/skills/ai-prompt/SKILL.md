@@ -1,9 +1,10 @@
 ---
 name: ai-prompt
 description: "Optimizes prompts, system messages, and skill descriptions using explicit-over-implicit, show-do-not-tell, and rationale-embedding techniques. Trigger for 'this prompt is not working', 'optimize this skill description', 'improve triggering', 'rewrite this instruction', 'CSO-optimize'. Pass `--skill name` to optimize any skill's description field. Not for creating new skills; use /ai-create instead. Not for evolving the entire skill body; use /ai-skill-tune instead."
-effort: medium
+effort: mid
 argument-hint: "[text]|--skill [name]"
 tags: [meta, optimization, prompts]
+model_tier: sonnet
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-prompt/SKILL.md

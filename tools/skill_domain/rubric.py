@@ -108,9 +108,12 @@ _DESCRIPTION_MAX_CHARS = 1024
 # Frontmatter fields beyond ``name`` and ``description`` that are common
 # in the live surface but technically violate the Anthropic minimum
 # spec. Treated as INFO (visible, no penalty) for ≤2 extras.
+# ``model_tier`` added by spec-131 D-131-08 (sub-003) so the dispatch
+# economics contract does not bump every shipped SKILL.md down a grade.
 _TOLERATED_EXTRA_FIELDS = frozenset(
     {
         "effort",
+        "model_tier",
         "argument-hint",
         "tags",
         "requires",

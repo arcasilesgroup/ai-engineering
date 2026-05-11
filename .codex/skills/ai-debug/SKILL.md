@@ -1,8 +1,9 @@
 ---
 name: ai-debug
 description: "Diagnoses broken behavior systematically with a 4-phase root-cause loop: test failures, runtime errors, crashes, regressions. Never patches symptoms. Trigger for 'it is not working', 'something broke', 'this used to work', 'I am getting an error', 'CI is failing', 'why is X happening'. Not for adding tests; use /ai-test instead. Not for security findings; use /ai-security instead."
-effort: high
+effort: mid
 argument-hint: "[error description or file:line]"
+model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-debug/SKILL.md

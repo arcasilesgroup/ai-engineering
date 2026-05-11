@@ -1,7 +1,8 @@
 ---
 name: ai-security
 description: "Runs security gates: SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, SBOM generation for compliance, pre-release security verdict. Trigger for 'is this secure', 'audit dependencies', 'check for secrets', 'security report', 'is this package safe', 'compliance review'. Not for governance process; use /ai-governance instead. Not for runtime payload inspection; use prompt-injection-guard hook instead."
-effort: max
+effort: mid
+model_tier: sonnet
 argument-hint: "all|static|deps|secrets|sbom|--fix"
 tags: [security, sast, dependencies, sbom, owasp, enterprise]
 requires:

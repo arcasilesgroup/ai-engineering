@@ -1,9 +1,10 @@
 ---
 name: ai-autopilot
 description: "Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs a single final quality loop (verify+guard+review on full changeset), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship', 'run the backlog', 'execute these GitHub issues', 'process the sprint backlog'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-build instead. Not for ambiguous requirements; use /ai-brainstorm first."
-effort: max
+effort: high
 argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 tags: [orchestration, autonomous, multi-spec, backlog, pipeline, execution, dag, transparency]
+model_tier: opus
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-autopilot/SKILL.md

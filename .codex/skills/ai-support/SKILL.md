@@ -1,8 +1,9 @@
 ---
 name: ai-support
 description: "Investigates customer-reported issues with structure: reproduces, traces to code, documents resolution, builds a searchable knowledge base organized by ticket ID. Trigger for 'a user is reporting that', 'customer complaint', 'support ticket', 'investigate this bug report', 'search past support cases'. Not for production incidents; use /ai-postmortem instead. Not for internal dev bugs; use /ai-debug instead."
-effort: high
+effort: mid
 argument-hint: "start [ticket-id]|find [query]"
+model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-support/SKILL.md

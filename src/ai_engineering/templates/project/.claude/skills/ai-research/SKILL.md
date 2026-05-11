@@ -1,7 +1,8 @@
 ---
 name: ai-research
 description: "External evidence with citations via a 4-tier escalation (local → free MCPs → web → NotebookLM persistent). Every claim sourced [N] or marked [unsourced]. Trigger for 'what does the state of the art say about', 'compare options for', 'find sources on', 'investigate this question', 'research this'. Use for questions whose answer lives OUTSIDE the codebase. Not for codebase exploration; use /ai-explore instead. Not for refactors; use /ai-simplify instead. Not for business-logic debugging; use /ai-debug instead."
-effort: high
+effort: mid
+model_tier: sonnet
 argument-hint: "[query] [--depth quick|standard|deep] [--reuse-notebook=id] [--persist]"
 ---
 

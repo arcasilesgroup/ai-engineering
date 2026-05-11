@@ -1,10 +1,11 @@
 ---
 name: ai-learn
 description: Extracts lessons from merged PR review feedback by analyzing what reviewers caught, identifying missed checks, and writing entries directly to LESSONS.md. Trigger for 'the AI keeps doing X wrong', 'learn from this PR', 'what patterns did reviewers catch', 'update our standards from feedback'. Not for in-session observation; use /ai-observe instead. Not for skill-level rewrites; use /ai-skill-tune instead.
-effort: medium
+effort: mid
 argument-hint: "single [pr]|batch"
 mode: agent
 tags: [meta, learning, continuous-improvement]
+model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-learn/SKILL.md

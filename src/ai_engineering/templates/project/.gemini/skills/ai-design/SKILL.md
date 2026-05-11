@@ -4,6 +4,7 @@ description: "Designs user interfaces and design systems for web, mobile, CLI, a
 effort: high
 argument-hint: "[UI or design task description]"
 tags: [design, ui, ux, design-system, aesthetics]
+model_tier: opus
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-design/SKILL.md

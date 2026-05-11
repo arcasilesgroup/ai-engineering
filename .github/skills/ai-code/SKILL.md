@@ -1,9 +1,10 @@
 ---
 name: ai-code
 description: "Writes production code that satisfies stack-context standards on the first pass: interface-first design, backward-compatibility checks, lightweight self-review. Trigger for 'implement this', 'write the code for', 'add X to Y', 'build this function', 'make this work'. Not for tests; use /ai-test instead. Not for debugging; use /ai-debug instead. Not for refactoring; use /ai-simplify instead."
-effort: high
+effort: mid
 argument-hint: "[task description or file:target]"
 mode: agent
+model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-code/SKILL.md
