@@ -145,8 +145,13 @@ build-backend = "hatchling.build"
 # CVE-2026-44244 affects 3.1.47; 3.1.49 carries the fix. Direct override
 # unblocks the Security Audit `pip-audit` gate without waiting for the
 # upstream semantic-release release.
+#
+# Override transitive urllib3 (pulled via requests / pip-audit / others).
+# CVE-2026-44431 + CVE-2026-44432 affect 2.6.3; 2.7.0 carries the fix.
+# Same Security-Audit unblock pattern as gitpython.
 override-dependencies = [
   "gitpython>=3.1.49",
+  "urllib3>=2.7.0",
 ]
 
 [tool.semantic_release]
