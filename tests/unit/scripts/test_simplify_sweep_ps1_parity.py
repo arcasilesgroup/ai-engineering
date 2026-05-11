@@ -103,7 +103,7 @@ def _invoke(
     env["PATH"] = modified_path
     env["AIENG_PROJECT_ROOT"] = str(tmp_path)
     return subprocess.run(
-        interpreter + [str(script)],
+        [*interpreter, str(script)],
         env=env,
         cwd=str(tmp_path),
         capture_output=True,

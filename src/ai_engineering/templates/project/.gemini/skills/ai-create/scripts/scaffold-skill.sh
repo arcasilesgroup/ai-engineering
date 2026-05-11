@@ -52,11 +52,15 @@ fi
 mkdir -p "${SKILL_DIR}/handlers" "${SKILL_DIR}/scripts"
 
 # Create stub SKILL.md with frontmatter template
+# spec-131 closure sweep (review-H2): effort vocabulary is {cheap, mid,
+# high}; ``model_tier`` is mandatory (D-131-08). New skills default to
+# ``mid`` + ``sonnet`` — narrow these only after measuring real cost.
 cat > "${SKILL_DIR}/SKILL.md" << TEMPLATE
 ---
 name: ${SKILL_FRONTMATTER_NAME}
 description: "Use when [describe triggering conditions]. Trigger for '[example user phrases]'."
-effort: medium
+effort: mid
+model_tier: sonnet
 argument-hint: "[expected arguments]"
 ---
 

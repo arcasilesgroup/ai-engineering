@@ -221,7 +221,16 @@ def _is_whitelisted(tool_name: str, content: str) -> str | None:
 # spec-131 sub-004 T-4.B / D-131-11: positive allow-list of read-only
 # commands that legitimately bypass the IOC scan when invoked by a
 # Task-tool sub-agent. The main thread still runs the full scan.
-_SUBAGENT_READONLY_CMDS: frozenset[str] = frozenset({"rg", "grep", "find", "ls", "cat"})
+#
+# spec-131 closure sweep (review-H1): ``cat`` is intentionally OMITTED
+# from this allow-list. The lane was designed for read-only PROBES
+# (``rg`` / ``grep`` / ``find`` / ``ls`` — discovery primitives) and
+# ``cat`` is the highest-value exfiltration primitive a sub-agent can
+# wield to leak arbitrary file content while bypassing the IOC scan.
+# Removing it forces ``cat`` invocations through the full IOC veto
+# path so ``sensitive_paths`` / ``sensitive_env_vars`` still apply.
+# Regression test: ``tests/unit/hooks/test_prompt_injection_guard_subagent_lane.py``.
+_SUBAGENT_READONLY_CMDS: frozenset[str] = frozenset({"rg", "grep", "find", "ls"})
 _SUBAGENT_SHELL_META: frozenset[str] = frozenset({"|", ";", "&&", "||", ">", ">>", "<", "<<", "&"})
 _SUBAGENT_FIND_DESTRUCTIVE: frozenset[str] = frozenset(
     {"-delete", "-exec", "-execdir", "-ok", "-okdir"}

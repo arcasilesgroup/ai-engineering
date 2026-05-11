@@ -23,6 +23,7 @@ The hook never blocks ``Stop``; failures degrade silently.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import sqlite3
@@ -192,10 +193,8 @@ def _bump_ralph_state(
         "active": not exhausted,
     }
     write_json(path, payload)
-    try:
+    with contextlib.suppress(OSError):
         path.chmod(0o600)
-    except OSError:
-        pass
     return payload
 
 
@@ -254,10 +253,8 @@ def _ralph_increment_retry(
         "source": "convergence",
     }
     write_json(path, payload)
-    try:
+    with contextlib.suppress(OSError):
         path.chmod(0o600)
-    except OSError:
-        pass
     return retries
 
 
@@ -271,10 +268,8 @@ def _delete_ralph_state(project_root: Path) -> None:
     """
     path = ralph_resume_path(project_root)
     if path.exists():
-        try:
+        with contextlib.suppress(OSError):
             path.unlink()
-        except OSError:
-            pass
 
 
 def _emit_reinjection(
@@ -637,19 +632,14 @@ def main() -> None:
     }
     cp_path = checkpoint_path(project_root)
     write_json(cp_path, checkpoint_payload)
-    try:
+    with contextlib.suppress(OSError):
         cp_path.chmod(0o600)
-    except OSError:
-        pass
 
     incomplete, reason = _looks_incomplete(history)
     raw_prompt = ctx.data.get("user_prompt") or ctx.data.get("prompt")
-    if isinstance(raw_prompt, str):
-        # Redact before truncation: the 1000-char window is enough to leak an
-        # accidentally pasted env export or curl command otherwise.
-        last_prompt = redact(raw_prompt)[:1000]
-    else:
-        last_prompt = None
+    # Redact before truncation: the 1000-char window is enough to leak an
+    # accidentally pasted env export or curl command otherwise.
+    last_prompt = redact(raw_prompt)[:1000] if isinstance(raw_prompt, str) else None
 
     ralph_state: dict | None = None
     if incomplete and reason:

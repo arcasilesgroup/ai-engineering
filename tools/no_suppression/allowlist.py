@@ -150,9 +150,7 @@ def _entry_matches(finding: Finding, entry: AllowlistEntry) -> bool:
     if not _file_matches(finding.path, entry.path_glob):
         return False
     # rule may be exact (``python:S5852``) or wildcard (``*``).
-    if entry.rule_id != "*" and entry.rule_id != finding.rule_target:
-        return False
-    return True
+    return not (entry.rule_id != "*" and entry.rule_id != finding.rule_target)
 
 
 def evaluate(

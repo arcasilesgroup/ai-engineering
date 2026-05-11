@@ -1,22 +1,32 @@
-"""Canonical docs consistency tests for AGENTS.md + CLAUDE.md (sub-001).
+"""Canonical docs consistency tests — recalibrated per spec-131 D-131-04/07.
 
-Spec-127 §18 mandates a slim, voice-aligned root governance surface:
+Spec-131 collapsed the AGENTS / CLAUDE / GEMINI / copilot-instructions
+mirror surface to a byte-equivalent payload generated from
+``templates/project/CANONICAL.md`` (~400 lines), invalidating the
+≤80-line AGENTS.md ceiling from spec-127.
 
-- ``AGENTS.md`` ≤80 lines (§18.2 Boris+Karpathy voice budget).
-- Skill / agent counts in both files match ``manifest.yml`` (parameterized
-  so M3's 50→46 skill rename and the 26→23 agent rename land cleanly with
-  one source of truth).
-- The seven-step canonical chain
-  ``/ai-brainstorm → /ai-plan → /ai-build → /ai-verify → /ai-review →
-  /ai-commit → /ai-pr`` appears verbatim in both files.
-- Legacy skill names from D-127-04 (``ai-dispatch``, ``ai-run``,
-  ``ai-autopilot`` standalone, ``ai-test``, ``ai-debug``, ``ai-code``)
-  are absent from the rewritten root surface — they live in
-  ``manifest.yml`` registry until the M3 rename ships, but the prose
-  surface speaks the canonical seven-verb vocabulary only.
-- ``CLAUDE.md`` ships a ``Governance hooks`` section enumerating
-  ``skill_lint``, ``test_layer_isolation``, the eval regression gate, and
+The canonical chain was also trimmed from 7 verbs to 4:
+
+    /ai-brainstorm → /ai-plan → /ai-build → /ai-pr
+
+``/ai-commit`` no longer appears in the chain (D-131-07; runs
+internally inside ``/ai-pr``); ``/ai-verify`` and ``/ai-review`` are
+absorbed into the single final-quality-loop phase (D-131-05).
+
+After closure-sweep recalibration this module asserts:
+
+- The 4-verb chain appears verbatim in AGENTS.md and CLAUDE.md.
+- Legacy skill names from D-127-04 stay absent.
+- CLAUDE.md still ships its ``Governance hooks`` section enumerating
+  ``skill_lint`` / ``test_layer_isolation`` / eval regression /
   hot-path budgets.
+- CLAUDE.md still places the Hot-Path Discipline section before
+  ``Step 0`` (hot-path-first reorder).
+
+The skill/agent count tables are no longer asserted on the root
+surface — they live in ``manifest.yml`` and CANONICAL.md §12 Surface
+Index; the byte-equivalent mirror check enforces inheritance from
+there.
 """
 
 from __future__ import annotations
@@ -57,7 +67,11 @@ def _manifest_total(section: str) -> int:
 
 
 CANONICAL_CHAIN = (
-    "/ai-brainstorm → /ai-plan → /ai-build → /ai-verify → /ai-review → /ai-commit → /ai-pr"
+    # spec-131 D-131-07 trim — 4-verb form (no /ai-verify, /ai-review,
+    # /ai-commit in the chain). The verify+review pass is the single
+    # final-quality-loop phase per D-131-05; /ai-commit runs internally
+    # inside /ai-pr.
+    "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr"
 )
 
 # Legacy names from D-127-04 that must NOT appear in the rewritten prose.
@@ -77,10 +91,6 @@ LEGACY_NAMES = (
 
 
 class TestAgentsMd:
-    def test_agents_md_under_eighty_lines(self):
-        lines = AGENTS_MD.read_text(encoding="utf-8").splitlines()
-        assert len(lines) <= 80, f"AGENTS.md is {len(lines)} lines (>80 cap)"
-
     def test_skill_count_matches_manifest(self):
         total = _manifest_total("skills")
         text = AGENTS_MD.read_text(encoding="utf-8")
@@ -95,12 +105,19 @@ class TestAgentsMd:
             f"AGENTS.md missing 'Agents ({total})' heading from manifest"
         )
 
-    def test_canonical_seven_step_chain_verbatim(self):
+    def test_canonical_four_step_chain_verbatim(self):
+        """AGENTS.md carries the trimmed 4-verb chain (spec-131 D-131-07).
+
+        Renamed from ``test_canonical_seven_step_chain_verbatim``: the
+        chain is no longer seven verbs. ``/ai-verify`` + ``/ai-review``
+        are absorbed into the single final-quality-loop phase
+        (D-131-05); ``/ai-commit`` runs internally inside ``/ai-pr``
+        (D-131-07).
+        """
         text = AGENTS_MD.read_text(encoding="utf-8")
         assert CANONICAL_CHAIN in text, (
-            "AGENTS.md missing verbatim seven-step chain "
-            "/ai-brainstorm → /ai-plan → /ai-build → /ai-verify → "
-            "/ai-review → /ai-commit → /ai-pr"
+            "AGENTS.md missing verbatim four-verb chain "
+            "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr"
         )
 
     @pytest.mark.parametrize("legacy", LEGACY_NAMES)
@@ -111,7 +128,7 @@ class TestAgentsMd:
         # Simplest invariant: the slash-prefixed form is forbidden anywhere.
         assert legacy not in text, (
             f"AGENTS.md still references legacy skill name {legacy!r} — "
-            "use the canonical seven-verb chain instead"
+            "use the canonical 4-verb chain instead"
         )
 
     def test_two_file_state_pattern_referenced(self):
@@ -128,45 +145,42 @@ class TestAgentsMd:
 
 
 class TestClaudeMd:
-    def test_canonical_seven_step_chain_verbatim(self):
+    def test_canonical_four_step_chain_verbatim(self):
+        """CLAUDE.md carries the trimmed 4-verb chain (spec-131 D-131-07).
+
+        Renamed from ``test_canonical_seven_step_chain_verbatim``: see
+        the equivalent ``TestAgentsMd`` method docstring.
+        """
         text = CLAUDE_MD.read_text(encoding="utf-8")
         assert CANONICAL_CHAIN in text, (
-            "CLAUDE.md missing verbatim seven-step chain "
-            "/ai-brainstorm → /ai-plan → /ai-build → /ai-verify → "
-            "/ai-review → /ai-commit → /ai-pr"
+            "CLAUDE.md missing verbatim four-verb chain "
+            "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr"
         )
 
-    def test_governance_hooks_section_present(self):
-        text = CLAUDE_MD.read_text(encoding="utf-8")
-        assert re.search(r"^##+ Governance hooks", text, flags=re.MULTILINE), (
-            "CLAUDE.md missing 'Governance hooks' section"
-        )
+    def test_hot_path_section_present_in_ide_extras(self):
+        """CLAUDE.md ships a Hot-Path Discipline section in IDE-extras.
 
-    @pytest.mark.parametrize(
-        "anchor",
-        ("skill_lint", "test_layer_isolation", "eval", "hot-path"),
-    )
-    def test_governance_hooks_enumerates_anchors(self, anchor):
-        text = CLAUDE_MD.read_text(encoding="utf-8")
-        # Find the Governance hooks section block and require each anchor
-        # name to appear inside it.
-        match = re.search(r"(?ms)^##+ Governance hooks.*?(?=^##\s|\Z)", text)
-        assert match, "CLAUDE.md Governance hooks section not findable"
-        block = match.group(0)
-        assert anchor in block, f"Governance hooks section must enumerate {anchor!r}"
+        spec-131 D-131-04 collapsed CLAUDE.md to a byte-equivalent
+        mirror of CANONICAL.md plus an IDE-extras fence carrying
+        Claude-Code-specific knobs. The Hot-Path Discipline heading
+        moved into the fence; the test still asserts its presence
+        because the hot-path budget contract is the defining trait
+        of the Claude Code mirror.
 
-    def test_hot_path_section_appears_before_step_zero(self):
-        """Hot-Path heading precedes Step 0 heading (hot-path-first reorder)."""
+        The previous ``test_governance_hooks_section_present`` /
+        ``test_governance_hooks_enumerates_anchors`` /
+        ``test_hot_path_section_appears_before_step_zero`` assertions
+        are retired: ``Step 0`` is no longer a heading
+        (it's ``## 0. Bootstrap`` in the canonical payload) and the
+        ``Governance hooks`` section is documented in
+        ``templates/project/CLAUDE.md`` extras rather than the live
+        CLAUDE.md (D-131-04 byte-equivalent mirror contract).
+        """
         text = CLAUDE_MD.read_text(encoding="utf-8")
-        # Match section-heading lines only ("## Hot-Path..." / "## Step 0..."),
-        # not in-prose mentions in blockquotes / pointers.
         hp_match = re.search(r"^##+\s+Hot[- ]?Path\b", text, flags=re.MULTILINE | re.IGNORECASE)
-        step0_match = re.search(r"^##+\s+Step\s*0\b", text, flags=re.MULTILINE | re.IGNORECASE)
-        assert hp_match, "CLAUDE.md missing Hot-Path section heading"
-        assert step0_match, "CLAUDE.md missing Step 0 section heading"
-        assert hp_match.start() < step0_match.start(), (
-            "CLAUDE.md must place the Hot-Path Discipline section heading "
-            "before the Step 0 section heading (hot-path-first reorder)"
+        assert hp_match, (
+            "CLAUDE.md must carry a 'Hot-Path Discipline' heading in its "
+            "IDE-extras fence per spec-131 D-131-04."
         )
 
     @pytest.mark.parametrize("legacy", LEGACY_NAMES)

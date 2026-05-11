@@ -61,16 +61,38 @@ migration per Non-Goal #10):
 
 6. **Trusted-script lane (D-131-12)** — scripts hash-pinned in
    `.ai-engineering/state/hooks-manifest.json` bypass RTK rewriting and
-   IOC re-evaluation. `session_bootstrap.py` is the first registered
-   entry. New scripts requiring the lane register via
+   IOC re-evaluation. The trusted-script lane mechanism shipped this
+   wave; `session_bootstrap.py` enrolment is deferred to a follow-up
+   sweep (closure note: the manifest currently registers only
+   `no-verify-guard.py`; the `trustedArgvs` array is empty pending the
+   bootstrap entry being added together with its sha256). New scripts
+   requiring the lane register via
    `.ai-engineering/scripts/regenerate-hooks-manifest.py --add-trusted
    <path>`.
 
 7. **Sub-agent policy lane (D-131-11)** — read-only commands (`rg`,
-   `grep`, `find`, `ls`, `cat` without redirect) clear an explicit
-   allow-list before IOC pattern matching. Integrity-mode denials on
-   sub-agent read-only probes now exit silently with a structured
-   warning instead of denying. IOC retains veto on the residual.
+   `grep`, `find`, `ls` without redirect) clear an explicit allow-list
+   before IOC pattern matching. `cat` was deliberately REMOVED from
+   the allow-list in the spec-131 closure sweep (review-H1): `cat` is
+   the highest-value exfiltration primitive and the lane was scoped
+   to read-only PROBES, not arbitrary file content extraction. IOC
+   retains veto on every residual command.
+
+   **B5 risk-accept note (option a, D-131-11 deviation).** The
+   `.claude/settings.json` deny rules retain the narrower 4-verb glob
+   set (`Bash(git commit*--no-verify*)`,
+   `Bash(git push*--no-verify*)`, `Bash(git merge*--no-verify*)`,
+   `Bash(git rebase*--no-verify*)`) rather than introducing a shlex
+   matcher inside `settings.json`. The runtime
+   `no-verify-guard.py` PreToolUse hook performs the canonical
+   shlex-tokenisation + env-var-prefix stripping + verb gating; the
+   narrower globs are belt-and-suspenders second-line defence. Net
+   behaviour is functionally equivalent to a literal in-settings
+   shlex matcher: any `git <verb> ... --no-verify` invocation is
+   denied at hook-time before the deny rules even apply. This
+   deviation from spec text §M6 is accepted for spec-131 ship; the
+   shlex matcher in `settings.json` itself remains an open follow-up
+   if Claude Code ever surfaces a richer matcher grammar.
 
 8. **Antigravity audit row (D-131-18 closes G6)** — `/ai-ide-audit`
    IDE matrix gains an Antigravity column. Advisory only in this

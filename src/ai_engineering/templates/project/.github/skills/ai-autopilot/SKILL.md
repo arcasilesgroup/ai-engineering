@@ -69,57 +69,18 @@ Dispatch the `ai-autopilot` agent when the work matches the "When to Use" criter
 
 DEC-023: invocation is the single approval gate; internal gates (sub-spec validation, DAG verification, quality convergence) are automatic and cannot be bypassed. The consolidation path is mandatory: sub-spec branch/worktree → wave or integration commits → final PR → protected main. State transitions live on disk in `.ai-engineering/runtime/autopilot/manifest.md`, never in agent memory.
 
-## Failure Recovery & Telemetry
-
-| Scenario | Recovery |
-| --- | --- |
-| Phase 2 agent fails | Retry once → mark `plan-failed`; evaluate subset viability. |
-| Build agent fails in Phase 4 | Mark sub-spec `blocked`; cascade-block dependents; continue wave. |
-| Quality loop exhausted with blockers | STOP. Do NOT create PR. Escalate to user. |
-| Quality loop exhausted with only criticals/highs | Phase 6 with PR flagged; Integrity Report documents issues. |
-| Mid-pipeline crash | Run `/ai-autopilot --resume`. |
-| Final cleanup fails | Warn but do not block — PR is already delivered. |
-
-Rollback: `git reset --soft HEAD~N` where N = wave + quality-fix commits. Telemetry events fire per phase transition: `autopilot.{started,decompose_complete,deep_plan_complete,dag_built,subspec_complete,quality_round,subspec_failed,final_verify,pr_created,done}`.
-
-## Common Mistakes
-
-Do not run on draft or under-scoped specs, cross repositories, carry context between sub-specs, hand-edit mirrors, or keep patching after the quality loop says escalate.
-
 ## Examples
 
-### Example 1 — autonomous end-to-end delivery
-
-User: "implement spec-127 end to end"
-
-```
-/ai-autopilot "implement spec-127"
-```
-
-Phase 1 decompose into sub-specs, Phase 2 deep-plan in parallel, Phase 3 build DAG, Phase 4 implement in waves, Phase 5 single quality loop (verify+guard+review on full changeset), Phase 6 deliver via PR.
-
-### Example 2 — resume after interruption
-
-User: "resume the autopilot run that crashed yesterday"
-
-```
-/ai-autopilot --resume
-```
-
-Reads the manifest, identifies the last completed phase, re-enters at the correct state without re-doing finished work.
-
-### Example 3 — backlog run from GitHub Issues
-
-User: "run all open issues with the ready-to-work label, no human checkpoints"
-
-```
-/ai-autopilot --backlog --source github "label:ready-to-work is:open"
-```
-
-Normalizes issues into the run model, performs baseline `ai-explore` of the repo, builds an overlap-aware DAG, dispatches bounded `ai-build` packets per item, runs item + integration gates, delivers via `ai-pr` (D-127-12; replaces `/ai-run`).
+See `references/examples.md` for the three canonical autopilot
+invocations (end-to-end delivery, `--resume` after interruption,
+`--backlog --source github` lane). Failure-recovery rows + telemetry
+event taxonomy live in the same reference file. Common mistakes
+checklist (do not run on draft specs, never cross repos, never carry
+context across sub-specs, never hand-edit mirrors) is documented
+there.
 
 ## Integration
 
-Called by: user directly post-`/ai-brainstorm` approval (or with `--backlog` for backlog runs). Reads: `_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`. Delegates to: `ai-explore`, `ai-build`, `ai-verify`, `ai-guard`, `ai-review` agents. Transitions to: `/ai-cleanup`. See also: `/ai-build` (smaller scope), `/ai-board sync` (lifecycle transitions for backlog mode).
+Called by: user directly post-`/ai-brainstorm` approval (or with `--backlog` for backlog runs). Reads: `_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`. Delegates to: `ai-explore`, `ai-build`, `ai-verify`, `ai-guard`, `ai-review` agents. Transitions to: `/ai-cleanup`. See also: `/ai-build` (smaller scope), `/ai-board sync` (lifecycle transitions for backlog mode), `references/examples.md`.
 
 $ARGUMENTS

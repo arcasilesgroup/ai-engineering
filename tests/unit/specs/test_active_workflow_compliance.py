@@ -1,20 +1,24 @@
-"""CI guard for spec-123 T-7.4 + Article XIII: active spec workflow contract.
+"""CI guard for active spec workflow contract — recalibrated per spec-131.
 
-Article XIII codifies the single canonical spec lifecycle:
+spec-131 D-131-04 / D-131-07 migrated the AI-behaviour articles
+(including Article XIII — Active Spec Workflow Contract) out of
+CONSTITUTION.md and into CANONICAL.md §11 Canonical Chain. The
+chain itself was trimmed to four verbs:
 
-    /ai-brainstorm -> /ai-plan -> /ai-build | /ai-autopilot -> /ai-pr
-    (post spec-127 D-127-11 — `/ai-dispatch` renamed to `/ai-build`).
+    /ai-brainstorm -> /ai-plan -> /ai-build -> /ai-pr
 
-This test asserts:
+This test asserts (after closure sweep recalibration):
 
-1. CONSTITUTION.md contains the Article XIII title.
+1. CANONICAL.md (the canonical AI-behaviour mirror source) carries
+   the four-verb chain prose so every IDE mirror inherits it.
 2. Each lifecycle skill exists at its canonical path.
-3. Each skill that touches `specs/` references the canonical resolver
-   path `.ai-engineering/specs/spec.md` (not legacy `specs/spec.md`).
+3. Each skill that touches `specs/` references the canonical
+   resolver path `.ai-engineering/specs/spec.md` (not legacy
+   `specs/spec.md`).
 
-The test is intentionally narrow: it only verifies the surface contract
-(article exists + skills exist + canonical path used). Workflow semantics
-are enforced by the skill bodies themselves.
+The Article XIII assertion is retired: the Article number lives in
+git history and CHANGELOG; the runtime contract now lives in
+CANONICAL.md §11.
 """
 
 from __future__ import annotations
@@ -22,7 +26,7 @@ from __future__ import annotations
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-CONSTITUTION = PROJECT_ROOT / "CONSTITUTION.md"
+CANONICAL_MD = PROJECT_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CANONICAL.md"
 SKILLS_ROOT = PROJECT_ROOT / ".claude" / "skills"
 
 LIFECYCLE_SKILLS = (
@@ -35,20 +39,27 @@ LIFECYCLE_SKILLS = (
 
 CANONICAL_SPEC_PATH = ".ai-engineering/specs/spec.md"
 
+# spec-131 D-131-07 canonical chain trim — 4-verb form.
+CANONICAL_CHAIN_FOUR_VERB = "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr"
 
-def test_constitution_has_article_xiii() -> None:
-    assert CONSTITUTION.is_file(), (
-        f"CONSTITUTION.md missing at {CONSTITUTION}. Article XIII must live "
-        "at the repo root per Article V (single source of truth)."
+
+def test_canonical_md_carries_four_verb_chain() -> None:
+    """CANONICAL.md (D-131-04 source-of-truth) carries the trimmed chain.
+
+    spec-131 closure (C1) replaces the legacy ``test_constitution_has_article_xiii``:
+    the canonical chain prose moved out of CONSTITUTION.md when the
+    AI-behaviour articles migrated to CANONICAL.md §11. The byte-equivalent
+    mirrors (AGENTS.md / CLAUDE.md / GEMINI.md / copilot-instructions.md)
+    are validated separately by ``test_canonical_docs_consistency``.
+    """
+    assert CANONICAL_MD.is_file(), (
+        f"CANONICAL.md missing at {CANONICAL_MD}. spec-131 D-131-04 "
+        "requires the canonical AI-behaviour payload to live at this path."
     )
-    body = CONSTITUTION.read_text(encoding="utf-8")
-    assert "Active Spec Workflow Contract" in body, (
-        "CONSTITUTION.md must contain the substring 'Active Spec Workflow "
-        "Contract' (Article XIII title) per spec-123 D-123-07."
-    )
-    assert "Article XIII" in body, (
-        "Article XIII heading missing from CONSTITUTION.md. The article "
-        "title alone is insufficient -- the article number must also appear."
+    body = CANONICAL_MD.read_text(encoding="utf-8")
+    assert CANONICAL_CHAIN_FOUR_VERB in body, (
+        f"CANONICAL.md must carry the verbatim 4-verb chain "
+        f"{CANONICAL_CHAIN_FOUR_VERB!r} per spec-131 D-131-07."
     )
 
 

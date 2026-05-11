@@ -136,9 +136,7 @@ def _manifests_equal(current: dict, existing: dict | None) -> bool:
         return False
     if current.get("trustedScripts", {}) != existing.get("trustedScripts", {}):
         return False
-    if list(current.get("trustedArgvs", [])) != list(existing.get("trustedArgvs", [])):
-        return False
-    return True
+    return list(current.get("trustedArgvs", [])) == list(existing.get("trustedArgvs", []))
 
 
 # Back-compat alias for callers that imported the previous helper name.

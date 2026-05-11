@@ -76,7 +76,7 @@ Dispatch three assessment agents simultaneously. Each gets fresh context. Use th
 - Run the full review protocol on the cached changeset diff.
 - Output: findings with severity, confidence score, and corroboration status.
 
-If all 3 assessment agents fail in this round: retry the round once. If the second attempt also fails: **STOP**. Report the failure and escalate to user. Do not proceed.
+If all 3 assessment agents fail to RUN in this round (operational failure — agent timeout / crash / missing skill file / dispatch error), retry the dispatch once. If the second attempt also fails to RUN: **STOP**. Report the failure and escalate to user. Do not proceed. This is OPERATIONAL retry of the assessment dispatch itself, not a quality-finding retry — Non-Goal #13 forbids retrying the quality loop to chase a clean verdict.
 
 #### Step 2b -- Consolidate Findings
 
@@ -192,7 +192,7 @@ QUALITY LOOP BLOCKED
 
 | Condition | Action |
 |-----------|--------|
-| All 3 assessment agents fail in the round | Retry the round once. If second attempt also fails: STOP and escalate to user. |
+| All 3 assessment agents fail to RUN (operational failure: timeout/crash/missing skill file/dispatch error) | Retry the dispatch once. If second attempt also fails to RUN: STOP and escalate to user. NOT a quality-finding retry — Non-Goal #13. |
 | Partial changeset (blocked sub-specs from Phase 4) | Verify only implemented files. Note gaps in the consolidated findings and the manifest. |
 | Self-Report discrepancy (claimed `real`, found failing) | Reclassify as blocker. Operator must resolve before re-dispatch. |
 | Single assessment agent fails but others succeed | Use available findings. Log the missing assessment. Do not retry the entire round for a single agent failure -- only retry when all 3 fail. |
@@ -204,7 +204,7 @@ The following actions are prohibited during this phase:
 - **Do NOT** weaken severity mappings to force a pass.
 - **Do NOT** skip any of the 3 assessment agents (Verify, Guard, Review). All three run.
 - **Do NOT** proceed to Phase 6 with known blockers remaining.
-- **Do NOT** retry. Single round is the contract; blockers stop the pipeline (spec-131 D-131-05).
+- **Do NOT** retry the quality loop after a CLEAN dispatch returned findings. Single round on the quality outcome is the contract; blockers stop the pipeline (spec-131 D-131-05). The dispatch-level retry above (when all 3 agents fail to RUN) is an operational retry distinct from this quality-finding retry, which is forbidden.
 - **Do NOT** modify assessment agent findings to make them less severe.
 - **Do NOT** use forbidden language in status reports: "should work", "looks good", "probably fine", "seems to", "I think", "most likely".
 - **Do NOT** merge findings in a way that loses information. Every finding must be traceable to its source agent.

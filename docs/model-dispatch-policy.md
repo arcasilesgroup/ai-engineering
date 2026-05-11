@@ -56,7 +56,7 @@ economics rubric: deterministic execution → cheap, synthesis with judgment
 | ai-guide | mid | sonnet | Step-by-step authoring with audience judgment. |
 | ai-ide-audit | high | opus | Cross-IDE matrix audit; architectural posture. |
 | ai-learn | mid | sonnet | Retro synthesis + lesson extraction. |
-| ai-mcp-audit | mid | sonnet | MCP tool surface review. |
+| ai-mcp-audit | high | opus | Security skill: coherence analysis + rug-pull detection vs trusted baseline (spec-107 D-107-08). Elevated to `opus` per spec-131 closure (C2) so judgment quality matches the security-impact ceiling. |
 | ai-media | mid | sonnet | Media synthesis with style judgment. |
 | ai-note | cheap | haiku | Deterministic capture into note store. |
 | ai-observe | mid | sonnet | Telemetry surface review + reporting. |

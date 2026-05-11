@@ -17,6 +17,7 @@ Fail-open: any error degrades silently with a `framework_error` event.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 import sys
@@ -51,10 +52,8 @@ def _emit_failure(project_root: Path, *, session_id: str | None, reason: str) ->
     }
     if session_id:
         event["sessionId"] = session_id
-    try:
+    with contextlib.suppress(Exception):
         emit_event(project_root, event)
-    except Exception:
-        pass
 
 
 def main() -> None:

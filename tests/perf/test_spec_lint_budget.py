@@ -3,7 +3,7 @@
 R-131-13 budget: ≤500 ms wall-time per invocation against the canonical
 ``.ai-engineering/specs/spec.md``. With 25 % CI tolerance per brief
 §14.3, the hard ceiling is 625 ms. Realistic measurement on the
-sub-007 reference machine is ~150 ms so the budget has ~4× headroom.
+sub-007 reference machine is ~150 ms so the budget has ~4x headroom.
 
 The test invokes the CLI in a child process via ``subprocess.run`` so
 import cost is included (mirrors the pre-commit hook invocation path).

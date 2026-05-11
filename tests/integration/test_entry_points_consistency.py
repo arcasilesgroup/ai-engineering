@@ -1,19 +1,26 @@
-"""RED-phase tests for spec-110 Phase 1 — entry-point overlay consistency.
+"""Entry-point overlay consistency — recalibrated per spec-131 D-131-04.
 
-Spec acceptance criteria (governance v3 harvest, Phase 1):
-    1. The IDE-specific entry-point overlays (``CLAUDE.md``, ``GEMINI.md``,
-       ``.github/copilot-instructions.md``) must each reference the
-       canonical multi-IDE rulebook ``AGENTS.md`` via a relative markdown
-       link so every assistant funnels through the same source of truth.
-       Verified by :func:`test_overlays_reference_agents_md`.
-    2. The same overlays must NOT restate numbered hard rules from
-       ``CONSTITUTION.md`` verbatim. Hard rules live ONCE in the
-       Constitution; overlays delegate to it via ``AGENTS.md``.
-       Verified by :func:`test_overlays_no_hard_rules_duplication`.
+spec-110 originally asserted that IDE overlays (CLAUDE.md / GEMINI.md /
+copilot-instructions.md) (a) referenced AGENTS.md via a relative
+markdown link and (b) did NOT restate CONSTITUTION numbered rules
+verbatim. Both contracts are obsolete after spec-131:
 
-Status: RED. Tasks T-1.9..T-1.11 add the AGENTS.md references and slim
-the overlays after ``AGENTS.md`` is refactored in T-1.8. Both tests
-deliberately fail now to drive the GREEN phase.
+* D-131-04 made AGENTS.md / CLAUDE.md / GEMINI.md /
+  copilot-instructions.md **byte-equivalent mirrors** of
+  ``templates/project/CANONICAL.md``. The overlays do not LINK to
+  AGENTS.md; they CARRY the same canonical payload.
+* D-131-04 rescoped CONSTITUTION.md to project-identity only. The
+  "numbered rules" the original test guarded against migrated to
+  CANONICAL.md §13 Hard Rules and the IDE-mirrors carry them
+  verbatim (which is the spec contract, not a violation).
+
+Closure-sweep (C1) replaces the two original assertions with the
+new byte-equivalent contract: each overlay must (a) carry the
+shared CANONICAL.md ``## 0. Bootstrap`` heading prefix (signal that
+the canonical payload was inherited) and (b) avoid the legacy
+``@AGENTS.md`` import (spec-131 D-131-14 D-131-15 anti-goal #10:
+"no backwards-compat shims" — no overlay imports the canonical
+mirror via the legacy include directive).
 """
 
 from __future__ import annotations
@@ -117,125 +124,95 @@ def _extract_constitution_rule_snippets(
     return snippets
 
 
-def test_overlays_reference_agents_md() -> None:
-    """Each IDE overlay contains a relative markdown link to ``AGENTS.md``.
+def test_overlays_carry_canonical_payload() -> None:
+    """Each IDE overlay carries the canonical payload (spec-131 D-131-04).
+
+    Renamed from ``test_overlays_reference_agents_md``: the byte-equivalent
+    mirror contract replaces the legacy link-to-AGENTS.md contract. Every
+    overlay must present the canonical "## 0. Bootstrap" heading prefix so
+    that downstream consumers (humans, IDE bootstraps) find the canonical
+    payload directly inside the overlay rather than chasing a delegation
+    link.
 
     Asserts:
     1. Every overlay file in ``OVERLAY_PATHS`` exists at its expected path.
-    2. Each overlay file contains at least one markdown link whose link
-       text mentions ``AGENTS.md`` and whose target is the relative path
-       ``AGENTS.md`` (optionally prefixed with ``./`` or ``../``).
+    2. Each overlay file contains the literal ``## 0. Bootstrap`` heading
+       (the canonical payload's first §0 anchor).
     """
     missing_files: list[str] = []
-    overlays_without_link: list[str] = []
+    overlays_without_bootstrap: list[str] = []
+    bootstrap_marker = "## 0. Bootstrap"
 
     for overlay_path in OVERLAY_PATHS:
         if not overlay_path.is_file():
             missing_files.append(str(overlay_path.relative_to(REPO_ROOT)))
             continue
-
         content = overlay_path.read_text(encoding="utf-8")
-        if not AGENTS_MD_LINK_RE.search(content):
-            overlays_without_link.append(str(overlay_path.relative_to(REPO_ROOT)))
+        if bootstrap_marker not in content:
+            overlays_without_bootstrap.append(str(overlay_path.relative_to(REPO_ROOT)))
 
     assert not missing_files, (
         "Expected IDE overlay entry points are missing from the repo: "
-        f"{missing_files}. Overlays must exist at the canonical paths so "
-        "they can funnel into AGENTS.md per spec-110 Phase 1."
+        f"{missing_files}. Overlays must exist at the canonical paths per "
+        "spec-131 D-131-04 byte-equivalent mirror contract."
     )
 
-    assert not overlays_without_link, (
-        "Each IDE overlay must contain a relative markdown link to "
-        "AGENTS.md (e.g. '[AGENTS.md](AGENTS.md)' or "
-        "'[AGENTS.md](../AGENTS.md)'). Overlays missing the link: "
-        f"{overlays_without_link}. Refactor them per spec-110 tasks "
-        "T-1.9..T-1.11 to delegate canonical rules to AGENTS.md."
+    assert not overlays_without_bootstrap, (
+        "Each IDE overlay must carry the canonical '## 0. Bootstrap' "
+        "heading inherited from CANONICAL.md (spec-131 D-131-04). Overlays "
+        f"missing the marker: {overlays_without_bootstrap}."
     )
 
 
-def test_overlays_no_hard_rules_duplication() -> None:
-    """No IDE overlay restates a CONSTITUTION numbered rule verbatim.
+def test_overlays_no_legacy_agents_md_import() -> None:
+    """No IDE overlay carries the legacy ``@AGENTS.md`` include directive.
 
-    Spec acceptance criterion (governance v3 harvest, Phase 1):
-        Hard rules live ONCE -- in ``CONSTITUTION.md``. The IDE overlays
-        (``CLAUDE.md``, ``GEMINI.md``, ``.github/copilot-instructions.md``)
-        must delegate to the canonical document via ``AGENTS.md`` rather
-        than copy-pasting numbered rules. Restating a rule verbatim creates
-        drift risk: the overlay can fall out of sync with CONSTITUTION
-        when the latter is amended. Tasks T-1.9..T-1.11 slim each overlay
-        so the duplication is removed.
+    Renamed from ``test_overlays_no_hard_rules_duplication``: under
+    the spec-131 D-131-04 byte-equivalent mirror contract the overlays
+    CARRY the canonical payload (which includes the §13 Hard Rules
+    table) — duplication of that payload across mirrors is the
+    contract, not a violation.
 
-    Algorithm:
-        1. Parse ``CONSTITUTION.md`` and capture every numbered-rule line
-           inside an Article body. For each rule capture both:
-             a. its first :data:`RULE_SNIPPET_LEN` characters of body text
-                (the prose snippet), and
-             b. every distinctive backtick-quoted code span inside the rule
-                (length >= :data:`CODE_SPAN_MIN_LEN`).
-        2. For every overlay in :data:`OVERLAY_PATHS`, perform a
-           case-sensitive verbatim substring search for each prose snippet.
-           Then check whether the overlay restates a rule's code spans
-           (the technical-identifier signal): if it embeds the same
-           backtick-quoted span as the rule, that counts as duplication.
-        3. Fail the test with the full list of violations so authors can
-           remediate every duplication in a single pass.
+    The remaining anti-pattern is the legacy ``@AGENTS.md`` import
+    directive (D-131-14, D-131-15 anti-goal #10 — "no backwards-compat
+    shims"). Mirrors MUST NOT pull canonical content via the legacy
+    include; they must carry it inline as bytes.
 
-    The two-channel match (prose + technical identifier) catches both
-    direct copy-paste and the more common paraphrased duplication where an
-    overlay restates ``--no-verify`` / ``# noqa`` / ``# nosec`` while
-    rewording the surrounding sentence. Tasks T-1.9..T-1.11 strip those
-    sections and replace them with a delegation to ``AGENTS.md`` /
-    ``CONSTITUTION.md``.
+    Note: the spec-131 §14 "Strict Content Contracts" authoring table
+    references the literal ``@AGENTS.md`` token inside its "MUST NOT
+    contain" cells (the table documents the prohibition). The check
+    therefore filters out mentions wrapped in backticks inside a
+    markdown table row so the authoring reference does not falsely
+    flag itself.
     """
-    assert CONSTITUTION_PATH.is_file(), (
-        f"Expected CONSTITUTION.md at {CONSTITUTION_PATH.relative_to(REPO_ROOT)} "
-        "but it is missing. Run task T-1.4 (governance baseline harvest)."
-    )
-
-    constitution_text = CONSTITUTION_PATH.read_text(encoding="utf-8")
-    rule_snippets = _extract_constitution_rule_snippets(constitution_text)
-
-    assert rule_snippets, (
-        "Failed to extract any numbered rules from CONSTITUTION.md. "
-        "Ensure articles use the '## Article <Roman> — <Title>' header "
-        "and that rules are formatted as '<digit>. <text>' lines."
-    )
-
     violations: list[str] = []
+
+    # Match any occurrence of ``@AGENTS.md`` that is NOT wrapped in
+    # backticks inside a markdown table cell. The forbidden form is
+    # the literal include directive (``@AGENTS.md``) appearing as
+    # actionable prose, not as a code-spanned reference inside the
+    # authoring-contract table.
+    forbidden_re = re.compile(r"(?<!`)@AGENTS\.md(?!`)")
 
     for overlay_path in OVERLAY_PATHS:
         if not overlay_path.is_file():
-            # Missing files are reported by ``test_overlays_reference_agents_md``;
-            # skip them here to keep this test focused on duplication.
+            # Missing files are reported by ``test_overlays_carry_canonical_payload``;
+            # skip them here to keep this test focused.
             continue
         overlay_rel = str(overlay_path.relative_to(REPO_ROOT))
         overlay_text = overlay_path.read_text(encoding="utf-8")
-        for article_label, snippet, code_spans in rule_snippets:
-            # Prose channel: first ~40 chars of the rule appear verbatim.
-            if snippet in overlay_text:
-                violations.append(
-                    f"{overlay_rel}: duplicates rule from {article_label!r} "
-                    f"prose (first {len(snippet)} chars: {snippet!r})"
-                )
-            # Technical-identifier channel: a distinctive backtick-quoted
-            # code span from the rule is restated in the overlay (also as a
-            # backtick-quoted span). We require the same backtick wrapping
-            # so that incidental mentions of common words inside a longer
-            # phrase do not trigger -- only deliberate code references do.
-            for span in code_spans:
-                if f"`{span}`" in overlay_text:
-                    violations.append(
-                        f"{overlay_rel}: restates code identifier "
-                        f"`{span}` from rule in {article_label!r}"
-                    )
+        if forbidden_re.search(overlay_text):
+            violations.append(
+                f"{overlay_rel}: carries forbidden '@AGENTS.md' import "
+                f"directive (spec-131 D-131-14 anti-goal #10)."
+            )
 
     assert not violations, (
-        "IDE overlays must not restate CONSTITUTION numbered rules "
-        "verbatim. Each overlay should delegate to AGENTS.md / "
-        "CONSTITUTION.md instead of copy-pasting hard rules or their "
-        f"distinctive technical identifiers. Found {len(violations)} "
-        "duplication(s):\n  - "
+        "IDE overlays must not import canonical content via the legacy "
+        "'@AGENTS.md' include directive. The byte-equivalent mirror "
+        "contract requires the canonical payload to live inline as bytes. "
+        f"Found {len(violations)} violation(s):\n  - "
         + "\n  - ".join(violations)
-        + "\nRemove the duplicated text per spec-110 tasks "
-        "T-1.9..T-1.11."
+        + "\nInline the canonical payload via scripts/sync_mirrors per "
+        "spec-131 D-131-04."
     )

@@ -20,9 +20,19 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
+# spec-131 D-131-04 / closure-sweep C1: TDD + SDD + proof-before-done
+# migrated out of CONSTITUTION.md (now project-identity-only) into
+# CANONICAL.md §10.5 / §10.6 / §10.7 first-class engineering
+# principles. The canonical source lives in
+# ``templates/project/CANONICAL.md`` and its byte-equivalent mirrors
+# at the repo root (AGENTS.md / CLAUDE.md / GEMINI.md /
+# copilot-instructions.md). Any mirror suffices because the bytes
+# match — we check the canonical source plus AGENTS.md so a missing
+# mirror also surfaces here.
 ROOT_CONSTITUTION = REPO_ROOT / "CONSTITUTION.md"
-FRAMEWORK_CONSTITUTION = REPO_ROOT / ".ai-engineering" / "CONSTITUTION.md"
-GOVERNANCE_PATHS: tuple[Path, ...] = (ROOT_CONSTITUTION, FRAMEWORK_CONSTITUTION)
+CANONICAL_MD = REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CANONICAL.md"
+AGENTS_MD = REPO_ROOT / "AGENTS.md"
+GOVERNANCE_PATHS: tuple[Path, ...] = (ROOT_CONSTITUTION, CANONICAL_MD, AGENTS_MD)
 
 CORE_OPERATIONAL_SURFACE_PATHS: tuple[Path, ...] = (
     REPO_ROOT / ".claude" / "skills" / "ai-code" / "SKILL.md",
@@ -54,6 +64,12 @@ HARD_RULE_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
         re.compile(r"\bverify before done\b", re.IGNORECASE),
         re.compile(r"\bevidence before claims\b", re.IGNORECASE),
         re.compile(r"\bverification-before-done\b", re.IGNORECASE),
+        # spec-131 D-131-04 / closure-sweep C1: principle migrated to
+        # CANONICAL.md §4 "Goal-Driven Execution" which cites
+        # "Boris Verification Before Done" (no hyphen) as the canonical
+        # principle anchor.
+        re.compile(r"\bVerification Before Done\b"),
+        re.compile(r"\bGoal-Driven Execution\b"),
     ),
 }
 

@@ -187,7 +187,7 @@ def _paired_lifecycle_partner(stem: str) -> tuple[str, str] | None:
         expected_partner_verb = "stop"
     else:
         expected_partner_verb = _R3_PAIRS[last]
-    partner_stem = "-".join(tokens[:-1] + [expected_partner_verb])
+    partner_stem = "-".join([*tokens[:-1], expected_partner_verb])
     return last, partner_stem
 
 

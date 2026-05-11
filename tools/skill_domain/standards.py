@@ -233,7 +233,9 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
         ),
         LegacyRetirementFamily(
             family_id="manual-instruction-families",
-            title="Manual instruction families retired with .github/instructions surface (spec-128)",
+            title=(
+                "Manual instruction families retired with .github/instructions surface (spec-128)"
+            ),
             sequence=20,
             status=LegacyRetirementStatus.RETIRED,
             replacement_owner="HX-03/HX-12",
@@ -246,7 +248,10 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
                 ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx03_t5_3_focused_end_to_end_proof.md",
                 ".ai-engineering/specs/spec.md",  # spec-128
             ),
-            rollback="Restore .github/instructions/*.instructions.md and re-add Surface 6 in scripts/sync_mirrors/core.py.",
+            rollback=(
+                "Restore .github/instructions/*.instructions.md and re-add "
+                "Surface 6 in scripts/sync_mirrors/core.py."
+            ),
         ),
         LegacyRetirementFamily(
             family_id="harness-gate-families",

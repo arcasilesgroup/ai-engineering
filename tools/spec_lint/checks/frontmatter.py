@@ -137,18 +137,17 @@ def check_frontmatter(spec_path: Path) -> list[CheckResult]:
             )
 
     for enum_field, allowed in ENUMS.items():
-        if fields.get(enum_field):
-            if fields[enum_field] not in allowed:
-                results.append(
-                    CheckResult(
-                        "frontmatter_invalid_enum",
-                        "BLOCKER",
-                        (
-                            f"frontmatter '{enum_field}' value "
-                            f"{fields[enum_field]!r} not in {sorted(allowed)}"
-                        ),
-                    )
+        if fields.get(enum_field) and fields[enum_field] not in allowed:
+            results.append(
+                CheckResult(
+                    "frontmatter_invalid_enum",
+                    "BLOCKER",
+                    (
+                        f"frontmatter '{enum_field}' value "
+                        f"{fields[enum_field]!r} not in {sorted(allowed)}"
+                    ),
                 )
+            )
 
     for key in sorted(fields):
         if key in REQUIRED_FIELDS or key in EXTRAS_ALLOWLIST:

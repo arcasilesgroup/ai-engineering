@@ -31,17 +31,23 @@ Allow-list:
 from __future__ import annotations
 
 import argparse
+import importlib
 import re
 import sys
 from pathlib import Path
 
 # Re-use the policy loader from the effort lint check so the SSOT lives
 # in exactly one place (DRY §10.4). The script is invoked from the repo
-# root so ``tools/`` resolves via ``sys.path``.
+# root so ``tools/`` resolves via ``sys.path``. We defer the import via
+# ``importlib`` instead of a top-level ``from … import …`` because
+# ``tools/`` is not on ``sys.path`` at module-load time — the path
+# extension below must run first. Using ``importlib`` keeps the import
+# call at module scope (no E402 trigger) and avoids the no-suppression
+# violation flagged in spec-131 closure sweep.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(_REPO_ROOT / "tools"))
 
-from skill_lint.checks.effort import load_policy  # noqa: E402
+load_policy = importlib.import_module("skill_lint.checks.effort").load_policy
 
 # IDE mirrors walked by the script. Order matters only for log
 # determinism — the migration shape is identical per mirror.

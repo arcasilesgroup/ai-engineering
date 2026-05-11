@@ -117,13 +117,19 @@ def _build_parser() -> argparse.ArgumentParser:
         "--hooks-root",
         type=Path,
         default=_DEFAULT_HOOKS_ROOT,
-        help="Path to the hooks directory for naming R2/R3/R5 (default: .ai-engineering/scripts/hooks).",
+        help=(
+            "Path to the hooks directory for naming R2/R3/R5 "
+            "(default: .ai-engineering/scripts/hooks)."
+        ),
     )
     parser.add_argument(
         "--scheduled-root",
         type=Path,
         default=_DEFAULT_SCHEDULED_ROOT,
-        help="Path to the scheduled directory for naming R4/R5 (default: .ai-engineering/scripts/scheduled).",
+        help=(
+            "Path to the scheduled directory for naming R4/R5 "
+            "(default: .ai-engineering/scripts/scheduled)."
+        ),
     )
     parser.add_argument(
         "--policy-path",

@@ -218,6 +218,155 @@ def _is_whitelisted(tool_name: str, content: str) -> str | None:
     return None
 
 
+# spec-131 sub-004 T-4.B / D-131-11: positive allow-list of read-only
+# commands that legitimately bypass the IOC scan when invoked by a
+# Task-tool sub-agent. The main thread still runs the full scan.
+#
+# spec-131 closure sweep (review-H1): ``cat`` is intentionally OMITTED
+# from this allow-list. The lane was designed for read-only PROBES
+# (``rg`` / ``grep`` / ``find`` / ``ls`` — discovery primitives) and
+# ``cat`` is the highest-value exfiltration primitive a sub-agent can
+# wield to leak arbitrary file content while bypassing the IOC scan.
+# Removing it forces ``cat`` invocations through the full IOC veto
+# path so ``sensitive_paths`` / ``sensitive_env_vars`` still apply.
+# Regression test: ``tests/unit/hooks/test_prompt_injection_guard_subagent_lane.py``.
+_SUBAGENT_READONLY_CMDS: frozenset[str] = frozenset({"rg", "grep", "find", "ls"})
+_SUBAGENT_SHELL_META: frozenset[str] = frozenset({"|", ";", "&&", "||", ">", ">>", "<", "<<", "&"})
+_SUBAGENT_FIND_DESTRUCTIVE: frozenset[str] = frozenset(
+    {"-delete", "-exec", "-execdir", "-ok", "-okdir"}
+)
+
+
+# spec-131 sub-004 T-4.F / D-131-12: trusted-script lane.
+#
+# Dual-key enforcement (literal argv match + script bytes match) closes
+# two bypass vectors:
+#   1. ``bash -c "python3 trusted.py"`` — the inner command runs in a
+#      subshell so the literal-argv match fails, denying the bypass.
+#   2. Byte modification of ``trusted.py`` — sha256 in ``trustedScripts``
+#      changes, the integrity check fails, drift is surfaced as a
+#      framework_error.
+#
+# ``_TRUSTED_SCRIPT_DRIFT_SENTINEL`` is a non-empty constant returned
+# when argv matches a trusted entry but the underlying bytes have
+# drifted, so callers can distinguish a clean miss (None) from a
+# tampered match.
+_TRUSTED_SCRIPT_DRIFT_SENTINEL: str = "__trusted_script_drift__"
+
+
+def _load_trusted_argvs(project_root: Path) -> list[str]:
+    """Return the ``trustedArgvs`` list from ``hooks-manifest.json``.
+
+    Fail-open: any I/O / parse failure returns an empty list — a missing
+    or malformed manifest must never crash the host hook.
+    """
+    manifest_path = project_root / ".ai-engineering" / "state" / "hooks-manifest.json"
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    argvs = payload.get("trustedArgvs") or []
+    if not isinstance(argvs, list):
+        return []
+    return [str(x) for x in argvs if isinstance(x, str) and x]
+
+
+def _resolve_trusted_script_path(content: str, project_root: Path) -> Path | None:
+    """Resolve the script path from a trusted argv form.
+
+    Trusted argv forms are ``python3 <relative-path>`` shapes. The helper
+    parses tokens and returns the absolute path to the candidate script
+    so the integrity check can verify its bytes. Returns ``None`` when
+    parsing fails or the path does not resolve to a regular file.
+    """
+    try:
+        tokens = shlex.split(content)
+    except ValueError:
+        return None
+    candidate: str | None = None
+    for token in tokens:
+        if token.endswith(".py") and not token.startswith("-"):
+            candidate = token
+            break
+    if not candidate:
+        return None
+    abs_path = (project_root / candidate).resolve()
+    if not abs_path.is_file():
+        return None
+    return abs_path
+
+
+def _is_trusted_script_argv(content: str, project_root: Path) -> str | None:
+    """Return the matched trusted argv, the drift sentinel, or None.
+
+    Contract (spec-131 sub-004 D-131-12):
+    1. ``content`` MUST literally equal one of the entries in
+       ``trustedArgvs`` (post strip()). No wildcard, no prefix match —
+       this closes the ``bash -c "..."`` and "extra args" bypasses.
+    2. The corresponding script path MUST resolve to a file whose
+       sha256 matches the ``trustedScripts`` entry.
+    3. On a clean match -> return the matched argv string.
+    4. On argv match + bytes drift -> return
+       :data:`_TRUSTED_SCRIPT_DRIFT_SENTINEL` so the caller can emit a
+       distinct framework_error (drift) instead of a clean bypass.
+    5. No match -> ``None``.
+    """
+    if not content:
+        return None
+    stripped = content.strip()
+    if not stripped:
+        return None
+    trusted_argvs = _load_trusted_argvs(project_root)
+    if stripped not in trusted_argvs:
+        return None
+    script_path = _resolve_trusted_script_path(stripped, project_root)
+    if script_path is None:
+        return _TRUSTED_SCRIPT_DRIFT_SENTINEL
+    try:
+        from _lib.integrity import verify_trusted_script
+    except Exception:
+        return _TRUSTED_SCRIPT_DRIFT_SENTINEL
+    ok, _reason = verify_trusted_script(script_path, project_root)
+    if not ok:
+        return _TRUSTED_SCRIPT_DRIFT_SENTINEL
+    return stripped
+
+
+def _is_subagent_readonly(content: str) -> str | None:
+    """Return the matched argv0 when ``content`` is a clear read-only command.
+
+    Contract (spec-131 sub-004 E-3):
+    1. Parse via ``shlex.split``; malformed quoting -> None (fail-closed).
+    2. ``argv[0]`` must be in :data:`_SUBAGENT_READONLY_CMDS`.
+    3. No shell metacharacter token (``|``, ``;``, ``&&``, ``>``, ...).
+    4. ``find`` must not carry destructive predicates
+       (``-delete``, ``-exec``, ``-execdir``, ``-ok``, ``-okdir``).
+
+    Returns the matched argv0 (for telemetry) on success, ``None`` otherwise.
+    """
+    if not content:
+        return None
+    try:
+        tokens = shlex.split(content)
+    except ValueError:
+        return None
+    if not tokens:
+        return None
+    argv0 = tokens[0]
+    if argv0 not in _SUBAGENT_READONLY_CMDS:
+        return None
+    for token in tokens:
+        if token in _SUBAGENT_SHELL_META:
+            return None
+    if argv0 == "find":
+        for token in tokens:
+            if token in _SUBAGENT_FIND_DESTRUCTIVE:
+                return None
+    return argv0
+
+
 def _is_test_fixture_target(tool_name: str, tool_input: dict) -> str | None:
     """Return the file_path when Write/Edit targets a test fixture, else None.
 
@@ -625,6 +774,75 @@ def main() -> None:
     if len(content) < _MIN_CONTENT_LEN:
         passthrough_stdin(ctx.data)
         return
+
+    # spec-131 sub-004 T-4.B / D-131-11: sub-agent positive allow-list lane.
+    # When the caller is a Task-tool sub-agent, short-circuit on clean
+    # read-only commands (rg/grep/find/ls/cat without shell-metacharacters
+    # or destructive predicates). Main-thread invocations still go through
+    # the full IOC + injection-pattern scan. Telemetry preserves the bypass
+    # in the audit chain (CLAUDE.md G-12 auditable-bypass contract).
+    if tool_name == "Bash" and ctx.agent_kind == "subagent":
+        matched_argv0 = _is_subagent_readonly(content)
+        if matched_argv0 is not None:
+            argv_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+            with contextlib.suppress(Exception):
+                emit_control_outcome(
+                    ctx.project_root,
+                    category="security",
+                    control="subagent-readonly-bypass",
+                    component="hook.prompt-injection-guard",
+                    outcome="success",
+                    source="hook",
+                    metadata={
+                        "tool": tool_name,
+                        "argv0": matched_argv0,
+                        "argv_hash": argv_hash,
+                    },
+                )
+            passthrough_stdin(ctx.data)
+            return
+
+    # spec-131 sub-004 T-4.F / D-131-12: trusted-script lane. Hash-pinned
+    # scripts (e.g. session_bootstrap.py once sub-003 lands it) bypass
+    # RTK rewriting + IOC re-evaluation when invoked in the exact argv
+    # form the manifest pins. Drift on the underlying bytes surfaces as
+    # a framework_error (R-131-07 mitigation).
+    if tool_name == "Bash":
+        trusted_outcome = _is_trusted_script_argv(content, ctx.project_root)
+        if trusted_outcome == _TRUSTED_SCRIPT_DRIFT_SENTINEL:
+            with contextlib.suppress(Exception):
+                emit_framework_error(
+                    ctx.project_root,
+                    engine="ai_engineering",
+                    component="hook.prompt-injection-guard",
+                    error_code="trusted_script_drift",
+                    source="hook",
+                    session_id=ctx.session_id,
+                    correlation_id=get_correlation_id(),
+                    metadata={"tool": tool_name, "argv": content[:200]},
+                )
+            sys.stderr.write(
+                "[prompt-injection-guard] trusted-script integrity drift; "
+                "regenerate hooks-manifest.json and retry.\n"
+            )
+            sys.stderr.flush()
+            sys.exit(3)
+        if trusted_outcome is not None:
+            with contextlib.suppress(Exception):
+                emit_control_outcome(
+                    ctx.project_root,
+                    category="security",
+                    control="trusted-script-bypass",
+                    component="hook.prompt-injection-guard",
+                    outcome="success",
+                    source="hook",
+                    metadata={
+                        "tool": tool_name,
+                        "argv": trusted_outcome[:200],
+                    },
+                )
+            passthrough_stdin(ctx.data)
+            return
 
     # spec-105 G-12: short-circuit pattern scan for whitelisted CLI
     # invocations. The findings.json payload embeds rule names like

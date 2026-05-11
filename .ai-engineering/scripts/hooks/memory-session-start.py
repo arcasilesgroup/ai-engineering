@@ -12,6 +12,7 @@ p95; the subprocess is given 4s to keep the budget bounded.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -84,10 +85,8 @@ def _emit_failure(project_root: Path, *, session_id: str | None, reason: str) ->
     }
     if session_id:
         event["sessionId"] = session_id
-    try:
+    with contextlib.suppress(Exception):
         emit_event(project_root, event)
-    except Exception:
-        pass
 
 
 def _render_injection(payload: dict) -> str:

@@ -91,10 +91,11 @@ def _render_text(decisions: list[AllowlistDecision]) -> str:
         lines.append("no_suppression: BLOCKED — unallowed suppression markers:")
         for d in denied:
             f = d.finding
+            tag_suffix = "/" + f.rule_target if f.rule_target and f.rule_target != f.rule_id else ""
             lines.append(
                 f"  {f.path.as_posix()}:{f.line}:{f.column}  "
-                f"[{f.rule_id}{('/' + f.rule_target) if f.rule_target and f.rule_target != f.rule_id else ''}]"
-                f"  {d.status}: {d.reason}"
+                f"[{f.rule_id}{tag_suffix}]  "
+                f"{d.status}: {d.reason}"
             )
             lines.append(f"      snippet: {f.snippet}")
     if allowed:
