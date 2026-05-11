@@ -2,7 +2,7 @@
 name: ai-brainstorm
 description: "Forces rigorous design interrogation BEFORE any code: explores approaches, surfaces ambiguity, gathers evidence, produces an approved spec that becomes the contract for /ai-plan. Trigger for 'lets add X', 'how should we handle Y', 'whats the best approach', 'I am thinking about', 'what should we build for'. Not for existing approved specs; use /ai-plan instead. Not for execution; use /ai-build instead."
 effort: max
-argument-hint: "[feature or problem description] [work item ID]"
+argument-hint: "[feature or problem description] [work item ID] | --consolidate-spec <slug>"
 mirror_family: gemini-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-brainstorm/SKILL.md
@@ -27,6 +27,12 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 
 ## Process
 
+0a. **Fast-path — `--consolidate-spec <slug>`**: when invoked with the
+   `--consolidate-spec` flag, read `.gemini/skills/_shared/consolidate-spec.md`
+   and execute the shared handler (resolve record, append `_history.md` row
+   via `spec_lifecycle.py mark_shipped`, clear `spec.md`/`plan.md` to
+   placeholders). STOP after consolidation — no interrogation runs. Fail-open
+   on missing script.
 0. **Spec lifecycle bootstrap** (before evidence sweep) — call
    `python .ai-engineering/scripts/spec_lifecycle.py start_new <slug> <title>`
    to mint (or no-op refresh) the DRAFT record under

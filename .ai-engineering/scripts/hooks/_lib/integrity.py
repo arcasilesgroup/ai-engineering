@@ -63,19 +63,18 @@ def compute_file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def load_manifest(project_root: Path) -> dict[str, str]:
-    """Return ``{relative_path: sha256}`` mapping; empty dict if absent.
+def _load_manifest_section(project_root: Path, section_key: str) -> dict[str, str]:
+    """Return ``{relative_path: sha256}`` from one manifest section.
 
-    Memoized on (resolved manifest path, mtime_ns) so warm hook invocations
-    within a single process skip the JSON parse. Edits to the manifest still
-    bust the cache via mtime change.
+    Memoized on (resolved manifest path, mtime_ns, section). Edits to the
+    manifest bust the cache via mtime change.
     """
     manifest_path = project_root / _MANIFEST_REL
     try:
         stat = manifest_path.stat()
     except OSError:
         return {}
-    cache_key = (str(manifest_path.resolve()), stat.st_mtime_ns)
+    cache_key = (str(manifest_path.resolve()), stat.st_mtime_ns, section_key)
     cached = _MANIFEST_CACHE.get(cache_key)
     if cached is not None:
         return cached
@@ -83,15 +82,35 @@ def load_manifest(project_root: Path) -> dict[str, str]:
         payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError, ValueError):
         return {}
-    hooks = payload.get("hooks") if isinstance(payload, dict) else None
-    if not isinstance(hooks, dict):
+    section = payload.get(section_key) if isinstance(payload, dict) else None
+    if not isinstance(section, dict):
         result: dict[str, str] = {}
     else:
-        result = {str(k): str(v) for k, v in hooks.items() if isinstance(v, str)}
+        result = {str(k): str(v) for k, v in section.items() if isinstance(v, str)}
     if len(_MANIFEST_CACHE) >= _MANIFEST_CACHE_MAX:
         _MANIFEST_CACHE.pop(next(iter(_MANIFEST_CACHE)))
     _MANIFEST_CACHE[cache_key] = result
     return result
+
+
+def load_manifest(project_root: Path) -> dict[str, str]:
+    """Return ``{relative_path: sha256}`` for the ``hooks`` section.
+
+    Memoized on (resolved manifest path, mtime_ns) so warm hook invocations
+    within a single process skip the JSON parse. Edits to the manifest still
+    bust the cache via mtime change.
+    """
+    return _load_manifest_section(project_root, "hooks")
+
+
+def load_trusted_scripts(project_root: Path) -> dict[str, str]:
+    """Return ``{relative_path: sha256}`` for the ``trustedScripts`` section.
+
+    spec-131 sub-004 T-4.D: trusted-script lane stores hash-pinned entries
+    in a separate manifest key so the prompt-injection-guard bypass can
+    verify the script bytes independently of the hook integrity check.
+    """
+    return _load_manifest_section(project_root, "trustedScripts")
 
 
 def verify_hook_integrity(script_path: Path, project_root: Path) -> tuple[bool, str | None]:
@@ -127,6 +146,34 @@ def verify_hook_integrity(script_path: Path, project_root: Path) -> tuple[bool, 
     return False, f"sha256 mismatch (expected {expected[:12]}…, got {actual[:12]}…)"
 
 
+def verify_trusted_script(script_path: Path, project_root: Path) -> tuple[bool, str | None]:
+    """Verify ``script_path`` matches its ``trustedScripts`` manifest entry.
+
+    spec-131 sub-004 T-4.D / T-4.F: parallels :func:`verify_hook_integrity`
+    but reads the ``trustedScripts`` section. Returns ``(True, None)`` when
+    the script bytes match the pinned sha256. Returns ``(False, reason)``
+    when the bytes drift OR the script is not enrolled in
+    ``trustedScripts`` — drift on a trusted-lane script must always fail
+    because the lane intentionally bypasses RTK rewriting and IOC
+    re-evaluation. An unenrolled script signals a misconfiguration: the
+    caller is asking for a bypass that the manifest does not pin.
+    """
+    manifest = load_trusted_scripts(project_root)
+    if not manifest:
+        return False, "trustedScripts section absent or empty"
+    try:
+        rel = script_path.resolve().relative_to(project_root.resolve())
+    except ValueError:
+        return False, "script lives outside project root"
+    expected = manifest.get(str(rel))
+    if expected is None:
+        return False, f"trusted script {rel} not enrolled in hooks-manifest.json"
+    actual = compute_file_sha256(script_path)
+    if actual.lower() == expected.lower():
+        return True, None
+    return False, f"trusted-script sha256 mismatch (expected {expected[:12]}…, got {actual[:12]}…)"
+
+
 def integrity_mode() -> str:
     return _resolve_mode()
 
@@ -139,6 +186,8 @@ __all__ = [
     "compute_file_sha256",
     "integrity_mode",
     "load_manifest",
+    "load_trusted_scripts",
     "manifest_path",
     "verify_hook_integrity",
+    "verify_trusted_script",
 ]

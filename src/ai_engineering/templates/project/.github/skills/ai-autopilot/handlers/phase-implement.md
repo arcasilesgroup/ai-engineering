@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Execute the implementation plan following the DAG. For each wave, dispatch the build agent per sub-spec in parallel. Each agent receives full context (sub-spec content, decision-store constraints, stack standards) and writes a Self-Report classifying every piece of work using the Transparency Protocol. Commits are made per wave. Failed sub-specs cascade-block their dependents in later waves.
+Execute the implementation plan following the DAG. For each wave, dispatch the build agent per sub-spec in parallel. Each task self-validates via TDD inside the build agent. No per-task verify or review dispatch -- those are reserved for the single Phase 5 quality loop on the full changeset (spec-131 D-131-05). Each agent receives full context (sub-spec content, decision-store constraints, stack standards) and writes a Self-Report classifying every piece of work using the Transparency Protocol. Commits are made per wave. Failed sub-specs cascade-block their dependents in later waves.
 
 ## Prerequisites
 

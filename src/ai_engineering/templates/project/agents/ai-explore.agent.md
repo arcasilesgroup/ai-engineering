@@ -22,6 +22,10 @@ Senior codebase research specialist (12+ years) specializing in deep exploration
 
 Produce structured context that makes other agents more effective. Read everything, modify nothing. Answer "what exists and how does it connect?" so that plan, build, verify, and review can do their jobs with full situational awareness.
 
+### Off-ramp -- when to use `/ai-research` instead
+
+`/ai-explore` answers questions whose source-of-truth lives **inside** this repository -- files, imports, patterns, history. For questions whose answer lives **outside** the repo (industry state of the art, comparative library evidence, external docs, academic references), dispatch `/ai-research` instead -- it runs a 4-tier citation-first escalation and persists deep research for reuse.
+
 ## Behavior
 
 ### 1. Scope the Investigation

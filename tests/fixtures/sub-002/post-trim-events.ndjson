@@ -1,0 +1,2 @@
+{"ts": "2026-05-11T00:00:00Z", "event": "framework_event", "kind": "task_dispatched", "detail": {"subagent_type": "ai-verify", "task_id": "final", "round": 1}}
+{"ts": "2026-05-11T00:00:00Z", "event": "framework_event", "kind": "task_dispatched", "detail": {"subagent_type": "ai-review", "task_id": "final", "round": 1}}

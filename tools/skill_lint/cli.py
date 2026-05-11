@@ -24,12 +24,15 @@ from skill_app.lint_skills import LintSkillsUseCase
 from skill_infra.fs_scanner import FilesystemAgentScanner, FilesystemSkillScanner
 from skill_infra.markdown_reporter import MarkdownReporter
 from skill_lint.checks.md_mirror import check_md_mirror_consistency
+from skill_lint.checks.naming import check_naming
 from skill_lint.checks.pair_aware import check_pair_consistency
 from skill_lint.checks.principles import check_principles_citations
 
 _DEFAULT_SKILLS_ROOT = Path(".claude/skills")
 _DEFAULT_AGENTS_ROOT = Path(".claude/agents")
 _DEFAULT_REPO_ROOT = Path(".")
+_DEFAULT_HOOKS_ROOT = Path(".ai-engineering/scripts/hooks")
+_DEFAULT_SCHEDULED_ROOT = Path(".ai-engineering/scripts/scheduled")
 
 
 def _exit_code(
@@ -97,6 +100,18 @@ def _build_parser() -> argparse.ArgumentParser:
         default=_DEFAULT_REPO_ROOT,
         help="Path to the repo root for md_mirror checks (default: .).",
     )
+    parser.add_argument(
+        "--hooks-root",
+        type=Path,
+        default=_DEFAULT_HOOKS_ROOT,
+        help="Path to the hooks directory for naming R2/R3/R5 (default: .ai-engineering/scripts/hooks).",
+    )
+    parser.add_argument(
+        "--scheduled-root",
+        type=Path,
+        default=_DEFAULT_SCHEDULED_ROOT,
+        help="Path to the scheduled directory for naming R4/R5 (default: .ai-engineering/scripts/scheduled).",
+    )
     return parser
 
 
@@ -125,6 +140,16 @@ def main(argv: list[str] | None = None) -> int:
     # (MINOR is advisory per R-1.6 — upgraded in S6).
     md_mirror_results = check_md_mirror_consistency(args.repo_root)
     principles_results = check_principles_citations(args.skills_root)
+    # spec-131 sub-006: brief §2.5 R1-R5 naming lint. Advisory in this
+    # sub-spec — naming MAJORs do NOT alter exit-code semantics until
+    # spec-132 closes the D-131-10 legacy renames. Counts surface in
+    # the one-line summary so operators see the picture.
+    naming_results = check_naming(
+        args.skills_root,
+        args.agents_root,
+        args.hooks_root,
+        args.scheduled_root,
+    )
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -150,6 +175,10 @@ def main(argv: list[str] | None = None) -> int:
         principles_counts: dict[str, int] = {}
         for _path, result in principles_results:
             principles_counts[result.severity] = principles_counts.get(result.severity, 0) + 1
+        # spec-131 sub-006: naming R1-R5 counters.
+        naming_counts: dict[str, int] = {}
+        for _path, result in naming_results:
+            naming_counts[result.severity] = naming_counts.get(result.severity, 0) + 1
         # Print a one-line summary so CI logs surface the result.
         sys.stdout.write(
             "skill_lint: skills "
@@ -167,6 +196,11 @@ def main(argv: list[str] | None = None) -> int:
             f"OK={principles_counts.get('OK', 0)} "
             f"MINOR={principles_counts.get('MINOR', 0)} "
             f"MAJOR={principles_counts.get('MAJOR', 0)} "
+            f"| naming "
+            f"OK={naming_counts.get('OK', 0)} "
+            f"INFO={naming_counts.get('INFO', 0)} "
+            f"MINOR={naming_counts.get('MINOR', 0)} "
+            f"MAJOR={naming_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
         return _exit_code(

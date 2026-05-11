@@ -1,6 +1,6 @@
 ---
 name: ai-build
-description: "Canonical implementation gateway: reads approved plan.md, resolves stack from manifest, deterministic-routes each task to its adapter, dispatches the build agent in an isolated worktree, runs verify+review per task, and chains commit+pr after the last. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'build the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead."
+description: "Canonical implementation gateway: reads approved plan.md, resolves stack from manifest, deterministic-routes each task to its adapter, dispatches the build agent in an isolated worktree, runs TDD self-validation per task, then a single final quality loop on the full changeset before /ai-pr. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'build the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead."
 effort: high
 argument-hint: "[spec-NNN or --resume]"
 mirror_family: gemini-skills
@@ -14,7 +14,7 @@ edit_policy: generated-do-not-edit
 
 ## Purpose
 
-Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one subagent per task (fresh context), runs two-stage review on each deliverable, and tracks progress. If stuck: STOP and re-plan.
+Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one subagent per task (fresh context); each task self-validates via TDD; a single final quality loop runs verify+review on the full changeset before /ai-pr. If stuck: STOP and re-plan.
 
 ## When to Use
 
@@ -28,8 +28,8 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 1. **Board sync (in_progress)** -- read `.ai-engineering/specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
 2. **Guard advisory** -- before dispatching any build task, invoke the Guard agent (`ai-guard`) in `gate` mode for governance advisory. Fail-open: if guard is unavailable or errors, log warning and continue -- never block dispatch.
 2b. **Stack overrides routing (D-127-06 / sub-008, spec-128 D-128-01)** -- per task, call `tools.skill_app.deterministic_router.resolve_adapter(task_path, spec_stack)` to obtain the overrides directory under `.ai-engineering/overrides/<stack>/`. Pass the resolved path to the build agent so it loads `conventions.md`, `tdd_harness.md`, `security_floor.md`, and `examples/` into context before writing code. `spec_stack` precedence: spec frontmatter `stack:` field over file-extension inference. `UnknownStackError` halts the task with a clear "no overrides for this stack" message.
-3. **Execute kernel**: see `.gemini/skills/_shared/execution-kernel.md`. Build wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build-verify-review -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain build-specific.
-4. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, max 2 rounds.
+3. **Execute kernel**: see `.gemini/skills/_shared/execution-kernel.md`. Build wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build self-validation (TDD RED/GREEN/REFACTOR) -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain build-specific.
+4. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, single round, fail-loud. Blockers → STOP + escalate (no auto-retry).
 5. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report.
 
 ## Resume Protocol
@@ -53,7 +53,7 @@ When invoked with `--resume`, use observable evidence only. Never guess hidden s
 
 - Dispatching without an approved plan.
 - Giving subagents the entire codebase context (scope them tightly).
-- Skipping the two-stage review.
+- Skipping the final quality loop after task execution.
 - Continuing past a BLOCKED task without user input.
 - Batch-updating `plan.md` only at the end instead of updating it when each task closes.
 - Modifying test files from a RED phase during a GREEN phase task.
@@ -69,7 +69,7 @@ User: "the plan is approved, go"
 /ai-build
 ```
 
-Reads `plan.md`, dispatches one agent per task with fresh context, runs two-stage review per deliverable, updates `plan.md` checkboxes, transitions board state, hands off to `/ai-pr` for delivery.
+Reads `plan.md`, dispatches one agent per task with fresh context; each task self-validates via TDD; final quality loop verifies full changeset once before handing off to `/ai-pr` for delivery.
 
 ### Example 2 — resume after interruption
 

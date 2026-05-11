@@ -1,6 +1,6 @@
 ---
 name: ai-autopilot
-description: "Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs quality convergence loops (verify+guard+review), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship', 'run the backlog', 'execute these GitHub issues', 'process the sprint backlog'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-build instead. Not for ambiguous requirements; use /ai-brainstorm first."
+description: "Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs a single final quality loop (verify+guard+review on full changeset), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship', 'run the backlog', 'execute these GitHub issues', 'process the sprint backlog'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-build instead. Not for ambiguous requirements; use /ai-brainstorm first."
 effort: max
 argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 tags: [orchestration, autonomous, multi-spec, backlog, pipeline, execution, dag, transparency]
@@ -15,7 +15,7 @@ edit_policy: generated-do-not-edit
 
 ## Purpose
 
-Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes a spec into N focused sub-specs, deep-plans each with parallel agents, orchestrates a dependency-aware execution DAG, implements in waves, converges on quality through iterative verify+guard+review loops, and delivers the full changeset via PR with a transparency report. Execution is not complete until sub-spec work converges into a final delivery PR against protected main. One invocation, zero interruptions, full disclosure.
+Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes a spec into N focused sub-specs, deep-plans each with parallel agents, orchestrates a dependency-aware execution DAG, implements in waves, runs a single final verify+guard+review pass on the full changeset, and delivers the full changeset via PR with a transparency report. Execution is not complete until sub-spec work converges into a final delivery PR against protected main. One invocation, zero interruptions, full disclosure.
 
 ## When to Use
 
@@ -43,9 +43,9 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 **Step 3 — ORCHESTRATE** (`handlers/phase-orchestrate.md`): build the file-overlap matrix and import-chain graph from Phase-2 evidence (never from spec text alone); construct the wave-assigned DAG; merge unresolvable conflicts.
 
-**Step 4 — IMPLEMENT** (`handlers/phase-implement.md`): per-wave kernel from `.codex/skills/_shared/execution-kernel.md`. Dispatch build agents per sub-spec in parallel within a wave; run build-verify-review per task; collect Self-Reports + per-wave commits. Cascade-block dependents of failed sub-specs.
+**Step 4 — IMPLEMENT** (`handlers/phase-implement.md`): per-wave kernel from `.codex/skills/_shared/execution-kernel.md`. Dispatch build agents per sub-spec in parallel within a wave; each task self-validates via TDD; wave-end guard advisory remains for governance. Collect Self-Reports + per-wave commits. Cascade-block dependents of failed sub-specs.
 
-**Step 5 — QUALITY LOOP** (`handlers/phase-quality.md`): read ai-verify / ai-review / ai-governance SKILL.md once at loop entry; dispatch verify+guard+review in parallel on the full changeset; consolidate findings (unified severity). Clean → Phase 6. Blockers + round<3 → fix and re-assess. Round=3: blockers STOP, criticals/highs flag and proceed.
+**Step 5 — QUALITY LOOP** (`handlers/phase-quality.md`): read ai-verify / ai-review / ai-governance SKILL.md once at loop entry; dispatch verify+guard+review in parallel on the full changeset; consolidate findings (unified severity). Clean → Phase 6. Blockers → STOP + escalate to user (no auto-retry). Criticals/highs → proceed to Phase 6 with Integrity Report flag.
 
 **Step 6 — DELIVER** (`handlers/phase-deliver.md`): build the Integrity Report; follow `/ai-pr` SKILL.md; cleanup runtime dir; clear spec.md + plan.md; verify cleanup. `--resume` handles mid-pipeline re-entry.
 
@@ -94,7 +94,7 @@ User: "implement spec-127 end to end"
 /ai-autopilot "implement spec-127"
 ```
 
-Phase 1 decompose into sub-specs, Phase 2 deep-plan in parallel, Phase 3 build DAG, Phase 4 implement in waves, Phase 5 quality loop (verify+guard+review max 3 rounds), Phase 6 deliver via PR.
+Phase 1 decompose into sub-specs, Phase 2 deep-plan in parallel, Phase 3 build DAG, Phase 4 implement in waves, Phase 5 single quality loop (verify+guard+review on full changeset), Phase 6 deliver via PR.
 
 ### Example 2 — resume after interruption
 

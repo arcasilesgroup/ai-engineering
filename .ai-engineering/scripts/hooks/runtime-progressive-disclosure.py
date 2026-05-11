@@ -22,6 +22,7 @@ for trivial prompts (<3 informative words).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import sys
@@ -264,9 +265,57 @@ def _emit_telemetry(
     emit_event(project_root, event)
 
 
+def _emit_node_missing(project_root: Path, *, session_id: str | None, correlation_id: str) -> None:
+    """Emit a single ``upstream_hook_node_missing`` framework_error event.
+
+    spec-131 sub-004 T-4.G: when ``ctx.data`` is empty on a
+    ``UserPromptSubmit`` event the upstream Claude Code shim likely
+    failed (``/bin/sh: node: command not found``). The fix lives in
+    Anthropic's harness; our hook captures the symptom so the audit
+    chain has a deterministic signal instead of a silent drop.
+    """
+    event: dict = {
+        "kind": "framework_error",
+        "engine": "claude_code",
+        "timestamp": iso_now(),
+        "component": "hook.runtime-progressive-disclosure",
+        "outcome": "failure",
+        "correlationId": correlation_id,
+        "schemaVersion": "1.0",
+        "project": project_root.name,
+        "source": "hook",
+        "detail": {
+            "error_code": "upstream_hook_node_missing",
+            "summary": (
+                "UserPromptSubmit received empty stdin — upstream Claude Code "
+                "harness shim likely failed (node command-not-found). See "
+                "CLAUDE.md troubleshooting block."
+            ),
+            "hook_kind": "user-prompt-submit",
+        },
+    }
+    if session_id:
+        event["sessionId"] = session_id
+    emit_event(project_root, event)
+
+
 def main() -> None:
     ctx = get_hook_context()
     if ctx.event_name != "UserPromptSubmit":
+        passthrough_stdin(ctx.data)
+        return
+
+    # spec-131 sub-004 T-4.G: empty payload on UserPromptSubmit signals
+    # an upstream-shim failure; emit telemetry and passthrough so the
+    # audit chain captures the symptom even when the operator sees the
+    # raw "node: command not found" IDE error.
+    if not ctx.data:
+        with contextlib.suppress(Exception):
+            _emit_node_missing(
+                ctx.project_root,
+                session_id=ctx.session_id,
+                correlation_id=get_correlation_id(),
+            )
         passthrough_stdin(ctx.data)
         return
 

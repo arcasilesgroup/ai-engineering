@@ -2,7 +2,7 @@
 name: ai-cleanup
 description: "Tidies the repository safely: switches to default branch, prunes merged and squash-merged branches, syncs to remote, sweeps stale specs, rotates `.ai-engineering/runtime/` per retention policy. Trigger for 'tidy up', 'clean up branches', 'sync to main', 'delete old branches', 'start fresh', 'rotate runtime'. Auto-invoked by /ai-pr after merge. Not for committing changes; use /ai-commit instead. Not for code-level dead-code removal; use /ai-simplify instead."
 effort: medium
-argument-hint: "--branches|--sync|--specs|--runtime|--all"
+argument-hint: "--branches|--sync|--specs|--runtime|--consolidate-spec <slug>|--all"
 tags: [git, branch, cleanup, hygiene, status, delivery]
 requires:
   bins:
@@ -18,8 +18,9 @@ requires:
 /ai-cleanup              # full: sync + branch cleanup + spec sweep + runtime rotate + report
 /ai-cleanup --sync       # sync to default branch only
 /ai-cleanup --branches   # branch cleanup only
-/ai-cleanup --specs      # spec lifecycle sweep
+/ai-cleanup --specs      # spec lifecycle sweep + _history.md rotation
 /ai-cleanup --runtime    # rotate .ai-engineering/runtime/ per retention policy
+/ai-cleanup --consolidate-spec <slug>   # delete finalised spec, append _history row
 ```
 
 Full repository hygiene: safely migrate to the default branch, delete merged and squash-merged branches, rotate runtime artifacts, and produce a per-branch status report. No destructive operations without confirmation.
@@ -83,6 +84,10 @@ not bloat the working tree. Invoke
 Hot-path budget <100 ms; stdlib only; idempotent; fail-open on missing
 dirs; emits a `runtime-rotate` `framework_event` per run.
 
+### Phase 5: Spec consolidation (`--specs` or `--all`)
+
+For any SHIPPED spec record in `.ai-engineering/state/specs/<slug>.json` whose `_history.md` row is not yet appended, invoke `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-id> <pr> <branch>` to walk DRAFT → APPROVED → IN_PROGRESS → SHIPPED, append the canonical 7-col `_history.md` row, and emit the `framework_operation` audit event. **Verification-only step** — actual rotation lives in `spec_lifecycle.py`; this skill calls the entry point. **Fail-open**: missing script or locked sidecar logs and continues. See `.claude/skills/_shared/consolidate-spec.md` for the shared handler; the `--consolidate-spec <slug>` flag exposes the same action on demand.
+
 ### Phase 2: Status Report
 
 11. **Build per-branch table**:
@@ -107,10 +112,15 @@ dirs; emits a `runtime-rotate` `framework_event` per run.
 /ai-cleanup              # full: sync + branch cleanup + spec sweep + runtime rotate + report
 /ai-cleanup --sync       # sync to default branch only
 /ai-cleanup --branches   # branch cleanup only (no migration)
-/ai-cleanup --specs      # spec lifecycle sweep only (DRAFT > 14d → ABANDONED)
+/ai-cleanup --specs      # spec lifecycle sweep + _history.md rotation (DRAFT > 14d → ABANDONED; SHIPPED → row appended)
 /ai-cleanup --runtime    # runtime rotation only
+/ai-cleanup --consolidate-spec <slug>  # manual spec consolidation via _shared/consolidate-spec.md
 /ai-cleanup --all        # explicit full cleanup
 ```
+
+### Phase 6: Spec consolidation (`--consolidate-spec`)
+
+When invoked with `--consolidate-spec <slug>`, read `.claude/skills/_shared/consolidate-spec.md` and execute the shared handler: resolve the spec record, append the `_history.md` row via `spec_lifecycle.py mark_shipped`, clear `.ai-engineering/specs/spec.md` and `plan.md` to placeholders. Fail-open on missing script.
 
 ## Common Mistakes
 

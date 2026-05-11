@@ -524,9 +524,22 @@ def run_hook_safe(
             mode=integrity_mode_val,
         )
     if not integrity_ok:
-        # Enforce-mode mismatch: refuse execution. Exit 2 mirrors the
-        # injection-guard deny semantics so operators can grep for it.
-        sys.exit(2)
+        # spec-131 sub-004 T-4.C: surface the reason on stderr BEFORE
+        # exiting so operators see a one-line actionable signal. Distinct
+        # exit code 3 separates integrity drift from injection deny
+        # (exit 2). Contract is documented inline:
+        #   0 = ok
+        #   2 = injection deny (prompt-injection-guard semantics)
+        #   3 = integrity violation (hooks-manifest sha256 mismatch
+        #       or unenrolled hook in enforce mode)
+        reason = integrity_reason or "manifest mismatch"
+        sys.stderr.write(
+            f"[hook-integrity] refusing to run {hook_kind}: {reason}\n"
+            "[hook-integrity] regenerate with: python3 "
+            ".ai-engineering/scripts/regenerate-hooks-manifest.py\n"
+        )
+        sys.stderr.flush()
+        sys.exit(3)
 
     start = time.perf_counter()
     outcome = "success"

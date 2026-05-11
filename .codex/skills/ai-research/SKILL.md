@@ -1,6 +1,6 @@
 ---
 name: ai-research
-description: "Performs evidence-backed research with verifiable citations using a multi-tier escalation (local → free MCPs → web → NotebookLM persistent). Trigger for 'what does the state of the art say about', 'compare options for', 'find sources on', 'investigate this question', 'research this'. Citation hard-rule: every external claim is sourced [N] or marked [unsourced]. Not for refactors; use /ai-simplify instead. Not for business-logic debugging; use /ai-debug instead."
+description: "External evidence with citations via a 4-tier escalation (local → free MCPs → web → NotebookLM persistent). Every claim sourced [N] or marked [unsourced]. Trigger for 'what does the state of the art say about', 'compare options for', 'find sources on', 'investigate this question', 'research this'. Use for questions whose answer lives OUTSIDE the codebase. Not for codebase exploration; use /ai-explore instead. Not for refactors; use /ai-simplify instead. Not for business-logic debugging; use /ai-debug instead."
 effort: high
 argument-hint: "[query] [--depth quick|standard|deep] [--reuse-notebook=id] [--persist]"
 mirror_family: codex-skills
@@ -25,6 +25,10 @@ Outputs are designed for reuse: deep research is persisted to `.ai-engineering/r
 - `/ai-brainstorm` interrogation flags a question requiring external evidence (handler `interrogate.md` invokes this skill).
 - User wants a verifiable, cited answer rather than the model's training-data recall.
 - Research worth archiving for the team (deep technical investigations, library comparisons, architecture decisions).
+
+### Off-ramp -- when to use `/ai-explore` instead
+
+`/ai-research` answers questions whose source-of-truth lives **outside** this repository (web, docs portals, third-party APIs, academic papers). For questions whose answer lives **inside** this repo's files (architecture, dependency graph, pattern usage), dispatch `/ai-explore` instead -- it's read-only, codebase-only, and produces a structured architecture map rather than a cited narrative.
 
 Do NOT use for: refactoring, writing scripts from scratch, debugging business logic, code review, or general programming concepts.
 

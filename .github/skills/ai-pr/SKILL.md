@@ -2,7 +2,7 @@
 name: ai-pr
 description: "Creates and updates pull requests with governance: runs the commit pipeline, enforces pre-push gates, generates structured PR body from spec, watches and fixes CI until merged. Trigger for 'open a PR', 'submit this for review', 'I am ready for review', 'merge this into main', 'draft PR', 'update the PR'. Not for commit-only flows; use /ai-commit instead. Not for narrative review; use /ai-review instead."
 effort: high
-argument-hint: "review|create|update|--draft|--only|[title]"
+argument-hint: "review|create|update|--draft|--only|--consolidate-spec|[title]"
 mode: agent
 tags: [git, pull-request, ci, merge, delivery]
 requires:
@@ -73,7 +73,7 @@ refs:
 
 ### 11. Spec operations
 
-If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use updated content for PR body (Summary from spec, Test Plan from plan). After PR merge, invoke `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-id> <pr> <branch>` to walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED, append the canonical 7-col `_history.md` row, and emit the `framework_operation` audit event. **Fail-open**: lifecycle write failure logs but does not block merge. Then clear spec.md and plan.md to placeholders; stage cleared files.
+If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use updated content for PR body (Summary from spec, Test Plan from plan). After PR merge, run the shared spec-consolidation handler at `.github/skills/_shared/consolidate-spec.md` (which invokes `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-id> <pr> <branch>` to walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED, append the canonical 7-col `_history.md` row, and emit the `framework_operation` audit event). **Fail-open**: lifecycle write failure logs but does not block merge. Then clear spec.md and plan.md to placeholders; stage cleared files. The same handler is exposed manually via `/ai-pr --consolidate-spec` as a pre-merge override.
 
 ### 12. Work item references
 
