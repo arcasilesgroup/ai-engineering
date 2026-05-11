@@ -41,7 +41,11 @@
       "Bash(git checkout -- . *)",
       "Bash(git checkout . *)",
       "Bash(git restore . *)",
-      "Bash(git clean -f *)"
+      "Bash(git clean -f *)",
+      "Bash(git commit*--no-verify*)",
+      "Bash(git push*--no-verify*)",
+      "Bash(git merge*--no-verify*)",
+      "Bash(git rebase*--no-verify*)"
     ]
   },
   "hooks": {
