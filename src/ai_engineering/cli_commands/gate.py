@@ -122,7 +122,45 @@ def gate_pre_push(
 ) -> None:
     """Run pre-push gate checks (semgrep, pip-audit, tests, ty)."""
     root = resolve_project_root(target)
+    _run_no_suppression(root)
     _run_gate_hook_via_kernel(GateHook.PRE_PUSH, root)
+
+
+def _run_no_suppression(root: Path) -> None:
+    """Enforce CONSTITUTION.md Article VII at pre-push.
+
+    Invokes :mod:`no_suppression.cli` against ``root`` and exits 1 when
+    any suppression marker lacks an active allowlist entry or DEC binding.
+    """
+    try:
+        from no_suppression.cli import run_check
+    except ImportError:
+        warning("no_suppression module not installed; skipping Article VII gate")
+        return
+    decisions = run_check(
+        root=root,
+        allowlist_path=None,
+        state_db_path=None,
+        include=None,
+        exclude=None,
+    )
+    denied = [d for d in decisions if d.status != "allowed"]
+    if not denied:
+        return
+    warning(f"{len(denied)} unallowed suppression marker(s) — CONSTITUTION.md Article VII:")
+    for d in denied[:20]:
+        info(
+            f"  {d.finding.path.as_posix()}:{d.finding.line}  "
+            f"[{d.finding.rule_id}/{d.finding.rule_target or '*'}]  {d.status}: {d.reason}"
+        )
+    if len(denied) > 20:
+        info(f"  … ({len(denied) - 20} more)")
+    info(
+        "Resolve by (a) removing the suppression, (b) refactoring the code, or "
+        "(c) opening a DEC via `ai-eng risk accept` and linking it in "
+        "`.ai-engineering/suppression-allowlist.yml`."
+    )
+    raise typer.Exit(code=1)
 
 
 def _check_risk_inline(root: Path, strict: bool) -> bool:

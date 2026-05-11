@@ -31,6 +31,7 @@ from ai_engineering.installer.templates import (
     get_project_template_root,
     resolve_template_maps,
 )
+from ai_engineering.lib.path_safety import PathTraversalError, safe_realpath_within
 from ai_engineering.reconciler import (
     ReconcileAction,
     ReconcileApplyResult,
@@ -480,27 +481,17 @@ def _apply_actionable_file_changes(changes: list[FileChange], target: Path) -> P
         return None
 
     backup_dir = _backup_targets(changes, target)
-    target_resolved = target.resolve()
     try:
         for change in changes:
             if change.src is None:
                 continue
-            # Path traversal guard: resolved destination must stay within
-            # ``target``. ``change.path`` is built from manifest-driven
-            # provider tables, but the static analyzer can't see that
-            # invariant — this check makes it explicit at runtime.
-            resolved = change.path.resolve()
             try:
-                resolved.relative_to(target_resolved)
-            except ValueError as exc:
-                msg = f"refusing to write outside target: {resolved} (target={target_resolved})"
+                safe_path = Path(safe_realpath_within(change.path, target))
+            except PathTraversalError as exc:
+                msg = f"refusing to write outside target: {change.path} (target={target})"
                 raise RuntimeError(msg) from exc
-            change.path.parent.mkdir(parents=True, exist_ok=True)
-            # Destination path validated above via resolved.relative_to
-            # (target_resolved); SonarCloud's taint analysis can't see
-            # the dynamic guard, so suppress S2083 on the sink line.
-            safe_path = resolved
-            safe_path.write_bytes(change.src.read_bytes())  # NOSONAR(pythonsecurity:S2083)
+            safe_path.parent.mkdir(parents=True, exist_ok=True)
+            safe_path.write_bytes(change.src.read_bytes())
     except Exception:
         _rollback_created_files(changes)
         if backup_dir is not None:
