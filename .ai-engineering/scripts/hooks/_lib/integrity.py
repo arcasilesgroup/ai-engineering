@@ -138,7 +138,7 @@ def verify_hook_integrity(script_path: Path, project_root: Path) -> tuple[bool, 
     except ValueError:
         # Hook lives outside the project; nothing to verify against.
         return True, None
-    expected = manifest.get(str(rel))
+    expected = manifest.get(rel.as_posix())
     if expected is None:
         if _resolve_mode() == "enforce":
             return False, f"hook {rel} not enrolled in hooks-manifest.json"
@@ -168,7 +168,7 @@ def verify_trusted_script(script_path: Path, project_root: Path) -> tuple[bool, 
         rel = script_path.resolve().relative_to(project_root.resolve())
     except ValueError:
         return False, "script lives outside project root"
-    expected = manifest.get(str(rel))
+    expected = manifest.get(rel.as_posix())
     if expected is None:
         return False, f"trusted script {rel} not enrolled in hooks-manifest.json"
     actual = compute_file_sha256(script_path)

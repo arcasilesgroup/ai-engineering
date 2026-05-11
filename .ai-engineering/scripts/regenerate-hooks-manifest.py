@@ -102,7 +102,9 @@ def _build_trusted_scripts() -> dict[str, str]:
 def _build_manifest() -> dict:
     hooks: dict[str, str] = {}
     for path in _enumerate_hooks():
-        rel = str(path.relative_to(REPO_ROOT))
+        # POSIX-style key so the manifest is cross-platform identical
+        # regardless of which OS regenerated it.
+        rel = path.relative_to(REPO_ROOT).as_posix()
         hooks[rel] = _sha256_file(path)
     return {
         "schemaVersion": SCHEMA_VERSION,
