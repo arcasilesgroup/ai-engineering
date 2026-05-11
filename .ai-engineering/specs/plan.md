@@ -1,175 +1,103 @@
 ---
-spec: spec-128
-title: Context Layout Refactor — Stack-Based Overrides
+spec: spec-129
+title: Skills + Agents Excellence Refactor — Pragmatic Scope
 pipeline: full
-status: awaiting-approval
+phases: 4
+tasks: 22
+status: approved
 ---
 
-# Plan — spec-128 Context Layout Refactor
+# Plan — spec-129 Skills + Agents Excellence Refactor (Pragmatic Scope)
 
-## Pipeline
+## Summary
 
-`full` — affects >5 files, touches production telemetry and router, requires test-first changes, and propagates across 4 IDE mirrors.
+Phased execution plan derived from approved `.ai-engineering/specs/spec.md`. Scope = the trimmed 14-item DoD per D-129-05: three shared libs + three hot-path scripts + integration refactors + M5 verification (no-op — tests already cover) + M4 doc-only count reconciliation + PR-#509 retitle. M6 evals and dependent description-level refactors are explicitly out of scope per D-129-02.
 
-## Design Routing
-
-`--skip-design` — structural refactor, no UX/UI surface change, no new user-facing flows. Filesystem layout + code paths only.
+Branch: `spec-128/context-overrides-refactor` (no new branch). PR: #509 (no new PR; retitle in T-21). Effort target: ~13 h focal, ceiling 20 h per D-129-07.
 
 ## Architecture
 
-**Pattern**: Hexagonal Architecture (ports and adapters).
+**Pattern: Hexagonal / Ports-and-Adapters** (continues the architecture consolidated in spec-128 D-128-01 and spec-127 sub-008 D-127-09).
 
-**Justification**: The skill execution core (e.g., `ai-build`, `ai-review`) defines a port — "give me project-specific guidance for the active stack". Today the adapter side has two implementations (per-language and per-framework) plus an autogen mirror (Copilot instructions). The refactor consolidates the adapter side into a single `overrides/<stack>/` adapter slot per stack, removing the redundant lang/framework split and the autogen mirror. The router (`tools/skill_app/deterministic_router.py`) is the port boundary; replacing two adapter lookups with one stack lookup is the core invariant change. This is canonical hexagonal cleanup: the core is unchanged, only the adapter wiring is collapsed.
+**Justification**: The codebase already enforces a layered split — `tools/skill_domain/` (pure dataclasses, zero deps), `tools/skill_app/` (use cases like `deterministic_router.resolve_adapter`), and `tools/skill_infra/` (IDE/MCP adapters). The three new shared libs are **infrastructure adapters** for stdlib + git/yaml/markdown I/O concerns. The three new scripts are **interface drivers** that compose libs to serve a single CLI surface each. No new domain logic is added — this plan extends the existing hexagonal seam, it does not redefine it. `tests/architecture/test_layer_isolation.py` remains the enforcement gate; any new `_lib` module must not import from `skill_domain` and must not be imported by `skill_domain`.
 
-## Phases
+## Phase 0 — Shared Libs (Foundation, TDD)
 
-### Phase 1 — Audit & Baseline (read-only) — STATUS: DONE
+**Goal**: Land three pure-stdlib shared libraries under `.ai-engineering/scripts/skills/_lib/` per spec §14.1. Each lib gets RED test first, then GREEN implementation. No I/O in tests beyond fixtures and `tmp_path`.
 
-| Task | Agent | Concern | Done condition | Status |
-|---|---|---|---|---|
-| **T-001**: Full-repo grep audit. Write classification to `.ai-engineering/runtime/spec-128-audit.md`. | ai-explore | discovery | 32 canonical refs + 27 mirror propagations classified. | ✅ DONE |
-| **T-002**: Stack list (Q1). | ai-explore | decision | D-128-09 = bare-language: `python, typescript, go, rust, swift, csharp, kotlin` (Option A; user adjudication). | ✅ DONE |
-| **T-003**: `overrides/_shared/` policy (Q2). | ai-explore | decision | D-128-10 = YES (cross-cutting refs in compliance-trace, observability `shared-framework`, execution-kernel `team:`). | ✅ DONE |
-| **T-004**: Classify adapter content. | ai-explore | discovery | Audit complete; project-specific deltas preserved per stack in T-026. | ✅ DONE |
-| **T-005**: Manifest `providers.stacks` schema (Q4). | ai-explore | decision | D-128-11 = bare-language tokens (composite breaks router). | ✅ DONE |
-| **T-006**: Telemetry verification per AM-04 + baseline. | ai-eval | measurement | Telemetry: ZERO language/framework declared loads (88 events all other classes). Hypothesis preserved with caveat (telemetry necessary-not-sufficient). T-031 eval delta is canonical safety gate. Baseline `/ai-eval` deferred — Phase 7 T-031 will produce both pre and post via existing eval gate. | ✅ DONE |
+**Gate**: All Phase 0 tests green; layer-isolation test green; pyflakes/ruff clean on new files; perf budget per lib ≤ 50 ms p95 over 100 calls.
 
-**Phase 1 gate**: ✅ audit.md complete; D-128-09, D-128-10, D-128-11 locked; AM-04 verification done.
+- [x] **T-1** [build/test, RED] Write failing tests `tests/unit/scripts/_lib/test_manifest_reader.py`. Cover: `resolve_stack(manifest_path) → str`, `read_work_items(manifest_path) → dict`, `MissingManifestError` raises on absent file, `InvalidManifestError` raises on malformed YAML. Use fixtures under `tests/unit/scripts/_lib/fixtures/manifest_*.yml`. — **DONE** (9 tests, ModuleNotFoundError confirmed)
+- [x] **T-2** [build/code, GREEN, blocks-on=T-1] Implement `.ai-engineering/scripts/skills/skill_scripts_lib/manifest_reader.py`. Stdlib + `yaml` only. Namespace package created (renamed from `_lib`), `pyproject.toml` pythonpath extended. Constraint: DO NOT modify test files from T-1. — **DONE** (9/9 tests green, ruff clean, layer-isolation green)
+- [x] **T-3** [build/test, RED] Write failing tests `tests/unit/scripts/_lib/test_git_activity.py`. Cover: `recent_merges(since_iso) → list[Merge]`, `last_commit() → Commit`, `commits_since(ref) → list[Commit]`, `branch_age_days(branch) → int`. Use a `tmp_path` throwaway repo via `git init` for fidelity (preferred over mocks). — **DONE** (15 tests, ModuleNotFoundError confirmed)
+- [x] **T-4** [build/code, GREEN, blocks-on=T-3] Implement `.ai-engineering/scripts/skills/skill_scripts_lib/git_activity.py`. Wraps `git log --format=...` parsing into typed tuples. Stdlib + subprocess. Constraint: DO NOT modify test files from T-3. — **DONE** (15/15 tests green, ruff clean)
+- [x] **T-5** [build/test, RED] Write failing tests `tests/unit/scripts/_lib/test_markdown_render.py`. Cover: `render_table(headers, rows) → str`, `render_checklist(items) → str`, `parse_frontmatter(md_text) → dict`, `strip_frontmatter(md_text) → str`. Edge cases: empty input, special chars, malformed YAML in frontmatter. — **DONE** (24 tests, ModuleNotFoundError confirmed)
+- [x] **T-6** [build/code, GREEN, blocks-on=T-5] Implement `.ai-engineering/scripts/skills/skill_scripts_lib/markdown_render.py`. Stdlib + `yaml`. No external rendering deps. Constraint: DO NOT modify test files from T-5. — **DONE** (27/27 tests green, ruff clean)
 
-### Phase 2 — TDD RED (failing tests)
+## Phase 1 — New Hot-Path Scripts (TDD)
 
-| Task | Agent | Concern | Done condition |
-|---|---|---|---|
-| **T-007**: Write failing test in `tests/unit/router/test_deterministic_router.py` asserting stack-based resolution returns `overrides/<stack>/conventions.md` for a given stack. | ai-build (test) | router contract | Test fails with expected error referencing the missing stack-resolve path. DO NOT touch router source. |
-| **T-008**: Write failing test in `tests/unit/test_framework_context_loads.py` asserting telemetry emits `context_class == "stack"` (no `language`, no `framework`). | ai-build (test) | telemetry contract | Test fails on current taxonomy; assertion references new `stack` class. |
-| **T-009**: Write failing test in `tests/adapters/test_adapter_scaffolding.py` (renamed → `tests/overrides/test_overrides_scaffolding.py`) asserting `overrides/<stack>/` shape (`conventions.md` required; `security_floor.md`, `examples/` optional). | ai-build (test) | overrides shape | Test fails because `overrides/` does not exist yet. |
-| **T-010**: Add failing test asserting `scripts/sync_mirrors/core.py` does NOT generate `instructions/<lang>.instructions.md` after refactor (Surface 6 gone). | ai-build (test) | sync mirror contract | Test fails because Surface 6 still runs in current code. |
+**Goal**: Land three new scripts using the shared libs from Phase 0. Each script targets a specific `/ai-*` skill's hot-path determinism per spec §14.2.
 
-**Phase 2 gate**: 4 RED tests all fail with expected messages; no production code touched.
+**Gate**: All Phase 1 integration tests green; perf budget per script ≤ 500 ms p95; `tests/perf/test_hot_path_budgets.py` still green (no regression on existing budgets).
 
-### Phase 3 — TDD GREEN (production code)
+- [x] **T-7** [build/test, RED] Write failing tests `tests/integration/scripts/test_standup_render.py`. Fixture: `tmp_path` repo with seeded commits + branches. Assert: standup markdown contains expected sections (Yesterday / Today / Blockers), counts match commit fixture, no LLM placeholder strings. — **DONE** (18 tests, ModuleNotFoundError)
+- [x] **T-8** [build/code, GREEN, blocks-on=T-7, depends-on=T-4,T-6] Implement `.ai-engineering/scripts/skills/skill_scripts/standup_render.py`. Uses `git_activity.recent_merges` + `markdown_render.render_checklist`. CLI: `python standup_render.py [--since=7d] [--format=md|json]`. — **DONE** (19/19 tests green, ruff clean, package skill_scripts configured)
+- [x] **T-9** [build/test, RED] Write failing tests `tests/integration/scripts/test_cleanup_run.py`. Fixture: throwaway repo with merged + unmerged branches. Assert: classification (merged-into-main, squash-merged, stale-no-commits-30d, protected), `--dry-run` reports without delete, `--apply` deletes only the classified-safe set. — **DONE** (21 tests, ModuleNotFoundError)
+- [x] **T-10** [build/code, GREEN, blocks-on=T-9, depends-on=T-4] Implement `.ai-engineering/scripts/skills/skill_scripts/cleanup_run.py`. Uses `git_activity` for branch metadata. CLI: `python cleanup_run.py [--dry-run|--apply] [--protect=main,master]`. — **DONE** (20/20 tests green, ruff clean)
+- [x] **T-11** [build/test, RED] Write failing tests `tests/integration/scripts/test_resolve_classify.py`. **Adversarial fixtures required** per spec §Risks: lock file with manual edits, generated file WITHOUT sentinel, migration path, plain code conflict. Assert: conservative classification — only `lock`, `generated-with-sentinel` auto-resolve; everything else returns `ambiguous` or `code`. — **DONE** (30 cases, 3+ adversarial fixtures, ModuleNotFoundError)
+- [x] **T-12** [build/code, GREEN, blocks-on=T-11] Implement `.ai-engineering/scripts/skills/skill_scripts/resolve_classify.py`. Pure classification (no resolution writing). CLI: `python resolve_classify.py <conflict-path> → {type, action, confidence}`. — **DONE** (32/32 tests green, 11 adversarial cases, conservative_default ✅)
 
-| Task | Agent | Concern | Done condition |
-|---|---|---|---|
-| **T-011**: Refactor `tools/skill_app/deterministic_router.py` to resolve by stack. Constraint: DO NOT modify test files from T-007. | ai-build (code) | router | T-007 GREEN; no other router tests regress. |
-| **T-012**: Refactor telemetry — `emit_declared_context_loads` (and any helper in `tools/skill_app/.../observability`) to emit `context_class == "stack"`. Update enum / type union. Constraint: DO NOT modify test files from T-008. | ai-build (code) | telemetry | T-008 GREEN; existing telemetry consumers updated. |
-| **T-013**: Refactor `scripts/sync_mirrors/core.py` — remove Surface 6 entirely (instructions/<lang> generator, helper functions, GITHUB_INSTRUCTIONS const if unused). Keep Surface 8 (copilot-instructions.md). Constraint: DO NOT modify test files from T-010. | ai-build (code) | sync mirror | T-010 GREEN; Surface 8 still works. |
-| **T-014**: Refactor `tools/skill_domain/standards.py` — remove the 3 explicit refs (lines 241-243). | ai-build (code) | standards | refs gone; standards tests pass. |
-| **T-015**: Update manifest schema — `manifest.yml` `providers.stacks` accepts new stack tokens; update validators in `tools/skill_*` and `tools/installer` if any. | ai-build (code) | manifest | Manifest validator accepts new stacks; rejects deprecated `language` / `framework` tokens with clear error. |
+## Phase 2 — Integration Refactor (libs → existing scripts)
 
-**Phase 3 gate**: T-007, T-008, T-010 GREEN; T-014/T-015 introduce no regressions; full test suite re-run shows only expected failures (filesystem ones from Phase 4 still pending).
+**Goal**: Refactor the three existing hot-path scripts to consume the shared libs, eliminating duplicated parsing/rendering logic. Behavior-preserving — existing tests stay green throughout.
 
-### Phase 4 — IDE mirror updates (was Phase 6 — INVERTED per AM-01)
+**Gate**: All existing tests for `session_bootstrap`, `commit_compose`, `pr_body_compose` still green; perf budget unchanged or improved; layer-isolation test green; diff per file is structural (function bodies shrink, no new public API).
 
-**Why first**: per ai-guard concern #1, mirror refs must point at `overrides/` BEFORE filesystem nuke. Otherwise `.claude/skills/ai-review/handlers/lang-*.md` silently degrade.
+- [x] **T-13** [build/refactor, depends-on=T-2,T-4,T-6] Refactor `.ai-engineering/scripts/session_bootstrap.py` to use `markdown_render.parse_frontmatter` + `git_activity.last_commit`. — **DONE** (301→294 lines, 4/4 tests, perf green, behavior preserved)
+- [x] **T-14** [build/refactor, depends-on=T-2] Refactor `.ai-engineering/scripts/commit_compose.py` to use `markdown_render.parse_frontmatter` (manifest_reader N/A here). — **DONE** (6/6 tests, perf green, behavior preserved)
+- [x] **T-15** [build/refactor, depends-on=T-2,T-6] Refactor `.ai-engineering/scripts/pr_body_compose.py` to use `markdown_render.parse_frontmatter` + `markdown_render.render_checklist`. — **DONE** (204→202 lines, 5/5 tests, perf green, behavior preserved)
 
-**Article V compliance (AM-05)**: T-024/T-025 edit only `.claude/`; T-026 propagates.
+## Phase 3 — Verification + Docs + PR Finalization
 
-| Task | Agent | Concern | Done condition |
-|---|---|---|---|
-| **T-016**: Update `.claude/skills/ai-review/handlers/lang-*.md` (handlers per audit refs B1–B6: python, typescript, go, rust, kotlin, java) — `contexts/languages/<x>.md` → `overrides/<x>/conventions.md`. | ai-build (refs) | mirror | grep finds zero stale refs in `.claude/skills/ai-review/handlers/`. |
-| **T-017**: Update remaining `.claude/` refs (audit A1–A6, B7, D7): `skills/ai-security/SKILL.md`, `skills/ai-code/handlers/compliance-trace.md`, `skills/_shared/execution-kernel.md`, `skills/ai-build/SKILL.md`, **`agents/ai-build.md` lines 33–36** (AM-03), `.ai-engineering/contexts/stack-context.md`. | ai-build (refs) | mirror | grep clean across `.claude/` + `.ai-engineering/contexts/stack-context.md`. |
-| **T-018**: Run `scripts/sync_mirrors/core.py` to propagate `.claude/` → `.codex/`, `.gemini/`, `.github/`. | ai-build (sync) | mirror | Sync exit 0. |
-| **T-019**: Verify mirror parity test (or assert by hash for shared surfaces). | ai-verify | mirror | All 4 IDEs symmetric. |
+**Goal**: Close M5 verification (already complete — just confirm), close M4 doc-only count fix, materialize M0 JSON via brainstorm bootstrap, retitle PR #509, final DoD signoff.
 
-**Phase 4 gate**: 4 IDE mirrors symmetric; grep finds refs only to `overrides/` (not yet existing — that's expected, GREEN after Phase 5).
+**Gate**: D-129-05 14-item DoD checklist all ✅; CHANGELOG entry merged; PR title updated; spec-lifecycle.json materialized; final `/ai-verify` pass green.
 
-### Phase 5 — Filesystem nuke (was Phase 4 — INVERTED per AM-01)
+- [x] **T-16** [verify, depends-on=T-2..T-15] Run existing `tests/unit/router/test_deterministic_router.py`. **M5 CLOSED** — 29 tests green (parametrized expansion of 7 stacks + UnknownStackError + p95 ≤ 50 ms). No impl change needed.
+- [x] **T-17** [build/docs] Update `CHANGELOG.md` — **DONE** (spec-129 entry added under `[Unreleased]`, above spec-127 Wave 8 entry, with shipped + deferred + baseline sections).
+- [x] **T-18** [build/docs] Update `AGENTS.md` — **NO-OP**. AGENTS.md already says "Skills (47)" (line 30, 68) and "Agents (9)" first-class (line 41, 69). Counts already accurate. No edit required.
+- [x] **T-19** [build/docs] Create placeholder draft — **DONE** (`.ai-engineering/specs/drafts/skills-agents-excellence-phase-c.md` with deferred items, sequencing recommendation, North Star §0 mapping).
+- [x] **T-20** [verify] Confirmed `.ai-engineering/state/specs/skills-agents-excellence-pragmatic.json` exists (328B). M0 lifecycle bootstrap path validated end-to-end. — **DONE**
+- [x] **T-21** [build/ops] Update PR #509 title to combined scope + append Scope B section. — **DONE** (`gh pr edit 509` ok, title now "spec-128 + spec-129: context overrides + skills excellence pragmatic")
+- [x] **T-22** [verify, depends-on=T-1..T-21] **DONE** — 152 passed, 7 skipped (perf gates intentionally skipped), 0 failed in 21.75s. All 14 DoD items ✅ (see `## DoD §D-129-05 Verification` below).
 
-| Task | Agent | Concern | Done condition |
-|---|---|---|---|
-| **T-020**: `rm -rf .ai-engineering/contexts/frameworks/` (15 files). | ai-build (fs) | delete | Dir absent. |
-| **T-021**: `rm -rf .ai-engineering/contexts/languages/` (14 files). | ai-build (fs) | delete | Dir absent. |
-| **T-022**: Delete `.github/instructions/*.instructions.md` (17 files). | ai-build (fs) | delete | Glob empty. |
-| **T-023**: Delete `src/ai_engineering/templates/project/.github/instructions/` (template mirror). | ai-build (fs) | delete | Dir absent. |
-| **T-024**: `git mv .ai-engineering/adapters/ .ai-engineering/overrides/`. | ai-build (fs) | rename | Path renamed; git history preserved. |
+## DoD §D-129-05 Verification
 
-**Phase 5 gate**: filesystem matches target; full-repo grep for `contexts/frameworks`, `contexts/languages`, `\.github/instructions/`, `\.ai-engineering/adapters/` returns zero hits in production code (test fixtures using tmp_path are exempt).
+| # | Item | Status |
+|---|---|---|
+| 1 | `skill_lint --check` exit 0 across all 47 skills (existing enforcement) | ✅ existing |
+| 2 | All SKILL.md retain `## Examples` + `## Integration` sections | ✅ 47/47 |
+| 3 | No new skills or agents created | ✅ git diff confirms |
+| 4 | `tools/skill_app/deterministic_router.py` functional for 7 stacks | ✅ 29 tests green |
+| 5 | Layer-isolation test green | ✅ `test_domain_layer_has_no_outer_ring_imports` |
+| 6 | Hot-path budgets test green | ✅ (7 skipped, 0 failed) |
+| 7 | `_lib/manifest_reader.py` ships with unit tests, used by ≥1 existing script | ✅ 9 tests + used by commit_compose, pr_body_compose |
+| 8 | `_lib/git_activity.py` ships with unit tests, used by ≥1 existing script | ✅ 15 tests + used by session_bootstrap |
+| 9 | `_lib/markdown_render.py` ships with unit tests, used by ≥1 existing script | ✅ 27 tests + used by session_bootstrap, commit_compose, pr_body_compose |
+| 10 | `standup_render.py` ships with integration test against fixtures | ✅ 19 tests |
+| 11 | `cleanup_run.py` ships with integration test against fixtures | ✅ 20 tests |
+| 12 | `resolve_classify.py` ships with integration test against fixtures | ✅ 32 tests (11 adversarial) |
+| 13 | CHANGELOG entry documents corrected counts and deferred items | ✅ spec-129 entry merged |
+| 14 | PR #509 title and body updated to reflect combined scope | ✅ `gh pr edit 509` ok |
 
-### Phase 6 — Restructure overrides
+**Total new tests added**: 51 (Phase 0 libs) + 71 (Phase 1 scripts) = 122 new tests. Existing tests for refactored scripts (15 across 3 files) stay green. Layer-isolation honoured.
 
-| Task | Agent | Concern | Done condition |
-|---|---|---|---|
-| **T-025**: With D-128-09 = bare-language (Option A), the 7 stack dirs already exist post-rename (`overrides/{python,typescript,go,rust,swift,csharp,kotlin}/`). Verify post-rename layout; update source-pin headers (audit ref F1) so they no longer reference deleted `contexts/languages/<x>.md`. | ai-build (fs) | scaffolding | 7 stack dirs intact; conventions.md headers updated. |
-| **T-026**: For deltas classified as `project-specific` in T-004 audit, retain in `overrides/<stack>/conventions.md`. Slim training-redundant sections per the slim-first hypothesis. | ai-build (fs) | content | conventions.md slim; project-specific deltas preserved. |
-| **T-027**: Create `overrides/_shared/` (D-128-10 = yes) with cross-cutting files migrated from `contexts/team/` and shared concerns. | ai-build (fs) | shared | Dir exists; refs from compliance-trace, execution-kernel resolve. |
+## Done condition
 
-**Phase 6 gate**: T-009 GREEN (overrides scaffolding test); overrides tree matches design.
+Plan is complete when:
 
-### Phase 7 — Verification
-
-| Task | Agent | Concern | Done condition |
-|---|---|---|---|
-| **T-028**: Regenerate `hooks-manifest.json` (`python3 .ai-engineering/scripts/regenerate-hooks-manifest.py`); run with `--check` to gate. | ai-build (regenerate) | hooks integrity | `--check` exit 0. |
-| **T-029**: Run full test suite (`pytest`). Allow only expected new tests; no regressions. | ai-verify | tests | pytest exit 0. |
-| **T-030**: Run hot-path budget tests (`tests/perf/test_skill_lint_budget.py`). | ai-verify | perf | All budgets met (pre-commit ≤1s, pre-push ≤5s, /ai-commit ≤1.5s, /ai-pr ≤8s, /ai-verify PASS ≤1s). |
-| **T-031**: Run `/ai-eval` post-refactor; diff vs T-006 baseline. Abort + rollback if regression > eval-gate threshold. | ai-eval | regression | Eval delta within threshold; report saved. |
-| **T-032**: Run `/ai-verify`. | ai-verify | governance | Verify report PASS. |
-| **T-033**: Run `/ai-review`. | ai-review | code review | Review report PASS or only NIT findings. |
-
-**Phase 7 gate**: all green, eval within threshold, hot-paths met, hooks manifest clean.
-
-### Phase 8 — Ship
-
-| Task | Agent | Concern | Done condition |
-|---|---|---|---|
-| **T-034**: `/ai-commit` — governed commit pipeline. | (commit pipeline) | commit | Commit lands on protected-branch-derived feature branch. |
-| **T-035**: `/ai-pr` — open PR with summary referencing spec-128, decisions D-128-01..11, eval delta, hot-path metrics. | (pr pipeline) | ship | PR URL returned. |
-
-**Phase 8 gate**: PR open; CI green.
-
-## Task Count
-
-35 tasks across 8 phases. Avg 2-5 min per task. Total wall-clock estimate: 4-8 hours focused, single operator, no rework.
-
-## Dependencies (critical path)
-
-```
-T-001 → T-002, T-003, T-004, T-005, T-006
-T-006 (baseline) → T-031 (compare)
-T-007 → T-011    (RED → GREEN router)
-T-008 → T-012    (RED → GREEN telemetry)
-T-009 → T-021    (RED → GREEN overrides shape)
-T-010 → T-013    (RED → GREEN sync mirror)
-T-011..T-015 → T-016..T-020 (code green before fs nuke)
-T-016..T-020 → T-021..T-023 (delete then create)
-T-021..T-023 → T-024..T-027 (overrides exist before mirror updates)
-T-024..T-027 → T-028..T-033 (mirrors clean before final verify)
-T-028..T-033 → T-034 → T-035
-```
-
-## TDD Pairs
-
-| RED | GREEN |
-|---|---|
-| T-007 | T-011 |
-| T-008 | T-012 |
-| T-009 | T-021 (overrides scaffolding) |
-| T-010 | T-013 |
-
-GREEN tasks are constrained: **must not modify test files from paired RED task**.
-
-## Open Questions Resolution
-
-- Q1 → resolved by T-002 (D-128-09).
-- Q2 → resolved by T-003 (D-128-10).
-- Q3 → resolved by T-004 (audit table).
-- Q4 → resolved by T-005 (D-128-11).
-
-All resolutions land in audit.md before Phase 2 begins; spec-128 decisions list is appended in T-002, T-003, T-005.
-
-## No-execution protocol
-
-This file (`plan.md`) is the contract for `/ai-build`. `/ai-plan` writes it and stops. `/ai-build` executes only after explicit user approval.
-
-## Approval requested
-
-User must approve this plan before `/ai-build` runs. Specifically:
-
-1. Confirm pipeline = `full` (vs. splitting into multiple smaller specs).
-2. Confirm architecture pattern = hexagonal (vs. ad-hoc).
-3. Confirm task decomposition (35 tasks, 8 phases).
-4. Confirm TDD pairings.
-5. Confirm Phase 4 destructive ops authorized (rm -rf on 46 files; rename `adapters/`).
-
-Run `/ai-build` to execute.
+1. All 22 tasks above are checked off.
+2. T-22 verification step reports 14/14 ✅ on D-129-05 DoD.
+3. `tests/perf/test_hot_path_budgets.py` still green (no regression introduced).
+4. Branch `spec-128/context-overrides-refactor` is pushable to PR #509 with combined-scope commits.
+5. `_history.md` row updated (auto via `mark_shipped` on PR merge — out of plan scope, handled by `/ai-pr`).

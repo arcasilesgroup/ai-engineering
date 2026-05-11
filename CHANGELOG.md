@@ -7,6 +7,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-129 — Skills + Agents Excellence Refactor (Pragmatic Scope)
+
+Trimmed scope of the original `skills-agents-excellence-refactor.md` brief (8
+milestones) to the deterministically safe items. Lands on the same branch
+and the same PR as spec-128 (PR #509) per user direction — no new branch,
+no new PR.
+
+**Shipped**:
+
+- Three shared libs under `.ai-engineering/scripts/skills/skill_scripts_lib/`:
+  - `manifest_reader.py` — `resolve_stack`, `read_work_items`, typed errors
+  - `git_activity.py` — `recent_merges`, `last_commit`, `commits_since`,
+    `branch_age_days`, typed `Commit` / `Merge` records, `NoCommitsError`
+  - `markdown_render.py` — `render_table`, `render_checklist`,
+    `parse_frontmatter`, `strip_frontmatter`, typed errors
+- Three hot-path scripts under `.ai-engineering/scripts/skills/skill_scripts/`:
+  - `standup_render.py` — deterministic `/ai-standup` rendering
+  - `cleanup_run.py` — deterministic branch classification + safe deletion
+  - `resolve_classify.py` — conservative conflict classification
+    (adversarial-test-driven; lock-with-manual-edits and generated-without-
+    sentinel return `ambiguous`, never `auto-resolve`)
+- Refactored existing hot-path scripts to consume the shared libs
+  (`session_bootstrap.py`, `commit_compose.py`, `pr_body_compose.py`) —
+  behavior-preserving; all existing tests stay green.
+- M5 deterministic_router verification: 29 router tests green on 7 stacks
+  (typescript, python, go, rust, swift, csharp, kotlin) with `UnknownStackError`
+  + p95 ≤ 50 ms. No implementation change needed — sub-008 + spec-128 had
+  already shipped the working code.
+- `pyproject.toml` `pythonpath` extended once with
+  `.ai-engineering/scripts/skills` so both `skill_scripts_lib` and
+  `skill_scripts` are importable in tests without dist-packaging.
+
+**Corrected baseline** (post-audit reality):
+
+- Skills: 47 user-facing (excluding the `_shared/` helpers directory).
+  `ai-analyze-permissions` is a legitimate Claude-Code-only skill that
+  postdates the original brief; the brief's "46 target" was an estimate.
+- Agents: 24 in `.claude/agents/` (9 `ai-*` first-class + 11 `reviewer-*`
+  + 4 `verifier-*`). AGENTS.md continues to surface only the 9
+  first-class agents because the `reviewer-*` / `verifier-*` sets are
+  dispatched-only, not user-invocable.
+- `ai-poster` is NOT created (D-129-04). `ai-visual` already covers
+  static visual design — the original brief's §4 alt clause anticipated
+  this consolidation.
+
+**Deferred to follow-up** (`spec-130` draft created at
+`.ai-engineering/specs/drafts/skills-agents-excellence-phase-c.md`):
+
+- M6 eval corpus (`evals/<skill>.jsonl` ≥ 16 cases per skill) — without
+  it, description-level refactors are hope-driven. Building the corpus
+  is ~150 h focal, too expensive to bundle with PR #509.
+- M3 SKILL.md length cuts (24 skills currently > 120 lines).
+- §22 pair-length cuts (5 skill+agent pairs).
+- M2 Grade A target uplift via `/ai-prompt` optimization passes.
+
+Each deferred item depends on the eval corpus existing first — the M6
+gate is the regression detector that lets the description-level work
+ship safely.
+
+**Tests added**: 51 in Phase 0 (`tests/unit/scripts/_lib/`) + ~71 in
+Phase 1 (`tests/integration/scripts/`) = ~122 new tests across the
+new libs and scripts. Existing tests for `session_bootstrap`,
+`commit_compose`, `pr_body_compose` stay green. Layer-isolation test
+remains green (domain ↛ infra rule honoured).
+
 ### spec-127 Wave 8 — D-127-10 strict surface-count enforcement
 
 Wave 4 (sub-005) overshot the umbrella spec target (46 skills + 23 agents)
