@@ -1,16 +1,14 @@
 #!/usr/bin/env python3
 """Compose Markdown PR body from spec.md + plan.md frontmatter (brief §17).
 
-80% of the PR body is deterministic data shuffling: the Summary section
-takes its bullets from spec.md frontmatter ``summary``, the Test Plan
-checklist comes from plan.md ``[ ]`` rows, and the Work Items section
-joins ``refs.user_stories`` / ``refs.tasks`` with ``Closes #N`` lines.
+80% of the PR body is deterministic data shuffling: Summary from spec.md
+frontmatter ``summary``, Test Plan from plan.md ``[ ]`` rows, Work Items
+from ``refs.user_stories`` / ``refs.tasks``. The ``--bullets-prompt``
+flag is the LLM extension point for hand-written Summary bullets.
 
-LLM extension point: the ``--bullets-prompt`` flag accepts free-form
-Summary bullets when the operator wants a hand-written narrative. The
-SKILL.md fills this via Claude on demand.
-
-Output: Markdown to stdout. Stdlib + pyyaml. No external HTTP.
+Output: Markdown to stdout. Stdlib + pyyaml. Frontmatter parsing and
+checklist rendering route through ``skill_scripts_lib.markdown_render``
+(spec-129 T-6); failures degrade fail-open per field.
 """
 
 from __future__ import annotations
@@ -20,35 +18,40 @@ import re
 import sys
 from pathlib import Path
 
-try:
-    import yaml  # type: ignore[import-untyped]
-except ImportError:  # pragma: no cover
-    yaml = None  # type: ignore[assignment]
+# ``skill_scripts_lib`` lives at ``.ai-engineering/scripts/skills/``;
+# tests get it via the pytest ``pythonpath`` hook, but CLI invocation
+# needs explicit wiring.
+_SKILLS_DIR = Path(__file__).resolve().parent / "skills"
+if str(_SKILLS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SKILLS_DIR))
+
+from skill_scripts_lib.markdown_render import (  # noqa: E402
+    InvalidFrontmatterError,
+    parse_frontmatter,
+    render_checklist,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SPEC_PATH = _REPO_ROOT / ".ai-engineering" / "specs" / "spec.md"
 _PLAN_PATH = _REPO_ROOT / ".ai-engineering" / "specs" / "plan.md"
 _MANIFEST_PATH = _REPO_ROOT / ".ai-engineering" / "manifest.yml"
 
-_FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 _TASK_RE = re.compile(r"^\s*-\s*\[([ xX])\]\s*(.+?)$", re.MULTILINE)
 
 
 def _load_frontmatter(path: Path) -> dict | None:
-    if not path.is_file() or yaml is None:
+    """Return parsed frontmatter dict or ``None`` on any failure (fail-open)."""
+    if not path.is_file():
         return None
     try:
         text = path.read_text(encoding="utf-8")
     except OSError:
         return None
-    match = _FRONTMATTER_RE.search(text)
-    if not match:
-        return None
     try:
-        fm = yaml.safe_load(match.group(1)) or {}
-    except yaml.YAMLError:
+        fm = parse_frontmatter(text)
+    except InvalidFrontmatterError:
         return None
-    return fm if isinstance(fm, dict) else None
+    return fm or None
 
 
 def _extract_tasks(plan_path: Path, *, only_unchecked: bool = True) -> list[str]:
@@ -75,13 +78,11 @@ def _format_summary(spec_fm: dict | None, override: str | None) -> str:
 
     bullets: list[str] = []
     if spec_fm:
-        # Multiple shapes accepted: ``summary`` as list, string, or
-        # ``description`` fallback.
+        # Accept ``summary`` as list/string, or ``description`` fallback.
         summary = spec_fm.get("summary") or spec_fm.get("description")
         if isinstance(summary, list):
             bullets = [str(b).strip() for b in summary if str(b).strip()]
         elif isinstance(summary, str):
-            # Split on newlines or `;` separators.
             bullets = [s.strip() for s in re.split(r"[\n;]+", summary) if s.strip()]
 
     if not bullets:
@@ -91,11 +92,9 @@ def _format_summary(spec_fm: dict | None, override: str | None) -> str:
 
 
 def _format_test_plan(tasks: list[str]) -> str:
-    # Cap at 10 to keep PR bodies focused; default minimal checklist when
-    # plan.md has no unchecked tasks (e.g., docs-only PRs).
+    # Cap at 10 to keep PR bodies focused; minimal default for docs-only PRs.
     items = tasks[:10] if tasks else ["Lint clean (`ruff check`)", "Tests green (`pytest`)"]
-    rendered = "\n".join(f"- [ ] {item}" for item in items)
-    return f"## Test Plan\n\n{rendered}\n"
+    return f"## Test Plan\n\n{render_checklist([(False, it) for it in items])}\n"
 
 
 def _format_work_items(spec_fm: dict | None) -> str:
@@ -122,9 +121,9 @@ def _format_work_items(spec_fm: dict | None) -> str:
                 if ref:
                     related.append(ref)
 
-    lines: list[str] = []
     # Both GitHub (``#45``) and Azure DevOps (``AB#102``) refs use the
     # ``Closes`` keyword; the suffix encodes the platform.
+    lines: list[str] = []
     for ref in closes:
         lines.append(f"- Closes {ref}")
     for ref in related:
@@ -143,8 +142,7 @@ def _format_checklist() -> str:
         "CHANGELOG updated (if user-visible)",
         "No breaking changes (or documented)",
     )
-    rendered = "\n".join(f"- [ ] {it}" for it in items)
-    return f"## Checklist\n\n{rendered}\n"
+    return f"## Checklist\n\n{render_checklist([(False, it) for it in items])}\n"
 
 
 def compose_body(

@@ -37,7 +37,9 @@ party dep (already in the project venv).
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -45,25 +47,28 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+# Spec-129 T-13: shared libs live under ``scripts/skills/``; add to
+# sys.path so direct ``python session_bootstrap.py`` invocation works.
+_SKILLS_LIB_DIR = Path(__file__).resolve().parent / "skills"
+if str(_SKILLS_LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(_SKILLS_LIB_DIR))
+
 try:  # pyyaml ships in the project venv; degrade gracefully otherwise.
     import yaml  # type: ignore[import-untyped]
 except ImportError:  # pragma: no cover - exercised only without venv
     yaml = None  # type: ignore[assignment]
+
+from skill_scripts_lib.git_activity import NoCommitsError, last_commit  # noqa: E402
+from skill_scripts_lib.markdown_render import (  # noqa: E402
+    InvalidFrontmatterError,
+    parse_frontmatter,
+)
 
 SCHEMA_VERSION = 1
 BUDGET_MS = 300.0
 RECENT_WINDOW_DAYS = 7
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_SPEC_PATH = _REPO_ROOT / ".ai-engineering" / "specs" / "spec.md"
-_PLAN_PATH = _REPO_ROOT / ".ai-engineering" / "specs" / "plan.md"
-_EVENTS_PATH = _REPO_ROOT / ".ai-engineering" / "state" / "framework-events.ndjson"
-_MANIFEST_PATH = _REPO_ROOT / ".ai-engineering" / "manifest.yml"
-
-
-# ---------------------------------------------------------------------------
-# Git
-# ---------------------------------------------------------------------------
 
 
 def _git(*args: str, cwd: Path) -> str | None:
@@ -84,27 +89,38 @@ def _git(*args: str, cwd: Path) -> str | None:
 
 
 def _read_git(cwd: Path) -> dict:
-    """Return ``{branch, last_commit: {sha, subject}}`` (fail-open per field)."""
+    """Return ``{branch, last_commit: {sha, subject}}`` (fail-open per field).
+
+    Uses ``skill_scripts_lib.git_activity.last_commit`` (spec-129 T-13);
+    its full ``%H`` SHA is truncated to 8 chars to preserve the
+    historical ``%h`` JSON output shape.
+    """
     out: dict = {"branch": None, "last_commit": None}
     branch = _git("rev-parse", "--abbrev-ref", "HEAD", cwd=cwd)
     if branch:
         out["branch"] = branch
-    log = _git("log", "-1", "--format=%h%n%s", cwd=cwd)
-    if log:
-        sha, _, subject = log.partition("\n")
-        out["last_commit"] = {"sha": sha, "subject": subject}
+    original = Path.cwd()
+    commit = None
+    try:
+        os.chdir(cwd)
+        commit = last_commit()
+    except (NoCommitsError, OSError, FileNotFoundError):
+        commit = None
+    finally:
+        with contextlib.suppress(OSError):
+            os.chdir(original)
+    if commit is not None:
+        out["last_commit"] = {"sha": commit.sha[:8], "subject": commit.subject}
     return out
 
 
-# ---------------------------------------------------------------------------
-# spec.md frontmatter
-# ---------------------------------------------------------------------------
-
-_FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
-
-
 def _read_spec(path: Path) -> dict | None:
-    """Return ``{id, state, title}`` or ``None`` when missing/placeholder."""
+    """Return ``{id, state, title}`` or ``None`` when missing/placeholder.
+
+    Uses ``skill_scripts_lib.markdown_render.parse_frontmatter`` (spec-
+    129 T-13); ``InvalidFrontmatterError`` is suppressed to preserve
+    the historical fail-open contract.
+    """
     if not path.is_file():
         return None
     try:
@@ -113,15 +129,11 @@ def _read_spec(path: Path) -> dict | None:
         return None
     if not text.strip() or "no active spec" in text.lower()[:200]:
         return None
-
-    match = _FRONTMATTER_RE.search(text)
-    if not match or yaml is None:
-        return None
     try:
-        fm = yaml.safe_load(match.group(1)) or {}
-    except yaml.YAMLError:
+        fm = parse_frontmatter(text)
+    except InvalidFrontmatterError:
         return None
-    if not isinstance(fm, dict):
+    if not fm:
         return None
     spec_id = fm.get("id") or fm.get("spec_id")
     state = fm.get("status") or fm.get("state")
@@ -130,10 +142,6 @@ def _read_spec(path: Path) -> dict | None:
         return None
     return {"id": spec_id, "state": state, "title": title}
 
-
-# ---------------------------------------------------------------------------
-# plan.md task counts
-# ---------------------------------------------------------------------------
 
 _TASK_RE = re.compile(r"^\s*-\s*\[([ xX])\]", re.MULTILINE)
 
@@ -150,11 +158,6 @@ def _read_plan(path: Path) -> dict:
     total = len(matches)
     done = sum(1 for m in matches if m in ("x", "X"))
     return {"tasks_total": total, "tasks_done": done}
-
-
-# ---------------------------------------------------------------------------
-# Recent NDJSON events (7-day window)
-# ---------------------------------------------------------------------------
 
 
 def _read_recent_events(path: Path, window_days: int = RECENT_WINDOW_DAYS) -> int:
@@ -204,11 +207,6 @@ def _read_recent_events(path: Path, window_days: int = RECENT_WINDOW_DAYS) -> in
     return count
 
 
-# ---------------------------------------------------------------------------
-# manifest.yml hooks_health
-# ---------------------------------------------------------------------------
-
-
 def _read_hooks_health(path: Path) -> str:
     """Return ``hooks_health`` string from manifest, defaulting to ``unknown``."""
     if not path.is_file() or yaml is None:
@@ -233,11 +231,6 @@ def _read_hooks_health(path: Path) -> str:
         if isinstance(sub, str):
             return sub
     return "unknown"
-
-
-# ---------------------------------------------------------------------------
-# Composer
-# ---------------------------------------------------------------------------
 
 
 def build_dashboard(repo_root: Path | None = None) -> dict:

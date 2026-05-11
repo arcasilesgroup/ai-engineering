@@ -1,0 +1,13 @@
+{
+  "name": "fixture-app",
+  "version": "0.0.1",
+  "lockfileVersion": 3,
+  "requires": true,
+  "_comment": "MANUAL EDIT: pinned react@18.2.0 to dodge upstream regression",
+  "packages": {
+    "node_modules/react": {
+      "version": "18.2.0",
+      "resolved": "https://registry.npmjs.org/react/-/react-18.2.0.tgz"
+    }
+  }
+}

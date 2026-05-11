@@ -121,7 +121,7 @@ addopts = "-v -m 'not slow'"
 # ``skill_infra``, and ``skill_lint`` import as top-level packages
 # without a project-root ``tools/__init__.py`` (which would make
 # ``tools`` a namespace package and shadow other tooling).
-pythonpath = ["src", "tools"]
+pythonpath = ["src", "tools", ".ai-engineering/scripts/skills"]
 markers = [
   "unit: Pure logic tests, no I/O, fast (<1s per test)",
   "integration: Tests with local I/O (filesystem, git)",

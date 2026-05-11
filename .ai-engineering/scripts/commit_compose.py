@@ -12,25 +12,32 @@ Output shape:
 * No active spec, ``--desc``:     ``feat: adopt rubric``
 * No active spec, no ``--desc``:  ``feat: <DESC>``
 
-Stdlib + pyyaml. ``--type`` overrides the default ``feat``. ``--task``
+Frontmatter parsing is delegated to ``skill_scripts_lib.markdown_render``
+(spec-129 T-14). ``--type`` overrides the default ``feat``. ``--task``
 overrides the auto-extracted task identifier (``Task X.Y``).
 """
 
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from pathlib import Path
 
+# Add ``skill_scripts_lib`` parent dir to ``sys.path`` so this CLI runs
+# standalone without the venv-only ``pythonpath`` entry in pyproject.
+sys.path.insert(0, str(Path(__file__).resolve().parent / "skills"))
+
 try:
-    import yaml  # type: ignore[import-untyped]
-except ImportError:  # pragma: no cover
-    yaml = None  # type: ignore[assignment]
+    from skill_scripts_lib.markdown_render import (  # type: ignore[import-not-found]
+        InvalidFrontmatterError,
+        parse_frontmatter,
+    )
+except ImportError:  # pragma: no cover - lib missing
+    parse_frontmatter = None  # type: ignore[assignment]
+    InvalidFrontmatterError = Exception  # type: ignore[assignment,misc]
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SPEC_PATH = _REPO_ROOT / ".ai-engineering" / "specs" / "spec.md"
-_FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 
 VALID_TYPES = (
     "feat",
@@ -49,20 +56,13 @@ DESC_PLACEHOLDER = "<DESC>"
 
 
 def _read_frontmatter(spec_path: Path) -> dict | None:
-    if not spec_path.is_file() or yaml is None:
+    if not spec_path.is_file() or parse_frontmatter is None:
         return None
     try:
-        text = spec_path.read_text(encoding="utf-8")
-    except OSError:
+        fm = parse_frontmatter(spec_path.read_text(encoding="utf-8"))
+    except (OSError, InvalidFrontmatterError):
         return None
-    match = _FRONTMATTER_RE.search(text)
-    if not match:
-        return None
-    try:
-        fm = yaml.safe_load(match.group(1)) or {}
-    except yaml.YAMLError:
-        return None
-    return fm if isinstance(fm, dict) else None
+    return fm or None
 
 
 def compose_subject(
