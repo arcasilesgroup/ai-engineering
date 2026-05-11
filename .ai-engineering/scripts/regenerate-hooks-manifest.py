@@ -91,7 +91,7 @@ def _build_trusted_scripts() -> dict[str, str]:
     test fixture ``test_trusted_script_lane_manifest.py``.
     """
     out: dict[str, str] = {}
-    for rel in sorted(str(p) for p in TRUSTED_SCRIPTS):
+    for rel in sorted(p.as_posix() for p in TRUSTED_SCRIPTS):
         abs_path = REPO_ROOT / rel
         if not abs_path.is_file():
             continue

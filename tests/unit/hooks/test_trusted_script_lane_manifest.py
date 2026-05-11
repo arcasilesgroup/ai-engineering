@@ -134,7 +134,7 @@ def test_verify_trusted_script_matches(tmp_path: Path) -> None:
     script = project / "scripts" / "trust.py"
     script.parent.mkdir(parents=True)
     script.write_text("print('trusted')")
-    rel = str(script.relative_to(project))
+    rel = script.relative_to(project).as_posix()
     sha = hashlib.sha256(script.read_bytes()).hexdigest()
     manifest = project / ".ai-engineering" / "state" / "hooks-manifest.json"
     manifest.parent.mkdir(parents=True, exist_ok=True)
@@ -167,7 +167,7 @@ def test_verify_trusted_script_drift(tmp_path: Path) -> None:
     script = project / "scripts" / "trust.py"
     script.parent.mkdir(parents=True)
     script.write_text("print('tampered')")
-    rel = str(script.relative_to(project))
+    rel = script.relative_to(project).as_posix()
     manifest = project / ".ai-engineering" / "state" / "hooks-manifest.json"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     manifest.write_text(
