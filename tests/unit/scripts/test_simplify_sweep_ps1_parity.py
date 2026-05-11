@@ -27,9 +27,22 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+
+# Windows GitHub runners resolve unqualified ``bash`` to the WSL stub
+# (``C:\Windows\System32\bash.exe``) before Git Bash. WSL has no installed
+# distribution on the runner, so every invocation exits 1 with a
+# UTF-16-encoded "no installed distributions" banner — that is not a real
+# failure of `simplify-sweep.sh`. Skip the POSIX leg on Windows; the
+# native `simplify-sweep.ps1` covers Windows separately and is exercised
+# by `test_sh_ps1_parity` on POSIX runners that ship both bash and pwsh.
+_SKIP_ON_WINDOWS = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="simplify-sweep.sh requires POSIX bash; Windows `bash.exe` is WSL",
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SH_PATH = _REPO_ROOT / ".ai-engineering" / "scripts" / "scheduled" / "simplify-sweep.sh"
@@ -113,6 +126,7 @@ def _invoke(
     )
 
 
+@_SKIP_ON_WINDOWS
 @pytest.mark.parametrize(
     "scenario",
     ["missing-ai-eng", "present-success", "present-failure"],
@@ -174,6 +188,7 @@ def test_sh_ps1_parity(tmp_path: Path, scenario: str) -> None:
     assert sh_payload["project"] == "ai-engineering"
 
 
+@_SKIP_ON_WINDOWS
 def test_sh_wrapper_runs_even_without_pwsh(tmp_path: Path) -> None:
     """The POSIX leg always runs (no `pwsh` dependency).
 

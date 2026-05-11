@@ -55,12 +55,15 @@ def _resolve_mode() -> str:
 
 
 def compute_file_sha256(path: Path) -> str:
-    """Return canonical lowercase sha256 hex of ``path`` contents."""
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    """Return canonical lowercase sha256 hex of ``path`` contents.
+
+    Normalises CRLF -> LF before hashing so the result is identical on
+    Windows / Linux / macOS regardless of how the runner checked out the
+    repository. LF-only files hash to exactly the same digest as the
+    legacy raw-bytes implementation.
+    """
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _load_manifest_section(project_root: Path, section_key: str) -> dict[str, str]:

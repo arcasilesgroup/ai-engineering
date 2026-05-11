@@ -56,11 +56,12 @@ TRUSTED_ARGVS: list[str] = []
 
 
 def _sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    # Normalise CRLF -> LF before hashing so the manifest stays portable
+    # across Windows / Linux / macOS checkouts regardless of whether the
+    # runner honoured `.gitattributes` eol=lf. Hash is byte-identical for
+    # LF-only files; only Windows-CRLF checkouts get normalised.
+    data = path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(data).hexdigest()
 
 
 def _enumerate_hooks() -> list[Path]:
