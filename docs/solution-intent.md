@@ -108,7 +108,7 @@ C4Context
 | Teaching | explain, guide, write, slides, media, video-editing | 6 |
 | Design | design, animation, visual | 3 |
 | SDLC | note, standup, sprint, postmortem, support, resolve-conflicts | 6 |
-| Meta | create, learn, prompt, start, analyze-permissions, autopilot, constitution, skill-tune, mcp-audit, observe, simplify-sweep, research, help | 13 |
+| Meta | create, learn, prompt, start, analyze-permissions, autopilot, constitution, skill-improve, mcp-audit, observe, simplify-sweep, research, help | 13 |
 
 **Effort distribution** (post spec-122-a): `eval` skill removed with the
 `evals/` directory; net count reflects current `.claude/skills/`.

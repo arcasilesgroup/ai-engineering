@@ -199,7 +199,7 @@ skills:
     ai-board: { type: enterprise, tags: [board, discovery, sync, work-items] }
     # Platform governance
     ai-ide-audit: { type: enterprise, tags: [audit, ide, governance] }
-    ai-skill-tune: { type: meta, tags: [improvement, skills, optimization, tune] }
+    ai-skill-improve: { type: meta, tags: [improvement, skills, optimization, improve] }
     # Security (spec-107)
     ai-mcp-audit:
       { type: enterprise, tags: [security, mcp, audit, governance] }

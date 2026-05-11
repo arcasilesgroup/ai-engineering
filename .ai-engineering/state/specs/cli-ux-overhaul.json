@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-05-11T22:12:32.323865+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "cli-ux-overhaul",
+  "spec_id": "cli-ux-overhaul",
+  "state": "draft",
+  "title": "CLI UX & Architecture Overhaul"
+}

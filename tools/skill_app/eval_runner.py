@@ -6,7 +6,7 @@ Sub-007 M6 application layer, pilot scope. The runner coordinates:
 2. ``LLMPort`` + ``GitLogPort`` — delegated to a future
    ``corpus generator`` use case (not in pilot scope; see
    ``sub-007/plan.md`` Self-Report).
-3. ``LessonsPort`` — read by ``/ai-skill-tune`` integration; not by
+3. ``LessonsPort`` — read by ``/ai-skill-improve`` integration; not by
    the regression gate itself.
 
 The runner is intentionally thin: heavy lifting (LLM-driven case

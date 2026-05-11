@@ -376,7 +376,7 @@ All 48 skills grouped by category. Each is invoked as `/ai-<name>`.
 | `autopilot` | Autonomous multi-spec delivery |
 | `autopilot --backlog` | Backlog-driven autonomous execution |
 | `constitution` | Framework governance initialization |
-| `skill-tune` | Skill improvement and optimization |
+| `skill-improve` | Skill improvement and optimization |
 
 ---
 

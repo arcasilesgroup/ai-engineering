@@ -111,7 +111,7 @@ Runs the simplify pass and prints the diff without staging a commit or PR — us
 
 ## Integration
 
-Called by: `/ai-schedule` (weekly cron) or operator manually. Calls: `/ai-simplify` (conservative mode), `/ai-commit`, `/ai-pr --draft`. See also: `/ai-cleanup` (lifecycle sweep), `/ai-skill-tune` (skill-level improvement).
+Called by: `/ai-schedule` (weekly cron) or operator manually. Calls: `/ai-simplify` (conservative mode), `/ai-commit`, `/ai-pr --draft`. See also: `/ai-cleanup` (lifecycle sweep), `/ai-skill-improve` (skill-level improvement).
 
 - Telemetry: `framework_operation` events aggregated by the spec-120 audit index.
 

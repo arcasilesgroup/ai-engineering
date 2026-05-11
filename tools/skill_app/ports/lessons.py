@@ -1,6 +1,6 @@
 """``LessonsPort`` — read accumulated operator lessons from ``LESSONS.md``.
 
-The skill-tune workflow ingests three signal sources to propose a
+The skill-improve workflow ingests three signal sources to propose a
 description rewrite: prior eval corpora, Engram observations, and
 ``LESSONS.md`` entries (operator-authored corrections). This port
 exposes only the third — Engram lives behind the existing

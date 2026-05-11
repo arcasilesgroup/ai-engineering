@@ -71,7 +71,7 @@ economics rubric: deterministic execution → cheap, synthesis with judgment
 | ai-schema | mid | sonnet | Schema design + migration synthesis. |
 | ai-security | mid | sonnet | Security posture review with threat-model judgment. |
 | ai-simplify-sweep | cheap | haiku | Mechanical guard-clause / early-return rewrites. |
-| ai-skill-tune | mid | sonnet | Skill refinement; rubric-driven judgment. |
+| ai-skill-improve | mid | sonnet | Skill refinement; rubric-driven judgment. |
 | ai-slides | mid | sonnet | Deck synthesis with narrative judgment. |
 | ai-sprint | mid | sonnet | Sprint planning narrative. |
 | ai-standup | cheap | haiku | Deterministic per-spec digest from telemetry. |
