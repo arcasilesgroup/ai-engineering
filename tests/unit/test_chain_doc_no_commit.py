@@ -51,7 +51,7 @@ def _has_forbidden_chain(text: str) -> bool:
 def test_mirror_contains_expected_chain(path: Path) -> None:
     if not path.exists():
         pytest.skip(f"Mirror not found at {path}")
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     assert _has_expected_chain(text), (
         f"{path.relative_to(REPO_ROOT)} must contain the canonical chain "
         f"'{CHAIN_EXPECTED}' (spec-131 D-131-07)."
@@ -62,7 +62,7 @@ def test_mirror_contains_expected_chain(path: Path) -> None:
 def test_mirror_omits_old_chain_with_commit(path: Path) -> None:
     if not path.exists():
         pytest.skip(f"Mirror not found at {path}")
-    text = path.read_text()
+    text = path.read_text(encoding="utf-8")
     assert not _has_forbidden_chain(text), (
         f"{path.relative_to(REPO_ROOT)} must not embed the legacy chain "
         f"containing /ai-commit (spec-131 D-131-07)."
@@ -75,7 +75,7 @@ def test_canonical_template_contains_expected_chain() -> None:
             "CANONICAL.md template not found -- sub-001 wave 1 has not "
             "materialised it yet. Mirror assertions still apply."
         )
-    text = CANONICAL.read_text()
+    text = CANONICAL.read_text(encoding="utf-8")
     assert _has_expected_chain(text), (
         "CANONICAL.md must contain the canonical chain string (spec-131 D-131-07)."
     )
