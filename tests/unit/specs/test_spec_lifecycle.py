@@ -31,6 +31,12 @@ from pathlib import Path
 
 import pytest
 
+# Windows GitHub runners pay a ~2x penalty on subprocess + filesystem IO
+# compared with ubuntu/macOS. Keep the POSIX hot-path budget tight at
+# 0.5s; grant Windows 1.0s so genuine regressions still trip the
+# assertion without flaking on the slower platform.
+_PERF_BUDGET_S = 1.0 if sys.platform.startswith("win") else 0.5
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -165,7 +171,9 @@ class TestStartNew:
         start = time.monotonic()
         lifecycle.start_new("my-feature", "My Feature", project_root)
         elapsed = time.monotonic() - start
-        assert elapsed < 0.5, f"start_new took {elapsed:.3f}s (>500ms budget)"
+        assert elapsed < _PERF_BUDGET_S, (
+            f"start_new took {elapsed:.3f}s (>{_PERF_BUDGET_S}s budget)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -246,7 +254,9 @@ class TestMarkShipped:
         start = time.monotonic()
         lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
         elapsed = time.monotonic() - start
-        assert elapsed < 0.5, f"mark_shipped took {elapsed:.3f}s (>500ms budget)"
+        assert elapsed < _PERF_BUDGET_S, (
+            f"mark_shipped took {elapsed:.3f}s (>{_PERF_BUDGET_S}s budget)"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -296,7 +306,7 @@ class TestArchive:
         start = time.monotonic()
         lifecycle.archive(record.spec_id, project_root)
         elapsed = time.monotonic() - start
-        assert elapsed < 0.5, f"archive took {elapsed:.3f}s (>500ms budget)"
+        assert elapsed < _PERF_BUDGET_S, f"archive took {elapsed:.3f}s (>{_PERF_BUDGET_S}s budget)"
 
 
 # ---------------------------------------------------------------------------
@@ -354,7 +364,7 @@ class TestSweep:
         start = time.monotonic()
         lifecycle.sweep(project_root)
         elapsed = time.monotonic() - start
-        assert elapsed < 0.5, f"sweep took {elapsed:.3f}s (>500ms budget)"
+        assert elapsed < _PERF_BUDGET_S, f"sweep took {elapsed:.3f}s (>{_PERF_BUDGET_S}s budget)"
 
 
 # ---------------------------------------------------------------------------
@@ -389,7 +399,7 @@ class TestStatus:
         start = time.monotonic()
         lifecycle.status(record.spec_id, project_root)
         elapsed = time.monotonic() - start
-        assert elapsed < 0.5, f"status took {elapsed:.3f}s (>500ms budget)"
+        assert elapsed < _PERF_BUDGET_S, f"status took {elapsed:.3f}s (>{_PERF_BUDGET_S}s budget)"
 
 
 # ---------------------------------------------------------------------------
