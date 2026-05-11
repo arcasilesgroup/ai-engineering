@@ -21,7 +21,9 @@ edit_policy: generated-do-not-edit
 
 # PR Workflow
 
-Governed PR creation: full commit pipeline, pre-push gates, structured PR with summary + test plan, auto-complete with squash merge and branch deletion. Use `/ai-commit` for commit-only flows.
+Governed PR creation: full commit pipeline, pre-push gates, structured PR with summary + test plan, auto-complete with squash merge and branch deletion.
+
+`/ai-pr` is the canonical chain step `brainstorm → plan → build → pr` — it runs the commit pipeline internally; the operator does NOT run `/ai-commit` first. `/ai-commit` exists as a standalone off-chain skill for WIP-only commits where no PR is wanted.
 
 ```
 /ai-pr                  # full pipeline + create or update PR
@@ -32,9 +34,38 @@ Governed PR creation: full commit pipeline, pre-push gates, structured PR with s
 
 ## Process
 
-### Steps 0-6: Shared Commit Pipeline
+### Step 0: Auto-branch from protected
 
-READ `.github/skills/ai-commit/SKILL.md` and execute steps 0-6 in full. The documentation gate in the shared commit pipeline is mandatory.
+If current branch is `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate slug deterministically with `python3 .ai-engineering/scripts/branch_slug.py --prefix <type>` (reads spec.md frontmatter), then `git checkout -b <output>`, report new branch.
+
+### Step 1: Work item context (optional)
+
+If `.ai-engineering/specs/spec.md` frontmatter has `refs`: include work item refs as commit body trailers (`Refs: AB#101, AB#102, #45`). Only include `close_on_pr` items — never features.
+
+### Step 2: Instinct consolidation
+
+If `.ai-engineering/observations/observations.yml` exists, run `/ai-observe --review` to consolidate session observations before committing.
+
+### Step 3: Stage changes
+
+`git add <file1> <file2>` selectively. Use `git add -A` only when explicitly requested. Exclude generated files, secrets, large binaries.
+
+### Step 4: Run gate orchestrator
+
+```
+ai-eng gate run --cache-aware --json --mode=local
+```
+
+The orchestrator runs the 2-wave collector (Wave 1 fixers serial → Wave 2 checkers parallel) with cache-aware lookup, emitting `.ai-engineering/state/gate-findings.json` (schema v1) covering every check. After Wave 1 fixers rewrite files, the orchestrator re-stages the safe `S_pre & M_post` intersection (spec-105 D-105-09); pass `--no-auto-stage` to disable, or set `gates.pre_commit.auto_stage: false` in the manifest.
+
+### Step 5: Handle gate result
+
+- **Exit 0** — all checks PASS or auto-fixed. Continue to Step 6.
+- **Exit non-zero** — parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, **STOP**. Fix root cause, re-stage, re-run. Override only when remediation is tracked elsewhere and the publish window forces it: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` writes one DEC entry per finding with severity-default TTL (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
+
+### Step 6: Confirm commit readiness
+
+The documentation gate inside the orchestrator is mandatory. See `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI authoritative split.
 
 ### 7. Concurrent dispatch -- docs + pre-push gate (3 lanes)
 
@@ -148,6 +179,6 @@ Same pipeline, but opens with `--draft` and skips the review request; reviewers 
 
 ## Integration
 
-Calls: `/ai-commit` (steps 0-6 prereq), `/ai-docs` subagents (CHANGELOG, README, portal, quality-gate), `/ai-board sync` (post-create), `gh pr create` / `az repos pr create`. Watches: CI via `handlers/watch.md`. Reads: `manifest.yml`, spec frontmatter for linked work items. See also: `/ai-commit`, `/ai-review`, `/ai-resolve-conflicts`.
+Calls: `/ai-docs` subagents (CHANGELOG, README, portal, quality-gate), `/ai-board sync` (post-create), `gh pr create` / `az repos pr create`. Runs inline: commit pipeline (Steps 0-6 — same logic as the standalone `/ai-commit` skill, copied for chain clarity). Watches: CI via `handlers/watch.md`. Reads: `manifest.yml`, spec frontmatter for linked work items. See also: `/ai-commit` (off-chain WIP-only), `/ai-review`, `/ai-resolve-conflicts`.
 
 $ARGUMENTS

@@ -46,13 +46,18 @@ INCLUDE_SUFFIXES = {".py", ".sh", ".ps1"}
 # enforcement (sha256 + literal form) closes the bypass via
 # ``bash -c "..."`` or via byte modification.
 #
-# ``session_bootstrap.py`` is owned by sub-003; sub-004 ships the
-# mechanism with an empty argv list. The no-verify-guard.py script
-# (T-4.E) is enrolled here from day one.
+# ``session_bootstrap.py`` enrolment (spec-132 T-2 / operator-pain #18b):
+# the trusted-script lane was wired in spec-131 sub-004 but the
+# bootstrap script was left out — sub-agents dispatched from /ai-start
+# kept tripping the IOC scan instead of bypassing it. Pinning both the
+# bytes (sha256) and the literal argv form closes pain #16/#18b.
 TRUSTED_SCRIPTS: list[Path] = [
     Path(".ai-engineering/scripts/hooks/no-verify-guard.py"),
+    Path(".ai-engineering/scripts/session_bootstrap.py"),
 ]
-TRUSTED_ARGVS: list[str] = []
+TRUSTED_ARGVS: list[str] = [
+    "uv run python .ai-engineering/scripts/session_bootstrap.py",
+]
 
 
 def _sha256_file(path: Path) -> str:

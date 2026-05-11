@@ -98,18 +98,30 @@ def test_empty_argv_returns_false(guard) -> None:
 
 
 def test_settings_json_no_longer_has_catchall() -> None:
-    """``.claude/settings.json:19`` must drop the substring-glob catch-all."""
+    """``.claude/settings.json`` must drop EVERY substring glob for ``--no-verify``.
+
+    spec-132 T-4 / operator-pain #16: the four git-specific globs
+    (``Bash(git commit*--no-verify*)``, ``push``, ``merge``, ``rebase``)
+    block legitimate commits whose message text or branch name contains
+    the literal substring (e.g. ``git commit -m "feat: add --no-verify
+    support"``). The token-aware ``no-verify-guard.py`` hook is the
+    canonical defence — the globs supersede it with false positives.
+    """
     settings_path = REPO / ".claude" / "settings.json"
     payload = json.loads(settings_path.read_text(encoding="utf-8"))
     deny = payload["permissions"]["deny"]
-    # The four git-specific entries stay; the catch-all is dropped.
     assert "Bash(*--no-verify*)" not in deny, (
         "spec-131 sub-004 T-4.E removed the substring catch-all in favour "
         "of no-verify-guard.py token-aware matcher"
     )
-    # Defence in depth: keep the four git-specific entries.
+    # spec-132 T-4: the four git-specific globs are GONE; the hook is the
+    # sole defence. Asserting their absence prevents accidental reintroduction.
     for verb in ("commit", "push", "merge", "rebase"):
-        assert f"Bash(git {verb}*--no-verify*)" in deny
+        assert f"Bash(git {verb}*--no-verify*)" not in deny, (
+            f"Bash(git {verb}*--no-verify*) reintroduced — operator-pain #16"
+            " resurfaces: substring globs block legitimate commits whose"
+            " message text contains the literal '--no-verify'."
+        )
 
 
 def test_no_verify_guard_wired_in_pretooluse() -> None:

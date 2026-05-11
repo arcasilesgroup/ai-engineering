@@ -113,6 +113,6 @@ Stages only the named paths, runs the pipeline through commit, stops before push
 
 ## Integration
 
-Called by: `/ai-pr` (steps 0-6), user directly. Calls: `git`, `ruff`, `gitleaks`, `ai-eng spec verify --fix`. Reads: `manifest.yml`, `CLAUDE.md`. See also: `/ai-pr`, `/ai-cleanup`, `/ai-resolve-conflicts`.
+Called by: user directly (off-chain, WIP-only flows). `/ai-pr` carries the same Steps 0-6 inline (single-responsibility per spec-132 T-3) — it does NOT delegate back here. Calls: `git`, `ruff`, `gitleaks`, `ai-eng spec verify --fix`. Reads: `manifest.yml`, `CLAUDE.md`. See also: `/ai-pr`, `/ai-cleanup`, `/ai-resolve-conflicts`.
 
 $ARGUMENTS

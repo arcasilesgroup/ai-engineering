@@ -21,60 +21,64 @@ This skill is invoked as an IDE slash command (`/ai-start`). It is not an `ai-en
 
 ## Process
 
-### Step 1: Bootstrap (deterministic, <300ms)
+### Step 1: Bootstrap (deterministic, ≤300ms, single call)
 
-Run `python3 .ai-engineering/scripts/session_bootstrap.py` and parse the JSON dashboard. Fields: `branch`, `last_commit`, `active_spec` (id/state/title/tasks_total/tasks_done), `recent_events_7d`, `hooks_health`. Use these directly — no LLM data shuffle.
+Run **exactly one command** — the literal argv form below — and parse the JSON dashboard:
 
-### Step 2: Load context
+```
+uv run python .ai-engineering/scripts/session_bootstrap.py
+```
 
-Read `session.context_files` from `.ai-engineering/manifest.yml`. If `manifest.yml` is missing or `session.context_files` is not defined, skip and note in the dashboard: 'manifest not found — run `/ai-constitution` to initialize'.
+The script is enrolled in the trusted-script lane (`hooks-manifest.json` `trustedArgvs`), so this single argv bypasses RTK rewriting + IOC re-evaluation. Do not modify the argv (no positional flags, no shell wrappers) — the lane is literal-match (D-131-12). Any other invocation form falls back to the full IOC path. (`uv run python` is required because the script imports `yaml` and `skill_scripts_lib`, both of which live in the project venv; plain `python3` will fail with `ModuleNotFoundError: yaml`.)
 
-### Step 3: Activate observation
+Fields returned:
+- `branch`, `last_commit` (sha, subject)
+- `active_spec` (id, state, title, tasks_total, tasks_done) or `null`
+- `recent_events_7d` (int)
+- `hooks_health` (string)
 
-Run `/ai-observe` to enter observation mode for this session.
+**Trust the JSON.** Do not re-derive any field with your own `git`, `yaml`, `sqlite`, or `gh` calls — that is the re-probe pattern that operator-pain #18b flags.
 
-### Step 4: Gather supplementary status (LLM-only where genuinely needed)
-
-- **Recent activity narrative**: run `git log --oneline -5` and generate a 3-line human-readable summary. Plain language, not raw log.
-- **Board status**: follow the Board Display section below.
-
-### Step 5: Display dashboard
+### Step 2: Display dashboard
 
 Render the welcome dashboard as raw Markdown — NOT inside a code block. Markdown renders natively across Claude Code, claude.ai, GitHub Copilot, Codex, and Gemini CLI.
 
-Read `name` from `.ai-engineering/manifest.yml` for the project header. Budget: ≤ 50 lines.
+Use the JSON from Step 1 as the source of truth. Read `name` from `.ai-engineering/manifest.yml` ONCE for the project header — that single read is the only allowed manifest probe. Budget: ≤ 50 lines.
 
-Template (output directly as Markdown, replacing placeholders):
+Template (output directly as Markdown, replacing placeholders; omit any line whose field is not present in the JSON):
 
 ````markdown
 ## ◈ [name]
 
-> LESSONS (N) · CONSTITUTION · manifest (N skills, N agents) · decisions (N active, N risks)
-> observation mode active
+> hooks: [hooks_health] · events 7d: [recent_events_7d]
 
 ---
 
 ### ▸ Active Work
 
-- **Spec NNN** — [title] · `status`
-- **Plan** — N/M tasks complete | no active plan
+- **Spec [active_spec.id]** — [active_spec.title] · `[active_spec.state]`
+- **Plan** — [active_spec.tasks_done]/[active_spec.tasks_total] tasks complete
 
 ### ▸ Recent
 
-- [LLM summary line] (#NNN)
-- [LLM summary line] (#NNN)
-- [3-5 bullets from last 5 commits]
-
-### ▸ Board · [provider] [project]
-
-- N items — Status1: N · Status2: N
-- or: not configured — run `/ai-board discover`
+- **[last_commit.sha]** [last_commit.subject]
 
 ---
 
 `/ai-brainstorm` design · `/ai-debug` fix · `/ai-guide` explore · `/ai-commit` save
 `/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-cleanup` tidy
 ````
+
+When `active_spec` is `null`, replace the Active Work block with `no active spec — run /ai-brainstorm`.
+
+### Step 3: Optional — board + observation (after the dashboard renders)
+
+After Step 2 prints the dashboard, you MAY run the following — both are fail-graceful and never block the dashboard:
+
+- **Board status** (see Board Display section). Show `board unavailable` if the call errors; never block on it.
+- **Observation activation**: invoke `/ai-observe` (fire-and-forget; the session continues whether observation initialises or not).
+
+Skip Step 3 when the operator's first message after `/ai-start` is already a follow-up question — they read the dashboard, they want an answer, not more probes.
 
 Formatting rules:
 - Use `·` (middle dot U+00B7) as inline separator
