@@ -118,6 +118,7 @@ session:
     - .ai-engineering/LESSONS.md
     - CONSTITUTION.md
     - .ai-engineering/manifest.yml
+    - .ai-engineering/state/decision-store.json
 
 control_plane:
   constitutional_authority:
