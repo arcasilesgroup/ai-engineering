@@ -550,3 +550,61 @@ entries:
     dec_id: ""
 
   # === END spec-128 sub-d transitional allowlist (round 2) ===============
+
+  # === BEGIN spec-128 sub-d transitional allowlist (round 3, CI catch) ===
+  # Entries surfaced by the CI run that local catalog missed (new files
+  # introduced after the initial scan + scripts/skills/ subtree).
+  - path: ".ai-engineering/scripts/pr_body_compose.py"
+    rule: "*"
+    pattern: "noqa"
+    justification: "Transitional debt — spec-128 sub-d."
+    spec_ref: "spec-128"
+    expires_at: "2026-07-10T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: ".ai-engineering/scripts/session_bootstrap.py"
+    rule: "*"
+    pattern: "noqa"
+    justification: "Transitional debt — spec-128 sub-d."
+    spec_ref: "spec-128"
+    expires_at: "2026-07-10T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: ".ai-engineering/scripts/skills/skill_scripts/cleanup_run.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: "Transitional debt — spec-128 sub-d."
+    spec_ref: "spec-128"
+    expires_at: "2026-07-10T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: ".ai-engineering/scripts/skills/skill_scripts/resolve_classify.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: "Transitional debt — spec-128 sub-d."
+    spec_ref: "spec-128"
+    expires_at: "2026-07-10T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: ".ai-engineering/scripts/skills/skill_scripts/standup_render.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: "Transitional debt — spec-128 sub-d."
+    spec_ref: "spec-128"
+    expires_at: "2026-07-10T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: ".ai-engineering/scripts/skills/skill_scripts/standup_render.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: "Transitional debt — spec-128 sub-d."
+    spec_ref: "spec-128"
+    expires_at: "2026-07-10T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+  # === END spec-128 sub-d transitional allowlist (round 3, CI catch) =====
