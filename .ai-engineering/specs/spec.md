@@ -1,151 +1,618 @@
 ---
-spec: spec-129
-title: Skills + Agents Excellence Refactor — Pragmatic Scope
+spec: spec-131
+slug: dx-excellence-refactor
+title: spec-131 — DX Excellence Refactor — Trimmed (M2 + M4-residual + M5 + M6-residual + M7 + M1-residual + S7 spec-lint)
 status: approved
-effort: medium
+approved_at: 2026-05-11
+approved_by: operator
+effort: large
+branch: spec-128/context-overrides-refactor
+pr: arcasilesgroup/ai-engineering#509
+target_dispatch: /ai-autopilot
+source_brief: .ai-engineering/specs/drafts/dx-excellence-refactor-brief.md
+chains_after: spec-129 (operator-marked complete 2026-05-11; lifecycle mark_shipped pending PR merge)
 ---
-
-# Skills + Agents Excellence Refactor — Pragmatic Scope
 
 ## Summary
 
-The original brief `skills-agents-excellence-refactor.md` (Phase A + Phase B, 8 milestones M0–M7) tracks at 1/8 fully complete. Audit on 2026-05-10 found M7 ✅ shipped; M0/M1/M2/M3/M4/M5/§22 partial; M6 absent (1/47 skills has an eval corpus, none have ≥16 cases). Closing the original DoD requires writing ~736 eval cases (~150 hours focal) before any safe SKILL.md description refactor — the M2 CSO work and §22 pair-length cuts are unsafe without a regression gate. This spec **cuts M6 and its dependent items from the PR-#509 scope** and lands the mechanical, low-risk gaps that have a deterministic safety story. The deferred work is documented for a follow-up PR. The deliverable is **~13 hours of focal work** that closes the verifiable portion of the original DoD while preserving optionality for the description-level refactor once an eval corpus exists.
+> **North Star (brief §0)**: a first-time engineer types `/ai-start`, sees one
+> canonical chain, and reaches a merged PR without ever asking "which command?".
+> Every skill self-describes. Every script is deterministic before the LLM
+> thinks. Every IDE behaves identically. Every governance file owns one job and
+> one job only. **Every sub-spec wave below re-anchors to this North Star
+> before any code lands.**
 
-This spec extends PR #509 (originally `spec-128: Context Layout Refactor — Stack-Based Overrides`). Per user direction, **no new branch and no new PR** are created — all work lands on `spec-128/context-overrides-refactor` and #509 is renamed to reflect the combined scope.
+The framework's developer experience fails on six axes — naming, markdown canon,
+deterministic preprocessor coverage, twin flows, model/dispatch economics, and
+hook robustness — surfaced by an audited operator brief
+([brief](./drafts/dx-excellence-refactor-brief.md), 592 lines, evidence-anchored).
+Roughly half of the original M1–M7 roadmap (full M1 renames, M3 preprocessor
+library, M6 no-suppression gate, `_history.md` rotation) already shipped via
+spec-127, spec-128, and spec-129. This spec captures the **residual,
+non-duplicated work** that genuinely moves the DX bar: byte-equivalent markdown
+mirrors with a project-identity CONSTITUTION; a single end-of-implementation
+quality loop replacing per-task verify+review (≈90 % gate-run reduction); a
+patch-ready `/ai-plan` that lets `/ai-build` run on a cheap model tier;
+sub-agent-aware hook lanes that stop blocking legitimate read-only probes; and
+the docs / onboarding surface that ties the chain together. The work ships
+inside the current branch (`spec-128/context-overrides-refactor`) and the
+active PR ([#509](https://github.com/arcasilesgroup/ai-engineering/pull/509)) —
+no new branch and no new PR are opened. Spec-129's work-stream is
+operator-marked complete (2026-05-11); its spec body is archived at
+`.ai-engineering/specs/spec-129-skills-agents-excellence-pragmatic.md` and
+this spec now occupies the canonical `.ai-engineering/specs/spec.md` slot.
 
 ## Goals
 
-1. Land the three missing M3 shared libs (`manifest_reader.py`, `git_activity.py`, `markdown_render.py`) under `.ai-engineering/scripts/skills/_lib/`, with unit tests, used by at least the three existing scripts (`session_bootstrap.py`, `commit_compose.py`, `pr_body_compose.py`) where duplication exists today.
-2. Land the three missing M3 hot-path scripts (`standup_render.py`, `cleanup_run.py`, `resolve_classify.py`), each with deterministic logic, ≤500 ms p95 budget, and at least one integration test against fixture data.
-3. Close M4 reconciliation: document that **47 skills + 24 agents is the corrected baseline**, justified by the post-spec additions (`ai-analyze-permissions`, `ai-guide` agent retained per §22.4 boundary). Update CHANGELOG + AGENTS.md to reflect the corrected counts. Confirm `ai-poster` is **not** created — `ai-visual` already covers static visual art per spec-126 §4 alt clause.
-4. Verify M5 `tools/skill_app/deterministic_router.py` is functional (not a stub): exercise `resolve_adapter()` against fixtures for all 7 supported stacks (TS, Python, Go, Rust, Swift, C#, Kotlin), confirm `UnknownStackError` raises on bad input.
-5. Trigger M0 `.ai-engineering/state/spec-lifecycle.json` materialization via the standard brainstorm bootstrap path; confirm `sweep()` heals when JSON is missing on cold start.
-6. Update PR #509 title and body to reflect the combined scope (`spec-128 context overrides + spec-129 skills excellence pragmatic`).
-7. Rename and rescope the DoD: replace the original DoD §20 checklist with the trimmed checklist in §Decisions / D-129-05; deferred items (M6 evals, M3 SKILL.md ≤120 cuts, §22 pair cuts) move to a documented follow-up.
-8. Hot-path budgets test (`tests/perf/test_hot_path_budgets.py`) stays green; new scripts must respect the existing budget ceilings.
+> Sub-specs are introduced as `S<n>-…` so `/ai-autopilot` Phase 1 can decompose
+> them into parallel waves. Acceptance criteria use `❑` to match the brief
+> convention.
+
+### S1 — Markdown Canon Reset (Mirror Strategy + Project-Identity CONSTITUTION)
+
+- ❑ A single `templates/project/CANONICAL.md` template carries the canonical
+  "how AI works in this repo" payload (TOC per brief §2.3) including §10
+  first-class engineering principles (KISS / YAGNI / SOLID / DRY / TDD / SDD /
+  Clean Code / Hexagonal Architecture) with definition + concrete rules +
+  anti-patterns + example each.
+- ❑ `<repo>/AGENTS.md`, `<repo>/CLAUDE.md`, `<repo>/GEMINI.md`,
+  `<repo>/.github/copilot-instructions.md` are **byte-equivalent** mirrors of
+  CANONICAL.md (frontmatter / IDE banner aside). No `@AGENTS.md` import. No
+  symlinks. No cross-references.
+- ❑ `<repo>/.gemini/GEMINI.md` deleted (dead path — Gemini CLI does not read
+  in-repo `.gemini/`).
+- ❑ `<repo>/.codex/AGENTS.md` not created (Codex reads root AGENTS.md
+  natively).
+- ❑ `tools/skill_lint/md_mirror.py` checks: (a) sha256 equivalence of the four
+  mirrors' canonical payload; (b) no `@AGENTS.md` import in CLAUDE.md;
+  (c) no orphan `.gemini/GEMINI.md`; (d) no orphan `.codex/AGENTS.md`;
+  (e) CONSTITUTION.md does not contain canonical AI-behaviour headers
+  (`Simplicity First`, `Plan-Mode Default`, `KISS`, etc.).
+- ❑ `tools/skill_lint/principles.py` checks every SKILL.md `## Workflow`
+  cites at least one `§10.x` principle anchor.
+- ❑ `/ai-constitution` skill is refactored: interview-driven, produces a
+  **project-identity** CONSTITUTION.md (Mission, Stakeholders, Vocabulary,
+  Prohibitions, Compliance gates, Anti-goals, Boundaries, Escalation,
+  Language, Lifecycle phase). All AI-behaviour content currently in
+  CONSTITUTION.md is migrated into CANONICAL.md before lint enforcement.
+- ❑ `scripts/sync_mirrors/core.py` surfaces 5.5 / 7 / 7.5 / copilot are
+  refactored to read CANONICAL.md and emit byte-equivalent payload. The
+  cross-ref line at `core.py:1103` ("See [AGENTS.md](../AGENTS.md) …") is
+  removed. The in-repo `.gemini/GEMINI.md` write is dropped.
+  `python scripts/sync_command_mirrors.py --check` is idempotent (running it
+  twice produces no diff). No new sync entry point.
+- ❑ `/ai-ide-audit` extended to assert the mirror contract per IDE
+  (Claude / Codex / Gemini / Copilot / Antigravity).
+- ❑ Functional verification: Claude `/memory`, Gemini CLI, Codex CLI,
+  Antigravity v1.20.3+, and Copilot each load the full canonical payload from
+  the repo root without manual configuration.
+- ❑ The **strict content contracts table from brief §2.3** (per-file
+  MUST contain / MUST NOT contain for AGENTS / CLAUDE / GEMINI /
+  `.github/copilot-instructions.md` / `.gemini/GEMINI.md` /
+  `.codex/AGENTS.md` / `.github/instructions/*` / `.agent/rules/*` /
+  CONSTITUTION / README / CONTRIBUTING / `docs/getting-started.md`) is
+  transcribed into CANONICAL.md as an authoring reference and enforced
+  by `md_mirror.py` where mechanically checkable.
+
+### S2 — Single Quality Loop + Chain Doc Reset (M4-residual)
+
+- ❑ `/ai-build` SKILL.md: zero references to per-task verify+review inside the
+  task loop. A single final-quality-loop phase exists before `/ai-pr`
+  (verify + review dispatched once on the full changeset). Clean → `/ai-pr`.
+  Blockers → STOP + escalate to operator (no auto-retry).
+- ❑ `/ai-autopilot` SKILL.md: Phase 4 contains zero per-task verify+review
+  references; Phase 5 is **single-round** ("round<3 → fix and re-assess"
+  language removed). Verify + review + guard dispatched once in parallel on
+  full changeset. Clean → Phase 6. Blockers → STOP + escalate.
+- ❑ Canonical chain in AGENTS / CLAUDE / GEMINI / copilot-instructions reads
+  `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr` — `/ai-commit` is not
+  mentioned in the chain. `/ai-commit` SKILL.md is preserved verbatim as a
+  standalone off-chain skill for WIP-only invocations.
+- ❑ `/ai-build`, `/ai-autopilot`, `/ai-pr` continue to live as separate skills
+  with separate contracts (SRP §10.3). No fusion. `/ai-autopilot` Phase 4
+  still delegates to `/ai-build` agents.
+- ❑ `/ai-cleanup` SKILL.md adds an explicit step that rotates `_history.md`
+  for shipped specs (verification only — the rotation is already implemented
+  by `.ai-engineering/scripts/spec_lifecycle.py mark_shipped`).
+- ❑ A shared `--consolidate-spec` action wired into `/ai-cleanup`, `/ai-pr`,
+  and `/ai-brainstorm`: delete finalised spec file, append a row to
+  `_history.md`, leave the slot ready.
+- ❑ Telemetry on the dogfood corpus shows ≈90 % drop in `verify_dispatch` and
+  `review_dispatch` event counts per spec versus the pre-trim baseline.
+
+### S3 — Models, Effort, and Dispatch Economics (M5)
+
+- ❑ Every `.claude/skills/ai-*/SKILL.md` (and its 3 mirrors) declares
+  `effort: cheap|mid|high` and `model_tier: haiku|sonnet|opus` in
+  frontmatter.
+- ❑ A new lint `tools/skill_lint/effort.py` (or extension of an existing
+  lint) enforces the frontmatter contract and fails CI on any skill missing
+  the declaration.
+- ❑ `/ai-plan` SKILL.md upgraded to **exhaustive patch-ready mode**: plan
+  output includes concrete patch hunks per task whenever a deterministic
+  edit is possible. The output template carries a "Principles applied" line
+  per task referencing §10.x anchors.
+- ❑ `/ai-build` reads the plan and dispatches the cheap tier when patch
+  hunks are present (deterministic execution), the mid tier when judgment
+  is required, and escalates to high tier on operator demand only.
+- ❑ Dispatch decisions are logged to the audit chain
+  (`framework-events.ndjson`) with `model_tier` and `effort` fields so token
+  economics can be reported by `ai-eng audit tokens --by skill`.
+- ❑ **M5 sub-brainstorm artefact**: per brief §2.6, the cheap/mid/high
+  tier mapping per skill is captured as a structured policy artefact
+  (`docs/model-dispatch-policy.md` or equivalent) that lists every
+  skill and its tier assignment with rationale. The mapping is
+  consumed by the `effort.py` lint to verify the declared
+  frontmatter matches the policy.
+
+### S4 — Hooks & Robustness Residual (M6-residual)
+
+- ❑ `_lib/hook_context.py` gains `agent_kind` (main vs subagent) by
+  inspecting `transcript_path` / parent-session linkage. Sub-agents are
+  distinguished from the main thread at every hook invocation.
+- ❑ A **sub-agent policy lane** in `prompt-injection-guard.py`: a positive
+  allow-list for read-only commands (`rg`, `grep`, `find`, `ls`, `cat`
+  without redirect) is evaluated before the IOC pattern loop. Sub-agent
+  read-only probes no longer trigger integrity-mode denials.
+- ❑ Integrity failures surface to **stderr** with a one-line reason +
+  remediation. A distinct exit code (3=integrity, 2=injection) lets callers
+  branch on the cause. The empty-stderr regression (root cause:
+  `_lib/hook-common.py:526-529`) is fixed and covered by a regression test.
+- ❑ A **trusted-script lane**: scripts hash-pinned in `hooks-manifest.json`
+  and invoked as a single argv bypass RTK rewriting and IOC re-evaluation
+  of internal subprocesses. `session_bootstrap.py` is registered on this
+  lane; same pattern is documented for future preprocessors.
+- ❑ `.claude/settings.json:19` `Bash(*--no-verify*)` substring glob is
+  replaced with a token-aware shlex matcher (no false positives on
+  unrelated env-var prefixes or argv positions).
+- ❑ Claude Code `UserPromptSubmit` hook detects missing `node` and falls
+  back gracefully (silent skip + structured warning) rather than emitting
+  `/bin/sh: node: command not found`.
+- ❑ Engram tool-prefix references throughout the codebase
+  (`mcp__engram__*` → `mcp__plugin_engram_engram__*`) are reconciled. Hook
+  emissions, ToolSearch hints, and bootstrap docs use the canonical
+  prefix.
+
+### S5 — Docs, Evangelism, and Cross-IDE Audit Extension (M7)
+
+- ❑ `docs/getting-started.md` exists: 3-minute path (install → `/ai-start`
+  → first `/ai-brainstorm` → first PR) per brief §2.7. No ceremony, no
+  internals.
+- ❑ `README.md` rewritten: install, value-prop, links to AGENTS.md and
+  CONSTITUTION.md. No skill list, no agent list, no chain duplication
+  (those live in CANONICAL.md → AGENTS.md).
+- ❑ `CONTRIBUTING.md` updated: dev setup, PR process, test commands, repo
+  layout in one paragraph. No duplication of canonical content.
+- ❑ `tests/docs/test_links.py` passes (every reference link resolves).
+- ❑ `CHANGELOG.md` summarises every breaking rename, mirror split,
+  CONSTITUTION rescope, and gate-loop trim shipped by this spec. No
+  backwards-compat shims.
+- ❑ `/ai-ide-audit` IDE matrix extended to include **Antigravity** with
+  per-IDE assertions (native path + mirror contract + lint pass).
+
+### S6 — Naming Lint + PowerShell Parity Residual (M1-residual) + DRY Reconciliation
+
+- ❑ `tools/skill_lint/naming.py` enforces the 5 rules from brief §2.5
+  (R1 `ai-` prefix · R2 verb-noun + banned metaphor list ·
+  R3 paired lifecycle verbs · R4 kebab-case ·
+  R5 `.sh` ↔ `.ps1` sibling parity). Wired into pre-commit.
+- ❑ `.ai-engineering/scripts/scheduled/simplify-sweep.ps1` exists and is
+  tested against the same fixtures as the `.sh` sibling.
+- ❑ `_lib/copilot-common.ps1` parity verified (file already present —
+  asserts only).
+- ❑ `ai-skill-tune` is **not** renamed (spec-129 D-129-03 lock honoured).
+- ❑ `copilot-instinct-extract.sh` / `copilot-instinct-observe.sh` /
+  `copilot-strategic-compact.sh` / `copilot-mcp-health.sh` /
+  `copilot-skill.sh` / `copilot-error.sh` / `copilot-agent.sh` renames are
+  **deferred** to a follow-up spec (not in scope here; see Non-Goals).
+- ❑ **DRY fix (brief §1 row 14)**: `/ai-brainstorm`'s
+  `handlers/prompt-enhance.md` no longer reimplements 2 of `/ai-prompt`'s
+  7 techniques inline. The handler delegates to `/ai-prompt` (single
+  source of truth). Same change mirrored in `.github/skills/ai-brainstorm/`
+  + `.codex/` + `.gemini/`. Lint check (extension of `naming.py` or new
+  `dry.py`) flags duplicated technique catalogues.
+- ❑ **Description disambiguation (brief §1 row 15)**: `/ai-research`
+  and `/ai-explore` SKILL.md descriptions are rewritten to make the
+  tier distinction explicit (`/ai-research` = external evidence with
+  citations, 4-tier escalation; `/ai-explore` = codebase-only,
+  read-only). The "When to Use" sections cite each other as the
+  off-ramp. Tier mechanism doc updated in `/ai-research` references.
+
+### S7 — Spec.md Schema Validator + Frontmatter Lint
+
+- ❑ `tools/spec_lint/` package exists (parallel to `tools/skill_lint/`) with
+  `cli.py` + `checks/` modules: `frontmatter.py`, `sections.py`,
+  `decisions.py`, `non_goals.py`, `references.py`.
+- ❑ `frontmatter.py` enforces the four required fields from
+  `.ai-engineering/contexts/spec-schema.md` (`spec` / `title` / `status` /
+  `effort`) and validates enum values (`status` ∈ {draft, approved,
+  in-progress, done}; `effort` ∈ {trivial, small, medium, large}). Allows
+  declared extras (`branch`, `pr`, `slug`, `target_dispatch`,
+  `source_brief`, `chains_after`) via an explicit allow-list; unknown keys
+  surface as advisory warnings, not blockers (preserve operator
+  ergonomics).
+- ❑ `sections.py` enforces the five required sections (`## Summary`,
+  `## Goals`, `## Non-Goals`, `## Decisions`, `## Risks`) by exact
+  level-2 heading match.
+- ❑ `decisions.py` enforces (a) each `## Decisions` entry starts with a
+  decision ID `D-<spec-id>-<NN>` where `<spec-id>` matches the frontmatter
+  `spec:` value (numeric `D-NNN-NN` when the spec id is numeric;
+  slug-derived form allowed otherwise), and (b) each entry carries a
+  `*Rationale*:` line. Bullet-form (`- **D-NNN-NN — …**`) and
+  level-3-heading form (`### D-NNN-NN — …`) both accepted.
+- ❑ `non_goals.py` fails when `## Non-Goals` is empty.
+- ❑ `references.py` validates prefix convention (`pr:`, `work-item:`,
+  `doc:`, `research:`) and `pr:` shape (`<owner>/<repo>#<n>` or full
+  URL).
+- ❑ `tools/spec_lint/cli.py` runs all checks; `python -m spec_lint` exits
+  non-zero on blockers, zero on advisory warnings only.
+- ❑ `tests/unit/test_spec_lint.py` covers each check positive +
+  negative + fixture; `tests/integration/test_spec_lint_e2e.py` runs the
+  CLI against `.ai-engineering/specs/spec.md` (self-validation) and
+  against `.ai-engineering/specs/spec-129-skills-agents-excellence-pragmatic.md`
+  (legacy compatibility).
+- ❑ `tools/spec_lint` wired into pre-commit (`.pre-commit-hooks.yaml` +
+  `.git/hooks/pre-commit` source) — hot-path budget ≤500 ms per
+  invocation.
+- ❑ `.ai-engineering/contexts/spec-schema.md` updated to (a) document
+  the declared extras allow-list, (b) accept both bullet and heading
+  decision-entry forms explicitly, (c) link to `tools/spec_lint` as
+  the enforcement surface.
+- ❑ CI gate added (`.github/workflows/spec_lint.yml` or extension of
+  an existing workflow) runs `python -m spec_lint` on PRs that modify
+  `.ai-engineering/specs/spec.md`.
+
+### Cross-cutting
+
+- ❑ All work lands in branch `spec-128/context-overrides-refactor` and the
+  existing PR [#509](https://github.com/arcasilesgroup/ai-engineering/pull/509).
+- ❑ Sub-specs S1–S7 ship as independent waves coordinated by
+  `/ai-autopilot` Phase 1 decomposition. Dependencies: S1 → none;
+  S2 → none; S3 ← S1 (frontmatter contract leverages §10 anchors); S4 → none;
+  S5 ← S1 (links into canonical content) ← S2 (chain doc) ← S4 (trusted-script
+  lane referenced in docs); S6 → none; S7 → none (independent — but
+  S7 self-validates the rest of this spec after merge).
+- ❑ Every SKILL.md author or modification respects the spec-127 layout
+  contract (`## Quick start` / `## Workflow` / `## Examples` /
+  `## Integration` — ≤120 lines).
+- ❑ **Every sub-spec wave re-anchors to the §0 North Star** (per brief
+  §6 hand-off checklist) before code lands: the deep-plan emitted by
+  `/ai-plan` for each S1–S7 wave begins with a one-paragraph "How this
+  wave moves the North Star" preamble; `/ai-autopilot` Phase 5
+  quality loop fails the wave if the preamble is missing.
+- ❑ Spec activation: `/ai-autopilot` reads `.ai-engineering/specs/spec.md`
+  per the standard contract. The previous occupant
+  (spec-129 `Skills + Agents Excellence Refactor — Pragmatic Scope`,
+  operator-marked complete 2026-05-11) is archived adjacent at
+  `.ai-engineering/specs/spec-129-skills-agents-excellence-pragmatic.md`
+  for traceability; `spec_lifecycle.py mark_shipped` is run for spec-129
+  once PR #509 merges.
 
 ## Non-Goals
 
-- **No M6 eval corpus is built in this PR.** Writing 8–16 cases × 46 skills is deferred to a follow-up spec.
-- **No SKILL.md description rewrites.** The 24 skills currently >120 lines stay as-is for this PR; the cuts are blocked behind an eval regression gate that does not yet exist.
-- **No §22 pair-length cuts** (`ai-autopilot` skill 128/agent 107, `ai-verify` skill 127, etc.). Same reason: unsafe without regression detection.
-- **No new skills or agents are created** as part of this PR. `ai-poster` is explicitly rejected.
-- **No CSO optimization passes** via `/ai-prompt --skill <name>` over the existing skills.
-- **No new branch and no new PR.** Work lands on `spec-128/context-overrides-refactor` and PR #509.
-- **No changes to skill-discovery counts in the original brief** (e.g., "target 46 skills"). The baseline is updated to reflect the post-audit reality (47 + 24).
-- **No new IDE adapters**, no new conformance rubric rules, no new agent identities.
-- **No changes to spec-128 work that already shipped on this branch.** This spec runs additive only.
+1. **No new branch** opened. **No new PR** opened. All work goes to
+   `spec-128/context-overrides-refactor` and PR #509 (operator constraint).
+2. **No re-rename of `ai-skill-tune`** to `ai-skill-improve` — spec-129
+   D-129-03 lock honoured.
+3. **No renames of `copilot-instinct-*.sh` / `copilot-strategic-*.sh` /
+   `copilot-mcp-health.sh` / `copilot-skill.sh` / `copilot-error.sh` /
+   `copilot-agent.sh`** — deferred to a follow-up; spec-129 intentionally
+   skipped them.
+4. **No re-implementation of the deterministic preprocessor library** —
+   spec-129 (commit `95906a21`) already shipped `manifest_reader.py`,
+   `git_activity.py`, `markdown_render.py` under
+   `.ai-engineering/scripts/skills/skill_scripts_lib/`. Sub-specs that
+   *consume* the library are still allowed.
+5. **No re-implementation of `_history.md` rotation** — already shipped via
+   `.ai-engineering/scripts/spec_lifecycle.py mark_shipped`.
+6. **No re-implementation of the `no_suppression` security gate** — spec-127
+   (commit `87f55be7`) already shipped it.
+7. **No new IDE adapter** beyond Claude / Codex / Gemini / Copilot /
+   Antigravity (audit-only).
+8. **No skill marketplace, no plugin store, no remote skill fetch.**
+9. **No new agent persona.** Renames apply, removals apply, additions do
+   not.
+10. **No backwards-compatibility shims** for renamed files, deleted files,
+    or migrated content — hard rename, hard delete, hard migration, CHANGELOG
+    documents the breakage.
+11. **No CONSTITUTION auto-generation** of AI-behaviour articles — the
+    refactor moves all AI-behaviour out of CONSTITUTION.md and into
+    CANONICAL.md.
+12. **No `keyring` change** — operator was offline at the time of
+    observation; lockfile already hash-pins; no bug. Source brief §1 row 17
+    (informational only).
+13. **No multi-round retry inside the new quality loop** — fail-loud only.
+    Multi-round retries are explicitly out of scope.
+14. **No re-execution of spec-129's work-stream.** Operator marked it
+    complete 2026-05-11; its spec body is preserved at
+    `.ai-engineering/specs/spec-129-skills-agents-excellence-pragmatic.md`
+    for traceability and `spec_lifecycle.py mark_shipped` runs after
+    PR #509 merges.
 
 ## Decisions
 
-### D-129-01 — PR #509 scope expansion via title rename (option A)
+- **D-131-01 — Trim scope to non-duplicated residual.** Drop full M1 (renames
+  already executed in spec-129), full M3 (preprocessor library shipped in
+  spec-129), M6 no-suppression gate (shipped in spec-127), and `_history.md`
+  rotation (shipped via `spec_lifecycle.py`). Retain M2, M4-residual, M5,
+  M7, M6-residual, and M1-residual.
+  *Rationale*: avoids re-work, prevents conflict with spec-129 locks,
+  matches operator's "simplify-before-build" feedback memory.
 
-**Decision**: Rename PR #509 to combine both scopes. New title proposal:
-`spec-128 + spec-129: context overrides + skills excellence pragmatic`.
-PR body gains a second `## Scope` block summarizing the spec-129 additions.
+- **D-131-02 — Ship in place on `spec-128/context-overrides-refactor` and
+  PR #509.** No new branch. No new PR. `/ai-autopilot` operates in place
+  (no fresh worktree from `main`).
+  *Rationale*: operator constraint stated verbatim ("todo el trabajo aquí").
+  Sub-specs S1-S6 file scope does not collide with spec-128 (contexts) or
+  spec-129 (`skill_scripts*`).
 
-**Rationale**: User-selected option A out of three (rename / leave / sub-spec). Option A is the most honest about scope, reduces reviewer confusion, and preserves the spec-128 history on the branch. Option B (leave title, add commits) hides the second scope from reviewers scanning PR lists. Option C (frame as sub-spec) invents a parent-child relation that doesn't exist functionally.
+- **D-131-03 — Markdown mirror strategy = byte-equivalent payload.** No
+  `@AGENTS.md` import. No symlinks. No cross-references. Each of AGENTS.md /
+  CLAUDE.md / GEMINI.md / `.github/copilot-instructions.md` is standalone
+  and identical (frontmatter / banner aside).
+  *Rationale*: every IDE's path-discovery quirk is eliminated; the mirroring
+  cost is paid once in CI by `md_mirror.py`. Source brief §2.3.
 
-**Consequence**: PR review surface area grows; reviewers must scan both blocks. Mitigated by clean separation in the PR body and the spec-129 decisions table.
+- **D-131-04 — `/ai-constitution` pivots from generator-of-articles to
+  project-identity interview.** Output sections: Mission, Stakeholders,
+  Vocabulary, Prohibitions, Compliance gates, Anti-goals, Boundaries,
+  Escalation, Language, Lifecycle phase. AI-behaviour content migrates
+  out into CANONICAL.md.
+  *Rationale*: source brief §1 rows 3b / 5; CONSTITUTION must own project
+  identity, not framework behaviour. Lint enforces no overlap.
 
-### D-129-02 — Cut M6 evals and its dependent refactors from PR #509
+- **D-131-05 — Single end-of-implementation quality loop, single round,
+  fail-loud.** Drop per-task verify+review in `/ai-build` and
+  `/ai-autopilot`. Each task self-validates via TDD §10.5. One final round
+  on full changeset. Blockers STOP and escalate; no auto-retry.
+  *Rationale*: source brief §1 row 12 + token economics estimate
+  (≈90 % gate-run reduction, ~13-19 min and ~1.3-1.8M tokens saved per
+  10-task spec). Auto-retry masks root causes; fail-loud forces operator
+  judgment.
 
-**Decision**: Defer the M6 eval corpus build (46 skills × 8–16 cases) to a follow-up spec. Also defer everything that depends on eval regression detection: M3 SKILL.md ≤120 line cuts (24 skills), §22 pair-length cuts (5 pairs), M2 Grade A target uplift, CSO optimization passes via `/ai-prompt`.
+- **D-131-06 — `/ai-build`, `/ai-autopilot`, `/ai-pr`, `/ai-commit` stay
+  separate skills.** `/ai-autopilot` continues to delegate to `/ai-build`
+  agents in Phase 4. `/ai-commit` stays as a standalone off-chain skill for
+  WIP-only invocations.
+  *Rationale*: SRP §10.3. Fusing them violates the contract surface
+  operators have memorised; brief §2.2 explicit.
 
-**Rationale**: Without an eval corpus, any description-level rewrite is hope-driven. The original brief §3 conformance bar requires ≥16 cases per skill. Building that corpus is ~150 hours of focal work — too expensive to bundle with a PR that already carries the spec-128 work. The deferred items have no measurable safety story without the corpus; landing them blind would convert a refactor PR into a regression risk. The mechanical, deterministic items (libs, scripts, count reconciliation) carry no CSO risk and ship cleanly.
+- **D-131-07 — Canonical chain documentation omits `/ai-commit`.** The
+  chain in CANONICAL.md (and therefore in AGENTS / CLAUDE / GEMINI /
+  copilot-instructions) reads
+  `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`.
+  `/ai-pr` continues to run the commit pipeline internally.
+  *Rationale*: source brief §1 rows 1-2; "double-execution" perception comes
+  from the chain doc, not from the skills. Fix is workflow-level.
 
-**Consequence**: Original DoD §7/§20 checklist items related to evals are removed from this PR. They are documented in §Open Questions for the follow-up. M3 token-cost gain (~1200 lines of excess SKILL.md prose) is not realized in this PR.
+- **D-131-08 — Mandatory `effort:` and `model_tier:` SKILL.md
+  frontmatter.** Every skill declares cheap / mid / high effort and
+  haiku / sonnet / opus model tier. Lint enforces. Audit chain records the
+  dispatch decision per invocation.
+  *Rationale*: brief §2.6. Investing in `/ai-plan` (high tier) is what
+  unlocks cheap-tier execution downstream. Observability is required to
+  confirm the token-economics estimate.
 
-### D-129-03 — Accept 47 skills + 24 agents as the corrected baseline
+- **D-131-09 — Honour spec-129 D-129-03 lock: 47-skill baseline, no
+  `ai-skill-tune` rename.** Skill count drift to 48 is reconciled by
+  inventorying the addition rather than by churn.
+  *Rationale*: operator memory + spec-129 lock; brief data ("49 skills",
+  "ai-skill-improve") is stale.
 
-**Decision**: Document that the actual repository state (47 user-facing skills under `.claude/skills/`, plus the `_shared/` helpers dir; 24 agents under `.claude/agents/`) is the correct baseline. The original brief's "46 skills + 23 agents" target was an estimate at draft time. Update CHANGELOG and AGENTS.md to reflect the corrected counts. Do not delete any current skills or agents.
+- **D-131-10 — Defer `copilot-instinct-*.sh` and related renames.** Out of
+  scope for this spec. Reopen in a focused naming-cleanup spec once the
+  Antigravity audit extension catches any hidden references.
+  *Rationale*: spec-129 intentionally skipped them; pulling them in here
+  inflates blast radius without acceptance gains for the residual.
 
-**Rationale**: Investigation surfaced two legitimate additions post-spec: `ai-analyze-permissions` (Claude Code-only permission-rule consolidation skill, `copilot_compatible: false`) and the `ai-guide` agent (distinct from the `/ai-guide` skill — agent is a subagent dispatch target, skill is the user surface, per §22.4 of the original brief which allows agent-only files when there's no user-facing slash command).
+- **D-131-11 — Sub-agent policy lane is positive-allow-list-first.** Hook
+  read-only commands clear immediately (`rg`, `grep`, `find`, `ls`,
+  `cat` without redirect). IOC patterns run only on the residual.
+  *Rationale*: source brief §1 rows 16 / 18; integrity hook empty-stderr
+  bug class. Positive allow-list is cheaper and safer than IOC tuning.
 
-**Consequence**: Original DoD "Skill count = 46, agent count = 23" line is removed. No alias breakage. The conformance lint (M1) continues to enforce per-skill quality independently of counts.
+- **D-131-12 — Trusted-script lane is hash-pinned, not path-pinned.**
+  Entries in `hooks-manifest.json` carry `sha256` of the script;
+  invocation must match a single argv (no `eval`, no piping). RTK
+  rewriting and IOC re-evaluation are bypassed for the inner subprocesses
+  triggered by the trusted script.
+  *Rationale*: brief §M6 + §2.4.1. Hash pinning inherits the existing
+  `hooks-manifest.json` invariant and avoids string-match exploits.
 
-### D-129-04 — Confirm `ai-poster` is not created; `ai-visual` covers the case
+- **D-131-13 — `/ai-autopilot` consumes this spec and produces N parallel
+  sub-spec waves.** Phase 1 decomposes S1-S6 into independent sub-specs
+  honouring the dependency edges declared under "Cross-cutting". Each
+  sub-spec gets its own deep plan via `/ai-plan` and its own implementation
+  wave via `/ai-build` agents. The single final quality loop (D-131-05) is
+  applied per sub-spec.
+  *Rationale*: operator directive ("lo dejamos listo para autopilot")
+  + brief §6 hand-off checklist + autopilot Phase 1 contract.
 
-**Decision**: Do not create `ai-poster`. `ai-visual` (85 lines) already covers static visual design (posters, banners, branding pieces, cover art) per its description ("posters, banners, flyers, branding pieces, cover art, identity compositions"). The original brief §4 explicitly allowed the alt: "`/ai-visual` if poster is too narrow".
+- **D-131-14 — Reuse `scripts/sync_mirrors/core.py` plumbing.** No new
+  entry point. Surfaces 5.5 / 7 / 7.5 / copilot are refactored internally
+  to read CANONICAL.md and emit byte-equivalent payload. The slim copilot
+  cross-ref at `core.py:1103` is removed.
+  *Rationale*: DRY §10.4; brief §2.3 explicit. Adding a new sync command
+  violates the existing one-entry-point invariant.
 
-**Rationale**: Creating `ai-poster` would duplicate the trigger surface of `ai-visual` and force a narrow-scope split with no benefit. The audit confirmed `ai-poster` was never created during the original refactor — this reflects an implicit decision that we now make explicit.
+- **D-131-15 — Anonymous spec.** No PII, no machine paths, no operator
+  names in any file shipped by this spec (CHANGELOG, docs, telemetry).
+  *Rationale*: operator memory `feedback_anonymous_feedback.md`.
 
-**Consequence**: M4 §4 rename row "ai-canvas → ai-poster" is closed as "ai-canvas → ai-visual (consolidated, ai-poster not created)". Document this in CHANGELOG so future readers understand the divergence from the original brief.
+- **D-131-16 — Canonical-slot activation; spec-129 archived adjacent.**
+  This spec occupies `.ai-engineering/specs/spec.md`. Spec-129's spec
+  body is archived at
+  `.ai-engineering/specs/spec-129-skills-agents-excellence-pragmatic.md`.
+  `/ai-autopilot` reads the canonical slot per the standard contract.
+  `spec_lifecycle.py mark_shipped` runs for spec-129 once PR #509 merges.
+  *Rationale*: operator confirmed spec-129 complete (2026-05-11);
+  preserving the spec-129 body adjacent keeps traceability without
+  blocking the canonical pointer used by every downstream skill.
 
-### D-129-05 — Replace DoD §20 with the trimmed checklist
+- **D-131-18 — Exhaustive brief-coverage audit closed 6 residual gaps.**
+  After the spec was drafted, an operator-requested cross-reference
+  against `drafts/dx-excellence-refactor-brief.md` (592 lines, §0–§7)
+  surfaced 6 items that were implicit but not explicitly covered:
+  (G1) brief §1 row #14 `handlers/prompt-enhance.md` DRY delegation to
+  `/ai-prompt` → added to S6; (G2) brief §1 row #15 `/ai-research` vs
+  `/ai-explore` description disambiguation → added to S6;
+  (G3) brief §0 North Star paragraph → added to Summary + Cross-cutting
+  wave re-anchor gate; (G4) brief §2.3 strict content-contracts
+  per-file table → added to S1 acceptance (transcribed into
+  CANONICAL.md as authoring reference); (G5) brief §2.6 M5
+  sub-brainstorm artefact → added to S3 as `docs/model-dispatch-policy.md`
+  consumed by `effort.py` lint; (G6) brief §6 "re-anchor to North Star
+  every wave" → added as Cross-cutting acceptance gate enforced by
+  `/ai-autopilot` Phase 5. Brief §1 row #13 (`/ai-brainstorm` step 0
+  reference correct) is a documented false-positive in the brief itself
+  and requires no action.
+  *Rationale*: operator audit ("super importante revisar que la spec
+  tiene todo lo que hemos hablado del brief") forced an exhaustive
+  cross-reference; closing every gap preserves the brief as the
+  single source of truth and prevents downstream surprise when
+  `/ai-autopilot` Phase 1 decomposes against the spec.
 
-**Decision**: The PR-merge gate for this work is the following 14-item list. Replaces the original DoD §7/§20 with the items that have a deterministic safety story.
-
-- [ ] `skill_lint --check` exit 0 across all 47 skills (existing rule — already enforced)
-- [ ] All SKILL.md retain `## Examples` + `## Integration` sections (already 47/47)
-- [ ] No new skills or agents created (verified by git diff against `.claude/`)
-- [ ] `tools/skill_app/deterministic_router.py` functional for 7 stacks; new test file proves it
-- [ ] Layer-isolation test green (`tests/architecture/test_layer_isolation.py` — already green)
-- [ ] Hot-path budgets test green (`tests/perf/test_hot_path_budgets.py` — must remain green)
-- [ ] `_lib/manifest_reader.py` ships with unit tests, used by ≥1 existing script
-- [ ] `_lib/git_activity.py` ships with unit tests, used by ≥1 existing script
-- [ ] `_lib/markdown_render.py` ships with unit tests, used by ≥1 existing script
-- [ ] `standup_render.py` ships with integration test against fixtures
-- [ ] `cleanup_run.py` ships with integration test against fixtures
-- [ ] `resolve_classify.py` ships with integration test against fixtures
-- [ ] CHANGELOG entry documents the corrected counts (47 + 24) and the deferred items
-- [ ] PR #509 title and body updated to reflect combined scope (D-129-01)
-
-### D-129-06 — Reuse existing `_history.md` and `spec_lifecycle.py`
-
-**Decision**: Use the existing `spec_lifecycle.py` (already shipping) to manage the spec-129 lifecycle. JSON sidecar is `.ai-engineering/state/specs/skills-agents-excellence-pragmatic.json` (already created by the brainstorm bootstrap on 2026-05-11). On PR merge, the `/ai-pr` skill calls `mark_shipped("spec-129-skills-agents-excellence-pragmatic", 509, "spec-128/context-overrides-refactor")`.
-
-**Rationale**: M0 plumbing is already in place. This spec exercises it as the validation path. No new infrastructure needed.
-
-**Consequence**: Confirms M0 wiring works end-to-end for the next-N brainstorm without writing a separate test fixture.
-
-### D-129-07 — Effort sizing and time-boxing
-
-**Decision**: Effort = `medium`. Estimated ~13 hours of focal work, broken as:
-- 4h — three shared libs + tests (`_lib/manifest_reader.py`, `_lib/git_activity.py`, `_lib/markdown_render.py`)
-- 6h — three scripts + tests (`standup_render.py`, `cleanup_run.py`, `resolve_classify.py`)
-- 1h — M5 router verification test (one new test file)
-- 1h — CHANGELOG + AGENTS.md updates
-- 1h — PR #509 title and body update + spec lifecycle confirmation
-
-**Rationale**: Each unit is mechanically scoped and has fixture-testable behaviour. No LLM-judgment items.
-
-**Consequence**: If a unit overruns by >50%, raise the question in §Open Questions before continuing. Hard ceiling: 20 hours total before requesting a scope re-check.
-
-### D-129-08 — Test-first ordering per item
-
-**Decision**: For each new lib and script, write the failing test before the implementation (TDD per AGENTS.md hard rule). Order per unit: red test → implementation → green test → integration into existing script (libs only) → measurement against perf budget.
-
-**Rationale**: AGENTS.md and CLAUDE.md require TDD as a hard rule. New libs and scripts have well-defined inputs and outputs (regex parsing, git output transformation, markdown templating), making them straightforward to test-drive.
-
-**Consequence**: Each commit on this PR for spec-129 work is preceded by a red-test commit. Hot-path budget changes are measured in CI, not estimated.
+- **D-131-17 — Add `tools/spec_lint/` as the enforcement surface for
+  `.ai-engineering/contexts/spec-schema.md`.** Parallel to
+  `tools/skill_lint/`; same CLI shape (`python -m spec_lint`); same
+  pre-commit wiring pattern. Unknown frontmatter keys are advisory
+  warnings (not blockers) to preserve operator-added metadata
+  ergonomics. Both bullet (`- **D-NNN-NN — …**`) and level-3-heading
+  (`### D-NNN-NN — …`) decision-entry forms accepted; legacy specs
+  pass without rewrite.
+  *Rationale*: operator audit surfaced "no automated validator for
+  spec.md" (this conversation, 2026-05-11). Schema enforcement is
+  currently 100 % manual; the integrity bar for the canonical-chain
+  contract should match `SKILL.md` (already linted by
+  `tools/skill_lint/`). Backward compatibility (heading + bullet both
+  accepted) avoids forcing rewrites of spec-129 or older archive
+  bodies.
 
 ## Risks
 
-| Risk | Likelihood | Impact | Mitigation |
-|---|---|---|---|
-| Shared lib refactor breaks `session_bootstrap.py` or `commit_compose.py` or `pr_body_compose.py` regression | Medium | High (hot-path scripts are daily-driver) | Existing scripts get integration test coverage in this spec before refactor; new libs land behind a feature-add commit, then the integration commit follows. Per-commit CI gate. |
-| `resolve_classify.py` mis-categorizes a real conflict and auto-resolves wrong | High | High (silent merge corruption) | Conservative classification: only auto-resolve lock files (`*.lock`, `package-lock.json`, `uv.lock`, `poetry.lock`, `Cargo.lock`) and explicit `// AUTO-GENERATED` sentinels. Migration paths return `ambiguous`. Test fixtures include adversarial cases (lock file with manual edits, generated file without sentinel). |
-| PR #509 review confusion under combined scope | Medium | Medium | PR body gets explicit `## Scope A — spec-128` and `## Scope B — spec-129` sections (D-129-01). Per-commit subject prefixes (`spec-128:` or `spec-129:`) so reviewers can filter. |
-| Deferred items rot in backlog | Medium | Medium | Open a placeholder draft `skills-agents-excellence-refactor-phase-c.md` under `.ai-engineering/specs/drafts/` at PR merge time with the deferred bullet list (M6, M3 cuts, §22 cuts) so the work is tracked, not lost. |
-| Hot-path perf regression from new shared libs | Low | High | The shared libs are pure-Python stdlib (no I/O imports added). New libs benchmarked in CI per item. If `_lib/git_activity.py` adds >50 ms to `session_bootstrap.py`, the lib gets rolled back. |
-| `tools/skill_app/deterministic_router.py` is actually a stub | Low | Medium | Audit showed the file is 76 lines with `resolve_adapter()` implemented (read on 2026-05-11). Risk is verifying tests exist; if absent, write them as part of the M5 verification step. |
-| AGENTS.md or CLAUDE.md edit conflicts with parallel changes | Low | Low | Spec-128 already touched these files; spec-129 edits are append-only (CHANGELOG entries, count line update). Rebase if needed. |
+- **R-131-01 — File-scope collision with spec-128 / spec-129 inside
+  PR #509.** Mitigation: S1 touches `<repo>/AGENTS.md`, `<repo>/CLAUDE.md`,
+  `<repo>/GEMINI.md`, `<repo>/.github/copilot-instructions.md`,
+  `<repo>/CONSTITUTION.md`, and `scripts/sync_mirrors/core.py`; none of
+  these are in spec-128 (`.ai-engineering/contexts/*`) or spec-129
+  (`.ai-engineering/scripts/skills/skill_scripts*`) scope. S2 touches
+  `.claude/skills/ai-{build,autopilot,pr,cleanup,brainstorm,commit}/SKILL.md`;
+  no overlap. S3 touches all `SKILL.md` frontmatter — may collide if
+  spec-129 is still amending skills; sequence S3 after spec-129 lands or
+  rebases. Verify with `git status` per wave before dispatch.
+
+- **R-131-02 — Mirror lint flags legitimate IDE-specific extras.**
+  Mitigation: define a single "EXTRAS" markdown section (e.g.
+  `<!-- ide-extras:start -->` / `:end`) that the lint excludes from the
+  sha256 hash. Document the contract in CANONICAL.md.
+
+- **R-131-03 — `/ai-constitution` interview deletes operator-authored
+  content.** Mitigation: refactor never overwrites without
+  diff + confirm; CONSTITUTION.md migration uses `_history.md`-style
+  rotation; lint runs only after migration committed.
+
+- **R-131-04 — Single-round fail-loud surprises operators expecting
+  auto-retry.** Mitigation: CHANGELOG entry; `/ai-build` and
+  `/ai-autopilot` STOP messages cite the source spec; operator can
+  re-dispatch with explicit `/ai-build --rerun-quality-loop` once the
+  blocker is addressed.
+
+- **R-131-05 — Token-economics estimate (≈90 % gate reduction) unverified
+  on real corpus.** Mitigation: S3 ships audit chain with `model_tier` +
+  `effort` fields; measure post-merge on the dogfood corpus and capture
+  the actual delta in `LESSONS.md`.
+
+- **R-131-06 — Sub-agent allow-list permits dangerous patterns slipping
+  past IOC.** Mitigation: positive-allow-list constrained to verb +
+  no-redirect form (no shell pipes, no `;`, no `&&`); IOC retains
+  veto on the residual; regression tests cover the bypass cases.
+
+- **R-131-07 — Trusted-script lane drift (script edited without manifest
+  refresh).** Mitigation: `AIENG_HOOK_INTEGRITY_MODE=enforce` (already
+  default) catches drift on next invocation; CI runs
+  `regenerate-hooks-manifest.py --check` per PR.
+
+- **R-131-08 — Antigravity audit lacks a stable detection probe.**
+  Mitigation: `/ai-ide-audit` Antigravity check is advisory in this
+  spec; CI gate added once the Antigravity CLI exposes a deterministic
+  version probe.
+
+- **R-131-09 — `effort:` frontmatter rolls out faster than dispatch logic
+  is ready.** Mitigation: ship the lint and frontmatter additions
+  first (passive); enable cheap-tier dispatch only after S3 dispatch
+  logic lands; `model_tier` is observed but not enforced for one
+  release cycle.
+
+- **R-131-10 — Brief uses stale data (49 skills, `ai-skill-improve`).**
+  Mitigation: D-131-09 explicit; reviewers compare baseline against
+  `.ai-engineering/manifest.yml` skills index, not the brief.
+
+- **R-131-11 — PR #509 grows unwieldy with spec-128 + spec-129 + this
+  spec stacked.** Mitigation: operator can split into separate PRs
+  later if review fatigue surfaces; spec metadata (`branch:` + `pr:`)
+  is the SSOT and remains accurate even under split.
+
+- **R-131-12 — `tools/spec_lint` rejects legacy archive specs.**
+  Mitigation: S7 explicitly accepts both bullet and heading decision
+  forms; the integration test exercises `spec-129-skills-agents-excellence-pragmatic.md`
+  as a fixture and must pass; frontmatter allow-list pre-includes the
+  metadata extras already in use across in-flight specs.
+
+- **R-131-13 — Adding a new lint to pre-commit slows the hot path.**
+  Mitigation: S7 hot-path budget ≤500 ms per invocation; CI
+  enforcement is independent of pre-commit (the gate also runs in
+  GitHub Actions); operator can `SKIP=spec-lint` for a local commit
+  if needed (CI still blocks).
 
 ## References
 
 - pr: arcasilesgroup/ai-engineering#509
+- doc: .ai-engineering/specs/drafts/dx-excellence-refactor-brief.md
+- doc: .ai-engineering/specs/drafts/cli-ux-overhaul-brief.md
 - doc: .ai-engineering/specs/drafts/skills-agents-excellence-refactor.md
-- doc: .ai-engineering/specs/archive/spec-128-context-overrides.md
+- doc: .ai-engineering/specs/drafts/skills-agents-excellence-phase-c.md
+- doc: .ai-engineering/specs/spec-129-skills-agents-excellence-pragmatic.md
+- doc: .ai-engineering/state/specs/skills-agents-excellence-pragmatic.json
+- doc: .ai-engineering/state/specs/spec-131.json
+- doc: .ai-engineering/contexts/spec-schema.md
+- doc: tools/skill_lint/
+- doc: tools/spec_lint/ (new, S7)
+- doc: CONSTITUTION.md
 - doc: AGENTS.md
 - doc: CLAUDE.md
-- doc: .ai-engineering/contexts/spec-schema.md
-- research: (none — evidence sourced from on-disk audit dated 2026-05-10)
+- doc: GEMINI.md
+- doc: .github/copilot-instructions.md
+- doc: .ai-engineering/scripts/spec_lifecycle.py
+- doc: scripts/sync_mirrors/core.py
+- doc: tools/no_suppression/
+- doc: .ai-engineering/scripts/hooks/_lib/hook_context.py
+- doc: .ai-engineering/scripts/hooks/_lib/hook-common.py
+- doc: https://developers.openai.com/codex/guides/agents-md
+- doc: https://code.claude.com/docs/en/memory
+- doc: https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini-md.md
+- doc: https://antigravity.codes/blog/user-rules
+- doc: https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions
+- research: NotebookLM b8a09700-2ce7-4d6c-84d7-82b89765ea53
 
 ## Open Questions
 
-1. **Follow-up spec naming**: should the deferred bundle be named `spec-130-skills-excellence-phase-c` or `spec-129-followup`? Lean toward `spec-130` for clean lineage. Resolve at PR merge.
-2. **M6 eval MVP size**: when the follow-up spec opens, should we ship 8 cases/skill (~46h focal) or hold at the original 16/skill (~150h)? Recommendation: 8 + iterate. Decide in the follow-up brainstorm.
-3. **Pre-commit hook integration**: `skill_lint --check` is shipped, but is it actually wired into `.git/hooks/pre-commit` on contributor machines? Verify in M1 closeout; if missing, wire it (1h, no risk).
-4. **`_history.md` row format compliance**: spec-128 wrote a row in the old format; the 7-col format may need a one-time migration. Out of scope for spec-129 but flagged for the follow-up.
-
+1. **CANONICAL.md "extras" mechanism.** Should the IDE-specific extras live
+   in a fenced block inside the same file (`<!-- ide-extras -->`) or in a
+   separate `templates/project/<ide>-extras.md` that the sync script
+   appends per-IDE? Resolution gate: S1 deep-plan via `/ai-plan`.
+2. **S3 sequencing vs spec-129.** Spec-129 may still be amending SKILL.md
+   frontmatter in flight; should S3 fork into "passive frontmatter add"
+   (independent) + "dispatch logic" (sequenced after spec-129 merges)?
+   Resolution gate: re-check `git log --since` at autopilot Phase 0.
+3. **Telemetry corpus for D-131-05 verification.** Should we record the
+   pre-trim baseline on the current PR #509 changeset, or wait for the
+   first post-merge spec to land before measuring? Resolution gate:
+   S5 plan.
+4. **Antigravity audit probe.** Concrete probe for `/ai-ide-audit` —
+   parse `~/.gemini/settings.json` `context.fileName` for `AGENTS.md`?
+   File a follow-up if no deterministic probe surfaces.
+5. **CONSTITUTION.md migration content review.** Operator-authored
+   prohibitions / compliance gates currently inside CONSTITUTION.md need
+   to be preserved verbatim; should the migration be an interactive
+   `/ai-constitution --migrate` flow or a one-shot script? Resolution
+   gate: S1 deep-plan.

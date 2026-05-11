@@ -199,7 +199,7 @@ skills:
     ai-analyze-permissions: { type: meta, tags: [permissions] }
     ai-observe: { type: meta, tags: [meta, learning, continuous-improvement, observe] }
     ai-autopilot: { type: meta, tags: [orchestration, autonomous, multi-spec, backlog] }
-    ai-constitution: { type: meta, tags: [governance] }
+    ai-constitution: { type: meta, tags: [governance, project-identity, interview] }
     # ECC Integration (spec-062)
     ai-slides: { type: writing, tags: [presentation, html, css] }
     ai-media: { type: writing, tags: [media, generation] }
@@ -207,7 +207,7 @@ skills:
     # Board integration (D-127-10 merger of ai-board-discover + ai-board-sync)
     ai-board: { type: enterprise, tags: [board, discovery, sync, work-items] }
     # Platform governance
-    ai-ide-audit: { type: enterprise, tags: [audit, ide, governance] }
+    ai-ide-audit: { type: enterprise, tags: [audit, ide, governance, antigravity] }
     ai-skill-tune: { type: meta, tags: [improvement, skills, optimization, tune] }
     # Security (spec-107)
     ai-mcp-audit:

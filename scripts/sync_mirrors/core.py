@@ -556,21 +556,28 @@ def render_gemini_md_placeholders(
 
 
 def write_gemini_md(canonical_skills: list, canonical_agents: list) -> str:
-    """Render the canonical GEMINI.md content for `.gemini/` and root surfaces.
+    """Render the canonical GEMINI.md content for the repo-root surface.
 
-    Pipeline (spec-107 D-107-04, R-4 mitigation):
-      1. Read template at TPL_PROJECT / "GEMINI.md".
-      2. Substitute __SKILL_COUNT__ / __AGENT_COUNT__ placeholders FIRST.
-      3. Apply translate_refs(..., "gemini") on the substituted body.
+    spec-131 D-131-14: GEMINI.md is now a byte-equivalent mirror of
+    CANONICAL.md plus a Gemini-specific IDE-extras fence (Hooks Wiring
+    table + Surface Pointers + First Action banner). The in-repo
+    `.gemini/GEMINI.md` orphan was DELETED (D-131-03); only the
+    repo-root `GEMINI.md` is now generated.
 
-    Order matters: substitution runs first so translate_refs never sees the
-    placeholders (which contain underscores that some path regexes might
-    accidentally chew). Returned string is the final rendered content.
+    Path translation (`translate_refs(..., "gemini")`) is INTENTIONALLY
+    NOT applied to the canonical payload: D-131-03 mandates byte
+    equivalence (modulo IDE-extras fence) across the four mirrors. The
+    canonical body keeps `.claude/` references unchanged; Gemini-specific
+    surface pointers live inside the `<!-- ide-extras:start -->` fence
+    where `md_mirror.py` excludes them from the hash check.
     """
-    gemini_md_tpl = TPL_PROJECT / "GEMINI.md"
-    raw = gemini_md_tpl.read_text(encoding="utf-8")
-    substituted = render_gemini_md_placeholders(raw, canonical_skills, canonical_agents)
-    return translate_refs(substituted, "gemini")
+    payload = read_canonical_payload()
+    return assemble_mirror_payload(
+        payload,
+        ide_extras=_GEMINI_EXTRAS,
+        skill_count=len(canonical_skills),
+        agent_count=len(canonical_agents),
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -960,95 +967,219 @@ _SOURCE_OF_TRUTH_AGENTS_RE = re.compile(
 )
 
 
-def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
-    """Generate AGENTS.md as canonical cross-IDE entry point (spec-110 D-110-02).
+def read_canonical_payload(template_root: Path = TPL_PROJECT) -> str:
+    """Read the canonical "how AI works in this repo" payload from CANONICAL.md.
 
-    AGENTS.md is the canonical multi-IDE rulebook for shared root runtime
-    behavior. Canonical skill and agent content still lives under
-    ``.claude/``; IDE overlays delegate to this file for cross-IDE entry
-    point behavior. Hard rules live in CONSTITUTION.md; this file
-    enumerates the shared workflow contract and canonical pointers.
+    spec-131 D-131-14 / D-131-03: the four IDE-native mirrors (AGENTS.md,
+    CLAUDE.md, GEMINI.md, .github/copilot-instructions.md) share a single
+    canonical payload sourced from
+    ``src/ai_engineering/templates/project/CANONICAL.md``. Each mirror
+    appends an optional ``<!-- ide-extras:start -->…<!-- ide-extras:end -->``
+    fence carrying content unique to that IDE; the fence is stripped by
+    ``tools/skill_lint/checks/md_mirror.py`` before sha256 equivalence.
 
-    The function is self-contained: it does NOT read CLAUDE.md (which is
-    now a slim overlay per spec-110 T-1.9) and produces a stable
-    canonical document that contains the headers + Source-of-Truth rows
-    asserted by ``test_generate_agents_md_preserves_provider_rows_and_counts``.
+    The payload still carries ``__SKILL_COUNT__`` / ``__AGENT_COUNT__``
+    placeholders — substitution happens in ``assemble_mirror_payload``.
     """
-    return f"""# AGENTS.md — Canonical Cross-IDE Rulebook
+    canonical_md = template_root / "CANONICAL.md"
+    if not canonical_md.is_file():
+        raise FileNotFoundError(
+            f"CANONICAL.md not found at {canonical_md} — "
+            "spec-131 S1 requires this template as the canonical source"
+        )
+    return canonical_md.read_text(encoding="utf-8")
 
-> Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
-> the canonical multi-IDE entry point and shared runtime contract for
-> root IDE behavior. Canonical skills and agents live under `.claude/`;
-> IDE-specific overlays (CLAUDE.md, GEMINI.md,
-> .github/copilot-instructions.md) delegate to this file.
 
-## Step 0 — First Action
+def assemble_mirror_payload(
+    canonical_payload: str,
+    ide_extras: str,
+    *,
+    skill_count: int,
+    agent_count: int,
+) -> str:
+    """Interpolate counts and append the IDE-extras fence.
 
-Every session, the first action is:
+    spec-131 D-131-14: every mirror is canonical_payload + optional
+    fenced extras. AGENTS.md passes ``ide_extras=""`` (it is the base
+    mirror). CLAUDE.md / GEMINI.md / copilot-instructions.md pass their
+    IDE-specific content as a single string that gets wrapped in the
+    fence.
 
-1. Read [CONSTITUTION.md](CONSTITUTION.md) (non-negotiable rules).
-2. Read `.ai-engineering/manifest.yml` (configuration source of truth).
-3. Query `.ai-engineering/state/state.db` `decisions` table (active decisions and risk posture).
-4. No implementation without an approved spec — invoke `/ai-brainstorm`
-   first when a task has no spec.
+    The canonical payload carries one terminal empty
+    ``<!-- ide-extras:start --><!-- ide-extras:end -->`` placeholder
+    pair (CANONICAL.md §15) — this helper replaces that placeholder
+    with the actual fenced content (or strips it entirely when
+    ``ide_extras`` is empty, since AGENTS.md is the base mirror).
+    """
+    substituted = canonical_payload.replace("__SKILL_COUNT__", str(skill_count)).replace(
+        "__AGENT_COUNT__", str(agent_count)
+    )
+    if ide_extras.strip():
+        replacement = (
+            "<!-- ide-extras:start -->\n" + ide_extras.rstrip() + "\n<!-- ide-extras:end -->"
+        )
+    else:
+        replacement = "<!-- ide-extras:start -->\n<!-- ide-extras:end -->"
+    return substituted.replace(
+        "<!-- ide-extras:start -->\n<!-- ide-extras:end -->",
+        replacement,
+        1,
+    )
 
-## Workflow — the seven-step chain
 
-Canonical chain verbatim:
-**/ai-brainstorm → /ai-plan → /ai-build → /ai-verify → /ai-review → /ai-commit → /ai-pr**
+# ── IDE-extras boilerplate per surface (spec-131 D-131-14) ────────────
+# Each block is a single fenced payload appended after the canonical
+# body. The fence itself is added by ``assemble_mirror_payload``.
 
-`/ai-build` is the multi-stack implementation gateway (D-127-11). No
-approved spec? Stop and return to `/ai-brainstorm`. `/ai-autopilot`
-wraps the chain for autonomous multi-concern + backlog work (D-127-12).
-Each spec carries `plan.md` (task ledger) and `LESSONS.md` (append-only
-retro). Humans review both at PR time.
+_CLAUDE_EXTRAS = """\
+## Hot-Path Discipline (Claude Code)
 
-## Skills ({skill_count})
+Claude Code triggers pre-commit and pre-push hooks on every save and
+commit, so the deterministic gate must finish fast:
 
-The full registry is in `.ai-engineering/manifest.yml` under
-`skills.registry`. Canonical skill definitions live under
-`.claude/skills/ai-<name>/SKILL.md`; other IDE skill surfaces are
-generated mirrors.
+- **Pre-commit budget**: under 1 second wall-clock (lint, format check,
+  secret scan on staged hunks only).
+- **Pre-push budget**: under 5 seconds for residual checks before the
+  push pipeline takes over.
+- **Heavier work belongs in CI**: full test suite, dependency audit, and
+  governance evaluation never run on the local hot path.
 
-Invoke skills via `/ai-<name>` in the IDE agent surface (slash command).
-Do not invent `ai-eng <skill>` terminal equivalents unless the CLI
-reference explicitly lists them.
+If a check exceeds budget, profile it and move work off the hot path
+before adding new logic to the hook.
 
-## Agents ({agent_count})
+## Hooks Configuration (Claude Code)
 
-The {agent_count} first-class agents are listed in
-`.ai-engineering/manifest.yml` under `agents.registry` and documented at
-`.claude/agents/ai-<name>.md`. Other IDE agent surfaces are generated
-mirrors; each runs in its own context window, so offload research and
-parallel analysis to them.
+Claude Code reads hook wiring from `.claude/settings.json`. The project
+registers **11 canonical hook events** (audited in spec-122-d D-122-27,
+CI-guarded by `tests/unit/hooks/test_canonical_events_count.py`):
+`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`,
+`Stop`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStop`,
+`Notification`, `SessionEnd`.
 
-## Hard Rules
+Hook scripts live under `.ai-engineering/scripts/hooks/` (canonical).
+`.claude/hooks/` is a read-only symlink to that directory. Hook bytes
+are pinned in `.ai-engineering/state/hooks-manifest.json` (sha256 per
+script); `run_hook_safe` enforces integrity per
+`AIENG_HOOK_INTEGRITY_MODE` (default `enforce`).
 
-The non-negotiable rules are in [CONSTITUTION.md](CONSTITUTION.md).
-Read them before any commit, push, or risk-acceptance decision. Gate
-failure: diagnose, fix, retry. Use `ai-eng doctor --fix` when needed.
+## Runtime Layer Tunables
 
-## Observability
+```
+AIENG_TOOL_OFFLOAD_BYTES         # default 4096
+AIENG_LOOP_WINDOW                # default 6
+AIENG_RALPH_MAX_RETRIES          # default 5
+AIENG_RALPH_BLOCK                # default 0 (observe-only)
+AIENG_HOOK_INTEGRITY_MODE        # default enforce
+```
 
-Hook, gate, governance, security, and quality outcomes flow to
-`.ai-engineering/state/framework-events.ndjson` (audit chain). Registered
-skills, agents, contexts, and hooks are catalogued in
-`.ai-engineering/state/state.db` `tool_capabilities` table. Session discovery
-and transcript viewing are delegated to the separately installed
-`agentsview` companion tool.
+State lives under `.ai-engineering/runtime/` (gitignored — session
+state, not source of truth).
 
-## Source of Truth
+## Token Efficiency
+
+- Use `/clear` aggressively when context is no longer load-bearing.
+- Dispatch `ai-explore` for deep codebase research (read-only, fresh
+  context).
+- Cite files with `startLine:endLine:filepath`; never paste large code
+  blocks the user did not ask for.
+
+## Optional: Engram (third-party memory)
+
+`ai-engineering` ships without a built-in memory layer. During
+`ai-eng install` you are prompted to install Engram. Skip is fine —
+Claude Code works without it. Force deterministically: `--engram` (yes)
+or `--no-engram` (skip).
+
+## Audit Observability (spec-120)
+
+```bash
+ai-eng audit index                       # build / refresh the SQLite projection
+ai-eng audit query "SELECT ..."          # read-only SQL over the index
+ai-eng audit tokens --by skill|agent|session   # token rollup
+ai-eng audit replay --session <id>       # depth-first span-tree walk
+ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope
+```
+"""
+
+_GEMINI_EXTRAS = """\
+## First Action (Gemini CLI)
+
+Your first action in every session MUST be to run `/ai-start`. Do not
+respond to any user request until `/ai-start` completes. `/ai-*` are
+slash commands in the IDE agent surface, not `ai-eng` CLI subcommands.
+
+## Hooks Wiring (Gemini-specific)
+
+Gemini CLI hook configuration lives in `.gemini/settings.json`. Hook
+event mapping (canonical Python script in
+`.ai-engineering/scripts/hooks/`):
+
+| Cross-IDE primitive          | Gemini event |
+|------------------------------|--------------|
+| Progressive disclosure       | `BeforeAgent` |
+| Tool offload + loop detect   | `AfterTool` |
+| Checkpoint + Ralph Loop      | `AfterAgent` |
+
+Compaction events (PreCompact / PostCompact) are not surfaced by
+Gemini CLI; the snapshot primitive degrades gracefully.
+
+## Surface Pointers (Gemini)
 
 | What | Where |
 |------|-------|
-| Skills ({skill_count}) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents ({agent_count}) | `.claude/agents/ai-<name>.md` |
-| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
-| Config | `.ai-engineering/manifest.yml` |
-| Decisions | `.ai-engineering/state/state.db` `decisions` table |
-| Audit chain | `.ai-engineering/state/framework-events.ndjson` |
-| Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
+| Skills | `.gemini/skills/ai-<name>/SKILL.md` |
+| Agents | `.gemini/agents/ai-<name>.md` |
+| Hook scripts | `.ai-engineering/scripts/hooks/` (shared) |
+| CLI | `ai-eng <command>` |
 """
+
+_COPILOT_EXTRAS = """\
+## First Action (GitHub Copilot)
+
+Run `/ai-start` first in every session. `/ai-*` are IDE slash commands,
+not `ai-eng` CLI subcommands.
+
+## Hooks Wiring (Copilot-specific)
+
+Hook config in `.github/hooks/hooks.json`. Canonical script in
+`.ai-engineering/scripts/hooks/` via bash/PowerShell adapter.
+
+| Cross-IDE primitive        | Copilot event |
+|----------------------------|---------------|
+| Progressive disclosure     | `userPromptSubmitted` |
+| Tool offload + loop detect | `postToolUse` |
+| Checkpoint + Ralph Loop    | `sessionEnd` |
+| Deny-list enforcement      | `preToolUse` |
+| Error capture              | `errorOccurred` |
+
+PreCompact / PostCompact are not surfaced by Copilot; the snapshot
+primitive degrades gracefully.
+"""
+
+
+def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
+    """Generate AGENTS.md as the byte-equivalent base mirror (spec-131 D-131-14).
+
+    AGENTS.md is the base mirror — no IDE-extras block. The canonical
+    payload (CANONICAL.md) carries the full "how AI works in this repo"
+    contract; AGENTS.md is what Codex and any future native-AGENTS.md
+    consumer reads. CLAUDE.md / GEMINI.md / copilot-instructions.md
+    carry the same payload + their IDE-extras fence.
+
+    The function preserves the test-asserted invariants:
+    - ``## Skills ({skill_count})`` header (after placeholder
+      substitution).
+    - ``Canonical skills and agents live under `.claude/``` text.
+    - Source-of-Truth table rows for Skills / Agents / Placement
+      contract.
+    """
+    payload = read_canonical_payload()
+    return assemble_mirror_payload(
+        payload,
+        ide_extras="",
+        skill_count=skill_count,
+        agent_count=agent_count,
+    )
 
 
 def _renumber_dont_items(content: str) -> str:
@@ -1085,52 +1216,20 @@ def generate_copilot_instructions(
     skills: list[tuple[str, dict[str, str], Path]],
     agents: list[tuple[str, dict[str, str], Path]],
 ) -> str:
-    """Generate .github/copilot-instructions.md (slim Copilot overlay).
+    """Generate .github/copilot-instructions.md as byte-equivalent Copilot mirror.
 
-    spec-122-a (D-122-01): the Copilot overlay is now ≤30 lines and only
-    contains Copilot-specific content (hook event-name mapping +
-    first-action). Skills, agents, source-of-truth, observability, hard
-    rules, quality gates are all delegated to AGENTS.md / CONSTITUTION.md.
-
-    The `skills` and `agents` parameters are kept for API compatibility
-    with `--check` callers that still pass them in.
+    spec-131 D-131-14: Copilot overlay carries the same canonical payload
+    as AGENTS.md plus a Copilot-specific IDE-extras fence (hooks wiring
+    table, first-action banner). The cross-ref line that pointed
+    operators to AGENTS.md is REMOVED (D-131-14): every mirror is
+    self-contained, no cross-references.
     """
-    _ = skills, agents  # parity with prior signature; counts are in AGENTS.md
-
-    return (
-        "# GitHub Copilot Instructions\n"
-        "\n"
-        "> See [AGENTS.md](../AGENTS.md) for canonical cross-IDE rules\n"
-        "> (Step 0, skills, agents, hard rules, quality gates, observability,\n"
-        "> source of truth). Non-negotiable rules in\n"
-        "> [CONSTITUTION.md](../CONSTITUTION.md). Read those first.\n"
-        "\n"
-        "## FIRST ACTION — Mandatory\n"
-        "\n"
-        "Run `/ai-start` first in every session. `/ai-*` are IDE slash\n"
-        "commands, not `ai-eng` CLI subcommands.\n"
-        "\n"
-        "## Hooks Wiring (Copilot-specific)\n"
-        "\n"
-        "Hook config in `.github/hooks/hooks.json`. Canonical script in\n"
-        "`.ai-engineering/scripts/hooks/` via bash/PowerShell adapter.\n"
-        "\n"
-        "| Cross-IDE primitive        | Copilot event |\n"
-        "|----------------------------|---------------|\n"
-        "| Progressive disclosure     | `userPromptSubmitted` |\n"
-        "| Tool offload + loop detect | `postToolUse` |\n"
-        "| Checkpoint + Ralph Loop    | `sessionEnd` |\n"
-        "| Deny-list enforcement      | `preToolUse` |\n"
-        "| Error capture              | `errorOccurred` |\n"
-        "\n"
-        "PreCompact / PostCompact not surfaced by Copilot; snapshot\n"
-        "primitive degrades gracefully.\n"
-        "\n"
-        "## Observability\n"
-        "\n"
-        "See [AGENTS.md → Observability](../AGENTS.md#observability) for the\n"
-        "canonical telemetry posture and audit chain wiring. Copilot-specific\n"
-        "hook events are listed in the table above.\n"
+    payload = read_canonical_payload()
+    return assemble_mirror_payload(
+        payload,
+        ide_extras=_COPILOT_EXTRAS,
+        skill_count=len(skills),
+        agent_count=len(agents),
     )
 
 
@@ -1567,10 +1666,24 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_claude_agent(agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 5.5: templates/project/CLAUDE.md (canonical root instruction file)
+    # Surface 5.5: CLAUDE.md (root + template, byte-equivalent mirror of CANONICAL.md).
+    # spec-131 D-131-14: CLAUDE.md is now generated from CANONICAL.md + the
+    # Claude-specific IDE-extras fence (Hot-Path, Hooks Configuration,
+    # Runtime layer hooks, Token Efficiency, Engram, Audit observability).
+    # Both the repo-root surface and the install template carry identical
+    # bytes so `ai-eng install` ships the same canonical payload.
+    claude_md_content = assemble_mirror_payload(
+        read_canonical_payload(),
+        ide_extras=_CLAUDE_EXTRAS,
+        skill_count=skill_count,
+        agent_count=agent_count,
+    )
+    _generate_surface(
+        ROOT / "CLAUDE.md", claude_md_content, check_only, verbose, generated_paths, diffs
+    )
     _generate_surface(
         TPL_PROJECT / "CLAUDE.md",
-        (ROOT / "CLAUDE.md").read_text(encoding="utf-8"),
+        claude_md_content,
         check_only,
         verbose,
         generated_paths,
@@ -1631,27 +1744,24 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         diffs,
     )
 
-    # Surface 7.5: GEMINI.md (root + .gemini/, rendered from TPL_PROJECT / GEMINI.md)
-    # Spec-107 D-107-04: template at src/ai_engineering/templates/project/GEMINI.md
-    # is the canonical hand-maintained source containing `__SKILL_COUNT__` /
-    # `__AGENT_COUNT__` placeholders. The template is NOT rewritten by sync;
-    # instead, write_gemini_md materializes counts + translate_refs(target=gemini)
-    # and writes to both the repo-root GEMINI.md (Gemini CLI primary directive)
-    # and `.gemini/GEMINI.md` (Gemini IDE canonical mirror).
-    gemini_md_tpl = TPL_PROJECT / "GEMINI.md"
-    if gemini_md_tpl.is_file():
-        gemini_md_content = write_gemini_md(skills, agents)
-        _generate_surface(
-            ROOT / "GEMINI.md", gemini_md_content, check_only, verbose, generated_paths, diffs
-        )
-        _generate_surface(
-            ROOT / ".gemini" / "GEMINI.md",
-            gemini_md_content,
-            check_only,
-            verbose,
-            generated_paths,
-            diffs,
-        )
+    # Surface 7.5: GEMINI.md (root + template, byte-equivalent mirror of CANONICAL.md).
+    # spec-131 D-131-03: the in-repo `.gemini/GEMINI.md` orphan is DELETED.
+    # spec-131 D-131-14: GEMINI.md is generated from CANONICAL.md + the
+    # Gemini-specific IDE-extras fence (Hooks Wiring + Surface Pointers +
+    # First Action). Both the repo-root surface (Gemini CLI primary
+    # directive) and the install template carry identical bytes.
+    gemini_md_content = write_gemini_md(skills, agents)
+    _generate_surface(
+        ROOT / "GEMINI.md", gemini_md_content, check_only, verbose, generated_paths, diffs
+    )
+    _generate_surface(
+        TPL_PROJECT / "GEMINI.md",
+        gemini_md_content,
+        check_only,
+        verbose,
+        generated_paths,
+        diffs,
+    )
 
     # Surface 8: copilot-instructions.md (root + template, generated from CLAUDE.md)
     copilot_md_content = generate_copilot_instructions(skills, agents)

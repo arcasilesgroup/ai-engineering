@@ -23,14 +23,41 @@ from skill_app.lint_agents import LintAgentsUseCase
 from skill_app.lint_skills import LintSkillsUseCase
 from skill_infra.fs_scanner import FilesystemAgentScanner, FilesystemSkillScanner
 from skill_infra.markdown_reporter import MarkdownReporter
+from skill_lint.checks.md_mirror import check_md_mirror_consistency
 from skill_lint.checks.pair_aware import check_pair_consistency
+from skill_lint.checks.principles import check_principles_citations
 
 _DEFAULT_SKILLS_ROOT = Path(".claude/skills")
 _DEFAULT_AGENTS_ROOT = Path(".claude/agents")
+_DEFAULT_REPO_ROOT = Path(".")
 
 
-def _exit_code(grade_counts: dict[str, int]) -> int:
+def _exit_code(
+    grade_counts: dict[str, int],
+    md_mirror_results: list | None = None,
+    principles_results: list | None = None,
+) -> int:
+    """Map grade counts + extra-check severities to a CLI exit code.
+
+    Existing semantics (spec-127): exit 1 on Grade D; exit 2 on >2 Grade C.
+
+    spec-131 S1 additions:
+      * Any CRITICAL from ``md_mirror`` → exit 1 (canonical-payload drift
+        is a hard fail; D-131-03 / D-131-14).
+      * ``principles`` ships in ADVISORY mode for sub-001 (R-1.6
+        mitigation): every severity surfaces in the summary line but
+        never drives exit code. S6 SKILL audit upgrades MAJOR to
+        blocking once every shipped SKILL.md emits the "Principles
+        applied" line via the patch-ready ``/ai-plan`` output.
+    """
+    # principles_results intentionally consumed for signature parity;
+    # advisory-only in sub-001 (R-1.6).
+    _ = principles_results
     if grade_counts.get("D", 0) > 0:
+        return 1
+    if md_mirror_results and any(
+        getattr(r, "severity", "OK") == "CRITICAL" for r in md_mirror_results
+    ):
         return 1
     if grade_counts.get("C", 0) > 2:
         return 2
@@ -64,6 +91,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=_DEFAULT_AGENTS_ROOT,
         help="Path to the agents directory (default: .claude/agents).",
     )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=_DEFAULT_REPO_ROOT,
+        help="Path to the repo root for md_mirror checks (default: .).",
+    )
     return parser
 
 
@@ -87,6 +120,11 @@ def main(argv: list[str] | None = None) -> int:
     # without the gate hard-failing the legacy surface (gates added in
     # follow-up wave once the §22.3 caps are met).
     pair_results = check_pair_consistency(args.skills_root, args.agents_root)
+    # spec-131 S1: md_mirror + principles checks (D-131-03 / D-131-04 / R-1.6).
+    # md_mirror CRITICAL drives exit 1; principles MAJOR drives exit 1
+    # (MINOR is advisory per R-1.6 — upgraded in S6).
+    md_mirror_results = check_md_mirror_consistency(args.repo_root)
+    principles_results = check_principles_citations(args.skills_root)
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -107,6 +145,11 @@ def main(argv: list[str] | None = None) -> int:
         pair_counts: dict[str, int] = {}
         for _slug, result in pair_results:
             pair_counts[result.severity] = pair_counts.get(result.severity, 0) + 1
+        # spec-131 S1: md_mirror + principles counters.
+        md_mirror_status = "OK" if all(r.severity == "OK" for r in md_mirror_results) else "FAIL"
+        principles_counts: dict[str, int] = {}
+        for _path, result in principles_results:
+            principles_counts[result.severity] = principles_counts.get(result.severity, 0) + 1
         # Print a one-line summary so CI logs surface the result.
         sys.stdout.write(
             "skill_lint: skills "
@@ -119,9 +162,18 @@ def main(argv: list[str] | None = None) -> int:
             f"INFO={pair_counts.get('INFO', 0)} "
             f"MINOR={pair_counts.get('MINOR', 0)} "
             f"MAJOR={pair_counts.get('MAJOR', 0)} "
+            f"| md_mirror={md_mirror_status} "
+            f"| principles "
+            f"OK={principles_counts.get('OK', 0)} "
+            f"MINOR={principles_counts.get('MINOR', 0)} "
+            f"MAJOR={principles_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
-        return _exit_code(skills_report.summary)
+        return _exit_code(
+            skills_report.summary,
+            md_mirror_results=md_mirror_results,
+            principles_results=principles_results,
+        )
 
     return 0
 

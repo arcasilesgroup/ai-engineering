@@ -7,6 +7,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-131 S1 — Markdown Canon Reset
+
+D-131-03 / D-131-04 / D-131-14: collapsed the multi-IDE instruction
+surface to a single canonical payload + byte-equivalent mirrors.
+**Breaking** — no backwards-compat shims (D-131-15 anti-goal #10).
+
+**Shipped**:
+
+- `src/ai_engineering/templates/project/CANONICAL.md` (≤360 lines)
+  carries the full "how AI works in this repo" payload: bootstrap
+  (§0), Karpathy + Boris behaviour pillars (§§1–9), first-class
+  engineering principles (§10.1 KISS · §10.2 YAGNI · §10.3 SOLID ·
+  §10.4 DRY · §10.5 TDD · §10.6 SDD · §10.7 Clean Code · §10.8
+  Hexagonal Architecture — each with definition + 3-5 rules +
+  anti-patterns + example), canonical chain `/ai-brainstorm →
+  /ai-plan → /ai-build → /ai-pr` (§11, no `/ai-commit` in chain
+  per D-131-07), Surface Index (§12), Hard Rules (§13), Strict
+  Content Contracts authoring table (§14), IDE-Extras Escape Hatch
+  (§15).
+- `scripts/sync_mirrors/core.py` refactored: new helpers
+  `read_canonical_payload()` + `assemble_mirror_payload()`. Surfaces
+  5.5 (CLAUDE.md), 7 (AGENTS.md), 7.5 (GEMINI.md), 8 (Copilot) all
+  read CANONICAL.md and emit byte-equivalent payload + IDE-extras
+  fence. The cross-ref line at `core.py:1103` (`See [AGENTS.md]…`)
+  is REMOVED per D-131-14. No new sync entry point.
+- `<repo>/.gemini/GEMINI.md` DELETED per D-131-03 (Gemini CLI does
+  not read in-repo `.gemini/`). Surface 7.5 no longer writes there.
+- `CONSTITUTION.md` rescoped to project-identity-only (10 sections:
+  Mission / Stakeholders / Vocabulary / Prohibitions / Compliance
+  gates / Anti-goals / Boundaries / Escalation / Language /
+  Lifecycle phase). All AI-behaviour content migrated to
+  CANONICAL.md. Pre-migration body rotated verbatim to
+  `.ai-engineering/specs/_history-constitution-2026-05-11.md` for
+  traceability (R-131-03 mitigation).
+- `tools/skill_lint/checks/md_mirror.py` (NEW) — five sub-checks:
+  sha256 equivalence across the four mirrors (fence stripped),
+  no `@AGENTS.md` import, no `.gemini/GEMINI.md` orphan, no
+  `.codex/AGENTS.md` orphan, no forbidden AI-behaviour headers in
+  CONSTITUTION.md (`FORBIDDEN_CONSTITUTION_HEADERS`).
+- `tools/skill_lint/checks/principles.py` (NEW) — every SKILL.md
+  `## Workflow` cites at least one `§10.x` anchor. Advisory-grade
+  for sub-001 (R-1.6); upgraded to blocking in S6.
+- `tools/skill_lint/cli.py` wires both new checks: summary line
+  extended with `md_mirror={OK|FAIL}` and `principles OK=N MINOR=M
+  MAJOR=K` counters. `md_mirror` CRITICAL → exit 1; principles
+  advisory.
+- `/ai-constitution` SKILL.md refactored to interview-driven
+  10-section project-identity mode (D-131-04). NEVER overwrites
+  without diff + confirm (R-131-03). Cites `§10.6` (SDD) and
+  `§10.4` (DRY) in `## Workflow` so it passes the new principles
+  check on itself.
+- `/ai-ide-audit` SKILL.md extended with Antigravity in
+  argument-hint + `## Quick start` example. The capability matrix
+  reference gains a per-IDE assertion lookup table (Claude /
+  Copilot / Gemini / Codex / Antigravity) + an Antigravity advisory
+  probe section (R-131-08 — no deterministic CLI version probe yet).
+- `tests/conformance/test_md_mirror.py` (NEW, 32 tests).
+- `tests/conformance/test_principles.py` (NEW, 26 tests).
+- `tests/integration/sync/test_canonical_mirror_parity.py` (NEW, 8
+  tests) — byte-equivalence + idempotency (`sync_command_mirrors.py
+  --check` runs twice with zero diff on the second pass per R-1.4).
+
+**No backwards-compat shims** (D-131-15 anti-goal #10): every
+mirror is regenerated; every reader must follow the canonical
+path. The cross-ref line in `.github/copilot-instructions.md` is
+hard-deleted, not aliased.
+
+**Anonymous content** (D-131-15): no PII, no machine paths, no
+operator names anywhere in the shipped surface.
+
 ### spec-129 — Skills + Agents Excellence Refactor (Pragmatic Scope)
 
 Trimmed scope of the original `skills-agents-excellence-refactor.md` brief (8

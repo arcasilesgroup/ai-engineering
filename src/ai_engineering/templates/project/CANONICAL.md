@@ -266,7 +266,7 @@ checkpoints. It does NOT appear in the canonical chain (D-131-07).
 
 ## 12. Surface Index
 
-## Skills (47)
+## Skills (__SKILL_COUNT__)
 
 Canonical skills and agents live under `.claude/`; mirror surfaces under
 `.codex/`, `.gemini/`, and `.github/` are byte-equivalent regenerations
@@ -274,9 +274,9 @@ written by `scripts/sync_mirrors/core.py`. Invoke a skill via
 `/ai-<name>` in the IDE agent surface — never via a synthetic terminal
 equivalent.
 
-## Agents (9)
+## Agents (__AGENT_COUNT__)
 
-The 9 first-class agents are listed in
+The __AGENT_COUNT__ first-class agents are listed in
 `.ai-engineering/manifest.yml` under `agents.registry` and documented at
 `.claude/agents/ai-<name>.md`. Each runs in its own context window —
 offload research and parallel analysis to them.
@@ -285,8 +285,8 @@ offload research and parallel analysis to them.
 
 | Surface | Where |
 |---------|-------|
-| Skills (47) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (9) | `.claude/agents/ai-<name>.md` |
+| Skills (__SKILL_COUNT__) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (__AGENT_COUNT__) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
 | CLI | `ai-eng <command>` |

@@ -1,14 +1,381 @@
-# CLAUDE.md — Claude Code Overlay
+# Canonical Cross-IDE Rulebook
 
-> **Read [AGENTS.md](./AGENTS.md) first.** It carries the canonical
-> cross-IDE rules — Step 0, the seven-step chain, skills, and agents. This
-> file adds Claude-Code-specific specifics only.
+> Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
+> the canonical multi-IDE entry point for "how AI works in this repo".
+> Every IDE-native mirror (AGENTS.md, CLAUDE.md, GEMINI.md,
+> .github/copilot-instructions.md) carries identical canonical payload
+> — IDE-specific extras live in the fenced block at the bottom.
 
-## Hot-Path Discipline
+## 0. Bootstrap
 
-**Keep the local critical path under budget.** Claude Code triggers
-pre-commit and pre-push hooks on every save and commit, so the deterministic
-gate must finish fast:
+Every session, the first action is:
+
+1. Read [CONSTITUTION.md](CONSTITUTION.md) (project identity:
+   Mission / Stakeholders / Vocabulary / Prohibitions / Compliance gates /
+   Anti-goals / Boundaries / Escalation / Language / Lifecycle phase).
+2. Read `.ai-engineering/manifest.yml` (configuration source of truth).
+3. Query `.ai-engineering/state/state.db` `decisions` table (active
+   decisions and risk posture).
+4. No implementation without an approved spec — invoke `/ai-brainstorm`
+   first when a task has no spec.
+
+## 1. Think Before Coding (Karpathy §1)
+
+Read the failing input, the existing code path, and the spec acceptance
+gates BEFORE you change anything. The cheap edit is the wrong edit if
+the constraints have not been internalised.
+
+## 2. Simplicity First (Karpathy §2 + Boris core)
+
+The fewest moving parts that satisfy the spec wins. If you can delete
+code instead of adding it, prefer the deletion. No abstraction without
+two concrete callers. No new module without a clear seam.
+
+## 3. Surgical Changes (Karpathy §3 + Boris Minimal Impact)
+
+Each commit changes one thing. When you touch a file, make the
+minimum edit that satisfies the test. Drive-by refactors belong in
+their own commit with their own justification.
+
+## 4. Goal-Driven Execution (Karpathy §4 + Boris Verification Before Done)
+
+Every task has an acceptance gate. Run the gate before you claim done.
+Test output, lint output, gate output — all green or the task is not
+done. "Would a staff engineer approve this?" is the bar.
+
+## 5. Plan-Mode Default (Boris §1)
+
+Enter plan mode for any non-trivial task (3+ steps or architectural
+decisions). Stop and re-plan when something goes sideways instead of
+pushing through. Reduce ambiguity upfront via `/ai-brainstorm`.
+
+## 6. Subagent Strategy (Boris §2)
+
+Offload research, exploration, and parallel analysis to subagents.
+One task per subagent for focused execution. Never have one subagent
+do two unrelated things. Each runs in its own context window — use
+that.
+
+## 7. Self-Improvement Loop (Boris §3)
+
+After any user correction, update `.ai-engineering/LESSONS.md` with
+the pattern. Iterate on lessons until the mistake rate drops. Read
+lessons proactively at session start.
+
+## 8. Demand Elegance (Boris §5)
+
+Pause and ask "is there a more elegant way?" for non-trivial changes.
+Skip for simple, obvious fixes. Clever is bad; simple and clear is
+elegant.
+
+## 9. Autonomous Bug Fixing (Boris §6)
+
+When given a bug report, fix it. Don't ask for hand-holding. If you
+see a bug while working on something else, fix it and mention it in
+the commit.
+
+## 10. Engineering Principles
+
+The eight first-class principles below are non-negotiable. Every
+SKILL.md `## Workflow` MUST cite at least one §10.x anchor in its
+procedure so the principle the skill applies is traceable.
+
+### §10.1 KISS
+
+**Definition.** Keep It Simple, Stupid. The simplest design that
+satisfies the requirement wins.
+
+**Rules.**
+1. No premature optimization. Profile first, optimize second.
+2. No clever one-liners. Boring code reads faster.
+3. No abstractions without two concrete callers.
+4. Public API surface stays minimal — every export is a maintenance
+   cost.
+
+**Anti-patterns.**
+- Generic "framework" code with one consumer.
+- Single-call-site dependency injection layers.
+- Nested ternaries.
+
+**Example.** A function that takes a list and returns the sum is
+`sum(items)`. Do not introduce a `Summable` protocol.
+
+### §10.2 YAGNI
+
+**Definition.** You Aren't Gonna Need It. Build for the spec in
+front of you, not the spec you imagine.
+
+**Rules.**
+1. No "future-proofing" parameters without a current caller.
+2. No optional flags without a current use case.
+3. Delete dead code on sight; preserve it in git history, not the
+   active tree.
+
+**Anti-patterns.**
+- "I might need this someday" parameters.
+- Configuration knobs with one possible value.
+- Empty extension points.
+
+**Example.** A CLI command starts with positional arguments only.
+Add `--flags` when a second caller needs them.
+
+### §10.3 SOLID
+
+**Definition.** Five OO principles: Single Responsibility, Open/Closed,
+Liskov Substitution, Interface Segregation, Dependency Inversion.
+
+**Rules.**
+1. One reason to change per class / module (SRP).
+2. Open to extension, closed to modification (OCP).
+3. Subtypes substitute base types without surprises (LSP).
+4. Many small interfaces beat one large interface (ISP).
+5. Depend on abstractions, not concretions (DIP).
+
+**Anti-patterns.**
+- God classes that own unrelated concerns.
+- `if isinstance` branches on subtypes (LSP smell).
+- Wide interfaces with `NotImplementedError` stubs.
+
+**Example.** A `Reader` reads bytes; a `Parser` parses them. Do not
+fuse them into a `ReaderParser` because both run in sequence.
+
+### §10.4 DRY
+
+**Definition.** Don't Repeat Yourself. Every piece of knowledge has
+one canonical home.
+
+**Rules.**
+1. Three copies of the same fact = extract a constant.
+2. Three copies of the same logic = extract a function.
+3. Cross-IDE mirrors are generated, never hand-edited.
+
+**Anti-patterns.**
+- Hand-maintained tables in two files.
+- Copy-paste error handlers.
+- Shadow definitions of canonical constants.
+
+**Example.** Skill counts live in `manifest.yml`. Markdown mirrors
+substitute the count at sync time; they never hard-code it twice.
+
+### §10.5 TDD
+
+**Definition.** Test-Driven Development. RED (failing test) → GREEN
+(minimal code) → REFACTOR (stay green).
+
+**Rules.**
+1. Write the failing test FIRST. It must fail for the expected
+   reason before any production code lands.
+2. Write the minimum code to make the test pass — no more.
+3. Refactor with all tests still green; this is the only time
+   structural change ships without behaviour change.
+4. Never weaken a test to make implementation easier; if the test
+   is wrong, escalate.
+
+**Anti-patterns.**
+- Writing tests after the fact to "cover" code.
+- Skipping the REFACTOR step.
+- Modifying tests to chase implementation.
+
+**Example.** Before adding a `Cache` class, write
+`test_cache_get_returns_none_when_miss` and watch it fail with
+`NameError: name 'Cache' is not defined`.
+
+### §10.6 SDD
+
+**Definition.** Spec-Driven Development. Every implementation traces
+back to an approved spec under `.ai-engineering/specs/spec.md`.
+
+**Rules.**
+1. No implementation without an approved spec.
+2. Trivial changes (typo / comment-only / single-line) may use a
+   condensed spec; the spec still exists.
+3. Spec decisions are immutable once approved — amendments go
+   through `/ai-brainstorm` again.
+4. Plan tasks reference the decision they implement.
+
+**Anti-patterns.**
+- "Drive-by" feature additions inside an unrelated PR.
+- Implementing what the spec did not approve.
+- Hand-editing `_history.md` instead of running
+  `spec_lifecycle.py mark_shipped`.
+
+**Example.** Adding a new CLI subcommand requires a spec section
+listing acceptance gates and a `D-<spec>-<NN>` decision row.
+
+### §10.7 Clean Code
+
+**Definition.** Code reads like prose. Names tell the story; bodies
+do one thing well.
+
+**Rules.**
+1. Functions ≤30 lines; cyclomatic complexity ≤8.
+2. Names are precise (`active_users` not `data`).
+3. Public functions carry docstrings: contract, args, returns,
+   raises.
+4. Comments explain "why", not "what" — the code already shows
+   what.
+
+**Anti-patterns.**
+- Single-letter loop variables outside trivial scope.
+- Functions with five-argument signatures.
+- Magic numbers without named constants.
+
+**Example.** `def transfer(source_account, target_account, amount)`
+beats `def x(a, b, c)` every time.
+
+### §10.8 Hexagonal Architecture
+
+**Definition.** Pure domain logic at the centre; adapters at the
+edges; ports in between. Dependencies always point inward.
+
+**Rules.**
+1. Domain has zero infrastructure imports (no `requests`, no
+   `psycopg`, no `boto3`).
+2. Application orchestrates use-cases against ports.
+3. Adapters implement ports; tests substitute in-memory adapters.
+4. The hexagonal seam is enforced by an import test.
+
+**Anti-patterns.**
+- Domain modules calling `httpx.post(...)` directly.
+- Adapters leaking domain types up the call chain backwards.
+- Ports defined inside infrastructure modules.
+
+**Example.** A `Repository` port lives in `domain/`; a
+`PostgresRepository` adapter lives in `infrastructure/db/`.
+`pytest tests/architecture/test_layer_isolation.py` proves the
+direction.
+
+## 11. Canonical Chain
+
+The active spec workflow is:
+
+**/ai-brainstorm → /ai-plan → /ai-build → /ai-pr**
+
+- `/ai-brainstorm` produces an approved spec at
+  `.ai-engineering/specs/spec.md`.
+- `/ai-plan` produces an exhaustive patch-ready plan at
+  `.ai-engineering/specs/plan.md`.
+- `/ai-build` executes the plan (multi-stack implementation gateway,
+  D-127-11). For specs with ≥3 concerns or ≥10 file changes,
+  `/ai-autopilot` wraps the chain.
+- `/ai-pr` runs the final quality loop (verify + review + commit
+  pipeline internally) and opens the PR.
+
+`/ai-commit` is preserved as a standalone off-chain skill for WIP
+checkpoints. It does NOT appear in the canonical chain (D-131-07).
+
+## 12. Surface Index
+
+## Skills (47)
+
+Canonical skills and agents live under `.claude/`; mirror surfaces under
+`.codex/`, `.gemini/`, and `.github/` are byte-equivalent regenerations
+written by `scripts/sync_mirrors/core.py`. Invoke a skill via
+`/ai-<name>` in the IDE agent surface — never via a synthetic terminal
+equivalent.
+
+## Agents (9)
+
+The 9 first-class agents are listed in
+`.ai-engineering/manifest.yml` under `agents.registry` and documented at
+`.claude/agents/ai-<name>.md`. Each runs in its own context window —
+offload research and parallel analysis to them.
+
+## Source of Truth
+
+| Surface | Where |
+|---------|-------|
+| Skills (47) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (9) | `.claude/agents/ai-<name>.md` |
+| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
+| Hook scripts | `.ai-engineering/scripts/hooks/` |
+| CLI | `ai-eng <command>` |
+| Audit chain | `.ai-engineering/state/framework-events.ndjson` |
+| Decisions | `.ai-engineering/state/state.db` `decisions` table |
+| Config | `.ai-engineering/manifest.yml` |
+| Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
+
+## 13. Hard Rules
+
+The non-negotiable rules below apply to every commit, push, and
+risk-acceptance decision.
+
+1. **Secrets gate.** `gitleaks protect --staged` on every commit;
+   `semgrep --config .semgrep.yml` + `pip-audit` on every push.
+   Findings BLOCK at CRITICAL / HIGH / MEDIUM; LOW warns. Risk
+   acceptance flows through the ledger
+   (`ai-eng risk accept --finding-id …`), never inline.
+2. **No suppression.** No `# noqa`, `# nosec`, `// @ts-ignore`,
+   `// nolint`, `# pragma: no cover`, `// NOSONAR`. Refactor or
+   risk-accept. Spec-128 sub-d ships the repo-wide gate.
+3. **No backwards-compat shims** for renamed files, deleted files,
+   or migrated content. Hard rename, hard delete, hard migration.
+   CHANGELOG documents the breakage.
+4. **Anonymous content.** No PII, no machine paths, no operator
+   names in any committed file (specs, CHANGELOG, docs, telemetry).
+   Use placeholders (`$HOME/.local/bin`, `$(which …)`) when
+   machine-relative references are needed.
+5. **Single-round fail-loud quality loop.** `/ai-build`,
+   `/ai-autopilot` Phase 5, and `/ai-pr` run one final-quality-loop
+   round on the full changeset. Blockers STOP and escalate — no
+   auto-retry.
+6. **Conventional Commits.** `<type>(<scope>): <subject>` in
+   imperative mood. Body explains "why", not "what". Never
+   `--no-verify`.
+
+## 14. Strict Content Contracts (per-file authoring reference)
+
+The four IDE mirrors are byte-equivalent in canonical payload (this
+file). Each mirror appends an IDE-extras fence with content unique to
+that IDE. **Authoring contract** (brief §2.3 verbatim):
+
+| File | MUST contain | MUST NOT contain |
+|------|--------------|------------------|
+| `<repo>/AGENTS.md` | Full canonical payload (§§0-13), no IDE-extras block. | Any `@AGENTS.md` import. Any IDE-specific runtime knobs. |
+| `<repo>/CLAUDE.md` | Full canonical payload + IDE-extras with Hot-Path Discipline, Hooks Configuration, Runtime layer hooks, Token Efficiency, Engram opt-in, Audit observability. | `@AGENTS.md` import. Cross-IDE skill list. |
+| `<repo>/GEMINI.md` | Full canonical payload + IDE-extras with Gemini Hooks Wiring table + Surface Pointers. | `@AGENTS.md` import. Cross-IDE skill list. |
+| `<repo>/.github/copilot-instructions.md` | Full canonical payload + IDE-extras with Copilot Hooks Wiring table. | Any `See AGENTS.md` cross-reference (D-131-14). |
+| `<repo>/.gemini/GEMINI.md` | (DELETED per D-131-03 — Gemini CLI does not read in-repo `.gemini/`.) | The file itself. |
+| `<repo>/.codex/AGENTS.md` | (DOES NOT EXIST — Codex reads root AGENTS.md natively.) | The file itself. |
+| `<repo>/.github/instructions/*` | (DELETED per spec-128 D-128-07 — copilot-instructions.md covers it.) | The directory itself. |
+| `<repo>/.agent/rules/*` | (NOT USED — framework targets Claude / Codex / Gemini / Copilot natively.) | The directory itself. |
+| `<repo>/CONSTITUTION.md` | Project-identity only (10 sections: Mission / Stakeholders / Vocabulary / Prohibitions / Compliance gates / Anti-goals / Boundaries / Escalation / Language / Lifecycle phase). | Any AI-behaviour header (KISS / YAGNI / SOLID / DRY / TDD / SDD / Clean Code / Hexagonal Architecture / Simplicity First / Plan-Mode Default / Surgical Changes / Goal-Driven Execution / Subagent Strategy / Self-Improvement Loop / Demand Elegance / Autonomous Bug Fixing / Think Before Coding). |
+| `<repo>/README.md` | Install, value-prop, links to AGENTS.md + CONSTITUTION.md. | Skill list. Agent list. Chain duplication. |
+| `<repo>/CONTRIBUTING.md` | Dev setup, PR process, test commands, repo layout. | Duplication of canonical content. |
+| `<repo>/docs/getting-started.md` | 3-minute path: install → `/ai-start` → first `/ai-brainstorm` → first PR. | Internals. Skill list. |
+
+This table is the authoring reference. Mechanically-checkable rows
+are enforced by `tools/skill_lint/checks/md_mirror.py`:
+
+- sha256 equivalence across the four mirrors (canonical payload
+  bytes, fence stripped).
+- No `@AGENTS.md` import in any mirror.
+- No `.gemini/GEMINI.md` orphan on disk.
+- No `.codex/AGENTS.md` orphan on disk.
+- No forbidden AI-behaviour header in CONSTITUTION.md.
+
+## 15. IDE-Extras Escape Hatch (R-1.1 / R-131-02 mitigation)
+
+Each IDE mirror MAY append a fenced block carrying content unique to
+that IDE (Hot-Path tuning for Claude Code, Hooks Wiring table for
+Gemini / Copilot, etc.). The fence is recognised by `md_mirror.py`
+and stripped before the sha256 equivalence check.
+
+```
+<!-- ide-extras:start -->
+…IDE-specific content (hot-path budgets, hooks wiring,
+runtime tunables)…
+<!-- ide-extras:end -->
+```
+
+The block is OPTIONAL — `AGENTS.md` carries no extras (it is the base
+mirror). All other mirrors carry at most one fence block.
+
+<!-- ide-extras:start -->
+## Hot-Path Discipline (Claude Code)
+
+Claude Code triggers pre-commit and pre-push hooks on every save and
+commit, so the deterministic gate must finish fast:
 
 - **Pre-commit budget**: under 1 second wall-clock (lint, format check,
   secret scan on staged hunks only).
@@ -17,54 +384,10 @@ gate must finish fast:
 - **Heavier work belongs in CI**: full test suite, dependency audit, and
   governance evaluation never run on the local hot path.
 
-If a check exceeds budget, profile it and move work off the hot path before
-adding new logic to the hook.
+If a check exceeds budget, profile it and move work off the hot path
+before adding new logic to the hook.
 
-## Step 0 — Bootstrap
-
-**Read [AGENTS.md](./AGENTS.md) Step 0 first.** It governs every session.
-The canonical chain is verbatim:
-**/ai-brainstorm → /ai-plan → /ai-build → /ai-verify → /ai-review → /ai-commit → /ai-pr**
-
-`/ai-start` is the session bootstrap — it loads only what the current task
-needs and avoids re-reading already-loaded context.
-
-## Native Surface
-
-- **Slash commands** — invoke skills via `/ai-<name>` in the Claude Code
-  agent surface. Do not invent terminal equivalents that are not listed in
-  the CLI reference.
-- **Skill location** — Claude Code project-scope skills live under
-  `.claude/skills/` (one directory per skill, `SKILL.md` inside). User-scope
-  copies live under `~/.claude/skills/` and are loaded as a fallback. The
-  authoritative path is referenced from
-  [AGENTS.md → Skills](./AGENTS.md#skills); see Article V of
-  [CONSTITUTION.md](./CONSTITUTION.md) for the SSOT contract.
-- **Subagents** — the dispatch surface is the agents listed in
-  [AGENTS.md → Agents](./AGENTS.md#agents). Each runs in its own context
-  window; offload research and parallel analysis to them.
-
-## Governance hooks
-
-**Treat these governance hooks as load-bearing CI gates** — they pin the
-spec-127 conformance bar in code and fail PRs that drift:
-
-- **`skill_lint`** (`tools/skill_lint`) — checks every SKILL.md against
-  the conformance rubric (description voice, ≤120-line ceiling, mandatory
-  `## Quick start` / `## Workflow` / `## Examples` / `## Integration`
-  sections). CI exits non-zero on any Grade D entry.
-- **`test_layer_isolation`** (`tests/architecture/test_layer_isolation.py`)
-  — proves any `tools/skill_domain` import of `tools/skill_infra` raises
-  `ImportError`, keeping the hexagonal seam enforced.
-- **eval regression gate** (`tests/integration/test_eval_regression_gate.py`) — replays
-  `evals/<skill>.jsonl` (≥16 cases per skill, 8 should-trigger / 8
-  near-miss) on PRs touching `.claude/skills/**`. Regressions block merge.
-- **hot-path budgets** (`tests/perf/test_skill_lint_budget.py`) — pre-commit
-  ≤1.0 s (ceiling 1.5 s), pre-push ≤5.0 s (ceiling 7.0 s), `/ai-commit`
-  ≤1.5 s, `/ai-pr` ≤8.0 s, `/ai-verify` PASS path ≤1.0 s. Regressions
-  > 25 % block the PR.
-
-## Hooks Configuration
+## Hooks Configuration (Claude Code)
 
 Claude Code reads hook wiring from `.claude/settings.json`. The project
 registers **11 canonical hook events** (audited in spec-122-d D-122-27,
@@ -73,192 +396,47 @@ CI-guarded by `tests/unit/hooks/test_canonical_events_count.py`):
 `Stop`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStop`,
 `Notification`, `SessionEnd`.
 
-- `UserPromptSubmit` runs the `/ai-*` dispatcher and emits `skill_invoked`
-  telemetry events.
-- `PostToolUse` runs the agent observability hooks (`agent_dispatched`,
-  `ide_hook` events).
-- All hook outcomes flow to `.ai-engineering/state/framework-events.ndjson`
-  for the audit chain.
+Hook scripts live under `.ai-engineering/scripts/hooks/` (canonical).
+`.claude/hooks/` is a read-only symlink to that directory. Hook bytes
+are pinned in `.ai-engineering/state/hooks-manifest.json` (sha256 per
+script); `run_hook_safe` enforces integrity per
+`AIENG_HOOK_INTEGRITY_MODE` (default `enforce`).
 
-### Hook layout
-
-Canonical scripts live under `.ai-engineering/scripts/hooks/` so the
-cross-IDE mirrors (Copilot, Gemini, Codex) share the same source of
-truth. `.claude/hooks/` is a symlink to that canonical directory, so
-external tooling that follows the native Claude Code convention
-(`.claude/hooks/<name>.py`) resolves to the same file. Edits go in the
-canonical path; the symlink is read-only.
-
-### Integrity verification
-
-Hook bytes are pinned in `.ai-engineering/state/hooks-manifest.json`
-(sha256 per script). `run_hook_safe` verifies the calling script
-against this manifest on every invocation. Behaviour is governed by
-the env var `AIENG_HOOK_INTEGRITY_MODE`:
-
-- `enforce` (default, spec-120 follow-up) — mismatch refuses execution
-  (exit 2) and logs a `framework_error` event with
-  `detail.error_code = hook_integrity_violation`. Use in CI and any
-  production-like context. Default flipped from `warn` after the
-  spec-120 governance review confirmed the manifest stays clean under
-  `--check`.
-- `warn` — mismatch logs the `framework_error` event but allows the
-  hook to run. Set `AIENG_HOOK_INTEGRITY_MODE=warn` in your shell rc
-  to opt out of fail-closed in dev workflows that change hooks
-  frequently and don't want to regenerate the manifest after every
-  edit.
-- `off` — skip the check entirely (no audit event).
-
-After any intentional edit to a hook script, regenerate the manifest:
-
-```
-python3 .ai-engineering/scripts/regenerate-hooks-manifest.py
-```
-
-Run with `--check` in pre-commit / CI to fail loudly on stale manifests
-without rewriting the file.
-
-The deny rules in `.claude/settings.json` are tracked in source control
-— treat them and the hooks manifest as read-only at the IDE layer.
-
-### Runtime layer hooks
-
-Spec-116 added a runtime layer that closes the harness gaps surfaced by
-the 2026 industry survey (Fowler, Osmani, OpenAI Codex, Anthropic):
-
-- **`runtime-progressive-disclosure.py`** (UserPromptSubmit) — ranks the
-  49 skills against the incoming prompt and surfaces the top-K so the
-  model considers a focused slash command before going free-form. No
-  effect on prompts that already start with `/ai-*`.
-- **`runtime-guard.py`** (PostToolUse) — combines tool-call offload and
-  loop detection. Outputs above `AIENG_TOOL_OFFLOAD_BYTES` (default 4
-  KB) move to `.ai-engineering/runtime/tool-outputs/<id>.txt`
-  with head + tail kept inline. A sliding window
-  (`AIENG_LOOP_WINDOW`, default 6) flags repeated signatures or
-  failures (`AIENG_LOOP_REPEAT_THRESHOLD`, default 3) and emits a
-  `framework_error` of kind `loop_detected`.
-- **`runtime-stop.py`** (Stop) — writes
-  `.ai-engineering/runtime/checkpoint.json` (active work-plane,
-  recent edits, last tool calls) and, when the recent history shows
-  failure markers, stamps `runtime/ralph-resume.json` so `/ai-start`
-  can resume mid-task. The Ralph retry counter is bounded by
-  `AIENG_RALPH_MAX_RETRIES` (default 5).
-- **`runtime-compact.py`** (PreCompact + PostCompact) — snapshots
-  critical runtime state before context compaction (Anthropic: "never
-  rely on compaction for critical rules") and emits a verification
-  event afterwards.
-- **Ralph Loop convergence** (in `runtime-stop.py` + `_lib/convergence.py`)
-  — convergence sweep on Stop. Fast mode runs `ruff check` +
-  `pytest --collect-only` (~5s budget); full mode adds `pytest -x` and
-  `ruff format --check` (~60s budget). Missing tools fail-open
-  (treat as converged). On non-converged state emits `ralph_reinject`
-  telemetry and increments `runtime/ralph-resume.json`. **Reinjection
-  is opt-in**: default observes only and never writes
-  `decision: block` to stdout (avoids trapping repos with pre-existing
-  lint/test debt). Set `AIENG_RALPH_BLOCK=1` to enable the actual
-  reinjection path. `AIENG_RALPH_DISABLED=1` skips the convergence
-  sweep entirely. Bounded by `AIENG_RALPH_MAX_RETRIES` (default 5,
-  ceiling 50).
-- **Risk accumulator (PRISM-style)** (in `_lib/risk_accumulator.py` +
-  wired into `prompt-injection-guard.py` and `runtime-guard.py`) —
-  per-session risk score with exponential decay and threshold ladder.
-  Severity mapping: `LOW=1`, `MEDIUM=5`, `HIGH=20`, `CRITICAL=50`.
-  Threshold ladder: `silent < 10 ≤ warn < 30 ≤ block < 60 ≤ force_stop`.
-  TTL decay `0.95^minute` (~13.5 min half-life, 0.1 noise floor).
-  Repeat-signal weighting: `1.5x` for 1 prior fire of the same IOC in
-  60 min, `2.5x` for 2+ fires. Block / force_stop applied by
-  `prompt-injection-guard.py` (exit 2 + framework_error). Warn surfaced
-  by `runtime-guard.py` as a hint in `additionalContext`. Disable via
-  `AIENG_RISK_ACCUMULATOR_DISABLED=1`. State at
-  `.ai-engineering/runtime/risk-score.json` (gitignored,
-  session-scoped, atomic writes, corruption-tolerant).
-
-Tunables (all optional, env-driven):
+## Runtime Layer Tunables
 
 ```
 AIENG_TOOL_OFFLOAD_BYTES         # default 4096
-AIENG_TOOL_OFFLOAD_HEAD          # default 1024
-AIENG_TOOL_OFFLOAD_TAIL          # default 512
 AIENG_LOOP_WINDOW                # default 6
-AIENG_LOOP_REPEAT_THRESHOLD      # default 3
-AIENG_TOOL_HISTORY_MAX           # default 500
 AIENG_RALPH_MAX_RETRIES          # default 5
 AIENG_RALPH_BLOCK                # default 0 (observe-only)
-AIENG_RALPH_DISABLED             # default 0
-AIENG_RISK_ACCUMULATOR_DISABLED  # default 0
-AIENG_HOOK_INTEGRITY_MODE        # default warn (set to enforce in CI)
+AIENG_HOOK_INTEGRITY_MODE        # default enforce
 ```
 
-State lives under `.ai-engineering/runtime/`. Checkpoint and
-tool-history files are intentionally local (gitignored) — they capture
-session state, not source of truth.
+State lives under `.ai-engineering/runtime/` (gitignored — session
+state, not source of truth).
 
-### Cross-IDE coverage
+## Token Efficiency
 
-The runtime layer hooks are cross-IDE: a single Python script per
-primitive runs unchanged across Claude Code, Codex, Gemini CLI, and
-GitHub Copilot via `_lib/hook_context.py:get_hook_context()`. Wiring
-lives in each IDE's native config file. Event-name mapping:
-
-| Primitive                         | Claude Code  | Codex            | Gemini       | Copilot              |
-|-----------------------------------|--------------|------------------|--------------|----------------------|
-| Progressive disclosure            | UserPromptSubmit | UserPromptSubmit | BeforeAgent  | userPromptSubmitted  |
-| Tool-call offload + loop detect   | PostToolUse  | PostToolUse      | AfterTool    | postToolUse          |
-| Checkpoint + Ralph Loop           | Stop         | Stop             | AfterAgent   | sessionEnd           |
-| Pre/Post compact snapshot         | PreCompact / PostCompact | ❌ (event missing) | ❌ | ❌ |
-
-PreCompact / PostCompact are Claude-Code-only — the other runtimes do
-not surface compaction events, so the snapshot primitive degrades
-gracefully there (compaction still happens; it just isn't observed).
-Copilot uses bash + PowerShell wrappers
-(`copilot-runtime-{guard,stop,progressive-disclosure}.{sh,ps1}`) that
-translate the Copilot payload shape to the Claude convention before
-delegating to the canonical Python script.
-
-## Token Efficiency Tips
-
-- **Use `/clear` aggressively** when context is no longer load-bearing —
-  Claude Code keeps the full transcript in context until cleared.
-- **Dispatch `ai-explore`** for deep codebase research (read-only, fresh
-  context) instead of having the main thread read the whole tree.
-- **Cite files with `startLine:endLine:filepath`**; never paste large
-  code blocks the user did not ask for.
+- Use `/clear` aggressively when context is no longer load-bearing.
+- Dispatch `ai-explore` for deep codebase research (read-only, fresh
+  context).
+- Cite files with `startLine:endLine:filepath`; never paste large code
+  blocks the user did not ask for.
 
 ## Optional: Engram (third-party memory)
 
-`ai-engineering` ships **without** a built-in memory layer. During
-`ai-eng install` you'll be prompted: `Install Engram for memory
-persistence? [y/N]`. Yes triggers Engram's official install per OS
-(`brew install engram` on macOS, `winget install Engram` on Windows,
-direct binary on Linux) followed by `engram setup claude_code` for
-this IDE. Skip is fine — Claude Code works without Engram. Force
-deterministically: `--engram` (yes) or `--no-engram` (skip). CI defaults
-to skip. [Engram](https://github.com/Gentleman-Programming/engram) is
-a peer product, not an `ai-engineering` dependency.
+`ai-engineering` ships without a built-in memory layer. During
+`ai-eng install` you are prompted to install Engram. Skip is fine —
+Claude Code works without it. Force deterministically: `--engram` (yes)
+or `--no-engram` (skip).
 
-## Observability
-
-Telemetry is automatic — refer to
-[AGENTS.md → Skills](./AGENTS.md#skills-50) for the bootstrap that
-registers hooks. Session discovery and transcript viewing are delegated
-to the separately installed `agentsview` companion tool.
-
-**Telemetry consent posture**: `telemetry.consent: strict-opt-in` and
-`telemetry.default: disabled` in `.ai-engineering/manifest.yml`. No
-external emitters run unless the operator explicitly enables them; the
-default audit chain is local-only NDJSON.
-
-### Audit observability (spec-120)
-
-The framework projects the NDJSON audit stream into a SQLite database
-and an OTLP/JSON exporter so sessions become queryable and portable.
-See [AGENTS.md → Observability](./AGENTS.md#observability) for the
-field-mapping reference; the five subcommands are:
+## Audit Observability (spec-120)
 
 ```bash
 ai-eng audit index                       # build / refresh the SQLite projection
 ai-eng audit query "SELECT ..."          # read-only SQL over the index
 ai-eng audit tokens --by skill|agent|session   # token rollup
 ai-eng audit replay --session <id>       # depth-first span-tree walk
-ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope (Langfuse, Phoenix, …)
+ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope
 ```
+<!-- ide-extras:end -->

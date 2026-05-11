@@ -14,6 +14,34 @@ After the Explore subagent returns, classify each capability for each in-scope p
 
 Mark PARTIAL whenever you find evidence of the capability but with a measurable gap. Mark UNSUPPORTED only when the capability is completely absent.
 
+## Per-IDE assertion lookup (brief §2.3 native paths)
+
+| IDE | Native instruction path (highest priority) | Fallback | md_mirror lint contract |
+|-----|--------------------------------------------|----------|-------------------------|
+| Claude Code | `<repo>/CLAUDE.md` | `<repo>/AGENTS.md` | Enforced — byte-equivalent canonical payload (sha256) |
+| GitHub Copilot | `<repo>/.github/copilot-instructions.md` | `<repo>/AGENTS.md` | Enforced — byte-equivalent canonical payload (sha256) |
+| Gemini CLI | `<repo>/GEMINI.md` | `<repo>/AGENTS.md`, user-global `~/.gemini/` | Enforced — byte-equivalent canonical payload (sha256); `<repo>/.gemini/GEMINI.md` MUST NOT exist (D-131-03) |
+| Codex | `<repo>/AGENTS.md` (native) | n/a | Enforced — `<repo>/.codex/AGENTS.md` MUST NOT exist |
+| Antigravity (v1.20.3+) | `<repo>/GEMINI.md` (highest priority) | `<repo>/AGENTS.md` | ADVISORY — no deterministic CLI probe yet (R-131-08); md_mirror lint contract enforced via the GEMINI.md mirror |
+
+## Spec-131 S1 Antigravity Probe (advisory)
+
+Per R-131-08: Antigravity v1.20.3+ reads `<repo>/GEMINI.md` as the
+highest-priority instruction surface and falls back to
+`<repo>/AGENTS.md` if absent. Because no Antigravity CLI exposes a
+deterministic version probe at the time of spec-131, the audit
+classification stays advisory:
+
+- **SUPPORTED**: `<repo>/GEMINI.md` carries the canonical payload
+  (verified by `tools/skill_lint/checks/md_mirror.py` sha256
+  equivalence with the other three mirrors).
+- **PARTIAL**: GEMINI.md exists but drifts from the canonical sha256.
+- **UNSUPPORTED**: GEMINI.md is missing.
+
+No `--fix` action runs for Antigravity; remediation is the same
+`python scripts/sync_command_mirrors.py` run that fixes the other
+mirrors.
+
 ## Spec-107 Advisory Checks (6/7/8)
 
 Advisory-only per spec-107 NG-11 (never hard-fail; hard-gate lands in a future spec when ≥90% projects pass cleanly).

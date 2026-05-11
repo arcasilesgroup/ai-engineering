@@ -162,6 +162,18 @@ PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
             required=False,
             timeout=10,
         ),
+        # spec-131 S7 (sub-007 T-7.10): schema validator over
+        # .ai-engineering/specs/spec.md. Parallel to skill_lint per
+        # D-131-17. Hot-path budget per R-131-13: ≤500 ms per
+        # invocation. Required=False so missing python on a stripped
+        # checkout never blocks the pre-commit gate; CI still enforces
+        # via .github/workflows/spec_lint.yml.
+        CheckConfig(
+            name="spec_lint",
+            cmd=["python", "-m", "spec_lint", "--check"],
+            required=False,
+            timeout=10,
+        ),
     ],
     "python": [
         CheckConfig(name="ruff-format", cmd=["ruff", "format", "--check", "."]),
