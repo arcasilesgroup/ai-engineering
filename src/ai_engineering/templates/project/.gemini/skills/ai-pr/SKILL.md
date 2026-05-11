@@ -33,38 +33,15 @@ Governed PR creation: full commit pipeline, pre-push gates, structured PR with s
 
 ## Process
 
-### Step 0: Auto-branch from protected
+### Steps 0-6: Inline Commit Pipeline
 
-If current branch is `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate slug deterministically with `python3 .ai-engineering/scripts/branch_slug.py --prefix <type>` (reads spec.md frontmatter), then `git checkout -b <output>`, report new branch.
-
-### Step 1: Work item context (optional)
-
-If `.ai-engineering/specs/spec.md` frontmatter has `refs`: include work item refs as commit body trailers (`Refs: AB#101, AB#102, #45`). Only include `close_on_pr` items — never features.
-
-### Step 2: Instinct consolidation
-
-If `.ai-engineering/observations/observations.yml` exists, run `/ai-observe --review` to consolidate session observations before committing.
-
-### Step 3: Stage changes
-
-`git add <file1> <file2>` selectively. Use `git add -A` only when explicitly requested. Exclude generated files, secrets, large binaries.
-
-### Step 4: Run gate orchestrator
-
-```
-ai-eng gate run --cache-aware --json --mode=local
-```
-
-The orchestrator runs the 2-wave collector (Wave 1 fixers serial → Wave 2 checkers parallel) with cache-aware lookup, emitting `.ai-engineering/state/gate-findings.json` (schema v1) covering every check. After Wave 1 fixers rewrite files, the orchestrator re-stages the safe `S_pre & M_post` intersection (spec-105 D-105-09); pass `--no-auto-stage` to disable, or set `gates.pre_commit.auto_stage: false` in the manifest.
-
-### Step 5: Handle gate result
-
-- **Exit 0** — all checks PASS or auto-fixed. Continue to Step 6.
-- **Exit non-zero** — parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, **STOP**. Fix root cause, re-stage, re-run. Override only when remediation is tracked elsewhere and the publish window forces it: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` writes one DEC entry per finding with severity-default TTL (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
-
-### Step 6: Confirm commit readiness
-
-The documentation gate inside the orchestrator is mandatory. See `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI authoritative split.
+Step 0 — **Auto-branch** from `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate slug with `python3 .ai-engineering/scripts/branch_slug.py --prefix <type>`, then `git checkout -b <output>`.
+Step 1 — **Work-item context (opt)**: spec.md frontmatter `refs` → commit body trailers (`Refs: AB#101, #45`); only `close_on_pr` items, never features.
+Step 2 — **Instinct consolidation**: if `.ai-engineering/observations/observations.yml` exists, run `/ai-observe --review` before committing.
+Step 3 — **Stage** selectively (`git add <file>...`). Use `git add -A` only when explicitly requested. Exclude generated files, secrets, large binaries.
+Step 4 — **Run gate orchestrator**: `ai-eng gate run --cache-aware --json --mode=local`. The 2-wave collector (Wave 1 fixers serial → Wave 2 checkers parallel) emits `.ai-engineering/state/gate-findings.json` (schema v1); Wave 1 re-stages the safe `S_pre & M_post` intersection (spec-105 D-105-09; disable via `--no-auto-stage` or manifest `gates.pre_commit.auto_stage: false`).
+Step 5 — **Handle gate**: exit 0 → continue. Exit non-zero → STOP, fix root cause, re-run. Publish-window override: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <id> --follow-up "<plan>"` (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
+Step 6 — **Docs gate** inside the orchestrator is mandatory; see `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI authoritative split.
 
 ### 7. Concurrent dispatch -- docs + pre-push gate (3 lanes)
 
@@ -80,27 +57,13 @@ Total wall-clock = `max(docs, pre-push)`, NOT `sum`. Docs subagents and the pre-
 
 4. **Stage all docs files** produced by lanes 1-2 BEFORE PR creation. spec-104 NG-7 forbids deferring docs to a separate commit -- regulated audience requires clean audit history.
 
-### 8. Instinct consolidation
+### 8. Pre-push gate (Lane 3 of step 7)
 
-If `.ai-engineering/observations/observations.yml` exists, run `/ai-observe --review`.
+`ai-eng gate run --cache-aware --json --mode=local` runs Wave 1 fixers (`ruff format` → `ruff check --fix` → `spec verify --fix`) then Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate). CI uses `--mode=ci` (adds `semgrep`, `pip-audit`, full `pytest` matrix). Non-zero exit → parse `gate-findings.json`, report, STOP; resolve or accept via `ai-eng risk accept-all` (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
 
-### 9. Pre-push gate (Lane 3 of step 7)
+### 9. Work item context
 
-`ai-eng gate run --cache-aware --json --mode=local` orchestrates Wave 1 fixers (`ruff format` -> `ruff check --fix` -> `spec verify --fix`) then Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate) in parallel. CI matrix runs `--mode=ci` for the authoritative gate (`semgrep` + `pip-audit` + `pytest` full + matrix). See `.ai-engineering/contexts/gate-policy.md`.
-
-If exit non-zero, parse `.ai-engineering/state/gate-findings.json`, report findings, STOP. Do not proceed unless all medium+ severity findings are resolved or accepted via `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` (each acceptance creates a DEC entry with TTL; see `.ai-engineering/contexts/risk-acceptance-flow.md`).
-
-### 10. Work item context
-
-Read `.ai-engineering/manifest.yml` `work_items` and `.ai-engineering/specs/spec.md` frontmatter `refs`:
-
-```yaml
-refs:
-  features: [AB#100] # never closed by AI
-  user_stories: [AB#101] # closed on PR merge
-  tasks: [AB#102, AB#103] # closed on PR merge
-  issues: ["#45", "#46"] # closed on PR merge
-```
+Read `.ai-engineering/manifest.yml` `work_items` and spec.md frontmatter `refs` (yaml shape: `features` never close, `user_stories`/`tasks`/`bugs`/`issues` close on PR merge).
 
 ### 11. Spec operations
 
