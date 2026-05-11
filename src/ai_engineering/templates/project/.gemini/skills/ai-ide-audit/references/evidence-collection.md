@@ -8,8 +8,8 @@ Dispatch a single `Explore` subagent. It reads the files below and returns raw f
 |------|-------------|
 | `CLAUDE.md` | Claude Code only |
 | `.github/copilot-instructions.md` | GitHub Copilot only |
-| `AGENTS.md` | Codex only (NOT Copilot, NOT Gemini) |
-| `GEMINI.md` | Gemini only |
+| `AGENTS.md` | Codex (native); Antigravity (fallback) |
+| `GEMINI.md` | Gemini CLI; Antigravity (priority 1, advisory per R-131-08) |
 | `.claude/settings.json` hooks | Claude Code only |
 | `.github/hooks/hooks.json` hooks | GitHub Copilot only |
 

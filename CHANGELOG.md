@@ -7,6 +7,90 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-131 — DX Excellence Refactor
+
+Trimmed scope of the original `dx-excellence-refactor-brief.md` to the
+non-duplicated residual: M2 markdown canon reset, M4-residual single
+quality loop, M5 model-dispatch economics, M6-residual hooks robustness,
+M7 docs evangelism + cross-IDE audit extension, M1-residual naming lint,
+and a S7 spec-lint addition. Lands on the same branch and the same PR
+as spec-128 / spec-129 (PR #509) — no new branch, no new PR.
+
+**Breaking changes** (no compat shims; hard rename / hard delete / hard
+migration per Non-Goal #10):
+
+1. **Markdown canon reset (D-131-03)** — `<repo>/AGENTS.md`,
+   `<repo>/CLAUDE.md`, `<repo>/GEMINI.md`, and
+   `<repo>/.github/copilot-instructions.md` are now byte-equivalent
+   mirrors of `templates/project/CANONICAL.md`. `<repo>/.gemini/GEMINI.md`
+   deleted (dead path — Gemini CLI does not read in-repo `.gemini/`).
+   `<repo>/.codex/AGENTS.md` never created (Codex reads root AGENTS.md
+   natively). User-extensions that imported `@AGENTS.md` from CLAUDE.md
+   must inline the canonical payload — the import bridge no longer
+   exists.
+
+2. **CONSTITUTION rescope (D-131-04)** — `CONSTITUTION.md` is now
+   project-identity only (Mission, Stakeholders, Vocabulary,
+   Prohibitions, Compliance gates, Anti-goals, Boundaries, Escalation,
+   Language, Lifecycle phase). All AI-behaviour articles previously in
+   CONSTITUTION.md migrated to `templates/project/CANONICAL.md`
+   (§10.x principle anchors). Skills referencing "Article X" of
+   CONSTITUTION.md must re-anchor to CANONICAL.md §10.x.
+   `/ai-constitution` skill refactored from generator-of-articles to
+   project-identity interview.
+
+3. **Single quality loop, single round, fail-loud (D-131-05)** —
+   `/ai-build` and `/ai-autopilot` no longer run per-task verify+review
+   inside the task loop. A single final-quality-loop phase runs verify
+   plus review on the full changeset once. Blockers STOP and escalate
+   to the operator. Re-dispatch with `/ai-build --rerun-quality-loop`
+   to resume after fixing the blocker.
+
+4. **Canonical chain trim (D-131-07)** — chain in AGENTS / CLAUDE /
+   GEMINI / copilot-instructions reads
+   `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`. `/ai-commit` no
+   longer appears in the chain (runs internally inside `/ai-pr`).
+   `/ai-commit` preserved verbatim as a standalone off-chain skill for
+   WIP-only invocations.
+
+5. **Mandatory `effort:` and `model_tier:` SKILL.md frontmatter
+   (D-131-08)** — every skill declares cheap / mid / high effort and
+   haiku / sonnet / opus model tier. `tools/skill_lint/checks/effort.py`
+   enforces. The audit chain (`framework-events.ndjson`) records
+   `model_tier` and `effort` per dispatch.
+
+6. **Trusted-script lane (D-131-12)** — scripts hash-pinned in
+   `.ai-engineering/state/hooks-manifest.json` bypass RTK rewriting and
+   IOC re-evaluation. `session_bootstrap.py` is the first registered
+   entry. New scripts requiring the lane register via
+   `.ai-engineering/scripts/regenerate-hooks-manifest.py --add-trusted
+   <path>`.
+
+7. **Sub-agent policy lane (D-131-11)** — read-only commands (`rg`,
+   `grep`, `find`, `ls`, `cat` without redirect) clear an explicit
+   allow-list before IOC pattern matching. Integrity-mode denials on
+   sub-agent read-only probes now exit silently with a structured
+   warning instead of denying. IOC retains veto on the residual.
+
+8. **Antigravity audit row (D-131-18 closes G6)** — `/ai-ide-audit`
+   IDE matrix gains an Antigravity column. Advisory only in this
+   release; hard-gate lands once Antigravity exposes a deterministic
+   version probe (R-131-08).
+
+9. **Docs front-door rewrite (M7)** — `README.md` rewritten to install
+   + value-prop + links (≤120 lines; skill / agent / chain tables
+   deleted). `CONTRIBUTING.md` project-structure tree collapsed to a
+   paragraph. `docs/getting-started.md` (NEW, 5-frame, ≤80 lines)
+   replaces the deleted root-level `GETTING_STARTED.md`.
+
+**Tests added**: `tests/docs/test_links.py` (≥10 cases covering
+file-link resolution, anchor validation, anonymous-content scan, and
+length caps for the front-door surface); `tests/conformance/test_md_mirror.py`
+and `tests/conformance/test_principles.py` (shipped by sub-001).
+
+**Anonymous content** (D-131-15): no PII, no machine paths, no
+operator names anywhere in the shipped surface.
+
 ### spec-131 S1 — Markdown Canon Reset
 
 D-131-03 / D-131-04 / D-131-14: collapsed the multi-IDE instruction

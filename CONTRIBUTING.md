@@ -132,38 +132,15 @@ Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
 ## Reporting issues
 
-**Bug reports** — include the following:
-
-- What you expected to happen.
-- What actually happened.
-- Steps to reproduce (minimal example preferred).
-- Your environment: OS, Python version, ai-engineering version (`ai-eng version`).
+**Bug reports** — include expected vs. actual behaviour, minimal repro steps, and your environment (OS, Python version, `ai-eng version`).
 
 **Feature requests** — describe the problem you want to solve and your proposed approach. Open an issue before starting significant work so we can discuss the design.
 
 ## Project structure
 
-```
-src/ai_engineering/
-├── cli.py                # CLI entry point
-├── cli_factory.py        # Typer app factory
-├── paths.py              # Path resolution utilities
-├── __version__.py        # Version string
-├── cli_commands/         # Command groups (core, gate, maintenance, skills, stack_ide)
-├── commands/             # Workflow building blocks (commit, PR)
-├── installer/            # Framework bootstrap and stack/IDE operations
-├── updater/              # Ownership-safe framework updates
-├── doctor/               # Diagnostics and remediation
-├── hooks/                # Git hook generation and installation
-├── policy/               # Quality gate execution
-├── state/                # Pydantic models, JSON/NDJSON I/O, decision logic
-├── git/                  # Shared git operations
-├── pipeline/             # CI/CD compliance scanning and injection
-├── skills/               # Remote skill source management
-├── maintenance/          # Health reports and branch cleanup
-├── detector/             # Tool readiness detection
-└── templates/            # Bundled governance and IDE templates
-```
+Top-level: `src/ai_engineering/` (CLI, installer, updater, doctor, hooks, policy, state, git, pipeline, skills, maintenance, detector, and bundled templates); `tests/` (unit, integration, conformance, perf, docs); `.ai-engineering/` (governance root: contexts, runbooks, scripts, specs, state); `.claude/` plus the `.github/`, `.codex/`, `.gemini/` IDE mirrors (skills + agents); `templates/` (consumer-project assets); `scripts/` (sync utilities); `tools/` (linters, no-suppression gate); `docs/` (CLI reference, getting-started, architecture).
+
+See [AGENTS.md](AGENTS.md) for the full architecture map and canonical chain.
 
 ## Code of conduct
 
