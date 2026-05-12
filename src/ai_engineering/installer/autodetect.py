@@ -178,6 +178,27 @@ def _walk_markers(root: Path) -> tuple[set[str], set[str]]:
         elif "package.json" in fset:
             stacks.add("javascript")
 
+        # spec-133 D-133-12: react-native takes precedence over typescript when
+        # ``react-native`` or ``expo`` appear in package.json deps.
+        if "package.json" in fset:
+            try:
+                pkg_text = (Path(dirpath) / "package.json").read_text(encoding="utf-8")
+                if '"react-native"' in pkg_text or '"expo"' in pkg_text:
+                    stacks.add("react-native")
+            except OSError:
+                pass
+
+        # spec-133 D-133-12: flutter takes precedence over dart when
+        # pubspec.yaml carries a ``flutter:`` top-level block.
+        if "pubspec.yaml" in fset:
+            try:
+                pub_text = (Path(dirpath) / "pubspec.yaml").read_text(encoding="utf-8")
+                if "flutter:" in pub_text:
+                    stacks.add("flutter")
+                    stacks.discard("dart")
+            except OSError:
+                pass
+
     return stacks, ides
 
 
@@ -193,9 +214,11 @@ def detect_stacks(root: Path) -> list[str]:
 
 
 def detect_ai_providers(root: Path) -> list[str]:
-    """Detect AI coding assistants configured in *root*.
+    """Detect AI coding assistants / Surfaces configured in *root*.
 
-    Root-level only — ``.claude/``, ``.github/``, and ``.gemini/`` are project-root markers.
+    spec-133 D-133-06: extended to detect 7 Surfaces. Root-level only —
+    ``.claude/``, ``.github/``, ``.gemini/``, ``.opencode/``, ``.cursor/``,
+    ``.codex/``, ``.agent/`` are project-root markers.
     """
     providers: list[str] = []
 
@@ -214,6 +237,16 @@ def detect_ai_providers(root: Path) -> list[str]:
     codex_tree = (root / ".codex").is_dir()
     if codex_instruction_file or codex_tree:
         providers.append("codex")
+
+    # spec-133 D-133-06: OpenCode + Cursor full surfaces, Antigravity mirror-only.
+    if (root / ".opencode").is_dir():
+        providers.append("opencode")
+
+    if (root / ".cursor").is_dir():
+        providers.append("cursor")
+
+    if (root / ".agent").is_dir():
+        providers.append("antigravity")
 
     return sorted(providers)
 
