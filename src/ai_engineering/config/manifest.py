@@ -15,10 +15,33 @@ from pydantic import BaseModel, Field
 
 
 class AiProvidersConfig(BaseModel):
-    """AI coding assistant provider configuration."""
+    """AI coding assistant provider configuration.
+
+    .. deprecated:: spec-133 D-133-16
+        Replaced by :class:`SurfacesConfig`. Retained for in-flight
+        compatibility on this PR aggregate (spec-128 .. spec-133); the
+        follow-up release rewrites every consumer to ``surfaces.enabled``
+        and drops this class entirely. CHANGELOG documents the migration.
+    """
 
     enabled: list[str] = Field(default_factory=lambda: ["claude-code"])
     primary: str = "claude-code"
+
+
+class SurfacesConfig(BaseModel):
+    """Surface configuration — single source of truth (spec-133 D-133-16).
+
+    Replaces the legacy split between ``providers.ides`` (IDE integrations)
+    and ``ai_providers.enabled`` (AI providers). A Surface is the unified
+    primitive: every value MUST be a member of
+    ``ai_engineering.domain.surface.SURFACE_IDS`` (closed enum).
+
+    The legacy fields are still serialised for in-flight compatibility on
+    the PR #509 aggregate but are scheduled for hard removal in a
+    follow-up release. New code should prefer ``surfaces.enabled``.
+    """
+
+    enabled: list[str] = Field(default_factory=lambda: ["claude-code"])
 
 
 class ProvidersConfig(BaseModel):
@@ -239,6 +262,7 @@ class ManifestConfig(BaseModel):
 
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     ai_providers: AiProvidersConfig = Field(default_factory=AiProvidersConfig)
+    surfaces: SurfacesConfig = Field(default_factory=SurfacesConfig)
     artifact_feeds: ArtifactFeedsConfig = Field(default_factory=ArtifactFeedsConfig)
     work_items: WorkItemsConfig = Field(default_factory=WorkItemsConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)

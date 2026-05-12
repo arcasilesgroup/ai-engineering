@@ -20,7 +20,15 @@ from ai_engineering.doctor.models import (
     DoctorReport,
     PhaseReport,
 )
-from ai_engineering.doctor.phases import detect, governance, hooks, ide_config, state, tools
+from ai_engineering.doctor.phases import (
+    detect,
+    governance,
+    hooks,
+    ide_config,
+    scripts,
+    state,
+    tools,
+)
 from ai_engineering.doctor.runtime import (
     branch_policy,
     feeds,
@@ -36,6 +44,7 @@ from ai_engineering.installer.phases import (
     PHASE_HOOKS,
     PHASE_IDE_CONFIG,
     PHASE_ORDER,
+    PHASE_SCRIPTS,
     PHASE_STATE,
     PHASE_TOOLS,
 )
@@ -57,6 +66,7 @@ _PHASE_MODULES = {
     PHASE_GOVERNANCE: governance,
     PHASE_IDE_CONFIG: ide_config,
     PHASE_STATE: state,
+    PHASE_SCRIPTS: scripts,
     PHASE_TOOLS: tools,
     PHASE_HOOKS: hooks,
 }

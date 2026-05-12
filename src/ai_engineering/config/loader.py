@@ -63,6 +63,14 @@ def load_manifest_config(root: Path) -> ManifestConfig:
     if "ai_providers" not in data:
         _migrate_ai_providers(data)
 
+    # spec-133 D-133-16: synchronize legacy ai_providers <-> surfaces.
+    # When the new ``surfaces.enabled`` key is present, mirror it into
+    # the legacy ``ai_providers.enabled`` (consumers being migrated to
+    # ``surfaces.enabled`` continue to work). When only the legacy
+    # key is present, populate ``surfaces.enabled`` from it. The
+    # follow-up release will drop the legacy mirror entirely.
+    _sync_surfaces(data)
+
     return ManifestConfig.model_validate(data)
 
 
@@ -112,6 +120,37 @@ def _migrate_ai_providers(data: dict[str, Any]) -> None:
             "primary": ai_entries[0],
         }
         providers["ides"] = non_ai_entries
+
+
+def _sync_surfaces(data: dict[str, Any]) -> None:
+    """Mirror ``surfaces.enabled`` <-> legacy ``ai_providers.enabled``.
+
+    spec-133 D-133-16 introduces ``surfaces.enabled`` as the canonical
+    field. While the migration is in flight on PR #509:
+
+    - If ``surfaces.enabled`` is present, mirror its members into
+      ``ai_providers.enabled`` so legacy consumers continue to function.
+    - If only ``ai_providers.enabled`` is present, populate
+      ``surfaces.enabled`` from it so new consumers can read the canonical
+      field on freshly-loaded older manifests.
+    """
+    surfaces = data.get("surfaces")
+    ai_providers = data.get("ai_providers")
+
+    if isinstance(surfaces, dict) and isinstance(surfaces.get("enabled"), list):
+        enabled = list(surfaces["enabled"])
+        # Mirror to legacy. Preserve operator overrides in primary when present.
+        if not isinstance(ai_providers, dict):
+            ai_providers = {}
+            data["ai_providers"] = ai_providers
+        ai_providers["enabled"] = enabled
+        if not ai_providers.get("primary") and enabled:
+            ai_providers["primary"] = enabled[0]
+        return
+
+    # Reverse: populate surfaces from legacy if surfaces missing.
+    if isinstance(ai_providers, dict) and isinstance(ai_providers.get("enabled"), list):
+        data.setdefault("surfaces", {"enabled": list(ai_providers["enabled"])})
 
 
 def update_manifest_field(root: Path, field_path: str, value: Any) -> None:

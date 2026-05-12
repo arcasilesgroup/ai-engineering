@@ -362,6 +362,14 @@ Gemini / Copilot, etc.). The fence is recognised by `md_mirror.py`
 and stripped before the sha256 equivalence check.
 
 ```
+<!-- ide-extras:start -->
+…IDE-specific content (hot-path budgets, hooks wiring,
+runtime tunables)…
+<!-- ide-extras:end -->
+```
+
+The block is OPTIONAL — `AGENTS.md` carries no extras (it is the base
+mirror). All other mirrors carry at most one fence block.
 ## 16. Surface Axioms (spec-133 D-133-04)
 
 The **Surface Axiom** + **No-Twin Axiom** are first-class design
@@ -409,14 +417,6 @@ judgment on top.
 - `cli_ui_skill_ref.skill_ref(name)` renders every chat-only command
   unambiguously when printed from the CLI (D-133-22).
 
-<!-- ide-extras:start -->
-…IDE-specific content (hot-path budgets, hooks wiring,
-runtime tunables)…
-<!-- ide-extras:end -->
-```
-
-The block is OPTIONAL — `AGENTS.md` carries no extras (it is the base
-mirror). All other mirrors carry at most one fence block.
 
 <!-- ide-extras:start -->
 ## First Action (Gemini CLI)

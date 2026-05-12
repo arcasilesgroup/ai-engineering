@@ -370,7 +370,6 @@ runtime tunables)…
 
 The block is OPTIONAL — `AGENTS.md` carries no extras (it is the base
 mirror). All other mirrors carry at most one fence block.
-
 ## 16. Surface Axioms (spec-133 D-133-04)
 
 The **Surface Axiom** + **No-Twin Axiom** are first-class design
@@ -417,6 +416,7 @@ judgment on top.
   documented as A2-distinct in `docs/cli-reference.md`).
 - `cli_ui_skill_ref.skill_ref(name)` renders every chat-only command
   unambiguously when printed from the CLI (D-133-22).
+
 
 <!-- ide-extras:start -->
 ## Hot-Path Discipline (Claude Code)
