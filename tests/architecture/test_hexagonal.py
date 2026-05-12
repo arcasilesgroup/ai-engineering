@@ -63,3 +63,49 @@ def test_hexagonal_direction_contract_kept() -> None:
         "Fix: refactor the import or, with an approved decision row, "
         "add the edge to ``ignore_imports`` in pyproject.toml."
     )
+
+
+@pytest.mark.unit
+def test_domain_layer_has_zero_infrastructure_imports() -> None:
+    """spec-133 D-133-15 + D-133-20: ``ai_engineering.domain`` is pure.
+
+    The domain layer must import only the standard library plus
+    other ``ai_engineering.domain.*`` modules. No infrastructure
+    deps (``typer``, ``sqlite3``, ``yaml``, ``requests``, ``pydantic``,
+    ``questionary``, etc.).
+    """
+    domain_root = _REPO_ROOT / "src" / "ai_engineering" / "domain"
+    if not domain_root.exists():
+        pytest.skip("domain/ tree not yet created")
+    forbidden = (
+        "import typer",
+        "from typer",
+        "import sqlite3",
+        "from sqlite3",
+        "import yaml",
+        "from yaml",
+        "import requests",
+        "from requests",
+        "import questionary",
+        "from questionary",
+        "import pydantic",
+        "from pydantic",
+        "from ai_engineering.cli_",
+        "from ai_engineering.installer",
+        "from ai_engineering.config",
+        "from ai_engineering.updater",
+        "from ai_engineering.vcs",
+        "from ai_engineering.validator",
+    )
+    violations: list[str] = []
+    for py_file in domain_root.rglob("*.py"):
+        text = py_file.read_text(encoding="utf-8")
+        for line_num, line in enumerate(text.splitlines(), 1):
+            stripped = line.strip()
+            for needle in forbidden:
+                if stripped.startswith(needle):
+                    rel = py_file.relative_to(_REPO_ROOT)
+                    violations.append(f"{rel}:{line_num}: {stripped}")
+    assert not violations, (
+        "ai_engineering.domain has forbidden infrastructure imports:\n" + "\n".join(violations)
+    )

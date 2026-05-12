@@ -25,6 +25,7 @@ PHASE_IDE_CONFIG = "ide_config"
 PHASE_HOOKS = "hooks"
 PHASE_STATE = "state"
 PHASE_TOOLS = "tools"
+PHASE_SCRIPTS = "scripts"
 
 # Canonical pipeline ordering.  StatePhase must run before both ToolsPhase and
 # HooksPhase so that install-state.json exists for tool status and hook hashes.
@@ -35,6 +36,7 @@ PHASE_ORDER: tuple[str, ...] = (
     PHASE_GOVERNANCE,
     PHASE_IDE_CONFIG,
     PHASE_STATE,
+    PHASE_SCRIPTS,
     PHASE_TOOLS,
     PHASE_HOOKS,
 )
@@ -230,6 +232,7 @@ __all__ = [
     "PHASE_HOOKS",
     "PHASE_IDE_CONFIG",
     "PHASE_ORDER",
+    "PHASE_SCRIPTS",
     "PHASE_STATE",
     "PHASE_TOOLS",
     "InstallContext",

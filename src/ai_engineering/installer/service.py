@@ -52,6 +52,7 @@ from ai_engineering.installer.phases.governance import GovernancePhase
 from ai_engineering.installer.phases.hooks import HooksPhase
 from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 from ai_engineering.installer.phases.pipeline import PipelineRunner, PipelineSummary
+from ai_engineering.installer.phases.scripts import ScriptsPhase
 from ai_engineering.installer.phases.state import StatePhase
 from ai_engineering.installer.phases.tools import ToolsPhase
 from ai_engineering.state.defaults import (
@@ -294,6 +295,7 @@ def install_with_pipeline(
         "ide_config": IdeConfigPhase,
         "state": StatePhase,
         "hooks": HooksPhase,
+        "scripts": ScriptsPhase,
         "tools": ToolsPhase,
     }
     # ty (0.x) cannot narrow the dict-value union back to PhaseProtocol on
