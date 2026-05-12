@@ -1,4 +1,4 @@
-"""Commit CLI command per spec-132 D-132-23."""
+"""Commit CLI command per spec-132 D-132-23 (commit workflow runner)."""
 
 from __future__ import annotations
 
@@ -21,21 +21,49 @@ def commit_cmd(
     root = resolve_project_root(target)
     renderer = Renderer.from_app("commit")
     result = workflows.run_commit_workflow(root, message, push=not only)
-    _render_result(renderer, result)
+    _render_result(renderer, result, command_label="commit")
     if not result.passed:
         raise typer.Exit(code=1)
 
 
-def _render_result(renderer: Renderer, result: workflows.WorkflowResult) -> None:
+def _trim_detail(output: str, *, max_chars: int = 120) -> str | None:
+    """Collapse multi-line tool output into a single short detail line."""
+    if not output:
+        return None
+    lines = output.strip().splitlines()
+    first = lines[0] if lines else ""
+    if len(first) > max_chars:
+        first = first[: max_chars - 1] + "…"
+    return first or None
+
+
+def _render_result(
+    renderer: Renderer,
+    result: workflows.WorkflowResult,
+    *,
+    command_label: str = "commit",
+) -> None:
     renderer.header()
+    renderer.action("Verifying", f"{command_label} pipeline")
+    passed = failed = skipped = 0
     for step in result.steps:
-        kind = "skipped" if step.skipped else ("restored" if step.passed else "removed")
-        renderer.record(kind, step.name, from_=step.output or None)
+        detail = _trim_detail(step.output)
+        if step.skipped:
+            renderer.check_result(step.name, True, detail=detail, skipped=True)
+            skipped += 1
+        elif step.passed:
+            renderer.check_result(step.name, True, detail=detail)
+            passed += 1
+        else:
+            renderer.check_result(step.name, False, detail=detail)
+            failed += 1
+    renderer.kv("Steps", f"{passed} passed, {failed} failed, {skipped} skipped")
     if result.passed:
-        renderer.ok("workflow completed")
+        renderer.ok(f"{command_label} workflow completed")
         return
+    failed_names = ", ".join(result.failed_steps) or "(unknown step)"
     renderer.error(
-        "workflow failed",
+        f"{command_label} workflow failed at: {failed_names}",
         code="WORKFLOW_FAILED",
-        fix="Inspect the failed step and retry.",
+        fix="Inspect the failed step above and re-run after addressing it.",
     )

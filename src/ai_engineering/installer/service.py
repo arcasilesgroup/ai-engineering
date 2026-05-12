@@ -359,8 +359,16 @@ def _summary_to_install_result(
             project_skipped.extend(Path(p) for p in phase_result.skipped)
             # Each hook phase emits two artifacts per hook (Bash dispatcher +
             # PowerShell companion). Dedupe to canonical hook names by stem.
+            # spec-133 UX fix: filter out IDE-side configuration files so the
+            # "Hooks installed" surface counts ONLY real git hooks. The
+            # ``.claude/settings.json`` file is a Claude Code config artifact
+            # carrying 11 hook event handlers, not a git hook.
             hook_names = sorted(
-                {Path(p).name for p in phase_result.created if not str(p).endswith(".ps1")}
+                {
+                    Path(p).name
+                    for p in phase_result.created
+                    if not str(p).endswith(".ps1") and not str(p).endswith("settings.json")
+                }
             )
             result.hooks.installed = hook_names
         elif phase_result.phase_name == PHASE_IDE_CONFIG:

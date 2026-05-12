@@ -24,6 +24,33 @@ _SOURCE_REPO_CONTROL_PLANE_PATHS = [
 ]
 
 
+def _is_pristine_install(target: Path) -> bool:
+    """True if the consumer project has no user commits yet.
+
+    Detection: either ``.git`` is absent (no repo) or the repo has zero
+    refs (no commits). Used to suppress optional-file WARNs on a brand
+    new install that has not yet been touched by a developer.
+    """
+    git_dir = target / ".git"
+    if not git_dir.exists():
+        return True
+    head_file = git_dir / "HEAD" if git_dir.is_dir() else None
+    if head_file is None or not head_file.is_file():
+        return True
+    refs_dir = git_dir / "refs" / "heads"
+    if not refs_dir.exists():
+        return True
+    try:
+        has_ref = any(refs_dir.iterdir())
+    except OSError:
+        has_ref = False
+    if has_ref:
+        return False
+    # No branch refs yet (initial `git init` state).
+    packed_refs = git_dir / "packed-refs"
+    return not packed_refs.is_file()
+
+
 def _check_file_existence(
     target: Path, report: IntegrityReport, *, cache: FileCache | None = None
 ) -> None:
@@ -256,8 +283,11 @@ def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPl
     spec-131 D-131-04 -- the installer does not seed it. When the spec
     buffer is otherwise complete (``spec.md`` + ``plan.md`` both
     present) the missing ``_history.md`` downgrades to WARN so the
-    fresh-install validator does not fail.
+    fresh-install validator does not fail. On a pristine install (zero
+    commits in the consumer repo) the WARN is suppressed entirely so
+    first contact is silent.
     """
+    target = work_plane.project_root
     required_spec_files = {
         "spec.md": work_plane.spec_path,
         "plan.md": work_plane.plan_path,
@@ -271,6 +301,20 @@ def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPl
             and missing_spec == ["_history.md"]
         )
         if spec_plan_present:
+            if _is_pristine_install(target):
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.FILE_EXISTENCE,
+                        name="spec-buffer",
+                        status=IntegrityStatus.OK,
+                        message=(
+                            "Optional _history.md absent on pristine install; "
+                            "/ai-cleanup will create it on first lifecycle close."
+                        ),
+                        file_path=_SPECS_ROOT_LABEL,
+                    )
+                )
+                return
             report.checks.append(
                 IntegrityCheckResult(
                     category=IntegrityCategory.FILE_EXISTENCE,

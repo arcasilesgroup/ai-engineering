@@ -245,15 +245,11 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     # --non-interactive consumers.
     _emit_noninteractive_skipped_tools(summary, non_interactive=non_interactive)
 
-    # spec-109 D-109-04: ALWAYS render the pipeline step report BEFORE deciding
-    # the exit code. The pre-spec-109 flow exited 80 first and rendered later,
-    # so users saw "see warnings above" with no warnings printed.
-    if not is_json_mode():
-        _render_pipeline_steps(summary)
-
-    # spec-109 D-109-05: invoke auto-remediation when the pipeline recorded
-    # non-critical failures (today: ToolsPhase). Reuses doctor's fix paths
-    # so the user does not have to run `ai-eng doctor --fix` manually.
+    # spec-109 D-109-05 / spec-133 UX fix: run auto-remediation FIRST so the
+    # pipeline step render shows the final reconciled state per phase rather
+    # than a transient ⚠ that the remediation immediately resolves. Users
+    # were seeing scary warnings for non-critical failures that auto-fix
+    # within the same install — confusing on first contact.
     # spec-109 R-109-01: --no-auto-remediate disables the second pass so CI
     # callers can detect first-attempt failures (e.g. regression detection).
     non_critical_failures_list = _coerce_non_critical_failures(summary)
@@ -262,6 +258,12 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         non_critical_failures_list,
         no_auto_remediate=no_auto_remediate,
     )
+
+    # spec-109 D-109-04: ALWAYS render the pipeline step report BEFORE deciding
+    # the exit code. The pre-spec-109 flow exited 80 first and rendered later,
+    # so users saw "see warnings above" with no warnings printed.
+    if not is_json_mode():
+        _render_pipeline_steps(summary, auto_remediation_report=auto_remediation_report)
 
     if auto_remediation_report.invoked and not is_json_mode():
         _render_auto_remediation_summary(auto_remediation_report)
@@ -930,8 +932,14 @@ def _render_auto_remediation_summary(report: object) -> None:
         print_stderr(f"  → error   {entry}")
 
 
-def _render_pipeline_steps(summary: object) -> None:
-    """Render each phase from the pipeline summary as a wizard step."""
+def _render_pipeline_steps(summary: object, *, auto_remediation_report: Any = None) -> None:
+    """Render each phase from the pipeline summary as a wizard step.
+
+    When ``auto_remediation_report`` is supplied AND it reconciled every
+    non-critical failure successfully, those phases render as ``ok``
+    instead of ``warn`` — the failure was transient and is already fixed
+    by the time the user reads the line.
+    """
     from ai_engineering.installer.phases.pipeline import PipelineSummary
 
     if not isinstance(summary, PipelineSummary):
@@ -941,9 +949,17 @@ def _render_pipeline_steps(summary: object) -> None:
 
     phase_names = list(PHASE_ORDER)
     non_critical_failures = set(getattr(summary, "non_critical_failures", []) or [])
+    auto_resolved: set[str] = set()
+    if auto_remediation_report is not None and getattr(auto_remediation_report, "success", False):
+        auto_resolved = set(non_critical_failures)
 
     for i, name in enumerate(phase_names):
-        status, detail = _pipeline_step_status(summary, name, non_critical_failures)
+        status, detail = _pipeline_step_status(
+            summary,
+            name,
+            non_critical_failures,
+            auto_resolved=auto_resolved,
+        )
         label = _PHASE_LABELS.get(name, name)
         desc = _pipeline_step_description(label, status)
         render_step(
@@ -972,19 +988,36 @@ def _pipeline_step_status(
     summary: Any,
     name: str,
     non_critical_failures: set[str],
+    *,
+    auto_resolved: set[str] | None = None,
 ) -> tuple[str, str]:
-    """Return the display status and detail for one pipeline phase."""
+    """Return the display status and detail for one pipeline phase.
+
+    Phases listed in ``auto_resolved`` are treated as ``ok`` even if they
+    were originally non-critical failures — auto-remediation already
+    repaired them, so showing a ⚠ to the user is misleading.
+    """
     phase_result = next((r for r in summary.results if r.phase_name == name), None)
     if phase_result is None:
         return _missing_pipeline_step_status(summary, name)
     detail = _pipeline_step_detail(phase_result)
     if name in non_critical_failures:
+        if auto_resolved and name in auto_resolved:
+            return "ok", _auto_resolved_pipeline_detail(detail)
         return "warn", _non_critical_pipeline_detail(detail)
     if phase_result.failed:
         return "fail", detail
     if phase_result.warnings:
         return "warn", detail
     return "ok", detail
+
+
+def _auto_resolved_pipeline_detail(detail: str) -> str:
+    """Annotate a phase that auto-remediation already repaired."""
+    suffix = "auto-repaired"
+    if not detail or detail == "up to date":
+        return suffix
+    return f"{detail} — {suffix}"
 
 
 def _missing_pipeline_step_status(summary: Any, name: str) -> tuple[str, str]:
@@ -1502,8 +1535,19 @@ def _render_doctor_next_steps(
         return
     if report.passed:
         warning(f"{manual_count} warning(s) for review above; project is functional.")
+        suggest_next(
+            [
+                (_DOCTOR_FIX_COMMAND, "Attempt automatic remediation"),
+                ("ai-eng doctor --json", "Re-run doctor with structured output"),
+            ]
+        )
     else:
         warning("Manual follow-up required. Review the failing checks above.")
+        suggest_next(
+            [
+                (_DOCTOR_FIX_COMMAND, "Attempt automatic remediation for fixable issues"),
+            ]
+        )
 
 
 def _exit_for_doctor_report(report: DoctorReport) -> None:

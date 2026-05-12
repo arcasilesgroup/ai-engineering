@@ -126,17 +126,22 @@ def test_brief_problem_commands_are_covered() -> None:
     Spec-132 sub-004 collapsed the legacy ``stack``/``ide``/``provider``
     mutator verbs (``add`` / ``remove``) into the interactive
     ``ai-eng config`` flow, so they are no longer part of the required-
-    arg surface. The remaining tripwires are commands that still take a
-    required positional argument and would otherwise trip Click's
+    arg surface.
+
+    Spec-133 simplified ``ai-eng verify`` (no MODE — runs all
+    specialists) and ``ai-eng spec start`` (positional path, optional)
+    so neither has required positional arguments now; both are removed
+    from the tripwire.
+
+    The remaining tripwires are commands that still take a required
+    positional argument and would otherwise trip Click's
     ``MissingParameter`` UX.
     """
     expected_subset = {
-        ("verify",),
         ("release",),
         ("commit",),
         ("pr",),
         ("gate", "commit-msg"),
-        ("spec", "activate"),
         ("risk", "accept"),
         ("risk", "renew"),
         ("risk", "resolve"),

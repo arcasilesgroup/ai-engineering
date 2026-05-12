@@ -529,19 +529,16 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
 
 
 def _record_placeholder_spec_ledger_coherence(target: Path, report: IntegrityReport) -> None:
-    # Spec-123: task ledger removed. Function retained as defensive shim;
-    # read_task_ledger always returns None so the body short-circuits.
+    """No-op shim — task-ledger.json was removed in spec-123.
+
+    The function used to emit a WARN when ``read_task_ledger`` returned
+    ``None``, but the ledger artifact no longer exists by design. Emitting
+    a WARN for a removed artifact creates noise on every fresh install.
+    Kept as a defensive shim so call sites do not break; returns silently
+    when the ledger is absent.
+    """
     ledger = read_task_ledger(target)
     if ledger is None:
-        report.checks.append(
-            IntegrityCheckResult(
-                category=IntegrityCategory.MANIFEST_COHERENCE,
-                name="active-task-ledger",
-                status=IntegrityStatus.WARN,
-                message="Active spec has no readable task-ledger.json",
-                file_path=_TASK_LEDGER_FILE_PATH,
-            )
-        )
         return
 
     if any(task.status != TaskLifecycleState.DONE for task in ledger.tasks):

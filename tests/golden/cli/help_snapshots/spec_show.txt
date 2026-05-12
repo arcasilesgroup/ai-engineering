@@ -1,9 +1,8 @@
 
- Usage: ai-eng verify [OPTIONS]
+ Usage: ai-eng spec show [OPTIONS]
 
- Run every verification specialist and emit a scored report.
+ Print the active spec handoff surface (paths + progress).
 
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Project root to verify. Defaults to cwd.             │
-│ --help                  Show this message and exit.                          │
+│ --help          Show this message and exit.                                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯

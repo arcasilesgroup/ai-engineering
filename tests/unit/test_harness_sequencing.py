@@ -107,9 +107,14 @@ def test_check_non_mirror_category_skips_mirror_lock(
     assert calls == []
 
 
-def test_verify_governance_uses_mirror_lock(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_verify_uses_mirror_lock(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """spec-133 simplified verify_cmd takes mirror-sync lock unconditionally.
+
+    The previous behaviour only locked when ``mode == 'governance'`` because
+    that mode read the mirror set. The new ``verify`` runs every specialist
+    in one call, so the lock acquisition is hoisted to the top of the
+    command body. This test pins the lock acquisition.
+    """
     calls: list[tuple[Path, str]] = []
     monkeypatch.setattr(verify_cmd_module, "artifact_lock", _lock_spy(calls))
 
@@ -122,9 +127,9 @@ def test_verify_governance_uses_mirror_lock(
         findings=[],
         findings_for_specialist=lambda _name: [],
     )
-    monkeypatch.setitem(verify_cmd_module.MODES, "governance", lambda *_args, **_kwargs: result)
+    monkeypatch.setattr(verify_cmd_module, "verify_platform", lambda *_args, **_kwargs: result)
 
-    verify_cmd_module.verify_cmd("governance", target=tmp_path, output_json=True)
+    verify_cmd_module.verify_cmd(target=tmp_path)
 
     assert calls == [(tmp_path, "mirror-sync")]
 

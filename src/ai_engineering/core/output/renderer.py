@@ -131,6 +131,7 @@ class Renderer:
         self._quiet = bool(quiet) and not self._json
         self._changes: list[dict[str, Any]] = []
         self._next_actions: list[NextAction] = []
+        self._fields: dict[str, str] = {}
 
     # ---------- mode accessors ----------------------------------------
 
@@ -231,6 +232,65 @@ class Renderer:
             arrow = f" [muted](from {from_})[/muted]" if from_ else ""
             _emit_styled(f"  [key]{label}[/key] [path]{path}[/path]{arrow}")
 
+    def check_result(
+        self,
+        name: str,
+        passed: bool,
+        *,
+        detail: str | None = None,
+        skipped: bool = False,
+        warn: bool = False,
+    ) -> None:
+        """Record a pass/fail/skip/warn outcome for a named check or workflow step.
+
+        Distinct from :meth:`record` (which is for ``ChangeKind`` file events).
+        Use this for: integrity-check categories, commit/PR workflow steps,
+        verify specialists, doctor probes.
+
+        States: ``passed=True`` -> PASS (green); ``passed=False`` -> FAIL (red);
+        ``warn=True`` overrides to WARN (yellow); ``skipped=True`` -> SKIP (muted).
+        """
+        self._changes.append(
+            {
+                "kind": "check",
+                "name": name,
+                "passed": passed and not warn,
+                "skipped": skipped,
+                "warn": warn,
+                "detail": detail,
+            }
+        )
+        if not self.is_human:
+            return
+        if skipped:
+            marker = "[muted]○ SKIP[/muted]"
+        elif warn:
+            marker = "[warning]⚠ WARN[/warning]"
+        elif passed:
+            marker = "[success]✓ PASS[/success]"
+        else:
+            marker = "[error]✗ FAIL[/error]"
+        suffix = f" [muted]({detail})[/muted]" if detail else ""
+        _emit_styled(f"  {marker} [key]{name}[/key]{suffix}")
+
+    def kv(self, key: str, value: object) -> None:
+        """Print a key/value pair (e.g. ``VCS         github``).
+
+        - Human: aligned key/value line via ``cli_ui.kv``.
+        - JSON: accumulates into a ``fields`` map on the envelope.
+        - Quiet: no-op.
+        """
+        rendered = str(value)
+        self._fields[key] = rendered
+        if self.is_human:
+            cli_ui.kv(key, rendered)
+
+    def section(self, title: str) -> None:
+        """Print a section header (mid-output divider). Human-only."""
+        if not self.is_human:
+            return
+        _emit_styled(f"\n  [bold]{title}[/bold]")
+
     def diff_summary(
         self,
         created: Iterable[str] = (),
@@ -306,6 +366,8 @@ class Renderer:
             payload.setdefault("summary", summary)
             if self._changes:
                 payload.setdefault("changes", list(self._changes))
+            if self._fields:
+                payload.setdefault("fields", dict(self._fields))
             envelope_next = [
                 cli_envelope.NextAction(command=action.command, description=action.label)
                 for action in self._next_actions

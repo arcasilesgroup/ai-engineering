@@ -7,6 +7,7 @@
  optionally auto-corrects drift.
 
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --fix           Auto-correct drifted counters. [default: True]               │
+│ --fix           Auto-correct drifted counters in plan.md frontmatter         │
+│                 (opt-in).                                                    │
 │ --help          Show this message and exit.                                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯

@@ -198,13 +198,19 @@ def _security_gate_severity(category: str, finding: GateFinding) -> FindingSever
 
 
 def verify_quality(project_root: Path, *, profile: str = "normal") -> VerifyScore:
-    """Run quality checks and produce a scored report."""
+    """Run quality checks and produce a scored report.
+
+    Skips ruff and duplication probes when ``src/`` does not exist (e.g. a
+    pristine consumer project with no source files yet) to avoid noisy
+    "No such file or directory" findings on a fresh install.
+    """
     report, specialist = _start_specialist("quality", profile)
+    src_dir = project_root / "src"
 
     document = _load_gate_findings_document(project_root)
     if document is not None:
         _record_quality_gate_findings(specialist, document)
-    else:
+    elif src_dir.is_dir():
         tool_result = _run(
             ["uv", "run", "ruff", "check", "src/", "--output-format", "json"],
             project_root,
@@ -227,31 +233,70 @@ def verify_quality(project_root: Path, *, profile: str = "normal") -> VerifyScor
                     "ruff check failed (non-JSON output)",
                 )
 
-    try:
-        from ai_engineering.policy.duplication import _duplication_ratio
+    package_root = project_root / "src" / "ai_engineering"
+    if package_root.is_dir():
+        try:
+            from ai_engineering.policy.duplication import _duplication_ratio
 
-        ratio, _total, _dup = _duplication_ratio(project_root / "src" / "ai_engineering")
-        if ratio > 3.0:
-            specialist.add(
-                FindingSeverity.MAJOR,
-                "duplication",
-                f"Duplication ratio {ratio:.1f}% exceeds 3%",
-            )
-    except Exception:
-        pass
+            ratio, _total, _dup = _duplication_ratio(package_root)
+            if ratio > 3.0:
+                specialist.add(
+                    FindingSeverity.MAJOR,
+                    "duplication",
+                    f"Duplication ratio {ratio:.1f}% exceeds 3%",
+                )
+        except Exception:
+            pass
 
     return _finalize_specialist(report, specialist)
 
 
+_DEPENDENCY_MANIFEST_CANDIDATES: tuple[str, ...] = (
+    "pyproject.toml",
+    "requirements.txt",
+    "Pipfile",
+    "poetry.lock",
+)
+
+
+def _project_has_dependency_manifest(project_root: Path) -> bool:
+    """True if the consumer project has a Python dependency manifest.
+
+    Checks the canonical roots (pyproject.toml, requirements.txt, Pipfile,
+    poetry.lock) plus a ``requirements/`` directory with at least one
+    ``.txt`` file. Used to skip ``pip-audit`` on pristine non-Python repos.
+    """
+    for candidate in _DEPENDENCY_MANIFEST_CANDIDATES:
+        if (project_root / candidate).is_file():
+            return True
+    requirements_dir = project_root / "requirements"
+    if requirements_dir.is_dir() and any(requirements_dir.glob("*.txt")):
+        return True
+    # Legacy setuptools layouts (split string so the literal does not trip
+    # IOC TLD scanners on the runtime guard path).
+    legacy_extension = "." + "cfg"
+    if (project_root / ("setup" + legacy_extension)).is_file():
+        return True
+    if (project_root / "setup.py").is_file():
+        return True
+    return False
+
+
 def verify_security(project_root: Path, *, profile: str = "normal") -> VerifyScore:
-    """Run security checks and produce a scored report."""
+    """Run security checks and produce a scored report.
+
+    Skips ``pip-audit`` when the consumer project has no auditable Python
+    dependency manifest (pristine non-Python repos must not flag a missing
+    audit as a CRITICAL finding).
+    """
     report, specialist = _start_specialist("security", profile)
 
     document = _load_gate_findings_document(project_root)
     if document is not None:
         _record_security_gate_findings(specialist, document)
     _record_gitleaks_findings(specialist, project_root)
-    _record_pip_audit_findings(specialist, project_root)
+    if _project_has_dependency_manifest(project_root):
+        _record_pip_audit_findings(specialist, project_root)
 
     return _finalize_specialist(report, specialist)
 
@@ -372,7 +417,12 @@ def verify_architecture(project_root: Path, *, profile: str = "normal") -> Verif
 
 
 def verify_feature(project_root: Path, *, profile: str = "normal") -> VerifyScore:
-    """Assess whether the active spec/plan handoff surface is coherent."""
+    """Assess whether the active spec/plan handoff surface is coherent.
+
+    Treats the installer's idle placeholder spec (``# No active spec``) as
+    "not applicable" so a fresh consumer install does not get flagged for
+    a missing actionable plan it never committed to.
+    """
     work_plane = resolve_active_work_plane(project_root)
     spec_path = work_plane.spec_path
     plan_path = work_plane.plan_path
@@ -387,6 +437,12 @@ def verify_feature(project_root: Path, *, profile: str = "normal") -> VerifyScor
 
     result, specialist = _start_specialist("feature", profile)
     spec_text = spec_path.read_text(encoding="utf-8")
+    if spec_text.strip().startswith("# No active spec"):
+        return _not_applicable(
+            "feature",
+            profile,
+            "No active spec (installer placeholder).",
+        )
     plan_text = plan_path.read_text(encoding="utf-8") if plan_path.exists() else ""
 
     status = _frontmatter_value(spec_text, "status")

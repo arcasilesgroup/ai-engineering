@@ -3,6 +3,7 @@
 .ai-engineering/contexts/
 .ai-engineering/manifest.yml
 .ai-engineering/observations/
+.ai-engineering/overrides/
 .ai-engineering/policies/
 .ai-engineering/references/
 .ai-engineering/runbooks/

@@ -123,22 +123,18 @@ def check_cmd(
         return
 
     # Human / quiet path
-    renderer.step(f"Categories: {passed_count}/{total_cats} passed")
+    renderer.kv("Categories", f"{passed_count}/{total_cats} passed")
     by_cat = report.by_category()
     for cat in IntegrityCategory:
         cat_pass = report.category_passed(cat)
-        renderer.record(
-            "restored" if cat_pass else "removed",
-            cat.value,
-            from_="PASS" if cat_pass else "FAIL",
-        )
+        renderer.check_result(cat.value, cat_pass)
         if cat_pass:
             continue
         for fail_check in by_cat.get(cat, []):
-            detail = f"{fail_check.message}" + (
-                f" [{fail_check.file_path}]" if fail_check.file_path else ""
+            location = f" [{fail_check.file_path}]" if fail_check.file_path else ""
+            renderer.step(
+                f"    {fail_check.status.value}: {fail_check.name} — {fail_check.message}{location}"
             )
-            renderer.step(f"  {fail_check.status.value}: {fail_check.name} - {detail}")
 
     if not report.passed:
         renderer.next(

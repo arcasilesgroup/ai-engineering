@@ -683,6 +683,7 @@ class TestFileExistence:
         monkeypatch.setattr(
             "ai_engineering.validator.categories.file_existence.resolve_active_work_plane",
             lambda _root: SimpleNamespace(
+                project_root=tmp_path,
                 specs_dir=resolved_specs_dir,
                 spec_path=resolved_spec,
                 plan_path=resolved_plan,

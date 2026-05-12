@@ -241,7 +241,7 @@ class TestSpecActivateCli:
             spec_activate(specs_dir=Path(".ai-engineering/specs/spec-117-hx-02"))
 
         err = capsys.readouterr().err
-        assert "Active work plane updated" in err
+        assert "Active spec buffer updated" in err
         assert "spec-117-hx-02" in err
         assert resolve_active_work_plane(tmp_path).specs_dir == (
             tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
