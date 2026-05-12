@@ -7,133 +7,163 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-#### spec-132 — pragmatic hexagonal seam (sub-005)
+### spec-132 — CLI UX & Architecture Overhaul
 
-Implements D-132-13 with a pragmatic scope deviation per orchestrator
-decision: pins the hexagonal DIRECTION via an `import-linter` contract
-over the EXISTING flat `src/ai_engineering/` tree rather than mass-
-relocating ~50 modules in a single wave. The contract enforces "core
-must not import from adapters" with 4 baseline-pinned legacy edges
-(`ignore_imports`) that the follow-up relocation spec will untangle.
+Delivers the full `cli-ux-overhaul` brief (M0–M6) in a single PR #509
+aggregate alongside spec-128 / spec-129 / spec-131. Six autopilot
+sub-specs (sub-001..006) executed in 5 waves; final-quality-loop closure
+follows the spec-131 D-131-05 single-round fail-loud policy. The North
+Star: a first-time engineer runs `ai-eng install` on an empty repo and
+never feels confused, never sees noise, never hits a hidden failure
+mode (D-132-01, D-132-19, D-132-20).
 
-- New `[tool.importlinter]` block in `pyproject.toml` with one
-  `forbidden` contract.
-- New `tests/architecture/test_hexagonal.py` runs `lint-imports` as
-  subprocess; asserts every contract is KEPT.
-- New `docs/architecture/dir-schemas.md` documents the layer map,
-  direction rule, baseline-pinned ignores, and deferred-relocation
-  backlog (≤100 lines).
-- `import-linter>=2.0,<3.0` added to dev dependencies (`grimp 3.14`,
-  `import-linter 2.11`).
-- Physical mass relocation of the flat tree into
-  `src/ai_engineering/{core,adapters}/<surface>/` is **deferred** to
-  a follow-up spec (out of single-PR scope per D-132-01).
-- Hot-path budgets remain green (pre-commit < 1 s p95, pre-push < 5 s
-  p95 -- see `tests/unit/hooks/test_hot_path_slo.py`).
+**Breaking changes** (no compat shims; hard rename / hard delete / hard
+migration per CANONICAL.md §13 rule 3):
 
-### spec-132 — P0 stop-the-bleeding (sub-001)
-
-Eliminates the six P0 bugs that made a fresh `ai-eng install` produce
-warnings, hangs, and false validation failures. Zero surface change --
-no command renames, no Renderer, no hexagonal moves -- just the bug
-sweep. Lands on `spec-128/context-overrides-refactor` alongside the
-in-flight 128 / 129 / 131 work (PR #509) per D-132-01 / D-132-19.
-
-**Breaking changes** (no compat shims; hard rename / hard delete /
-hard migration per CANONICAL.md §13 rule 3):
-
-1. **Engram removed from installer (D-132-06)** -- the install-time
-   prompt + `--engram` / `--no-engram` flags + `installer/engram.py`
-   are gone. Engram is now an opt-in third-party integration: install
-   it separately following `docs/integrations/engram.md`. Anyone
-   relying on `ai-eng install --engram` automation must switch to the
-   manual install commands documented in that doc.
-2. **`CONSTITUTION.md` ships to the consumer root only (D-132-14)** --
-   the legacy `.ai-engineering/CONSTITUTION.md` stub and the matching
+1. **CLI verb renames — hard, no aliases** (sub-004, D-132-02, D-132-03,
+   D-132-04, D-132-05, D-132-10, D-132-15):
+   - `ai-eng validate` → `ai-eng check`.
+   - `ai-eng work-item sync` → `ai-eng issue sync`. Module rename:
+     `src/ai_engineering/work_items/` → `src/ai_engineering/issues/`.
+   - `ai-eng stack {add,remove,list}`, `ai-eng ide {add,remove,list}`,
+     `ai-eng provider {add,remove,list}`,
+     `ai-eng vcs {status,set-primary}` collapsed into
+     `ai-eng config` (interactive reconfigure) +
+     `ai-eng config <resource> {list,status}`.
+   - `ai-eng workflow` deleted entirely; old verbs map to `/ai-commit`,
+     `ai-eng pr`, `ai-eng release --pr`.
+   - `ai-eng sync` removed; mirror sync moves under `ai-eng dev sync`
+     (hidden in consumer projects via the `[tool.aiengineering.source_repo]`
+     marker per D-132-10).
+   - Final command tree: 20 top-level verbs (`install`, `update`,
+     `status`, `doctor`, `check`, `verify`, `audit`, `config`, `gate`,
+     `spec`, `issue`, `release`, `setup`, `decision`, `risk`, `guide`,
+     `version`, `dev`, `commit`, `pr`). `commit` and `pr` carry the
+     "WIP / standalone — not part of the canonical chain" label per
+     D-132-23.
+   - Old-verb invocation prints `removed; use <new>` and exits 2.
+2. **Engram removed from installer** (sub-001, D-132-06):
+   `installer/engram.py` deleted, `--engram` / `--no-engram` flags and
+   the install-time prompt are gone. Engram is now an opt-in
+   third-party integration documented at `docs/integrations/engram.md`.
+   Anyone relying on `ai-eng install --engram` automation must switch
+   to the manual install commands documented there.
+3. **`CONSTITUTION.md` single-location ship** (sub-001, D-132-14): the
+   legacy `.ai-engineering/CONSTITUTION.md` stub and the matching
    template stub were both deleted. A fresh install now produces
-   exactly one `CONSTITUTION.md` (at the consumer root); reinstalls on
-   existing repos with the legacy stub continue to work (the stub is
-   ignored), but downstream tooling that read from
-   `.ai-engineering/CONSTITUTION.md` must repoint to the root.
-3. **`.ai-engineering/contexts/team/` removed (D-132-17)** -- the
-   template stub directory is gone. `ai-eng update` prunes the
+   exactly one `CONSTITUTION.md` (at the consumer root); downstream
+   tooling that read from `.ai-engineering/CONSTITUTION.md` must
+   repoint to the root.
+4. **`.ai-engineering/contexts/team/` removed** (sub-001, D-132-17):
+   the template stub directory is gone. `ai-eng update` prunes the
    directory on existing consumer installs as part of the legacy-dir
    migration sweep.
+5. **`pr_lifecycle` event renames** (sub-004, D-132-21): writers emit
+   `pr.commit_start` / `check.completed` (was `workflow.commit_start`
+   / `validate.completed`). `audit index` carries a one-shot back-compat
+   reader so historical events remain queryable.
 
-**Fixes** (not breaking; observable behaviour change only):
+**Fixes & polish** (not breaking; observable behaviour change only):
 
-- **State warner deduped (D-132-07)** -- `_warn_on_deprecated_fallbacks`
-  warns at most once per stale JSON file per process lifetime, instead
-  of one line per `state.db.connect()`. Eliminates ~34 duplicate
-  warning lines per fresh install.
-- **Installer state phase UPSERTs to state.db (D-132-08, D-132-18)** --
-  `ownership_map` + `decisions` rows now land directly in
+- **State warner deduped** (sub-001, D-132-07):
+  `_warn_on_deprecated_fallbacks` warns at most once per stale JSON
+  file per process lifetime via a module-level `_WARNED_FALLBACKS`
+  set. Eliminates ~34 duplicate warning lines per fresh install. Test
+  helper `_reset_fallback_warnings()` keeps unit tests deterministic.
+- **Installer state phase UPSERTs to state.db** (sub-001, D-132-08,
+  D-132-18): `ownership_map` + `decisions` rows now land directly in
   `state.db` instead of legacy JSON sidecars (`ownership-map.json`,
   `decision-store.json`). Pre-existing sidecars are removed during the
-  same phase. Source-of-truth is the table; the JSON contract is
-  fully retired for installer writes.
-- **Validator skips `src/ai_engineering/` refs from SKILL.md (D-132-09)**
-  -- the source-repo paths inside SKILL.md descriptors are LLM-only
-  implementation notes; they never shipped to consumers and now no
-  longer trigger false-positive "broken reference" findings.
-- **Validator downgrades missing `_history.md` to WARN (D-132-09)** --
-  when `spec.md` + `plan.md` are present but `_history.md` is absent,
-  the validator emits WARN, not FAIL. `/ai-cleanup` (spec-131
-  D-131-04) is the lifecycle owner of the file.
-- **`IOCS_ATTRIBUTION.md` shipped (D-132-09)** -- new template at
-  `src/ai_engineering/templates/.ai-engineering/references/IOCS_ATTRIBUTION.md`
+  same phase. `ai-eng update` extends the cleanup to previously-installed
+  consumers.
+- **Validator false-positives fixed** (sub-001, D-132-09): source-repo
+  `src/ai_engineering/...` references inside `.claude/skills/*.md`
+  descriptors are now skipped (they are LLM-only implementation notes,
+  never shipped to consumers); missing `_history.md` downgrades from
+  FAIL to WARN when both `spec.md` and `plan.md` exist
+  (`/ai-cleanup` owns the file lifecycle per spec-131 D-131-04). New
+  template `src/ai_engineering/templates/.ai-engineering/references/IOCS_ATTRIBUTION.md`
   documents the upstream provenance of the IOC catalogue used by the
   sentinel guard.
+- **Renderer module — single source of truth for CLI output** (sub-002,
+  D-132-12): new `src/ai_engineering/core/output/renderer.py` wraps the
+  legacy `cli_envelope` / `cli_ui` / `cli_progress` / `cli_output`
+  modules behind one `Renderer(command, *, json, quiet)` API. Closed
+  `Verb` taxonomy (`Installing`, `Updating`, `Removing`, `Moving`,
+  `Creating`, `Verifying`, `Skipping`, `Restoring`) enforces narrative
+  consistency at type-check time. Modes: `human` (default Rich), `json`
+  (envelope accumulation), `quiet` (errors only). Renderer migration of
+  the remaining `cli_commands/` direct imports is deferred to a
+  follow-up spec; conformance baseline pins the current 59 violators in
+  `tests/conformance/test_renderer_imports.py`.
+- **Universal `@no_args_help` decorator** (sub-003, D-132-11): new
+  `src/ai_engineering/core/cli/decorators.py` exports
+  `HelpOnNoArgsCommand` + `apply_no_args_help` +
+  `no_args_help`. `cli_factory.create_app()` calls `apply_no_args_help`
+  at the tail of registration so every public Typer command with a
+  required Argument now prints help and exits 0 instead of raising
+  `MissingParameter`. 22 public command paths covered by parametrised
+  tests; 67 golden help snapshots under
+  `tests/golden/cli/help_snapshots/`. Hidden internal groups (`dev`)
+  opt out by registration.
+- **Hexagonal direction enforced** (sub-005, D-132-13): new
+  `[tool.importlinter]` `forbidden` contract in `pyproject.toml` plus
+  `tests/architecture/test_hexagonal.py` runs `lint-imports` and asserts
+  every contract is KEPT. The contract pins "core must not import from
+  adapters" with 4 baseline-pinned legacy edges (`ignore_imports`)
+  that the follow-up relocation spec will untangle. Layer map +
+  direction rule documented at `docs/architecture/dir-schemas.md`.
+  `import-linter>=2.0,<3.0` added to dev dependencies (`grimp 3.14`,
+  `import-linter 2.11`). Physical mass relocation of the flat tree
+  into `src/ai_engineering/{core,adapters}/<surface>/` is deferred to
+  a follow-up spec — single-PR scope cap per D-132-01.
+- **Dogfood parity** (sub-006, D-132-16): source-repo `.gitleaks.toml`
+  and `.semgrep.yml` synced UP to match the stricter
+  `src/ai_engineering/templates/project/` versions on commit.
+  New `tests/integration/test_dogfood_parity.py` enforces sha256
+  equivalence unless both files carry a matching
+  `# AIENG_DOGFOOD_DRIFT_OK: <reason>` marker. The source repo can no
+  longer pass a stricter ruleset than a consumer install would face.
+- **Directory schema documentation + golden snapshot** (sub-006,
+  D-132-24): `docs/architecture/dir-schemas.md` extended with the
+  canonical shapes of `.ai-engineering/specs/` (spec lifecycle
+  workspace) and `.ai-engineering/state/` (state.db + append-only audit
+  streams + locks). Golden-file snapshot
+  `tests/integration/installer/test_install_dir_schema.py` pins the
+  fresh-install layout; regeneration documented inline via
+  `AIENG_UPDATE_INSTALL_SCHEMA=1`.
+- **CHANGELOG + PR title metadata** (sub-006, D-132-25): this
+  consolidated entry replaces per-sub fragments; PR #509 title updated
+  via `gh pr edit` to include spec-132 alongside spec-128 / spec-129 /
+  spec-131.
+- **Autopilot plan-task sync gate** (process fix landed on this
+  branch): `.ai-engineering/scripts/plan_tasks.py` (stdlib-only) +
+  `ai-autopilot/handlers/phase-deep-plan.md` +
+  `ai-autopilot/handlers/phase-implement.md` reconcile sub-plan
+  frontmatter (`total` / `completed`) with the canonical
+  `- [ ] T-N.K` checkbox count automatically before each wave commit.
+  24 unit tests.
 
-#### spec-132 — surface consolidation (sub-004) — Breaking changes
+**Tests added** (representative; the new test files are listed under
+each subsection above): unit Renderer (18), `no_args_help` (22 public
+paths), help snapshots (67 golden), dogfood parity (2), install-schema
+golden (1), state warner dedup (6), help-on-empty parametrised (22+),
+hexagonal contract (1 lint-imports run + 4 baseline ignores). All
+green across the full `uv run pytest tests/` slice.
 
-- `ai-eng validate` -> `ai-eng check` (hard rename, no alias).
-- `ai-eng work-item sync` -> `ai-eng issue sync` (hard rename).
-- `ai-eng stack {add,remove,list}`, `ai-eng ide {add,remove,list}`,
-  `ai-eng provider {add,remove,list}`, `ai-eng vcs {status,set-primary}`
-  collapsed into `ai-eng config` interactive +
-  `ai-eng config <resource> {list,status}`.
-- `ai-eng workflow` removed entirely (maps to `/ai-commit`,
-  `ai-eng pr`, `ai-eng release --pr`).
-- `ai-eng sync` removed; mirror sync now via `ai-eng dev sync`
-  (hidden in consumer projects).
-- Module rename: `src/ai_engineering/work_items/` ->
-  `src/ai_engineering/issues/`.
-- New top-level commands: `check`, `issue`, `config`, `dev`,
-  `commit`, `pr`, `status`.
-- Old verbs invocation prints `removed; use <new>` and exits 2.
-- Implements D-132-02, D-132-03, D-132-04, D-132-05, D-132-10,
-  D-132-15, D-132-21, D-132-23.
+**Anonymous content** (D-131-15 carry-over): no PII, no machine paths,
+no operator names anywhere in the shipped surface.
 
-#### spec-132 — autopilot plan-task sync gate (process fix)
+**Deferred to follow-up**:
 
-Fixes the silent drift between sub-plan frontmatter (`total` /
-`completed`) and the real `- [ ]` / `- [x]` checkbox count. Before this
-change, the Phase 2 deep-plan agents could write malformed plans
-(bullets without checkboxes, `### Task N` headers, or empty placeholders)
-and Phase 4 still claimed success because nothing reconciled
-frontmatter against body. Reproduced on `runtime/autopilot/sub-002`,
-`sub-003`, `sub-004` of this very branch — frontmatter said
-`completed: 6` / `total: 14` while the body had zero canonical
-checkboxes.
-
-- `.ai-engineering/scripts/plan_tasks.py` — new stdlib-only CLI with
-  `sync <plan.md>` (rewrites frontmatter to match body counts) and
-  `validate <plan.md>` (syncs + asserts >= 2 canonical
-  `- [ ] T-N.K` items; exits non-zero otherwise). 24 unit tests.
-- `ai-autopilot/handlers/phase-deep-plan.md` — Phase 2 gate now
-  delegates the "min 2 tasks" check to `plan_tasks.py validate`. Plan
-  format rules updated to spell out that bullets, headers, and
-  `[EMPTY]` placeholders all count as zero canonical tasks.
-- `ai-autopilot/handlers/phase-implement.md` — Phase 4 Step 3 runs
-  `plan_tasks.py sync` for every sub-plan in the wave before the wave
-  commit, so the frontmatter is honest the moment the wave lands.
-  Agents no longer edit `total:` / `completed:` by hand.
-- Re-synced the six existing `runtime/autopilot/sub-NNN/plan.md`
-  frontmatters so they reflect the real checkbox count. sub-001 was
-  already in sync; sub-002 and sub-004 dropped to `0/0` because their
-  bodies use non-canonical bullet / header formats — the dishonest
-  hand-written counts (`6/6`, `14/0`) are gone.
+- Physical mass relocation of `src/ai_engineering/{governance,state,policy,validator}/`
+  into `core/` and `src/ai_engineering/{cli_commands,installer,vcs,ide,updater,issues}/`
+  into `adapters/` (sub-005 direction-contract only).
+- Renderer migration of the remaining 59 `cli_commands/` direct imports
+  to the new `core/output/renderer.py` API (sub-002 module-only;
+  conformance baseline pins the count).
+- Classification of transitional `src/ai_engineering/cli*.py` top-level
+  modules into the hex layer map.
 
 ### spec-131 — DX Excellence Refactor
 

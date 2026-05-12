@@ -8,11 +8,15 @@ title = "ai-engineering gitleaks config"
 useDefault = true
 
 [allowlist]
-description = "Global allowlist"
+description = "Global allowlist — paths only, never regex/secret-string suppressions"
+# RULE (Article XII §4): allowlist paths must be EXPLICIT files, never
+# wildcards. A pattern like `\.ai-engineering/state/.*\.json$` masks any
+# future state-file leak. Add new state files to this list one-by-one.
+# Real-secret findings must flow through the risk-acceptance ledger
+# (`ai-eng risk accept --finding-id <rule_id>`), never via inline
+# allowlist regex. See Article XII of CONSTITUTION.md.
 paths = [
-  # Explicit framework state files known to contain non-secret structured data.
-  # The wildcard '\.ai-engineering/state/.*\.json$' was removed (2026-05) to
-  # tighten the allowlist surface; new state files require an explicit entry.
+  # Framework state files known to contain non-secret structured data.
   '''\.ai-engineering/state/decision-store\.json$''',
   '''\.ai-engineering/state/ownership-map\.json$''',
   '''\.ai-engineering/state/install-state\.json$''',

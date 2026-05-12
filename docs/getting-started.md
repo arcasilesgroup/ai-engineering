@@ -13,8 +13,11 @@ cd ai-engineering
 ai-eng install .
 ```
 
-`install` answers three yes/no prompts (telemetry, engram, IDE) and
-scaffolds the governance root in your project. All defaults are safe.
+`install` answers two yes/no prompts (telemetry, IDE) and scaffolds the
+governance root in your project. All defaults are safe. Engram is no
+longer prompted during install — see
+[docs/integrations/engram.md](integrations/engram.md) if you want to
+wire it up separately.
 
 ## Frame 2 — `/ai-start`
 

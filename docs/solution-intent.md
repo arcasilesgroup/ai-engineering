@@ -313,10 +313,10 @@ ownership and sync metadata in `.ai-engineering/manifest.yml` under
 
 | Root surface | Owner | Canonical source | Sync path |
 |--------------|-------|------------------|-----------|
-| `CLAUDE.md` | framework | `CLAUDE.md` | Root-authored surface copied to templates by `ai-eng sync` |
-| `AGENTS.md` | framework | `scripts/sync_command_mirrors.py:generate_agents_md` | Generated at the repo root and templates by `ai-eng sync` |
-| `GEMINI.md` | framework | `src/ai_engineering/templates/project/GEMINI.md` | Rendered to the repo root and `.gemini/` by `ai-eng sync` |
-| `.github/copilot-instructions.md` | framework | `CLAUDE.md` | Generated from the Claude overlay by `ai-eng sync` |
+| `CLAUDE.md` | framework | `CLAUDE.md` | Root-authored surface copied to templates by `ai-eng dev sync` |
+| `AGENTS.md` | framework | `scripts/sync_command_mirrors.py:generate_agents_md` | Generated at the repo root and templates by `ai-eng dev sync` |
+| `GEMINI.md` | framework | `src/ai_engineering/templates/project/GEMINI.md` | Rendered to the repo root and `.gemini/` by `ai-eng dev sync` |
+| `.github/copilot-instructions.md` | framework | `CLAUDE.md` | Generated from the Claude overlay by `ai-eng dev sync` |
 
 ```mermaid
 graph LR
@@ -528,7 +528,7 @@ sequenceDiagram
     participant Doctor as ai-eng doctor
     participant FixTools as --fix --phase tools
     participant FixHooks as --fix --phase hooks
-    participant Validate as ai-eng validate
+    participant Validate as ai-eng check
 
     Dev->>Doctor: ai-eng doctor <project>
     Doctor->>Doctor: Check tool readiness
@@ -549,7 +549,7 @@ sequenceDiagram
         FixHooks-->>Dev: Hooks restored
     end
 
-    Dev->>Validate: ai-eng validate
+    Dev->>Validate: ai-eng check
     Validate->>Validate: 7-category content integrity
     Validate-->>Dev: Integrity report (PASS/FAIL per category)
 ```

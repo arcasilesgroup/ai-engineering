@@ -62,7 +62,7 @@ See [docs/getting-started.md](docs/getting-started.md) for the 3-minute walkthro
 
 ### Optional: Engram (third-party memory)
 
-`ai-engineering` ships **without** a built-in memory layer. During `ai-eng install` you'll be prompted to install [Engram](https://github.com/Gentleman-Programming/engram) for memory persistence. Skip is fine — the framework is fully functional without it. Force deterministically with `--engram` / `--no-engram`; CI defaults to skip.
+`ai-engineering` ships **without** a built-in memory layer. Engram is no longer wired into the installer (spec-132 D-132-06); install it separately if you want cross-session memory. See [docs/integrations/engram.md](docs/integrations/engram.md) for OS-specific install commands and the `engram setup claude_code` post-step.
 
 ## How AI Works Here
 
