@@ -688,22 +688,13 @@ zero-whitelist.
 
 ---
 
-## 7. Naming Convention Reform — Full Rename Map
+## 7. Naming Convention Reform — CLI Only
 
-| Old skill | New skill | Old agent | New agent |
-|---|---|---|---|
-| `ai-gtm` | `ai-go-to-market` | — | — |
-| `ai-board` | `ai-project-board` | — | — |
-| `ai-eval` | `ai-reliability-eval` | — | — |
-| `ai-note` | `ai-discovery-notes` | — | — |
-| `ai-simplify-sweep` | `ai-simplify-scheduled` | — | — |
-| `ai-observe` | `ai-session-observe` | — | — |
-| `ai-learn` | `ai-learn-from-reviews` | — | — |
-| `ai-prompt` | `ai-prompt-optimize` | — | — |
-| `ai-standup` | `ai-standup-report` | — | — |
-| — | — | `verify-deterministic` | `verifier-deterministic` |
+**Skill + agent renames are deferred** (B8, B14 out of scope —
+operator-locked 2026-05-12). Different surface, different blast
+radius, different scope. Tracked separately for a follow-up spec.
 
-CLI verb renames:
+CLI verb renames + deletions (in scope):
 | Old | New | Reason |
 |---|---|---|
 | `ai-eng verify` | `ai-eng gate verify` | Disambiguate from `/ai-verify` skill |
@@ -723,7 +714,7 @@ CLI verb renames:
 | **SOLID (§10.3)** | M2 (ports + protocols), M6 (port-based decoupling) | Direct sqlite3 / typer / print in CLI |
 | **TDD (§10.5)** | Every milestone RED-first | After-the-fact coverage |
 | **SDD (§10.6)** | Brief→spec→plan→build; D-<spec>-<NN> decisions for each break | Drive-by changes |
-| **Clean Code (§10.7)** | M4 + M6 (renames, function-size in CLI confirm helpers) | 30+ line callbacks mixing I/O + business |
+| **Clean Code (§10.7)** | M4 + M6 (function-size in CLI confirm helpers; port extraction) | 30+ line callbacks mixing I/O + business |
 | **Hexagonal (§10.8)** | M2 + M3 + M6 (domain/application/adapters split; ports) | adapter→adapter direct imports, hex contract whitelist |
 
 ---
@@ -786,6 +777,10 @@ Final spec-level gate: full `pytest tests/` plus a manual
 
 - **No new skills.** No new agents. (Except: `ai-explore` SKILL.md to
   fix B7 — that's a B-fix, not a new capability.)
+- **No skill + agent renames.** B8 + B14 deferred to a follow-up
+  spec. Different surface from CLI verb renames; different blast
+  radius (skill renames touch consumer projects via mirror sync). CLI
+  verb renames/deletions (B9, B10, B11) stay in scope.
 - **No new hook events.** The 11 canonical events stay.
 - **No spec-129 / spec-131 / spec-132 retrofit**. Those shipped; this
   spec extends, doesn't rewrite.
@@ -834,8 +829,9 @@ producing spec.md:
    operator wants it explicitly).
 8. **`ai-explore` skill (B7)**: confirm (a) thin-wrapper skill
    approach over (b) CLAUDE.md doc fix.
-9. **Naming reform**: confirm the 10 renames in §7. Operator has veto
-   per name — surface preferences before the spec locks in.
+9. ~~**Naming reform**~~ — **RESOLVED 2026-05-12**: skill + agent
+   renames deferred (B8, B14 out of scope). CLI verb renames stay
+   in scope per §7. No question.
 
 ---
 
@@ -851,18 +847,19 @@ producing spec.md:
   manifest.yml` rewritten.
 - All 7 Surfaces install standalone — verified by integration smoke
   test.
-- Mirror counts per Surface: `.claude/` = 47 canonical; `.codex/`,
-  `.gemini/`, `.github/`, `.cursor/rules/`, `.opencode/`,
-  `.antigravity/` = 46 each (47 minus Claude-only
-  `ai-analyze-permissions`). Restriction declared via
-  `applies_to_surfaces` SKILL.md frontmatter (B12).
-- 47-skill + 9-agent count preserved on `.claude/` canonical (renames
-  are 1:1; no count change).
+- Mirror counts per Surface: `.claude/` = 48 canonical (47 existing
+  + new `ai-explore`); `.codex/`, `.gemini/`, `.github/`,
+  `.cursor/rules/`, `.opencode/`, `.antigravity/` = 47 each (48
+  minus Claude-only `ai-analyze-permissions`). Restriction declared
+  via `applies_to_surfaces` SKILL.md frontmatter (B12).
+- Skill count on `.claude/` canonical: 48 (47 existing + new
+  `ai-explore`); agent count unchanged at 9. Non-Claude Surfaces:
+  47 (48 minus Claude-only `ai-analyze-permissions`).
 - CHANGELOG entry documenting:
   - manifest schema break (M5)
-  - 10 hard renames (M6)
   - 3 CLI verb renames + 2 CLI verb deletions (M4)
   - new Surface registry (M2)
+  - new `ai-explore` skill (M6)
 - Phase-5 fail-loud quality loop green on the full PR #509 changeset
   (D-131-05 contract).
 - Decision-store rows `D-<spec>-01..NN` written for each binding
