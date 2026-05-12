@@ -45,11 +45,11 @@ class SmartTyperGroup(typer.core.TyperGroup):
     is ``ai-eng gate risk-check``.
     """
 
-    def resolve_command(  # type: ignore[override]
+    def resolve_command(
         self,
         ctx: click.Context,
         args: list[str],
-    ):
+    ) -> tuple[str | None, click.Command | None, list[str]]:
         try:
             return super().resolve_command(ctx, args)
         except click.UsageError as exc:
