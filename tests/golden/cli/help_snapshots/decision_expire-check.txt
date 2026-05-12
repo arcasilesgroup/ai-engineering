@@ -1,0 +1,8 @@
+
+ Usage: ai-eng decision expire-check [OPTIONS]
+
+ Check for decisions expiring within 7 days or already expired.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

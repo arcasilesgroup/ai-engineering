@@ -1,0 +1,22 @@
+
+ Usage: ai-eng maintenance reset-events [OPTIONS]
+
+ Archive ``framework-events.ndjson`` and seed a fresh chain (spec-114 G-5).
+
+ Gates (spec-114 G-6):
+   1. ``git log origin/main --grep=spec-110`` must return at least one
+      commit; otherwise the spec-110 hash-chain root migration has not
+      landed in main and a reset would lose mid-migration data (R-1).
+   2. No ``legacy hash location detected`` warnings may appear in the
+      NDJSON within the last 24 h; a live reader still on the legacy
+      pointer would lose chain continuity (R-8).
+
+ Both gates are *fail-closed*: an error refuses the reset, exits
+ non-zero, and surfaces the actionable hint to the operator.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target               -t      PATH  Target project root.                    │
+│ --print-eligible-date                Print earliest date /ai-skill-sharpen   │
+│                                      x49 may run (today + 14 days) and exit. │
+│ --help                               Show this message and exit.             │
+╰──────────────────────────────────────────────────────────────────────────────╯

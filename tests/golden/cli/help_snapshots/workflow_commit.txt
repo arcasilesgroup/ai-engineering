@@ -1,0 +1,13 @@
+
+ Usage: ai-eng workflow commit [OPTIONS] MESSAGE
+
+ Stage, format, lint, check secrets, commit, and push.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    message      TEXT  Commit message [required]                            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --only                  Commit only — skip push.                             │
+│ --target  -t      PATH  Project root.                                        │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

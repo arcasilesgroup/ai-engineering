@@ -1,0 +1,17 @@
+
+ Usage: ai-eng verify [OPTIONS] MODE
+
+ Run verification in the specified mode and produce a scored report.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    mode      TEXT  Verification mode: governance | security | architecture │
+│                      | quality | feature | platform                          │
+│                      [required]                                              │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Project root to verify. Defaults to cwd.             │
+│ --json                  Output report as JSON (deprecated: use global        │
+│                         --json).                                             │
+│ --full                  Use the expensive one-specialist-per-agent profile.  │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

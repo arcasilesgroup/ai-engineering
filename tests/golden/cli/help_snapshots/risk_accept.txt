@@ -1,0 +1,24 @@
+
+ Usage: ai-eng risk accept [OPTIONS]
+
+ Accept a single gate finding as a tracked risk acceptance.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ *  --finding-id           TEXT  Stable rule_id from the finding (e.g.        │
+│                                 ``E501``, ``aws-secret``).                   │
+│                                 [required]                                   │
+│ *  --severity             TEXT  Severity: critical, high, medium, low.       │
+│                                 [required]                                   │
+│ *  --justification        TEXT  Why this finding is being accepted (>=10     │
+│                                 chars).                                      │
+│                                 [required]                                   │
+│ *  --spec                 TEXT  Spec that owns this acceptance (e.g.         │
+│                                 ``spec-105``).                               │
+│                                 [required]                                   │
+│ *  --follow-up            TEXT  Plan to remediate before expiry. [required]  │
+│    --expires-at           TEXT  ISO-8601 expiry override; defaults to        │
+│                                 severity-default TTL.                        │
+│    --accepted-by          TEXT  Actor accepting the risk; defaults to ``git  │
+│                                 config user.email``.                         │
+│    --help                       Show this message and exit.                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

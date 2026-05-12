@@ -1,0 +1,9 @@
+
+ Usage: ai-eng provider list [OPTIONS]
+
+ List active AI providers.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

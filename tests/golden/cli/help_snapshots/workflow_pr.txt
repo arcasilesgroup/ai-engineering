@@ -1,0 +1,12 @@
+
+ Usage: ai-eng workflow pr [OPTIONS] MESSAGE
+
+ Full PR workflow: commit + pre-push checks + create PR + auto-complete.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    message      TEXT  Commit message for the PR [required]                 │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Project root.                                        │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

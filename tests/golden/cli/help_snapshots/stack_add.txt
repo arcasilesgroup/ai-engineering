@@ -1,0 +1,12 @@
+
+ Usage: ai-eng stack add [OPTIONS] STACK
+
+ Add a technology stack.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    stack      TEXT  Stack name to add (e.g. python). [required]            │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

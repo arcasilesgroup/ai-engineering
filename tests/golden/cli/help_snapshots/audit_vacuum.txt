@@ -1,0 +1,14 @@
+
+ Usage: ai-eng audit vacuum [OPTIONS]
+
+ Reclaim free pages in ``state.db`` via ``PRAGMA incremental_vacuum``.
+
+ Runs ``PRAGMA incremental_vacuum`` (which honours the
+ ``auto_vacuum=INCREMENTAL`` setting applied at DB creation per
+ D-122-16) and reports pages reclaimed. Safe to run on a hot DB; the
+ operation is short and concurrent reads are unaffected.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --json          Emit JSON envelope.                                          │
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

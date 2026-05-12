@@ -1,0 +1,19 @@
+
+ Usage: ai-eng sync [OPTIONS] [TARGET]
+
+ Sync command mirrors across all IDE surfaces.
+
+ Regenerates skill and agent mirrors from canonical .claude/skills/
+ and .claude/agents/ sources, plus provider-owned install surfaces,
+ into .codex/, .gemini/, .github/, and project templates.
+
+ Use --check to verify without writing changes.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│   target      [TARGET]  Target project root. Defaults to cwd.                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --check            Verify mirrors are in sync; exit 1 if drift detected.     │
+│ --verbose          Show detailed diff and hash information.                  │
+│ --help             Show this message and exit.                               │
+╰──────────────────────────────────────────────────────────────────────────────╯

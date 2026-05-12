@@ -1,0 +1,12 @@
+
+ Usage: ai-eng ide remove [OPTIONS] IDE
+
+ Remove an IDE integration.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    ide      TEXT  IDE name to remove. [required]                           │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

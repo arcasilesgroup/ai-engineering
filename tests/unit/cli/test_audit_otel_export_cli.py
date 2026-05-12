@@ -175,12 +175,20 @@ def test_export_creates_parent_dirs(project_root: Path) -> None:
 
 
 def test_export_requires_trace(project_root: Path) -> None:
-    """Calling without --trace exits non-zero (Typer-enforced)."""
+    """Calling without --trace prints help and exits 0 (spec-132 D-132-11).
+
+    Pre-D-132-11 this asserted ``exit_code != 0`` (Typer's MissingParameter
+    panel). After spec-132 sub-003 the universal ``@no_args_help`` wrapper
+    converts the no-args path into a help screen so operators learn the
+    flag instead of seeing a red error.
+    """
     _seed_ndjson(project_root, [_make_event(index=0, span_id=_hex16("a"))])
     runner.invoke(create_app(), ["audit", "index"])
 
     result = runner.invoke(create_app(), ["audit", "otel-export"])
-    assert result.exit_code != 0
+    assert result.exit_code == 0
+    assert "Usage:" in result.output
+    assert "--trace" in result.output
 
 
 def test_exported_json_parses(project_root: Path) -> None:

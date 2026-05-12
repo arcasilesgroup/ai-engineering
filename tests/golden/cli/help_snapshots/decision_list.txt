@@ -1,0 +1,8 @@
+
+ Usage: ai-eng decision list [OPTIONS]
+
+ List all decisions in the decision store.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

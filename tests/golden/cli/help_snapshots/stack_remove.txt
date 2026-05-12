@@ -1,0 +1,12 @@
+
+ Usage: ai-eng stack remove [OPTIONS] STACK
+
+ Remove a technology stack.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    stack      TEXT  Stack name to remove. [required]                       │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

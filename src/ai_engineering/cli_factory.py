@@ -420,4 +420,12 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     )(internal.internal_python)
     app.add_typer(internal_app, name="internal", hidden=True)
 
+    # spec-132 D-132-11: universal help-on-no-args wrapper applied at
+    # registration time. The ``internal`` group opts out (no human users);
+    # sub-004 will rename ``internal`` to ``dev`` and the opt-out list grows
+    # accordingly when that lands.
+    from ai_engineering.core.cli import apply_no_args_help
+
+    apply_no_args_help(app, opt_out_groups={"internal", "dev"})
+
     return app
