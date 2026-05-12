@@ -60,7 +60,6 @@ from ai_engineering.state.defaults import (
     default_ownership_map,
 )
 from ai_engineering.state.instincts import ensure_instinct_artifacts
-from ai_engineering.state.io import write_json_model
 from ai_engineering.state.manifest import compute_tool_spec_hash
 from ai_engineering.state.models import DecisionStatus, InstallState, RiskCategory
 from ai_engineering.state.observability import (
@@ -384,9 +383,14 @@ def _summary_to_install_result(
     # because the underlying UPSERT is idempotent. They do not represent
     # a fresh install — exclude from the gate so REPAIR on an installed
     # project correctly reports already_installed=True.
+    # Spec-132 D-132-08 extends the gate with ownership-map.json and
+    # decision-store.json (pseudo-paths only -- the files no longer
+    # land on disk after the UPSERT cutover).
     _STATE_DB_PSEUDO = {
         ".ai-engineering/state/install-state.json",
         ".ai-engineering/state/framework-capabilities.json",
+        ".ai-engineering/state/ownership-map.json",
+        ".ai-engineering/state/decision-store.json",
     }
     real_state_files = [p for p in result.state_files if str(p) not in _STATE_DB_PSEUDO]
     if (
@@ -437,6 +441,41 @@ def _write_ai_providers(target: Path, ai_providers: list[str] | None) -> None:
         update_manifest_field(target, "ai_providers.primary", providers[0])
     except KeyError:
         logger.debug("ai_providers key not found in manifest; skipping write")
+
+
+def _state_db_table_has_rows(project_root: Path, table: str) -> bool:
+    """Return True when ``table`` already contains at least one row.
+
+    Spec-132 D-132-08: ``ownership_map`` rows replace the JSON sidecar.
+    The installer must distinguish "fresh install" from "re-install"
+    on the table-count signal so ``already_installed`` stays accurate.
+    Missing DB / missing table / SQLite errors all return ``False``
+    (treat as a fresh install).
+    """
+    try:
+        from ai_engineering.state.state_db import connect, state_db_path
+    except ImportError:  # pragma: no cover -- defensive
+        return False
+
+    if not state_db_path(project_root).exists():
+        return False
+    try:
+        conn = connect(project_root, read_only=True, apply_migrations=False)
+    except Exception:  # pragma: no cover -- corruption / locking
+        return False
+    try:
+        tbl = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
+        if tbl is None:
+            return False
+        row = conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone()
+        return row is not None
+    except Exception:  # pragma: no cover -- defensive
+        return False
+    finally:
+        conn.close()
 
 
 def _state_db_row_exists(project_root: Path, table: str) -> bool:
@@ -503,13 +542,6 @@ def _generate_state_files(
     # JSON sinks below were retired. The pseudo-paths remain in
     # ``_STATE_FILES`` to keep the ``created`` list contract stable for
     # callers that inspect installation results.
-    state_models = {
-        _STATE_FILES["ownership-map"]: default_ownership_map(
-            root_entry_points=root_entry_points,
-        ),
-        _STATE_FILES["decision-store"]: default_decision_store(),
-    }
-
     install_state_path = ai_eng_dir / _STATE_FILES["install-state"]
     state_dir = ai_eng_dir / "state"
     # Spec-125 cutover: install_state lives in the state.db ``install_state``
@@ -521,12 +553,34 @@ def _generate_state_files(
     if not install_state_existed and install_state_path not in created:
         created.append(install_state_path)
 
-    for relative_path, model in state_models.items():
-        dest = ai_eng_dir / relative_path
-        if dest.exists():
-            continue
-        write_json_model(dest, model)
-        created.append(dest)
+    # spec-132 D-132-08: ownership_map + decisions UPSERT directly into
+    # state.db. Pseudo-paths kept in ``_STATE_FILES`` for stable
+    # caller-visible identifiers; the legacy JSON files are no longer
+    # written and -- if present from a pre-spec-132 install -- are
+    # pruned below. Mirrors the install_state idempotency contract: a
+    # re-install observes the pre-existing rows and leaves ``created``
+    # alone so ``already_installed`` stays True.
+    from ai_engineering.state.state_db import upsert_decision_rows, upsert_ownership_rows
+
+    ownership_pseudo_path = ai_eng_dir / _STATE_FILES["ownership-map"]
+    decisions_pseudo_path = ai_eng_dir / _STATE_FILES["decision-store"]
+    ownership_existed = _state_db_table_has_rows(ai_eng_dir.parent, "ownership_map")
+    upsert_ownership_rows(
+        ai_eng_dir.parent,
+        default_ownership_map(root_entry_points=root_entry_points),
+    )
+    if not ownership_existed and ownership_pseudo_path not in created:
+        created.append(ownership_pseudo_path)
+    # decisions table starts empty on a fresh install (no risks accepted
+    # yet) -- presence of the install_state row is the install marker.
+    upsert_decision_rows(ai_eng_dir.parent, default_decision_store())
+    if not install_state_existed and decisions_pseudo_path not in created:
+        created.append(decisions_pseudo_path)
+
+    # spec-132 D-132-18: one-shot cleanup of legacy ownership-map.json /
+    # decision-store.json sidecars left behind by pre-spec-132 installs.
+    for legacy_name in ("ownership-map.json", "decision-store.json"):
+        (state_dir / legacy_name).unlink(missing_ok=True)
 
     capabilities_path = ai_eng_dir / _STATE_FILES["framework-capabilities"]
     # Spec-125: write_framework_capabilities now populates the

@@ -1199,51 +1199,91 @@ def _migrate_hooks_dir(target: Path) -> None:
 
 
 _LEGACY_DIRS = ("agents", "skills")
-"""Directory names under ``.ai-engineering/`` that are considered legacy."""
+"""Directory names under ``.ai-engineering/`` migrated to IDE-specific roots."""
+
+# spec-132 D-132-17: ``.ai-engineering/contexts/team/`` is deprecated.
+# The template stub was deleted in spec-132 sub-001; consumer installs
+# carrying the legacy directory have it pruned during the next
+# ``ai-eng update`` pass. The path is relative to ``.ai-engineering/``.
+_DEPRECATED_GOVERNANCE_PATHS: tuple[str, ...] = ("contexts/team",)
 
 
 def _migrate_legacy_dirs(target: Path, ai_eng_dir: Path) -> list[str]:
-    """Remove legacy agents/ and skills/ directories from .ai-engineering/.
+    """Remove legacy directories from ``.ai-engineering/``.
 
-    The migration is safe: a legacy directory is only removed when at least
-    one IDE-specific directory already contains files (confirming the normal
-    project template update flow has populated them).
+    Spec-132 D-132-17 extends the original spec-128 agents/skills
+    migration with the ``contexts/team/`` deprecation cleanup.
+
+    Migration safety:
+      * ``agents`` / ``skills`` are removed only when at least one
+        IDE-specific directory already has content (confirming the
+        project-template update flow populated them).
+      * Spec-132 deprecated paths (``contexts/team/``) are removed
+        unconditionally -- the template stub no longer ships, so any
+        on-disk copy is leftover state.
 
     Args:
         target: Project root directory.
         ai_eng_dir: The ``.ai-engineering/`` directory within the project.
 
     Returns:
-        List of legacy directory names that were removed.
+        List of directory names that were removed.
     """
-    legacy_dirs = [ai_eng_dir / d for d in _LEGACY_DIRS if (ai_eng_dir / d).is_dir()]
-    if not legacy_dirs:
-        return []
-
-    # Safety check: confirm at least one IDE directory has content.
-    # IDE directories live at the project root (e.g., .claude/, .github/agents/,
-    # .codex/, .gemini/).
-    ide_candidates = [
-        target / ".claude",
-        target / _GITHUB_DIR / "agents",
-        target / ".codex",
-        target / ".gemini",
-    ]
-    ide_has_content = any(d.is_dir() and any(d.rglob("*")) for d in ide_candidates)
-    if not ide_has_content:
-        logger.debug("Skipping legacy migration: no IDE directory with content found")
-        return []
-
-    logger.info("Migrating legacy agents/skills to IDE directories...")
-
     removed: list[str] = []
-    for legacy_dir in legacy_dirs:
-        name = legacy_dir.name
-        shutil.rmtree(legacy_dir)
-        removed.append(name)
-        logger.info("Removed legacy directory: .ai-engineering/%s", name)
 
-    _log_migration_event(ai_eng_dir, removed)
+    legacy_dirs = [ai_eng_dir / d for d in _LEGACY_DIRS if (ai_eng_dir / d).is_dir()]
+    if legacy_dirs:
+        # Safety check: confirm at least one IDE directory has content.
+        # IDE directories live at the project root (e.g., .claude/,
+        # .github/agents/, .codex/, .gemini/).
+        ide_candidates = [
+            target / ".claude",
+            target / _GITHUB_DIR / "agents",
+            target / ".codex",
+            target / ".gemini",
+        ]
+        ide_has_content = any(d.is_dir() and any(d.rglob("*")) for d in ide_candidates)
+        if ide_has_content:
+            logger.info("Migrating legacy agents/skills to IDE directories...")
+            for legacy_dir in legacy_dirs:
+                name = legacy_dir.name
+                shutil.rmtree(legacy_dir)
+                removed.append(name)
+                logger.info("Removed legacy directory: .ai-engineering/%s", name)
+        else:
+            logger.debug("Skipping legacy migration: no IDE directory with content found")
+
+    # spec-132 D-132-17: prune deprecated governance paths -- ONLY when
+    # the directory either is empty or carries the bare legacy stub
+    # (a single ``README.md`` shipped by the retired template). User
+    # content under the directory (team-managed lessons, runbooks,
+    # etc.) is preserved verbatim and never removed. The team-context
+    # ownership rule (DENY) handles the in-flight update path; the
+    # cleanup here only attacks orphan stubs left behind by the
+    # template deletion.
+    for relative in _DEPRECATED_GOVERNANCE_PATHS:
+        deprecated_path = ai_eng_dir / relative
+        if not deprecated_path.is_dir():
+            continue
+        try:
+            entries = list(deprecated_path.iterdir())
+        except OSError:
+            continue
+        is_empty = not entries
+        is_legacy_stub = len(entries) == 1 and entries[0].name == "README.md"
+        if not (is_empty or is_legacy_stub):
+            logger.debug(
+                "Preserving team-owned content under .ai-engineering/%s "
+                "(spec-132 D-132-17 cleanup applies only to legacy stub)",
+                relative,
+            )
+            continue
+        shutil.rmtree(deprecated_path)
+        removed.append(relative)
+        logger.info("Removed deprecated governance path: .ai-engineering/%s", relative)
+
+    if removed:
+        _log_migration_event(ai_eng_dir, removed)
     return removed
 
 

@@ -332,7 +332,7 @@ that IDE. **Authoring contract** (brief §2.3 verbatim):
 | File | MUST contain | MUST NOT contain |
 |------|--------------|------------------|
 | `<repo>/AGENTS.md` | Full canonical payload (§§0-13), no IDE-extras block. | Any `@AGENTS.md` import. Any IDE-specific runtime knobs. |
-| `<repo>/CLAUDE.md` | Full canonical payload + IDE-extras with Hot-Path Discipline, Hooks Configuration, Runtime layer hooks, Token Efficiency, Engram opt-in, Audit observability. | `@AGENTS.md` import. Cross-IDE skill list. |
+| `<repo>/CLAUDE.md` | Full canonical payload + IDE-extras with Hot-Path Discipline, Hooks Configuration, Runtime layer hooks, Token Efficiency, Engram doc pointer, Audit observability. | `@AGENTS.md` import. Cross-IDE skill list. |
 | `<repo>/GEMINI.md` | Full canonical payload + IDE-extras with Gemini Hooks Wiring table + Surface Pointers. | `@AGENTS.md` import. Cross-IDE skill list. |
 | `<repo>/.github/copilot-instructions.md` | Full canonical payload + IDE-extras with Copilot Hooks Wiring table. | Any `See AGENTS.md` cross-reference (D-131-14). |
 | `<repo>/.gemini/GEMINI.md` | (DELETED per D-131-03 — Gemini CLI does not read in-repo `.gemini/`.) | The file itself. |
@@ -425,10 +425,11 @@ state, not source of truth).
 
 ## Optional: Engram (third-party memory)
 
-`ai-engineering` ships without a built-in memory layer. During
-`ai-eng install` you are prompted to install Engram. Skip is fine —
-Claude Code works without it. Force deterministically: `--engram` (yes)
-or `--no-engram` (skip).
+`ai-engineering` ships without a built-in memory layer. Engram is no
+longer wired into the installer (spec-132 D-132-06); install it
+separately if you want cross-session memory. See
+`docs/integrations/engram.md` for OS-specific install commands and the
+`engram setup claude_code` post-step.
 
 ## Audit Observability (spec-120)
 

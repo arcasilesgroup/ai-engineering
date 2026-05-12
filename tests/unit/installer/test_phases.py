@@ -311,8 +311,15 @@ class TestStatePhase:
         overwrite_actions = [a for a in plan.actions if a.action_type == "overwrite"]
         assert any("install-state" in a.destination for a in overwrite_actions)
 
-    def test_never_overwrites_decision_store(self, tmp_path: Path) -> None:
-        """Decision store is never overwritten."""
+    def test_decision_store_is_idempotent_upsert(self, tmp_path: Path) -> None:
+        """spec-132 D-132-08: decisions now UPSERT into state.db.
+
+        FRESH mode regenerates rows via the same idempotent UPSERT path;
+        any pre-existing ``decision-store.json`` sidecar is cleaned up
+        by the one-shot legacy sweep (D-132-18). The action type is no
+        longer ``skip`` -- the legacy JSON-skip rule was retired with
+        the cutover.
+        """
         from ai_engineering.installer.phases.state import StatePhase
 
         phase = StatePhase()
@@ -323,8 +330,18 @@ class TestStatePhase:
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
         decision_actions = [a for a in plan.actions if "decision-store" in a.destination]
+        assert decision_actions, "decision-store pseudo-path must still appear in plan"
         for a in decision_actions:
-            assert a.action_type == "skip"
+            assert a.action_type in {"create", "overwrite"}, (
+                f"db-backed decisions should not 'skip'; got {a.action_type}"
+            )
+
+        # Execute the phase and confirm the legacy JSON file is removed
+        # by the spec-132 D-132-18 cleanup.
+        phase.execute(plan, ctx)
+        assert not (state_dir / "decision-store.json").exists(), (
+            "Legacy decision-store.json should be removed after FRESH execute"
+        )
 
 
 # ---------------------------------------------------------------------------

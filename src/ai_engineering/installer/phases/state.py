@@ -12,7 +12,6 @@ from ai_engineering.state.defaults import (
     default_ownership_map,
 )
 from ai_engineering.state.instincts import ensure_instinct_artifacts
-from ai_engineering.state.io import write_json_model
 from ai_engineering.state.observability import (
     emit_framework_operation,
     write_framework_capabilities,
@@ -37,9 +36,10 @@ _INSTINCTS = ".ai-engineering/observations/observations.yml"
 _INSTINCT_META = ".ai-engineering/observations/meta.json"
 _LEGACY_AUDIT_LOG = f"{_SD}/audit-log.ndjson"
 
-# Pseudo-paths backed by state.db tables (spec-125 cutover). These keys
+# Pseudo-paths backed by state.db tables (spec-125 cutover, extended in
+# spec-132 D-132-08 to cover ownership_map + decisions). These keys
 # still flow through the plan/result API but no JSON file is written.
-_DB_BACKED_PSEUDO_PATHS = frozenset({_STATE, _FRAMEWORK_CAPABILITIES})
+_DB_BACKED_PSEUDO_PATHS = frozenset({_STATE, _FRAMEWORK_CAPABILITIES, _OWNERSHIP, _DECISIONS})
 
 
 class StatePhase:
@@ -71,14 +71,6 @@ class StatePhase:
         # The manifest is already on disk by the time the state phase runs
         # (governance phase precedes state phase in pipeline.py).
         root_entry_points = load_manifest_root_entry_points(context.target)
-
-        def _seeded_ownership_map():
-            return default_ownership_map(root_entry_points=root_entry_points)
-
-        generators = {
-            _OWNERSHIP: _seeded_ownership_map,
-            _DECISIONS: default_decision_store,
-        }
 
         for action in plan.actions:
             if action.destination == _STATE:
@@ -115,10 +107,29 @@ class StatePhase:
             if action.action_type == "skip":
                 result.skipped.append(action.destination)
                 continue
-            gen = generators.get(action.destination)
-            if gen:
-                write_json_model(context.target / action.destination, gen())
+            # spec-132 D-132-08: ownership map + decision store rows are
+            # UPSERTed directly into state.db. The pseudo-paths
+            # ``_OWNERSHIP`` / ``_DECISIONS`` keep their plan/result keys
+            # so external callers see the same string identifiers, but
+            # no JSON files land on disk.
+            if action.destination == _OWNERSHIP:
+                state_db.upsert_ownership_rows(
+                    context.target,
+                    default_ownership_map(root_entry_points=root_entry_points),
+                )
                 result.created.append(action.destination)
+                continue
+            if action.destination == _DECISIONS:
+                state_db.upsert_decision_rows(context.target, default_decision_store())
+                result.created.append(action.destination)
+                continue
+
+        # spec-132 D-132-18: one-shot cleanup of legacy ownership-map.json
+        # / decision-store.json sidecars. Idempotent: missing files are
+        # silently ignored. Runs after the UPSERT so a partial failure
+        # never strands the rows behind the deleted JSON.
+        for legacy_name in ("ownership-map.json", "decision-store.json"):
+            (context.target / _SD / legacy_name).unlink(missing_ok=True)
 
         legacy_audit_log_removed = remove_legacy_audit_log(context.target)
 
@@ -156,12 +167,15 @@ class StatePhase:
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
         errors: list[str] = []
         # spec-125: install_state and tool_capabilities live in state.db.
-        # The pseudo-path strings remain in the manifest API but the
-        # filesystem check is replaced by a state.db row probe.
-        for r in (_OWNERSHIP, _DECISIONS, _INSTINCT_OBSERVATIONS, _INSTINCTS, _INSTINCT_META):
+        # spec-132 D-132-08: ownership_map + decisions are also state.db
+        # tables now -- their pseudo-paths intentionally have no
+        # on-disk artifact. Only the instinct triplet remains
+        # filesystem-backed.
+        for r in (_INSTINCT_OBSERVATIONS, _INSTINCTS, _INSTINCT_META):
             if not (context.target / r).exists():
                 errors.append(f"State file missing: {r}")
-        # state.db backed: install_state singleton + tool_capabilities cards.
+        # state.db backed: install_state singleton, tool_capabilities,
+        # ownership_map, decisions.
         try:
             conn = state_db.connect(context.target, read_only=True)
             try:
@@ -180,6 +194,13 @@ class StatePhase:
                         errors.append(f"State file missing: {_FRAMEWORK_CAPABILITIES}")
                 else:  # pragma: no cover -- transient until 0005 lands
                     errors.append(f"State file missing: {_FRAMEWORK_CAPABILITIES}")
+                # spec-132 D-132-08: ownership rows must be present.
+                ownership_count = conn.execute("SELECT COUNT(*) FROM ownership_map").fetchone()[0]
+                if not ownership_count:
+                    errors.append(f"State file missing: {_OWNERSHIP}")
+                # decisions can be empty on a fresh install (no risks
+                # accepted yet) -- the table existence alone is
+                # validated indirectly by the connect/migration ledger.
             finally:
                 conn.close()
         except Exception as exc:  # pragma: no cover -- defensive
@@ -192,20 +213,16 @@ class StatePhase:
     def _plan_file(
         context: InstallContext, rel: str, *, regenerate_on_fresh: bool
     ) -> PlannedAction:
-        # spec-125: db-backed pseudo paths skip the filesystem-existence
-        # signal. They are always treated as 'create' on first install
-        # and 'overwrite' on FRESH; the table-level UPSERT is idempotent.
+        # spec-125 / spec-132 D-132-08: db-backed pseudo paths skip the
+        # filesystem-existence signal. They are always treated as
+        # 'create' on first install and 'overwrite' on FRESH; the
+        # table-level UPSERT is idempotent.
         if rel in _DB_BACKED_PSEUDO_PATHS:
             if context.mode is InstallMode.FRESH and regenerate_on_fresh:
                 return PlannedAction("overwrite", "", rel, "FRESH: regenerate state.db row")
             return PlannedAction("create", "", rel, "ensure state.db row")
 
         exists = (context.target / rel).exists()
-
-        if rel == _DECISIONS:
-            if exists:
-                return PlannedAction("skip", "", rel, "append-only; never overwrite")
-            return PlannedAction("create", "", rel, "initialize decision store")
 
         if context.mode is InstallMode.FRESH and regenerate_on_fresh:
             return PlannedAction("overwrite", "", rel, "FRESH: regenerate")

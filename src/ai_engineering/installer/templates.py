@@ -168,9 +168,10 @@ def resolve_instruction_template_sources(
 
 
 # Files deployed regardless of AI provider (security, quality tooling).
-# CONSTITUTION.md gets two destinations: root (project charter) and
-# `.ai-engineering/` (governance plane). Both are validated by e2e tests
-# (`test_install_creates_required_dirs` and `test_install_creates_root_constitution`).
+# spec-132 D-132-14: CONSTITUTION.md ships to the consumer ROOT only.
+# The legacy `.ai-engineering/CONSTITUTION.md` stub was deleted along
+# with both template stubs; the project charter has exactly one
+# canonical location per install.
 _COMMON_FILE_MAPS: dict[str, str] = {
     ".gitleaks.toml": ".gitleaks.toml",
     ".semgrep.yml": ".semgrep.yml",
@@ -179,9 +180,11 @@ _COMMON_FILE_MAPS: dict[str, str] = {
 
 # Additional destinations for files that need to land in multiple paths.
 # Source path (relative to template root) → list of destination paths.
-_COMMON_FILE_EXTRA_DESTS: dict[str, list[str]] = {
-    "CONSTITUTION.md": [".ai-engineering/CONSTITUTION.md"],
-}
+# spec-132 D-132-14: CONSTITUTION.md previously also landed under
+# `.ai-engineering/CONSTITUTION.md`; that extra destination has been
+# retired. The dict stays as the extension point for future
+# multi-destination files.
+_COMMON_FILE_EXTRA_DESTS: dict[str, list[str]] = {}
 
 _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     "claude-code": [

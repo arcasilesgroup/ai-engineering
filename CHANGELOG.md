@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-132 — P0 stop-the-bleeding (sub-001)
+
+Eliminates the six P0 bugs that made a fresh `ai-eng install` produce
+warnings, hangs, and false validation failures. Zero surface change --
+no command renames, no Renderer, no hexagonal moves -- just the bug
+sweep. Lands on `spec-128/context-overrides-refactor` alongside the
+in-flight 128 / 129 / 131 work (PR #509) per D-132-01 / D-132-19.
+
+**Breaking changes** (no compat shims; hard rename / hard delete /
+hard migration per CANONICAL.md §13 rule 3):
+
+1. **Engram removed from installer (D-132-06)** -- the install-time
+   prompt + `--engram` / `--no-engram` flags + `installer/engram.py`
+   are gone. Engram is now an opt-in third-party integration: install
+   it separately following `docs/integrations/engram.md`. Anyone
+   relying on `ai-eng install --engram` automation must switch to the
+   manual install commands documented in that doc.
+2. **`CONSTITUTION.md` ships to the consumer root only (D-132-14)** --
+   the legacy `.ai-engineering/CONSTITUTION.md` stub and the matching
+   template stub were both deleted. A fresh install now produces
+   exactly one `CONSTITUTION.md` (at the consumer root); reinstalls on
+   existing repos with the legacy stub continue to work (the stub is
+   ignored), but downstream tooling that read from
+   `.ai-engineering/CONSTITUTION.md` must repoint to the root.
+3. **`.ai-engineering/contexts/team/` removed (D-132-17)** -- the
+   template stub directory is gone. `ai-eng update` prunes the
+   directory on existing consumer installs as part of the legacy-dir
+   migration sweep.
+
+**Fixes** (not breaking; observable behaviour change only):
+
+- **State warner deduped (D-132-07)** -- `_warn_on_deprecated_fallbacks`
+  warns at most once per stale JSON file per process lifetime, instead
+  of one line per `state.db.connect()`. Eliminates ~34 duplicate
+  warning lines per fresh install.
+- **Installer state phase UPSERTs to state.db (D-132-08, D-132-18)** --
+  `ownership_map` + `decisions` rows now land directly in
+  `state.db` instead of legacy JSON sidecars (`ownership-map.json`,
+  `decision-store.json`). Pre-existing sidecars are removed during the
+  same phase. Source-of-truth is the table; the JSON contract is
+  fully retired for installer writes.
+- **Validator skips `src/ai_engineering/` refs from SKILL.md (D-132-09)**
+  -- the source-repo paths inside SKILL.md descriptors are LLM-only
+  implementation notes; they never shipped to consumers and now no
+  longer trigger false-positive "broken reference" findings.
+- **Validator downgrades missing `_history.md` to WARN (D-132-09)** --
+  when `spec.md` + `plan.md` are present but `_history.md` is absent,
+  the validator emits WARN, not FAIL. `/ai-cleanup` (spec-131
+  D-131-04) is the lifecycle owner of the file.
+- **`IOCS_ATTRIBUTION.md` shipped (D-132-09)** -- new template at
+  `src/ai_engineering/templates/.ai-engineering/references/IOCS_ATTRIBUTION.md`
+  documents the upstream provenance of the IOC catalogue used by the
+  sentinel guard.
+
 ### spec-131 — DX Excellence Refactor
 
 Trimmed scope of the original `dx-excellence-refactor-brief.md` to the

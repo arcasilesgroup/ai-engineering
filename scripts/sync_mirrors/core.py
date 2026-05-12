@@ -1085,10 +1085,11 @@ state, not source of truth).
 
 ## Optional: Engram (third-party memory)
 
-`ai-engineering` ships without a built-in memory layer. During
-`ai-eng install` you are prompted to install Engram. Skip is fine —
-Claude Code works without it. Force deterministically: `--engram` (yes)
-or `--no-engram` (skip).
+`ai-engineering` ships without a built-in memory layer. Engram is no
+longer wired into the installer (spec-132 D-132-06); install it
+separately if you want cross-session memory. See
+`docs/integrations/engram.md` for OS-specific install commands and the
+`engram setup claude_code` post-step.
 
 ## Audit Observability (spec-120)
 

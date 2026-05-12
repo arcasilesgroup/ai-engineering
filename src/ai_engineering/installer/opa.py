@@ -47,8 +47,7 @@ def public_key_path(project_root: Path) -> Path:
 def _run(cmd: list[str]) -> subprocess.CompletedProcess[str]:
     """Thin subprocess wrapper that captures output as text.
 
-    Mirrors the helper at ``installer/engram.py:_run`` so tests can patch
-    a single call site.
+    Centralised so tests can patch a single call site.
     """
 
     logger.debug("opa install: invoking %s", cmd)

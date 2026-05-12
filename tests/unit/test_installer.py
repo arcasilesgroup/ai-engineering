@@ -22,8 +22,6 @@ from ai_engineering.installer.service import (
     install,
 )
 from ai_engineering.installer.templates import CopyResult
-from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import OwnershipMap
 
 # ---------------------------------------------------------------------------
 # Module-level patch prefix shortcuts
@@ -191,12 +189,25 @@ class TestGenerateStateFiles:
             ides=None,
         )
 
-        ownership = read_json_model(
-            ai_eng_dir / _STATE_FILES["ownership-map"],
-            OwnershipMap,
-        )
-        assert ownership.is_update_allowed("CLAUDE.md") is False
-        assert ownership.has_deny_rule("CLAUDE.md") is True
+        # spec-132 D-132-08: ownership now lives in the state.db
+        # ``ownership_map`` table. Probe the row directly to confirm
+        # the manifest root-entry rule survived the install path.
+        import sqlite3
+
+        db_path = ai_eng_dir / "state" / "state.db"
+        assert db_path.is_file(), "state.db should exist after _generate_state_files"
+        conn = sqlite3.connect(db_path)
+        try:
+            row = conn.execute(
+                "SELECT severity FROM ownership_map WHERE path_pattern = ?",
+                ("CLAUDE.md",),
+            ).fetchone()
+        finally:
+            conn.close()
+        assert row is not None, "CLAUDE.md ownership rule should be present"
+        # Manifest declared `owner: team` + DENY framework policy -> severity
+        # column stores the framework_update value.
+        assert row[0] == "deny"
 
 
 # ---------------------------------------------------------------------------
@@ -459,7 +470,11 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["get_ai_engineering_template_root"] = MagicMock(return_value=Path("/fake/templates"))
     mocks["copy_template_tree"] = MagicMock(return_value=CopyResult())
     mocks["copy_project_templates"] = MagicMock(return_value=CopyResult())
-    mocks["write_json_model"] = MagicMock()
+    # spec-132 D-132-08: write_json_model retired from service.py; ownership +
+    # decisions now land via state.db UPSERT helpers.
+    mocks["upsert_ownership_rows"] = MagicMock()
+    mocks["upsert_decision_rows"] = MagicMock()
+    mocks["state_db_table_has_rows"] = MagicMock(return_value=False)
     mocks["write_framework_capabilities"] = MagicMock()
     mocks["emit_framework_operation"] = MagicMock()
     mocks["install_hooks"] = MagicMock(return_value=HookInstallResult())
@@ -512,7 +527,20 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     )
     stack.enter_context(patch(f"{_SVC}.copy_template_tree", mocks["copy_template_tree"]))
     stack.enter_context(patch(f"{_SVC}.copy_project_templates", mocks["copy_project_templates"]))
-    stack.enter_context(patch(f"{_SVC}.write_json_model", mocks["write_json_model"]))
+    # spec-132 D-132-08: UPSERT helpers replace write_json_model.
+    stack.enter_context(
+        patch(
+            "ai_engineering.state.state_db.upsert_ownership_rows",
+            mocks["upsert_ownership_rows"],
+        )
+    )
+    stack.enter_context(
+        patch(
+            "ai_engineering.state.state_db.upsert_decision_rows",
+            mocks["upsert_decision_rows"],
+        )
+    )
+    stack.enter_context(patch(f"{_SVC}._state_db_table_has_rows", mocks["state_db_table_has_rows"]))
     stack.enter_context(
         patch(f"{_SVC}.write_framework_capabilities", mocks["write_framework_capabilities"])
     )
@@ -604,7 +632,10 @@ class TestInstallSkipsExistingStateFiles:
         # Spec-125: signal that the state.db rows already exist so the
         # installer treats the run as idempotent and reports no fresh
         # state writes.
+        # Spec-132 D-132-08: ownership rows now backed by state.db too;
+        # signal they exist so the new UPSERT path stays idempotent.
         patched["state_db_row_exists"].return_value = True
+        patched["state_db_table_has_rows"].return_value = True
 
         # Act
         with patch.object(Path, "exists", return_value=True):
@@ -924,7 +955,10 @@ class TestInstallAlreadyInstalled:
         # Spec-125: also signal that the state.db singletons already
         # exist so the install summary stays empty and ``already_installed``
         # remains True.
+        # Spec-132 D-132-08: ownership rows backed by state.db; signal
+        # they already exist on a re-install so created stays empty.
         patched["state_db_row_exists"].return_value = True
+        patched["state_db_table_has_rows"].return_value = True
 
         # Act
         with patch.object(Path, "exists", return_value=True):

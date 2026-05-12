@@ -91,9 +91,10 @@ def _collect_broken_references(
         if runtime_exists and md_file.is_relative_to(runtime_dir):
             continue
         content = md_file.read_text(encoding="utf-8", errors="replace")
+        origin_relative = md_file.relative_to(target).as_posix()
         for match in _PATH_REF_PATTERN.finditer(content):
             ref_path = _normalized_reference_path(match.group(1) or match.group(0))
-            if _should_skip_reference_path(ref_path):
+            if _should_skip_reference_path(ref_path, origin=origin_relative):
                 continue
             canonical_ref = _legacy_state_plane_reference(ref_path)
             if canonical_ref is not None:
@@ -135,7 +136,23 @@ def _normalized_reference_path(ref_path: str) -> str:
     return normalized
 
 
-def _should_skip_reference_path(ref_path: str) -> bool:
+def _should_skip_reference_path(ref_path: str, *, origin: str | None = None) -> bool:
+    """Return True when ``ref_path`` should be ignored by the validator.
+
+    spec-132 D-132-09: SKILL.md descriptors in
+    ``.claude/`` / ``.codex/`` / ``.gemini/`` / ``.github/`` carry
+    implementation notes that reference ``src/ai_engineering/...``
+    paths. Those paths never ship to consumers, so we skip them when
+    the origin file is a SKILL.md descriptor.
+
+    Args:
+        ref_path: Normalised reference path extracted from a markdown
+            file.
+        origin: Optional origin path (relative to repo root). When the
+            origin is a SKILL.md descriptor, source-repo refs under
+            ``src/ai_engineering/`` are treated as LLM-only notes and
+            skipped.
+    """
     if "<" in ref_path and ">" in ref_path:
         return True
     if "{" in ref_path and "}" in ref_path:
@@ -143,6 +160,13 @@ def _should_skip_reference_path(ref_path: str) -> bool:
     if "$" in ref_path:
         return True
     if ref_path.startswith(("agents/agents/", "agents/skills/", "codex/agents/", "codex/skills/")):
+        return True
+    # spec-132 D-132-09: source-repo refs from SKILL.md are LLM notes.
+    if (
+        origin is not None
+        and origin.endswith("SKILL.md")
+        and ref_path.startswith("src/ai_engineering/")
+    ):
         return True
     return ref_path in _KNOWN_OPTIONAL_PATHS
 
@@ -226,7 +250,14 @@ def _state_plane_repo_relative_path(ref_path: str) -> str | None:
 
 
 def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPlane) -> None:
-    """Verify the canonical three-file specs/ contract: spec.md, plan.md, _history.md."""
+    """Verify the canonical three-file specs/ contract: spec.md, plan.md, _history.md.
+
+    spec-132 D-132-09: ``_history.md`` is owned by ``/ai-cleanup`` per
+    spec-131 D-131-04 -- the installer does not seed it. When the spec
+    buffer is otherwise complete (``spec.md`` + ``plan.md`` both
+    present) the missing ``_history.md`` downgrades to WARN so the
+    fresh-install validator does not fail.
+    """
     required_spec_files = {
         "spec.md": work_plane.spec_path,
         "plan.md": work_plane.plan_path,
@@ -234,6 +265,25 @@ def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPl
     }
     missing_spec = [name for name, path in required_spec_files.items() if not path.exists()]
     if missing_spec:
+        spec_plan_present = (
+            work_plane.spec_path.exists()
+            and work_plane.plan_path.exists()
+            and missing_spec == ["_history.md"]
+        )
+        if spec_plan_present:
+            report.checks.append(
+                IntegrityCheckResult(
+                    category=IntegrityCategory.FILE_EXISTENCE,
+                    name="spec-buffer",
+                    status=IntegrityStatus.WARN,
+                    message=(
+                        "Optional _history.md missing; /ai-cleanup will create it on "
+                        "first lifecycle close (spec-131 D-131-04)."
+                    ),
+                    file_path=_SPECS_ROOT_LABEL,
+                )
+            )
+            return
         report.checks.append(
             IntegrityCheckResult(
                 category=IntegrityCategory.FILE_EXISTENCE,

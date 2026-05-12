@@ -43,7 +43,12 @@ class TestInstallClean:
         ]
         for dirname in required_dirs:
             assert (ai_dir / dirname).is_dir(), f"Missing dir: {dirname}"
-        assert (ai_dir / "CONSTITUTION.md").is_file(), "Missing workspace charter: CONSTITUTION.md"
+        # spec-132 D-132-14: CONSTITUTION.md lives at the consumer root,
+        # never under `.ai-engineering/`. The stub at the legacy location
+        # was deleted as part of the single-location ship policy.
+        assert not (ai_dir / "CONSTITUTION.md").exists(), (
+            "Legacy .ai-engineering/CONSTITUTION.md stub must not be shipped (D-132-14)"
+        )
 
     def test_install_creates_root_constitution(
         self,

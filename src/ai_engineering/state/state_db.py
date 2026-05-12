@@ -61,6 +61,23 @@ _DEPRECATED_JSON_FALLBACKS = (
     "framework-capabilities.json",
 )
 
+# spec-132 D-132-07: dedup the deprecated-JSON warning so a single
+# ``ai-eng install`` does not emit ~34 duplicate lines per stale file.
+# Keyed on the absolute (state_dir / filename) Path so two different
+# project roots each get their own one-shot warning.
+_WARNED_FALLBACKS: set[Path] = set()
+
+
+def _reset_fallback_warnings() -> None:
+    """Clear the dedup set so subsequent calls re-emit warnings.
+
+    Test hook -- callers in production never need this, but the unit
+    suite for D-132-07 must exercise both the deduped path and the
+    re-emit path. Keeping the helper public-but-underscored mirrors the
+    rest of the test-only surface in ``state_db``.
+    """
+    _WARNED_FALLBACKS.clear()
+
 
 def state_db_path(project_root: Path) -> Path:
     """Return the absolute ``state.db`` path under ``project_root``."""
@@ -171,24 +188,32 @@ def connect(
 
 def _warn_on_deprecated_fallbacks(state_dir: Path) -> None:
     """Log a one-line WARNING per stale JSON fallback (spec-124 D-124-12,
-    extended in spec-125 D-125-03).
+    extended in spec-125 D-125-03; deduped per spec-132 D-132-07).
 
     Called from :func:`connect` after the migration runner. The check
     is best-effort: missing directory or ``OSError`` are swallowed so
     state.db bootstrap never blocks on filesystem oddities.
+
+    Dedup contract: each (state_dir, filename) pair warns at most once
+    per process lifetime via :data:`_WARNED_FALLBACKS`. Tests reset the
+    set via :func:`_reset_fallback_warnings`.
     """
     try:
         if not state_dir.is_dir():
             return
         for name in _DEPRECATED_JSON_FALLBACKS:
             stale = state_dir / name
-            if stale.is_file():
-                _logger.warning(
-                    "stale state JSON fallback found at %s; "
-                    "state.db is canonical (spec-124 D-124-12, spec-125). "
-                    "Remove the file -- state.db tables are the source of truth.",
-                    stale,
-                )
+            if not stale.is_file():
+                continue
+            if stale in _WARNED_FALLBACKS:
+                continue
+            _WARNED_FALLBACKS.add(stale)
+            _logger.warning(
+                "stale state JSON fallback found at %s; "
+                "state.db is canonical (spec-124 D-124-12, spec-125). "
+                "Remove the file -- state.db tables are the source of truth.",
+                stale,
+            )
     except OSError:
         # Filesystem quirks should never block state.db bootstrap.
         return
@@ -215,9 +240,141 @@ def projection_write(project_root: Path) -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def _now_iso() -> str:
+    """Return an ISO-8601 timestamp suitable for state.db row columns."""
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def upsert_ownership_rows(project_root: Path, ownership_map: object) -> int:
+    """UPSERT every ``OwnershipEntry`` from ``ownership_map`` into state.db.
+
+    Spec-132 D-132-08: replaces the legacy ``ownership-map.json`` write
+    path. The function accepts the loosely-typed ``ownership_map`` object
+    (a Pydantic ``OwnershipMap``) and projects its ``paths`` list into
+    ``ownership_map`` rows. Idempotent: re-running with the same input
+    is a no-op once the rows already match.
+
+    Args:
+        project_root: Repository root holding ``.ai-engineering/``.
+        ownership_map: A model exposing ``paths`` with ``pattern``,
+            ``owner``, and ``framework_update`` attributes.
+
+    Returns:
+        Count of rows attempted (one per ``OwnershipEntry``).
+    """
+    import json
+
+    paths = getattr(ownership_map, "paths", []) or []
+    updated_at = _now_iso()
+
+    with projection_write(project_root) as conn:
+        attempted = 0
+        for entry in paths:
+            pattern = getattr(entry, "pattern", None)
+            if not pattern:
+                continue
+            owner = getattr(entry, "owner", None)
+            owner_value = owner.value if hasattr(owner, "value") else (owner or "")
+            owners_json = json.dumps([owner_value]) if owner_value else "[]"
+            policy = getattr(entry, "framework_update", None)
+            severity = policy.value if hasattr(policy, "value") else (policy or None)
+            conn.execute(
+                """
+                INSERT INTO ownership_map
+                  (path_pattern, owners_json, severity, reviewers_json, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(path_pattern) DO UPDATE SET
+                  owners_json    = excluded.owners_json,
+                  severity       = excluded.severity,
+                  reviewers_json = excluded.reviewers_json,
+                  updated_at     = excluded.updated_at
+                """,
+                (pattern, owners_json, severity, "[]", updated_at),
+            )
+            attempted += 1
+        return attempted
+
+
+def upsert_decision_rows(project_root: Path, decision_store: object) -> int:
+    """UPSERT every ``Decision`` from ``decision_store`` into state.db.
+
+    Spec-132 D-132-08: replaces the legacy ``decision-store.json`` write
+    path. Default-empty stores (``decisions=[]``) UPSERT zero rows and
+    return ``0`` -- the table simply stays untouched, which is correct
+    behaviour for a fresh install.
+
+    Args:
+        project_root: Repository root holding ``.ai-engineering/``.
+        decision_store: A model exposing ``decisions`` (list of
+            ``Decision`` instances with ``id``, ``decision``, ``context``,
+            ``spec``, ``decided_at``).
+
+    Returns:
+        Count of rows attempted.
+    """
+    decisions = getattr(decision_store, "decisions", []) or []
+    if not decisions:
+        # Fresh install: ensure the table exists by opening a write
+        # transaction (a no-op commit), so the table is present for
+        # later writers without seeding any synthetic rows.
+        with projection_write(project_root):
+            pass
+        return 0
+
+    now = _now_iso()
+    with projection_write(project_root) as conn:
+        attempted = 0
+        for entry in decisions:
+            decision_id = getattr(entry, "id", None)
+            if not decision_id:
+                continue
+            decided_at = getattr(entry, "decided_at", None)
+            decided_iso = (
+                decided_at.isoformat() if hasattr(decided_at, "isoformat") else (decided_at or now)
+            )
+            spec_id = getattr(entry, "spec", None) or ""
+            status = getattr(entry, "status", None)
+            status_value = status.value if hasattr(status, "value") else (status or "active")
+            conn.execute(
+                """
+                INSERT INTO decisions
+                  (decision_id, spec_id, status, title, rationale, context,
+                   consequences, superseded_by, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(decision_id) DO UPDATE SET
+                  spec_id       = excluded.spec_id,
+                  status        = excluded.status,
+                  title         = excluded.title,
+                  rationale     = excluded.rationale,
+                  context       = excluded.context,
+                  consequences  = excluded.consequences,
+                  superseded_by = excluded.superseded_by,
+                  updated_at    = excluded.updated_at
+                """,
+                (
+                    decision_id,
+                    spec_id,
+                    status_value,
+                    getattr(entry, "decision", "") or "",
+                    None,
+                    getattr(entry, "context", None),
+                    None,
+                    None,
+                    decided_iso,
+                    now,
+                ),
+            )
+            attempted += 1
+        return attempted
+
+
 __all__ = [
     "STATE_DB_REL",
     "connect",
     "projection_write",
     "state_db_path",
+    "upsert_decision_rows",
+    "upsert_ownership_rows",
 ]
