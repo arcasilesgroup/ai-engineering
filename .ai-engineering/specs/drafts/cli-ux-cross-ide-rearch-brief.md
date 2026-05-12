@@ -651,24 +651,19 @@ collapses into one generic provisioner driven by the Surface registry.
 - `cat .ai-engineering/manifest.yml` shows `surfaces.enabled: [...]`,
   no `ai_providers`, no `providers.ides`.
 
-### M6 — Naming Reform + Hex Cleanup (B8, B14, B13)
+### M6 — Hex Cleanup + `ai-explore` Skill (B7, B13)
 
 **Apply**: §10.7 (Clean Code), §10.8 (Hex)
-**Why**: Closes naming smells and brings the hex contract to
-zero-whitelist.
+**Why**: Brings the hex contract to zero-whitelist and closes the
+broken `/ai-explore` reference. Skill/agent naming reform is out of
+scope (see B8, B14 — deferred to follow-up spec).
 
 **Tasks**:
-1. Hard rename 10 names per B14 table. For each:
-   - Move `.claude/skills/<old>/` → `.claude/skills/<new>/`.
-   - Update `SKILL.md` `name:` frontmatter.
-   - Update all cross-references in other skills, agents, CLAUDE.md,
-     CONSTITUTION.md, manifest counters, decision-store entries.
-   - `scripts/sync_command_mirrors.py` propagates to .codex/.gemini/.github/.
-   - Add entry to CHANGELOG breaking-changes section.
-2. Verifier-deterministic agent rename (B8).
-3. Create `ai-explore` skill (B7) — thin wrapper that dispatches the
-   agent.
-4. Eliminate 4 hex baseline violations in
+1. Create `ai-explore` skill (B7) — thin wrapper that dispatches the
+   `ai-explore` agent. Add `.claude/skills/ai-explore/SKILL.md`; sync
+   mirrors propagate to non-Claude Surfaces (subject to
+   `applies_to_surfaces` if any restrictions apply).
+2. Eliminate 4 hex baseline violations in
    `pyproject.toml:249-265 ignore_imports`:
    - `cli_ui -> updater.service`: route updater through OutputPort.
    - `updater.service -> installer.templates`: extract a
@@ -676,12 +671,22 @@ zero-whitelist.
    - `policy.checks.stack_runner -> installer.launchers`: extract
      `LauncherPort`.
    - `validator._shared -> installer.templates`: same `TemplateRegistryPort`.
-5. Eliminate 6 in-band CLI hex violations (B13).
-6. RED — re-run `tests/architecture/test_hexagonal.py` with empty
+3. Eliminate 6 in-band CLI hex violations (B13):
+   - `core.py:366-381` `_is_reinstall` → use `AuditStorePort`.
+   - `core.py:344` raw `print` → use `OutputPort`.
+   - `core.py:519-557` confirm helpers → use `ConfirmPort` + extract
+     pure helpers ≤30 lines (§10.7).
+   - `spec_cmd.py:133` `click.echo` → `OutputPort`.
+   - `spec_cmd.py:84` filesystem write → use a port or move to
+     `application/` layer.
+   - `audit_cmd.py:38` module-level `sqlite3` → move to
+     `adapters/storage/`; CLI consumes `AuditStorePort`.
+4. RED — re-run `tests/architecture/test_hexagonal.py` with empty
    `ignore_imports`; assert exit 0.
 
 **Acceptance**:
-- 47-skill / 9-agent count unchanged (the renames are 1:1).
+- 48-skill canonical on `.claude/` (47 existing + new `ai-explore`);
+  agent count unchanged at 9.
 - `pyproject.toml` `ignore_imports` block is empty (or contains only
   explicitly documented externally-enforced exceptions).
 - `python scripts/sync_command_mirrors.py --check` exits 0.
