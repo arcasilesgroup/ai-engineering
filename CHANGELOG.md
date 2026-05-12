@@ -61,6 +61,36 @@ hard migration per CANONICAL.md §13 rule 3):
   documents the upstream provenance of the IOC catalogue used by the
   sentinel guard.
 
+#### spec-132 — autopilot plan-task sync gate (process fix)
+
+Fixes the silent drift between sub-plan frontmatter (`total` /
+`completed`) and the real `- [ ]` / `- [x]` checkbox count. Before this
+change, the Phase 2 deep-plan agents could write malformed plans
+(bullets without checkboxes, `### Task N` headers, or empty placeholders)
+and Phase 4 still claimed success because nothing reconciled
+frontmatter against body. Reproduced on `runtime/autopilot/sub-002`,
+`sub-003`, `sub-004` of this very branch — frontmatter said
+`completed: 6` / `total: 14` while the body had zero canonical
+checkboxes.
+
+- `.ai-engineering/scripts/plan_tasks.py` — new stdlib-only CLI with
+  `sync <plan.md>` (rewrites frontmatter to match body counts) and
+  `validate <plan.md>` (syncs + asserts >= 2 canonical
+  `- [ ] T-N.K` items; exits non-zero otherwise). 24 unit tests.
+- `ai-autopilot/handlers/phase-deep-plan.md` — Phase 2 gate now
+  delegates the "min 2 tasks" check to `plan_tasks.py validate`. Plan
+  format rules updated to spell out that bullets, headers, and
+  `[EMPTY]` placeholders all count as zero canonical tasks.
+- `ai-autopilot/handlers/phase-implement.md` — Phase 4 Step 3 runs
+  `plan_tasks.py sync` for every sub-plan in the wave before the wave
+  commit, so the frontmatter is honest the moment the wave lands.
+  Agents no longer edit `total:` / `completed:` by hand.
+- Re-synced the six existing `runtime/autopilot/sub-NNN/plan.md`
+  frontmatters so they reflect the real checkbox count. sub-001 was
+  already in sync; sub-002 and sub-004 dropped to `0/0` because their
+  bodies use non-canonical bullet / header formats — the dishonest
+  hand-written counts (`6/6`, `14/0`) are gone.
+
 ### spec-131 — DX Excellence Refactor
 
 Trimmed scope of the original `dx-excellence-refactor-brief.md` to the

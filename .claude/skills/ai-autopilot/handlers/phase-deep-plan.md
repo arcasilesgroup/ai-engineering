@@ -93,11 +93,20 @@ imports: [list of modules/classes/functions this sub-spec expects from other sub
 
 Requirements for the plan:
 - Minimum 2 tasks per sub-spec. No upper limit.
+- Every task MUST use the canonical `- [ ] T-N.K:` checkbox prefix. Bullets without brackets (`- **T-N.K** —`), section headers (`### Task N`), and placeholder bodies (`[EMPTY — populated by Phase 2]`) all count as ZERO canonical tasks and will fail the gate (see Step 2f).
 - Every task MUST have explicit file paths and a verifiable done condition.
 - TDD pairs: where tests are needed, the test task precedes the implementation task.
 - `exports:` declares modules, classes, or functions this sub-spec creates that other sub-specs may consume. Phase 3 uses these for DAG construction.
 - `imports:` declares what this sub-spec expects from other sub-specs. Can be empty (`imports: []`) if there are no cross-sub-spec dependencies.
 - Task IDs use the pattern `T-N.K` where N is the sub-spec number and K is the task sequence (e.g., T-3.1, T-3.2 for sub-003).
+
+After writing the plan, run:
+
+```bash
+python .ai-engineering/scripts/plan_tasks.py validate .ai-engineering/runtime/autopilot/sub-NNN/plan.md
+```
+
+The script syncs the frontmatter `total` / `completed` with the real checkbox count and exits non-zero if fewer than two canonical `- [ ]` tasks are present. Non-zero exit means the plan is malformed — rewrite it before proceeding. Treat the script's exit code as the authoritative Step 2f gate.
 
 #### 2d. Refine File List
 
@@ -162,7 +171,7 @@ Write a summary line to the manifest:
 All of the following must pass for each sub-spec to be marked `planned`:
 
 1. **Exploration completeness**: `sub-NNN/spec.md` contains `## Exploration` that is non-empty and includes at least the "Existing Files" and "Patterns to Follow" subsections with substantive content (not placeholders or TODOs).
-2. **Plan minimum tasks**: `sub-NNN/plan.md` contains at least 2 checkbox items matching `- [ ] T-N.K`, each with explicit `**Files**:` paths and a `**Done**:` condition.
+2. **Plan minimum tasks**: `python .ai-engineering/scripts/plan_tasks.py validate sub-NNN/plan.md` exits zero. The script enforces at least two canonical `- [ ] T-N.K` items and syncs the frontmatter `total` / `completed` as a side effect, so the gate cannot pass while the frontmatter is drifted or invented.
 3. **Dependency declarations**: `sub-NNN/plan.md` declares both `exports:` and `imports:` in the Plan section. Either can be an empty list (`[]`) if there are no cross-sub-spec dependencies, but the declaration must be present.
 
 ## Failure Modes

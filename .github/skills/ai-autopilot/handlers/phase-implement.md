@@ -75,7 +75,7 @@ Each build agent executes the plan tasks listed in its sub-spec's `plan.md`, in 
 - Fix validation failures (max 3 attempts per file, then report failure).
 - Respect quality gates: no suppression comments, no weakened thresholds.
 
-After completing task T-N.K, edit `.ai-engineering/runtime/autopilot/sub-NNN/plan.md` to change `- [ ] T-N.K` to `- [x] T-N.K`.
+After completing task T-N.K, edit `.ai-engineering/runtime/autopilot/sub-NNN/plan.md` to change `- [ ] T-N.K` to `- [x] T-N.K`. The wave commit step (Step 3) then runs `plan_tasks.py sync` to reconcile the frontmatter automatically — agents do not edit `total:` / `completed:` by hand.
 
 #### 2d -- Agent Writes Self-Report
 
@@ -111,15 +111,25 @@ Self-Report rules:
 
 ### Step 3 -- Commit the Wave
 
-After all agents in the wave complete (success or failure), commit the wave's changes:
+After all agents in the wave complete (success or failure):
 
-```bash
-git add [files from all sub-specs in this wave]
-git commit -m "spec-NNN: wave W -- [comma-separated sub-spec titles]"
-```
+1. **Sync every wave sub-plan frontmatter.** For each sub-NNN executed in this wave, run:
+
+   ```bash
+   python .ai-engineering/scripts/plan_tasks.py sync .ai-engineering/runtime/autopilot/sub-NNN/plan.md
+   ```
+
+   The script rewrites the frontmatter `total` / `completed` to match the real `- [x]` count in the body. Honest tracking is mandatory — never trust a hand-written `completed:` value.
+
+2. **Commit the wave's changes:**
+
+   ```bash
+   git add [files from all sub-specs in this wave]
+   git commit -m "spec-NNN: wave W -- [comma-separated sub-spec titles]"
+   ```
 
 Commit scope:
-- Include only files owned by sub-specs in this wave.
+- Include only files owned by sub-specs in this wave, plus the sub-plan files re-synced in step 3.1.
 - Do not include manifest updates in the wave commit (those happen in Step 4).
 - If a sub-spec agent failed, its partial changes are still committed (the Self-Report documents what is incomplete).
 
