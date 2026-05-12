@@ -171,9 +171,15 @@ def test_opt_out_internal_group_still_strict() -> None:
             f"internal {cmd.name} was wrapped with help-on-no-args; internal commands must opt out"
         )
 
-    # Belt-and-suspenders: skip the future ``dev`` rename until sub-004 lands.
-    if any(g.name == "dev" for g in app.registered_groups):
-        pytest.skip("dev group exists; sub-004 has landed — extend opt-out tests")
+    # spec-132 sub-004: dev group now registered; assert opt-out parity with internal.
+    from ai_engineering.core.cli.decorators import HelpOnNoArgsCommand
+
+    dev_group = next((g for g in app.registered_groups if g.name == "dev"), None)
+    assert dev_group is not None, "dev group must exist after spec-132 sub-004"
+    for cmd in dev_group.typer_instance.registered_commands:
+        assert not (cmd.cls is not None and issubclass(cmd.cls, HelpOnNoArgsCommand)), (
+            f"dev {cmd.name} was wrapped with help-on-no-args; dev commands must opt out"
+        )
 
 
 def test_decorator_only_triggers_when_required_args_unset() -> None:

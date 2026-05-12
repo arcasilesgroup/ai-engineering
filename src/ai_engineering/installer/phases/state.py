@@ -147,7 +147,8 @@ class StatePhase:
             finally:
                 conn.close()
             state_db_bootstrapped = bool(ledger_rows)
-        except Exception as exc:  # pragma: no cover -- defensive
+
+        except Exception as exc:
             _logger.warning("state.db bootstrap failed during install: %s", exc)
 
         emit_framework_operation(
@@ -192,7 +193,7 @@ class StatePhase:
                     cap_count = conn.execute("SELECT COUNT(*) FROM tool_capabilities").fetchone()[0]
                     if not cap_count:
                         errors.append(f"State file missing: {_FRAMEWORK_CAPABILITIES}")
-                else:  # pragma: no cover -- transient until 0005 lands
+                else:
                     errors.append(f"State file missing: {_FRAMEWORK_CAPABILITIES}")
                 # spec-132 D-132-08: ownership rows must be present.
                 ownership_count = conn.execute("SELECT COUNT(*) FROM ownership_map").fetchone()[0]
@@ -203,7 +204,7 @@ class StatePhase:
                 # validated indirectly by the connect/migration ledger.
             finally:
                 conn.close()
-        except Exception as exc:  # pragma: no cover -- defensive
+        except Exception as exc:
             errors.append(f"state.db verification failed: {exc}")
         if (context.target / _LEGACY_AUDIT_LOG).exists():
             errors.append(f"Legacy state file should be absent: {_LEGACY_AUDIT_LOG}")
