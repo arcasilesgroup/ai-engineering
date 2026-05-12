@@ -39,7 +39,7 @@ _KNOWN_OVERLAPS = {
     "commit": "a2-aligned",  # ai-eng commit + /ai-commit: skill wraps CLI
     "pr": "a2-aligned",  # ai-eng pr + /ai-pr: skill wraps CLI
     "verify": "a2-distinct",  # ai-eng verify (deterministic) vs /ai-verify (LLM 4-specialist)
-    "guide": "a2-distinct",  # ai-eng guide (sub-010 will DELETE this CLI) vs /ai-guide (LLM onboarding)
+    "cleanup": "a2-distinct",  # ai-eng cleanup (7-mode CLI per D-133-03) vs /ai-cleanup (LLM)
 }
 
 
@@ -65,8 +65,10 @@ def _list_top_level_cli_verbs() -> set[str]:
         return set()
     text = factory_path.read_text()
     # Match: app.command("verb")(...)
-    pattern = re.compile(r'(?m)^[ \t]+app\.command\(\s*"([a-z][a-z0-9_-]*)"\s*\)')
-    return set(pattern.findall(text))
+    # Match top-level app.command("verb") AND app.add_typer(.., name="verb")
+    cmd_pattern = re.compile(r'(?m)^[ \t]+app\.command\(\s*"([a-z][a-z0-9_-]*)"\s*\)')
+    grp_pattern = re.compile(r'(?m)^[ \t]+app\.add_typer\(\w+,\s*name="([a-z][a-z0-9_-]*)"')
+    return set(cmd_pattern.findall(text)) | set(grp_pattern.findall(text))
 
 
 @pytest.mark.unit

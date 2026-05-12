@@ -7,6 +7,93 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-133 — Surface Primitive Re-architecture (CLI UX + Cross-IDE)
+
+Joins the PR #509 aggregate. 14 autopilot sub-specs delivered across 5
+waves. Core unification: collapse "AI Provider" + "IDE Integration" into
+a single first-class domain primitive — the **Surface** — and rebuild
+the installer, manifest, wizard, and mirror-sync around that primitive.
+Hexagonal layering becomes enforceable. The wizard collapses to one
+question. OpenCode and Cursor become full surfaces with hook adapters.
+Antigravity stays mirror-only (Google upstream confirmed workaround-only).
+9 root scripts deploy to consumer template tree. Stack content
+consolidates: `.ai-engineering/overrides/<stack>/` is the **single
+canonical home** for stack-specific guidance.
+
+**Breaking changes** (no compat shims; hard rename / hard delete per
+CONSTITUTION §13.3):
+
+1. **`ai-eng guide` DELETED** (D-133-02). `/ai-guide` skill is the
+   canonical onboarding surface. CLI handler `cli_commands/guide.py`
+   removed. No alias.
+2. **`ai-eng maintenance branch-cleanup` → `ai-eng cleanup`** (D-133-03).
+   Top-level command with 4 subcommands (`branches`, `runtime`,
+   `specs`, `all`). 7-mode taxonomy on `branches`: `--pruned` /
+   `--merged` / `--squashed` / `--stale` / `--untracked` / `--reset` /
+   `--all`. Universal flags `--dry-run` / `--json` / `--strict` /
+   `--tracked` / `--force`. Refuses detached HEAD. Never deletes current
+   branch. Squash-merge detection via git-trim's merge-base +
+   commit-tree algorithm.
+3. **`--ide` / `--provider` flags REMOVED**, replaced by `--surface/-S`
+   (D-133-18). Closed enum: `{claude-code, codex, gemini-cli,
+   github-copilot, opencode, cursor, antigravity}`.
+4. **Manifest schema**: `surfaces.enabled: list[str]` introduced as
+   the canonical key (D-133-16). Legacy `ai_providers.enabled` +
+   `providers.ides` retained for in-flight compat on PR #509;
+   loader mirrors bidirectionally. Hard removal of legacy fields is a
+   follow-up release.
+5. **4 orphan directories deleted** (D-133-13, CONSTITUTION §13.3 hard
+   delete): `.ai-engineering/adapters/`,
+   `.ai-engineering/contexts/frameworks/` (15 files),
+   `.ai-engineering/contexts/languages/` (14 files),
+   `.claude/skills/ai-debug/handlers/` (8 stack-routed),
+   `.claude/skills/ai-review/handlers/` (10 stack-routed).
+6. **Stack content consolidation** (D-133-10): stack-specific debug +
+   review guidance migrates from skill `handlers/` to
+   `.ai-engineering/overrides/<stack>/debug.md` and
+   `overrides/<stack>/review.md`. SKILL.md procedures are now
+   stack-agnostic.
+7. **3 new Surfaces** (D-133-06): `opencode` (full surface, plugin
+   engine), `cursor` (full surface, stdio JSON), `antigravity`
+   (mirror-only, no hooks upstream).
+
+**Additions**:
+
+- `src/ai_engineering/domain/surface.py` — `Surface` frozen dataclass +
+  `SURFACE_REGISTRY` (7 surfaces).
+- `src/ai_engineering/installer/phases/scripts.py` — `ScriptsPhase`
+  deploys 9 root scripts to consumer tree on every install.
+- `.ai-engineering/scripts/hooks/opencode-hook-bridge.ts` — TS plugin
+  adapter mapping OpenCode events to canonical hook contract.
+- `.ai-engineering/scripts/hooks/cursor-hook-bridge.py` — stdio JSON
+  adapter mapping Cursor camelCase events to canonical PascalCase.
+- `scripts/sync_mirrors/{opencode,cursor,antigravity}_target.py` —
+  per-surface tree generators.
+- `.claude/skills/ai-explore/SKILL.md` — thin wrapper dispatcher per
+  D-133-09 (47 -> 48 skills).
+- `src/ai_engineering/cli_ui_skill_ref.py` — `skill_ref()` /
+  `skill_ref_tight()` helpers prevent naked `/ai-<name>` literals in
+  CLI output (D-133-22).
+- `cli_factory.py` stack-drift middleware (D-133-23) emits structured
+  exit-78 envelope per D-133-24; `AIENG_STACK_DRIFT_STRICT=1` blocks
+  commit/pr/gate on drift.
+- `doctor/phases/scripts.py` doctor parity with installer phases.
+- `.ai-engineering/overrides/` 5 new stacks (`java`, `php`, `ruby`,
+  `flutter`, `react-native`) + cross-cut `_shared/sql.md` per D-133-12.
+- `CLAUDE.md` §16 Surface Axiom (A1) + No-Twin Axiom (A2) per
+  D-133-04. Mirrored to AGENTS.md / GEMINI.md / Copilot.
+- `evals/cli-ux-cross-ide/test_drift_recovery_flow.md` — 6-stack AI
+  cognitive recovery eval matrix (D-133-11).
+- `applies_to_surfaces` skill frontmatter (D-133-19);
+  `ai-analyze-permissions` declares `[claude-code]`.
+
+**Tests added**: 90+ new tests (Surface domain 10, ScriptsPhase 8,
+Skill ref 8, autodetect spec-133 9, Surface parity 4, manifest schema
+6, wizard collapse 6, OpenCode bridge 4, Cursor bridge 5,
+sync_mirror targets 6, stack-drift middleware 6, doctor stack-drift 4,
+cleanup CLI 8, stack inventory 17).
+
+
 ### spec-132 — CLI UX & Architecture Overhaul
 
 Delivers the full `cli-ux-overhaul` brief (M0–M6) in a single PR #509

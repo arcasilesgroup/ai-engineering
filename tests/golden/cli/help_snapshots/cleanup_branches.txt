@@ -1,0 +1,26 @@
+
+ Usage: ai-eng cleanup branches [OPTIONS]
+
+ Clean up local git branches across 7 canonical modes.
+
+ Exit codes per D-133-26:
+ - 0 = clean (no branches matched OR all matched-and-deleted)
+ - 1 = found-and-acted (deletions happened)
+ - 2 = blocked-by-protection (detached HEAD or other safety guard)
+ - 78 = stack-drift-block (set by middleware)
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --pruned             Delete branches with  upstream.                         │
+│ --merged             Delete merged branches.                                 │
+│ --squashed           Delete squash-merged branches.                          │
+│ --stale              Delete branches with no commits in 90 days.             │
+│ --untracked          Delete branches with no upstream ref.                   │
+│ --reset              Force re-sync to remote state.                          │
+│ --all                All 7 cleanup modes combined.                           │
+│ --dry-run            Preview without deleting.                               │
+│ --json               Output structured JSON.                                 │
+│ --strict             Fail-fast on first error.                               │
+│ --tracked            Also delete remote tracking refs.                       │
+│ --force              Bypass safety checks.                                   │
+│ --help               Show this message and exit.                             │
+╰──────────────────────────────────────────────────────────────────────────────╯

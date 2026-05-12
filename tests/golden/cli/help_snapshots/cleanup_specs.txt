@@ -1,0 +1,10 @@
+
+ Usage: ai-eng cleanup specs [OPTIONS]
+
+ Consolidate shipped specs via ``spec_lifecycle.py consolidate_shipped``.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --dry-run          Preview spec consolidation.                               │
+│ --json             Output structured JSON.                                   │
+│ --help             Show this message and exit.                               │
+╰──────────────────────────────────────────────────────────────────────────────╯

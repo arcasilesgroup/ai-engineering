@@ -10,15 +10,8 @@
 .ai-engineering/scripts/
 .ai-engineering/security/
 .ai-engineering/specs/
-.ai-engineering/specs/current-summary.md
-.ai-engineering/specs/evidence/
-.ai-engineering/specs/evidence/.gitkeep
-.ai-engineering/specs/handoffs/
-.ai-engineering/specs/handoffs/.gitkeep
-.ai-engineering/specs/history-summary.md
 .ai-engineering/specs/plan.md
 .ai-engineering/specs/spec.md
-.ai-engineering/specs/task-ledger.json
 .ai-engineering/state/
 .ai-engineering/state/framework-events.ndjson
 .ai-engineering/state/locks/
