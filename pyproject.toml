@@ -40,6 +40,10 @@ dev = [
   "types-pyyaml>=6.0,<7.0",
   "pytest-xdist>=3.5,<4.0",
   "python-semantic-release>=9.0,<10",
+  # spec-132 sub-005 D-132-13 — hexagonal direction contract enforcement.
+  # ``lint-imports`` runs against ``[tool.importlinter]`` in this file and
+  # is policed by ``tests/architecture/test_hexagonal.py``.
+  "import-linter>=2.0,<3.0",
 ]
 
 # === USER CONFIGURATION: Enterprise Artifact Feed ===
@@ -186,6 +190,79 @@ match = "main"
 allowed_types = ["feat", "fix", "perf", "refactor", "style", "docs", "test", "build", "ci", "chore", "revert"]
 minor_types = ["feat"]
 patch_types = ["fix", "perf"]
+
+# spec-132 sub-005 D-132-13 — Hexagonal direction contract.
+#
+# Pragmatic scope (orchestrator decision): physical mass relocation of the
+# flat ``src/ai_engineering/`` tree into ``core/`` and ``adapters/<surface>/``
+# is DEFERRED to a follow-up spec. This contract enforces the DIRECTION
+# conceptually over the existing flat tree: modules grouped under ``core``
+# are forbidden from importing modules grouped under ``adapters``. New code
+# that violates the direction fails CI immediately, regardless of physical
+# layout.
+#
+# Layer membership rationale:
+#   - ``core``     = pure-domain modules (governance, state, policy,
+#                    validator) + the relocated ``ai_engineering.core``
+#                    tree from prior sub-spec waves. Note: ``decisions``
+#                    lives inside ``governance.decision_log``;
+#                    ``spec_lifecycle`` lives outside the package under
+#                    ``.ai-engineering/scripts/`` and is not gated here.
+#   - ``adapters`` = delivery surfaces (Typer command callbacks, installer
+#                    phases, vcs/gh adapters, ide wirings, updater flow,
+#                    issues GitHub-sync adapter).
+# Modules NOT in either layer (e.g., ``cli_envelope``, ``cli_ui``,
+# ``cli_progress``, ``cli_output``, ``cli_factory``, ``cli``, ``cli_preflight``,
+# ``config``, ``credentials``, ``git``, ``hooks``, ``release``, etc.) are
+# transitional shared utilities; they ride for free until a follow-up spec
+# classifies them. The contract DELIBERATELY does not gate them.
+#
+# Enforcement: ``uv run lint-imports`` and
+# ``tests/architecture/test_hexagonal.py``.
+[tool.importlinter]
+root_packages = ["ai_engineering"]
+
+[[tool.importlinter.contracts]]
+name = "core must not import from adapters (spec-132 D-132-13)"
+type = "forbidden"
+source_modules = [
+  "ai_engineering.core",
+  "ai_engineering.governance",
+  "ai_engineering.state",
+  "ai_engineering.policy",
+  "ai_engineering.validator",
+]
+forbidden_modules = [
+  "ai_engineering.cli_commands",
+  "ai_engineering.installer",
+  "ai_engineering.vcs",
+  "ai_engineering.ide",
+  "ai_engineering.updater",
+  "ai_engineering.issues",
+]
+# Baseline of pre-existing direction violations recorded at spec-132
+# sub-005 land time. The contract BLOCKS any NEW violation; the baseline
+# entries below are the legacy entanglements the follow-up relocation
+# spec will untangle. Each ``ignore_imports`` line names the precise
+# source -> target edge that import-linter would otherwise flag. Adding
+# new entries is forbidden without an explicit decision row.
+ignore_imports = [
+  # Renderer (core/output) wraps the legacy cli_ui module which itself
+  # imports updater.service.show_status_after_install. The Renderer
+  # migration deferred elimination of this edge to a follow-up spec
+  # alongside the cli_ui retirement (D-132-12 wrapper-not-replacement).
+  "ai_engineering.cli_ui -> ai_engineering.updater.service",
+  # updater.service still inlines installer template helpers. The
+  # follow-up "mass relocation" spec will split these into ports.
+  "ai_engineering.updater.service -> ai_engineering.installer.templates",
+  # policy.checks.stack_runner shells out to installer launchers (the
+  # OS-launcher abstraction that the installer owns). This edge will
+  # invert once stack_runner depends on a launcher port instead.
+  "ai_engineering.policy.checks.stack_runner -> ai_engineering.installer.launchers",
+  # validator._shared resolves template paths during file-existence
+  # checks. Will invert once a template-path port is introduced.
+  "ai_engineering.validator._shared -> ai_engineering.installer.templates",
+]
 
 [tool.hatch.build.targets.wheel]
 # spec-127 M1: top-level conformance lint packages live under ``tools/``

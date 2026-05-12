@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+#### spec-132 — pragmatic hexagonal seam (sub-005)
+
+Implements D-132-13 with a pragmatic scope deviation per orchestrator
+decision: pins the hexagonal DIRECTION via an `import-linter` contract
+over the EXISTING flat `src/ai_engineering/` tree rather than mass-
+relocating ~50 modules in a single wave. The contract enforces "core
+must not import from adapters" with 4 baseline-pinned legacy edges
+(`ignore_imports`) that the follow-up relocation spec will untangle.
+
+- New `[tool.importlinter]` block in `pyproject.toml` with one
+  `forbidden` contract.
+- New `tests/architecture/test_hexagonal.py` runs `lint-imports` as
+  subprocess; asserts every contract is KEPT.
+- New `docs/architecture/dir-schemas.md` documents the layer map,
+  direction rule, baseline-pinned ignores, and deferred-relocation
+  backlog (≤100 lines).
+- `import-linter>=2.0,<3.0` added to dev dependencies (`grimp 3.14`,
+  `import-linter 2.11`).
+- Physical mass relocation of the flat tree into
+  `src/ai_engineering/{core,adapters}/<surface>/` is **deferred** to
+  a follow-up spec (out of single-PR scope per D-132-01).
+- Hot-path budgets remain green (pre-commit < 1 s p95, pre-push < 5 s
+  p95 -- see `tests/unit/hooks/test_hot_path_slo.py`).
+
 ### spec-132 — P0 stop-the-bleeding (sub-001)
 
 Eliminates the six P0 bugs that made a fresh `ai-eng install` produce
