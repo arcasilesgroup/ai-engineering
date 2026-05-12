@@ -1,9 +1,0 @@
-
- Usage: ai-eng workflow pr-only [OPTIONS]
-
- Create a PR from the current HEAD without staging or committing.
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Project root.                                        │
-│ --help                  Show this message and exit.                          │
-╰──────────────────────────────────────────────────────────────────────────────╯

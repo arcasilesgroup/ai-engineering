@@ -1,5 +1,5 @@
 
- Usage: ai-eng ide list [OPTIONS]
+ Usage: ai-eng config ide list [OPTIONS]
 
  List active IDE integrations.
 

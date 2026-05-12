@@ -1,11 +1,12 @@
 
- Usage: ai-eng vcs status [OPTIONS] [TARGET]
+ Usage: ai-eng pr [OPTIONS] MESSAGE
 
- Show current VCS provider configuration and availability.
+ Standalone off-chain PR open.
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│   target      [TARGET]  Target project root. Defaults to cwd.                │
+│ *    message      TEXT  Commit message for the PR [required]                 │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                  │
+│ --target        PATH                                                         │
+│ --help                Show this message and exit.                            │
 ╰──────────────────────────────────────────────────────────────────────────────╯

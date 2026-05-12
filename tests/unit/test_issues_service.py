@@ -8,16 +8,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
-from ai_engineering.state.work_plane import write_task_ledger
-from ai_engineering.vcs.protocol import VcsResult
-from ai_engineering.work_items.service import (
+from ai_engineering.issues.service import (
     SyncReport,
     get_hierarchy_rules,
     get_linked_issue_id,
     resolve_closeable_refs,
     sync_spec_issues,
 )
+from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
+from ai_engineering.state.work_plane import write_task_ledger
+from ai_engineering.vcs.protocol import VcsResult
 
 
 def _make_spec_dir(root: Path, spec_id: str, *, done: bool = False, spec_text: str = "") -> Path:
@@ -63,7 +63,7 @@ class TestSyncSpecIssues:
         provider = _mock_provider(find_output="")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         # Assert
@@ -76,7 +76,7 @@ class TestSyncSpecIssues:
         provider = _mock_provider(find_output="42")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         # Assert
@@ -89,7 +89,7 @@ class TestSyncSpecIssues:
         provider = _mock_provider(find_output="42")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         # Assert
@@ -103,7 +103,7 @@ class TestSyncSpecIssues:
         provider = _mock_provider(find_output="")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path, dry_run=True)
 
         # Assert — should report what would happen but not call provider write methods
@@ -118,7 +118,7 @@ class TestSyncSpecIssues:
         provider.find_issue.return_value = VcsResult(success=False, output="auth failed")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         # Assert
@@ -130,7 +130,7 @@ class TestSyncSpecIssues:
         provider = _mock_provider()
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         # Assert
@@ -144,7 +144,7 @@ class TestSyncSpecIssues:
         provider.close_issue.return_value = VcsResult(success=False, output="auth failed")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         # Assert
@@ -158,7 +158,7 @@ class TestSyncSpecIssues:
         provider.create_issue.return_value = VcsResult(success=False, output="rate limited")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         # Assert
@@ -171,7 +171,7 @@ class TestSyncSpecIssues:
         provider = _mock_provider(find_output="42")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path, dry_run=True)
 
         # Assert
@@ -180,7 +180,7 @@ class TestSyncSpecIssues:
 
     def test_parse_spec_oserror(self, tmp_path: Path) -> None:
         # Arrange
-        from ai_engineering.work_items.service import _parse_spec_for_issue
+        from ai_engineering.issues.service import _parse_spec_for_issue
 
         spec_md = tmp_path / "spec.md"
         spec_md.write_text("content", encoding="utf-8")
@@ -206,7 +206,7 @@ class TestSyncSpecIssues:
         provider = _mock_provider()
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         # Assert
@@ -232,7 +232,7 @@ class TestSyncSpecIssues:
 
         provider = _mock_provider(find_output="")
 
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         assert "037-sync" in report.created
@@ -254,7 +254,7 @@ class TestSyncSpecIssues:
 
         provider = _mock_provider(find_output="")
 
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         assert "117-hx-02" in report.created
@@ -273,7 +273,7 @@ class TestSyncSpecIssues:
 
         provider = _mock_provider(find_output="")
 
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         assert "117-hx-02" in report.created
@@ -315,7 +315,7 @@ class TestSyncSpecIssues:
 
         provider = _mock_provider(find_output="")
 
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         assert "117-hx-02" in report.created
@@ -354,7 +354,7 @@ class TestSyncSpecIssues:
 
         provider = _mock_provider(find_output="")
 
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         assert report == SyncReport()
@@ -380,7 +380,7 @@ class TestSyncSpecIssues:
 
         provider = _mock_provider(find_output="")
 
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             report = sync_spec_issues(tmp_path)
 
         assert report == SyncReport()
@@ -398,7 +398,7 @@ class TestGetLinkedIssueId:
         provider = _mock_provider(find_output="42")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             result = get_linked_issue_id(tmp_path, "037-sync")
 
         # Assert
@@ -409,7 +409,7 @@ class TestGetLinkedIssueId:
         provider = _mock_provider(find_output="")
 
         # Act
-        with patch("ai_engineering.work_items.service.get_provider", return_value=provider):
+        with patch("ai_engineering.issues.service.get_provider", return_value=provider):
             result = get_linked_issue_id(tmp_path, "037-sync")
 
         # Assert
@@ -428,7 +428,7 @@ class TestPrDescriptionIssueLink:
         # Act
         with (
             patch(
-                "ai_engineering.work_items.service.get_provider",
+                "ai_engineering.issues.service.get_provider",
                 return_value=_mock_provider(find_output="7"),
             ),
             patch(
@@ -447,7 +447,7 @@ class TestPrDescriptionIssueLink:
         # Act
         with (
             patch(
-                "ai_engineering.work_items.service.get_provider",
+                "ai_engineering.issues.service.get_provider",
                 return_value=_mock_provider(find_output="101"),
             ),
             patch(
@@ -465,7 +465,7 @@ class TestPrDescriptionIssueLink:
 
         # Act
         with patch(
-            "ai_engineering.work_items.service.get_provider",
+            "ai_engineering.issues.service.get_provider",
             return_value=_mock_provider(find_output=""),
         ):
             result = _build_issue_reference(tmp_path, "037-sync")

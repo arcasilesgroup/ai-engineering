@@ -595,10 +595,15 @@ class TestVcsFactoryAzdoAlias:
         assert "azdo" in _PROVIDERS
         assert _PROVIDERS["azdo"] is AzureDevOpsProvider
 
-    def test_azdo_in_valid_providers_list(self) -> None:
-        from ai_engineering.cli_commands.vcs import _VALID_PROVIDERS
+    def test_azdo_in_factory_providers_list(self) -> None:
+        """Spec-132 sub-004: the legacy ``cli_commands.vcs._VALID_PROVIDERS``
+        constant was retired together with the top-level ``vcs`` verb (its
+        sole consumer). The factory map is now the single source of truth
+        for ``azdo`` provider acceptance.
+        """
+        from ai_engineering.vcs.factory import _PROVIDERS
 
-        assert "azdo" in _VALID_PROVIDERS
+        assert "azdo" in _PROVIDERS
 
 
 # ---------------------------------------------------------------

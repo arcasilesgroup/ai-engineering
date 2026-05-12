@@ -226,60 +226,20 @@ class TestUpdateCommand:
 
 
 class TestStackCommands:
-    """Tests for stack add/remove/list commands."""
+    """Tests for ``ai-eng config stack list`` (spec-132 D-132-04).
+
+    Mutator verbs (``stack add`` / ``stack remove``) were collapsed into the
+    interactive reconfigure flow (``ai-eng config``). The only inspection
+    surface that survives is ``config stack list``.
+    """
 
     def test_stack_list(self, installed_dir: Path, app: object) -> None:
         result = runner.invoke(
             app,
-            ["stack", "list", "--target", str(installed_dir)],
+            ["config", "stack", "list", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
         assert "python" in result.output
-
-    def test_stack_remove_and_readd(
-        self,
-        installed_dir: Path,
-        app: object,
-    ) -> None:
-        # Remove existing
-        result = runner.invoke(
-            app,
-            ["stack", "remove", "python", "--target", str(installed_dir)],
-        )
-        assert result.exit_code == 0
-        assert "Removed stack 'python'" in result.output
-
-        # Re-add
-        result = runner.invoke(
-            app,
-            ["stack", "add", "python", "--target", str(installed_dir)],
-        )
-        assert result.exit_code == 0
-        assert "Added stack 'python'" in result.output
-
-    def test_stack_add_duplicate_fails(
-        self,
-        installed_dir: Path,
-        app: object,
-    ) -> None:
-        result = runner.invoke(
-            app,
-            ["stack", "add", "python", "--target", str(installed_dir)],
-        )
-        assert result.exit_code == 1
-
-    def test_stack_add_unknown_rejected(
-        self,
-        installed_dir: Path,
-        app: object,
-    ) -> None:
-        result = runner.invoke(
-            app,
-            ["stack", "add", "bogus", "--target", str(installed_dir)],
-        )
-        assert result.exit_code == 1
-        assert "Unknown stack" in result.output
-        assert "python" in result.output  # shows available stacks
 
 
 # ---------------------------------------------------------------------------
@@ -288,44 +248,19 @@ class TestStackCommands:
 
 
 class TestIDECommands:
-    """Tests for ide add/remove/list commands."""
+    """Tests for ``ai-eng config ide list`` (spec-132 D-132-04).
+
+    Mutator verbs (``ide add`` / ``ide remove``) were collapsed into the
+    interactive reconfigure flow (``ai-eng config``).
+    """
 
     def test_ide_list(self, installed_dir: Path, app: object) -> None:
         result = runner.invoke(
             app,
-            ["ide", "list", "--target", str(installed_dir)],
+            ["config", "ide", "list", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
         assert "vscode" in result.output
-
-    def test_ide_add_and_remove(
-        self,
-        installed_dir: Path,
-        app: object,
-    ) -> None:
-        result = runner.invoke(
-            app,
-            ["ide", "add", "jetbrains", "--target", str(installed_dir)],
-        )
-        assert result.exit_code == 0
-
-        result = runner.invoke(
-            app,
-            ["ide", "remove", "jetbrains", "--target", str(installed_dir)],
-        )
-        assert result.exit_code == 0
-
-    def test_ide_add_unknown_rejected(
-        self,
-        installed_dir: Path,
-        app: object,
-    ) -> None:
-        result = runner.invoke(
-            app,
-            ["ide", "add", "notepad", "--target", str(installed_dir)],
-        )
-        assert result.exit_code == 1
-        assert "Unknown IDE" in result.output
 
 
 # ---------------------------------------------------------------------------

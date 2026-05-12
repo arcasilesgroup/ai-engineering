@@ -1,14 +1,11 @@
 
- Usage: ai-eng vcs set-primary [OPTIONS] PROVIDER_NAME
+ Usage: ai-eng config vcs status [OPTIONS] [TARGET]
 
- Set the primary VCS provider in the manifest config.
+ Show current VCS provider configuration and availability.
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    provider_name      TEXT  Provider to set as primary: 'github' or        │
-│                               'azure_devops'.                                │
-│                               [required]                                     │
+│   target      [TARGET]  Target project root. Defaults to cwd.                │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Target project root. Defaults to cwd.                │
-│ --help                  Show this message and exit.                          │
+│ --help          Show this message and exit.                                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯

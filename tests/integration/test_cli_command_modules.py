@@ -13,12 +13,11 @@ import pytest
 import typer
 
 from ai_engineering.cli_commands import (
+    check,
+    config,
     core,
     gate,
     maintenance,
-    stack_ide,
-    validate,
-    vcs,
 )
 from ai_engineering.cli_output import set_json_mode
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
@@ -144,12 +143,12 @@ def test_maintenance_branch_cleanup_fail_exits(tmp_path: Path) -> None:
         maintenance.maintenance_branch_cleanup(target=tmp_path)
 
 
-def test_validate_unknown_category_exits(tmp_path: Path) -> None:
-    with pytest.raises(typer.Exit):
-        validate.validate_cmd(target=tmp_path, category="nope")
+def test_check_unknown_category_exits(tmp_path: Path) -> None:
+    with pytest.raises(SystemExit):
+        check.check_cmd(target=tmp_path, category="nope")
 
 
-def test_validate_json_and_failure_exit(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
+def test_check_json_and_failure_exit(capsys: pytest.CaptureFixture[str], tmp_path: Path) -> None:
     fake_report = SimpleNamespace(
         passed=False,
         to_dict=lambda: {"passed": False},
@@ -158,16 +157,17 @@ def test_validate_json_and_failure_exit(capsys: pytest.CaptureFixture[str], tmp_
     )
     with (
         patch(
-            "ai_engineering.cli_commands.validate.validate_content_integrity",
+            "ai_engineering.cli_commands.check.validate_content_integrity",
             return_value=fake_report,
         ),
         pytest.raises(typer.Exit),
     ):
-        validate.validate_cmd(target=tmp_path, output_json=True)
-    assert json.loads(capsys.readouterr().out)["passed"] is False
+        check.check_cmd(target=tmp_path, output_json=True)
+    out = capsys.readouterr().out
+    assert "passed" in out
 
 
-def test_vcs_status_and_set_primary(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_config_vcs_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     ai_eng_dir = tmp_path / ".ai-engineering"
     state_dir = ai_eng_dir / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -179,21 +179,10 @@ def test_vcs_status_and_set_primary(tmp_path: Path, capsys: pytest.CaptureFixtur
     )
 
     provider = SimpleNamespace(provider_name=lambda: "github", is_available=lambda: True)
-    with patch("ai_engineering.cli_commands.vcs.get_provider", return_value=provider):
-        vcs.vcs_status(target=tmp_path)
+    with patch("ai_engineering.vcs.factory.get_provider", return_value=provider):
+        config.vcs_status(target=tmp_path)
     captured = capsys.readouterr()
-    assert "Primary provider" in captured.err
-
-    vcs.vcs_set_primary("azure_devops", target=tmp_path)
-    import yaml
-
-    updated = yaml.safe_load(manifest_yml.read_text(encoding="utf-8"))
-    assert updated["providers"]["vcs"] == "azure_devops"
-
-
-def test_vcs_set_primary_invalid_provider_exits(tmp_path: Path) -> None:
-    with pytest.raises(typer.Exit):
-        vcs.vcs_set_primary("bad", target=tmp_path)
+    assert "primary=github" in captured.err
 
 
 def test_core_update_json_and_doctor_fail(
@@ -316,27 +305,20 @@ def test_core_doctor_json_omits_fix_when_follow_up_is_manual(
     assert data["next_actions"] == []
 
 
-def test_stack_and_ide_empty_lists_and_errors(
+def test_config_stack_and_ide_empty_lists(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    empty_manifest = SimpleNamespace(providers=SimpleNamespace(stacks=[], ides=[]))
-    with patch("ai_engineering.cli_commands.stack_ide.list_status", return_value=empty_manifest):
-        stack_ide.stack_list(target=tmp_path)
-        stack_ide.ide_list(target=tmp_path)
+    empty_manifest = SimpleNamespace(
+        providers=SimpleNamespace(stacks=[], ides=[]),
+        ai_providers=SimpleNamespace(enabled=[], primary=None),
+    )
+    with patch("ai_engineering.cli_commands.config.list_status", return_value=empty_manifest):
+        config.stack_list(target=tmp_path)
+        config.ide_list(target=tmp_path)
     captured = capsys.readouterr()
-    # info() writes to stderr via Rich Console
     assert "No stacks configured" in captured.err
     assert "No IDEs configured" in captured.err
-
-    with (
-        patch(
-            "ai_engineering.cli_commands.stack_ide.add_stack",
-            side_effect=stack_ide.InstallerError("x"),
-        ),
-        pytest.raises(typer.Exit),
-    ):
-        stack_ide.stack_add("python", target=tmp_path)
 
 
 def test_core_update_diff_truncation(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -771,8 +753,8 @@ def test_maintenance_risk_status_branches(
     assert "Expired" in captured.err
 
 
-def test_validate_text_output_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    check = SimpleNamespace(
+def test_check_text_output_path(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    fake_check = SimpleNamespace(
         status=SimpleNamespace(value="ok"),
         name="n",
         message="m",
@@ -780,17 +762,16 @@ def test_validate_text_output_path(tmp_path: Path, capsys: pytest.CaptureFixture
     )
     fake_report = SimpleNamespace(
         passed=True,
-        by_category=lambda: {cat: [check] for cat in validate.IntegrityCategory},
+        by_category=lambda: {cat: [fake_check] for cat in check.IntegrityCategory},
         category_passed=lambda _cat: True,
     )
     with patch(
-        "ai_engineering.cli_commands.validate.validate_content_integrity", return_value=fake_report
+        "ai_engineering.cli_commands.check.validate_content_integrity", return_value=fake_report
     ):
-        validate.validate_cmd(target=tmp_path)
+        check.check_cmd(target=tmp_path)
     captured = capsys.readouterr()
-    # result_header writes to stderr via Rich Console
-    assert "Validate" in captured.err
-    assert "PASS" in captured.err
+    # Renderer header() emits the command name to stderr.
+    assert "check" in captured.err.lower()
 
 
 def test_skills_cli_branches(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

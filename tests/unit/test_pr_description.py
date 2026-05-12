@@ -421,7 +421,7 @@ class TestBuildPrDescription:
 
         with (
             patch(
-                "ai_engineering.work_items.service.get_linked_issue_id",
+                "ai_engineering.issues.service.get_linked_issue_id",
                 side_effect=fake_get_linked_issue_id,
             ),
             patch("ai_engineering.vcs.factory.detect_from_remote", return_value="github"),

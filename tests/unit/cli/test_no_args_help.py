@@ -122,17 +122,26 @@ def test_brief_problem_commands_are_covered() -> None:
 
     Acts as a tripwire: if any of these is no longer registered, this test
     fails loudly so the maintainer revisits coverage.
+
+    Spec-132 sub-004 collapsed the legacy ``stack``/``ide``/``provider``
+    mutator verbs (``add`` / ``remove``) into the interactive
+    ``ai-eng config`` flow, so they are no longer part of the required-
+    arg surface. The remaining tripwires are commands that still take a
+    required positional argument and would otherwise trip Click's
+    ``MissingParameter`` UX.
     """
     expected_subset = {
         ("verify",),
         ("release",),
-        ("stack", "add"),
-        ("stack", "remove"),
-        ("ide", "add"),
-        ("ide", "remove"),
+        ("commit",),
+        ("pr",),
         ("gate", "commit-msg"),
-        ("provider", "add"),
         ("spec", "activate"),
+        ("risk", "accept"),
+        ("risk", "renew"),
+        ("risk", "resolve"),
+        ("risk", "revoke"),
+        ("risk", "show"),
     }
     discovered = set(REQUIRED_ARG_CASES)
     missing = expected_subset - discovered

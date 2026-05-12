@@ -1,5 +1,5 @@
 
- Usage: ai-eng stack list [OPTIONS]
+ Usage: ai-eng config stack list [OPTIONS]
 
  List active technology stacks.
 

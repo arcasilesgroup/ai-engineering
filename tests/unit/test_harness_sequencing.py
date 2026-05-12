@@ -11,9 +11,9 @@ from types import SimpleNamespace
 
 import pytest
 
+import ai_engineering.cli_commands.check as check_module
+import ai_engineering.cli_commands.dev_sync as dev_sync_module
 import ai_engineering.cli_commands.gate as gate_module
-import ai_engineering.cli_commands.sync as sync_module
-import ai_engineering.cli_commands.validate as validate_module
 import ai_engineering.cli_commands.verify_cmd as verify_cmd_module
 import ai_engineering.state.observability as observability_module
 from ai_engineering.state.models import FrameworkEvent, GateFindingsDocument
@@ -52,29 +52,24 @@ def test_sync_uses_mirror_lock(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) 
     script.write_text("print('ok')\n", encoding="utf-8")
 
     calls: list[tuple[Path, str]] = []
-    monkeypatch.setattr(sync_module, "artifact_lock", _lock_spy(calls))
-    monkeypatch.setattr(sync_module, "resolve_project_root", lambda _target: tmp_path)
-    monkeypatch.setattr(sync_module, "is_json_mode", lambda: False)
-    monkeypatch.setattr(sync_module, "spinner", lambda _action: contextlib.nullcontext())
+    monkeypatch.setattr(dev_sync_module, "artifact_lock", _lock_spy(calls))
+    monkeypatch.setattr(dev_sync_module, "resolve_project_root", lambda _target: tmp_path)
     monkeypatch.setattr(
-        sync_module.subprocess,
+        dev_sync_module.subprocess,
         "run",
         lambda *args, **kwargs: SimpleNamespace(returncode=0, stdout="", stderr=""),
     )
-    monkeypatch.setattr(sync_module, "result_header", lambda *args: None)
-    monkeypatch.setattr(sync_module, "status_line", lambda *args: None)
 
-    sync_module.sync_cmd(check=True)
+    dev_sync_module.dev_sync_cmd(check=True)
 
     assert calls == [(tmp_path, "mirror-sync")]
 
 
-def test_validate_all_categories_uses_mirror_lock(
+def test_check_all_categories_uses_mirror_lock(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     calls: list[tuple[Path, str]] = []
-    monkeypatch.setattr(validate_module, "artifact_lock", _lock_spy(calls))
-    monkeypatch.setattr(validate_module, "spinner", lambda _action: contextlib.nullcontext())
+    monkeypatch.setattr(check_module, "artifact_lock", _lock_spy(calls))
 
     report = SimpleNamespace(
         passed=True,
@@ -83,20 +78,19 @@ def test_validate_all_categories_uses_mirror_lock(
         category_passed=lambda _cat: True,
     )
     monkeypatch.setattr(
-        validate_module, "validate_content_integrity", lambda *_args, **_kwargs: report
+        check_module, "validate_content_integrity", lambda *_args, **_kwargs: report
     )
 
-    validate_module.validate_cmd(target=tmp_path, output_json=True)
+    check_module.check_cmd(target=tmp_path, output_json=True)
 
     assert calls == [(tmp_path, "mirror-sync")]
 
 
-def test_validate_non_mirror_category_skips_mirror_lock(
+def test_check_non_mirror_category_skips_mirror_lock(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     calls: list[tuple[Path, str]] = []
-    monkeypatch.setattr(validate_module, "artifact_lock", _lock_spy(calls))
-    monkeypatch.setattr(validate_module, "spinner", lambda _action: contextlib.nullcontext())
+    monkeypatch.setattr(check_module, "artifact_lock", _lock_spy(calls))
 
     report = SimpleNamespace(
         passed=True,
@@ -105,10 +99,10 @@ def test_validate_non_mirror_category_skips_mirror_lock(
         category_passed=lambda _cat: True,
     )
     monkeypatch.setattr(
-        validate_module, "validate_content_integrity", lambda *_args, **_kwargs: report
+        check_module, "validate_content_integrity", lambda *_args, **_kwargs: report
     )
 
-    validate_module.validate_cmd(target=tmp_path, category="file-existence", output_json=True)
+    check_module.check_cmd(target=tmp_path, category="file-existence", output_json=True)
 
     assert calls == []
 
@@ -118,7 +112,6 @@ def test_verify_governance_uses_mirror_lock(
 ) -> None:
     calls: list[tuple[Path, str]] = []
     monkeypatch.setattr(verify_cmd_module, "artifact_lock", _lock_spy(calls))
-    monkeypatch.setattr(verify_cmd_module, "spinner", lambda _action: contextlib.nullcontext())
 
     result = SimpleNamespace(
         profile="normal",

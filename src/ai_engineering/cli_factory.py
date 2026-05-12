@@ -24,25 +24,33 @@ from pydantic import ValidationError
 
 from ai_engineering.cli_commands import (
     audit_cmd,
+    check,
     core,
     decisions_cmd,
+    dev_sync,
     gate,
     guide,
     internal,
+    issue,
     maintenance,
-    provider,
     release,
     risk_cmd,
     setup,
     skills,
     spec_cmd,
-    stack_ide,
-    sync,
-    validate,
-    vcs,
     verify_cmd,
-    work_item,
-    workflow,
+)
+from ai_engineering.cli_commands import (
+    commit as commit_cmd_mod,
+)
+from ai_engineering.cli_commands import (
+    config as config_cmd_mod,
+)
+from ai_engineering.cli_commands import (
+    pr as pr_cmd_mod,
+)
+from ai_engineering.cli_commands import (
+    status as status_cmd_mod,
 )
 
 # Commands exempt from deprecation blocking (needed for diagnosis and remediation).
@@ -126,24 +134,24 @@ def _app_callback(
                         "install",
                         "update",
                         "doctor",
-                        "validate",
+                        "check",
                         "verify",
                         "version",
                         "guide",
-                        "sync",
-                        "stack",
-                        "ide",
-                        "provider",
+                        "config",
+                        "status",
+                        "issue",
                         "gate",
                         "skill",
                         "maintenance",
-                        "vcs",
                         "setup",
                         "release",
                         "decision",
                         "audit",
-                        "work-item",
-                        "workflow",
+                        "commit",
+                        "pr",
+                        "risk",
+                        "spec",
                     ]
                 },
             )
@@ -185,6 +193,39 @@ def _safe(func: Callable) -> Callable:
     return _cli_error_boundary(func)
 
 
+# spec-132 D-132-02..05: removed verbs map to their replacements. Each
+# removed top-level verb is registered as a hidden command that prints
+# ``removed; use <new>`` to stderr and exits 2 -- no soft-redirect.
+_REMOVED_VERBS: dict[str, str] = {
+    "validate": "check",
+    "work-item": "issue",
+    "stack": "config",
+    "ide": "config",
+    "provider": "config",
+    "vcs": "config",
+    "workflow": "ai-eng pr",
+    "sync": "dev sync",
+}
+
+
+def _build_removed_handler(old: str, new: str) -> Callable[..., None]:
+    """Build a Typer-compatible handler that surfaces the rename."""
+
+    def _removed(
+        extra_args: Annotated[
+            list[str] | None,
+            typer.Argument(),
+        ] = None,
+    ) -> None:
+        del extra_args
+        sys.stderr.write(f"removed; use '{new}'\n")
+        raise typer.Exit(code=2)
+
+    _removed.__name__ = f"removed_{old.replace('-', '_')}"
+    _removed.__doc__ = f"removed; use '{new}'"
+    return _removed
+
+
 def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     """Build and return the Typer application.
 
@@ -208,40 +249,39 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         epilog="[dim]Docs & issues:[/dim] https://github.com/arcasilesgroup/ai-engineering",
     )
 
-    # Core commands (top-level)
+    # Core commands (top-level) -- final 20-verb tree per D-132-02..05.
     app.command("install")(_safe(core.install_cmd))
     app.command("update")(_safe(core.update_cmd))
     app.command("doctor")(_safe(core.doctor_cmd))
-    app.command("validate")(_safe(validate.validate_cmd))
+    app.command("check")(_safe(check.check_cmd))
     app.command("verify")(_safe(verify_cmd.verify_cmd))
     app.command("version")(core.version_cmd)
     app.command("release")(_safe(release.release_cmd))
     app.command("guide")(_safe(guide.guide_cmd))
+    app.command("status")(_safe(status_cmd_mod.status_cmd))
+    app.command("commit")(_safe(commit_cmd_mod.commit_cmd))
+    app.command("pr")(_safe(pr_cmd_mod.pr_cmd))
 
-    # Sync command (mirror management)
-    app.command("sync")(_safe(sync.sync_cmd))
-
-    # Stack sub-group
-    stack_app = typer.Typer(
-        name="stack",
-        help="Manage technology stacks.",
-        no_args_is_help=True,
+    # Config sub-group (D-132-04): consolidates stack/ide/provider/vcs.
+    config_app = typer.Typer(
+        name="config",
+        help="Inspect or interactively reconfigure stacks/IDEs/providers/VCS.",
+        invoke_without_command=True,
     )
-    stack_app.command("add")(_safe(stack_ide.stack_add))
-    stack_app.command("remove")(_safe(stack_ide.stack_remove))
-    stack_app.command("list")(_safe(stack_ide.stack_list))
-    app.add_typer(stack_app, name="stack")
-
-    # IDE sub-group
-    ide_app = typer.Typer(
-        name="ide",
-        help="Manage IDE integrations.",
-        no_args_is_help=True,
-    )
-    ide_app.command("add")(_safe(stack_ide.ide_add))
-    ide_app.command("remove")(_safe(stack_ide.ide_remove))
-    ide_app.command("list")(_safe(stack_ide.ide_list))
-    app.add_typer(ide_app, name="ide")
+    config_app.callback()(_safe(config_cmd_mod.config_cmd))
+    config_stack_app = typer.Typer(name="stack", no_args_is_help=True)
+    config_stack_app.command("list")(_safe(config_cmd_mod.stack_list))
+    config_app.add_typer(config_stack_app, name="stack")
+    config_ide_app = typer.Typer(name="ide", no_args_is_help=True)
+    config_ide_app.command("list")(_safe(config_cmd_mod.ide_list))
+    config_app.add_typer(config_ide_app, name="ide")
+    config_provider_app = typer.Typer(name="provider", no_args_is_help=True)
+    config_provider_app.command("list")(_safe(config_cmd_mod.provider_list))
+    config_app.add_typer(config_provider_app, name="provider")
+    config_vcs_app = typer.Typer(name="vcs", no_args_is_help=True)
+    config_vcs_app.command("status")(_safe(config_cmd_mod.vcs_status))
+    config_app.add_typer(config_vcs_app, name="vcs")
+    app.add_typer(config_app, name="config")
 
     # Gate sub-group
     gate_app = typer.Typer(
@@ -283,27 +323,6 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     maint_app.command("reset-events")(_safe(maintenance.maintenance_reset_events))
     maint_app.command("all")(_safe(maintenance.maintenance_all))
     app.add_typer(maint_app, name="maintenance")
-
-    # Provider sub-group
-    provider_app = typer.Typer(
-        name="provider",
-        help="Manage AI coding assistant providers.",
-        no_args_is_help=True,
-    )
-    provider_app.command("add")(_safe(provider.provider_add))
-    provider_app.command("remove")(_safe(provider.provider_remove))
-    provider_app.command("list")(_safe(provider.provider_list))
-    app.add_typer(provider_app, name="provider")
-
-    # VCS sub-group
-    vcs_app = typer.Typer(
-        name="vcs",
-        help="Manage VCS provider configuration.",
-        no_args_is_help=True,
-    )
-    vcs_app.command("status")(_safe(vcs.vcs_status))
-    vcs_app.command("set-primary")(_safe(vcs.vcs_set_primary))
-    app.add_typer(vcs_app, name="vcs")
 
     # Setup sub-group
     setup_app = typer.Typer(
@@ -387,25 +406,24 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     app.add_typer(spec_app, name="spec")
 
-    # Work-item sub-group
-    work_item_app = typer.Typer(
-        name="work-item",
-        help="Sync specs to external work items (GitHub Issues / Azure DevOps Boards).",
+    # Issue sub-group (D-132-03 -- renamed from work-item).
+    issue_app = typer.Typer(
+        name="issue",
+        help="Sync specs to external issues (GitHub Issues / Azure DevOps Boards).",
         no_args_is_help=True,
     )
-    work_item_app.command("sync")(_safe(work_item.work_item_sync))
-    app.add_typer(work_item_app, name="work-item")
+    issue_app.command("sync")(_safe(issue.issue_sync))
+    app.add_typer(issue_app, name="issue")
 
-    # Workflow sub-group (commit / PR lifecycle)
-    workflow_app = typer.Typer(
-        name="workflow",
-        help="Commit, PR, and PR-only lifecycle workflows.",
+    # Dev sub-group (D-132-05): source-repo helpers; hidden.
+    dev_app = typer.Typer(
+        name="dev",
+        help="Source-repo developer helpers (hidden in consumer projects).",
         no_args_is_help=True,
+        hidden=True,
     )
-    workflow_app.command("commit")(_safe(workflow.workflow_commit))
-    workflow_app.command("pr")(_safe(workflow.workflow_pr))
-    workflow_app.command("pr-only")(_safe(workflow.workflow_pr_only))
-    app.add_typer(workflow_app, name="workflow")
+    dev_app.command("sync")(_safe(dev_sync.dev_sync_cmd))
+    app.add_typer(dev_app, name="dev", hidden=True)
 
     internal_app = typer.Typer(
         name="internal",
@@ -420,10 +438,14 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     )(internal.internal_python)
     app.add_typer(internal_app, name="internal", hidden=True)
 
+    # spec-132 D-132-02..05: removed verbs print ``removed; use <new>`` and
+    # exit 2. No soft-redirect, no alias. Hidden so they don't pollute the
+    # help tree but are still resolvable as commands.
+    for old_verb, new_verb in _REMOVED_VERBS.items():
+        app.command(old_verb, hidden=True)(_build_removed_handler(old_verb, new_verb))
+
     # spec-132 D-132-11: universal help-on-no-args wrapper applied at
-    # registration time. The ``internal`` group opts out (no human users);
-    # sub-004 will rename ``internal`` to ``dev`` and the opt-out list grows
-    # accordingly when that lands.
+    # registration time. The ``internal`` and ``dev`` groups opt out.
     from ai_engineering.core.cli import apply_no_args_help
 
     apply_no_args_help(app, opt_out_groups={"internal", "dev"})

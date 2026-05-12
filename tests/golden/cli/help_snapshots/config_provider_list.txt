@@ -1,11 +1,8 @@
 
- Usage: ai-eng ide remove [OPTIONS] IDE
+ Usage: ai-eng config provider list [OPTIONS]
 
- Remove an IDE integration.
+ List active AI providers.
 
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    ide      TEXT  IDE name to remove. [required]                           │
-╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
 │ --target  -t      PATH  Target project root.                                 │
 │ --help                  Show this message and exit.                          │

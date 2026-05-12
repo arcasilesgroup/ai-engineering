@@ -1,12 +1,12 @@
 
- Usage: ai-eng stack add [OPTIONS] STACK
+ Usage: ai-eng issue sync [OPTIONS] [TARGET]
 
- Add a technology stack.
+ Sync specs to external issues (GitHub Issues / Azure DevOps Boards).
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    stack      TEXT  Stack name to add (e.g. python). [required]            │
+│   target      [TARGET]  Target project root. Defaults to cwd.                │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Target project root.                                 │
-│ --help                  Show this message and exit.                          │
+│ --dry-run          Preview changes without writing.                          │
+│ --help             Show this message and exit.                               │
 ╰──────────────────────────────────────────────────────────────────────────────╯

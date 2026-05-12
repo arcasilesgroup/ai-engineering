@@ -61,6 +61,26 @@ hard migration per CANONICAL.md §13 rule 3):
   documents the upstream provenance of the IOC catalogue used by the
   sentinel guard.
 
+#### spec-132 — surface consolidation (sub-004) — Breaking changes
+
+- `ai-eng validate` -> `ai-eng check` (hard rename, no alias).
+- `ai-eng work-item sync` -> `ai-eng issue sync` (hard rename).
+- `ai-eng stack {add,remove,list}`, `ai-eng ide {add,remove,list}`,
+  `ai-eng provider {add,remove,list}`, `ai-eng vcs {status,set-primary}`
+  collapsed into `ai-eng config` interactive +
+  `ai-eng config <resource> {list,status}`.
+- `ai-eng workflow` removed entirely (maps to `/ai-commit`,
+  `ai-eng pr`, `ai-eng release --pr`).
+- `ai-eng sync` removed; mirror sync now via `ai-eng dev sync`
+  (hidden in consumer projects).
+- Module rename: `src/ai_engineering/work_items/` ->
+  `src/ai_engineering/issues/`.
+- New top-level commands: `check`, `issue`, `config`, `dev`,
+  `commit`, `pr`, `status`.
+- Old verbs invocation prints `removed; use <new>` and exits 2.
+- Implements D-132-02, D-132-03, D-132-04, D-132-05, D-132-10,
+  D-132-15, D-132-21, D-132-23.
+
 #### spec-132 — autopilot plan-task sync gate (process fix)
 
 Fixes the silent drift between sub-plan frontmatter (`total` /

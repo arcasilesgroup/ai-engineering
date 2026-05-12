@@ -1,12 +1,13 @@
 
- Usage: ai-eng stack remove [OPTIONS] STACK
+ Usage: ai-eng commit [OPTIONS] MESSAGE
 
- Remove a technology stack.
+ Standalone off-chain commit.
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    stack      TEXT  Stack name to remove. [required]                       │
+│ *    message      TEXT  Commit message [required]                            │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Target project root.                                 │
-│ --help                  Show this message and exit.                          │
+│ --only                                                                       │
+│ --target        PATH                                                         │
+│ --help                Show this message and exit.                            │
 ╰──────────────────────────────────────────────────────────────────────────────╯

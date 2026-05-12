@@ -1,7 +1,7 @@
 
- Usage: ai-eng validate [OPTIONS] [TARGET]
+ Usage: ai-eng check [OPTIONS] [TARGET]
 
- Validate content integrity across all governance categories.
+ Run content-integrity health checks across governance categories.
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
 │   target      [TARGET]  Target project root. Defaults to cwd.                │

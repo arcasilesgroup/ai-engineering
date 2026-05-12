@@ -371,7 +371,7 @@ def _resolve_refs(
 ) -> tuple[list[str], list[str]]:
     """Resolve spec refs into closeable and mention-only lists.
 
-    Delegates to ``work_items.service.resolve_closeable_refs``
+    Delegates to ``issues.service.resolve_closeable_refs``
     for hierarchy rule evaluation.
 
     Args:
@@ -382,7 +382,7 @@ def _resolve_refs(
         Tuple of ``(closeable_refs, mention_only_refs)``.
     """
     try:
-        from ai_engineering.work_items.service import resolve_closeable_refs
+        from ai_engineering.issues.service import resolve_closeable_refs
     except ImportError:
         return [], []
 
@@ -529,7 +529,7 @@ def _build_issue_reference(project_root: Path, spec: str) -> str | None:
         Issue reference string, or None.
     """
     try:
-        from ai_engineering.work_items.service import get_linked_issue_id
+        from ai_engineering.issues.service import get_linked_issue_id
     except ImportError:
         return None
 

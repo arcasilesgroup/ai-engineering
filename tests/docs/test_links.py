@@ -399,11 +399,11 @@ def test_sub005_plan_has_north_star_preamble() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_spec_canonical_slot_is_spec_131() -> None:
+def test_spec_canonical_slot_is_spec_132() -> None:
     p = REPO_ROOT / ".ai-engineering" / "specs" / "spec.md"
     body = p.read_text()
-    assert "spec: spec-131" in body, "Canonical slot is not spec-131"
-    archive = (
-        REPO_ROOT / ".ai-engineering" / "specs" / "spec-129-skills-agents-excellence-pragmatic.md"
+    assert "spec: spec-132" in body, "Canonical slot is not spec-132"
+    spec_131_archive = (
+        REPO_ROOT / ".ai-engineering" / "specs" / "archive" / "spec-131-dx-excellence-refactor.md"
     )
-    assert archive.exists(), "spec-129 archive missing adjacent to canonical slot"
+    assert spec_131_archive.exists(), "spec-131 archive missing adjacent to canonical slot"
