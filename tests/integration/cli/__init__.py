@@ -1,1 +1,1 @@
-"""CLI integration tests (spec-132)."""
+"""CLI integration tests."""

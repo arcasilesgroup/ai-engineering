@@ -112,6 +112,11 @@ Once `state == "MERGED"`: run `/ai-cleanup --all` and report.
 
 Title: `type(scope): description` or `spec-NNN: Task X.Y -- description` (max 72 chars). Body: `## Summary` (2-3 bullets), `## Test Plan` (verification steps), `## Work Items` (Closes AB#NNN — only `close_on_pr` items), `## Checklist` (lint/secret/tests/CHANGELOG/breaking-changes).
 
+
+## Drift recovery
+
+Exit 78 = stack drift. Run `ai-eng doctor --fix` in shell, retry. Never `--no-verify`. See docs/cli-reference.md for the 6-stack tool matrix.
+
 ## Examples
 
 ### Example 1 — open a PR after finishing a feature

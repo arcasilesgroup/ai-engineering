@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-05-11T22:03:07Z",
-  "hookCount": 71,
+  "generatedAt": "2026-05-12T20:32:42Z",
+  "hookCount": 72,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "ef4a571b410d6e7a0392bab1864c7cb382785ec6b4a0f9ff8a63ebc92c2bf1a6",
@@ -54,6 +54,7 @@
     ".ai-engineering/scripts/hooks/copilot-skill.sh": "2f40280962e2ec50025157b1916becfc730588a910cb46bfe4cac6e6fbb5afce",
     ".ai-engineering/scripts/hooks/copilot-strategic-compact.ps1": "2ab31e5b2847cf09d29bbb1e270abb5909a498462717c4cc2a8576dad62a49b1",
     ".ai-engineering/scripts/hooks/copilot-strategic-compact.sh": "387235c2057cb4c159005b4d33503cf4ac016e5ea2ff5a8f0f1feede444dca44",
+    ".ai-engineering/scripts/hooks/cursor-hook-bridge.py": "9ae6e342c63500d0af5acd61364cd2144a1cd83aa6c7e6b74fa0dbb5f160020b",
     ".ai-engineering/scripts/hooks/gemini-hook-bridge.py": "a45f7eb3836b3d8d60dbeeb10a57e854999a69d30878431c2d45eb69736f1308",
     ".ai-engineering/scripts/hooks/instinct-extract.py": "9f6b6829f85a8b16154b47b529212b0fae55f8e352ae8a306f184c00d62b78e2",
     ".ai-engineering/scripts/hooks/instinct-observe.py": "f974cfde95605cea0955c00b3ae60652ae7f50f34a4d61c64a4cd2cfa30f19c4",

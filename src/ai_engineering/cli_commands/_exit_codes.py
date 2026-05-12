@@ -47,3 +47,21 @@ class PrereqOutOfRange(PrereqMissing):
     Specialises :class:`PrereqMissing` so a single ``except PrereqMissing``
     clause handles both ``absent`` and ``out-of-range`` cases.
     """
+
+
+EXIT_STACK_DRIFT: int = 78
+"""Exit code emitted when AIENG_STACK_DRIFT_STRICT=1 and stack drift is detected.
+
+spec-133 D-133-23 / D-133-24: structured machine-readable contract for
+the AI cognitive recovery loop. The hook output carries:
+
+    Reason: stack-drift
+    Detected stack(s): <list>
+    Missing toolchain(s): <list>
+    Recovery (shell): ai-eng doctor --fix
+    Then retry (in AI surface): /<original command>
+"""
+
+
+class StackDriftBlocked(RuntimeError):
+    """Raised when stack drift is detected and strict mode is active."""

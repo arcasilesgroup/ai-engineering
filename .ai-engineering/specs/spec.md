@@ -1,7 +1,7 @@
 ---
-spec: spec-132
-slug: cli-ux-overhaul
-title: spec-132 — CLI UX & Architecture Overhaul (single-PR full-brief delivery)
+spec: spec-133
+slug: surface-primitive-rearch
+title: spec-133 — Surface Primitive Re-architecture (CLI UX + Cross-IDE)
 status: approved
 approved_at: 2026-05-12
 approved_by: operator
@@ -9,280 +9,232 @@ effort: large
 branch: spec-128/context-overrides-refactor
 pr: arcasilesgroup/ai-engineering#509
 target_dispatch: /ai-autopilot
-source_brief: .ai-engineering/specs/drafts/cli-ux-overhaul-brief.md
-chains_after: spec-131 (DX excellence refactor — same PR aggregate)
+source_brief: .ai-engineering/specs/drafts/cli-ux-cross-ide-rearch-brief.md
+chains_after: spec-132 (CLI UX & Architecture Overhaul — same PR aggregate)
 ---
 
 ## Summary
 
-The `ai-eng` CLI fails the **"self-describing, observable, idempotent, honest"** bar across every public command surface verified on HEAD of `spec-128/context-overrides-refactor` (PR #509). Concretely:
+ai-engineering today installs but breaks on first skill use across every supported IDE: 9 root framework scripts referenced by skills are never deployed to the consumer's `.ai-engineering/scripts/` template tree (`session_bootstrap.py`, `spec_lifecycle.py`, `commit_compose.py`, `branch_slug.py`, `doc_gate.py`, `pr_body_compose.py`, `runtime_rotate.py`, `regenerate-hooks-manifest.py`, `plan_tasks.py`). The installer wizard asks 4 questions where 2 (`providers.ides` + `ai_providers.enabled`) are conceptually orthogonal but semantically coupled — operators install Claude Code as a unit, never "claude-code AI provider" + "terminal IDE" separately. Antigravity, OpenCode, and Cursor are declared in `_KNOWN_IDES`/`_IDE_POPULARITY` but lack any provider entry, tree, or hook adapter; all three are silently unsupported. CLI verbs duplicate skill scopes (`ai-eng verify` vs `/ai-verify`; `ai-eng guide` vs `/ai-guide`; `ai-eng maintenance branch-cleanup` vs `/ai-cleanup`) without a disambiguation contract. The hexagonal layer contract whitelists 4 baseline import-linter ignores (`cli_ui → updater`, `updater → installer.templates`, `policy.checks.stack_runner → installer.launchers`, `validator._shared → installer.templates`) plus 6 in-band CLI hex violations (sqlite/typer/print interleaved with business logic). The `.ai-engineering/` tree carries 4 orphaned directories that survived prior refactors: `adapters/` (post-rename), `contexts/frameworks/` (15 files, spec-128 D-128-01 declared deleted but never executed), `contexts/languages/` (14 files, same), `.claude/skills/ai-debug/handlers/` (8 stack-routed files duplicating `overrides/<stack>/`) and `.claude/skills/ai-review/handlers/` (10 stack-routed `lang-*.md` files, same anti-pattern). On a greenfield install (`stacks=[]`) doctor silently coerces to `["python"]` and emits false-positive warnings; if a user later adds project markers (`Cargo.toml`, `pyproject.toml`, `*.csproj`, etc.) and forgets `ai-eng doctor --fix`, the toolchain (pytest/pip-audit, vitest/npm-audit, cargo test/cargo-audit, dotnet test/dotnet list package --vulnerable, etc.) silently never runs.
 
-1. **Spam on every connect()**: `_warn_on_deprecated_fallbacks` at `src/ai_engineering/state/state_db.py:172-194` fires unconditionally, no dedup set, generating ~34 warning lines during a single `ai-eng install` because the installer itself writes the JSON files it then warns about (`installer/phases/state.py:120` `write_json_model` for `_OWNERSHIP` + `_DECISIONS`).
-2. **Installer hangs on Engram prompt**: `installer/engram.py` (383 lines) still wires interactive `[y/N]` prompt at `maybe_install_engram()` line 304-360 with subprocess calls to brew/winget that deadlock; `--engram`/`--no-engram` flags wired at `cli_commands/core.py:176,187`. Engram is a third-party product — should not live in our installer surface.
-3. **Help-on-empty anti-pattern across the entire CLI**: `verify`, `release`, `stack {add,remove}`, `ide {add,remove}`, `gate commit-msg`, `provider add`, `spec activate` all use `typer.Argument(...)` with no default → error "Missing argument" instead of printing help. No `@no_args_help` decorator exists.
-4. **Surface duplication and naming drift**: `validate` (should be `check`); `work-item` (should be `issue`); separate `stack`/`ide`/`provider`/`vcs` mutator verbs (should collapse to `config`); `workflow` is a 112-line shim duplicating `gate all` + `release` (should be deleted); `sync` is consumer-facing top-level (should be `dev sync`, hidden in non-source-repos).
-5. **Output is ad-hoc**: 4 modules (`cli_envelope`, `cli_ui`, `cli_progress`, `cli_output`) called directly by every command, no centralised Renderer, no consistent "before/action/after" narrative, no diff summary, no "next steps" footer.
-6. **Architecture is not hexagonal**: domain logic, I/O, Typer command definitions, file copy, network calls, and platform shells all live in the same modules. `core/` does not exist; `adapters/` does not exist; no import-linter contract.
-7. **Validator false-positives**: `_should_skip_reference_path` in `validator/categories/file_existence.py` does not exclude `src/ai_engineering/...` refs (LLM implementation notes that don't ship to consumers), and `_record_spec_buffer_result` (line 228-256) hard-fails when `_history.md` is missing despite spec-131 D-131-04 making `/ai-cleanup` the lifecycle owner of that file.
-8. **Duplicate CONSTITUTION.md**: 4 copies on HEAD (root 197 / `.ai-engineering/` 113 stub / `templates/project/` 197 / `templates/.ai-engineering/` 79). The `.ai-engineering/CONSTITUTION.md` 113-line stub is divergent and serves no architectural role; installer ships the project-charter template to BOTH consumer root and `.ai-engineering/` (`templates.py:171-184`).
-
-The North Star (brief §1): *a first-time engineer runs `ai-eng install` on an empty repo and never feels confused, never sees noise, never hits a hidden failure mode. Every command shows what it is doing, why, and what changed.*
-
-This spec delivers the full brief (M0–M6) inside the existing PR #509 (4-spec aggregate: spec-128 / spec-129 / spec-131 / spec-132), under deterministic `/ai-autopilot` dispatch. No new branch. No new PR. Hard renames with zero deprecation aliases per CANONICAL.md §13 rule 3.
+The cure is a conceptual reframe: collapse "AI Provider" and "IDE Integration" into a single first-class domain primitive — the **Surface** — and rebuild the installer, manifest, wizard, and mirror-sync around that primitive. Hexagonal layering becomes enforceable (zero-whitelist). The wizard collapses to one question. OpenCode and Cursor become full surfaces wired to hook adapters (evidence-anchored: OpenCode plugin API, Cursor 1.7+ native hooks). Antigravity stays mirror-only (Google upstream confirmed workaround-only). 9 root scripts deploy to templates. Stack content consolidates: `.ai-engineering/overrides/<stack>/` is the **single canonical home** for stack-specific guidance — skill `handlers/<stack>.md` is deleted as a DRY violation. 4 orphaned directories purged. Greenfield mode robust end-to-end. Quality bar: every new CLI verb + deterministic primitive is production-grade (idempotent, exit-coded per category, audit-event-emitting, `--json` structured, `--dry-run` universal, TDD per mode). Delivered on branch `spec-128/context-overrides-refactor`, joining the active PR #509 aggregate (spec-128 + spec-129 + spec-131 + spec-132). No new branch, no new PR. Hard renames, hard deletes, no backwards-compat shims per CONSTITUTION + hard-rule §13.3.
 
 ## Goals
 
 ### Functional goals (acceptance-verifiable)
 
-1. **Zero-noise install on empty repo**: `ai-eng install` on a fresh `mktemp -d` invocation produces 0 warning lines, 0 error lines, 0 hangs, ≤ 30s wall-clock. Verified by golden-snapshot test `tests/integration/installer/test_install_zero_noise.py`.
-2. **Idempotent update**: immediately after `ai-eng install`, `ai-eng update --check` reports `0 changes`. Verified by golden test `tests/integration/installer/test_update_post_install_idempotent.py`.
-3. **Full validation success on fresh install**: `ai-eng check` (renamed from `validate`) + `ai-eng doctor` + `ai-eng verify` (default profile) all PASS with score ≥ 95 on a fresh install. Verified by `tests/integration/check_doctor_verify_fresh.py`.
-4. **Help-on-empty universal contract**: every command and every subcommand invoked with no arguments prints help and exits 0. Verified by parametrised test that iterates `app.registered_commands` and `app.registered_groups` recursively.
-5. **Renderer is single source of truth for output**: zero direct calls to `cli_envelope`, `cli_ui`, `cli_progress`, `cli_output` from any module under `cli_commands/`. Verified by `ruff` custom rule `AIENG-OUT-001` (banned-import).
-6. **Final command tree locked** (per brief §8.3, hard renames, no aliases): `install`, `update`, `status`, `doctor`, `check`, `verify`, `audit`, `config`, `gate`, `spec`, `issue`, `release`, `setup`, `decision`, `risk`, `guide`, `version`, `dev`, `commit`, `pr` (the last two are off-chain WIP helpers labelled as such in help text). Verified by golden snapshot of `ai-eng --help`.
-7. **Hexagonal seam enforced**: `core/` (governance, state mutations, spec lifecycle, output Renderer) has zero imports from `adapters/` (`cli`, `installer`, `vcs`, `ide`). `import-linter` contract green; CI fails on direction violation. Verified by `pyproject.toml` `[tool.importlinter]` config + `tests/architecture/test_hexagonal.py`.
-8. **Single CONSTITUTION.md per install**: only ONE `CONSTITUTION.md` ships to a consumer (root). Source-repo `.ai-engineering/CONSTITUTION.md` (113-line stub) deleted. Verified by `tests/integration/installer/test_constitution_single.py` (`subprocess` `find`).
-9. **State warner deduped**: warn at most ONCE per orphan JSON file per `state.db` lifetime. The dedup set lives at module level inside `state_db.py`. Verified by `tests/unit/state/test_state_db_fallback_warning_dedup.py`.
-10. **Engram fully removed from installer**: zero references to `engram` in `installer/`, `cli_commands/core.py`, `manifest.yml`, CANONICAL.md / AGENTS.md / CLAUDE.md / GEMINI.md / `.github/copilot-instructions.md` install steps. Standalone optional integration doc lives at `docs/integrations/engram.md`. Verified by repo-wide `rg` golden test.
-11. **No `# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `// NOSONAR` introduced** anywhere in this PR. Existing instances unaffected (separate concern). Verified by `tools/skill_lint/checks/no_suppression.py` (re-uses spec-131 D-131-08 lint pipeline).
-12. **Hot-path budgets preserved**: pre-commit < 1s, pre-push < 5s — Renderer must not regress this. Verified by `tests/perf/test_hotpath_budgets.py` (already exists; spec re-runs).
+1. **7 Surfaces install standalone.** `ai-eng install --surface <ID>` succeeds end-to-end for each of: `claude-code` (full), `codex` (full), `gemini-cli` (full), `github-copilot` (full), `opencode` (full, hook adapter), `cursor` (full, hook adapter), `antigravity` (mirror-only). Verified by `tests/integration/installer/test_install_per_surface.py` 7-surface matrix.
+2. **Wizard collapses to 1 question.** `wizard.py` prompts only "Which Surface(s) do you use?" (multi-select from `_SURFACE_REGISTRY`). Stack and VCS are silent auto-detect with `--stack` / `--vcs` overrides. Verified by golden snapshot `tests/unit/installer/test_wizard.py`.
+3. **`ai-eng cleanup` covers 90-100% of git branch cleanup.** Top-level command with subcommands `branches` (7 modes: `--pruned`/`--merged`/`--squashed`/`--stale`/`--untracked`/`--reset`/`--all`), `runtime`, `specs`, `all`. Universal flags `--dry-run`/`--json`/`--strict`/`--tracked`. Honors `gt.exclude` config + manifest `cleanup.protected_branches`. Refuses detached HEAD; never deletes HEAD. Verified by per-mode unit tests + integration `tests/integration/cli/test_cleanup_branches.py`.
+4. **`ai-eng guide` DELETED.** `/ai-guide` is the canonical onboarding surface. Verified by absence in `tests/unit/cli/test_help_snapshots.py`.
+5. **`ai-eng verify` preserved.** Doc clarifies scope distinction vs `/ai-verify` skill (skill = LLM 4-specialist orchestration; CLI = deterministic gate). No rename. Same engine + `--json` contract locked. Verified by `tests/architecture/test_surface_parity.py`.
+6. **Surface Axiom + No-Twin Axiom documented.** `CLAUDE.md` §16 (new section) carries A1 (expose CLI iff scriptable ∧ deterministic ∧ structured-output-capable) + A2 (same verb iff same engine + identical contract). `tests/architecture/test_surface_parity.py` enforces.
+7. **Help-on-empty universal.** Every `ai-eng <group>` (`spec`, `audit`, `risk`, `decision`, `issue`, `maintenance`, `skill`, `setup`, `config`, `gate`, `cleanup`) prints `--help` when invoked without subcommand. Verified by parametrised test iterating `app.registered_groups`.
+8. **Manifest schema hard-migrated.** `surfaces.enabled: list[str]` replaces `providers.ides` + `ai_providers.enabled` + `ai_providers.primary`. Closed enum: `{claude-code, codex, gemini-cli, github-copilot, opencode, cursor, antigravity}`. Framework's own `.ai-engineering/manifest.yml` rewritten. Verified by `tests/unit/config/test_manifest_surface_schema.py`.
+9. **9 root framework scripts deployed.** `src/ai_engineering/templates/.ai-engineering/scripts/` carries all 9 root scripts (including `plan_tasks.py` — NOT orphan, has 2 callers in `/ai-autopilot`). Installer phase `ScriptsPhase` deploys full tree. Pristine-install smoke per Surface verifies `/ai-start` exits 0 immediately post-install.
+10. **`.ai-engineering/overrides/` carries 12 stacks + `_shared/sql.md`.** T1 (8): python, typescript, go, rust, java, csharp, kotlin, swift. T2 (4): php, ruby, flutter, react-native. Cross-cut: `_shared/sql.md`. Each stack carries `conventions.md`, `security_floor.md`, `tdd_harness.md` (+ `examples/` where applicable). Verified by `tests/unit/overrides/test_stack_inventory.py`.
+11. **4 orphan directories purged.** `.ai-engineering/adapters/`, `.ai-engineering/contexts/frameworks/`, `.ai-engineering/contexts/languages/`, `.claude/skills/ai-debug/handlers/`, `.claude/skills/ai-review/handlers/` deleted. Mirror-sync regenerates Surface trees without these paths.
+12. **`/ai-explore` skill created.** Thin-wrapper `.claude/skills/ai-explore/SKILL.md` dispatches the existing `.claude/agents/ai-explore.md` agent. Sync mirrors propagate (subject to `applies_to_surfaces`).
+13. **OpenCode + Cursor hook adapters.** `.ai-engineering/scripts/hooks/opencode-hook-bridge.ts` (TS plugin shim) + `.ai-engineering/scripts/hooks/cursor-hook-bridge.py` (stdio JSON). Both emit `framework-events.ndjson` envelopes (`engine: "opencode"` / `engine: "cursor"`). 11 canonical hook events mapped per Surface.
+14. **Mirror sync targets added.** `scripts/sync_mirrors/{opencode_target,cursor_target,antigravity_target}.py`. `applies_to_surfaces` SKILL.md frontmatter (B12) filters per-Surface restrictions. `ai-analyze-permissions` declares `applies_to_surfaces: [claude-code]`; non-Claude Surfaces carry 47 skills (48 minus claude-only).
+15. **B16 greenfield robustness end-to-end.** (a) `doctor/phases/tools.py` drops `or ["python"]` coercion; (b) `ai-eng doctor --fix` opt-in updates manifest + reinstalls toolchain on stack-drift finding; (c) `default.md` handlers in `ai-debug` and `ai-pipeline` (now stack-agnostic via overrides); (d) CLI middleware on every `ai-eng <cmd>` emits structured stack-drift warning, `AIENG_STACK_DRIFT_STRICT=1` blocks commit/pr/gate; (e) structured exit-code-78 contract + `/ai-commit` + `/ai-pr` SKILL.md "Stack drift recovery" subsection. 13 stack markers covered by deterministic test; 6 stacks (python/typescript/rust/csharp/go/java) covered by AI eval `evals/cli-ux-cross-ide/test_drift_recovery_flow.md`.
+16. **`cli_ui.skill_ref()` helper + lint.** Zero naked `/ai-<name>` literals in CLI output paths. `tools/skill_lint/checks/cli_output_skill_refs.py` AST-walks `cli_commands/` + `cli_ui/` + `phases/` and fails on violations.
+17. **Hex contract zero-whitelist.** `pyproject.toml` `[tool.importlinter] ignore_imports` empty. Domain ports introduced: `ManifestPort`, `OutputPort`, `ConfirmPort`, `AuditStorePort`. 6 in-band CLI hex violations unwound (`core.py:366-381` sqlite3, `core.py:344` raw `print`, `core.py:519-557` typer-interleaved confirms, `spec_cmd.py:133` click.echo, `spec_cmd.py:84` filesystem write, `audit_cmd.py:38` sqlite3 module-level). Verified by `tests/architecture/test_hexagonal.py` exit 0.
+18. **Surface domain primitive.** `src/ai_engineering/domain/surface.py` `Surface` frozen dataclass + `_SURFACE_REGISTRY` constant for 7 Surfaces. Zero infrastructure imports in `domain/`. Verified by import-linter contract.
+19. **Cursor `.cursor/rules/`.** 47 skills (or 46 per `applies_to_surfaces`) as `.mdc` files regenerated from `.claude/skills/<name>/SKILL.md` by sync_mirrors. Plus topic-level rules from canonical CLAUDE.md payload (§10 principles, hot-path discipline, hooks summary).
+20. **Cursor MCP deferred.** No `.cursor/mcp.json` shipped this spec (out-of-scope per Q8).
 
 ### Quality goals
 
-13. **TDD throughout**: every code change lands RED → GREEN → REFACTOR. New test count ≥ 80 (state.db dedup 6 / installer phases state UPSERT 8 / engram removal 0 (deletion + 1 import-test) / help-on-empty parametrised 35+ / Renderer methods 18 / surface rename golden 12 / hex import-linter 3).
-14. **`/ai-review --full` clean**: zero BLOCKER findings, zero unresolved CRITICAL after one converge round.
-15. **`/ai-verify --full` ≥ 95**: governance + architecture + feature dimensions.
-16. **CHANGELOG documents every breaking rename**: §[Breaking changes] section lists `validate→check`, `work-item→issue`, `stack/ide/provider/vcs (mutators)→config`, `workflow→deleted`, `sync→dev sync`, Engram removed, CONSTITUTION single-location.
+21. **TDD throughout.** Every code-bearing task RED → GREEN → REFACTOR. New test count ≥ 120 (Surface domain 10 / port adapters 14 / cleanup CLI 35 / scripts deployment 8 / per-surface install 14 / wizard golden 4 / manifest schema 6 / overrides inventory 12 / hook adapters 8 / mirror sync targets 9).
+22. **Production-grade quality bar** for all new CLI verbs / deterministic primitives: idempotent (running twice = no-op second time), exit-coded per category (0=clean / 1=found-and-acted / 2=blocked-by-protection / 78=stack-drift), audit-event-emitting (one event per deletion / install / repair via `OutputPort`), `--json` structured output universal, `--dry-run` universal where state-changing, refuse detached HEAD, never delete current branch.
+23. **`/ai-review --full` clean.** Zero BLOCKER findings, zero unresolved CRITICAL after one converge round per D-131-05.
+24. **`/ai-verify --full` ≥ 95.** Governance + architecture + feature dimensions.
+25. **CHANGELOG documents every break.** `[Breaking changes]` section enumerates: manifest schema hard-migration, `ai-eng guide` deletion, `ai-eng maintenance branch-cleanup` → `ai-eng cleanup`, `--ide`/`--provider` → `--surface` flag rename, 4 orphan directories deleted, ai-debug/ai-review handlers consolidated to overrides, new Surfaces (OpenCode/Cursor full + Antigravity mirror-only).
+26. **Hot-path budgets preserved.** Pre-commit < 1s, pre-push < 5s. Verified by `tests/perf/test_hotpath_budgets.py`.
 
 ## Non-Goals
 
-The following are explicitly OUT OF SCOPE for spec-132 (PR #509). Capture them as follow-ups if/when value justifies.
+The following are explicitly OUT OF SCOPE for spec-133. Track as follow-ups if value justifies.
 
-1. **No Engram replacement memory layer.** Engram is removed; no in-house substitute. CANONICAL.md "Optional: Engram" section is rewritten to point to `docs/integrations/engram.md`.
-2. **No backwards-compat aliases.** Hard rename per CANONICAL.md §13 rule 3. Old verbs do not soft-redirect; they print `removed; use <new>` and exit 1. CHANGELOG documents the breakage.
-3. **No `workflow` revival under another name.** Its responsibilities map cleanly to `release --pr` / `/ai-pr` / `/ai-commit` (D-131-07 chain). Nothing replaces it.
-4. **No new Typer-incompatible CLI framework.** Stay on Typer; add a thin wrapper, do not migrate to Click or argparse.
-5. **No additional IDE adapters.** Claude Code / Copilot / Gemini / Codex set is frozen for this PR. New IDEs are a separate spec.
-6. **No new third-party integrations** (analytics, telemetry vendors, secret managers). Removing Engram is the only third-party touch.
-7. **No GitHub Projects v2 board redesign.** `issue` rename is naming + label-handling only; board sync semantics unchanged.
-8. **No on-disk schema migration beyond what spec-125 already plans for `state.db`.** `_OWNERSHIP` / `_DECISIONS` JSON files are deleted via one-shot installer cleanup; no separate migration entry-point.
-9. **No new languages or stacks** added to the install picker. Existing matrix (python, typescript, go, rust, swift, csharp, kotlin per spec-128 D-128-09) is fixed.
-10. **No documentation portal redesign.** `docs/integrations/engram.md` is a single new file; surrounding docs/ structure unchanged.
+1. **Skill + agent naming reform** (B8 + B14 from brief). `ai-gtm`, `ai-board`, `ai-eval`, `ai-note`, `ai-observe`, `ai-learn`, `ai-prompt`, `ai-standup`, `verify-deterministic` agent — operator-locked deferred 2026-05-12. CLI verb renames stay in scope; skill/agent renames defer.
+2. **JetBrains-as-Surface, terminal-as-Surface, Aider, Continue.** User editors without a framework-driveable instruction surface. Add only when an operator request lands.
+3. **Cursor MCP wiring (`.cursor/mcp.json`).** Deferred to follow-up unless explicit operator request.
+4. **Standalone `dart` overrides bucket.** Subsumed by `flutter` per evidence (Flutter docs ship combined Flutter+Dart; Aider repo has `flutter/` with no separate `dart/`).
+5. **`javascript` standalone overrides.** Collapses into `typescript` (no operator signal for plain JS).
+6. **`elixir` overrides.** Marker stays in autodetect for future `doctor --fix`; no override directory pre-created.
+7. **Physical mass relocation** of `src/ai_engineering/` flat tree to `core/` + `adapters/` layout. spec-132 sub-005 landed the import-linter contract + scaffold; layout migration deferred to a follow-up spec.
+8. **Renaming `ai-eng verify` to `ai-eng gate verify` or merging into `ai-eng check`.** Operator-locked Q1=C: verb stays, doc clarifies scope vs `/ai-verify` skill.
+9. **New hook events.** The 11 canonical hook events stay (D-122-27, CI-guarded).
+10. **`/ai-explore` agent rename or capability expansion.** Skill is a thin wrapper only.
 
 ## Decisions
 
-Every decision below carries `choice → rationale`. All locked at brainstorm approval time (2026-05-12).
+### D-133-01 — `ai-eng verify` preserved; no rename
+Operator-locked Q1=C. `ai-eng verify` keeps top-level placement. `/ai-verify` skill remains the LLM 4-specialist orchestration surface. Documentation in `CLAUDE.md` + `docs/cli-reference.md` explicitly distinguishes scopes (deterministic gate vs LLM judgment). Locks shared engine + `--json` contract via `tests/architecture/test_surface_parity.py` so future drift fails CI.
 
-### D-132-01 — Branch & PR locking
+**Rationale**: scope difference is real; rename would not eliminate confusion, only relocate it. Documentation + parity test resolve the B17 risk without surface churn.
 
-**Choice**: All work lands on existing branch `spec-128/context-overrides-refactor` and rides existing PR `arcasilesgroup/ai-engineering#509`. No new branch. No new PR.
-**Rationale**: PR #509 is already a 4-spec aggregate (spec-128 + spec-129 + spec-131 + this spec-132). Operator explicit instruction during brainstorm: "hacer todo en la rama actual donde estamos … no crear nuevo branch, no crear nuevo pr, usar la que tenemos abierta." Brief header lines 4-5 reference obsolete branch `feat/spec-126-...` / PR #506 — superseded by the current branch state. CHANGELOG entry must reflect spec-132 alongside spec-128/129/131.
+### D-133-02 — `ai-eng guide` DELETED entirely
+Operator-locked Q2. Hard removal from `cli_factory.py:263` + `cli_commands/guide.py` handler. `/ai-guide` skill is the canonical onboarding surface. No rename to `ai-eng policy show` (operator declined). Branch-policy setup logic, if useful from shell, is relocated to `ai-eng setup` subgroup.
 
-### D-132-02 — `validate` → `check`, hard rename, zero alias
+**Rationale**: `/ai-guide` is interactive, AI-judgment-heavy (architecture tour, decision archaeology) — fails Surface Axiom A1 (no scriptable shell use case). No deterministic primitive to expose.
 
-**Choice**: Top-level command renames from `validate` to `check`. The old `validate` is removed entirely. Old invocation prints `error: command 'validate' was removed; use 'check'` (Typer `unknown command` handler with custom message) and exits 2 (Typer convention for unknown command).
-**Rationale**: Brief §2.2 + §8.3 lock; operator confirmation "A" during brainstorm. CANONICAL.md §13 rule 3 forbids backwards-compat shims for renamed verbs. CHANGELOG `### Breaking changes` documents.
+### D-133-03 — `ai-eng cleanup` 7-mode git-trim taxonomy
+Operator-decided. Replaces `ai-eng maintenance branch-cleanup`. Top-level command `ai-eng cleanup` with subcommands `branches` (7 modes: `--pruned`/`--merged`/`--squashed`/`--stale`/`--untracked`/`--reset`/`--all`), `runtime` (calls `runtime_rotate.py`), `specs` (calls `spec_lifecycle.py consolidate_shipped`), `all` (composite). Universal flags `--dry-run`, `--json`, `--strict`, `--tracked`, `--force`. Protected-branches via `gt.exclude` git config + manifest `cleanup.protected_branches`. Refuses detached HEAD; never deletes current branch.
 
-### D-132-03 — `work-item` → `issue`, hard rename, zero alias
+**Rationale**: Context7 evidence (git-trim taxonomy `/jasonmccreary/git-trim` + git-scm docs) confirms 7 modes are the complete set of canonical branch-cleanup scenarios. Squash-merge detection (via `merge-base` + `commit-tree`) catches GitHub/GitLab "Squash and merge" branches that `git branch --merged` misses — the operator's specific concern.
 
-**Choice**: Top-level subcommand renames from `work-item` to `issue`. Subcommand surface (`sync`, etc.) preserved under new name. `src/ai_engineering/work_items/` module renames to `src/ai_engineering/issues/` (deferred to follow-up only if rename collides; otherwise renamed in same PR).
-**Rationale**: Brief §8.3. `issue` matches GitHub primary mental model (PR #509 origin: arcasilesgroup/ai-engineering). `board` rejected because it implies UI navigation rather than item-level operations.
+### D-133-04 — Surface Axiom (A1) + No-Twin Axiom (A2) documented in `CLAUDE.md` §16
+**A1:** A capability MAY expose a `ai-eng <verb>` CLI iff (scriptable from shell/CI) ∧ (deterministic happy-path needs zero AI judgment for default args) ∧ (output is structured-machine-readable). Otherwise it lives only as a skill. **A2:** A capability has one canonical surface per role. Skill = chat entry; CLI = shell entry. Same verb iff same engine + identical contract; distinct verbs otherwise.
 
-### D-132-04 — `stack` / `ide` / `provider` / `vcs` mutator verbs → `config`, hard collapse, zero alias
+**Rationale**: prevents skill/CLI confusion (B17 root cause) at the design layer, not just the lint layer. `/ai-start` is a deterministic display, not data — fails A1.c, correctly remains skill-only. `/ai-cleanup` skill orchestrates AI judgment over the deterministic `ai-eng cleanup` CLI — distinct verbs by A2 design.
 
-**Choice**: Mutating subcommands (`stack add/remove`, `ide add/remove`, `provider add/remove`, `vcs set-primary`) collapse to a single `ai-eng config` interactive flow that wraps the install wizard reconfigure path. Inspection verbs (`stack list`, `ide list`, `provider list`, `vcs status`) move under `ai-eng config <resource> list|status`. Top-level `stack`/`ide`/`provider`/`vcs` removed.
-**Rationale**: Brief §2.2 + §8.3. Reduces top-level surface from 4 redundant resource verbs to 1 unified entry. `config` matches `git config` mental model (operator preference). KISS / YAGNI per CANONICAL.md §10.1 §10.2.
+### D-133-05 — Help-on-empty universal
+Every `ai-eng <group>` (`spec`, `audit`, `risk`, `decision`, `issue`, `maintenance`, `skill`, `setup`, `config`, `gate`, `cleanup`) prints `--help` when invoked with no subcommand. Implemented via `@no_args_help` decorator (spec-132 sub-003 carried universal version; this spec extends to remaining groups).
 
-### D-132-05 — `workflow` deleted entirely
+**Rationale**: surfaces should self-document per §10.7 Clean Code.
 
-**Choice**: `workflow.py` (112-line shim) and its Typer registration are deleted. The three previous verbs (`workflow commit`, `workflow pr`, `workflow pr-only`) map respectively to: `/ai-commit` skill, `ai-eng pr` (or `/ai-pr` skill), `ai-eng release --pr` (M3 sub-flag). Old `workflow` invocation prints `removed; use 'ai-eng pr' or '/ai-pr' skill` and exits 2.
-**Rationale**: Brief §8.3 lock. Duplicates `gate all` + `release`. spec-131 D-131-07 already removed `/ai-commit` from canonical chain; `workflow.py` predated that decision and is now redundant.
+### D-133-06 — OpenCode + Cursor = FULL Surfaces; Antigravity = MIRROR-ONLY
+Evidence-anchored (research artifact `.ai-engineering/research/ide-hook-engines-2026-05-12.md`). OpenCode exposes plugin API (`tool.execute.before`/`after`, `session.*`, 25+ events) + `.opencode/commands/` slash commands + `opencode run` non-interactive CLI. Cursor 1.7+ ships native hooks beta (`preToolUse`, `postToolUse`, `sessionStart`, `beforeShellExecution`, etc. with stdio JSON contract). Antigravity (Google) explicitly confirmed by staff (forum thread Feb 2026) as workaround-only — no hooks, no CLI, no slash commands; only `GEMINI.md` (priority 1) + `AGENTS.md` (v1.20.3+).
 
-### D-132-06 — Engram removed from installer, doc-only optional integration
+**Rationale**: OpenCode + Cursor warrant full-surface investment (hook adapter + tree + audit probe); Antigravity is forced to mirror-only by upstream until Google ships hooks.
 
-**Choice**: Delete `src/ai_engineering/installer/engram.py`. Delete `--engram` / `--no-engram` flags from `cli_commands/core.py`. Remove install-time prompt. Remove engram references from `manifest.yml`, AGENTS.md / CLAUDE.md / GEMINI.md / `.github/copilot-instructions.md` install steps. Add `docs/integrations/engram.md` (standalone doc, marked third-party, official Engram install + `engram setup claude_code` instructions). `ai-eng doctor` MAY detect Engram if present and report status; never installs or prompts.
-**Rationale**: Brief §2.1 B2. Bundling third-party installs creates unmaintainable dependency surface (brew formula drift, subprocess deadlock, version skew). Removal eliminates the install-hang root cause. Operator-validated during brainstorm.
+### D-133-07 — Cursor `.cursor/rules/` granular (1 `.mdc` per skill)
+47 skills (or 46 per `applies_to_surfaces`) regenerated as individual `.mdc` files from `.claude/skills/<name>/SKILL.md` by `sync_mirrors`. Plus topic-level rules from canonical `CLAUDE.md` payload (§10 principles, hot-path discipline, hooks summary).
 
-### D-132-07 — State warner dedup at module level
+**Rationale**: Cursor's per-rule selective application (`@`-mention) only works when rules are granular. Single-file `.mdc` loses this UX.
 
-**Choice**: Introduce `_WARNED_FALLBACKS: set[Path] = set()` at module scope in `src/ai_engineering/state/state_db.py`. `_warn_on_deprecated_fallbacks` (line 172-194) gates emission on `path not in _WARNED_FALLBACKS`, then adds. Reset hook for tests via `_reset_fallback_warnings()`.
-**Rationale**: Brief §2.1 B1. Minimum-diff fix; preserves existing warning content; eliminates spam without altering log behaviour for users who legitimately have stale state JSON outside of install context.
+### D-133-08 — Cursor MCP `.cursor/mcp.json` DEFERRED
+Operator-locked Q8=NO. Installer does NOT create `.cursor/mcp.json`. Users wire their own MCPs when needed.
 
-### D-132-08 — Installer state phase UPSERTs to state.db instead of writing JSON
+**Rationale**: no opinionated MCP set; Engram removed by spec-132; Context7 is opt-in; no clear default to pre-install.
 
-**Choice**: `src/ai_engineering/installer/phases/state.py` stops calling `write_json_model` for `_OWNERSHIP` (`ownership_map.json`) and `_DECISIONS` (`decisions.json`). Instead, UPSERT directly to `ownership_map` and `decisions` tables in state.db inside the same transaction. Plus a one-shot cleanup step: if legacy JSON files exist on a previously-installed repo, delete them after successful state.db UPSERT.
-**Rationale**: Brief §2.1 B1 + §2.4 architecture-hygiene goal "one source of truth for state: state.db". Removes the self-inflicted source of the warning loop. One-shot cleanup respects existing installs without leaving orphans.
+### D-133-09 — `/ai-explore` skill thin-wrapper
+Operator-locked Q9=SÍ. Create `.claude/skills/ai-explore/SKILL.md` whose only procedure is dispatching the existing `.claude/agents/ai-explore.md` agent. Sync mirrors propagate to non-Claude Surfaces.
 
-### D-132-09 — Validator `src/ai_engineering/...` skip + `_history.md` WARN downgrade
+**Rationale**: users discover commands via `/ai-` autocomplete; agent-only surface fails discoverability. UX consistency justifies the thin wrapper despite the duplication concern (Principal Architect's SKIP recommendation rejected by operator).
 
-**Choice**: `_should_skip_reference_path` (file_existence.py:138-147) gains an early-return for path patterns starting with `src/ai_engineering/` when the reference originates from a `.claude/skills/*.md` or `.github/skills/*.md` (these are LLM implementation notes, not consumer-shipped paths). `_record_spec_buffer_result` (line 228-256) downgrades missing `_history.md` from FAIL to WARN when both `spec.md` and `plan.md` exist in the same directory. Adds `IOCS_ATTRIBUTION.md` to `src/ai_engineering/templates/.ai-engineering/references/`.
-**Rationale**: Brief §2.1 B4. spec-131 D-131-04 already established `/ai-cleanup` as the lifecycle owner of `_history.md`; installer must not ship a stub. WARN preserves observability without blocking fresh install.
+### D-133-10 — DELETE `ai-debug/handlers/` + `ai-review/handlers/`; consolidate to overrides
+Operator-decided. `.claude/skills/ai-debug/handlers/` (8 stack-routed files: cpp/go/java/kotlin/python-build/pytorch/rust/typescript-build) and `.claude/skills/ai-review/handlers/` (10 stack-routed files: lang-cpp/lang-flutter/lang-go/lang-java/lang-kotlin/lang-python/lang-rust/lang-typescript + lang-generic + review.md) are DELETED. Stack-specific debug + review guidance migrates to `.ai-engineering/overrides/<stack>/debug.md` and `.ai-engineering/overrides/<stack>/review.md`. SKILL.md procedures become stack-agnostic and reference `overrides/<stack>/` dynamically. Greenfield mode (stacks=[]) → generic procedure + hint "add a project file and run `ai-eng doctor --fix`".
 
-### D-132-10 — `sync` moves to `dev sync`, hidden in consumer projects
+**Rationale**: §10.4 DRY — `.ai-engineering/overrides/` is the **single canonical home** for stack-specific content. Skill `handlers/` are action-routed (e.g. `deliver.md`, `quality.md`), never stack-routed. spec-128 D-128-01 contract enforced.
 
-**Choice**: Top-level `sync` command removed. New `dev` Typer group created (`Hidden=True` when running from a consumer install — detected via absence of `pyproject.toml` `[tool.aiengineering.source_repo] = true` marker). `dev sync` is the only verb under `dev` initially. Script `scripts/sync_command_mirrors.py` registered to spec-131 D-131-12 trusted-script lane so hook integrity passes.
-**Rationale**: Brief §2.1 B6. The command was internal-only by design but accidentally exposed; moving it under `dev` makes the visibility explicit and protects consumers from a useless top-level verb.
+### D-133-11 — AI eval matrix = 6 stacks
+Operator-locked Q11=C. `evals/cli-ux-cross-ide/test_drift_recovery_flow.md` simulates drift-recovery flow for python, typescript, rust, csharp, go, **java**. Other 7 stacks (kotlin, swift, ruby, dart, php, flutter, react-native — plus elixir marker-only) pass via deterministic CLI test only (`tests/integration/cli/test_stack_drift_middleware.py`).
 
-### D-132-11 — Universal `@no_args_help` decorator at command registration
+**Rationale**: 6-stack matrix covers diverse toolchain shapes (pip/npm/cargo/dotnet/go/maven|gradle) including JVM tier-1 (java) — relevant to enterprise/regulated target audience.
 
-**Choice**: New helper `core/cli/decorators.py:no_args_help` wraps Typer command callbacks. Behaviour: if the parsed Click context has no provided args AND the command has at least one required argument with no default, the wrapper invokes `ctx.get_help()` and exits 0 instead of letting Typer raise `MissingParameter`. Applied at registration time inside `cli_factory.py:create_app()` for every public command and subcommand. Internal `dev` commands opt out.
-**Rationale**: Brief §2.1 B6/B9/B10/B11 + §2.3 "No bare `--help` exit on no args is acceptable in 2026". Universal application avoids per-command opt-in drift. Internal commands keep strict argument requirements because they have no human users.
+### D-133-12 — Stack expansion: 12 stacks + `_shared/sql.md`
+**T1 (8):** python, typescript, go, rust, java (NEW), csharp, kotlin, swift. **T2 (4):** php (NEW), ruby (NEW override dir; marker already in autodetect), flutter (NEW), react-native (NEW). **Cross-cutting:** `_shared/sql.md` (NOT a standalone stack; SQL coexists with host stack). Each stack carries `conventions.md`, `security_floor.md`, `tdd_harness.md` (+ `examples/` where deltas exist + `debug.md` + `review.md` from D-133-10 consolidation).
 
-### D-132-12 — Renderer is single source of truth for human + JSON output
+**Rationale**: research-anchored in `.ai-engineering/research/stack-classification-2026-05-12.md`. Flutter docs ship combined Flutter+Dart (operator-confirmed); Aider repo has `flutter/`+`nextjs-ts` framework-as-stack pattern; Cursor community embeds SQL inside DB-specific rules, never standalone. dart-standalone + javascript-standalone + elixir excluded per YAGNI.
 
-**Choice**: New `src/ai_engineering/core/output/renderer.py` with the contract from brief §8.2. `Renderer(command, *, json, quiet)` instance per command invocation. Verb taxonomy = `Literal["Installing", "Updating", "Removing", "Moving", "Creating", "Verifying", "Skipping", "Restoring"]` (closed). Methods: `header / step / action / progress / record / diff_summary / error / next / ok`. Modes: `human` (default Rich-backed), `json` (envelope accumulation), `quiet` (errors only). Wraps existing `cli_envelope`, `cli_ui`, `cli_progress`, `cli_output` — does not replace them yet (deletion deferred). After this PR, every command under `cli_commands/` calls Renderer; direct calls to the legacy 4 modules from `cli_commands/` raise a `ruff` `AIENG-OUT-001` ban.
-**Rationale**: Brief §2.3 narrative output contract + §2.4 "output formatting is one module". DRY per CANONICAL.md §10.4. Closed Verb taxonomy enforces consistency at type-check time. Wrapper (not replacement) prevents big-bang risk; legacy modules retire in a follow-up cleanup spec.
+### D-133-13 — M-cleanup: DELETE 4 orphan directories
+Hard deletes (per CONSTITUTION + hard-rule §13.3, no shims):
 
-### D-132-13 — Hexagonal split: core/ vs adapters/
+1. `.ai-engineering/adapters/` — orphan post spec-128 D-128-01 rename; content differs from `overrides/` (drift confirmed via `diff -q`).
+2. `.ai-engineering/contexts/frameworks/` — 15 files (android/react/django/etc.); spec-128 D-128-01 declared deleted but never executed.
+3. `.ai-engineering/contexts/languages/` — 14 files (python/typescript/etc.); same spec-128 incomplete.
+4. `.claude/skills/ai-debug/handlers/` + `.claude/skills/ai-review/handlers/` — D-133-10.
 
-**Choice**: Repo reorganises:
-- `src/ai_engineering/core/` — pure domain. Governance rules, state mutations (via repository ports), spec lifecycle, Renderer, decisions engine, risk register, ownership map. **Zero imports from adapters/.** Zero imports of `requests`, `httpx`, `psycopg`, `boto3`, `subprocess`, `os.path` direct file I/O outside of repository ports.
-- `src/ai_engineering/adapters/cli/` — Typer commands. Thin: parse args → call core use-case → render result.
-- `src/ai_engineering/adapters/installer/` — phase orchestration, file copy, manifest sync.
-- `src/ai_engineering/adapters/vcs/` — gh, ado.
-- `src/ai_engineering/adapters/ide/` — claude, copilot, gemini, codex.
-- `import-linter` contract pins direction: `core` must not import `adapters`. Test: `tests/architecture/test_hexagonal.py` runs `lint-imports --config pyproject.toml`.
-**Rationale**: Brief §2.4 architecture-hygiene + CANONICAL.md §10.8. Single-PR refactor accepts risk; the new layout is the long-term seam every subsequent feature lives behind.
+Mirror-sync regenerates Surface trees without these paths. `tools/skill_lint/checks/no_orphan_dirs.py` (NEW) enforces absence.
 
-### D-132-14 — CONSTITUTION.md single-location ship policy
+**Rationale**: spec-128 D-128-01 contract specified deletion of `contexts/{frameworks,languages}/` and rename of `adapters/` to `overrides/` — those deletions never landed. spec-133 closes the gap. CONSTITUTION §13.3 forbids backwards-compat shims; hard deletes per policy.
 
-**Choice**: Delete source-repo `.ai-engineering/CONSTITUTION.md` (113-line divergent stub). Installer ships project-charter template (the spec-131 D-131-04 project-identity shape: 10 sections) to consumer ROOT only, not to consumer `.ai-engineering/`. Drop `templates/.ai-engineering/CONSTITUTION.md` (79-line stub) entirely; the templates/ directory no longer carries a `.ai-engineering/CONSTITUTION.md`. CI invariant test `tests/unit/installer/test_constitution_single_location.py` asserts exactly one `CONSTITUTION.md` per consumer install.
-**Rationale**: Brief §2.1 B3 + spec-131 D-131-04 chain. The 4-copy state is purely accidental drift; one canonical template at one canonical destination is the SDD-correct shape.
+### D-133-14 — `plan_tasks.py` NOT orphan (corrects brief B6)
+Brief claim "plan_tasks.py has 0 skill refs" is wrong. Grep confirms 2 callers: `.claude/skills/ai-autopilot/handlers/phase-implement.md` and `.claude/skills/ai-autopilot/handlers/phase-deep-plan.md` invoke `python .ai-engineering/scripts/plan_tasks.py sync` and `python .ai-engineering/scripts/plan_tasks.py validate`. Script is preserved + deploys to templates per D-133-21.
 
-### D-132-15 — Final command tree (locked)
+**Rationale**: brief auditor missed handler files; verified via fresh grep 2026-05-12.
 
-**Choice**: `ai-eng --help` after this PR shows exactly:
-```
-install / update / status / doctor / check / verify / audit / config / gate /
-spec / issue / release / setup / decision / risk / guide / version / dev / commit / pr
-```
-20 top-level verbs total. `dev` is hidden in consumer projects. `commit` and `pr` carry help-text label `WIP / standalone — not part of the canonical chain (use /ai-pr skill for orchestrated PR open).`
-**Rationale**: Brief §8.3. Reduces surface from ~30+ scattered verbs to 20 with explicit visibility tiers. Lifecycle / Inspection / Maintenance taxonomy reflected in help-text grouping.
+### D-133-15 — Surface domain primitive
+`src/ai_engineering/domain/surface.py` (NEW). `Surface` frozen dataclass with fields: `id`, `display_name`, `instruction_files`, `tree_dir`, `hook_engine`, `audit_capability`, `autodetect_marker`. `_SURFACE_REGISTRY` constant with 7 entries (claude-code, codex, gemini-cli, github-copilot, opencode, cursor, antigravity). `domain/` has zero infrastructure imports (lint-imports enforced).
 
-### D-132-16 — Dogfood drift policy: source-repo configs sync to template
+**Rationale**: §10.3 SOLID (Single Responsibility); §10.8 Hexagonal (domain inward-only); single source of truth for Surface capability matrix.
 
-**Choice**: Source-repo `.gitleaks.toml` (currently 31 lines) and `.semgrep.yml` (currently older than template) sync UP to match the stricter `src/ai_engineering/templates/project/` versions on commit. CI test `tests/integration/test_dogfood_parity.py` enforces sha256 equivalence unless a `# AIENG_DOGFOOD_DRIFT_OK: <reason>` marker is present in both files (with matching reason text).
-**Rationale**: Brief §2.1 B16. Source repo must dogfood its own consumer-facing rules; weaker source-repo gates make it possible for the source-repo to pass while a consumer install would fail.
+### D-133-16 — Manifest schema hard-migration
+`SurfacesConfig(enabled: list[str])` added. `AiProvidersConfig` deleted (incl. `primary` — YAGNI per §10.2). `ProvidersConfig.ides` field deleted. `ProvidersConfig.stacks` + `ProvidersConfig.vcs` preserved (real consumers: doctor, policy, tools). Framework's own `.ai-engineering/manifest.yml` rewritten in same commit as schema change. CHANGELOG `[Breaking changes]` documents migration steps (`ai-eng install --reconfigure` flows for consumer repos).
 
-### D-132-17 — `contexts/team` deprecation cleanup
+**Rationale**: §10.4 DRY (one truth — Surface list); §10.6 SDD (decision row; no drive-by); CONSTITUTION §13.3 no-shim.
 
-**Choice**: `src/ai_engineering/templates/.ai-engineering/contexts/team/` directory (currently contains only a stub README.md) deleted. `ai-eng update` learns to detect this orphan in existing consumer installs and includes it in the update-preview "Removed" list with explicit user confirmation when interactive (auto-removed when `--yes`).
-**Rationale**: Brief §2.1 B13. Previously deprecated, never removed; this is the cleanup beat.
+### D-133-17 — Wizard collapses to 1 question
+`wizard.py` prompts only: `"Which Surface(s) do you use?"` (multi-select from `_SURFACE_REGISTRY`, pre-selected from autodetect when markers present). Stack auto-detect silent; VCS auto-detect silent (default `github`). Old prompts for `Select technology stacks` / `Select AI providers` / `Select IDE integrations` / `Select VCS provider` DELETED.
 
-### D-132-18 — `_OWNERSHIP` / `_DECISIONS` JSON cleanup in update flow
+**Rationale**: §10.1 KISS; operator feedback: separate AI-provider + IDE prompts are conceptually broken (B4 root cause).
 
-**Choice**: `ai-eng update` (not just `install`) gains a one-shot cleanup step: if `_OWNERSHIP` or `_DECISIONS` JSON sidecar files exist alongside a populated `state.db`, the update preview lists them in "Removed" and removes them after user confirmation. Per spec-131 D-131-12, this cleanup runs in the trusted-script lane to avoid prompt-injection-guard interaction.
-**Rationale**: Brief §2.1 B1 cleanup beat for already-installed consumers. Ensures the state-warner dedup (D-132-07) becomes "warn at most once, then disappear forever after `ai-eng update`."
+### D-133-18 — `--surface/-S` replaces `--ide` and `--provider`
+`install_cmd` adds `--surface/-S` repeatable flag accepting Surface IDs from `_SURFACE_REGISTRY` enum. `--ide/-i` and `--provider/-p` flags DELETED. Hard rename; no compat aliases. Help text updated. Golden snapshot test (`tests/unit/cli/test_help_snapshots.py`) verifies.
 
-### D-132-19 — Sub-spec decomposition target for `/ai-autopilot`
+**Rationale**: §13.3 no shim; conceptual collapse (D-133-15 + D-133-16).
 
-**Choice**: spec-132 decomposes into **6 sub-specs** for autopilot Phase 1:
-- **sub-132.001** — P0 Stop-The-Bleeding (D-132-06, D-132-07, D-132-08, D-132-09, D-132-14, D-132-17, D-132-18). No surface changes.
-- **sub-132.002** — Renderer Module (D-132-12). New `core/output/renderer.py` + ban-import lint. Existing commands NOT yet migrated.
-- **sub-132.003** — Help-First Discipline (D-132-11). Universal `@no_args_help` decorator + per-command application + golden snapshots.
-- **sub-132.004** — Surface Consolidation (D-132-02, D-132-03, D-132-04, D-132-05, D-132-10, D-132-15). Hard renames + final tree. **Depends on sub-132.002 + sub-132.003** because new commands must wire to Renderer + help-first wrapper.
-- **sub-132.005** — Hexagonal Refactor (D-132-13). `core/` vs `adapters/` split + import-linter contract. **Depends on sub-132.001 + sub-132.002** (Renderer becomes part of core/; state warner fix simplifies the layer split).
-- **sub-132.006** — Dogfood + Polish (D-132-16 + final-quality-loop fixes). **Depends on sub-132.001–005**.
-**Rationale**: Mirrors brief §3 milestone shape (M1=001, M2=002, M3=003, M4=004, M5=005, M6=006). Autopilot DAG: 001 → (002 ‖ 003) → 004 → 005 → 006. Wave 1: 001 alone (highest urgency). Wave 2: 002 + 003 in parallel. Wave 3: 004 (renames). Wave 4: 005 (hex). Wave 5: 006 (polish + final quality loop).
+### D-133-19 — `applies_to_surfaces` frontmatter for per-Surface skill restrictions
+SKILL.md gains optional `applies_to_surfaces: [list]` field. `ai-analyze-permissions` declares `applies_to_surfaces: [claude-code]` (audits Claude Code `settings.local.json`, no analogue elsewhere). `scripts/sync_mirrors/core.py` filters per-Surface based on this field. `tools/skill_lint/checks/md_mirror.py` excludes restricted skills from sha256 parity checks. Non-Claude Surfaces carry 47 skills (48 minus claude-only `ai-analyze-permissions`; new `ai-explore` skill = +1 net per D-133-09).
 
-### D-132-20 — Final-quality-loop policy
+**Rationale**: §10.4 DRY (restriction declared at source, not buried in script); operator-confirmed per-design exclusion (B12).
 
-**Choice**: spec-131 D-131-05 single-round fail-loud policy stands. After all 6 sub-specs land, `/ai-autopilot` Phase 5 runs ONE round of `/ai-verify` + `/ai-guard` + `/ai-review --full`. Any BLOCKER stops and escalates; no auto-retry. Closure sweep (brief §3 M6) lands in a SINGLE follow-up commit per spec-131 pattern (`bc37ce2f` precedent).
-**Rationale**: CANONICAL.md §13 rule 5. Telemetry from spec-131 (≈9.1% post-trim ratio) confirms the policy works at this scale.
+### D-133-20 — Hex contract zero-whitelist
+`pyproject.toml` `[tool.importlinter] ignore_imports` shrinks to empty (or contains only documented externally-enforced exceptions). 4 baseline ignores eliminated: `cli_ui → updater.service` (route via `OutputPort`); `updater.service → installer.templates` (extract `TemplateRegistryPort`); `policy.checks.stack_runner → installer.launchers` (extract `LauncherPort`); `validator._shared → installer.templates` (same `TemplateRegistryPort`). 6 in-band CLI hex violations unwound: `core.py:366-381` `_is_reinstall` sqlite3 → `AuditStorePort`; `core.py:344` raw `print` → `OutputPort`; `core.py:519-557` confirm helpers → `ConfirmPort` + extract pure helpers ≤30 lines per §10.7; `spec_cmd.py:133` `click.echo` → `OutputPort`; `spec_cmd.py:84` filesystem write → application-layer use case; `audit_cmd.py:38` module-level sqlite3 → `adapters/storage/`.
 
-### D-132-21 — `pr_lifecycle` event taxonomy unchanged
+**Rationale**: §10.8 Hexagonal — adapter↔core boundary physically enforceable; tests/architecture/test_hexagonal.py with empty whitelist.
 
-**Choice**: Renames do NOT extend the framework-events.ndjson schema. Old event names (`workflow.commit_start`, `validate.completed`) deprecated in-place; new emits use `pr.commit_start`, `check.completed`. spec-132 ships a one-shot back-compat reader in `audit index` so historical events remain queryable but writers only emit new names.
-**Rationale**: Audit trail observability per spec-120; minimum impact to consumers running `ai-eng audit query` against historical data.
+### D-133-21 — Templates deploy 9 root framework scripts
+New installer phase `ScriptsPhase` deploys full `.ai-engineering/scripts/` tree (root + `skills/` subdir) into consumer's tree. 9 root scripts: `session_bootstrap.py`, `spec_lifecycle.py`, `commit_compose.py`, `branch_slug.py`, `doc_gate.py`, `pr_body_compose.py`, `runtime_rotate.py`, `regenerate-hooks-manifest.py`, `plan_tasks.py`. Test: `tests/unit/installer/test_phases_scripts_deploy.py` asserts deployment per Surface. Pristine-install smoke per Surface (`tests/integration/installer/test_pristine_install_smoke.py`) verifies `/ai-start` exits 0 immediately.
 
-### D-132-22 — No new suppression introduced
+**Rationale**: every skill referencing `python .ai-engineering/scripts/<x>.py` must succeed on first call (B1 highest-ROI fix).
 
-**Choice**: Zero new `# noqa`, `# nosec`, `# type: ignore`, `# pragma: no cover`, `// NOSONAR`, `// nolint` anywhere in spec-132 diff. Pre-existing instances unaffected (separate concern); new code follows refactor-or-risk-accept rule from CANONICAL.md §13 rule 2.
-**Rationale**: Hard-rule restatement; CI gate `tools/skill_lint/checks/no_suppression.py` already exists (spec-131 D-131-08). Re-runs at sub-spec close.
+### D-133-22 — `cli_ui.skill_ref()` helper + lint
+`src/ai_engineering/cli_ui/skill_ref.py` (NEW). Returns canonical render of in-chat slash command reference: `"the /ai-NAME skill (run in your AI surface chat, not shell)"` (or tight variant `"/ai-NAME (in your AI surface)"`). Replaces every naked `/ai-<name>` in `cli_commands/`, `cli_ui/`, `phases/`, error formatters, post-install hints. `tools/skill_lint/checks/cli_output_skill_refs.py` AST-walks the CLI tree, fails on naked literals in `print` / `typer.echo` / `OutputPort.emit` calls.
 
-### D-132-23 — `commit` and `pr` top-level survive with explicit WIP label
+**Rationale**: prior incident (operator pasted `/ai-start` into shell) — B17 design + lint layer fix.
 
-**Choice**: `ai-eng commit` and `ai-eng pr` remain top-level (already shipped). Help text gains explicit label: `WIP / standalone — not part of the canonical chain. For orchestrated commit+push+PR open, use the /ai-pr skill instead.` per brief §9.2 soft alignment.
-**Rationale**: spec-131 D-131-07 made `/ai-commit` off-chain; CLI command stays so operators can still drive commits from terminal. Labelling prevents confusion about chain vs standalone.
+### D-133-23 — B16 Gap 4 CLI middleware
+`cli_factory.py` adds middleware running on every `ai-eng <cmd>` (except `install`, `doctor`, `version`). Reads `manifest.providers.stacks`, runs `autodetect.detect_stacks(...)`, compares. On drift, emits structured warning via `OutputPort` listing detected markers + missing toolchains. Honors `AIENG_STACK_DRIFT_STRICT=1` env (or `--strict` flag on `commit`/`pr`/`gate`) to block command (exit 78). Default: warn-only. Test `tests/integration/cli/test_stack_drift_middleware.py` covers all 13 marker types (python/typescript/javascript/go/rust/java/kotlin/swift/csharp/ruby/dart/elixir/php).
 
-### D-132-24 — Schema documentation for `.ai-engineering/specs/` and `.ai-engineering/state/`
+**Rationale**: closes silent toolchain-absence gap (B16 root risk).
 
-**Choice**: New `docs/architecture/dir-schemas.md` documents the canonical file-tree shape of `.ai-engineering/specs/` and `.ai-engineering/state/` after install. Golden-file test `tests/integration/installer/test_install_dir_schema.py` snapshots a fresh-install listing and fails if diff drifts without spec.
-**Rationale**: Brief §2.1 B14. Closes the unknown ("needs explore" line in brief).
+### D-133-24 — B16 Gap 5 AI cognitive contract
+Exit code 78 (`stack-drift-block`) with fixed format: Reason / Detected stack(s) / Missing toolchain(s) / Recovery (shell) / Then retry (in AI surface). `.claude/skills/ai-commit/SKILL.md` and `.claude/skills/ai-pr/SKILL.md` gain a verbatim "Stack drift recovery" subsection. Sync mirrors propagate. Eval `evals/cli-ux-cross-ide/test_drift_recovery_flow.md` simulates the loop for 6 stacks (D-133-11), asserts AI runs `ai-eng doctor --fix`, retries commit, hook output contains stack-specific tools (pytest+pip-audit / vitest+npm-audit / cargo-test+cargo-audit / dotnet-test+dotnet-list-vulnerable / go-test+govulncheck / mvn-test+mvn-dependency-check).
 
-### D-132-25 — Branch / PR metadata in CHANGELOG
+**Rationale**: structured machine-readable contract per "deterministic-first" principle — AI consumes structured exit envelope, no free-form heuristics.
 
-**Choice**: CHANGELOG `### [unreleased]` section gains a spec-132 block under "Breaking changes" listing each rename in D-132-02 through D-132-05 + D-132-06 + D-132-10 + D-132-14. CHANGELOG also updates PR #509 title (via `gh pr edit`) to include spec-132 alongside the existing 128/129/131 mention.
-**Rationale**: Operator-stated PR scope inclusion. CHANGELOG required for `/ai-pr` final-quality-loop gate.
+### D-133-25 — B16 Gap 1+2 greenfield mode
+`doctor/phases/tools.py:112-113`: drop `or ["python"]` coercion. Doctor operates in greenfield mode when `stacks=[]` (skip stack-specific tool probes; report baseline only — gitleaks, semgrep, jq). `ai-eng doctor --fix` opt-in flag: when `stack-drift` finding triggers, automatically updates `manifest.providers.stacks` with autodetect result, re-invokes `phases.sdk_prereqs` + `phases.tools` for newly-detected stacks. Idempotent. Test `tests/integration/doctor/test_doctor_fix_stack_drift.py`.
+
+**Rationale**: deterministic-first (CI-stable) per operator Q3 default; opt-in keeps doctor side-effect-free.
+
+### D-133-26 — Quality bar: production-grade for every new deterministic primitive
+Every new CLI verb / script ships with: idempotency (re-run = no-op when no drift), exit-coded per category (0/1/2/78), audit events via `OutputPort` per state-change, `--json` structured output universal, `--dry-run` where state-changing, refuse detached HEAD, never delete current branch, TDD per mode (RED-first). Acceptance gates ≤ 95 on `/ai-verify --full`. Hot-path budgets enforced.
+
+**Rationale**: operator quality bar "bootstrap-mínimo level" — these become the framework's deterministic spine.
 
 ## Risks
 
-### R-CLI-01 — PR #509 size & review fatigue
-
-**Risk.** PR #509 already has ~+159k / -74k / 2206 files changed before spec-132. Adding 6 sub-specs of CLI work could push it past human-reviewable bounds (estimated +6k / -4k / ~200 more files).
-**Mitigation.** (a) Sub-spec commits land atomically with descriptive messages (`refactor(spec-132 sub-001): P0 bug sweep`, etc.). (b) Use `gh pr review --request-review` per sub-spec wave so reviewers can review incrementally. (c) If review feedback indicates the PR is too large at sub-132.004 boundary, **escalation criterion: pause and call operator** rather than force-merging.
-
-### R-CLI-02 — Hexagonal refactor regression risk (D-132-13)
-
-**Risk.** Moving ~50+ modules from `src/ai_engineering/` flat layout to `core/` + `adapters/` invites import drift, test path drift, IDE adapter wiring breakage.
-**Mitigation.** (a) Use `git mv` for every relocation, preserving blame. (b) Run full `pytest` + `ruff` + `mypy` + `import-linter` after each module move. (c) `tests/architecture/test_hexagonal.py` runs in pre-push gate so drift surfaces immediately. (d) Sub-132.005 is the LAST sub-spec wave so prior changes (renames, Renderer) settle before the move.
-
-### R-CLI-03 — Hard rename breaks consumer muscle memory
-
-**Risk.** Operators downstream who scripted `ai-eng validate` or `ai-eng work-item sync` in CI pipelines will see immediate failure on the next `pip install --upgrade` of `ai-engineering`.
-**Mitigation.** (a) CHANGELOG `### Breaking changes` (D-132-25) is the contract. (b) Old-verb invocation prints `removed; use <new>` with the new verb on the SAME line — no need to consult docs. (c) Major-version bump (likely `0.5.0`) communicates breakage. (d) Release notes / blog post follow-up (not in spec-132 scope but flagged for `/ai-gtm`).
-
-### R-CLI-04 — Engram removal breaks the (very small) population of users who installed via the prompt
-
-**Risk.** Anyone who answered `y` to the engram prompt and depends on `engram setup claude_code` having been run will see no install path next time.
-**Mitigation.** (a) `docs/integrations/engram.md` carries the manual install commands per OS. (b) CHANGELOG `### Breaking changes` references the doc. (c) `ai-eng doctor` is taught to detect installed Engram and print "Engram detected; no install action needed" so users can verify status post-upgrade.
-
-### R-CLI-05 — Renderer JSON-mode drift from existing `cli_envelope` consumers
-
-**Risk.** External tooling that parses `ai-eng --json` output may depend on the exact envelope shape produced by `cli_envelope.py`.
-**Mitigation.** (a) Renderer JSON mode delegates to existing `cli_envelope.emit_*` functions for the actual JSON write — Renderer only orchestrates field accumulation. (b) Golden-file tests freeze the current `--json` schema for `install`, `update`, `doctor`, `check`, `verify`. (c) Schema bump signalled in JSON envelope with `schema_version: 1.1` (was 1.0); tooling can branch.
-
-### R-CLI-06 — `import-linter` performance on hot path
-
-**Risk.** Adding `import-linter` to pre-push gate could slow the < 5s budget if not configured carefully.
-**Mitigation.** (a) `import-linter` runs against the static contract file only, not whole-tree analysis on each push. (b) Benchmark in sub-132.005 as part of acceptance; if >500ms, move to pre-merge CI only (warn-locally instead of block-locally). (c) Hot-path budget test re-runs after sub-132.005 close.
-
-### R-CLI-07 — State.db UPSERT vs JSON write transactional semantics (D-132-08)
-
-**Risk.** Crashes mid-install could leave state.db with new rows but orphan JSON still on disk (or vice versa).
-**Mitigation.** (a) UPSERT + JSON cleanup happen inside the same SQLite transaction; cleanup uses a deferred `Path.unlink()` triggered only after `connection.commit()`. (b) If unlink fails (permission, ENOENT), warn at most once via D-132-07 dedup and continue. (c) Idempotency: re-run of `install` with both state.db and JSON present runs the same UPSERT + cleanup path harmlessly.
-
-### R-CLI-08 — `dev sync` invisibility regresses developer ergonomics
-
-**Risk.** Source-repo contributors used to typing `ai-eng sync` now have to type `ai-eng dev sync`; hidden in consumer projects but visible in source repo — risk of muscle-memory friction during transition.
-**Mitigation.** (a) Source-repo `pyproject.toml` ships with `[tool.aiengineering.source_repo] = true` so `dev` is always visible in source repo. (b) CHANGELOG documents the move. (c) `ai-eng dev --help` lists `sync` first.
+| ID | Risk | Likelihood | Impact | Mitigation |
+|----|------|-----------|--------|------------|
+| R-133-01 | Manifest schema break orphans consumer `.ai-engineering/manifest.yml` files | Medium | High | CHANGELOG `[Breaking changes]` documents; `ai-eng install --reconfigure` re-runs wizard against new schema. No shim per §13.3. PR #509 is the only delivery vehicle until release. |
+| R-133-02 | Hard renames break downstream tooling (decision-store IDs, Engram lookups already removed by spec-132) | Medium | Medium | Decision-store rows updated in same commit as rename. CHANGELOG breaking section enumerates all. Sync mirrors regenerate idempotently as part of acceptance. |
+| R-133-03 | OpenCode hook adapter (TS plugin shim) is a new language surface for the framework | Medium | Medium | Scope contained to `.ai-engineering/scripts/hooks/opencode-hook-bridge.ts` + `package.json` install step. Plugin contract isomorphic to Claude Code stdio JSON (event-name translation table); adapter is thin. Per-event smoke test in `tests/integration/hooks/test_opencode_bridge.py`. |
+| R-133-04 | Cursor hooks are beta (Cursor 1.7+, Sept 2025) — event shape may evolve | Medium | Low | Pin event-name translation table in `cursor-hook-bridge.py`; doc states beta status; community-monitored. If Cursor breaks contract, single adapter file changes. |
+| R-133-05 | Antigravity stays mirror-only — operator may expect "full support" | High | Low | D-133-06 documents upstream limitation (Google staff explicit). CHANGELOG + `docs/integrations/antigravity.md` carry the rationale + monitoring link. |
+| R-133-06 | Hex extraction inadvertently breaks installer hot-path (4 whitelisted edges may be load-bearing) | Medium | Medium | M6 is the **last** milestone — 5 prior have green tests; hex extraction only refactors layout, not behavior. Per-milestone `pytest` gate. Hot-path budgets enforced. |
+| R-133-07 | Stack-drift CLI middleware adds latency to every `ai-eng <cmd>` | Medium | Low | Detection is cheap (`os.walk` with `_WALK_EXCLUDE`, sub-second on typical repos). Benchmarked in `tests/perf/test_stack_drift_middleware_budget.py` (< 100ms p95). Hot-path budgets preserved. |
+| R-133-08 | Stack content migration (ai-debug/handlers + ai-review/handlers → overrides/<stack>/) may lose nuance | Medium | Medium | Per spec-128 D-128-03 (hard delete + start fresh, no migration), the existing handler content is NOT carried over verbatim. Operator-confirmed: training-redundant content survives in LLM priors. New `overrides/<stack>/{debug,review}.md` files written only when concrete project-specific deltas identified. YAGNI for empty files. |
+| R-133-09 | New `ai-eng cleanup --squashed` mode misidentifies branches in repos with non-standard merge workflows | Low | Medium | git-trim algorithm (merge-base + commit-tree) is industry-validated. `--dry-run` default for first run + explicit confirmation per session. Test `tests/integration/cli/test_cleanup_squashed_edge_cases.py` covers fast-forward + rebase-merge + cherry-pick scenarios. |
+| R-133-10 | 12-stack inventory expands maintenance burden | Medium | Low | Each stack ships minimum content (`conventions.md`, `security_floor.md`, `tdd_harness.md`) — initially stubs to be filled per concrete deltas. YAGNI prevents over-writing. ~30 files added (12 stacks × ~3 files); maintainable. |
 
 ## References
 
-- doc: .ai-engineering/specs/drafts/cli-ux-overhaul-brief.md
-- doc: .ai-engineering/specs/drafts/dx-excellence-refactor-brief.md (cross-brief coordination per brief §9)
 - pr: arcasilesgroup/ai-engineering#509
-- doc: CANONICAL.md (§10 engineering principles + §13 hard rules)
-- doc: .ai-engineering/contexts/spec-schema.md
-- doc: .ai-engineering/specs/_history.md (lifecycle precedent: spec-128/129/131)
-- doc: .ai-engineering/specs/archive/spec-131-dx-excellence-refactor.md (predecessor archived 2026-05-12)
-- doc: .claude/skills/ai-autopilot/SKILL.md (target dispatch contract)
-- doc: src/ai_engineering/state/state_db.py (B1 root-cause line 172-194)
-- doc: src/ai_engineering/installer/engram.py (B2 deletion target)
-- doc: src/ai_engineering/cli_factory.py:222 (B6 sync registration)
-- doc: src/ai_engineering/validator/categories/file_existence.py (B4 patch site)
-- doc: src/ai_engineering/installer/phases/state.py (B1 secondary site + D-132-08 UPSERT target)
-- doc: src/ai_engineering/templates/.ai-engineering/contexts/team/ (B13 deletion target)
-- doc: src/ai_engineering/cli_envelope.py / cli_ui.py / cli_progress.py / cli_output.py (D-132-12 wrappee surfaces)
-- doc: docs/getting-started.md (spec-131 D-131 onboarding doc — must stay coherent after renames)
+- doc: .ai-engineering/specs/drafts/cli-ux-cross-ide-rearch-brief.md
+- doc: .ai-engineering/specs/archive/spec-128-context-overrides.md
+- doc: .ai-engineering/specs/spec-129-skills-agents-excellence-pragmatic.md
+- doc: .ai-engineering/specs/spec-132-cli-ux-overhaul.md
+- doc: CLAUDE.md (§10 first-class principles; §14 Strict Content Contracts)
+- doc: CONSTITUTION.md (§13.3 hard-rule no-shim)
+- research: .ai-engineering/research/ide-hook-engines-2026-05-12.md
+- research: .ai-engineering/research/stack-classification-2026-05-12.md
+- research: .ai-engineering/research/git-branch-cleanup-modes-2026-05-12.md
 
 ## Open Questions
 
-None at brainstorm close (2026-05-12). The remaining brief §6 open decisions were resolved during interrogation:
-- §6.1 (final names): resolved by D-132-02 / D-132-03 / D-132-04.
-- §6.2 (workflow keep/delete): resolved by D-132-05 (delete).
-- §6.3 (AGENTS.md ship policy): resolved by spec-131 D-131-03 (already in HEAD).
-- §6.4 (Engram opt-in vs prompt): resolved by D-132-06 (remove).
-- §6.5 (deprecation aliases): resolved by D-132-02..05 ("hard rename, zero aliases" per operator confirmation A).
-
-Any further question discovered during `/ai-plan` decomposition must be raised as a `### Open Question` in `plan.md` and either resolved inline (cheap) or escalated back to `/ai-brainstorm` (expensive).
+None. All 11 brief questions resolved during interrogation; 3 additional discoveries (ai-review stack-routed handlers, mirror-sync targets missing, hook bridges missing) folded into Decisions D-133-10, D-133-13, D-133-15.

@@ -283,7 +283,7 @@ class TestSkills:
         # `.claude/skills/ai-cleanup/references/legacy-name-map.md`. Spec
         # target was 46; achieved 47 — `/ai-board` is the remaining net
         # addition (see CHANGELOG Wave 8 section for the gap explanation).
-        assert config.skills.total == len(config.skills.registry) == 47
+        assert config.skills.total == len(config.skills.registry) == 48
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

@@ -76,7 +76,8 @@ $ ai-eng install
 ✓ installing Surface(s): claude-code
 ✓ deployed 47 skills, 9 agents, 11 hook events, 9 framework scripts
 ✓ wired hooks for Claude Code (settings.json)
-✓ ready — try `/ai-start` to see the dashboard
+✓ ready — open Claude Code chat and run the /ai-start skill
+  (slash commands run in your AI surface, not in this shell)
 ```
 
 **Properties of the final state**:
@@ -394,12 +395,238 @@ Original cohesion-audit list (preserved for the deferred spec):
 `ai-observe`, `ai-learn`, `ai-prompt`, `ai-standup`,
 `verify-deterministic` (agent). Out of scope here.
 
+### B17 — CLI Output Confuses Slash Commands with Shell Commands (MEDIUM UX, recurrence)
+
+`/ai-<name>` invocations are **in-chat slash commands** evaluated by
+the AI surface (Claude Code chat / Codex chat / Cursor chat / Gemini
+CLI chat / GitHub Copilot chat / OpenCode chat / Antigravity chat).
+They are NOT shell commands. Past incident: an operator saw an
+output line like ``"try /ai-start to see the dashboard"`` and pasted
+it into a terminal, which produced no useful result (no
+`/ai-start` binary on PATH).
+
+Today's brief and existing CLI output both contain naked
+`/ai-<name>` references in shell context (e.g. §2 North Star wizard
+preview, B16 Gap 4 error-message "Then retry" line, post-install
+"ready" hint). Each one is a footgun.
+
+**Fix**: establish a single CLI-output convention via
+`cli_ui.skill_ref(name)` helper that always renders as
+``"the /ai-NAME skill (run it in your AI surface — chat, not
+shell)"`` or a shorter variant ``"/ai-NAME (in your AI surface)"``
+for tight spaces. Replace every existing naked `/ai-<name>` in CLI
+output paths (`cli_commands/`, `cli_ui/`, `phases/`, error
+formatters, post-install hints, doctor reports). Enforce via lint:
+
+1. `tools/skill_lint/checks/cli_output_skill_refs.py` — AST-walks
+   `src/ai_engineering/cli_commands/` and `src/ai_engineering/cli_ui/`
+   looking for string literals matching `r"^/ai-[a-z-]+$"` or
+   embedded inside `f"..."` / `print(...)` / `typer.echo(...)` /
+   `OutputPort.emit(...)` calls. Fail on any naked slash-command
+   reference; require the call to go through `skill_ref()`.
+2. Same lint applies to brief + spec.md + SKILL.md when they
+   describe CLI output (not when they describe in-chat
+   invocations). A new check categorizes context via section
+   headings.
+
+**Scope clarifications** — naked `/ai-<name>` IS correct in:
+- SKILL.md content (it lives in the AI surface; the user is
+  already in chat).
+- AGENTS.md / CLAUDE.md / GEMINI.md / copilot-instructions.md
+  (same surface).
+- CONSTITUTION.md user-facing examples.
+- This brief when documenting in-chat usage (e.g.
+  "/ai-brainstorm reads this file" — the AI is the consumer).
+
+Naked `/ai-<name>` is INCORRECT in:
+- CLI command help text (`ai-eng --help`).
+- CLI error messages, including B16 Gap 4 structured block.
+- CLI post-install "Next steps" hints.
+- `doctor` findings + remediation text.
+- Anywhere `OutputPort` writes to terminal.
+
 ### B15 — `--stack` Flag UX Mismatch (LOW)
 
 `core.py:103` accepts `--stack/-s` repeatable. Wizard prompt
 overrides it (B5 fix). After B5, `--stack` becomes the **only**
 non-auto-detect path. Document it explicitly in `ai-eng install
 --help`.
+
+### B16 — Empty-Stack Robustness Gaps (HIGH, gates M4 safety)
+
+Audit 2026-05-12 confirmed `stacks=[]` is **technically robust** —
+zero crashes across `sdk_prereqs.py:145-150`, `tools.py:284`,
+`required_tools.py:482-488`, `stack_runner.py:728`, `autodetect.py`,
+and `auto-format.py:129-131`. The empty-list path is exercised by 7
+existing unit tests (`test_empty_stacks_returns_baseline_only`,
+`test_empty_stacks_returns_empty_list`,
+`TestInstallWithEmptyStacks`, etc.). **However**, three gaps must
+close before the wizard prompt can be deleted safely:
+
+**Gap 1 — Silently-wrong doctor fallback**
+`src/ai_engineering/doctor/phases/tools.py:112-113`:
+```python
+stacks = list(getattr(getattr(config, "providers", None), "stacks", []) or [])
+return stacks or ["python"]
+```
+With `stacks=[]` (greenfield intentional) doctor coerces the value
+to `["python"]` and then reports false-positive "python tool
+missing" warnings. The fallback must distinguish "stacks not yet
+declared" (greenfield, no python assumption) from "stacks
+declared". Fix: drop the `or ["python"]` coercion; let doctor
+operate in greenfield mode (skip stack-specific tool probes,
+report only baseline tools).
+
+**Gap 2 — No automatic re-detect when project files appear**
+`autodetect.detect_stacks` runs only inside `ai-eng install`
+(`core.py:330,436`) and inside `doctor.phases.detect:197`. After
+install with `stacks=[]`, if the user later adds any of the 13
+supported stack markers (see autodetect markers list at end of this
+gap), `doctor` raises `stack-drift` (`detect.py:215-222`) as a WARN
+— but
+**no command updates `manifest.providers.stacks` automatically**.
+The user must remember to run `ai-eng install` again. This is the
+single biggest UX risk of deleting the wizard prompt.
+
+Autodetect markers (13 stacks, language-agnostic) per
+`src/ai_engineering/installer/autodetect.py:99-114, 139`:
+python (pyproject + setup + Pipfile), typescript (tsconfig),
+javascript (package without tsconfig), go (go.mod),
+rust (Cargo.toml), java (pom + gradle), kotlin (gradle.kts),
+swift (Package.swift), csharp (csproj + sln extension),
+ruby (Gemfile), dart (pubspec.yaml), elixir (mix.exs),
+php (composer.json).
+
+Fix: introduce **`ai-eng doctor --fix`** behavior that, when
+`stack-drift` finding triggers, automatically updates
+`manifest.providers.stacks` with the freshly-detected set and
+re-runs `phases.sdk_prereqs` + `phases.tools` to install the now-
+relevant toolchain. Idempotent. Document in `ai-eng install --help`
+and in the post-install "Next steps" hint (language-agnostic
+wording):
+```
+✓ installed framework (greenfield mode — no stack detected)
+ⓘ when you add a project marker (pyproject.toml, Cargo.toml,
+  package.json, *.csproj, Package.swift, go.mod, etc.), run
+  `ai-eng doctor --fix` to register the stack and wire toolchains
+  (pytest, eslint, cargo-audit, dotnet list package --vulnerable,
+  swift test, etc.)
+```
+
+**Gap 3 — No greenfield handler in `/ai-debug` / `/ai-pipeline`**
+`.claude/skills/ai-debug/handlers/` and
+`.claude/skills/ai-pipeline/handlers/` ship per-stack handler files
+but no `default.md` / `greenfield.md`. Invoking `/ai-debug` in a
+no-stack repo runs the skill's generic 4-phase loop without
+stack-specific guidance. Not a crash, but a degraded experience.
+
+Fix: add `default.md` handler to `ai-debug` and `ai-pipeline` that
+explicitly states "no stack detected — operating in generic mode;
+add a project file and run `ai-eng doctor --fix` to enable
+stack-specific handlers". Low effort. Closes the UX gap.
+
+**Gap 4 — No auto-detect on `ai-eng` command invocation
+(test/audit window)**
+
+The biggest practical risk of `stacks=[]` is **not** the install-time
+state — it's the window between "user adds project code" and "user
+remembers to run `doctor --fix`". During that window, **no
+stack-specific tools run**: no `pytest` / `vitest` / `cargo test`
+/ `dotnet test` / `swift test` / `go test`; no `pip-audit` /
+`npm audit` / `cargo audit` / `dotnet list package --vulnerable`;
+no `ruff` / `eslint` / `clippy` / `rustfmt`. Pre-commit hooks fall
+back to baseline only (`gitleaks`, `semgrep`, `jq`) and the user
+gets **silent toolchain absence** — no test coverage, no dependency
+vulnerability scan, no language-specific lint, until they run
+`doctor --fix`. This is a real correctness gap, not just UX.
+
+Fix: introduce a **CLI middleware** in `cli_factory.py` that runs
+on every `ai-eng <cmd>` (except `install`, `doctor`, `version`).
+The middleware:
+1. Reads `manifest.providers.stacks` (cheap — file-read).
+2. Runs `autodetect.detect_stacks` (cheap — `os.walk` with
+   `_WALK_EXCLUDE` is sub-second on typical repos).
+3. Compares: if `detected - manifest_declared != ∅`, emit a
+   **structured hint** via `OutputPort`:
+   ```
+   ⚠ stack drift detected: csharp markers present (*.csproj)
+     but manifest stacks=[]. Run `ai-eng doctor --fix` to wire
+     pytest/cargo-audit/dotnet-vulnerable-list/etc. — currently
+     running baseline-only (gitleaks + semgrep + jq).
+   ```
+4. In **strict mode** (`AIENG_STACK_DRIFT_STRICT=1` env var, or
+   `--strict` flag on `commit`/`pr`/`gate`), the middleware
+   **blocks** the command and exits non-zero. Default: warn-only,
+   so the loop never silently locks the user out.
+
+Acceptance: any `ai-eng <cmd>` in a repo where stack markers exist
+but `manifest.stacks=[]` emits the warning. `commit`/`pr`/`gate
+pre-commit`/`gate pre-push` block under strict mode. Test:
+`tests/integration/cli/test_stack_drift_middleware.py` covers all
+13 marker types end-to-end.
+
+**Gap 5 — AI cognitive model for stack-drift recovery**
+
+The block-message from Gap 4 is only useful if the calling AI
+(Claude / Codex / Gemini / Cursor / Copilot / Antigravity /
+OpenCode) understands what to do next. Today, `/ai-commit` and
+`/ai-pr` SKILL.md procedures do not teach the AI how to recover
+from a stack-drift block. Result: when the block fires, the AI
+either retries blindly or surrenders.
+
+Fix: define a **structured drift-recovery contract** with three
+artefacts:
+
+1. **CLI error message format** (machine + human readable). When
+   middleware blocks, emit one structured block via `OutputPort`,
+   exit code 78 (configuration error). Format:
+   ```
+   ERROR: stack-drift-block
+   Reason: detected markers [csharp] but manifest stacks=[]
+   Detected stack(s): csharp
+   Missing toolchain(s): dotnet test, dotnet list package --vulnerable
+   Recovery (shell): ai-eng doctor --fix
+   Then retry (in your AI surface chat, not shell):
+     the /ai-commit skill   (or /ai-pr, or /ai-build)
+   ```
+   The "Detected" and "Missing toolchain" lines are computed from
+   the manifest's `required_tools.<stack>` block — per-stack
+   accurate (pytest+pip-audit for python; vitest+npm-audit for
+   typescript; cargo test+cargo-audit for rust;
+   dotnet-test+dotnet-list-vulnerable for csharp; swift test for
+   swift; go test+govulncheck for go; etc.).
+
+2. **`/ai-commit` and `/ai-pr` SKILL.md recovery section**. Each
+   SKILL.md gains a "Stack drift recovery" subsection with this
+   procedure (verbatim, so the AI's instruction-following stays
+   deterministic):
+   ```
+   When the commit pipeline exits with code 78 and
+   "stack-drift-block" message, the recovery is:
+     1. Run `ai-eng doctor --fix` to register the detected
+        stack(s) in manifest and install the missing toolchain.
+     2. Re-invoke /ai-commit (or /ai-pr) to run the full hook
+        pipeline (tests + dependency-vulnerability scans + lint).
+   Do not retry without --fix; the block is intentional, not a
+   transient error.
+   ```
+
+3. **Test the AI understands**. Add an eval-style test under
+   `evals/cli-ux-cross-ide/test_drift_recovery_flow.md` that
+   simulates: empty repo → install → add `.csproj` → invoke
+   `/ai-commit` → assert AI follows the recovery procedure (runs
+   `doctor --fix`, then retries commit, then commit succeeds with
+   `dotnet test` + `dotnet list package --vulnerable` in the
+   hook output). Same eval per supported stack (5 stacks: python,
+   typescript, rust, csharp, go for the minimum coverage matrix;
+   the other 8 stacks pass via the deterministic CLI test in
+   Gap 4).
+
+Acceptance: AI dispatched against each of the 5 stacks completes
+the loop without human intervention; the commit hook output
+contains the expected stack-specific tool invocations
+(pytest/pip-audit, vitest/npm-audit, cargo-test/cargo-audit,
+dotnet-test/dotnet-list-vulnerable, go-test/govulncheck).
 
 ---
 
@@ -591,7 +818,7 @@ collapses into one generic provisioner driven by the Surface registry.
 - `.cursor/rules/` carries the 46 cross-Surface skills as `.mdc`
   files plus canonical CLAUDE.md-derived topic rules.
 
-### M4 — Wizard + CLI: Collapse to Surface (B5, B9, B10, B11, B15)
+### M4 — Wizard + CLI: Collapse to Surface (B5, B9, B10, B11, B15, B16)
 
 **Apply**: §10.1 (KISS), §10.2 (YAGNI), §10.7 (Clean Code)
 **Why**: User-facing UX is the highest-leverage daily-pain surface.
@@ -615,6 +842,61 @@ collapses into one generic provisioner driven by the Surface registry.
    handler file. `/ai-guide` skill is the only entry point.
 7. Update help-text + golden snapshots
    (`tests/unit/cli/test_help_snapshots.py` or equivalent).
+8. **B16 Gap 1** — `doctor/phases/tools.py:112-113`: drop the
+   `or ["python"]` coercion. Doctor operates in greenfield mode when
+   `stacks=[]` (skip stack-specific tool probes; report baseline
+   only). Add `tests/unit/doctor/test_phases_tools_greenfield.py`.
+9. **B16 Gap 2** — `ai-eng doctor --fix` auto-updates manifest when
+   `stack-drift` finding triggers. Runs `autodetect.detect_stacks`,
+   writes `providers.stacks`, re-invokes `phases.sdk_prereqs` +
+   `phases.tools` for the newly-detected stacks. Idempotent. Test:
+   `tests/integration/doctor/test_doctor_fix_stack_drift.py`.
+10. **B16 Gap 2 (post-install hint)** — when `ai-eng install`
+    completes with `stacks=[]`, emit a one-line greenfield hint via
+    `OutputPort`: "greenfield mode — run `ai-eng doctor --fix` after
+    adding project files to wire toolchains". Golden snapshot test.
+11. **B16 Gap 3** — add `default.md` handler to
+    `.claude/skills/ai-debug/handlers/` and
+    `.claude/skills/ai-pipeline/handlers/`. Content: "no stack
+    detected — operating in generic mode; add a project file and run
+    `ai-eng doctor --fix` to enable stack-specific handlers". Sync
+    mirrors propagate to non-Claude Surfaces.
+12. **B16 Gap 4** — CLI middleware in `cli_factory.py` that runs on
+    every `ai-eng <cmd>` (except `install`, `doctor`, `version`).
+    Checks `autodetect.detect_stacks(...)` vs
+    `manifest.providers.stacks`; on drift, emits a structured
+    warning via `OutputPort` listing the detected markers and the
+    missing toolchains. Honors `AIENG_STACK_DRIFT_STRICT=1` env (or
+    `--strict` flag on `commit`/`pr`/`gate`) to **block** the
+    command. Default: warn-only. Test:
+    `tests/integration/cli/test_stack_drift_middleware.py` covers
+    all 13 marker types (python/typescript/javascript/go/rust/
+    java/kotlin/swift/csharp/ruby/dart/elixir/php).
+13. **B16 Gap 5** — Drift-recovery contract for the calling AI.
+    Structured CLI error message (exit code 78, fixed format with
+    Reason/Detected/Missing/Recovery/Then-retry lines).
+    `.claude/skills/ai-commit/SKILL.md` and
+    `.claude/skills/ai-pr/SKILL.md` gain a verbatim "Stack drift
+    recovery" subsection so the AI's instruction-following stays
+    deterministic. Sync mirrors propagate. Eval test
+    `evals/cli-ux-cross-ide/test_drift_recovery_flow.md` simulates
+    the loop for 5 stacks (python/typescript/rust/csharp/go);
+    asserts the AI runs `doctor --fix`, retries the commit, and
+    the hook output contains stack-specific tool invocations
+    (pytest+pip-audit, vitest+npm-audit, cargo-test+cargo-audit,
+    dotnet-test+dotnet-list-vulnerable, go-test+govulncheck).
+14. **B17 fix — `cli_ui.skill_ref()` helper + lint**. Add the
+    `skill_ref(name)` function under `src/ai_engineering/cli_ui/`
+    that returns a single canonical render of an in-chat slash
+    command reference (e.g. ``"the /ai-NAME skill (run in your AI
+    surface chat, not shell)"``). Replace every naked
+    `/ai-<name>` reference in `cli_commands/`, `cli_ui/`,
+    `phases/`, error formatters, and post-install hints. Add
+    `tools/skill_lint/checks/cli_output_skill_refs.py` that
+    AST-walks the CLI tree, fails on naked slash-command literals
+    in `print` / `typer.echo` / `OutputPort.emit` calls. Update
+    `ai-eng install` golden snapshot tests + B16 Gap 4 + Gap 5
+    error formatters to consume the helper.
 
 **Acceptance**:
 - New wizard golden snapshot: 1 question, not 4.
@@ -622,6 +904,16 @@ collapses into one generic provisioner driven by the Surface registry.
   end-to-end into a temp dir.
 - `ai-eng install --help` shows `--surface/-S`, NOT `--provider/-p` or
   `--ide/-i`.
+- `ai-eng install` into an empty repo succeeds; emits greenfield
+  hint; `ai-eng doctor` runs clean (no false-positive python warnings).
+- After adding `pyproject.toml` to that empty repo, `ai-eng doctor
+  --fix` updates `manifest.providers.stacks = [python]`,
+  installs python toolchain (ruff, pytest, ty, pip-audit), and
+  re-runs clean.
+- Greenfield smoke test:
+  `tests/integration/installer/test_install_greenfield.py` covers
+  the full empty-repo → add-file → doctor-fix → toolchain-installed
+  loop.
 
 ### M5 — Manifest Schema Migration (B4)
 
@@ -734,6 +1026,8 @@ CLI verb renames + deletions (in scope):
 | Cursor `.cursor/rules/*.mdc` format may evolve before ship | Medium | Low | Pin to current `.mdc` schema (front-matter + body); regenerate from skills on every sync; operator can opt out via `--surface` exclusion. |
 | Sub-agent dispatch in `/ai-review` and `/ai-verify` references old `verify-deterministic` name | High | Low | Grep-and-replace covers all references in the rename commit; tests assert dispatch round-trip. |
 | Hex extraction inadvertently breaks installer hot-path (the 4 whitelisted edges may be load-bearing) | Medium | Medium | M6 is the **last** milestone — the 5 prior have green tests; hex extraction only refactors layout, not behavior. Per-milestone `pytest` gate. |
+| User installs into greenfield, adds project files (Cargo.toml / *.csproj / Package.swift / pyproject.toml / etc.), forgets `doctor --fix` → toolchains never installed → tests + dep-vuln scans + lint never run | High | High | B16 Gap 4 fix: CLI middleware on every `ai-eng <cmd>` emits structured stack-drift warning listing missing toolchains. Strict mode (env var or `--strict` flag) blocks `commit`/`pr`/`gate`. No silent gap. |
+| User runs `doctor --fix` and disagrees with auto-detected stack | Low | Low | `--fix` is opt-in (not automatic on every doctor run). User can still `ai-eng install --reconfigure --stack <override>` to force a specific set. |
 
 Rollback: any milestone is a single commit. `git revert` per-commit
 is the rollback unit. No data migrations beyond the manifest hard
@@ -813,37 +1107,57 @@ producing spec.md:
    doc impact.
 2. ~~**`ai-eng guide` rename**~~ — **RESOLVED 2026-05-12**: command
    DELETED entirely; `/ai-guide` skill is canonical. No question.
-3. **Stack concept (Level A vs B from feedback)**: Level A (delete
+3. **Greenfield `doctor --fix` UX**: confirm operator wants
+   `--fix` to be **opt-in only** (user-triggered), not automatic
+   on every `doctor` invocation. Alternative: emit a TUI prompt
+   ("Detected new stack: python. Apply? [Y/n]"). Default
+   recommended: opt-in flag, no prompt — keeps doctor deterministic
+   for CI.
+4. **Stack concept (Level A vs B from feedback)**: Level A (delete
    wizard prompt only, keep concept) is recommended in §6 M4. Confirm
    operator does not want Level B (delete concept entirely).
-4. **`/ai-cleanup` vs `ai-eng maintenance`**: confirm `/ai-cleanup`
+5. **`/ai-cleanup` vs `ai-eng maintenance`**: confirm `/ai-cleanup`
    wins (recommended). If operator wants `ai-eng maintenance` retained
    for scriptability, both stay but with a clear seam (skill = UX,
    CLI = scripting).
-5. **OpenCode `.opencode/` tree contents**: confirm operator wants
+6. **OpenCode `.opencode/` tree contents**: confirm operator wants
    AGENTS.md + skills/agents docs only (no executable hook engine),
    matching Antigravity's mirror-only Surface shape.
-6. **Cursor `.cursor/rules/` granularity**: confirm one `.mdc` per
+7. **Cursor `.cursor/rules/` granularity**: confirm one `.mdc` per
    skill (regenerated from `.claude/skills/<name>/SKILL.md`) plus
    topic-level rules from canonical CLAUDE.md. Alternative: a single
    `.mdc` carrying the full canonical payload + per-skill anchors —
    simpler but loses Cursor's per-rule selective application. Default
    recommended: granular (one-per-skill).
-7. **Cursor MCP wiring (`.cursor/mcp.json`)**: deploy on ship day, or
+8. **Cursor MCP wiring (`.cursor/mcp.json`)**: deploy on ship day, or
    defer to follow-up? Default recommended: defer (out-of-scope unless
    operator wants it explicitly).
-8. **`ai-explore` skill (B7)**: confirm (a) thin-wrapper skill
+9. **`ai-explore` skill (B7)**: confirm (a) thin-wrapper skill
    approach over (b) CLAUDE.md doc fix.
-9. ~~**Naming reform**~~ — **RESOLVED 2026-05-12**: skill + agent
-   renames deferred (B8, B14 out of scope). CLI verb renames stay
-   in scope per §7. No question.
+10. **B16 Gap 3 `default.md` handler scope**: confirm operator wants
+    `default.md` handlers in `ai-debug` + `ai-pipeline` only, OR
+    extend the pattern to any skill that ships handlers (broader
+    consistency vs scope creep). Default recommended: scoped to
+    `ai-debug` + `ai-pipeline` (the two that explicitly route by
+    stack). Other skills get the default behavior when no handler
+    matches.
+11. **B16 Gap 5 AI eval coverage**: confirm operator wants 5
+    representative stacks (python/typescript/rust/csharp/go) for
+    the AI drift-recovery eval matrix, OR full 13-stack coverage
+    (slower CI, full safety). Default recommended: 5 stacks
+    (covers the diverse toolchain shapes:
+    pip/npm/cargo/dotnet/go). Other 8 stacks pass via the
+    deterministic Gap 4 CLI test.
+11. ~~**Naming reform**~~ — **RESOLVED 2026-05-12**: skill + agent
+    renames deferred (B8, B14 out of scope). CLI verb renames stay
+    in scope per §7. No question.
 
 ---
 
 ## 13. Definition of Done (spec-level)
 
-- All 16 bugs in §3 (B1-B15 + B3b) closed with file:line evidence
-  in PR body.
+- All 17 bugs in §3 (B1-B16 + B3b; B8 + B14 deferred and documented
+  as out-of-scope) closed with file:line evidence in PR body.
 - All 6 milestones in §6 shipped as atomic commits to branch
   `spec-128/context-overrides-refactor` (joining PR #509).
 - New domain + application + adapter layout in place; import-linter
@@ -852,6 +1166,34 @@ producing spec.md:
   manifest.yml` rewritten.
 - All 7 Surfaces install standalone — verified by integration smoke
   test.
+- Greenfield mode (stacks=[]) is robust end-to-end: install →
+  add project file → `ai-eng doctor --fix` updates manifest +
+  installs toolchain. Covered by
+  `tests/integration/installer/test_install_greenfield.py`.
+- **No silent test/audit gap**: the CLI middleware (B16 Gap 4)
+  emits a structured stack-drift warning on every `ai-eng <cmd>`
+  when markers exist but manifest is stale. Strict mode blocks
+  `commit`/`pr`/`gate` operations. Covered by
+  `tests/integration/cli/test_stack_drift_middleware.py` across
+  all 13 supported stacks.
+- All 13 autodetect stack markers exercised end-to-end (python,
+  typescript, javascript, go, rust, java, kotlin, swift, csharp,
+  ruby, dart, elixir, php). Each Surface × each stack permutation
+  in the integration matrix is non-exhaustive (matrix would
+  explode); instead, the test suite covers each stack once via
+  per-stack fixtures.
+- **Zero naked `/ai-<name>` references in CLI output** — lint
+  `tools/skill_lint/checks/cli_output_skill_refs.py` enforces
+  `cli_ui.skill_ref()` usage in every CLI surface (install hints,
+  error formatters, doctor remediation text, golden snapshots).
+  Past slash-vs-shell confusion incident does not recur.
+- **AI drift-recovery flow validated** for 5 representative stacks
+  (python, typescript, rust, csharp, go). Each eval starts with an
+  empty repo, performs install → add stack marker → invoke
+  `/ai-commit`, asserts the AI follows the verbatim recovery
+  procedure (run `ai-eng doctor --fix`, retry commit), and
+  verifies the hook output contains the stack's test runner +
+  dependency-vulnerability scanner.
 - Mirror counts per Surface: `.claude/` = 48 canonical (47 existing
   + new `ai-explore`); `.codex/`, `.gemini/`, `.github/`,
   `.cursor/rules/`, `.opencode/`, `.antigravity/` = 47 each (48

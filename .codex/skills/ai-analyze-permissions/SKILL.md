@@ -5,6 +5,7 @@ effort: high
 argument-hint: "[analyze|apply|cleanup]"
 disable-model-invocation: True
 model_tier: opus
+applies_to_surfaces: [claude-code]
 copilot_compatible: False
 codex_compatible: False
 gemini_compatible: False

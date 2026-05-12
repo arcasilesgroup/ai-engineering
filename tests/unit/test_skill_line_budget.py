@@ -49,7 +49,7 @@ def _line_count(path: Path) -> int:
 
 
 def test_ai_commit_skill_under_115_lines() -> None:
-    """ai-commit/SKILL.md must shrink from 126 to <=115 lines (Phase 7).
+    """ai-commit/SKILL.md must shrink from 126 to <=120 lines (Phase 7 + spec-133 D-133-24).
 
     Conservative cut target: D-104-07 removes the 10-line Common Mistakes
     duplicate (lines 110-119) and replaces it with a one-line pointer to
@@ -57,8 +57,10 @@ def test_ai_commit_skill_under_115_lines() -> None:
     """
     assert AI_COMMIT_SKILL.exists(), f"missing skill file: {AI_COMMIT_SKILL}"
     actual = _line_count(AI_COMMIT_SKILL)
-    assert actual <= 115, (
-        f"ai-commit/SKILL.md line count {actual} exceeds Phase 7 target of 115. "
+    # spec-133 D-133-24 adds a brief Drift recovery subsection;
+    # +5 lines (115 -> 120).
+    assert actual <= 120, (
+        f"ai-commit/SKILL.md line count {actual} exceeds budget of 120. "
         f"Spec-104 D-104-07 requires removing the duplicated Common Mistakes "
         f"block (vs CLAUDE.md Don't section) and trimming orphan boilerplate."
     )
@@ -112,7 +114,8 @@ def test_combined_skill_lines_under_372() -> None:
     for path in (AI_COMMIT_SKILL, AI_PR_SKILL, WATCH_HANDLER):
         assert path.exists(), f"missing skill file: {path}"
     combined = _line_count(AI_COMMIT_SKILL) + _line_count(AI_PR_SKILL) + _line_count(WATCH_HANDLER)
-    assert combined <= 400, (
+    # spec-133 D-133-24 brief Drift recovery section adds 10 lines combined.
+    assert combined <= 410, (
         f"Combined skill line count {combined} exceeds spec-104 G-6 target of "
         f"400. Phase 7 trims must hold; new content must justify the line cost."
     )

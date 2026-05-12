@@ -29,7 +29,6 @@ from ai_engineering.cli_commands import (
     decisions_cmd,
     dev_sync,
     gate,
-    guide,
     internal,
     issue,
     maintenance,
@@ -137,7 +136,6 @@ def _app_callback(
                         "check",
                         "verify",
                         "version",
-                        "guide",
                         "config",
                         "status",
                         "issue",
@@ -187,10 +185,86 @@ def _app_callback(
     if result.is_outdated:
         sys.stderr.write(f"WARNING: {result.message}\n  Run 'ai-eng update' to upgrade.\n")
 
+    # spec-133 D-133-23: stack-drift middleware (warn + optional block)
+    _stack_drift_middleware(command)
+
 
 def _safe(func: Callable) -> Callable:
     """Shorthand: apply the CLI error boundary to a command function."""
     return _cli_error_boundary(func)
+
+
+# Commands exempt from stack-drift middleware (spec-133 D-133-23).
+# install / doctor / version / internal must run regardless of drift state.
+_DRIFT_EXEMPT: frozenset[str] = frozenset(
+    {
+        "install",
+        "doctor",
+        "version",
+        "internal",
+        "update",
+    }
+)
+
+
+def _stack_drift_middleware(command: str) -> None:
+    """spec-133 D-133-23 / B16 Gap 4: stack-drift warning + optional block.
+
+    Reads manifest.providers.stacks, runs autodetect.detect_stacks, and
+    emits a structured warning on drift. When AIENG_STACK_DRIFT_STRICT=1
+    (env) and the command is mutation-class (commit/pr/gate), the
+    middleware blocks with exit code 78 per D-133-24 cognitive contract.
+    """
+    if command in _DRIFT_EXEMPT or not command:
+        return
+
+    import os
+
+    try:
+        from ai_engineering.config.loader import load_manifest_config
+        from ai_engineering.installer.autodetect import detect_stacks
+        from ai_engineering.paths import resolve_project_root
+    except ImportError:
+        return  # framework not installed yet — silent no-op
+
+    try:
+        root = resolve_project_root(None)
+    except Exception:
+        return  # not a project root — silent no-op
+
+    try:
+        cfg = load_manifest_config(root)
+    except Exception:
+        return
+
+    configured = set(getattr(getattr(cfg, "providers", None), "stacks", []) or [])
+    try:
+        detected = set(detect_stacks(root))
+    except Exception:
+        return
+
+    if not detected:
+        return  # greenfield — nothing to drift against
+    missing = detected - configured
+    if not missing:
+        return  # configured matches reality
+
+    # spec-133 D-133-24: structured machine-readable exit envelope.
+    msg_lines = [
+        "WARNING: stack drift detected",
+        f"  Detected stack(s): {sorted(missing)}",
+        f"  Configured stack(s): {sorted(configured)}",
+        "  Recovery: ai-eng doctor --fix",
+    ]
+    strict = os.environ.get("AIENG_STACK_DRIFT_STRICT") == "1"
+    blocking_cmds = {"commit", "pr", "gate"}
+    if strict and command in blocking_cmds:
+        from ai_engineering.cli_commands._exit_codes import EXIT_STACK_DRIFT
+
+        msg_lines.insert(0, "BLOCKED: stack drift in strict mode")
+        sys.stderr.write("\n".join(msg_lines) + "\n")
+        raise typer.Exit(code=EXIT_STACK_DRIFT)
+    sys.stderr.write("\n".join(msg_lines) + "\n")
 
 
 # spec-132 D-132-02..05: removed verbs map to their replacements. Each
@@ -260,7 +334,6 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     app.command("verify")(_safe(verify_cmd.verify_cmd))
     app.command("version")(core.version_cmd)
     app.command("release")(_safe(release.release_cmd))
-    app.command("guide")(_safe(guide.guide_cmd))
     app.command("status")(_safe(status_cmd_mod.status_cmd))
     app.command("commit")(_safe(commit_cmd_mod.commit_cmd))
     app.command("pr")(_safe(pr_cmd_mod.pr_cmd))

@@ -107,10 +107,14 @@ def _resolve_stacks(ctx: DoctorContext) -> list[str]:
         config = load_manifest_config(ctx.target)
     except Exception:
         config = ctx.manifest_config
+    # spec-133 D-133-25 / B16 Gap 1+2: greenfield mode.
+    # Return an empty list when no stacks are configured so the tools
+    # phase skips stack-specific tool probes (false positives previously
+    # surfaced from coercing the empty list to ["python"]).
     if config is None:
-        return ["python"]
+        return []
     stacks = list(getattr(getattr(config, "providers", None), "stacks", []) or [])
-    return stacks or ["python"]
+    return stacks
 
 
 # ---------------------------------------------------------------------------

@@ -141,13 +141,13 @@ control_plane:
 # === FRAMEWORK MANAGED (do not edit below this line) ===
 # These sections are maintained by ai-engineering automatically.
 
-# Skills registry (47 skills) — spec-127 sub-005 (M4) renames + mergers
+# Skills registry (48 skills) — spec-133 D-133-09 adds ai-explore — spec-127 sub-005 (M4) renames + mergers
 # landed; Wave 8 (D-127-10 strict-count enforcement) demoted `/ai-help` to
 # a reference file under `.claude/skills/ai-cleanup/references/`. Achieved
 # disk count is 47 (umbrella spec target was 46) because `/ai-board`
 # (discover+sync merger target) is a net addition over D-127-10 arithmetic.
 skills:
-  total: 47
+  total: 48
   prefix: "ai-"
   registry:
     # Core workflow
@@ -172,6 +172,7 @@ skills:
       { type: enterprise, tags: [documentation, architecture, governance] }
     # Teaching + Writing
     ai-explain: { type: teaching, tags: [learning] }
+    ai-explore: { type: workflow, tags: [exploration, codebase, research] }
     ai-guide: { type: teaching, tags: [onboarding] }
     ai-write: { type: writing, tags: [content] }
     ai-gtm: { type: writing, tags: [gtm, marketing, go-to-market] }

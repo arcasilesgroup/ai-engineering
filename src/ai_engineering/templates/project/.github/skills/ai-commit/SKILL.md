@@ -80,6 +80,11 @@ Compose message via `python3 .ai-engineering/scripts/commit_compose.py --type <t
 
 Execute the full pipeline through Commit. Skip Push.
 
+
+## Drift recovery
+
+Exit 78 = stack drift. Run `ai-eng doctor --fix` in shell, retry. Never `--no-verify`.
+
 ## Examples
 
 ### Example 1 — full happy path
