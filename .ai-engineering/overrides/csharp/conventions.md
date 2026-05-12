@@ -3,8 +3,7 @@
 # C# — Build Conventions
 
 Authoritative reference for the `ai-build` agent when generating C#
-code. Distilled from `contexts/languages/csharp.md` plus
-`contexts/frameworks/aspnetcore.md`.
+code.
 
 ## Toolchain
 

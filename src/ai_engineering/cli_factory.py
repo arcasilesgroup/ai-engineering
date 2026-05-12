@@ -40,6 +40,9 @@ from ai_engineering.cli_commands import (
     verify_cmd,
 )
 from ai_engineering.cli_commands import (
+    cleanup as cleanup_mod,
+)
+from ai_engineering.cli_commands import (
     commit as commit_cmd_mod,
 )
 from ai_engineering.cli_commands import (
@@ -150,6 +153,7 @@ def _app_callback(
                         "pr",
                         "risk",
                         "spec",
+                        "cleanup",
                     ]
                 },
             )
@@ -398,6 +402,16 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
     maint_app.command("reset-events")(_safe(maintenance.maintenance_reset_events))
     maint_app.command("all")(_safe(maintenance.maintenance_all))
+    cleanup_app = typer.Typer(
+        name="cleanup",
+        no_args_is_help=True,
+        help="Git branch + runtime + spec cleanup (spec-133 D-133-03)",
+    )
+    app.add_typer(cleanup_app, name="cleanup")
+    cleanup_app.command("branches")(_safe(cleanup_mod.cleanup_branches_cmd))
+    cleanup_app.command("runtime")(_safe(cleanup_mod.cleanup_runtime_cmd))
+    cleanup_app.command("specs")(_safe(cleanup_mod.cleanup_specs_cmd))
+    cleanup_app.command("all")(_safe(cleanup_mod.cleanup_all_cmd))
     app.add_typer(maint_app, name="maintenance")
 
     # Setup sub-group

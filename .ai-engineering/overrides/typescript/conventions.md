@@ -3,8 +3,7 @@
 # TypeScript — Build Conventions
 
 Authoritative reference for the `ai-build` agent when generating
-TypeScript code. Distilled from `contexts/languages/typescript.md` plus
-`contexts/frameworks/{nextjs,react,nodejs,bun}.md`.
+TypeScript code.
 
 ## Toolchain
 

@@ -3,8 +3,7 @@
 # Swift — Build Conventions
 
 Authoritative reference for the `ai-build` agent when generating
-Swift code. Distilled from `contexts/languages/swift.md` plus
-`contexts/frameworks/ios.md`.
+Swift code.
 
 ## Toolchain
 

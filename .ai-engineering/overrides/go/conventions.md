@@ -3,7 +3,7 @@
 # Go — Build Conventions
 
 Authoritative reference for the `ai-build` agent when generating Go
-code. Distilled from `contexts/languages/go.md`.
+code.
 
 ## Toolchain
 

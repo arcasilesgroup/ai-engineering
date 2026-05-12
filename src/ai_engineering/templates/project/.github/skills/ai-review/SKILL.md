@@ -29,7 +29,7 @@ High-signal code review with full specialist coverage and aggressive false-posit
 
 1. **Step 0** — load contexts per `.ai-engineering/contexts/stack-context.md`.
 2. **Detect target** — PR number, file paths, or current diff.
-3. **Dependency preflight** — verify `.github/skills/ai-review/handlers/review.md`, `reviewer-context.md`, `reviewer-validator.md`, plus required `.github/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
+3. **Dependency preflight** — verify `reviewer-context.md`, `reviewer-validator.md`, plus required `.github/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
 4. **Pre-review** — dispatch `reviewer-context.md` via Agent tool; serialize output for every specialist.
 5. **Specialists** — `normal` = 3 macro-agents; `--full` = one agent per specialist. Both run the full roster — grouping controls cost only.
 6. **Validate** — dispatch `reviewer-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
@@ -66,9 +66,13 @@ Dispatch the `ai-review` agent for any narrative review (PR, branch, diff, or pa
 
 Group findings by severity first, then specialist lens. Keep attribution by original specialist even in `normal`. Include `not_applicable` / `low_signal` outcomes when a specialist had little to contribute. Show which findings survived adversarial validation.
 
-## Language Handlers
+## Stack-specific review guidance
 
-For each language detected in the diff, load the matching handler from `handlers/lang-{generic,cpp,flutter,go,java,kotlin,python,rust,typescript}.md` for language-specific review criteria.
+spec-133 D-133-10 consolidates stack-specific review guidance into the
+`.ai-engineering/overrides/<stack>/review.md` files. For each stack
+detected in the diff, load `overrides/<stack>/review.md`. Greenfield
+mode (stacks=[]): use generic review criteria + hint
+"add a project file and run `ai-eng doctor --fix`".
 
 ## Common Mistakes
 

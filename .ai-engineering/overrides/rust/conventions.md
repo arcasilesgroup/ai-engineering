@@ -3,7 +3,7 @@
 # Rust — Build Conventions
 
 Authoritative reference for the `ai-build` agent when generating Rust
-code. Distilled from `contexts/languages/rust.md`.
+code.
 
 ## Toolchain
 

@@ -3,8 +3,7 @@
 # Python — Build Conventions
 
 Authoritative reference for the `ai-build` agent when generating
-Python code. Distilled from `contexts/languages/python.md` plus
-`contexts/frameworks/{django,api-design,backend-patterns}.md`.
+Python code.
 
 ## Toolchain
 

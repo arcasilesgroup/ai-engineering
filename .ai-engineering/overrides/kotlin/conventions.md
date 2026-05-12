@@ -3,8 +3,7 @@
 # Kotlin — Build Conventions
 
 Authoritative reference for the `ai-build` agent when generating
-Kotlin code. Distilled from `contexts/languages/kotlin.md` plus
-`contexts/frameworks/android.md`.
+Kotlin code.
 
 ## Toolchain
 
