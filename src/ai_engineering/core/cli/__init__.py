@@ -10,5 +10,11 @@ from ai_engineering.core.cli.decorators import (
     apply_no_args_help,
     no_args_help,
 )
+from ai_engineering.core.cli.smart_group import SmartTyperGroup
 
-__all__ = ["HelpOnNoArgsCommand", "apply_no_args_help", "no_args_help"]
+__all__ = [
+    "HelpOnNoArgsCommand",
+    "SmartTyperGroup",
+    "apply_no_args_help",
+    "no_args_help",
+]

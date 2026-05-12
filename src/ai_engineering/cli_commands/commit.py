@@ -26,15 +26,56 @@ def commit_cmd(
         raise typer.Exit(code=1)
 
 
-def _trim_detail(output: str, *, max_chars: int = 120) -> str | None:
-    """Collapse multi-line tool output into a single short detail line."""
+_FAIL_HINT_KEYWORDS: tuple[str, ...] = (
+    "leak",
+    "warn",
+    "wrn",
+    "error",
+    "err",
+    "fail",
+    "blocked",
+    "denied",
+    "violation",
+    "rejected",
+    "fatal",
+)
+
+
+def _summary_line(output: str, *, max_chars: int = 200) -> str | None:
+    """Pick the most informative single-line summary from raw tool output.
+
+    Tools like ``gitleaks`` print boilerplate first (``INF 0 commits
+    scanned``) and the actual signal (``WRN leaks found: 1``) on a later
+    line. The summary line is the first line whose content matches a
+    well-known severity keyword, with a fall-back to the last non-empty
+    line, then to the first non-empty line.
+    """
     if not output:
         return None
-    lines = output.strip().splitlines()
-    first = lines[0] if lines else ""
-    if len(first) > max_chars:
-        first = first[: max_chars - 1] + "…"
-    return first or None
+    lines = [line.rstrip() for line in output.strip().splitlines() if line.strip()]
+    if not lines:
+        return None
+    for line in lines:
+        haystack = line.lower()
+        if any(token in haystack for token in _FAIL_HINT_KEYWORDS):
+            return _clip(line, max_chars)
+    return _clip(lines[-1], max_chars)
+
+
+def _clip(text: str, max_chars: int) -> str:
+    return text if len(text) <= max_chars else text[: max_chars - 1] + "…"
+
+
+def _format_failure_block(output: str) -> str:
+    """Format the full failing-step output as an indented diagnostic block.
+
+    Every line is preserved verbatim — the user explicitly asked for full
+    detail on failure so they can diagnose without re-running.
+    """
+    stripped = output.strip()
+    if not stripped:
+        return "(no output captured)"
+    return "\n".join(f"    {line}" for line in stripped.splitlines())
 
 
 def _render_result(
@@ -47,7 +88,7 @@ def _render_result(
     renderer.action("Verifying", f"{command_label} pipeline")
     passed = failed = skipped = 0
     for step in result.steps:
-        detail = _trim_detail(step.output)
+        detail = _summary_line(step.output)
         if step.skipped:
             renderer.check_result(step.name, True, detail=detail, skipped=True)
             skipped += 1
@@ -58,12 +99,21 @@ def _render_result(
             renderer.check_result(step.name, False, detail=detail)
             failed += 1
     renderer.kv("Steps", f"{passed} passed, {failed} failed, {skipped} skipped")
+
     if result.passed:
         renderer.ok(f"{command_label} workflow completed")
         return
+
+    renderer.section("Failure detail")
+    for step in result.steps:
+        if step.passed or step.skipped:
+            continue
+        renderer.kv("Step", step.name)
+        renderer.step(_format_failure_block(step.output))
+
     failed_names = ", ".join(result.failed_steps) or "(unknown step)"
     renderer.error(
         f"{command_label} workflow failed at: {failed_names}",
         code="WORKFLOW_FAILED",
-        fix="Inspect the failed step above and re-run after addressing it.",
+        fix="Inspect the failure detail block above and re-run after addressing it.",
     )

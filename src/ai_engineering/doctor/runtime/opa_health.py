@@ -181,20 +181,38 @@ def _check_bundle_load(results: list[CheckResult], binary_path: str, bundle_dir:
 
 
 def _check_bundle_signature(results: list[CheckResult], bundle_dir: Path) -> None:
-    """Probe 4: bundle .signatures.json matches the .manifest digests."""
+    """Probe 4: bundle .signatures.json matches the .manifest digests.
+
+    Bundle signing is **optional** in the open-source distribution — fresh
+    installs ship without signature artifacts and that is a valid choice
+    (no signing required). spec-133 #7: PASS when both signing artifacts
+    are absent (signing not configured); WARN only when partial config is
+    present (one file but not the other).
+    """
     sig_path = bundle_dir / _SIGNATURES_FILENAME
     manifest_path = bundle_dir / _MANIFEST_FILENAME
-    if not sig_path.is_file() or not manifest_path.is_file():
+    sig_present = sig_path.is_file()
+    manifest_present = manifest_path.is_file()
+    if not sig_present and not manifest_present:
+        results.append(
+            CheckResult(
+                name="opa-bundle-signature",
+                status=CheckStatus.OK,
+                message="OPA bundle signing not configured (optional).",
+            )
+        )
+        return
+    if not sig_present or not manifest_present:
         missing = []
-        if not sig_path.is_file():
+        if not sig_present:
             missing.append(_SIGNATURES_FILENAME)
-        if not manifest_path.is_file():
+        if not manifest_present:
             missing.append(_MANIFEST_FILENAME)
         results.append(
             CheckResult(
                 name="opa-bundle-signature",
                 status=CheckStatus.WARN,
-                message=f"OPA bundle missing files: {', '.join(missing)}",
+                message=f"OPA bundle partial signing config: missing {', '.join(missing)}",
             )
         )
         return

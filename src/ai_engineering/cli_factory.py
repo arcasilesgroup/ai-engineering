@@ -239,6 +239,8 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     Returns:
         Configured Typer application instance.
     """
+    from ai_engineering.core.cli import SmartTyperGroup
+
     app = typer.Typer(
         name="ai-eng",
         help="AI governance framework for secure software delivery.",
@@ -247,6 +249,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         callback=_app_callback,
         invoke_without_command=True,
         epilog="[dim]Docs & issues:[/dim] https://github.com/arcasilesgroup/ai-engineering",
+        cls=SmartTyperGroup,
     )
 
     # Core commands (top-level) -- final 20-verb tree per D-132-02..05.
@@ -398,7 +401,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     # Spec sub-group (v3: spec lifecycle management)
     spec_app = typer.Typer(
         name="spec",
-        help="Spec lifecycle: verify counters, list current spec.",
+        help="Spec lifecycle: start a work plane, verify counters, list and show active spec.",
         no_args_is_help=True,
     )
     spec_app.command("start")(_safe(spec_cmd.spec_start))

@@ -18,6 +18,7 @@ doctor`` surfaces the gap as a WARN.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import shutil
@@ -188,5 +189,20 @@ def ensure_bundle_signed(project_root: Path) -> dict[str, object]:
     signatures = policies_dir / ".signatures.json"
     result["signatures_present"] = signatures.is_file()
     result["signed"] = bool(result["signatures_present"])
+
+    # spec-133 #7: pair `.signatures.json` with a minimal `.manifest` so the
+    # `opa-bundle-signature` doctor probe finds both files. Without
+    # `.manifest`, the probe reports a partial signing config WARN even
+    # though the bundle is fully signed.
+    manifest_path = policies_dir / ".manifest"
+    if result["signed"] and not manifest_path.is_file():
+        try:
+            manifest_path.write_text(
+                json.dumps({"revision": "", "roots": [""]}, indent=2) + "\n",
+                encoding="utf-8",
+            )
+        except OSError:
+            pass
+
     result["message"] = "OPA bundle built and signed locally"
     return result

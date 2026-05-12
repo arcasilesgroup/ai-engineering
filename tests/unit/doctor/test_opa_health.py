@@ -157,9 +157,11 @@ def test_bundle_load_returns_failure(monkeypatch: pytest.MonkeyPatch, tmp_path: 
 # ---------------------------------------------------------------------------
 
 
-def test_bundle_signature_missing_files_warns(
+def test_bundle_signature_both_missing_is_ok(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """spec-133 #7: when both signing artifacts are absent, signing is not
+    configured (optional feature) — check is OK, not WARN."""
     monkeypatch.setattr(opa_health.shutil, "which", lambda _: "/usr/bin/opa")
 
     def _fake_run(args, *_, **__):
@@ -170,6 +172,29 @@ def test_bundle_signature_missing_files_warns(
     monkeypatch.setattr(opa_health.subprocess, "run", _fake_run)
     # Create only the directory, no signature/manifest files.
     (tmp_path / ".ai-engineering" / "policies").mkdir(parents=True)
+    results = opa_health.check(_ctx(tmp_path))
+    by_name = {r.name: r for r in results}
+    assert by_name["opa-bundle-signature"].status == CheckStatus.OK
+    assert "not configured" in by_name["opa-bundle-signature"].message
+
+
+def test_bundle_signature_partial_config_warns(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """spec-133 #7: when one signing artifact is present but the other is
+    missing, the user has a partial configuration -- WARN remains."""
+    monkeypatch.setattr(opa_health.shutil, "which", lambda _: "/usr/bin/opa")
+
+    def _fake_run(args, *_, **__):
+        if "version" in args:
+            return _completed(0, stdout="Version: 1.0.0\n")
+        return _completed(0, stdout="{}")
+
+    monkeypatch.setattr(opa_health.subprocess, "run", _fake_run)
+    bundle = tmp_path / ".ai-engineering" / "policies"
+    bundle.mkdir(parents=True)
+    # Only .manifest present; .signatures.json missing -> partial config.
+    (bundle / ".manifest").write_text("{}\n", encoding="utf-8")
     results = opa_health.check(_ctx(tmp_path))
     by_name = {r.name: r for r in results}
     assert by_name["opa-bundle-signature"].status == CheckStatus.WARN

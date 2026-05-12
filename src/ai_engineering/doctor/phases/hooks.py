@@ -21,6 +21,16 @@ from pathlib import Path
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.hooks.manager import install_hooks, verify_hooks
 
+
+def _enabled_providers(ctx: DoctorContext) -> list[str]:
+    """Return the canonical providers list from the install context, or ``[]``."""
+    manifest = ctx.manifest_config
+    if manifest is None:
+        return []
+    enabled = getattr(getattr(manifest, "ai_providers", None), "enabled", None) or []
+    return list(enabled)
+
+
 _REQUIRED_LIB_FILES = frozenset(
     {
         "audit.py",
@@ -153,13 +163,29 @@ def _check_hooks_lib_complete(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_hooks_registered(ctx: DoctorContext) -> CheckResult:
-    """Verify all hook scripts referenced in settings.json exist on disk."""
+    """Verify all hook scripts referenced in settings.json exist on disk.
+
+    spec-133 #8: when ``claude-code`` is not an enabled provider, the
+    settings.json file simply does not exist on disk — that is not a
+    health problem, it is a valid configuration choice. The check
+    becomes OK with a "not applicable" message in that case so non-
+    Claude-Code IDE users (codex / gemini / copilot) do not see a
+    spurious WARN.
+    """
+    providers = _enabled_providers(ctx)
+    if providers and "claude-code" not in providers:
+        return CheckResult(
+            name="hooks-registered",
+            status=CheckStatus.OK,
+            message="claude-code provider not enabled; settings.json check not applicable.",
+        )
+
     settings_path = ctx.target / ".claude" / "settings.json"
     if not settings_path.is_file():
         return CheckResult(
             name="hooks-registered",
-            status=CheckStatus.WARN,
-            message="settings.json not found; skipped (non-Claude-Code IDE?)",
+            status=CheckStatus.OK,
+            message="settings.json not present; claude-code provider absent.",
         )
 
     try:

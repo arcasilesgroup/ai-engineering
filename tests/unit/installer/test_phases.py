@@ -119,7 +119,14 @@ class TestGovernancePhase:
         assert team_actions == []
 
     def test_plan_includes_specs_directory_files(self, tmp_path: Path) -> None:
-        """Plan includes compatibility buffers and seeded HX-02 work-plane assets."""
+        """Plan includes the canonical two-file specs/ buffer (spec.md + plan.md).
+
+        spec-133 removed the spec-123 ghost artifacts (``current-summary.md``,
+        ``history-summary.md``, ``task-ledger.json``, ``handoffs/``,
+        ``evidence/``) from the installer template — they no longer exist
+        in the lifecycle and shipping them caused ``update`` to mark them
+        as protected forever.
+        """
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
@@ -129,16 +136,26 @@ class TestGovernancePhase:
         specs_dests = sorted(a.destination for a in specs_actions)
         assert ".ai-engineering/specs/plan.md" in specs_dests
         assert ".ai-engineering/specs/spec.md" in specs_dests
-        assert ".ai-engineering/specs/current-summary.md" in specs_dests
-        assert ".ai-engineering/specs/history-summary.md" in specs_dests
-        assert ".ai-engineering/specs/task-ledger.json" in specs_dests
-        assert ".ai-engineering/specs/handoffs/.gitkeep" in specs_dests
-        assert ".ai-engineering/specs/evidence/.gitkeep" in specs_dests
+        for ghost in (
+            "current-summary.md",
+            "history-summary.md",
+            "task-ledger.json",
+            "handoffs/.gitkeep",
+            "evidence/.gitkeep",
+        ):
+            assert f".ai-engineering/specs/{ghost}" not in specs_dests, (
+                f"spec-133: {ghost} must not ship from the installer template"
+            )
         for a in specs_actions:
             assert a.action_type == "create"
 
     def test_execute_creates_specs_without_team_seed_files(self, tmp_path: Path) -> None:
-        """Execute in INSTALL mode creates specs placeholders without seeding team files."""
+        """Execute in INSTALL mode creates specs placeholders without seeding team files.
+
+        spec-133: the only canonical specs buffer files are ``spec.md`` and
+        ``plan.md``. ``_history.md`` is created on first ``/ai-cleanup``
+        invocation (spec-131 D-131-04). Other former artifacts are dead.
+        """
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
@@ -153,14 +170,15 @@ class TestGovernancePhase:
         assert (ai_dir / "LESSONS.md").is_file()
         assert (ai_dir / "contexts" / "cli-ux.md").is_file()
         assert (ai_dir / "contexts" / "mcp-integrations.md").is_file()
-        # Specs placeholders + seeded HX-02 artifact topology
+        # Canonical two-file specs buffer (spec-133)
         assert (ai_dir / "specs" / "spec.md").is_file()
         assert (ai_dir / "specs" / "plan.md").is_file()
-        assert (ai_dir / "specs" / "current-summary.md").is_file()
-        assert (ai_dir / "specs" / "history-summary.md").is_file()
-        assert (ai_dir / "specs" / "task-ledger.json").is_file()
-        assert (ai_dir / "specs" / "handoffs").is_dir()
-        assert (ai_dir / "specs" / "evidence").is_dir()
+        # spec-123 ghost artifacts must NOT exist
+        assert not (ai_dir / "specs" / "current-summary.md").exists()
+        assert not (ai_dir / "specs" / "history-summary.md").exists()
+        assert not (ai_dir / "specs" / "task-ledger.json").exists()
+        assert not (ai_dir / "specs" / "handoffs").exists()
+        assert not (ai_dir / "specs" / "evidence").exists()
 
 
 # ---------------------------------------------------------------------------

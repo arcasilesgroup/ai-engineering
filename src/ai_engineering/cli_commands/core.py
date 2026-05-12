@@ -1489,7 +1489,8 @@ def _render_doctor_human(
     if fixable_count:
         kv("Auto-fix", f"{fixable_count} issue(s) can be attempted with {_DOCTOR_FIX_COMMAND}")
     if manual_count:
-        kv("Manual follow-up", f"{manual_count} issue(s) require manual action")
+        noun = "warning(s)" if report.passed else "issue(s)"
+        kv("Manual follow-up", f"{manual_count} {noun} for human review")
 
     _render_doctor_phase_checks(report)
     _render_doctor_runtime_checks(report)

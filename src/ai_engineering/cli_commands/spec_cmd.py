@@ -123,10 +123,15 @@ def spec_start(
     positional argument. The ``--specs-dir`` option is preserved as a
     deprecated alias for one release.
     """
+    import click
+
     target = path or specs_dir
     if target is None:
-        error("spec start requires a specs directory (positional argument).")
-        raise typer.Exit(code=1)
+        # spec-133 #5: no-args invocation prints help and exits 0, matching
+        # the universal help-on-no-args contract used by every other verb.
+        ctx = click.get_current_context()
+        click.echo(ctx.get_help())
+        raise typer.Exit(code=0)
     root = find_project_root()
     result = run_spec_activate(root, target)
 

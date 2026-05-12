@@ -22,6 +22,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 
+import click
 import typer
 
 from ai_engineering.cli_envelope import NextAction, emit_success
@@ -930,10 +931,11 @@ def gate_cache(
 ) -> None:
     """Inspect or clear the gate cache (D-104-10)."""
     if not status and not clear:
-        sys.stderr.write(
-            "Error: gate cache requires --status or --clear (use --help for details).\n"
-        )
-        raise typer.Exit(code=2)
+        # spec-133 #4: no-args invocation prints help and exits 0, matching
+        # the universal help-on-no-args contract for every other subcommand.
+        ctx = click.get_current_context()
+        click.echo(ctx.get_help())
+        raise typer.Exit(code=0)
     if status and clear:
         sys.stderr.write("Error: --status and --clear are mutually exclusive (pick one).\n")
         raise typer.Exit(code=2)
