@@ -99,10 +99,9 @@ def fix(
     install_ctx = InstallContext(
         target=target,
         mode=InstallMode.REPAIR,
-        providers=[],
+        surfaces=[],
         vcs_provider="github",
         stacks=[],
-        ides=[],
     )
     phase = ScriptsPhase()
 

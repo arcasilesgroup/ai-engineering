@@ -4,7 +4,7 @@ spec-133 D-133-16 hard-cut: a single :func:`render_config` produces the
 canonical posture view consumed by every command that needs to surface
 the user's current install. KISS + DRY: one function, one output
 contract, three callers. Hexagonal: domain (:mod:`Surface`) provides the
-closed catalog; this module composes available × selected and renders.
+closed catalog; this module composes available x selected and renders.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ def _format_checked_row(selected: bool, label: str, detail: str | None = None) -
 
 
 def render_config(cfg: ManifestConfig, renderer: Renderer) -> None:
-    """Render the user-facing posture (surfaces × stacks × VCS × policy).
+    """Render the user-facing posture (surfaces x stacks x VCS x policy).
 
     Consumed by ``ai-eng install`` (post-install + already-installed),
     ``ai-eng status``, and ``ai-eng config`` (default callback). Output
