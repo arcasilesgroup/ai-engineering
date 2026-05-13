@@ -3,7 +3,8 @@
 Tests the pure function ``resolve_adapter(task_path, spec_stack) -> Path``
 in ``tools/skill_app/deterministic_router.py``. The router must:
 
-1. Resolve all 7 supported stacks via explicit ``spec_stack`` argument.
+1. Resolve all 12 supported stacks via explicit ``spec_stack`` argument
+   (spec-133 D-133-12: T1=8 + T2=4).
 2. Infer the stack from a file path's extension when ``spec_stack`` is
    ``None`` (e.g. ``foo.ts`` → typescript, ``bar.py`` → python, etc.).
 3. Raise ``UnknownStackError`` when neither argument lets it pick a
@@ -31,6 +32,9 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 # spec-128 D-128-01: adapters/ renamed to overrides/.
 _OVERRIDES_ROOT = _REPO_ROOT / ".ai-engineering" / "overrides"
 
+# spec-133 D-133-12: 12 stacks (T1=8 + T2=4). react-native shares the
+# ``.ts``/``.tsx`` extensions with typescript; callers pass ``spec_stack``
+# explicitly when project-level signals (package.json deps) require it.
 _STACKS: tuple[str, ...] = (
     "typescript",
     "python",
@@ -39,11 +43,15 @@ _STACKS: tuple[str, ...] = (
     "swift",
     "csharp",
     "kotlin",
+    "java",
+    "php",
+    "ruby",
+    "flutter",
+    "react-native",
 )
 
-# Mapping from canonical extension → stack name. Per sub-008 the router
-# only needs to support these — ``ai-build`` agent surfaces the
-# ``spec_stack`` argument for everything else.
+# Mapping from canonical extension → stack name. ``.dart`` resolves to
+# ``flutter`` because standalone dart is excluded per D-133-12 YAGNI.
 _EXT_FIXTURES: tuple[tuple[str, str], ...] = (
     ("foo.ts", "typescript"),
     ("foo.tsx", "typescript"),
@@ -53,6 +61,10 @@ _EXT_FIXTURES: tuple[tuple[str, str], ...] = (
     ("foo.swift", "swift"),
     ("foo.cs", "csharp"),
     ("foo.kt", "kotlin"),
+    ("Foo.java", "java"),
+    ("foo.php", "php"),
+    ("foo.rb", "ruby"),
+    ("foo.dart", "flutter"),
 )
 
 

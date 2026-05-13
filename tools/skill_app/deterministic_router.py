@@ -12,6 +12,11 @@ Resolution order:
 
 Spec ref: spec-127 sub-008 (M7 adapter library), D-127-06, D-127-11.
 spec-128 D-128-01: ``adapters/`` renamed to ``overrides/``.
+spec-133 D-133-12: stack list expanded to 12 (T1=8, T2=4). ``react-native``
+and ``flutter`` disambiguation relies on project-level signals visible to
+``installer.autodetect`` (package.json deps, pubspec.yaml ``flutter:`` block)
+which the router cannot see; callers pass ``spec_stack`` for those cases.
+``.dart`` maps to ``flutter`` because standalone dart is excluded per YAGNI.
 """
 
 from __future__ import annotations
@@ -29,9 +34,25 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _OVERRIDES_ROOT = _REPO_ROOT / ".ai-engineering" / "overrides"
 
 _SUPPORTED_STACKS: frozenset[str] = frozenset(
-    {"typescript", "python", "go", "rust", "swift", "csharp", "kotlin"}
+    {
+        "typescript",
+        "python",
+        "go",
+        "rust",
+        "swift",
+        "csharp",
+        "kotlin",
+        "java",
+        "php",
+        "ruby",
+        "flutter",
+        "react-native",
+    }
 )
 
+# ``.ts``/``.tsx`` default to ``typescript``; react-native callers must pass
+# ``spec_stack="react-native"`` explicitly (D-133-12 — autodetect handles the
+# project-level precedence based on package.json deps).
 _EXT_TO_STACK: dict[str, str] = {
     ".ts": "typescript",
     ".tsx": "typescript",
@@ -41,6 +62,10 @@ _EXT_TO_STACK: dict[str, str] = {
     ".swift": "swift",
     ".cs": "csharp",
     ".kt": "kotlin",
+    ".java": "java",
+    ".php": "php",
+    ".rb": "ruby",
+    ".dart": "flutter",
 }
 
 
