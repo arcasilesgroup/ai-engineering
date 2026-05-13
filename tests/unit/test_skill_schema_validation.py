@@ -72,17 +72,19 @@ def test_skill_has_valid_effort(skill_dir: Path) -> None:
 
 
 def test_skill_count_matches_manifest() -> None:
-    """Skill count on disk must match manifest.yml governance_surface.skills.total."""
-    import yaml
+    """Skill count on disk must match the framework's canonical registry.
 
-    # Arrange — read expected count from manifest (single source of truth)
-    manifest = yaml.safe_load(_MANIFEST_PATH.read_text(encoding="utf-8"))
-    expected = manifest["skills"]["total"]
+    The template manifest no longer carries `skills.total` (slim
+    manifest contract). The canonical count lives in
+    :mod:`ai_engineering.config.framework_defaults` and is injected at
+    load time via :func:`apply_framework_defaults`.
+    """
+    from ai_engineering.config.framework_defaults import DEFAULT_SKILLS_REGISTRY
 
-    # Act
+    expected = len(DEFAULT_SKILLS_REGISTRY)
     skills = _all_skill_dirs()
 
-    # Assert
     assert len(skills) == expected, (
-        f"Manifest says {expected} skills, found {len(skills)} on disk: {[d.name for d in skills]}"
+        f"Framework registry declares {expected} skills, found {len(skills)} "
+        f"on disk: {[d.name for d in skills]}"
     )

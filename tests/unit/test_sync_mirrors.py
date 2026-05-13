@@ -146,11 +146,15 @@ class TestCrossReferenceResolution:
             for path in _resolve_cross_reference_files(tmp_path)
         }
 
+        # Framework defaults injected by apply_framework_defaults declare
+        # `.gemini/GEMINI.md` as the canonical mirror_path for GEMINI.md
+        # (loader merges defaults into the user manifest at load time).
         assert resolved == {
             ".github/copilot-instructions.md",
             "AGENTS.md",
             "CLAUDE.md",
             "GEMINI.md",
+            ".gemini/GEMINI.md",
         }
 
     def test_resolve_cross_reference_files_uses_enabled_providers_only(

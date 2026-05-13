@@ -357,20 +357,29 @@ class TestCopilotInstructionsTreeMap:
         copilot_trees = _PROVIDER_TREE_MAPS["github-copilot"]
         assert (".github/skills", ".github/skills") in copilot_trees
         assert ("agents", ".github/agents") in copilot_trees
-        assert ("instructions", ".github/instructions") in copilot_trees
+        # spec-128 D-128-04: legacy `instructions/` tree mapping deleted.
+        assert ("instructions", ".github/instructions") not in copilot_trees
 
-    def test_sonarqube_instruction_deployed(self, tmp_path: Path) -> None:
+    def test_no_legacy_instructions_dir_deployed(self, tmp_path: Path) -> None:
+        """spec-128 D-128-04: legacy `.github/instructions/` is deleted.
+
+        `copilot-instructions.md` + `AGENTS.md` cover Copilot's instruction
+        surface; per-language `.instructions.md` files are no longer
+        shipped. The installer must NOT recreate the directory.
+        """
         from ai_engineering.installer.templates import copy_project_templates
 
-        # Act
         copy_project_templates(
             tmp_path,
             providers=["github-copilot"],
         )
 
-        # Assert
-        sonar_inst = tmp_path / ".github" / "instructions" / "sonarqube_mcp.instructions.md"
-        assert sonar_inst.exists()
+        legacy_dir = tmp_path / ".github" / "instructions"
+        assert not legacy_dir.exists(), (
+            f"Legacy `.github/instructions/` dir leaked into install: {legacy_dir}. "
+            "spec-128 D-128-04 deletes the directory; copilot-instructions.md is the "
+            "canonical Copilot baseline."
+        )
 
 
 class TestVcsTemplatesDeployed:

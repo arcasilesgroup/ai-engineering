@@ -56,13 +56,20 @@ def test_skill_frontmatter_is_valid() -> None:
 
 
 def test_skill_registered_in_manifest() -> None:
+    """ai-simplify-sweep must appear in the framework registry (merged view).
+
+    spec-128 slim manifest contract: the registry is injected by
+    :func:`apply_framework_defaults`. Tests must consume the merged view.
+    """
+    from ai_engineering.config.framework_defaults import apply_framework_defaults
+
     manifest = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
     assert isinstance(manifest, dict)
-    skills = manifest.get("skills") or {}
-    registry = skills.get("registry") or {}
+    merged = apply_framework_defaults(manifest)
+    registry = merged.get("skills", {}).get("registry") or {}
     assert isinstance(registry, dict)
     assert "ai-simplify-sweep" in registry, (
-        "ai-simplify-sweep must be registered in manifest.yml under skills.registry."
+        "ai-simplify-sweep must appear in skills.registry (framework default or manifest override)."
     )
     entry = registry["ai-simplify-sweep"]
     assert isinstance(entry, dict)
@@ -72,8 +79,11 @@ def test_skill_registered_in_manifest() -> None:
 
 def test_manifest_total_matches_registry_size() -> None:
     """``skills.total`` must equal ``len(registry)`` so the registry stays honest."""
+    from ai_engineering.config.framework_defaults import apply_framework_defaults
+
     manifest = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
-    skills = manifest.get("skills") or {}
+    merged = apply_framework_defaults(manifest)
+    skills = merged.get("skills") or {}
     registry = skills.get("registry") or {}
     total = skills.get("total")
     assert isinstance(total, int)

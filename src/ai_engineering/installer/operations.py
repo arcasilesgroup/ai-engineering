@@ -31,18 +31,20 @@ class InstallerError(Exception):
 
 
 def get_available_stacks() -> list[str]:
-    """Return the list of stack names that have bundled instruction files.
+    """Return the list of stack names that have bundled overrides.
 
-    Scans the ``contexts/languages/`` template directory for
-    ``.md`` files and returns their stems as valid stack identifiers.
+    Scans the ``overrides/`` template directory for per-stack
+    subdirectories (spec-128 D-128-03) and returns their names as valid
+    stack identifiers. The ``_shared/`` sibling is excluded — it carries
+    cross-stack conventions, not a stack.
 
     Returns:
-        Sorted list of available stack names (e.g. ``["python"]``).
+        Sorted list of available stack names (e.g. ``["python", "typescript"]``).
     """
-    stacks_dir = TEMPLATES_ROOT / ".ai-engineering" / "contexts" / "languages"
-    if not stacks_dir.is_dir():
+    overrides_dir = TEMPLATES_ROOT / ".ai-engineering" / "overrides"
+    if not overrides_dir.is_dir():
         return []
-    return sorted(p.stem for p in stacks_dir.glob("*.md"))
+    return sorted(p.name for p in overrides_dir.iterdir() if p.is_dir() and p.name != "_shared")
 
 
 def get_available_ides() -> list[str]:

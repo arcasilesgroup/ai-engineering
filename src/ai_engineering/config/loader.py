@@ -21,6 +21,7 @@ from typing import Any
 import yaml
 from ruamel.yaml import YAML
 
+from ai_engineering.config.framework_defaults import apply_framework_defaults
 from ai_engineering.config.manifest import ManifestConfig, RootEntryPointConfig
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,10 @@ def load_manifest_config(root: Path) -> ManifestConfig:
     # key is present, populate ``surfaces.enabled`` from it. The
     # follow-up release will drop the legacy mirror entirely.
     _sync_surfaces(data)
+
+    # Slim-manifest support: inject framework-managed defaults for any
+    # canonical section the user omitted. User-supplied values win.
+    apply_framework_defaults(data)
 
     return ManifestConfig.model_validate(data)
 

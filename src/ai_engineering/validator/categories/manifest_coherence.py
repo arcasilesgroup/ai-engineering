@@ -134,26 +134,30 @@ def _check_source_repo_control_plane_contract(target: Path, report: IntegrityRep
         return
 
     mismatches: list[str] = []
+
+    # Slim-manifest tolerance: absence of a framework-managed section means
+    # "use framework defaults" — only enforce equivalence when the operator
+    # has explicitly opted to declare the section in the manifest.
     root_context = root_manifest.get("session", {}).get("context_files")  # ty:ignore[unresolved-attribute]
-    if root_context != _EXPECTED_SESSION_CONTEXT_FILES:
+    if root_context is not None and root_context != _EXPECTED_SESSION_CONTEXT_FILES:
         mismatches.append(
             "root manifest session.context_files drifted from the normalized authority contract"
         )
 
     template_context = template_manifest.get("session", {}).get("context_files")  # ty:ignore[unresolved-attribute]
-    if template_context != _EXPECTED_SESSION_CONTEXT_FILES:
+    if template_context is not None and template_context != _EXPECTED_SESSION_CONTEXT_FILES:
         mismatches.append(
             "template manifest session.context_files drifted from the normalized authority contract"
         )
 
     root_control_plane = root_manifest.get("control_plane")
-    if root_control_plane != _EXPECTED_CONTROL_PLANE:
+    if root_control_plane is not None and root_control_plane != _EXPECTED_CONTROL_PLANE:
         mismatches.append(
             "root manifest control_plane table drifted from the normalized authority contract"
         )
 
     template_control_plane = template_manifest.get("control_plane")
-    if template_control_plane != _EXPECTED_CONTROL_PLANE:
+    if template_control_plane is not None and template_control_plane != _EXPECTED_CONTROL_PLANE:
         mismatches.append(
             "template manifest control_plane table drifted from the normalized authority contract"
         )

@@ -48,6 +48,17 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
     "codex": {
         "AGENTS.md": "AGENTS.md",
     },
+    # spec-133 D-133-06: 3 new Surfaces. Instruction file destinations
+    # follow the Surface registry contract (domain/surface.py).
+    "opencode": {
+        "AGENTS.md": "AGENTS.md",
+        "CLAUDE.md": "CLAUDE.md",
+    },
+    "cursor": {},
+    "antigravity": {
+        "GEMINI.md": "GEMINI.md",
+        "AGENTS.md": "AGENTS.md",
+    },
 }
 
 # Provider name aliases (underscore variants, short forms). Mirror of
@@ -64,6 +75,10 @@ _PROVIDER_ALIASES: dict[str, str] = {
     "gemini-cli": "gemini-cli",
     "gemini_cli": "gemini-cli",
     "codex": "codex",
+    # spec-133 D-133-06: 3 new Surfaces (no historical aliases yet).
+    "opencode": "opencode",
+    "cursor": "cursor",
+    "antigravity": "antigravity",
 }
 
 
@@ -194,13 +209,26 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
         (".github/skills", ".github/skills"),
         (".github/hooks", ".github/hooks"),
         ("agents", ".github/agents"),
-        ("instructions", ".github/instructions"),
+        # spec-128 D-128-04: `.github/instructions/` deleted entirely.
+        # `.github/copilot-instructions.md` + `AGENTS.md` cover Copilot's
+        # instruction surface.
     ],
     "gemini-cli": [
         (".gemini", ".gemini"),
     ],
     "codex": [
         (".codex", ".codex"),
+    ],
+    # spec-133 D-133-06: 3 new Surfaces. Tree destinations match
+    # tree_dir in the Surface registry (domain/surface.py).
+    "opencode": [
+        (".opencode", ".opencode"),
+    ],
+    "cursor": [
+        (".cursor", ".cursor"),
+    ],
+    "antigravity": [
+        (".agent", ".agent"),
     ],
 }
 

@@ -57,3 +57,20 @@ def test_wizard_filters_unknown_surfaces() -> None:
     """Legacy --provider with unknown ID falls back to default."""
     result = run_wizard(_detected(), resolved={"providers": ["unknown-bot"], "ides": []})
     assert result.surfaces == ["claude-code"]
+
+
+def test_surface_choices_no_preselect_when_greenfield() -> None:
+    """Greenfield install (no autodetect markers) preselects NOTHING."""
+    from ai_engineering.installer.wizard import _build_surface_choices
+
+    choices = _build_surface_choices(detected_ides=[])
+    assert all(not c.checked for c in choices), "Greenfield wizard must not preselect any Surface"
+
+
+def test_surface_choices_preselect_only_detected() -> None:
+    """Only Surfaces with autodetect-marker matches are preselected."""
+    from ai_engineering.installer.wizard import _build_surface_choices
+
+    choices = _build_surface_choices(detected_ides=["cursor", "opencode"])
+    checked_ids = {c.value for c in choices if c.checked}
+    assert checked_ids == {"cursor", "opencode"}

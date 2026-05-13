@@ -48,22 +48,22 @@ MANIFEST = REPO_ROOT / ".ai-engineering" / "manifest.yml"
 
 
 def _manifest_total(section: str) -> int:
-    """Read ``<section>.total`` from manifest.yml without importing pyyaml."""
-    text = MANIFEST.read_text(encoding="utf-8")
-    in_section = False
-    for line in text.splitlines():
-        if line.startswith(f"{section}:"):
-            in_section = True
-            continue
-        if in_section:
-            stripped = line.lstrip()
-            if not line.startswith(" ") and not line.startswith("\t") and stripped:
-                # Left the section.
-                in_section = False
-                continue
-            if stripped.startswith("total:"):
-                return int(stripped.split(":", 1)[1].strip())
-    raise AssertionError(f"manifest.yml missing {section}.total")
+    """Return the effective ``<section>.total`` from the loaded manifest.
+
+    spec-128 slim manifest contract: framework-managed sections such as
+    ``skills`` and ``agents`` are injected by the loader via
+    :func:`apply_framework_defaults`. Tests must consume the merged view
+    rather than the raw YAML, otherwise legitimate slim manifests appear
+    to "drop" canonical totals.
+    """
+    from ai_engineering.config.loader import load_manifest_config
+
+    config = load_manifest_config(REPO_ROOT)
+    if section == "skills":
+        return config.skills.total
+    if section == "agents":
+        return config.agents.total
+    raise AssertionError(f"unknown manifest section: {section}")
 
 
 CANONICAL_CHAIN = (

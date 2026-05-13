@@ -14,7 +14,7 @@ from typing import Any
 
 import questionary
 
-from ai_engineering.domain.surface import SURFACE_IDS, SURFACE_REGISTRY
+from ai_engineering.domain.surface import SURFACE_IDS
 from ai_engineering.installer.autodetect import (
     _VCS_POPULARITY,
     DetectionResult,
@@ -47,17 +47,8 @@ _PROMPT_SURFACES = "Which Surface(s) do you use?"
 
 
 def _build_surface_choices(detected_ides: list[str]) -> list[questionary.Choice]:
-    """One ``Choice`` per Surface, preselected when an autodetect marker matched."""
-    # Pre-select claude-code if any pre-detection happened; fall back to default.
-    detected_set: set[str] = set()
-    for surface_id in SURFACE_IDS:
-        surface = SURFACE_REGISTRY[surface_id]
-        if surface.autodetect_marker:
-            # Cross-reference legacy detected_ides if matches surface name.
-            if surface_id in detected_ides:
-                detected_set.add(surface_id)
-    if not detected_set:
-        detected_set = {"claude-code"}
+    """One ``Choice`` per Surface, preselected only when autodetect marker matched."""
+    detected_set: set[str] = {sid for sid in SURFACE_IDS if sid in detected_ides}
     return [
         questionary.Choice(
             sid,
@@ -73,11 +64,15 @@ def _checkbox_validate(selection: list[str]) -> bool | str:
     return "Please select at least one Surface (use spacebar to toggle)"
 
 
-def _ask_surfaces() -> list[str]:
-    """Prompt the single Surface question. Aborts on Ctrl+C."""
+def _ask_surfaces(detected_ides: list[str] | None = None) -> list[str]:
+    """Prompt the single Surface question. Aborts on Ctrl+C.
+
+    Pre-check only Surfaces autodetected on disk; nothing is selected by
+    default in a greenfield install (spec-133 D-133-17 user feedback).
+    """
     result = questionary.checkbox(
         _PROMPT_SURFACES,
-        choices=_build_surface_choices(detected_ides=["claude-code"]),
+        choices=_build_surface_choices(detected_ides=detected_ides or []),
         validate=_checkbox_validate,
         instruction="(spacebar to select, Enter to confirm)",
     ).ask()
@@ -120,7 +115,7 @@ def run_wizard(
         legacy = list(resolved.get("providers", [])) + list(resolved.get("ides", []))
         surfaces = [s for s in legacy if s in SURFACE_IDS] or ["claude-code"]
     else:
-        surfaces = _ask_surfaces()
+        surfaces = _ask_surfaces(detected_ides=list(detected.ides))
 
     # Derive legacy ``providers`` and ``ides`` for in-flight downstream code.
     providers = [s for s in surfaces if s in SURFACE_IDS]

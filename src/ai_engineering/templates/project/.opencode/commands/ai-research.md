@@ -1,0 +1,107 @@
+---
+name: ai-research
+description: "External evidence with citations via a 4-tier escalation (local → free MCPs → web → NotebookLM persistent). Every claim sourced [N] or marked [unsourced]. Trigger for 'what does the state of the art say about', 'compare options for', 'find sources on', 'investigate this question', 'research this'. Use for questions whose answer lives OUTSIDE the codebase. Not for codebase exploration; use /ai-explore instead. Not for refactors; use /ai-simplify instead. Not for business-logic debugging; use /ai-debug instead."
+effort: mid
+argument-hint: "[query] [--depth quick|standard|deep] [--reuse-notebook=id] [--persist]"
+model_tier: sonnet
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-research/SKILL.md
+edit_policy: generated-do-not-edit
+---
+
+
+
+# Research
+
+## Purpose
+
+Multi-tier, multi-source research skill with citation-first synthesis and persistent artifact reuse. Replaces ad-hoc `WebSearch` invocations with a disciplined escalation: local context first (zero cost), then free MCPs (Context7, Microsoft Learn, `gh search`), then web search, then NotebookLM for deep persistent corpora. Every external claim carries a `[N]` citation or is marked `[unsourced]` so readers can audit grounding.
+
+Outputs are designed for reuse: deep research is persisted to `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` so subsequent sessions short-circuit at Tier 0.
+
+## When to Use
+
+- User asks for evidence: "what does the industry do for X", "state of the art on Y", "compare A vs B", "find sources on Z".
+- `/ai-brainstorm` interrogation flags a question requiring external evidence (handler `interrogate.md` invokes this skill).
+- User wants a verifiable, cited answer rather than the model's training-data recall.
+- Research worth archiving for the team (deep technical investigations, library comparisons, architecture decisions).
+
+### Off-ramp -- when to use `/ai-explore` instead
+
+`/ai-research` answers questions whose source-of-truth lives **outside** this repository (web, docs portals, third-party APIs, academic papers). For questions whose answer lives **inside** this repo's files (architecture, dependency graph, pattern usage), dispatch `/ai-explore` instead -- it's read-only, codebase-only, and produces a structured architecture map rather than a cited narrative.
+
+Do NOT use for: refactoring, writing scripts from scratch, debugging business logic, code review, or general programming concepts.
+
+## Process
+
+1. **Classify query** -- follow `handlers/classify-query.md` to decide which tiers apply (library mention → Context7; Azure/Microsoft → MS Learn; comparative or multi-source → mark for Tier 3 candidacy; explicit URL → mark for WebFetch).
+2. **Tier 0 -- local** -- follow `handlers/tier0-local.md`. Search prior research artifacts, `LESSONS.md`, and `framework-events.ndjson` for prior `/ai-research` invocations. If ≥3 relevant hits, agent MAY short-circuit and synthesize from local context alone.
+3. **Tier 1 -- free MCPs (parallel)** -- follow `handlers/tier1-free-mcps.md`. Invoke Context7, Microsoft Learn, and `gh search code/repos` IN PARALLEL when the classifier marks them applicable. Dedup by URL/path.
+4. **Tier 2 -- web** -- follow `handlers/tier2-web.md`. Invoke `WebSearch` and `WebFetch` in parallel when Tier 1 produced fewer than 5 high-quality hits, or the query explicitly references a URL. Honor `--allowed-domains` and `--blocked-domains`.
+5. **Tier 3 -- NotebookLM persistent** -- follow `handlers/tier3-notebooklm.md`. Triggered when `--depth=deep`, when the query is comparative (`vs|versus|compare|alternatives`), or when Tier 1+2 collected ≥10 sources. Probe `server_info` first; degrade to Tier 2 only if auth expired.
+6. **Synthesize with citations** -- follow `handlers/synthesize-with-citations.md`. Produce output where every external claim carries `[N]` or `[unsourced]`. Validator regex `\[\d+\]|\[unsourced\]` must match at least once per claim paragraph; on failure, retry with stricter system message (max 2 retries).
+7. **Persist artifact** -- follow `handlers/persist-artifact.md`. Write `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` with frontmatter (`query`, `depth`, `tiers_invoked`, `sources_used`, `notebook_id`, `created_at`, `slug`) and Question/Findings/Sources/Notebook Reference sections. Auto-persist when Tier 3 invoked; opt-in via `--persist` for quick/standard.
+
+## CLI Flags
+
+- `--depth quick|standard|deep` (default: `standard`). Controls escalation: `quick` runs Tier 0+1 only; `standard` adds Tier 2; `deep` always invokes Tier 3.
+- `--reuse-notebook=<id>` (opt-in). Skips `notebook_create` and reuses an existing NotebookLM notebook for follow-up queries.
+- `--persist` (opt-in for `quick`/`standard`). Forces artifact persistence even when Tier 3 was not invoked.
+- `--allowed-domains a.com,b.com` (pass-through to WebSearch).
+- `--blocked-domains x.com,y.com` (pass-through to WebSearch).
+
+## Output Contract
+
+Synthesized response in agent context PLUS, when persisted, a Markdown artifact at `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md`. Output format:
+
+```
+## Question
+<verbatim user query>
+
+## Findings
+<paragraphs with inline [N] citations or [unsourced] markers>
+
+## Sources
+1. (title, url, accessed_at)
+2. ...
+
+## Notebook Reference
+<NotebookLM URL if Tier 3 was invoked>
+```
+
+## Common Mistakes
+
+- Skipping Tier 0 and going straight to web search (defeats the reuse goal).
+- Producing claims without `[N]` or `[unsourced]` markers (defeats the citation hard-rule).
+- Creating a NotebookLM notebook for a quick lookup (overuse of Tier 3 inflates the user's notebook list).
+- Not deduplicating Tier 1 results (Context7 and `gh search` can return overlapping URLs).
+- Forgetting to probe `server_info` before Tier 3 (silent failures when auth expires).
+
+## Examples
+
+### Example 1 — quick state-of-the-art lookup
+
+User: "what's the current best practice for OAuth refresh-token rotation?"
+
+```
+/ai-research "OAuth refresh-token rotation best practices" --depth quick
+```
+
+Tier 0 checks local research artifacts; Tier 1 queries Context7 and Microsoft Learn; emits a Findings block with `[N]` citations.
+
+### Example 2 — deep dive persisted as a reusable notebook
+
+User: "deep research on event-sourcing vs CQRS for fintech ledgers, save it for next time"
+
+```
+/ai-research "event sourcing vs CQRS for fintech ledgers" --depth deep --persist
+```
+
+Escalates through all 4 tiers including NotebookLM; writes `.ai-engineering/research/<slug>-<date>.md` so future invocations short-circuit at Tier 0.
+
+## Integration
+
+Called by: user directly, `/ai-brainstorm` (interrogate handler). Calls: tier0–tier3 handlers, `synthesize-with-citations.md`, `persist-artifact.md`. Produces: `.ai-engineering/research/<slug>-<date>.md`. See also: `/ai-brainstorm` (consumes research as evidence).
+
+$ARGUMENTS

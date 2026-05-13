@@ -6,8 +6,8 @@ Non-negotiable security controls applied regardless of stack.
 
 ## Mandatory
 
-- **Credentials**: never log, never commit, never paste in PR description. Read
-  via runtime credential manager only.
+- **Secrets**: never log, never commit, never paste in PR description. Read
+  via runtime secret manager only.
 - **Supply chain**: all direct deps pinned, transitive scanned via SBOM
   + vulnerability gate before merge.
 - **Auth**: default-deny on all endpoints; auth checks at handler edge,

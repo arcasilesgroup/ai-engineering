@@ -400,9 +400,13 @@ class TestStackDriftR15:
 
 
 class TestRequiredToolsBlockPresence:
-    """A manifest without any ``required_tools`` block must fail the lint."""
+    """Slim-manifest semantics: absent block falls back to framework defaults."""
 
-    def test_manifest_without_required_tools_block_fails(self, tmp_path: Path) -> None:
+    def test_manifest_without_required_tools_block_passes(self, tmp_path: Path) -> None:
+        # Slim-manifest contract: the framework injects DEFAULT_REQUIRED_TOOLS
+        # via `apply_framework_defaults` at load time. An absent block is a
+        # legitimate authoring choice — equivalent to "use the framework's
+        # canonical baseline + per-stack tooling".
         body = """
         schema_version: "2.0"
         framework_version: "0.4.0"
@@ -420,11 +424,14 @@ class TestRequiredToolsBlockPresence:
         # NOTE: required_tools block intentionally absent.
         """
         _write_manifest(tmp_path, body)
-        _, fails = _run_lint(tmp_path)
-        assert fails, "Manifest without required_tools block must fail the lint"
-        joined = " ".join(f.message for f in fails).lower()
-        assert "required_tools" in joined or "missing" in joined, (
-            f"Failure must reference the absent block; got: {joined}"
+        report, fails = _run_lint(tmp_path)
+        assert not fails, (
+            f"Slim manifest must pass when required_tools is absent (loader "
+            f"injects framework defaults); got fails={[f.message for f in fails]}"
+        )
+        joined = " ".join(c.message for c in report.checks).lower()
+        assert "required_tools" in joined or "default" in joined, (
+            f"OK message must reference fallback to defaults; got: {joined}"
         )
 
 

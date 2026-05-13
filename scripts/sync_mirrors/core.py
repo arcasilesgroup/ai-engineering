@@ -78,6 +78,15 @@ TPL_CODEX_HOOKS = TPL_PROJECT / ".codex" / "hooks.json"
 TPL_CODEX_CONFIG = TPL_PROJECT / ".codex" / "config.toml"
 TPL_GITHUB_SKILLS = TPL_PROJECT / ".github" / "skills"
 TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
+# spec-133 D-133-06: install templates for the 3 new Surfaces.
+# OpenCode reuses Codex content (AGENTS.md-rooted); Cursor + Antigravity
+# reuse Gemini content (markdown without tools/metadata frontmatter).
+TPL_OPENCODE_COMMANDS = TPL_PROJECT / ".opencode" / "commands"
+TPL_OPENCODE_AGENTS = TPL_PROJECT / ".opencode" / "agents"
+TPL_CURSOR_RULES = TPL_PROJECT / ".cursor" / "rules"
+TPL_CURSOR_AGENTS = TPL_PROJECT / ".cursor" / "agents"
+TPL_ANTIGRAVITY_SKILLS = TPL_PROJECT / ".agent" / "skills"
+TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agent" / "agents"
 
 
 # ── Dataclasses ─────────────────────────────────────────────────────────────
@@ -1296,6 +1305,20 @@ def validate_manifest(
 
     data = yaml.safe_load(MANIFEST_PATH.read_text(encoding="utf-8"))
 
+    # spec-128 slim manifest: framework-managed sections (skills.registry,
+    # agents.names, etc.) are injected by the loader. Apply the same merge
+    # here so the sync script validates against the EFFECTIVE manifest, not
+    # the raw user-facing slice.
+    try:
+        from ai_engineering.config.framework_defaults import apply_framework_defaults
+
+        data = apply_framework_defaults(data)
+    except ImportError:
+        warnings.append(
+            "ai_engineering not importable from sync script — registry "
+            "check operates on raw manifest only."
+        )
+
     # Skills validation
     m_skills = data.get("skills", {})
     expected_skill_count = m_skills.get("total", 0)
@@ -1665,6 +1688,42 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     for name, _fm, agent_path in agents:
         tpl = TPL_CLAUDE_AGENTS / f"ai-{name}.md"
         content = generate_install_claude_agent(agent_path)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # Surface 5b: templates/project/.opencode/ (spec-133 D-133-06).
+    # OpenCode reads slash commands from .opencode/commands/<name>.md and
+    # agents from .opencode/agents/<name>.md. Content shape matches Codex.
+    for name, _fm, skill_path in skills:
+        tpl = TPL_OPENCODE_COMMANDS / f"ai-{name}.md"
+        content = generate_codex_skill(name, skill_path)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+    for name, _fm, agent_path in agents:
+        tpl = TPL_OPENCODE_AGENTS / f"ai-{name}.md"
+        content = generate_codex_agent(name, agent_path)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # Surface 5c: templates/project/.cursor/ (spec-133 D-133-06, D-133-07).
+    # Cursor reads per-rule .mdc files from .cursor/rules/ for selective
+    # @-mention; content shape matches Gemini (markdown w/o tool metadata).
+    for name, _fm, skill_path in skills:
+        tpl = TPL_CURSOR_RULES / f"ai-{name}.mdc"
+        content = generate_gemini_skill(name, skill_path)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+    for name, _fm, agent_path in agents:
+        tpl = TPL_CURSOR_AGENTS / f"ai-{name}.mdc"
+        content = generate_gemini_agent(name, agent_path)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # Surface 5d: templates/project/.agent/ (spec-133 D-133-06, MIRROR-ONLY).
+    # Antigravity has no hook engine today; only instruction payload ships.
+    # Content shape matches Gemini.
+    for name, _fm, skill_path in skills:
+        tpl = TPL_ANTIGRAVITY_SKILLS / f"ai-{name}" / "SKILL.md"
+        content = generate_gemini_skill(name, skill_path)
+        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+    for name, _fm, agent_path in agents:
+        tpl = TPL_ANTIGRAVITY_AGENTS / f"ai-{name}.md"
+        content = generate_gemini_agent(name, agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
     # Surface 5.5: CLAUDE.md (root + template, byte-equivalent mirror of CANONICAL.md).

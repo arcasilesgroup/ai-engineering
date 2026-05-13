@@ -1,24 +1,19 @@
 <!-- source: _shared overrides v1 -->
 
-# Shared Conventions — Cross-Stack Minimums
+# Shared Overrides — Cross-Stack Project Rules
 
-Conventions applied regardless of stack.
+Cross-cutting deltas that apply across all stacks. Skills/agents load this
+in addition to the stack-specific `overrides/<stack>/conventions.md`.
 
-## Naming
+## Scope
 
-- Files and directories: kebab-case (`feature-name.md`).
-- Python modules: snake_case (`feature_name.py`).
-- TypeScript modules: kebab-case files, camelCase exports.
-- Constants: SCREAMING_SNAKE_CASE.
+- Compliance trace requirements (audit trail, decision links).
+- Cross-stack security floor (secret handling, supply-chain).
+- MCP integration patterns shared across language stacks.
 
-## Structure
+## Pointers
 
-- One reason to change per module (SRP).
-- Public API surface stays minimal — every export is a maintenance cost.
-- Three copies of the same fact → extract a constant. Three copies of the
-  same logic → extract a function.
-
-## Per-stack overrides
-
-Stack-specific conventions live in
-`.ai-engineering/overrides/<stack>/conventions.md`.
+- Project compliance: `.claude/skills/ai-code/handlers/compliance-trace.md`
+- Shared framework contexts: `.ai-engineering/contexts/cli-ux.md`,
+  `.ai-engineering/contexts/mcp-integrations.md`
+- Team conventions: `.ai-engineering/contexts/team/*.md`

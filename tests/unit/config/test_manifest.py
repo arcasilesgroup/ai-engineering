@@ -45,20 +45,37 @@ TEMPLATE_MANIFEST_PATH = (
 
 @pytest.fixture()
 def real_manifest_data() -> dict:
-    """Load the real manifest.yml as a raw dict."""
+    """Load the real manifest.yml and inject framework defaults.
+
+    The dogfood manifest ships only user-facing sections; framework-managed
+    sections (skills, agents, control_plane, ownership, session, etc.) are
+    injected by the loader at runtime. Tests that assert on the
+    framework-managed shape consume the merged view.
+    """
+    from ai_engineering.config.framework_defaults import apply_framework_defaults
+
     raw = MANIFEST_PATH.read_text(encoding="utf-8")
     data = yaml.safe_load(raw)
     assert isinstance(data, dict)
-    return data
+    return apply_framework_defaults(data)
 
 
 @pytest.fixture()
 def template_manifest_data() -> dict:
-    """Load the bundled template manifest.yml as a raw dict."""
+    """Load the bundled template manifest.yml and inject framework defaults.
+
+    The template ships only user-facing sections; framework-managed
+    sections (``session``, ``control_plane``, ``ownership``, etc.) are
+    injected by the loader at runtime via
+    :func:`ai_engineering.config.framework_defaults.apply_framework_defaults`.
+    Tests that assert on framework-managed shape consume the merged view.
+    """
+    from ai_engineering.config.framework_defaults import apply_framework_defaults
+
     raw = TEMPLATE_MANIFEST_PATH.read_text(encoding="utf-8")
     data = yaml.safe_load(raw)
     assert isinstance(data, dict)
-    return data
+    return apply_framework_defaults(data)
 
 
 @pytest.fixture()
@@ -350,13 +367,13 @@ class TestOwnership:
 
 class TestTooling:
     def test_tooling_list(self, real_manifest_data: dict) -> None:
-        # spec-122-a (D-122-07): the `tooling` top-level key was removed from
-        # manifest.yml because it duplicated `required_tools` (the spec-101
-        # source of truth for `ai-eng install` / `ai-eng doctor --fix`). The
-        # Pydantic field stays for back-compat with old manifests; new
-        # manifests resolve it to the default empty list.
+        # spec-122-a (D-122-07) removed the `tooling` key from manifest.yml.
+        # spec-128 (slim manifest refactor) reintroduces it as a framework
+        # default injected by ``apply_framework_defaults`` so consumers see
+        # the canonical baseline without authoring it. User manifests can
+        # still override the list when needed.
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert config.tooling == []
+        assert config.tooling == ["uv", "ruff", "gitleaks", "pytest", "ty", "pip-audit"]
 
 
 # ---------------------------------------------------------------------------
@@ -428,7 +445,9 @@ class TestPartialManifest:
         # Other sections get defaults
         assert config.quality.coverage == 80
         assert config.name == ""
-        assert config.tooling == []
+        # Framework defaults are injected by apply_framework_defaults; the
+        # tooling list resolves to the canonical baseline instead of empty.
+        assert config.tooling == ["uv", "ruff", "gitleaks", "pytest", "ty", "pip-audit"]
 
     def test_only_quality(self, tmp_project: Path) -> None:
         manifest = tmp_project / ".ai-engineering" / "manifest.yml"
