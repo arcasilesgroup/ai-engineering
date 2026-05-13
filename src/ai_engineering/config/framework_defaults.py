@@ -295,40 +295,24 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
 }
 
 
-# --- agents (24 total: 9 first-class orchestrators + 15 specialists) ---
-# Source of truth: .claude/agents/*.md. Naming retained as filename-slug
-# (matches CLAUDE.md/AGENTS.md instruction-file enumerations so the
-# counter-accuracy validator sees a unified count). spec-129 D-129-03 +
-# spec-131 D-131-04 baseline.
+# --- agents (9 first-class orchestrators) ---
+# CLAUDE.md / AGENTS.md canonical contract: "Agents (9)" enumerates only
+# first-class orchestrators discovered via `ai-*` glob (sync_mirrors.core
+# discover_agents). Specialist reviewer-* / verifier-* / verify-* agents
+# are dispatched INTERNALLY by ai-review / ai-verify and are NOT counted
+# in the manifest registry — they are mirrored separately under
+# discover_specialist_agents(). Names are bare (no `ai-` prefix).
 
 DEFAULT_AGENTS_NAMES: list[str] = [
-    # First-class orchestrators (9)
-    "ai-plan",
-    "ai-build",
-    "ai-verify",
-    "ai-guard",
-    "ai-review",
-    "ai-explore",
-    "ai-guide",
-    "ai-simplify",
-    "ai-autopilot",
-    # Specialist reviewer roster (10) — spec-127 ai-review specialist dispatch
-    "reviewer-architecture",
-    "reviewer-backend",
-    "reviewer-compatibility",
-    "reviewer-context",
-    "reviewer-correctness",
-    "reviewer-frontend",
-    "reviewer-maintainability",
-    "reviewer-performance",
-    "reviewer-security",
-    "reviewer-testing",
-    "reviewer-validator",
-    # Verifier roster (4) — spec-127 ai-verify deterministic + LLM judges
-    "verifier-architecture",
-    "verifier-feature",
-    "verifier-governance",
-    "verify-deterministic",
+    "autopilot",
+    "build",
+    "explore",
+    "guard",
+    "guide",
+    "plan",
+    "review",
+    "simplify",
+    "verify",
 ]
 
 

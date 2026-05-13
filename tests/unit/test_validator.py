@@ -63,7 +63,13 @@ _SKILL_PATHS = sorted(
     if d.is_dir() and (d / "SKILL.md").is_file()
 )
 
-_AGENT_PATHS = sorted(f"agents/{f.name}" for f in (_TEMPLATES_CLAUDE_DIR / "agents").glob("*.md"))
+# CLAUDE.md / AGENTS.md canonical contract: only first-class `ai-*`
+# agents are enumerated (9). reviewer-* / verifier-* / verify-* are
+# specialists dispatched internally and NOT counted in the manifest
+# registry (see scripts/sync_mirrors/core.discover_agents).
+_AGENT_PATHS = sorted(
+    f"agents/{f.name}" for f in (_TEMPLATES_CLAUDE_DIR / "agents").glob("ai-*.md")
+)
 
 
 def _make_governance(root: Path) -> Path:
