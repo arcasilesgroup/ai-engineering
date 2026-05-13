@@ -54,7 +54,7 @@ def installed_dir(_project_dir: Path, app: object) -> Path:
     """Install framework to _project_dir via CLI and return the path."""
     result = runner.invoke(
         app,
-        ["install", str(_project_dir), "--stack", "python", "--ide", "vscode"],
+        ["install", str(_project_dir), "--stack", "python", "--surface", "claude-code"],
     )
     assert result.exit_code == 0, result.output
     return _project_dir

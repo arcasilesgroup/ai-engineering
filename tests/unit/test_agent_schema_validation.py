@@ -12,6 +12,8 @@ from pathlib import Path
 
 import pytest
 
+from ai_engineering.config.framework_defaults import DEFAULT_AGENTS_NAMES
+
 _AGENTS_DIR = (
     Path(__file__).resolve().parents[2]
     / "src"
@@ -22,49 +24,16 @@ _AGENTS_DIR = (
     / "agents"
 )
 
-# spec-127 sub-005 (M4): 9 user-facing orchestrator agents (ai-*.md)
-# Bumped 10 → 9 by deleting `ai-run-orchestrator.md`; functionality
-# absorbed by `ai-autopilot --backlog --source <github|ado|local>`
-# (D-127-12).
-_EXPECTED_ORCHESTRATORS = frozenset(
-    {
-        "ai-autopilot",
-        "ai-build",
-        "ai-explore",
-        "ai-guard",
-        "ai-guide",
-        "ai-review",
-        "ai-simplify",
-        "ai-verify",
-        "ai-plan",
-    }
-)
+# Orchestrators are the canonical first-class agent surface (CLAUDE.md §12
+# contract "Agents (9)"). Derived dynamically from
+# DEFAULT_AGENTS_NAMES — the same source `sync_mirrors.core.discover_agents`
+# uses — so adding/removing an agent updates one place, not two.
+_EXPECTED_ORCHESTRATORS = frozenset({f"ai-{name}" for name in DEFAULT_AGENTS_NAMES})
 
-# spec-127 sub-005 (M4): 15 specialist sub-agents (was 16 — bumped by
-# deleting `reviewer-design.md` whose rules now live in `reviewer-frontend.md`,
-# and renaming `review-context-explorer` → `reviewer-context` +
-# `review-finding-validator` → `reviewer-validator` per D-127-04 / D-127-10).
-_EXPECTED_SPECIALISTS = frozenset(
-    {
-        "reviewer-context",
-        "reviewer-security",
-        "reviewer-backend",
-        "reviewer-performance",
-        "reviewer-correctness",
-        "reviewer-testing",
-        "reviewer-compatibility",
-        "reviewer-architecture",
-        "reviewer-maintainability",
-        "reviewer-frontend",
-        "reviewer-validator",
-        "verify-deterministic",
-        "verifier-governance",
-        "verifier-architecture",
-        "verifier-feature",
-    }
-)
-
-_EXPECTED_AGENTS = _EXPECTED_ORCHESTRATORS | _EXPECTED_SPECIALISTS
+# Specialist sub-agents are discovered by prefix (no enumerated contract).
+# `validator.categories.mirror_sync._SPECIALIST_AGENT_PREFIXES` is the
+# canonical glob set: `reviewer-`, `verifier-`, `review-`, `verify-`.
+_SPECIALIST_PREFIXES: tuple[str, ...] = ("reviewer-", "verifier-", "review-", "verify-")
 
 _REQUIRED_FRONTMATTER = {"name"}
 
@@ -99,42 +68,38 @@ def _parse_frontmatter(text: str) -> dict[str, str]:
 # -- Tests ---------------------------------------------------------------
 
 
-def test_orchestrator_count_matches_expected() -> None:
-    """There should be exactly 9 orchestrator agents on disk (post-spec-127 sub-005)."""
+def test_orchestrator_count_matches_canonical_registry() -> None:
+    """Disk must match DEFAULT_AGENTS_NAMES count — single source of truth."""
     agents = _orchestrator_files()
     names = {f.stem for f in agents}
     assert len(agents) == len(_EXPECTED_ORCHESTRATORS), (
-        f"Expected {len(_EXPECTED_ORCHESTRATORS)} orchestrators, "
-        f"found {len(agents)}: {sorted(names)}"
+        f"Expected {len(_EXPECTED_ORCHESTRATORS)} orchestrators (per "
+        f"DEFAULT_AGENTS_NAMES), found {len(agents)}: {sorted(names)}"
     )
 
 
-def test_orchestrator_names_match_expected() -> None:
-    """Orchestrator file names must match the expected set exactly."""
+def test_orchestrator_names_match_canonical_registry() -> None:
+    """Disk names must match DEFAULT_AGENTS_NAMES exactly — no drift."""
     agents = _orchestrator_files()
     names = {f.stem for f in agents}
     assert names == _EXPECTED_ORCHESTRATORS, (
-        f"Orchestrator mismatch. "
+        f"Orchestrator drift vs DEFAULT_AGENTS_NAMES. "
         f"Missing: {_EXPECTED_ORCHESTRATORS - names}, "
         f"Extra: {names - _EXPECTED_ORCHESTRATORS}"
     )
 
 
-def test_total_agent_count_matches_expected() -> None:
-    """Total agents (orchestrators + specialists) must match."""
-    agents = _all_agent_files()
-    names = {f.stem for f in agents}
-    assert len(agents) == len(_EXPECTED_AGENTS), (
-        f"Expected {len(_EXPECTED_AGENTS)} total agents, found {len(agents)}: {sorted(names)}"
-    )
-
-
-def test_agent_names_match_expected() -> None:
-    """All agent file names must match the expected set exactly."""
-    agents = _all_agent_files()
-    names = {f.stem for f in agents}
-    assert names == _EXPECTED_AGENTS, (
-        f"Agent mismatch. Missing: {_EXPECTED_AGENTS - names}, Extra: {names - _EXPECTED_AGENTS}"
+def test_every_non_orchestrator_uses_specialist_prefix() -> None:
+    """Anything in agents/ that isn't an orchestrator MUST be a specialist."""
+    extras = {f.stem for f in _all_agent_files()} - _EXPECTED_ORCHESTRATORS
+    invalid = {
+        name
+        for name in extras
+        if not any(name.startswith(prefix) for prefix in _SPECIALIST_PREFIXES)
+    }
+    assert not invalid, (
+        f"Files in agents/ that are neither orchestrators nor specialists "
+        f"(reviewer-*/verifier-*/review-*/verify-*): {sorted(invalid)}"
     )
 
 

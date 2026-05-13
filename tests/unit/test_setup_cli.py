@@ -653,7 +653,7 @@ class TestInstallCleanOutput:
         app = typer.Typer()
         app.command()(install_cmd)
         _runner = _Runner()
-        # Provide all flags to skip wizard
+        # Provide all flags to skip wizard (D-133-18: --surface replaces --ide/--provider)
         res = _runner.invoke(
             app,
             [
@@ -662,10 +662,9 @@ class TestInstallCleanOutput:
                 "github",
                 "--stack",
                 "python",
-                "--provider",
+                "--surface",
                 "claude-code",
-                "--ide",
-                "terminal",
+                "--non-interactive",
             ],
         )
 

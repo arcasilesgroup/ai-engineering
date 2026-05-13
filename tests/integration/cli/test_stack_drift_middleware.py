@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-import os
+import contextlib
+import io
 from pathlib import Path
 
 import pytest
@@ -25,53 +26,37 @@ def _write_manifest(root: Path, stacks: list[str]) -> None:
     )
 
 
-def test_middleware_silent_when_no_drift(tmp_path: Path) -> None:
+def test_middleware_silent_when_no_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _write_manifest(tmp_path, ["python"])
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'test'\n")
-    # No-drift scenario: invoking middleware directly should not emit warning
-    # The middleware itself is the unit under test.
-    import contextlib
-
-    # Capture stderr
-    import io
 
     from ai_engineering.cli_factory import _stack_drift_middleware
 
+    monkeypatch.chdir(tmp_path)
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
-        # Provide root by chdir
-        cwd = os.getcwd()
-        try:
-            os.chdir(tmp_path)
-            _stack_drift_middleware("status")
-        finally:
-            os.chdir(cwd)
+        _stack_drift_middleware("status")
     assert "stack drift" not in err.getvalue()
 
 
-def test_middleware_emits_warning_on_drift(tmp_path: Path) -> None:
+def test_middleware_emits_warning_on_drift(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _write_manifest(tmp_path, ["python"])
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'test'\n")
     (tmp_path / "Cargo.toml").write_text("[package]\nname = 'rs'\nversion = '0.1.0'\n")
 
-    import contextlib
-    import io
-
     from ai_engineering.cli_factory import _stack_drift_middleware
 
+    monkeypatch.chdir(tmp_path)
     err = io.StringIO()
-    cwd = os.getcwd()
-    try:
-        os.chdir(tmp_path)
-        with contextlib.redirect_stderr(err):
-            _stack_drift_middleware("status")
-    finally:
-        os.chdir(cwd)
+    with contextlib.redirect_stderr(err):
+        _stack_drift_middleware("status")
     assert "stack drift" in err.getvalue().lower()
     assert "rust" in err.getvalue()
 
 
-def test_middleware_blocks_in_strict_mode_for_commit(tmp_path: Path) -> None:
+def test_middleware_blocks_in_strict_mode_for_commit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     _write_manifest(tmp_path, ["python"])
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'test'\n")
     (tmp_path / "Cargo.toml").write_text("[package]\nname = 'rs'\nversion = '0.1.0'\n")
@@ -80,78 +65,52 @@ def test_middleware_blocks_in_strict_mode_for_commit(tmp_path: Path) -> None:
 
     from ai_engineering.cli_factory import _stack_drift_middleware
 
-    cwd = os.getcwd()
-    os.environ["AIENG_STACK_DRIFT_STRICT"] = "1"
-    try:
-        os.chdir(tmp_path)
-        with pytest.raises(typer.Exit) as excinfo:
-            _stack_drift_middleware("commit")
-        assert excinfo.value.exit_code == 78
-    finally:
-        os.chdir(cwd)
-        del os.environ["AIENG_STACK_DRIFT_STRICT"]
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AIENG_STACK_DRIFT_STRICT", "1")
+    with pytest.raises(typer.Exit) as excinfo:
+        _stack_drift_middleware("commit")
+    assert excinfo.value.exit_code == 78
 
 
-def test_middleware_exempts_install(tmp_path: Path) -> None:
+def test_middleware_exempts_install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _write_manifest(tmp_path, ["python"])
     (tmp_path / "Cargo.toml").write_text("[package]\nname = 'rs'\nversion = '0.1.0'\n")
 
-    import contextlib
-    import io
-
     from ai_engineering.cli_factory import _stack_drift_middleware
 
-    cwd = os.getcwd()
-    try:
-        os.chdir(tmp_path)
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            _stack_drift_middleware("install")
-        assert err.getvalue() == ""
-    finally:
-        os.chdir(cwd)
+    monkeypatch.chdir(tmp_path)
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        _stack_drift_middleware("install")
+    assert err.getvalue() == ""
 
 
-def test_middleware_silent_in_greenfield(tmp_path: Path) -> None:
+def test_middleware_silent_in_greenfield(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """No stack markers = nothing to drift against."""
     _write_manifest(tmp_path, ["python"])
-    import contextlib
-    import io
 
     from ai_engineering.cli_factory import _stack_drift_middleware
 
-    cwd = os.getcwd()
-    try:
-        os.chdir(tmp_path)
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            _stack_drift_middleware("status")
-        # No project markers => detected is empty => no drift
-        assert "stack drift" not in err.getvalue().lower()
-    finally:
-        os.chdir(cwd)
+    monkeypatch.chdir(tmp_path)
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        _stack_drift_middleware("status")
+    assert "stack drift" not in err.getvalue().lower()
 
 
-def test_middleware_strict_warn_only_for_status(tmp_path: Path) -> None:
+def test_middleware_strict_warn_only_for_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Strict mode warns but doesn't block read-only commands."""
     _write_manifest(tmp_path, ["python"])
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'test'\n")
     (tmp_path / "Cargo.toml").write_text("[package]\nname = 'rs'\nversion = '0.1.0'\n")
 
-    import contextlib
-    import io
-
     from ai_engineering.cli_factory import _stack_drift_middleware
 
-    cwd = os.getcwd()
-    os.environ["AIENG_STACK_DRIFT_STRICT"] = "1"
-    try:
-        os.chdir(tmp_path)
-        err = io.StringIO()
-        with contextlib.redirect_stderr(err):
-            # Non-blocking command — should warn, not raise
-            _stack_drift_middleware("status")
-        assert "stack drift" in err.getvalue().lower()
-    finally:
-        os.chdir(cwd)
-        del os.environ["AIENG_STACK_DRIFT_STRICT"]
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("AIENG_STACK_DRIFT_STRICT", "1")
+    err = io.StringIO()
+    with contextlib.redirect_stderr(err):
+        _stack_drift_middleware("status")
+    assert "stack drift" in err.getvalue().lower()
