@@ -660,14 +660,19 @@ jobs:
         run: uv run ai-eng check --json
       - name: Manifest validation
         run: |
-          # Verify manifest.yml exists and has expected structure
-          python -c "
+          # spec-133: raw manifest.yml is user-config only (16 lines);
+          # framework-managed sections (skills/agents/required_tools/…) are
+          # injected by the loader from framework_defaults.py. Validate via
+          # the loader path so the injection contract is exercised.
+          uv run python -c "
           import yaml
           from pathlib import Path
-          m = yaml.safe_load(Path('.ai-engineering/manifest.yml').read_text())
-          gs = m.get('governance_surface', m)
-          assert 'skills' in gs or 'agents' in gs, 'manifest missing governance_surface.skills/agents'
-          print(f'Manifest OK')
+          from ai_engineering.config.framework_defaults import apply_framework_defaults
+          raw = yaml.safe_load(Path('.ai-engineering/manifest.yml').read_text())
+          merged = apply_framework_defaults(raw or {})
+          gs = merged.get('governance_surface', merged)
+          assert 'skills' in gs or 'agents' in gs, 'manifest (post-injection) missing governance_surface.skills/agents'
+          print('Manifest OK')
           "
       - name: Skill schema validation
         run: |

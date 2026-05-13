@@ -35,9 +35,11 @@ class TestInstallClean:
         install(tmp_path, stacks=["python"], ides=["vscode"])
         ai_dir = tmp_path / ".ai-engineering"
 
+        # spec-133 D-133-13: contexts/{frameworks,languages} deleted —
+        # stack content lives only under .ai-engineering/overrides/.
         required_dirs = [
             "contexts",
-            "contexts/languages",
+            "overrides",
             "specs",
             "state",
         ]
@@ -122,8 +124,9 @@ class TestInstallClean:
         # Should have the manifest template
         assert (ai_dir / "manifest.yml").is_file()
 
-        # Should have language contexts
-        assert (ai_dir / "contexts" / "languages" / "python.md").is_file()
+        # spec-133 D-133-12: stack overrides live under overrides/<stack>/.
+        # python is T1 — conventions.md must ship in the template tree.
+        assert (ai_dir / "overrides" / "python" / "conventions.md").is_file()
 
     def test_install_does_not_seed_team_context_files(
         self,

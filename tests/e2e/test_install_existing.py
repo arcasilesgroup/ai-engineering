@@ -183,9 +183,11 @@ class TestInstallExisting:
 
         install(tmp_path, stacks=["python"], ides=["vscode"])
 
-        core_md = tmp_path / ".ai-engineering" / "contexts" / "languages" / "python.md"
+        # spec-133 D-133-13: contexts/languages/ deleted. Use overrides/
+        # which is the canonical home for stack-specific content (D-133-12).
+        core_md = tmp_path / ".ai-engineering" / "overrides" / "python" / "conventions.md"
         core_md.write_text("modified content")
-        rust_md = tmp_path / ".ai-engineering" / "contexts" / "languages" / "rust.md"
+        rust_md = tmp_path / ".ai-engineering" / "overrides" / "rust" / "conventions.md"
         rust_md.write_text("also modified")
 
         original_write = Path.write_bytes

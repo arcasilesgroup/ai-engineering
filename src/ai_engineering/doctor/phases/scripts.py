@@ -10,6 +10,7 @@ Checks:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
@@ -17,6 +18,7 @@ from ai_engineering.installer.phases.scripts import ROOT_SCRIPT_FILES
 
 _SCRIPTS_REL = ".ai-engineering/scripts"
 _EXECUTABLE_SCRIPTS = frozenset({"regenerate-hooks-manifest.py", "runtime_rotate.py"})
+_IS_WINDOWS = os.name == "nt"
 
 
 def _check_scripts_deployed(ctx: DoctorContext) -> CheckResult:
@@ -45,6 +47,15 @@ def _check_scripts_deployed(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_scripts_executable(ctx: DoctorContext) -> CheckResult:
+    # Windows does not track POSIX executable bits; scripts run via
+    # python.exe + .py extension association, not the exec bit. Skip.
+    if _IS_WINDOWS:
+        return CheckResult(
+            name="scripts-executable",
+            status=CheckStatus.OK,
+            message="Executable bit check skipped on Windows (not applicable)",
+            fixable=False,
+        )
     root = Path(ctx.target) / _SCRIPTS_REL
     non_exec: list[str] = []
     for name in _EXECUTABLE_SCRIPTS:
