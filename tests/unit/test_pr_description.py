@@ -6,8 +6,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
-
 from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
 from ai_engineering.state.work_plane import write_active_work_plane_pointer, write_task_ledger
 from ai_engineering.vcs.pr_description import (
@@ -84,42 +82,6 @@ class TestReadActiveSpec:
         spec.parent.mkdir(parents=True)
         spec.write_text("# No active spec\n", encoding="utf-8")
         assert _read_active_spec(tmp_path) is None
-
-    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
-    def test_returns_raw_work_plane_name_when_placeholder_resolved_ledger_is_live(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
-        specs_dir.mkdir(parents=True)
-        write_active_work_plane_pointer(tmp_path, specs_dir)
-        (specs_dir / "spec.md").write_text(
-            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
-            encoding="utf-8",
-        )
-        write_task_ledger(
-            tmp_path,
-            TaskLedger(
-                tasks=[
-                    TaskLedgerTask(
-                        id="HX-02-T-5.1-pr-description-ledger-aware-active-spec-id-done",
-                        title="Keep completed work in the same ledger",
-                        status=TaskLifecycleState.DONE,
-                        ownerRole="Build",
-                        writeScope=["tests/unit/test_pr_description.py"],
-                    ),
-                    TaskLedgerTask(
-                        id="HX-02-T-5.1-pr-description-ledger-aware-active-spec-id",
-                        title="Cut PR description over to the resolved ledger",
-                        status=TaskLifecycleState.VERIFY,
-                        ownerRole="Build",
-                        writeScope=["src/ai_engineering/vcs/pr_description.py"],
-                    ),
-                ]
-            ),
-        )
-
-        assert _read_active_spec(tmp_path) == "spec-117-hx-02"
 
     def test_returns_none_when_placeholder_resolved_ledger_is_done(
         self,
@@ -228,48 +190,6 @@ class TestBuildPrTitle:
             title = build_pr_title(tmp_path)
         assert title == "Broken gate"
 
-    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
-    def test_placeholder_live_resolved_ledger_uses_normalized_spec_prefix(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
-        specs_dir.mkdir(parents=True)
-        write_active_work_plane_pointer(tmp_path, specs_dir)
-        (specs_dir / "spec.md").write_text(
-            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
-            encoding="utf-8",
-        )
-        write_task_ledger(
-            tmp_path,
-            TaskLedger(
-                tasks=[
-                    TaskLedgerTask(
-                        id="HX-02-T-5.1-pr-description-ledger-aware-active-spec-id-done",
-                        title="Keep completed work in the same ledger",
-                        status=TaskLifecycleState.DONE,
-                        ownerRole="Build",
-                        writeScope=["tests/unit/test_pr_description.py"],
-                    ),
-                    TaskLedgerTask(
-                        id="HX-02-T-5.1-pr-description-ledger-aware-active-spec-id",
-                        title="Cut PR description over to the resolved ledger",
-                        status=TaskLifecycleState.VERIFY,
-                        ownerRole="Build",
-                        writeScope=["src/ai_engineering/vcs/pr_description.py"],
-                    ),
-                ]
-            ),
-        )
-
-        with patch(
-            "ai_engineering.vcs.pr_description.current_branch",
-            return_value="feat/work-plane-ledger",
-        ):
-            title = build_pr_title(tmp_path)
-
-        assert title == "feat(spec-117-hx-02): Work plane ledger"
-
 
 # ---------------------------------------------------------------------------
 # build_pr_description
@@ -343,102 +263,6 @@ class TestBuildPrDescription:
             body = build_pr_description(tmp_path)
         assert "## What" in body
         assert "## Checklist" in body
-
-    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
-    def test_placeholder_live_resolved_ledger_uses_normalized_display_id(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
-        specs_dir.mkdir(parents=True)
-        write_active_work_plane_pointer(tmp_path, specs_dir)
-        (specs_dir / "spec.md").write_text(
-            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
-            encoding="utf-8",
-        )
-        write_task_ledger(
-            tmp_path,
-            TaskLedger(
-                tasks=[
-                    TaskLedgerTask(
-                        id="HX-02-T-5.1-pr-description-ledger-aware-active-spec-id",
-                        title="Cut PR description over to the resolved ledger",
-                        status=TaskLifecycleState.IN_PROGRESS,
-                        ownerRole="Build",
-                        writeScope=["src/ai_engineering/vcs/pr_description.py"],
-                    )
-                ]
-            ),
-        )
-
-        with (
-            patch(
-                "ai_engineering.vcs.pr_description.run_git",
-                return_value=(False, ""),
-            ),
-            patch(
-                "ai_engineering.vcs.pr_description.current_branch",
-                return_value="feat/work-plane-ledger",
-            ),
-        ):
-            body = build_pr_description(tmp_path)
-
-        assert "Implements Spec 117 — Work plane ledger." in body
-        assert "**Spec**: `117-hx-02`" in body
-
-    @pytest.mark.skip(reason="Spec-123 removed task-ledger surface from work_plane")
-    def test_placeholder_live_resolved_ledger_uses_raw_lookup_id(
-        self,
-        tmp_path: Path,
-    ) -> None:
-        specs_dir = tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
-        specs_dir.mkdir(parents=True)
-        write_active_work_plane_pointer(tmp_path, specs_dir)
-        (specs_dir / "spec.md").write_text(
-            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n",
-            encoding="utf-8",
-        )
-        write_task_ledger(
-            tmp_path,
-            TaskLedger(
-                tasks=[
-                    TaskLedgerTask(
-                        id="HX-02-T-5.1-pr-description-ledger-aware-active-spec-id",
-                        title="Cut PR description over to the resolved ledger",
-                        status=TaskLifecycleState.IN_PROGRESS,
-                        ownerRole="Build",
-                        writeScope=["src/ai_engineering/vcs/pr_description.py"],
-                    )
-                ]
-            ),
-        )
-
-        seen_specs: list[str] = []
-
-        def fake_get_linked_issue_id(project_root: Path, spec_id: str) -> str | None:
-            seen_specs.append(spec_id)
-            return "123"
-
-        with (
-            patch(
-                "ai_engineering.issues.service.get_linked_issue_id",
-                side_effect=fake_get_linked_issue_id,
-            ),
-            patch("ai_engineering.vcs.factory.detect_from_remote", return_value="github"),
-            patch(
-                "ai_engineering.vcs.pr_description.run_git",
-                return_value=(False, ""),
-            ),
-            patch(
-                "ai_engineering.vcs.pr_description.current_branch",
-                return_value="feat/work-plane-ledger",
-            ),
-        ):
-            body = build_pr_description(tmp_path)
-
-        assert seen_specs == ["spec-117-hx-02"]
-        assert "Closes #123" in body
-        assert "**Spec**: `117-hx-02`" in body
 
     def test_placeholder_done_resolved_ledger_builders_stay_idle(
         self,
