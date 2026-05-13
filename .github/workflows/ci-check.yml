@@ -508,7 +508,7 @@ jobs:
       - name: Workflow policy checks
         run: uv run python scripts/check_workflow_policy.py
       - name: Mirror sync integrity
-        run: uv run ai-eng sync --check
+        run: uv run ai-eng dev sync --check
 
   verify-gate-trailers:
     name: Verify Gate Trailers
@@ -655,9 +655,9 @@ jobs:
           GITHUB_BASE_REF: ${{ github.base_ref }}
         run: uv run python -m ai_engineering.policy.release_version_guard
       - name: Validate content integrity
-        run: uv run ai-eng validate
+        run: uv run ai-eng check
       - name: Governance consistency
-        run: uv run ai-eng validate --json
+        run: uv run ai-eng check --json
       - name: Manifest validation
         run: |
           # Verify manifest.yml exists and has expected structure

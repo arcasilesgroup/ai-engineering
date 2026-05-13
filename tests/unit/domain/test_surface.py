@@ -6,6 +6,8 @@ production code exists.
 
 from __future__ import annotations
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from ai_engineering.domain.surface import (
@@ -35,7 +37,7 @@ def test_iter_surfaces_returns_seven_frozen_dataclasses() -> None:
     assert len(surfaces) == 7
     for s in surfaces:
         assert isinstance(s, Surface)
-        with pytest.raises(Exception):
+        with pytest.raises((AttributeError, TypeError, FrozenInstanceError)):
             s.id = "mutated"  # frozen
 
 

@@ -297,10 +297,9 @@ def cleanup_branches_cmd(
     if dry_run:
         result.skipped = targets
     elif targets:
-        del_result = delete_branches(root, targets, force=force)
-        result.deleted = del_result.deleted_branches
-        result.skipped = del_result.skipped_branches
-        result.errors = del_result.errors
+        deleted, failed = delete_branches(root, targets, force=force)
+        result.deleted = deleted
+        result.skipped = failed
 
     if is_json_mode():
         print(json.dumps(result.to_envelope()))
@@ -310,9 +309,9 @@ def cleanup_branches_cmd(
             for b in targets:
                 print(f"  - {b}")
         else:
-            print(
-                f"Deleted {len(result.deleted)} branches; skipped {len(result.skipped)} (mode: {chosen_mode})"
-            )
+            deleted_n = len(result.deleted)
+            skipped_n = len(result.skipped)
+            print(f"Deleted {deleted_n} branches; skipped {skipped_n} (mode: {chosen_mode})")
 
     if result.errors:
         raise typer.Exit(code=1)

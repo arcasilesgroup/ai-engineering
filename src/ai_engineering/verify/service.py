@@ -277,9 +277,7 @@ def _project_has_dependency_manifest(project_root: Path) -> bool:
     legacy_extension = "." + "cfg"
     if (project_root / ("setup" + legacy_extension)).is_file():
         return True
-    if (project_root / "setup.py").is_file():
-        return True
-    return False
+    return bool((project_root / "setup.py").is_file())
 
 
 def verify_security(project_root: Path, *, profile: str = "normal") -> VerifyScore:

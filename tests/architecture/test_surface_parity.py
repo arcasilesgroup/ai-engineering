@@ -109,7 +109,7 @@ def test_a2_aligned_verbs_share_exit_code_module() -> None:
         pytest.skip("_exit_codes.py missing — sub-011 will add it")
     text = exit_codes_path.read_text()
     # Anchor for goal #6 + D-133-24: exit code 78 is documented.
-    assert "78" in text or "STACK_DRIFT" in text or True  # tolerant — sub-011 lands this
+    assert "78" in text or "STACK_DRIFT" in text
 
 
 @pytest.mark.unit

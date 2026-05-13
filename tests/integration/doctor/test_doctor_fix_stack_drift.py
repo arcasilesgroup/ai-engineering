@@ -55,7 +55,7 @@ def test_doctor_phase_scripts_fix_redeploys(tmp_path: Path) -> None:
 
     ctx = DoctorContext(target=tmp_path, install_state=None, manifest_config=None)
     failed = check(ctx)
-    fix_results = fix(ctx, failed=failed, dry_run=False)
+    fix(ctx, failed=failed, dry_run=False)
     # Scripts should now exist on disk
     deployed = tmp_path / ".ai-engineering" / "scripts"
     assert (deployed / "session_bootstrap.py").exists()

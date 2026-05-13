@@ -18,6 +18,7 @@ doctor`` surfaces the gap as a WARN.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import os
@@ -196,13 +197,11 @@ def ensure_bundle_signed(project_root: Path) -> dict[str, object]:
     # though the bundle is fully signed.
     manifest_path = policies_dir / ".manifest"
     if result["signed"] and not manifest_path.is_file():
-        try:
+        with contextlib.suppress(OSError):
             manifest_path.write_text(
                 json.dumps({"revision": "", "roots": [""]}, indent=2) + "\n",
                 encoding="utf-8",
             )
-        except OSError:
-            pass
 
     result["message"] = "OPA bundle built and signed locally"
     return result

@@ -94,18 +94,12 @@ def run_wizard(
         resolved = {}
 
     # Stacks: silent auto-detect (no prompt) unless overridden.
-    if "stacks" in resolved:
-        stacks = resolved["stacks"]
-    else:
-        # spec-133 D-133-25 / B16 Gap 1+2: do NOT default to ["python"] in
-        # greenfield mode; preserve empty list when autodetect found nothing.
-        stacks = list(detected.stacks)
+    # spec-133 D-133-25 / B16 Gap 1+2: do NOT default to ["python"] in
+    # greenfield mode; preserve empty list when autodetect found nothing.
+    stacks = resolved["stacks"] if "stacks" in resolved else list(detected.stacks)
 
     # VCS: silent default to github (or detected). No prompt.
-    if "vcs" in resolved:
-        vcs = resolved["vcs"]
-    else:
-        vcs = detected.vcs or "github"
+    vcs = resolved.get("vcs", detected.vcs or "github")
 
     # Surfaces: single user-facing question (or CLI override).
     if "surfaces" in resolved:

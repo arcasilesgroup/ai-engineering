@@ -92,11 +92,14 @@ class ScriptsPhase:
                 continue
 
             try:
-                if dst.exists() and action.action_type == "create":
+                if (
+                    dst.exists()
+                    and action.action_type == "create"
+                    and dst.read_bytes() == src.read_bytes()
+                ):
                     # Idempotent: only re-copy if content drifted.
-                    if dst.read_bytes() == src.read_bytes():
-                        result.skipped.append(script_name)
-                        continue
+                    result.skipped.append(script_name)
+                    continue
                 shutil.copy2(src, dst)
                 # Preserve executable bit (the scripts have shebangs).
                 dst.chmod(0o755)
