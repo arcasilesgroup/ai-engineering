@@ -59,7 +59,7 @@ Trust the markdown the script emits. It surfaces every field the
 operator typically asks for next:
 
 - **Project identity**: the CONSTITUTION mission as the tagline.
-- **Stack posture**: `providers.ides` · `ai_providers.primary` ·
+- **Stack posture**: `surfaces.enabled` ·
   `gates.mode` — visible in one line so layer drift is obvious.
 - **Counts**: skills, agents, lessons, active decisions, accepted
   risks, recent_events_7d.

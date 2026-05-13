@@ -14,17 +14,15 @@ _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _MANIFEST_TEMPLATE = """\
 name: test-project
 version: 1.0.0
-ai_providers:
+surfaces:
     enabled: [{providers}]
-    primary: {primary}
 """
 
 _ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE = """\
 name: test-project
 version: 1.0.0
-ai_providers:
+surfaces:
     enabled: [{providers}]
-    primary: {primary}
 ownership:
     root_entry_points:
         "CLAUDE.md":
@@ -137,7 +135,7 @@ class TestCrossReferenceResolution:
     def test_resolve_cross_reference_files_includes_gemini_when_enabled(
         self, tmp_path: Path
     ) -> None:
-        self._write_manifest(tmp_path, ["claude-code", "github_copilot", "gemini"])
+        self._write_manifest(tmp_path, ["claude-code", "github-copilot", "gemini-cli"])
 
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
 
@@ -160,7 +158,7 @@ class TestCrossReferenceResolution:
     def test_resolve_cross_reference_files_uses_enabled_providers_only(
         self, tmp_path: Path
     ) -> None:
-        self._write_manifest(tmp_path, ["github_copilot"])
+        self._write_manifest(tmp_path, ["github-copilot"])
 
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
 
@@ -179,7 +177,7 @@ class TestCrossReferenceResolution:
     ) -> None:
         self._write_manifest_with_root_entry_points(
             tmp_path,
-            ["github_copilot", "gemini"],
+            ["github-copilot", "gemini-cli"],
         )
 
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
@@ -320,7 +318,10 @@ class TestGenerationFunctions:
         # ai-explore slug).
         assert 'name: "ai-explore"' in content
         assert "model: opus" in content
-        assert "color: cyan" in content
+        # `color` is intentionally omitted: GitHub Copilot's documented
+        # custom-agents schema does not include a color field, matching
+        # the Gemini/Cursor/Antigravity strip policy.
+        assert "color:" not in content
         assert "readFile" in content  # explore has limited tools
         assert "editFiles" not in content  # explore is read-only
 

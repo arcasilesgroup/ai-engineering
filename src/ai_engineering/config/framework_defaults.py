@@ -4,7 +4,7 @@ These sections are framework-canonical and would otherwise duplicate
 into every consumer's ``.ai-engineering/manifest.yml``. They are
 injected by :func:`ai_engineering.config.loader.load_manifest_config`
 when absent from the user manifest so a slim user manifest (only
-``providers``, ``ai_providers``, ``artifact_feeds``, ``work_items``,
+``providers``, ``surfaces``, ``artifact_feeds``, ``work_items``,
 ``quality``, ``gates``, ``documentation``, ``cicd``, ``telemetry``)
 still produces a complete :class:`ManifestConfig`.
 
@@ -41,7 +41,7 @@ DEFAULT_CONTROL_PLANE: dict[str, Any] = {
     "manifest_field_roles": {
         "canonical_input": [
             "providers",
-            "ai_providers",
+            "surfaces",
             "artifact_feeds",
             "work_items",
             "quality",

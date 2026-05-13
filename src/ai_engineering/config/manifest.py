@@ -9,46 +9,44 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from ai_engineering.domain.surface import SURFACE_IDS
 
 # --- Nested models ---
-
-
-class AiProvidersConfig(BaseModel):
-    """AI coding assistant provider configuration.
-
-    .. deprecated:: spec-133 D-133-16
-        Replaced by :class:`SurfacesConfig`. Retained for in-flight
-        compatibility on this PR aggregate (spec-128 .. spec-133); the
-        follow-up release rewrites every consumer to ``surfaces.enabled``
-        and drops this class entirely. CHANGELOG documents the migration.
-    """
-
-    enabled: list[str] = Field(default_factory=lambda: ["claude-code"])
-    primary: str = "claude-code"
 
 
 class SurfacesConfig(BaseModel):
     """Surface configuration — single source of truth (spec-133 D-133-16).
 
-    Replaces the legacy split between ``providers.ides`` (IDE integrations)
-    and ``ai_providers.enabled`` (AI providers). A Surface is the unified
-    primitive: every value MUST be a member of
-    ``ai_engineering.domain.surface.SURFACE_IDS`` (closed enum).
-
-    The legacy fields are still serialised for in-flight compatibility on
-    the PR #509 aggregate but are scheduled for hard removal in a
-    follow-up release. New code should prefer ``surfaces.enabled``.
+    A Surface fuses AI Provider + IDE Integration into one capability
+    matrix. Every value MUST be a member of
+    :data:`ai_engineering.domain.surface.SURFACE_IDS` (closed enum).
+    The legacy ``providers.ides`` and ``ai_providers.enabled`` fields
+    were deleted in the slim-manifest refactor (no backward compat).
     """
 
     enabled: list[str] = Field(default_factory=lambda: ["claude-code"])
 
+    @field_validator("enabled")
+    @classmethod
+    def _validate_closed_enum(cls, value: list[str]) -> list[str]:
+        unknown = [s for s in value if s not in SURFACE_IDS]
+        if unknown:
+            known = ", ".join(sorted(SURFACE_IDS))
+            raise ValueError(f"Unknown surface id(s): {unknown}. Known surfaces: {known}.")
+        return value
+
 
 class ProvidersConfig(BaseModel):
-    """VCS, IDE, and stack provider configuration."""
+    """VCS + technology-stack provider configuration.
+
+    Note: ``ides`` and ``ai_providers`` were deleted from this model;
+    use :class:`SurfacesConfig` (manifest field ``surfaces.enabled``)
+    for both axes.
+    """
 
     vcs: str = "github"
-    ides: list[str] = Field(default_factory=lambda: ["claude-code"])
     stacks: list[str] = Field(default_factory=lambda: ["python"])
 
 
@@ -261,7 +259,6 @@ class ManifestConfig(BaseModel):
     version: str = ""
 
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
-    ai_providers: AiProvidersConfig = Field(default_factory=AiProvidersConfig)
     surfaces: SurfacesConfig = Field(default_factory=SurfacesConfig)
     artifact_feeds: ArtifactFeedsConfig = Field(default_factory=ArtifactFeedsConfig)
     work_items: WorkItemsConfig = Field(default_factory=WorkItemsConfig)

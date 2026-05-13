@@ -2,7 +2,6 @@
 name: ai-explore
 description: Codebase-only read-only research. Architecture mapping, dependency tracing, pattern identification, risk surfacing. Use for questions whose answer lives INSIDE this repository's files. Not for external evidence with citations; use /ai-research instead.
 model: sonnet
-color: cyan
 mirror_family: gemini-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-explore.md

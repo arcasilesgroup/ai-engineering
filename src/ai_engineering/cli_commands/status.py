@@ -1,10 +1,8 @@
-"""Status CLI command per spec-132 D-132-04.
+"""Status CLI command.
 
 ``ai-eng status`` prints a read-only summary of the installed framework
-(active stacks / IDEs / providers / VCS). It is a display-only command —
-nothing is mutated, nothing is "restored". Output mirrors the visual
-contract used by ``install`` and ``doctor`` (header → action → kv block
-→ next-steps).
+via the shared ``render_config`` helper (single source of truth for the
+posture view across install, config, and status).
 """
 
 from __future__ import annotations
@@ -14,14 +12,10 @@ from typing import Annotated
 
 import typer
 
+from ai_engineering.cli_commands._render_config import render_config, render_config_payload
 from ai_engineering.core.output import NextAction, Renderer
 from ai_engineering.installer.operations import InstallerError, list_status
 from ai_engineering.paths import resolve_project_root
-
-
-def _format_list(values: list[str], *, empty: str = "(none)") -> str:
-    """Render a sorted, comma-separated list with an explicit empty fallback."""
-    return ", ".join(values) if values else empty
 
 
 def status_cmd(
@@ -47,34 +41,15 @@ def status_cmd(
                 ),
             ],
         )
-
-    stacks = list(manifest.providers.stacks)
-    ides = list(manifest.providers.ides)
-    providers = list(manifest.ai_providers.enabled)
-    vcs = manifest.providers.vcs
+        return
 
     renderer.header()
     renderer.action("Verifying", "framework status", detail=str(root))
-
-    renderer.section("Configuration")
-    renderer.kv("VCS", vcs)
-    renderer.kv("Providers", _format_list(providers))
-    renderer.kv("Stacks", _format_list(stacks))
-    renderer.kv("IDEs", _format_list(ides))
-
+    render_config(manifest, renderer)
     renderer.next(
         [
             NextAction(label="Run health diagnostics", command="ai-eng doctor"),
             NextAction(label="Run content-integrity check", command="ai-eng check"),
         ]
     )
-
-    renderer.ok(
-        "framework status",
-        result={
-            "stacks": stacks,
-            "ides": ides,
-            "providers": providers,
-            "vcs": vcs,
-        },
-    )
+    renderer.ok("framework status", result=render_config_payload(manifest))

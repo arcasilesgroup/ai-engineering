@@ -176,10 +176,12 @@ class InstallContext:
 
     target: Path
     mode: InstallMode
-    providers: list[str] = field(default_factory=list)
+    # spec-133 D-133-16 hard-cut: `Surface` fuses AI Provider + IDE
+    # Integration into one axis. The legacy `providers` / `ides` lists
+    # were deleted.
+    surfaces: list[str] = field(default_factory=list)
     vcs_provider: str = "github"
     stacks: list[str] = field(default_factory=list)
-    ides: list[str] = field(default_factory=list)
     existing_state: InstallState | None = None
     # spec-101 T-2.16: ``--force`` plumbing. When True, ToolsPhase bypasses
     # the D-101-07 skip predicate and re-installs every tool unconditionally.

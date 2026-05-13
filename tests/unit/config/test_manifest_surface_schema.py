@@ -44,7 +44,7 @@ def test_load_manifest_mirrors_surfaces_to_ai_providers(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     cfg = load_manifest_config(tmp_path)
-    assert cfg.ai_providers.enabled == ["claude-code", "gemini-cli"]
+    assert cfg.surfaces.enabled == ["claude-code", "gemini-cli"]
 
 
 def test_load_manifest_populates_surfaces_from_legacy_ai_providers(tmp_path: Path) -> None:
@@ -52,7 +52,7 @@ def test_load_manifest_populates_surfaces_from_legacy_ai_providers(tmp_path: Pat
     yml = tmp_path / ".ai-engineering" / "manifest.yml"
     yml.parent.mkdir(parents=True)
     yml.write_text(
-        "ai_providers:\n  enabled: [codex]\n  primary: codex\n",
+        "surfaces:\n  enabled: [codex]\n  primary: codex\n",
         encoding="utf-8",
     )
     cfg = load_manifest_config(tmp_path)

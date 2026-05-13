@@ -25,8 +25,8 @@ from pathlib import Path
 from ai_engineering.config.loader import load_manifest_config, load_manifest_root_entry_points
 from ai_engineering.config.manifest import RootEntryPointConfig
 from ai_engineering.installer.templates import (
-    _PROVIDER_FILE_MAPS,
-    _PROVIDER_TREE_MAPS,
+    _SURFACE_FILE_MAPS,
+    _SURFACE_TREE_MAPS,
     get_ai_engineering_template_root,
     get_project_template_root,
     resolve_template_maps,
@@ -421,16 +421,14 @@ def _initialize_update_context(
 
     root_entry_points = load_manifest_root_entry_points(target)
     manifest_path = target / _AI_ENGINEERING_DIR / "manifest.yml"
-    providers = (
-        load_manifest_config(target).ai_providers.enabled if manifest_path.is_file() else None
-    )
+    surfaces = load_manifest_config(target).surfaces.enabled if manifest_path.is_file() else None
 
     rules_added = _merge_missing_ownership_rules(
         ownership,
         root_entry_points=root_entry_points,
     )
 
-    return ai_eng_dir, ownership_path, ownership, rules_added, install_state.vcs_provider, providers
+    return ai_eng_dir, ownership_path, ownership, rules_added, install_state.vcs_provider, surfaces
 
 
 def update(
@@ -720,17 +718,15 @@ def _detect_orphan_files(
     if active_providers is None:
         return []
 
-    from ai_engineering.installer.templates import _canonicalize_provider
-
-    canonical_active = [_canonicalize_provider(p) for p in active_providers]
-
-    all_known = set(_PROVIDER_FILE_MAPS.keys()) | set(_PROVIDER_TREE_MAPS.keys())
-    disabled = all_known - set(canonical_active)
+    # spec-133 D-133-16: surface ids are a closed enum; no canonicaliser
+    # needed.
+    all_known = set(_SURFACE_FILE_MAPS.keys()) | set(_SURFACE_TREE_MAPS.keys())
+    disabled = all_known - set(active_providers)
 
     if not disabled:
         return []
 
-    active_file_dests, active_tree_dests = _active_provider_destinations(canonical_active)
+    active_file_dests, active_tree_dests = _active_provider_destinations(active_providers)
     return [
         orphan
         for provider in sorted(disabled)
@@ -748,8 +744,8 @@ def _active_provider_destinations(active_providers: list[str]) -> tuple[set[str]
     active_file_dests: set[str] = set()
     active_tree_dests: set[str] = set()
     for provider in active_providers:
-        active_file_dests.update(_PROVIDER_FILE_MAPS.get(provider, {}).values())
-        active_tree_dests.update(dest for _src_tree, dest in _PROVIDER_TREE_MAPS.get(provider, []))
+        active_file_dests.update(_SURFACE_FILE_MAPS.get(provider, {}).values())
+        active_tree_dests.update(dest for _src_tree, dest in _SURFACE_TREE_MAPS.get(provider, []))
     return active_file_dests, active_tree_dests
 
 
@@ -774,7 +770,7 @@ def _provider_file_orphans(
 ) -> list[FileChange]:
     """Return orphaned individual-file mappings for one disabled provider."""
     orphans: list[FileChange] = []
-    for destination in _PROVIDER_FILE_MAPS.get(provider, {}).values():
+    for destination in _SURFACE_FILE_MAPS.get(provider, {}).values():
         if destination in active_file_dests:
             continue
         dest = target / destination
@@ -790,7 +786,7 @@ def _provider_tree_orphans(
 ) -> list[FileChange]:
     """Return orphaned tree-mapping files for one disabled provider."""
     orphans: list[FileChange] = []
-    for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(provider, []):
+    for _src_tree, dest_tree in _SURFACE_TREE_MAPS.get(provider, []):
         if dest_tree in active_tree_dests:
             continue
         tree_path = target / dest_tree

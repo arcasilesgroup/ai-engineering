@@ -60,18 +60,6 @@ def load_manifest_config(root: Path) -> ManifestConfig:
         logger.debug("Manifest at %s is empty or non-mapping, returning defaults", manifest_path)
         return ManifestConfig()
 
-    # Migration: derive ai_providers from providers.ides when absent
-    if "ai_providers" not in data:
-        _migrate_ai_providers(data)
-
-    # spec-133 D-133-16: synchronize legacy ai_providers <-> surfaces.
-    # When the new ``surfaces.enabled`` key is present, mirror it into
-    # the legacy ``ai_providers.enabled`` (consumers being migrated to
-    # ``surfaces.enabled`` continue to work). When only the legacy
-    # key is present, populate ``surfaces.enabled`` from it. The
-    # follow-up release will drop the legacy mirror entirely.
-    _sync_surfaces(data)
-
     # Slim-manifest support: inject framework-managed defaults for any
     # canonical section the user omitted. User-supplied values win.
     apply_framework_defaults(data)
@@ -92,70 +80,6 @@ def load_manifest_root_entry_points(root: Path) -> dict[str, RootEntryPointConfi
         return None
 
     return load_manifest_config(root).ownership.root_entry_points
-
-
-# Known AI provider identifiers (mirrored from operations.py).
-_AI_PROVIDER_IDS: frozenset[str] = frozenset(
-    {"claude-code", "github-copilot", "gemini-cli", "codex"}
-)
-
-
-def _migrate_ai_providers(data: dict[str, Any]) -> None:
-    """Derive ``ai_providers`` from legacy ``providers.ides`` entries.
-
-    AI provider entries are moved to ``ai_providers.enabled`` and the
-    first becomes ``primary``.  Non-AI entries remain in
-    ``providers.ides``.  The ``ai_providers`` dict is injected into
-    *data* in-place.
-    """
-    providers = data.get("providers")
-    if not isinstance(providers, dict):
-        return
-
-    ides = providers.get("ides")
-    if not isinstance(ides, list):
-        return
-
-    ai_entries = [i for i in ides if i in _AI_PROVIDER_IDS]
-    non_ai_entries = [i for i in ides if i not in _AI_PROVIDER_IDS]
-
-    if ai_entries:
-        data["ai_providers"] = {
-            "enabled": ai_entries,
-            "primary": ai_entries[0],
-        }
-        providers["ides"] = non_ai_entries
-
-
-def _sync_surfaces(data: dict[str, Any]) -> None:
-    """Mirror ``surfaces.enabled`` <-> legacy ``ai_providers.enabled``.
-
-    spec-133 D-133-16 introduces ``surfaces.enabled`` as the canonical
-    field. While the migration is in flight on PR #509:
-
-    - If ``surfaces.enabled`` is present, mirror its members into
-      ``ai_providers.enabled`` so legacy consumers continue to function.
-    - If only ``ai_providers.enabled`` is present, populate
-      ``surfaces.enabled`` from it so new consumers can read the canonical
-      field on freshly-loaded older manifests.
-    """
-    surfaces = data.get("surfaces")
-    ai_providers = data.get("ai_providers")
-
-    if isinstance(surfaces, dict) and isinstance(surfaces.get("enabled"), list):
-        enabled = list(surfaces["enabled"])
-        # Mirror to legacy. Preserve operator overrides in primary when present.
-        if not isinstance(ai_providers, dict):
-            ai_providers = {}
-            data["ai_providers"] = ai_providers
-        ai_providers["enabled"] = enabled
-        if not ai_providers.get("primary") and enabled:
-            ai_providers["primary"] = enabled[0]
-        return
-
-    # Reverse: populate surfaces from legacy if surfaces missing.
-    if isinstance(ai_providers, dict) and isinstance(ai_providers.get("enabled"), list):
-        data.setdefault("surfaces", {"enabled": list(ai_providers["enabled"])})
 
 
 def update_manifest_field(root: Path, field_path: str, value: Any) -> None:

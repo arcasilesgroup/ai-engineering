@@ -55,7 +55,6 @@ from ai_engineering.installer.phases import (
     PHASE_STATE,
     PHASE_TOOLS,
     InstallMode,
-    PhasePlan,
 )
 from ai_engineering.installer.phases.sdk_prereqs import check_sdk_prereqs
 from ai_engineering.installer.service import install_with_pipeline
@@ -102,21 +101,20 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         list[str] | None,
         typer.Option("--stack", "-s", help="Technology stacks to enable."),
     ] = None,
-    ides: Annotated[
+    surfaces: Annotated[
         list[str] | None,
-        typer.Option("--ide", "-i", help="IDE integrations to enable."),
+        typer.Option(
+            "--surface",
+            "-S",
+            help=(
+                "Surface(s) to enable — closed enum: claude-code, codex, "
+                "gemini-cli, github-copilot, opencode, cursor, antigravity."
+            ),
+        ),
     ] = None,
     vcs: Annotated[
         str | None,
         typer.Option("--vcs", help="VCS provider: github or azdo."),
-    ] = None,
-    providers: Annotated[
-        list[str] | None,
-        typer.Option(
-            "--provider",
-            "-p",
-            help="AI providers to enable (e.g. claude-code, github-copilot).",
-        ),
     ] = None,
     non_interactive: Annotated[
         bool,
@@ -132,13 +130,6 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
             help="Output JSON plan to stdout, create zero files.",
         ),
     ] = False,
-    plan_file: Annotated[
-        Path | None,
-        typer.Option(
-            "--plan",
-            help="Replay a saved install plan (JSON).",
-        ),
-    ] = None,
     fresh: Annotated[
         bool,
         typer.Option(
@@ -150,30 +141,25 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         bool,
         typer.Option(
             "--reconfigure",
-            help="Re-run the configuration wizard to change providers/stacks/IDEs.",
-        ),
-    ] = False,
-    force: Annotated[
-        bool,
-        typer.Option(
-            "--force",
-            help="Re-install every required tool, ignoring the idempotence skip (D-101-07).",
-        ),
-    ] = False,
-    no_auto_remediate: Annotated[
-        bool,
-        typer.Option(
-            "--no-auto-remediate",
-            help=(
-                "Disable spec-109 D-109-05 post-pipeline auto-remediation. "
-                "Useful in CI to detect first-attempt failures."
-            ),
+            hidden=True,
+            help="Internal — invoked by `ai-eng config` to re-run the wizard.",
         ),
     ] = False,
 ) -> None:
-    """Install the ai-engineering governance framework."""
+    """Install the ai-engineering governance framework.
+
+    Behaviour knobs honoured via environment variables (KISS — keep
+    the CLI surface small):
+
+    * ``AIENG_AUTO_REMEDIATE=0`` — disable spec-109 D-109-05 post-pipeline
+      auto-remediation. Useful in CI to detect first-attempt failures.
+    """
+    import os
+
     if non_interactive:
         set_json_mode(True)
+
+    no_auto_remediate = os.environ.get("AIENG_AUTO_REMEDIATE", "1").lower() in {"0", "false", "no"}
 
     root = resolve_project_root(target)
     _validate_install_target(root, non_interactive=non_interactive)
@@ -182,14 +168,9 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         _emit_install_dry_run_plan(
             root,
             stacks=stacks,
-            ides=ides,
+            surfaces=surfaces,
             vcs=vcs,
-            providers=providers,
         )
-        return
-
-    if plan_file:
-        _replay_plan(root, plan_file)
         return
 
     is_reinstall = _is_reinstall(root)
@@ -200,16 +181,13 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         non_interactive=non_interactive,
     )
 
-    resolved_stacks, resolved_providers, resolved_ides, resolved_vcs = (
-        _resolve_install_configuration(
-            root,
-            is_reinstall=is_reinstall,
-            mode=mode,
-            stacks=stacks,
-            providers=providers,
-            ides=ides,
-            vcs=vcs,
-        )
+    resolved_stacks, resolved_surfaces, resolved_vcs = _resolve_install_configuration(
+        root,
+        is_reinstall=is_reinstall,
+        mode=mode,
+        stacks=stacks,
+        surfaces=surfaces,
+        vcs=vcs,
     )
 
     _confirm_reinstall_if_needed(
@@ -217,14 +195,10 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         non_interactive=non_interactive,
         mode=mode,
         resolved_stacks=resolved_stacks,
-        resolved_providers=resolved_providers,
-        resolved_ides=resolved_ides,
+        resolved_surfaces=resolved_surfaces,
     )
 
-    _render_install_detection_if_needed(resolved_vcs, resolved_providers)
-
-    # spec-124 D-124-02: removed one-shot "What's new" banner. Install
-    # pipeline starts directly with the prereq gates and phase output.
+    _render_install_detection_if_needed(resolved_vcs, resolved_surfaces)
 
     _check_install_prerequisites(root, resolved_stacks)
 
@@ -232,26 +206,12 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         root,
         mode=mode,
         resolved_stacks=resolved_stacks,
-        resolved_ides=resolved_ides,
+        resolved_surfaces=resolved_surfaces,
         resolved_vcs=resolved_vcs,
-        resolved_providers=resolved_providers,
-        force=force,
     )
 
-    # spec-101 Corr-1 (Wave 28): in --non-interactive mode, emit one line
-    # per skipped tool entry so downstream verifiers (the smoke-test
-    # idempotence assertion) can match the ``tool:<name>:<marker>``
-    # signature. Markers go to stderr to preserve stdout JSON purity for
-    # --non-interactive consumers.
     _emit_noninteractive_skipped_tools(summary, non_interactive=non_interactive)
 
-    # spec-109 D-109-05 / spec-133 UX fix: run auto-remediation FIRST so the
-    # pipeline step render shows the final reconciled state per phase rather
-    # than a transient ⚠ that the remediation immediately resolves. Users
-    # were seeing scary warnings for non-critical failures that auto-fix
-    # within the same install — confusing on first contact.
-    # spec-109 R-109-01: --no-auto-remediate disables the second pass so CI
-    # callers can detect first-attempt failures (e.g. regression detection).
     non_critical_failures_list = _coerce_non_critical_failures(summary)
     auto_remediation_report = _run_auto_remediation(
         root,
@@ -259,28 +219,18 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         no_auto_remediate=no_auto_remediate,
     )
 
-    # spec-109 D-109-04: ALWAYS render the pipeline step report BEFORE deciding
-    # the exit code. The pre-spec-109 flow exited 80 first and rendered later,
-    # so users saw "see warnings above" with no warnings printed.
     if not is_json_mode():
         _render_pipeline_steps(summary, auto_remediation_report=auto_remediation_report)
 
     if auto_remediation_report.invoked and not is_json_mode():
         _render_auto_remediation_summary(auto_remediation_report)
 
-    # spec-109 D-109-06: exit code reflects reality.
-    # - Critical phase failure  -> EXIT 80 (unchanged).
-    # - Non-critical failure that auto-remediated successfully -> EXIT 0.
-    # - Non-critical failure that survived remediation -> EXIT 80.
     _raise_install_failures(
         summary,
         non_critical_failures_list=non_critical_failures_list,
         auto_remediation_report=auto_remediation_report,
         no_auto_remediate=no_auto_remediate,
     )
-
-    # spec-132 D-132-06: Engram removed from installer surface.
-    # Standalone integration doc lives at docs/integrations/engram.md.
 
     _render_install_success(
         root,
@@ -317,9 +267,8 @@ def _emit_install_dry_run_plan(
     root: Path,
     *,
     stacks: list[str] | None,
-    ides: list[str] | None,
+    surfaces: list[str] | None,
     vcs: str | None,
-    providers: list[str] | None,
 ) -> None:
     """Run install dry-run mode and emit the JSON plan."""
     import json
@@ -329,15 +278,12 @@ def _emit_install_dry_run_plan(
 
     detected = _detect_all(root)
     resolved_vcs = vcs or detected.vcs
-    resolved_providers = (
-        _resolve_ai_providers(providers) if providers else (detected.providers or ["claude-code"])
-    )
+    resolved_surfaces = surfaces or detected.surfaces or ["claude-code"]
     _result, summary = install_with_pipeline(
         root,
         stacks=stacks or detected.stacks or [],
-        ides=ides or detected.ides or ["terminal"],
+        surfaces=resolved_surfaces,
         vcs_provider=resolved_vcs,
-        ai_providers=resolved_providers,
         dry_run=True,
     )
     plans = [p.to_dict() for p in summary.plans]
@@ -403,18 +349,15 @@ def _resolve_install_mode(
 def _build_install_overrides(
     *,
     stacks: list[str] | None,
-    providers: list[str] | None,
-    ides: list[str] | None,
+    surfaces: list[str] | None,
     vcs: str | None,
 ) -> dict[str, Any]:
     """Convert CLI selection flags into installer override keys."""
     resolved: dict[str, Any] = {}
     if stacks:
         resolved["stacks"] = stacks
-    if providers:
-        resolved["providers"] = _resolve_ai_providers(providers)
-    if ides:
-        resolved["ides"] = ides
+    if surfaces:
+        resolved["surfaces"] = surfaces
     if vcs is not None:
         resolved["vcs"] = "azure_devops" if vcs == "azdo" else vcs
     return resolved
@@ -426,18 +369,16 @@ def _resolve_install_configuration(
     is_reinstall: bool,
     mode: InstallMode,
     stacks: list[str] | None,
-    providers: list[str] | None,
-    ides: list[str] | None,
+    surfaces: list[str] | None,
     vcs: str | None,
-) -> tuple[list[str], list[str], list[str], str | None]:
-    """Resolve install stacks, providers, IDEs, and VCS selections."""
+) -> tuple[list[str], list[str], str | None]:
+    """Resolve install stacks, surfaces, and VCS selections."""
     from ai_engineering.installer.autodetect import detect_all
 
     detected = detect_all(root)
     overrides = _build_install_overrides(
         stacks=stacks,
-        providers=providers,
-        ides=ides,
+        surfaces=surfaces,
         vcs=vcs,
     )
     if is_reinstall and mode == InstallMode.RECONFIGURE:
@@ -450,7 +391,7 @@ def _resolve_install_configuration(
 def _resolve_wizard_configuration(
     detected: Any,
     overrides: dict[str, Any],
-) -> tuple[list[str], list[str], list[str], str | None]:
+) -> tuple[list[str], list[str], str | None]:
     """Run the interactive wizard and return its selections."""
     if not is_json_mode():
         _show_detection_summary(detected)
@@ -459,8 +400,7 @@ def _resolve_wizard_configuration(
     wizard_result = run_wizard(detected, overrides if overrides else None)
     return (
         wizard_result.stacks,
-        wizard_result.providers,
-        wizard_result.ides,
+        wizard_result.surfaces,
         wizard_result.vcs,
     )
 
@@ -468,13 +408,12 @@ def _resolve_wizard_configuration(
 def _resolve_reinstall_configuration(
     root: Path,
     overrides: dict[str, Any],
-) -> tuple[list[str], list[str], list[str], str | None]:
+) -> tuple[list[str], list[str], str | None]:
     """Resolve reinstall selections from current manifest plus CLI overrides."""
     config = load_manifest_config(root)
     return (
         overrides.get("stacks", config.providers.stacks or ["python"]),
-        overrides.get("providers", config.ai_providers.enabled or ["claude-code"]),
-        overrides.get("ides", config.providers.ides or ["terminal"]),
+        overrides.get("surfaces", config.surfaces.enabled or ["claude-code"]),
         overrides.get("vcs", config.providers.vcs),
     )
 
@@ -482,13 +421,12 @@ def _resolve_reinstall_configuration(
 def _resolve_first_install_configuration(
     detected: Any,
     overrides: dict[str, Any],
-) -> tuple[list[str], list[str], list[str], str | None]:
+) -> tuple[list[str], list[str], str | None]:
     """Resolve first-install selections from flags, detection, or wizard."""
     if overrides or is_json_mode() or not sys.stdin.isatty():
         return (
             overrides.get("stacks", detected.stacks or ["python"]),
-            overrides.get("providers", detected.providers or ["claude-code"]),
-            overrides.get("ides", detected.ides or ["terminal"]),
+            overrides.get("surfaces", detected.surfaces or ["claude-code"]),
             overrides.get("vcs", detected.vcs),
         )
     return _resolve_wizard_configuration(detected, overrides)
@@ -500,8 +438,7 @@ def _confirm_reinstall_if_needed(
     non_interactive: bool,
     mode: InstallMode,
     resolved_stacks: list[str],
-    resolved_providers: list[str],
-    resolved_ides: list[str],
+    resolved_surfaces: list[str],
 ) -> None:
     """Render reinstall confirmation prompts when the command is interactive."""
     if not is_reinstall or non_interactive:
@@ -509,16 +446,16 @@ def _confirm_reinstall_if_needed(
     if mode == InstallMode.FRESH:
         _confirm_fresh_reinstall()
     elif mode == InstallMode.RECONFIGURE:
-        _confirm_reconfigure(resolved_stacks, resolved_providers, resolved_ides)
+        _confirm_reconfigure(resolved_stacks, resolved_surfaces)
     else:
-        _confirm_repair(resolved_stacks, resolved_providers, resolved_ides)
+        _confirm_repair(resolved_stacks, resolved_surfaces)
 
 
 def _confirm_fresh_reinstall() -> None:
     """Ask for typed confirmation before a fresh reinstall."""
     typer.echo("\nAll framework files will be overwritten:")
     typer.echo("  [overwrite] .ai-engineering/ (all governance files)")
-    typer.echo("  [overwrite] IDE configurations")
+    typer.echo("  [overwrite] Surface configurations")
     typer.echo("  [overwrite] hook scripts")
     confirmation = typer.prompt(
         "\nType 'fresh' to confirm full overwrite, or anything else to cancel",
@@ -531,35 +468,31 @@ def _confirm_fresh_reinstall() -> None:
 
 def _confirm_reconfigure(
     resolved_stacks: list[str],
-    resolved_providers: list[str],
-    resolved_ides: list[str],
+    resolved_surfaces: list[str],
 ) -> None:
     """Render the reconfigure preview and confirmation."""
     typer.echo("\nReconfiguration preview:")
-    typer.echo(f"  [added] New providers: {', '.join(resolved_providers)}")
-    typer.echo(f"  [added] New stacks: {', '.join(resolved_stacks)}")
-    typer.echo(f"  [added] New IDEs: {', '.join(resolved_ides)}")
+    typer.echo(f"  [added] Surfaces: {', '.join(resolved_surfaces)}")
+    typer.echo(f"  [added] Stacks:   {', '.join(resolved_stacks)}")
     if not typer.confirm("Proceed?", default=True):
         raise typer.Exit(0)
 
 
 def _confirm_repair(
     resolved_stacks: list[str],
-    resolved_providers: list[str],
-    resolved_ides: list[str],
+    resolved_surfaces: list[str],
 ) -> None:
     """Render the repair preview and confirmation."""
     typer.echo("\nReinstall preview (repair mode):")
-    typer.echo(f"  Stacks: {', '.join(resolved_stacks)}")
-    typer.echo(f"  Providers: {', '.join(resolved_providers)}")
-    typer.echo(f"  IDEs: {', '.join(resolved_ides)}")
+    typer.echo(f"  Surfaces: {', '.join(resolved_surfaces)}")
+    typer.echo(f"  Stacks:   {', '.join(resolved_stacks)}")
     if not typer.confirm("Proceed?", default=True):
         raise typer.Exit(0)
 
 
 def _render_install_detection_if_needed(
     resolved_vcs: str | None,
-    resolved_providers: list[str],
+    resolved_surfaces: list[str],
 ) -> None:
     """Show tool availability in interactive mode."""
     if is_json_mode():
@@ -571,7 +504,7 @@ def _render_install_detection_if_needed(
         "gitleaks": _shutil.which("gitleaks") is not None,
         "ruff": _shutil.which("ruff") is not None,
     }
-    render_detection(resolved_vcs, resolved_providers, tools)  # ty:ignore[invalid-argument-type]
+    render_detection(resolved_vcs, resolved_surfaces, tools)  # ty:ignore[invalid-argument-type]
 
 
 def _check_install_prerequisites(root: Path, resolved_stacks: list[str]) -> None:
@@ -589,10 +522,8 @@ def _run_install_pipeline(
     *,
     mode: InstallMode,
     resolved_stacks: list[str],
-    resolved_ides: list[str],
+    resolved_surfaces: list[str],
     resolved_vcs: str | None,
-    resolved_providers: list[str],
-    force: bool,
 ) -> tuple[Any, Any]:
     """Run the installer pipeline with progress translation."""
     from ai_engineering.installer.phases import PHASE_ORDER as _PHASE_ORDER
@@ -605,10 +536,8 @@ def _run_install_pipeline(
             root,
             mode=mode,
             stacks=resolved_stacks,
-            ides=resolved_ides,
+            surfaces=resolved_surfaces,
             vcs_provider=resolved_vcs,  # ty:ignore[invalid-argument-type]
-            ai_providers=resolved_providers,
-            force=force,
             progress_callback=progress,
         )
 
@@ -744,17 +673,13 @@ def _render_install_success(
 ) -> None:
     """Render install success in JSON or human mode."""
     canonical_config = load_manifest_config(root)
-    active_providers = list(canonical_config.ai_providers.enabled)
-    primary_provider = canonical_config.ai_providers.primary or (
-        active_providers[0] if active_providers else "none"
-    )
+    active_surfaces = list(canonical_config.surfaces.enabled)
     if is_json_mode():
         _emit_install_success_json(
             root,
             result,
             resolved_vcs=resolved_vcs,
-            active_providers=active_providers,
-            primary_provider=primary_provider,
+            active_surfaces=active_surfaces,
             auto_remediation_report=auto_remediation_report,
         )
         return
@@ -762,7 +687,7 @@ def _render_install_success(
         root,
         result,
         resolved_vcs=resolved_vcs,
-        active_providers=active_providers,
+        active_surfaces=active_surfaces,
     )
 
 
@@ -771,11 +696,11 @@ def _emit_install_success_json(
     result: Any,
     *,
     resolved_vcs: str | None,
-    active_providers: list[str],
-    primary_provider: str,
+    active_surfaces: list[str],
     auto_remediation_report: Any,
 ) -> None:
     """Emit install success through the JSON envelope."""
+    primary_surface = active_surfaces[0] if active_surfaces else "none"
     emit_success(
         "ai-eng install",
         {
@@ -784,8 +709,8 @@ def _emit_install_success_json(
             "project_files": len(result.project_files.created),
             "state_files": len(result.state_files),
             "vcs_provider": resolved_vcs,
-            "ai_providers": active_providers,
-            "primary_ai_provider": primary_provider,
+            "surfaces": active_surfaces,
+            "primary_surface": primary_surface,
             "readiness_status": result.readiness_status,
             "already_installed": result.already_installed,
             "manual_steps": result.manual_steps,
@@ -810,7 +735,7 @@ def _render_install_success_human(
     result: Any,
     *,
     resolved_vcs: str | None,
-    active_providers: list[str],
+    active_surfaces: list[str],
 ) -> None:
     """Render install success for humans."""
     print_stdout(f"Installed to: {root}")
@@ -818,7 +743,7 @@ def _render_install_success_human(
     file_count("Project", len(result.project_files.created))
     kv("State", f"{len(result.state_files)} files")
     kv("VCS", "azdo" if resolved_vcs == "azure_devops" else resolved_vcs)
-    kv("AI Providers", ", ".join(active_providers))
+    kv("Surfaces", ", ".join(active_surfaces))
     kv("Readiness", result.readiness_status)
 
     typer.echo("")
@@ -1056,99 +981,20 @@ def _show_detection_summary(detected: DetectionResult) -> None:
     parts = []
     if detected.stacks:
         parts.append(f"Stacks: {', '.join(detected.stacks)}")
-    if detected.providers:
-        parts.append(f"Providers: {', '.join(detected.providers)}")
-    if detected.ides:
-        parts.append(f"IDEs: {', '.join(detected.ides)}")
+    if detected.surfaces:
+        parts.append(f"Surfaces: {', '.join(detected.surfaces)}")
     if parts:
         typer.echo(f"\n  Detected: {' | '.join(parts)}\n")
     else:
         typer.echo("\n  No project markers detected.\n")
 
 
-def _replay_plan(root: Path, plan_path: Path) -> None:
-    """Replay a saved install plan with security validation.
-
-    Reads a JSON plan file and executes the file operations it describes.
-    All paths are validated against traversal attacks by PhasePlan.from_dict.
-
-    Args:
-        root: Target project root directory.
-        plan_path: Path to the JSON plan file.
-    """
-    import json
-
-    data = json.loads(plan_path.read_text(encoding="utf-8"))
-
-    schema_version = data.get("schema_version")
-    if schema_version != "1":
-        typer.echo(
-            f"Error: plan schema version mismatch (expected 1, got {schema_version})",
-            err=True,
-        )
-        raise typer.Exit(code=1)
-
-    from ai_engineering.installer.templates import (
-        get_ai_engineering_template_root,
-        get_project_template_root,
-    )
-
-    template_roots = [get_project_template_root(), get_ai_engineering_template_root()]
-    for plan_data in data.get("plans", []):
-        plan = PhasePlan.from_dict(plan_data)  # validates path security
-        for action in plan.actions:
-            _replay_plan_action(root, action, template_roots)
-
-    typer.echo(f"Plan replayed successfully to {root}")
-
-
-def _replay_plan_action(root: Path, action: Any, template_roots: list[Path]) -> None:
-    """Replay one validated install-plan action."""
-    if action.action_type == "skip":
-        return
-    dest = root / action.destination
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    if action.source:
-        _copy_plan_action_source(action, dest, template_roots)
-
-
-def _copy_plan_action_source(action: Any, dest: Path, template_roots: list[Path]) -> None:
-    """Copy a source-backed install-plan action when its template exists."""
-    import shutil
-
-    for template_root in template_roots:
-        src = template_root / action.source
-        if src.exists():
-            shutil.copy2(src, dest)
-            return
-
-
-_PROVIDER_ALIASES: dict[str, str] = {
-    "claude": "claude-code",
-    "claude-code": "claude-code",
-    "copilot": "github-copilot",
-    "github_copilot": "github-copilot",
-    "github-copilot": "github-copilot",
-    "gemini": "gemini-cli",
-    "gemini-cli": "gemini-cli",
-    "codex": "codex",
-}
-
 _DOCTOR_COMMAND = "ai-eng doctor"
 _DOCTOR_FIX_COMMAND = "ai-eng doctor --fix"
 _UPDATE_COMMAND = "ai-eng update"
 _UPDATE_APPLY_COMMAND = "ai-eng update --apply"
-
-
-def _resolve_ai_providers(providers: list[str] | None) -> list[str]:
-    """Resolve AI providers from explicit flag.
-
-    Short names (claude, copilot, gemini, codex) are mapped to internal names.
-    Returns default when no flag provided.
-    """
-    if providers:
-        return [_PROVIDER_ALIASES.get(p, p) for p in providers]
-    return ["claude-code"]
+# spec-133 D-133-16: provider/IDE aliases deleted. ``SurfacesConfig``
+# validates against the closed enum in ``ai_engineering.domain.surface``.
 
 
 def update_cmd(

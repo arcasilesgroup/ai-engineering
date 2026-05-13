@@ -1,7 +1,6 @@
 ---
 name: "Verify"
 description: "Evidence-first verification orchestrator -- dispatches deterministic + LLM judgment agents for merge readiness."
-color: green
 model: opus
 tools: [codebase, githubRepo, problems, readFile, runCommands, search, agent]
 agents: [ai-explore]

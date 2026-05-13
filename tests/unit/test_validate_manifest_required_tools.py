@@ -74,7 +74,7 @@ def _valid_manifest_body(stacks: str = "[python]", required_tools: str | None = 
       ides: [terminal]
       stacks: {stacks}
 
-    ai_providers:
+    surfaces:
       enabled: [claude-code]
       primary: claude-code
 
@@ -418,7 +418,7 @@ class TestRequiredToolsBlockPresence:
           ides: [terminal]
           stacks: [python]
 
-        ai_providers:
+        surfaces:
           enabled: [claude-code]
           primary: claude-code
         # NOTE: required_tools block intentionally absent.

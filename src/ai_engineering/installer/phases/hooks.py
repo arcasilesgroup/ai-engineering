@@ -43,7 +43,7 @@ class HooksPhase:
         return "hooks"
 
     def plan(self, context: InstallContext) -> PhasePlan:
-        self._resolved_maps = resolve_template_maps(context.providers, context.vcs_provider)
+        self._resolved_maps = resolve_template_maps(context.surfaces, context.vcs_provider)
         actions: list[PlannedAction] = []
         fresh = context.mode is InstallMode.FRESH
 
@@ -52,7 +52,7 @@ class HooksPhase:
 
         actions.append(PlannedAction("create", "", ".git/hooks", "install git gate hooks"))
 
-        if "claude-code" in context.providers:
+        if "claude-code" in context.surfaces:
             pr = get_project_template_root()
             src = pr / ".claude" / "settings.json"
             if src.is_file():

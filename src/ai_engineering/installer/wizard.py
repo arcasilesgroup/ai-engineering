@@ -26,15 +26,12 @@ from ai_engineering.installer.autodetect import (
 class WizardResult:
     """User selections from the install wizard.
 
-    Note: legacy fields ``providers``/``ides`` are preserved during the
-    spec-133 in-flight migration; their values are derived from the
-    canonical ``surfaces`` field. Future PRs will drop them.
+    spec-133 D-133-16 hard-cut: the legacy ``providers`` / ``ides`` fields
+    were deleted. ``surfaces`` is the single canonical axis.
     """
 
     stacks: list[str]
     surfaces: list[str]
-    providers: list[str]
-    ides: list[str]
     vcs: str
 
 
@@ -46,9 +43,9 @@ _VCS_CHOICES: list[str] = _order_by_popularity(
 _PROMPT_SURFACES = "Which Surface(s) do you use?"
 
 
-def _build_surface_choices(detected_ides: list[str]) -> list[questionary.Choice]:
+def _build_surface_choices(detected_surfaces: list[str]) -> list[questionary.Choice]:
     """One ``Choice`` per Surface, preselected only when autodetect marker matched."""
-    detected_set: set[str] = {sid for sid in SURFACE_IDS if sid in detected_ides}
+    detected_set: set[str] = {sid for sid in SURFACE_IDS if sid in detected_surfaces}
     return [
         questionary.Choice(
             sid,
@@ -64,7 +61,7 @@ def _checkbox_validate(selection: list[str]) -> bool | str:
     return "Please select at least one Surface (use spacebar to toggle)"
 
 
-def _ask_surfaces(detected_ides: list[str] | None = None) -> list[str]:
+def _ask_surfaces(detected_surfaces: list[str] | None = None) -> list[str]:
     """Prompt the single Surface question. Aborts on Ctrl+C.
 
     Pre-check only Surfaces autodetected on disk; nothing is selected by
@@ -72,7 +69,7 @@ def _ask_surfaces(detected_ides: list[str] | None = None) -> list[str]:
     """
     result = questionary.checkbox(
         _PROMPT_SURFACES,
-        choices=_build_surface_choices(detected_ides=detected_ides or []),
+        choices=_build_surface_choices(detected_surfaces=detected_surfaces or []),
         validate=_checkbox_validate,
         instruction="(spacebar to select, Enter to confirm)",
     ).ask()
@@ -104,21 +101,11 @@ def run_wizard(
     # Surfaces: single user-facing question (or CLI override).
     if "surfaces" in resolved:
         surfaces = resolved["surfaces"]
-    elif "providers" in resolved or "ides" in resolved:
-        # Back-compat path: legacy --provider/--ide derives surfaces.
-        legacy = list(resolved.get("providers", [])) + list(resolved.get("ides", []))
-        surfaces = [s for s in legacy if s in SURFACE_IDS] or ["claude-code"]
     else:
-        surfaces = _ask_surfaces(detected_ides=list(detected.ides))
-
-    # Derive legacy ``providers`` and ``ides`` for in-flight downstream code.
-    providers = [s for s in surfaces if s in SURFACE_IDS]
-    ides = list(surfaces)
+        surfaces = _ask_surfaces(detected_surfaces=list(detected.surfaces))
 
     return WizardResult(
         stacks=stacks,
         surfaces=surfaces,
-        providers=providers,
-        ides=ides,
         vcs=vcs,
     )

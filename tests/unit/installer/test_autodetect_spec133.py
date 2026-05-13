@@ -11,24 +11,24 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.installer.autodetect import (
-    detect_ai_providers,
     detect_stacks,
+    detect_surfaces,
 )
 
 
 def test_detect_opencode_surface(tmp_path: Path) -> None:
     (tmp_path / ".opencode").mkdir()
-    assert "opencode" in detect_ai_providers(tmp_path)
+    assert "opencode" in detect_surfaces(tmp_path)
 
 
 def test_detect_cursor_surface(tmp_path: Path) -> None:
     (tmp_path / ".cursor").mkdir()
-    assert "cursor" in detect_ai_providers(tmp_path)
+    assert "cursor" in detect_surfaces(tmp_path)
 
 
 def test_detect_antigravity_surface(tmp_path: Path) -> None:
     (tmp_path / ".agent").mkdir()
-    assert "antigravity" in detect_ai_providers(tmp_path)
+    assert "antigravity" in detect_surfaces(tmp_path)
 
 
 def test_detect_all_seven_surfaces(tmp_path: Path) -> None:
@@ -40,7 +40,7 @@ def test_detect_all_seven_surfaces(tmp_path: Path) -> None:
     (tmp_path / ".opencode").mkdir()
     (tmp_path / ".cursor").mkdir()
     (tmp_path / ".agent").mkdir()
-    detected = detect_ai_providers(tmp_path)
+    detected = detect_surfaces(tmp_path)
     assert set(detected) == {
         "claude-code",
         "codex",

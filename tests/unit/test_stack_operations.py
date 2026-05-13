@@ -28,7 +28,7 @@ providers:
   vcs: github
   ides: []
   stacks: [python]
-ai_providers:
+surfaces:
   enabled: [claude-code]
   primary: claude-code
 """
@@ -39,7 +39,7 @@ providers:
   vcs: github
   ides: []
   stacks: [python, rust]
-ai_providers:
+surfaces:
   enabled: [claude-code]
   primary: claude-code
 """

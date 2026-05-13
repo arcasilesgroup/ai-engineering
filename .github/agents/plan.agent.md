@@ -1,7 +1,6 @@
 ---
 name: "Plan"
 description: "Advisory planning: classify scope, assess risks, and recommend pipeline"
-color: purple
 model: opus
 tools: [codebase, editFiles, fetch, githubRepo, problems, readFile, runCommands, search, terminalLastCommand, testFailures, agent]
 agents: [ai-explore, Guard]

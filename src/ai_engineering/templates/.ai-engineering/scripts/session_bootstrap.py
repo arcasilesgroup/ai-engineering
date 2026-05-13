@@ -561,18 +561,15 @@ def _constitution_mission(path: Path) -> str | None:
 
 
 def _manifest_summary(manifest: dict) -> dict:
-    """Surface ``providers.ides``, ``ai_providers.primary``, ``gates.mode``."""
-    out: dict = {"ides": [], "ai_primary": None, "gates_mode": None}
-    providers = manifest.get("providers")
-    if isinstance(providers, dict):
-        ides = providers.get("ides")
-        if isinstance(ides, list):
-            out["ides"] = [s for s in ides if isinstance(s, str)]
-    ai = manifest.get("ai_providers")
-    if isinstance(ai, dict):
-        primary = ai.get("primary")
-        if isinstance(primary, str):
-            out["ai_primary"] = primary
+    """Surface ``surfaces.enabled`` and ``gates.mode``."""
+    out: dict = {"surfaces": [], "primary_surface": None, "gates_mode": None}
+    surfaces = manifest.get("surfaces")
+    if isinstance(surfaces, dict):
+        enabled = surfaces.get("enabled")
+        if isinstance(enabled, list):
+            normalised = [s for s in enabled if isinstance(s, str)]
+            out["surfaces"] = normalised
+            out["primary_surface"] = normalised[0] if normalised else None
     gates = manifest.get("gates")
     if isinstance(gates, dict):
         mode = gates.get("mode")

@@ -421,7 +421,7 @@ class TestFromLegacyDict:
         legacy = {
             "installedAt": "2026-01-01T00:00:00Z",
             "providers": {"primary": "github", "enabled": ["github"]},
-            "ai_providers": {
+            "surfaces": {
                 "primary": "claude-code",
                 "enabled": ["claude-code", "github-copilot"],
             },

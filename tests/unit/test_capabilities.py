@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from ai_engineering.config.manifest import (
     AgentsConfig,
-    AiProvidersConfig,
     ManifestConfig,
     SkillEntry,
     SkillsConfig,
+    SurfacesConfig,
 )
 from ai_engineering.state.capabilities import (
     build_capability_cards,
@@ -35,9 +35,8 @@ def _manifest_config() -> ManifestConfig:
             },
         ),
         agents=AgentsConfig(total=3, names=["plan", "build", "explore"]),
-        ai_providers=AiProvidersConfig(
-            enabled=["claude-code", "github-copilot", "gemini", "codex"],
-            primary="claude-code",
+        surfaces=SurfacesConfig(
+            enabled=["claude-code", "github-copilot", "gemini-cli", "codex"],
         ),
     )
 

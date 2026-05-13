@@ -17,9 +17,8 @@ from ai_engineering.validator.categories.mirror_sync import _check_instruction_p
 _MANIFEST_TEMPLATE = """\
 name: test-project
 version: 1.0.0
-ai_providers:
+surfaces:
   enabled: [{providers}]
-  primary: {primary}
 """
 
 _MINIMAL_PARITY_CONTENT = """\
@@ -53,8 +52,8 @@ def _write_file(path: Path, content: str) -> None:
 @pytest.mark.parametrize(
     ("providers", "missing_surface"),
     [
-        (["claude-code", "github_copilot"], ".github/copilot-instructions.md"),
-        (["claude-code", "gemini"], "GEMINI.md"),
+        (["claude-code", "github-copilot"], ".github/copilot-instructions.md"),
+        (["claude-code", "gemini-cli"], "GEMINI.md"),
     ],
 )
 def test_instruction_parity_flags_missing_enabled_provider_root_surface(

@@ -11,10 +11,9 @@ from ai_engineering.installer.autodetect import (
     DetectionResult,
     _order_by_popularity,
     _walk_markers,
-    detect_ai_providers,
     detect_all,
-    detect_ides,
     detect_stacks,
+    detect_surfaces,
     detect_vcs,
 )
 
@@ -141,7 +140,7 @@ class TestDetectStacksComposite:
 
 
 # ---------------------------------------------------------------------------
-# detect_ai_providers
+# detect_surfaces
 # ---------------------------------------------------------------------------
 
 
@@ -150,33 +149,33 @@ class TestDetectAIProviders:
 
     def test_claude_dir(self, tmp_path: Path) -> None:
         (tmp_path / ".claude").mkdir()
-        assert detect_ai_providers(tmp_path) == ["claude-code"]
+        assert detect_surfaces(tmp_path) == ["claude-code"]
 
     def test_copilot_instructions_file(self, tmp_path: Path) -> None:
         gh = tmp_path / ".github"
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
-        assert detect_ai_providers(tmp_path) == ["github-copilot"]
+        assert detect_surfaces(tmp_path) == ["github-copilot"]
 
     def test_copilot_skills_directory(self, tmp_path: Path) -> None:
         skills = tmp_path / ".github" / "skills"
         skills.mkdir(parents=True)
-        assert detect_ai_providers(tmp_path) == ["github-copilot"]
+        assert detect_surfaces(tmp_path) == ["github-copilot"]
 
     def test_both_providers(self, tmp_path: Path) -> None:
         (tmp_path / ".claude").mkdir()
         gh = tmp_path / ".github"
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
-        assert detect_ai_providers(tmp_path) == ["claude-code", "github-copilot"]
+        assert detect_surfaces(tmp_path) == ["claude-code", "github-copilot"]
 
     def test_codex_detected_from_codex_dir(self, tmp_path: Path) -> None:
         (tmp_path / ".codex").mkdir()
-        assert detect_ai_providers(tmp_path) == ["codex"]
+        assert detect_surfaces(tmp_path) == ["codex"]
 
     def test_codex_detected_from_agents_md(self, tmp_path: Path) -> None:
         (tmp_path / "AGENTS.md").write_text("# AGENTS\n", encoding="utf-8")
-        assert detect_ai_providers(tmp_path) == ["codex"]
+        assert detect_surfaces(tmp_path) == ["codex"]
 
     def test_all_four_provider_surfaces(self, tmp_path: Path) -> None:
         (tmp_path / ".claude").mkdir()
@@ -185,7 +184,7 @@ class TestDetectAIProviders:
         gh = tmp_path / ".github"
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
-        assert detect_ai_providers(tmp_path) == [
+        assert detect_surfaces(tmp_path) == [
             "claude-code",
             "codex",
             "gemini-cli",
@@ -193,37 +192,11 @@ class TestDetectAIProviders:
         ]
 
     def test_empty_dir(self, tmp_path: Path) -> None:
-        assert detect_ai_providers(tmp_path) == []
+        assert detect_surfaces(tmp_path) == []
 
     def test_github_dir_without_copilot_markers(self, tmp_path: Path) -> None:
         (tmp_path / ".github").mkdir()
-        assert detect_ai_providers(tmp_path) == []
-
-
-# ---------------------------------------------------------------------------
-# detect_ides
-# ---------------------------------------------------------------------------
-
-
-class TestDetectIDEs:
-    """IDE detection from directory markers."""
-
-    def test_vscode(self, tmp_path: Path) -> None:
-        (tmp_path / ".vscode").mkdir()
-        assert detect_ides(tmp_path) == ["vscode"]
-
-    def test_jetbrains(self, tmp_path: Path) -> None:
-        (tmp_path / ".idea").mkdir()
-        assert detect_ides(tmp_path) == ["jetbrains"]
-
-    def test_both_popularity_ordered(self, tmp_path: Path) -> None:
-        (tmp_path / ".vscode").mkdir()
-        (tmp_path / ".idea").mkdir()
-        # Popularity order: vscode before jetbrains
-        assert detect_ides(tmp_path) == ["vscode", "jetbrains"]
-
-    def test_empty_dir(self, tmp_path: Path) -> None:
-        assert detect_ides(tmp_path) == []
+        assert detect_surfaces(tmp_path) == []
 
 
 # ---------------------------------------------------------------------------
@@ -277,8 +250,7 @@ class TestDetectAll:
 
         assert isinstance(result, DetectionResult)
         assert result.stacks == ["python"]
-        assert result.providers == ["claude-code"]
-        assert result.ides == ["vscode"]
+        assert result.surfaces == ["claude-code"]
         assert result.vcs == "github"
 
     def test_empty_project(self, tmp_path: Path) -> None:
@@ -289,18 +261,16 @@ class TestDetectAll:
             result = detect_all(tmp_path)
 
         assert result.stacks == []
-        assert result.providers == []
-        assert result.ides == []
+        assert result.surfaces == []
         assert result.vcs == "github"
 
-    def test_multi_stack_multi_provider(self, tmp_path: Path) -> None:
+    def test_multi_stack_multi_surface(self, tmp_path: Path) -> None:
         (tmp_path / "go.mod").touch()
         (tmp_path / "Cargo.toml").touch()
         (tmp_path / ".claude").mkdir()
         gh = tmp_path / ".github"
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
-        (tmp_path / ".idea").mkdir()
 
         with patch(
             "ai_engineering.installer.autodetect.detect_from_remote",
@@ -309,8 +279,7 @@ class TestDetectAll:
             result = detect_all(tmp_path)
 
         assert result.stacks == ["go", "rust"]
-        assert result.providers == ["claude-code", "github-copilot"]
-        assert result.ides == ["jetbrains"]
+        assert result.surfaces == ["claude-code", "github-copilot"]
         assert result.vcs == "azure_devops"
 
 

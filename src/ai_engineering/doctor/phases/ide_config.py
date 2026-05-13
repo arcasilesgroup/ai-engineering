@@ -41,50 +41,47 @@ def fix(
 
 
 def _check_provider_templates(ctx: DoctorContext) -> CheckResult:
-    """Check that expected IDE provider template files exist."""
+    """Check that expected Surface template files exist."""
     if ctx.manifest_config is None:
         return CheckResult(
-            name="provider-templates",
+            name="surface-templates",
             status=CheckStatus.FAIL,
-            message="No manifest config available; cannot determine providers",
+            message="No manifest config available; cannot determine surfaces",
         )
-    ides = ctx.manifest_config.ai_providers.enabled
-    if not ides:
+    surfaces = ctx.manifest_config.surfaces.enabled
+    if not surfaces:
         return CheckResult(
-            name="provider-templates",
+            name="surface-templates",
             status=CheckStatus.OK,
-            message="No AI providers configured",
+            message="No Surfaces configured",
         )
     vcs = ctx.manifest_config.providers.vcs
-    maps = resolve_template_maps(providers=ides, vcs_provider=vcs)
+    maps = resolve_template_maps(surfaces=surfaces, vcs_provider=vcs)
 
     missing: list[str] = []
 
-    # Check provider-specific files
     for _src, dest in maps.file_map.items():
         if not (ctx.target / dest).exists():
             missing.append(dest)
 
-    # Check provider-specific tree roots
     for _src_tree, dest_tree in maps.tree_list:
         if not (ctx.target / dest_tree).is_dir():
             missing.append(dest_tree)
 
-    # Check common files
     for _src, dest in maps.common_file_map.items():
         if not (ctx.target / dest).exists():
             missing.append(dest)
 
     if missing:
         return CheckResult(
-            name="provider-templates",
+            name="surface-templates",
             status=CheckStatus.FAIL,
-            message=f"Missing provider templates: {', '.join(missing)}",
+            message=f"Missing surface templates: {', '.join(missing)}",
         )
     return CheckResult(
-        name="provider-templates",
+        name="surface-templates",
         status=CheckStatus.OK,
-        message="All provider templates present",
+        message="All surface templates present",
     )
 
 
@@ -96,12 +93,12 @@ def _check_settings_merge(ctx: DoctorContext) -> CheckResult:
             status=CheckStatus.OK,
             message="No manifest config available; skipping settings check",
         )
-    ai_providers = ctx.manifest_config.ai_providers.enabled
-    if "claude-code" not in ai_providers:
+    surfaces = ctx.manifest_config.surfaces.enabled
+    if "claude-code" not in surfaces:
         return CheckResult(
             name="settings-merge",
             status=CheckStatus.OK,
-            message="Claude Code not in providers; skipping settings check",
+            message="Claude Code not in surfaces; skipping settings check",
         )
     settings_path = ctx.target / ".claude" / "settings.json"
     if not settings_path.is_file():

@@ -183,7 +183,7 @@ class TestBreakingBannerStateFlag:
             "schema_version": "2.0",
             "installed_at": "2026-04-01T00:00:00Z",
             "vcs_provider": None,
-            "ai_providers": None,
+            "surfaces": None,
             "tooling": {},
             "platforms": {},
             "branch_policy": {"applied": False, "mode": "api"},

@@ -146,13 +146,13 @@ _FALLBACK_TEMPLATE_INSTRUCTION_FILES: list[str] = [
 
 
 def _resolve_instruction_files(target: Path) -> list[str]:
-    """Resolve instruction files from ``ai_providers.enabled`` in manifest.
+    """Resolve instruction files from ``surfaces.enabled`` in manifest.
 
     Falls back to the hardcoded list when no manifest is present so that
     repositories not yet using the manifest continue to work.
 
     Returns:
-        Deduplicated list of destination paths for enabled providers.
+        Deduplicated list of destination paths for enabled Surfaces.
     """
     from ai_engineering.config.loader import load_manifest_config
     from ai_engineering.installer.templates import resolve_instruction_file_destinations
@@ -164,7 +164,7 @@ def _resolve_instruction_files(target: Path) -> list[str]:
 
     cfg = load_manifest_config(target)
     return resolve_instruction_file_destinations(
-        cfg.ai_providers.enabled,
+        cfg.surfaces.enabled,
         root_entry_points=cfg.ownership.root_entry_points,
     )
 
@@ -194,7 +194,7 @@ def _is_source_repo(target: Path) -> bool:
 def _instruction_files(target: Path) -> list[str]:
     """Return the instruction file list appropriate for *target*.
 
-    Uses ``ai_providers.enabled`` from the manifest to resolve which
+    Uses ``surfaces.enabled`` from the manifest to resolve which
     instruction files should exist.  In the source repo, also includes
     the template counterparts.
     """

@@ -158,7 +158,7 @@ class StatePhase:
             source="installer",
             metadata={
                 "mode": context.mode.value,
-                "providers": context.providers,
+                "surfaces": context.surfaces,
                 "legacy_audit_log_removed": legacy_audit_log_removed,
                 "state_db_bootstrapped": state_db_bootstrapped,
             },

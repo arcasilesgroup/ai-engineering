@@ -1,7 +1,6 @@
 ---
 name: "Autopilot"
 description: "Autonomous multi-spec orchestrator -- splits large specs into focused sub-specs, executes sequentially with fresh-context agents, verifies anti-hallucination gates, delivers via PR."
-color: purple
 model: opus
 tools: [codebase, githubRepo, readFile, runCommands, search, agent]
 agents: [Build, ai-explore, Verify, Plan, Guard]

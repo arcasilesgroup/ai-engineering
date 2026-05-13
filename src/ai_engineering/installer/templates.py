@@ -33,7 +33,7 @@ PROJECT_TEMPLATES: str = "project"
 # project.  No shared files — each provider owns its files exclusively.
 # AGENTS.md is used by multiple providers but deduplication is handled at copy time.
 
-_PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
+_SURFACE_FILE_MAPS: dict[str, dict[str, str]] = {
     "claude-code": {
         "CLAUDE.md": "CLAUDE.md",
     },
@@ -61,35 +61,14 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
     },
 }
 
-# Provider name aliases (underscore variants, short forms). Mirror of
-# ``_PROVIDER_ALIASES`` in ``cli_commands/core.py``; downstream callers may
-# pass either canonical hyphenated IDs or these alias forms.
-_PROVIDER_ALIASES: dict[str, str] = {
-    "claude": "claude-code",
-    "claude-code": "claude-code",
-    "claude_code": "claude-code",
-    "copilot": "github-copilot",
-    "github-copilot": "github-copilot",
-    "github_copilot": "github-copilot",
-    "gemini": "gemini-cli",
-    "gemini-cli": "gemini-cli",
-    "gemini_cli": "gemini-cli",
-    "codex": "codex",
-    # spec-133 D-133-06: 3 new Surfaces (no historical aliases yet).
-    "opencode": "opencode",
-    "cursor": "cursor",
-    "antigravity": "antigravity",
-}
-
-
-def _canonicalize_provider(provider: str) -> str:
-    """Return canonical hyphenated provider ID, accepting alias forms."""
-    return _PROVIDER_ALIASES.get(provider, provider)
+# spec-133 D-133-16 hard-cut: Surface ids form a closed enum sourced from
+# the domain registry. Alias maps and canonicaliser helpers were deleted —
+# unknown ids fail fast with a clear ``InstallerError`` upstream.
 
 
 _DEFAULT_ROOT_TEMPLATE_PATHS: dict[str, str] = {}
-for provider_file_map in _PROVIDER_FILE_MAPS.values():
-    for src_relative, dest_relative in provider_file_map.items():
+for _surface_file_map in _SURFACE_FILE_MAPS.values():
+    for src_relative, dest_relative in _surface_file_map.items():
         _DEFAULT_ROOT_TEMPLATE_PATHS.setdefault(
             dest_relative,
             f"src/ai_engineering/templates/project/{src_relative}",
@@ -97,36 +76,35 @@ for provider_file_map in _PROVIDER_FILE_MAPS.values():
 
 
 def resolve_instruction_file_destinations(
-    providers: list[str] | None = None,
+    surfaces: list[str] | None = None,
     *,
     root_entry_points: Mapping[str, RootEntryPointConfig] | None = None,
     include_mirror_paths: bool = False,
 ) -> list[str]:
-    """Return metadata-aware root instruction destinations for the providers.
+    """Return metadata-aware root instruction destinations for the surfaces.
 
-    This is the shared source for provider-aware root instruction surfaces used
+    This is the shared source for surface-aware root instruction surfaces used
     by install, validator, and sync workflows.
 
     When ``include_mirror_paths`` is true, manifest-declared
     ``ownership.root_entry_points[*].sync.mirror_paths`` are appended only for
-    root destinations enabled by the selected providers.
+    root destinations enabled by the selected surfaces.
     """
     if root_entry_points is None:
         raise ValueError(
             "Root entry point metadata is required to resolve instruction file "
             "destinations; pass manifest-declared root_entry_points."
         )
-    if providers is None:
+    if surfaces is None:
         raise ValueError(
-            "Providers are required to resolve instruction file destinations; "
-            "pass an explicit providers list."
+            "Surfaces are required to resolve instruction file destinations; "
+            "pass an explicit surfaces list."
         )
 
     seen: set[str] = set()
     destinations: list[str] = []
-    for provider in providers:
-        canonical = _canonicalize_provider(provider)
-        for dest in _PROVIDER_FILE_MAPS.get(canonical, {}).values():
+    for surface in surfaces:
+        for dest in _SURFACE_FILE_MAPS.get(surface, {}).values():
             if dest in seen:
                 continue
             seen.add(dest)
@@ -201,7 +179,7 @@ _COMMON_FILE_MAPS: dict[str, str] = {
 # multi-destination files.
 _COMMON_FILE_EXTRA_DESTS: dict[str, list[str]] = {}
 
-_PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
+_SURFACE_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     "claude-code": [
         (".claude", ".claude"),
     ],
@@ -259,7 +237,7 @@ class ResolvedTemplateMaps:
 
 
 def resolve_template_maps(
-    providers: list[str] | None = None,
+    surfaces: list[str] | None = None,
     vcs_provider: str | None = None,
 ) -> ResolvedTemplateMaps:
     """Resolve the complete set of template maps for a given configuration.
@@ -268,13 +246,15 @@ def resolve_template_maps(
     Used by the installer, updater, and phase pipeline.
 
     Args:
-        providers: AI provider identifiers, or None for all providers.
+        surfaces: Surface identifiers (closed enum from
+            :data:`ai_engineering.domain.surface.SURFACE_IDS`), or
+            ``None`` for the union of all surfaces.
         vcs_provider: VCS platform identifier (e.g., ``"github"``).
 
     Returns:
         ResolvedTemplateMaps with all file and tree maps.
     """
-    file_map, tree_list = _resolve_provider_maps(providers)
+    file_map, tree_list = _resolve_surface_maps(surfaces)
     vcs_trees = list(_VCS_TEMPLATE_TREES.get(vcs_provider or "", []))
     return ResolvedTemplateMaps(
         file_map=file_map,
@@ -410,31 +390,30 @@ def copy_template_tree(
     return result
 
 
-def _resolve_provider_maps(
-    providers: list[str] | None,
+def _resolve_surface_maps(
+    surfaces: list[str] | None,
 ) -> tuple[dict[str, str], list[tuple[str, str]]]:
-    """Merge file maps and tree maps for the given providers.
+    """Merge file maps and tree maps for the given surfaces.
 
-    When *providers* is ``None``, returns the union of all provider maps.
-    Otherwise returns only the union of maps for the requested providers,
+    When *surfaces* is ``None``, returns the union of all surface maps.
+    Otherwise returns only the union of maps for the requested surfaces,
     deduplicating destination paths.
 
     Returns:
         Tuple of (file_map, tree_list).
     """
-    if providers is None:
-        providers = list(_PROVIDER_FILE_MAPS.keys())
+    if surfaces is None:
+        surfaces = list(_SURFACE_FILE_MAPS.keys())
 
     file_map: dict[str, str] = {}
     tree_list: list[tuple[str, str]] = []
     seen_trees: set[tuple[str, str]] = set()
 
-    for prov in providers:
-        canonical = _canonicalize_provider(prov)
-        for src, dst in _PROVIDER_FILE_MAPS.get(canonical, {}).items():
+    for surface in surfaces:
+        for src, dst in _SURFACE_FILE_MAPS.get(surface, {}).items():
             if src not in file_map:
                 file_map[src] = dst
-        for entry in _PROVIDER_TREE_MAPS.get(canonical, []):
+        for entry in _SURFACE_TREE_MAPS.get(surface, []):
             if entry not in seen_trees:
                 tree_list.append(entry)
                 seen_trees.add(entry)
@@ -445,32 +424,34 @@ def _resolve_provider_maps(
 def copy_project_templates(
     target: Path,
     *,
-    providers: list[str] | None = None,
+    surfaces: list[str] | None = None,
     vcs_provider: str | None = None,
 ) -> CopyResult:
     """Copy project-level templates to the target project root.
 
     Maps bundled ``project/`` template files to their intended locations
     in the target project (e.g., ``copilot/`` → ``.github/copilot/``).
-    Also copies entire directory trees defined per provider.
+    Also copies entire directory trees defined per Surface.
 
-    When *providers* is ``None``, copies **all** templates (backward compat
-    for the updater).  Otherwise copies only templates for the requested
-    providers, deduplicating shared files like ``AGENTS.md``.
+    When *surfaces* is ``None``, copies **all** templates (used by the
+    updater). Otherwise copies only templates for the requested surfaces,
+    deduplicating shared files like ``AGENTS.md``.
 
     When *vcs_provider* is set, also copies VCS-platform-specific templates
     (e.g., GitHub issue/PR templates).
 
     Args:
         target: Target project root directory.
-        providers: List of AI provider identifiers, or None for all.
+        surfaces: List of Surface identifiers (closed enum from
+            :data:`ai_engineering.domain.surface.SURFACE_IDS`), or
+            ``None`` for the union.
         vcs_provider: VCS platform identifier (e.g., ``"github"``).
 
     Returns:
         CopyResult with lists of created and skipped paths.
     """
     project_root = get_project_template_root()
-    file_map, tree_list = _resolve_provider_maps(providers)
+    file_map, tree_list = _resolve_surface_maps(surfaces)
     result = CopyResult()
 
     for src_relative, dest_relative in sorted(file_map.items()):
@@ -531,86 +512,83 @@ def copy_project_templates(
     return result
 
 
-def provider_template_dest_paths(provider: str) -> list[str]:
-    """Return the destination paths that a provider would install.
+def surface_template_dest_paths(surface: str) -> list[str]:
+    """Return the destination paths that a Surface would install.
 
-    Used by ``remove_provider_templates`` to know which files to clean up.
+    Used by :func:`remove_surface_templates` to know which files to clean up.
 
     Args:
-        provider: AI provider identifier.
+        surface: Surface identifier (closed enum).
 
     Returns:
         List of destination paths relative to the project root.
     """
     paths: list[str] = []
-    canonical = _canonicalize_provider(provider)
-    for _src, dst in _PROVIDER_FILE_MAPS.get(canonical, {}).items():
+    for _src, dst in _SURFACE_FILE_MAPS.get(surface, {}).items():
         paths.append(dst)
     # Tree destinations are directory roots; files inside are enumerated at runtime
-    for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(canonical, []):
+    for _src_tree, dest_tree in _SURFACE_TREE_MAPS.get(surface, []):
         paths.append(dest_tree)
     return paths
 
 
-def _dest_path_used_by_other_providers(
+def _dest_path_used_by_other_surfaces(
     dest_path: str,
-    provider: str,
-    active_providers: list[str],
+    surface: str,
+    active_surfaces: list[str],
 ) -> bool:
-    """Check if a destination path is needed by another active provider.
+    """Check if a destination path is needed by another active Surface.
 
     Args:
         dest_path: The destination path to check.
-        provider: The provider being removed.
-        active_providers: Currently active providers.
+        surface: The Surface being removed.
+        active_surfaces: Surfaces that will remain active after removal.
 
     Returns:
-        True if another active provider also maps to this destination path.
+        True if another active Surface also maps to this destination path.
     """
-    canonical_provider = _canonicalize_provider(provider)
-    for other in active_providers:
-        canonical_other = _canonicalize_provider(other)
-        if canonical_other == canonical_provider:
+    for other in active_surfaces:
+        if other == surface:
             continue
-        other_files = _PROVIDER_FILE_MAPS.get(canonical_other, {})
+        other_files = _SURFACE_FILE_MAPS.get(other, {})
         if dest_path in other_files.values():
             return True
-        for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(canonical_other, []):
+        for _src_tree, dest_tree in _SURFACE_TREE_MAPS.get(other, []):
             if dest_path == dest_tree:
                 return True
     return False
 
 
-def remove_provider_templates(
+def remove_surface_templates(
     target: Path,
-    provider: str,
-    active_providers: list[str],
+    surface: str,
+    active_surfaces: list[str],
 ) -> list[Path]:
-    """Remove templates installed by a provider.
+    """Remove templates installed by a Surface.
 
-    Does NOT remove files that are still needed by another active provider
+    Does NOT remove files that are still needed by another active Surface
     (e.g., AGENTS.md shared between github-copilot, gemini-cli, and codex).
 
     Args:
         target: Target project root directory.
-        provider: The provider being removed.
-        active_providers: Providers that will remain active after removal.
+        surface: The Surface being removed.
+        active_surfaces: Surfaces that will remain active after removal.
 
     Returns:
         List of paths that were deleted.
     """
     deleted: list[Path] = []
 
-    for _src, dst in _PROVIDER_FILE_MAPS.get(provider, {}).items():
-        if _dest_path_used_by_other_providers(dst, provider, active_providers):
+    for _src, dst in _SURFACE_FILE_MAPS.get(surface, {}).items():
+        if _dest_path_used_by_other_surfaces(dst, surface, active_surfaces):
             continue
         path = target / dst
         if path.is_file():
             path.unlink()
             deleted.append(path)
 
-    for _src_tree, dest_tree in _PROVIDER_TREE_MAPS.get(provider, []):
-        if _dest_path_used_by_other_providers(dest_tree, provider, active_providers):
+    for _src_tree, dest_tree in _SURFACE_TREE_MAPS.get(surface, []):
+        if _dest_path_used_by_other_surfaces(dest_tree, surface, active_surfaces):
             continue
         tree_path = target / dest_tree
         if tree_path.is_dir():

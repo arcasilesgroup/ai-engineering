@@ -2,7 +2,7 @@
 name: ai-plan
 description: Relentless interrogator. Extracts every detail, assumption, and blind spot before anything gets built.
 model: opus
-color: purple
+color: primary
 mirror_family: codex-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-plan.md

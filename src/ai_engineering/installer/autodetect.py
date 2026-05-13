@@ -9,8 +9,7 @@ AI provider detection remains root-level only by design.
 
 Functions:
     detect_stacks     -- recursive markers -> popularity-ordered stack list
-    detect_ai_providers -- root-level AI tool config -> sorted provider list
-    detect_ides       -- recursive IDE config dirs -> popularity-ordered list
+    detect_surfaces -- root-level Surface markers -> sorted surface list
     detect_vcs        -- delegate to vcs.factory -> provider string
     detect_all        -- aggregate all detections into DetectionResult
 """
@@ -81,11 +80,14 @@ def _order_by_popularity(items: Iterable[str], ranking: tuple[str, ...]) -> list
 
 @dataclass
 class DetectionResult:
-    """Aggregated auto-detection result for a project root."""
+    """Aggregated auto-detection result for a project root.
+
+    spec-133 D-133-16 hard-cut: the legacy ``providers``/``ides`` fields
+    were deleted. ``surfaces`` is the single canonical axis.
+    """
 
     stacks: list[str]
-    providers: list[str]
-    ides: list[str]
+    surfaces: list[str]
     vcs: str
 
 
@@ -213,53 +215,41 @@ def detect_stacks(root: Path) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def detect_ai_providers(root: Path) -> list[str]:
-    """Detect AI coding assistants / Surfaces configured in *root*.
+def detect_surfaces(root: Path) -> list[str]:
+    """Detect AI Surfaces configured in *root*.
 
-    spec-133 D-133-06: extended to detect 7 Surfaces. Root-level only —
-    ``.claude/``, ``.github/``, ``.gemini/``, ``.opencode/``, ``.cursor/``,
-    ``.codex/``, ``.agent/`` are project-root markers.
+    spec-133 D-133-06: 7 Surfaces. Root-level only — ``.claude/``,
+    ``.github/``, ``.gemini/``, ``.opencode/``, ``.cursor/``, ``.codex/``,
+    ``.agent/`` are project-root markers.
     """
-    providers: list[str] = []
+    surfaces: list[str] = []
 
     if (root / ".claude").is_dir():
-        providers.append("claude-code")
+        surfaces.append("claude-code")
 
     if (root / ".gemini").is_dir() or (root / "GEMINI.md").is_file():
-        providers.append("gemini-cli")
+        surfaces.append("gemini-cli")
 
     copilot_instructions = (root / ".github" / "copilot-instructions.md").is_file()
     copilot_skills = (root / ".github" / "skills").is_dir()
     if copilot_instructions or copilot_skills:
-        providers.append("github-copilot")
+        surfaces.append("github-copilot")
 
     codex_instruction_file = (root / "AGENTS.md").is_file()
     codex_tree = (root / ".codex").is_dir()
     if codex_instruction_file or codex_tree:
-        providers.append("codex")
+        surfaces.append("codex")
 
-    # spec-133 D-133-06: OpenCode + Cursor full surfaces, Antigravity mirror-only.
     if (root / ".opencode").is_dir():
-        providers.append("opencode")
+        surfaces.append("opencode")
 
     if (root / ".cursor").is_dir():
-        providers.append("cursor")
+        surfaces.append("cursor")
 
     if (root / ".agent").is_dir():
-        providers.append("antigravity")
+        surfaces.append("antigravity")
 
-    return sorted(providers)
-
-
-# ---------------------------------------------------------------------------
-# IDE detection
-# ---------------------------------------------------------------------------
-
-
-def detect_ides(root: Path) -> list[str]:
-    """Recursively scan *root* for IDE config directories, popularity-ordered."""
-    _stacks, ides = _walk_markers(root)
-    return _order_by_popularity(ides, _IDE_POPULARITY)
+    return sorted(surfaces)
 
 
 # ---------------------------------------------------------------------------
@@ -291,13 +281,12 @@ def detect_vcs(root: Path) -> str:
 def detect_all(root: Path) -> DetectionResult:
     """Run all detection functions and return an aggregated result.
 
-    Uses a single walker pass for stacks + IDEs to avoid double traversal.
-    AI provider detection remains root-level only.
+    Uses a single walker pass for stacks to avoid double traversal.
+    Surface detection remains root-level only.
     """
-    raw_stacks, raw_ides = _walk_markers(root)
+    raw_stacks, _raw_ides = _walk_markers(root)
     return DetectionResult(
         stacks=_order_by_popularity(raw_stacks, _STACK_POPULARITY),
-        providers=detect_ai_providers(root),
-        ides=_order_by_popularity(raw_ides, _IDE_POPULARITY),
+        surfaces=detect_surfaces(root),
         vcs=detect_vcs(root),
     )

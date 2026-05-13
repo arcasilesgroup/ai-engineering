@@ -6,8 +6,11 @@ name: Skill Evals (regression gate)
 #
 # Pilot scope: invokes scripts/run_loop_skill_evals.py with the
 # stub optimizer adapter so the gate path is exercised end to end.
-# Full LLM-driven corpus run (46 skills, 16 cases) is deferred.
-# See sub-007/plan.md Self-Report for what is in pilot vs deferred.
+# Full LLM-driven corpus run (48 skills, 16 cases) is deferred.
+# Skill count tracks CLAUDE.md §12 canonical contract (was 46 at sub-007
+# pilot; spec-127 sub-005 added ai-explore + spec-133 D-127-11 confirmed
+# the 48-skill registry). See sub-007/plan.md Self-Report for what is in
+# pilot vs deferred.
 
 on:
   pull_request:
@@ -75,7 +78,7 @@ jobs:
 
       - name: Upload regression report
         if: always()
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: skill-evals-regression-report
           path: regression-report.json

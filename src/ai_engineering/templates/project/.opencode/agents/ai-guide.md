@@ -2,7 +2,7 @@
 name: ai-guide
 description: Project onboarding and teaching. Architecture tours, decision archaeology, knowledge transfer. Reads everything, writes nothing.
 model: sonnet
-color: cyan
+color: info
 mirror_family: codex-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-guide.md

@@ -323,7 +323,7 @@ class TestCopyProjectTemplatesCommonFiles:
         from ai_engineering.installer.templates import copy_project_templates
 
         # Act
-        result = copy_project_templates(tmp_path, providers=["claude-code"])
+        result = copy_project_templates(tmp_path, surfaces=["claude-code"])
 
         # Assert — common files deployed regardless of provider
         gitleaks = tmp_path / ".gitleaks.toml"
@@ -341,7 +341,7 @@ class TestCopyProjectTemplatesCommonFiles:
         (tmp_path / ".semgrep.yml").write_text("custom")
 
         # Act
-        copy_project_templates(tmp_path, providers=["claude-code"])
+        copy_project_templates(tmp_path, surfaces=["claude-code"])
 
         # Assert — existing files not overwritten
         assert (tmp_path / ".gitleaks.toml").read_text() == "custom"

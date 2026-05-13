@@ -1,7 +1,6 @@
 ---
 name: "Review"
 description: "Code review orchestrator -- dispatches specialist agents for deep parallel review with context isolation."
-color: red
 model: opus
 tools: [codebase, githubRepo, problems, readFile, search, agent]
 agents: [ai-explore]

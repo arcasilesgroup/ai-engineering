@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.config.manifest import AiProvidersConfig, ManifestConfig, ProvidersConfig
+from ai_engineering.config.manifest import ManifestConfig, ProvidersConfig, SurfacesConfig
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.doctor.phases import ide_config
 
@@ -36,33 +36,33 @@ def claude_project(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def claude_manifest() -> ManifestConfig:
-    """ManifestConfig with claude-code as the only AI provider."""
+    """ManifestConfig with claude-code as the only Surface."""
     return ManifestConfig(
-        providers=ProvidersConfig(vcs="github", ides=["claude-code"]),
-        ai_providers=AiProvidersConfig(enabled=["claude-code"], primary="claude-code"),
+        providers=ProvidersConfig(vcs="github"),
+        surfaces=SurfacesConfig(enabled=["claude-code"]),
     )
 
 
 @pytest.fixture()
 def copilot_manifest() -> ManifestConfig:
-    """ManifestConfig with github_copilot as the only AI provider."""
+    """ManifestConfig with github-copilot as the only Surface."""
     return ManifestConfig(
-        providers=ProvidersConfig(vcs="github", ides=["github-copilot"]),
-        ai_providers=AiProvidersConfig(enabled=["github-copilot"], primary="github-copilot"),
+        providers=ProvidersConfig(vcs="github"),
+        surfaces=SurfacesConfig(enabled=["github-copilot"]),
     )
 
 
 @pytest.fixture()
 def no_ide_manifest() -> ManifestConfig:
-    """ManifestConfig with no AI providers."""
+    """ManifestConfig with no Surfaces."""
     return ManifestConfig(
-        providers=ProvidersConfig(vcs="github", ides=[]),
-        ai_providers=AiProvidersConfig(enabled=[], primary=""),
+        providers=ProvidersConfig(vcs="github"),
+        surfaces=SurfacesConfig(enabled=[]),
     )
 
 
 # ---------------------------------------------------------------------------
-# check() -- provider-templates
+# check() -- surface-templates
 # ---------------------------------------------------------------------------
 
 
@@ -70,20 +70,20 @@ class TestProviderTemplates:
     def test_ok_when_all_present(self, claude_project: Path, claude_manifest: ManifestConfig):
         ctx = DoctorContext(target=claude_project, manifest_config=claude_manifest)
         results = ide_config.check(ctx)
-        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        tmpl_check = next(r for r in results if r.name == "surface-templates")
         assert tmpl_check.status == CheckStatus.OK
 
     def test_fail_when_no_manifest(self, tmp_path: Path):
         ctx = DoctorContext(target=tmp_path, manifest_config=None)
         results = ide_config.check(ctx)
-        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        tmpl_check = next(r for r in results if r.name == "surface-templates")
         assert tmpl_check.status == CheckStatus.FAIL
         assert "No manifest" in tmpl_check.message
 
     def test_ok_when_no_ides_configured(self, tmp_path: Path, no_ide_manifest: ManifestConfig):
         ctx = DoctorContext(target=tmp_path, manifest_config=no_ide_manifest)
         results = ide_config.check(ctx)
-        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        tmpl_check = next(r for r in results if r.name == "surface-templates")
         assert tmpl_check.status == CheckStatus.OK
 
     def test_fail_when_claude_md_missing(self, tmp_path: Path, claude_manifest: ManifestConfig):
@@ -93,7 +93,7 @@ class TestProviderTemplates:
         (tmp_path / ".semgrep.yml").write_text("", encoding="utf-8")
         ctx = DoctorContext(target=tmp_path, manifest_config=claude_manifest)
         results = ide_config.check(ctx)
-        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        tmpl_check = next(r for r in results if r.name == "surface-templates")
         assert tmpl_check.status == CheckStatus.FAIL
         assert "CLAUDE.md" in tmpl_check.message
 
@@ -104,7 +104,7 @@ class TestProviderTemplates:
         (tmp_path / ".semgrep.yml").write_text("", encoding="utf-8")
         ctx = DoctorContext(target=tmp_path, manifest_config=claude_manifest)
         results = ide_config.check(ctx)
-        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        tmpl_check = next(r for r in results if r.name == "surface-templates")
         assert tmpl_check.status == CheckStatus.FAIL
         assert ".claude" in tmpl_check.message
 
@@ -116,7 +116,7 @@ class TestProviderTemplates:
         (tmp_path / ".semgrep.yml").write_text("", encoding="utf-8")
         ctx = DoctorContext(target=tmp_path, manifest_config=copilot_manifest)
         results = ide_config.check(ctx)
-        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        tmpl_check = next(r for r in results if r.name == "surface-templates")
         assert tmpl_check.status == CheckStatus.FAIL
 
     def test_ok_when_copilot_files_present(self, tmp_path: Path, copilot_manifest: ManifestConfig):
@@ -134,7 +134,7 @@ class TestProviderTemplates:
 
         ctx = DoctorContext(target=tmp_path, manifest_config=copilot_manifest)
         results = ide_config.check(ctx)
-        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        tmpl_check = next(r for r in results if r.name == "surface-templates")
         assert tmpl_check.status == CheckStatus.OK
 
     def test_fail_when_common_files_missing(self, tmp_path: Path, claude_manifest: ManifestConfig):
@@ -143,7 +143,7 @@ class TestProviderTemplates:
         (tmp_path / ".claude").mkdir()
         ctx = DoctorContext(target=tmp_path, manifest_config=claude_manifest)
         results = ide_config.check(ctx)
-        tmpl_check = next(r for r in results if r.name == "provider-templates")
+        tmpl_check = next(r for r in results if r.name == "surface-templates")
         assert tmpl_check.status == CheckStatus.FAIL
         assert ".gitleaks.toml" in tmpl_check.message or ".semgrep.yml" in tmpl_check.message
 
@@ -223,7 +223,7 @@ class TestIdeConfigFix:
         ctx = DoctorContext(target=tmp_path)
         failed = [
             CheckResult(
-                name="provider-templates",
+                name="surface-templates",
                 status=CheckStatus.FAIL,
                 message="missing templates",
             ),
@@ -241,7 +241,7 @@ class TestIdeConfigFix:
         ctx = DoctorContext(target=tmp_path)
         failed = [
             CheckResult(
-                name="provider-templates",
+                name="surface-templates",
                 status=CheckStatus.FAIL,
                 message="missing",
             )
@@ -265,7 +265,7 @@ class TestCheckReturnsAllResults:
         assert len(results) == 3
         names = {r.name for r in results}
         assert names == {
-            "provider-templates",
+            "surface-templates",
             "settings-merge",
             "permissions-wildcard-detected",
         }

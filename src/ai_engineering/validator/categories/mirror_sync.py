@@ -902,14 +902,14 @@ def _check_instruction_parity(  # audit:exempt:pre-existing-debt-out-of-spec-114
     Also checks that skill/agent counts in section headers match manifest.
     This is section-level parity (not byte-level, since path translations differ).
 
-    Only checks files for providers listed in ``ai_providers.enabled``.
-    Missing enabled-provider root surfaces are reported explicitly instead of
-    being skipped behind the CLAUDE.md -> AGENTS.md path.
+    Only checks files for Surfaces listed in ``surfaces.enabled``.
+    Missing enabled-Surface root surfaces are reported explicitly instead
+    of being skipped behind the CLAUDE.md -> AGENTS.md path.
     """
     from ai_engineering.config.loader import load_manifest_config
 
     cfg = load_manifest_config(target)
-    enabled = set(cfg.ai_providers.enabled)
+    enabled = set(cfg.surfaces.enabled)
 
     enabled_root_surfaces = [
         file_rel

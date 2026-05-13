@@ -141,22 +141,23 @@ def install(
     target: Path,
     *,
     stacks: list[str] | None = None,
-    ides: list[str] | None = None,
+    surfaces: list[str] | None = None,
     vcs_provider: str = "github",
-    ai_providers: list[str] | None = None,
     external_references: dict[str, str] | None = None,
 ) -> InstallResult:
     """Bootstrap the ai-engineering framework in a target project.
 
-    Copies governance templates, IDE agent configs, and generates state
-    files.  Uses create-only semantics: existing files are never overwritten.
+    Copies governance templates, Surface-specific configs (instruction
+    files + tree dirs), and generates state files. Uses create-only
+    semantics: existing files are never overwritten.
 
     Args:
         target: Root directory of the target project.
         stacks: Initial stacks to install. Defaults to ``["python"]``.
-        ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
+        surfaces: Surfaces to enable (closed enum from
+            :data:`ai_engineering.domain.surface.SURFACE_IDS`).
+            Defaults to ``["claude-code"]``.
         vcs_provider: Primary VCS provider. Defaults to ``"github"``.
-        ai_providers: AI providers to enable. Defaults to ``["claude-code"]``.
 
     Returns:
         InstallResult with details of created and skipped files.
@@ -164,7 +165,6 @@ def install(
     result = InstallResult()
     ai_eng_dir = target / ".ai-engineering"
 
-    # 1. Copy governance templates
     src_root = get_ai_engineering_template_root()
     # contexts/team/ is user-owned and intentionally not seeded by the
     # installer (spec-123 / D-124-02 follow-up; matches GovernancePhase).
@@ -172,20 +172,16 @@ def install(
         src_root, ai_eng_dir, exclude=["agents/", "skills/", "contexts/team/"]
     )
 
-    # 2. Copy project-level templates (provider-aware)
-    result.project_files = copy_project_templates(target, providers=ai_providers)
+    result.project_files = copy_project_templates(target, surfaces=surfaces)
 
-    # 2b. Persist ai_providers selection to manifest
-    _write_ai_providers(target, ai_providers)
-    _write_providers(target, stacks=stacks, ides=ides, vcs_provider=vcs_provider)
+    _write_surfaces(target, surfaces)
+    _write_providers(target, stacks=stacks, vcs_provider=vcs_provider)
 
-    # 3. Generate state files (create-only)
     result.state_files = _generate_state_files(
         ai_eng_dir,
         stacks=stacks,
-        ides=ides,
+        surfaces=surfaces,
         vcs_provider=vcs_provider,
-        ai_providers=ai_providers,
         external_references=external_references,
     )
 
@@ -212,9 +208,8 @@ def install_with_pipeline(
     *,
     mode: InstallMode = InstallMode.INSTALL,
     stacks: list[str] | None = None,
-    ides: list[str] | None = None,
+    surfaces: list[str] | None = None,
     vcs_provider: str = "github",
-    ai_providers: list[str] | None = None,
     external_references: dict[str, str] | None = None,
     dry_run: bool = False,
     force: bool = False,
@@ -232,16 +227,16 @@ def install_with_pipeline(
         target: Root directory of the target project.
         mode: Install mode. Defaults to ``INSTALL``.
         stacks: Initial stacks to install. Defaults to ``["python"]``.
-        ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
+        surfaces: Surfaces to enable (closed enum from
+            :data:`ai_engineering.domain.surface.SURFACE_IDS`).
+            Defaults to ``["claude-code"]``.
         vcs_provider: Primary VCS provider. Defaults to ``"github"``.
-        ai_providers: AI providers to enable. Defaults to ``["claude-code"]``.
         external_references: External reference URLs for the manifest.
         dry_run: When True, only plan without writing files.
 
     Returns:
         Tuple of (InstallResult, PipelineSummary).
     """
-    # Load existing state for REPAIR/RECONFIGURE modes
     existing_state = None
     if mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE):
         state_dir = target / ".ai-engineering" / "state"
@@ -250,19 +245,12 @@ def install_with_pipeline(
         except (json.JSONDecodeError, ValueError, OSError) as exc:
             logger.warning("Cannot read existing install state: %s", exc)
 
-    # Build context
-    # spec-124 D-124-03: thread the same ``progress_callback`` into the
-    # context so phases (ToolsPhase / HooksPhase) can emit per-sub-step
-    # events (e.g. ``tool_started:ruff``) alongside the pipeline-level
-    # phase events (``[5/6] tools``). The CLI surface translates both
-    # into Rich Status spinner updates.
     context = InstallContext(
         target=target,
         mode=mode,
-        providers=ai_providers or [],
+        surfaces=surfaces or [],
         vcs_provider=vcs_provider,
         stacks=stacks or [],
-        ides=ides or [],
         existing_state=existing_state,
         force=force,
         progress_callback=progress_callback,
@@ -314,10 +302,9 @@ def install_with_pipeline(
     # Convert PipelineSummary to InstallResult
     result = _summary_to_install_result(summary, mode)
 
-    # Persist selected stacks, ides, and ai_providers to manifest.yml
     if not dry_run:
-        _write_providers(target, stacks=stacks, ides=ides, vcs_provider=vcs_provider)
-        _write_ai_providers(target, ai_providers)
+        _write_providers(target, stacks=stacks, vcs_provider=vcs_provider)
+        _write_surfaces(target, surfaces)
 
     # Run operational phases (VCS auth, branch policy, tooling readiness)
     if not dry_run:
@@ -417,18 +404,15 @@ def _write_providers(
     target: Path,
     *,
     stacks: list[str] | None,
-    ides: list[str] | None,
     vcs_provider: str = "github",
 ) -> None:
-    """Persist stacks, ides, and vcs to manifest.yml after template copy."""
+    """Persist stacks and vcs to manifest.yml after template copy."""
     manifest_path = target / ".ai-engineering" / "manifest.yml"
     if not manifest_path.is_file():
         return
     try:
         if stacks is not None:
             update_manifest_field(target, "providers.stacks", stacks)
-        if ides is not None:
-            update_manifest_field(target, "providers.ides", ides)
         if vcs_provider != "github":
             update_manifest_field(target, "providers.vcs", vcs_provider)
             update_manifest_field(target, "work_items.provider", vcs_provider)
@@ -436,21 +420,20 @@ def _write_providers(
         logger.debug("providers key not found in manifest; skipping write")
 
 
-def _write_ai_providers(target: Path, ai_providers: list[str] | None) -> None:
-    """Persist the selected AI providers to manifest.yml.
+def _write_surfaces(target: Path, surfaces: list[str] | None) -> None:
+    """Persist the enabled Surfaces to manifest.yml.
 
     Called after governance templates are copied so that the manifest
-    reflects the actual provider selection rather than template defaults.
+    reflects the actual Surface selection rather than template defaults.
     """
-    providers = ai_providers or ["claude-code"]
+    enabled = surfaces or ["claude-code"]
     manifest_path = target / ".ai-engineering" / "manifest.yml"
     if not manifest_path.is_file():
         return
     try:
-        update_manifest_field(target, "ai_providers.enabled", providers)
-        update_manifest_field(target, "ai_providers.primary", providers[0])
+        update_manifest_field(target, "surfaces.enabled", enabled)
     except KeyError:
-        logger.debug("ai_providers key not found in manifest; skipping write")
+        logger.debug("surfaces key not found in manifest; skipping write")
 
 
 def _state_db_table_has_rows(project_root: Path, table: str) -> bool:
@@ -527,9 +510,8 @@ def _generate_state_files(
     ai_eng_dir: Path,
     *,
     stacks: list[str] | None,
-    ides: list[str] | None,
+    surfaces: list[str] | None = None,
     vcs_provider: str = "github",
-    ai_providers: list[str] | None = None,
     external_references: dict[str, str] | None = None,
 ) -> list[Path]:
     """Generate default state files if they don't already exist.
@@ -537,9 +519,8 @@ def _generate_state_files(
     Args:
         ai_eng_dir: Path to the ``.ai-engineering/`` directory.
         stacks: Stacks to include in the install manifest.
-        ides: IDEs to include in the install manifest.
+        surfaces: Surfaces to include in the install manifest.
         vcs_provider: Primary VCS provider.
-        ai_providers: AI providers to enable.
 
     Returns:
         List of state file paths that were created.

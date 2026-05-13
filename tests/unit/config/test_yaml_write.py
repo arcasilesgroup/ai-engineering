@@ -37,7 +37,7 @@ providers:
   stacks: [python]
 
 # AI Providers
-ai_providers:
+surfaces:
   enabled: [claude-code, github-copilot]
   primary: claude-code
 

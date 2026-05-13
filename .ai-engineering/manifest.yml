@@ -15,16 +15,15 @@ version: "1.0.0"
 # Providers
 # spec-128 D-128-09, D-128-11: stacks accepts bare-language tokens
 # matching .ai-engineering/overrides/<stack>/ directory names.
-# Supported: python, typescript, go, rust, swift, csharp, kotlin.
 providers:
   vcs: github
-  ides: [terminal, vscode]
   stacks: [python]
 
-# AI Providers
-ai_providers:
+# Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16).
+# Closed enum: claude-code, codex, gemini-cli, github-copilot,
+# opencode, cursor, antigravity.
+surfaces:
   enabled: [claude-code, github-copilot, gemini-cli, codex]
-  primary: claude-code
 
 # Work items — board/issue tracker integration (project-specific overrides)
 work_items:

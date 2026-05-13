@@ -35,7 +35,7 @@ def _write_minimal_manifest(project: Path) -> None:
     ai_eng_dir = project / ".ai-engineering"
     (ai_eng_dir / "state").mkdir(parents=True)
     (ai_eng_dir / "manifest.yml").write_text(
-        "ai_providers:\n"
+        "surfaces:\n"
         "  enabled: []\n"
         "providers:\n"
         "  stacks: [python]\n"

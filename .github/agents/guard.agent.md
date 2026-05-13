@@ -1,7 +1,6 @@
 ---
 name: "Guard"
 description: "Proactive governance advisor -- checks standards, decisions, and quality trends during development. Never blocks, always advisory."
-color: yellow
 model: opus
 tools: [codebase, githubRepo, problems, readFile, search]
 mirror_family: copilot-agents

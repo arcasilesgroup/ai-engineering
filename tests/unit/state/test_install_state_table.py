@@ -45,7 +45,7 @@ def project_root_with_install_state(tmp_path: Path) -> Path:
         "schema_version": "2.0",
         "installed_at": "2026-04-01T12:00:00+00:00",
         "vcs_provider": "github",
-        "ai_providers": ["claude-code"],
+        "surfaces": ["claude-code"],
         "tooling": {
             "gh": {
                 "installed": True,

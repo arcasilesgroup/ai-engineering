@@ -137,7 +137,7 @@ jobs:
 
       - name: Upload timing artifact (7-day)
         if: always()
-        uses: actions/upload-artifact@26f96dfa697d77e81fd5907df203aa23a56210a8 # v4.6.2
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: worktree-fast-second-ubuntu
           path: timing-artifacts/

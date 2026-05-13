@@ -25,10 +25,9 @@ def _ctx(
     return InstallContext(
         target=tmp_path,
         mode=mode,
-        providers=providers or ["claude-code"],
+        surfaces=providers or ["claude-code"],
         vcs_provider="github",
         stacks=["python"],
-        ides=["terminal"],
     )
 
 
@@ -192,7 +191,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude-code"])
+        ctx = _ctx(tmp_path, surfaces=["claude-code"])
         plan = phase.plan(ctx)
         dests = [a.destination for a in plan.actions if a.action_type != "skip"]
         assert any("claude" in d.lower() or "CLAUDE" in d for d in dests)
@@ -202,7 +201,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude-code", "github-copilot"])
+        ctx = _ctx(tmp_path, surfaces=["claude-code", "github-copilot"])
         plan = phase.plan(ctx)
         dests = " ".join(a.destination for a in plan.actions)
         assert "claude" in dests.lower() or "CLAUDE" in dests
@@ -213,7 +212,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude-code"])
+        ctx = _ctx(tmp_path, surfaces=["claude-code"])
         plan = phase.plan(ctx)
         result = phase.execute(plan, ctx)
         assert len(result.created) > 0
@@ -386,7 +385,7 @@ class TestIdeConfigReconfigure:
         }
         (ai_dir / "manifest.yml").write_text(yaml.dump(manifest_data))
 
-        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, providers=["claude-code"])
+        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, surfaces=["claude-code"])
         ctx.existing_state = InstallState()
 
         phase = IdeConfigPhase()

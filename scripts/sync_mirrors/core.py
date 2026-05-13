@@ -340,8 +340,8 @@ _FALLBACK_CROSS_REFERENCE_FILES: list[Path] = [
 def _resolve_cross_reference_files(target: Path) -> list[Path]:
     """Return enabled root instruction surfaces for cross-reference validation.
 
-    Uses the manifest provider set when available so provider-specific root
-    surfaces like GEMINI.md are validated only when they are actually enabled.
+    Uses the manifest Surface set when available so Surface-specific root
+    files like GEMINI.md are validated only when they are actually enabled.
     Falls back to the historical hardcoded list when the manifest is absent.
     """
     manifest_path = target / ".ai-engineering" / "manifest.yml"
@@ -355,7 +355,7 @@ def _resolve_cross_reference_files(target: Path) -> list[Path]:
     return [
         target / destination
         for destination in resolve_instruction_file_destinations(
-            cfg.ai_providers.enabled,
+            cfg.surfaces.enabled,
             root_entry_points=cfg.ownership.root_entry_points,
             include_mirror_paths=True,
         )
@@ -822,12 +822,19 @@ def generate_gemini_skill(name: str, skill_path: Path) -> str:
 
 
 def generate_gemini_agent(name: str, agent_path: Path) -> str:
-    """Generate .gemini/agents/ai-<name>.md -- translated refs, strip tools/metadata."""
+    """Generate .gemini/agents/ai-<name>.md -- translated refs, strip tools/metadata/color.
+
+    ``color`` is stripped because Gemini CLI's documented schema (and the
+    Cursor + Antigravity surfaces that delegate to this generator) do not
+    define a color field. Carrying it forward is dead bytes today and
+    invites OpenCode-style schema-strictness breakage tomorrow.
+    """
     fm = read_frontmatter(agent_path)
     body = read_body(agent_path)
 
     fm.pop("tools", None)  # tools are IDE-specific
     fm.pop("metadata", None)
+    fm.pop("color", None)  # not in Gemini/Cursor/Antigravity schemas
     fm.update(
         get_generated_provenance_fields(
             "gemini-agents",
@@ -890,11 +897,14 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
         tools.append("agent")
     tools_str = ", ".join(tools)
 
+    # ``color`` is intentionally omitted: GitHub Copilot's documented
+    # custom-agents schema (name/description/target/tools/model/mcp-servers/
+    # metadata/handoffs) does not include color. Stripping here mirrors
+    # the Gemini/Cursor/Antigravity policy applied in generate_gemini_agent.
     lines = [
         "---",
         f'name: "{meta.display_name}"',
         f'description: "{meta.description}"',
-        f"color: {meta.color}",
         f"model: {meta.model}",
         f"tools: [{tools_str}]",
     ]
@@ -1692,14 +1702,21 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
 
     # Surface 5b: templates/project/.opencode/ (spec-133 D-133-06).
     # OpenCode reads slash commands from .opencode/commands/<name>.md and
-    # agents from .opencode/agents/<name>.md. Content shape matches Codex.
+    # agents from .opencode/agents/<name>.md. Skill shape matches Codex;
+    # agent generator translates color names → OpenCode semantic tokens
+    # (OpenCode rejects Claude-style names like ``green`` strictly).
+    from scripts.sync_mirrors.opencode_target import (
+        generate_opencode_agent,
+        generate_opencode_skill,
+    )
+
     for name, _fm, skill_path in skills:
         tpl = TPL_OPENCODE_COMMANDS / f"ai-{name}.md"
-        content = generate_codex_skill(name, skill_path)
+        content = generate_opencode_skill(name, skill_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
     for name, _fm, agent_path in agents:
         tpl = TPL_OPENCODE_AGENTS / f"ai-{name}.md"
-        content = generate_codex_agent(name, agent_path)
+        content = generate_opencode_agent(name, agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
     # Surface 5c: templates/project/.cursor/ (spec-133 D-133-06, D-133-07).

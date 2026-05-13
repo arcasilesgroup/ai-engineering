@@ -231,8 +231,7 @@ class TestReconfigureFlagLaunchesWizard:
 
         mock_wizard_result = MagicMock(
             stacks=["python"],
-            providers=["claude-code"],
-            ides=["terminal"],
+            surfaces=["claude-code"],
             vcs="github",
         )
 
@@ -261,8 +260,7 @@ class TestReconfigureFlagLaunchesWizard:
 
         mock_wizard_result = MagicMock(
             stacks=["python", "typescript"],
-            providers=["claude-code", "github_copilot"],
-            ides=["terminal", "vscode"],
+            surfaces=["claude-code", "github_copilot"],
             vcs="github",
         )
 

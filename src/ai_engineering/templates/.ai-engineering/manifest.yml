@@ -18,13 +18,13 @@ version: "1.0.0"
 # Supported: python, typescript, go, rust, swift, csharp, kotlin, etc.
 providers:
   vcs: github
-  ides: [terminal]
   stacks: [python]
 
-# AI Providers
-ai_providers:
-  enabled: [claude-code, github-copilot, gemini-cli, codex]
-  primary: claude-code
+# Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16).
+# Closed enum of 7: claude-code, codex, gemini-cli, github-copilot,
+# opencode, cursor, antigravity. The first entry is the implicit primary.
+surfaces:
+  enabled: [claude-code]
 
 # Artifact feeds — configure your private feed in pyproject.toml [tool.uv.index]
 # See the commented section in pyproject.toml for instructions.

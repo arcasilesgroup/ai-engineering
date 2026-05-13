@@ -317,14 +317,12 @@ def infer_mutation_classes(write_scopes: Iterable[str]) -> list[MutationClass]:
 
 def build_capability_cards(config: ManifestConfig) -> list[CapabilityCard]:
     """Build capability cards from manifest registry metadata."""
-    provider_names = list(
-        dict.fromkeys(config.ai_providers.enabled or [config.ai_providers.primary])
-    )
+    surface_names = list(dict.fromkeys(config.surfaces.enabled or ["claude-code"]))
     cards = [
-        _build_skill_card(name, entry, provider_names)
+        _build_skill_card(name, entry, surface_names)
         for name, entry in sorted(config.skills.registry.items())
     ]
-    cards.extend(_build_agent_card(name, provider_names) for name in sorted(config.agents.names))
+    cards.extend(_build_agent_card(name, surface_names) for name in sorted(config.agents.names))
     return sorted(cards, key=lambda card: (card.capability_kind.value, card.name))
 
 

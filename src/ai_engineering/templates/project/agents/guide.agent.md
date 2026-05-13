@@ -1,7 +1,6 @@
 ---
 name: "Guide"
 description: "Developer education and onboarding -- architecture tours, decision archaeology, knowledge transfer."
-color: cyan
 model: opus
 tools: [codebase, fetch, githubRepo, readFile, search]
 mirror_family: copilot-agents

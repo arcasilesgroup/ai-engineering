@@ -342,22 +342,22 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     app.command("commit")(_safe(commit_cmd_mod.commit_cmd))
     app.command("pr")(_safe(pr_cmd_mod.pr_cmd))
 
-    # Config sub-group (D-132-04): consolidates stack/ide/provider/vcs.
+    # Config sub-group: inspection + single-axis Surface management.
+    # spec-133 D-133-16 hard-cut collapsed `ide` + `provider` into
+    # `surface`. The Surface enum is closed (domain.surface.SURFACE_IDS).
     config_app = typer.Typer(
         name="config",
-        help="Inspect or interactively reconfigure stacks/IDEs/providers/VCS.",
+        help="Inspect or interactively reconfigure stacks/Surfaces/VCS.",
         invoke_without_command=True,
     )
     config_app.callback()(_safe(config_cmd_mod.config_cmd))
+    config_app.command("reconfigure")(_safe(config_cmd_mod.reconfigure_cmd))
     config_stack_app = typer.Typer(name="stack", no_args_is_help=True)
     config_stack_app.command("list")(_safe(config_cmd_mod.stack_list))
     config_app.add_typer(config_stack_app, name="stack")
-    config_ide_app = typer.Typer(name="ide", no_args_is_help=True)
-    config_ide_app.command("list")(_safe(config_cmd_mod.ide_list))
-    config_app.add_typer(config_ide_app, name="ide")
-    config_provider_app = typer.Typer(name="provider", no_args_is_help=True)
-    config_provider_app.command("list")(_safe(config_cmd_mod.provider_list))
-    config_app.add_typer(config_provider_app, name="provider")
+    config_surface_app = typer.Typer(name="surface", no_args_is_help=True)
+    config_surface_app.command("list")(_safe(config_cmd_mod.surface_list))
+    config_app.add_typer(config_surface_app, name="surface")
     config_vcs_app = typer.Typer(name="vcs", no_args_is_help=True)
     config_vcs_app.command("status")(_safe(config_cmd_mod.vcs_status))
     config_app.add_typer(config_vcs_app, name="vcs")
