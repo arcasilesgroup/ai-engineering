@@ -753,8 +753,6 @@ def _render_install_success_human(
 
     typer.echo("")
     next_steps = [(_DOCTOR_COMMAND, "Run health diagnostics")]
-    if result.guide_text:
-        next_steps.append(("ai-eng guide", "View branch policy setup guide"))
     suggest_next(next_steps)
     info(
         "Open your AI assistant (Claude Code / Copilot / Codex / Gemini) "

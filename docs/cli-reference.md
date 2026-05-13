@@ -19,7 +19,6 @@ ai-eng check [TARGET]              # Validate content integrity (all 6 categorie
 ai-eng check --category <cat>      # Run a specific category only
 ai-eng check --json                # Output report as JSON
 ai-eng version                     # Show installed version and lifecycle status
-ai-eng guide [TARGET]              # Display branch policy setup instructions
 ai-eng release <VERSION>           # Create a governed release (validate, bump, PR, tag)
 ai-eng release --draft             # Create pre-release
 ai-eng release --dry-run           # Validate only, no changes

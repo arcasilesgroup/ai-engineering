@@ -711,7 +711,10 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     if policy_result.manual_guide is not None:
         state.branch_policy.manual_guide = policy_result.manual_guide
         result.guide_text = policy_result.manual_guide
-        result.manual_steps.append("Run 'ai-eng guide' to view branch policy setup instructions")
+        result.manual_steps.append(
+            "Configure branch protection manually — instructions saved to "
+            ".ai-engineering/state/install-state.json (branch_policy.manual_guide)"
+        )
 
     if not result.manual_steps:
         result.readiness_status = "READY"
