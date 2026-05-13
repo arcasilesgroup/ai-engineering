@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from ai_engineering.config.loader import load_manifest_root_entry_points
 from ai_engineering.config.mirror_inventory import get_generated_provenance_fields
 from ai_engineering.state.context_packs import write_context_pack
 from ai_engineering.state.defaults import default_ownership_map
@@ -2741,7 +2742,13 @@ class TestManifestCoherence:
         ai = _make_governance(tmp_path)
         _write_source_repo_markers(tmp_path, ai)
         _write_active_spec(ai)
-        write_json_model(ai / "state" / "ownership-map.json", default_ownership_map())
+        # spec-133: framework_defaults injects ownership.root_entry_points;
+        # mirror the validator's resolution path so the snapshot matches.
+        entry_points = load_manifest_root_entry_points(tmp_path)
+        write_json_model(
+            ai / "state" / "ownership-map.json",
+            default_ownership_map(root_entry_points=entry_points),
+        )
 
         report = validate_content_integrity(
             tmp_path,

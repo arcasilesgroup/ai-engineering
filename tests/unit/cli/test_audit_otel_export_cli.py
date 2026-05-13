@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,16 @@ from ai_engineering.cli_factory import create_app
 from ai_engineering.state.audit_index import NDJSON_REL
 
 runner = CliRunner()
+
+# CI runners render Typer/Rich help with ANSI styling that fragments
+# multi-char tokens (e.g. ``--trace`` becomes ``-`` + ``-trace`` across
+# two SGR spans). Strip ANSI escape sequences before substring asserts
+# so help-text checks stay portable across local TTY and CI runners.
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _decolor(text: str) -> str:
+    return _ANSI_RE.sub("", text)
 
 
 def _hex16(seed: str) -> str:
@@ -187,8 +198,9 @@ def test_export_requires_trace(project_root: Path) -> None:
 
     result = runner.invoke(create_app(), ["audit", "otel-export"])
     assert result.exit_code == 0
-    assert "Usage:" in result.output
-    assert "--trace" in result.output
+    clean = _decolor(result.output)
+    assert "Usage:" in clean
+    assert "--trace" in clean
 
 
 def test_exported_json_parses(project_root: Path) -> None:
