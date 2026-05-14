@@ -1,8 +1,12 @@
 
- Usage: ai-eng decision list [OPTIONS]
+ Usage: ai-eng config reconfigure [OPTIONS]
 
- List all decisions in the canonical state.db ``decisions`` table.
+ Re-run the interactive configuration wizard.
+
+ Routes through ``install --reconfigure`` so the same single-question
+ flow handles both fresh installs and reconfiguration.
 
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                  │
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
 ╰──────────────────────────────────────────────────────────────────────────────╯

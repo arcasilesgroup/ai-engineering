@@ -1,19 +1,20 @@
 
  Usage: ai-eng decision record [OPTIONS] DECISION_ID
 
- Record a new decision in the decision store.
+ Record a new decision into the canonical state.db ``decisions`` table.
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    decision_id      TEXT  Unique decision ID (e.g. 'd-034-shared-parser'). │
-│                             [required]                                       │
+│ *    decision_id      TEXT  Unique decision ID (e.g. 'D-132-08'). [required] │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ *  --context   -c      TEXT  Context/scope of the decision. [required]       │
-│ *  --decision  -d      TEXT  The decision made. [required]                   │
-│    --spec      -s      TEXT  Spec that owns this decision.                   │
-│    --severity          TEXT  Risk severity: low, medium, high, critical.     │
-│    --category          TEXT  Category: risk-acceptance, flow-decision,       │
-│                              architecture-decision.                          │
-│    --expires           TEXT  Expiry date in ISO format (YYYY-MM-DD).         │
-│    --help                    Show this message and exit.                     │
+│ *  --context    -c      TEXT  Context/scope of the decision. [required]      │
+│ *  --decision   -d      TEXT  The decision made (becomes title). [required]  │
+│    --spec       -s      TEXT  Spec that owns this decision.                  │
+│    --rationale          TEXT  Optional rationale text.                       │
+│    --status             TEXT  Status:                                        │
+│                               active|expired|revoked|superseded|remediated.  │
+│                               [default: active]                              │
+│    --expires            TEXT  Expiry date (ISO-8601 date or datetime, e.g.   │
+│                               2026-06-01).                                   │
+│    --help                     Show this message and exit.                    │
 ╰──────────────────────────────────────────────────────────────────────────────╯

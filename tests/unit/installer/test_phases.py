@@ -20,12 +20,12 @@ from ai_engineering.installer.phases import (
 def _ctx(
     tmp_path: Path,
     mode: InstallMode = InstallMode.INSTALL,
-    providers: list[str] | None = None,
+    surfaces: list[str] | None = None,
 ) -> InstallContext:
     return InstallContext(
         target=tmp_path,
         mode=mode,
-        surfaces=providers or ["claude-code"],
+        surfaces=surfaces or ["claude-code"],
         vcs_provider="github",
         stacks=["python"],
     )
@@ -368,20 +368,26 @@ class TestStatePhase:
 
 class TestIdeConfigReconfigure:
     def test_reconfigure_with_manifest_generates_deletes(self, tmp_path: Path) -> None:
-        """RECONFIGURE with existing state + manifest generates delete actions."""
+        """RECONFIGURE with existing state + manifest generates delete actions.
+
+        spec-133 D-133-16 schema: ``surfaces.enabled`` replaces
+        ``providers.ides``; Surface enum (closed) replaces IDE list.
+        """
         import yaml
 
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
         from ai_engineering.state.models import InstallState
 
-        # Write a manifest.yml with old providers (claude-code + github_copilot)
+        # Write a manifest.yml with previously-enabled Surfaces; reconfigure
+        # narrows to claude-code only, so github-copilot must be planned for delete.
         ai_dir = tmp_path / ".ai-engineering"
         ai_dir.mkdir(parents=True)
         manifest_data = {
             "schema_version": "2.0",
             "framework_version": "0.1.0",
             "name": "test",
-            "providers": {"vcs": "github", "ides": ["claude-code", "github-copilot"], "stacks": []},
+            "providers": {"vcs": "github", "stacks": []},
+            "surfaces": {"enabled": ["claude-code", "github-copilot"]},
         }
         (ai_dir / "manifest.yml").write_text(yaml.dump(manifest_data))
 

@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-133 D-133-17 amendment — Wizard prompts VCS provider when autodetect ambiguous
+
+D-133-17 collapsed the install wizard to a single Surface question and
+made VCS detection silent (default `github`). On greenfield repos with
+no `origin` remote configured, this denied operators the ability to
+choose Azure DevOps interactively — the only escape was the
+`--vcs azdo` CLI flag, which is undiscoverable without reading source.
+
+Fix preserves D-133-17 KISS for the common case (autodetect succeeds →
+no prompt) and adds a secondary VCS prompt only when ambiguous:
+
+- `installer/autodetect.py`: `detect_vcs()` now returns `""` (empty
+  string) when no `origin` remote is configured, distinguishing
+  "no remote" from "remote → github default". `vcs/factory.py`
+  unchanged (other callers still get the github fallback).
+- `installer/wizard.py`: new `_ask_vcs()` fires only when
+  `detected.vcs == ""` and no `--vcs` flag was passed; Ctrl+C →
+  safe `github` default.
+- Tests: 5 new wizard cases (prompt fires/skips, flag override,
+  Ctrl+C fallback, empty-remote signal); 5 autodetect cases adapted
+  to mock the new `run_git` probe.
+
+Pre-existing spec-133 drift cleaned up in the same commit (uncovered
+while running the wizard test suite):
+
+- `tests/unit/test_installer.py`: 9 keyword updates
+  (`providers=`→`surfaces=`, `ides=` removed,
+  `_PROVIDER_TREE_MAPS`→`_SURFACE_TREE_MAPS`).
+- `tests/unit/installer/test_phases.py`: `_ctx` kwarg
+  `providers`→`surfaces`; reconfigure manifest fixture migrated to
+  `surfaces.enabled` schema.
+- `tests/golden/cli/help_snapshots/`: 7 snapshots regenerated
+  (drift from D-133-18 `--surface/-S` flag rename).
+
+312/312 tests pass across the touched suites.
+
 ### spec-128 Wave 4 — Native skills paths for Cursor + OpenCode, fix skill_scripts_lib install
 
 **Critical bug fix.** Installed projects raised `ModuleNotFoundError: No

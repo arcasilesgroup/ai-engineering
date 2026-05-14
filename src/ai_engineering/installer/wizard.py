@@ -5,6 +5,11 @@ The single Surface question replaces the four legacy prompts
 ``Select IDE integrations`` / ``Select VCS provider``). Stack and VCS
 auto-detect silently; CLI flags ``--stack`` and ``--vcs`` override
 without prompting.
+
+D-133-17 amendment (option 3): when VCS autodetect is ambiguous (no
+``origin`` remote configured), a secondary VCS prompt fires so the
+operator can choose explicitly between github and azure_devops. Common
+case (remote present) remains 1-question.
 """
 
 from __future__ import annotations
@@ -41,6 +46,7 @@ _VCS_CHOICES: list[str] = _order_by_popularity(
 )
 
 _PROMPT_SURFACES = "Which Surface(s) do you use?"
+_PROMPT_VCS = "Which VCS provider? (no git remote detected — choose explicitly)"
 
 
 def _build_surface_choices(detected_surfaces: list[str]) -> list[questionary.Choice]:
@@ -59,6 +65,22 @@ def _checkbox_validate(selection: list[str]) -> bool | str:
     if selection:
         return True
     return "Please select at least one Surface (use spacebar to toggle)"
+
+
+def _ask_vcs() -> str:
+    """Prompt VCS provider selection. Aborts (Ctrl+C) → ``"github"`` default.
+
+    Fires only when ``detected.vcs`` is empty (no ``origin`` remote) and no
+    ``--vcs`` flag was passed. Common case (autodetect succeeds) skips this.
+    """
+    result = questionary.select(
+        _PROMPT_VCS,
+        choices=_VCS_CHOICES,
+        default=_VCS_CHOICES[0],
+    ).ask()
+    if result is None:
+        return "github"
+    return result
 
 
 def _ask_surfaces(detected_surfaces: list[str] | None = None) -> list[str]:
@@ -95,8 +117,15 @@ def run_wizard(
     # greenfield mode; preserve empty list when autodetect found nothing.
     stacks = resolved["stacks"] if "stacks" in resolved else list(detected.stacks)
 
-    # VCS: silent default to github (or detected). No prompt.
-    vcs = resolved.get("vcs", detected.vcs or "github")
+    # VCS: silent when autodetect succeeded; prompt when ambiguous.
+    # D-133-17 amendment (option 3): preserve KISS for the common case;
+    # fall back to interactive selection only when no remote is configured.
+    if "vcs" in resolved:
+        vcs = resolved["vcs"]
+    elif detected.vcs:
+        vcs = detected.vcs
+    else:
+        vcs = _ask_vcs()
 
     # Surfaces: single user-facing question (or CLI override).
     if "surfaces" in resolved:

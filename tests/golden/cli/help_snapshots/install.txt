@@ -3,28 +3,27 @@
 
  Install the ai-engineering governance framework.
 
+ Behaviour knobs honoured via environment variables (KISS — keep
+ the CLI surface small):
+
+ * ``AIENG_AUTO_REMEDIATE=0`` — disable spec-109 D-109-05 post-pipeline
+   auto-remediation. Useful in CI to detect first-attempt failures.
+
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
 │   target      [TARGET]  Target project root. Defaults to cwd.                │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --stack              -s      TEXT  Technology stacks to enable.              │
-│ --ide                -i      TEXT  IDE integrations to enable.               │
-│ --vcs                        TEXT  VCS provider: github or azdo.             │
-│ --provider           -p      TEXT  AI providers to enable (e.g. claude-code, │
-│                                    github-copilot).                          │
-│ --non-interactive                  Run without interactive prompts, using    │
-│                                    defaults.                                 │
-│ --dry-run                          Output JSON plan to stdout, create zero   │
-│                                    files.                                    │
-│ --plan                       PATH  Replay a saved install plan (JSON).       │
-│ --fresh                            Overwrite all framework files (typed      │
-│                                    confirmation required).                   │
-│ --reconfigure                      Re-run the configuration wizard to change │
-│                                    providers/stacks/IDEs.                    │
-│ --force                            Re-install every required tool, ignoring  │
-│                                    the idempotence skip (D-101-07).          │
-│ --no-auto-remediate                Disable spec-109 D-109-05 post-pipeline   │
-│                                    auto-remediation. Useful in CI to detect  │
-│                                    first-attempt failures.                   │
-│ --help                             Show this message and exit.               │
+│ --stack            -s      TEXT  Technology stacks to enable.                │
+│ --surface          -S      TEXT  Surface(s) to enable — closed enum:         │
+│                                  claude-code, codex, gemini-cli,             │
+│                                  github-copilot, opencode, cursor,           │
+│                                  antigravity.                                │
+│ --vcs                      TEXT  VCS provider: github or azdo.               │
+│ --non-interactive                Run without interactive prompts, using      │
+│                                  defaults.                                   │
+│ --dry-run                        Output JSON plan to stdout, create zero     │
+│                                  files.                                      │
+│ --fresh                          Overwrite all framework files (typed        │
+│                                  confirmation required).                     │
+│ --help                           Show this message and exit.                 │
 ╰──────────────────────────────────────────────────────────────────────────────╯

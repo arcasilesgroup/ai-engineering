@@ -22,6 +22,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_engineering.git.operations import run_git
 from ai_engineering.vcs.factory import detect_from_remote
 
 logger = logging.getLogger(__name__)
@@ -258,15 +259,20 @@ def detect_surfaces(root: Path) -> list[str]:
 
 
 def detect_vcs(root: Path) -> str:
-    """Detect the VCS provider by delegating to ``detect_from_remote``.
+    """Detect the VCS provider from the git ``origin`` remote.
 
-    Returns ``""`` (empty string) when detection fails. The empty value
-    signals the wizard to show no pre-selection.
-    ``detect_from_remote()`` in ``vcs/factory.py`` is NOT modified — it
-    still returns ``"github"`` as its own fallback. This wrapper intercepts
-    exceptions to return ``""`` instead.
+    Returns ``""`` (empty string) when no ``origin`` remote is configured
+    — this is the explicit "ambiguous" signal that triggers the wizard's
+    interactive VCS prompt (D-133-17 amendment, option 3).
+
+    Returns ``"github"`` or ``"azure_devops"`` when the remote URL is
+    parseable. ``detect_from_remote()`` in ``vcs/factory.py`` is preserved
+    untouched (other callers depend on its github-default behaviour).
     """
     try:
+        ok, output = run_git(["remote", "get-url", "origin"], root)
+        if not ok or not output.strip():
+            return ""
         return detect_from_remote(root)
     except Exception:
         logger.debug("VCS detection failed, returning empty", exc_info=True)

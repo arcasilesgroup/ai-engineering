@@ -186,7 +186,7 @@ class TestGenerateStateFiles:
         _generate_state_files(
             ai_eng_dir,
             stacks=None,
-            ides=None,
+            surfaces=None,
         )
 
         # spec-132 D-132-08: ownership now lives in the state.db
@@ -352,9 +352,9 @@ class TestCopilotInstructionsTreeMap:
     """Verify copilot/ and instructions/ are tree-mapped for github_copilot."""
 
     def test_copilot_tree_in_provider_tree_maps(self) -> None:
-        from ai_engineering.installer.templates import _PROVIDER_TREE_MAPS
+        from ai_engineering.installer.templates import _SURFACE_TREE_MAPS
 
-        copilot_trees = _PROVIDER_TREE_MAPS["github-copilot"]
+        copilot_trees = _SURFACE_TREE_MAPS["github-copilot"]
         assert (".github/skills", ".github/skills") in copilot_trees
         assert ("agents", ".github/agents") in copilot_trees
         # spec-128 D-128-04: legacy `instructions/` tree mapping deleted.
@@ -371,7 +371,7 @@ class TestCopilotInstructionsTreeMap:
 
         copy_project_templates(
             tmp_path,
-            providers=["github-copilot"],
+            surfaces=["github-copilot"],
         )
 
         legacy_dir = tmp_path / ".github" / "instructions"
@@ -391,7 +391,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
         )
 
@@ -404,7 +404,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
         )
 
@@ -417,7 +417,7 @@ class TestVcsTemplatesDeployed:
         # Act
         copy_project_templates(
             tmp_path,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
         )
 
         # Assert — no VCS-specific files without vcs_provider
@@ -616,7 +616,7 @@ class TestInstallCallsCopyProjectTemplates:
         # Assert
         patched["copy_project_templates"].assert_called_once_with(
             tmp_path,
-            providers=None,
+            surfaces=None,
         )
 
 
@@ -659,7 +659,7 @@ class TestInstallCreatesDefaultState:
 
     def test_state_files_created_when_missing(self, patched, tmp_path: Path) -> None:
         with patch.object(Path, "exists", return_value=False):
-            result = install(tmp_path, stacks=["python", "dotnet"], ides=["vscode", "terminal"])
+            result = install(tmp_path, stacks=["python", "dotnet"], surfaces=["claude-code"])
 
         # Spec-125: install_state + framework_capabilities collapse to
         # state/state.db so the deduped ``created`` list contains 6 paths.
@@ -1024,7 +1024,7 @@ class TestInstallVcsProvider:
             encoding="utf-8",
         )
 
-        _write_providers(tmp_path, stacks=None, ides=None, vcs_provider="azure_devops")
+        _write_providers(tmp_path, stacks=None, vcs_provider="azure_devops")
 
         config = load_manifest_config(tmp_path)
         assert config.providers.vcs == "azure_devops"
@@ -1046,7 +1046,7 @@ class TestInstallVcsProvider:
             encoding="utf-8",
         )
 
-        _write_providers(tmp_path, stacks=None, ides=None, vcs_provider="github")
+        _write_providers(tmp_path, stacks=None, vcs_provider="github")
 
         config = load_manifest_config(tmp_path)
         assert config.providers.vcs == "github"

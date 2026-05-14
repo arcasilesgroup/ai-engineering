@@ -205,25 +205,49 @@ class TestDetectAIProviders:
 
 
 class TestDetectVCS:
-    """VCS detection delegates to vcs.factory.detect_from_remote."""
+    """VCS detection probes ``origin`` remote then delegates to ``detect_from_remote``.
+
+    D-133-17 amendment: returns ``""`` when no remote configured (signal to
+    wizard to prompt interactively). Returns provider string otherwise.
+    """
 
     def test_returns_github(self, tmp_path: Path) -> None:
-        with patch(
-            "ai_engineering.installer.autodetect.detect_from_remote",
-            return_value="github",
+        with (
+            patch(
+                "ai_engineering.installer.autodetect.run_git",
+                return_value=(True, "https://github.com/owner/repo.git"),
+            ),
+            patch(
+                "ai_engineering.installer.autodetect.detect_from_remote",
+                return_value="github",
+            ),
         ):
             assert detect_vcs(tmp_path) == "github"
 
     def test_returns_azure_devops(self, tmp_path: Path) -> None:
-        with patch(
-            "ai_engineering.installer.autodetect.detect_from_remote",
-            return_value="azure_devops",
+        with (
+            patch(
+                "ai_engineering.installer.autodetect.run_git",
+                return_value=(True, "https://dev.azure.com/org/project/_git/repo"),
+            ),
+            patch(
+                "ai_engineering.installer.autodetect.detect_from_remote",
+                return_value="azure_devops",
+            ),
         ):
             assert detect_vcs(tmp_path) == "azure_devops"
 
+    def test_no_remote_returns_empty(self, tmp_path: Path) -> None:
+        """No ``origin`` remote → ``""`` so the wizard prompts the operator."""
+        with patch(
+            "ai_engineering.installer.autodetect.run_git",
+            return_value=(False, ""),
+        ):
+            assert detect_vcs(tmp_path) == ""
+
     def test_exception_returns_empty(self, tmp_path: Path) -> None:
         with patch(
-            "ai_engineering.installer.autodetect.detect_from_remote",
+            "ai_engineering.installer.autodetect.run_git",
             side_effect=RuntimeError("git not available"),
         ):
             assert detect_vcs(tmp_path) == ""
@@ -242,9 +266,15 @@ class TestDetectAll:
         (tmp_path / ".claude").mkdir()
         (tmp_path / ".vscode").mkdir()
 
-        with patch(
-            "ai_engineering.installer.autodetect.detect_from_remote",
-            return_value="github",
+        with (
+            patch(
+                "ai_engineering.installer.autodetect.run_git",
+                return_value=(True, "https://github.com/owner/repo.git"),
+            ),
+            patch(
+                "ai_engineering.installer.autodetect.detect_from_remote",
+                return_value="github",
+            ),
         ):
             result = detect_all(tmp_path)
 
@@ -254,9 +284,15 @@ class TestDetectAll:
         assert result.vcs == "github"
 
     def test_empty_project(self, tmp_path: Path) -> None:
-        with patch(
-            "ai_engineering.installer.autodetect.detect_from_remote",
-            return_value="github",
+        with (
+            patch(
+                "ai_engineering.installer.autodetect.run_git",
+                return_value=(True, "https://github.com/owner/repo.git"),
+            ),
+            patch(
+                "ai_engineering.installer.autodetect.detect_from_remote",
+                return_value="github",
+            ),
         ):
             result = detect_all(tmp_path)
 
@@ -272,9 +308,15 @@ class TestDetectAll:
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
 
-        with patch(
-            "ai_engineering.installer.autodetect.detect_from_remote",
-            return_value="azure_devops",
+        with (
+            patch(
+                "ai_engineering.installer.autodetect.run_git",
+                return_value=(True, "https://dev.azure.com/org/project/_git/repo"),
+            ),
+            patch(
+                "ai_engineering.installer.autodetect.detect_from_remote",
+                return_value="azure_devops",
+            ),
         ):
             result = detect_all(tmp_path)
 

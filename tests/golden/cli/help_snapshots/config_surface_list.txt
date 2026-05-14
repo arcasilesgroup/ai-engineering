@@ -1,8 +1,9 @@
 
- Usage: ai-eng decision list [OPTIONS]
+ Usage: ai-eng config surface list [OPTIONS]
 
- List all decisions in the canonical state.db ``decisions`` table.
+ List available Surfaces with check marks against the user's enabled set.
 
 ╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                  │
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
 ╰──────────────────────────────────────────────────────────────────────────────╯
