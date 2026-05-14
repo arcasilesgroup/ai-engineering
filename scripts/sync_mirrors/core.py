@@ -86,6 +86,7 @@ TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
 # mappings, which were saved-prompt and always-included patterns respectively
 # — wrong fit for 48 on-demand skills.
 TPL_OPENCODE_SKILLS = TPL_PROJECT / ".opencode" / "skills"
+TPL_OPENCODE_COMMANDS = TPL_PROJECT / ".opencode" / "commands"
 TPL_OPENCODE_AGENTS = TPL_PROJECT / ".opencode" / "agents"
 TPL_CURSOR_SKILLS = TPL_PROJECT / ".cursor" / "skills"
 TPL_CURSOR_AGENTS = TPL_PROJECT / ".cursor" / "agents"
@@ -1704,19 +1705,33 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_claude_agent(agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 5b: templates/project/.opencode/ (spec-128 Wave 4, supersedes D-133-06).
-    # OpenCode reads native skills from .opencode/skills/<name>/SKILL.md (folder
-    # per skill, on-demand lazy-load by the agent). Per https://opencode.ai/docs/skills/
-    # this is the canonical path. Agents stay at .opencode/agents/<name>.md.
+    # Surface 5b: templates/project/.opencode/ (spec-128 Wave 4 + Wave 5).
+    # OpenCode separates two skill surfaces (researched 2026-05-14 against
+    # https://opencode.ai/docs/skills/ + https://opencode.ai/docs/commands/):
+    #
+    #   * skills/<name>/SKILL.md — agent-discovered lazy-load (not in `/` menu)
+    #   * commands/<name>.md     — slash-menu prompts (visible in `/` menu)
+    #
+    # Wave 4 emitted skills only. Operators hitting the TUI with `/ai-` saw
+    # "No matching items" because OpenCode does not surface skills in the
+    # slash menu. Wave 5 (this surface) adds thin saved-prompt commands so
+    # the `/ai-<name>` UX is restored. The command body is a one-liner that
+    # invokes the matching skill by name; OpenCode lazy-loads the skill body
+    # via the `skill` tool, so SKILL.md remains the single source of truth.
     from scripts.sync_mirrors.opencode_target import (
         generate_opencode_agent,
+        generate_opencode_command,
         generate_opencode_skill,
     )
 
     for name, _fm, skill_path in skills:
-        tpl = TPL_OPENCODE_SKILLS / f"ai-{name}" / "SKILL.md"
-        content = generate_opencode_skill(name, skill_path)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+        tpl_skill = TPL_OPENCODE_SKILLS / f"ai-{name}" / "SKILL.md"
+        skill_content = generate_opencode_skill(name, skill_path)
+        _generate_surface(tpl_skill, skill_content, check_only, verbose, generated_paths, diffs)
+
+        tpl_cmd = TPL_OPENCODE_COMMANDS / f"ai-{name}.md"
+        cmd_content = generate_opencode_command(name, skill_path)
+        _generate_surface(tpl_cmd, cmd_content, check_only, verbose, generated_paths, diffs)
     for name, _fm, agent_path in agents:
         tpl = TPL_OPENCODE_AGENTS / f"ai-{name}.md"
         content = generate_opencode_agent(name, agent_path)
