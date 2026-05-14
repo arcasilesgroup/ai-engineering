@@ -60,7 +60,7 @@ Implement following all loaded context standards. Apply stack-specific conventio
 
 ### Step 6: Self-Review
 
-Follow `handlers/compliance-trace.md` for the compliance trace protocol.
+Follow `.ai-engineering/overrides/_shared/compliance-trace.md` for the compliance trace protocol.
 
 ## Common Mistakes
 

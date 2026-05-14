@@ -13,7 +13,7 @@ in addition to the stack-specific `overrides/<stack>/conventions.md`.
 
 ## Pointers
 
-- Project compliance: `.claude/skills/ai-code/handlers/compliance-trace.md`
+- Project compliance: `.ai-engineering/overrides/_shared/compliance-trace.md`
 - Shared framework contexts: `.ai-engineering/contexts/cli-ux.md`,
   `.ai-engineering/contexts/mcp-integrations.md`
 - Team conventions: `.ai-engineering/contexts/team/*.md`
