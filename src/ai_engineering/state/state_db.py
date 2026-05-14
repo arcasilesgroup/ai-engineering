@@ -53,9 +53,15 @@ STATE_DB_REL = Path(".ai-engineering") / "state" / "state.db"
 # install or a manual write that bypasses the canonical projection. The
 # startup assertion warns when we detect lingering fallbacks so
 # operators can replay or remove them before the next migration cycle.
+#
+# NOTE: ``gate-findings.json`` is intentionally EXCLUDED from this list.
+# The dual-emit document is the canonical sibling artifact per spec-104
+# D-104-06 (consumed by ``/ai-commit`` and ``/ai-pr``); the state.db
+# ``gate_findings`` table is a structural placeholder only (audit-cmd
+# integrity check) and is never read by the orchestrator. Treating the
+# file as deprecated produced false-positive warnings on every CLI run.
 _DEPRECATED_JSON_FALLBACKS = (
     "decision-store.json",
-    "gate-findings.json",
     "ownership-map.json",
     "install-state.json",
     "framework-capabilities.json",
@@ -315,6 +321,13 @@ def upsert_decision_rows(project_root: Path, decision_store: object) -> int:
         Count of rows attempted.
     """
     decisions = getattr(decision_store, "decisions", []) or []
+
+    # Lazy bootstrap: ensure the decisions schema exists before any
+    # write. Idempotent — the migration runner short-circuits on the
+    # ``_migrations`` ledger.
+    bootstrap = connect(project_root, read_only=False, apply_migrations=None)
+    bootstrap.close()
+
     if not decisions:
         # Fresh install: ensure the table exists by opening a write
         # transaction (a no-op commit), so the table is present for
@@ -337,12 +350,31 @@ def upsert_decision_rows(project_root: Path, decision_store: object) -> int:
             spec_id = getattr(entry, "spec", None) or ""
             status = getattr(entry, "status", None)
             status_value = status.value if hasattr(status, "value") else (status or "active")
+            expires_at_attr = getattr(entry, "expires_at", None)
+            expires_iso = (
+                expires_at_attr.isoformat()
+                if hasattr(expires_at_attr, "isoformat")
+                else (expires_at_attr or None)
+            )
+            # Serialize the full Pydantic payload into ``details_json``
+            # so the view-model round-trip (load_decisions) reconstructs
+            # every field (risk_category, severity, finding_id, ...).
+            details_payload: str | None = None
+            if hasattr(entry, "model_dump"):
+                import json as _json
+
+                details_payload = _json.dumps(
+                    entry.model_dump(mode="json", by_alias=True),
+                    sort_keys=True,
+                    separators=(",", ":"),
+                )
             conn.execute(
                 """
                 INSERT INTO decisions
                   (decision_id, spec_id, status, title, rationale, context,
-                   consequences, superseded_by, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                   consequences, superseded_by, expires_at, details_json,
+                   created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(decision_id) DO UPDATE SET
                   spec_id       = excluded.spec_id,
                   status        = excluded.status,
@@ -351,6 +383,8 @@ def upsert_decision_rows(project_root: Path, decision_store: object) -> int:
                   context       = excluded.context,
                   consequences  = excluded.consequences,
                   superseded_by = excluded.superseded_by,
+                  expires_at    = excluded.expires_at,
+                  details_json  = excluded.details_json,
                   updated_at    = excluded.updated_at
                 """,
                 (
@@ -362,6 +396,8 @@ def upsert_decision_rows(project_root: Path, decision_store: object) -> int:
                     getattr(entry, "context", None),
                     None,
                     None,
+                    expires_iso,
+                    details_payload,
                     decided_iso,
                     now,
                 ),
@@ -370,11 +406,167 @@ def upsert_decision_rows(project_root: Path, decision_store: object) -> int:
         return attempted
 
 
+def list_decisions(project_root: Path, *, status: str | None = None) -> list[dict[str, str | None]]:
+    """Read decisions from ``state.db``.
+
+    Canonical reader for CLI surfaces (`ai-eng decision list`) per
+    CLAUDE.md §0 bootstrap. Returns rows as dicts so callers do not
+    need to import any Pydantic model -- the table is the source of
+    truth.
+
+    Args:
+        project_root: Repository root holding ``.ai-engineering/``.
+        status: Optional filter (``active`` / ``expired`` / ``revoked``
+            / ``superseded`` / ``remediated``). When ``None``, all
+            statuses are returned.
+
+    Returns:
+        List of row dicts ordered by ``decision_id`` ascending. Empty
+        list when the table has no matching rows or the database is
+        missing.
+    """
+    db_path = state_db_path(project_root)
+    if not db_path.exists():
+        return []
+    # Lazy bootstrap: ensure the schema exists. This is a no-op on
+    # already-bootstrapped DBs (the ``_migrations`` ledger short-circuits).
+    bootstrap = connect(project_root, read_only=False, apply_migrations=None)
+    bootstrap.close()
+    conn = connect(project_root, read_only=True, apply_migrations=None)
+    try:
+        try:
+            if status is None:
+                cursor = conn.execute(
+                    "SELECT decision_id, spec_id, status, title, rationale, context,"
+                    " consequences, superseded_by, expires_at, created_at, updated_at"
+                    " FROM decisions ORDER BY decision_id ASC"
+                )
+            else:
+                cursor = conn.execute(
+                    "SELECT decision_id, spec_id, status, title, rationale, context,"
+                    " consequences, superseded_by, expires_at, created_at, updated_at"
+                    " FROM decisions WHERE status = ? ORDER BY decision_id ASC",
+                    (status,),
+                )
+        except sqlite3.OperationalError:
+            return []
+        return [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
+def upsert_decision_rows_raw(project_root: Path, rows: list[dict[str, str | None]]) -> int:
+    """UPSERT raw row dicts into ``decisions``.
+
+    Complements :func:`upsert_decision_rows` (which takes a Pydantic
+    DecisionStore). Used by surfaces that work directly with the
+    canonical state.db schema -- e.g. ``ai-eng decision record`` and
+    ``ai-eng decision backfill`` -- without needing the legacy JSON
+    DecisionStore shape.
+
+    Args:
+        project_root: Repository root holding ``.ai-engineering/``.
+        rows: List of row dicts. Required keys: ``decision_id``,
+            ``status``, ``title``. Optional: ``spec_id``,
+            ``rationale``, ``context``, ``consequences``,
+            ``superseded_by``.
+
+    Returns:
+        Count of rows attempted.
+    """
+    # Lazy bootstrap: ensure the schema exists before any write.
+    bootstrap = connect(project_root, read_only=False, apply_migrations=None)
+    bootstrap.close()
+
+    if not rows:
+        with projection_write(project_root):
+            pass
+        return 0
+
+    now = _now_iso()
+    with projection_write(project_root) as conn:
+        attempted = 0
+        for row in rows:
+            decision_id = row.get("decision_id")
+            if not decision_id:
+                continue
+            conn.execute(
+                """
+                INSERT INTO decisions
+                  (decision_id, spec_id, status, title, rationale, context,
+                   consequences, superseded_by, expires_at, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(decision_id) DO UPDATE SET
+                  spec_id       = excluded.spec_id,
+                  status        = excluded.status,
+                  title         = excluded.title,
+                  rationale     = excluded.rationale,
+                  context       = excluded.context,
+                  consequences  = excluded.consequences,
+                  superseded_by = excluded.superseded_by,
+                  expires_at    = excluded.expires_at,
+                  updated_at    = excluded.updated_at
+                """,
+                (
+                    decision_id,
+                    row.get("spec_id") or "",
+                    row.get("status") or "active",
+                    row.get("title") or "",
+                    row.get("rationale"),
+                    row.get("context"),
+                    row.get("consequences"),
+                    row.get("superseded_by"),
+                    row.get("expires_at"),
+                    row.get("created_at") or now,
+                    now,
+                ),
+            )
+            attempted += 1
+        return attempted
+
+
+def list_full_decisions(project_root: Path) -> list[dict[str, str | None]]:
+    """Read decisions including the ``details_json`` blob.
+
+    Companion to :func:`list_decisions` for callers that need every
+    Pydantic-shaped field (risk_category, severity, finding_id, ...).
+    The blob is returned verbatim; deserialization is the caller's
+    responsibility (avoids importing ``state.models`` from here, which
+    would create a circular dependency).
+
+    Returns:
+        Row dicts ordered by ``decision_id`` ascending. Empty list on
+        a missing database or absent table.
+    """
+    db_path = state_db_path(project_root)
+    if not db_path.exists():
+        return []
+    bootstrap = connect(project_root, read_only=False, apply_migrations=None)
+    bootstrap.close()
+    conn = connect(project_root, read_only=True, apply_migrations=None)
+    try:
+        try:
+            cursor = conn.execute(
+                "SELECT decision_id, spec_id, status, title, rationale, context,"
+                " consequences, superseded_by, expires_at, details_json,"
+                " created_at, updated_at"
+                " FROM decisions ORDER BY decision_id ASC"
+            )
+        except sqlite3.OperationalError:
+            return []
+        return [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
+
+
 __all__ = [
     "STATE_DB_REL",
     "connect",
+    "list_decisions",
+    "list_full_decisions",
     "projection_write",
     "state_db_path",
     "upsert_decision_rows",
+    "upsert_decision_rows_raw",
     "upsert_ownership_rows",
 ]

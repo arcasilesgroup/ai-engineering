@@ -436,6 +436,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     decision_app.command("list")(_safe(decisions_cmd.decision_list))
     decision_app.command("expire-check")(_safe(decisions_cmd.decision_expire_check))
     decision_app.command("record")(_safe(decisions_cmd.decision_record))
+    decision_app.command("backfill")(_safe(decisions_cmd.decision_backfill))
     app.add_typer(decision_app, name="decision")
 
     # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier;
