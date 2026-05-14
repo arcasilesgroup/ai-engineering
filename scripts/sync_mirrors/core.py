@@ -78,12 +78,16 @@ TPL_CODEX_HOOKS = TPL_PROJECT / ".codex" / "hooks.json"
 TPL_CODEX_CONFIG = TPL_PROJECT / ".codex" / "config.toml"
 TPL_GITHUB_SKILLS = TPL_PROJECT / ".github" / "skills"
 TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
-# spec-133 D-133-06: install templates for the 3 new Surfaces.
-# OpenCode reuses Codex content (AGENTS.md-rooted); Cursor + Antigravity
-# reuse Gemini content (markdown without tools/metadata frontmatter).
-TPL_OPENCODE_COMMANDS = TPL_PROJECT / ".opencode" / "commands"
+# spec-128 Wave 4 (supersedes spec-133 D-133-06, D-133-07): install templates
+# for OpenCode + Cursor + Antigravity surfaces. Both OpenCode and Cursor read
+# native skills from ``.{ide}/skills/<name>/SKILL.md`` (folder per skill, on-
+# demand lazy-load by the agent). Per official Cursor 2.4+ and OpenCode docs,
+# skills supersede the prior ``.cursor/rules/`` and ``.opencode/commands/``
+# mappings, which were saved-prompt and always-included patterns respectively
+# — wrong fit for 48 on-demand skills.
+TPL_OPENCODE_SKILLS = TPL_PROJECT / ".opencode" / "skills"
 TPL_OPENCODE_AGENTS = TPL_PROJECT / ".opencode" / "agents"
-TPL_CURSOR_RULES = TPL_PROJECT / ".cursor" / "rules"
+TPL_CURSOR_SKILLS = TPL_PROJECT / ".cursor" / "skills"
 TPL_CURSOR_AGENTS = TPL_PROJECT / ".cursor" / "agents"
 TPL_ANTIGRAVITY_SKILLS = TPL_PROJECT / ".agent" / "skills"
 TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agent" / "agents"
@@ -1700,18 +1704,17 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_claude_agent(agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 5b: templates/project/.opencode/ (spec-133 D-133-06).
-    # OpenCode reads slash commands from .opencode/commands/<name>.md and
-    # agents from .opencode/agents/<name>.md. Skill shape matches Codex;
-    # agent generator translates color names → OpenCode semantic tokens
-    # (OpenCode rejects Claude-style names like ``green`` strictly).
+    # Surface 5b: templates/project/.opencode/ (spec-128 Wave 4, supersedes D-133-06).
+    # OpenCode reads native skills from .opencode/skills/<name>/SKILL.md (folder
+    # per skill, on-demand lazy-load by the agent). Per https://opencode.ai/docs/skills/
+    # this is the canonical path. Agents stay at .opencode/agents/<name>.md.
     from scripts.sync_mirrors.opencode_target import (
         generate_opencode_agent,
         generate_opencode_skill,
     )
 
     for name, _fm, skill_path in skills:
-        tpl = TPL_OPENCODE_COMMANDS / f"ai-{name}.md"
+        tpl = TPL_OPENCODE_SKILLS / f"ai-{name}" / "SKILL.md"
         content = generate_opencode_skill(name, skill_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
     for name, _fm, agent_path in agents:
@@ -1719,11 +1722,13 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_opencode_agent(name, agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 5c: templates/project/.cursor/ (spec-133 D-133-06, D-133-07).
-    # Cursor reads per-rule .mdc files from .cursor/rules/ for selective
-    # @-mention; content shape matches Gemini (markdown w/o tool metadata).
+    # Surface 5c: templates/project/.cursor/ (spec-128 Wave 4, supersedes D-133-07).
+    # Cursor 2.4+ reads native skills from .cursor/skills/<name>/SKILL.md (folder
+    # per skill, agent-discovered lazy-load). Per https://cursor.com/help/customization/skills
+    # skills are the on-demand counterpart to always-included rules. Agents stay
+    # at .cursor/agents/<name>.mdc.
     for name, _fm, skill_path in skills:
-        tpl = TPL_CURSOR_RULES / f"ai-{name}.mdc"
+        tpl = TPL_CURSOR_SKILLS / f"ai-{name}" / "SKILL.md"
         content = generate_gemini_skill(name, skill_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
     for name, _fm, agent_path in agents:
@@ -1858,6 +1863,32 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         generated_paths,
         diffs,
     )
+
+    # Surface 9: consumer scripts skills subtree lockstep (spec-128 Wave 4).
+    # The dogfood `.ai-engineering/scripts/skills/` tree (skill_scripts_lib +
+    # skill_scripts) MUST mirror into the installer template tree so every
+    # consumer repo gets the lib via `ai-eng install`. Without this, the
+    # spec-129 D-129-08 lib lives only in source and `session_bootstrap.py`
+    # / `commit_compose.py` / `pr_body_compose.py` / `standup_render.py` all
+    # raise ModuleNotFoundError in installed targets (the user-reported bug).
+    consumer_scripts_src = ROOT / ".ai-engineering" / "scripts" / "skills"
+    consumer_scripts_dst = (
+        ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "scripts" / "skills"
+    )
+    if consumer_scripts_src.is_dir():
+        for src_file in sorted(consumer_scripts_src.rglob("*.py")):
+            if "__pycache__" in src_file.parts:
+                continue
+            relative = src_file.relative_to(consumer_scripts_src)
+            dst_file = consumer_scripts_dst / relative
+            _generate_surface(
+                dst_file,
+                src_file.read_text(encoding="utf-8"),
+                check_only,
+                verbose,
+                generated_paths,
+                diffs,
+            )
 
     # ── Phase 3: Orphan detection ───────────────────────────────────────
     orphan_diffs = _handle_orphans(generated_paths, check_only, verbose)

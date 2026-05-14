@@ -21,7 +21,10 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-from ai_engineering.installer.templates import get_ai_engineering_template_root
+from ai_engineering.installer.templates import (
+    copy_tree_for_mode,
+    get_ai_engineering_template_root,
+)
 
 from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict, PlannedAction
 
@@ -40,6 +43,11 @@ ROOT_SCRIPT_FILES: tuple[str, ...] = (
 )
 
 _SCRIPTS_REL = ".ai-engineering/scripts"
+_SKILLS_SUBTREE_REL = "skills"
+# spec-128 Wave 4: skill_scripts_lib + skill_scripts must ship to target so
+# session_bootstrap.py / commit_compose.py / pr_body_compose.py / standup_render.py
+# can import skill_scripts_lib.{git_activity, markdown_render, manifest_reader}.
+_SKILLS_LIB_INIT = "skill_scripts_lib/__init__.py"
 
 
 class ScriptsPhase:
@@ -74,6 +82,19 @@ class ScriptsPhase:
                     ),
                 )
             )
+        # spec-128 Wave 4: ship skills/ subtree (skill_scripts_lib + skill_scripts)
+        # so session_bootstrap and standup_render can resolve their imports.
+        actions.append(
+            PlannedAction(
+                action_type="overwrite" if fresh else "create",
+                source=f"templates/.ai-engineering/scripts/{_SKILLS_SUBTREE_REL}/",
+                destination=f"{_SCRIPTS_REL}/{_SKILLS_SUBTREE_REL}/",
+                rationale=(
+                    "Deploy skill_scripts_lib + skill_scripts so "
+                    "session_bootstrap and standup imports resolve."
+                ),
+            )
+        )
         return PhasePlan(phase_name=self.name, actions=actions)
 
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
@@ -81,8 +102,12 @@ class ScriptsPhase:
         template_root = get_ai_engineering_template_root() / "scripts"
         target_root = context.target / _SCRIPTS_REL
         target_root.mkdir(parents=True, exist_ok=True)
+        fresh = context.mode is InstallMode.FRESH
 
         for action in plan.actions:
+            # Skip the skills/ subtree action — handled separately below.
+            if action.destination.endswith(f"{_SKILLS_SUBTREE_REL}/"):
+                continue
             script_name = Path(action.destination).name
             src = template_root / script_name
             dst = target_root / script_name
@@ -107,6 +132,25 @@ class ScriptsPhase:
             except OSError as exc:
                 result.failed.append(f"{script_name}: {exc}")
 
+        # spec-128 Wave 4: deploy skills/ subtree. copy_tree_for_mode filters
+        # __pycache__ and respects FRESH (overwrite) vs INSTALL (create-only).
+        skills_src = template_root / _SKILLS_SUBTREE_REL
+        skills_dst = target_root / _SKILLS_SUBTREE_REL
+        if skills_src.is_dir():
+            try:
+                copy_tree_for_mode(
+                    skills_src,
+                    skills_dst,
+                    target_root=context.target,
+                    fresh=fresh,
+                    created=result.created,
+                    skipped=result.skipped,
+                )
+            except OSError as exc:
+                result.failed.append(f"skills/: {exc}")
+        else:
+            result.failed.append(f"skills/: source missing at {skills_src}")
+
         return result
 
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
@@ -119,6 +163,13 @@ class ScriptsPhase:
         if missing:
             verdict.passed = False
             verdict.errors.append(f"ScriptsPhase verification failed; missing: {missing}")
+        # spec-128 Wave 4: skills/ subtree must contain skill_scripts_lib.
+        skills_lib_init = target_root / _SKILLS_SUBTREE_REL / _SKILLS_LIB_INIT
+        if not skills_lib_init.exists():
+            verdict.passed = False
+            verdict.errors.append(
+                f"ScriptsPhase verification failed; missing: {_SKILLS_SUBTREE_REL}/{_SKILLS_LIB_INIT}"
+            )
         if result.failed:
             verdict.passed = False
             verdict.errors.extend(result.failed)

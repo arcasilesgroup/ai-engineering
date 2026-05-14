@@ -6,6 +6,10 @@ Checks:
 - scripts-executable: The 2 hook-runtime scripts (regenerate-hooks-manifest,
   runtime_rotate) carry the executable bit so hook-installer machinery
   can call them.
+- skill-scripts-lib: spec-128 Wave 4 — the ``skill_scripts_lib`` package and
+  ``skill_scripts`` subdir under ``.ai-engineering/scripts/skills/`` are
+  importable. Without them ``session_bootstrap.py``, ``commit_compose.py``,
+  ``pr_body_compose.py``, and ``standup_render.py`` raise ModuleNotFoundError.
 """
 
 from __future__ import annotations
@@ -19,6 +23,14 @@ from ai_engineering.installer.phases.scripts import ROOT_SCRIPT_FILES
 _SCRIPTS_REL = ".ai-engineering/scripts"
 _EXECUTABLE_SCRIPTS = frozenset({"regenerate-hooks-manifest.py", "runtime_rotate.py"})
 _IS_WINDOWS = os.name == "nt"
+_SKILLS_SUBTREE_REL = "skills"
+_SKILL_SCRIPTS_LIB_MODULES: tuple[str, ...] = (
+    "skill_scripts_lib/__init__.py",
+    "skill_scripts_lib/git_activity.py",
+    "skill_scripts_lib/markdown_render.py",
+    "skill_scripts_lib/manifest_reader.py",
+    "skill_scripts/__init__.py",
+)
 
 
 def _check_scripts_deployed(ctx: DoctorContext) -> CheckResult:
@@ -77,11 +89,43 @@ def _check_scripts_executable(ctx: DoctorContext) -> CheckResult:
     )
 
 
+def _check_skill_scripts_lib(ctx: DoctorContext) -> CheckResult:
+    """Verify spec-128 Wave 4 skill_scripts_lib subtree is on disk.
+
+    Without these files ``session_bootstrap.py`` and three other scripts
+    fail at import time with ``ModuleNotFoundError: skill_scripts_lib``.
+    """
+    skills_root = Path(ctx.target) / _SCRIPTS_REL / _SKILLS_SUBTREE_REL
+    missing: list[str] = []
+    for rel in _SKILL_SCRIPTS_LIB_MODULES:
+        if not (skills_root / rel).exists():
+            missing.append(rel)
+    if missing:
+        return CheckResult(
+            name="skill-scripts-lib",
+            status=CheckStatus.FAIL,
+            message=(
+                f"{len(missing)} skill_scripts_lib module(s) missing under "
+                f"{_SCRIPTS_REL}/{_SKILLS_SUBTREE_REL}/: {missing[:5]}"
+                + (" ..." if len(missing) > 5 else "")
+                + " — run `ai-eng install --repair` to redeliver."
+            ),
+            fixable=True,
+        )
+    return CheckResult(
+        name="skill-scripts-lib",
+        status=CheckStatus.OK,
+        message="skill_scripts_lib + skill_scripts subtree present",
+        fixable=False,
+    )
+
+
 def check(ctx: DoctorContext) -> list[CheckResult]:
     """Run all script-deployment checks for the doctor pipeline."""
     return [
         _check_scripts_deployed(ctx),
         _check_scripts_executable(ctx),
+        _check_skill_scripts_lib(ctx),
     ]
 
 

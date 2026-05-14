@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-128 Wave 4 — Native skills paths for Cursor + OpenCode, fix skill_scripts_lib install
+
+**Critical bug fix.** Installed projects raised `ModuleNotFoundError: No
+module named 'skill_scripts_lib'` on `session_bootstrap.py`,
+`commit_compose.py`, `pr_body_compose.py`, and `standup_render.py`. Root
+cause: spec-129 D-129-08 introduced the lib at
+`.ai-engineering/scripts/skills/skill_scripts_lib/` but the installer's
+`ScriptsPhase` copied only 9 root scripts — never the `skills/` subtree.
+spec-133 commit `02f28c1d` purged the legacy template tree without
+restoring the lib path. Fix: ship the full `skills/` subtree from
+templates, extend `ScriptsPhase` to recurse via `copy_tree_for_mode`
+(filters `__pycache__`), add doctor check `skill-scripts-lib`, and gate
+future drift with `tests/architecture/test_template_tree_completeness.py`
+(AST walk asserting every `from skill_scripts_lib.X import …` resolves).
+
+**Surface migration.** Cursor 2.4+ and OpenCode both ship native
+`<root>/skills/<name>/SKILL.md` paths for on-demand lazy-loaded skills,
+distinct from `.cursor/rules/` (always-included) and
+`.opencode/commands/` (saved TUI prompts). spec-133 D-133-06 and D-133-07
+classified the 48 framework skills under the wrong mechanism. This wave
+supersedes both decisions:
+
+- `scripts/sync_mirrors/cursor_target.py` emits `.cursor/skills/ai-<name>/SKILL.md`.
+- `scripts/sync_mirrors/opencode_target.py` emits `.opencode/skills/ai-<name>/SKILL.md`.
+- Template tree: 48 legacy `.cursor/rules/ai-*.mdc` + 48 `.opencode/commands/ai-*.md` deleted; 48 + 48 folder-per-skill `SKILL.md` created.
+- `manifest.yml` activates `opencode` + `cursor` in `surfaces.enabled`.
+- `CANONICAL.md §14` (+ 4 mirrors via sha256 lockstep) documents the new contract; 2 NOT-USED rows annotate `.cursor/rules/` + `.opencode/commands/` as operator-owned, framework-untouched paths.
+- `CONSTITUTION.md` Stakeholders replaces "Antigravity" with "OpenCode, Cursor" (Antigravity is mirror-only with no hook engine; not a deployment target today).
+- `scripts/sync_mirrors/core.py` adds Surface 9: lockstep sync of `.ai-engineering/scripts/skills/` → `src/ai_engineering/templates/.ai-engineering/scripts/skills/` with `--check` drift detection.
+
+Hard breaking change (Hard Rules §13.3 — no shims): operators with prior
+installs must run `ai-eng install --reconfigure` to drop legacy
+`.cursor/rules/` + `.opencode/commands/` framework files and re-fetch
+the new skills layout.
+
 ### spec-133 — Surface Primitive Re-architecture (CLI UX + Cross-IDE)
 
 Joins the PR #509 aggregate. 14 autopilot sub-specs delivered across 5

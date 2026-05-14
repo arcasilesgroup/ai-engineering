@@ -43,7 +43,10 @@ class Surface:
         display_name: Human-readable name (e.g. ``"Claude Code"``).
         instruction_files: Tuple of relative paths the surface reads
             for its persistent instructions (CLAUDE.md, AGENTS.md,
-            ``.cursor/rules/*.mdc`` patterns, etc.).
+            ``.cursor/rules/*.mdc`` always-included patterns, etc.).
+            Per-skill on-demand files (``.cursor/skills/<name>/SKILL.md``,
+            ``.opencode/skills/<name>/SKILL.md``) are NOT listed here —
+            they are lazy-loaded by the agent, not always-included.
         tree_dir: Relative path to the surface's tree-root directory
             (e.g. ``".claude/"``, ``".cursor/"``).
         hook_engine: ``"native"`` (Claude Code stdio JSON),

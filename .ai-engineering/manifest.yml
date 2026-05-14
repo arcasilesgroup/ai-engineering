@@ -19,11 +19,13 @@ providers:
   vcs: github
   stacks: [python]
 
-# Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16).
+# Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16,
+# spec-128 Wave 4 supersedes D-133-06/D-133-07: OpenCode + Cursor now activated
+# with native skills at .{ide}/skills/<name>/SKILL.md, folder per skill).
 # Closed enum: claude-code, codex, gemini-cli, github-copilot,
 # opencode, cursor, antigravity.
 surfaces:
-  enabled: [claude-code, github-copilot, gemini-cli, codex]
+  enabled: [claude-code, github-copilot, gemini-cli, codex, opencode, cursor]
 
 # Work items — board/issue tracker integration (project-specific overrides)
 work_items:

@@ -30,7 +30,7 @@ AI authoring is the cost-driver and auditability is the bar.
 ## Stakeholders
 
 - **Operator engineers** consuming the framework through their IDE
-  host (Claude Code, Codex, Gemini CLI, GitHub Copilot, Antigravity).
+  host (Claude Code, Codex, Gemini CLI, GitHub Copilot, OpenCode, Cursor).
 - **Security + compliance reviewers** auditing the deterministic
   plane (policy engine, prompt-injection guard, append-only NDJSON
   audit chain).

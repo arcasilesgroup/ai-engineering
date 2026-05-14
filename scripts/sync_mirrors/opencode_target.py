@@ -1,9 +1,9 @@
-"""OpenCode surface generators (spec-133 D-133-06).
+"""OpenCode surface generators (spec-128 Wave 4, supersedes spec-133 D-133-06).
 
 Maps the canonical ``.claude/`` tree to ``.opencode/`` per OpenCode's
-plugin + commands convention:
+native skills convention (folder per skill, agent-discovered lazy-load):
 
-  .claude/skills/ai-<name>/SKILL.md  ->  .opencode/commands/ai-<name>.md
+  .claude/skills/ai-<name>/SKILL.md  ->  .opencode/skills/ai-<name>/SKILL.md
   .claude/agents/ai-<name>.md        ->  .opencode/agents/ai-<name>.md
 
 OpenCode reads ``AGENTS.md`` (project root, primary) + ``CLAUDE.md``
@@ -11,7 +11,12 @@ OpenCode reads ``AGENTS.md`` (project root, primary) + ``CLAUDE.md``
 canonical payload, so no per-surface root rewrite is required.
 
 The skill generator reuses ``generate_codex_skill`` (structural
-equivalence with the AGENTS.md-rooted convention).
+equivalence with the AGENTS.md-rooted convention). OpenCode's SKILL.md
+schema recognises ``name`` (1–64 chars, lowercase-alphanumeric-hyphen,
+matches dir name), ``description`` (mandatory), ``license``,
+``compatibility``, and ``metadata`` (string-to-string map). The Codex
+generator already produces ``name`` + ``description``; extra Claude
+fields are ignored gracefully.
 
 The agent generator post-processes Codex output to translate
 Claude-style color names (``red``, ``green``, ...) into OpenCode's
@@ -21,7 +26,8 @@ unrecognised values, so passthrough is not possible:
 - Accepted: hex ``^#[0-9a-fA-F]{6}$`` OR semantic tokens
   ``primary | secondary | accent | success | warning | error | info``.
 
-Researched 2026-05-12 against https://opencode.ai/docs/agents/.
+Researched 2026-05-14 against https://opencode.ai/docs/skills/ +
+https://opencode.ai/docs/agents/.
 """
 
 from __future__ import annotations
@@ -71,11 +77,12 @@ def _translate_opencode_color(content: str) -> str:
 
 
 def generate_opencode_skill(name: str, skill_path: Path) -> str:
-    """Generate .opencode/commands/ai-<name>.md (slash command).
+    """Generate .opencode/skills/ai-<name>/SKILL.md (native agent-discovered skill).
 
-    OpenCode slash commands live under ``.opencode/commands/`` and
-    register as ``/<filename>`` automatically. Frontmatter contract
-    matches ``.codex/`` (AGENTS.md-rooted).
+    OpenCode reads on-demand skills from ``.opencode/skills/<name>/SKILL.md``
+    (folder per skill). The agent scans ``name`` + ``description`` and lazy-
+    loads the full file body when relevant. Frontmatter contract matches
+    ``.codex/`` (AGENTS.md-rooted).
     """
     return generate_codex_skill(name, skill_path)
 
