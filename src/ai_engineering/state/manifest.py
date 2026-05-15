@@ -255,6 +255,14 @@ def load_required_tools(
     """
     project_root = (root or Path.cwd()).resolve()
     data = _read_raw_manifest(project_root)
+    # spec-128 slim-manifest: required_tools is framework-managed and
+    # injected at validate-time. The raw read does not carry it, so the
+    # SDK carve-out (D-101-13) would silently fail. Apply defaults so
+    # this loader sees the canonical block in both committed and slim
+    # manifest layouts.
+    from ai_engineering.config.framework_defaults import apply_framework_defaults
+
+    apply_framework_defaults(data)
     block = _resolve_required_tools_block(data)
     os_platform = _normalise_os(current_os)
 
