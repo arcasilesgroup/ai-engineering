@@ -189,9 +189,9 @@ class TestProviders:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert config.providers.vcs == "github"
 
-    def test_ides(self, real_manifest_data: dict) -> None:
+    def test_surfaces(self, real_manifest_data: dict) -> None:
+        # spec-133 D-133-16: providers.ides was fused into surfaces.enabled.
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert "terminal" in config.providers.ides
         assert "claude-code" in config.surfaces.enabled
         assert "github-copilot" in config.surfaces.enabled
 

@@ -2,7 +2,7 @@
 
 Covers:
 - Write providers.stacks to a manifest with comments -> comments preserved
-- Write providers.ides -> value updated, rest unchanged
+- Write surfaces.enabled -> value updated, rest unchanged
 - Nested field work_items.provider -> updated correctly
 - Error cases: missing file, missing intermediate key, missing final key
 """
@@ -33,7 +33,6 @@ version: "1.0.0"
 # Providers
 providers:
   vcs: github
-  ides: [claude-code, github-copilot]
   stacks: [python]
 
 # AI Providers
@@ -91,8 +90,8 @@ class TestCommentPreservation:
         assert "# Providers" in raw
         assert "# Quality gates" in raw
 
-    def test_update_ides_preserves_comments(self, manifest_project: Path) -> None:
-        update_manifest_field(manifest_project, "providers.ides", ["claude-code"])
+    def test_update_surfaces_preserves_comments(self, manifest_project: Path) -> None:
+        update_manifest_field(manifest_project, "surfaces.enabled", ["claude-code"])
 
         raw = (manifest_project / ".ai-engineering" / "manifest.yml").read_text(encoding="utf-8")
 
@@ -122,15 +121,15 @@ class TestValueUpdates:
         config = load_manifest_config(manifest_project)
         assert config.providers.stacks == ["python", "rust"]
 
-    def test_update_ides_value(self, manifest_project: Path) -> None:
+    def test_update_surfaces_value(self, manifest_project: Path) -> None:
         update_manifest_field(
             manifest_project,
-            "providers.ides",
+            "surfaces.enabled",
             ["claude-code", "github-copilot", "codex"],
         )
 
         config = load_manifest_config(manifest_project)
-        assert config.providers.ides == ["claude-code", "github-copilot", "codex"]
+        assert config.surfaces.enabled == ["claude-code", "github-copilot", "codex"]
 
     def test_update_work_items_provider(self, manifest_project: Path) -> None:
         update_manifest_field(manifest_project, "work_items.provider", "azure_devops")
@@ -156,7 +155,7 @@ class TestValueUpdates:
         config = load_manifest_config(manifest_project)
         # Other fields remain as set in the fixture
         assert config.providers.vcs == "github"
-        assert config.providers.ides == ["claude-code", "github-copilot"]
+        assert config.surfaces.enabled == ["claude-code", "github-copilot"]
         assert config.work_items.provider == "github"
         assert config.quality.coverage == 80
         assert config.name == "test-project"

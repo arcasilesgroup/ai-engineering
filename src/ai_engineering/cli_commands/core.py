@@ -427,7 +427,7 @@ def _resolve_first_install_configuration(
         return (
             overrides.get("stacks", detected.stacks or ["python"]),
             overrides.get("surfaces", detected.surfaces or ["claude-code"]),
-            overrides.get("vcs", detected.vcs),
+            overrides.get("vcs", detected.vcs or "github"),
         )
     return _resolve_wizard_configuration(detected, overrides)
 

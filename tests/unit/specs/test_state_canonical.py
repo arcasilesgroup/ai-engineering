@@ -63,7 +63,13 @@ SQLITE_WAL_SIBLINGS = frozenset({"state.db-shm", "state.db-wal"})
 # strategic-compact.json is the strategic-compact hook output (session-scoped
 # day-bucket counter). Gitignored per spec-125 D-125-09 comment. Documented
 # transient artifact — written on PreCompact / PostCompact hook events.
-DOCUMENTED_TRANSIENT_FILES = frozenset({"gate-findings.json", "strategic-compact.json"})
+#
+# instinct-observations.ndjson is the local observation ledger for the
+# instincts machinery (PreToolUse / PostToolUse hooks). Gitignored. Written
+# only on local hosts that run hooks — CI never materialises it.
+DOCUMENTED_TRANSIENT_FILES = frozenset(
+    {"gate-findings.json", "strategic-compact.json", "instinct-observations.ndjson"}
+)
 
 # Files that MUST NOT be present (deprecated, deleted in spec-125).
 FORBIDDEN_FILES = (

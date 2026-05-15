@@ -52,6 +52,8 @@ def _expected_migration_ids() -> set[str]:
         "0003_replay_ndjson",
         "0004_migrate_install_state",
         "0005_migrate_framework_capabilities",
+        "0006_add_expires_at_to_decisions",
+        "0007_add_details_json_to_decisions",
     }
 
 
@@ -215,7 +217,7 @@ class TestLazyBootstrap:
         finally:
             conn.close()
 
-        assert first_ledger == second_ledger == 5
+        assert first_ledger == second_ledger == len(_expected_migration_ids())
         assert first_events == 1
         assert second_events == 1
 

@@ -198,7 +198,7 @@ control_plane:
   manifest_field_roles:
     canonical_input:
       - providers
-      - ai_providers
+      - surfaces
       - artifact_feeds
       - work_items
       - quality
