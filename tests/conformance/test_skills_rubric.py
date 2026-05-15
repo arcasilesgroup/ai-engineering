@@ -87,16 +87,18 @@ def test_rule_3_negative_scoping(skills_report) -> None:
     """Description states what NOT to use the skill for when adjacent skills exist."""
     rule = _get_rule("rule_3_negative_scoping")
     assert rule is not None
-    # 46 skills graded — disable-model-invocation skills are excluded
+    # 52 skills graded — disable-model-invocation skills are excluded
     # from the AI-discovery audit (one such skill on the live surface).
     # Bumped from 49 to 47 by spec-127 sub-005 (M4): -4 deletions
     # (ai-run, ai-board-discover, ai-board-sync, ai-release-gate)
     # +2 creations (ai-help, ai-board) = -2 net, plus the existing
     # ai-analyze-permissions exclusion. spec-127 Wave 8 (D-127-10
     # strict-count enforcement): 47 -> 46 after demoting `/ai-help`
-    # to a reference file. See CHANGELOG Wave 8 section.
-    assert len(skills_report.per_skill) == 46, (
-        f"expected 46 skills evaluated, got {len(skills_report.per_skill)}"
+    # to a reference file. spec-134: 46 -> 52 with /ai-issue,
+    # /ai-engineering-issue, /ai-spec-draft (wave 1) + /ai-advise,
+    # /ai-simplify (wave 2) + cohesion with renamed surfaces (wave 4).
+    assert len(skills_report.per_skill) == 52, (
+        f"expected 52 skills evaluated, got {len(skills_report.per_skill)}"
     )
 
 
@@ -246,17 +248,18 @@ def test_rule_10_no_anti_patterns(skills_report) -> None:
 
     * Grade D = 0 (eliminated by Wave 2).
     * Grade C ≤ 2 (D-127-08 hard ceiling).
-    * Grade A ≥ 32 (≥70% of 46 graded skills, post-Wave-8).
+    * Grade A ≥ 32 (≥61% of 52 graded skills, post-spec-134).
     * Grade A is the largest bucket.
-    * Total graded skills = 46 (down from 47 after Wave 8 demoted
-      `/ai-help` to a reference file; see Wave 8 CHANGELOG entry).
+    * Total graded skills = 52 (spec-134 lifted 46 → 52: +3 wave-1 skills
+      + +2 wave-2 skills + cohesion with renamed wave-4 surfaces; see
+      spec-134 CHANGELOG section).
     """
     rule = _get_rule("rule_10_no_anti_patterns")
     assert rule is not None
     summary = skills_report.summary
 
     total = sum(summary.values())
-    assert total == 46, f"expected 46 graded skills, got {total}: {summary}"
+    assert total == 52, f"expected 52 graded skills, got {total}: {summary}"
     assert summary.get("D", 0) == 0, (
         f"M2 must eliminate Grade D; got {summary.get('D', 0)}: {summary}"
     )

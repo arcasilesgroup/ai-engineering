@@ -109,13 +109,20 @@ User: "simplify whatever I have staged before I open the PR"
 
 Skill dispatches the `ai-simplify` agent in conservative mode against `git diff --staged` output. The agent applies only the safest simplifications (guard clauses, dead-branch removal, single-call-site inlines) — no aggressive refactors. After each edit, validation runs. The skill renders the report. The operator reviews the diff and either commits or selectively rolls back. No PR is opened (that is `/ai-simplify-sweep`'s job).
 
-## References
+## Integration
 
-- Agent contract: `.codex/agents/ai-simplify.md`
-- Sibling skill: `.codex/skills/ai-simplify-sweep/SKILL.md` (scheduled wrapper with draft-PR side effect)
-- Stack contexts: `.ai-engineering/contexts/stack-context.md`, `.ai-engineering/overrides/<stack>/conventions.md`
-- Complexity thresholds: `.ai-engineering/manifest.yml` `quality` section (cyclomatic ≤10, cognitive ≤15, nesting ≤3, method length ≤50)
-- Engineering anchors: CLAUDE.md §10.1 KISS, §10.7 Clean Code
-- Spec: D-134-07 (cohesion test — first-class agents must have a discoverable slash-skill)
+**Called by**: operators directly via `/ai-simplify` (ad-hoc, single-file or
+diff-scoped). Not auto-invoked by any other skill.
+
+**Calls**: the `ai-simplify` agent (`.codex/agents/ai-simplify.md`) via the
+Agent tool with the operator-chosen scope. Validation runs after each edit;
+the agent rolls back on test failure (behavior-preserving contract).
+
+**See also**:
+- `.codex/skills/ai-simplify-sweep/SKILL.md` — scheduled wrapper with draft-PR side effect (different cadence and contract).
+- `.ai-engineering/manifest.yml` `quality` section — complexity thresholds the agent consults (cyclomatic ≤10, cognitive ≤15, nesting ≤3, method length ≤50).
+- `.ai-engineering/contexts/stack-context.md` — stack overrides.
+- Engineering anchors: CLAUDE.md §10.1 KISS, §10.7 Clean Code.
+- D-134-07 (cohesion test — first-class agents must have a discoverable slash-skill).
 
 $ARGUMENTS

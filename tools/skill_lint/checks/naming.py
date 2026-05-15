@@ -47,7 +47,9 @@ _VALID_SEVERITIES = {"OK", "INFO", "MINOR", "MAJOR", "CRITICAL"}
 
 
 # R1 — skip internal specialist roster (per Exploration §R1).
-_R1_INTERNAL_PREFIXES = ("reviewer-", "verifier-", "verify-")
+# spec-134 D-134-06: `review-` family added (review-context, review-validator —
+# lifecycle helpers reclassified out of the reviewer-* specialist family).
+_R1_INTERNAL_PREFIXES = ("reviewer-", "verifier-", "verify-", "review-")
 
 # R2 — banned metaphor tokens.
 _R2_BANNED_METAPHORS = frozenset({"instinct", "strategic", "tactical"})

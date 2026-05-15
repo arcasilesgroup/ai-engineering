@@ -113,12 +113,18 @@ User: "do a drift check across the persistence layer"
 
 Skill dispatches the `ai-advise` agent in `drift` mode. The agent loads active decisions tagged with persistence-layer scope (e.g. "repositories return entities, not rows"), maps each decision to governed locations, and classifies alignment per location. The skill renders a drift table showing one `minor` cosmetic drift (a repository method returning a dataclass instead of the documented domain entity) and zero `critical` contradictions. Recommendation: open a refactor ticket; no immediate action required.
 
-## References
+## Integration
 
-- Agent contract: `.github/agents/advise.agent.md` (or post-rename `.github/agents/advise.agent.md`)
-- Sibling gates: `.github/skills/ai-verify/SKILL.md` (evidence-backed BLOCK lane), `.github/skills/ai-review/SKILL.md` (narrative review)
-- Stack contexts: `.ai-engineering/contexts/stack-context.md`, `.ai-engineering/overrides/<stack>/conventions.md`
-- Telemetry: `framework_operation` events aggregated by the spec-120 audit index
-- Spec: D-134-06 (rename direction `ai-advise` → `ai-advise`), D-134-07 (cohesion test enforcement)
+**Called by**: operators directly via `/ai-advise`; auto-invoked by `/ai-build`
++ `/ai-autopilot` as the wave-end advisory pass.
+
+**Calls**: the `ai-advise` agent (`.github/agents/advise.agent.md`) via the Agent
+tool. Never reads or executes the agent body inline — strictly dispatch.
+
+**See also**:
+- `.github/skills/ai-verify/SKILL.md` — evidence-backed BLOCK lane (different engine).
+- `.github/skills/ai-review/SKILL.md` — narrative human-judgment review.
+- `.ai-engineering/contexts/stack-context.md` — stack overrides the agent consults.
+- D-134-06 (rename direction `ai-guard` agent → `ai-advise`), D-134-07 (cohesion test enforcement).
 
 $ARGUMENTS
