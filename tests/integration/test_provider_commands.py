@@ -1,4 +1,10 @@
-"""Integration tests for AI provider add/remove/list commands."""
+"""Integration tests for surface add/remove/list commands.
+
+spec-133 D-133-16 collapsed the AI-provider axis (`add_provider`) and the
+IDE axis (`add_ide`) into a single Surface axis with `add_surface` /
+`remove_surface` against `manifest.surfaces.enabled`. This file tests the
+surviving CRUD surface; the old per-provider helpers were deleted.
+"""
 
 from __future__ import annotations
 
@@ -8,100 +14,94 @@ import pytest
 
 from ai_engineering.installer.operations import (
     InstallerError,
-    add_provider,
+    add_surface,
     list_status,
-    remove_provider,
+    remove_surface,
 )
 from ai_engineering.installer.service import install
 
 
-class TestProviderAdd:
-    """Tests for add_provider operation."""
+class TestSurfaceAdd:
+    """Tests for add_surface operation."""
 
-    def test_add_provider_to_installed_project(self, tmp_path: Path) -> None:
+    def test_add_surface_to_installed_project(self, tmp_path: Path) -> None:
         install(tmp_path, surfaces=["claude-code"])
-        manifest = add_provider(tmp_path, "github_copilot")
-        assert "github_copilot" in manifest.ai_providers.enabled
+        manifest = add_surface(tmp_path, "github-copilot")
+        assert "github-copilot" in manifest.surfaces.enabled
         # Verify copilot files were created
         assert (tmp_path / "AGENTS.md").is_file()
         assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
 
-    def test_add_duplicate_provider_raises(self, tmp_path: Path) -> None:
+    def test_add_duplicate_surface_raises(self, tmp_path: Path) -> None:
         install(tmp_path)
-        with pytest.raises(InstallerError, match="already enabled"):
-            add_provider(tmp_path, "claude-code")
+        with pytest.raises(InstallerError, match="already"):
+            add_surface(tmp_path, "claude-code")
 
-    def test_add_unknown_provider_raises(self, tmp_path: Path) -> None:
+    def test_add_unknown_surface_raises(self, tmp_path: Path) -> None:
         install(tmp_path)
-        with pytest.raises(InstallerError, match="Unknown provider"):
-            add_provider(tmp_path, "unknown_ai")
+        with pytest.raises(InstallerError, match="Unknown surface"):
+            add_surface(tmp_path, "unknown_ai")
 
-    def test_add_provider_without_framework_raises(self, tmp_path: Path) -> None:
+    def test_add_surface_without_framework_raises(self, tmp_path: Path) -> None:
         with pytest.raises(InstallerError, match="not installed"):
-            add_provider(tmp_path, "gemini")
+            add_surface(tmp_path, "gemini-cli")
 
     def test_add_gemini_creates_agents_md(self, tmp_path: Path) -> None:
         install(tmp_path)
-        add_provider(tmp_path, "gemini")
+        add_surface(tmp_path, "gemini-cli")
         assert (tmp_path / "AGENTS.md").is_file()
 
 
-class TestProviderRemove:
-    """Tests for remove_provider operation."""
+class TestSurfaceRemove:
+    """Tests for remove_surface operation."""
 
-    def test_remove_provider(self, tmp_path: Path) -> None:
+    def test_remove_surface(self, tmp_path: Path) -> None:
         install(tmp_path, surfaces=["claude-code", "github-copilot"])
-        manifest = remove_provider(tmp_path, "github_copilot")
-        assert "github_copilot" not in manifest.ai_providers.enabled
-        assert "claude-code" in manifest.ai_providers.enabled
+        manifest = remove_surface(tmp_path, "github-copilot")
+        assert "github-copilot" not in manifest.surfaces.enabled
+        assert "claude-code" in manifest.surfaces.enabled
 
-    def test_remove_last_provider_raises(self, tmp_path: Path) -> None:
+    def test_remove_last_surface_raises(self, tmp_path: Path) -> None:
         install(tmp_path, surfaces=["claude-code"])
-        with pytest.raises(InstallerError, match="Cannot remove the last"):
-            remove_provider(tmp_path, "claude-code")
+        with pytest.raises(InstallerError, match="last"):
+            remove_surface(tmp_path, "claude-code")
 
-    def test_remove_nonexistent_provider_raises(self, tmp_path: Path) -> None:
+    def test_remove_nonexistent_surface_raises(self, tmp_path: Path) -> None:
         install(tmp_path)
         with pytest.raises(InstallerError, match="not enabled"):
-            remove_provider(tmp_path, "gemini")
-
-    def test_remove_primary_promotes_next(self, tmp_path: Path) -> None:
-        install(tmp_path, surfaces=["claude-code", "github-copilot"])
-        manifest = remove_provider(tmp_path, "claude-code")
-        assert manifest.ai_providers.primary == "github_copilot"
+            remove_surface(tmp_path, "gemini-cli")
 
     def test_remove_does_not_delete_shared_agents_md(
         self,
         tmp_path: Path,
     ) -> None:
-        """When removing a provider that uses AGENTS.md but another active
-        provider also uses it, AGENTS.md should NOT be deleted."""
+        """When removing a surface that uses AGENTS.md but another active
+        surface also uses it, AGENTS.md should NOT be deleted."""
         install(tmp_path, surfaces=["github-copilot", "gemini-cli"])
-        # Both copilot and gemini use AGENTS.md
+        # Both copilot and gemini-cli use AGENTS.md
         assert (tmp_path / "AGENTS.md").is_file()
-        remove_provider(tmp_path, "gemini")
+        remove_surface(tmp_path, "gemini-cli")
         # AGENTS.md should still exist (needed by copilot)
         assert (tmp_path / "AGENTS.md").is_file()
 
 
-class TestProviderList:
-    """Tests for listing providers via manifest."""
+class TestSurfaceList:
+    """Tests for listing surfaces via manifest."""
 
-    def test_list_default_providers(self, tmp_path: Path) -> None:
+    def test_list_default_surfaces(self, tmp_path: Path) -> None:
         install(tmp_path)
         manifest = list_status(tmp_path)
-        assert manifest.ai_providers.primary == "claude-code"
-        assert "claude-code" in manifest.ai_providers.enabled
+        assert "claude-code" in manifest.surfaces.enabled
 
-    def test_list_custom_providers(self, tmp_path: Path) -> None:
+    def test_list_custom_surfaces(self, tmp_path: Path) -> None:
         install(tmp_path, surfaces=["github-copilot", "gemini-cli"])
         manifest = list_status(tmp_path)
-        assert manifest.ai_providers.primary == "github_copilot"
-        assert "gemini" in manifest.ai_providers.enabled
+        assert "github-copilot" in manifest.surfaces.enabled
+        assert "gemini-cli" in manifest.surfaces.enabled
 
 
-class TestProviderAwareInstall:
-    """Tests for provider-aware install behavior."""
+class TestSurfaceAwareInstall:
+    """Tests for surface-aware install behavior."""
 
     def test_install_claude_only(self, tmp_path: Path) -> None:
         install(tmp_path, surfaces=["claude-code"])
@@ -119,7 +119,7 @@ class TestProviderAwareInstall:
         assert not (tmp_path / "CLAUDE.md").exists()
         assert not (tmp_path / ".claude").is_dir()
 
-    def test_install_multiple_providers(self, tmp_path: Path) -> None:
+    def test_install_multiple_surfaces(self, tmp_path: Path) -> None:
         install(
             tmp_path,
             surfaces=["claude-code", "github-copilot"],
@@ -129,7 +129,7 @@ class TestProviderAwareInstall:
         assert (tmp_path / "AGENTS.md").is_file()
         assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
 
-    def test_install_default_providers_copies_all(self, tmp_path: Path) -> None:
-        """When no --provider flag, defaults to claude-code."""
+    def test_install_default_surfaces(self, tmp_path: Path) -> None:
+        """When no --surface flag, defaults to claude-code."""
         install(tmp_path)
         assert (tmp_path / "CLAUDE.md").is_file()
