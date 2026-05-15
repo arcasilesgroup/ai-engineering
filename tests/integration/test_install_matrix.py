@@ -60,7 +60,6 @@ class TestInstallMatrix:
         install(
             clean_target,
             stacks=["python"],
-            ides=["terminal"],
             vcs_provider=vcs,
             ai_providers=providers,
         )
@@ -80,7 +79,6 @@ class TestInstallMatrix:
         install(
             clean_target,
             stacks=["python"],
-            ides=["terminal"],
             vcs_provider=vcs,
             ai_providers=providers,
         )

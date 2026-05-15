@@ -32,10 +32,9 @@ def _make_context(tmp_path: Path) -> InstallContext:
     return InstallContext(
         target=tmp_path,
         mode=InstallMode.INSTALL,
-        providers=["claude-code"],
+        surfaces=["claude-code"],
         vcs_provider="github",
         stacks=["python"],
-        ides=["terminal"],
     )
 
 

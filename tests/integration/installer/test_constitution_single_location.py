@@ -24,7 +24,7 @@ def test_only_root_constitution_ships(tmp_path: Path) -> None:
     target = tmp_path / "consumer"
     target.mkdir()
 
-    copy_project_templates(target, providers=["claude-code"], vcs_provider="github")
+    copy_project_templates(target, surfaces=["claude-code"], vcs_provider="github")
 
     matches = sorted(target.rglob("CONSTITUTION.md"))
     assert len(matches) == 1, (
@@ -41,7 +41,7 @@ def test_no_ai_engineering_constitution_stub(tmp_path: Path) -> None:
     target = tmp_path / "consumer"
     target.mkdir()
 
-    copy_project_templates(target, providers=["claude-code"], vcs_provider="github")
+    copy_project_templates(target, surfaces=["claude-code"], vcs_provider="github")
 
     stub = target / ".ai-engineering" / "CONSTITUTION.md"
     assert not stub.exists(), (

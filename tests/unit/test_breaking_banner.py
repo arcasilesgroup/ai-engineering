@@ -77,10 +77,9 @@ def _make_context(target: Path, *, existing_state: InstallState | None = None) -
     return InstallContext(
         target=target,
         mode=InstallMode.INSTALL,
-        providers=["claude_code"],
+        surfaces=["claude-code"],
         vcs_provider="github",
         stacks=["python"],
-        ides=["terminal"],
         existing_state=existing_state,
     )
 

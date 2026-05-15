@@ -250,10 +250,9 @@ class TestInstallerPhaseEndToEnd:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
-            ides=["terminal"],
         )
         state_phase = StatePhase()
         state_plan = state_phase.plan(ctx)
@@ -336,10 +335,9 @@ class TestInstallerPhaseEndToEnd:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
-            ides=["terminal"],
         )
         state_phase = StatePhase()
         state_phase.execute(state_phase.plan(ctx), ctx)

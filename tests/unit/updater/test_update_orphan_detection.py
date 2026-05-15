@@ -113,7 +113,7 @@ def claude_codex_project(tmp_path: Path) -> Path:
     reconfigure to ``claude-code`` only -- leaving .codex/ files as orphans.
     """
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude-code", "codex"])
+    install(tmp_path, surfaces=["claude-code", "codex"])
     # Shrink enabled providers in the manifest to only claude-code.
     update_manifest_field(tmp_path, "ai_providers.enabled", ["claude-code"])
     update_manifest_field(tmp_path, "ai_providers.primary", "claude-code")
@@ -127,7 +127,7 @@ def claude_codex_project(tmp_path: Path) -> Path:
 def claude_gemini_project(tmp_path: Path) -> Path:
     """Install a project with ``claude-code`` and ``gemini``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude-code", "gemini"])
+    install(tmp_path, surfaces=["claude-code", "gemini-cli"])
     return tmp_path
 
 
@@ -135,7 +135,7 @@ def claude_gemini_project(tmp_path: Path) -> Path:
 def claude_only_project(tmp_path: Path) -> Path:
     """Install a project with only ``claude-code``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, ai_providers=["claude-code"])
+    install(tmp_path, surfaces=["claude-code"])
     return tmp_path
 
 

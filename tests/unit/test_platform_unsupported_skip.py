@@ -106,10 +106,9 @@ class TestToolLevelSkip:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
             stacks=["python"],
-            ides=["terminal"],
         )
 
         # State phase must have run first so install-state.json exists.
@@ -153,10 +152,9 @@ class TestToolLevelSkip:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
             stacks=["python"],
-            ides=["terminal"],
         )
         state_phase = StatePhase()
         state_phase.execute(state_phase.plan(ctx), ctx)
@@ -206,10 +204,9 @@ class TestStackLevelSkip:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
-            ides=["terminal"],
         )
         state_phase = StatePhase()
         state_phase.execute(state_phase.plan(ctx), ctx)
@@ -264,10 +261,9 @@ class TestStackLevelSkip:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
-            ides=["terminal"],
         )
         state_phase = StatePhase()
         state_phase.execute(state_phase.plan(ctx), ctx)
@@ -327,10 +323,9 @@ class TestBothLevelsCoexist:
         ctx = InstallContext(
             target=fixture_manifest_root,
             mode=InstallMode.INSTALL,
-            providers=["claude-code"],
+            surfaces=["claude-code"],
             vcs_provider="github",
             stacks=["swift"],
-            ides=["terminal"],
         )
         state_phase = StatePhase()
         state_phase.execute(state_phase.plan(ctx), ctx)

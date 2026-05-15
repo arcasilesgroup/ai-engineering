@@ -259,7 +259,7 @@ class TestCopyProjectTemplates:
         assert not issue_dir.exists()
 
     def test_codex_provider_copies_codex_tree(self, tmp_path: Path) -> None:
-        copy_project_templates(tmp_path, providers=["codex"])
+        copy_project_templates(tmp_path, surfaces=["codex"])
         codex_dir = tmp_path / ".codex" / "skills"
         assert codex_dir.is_dir()
         skill_files = list(codex_dir.glob("*/SKILL.md"))

@@ -19,7 +19,7 @@ class TestProviderAdd:
     """Tests for add_provider operation."""
 
     def test_add_provider_to_installed_project(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude-code"])
+        install(tmp_path, surfaces=["claude-code"])
         manifest = add_provider(tmp_path, "github_copilot")
         assert "github_copilot" in manifest.ai_providers.enabled
         # Verify copilot files were created
@@ -50,13 +50,13 @@ class TestProviderRemove:
     """Tests for remove_provider operation."""
 
     def test_remove_provider(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude-code", "github_copilot"])
+        install(tmp_path, surfaces=["claude-code", "github-copilot"])
         manifest = remove_provider(tmp_path, "github_copilot")
         assert "github_copilot" not in manifest.ai_providers.enabled
         assert "claude-code" in manifest.ai_providers.enabled
 
     def test_remove_last_provider_raises(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude-code"])
+        install(tmp_path, surfaces=["claude-code"])
         with pytest.raises(InstallerError, match="Cannot remove the last"):
             remove_provider(tmp_path, "claude-code")
 
@@ -66,7 +66,7 @@ class TestProviderRemove:
             remove_provider(tmp_path, "gemini")
 
     def test_remove_primary_promotes_next(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude-code", "github_copilot"])
+        install(tmp_path, surfaces=["claude-code", "github-copilot"])
         manifest = remove_provider(tmp_path, "claude-code")
         assert manifest.ai_providers.primary == "github_copilot"
 
@@ -76,7 +76,7 @@ class TestProviderRemove:
     ) -> None:
         """When removing a provider that uses AGENTS.md but another active
         provider also uses it, AGENTS.md should NOT be deleted."""
-        install(tmp_path, ai_providers=["github_copilot", "gemini"])
+        install(tmp_path, surfaces=["github-copilot", "gemini-cli"])
         # Both copilot and gemini use AGENTS.md
         assert (tmp_path / "AGENTS.md").is_file()
         remove_provider(tmp_path, "gemini")
@@ -94,7 +94,7 @@ class TestProviderList:
         assert "claude-code" in manifest.ai_providers.enabled
 
     def test_list_custom_providers(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["github_copilot", "gemini"])
+        install(tmp_path, surfaces=["github-copilot", "gemini-cli"])
         manifest = list_status(tmp_path)
         assert manifest.ai_providers.primary == "github_copilot"
         assert "gemini" in manifest.ai_providers.enabled
@@ -104,7 +104,7 @@ class TestProviderAwareInstall:
     """Tests for provider-aware install behavior."""
 
     def test_install_claude_only(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["claude-code"])
+        install(tmp_path, surfaces=["claude-code"])
         assert (tmp_path / "CLAUDE.md").is_file()
         assert (tmp_path / ".claude").is_dir()
         # Should NOT create copilot files
@@ -112,7 +112,7 @@ class TestProviderAwareInstall:
         assert not (tmp_path / "AGENTS.md").exists()
 
     def test_install_copilot_only(self, tmp_path: Path) -> None:
-        install(tmp_path, ai_providers=["github_copilot"])
+        install(tmp_path, surfaces=["github-copilot"])
         assert (tmp_path / "AGENTS.md").is_file()
         assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
         # Should NOT create claude files
@@ -122,7 +122,7 @@ class TestProviderAwareInstall:
     def test_install_multiple_providers(self, tmp_path: Path) -> None:
         install(
             tmp_path,
-            ai_providers=["claude-code", "github_copilot"],
+            surfaces=["claude-code", "github-copilot"],
         )
         assert (tmp_path / "CLAUDE.md").is_file()
         assert (tmp_path / ".claude").is_dir()
