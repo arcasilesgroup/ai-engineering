@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-12T20:32:42Z",
+  "generatedAt": "2026-05-15T16:35:36Z",
   "hookCount": 72,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -83,6 +83,6 @@
   ],
   "trustedScripts": {
     ".ai-engineering/scripts/hooks/no-verify-guard.py": "1863867bece3aba1c262bcf335c674bdafa2e64530ff0e53fbf1424b5c56063e",
-    ".ai-engineering/scripts/session_bootstrap.py": "f1313220a70dd7cf366097e8deeb5fd2c5a29dd8b386fe9c1483352cdf82b441"
+    ".ai-engineering/scripts/session_bootstrap.py": "366f05d7d54083c52d205ff7ea274807601700c34cd371c7f3f59b911a8c267e"
   }
 }
