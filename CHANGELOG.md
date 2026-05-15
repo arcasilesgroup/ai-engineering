@@ -7,6 +7,53 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-134 Wave 2 — Orphan agents surfaced as slash-skills + cohesion test
+
+Two first-class agents (`ai-guard`, `ai-simplify`) had no discoverable
+`/ai-<name>` counterpart in the slash menu, making them "ghost
+surfaces": registered orchestrators that operators could not invoke
+through the primary IDE discovery channel. Wave 2 closes the gap and
+gates against future drift.
+
+Added:
+- `/ai-advise` skill — advisory governance review wrapping the
+  `ai-guard` agent. Three modes (`advise`, `gate`, `drift`); severity
+  `info | warn | concern`; never blocks; never modifies code. Distinct
+  from `/ai-verify` (evidence-backed BLOCK lane) and `/ai-review`
+  (narrative human-judgement review). Body 118 lines, cites §10.4
+  DRY + §10.6 SDD anchors.
+- `/ai-simplify` skill — on-demand simplification wrapping the
+  `ai-simplify` agent. Scoped to operator-chosen paths or current
+  diff; no PR; no auto-commit; behaviour preserved; tests pass after
+  every change. Distinct from the scheduled `/ai-simplify-sweep`
+  (weekly cron, repo-wide, draft-PR side effect). Body 116 lines,
+  cites §10.1 KISS + §10.7 Clean Code anchors. Resolves the long-
+  standing dangling reference inside `/ai-simplify-sweep`.
+- `tests/architecture/test_skill_agent_cohesion.py` — three
+  assertions enforce D-134-07: every entry in `DEFAULT_AGENTS_NAMES`
+  resolves to an existing `.claude/skills/<resolved>/SKILL.md` (via
+  `_COHESION_MAPPING` for renames; identity otherwise); no stale
+  mapping entries; resolved skill directory also exists under the
+  template mirror (`src/.../templates/project/.claude/skills/`) so
+  `ai-eng install` ships the skills to downstream projects. Reads
+  the filesystem directly — no manifest dependency, no decisions-
+  table dependency (satisfies D-134-10).
+- `DEFAULT_SKILLS_REGISTRY` extended with `ai-advise` (workflow /
+  governance + advisory + proactive) and `ai-simplify` (workflow /
+  refactor + complexity + simplification). Registry count
+  48 → 51 (Wave 1) → 53 (Wave 2). `DEFAULT_AGENTS_NAMES` untouched
+  (sub-006 owns the agent-side rename).
+
+The cohesion mapping `{"guard": "ai-advise"}` is the rename bridge
+for sub-006: until the agent file `.claude/agents/ai-guard.md`
+hard-renames to `ai-advise.md` and `DEFAULT_AGENTS_NAMES` rotates
+`guard` → `advise`, the bridge lets the cohesion test pass in either
+order (sub-002-first OR sub-006-first).
+
+Wave-end housekeeping deferred to the orchestrator: mirror sync to
+`.codex/`, `.gemini/`, `.opencode/`, `.cursor/`, `.github/skills/`
+runs after both new skills land on disk.
+
 ### spec-133 D-133-17 amendment — Wizard prompts VCS provider when autodetect ambiguous
 
 D-133-17 collapsed the install wizard to a single Surface question and

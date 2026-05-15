@@ -58,7 +58,7 @@ checkpoints. It does NOT appear in the canonical chain (D-131-07).
 
 ## 12. Surface Index
 
-## Skills (51)
+## Skills (53)
 
 Canonical skills and agents live under `.claude/`; mirror surfaces under
 `.codex/`, `.gemini/`, and `.github/` are byte-equivalent regenerations
@@ -77,7 +77,7 @@ offload research and parallel analysis to them.
 
 | Surface | Where |
 |---------|-------|
-| Skills (51) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
