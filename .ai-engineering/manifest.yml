@@ -98,3 +98,10 @@ cicd:
 telemetry:
   consent: strict-opt-in
   default: disabled
+
+# /ai-build operator defaults (spec-134 D-134-03).
+# Reserved namespace: `no_hitl_default` is documentation-only today; the
+# canonical gate for unattended single-concern builds is the `--no-hitl`
+# flag. Flipping the default to `true` is out-of-scope for spec-134.
+build:
+  no_hitl_default: false

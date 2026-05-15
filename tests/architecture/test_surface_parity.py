@@ -40,6 +40,7 @@ _KNOWN_OVERLAPS = {
     "pr": "a2-aligned",  # ai-eng pr + /ai-pr: skill wraps CLI
     "verify": "a2-distinct",  # ai-eng verify (deterministic) vs /ai-verify (LLM 4-specialist)
     "cleanup": "a2-distinct",  # ai-eng cleanup (7-mode CLI per D-133-03) vs /ai-cleanup (LLM)
+    "issue": "a2-distinct",  # ai-eng issue (spec→tracker sync, deterministic) vs /ai-issue (LLM orchestrator, D-134-02)
 }
 
 

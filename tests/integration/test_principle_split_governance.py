@@ -29,10 +29,26 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # copilot-instructions.md). Any mirror suffices because the bytes
 # match — we check the canonical source plus AGENTS.md so a missing
 # mirror also surfaces here.
+#
+# spec-134 sub-005 mirror diet: §10 Engineering Principles (full prose
+# including TDD / SDD anchors) extracted to ``docs/principles.md``.
+# The hard-rule patterns still match the canonical home, but they are
+# carried via §10 anchors at the new location AND via the
+# ``Verification Before Done`` / ``Goal-Driven Execution`` Karpathy
+# §4 one-liner that remains in mirrors. Add ``docs/principles.md`` to
+# GOVERNANCE_PATHS so the scan covers the extracted home; keep
+# ``CANONICAL.md`` + ``AGENTS.md`` so the pointer-row contract is
+# still verified at mirror granularity.
 ROOT_CONSTITUTION = REPO_ROOT / "CONSTITUTION.md"
 CANONICAL_MD = REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CANONICAL.md"
 AGENTS_MD = REPO_ROOT / "AGENTS.md"
-GOVERNANCE_PATHS: tuple[Path, ...] = (ROOT_CONSTITUTION, CANONICAL_MD, AGENTS_MD)
+DOCS_PRINCIPLES_MD = REPO_ROOT / "docs" / "principles.md"
+GOVERNANCE_PATHS: tuple[Path, ...] = (
+    ROOT_CONSTITUTION,
+    CANONICAL_MD,
+    AGENTS_MD,
+    DOCS_PRINCIPLES_MD,
+)
 
 CORE_OPERATIONAL_SURFACE_PATHS: tuple[Path, ...] = (
     REPO_ROOT / ".claude" / "skills" / "ai-code" / "SKILL.md",

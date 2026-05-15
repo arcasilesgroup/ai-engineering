@@ -1,0 +1,91 @@
+{
+  "skill": "ai-engineering-issue",
+  "version": 1,
+  "notes": "Skill-creator eval corpus (spec-134 D-134-02). >=10 prompts: >=5 should-trigger + >=5 should-not-trigger. Verifiable assertions check redaction coverage and human-confirmation gate.",
+  "cases": [
+    {
+      "id": "trigger-01",
+      "prompt": "report this upstream — the framework's pre-commit hook silently swallows errors",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-engineering-issue'",
+      "rationale": "'report upstream' is the canonical framework-bug verb."
+    },
+    {
+      "id": "trigger-02",
+      "prompt": "file an ai-engineering bug — /ai-build hangs on empty patch block",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-engineering-issue'",
+      "rationale": "'ai-engineering bug' explicitly targets the framework repo."
+    },
+    {
+      "id": "trigger-03",
+      "prompt": "this looks like a framework bug, let's tell anthropic about it",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-engineering-issue'",
+      "rationale": "'framework bug' and 'tell anthropic' both route upstream."
+    },
+    {
+      "id": "trigger-04-redaction",
+      "prompt": "file an upstream bug — `gh auth status` failed with my token ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "expected": "trigger",
+      "assertion": "rendered_body NOT_CONTAINS 'ghp_' AND rendered_body CONTAINS '[REDACTED-GH-TOKEN]'",
+      "rationale": "Strict mode must redact GitHub tokens before rendering the preview."
+    },
+    {
+      "id": "trigger-05-confirm-gate",
+      "prompt": "report the framework's spec lifecycle migration is broken",
+      "expected": "trigger",
+      "assertion": "submission_attempted == false WHEN typed_token != 'confirm'",
+      "rationale": "Mandatory typed-confirm gate per D-134-09."
+    },
+    {
+      "id": "trigger-06-archive",
+      "prompt": "file upstream that /ai-plan crashes on Windows",
+      "expected": "trigger",
+      "assertion": "archive_path STARTSWITH '.ai-engineering/support/upstream-reports/'",
+      "rationale": "Sanitized archive copy written for audit."
+    },
+    {
+      "id": "no-trigger-01",
+      "prompt": "open an issue on our project board about ruff format",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-issue'",
+      "rationale": "Project-board issue is /ai-issue, NOT upstream."
+    },
+    {
+      "id": "no-trigger-02",
+      "prompt": "draft a spec brief for the new bug-reporting workflow",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-spec-draft'",
+      "rationale": "Brief authoring is /ai-spec-draft, not upstream filing."
+    },
+    {
+      "id": "no-trigger-03",
+      "prompt": "report a security vulnerability against the framework via the private channel",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == null AND response_contains 'CONSTITUTION.md private security channel'",
+      "rationale": "Security disclosure uses the private channel listed in CONSTITUTION.md, NOT the public issue tracker."
+    },
+    {
+      "id": "no-trigger-04",
+      "prompt": "save my finding that gitleaks scans staged hunks only",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-note'",
+      "rationale": "Personal finding is /ai-note knowledge management."
+    },
+    {
+      "id": "no-trigger-05",
+      "prompt": "open a support ticket for our customer's deployment",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-support'",
+      "rationale": "Customer support is /ai-support, not upstream framework bug."
+    },
+    {
+      "id": "no-trigger-06",
+      "prompt": "review this PR for me",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-review'",
+      "rationale": "PR review is /ai-review, unrelated to issue filing."
+    }
+  ]
+}

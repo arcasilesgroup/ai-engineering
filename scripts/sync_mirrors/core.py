@@ -1002,6 +1002,12 @@ def read_canonical_payload(template_root: Path = TPL_PROJECT) -> str:
     fence carrying content unique to that IDE; the fence is stripped by
     ``tools/skill_lint/checks/md_mirror.py`` before sha256 equivalence.
 
+    spec-134 sub-005 mirror diet: the §10 Engineering Principles, §14
+    Strict Content Contracts, §15 IDE-Extras Escape Hatch, and §16
+    Surface Axioms prose moved out of CANONICAL.md into ``docs/``
+    (``principles.md`` / ``mirror-authoring.md`` / ``surface-axioms.md``).
+    The mirrors now carry only pointer rows referencing those homes.
+
     The payload still carries ``__SKILL_COUNT__`` / ``__AGENT_COUNT__``
     placeholders — substitution happens in ``assemble_mirror_payload``.
     """
@@ -1031,9 +1037,12 @@ def assemble_mirror_payload(
 
     The canonical payload carries one terminal empty
     ``<!-- ide-extras:start --><!-- ide-extras:end -->`` placeholder
-    pair (CANONICAL.md §15) — this helper replaces that placeholder
-    with the actual fenced content (or strips it entirely when
-    ``ide_extras`` is empty, since AGENTS.md is the base mirror).
+    pair (sync contract: exactly one placeholder per file at
+    end-of-file) — this helper replaces that placeholder with the
+    actual fenced content (or strips it entirely when ``ide_extras``
+    is empty, since AGENTS.md is the base mirror). The fence-contract
+    documentation lives in ``docs/mirror-authoring.md`` (spec-134
+    sub-005 mirror diet; §10.4 DRY — one canonical home).
     """
     substituted = canonical_payload.replace("__SKILL_COUNT__", str(skill_count)).replace(
         "__AGENT_COUNT__", str(agent_count)

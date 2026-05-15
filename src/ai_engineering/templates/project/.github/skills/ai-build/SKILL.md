@@ -2,7 +2,7 @@
 name: ai-build
 description: "Canonical implementation gateway: reads approved plan.md, resolves stack from manifest, deterministic-routes each task to its adapter, dispatches the build agent in an isolated worktree, runs TDD self-validation per task, then a single final quality loop on the full changeset before /ai-pr. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'build the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead."
 effort: cheap
-argument-hint: "[spec-NNN or --resume]"
+argument-hint: "[spec-NNN | --resume | --no-hitl]"
 mode: agent
 model_tier: haiku
 mirror_family: copilot-skills
@@ -35,6 +35,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
     * Patch absent OR synthesis hint present → dispatch with `model_tier=sonnet, effort=mid` (mid-tier, judgment required).
     * Operator opt-in `--max-effort` flag OR plan task tagged `architecture: true` → dispatch with `model_tier=opus, effort=high` (deep-architecture override).
     Pass the resolved tier to the build agent via env var `AIENG_MODEL_TIER`. Log the decision via `emit_agent_dispatched(..., metadata={"model_tier": <tier>, "effort": <effort>, "patch_present": <bool>})`. Investing in `/ai-plan` (high-tier, exhaustive patch-ready output) is what unlocks cheap-tier execution everywhere downstream (brief §2.6 / spec D-131-08).
+2d. **No-HITL Contract (D-134-03)** -- if `--no-hitl` is set, read `handlers/no-hitl.md` and apply its contract: single-concern gate, `NEEDS_CONTEXT → BLOCKED` promotion, `quality_loop_blocked → exit 78`, `--no-watch` implied for delivery, no auto-retry. Default `/ai-build` behavior is unchanged when the flag is absent.
 3. **Execute kernel**: see `.github/skills/_shared/execution-kernel.md`. Build wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build self-validation (TDD RED/GREEN/REFACTOR) -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain build-specific.
 4. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, single round, fail-loud. Blockers → STOP + escalate (no auto-retry).
 5. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report.
@@ -51,10 +52,11 @@ When invoked with `--resume`, use observable evidence only. Never guess hidden s
 
 ## Handler Dispatch Table
 
-| Phase         | Handler               | Agent Pattern            |
-| ------------- | --------------------- | ------------------------ |
-| Quality Check | `handlers/quality.md` | Verify + Review parallel |
-| Deliver       | `handlers/deliver.md` | PR pipeline + cleanup    |
+| Phase         | Handler               | Agent Pattern                       |
+| ------------- | --------------------- | ----------------------------------- |
+| Quality Check | `handlers/quality.md` | Verify + Review parallel            |
+| Deliver       | `handlers/deliver.md` | PR pipeline + cleanup               |
+| No-HITL       | `handlers/no-hitl.md` | deterministic / single-concern only |
 
 ## Common Mistakes
 
@@ -65,6 +67,7 @@ When invoked with `--resume`, use observable evidence only. Never guess hidden s
 - Batch-updating `plan.md` only at the end instead of updating it when each task closes.
 - Modifying test files from a RED phase during a GREEN phase task.
 - Skipping the quality check after task execution.
+- Invoking `--no-hitl` on a multi-concern plan; use `/ai-autopilot` instead.
 
 ## Examples
 

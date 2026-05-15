@@ -14,6 +14,7 @@ from typing import Any
 import yaml
 from pydantic import ValidationError
 
+from ai_engineering._shared.redactor import redact_normal
 from ai_engineering.state.io import read_ndjson_entries, write_json_model
 from ai_engineering.state.models import FrameworkEvent, InstinctMeta, InstinctObservation
 from ai_engineering.state.observability import framework_events_path
@@ -25,11 +26,6 @@ INSTINCT_OBSERVATIONS_REL = Path(".ai-engineering/state/observation-events.ndjso
 INSTINCTS_REL = Path(".ai-engineering/observations/observations.yml")
 INSTINCT_META_REL = Path(".ai-engineering/observations/meta.json")
 
-_SECRET_RE = re.compile(
-    r"(?i)(api_key|token|secret|password|authorization|credentials|auth)"
-    r"([\"'\s:=]+)"
-    r"[^\s\"',;]{4,}",
-)
 _ERROR_HINTS = ("error", "exception", "failed", "traceback", "denied", "timeout")
 _INPUT_KEYS = (
     "file_path",
@@ -294,7 +290,7 @@ def _sanitize_text(value: str | None) -> str | None:
     if not value:
         return None
     collapsed = re.sub(r"\s+", " ", value).strip()
-    redacted = _SECRET_RE.sub(r"\1\2[REDACTED]", collapsed)
+    redacted = redact_normal(collapsed)
     return redacted[:MAX_SUMMARY_LEN] + ("..." if len(redacted) > MAX_SUMMARY_LEN else "")
 
 

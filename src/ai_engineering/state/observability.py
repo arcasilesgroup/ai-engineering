@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import json
-import re
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from ai_engineering._shared.redactor import redact_normal
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.capabilities import build_capability_cards
 from ai_engineering.state.control_plane import resolve_constitution_context_path
@@ -63,11 +63,6 @@ HOOK_KIND_DESCRIPTORS: tuple[tuple[str, str], ...] = (
 )
 
 _DEGRADED_HOSTS: frozenset[str] = frozenset({"codex"})
-_SECRET_RE = re.compile(
-    r"(?i)(api_key|token|secret|password|authorization|credentials|auth)"
-    r"([\"'\s:=]+)"
-    r"[^\s\"',;]{4,}",
-)
 _MAX_SUMMARY_LEN = 200
 
 
@@ -224,7 +219,7 @@ def _capture_outcome(
 def _bounded_summary(text: str | None) -> str | None:
     if not text:
         return None
-    redacted = _SECRET_RE.sub(r"\1\2[REDACTED]", text)
+    redacted = redact_normal(text)
     if len(redacted) <= _MAX_SUMMARY_LEN:
         return redacted
     return redacted[:_MAX_SUMMARY_LEN] + "...[truncated]"

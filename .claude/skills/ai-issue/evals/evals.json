@@ -1,0 +1,91 @@
+{
+  "skill": "ai-issue",
+  "version": 1,
+  "notes": "Skill-creator eval corpus (spec-134 D-134-02). >=10 prompts: >=5 should-trigger + >=5 should-not-trigger. Verifiable assertions reference the manifest provider routing and dry-run preview shape.",
+  "cases": [
+    {
+      "id": "trigger-01",
+      "prompt": "open an issue: ruff format crashes on a Unicode file",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-issue'",
+      "rationale": "Direct 'open an issue' verbal trigger."
+    },
+    {
+      "id": "trigger-02",
+      "prompt": "file a bug for the broken pre-commit hook",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-issue'",
+      "rationale": "'file a bug' is a project-board verb."
+    },
+    {
+      "id": "trigger-03",
+      "prompt": "create a task to wire up the new spec gate",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-issue'",
+      "rationale": "'create a task' targets work-item creation."
+    },
+    {
+      "id": "trigger-04",
+      "prompt": "add this conversation to the backlog as P1",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-issue'",
+      "rationale": "'add to backlog' is the canonical work-item phrase."
+    },
+    {
+      "id": "trigger-05",
+      "prompt": "log a work item for the pipeline retry logic",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-issue'",
+      "rationale": "'log a work item' is unambiguous."
+    },
+    {
+      "id": "trigger-06-dry-run",
+      "prompt": "preview what would happen if I filed an issue titled 'fix CLI exit codes'",
+      "expected": "trigger",
+      "assertion": "dry_run_output_contains 'gh issue create' OR 'az boards work-item create'",
+      "rationale": "Preview-only request still routes to /ai-issue with --dry-run."
+    },
+    {
+      "id": "no-trigger-01",
+      "prompt": "report upstream that the framework's /ai-build skill hangs",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-engineering-issue'",
+      "rationale": "Upstream framework bug routes to /ai-engineering-issue, NOT /ai-issue."
+    },
+    {
+      "id": "no-trigger-02",
+      "prompt": "set up our project board for the first time",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-board'",
+      "rationale": "Board configuration is /ai-board discover, not /ai-issue."
+    },
+    {
+      "id": "no-trigger-03",
+      "prompt": "commit and push these changes",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-commit'",
+      "rationale": "Commit pipeline is /ai-commit; nothing to do with issues."
+    },
+    {
+      "id": "no-trigger-04",
+      "prompt": "move issue #45 to in-review on the board",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-board' AND subcommand == 'sync'",
+      "rationale": "State transition is /ai-board sync, not /ai-issue."
+    },
+    {
+      "id": "no-trigger-05",
+      "prompt": "save this debugging finding so I can find it later",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-note'",
+      "rationale": "Knowledge capture is /ai-note, not /ai-issue."
+    },
+    {
+      "id": "no-trigger-06",
+      "prompt": "draft a brief for the new CLI overhaul",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-spec-draft'",
+      "rationale": "Brief authoring is /ai-spec-draft, not /ai-issue."
+    }
+  ]
+}

@@ -39,6 +39,12 @@ import pytest
 # Fixtures: synthetic repo layout for unit isolation.
 # ---------------------------------------------------------------------------
 
+# spec-134 sub-005 mirror diet: the canonical payload no longer
+# carries §10/§14/§15/§16 prose; those sections moved to ``docs/``.
+# The fixture below mirrors that contract — synthetic body holds
+# bootstrap + pointer rows only. Tests that assert "verbatim heading
+# returned" mutate `_CANONICAL_PAYLOAD` in-flight to reintroduce the
+# offending heading.
 _CANONICAL_PAYLOAD = textwrap.dedent(
     """\
     # Header
@@ -47,11 +53,9 @@ _CANONICAL_PAYLOAD = textwrap.dedent(
 
     Read CANONICAL.md.
 
-    ## 10. Engineering Principles
+    ## 10. Engineering Principles (pointer)
 
-    ### §10.5 TDD
-
-    Write the failing test first.
+    See `docs/principles.md` for §10.1 KISS … §10.8 Hexagonal.
     """
 )
 
@@ -349,14 +353,32 @@ def test_forbidden_constitution_headers_constant_is_complete() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _build_docs_targets(repo: Path) -> None:
+    """Write the three sub-005 `docs/` destinations into the fixture root.
+
+    The sub-005 driver requires ``docs/principles.md``,
+    ``docs/mirror-authoring.md``, and ``docs/surface-axioms.md`` to
+    exist on disk; their contents are not inspected by the lint
+    sub-checks (they are content-existence guards only). Test
+    fixtures therefore write stub files; integration tests
+    (``test_canonical_mirror_parity.py``) cover content shape.
+    """
+    docs = repo / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    (docs / "principles.md").write_text("# stub principles\n", encoding="utf-8")
+    (docs / "mirror-authoring.md").write_text("# stub mirror authoring\n", encoding="utf-8")
+    (docs / "surface-axioms.md").write_text("# stub surface axioms\n", encoding="utf-8")
+
+
 @pytest.mark.unit
 def test_driver_aggregates_all_subchecks(tmp_path: Path) -> None:
-    """check_md_mirror_consistency returns ≥5 RubricResult records."""
+    """check_md_mirror_consistency returns ≥7 RubricResult records (sub-005)."""
     _build_fixture(tmp_path)
+    _build_docs_targets(tmp_path)
     from skill_lint.checks.md_mirror import check_md_mirror_consistency
 
     results = check_md_mirror_consistency(tmp_path)
-    assert len(results) >= 5, f"expected ≥5 sub-check results, got {len(results)}"
+    assert len(results) >= 7, f"expected ≥7 sub-check results, got {len(results)}"
     severities = {r.severity for r in results}
     assert severities == {"OK"}, f"all sub-checks should pass on clean fixture, got {severities}"
 
@@ -365,6 +387,7 @@ def test_driver_aggregates_all_subchecks(tmp_path: Path) -> None:
 def test_driver_flags_drift(tmp_path: Path) -> None:
     """Driver surfaces CRITICAL when sha256 equivalence breaks."""
     _build_fixture(tmp_path)
+    _build_docs_targets(tmp_path)
     drifted = _CANONICAL_PAYLOAD.replace("Read CANONICAL.md.", "DRIFT.")
     (tmp_path / "AGENTS.md").write_text(drifted, encoding="utf-8")
     from skill_lint.checks.md_mirror import check_md_mirror_consistency
@@ -372,6 +395,84 @@ def test_driver_flags_drift(tmp_path: Path) -> None:
     results = check_md_mirror_consistency(tmp_path)
     criticals = [r for r in results if r.severity == "CRITICAL"]
     assert criticals, f"expected ≥1 CRITICAL result on drift, got {[r.severity for r in results]}"
+
+
+# ---------------------------------------------------------------------------
+# Check 6 — no extracted §10/§14/§15/§16 section headings in any mirror.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_no_extracted_sections_passes_on_clean_mirrors(tmp_path: Path) -> None:
+    """OK when no mirror carries the verbatim extracted section headings."""
+    _build_fixture(tmp_path)
+    _build_docs_targets(tmp_path)
+    from skill_lint.checks.md_mirror import check_no_extracted_sections_in_mirrors
+
+    result = check_no_extracted_sections_in_mirrors(tmp_path)
+    assert result.severity == "OK", result.reason
+
+
+@pytest.mark.unit
+def test_no_extracted_sections_fails_when_section_10_returns(tmp_path: Path) -> None:
+    """CRITICAL when CLAUDE.md regains the verbatim `## 10. Engineering Principles`."""
+    _build_fixture(tmp_path)
+    _build_docs_targets(tmp_path)
+    polluted = _CANONICAL_PAYLOAD + "\n## 10. Engineering Principles\n\nverbatim prose\n"
+    (tmp_path / "CLAUDE.md").write_text(polluted, encoding="utf-8")
+    from skill_lint.checks.md_mirror import check_no_extracted_sections_in_mirrors
+
+    result = check_no_extracted_sections_in_mirrors(tmp_path)
+    assert result.severity == "CRITICAL", result.reason
+    assert "CLAUDE.md" in result.reason, (
+        f"reason must surface the offending mirror; got {result.reason!r}"
+    )
+
+
+@pytest.mark.unit
+def test_no_extracted_sections_allows_pointer_stub_with_suffix(tmp_path: Path) -> None:
+    """OK when a mirror carries a pointer stub (heading with `(pointer)` suffix)."""
+    _build_fixture(tmp_path)
+    _build_docs_targets(tmp_path)
+    pointer = _CANONICAL_PAYLOAD + (
+        "\n## 10. Engineering Principles (pointer)\n\nsee docs/principles.md\n"
+    )
+    (tmp_path / "CLAUDE.md").write_text(pointer, encoding="utf-8")
+    from skill_lint.checks.md_mirror import check_no_extracted_sections_in_mirrors
+
+    result = check_no_extracted_sections_in_mirrors(tmp_path)
+    assert result.severity == "OK", (
+        f"pointer stub with distinct suffix should pass; got {result.reason!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Check 7 — three sub-005 docs/ targets exist on disk.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_docs_targets_present_passes_when_files_exist(tmp_path: Path) -> None:
+    """OK when all three docs/ destinations exist."""
+    _build_docs_targets(tmp_path)
+    from skill_lint.checks.md_mirror import check_docs_targets_exist
+
+    result = check_docs_targets_exist(tmp_path)
+    assert result.severity == "OK", result.reason
+
+
+@pytest.mark.unit
+def test_docs_targets_present_fails_when_principles_missing(tmp_path: Path) -> None:
+    """CRITICAL when docs/principles.md is absent."""
+    _build_docs_targets(tmp_path)
+    (tmp_path / "docs" / "principles.md").unlink()
+    from skill_lint.checks.md_mirror import check_docs_targets_exist
+
+    result = check_docs_targets_exist(tmp_path)
+    assert result.severity == "CRITICAL", result.reason
+    assert "docs/principles.md" in result.reason, (
+        f"reason must surface the missing target; got {result.reason!r}"
+    )
 
 
 # ---------------------------------------------------------------------------

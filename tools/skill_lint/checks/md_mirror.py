@@ -1,7 +1,8 @@
-"""md_mirror checker — spec-131 S1 contract for the four IDE mirrors.
+"""md_mirror checker — spec-131 S1 + spec-134 sub-005 contracts.
 
-Five sub-checks enforce the byte-equivalent canonical payload + the
-project-identity CONSTITUTION rescope:
+Seven sub-checks enforce the byte-equivalent canonical payload, the
+project-identity CONSTITUTION rescope, and (spec-134 sub-005) the
+mirror-diet boundary that moves §10/§14/§15/§16 prose into ``docs/``:
 
 1. **check_sha256_equivalence** — AGENTS.md, CLAUDE.md, GEMINI.md, and
    `.github/copilot-instructions.md` share identical canonical-payload
@@ -16,6 +17,18 @@ project-identity CONSTITUTION rescope:
 5. **check_constitution_clean** — after D-131-04 migration,
    CONSTITUTION.md owns project identity only and must not contain any
    header from ``FORBIDDEN_CONSTITUTION_HEADERS``.
+6. **check_no_extracted_sections_in_mirrors** (spec-134 sub-005) — no
+   mirror carries the VERBATIM extracted-section heading (``## 10.
+   Engineering Principles``, ``## 14. Strict Content Contracts``,
+   ``## 15. IDE-Extras Escape Hatch``, ``## 16. Surface Axioms``).
+   Pointer stubs with a distinct heading (e.g. ``## 10. Engineering
+   Principles (pointer)``) are intentionally allowed because the
+   prose lives in ``docs/``. Applies §10.4 (DRY) — one canonical home.
+7. **check_docs_targets_exist** (spec-134 sub-005) — the three
+   ``docs/`` destinations that own the extracted prose
+   (``docs/principles.md``, ``docs/mirror-authoring.md``,
+   ``docs/surface-axioms.md``) must exist on disk. Applies §10.1
+   (KISS) — fail fast if a pointer goes nowhere.
 
 Pure-stdlib (re + pathlib + hashlib). Returns ``RubricResult`` records
 that fold into the existing ``skill_lint --check`` rendering pipeline.
@@ -229,15 +242,102 @@ def check_constitution_clean(repo_root: Path) -> RubricResult:
     )
 
 
+# ── spec-134 sub-005: mirror-diet contract ───────────────────────────────
+# Verbatim extracted-section heading patterns. Anchored ``^…$`` (MULTILINE)
+# so pointer-stub headings with a distinct suffix (e.g. ``## 10.
+# Engineering Principles (pointer)``) survive without false-positives.
+# Applies §10.4 (DRY) — one canonical home — and §10.1 (KISS) — every
+# pattern stays on a single line.
+_EXTRACTED_HEADING_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^## 10\. Engineering Principles\s*$", re.MULTILINE),
+    re.compile(r"^## 14\. Strict Content Contracts\b.*$", re.MULTILINE),
+    re.compile(r"^## 15\. IDE-Extras Escape Hatch\b.*$", re.MULTILINE),
+    re.compile(r"^## 16\. Surface Axioms\b.*$", re.MULTILINE),
+)
+
+# Required `docs/` destinations for the extracted prose.
+_DOCS_TARGETS: tuple[str, ...] = (
+    "docs/principles.md",
+    "docs/mirror-authoring.md",
+    "docs/surface-axioms.md",
+)
+
+
+def check_no_extracted_sections_in_mirrors(repo_root: Path) -> RubricResult:
+    """OK when no mirror carries an extracted-section heading verbatim.
+
+    spec-134 sub-005 mirror-diet contract: §10 / §14 / §15 / §16 prose
+    moved to ``docs/``. Mirrors retain pointer stubs whose headings
+    carry a distinct suffix (``(pointer)`` etc.). A verbatim match of
+    the original heading indicates the section reverted into a mirror,
+    breaking the §10.4 DRY contract.
+    """
+    offenders: list[str] = []
+    for rel in _MIRRORS:
+        path = repo_root / rel
+        if not path.is_file():
+            continue
+        body = path.read_text(encoding="utf-8")
+        for pattern in _EXTRACTED_HEADING_PATTERNS:
+            if pattern.search(body):
+                offenders.append(f"{rel}: {pattern.pattern}")
+                break
+    if offenders:
+        return RubricResult(
+            "md_mirror_no_extracted_sections",
+            "CRITICAL",
+            f"extracted section prose returned to mirrors: {offenders}",
+        )
+    return RubricResult(
+        "md_mirror_no_extracted_sections",
+        "OK",
+        "no extracted-section headings in any mirror (sub-005 diet)",
+    )
+
+
+def check_docs_targets_exist(repo_root: Path) -> RubricResult:
+    """OK when the three sub-005 `docs/` targets exist on disk.
+
+    spec-134 sub-005: pointer rows reference ``docs/principles.md``,
+    ``docs/mirror-authoring.md``, and ``docs/surface-axioms.md`` as
+    canonical homes for the extracted prose. A missing destination
+    means a pointer leads nowhere — fail-fast (§10.1 KISS).
+    """
+    missing: list[str] = []
+    for rel in _DOCS_TARGETS:
+        path = repo_root / rel
+        if not path.is_file():
+            missing.append(rel)
+    if missing:
+        return RubricResult(
+            "md_mirror_docs_targets_exist",
+            "CRITICAL",
+            f"missing canonical docs destinations: {missing}",
+        )
+    return RubricResult(
+        "md_mirror_docs_targets_exist",
+        "OK",
+        f"all {len(_DOCS_TARGETS)} sub-005 docs targets present",
+    )
+
+
 # ───────────────────────────── driver ─────────────────────────────────────
 
 
 def check_md_mirror_consistency(repo_root: Path) -> list[RubricResult]:
-    """Run all five md_mirror sub-checks and return their results."""
+    """Run all seven md_mirror sub-checks and return their results.
+
+    spec-131 S1 contributed the first five sub-checks (sha256 parity,
+    @AGENTS.md import, gemini/codex orphans, CONSTITUTION cleanliness).
+    spec-134 sub-005 added the final two (no extracted sections in
+    mirrors, docs/ targets exist).
+    """
     return [
         check_sha256_equivalence(repo_root),
         check_no_agents_import(repo_root),
         check_no_gemini_orphan(repo_root),
         check_no_codex_orphan(repo_root),
         check_constitution_clean(repo_root),
+        check_no_extracted_sections_in_mirrors(repo_root),
+        check_docs_targets_exist(repo_root),
     ]

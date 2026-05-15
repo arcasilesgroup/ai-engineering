@@ -150,12 +150,117 @@ def test_sync_check_is_idempotent_on_fresh_tree() -> None:
 
 @pytest.mark.integration
 def test_canonical_payload_carries_section_10_principles() -> None:
-    """The canonical body cites §10.1-§10.8 anchors (CANONICAL.md §10)."""
-    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    """Engineering-principle anchors §10.x live in `docs/principles.md` (sub-005).
+
+    spec-134 D-134-05 / sub-005 mirror diet: §10 Engineering Principles
+    moved out of the four IDE mirrors and into the canonical home
+    `docs/principles.md`. The mirror payload retains a pointer line
+    referencing that file so the canonical chain `AGENTS.md →
+    docs/principles.md` resolves; the §10.1/§10.5/§10.8 anchors that
+    34 skill/agent files cite survive at the new home.
+    """
+    principles_doc = REPO_ROOT / "docs" / "principles.md"
+    assert principles_doc.is_file(), (
+        "docs/principles.md MUST exist as the canonical home for §10 anchors "
+        "(sub-005 extracts §10 prose out of mirrors)"
+    )
+    principles_text = principles_doc.read_text(encoding="utf-8")
     for anchor in ("§10.1", "§10.5", "§10.8"):
-        assert anchor in agents, (
-            f"canonical payload must declare engineering principle {anchor}; see CANONICAL.md §10"
+        assert anchor in principles_text, (
+            f"docs/principles.md must declare engineering-principle anchor {anchor}"
         )
+    agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
+    assert "docs/principles.md" in agents, (
+        "AGENTS.md (canonical payload) must carry a pointer line referencing "
+        "docs/principles.md so consumers can locate §10.x anchors"
+    )
+
+
+# Headings of the four sections extracted to `docs/` by sub-005. The
+# match anchors `^…$` (MULTILINE) so a pointer-stub heading that adds
+# a suffix (e.g. `## 10. Engineering Principles (pointer)`) is
+# correctly distinguished from the verbatim extracted heading.
+_EXTRACTED_HEADING_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^## 10\. Engineering Principles\s*$", re.MULTILINE),
+    re.compile(r"^## 14\. Strict Content Contracts\b.*$", re.MULTILINE),
+    re.compile(r"^## 15\. IDE-Extras Escape Hatch\b.*$", re.MULTILINE),
+    re.compile(r"^## 16\. Surface Axioms\b.*$", re.MULTILINE),
+)
+
+
+@pytest.mark.integration
+def test_canonical_payload_extracts_principles_and_axioms_to_docs() -> None:
+    """sub-005 mirror diet contract: §10 / §14 / §15 / §16 live in docs/.
+
+    After spec-134 sub-005 ships, the four IDE mirrors carry pointer
+    rows only — the verbatim prose lives in:
+
+    - `docs/principles.md`        — §10 Engineering Principles (§10.1-§10.8)
+    - `docs/mirror-authoring.md`  — §14 Strict Content Contracts + §15 IDE-Extras
+    - `docs/surface-axioms.md`    — §16 Surface Axioms (A1 / A2)
+
+    This test pins the extraction contract end-to-end so the lint
+    surface (`tools/skill_lint/checks/md_mirror.py` sub-checks 6 + 7)
+    has a matching integration-level guard.
+    """
+    # (a) docs/principles.md exists and carries §10.1..§10.8 anchors.
+    principles_doc = REPO_ROOT / "docs" / "principles.md"
+    assert principles_doc.is_file(), (
+        f"missing canonical home: {principles_doc.relative_to(REPO_ROOT)}"
+    )
+    principles_text = principles_doc.read_text(encoding="utf-8")
+    for n in range(1, 9):
+        anchor = f"§10.{n}"
+        assert anchor in principles_text, (
+            f"docs/principles.md must carry anchor {anchor} (sub-005 lossless migration)"
+        )
+
+    # (b) docs/mirror-authoring.md exists and carries the authoring table header.
+    authoring_doc = REPO_ROOT / "docs" / "mirror-authoring.md"
+    assert authoring_doc.is_file(), (
+        f"missing canonical home: {authoring_doc.relative_to(REPO_ROOT)}"
+    )
+    authoring_text = authoring_doc.read_text(encoding="utf-8")
+    assert "MUST contain" in authoring_text and "MUST NOT contain" in authoring_text, (
+        "docs/mirror-authoring.md must preserve the per-file authoring table "
+        "(MUST contain / MUST NOT contain columns)"
+    )
+
+    # (c) docs/surface-axioms.md exists and carries A1 / A2 headers.
+    axioms_doc = REPO_ROOT / "docs" / "surface-axioms.md"
+    assert axioms_doc.is_file(), f"missing canonical home: {axioms_doc.relative_to(REPO_ROOT)}"
+    axioms_text = axioms_doc.read_text(encoding="utf-8")
+    assert "A1 — Surface Axiom" in axioms_text, (
+        "docs/surface-axioms.md must carry the A1 Surface Axiom heading"
+    )
+    assert "A2 — No-Twin Axiom" in axioms_text, (
+        "docs/surface-axioms.md must carry the A2 No-Twin Axiom heading"
+    )
+
+    # (d) NONE of the four root mirrors carry the extracted section
+    # headings VERBATIM. Pointer stubs that adopt a distinct heading
+    # (e.g. `## 10. Engineering Principles (pointer)`) are allowed
+    # because they signal the new home and do NOT carry the
+    # extracted prose.
+    offenders: list[tuple[str, str]] = []
+    for rel in _MIRRORS:
+        body = (REPO_ROOT / rel).read_text(encoding="utf-8")
+        for pattern in _EXTRACTED_HEADING_PATTERNS:
+            match = pattern.search(body)
+            if match is not None:
+                offenders.append((rel, match.group(0)))
+    assert not offenders, (
+        "sub-005 contract: mirrors must not carry extracted section prose; offenders:\n  "
+        + "\n  ".join(f"{rel}: {h}" for rel, h in offenders)
+    )
+
+    # (e) every mirror carries pointer lines back to the three docs/ destinations.
+    for rel in _MIRRORS:
+        body = (REPO_ROOT / rel).read_text(encoding="utf-8")
+        for target in ("docs/principles.md", "docs/mirror-authoring.md", "docs/surface-axioms.md"):
+            assert target in body, (
+                f"{rel} must carry a pointer line referencing {target} (sub-005 mirror diet)"
+            )
 
 
 @pytest.mark.integration
