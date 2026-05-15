@@ -39,5 +39,5 @@ def test_no_ai_eng_guide_references_in_src() -> None:
         "D-133-02 violated — `ai-eng guide` referenced in production source. "
         "The command was hard-deleted; point users at /ai-onboard (in your AI surface) "
         "or the install-state.json branch_policy.manual_guide field instead. "
-        f"Offending sites:\n" + "\n".join(f"  {p}:{ln}: {snippet}" for p, ln, snippet in offenders)
+        "Offending sites:\n" + "\n".join(f"  {p}:{ln}: {snippet}" for p, ln, snippet in offenders)
     )
