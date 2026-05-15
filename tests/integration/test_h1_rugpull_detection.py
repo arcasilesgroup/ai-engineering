@@ -280,13 +280,15 @@ def test_mismatch_with_active_dec_permits_and_updates_baseline(tmp_path: Path) -
     _write_minimal_manifest(target, ruff_scope="project_local")
 
     # Persist DEC active for python:ruff mismatch.
+    # spec-124 D-124-12 / spec-125: decision-store moved from JSON sidecar
+    # to state.db. _check_tool_spec_hashes now consults
+    # StateService(target).load_decisions(), so the test must UPSERT into
+    # state.db rather than the legacy JSON path.
+    from ai_engineering.state.state_db import upsert_decision_rows
+
     store = _decision_store_with_h1_acceptance("python:ruff")
-    store_path = target / ".ai-engineering" / "state" / "decision-store.json"
-    store_path.parent.mkdir(parents=True, exist_ok=True)
-    store_path.write_text(
-        store.model_dump_json(by_alias=True, indent=2),
-        encoding="utf-8",
-    )
+    (target / ".ai-engineering" / "state").mkdir(parents=True, exist_ok=True)
+    upsert_decision_rows(target, store)
 
     manual_steps: list[str] = []
     _check_tool_spec_hashes(target, state, manual_steps=manual_steps)

@@ -143,12 +143,10 @@ class TestInstallCommand:
         data = json.loads(result.stdout)
         assert data["result"]["already_installed"] is True
 
-        # Verify the Corr-1 markers landed on STDERR (grep-able after
-        # ``2>&1`` merge) and not on STDOUT.
-        assert "tool:" in result.stderr, (
-            "expected at least one 'tool:<name>:<marker>' line in non-interactive "
-            f"stderr; got {result.stderr!r}"
-        )
+        # Post spec-101 Wave 28: when `already_installed=True` the install
+        # short-circuits before the tools phase runs, so no per-tool skip
+        # markers are emitted. The contract that survived is "STDOUT is
+        # JSON-pure" — make that the explicit assertion.
         assert "tool:" not in result.stdout, (
             "tool:<name>:<marker> markers must NOT appear on stdout — JSON "
             f"consumers parse stdout. got stdout={result.stdout!r}"

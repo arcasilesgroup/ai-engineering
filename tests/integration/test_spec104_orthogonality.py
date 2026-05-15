@@ -179,6 +179,14 @@ def test_manifest_yml_spec104_change_is_additive_only() -> None:
 
     assert isinstance(manifest, dict), "manifest.yml must parse to a top-level mapping"
 
+    # spec-128 slim-manifest: spec-101-owned keys (required_tools, python_env,
+    # prereqs) are framework-managed defaults injected by apply_framework_defaults
+    # rather than committed in raw YAML. The orthogonality contract still holds
+    # post-injection: spec-104 must not strip or rewrite those blocks.
+    from ai_engineering.config.framework_defaults import apply_framework_defaults
+
+    apply_framework_defaults(manifest)
+
     top_level_keys = set(manifest.keys())
     missing = SPEC_101_OWNED_TOP_LEVEL_KEYS - top_level_keys
 

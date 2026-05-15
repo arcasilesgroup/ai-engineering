@@ -28,7 +28,15 @@ runner = CliRunner()
 
 
 def _seed_decision_store(root: Path, dec_id: str, rule_id: str) -> None:
-    """Persist a single active risk-acceptance covering ``rule_id``."""
+    """Persist a single active risk-acceptance covering ``rule_id``.
+
+    spec-124 D-124-12 / spec-125: decision-store moved from JSON sidecar
+    to state.db. The orchestrator's lookup reads via the StateService, so
+    seeding must UPSERT into state.db rather than write the legacy JSON.
+    """
+    from ai_engineering.state.models import DecisionStore
+    from ai_engineering.state.state_db import upsert_decision_rows
+
     state_dir = root / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -49,7 +57,8 @@ def _seed_decision_store(root: Path, dec_id: str, rule_id: str) -> None:
             }
         ],
     }
-    (state_dir / "decision-store.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    store = DecisionStore.model_validate(payload)
+    upsert_decision_rows(root, store)
 
 
 def _read_events(events_path: Path) -> list[dict]:
