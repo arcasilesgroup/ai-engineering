@@ -43,7 +43,7 @@ def _tree_actions(root: Path, src_tree: str, dest_tree: str, target: Path, ow: b
 
 
 class IdeConfigPhase:
-    """Deploy Surface-specific configuration files (Surfaces × VCS templates)."""
+    """Deploy Surface-specific configuration files (Surfaces x VCS templates)."""
 
     def __init__(self) -> None:
         self._resolved_maps = None

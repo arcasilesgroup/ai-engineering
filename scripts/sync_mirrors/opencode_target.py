@@ -28,7 +28,7 @@ canonical payload, so no per-surface root rewrite is required.
 
 The skill generator reuses ``generate_codex_skill`` (structural
 equivalence with the AGENTS.md-rooted convention). OpenCode's SKILL.md
-schema recognises ``name`` (1–64 chars, lowercase-alphanumeric-hyphen,
+schema recognises ``name`` (1-64 chars, lowercase-alphanumeric-hyphen,
 matches dir name), ``description`` (mandatory), ``license``,
 ``compatibility``, and ``metadata`` (string-to-string map). The Codex
 generator already produces ``name`` + ``description``; extra Claude

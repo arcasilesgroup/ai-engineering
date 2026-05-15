@@ -310,7 +310,10 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     },
     "ai-simplify": {"type": "workflow", "tags": ["refactor", "complexity", "simplification"]},
     "ai-simplify-sweep": {"type": "meta", "tags": ["simplification", "scheduled", "autonomous"]},
-    "ai-reliability-eval": {"type": "workflow", "tags": ["evaluation", "gate", "regression", "pass-at-k"]},
+    "ai-reliability-eval": {
+        "type": "workflow",
+        "tags": ["evaluation", "gate", "regression", "pass-at-k"],
+    },
     "ai-issue": {"type": "workflow", "tags": ["work-items", "board", "issue"]},
     "ai-engineering-issue": {
         "type": "enterprise",

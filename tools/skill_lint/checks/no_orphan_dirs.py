@@ -15,8 +15,8 @@ Canonical orphan paths (D-133-13 + D-133-10):
 1. ``.ai-engineering/adapters/``           — renamed to ``overrides/`` (D-128-01)
 2. ``.ai-engineering/contexts/frameworks/`` — eliminated by D-128-01
 3. ``.ai-engineering/contexts/languages/``  — eliminated by D-128-01
-4. ``.claude/skills/ai-debug/handlers/``    — content moved to ``overrides/<stack>/debug.md`` (D-133-10)
-5. ``.claude/skills/ai-review/handlers/``   — content moved to ``overrides/<stack>/review.md`` (D-133-10)
+4. ``.claude/skills/ai-debug/handlers/``    — moved to ``overrides/<stack>/debug.md`` (D-133-10)
+5. ``.claude/skills/ai-review/handlers/``   — moved to ``overrides/<stack>/review.md`` (D-133-10)
 
 Surface mirrors of the ai-debug / ai-review handlers/ dirs are scanned
 under .codex, .gemini, .github, and the template tree, since

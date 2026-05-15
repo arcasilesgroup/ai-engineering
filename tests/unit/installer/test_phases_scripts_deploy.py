@@ -140,7 +140,7 @@ _SKILL_FILES = (
 
 
 def test_scripts_phase_deploys_skill_scripts_lib_directory(ctx: InstallContext) -> None:
-    """spec-128 Wave 4: skill_scripts_lib must land under skills/ so session_bootstrap imports resolve."""
+    """spec-128 Wave 4: skill_scripts_lib lands under skills/ for session_bootstrap imports."""
     phase = ScriptsPhase()
     plan = phase.plan(ctx)
     phase.execute(plan, ctx)
@@ -150,7 +150,7 @@ def test_scripts_phase_deploys_skill_scripts_lib_directory(ctx: InstallContext) 
 
 
 def test_scripts_phase_deploys_skill_scripts_directory(ctx: InstallContext) -> None:
-    """spec-128 Wave 4: skill_scripts subdir (cleanup_run, resolve_classify, standup_render) must land."""
+    """spec-128 Wave 4: skill_scripts subdir lands (cleanup_run, resolve_classify, ...)."""
     phase = ScriptsPhase()
     plan = phase.plan(ctx)
     phase.execute(plan, ctx)

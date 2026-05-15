@@ -39,7 +39,9 @@ _KNOWN_OVERLAPS = {
     "commit": "a2-aligned",  # ai-eng commit + /ai-commit: skill wraps CLI
     "pr": "a2-aligned",  # ai-eng pr + /ai-pr: skill wraps CLI
     "verify": "a2-distinct",  # ai-eng verify (deterministic) vs /ai-verify (LLM 4-specialist)
-    "issue": "a2-distinct",  # ai-eng issue (spec→tracker sync, deterministic) vs /ai-issue (LLM orchestrator, D-134-02)
+    # ai-eng issue: deterministic spec→tracker sync;
+    # /ai-issue: LLM orchestrator (D-134-02)
+    "issue": "a2-distinct",
     # Historical note (spec-134 D-134-06): /ai-cleanup → /ai-repo-tidy renamed
     # the chat surface. The CLI keeps its `ai-eng cleanup` verb. The verb
     # collision that motivated the original "cleanup": a2-distinct entry no

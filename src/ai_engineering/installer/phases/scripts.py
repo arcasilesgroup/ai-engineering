@@ -168,7 +168,8 @@ class ScriptsPhase:
         if not skills_lib_init.exists():
             verdict.passed = False
             verdict.errors.append(
-                f"ScriptsPhase verification failed; missing: {_SKILLS_SUBTREE_REL}/{_SKILLS_LIB_INIT}"
+                "ScriptsPhase verification failed; "
+                f"missing: {_SKILLS_SUBTREE_REL}/{_SKILLS_LIB_INIT}"
             )
         if result.failed:
             verdict.passed = False

@@ -7,7 +7,7 @@ Mutations route through the interactive wizard via ``install --reconfigure``.
 
     ai-eng config                      # show posture (calls render_config)
     ai-eng config stack list           # list active stacks
-    ai-eng config surface list         # list available surfaces × enabled
+    ai-eng config surface list         # list available surfaces x enabled
     ai-eng config vcs status           # show primary VCS provider
     ai-eng config reconfigure          # re-run the interactive wizard
 """
@@ -36,7 +36,7 @@ def config_cmd(
     """Display the current configuration posture.
 
     With no sub-command, prints the canonical ``render_config`` view
-    (surfaces × stacks × policy). Sub-commands (``stack``, ``surface``,
+    (surfaces x stacks x policy). Sub-commands (``stack``, ``surface``,
     ``vcs``, ``reconfigure``) are routed by Typer.
     """
     if ctx.invoked_subcommand is not None:

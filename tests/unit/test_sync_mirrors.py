@@ -67,7 +67,7 @@ _EXPECTED_AGENT_NAMES = frozenset(
         "autopilot",
         "build",
         "explore",
-        "advise",   # spec-134 D-134-06: renamed from "guard"
+        "advise",  # spec-134 D-134-06: renamed from "guard"
         "onboard",  # spec-134 D-134-06: renamed from "guide"
         "plan",
         "review",
