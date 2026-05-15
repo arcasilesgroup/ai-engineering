@@ -36,7 +36,7 @@ def test_fresh_install_emits_no_stale_state_warning(tmp_path: Path, caplog) -> N
     _ensure_project_marker(tmp_path)
 
     with caplog.at_level(logging.WARNING):
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
     stale_warnings = [r for r in caplog.records if "stale state JSON fallback" in r.getMessage()]
     assert not stale_warnings, (
@@ -50,7 +50,7 @@ def test_fresh_install_no_legacy_json_sidecars(tmp_path: Path) -> None:
     _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
-    install(tmp_path, stacks=["python"], ides=["vscode"])
+    install(tmp_path, stacks=["python"])
 
     state_dir = tmp_path / ".ai-engineering" / "state"
     for legacy in ("ownership-map.json", "decision-store.json"):
@@ -65,7 +65,7 @@ def test_fresh_install_under_thirty_seconds(tmp_path: Path) -> None:
     _ensure_project_marker(tmp_path)
 
     started = time.monotonic()
-    install(tmp_path, stacks=["python"], ides=["vscode"])
+    install(tmp_path, stacks=["python"])
     elapsed = time.monotonic() - started
 
     assert elapsed < 30.0, f"Fresh install took {elapsed:.2f}s; spec-132 acceptance budget is 30s."
@@ -76,7 +76,7 @@ def test_only_root_constitution_after_install(tmp_path: Path) -> None:
     _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
-    install(tmp_path, stacks=["python"], ides=["vscode"])
+    install(tmp_path, stacks=["python"])
 
     matches = sorted(tmp_path.rglob("CONSTITUTION.md"))
     assert len(matches) == 1, (

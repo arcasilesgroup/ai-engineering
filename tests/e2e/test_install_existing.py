@@ -32,7 +32,7 @@ class TestInstallExisting:
         readme = tmp_path / "README.md"
         readme.write_text("# My Project\n", encoding="utf-8")
 
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         # Existing files must be untouched
         assert app_py.read_text(encoding="utf-8") == "print('hello')\n"
@@ -46,7 +46,7 @@ class TestInstallExisting:
         claude = tmp_path / "CLAUDE.md"
         claude.write_text("# My Custom CLAUDE\n", encoding="utf-8")
 
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         # Create-only: must NOT overwrite
         assert claude.read_text(encoding="utf-8") == "# My Custom CLAUDE\n"
@@ -55,14 +55,14 @@ class TestInstallExisting:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         # Modify a team-managed file
         team_file = tmp_path / ".ai-engineering" / "contexts" / "team" / "README.md"
         if team_file.exists():
             team_file.write_text("# Team customised\n", encoding="utf-8")
 
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         # Team file must be preserved
         if team_file.exists():
@@ -72,7 +72,7 @@ class TestInstallExisting:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         # Spec-125: snapshot the install_state singleton row in state.db
         # (JSON file no longer exists).
@@ -91,7 +91,7 @@ class TestInstallExisting:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         # Modify a team-managed file
         team_file = tmp_path / ".ai-engineering" / "contexts" / "team" / "README.md"
@@ -138,7 +138,7 @@ class TestInstallExisting:
         )
 
         # Install should work fine alongside git history
-        result = install(tmp_path, stacks=["python"], ides=["vscode"])
+        result = install(tmp_path, stacks=["python"])
         assert result.total_created > 0
 
         # Original file untouched
@@ -148,7 +148,7 @@ class TestInstallExisting:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         from ai_engineering.config.loader import load_manifest_config
 
         config = load_manifest_config(tmp_path)
@@ -159,7 +159,7 @@ class TestInstallExisting:
         tmp_path: Path,
     ) -> None:
         """Update restores modified .claude/ tree files."""
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         skill_md = tmp_path / ".claude" / "skills" / "ai-commit" / "SKILL.md"
         if not skill_md.exists():
@@ -181,7 +181,7 @@ class TestInstallExisting:
         """Simulated write failure triggers rollback — files stay intact."""
         from unittest.mock import patch
 
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         # spec-133 D-133-13: contexts/languages/ deleted. Use overrides/
         # which is the canonical home for stack-specific content (D-133-12).

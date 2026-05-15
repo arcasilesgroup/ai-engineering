@@ -213,7 +213,7 @@ def coldcache_project(tmp_path: Path) -> Path:
            ``git add`` them (the staged-file list is what ``gate run``
            hashes for cache key derivation).
     """
-    install(tmp_path, stacks=["python"], ides=["vscode"])
+    install(tmp_path, stacks=["python"])
     _initialise_git_repo(tmp_path)
     _seed_staged_python_files(tmp_path, _STAGED_FILE_COUNT)
     return tmp_path

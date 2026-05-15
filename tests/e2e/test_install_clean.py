@@ -24,7 +24,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         ai_dir = tmp_path / ".ai-engineering"
         assert ai_dir.is_dir()
 
@@ -32,7 +32,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         ai_dir = tmp_path / ".ai-engineering"
 
         # spec-133 D-133-13: contexts/{frameworks,languages} deleted —
@@ -56,7 +56,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         assert (tmp_path / "CONSTITUTION.md").is_file(), "Missing root CONSTITUTION.md"
 
@@ -64,7 +64,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         state_dir = tmp_path / ".ai-engineering" / "state"
 
         # Spec-125: install_state + framework_capabilities live in state.db.
@@ -88,7 +88,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         # Spec-125: read the install_state singleton row from state.db.
         from ai_engineering.state.service import load_install_state
 
@@ -99,7 +99,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
         entries = read_ndjson_entries(events_path, FrameworkEvent)
         assert len(entries) >= 1
@@ -111,14 +111,14 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         assert (tmp_path / "CLAUDE.md").is_file()
 
     def test_install_creates_governance_content(
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         ai_dir = tmp_path / ".ai-engineering"
 
         # Should have the manifest template
@@ -132,7 +132,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         team_dir = tmp_path / ".ai-engineering" / "contexts" / "team"
 
         # Team context remains an optional user-owned layer and is no longer seeded.
@@ -153,7 +153,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         specs_dir = tmp_path / ".ai-engineering" / "specs"
 
         assert (specs_dir / "spec.md").is_file()
@@ -169,7 +169,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        result = install(tmp_path, stacks=["python"], ides=["vscode"])
+        result = install(tmp_path, stacks=["python"])
         assert result.total_created > 0
         assert result.governance_files.skipped == []
         assert not result.already_installed
@@ -178,7 +178,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
 
         result = update(tmp_path, dry_run=True)
 
@@ -191,8 +191,8 @@ class TestInstallClean:
         assert hook_updates == []
 
     def test_install_idempotent(self, tmp_path: Path) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
-        second = install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
+        second = install(tmp_path, stacks=["python"])
 
         assert second.already_installed is True
         # Second install should skip all governance and project files
@@ -203,7 +203,7 @@ class TestInstallClean:
         self,
         tmp_path: Path,
     ) -> None:
-        install(tmp_path, stacks=["python"], ides=["vscode"])
+        install(tmp_path, stacks=["python"])
         state_dir = tmp_path / ".ai-engineering" / "state"
 
         for f in state_dir.glob("*.json"):
@@ -218,7 +218,7 @@ class TestInstallClean:
         subprocess.run(
             ["git", "init", "-b", "main", str(tmp_path)], check=True, capture_output=True
         )
-        result = install(tmp_path, stacks=["python"], ides=["vscode"])
+        result = install(tmp_path, stacks=["python"])
         hooks_dir = tmp_path / ".git" / "hooks"
         assert (hooks_dir / "pre-commit").is_file()
         assert (hooks_dir / "commit-msg").is_file()
@@ -230,6 +230,6 @@ class TestInstallClean:
         tmp_path: Path,
     ) -> None:
         """Without .git/, install runs git init and installs hooks."""
-        result = install(tmp_path, stacks=["python"], ides=["vscode"])
+        result = install(tmp_path, stacks=["python"])
         assert (tmp_path / ".git").is_dir()
         assert len(result.hooks.installed) == 3

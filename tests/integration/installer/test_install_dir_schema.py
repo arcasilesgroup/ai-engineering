@@ -87,7 +87,7 @@ def test_install_directory_layout_matches_snapshot(tmp_path: Path) -> None:
     _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
-    install(tmp_path, stacks=["python"], ides=["vscode"])
+    install(tmp_path, stacks=["python"])
 
     actual_lines = _snapshot_install_layout(tmp_path)
     actual_text = "\n".join(actual_lines) + "\n"

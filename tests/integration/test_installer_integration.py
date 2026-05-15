@@ -312,7 +312,7 @@ class TestInstallOnEmptyRepo:
         assert state.operational_readiness is not None
 
     def test_custom_stacks_and_ides(self, tmp_path: Path) -> None:
-        install(tmp_path, stacks=["python", "node"], ides=["vscode", "terminal"])
+        install(tmp_path, stacks=["python", "node"])
 
         import yaml
 

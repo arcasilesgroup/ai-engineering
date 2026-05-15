@@ -133,7 +133,7 @@ def installed_project(tmp_path: Path) -> Path:
     Returns:
         Path to the installed project root.
     """
-    install(tmp_path, stacks=["python"], ides=["vscode"])
+    install(tmp_path, stacks=["python"])
     return tmp_path
 
 

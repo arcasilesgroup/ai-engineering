@@ -310,7 +310,7 @@ def test_config_stack_and_ide_empty_lists(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     empty_manifest = SimpleNamespace(
-        providers=SimpleNamespace(stacks=[], ides=[]),
+        providers=SimpleNamespace(stacks=[]),
         ai_providers=SimpleNamespace(enabled=[], primary=None),
     )
     with patch("ai_engineering.cli_commands.config.list_status", return_value=empty_manifest):

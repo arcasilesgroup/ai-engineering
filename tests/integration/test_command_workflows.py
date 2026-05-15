@@ -59,7 +59,7 @@ def _kernel_gate_document() -> GateFindingsDocument:
 @pytest.fixture()
 def installed_project(tmp_path: Path) -> Path:
     """Create a fully installed project for testing."""
-    install(tmp_path, stacks=["python"], ides=["vscode"])
+    install(tmp_path, stacks=["python"])
     return tmp_path
 
 
