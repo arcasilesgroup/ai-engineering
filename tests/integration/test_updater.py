@@ -64,13 +64,13 @@ class TestDryRun:
     def test_dry_run_does_not_modify_files(self, installed_project: Path) -> None:
         # Modify a framework-managed file to create a diff
         core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
-        core_md.read_text()
-        core_md.write_text("modified content")
+        core_md.read_text(encoding="utf-8")
+        core_md.write_text("modified content", encoding="utf-8")
 
         result = update(installed_project, dry_run=True)
 
         # File should still be modified (dry-run doesn't change)
-        assert core_md.read_text() == "modified content"
+        assert core_md.read_text(encoding="utf-8") == "modified content"
         assert result.applied_count > 0  # Would have applied changes
 
     def test_dry_run_no_new_framework_events(self, installed_project: Path) -> None:
@@ -95,18 +95,18 @@ class TestApply:
     def test_applies_changes(self, installed_project: Path) -> None:
         # Modify a framework-managed file
         core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
-        core_md.write_text("outdated content")
+        core_md.write_text("outdated content", encoding="utf-8")
 
         result = update(installed_project, dry_run=False)
 
         assert result.dry_run is False
         # File should be restored from template
-        assert core_md.read_text() != "outdated content"
+        assert core_md.read_text(encoding="utf-8") != "outdated content"
 
     def test_apply_logs_framework_operation(self, installed_project: Path) -> None:
         # Create a diff to trigger an update
         core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
-        core_md.write_text("outdated")
+        core_md.write_text("outdated", encoding="utf-8")
 
         events_path = installed_project / ".ai-engineering" / "state" / "framework-events.ndjson"
         lines_before = _count_lines(events_path)
@@ -116,7 +116,7 @@ class TestApply:
         lines_after = _count_lines(events_path)
         assert lines_after > lines_before
 
-        last_line = events_path.read_text().strip().splitlines()[-1]
+        last_line = events_path.read_text(encoding="utf-8").strip().splitlines()[-1]
         entry = json.loads(last_line)
         assert entry["kind"] == "framework_operation"
         assert entry["detail"]["operation"] == "update"
@@ -141,11 +141,11 @@ class TestOwnershipSafety:
     def test_team_managed_path_not_overwritten(self, installed_project: Path) -> None:
         team_lessons = installed_project / ".ai-engineering" / "contexts" / "team" / "lessons.md"
         team_lessons.parent.mkdir(parents=True, exist_ok=True)
-        team_lessons.write_text("custom team content")
+        team_lessons.write_text("custom team content", encoding="utf-8")
 
         update(installed_project, dry_run=False)
 
-        assert team_lessons.read_text() == "custom team content"
+        assert team_lessons.read_text(encoding="utf-8") == "custom team content"
 
     @pytest.mark.skip(
         reason=(
@@ -159,7 +159,7 @@ class TestOwnershipSafety:
         # Modify a team-managed file that exists in templates
         team_lessons = installed_project / ".ai-engineering" / "contexts" / "team" / "lessons.md"
         team_lessons.parent.mkdir(parents=True, exist_ok=True)
-        team_lessons.write_text("custom team content")
+        team_lessons.write_text("custom team content", encoding="utf-8")
 
         result = update(installed_project, dry_run=True)
 
@@ -202,12 +202,12 @@ class TestOwnershipSafety:
 
     def test_promoted_root_context_is_framework_managed(self, installed_project: Path) -> None:
         promoted = installed_project / ".ai-engineering" / "contexts" / "cli-ux.md"
-        original = promoted.read_text()
-        promoted.write_text("stale promoted context")
+        original = promoted.read_text(encoding="utf-8")
+        promoted.write_text("stale promoted context", encoding="utf-8")
 
         result = update(installed_project, dry_run=False)
 
-        assert promoted.read_text() == original
+        assert promoted.read_text(encoding="utf-8") == original
         updated = [c for c in result.changes if c.path == promoted and c.action == "update"]
         assert len(updated) == 1
 
@@ -227,7 +227,7 @@ class TestTemplateTrees:
             pytest.skip("ai-commit skill not found in installed project")
 
         original = skill_md.read_bytes()
-        skill_md.write_text("modified skill")
+        skill_md.write_text("modified skill", encoding="utf-8")
 
         result = update(installed_project, dry_run=False)
 
@@ -241,7 +241,7 @@ class TestTemplateTrees:
         if not settings.exists():
             pytest.skip("settings.json not found in installed project")
 
-        settings.write_text('{"modified": true}')
+        settings.write_text('{"modified": true}', encoding="utf-8")
 
         result = update(installed_project, dry_run=False)
 
@@ -261,7 +261,7 @@ class TestTemplateTrees:
 
         target = skill_files[0]
         original = target.read_bytes()
-        target.write_text("modified skill")
+        target.write_text("modified skill", encoding="utf-8")
 
         result = update(installed_project, dry_run=False)
 
@@ -296,7 +296,7 @@ class TestDiffGeneration:
     def test_diff_generated_for_updates(self, installed_project: Path) -> None:
         """Modified file should have a unified diff attached."""
         core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
-        core_md.write_text("outdated content")
+        core_md.write_text("outdated content", encoding="utf-8")
 
         result = update(installed_project, dry_run=True)
 
@@ -341,10 +341,10 @@ class TestRollback:
         # Modify two framework-managed files so write_bytes is called twice
         core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
         core_md.parent.mkdir(parents=True, exist_ok=True)
-        core_md.write_text("will be restored")
+        core_md.write_text("will be restored", encoding="utf-8")
         fw_md = installed_project / ".ai-engineering" / "contexts" / "frameworks" / "react.md"
         fw_md.parent.mkdir(parents=True, exist_ok=True)
-        fw_md.write_text("will also be restored")
+        fw_md.write_text("will also be restored", encoding="utf-8")
 
         original_write = Path.write_bytes
         call_count = 0
@@ -367,7 +367,7 @@ class TestRollback:
         # The file that was already written should be restored from backup
         # (the one that was modified should be back to "will be restored"
         # since the backup contained the pre-modify state)
-        assert core_md.read_text() == "will be restored"
+        assert core_md.read_text(encoding="utf-8") == "will be restored"
 
 
 # ---------------------------------------------------------------------------
@@ -381,8 +381,8 @@ class TestCleanupLegacyPrompts:
     def test_removes_legacy_prompts_when_skills_exist(self, installed_project: Path) -> None:
         prompts = installed_project / ".github" / "prompts"
         prompts.mkdir(parents=True, exist_ok=True)
-        (prompts / "ai-commit.prompt.md").write_text("legacy")
-        (prompts / "ai-review.prompt.md").write_text("legacy")
+        (prompts / "ai-commit.prompt.md").write_text("legacy", encoding="utf-8")
+        (prompts / "ai-review.prompt.md").write_text("legacy", encoding="utf-8")
 
         update(installed_project, dry_run=False)
 
@@ -392,7 +392,7 @@ class TestCleanupLegacyPrompts:
         install(tmp_path)
         prompts = tmp_path / ".github" / "prompts"
         prompts.mkdir(parents=True, exist_ok=True)
-        (prompts / "ai-commit.prompt.md").write_text("legacy")
+        (prompts / "ai-commit.prompt.md").write_text("legacy", encoding="utf-8")
         skills = tmp_path / ".github" / "skills"
         if skills.exists():
             import shutil
@@ -419,8 +419,8 @@ class TestCleanupLegacyPrompts:
         prompts = installed_project / ".github" / "prompts"
         nested = prompts / "subdir"
         nested.mkdir(parents=True, exist_ok=True)
-        (nested / "file.md").write_text("nested")
-        (prompts / "top.md").write_text("top")
+        (nested / "file.md").write_text("nested", encoding="utf-8")
+        (prompts / "top.md").write_text("top", encoding="utf-8")
 
         update(installed_project, dry_run=False)
 
@@ -429,7 +429,7 @@ class TestCleanupLegacyPrompts:
     def test_dry_run_does_not_remove_prompts(self, installed_project: Path) -> None:
         prompts = installed_project / ".github" / "prompts"
         prompts.mkdir(parents=True, exist_ok=True)
-        (prompts / "ai-commit.prompt.md").write_text("legacy")
+        (prompts / "ai-commit.prompt.md").write_text("legacy", encoding="utf-8")
 
         update(installed_project, dry_run=True)
 
@@ -473,4 +473,6 @@ def _count_lines(path: Path) -> int:
     """Count non-empty lines in a file."""
     if not path.exists():
         return 0
-    return len([line for line in path.read_text().strip().splitlines() if line.strip()])
+    return len(
+        [line for line in path.read_text(encoding="utf-8").strip().splitlines() if line.strip()]
+    )

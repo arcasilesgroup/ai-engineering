@@ -12,6 +12,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 _BRIDGE = Path(".ai-engineering/scripts/hooks/cursor-hook-bridge.py")
 
 
@@ -19,6 +21,10 @@ def test_cursor_bridge_script_exists() -> None:
     assert _BRIDGE.is_file(), f"missing: {_BRIDGE}"
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows filesystems do not honour Unix execute bits",
+)
 def test_cursor_bridge_script_is_executable() -> None:
     assert _BRIDGE.stat().st_mode & 0o100, "bridge not executable"
 
