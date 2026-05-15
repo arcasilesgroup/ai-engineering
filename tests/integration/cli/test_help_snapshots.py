@@ -53,9 +53,22 @@ def _walk_public(app: typer.Typer, prefix: tuple[str, ...] = ()) -> Iterator[tup
 
 
 def _normalise(text: str) -> str:
-    """Strip ANSI codes, trailing whitespace, and trailing blank lines."""
+    """Strip ANSI codes, trailing whitespace, trailing blank lines, and
+    normalise OS-specific box-drawing characters.
+
+    Rich picks sharp corners (``┌┐└┘`` U+250C/2510/2514/2518) on Windows
+    consoles and rounded corners (``╭╮╰╯`` U+256D/256E/256F/2570) on
+    macOS/Linux. The snapshot files were captured on macOS/Linux, so we
+    canonicalise sharp → rounded on read to make the assertion OS-agnostic.
+    """
     text = ANSI_RE.sub("", text)
     text = TRAILING_WS_RE.sub("", text)
+    text = (
+        text.replace("┌", "╭")  # ┌ → ╭
+        .replace("┐", "╮")  # ┐ → ╮
+        .replace("└", "╰")  # └ → ╰
+        .replace("┘", "╯")  # ┘ → ╯
+    )
     return text.rstrip() + "\n"
 
 
