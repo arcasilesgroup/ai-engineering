@@ -6,3 +6,6 @@
 *.yaml text eol=lf
 *.md   text eol=lf
 *.json text eol=lf
+# Snapshot fixtures (golden help-text, etc.) — force LF so Windows
+# runners do not see CRLF and false-positive on `_normalise(text) == file`.
+*.txt  text eol=lf

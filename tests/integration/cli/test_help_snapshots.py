@@ -104,7 +104,10 @@ def test_help_snapshot_matches(verb_path: tuple[str, ...]) -> None:
         f"  AIENG_UPDATE_HELP_SNAPSHOTS=1 uv run pytest "
         f"tests/integration/cli/test_help_snapshots.py"
     )
-    expected = snapshot_path.read_text(encoding="utf-8")
+    # Windows runners may check out the snapshot with CRLF endings if the
+    # repo's .gitattributes does not pin .txt to LF; normalize on read so
+    # the comparison stays line-ending agnostic.
+    expected = snapshot_path.read_text(encoding="utf-8").replace("\r\n", "\n")
     assert rendered == expected, (
         f"Help-text drift for `ai-eng {' '.join(verb_path)}`.\n"
         f"Snapshot: {snapshot_path}\n"
