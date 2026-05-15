@@ -7,7 +7,7 @@ Scaffold a comprehensive `docs/solution-intent.md` from real project state. This
 ## Prerequisites
 
 - Dispatch `ai-explore` or run an equivalent deep audit of the repo BEFORE writing. Every data point must come from verified sources (code, config, state files).
-- Use `/ai-write` patterns: visual priority (diagrams > tables > text), audience = technical team, no filler.
+- Use `/ai-prose` patterns: visual priority (diagrams > tables > text), audience = technical team, no filler.
 
 ## Procedure
 
@@ -101,6 +101,6 @@ Show sections populated vs TBD.
 
 **TBD policy**: if a section's data is not defined, implemented, or in scope, mark it explicitly as TBD. NEVER invent data.
 
-**Writing patterns**: use `/ai-write` conventions -- audience = technical team, concise, no filler.
+**Writing patterns**: use `/ai-prose` conventions -- audience = technical team, concise, no filler.
 
 **Ownership**: `docs/solution-intent.md` is project-managed. The sync mode updates data fields but never removes user-authored content. The framework updater (`ai-eng update`) does not touch this file.

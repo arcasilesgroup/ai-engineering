@@ -1,6 +1,6 @@
 ---
 name: ai-explain
-description: "Explains code, concepts, patterns, and architecture with engineer-grade depth: 3-tier control (brief/standard/deep), ASCII diagrams, execution traces, anchored to real file:line references. Trigger for 'how does this work', 'why does it do X', 'trace through this', 'explain this pattern', 'walk me through'. Not for documentation artifacts; use /ai-write or /ai-docs instead. Not for fixing code; use /ai-debug or /ai-build instead."
+description: "Explains code, concepts, patterns, and architecture with engineer-grade depth: 3-tier control (brief/standard/deep), ASCII diagrams, execution traces, anchored to real file:line references. Trigger for 'how does this work', 'why does it do X', 'trace through this', 'explain this pattern', 'walk me through'. Not for documentation artifacts; use /ai-prose or /ai-docs instead. Not for fixing code; use /ai-debug or /ai-build instead."
 effort: mid
 model_tier: sonnet
 argument-hint: "[topic]|--depth brief|standard|deep"
@@ -23,7 +23,7 @@ Engineer-grade technical explanations of code, concepts, patterns, and architect
 ## When to Use
 
 - "How does this work?", "What is this?", "Why does this do X?", "Trace this."
-- NOT for generating documentation -- use `/ai-write`.
+- NOT for generating documentation -- use `/ai-prose`.
 - NOT for writing/fixing code -- use `/ai-build` or `/ai-debug`.
 
 ## Process
@@ -102,6 +102,6 @@ Reads the function, produces an execution trace per state transition, calls out 
 
 ## Integration
 
-Called by: user directly, `/ai-guide` (teaching mode). Read-only. See also: `/ai-debug`, `/ai-write content blog`, `/ai-verify` (architecture assessment).
+Called by: user directly, `/ai-onboard` (teaching mode). Read-only. See also: `/ai-debug`, `/ai-prose content blog`, `/ai-verify` (architecture assessment).
 
 $ARGUMENTS

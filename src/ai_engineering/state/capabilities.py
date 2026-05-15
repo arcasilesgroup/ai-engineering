@@ -20,10 +20,10 @@ from ai_engineering.state.models import (
 
 _AGENT_ALIASES = {
     "autopilot": "ai-autopilot",
+    "advise": "ai-advise",
     "build": "ai-build",
     "explore": "ai-explore",
-    "guard": "ai-guard",
-    "guide": "ai-guide",
+    "onboard": "ai-onboard",
     "plan": "ai-plan",
     "review": "ai-review",
     "simplify": "ai-simplify",
@@ -38,9 +38,9 @@ _AGENT_TOPOLOGY = {
     "ai-review": TopologyRole.ORCHESTRATOR,
     "ai-verify": TopologyRole.ORCHESTRATOR,
     "ai-build": TopologyRole.PUBLIC_FIRST_CLASS,
+    "ai-advise": TopologyRole.LEAF,
     "ai-explore": TopologyRole.LEAF,
-    "ai-guard": TopologyRole.LEAF,
-    "ai-guide": TopologyRole.LEAF,
+    "ai-onboard": TopologyRole.LEAF,
     "ai-simplify": TopologyRole.LEAF,
 }
 
@@ -62,13 +62,13 @@ _AGENT_MUTATIONS = {
         MutationClass.STATE_WRITE,
     },
     "ai-explore": {MutationClass.READ, MutationClass.ADVISE},
-    "ai-guard": {
+    "ai-advise": {
         MutationClass.READ,
         MutationClass.ADVISE,
         MutationClass.STATE_WRITE,
         MutationClass.TELEMETRY_EMIT,
     },
-    "ai-guide": {MutationClass.READ, MutationClass.ADVISE},
+    "ai-onboard": {MutationClass.READ, MutationClass.ADVISE},
     "ai-plan": {
         MutationClass.READ,
         MutationClass.ADVISE,
@@ -101,8 +101,8 @@ _AGENT_WRITE_SCOPES = {
         WriteScopeClass.GENERATED,
     },
     "ai-explore": {WriteScopeClass.NONE},
-    "ai-guard": {WriteScopeClass.SPEC, WriteScopeClass.STATE, WriteScopeClass.TELEMETRY},
-    "ai-guide": {WriteScopeClass.NONE},
+    "ai-advise": {WriteScopeClass.SPEC, WriteScopeClass.STATE, WriteScopeClass.TELEMETRY},
+    "ai-onboard": {WriteScopeClass.NONE},
     "ai-plan": {WriteScopeClass.SPEC, WriteScopeClass.STATE, WriteScopeClass.DOCUMENTATION},
     "ai-review": {WriteScopeClass.SPEC, WriteScopeClass.DOCUMENTATION},
     "ai-simplify": {WriteScopeClass.SOURCE, WriteScopeClass.TEST},

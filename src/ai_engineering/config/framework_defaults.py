@@ -246,7 +246,7 @@ DEFAULT_REQUIRED_TOOLS: dict[str, Any] = {
 }
 
 
-# --- skills registry (48 entries, kept here so /ai-create maintains a single source) ---
+# --- skills registry (48 entries, kept here so /ai-scaffold maintains a single source) ---
 
 DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     "ai-brainstorm": {"type": "workflow", "tags": ["planning"]},
@@ -259,7 +259,7 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     "ai-review": {"type": "workflow", "tags": ["quality"]},
     "ai-commit": {"type": "delivery", "tags": ["git"]},
     "ai-pr": {"type": "delivery", "tags": ["git"]},
-    "ai-cleanup": {"type": "delivery", "tags": ["git"]},
+    "ai-repo-tidy": {"type": "delivery", "tags": ["git"]},
     "ai-security": {"type": "enterprise", "tags": ["security"]},
     "ai-governance": {"type": "enterprise", "tags": ["compliance"]},
     "ai-advise": {"type": "workflow", "tags": ["governance", "advisory", "proactive"]},
@@ -268,21 +268,21 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     "ai-docs": {"type": "enterprise", "tags": ["documentation", "architecture", "governance"]},
     "ai-explain": {"type": "teaching", "tags": ["learning"]},
     "ai-explore": {"type": "workflow", "tags": ["exploration", "codebase", "research"]},
-    "ai-guide": {"type": "teaching", "tags": ["onboarding"]},
-    "ai-write": {"type": "writing", "tags": ["content"]},
-    "ai-gtm": {"type": "writing", "tags": ["gtm", "marketing", "go-to-market"]},
+    "ai-onboard": {"type": "teaching", "tags": ["onboarding"]},
+    "ai-prose": {"type": "writing", "tags": ["content"]},
+    "ai-marketing": {"type": "writing", "tags": ["gtm", "marketing", "go-to-market"]},
     "ai-note": {"type": "sdlc", "tags": ["knowledge"]},
     "ai-standup": {"type": "sdlc", "tags": ["reporting"]},
     "ai-sprint": {"type": "sdlc", "tags": ["planning", "presentation"]},
     "ai-postmortem": {"type": "sdlc", "tags": ["incident"]},
     "ai-support": {"type": "sdlc", "tags": ["customer"]},
     "ai-resolve-conflicts": {"type": "sdlc", "tags": ["git"]},
-    "ai-create": {"type": "meta", "tags": ["framework"]},
+    "ai-scaffold": {"type": "meta", "tags": ["framework"]},
     "ai-learn": {"type": "meta", "tags": ["improvement"]},
-    "ai-prompt": {"type": "meta", "tags": ["optimization"]},
+    "ai-prompt-tune": {"type": "meta", "tags": ["optimization"]},
     "ai-start": {"type": "meta", "tags": ["bootstrap"]},
     "ai-analyze-permissions": {"type": "meta", "tags": ["permissions"]},
-    "ai-observe": {
+    "ai-session-watch": {
         "type": "meta",
         "tags": ["meta", "learning", "continuous-improvement", "observe"],
     },
@@ -310,7 +310,7 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     },
     "ai-simplify": {"type": "workflow", "tags": ["refactor", "complexity", "simplification"]},
     "ai-simplify-sweep": {"type": "meta", "tags": ["simplification", "scheduled", "autonomous"]},
-    "ai-eval": {"type": "workflow", "tags": ["evaluation", "gate", "regression", "pass-at-k"]},
+    "ai-reliability-eval": {"type": "workflow", "tags": ["evaluation", "gate", "regression", "pass-at-k"]},
     "ai-issue": {"type": "workflow", "tags": ["work-items", "board", "issue"]},
     "ai-engineering-issue": {
         "type": "enterprise",
@@ -330,10 +330,10 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
 
 DEFAULT_AGENTS_NAMES: list[str] = [
     "autopilot",
+    "advise",
     "build",
     "explore",
-    "guard",
-    "guide",
+    "onboard",
     "plan",
     "review",
     "simplify",

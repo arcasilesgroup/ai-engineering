@@ -1,7 +1,7 @@
 """Regression-gate integration test — sub-007 M6 TDD anchor.
 
 D-127-07: a >5 percentage-point drop in pass@1 must fail the CI gate
-when ``ai-eval --skill-set --regression`` runs on a PR touching
+when ``ai-reliability-eval --skill-set --regression`` runs on a PR touching
 ``.claude/skills/**``. This test pins that contract by:
 
 1. Constructing a synthetic baseline of 5 skills, all at pass@1 = 1.0.

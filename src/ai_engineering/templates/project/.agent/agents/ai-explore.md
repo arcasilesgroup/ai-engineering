@@ -126,7 +126,7 @@ Every exploration produces this structured format. For web research scopes, ever
 
 ## Referenced Skills
 
-- `.gemini/skills/ai-guide/SKILL.md` -- user-facing onboarding and codebase discovery patterns
+- `.gemini/skills/ai-onboard/SKILL.md` -- user-facing onboarding and codebase discovery patterns
 - `.gemini/skills/ai-review/SKILL.md` -- review workflow that dispatches Explore for architecture context
 
 ## Boundaries

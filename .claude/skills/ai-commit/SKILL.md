@@ -1,6 +1,6 @@
 ---
 name: ai-commit
-description: "Runs the governed commit pipeline: auto-branches from protected, stages selectively, formats and lints, scans for secrets, gates docs, composes a conventional message, pushes. Trigger for 'commit my changes', 'save my work', 'push this to remote', 'stage these files', 'ship it'. Not for opening a PR; use /ai-pr instead. Not for branch hygiene; use /ai-cleanup instead."
+description: "Runs the governed commit pipeline: auto-branches from protected, stages selectively, formats and lints, scans for secrets, gates docs, composes a conventional message, pushes. Trigger for 'commit my changes', 'save my work', 'push this to remote', 'stage these files', 'ship it'. Not for opening a PR; use /ai-pr instead. Not for branch hygiene; use /ai-repo-tidy instead."
 effort: cheap
 model_tier: haiku
 argument-hint: "--force|--only|[message hint]"
@@ -33,7 +33,7 @@ If `.ai-engineering/specs/spec.md` frontmatter has `refs`: include work item ref
 
 ### 2. Instinct consolidation
 
-If `.ai-engineering/observations/observations.yml` exists, run `/ai-observe --review` to consolidate session observations before committing.
+If `.ai-engineering/observations/observations.yml` exists, run `/ai-session-watch --review` to consolidate session observations before committing.
 
 ### 3. Stage changes
 
@@ -113,6 +113,6 @@ Stages only the named paths, runs the pipeline through commit, stops before push
 
 ## Integration
 
-Called by: user directly (off-chain, WIP-only flows). `/ai-pr` carries the same Steps 0-6 inline (single-responsibility per spec-132 T-3) — it does NOT delegate back here. Calls: `git`, `ruff`, `gitleaks`, `ai-eng spec verify --fix`. Reads: `manifest.yml`, `CLAUDE.md`. See also: `/ai-pr`, `/ai-cleanup`, `/ai-resolve-conflicts`.
+Called by: user directly (off-chain, WIP-only flows). `/ai-pr` carries the same Steps 0-6 inline (single-responsibility per spec-132 T-3) — it does NOT delegate back here. Calls: `git`, `ruff`, `gitleaks`, `ai-eng spec verify --fix`. Reads: `manifest.yml`, `CLAUDE.md`. See also: `/ai-pr`, `/ai-repo-tidy`, `/ai-resolve-conflicts`.
 
 $ARGUMENTS

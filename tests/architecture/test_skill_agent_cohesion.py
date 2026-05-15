@@ -33,17 +33,13 @@ _TEMPLATE_SKILLS = (
 )
 
 # Bare-agent-name → resolved skill directory name (with ``ai-`` prefix).
-# The mapping is the rename bridge documented in the sub-002 spec: the
-# ``ai-guard`` agent (legacy) is surfaced to the slash menu as
-# ``/ai-advise`` per D-134-06 / D-134-07. Until sub-006 hard-renames
-# the agent file (`.claude/agents/ai-guard.md` → `ai-advise.md`) and
-# rotates ``DEFAULT_AGENTS_NAMES`` entry ``guard`` → ``advise``, this
-# bridge entry lets the cohesion check pass in either order.
-#
-# Every other agent maps trivially: ``<bare>`` → ``ai-<bare>``.
-_COHESION_MAPPING: dict[str, str] = {
-    "guard": "ai-advise",
-}
+# Every agent maps trivially: ``<bare>`` → ``ai-<bare>``. Sub-006
+# completed the hard-rename wave (D-134-06): the legacy ``ai-guard``
+# agent is now ``ai-advise`` (file + registry), and ``ai-guide`` is
+# now ``ai-onboard``. The identity map below covers every entry in
+# :data:`DEFAULT_AGENTS_NAMES` — no rename bridges remain (Constitution
+# §13.3 forbids backwards-compat shims).
+_COHESION_MAPPING: dict[str, str] = {}
 
 
 def _resolve_skill_name(agent_bare_name: str) -> str:

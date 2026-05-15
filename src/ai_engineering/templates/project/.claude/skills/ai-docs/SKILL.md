@@ -1,6 +1,6 @@
 ---
 name: ai-docs
-description: "Manages the documentation lifecycle: CHANGELOG, README, solution-intent architecture docs, external docs portals, and documentation quality gates. Auto-invoked by /ai-pr. Trigger for 'update the changelog', 'the README is stale', 'document this feature', 'docs portal needs updating', 'did we document all changes'. Not for blog or pitch content; use /ai-write instead. Not for marketing collateral; use /ai-gtm instead."
+description: "Manages the documentation lifecycle: CHANGELOG, README, solution-intent architecture docs, external docs portals, and documentation quality gates. Auto-invoked by /ai-pr. Trigger for 'update the changelog', 'the README is stale', 'document this feature', 'docs portal needs updating', 'did we document all changes'. Not for blog or pitch content; use /ai-prose instead. Not for marketing collateral; use /ai-marketing instead."
 effort: mid
 model_tier: sonnet
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
@@ -81,7 +81,7 @@ Diffs changed surfaces against documentation; flags un-documented public APIs or
 
 ## Integration
 
-Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-*.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`. Reads: `manifest.yml`, `docs/solution-intent.md`, `state.db.decisions`. See also: `/ai-write` (prose content), `/ai-gtm` (outreach).
+Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-*.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`. Reads: `manifest.yml`, `docs/solution-intent.md`, `state.db.decisions`. See also: `/ai-prose` (prose content), `/ai-marketing` (outreach).
 
 ## Governance Notes
 
@@ -91,11 +91,11 @@ Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/chang
 
 **Ownership**: `docs/solution-intent.md` is project-managed. Sync updates data but never removes user-authored content. `ai-eng update` does not touch this file.
 
-**Writing**: use `/ai-write` patterns for document generation. Handlers define WHAT sections and data to gather; `/ai-write` defines HOW to write them.
+**Writing**: use `/ai-prose` patterns for document generation. Handlers define WHAT sections and data to gather; `/ai-prose` defines HOW to write them.
 
 ## References
 
 - `.claude/skills/ai-pr/SKILL.md` -- PR workflow that dispatches documentation subagents
-- `.claude/skills/ai-write/SKILL.md` -- documentation writing patterns
+- `.claude/skills/ai-prose/SKILL.md` -- documentation writing patterns
 - `.ai-engineering/manifest.yml` -- documentation flags and portal config
   $ARGUMENTS

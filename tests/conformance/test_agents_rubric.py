@@ -86,7 +86,7 @@ def test_agent_rule_4_dispatch_source(agents_report) -> None:
     assert rule is not None
     # Agents on the live surface should be referenced by skills or
     # AGENTS.md. ``reviewer-design`` is the orphan called out in §2.2;
-    # ai-engineering / ai-explore / ai-guard are widely referenced.
+    # ai-engineering / ai-explore / ai-advise are widely referenced.
     referenced = sum(
         1
         for r in agents_report.per_agent

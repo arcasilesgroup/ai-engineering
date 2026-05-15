@@ -279,7 +279,7 @@ def _state_plane_repo_relative_path(ref_path: str) -> str | None:
 def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPlane) -> None:
     """Verify the canonical three-file specs/ contract: spec.md, plan.md, _history.md.
 
-    spec-132 D-132-09: ``_history.md`` is owned by ``/ai-cleanup`` per
+    spec-132 D-132-09: ``_history.md`` is owned by ``/ai-repo-tidy`` per
     spec-131 D-131-04 -- the installer does not seed it. When the spec
     buffer is otherwise complete (``spec.md`` + ``plan.md`` both
     present) the missing ``_history.md`` downgrades to WARN so the
@@ -309,7 +309,7 @@ def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPl
                         status=IntegrityStatus.OK,
                         message=(
                             "Optional _history.md absent on pristine install; "
-                            "/ai-cleanup will create it on first lifecycle close."
+                            "/ai-repo-tidy will create it on first lifecycle close."
                         ),
                         file_path=_SPECS_ROOT_LABEL,
                     )
@@ -321,7 +321,7 @@ def _record_spec_buffer_result(report: IntegrityReport, work_plane: ActiveWorkPl
                     name="spec-buffer",
                     status=IntegrityStatus.WARN,
                     message=(
-                        "Optional _history.md missing; /ai-cleanup will create it on "
+                        "Optional _history.md missing; /ai-repo-tidy will create it on "
                         "first lifecycle close (spec-131 D-131-04)."
                     ),
                     file_path=_SPECS_ROOT_LABEL,

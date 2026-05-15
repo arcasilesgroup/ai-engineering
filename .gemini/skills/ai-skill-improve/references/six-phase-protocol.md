@@ -34,7 +34,7 @@ Write 2-3 test prompts that exercise the skill in contexts where the pain source
 
 ## Phase 4 — Rewrite the Skill (dry-run first)
 
-Apply `/ai-prompt` techniques plus these skill-specific patterns (validated during `ai-ide-audit` development):
+Apply `/ai-prompt-tune` techniques plus these skill-specific patterns (validated during `ai-ide-audit` development):
 
 1. **"Start Here" pattern** — output contract before process; agent fills skeleton as it works.
 2. **Pain injection** — embed specific LESSONS.md patterns, do not just reference them.

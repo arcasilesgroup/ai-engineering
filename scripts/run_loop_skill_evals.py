@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     baseline = load_baseline(args.baseline)
     if not baseline:
         # Empty baseline ⇒ first-run capture flow. Per
-        # ``ai-eval --regression`` semantics, the absence of a
+        # ``ai-reliability-eval --regression`` semantics, the absence of a
         # baseline is treated as a no-op pass; ``--regression``
         # only gates after a baseline exists.
         print(

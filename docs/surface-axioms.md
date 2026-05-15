@@ -36,7 +36,7 @@ entry; CLI = shell entry. The same verb name appears in BOTH iff
 2. **Identical contract** — `--json` shape, exit codes, and side-effects
    are byte-equivalent.
 
-Otherwise the verbs MUST be distinct. `/ai-cleanup` (LLM-orchestrated)
+Otherwise the verbs MUST be distinct. `/ai-repo-tidy` (LLM-orchestrated)
 and `ai-eng cleanup` (deterministic 7-mode CLI) are distinct verbs by
 A2 because the engines differ — the skill calls the CLI but adds AI
 judgment on top.

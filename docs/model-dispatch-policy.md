@@ -41,30 +41,30 @@ economics rubric: deterministic execution → cheap, synthesis with judgment
 | ai-board | cheap | haiku | Deterministic board sync against work-item refs. |
 | ai-brainstorm | mid | sonnet | Synthesis + interrogation; multi-turn judgment. |
 | ai-build | cheap | haiku | Executes patch-ready plan; mechanical when patches present. |
-| ai-cleanup | cheap | haiku | Mechanical hygiene (rotate `_history.md`, delete shipped). |
+| ai-repo-tidy | cheap | haiku | Mechanical hygiene (rotate `_history.md`, delete shipped). |
 | ai-code | mid | sonnet | Targeted code writes with stack-overrides judgment. |
 | ai-commit | cheap | haiku | Deterministic stage + compose commit. |
 | ai-constitution | mid | sonnet | Interview-driven; project-identity judgment. |
-| ai-create | mid | sonnet | Scaffold with framework + convention judgment. |
+| ai-scaffold | mid | sonnet | Scaffold with framework + convention judgment. |
 | ai-debug | mid | sonnet | Reproduce + isolate + fix; targeted judgment. |
 | ai-design | high | opus | Deep design space exploration. |
 | ai-docs | mid | sonnet | Narrative authoring with placement judgment. |
-| ai-eval | mid | sonnet | Scenario synthesis + scoring. |
+| ai-reliability-eval | mid | sonnet | Scenario synthesis + scoring. |
 | ai-explain | mid | sonnet | Pedagogical narrative; audience-aware. |
 | ai-governance | high | opus | Compliance posture; risk acceptance. |
-| ai-gtm | mid | sonnet | Go-to-market narrative + positioning. |
-| ai-guide | mid | sonnet | Step-by-step authoring with audience judgment. |
+| ai-marketing | mid | sonnet | Go-to-market narrative + positioning. |
+| ai-onboard | mid | sonnet | Step-by-step authoring with audience judgment. |
 | ai-ide-audit | high | opus | Cross-IDE matrix audit; architectural posture. |
 | ai-learn | mid | sonnet | Retro synthesis + lesson extraction. |
 | ai-mcp-audit | high | opus | Security skill: coherence analysis + rug-pull detection vs trusted baseline (spec-107 D-107-08). Elevated to `opus` per spec-131 closure (C2) so judgment quality matches the security-impact ceiling. |
 | ai-media | mid | sonnet | Media synthesis with style judgment. |
 | ai-note | cheap | haiku | Deterministic capture into note store. |
-| ai-observe | mid | sonnet | Telemetry surface review + reporting. |
+| ai-session-watch | mid | sonnet | Telemetry surface review + reporting. |
 | ai-pipeline | mid | sonnet | CI/CD workflow design with stack judgment. |
 | ai-plan | high | opus | Deep architecture; exhaustive patch-ready output unlocks cheap downstream. |
 | ai-postmortem | mid | sonnet | Incident retro synthesis. |
 | ai-pr | mid | sonnet | PR composition + body synthesis. |
-| ai-prompt | mid | sonnet | Prompt engineering technique synthesis. |
+| ai-prompt-tune | mid | sonnet | Prompt engineering technique synthesis. |
 | ai-research | mid | sonnet | External evidence synthesis (Tier 0-2). |
 | ai-resolve-conflicts | cheap | haiku | Deterministic conflict resolution against rules. |
 | ai-review | mid | sonnet | 8-agent parallel review + corroboration judgment. |
@@ -81,7 +81,7 @@ economics rubric: deterministic execution → cheap, synthesis with judgment
 | ai-verify | mid | sonnet | 7-scan IRRV with severity mapping; judgment. |
 | ai-video-editing | mid | sonnet | Video assembly with edit-decision judgment. |
 | ai-visual | mid | sonnet | Visual synthesis with composition judgment. |
-| ai-write | mid | sonnet | Long-form narrative authoring. |
+| ai-prose | mid | sonnet | Long-form narrative authoring. |
 
 ## Lint contract
 

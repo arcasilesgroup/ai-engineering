@@ -161,8 +161,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         copilot_tools=("codebase", "githubRepo", "readFile", "search"),
         claude_tools=("Read", "Glob", "Grep"),
     ),
-    "guard": AgentMeta(
-        display_name="Guard",
+    "advise": AgentMeta(
+        display_name="Advise",
         description=(
             "Proactive governance advisor -- checks standards, decisions,"
             " and quality trends during development."
@@ -179,8 +179,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         ),
         claude_tools=("Read", "Glob", "Grep"),
     ),
-    "guide": AgentMeta(
-        display_name="Guide",
+    "onboard": AgentMeta(
+        display_name="Onboard",
         description=(
             "Developer education and onboarding -- architecture tours,"
             " decision archaeology, knowledge transfer."

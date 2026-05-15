@@ -123,7 +123,7 @@ Every exploration produces this structured format. For web research scopes, ever
 
 ## Referenced Skills
 
-- `.claude/skills/ai-guide/SKILL.md` -- user-facing onboarding and codebase discovery patterns
+- `.claude/skills/ai-onboard/SKILL.md` -- user-facing onboarding and codebase discovery patterns
 - `.claude/skills/ai-review/SKILL.md` -- review workflow that dispatches Explore for architecture context
 
 ## Boundaries

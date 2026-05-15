@@ -1,7 +1,7 @@
 """Tests for ``_record_spec_buffer_result`` WARN downgrade (spec-132
 D-132-09 + spec-133 pristine-install suppression).
 
-spec-131 D-131-04 established ``/ai-cleanup`` as the lifecycle owner of
+spec-131 D-131-04 established ``/ai-repo-tidy`` as the lifecycle owner of
 ``.ai-engineering/specs/_history.md``; installer must not ship a stub
 nor hard-fail when the file is absent at install time.
 
@@ -40,7 +40,7 @@ def work_plane(tmp_path: Path) -> ActiveWorkPlane:
     history_path = specs_dir / "_history.md"
     spec_path.write_text("# spec\n", encoding="utf-8")
     plan_path.write_text("# plan\n", encoding="utf-8")
-    # _history.md deliberately NOT created -- /ai-cleanup writes it later.
+    # _history.md deliberately NOT created -- /ai-repo-tidy writes it later.
     return ActiveWorkPlane(
         project_root=tmp_path,
         ai_eng_dir=tmp_path / ".ai-engineering",

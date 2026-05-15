@@ -2,9 +2,12 @@
 
 Per spec-122-d D-122-31: every `/ai-<name>` reference in a markdown
 document must resolve to a real skill at `.claude/skills/ai-<name>/`.
-Ghost references (`/ai-implement`, `/ai-eval-gate`, `/ai-eval`) are
-the canary failure mode -- a skill was renamed or deleted but the
-docs still cite the old name.
+Ghost references (`/ai-implement`, `/ai-eval-gate`, `/ai-cleanup`,
+`/ai-guide`, `/ai-gtm`, `/ai-write`, `/ai-prompt`, `/ai-eval`,
+`/ai-observe`, `/ai-create`) are the canary failure mode -- a skill
+was renamed or deleted but the docs still cite the old name. The
+spec-134 D-134-06 rename wave renamed all of the above to their new
+slugs; any surviving citation in a tracked doc is a bug.
 
 Scope:
 - Walks markdown files at the repo root (`CLAUDE.md`, `AGENTS.md`,

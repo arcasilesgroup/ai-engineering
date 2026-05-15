@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Evaluate and optimize the user's brainstorm input for clarity and specificity before interrogation begins. Applies ai-prompt techniques #1 (Be Explicit Over Implicit) and #5 (Positive Framing). Skips optimization when the input is already specific. Shows before/after and auto-continues.
+Evaluate and optimize the user's brainstorm input for clarity and specificity before interrogation begins. Applies ai-prompt-tune techniques #1 (Be Explicit Over Implicit) and #5 (Positive Framing). Skips optimization when the input is already specific. Shows before/after and auto-continues.
 
 ## Procedure
 
@@ -31,10 +31,10 @@ Scan the user's input for vague markers:
 
 ### Step 3 -- Optimize
 
-Apply two `/ai-prompt` techniques to the input. The catalogue is the single source of truth in `.github/skills/ai-prompt/SKILL.md` -- do not duplicate it here.
+Apply two `/ai-prompt-tune` techniques to the input. The catalogue is the single source of truth in `.github/skills/ai-prompt-tune/SKILL.md` -- do not duplicate it here.
 
-- **Technique #1 -- Be Explicit Over Implicit** -- see section "1. Be Explicit Over Implicit" in `.github/skills/ai-prompt/SKILL.md`. Replace vague verbs with specific actions; add missing specificity that is inferable from the term itself (no codebase reading). Name the type of change (`add`, `remove`, `replace`, `redesign`, `extract`, `split`).
-- **Technique #5 -- Positive Framing** -- see section "5. Positive Framing" in `.github/skills/ai-prompt/SKILL.md`. Rewrite negations as positive targets. State what to build, not what to avoid.
+- **Technique #1 -- Be Explicit Over Implicit** -- see section "1. Be Explicit Over Implicit" in `.github/skills/ai-prompt-tune/SKILL.md`. Replace vague verbs with specific actions; add missing specificity that is inferable from the term itself (no codebase reading). Name the type of change (`add`, `remove`, `replace`, `redesign`, `extract`, `split`).
+- **Technique #5 -- Positive Framing** -- see section "5. Positive Framing" in `.github/skills/ai-prompt-tune/SKILL.md`. Rewrite negations as positive targets. State what to build, not what to avoid.
 
 **Preserve exploratory breadth**: if the input is intentionally broad ("repensar la arquitectura de auth", "explorar alternativas al sistema de plugins"), do NOT narrow it. Only clarify ambiguous terms within the broad scope. Exploratory inputs are broad by design -- respect that.
 

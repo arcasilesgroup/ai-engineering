@@ -11,7 +11,7 @@ The disk count target landed by sub-005 is documented in
 `.ai-engineering/manifest.yml skills.total`. The umbrella spec target was
 46/23; sub-005 achieved 48 skills and 24 agents on disk; Wave 8
 (D-127-10 strict-count enforcement) demoted `/ai-help` to a reference
-file under `.claude/skills/ai-cleanup/references/`, leaving 47 skills
+file under `.claude/skills/ai-repo-tidy/references/`, leaving 47 skills
 and 24 agents (see CHANGELOG Wave 8 section for the gap explanation).
 The test reads the achieved counts from the manifest as the single
 source of truth so it remains correct under future rename / merger
@@ -37,7 +37,7 @@ MANIFEST = REPO_ROOT / ".ai-engineering" / "manifest.yml"
 
 
 # Provider-scoped skills that opt out of specific IDE mirrors.
-# Documented in `.claude/skills/ai-create/SKILL.md`. ai-analyze-permissions
+# Documented in `.claude/skills/ai-scaffold/SKILL.md`. ai-analyze-permissions
 # is Claude-Code-only and never appears in `.github/`, `.codex/`, `.gemini/`.
 PROVIDER_SCOPED_SKIPS: dict[str, set[str]] = {
     "github": {"ai-analyze-permissions"},

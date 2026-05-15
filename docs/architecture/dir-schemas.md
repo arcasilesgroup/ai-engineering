@@ -116,7 +116,7 @@ Long-form historical artefacts live in two adjacent paths:
 - `.ai-engineering/specs/drafts/` is created lazily by
   `/ai-brainstorm` for unapproved briefs; it is NOT shipped by the
   installer.
-- `_history.md` is owned by `/ai-cleanup` per spec-131 D-131-04. The
+- `_history.md` is owned by `/ai-repo-tidy` per spec-131 D-131-04. The
   validator downgrades its absence to WARN per spec-132 D-132-09; the
   installer does not ship a stub.
 

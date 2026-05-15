@@ -548,7 +548,7 @@ class TestNormalization:
         assert lib_obs._normalize_agent_name("ai-verify") == "ai-verify"
 
     def test_agent_strips_whitespace(self) -> None:
-        assert lib_obs._normalize_agent_name("  guard  ") == "ai-guard"
+        assert lib_obs._normalize_agent_name("  advise  ") == "ai-advise"
 
     def test_agent_lowercases(self) -> None:
         assert lib_obs._normalize_agent_name("EXPLORE") == "ai-explore"

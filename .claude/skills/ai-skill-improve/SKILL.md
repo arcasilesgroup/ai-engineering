@@ -1,6 +1,6 @@
 ---
 name: ai-skill-improve
-description: "Improves an existing skill based on real project pain (prior eval corpora under evals/, Engram cross-session observations, LESSONS.md, decision-store, instincts, proposals) by analysing the failure pattern, rewriting SKILL.md, and emitting the proposed delta as a PR comment only — no auto-merge. Trigger for 'improve this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch improve skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-create instead. Not for platform audit; use /ai-ide-audit instead."
+description: "Improves an existing skill based on real project pain (prior eval corpora under evals/, Engram cross-session observations, LESSONS.md, decision-store, instincts, proposals) by analysing the failure pattern, rewriting SKILL.md, and emitting the proposed delta as a PR comment only — no auto-merge. Trigger for 'improve this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch improve skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-scaffold instead. Not for platform audit; use /ai-ide-audit instead."
 effort: mid
 model_tier: sonnet
 argument-hint: "[skill-name]|all [--dry-run]"
@@ -37,7 +37,7 @@ Improve existing skills using evidence from real project pain (prior eval corpor
 - You've accumulated corrections in LESSONS.md that a skill should already know.
 - After a batch of sessions where the same skill pattern failed repeatedly.
 - Periodic hygiene: evolve the top 10 skills once a month.
-- NOT for creating new skills from scratch — use `/ai-create`.
+- NOT for creating new skills from scratch — use `/ai-scaffold`.
 - NOT for platform audit — use `/ai-ide-audit`.
 
 Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
@@ -73,6 +73,6 @@ Walks every skill in priority tier order, shows the proposed diff per skill, and
 
 ## Integration
 
-Reads: state.db.decisions, LESSONS.md, observations.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `python scripts/sync_command_mirrors.py` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-create` (new skills), `/ai-ide-audit` (cross-IDE).
+Reads: state.db.decisions, LESSONS.md, observations.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `python scripts/sync_command_mirrors.py` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-scaffold` (new skills), `/ai-ide-audit` (cross-IDE).
 
 $ARGUMENTS

@@ -49,7 +49,7 @@ Dispatch the `ai-verify` agent for any merge-readiness check, scan, or evidence-
 
 | Specialist | Agent File | Lens |
 | --- | --- | --- |
-| `deterministic` | `verify-deterministic.md` | Security, quality, dependencies, tests (tool-driven) |
+| `deterministic` | `verifier-deterministic.md` | Security, quality, dependencies, tests (tool-driven) |
 | `governance` | `verifier-governance.md` | Compliance, ownership, gate enforcement (LLM) |
 | `architecture` | `verifier-architecture.md` | Alignment, layer violations (LLM) |
 | `feature` | `verifier-feature.md` | Spec coverage, acceptance criteria (LLM) |
@@ -129,6 +129,6 @@ Aggregates 8 dimensions, scores against manifest thresholds, emits GO / CONDITIO
 
 ## Integration
 
-Called by: `/ai-build` (post-task), `/ai-autopilot` (Phase 5), user directly. Dispatches: `verify-deterministic`, `verifier-governance`, `verifier-architecture`, `verifier-feature` agents. Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-eval` (AI reliability over time), `/ai-security` (deep CVE/SBOM only), `/ai-governance` (compliance, risk acceptance).
+Called by: `/ai-build` (post-task), `/ai-autopilot` (Phase 5), user directly. Dispatches: `verifier-deterministic`, `verifier-governance`, `verifier-architecture`, `verifier-feature` agents. Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-reliability-eval` (AI reliability over time), `/ai-security` (deep CVE/SBOM only), `/ai-governance` (compliance, risk acceptance).
 
 $ARGUMENTS

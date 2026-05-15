@@ -23,7 +23,7 @@ Evidence before claims. Every finding cites a concrete source, or explicitly rep
 
 ## Dispatch Pattern
 
-1. Dispatch `verify-deterministic.md` via Agent tool. Wait for results.
+1. Dispatch `verifier-deterministic.md` via Agent tool. Wait for results.
 2. Choose profile (normal=1 LLM macro-agent, full=3 individual LLM agents).
 3. Dispatch LLM judgment agents via Agent tool, passing deterministic evidence.
 4. Aggregate findings by original specialist lens.

@@ -310,7 +310,7 @@ class TestDiffGeneration:
     def test_create_and_unchanged_changes_have_structured_explanations(
         self, installed_project: Path
     ) -> None:
-        missing = installed_project / ".claude" / "agents" / "ai-guide.md"
+        missing = installed_project / ".claude" / "agents" / "ai-onboard.md"
         if missing.exists():
             missing.unlink()
 

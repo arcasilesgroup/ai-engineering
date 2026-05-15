@@ -1,6 +1,6 @@
 ---
 name: ai-start
-description: "Bootstraps a coding session: loads project context, activates session observation, displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-guide instead. Not for governance review; use /ai-governance instead."
+description: "Bootstraps a coding session: loads project context, activates session observation, displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-onboard instead. Not for governance review; use /ai-governance instead."
 effort: mid
 model_tier: sonnet
 argument-hint: ""
@@ -45,13 +45,13 @@ full IOC path and degrades latency.
 - Do **not** rewrite the markdown the script emits. The format is the
   cross-IDE contract (Claude Code, Codex, Gemini CLI, Copilot all render
   the same bytes).
-- Do **not** invoke `/ai-observe` from inside this skill. Observation is
+- Do **not** invoke `/ai-session-watch` from inside this skill. Observation is
   always-on via the `PreToolUse` + `PostToolUse` hooks (`instinct-
   observe.py`) and consolidated at session end by the `Stop` hook
   (`instinct-extract.py`). The dashboard surfaces an `N to review`
   CTA when the unconsolidated backlog exceeds the
   `observations/meta.json` `deltaThreshold` — operators run
-  `/ai-observe --review` manually when they see that CTA.
+  `/ai-session-watch --review` manually when they see that CTA.
 
 ### What the dashboard already contains
 
@@ -117,8 +117,8 @@ instantaneous.
 - **Called by**: user directly; IDE instruction files (FIRST ACTION mandate
   per CONSTITUTION).
 - **Calls**: `session_bootstrap.py --format=markdown` (only).
-- **Does not call**: `/ai-observe`, `/ai-board discover`, manifest readers,
+- **Does not call**: `/ai-session-watch`, `/ai-board discover`, manifest readers,
   or any other skill. Suggestions (e.g. "no active spec — run
   `/ai-brainstorm`") are embedded inside the markdown the script emits.
-- **See also**: `/ai-guide` (human onboarding, different audience),
-  `/ai-cleanup` (pre-start hygiene).
+- **See also**: `/ai-onboard` (human onboarding, different audience),
+  `/ai-repo-tidy` (pre-start hygiene).

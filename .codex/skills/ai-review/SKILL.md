@@ -1,6 +1,6 @@
 ---
 name: ai-review
-description: "Reviews code changes with human-quality judgment: PR reviews, file reviews, diff analysis, architecture feedback. Default mode runs the full specialist roster through 3 macro-agents; pass `--full` for one agent per specialist. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', 'is this merge-ready'. Not for evidence-backed gates; use /ai-verify instead. Not for narrative writing; use /ai-write instead."
+description: "Reviews code changes with human-quality judgment: PR reviews, file reviews, diff analysis, architecture feedback. Default mode runs the full specialist roster through 3 macro-agents; pass `--full` for one agent per specialist. Trigger for 'review this', 'give me feedback', 'look over my PR', 'any issues with this', 'is this merge-ready'. Not for evidence-backed gates; use /ai-verify instead. Not for narrative writing; use /ai-prose instead."
 effort: mid
 argument-hint: "[--full] [PR number or file paths]"
 model_tier: sonnet
@@ -28,10 +28,10 @@ High-signal code review with full specialist coverage and aggressive false-posit
 
 1. **Step 0** — load contexts per `.ai-engineering/contexts/stack-context.md`.
 2. **Detect target** — PR number, file paths, or current diff.
-3. **Dependency preflight** — verify `reviewer-context.md`, `reviewer-validator.md`, plus required `.codex/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
-4. **Pre-review** — dispatch `reviewer-context.md` via Agent tool; serialize output for every specialist.
+3. **Dependency preflight** — verify `review-context.md`, `review-validator.md`, plus required `.codex/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
+4. **Pre-review** — dispatch `review-context.md` via Agent tool; serialize output for every specialist.
 5. **Specialists** — `normal` = 3 macro-agents; `--full` = one agent per specialist. Both run the full roster — grouping controls cost only.
-6. **Validate** — dispatch `reviewer-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
+6. **Validate** — dispatch `review-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
 7. **Emit** — Findings / Risks / Recommendations / Self-Challenge, attributed by original specialist lens.
 
 ## Dispatch threshold
@@ -105,6 +105,6 @@ Dispatches one agent per specialist (correctness, security, performance, archite
 
 ## Integration
 
-Called by: user directly, `/ai-pr`, `/ai-build`, `/ai-autopilot` (Phase 5). Dispatches: `reviewer-context`, `reviewer-*`, `reviewer-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
+Called by: user directly, `/ai-pr`, `/ai-build`, `/ai-autopilot` (Phase 5). Dispatches: `review-context`, `reviewer-*`, `review-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
 
 $ARGUMENTS

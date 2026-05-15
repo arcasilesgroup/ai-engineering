@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Delete a finalised spec file, append a canonical row to `_history.md`, and leave the canonical `spec.md` slot ready for the next iteration. Exposed by `/ai-cleanup`, `/ai-pr`, and `/ai-brainstorm` as the `--consolidate-spec` action.
+Delete a finalised spec file, append a canonical row to `_history.md`, and leave the canonical `spec.md` slot ready for the next iteration. Exposed by `/ai-repo-tidy`, `/ai-pr`, and `/ai-brainstorm` as the `--consolidate-spec` action.
 
 Single source of truth for the consolidation flow (DRY §10.4). The load-bearing call lives in `.ai-engineering/scripts/spec_lifecycle.py mark_shipped`; this handler is the thin orchestration layer.
 
@@ -10,7 +10,7 @@ Single source of truth for the consolidation flow (DRY §10.4). The load-bearing
 
 `--consolidate-spec <spec-id|slug>` -- accepted by any of the three callers:
 
-- `/ai-cleanup --consolidate-spec <slug>` -- manual hygiene.
+- `/ai-repo-tidy --consolidate-spec <slug>` -- manual hygiene.
 - `/ai-pr --consolidate-spec` -- auto-invoked after merge (the existing post-merge `mark_shipped` call is the same handler under the hood).
 - `/ai-brainstorm --consolidate-spec <slug>` -- when resetting the canonical slot before a new brainstorm.
 
@@ -36,7 +36,7 @@ Single source of truth for the consolidation flow (DRY §10.4). The load-bearing
 
 ## Callers
 
-- `/ai-cleanup --consolidate-spec <slug>` -- manual hygiene from the cleanup surface.
+- `/ai-repo-tidy --consolidate-spec <slug>` -- manual hygiene from the cleanup surface.
 - `/ai-pr --consolidate-spec` -- auto-invoked post-merge (replaces the inline `mark_shipped` block; same call site).
 - `/ai-brainstorm --consolidate-spec <slug>` -- Step 0a fast-path when resetting the canonical slot before a new brainstorm.
 

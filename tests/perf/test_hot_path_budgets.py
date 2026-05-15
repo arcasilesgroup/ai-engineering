@@ -11,7 +11,7 @@ path of the framework:
 | ``/ai-commit``          | 1.5s |  3.0s |
 | ``/ai-pr``              | 8.0s | 15.0s |
 | ``/ai-verify`` (PASS)   | 1.0s |  3.0s |
-| ``/ai-cleanup``         | 1.5s |  3.0s |
+| ``/ai-repo-tidy``       | 1.5s |  3.0s |
 
 Two surfaces ship in this PR: pre-commit and pre-push (both mediated by
 ``ai-eng gate run --cache-aware --json --mode=local``). The remaining
@@ -220,9 +220,9 @@ def test_ai_verify_pass_under_3s() -> None:
 
 @pytest.mark.perf
 @pytest.mark.xfail(
-    reason="depends on cleanup-run.py landing in /ai-cleanup",
+    reason="depends on cleanup-run.py landing in /ai-repo-tidy",
     strict=False,
 )
 def test_ai_cleanup_under_3s() -> None:
-    """``/ai-cleanup`` must finish under 3.0 s ceiling."""
+    """``/ai-repo-tidy`` must finish under 3.0 s ceiling."""
     pytest.fail("cleanup-run.py not yet wired")

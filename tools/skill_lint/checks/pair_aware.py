@@ -34,7 +34,7 @@ LENGTH_CAPS: dict[str, tuple[int, int]] = {
     "ai-verify": (120, 50),
     "ai-review": (120, 50),
     "ai-plan": (100, 50),
-    "ai-guide": (80, 50),
+    "ai-onboard": (80, 50),
 }
 
 # Tolerance: ≤ 10% over cap is MINOR, > 10% over cap is MAJOR.

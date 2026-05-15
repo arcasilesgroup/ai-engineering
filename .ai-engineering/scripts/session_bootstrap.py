@@ -410,7 +410,7 @@ def _count_unconsolidated_events(root: Path) -> dict:
     ``state/observation-events.ndjson`` counting events with
     ``ts > lastExtractedAt``. The Stop hook auto-consolidates these on
     session end; the count is surfaced in the dashboard so the operator
-    knows when ``/ai-observe --review`` is worthwhile.
+    knows when ``/ai-session-watch --review`` is worthwhile.
     """
     out = {"pending": 0, "threshold": 10}
     meta = root / ".ai-engineering" / "observations" / "meta.json"
@@ -834,7 +834,7 @@ def _render_markdown(d: dict) -> str:
     pending = int(backlog.get("pending") or 0)
     threshold = int(backlog.get("threshold") or 10)
     if pending >= threshold:
-        state.append(f"**{pending} to review** → `/ai-observe --review`")
+        state.append(f"**{pending} to review** → `/ai-session-watch --review`")
     elif pending:
         state.append(f"{pending} pending review")
     state.append(f"hooks: {d.get('hooks_health', 'unknown')}")
@@ -922,7 +922,7 @@ def _render_markdown(d: dict) -> str:
         lines.append("")
         lines.append("### ▸ Proposals")
         lines.append("")
-        lines.append(f"- {pc} pending — run `/ai-cleanup` to review")
+        lines.append(f"- {pc} pending — run `/ai-repo-tidy` to review")
 
     warnings = d.get("compat_warnings") or []
     if warnings:
@@ -936,9 +936,9 @@ def _render_markdown(d: dict) -> str:
     lines.append("---")
     lines.append("")
     lines.append(
-        "`/ai-brainstorm` design · `/ai-debug` fix · `/ai-guide` explore · `/ai-commit` save"
+        "`/ai-brainstorm` design · `/ai-debug` fix · `/ai-onboard` explore · `/ai-commit` save"
     )
-    lines.append("`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-cleanup` tidy")
+    lines.append("`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-repo-tidy` tidy")
     lines.append("")
     return "\n".join(lines)
 

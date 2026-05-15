@@ -61,7 +61,7 @@ The dashboard is compact (under 50 lines) and renders in any IDE. Think of it as
 ### 3. Tour your project
 
 ```
-/ai-guide tour
+/ai-onboard tour
 ```
 
 The AI walks through your project architecture: directory structure, component relationships, design decisions, key patterns, and entry points. This works on any existing codebase -- you do not need to have used ai-engineering before. The tour maps what is already there and explains it back to you.
@@ -227,7 +227,7 @@ This is fully autonomous, no-HITL (human-in-the-loop) execution. The AI picks up
 ### Continuous improvement
 
 ```
-/ai-observe
+/ai-session-watch
 ```
 
 Passively observes your session. When you correct the AI, change its output, or establish a pattern, the observer captures that as a project-specific learning. Over time, the AI gets better at your project because it remembers how you work.
@@ -279,7 +279,7 @@ Motion design specifications. Timing curves, entrance/exit patterns, micro-inter
 Presentation deck generation from specs, code, or plain descriptions. Produces self-contained HTML/CSS slide decks.
 
 ```
-/ai-write
+/ai-prose
 ```
 
 Technical writing: documentation, blog posts, release notes, architecture decision records, and runbooks.
@@ -417,6 +417,6 @@ The `.claude/` directory is the canonical source. All other IDE directories are 
 
 - Run `ai-eng doctor` to validate the framework boundary
 - Run `/ai-start` to begin your first session
-- Run `/ai-guide tour` to see your project through the framework's eyes
+- Run `/ai-onboard tour` to see your project through the framework's eyes
 - Pick a workflow from Phase 2 that matches what you need right now
 - Come back to Phase 3 when you are ready for autonomous execution

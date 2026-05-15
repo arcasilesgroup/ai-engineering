@@ -59,7 +59,7 @@ AI coding assistants operate without guardrails. In regulated industries, this c
 | Tech Lead | Review -> approve -> release | `/ai-review`, `/ai-verify --release`, `/ai-verify` |
 | Security Officer | Audit -> scan -> accept risk | `/ai-security`, `/ai-governance`, decision-store |
 | DevOps Engineer | Pipeline -> deploy -> monitor | `/ai-pipeline`, `ai-eng doctor`, runbooks |
-| New Team Member | Onboard -> learn -> contribute | `/ai-start`, `/ai-guide`, `/ai-explain` |
+| New Team Member | Onboard -> learn -> contribute | `/ai-start`, `/ai-onboard`, `/ai-explain` |
 
 ---
 
@@ -131,8 +131,8 @@ C4Context
 
 | Sub-agent | Parent | Focus |
 |-----------|--------|-------|
-| reviewer-context | review | Pre-review architectural context |
-| reviewer-validator | review | Adversarial finding disproof |
+| review-context | review | Pre-review architectural context |
+| review-validator | review | Adversarial finding disproof |
 | reviewer-architecture | review | Necessity, simplicity, patterns |
 | reviewer-backend | review | API boundaries, persistence |
 | reviewer-compatibility | review | Breaking changes to shipped code |
@@ -142,7 +142,7 @@ C4Context
 | reviewer-performance | review | Bottlenecks, optimization |
 | reviewer-security | review | Vulnerabilities, exploits |
 | reviewer-testing | review | Test coverage, quality |
-| verify-deterministic | verify | Tool-driven checks (gitleaks, ruff, pytest) |
+| verifier-deterministic | verify | Tool-driven checks (gitleaks, ruff, pytest) |
 | verifier-architecture | verify | Solution-intent alignment |
 | verifier-feature | verify | Spec coverage, acceptance criteria |
 | verifier-governance | verify | Compliance, integrity |

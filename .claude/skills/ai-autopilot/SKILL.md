@@ -85,6 +85,6 @@ there.
 
 ## Integration
 
-Called by: user directly post-`/ai-brainstorm` approval (or with `--backlog` for backlog runs). Reads: `_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`. Delegates to: `ai-explore`, `ai-build`, `ai-verify`, `ai-guard`, `ai-review` agents. Transitions to: `/ai-cleanup`. See also: `/ai-build` (smaller scope), `/ai-board sync` (lifecycle transitions for backlog mode), `references/examples.md`.
+Called by: user directly post-`/ai-brainstorm` approval (or with `--backlog` for backlog runs). Reads: `_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`. Delegates to: `ai-explore`, `ai-build`, `ai-verify`, `ai-advise`, `ai-review` agents. Transitions to: `/ai-repo-tidy`. See also: `/ai-build` (smaller scope), `/ai-board sync` (lifecycle transitions for backlog mode), `references/examples.md`.
 
 $ARGUMENTS

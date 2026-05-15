@@ -1,6 +1,6 @@
 ---
 name: ai-test
-description: Writes tests, enforces TDD (RED-GREEN-REFACTOR), analyzes coverage gaps, defines test strategy across Python, TypeScript, .NET, Rust, Go. Trigger for 'add tests for', 'write a test', 'I need 80 percent coverage', 'plan my test approach', 'TDD this'. Not for failing tests where the fix is unclear; use /ai-debug instead. Not for AI reliability over time; use /ai-eval instead.
+description: Writes tests, enforces TDD (RED-GREEN-REFACTOR), analyzes coverage gaps, defines test strategy across Python, TypeScript, .NET, Rust, Go. Trigger for 'add tests for', 'write a test', 'I need 80 percent coverage', 'plan my test approach', 'TDD this'. Not for failing tests where the fix is unclear; use /ai-debug instead. Not for AI reliability over time; use /ai-reliability-eval instead.
 effort: mid
 argument-hint: "plan|run|gap|tdd [target]"
 mode: agent
@@ -141,6 +141,6 @@ Runs the stack-specific coverage tool, ranks files by coverage delta, suggests t
 
 ## Integration
 
-Called by: `/ai-build` (build tasks), `/ai-build` (TDD mode), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-eval`.
+Called by: `/ai-build` (build tasks), `/ai-build` (TDD mode), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-reliability-eval`.
 
 $ARGUMENTS

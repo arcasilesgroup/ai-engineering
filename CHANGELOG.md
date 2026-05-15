@@ -7,6 +7,55 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-134 Wave 4 — Hard-rename wave for ambiguous skill / agent names
+
+Per D-134-06, executes one atomic rename wave across 8 ambiguous
+skill slugs, 2 first-class agent files (skill ↔ agent cohesion
+preservation), and 3 specialist agents (verifier / review family
+prefix alignment). No backwards-compatibility shims are provided
+(Constitution §13.3). Operators must update muscle memory and
+out-of-repo docs in lock step. The Constitution mandates hard
+renames over compatibility files; this wave honors that.
+
+#### BREAKING CHANGES — spec-134 D-134-06 rename wave
+
+Skills (8):
+
+- `/ai-gtm` → `/ai-marketing` — Domain-explicit; eliminates the opaque "go-to-market" acronym that newcomers cannot parse.
+- `/ai-eval` → `/ai-reliability-eval` — Disambiguates "AI evaluation" (meta) from "feature reliability eval"; scores production behavior.
+- `/ai-guide` → `/ai-onboard` — Audience-explicit (onboarding humans); separates from `/ai-explore` (codebase research).
+- `/ai-observe` → `/ai-session-watch` — Makes the passive-watch role explicit; clears the `/ai-learn` / `/ai-note` overlap.
+- `/ai-create` → `/ai-scaffold` — Aligns with industry term "scaffolding"; clarifies the verb generates structured framework artifacts.
+- `/ai-cleanup` → `/ai-repo-tidy` — Disambiguates from "code cleanup"; the skill is about repo lifecycle hygiene (`_history.md` rotation, branch tidy). Also avoids the residual twin-collision with the `ai-eng cleanup` CLI (Surface Axiom A2).
+- `/ai-write` → `/ai-prose` — Domain-explicit; resolves overlap with `/ai-docs` and `/ai-marketing`.
+- `/ai-prompt` → `/ai-prompt-tune` — Verb-leaning (optimize, not author); resolves the "write or tune?" ambiguity.
+
+Agents (2 first-class, paired with their renamed skill counterparts):
+
+- `ai-guard` → `ai-advise` — Resolves the name-behavior mismatch ("guard" implies blocking; the agent is "Always advisory, NEVER blocks").
+- `ai-guide` → `ai-onboard` — Skill ↔ agent cohesion: the renamed `/ai-onboard` skill now dispatches the renamed `ai-onboard` agent.
+
+Sub-agents (3, family-prefix consistency):
+
+- `verify-deterministic` → `verifier-deterministic` — Restores the `verifier-*` family prefix shared with siblings `verifier-architecture`, `verifier-feature`, `verifier-governance`.
+- `reviewer-context` → `review-context` — Lifecycle helper (pre-processor that loads context for specialists), not a specialist itself. The `review-` prefix marks it as a pipeline stage, not a domain reviewer.
+- `reviewer-validator` → `review-validator` — Lifecycle helper (post-processor adversary that disproves findings). Same story as `review-context`.
+
+Surface impact:
+
+- 8 canonical skill directories under `.claude/skills/` renamed via `git mv`; SKILL.md frontmatter `name:` fields and inline self-references updated.
+- 5 canonical agent files under `.claude/agents/` renamed; frontmatter `name:` updated.
+- `DEFAULT_SKILLS_REGISTRY` and `DEFAULT_AGENTS_NAMES` in `framework_defaults.py` updated; `_AGENT_ALIASES`, `_AGENT_TOPOLOGY`, `_AGENT_MUTATIONS`, `_AGENT_WRITE_SCOPES` in `state/capabilities.py` updated.
+- All 8 + 5 renamed seed copies under `src/ai_engineering/templates/project/{.agent,.claude,.codex,.cursor,.gemini,.github,.opencode}/` updated to match.
+- IDE mirror trees at `.codex/`, `.gemini/`, `.github/skills/` and `.github/agents/` renamed alongside; the bundled regenerator (`scripts/sync_mirrors/core.py`) re-runs at wave-end to ensure mirror parity.
+- Internal callers (`/ai-build`, `/ai-pr`, `/ai-autopilot`, `/ai-verify`, `_shared/{consolidate-spec,execution-kernel}.md`, plus every cross-referencing SKILL.md body) updated to dispatch the new names.
+- New `tests/architecture/test_naming_clarity.py` enforces (a) no deprecated slug surfaces survive on disk, (b) every specialist agent uses one of the canonical family prefixes, and (c) every renamed target exists at its new path. Drift fails CI.
+- Surface-Parity `_KNOWN_OVERLAPS` drops the legacy `"cleanup"` row (the chat surface no longer collides with `ai-eng cleanup` CLI under the new name).
+
+Migration note: there are no aliases. References to old names will
+fail to dispatch. Update any out-of-repo automation, docs, or
+shell scripts in the same release window.
+
 ### spec-134 Wave 2 — Orphan agents surfaced as slash-skills + cohesion test
 
 Two first-class agents (`ai-guard`, `ai-simplify`) had no discoverable

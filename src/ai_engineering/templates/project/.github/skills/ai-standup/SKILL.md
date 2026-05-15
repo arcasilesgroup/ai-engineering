@@ -1,6 +1,6 @@
 ---
 name: ai-standup
-description: Generates standup notes and status updates from actual git commits and PRs — never reconstructed from memory. Trigger for 'write my standup', 'what did I do today', 'what did I ship this week', 'status update', 'handoff notes', 'end of day summary'. Not for pitch or blog content; use /ai-write instead. Not for sprint retrospectives; use /ai-sprint instead.
+description: Generates standup notes and status updates from actual git commits and PRs — never reconstructed from memory. Trigger for 'write my standup', 'what did I do today', 'what did I ship this week', 'status update', 'handoff notes', 'end of day summary'. Not for pitch or blog content; use /ai-prose instead. Not for sprint retrospectives; use /ai-sprint instead.
 effort: cheap
 argument-hint: "--days N|--author [name]"
 mode: agent
@@ -123,6 +123,6 @@ User: "what did I ship this week?"
 
 ## Integration
 
-Called by: user directly. Calls: `git log`, `gh pr list`, `az repos pr list`. See also: `/ai-sprint` (full sprint view), `/ai-write content sprint-review`, `/ai-note`.
+Called by: user directly. Calls: `git log`, `gh pr list`, `az repos pr list`. See also: `/ai-sprint` (full sprint view), `/ai-prose content sprint-review`, `/ai-note`.
 
 $ARGUMENTS

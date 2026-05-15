@@ -4,7 +4,7 @@ Companion to ``test_d133_02_guide_deleted.py``. That guard checks the CLI
 registry; this one scans the production source tree for residual textual
 references that would point a shell operator at a command that no longer
 exists. Together they close the loop on D-133-02 (`ai-eng guide` hard-deleted
-in favour of the `/ai-guide` skill).
+in favour of the `/ai-onboard` skill).
 
 Scope: every ``.py`` file under ``src/ai_engineering/`` must be free of
 the literal substring ``ai-eng guide``. Any such occurrence — whether in
@@ -37,7 +37,7 @@ def test_no_ai_eng_guide_references_in_src() -> None:
 
     assert not offenders, (
         "D-133-02 violated — `ai-eng guide` referenced in production source. "
-        "The command was hard-deleted; point users at /ai-guide (in your AI surface) "
+        "The command was hard-deleted; point users at /ai-onboard (in your AI surface) "
         "or the install-state.json branch_policy.manual_guide field instead. "
         f"Offending sites:\n" + "\n".join(f"  {p}:{ln}: {snippet}" for p, ln, snippet in offenders)
     )

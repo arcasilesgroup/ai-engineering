@@ -37,7 +37,7 @@ visible without breaking CI; spec-132 closes the parity.
 |-----------------------------|---------------------------|
 | `board-sync-github.sh`      | `/ai-board`               |
 | `cleanup-settings-local.sh` | `/ai-analyze-permissions` |
-| `scaffold-skill.sh`         | `/ai-create`              |
+| `scaffold-skill.sh`         | `/ai-scaffold`              |
 
 ## Lock-step contract
 

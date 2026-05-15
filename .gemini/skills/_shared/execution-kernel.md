@@ -53,7 +53,7 @@ After the dispatched agent completes, run two-stage review on the deliverable BE
 - Stack validation passes (`ruff`, `tsc`, `cargo check`, `dotnet build`, etc.)
 - No new lint warnings introduced
 - Test coverage maintained or improved
-- No governance advisory warnings from `ai-guard`
+- No governance advisory warnings from `ai-advise`
 - Lint findings emitted as structured envelopes per `.ai-engineering/schemas/lint-violation.schema.json` (spec-119 D-119-05) -- prose violation labels are deprecated.
 
 If any stage fails: dispatch a fix attempt and re-review. Max 2 retries per stage. After 2 failed retries, mark task BLOCKED and STOP execution -- never loop silently, never retry the same approach more than twice.

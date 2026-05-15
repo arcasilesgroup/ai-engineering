@@ -1,7 +1,7 @@
 """Regression-gate use case — pure function over baseline + current pass@1.
 
 Sub-007 M6 application layer. Per D-127-07, a >5 percentage-point
-drop in pass@1 must fail the CI gate when ``ai-eval --skill-set
+drop in pass@1 must fail the CI gate when ``ai-reliability-eval --skill-set
 --regression`` runs on a PR touching ``.claude/skills/**``. This
 module owns the comparison logic; running the optimizer to *produce*
 the current pass@1 vector belongs in :mod:`skill_app.eval_runner`.

@@ -38,7 +38,7 @@ Governed PR creation: full commit pipeline, pre-push gates, structured PR with s
 
 Step 0 — **Auto-branch** from `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate slug with `python3 .ai-engineering/scripts/branch_slug.py --prefix <type>`, then `git checkout -b <output>`.
 Step 1 — **Work-item context (opt)**: spec.md frontmatter `refs` → commit body trailers (`Refs: AB#101, #45`); only `close_on_pr` items, never features.
-Step 2 — **Instinct consolidation**: if `.ai-engineering/observations/observations.yml` exists, run `/ai-observe --review` before committing.
+Step 2 — **Instinct consolidation**: if `.ai-engineering/observations/observations.yml` exists, run `/ai-session-watch --review` before committing.
 Step 3 — **Stage** selectively (`git add <file>...`). Use `git add -A` only when explicitly requested. Exclude generated files, secrets, large binaries.
 Step 4 — **Run gate orchestrator**: `ai-eng gate run --cache-aware --json --mode=local`. The 2-wave collector (Wave 1 fixers serial → Wave 2 checkers parallel) emits `.ai-engineering/state/gate-findings.json` (schema v1); Wave 1 re-stages the safe `S_pre & M_post` intersection (spec-105 D-105-09; disable via `--no-auto-stage` or manifest `gates.pre_commit.auto_stage: false`).
 Step 5 — **Handle gate**: exit 0 → continue. Exit non-zero → STOP, fix root cause, re-run. Publish-window override: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <id> --follow-up "<plan>"` (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
@@ -60,7 +60,7 @@ Total wall-clock = `max(docs, pre-push)`, NOT `sum`. Docs subagents and the pre-
 
 ### 8. Instinct consolidation
 
-See Step 2 — `/ai-observe --review` runs once before commit if `.ai-engineering/observations/observations.yml` exists.
+See Step 2 — `/ai-session-watch --review` runs once before commit if `.ai-engineering/observations/observations.yml` exists.
 
 ### 9. Pre-push gate (concurrent Lane 3 of step 7)
 
@@ -102,7 +102,7 @@ For new PRs with `refs`: invoke `/ai-board sync in_review <ref>` for each non-`n
 
 Auto-complete only queues the merge -- CI must pass first. Enter the watch-and-fix loop following `handlers/watch.md`. The loop polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
 
-Once `state == "MERGED"`: run `/ai-cleanup --all` and report.
+Once `state == "MERGED"`: run `/ai-repo-tidy --all` and report.
 
 ### `/pr --only` / `/pr --draft`
 
@@ -147,7 +147,7 @@ Same pipeline, but opens with `--draft` and skips the review request; reviewers 
 | Open as draft | `/ai-pr --draft` |
 | Skip CI watch | `/ai-pr --no-watch` |
 | Update existing PR | `/ai-pr --update` |
-| Resume after merge | `/ai-cleanup` (auto-invoked) |
+| Resume after merge | `/ai-repo-tidy` (auto-invoked) |
 
 ## Integration
 
