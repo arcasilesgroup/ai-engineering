@@ -224,6 +224,7 @@ def load_required_tools(
     *,
     root: Path | None = None,
     current_os: str | None = None,
+    apply_defaults: bool = False,
 ) -> LoadResult:
     """Resolve the union of baseline + per-stack tools for the given stacks.
 
@@ -256,13 +257,15 @@ def load_required_tools(
     project_root = (root or Path.cwd()).resolve()
     data = _read_raw_manifest(project_root)
     # spec-128 slim-manifest: required_tools is framework-managed and
-    # injected at validate-time. The raw read does not carry it, so the
-    # SDK carve-out (D-101-13) would silently fail. Apply defaults so
-    # this loader sees the canonical block in both committed and slim
-    # manifest layouts.
-    from ai_engineering.config.framework_defaults import apply_framework_defaults
+    # injected at validate-time. The raw read does not carry it. Callers
+    # that need the canonical block in both layouts (notably the SDK
+    # carve-out D-101-13) pass ``apply_defaults=True``; everyone else
+    # gets the user's literal manifest content so tests / probes that
+    # rely on "no required_tools" semantics still work.
+    if apply_defaults:
+        from ai_engineering.config.framework_defaults import apply_framework_defaults
 
-    apply_framework_defaults(data)
+        apply_framework_defaults(data)
     block = _resolve_required_tools_block(data)
     os_platform = _normalise_os(current_os)
 

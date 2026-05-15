@@ -444,13 +444,28 @@ class TestDetectPhaseMutation:
 
 
 class TestToolsPhase:
-    def test_always_passes_verify(self, tmp_path: Path) -> None:
-        """Tools phase verify always passes (warnings only)."""
+    def test_always_passes_verify(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Tools phase verify passes trivially when no tools are required.
+
+        spec-128 slim-manifest: ToolsPhase now applies framework defaults so
+        production sees the canonical baseline + per-stack tool list. The unit
+        test stubs ``load_required_tools`` to return an empty LoadResult so
+        the phase logic is exercised in isolation without real installs
+        (which would hit GitHub releases and 404 on CI).
+        """
+        from ai_engineering.installer.phases import tools as tools_module
         from ai_engineering.installer.phases.tools import ToolsPhase
+        from ai_engineering.state.manifest import LoadResult
+
+        monkeypatch.setattr(
+            tools_module,
+            "load_required_tools",
+            lambda *a, **kw: LoadResult(tools=[], skipped_stacks=[]),
+        )
 
         phase = ToolsPhase()
         ctx = _ctx(tmp_path)
         plan = phase.plan(ctx)
         result = phase.execute(plan, ctx)
         verdict = phase.verify(result, ctx)
-        assert verdict.passed  # tools are warnings, not failures
+        assert verdict.passed

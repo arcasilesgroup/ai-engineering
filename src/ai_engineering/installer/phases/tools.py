@@ -247,7 +247,7 @@ class ToolsPhase:
     def plan(self, context: InstallContext) -> PhasePlan:
         """Enumerate every required tool the phase will attempt to install."""
         actions: list[PlannedAction] = []
-        load_result = load_required_tools(context.stacks, root=context.target)
+        load_result = load_required_tools(context.stacks, root=context.target, apply_defaults=True)
 
         for tool in load_result:
             actions.append(
@@ -281,7 +281,7 @@ class ToolsPhase:
         """Install each required tool and record per-tool outcomes."""
         result = PhaseResult(phase_name=self.name)
         install_state = _ensure_install_state(context)
-        load_result = load_required_tools(context.stacks, root=context.target)
+        load_result = load_required_tools(context.stacks, root=context.target, apply_defaults=True)
         os_key = _current_os_key()
 
         # Idempotence inputs (D-101-07, T-2.16):
