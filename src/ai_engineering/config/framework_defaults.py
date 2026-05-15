@@ -144,6 +144,23 @@ DEFAULT_HOT_PATH_SLOS: dict[str, int] = {
 }
 
 
+# --- brainstorm.auto_spec_gate (spec-134 D-134-04) ---
+
+DEFAULT_BRAINSTORM: dict[str, Any] = {
+    "auto_spec_gate": {
+        "enabled": True,
+        "thresholds": {"files": 3, "loc": 50, "cross_module": 1},
+        "hard_triggers": {
+            "public_api": True,
+            "state_or_schema": True,
+            "new_dependency": True,
+            "security_surface": True,
+        },
+        "regulated_overrides": {"files": 1, "loc": 20, "cross_module": 1},
+    },
+}
+
+
 # --- python_env ---
 
 DEFAULT_PYTHON_ENV: dict[str, str] = {"mode": "uv-tool"}
@@ -376,6 +393,12 @@ def apply_framework_defaults(data: dict[str, Any]) -> dict[str, Any]:
     # hot_path_slos
     if data.get("hot_path_slos") is None:
         data["hot_path_slos"] = _copy(DEFAULT_HOT_PATH_SLOS)
+
+    # brainstorm.auto_spec_gate (spec-134 D-134-04) — slim manifests
+    # opt into the framework default automatically; user overrides win
+    # at any nesting depth via the standard "key absent or None" rule.
+    if data.get("brainstorm") is None:
+        data["brainstorm"] = _copy(DEFAULT_BRAINSTORM)
 
     # python_env
     if data.get("python_env") is None:

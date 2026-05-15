@@ -220,6 +220,66 @@ class GatesConfig(BaseModel):
     pre_commit: PreCommitGateConfig = Field(default_factory=PreCommitGateConfig)
 
 
+class AutoSpecGateThresholds(BaseModel):
+    """Trivial-vs-spec thresholds for ``/ai-brainstorm`` (spec-134 D-134-04).
+
+    All three thresholds are upper bounds (a diff that strictly exceeds
+    any one of them routes to full interrogation). The same shape is
+    reused for ``regulated_overrides`` — only the default values differ.
+    """
+
+    files: int = 3
+    loc: int = 50
+    cross_module: int = 1
+
+
+class AutoSpecGateHardTriggers(BaseModel):
+    """Hard-trigger toggles for ``/ai-brainstorm`` auto-spec gate.
+
+    Each flag controls whether a vector participates in the gate. The
+    default is "all on" — operators can disable a vector to silence
+    false positives, but the framework treats every disabled flag as a
+    risk acceptance (documented in `auto-spec-gate.md`).
+    """
+
+    public_api: bool = True
+    state_or_schema: bool = True
+    new_dependency: bool = True
+    security_surface: bool = True
+
+
+class AutoSpecGateConfig(BaseModel):
+    """Auto-spec gate knob block (spec-134 D-134-04).
+
+    Lives under ``brainstorm.auto_spec_gate`` in ``manifest.yml``. When
+    :attr:`enabled` is ``False`` the gate becomes a no-op and every
+    call routes to full interrogation. When :attr:`enabled` is ``True``
+    the gate consults the thresholds + hard-trigger toggles to classify
+    a working-tree diff. ``regulated_overrides`` are substituted over
+    ``thresholds`` when ``gates.mode == "regulated"`` (the runtime
+    consults the existing :class:`GatesConfig` — no new top-level enum
+    is needed).
+    """
+
+    enabled: bool = True
+    thresholds: AutoSpecGateThresholds = Field(default_factory=AutoSpecGateThresholds)
+    hard_triggers: AutoSpecGateHardTriggers = Field(default_factory=AutoSpecGateHardTriggers)
+    regulated_overrides: AutoSpecGateThresholds = Field(
+        default_factory=lambda: AutoSpecGateThresholds(files=1, loc=20, cross_module=1)
+    )
+
+
+class BrainstormConfig(BaseModel):
+    """``brainstorm.*`` manifest block (spec-134 D-134-04).
+
+    Currently exposes only :attr:`auto_spec_gate`; the namespace is
+    reserved for future brainstorm-scoped knobs (e.g., max-question
+    budgets, evidence-sweep toggles).
+    """
+
+    auto_spec_gate: AutoSpecGateConfig = Field(default_factory=AutoSpecGateConfig)
+
+
 class HotPathSlosConfig(BaseModel):
     """Hot-path SLO budgets driving ``ai-eng doctor --check hot-path``.
 
@@ -272,3 +332,4 @@ class ManifestConfig(BaseModel):
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     gates: GatesConfig = Field(default_factory=GatesConfig)
     hot_path_slos: HotPathSlosConfig = Field(default_factory=HotPathSlosConfig)
+    brainstorm: BrainstormConfig = Field(default_factory=BrainstormConfig)

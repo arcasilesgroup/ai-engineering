@@ -29,6 +29,14 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
    via `spec_lifecycle.py mark_shipped`, clear `spec.md`/`plan.md` to
    placeholders). STOP after consolidation — no interrogation runs. Fail-open
    on missing script.
+0b. **Auto-spec gate** — follow `handlers/auto-spec-gate.md`. Classify the
+   working-tree diff via `ai_engineering.brainstorm.auto_spec_gate.classify_diff`
+   BEFORE interrogation begins. If any hard trigger fires, OR any threshold is
+   exceeded, route to full interrogation (continue to Step 1). Otherwise, take
+   the condensed-spec path: draft the minimum-viable spec from the diff,
+   present it for one-shot approval, STOP at Step 7. Honor
+   `manifest.brainstorm.auto_spec_gate.enabled: false` as a no-op (fail-open
+   to full interrogation).
 0. **Spec lifecycle bootstrap** (before evidence sweep) — call
    `python .ai-engineering/scripts/spec_lifecycle.py start_new <slug> <title>`
    to mint (or no-op refresh) the DRAFT record under
@@ -45,15 +53,11 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 2. **Enhance input** -- follow `handlers/prompt-enhance.md` to evaluate and optimize user input for clarity and specificity before interrogation
 3. **Evidence sweep** -- when the current state spans multiple repo or governance surfaces, dispatch parallel read-only `ai-explore` passes first, summarize the findings, and use that evidence to sharpen the next question or spec boundary
 4. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
-5. **Scope check** -- if interrogation reveals the work is small enough to resolve
-   without a spec (e.g., audit questions, maintenance fixes, < 3 file changes),
-   present the resolution directly and STOP. No spec needed. Log the decision
-   in the conversation. The HARD GATE only applies to implementation-grade work.
-6. **Propose approaches** -- present 2-3 options with trade-offs (never just one)
-7. **Draft spec** -- write spec to `.ai-engineering/specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
-8. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
-9. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
-10. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
+5. **Propose approaches** -- present 2-3 options with trade-offs (never just one). Scope classification is already settled at Step 0b — there is no post-interrogation file-count heuristic.
+6. **Draft spec** -- write spec to `.ai-engineering/specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
+7. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
+8. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
+9. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
 
 ## Questioning Rules
 
@@ -78,7 +82,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Integration
 
 - **Called by**: user directly, or `/ai-plan` when requirements are unclear
-- **Calls**: `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board sync` (refinement + ready transitions), `.ai-engineering/scripts/spec_lifecycle.py start_new` (fail-open lifecycle bootstrap)
+- **Calls**: `handlers/auto-spec-gate.md` (Step 0b trivial-vs-spec classifier via `ai_engineering.brainstorm.auto_spec_gate.classify_diff`), `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board sync` (refinement + ready transitions), `.ai-engineering/scripts/spec_lifecycle.py start_new` (fail-open lifecycle bootstrap)
 - **Transitions to**: `/ai-plan` (ONLY -- never directly to `ai-build` or `/ai-build`)
 
 ## Examples

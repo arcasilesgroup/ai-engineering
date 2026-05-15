@@ -105,3 +105,26 @@ telemetry:
 # flag. Flipping the default to `true` is out-of-scope for spec-134.
 build:
   no_hitl_default: false
+
+# /ai-brainstorm auto-spec gate (spec-134 D-134-04).
+# The gate classifies the working-tree diff BEFORE interrogation begins;
+# trivial changes route to the condensed-spec path, everything else
+# enters full interrogation. `enabled: false` is the opt-out knob.
+# `regulated_overrides` is substituted over `thresholds` when
+# `gates.mode == "regulated"` (currently regulated by default).
+brainstorm:
+  auto_spec_gate:
+    enabled: true
+    thresholds:
+      files: 3
+      loc: 50
+      cross_module: 1
+    hard_triggers:
+      public_api: true
+      state_or_schema: true
+      new_dependency: true
+      security_surface: true
+    regulated_overrides:
+      files: 1
+      loc: 20
+      cross_module: 1
