@@ -1,13 +1,13 @@
 ---
-spec: spec-133
-title: spec-133 — Surface Primitive Re-architecture (CLI UX + Cross-IDE)
+spec: spec-135
+title: spec-135 — Framework Performance Hardening (active on PR #509 aggregate; plan body pending /ai-plan)
 pipeline: autopilot
 phases: 6
 sub-specs: 14
 status: in-progress
 ---
 
-# Plan — spec-133 Surface Primitive Re-architecture
+# Plan — spec-135 Framework Performance Hardening
 
 This plan is the aggregate index for spec-133's autopilot run. The
 per-sub-spec deep plans live under
