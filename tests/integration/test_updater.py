@@ -63,7 +63,7 @@ class TestDryRun:
 
     def test_dry_run_does_not_modify_files(self, installed_project: Path) -> None:
         # Modify a framework-managed file to create a diff
-        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
         core_md.read_text()
         core_md.write_text("modified content")
 
@@ -94,7 +94,7 @@ class TestApply:
 
     def test_applies_changes(self, installed_project: Path) -> None:
         # Modify a framework-managed file
-        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
         core_md.write_text("outdated content")
 
         result = update(installed_project, dry_run=False)
@@ -105,7 +105,7 @@ class TestApply:
 
     def test_apply_logs_framework_operation(self, installed_project: Path) -> None:
         # Create a diff to trigger an update
-        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
         core_md.write_text("outdated")
 
         events_path = installed_project / ".ai-engineering" / "state" / "framework-events.ndjson"
@@ -295,7 +295,7 @@ class TestDiffGeneration:
 
     def test_diff_generated_for_updates(self, installed_project: Path) -> None:
         """Modified file should have a unified diff attached."""
-        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
         core_md.write_text("outdated content")
 
         result = update(installed_project, dry_run=True)
@@ -339,7 +339,7 @@ class TestRollback:
     def test_rollback_on_write_failure(self, installed_project: Path) -> None:
         """If a write fails mid-apply, already-modified files are restored."""
         # Modify two framework-managed files so write_bytes is called twice
-        core_md = installed_project / ".ai-engineering" / "contexts" / "languages" / "python.md"
+        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
         core_md.parent.mkdir(parents=True, exist_ok=True)
         core_md.write_text("will be restored")
         fw_md = installed_project / ".ai-engineering" / "contexts" / "frameworks" / "react.md"

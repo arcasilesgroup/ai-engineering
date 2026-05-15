@@ -102,7 +102,9 @@ def check_no_orphan_dirs(repo_root: Path) -> list[RubricResult]:
 
     offenders = [p for p in _enumerate_orphan_paths(repo_root) if p.exists()]
     if offenders:
-        rel = "; ".join(str(p.relative_to(repo_root)) for p in offenders)
+        # spec-128 D-128-XX: use POSIX-style paths so the reason string is
+        # stable across Windows (backslashes) and POSIX (forward slashes).
+        rel = "; ".join(p.relative_to(repo_root).as_posix() for p in offenders)
         return [
             RubricResult(
                 "no_orphan_dirs",

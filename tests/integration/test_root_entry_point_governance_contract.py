@@ -101,7 +101,12 @@ def _assert_root_entry_point_contract(manifest_path: Path, label: str) -> None:
         "of truth."
     )
 
+    # spec-128 slim-manifest: ownership.root_entry_points is now framework-managed
+    # and injected by `apply_framework_defaults` rather than committed in raw YAML.
+    from ai_engineering.config.framework_defaults import apply_framework_defaults
+
     manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    apply_framework_defaults(manifest)
     ownership = manifest.get("ownership")
 
     assert isinstance(ownership, dict), (

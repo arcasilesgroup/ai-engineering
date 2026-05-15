@@ -43,12 +43,7 @@ def test_config_inspection_exception_paths(tmp_path: Path) -> None:
         patch("ai_engineering.cli_commands.config.list_status", side_effect=err),
         pytest.raises(SystemExit),
     ):
-        config.ide_list(target=tmp_path)
-    with (
-        patch("ai_engineering.cli_commands.config.list_status", side_effect=err),
-        pytest.raises(SystemExit),
-    ):
-        config.provider_list(target=tmp_path)
+        config.surface_list(target=tmp_path)
 
 
 def test_config_vcs_status_missing_framework(tmp_path: Path) -> None:

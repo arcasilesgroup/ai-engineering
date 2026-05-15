@@ -254,13 +254,14 @@ class TestIDECommands:
     interactive reconfigure flow (``ai-eng config``).
     """
 
-    def test_ide_list(self, installed_dir: Path, app: object) -> None:
+    def test_surface_list(self, installed_dir: Path, app: object) -> None:
+        # spec-133 D-133-16: `config ide list` was renamed to `config surface list`.
         result = runner.invoke(
             app,
-            ["config", "ide", "list", "--target", str(installed_dir)],
+            ["config", "surface", "list", "--target", str(installed_dir)],
         )
         assert result.exit_code == 0
-        assert "vscode" in result.output
+        assert "claude-code" in result.output
 
 
 # ---------------------------------------------------------------------------

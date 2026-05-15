@@ -6,6 +6,7 @@ Asserts the 9 root framework scripts are deployed into the consumer's
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -93,6 +94,10 @@ def test_scripts_phase_verify_fails_when_missing(ctx: InstallContext) -> None:
     assert not verdict.passed
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="Windows filesystems do not honour Unix execute bits",
+)
 def test_scripts_phase_deployed_files_executable(ctx: InstallContext) -> None:
     phase = ScriptsPhase()
     plan = phase.plan(ctx)

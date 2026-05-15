@@ -305,20 +305,24 @@ def test_core_doctor_json_omits_fix_when_follow_up_is_manual(
     assert data["next_actions"] == []
 
 
-def test_config_stack_and_ide_empty_lists(
+def test_config_stack_and_surface_empty_lists(
     tmp_path: Path,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    # spec-133 D-133-16: surface_list always renders the registry with
+    # checkmarks against `surfaces.enabled`, so it does not emit a
+    # "No surfaces configured" message even with an empty enabled list.
+    # stack_list still emits a friendly empty-state message.
     empty_manifest = SimpleNamespace(
         providers=SimpleNamespace(stacks=[]),
-        ai_providers=SimpleNamespace(enabled=[], primary=None),
+        surfaces=SimpleNamespace(enabled=[]),
     )
     with patch("ai_engineering.cli_commands.config.list_status", return_value=empty_manifest):
         config.stack_list(target=tmp_path)
-        config.ide_list(target=tmp_path)
+        config.surface_list(target=tmp_path)
     captured = capsys.readouterr()
     assert "No stacks configured" in captured.err
-    assert "No IDEs configured" in captured.err
+    assert "surfaces listed" in captured.err
 
 
 def test_core_update_diff_truncation(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

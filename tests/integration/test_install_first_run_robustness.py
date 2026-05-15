@@ -55,6 +55,8 @@ class TestHooksRunsAfterToolsFailure:
         # We are NOT measuring the success of remediation here; only that
         # HooksPhase produced its files even with a tool failure upstream.
 
+        # spec-133 D-133-XX: --no-auto-remediate CLI flag removed; env var drives it.
+        monkeypatch.setenv("AIENG_AUTO_REMEDIATE", "0")
         result = runner.invoke(
             app,
             [
@@ -62,7 +64,6 @@ class TestHooksRunsAfterToolsFailure:
                 str(project_dir),
                 "--stack",
                 "python",
-                "--no-auto-remediate",
             ],
         )
 
@@ -129,6 +130,8 @@ class TestRenderBeforeExit:
         monkeypatch.setenv("AIENG_TEST", "1")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "ruff")
 
+        # spec-133 D-133-XX: --no-auto-remediate CLI flag removed; env var drives it.
+        monkeypatch.setenv("AIENG_AUTO_REMEDIATE", "0")
         result = runner.invoke(
             app,
             [
@@ -136,7 +139,6 @@ class TestRenderBeforeExit:
                 str(project_dir),
                 "--stack",
                 "python",
-                "--no-auto-remediate",
             ],
         )
 
