@@ -114,9 +114,8 @@ def claude_codex_project(tmp_path: Path) -> Path:
     """
     _ensure_git_repo(tmp_path)
     install(tmp_path, surfaces=["claude-code", "codex"])
-    # Shrink enabled providers in the manifest to only claude-code.
-    update_manifest_field(tmp_path, "ai_providers.enabled", ["claude-code"])
-    update_manifest_field(tmp_path, "ai_providers.primary", "claude-code")
+    # Shrink enabled surfaces in the manifest to only claude-code.
+    update_manifest_field(tmp_path, "surfaces.enabled", ["claude-code"])
     # Ensure .codex/ files exist on disk (some may have been installed,
     # but place extras to guarantee orphan detection has files to find).
     _place_codex_files(tmp_path)

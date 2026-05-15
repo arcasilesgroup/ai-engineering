@@ -1188,6 +1188,11 @@ class InstallState(BaseModel):
         vcs_provider = providers.get("primary")
         ai_prov = manifest_dict.get("ai_providers", manifest_dict.get("aiProviders", {}))
         ai_providers = ai_prov.get("enabled") if ai_prov else None
+        # spec-133 D-133-16: ai_providers fused into surfaces. When the
+        # legacy ai_providers key is absent, fall back to surfaces.enabled.
+        if ai_providers is None:
+            surfaces_dict = manifest_dict.get("surfaces", {})
+            ai_providers = surfaces_dict.get("enabled") if surfaces_dict else None
 
         bp = manifest_dict.get("branchPolicy", {})
         op = manifest_dict.get("operationalReadiness", {})

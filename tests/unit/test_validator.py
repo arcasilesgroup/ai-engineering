@@ -144,7 +144,7 @@ def _write_all_instruction_files(
 def _write_manifest(
     ai: Path,
     *,
-    providers: tuple[str, ...] = ("claude-code", "github_copilot"),
+    providers: tuple[str, ...] = ("claude-code", "github-copilot"),
     skills_total: int | None = None,
     agents_total: int | None = None,
 ) -> None:
