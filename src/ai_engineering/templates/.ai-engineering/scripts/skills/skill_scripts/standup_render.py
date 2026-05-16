@@ -66,7 +66,7 @@ _SINCE_PATTERN = re.compile(r"^(?P<value>\d+)(?P<unit>[dw])$")
 
 # Safety pad applied to the ``--since`` cutoff so a commit dated
 # exactly at the boundary is reliably caught by ``git log --since``.
-# Bumped 1s → 30s: Windows CI runners regularly take 5–10s to seed a
+# Bumped 1s → 30s: Windows CI runners regularly take 5-10s to seed a
 # multi-step git fixture, which used to push the cutoff past the boundary
 # merge and fail test_since_7d_includes_commit_exactly_seven_days_old.
 # Sub-minute pad is invisible to the human-scale day-bucket fixtures.
