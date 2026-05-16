@@ -107,6 +107,16 @@ extend-exclude = ["tests/fixtures/**/*.json"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
 
+[tool.ruff.lint.per-file-ignores]
+# D-135-13 — `.ai-engineering/scripts/spec_lifecycle.py` is invoked via
+# `#!/usr/bin/env python3` from hooks; on macOS that shebang resolves to
+# system Python 3.9, where `datetime.UTC` does not exist. UP017 would force
+# the 3.11-only alias and crash the spec lifecycle bootstrap during
+# `/ai-brainstorm` and `/ai-spec-draft`. The script uses `timezone.utc` so it
+# remains 3.9-importable; the regression is guarded by
+# `tests/unit/scripts/test_spec_lifecycle_python_compat.py`.
+".ai-engineering/scripts/spec_lifecycle.py" = ["UP017"]
+
 [tool.ruff.lint.isort]
 known-first-party = [
   "ai_engineering",
