@@ -97,3 +97,162 @@ def test_floor_invariant(env_value: str | None, expected_floor: int) -> None:
     """
     cap = resolve_wave_cap(env_var=env_value, manifest_value=None, host_probe=None)
     assert cap == expected_floor
+
+
+# ---------------------------------------------------------------------------
+# Coverage — edge paths in the resolver and env parser
+# ---------------------------------------------------------------------------
+
+
+def test_env_var_non_numeric_falls_through_to_manifest() -> None:
+    """Non-int env value is ignored — manifest takes over."""
+    cap = resolve_wave_cap(env_var="not-a-number", manifest_value=3, host_probe=None)
+    assert cap == 3
+
+
+def test_env_var_zero_falls_through() -> None:
+    """env=0 is non-positive — ignored, manifest wins."""
+    cap = resolve_wave_cap(env_var="0", manifest_value=5, host_probe=None)
+    assert cap == 5
+
+
+def test_env_var_negative_falls_through() -> None:
+    """Negative env values are ignored."""
+    cap = resolve_wave_cap(env_var="-3", manifest_value=4, host_probe=None)
+    assert cap == 4
+
+
+def test_env_var_whitespace_only_falls_through() -> None:
+    """Whitespace-only env values are treated as unset."""
+    cap = resolve_wave_cap(env_var="   ", manifest_value=4, host_probe=None)
+    assert cap == 4
+
+
+def test_env_var_above_hard_ceiling_clamps() -> None:
+    """env above WAVE_CEILING_HARD is clamped to the hard ceiling."""
+    from ai_engineering.config.concurrency import WAVE_CEILING_HARD
+
+    cap = resolve_wave_cap(env_var="9999", manifest_value=None, host_probe=None)
+    assert cap == WAVE_CEILING_HARD
+
+
+def test_manifest_string_auto_falls_through_to_auto_tune() -> None:
+    """`auto` (case-insensitive) defers to host auto-tune."""
+    cap_lower = resolve_wave_cap(env_var=None, manifest_value="auto", host_probe=None)
+    cap_upper = resolve_wave_cap(env_var=None, manifest_value="AUTO", host_probe=None)
+    cap_mixed = resolve_wave_cap(env_var=None, manifest_value="  Auto  ", host_probe=None)
+    assert 2 <= cap_lower <= 6
+    assert cap_lower == cap_upper == cap_mixed
+
+
+def test_manifest_string_integer_parses() -> None:
+    """A numeric string in the manifest knob is parsed."""
+    cap = resolve_wave_cap(env_var=None, manifest_value="4", host_probe=None)
+    assert cap == 4
+
+
+def test_manifest_string_non_numeric_falls_through() -> None:
+    """Non-numeric manifest strings (other than `auto`) defer to auto-tune."""
+    cap = resolve_wave_cap(env_var=None, manifest_value="banana", host_probe=None)
+    assert 2 <= cap <= 6
+
+
+def test_manifest_zero_falls_through() -> None:
+    """A manifest int ≤ 0 is ignored."""
+    cap = resolve_wave_cap(env_var=None, manifest_value=0, host_probe=None)
+    assert 2 <= cap <= 6
+
+
+def test_auto_tune_with_zero_cores_falls_back_to_floor() -> None:
+    """`os.cpu_count() → None` is a real possibility on exotic hosts."""
+    with mock.patch.object(os, "cpu_count", return_value=None):
+        cap = resolve_wave_cap(env_var=None, manifest_value=None, host_probe=None)
+    assert cap == 2  # floor
+
+
+def test_auto_tune_with_low_free_ram_clamps_to_floor() -> None:
+    """Host with 0 GB free RAM clamps to the floor=2."""
+    probe = HostProbe(cores=8, free_ram_gb=0, pressure_pct=10)
+    cap = resolve_wave_cap(env_var=None, manifest_value=None, host_probe=probe)
+    assert cap == 2  # floor
+
+
+def test_auto_tune_with_low_cores_clamps_to_floor() -> None:
+    """Host with 1 core clamps to floor."""
+    probe = HostProbe(cores=1, free_ram_gb=16, pressure_pct=10)
+    cap = resolve_wave_cap(env_var=None, manifest_value=None, host_probe=probe)
+    assert cap == 2
+
+
+def test_auto_tune_at_pressure_threshold_returns_serial() -> None:
+    """pressure_pct = 50 (boundary) → cap=1."""
+    probe = HostProbe(cores=8, free_ram_gb=8, pressure_pct=50)
+    cap = resolve_wave_cap(env_var=None, manifest_value=None, host_probe=probe)
+    assert cap == 1
+
+
+def test_quality_cap_env_string_invalid_falls_through() -> None:
+    """Invalid env string → default cap."""
+    assert resolve_quality_cap(env_var="banana", manifest_value=None) == 3
+
+
+def test_quality_cap_env_whitespace_only() -> None:
+    """Whitespace-only env value → falls through to default."""
+    assert resolve_quality_cap(env_var="   ", manifest_value=None) == 3
+
+
+def test_quality_cap_manifest_zero_falls_through() -> None:
+    """Manifest value ≤ 0 → default cap."""
+    assert resolve_quality_cap(env_var=None, manifest_value=0) == 3
+
+
+# ---------------------------------------------------------------------------
+# _env_int helper coverage
+# ---------------------------------------------------------------------------
+
+
+def test_env_int_returns_default_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ai_engineering.config.concurrency import _env_int
+
+    monkeypatch.delenv("AIENG_TEST_VAR_X", raising=False)
+    assert _env_int("AIENG_TEST_VAR_X", default=7) == 7
+
+
+def test_env_int_returns_default_when_blank(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ai_engineering.config.concurrency import _env_int
+
+    monkeypatch.setenv("AIENG_TEST_VAR_X", "   ")
+    assert _env_int("AIENG_TEST_VAR_X", default=7) == 7
+
+
+def test_env_int_returns_default_when_non_numeric(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ai_engineering.config.concurrency import _env_int
+
+    monkeypatch.setenv("AIENG_TEST_VAR_X", "banana")
+    assert _env_int("AIENG_TEST_VAR_X", default=7) == 7
+
+
+def test_env_int_returns_default_when_zero_or_negative(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ai_engineering.config.concurrency import _env_int
+
+    monkeypatch.setenv("AIENG_TEST_VAR_X", "0")
+    assert _env_int("AIENG_TEST_VAR_X", default=7) == 7
+    monkeypatch.setenv("AIENG_TEST_VAR_X", "-3")
+    assert _env_int("AIENG_TEST_VAR_X", default=7) == 7
+
+
+def test_env_int_clamps_to_ceiling(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ai_engineering.config.concurrency import _env_int
+
+    monkeypatch.setenv("AIENG_TEST_VAR_X", "999")
+    assert _env_int("AIENG_TEST_VAR_X", default=7, ceiling=10) == 10
+    monkeypatch.setenv("AIENG_TEST_VAR_X", "5")
+    assert _env_int("AIENG_TEST_VAR_X", default=7, ceiling=10) == 5
+
+
+def test_env_int_none_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default=None preserved when env unset."""
+    from ai_engineering.config.concurrency import _env_int
+
+    monkeypatch.delenv("AIENG_TEST_VAR_X", raising=False)
+    assert _env_int("AIENG_TEST_VAR_X", default=None) is None
