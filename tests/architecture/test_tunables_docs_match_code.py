@@ -156,6 +156,9 @@ _M1_TUNABLES: tuple[str, ...] = (
     "AIENG_MAX_THREAD_WORKERS",
 )
 
+# spec-139 M6 SessionEnd rotation throttle var that landed with M6.
+_M6_TUNABLES: tuple[str, ...] = ("AIENG_RUNTIME_ROTATE_THROTTLE_SEC",)
+
 
 @pytest.mark.unit
 def test_tunables_block_exists_in_claude_md() -> None:
@@ -251,7 +254,7 @@ def test_every_documented_var_classified() -> None:
     pending. Catches accidental new entries that bypass the classification.
     """
     documented = _parse_documented_tunables()
-    classified = set(_ESTABLISHED_TUNABLES) | set(_M1_TUNABLES)
+    classified = set(_ESTABLISHED_TUNABLES) | set(_M1_TUNABLES) | set(_M6_TUNABLES)
     for name, (_default, pending) in documented.items():
         if name in classified:
             continue
