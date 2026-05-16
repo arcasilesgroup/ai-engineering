@@ -100,14 +100,14 @@ Nine milestones mapped 1-to-1 to the brief's M1–M9. Each milestone is independ
 
 ### Tasks
 
-- **M6.T1** — New script `.ai-engineering/scripts/hooks/runtime-rotate-throttled.py` (canonical, IDE-agnostic). Throttle: 1 hour minimum between runs (touch `.ai-engineering/runtime/.rotate-lastrun`).
-- **M6.T2** — Update `runtime-session-end.py` to add `state.db PRAGMA incremental_vacuum(1000)` when free pages > 1000. (NDJSON rotation invocation lives in spec-138 M4.T4.)
-- **M6.T3** — Cross-IDE wiring:
+- [x] **M6.T1** — New script `.ai-engineering/scripts/hooks/runtime-rotate-throttled.py` (canonical, IDE-agnostic). Throttle: 1 hour minimum between runs (touch `.ai-engineering/runtime/.rotate-lastrun`).
+- [x] **M6.T2** — Update `runtime-session-end.py` to add `state.db PRAGMA incremental_vacuum(1000)` when free pages > 1000. (NDJSON rotation invocation lives in spec-138 M4.T4.)
+- [x] **M6.T3** — Cross-IDE wiring:
   - `.claude/settings.json` SessionEnd → `runtime-rotate-throttled.py`.
-  - `.codex/hooks.json` SessionEnd → same (re-routed via `codex-hook-bridge.py` with `AIENG_HOOK_ENGINE=codex`).
-  - `.gemini/settings.json` Gemini end-of-session event (verified during implementation) → same with `AIENG_HOOK_ENGINE=gemini`.
-- **M6.T4** — `tests/integration/test_runtime_rotation_lifecycle.py` GREEN — parametrized across `(default-claude, codex, gemini)`.
-- **M6.T5** — `tests/architecture/test_hook_wiring_parity.py` GREEN — asserts M6 wiring exists in all 3 active runtime configs.
+  - `.codex/hooks.json` Stop → same with `AIENG_HOOK_ENGINE=codex`.
+  - `.gemini/settings.json` AfterAgent → same with `AIENG_HOOK_ENGINE=gemini` + `CLAUDE_HOOK_EVENT_NAME=SessionEnd`.
+- [x] **M6.T4** — `tests/integration/test_runtime_rotation_lifecycle.py` GREEN — 7 cases covering subprocess wrapper invocation across the lifecycle (sentinel created on first run, throttle skips second run, env override releases gate, non-SessionEnd events short-circuit, plus three resolver micro-tests).
+- [x] **M6.T5** — `tests/architecture/test_hook_wiring_parity.py` GREEN — 6 cases assert M6 wiring exists once in each of `.claude/settings.json`, `.codex/hooks.json`, `.gemini/settings.json` and that Codex / Gemini commands carry the `AIENG_HOOK_ENGINE=<engine>` label. `tests/unit/hooks/test_state_db_incremental_vacuum.py` (new) — 4 cases cover the M6.T2 helper (vacuum runs when freelist > 1000, skips when ≤1000, no-ops on missing DB, no-ops on corrupt DB).
 
 ## Milestone M7 — Deterministic spec verify + plan DAG
 

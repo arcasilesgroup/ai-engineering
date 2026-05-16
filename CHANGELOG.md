@@ -147,7 +147,7 @@ deferred to follow-up work.
   unknown `--check` value still raises `BadParameter` and lists
   `state-db` among supported values.
 
-### spec-139 — Framework Performance Hardening (partial: M1 + M4 + M9)
+### spec-139 — Framework Performance Hardening (partial: M1 + M4 + M6 + M9)
 
 Mantra: **ai-engineering NEVER causes WindowServer to hang. Every wave
 declares a concurrency budget. Every LLM call earns its place.** Lands
@@ -215,6 +215,72 @@ focused follow-ups.
   "review x3", "review ×3", "3 rounds of verify", "three rounds of
   verify" from any committed file under `.claude/`, `.codex/`, `.gemini/`,
   `.github/`, `.opencode/`, `.cursor/`, or `src/.../templates/project/`.
+
+#### Added — SessionEnd rotation throttle + state.db incremental_vacuum (M6)
+
+- `.ai-engineering/scripts/hooks/runtime-rotate-throttled.py` (new) —
+  stdlib-only SessionEnd wrapper that limits the
+  `.ai-engineering/scripts/runtime_rotate.py` retention sweep to **at
+  most once per `AIENG_RUNTIME_ROTATE_THROTTLE_SEC`** (default 3600 s =
+  1 h). Uses `.ai-engineering/runtime/.rotate-lastrun` as the mtime
+  sentinel; subprocess timeout 25 s sits inside the IDE-side 30 s hook
+  budget so cleanup + heartbeat write always complete. Fail-open on
+  every error so the rotation never blocks SessionEnd. Per D-139-12,
+  this wrapper narrows to the retention sweep only — the NDJSON
+  tail-truncation lands via spec-138 M4 wiring.
+- `.ai-engineering/scripts/hooks/runtime-session-end.py` — added an
+  opportunistic `PRAGMA incremental_vacuum(1000)` against `state.db`
+  after the SessionEnd summary emits. Runs only when
+  `freelist_count > 1000` so the steady-state SessionEnd path stays
+  cheap; uses a 250 ms busy timeout so a contended DB never blocks the
+  hook budget. Successful vacuums emit a `state_db_incremental_vacuum`
+  framework_operation event carrying `freelist_before`,
+  `freelist_after`, and `pages_reclaimed` for audit telemetry.
+- Cross-IDE SessionEnd wiring (3 active runtime surfaces):
+  - `.claude/settings.json` `SessionEnd` — added the throttle wrapper
+    after `runtime-session-end.py` so the summary + vacuum runs first
+    and the retention sweep second (timeout 30 s).
+  - `.codex/hooks.json` `Stop` — same wrapper, routed via
+    `AIENG_HOOK_ENGINE=codex` so audit telemetry tags the right engine.
+  - `.gemini/settings.json` `AfterAgent` — same wrapper, routed via
+    `AIENG_HOOK_ENGINE=gemini CLAUDE_HOOK_EVENT_NAME=SessionEnd` so the
+    wrapper's event-name guard accepts the Gemini end-of-session event.
+  - `.github/` (Copilot) is N/A (no conversational SessionEnd primitive);
+    `.opencode/` and `.cursor/` are deferred until those mirror
+    directories materialise (spec-128 Wave 4 follow-up).
+- `.ai-engineering/state/hooks-manifest.json` — regenerated; hookCount
+  73 → 74 to pin the new throttle wrapper's sha256.
+- New env var `AIENG_RUNTIME_ROTATE_THROTTLE_SEC` (default 3600,
+  positive int seconds; malformed / zero / negative falls back to the
+  default). Documentation hookup lands via spec-139 M9 tunables table
+  (parallel sibling task — sibling run will add the row).
+
+#### Added — M6 tests
+
+- `tests/integration/test_runtime_rotation_lifecycle.py` (new, 7 cases)
+  — drives the throttle wrapper as a subprocess against a tmp_path
+  project tree. Asserts first SessionEnd touches the sentinel and runs
+  rotation, second SessionEnd within the throttle window is a no-op
+  (sentinel mtime unchanged), and an `AIENG_RUNTIME_ROTATE_THROTTLE_SEC`
+  override releases the gate after the configured window. Adds three
+  resolver micro-tests (default 3600 s, invalid env fallback, positive
+  int honoured) and a defence-in-depth assertion that non-SessionEnd
+  events short-circuit before touching the sentinel.
+- `tests/architecture/test_hook_wiring_parity.py` (new, 6 cases) —
+  asserts every active runtime surface wires
+  `runtime-rotate-throttled.py` exactly once into its
+  end-of-session event (Claude `SessionEnd`, Codex `Stop`, Gemini
+  `AfterAgent`), AND that the Codex / Gemini commands carry the
+  `AIENG_HOOK_ENGINE=<engine>` label so audit telemetry stays
+  attributable. The wiring is keyed on script basename so future
+  argv refactors (bridge routing, env prefix changes) remain
+  refactor-safe.
+- `tests/unit/hooks/test_state_db_incremental_vacuum.py` (new, 4 cases)
+  — exercises the `_incremental_vacuum_if_needed` helper directly with
+  a tmp_path SQLite DB seeded with a synthetic freelist. Confirms the
+  vacuum runs when `freelist_count > 1000`, skips when ≤1000, no-ops
+  cleanly when the DB is absent, and no-ops without raising on a
+  corrupt DB file.
 
 #### Added — tunables documentation reconciliation (M9)
 
