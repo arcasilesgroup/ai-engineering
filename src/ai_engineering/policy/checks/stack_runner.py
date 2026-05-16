@@ -204,12 +204,59 @@ PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
     ],
 }
 
+
+def _semgrep_baseline_ref(cwd: Path | None = None) -> str | None:
+    """Return the merge-base SHA against ``origin/main`` if available.
+
+    spec-141 M1.T4 (D-141-03): used to inject ``--baseline-commit`` into the
+    pre-push semgrep invocation so the scan is incremental (≤5 s hot-path
+    budget on a 50-file diff). Returns ``None`` when git is unavailable,
+    when there is no ``origin/main`` ref, or when the merge-base call
+    exceeds the 1-second budget. Callers MUST fall back to a non-incremental
+    invocation when ``None`` is returned -- the gate must not block on git.
+    """
+    if shutil.which("git") is None:
+        return None
+    try:
+        proc = subprocess.run(
+            ["git", "merge-base", "HEAD", "origin/main"],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=1,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+    if proc.returncode != 0:
+        return None
+    sha = proc.stdout.strip()
+    return sha or None
+
+
+def _semgrep_pre_push_cmd(cwd: Path | None = None) -> list[str]:
+    """Build the pre-push semgrep argv with optional ``--baseline-commit``.
+
+    spec-141 M1.T4: incremental scan when a merge-base against
+    ``origin/main`` is resolvable; full scan otherwise (brand-new repo,
+    no remote, git unavailable). The fallback path keeps the gate
+    functional on first-clone / detached worktrees.
+    """
+    base = ["semgrep", "--config", ".semgrep.yml"]
+    baseline = _semgrep_baseline_ref(cwd=cwd)
+    if baseline is not None:
+        base.extend(["--baseline-commit", baseline])
+    base.extend(["--error", "."])
+    return base
+
+
 # Pre-push checks per stack. Same migration story as PRE_COMMIT_CHECKS.
 PRE_PUSH_CHECKS: dict[str, list[CheckConfig]] = {
     "common": [
         CheckConfig(
             name="semgrep",
-            cmd=["semgrep", "--config", ".semgrep.yml", "--error", "."],
+            cmd=_semgrep_pre_push_cmd(),
         ),
     ],
     "python": [

@@ -4,7 +4,7 @@
 rules:
   # --- Injection Prevention ---
 
-  - id: subprocess-shell-true
+  - id: aieng.injection.subprocess-shell-true
     patterns:
       - pattern: subprocess.run(..., shell=True, ...)
       - pattern: subprocess.Popen(..., shell=True, ...)
@@ -21,7 +21,7 @@ rules:
       owasp: "A03:2021 Injection"
       category: security
 
-  - id: os-system-call
+  - id: aieng.injection.os-system-call
     pattern: os.system(...)
     message: >
       Do not use os.system() — use subprocess.run() with a list of arguments instead.
@@ -32,7 +32,7 @@ rules:
       owasp: "A03:2021 Injection"
       category: security
 
-  - id: eval-usage
+  - id: aieng.injection.eval-usage
     patterns:
       - pattern: eval(...)
       - pattern: exec(...)
@@ -47,7 +47,7 @@ rules:
 
   # --- Path Traversal ---
 
-  - id: path-traversal-open
+  - id: aieng.fs.path-traversal-open
     patterns:
       - pattern: open($PATH, ...)
       - metavariable-regex:
@@ -64,7 +64,7 @@ rules:
 
   # --- Secret Prevention ---
 
-  - id: hardcoded-password
+  - id: aieng.secrets.hardcoded-password
     patterns:
       - pattern: password = "..."
       - pattern: passwd = "..."
@@ -82,7 +82,7 @@ rules:
 
   # --- Unsafe Deserialization ---
 
-  - id: pickle-usage
+  - id: aieng.deserialize.pickle-usage
     patterns:
       - pattern: pickle.load(...)
       - pattern: pickle.loads(...)
@@ -96,7 +96,7 @@ rules:
       owasp: "A08:2021 Software and Data Integrity Failures"
       category: security
 
-  - id: yaml-unsafe-load
+  - id: aieng.deserialize.yaml-unsafe-load
     patterns:
       - pattern: yaml.load(..., Loader=yaml.Loader, ...)
       - pattern: yaml.load(..., Loader=yaml.UnsafeLoader, ...)
@@ -112,7 +112,7 @@ rules:
 
   # --- Temporary File Safety ---
 
-  - id: tempfile-mktemp
+  - id: aieng.fs.tempfile-mktemp
     pattern: tempfile.mktemp(...)
     message: >
       Do not use tempfile.mktemp() — it is vulnerable to race conditions.
@@ -125,7 +125,7 @@ rules:
 
   # --- SSRF Prevention ---
 
-  - id: ssrf-request
+  - id: aieng.net.ssrf-request
     patterns:
       - pattern: requests.$METHOD($URL, ...)
       - pattern-not: requests.$METHOD("...", ...)

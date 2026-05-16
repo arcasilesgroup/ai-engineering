@@ -612,10 +612,36 @@ jobs:
           fi
       - name: pip-audit
         run: uv run python -m ai_engineering.verify.tls_pip_audit
+      - name: Cache semgrep pack registry
+        # spec-141 M2.T3 (D-141-02): community packs are fetched from the
+        # registry on first invocation; the resolved YAML lives under
+        # ~/.semgrep. Cache key includes the pinned CLI version + OS so
+        # bumping the pin invalidates cleanly (D-141-05 reproducibility).
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: ~/.semgrep
+          key: semgrep-packs-${{ runner.os }}-1.96.0
+          restore-keys: |
+            semgrep-packs-${{ runner.os }}-
       - name: Install semgrep
-        run: python -m pip install semgrep
+        # spec-141 M2.T2 (D-141-05): pinned CLI version is the
+        # deterministic reproducibility anchor. Pack aliases (p/python,
+        # p/owasp-top-ten, …) roll forward from HEAD; pinning the CLI
+        # is the only documented way to fix the scan surface.
+        run: python -m pip install "semgrep==1.96.0"
       - name: semgrep
-        run: semgrep --config .semgrep.yml --error --json . > semgrep-results.json
+        # spec-141 M2.T1 (D-141-01): repeated --config flags are the
+        # only documented Semgrep multi-pack syntax. In-tree rules
+        # (.semgrep.yml) + four Python-relevant community packs. The
+        # --error flag exits non-zero on any finding so CI fails loud.
+        run: |
+          semgrep \
+            --config .semgrep.yml \
+            --config p/python \
+            --config p/owasp-top-ten \
+            --config p/security-audit \
+            --config p/bash \
+            --error --json . > semgrep-results.json
       - name: Check semgrep skip ratio
         run: |
           python3 -c "

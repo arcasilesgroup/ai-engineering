@@ -96,16 +96,75 @@ work — each is sized for its own focused PR with empirical gates.
   (~52 LOC). Both depended on a feature the updater does not implement
   (emit skip-denied for paths the bundled template tree never visits).
 
-### spec-141 — Semgrep Pack Coverage Restoration (partial: M3 + M4)
+### spec-141 — Semgrep Pack Coverage Restoration (partial: M1 + M2 + M3 + M4)
 
 Mantra: **Real syntax, real budget, real coverage — no invented YAML,
 no network on the hot path.** Lands the Article VII parity for
-`# nosemgrep:` markers (M3) and the documentation rewrite + drift gate
-(M4). M1 (in-tree rule ID namespacing), M2 (CI pack coverage with repeated
-`--config` flags), and M5 (CI finding triage) are scoped in
-`.ai-engineering/specs/archive/spec-141-plan.md` and deferred to a focused
-follow-up PR after the upstream rule-ID rename has a planned migration
-window.
+`# nosemgrep:` markers (M3), the documentation rewrite + drift gate
+(M4), the in-tree rule ID namespacing + `--baseline-commit` hot-path
+injection (M1), and the CI pack coverage expansion with the four
+Python-relevant community packs (M2). Only M5 (CI finding triage on
+the expanded pack surface) is deferred to a focused follow-up PR
+after the first post-merge CI run produces a triage list.
+
+#### BREAKING CHANGES — spec-141 D-141-04 in-tree rule ID rename (M1)
+
+Semgrep in-tree rule IDs renamed to the `aieng.<area>.<name>` namespace
+so external repos consuming this `.semgrep.yml` (via the template
+mirror) cannot collide with community pack rule IDs. Hard rename
+(Constitution §13.3 — no backwards-compat shims); operators must
+update any `# nosemgrep: <rule-id>` markers to the new IDs.
+
+- `subprocess-shell-true` → `aieng.injection.subprocess-shell-true`
+- `os-system-call` → `aieng.injection.os-system-call`
+- `eval-usage` → `aieng.injection.eval-usage`
+- `path-traversal-open` → `aieng.fs.path-traversal-open`
+- `hardcoded-password` → `aieng.secrets.hardcoded-password`
+- `pickle-usage` → `aieng.deserialize.pickle-usage`
+- `yaml-unsafe-load` → `aieng.deserialize.yaml-unsafe-load`
+- `tempfile-mktemp` → `aieng.fs.tempfile-mktemp`
+- `ssrf-request` → `aieng.net.ssrf-request`
+
+Both `.semgrep.yml` (canonical) and
+`src/ai_engineering/templates/project/.semgrep.yml` (template) are
+byte-identical (sha256 match enforced by
+`tests/integration/test_dogfood_parity.py`).
+
+#### Added — `--baseline-commit` on the pre-push hot path (M1)
+
+- `src/ai_engineering/policy/checks/stack_runner.py` —
+  `_semgrep_baseline_ref()` resolves `git merge-base HEAD origin/main`
+  with a 1-second subprocess timeout (D-141-03 hot-path budget); falls
+  back to a non-incremental scan when the merge-base is unresolvable
+  (brand-new repo, no remote, git unavailable). `_semgrep_pre_push_cmd()`
+  builds the pre-push argv with `--baseline-commit <sha>` injected
+  between `--config .semgrep.yml` and `--error .` when a baseline is
+  available. Keeps the pre-push gate within the 5-second budget on
+  realistic diffs.
+- `tests/unit/policy/test_semgrep_baseline_arg.py` — four-case
+  contract test covering the happy path (real `tmp_path` git repo
+  with seeded `origin/main` ref), argv shape preservation, and the
+  fallback path (no remote, no `--baseline-commit` flag).
+
+#### Changed — CI semgrep job now runs four community packs (M2)
+
+- `.github/workflows/ci-check.yml` — `security` job's semgrep step
+  now invokes Semgrep with five `--config` flags: `.semgrep.yml`
+  (in-tree rules) + `p/python` + `p/owasp-top-ten` + `p/security-audit`
+  + `p/bash` (community packs). Repeated `--config` flags are the only
+  documented Semgrep multi-pack syntax (D-141-01).
+- `.github/workflows/ci-check.yml` — `Install semgrep` step now
+  pins the CLI version (`semgrep==1.96.0`); pinning the CLI is the
+  deterministic reproducibility anchor because pack aliases roll
+  forward from HEAD (D-141-05).
+- `.github/workflows/ci-check.yml` — added `Cache semgrep pack
+  registry` step keyed by `runner.os` + CLI version so the registry
+  fetch happens at most once per pinned CLI release (D-141-02).
+- `tests/unit/workflows/test_semgrep_packs.py` — drift gate parses
+  `ci-check.yml` and asserts (a) all four community pack `--config`
+  flags are present, (b) the in-tree `.semgrep.yml` config stays
+  alongside the packs, and (c) the install step pins the CLI version
+  via `semgrep==<version>`.
 
 #### Added — `# nosemgrep:` suppression Article VII parity (M3)
 
@@ -115,7 +174,8 @@ window.
 - `.ai-engineering/suppression-allowlist.yml` — header comment now
   enumerates `nosemgrep_hash` alongside the existing pattern enum.
 - `tests/unit/no_suppression/test_scanner.py` — bare-marker and
-  with-target detection tests.
+  with-target detection tests. With-target test references the
+  canonical post-rename ID `aieng.injection.eval-usage`.
 
 #### Fixed — `semgrep-update-model.md` invented-YAML drift (M4)
 
