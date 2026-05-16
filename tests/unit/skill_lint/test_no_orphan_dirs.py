@@ -41,13 +41,13 @@ def test_detects_resurrected_handlers_dir(tmp_path: Path) -> None:
     assert ".claude/skills/ai-debug/handlers" in results[0].reason
 
 
-def test_detects_resurrected_contexts_languages(tmp_path: Path) -> None:
-    """`.ai-engineering/contexts/languages/` resurrection is caught."""
-    (tmp_path / ".ai-engineering" / "contexts" / "languages").mkdir(parents=True)
+def test_detects_resurrected_contexts(tmp_path: Path) -> None:
+    """`.ai-engineering/contexts/` resurrection is caught (spec-136 D-136-01)."""
+    (tmp_path / ".ai-engineering" / "contexts").mkdir(parents=True)
 
     results = check_no_orphan_dirs(tmp_path)
     assert results[0].severity == "MAJOR"
-    assert ".ai-engineering/contexts/languages" in results[0].reason
+    assert ".ai-engineering/contexts" in results[0].reason
 
 
 def test_missing_repo_root_is_ok(tmp_path: Path) -> None:

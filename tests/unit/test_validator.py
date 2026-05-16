@@ -70,10 +70,11 @@ _AGENT_PATHS = sorted(
 def _make_governance(root: Path) -> Path:
     """Create a minimal .ai-engineering governance tree."""
     ai = root / ".ai-engineering"
+    # spec-136 D-136-01/D-136-06: contexts/ hard-deleted; reference/ is the
+    # single framework reference home and team/ lifts to top-level.
     for d in [
-        "contexts/languages",
-        "contexts/frameworks",
-        "contexts/team",
+        "reference",
+        "team",
         "specs",
         "state",
     ]:
@@ -183,7 +184,7 @@ def _write_manifest(
         "        mode: generate\n"
         "        template_path: src/ai_engineering/templates/project/copilot-instructions.md\n"
         "        mirror_paths: []\n"
-        '  team: [".ai-engineering/contexts/team/**"]\n'
+        '  team: [".ai-engineering/team/**"]\n'
         '  system: [".ai-engineering/state/**"]\n',
         encoding="utf-8",
     )
@@ -578,8 +579,8 @@ class TestFileExistence:
 
     def test_broken_reference_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        # Write a governance doc with a broken reference
-        doc = ai / "contexts" / "languages" / "broken.md"
+        # spec-136 D-136-01: reference/ is the framework reference home.
+        doc = ai / "reference" / "broken.md"
         doc.parent.mkdir(parents=True, exist_ok=True)
         doc.write_text(
             "# Broken\n\nSee `skills/nonexistent/phantom.md` for details.\n",
@@ -607,7 +608,7 @@ class TestFileExistence:
         legacy_path.write_text('{"source": "legacy"}\n', encoding="utf-8")
         canonical_path.write_text('{"source": "canonical"}\n', encoding="utf-8")
 
-        doc = ai / "contexts" / "languages" / "legacy-state-plane.md"
+        doc = ai / "reference" / "legacy-state-plane.md"
         doc.parent.mkdir(parents=True, exist_ok=True)
         doc.write_text(
             "# Legacy State Plane\n\n"
@@ -803,13 +804,13 @@ class TestMirrorSync:
 
     def test_desynced_mirror_detected(self, tmp_path: Path) -> None:
         ai = _setup_full_project(tmp_path)
-        # Ensure canonical has a contexts file to compare against
-        canonical_lang = ai / "contexts" / "languages" / "python.md"
-        canonical_lang.parent.mkdir(parents=True, exist_ok=True)
-        canonical_lang.write_text("CANONICAL CONTENT", encoding="utf-8")
+        # spec-136 D-136-01: governance mirror now syncs reference/**/*.md.
+        canonical_ref = ai / "reference" / "principles.md"
+        canonical_ref.parent.mkdir(parents=True, exist_ok=True)
+        canonical_ref.write_text("CANONICAL CONTENT", encoding="utf-8")
         mirror_root = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-        # Mirror governance files (contexts, manifest, README)
-        for subdir in ("contexts",):
+        # Mirror governance files (reference, manifest, README)
+        for subdir in ("reference",):
             src_dir = ai / subdir
             if not src_dir.is_dir():
                 continue
@@ -825,7 +826,7 @@ class TestMirrorSync:
                 dest.parent.mkdir(parents=True, exist_ok=True)
                 dest.write_bytes(src.read_bytes())
         # Desync a governance file that IS in the mirror pattern
-        desynced = mirror_root / "contexts" / "languages" / "python.md"
+        desynced = mirror_root / "reference" / "principles.md"
         desynced.write_text("DESYNCED CONTENT", encoding="utf-8")
         report = validate_content_integrity(
             tmp_path,
@@ -841,8 +842,8 @@ def _setup_governance_mirror(root: Path) -> None:
     """Create minimal governance template mirror so _check_mirror_sync doesn't early-return."""
     ai = root / ".ai-engineering"
     mirror_root = root / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-    # Mirror governance files (contexts, runbooks, manifest, README)
-    for subdir in ("contexts",):
+    # spec-136 D-136-01: governance mirror syncs reference/, manifest, README.
+    for subdir in ("reference",):
         src_dir = ai / subdir
         if not src_dir.is_dir():
             continue
@@ -1711,15 +1712,16 @@ class TestManifestCoherence:
     def test_missing_ownership_directory(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
         _write_manifest(ai)
-        # Remove a directory that IS validated by manifest coherence: contexts
-        shutil.rmtree(ai / "contexts")
+        # spec-136 D-136-01: contexts/ retired; the validator now polices
+        # reference/ as the canonical framework-owned directory.
+        shutil.rmtree(ai / "reference")
         _write_active_spec(ai)
         report = validate_content_integrity(
             tmp_path,
             categories=[IntegrityCategory.MANIFEST_COHERENCE],
         )
         fail_checks = [
-            c for c in report.checks if c.status == IntegrityStatus.FAIL and "contexts" in c.name
+            c for c in report.checks if c.status == IntegrityStatus.FAIL and "reference" in c.name
         ]
         assert len(fail_checks) >= 1
 
@@ -2047,10 +2049,10 @@ class TestIsExcluded:
     """Tests for _is_excluded prefix checking."""
 
     def test_excluded_prefix_matches(self) -> None:
-        assert _is_excluded(Path("contexts/team/readme.md"), ["contexts/team/"]) is True
+        assert _is_excluded(Path("team/readme.md"), ["team/"]) is True
 
     def test_non_excluded_prefix(self) -> None:
-        assert _is_excluded(Path("contexts/languages/python.md"), ["contexts/team/"]) is False
+        assert _is_excluded(Path("reference/principles.md"), ["team/"]) is False
 
 
 class TestExtractSection:

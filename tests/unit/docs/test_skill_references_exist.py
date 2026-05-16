@@ -47,10 +47,12 @@ SCAN_DIRS = [
 # Exclusions: paths whose contents legitimately reference deleted skills.
 EXCLUDED_FILES = {
     REPO_ROOT / "CHANGELOG.md",
-    # docs/conformance-report.md is the M1 baseline auditable history;
-    # it intentionally references the pre-spec-127 skill names so the
-    # rubric trajectory remains reproducible (spec-127 sub-005 M4).
-    REPO_ROOT / "docs" / "conformance-report.md",
+    # The conformance report is the M1 baseline auditable history; it
+    # intentionally references the pre-spec-127 skill names so the
+    # rubric trajectory remains reproducible (spec-127 sub-005 M4;
+    # spec-136 relocated docs/conformance-report.md to
+    # .ai-engineering/runtime/reports/conformance.md).
+    REPO_ROOT / ".ai-engineering" / "runtime" / "reports" / "conformance.md",
 }
 EXCLUDED_PATH_FRAGMENTS = (
     "/.ai-engineering/specs/",

@@ -29,10 +29,11 @@ providers:
 
     for rel in (
         # spec-128 D-128-08: language + framework taxonomy collapsed to stack.
+        # spec-136 D-136-06: contexts/team/ lifted to top-level team/.
         ".ai-engineering/overrides/python/conventions.md",
         ".ai-engineering/overrides/typescript/conventions.md",
         ".ai-engineering/overrides/_shared/conventions.md",
-        ".ai-engineering/contexts/team/conventions.md",
+        ".ai-engineering/team/conventions.md",
         ".ai-engineering/contexts/cli-ux.md",
         ".ai-engineering/contexts/mcp-integrations.md",
         ".ai-engineering/specs/spec.md",

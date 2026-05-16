@@ -63,7 +63,7 @@ class TestDryRun:
 
     def test_dry_run_does_not_modify_files(self, installed_project: Path) -> None:
         # Modify a framework-managed file to create a diff
-        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
+        core_md = installed_project / ".ai-engineering" / "reference" / "principles.md"
         core_md.read_text(encoding="utf-8")
         core_md.write_text("modified content", encoding="utf-8")
 
@@ -94,7 +94,7 @@ class TestApply:
 
     def test_applies_changes(self, installed_project: Path) -> None:
         # Modify a framework-managed file
-        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
+        core_md = installed_project / ".ai-engineering" / "reference" / "principles.md"
         core_md.write_text("outdated content", encoding="utf-8")
 
         result = update(installed_project, dry_run=False)
@@ -105,7 +105,7 @@ class TestApply:
 
     def test_apply_logs_framework_operation(self, installed_project: Path) -> None:
         # Create a diff to trigger an update
-        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
+        core_md = installed_project / ".ai-engineering" / "reference" / "principles.md"
         core_md.write_text("outdated", encoding="utf-8")
 
         events_path = installed_project / ".ai-engineering" / "state" / "framework-events.ndjson"
@@ -139,7 +139,7 @@ class TestOwnershipSafety:
     """Tests that team-managed paths are never modified."""
 
     def test_team_managed_path_not_overwritten(self, installed_project: Path) -> None:
-        team_lessons = installed_project / ".ai-engineering" / "contexts" / "team" / "lessons.md"
+        team_lessons = installed_project / ".ai-engineering" / "team" / "lessons.md"
         team_lessons.parent.mkdir(parents=True, exist_ok=True)
         team_lessons.write_text("custom team content", encoding="utf-8")
 
@@ -157,7 +157,7 @@ class TestOwnershipSafety:
     )
     def test_denied_changes_reported(self, installed_project: Path) -> None:
         # Modify a team-managed file that exists in templates
-        team_lessons = installed_project / ".ai-engineering" / "contexts" / "team" / "lessons.md"
+        team_lessons = installed_project / ".ai-engineering" / "team" / "lessons.md"
         team_lessons.parent.mkdir(parents=True, exist_ok=True)
         team_lessons.write_text("custom team content", encoding="utf-8")
 
@@ -295,7 +295,7 @@ class TestDiffGeneration:
 
     def test_diff_generated_for_updates(self, installed_project: Path) -> None:
         """Modified file should have a unified diff attached."""
-        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
+        core_md = installed_project / ".ai-engineering" / "reference" / "principles.md"
         core_md.write_text("outdated content", encoding="utf-8")
 
         result = update(installed_project, dry_run=True)
@@ -339,7 +339,7 @@ class TestRollback:
     def test_rollback_on_write_failure(self, installed_project: Path) -> None:
         """If a write fails mid-apply, already-modified files are restored."""
         # Modify two framework-managed files so write_bytes is called twice
-        core_md = installed_project / ".ai-engineering" / "contexts" / "python-env-modes.md"
+        core_md = installed_project / ".ai-engineering" / "reference" / "principles.md"
         core_md.parent.mkdir(parents=True, exist_ok=True)
         core_md.write_text("will be restored", encoding="utf-8")
         fw_md = installed_project / ".ai-engineering" / "contexts" / "frameworks" / "react.md"

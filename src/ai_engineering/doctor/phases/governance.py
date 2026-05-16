@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 _REQUIRED_DIRS = (
     ".ai-engineering",
-    ".ai-engineering/contexts",
+    ".ai-engineering/reference",
     ".ai-engineering/state",
 )
 

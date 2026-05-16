@@ -618,7 +618,7 @@ def emit_declared_context_loads(
             )
         )
 
-    team_dir = root / "contexts" / "team"
+    team_dir = root / "team"
     if team_dir.is_dir():
         for team_path in sorted(team_dir.glob("*.md")):
             events.append(

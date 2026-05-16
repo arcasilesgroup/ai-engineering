@@ -412,7 +412,7 @@ class TestGenerationFunctions:
         assert f"| Skills ({len(skills)}) | `.claude/skills/ai-<name>/SKILL.md` |" in content
         assert f"| Agents ({len(agents)}) | `.claude/agents/ai-<name>.md` |" in content
         assert (
-            "| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |" in content
+            "| Placement contract | `.ai-engineering/reference/knowledge-placement.md` |" in content
         )
 
     def test_codex_provider_surfaces_match_install_templates(self) -> None:

@@ -358,7 +358,7 @@ class TestUnifiedTreeRenderer:
                 reason_code="template-drift",
             ),
             FileChange(
-                path=Path("/repo/.ai-engineering/contexts/stack.md"),
+                path=Path("/repo/.ai-engineering/reference/principles.md"),
                 action="update",
                 reason_code="template-drift",
             ),
@@ -373,7 +373,7 @@ class TestUnifiedTreeRenderer:
         assert ".ai-engineering" in err
         assert "ai-start" in err
         assert "ai-onboard" in err
-        assert "stack.md" in err
+        assert "principles.md" in err
         # Single unified tree -- no bucket headings separating the directories
         assert "Available" not in err, "Should not contain bucket heading 'Available'"
         # Both directories appear under one tree -- verify the first tree connector

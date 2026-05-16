@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ARCH_PATTERNS_CONTEXT = REPO_ROOT / ".ai-engineering" / "contexts" / "architecture-patterns.md"
+ARCH_PATTERNS_CONTEXT = REPO_ROOT / ".ai-engineering" / "reference" / "architecture-patterns.md"
 
 MIN_PATTERN_COUNT = 10
 MIN_DESCRIPTION_WORDS = 30

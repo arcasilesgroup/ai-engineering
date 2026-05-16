@@ -35,11 +35,11 @@ def project_root(tmp_path: Path) -> Path:
     """Create a minimal project structure for event emission."""
     state_dir = tmp_path / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True)
-    # Create minimal contexts for emit_declared_context_loads
-    contexts = tmp_path / ".ai-engineering" / "contexts"
-    (contexts / "team").mkdir(parents=True)
-    (contexts / "team" / "lessons.md").write_text("# Lessons\n")
-    (contexts / "team" / "conventions.md").write_text("# Conventions\n")
+    # Create minimal team/ for emit_declared_context_loads (spec-136 D-136-06)
+    team = tmp_path / ".ai-engineering" / "team"
+    team.mkdir(parents=True)
+    (team / "lessons.md").write_text("# Lessons\n")
+    (team / "conventions.md").write_text("# Conventions\n")
     (tmp_path / ".ai-engineering" / "CONSTITUTION.md").write_text("# Identity\n")
     (tmp_path / ".ai-engineering" / "specs").mkdir(parents=True)
     (tmp_path / ".ai-engineering" / "specs" / "spec.md").write_text("# Spec\n")

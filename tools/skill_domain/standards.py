@@ -299,7 +299,7 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             status=LegacyRetirementStatus.PRESERVED,
             replacement_owner="HX-12",
             current_surfaces=("README.md", "GETTING_STARTED.md"),
-            replacement_refs=(".ai-engineering/contexts/harness-adoption.md",),
+            replacement_refs=(".ai-engineering/reference/harness-adoption.md",),
             parity_proofs=(
                 ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx12_engineering_standards_and_legacy_retirement.md",
             ),
