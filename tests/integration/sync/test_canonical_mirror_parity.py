@@ -159,7 +159,7 @@ def test_canonical_payload_carries_section_10_principles() -> None:
     .ai-engineering/reference/principles.md` resolves; the §10.1/§10.5/§10.8 anchors that
     34 skill/agent files cite survive at the new home.
     """
-    principles_doc = REPO_ROOT / "docs" / "principles.md"
+    principles_doc = REPO_ROOT / ".ai-engineering" / "reference" / "principles.md"
     assert principles_doc.is_file(), (
         ".ai-engineering/reference/principles.md MUST exist as the canonical home for §10 anchors "
         "(sub-005 extracts §10 prose out of mirrors)"
@@ -204,7 +204,7 @@ def test_canonical_payload_extracts_principles_and_axioms_to_docs() -> None:
     has a matching integration-level guard.
     """
     # (a) .ai-engineering/reference/principles.md exists and carries §10.1..§10.8 anchors.
-    principles_doc = REPO_ROOT / "docs" / "principles.md"
+    principles_doc = REPO_ROOT / ".ai-engineering" / "reference" / "principles.md"
     assert principles_doc.is_file(), (
         f"missing canonical home: {principles_doc.relative_to(REPO_ROOT)}"
     )
@@ -216,7 +216,7 @@ def test_canonical_payload_extracts_principles_and_axioms_to_docs() -> None:
         )
 
     # (b) .ai-engineering/reference/mirror-authoring.md exists and carries the authoring table header.
-    authoring_doc = REPO_ROOT / "docs" / "mirror-authoring.md"
+    authoring_doc = REPO_ROOT / ".ai-engineering" / "reference" / "mirror-authoring.md"
     assert authoring_doc.is_file(), (
         f"missing canonical home: {authoring_doc.relative_to(REPO_ROOT)}"
     )
@@ -227,7 +227,7 @@ def test_canonical_payload_extracts_principles_and_axioms_to_docs() -> None:
     )
 
     # (c) .ai-engineering/reference/surface-axioms.md exists and carries A1 / A2 headers.
-    axioms_doc = REPO_ROOT / "docs" / "surface-axioms.md"
+    axioms_doc = REPO_ROOT / ".ai-engineering" / "reference" / "surface-axioms.md"
     assert axioms_doc.is_file(), f"missing canonical home: {axioms_doc.relative_to(REPO_ROOT)}"
     axioms_text = axioms_doc.read_text(encoding="utf-8")
     assert "A1 — Surface Axiom" in axioms_text, (

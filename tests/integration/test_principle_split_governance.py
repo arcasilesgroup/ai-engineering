@@ -42,12 +42,12 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 ROOT_CONSTITUTION = REPO_ROOT / "CONSTITUTION.md"
 CANONICAL_MD = REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CANONICAL.md"
 AGENTS_MD = REPO_ROOT / "AGENTS.md"
-DOCS_PRINCIPLES_MD = REPO_ROOT / "docs" / "principles.md"
+REFERENCE_PRINCIPLES_MD = REPO_ROOT / ".ai-engineering" / "reference" / "principles.md"
 GOVERNANCE_PATHS: tuple[Path, ...] = (
     ROOT_CONSTITUTION,
     CANONICAL_MD,
     AGENTS_MD,
-    DOCS_PRINCIPLES_MD,
+    REFERENCE_PRINCIPLES_MD,
 )
 
 CORE_OPERATIONAL_SURFACE_PATHS: tuple[Path, ...] = (
@@ -63,6 +63,9 @@ EXCLUDED_OPERATIONAL_PREFIXES: tuple[str, ...] = (
     ".ai-engineering/specs",
     ".ai-engineering/state",
     ".ai-engineering/observations",
+    # spec-136 D-136-05: solution-intent.md is the framework's project-level
+    # design intent, not the canonical operational-principles source.
+    ".ai-engineering/solution-intent.md",
 )
 
 HARD_RULE_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
@@ -118,7 +121,7 @@ def _principle_mentions(text: str) -> tuple[str, ...]:
 def _is_operational_candidate_path(path: Path) -> bool:
     rel_path = path.relative_to(REPO_ROOT).as_posix()
     return not any(
-        rel_path == prefix or rel_path.startswith(prefix + "/")
+        rel_path == prefix or rel_path.startswith(prefix + "/") or rel_path == prefix.lstrip("/")
         for prefix in EXCLUDED_OPERATIONAL_PREFIXES
     )
 

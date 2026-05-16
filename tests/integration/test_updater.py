@@ -201,7 +201,10 @@ class TestOwnershipSafety:
         assert match.reason_code == "team-managed-create-protected"
 
     def test_promoted_root_context_is_framework_managed(self, installed_project: Path) -> None:
-        promoted = installed_project / ".ai-engineering" / "contexts" / "cli-ux.md"
+        # spec-136 D-136-13 deleted contexts/cli-ux.md; principles.md
+        # serves the same invariant test (any framework-managed file under
+        # .ai-engineering/reference/ should restore on update).
+        promoted = installed_project / ".ai-engineering" / "reference" / "principles.md"
         original = promoted.read_text(encoding="utf-8")
         promoted.write_text("stale promoted context", encoding="utf-8")
 

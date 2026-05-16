@@ -57,91 +57,91 @@ Four top-level knowledge surfaces accumulated heterogeneous, low-coherence conte
 
 **Choice:** Hard delete all four directories (`.ai-engineering/contexts/`, `.ai-engineering/research/`, `evals/`) and empty `docs/` of framework-owned content in a single atomic PR. No backwards-compat shims. No redirect files. No aliases.
 
-**Rationale:** `CONSTITUTION.md §3` is non-negotiable on this. Soft renames preserve dead code paths that accumulate technical debt and confuse future contributors about which path is the "real" one. The 8-month accumulation that produced the four surfaces happened precisely because of soft pluralism.
+**Rationale**: `CONSTITUTION.md §3` is non-negotiable on this. Soft renames preserve dead code paths that accumulate technical debt and confuse future contributors about which path is the "real" one. The 8-month accumulation that produced the four surfaces happened precisely because of soft pluralism.
 
 ### D-136-02 — `docs/` belongs to the consumer, not to ai-engineering
 
 **Choice:** `docs/` is reserved for the project that installs ai-engineering. Framework-owned content moves to `.ai-engineering/`. `docs/*.pen` survives as operator-as-dogfooder content.
 
-**Rationale:** This sharp ownership boundary eliminates the chronic ambiguity about whether a file in `docs/` is framework-owned or consumer-owned. Without it, every new framework artifact races for `docs/` because the directory name signals "documentation generically". The operator's dogfooding `.pen` files are explicitly user-content and survive accordingly.
+**Rationale**: This sharp ownership boundary eliminates the chronic ambiguity about whether a file in `docs/` is framework-owned or consumer-owned. Without it, every new framework artifact races for `docs/` because the directory name signals "documentation generically". The operator's dogfooding `.pen` files are explicitly user-content and survive accordingly.
 
 ### D-136-03 — Single flat `.ai-engineering/reference/` folder
 
 **Choice:** All ~19 load-bearing reference docs land in `.ai-engineering/reference/` with no further sub-bucketing. Rejected: `runbooks/` + `policies/` split (the brief's original proposal).
 
-**Rationale:** Reference docs do not benefit from category sub-folders at this scale (~19 files). One coherent home with one rule ("if it's framework reference, it's in reference/") beats two sub-folders that force every contributor to decide which bucket a new doc lives in. KISS (§10.1) over SoC at this granularity.
+**Rationale**: Reference docs do not benefit from category sub-folders at this scale (~19 files). One coherent home with one rule ("if it's framework reference, it's in reference/") beats two sub-folders that force every contributor to decide which bucket a new doc lives in. KISS (§10.1) over SoC at this granularity.
 
 ### D-136-04 — `§10` content relocates; does NOT inline into mirrors
 
 **Choice:** `docs/principles.md` (254 lines, KISS → Hexagonal Architecture) → `.ai-engineering/reference/principles.md`. Pointer rows in the 4 mirrors retarget from `docs/principles.md` to `.ai-engineering/reference/principles.md`. 76 `§10.x` citations in skill files stay verbatim.
 
-**Rationale:** The original brief recommended inline-into-mirrors. Cost analysis rejected: inline would duplicate 254 lines across 5 surfaces (CANONICAL + 4 mirrors) = ~1,270 lines, growing each mirror's canonical payload from ~190 → ~444 lines (~2.3×). Each `§10` edit would require regenerating 5 surfaces. The pointer-chain is not the friction worth eliminating; the source ambiguity is, and that's already eliminated by D-136-02. The relocation cost is one rename + one pointer-row retarget.
+**Rationale**: The original brief recommended inline-into-mirrors. Cost analysis rejected: inline would duplicate 254 lines across 5 surfaces (CANONICAL + 4 mirrors) = ~1,270 lines, growing each mirror's canonical payload from ~190 → ~444 lines (~2.3×). Each `§10` edit would require regenerating 5 surfaces. The pointer-chain is not the friction worth eliminating; the source ambiguity is, and that's already eliminated by D-136-02. The relocation cost is one rename + one pointer-row retarget.
 
 ### D-136-05 — `solution-intent.md` at `.ai-engineering/` top-level, not repo root
 
 **Choice:** `docs/solution-intent.md` → `.ai-engineering/solution-intent.md` (top-level, single file). Rejected: `SOLUTION-INTENT.md` at repo root.
 
-**Rationale:** Operator's principle (D-136-02): "ai-engineering owns content under `.ai-engineering/`; repo root belongs to the consumer project." `SOLUTION-INTENT.md` at root would put framework-authored content next to the consumer's `README.md`, violating the ownership boundary.
+**Rationale**: Operator's principle (D-136-02): "ai-engineering owns content under `.ai-engineering/`; repo root belongs to the consumer project." `SOLUTION-INTENT.md` at root would put framework-authored content next to the consumer's `README.md`, violating the ownership boundary.
 
 ### D-136-06 — `team/` lifts to top-level
 
 **Choice:** `.ai-engineering/contexts/team/` → `.ai-engineering/team/`.
 
-**Rationale:** `team/` is operator-owned content (lessons.md + README.md). Keeping it under the deleted `contexts/` namespace would either preserve `contexts/` as a single-purpose vestigial folder or force a deeper rename. Top-level is cleanest: `team/` describes itself; the surrounding directory tells you it's framework-state.
+**Rationale**: `team/` is operator-owned content (lessons.md + README.md). Keeping it under the deleted `contexts/` namespace would either preserve `contexts/` as a single-purpose vestigial folder or force a deeper rename. Top-level is cleanest: `team/` describes itself; the surrounding directory tells you it's framework-state.
 
 ### D-136-07 — Eval corpus committed at `.ai-engineering/evals/`, gate hardens fail-loud
 
 **Choice:** `evals/baseline.json`, `evals/ai-debug.jsonl`, `evals/cli-ux-cross-ide/test_drift_recovery_flow.md` → `.ai-engineering/evals/` (committed, not gitignored). Plus: `scripts/run_loop_skill_evals.py:86-92` changes from "silently treat missing baseline as first-run capture" to "fail-loud when `--regression` requested with missing baseline".
 
-**Rationale:** The baseline is the regression gate's contract — must be a committed artefact, not runtime state. The silent-no-op behavior was a footgun the brief surfaced: deleting `evals/` made the CI gate a green-but-empty no-op without any signal. Hardening to fail-loud closes the risk class.
+**Rationale**: The baseline is the regression gate's contract — must be a committed artefact, not runtime state. The silent-no-op behavior was a footgun the brief surfaced: deleting `evals/` made the CI gate a green-but-empty no-op without any signal. Hardening to fail-loud closes the risk class.
 
 ### D-136-08 — `/ai-research` Tier 0 cache: hard delete 3 dated files; new target `.ai-engineering/runtime/research/` (gitignored)
 
 **Choice:** The 3 spec-133 dated artifacts (`ide-hook-engines-2026-05-12.md`, `stack-classification-2026-05-12.md`, `git-branch-cleanup-modes-2026-05-12.md`) hard-delete. The Tier 0 cache rebuilds organically into a fresh gitignored target.
 
-**Rationale:** spec-133 already shipped (commit `0b4827d0`); the 3 files are dated evidence whose cache value is near-zero for new queries. Honors "delete by default" (D-136-01). The new path under `runtime/` aligns with the convention that runtime state lives in `.ai-engineering/runtime/`.
+**Rationale**: spec-133 already shipped (commit `0b4827d0`); the 3 files are dated evidence whose cache value is near-zero for new queries. Honors "delete by default" (D-136-01). The new path under `runtime/` aligns with the convention that runtime state lives in `.ai-engineering/runtime/`.
 
 ### D-136-09 — `/ai-sprint` Step 5 retargets to `.ai-engineering/runtime/presentations/`; `docs/presentations/` hard-deletes wholly
 
 **Choice:** Update `.claude/skills/ai-sprint/SKILL.md:102` Step 5 write target from `docs/presentations/generate_sprint_review.py` to `.ai-engineering/runtime/presentations/generate_sprint_review.py`. Hard-delete all 8 files under `docs/presentations/` (4 `.py`, 3 `.pptx`, 1 `.md`) + `docs/svg/`. Drop `tools/no_suppression/scanner.py:78`'s `"docs/presentations/**"` exclusion.
 
-**Rationale:** Sprint review decks are runtime artefacts of `/ai-sprint` invocations, not source-controlled framework code. They belong under `runtime/`. The existing `docs/presentations/` files are stale outputs from past invocations and have no current consumer. `speech-script.md` is operator prose with no test consumer — operator can export it before merge if desired.
+**Rationale**: Sprint review decks are runtime artefacts of `/ai-sprint` invocations, not source-controlled framework code. They belong under `runtime/`. The existing `docs/presentations/` files are stale outputs from past invocations and have no current consumer. `speech-script.md` is operator prose with no test consumer — operator can export it before merge if desired.
 
 ### D-136-10 — Engram install snippet folds into `CLAUDE.md`; `docs/integrations/engram.md` hard-deletes
 
 **Choice:** Absorb the install-commands prose from `docs/integrations/engram.md` into the existing `CLAUDE.md` `Optional: Engram` section (currently a summary at `CLAUDE.md:185`). Sync-mirrors propagates to AGENTS / GEMINI / copilot-instructions. Then hard-delete `docs/integrations/engram.md`. Rejected: relocate to `.ai-engineering/reference/integrations/engram.md`.
 
-**Rationale:** Engram is a third-party integration mentioned in a single short section of the mirrors. A dedicated reference doc is overkill; the prose belongs adjacent to the section that references it.
+**Rationale**: Engram is a third-party integration mentioned in a single short section of the mirrors. A dedicated reference doc is overkill; the prose belongs adjacent to the section that references it.
 
 ### D-136-11 — Policy docs ARE load-bearing → all to `.ai-engineering/reference/`
 
 **Choice:** `gate-policy.md` (167), `risk-acceptance-flow.md` (232), `mcp-binary-policy.md` (81), `semgrep-update-model.md` (106), `knowledge-placement.md` (62) all relocate to `.ai-engineering/reference/`. Rejected: fold into `CONSTITUTION.md §13`.
 
-**Rationale:** Cited as `canonical_refs` metadata by `skill_domain/standards.py` and surfaced through skill metadata. Folding 648 lines into `CONSTITUTION.md` would bloat it 197 → 845 lines (4.3×), destroying its identity as the lean hard-rules document. The reference/ folder is the right home.
+**Rationale**: Cited as `canonical_refs` metadata by `skill_domain/standards.py` and surfaced through skill metadata. Folding 648 lines into `CONSTITUTION.md` would bloat it 197 → 845 lines (4.3×), destroying its identity as the lean hard-rules document. The reference/ folder is the right home.
 
 ### D-136-12 — One atomic PR `spec-136/prune-low-value-surfaces`, single merge
 
 **Choice:** Ship as one PR squashing all five logical waves (relocate, retarget, runtime moves, hard delete + dead-rule sweep, CHANGELOG). Rejected: five sequential PRs; rejected: three-PR compromise.
 
-**Rationale:** Matches operator pattern (PR #509 shipped 6 specs together: spec-128 + 129 + 131 + 132 + 133 + 134). Single review surface; single CHANGELOG block; one revert command if regression appears. Wave ordering still matters internally (relocate before delete) but the commits within the PR follow that order.
+**Rationale**: Matches operator pattern (PR #509 shipped 6 specs together: spec-128 + 129 + 131 + 132 + 133 + 134). Single review surface; single CHANGELOG block; one revert command if regression appears. Wave ordering still matters internally (relocate before delete) but the commits within the PR follow that order.
 
 ### D-136-13 — Bulk hard-delete of low-load files; no rescue list
 
 **Choice:** Hard-delete the following without relocation. From `contexts/`: cli-ux.md, evidence-protocol.md, mcp-integrations.md, permissions-migration.md, python-env-modes.md, session-governance.md, sentinel-iocs-update.md, stack-context.md. From `docs/`: anti-patterns.md, copilot-subagents.md, agentsview-source-contract.md, ci-alpine-smoke.md, getting-started.md, integrations/antigravity.md, architecture/dir-schemas.md, conformance-report.md (relocated to runtime/), all of presentations/, all of svg/.
 
-**Rationale:** None have load-bearing consumers (no test asserts content; no skill cites them as canonical refs). README link cleanup (lines 59, 65, 75) handles the only dangling-reference exposure. Cumulative deletion: ~16 files + 2 dirs.
+**Rationale**: None have load-bearing consumers (no test asserts content; no skill cites them as canonical refs). README link cleanup (lines 59, 65, 75) handles the only dangling-reference exposure. Cumulative deletion: ~16 files + 2 dirs.
 
 ### D-136-14 — `_DOCS_TARGETS` lint check retargets, does not delete
 
 **Choice:** `tools/skill_lint/checks/md_mirror.py:258-262` keeps the existence check but retargets the three paths: `docs/principles.md` → `.ai-engineering/reference/principles.md`, `docs/mirror-authoring.md` → `.ai-engineering/reference/mirror-authoring.md`, `docs/surface-axioms.md` → `.ai-engineering/reference/surface-axioms.md`. The CRITICAL-on-missing semantics stay.
 
-**Rationale:** The check is the load-bearing protection that surfaces a 4-gate failure if these files vanish. Keeping the check with retargeted paths preserves the safety invariant for future contributors who might be tempted to delete the new home.
+**Rationale**: The check is the load-bearing protection that surfaces a 4-gate failure if these files vanish. Keeping the check with retargeted paths preserves the safety invariant for future contributors who might be tempted to delete the new home.
 
 ### D-136-15 — Engineering principles application
 
 **Choice:** Apply `§10.1 KISS`, `§10.2 YAGNI`, `§10.3 SOLID (Single Responsibility)`, `§10.6 SDD`, `§10.7 Clean Code`.
 
-**Rationale:** KISS — collapse 4 fuzzy surfaces into 3 sharp ones (reference, runtime, evals). YAGNI — drop content with no consumer (~16 files). SOLID — each surviving directory carries one purpose. SDD — entire refactor gated by this approved spec. Clean Code — eliminate dead ownership / exclusion / migration rules.
+**Rationale**: KISS — collapse 4 fuzzy surfaces into 3 sharp ones (reference, runtime, evals). YAGNI — drop content with no consumer (~16 files). SOLID — each surviving directory carries one purpose. SDD — entire refactor gated by this approved spec. Clean Code — eliminate dead ownership / exclusion / migration rules.
 
 ## Risks
 
@@ -168,7 +168,7 @@ Four top-level knowledge surfaces accumulated heterogeneous, low-coherence conte
 - doc: `.ai-engineering/specs/drafts/dx-excellence-refactor-brief.md` — establishes mirror-parity precedent
 - doc: `.ai-engineering/specs/drafts/skills-agents-excellence-v2-brief.md` — establishes refactor cadence
 - doc: `.ai-engineering/specs/archive/spec-135-framework-performance-hardening.md` — predecessor spec, parked for sequencing
-- pr: anthropics/ai-engineering#509 — most recent multi-spec PR establishing one-atomic-PR pattern
+- pr: anthropics/ai-engineering#509
 
 ## Open Questions
 

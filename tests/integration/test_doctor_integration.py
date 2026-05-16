@@ -125,13 +125,13 @@ class TestGovernancePhaseCheck:
     def test_fails_on_missing_subdirectory(self, installed_project: Path) -> None:
         import shutil
 
-        shutil.rmtree(installed_project / ".ai-engineering" / "contexts")
+        shutil.rmtree(installed_project / ".ai-engineering" / "reference")
         report = diagnose(installed_project)
         governance = _find_phase(report, "governance")
         governance_dirs = next((c for c in governance.checks if c.name == "governance-dirs"), None)
         assert governance_dirs is not None
         assert governance_dirs.status == CheckStatus.FAIL
-        assert "contexts" in governance_dirs.message
+        assert "reference" in governance_dirs.message
 
 
 # ---------------------------------------------------------------------------

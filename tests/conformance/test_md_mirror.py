@@ -363,11 +363,11 @@ def _build_docs_targets(repo: Path) -> None:
     fixtures therefore write stub files; integration tests
     (``test_canonical_mirror_parity.py``) cover content shape.
     """
-    docs = repo / "docs"
-    docs.mkdir(parents=True, exist_ok=True)
-    (docs / "principles.md").write_text("# stub principles\n", encoding="utf-8")
-    (docs / "mirror-authoring.md").write_text("# stub mirror authoring\n", encoding="utf-8")
-    (docs / "surface-axioms.md").write_text("# stub surface axioms\n", encoding="utf-8")
+    reference = repo / ".ai-engineering" / "reference"
+    reference.mkdir(parents=True, exist_ok=True)
+    (reference / "principles.md").write_text("# stub principles\n", encoding="utf-8")
+    (reference / "mirror-authoring.md").write_text("# stub mirror authoring\n", encoding="utf-8")
+    (reference / "surface-axioms.md").write_text("# stub surface axioms\n", encoding="utf-8")
 
 
 @pytest.mark.unit
@@ -465,7 +465,7 @@ def test_docs_targets_present_passes_when_files_exist(tmp_path: Path) -> None:
 def test_docs_targets_present_fails_when_principles_missing(tmp_path: Path) -> None:
     """CRITICAL when .ai-engineering/reference/principles.md is absent."""
     _build_docs_targets(tmp_path)
-    (tmp_path / "docs" / "principles.md").unlink()
+    (tmp_path / ".ai-engineering" / "reference" / "principles.md").unlink()
     from skill_lint.checks.md_mirror import check_docs_targets_exist
 
     result = check_docs_targets_exist(tmp_path)

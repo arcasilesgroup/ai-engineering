@@ -24,7 +24,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 INTERROGATE_MD = REPO_ROOT / ".claude" / "skills" / "ai-brainstorm" / "handlers" / "interrogate.md"
-SPEC_SCHEMA_MD = REPO_ROOT / ".ai-engineering" / "contexts" / "spec-schema.md"
+SPEC_SCHEMA_MD = REPO_ROOT / ".ai-engineering" / "reference" / "spec-schema.md"
 
 
 # ---------------------------------------------------------------------------
