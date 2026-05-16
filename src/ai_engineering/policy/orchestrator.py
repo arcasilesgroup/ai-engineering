@@ -208,7 +208,7 @@ def _max_thread_workers() -> int:
     # ceiling of 4 if anything goes wrong.
     try:
         from ai_engineering.config.concurrency import resolve_thread_workers
-    except Exception:  # pragma: no cover — defensive
+    except Exception:
         return 4
     return resolve_thread_workers()
 
