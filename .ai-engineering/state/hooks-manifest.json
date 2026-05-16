@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-16T19:04:09Z",
+  "generatedAt": "2026-05-16T20:09:14Z",
   "hookCount": 73,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -71,7 +71,7 @@
     ".ai-engineering/scripts/hooks/runtime-progressive-disclosure.py": "a7b5108602ef961317a2b1f9e6ec886c360075721295e8c9b2c3ed85ad860edd",
     ".ai-engineering/scripts/hooks/runtime-session-end.py": "6ed3465491b1a9471f83d43121c25c02998e7a25f508cbf898a856cb9f838d69",
     ".ai-engineering/scripts/hooks/runtime-session-start.py": "2f8d497f55a031f2df7e6a36c30fcf95a129c9dab127cc447eab83d2fbe3b90f",
-    ".ai-engineering/scripts/hooks/runtime-stop.py": "6e128af923c5e9393e0c695a672096aac6da3310160b406b841f6ddcf57510a8",
+    ".ai-engineering/scripts/hooks/runtime-stop.py": "e4427c980fdecc46428c4b880d831443fdcb1410a8e62489945564e1465d00e4",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "e1bda43b4f2a24df679c8f0ac7743a9a61e005151e824e2e79ffda92b04c743f",
     ".ai-engineering/scripts/hooks/strategic-compact.py": "428582f228cea31d5b512d49be3f5e0970ba621bb5d4a3f22edb8afb08ae42aa",
     ".ai-engineering/scripts/hooks/telemetry-skill.py": "b400039e292936d8ab4aa03cd0a7e07e9e7c557d73f712ff3d58ff99cf190254"

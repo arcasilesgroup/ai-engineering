@@ -51,10 +51,11 @@ from _lib.runtime_state import (
 )
 from _lib.transcript_usage import aggregate_session_usage, find_active_transcript
 
-# Spec-120 §4.3: SQLite projection of framework-events.ndjson. Path is
-# inlined here (mirrors `ai_engineering.state.audit_index.INDEX_REL`) so
-# the hook stays stdlib-only and never imports from the pkg.
-_AUDIT_INDEX_REL = Path(".ai-engineering") / "state" / "audit-index.sqlite"
+# spec-123 D-123-22 + spec-138 M1: the events projection lives on the
+# unified state.db (the legacy audit-index.sqlite was a 0-byte zombie).
+# Path is inlined here (mirrors `ai_engineering.state.audit_index.INDEX_REL`)
+# so the hook stays stdlib-only and never imports from the pkg.
+_AUDIT_INDEX_REL = Path(".ai-engineering") / "state" / "state.db"
 _HOOK_COMPONENT = "hook.runtime-stop"
 
 

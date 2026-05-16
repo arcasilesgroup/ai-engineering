@@ -1,17 +1,21 @@
-"""Tests for ``governance.decision_log`` (spec-122 Phase C, T-3.8).
+"""Tests for ``governance.decision_log``.
+
+Per spec-138 SSOT-PD doctrine: NDJSON is the canonical store for events
+(Article-III); ``state.db.events`` is a derived cache rebuilt at
+SessionEnd and never written from this hot-path emitter. The prior dual-
+write at ``_insert_events_row`` was silently writing to a phantom schema
+and swallowing every ``sqlite3.Error`` -- removed in spec-138 M1.
 
 Covers:
 
-(a) NDJSON-only path when state.db is absent.
-(b) Dual-write when state.db + events table are present.
-(c) Sample mask: 100/100 blocked recorded, ~10/100 allow recorded.
-(d) Field redaction for `subject` / `justification`.
+(a) NDJSON-only emission.
+(b) Sample mask: 100/100 blocked recorded, ~10/100 allow recorded.
+(c) Field redaction for `subject` / `justification`.
 """
 
 from __future__ import annotations
 
 import json
-import sqlite3
 from pathlib import Path
 from typing import Any
 
@@ -40,13 +44,12 @@ def _read_events(project_root: Path) -> list[dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# (a) NDJSON-only path
+# (a) NDJSON-only emission (canonical per spec-138 SSOT-PD)
 # ---------------------------------------------------------------------------
 
 
-def test_ndjson_only_when_state_db_absent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_ndjson_canonical_emission(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     project_root = _build_project(tmp_path)
-    # state.db does not exist -> dual-write must be skipped silently.
     monkeypatch.setattr(decision_log, "should_sample", lambda _: True)
 
     decision_log.emit_policy_decision(
@@ -70,69 +73,26 @@ def test_ndjson_only_when_state_db_absent(tmp_path: Path, monkeypatch: pytest.Mo
     assert events[0]["detail"]["input"]["subject"].startswith("sha256:")
 
 
-# ---------------------------------------------------------------------------
-# (b) Dual-write path
-# ---------------------------------------------------------------------------
+def test_no_sql_dual_write_module_no_longer_imports_sqlite() -> None:
+    """spec-138 M1: decision_log must not import sqlite3 (no hot-path SQL).
 
+    Asserts on actual code surface (functions, module attributes), not
+    docstring prose that may reference the removed names for archaeology.
+    """
+    import ai_engineering.governance.decision_log as dl
 
-def test_dual_write_when_events_table_present(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    project_root = _build_project(tmp_path)
-    db_path = project_root / decision_log.STATE_DB_REL
-    db_path.parent.mkdir(parents=True, exist_ok=True)
-
-    conn = sqlite3.connect(db_path)
-    conn.execute(
-        """
-        CREATE TABLE events (
-            kind TEXT NOT NULL,
-            timestamp TEXT NOT NULL,
-            component TEXT NOT NULL,
-            outcome TEXT NOT NULL,
-            correlation_id TEXT NOT NULL,
-            project TEXT NOT NULL,
-            detail_json TEXT NOT NULL
-        )
-        """,
+    assert "sqlite3" not in dl.__dict__, (
+        "spec-138 SSOT-PD forbids sqlite3 import on the policy-decision hot path"
     )
-    conn.commit()
-    conn.close()
-
-    decision_log.emit_policy_decision(
-        project_root=project_root,
-        policy="branch_protection",
-        query="data.branch_protection.deny",
-        input_data={"branch": "main", "action": "push"},
-        decision="blocked",
-        deny_messages=["push to protected branch denied"],
-        component="gate-engine",
-        source="pre-push",
-        correlation_id="cid-2",
+    assert not hasattr(dl, "_insert_events_row"), "spec-138 M1 deleted _insert_events_row"
+    assert not hasattr(dl, "_events_table_present"), "spec-138 M1 deleted _events_table_present"
+    assert not hasattr(dl, "STATE_DB_REL"), (
+        "spec-138 M1 deleted STATE_DB_REL (only used for the removed dual-write)"
     )
 
-    events = _read_events(project_root)
-    assert len(events) == 1
-
-    conn = sqlite3.connect(db_path)
-    try:
-        rows = conn.execute(
-            "SELECT kind, outcome, correlation_id, project, detail_json FROM events"
-        ).fetchall()
-    finally:
-        conn.close()
-
-    assert len(rows) == 1
-    kind, outcome, cid, project, detail_json = rows[0]
-    assert kind == "policy_decision"
-    assert outcome == "blocked"
-    assert cid == "cid-2"
-    assert project == "opa-test"
-    assert json.loads(detail_json)["deny_messages"] == ["push to protected branch denied"]
-
 
 # ---------------------------------------------------------------------------
-# (c) Sample mask
+# (b) Sample mask
 # ---------------------------------------------------------------------------
 
 

@@ -30,7 +30,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[3]
 RUNTIME_STOP_PATH = REPO / ".ai-engineering" / "scripts" / "hooks" / "runtime-stop.py"
 NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
-INDEX_REL = Path(".ai-engineering") / "state" / "audit-index.sqlite"
+INDEX_REL = Path(".ai-engineering") / "state" / "state.db"
 
 
 def _project_slug(project: Path) -> str:
