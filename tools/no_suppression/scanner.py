@@ -14,6 +14,7 @@ The patterns are intentionally narrow:
 * ``# nolint`` / ``// nolint`` — generic linter bypass.
 * ``# eslint-disable`` / ``// eslint-disable`` — ESLint bypass.
 * ``sonar.issue.ignore.multicriteria`` — Sonar properties bypass.
+* ``# nosemgrep`` — Semgrep per-line bypass (spec-141 M3 Article VII parity).
 
 Each detection records the rule (Sonar / Semgrep / Ruff / etc. code)
 when present so the allowlist can match by file glob + rule.
@@ -42,6 +43,9 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("nolint_slash", re.compile(rf"//\s*nolint\b(?:[:\s]+({_RULE_TAG}))?")),
     ("eslint_disable_hash", re.compile(r"#\s*eslint-disable\b")),
     ("eslint_disable_slash", re.compile(r"//\s*eslint-disable\b")),
+    # spec-141 M3 — Semgrep per-line bypass, on par with `# noqa` / `# nosec`.
+    # The rule target after `nosemgrep:` is captured for granular allowlisting.
+    ("nosemgrep_hash", re.compile(rf"#\s*nosemgrep\b(?:[:\s]+({_RULE_TAG}))?")),
     (
         "sonar_multicriteria",
         re.compile(r"^\s*sonar\.issue\.ignore\.multicriteria(?:\.\w+)?(?:\.\w+)?\s*="),

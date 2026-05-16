@@ -22,7 +22,8 @@
 #                   Currently: nosonar | noqa | nosec | type_ignore |
 #                              pragma_no_cover | ts_ignore | nolint_hash |
 #                              nolint_slash | eslint_disable_hash |
-#                              eslint_disable_slash | sonar_multicriteria.
+#                              eslint_disable_slash | sonar_multicriteria |
+#                              nosemgrep_hash (spec-141 M3 — Article VII parity).
 #   justification:  WHY the bypass is required (full sentence).
 #   spec_ref:       owning spec or DEC reference.
 #   expires_at:     ISO-8601 expiry. Optional but recommended.

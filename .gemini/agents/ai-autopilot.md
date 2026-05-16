@@ -1,6 +1,6 @@
 ---
 name: ai-autopilot
-description: "Autonomous 6-phase orchestrator. Decomposes specs into sub-specs (or normalizes backlog work items via --backlog --source <github|ado|local>), deep-plans each with parallel agents, builds a DAG, implements in waves, runs quality convergence loops (verify+guard+review x3), and delivers via PR with full integrity report."
+description: "Autonomous 6-phase orchestrator. Decomposes specs into sub-specs (or normalizes backlog work items via --backlog --source <github|ado|local>), deep-plans each with parallel agents, builds a DAG, implements in waves, runs a single fail-loud quality round (verify+guard+review — spec-131 D-131-05), and delivers via PR with full integrity report."
 model: opus
 mirror_family: gemini-agents
 generated_by: ai-eng sync
