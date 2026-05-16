@@ -31,6 +31,19 @@ single-round fail-loud).
 - Hot-path budget: pre-commit < 1 s, pre-push < 5 s.
 - Each phase's verification step runs locally before moving to the next.
 
+## Phase Checklist (plan-schema.md rule 3)
+
+- [x] Phase 1 — Schema migration foundation (severity field optional, schemaVersion deferred).
+- [x] Phase 2 — Collapse three frozensets and lock against drift.
+- [x] Phase 3 — Relevance gate helper plus stdlib mirror plus parity tests.
+- [x] Phase 4 — Manifest `audit_policy:` block (root plus installer template).
+- [x] Phase 5 — Wire gate semantics: conditional `spec_verified` and short-circuit `install_simulate_hook`.
+- [x] Phase 6 — Test updates: four new test files (17 cases) plus hook asset registry update.
+- [x] Phase 7 — CHANGELOG entry plus archive of prior spec-135 plan and spec.
+- [ ] Follow-up — Telemetry-debug.log retirement (deferred per CHANGELOG `Deferred` section).
+- [ ] Follow-up — `schemaVersion` bump to 2 and required `severity` (deferred).
+- [ ] Follow-up — D-137-07 CI guard for new emit sites without paired policy entry.
+
 ## Phase 1 (M2-foundation) — Schema migration + severity field
 
 **Goal**: Bump `schemaVersion` to 2 and add `severity` as a first-class field on `FrameworkEvent`. Keep all 13 kinds in `ALLOWED_EVENT_KINDS`.
@@ -224,11 +237,7 @@ Expected: green.
 1. **P7.T1**: Update [src/ai_engineering/state/audit_index.py:65](src/ai_engineering/state/audit_index.py:65) — add `severity TEXT` column to projection schema.
 2. **P7.T2**: Update [src/ai_engineering/state/audit_index.py:477](src/ai_engineering/state/audit_index.py:477) — bulk-read inspects `schemaVersion`; v1 rows get severity NULL.
 3. **P7.T3**: Update [src/ai_engineering/state/audit_otel_export.py:73](src/ai_engineering/state/audit_otel_export.py:73) — map S0→FATAL (21), S1→WARN (13), S2→INFO (9), S3→DEBUG (5) per OTel `SeverityNumber`.
-4. **P7.T4**: Retire `telemetry-debug.log` call sites:
-   - [.ai-engineering/scripts/hooks/observe.py:92](.ai-engineering/scripts/hooks/observe.py:92)
-   - [.ai-engineering/scripts/hooks/instinct-extract.py:37](.ai-engineering/scripts/hooks/instinct-extract.py:37)
-   - [.ai-engineering/scripts/hooks/prompt-injection-guard.py:947](.ai-engineering/scripts/hooks/prompt-injection-guard.py:947)
-   - [.ai-engineering/scripts/hooks/mcp-health.py:591](.ai-engineering/scripts/hooks/mcp-health.py:591)
+4. **P7.T4**: Retire `telemetry-debug.log` call sites at `observe.py:92`, `instinct-extract.py:37`, `prompt-injection-guard.py:947`, and `mcp-health.py:591`.
 5. **P7.T5**: Remove `AIENG_TELEMETRY_DEBUG` references from CLAUDE.md "Runtime Layer Tunables" and any other docs.
 6. **P7.T6**: Run `ai-eng audit verify` against the historical NDJSON to confirm chain integrity.
 7. **P7.T7**: Add CHANGELOG entry under `## Unreleased`:

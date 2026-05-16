@@ -53,19 +53,35 @@ This spec lands a single PR that (a) enforces a **relevance contract at the writ
 
 ## Decisions
 
-### D-137-01: Relevance mechanism — hybrid emitter-side allow-list + severity tier + change-driven
+- **D-137-01 — Relevance mechanism is hybrid: kind allow-list + severity tier + change-driven emission.** Three-layer contract at the writer boundary: (1) kind allow-list (manifest-driven, empty means no restriction), (2) per-kind severity floor S0..S3 (manifest-driven), (3) caller-asserted change-driven emission for the two retired heartbeats (`spec_verified` only when drift_detected; `install_simulate_hook` only when outcome != success).
+  *Rationale*: combines OTel-semconv allow-list, OTel SeverityNumber tier, and Honeycomb / Observability 2.0 caller-asserted relevance. Filtering happens at the writer boundary, not at the reader, so noise never enters the chain.
 
-Three-layer contract at the writer boundary:
+- **D-137-02 — All 13 declared kinds preserved in ALLOWED_EVENT_KINDS.**
+  *Rationale*: removing kinds is a breaking change for consumers (audit_index, otel_export, instinct extractor, three rollup views). Making the gate conditional achieves the volume goal without breaking the consumer surface.
 
-1. **Kind allow-list** (manifest-driven). The emitted `kind` must be in `audit_policy.kind_allowlist`. Default: all 13 kinds allowed.
-2. **Severity floor** (manifest-driven). Each kind has a configurable severity floor; emits below the floor drop. Defaults: `S2` for `framework_operation` and `ide_hook`, `S0` for `framework_error`, `S1` otherwise.
-3. **Change-driven emission** (caller-asserted). Callers that previously emitted unconditionally now compute a relevance condition: `spec_verified` emits only when `drift_detected=true` OR previous-drift-state differs; `install_simulate_hook` emits only when `outcome != success` OR mechanism is first-seen.
+- **D-137-03 — Observation-events bifurcation preserved.**
+  *Rationale*: the instincts sliding window has a distinct schema, distinct lifecycle, and self-pruning policy. Bringing it into the append-only audit chain would violate CONSTITUTION.md §13.1 or defeat the instincts purpose.
 
-Recorded in `state.db decisions` as D-137-01 with rationale and SHA placeholder.
+- **D-137-04 — Lock-failure sidecar stays separate.**
+  *Rationale*: lock failures happen precisely when the writer is contended. Writing them to the same chain would be self-referential and lossy. Sidecar (`lock-failures.ndjson`) keeps its own discipline outside the hash chain.
 
-### D-137-02..D-137-10
+- **D-137-05 — Historical NDJSON readability via schema-version-aware reader, not rewrite.**
+  *Rationale*: rewriting historical rows would break `prev_event_hash` chain integrity. Reader inspects `schemaVersion` per row and projects accordingly; writer emits only the new shape after the cut.
 
-See spec body §Non-Goals — each decision is captured there with rationale.
+- **D-137-06 — No runtime env-var override (no AIENG_AUDIT_POLICY_PATH).**
+  *Rationale*: defence-in-depth requires that the active policy be inspectable from the manifest snapshot at any moment. An env-var override would let an operator silently change emission behaviour without leaving a manifest-diff trail.
+
+- **D-137-07 — CI guard for new emit sites deferred to spec-138.**
+  *Rationale*: the relevance contract is already enforced at runtime via the manifest gate. A static CI guard that greps the diff for `emit_framework_event` without paired policy entry is additive hardening, valuable but not blocking; deferring keeps this PR scoped.
+
+- **D-137-08 — Decisions table backfill deferred.**
+  *Rationale*: `state.db decisions` is empty today; D-137-01 is the first row inserted. Historical decision archaeology (backfilling D-110-03, D-122-23, D-127-10, etc.) is a separate project.
+
+- **D-137-09 — Per-kind sampling deferred.**
+  *Rationale*: the existing 10% policy-decision allow-sampler stays as-is. Per-kind manifest-driven sampling is a future cost/budget tuning knob, out of scope for this PR. Volume goal is met by allow-list + floor + change-driven emission.
+
+- **D-137-10 — `outcome` enum preserved unchanged.**
+  *Rationale*: `outcome` is the current-state quality hint (`success` / `failure` / `degraded` / `warn` / `allow` / `blocked`); `severity` is the orthogonal relevance signal. Two distinct concerns; both stay first-class.
 
 ## Architecture
 
@@ -177,6 +193,19 @@ Mirror into installer template. Create `docs/event-relevance.md`.
 - [ ] No suppression added; no backwards-compat shim.
 - [ ] CHANGELOG entry committed.
 - [ ] `pytest tests/unit/` green.
+
+## Risks
+
+| ID | Risk | Likelihood | Impact | Mitigation |
+| --- | --- | --- | --- | --- |
+| R1 | A retired heartbeat turns out to carry signal we depend on (audit blind spot). | Medium | High | Failure-emission asymmetry keeps failure rows; drift_detected rows still emit; tests assert the conditional shape. |
+| R2 | Audit chain integrity breaks during migration cut. | Low | Critical | Chain is append-only; migration only changes what is written after the cut. `ai-eng audit verify` green. |
+| R3 | Three-frozenset drift returns when a future PR adds a kind to only one site. | Medium | Medium | `test_event_kinds_single_source.py` asserts membership equality on every CI run. |
+| R4 | Hot-path budget regresses if relevance gate is heavy. | Low | High | Gate is pure-Python dict lookup + int compare; benchmark holds pre-commit < 1s, pre-push < 5s. |
+| R5 | Operators bypass the policy via a hidden env var. | Low | Medium | D-137-06: no env-var override exists; policy is manifest-only. |
+| R6 | A future polling emitter violates the contract without being caught. | High | Medium | D-137-07 CI guard deferred; until then, code review plus the heartbeat AST guard catch the two known offenders. |
+| R7 | Test rewrites miss an assertion that locks a retired emit semantic. | Medium | Medium | Exhaustive grep for `spec_verified` and `install_simulate_hook` in tests; one local plus one CI sweep before merge. |
+| R8 | Severity field semantics drift across emitters as new callers pick the wrong tier. | Medium | Low | `docs/event-relevance.md` (follow-up) documents the four-tier vocabulary; default S1 keeps the change backward-compatible. |
 
 ## Quality Stamps
 
