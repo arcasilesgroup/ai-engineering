@@ -14,10 +14,52 @@ dual-writes.** Lands the M1 bug clearance of the silent dual-write failure
 mode: every `INSERT INTO events` from the policy-decision hot path was
 writing to a phantom schema and swallowing every `sqlite3.Error`; the
 `audit-index.sqlite` 0-byte zombie was being opened by `runtime-stop.py:474`
-and the `session_token_rollup` query failed silently every Stop. M2-M5
-(doctrine document, autopopulation, derived-cache positioning, hooks_integrity
-table drop) are scoped in `.ai-engineering/specs/archive/spec-138-plan.md`
-and deferred to follow-up work.
+and the `session_token_rollup` query failed silently every Stop. Now also
+lands the M2 doctrine document, the CONSTITUTION.md §13 amendment that
+ratifies the SSOT-PD rule, and the CLAUDE.md §0 bootstrap pointer that
+replaces the misleading `state.db.decisions` query instruction. M3-M5
+(autopopulation, derived-cache positioning, hooks_integrity table drop)
+are scoped in `.ai-engineering/specs/archive/spec-138-plan.md` and
+deferred to follow-up work.
+
+#### Added — persistence doctrine (M2)
+
+- `docs/persistence-doctrine.md` — authoritative SSOT-PD reference.
+  Declares the four-tier persistence model (Tier 1 NDJSON audit log,
+  Tier 2 SQLite `state.db`, Tier 3 JSON/YAML config, Tier 4 Markdown
+  human-authored truth), the five derived caches (`state.db.events`,
+  `state.db.decisions_fts`, `state.db.ownership_map`, `state.db.decisions`,
+  `state.db.install_steps`) with their rebuild commands, the five strict
+  rules (no silent dual-writes; audit chain stays on NDJSON; hot path
+  never writes SQL; schema authority in Pydantic not DDL; hard deletes —
+  no shims), the operator surface (`ai-eng decision list`, `ai-eng decision
+  backfill`, `ai-eng ownership import`, `ai-eng doctor --check state-db`,
+  SessionEnd rebuild semantics), and the SSOT-PD / Article-III / derived
+  cache / hot path / cold path / tier / polyglot persistence glossary.
+  Cites the canonical schema declaration at
+  `src/ai_engineering/state/migrations/0001_initial_schema.py:27-217`.
+- `CONSTITUTION.md` — new Prohibition #8 ratifies the SSOT-PD rule:
+  "Every datum has exactly one canonical writable store. Derived caches
+  are explicitly labelled (named, with a rebuild command) and rebuildable
+  on demand."  Links the new doctrine document.
+- `src/ai_engineering/templates/project/CANONICAL.md` §13 — new hard rule
+  #7 mirrors the SSOT-PD Prohibition into the canonical cross-IDE payload.
+  Regenerator propagates to `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`,
+  `.github/copilot-instructions.md` (byte-equivalent).
+- `src/ai_engineering/templates/project/CLAUDE.md` §0 + canonical mirror —
+  replaces the misleading "query `state.db.decisions` table" bootstrap
+  step (the table is empty on every fresh checkout until M3 ships the
+  autopopulation writers) with a pointer to the persistence doctrine.
+  Adds a one-sentence paragraph after §0 directing operators to the
+  doctrine for the four-tier model and rebuild semantics. Mirror diet
+  preserved per D-138-05.
+- `tests/architecture/test_persistence_doctrine_exists.py` — pins the
+  doctrine file existence, its six canonical section headers (`## The
+  SSOT-PD rule`, `## The four tiers`, `## Derived caches`, `## Strict
+  rules`, `## Operator surface — what changes for you`, `## Glossary`),
+  the CONSTITUTION.md citation, and the CLAUDE.md §0 + §13 references.
+  Drift fails CI so a future operator cannot silently delete the
+  doctrine without breaking the identity contract.
 
 #### Removed — silent dual-write paths
 

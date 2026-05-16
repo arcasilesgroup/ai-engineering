@@ -53,11 +53,11 @@ Five phases mapped to the brief's M1–M5 milestones. TDD-first; every change ca
 
 ### Tasks
 
-- **M2.T1 — Author `docs/persistence-doctrine.md`.** Four tiers with one-line summaries; SSOT-PD rule statement; rebuild semantics for derived caches; glossary (Article-III, derived cache, hot path, SSOT-PD, tier).
-- **M2.T2 — Amend CONSTITUTION.md.** Add a hard rule under §13 (data layer) referencing the doctrine: "Every datum has exactly one canonical store. Derived caches are explicitly labelled and rebuildable on demand."
-- **M2.T3 — Update CLAUDE.md §0 bootstrap.** Replace the broken `state.db.decisions` query instruction with a doctrine pointer; preserve §0 structure (read CONSTITUTION → read manifest → read doctrine → no implementation without an approved spec).
-- **M2.T4 — Regenerate mirror surfaces.** Run `python scripts/sync_mirrors/core.py` so `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` carry the same canonical block (mirrors stay lean per D-138-05).
-- **M2.T5 — Add `tests/architecture/test_persistence_doctrine_exists.py`.** Asserts the file exists, has the four-tier section headers, and CLAUDE.md §0 contains the pointer.
+- **[x] M2.T1 — Author `docs/persistence-doctrine.md`.** Four tiers with one-line summaries; SSOT-PD rule statement; rebuild semantics for derived caches; glossary (Article-III, derived cache, hot path, SSOT-PD, tier).
+- **[x] M2.T2 — Amend CONSTITUTION.md.** Add a hard rule under §13 (data layer) referencing the doctrine: "Every datum has exactly one canonical store. Derived caches are explicitly labelled and rebuildable on demand."
+- **[x] M2.T3 — Update CLAUDE.md §0 bootstrap.** Replace the broken `state.db.decisions` query instruction with a doctrine pointer; preserve §0 structure (read CONSTITUTION → read manifest → read doctrine → no implementation without an approved spec).
+- **[x] M2.T4 — Regenerate mirror surfaces.** Run `python scripts/sync_mirrors/core.py` so `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md` carry the same canonical block (mirrors stay lean per D-138-05).
+- **[x] M2.T5 — Add `tests/architecture/test_persistence_doctrine_exists.py`.** Asserts the file exists, has the four-tier section headers, and CLAUDE.md §0 contains the pointer.
 
 ### Acceptance gate
 
