@@ -138,10 +138,10 @@ Nine milestones mapped 1-to-1 to the brief's M1–M9. Each milestone is independ
 
 ### Tasks
 
-- **M9.T1** — Update `CLAUDE.md` "Runtime Layer Tunables" to add: `AIENG_MAX_WAVE_AGENTS`, `AIENG_MAX_QUALITY_AGENTS`, `AIENG_MAX_THREAD_WORKERS`, `AIENG_HOST_PREFLIGHT_*`, `AIENG_HOOK_CACHE_TTL_SEC`, `AIENG_NDJSON_MAX_LINES`, `AIENG_NDJSON_MAX_BYTES`, `AIENG_AUTOFORMAT_DEBOUNCE_SEC`.
-- **M9.T2** — Fix `AIENG_TOOL_OFFLOAD_BYTES` default — change from `4096` to `16384` to match code.
-- **M9.T3** — Re-mirror to `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md`.
-- **M9.T4** — `tests/architecture/test_tunables_docs_match_code.py` (parses CLAUDE.md table, greps code defaults, asserts match).
+- [x] **M9.T1** — Update `CLAUDE.md` "Runtime Layer Tunables" to add: `AIENG_MAX_WAVE_AGENTS`, `AIENG_MAX_QUALITY_AGENTS`, `AIENG_MAX_THREAD_WORKERS`, `AIENG_HOST_PREFLIGHT_*`, `AIENG_HOOK_CACHE_TTL_SEC`, `AIENG_NDJSON_MAX_LINES`, `AIENG_NDJSON_MAX_BYTES`, `AIENG_AUTOFORMAT_DEBOUNCE_SEC`.
+- [x] **M9.T2** — Fix `AIENG_TOOL_OFFLOAD_BYTES` default — change from `4096` to `16384` to match code.
+- [x] **M9.T3** — Re-mirror to `AGENTS.md`, `GEMINI.md`, `.github/copilot-instructions.md`.
+- [x] **M9.T4** — `tests/architecture/test_tunables_docs_match_code.py` (parses CLAUDE.md table, greps code defaults, asserts match).
 
 ## Cross-spec coordination
 

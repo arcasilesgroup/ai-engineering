@@ -86,16 +86,16 @@ deferred to follow-up work.
   module attributes (sqlite3 not imported, `_insert_events_row` and
   `STATE_DB_REL` removed). Prevents regression of the dual-write bug.
 
-### spec-139 — Framework Performance Hardening (partial: M1 + M4)
+### spec-139 — Framework Performance Hardening (partial: M1 + M4 + M9)
 
 Mantra: **ai-engineering NEVER causes WindowServer to hang. Every wave
 declares a concurrency budget. Every LLM call earns its place.** Lands
-M1 (concurrency budget primitive that closes the kernel-panic class) and
-M4 (stale-x3 correction). M2–M3 and M5–M9 (host probe, stack context,
-hot-path cache, SessionEnd rotation, deterministic CLIs, compose
-determinism, tunables docs) are scoped in
-`.ai-engineering/specs/archive/spec-139-plan.md` and deferred to focused
-follow-ups.
+M1 (concurrency budget primitive that closes the kernel-panic class),
+M4 (stale-x3 correction), and M9 (CLAUDE.md tunables reconciliation +
+drift gate). M2–M3 and M5–M8 (host probe, stack context, hot-path cache,
+SessionEnd rotation, deterministic CLIs, compose determinism) are scoped
+in `.ai-engineering/specs/archive/spec-139-plan.md` and deferred to
+focused follow-ups.
 
 #### Added — concurrency budget primitive (M1)
 
@@ -154,6 +154,65 @@ follow-ups.
   "review x3", "review ×3", "3 rounds of verify", "three rounds of
   verify" from any committed file under `.claude/`, `.codex/`, `.gemini/`,
   `.github/`, `.opencode/`, `.cursor/`, or `src/.../templates/project/`.
+
+#### Added — tunables documentation reconciliation (M9)
+
+- `CLAUDE.md` "Runtime Layer Tunables" + template twin
+  (`src/ai_engineering/templates/project/CLAUDE.md`) — extended the env
+  var table to declare every tunable the framework reads or reserves.
+  Sort order: established (5) → M1 trio (3) → M2/M5/M6 pending (8).
+  Each pending entry carries the `# pending spec-139 M<n>` marker so
+  the reader can tell which vars are wired today versus reserved for
+  future milestones.
+- New documented env vars (11 total — 3 landed in M1, 8 pending):
+  `AIENG_MAX_WAVE_AGENTS` (default auto; floor=2 ceiling=6),
+  `AIENG_MAX_QUALITY_AGENTS` (default 3),
+  `AIENG_MAX_THREAD_WORKERS` (default 4),
+  `AIENG_HOST_PREFLIGHT_DISABLED` (pending spec-139 M2),
+  `AIENG_HOST_PREFLIGHT_MIN_FREE_MB` (pending spec-139 M2),
+  `AIENG_HOST_PREFLIGHT_MAX_PRESSURE_PCT` (pending spec-139 M2),
+  `AIENG_HOOK_CACHE_TTL_SEC` (pending spec-139 M5),
+  `AIENG_HOOK_BUDGET_PROFILE` (pending spec-139 M5),
+  `AIENG_AUTOFORMAT_DEBOUNCE_SEC` (pending spec-139 M5),
+  `AIENG_NDJSON_MAX_LINES` (pending spec-139 M6),
+  `AIENG_NDJSON_MAX_BYTES` (pending spec-139 M6).
+
+#### Fixed — AIENG_TOOL_OFFLOAD_BYTES doc/code drift (M9.T2)
+
+- `CLAUDE.md` + template twin — corrected the documented default for
+  `AIENG_TOOL_OFFLOAD_BYTES` from `4096` to `16384` to match the actual
+  code default at
+  `.ai-engineering/scripts/hooks/_lib/runtime_state.py:93`
+  (`_env_int("AIENG_TOOL_OFFLOAD_BYTES", 16384, ceiling=8 * 1024 * 1024)`).
+  The 16 KiB default was chosen because smaller offload thresholds cost
+  more in context-hint bytes than they save (see runtime_state.py
+  inline comment).
+
+#### Added — drift gate test (M9.T4)
+
+- `tests/architecture/test_tunables_docs_match_code.py` — 12 cases
+  enforcing the CLAUDE.md ↔ code tunables contract. Parses the
+  Runtime Layer Tunables fenced block via
+  `^(AIENG_[A-Z_]+)\s+#\s*(?:default\s+(\S+)|pending\s+spec-139\s+(M\d+))`
+  regex, resolves each documented default against its canonical source
+  file (`runtime_state.py`, `runtime-stop.py`, `integrity.py`, or
+  `src/ai_engineering/config/concurrency.py`), and asserts byte-equal
+  match for every established + M1 tunable. Pending-milestone entries
+  are gated on the `# pending spec-139 M<n>` marker and the
+  per-milestone bucket invariant (M2 + M5 + M6 each have ≥1 reserved
+  var). Drift in either direction (docs without code, code without
+  docs) fails CI.
+
+#### Deferred — `AIENG_HOOK_INTEGRITY_MODE` code/docstring reconciliation
+
+- `.ai-engineering/scripts/hooks/_lib/integrity.py:40` has
+  `_DEFAULT_MODE = "warn"` while the same file's module docstring
+  (line 9), `CLAUDE.md`, and `CONSTITUTION.md` (line 156) all declare
+  the default as `enforce`. The M9 drift-gate test whitelists this
+  disagreement via `_KNOWN_DOC_CODE_DISAGREEMENTS` (asserts the
+  disagreement still exists so the whitelist cannot silently rot once
+  reconciled). Flipping the code default to `enforce` is a security
+  posture decision that belongs in its own focused spec, not in M9.
 
 ### spec-140 — Less-Is-More Quality Engine (partial: W1 hard-delete)
 
