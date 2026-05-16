@@ -31,6 +31,36 @@
 #   severity:       informational; one of critical|high|medium|low.
 
 entries:
+  # === spec-141 M3 — Article VII parity for `# nosemgrep:` markers =========
+  # Pre-existing nosemgrep markers in the codebase. The new scanner family
+  # (spec-141 M3) surfaces them now; both are legitimate suppressions of
+  # ssrf-urllib-request on a controlled-scheme code path where the URL is
+  # operator-supplied via AIENG_HOOK_HTTP_SINK_URL (opt-in) and validated
+  # via urllib.parse.urlsplit BEFORE reaching urlopen.
+
+  - path: ".ai-engineering/scripts/hooks/_lib/hook_http.py"
+    rule: "ssrf-urllib-request"
+    pattern: "nosemgrep_hash"
+    justification: >-
+      Scheme + netloc are validated above via urllib.parse.urlsplit so
+      only http/https endpoints reach urlopen. The sink URL itself is
+      operator-supplied via AIENG_HOOK_HTTP_SINK_URL (opt-in).
+    spec_ref: "spec-141"
+    expires_at: "2026-08-16T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: "src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/hook_http.py"
+    rule: "ssrf-urllib-request"
+    pattern: "nosemgrep_hash"
+    justification: >-
+      Template mirror of the canonical hook above; dogfood-parity test
+      enforces byte-equivalence so the suppression must coexist.
+    spec_ref: "spec-141"
+    expires_at: "2026-08-16T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
   # === BEGIN spec-128 sub-d transitional allowlist =========================
   # Every entry below carries a 60-day TTL. Each represents a suppression
   # marker that existed in the codebase BEFORE this gate landed. The work

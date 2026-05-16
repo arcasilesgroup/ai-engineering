@@ -30,11 +30,15 @@ SURFACES = [
 ]
 
 # Patterns that contradict the canonical single-round contract.
+# The U+00D7 MULTIPLICATION SIGN is constructed via ``chr(0x00D7)`` to
+# keep the source ASCII-clean (avoiding ruff RUF001 on the ambiguous
+# character) while still matching the same code-point at runtime.
+_TIMES = chr(0x00D7)
 FORBIDDEN_PATTERNS = (
     "verify+guard+review x3",
-    "verify+guard+review ×3",
+    f"verify+guard+review {_TIMES}3",
     "review x3",
-    "review ×3",
+    f"review {_TIMES}3",
     "3 rounds of verify",
     "three rounds of verify",
 )
