@@ -33,14 +33,14 @@ Nine milestones mapped 1-to-1 to the brief's M1–M9. Each milestone is independ
 
 ### Tasks
 
-- **M1.T1** — Add `AIENG_MAX_WAVE_AGENTS` env var + manifest knob `performance.concurrency.max_wave_agents`. Loader in `src/ai_engineering/config/`.
-- **M1.T2** — Phase 2 (`phase-deep-plan.md`): wrap fan-out in deterministic batching loop — dispatch in batches of `cap`, await each batch.
-- **M1.T3** — Phase 4 (`phase-implement.md`): same batching for wave dispatch.
-- **M1.T4** — Phase 5 (`phase-quality.md`): cap = `min(3, AIENG_MAX_QUALITY_AGENTS)`; make explicit.
-- **M1.T5** — `src/ai_engineering/policy/orchestrator.py:489` and `:1209`: replace `max_workers = max(1, len(checkers))` with `min(len(checkers), max_thread_workers)`.
-- **M1.T6** — Update `.claude/agents/ai-autopilot.md:24` text to reflect cap.
-- **M1.T7** — `tests/architecture/test_concurrency_budgets.py` GREEN with 6 scenarios (env / manifest / default-auto / explicit-int / cap-of-1-serial / cap-larger-than-N).
-- **M1.T8** — `tests/unit/policy/test_orchestrator_max_workers.py` GREEN.
+- [x] **M1.T1** — Add `AIENG_MAX_WAVE_AGENTS` env var + manifest knob `performance.concurrency.max_wave_agents`. Loader in `src/ai_engineering/config/`.
+- [x] **M1.T2** — Phase 2 (`phase-deep-plan.md`): wrap fan-out in deterministic batching loop — dispatch in batches of `cap`, await each batch.
+- [x] **M1.T3** — Phase 4 (`phase-implement.md`): same batching for wave dispatch.
+- [x] **M1.T4** — Phase 5 (`phase-quality.md`): cap = `min(3, AIENG_MAX_QUALITY_AGENTS)`; make explicit.
+- [x] **M1.T5** — `src/ai_engineering/policy/orchestrator.py:489` and `:1209`: replace `max_workers = max(1, len(checkers))` with `min(len(checkers), max_thread_workers)`.
+- [x] **M1.T6** — Update `.claude/agents/ai-autopilot.md:24` text to reflect cap.
+- [x] **M1.T7** — `tests/architecture/test_concurrency_budgets.py` GREEN with 6 scenarios (env / manifest / default-auto / explicit-int / cap-of-1-serial / cap-larger-than-N).
+- [x] **M1.T8** — `tests/unit/policy/test_orchestrator_max_workers.py` GREEN.
 
 ## Milestone M2 — Resource preflight probe
 

@@ -280,6 +280,40 @@ class BrainstormConfig(BaseModel):
     auto_spec_gate: AutoSpecGateConfig = Field(default_factory=AutoSpecGateConfig)
 
 
+class PerformanceConcurrencyConfig(BaseModel):
+    """Concurrency budget knobs (spec-139 M1 D-139-01).
+
+    Single global cap class that prevents the kernel-panic regression
+    documented in the spec-139 brief (macOS M1 Pro: WindowServer
+    watchdog 171 s, memory compressor 100% segments).
+
+    * ``max_wave_agents`` -- cap on Phase 2 (deep-plan) and Phase 4
+      (implement) fan-out. Default ``"auto"`` defers to a host-capacity
+      probe (M2). Positive integers override; ``"auto"`` keeps the
+      framework's auto-tune. The env var ``AIENG_MAX_WAVE_AGENTS``
+      wins over this field.
+    * ``max_quality_agents`` -- cap on Phase 5 (verify+guard+review)
+      parallel dispatch. Default ``3`` matches the canonical
+      single-round contract. ``AIENG_MAX_QUALITY_AGENTS`` can only
+      lower it.
+    * ``max_thread_workers`` -- cap on
+      ``ThreadPoolExecutor(max_workers=...)`` inside the policy
+      orchestrator (``orchestrator.py:489`` and ``:1209``). Default 4
+      matches the empirical "most repos have ≤ 4 active checkers"
+      observation. ``AIENG_MAX_THREAD_WORKERS`` overrides.
+    """
+
+    max_wave_agents: int | Literal["auto"] = "auto"
+    max_quality_agents: int = 3
+    max_thread_workers: int = 4
+
+
+class PerformanceConfig(BaseModel):
+    """``performance.*`` manifest block (spec-139)."""
+
+    concurrency: PerformanceConcurrencyConfig = Field(default_factory=PerformanceConcurrencyConfig)
+
+
 class HotPathSlosConfig(BaseModel):
     """Hot-path SLO budgets driving ``ai-eng doctor --check hot-path``.
 
@@ -333,3 +367,4 @@ class ManifestConfig(BaseModel):
     gates: GatesConfig = Field(default_factory=GatesConfig)
     hot_path_slos: HotPathSlosConfig = Field(default_factory=HotPathSlosConfig)
     brainstorm: BrainstormConfig = Field(default_factory=BrainstormConfig)
+    performance: PerformanceConfig = Field(default_factory=PerformanceConfig)

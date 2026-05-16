@@ -56,7 +56,11 @@ Run **once**. Track no round number.
 
 #### Step 2a -- Assess (3 agents in parallel)
 
-Dispatch three assessment agents simultaneously. Each gets fresh context. Use the pre-loaded skill files and diff from Step 1b — do NOT re-read them from disk.
+**Concurrency cap (spec-139 M1)**: `cap = min(3, AIENG_MAX_QUALITY_AGENTS)`.
+
+The quality cap is intentionally low because the three assessment agents (verify, guard, review) are each multi-tool orchestrators rather than lightweight workers. `AIENG_MAX_QUALITY_AGENTS` can only *lower* the cap (and the `performance.concurrency.max_quality_agents` manifest knob behaves the same way) — it never raises the cap above the default of `3`. The framework default is `cap = 3`, so all three agents run in parallel unless the operator has explicitly capped further (e.g. `AIENG_MAX_QUALITY_AGENTS=1` for a memory-constrained host).
+
+Dispatch up to `cap` assessment agents simultaneously. Each gets fresh context. Use the pre-loaded skill files and diff from Step 1b — do NOT re-read them from disk.
 
 **The verify agent** -- platform mode:
 - Use the cached `ai-verify/SKILL.md` content.

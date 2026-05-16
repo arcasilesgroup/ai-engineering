@@ -86,14 +86,56 @@ deferred to follow-up work.
   module attributes (sqlite3 not imported, `_insert_events_row` and
   `STATE_DB_REL` removed). Prevents regression of the dual-write bug.
 
-### spec-139 — Framework Performance Hardening (partial: M4 stale-x3 correction)
+### spec-139 — Framework Performance Hardening (partial: M1 + M4)
 
 Mantra: **ai-engineering NEVER causes WindowServer to hang. Every wave
 declares a concurrency budget. Every LLM call earns its place.** Lands
-the safety-critical single-character correction (D-139-10 hard rename).
-M1-M3 and M5-M9 (concurrency cap, host probe, hot-path cache, etc.) are
-scoped in `.ai-engineering/specs/archive/spec-139-plan.md` and deferred to
-follow-up work because their delivery exceeds a single autonomous run.
+M1 (concurrency budget primitive that closes the kernel-panic class) and
+M4 (stale-x3 correction). M2–M3 and M5–M9 (host probe, stack context,
+hot-path cache, SessionEnd rotation, deterministic CLIs, compose
+determinism, tunables docs) are scoped in
+`.ai-engineering/specs/archive/spec-139-plan.md` and deferred to focused
+follow-ups.
+
+#### Added — concurrency budget primitive (M1)
+
+- `src/ai_engineering/config/concurrency.py` (new ~280 LOC) — single
+  source of truth for `AIENG_MAX_WAVE_AGENTS`, `AIENG_MAX_QUALITY_AGENTS`,
+  `AIENG_MAX_THREAD_WORKERS` env vars plus `performance.concurrency.*`
+  manifest knobs. Resolver functions: `resolve_wave_cap`,
+  `resolve_quality_cap`, `resolve_thread_workers`. Auto-tune algorithm
+  per D-139-01: pressure_pct ≥ 50 → cap=1 serial; else
+  `min(free_ram_gb // 4, cores // 2, 6)` clamped to `[2, 6]`.
+  `HostProbe` dataclass is the injectable port — populated by spec-139
+  M2 (deferred); until then the resolver falls back to an
+  `os.cpu_count`-only estimator.
+- `src/ai_engineering/config/manifest.py` — schema gained
+  `performance.concurrency.{max_wave_agents,max_quality_agents,max_thread_workers}`.
+- `src/ai_engineering/policy/orchestrator.py:489` and `:1209` — replaced
+  `max_workers = max(1, len(checkers))` with
+  `max(1, min(len(checkers), _max_thread_workers()))`. The orchestrator
+  reads the env/manifest cap on every wave; floor preserved at 1.
+- `.claude/skills/ai-autopilot/handlers/phase-deep-plan.md`,
+  `phase-implement.md`, `phase-quality.md` — added the "Concurrency cap
+  (spec-139 M1)" section documenting the batching pattern and the cap's
+  precedence chain. Mirrored across `.codex/`, `.gemini/`,
+  `.github/`, `.opencode/`, `.cursor/` via `ai-eng dev sync`.
+- `.claude/agents/ai-autopilot.md` — description annotated with
+  "(capped via AIENG_MAX_WAVE_AGENTS)" so the contract is visible to
+  every dispatcher reading the agent header.
+
+#### Added — concurrency budget tests (M1)
+
+- `tests/architecture/test_concurrency_budgets.py` — 12 cases covering
+  env-precedence, manifest, auto-tune, stressed-host degrade, explicit
+  serial, cap-larger-than-N, quality-cap clamping, and floor invariant.
+- `tests/unit/policy/test_orchestrator_max_workers.py` — 10 cases
+  validating env/manifest/default precedence and the `max(1, min(N, cap))`
+  arithmetic the orchestrator uses.
+- `tests/unit/test_orchestrator_wave2.py::test_wave2_uses_thread_pool_executor_max_workers_5`
+  — assertion relaxed from "must equal 5" to "must be in [1, 5]" so the
+  new cap (default 4) does not break the existing Wave 2 invariant
+  while still preventing unbounded fan-out.
 
 #### Fixed — stale "x3" agent description (correctness/safety)
 

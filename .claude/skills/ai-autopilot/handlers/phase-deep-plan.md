@@ -27,7 +27,28 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 
 ### Step 2: Dispatch the Explore and Plan Agents Per Sub-Spec
 
-Dispatch all agents in parallel (parallel in Claude Code, sequential in other IDEs). Each agent receives a self-contained prompt with:
+#### Concurrency cap (spec-139 M1)
+
+Before dispatch, read the wave concurrency cap:
+
+1. Read `AIENG_MAX_WAVE_AGENTS` from the environment (positive integer; clamped to `[1, 64]`).
+2. If unset, read `performance.concurrency.max_wave_agents` from `.ai-engineering/manifest.yml`. Value `"auto"` (default) defers to the framework's host-capacity auto-tune; positive integers override.
+3. If both unset, the framework derives `cap` from host capacity per D-139-01: floor `2`, ceiling `6`, dropping to `1` if the host probe reports memory pressure ≥ 50 %.
+
+Dispatch in batches of `cap` agents. Await each batch before dispatching the next. After every batch boundary emit a framework event:
+
+```
+event: wave_dispatch_batched
+phase: deep-plan
+batch_index: K (zero-based)
+batch_size: <number dispatched in this batch>
+cap: <resolved cap>
+total_sub_specs: N
+```
+
+The cap is consulted by the dispatching agent at runtime — read the env var first, then the manifest, then fall back to the framework default. The skill handler is prose; the cap value is not embedded here.
+
+Dispatch agents within a batch in parallel (parallel in Claude Code, sequential in other IDEs). Each agent receives a self-contained prompt with:
 
 - The full sub-spec content (frontmatter + scope)
 - The parent spec's relevant section for this concern

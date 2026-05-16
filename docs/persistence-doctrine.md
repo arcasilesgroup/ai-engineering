@@ -29,8 +29,8 @@ within that tier to exactly one canonical file.
 
 - **Canonical for:** framework events (every hook fire, every skill
   invocation, every gate decision). The audit chain is the
-  ground-truth witness used by `/ai-explain`, `/ai-release-gate`,
-  and external auditors.
+  ground-truth witness used by `/ai-explain`, `/ai-verify`, and
+  external auditors.
 - **File pattern:** `.ai-engineering/state/framework-events.ndjson`
   (one JSON object per line, hash-chained via `prev_event_hash`).
 - **Write SLA:** O(1) append — no parsing, no schema validation on

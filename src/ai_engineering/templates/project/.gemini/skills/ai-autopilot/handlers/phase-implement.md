@@ -46,7 +46,29 @@ If all sub-specs in the wave are blocked, the wave is empty. Log and proceed to 
 
 #### 2b -- Dispatch the Build Agent Per Sub-Spec (Parallel)
 
-For each non-blocked sub-spec in the wave, dispatch the build agent with a fresh context containing:
+##### Concurrency cap (spec-139 M1)
+
+Before dispatch, read the wave concurrency cap (same primitive as Phase 2):
+
+1. Read `AIENG_MAX_WAVE_AGENTS` from the environment (positive integer; clamped to `[1, 64]`).
+2. If unset, read `performance.concurrency.max_wave_agents` from `.ai-engineering/manifest.yml`. Value `"auto"` (default) defers to the framework's host-capacity auto-tune; positive integers override.
+3. If both unset, the framework derives `cap` from host capacity per D-139-01: floor `2`, ceiling `6`, dropping to `1` if the host probe reports memory pressure ≥ 50 %.
+
+Dispatch in batches of `cap` build agents within the current wave. Await each batch before dispatching the next. After every batch boundary emit a framework event:
+
+```
+event: wave_dispatch_batched
+phase: implement
+wave_index: W (one-based, matches DAG wave numbering)
+batch_index: K (zero-based, within the wave)
+batch_size: <number dispatched in this batch>
+cap: <resolved cap>
+wave_sub_spec_count: <count of non-blocked sub-specs in this wave>
+```
+
+The cap is consulted by the dispatching agent at runtime — read the env var first, then the manifest, then fall back to the framework default. The cap applies within a single wave; the DAG wave boundary itself is independent of `cap`.
+
+For each non-blocked sub-spec in the current batch, dispatch the build agent with a fresh context containing:
 
 1. **Sub-spec scope and exploration** -- from `.ai-engineering/runtime/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
 1b. **Sub-spec plan** -- from `.ai-engineering/runtime/autopilot/sub-NNN/plan.md` (task checkboxes).

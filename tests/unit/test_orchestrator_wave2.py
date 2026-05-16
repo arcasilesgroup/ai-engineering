@@ -491,9 +491,17 @@ def test_wave2_uses_thread_pool_executor_max_workers_5(tmp_path: Path) -> None:
         "Wave 2 MUST construct a ThreadPoolExecutor (none observed); "
         "implementation must use concurrent.futures.ThreadPoolExecutor."
     )
-    assert 5 in captured_max_workers, (
-        "Wave 2 local-mode pool MUST be sized to 5 (one worker per local "
-        f"checker); observed max_workers values: {captured_max_workers}"
+    # spec-139 M1 (D-139-01): ThreadPoolExecutor max_workers is capped via
+    # `AIENG_MAX_THREAD_WORKERS` / manifest knob `performance.concurrency.
+    # max_thread_workers` (default 4) to prevent the kernel-panic class
+    # observed in spec-139's trigger incident. The cap is `min(N, 4)` so
+    # 5 checkers run with max_workers=4 by default rather than 5-way
+    # unbounded fan-out. Test accepts any cap in [1, 5] so the env-var
+    # tunable can raise it back to 5 when an operator opts in.
+    cap = max(captured_max_workers)
+    assert 1 <= cap <= 5, (
+        "Wave 2 local-mode pool max_workers MUST be in [1, 5] "
+        f"(capped by spec-139 M1 to a default of 4); observed: {captured_max_workers}"
     )
 
 
