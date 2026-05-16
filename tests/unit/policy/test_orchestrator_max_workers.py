@@ -24,12 +24,20 @@ def test_env_cap_overrides_default() -> None:
     assert resolve_thread_workers(env_var="2", manifest_value=None) == 2
 
 
-def test_default_is_four() -> None:
-    """Default cap is 4 (D-139-01)."""
+def test_default_is_four(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default cap is 4 (D-139-01).
+
+    Hermetic guard: ``resolve_thread_workers(env_var=None, …)`` reads
+    ``AIENG_MAX_THREAD_WORKERS`` from the process environment. CI runners
+    or developer shells that pre-set the var would otherwise force the
+    resolver onto the env-branch and break the "default is 4" claim.
+    """
+    monkeypatch.delenv("AIENG_MAX_THREAD_WORKERS", raising=False)
     assert resolve_thread_workers(env_var=None, manifest_value=None) == 4
 
 
-def test_manifest_wins_when_env_unset() -> None:
+def test_manifest_wins_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("AIENG_MAX_THREAD_WORKERS", raising=False)
     assert resolve_thread_workers(env_var=None, manifest_value=3) == 3
 
 
@@ -61,8 +69,16 @@ def test_orchestrator_arithmetic_matches_spec(
     assert observed == expected_max_workers
 
 
-def test_invalid_env_value_falls_back_to_default() -> None:
-    """Non-numeric or non-positive env values yield the default."""
+def test_invalid_env_value_falls_back_to_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Non-numeric or non-positive env values yield the default.
+
+    Hermetic guard: an empty-string ``env_var`` causes the resolver to
+    fall through to the ``os.environ.get("AIENG_MAX_THREAD_WORKERS")``
+    branch (since ``"".strip() == ""``). If the host has the var pre-set
+    the test would observe the host value instead of the documented
+    default. Clearing the var keeps the fallback path deterministic.
+    """
+    monkeypatch.delenv("AIENG_MAX_THREAD_WORKERS", raising=False)
     assert resolve_thread_workers(env_var="not-a-number", manifest_value=None) == 4
     assert resolve_thread_workers(env_var="0", manifest_value=None) == 4
     assert resolve_thread_workers(env_var="-1", manifest_value=None) == 4

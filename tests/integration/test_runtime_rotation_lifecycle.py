@@ -22,6 +22,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -47,14 +48,30 @@ def _load_wrapper():
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    """Build a minimal project tree that mirrors the canonical layout."""
+    """Build a minimal project tree that mirrors the canonical layout.
+
+    Plants a copy (preferring a symlink when the host supports them) of
+    the real ``runtime_rotate.py`` under ``tmp_path/.ai-engineering/scripts/``
+    so the throttle wrapper's ``Path.is_file()`` check passes and the
+    subprocess invocation runs against a realistic path. Windows runners
+    without Developer Mode (the default for GitHub Actions ``windows-latest``)
+    cannot create symlinks without elevation; fall back to ``shutil.copy2``
+    so the integration test stays green there too. The wrapper only needs
+    a valid script at the resolved path — symlink vs copy is functionally
+    equivalent.
+    """
     (tmp_path / ".ai-engineering" / "runtime").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".ai-engineering" / "state").mkdir(parents=True, exist_ok=True)
     (tmp_path / ".ai-engineering" / "scripts").mkdir(parents=True, exist_ok=True)
-    # Symlink the real runtime_rotate.py and the throttled wrapper so the
-    # wrapper resolves a script path under tmp_path/project — keeps the
-    # subprocess invocation realistic without mutating the repo.
-    (tmp_path / ".ai-engineering" / "scripts" / "runtime_rotate.py").symlink_to(RUNTIME_ROTATE)
+    planted = tmp_path / ".ai-engineering" / "scripts" / "runtime_rotate.py"
+    try:
+        planted.symlink_to(RUNTIME_ROTATE)
+    except (OSError, NotImplementedError):
+        # Windows without Developer Mode raises ``OSError: [WinError 1314]``
+        # (A required privilege is not held by the client). Fall back to a
+        # plain copy — the wrapper's contract is that the script EXISTS at
+        # the resolved path, not that it is a symlink.
+        shutil.copy2(RUNTIME_ROTATE, planted)
     return tmp_path
 
 

@@ -66,16 +66,32 @@ def test_cap_does_not_shrink_to_fit_smaller_N() -> None:
     assert cap == 6
 
 
-def test_quality_cap_capped_at_three_per_d_139_recommendation() -> None:
-    """`/ai-autopilot` Phase 5 dispatches at most 3 quality assessors."""
+def test_quality_cap_capped_at_three_per_d_139_recommendation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`/ai-autopilot` Phase 5 dispatches at most 3 quality assessors.
+
+    Hermetic guard: ``resolve_quality_cap(env_var=None, …)`` reads
+    ``AIENG_MAX_QUALITY_AGENTS`` from the process environment (line 218
+    in concurrency.py). CI hosts that pre-set the var would otherwise
+    drive the resolver onto the env-branch and break the documented
+    default. Clearing the var keeps the assertion host-independent.
+    """
+    monkeypatch.delenv("AIENG_MAX_QUALITY_AGENTS", raising=False)
     assert resolve_quality_cap(env_var=None, manifest_value=None) == 3
     assert resolve_quality_cap(env_var="2", manifest_value=None) == 2
     # Env value > 3 still clamps to 3 (the canonical quality-loop contract).
     assert resolve_quality_cap(env_var="10", manifest_value=None) == 3
 
 
-def test_thread_workers_default_four() -> None:
-    """Orchestrator ThreadPoolExecutor caps at 4 workers by default."""
+def test_thread_workers_default_four(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Orchestrator ThreadPoolExecutor caps at 4 workers by default.
+
+    Hermetic guard: ``resolve_thread_workers(env_var=None, …)`` reads
+    ``AIENG_MAX_THREAD_WORKERS`` from the process environment. Clearing
+    the var keeps the "default is 4" claim deterministic across hosts.
+    """
+    monkeypatch.delenv("AIENG_MAX_THREAD_WORKERS", raising=False)
     assert resolve_thread_workers(env_var=None, manifest_value=None) == 4
     assert resolve_thread_workers(env_var="2", manifest_value=None) == 2
 
@@ -207,18 +223,27 @@ def test_auto_tune_at_pressure_threshold_returns_serial() -> None:
     assert cap == 1
 
 
-def test_quality_cap_env_string_invalid_falls_through() -> None:
-    """Invalid env string → default cap."""
+def test_quality_cap_env_string_invalid_falls_through(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Invalid env string → default cap.
+
+    Hermetic guard: a non-empty but invalid ``env_var`` still triggers
+    the fallback that reads ``os.environ.get("AIENG_MAX_QUALITY_AGENTS")``
+    via the resolver's mixed parsing path. Clearing the var keeps the
+    "default cap = 3" claim independent of the host shell.
+    """
+    monkeypatch.delenv("AIENG_MAX_QUALITY_AGENTS", raising=False)
     assert resolve_quality_cap(env_var="banana", manifest_value=None) == 3
 
 
-def test_quality_cap_env_whitespace_only() -> None:
+def test_quality_cap_env_whitespace_only(monkeypatch: pytest.MonkeyPatch) -> None:
     """Whitespace-only env value → falls through to default."""
+    monkeypatch.delenv("AIENG_MAX_QUALITY_AGENTS", raising=False)
     assert resolve_quality_cap(env_var="   ", manifest_value=None) == 3
 
 
-def test_quality_cap_manifest_zero_falls_through() -> None:
+def test_quality_cap_manifest_zero_falls_through(monkeypatch: pytest.MonkeyPatch) -> None:
     """Manifest value ≤ 0 → default cap."""
+    monkeypatch.delenv("AIENG_MAX_QUALITY_AGENTS", raising=False)
     assert resolve_quality_cap(env_var=None, manifest_value=0) == 3
 
 
