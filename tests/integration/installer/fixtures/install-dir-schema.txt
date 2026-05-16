@@ -1,10 +1,10 @@
 .ai-engineering/LESSONS.md
 .ai-engineering/README.md
-.ai-engineering/contexts/
 .ai-engineering/manifest.yml
 .ai-engineering/observations/
 .ai-engineering/overrides/
 .ai-engineering/policies/
+.ai-engineering/reference/
 .ai-engineering/references/
 .ai-engineering/runbooks/
 .ai-engineering/scripts/

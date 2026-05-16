@@ -1197,11 +1197,15 @@ def _migrate_hooks_dir(target: Path) -> None:
 _LEGACY_DIRS = ("agents", "skills")
 """Directory names under ``.ai-engineering/`` migrated to IDE-specific roots."""
 
-# spec-132 D-132-17: ``.ai-engineering/contexts/team/`` is deprecated.
-# The template stub was deleted in spec-132 sub-001; consumer installs
-# carrying the legacy directory have it pruned during the next
-# ``ai-eng update`` pass. The path is relative to ``.ai-engineering/``.
-_DEPRECATED_GOVERNANCE_PATHS: tuple[str, ...] = ("contexts/team",)
+# spec-132 D-132-17 + spec-136 D-136-01: legacy governance directories
+# pruned during the next ``ai-eng update`` pass. ``contexts/`` was
+# collapsed into ``reference/`` (D-136-03). ``research/`` was relocated to
+# the gitignored ``runtime/research/`` cache (D-136-08). Paths are
+# relative to ``.ai-engineering/``. Consumer ``contexts/team/`` content
+# must be moved to ``.ai-engineering/team/`` by the operator before
+# update (the updater deletes deprecated paths; it does not migrate
+# contents — operator owns ``team/``).
+_DEPRECATED_GOVERNANCE_PATHS: tuple[str, ...] = ("contexts", "research")
 
 
 def _migrate_legacy_dirs(target: Path, ai_eng_dir: Path) -> list[str]:

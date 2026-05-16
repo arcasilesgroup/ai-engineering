@@ -73,9 +73,9 @@ Si la pregunta requiere evidencia externa que el modelo no puede confirmar (e.g.
 - The model's training data is likely outdated for the topic (recent SDK releases, new pattern adoption).
 - A multiple-choice answer would be a guess without external corroboration.
 
-When invoked, `/ai-research` writes a Markdown artifact to `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md`. After consuming it:
+When invoked, `/ai-research` writes a Markdown artifact to `.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md`. After consuming it:
 
-1. Cite the artifact in the spec under `## References` with prefix `research:` -- e.g., `- research: .ai-engineering/research/state-of-the-art-retries-2026-04-28.md`.
+1. Cite the artifact in the spec under `## References` with prefix `research:` -- e.g., `- research: .ai-engineering/runtime/research/state-of-the-art-retries-2026-04-28.md`.
 2. Use the artifact's `## Findings` section verbatim (with `[N]` citations preserved) as the basis for the multiple-choice options in the next question.
 
 Default to `--depth=standard` so brainstorm does not auto-trigger Tier 3 NotebookLM (which is reserved for explicit deep research). The user can pass `--depth=deep` manually when invoking research outside brainstorm.

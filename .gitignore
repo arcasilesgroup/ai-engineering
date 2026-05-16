@@ -192,3 +192,6 @@ state.db-shm
 # spec-125 D-125-09: state/runtime/ is forbidden, strategic-compact.json is transient
 .ai-engineering/state/runtime/
 .ai-engineering/state/strategic-compact.json
+.ai-engineering/runtime/research/
+.ai-engineering/runtime/presentations/
+.ai-engineering/runtime/reports/

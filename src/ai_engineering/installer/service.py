@@ -166,10 +166,10 @@ def install(
     ai_eng_dir = target / ".ai-engineering"
 
     src_root = get_ai_engineering_template_root()
-    # contexts/team/ is user-owned and intentionally not seeded by the
-    # installer (spec-123 / D-124-02 follow-up; matches GovernancePhase).
+    # team/ is user-owned and intentionally not seeded by the installer
+    # (spec-123 / D-124-02 follow-up; spec-136 D-136-06 lifted from contexts/team/).
     result.governance_files = copy_template_tree(
-        src_root, ai_eng_dir, exclude=["agents/", "skills/", "contexts/team/"]
+        src_root, ai_eng_dir, exclude=["agents/", "skills/", "team/"]
     )
 
     result.project_files = copy_project_templates(target, surfaces=surfaces)

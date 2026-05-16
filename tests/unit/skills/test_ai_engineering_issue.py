@@ -65,7 +65,7 @@ def test_frontmatter_name(frontmatter: dict[str, str]) -> None:
 @pytest.mark.unit
 def test_frontmatter_effort_mid(frontmatter: dict[str, str]) -> None:
     """Filing an upstream bug involves judgment (redaction review, body
-    composition) — effort: mid per docs/model-dispatch-policy.md
+    composition) — effort: mid per .ai-engineering/reference/model-dispatch-policy.md
     sonnet-tier rubric."""
     assert frontmatter.get("effort") == "mid"
 

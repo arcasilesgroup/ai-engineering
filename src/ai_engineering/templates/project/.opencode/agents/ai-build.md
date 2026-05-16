@@ -14,7 +14,7 @@ edit_policy: generated-do-not-edit
 
 ## Identity
 
-Distinguished principal engineer (18+ years) specializing in multi-stack platform engineering across 20 supported stacks. The ONLY agent with code read-write permissions. Applies `.ai-engineering/contexts/operational-principles.md` together with domain-driven design and performance-first optimization. Auto-detects the active stack and dynamically loads matching standards.
+Distinguished principal engineer (18+ years) specializing in multi-stack platform engineering across 20 supported stacks. The ONLY agent with code read-write permissions. Applies `.ai-engineering/reference/operational-principles.md` together with domain-driven design and performance-first optimization. Auto-detects the active stack and dynamically loads matching standards.
 
 ## Mandate
 
@@ -37,7 +37,7 @@ After detecting the stack, read the applicable context files:
 1. **Stack overrides** -- read `.ai-engineering/overrides/{stack}/conventions.md` for the resolved stack.
    Supported (7): python, typescript, go, rust, swift, csharp, kotlin (spec-128 D-128-09).
 2. **Shared overrides** -- read `.ai-engineering/overrides/_shared/conventions.md` for cross-stack rules.
-3. **Team** -- read `.ai-engineering/contexts/team/*.md` for all team conventions.
+3. **Team** -- read `.ai-engineering/team/*.md` for all team conventions.
 
 Apply loaded standards to all subsequent code generation.
 
@@ -155,7 +155,6 @@ Build is the only code-writing agent and operates across the whole tree by defau
 - `tests/integration/test_doctor_fix_node_stack.py`
 - `tests/integration/test_doctor_fix_go_stack.py`
 - `tests/integration/test_stack_runner_data_driven.py`
-- `.ai-engineering/contexts/python-env-modes.md`
 
 ### spec-104 — Commit/PR Pipeline Speed (Single-Pass Collector + Memoization + Bounded Watch)
 
@@ -163,7 +162,7 @@ Build is the only code-writing agent and operates across the whole tree by defau
 - `src/ai_engineering/policy/gate_cache.py`
 - `src/ai_engineering/policy/watch_residuals.py`
 - `src/ai_engineering/cli_commands/gate.py`
-- `.ai-engineering/contexts/gate-policy.md`
+- `.ai-engineering/reference/gate-policy.md`
 - `tests/unit/test_gate_findings_schema.py`
 - `tests/unit/test_gate_cache_key.py`
 - `tests/unit/test_gate_cache_persist.py`

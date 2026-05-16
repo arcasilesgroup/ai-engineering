@@ -5,7 +5,8 @@ Implements the ``ReporterPort`` protocol with two surfaces:
 * :meth:`MarkdownReporter.render` — terse Markdown table for a single
   rubric report.
 * :meth:`MarkdownReporter.render_baseline` — the M1 baseline section
-  written to ``docs/conformance-report.md`` (per plan T-G.2).
+  written to ``.ai-engineering/runtime/reports/conformance.md`` (D-136-09:
+  conformance report is a runtime artefact under runtime/reports/).
 """
 
 from __future__ import annotations
@@ -28,7 +29,8 @@ class MarkdownReporter:
         raise TypeError(f"unsupported report type: {type(report).__name__}")
 
     # ------------------------------------------------------------------
-    # Baseline (T-G.2) — full Markdown section for docs/conformance-report.md
+    # Baseline (T-G.2) — full Markdown section for
+    # .ai-engineering/runtime/reports/conformance.md (D-136-09).
     # ------------------------------------------------------------------
 
     def render_baseline(

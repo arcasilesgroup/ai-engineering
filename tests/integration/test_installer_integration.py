@@ -285,9 +285,11 @@ class TestInstallOnEmptyRepo:
 
         # Governance structure created
         assert (tmp_path / ".ai-engineering" / "manifest.yml").is_file()
-        # spec-128 D-128-01 moved per-language docs out of contexts/languages/
-        # into overrides/<stack>/; a representative context file is enough.
-        assert (tmp_path / ".ai-engineering" / "contexts" / "python-env-modes.md").is_file()
+        # spec-136 D-136-03 collapsed contexts/ + docs/ into a single
+        # .ai-engineering/reference/ home. principles.md is the highest-
+        # signal artefact (76 §10.x citations resolve to it) — assert it
+        # ships from the installer template.
+        assert (tmp_path / ".ai-engineering" / "reference" / "principles.md").is_file()
 
         # spec-125 D-125-01: install_state, decisions, ownership_map, and
         # tool_capabilities live in state.db tables. The JSON fallbacks were

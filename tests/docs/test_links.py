@@ -181,22 +181,18 @@ def test_http_links_resolve() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_getting_started_exists() -> None:
+def test_getting_started_absent_per_spec_136() -> None:
+    """spec-136 D-136-13: docs/getting-started.md hard-deleted.
+
+    README + `ai-eng install --help` carry the onboarding flow now.
+    Asserts the file is absent so a regression accidentally re-creating
+    it lights up the gate.
+    """
     p = REPO_ROOT / "docs" / "getting-started.md"
-    assert p.exists(), "docs/getting-started.md missing"
-    body = p.read_text()
-    # 5-frame structure (accept either explicit 'Frame N' or numbered list)
-    assert "Frame 1" in body, "Frame 1 marker missing"
-    assert "Frame 5" in body, "Frame 5 marker missing"
-    # Chain slash commands in order
-    for cmd in ("/ai-start", "/ai-brainstorm", "/ai-plan", "/ai-build", "/ai-pr"):
-        assert cmd in body, f"{cmd} not mentioned in getting-started.md"
-    # Length cap
-    assert len(body.splitlines()) <= 80, (
-        f"docs/getting-started.md too long: {len(body.splitlines())} lines"
+    assert not p.exists(), (
+        "docs/getting-started.md was hard-deleted by spec-136 D-136-13; "
+        "consumer onboarding now lives in README.md + ai-eng install --help"
     )
-    # Links to AGENTS.md anchor for canonical content
-    assert "AGENTS.md" in body
 
 
 # ---------------------------------------------------------------------------
@@ -222,7 +218,11 @@ def test_readme_minimal() -> None:
     assert "CONSTITUTION.md" in body
     assert "CHANGELOG.md" in body
     assert "CONTRIBUTING.md" in body
-    assert "docs/getting-started.md" in body
+    # spec-136 D-136-13: docs/getting-started.md hard-deleted; README
+    # carries the install/onboarding flow inline now.
+    assert "docs/getting-started.md" not in body, (
+        "docs/getting-started.md was deleted; README must not link to it"
+    )
     # Length cap
     line_count = len(body.splitlines())
     assert line_count <= 120, f"README too long: {line_count} lines (cap 120)"
@@ -399,10 +399,19 @@ def test_sub005_plan_has_north_star_preamble() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_spec_canonical_slot_is_spec_132() -> None:
+def test_spec_canonical_slot_carries_spec_marker() -> None:
+    """The canonical slot must always carry a `spec: spec-NNN` marker.
+
+    spec-136 D-136-01 succeeded spec-132 in the slot. The contract is
+    "any active spec lives here", not "spec-132 specifically".
+    """
     p = REPO_ROOT / ".ai-engineering" / "specs" / "spec.md"
     body = p.read_text()
-    assert "spec: spec-132" in body, "Canonical slot is not spec-132"
+    import re
+
+    assert re.search(r"^spec: spec-\d+", body, re.MULTILINE), (
+        "canonical slot must declare an active spec via `spec: spec-NNN`"
+    )
     spec_131_archive = (
         REPO_ROOT / ".ai-engineering" / "specs" / "archive" / "spec-131-dx-excellence-refactor.md"
     )

@@ -163,8 +163,7 @@ def _check_permissions_wildcard(ctx: DoctorContext) -> CheckResult:
             status=CheckStatus.WARN,
             message=(
                 "Permissions wildcard detected in .claude/settings.json. "
-                "Recommended: migrate to narrow explicit list. "
-                "See contexts/permissions-migration.md."
+                "Recommended: migrate to narrow explicit list."
             ),
         )
     return CheckResult(

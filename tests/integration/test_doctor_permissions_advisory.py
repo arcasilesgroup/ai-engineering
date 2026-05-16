@@ -62,8 +62,10 @@ def test_wildcard_allow_emits_warn_advisory(tmp_path: Path) -> None:
     assert result.status == CheckStatus.WARN, (
         f"wildcard allow must produce WARN advisory, got {result.status!r}"
     )
-    assert "permissions-migration.md" in result.message, (
-        "advisory message must point at the migration guide for remediation"
+    assert "narrow explicit list" in result.message, (
+        "advisory message must surface the remediation hint "
+        "(spec-136 D-136-13: contexts/permissions-migration.md deleted; "
+        "advisory now self-contained)"
     )
 
 

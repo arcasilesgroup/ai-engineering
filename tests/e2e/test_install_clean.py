@@ -37,8 +37,9 @@ class TestInstallClean:
 
         # spec-133 D-133-13: contexts/{frameworks,languages} deleted —
         # stack content lives only under .ai-engineering/overrides/.
+        # spec-136 D-136-01: contexts/ collapsed to reference/.
         required_dirs = [
-            "contexts",
+            "reference",
             "overrides",
             "specs",
             "state",

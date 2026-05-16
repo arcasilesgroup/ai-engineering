@@ -79,22 +79,22 @@ class TestGovernancePhase:
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
-        team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
+        team_actions = [a for a in plan.actions if "team/" in a.destination]
         assert team_actions == []
 
     def test_plan_install_ignores_existing_team_files(self, tmp_path: Path) -> None:
         """INSTALL mode does not plan team actions even if team files already exist."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
-        # Pre-create team files
-        team_dir = tmp_path / ".ai-engineering" / "contexts" / "team"
+        # Pre-create team files (spec-136 D-136-06: lifted to top-level)
+        team_dir = tmp_path / ".ai-engineering" / "team"
         team_dir.mkdir(parents=True)
         (team_dir / "README.md").write_text("custom")
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
-        team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
+        team_actions = [a for a in plan.actions if "team/" in a.destination]
         assert team_actions == []
 
     def test_plan_fresh_has_no_team_seed_actions(self, tmp_path: Path) -> None:
@@ -104,7 +104,7 @@ class TestGovernancePhase:
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
-        team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
+        team_actions = [a for a in plan.actions if "team/" in a.destination]
         assert team_actions == []
 
     def test_plan_repair_has_no_team_seed_actions(self, tmp_path: Path) -> None:
@@ -114,7 +114,7 @@ class TestGovernancePhase:
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.REPAIR)
         plan = phase.plan(ctx)
-        team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
+        team_actions = [a for a in plan.actions if "team/" in a.destination]
         assert team_actions == []
 
     def test_plan_includes_specs_directory_files(self, tmp_path: Path) -> None:
@@ -163,12 +163,16 @@ class TestGovernancePhase:
         phase.execute(plan, ctx)
 
         ai_dir = tmp_path / ".ai-engineering"
-        # Team context remains an optional user-owned layer and is not seeded.
-        assert not (ai_dir / "contexts" / "team").exists()
+        # Team context remains an optional user-owned layer and is not seeded
+        # (spec-136 D-136-06: lifted from contexts/team/ to team/).
+        assert not (ai_dir / "team").exists()
         # LESSONS.md is now at .ai-engineering/ root
         assert (ai_dir / "LESSONS.md").is_file()
-        assert (ai_dir / "contexts" / "cli-ux.md").is_file()
-        assert (ai_dir / "contexts" / "mcp-integrations.md").is_file()
+        # spec-136 D-136-01: contexts/ hard-deleted; framework-managed reference
+        # docs now live under reference/ (cli-ux.md and mcp-integrations.md were
+        # part of the pruned contexts/ surface and are gone).
+        assert (ai_dir / "reference" / "principles.md").is_file()
+        assert (ai_dir / "reference" / "engineering-standards.md").is_file()
         # Canonical two-file specs buffer (spec-133)
         assert (ai_dir / "specs" / "spec.md").is_file()
         assert (ai_dir / "specs" / "plan.md").is_file()

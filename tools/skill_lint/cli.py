@@ -35,7 +35,7 @@ _DEFAULT_AGENTS_ROOT = Path(".claude/agents")
 _DEFAULT_REPO_ROOT = Path(".")
 _DEFAULT_HOOKS_ROOT = Path(".ai-engineering/scripts/hooks")
 _DEFAULT_SCHEDULED_ROOT = Path(".ai-engineering/scripts/scheduled")
-_DEFAULT_POLICY_PATH = Path("docs/model-dispatch-policy.md")
+_DEFAULT_POLICY_PATH = Path(".ai-engineering/reference/model-dispatch-policy.md")
 
 
 def _exit_code(
@@ -135,7 +135,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--policy-path",
         type=Path,
         default=_DEFAULT_POLICY_PATH,
-        help="Path to docs/model-dispatch-policy.md (default: docs/model-dispatch-policy.md).",
+        help=(
+            "Path to model-dispatch-policy.md "
+            "(default: .ai-engineering/reference/model-dispatch-policy.md)."
+        ),
     )
     parser.add_argument(
         "--enforce-tier",

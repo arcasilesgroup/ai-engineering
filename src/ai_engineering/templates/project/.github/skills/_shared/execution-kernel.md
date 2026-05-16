@@ -27,7 +27,7 @@ constraints:
 contexts:
   stack: [".ai-engineering/overrides/<stack>/conventions.md"]
   shared: [".ai-engineering/overrides/_shared/conventions.md"]
-  team: [".ai-engineering/contexts/team/*.md"]
+  team: [".ai-engineering/team/*.md"]
 gate:
   post: ["ruff check", "pytest <file>"]   # stack-specific deterministic linters
 ```

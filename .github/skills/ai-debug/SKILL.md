@@ -28,7 +28,7 @@ Systematic debugging skill. Four phases, always in order. NEVER fix symptoms -- 
 
 ## Process
 
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
 
 ### Phase 1: Symptom Analysis (WHAT, WHEN, WHERE)
 

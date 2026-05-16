@@ -55,7 +55,7 @@ If no argument is provided, display the routing table above and ask the user whi
 ```
 /ai-docs changelog                # update CHANGELOG.md from semantic diff
 /ai-docs readme                   # diff-aware README updates
-/ai-docs solution-intent-init     # scaffold docs/solution-intent.md
+/ai-docs solution-intent-init     # scaffold .ai-engineering/solution-intent.md
 /ai-docs solution-intent-sync     # diff-aware sync from project state
 /ai-docs solution-intent-validate # completeness and freshness scorecard
 /ai-docs docs-portal              # update external documentation portal
@@ -86,7 +86,7 @@ Diffs changed surfaces against documentation; flags un-documented public APIs or
 
 ## Integration
 
-Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-*.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`. Reads: `manifest.yml`, `docs/solution-intent.md`, `state.db.decisions`. See also: `/ai-prose` (prose content), `/ai-marketing` (outreach).
+Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-*.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`. Reads: `manifest.yml`, `.ai-engineering/solution-intent.md`, `state.db.decisions`. See also: `/ai-prose` (prose content), `/ai-marketing` (outreach).
 
 ## Governance Notes
 
@@ -94,7 +94,7 @@ Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/chang
 
 **TBD policy**: if a section's data is not defined, implemented, or in scope, mark it explicitly as TBD. NEVER invent data.
 
-**Ownership**: `docs/solution-intent.md` is project-managed. Sync updates data but never removes user-authored content. `ai-eng update` does not touch this file.
+**Ownership**: `.ai-engineering/solution-intent.md` is project-managed. Sync updates data but never removes user-authored content. `ai-eng update` does not touch this file.
 
 **Writing**: use `/ai-prose` patterns for document generation. Handlers define WHAT sections and data to gather; `/ai-prose` defines HOW to write them.
 

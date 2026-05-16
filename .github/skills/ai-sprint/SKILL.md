@@ -34,7 +34,7 @@ Sprint lifecycle management: plan new sprints from backlog, run data-driven retr
 
 1. Read `.ai-engineering/manifest.yml` — `work_items` section.
 2. Determine active provider (`github` or `azure_devops`).
-3. Read `.ai-engineering/contexts/gather-activity-data.md` for the canonical git log, PR query, and work item commands.
+3. Read `.ai-engineering/reference/gather-activity-data.md` for the canonical git log, PR query, and work item commands.
 4. Use provider-specific config:
    - **Azure DevOps**: filter by `area_path`, auto-detect current `iteration_path`
    - **GitHub**: filter by `team_label`, use milestones for sprint boundaries
@@ -78,7 +78,7 @@ Four modes follow the sprint lifecycle:
 ### retro -- Sprint retrospective
 
 1. **Load sprint plan** -- read `.ai-engineering/sprints/{name}.md`.
-2. **Collect actuals** -- use the commands from `.ai-engineering/contexts/gather-activity-data.md` to scan merged PRs, completed spec tasks, and commit history for the sprint period.
+2. **Collect actuals** -- use the commands from `.ai-engineering/reference/gather-activity-data.md` to scan merged PRs, completed spec tasks, and commit history for the sprint period.
 3. **Compare planned vs shipped**:
    - Items completed as planned
    - Items carried over (not finished)
@@ -102,10 +102,10 @@ Four modes follow the sprint lifecycle:
 Generate a branded sprint review PowerPoint deck using python-pptx. Each invocation produces a NEW script tailored to current data — never reused from a static template.
 
 1. **Determine sprint period** — resolve date range: `--sprint YYYY-MM` (calendar month), `--iteration <name>` (query provider for dates), or default to current month.
-2. **Gather data** — use commands from `.ai-engineering/contexts/gather-activity-data.md` for work items and git activity. Collect quality metrics via `pytest --co -q` and `ruff check . --statistics`. Compare against thresholds in `manifest.yml`.
+2. **Gather data** — use commands from `.ai-engineering/reference/gather-activity-data.md` for work items and git activity. Collect quality metrics via `pytest --co -q` and `ruff check . --statistics`. Compare against thresholds in `manifest.yml`.
 3. **Generate python-pptx script** — new script each time. Brand constants: `AI_BG_DARK=#0B1120`, `AI_ACCENT=#00D4AA`, `AI_PRIMARY=#1E3A5F`. Typography: `JetBrains Mono` (headings), `Inter` (body). Layout: 16:9, 13.333"×7.5".
 4. **Slide structure (8-14 slides)**: Title → Sprint Overview (KPI cards) → Feature Deep-Dives (one per major spec) → Quality Metrics → Risks & Next Sprint → Q&A. Every slide requires `set_notes()` for presenter view.
-5. **Execute** — write to `docs/presentations/generate_sprint_review.py`, run it, output `docs/presentations/sprint-review-YYYY-MM.pptx`.
+5. **Execute** — write to `.ai-engineering/runtime/presentations/generate_sprint_review.py`, run it, output `.ai-engineering/runtime/presentations/sprint-review-YYYY-MM.pptx`.
 
 **Common mistakes**: reusing old script verbatim, missing speaker notes, wrong color palette, skipping pre-conditions, hardcoding dates.
 

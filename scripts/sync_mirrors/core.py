@@ -1041,8 +1041,9 @@ def assemble_mirror_payload(
     end-of-file) — this helper replaces that placeholder with the
     actual fenced content (or strips it entirely when ``ide_extras``
     is empty, since AGENTS.md is the base mirror). The fence-contract
-    documentation lives in ``docs/mirror-authoring.md`` (spec-134
-    sub-005 mirror diet; §10.4 DRY — one canonical home).
+    documentation lives in ``.ai-engineering/reference/mirror-authoring.md``
+    (spec-134 sub-005 mirror diet + spec-136 D-136-04; §10.4 DRY — one
+    canonical home).
     """
     substituted = canonical_payload.replace("__SKILL_COUNT__", str(skill_count)).replace(
         "__AGENT_COUNT__", str(agent_count)
@@ -1118,11 +1119,35 @@ state, not source of truth).
 
 ## Optional: Engram (third-party memory)
 
-`ai-engineering` ships without a built-in memory layer. Engram is no
-longer wired into the installer (spec-132 D-132-06); install it
-separately if you want cross-session memory. See
-`docs/integrations/engram.md` for OS-specific install commands and the
-`engram setup claude_code` post-step.
+`ai-engineering` ships without a built-in memory layer. Engram is a
+peer product maintained by `Gentleman-Programming/engram`; install it
+separately if you want cross-session memory (spec-132 D-132-06; the
+installer no longer wires Engram automatically).
+
+Install:
+
+```bash
+# macOS
+brew install engram
+# Linux
+ENGRAM_URL="https://github.com/Gentleman-Programming/engram/releases/latest"
+curl -fsSL "$ENGRAM_URL/download/engram-linux-x86_64" -o "$HOME/.local/bin/engram"
+chmod +x "$HOME/.local/bin/engram"
+# Windows
+winget install Engram
+```
+
+Then run the IDE-specific setup once per project (use the entry that
+matches your IDE):
+
+```bash
+engram setup claude_code   # Claude Code
+engram setup codex          # OpenAI Codex
+engram setup gemini_cli     # Gemini CLI
+```
+
+GitHub Copilot is not currently supported by Engram. Verify the
+integration with `ai-eng doctor`.
 
 ## Audit Observability (spec-120)
 

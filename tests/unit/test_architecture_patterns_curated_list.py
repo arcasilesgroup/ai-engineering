@@ -1,7 +1,7 @@
 """Phase 3 GREEN: architecture-patterns curated list contract (spec-106 G-3).
 
 Asserts the curated patterns context at
-``.ai-engineering/contexts/architecture-patterns.md`` lists the canonical
+``.ai-engineering/reference/architecture-patterns.md`` lists the canonical
 patterns from D-106-03 and that each entry includes the required subsections
 (``**Description**``, ``**When to use**``, ``**When NOT to use**``,
 ``**Example**``) so /ai-plan consumers can reason about applicability
@@ -14,7 +14,7 @@ import re
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ARCH_PATTERNS_CONTEXT = REPO_ROOT / ".ai-engineering" / "contexts" / "architecture-patterns.md"
+ARCH_PATTERNS_CONTEXT = REPO_ROOT / ".ai-engineering" / "reference" / "architecture-patterns.md"
 
 MIN_PATTERN_COUNT = 10
 MIN_DESCRIPTION_WORDS = 30

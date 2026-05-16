@@ -54,7 +54,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 3. **Evidence sweep** -- when the current state spans multiple repo or governance surfaces, dispatch parallel read-only `ai-explore` passes first, summarize the findings, and use that evidence to sharpen the next question or spec boundary
 4. **Interrogate** -- follow `handlers/interrogate.md` for the questioning flow
 5. **Propose approaches** -- present 2-3 options with trade-offs (never just one). Scope classification is already settled at Step 0b — there is no post-interrogation file-count heuristic.
-6. **Draft spec** -- write spec to `.ai-engineering/specs/spec.md`. Validate spec against `.ai-engineering/contexts/spec-schema.md` -- all required sections must be present before marking the spec as approved.
+6. **Draft spec** -- write spec to `.ai-engineering/specs/spec.md`. Validate spec against `.ai-engineering/reference/spec-schema.md` -- all required sections must be present before marking the spec as approved.
 7. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
 8. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
 9. **STOP** -- present approved spec. User runs `/ai-plan` to continue.

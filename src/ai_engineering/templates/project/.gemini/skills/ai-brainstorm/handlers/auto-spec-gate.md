@@ -99,7 +99,7 @@ When `decision.route == "condensed"`:
    interrogate, scope check, propose approaches) — the gate has
    already classified the work.
 2. Draft a **minimum-viable spec** at `.ai-engineering/specs/spec.md`
-   conforming to `.ai-engineering/contexts/spec-schema.md`. The
+   conforming to `.ai-engineering/reference/spec-schema.md`. The
    condensed shape is a **strict subset** of the full schema:
    - Frontmatter: required fields plus `effort: trivial`.
    - `## Summary` (1 paragraph).

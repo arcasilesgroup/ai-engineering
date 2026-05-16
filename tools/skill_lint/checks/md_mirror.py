@@ -24,11 +24,11 @@ mirror-diet boundary that moves §10/§14/§15/§16 prose into ``docs/``:
    Pointer stubs with a distinct heading (e.g. ``## 10. Engineering
    Principles (pointer)``) are intentionally allowed because the
    prose lives in ``docs/``. Applies §10.4 (DRY) — one canonical home.
-7. **check_docs_targets_exist** (spec-134 sub-005) — the three
-   ``docs/`` destinations that own the extracted prose
-   (``docs/principles.md``, ``docs/mirror-authoring.md``,
-   ``docs/surface-axioms.md``) must exist on disk. Applies §10.1
-   (KISS) — fail fast if a pointer goes nowhere.
+7. **check_docs_targets_exist** (spec-134 sub-005, spec-136 D-136-04) —
+   the three ``.ai-engineering/reference/`` destinations that own the
+   extracted prose (``principles.md``, ``mirror-authoring.md``,
+   ``surface-axioms.md``) must exist on disk. Applies §10.1 (KISS) —
+   fail fast if a pointer goes nowhere.
 
 Pure-stdlib (re + pathlib + hashlib). Returns ``RubricResult`` records
 that fold into the existing ``skill_lint --check`` rendering pipeline.
@@ -255,11 +255,12 @@ _EXTRACTED_HEADING_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^## 16\. Surface Axioms\b.*$", re.MULTILINE),
 )
 
-# Required `docs/` destinations for the extracted prose.
+# Required `.ai-engineering/reference/` destinations for the extracted prose
+# (D-136-04 / D-136-14: §10 / §14 / §16 relocated; check retargets, never disappears).
 _DOCS_TARGETS: tuple[str, ...] = (
-    "docs/principles.md",
-    "docs/mirror-authoring.md",
-    "docs/surface-axioms.md",
+    ".ai-engineering/reference/principles.md",
+    ".ai-engineering/reference/mirror-authoring.md",
+    ".ai-engineering/reference/surface-axioms.md",
 )
 
 
@@ -296,12 +297,14 @@ def check_no_extracted_sections_in_mirrors(repo_root: Path) -> RubricResult:
 
 
 def check_docs_targets_exist(repo_root: Path) -> RubricResult:
-    """OK when the three sub-005 `docs/` targets exist on disk.
+    """OK when the three sub-005 reference targets exist on disk.
 
-    spec-134 sub-005: pointer rows reference ``docs/principles.md``,
-    ``docs/mirror-authoring.md``, and ``docs/surface-axioms.md`` as
-    canonical homes for the extracted prose. A missing destination
-    means a pointer leads nowhere — fail-fast (§10.1 KISS).
+    spec-134 sub-005 + spec-136 D-136-04: pointer rows reference
+    ``.ai-engineering/reference/principles.md``,
+    ``.ai-engineering/reference/mirror-authoring.md``, and
+    ``.ai-engineering/reference/surface-axioms.md`` as canonical homes
+    for the extracted prose. A missing destination means a pointer
+    leads nowhere — fail-fast (§10.1 KISS).
     """
     missing: list[str] = []
     for rel in _DOCS_TARGETS:

@@ -11,7 +11,7 @@ def _mk(root: Path) -> Path:
     ai = root / ".ai-engineering"
     (ai / "skills").mkdir(parents=True, exist_ok=True)
     (ai / "agents").mkdir(parents=True, exist_ok=True)
-    (ai / "contexts").mkdir(parents=True, exist_ok=True)
+    (ai / "reference").mkdir(parents=True, exist_ok=True)
     (ai / "specs").mkdir(parents=True, exist_ok=True)
     (ai / "specs" / "handoffs").mkdir(parents=True, exist_ok=True)
     (ai / "specs" / "evidence").mkdir(parents=True, exist_ok=True)
@@ -61,10 +61,10 @@ def test_file_existence_skips_placeholders_and_prefix_cleanup(tmp_path: Path) ->
 def test_mirror_sync_missing_and_orphan(tmp_path: Path) -> None:
     ai = _mk(tmp_path)
     mirror = tmp_path / "src" / "ai_engineering" / "templates" / ".ai-engineering"
-    # Governance mirror syncs contexts/**/*.md — use that pattern
-    (mirror / "contexts").mkdir(parents=True, exist_ok=True)
-    (ai / "contexts" / "debug.md").write_text("x", encoding="utf-8")
-    (mirror / "contexts" / "orphan.md").write_text("y", encoding="utf-8")
+    # Governance mirror syncs reference/**/*.md — use that pattern
+    (mirror / "reference").mkdir(parents=True, exist_ok=True)
+    (ai / "reference" / "debug.md").write_text("x", encoding="utf-8")
+    (mirror / "reference" / "orphan.md").write_text("y", encoding="utf-8")
     report = validate_content_integrity(tmp_path, categories=[IntegrityCategory.MIRROR_SYNC])
     checks = [c.name for c in report.by_category()[IntegrityCategory.MIRROR_SYNC]]
     assert any(name.startswith("missing-mirror-") for name in checks)

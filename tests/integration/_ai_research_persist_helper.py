@@ -11,7 +11,7 @@ Public API:
 * :class:`PersistInputs`  -- aggregated inputs to ``persist_artifact``.
 * :func:`should_persist`  -- decide whether to write based on Tier 3 + flag.
 * :func:`persist_artifact` -- write
-  ``.ai-engineering/research/<slug>-<YYYY-MM-DD>.md`` and return its path.
+  ``.ai-engineering/runtime/research/<slug>-<YYYY-MM-DD>.md`` and return its path.
 
 Notes:
 
@@ -139,7 +139,7 @@ _RESEARCH_DIR = (".ai-engineering", "research")
 def persist_artifact(inputs: PersistInputs, *, repo_root: Path) -> Path:
     """Write the research artifact and return its path.
 
-    Output path: ``<repo_root>/.ai-engineering/research/<slug>-<YYYY-MM-DD>.md``.
+    Output path: ``<repo_root>/.ai-engineering/runtime/research/<slug>-<YYYY-MM-DD>.md``.
 
     The directory is created if missing. Existing files at the same path
     are overwritten -- callers that wish to preserve history must rotate

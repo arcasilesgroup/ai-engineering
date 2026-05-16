@@ -27,7 +27,7 @@ Eval-Driven Development (EDD) treats evals as the unit tests of AI development. 
 - `check`: running current evals and reporting status mid-implementation
 - `report`: generating full eval report after implementation
 - `regression`: ensuring changes to prompts, agents, or models don't break existing capabilities
-- `--skill-set`: skill-set mode — runs the optimizer over each skill's eval corpus under `evals/<skill>.jsonl` and gates pass@1 vs `evals/baseline.json`. Combine with `--regression` to fail on >5 pp pass@1 drop (sub-007 M6, D-127-07). Wired into `.github/workflows/skill-evals.yml` on PRs touching `.codex/skills/**`.
+- `--skill-set`: skill-set mode — runs the optimizer over each skill's eval corpus under `.ai-engineering/evals/<skill>.jsonl` and gates pass@1 vs `.ai-engineering/evals/baseline.json`. Combine with `--regression` to fail on >5 pp pass@1 drop (sub-007 M6, D-127-07). Wired into `.github/workflows/skill-evals.yml` on PRs touching `.codex/skills/**`.
 
 ## Process
 

@@ -13,7 +13,7 @@ LLM-assisted post-install discovery of board configuration. Detects the team's p
 - Manual refresh: `/ai-board discover --refresh`. `--refresh` forces re-discovery even when board config already exists in manifest, overwriting previous values.
 - Suggested by `/ai-start` when board config is missing
 
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md` (informs field mapping conventions).
+Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` (informs field mapping conventions).
 
 ## Process
 

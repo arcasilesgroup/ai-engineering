@@ -18,7 +18,7 @@ edit_policy: generated-do-not-edit
 
 Multi-tier, multi-source research skill with citation-first synthesis and persistent artifact reuse. Replaces ad-hoc `WebSearch` invocations with a disciplined escalation: local context first (zero cost), then free MCPs (Context7, Microsoft Learn, `gh search`), then web search, then NotebookLM for deep persistent corpora. Every external claim carries a `[N]` citation or is marked `[unsourced]` so readers can audit grounding.
 
-Outputs are designed for reuse: deep research is persisted to `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` so subsequent sessions short-circuit at Tier 0.
+Outputs are designed for reuse: deep research is persisted to `.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md` so subsequent sessions short-circuit at Tier 0.
 
 ## When to Use
 
@@ -41,7 +41,7 @@ Do NOT use for: refactoring, writing scripts from scratch, debugging business lo
 4. **Tier 2 -- web** -- follow `handlers/tier2-web.md`. Invoke `WebSearch` and `WebFetch` in parallel when Tier 1 produced fewer than 5 high-quality hits, or the query explicitly references a URL. Honor `--allowed-domains` and `--blocked-domains`.
 5. **Tier 3 -- NotebookLM persistent** -- follow `handlers/tier3-notebooklm.md`. Triggered when `--depth=deep`, when the query is comparative (`vs|versus|compare|alternatives`), or when Tier 1+2 collected ≥10 sources. Probe `server_info` first; degrade to Tier 2 only if auth expired.
 6. **Synthesize with citations** -- follow `handlers/synthesize-with-citations.md`. Produce output where every external claim carries `[N]` or `[unsourced]`. Validator regex `\[\d+\]|\[unsourced\]` must match at least once per claim paragraph; on failure, retry with stricter system message (max 2 retries).
-7. **Persist artifact** -- follow `handlers/persist-artifact.md`. Write `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` with frontmatter (`query`, `depth`, `tiers_invoked`, `sources_used`, `notebook_id`, `created_at`, `slug`) and Question/Findings/Sources/Notebook Reference sections. Auto-persist when Tier 3 invoked; opt-in via `--persist` for quick/standard.
+7. **Persist artifact** -- follow `handlers/persist-artifact.md`. Write `.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md` with frontmatter (`query`, `depth`, `tiers_invoked`, `sources_used`, `notebook_id`, `created_at`, `slug`) and Question/Findings/Sources/Notebook Reference sections. Auto-persist when Tier 3 invoked; opt-in via `--persist` for quick/standard.
 
 ## CLI Flags
 
@@ -53,7 +53,7 @@ Do NOT use for: refactoring, writing scripts from scratch, debugging business lo
 
 ## Output Contract
 
-Synthesized response in agent context PLUS, when persisted, a Markdown artifact at `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md`. Output format:
+Synthesized response in agent context PLUS, when persisted, a Markdown artifact at `.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md`. Output format:
 
 ```
 ## Question
@@ -98,10 +98,10 @@ User: "deep research on event-sourcing vs CQRS for fintech ledgers, save it for 
 /ai-research "event sourcing vs CQRS for fintech ledgers" --depth deep --persist
 ```
 
-Escalates through all 4 tiers including NotebookLM; writes `.ai-engineering/research/<slug>-<date>.md` so future invocations short-circuit at Tier 0.
+Escalates through all 4 tiers including NotebookLM; writes `.ai-engineering/runtime/research/<slug>-<date>.md` so future invocations short-circuit at Tier 0.
 
 ## Integration
 
-Called by: user directly, `/ai-brainstorm` (interrogate handler). Calls: tier0–tier3 handlers, `synthesize-with-citations.md`, `persist-artifact.md`. Produces: `.ai-engineering/research/<slug>-<date>.md`. See also: `/ai-brainstorm` (consumes research as evidence).
+Called by: user directly, `/ai-brainstorm` (interrogate handler). Calls: tier0–tier3 handlers, `synthesize-with-citations.md`, `persist-artifact.md`. Produces: `.ai-engineering/runtime/research/<slug>-<date>.md`. See also: `/ai-brainstorm` (consumes research as evidence).
 
 $ARGUMENTS

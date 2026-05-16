@@ -4,7 +4,7 @@ The script walks every IDE mirror (.claude / .codex / .gemini / .github)
 and edits each SKILL.md frontmatter in place:
 
 * Replace legacy ``effort: medium|high|max`` with the policy-mapped
-  value from ``docs/model-dispatch-policy.md``.
+  value from ``.ai-engineering/reference/model-dispatch-policy.md``.
 * Insert ``model_tier:`` line after ``effort:`` when absent; replace
   when present.
 * No-op when the file already matches the policy (idempotent).

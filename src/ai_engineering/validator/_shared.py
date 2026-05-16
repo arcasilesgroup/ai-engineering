@@ -112,7 +112,7 @@ class IntegrityReport:
 _PATH_REF_PATTERN = re.compile(
     r"`?\.?(?:ai-engineering/)?(skills/[^\s`*]+\.md"
     r"|agents/[^\s`*]+\.md"
-    r"|contexts/[^\s`*]+\.md"
+    r"|reference/[^\s`*]+\.md"
     r"|state/spec-[^\s`*]+\.json"
     r"|specs/evidence/[^\s`*]+\.json)`?"
 )
@@ -226,18 +226,17 @@ def _instruction_files(target: Path) -> list[str]:
 
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)
-# Note: skills/, agents/, and evals/ are no longer in templates — skills/agents
-# live in IDE-specific directories (.claude/, .codex/, .gemini/), evals/ is runtime state.
-# The governance mirror only validates standards, runbooks, and the manifest.
+# Note: skills/, agents/ live in IDE-specific directories (.claude/, .codex/,
+# .gemini/). evals/ corpus lives at .ai-engineering/evals/ (committed). The
+# governance mirror only validates reference docs and the manifest (D-136-03).
 _GOVERNANCE_MIRROR = (
     ".ai-engineering",
     "src/ai_engineering/templates/.ai-engineering",
     [
-        "contexts/**/*.md",
-        "runbooks/**/*.md",
+        "reference/**/*.md",
         "README.md",
     ],
-    ["context/", "contexts/team/", "CONSTITUTION.md", "state/", "evals/", "tasks/"],
+    ["team/", "CONSTITUTION.md", "state/", "tasks/", "runtime/"],
 )
 
 _CLAUDE_COMMANDS_MIRROR = (

@@ -6,7 +6,7 @@ Search the local context BEFORE escalating to any external source. Tier 0 is fre
 
 The three local sources, in order:
 
-1. Prior research artifacts in `.ai-engineering/research/*.md` -- topic-slug similarity match.
+1. Prior research artifacts in `.ai-engineering/runtime/research/*.md` -- topic-slug similarity match.
 2. `.ai-engineering/LESSONS.md` -- keyword grep against learned patterns.
 3. `.ai-engineering/state/framework-events.ndjson` -- last 30 days of `kind: skill_invoked` events filtered to `detail.skill == "ai-research"` to surface prior queries.
 

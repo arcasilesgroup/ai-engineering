@@ -17,7 +17,7 @@ on:
     branches: [main]
     paths:
       - '.claude/skills/**'
-      - 'evals/**'
+      - '.ai-engineering/evals/**'
       - 'tools/skill_domain/eval_types.py'
       - 'tools/skill_app/eval_regression_gate.py'
       - 'tools/skill_app/eval_runner.py'
@@ -72,8 +72,8 @@ jobs:
           uv run python scripts/run_loop_skill_evals.py \
             --skill all \
             --regression \
-            --baseline evals/baseline.json \
-            --corpus-root evals/ \
+            --baseline .ai-engineering/evals/baseline.json \
+            --corpus-root .ai-engineering/evals/ \
             --out regression-report.json
 
       - name: Upload regression report

@@ -356,7 +356,7 @@ class TestOwnership:
 
     def test_team_paths(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
-        assert ".ai-engineering/contexts/team/**" in config.ownership.team
+        assert ".ai-engineering/team/**" in config.ownership.team
 
     def test_system_paths(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

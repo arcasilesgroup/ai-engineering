@@ -150,29 +150,30 @@ def test_sync_check_is_idempotent_on_fresh_tree() -> None:
 
 @pytest.mark.integration
 def test_canonical_payload_carries_section_10_principles() -> None:
-    """Engineering-principle anchors §10.x live in `docs/principles.md` (sub-005).
+    """§10.x anchors live in `.ai-engineering/reference/principles.md`.
 
-    spec-134 D-134-05 / sub-005 mirror diet: §10 Engineering Principles
-    moved out of the four IDE mirrors and into the canonical home
-    `docs/principles.md`. The mirror payload retains a pointer line
-    referencing that file so the canonical chain `AGENTS.md →
-    docs/principles.md` resolves; the §10.1/§10.5/§10.8 anchors that
-    34 skill/agent files cite survive at the new home.
+    spec-134 D-134-05 / sub-005 mirror diet + spec-136 D-136-04:
+    §10 Engineering Principles live in the canonical reference home;
+    the four IDE mirrors carry pointer rows only. The chain
+    `AGENTS.md → .ai-engineering/reference/principles.md` resolves;
+    the §10.1/§10.5/§10.8 anchors that 76 skill/agent files cite
+    survive at the new home.
     """
-    principles_doc = REPO_ROOT / "docs" / "principles.md"
+    rel = ".ai-engineering/reference/principles.md"
+    principles_doc = REPO_ROOT / ".ai-engineering" / "reference" / "principles.md"
     assert principles_doc.is_file(), (
-        "docs/principles.md MUST exist as the canonical home for §10 anchors "
+        f"{rel} MUST exist as the canonical home for §10 anchors "
         "(sub-005 extracts §10 prose out of mirrors)"
     )
     principles_text = principles_doc.read_text(encoding="utf-8")
     for anchor in ("§10.1", "§10.5", "§10.8"):
         assert anchor in principles_text, (
-            f"docs/principles.md must declare engineering-principle anchor {anchor}"
+            f"{rel} must declare engineering-principle anchor {anchor}"
         )
     agents = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    assert "docs/principles.md" in agents, (
+    assert rel in agents, (
         "AGENTS.md (canonical payload) must carry a pointer line referencing "
-        "docs/principles.md so consumers can locate §10.x anchors"
+        f"{rel} so consumers can locate §10.x anchors"
     )
 
 
@@ -195,46 +196,47 @@ def test_canonical_payload_extracts_principles_and_axioms_to_docs() -> None:
     After spec-134 sub-005 ships, the four IDE mirrors carry pointer
     rows only — the verbatim prose lives in:
 
-    - `docs/principles.md`        — §10 Engineering Principles (§10.1-§10.8)
-    - `docs/mirror-authoring.md`  — §14 Strict Content Contracts + §15 IDE-Extras
-    - `docs/surface-axioms.md`    — §16 Surface Axioms (A1 / A2)
+    - `.ai-engineering/reference/principles.md` (§10 §10.1-§10.8)
+    - `.ai-engineering/reference/mirror-authoring.md` (§14 + §15)
+    - `.ai-engineering/reference/surface-axioms.md` (§16 A1 / A2)
 
     This test pins the extraction contract end-to-end so the lint
     surface (`tools/skill_lint/checks/md_mirror.py` sub-checks 6 + 7)
     has a matching integration-level guard.
     """
-    # (a) docs/principles.md exists and carries §10.1..§10.8 anchors.
-    principles_doc = REPO_ROOT / "docs" / "principles.md"
+    # (a) .ai-engineering/reference/principles.md exists and carries §10.1..§10.8 anchors.
+    principles_doc = REPO_ROOT / ".ai-engineering" / "reference" / "principles.md"
     assert principles_doc.is_file(), (
         f"missing canonical home: {principles_doc.relative_to(REPO_ROOT)}"
     )
     principles_text = principles_doc.read_text(encoding="utf-8")
+    rel_principles = ".ai-engineering/reference/principles.md"
     for n in range(1, 9):
         anchor = f"§10.{n}"
         assert anchor in principles_text, (
-            f"docs/principles.md must carry anchor {anchor} (sub-005 lossless migration)"
+            f"{rel_principles} must carry anchor {anchor} (sub-005 lossless migration)"
         )
 
-    # (b) docs/mirror-authoring.md exists and carries the authoring table header.
-    authoring_doc = REPO_ROOT / "docs" / "mirror-authoring.md"
+    # (b) reference/mirror-authoring.md exists and carries the authoring table.
+    authoring_doc = REPO_ROOT / ".ai-engineering" / "reference" / "mirror-authoring.md"
     assert authoring_doc.is_file(), (
         f"missing canonical home: {authoring_doc.relative_to(REPO_ROOT)}"
     )
     authoring_text = authoring_doc.read_text(encoding="utf-8")
     assert "MUST contain" in authoring_text and "MUST NOT contain" in authoring_text, (
-        "docs/mirror-authoring.md must preserve the per-file authoring table "
+        ".ai-engineering/reference/mirror-authoring.md must preserve the per-file authoring table "
         "(MUST contain / MUST NOT contain columns)"
     )
 
-    # (c) docs/surface-axioms.md exists and carries A1 / A2 headers.
-    axioms_doc = REPO_ROOT / "docs" / "surface-axioms.md"
+    # (c) .ai-engineering/reference/surface-axioms.md exists and carries A1 / A2 headers.
+    axioms_doc = REPO_ROOT / ".ai-engineering" / "reference" / "surface-axioms.md"
     assert axioms_doc.is_file(), f"missing canonical home: {axioms_doc.relative_to(REPO_ROOT)}"
     axioms_text = axioms_doc.read_text(encoding="utf-8")
     assert "A1 — Surface Axiom" in axioms_text, (
-        "docs/surface-axioms.md must carry the A1 Surface Axiom heading"
+        ".ai-engineering/reference/surface-axioms.md must carry the A1 Surface Axiom heading"
     )
     assert "A2 — No-Twin Axiom" in axioms_text, (
-        "docs/surface-axioms.md must carry the A2 No-Twin Axiom heading"
+        ".ai-engineering/reference/surface-axioms.md must carry the A2 No-Twin Axiom heading"
     )
 
     # (d) NONE of the four root mirrors carry the extracted section
@@ -257,7 +259,11 @@ def test_canonical_payload_extracts_principles_and_axioms_to_docs() -> None:
     # (e) every mirror carries pointer lines back to the three docs/ destinations.
     for rel in _MIRRORS:
         body = (REPO_ROOT / rel).read_text(encoding="utf-8")
-        for target in ("docs/principles.md", "docs/mirror-authoring.md", "docs/surface-axioms.md"):
+        for target in (
+            ".ai-engineering/reference/principles.md",
+            ".ai-engineering/reference/mirror-authoring.md",
+            ".ai-engineering/reference/surface-axioms.md",
+        ):
             assert target in body, (
                 f"{rel} must carry a pointer line referencing {target} (sub-005 mirror diet)"
             )
