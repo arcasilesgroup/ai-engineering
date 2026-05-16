@@ -35,7 +35,7 @@ import tempfile
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 
@@ -150,7 +150,7 @@ def _events_path(project_root: Path) -> Path:
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _atomic_write(target: Path, payload: str) -> None:
@@ -399,7 +399,7 @@ def sweep(project_root: Path) -> dict:
     if not d.exists():
         _append_event(project_root, "spec_sweep", summary)
         return summary
-    cutoff = datetime.now(UTC) - timedelta(days=14)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=14)
     for path in sorted(d.glob("*.json")):
         try:
             record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
@@ -411,7 +411,7 @@ def sweep(project_root: Path) -> dict:
             except ValueError:
                 continue
             if created.tzinfo is None:
-                created = created.replace(tzinfo=UTC)
+                created = created.replace(tzinfo=timezone.utc)
             if created < cutoff:
                 record.state = transition(record.state, LifecycleState.ABANDONED)
                 _write_state(project_root, record)
