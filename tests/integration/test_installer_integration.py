@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.config.manifest import ManifestConfig
+from ai_engineering.config.manifest import ManifestConfig, RootEntryPointConfig
 from ai_engineering.installer.operations import (
     InstallerError,
-    add_ide,
     add_stack,
+    add_surface,
     list_status,
-    remove_ide,
     remove_stack,
+    remove_surface,
 )
 from ai_engineering.installer.service import InstallResult, install
 from ai_engineering.installer.templates import (
@@ -24,6 +24,8 @@ from ai_engineering.installer.templates import (
     copy_template_tree,
     get_ai_engineering_template_root,
     get_project_template_root,
+    resolve_instruction_file_destinations,
+    resolve_instruction_template_sources,
     resolve_template_maps,
 )
 
@@ -145,6 +147,48 @@ class TestCopyTemplateTree:
 class TestCopyProjectTemplates:
     """Tests for project template mapping."""
 
+    def test_instruction_template_sources_use_manifest_declared_paths(self) -> None:
+        root_entry_points = {
+            "AGENTS.md": RootEntryPointConfig(
+                owner="framework",
+                canonical_source="scripts/sync_command_mirrors.py:generate_agents_md",
+                runtime_role="shared-runtime-contract",
+                sync={
+                    "mode": "generate",
+                    "template_path": "src/ai_engineering/templates/project/custom/AGENTS.custom.md",
+                    "mirror_paths": [],
+                },
+            )
+        }
+
+        template_paths = resolve_instruction_template_sources(
+            ["AGENTS.md"],
+            root_entry_points=root_entry_points,
+        )
+
+        assert template_paths == ["src/ai_engineering/templates/project/custom/AGENTS.custom.md"]
+
+    def test_instruction_template_sources_require_root_entry_metadata(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Root entry point metadata is required to resolve instruction template sources",
+        ):
+            resolve_instruction_template_sources(["AGENTS.md"], root_entry_points=None)
+
+    def test_instruction_file_destinations_require_root_entry_metadata(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Root entry point metadata is required to resolve instruction file destinations",
+        ):
+            resolve_instruction_file_destinations(["github-copilot"], root_entry_points=None)
+
+    def test_instruction_file_destinations_require_explicit_surfaces(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="Surfaces are required to resolve instruction file destinations",
+        ):
+            resolve_instruction_file_destinations(None, root_entry_points={})
+
     def test_copies_project_templates_to_correct_locations(
         self,
         tmp_path: Path,
@@ -215,7 +259,7 @@ class TestCopyProjectTemplates:
         assert not issue_dir.exists()
 
     def test_codex_provider_copies_codex_tree(self, tmp_path: Path) -> None:
-        copy_project_templates(tmp_path, providers=["codex"])
+        copy_project_templates(tmp_path, surfaces=["codex"])
         codex_dir = tmp_path / ".codex" / "skills"
         assert codex_dir.is_dir()
         skill_files = list(codex_dir.glob("*/SKILL.md"))
@@ -241,12 +285,15 @@ class TestInstallOnEmptyRepo:
 
         # Governance structure created
         assert (tmp_path / ".ai-engineering" / "manifest.yml").is_file()
-        assert (tmp_path / ".ai-engineering" / "contexts" / "languages" / "python.md").is_file()
+        # spec-128 D-128-01 moved per-language docs out of contexts/languages/
+        # into overrides/<stack>/; a representative context file is enough.
+        assert (tmp_path / ".ai-engineering" / "contexts" / "python-env-modes.md").is_file()
 
-        # State files generated
-        assert (tmp_path / ".ai-engineering" / "state" / "install-state.json").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "ownership-map.json").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "decision-store.json").is_file()
+        # spec-125 D-125-01: install_state, decisions, ownership_map, and
+        # tool_capabilities live in state.db tables. The JSON fallbacks were
+        # deleted in spec-124 wave 5 (decision-store, ownership-map) and
+        # spec-125 wave 1 (install-state, framework-capabilities).
+        assert (tmp_path / ".ai-engineering" / "state" / "state.db").is_file()
 
         # Project files created
         assert (tmp_path / "CLAUDE.md").is_file()
@@ -254,25 +301,28 @@ class TestInstallOnEmptyRepo:
 
         # Canonical state artifacts written
         assert (tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson").is_file()
-        assert (tmp_path / ".ai-engineering" / "state" / "framework-capabilities.json").is_file()
 
     def test_state_files_contain_valid_json(self, tmp_path: Path) -> None:
+        # spec-125 D-125-01: install_state lives in state.db; the JSON
+        # fallback was deleted in wave 1.
         install(tmp_path)
 
-        manifest_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-        data = json.loads(manifest_path.read_text())
-        assert data["schema_version"] == "2.0"
-        assert "operational_readiness" in data
+        from ai_engineering.state.repository import DurableStateRepository
 
-    def test_custom_stacks_and_ides(self, tmp_path: Path) -> None:
-        install(tmp_path, stacks=["python", "node"], ides=["vscode", "terminal"])
+        state = DurableStateRepository(tmp_path).load_install_state()
+        assert state.schema_version == "2.0"
+        assert state.operational_readiness is not None
+
+    def test_custom_stacks_and_surfaces(self, tmp_path: Path) -> None:
+        # spec-133 D-133-16: providers.ides was fused into surfaces.enabled.
+        install(tmp_path, stacks=["python"], surfaces=["claude-code", "github-copilot"])
 
         import yaml
 
         manifest_path2 = tmp_path / ".ai-engineering" / "manifest.yml"
         manifest_data = yaml.safe_load(manifest_path2.read_text())
-        assert manifest_data["providers"]["stacks"] == ["python", "node"]
-        assert manifest_data["providers"]["ides"] == ["vscode", "terminal"]
+        assert manifest_data["providers"]["stacks"] == ["python"]
+        assert manifest_data["surfaces"]["enabled"] == ["claude-code", "github-copilot"]
 
     def test_framework_events_record_install_event(self, tmp_path: Path) -> None:
         result = install(tmp_path)
@@ -386,29 +436,30 @@ class TestRemoveStack:
             remove_stack(installed_project, "nonexistent")
 
 
-class TestAddIde:
-    """Tests for add_ide operation."""
+class TestAddSurface:
+    """Tests for add_surface operation (spec-133 D-133-16: ide+provider → surface)."""
 
-    def test_adds_new_ide(self, installed_project: Path) -> None:
-        manifest = add_ide(installed_project, "vscode")
-        assert "vscode" in manifest.providers.ides
-        assert "terminal" in manifest.providers.ides
+    def test_adds_new_surface(self, installed_project: Path) -> None:
+        manifest = add_surface(installed_project, "github-copilot")
+        assert "github-copilot" in manifest.surfaces.enabled
+        assert "claude-code" in manifest.surfaces.enabled
 
-    def test_raises_on_duplicate_ide(self, installed_project: Path) -> None:
-        with pytest.raises(InstallerError, match="already installed"):
-            add_ide(installed_project, "terminal")
+    def test_raises_on_duplicate_surface(self, installed_project: Path) -> None:
+        with pytest.raises(InstallerError, match="already"):
+            add_surface(installed_project, "claude-code")
 
 
-class TestRemoveIde:
-    """Tests for remove_ide operation."""
+class TestRemoveSurface:
+    """Tests for remove_surface operation (spec-133 D-133-16)."""
 
-    def test_removes_existing_ide(self, installed_project: Path) -> None:
-        manifest = remove_ide(installed_project, "terminal")
-        assert "terminal" not in manifest.providers.ides
+    def test_removes_existing_surface(self, installed_project: Path) -> None:
+        add_surface(installed_project, "github-copilot")
+        manifest = remove_surface(installed_project, "github-copilot")
+        assert "github-copilot" not in manifest.surfaces.enabled
 
-    def test_raises_on_missing_ide(self, installed_project: Path) -> None:
-        with pytest.raises(InstallerError, match="not installed"):
-            remove_ide(installed_project, "nonexistent")
+    def test_raises_on_missing_surface(self, installed_project: Path) -> None:
+        with pytest.raises(InstallerError, match="not enabled"):
+            remove_surface(installed_project, "codex")
 
 
 class TestListStatus:
@@ -441,13 +492,13 @@ class TestOperationsWithoutInstall:
         with pytest.raises(InstallerError):
             remove_stack(tmp_path, "python")
 
-    def test_add_ide_raises(self, tmp_path: Path) -> None:
+    def test_add_surface_raises(self, tmp_path: Path) -> None:
         with pytest.raises(InstallerError):
-            add_ide(tmp_path, "vscode")
+            add_surface(tmp_path, "github-copilot")
 
-    def test_remove_ide_raises(self, tmp_path: Path) -> None:
+    def test_remove_surface_raises(self, tmp_path: Path) -> None:
         with pytest.raises(InstallerError):
-            remove_ide(tmp_path, "vscode")
+            remove_surface(tmp_path, "github-copilot")
 
 
 # ---------------------------------------------------------------------------

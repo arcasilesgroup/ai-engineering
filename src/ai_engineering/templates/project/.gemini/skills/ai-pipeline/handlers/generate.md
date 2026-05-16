@@ -7,7 +7,7 @@ Create new CI/CD pipeline from project analysis.
 1. **Detect context**:
    - Read `.ai-engineering/manifest.yml` field `providers.stacks` for the project's active stacks.
    - Read `manifest.yml` for VCS provider, Sonar config.
-   - Read `cicd.standards_url` from `.ai-engineering/manifest.yml`. If set, fetch and use those standards. If null, generate using AI best practices.
+   - Read `cicd.standards_url` from `.ai-engineering/manifest.yml`. **When the field is set** (non-null, non-empty string): call the `WebFetch` tool with that URL and a focused prompt ("Extract CI/CD requirements, mandatory checks, security gates, SHA pinning policy, timeout policy, OIDC requirements"); use the returned text as the authoritative baseline and cite the URL in the generated workflow comment. **When the field is null or unset**: generate using AI best practices documented in the Shared Rules section of `SKILL.md`. Either way, log the chosen path in the validation report.
 
 2. **Select provider**:
    - `--provider github`: GitHub Actions (`.github/workflows/`).

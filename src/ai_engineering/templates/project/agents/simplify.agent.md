@@ -1,9 +1,12 @@
 ---
 name: "Simplifier"
 description: "Background code simplifier -- guard clauses, extract methods, flatten nesting, remove dead code. Runs post-build or continuous."
-color: green
 model: opus
 tools: [codebase, editFiles, problems, readFile, runCommands, search, testFailures]
+mirror_family: copilot-agents
+generated_by: ai-eng sync
+canonical_source: .claude/agents/ai-simplify.md
+edit_policy: generated-do-not-edit
 ---
 
 

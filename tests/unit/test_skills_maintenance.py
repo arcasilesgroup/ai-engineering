@@ -9,6 +9,7 @@ Covers:
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -18,10 +19,18 @@ import pytest
 from ai_engineering.maintenance.report import (
     MaintenanceReport,
     StaleFile,
+    TaskScorecard,
+    build_task_scorecard,
 )
 from ai_engineering.skills.service import (
     SkillStatus,
     list_local_skill_status,
+)
+from ai_engineering.state.io import write_json_model
+from ai_engineering.state.models import (
+    TaskLedger,
+    TaskLedgerTask,
+    TaskLifecycleState,
 )
 
 # ---------------------------------------------------------------------------
@@ -245,3 +254,68 @@ class TestMaintenanceReport:
         assert len(report.warnings) == 2
         assert "Framework not installed" in report.warnings
         assert "Stale decision-store" in report.warnings
+
+    def test_task_scorecard_is_serialized_and_rendered(self) -> None:
+        report = MaintenanceReport(
+            generated_at=datetime(2025, 1, 1, tzinfo=UTC),
+            task_scorecard=TaskScorecard(
+                total_tasks=3,
+                resolved_tasks=1,
+                open_tasks=2,
+                retry_tasks=2,
+                rework_tasks=1,
+                verification_tax_events=1,
+                drift_events=1,
+            ),
+        )
+
+        data = report.to_dict()
+        markdown = report.to_markdown()
+
+        assert data["task_scorecard"] == {
+            "total_tasks": 3,
+            "resolved_tasks": 1,
+            "open_tasks": 2,
+            "retry_tasks": 2,
+            "rework_tasks": 1,
+            "verification_tax_events": 1,
+            "drift_events": 1,
+            "resolution_score": pytest.approx(1 / 3, rel=1e-3),
+        }
+        assert "## Task Scorecard" in markdown
+        assert "Retrying tasks: 2" in markdown
+        assert "Verification tax events: 1" in markdown
+
+
+def test_build_task_scorecard_reads_under_framework_events_lock(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[tuple[Path, str]] = []
+
+    @contextmanager
+    def _lock_spy(project_root: Path, artifact_name: str):
+        calls.append((project_root, artifact_name))
+        yield project_root / ".ai-engineering" / "state" / "locks" / f"{artifact_name}.lock"
+
+    monkeypatch.setattr("ai_engineering.maintenance.report.artifact_lock", _lock_spy)
+
+    ledger_path = tmp_path / ".ai-engineering" / "specs" / "task-ledger.json"
+    write_json_model(
+        ledger_path,
+        TaskLedger(
+            tasks=[
+                TaskLedgerTask(
+                    id="HX-05-T-4.2",
+                    title="Read scorecard snapshot",
+                    status=TaskLifecycleState.DONE,
+                    ownerRole="Build",
+                    writeScope=["src/**"],
+                )
+            ]
+        ),
+    )
+
+    build_task_scorecard(tmp_path)
+
+    assert calls == [(tmp_path, "framework-events")]

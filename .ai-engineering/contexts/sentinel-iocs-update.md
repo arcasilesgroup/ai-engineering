@@ -1,6 +1,6 @@
 # Sentinel IOC Refresh Cadence (spec-107 D-107-05)
 
-The IOC catalog vendored at `.ai-engineering/references/iocs.json`
+The IOC catalog vendored at `.ai-engineering/security/iocs/iocs.json`
 is maintained as a static snapshot from the upstream
 `claude-mcp-sentinel` project. This document describes the manual
 refresh cadence and the out-of-band hot-security flow.
@@ -28,14 +28,14 @@ A reminder issue is opened on the first day of each window.
 2. Diff vs vendored copy:
    ```bash
    diff $REPOS_DIR/claude-mcp-sentinel/references/iocs.json \
-        .ai-engineering/references/iocs.json
+        .ai-engineering/security/iocs/iocs.json
    ```
 3. If non-empty diff:
-   - Copy upstream over vendored: `cp $REPOS_DIR/claude-mcp-sentinel/references/iocs.json .ai-engineering/references/iocs.json`
+   - Copy upstream over vendored: `cp $REPOS_DIR/claude-mcp-sentinel/references/iocs.json .ai-engineering/security/iocs/iocs.json`
    - Re-add canonical aliases (`malicious_domains` → `suspicious_network`, `shell_patterns` → `dangerous_commands`) — see `IOCS_ATTRIBUTION.md`
    - Update `IOCS_ATTRIBUTION.md` vendor commit hash and vendor date
    - Append a CHANGELOG.md entry with the human-readable diff summary
-   - Mirror to `src/ai_engineering/templates/.ai-engineering/references/iocs.json`
+   - Mirror to `src/ai_engineering/templates/.ai-engineering/security/iocs/iocs.json`
 4. Run targeted tests:
    ```bash
    uv run pytest tests/integration/test_sentinel_runtime_iocs.py -q

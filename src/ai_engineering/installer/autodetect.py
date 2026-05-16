@@ -9,8 +9,7 @@ AI provider detection remains root-level only by design.
 
 Functions:
     detect_stacks     -- recursive markers -> popularity-ordered stack list
-    detect_ai_providers -- root-level AI tool config -> sorted provider list
-    detect_ides       -- recursive IDE config dirs -> popularity-ordered list
+    detect_surfaces -- root-level Surface markers -> sorted surface list
     detect_vcs        -- delegate to vcs.factory -> provider string
     detect_all        -- aggregate all detections into DetectionResult
 """
@@ -23,6 +22,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_engineering.git.operations import run_git
 from ai_engineering.vcs.factory import detect_from_remote
 
 logger = logging.getLogger(__name__)
@@ -59,9 +59,9 @@ _IDE_POPULARITY: tuple[str, ...] = (
 )
 
 _PROVIDER_POPULARITY: tuple[str, ...] = (
-    "github_copilot",
-    "claude_code",
-    "gemini",
+    "github-copilot",
+    "claude-code",
+    "gemini-cli",
     "codex",
 )
 
@@ -81,11 +81,14 @@ def _order_by_popularity(items: Iterable[str], ranking: tuple[str, ...]) -> list
 
 @dataclass
 class DetectionResult:
-    """Aggregated auto-detection result for a project root."""
+    """Aggregated auto-detection result for a project root.
+
+    spec-133 D-133-16 hard-cut: the legacy ``providers``/``ides`` fields
+    were deleted. ``surfaces`` is the single canonical axis.
+    """
 
     stacks: list[str]
-    providers: list[str]
-    ides: list[str]
+    surfaces: list[str]
     vcs: str
 
 
@@ -178,6 +181,27 @@ def _walk_markers(root: Path) -> tuple[set[str], set[str]]:
         elif "package.json" in fset:
             stacks.add("javascript")
 
+        # spec-133 D-133-12: react-native takes precedence over typescript when
+        # ``react-native`` or ``expo`` appear in package.json deps.
+        if "package.json" in fset:
+            try:
+                pkg_text = (Path(dirpath) / "package.json").read_text(encoding="utf-8")
+                if '"react-native"' in pkg_text or '"expo"' in pkg_text:
+                    stacks.add("react-native")
+            except OSError:
+                pass
+
+        # spec-133 D-133-12: flutter takes precedence over dart when
+        # pubspec.yaml carries a ``flutter:`` top-level block.
+        if "pubspec.yaml" in fset:
+            try:
+                pub_text = (Path(dirpath) / "pubspec.yaml").read_text(encoding="utf-8")
+                if "flutter:" in pub_text:
+                    stacks.add("flutter")
+                    stacks.discard("dart")
+            except OSError:
+                pass
+
     return stacks, ides
 
 
@@ -192,41 +216,41 @@ def detect_stacks(root: Path) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-def detect_ai_providers(root: Path) -> list[str]:
-    """Detect AI coding assistants configured in *root*.
+def detect_surfaces(root: Path) -> list[str]:
+    """Detect AI Surfaces configured in *root*.
 
-    Root-level only — ``.claude/``, ``.github/``, and ``.gemini/`` are project-root markers.
+    spec-133 D-133-06: 7 Surfaces. Root-level only — ``.claude/``,
+    ``.github/``, ``.gemini/``, ``.opencode/``, ``.cursor/``, ``.codex/``,
+    ``.agent/`` are project-root markers.
     """
-    providers: list[str] = []
+    surfaces: list[str] = []
 
     if (root / ".claude").is_dir():
-        providers.append("claude_code")
+        surfaces.append("claude-code")
 
     if (root / ".gemini").is_dir() or (root / "GEMINI.md").is_file():
-        providers.append("gemini")
+        surfaces.append("gemini-cli")
 
     copilot_instructions = (root / ".github" / "copilot-instructions.md").is_file()
     copilot_skills = (root / ".github" / "skills").is_dir()
     if copilot_instructions or copilot_skills:
-        providers.append("github_copilot")
+        surfaces.append("github-copilot")
 
     codex_instruction_file = (root / "AGENTS.md").is_file()
     codex_tree = (root / ".codex").is_dir()
     if codex_instruction_file or codex_tree:
-        providers.append("codex")
+        surfaces.append("codex")
 
-    return sorted(providers)
+    if (root / ".opencode").is_dir():
+        surfaces.append("opencode")
 
+    if (root / ".cursor").is_dir():
+        surfaces.append("cursor")
 
-# ---------------------------------------------------------------------------
-# IDE detection
-# ---------------------------------------------------------------------------
+    if (root / ".agent").is_dir():
+        surfaces.append("antigravity")
 
-
-def detect_ides(root: Path) -> list[str]:
-    """Recursively scan *root* for IDE config directories, popularity-ordered."""
-    _stacks, ides = _walk_markers(root)
-    return _order_by_popularity(ides, _IDE_POPULARITY)
+    return sorted(surfaces)
 
 
 # ---------------------------------------------------------------------------
@@ -235,15 +259,20 @@ def detect_ides(root: Path) -> list[str]:
 
 
 def detect_vcs(root: Path) -> str:
-    """Detect the VCS provider by delegating to ``detect_from_remote``.
+    """Detect the VCS provider from the git ``origin`` remote.
 
-    Returns ``""`` (empty string) when detection fails. The empty value
-    signals the wizard to show no pre-selection.
-    ``detect_from_remote()`` in ``vcs/factory.py`` is NOT modified — it
-    still returns ``"github"`` as its own fallback. This wrapper intercepts
-    exceptions to return ``""`` instead.
+    Returns ``""`` (empty string) when no ``origin`` remote is configured
+    — this is the explicit "ambiguous" signal that triggers the wizard's
+    interactive VCS prompt (D-133-17 amendment, option 3).
+
+    Returns ``"github"`` or ``"azure_devops"`` when the remote URL is
+    parseable. ``detect_from_remote()`` in ``vcs/factory.py`` is preserved
+    untouched (other callers depend on its github-default behaviour).
     """
     try:
+        ok, output = run_git(["remote", "get-url", "origin"], root)
+        if not ok or not output.strip():
+            return ""
         return detect_from_remote(root)
     except Exception:
         logger.debug("VCS detection failed, returning empty", exc_info=True)
@@ -258,13 +287,12 @@ def detect_vcs(root: Path) -> str:
 def detect_all(root: Path) -> DetectionResult:
     """Run all detection functions and return an aggregated result.
 
-    Uses a single walker pass for stacks + IDEs to avoid double traversal.
-    AI provider detection remains root-level only.
+    Uses a single walker pass for stacks to avoid double traversal.
+    Surface detection remains root-level only.
     """
-    raw_stacks, raw_ides = _walk_markers(root)
+    raw_stacks, _raw_ides = _walk_markers(root)
     return DetectionResult(
         stacks=_order_by_popularity(raw_stacks, _STACK_POPULARITY),
-        providers=detect_ai_providers(root),
-        ides=_order_by_popularity(raw_ides, _IDE_POPULARITY),
+        surfaces=detect_surfaces(root),
         vcs=detect_vcs(root),
     )

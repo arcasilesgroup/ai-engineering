@@ -1,0 +1,12 @@
+
+ Usage: ai-eng risk show [OPTIONS] DEC_ID
+
+ Show full detail for a single risk acceptance decision.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    dec_id      TEXT  DEC-XXXX-YYYY ID to inspect. [required]               │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --format        TEXT  Output format: human, json. [default: human]           │
+│ --help                Show this message and exit.                            │
+╰──────────────────────────────────────────────────────────────────────────────╯

@@ -47,3 +47,34 @@ class PrereqOutOfRange(PrereqMissing):
     Specialises :class:`PrereqMissing` so a single ``except PrereqMissing``
     clause handles both ``absent`` and ``out-of-range`` cases.
     """
+
+
+EXIT_STACK_DRIFT: int = 78
+"""Exit code emitted when AIENG_STACK_DRIFT_STRICT=1 and stack drift is detected.
+
+spec-133 D-133-23 / D-133-24: structured machine-readable contract for
+the AI cognitive recovery loop. The hook output carries:
+
+    Reason: stack-drift
+    Detected stack(s): <list>
+    Missing toolchain(s): <list>
+    Recovery (shell): ai-eng doctor --fix
+    Then retry (in AI surface): /<original command>
+
+spec-134 D-134-03 semantic overload: the same exit code 78 also signals
+``/ai-build --no-hitl`` blockers. Both callers share one structured
+envelope (`Reason / Detected / Recovery / Then retry`); the ``Reason:``
+field disambiguates the two surfaces:
+
+    Reason: stack-drift            (D-133-23/24)
+    Reason: no-hitl-blocker        (D-134-03 — quality blocker / BLOCKED task)
+    Reason: no-hitl-refused        (D-134-03 — multi-concern plan refused)
+
+No new exit-code constant is introduced; consumers parse the ``Reason:``
+field to route recovery. See ``.claude/skills/ai-build/handlers/no-hitl.md``
+for the no-HITL envelope contract.
+"""
+
+
+class StackDriftBlocked(RuntimeError):
+    """Raised when stack drift is detected and strict mode is active."""

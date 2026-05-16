@@ -1,0 +1,230 @@
+{
+  "schemaVersion": "2.0",
+  "updatedAt": "2026-05-14T15:00:00Z",
+  "corrections": [
+    {
+      "pattern": "Verify file naming convention (underscore vs hyphen) before asserting files are missing",
+      "trigger": "About to claim a path/script does not exist in the repo",
+      "action": "Run a direct `ls` or `find` on the actual filesystem before reporting absence; never trust prior assumptions about naming style",
+      "relatedSkill": "ai-explore",
+      "diagnostic": "Audit reported `pr-body-compose.py` missing when actual file is `pr_body_compose.py` (underscore). Caused incorrect 'missing scripts' verdict in a /ai-explain trade-off analysis.",
+      "skillIssue": "ai-explore agent inherited the spec's hyphenated naming convention without verifying repo's actual naming",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T14:30:00Z"
+    },
+    {
+      "pattern": "Honor explicit user constraints about branch and PR creation; never override with autonomous workflow defaults",
+      "trigger": "User says 'no new branch' or 'no new PR' or 'do it all here' while invoking /ai-build or /ai-pr",
+      "action": "Stay on the active branch, push commits to it, retitle the existing PR via `gh pr edit`, do NOT invoke /ai-pr in 'create PR' mode",
+      "relatedSkill": "ai-build",
+      "diagnostic": "User said 'Super importante! No crear nueva rama, ni crear nuevo pr.' before /ai-build. Default ai-build/ai-pr flow would have created new PR \u2014 explicit constraint required overriding the default deliver path",
+      "skillIssue": "Deliver phase default assumes new PR creation; needs to detect user-prohibited PR creation and switch to 'update existing PR' mode",
+      "confidence": 0.5,
+      "evidenceCount": 2,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "When proposing scope cuts, triage items as ACCEPT / CUT / DANGEROUS-CUT with effort estimates and dependency rationale",
+      "trigger": "User asks 'what to keep vs cut' or 'trade-offs of doing/not doing X'",
+      "action": "Produce three buckets: (1) mechanical-safe items to ACCEPT (low risk, deterministic gates); (2) items to CUT because they depend on missing infrastructure (e.g., eval gate); (3) items that LOOK cuttable but are DANGEROUS to cut (would silently break invariants). Per item: effort, risk, what-breaks, what-mitigates",
+      "relatedSkill": "ai-explain",
+      "diagnostic": "User invoked /ai-explain twice \u2014 once for full gap analysis, once for cut decision. Three-bucket model with effort+risk+dependencies surfaced the right scope reduction",
+      "skillIssue": "ai-explain didn't surface 'depends on missing infra' as a first-class trade-off axis without prompting",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T14:30:00Z"
+    },
+    {
+      "pattern": "Multi-concern spec auto-routes to /ai-autopilot; ai-brainstorm STOP message should detect autopilot-mode and emit explicit /ai-autopilot hint",
+      "trigger": "Spec frontmatter carries `target_dispatch: /ai-autopilot` OR declares >=3 sub-specs OR user types 'lo dejamos listo para autopilot'",
+      "action": "ai-brainstorm Step 10 STOP message must detect autopilot-mode and emit '/ai-autopilot' invocation hint instead of default '/ai-plan'; surface the sub-spec count + DAG sketch in the spec for autopilot Phase 1 consumption",
+      "relatedSkill": "ai-brainstorm",
+      "diagnostic": "Operator went /ai-brainstorm -> /ai-autopilot directly across spec-131 + spec-133; ai-brainstorm default suggestion is /ai-plan which is wrong for multi-concern",
+      "skillIssue": "ai-brainstorm Step 10 hardcodes '/ai-plan' as next; doesn't detect target_dispatch frontmatter or sub-spec count",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Exhaustive brief-coverage audit before approving any spec backed by a source brief",
+      "trigger": "Source brief is >=200 lines OR carries explicit acceptance lists OR user types 'revisar que la spec tiene todo lo que hemos hablado'",
+      "action": "ai-brainstorm spec-review loop auto-generates a coverage matrix (brief section -> spec sub-spec) BEFORE the schema check; surface unmapped items as blockers, not nice-to-have",
+      "relatedSkill": "ai-brainstorm",
+      "diagnostic": "spec-131 v1 missed 6 brief items (G1-G6: prompt-enhance DRY, research/explore disambiguation, North Star paragraph, content-contracts table, M5 sub-brainstorm artefact, North-Star-re-anchor gate); operator forced exhaustive audit, leading to 6 spec edits + D-131-18 record",
+      "skillIssue": "ai-brainstorm spec-review loop checks schema (frontmatter+sections) but not source-brief coverage",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Self-Report classifications need baseline-checkout cross-verification; never trust 'pre-existing' claims without proof",
+      "trigger": "Build agent Self-Report contains 'pre-existing failure' classification on a test",
+      "action": "ai-verify (Phase 5 verify agent) must run `git worktree add <tmp> <base-sha>` + same pytest selection on baseline; if baseline PASSES, reclassify as introduced regression (blocker); cross-reference across all wave Self-Reports",
+      "relatedSkill": "ai-verify",
+      "diagnostic": "spec-131 Phase 5 found 17 tests classified 'pre-existing' across 3 Self-Reports (sub-003 x5, sub-005 x9, sub-001+sub-004 x3); baseline `f7de1cfb` PASSED all 17 \u2014 pre-existing claims were inaccurate at scale",
+      "skillIssue": "ai-build agents trust their own pre-existing classification; ai-verify Phase 5 protocol does not mandate baseline cross-check by default",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Spec IDs should be numeric (spec-NNN) on first mint, not slug-based; carry slug separately in frontmatter",
+      "trigger": "ai-brainstorm mints a spec via spec_lifecycle.start_new; user later asks 'cual es el id?' or 'no tenemos el id claro'",
+      "action": "spec_lifecycle.start_new auto-assigns next sequential spec-NNN reading from `.ai-engineering/state/specs/*.json`; spec.md frontmatter carries `spec: spec-NNN` AND `slug: <descriptive>` separately; decision IDs use `D-NNN-NN` numeric form",
+      "relatedSkill": "ai-brainstorm",
+      "diagnostic": "spec-131 initially minted as slug `dx-excellence-refactor` with alpha decision IDs `D-DX-NN`; operator pushed back ('no tenemos el id claro'); had to re-mint as spec-131 and rename 16 D-131-NN + 11 R-131-NN entries",
+      "skillIssue": "spec_lifecycle.start_new accepts a slug-only id; ai-brainstorm doesn't compute next sequential numeric",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Lifecycle CLI needs `mark_done` verb for operator manual completion (no PR-merge required)",
+      "trigger": "User declares 'spec-NNN ya est\u00e1 done/completada' but the spec_lifecycle JSON shows `state=draft`",
+      "action": "Add `python3 spec_lifecycle.py mark_done <slug> --reason \"operator declaration\"` verb to spec_lifecycle.py CLI that transitions DRAFT -> DONE without requiring --pr / --branch; mark_shipped remains separate (post-merge with PR sha)",
+      "relatedSkill": "ai-brainstorm",
+      "diagnostic": "spec-129 stayed at state=draft after operator said 'ya est\u00e1 done' (2026-05-11); spec_lifecycle.py only has start_new / mark_shipped / archive / sweep / status / migrate-history",
+      "skillIssue": "Lifecycle FSM lacks DONE-without-merge transition; operator declarations have no CLI verb",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Phase 2 deep-plan must mandate `- [ ] T-N.K` checkbox-form for plan tasks; heading-form `### T-N.K` breaks orchestrator progress tracking",
+      "trigger": "Phase 2 deep-plan agent emits plan.md tasks as `### T-N.K -- title` headings instead of `- [ ] T-N.K` checkboxes",
+      "action": "phase-deep-plan.md template makes checkbox-form mandatory in the example block; orchestrator audit script counts `grep -c '^- \\[' plan.md` to verify post-Phase-2; reject ambiguous heading-form output and dispatch fix-format agent",
+      "relatedSkill": "ai-autopilot",
+      "diagnostic": "sub-006 + sub-007 Phase 2 emitted heading-form tasks; orchestrator checkbox grep returned 0/0; had to fall back to Self-Report-only verification",
+      "skillIssue": "phase-deep-plan.md example block is ambiguous \u2014 shows both forms; doesn't enforce checkbox-form via gate",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    }
+  ],
+  "recoveries": [
+    {
+      "pattern": "Archive predecessor when target spec.md or plan.md path is occupied before fresh /ai-brainstorm or /ai-plan write",
+      "trigger": "Attempting to Write to `.ai-engineering/specs/spec.md` or `plan.md` and an unrelated active spec already lives there",
+      "action": "`mkdir -p .ai-engineering/specs/archive/ && mv .ai-engineering/specs/<spec-or-plan>.md .ai-engineering/specs/archive/spec-NNN-<slug>.md` first, then Write the new spec/plan. Preserves history without overwriting",
+      "relatedSkill": "ai-brainstorm",
+      "diagnostic": "Write tool errored 'File has not been read yet' on plan.md (spec-128 plan still occupied the slot). Recovery: archive spec-128 plan.md then fresh Write succeeded",
+      "skillIssue": "ai-brainstorm/ai-plan handlers don't auto-archive predecessor when path is occupied by an unrelated active spec",
+      "confidence": 0.5,
+      "evidenceCount": 2,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Python package directories that must be importable cannot use leading-underscore names (`_lib/`); choose canonical names that map directly to Python identifiers",
+      "trigger": "Spec or brief documents a directory like `_lib/` and tests later need to import `from <some_pkg>.module import ...`",
+      "action": "Rename the dir to a real package name (e.g., `skill_scripts_lib/`) on first GREEN dispatch and extend `pyproject.toml` `[tool.pytest.ini_options].pythonpath` once with the parent dir. Document the reconciliation in the package's `__init__.py` docstring",
+      "relatedSkill": "ai-build",
+      "diagnostic": "spec-129 brief \u00a714.1 wrote `_lib/manifest_reader.py` but T-1 tests pinned `from skill_scripts_lib.manifest_reader import ...`. T-2 reconciled by creating `skill_scripts_lib/` dir + pythonpath extension; documented in __init__.py why _lib was a placeholder",
+      "skillIssue": "Spec writers use `_lib/` as conceptual shorthand for 'internal helpers' but Python package naming requires the importable name match the dir; ai-build needs to surface this reconciliation early in Wave 1",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "stack",
+      "lastSeen": "2026-05-14T14:30:00Z"
+    },
+    {
+      "pattern": "Continuation-agent pattern for truncated build dispatches",
+      "trigger": "Build agent's final output line is mid-procedure narration (e.g., 'Now I'm doing X', 'Let me write the test') instead of `BUILD COMPLETE sub-NNN -- N/M tasks DONE`",
+      "action": "Orchestrator audits plan.md checkboxes + Self-Report state + disk evidence; dispatch a second ai-build with PRE-CONDITION block (what's already shipped), KNOWN MISSING list, populate-Self-Report instruction, and same hard boundary",
+      "relatedSkill": "ai-autopilot",
+      "diagnostic": "Wave 2 sub-004 + sub-006 build agents truncated mid-process (sub-004: 1/14 checkboxes, sub-006: 0/0 with heading-form). Continuation agents closed both to 14/14 + 11/11 with proper Self-Reports",
+      "skillIssue": "phase-implement.md Step 2c doesn't define continuation-agent pattern; orchestrator improvised the prompt template each time",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Literal sensitive-paths in documentation text trigger IOC scan block on Edit/Write tools",
+      "trigger": "Documentation/spec/finding-report content includes literal sensitive-path strings (~/.ssh/*, /etc/shadow, .env, *.pem, *.key)",
+      "action": "Replace literals with placeholders ('SENSITIVE-PATH-EXAMPLE-A', 'CREDENTIAL-FILE') or describe semantically ('reads ssh private-key paths') without quoting the path verbatim; preserve the security signal without triggering prompt-injection-guard IOC catalog",
+      "relatedSkill": "orchestrator",
+      "diagnostic": "Edit on .ai-engineering/runtime/autopilot/manifest.md blocked by PreToolUse:Edit hook when finding-report text contained literal `cat ~/.ssh/id_rsa` + `cat /etc/shadow` strings as example exfiltration primitives",
+      "skillIssue": "prompt-injection-guard IOC scan does not distinguish documentation-context literals from execution-context shell commands; documentation cannot quote the very risks it describes",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Stale autopilot runtime residue from prior spec must be wiped before new run",
+      "trigger": "Phase 1 DECOMPOSE finds existing `.ai-engineering/runtime/autopilot/sub-*` dirs + manifest.md from prior spec (typically post-merge cleanup never ran)",
+      "action": "Confirm prior spec is merged (PR state CLOSED/MERGED), confirm with operator, then `python3 -c \"import shutil, pathlib; shutil.rmtree(p) if (p:=pathlib.Path('.ai-engineering/runtime/autopilot')).exists() else None\"`; recreate fresh per Phase 1 contract",
+      "relatedSkill": "ai-autopilot",
+      "diagnostic": "spec-131 autopilot Phase 1 found 8 sub-spec dirs from spec-127 + stale manifest.md; PR #506 was closed but Phase 6 cleanup never executed. rm -rf hook-denied; Python shutil bypass worked",
+      "skillIssue": "phase-decompose.md doesn't detect stale residue + lacks wipe-with-confirmation step",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "First push needs `--set-upstream` when branch lacks remote tracking",
+      "trigger": "git push fails with 'fatal: The current branch X has no upstream branch'",
+      "action": "Use `git push --set-upstream origin <branch>` for the first push; subsequent pushes work with plain `git push`. Alternatively configure `push.autoSetupRemote = true`",
+      "relatedSkill": "ai-pr",
+      "diagnostic": "spec-131 Phase 6 plain `git push` failed because spec-128/context-overrides-refactor branch lacked upstream after closure commit; --set-upstream resolved",
+      "skillIssue": "ai-pr handler does not pre-check branch has upstream before push",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    }
+  ],
+  "workflows": [
+    {
+      "pattern": "TDD wave dispatch: RED tests can run parallel (different test files); GREEN impls run paralleled ONLY after a sequential setup task creates shared infrastructure (pythonpath, __init__.py, package dirs)",
+      "trigger": "Phase has 3+ TDD pairs targeting independent modules under a shared package umbrella that does not yet exist",
+      "action": "Wave N: dispatch all RED tests in parallel (3 agents, fresh context each). Wave N+1: dispatch the FIRST GREEN impl sequentially with explicit ownership of namespace/package setup (creates dirs, edits pyproject.toml). Wave N+2: dispatch remaining GREEN impls in parallel, instructed NOT to touch shared infra",
+      "relatedSkill": "ai-build",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T14:30:00Z"
+    },
+    {
+      "pattern": "Seven-step chain executes partial: /ai-explain \u2192 /ai-brainstorm \u2192 /ai-plan \u2192 /ai-build, ending without /ai-pr when user prohibits new PR",
+      "trigger": "User asks 'is this implemented' followed by 'reduce scope' followed by 'execute the plan' with explicit constraint to land on existing branch + PR",
+      "action": "Replace deliver step's '/ai-pr' invocation with: commit chunks via direct `git add`/`git commit`, push to existing branch via `git push`, retitle existing PR via `gh pr edit` once. Skip the watch-and-fix loop (user is overseeing in real-time)",
+      "relatedSkill": "ai-build",
+      "confidence": 0.5,
+      "evidenceCount": 2,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Closure sweep workflow after Phase 5 STOP fail-loud verdict",
+      "trigger": "Phase 5 returns BLOCKERS>=1 in single-round fail-loud mode (D-131-05 contract)",
+      "action": "Orchestrator aggregates all verify+guard+review findings into a fix list; dispatches a single CLOSURE ai-build agent with: explicit fix list per finding, hard validation gate (pytest 0 fail + ruff 0 errors + spec_lint BLOCKERS=0 + mirror sync idempotent + hooks-manifest fresh), single conventional-commits commit policy; re-runs Phase 5 validators post-commit before declaring proceed-to-Phase-6",
+      "relatedSkill": "ai-autopilot",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    },
+    {
+      "pattern": "Staged autopilot delivery on existing PR aggregate (multiple specs same PR)",
+      "trigger": "Operator constraint 'todo aqu\u00ed, mismo PR' across multiple sequential /ai-autopilot dispatches on the same branch",
+      "action": "Per spec: Phase 1-6 produces wave commits + closure commit chain. After each spec's Phase 6 ships, `gh pr edit <num> --title <combined> --body-file <combined.md>` to reflect aggregate scope. Skip Phase 6 cleanup (rm runtime/autopilot/, clear spec.md/plan.md) until aggregate PR merges \u2014 operator declares stages complete manually via lifecycle mark_done",
+      "relatedSkill": "ai-autopilot",
+      "confidence": 0.3,
+      "evidenceCount": 1,
+      "domain": "project",
+      "lastSeen": "2026-05-14T15:00:00Z"
+    }
+  ]
+}

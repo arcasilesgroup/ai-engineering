@@ -1,0 +1,22 @@
+
+ Usage: ai-eng doctor [OPTIONS] [TARGET]
+
+ Diagnose and optionally fix framework health.
+
+ Exit codes: 0 (pass), 1 (fail), 2 (warnings only). When ``--check
+ hot-path`` is passed, runs the spec-114 advisory hot-path SLO
+ audit and always exits 0 per D-114-03 (advisory through
+ 2026-05-31).
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│   target      [TARGET]  Target project root. Defaults to cwd.                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --fix                  Interactive fix: confirm each remediation.            │
+│ --phase          TEXT  Run only this phase (e.g., hooks, tools, governance). │
+│ --dry-run              Show what --fix would do without executing.           │
+│ --json                 Output report as JSON for agent consumption.          │
+│ --check          TEXT  Run a focused sub-check (e.g., 'hot-path' for SLO     │
+│                        budgets).                                             │
+│ --help                 Show this message and exit.                           │
+╰──────────────────────────────────────────────────────────────────────────────╯

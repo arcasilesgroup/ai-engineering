@@ -150,16 +150,37 @@ class TestStatePhaseChecks:
         assert parseable.status == CheckStatus.OK
 
     def test_fails_on_missing_state(self, installed_project: Path) -> None:
-        state_file = installed_project / ".ai-engineering" / "state" / "install-state.json"
-        state_file.unlink()
-        # With install-state.json missing, diagnose goes into pre-install mode
+        # Spec-125: install_state lives in state.db. Drop the singleton row
+        # to simulate the "framework not installed" state. Diagnose then
+        # falls back to pre-install mode.
+        import sqlite3
+
+        db_path = installed_project / ".ai-engineering" / "state" / "state.db"
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute("DELETE FROM install_state WHERE id = 1")
+            conn.commit()
+        finally:
+            conn.close()
         report = diagnose(installed_project)
         assert report.installed is False
 
     def test_falls_to_preinstall_on_corrupt_state(self, installed_project: Path) -> None:
-        state_file = installed_project / ".ai-engineering" / "state" / "install-state.json"
-        state_file.write_text("{invalid json", encoding="utf-8")
-        # Corrupt JSON means the service cannot load state -- enters pre-install mode
+        # Spec-125: corrupt the install_state.state_json column instead of
+        # the JSON file. Validation in load_install_state must fail and
+        # diagnose() must enter pre-install mode.
+        import sqlite3
+
+        db_path = installed_project / ".ai-engineering" / "state" / "state.db"
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute(
+                "UPDATE install_state SET state_json = ? WHERE id = 1",
+                ("{invalid json",),
+            )
+            conn.commit()
+        finally:
+            conn.close()
         report = diagnose(installed_project)
         assert report.installed is False
 

@@ -10,6 +10,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-progressive-disclosure.py",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -28,11 +38,6 @@
           },
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/strategic-compact.py",
-            "timeout": 5
-          },
-          {
-            "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
             "timeout": 10
           }
@@ -46,6 +51,11 @@
           {
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-guard.py",
             "timeout": 10
           }
         ]
@@ -65,6 +75,11 @@
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-extract.py",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-stop.py",
+            "timeout": 15
           }
         ]
       }

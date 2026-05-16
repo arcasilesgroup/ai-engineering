@@ -19,6 +19,11 @@ _SEMVER_RE = re.compile(
     r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
 
+_ROOT_MANIFEST_REL = Path(".ai-engineering") / "manifest.yml"
+_TEMPLATE_MANIFEST_REL = (
+    Path("src") / "ai_engineering" / "templates" / ".ai-engineering" / "manifest.yml"
+)
+
 
 @dataclass
 class BumpResult:
@@ -162,6 +167,47 @@ def detect_current_version(project_root: Path) -> str:
     return match.group(1).strip()
 
 
+def _update_framework_manifest_version(manifest_path: Path, new_version: str) -> bool:
+    """Update ``framework_version`` in a manifest file when present."""
+    if not manifest_path.is_file():
+        return False
+
+    text = manifest_path.read_text(encoding="utf-8")
+    updated, count = re.subn(
+        r'^(framework_version:\s*")([^"]+)("\s*)$',
+        rf"\g<1>{new_version}\3",
+        text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if count != 1:
+        msg = f"Unable to update framework_version in {manifest_path}"
+        raise ValueError(msg)
+
+    manifest_path.write_text(updated, encoding="utf-8")
+    return True
+
+
+def _sync_framework_manifests(project_root: Path, new_version: str) -> list[Path]:
+    """Sync bundled framework manifests in the framework source repository.
+
+    Installed consumer projects must keep owning ``.ai-engineering/manifest.yml``
+    themselves, so we only touch manifests when the canonical template manifest is
+    present, which identifies the framework source repo.
+    """
+    template_manifest = project_root / _TEMPLATE_MANIFEST_REL
+    if not template_manifest.is_file():
+        return []
+
+    modified: list[Path] = []
+    for rel_path in (_ROOT_MANIFEST_REL, _TEMPLATE_MANIFEST_REL):
+        manifest_path = project_root / rel_path
+        if _update_framework_manifest_version(manifest_path, new_version):
+            modified.append(manifest_path)
+
+    return modified
+
+
 def bump_python_version(project_root: Path, new_version: str) -> BumpResult:
     """Bump version in pyproject.toml (single source of truth)."""
     if not validate_semver(new_version):
@@ -192,6 +238,8 @@ def bump_python_version(project_root: Path, new_version: str) -> BumpResult:
     if registry_path.is_file():
         _update_registry(registry_path, new_version)
         modified.append(registry_path)
+
+    modified.extend(_sync_framework_manifests(project_root, new_version))
 
     return BumpResult(
         files_modified=modified,

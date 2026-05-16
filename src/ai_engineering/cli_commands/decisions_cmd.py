@@ -1,78 +1,104 @@
 """Decision store CLI commands.
 
-Provides `ai-eng decision list`, `ai-eng decision expire-check`,
-and `ai-eng decision record` for managing the decision store
-without AI tokens.
+Provides ``ai-eng decision list``, ``ai-eng decision expire-check``,
+``ai-eng decision record``, and ``ai-eng decision backfill`` for
+managing the canonical ``decisions`` table in ``state.db``.
+
+Per CLAUDE.md §0 bootstrap, ``state.db decisions`` is the source of
+truth (D-132-08 wave; legacy ``decision-store.json`` is deprecated).
+These commands read and write the SQL table directly via
+``state_db.list_decisions`` and ``state_db.upsert_decision_rows_raw``;
+no Pydantic shape is reconstructed for the CLI surface.
 """
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 
 import typer
 
-from ai_engineering.cli_ui import error, header, info, kv, status_line, success
+from ai_engineering.cli_ui import error, header, info, status_line, success
 from ai_engineering.paths import find_project_root
 from ai_engineering.state.observability import emit_control_outcome
-from ai_engineering.state.service import StateService
+from ai_engineering.state.state_db import (
+    list_decisions,
+    state_db_path,
+    upsert_decision_rows_raw,
+)
 
-
-def _load_store(root: Path):
-    path = root / ".ai-engineering" / "state" / "decision-store.json"
-    if not path.exists():
-        return None
-    try:
-        return StateService(root).load_decisions()
-    except (OSError, ValueError):
-        return None
+# Canonical regex for governance decision IDs: ``D-<spec>-<NN>[a-z]?``.
+# Examples: D-127-11, D-131-09b, D-131-09. Matches three-digit specs (100+).
+_DECISION_ID_RE = re.compile(r"\bD-(?P<spec>\d{3})-(?P<num>\d{2}[a-z]?)\b")
 
 
 def decision_list() -> None:
-    """List all decisions in the decision store."""
+    """List all decisions in the canonical state.db ``decisions`` table."""
     root = find_project_root()
-    store = _load_store(root)
+    rows = list_decisions(root)
 
-    if store is None or not store.decisions:
+    if not rows:
         info("Decision store is empty.")
+        info("Run `ai-eng decision backfill` to seed from specs/CHANGELOG.")
         return
 
-    header(f"Decisions ({len(store.decisions)} total)")
+    header(f"Decisions ({len(rows)} total)")
 
-    for d in store.decisions:
-        exp = d.expires_at.strftime("%Y-%m-%d") if d.expires_at else "no expiry"
-        severity = d.severity.value if d.severity else "?"
-        d_status = d.status.value if d.status else "?"
+    for row in rows:
+        decision_id = row.get("decision_id") or "?"
+        spec_id = row.get("spec_id") or "-"
+        d_status = row.get("status") or "?"
+        title = (row.get("title") or "").strip()
+        title_short = title[:80] + ("…" if len(title) > 80 else "")
+        expires_at = row.get("expires_at")
+        expiry_chunk = f" · expires {expires_at[:10]}" if expires_at else ""
         line_status = "ok" if d_status == "active" else "warn"
-        status_line(line_status, d.id, f"{d_status} · {severity} · expires: {exp}")
-        kv("  Context", d.context[:80])
-        kv("  Decision", d.decision[:80])
-        typer.echo("")
+        status_line(
+            line_status,
+            decision_id,
+            f"{spec_id} · {d_status}{expiry_chunk} · {title_short}",
+        )
+
+
+def _parse_expires_at(value: str | None) -> datetime | None:
+    """Parse an ISO-8601 string (date or full timestamp) into UTC datetime."""
+    if not value:
+        return None
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
 def decision_expire_check() -> None:
-    """Check for decisions expiring within 7 days or already expired."""
+    """Flag decisions whose ``expires_at`` is past or within 7 days."""
     root = find_project_root()
-    store = _load_store(root)
+    rows = list_decisions(root, status="active")
 
-    if store is None or not store.decisions:
-        info("No decisions to check.")
+    if not rows:
+        info("No active decisions to check.")
         return
 
     now = datetime.now(tz=UTC)
-    expired = []
-    expiring = []
+    expired: list[dict[str, str | None]] = []
+    expiring: list[tuple[dict[str, str | None], int]] = []
 
-    for d in store.decisions:
-        if d.status.value != "active":
+    for row in rows:
+        raw = row.get("expires_at")
+        if not raw:
             continue
-        if d.expires_at is None:
+        try:
+            exp_dt = datetime.fromisoformat(str(raw))
+        except ValueError:
             continue
-        if d.expires_at <= now:
-            expired.append(d)
-        elif (d.expires_at - now).days <= 7:
-            expiring.append(d)
+        if exp_dt.tzinfo is None:
+            exp_dt = exp_dt.replace(tzinfo=UTC)
+        if exp_dt <= now:
+            expired.append(row)
+        elif (exp_dt - now).days <= 7:
+            expiring.append((row, (exp_dt - now).days))
 
     if not expired and not expiring:
         status_line("ok", "Decisions", "all within validity period")
@@ -80,21 +106,23 @@ def decision_expire_check() -> None:
 
     if expired:
         header(f"Expired ({len(expired)})")
-        for d in expired:
-            status_line("fail", d.id, f"expired {d.expires_at}")
+        for row in expired:
+            decision_id = row.get("decision_id") or "?"
+            expires_at = row.get("expires_at") or ""
+            status_line("fail", decision_id, f"expired {expires_at[:10]}")
         typer.echo("")
 
     if expiring:
         header(f"Expiring soon ({len(expiring)})")
-        for d in expiring:
-            days_left = (d.expires_at - now).days if d.expires_at else 0
-            status_line("warn", d.id, f"expires in {days_left} days")
+        for row, days_left in expiring:
+            decision_id = row.get("decision_id") or "?"
+            status_line("warn", decision_id, f"expires in {days_left} days")
 
 
 def decision_record(
     decision_id: Annotated[
         str,
-        typer.Argument(help="Unique decision ID (e.g. 'd-034-shared-parser')."),
+        typer.Argument(help="Unique decision ID (e.g. 'D-132-08')."),
     ],
     context: Annotated[
         str,
@@ -102,75 +130,61 @@ def decision_record(
     ],
     decision_text: Annotated[
         str,
-        typer.Option("--decision", "-d", help="The decision made."),
+        typer.Option("--decision", "-d", help="The decision made (becomes title)."),
     ],
     spec_id: Annotated[
         str,
         typer.Option("--spec", "-s", help="Spec that owns this decision."),
     ] = "",
-    severity: Annotated[
+    rationale: Annotated[
         str | None,
-        typer.Option("--severity", help="Risk severity: low, medium, high, critical."),
+        typer.Option("--rationale", help="Optional rationale text."),
     ] = None,
-    category: Annotated[
-        str | None,
+    status: Annotated[
+        str,
         typer.Option(
-            "--category",
-            help="Category: risk-acceptance, flow-decision, architecture-decision.",
+            "--status",
+            help="Status: active|expired|revoked|superseded|remediated.",
         ),
-    ] = None,
+    ] = "active",
     expires: Annotated[
         str | None,
-        typer.Option("--expires", help="Expiry date in ISO format (YYYY-MM-DD)."),
+        typer.Option(
+            "--expires",
+            help="Expiry date (ISO-8601 date or datetime, e.g. 2026-06-01).",
+        ),
     ] = None,
 ) -> None:
-    """Record a new decision in the decision store."""
-    from ai_engineering.state.models import (
-        Decision,
-        DecisionStatus,
-        DecisionStore,
-        RiskCategory,
-        RiskSeverity,
-    )
-
+    """Record a new decision into the canonical state.db ``decisions`` table."""
     root = find_project_root()
-    svc = StateService(root)
-    store_path = root / ".ai-engineering" / "state" / "decision-store.json"
 
-    # Load or create store
-    if store_path.exists():
-        try:
-            store = svc.load_decisions()
-        except (OSError, ValueError):
-            store = DecisionStore()
-    else:
-        store = DecisionStore()
-
-    # Check for duplicate ID
-    if store.find_by_id(decision_id):
+    existing = list_decisions(root)
+    if any(r.get("decision_id") == decision_id for r in existing):
         error(f"Decision '{decision_id}' already exists. Use a unique ID.")
         raise typer.Exit(code=1)
 
-    # Parse optional fields
-    parsed_severity = RiskSeverity(severity) if severity else None
-    parsed_category = RiskCategory(category) if category else None
-    parsed_expires = datetime.fromisoformat(expires).replace(tzinfo=UTC) if expires else None
+    try:
+        parsed_expires = _parse_expires_at(expires)
+    except ValueError:
+        error(f"Invalid --expires value: {expires!r}. Use ISO-8601 (YYYY-MM-DD).")
+        raise typer.Exit(code=1) from None
 
-    now = datetime.now(tz=UTC)
-    entry = Decision(
-        id=decision_id,
-        context=context,
-        decision=decision_text,
-        decidedAt=now,
-        spec=spec_id,
-        severity=parsed_severity,
-        risk_category=parsed_category,
-        expires_at=parsed_expires,
-        status=DecisionStatus.ACTIVE,
-    )
+    expires_iso = parsed_expires.isoformat() if parsed_expires else None
 
-    store.decisions.append(entry)
-    svc.save_decisions(store)
+    row = {
+        "decision_id": decision_id,
+        "spec_id": spec_id,
+        "status": status,
+        "title": decision_text,
+        "rationale": rationale,
+        "context": context,
+        "expires_at": expires_iso,
+    }
+
+    attempted = upsert_decision_rows_raw(root, [row])
+    if attempted != 1:
+        error(f"Failed to record decision '{decision_id}'.")
+        raise typer.Exit(code=1)
 
     emit_control_outcome(
         root,
@@ -181,12 +195,172 @@ def decision_record(
         source="cli",
         metadata={
             "decision_id": decision_id,
-            "context": context,
             "spec_id": spec_id or None,
-            "severity": severity,
-            "category": category,
-            "expires": expires,
+            "status": status,
+            "expires_at": expires_iso,
         },
     )
 
-    success(f"Recorded decision '{decision_id}' → decision-store.json + framework-events.")
+    success(f"Recorded decision '{decision_id}' → state.db + framework-events.")
+
+
+# ---------------------------------------------------------------------------
+# Backfill subcommand
+# ---------------------------------------------------------------------------
+
+
+# Source priority: specs are authoritative; CHANGELOG / CONSTITUTION /
+# CLAUDE.md are fallbacks. The first hit in this order wins (most
+# descriptive `title` from spec context).
+_DEFAULT_BACKFILL_GLOBS: tuple[str, ...] = (
+    ".ai-engineering/specs/*.md",
+    "CHANGELOG.md",
+    "CONSTITUTION.md",
+    "CLAUDE.md",
+)
+
+_SOURCE_LABELS = {
+    ".ai-engineering/specs": "specs",
+    "CHANGELOG.md": "changelog",
+    "CONSTITUTION.md": "constitution",
+    "CLAUDE.md": "claude.md",
+}
+
+
+def _label_for_path(rel_path: str) -> str:
+    """Map a relative path to a short source label for the report."""
+    for prefix, label in _SOURCE_LABELS.items():
+        if rel_path == prefix or rel_path.startswith(prefix + "/"):
+            return label
+    return "other"
+
+
+def _iter_source_files(root: Path, globs: tuple[str, ...]) -> list[Path]:
+    """Expand ``globs`` relative to ``root`` preserving priority order."""
+    seen: set[Path] = set()
+    ordered: list[Path] = []
+    for pattern in globs:
+        for path in sorted(root.glob(pattern)):
+            if path.is_file() and path not in seen:
+                seen.add(path)
+                ordered.append(path)
+    return ordered
+
+
+def _scan_decisions(root: Path, files: list[Path]) -> list[dict[str, str | None]]:
+    """Extract unique ``D-XXX-NN`` references from ``files``.
+
+    First hit per ``decision_id`` wins (so specs aporta the title before
+    CHANGELOG / CONSTITUTION / CLAUDE.md fallbacks override it).
+    """
+    found: dict[str, dict[str, str | None]] = {}
+    for path in files:
+        rel = path.relative_to(root).as_posix()
+        source_label = _label_for_path(rel)
+        try:
+            lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+        except OSError:
+            continue
+        for lineno, raw_line in enumerate(lines, start=1):
+            for match in _DECISION_ID_RE.finditer(raw_line):
+                decision_id = f"D-{match.group('spec')}-{match.group('num')}"
+                if decision_id in found:
+                    continue
+                line_stripped = raw_line.strip()
+                title = line_stripped[:200]
+                found[decision_id] = {
+                    "decision_id": decision_id,
+                    "spec_id": f"spec-{match.group('spec')}",
+                    "status": "active",
+                    "title": title,
+                    "rationale": None,
+                    "context": f"{rel}:{lineno}",
+                    "consequences": None,
+                    "superseded_by": None,
+                    "_source": source_label,
+                }
+    return list(found.values())
+
+
+def decision_backfill(
+    sources: Annotated[
+        list[str] | None,
+        typer.Option(
+            "--source",
+            help=(
+                "Glob (relative to repo root) to scan. Repeatable. "
+                "Default: specs + CHANGELOG.md + CONSTITUTION.md + CLAUDE.md."
+            ),
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="List entries without writing."),
+    ] = False,
+) -> None:
+    """Backfill the decisions table from markdown sources.
+
+    Scans the default four sources (specs + CHANGELOG.md + CONSTITUTION.md
+    + CLAUDE.md) -- or the operator-supplied ``--source`` globs -- for
+    ``D-<spec>-<NN>`` references, extracting the surrounding line as the
+    decision title. UPSERT is idempotent: re-running is a no-op once
+    rows already match.
+    """
+    root = find_project_root()
+    db_path = state_db_path(root)
+
+    globs = tuple(sources) if sources else _DEFAULT_BACKFILL_GLOBS
+    files = _iter_source_files(root, globs)
+    if not files:
+        info("No source files matched the requested globs.")
+        return
+
+    rows = _scan_decisions(root, files)
+    if not rows:
+        info("No decision IDs (D-XXX-NN) found in the scanned sources.")
+        return
+
+    by_source: dict[str, int] = {}
+    for row in rows:
+        label = str(row.get("_source") or "other")
+        by_source[label] = by_source.get(label, 0) + 1
+
+    header(f"Backfill candidates ({len(rows)} total)")
+    for row in sorted(rows, key=lambda r: r.get("decision_id") or ""):
+        decision_id = row.get("decision_id") or "?"
+        spec_id = row.get("spec_id") or "-"
+        source_label = row.get("_source") or "?"
+        title = (row.get("title") or "").strip()
+        title_short = title[:60] + ("…" if len(title) > 60 else "")
+        status_line(
+            "ok",
+            decision_id,
+            f"{spec_id} · {source_label} · {title_short}",
+        )
+
+    by_source_pretty = ", ".join(f"{k}={v}" for k, v in sorted(by_source.items()))
+    info(f"Sources: {by_source_pretty}")
+
+    if dry_run:
+        info("Dry run: no rows written.")
+        return
+
+    write_rows = [{k: v for k, v in row.items() if k != "_source"} for row in rows]
+    attempted = upsert_decision_rows_raw(root, write_rows)
+
+    emit_control_outcome(
+        root,
+        category="governance",
+        control="decision-backfill",
+        component="decision-store",
+        outcome="success",
+        source="cli",
+        metadata={
+            "count": attempted,
+            "by_source": by_source,
+            "db_path": str(db_path),
+            "globs": list(globs),
+        },
+    )
+
+    success(f"Backfilled {attempted} decision rows → state.db.")

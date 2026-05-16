@@ -307,11 +307,18 @@ def _try_install(package: str) -> bool:
 
 
 def check_operational_readiness(project_root: Path) -> ReadinessReport:
-    """Check auth/pipeline/policy readiness from config and install state."""
+    """Check auth/pipeline/policy readiness from config and install state.
+
+    Spec-125: install_state lives in state.db's ``install_state`` table
+    (singleton row at id=1). The presence of state.db plus a populated
+    row is the new install-completed signal. When state.db is missing
+    or the singleton row is empty, return an empty report so first-
+    install flows continue to work.
+    """
     report = ReadinessReport()
     state_dir = project_root / ".ai-engineering" / "state"
-    state_path = state_dir / "install-state.json"
-    if not state_path.exists():
+    db_path = state_dir / "state.db"
+    if not db_path.is_file():
         return report
 
     try:
@@ -319,7 +326,7 @@ def check_operational_readiness(project_root: Path) -> ReadinessReport:
         state = load_install_state(state_dir)
     except Exception:
         report.tools.append(
-            ToolInfo(name="state", available=False, version=None, path=str(state_path))
+            ToolInfo(name="state", available=False, version=None, path=str(db_path))
         )
         return report
 

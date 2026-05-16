@@ -1,11 +1,15 @@
 ---
 name: ai-docs
-description: "Use for documentation lifecycle: updating CHANGELOG.md, refreshing README files, scaffolding or syncing solution intent architecture docs, pushing to external docs portals, and verifying documentation coverage. Also invoked automatically by /ai-pr. Trigger for 'update the changelog', 'the README is stale', 'document this feature', 'docs portal needs updating', 'did we document all changes'."
-effort: high
+description: "Manages the documentation lifecycle: CHANGELOG, README, solution-intent architecture docs, external docs portals, and documentation quality gates. Auto-invoked by /ai-pr. Trigger for 'update the changelog', 'the README is stale', 'document this feature', 'docs portal needs updating', 'did we document all changes'. Not for blog or pitch content; use /ai-prose instead. Not for marketing collateral; use /ai-marketing instead."
+effort: mid
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 tags: [documentation, architecture, governance]
+model_tier: sonnet
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-docs/SKILL.md
+edit_policy: generated-do-not-edit
 ---
-
 
 
 # Documentation
@@ -34,15 +38,15 @@ Unified documentation skill covering the full project documentation lifecycle. S
 
 ## Routing Table
 
-| Argument | Handler | Gate Flag |
-|----------|---------|-----------|
-| `changelog` | `handlers/changelog.md` | `documentation.auto_update.changelog` |
-| `readme` | `handlers/readme.md` | `documentation.auto_update.readme` |
-| `solution-intent-init` | `handlers/solution-intent-init.md` | none (manual invocation) |
-| `solution-intent-sync` | `handlers/solution-intent-sync.md` | `documentation.auto_update.solution_intent` |
-| `solution-intent-validate` | `handlers/solution-intent-validate.md` | none (read-only) |
-| `docs-portal` | `handlers/docs-portal.md` | `documentation.external_portal.enabled` |
-| `docs-quality-gate` | `handlers/docs-quality-gate.md` | none (always runs when dispatched) |
+| Argument                   | Handler                                | Gate Flag                                   |
+| -------------------------- | -------------------------------------- | ------------------------------------------- |
+| `changelog`                | `handlers/changelog.md`                | `documentation.auto_update.changelog`       |
+| `readme`                   | `handlers/readme.md`                   | `documentation.auto_update.readme`          |
+| `solution-intent-init`     | `handlers/solution-intent-init.md`     | none (manual invocation)                    |
+| `solution-intent-sync`     | `handlers/solution-intent-sync.md`     | `documentation.auto_update.solution_intent` |
+| `solution-intent-validate` | `handlers/solution-intent-validate.md` | none (read-only)                            |
+| `docs-portal`              | `handlers/docs-portal.md`              | `documentation.external_portal.enabled`     |
+| `docs-quality-gate`        | `handlers/docs-quality-gate.md`        | none (always runs when dispatched)          |
 
 If no argument is provided, display the routing table above and ask the user which handler to use.
 
@@ -58,12 +62,31 @@ If no argument is provided, display the routing table above and ask the user whi
 /ai-docs docs-quality-gate        # verify doc coverage of all changes
 ```
 
+## Examples
+
+### Example 1 — sync the changelog before a release
+
+User: "update the changelog with everything since v1.2"
+
+```
+/ai-docs changelog
+```
+
+Reads recent commits + closed PRs since the last tagged release, drafts a Keep-a-Changelog formatted entry, opens for review.
+
+### Example 2 — verify doc coverage before merge
+
+User: "did we document all the changes in this PR?"
+
+```
+/ai-docs docs-quality-gate
+```
+
+Diffs changed surfaces against documentation; flags un-documented public APIs or feature flags.
+
 ## Integration
 
-- **Called by**: `/ai-pr` (step 6.5) via parallel subagent dispatch
-- **Calls**: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-init.md`, `handlers/solution-intent-sync.md`, `handlers/solution-intent-validate.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`
-- **Reads**: `.ai-engineering/manifest.yml` (auto_update flags, external_portal config), `docs/solution-intent.md`, `.ai-engineering/state/decision-store.json`
-- **NOT** `/ai-write` -- for prose content (blog posts, pitch decks) use `/ai-write` instead
+Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-*.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`. Reads: `manifest.yml`, `docs/solution-intent.md`, `state.db.decisions`. See also: `/ai-prose` (prose content), `/ai-marketing` (outreach).
 
 ## Governance Notes
 
@@ -73,11 +96,11 @@ If no argument is provided, display the routing table above and ask the user whi
 
 **Ownership**: `docs/solution-intent.md` is project-managed. Sync updates data but never removes user-authored content. `ai-eng update` does not touch this file.
 
-**Writing**: use `/ai-write` patterns for document generation. Handlers define WHAT sections and data to gather; `/ai-write` defines HOW to write them.
+**Writing**: use `/ai-prose` patterns for document generation. Handlers define WHAT sections and data to gather; `/ai-prose` defines HOW to write them.
 
 ## References
 
 - `.codex/skills/ai-pr/SKILL.md` -- PR workflow that dispatches documentation subagents
-- `.codex/skills/ai-write/SKILL.md` -- documentation writing patterns
+- `.codex/skills/ai-prose/SKILL.md` -- documentation writing patterns
 - `.ai-engineering/manifest.yml` -- documentation flags and portal config
-$ARGUMENTS
+  $ARGUMENTS

@@ -1,8 +1,13 @@
 ---
 name: ai-start
-description: Use at the start of every coding session to load project context, activate instinct observation, and display a welcome dashboard with recent activity, active work status, board items, and available commands. Trigger for 'hello', 'let's start', 'good morning', 'what's the status', 'get me up to speed', 'I'm back', or any session-opening message. Also invokable mid-session to re-bootstrap. Not for human onboarding — use /ai-guide for that.
-effort: medium
+description: "Bootstraps a coding session: loads project context, activates session observation, displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-onboard instead. Not for governance review; use /ai-governance instead."
+effort: mid
 argument-hint: 
+model_tier: sonnet
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-start/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -10,110 +15,115 @@ argument-hint:
 
 ## Purpose
 
-Session welcome dashboard. Loads project context, activates instinct observation, and shows everything needed to begin working. Users run this because the dashboard is useful — context loading is a built-in benefit.
-This skill is invoked as an IDE slash command (`/ai-start`). It is not an `ai-eng start` terminal command, and no CLI fallback should be inferred unless the CLI docs explicitly define one.
+Session welcome dashboard. The dashboard is fully rendered by a deterministic
+Python script (`session_bootstrap.py`). The IDE agent does no per-field
+derivation — it runs **exactly one command**, prints the markdown verbatim,
+and stops.
+
+Why this contract exists: re-probing git, sqlite, manifests, board APIs, etc.
+from the IDE side blows the latency budget (operator-pain #18b). The script
+collects every field, caches the board call (stale-while-revalidate), and
+emits ready-to-display markdown. Cold path: < 3 s wall (with board). Warm
+path: < 500 ms.
 
 ## Process
 
-### Step 1: Load context
+Run exactly this argv — literal, no flags moved or shells added — and print
+its stdout verbatim:
 
-Read `session.context_files` from `.ai-engineering/manifest.yml` to discover which files to load. If `manifest.yml` is missing or `session.context_files` is not defined, skip context loading and note in the dashboard: 'manifest not found — run `/ai-constitution` to initialize'. Read each file. Count meaningful data for the summary line (e.g., number of lessons, number of decisions, active risks).
+```
+uv run python .ai-engineering/scripts/session_bootstrap.py --format=markdown
+```
 
-### Step 2: Activate instinct
+That is the whole skill. The script is enrolled in the trusted-script lane
+(`hooks-manifest.json` `trustedArgvs`, D-131-12) so this exact argv bypasses
+RTK rewriting and IOC re-evaluation. Any other invocation form (positional
+flag order changes, plain `python3`, missing `--format`) falls back to the
+full IOC path and degrades latency.
 
-Run `/ai-instinct` to enter observation mode for this session.
+### Hard rules
 
-### Step 3: Gather status
+- Do **not** read the manifest, run `git`, query `sqlite`, hit `gh`, glob
+  the skills/agents tree, or count `LESSONS.md` from the agent side. The
+  script already did all of that and embedded the result inside the
+  markdown payload.
+- Do **not** rewrite the markdown the script emits. The format is the
+  cross-IDE contract (Claude Code, Codex, Gemini CLI, Copilot all render
+  the same bytes).
+- Do **not** invoke `/ai-session-watch` from inside this skill. Observation is
+  always-on via the `PreToolUse` + `PostToolUse` hooks (`instinct-
+  observe.py`) and consolidated at session end by the `Stop` hook
+  (`instinct-extract.py`). The dashboard surfaces an `N to review`
+  CTA when the unconsolidated backlog exceeds the
+  `observations/meta.json` `deltaThreshold` — operators run
+  `/ai-session-watch --review` manually when they see that CTA.
 
-Collect these in parallel:
+### What the dashboard already contains
 
-- **Active spec**: read `.ai-engineering/specs/spec.md` frontmatter — extract title and status. Spec frontmatter is YAML between `---` delimiters. Extract `title` and `status` fields. If file missing or empty: `no active spec`.
-- **Plan progress**: read `.ai-engineering/specs/plan.md` — count checked `[x]` vs total `[ ]` tasks. If missing: `no active plan`.
-- **Recent activity**: run `git log --oneline -5` and generate a 3-5 line human-readable summary. Not the raw log — explain what happened in plain language.
-- **Board status**: follow the Board Display section below.
-- **Instinct proposals**: read `.ai-engineering/instincts/proposals.md` — if it has content beyond the header, count proposals.
+Trust the markdown the script emits. It surfaces every field the
+operator typically asks for next:
 
-### Step 4: Display dashboard
+- **Project identity**: the CONSTITUTION mission as the tagline.
+- **Stack posture**: `surfaces.enabled` ·
+  `gates.mode` — visible in one line so layer drift is obvious.
+- **Counts**: skills, agents, lessons, active decisions, accepted
+  risks, recent_events_7d.
+- **Active work**: spec id + state + title, plan status (including the
+  `shipped-pending-pr-merge` exemption per `plan-schema.md`),
+  task progress.
+- **Recent commits**: last 5 SHA + subject from `git log`.
+- **Recent lessons**: last 3 `### ` headers from `LESSONS.md` with a
+  gist line (no `**Context**:` prefix noise — stripped server-side).
+- **Board**: full per-status breakdown via paginated GraphQL (no
+  sample-size truncation).
+- **Compatibility**: a `### ⚠ Compatibility` block appears only when
+  the manifest deviates from defaults (today: `gates.mode != regulated`).
 
-Render the welcome dashboard as raw Markdown — NOT inside a code block. Markdown renders natively across Claude Code, claude.ai, GitHub Copilot, Codex, and Gemini CLI.
+Do not duplicate or re-render any of these from the agent side.
 
-Read `name` from `.ai-engineering/manifest.yml` for the project header. Budget: ≤ 50 lines.
+### Board behaviour
 
-Template (output directly as Markdown, replacing placeholders):
+The script handles the `gh project item-list` call with a hard 4 s
+subprocess timeout and a stale-while-revalidate cache at
+`.ai-engineering/runtime/board-cache.json` (fresh ≤ 60 s, stale-allowed up
+to 5 min). On board failure the JSON includes `board_summary.unavailable:
+true` and the markdown shows `board unavailable (reason)` — never blocks
+the rest of the dashboard.
 
-````markdown
-## ◈ [name]
+### When the script is unavailable
 
-> LESSONS (N) · CONSTITUTION · manifest (N skills, N agents) · decisions (N active, N risks)
-> instinct · observation mode active
+If the script exits non-zero or the venv has no `uv`, fall back to a
+one-line banner: `ai-start unavailable — repo not bootstrapped, run \`ai-eng
+install\`.` Do **not** reconstruct the dashboard by hand.
 
----
+## Examples
 
-### ▸ Active Work
+### Example 1 — morning bootstrap
 
-- **Spec NNN** — [title] · `status`
-- **Plan** — N/M tasks complete | no active plan
+```
+/ai-start
+```
 
-### ▸ Recent
+Runs the script, prints the dashboard, stops. The dashboard already lists
+the active spec, last 5 commits, board items by status, project counts,
+and the quick-action chips.
 
-- [LLM summary line] (#NNN)
-- [LLM summary line] (#NNN)
-- [3-5 bullets from last 5 commits]
+### Example 2 — mid-session re-bootstrap after `/clear`
 
-### ▸ Board · [provider] [project]
+```
+/ai-start
+```
 
-- N items — Status1: N · Status2: N
-- or: not configured — run `/ai-board-discover`
-
----
-
-`/ai-brainstorm` design · `/ai-debug` fix · `/ai-guide` explore · `/ai-commit` save
-`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-cleanup` tidy
-````
-
-Formatting rules:
-- Use `·` (middle dot U+00B7) as inline separator
-- Status values in inline code backticks: `approved`, `in_progress`, `draft`
-- Plan complete: append ✓ after count
-- PR references in parentheses: (#NNN)
-- No active spec: `no active spec — run /ai-brainstorm`
-- Board unavailable: `board unavailable` — never block the dashboard
-- Proposals (if any): add `### ▸ Proposals` section with count and titles (≤ 3 lines)
-
-## Board Display
-
-1. Read `work_items.provider` from manifest. This is the ONLY field that determines which provider to use.
-2. Branch on the value:
-
-**IF `work_items.provider` is `github`**:
-- If `work_items.github_project.number` is set: read `work_items.github_project.owner` from manifest for the `--owner` flag. `gh project item-list <number> --owner <github_project.owner> --format json --limit 10`
-- Else: `gh issue list --limit 10 --json number,title,state,labels`
-
-**ELSE IF `work_items.provider` is `azure_devops`**:
-- Read `work_items.azure_devops.area_path` from manifest.
-- `az boards query --wiql "SELECT [System.Id],[System.Title],[System.State] FROM WorkItems WHERE [System.AreaPath] UNDER '<area_path>' ORDER BY [System.ChangedDate] DESC" --top 10 -o json`
-
-**ELSE**: show `board provider unknown — check work_items.provider in manifest`.
-
-Show count grouped by status. Keep it to 1-3 lines.
-
-If `work_items` section missing from manifest: show `not configured — run /ai-board-discover`.
-If API call fails: show `board unavailable` and continue. Never block the dashboard.
-
-## Context Budget
-
-| Section | Max lines |
-|---------|-----------|
-| Header + context | 4 |
-| Active work | 4 |
-| Recent activity | 7 |
-| Board | 3 |
-| Quick actions | 2 |
-| Proposals (if any) | 3 |
-| **Total** | **≤ 50** |
+Same single command. The board cache (if still fresh) makes this nearly
+instantaneous.
 
 ## Integration
 
-- **Called by**: user directly, IDE instruction files (FIRST ACTION mandate)
-- **Calls**: `/ai-instinct` (observation mode)
-- **Suggests**: `/ai-board-discover` (board not configured), `/ai-brainstorm` (no active spec)
+- **Called by**: user directly; IDE instruction files (FIRST ACTION mandate
+  per CONSTITUTION).
+- **Calls**: `session_bootstrap.py --format=markdown` (only).
+- **Does not call**: `/ai-session-watch`, `/ai-board discover`, manifest readers,
+  or any other skill. Suggestions (e.g. "no active spec — run
+  `/ai-brainstorm`") are embedded inside the markdown the script emits.
+- **See also**: `/ai-onboard` (human onboarding, different audience),
+  `/ai-repo-tidy` (pre-start hygiene).

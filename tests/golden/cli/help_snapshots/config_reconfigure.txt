@@ -1,0 +1,12 @@
+
+ Usage: ai-eng config reconfigure [OPTIONS]
+
+ Re-run the interactive configuration wizard.
+
+ Routes through ``install --reconfigure`` so the same single-question
+ flow handles both fresh installs and reconfiguration.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

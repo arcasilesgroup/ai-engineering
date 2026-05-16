@@ -8,30 +8,30 @@ import pytest
 
 from ai_engineering.installer.service import install
 
-# Matrix: (providers, vcs, expected_files)
+# Matrix: (surfaces, vcs, expected_files) — spec-133 D-133-16 canonical surface IDs.
 _SINGLE_PROVIDER_CASES = [
-    (["claude_code"], "github", ["CLAUDE.md", ".claude"]),
-    (["claude_code"], "azure_devops", ["CLAUDE.md", ".claude"]),
-    (["github_copilot"], "github", ["AGENTS.md", ".github/copilot-instructions.md"]),
+    (["claude-code"], "github", ["CLAUDE.md", ".claude"]),
+    (["claude-code"], "azure_devops", ["CLAUDE.md", ".claude"]),
+    (["github-copilot"], "github", ["AGENTS.md", ".github/copilot-instructions.md"]),
     (
-        ["github_copilot"],
+        ["github-copilot"],
         "azure_devops",
         ["AGENTS.md", ".github/copilot-instructions.md"],
     ),
-    (["gemini"], "github", ["GEMINI.md", ".gemini"]),
-    (["gemini"], "azure_devops", ["GEMINI.md", ".gemini"]),
+    (["gemini-cli"], "github", ["GEMINI.md", ".gemini"]),
+    (["gemini-cli"], "azure_devops", ["GEMINI.md", ".gemini"]),
     (["codex"], "github", ["AGENTS.md", ".codex"]),
     (["codex"], "azure_devops", ["AGENTS.md", ".codex"]),
 ]
 
 _MULTI_PROVIDER_CASES = [
     (
-        ["claude_code", "github_copilot"],
+        ["claude-code", "github-copilot"],
         "github",
         ["CLAUDE.md", "AGENTS.md", ".claude", ".github/copilot-instructions.md"],
     ),
     (
-        ["claude_code", "gemini"],
+        ["claude-code", "gemini-cli"],
         "github",
         ["CLAUDE.md", "GEMINI.md", ".claude", ".gemini"],
     ),
@@ -60,9 +60,8 @@ class TestInstallMatrix:
         install(
             clean_target,
             stacks=["python"],
-            ides=["terminal"],
             vcs_provider=vcs,
-            ai_providers=providers,
+            surfaces=providers,
         )
         for expected_path in expected:
             full = clean_target / expected_path
@@ -80,9 +79,8 @@ class TestInstallMatrix:
         install(
             clean_target,
             stacks=["python"],
-            ides=["terminal"],
             vcs_provider=vcs,
-            ai_providers=providers,
+            surfaces=providers,
         )
         for expected_path in expected:
             full = clean_target / expected_path

@@ -28,7 +28,7 @@ from ai_engineering.hooks.manager import (
 )
 from ai_engineering.state.defaults import default_install_state
 from ai_engineering.state.models import GateHook, PythonEnvMode
-from ai_engineering.state.service import save_install_state
+from ai_engineering.state.service import load_install_state, save_install_state
 
 # ---------------------------------------------------------------------------
 # Script generation
@@ -308,9 +308,13 @@ class TestInstallHooks:
         # Act
         install_hooks(git_hooks_dir)
 
-        # The hook install completed without error; hashes are now
-        # recorded in install-state.json by the hooks manager.
-        assert (state_dir / "install-state.json").exists()
+        # spec-125: install_state lives in the state.db ``install_state``
+        # singleton row (the legacy JSON projection was deleted in
+        # wave 1). The hooks manager still calls ``save_install_state``
+        # to record hashes; we assert the singleton row is loadable
+        # rather than probing for the forbidden JSON file.
+        assert (state_dir / "state.db").exists()
+        assert load_install_state(state_dir) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -406,9 +410,25 @@ class TestVerifyHooks:
         assert status["commit-msg"] is True
 
     def test_fails_when_no_hash_in_manifest(self, git_hooks_dir: Path) -> None:
-        """Managed hooks without recorded hashes fail verification (fail-closed)."""
-        # Install hooks WITHOUT a manifest — hashes are not recorded
+        """Managed hooks without recorded hashes fail verification (fail-closed).
+
+        Spec-125 cutover: hashes live in state.db's ``install_state.tooling``
+        with the ``hook_hash:`` prefix. We install hooks (which records the
+        hashes), then strip the recorded entries to simulate the
+        "managed-but-unverifiable" condition the test guards against.
+        """
+        from ai_engineering.state.repository import DurableStateRepository
+        from ai_engineering.state.service import save_install_state
+
         install_hooks(git_hooks_dir)
+
+        repo = DurableStateRepository(git_hooks_dir)
+        state = repo.load_install_state()
+        state.tooling = {
+            key: entry for key, entry in state.tooling.items() if not key.startswith("hook_hash:")
+        }
+        save_install_state(git_hooks_dir / ".ai-engineering" / "state", state)
+
         status = verify_hooks(git_hooks_dir)
         # All hooks are managed but have no hashes — must fail
         assert all(v is False for v in status.values())

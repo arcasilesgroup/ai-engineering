@@ -15,6 +15,19 @@ dependencies = [
   "questionary>=2.0,<3.0",
   "ruamel-yaml>=0.18,<1.0",
   "packaging>=24.0,<27.0",
+  # Transitive via typer; pinned to avoid CVE-2026-7246 (SNYK-PYTHON-CLICK-16347201)
+  # Command injection in edit_files() shell=True; affects 8.2.0–8.3.2, fixed in 8.3.3.
+  "click>=8.3.3,<9.0",
+]
+
+[project.optional-dependencies]
+# spec-119 evaluation layer; opt-in via `uv sync --extra eval`. Kept out of the
+# core deps so hook scripts and minimal CI lanes do not pay the deepeval
+# transitive footprint (pydantic-extras, langchain shims, optional LLM grader
+# stubs). Deterministic graders ship with the core extra; LLM graders are
+# follow-up work and would land under a separate `eval-llm` extra.
+eval = [
+  "deepeval>=2.0,<3.0",
 ]
 
 [dependency-groups]
@@ -27,6 +40,10 @@ dev = [
   "types-pyyaml>=6.0,<7.0",
   "pytest-xdist>=3.5,<4.0",
   "python-semantic-release>=9.0,<10",
+  # spec-132 sub-005 D-132-13 — hexagonal direction contract enforcement.
+  # ``lint-imports`` runs against ``[tool.importlinter]`` in this file and
+  # is policed by ``tests/architecture/test_hexagonal.py``.
+  "import-linter>=2.0,<3.0",
 ]
 
 # === USER CONFIGURATION: Enterprise Artifact Feed ===
@@ -76,6 +93,11 @@ dev = [
 
 [project.scripts]
 ai-eng = "ai_engineering.cli:app"
+# spec-127 M1: conformance lint over SKILL.md + agent .md files.
+# Top-level package names per D-127-13 (PEP 8 underscore naming).
+skill_lint = "skill_lint.cli:main"
+# spec-128 sub-d: repo-wide anti-suppression gate (CONSTITUTION.md Article VII).
+no_suppression = "no_suppression.cli:main"
 
 [tool.ruff]
 line-length = 100
@@ -86,12 +108,42 @@ extend-exclude = ["tests/fixtures/**/*.json"]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["ai_engineering"]
+known-first-party = [
+  "ai_engineering",
+  "skill_domain",
+  "skill_app",
+  "skill_infra",
+  "skill_lint",
+  "no_suppression",
+]
+
+# spec-132 D-132-12 — Renderer is the single source of truth for CLI output.
+# Direct imports of the four legacy output modules
+# (``ai_engineering.cli_envelope`` / ``cli_ui`` / ``cli_progress`` / ``cli_output``)
+# from ``src/ai_engineering/cli_commands/`` are scoped-banned and policed by
+# ``tests/conformance/test_renderer_banned_imports.py``.
+#
+# We deliberately do NOT enable ``flake8-tidy-imports.banned-api`` here: that
+# rule applies globally and the renderer itself (in ``core/output/renderer.py``)
+# legitimately wraps the four modules. The conformance test scopes the ban to
+# the cli_commands/ directory, which is the precise boundary D-132-12 mandates.
+#
+# Sub-002 wave (this commit): conformance test starts in baseline+regression
+# mode (count must not increase from 59).
+# Sub-004 wave (next): after migration to the Renderer, the baseline drops to
+# 0 and the conformance test becomes a strict ban. No ``pyproject.toml`` edit
+# is required at that boundary — the migration commit only updates
+# ``EXPECTED_VIOLATIONS_BASELINE`` in the conformance test.
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v"
+addopts = "-v -m 'not slow'"
+# spec-127 M1: expose ``tools/`` so ``skill_domain``, ``skill_app``,
+# ``skill_infra``, and ``skill_lint`` import as top-level packages
+# without a project-root ``tools/__init__.py`` (which would make
+# ``tools`` a namespace package and shadow other tooling).
+pythonpath = ["src", "tools", ".ai-engineering/scripts/skills"]
 markers = [
   "unit: Pure logic tests, no I/O, fast (<1s per test)",
   "integration: Tests with local I/O (filesystem, git)",
@@ -101,11 +153,28 @@ markers = [
   "spec_105_red: spec-105 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_106_red: spec-106 RED tests; excluded by default until corresponding GREEN phase commits",
   "spec_107_red: spec-107 RED tests; excluded by default until corresponding GREEN phase commits",
+  "eval: spec-119 evaluation layer unit/integration tests; opt-in via -m eval",
+  "eval_slow: spec-119 eval tests that load deepeval graders; opt-in via -m eval_slow; requires `uv sync --extra eval`",
+  "slow: marks tests as slow (concurrent stress, real I/O); deselected by default",
 ]
 
 [build-system]
 requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
+
+[tool.uv]
+# Override transitive gitpython pulled in by python-semantic-release.
+# CVE-2026-44244 affects 3.1.47; 3.1.49 carries the fix. Direct override
+# unblocks the Security Audit `pip-audit` gate without waiting for the
+# upstream semantic-release release.
+#
+# Override transitive urllib3 (pulled via requests / pip-audit / others).
+# CVE-2026-44431 + CVE-2026-44432 affect 2.6.3; 2.7.0 carries the fix.
+# Same Security-Audit unblock pattern as gitpython.
+override-dependencies = [
+  "gitpython>=3.1.49",
+  "urllib3>=2.7.0",
+]
 
 [tool.semantic_release]
 version_toml = ["pyproject.toml:project.version"]
@@ -122,8 +191,91 @@ allowed_types = ["feat", "fix", "perf", "refactor", "style", "docs", "test", "bu
 minor_types = ["feat"]
 patch_types = ["fix", "perf"]
 
+# spec-132 sub-005 D-132-13 — Hexagonal direction contract.
+#
+# Pragmatic scope (orchestrator decision): physical mass relocation of the
+# flat ``src/ai_engineering/`` tree into ``core/`` and ``adapters/<surface>/``
+# is DEFERRED to a follow-up spec. This contract enforces the DIRECTION
+# conceptually over the existing flat tree: modules grouped under ``core``
+# are forbidden from importing modules grouped under ``adapters``. New code
+# that violates the direction fails CI immediately, regardless of physical
+# layout.
+#
+# Layer membership rationale:
+#   - ``core``     = pure-domain modules (governance, state, policy,
+#                    validator) + the relocated ``ai_engineering.core``
+#                    tree from prior sub-spec waves. Note: ``decisions``
+#                    lives inside ``governance.decision_log``;
+#                    ``spec_lifecycle`` lives outside the package under
+#                    ``.ai-engineering/scripts/`` and is not gated here.
+#   - ``adapters`` = delivery surfaces (Typer command callbacks, installer
+#                    phases, vcs/gh adapters, ide wirings, updater flow,
+#                    issues GitHub-sync adapter).
+# Modules NOT in either layer (e.g., ``cli_envelope``, ``cli_ui``,
+# ``cli_progress``, ``cli_output``, ``cli_factory``, ``cli``, ``cli_preflight``,
+# ``config``, ``credentials``, ``git``, ``hooks``, ``release``, etc.) are
+# transitional shared utilities; they ride for free until a follow-up spec
+# classifies them. The contract DELIBERATELY does not gate them.
+#
+# Enforcement: ``uv run lint-imports`` and
+# ``tests/architecture/test_hexagonal.py``.
+[tool.importlinter]
+root_packages = ["ai_engineering"]
+
+[[tool.importlinter.contracts]]
+name = "core must not import from adapters (spec-132 D-132-13)"
+type = "forbidden"
+source_modules = [
+  "ai_engineering.core",
+  "ai_engineering.governance",
+  "ai_engineering.state",
+  "ai_engineering.policy",
+  "ai_engineering.validator",
+]
+forbidden_modules = [
+  "ai_engineering.cli_commands",
+  "ai_engineering.installer",
+  "ai_engineering.vcs",
+  "ai_engineering.ide",
+  "ai_engineering.updater",
+  "ai_engineering.issues",
+]
+# Baseline of pre-existing direction violations recorded at spec-132
+# sub-005 land time. The contract BLOCKS any NEW violation; the baseline
+# entries below are the legacy entanglements the follow-up relocation
+# spec will untangle. Each ``ignore_imports`` line names the precise
+# source -> target edge that import-linter would otherwise flag. Adding
+# new entries is forbidden without an explicit decision row.
+ignore_imports = [
+  # Renderer (core/output) wraps the legacy cli_ui module which itself
+  # imports updater.service.show_status_after_install. The Renderer
+  # migration deferred elimination of this edge to a follow-up spec
+  # alongside the cli_ui retirement (D-132-12 wrapper-not-replacement).
+  "ai_engineering.cli_ui -> ai_engineering.updater.service",
+  # updater.service still inlines installer template helpers. The
+  # follow-up "mass relocation" spec will split these into ports.
+  "ai_engineering.updater.service -> ai_engineering.installer.templates",
+  # policy.checks.stack_runner shells out to installer launchers (the
+  # OS-launcher abstraction that the installer owns). This edge will
+  # invert once stack_runner depends on a launcher port instead.
+  "ai_engineering.policy.checks.stack_runner -> ai_engineering.installer.launchers",
+  # validator._shared resolves template paths during file-existence
+  # checks. Will invert once a template-path port is introduced.
+  "ai_engineering.validator._shared -> ai_engineering.installer.templates",
+]
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/ai_engineering"]
+# spec-127 M1: top-level conformance lint packages live under ``tools/``
+# but ship as top-level distribution packages (``skill_domain``,
+# ``skill_app``, ``skill_infra``, ``skill_lint``) per D-127-13.
+packages = [
+  "src/ai_engineering",
+  "tools/skill_domain",
+  "tools/skill_app",
+  "tools/skill_infra",
+  "tools/skill_lint",
+  "tools/no_suppression",
+]
 include = [
   "src/ai_engineering/templates/**/*.md",
   "src/ai_engineering/templates/**/*.yml",

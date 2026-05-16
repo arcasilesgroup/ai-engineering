@@ -20,15 +20,14 @@ from ai_engineering.installer.phases import (
 def _ctx(
     tmp_path: Path,
     mode: InstallMode = InstallMode.INSTALL,
-    providers: list[str] | None = None,
+    surfaces: list[str] | None = None,
 ) -> InstallContext:
     return InstallContext(
         target=tmp_path,
         mode=mode,
-        providers=providers or ["claude_code"],
+        surfaces=surfaces or ["claude-code"],
         vcs_provider="github",
         stacks=["python"],
-        ides=["terminal"],
     )
 
 
@@ -73,21 +72,18 @@ class TestGovernancePhase:
         verdict = phase.verify(result, ctx)
         assert verdict.passed
 
-    def test_plan_install_creates_team_seed_actions(self, tmp_path: Path) -> None:
-        """INSTALL mode produces create actions for team seed files."""
+    def test_plan_install_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """INSTALL mode no longer seeds team files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "create"
-            assert a.rationale == "team seed file"
+        assert team_actions == []
 
-    def test_plan_install_skips_team_if_exists(self, tmp_path: Path) -> None:
-        """INSTALL mode with existing team files produces skip actions."""
+    def test_plan_install_ignores_existing_team_files(self, tmp_path: Path) -> None:
+        """INSTALL mode does not plan team actions even if team files already exist."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         # Pre-create team files
@@ -99,38 +95,37 @@ class TestGovernancePhase:
         ctx = _ctx(tmp_path, mode=InstallMode.INSTALL)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "skip"
-            assert a.rationale == "team seed already exists"
+        assert team_actions == []
 
-    def test_plan_fresh_overwrites_team_seeds(self, tmp_path: Path) -> None:
-        """FRESH mode produces overwrite actions for team files."""
+    def test_plan_fresh_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """FRESH mode does not plan team seed files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "overwrite"
+        assert team_actions == []
 
-    def test_plan_repair_skips_team(self, tmp_path: Path) -> None:
-        """REPAIR mode skips team files."""
+    def test_plan_repair_has_no_team_seed_actions(self, tmp_path: Path) -> None:
+        """REPAIR mode does not plan team seed files."""
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
         ctx = _ctx(tmp_path, mode=InstallMode.REPAIR)
         plan = phase.plan(ctx)
         team_actions = [a for a in plan.actions if "contexts/team/" in a.destination]
-        assert len(team_actions) == 1
-        for a in team_actions:
-            assert a.action_type == "skip"
-            assert a.rationale == "team-owned file"
+        assert team_actions == []
 
     def test_plan_includes_specs_directory_files(self, tmp_path: Path) -> None:
-        """Plan includes specs/spec.md and specs/plan.md as create actions."""
+        """Plan includes the canonical two-file specs/ buffer (spec.md + plan.md).
+
+        spec-133 removed the spec-123 ghost artifacts (``current-summary.md``,
+        ``history-summary.md``, ``task-ledger.json``, ``handoffs/``,
+        ``evidence/``) from the installer template — they no longer exist
+        in the lifecycle and shipping them caused ``update`` to mark them
+        as protected forever.
+        """
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
@@ -140,11 +135,26 @@ class TestGovernancePhase:
         specs_dests = sorted(a.destination for a in specs_actions)
         assert ".ai-engineering/specs/plan.md" in specs_dests
         assert ".ai-engineering/specs/spec.md" in specs_dests
+        for ghost in (
+            "current-summary.md",
+            "history-summary.md",
+            "task-ledger.json",
+            "handoffs/.gitkeep",
+            "evidence/.gitkeep",
+        ):
+            assert f".ai-engineering/specs/{ghost}" not in specs_dests, (
+                f"spec-133: {ghost} must not ship from the installer template"
+            )
         for a in specs_actions:
             assert a.action_type == "create"
 
-    def test_execute_creates_team_and_specs(self, tmp_path: Path) -> None:
-        """Execute in INSTALL mode creates team seed files and specs placeholders."""
+    def test_execute_creates_specs_without_team_seed_files(self, tmp_path: Path) -> None:
+        """Execute in INSTALL mode creates specs placeholders without seeding team files.
+
+        spec-133: the only canonical specs buffer files are ``spec.md`` and
+        ``plan.md``. ``_history.md`` is created on first ``/ai-repo-tidy``
+        invocation (spec-131 D-131-04). Other former artifacts are dead.
+        """
         from ai_engineering.installer.phases.governance import GovernancePhase
 
         phase = GovernancePhase()
@@ -153,15 +163,21 @@ class TestGovernancePhase:
         phase.execute(plan, ctx)
 
         ai_dir = tmp_path / ".ai-engineering"
-        # Team seed files
-        assert (ai_dir / "contexts" / "team" / "README.md").is_file()
+        # Team context remains an optional user-owned layer and is not seeded.
+        assert not (ai_dir / "contexts" / "team").exists()
         # LESSONS.md is now at .ai-engineering/ root
         assert (ai_dir / "LESSONS.md").is_file()
         assert (ai_dir / "contexts" / "cli-ux.md").is_file()
         assert (ai_dir / "contexts" / "mcp-integrations.md").is_file()
-        # Specs placeholders
+        # Canonical two-file specs buffer (spec-133)
         assert (ai_dir / "specs" / "spec.md").is_file()
         assert (ai_dir / "specs" / "plan.md").is_file()
+        # spec-123 ghost artifacts must NOT exist
+        assert not (ai_dir / "specs" / "current-summary.md").exists()
+        assert not (ai_dir / "specs" / "history-summary.md").exists()
+        assert not (ai_dir / "specs" / "task-ledger.json").exists()
+        assert not (ai_dir / "specs" / "handoffs").exists()
+        assert not (ai_dir / "specs" / "evidence").exists()
 
 
 # ---------------------------------------------------------------------------
@@ -171,11 +187,11 @@ class TestGovernancePhase:
 
 class TestIdeConfigPhase:
     def test_plan_claude_code(self, tmp_path: Path) -> None:
-        """Plan with claude_code produces .claude tree."""
+        """Plan with claude-code produces .claude tree."""
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code"])
+        ctx = _ctx(tmp_path, surfaces=["claude-code"])
         plan = phase.plan(ctx)
         dests = [a.destination for a in plan.actions if a.action_type != "skip"]
         assert any("claude" in d.lower() or "CLAUDE" in d for d in dests)
@@ -185,7 +201,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code", "github_copilot"])
+        ctx = _ctx(tmp_path, surfaces=["claude-code", "github-copilot"])
         plan = phase.plan(ctx)
         dests = " ".join(a.destination for a in plan.actions)
         assert "claude" in dests.lower() or "CLAUDE" in dests
@@ -196,7 +212,7 @@ class TestIdeConfigPhase:
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 
         phase = IdeConfigPhase()
-        ctx = _ctx(tmp_path, providers=["claude_code"])
+        ctx = _ctx(tmp_path, surfaces=["claude-code"])
         plan = phase.plan(ctx)
         result = phase.execute(plan, ctx)
         assert len(result.created) > 0
@@ -312,8 +328,15 @@ class TestStatePhase:
         overwrite_actions = [a for a in plan.actions if a.action_type == "overwrite"]
         assert any("install-state" in a.destination for a in overwrite_actions)
 
-    def test_never_overwrites_decision_store(self, tmp_path: Path) -> None:
-        """Decision store is never overwritten."""
+    def test_decision_store_is_idempotent_upsert(self, tmp_path: Path) -> None:
+        """spec-132 D-132-08: decisions now UPSERT into state.db.
+
+        FRESH mode regenerates rows via the same idempotent UPSERT path;
+        any pre-existing ``decision-store.json`` sidecar is cleaned up
+        by the one-shot legacy sweep (D-132-18). The action type is no
+        longer ``skip`` -- the legacy JSON-skip rule was retired with
+        the cutover.
+        """
         from ai_engineering.installer.phases.state import StatePhase
 
         phase = StatePhase()
@@ -324,8 +347,18 @@ class TestStatePhase:
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
         decision_actions = [a for a in plan.actions if "decision-store" in a.destination]
+        assert decision_actions, "decision-store pseudo-path must still appear in plan"
         for a in decision_actions:
-            assert a.action_type == "skip"
+            assert a.action_type in {"create", "overwrite"}, (
+                f"db-backed decisions should not 'skip'; got {a.action_type}"
+            )
+
+        # Execute the phase and confirm the legacy JSON file is removed
+        # by the spec-132 D-132-18 cleanup.
+        phase.execute(plan, ctx)
+        assert not (state_dir / "decision-store.json").exists(), (
+            "Legacy decision-store.json should be removed after FRESH execute"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -335,31 +368,37 @@ class TestStatePhase:
 
 class TestIdeConfigReconfigure:
     def test_reconfigure_with_manifest_generates_deletes(self, tmp_path: Path) -> None:
-        """RECONFIGURE with existing state + manifest generates delete actions."""
+        """RECONFIGURE with existing state + manifest generates delete actions.
+
+        spec-133 D-133-16 schema: ``surfaces.enabled`` replaces
+        ``providers.ides``; Surface enum (closed) replaces IDE list.
+        """
         import yaml
 
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
         from ai_engineering.state.models import InstallState
 
-        # Write a manifest.yml with old providers (claude_code + github_copilot)
+        # Write a manifest.yml with previously-enabled Surfaces; reconfigure
+        # narrows to claude-code only, so github-copilot must be planned for delete.
         ai_dir = tmp_path / ".ai-engineering"
         ai_dir.mkdir(parents=True)
         manifest_data = {
             "schema_version": "2.0",
             "framework_version": "0.1.0",
             "name": "test",
-            "providers": {"vcs": "github", "ides": ["claude_code", "github_copilot"], "stacks": []},
+            "providers": {"vcs": "github", "stacks": []},
+            "surfaces": {"enabled": ["claude-code", "github-copilot"]},
         }
         (ai_dir / "manifest.yml").write_text(yaml.dump(manifest_data))
 
-        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, providers=["claude_code"])
+        ctx = _ctx(tmp_path, mode=InstallMode.RECONFIGURE, surfaces=["claude-code"])
         ctx.existing_state = InstallState()
 
         phase = IdeConfigPhase()
         plan = phase.plan(ctx)
         delete_actions = [a for a in plan.actions if a.action_type == "delete"]
         assert len(delete_actions) > 0
-        assert any("github_copilot" in a.rationale for a in delete_actions)
+        assert any("github-copilot" in a.rationale for a in delete_actions)
 
     def test_reconfigure_deletions_use_deleted_field(self, tmp_path: Path) -> None:
         """RECONFIGURE deletions go to PhaseResult.deleted, not created."""
@@ -405,13 +444,28 @@ class TestDetectPhaseMutation:
 
 
 class TestToolsPhase:
-    def test_always_passes_verify(self, tmp_path: Path) -> None:
-        """Tools phase verify always passes (warnings only)."""
+    def test_always_passes_verify(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Tools phase verify passes trivially when no tools are required.
+
+        spec-128 slim-manifest: ToolsPhase now applies framework defaults so
+        production sees the canonical baseline + per-stack tool list. The unit
+        test stubs ``load_required_tools`` to return an empty LoadResult so
+        the phase logic is exercised in isolation without real installs
+        (which would hit GitHub releases and 404 on CI).
+        """
+        from ai_engineering.installer.phases import tools as tools_module
         from ai_engineering.installer.phases.tools import ToolsPhase
+        from ai_engineering.state.manifest import LoadResult
+
+        monkeypatch.setattr(
+            tools_module,
+            "load_required_tools",
+            lambda *a, **kw: LoadResult(tools=[], skipped_stacks=[]),
+        )
 
         phase = ToolsPhase()
         ctx = _ctx(tmp_path)
         plan = phase.plan(ctx)
         result = phase.execute(plan, ctx)
         verdict = phase.verify(result, ctx)
-        assert verdict.passed  # tools are warnings, not failures
+        assert verdict.passed

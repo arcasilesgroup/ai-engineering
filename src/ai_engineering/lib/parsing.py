@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from ai_engineering.state.work_plane import resolve_active_work_plane
+
 
 def parse_frontmatter(text: str) -> dict[str, str]:
     """Extract YAML-like frontmatter key-value pairs from text.
@@ -86,8 +88,11 @@ def next_spec_number(specs_dir: Path) -> int:
             if match:
                 max_num = max(max_num, int(match.group(1)))
 
-    # Also check current spec.md frontmatter ID
+    # Also check current spec frontmatter ID. When this is the framework's
+    # specs directory, resolve through the shared active work-plane contract.
     spec_path = specs_dir / "spec.md"
+    if specs_dir.name == "specs" and specs_dir.parent.name == ".ai-engineering":
+        spec_path = resolve_active_work_plane(specs_dir.parent.parent).spec_path
     if spec_path.exists():
         from ai_engineering.lib.parsing import parse_frontmatter
 

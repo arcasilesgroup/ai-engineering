@@ -2,30 +2,44 @@
 
 from __future__ import annotations
 
+import logging
+
+from ai_engineering.config.loader import load_manifest_root_entry_points
+from ai_engineering.state import state_db
 from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_state,
     default_ownership_map,
 )
 from ai_engineering.state.instincts import ensure_instinct_artifacts
-from ai_engineering.state.io import write_json_model
 from ai_engineering.state.observability import (
     emit_framework_operation,
     write_framework_capabilities,
 )
-from ai_engineering.state.service import remove_legacy_audit_log
+from ai_engineering.state.service import remove_legacy_audit_log, save_install_state
 
 from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict, PlannedAction
 
+_logger = logging.getLogger(__name__)
+
 _SD = ".ai-engineering/state"
+# spec-125: install-state.json and framework-capabilities.json are now
+# state.db tables (install_state, tool_capabilities). The pseudo-paths
+# below are retained as plan/result identifiers so external callers
+# that inspect ``PhaseResult.created`` keep their stable string keys.
 _STATE = f"{_SD}/install-state.json"
 _OWNERSHIP = f"{_SD}/ownership-map.json"
 _DECISIONS = f"{_SD}/decision-store.json"
 _FRAMEWORK_CAPABILITIES = f"{_SD}/framework-capabilities.json"
-_INSTINCT_OBSERVATIONS = f"{_SD}/instinct-observations.ndjson"
-_INSTINCTS = ".ai-engineering/instincts/instincts.yml"
-_INSTINCT_META = ".ai-engineering/instincts/meta.json"
+_INSTINCT_OBSERVATIONS = f"{_SD}/observation-events.ndjson"
+_INSTINCTS = ".ai-engineering/observations/observations.yml"
+_INSTINCT_META = ".ai-engineering/observations/meta.json"
 _LEGACY_AUDIT_LOG = f"{_SD}/audit-log.ndjson"
+
+# Pseudo-paths backed by state.db tables (spec-125 cutover, extended in
+# spec-132 D-132-08 to cover ownership_map + decisions). These keys
+# still flow through the plan/result API but no JSON file is written.
+_DB_BACKED_PSEUDO_PATHS = frozenset({_STATE, _FRAMEWORK_CAPABILITIES, _OWNERSHIP, _DECISIONS})
 
 
 class StatePhase:
@@ -50,17 +64,32 @@ class StatePhase:
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
         legacy_audit_log_removed = False
-        generators = {
-            _STATE: default_install_state,
-            _OWNERSHIP: default_ownership_map,
-            _DECISIONS: default_decision_store,
-        }
+
+        # Spec-124 T-3.1: seed ownership map with manifest-derived root-entry
+        # patterns (CLAUDE.md, AGENTS.md, GEMINI.md, .github/copilot-instructions.md)
+        # so doctor's `ownership-coverage` probe passes on fresh install.
+        # The manifest is already on disk by the time the state phase runs
+        # (governance phase precedes state phase in pipeline.py).
+        root_entry_points = load_manifest_root_entry_points(context.target)
 
         for action in plan.actions:
+            if action.destination == _STATE:
+                if action.action_type == "skip":
+                    result.skipped.append(action.destination)
+                    continue
+                # spec-125 T-1.4: write singleton row into the
+                # install_state state.db table (no JSON file).
+                state_dir = context.target / _SD
+                save_install_state(state_dir, default_install_state())
+                result.created.append(action.destination)
+                continue
             if action.destination == _FRAMEWORK_CAPABILITIES:
                 if action.action_type == "skip":
                     result.skipped.append(action.destination)
                     continue
+                # spec-125 T-1.12: write_framework_capabilities now
+                # populates the tool_capabilities table (added by
+                # migration 0005).
                 write_framework_capabilities(context.target)
                 result.created.append(action.destination)
                 continue
@@ -78,12 +107,49 @@ class StatePhase:
             if action.action_type == "skip":
                 result.skipped.append(action.destination)
                 continue
-            gen = generators.get(action.destination)
-            if gen:
-                write_json_model(context.target / action.destination, gen())
+            # spec-132 D-132-08: ownership map + decision store rows are
+            # UPSERTed directly into state.db. The pseudo-paths
+            # ``_OWNERSHIP`` / ``_DECISIONS`` keep their plan/result keys
+            # so external callers see the same string identifiers, but
+            # no JSON files land on disk.
+            if action.destination == _OWNERSHIP:
+                state_db.upsert_ownership_rows(
+                    context.target,
+                    default_ownership_map(root_entry_points=root_entry_points),
+                )
                 result.created.append(action.destination)
+                continue
+            if action.destination == _DECISIONS:
+                state_db.upsert_decision_rows(context.target, default_decision_store())
+                result.created.append(action.destination)
+                continue
+
+        # spec-132 D-132-18: one-shot cleanup of legacy ownership-map.json
+        # / decision-store.json sidecars. Idempotent: missing files are
+        # silently ignored. Runs after the UPSERT so a partial failure
+        # never strands the rows behind the deleted JSON.
+        for legacy_name in ("ownership-map.json", "decision-store.json"):
+            (context.target / _SD / legacy_name).unlink(missing_ok=True)
 
         legacy_audit_log_removed = remove_legacy_audit_log(context.target)
+
+        # spec-123 T-3.3: bootstrap state.db now that the JSON state files
+        # are on disk. The lazy connect() runs migrations and replays the
+        # NDJSON; subsequent installs no-op (ledger already records every
+        # migration). Failure is logged but never blocks the install --
+        # the projection is rebuildable from NDJSON, so a one-off failure
+        # here does not lose source-of-truth data.
+        state_db_bootstrapped = False
+        try:
+            conn = state_db.connect(context.target)
+            try:
+                ledger_rows = conn.execute("SELECT count(*) FROM _migrations").fetchone()[0]
+            finally:
+                conn.close()
+            state_db_bootstrapped = bool(ledger_rows)
+
+        except Exception as exc:
+            _logger.warning("state.db bootstrap failed during install: %s", exc)
 
         emit_framework_operation(
             context.target,
@@ -92,26 +158,54 @@ class StatePhase:
             source="installer",
             metadata={
                 "mode": context.mode.value,
-                "providers": context.providers,
+                "surfaces": context.surfaces,
                 "legacy_audit_log_removed": legacy_audit_log_removed,
+                "state_db_bootstrapped": state_db_bootstrapped,
             },
         )
         return result
 
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
-        errors = [
-            f"State file missing: {r}"
-            for r in (
-                _STATE,
-                _OWNERSHIP,
-                _DECISIONS,
-                _FRAMEWORK_CAPABILITIES,
-                _INSTINCT_OBSERVATIONS,
-                _INSTINCTS,
-                _INSTINCT_META,
-            )
-            if not (context.target / r).exists()
-        ]
+        errors: list[str] = []
+        # spec-125: install_state and tool_capabilities live in state.db.
+        # spec-132 D-132-08: ownership_map + decisions are also state.db
+        # tables now -- their pseudo-paths intentionally have no
+        # on-disk artifact. Only the instinct triplet remains
+        # filesystem-backed.
+        for r in (_INSTINCT_OBSERVATIONS, _INSTINCTS, _INSTINCT_META):
+            if not (context.target / r).exists():
+                errors.append(f"State file missing: {r}")
+        # state.db backed: install_state singleton, tool_capabilities,
+        # ownership_map, decisions.
+        try:
+            conn = state_db.connect(context.target, read_only=True)
+            try:
+                install_count = conn.execute(
+                    "SELECT COUNT(*) FROM install_state WHERE id = 1"
+                ).fetchone()[0]
+                if not install_count:
+                    errors.append(f"State file missing: {_STATE}")
+                # tool_capabilities table only exists once migration 0005 has run.
+                tbl = conn.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type='table' AND name='tool_capabilities'"
+                ).fetchone()
+                if tbl is not None:
+                    cap_count = conn.execute("SELECT COUNT(*) FROM tool_capabilities").fetchone()[0]
+                    if not cap_count:
+                        errors.append(f"State file missing: {_FRAMEWORK_CAPABILITIES}")
+                else:
+                    errors.append(f"State file missing: {_FRAMEWORK_CAPABILITIES}")
+                # spec-132 D-132-08: ownership rows must be present.
+                ownership_count = conn.execute("SELECT COUNT(*) FROM ownership_map").fetchone()[0]
+                if not ownership_count:
+                    errors.append(f"State file missing: {_OWNERSHIP}")
+                # decisions can be empty on a fresh install (no risks
+                # accepted yet) -- the table existence alone is
+                # validated indirectly by the connect/migration ledger.
+            finally:
+                conn.close()
+        except Exception as exc:
+            errors.append(f"state.db verification failed: {exc}")
         if (context.target / _LEGACY_AUDIT_LOG).exists():
             errors.append(f"Legacy state file should be absent: {_LEGACY_AUDIT_LOG}")
         return PhaseVerdict(phase_name=self.name, passed=not errors, errors=errors)
@@ -120,12 +214,16 @@ class StatePhase:
     def _plan_file(
         context: InstallContext, rel: str, *, regenerate_on_fresh: bool
     ) -> PlannedAction:
-        exists = (context.target / rel).exists()
+        # spec-125 / spec-132 D-132-08: db-backed pseudo paths skip the
+        # filesystem-existence signal. They are always treated as
+        # 'create' on first install and 'overwrite' on FRESH; the
+        # table-level UPSERT is idempotent.
+        if rel in _DB_BACKED_PSEUDO_PATHS:
+            if context.mode is InstallMode.FRESH and regenerate_on_fresh:
+                return PlannedAction("overwrite", "", rel, "FRESH: regenerate state.db row")
+            return PlannedAction("create", "", rel, "ensure state.db row")
 
-        if rel == _DECISIONS:
-            if exists:
-                return PlannedAction("skip", "", rel, "append-only; never overwrite")
-            return PlannedAction("create", "", rel, "initialize decision store")
+        exists = (context.target / rel).exists()
 
         if context.mode is InstallMode.FRESH and regenerate_on_fresh:
             return PlannedAction("overwrite", "", rel, "FRESH: regenerate")

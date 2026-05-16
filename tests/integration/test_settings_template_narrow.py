@@ -68,8 +68,10 @@ def test_template_preserves_existing_deny_rules() -> None:
     deny = payload.get("permissions", {}).get("deny", [])
     # The narrow-template change must not delete deny rules. Confirm at
     # least the canonical no-verify and force-push protections survive.
+    # `--no-verify` substring globs were dropped in spec-131 sub-004 T-4.E /
+    # spec-132 T-4 (operator-pain #16). Coverage moved to the token-aware
+    # `no-verify-guard.py` PreToolUse hook + `test_settings_no_verify_shlex.py`.
     required_deny_substrings = (
-        "--no-verify",
         "git push --force",
         "rm -rf",
     )

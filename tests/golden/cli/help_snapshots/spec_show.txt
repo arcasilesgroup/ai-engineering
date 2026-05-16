@@ -1,0 +1,8 @@
+
+ Usage: ai-eng spec show [OPTIONS]
+
+ Print the active spec handoff surface (paths + progress).
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

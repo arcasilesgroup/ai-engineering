@@ -17,10 +17,9 @@ def _ctx(tmp_path: Path, mode: InstallMode = InstallMode.INSTALL) -> InstallCont
     return InstallContext(
         target=tmp_path,
         mode=mode,
-        providers=["claude_code"],
+        surfaces=["claude-code"],
         vcs_provider="github",
         stacks=["python"],
-        ides=["terminal"],
     )
 
 

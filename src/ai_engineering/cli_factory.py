@@ -24,25 +24,35 @@ from pydantic import ValidationError
 
 from ai_engineering.cli_commands import (
     audit_cmd,
+    check,
     core,
     decisions_cmd,
+    dev_sync,
     gate,
-    guide,
     internal,
+    issue,
     maintenance,
-    provider,
     release,
     risk_cmd,
     setup,
     skills,
     spec_cmd,
-    stack_ide,
-    sync,
-    validate,
-    vcs,
     verify_cmd,
-    work_item,
-    workflow,
+)
+from ai_engineering.cli_commands import (
+    cleanup as cleanup_mod,
+)
+from ai_engineering.cli_commands import (
+    commit as commit_cmd_mod,
+)
+from ai_engineering.cli_commands import (
+    config as config_cmd_mod,
+)
+from ai_engineering.cli_commands import (
+    pr as pr_cmd_mod,
+)
+from ai_engineering.cli_commands import (
+    status as status_cmd_mod,
 )
 
 # Commands exempt from deprecation blocking (needed for diagnosis and remediation).
@@ -126,24 +136,24 @@ def _app_callback(
                         "install",
                         "update",
                         "doctor",
-                        "validate",
+                        "check",
                         "verify",
                         "version",
-                        "guide",
-                        "sync",
-                        "stack",
-                        "ide",
-                        "provider",
+                        "config",
+                        "status",
+                        "issue",
                         "gate",
                         "skill",
                         "maintenance",
-                        "vcs",
                         "setup",
                         "release",
                         "decision",
                         "audit",
-                        "work-item",
-                        "workflow",
+                        "commit",
+                        "pr",
+                        "risk",
+                        "spec",
+                        "cleanup",
                     ]
                 },
             )
@@ -179,10 +189,119 @@ def _app_callback(
     if result.is_outdated:
         sys.stderr.write(f"WARNING: {result.message}\n  Run 'ai-eng update' to upgrade.\n")
 
+    # spec-133 D-133-23: stack-drift middleware (warn + optional block)
+    _stack_drift_middleware(command)
+
 
 def _safe(func: Callable) -> Callable:
     """Shorthand: apply the CLI error boundary to a command function."""
     return _cli_error_boundary(func)
+
+
+# Commands exempt from stack-drift middleware (spec-133 D-133-23).
+# install / doctor / version / internal must run regardless of drift state.
+_DRIFT_EXEMPT: frozenset[str] = frozenset(
+    {
+        "install",
+        "doctor",
+        "version",
+        "internal",
+        "update",
+    }
+)
+
+
+def _stack_drift_middleware(command: str) -> None:
+    """spec-133 D-133-23 / B16 Gap 4: stack-drift warning + optional block.
+
+    Reads manifest.providers.stacks, runs autodetect.detect_stacks, and
+    emits a structured warning on drift. When AIENG_STACK_DRIFT_STRICT=1
+    (env) and the command is mutation-class (commit/pr/gate), the
+    middleware blocks with exit code 78 per D-133-24 cognitive contract.
+    """
+    if command in _DRIFT_EXEMPT or not command:
+        return
+
+    import os
+
+    try:
+        from ai_engineering.config.loader import load_manifest_config
+        from ai_engineering.installer.autodetect import detect_stacks
+        from ai_engineering.paths import resolve_project_root
+    except ImportError:
+        return  # framework not installed yet — silent no-op
+
+    try:
+        root = resolve_project_root(None)
+    except Exception:
+        return  # not a project root — silent no-op
+
+    try:
+        cfg = load_manifest_config(root)
+    except Exception:
+        return
+
+    configured = set(getattr(getattr(cfg, "providers", None), "stacks", []) or [])
+    try:
+        detected = set(detect_stacks(root))
+    except Exception:
+        return
+
+    if not detected:
+        return  # greenfield — nothing to drift against
+    missing = detected - configured
+    if not missing:
+        return  # configured matches reality
+
+    # spec-133 D-133-24: structured machine-readable exit envelope.
+    msg_lines = [
+        "WARNING: stack drift detected",
+        f"  Detected stack(s): {sorted(missing)}",
+        f"  Configured stack(s): {sorted(configured)}",
+        "  Recovery: ai-eng doctor --fix",
+    ]
+    strict = os.environ.get("AIENG_STACK_DRIFT_STRICT") == "1"
+    blocking_cmds = {"commit", "pr", "gate"}
+    if strict and command in blocking_cmds:
+        from ai_engineering.cli_commands._exit_codes import EXIT_STACK_DRIFT
+
+        msg_lines.insert(0, "BLOCKED: stack drift in strict mode")
+        sys.stderr.write("\n".join(msg_lines) + "\n")
+        raise typer.Exit(code=EXIT_STACK_DRIFT)
+    sys.stderr.write("\n".join(msg_lines) + "\n")
+
+
+# spec-132 D-132-02..05: removed verbs map to their replacements. Each
+# removed top-level verb is registered as a hidden command that prints
+# ``removed; use <new>`` to stderr and exits 2 -- no soft-redirect.
+_REMOVED_VERBS: dict[str, str] = {
+    "validate": "check",
+    "work-item": "issue",
+    "stack": "config",
+    "ide": "config",
+    "provider": "config",
+    "vcs": "config",
+    "workflow": "ai-eng pr",
+    "sync": "dev sync",
+}
+
+
+def _build_removed_handler(old: str, new: str) -> Callable[..., None]:
+    """Build a Typer-compatible handler that surfaces the rename."""
+
+    def _removed(
+        extra_args: Annotated[
+            list[str] | None,
+            typer.Argument(),
+        ] = None,
+    ) -> None:
+        del extra_args
+        sys.stderr.write(f"removed; use '{new}'\n")
+        raise typer.Exit(code=2)
+
+    _removed.__name__ = f"removed_{old.replace('-', '_')}"
+    _removed.__doc__ = f"removed; use '{new}'"
+    return _removed
 
 
 def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
@@ -198,6 +317,8 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     Returns:
         Configured Typer application instance.
     """
+    from ai_engineering.core.cli import SmartTyperGroup
+
     app = typer.Typer(
         name="ai-eng",
         help="AI governance framework for secure software delivery.",
@@ -206,42 +327,41 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         callback=_app_callback,
         invoke_without_command=True,
         epilog="[dim]Docs & issues:[/dim] https://github.com/arcasilesgroup/ai-engineering",
+        cls=SmartTyperGroup,
     )
 
-    # Core commands (top-level)
+    # Core commands (top-level) -- final 20-verb tree per D-132-02..05.
     app.command("install")(_safe(core.install_cmd))
     app.command("update")(_safe(core.update_cmd))
     app.command("doctor")(_safe(core.doctor_cmd))
-    app.command("validate")(_safe(validate.validate_cmd))
+    app.command("check")(_safe(check.check_cmd))
     app.command("verify")(_safe(verify_cmd.verify_cmd))
     app.command("version")(core.version_cmd)
     app.command("release")(_safe(release.release_cmd))
-    app.command("guide")(_safe(guide.guide_cmd))
+    app.command("status")(_safe(status_cmd_mod.status_cmd))
+    app.command("commit")(_safe(commit_cmd_mod.commit_cmd))
+    app.command("pr")(_safe(pr_cmd_mod.pr_cmd))
 
-    # Sync command (mirror management)
-    app.command("sync")(_safe(sync.sync_cmd))
-
-    # Stack sub-group
-    stack_app = typer.Typer(
-        name="stack",
-        help="Manage technology stacks.",
-        no_args_is_help=True,
+    # Config sub-group: inspection + single-axis Surface management.
+    # spec-133 D-133-16 hard-cut collapsed `ide` + `provider` into
+    # `surface`. The Surface enum is closed (domain.surface.SURFACE_IDS).
+    config_app = typer.Typer(
+        name="config",
+        help="Inspect or interactively reconfigure stacks/Surfaces/VCS.",
+        invoke_without_command=True,
     )
-    stack_app.command("add")(_safe(stack_ide.stack_add))
-    stack_app.command("remove")(_safe(stack_ide.stack_remove))
-    stack_app.command("list")(_safe(stack_ide.stack_list))
-    app.add_typer(stack_app, name="stack")
-
-    # IDE sub-group
-    ide_app = typer.Typer(
-        name="ide",
-        help="Manage IDE integrations.",
-        no_args_is_help=True,
-    )
-    ide_app.command("add")(_safe(stack_ide.ide_add))
-    ide_app.command("remove")(_safe(stack_ide.ide_remove))
-    ide_app.command("list")(_safe(stack_ide.ide_list))
-    app.add_typer(ide_app, name="ide")
+    config_app.callback()(_safe(config_cmd_mod.config_cmd))
+    config_app.command("reconfigure")(_safe(config_cmd_mod.reconfigure_cmd))
+    config_stack_app = typer.Typer(name="stack", no_args_is_help=True)
+    config_stack_app.command("list")(_safe(config_cmd_mod.stack_list))
+    config_app.add_typer(config_stack_app, name="stack")
+    config_surface_app = typer.Typer(name="surface", no_args_is_help=True)
+    config_surface_app.command("list")(_safe(config_cmd_mod.surface_list))
+    config_app.add_typer(config_surface_app, name="surface")
+    config_vcs_app = typer.Typer(name="vcs", no_args_is_help=True)
+    config_vcs_app.command("status")(_safe(config_cmd_mod.vcs_status))
+    config_app.add_typer(config_vcs_app, name="vcs")
+    app.add_typer(config_app, name="config")
 
     # Gate sub-group
     gate_app = typer.Typer(
@@ -282,28 +402,17 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
     maint_app.command("reset-events")(_safe(maintenance.maintenance_reset_events))
     maint_app.command("all")(_safe(maintenance.maintenance_all))
+    cleanup_app = typer.Typer(
+        name="cleanup",
+        no_args_is_help=True,
+        help="Git branch + runtime + spec cleanup (spec-133 D-133-03)",
+    )
+    app.add_typer(cleanup_app, name="cleanup")
+    cleanup_app.command("branches")(_safe(cleanup_mod.cleanup_branches_cmd))
+    cleanup_app.command("runtime")(_safe(cleanup_mod.cleanup_runtime_cmd))
+    cleanup_app.command("specs")(_safe(cleanup_mod.cleanup_specs_cmd))
+    cleanup_app.command("all")(_safe(cleanup_mod.cleanup_all_cmd))
     app.add_typer(maint_app, name="maintenance")
-
-    # Provider sub-group
-    provider_app = typer.Typer(
-        name="provider",
-        help="Manage AI coding assistant providers.",
-        no_args_is_help=True,
-    )
-    provider_app.command("add")(_safe(provider.provider_add))
-    provider_app.command("remove")(_safe(provider.provider_remove))
-    provider_app.command("list")(_safe(provider.provider_list))
-    app.add_typer(provider_app, name="provider")
-
-    # VCS sub-group
-    vcs_app = typer.Typer(
-        name="vcs",
-        help="Manage VCS provider configuration.",
-        no_args_is_help=True,
-    )
-    vcs_app.command("status")(_safe(vcs.vcs_status))
-    vcs_app.command("set-primary")(_safe(vcs.vcs_set_primary))
-    app.add_typer(vcs_app, name="vcs")
 
     # Setup sub-group
     setup_app = typer.Typer(
@@ -327,15 +436,39 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     decision_app.command("list")(_safe(decisions_cmd.decision_list))
     decision_app.command("expire-check")(_safe(decisions_cmd.decision_expire_check))
     decision_app.command("record")(_safe(decisions_cmd.decision_record))
+    decision_app.command("backfill")(_safe(decisions_cmd.decision_backfill))
     app.add_typer(decision_app, name="decision")
 
-    # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier)
+    # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier;
+    # spec-120 Phase B: SQLite-backed audit index, query, token rollups)
     audit_app = typer.Typer(
         name="audit",
-        help="Verify the hash-chained audit trail over events and decisions.",
+        help=(
+            "Verify the hash-chained audit trail and query the SQLite "
+            "projection of framework-events.ndjson."
+        ),
         no_args_is_help=True,
     )
     audit_app.command("verify")(_safe(audit_cmd.audit_verify))
+    audit_app.command("index")(_safe(audit_cmd.audit_index))
+    audit_app.command("query")(_safe(audit_cmd.audit_query))
+    audit_app.command("tokens")(_safe(audit_cmd.audit_tokens))
+    audit_app.command("replay")(_safe(audit_cmd.audit_replay))
+    audit_app.command("otel-export")(_safe(audit_cmd.audit_otel_export))
+    # spec-125 T-3.8: rotate/compress/verify-chain removed with archive plane.
+    # The single immutable append-only `framework-events.ndjson` is the only
+    # ledger; chain integrity is covered by `audit verify`.
+    audit_app.command("health")(_safe(audit_cmd.audit_health))
+    audit_app.command("vacuum")(_safe(audit_cmd.audit_vacuum))
+    # ``retention apply`` lives under a nested sub-Typer so the surface is
+    # ``ai-eng audit retention apply``.
+    retention_app = typer.Typer(
+        name="retention",
+        help="Apply HOT/WARM/COLD retention windows on state.db + archives.",
+        no_args_is_help=True,
+    )
+    retention_app.command("apply")(_safe(audit_cmd.audit_retention_apply))
+    audit_app.add_typer(retention_app, name="retention")
     app.add_typer(audit_app, name="audit")
 
     # Risk sub-group (spec-105: risk acceptance lifecycle CLI namespace)
@@ -356,32 +489,34 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     # Spec sub-group (v3: spec lifecycle management)
     spec_app = typer.Typer(
         name="spec",
-        help="Spec lifecycle: verify counters, list current spec.",
+        help="Spec lifecycle: start a work plane, verify counters, list and show active spec.",
         no_args_is_help=True,
     )
+    spec_app.command("start")(_safe(spec_cmd.spec_start))
+    spec_app.command("activate", hidden=True)(_safe(spec_cmd.spec_activate))
     spec_app.command("verify")(_safe(spec_cmd.spec_verify))
     spec_app.command("list")(_safe(spec_cmd.spec_list))
+    spec_app.command("show")(_safe(spec_cmd.spec_show))
     app.add_typer(spec_app, name="spec")
 
-    # Work-item sub-group
-    work_item_app = typer.Typer(
-        name="work-item",
-        help="Sync specs to external work items (GitHub Issues / Azure DevOps Boards).",
+    # Issue sub-group (D-132-03 -- renamed from work-item).
+    issue_app = typer.Typer(
+        name="issue",
+        help="Sync specs to external issues (GitHub Issues / Azure DevOps Boards).",
         no_args_is_help=True,
     )
-    work_item_app.command("sync")(_safe(work_item.work_item_sync))
-    app.add_typer(work_item_app, name="work-item")
+    issue_app.command("sync")(_safe(issue.issue_sync))
+    app.add_typer(issue_app, name="issue")
 
-    # Workflow sub-group (commit / PR lifecycle)
-    workflow_app = typer.Typer(
-        name="workflow",
-        help="Commit, PR, and PR-only lifecycle workflows.",
+    # Dev sub-group (D-132-05): source-repo helpers; hidden.
+    dev_app = typer.Typer(
+        name="dev",
+        help="Source-repo developer helpers (hidden in consumer projects).",
         no_args_is_help=True,
+        hidden=True,
     )
-    workflow_app.command("commit")(_safe(workflow.workflow_commit))
-    workflow_app.command("pr")(_safe(workflow.workflow_pr))
-    workflow_app.command("pr-only")(_safe(workflow.workflow_pr_only))
-    app.add_typer(workflow_app, name="workflow")
+    dev_app.command("sync")(_safe(dev_sync.dev_sync_cmd))
+    app.add_typer(dev_app, name="dev", hidden=True)
 
     internal_app = typer.Typer(
         name="internal",
@@ -395,5 +530,17 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         hidden=True,
     )(internal.internal_python)
     app.add_typer(internal_app, name="internal", hidden=True)
+
+    # spec-132 D-132-02..05: removed verbs print ``removed; use <new>`` and
+    # exit 2. No soft-redirect, no alias. Hidden so they don't pollute the
+    # help tree but are still resolvable as commands.
+    for old_verb, new_verb in _REMOVED_VERBS.items():
+        app.command(old_verb, hidden=True)(_build_removed_handler(old_verb, new_verb))
+
+    # spec-132 D-132-11: universal help-on-no-args wrapper applied at
+    # registration time. The ``internal`` and ``dev`` groups opt out.
+    from ai_engineering.core.cli import apply_no_args_help
+
+    apply_no_args_help(app, opt_out_groups={"internal", "dev"})
 
     return app

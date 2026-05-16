@@ -44,7 +44,12 @@ REQUIRED_DENY_SUBSTRINGS = (
     "git push --force",
     "git push -f",
     "git reset --hard",
-    "--no-verify",
+    # `--no-verify` substring globs were intentionally dropped in
+    # spec-131 sub-004 T-4.E / spec-132 T-4 (operator-pain #16). The
+    # token-aware `no-verify-guard.py` PreToolUse hook is the canonical
+    # defence; substring globs blocked legitimate commits whose message
+    # text contains the literal `--no-verify`. Coverage verified by
+    # `tests/unit/test_settings_no_verify_shlex.py`.
 )
 
 

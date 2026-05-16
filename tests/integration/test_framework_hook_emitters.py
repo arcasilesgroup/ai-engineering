@@ -237,11 +237,11 @@ class TestClaudeHookEmitters:
         )
 
         assert extract.returncode == 0
-        instincts = (project_root / ".ai-engineering" / "instincts" / "instincts.yml").read_text(
-            encoding="utf-8"
-        )
+        instincts = (
+            project_root / ".ai-engineering" / "observations" / "observations.yml"
+        ).read_text(encoding="utf-8")
         observations = read_ndjson_entries(
-            project_root / ".ai-engineering" / "state" / "instinct-observations.ndjson",
+            project_root / ".ai-engineering" / "state" / "observation-events.ndjson",
             InstinctObservation,
         )
         assert observations
@@ -252,7 +252,13 @@ class TestClaudeHookEmitters:
         observe_script = (
             project_root / ".ai-engineering" / "scripts" / "hooks" / "instinct-observe.py"
         )
-        skill_script = project_root / ".ai-engineering" / "scripts" / "hooks" / "telemetry-skill.py"
+        # Spec-131 sub-002 moved eager `extract_instincts` off telemetry-skill.py
+        # (UserPromptSubmit) into the Stop-hook `instinct-extract.py` so
+        # /ai-start stays under the 5s ceiling. The consolidation contract
+        # now lives on Stop.
+        extract_script = (
+            project_root / ".ai-engineering" / "scripts" / "hooks" / "instinct-extract.py"
+        )
         env = os.environ | {
             "CLAUDE_PROJECT_DIR": str(project_root),
             "CLAUDE_SESSION_ID": "session-onboard",
@@ -277,18 +283,18 @@ class TestClaudeHookEmitters:
             assert result.returncode == 0
 
         onboard = subprocess.run(
-            [sys.executable, str(skill_script)],
-            input=json.dumps({"prompt": "/ai-start"}),
+            [sys.executable, str(extract_script)],
+            input=json.dumps({}),
             text=True,
             capture_output=True,
             cwd=project_root,
-            env=env,
+            env=env | {"CLAUDE_HOOK_EVENT_NAME": "Stop"},
             check=False,
         )
 
         assert onboard.returncode == 0
         assert "Bash -> Grep" in (
-            project_root / ".ai-engineering" / "instincts" / "instincts.yml"
+            project_root / ".ai-engineering" / "observations" / "observations.yml"
         ).read_text(encoding="utf-8")
 
 
@@ -296,7 +302,7 @@ class TestCopilotHookEmitters:
     def test_skill_hook_writes_canonical_framework_event(self, tmp_path: Path) -> None:
         project_root = _prepare_project(tmp_path)
         script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-skill.sh"
-        env = _copilot_env(project_root, tmp_path)
+        env = _copilot_env(project_root, tmp_path, COPILOT_TRACE_ID="trace-skill-1")
 
         result = subprocess.run(
             _copilot_hook_command(script),
@@ -312,15 +318,36 @@ class TestCopilotHookEmitters:
         entries = read_ndjson_entries(_framework_events_path(project_root), FrameworkEvent)
         skill_event = next(entry for entry in entries if entry.kind == "skill_invoked")
         context_events = [entry for entry in entries if entry.kind == "context_load"]
-        assert skill_event.engine == "github_copilot"
+        assert skill_event.engine == "copilot"
+        assert skill_event.trace_id == "trace-skill-1"
         assert skill_event.detail["skill"] == "ai-dispatch"
         assert context_events
         assert not _audit_log_path(project_root).exists()
 
+    def test_skill_hook_preserves_trace_id_at_root(self, tmp_path: Path) -> None:
+        project_root = _prepare_project(tmp_path)
+        script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-skill.sh"
+        env = _copilot_env(project_root, tmp_path, COPILOT_TRACE_ID="trace-skill-root-1")
+
+        result = subprocess.run(
+            _copilot_hook_command(script),
+            input=json.dumps({"prompt": "/ai-dispatch"}),
+            text=True,
+            capture_output=True,
+            cwd=project_root,
+            env=env,
+            check=False,
+        )
+
+        assert result.returncode == 0
+        entries = read_ndjson_entries(_framework_events_path(project_root), FrameworkEvent)
+        skill_event = next(entry for entry in entries if entry.kind == "skill_invoked")
+        assert skill_event.trace_id == "trace-skill-root-1"
+
     def test_agent_hook_writes_canonical_framework_event(self, tmp_path: Path) -> None:
         project_root = _prepare_project(tmp_path)
         script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-agent.sh"
-        env = _copilot_env(project_root, tmp_path)
+        env = _copilot_env(project_root, tmp_path, COPILOT_TRACE_ID="trace-agent-1")
 
         payload = {"toolName": "Build", "toolArgs": {}}
         result = subprocess.run(
@@ -337,10 +364,34 @@ class TestCopilotHookEmitters:
         entries = read_ndjson_entries(_framework_events_path(project_root), FrameworkEvent)
         agent_event = next(entry for entry in entries if entry.kind == "agent_dispatched")
         hook_event = next(entry for entry in entries if entry.kind == "ide_hook")
-        assert agent_event.engine == "github_copilot"
+        assert agent_event.engine == "copilot"
+        assert agent_event.trace_id == "trace-agent-1"
+        assert hook_event.trace_id == "trace-agent-1"
         assert agent_event.detail["agent"] == "ai-build"
         assert hook_event.detail["hook_kind"] == "post-tool-use"
         assert not _audit_log_path(project_root).exists()
+
+    def test_agent_hook_preserves_trace_id_at_root(self, tmp_path: Path) -> None:
+        project_root = _prepare_project(tmp_path)
+        script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-agent.sh"
+        env = _copilot_env(project_root, tmp_path, COPILOT_TRACE_ID="trace-agent-root-1")
+
+        result = subprocess.run(
+            _copilot_hook_command(script),
+            input=json.dumps({"toolName": "Build", "toolArgs": {}}),
+            text=True,
+            capture_output=True,
+            cwd=project_root,
+            env=env,
+            check=False,
+        )
+
+        assert result.returncode == 0
+        entries = read_ndjson_entries(_framework_events_path(project_root), FrameworkEvent)
+        agent_event = next(entry for entry in entries if entry.kind == "agent_dispatched")
+        hook_event = next(entry for entry in entries if entry.kind == "ide_hook")
+        assert agent_event.trace_id == "trace-agent-root-1"
+        assert hook_event.trace_id == "trace-agent-root-1"
 
     def test_error_hook_writes_framework_error_without_audit_log(self, tmp_path: Path) -> None:
         project_root = _prepare_project(tmp_path)
@@ -404,11 +455,11 @@ class TestCopilotHookEmitters:
         )
 
         assert extract.returncode == 0
-        instincts = (project_root / ".ai-engineering" / "instincts" / "instincts.yml").read_text(
-            encoding="utf-8"
-        )
+        instincts = (
+            project_root / ".ai-engineering" / "observations" / "observations.yml"
+        ).read_text(encoding="utf-8")
         observations = read_ndjson_entries(
-            project_root / ".ai-engineering" / "state" / "instinct-observations.ndjson",
+            project_root / ".ai-engineering" / "state" / "observation-events.ndjson",
             InstinctObservation,
         )
         assert observations
@@ -419,7 +470,12 @@ class TestCopilotHookEmitters:
         observe_script = (
             project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-instinct-observe.sh"
         )
-        skill_script = project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-skill.sh"
+        # Spec-131 sub-002 moved eager `extract_instincts` off the
+        # UserPromptSubmit lane (copilot-skill.sh) into the session-end
+        # Stop hook (`copilot-instinct-extract.sh`).
+        extract_script = (
+            project_root / ".ai-engineering" / "scripts" / "hooks" / "copilot-instinct-extract.sh"
+        )
         env = _copilot_env(project_root, tmp_path)
 
         for phase, payload in (
@@ -439,8 +495,8 @@ class TestCopilotHookEmitters:
             assert result.returncode == 0
 
         onboard = subprocess.run(
-            _copilot_hook_command(skill_script),
-            input=json.dumps({"prompt": "/ai-start"}),
+            _copilot_hook_command(extract_script),
+            input=json.dumps({}),
             text=True,
             capture_output=True,
             cwd=project_root,
@@ -450,7 +506,7 @@ class TestCopilotHookEmitters:
 
         assert onboard.returncode == 0
         assert "Bash -> Grep" in (
-            project_root / ".ai-engineering" / "instincts" / "instincts.yml"
+            project_root / ".ai-engineering" / "observations" / "observations.yml"
         ).read_text(encoding="utf-8")
 
     def test_prompt_injection_guard_uses_project_runtime(self, tmp_path: Path) -> None:

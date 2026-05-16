@@ -27,7 +27,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import cast
 
-from ai_engineering.config.loader import load_manifest_config, update_manifest_field
+from ai_engineering.config.loader import (
+    load_manifest_config,
+    load_manifest_root_entry_points,
+    update_manifest_field,
+)
 from ai_engineering.detector.readiness import check_tools_for_stacks
 from ai_engineering.doctor.models import DoctorContext
 from ai_engineering.doctor.remediation import RemediationEngine
@@ -48,6 +52,7 @@ from ai_engineering.installer.phases.governance import GovernancePhase
 from ai_engineering.installer.phases.hooks import HooksPhase
 from ai_engineering.installer.phases.ide_config import IdeConfigPhase
 from ai_engineering.installer.phases.pipeline import PipelineRunner, PipelineSummary
+from ai_engineering.installer.phases.scripts import ScriptsPhase
 from ai_engineering.installer.phases.state import StatePhase
 from ai_engineering.installer.phases.tools import ToolsPhase
 from ai_engineering.state.defaults import (
@@ -56,7 +61,6 @@ from ai_engineering.state.defaults import (
     default_ownership_map,
 )
 from ai_engineering.state.instincts import ensure_instinct_artifacts
-from ai_engineering.state.io import write_json_model
 from ai_engineering.state.manifest import compute_tool_spec_hash
 from ai_engineering.state.models import DecisionStatus, InstallState, RiskCategory
 from ai_engineering.state.observability import (
@@ -89,14 +93,19 @@ from .tools import (
 logger = logging.getLogger(__name__)
 
 # Relative paths under ``.ai-engineering/`` for each state file.
+# Spec-125: ``install-state`` and ``framework-capabilities`` migrated from
+# JSON sinks to state.db tables (``install_state`` and ``tool_capabilities``
+# singleton rows). The dict still advertises both keys so ``_STATE_FILES``
+# is a stable lookup, but both now point at the canonical SQLite projection
+# at ``state/state.db``. The legacy JSON paths are gone from disk.
 _STATE_FILES: dict[str, str] = {
-    "install-state": "state/install-state.json",
+    "install-state": "state/state.db",
     "ownership-map": "state/ownership-map.json",
     "decision-store": "state/decision-store.json",
-    "framework-capabilities": "state/framework-capabilities.json",
-    "instinct-observations": "state/instinct-observations.ndjson",
-    "instincts": "instincts/instincts.yml",
-    "instinct-meta": "instincts/meta.json",
+    "framework-capabilities": "state/state.db",
+    "observation-events": "state/observation-events.ndjson",
+    "instincts": "observations/observations.yml",
+    "instinct-meta": "observations/meta.json",
 }
 
 
@@ -132,22 +141,23 @@ def install(
     target: Path,
     *,
     stacks: list[str] | None = None,
-    ides: list[str] | None = None,
+    surfaces: list[str] | None = None,
     vcs_provider: str = "github",
-    ai_providers: list[str] | None = None,
     external_references: dict[str, str] | None = None,
 ) -> InstallResult:
     """Bootstrap the ai-engineering framework in a target project.
 
-    Copies governance templates, IDE agent configs, and generates state
-    files.  Uses create-only semantics: existing files are never overwritten.
+    Copies governance templates, Surface-specific configs (instruction
+    files + tree dirs), and generates state files. Uses create-only
+    semantics: existing files are never overwritten.
 
     Args:
         target: Root directory of the target project.
         stacks: Initial stacks to install. Defaults to ``["python"]``.
-        ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
+        surfaces: Surfaces to enable (closed enum from
+            :data:`ai_engineering.domain.surface.SURFACE_IDS`).
+            Defaults to ``["claude-code"]``.
         vcs_provider: Primary VCS provider. Defaults to ``"github"``.
-        ai_providers: AI providers to enable. Defaults to ``["claude_code"]``.
 
     Returns:
         InstallResult with details of created and skipped files.
@@ -155,26 +165,23 @@ def install(
     result = InstallResult()
     ai_eng_dir = target / ".ai-engineering"
 
-    # 1. Copy governance templates
     src_root = get_ai_engineering_template_root()
+    # contexts/team/ is user-owned and intentionally not seeded by the
+    # installer (spec-123 / D-124-02 follow-up; matches GovernancePhase).
     result.governance_files = copy_template_tree(
-        src_root, ai_eng_dir, exclude=["agents/", "skills/"]
+        src_root, ai_eng_dir, exclude=["agents/", "skills/", "contexts/team/"]
     )
 
-    # 2. Copy project-level templates (provider-aware)
-    result.project_files = copy_project_templates(target, providers=ai_providers)
+    result.project_files = copy_project_templates(target, surfaces=surfaces)
 
-    # 2b. Persist ai_providers selection to manifest
-    _write_ai_providers(target, ai_providers)
-    _write_providers(target, stacks=stacks, ides=ides, vcs_provider=vcs_provider)
+    _write_surfaces(target, surfaces)
+    _write_providers(target, stacks=stacks, vcs_provider=vcs_provider)
 
-    # 3. Generate state files (create-only)
     result.state_files = _generate_state_files(
         ai_eng_dir,
         stacks=stacks,
-        ides=ides,
+        surfaces=surfaces,
         vcs_provider=vcs_provider,
-        ai_providers=ai_providers,
         external_references=external_references,
     )
 
@@ -201,9 +208,8 @@ def install_with_pipeline(
     *,
     mode: InstallMode = InstallMode.INSTALL,
     stacks: list[str] | None = None,
-    ides: list[str] | None = None,
+    surfaces: list[str] | None = None,
     vcs_provider: str = "github",
-    ai_providers: list[str] | None = None,
     external_references: dict[str, str] | None = None,
     dry_run: bool = False,
     force: bool = False,
@@ -221,16 +227,16 @@ def install_with_pipeline(
         target: Root directory of the target project.
         mode: Install mode. Defaults to ``INSTALL``.
         stacks: Initial stacks to install. Defaults to ``["python"]``.
-        ides: Initial IDEs to configure. Defaults to ``["terminal"]``.
+        surfaces: Surfaces to enable (closed enum from
+            :data:`ai_engineering.domain.surface.SURFACE_IDS`).
+            Defaults to ``["claude-code"]``.
         vcs_provider: Primary VCS provider. Defaults to ``"github"``.
-        ai_providers: AI providers to enable. Defaults to ``["claude_code"]``.
         external_references: External reference URLs for the manifest.
         dry_run: When True, only plan without writing files.
 
     Returns:
         Tuple of (InstallResult, PipelineSummary).
     """
-    # Load existing state for REPAIR/RECONFIGURE modes
     existing_state = None
     if mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE):
         state_dir = target / ".ai-engineering" / "state"
@@ -239,16 +245,15 @@ def install_with_pipeline(
         except (json.JSONDecodeError, ValueError, OSError) as exc:
             logger.warning("Cannot read existing install state: %s", exc)
 
-    # Build context
     context = InstallContext(
         target=target,
         mode=mode,
-        providers=ai_providers or [],
+        surfaces=surfaces or [],
         vcs_provider=vcs_provider,
         stacks=stacks or [],
-        ides=ides or [],
         existing_state=existing_state,
         force=force,
+        progress_callback=progress_callback,
     )
 
     if not dry_run:
@@ -278,6 +283,7 @@ def install_with_pipeline(
         "ide_config": IdeConfigPhase,
         "state": StatePhase,
         "hooks": HooksPhase,
+        "scripts": ScriptsPhase,
         "tools": ToolsPhase,
     }
     # ty (0.x) cannot narrow the dict-value union back to PhaseProtocol on
@@ -296,10 +302,9 @@ def install_with_pipeline(
     # Convert PipelineSummary to InstallResult
     result = _summary_to_install_result(summary, mode)
 
-    # Persist selected stacks, ides, and ai_providers to manifest.yml
     if not dry_run:
-        _write_providers(target, stacks=stacks, ides=ides, vcs_provider=vcs_provider)
-        _write_ai_providers(target, ai_providers)
+        _write_providers(target, stacks=stacks, vcs_provider=vcs_provider)
+        _write_surfaces(target, surfaces)
 
     # Run operational phases (VCS auth, branch policy, tooling readiness)
     if not dry_run:
@@ -335,7 +340,27 @@ def _summary_to_install_result(
         if phase_result.phase_name == PHASE_GOVERNANCE:
             governance_created.extend(Path(p) for p in phase_result.created)
             governance_skipped.extend(Path(p) for p in phase_result.skipped)
-        elif phase_result.phase_name in (PHASE_IDE_CONFIG, PHASE_HOOKS):
+        elif phase_result.phase_name == PHASE_HOOKS:
+            # spec-124 D-124-05: HOOKS phase output populates BOTH project_files
+            # (so file_count math is right) AND result.hooks.installed (so the
+            # Install Complete summary reports a true hook count instead of 0).
+            project_created.extend(Path(p) for p in phase_result.created)
+            project_skipped.extend(Path(p) for p in phase_result.skipped)
+            # Each hook phase emits two artifacts per hook (Bash dispatcher +
+            # PowerShell companion). Dedupe to canonical hook names by stem.
+            # spec-133 UX fix: filter out IDE-side configuration files so the
+            # "Hooks installed" surface counts ONLY real git hooks. The
+            # ``.claude/settings.json`` file is a Claude Code config artifact
+            # carrying 11 hook event handlers, not a git hook.
+            hook_names = sorted(
+                {
+                    Path(p).name
+                    for p in phase_result.created
+                    if not str(p).endswith(".ps1") and not str(p).endswith("settings.json")
+                }
+            )
+            result.hooks.installed = hook_names
+        elif phase_result.phase_name == PHASE_IDE_CONFIG:
             project_created.extend(Path(p) for p in phase_result.created)
             project_skipped.extend(Path(p) for p in phase_result.skipped)
         elif phase_result.phase_name == PHASE_STATE:
@@ -349,11 +374,26 @@ def _summary_to_install_result(
         skipped=project_skipped,
     )
 
-    # Set already_installed if mode was detected as existing
+    # Set already_installed if mode was detected as existing.
+    # Spec-125 D-125-01: state.db pseudo-paths (install-state.json,
+    # framework-capabilities.json) are reported as `created` on every run
+    # because the underlying UPSERT is idempotent. They do not represent
+    # a fresh install — exclude from the gate so REPAIR on an installed
+    # project correctly reports already_installed=True.
+    # Spec-132 D-132-08 extends the gate with ownership-map.json and
+    # decision-store.json (pseudo-paths only -- the files no longer
+    # land on disk after the UPSERT cutover).
+    _STATE_DB_PSEUDO = {
+        ".ai-engineering/state/install-state.json",
+        ".ai-engineering/state/framework-capabilities.json",
+        ".ai-engineering/state/ownership-map.json",
+        ".ai-engineering/state/decision-store.json",
+    }
+    real_state_files = [p for p in result.state_files if str(p) not in _STATE_DB_PSEUDO]
     if (
         mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE)
         and not governance_created
-        and not result.state_files
+        and not real_state_files
     ):
         result.already_installed = True
 
@@ -364,18 +404,15 @@ def _write_providers(
     target: Path,
     *,
     stacks: list[str] | None,
-    ides: list[str] | None,
     vcs_provider: str = "github",
 ) -> None:
-    """Persist stacks, ides, and vcs to manifest.yml after template copy."""
+    """Persist stacks and vcs to manifest.yml after template copy."""
     manifest_path = target / ".ai-engineering" / "manifest.yml"
     if not manifest_path.is_file():
         return
     try:
         if stacks is not None:
             update_manifest_field(target, "providers.stacks", stacks)
-        if ides is not None:
-            update_manifest_field(target, "providers.ides", ides)
         if vcs_provider != "github":
             update_manifest_field(target, "providers.vcs", vcs_provider)
             update_manifest_field(target, "work_items.provider", vcs_provider)
@@ -383,30 +420,98 @@ def _write_providers(
         logger.debug("providers key not found in manifest; skipping write")
 
 
-def _write_ai_providers(target: Path, ai_providers: list[str] | None) -> None:
-    """Persist the selected AI providers to manifest.yml.
+def _write_surfaces(target: Path, surfaces: list[str] | None) -> None:
+    """Persist the enabled Surfaces to manifest.yml.
 
     Called after governance templates are copied so that the manifest
-    reflects the actual provider selection rather than template defaults.
+    reflects the actual Surface selection rather than template defaults.
     """
-    providers = ai_providers or ["claude_code"]
+    enabled = surfaces or ["claude-code"]
     manifest_path = target / ".ai-engineering" / "manifest.yml"
     if not manifest_path.is_file():
         return
     try:
-        update_manifest_field(target, "ai_providers.enabled", providers)
-        update_manifest_field(target, "ai_providers.primary", providers[0])
+        update_manifest_field(target, "surfaces.enabled", enabled)
     except KeyError:
-        logger.debug("ai_providers key not found in manifest; skipping write")
+        logger.debug("surfaces key not found in manifest; skipping write")
+
+
+def _state_db_table_has_rows(project_root: Path, table: str) -> bool:
+    """Return True when ``table`` already contains at least one row.
+
+    Spec-132 D-132-08: ``ownership_map`` rows replace the JSON sidecar.
+    The installer must distinguish "fresh install" from "re-install"
+    on the table-count signal so ``already_installed`` stays accurate.
+    Missing DB / missing table / SQLite errors all return ``False``
+    (treat as a fresh install).
+    """
+    try:
+        from ai_engineering.state.state_db import connect, state_db_path
+    except ImportError:  # pragma: no cover -- defensive
+        return False
+
+    if not state_db_path(project_root).exists():
+        return False
+    try:
+        conn = connect(project_root, read_only=True, apply_migrations=False)
+    except Exception:  # pragma: no cover -- corruption / locking
+        return False
+    try:
+        tbl = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
+        if tbl is None:
+            return False
+        row = conn.execute(f"SELECT 1 FROM {table} LIMIT 1").fetchone()
+        return row is not None
+    except Exception:  # pragma: no cover -- defensive
+        return False
+    finally:
+        conn.close()
+
+
+def _state_db_row_exists(project_root: Path, table: str) -> bool:
+    """Return True when the singleton row in ``table`` already exists.
+
+    Spec-125: ``install_state`` and ``tool_capabilities`` migrated to
+    state.db singleton rows. The installer needs to distinguish "newly
+    inserted" from "idempotent UPSERT" so the install summary reports
+    ``already_installed=True`` on re-runs. Missing DB / missing table /
+    SQLite errors all return ``False`` (treat as a fresh install).
+    """
+    try:
+        from ai_engineering.state.state_db import connect, state_db_path
+    except ImportError:  # pragma: no cover -- defensive
+        return False
+
+    if not state_db_path(project_root).exists():
+        return False
+    try:
+        conn = connect(project_root, read_only=True, apply_migrations=False)
+    except Exception:  # pragma: no cover -- corruption / locking
+        return False
+    try:
+        tbl = conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?",
+            (table,),
+        ).fetchone()
+        if tbl is None:
+            return False
+        row = conn.execute(f"SELECT 1 FROM {table} WHERE id = 1 LIMIT 1").fetchone()
+        return row is not None
+    except Exception:  # pragma: no cover -- defensive
+        return False
+    finally:
+        conn.close()
 
 
 def _generate_state_files(
     ai_eng_dir: Path,
     *,
     stacks: list[str] | None,
-    ides: list[str] | None,
+    surfaces: list[str] | None = None,
     vcs_provider: str = "github",
-    ai_providers: list[str] | None = None,
     external_references: dict[str, str] | None = None,
 ) -> list[Path]:
     """Generate default state files if they don't already exist.
@@ -414,35 +519,72 @@ def _generate_state_files(
     Args:
         ai_eng_dir: Path to the ``.ai-engineering/`` directory.
         stacks: Stacks to include in the install manifest.
-        ides: IDEs to include in the install manifest.
+        surfaces: Surfaces to include in the install manifest.
         vcs_provider: Primary VCS provider.
-        ai_providers: AI providers to enable.
 
     Returns:
         List of state file paths that were created.
     """
     created: list[Path] = []
+    root_entry_points = load_manifest_root_entry_points(ai_eng_dir.parent)
 
-    state_models = {
-        _STATE_FILES["install-state"]: default_install_state(),
-        _STATE_FILES["ownership-map"]: default_ownership_map(),
-        _STATE_FILES["decision-store"]: default_decision_store(),
-    }
+    # Spec-125: install_state and framework_capabilities live in state.db
+    # tables (install_state singleton + tool_capabilities singleton) so the
+    # JSON sinks below were retired. The pseudo-paths remain in
+    # ``_STATE_FILES`` to keep the ``created`` list contract stable for
+    # callers that inspect installation results.
+    install_state_path = ai_eng_dir / _STATE_FILES["install-state"]
+    state_dir = ai_eng_dir / "state"
+    # Spec-125 cutover: install_state lives in the state.db ``install_state``
+    # singleton row. Only append to ``created`` when we actually inserted a
+    # new row -- existing installs (UPSERT no-op) leave the list unchanged
+    # so the installer can still report ``already_installed=True``.
+    install_state_existed = _state_db_row_exists(ai_eng_dir.parent, "install_state")
+    save_install_state(state_dir, default_install_state())
+    if not install_state_existed and install_state_path not in created:
+        created.append(install_state_path)
 
-    for relative_path, model in state_models.items():
-        dest = ai_eng_dir / relative_path
-        if dest.exists():
-            continue
-        write_json_model(dest, model)
-        created.append(dest)
+    # spec-132 D-132-08: ownership_map + decisions UPSERT directly into
+    # state.db. Pseudo-paths kept in ``_STATE_FILES`` for stable
+    # caller-visible identifiers; the legacy JSON files are no longer
+    # written and -- if present from a pre-spec-132 install -- are
+    # pruned below. Mirrors the install_state idempotency contract: a
+    # re-install observes the pre-existing rows and leaves ``created``
+    # alone so ``already_installed`` stays True.
+    from ai_engineering.state.state_db import upsert_decision_rows, upsert_ownership_rows
+
+    ownership_pseudo_path = ai_eng_dir / _STATE_FILES["ownership-map"]
+    decisions_pseudo_path = ai_eng_dir / _STATE_FILES["decision-store"]
+    ownership_existed = _state_db_table_has_rows(ai_eng_dir.parent, "ownership_map")
+    upsert_ownership_rows(
+        ai_eng_dir.parent,
+        default_ownership_map(root_entry_points=root_entry_points),
+    )
+    if not ownership_existed and ownership_pseudo_path not in created:
+        created.append(ownership_pseudo_path)
+    # decisions table starts empty on a fresh install (no risks accepted
+    # yet) -- presence of the install_state row is the install marker.
+    upsert_decision_rows(ai_eng_dir.parent, default_decision_store())
+    if not install_state_existed and decisions_pseudo_path not in created:
+        created.append(decisions_pseudo_path)
+
+    # spec-132 D-132-18: one-shot cleanup of legacy ownership-map.json /
+    # decision-store.json sidecars left behind by pre-spec-132 installs.
+    for legacy_name in ("ownership-map.json", "decision-store.json"):
+        (state_dir / legacy_name).unlink(missing_ok=True)
 
     capabilities_path = ai_eng_dir / _STATE_FILES["framework-capabilities"]
-    if not capabilities_path.exists():
-        write_framework_capabilities(ai_eng_dir.parent)
+    # Spec-125: write_framework_capabilities now populates the
+    # ``tool_capabilities`` singleton row instead of the JSON file. The
+    # pseudo-path is appended only when no prior row existed so re-runs
+    # against an already-installed framework do not inflate ``created``.
+    capabilities_existed = _state_db_row_exists(ai_eng_dir.parent, "tool_capabilities")
+    write_framework_capabilities(ai_eng_dir.parent)
+    if not capabilities_existed and capabilities_path not in created:
         created.append(capabilities_path)
 
     instinct_paths = [
-        ai_eng_dir / _STATE_FILES["instinct-observations"],
+        ai_eng_dir / _STATE_FILES["observation-events"],
         ai_eng_dir / _STATE_FILES["instincts"],
         ai_eng_dir / _STATE_FILES["instinct-meta"],
     ]
@@ -569,7 +711,10 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
     if policy_result.manual_guide is not None:
         state.branch_policy.manual_guide = policy_result.manual_guide
         result.guide_text = policy_result.manual_guide
-        result.manual_steps.append("Run 'ai-eng guide' to view branch policy setup instructions")
+        result.manual_steps.append(
+            "Configure branch protection manually — instructions saved to "
+            ".ai-engineering/state/install-state.json (branch_policy.manual_guide)"
+        )
 
     if not result.manual_steps:
         result.readiness_status = "READY"

@@ -416,18 +416,22 @@ def _hook_sha256(path: Path) -> str:
 
 
 def _record_hook_hashes(project_root: Path) -> None:
-    """Persist installed hook hashes into install-state when available."""
-    from ai_engineering.state.models import ToolEntry
-    from ai_engineering.state.service import load_install_state, save_install_state
+    """Persist installed hook hashes into install-state when available.
 
-    state_dir = project_root / ".ai-engineering" / "state"
-    state_path = state_dir / "install-state.json"
+    Spec-125 D-125-01: install_state lives in state.db; the JSON fallback
+    was deleted in wave 1. Reads/writes go through the state.db repository.
+    """
+    from ai_engineering.state.models import ToolEntry
+    from ai_engineering.state.repository import DurableStateRepository
+    from ai_engineering.state.service import save_install_state
+
     hooks_dir = project_root / ".git" / "hooks"
-    if not state_path.is_file() or not hooks_dir.is_dir():
+    if not hooks_dir.is_dir():
         return
 
+    repo = DurableStateRepository(project_root)
     try:
-        state = load_install_state(state_dir)
+        state = repo.load_install_state()
     except (OSError, ValueError):
         return
 
@@ -452,20 +456,21 @@ def _record_hook_hashes(project_root: Path) -> None:
             mode=hash_value,
         )
 
+    state_dir = project_root / ".ai-engineering" / "state"
     save_install_state(state_dir, state)
 
 
 def _load_expected_hook_hashes(project_root: Path) -> dict[str, str]:
-    """Load expected hook hashes from install-state."""
-    from ai_engineering.state.service import load_install_state
+    """Load expected hook hashes from install-state.
 
-    state_dir = project_root / ".ai-engineering" / "state"
-    state_path = state_dir / "install-state.json"
-    if not state_path.is_file():
-        return {}
+    Spec-125 D-125-01: install_state lives in state.db; the JSON fallback
+    was deleted in wave 1. Reads now go through the canonical state.db
+    repository.
+    """
+    from ai_engineering.state.repository import DurableStateRepository
 
     try:
-        state = load_install_state(state_dir)
+        state = DurableStateRepository(project_root).load_install_state()
     except (OSError, ValueError):
         return {}
 

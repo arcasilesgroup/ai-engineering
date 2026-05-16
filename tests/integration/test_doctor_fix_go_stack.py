@@ -32,7 +32,7 @@ def go_project(tmp_path: Path) -> Path:
     Layout:
         <tmp>/.ai-engineering/manifest.yml         -- declares go stack
         <tmp>/go.mod                                -- so the project looks "go-like"
-        <tmp>/.ai-engineering/state/install-state.json
+        <tmp>/.ai-engineering/state/state.db       -- spec-125: install_state row
     """
     project = tmp_path
     (project / ".ai-engineering").mkdir()
@@ -60,9 +60,13 @@ required_tools:
 
     state_dir = project / ".ai-engineering" / "state"
     state_dir.mkdir()
-    (state_dir / "install-state.json").write_text(
-        '{"schema_version": "2.0", "vcs_provider": "github", "required_tools_state": {}}\n',
-        encoding="utf-8",
+    # Spec-125: install_state lives in state.db, not a JSON file.
+    from ai_engineering.state.models import InstallState
+    from ai_engineering.state.service import save_install_state
+
+    save_install_state(
+        state_dir,
+        InstallState(schema_version="2.0", vcs_provider="github"),
     )
     return project
 

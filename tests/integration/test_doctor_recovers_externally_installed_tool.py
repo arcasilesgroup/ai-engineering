@@ -8,7 +8,6 @@ state record to ``INSTALLED`` with ``mechanism="external"``.
 
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
@@ -133,7 +132,12 @@ def test_doctor_keeps_missing_when_probe_fails(tmp_path: Path) -> None:
 
 
 def test_doctor_persists_recovery_to_disk(tmp_path: Path) -> None:
-    """The state.required_tools_state update is written back to install-state.json."""
+    """The state.required_tools_state update is written back to state.db.
+
+    Spec-125: install_state lives in state.db's ``install_state``
+    singleton row. The doctor must persist external-recovery updates by
+    UPSERTing the row, not by writing a JSON file.
+    """
     state = InstallState(
         required_tools_state={
             "jq": ToolInstallRecord(
@@ -157,9 +161,13 @@ def test_doctor_persists_recovery_to_disk(tmp_path: Path) -> None:
     ):
         doctor_tools._check_required_tools(ctx)
 
+    # Spec-125 cutover: assertion against the canonical state.db row.
+    from ai_engineering.state.service import load_install_state
+
+    persisted = load_install_state(tmp_path / ".ai-engineering" / "state")
+    record = persisted.required_tools_state["jq"]
+    assert record.state == ToolInstallState.INSTALLED
+    assert record.mechanism == "external"
+    # Legacy JSON file MUST NOT be recreated by the doctor write path.
     state_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-    assert state_path.exists(), "doctor must persist external-recovery to install-state.json"
-    on_disk = json.loads(state_path.read_text(encoding="utf-8"))
-    record = on_disk["required_tools_state"]["jq"]
-    assert record["state"] == ToolInstallState.INSTALLED.value
-    assert record["mechanism"] == "external"
+    assert not state_path.exists(), "spec-125: doctor must not recreate install-state.json"

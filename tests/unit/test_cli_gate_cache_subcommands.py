@@ -109,9 +109,13 @@ def project_root(tmp_path: Path) -> Path:
 
 
 def _gate_cache_dir(root: Path) -> Path:
-    """Canonical on-disk gate-cache directory for ``root``."""
+    """Canonical on-disk gate-cache directory for ``root``.
 
-    return root / ".ai-engineering" / "state" / "gate-cache"
+    Spec-125 D-125-09 relocated the gate cache from
+    ``.ai-engineering/state/gate-cache/`` to ``.ai-engineering/cache/gate/``.
+    """
+
+    return root / ".ai-engineering" / "cache" / "gate"
 
 
 # ---------------------------------------------------------------------------

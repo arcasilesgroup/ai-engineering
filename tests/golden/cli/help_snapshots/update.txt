@@ -1,0 +1,14 @@
+
+ Usage: ai-eng update [OPTIONS] [TARGET]
+
+ Update framework-managed governance files.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│   target      [TARGET]  Target project root. Defaults to cwd.                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --apply            Apply changes (dry-run by default).                       │
+│ --diff   -d        Show unified diffs for updated files.                     │
+│ --json             Output report as JSON (deprecated: use global --json).    │
+│ --help             Show this message and exit.                               │
+╰──────────────────────────────────────────────────────────────────────────────╯

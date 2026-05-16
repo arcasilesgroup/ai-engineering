@@ -1,0 +1,9 @@
+
+ Usage: ai-eng maintenance risk-status [OPTIONS]
+
+ Show risk acceptance status (active, expiring, expired).
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

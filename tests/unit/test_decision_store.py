@@ -1,86 +1,56 @@
-"""Tests for decision-store operations."""
+"""Tests for the canonical state.db ``decisions`` table CLI surface."""
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
+from ai_engineering.state.state_db import upsert_decision_rows_raw
 
 runner = CliRunner()
 
 
-def _setup_decision_store(root: Path, entries: list[dict] | None = None) -> Path:
-    """Create a decision-store.json with optional entries."""
-    state_dir = root / ".ai-engineering" / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    store_path = state_dir / "decision-store.json"
-
-    data = {"schema_version": "1.1", "decisions": entries or []}
-    store_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    return store_path
-
-
 def test_decision_list_empty(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Decision list with empty store."""
-    # Arrange
-    _setup_decision_store(tmp_path)
+    """List against an uninitialised project root reports empty."""
+    (tmp_path / ".ai-engineering").mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
-    app = create_app()
+    result = runner.invoke(create_app(), ["decision", "list"])
 
-    # Act
-    result = runner.invoke(app, ["decision", "list"])
-
-    # Assert
     assert result.exit_code == 0
+    assert "empty" in result.output.lower()
 
 
 def test_decision_list_with_entries(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Decision list shows entries with camelCase schema."""
-    # Arrange
-    state_dir = tmp_path / ".ai-engineering" / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    store = state_dir / "decision-store.json"
-    store.write_text(
-        json.dumps(
+    """A seeded decision appears in the listing."""
+    upsert_decision_rows_raw(
+        tmp_path,
+        [
             {
-                "schemaVersion": "1.1",
-                "decisions": [
-                    {
-                        "id": "DEC-001",
-                        "title": "Test decision",
-                        "status": "active",
-                        "criticality": "medium",
-                        "created_at": "2026-03-12",
-                    }
-                ],
+                "decision_id": "DEC-001",
+                "spec_id": "spec-200",
+                "status": "active",
+                "title": "Seeded decision",
+                "context": "test fixture",
             }
-        ),
-        encoding="utf-8",
+        ],
     )
     monkeypatch.chdir(tmp_path)
-    app = create_app()
+    result = runner.invoke(create_app(), ["decision", "list"])
 
-    # Act
-    result = runner.invoke(app, ["decision", "list"])
-
-    # Assert
     assert result.exit_code == 0
+    assert "DEC-001" in result.output
+    assert "spec-200" in result.output
 
 
 def test_decision_record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Decision record adds a new entry."""
-    # Arrange
-    _setup_decision_store(tmp_path)
+    """`decision record` writes to the canonical table."""
+    (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
-    app = create_app()
-
-    # Act
     result = runner.invoke(
-        app,
+        create_app(),
         [
             "decision",
             "record",
@@ -89,56 +59,48 @@ def test_decision_record(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Non
             "Test context",
             "--decision",
             "Test decision",
-            "--category",
-            "architecture-decision",
+            "--spec",
+            "spec-034",
         ],
     )
 
-    # Assert
     assert result.exit_code == 0
+    assert "Recorded" in result.output
 
 
-def test_decision_expire_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Decision expire-check reports expired decisions."""
-    # Arrange
-    entries = [
-        {
-            "id": "DEC-OLD",
-            "title": "Expired decision",
-            "status": "active",
-            "criticality": "medium",
-            "created_at": "2025-01-01",
-            "expires_at": "2025-06-01",
-        }
-    ]
-    _setup_decision_store(tmp_path, entries)
+def test_decision_expire_check_with_no_decisions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`expire-check` returns a no-decisions message on an empty store."""
+    (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
     monkeypatch.chdir(tmp_path)
-    app = create_app()
+    result = runner.invoke(create_app(), ["decision", "expire-check"])
 
-    # Act
-    result = runner.invoke(app, ["decision", "expire-check"])
-
-    # Assert
     assert result.exit_code == 0
+    assert "no active decisions" in result.output.lower()
 
 
-def test_decision_store_schema_valid() -> None:
-    """The actual decision-store.json in the repo is valid JSON with expected schema."""
-    # Arrange
-    store_path = (
-        Path(__file__).resolve().parents[2] / ".ai-engineering" / "state" / "decision-store.json"
+def test_decision_record_with_expires(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`decision record --expires` persists the expiry timestamp."""
+    (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
+    monkeypatch.chdir(tmp_path)
+    result = runner.invoke(
+        create_app(),
+        [
+            "decision",
+            "record",
+            "DEC-EXP",
+            "--context",
+            "ctx",
+            "--decision",
+            "dec",
+            "--expires",
+            "2026-12-31",
+        ],
     )
-    if not store_path.exists():
-        pytest.skip("decision-store.json not found in repo")
 
-    # Act
-    data = json.loads(store_path.read_text(encoding="utf-8"))
+    assert result.exit_code == 0
+    from ai_engineering.state.state_db import list_decisions
 
-    # Assert
-    assert "schemaVersion" in data
-    assert "decisions" in data
-    assert isinstance(data["decisions"], list)
-    for entry in data["decisions"]:
-        assert "id" in entry
-        assert "title" in entry
-        assert "status" in entry
+    rows = list_decisions(tmp_path)
+    assert any(r["decision_id"] == "DEC-EXP" and r["expires_at"] for r in rows)

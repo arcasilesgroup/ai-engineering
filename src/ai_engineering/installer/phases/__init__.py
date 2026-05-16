@@ -7,6 +7,7 @@ that drives behavioral branching.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -24,6 +25,7 @@ PHASE_IDE_CONFIG = "ide_config"
 PHASE_HOOKS = "hooks"
 PHASE_STATE = "state"
 PHASE_TOOLS = "tools"
+PHASE_SCRIPTS = "scripts"
 
 # Canonical pipeline ordering.  StatePhase must run before both ToolsPhase and
 # HooksPhase so that install-state.json exists for tool status and hook hashes.
@@ -34,6 +36,7 @@ PHASE_ORDER: tuple[str, ...] = (
     PHASE_GOVERNANCE,
     PHASE_IDE_CONFIG,
     PHASE_STATE,
+    PHASE_SCRIPTS,
     PHASE_TOOLS,
     PHASE_HOOKS,
 )
@@ -173,14 +176,25 @@ class InstallContext:
 
     target: Path
     mode: InstallMode
-    providers: list[str] = field(default_factory=list)
+    # spec-133 D-133-16 hard-cut: `Surface` fuses AI Provider + IDE
+    # Integration into one axis. The legacy `providers` / `ides` lists
+    # were deleted.
+    surfaces: list[str] = field(default_factory=list)
     vcs_provider: str = "github"
     stacks: list[str] = field(default_factory=list)
-    ides: list[str] = field(default_factory=list)
     existing_state: InstallState | None = None
     # spec-101 T-2.16: ``--force`` plumbing. When True, ToolsPhase bypasses
     # the D-101-07 skip predicate and re-installs every tool unconditionally.
     force: bool = False
+    # spec-124 D-124-03: per-sub-step progress callback. Phases may call
+    # ``progress_callback(message)`` to surface fine-grained progress (e.g.
+    # ``"tool_started:ruff"`` / ``"hook_started:pre-commit"``) that the CLI
+    # surface translates into a Rich Status spinner sub-step. This is in
+    # addition to the pipeline-level callback in :class:`PipelineRunner`,
+    # which only fires once per phase. Defaults to ``None`` for backward
+    # compatibility -- phases that emit events without a registered listener
+    # are no-ops.
+    progress_callback: Callable[[str], None] | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -220,6 +234,7 @@ __all__ = [
     "PHASE_HOOKS",
     "PHASE_IDE_CONFIG",
     "PHASE_ORDER",
+    "PHASE_SCRIPTS",
     "PHASE_STATE",
     "PHASE_TOOLS",
     "InstallContext",

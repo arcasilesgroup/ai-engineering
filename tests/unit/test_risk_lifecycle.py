@@ -41,6 +41,13 @@ def _empty_store() -> DecisionStore:
     return DecisionStore(schemaVersion="1.1", decisions=[])
 
 
+def _active_ids(store: DecisionStore) -> list[str]:
+    """Return the derived active-decision IDs for assertions."""
+    if store.active_decisions is None:
+        return []
+    return [decision.id for decision in store.active_decisions]
+
+
 # ── default_expiry_for_severity ─────────────────────────────────────────
 
 
@@ -352,6 +359,101 @@ class TestMarkRemediated:
 
         # Assert
         assert d.status == DecisionStatus.REMEDIATED
+
+
+# ── active_decisions coherence ──────────────────────────────────────────
+
+
+class TestActiveDecisionSliceCoherence:
+    """RED tests for keeping the derived active slice aligned with the ledger."""
+
+    def test_create_risk_acceptance_rebuilds_active_decisions_slice(self) -> None:
+        # Arrange
+        store = DecisionStore(schemaVersion="1.1", decisions=[], active_decisions=[])
+
+        # Act
+        created = create_risk_acceptance(
+            store,
+            decision_id="RA-001",
+            context="test",
+            decision_text="accept",
+            severity=RiskSeverity.HIGH,
+            follow_up="fix",
+            spec="004",
+            accepted_by="dev",
+        )
+
+        # Assert
+        assert _active_ids(store) == [created.id]
+
+    def test_renew_decision_replaces_superseded_entry_in_active_slice(self) -> None:
+        # Arrange
+        store = _empty_store()
+        original = create_risk_acceptance(
+            store,
+            decision_id="RA-001",
+            context="test",
+            decision_text="accept",
+            severity=RiskSeverity.HIGH,
+            follow_up="fix",
+            spec="004",
+            accepted_by="dev",
+        )
+        store.active_decisions = [original]
+
+        # Act
+        renewed = renew_decision(
+            store,
+            decision_id="RA-001",
+            justification="need more time",
+            spec="004",
+            actor="dev",
+        )
+
+        # Assert
+        assert _active_ids(store) == [renewed.id]
+
+    def test_revoke_decision_removes_revoked_entry_from_active_slice(self) -> None:
+        # Arrange
+        store = _empty_store()
+        decision = create_risk_acceptance(
+            store,
+            decision_id="RA-001",
+            context="test",
+            decision_text="accept",
+            severity=RiskSeverity.MEDIUM,
+            follow_up="fix",
+            spec="004",
+            accepted_by="dev",
+        )
+        store.active_decisions = [decision]
+
+        # Act
+        revoke_decision(store, decision_id="RA-001")
+
+        # Assert
+        assert _active_ids(store) == []
+
+    def test_mark_remediated_removes_closed_entry_from_active_slice(self) -> None:
+        # Arrange
+        store = _empty_store()
+        decision = create_risk_acceptance(
+            store,
+            decision_id="RA-001",
+            context="test",
+            decision_text="accept",
+            severity=RiskSeverity.LOW,
+            follow_up="fix",
+            spec="004",
+            accepted_by="dev",
+        )
+        store.active_decisions = [decision]
+
+        # Act
+        mark_remediated(store, decision_id="RA-001")
+
+        # Assert
+        assert _active_ids(store) == []
 
 
 # ── list_expired_decisions ──────────────────────────────────────────────

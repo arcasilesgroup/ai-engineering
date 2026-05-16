@@ -1,9 +1,14 @@
 """Doctor phase: detect -- validates install-state presence and coherence.
 
-Mirrors the ``detect`` installer phase. Checks that install-state.json
-exists, parses correctly, has the expected schema version, that the
-detected VCS provider matches the current git remote, and that manifest
-stacks match file-system-detected stacks.
+Mirrors the ``detect`` installer phase. Checks that the install_state
+singleton row in state.db exists, parses correctly, has the expected
+schema version, that the detected VCS provider matches the current git
+remote, and that manifest stacks match file-system-detected stacks.
+
+Spec-125: install_state moved from a JSON file (``install-state.json``)
+to the ``install_state`` table in ``state.db``. The check now verifies
+the singleton row at ``id=1`` is present and decodes to a valid
+``InstallState`` model.
 """
 
 from __future__ import annotations
@@ -15,11 +20,11 @@ from pathlib import Path
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.installer.autodetect import detect_stacks
-from ai_engineering.state.models import InstallState
+from ai_engineering.state.service import load_install_state
 
 logger = logging.getLogger(__name__)
 
-_STATE_REL = ".ai-engineering/state/install-state.json"
+_STATE_DB_REL = ".ai-engineering/state/state.db"
 
 
 def check(ctx: DoctorContext) -> list[CheckResult]:
@@ -48,34 +53,46 @@ def fix(
 
 
 def _check_install_state_exists(ctx: DoctorContext) -> CheckResult:
-    """Verify install-state.json exists and is parseable as InstallState."""
-    state_path = ctx.target / _STATE_REL
-    if not state_path.is_file():
+    """Verify the install_state singleton row exists and parses cleanly.
+
+    Spec-125: ``state.db`` is canonical. A legacy ``install-state.json``
+    file is migrated by ``load_install_state`` on first read, so this
+    probe delegates to it: present + valid JSON → OK; unparseable JSON
+    → FAIL("not parseable"); nothing on disk → FAIL("not found").
+    """
+    state_dir = ctx.target / ".ai-engineering" / "state"
+    db_path = ctx.target / _STATE_DB_REL
+    legacy_json = state_dir / "install-state.json"
+
+    if not db_path.is_file() and not legacy_json.exists():
         return CheckResult(
             name="install-state-exists",
             status=CheckStatus.FAIL,
-            message=f"install-state.json not found at {state_path}",
+            message=f"install state not found (no state.db at {db_path})",
         )
+
+    if legacy_json.exists():
+        try:
+            json.loads(legacy_json.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            return CheckResult(
+                name="install-state-exists",
+                status=CheckStatus.FAIL,
+                message=f"install-state.json not parseable: {exc}",
+            )
+
     try:
-        raw = state_path.read_text(encoding="utf-8")
-        data = json.loads(raw)
-        InstallState.model_validate(data)
-    except (json.JSONDecodeError, OSError) as exc:
-        return CheckResult(
-            name="install-state-exists",
-            status=CheckStatus.FAIL,
-            message=f"install-state.json not parseable: {exc}",
-        )
+        load_install_state(state_dir)
     except Exception as exc:
         return CheckResult(
             name="install-state-exists",
             status=CheckStatus.FAIL,
-            message=f"install-state.json validation failed: {exc}",
+            message=f"install_state row validation failed: {exc}",
         )
     return CheckResult(
         name="install-state-exists",
         status=CheckStatus.OK,
-        message="install-state.json present and valid",
+        message="install_state present and valid",
     )
 
 

@@ -45,7 +45,7 @@ def test_hooks_and_installer_templates_missing_inputs(tmp_path: Path) -> None:
             return_value=fake_root,
         ),
         patch(
-            "ai_engineering.installer.templates._resolve_provider_maps",
+            "ai_engineering.installer.templates._resolve_surface_maps",
             return_value=({"missing.md": "dest/missing.md"}, [("missing-dir", "dest-tree")]),
         ),
     ):

@@ -447,9 +447,13 @@ class TestHooksRegisteredCheck:
         assert result.fixable is False
         assert "missing.py" in result.message
 
-    def test_hooks_registered_no_settings(self, project: Path) -> None:
-        """No settings.json -> WARN (non-Claude-Code IDE)."""
-        # Ensure no .claude/settings.json exists
+    def test_hooks_registered_no_settings_no_manifest_is_ok(self, project: Path) -> None:
+        """spec-133 #8: no settings.json + no manifest_config -> OK.
+
+        Absent settings.json simply means claude-code is not configured.
+        That is a valid choice, not a health problem. The check returns OK
+        instead of the previous spurious WARN.
+        """
         ctx = DoctorContext(target=project)
         with patch.object(
             hooks_phase,
@@ -459,7 +463,8 @@ class TestHooksRegisteredCheck:
             results = hooks_phase.check(ctx)
 
         result = next(r for r in results if r.name == "hooks-registered")
-        assert result.status == CheckStatus.WARN
+        assert result.status == CheckStatus.OK
+        assert "claude-code provider absent" in result.message
 
 
 # ── hooks-runtime ─────────────────────────────────────────────────────

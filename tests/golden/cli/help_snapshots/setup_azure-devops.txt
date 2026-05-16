@@ -1,0 +1,12 @@
+
+ Usage: ai-eng setup azure-devops [OPTIONS] [TARGET]
+
+ Configure Azure DevOps PAT credentials.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│   target      [TARGET]  Target project root. Defaults to cwd.                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --org-url  -o      TEXT  Azure DevOps organisation URL.                      │
+│ --help                   Show this message and exit.                         │
+╰──────────────────────────────────────────────────────────────────────────────╯

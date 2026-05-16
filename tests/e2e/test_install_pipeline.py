@@ -71,7 +71,18 @@ class TestInstallPipeline:
 
         assert (tmp_path / ".ai-engineering").is_dir()
         assert (tmp_path / ".ai-engineering" / "manifest.yml").exists()
-        assert (tmp_path / ".ai-engineering" / "state" / "install-state.json").exists()
+        # Spec-125: install_state lives in state.db -- assert the singleton
+        # row at id=1 was written by the pipeline.
+        import sqlite3
+
+        db_path = tmp_path / ".ai-engineering" / "state" / "state.db"
+        assert db_path.is_file()
+        conn = sqlite3.connect(db_path)
+        try:
+            row = conn.execute("SELECT 1 FROM install_state WHERE id = 1").fetchone()
+        finally:
+            conn.close()
+        assert row is not None, "install_state singleton row missing after install"
         assert result.total_created > 0
         assert summary.failed_phase is None
 

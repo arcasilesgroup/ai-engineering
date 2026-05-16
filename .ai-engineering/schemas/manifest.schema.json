@@ -310,6 +310,63 @@
       },
       "required": ["consent", "default"],
       "additionalProperties": false
+    },
+    "brainstorm": {
+      "type": "object",
+      "description": "Knobs for /ai-brainstorm (spec-134 D-134-04).",
+      "properties": {
+        "auto_spec_gate": {
+          "type": "object",
+          "description": "Trivial-vs-spec gate that runs BEFORE interrogation.",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Mandatory opt-out knob; false routes all calls to full interrogation."
+            },
+            "thresholds": {
+              "type": "object",
+              "properties": {
+                "files": { "type": "integer", "minimum": 0 },
+                "loc": { "type": "integer", "minimum": 0 },
+                "cross_module": { "type": "integer", "minimum": 0 }
+              },
+              "required": ["files", "loc", "cross_module"],
+              "additionalProperties": false
+            },
+            "hard_triggers": {
+              "type": "object",
+              "properties": {
+                "public_api": { "type": "boolean" },
+                "state_or_schema": { "type": "boolean" },
+                "new_dependency": { "type": "boolean" },
+                "security_surface": { "type": "boolean" }
+              },
+              "required": [
+                "public_api",
+                "state_or_schema",
+                "new_dependency",
+                "security_surface"
+              ],
+              "additionalProperties": false
+            },
+            "regulated_overrides": {
+              "type": "object",
+              "description": "Tightened thresholds applied when gates.mode == regulated.",
+              "properties": {
+                "files": { "type": "integer", "minimum": 0 },
+                "loc": { "type": "integer", "minimum": 0 },
+                "cross_module": { "type": "integer", "minimum": 0 }
+              },
+              "required": ["files", "loc", "cross_module"],
+              "additionalProperties": false
+            }
+          },
+          "required": ["enabled", "thresholds", "hard_triggers", "regulated_overrides"],
+          "additionalProperties": false
+        }
+      },
+      "required": ["auto_spec_gate"],
+      "additionalProperties": false
     }
   },
   "required": [

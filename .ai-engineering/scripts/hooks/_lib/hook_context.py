@@ -8,7 +8,13 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# Gemini -> Claude event name normalization
+# Gemini -> Claude event name normalization.
+#
+# WARNING: BeforeAgent / AfterAgent are NOT symmetric with UserPromptSubmit /
+# Stop. Gemini's "agent" lifecycle is broader than a Claude "user prompt" — a
+# BeforeAgent may fire for non-prompt agent boots. Hooks gated to
+# UserPromptSubmit (e.g. runtime-progressive-disclosure) should add an extra
+# guard against ``ctx.engine == "gemini"`` if firing on agent-boot is unwanted.
 _EVENT_NAME_MAP: dict[str, str] = {
     "BeforeTool": "PreToolUse",
     "AfterTool": "PostToolUse",
@@ -24,6 +30,29 @@ _EVENT_NAME_MAP: dict[str, str] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Canonical state-plane subdir locations (spec-125 Wave 2).
+#
+# Source of truth for the relocated subdirs. Hook scripts and cross-IDE
+# wrappers import these helpers instead of hardcoding the path so a
+# future move only requires editing this file. Both helpers take the
+# already-resolved ``project_root`` (see ``get_hook_context``) and return
+# the absolute directory path. Callers are responsible for ``mkdir`` as
+# needed; the helpers perform pure path arithmetic so they remain safe
+# to call inside fast-path probes.
+# ---------------------------------------------------------------------------
+
+
+def RUNTIME_DIR(project_root: Path) -> Path:
+    """Return ``<project_root>/.ai-engineering/runtime`` (canonical runtime dir)."""
+    return project_root / ".ai-engineering" / "runtime"
+
+
+def CACHE_DIR(project_root: Path) -> Path:
+    """Return ``<project_root>/.ai-engineering/cache`` (canonical cache umbrella)."""
+    return project_root / ".ai-engineering" / "cache"
+
+
 @dataclass
 class HookContext:
     engine: str  # claude_code, gemini, github_copilot, codex
@@ -32,6 +61,51 @@ class HookContext:
     event_name: str  # Normalized to Claude convention
     event_name_raw: str  # As received from IDE
     data: dict  # Parsed stdin JSON
+    # spec-131 sub-004 T-4.A: distinguishes a Task-tool sub-agent dispatch
+    # ("subagent") from a main-thread invocation ("main"). Sub-agent posture
+    # unlocks the positive-allow-list lane in prompt-injection-guard.py
+    # for read-only commands (rg/grep/find/ls/cat without redirects).
+    agent_kind: str = "main"
+
+
+def _looks_like_subagent_transcript(transcript_path: object) -> bool:
+    """Return True when ``transcript_path`` basename looks like a sub-agent log.
+
+    Claude Code writes sub-agent transcripts to
+    ``.claude/projects/<project>/subagent-<id>.jsonl``. Defensive: a
+    non-string value (e.g. malformed payload where the field is an int)
+    returns False so the heuristic never raises.
+    """
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return False
+    try:
+        basename = Path(transcript_path).name
+    except (ValueError, TypeError):
+        return False
+    return basename.startswith("subagent-")
+
+
+def _resolve_agent_kind(data: dict) -> str:
+    """Detect ``main`` vs ``subagent`` from the stdin payload.
+
+    spec-131 sub-004 D-131-11 / E-1 heuristic:
+    - ``parent_session_id`` or alias ``parent_session`` set -> subagent.
+    - ``is_subagent`` is True (Codex bridge / Copilot adapter flag) ->
+      subagent.
+    - ``transcript_path`` basename starts with ``subagent-`` -> subagent.
+    - Otherwise -> main (false-negative is safer than false-positive — a
+      main-thread call mistakenly tagged subagent would skip the IOC
+      pattern scan that should run).
+    """
+    if not isinstance(data, dict):
+        return "main"
+    if data.get("parent_session_id") or data.get("parent_session"):
+        return "subagent"
+    if data.get("is_subagent") is True:
+        return "subagent"
+    if _looks_like_subagent_transcript(data.get("transcript_path")):
+        return "subagent"
+    return "main"
 
 
 def get_hook_context() -> HookContext:
@@ -50,7 +124,10 @@ def get_hook_context() -> HookContext:
     except (json.JSONDecodeError, OSError):
         data = {}
 
-    # Detect engine
+    # Detect engine. Earlier versions silently fell back to "claude_code"
+    # whenever no env var or filesystem marker matched, which misclassified
+    # any future runtime in audit telemetry. Now require an explicit env-var
+    # opt-in for the silent fallback so misconfiguration surfaces loudly.
     engine = os.environ.get("AIENG_HOOK_ENGINE", "").strip()
     if not engine:
         if os.environ.get("CLAUDE_PROJECT_DIR"):
@@ -64,8 +141,10 @@ def get_hook_context() -> HookContext:
                 engine = "codex"
             elif (cwd / ".gemini").is_dir():
                 engine = "gemini"
+            elif (cwd / ".claude").is_dir():
+                engine = "claude_code"
             else:
-                engine = "claude_code"  # default fallback
+                engine = os.environ.get("AIENG_HOOK_ENGINE_DEFAULT", "").strip() or "unknown"
 
     # Detect project root
     project_root_str = (
@@ -94,6 +173,7 @@ def get_hook_context() -> HookContext:
         event_name=event_name,
         event_name_raw=event_name_raw,
         data=data,
+        agent_kind=_resolve_agent_kind(data),
     )
 
 

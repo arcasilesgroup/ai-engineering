@@ -1,0 +1,18 @@
+
+ Usage: ai-eng decision backfill [OPTIONS]
+
+ Backfill the decisions table from markdown sources.
+
+ Scans the default four sources (specs + CHANGELOG.md + CONSTITUTION.md
+ + CLAUDE.md) -- or the operator-supplied ``--source`` globs -- for
+ ``D-<spec>-<NN>`` references, extracting the surrounding line as the
+ decision title. UPSERT is idempotent: re-running is a no-op once
+ rows already match.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --source         TEXT  Glob (relative to repo root) to scan. Repeatable.     │
+│                        Default: specs + CHANGELOG.md + CONSTITUTION.md +     │
+│                        CLAUDE.md.                                            │
+│ --dry-run              List entries without writing.                         │
+│ --help                 Show this message and exit.                           │
+╰──────────────────────────────────────────────────────────────────────────────╯

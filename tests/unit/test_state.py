@@ -105,22 +105,23 @@ class TestOwnershipMap:
         assert om.is_update_allowed(".ai-engineering/state/framework-events.ndjson") is False
 
     def test_update_allowed_for_framework_capabilities_catalog(self) -> None:
+        # spec-125 D-125-01: framework-capabilities lives in state.db.tool_capabilities;
+        # state.db is the canonical projection target with ALLOW policy.
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/state/framework-capabilities.json") is True
+        assert om.is_update_allowed(".ai-engineering/state/state.db") is True
 
     def test_update_denied_for_instinct_observation_log(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/state/instinct-observations.ndjson") is False
+        assert om.is_update_allowed(".ai-engineering/state/observation-events.ndjson") is False
         assert (
-            om.is_writable_by_framework(".ai-engineering/state/instinct-observations.ndjson")
-            is True
+            om.is_writable_by_framework(".ai-engineering/state/observation-events.ndjson") is True
         )
 
     def test_update_allowed_for_instinct_artifacts(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/instincts/instincts.yml") is True
-        assert om.is_update_allowed(".ai-engineering/instincts/meta.json") is True
-        assert om.is_update_allowed(".ai-engineering/instincts/proposals.md") is True
+        assert om.is_update_allowed(".ai-engineering/observations/observations.yml") is True
+        assert om.is_update_allowed(".ai-engineering/observations/meta.json") is True
+        assert om.is_update_allowed(".ai-engineering/observations/proposals.md") is True
 
     def test_update_denied_for_no_match(self) -> None:
         om = default_ownership_map()
@@ -171,8 +172,10 @@ class TestOwnershipMap:
 
     def test_constitution_denied(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/CONSTITUTION.md") is False
-        assert om.has_deny_rule(".ai-engineering/CONSTITUTION.md") is True
+        # spec-123 D-123-17: workspace-charter stub deleted; only root
+        # CONSTITUTION.md is governed; no compatibility alias.
+        assert om.is_update_allowed("CONSTITUTION.md") is False
+        assert om.has_deny_rule("CONSTITUTION.md") is True
 
     def test_gitleaks_allowed(self) -> None:
         om = default_ownership_map()
@@ -307,6 +310,42 @@ class TestJsonIO:
         store = default_decision_store()
         write_json_model(path, store)
         assert path.exists()
+
+    def test_decision_store_roundtrip_preserves_active_decisions(self, tmp_path: Path) -> None:
+        path = tmp_path / "state" / "decision-store.json"
+        payload = {
+            "schemaVersion": "1.1",
+            "decisions": [
+                {
+                    "id": "DEC-900",
+                    "context": "governance",
+                    "decision": "Keep the full ledger intact.",
+                    "decidedAt": "2026-04-30T00:00:00Z",
+                    "spec": "116",
+                    "title": "Historical title",
+                }
+            ],
+            "active_decisions": [
+                {
+                    "id": "DEC-900",
+                    "context": "governance",
+                    "decision": "Keep the full ledger intact.",
+                    "decidedAt": "2026-04-30T00:00:00Z",
+                    "spec": "116",
+                    "status": "active",
+                }
+            ],
+        }
+
+        store = DecisionStore.model_validate(payload)
+        write_json_model(path, store)
+
+        written = json.loads(path.read_text(encoding="utf-8"))
+        assert written["decisions"][0]["title"] == "Historical title"
+        assert written["active_decisions"][0]["id"] == "DEC-900"
+
+        loaded = read_json_model(path, DecisionStore)
+        assert loaded.active_decisions[0].id == "DEC-900"
 
     def test_stable_formatting(self, tmp_path: Path) -> None:
         path = tmp_path / "test.json"
@@ -603,9 +642,9 @@ class TestAiProvider:
     def test_enum_values(self) -> None:
         from ai_engineering.state.models import AiProvider
 
-        assert AiProvider.CLAUDE_CODE == "claude_code"
-        assert AiProvider.GITHUB_COPILOT == "github_copilot"
-        assert AiProvider.GEMINI == "gemini"
+        assert AiProvider.CLAUDE_CODE == "claude-code"
+        assert AiProvider.GITHUB_COPILOT == "github-copilot"
+        assert AiProvider.GEMINI == "gemini-cli"
         assert AiProvider.CODEX == "codex"
 
     def test_is_str_enum(self) -> None:
@@ -659,7 +698,7 @@ class TestAuditEnrichment:
         (specs_dir / "spec.md").write_text("---\ntitle: test\n---\n\n055-radical-simplification\n")
         assert _read_active_spec(tmp_path) == "055"
 
-    def test_read_active_spec_caches_result(self, tmp_path: Path) -> None:
+    def test_read_active_spec_reads_current_spec_each_call(self, tmp_path: Path) -> None:
         from ai_engineering.state.audit import _read_active_spec
 
         specs_dir = tmp_path / ".ai-engineering" / "specs"
@@ -667,7 +706,7 @@ class TestAuditEnrichment:
         (specs_dir / "spec.md").write_text('---\nid: "055"\n---\n')
         assert _read_active_spec(tmp_path) == "055"
         (specs_dir / "spec.md").write_text('---\nid: "999"\n---\n')
-        assert _read_active_spec(tmp_path) == "055"
+        assert _read_active_spec(tmp_path) == "999"
 
     def test_read_active_stack_from_manifest_yml(self, tmp_path: Path) -> None:
         """_read_active_stack reads from manifest.yml (not install-manifest.json)."""

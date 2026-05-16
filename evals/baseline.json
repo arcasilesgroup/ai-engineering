@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "captured_at_sha": "",
+  "notes": "Sub-007 M6 pilot seed baseline. Single skill entry so the regression-gate path is exercisable end-to-end without a full 46-skill corpus. The captured_at_sha and pass_at_1 will be filled in by the first run of `python scripts/run_loop_skill_evals.py --skill all --regression`. Full corpus capture (46 skills) is deferred — see sub-007/plan.md Self-Report.",
+  "entries": [
+    {
+      "skill": "ai-debug",
+      "pass_at_1": 1.0,
+      "captured_at_sha": "",
+      "threshold_pp": 5.0
+    }
+  ]
+}

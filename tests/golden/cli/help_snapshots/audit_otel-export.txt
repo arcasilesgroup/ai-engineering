@@ -1,0 +1,15 @@
+
+ Usage: ai-eng audit otel-export [OPTIONS]
+
+ Export a trace as OTLP/JSON.
+
+ Builds the OTLP envelope via
+ :func:`ai_engineering.state.audit_otel_export.build_otlp_spans` and
+ either writes it to ``--out`` (when supplied) or pretty-prints it
+ to stdout. Auto-builds the SQLite index when missing or stale.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ *  --trace        TEXT  Trace id to export. [required]                       │
+│    --out          PATH  Output file path; stdout when omitted.               │
+│    --help               Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

@@ -87,6 +87,6 @@
   <rect x="600" y="300" width="265" height="80" rx="8" fill="#1A2A40" stroke="#1A2A40" stroke-width="1"/>
   <text x="732" y="325" text-anchor="middle" fill="#00D4AA" font-size="12" font-weight="700">Recovery Tools</text>
   <text x="732" y="345" text-anchor="middle" fill="#64748B" font-size="10">ai-eng doctor — verify all tools</text>
-  <text x="732" y="360" text-anchor="middle" fill="#64748B" font-size="10">ai-eng validate — integrity check</text>
+  <text x="732" y="360" text-anchor="middle" fill="#64748B" font-size="10">ai-eng check — integrity check</text>
   <text x="732" y="375" text-anchor="middle" fill="#64748B" font-size="10">Auto-remediation on missing tools</text>
 </svg>

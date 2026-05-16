@@ -1,0 +1,9 @@
+
+ Usage: ai-eng gate pre-commit [OPTIONS]
+
+ Run pre-commit gate checks (format, lint, gitleaks).
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target  -t      PATH  Target project root.                                 │
+│ --help                  Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

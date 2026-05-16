@@ -1,0 +1,10 @@
+
+ Usage: ai-eng maintenance spec-reset [OPTIONS]
+
+ Reset spec state: append to history, clear spec buffer.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target   -t      PATH  Target project root.                                │
+│ --dry-run                Report findings without modifying files.            │
+│ --help                   Show this message and exit.                         │
+╰──────────────────────────────────────────────────────────────────────────────╯

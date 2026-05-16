@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import json
 import subprocess
+import uuid
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
+from ai_engineering.state.models import GateFindingsDocument
 from ai_engineering.verify.scoring import FindingSeverity, Verdict
 from ai_engineering.verify.service import (
     MODES,
@@ -23,6 +26,8 @@ from ai_engineering.verify.service import (
     verify_security,
 )
 
+_PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
 # ── Fake subprocess ───────────────────────────────────────────────────────
 
 
@@ -31,6 +36,7 @@ class FakeSubprocess:
 
     def __init__(self) -> None:
         self._responses: dict[str, subprocess.CompletedProcess[str]] = {}
+        self.calls: list[list[str]] = []
 
     def set_response(
         self,
@@ -49,6 +55,7 @@ class FakeSubprocess:
         *_args: object,
         **_kwargs: object,
     ) -> subprocess.CompletedProcess[str]:
+        self.calls.append(cmd)
         cmd_str = " ".join(cmd)
         for key, response in self._responses.items():
             if key in cmd_str:
@@ -64,10 +71,82 @@ def fake_run(monkeypatch: pytest.MonkeyPatch) -> FakeSubprocess:
     return fake
 
 
+@pytest.fixture()
+def project_root(tmp_path: Path) -> Path:
+    """Project root seeded with the markers verify needs to actually run.
+
+    spec-133 added guards that skip ruff/pip-audit when no ``src/`` or
+    no dependency manifest exists. Tests that exercise those code paths
+    must seed both so the subprocess calls actually fire.
+    """
+    (tmp_path / "src").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "pyproject.toml").write_text('[project]\nname="fake"\n', encoding="utf-8")
+    return tmp_path
+
+
+def _write_gate_findings(
+    project_root: Path,
+    *,
+    findings: list[dict[str, object]],
+) -> Path:
+    payload = {
+        "schema": "ai-engineering/gate-findings/v1",
+        "session_id": str(uuid.uuid4()),
+        "produced_by": "ai-commit",
+        "produced_at": datetime.now(UTC).isoformat(),
+        "branch": "feature/hx04",
+        "commit_sha": "0" * 40,
+        "findings": findings,
+        "auto_fixed": [],
+        "cache_hits": [],
+        "cache_misses": [],
+        "wall_clock_ms": {"wave1_fixers": 10, "wave2_checkers": 20, "total": 30},
+    }
+    document = GateFindingsDocument.model_validate(payload)
+    output_path = project_root / ".ai-engineering" / "state" / "gate-findings.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(document.model_dump_json(by_alias=True), encoding="utf-8")
+    return output_path
+
+
 # ── verify_quality ────────────────────────────────────────────────────────
 
 
 class TestVerifyQuality:
+    def test_gate_findings_artifact_drives_quality_without_subprocess(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _write_gate_findings(
+            tmp_path,
+            findings=[
+                {
+                    "check": "ruff-check",
+                    "rule_id": "F401",
+                    "file": "src/example.py",
+                    "line": 7,
+                    "column": 1,
+                    "severity": "medium",
+                    "message": "unused import",
+                    "auto_fixable": False,
+                    "auto_fix_command": None,
+                }
+            ],
+        )
+        monkeypatch.setattr(
+            "ai_engineering.verify.service._run",
+            lambda *_args, **_kwargs: pytest.fail(
+                "verify_quality must not execute tool subprocesses when "
+                "gate-findings.json is present"
+            ),
+        )
+
+        result = verify_quality(tmp_path)
+
+        assert any(f.category == "lint" for f in result.findings)
+        assert any(f.message == "unused import" for f in result.findings)
+        assert result.findings[0].stable_id == "check.kernel.ruff"
+        assert result.findings[0].primary_plane == "kernel"
+
     def test_clean_run_returns_score_100(self, fake_run: FakeSubprocess) -> None:
         # Arrange — ruff returns clean
         fake_run.set_response("ruff", returncode=0, stdout="")
@@ -80,7 +159,7 @@ class TestVerifyQuality:
         assert result.verdict == Verdict.PASS
         assert result.specialists[0].name == "quality"
 
-    def test_ruff_findings_reduce_score(self, fake_run: FakeSubprocess) -> None:
+    def test_ruff_findings_reduce_score(self, fake_run: FakeSubprocess, project_root: Path) -> None:
         # Arrange — ruff reports 2 lint violations
         findings = [
             {
@@ -97,19 +176,21 @@ class TestVerifyQuality:
         fake_run.set_response("ruff", returncode=1, stdout=json.dumps(findings))
 
         # Act
-        result = verify_quality(Path("/fake"))
+        result = verify_quality(project_root)
 
         # Assert
         assert result.score < 100
         assert len(result.findings) >= 2
         assert all(f.category == "lint" for f in result.findings)
 
-    def test_ruff_json_decode_error_still_reports_finding(self, fake_run: FakeSubprocess) -> None:
+    def test_ruff_json_decode_error_still_reports_finding(
+        self, fake_run: FakeSubprocess, project_root: Path
+    ) -> None:
         # Arrange — ruff returns non-JSON output
         fake_run.set_response("ruff", returncode=1, stdout="not valid json")
 
         # Act
-        result = verify_quality(Path("/fake"))
+        result = verify_quality(project_root)
 
         # Assert — should add a finding about non-JSON output
         assert any("non-JSON" in f.message for f in result.findings)
@@ -119,24 +200,77 @@ class TestVerifyQuality:
 
 
 class TestVerifySecurity:
-    def test_clean_scan_returns_score_100(self, fake_run: FakeSubprocess) -> None:
+    def test_gate_findings_artifact_augments_security_scans(
+        self, tmp_path: Path, fake_run: FakeSubprocess
+    ) -> None:
+        # spec-133 guard: pip-audit only runs when the project has a Python
+        # dependency manifest. Seed pyproject.toml so the subprocess fires.
+        (tmp_path / "pyproject.toml").write_text('[project]\nname="fake"\n', encoding="utf-8")
+        _write_gate_findings(
+            tmp_path,
+            findings=[
+                {
+                    "check": "gitleaks",
+                    "rule_id": "gitleaks-aws-key",
+                    "file": "config.py",
+                    "line": 5,
+                    "column": 1,
+                    "severity": "critical",
+                    "message": "aws key exposed",
+                    "auto_fixable": False,
+                    "auto_fix_command": None,
+                },
+                {
+                    "check": "pip-audit",
+                    "rule_id": "CVE-2026-0001",
+                    "file": "pyproject.toml",
+                    "line": 1,
+                    "column": 1,
+                    "severity": "high",
+                    "message": "dependency vulnerability",
+                    "auto_fixable": False,
+                    "auto_fix_command": None,
+                },
+            ],
+        )
+        fake_run.set_response("gitleaks", returncode=0, stdout="")
+        fake_run.set_response("tls_pip_audit", returncode=0, stdout="")
+
+        result = verify_security(tmp_path)
+
+        categories = {finding.category for finding in result.findings}
+        assert "secrets" in categories
+        assert "dependency" in categories
+        assert {finding.stable_id for finding in result.findings} == {
+            "check.kernel.gitleaks",
+            "check.kernel.pip_audit",
+        }
+        command_log = [" ".join(call) for call in fake_run.calls]
+        assert any("gitleaks" in command for command in command_log)
+        assert any("tls_pip_audit" in command or "pip-audit" in command for command in command_log)
+
+    def test_clean_scan_returns_score_100(
+        self, fake_run: FakeSubprocess, project_root: Path
+    ) -> None:
         # Arrange — both tools return clean
         fake_run.set_response("gitleaks", returncode=0, stdout="")
         fake_run.set_response("tls_pip_audit", returncode=0, stdout="")
 
         # Act
-        result = verify_security(Path("/fake"))
+        result = verify_security(project_root)
 
         # Assert
         assert result.score == 100
 
-    def test_gitleaks_findings_are_blocker_severity(self, fake_run: FakeSubprocess) -> None:
-        # Arrange — gitleaks detects a secret
+    def test_gitleaks_findings_are_blocker_severity(
+        self, fake_run: FakeSubprocess, project_root: Path
+    ) -> None:
+        # Arrange — gitleaks detects a leak
         leaks = [{"Description": "AWS Key", "File": "config.py", "StartLine": 5}]
         fake_run.set_response("gitleaks", returncode=1, stdout=json.dumps(leaks))
 
         # Act
-        result = verify_security(Path("/fake"))
+        result = verify_security(project_root)
 
         # Assert — secrets are BLOCKER severity
         secret_findings = [f for f in result.findings if f.category == "secrets"]
@@ -144,7 +278,7 @@ class TestVerifySecurity:
         assert secret_findings[0].severity == FindingSeverity.BLOCKER
 
     def test_pip_audit_vulnerabilities_are_critical_severity(
-        self, fake_run: FakeSubprocess
+        self, fake_run: FakeSubprocess, project_root: Path
     ) -> None:
         # Arrange — pip-audit finds a vulnerability
         audit = {
@@ -158,7 +292,7 @@ class TestVerifySecurity:
         fake_run.set_response("tls_pip_audit", returncode=1, stdout=json.dumps(audit))
 
         # Act
-        result = verify_security(Path("/fake"))
+        result = verify_security(project_root)
 
         # Assert — dependency vulns are CRITICAL
         dep_findings = [f for f in result.findings if f.category == "dependency"]
@@ -167,22 +301,22 @@ class TestVerifySecurity:
         assert dep_findings[0].specialist == "security"
 
     def test_pip_audit_non_json_failure_reports_critical_audit_failure(
-        self, fake_run: FakeSubprocess
+        self, fake_run: FakeSubprocess, project_root: Path
     ) -> None:
         fake_run.set_response("tls_pip_audit", returncode=1, stdout="tls handshake failed")
 
-        result = verify_security(Path("/fake"))
+        result = verify_security(project_root)
 
         audit_findings = [f for f in result.findings if f.category == "dependency-audit"]
         assert len(audit_findings) == 1
         assert audit_findings[0].severity == FindingSeverity.CRITICAL
 
     def test_pip_audit_empty_failure_reports_critical_audit_failure(
-        self, fake_run: FakeSubprocess
+        self, fake_run: FakeSubprocess, project_root: Path
     ) -> None:
         fake_run.set_response("tls_pip_audit", returncode=1, stdout="")
 
-        result = verify_security(Path("/fake"))
+        result = verify_security(project_root)
 
         audit_findings = [f for f in result.findings if f.category == "dependency-audit"]
         assert len(audit_findings) == 1
@@ -242,6 +376,8 @@ class TestVerifyGovernance:
         assert len(result.findings) == 1
         assert result.findings[0].severity == FindingSeverity.CRITICAL
         assert result.findings[0].category == "mirror-sync"
+        assert result.findings[0].stable_id == "check.repo_governance.mirror_sync"
+        assert result.findings[0].primary_plane == "repo-governance"
 
     def test_validate_warn_reports_minor(self, monkeypatch: pytest.MonkeyPatch) -> None:
         # Arrange — report with a WARN check
@@ -283,7 +419,10 @@ class TestVerifyGovernance:
 
 class TestVerifyPlatform:
     def test_aggregates_findings_from_all_modes(
-        self, fake_run: FakeSubprocess, monkeypatch: pytest.MonkeyPatch
+        self,
+        fake_run: FakeSubprocess,
+        monkeypatch: pytest.MonkeyPatch,
+        project_root: Path,
     ) -> None:
         # Arrange — ruff finds 1 issue, gitleaks finds 1 leak
         fake_run.set_response(
@@ -305,7 +444,7 @@ class TestVerifyPlatform:
         )
 
         # Act
-        result = verify_platform(Path("/fake"))
+        result = verify_platform(project_root)
 
         # Assert — findings from quality + security combined
         categories = {f.category for f in result.findings}
@@ -324,7 +463,10 @@ class TestVerifyPlatform:
         }
 
     def test_normal_profile_preserves_original_specialist_attribution(
-        self, fake_run: FakeSubprocess, monkeypatch: pytest.MonkeyPatch
+        self,
+        fake_run: FakeSubprocess,
+        monkeypatch: pytest.MonkeyPatch,
+        project_root: Path,
     ) -> None:
         fake_run.set_response(
             "ruff",
@@ -338,7 +480,7 @@ class TestVerifyPlatform:
             lambda _root, **_kw: IntegrityReport(),
         )
 
-        result = verify_platform(Path("/fake"))
+        result = verify_platform(project_root)
 
         lint_finding = next(finding for finding in result.findings if finding.category == "lint")
         assert lint_finding.specialist == "quality"
@@ -398,6 +540,47 @@ class TestAdditionalSpecialists:
         assert result.findings == []
         assert result.specialists[0].applicable is True
 
+    def test_verify_feature_reports_resolved_work_plane_paths(self, tmp_path: Path) -> None:
+        resolved_specs_dir = tmp_path / "resolved-work-plane"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": "resolved-work-plane"}),
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "spec.md").write_text(
+            "---\nstatus: draft\napproval: pending\n---\n# Spec\n",
+            encoding="utf-8",
+        )
+        (resolved_specs_dir / "plan.md").write_text("# No active plan\n", encoding="utf-8")
+
+        result = verify_feature(tmp_path)
+
+        files = {finding.category: finding.file for finding in result.findings}
+        assert files["spec-status"] == "resolved-work-plane/spec.md"
+        assert files["spec-approval"] == "resolved-work-plane/spec.md"
+        assert files["plan-status"] == "resolved-work-plane/plan.md"
+
+    def test_verify_feature_missing_spec_uses_resolved_work_plane_path_in_rationale(
+        self, tmp_path: Path
+    ) -> None:
+        resolved_specs_dir = tmp_path / "resolved-work-plane"
+        resolved_specs_dir.mkdir(parents=True)
+        pointer_path = tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json"
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(
+            json.dumps({"specsDir": "resolved-work-plane"}),
+            encoding="utf-8",
+        )
+
+        result = verify_feature(tmp_path)
+
+        assert result.specialists[0].applicable is False
+        assert result.specialists[0].rationale == (
+            "No active spec was found under resolved-work-plane/spec.md."
+        )
+
 
 # ── MODES dict ────────────────────────────────────────────────────────────
 
@@ -424,8 +607,12 @@ class TestModes:
 # ── verify_cmd CLI --json flag ────────────────────────────────────────────
 
 
+@pytest.mark.skip(
+    reason="spec-133 simplified verify_cmd: no MODES dispatch, no local --json flag. "
+    "JSON output flows through Renderer via the global --json flag instead."
+)
 class TestVerifyCmdJsonFlag:
-    """Tests for verify_cmd local --json output."""
+    """Obsolete: verify_cmd simplified by spec-133 — kept as skip for archaeology."""
 
     def test_local_json_flag_outputs_json(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """verify_cmd with output_json=True produces valid JSON."""
@@ -439,7 +626,7 @@ class TestVerifyCmdJsonFlag:
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.resolve_project_root",
-            lambda _t: Path("/tmp"),
+            lambda _t: _PROJECT_ROOT,
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.is_json_mode",
@@ -495,7 +682,7 @@ class TestVerifyCmdJsonFlag:
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.resolve_project_root",
-            lambda _t: Path("/tmp"),
+            lambda _t: _PROJECT_ROOT,
         )
         monkeypatch.setattr(
             "ai_engineering.cli_commands.verify_cmd.is_json_mode",

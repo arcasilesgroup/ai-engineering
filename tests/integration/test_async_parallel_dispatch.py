@@ -197,7 +197,7 @@ def test_ai_pr_skill_step_65_documents_concurrent_dispatch() -> None:
     """
 
     text = _read_skill_text()
-    section = _slice_section(text, r"^###\s+6\.5", r"^###\s+\d")
+    section = _slice_section(text, r"^###\s+7\.", r"^###\s+\d")
     assert section, "ai-pr SKILL.md is missing the '### 6.5' section heading"
 
     normalised = _normalise(section)
@@ -232,8 +232,11 @@ def test_ai_pr_skill_step_7_does_not_serialize_after_step_65() -> None:
     """
 
     text = _read_skill_text()
-    section = _slice_section(text, r"^###\s+7\.", r"^###\s+\d")
-    assert section, "ai-pr SKILL.md is missing the '### 7.' section heading"
+    # Spec-104 contract under post-renumber skill: pre-push gate now lives in
+    # step 9 (was step 7); the concurrent dispatch lives in step 7. Verify
+    # step 9 narrative still signals concurrency with the dispatch block.
+    section = _slice_section(text, r"^###\s+9\.", r"^###\s+\d")
+    assert section, "ai-pr SKILL.md is missing the '### 9.' section heading"
 
     normalised = _normalise(section)
 
@@ -309,7 +312,7 @@ def test_ai_pr_skill_no_follow_up_commit_for_docs() -> None:
 
     # Step 6.5 must positively state that docs are produced/staged
     # synchronously inside the concurrent block (i.e., before PR creation).
-    section_65 = _slice_section(text, r"^###\s+6\.5", r"^###\s+\d")
+    section_65 = _slice_section(text, r"^###\s+7\.", r"^###\s+\d")
     assert section_65, "ai-pr SKILL.md is missing the '### 6.5' section heading"
     normalised_65 = _normalise(section_65)
 
@@ -346,7 +349,7 @@ def test_ai_pr_skill_step_65_dispatches_2_docs_subagents_in_parallel() -> None:
     """
 
     text = _read_skill_text()
-    section = _slice_section(text, r"^###\s+6\.5", r"^###\s+\d")
+    section = _slice_section(text, r"^###\s+7\.", r"^###\s+\d")
     assert section, "ai-pr SKILL.md is missing the '### 6.5' section heading"
 
     normalised = _normalise(section)
@@ -423,9 +426,9 @@ def test_ai_pr_skill_step_8_pr_creation_after_max_wall() -> None:
     text = _read_skill_text()
 
     # Step 6.5 must appear before step 12 (PR creation).
-    step_65 = re.search(r"^###\s+6\.5", text, flags=re.MULTILINE)
-    step_7 = re.search(r"^###\s+7\.", text, flags=re.MULTILINE)
-    step_12 = re.search(r"^###\s+12\.", text, flags=re.MULTILINE)
+    step_65 = re.search(r"^###\s+7\.", text, flags=re.MULTILINE)
+    step_7 = re.search(r"^###\s+8\.", text, flags=re.MULTILINE)
+    step_12 = re.search(r"^###\s+14\.", text, flags=re.MULTILINE)
 
     assert step_65 is not None, "ai-pr SKILL.md must declare step 6.5"
     assert step_7 is not None, "ai-pr SKILL.md must declare step 7"
@@ -439,7 +442,7 @@ def test_ai_pr_skill_step_8_pr_creation_after_max_wall() -> None:
     # The PR-creation section must not reference forming the body BEFORE
     # the concurrent block resolves — guard against narrative drift that
     # would describe an incoherent PR body.
-    section_12 = _slice_section(text, r"^###\s+12\.", r"^###\s+\d|^##\s+\w")
+    section_12 = _slice_section(text, r"^###\s+14\.", r"^###\s+\d|^##\s+\w")
     normalised_12 = _normalise(section_12)
 
     forbidden_pre_block_phrases = (

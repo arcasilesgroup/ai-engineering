@@ -29,6 +29,8 @@ class Finding:
     line: int | None = None
     specialist: str | None = None
     runner: str | None = None
+    stable_id: str | None = None
+    primary_plane: str | None = None
 
 
 @dataclass
@@ -50,6 +52,8 @@ class SpecialistResult:
         *,
         file: str | None = None,
         line: int | None = None,
+        stable_id: str | None = None,
+        primary_plane: str | None = None,
     ) -> None:
         self.findings.append(
             Finding(
@@ -60,6 +64,8 @@ class SpecialistResult:
                 line=line,
                 specialist=self.name,
                 runner=self.runner,
+                stable_id=stable_id,
+                primary_plane=primary_plane,
             )
         )
 
@@ -125,6 +131,8 @@ class VerifyScore:
         line: int | None = None,
         specialist: str | None = None,
         runner: str | None = None,
+        stable_id: str | None = None,
+        primary_plane: str | None = None,
     ) -> None:
         self.findings.append(
             Finding(
@@ -135,6 +143,8 @@ class VerifyScore:
                 line=line,
                 specialist=specialist,
                 runner=runner,
+                stable_id=stable_id,
+                primary_plane=primary_plane,
             )
         )
 

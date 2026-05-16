@@ -97,7 +97,11 @@ def _resolve_skipped_stacks(
     carve-out applies on first-install too.
     """
     loader_root = _manifest_root_for_loader(root)
-    load_result = load_required_tools(stacks, root=loader_root, current_os=current_os)
+    # apply_defaults=True so the carve-out works on slim manifests too
+    # (spec-128 moved required_tools into framework defaults).
+    load_result = load_required_tools(
+        stacks, root=loader_root, current_os=current_os, apply_defaults=True
+    )
     return {marker.stack for marker in load_result.skipped_stacks}
 
 

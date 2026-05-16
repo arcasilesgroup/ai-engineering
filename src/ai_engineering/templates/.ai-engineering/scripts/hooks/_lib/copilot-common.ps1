@@ -139,7 +139,7 @@ function Emit-Event {
         }
         $entry = [ordered]@{
             kind             = $Kind
-            engine           = "github_copilot"
+            engine           = "copilot"
             timestamp        = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
             component        = $Component
             outcome          = $Outcome

@@ -2,6 +2,7 @@
 
 Provides deterministic, zero-token commands for spec management:
 
+- ``ai-eng spec activate`` -- point runtime consumers at a work-plane root.
 - ``ai-eng spec verify``  -- count checkboxes in plan.md, auto-correct frontmatter.
 - ``ai-eng spec list``    -- display current spec title and progress.
 """
@@ -16,12 +17,18 @@ import typer
 
 from ai_engineering.cli_ui import error, info, kv, status_line, success, warning
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
+from ai_engineering.maintenance.spec_activate import run_spec_activate
 from ai_engineering.paths import find_project_root
+from ai_engineering.state.models import TaskLifecycleState
 from ai_engineering.state.observability import emit_framework_operation
+from ai_engineering.state.work_plane import read_task_ledger, resolve_active_work_plane
+
+_SPEC_FILENAME = "spec.md"
+_PLAN_FILENAME = "plan.md"
 
 
 def _specs_dir(root: Path) -> Path:
-    return root / ".ai-engineering" / "specs"
+    return resolve_active_work_plane(root).specs_dir
 
 
 def _emit_signal(root: Path, event: str, detail: dict) -> None:
@@ -41,19 +48,13 @@ def _auto_correct_frontmatter(root: Path, real_total: int, real_completed: int) 
 
     Returns True if corrections were made.
     """
-    plan_path = _specs_dir(root) / "plan.md"
+    plan_path = _specs_dir(root) / _PLAN_FILENAME
     text = plan_path.read_text(encoding="utf-8")
     fm = parse_frontmatter(text)
     fm_total = fm.get("total", "")
     fm_completed = fm.get("completed", "")
 
-    needs_fix = False
-    if fm_total != str(real_total):
-        needs_fix = True
-    if fm_completed != str(real_completed):
-        needs_fix = True
-
-    if not needs_fix:
+    if fm_total == str(real_total) and fm_completed == str(real_completed):
         return False
 
     lines = text.split("\n")
@@ -71,22 +72,115 @@ def _auto_correct_frontmatter(root: Path, real_total: int, real_completed: int) 
             new_lines.append(line)
             continue
 
-        if in_frontmatter:
-            if line.strip().startswith("total:"):
-                new_lines.append(f"total: {real_total}")
-            elif line.strip().startswith("completed:"):
-                new_lines.append(f"completed: {real_completed}")
-            else:
-                new_lines.append(line)
-        else:
-            new_lines.append(line)
+        new_lines.append(
+            _rewrite_frontmatter_line(
+                line,
+                in_frontmatter=in_frontmatter,
+                real_total=real_total,
+                real_completed=real_completed,
+            )
+        )
 
     plan_path.write_text("\n".join(new_lines), encoding="utf-8")
     return True
 
 
+def _rewrite_frontmatter_line(
+    line: str,
+    *,
+    in_frontmatter: bool,
+    real_total: int,
+    real_completed: int,
+) -> str:
+    """Rewrite one line of plan frontmatter when counters drift."""
+    if not in_frontmatter:
+        return line
+
+    stripped = line.strip()
+    if stripped.startswith("total:"):
+        return f"total: {real_total}"
+    if stripped.startswith("completed:"):
+        return f"completed: {real_completed}"
+    return line
+
+
+def spec_start(
+    path: Annotated[
+        Path | None,
+        typer.Argument(help="Project-relative specs dir to mark active."),
+    ] = None,
+    specs_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--specs-dir",
+            help="Deprecated alias for the positional <path> argument.",
+        ),
+    ] = None,
+) -> None:
+    """Activate a work plane and ensure spec/plan buffer files exist.
+
+    Canonical entry point (spec-133): accepts the specs directory as a
+    positional argument. The ``--specs-dir`` option is preserved as a
+    deprecated alias for one release.
+    """
+    import click
+
+    target = path or specs_dir
+    if target is None:
+        # spec-133 #5: no-args invocation prints help and exits 0, matching
+        # the universal help-on-no-args contract used by every other verb.
+        ctx = click.get_current_context()
+        click.echo(ctx.get_help())
+        raise typer.Exit(code=0)
+    root = find_project_root()
+    result = run_spec_activate(root, target)
+
+    if not result.success:
+        for item in result.errors:
+            error(item)
+        raise typer.Exit(code=1)
+
+    relative_specs_dir = result.specs_dir.resolve().relative_to(root.resolve()).as_posix()
+    kv("Specs dir", relative_specs_dir)
+    kv("Pointer", "enabled" if result.pointer_enabled else "legacy singleton")
+    kv("spec.md", "created" if result.spec_created else "preserved")
+    kv("plan.md", "created" if result.plan_created else "preserved")
+    success("Active spec buffer updated.")
+    _emit_signal(
+        root,
+        "spec_activated",
+        {
+            "specs_dir": relative_specs_dir,
+            "pointer_enabled": result.pointer_enabled,
+        },
+    )
+
+
+def spec_activate(
+    path: Annotated[
+        Path | None,
+        typer.Argument(help="Project-relative specs dir to mark active."),
+    ] = None,
+    specs_dir: Annotated[
+        Path | None,
+        typer.Option(
+            "--specs-dir",
+            help="Deprecated alias for the positional <path> argument.",
+        ),
+    ] = None,
+) -> None:
+    """Deprecated alias for ``ai-eng spec start`` (one-release deprecation)."""
+    spec_start(path=path, specs_dir=specs_dir)
+
+
 def spec_verify(
-    fix: Annotated[bool, typer.Option("--fix", help="Auto-correct drifted counters.")] = True,
+    fix: Annotated[
+        bool,
+        typer.Option(
+            "--fix",
+            help="Auto-correct drifted counters in plan.md frontmatter (opt-in).",
+        ),
+    ] = False,
 ) -> None:
     """Verify spec task counters and status consistency.
 
@@ -94,7 +188,7 @@ def spec_verify(
     optionally auto-corrects drift.
     """
     root = find_project_root()
-    plan_path = _specs_dir(root) / "plan.md"
+    plan_path = _specs_dir(root) / _PLAN_FILENAME
 
     if not plan_path.exists():
         error("No specs/plan.md found.")
@@ -115,16 +209,21 @@ def spec_verify(
 
     drift_detected = fm_total != str(real_total) or fm_completed != str(real_completed)
 
-    kv("Checkboxes", f"{real_completed}/{real_total}")
-    kv("Frontmatter", f"completed={fm_completed} total={fm_total}")
+    kv("BEFORE", f"{fm_completed}/{fm_total} (frontmatter)")
+    kv("Counted", f"{real_completed}/{real_total} (plan body)")
 
+    corrected = False
     if drift_detected:
-        warning("Drift detected")
         if fix:
             corrected = _auto_correct_frontmatter(root, real_total, real_completed)
-            if corrected:
-                success(f"Auto-fixed: total={real_total}, completed={real_completed}")
+        if corrected:
+            kv("AFTER", f"{real_completed}/{real_total} (frontmatter)")
+            success("counter drift auto-fixed")
+        else:
+            kv("AFTER", f"{fm_completed}/{fm_total} (unchanged)")
+            warning("drift detected -- re-run with --fix to auto-correct")
     else:
+        kv("AFTER", f"{real_completed}/{real_total} (no drift)")
         status_line("ok", "Counters", "match")
 
     # Emit signal
@@ -142,28 +241,29 @@ def spec_verify(
 def spec_list() -> None:
     """Display current spec title and progress."""
     root = find_project_root()
-    spec_path = _specs_dir(root) / "spec.md"
-    plan_path = _specs_dir(root) / "plan.md"
+    specs_dir = _specs_dir(root)
+    spec_path = specs_dir / _SPEC_FILENAME
+    plan_path = specs_dir / _PLAN_FILENAME
 
     if not spec_path.exists():
         info("No specs/spec.md found.")
         return
 
     spec_text = spec_path.read_text(encoding="utf-8")
+    placeholder_spec = spec_text.strip().startswith("# No active spec")
+    if placeholder_spec:
+        ledger = read_task_ledger(root)
+        if ledger is None or all(task.status == TaskLifecycleState.DONE for task in ledger.tasks):
+            info("No active spec.")
+            return
 
-    # Check for placeholder content
-    if spec_text.strip().startswith("# No active spec"):
-        info("No active spec.")
-        return
+    title = specs_dir.name if placeholder_spec else "unknown"
+    if not placeholder_spec:
+        for line in spec_text.splitlines():
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
 
-    # Extract title from first H1 heading
-    title = "unknown"
-    for line in spec_text.splitlines():
-        if line.startswith("# "):
-            title = line[2:].strip()
-            break
-
-    # Get progress from plan.md
     progress = "?"
     if plan_path.exists():
         plan_text = plan_path.read_text(encoding="utf-8")
@@ -177,3 +277,39 @@ def spec_list() -> None:
 
     kv("Title", title)
     kv("Progress", progress)
+
+
+def spec_show() -> None:
+    """Print the active spec handoff surface (paths + progress)."""
+    root = find_project_root()
+    specs_dir = _specs_dir(root)
+    spec_path = specs_dir / _SPEC_FILENAME
+    plan_path = specs_dir / _PLAN_FILENAME
+
+    if not spec_path.exists():
+        info("No specs/spec.md found.")
+        return
+
+    spec_text = spec_path.read_text(encoding="utf-8")
+    placeholder_spec = spec_text.strip().startswith("# No active spec")
+    state = "placeholder" if placeholder_spec else "active"
+
+    title = specs_dir.name if placeholder_spec else "unknown"
+    if not placeholder_spec:
+        for line in spec_text.splitlines():
+            if line.startswith("# "):
+                title = line[2:].strip()
+                break
+
+    progress = "?"
+    if plan_path.exists():
+        plan_text = plan_path.read_text(encoding="utf-8")
+        if not plan_text.strip().startswith("# No active plan"):
+            total, completed = count_checkboxes(plan_text)
+            progress = f"{completed}/{total}" if total else "0/0"
+
+    kv("State", state)
+    kv("Title", title)
+    kv("Progress", progress)
+    kv("spec.md", str(spec_path) if spec_path.exists() else "(missing)")
+    kv("plan.md", str(plan_path) if plan_path.exists() else "(missing)")

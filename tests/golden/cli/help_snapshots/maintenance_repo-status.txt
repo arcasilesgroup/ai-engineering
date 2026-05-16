@@ -1,0 +1,13 @@
+
+ Usage: ai-eng maintenance repo-status [OPTIONS]
+
+ Show repository branch and PR status dashboard.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target       -t              PATH  Target project root.                    │
+│ --base         -b              TEXT  Base branch for comparisons.            │
+│                                      [default: main]                         │
+│ --include-prs      --no-prs          Include open PR listing.                │
+│                                      [default: include-prs]                  │
+│ --help                               Show this message and exit.             │
+╰──────────────────────────────────────────────────────────────────────────────╯

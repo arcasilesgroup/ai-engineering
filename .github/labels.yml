@@ -72,7 +72,7 @@
   description: Low severity finding
   color: "c2e0c6"
 
-# ── Status (lifecycle phase, ai-board-sync) ───────────
+# ── Status (lifecycle phase, ai-board sync) ───────────
 - name: status-refinement
   description: Work item is being refined
   color: "c5def5"

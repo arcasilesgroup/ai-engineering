@@ -1,0 +1,16 @@
+{"skill": "ai-debug", "prompt": "tests are failing on CI", "kind": "should_trigger", "expected": true, "notes": "pilot seed"}
+{"skill": "ai-debug", "prompt": "I'm getting a TypeError in production", "kind": "should_trigger", "expected": true, "notes": "pilot seed"}
+{"skill": "ai-debug", "prompt": "this used to work last week", "kind": "should_trigger", "expected": true, "notes": "pilot seed"}
+{"skill": "ai-debug", "prompt": "regression in CI after the merge", "kind": "should_trigger", "expected": true, "notes": "pilot seed"}
+{"skill": "ai-debug", "prompt": "stack trace shows null deref", "kind": "should_trigger", "expected": true, "notes": "pilot seed"}
+{"skill": "ai-debug", "prompt": "why is this test flaky", "kind": "should_trigger", "expected": true, "notes": "pilot seed"}
+{"skill": "ai-debug", "prompt": "the build keeps crashing", "kind": "should_trigger", "expected": true, "notes": "pilot seed"}
+{"skill": "ai-debug", "prompt": "ImportError after install", "kind": "should_trigger", "expected": true, "notes": "pilot seed"}
+{"skill": "ai-debug", "prompt": "write a unit test for the parser", "kind": "near_miss", "expected": false, "notes": "ai-test territory"}
+{"skill": "ai-debug", "prompt": "add coverage for the auth module", "kind": "near_miss", "expected": false, "notes": "ai-test territory"}
+{"skill": "ai-debug", "prompt": "review the security of this PR", "kind": "near_miss", "expected": false, "notes": "ai-security territory"}
+{"skill": "ai-debug", "prompt": "is this dependency safe", "kind": "near_miss", "expected": false, "notes": "ai-security territory"}
+{"skill": "ai-debug", "prompt": "refactor the service to be simpler", "kind": "near_miss", "expected": false, "notes": "ai-simplify territory"}
+{"skill": "ai-debug", "prompt": "explain how this caching layer works", "kind": "near_miss", "expected": false, "notes": "ai-explain territory"}
+{"skill": "ai-debug", "prompt": "open a PR for the merged work", "kind": "near_miss", "expected": false, "notes": "ai-pr territory"}
+{"skill": "ai-debug", "prompt": "document the new flag in the README", "kind": "near_miss", "expected": false, "notes": "ai-docs territory"}

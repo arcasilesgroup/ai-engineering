@@ -144,7 +144,7 @@
 >
 > Esto es enforcement local, sin dependencia de CI para calidad baseline. Los problemas se detectan antes de que el código llegue al repositorio remoto.
 >
-> `ai-eng doctor` verifica que todo esté operativo. `ai-eng validate` valida la integridad de los archivos de gobernanza.
+> `ai-eng doctor` verifica que todo esté operativo. `ai-eng check` valida la integridad de los archivos de gobernanza.
 >
 > **Tu siguiente commit después del install ya está gobernado.**
 

@@ -21,16 +21,21 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 SHARED_KERNEL = REPO_ROOT / ".claude" / "skills" / "_shared" / "execution-kernel.md"
-DISPATCH = REPO_ROOT / ".claude" / "skills" / "ai-dispatch" / "SKILL.md"
+# spec-127 sub-005 (M4): /ai-dispatch renamed to /ai-build (D-127-11);
+# /ai-run merged into /ai-autopilot --backlog (D-127-12). The kernel
+# now has 2 consumers: build + autopilot (autopilot has both single-spec
+# and --backlog modes, so it counts as both former roles).
+DISPATCH = REPO_ROOT / ".claude" / "skills" / "ai-build" / "SKILL.md"
 AUTOPILOT = REPO_ROOT / ".claude" / "skills" / "ai-autopilot" / "SKILL.md"
-RUN = REPO_ROOT / ".claude" / "skills" / "ai-run" / "SKILL.md"
+RUN = REPO_ROOT / ".claude" / "skills" / "ai-autopilot" / "SKILL.md"
 
 # Pre-extraction baseline (measured 2026-04-27 BEFORE T-1.3 edits via wc -l):
-#   ai-dispatch/SKILL.md   157
+#   ai-dispatch/SKILL.md   157  (now ai-build/SKILL.md)
 #   ai-autopilot/SKILL.md  192
-#   ai-run/SKILL.md        145
+#   ai-run/SKILL.md        145  (deleted; absorbed into autopilot)
 #   ----------------------------
 #   combined               494
+# Post M4: ai-build + ai-autopilot only (run-orchestrator absorbed).
 PRE_BASELINE_LINES = 494
 LINE_REDUCTION_TARGET = 150
 POST_BUDGET = PRE_BASELINE_LINES - LINE_REDUCTION_TARGET  # 344
@@ -54,6 +59,45 @@ def test_shared_execution_kernel_exists() -> None:
     assert "## Consumers" in body, (
         "execution-kernel.md must include a '## Consumers' section listing "
         "ai-dispatch, ai-autopilot, ai-run"
+    )
+
+
+def test_shared_kernel_requires_immediate_plan_updates() -> None:
+    """The kernel must forbid batching task-status writes until the end.
+
+    Resume logic depends on plan.md reflecting reality between tasks, not only
+    after the whole spec completes.
+    """
+    body = SHARED_KERNEL.read_text(encoding="utf-8")
+    assert "update `plan.md` checkboxes in real time" in body, (
+        "execution-kernel.md must require real-time plan.md updates so resume "
+        "and progress visibility stay accurate"
+    )
+    assert "Never batch checkbox/status updates" in body, (
+        "execution-kernel.md must explicitly forbid batching plan.md status "
+        "writes until phase end or spec completion"
+    )
+
+
+def test_dispatch_explicitly_forbids_deferred_plan_updates() -> None:
+    """Top-level dispatch guidance must reinforce immediate plan writes.
+
+    Post spec-122 sub-004 path canonicalization, plan.md references are
+    rewritten as ``.ai-engineering/specs/plan.md`` (full canonical path)
+    instead of the legacy short ``specs/plan.md``. The contract is the
+    same — plan updates must happen immediately, not batched at end of
+    phase — only the path prefix changed.
+    """
+    text = DISPATCH.read_text(encoding="utf-8")
+    assert (
+        "update `.ai-engineering/specs/plan.md` immediately before dispatching the next task"
+        in text
+    ), "ai-dispatch/SKILL.md must require immediate plan.md updates after each terminal task state"
+    assert (
+        "Do not defer checkbox/status writes to the end of the phase or the end of the spec" in text
+    ), (
+        "ai-dispatch/SKILL.md must explicitly forbid end-of-phase/end-of-spec "
+        "batch updates to plan.md"
     )
 
 

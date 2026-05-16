@@ -1,156 +1,197 @@
 # CONSTITUTION
 
-> Non-negotiable rules consumed by every skill and agent at Step 0.
+> Project-identity contract for this repository. AI-behaviour rules
+> (engineering principles, plan-mode default, subagent strategy,
+> commit conventions, etc.) live in
+> [CANONICAL.md](src/ai_engineering/templates/project/CANONICAL.md)
+> and its byte-equivalent mirrors (AGENTS.md, CLAUDE.md, GEMINI.md,
+> .github/copilot-instructions.md). This file owns "what THIS project
+> IS" — Mission, Stakeholders, Vocabulary, Prohibitions, Compliance
+> gates, Anti-goals, Boundaries, Escalation, Language, Lifecycle phase.
 
-This file is the framework's "first law". When skills disagree with
-each other, this document wins. When the LLM proposes a path that
-violates it, the deterministic plane refuses.
-
-Generated and maintained by the `/ai-constitution` skill. Updates are
-ADR-required.
+Generated and maintained by the `/ai-constitution` skill (spec-131
+D-131-04). Updates are ADR-required and rotate the prior body to
+`.ai-engineering/specs/_history-constitution-<YYYY-MM-DD>.md`.
 
 ---
 
-## Article I — Spec-Driven Development (HARD GATE)
+## Mission
 
-1. **Every implementation traces back to an approved spec** under
-   `.ai-engineering/specs/spec-NNN-<slug>.md`.
-2. `/ai-implement` cannot run without `plan.md` marked ready and a user
-   approval signal.
-3. Trivial pipeline (typo / comment-only / single-line) is permitted
-   to skip discovery + architecture phases; the spec still exists,
-   only condensed.
+ai-engineering is a governance framework for AI-assisted software
+delivery in regulated environments. The framework ships a
+deterministic preprocessor layer (planning, gating, audit) and a
+probabilistic execution layer (LLM-driven skills + agents) with a
+hard contract between the two: every probabilistic action passes
+through a deterministic gate before it touches the filesystem or
+the network. Adoption target is teams that ship under regulatory
+constraints (banking, healthcare, public sector) where unattended
+AI authoring is the cost-driver and auditability is the bar.
 
-## Article II — Test-Driven Development (HARD)
+## Stakeholders
 
-1. Every domain change starts with a **failing test**.
-2. The minimum code to make the test pass is the only code added.
-3. Refactor with all tests still green is mandatory.
-4. **Coverage gate**: domain ≥ 80%, application ≥ 70%, adapters require
-   contract tests.
+- **Operator engineers** consuming the framework through their IDE
+  host (Claude Code, Codex, Gemini CLI, GitHub Copilot, OpenCode, Cursor).
+- **Security + compliance reviewers** auditing the deterministic
+  plane (policy engine, prompt-injection guard, append-only NDJSON
+  audit chain).
+- **Release engineers** wiring `ai-eng` into CI / CD pipelines.
+- **Framework maintainers** — the canonical Spec-Driven Development
+  flow (`/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`) is the
+  hand-off contract between operator + maintainer.
 
-## Article III — Dual-Plane Security
+## Vocabulary
 
-1. Every action proposed by the **Probabilistic Plane** (LLM) passes
-   through the **Deterministic Plane** before execution.
-2. The Deterministic Plane is enforced today by three concrete
-   subsystems that MUST remain non-optional: an OPA-style policy
-   engine that gates write actions, an immutable append-only audit
-   log under `.ai-engineering/state/framework-events.ndjson`, and a
-   regex-based prompt-injection guard hook
-   (`prompt-injection-guard.py`) that scans LLM outputs before they
-   reach a write tool.
-3. ML-based input classifiers and OBO/identity-broker token exchange
-   are explicitly OUT OF SCOPE at the current scale. The current
-   framework relies on regex/heuristic detection and direct IDE-host
-   credentials; any reintroduction requires a new spec + ADR.
-4. The `build` agent is the **only** agent with code write
-   permissions. Every other agent operates in read-only or
-   advisory mode.
+- **Skill** — a `.claude/skills/ai-<name>/SKILL.md` capability invoked
+  via `/ai-<name>`. Skills carry frontmatter (`name`, `description`,
+  `effort`, `model_tier`, `argument-hint`) plus a layout-conformant
+  body (`## Quick start` / `## Workflow` / `## Examples` /
+  `## Integration`).
+- **Agent** — a `.claude/agents/ai-<name>.md` persona dispatched in a
+  fresh context window. Build is the only agent with write
+  permissions.
+- **Canonical chain** — `/ai-brainstorm → /ai-plan → /ai-build →
+  /ai-pr`. `/ai-commit` is an off-chain WIP-only skill.
+- **Deterministic plane** — policy engine, audit chain,
+  prompt-injection guard, gitleaks, semgrep. Never delegates to the
+  LLM for go/no-go decisions.
+- **Probabilistic plane** — LLM-driven skill execution. Every write
+  passes through the deterministic plane first.
 
-## Article IV — Subscription Piggyback
+## Prohibitions
 
-1. The framework **never** asks the developer for an API key in the
-   default path.
-2. Layer 1 (deterministic) requires no LLM.
-3. Layer 2 (workflow) delegates inference to the developer's IDE host
-   subscription (e.g. Claude Code, Copilot, Cursor) so no BYOK is
-   needed for normal authoring flows.
-4. Layer 3 (BYOK CI) is opt-in for CI flows. The current framework
-   **documents the pattern but does not implement BYOK CI**; the CI
-   gates run deterministic Layer 1 only. A future spec must land
-   provider-agnostic BYOK CI before Layer 3 is considered active.
-5. No specific regulated-tier provider is mandated. Any vendor
-   selection for Layer 3 is a deployment-time decision and MUST be
-   captured by ADR.
+1. **No secrets in source.** `gitleaks protect --staged` blocks every
+   commit; `gitleaks detect` blocks every push. Risk acceptance
+   flows through the ledger (`ai-eng risk accept …`), never via
+   inline allowlists.
+2. **No suppression markers.** No `# noqa`, `# nosec`,
+   `// @ts-ignore`, `// nolint`, `# pragma: no cover`, `// NOSONAR`.
+   Refactor or risk-accept. spec-128 sub-d ships the repo-wide gate.
+3. **No `--no-verify` ever.** Pre-commit and pre-push hooks are the
+   on-disk evidence the deterministic plane fired.
+4. **No backwards-compatibility shims** for renamed / deleted /
+   migrated files. Hard rename, hard delete, hard migration.
+   CHANGELOG documents the breakage.
+5. **No PII, no operator names, no machine paths** in any committed
+   file (specs, CHANGELOG, docs, telemetry, lessons, runbooks). Use
+   placeholders (`$HOME/.local/bin`, `$(which …)`) where
+   machine-relative references are needed.
+6. **No multi-round retry inside the quality loop.** Fail-loud only;
+   blockers STOP and escalate to the operator.
+7. **No CONSTITUTION auto-amendment.** The 10 sections above are
+   operator-authored. `/ai-constitution amend` rotates the prior
+   body, applies the diff, bumps the minor version, and emits an
+   audit event — but the operator types the new content.
 
-## Article V — Single Source of Truth
+## Compliance gates
 
-1. Skills live ONCE under `.claude/skills/ai-<name>/SKILL.md` (the
-   canonical Claude Code path used today).
-2. IDE mirrors for non-Claude hosts (GitHub Copilot, Codex, Gemini
-   CLI, etc.) are **generated**, never edited by hand. Mirror files
-   carry the `DO NOT EDIT` header and `linguist-generated=true`.
-3. `ai-eng sync-mirrors` is the only authorized writer of those
-   mirrors; manual edits are reverted on the next sync.
+1. **Pre-commit gate** (sub-1s p95) — `ai-eng gate pre-commit` runs
+   `gitleaks protect --staged`, `ruff format --check`, `ruff check`,
+   and `ai-eng spec verify` on staged hunks only. Anything heavier
+   belongs on pre-push or CI.
+2. **Pre-push gate** (under 5s p95) — `ai-eng gate pre-push` runs
+   `semgrep --config .semgrep.yml`, `pip-audit`, the unit-test
+   suite, and `ty` static type-checking.
+3. **CI** — re-runs every gate above plus the slower checks
+   (integration tests, SonarCloud, Scorecard, SBOM diff). CI is the
+   final authority; local gates are an early-warning layer.
+4. **Allowlist hard rule.** `.gitleaks.toml [allowlist] paths` MUST
+   list explicit individual files, never wildcards. Regex
+   allowlists and stopwords are forbidden for suppressing
+   real-secret findings. When remediation cannot land before the
+   publish window closes, bypass goes through
+   `ai-eng risk accept --finding-id <rule_id>` — time-bounded,
+   owner-attributed, spec-referenced.
+5. **Supply-chain bar.** The framework's own dependencies and CI
+   ship with Sigstore keyless OIDC signature verification where
+   available, SLSA v1.0 provenance metadata, a CycloneDX SBOM
+   published per release, and an OpenSSF Scorecard run wired into
+   CI. `--ignore-scripts` for npm/bun installs disables
+   install-time script execution. GitHub Actions are pinned to
+   immutable commit SHAs, never mutable tags.
 
-## Article VI — Supply Chain Integrity
+## Anti-goals
 
-1. The framework's **own** dependencies and CI MUST ship with
-   Sigstore keyless OIDC signature verification where available,
-   SLSA v1.0 provenance metadata, a CycloneDX SBOM published per
-   release, and an OpenSSF Scorecard run wired into CI.
-2. CI enforces `--ignore-scripts` for npm/bun installs to disable
-   arbitrary install-time script execution.
-3. GitHub Actions are pinned to **immutable commit SHAs**, not
-   mutable tags.
-4. Article VI applies to the framework itself. Third-party plugin /
-   extension distribution is OUT OF SCOPE at the current scale and
-   has no tier classifications associated with this Constitution.
+- **No skill marketplace, no plugin store, no remote skill fetch.**
+  Skills live in-tree; users fork or contribute upstream.
+- **No multi-LLM orchestration layer.** Each session runs against
+  one IDE-host LLM at a time. BYOK CI is opt-in, documented as
+  not-yet-implemented at the current scale.
+- **No managed-cloud component.** The framework runs entirely on
+  the operator's machine plus their existing CI runner.
+- **No telemetry collection by default.** `telemetry.consent:
+  strict-opt-in` in `manifest.yml`; the audit chain stays local
+  NDJSON unless the operator wires an exporter.
+- **No regulated-tier provider lock-in.** Vendor selection for
+  Layer 3 (BYOK CI) is a deployment-time decision captured by ADR,
+  never by framework default.
 
-## Article VII — No Suppression
+## Boundaries
 
-1. No `# noqa`, `# nosec`, `// @ts-ignore`, `// nolint`,
-   `# pragma: no cover`, `// NOSONAR` to bypass quality gates.
-2. If a finding is a false positive, refactor the code to satisfy the
-   analyzer or open a risk acceptance with TTL by severity.
-3. Risk acceptance is **logged-acceptance**, not weakening. It must
-   include: justification, finding-id, owner, spec-ref, severity,
-   TTL.
+- **Framework-owned** — every file under
+  `.ai-engineering/`, `.claude/`, `.codex/`, `.gemini/`,
+  `.github/skills/`, `.github/agents/`,
+  `.github/copilot-instructions.md`, AGENTS.md, CLAUDE.md,
+  GEMINI.md, CANONICAL.md, this CONSTITUTION.md, and
+  `scripts/sync_mirrors/`. Operators MUST NOT hand-edit generated
+  mirrors; `sync_command_mirrors.py` regenerates from canonical
+  sources.
+- **Team-owned** — every other file in the repository:
+  application source, tests, configuration, CI workflows
+  specific to the team's product surface.
+- **Generated mirrors carry `DO NOT EDIT` headers** and
+  `linguist-generated=true`. The deterministic plane reverts
+  manual edits on the next sync.
 
-## Article VIII — Conventional Commits
+## Escalation
 
-1. Subject in imperative mood: `<type>(<scope>): <subject>`.
-2. Body explains **why**, not what (the diff already shows what).
-3. No `--no-verify` ever.
+- **Quality-gate failure** (pre-commit / pre-push / CI) → stop, fix,
+  retry. `ai-eng doctor --fix` is the first-line tool.
+- **Prompt-injection-guard fire** → exit 2 + framework_error event.
+  Investigate the offending content; never bypass the guard.
+- **Hook integrity violation** (`AIENG_HOOK_INTEGRITY_MODE=enforce`)
+  → regenerate the manifest after intentional edits via
+  `python3 .ai-engineering/scripts/regenerate-hooks-manifest.py`.
+- **Risk-acceptance request** → `ai-eng risk accept --finding-id
+  <id> --justification <text> --spec <id> --follow-up <plan>`. The
+  ledger is the single source of truth; CI consumes it.
+- **CONSTITUTION change request** → `/ai-constitution amend`,
+  diff-confirm, rotate to `_history-constitution-<date>.md`,
+  minor-version bump, audit event.
 
-## Article IX — Cognitive Debt
+## Language
 
-1. Every action emits a telemetry event (NDJSON local + OTel optional).
-2. The framework treats the cost of opaque, non-deterministic systems
-   as a tracked metric (CLEAR framework). Cost regressions are
-   first-class.
+English (project natural language for code identifiers, commits,
+specs, CHANGELOG entries, and docs). Operator-facing prompts in the
+interview surface (`/ai-constitution`) accept any language; the
+written CONSTITUTION.md stays in English for cross-team review.
 
-## Article X — Right to evolve
+## Lifecycle phase
 
-1. Any article can be amended through an ADR + community review.
-2. Amendments take effect at the next minor version.
-3. Articles I–VI are subject to a **stricter** amendment process: an
-   ADR + 14-day public comment period.
+**Stabilising** — the framework has shipped its canonical chain
+(spec-127 / spec-128 / spec-129) and is now hardening DX (spec-131).
+Breaking changes still land without backwards-compat shims (anti-goal
+above), but the deterministic plane contract (audit chain shape,
+risk-acceptance ledger, hooks manifest) is frozen modulo ADR.
 
 ---
 
 <!--
-ADAPTATION NOTE
+ADAPTATION NOTE (spec-131 D-131-04)
 
-This Constitution was harvested as a baseline from `ai-engineering-v3`
-on 2026-04-29 (spec-110 task T-1.3) and then **adapted to current
-scale** in task T-1.4 per decision D-110-01.
-
-Adaptations applied (T-1.4) — we **deliberately do not include** the
-following from the v3 baseline; see spec-110 D-110-01 for the
-rationale:
-- Article III: ML-based input classification and OBO/identity-broker
-  token exchange are intentionally absent. The article now lists
-  only the OPA-style policy engine, the immutable audit log, and the
-  regex-based prompt-injection-guard hook that exists today.
-- Article IV: no regulated-tier vendor is named; the article
-  documents the BYOK CI pattern honestly as not-yet-implemented at
-  the current scale.
-- Article V: aligned skill path to the canonical
-  `.claude/skills/ai-<name>/SKILL.md` (current repo) and noted that
-  `ai-eng sync-mirrors` generates IDE mirrors.
-- Article VI: scoped to the framework's own dependencies and CI;
-  third-party plugin distribution and any associated tier
-  classifications are explicitly out of scope at the current scale.
-- Articles I, II, VII, VIII, IX, X: kept with minimum changes.
+This CONSTITUTION.md was rescoped on 2026-05-11 from a 13-Article
+AI-behaviour document into a 10-section project-identity contract.
+The pre-migration body is rotated verbatim to
+`.ai-engineering/specs/_history-constitution-2026-05-11.md` for
+traceability per R-131-03. All AI-behaviour content migrated to
+`src/ai_engineering/templates/project/CANONICAL.md` §§1-13 and is
+mirrored byte-equivalent into AGENTS.md / CLAUDE.md / GEMINI.md /
+.github/copilot-instructions.md by
+`scripts/sync_mirrors/core.py`.
 
 Governance metadata:
-- baseline_version: 0.1.0-baseline
-- adapted_version: 0.1.0-adapted
-- ratified: pending user approval per spec-110 acceptance gate
-- last_amended: 2026-04-29
-- amendments: []
-- spec_ref: spec-110 (governance v3 harvest)
-- decision_ref: D-110-01 (content adaptation scope)
+- spec_ref: spec-131 (DX Excellence Refactor)
+- decision_ref: D-131-04 (project-identity pivot)
+- ratified: 2026-05-11
+- last_amended: 2026-05-11
+- amendments: [pre-2026-05-11 body preserved in _history-constitution-2026-05-11.md]
 -->

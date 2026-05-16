@@ -17,17 +17,24 @@ def _snake_case(key: str) -> str:
     return _ALL_CAP_RE.sub(r"\1_\2", step1).lower()
 
 
+# Canonical key remap. Earlier versions only special-cased toolName/toolArgs and
+# let toolResult fall through `_snake_case` to `tool_result`, but runtime-guard
+# reads `tool_response` — so under the bash-Copilot wrapper the runtime guard
+# saw an empty payload and never offloaded. The PowerShell wrapper had the
+# correct mapping inline; this consolidation is the single source of truth.
+_KEY_REMAP: dict[str, str] = {
+    "toolArgs": "tool_input",
+    "toolName": "tool_name",
+    "toolResult": "tool_response",
+    "toolResponse": "tool_response",
+}
+
+
 def _normalize(value: Any) -> Any:
     if isinstance(value, dict):
         normalized: dict[str, Any] = {}
         for key, item in value.items():
-            name = (
-                "tool_input"
-                if key == "toolArgs"
-                else "tool_name"
-                if key == "toolName"
-                else _snake_case(key)
-            )
+            name = _KEY_REMAP.get(key, _snake_case(key))
             normalized[name] = _normalize(item)
         return normalized
     if isinstance(value, list):

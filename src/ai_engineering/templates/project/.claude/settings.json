@@ -16,19 +16,44 @@
       "mcp__notebooklm-mcp__*"
     ],
     "deny": [
-      "Bash(rm -rf *)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf /*)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/*)",
+      "Bash(rm -rf $HOME)",
+      "Bash(rm -rf $HOME/*)",
+      "Bash(rm -rf .git)",
+      "Bash(rm -rf .git/*)",
+      "Bash(rm -rf .claude)",
+      "Bash(rm -rf .claude/*)",
+      "Bash(rm -rf .gemini)",
+      "Bash(rm -rf .gemini/*)",
+      "Bash(rm -rf .github)",
+      "Bash(rm -rf .github/*)",
+      "Bash(rm -rf .codex)",
+      "Bash(rm -rf .codex/*)",
+      "Bash(rm -rf src)",
+      "Bash(rm -rf src/*)",
+      "Bash(rm -rf tests)",
+      "Bash(rm -rf tests/*)",
+      "Bash(rm -rf docs)",
+      "Bash(rm -rf docs/*)",
+      "Bash(rm -rf .ai-engineering/specs)",
+      "Bash(rm -rf .ai-engineering/specs/*)",
+      "Bash(rm -rf .ai-engineering/scripts)",
+      "Bash(rm -rf .ai-engineering/scripts/*)",
+      "Bash(rm -rf .ai-engineering/skills)",
+      "Bash(rm -rf .ai-engineering/skills/*)",
+      "Bash(rm -rf .ai-engineering/agents)",
+      "Bash(rm -rf .ai-engineering/agents/*)",
+      "Bash(rm -rf .ai-engineering/manifest.yml)",
       "Bash(git push --force *)",
       "Bash(git push -f *)",
       "Bash(git reset --hard *)",
       "Bash(git checkout -- . *)",
       "Bash(git checkout . *)",
       "Bash(git restore . *)",
-      "Bash(git clean -f *)",
-      "Bash(git commit*--no-verify*)",
-      "Bash(git push*--no-verify*)",
-      "Bash(git merge*--no-verify*)",
-      "Bash(git rebase*--no-verify*)",
-      "Bash(*--no-verify*)"
+      "Bash(git clean -f *)"
     ]
   },
   "hooks": {
@@ -42,9 +67,29 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-progressive-disclosure.py\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/no-verify-guard.py\"",
+            "timeout": 5
+          }
+        ]
+      },
       {
         "matcher": "Bash|Write|Edit|MultiEdit",
         "hooks": [
@@ -52,16 +97,6 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/prompt-injection-guard.py\"",
             "timeout": 15
-          }
-        ]
-      },
-      {
-        "matcher": "Edit|Write|MultiEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/strategic-compact.py\"",
-            "timeout": 5
           }
         ]
       },
@@ -116,6 +151,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-guard.py\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "PostToolUseFailure": [
@@ -138,6 +183,93 @@
             "type": "command",
             "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/instinct-extract.py\"",
             "timeout": 30
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-stop.py\"",
+            "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/memory-stop.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-compact.py\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-compact.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/memory-session-start.py\"",
+            "timeout": 8
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-session-start.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-subagent-stop.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-notification.py\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-session-end.py\"",
+            "timeout": 5
           }
         ]
       }

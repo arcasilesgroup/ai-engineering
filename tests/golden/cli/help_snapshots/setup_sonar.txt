@@ -1,0 +1,14 @@
+
+ Usage: ai-eng setup sonar [OPTIONS] [TARGET]
+
+ Configure SonarCloud / SonarQube credentials.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│   target      [TARGET]  Target project root. Defaults to cwd.                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --url           -u      TEXT  Sonar server URL.                              │
+│ --project-key   -k      TEXT  Sonar project key.                             │
+│ --organization  -o      TEXT  Sonar organization (SonarCloud).               │
+│ --help                        Show this message and exit.                    │
+╰──────────────────────────────────────────────────────────────────────────────╯

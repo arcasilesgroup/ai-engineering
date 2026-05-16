@@ -1,0 +1,14 @@
+
+ Usage: ai-eng audit retention apply [OPTIONS]
+
+ Apply the HOT retention cutoff to the events projection (D-123-26).
+
+ Deletes ``events`` rows older than ``now - days`` from ``state.db``.
+ NDJSON archives retain the original lines so the prune is loss-free.
+ Emits a ``retention_applied`` framework event when rows are deleted.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --days        INTEGER  HOT cutoff window in days (default 90). [default: 90] │
+│ --json                 Emit JSON envelope.                                   │
+│ --help                 Show this message and exit.                           │
+╰──────────────────────────────────────────────────────────────────────────────╯

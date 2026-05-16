@@ -1,0 +1,31 @@
+# Minimal valid manifest fixture for `manifest_reader` tests.
+# Mirrors the canonical `.ai-engineering/manifest.yml` schema:
+#   - providers.stacks[0] -> configured stack string
+#   - work_items -> top-level dict block
+# Kept intentionally small; the reader must tolerate absent optional keys.
+
+schema_version: "2.0"
+framework_version: "0.4.0"
+name: ai-engineering-fixture
+version: "0.0.1"
+
+providers:
+  vcs: github
+  ides: [terminal]
+  stacks: [python]
+
+work_items:
+  provider: github
+  github:
+    team_label: "team:core"
+  state_mapping:
+    refinement: "Backlog"
+    ready: "Ready"
+    in_progress: "In progress"
+    in_review: "In review"
+    done: "Done"
+  hierarchy:
+    feature: never_close
+    user_story: close_on_pr
+    task: close_on_pr
+    bug: close_on_pr

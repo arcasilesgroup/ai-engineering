@@ -28,15 +28,19 @@ from ai_engineering.git.operations import (
     current_branch,
     is_branch_pushed,
 )
-from ai_engineering.policy.gates import GateHook, run_gate
+from ai_engineering.policy import orchestrator as orchestrator_module
 from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import DecisionStore
+from ai_engineering.state.models import DecisionStore, GateFindingsDocument, GateSeverity
 from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.pr_description import build_pr_description, build_pr_title
 from ai_engineering.vcs.protocol import VcsContext
 
 logger = logging.getLogger(__name__)
+
+_FAILURE_SEVERITIES: frozenset[GateSeverity] = frozenset(
+    {GateSeverity.CRITICAL, GateSeverity.HIGH, GateSeverity.MEDIUM}
+)
 
 # ---------------------------------------------------------------------------
 # Result types
@@ -106,6 +110,64 @@ def _run_command(
         return False, f"Command not found: {cmd[0]}"
     except subprocess.TimeoutExpired:
         return False, f"Timeout after {timeout}s: {' '.join(cmd)}"
+
+
+def _staged_files_from_git(project_root: Path) -> list[str]:
+    """Return staged files relative to ``project_root`` for kernel parity."""
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(project_root), "diff", "--name-only", "--cached"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if result.returncode != 0:
+        return []
+    return [line for line in result.stdout.splitlines() if line.strip()]
+
+
+def run_orchestrator_pre_push_gate(project_root: Path) -> GateFindingsDocument:
+    """Run the shared kernel fast slice for workflow pre-push checks."""
+    cache_dir = project_root / ".ai-engineering" / "state" / "gate-cache"
+    return orchestrator_module.run_gate(
+        staged_files=_staged_files_from_git(project_root),
+        mode="local",
+        cache_dir=cache_dir,
+        project_root=project_root,
+        cache_disabled=False,
+        produced_by="ai-pr",
+        auto_stage_enabled=False,
+    )
+
+
+def _workflow_steps_from_gate_document(
+    project_root: Path,
+    document: GateFindingsDocument,
+) -> list[StepResult]:
+    """Translate the kernel findings envelope into workflow-friendly step results."""
+    contract = orchestrator_module.resolve_kernel_contract(project_root, mode="local")
+    findings_by_check: dict[str, list[object]] = {}
+    for finding in document.findings:
+        findings_by_check.setdefault(finding.check, []).append(finding)
+
+    steps: list[StepResult] = []
+    for check_name in contract.check_registration:
+        findings = findings_by_check.get(check_name, [])
+        blocking = [f for f in findings if f.severity in _FAILURE_SEVERITIES]  # ty:ignore[unresolved-attribute]
+        output = "ok"
+        if findings:
+            messages = sorted({str(f.message) for f in findings})  # ty:ignore[unresolved-attribute]
+            output = "; ".join(messages)
+        steps.append(
+            StepResult(
+                name=check_name,
+                passed=not blocking,
+                output=output,
+            )
+        )
+    return steps
 
 
 def _log_audit(
@@ -418,10 +480,7 @@ def run_pr_only_workflow(
 
 
 def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
-    """Run pre-push quality gates by delegating to ``run_gate()``.
-
-    This avoids duplicating the tool-check logic already implemented
-    in :func:`ai_engineering.policy.gates.run_gate`.
+    """Run pre-push quality gates through the shared kernel-backed authority.
 
     Args:
         project_root: Root directory of the project.
@@ -429,10 +488,8 @@ def _run_pre_push_checks(project_root: Path) -> list[StepResult]:
     Returns:
         List of StepResult for each check.
     """
-    gate_result = run_gate(GateHook.PRE_PUSH, project_root)
-    steps: list[StepResult] = [
-        StepResult(name=c.name, passed=c.passed, output=c.output) for c in gate_result.checks
-    ]
+    document = run_orchestrator_pre_push_gate(project_root)
+    steps = _workflow_steps_from_gate_document(project_root, document)
 
     # Log failures
     for step in steps:

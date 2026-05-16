@@ -6,13 +6,22 @@ import json
 from pathlib import Path
 
 from ai_engineering.state.io import read_ndjson_entries
-from ai_engineering.state.models import FrameworkCapabilitiesCatalog, FrameworkEvent
+from ai_engineering.state.models import (
+    CapabilityKind,
+    CapabilityToolScope,
+    FrameworkCapabilitiesCatalog,
+    FrameworkEvent,
+    MutationClass,
+    TopologyRole,
+    WriteScopeClass,
+)
 from ai_engineering.state.observability import (
     FRAMEWORK_CAPABILITIES_REL,
     FRAMEWORK_CAPABILITIES_SCHEMA_VERSION,
     FRAMEWORK_EVENT_SCHEMA_VERSION,
     FRAMEWORK_EVENTS_REL,
     append_framework_event,
+    append_framework_events,
     build_framework_capabilities,
     framework_capabilities_path,
     framework_events_path,
@@ -89,6 +98,7 @@ class TestFrameworkEvents:
         entries = read_ndjson_entries(event_path, FrameworkEvent)
         assert [entry.kind for entry in entries] == ["skill_invoked", "agent_dispatched"]
         assert entries[0].correlation_id == "corr-1"
+        assert entries[1].engine == "copilot"
         assert entries[1].correlation_id == "corr-2"
 
     def test_append_framework_event_never_writes_new_framework_data_to_audit_log(
@@ -113,6 +123,38 @@ class TestFrameworkEvents:
 
         assert audit_path.read_text(encoding="utf-8") == '{"event":"legacy"}\n'
         assert framework_events_path(tmp_path).exists()
+
+    def test_append_framework_events_chains_batch_without_rereading_file(
+        self, tmp_path: Path
+    ) -> None:
+        from ai_engineering.state.audit_chain import compute_entry_hash
+
+        first = FrameworkEvent(
+            project="demo-project",
+            engine="claude_code",
+            kind="skill_invoked",
+            outcome="success",
+            component="hook.skill",
+            correlationId="corr-1",
+            detail={"skill": "ai-brainstorm"},
+        )
+        second = FrameworkEvent(
+            project="demo-project",
+            engine="github_copilot",
+            kind="agent_dispatched",
+            outcome="success",
+            component="hook.agent",
+            correlationId="corr-2",
+            detail={"agent": "ai-build"},
+        )
+
+        append_framework_events(tmp_path, [first, second])
+
+        raw_lines = framework_events_path(tmp_path).read_text(encoding="utf-8").splitlines()
+        first_payload = json.loads(raw_lines[0])
+        second_payload = json.loads(raw_lines[1])
+        assert first_payload["prev_event_hash"] is None
+        assert second_payload["prev_event_hash"] == compute_entry_hash(first_payload)
 
 
 class TestFrameworkCapabilities:
@@ -150,18 +192,61 @@ class TestFrameworkCapabilities:
             "pre-push",
         }
 
+    def test_build_framework_capabilities_includes_authoritative_capability_cards(
+        self, tmp_path: Path
+    ) -> None:
+        _write_manifest(tmp_path)
+
+        catalog = build_framework_capabilities(tmp_path)
+        cards_by_name = {card.name: card for card in catalog.capability_cards}
+
+        assert set(cards_by_name) == {
+            "ai-brainstorm",
+            "ai-dispatch",
+            "ai-build",
+            "ai-plan",
+        }
+        build_card = cards_by_name["ai-build"]
+        assert build_card.capability_kind == CapabilityKind.AGENT
+        assert build_card.topology_role == TopologyRole.PUBLIC_FIRST_CLASS
+        assert MutationClass.CODE_WRITE in build_card.mutation_classes
+        assert WriteScopeClass.SOURCE in build_card.write_scope_classes
+        assert CapabilityToolScope.EDIT in build_card.tool_scope
+
+        plan_card = cards_by_name["ai-plan"]
+        assert MutationClass.SPEC_WRITE in plan_card.mutation_classes
+        assert MutationClass.CODE_WRITE not in plan_card.mutation_classes
+
     def test_write_framework_capabilities_persists_canonical_catalog(self, tmp_path: Path) -> None:
+        """Spec-125 cutover: catalog lives in ``tool_capabilities`` (state.db).
+
+        The legacy ``framework-capabilities.json`` sink was retired; the
+        writer now UPSERTs into the singleton row at ``tool_capabilities.id = 1``.
+        We probe the row via the canonical repository reader so the test
+        keeps tracking the live source of truth.
+        """
+        from ai_engineering.state.repository import DurableStateRepository
+
         _write_manifest(tmp_path)
 
         catalog = write_framework_capabilities(tmp_path)
-        path = framework_capabilities_path(tmp_path)
 
-        assert path.exists()
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        # JSON file is forbidden post-spec-125; assert its absence.
+        assert not framework_capabilities_path(tmp_path).exists()
+
+        repo = DurableStateRepository(tmp_path)
+        loaded = repo.load_framework_capabilities()
+        payload = loaded.model_dump(mode="json", by_alias=True)
         assert payload["schemaVersion"] == FRAMEWORK_CAPABILITIES_SCHEMA_VERSION
         assert payload["skills"][0]["name"] == catalog.skills[0].name
         assert payload["agents"][0]["name"] == catalog.agents[0].name
         assert {entry["name"] for entry in payload["contextClasses"]} >= {
             "language",
             "constitution",
+        }
+        assert {entry["name"] for entry in payload["capabilityCards"]} == {
+            "ai-brainstorm",
+            "ai-dispatch",
+            "ai-build",
+            "ai-plan",
         }

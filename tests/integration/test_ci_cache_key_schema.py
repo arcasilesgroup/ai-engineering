@@ -64,11 +64,13 @@ REQUIRED_HASHFILES_INPUTS = (
     ".gitleaks.toml",  # gitleaks rule config
 )
 
-# Local cache directory written by ``gate_cache._atomic_write`` (D-104-03).
-# CI cache restore must populate this exact relative path so a subsequent
+# Local cache directory written by ``gate_cache._atomic_write``.
+# Spec-125 D-125-09 relocated the gate cache from
+# ``.ai-engineering/state/gate-cache/`` to ``.ai-engineering/cache/gate/``;
+# CI cache restore must populate the new path so a subsequent
 # ``ai-eng gate run --cache-aware`` lookup hits the restored entries
 # without an extra copy step.
-EXPECTED_CACHE_PATH = ".ai-engineering/state/gate-cache/"
+EXPECTED_CACHE_PATH = ".ai-engineering/cache/gate/"
 
 
 # ---------------------------------------------------------------------------

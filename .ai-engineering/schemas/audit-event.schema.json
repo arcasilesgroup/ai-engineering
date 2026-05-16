@@ -45,6 +45,30 @@
         "failure_reason": { "$ref": "#/$defs/nullableString" }
       }
     },
+    "genai_block": {
+      "type": "object",
+      "description": "Spec-120 §4.1: optional OTel GenAI semantic-convention block. Mirrors gen_ai.system, gen_ai.request.model, gen_ai.usage.* attributes from OTel GenAI conventions snapshot v1.27.0.",
+      "properties": {
+        "system":   { "type": "string" },
+        "provider": { "type": "string" },
+        "request":  {
+          "type": "object",
+          "properties": { "model": { "type": "string" } },
+          "additionalProperties": false
+        },
+        "usage":    {
+          "type": "object",
+          "properties": {
+            "input_tokens":  { "type": "integer", "minimum": 0 },
+            "output_tokens": { "type": "integer", "minimum": 0 },
+            "total_tokens":  { "type": "integer", "minimum": 0 },
+            "cost_usd":      { "type": "number",  "minimum": 0 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
     "detail_skill_invoked": {
       "type": "object",
       "properties": {
@@ -53,7 +77,8 @@
         "failure_reason": { "$ref": "#/$defs/nullableString" },
         "tokens_in": { "type": "integer", "minimum": 0 },
         "tokens_out": { "type": "integer", "minimum": 0 },
-        "estimated_cost_usd": { "type": "number", "minimum": 0 }
+        "estimated_cost_usd": { "type": "number", "minimum": 0 },
+        "genai": { "$ref": "#/$defs/genai_block" }
       },
       "required": ["skill"],
       "additionalProperties": false
@@ -67,7 +92,8 @@
         "failure_reason": { "$ref": "#/$defs/nullableString" },
         "tokens_in": { "type": "integer", "minimum": 0 },
         "tokens_out": { "type": "integer", "minimum": 0 },
-        "estimated_cost_usd": { "type": "number", "minimum": 0 }
+        "estimated_cost_usd": { "type": "number", "minimum": 0 },
+        "genai": { "$ref": "#/$defs/genai_block" }
       },
       "required": ["agent"],
       "additionalProperties": false
@@ -203,6 +229,95 @@
       },
       "required": ["pattern"],
       "additionalProperties": false
+    },
+    "detail_memory_event": {
+      "type": "object",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "episode_stored",
+            "knowledge_object_added",
+            "memory_retrieved",
+            "dream_run",
+            "decay_applied",
+            "knowledge_object_promoted",
+            "knowledge_object_retired"
+          ]
+        },
+        "episode_id": { "type": "string" },
+        "ko_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "ko_kind": { "type": "string" },
+        "query_hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "retrieval_id": { "type": "string" },
+        "top_k": { "type": "integer", "minimum": 1 },
+        "result_count": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "model": { "type": "string" },
+        "embedding_dim": { "type": "integer", "minimum": 1 },
+        "embedding_status": {
+          "type": "string",
+          "enum": ["pending", "complete", "failed"]
+        },
+        "decay_factor": { "type": "number", "minimum": 0, "maximum": 1 },
+        "clusters_found": { "type": "integer", "minimum": 0 },
+        "promoted_count": { "type": "integer", "minimum": 0 },
+        "retired_count": { "type": "integer", "minimum": 0 },
+        "outcome": { "$ref": "#/$defs/nullableString" },
+        "failure_reason": { "$ref": "#/$defs/nullableString" }
+      },
+      "required": ["operation"],
+      "additionalProperties": false
+    },
+    "detail_eval_run": {
+      "type": "object",
+      "description": "spec-119 evaluation layer event detail. Sub-typed via the operation enum per D-119-01.",
+      "properties": {
+        "operation": {
+          "type": "string",
+          "enum": [
+            "eval_started",
+            "scenario_executed",
+            "pass_at_k_computed",
+            "hallucination_rate_computed",
+            "regression_detected",
+            "regression_cleared",
+            "eval_gated",
+            "baseline_updated"
+          ]
+        },
+        "scenario_pack": { "type": "string" },
+        "scenario_id": { "type": "string" },
+        "trial_id": { "type": "integer", "minimum": 0 },
+        "pass": { "type": "boolean" },
+        "k": { "type": "integer", "minimum": 1 },
+        "pass_count": { "type": "integer", "minimum": 0 },
+        "total": { "type": "integer", "minimum": 0 },
+        "score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "rate": { "type": "number", "minimum": 0, "maximum": 1 },
+        "total_assertions": { "type": "integer", "minimum": 0 },
+        "failed_assertions": { "type": "integer", "minimum": 0 },
+        "delta": { "type": "number" },
+        "threshold": { "type": "number", "minimum": 0, "maximum": 1 },
+        "tolerance": { "type": "number", "minimum": 0, "maximum": 1 },
+        "verdict": {
+          "type": "string",
+          "enum": ["GO", "CONDITIONAL", "NO_GO", "SKIPPED"]
+        },
+        "regression_delta_vs_baseline": { "type": "number" },
+        "failed_scenarios": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "prev_pass_at_k": { "type": "number", "minimum": 0, "maximum": 1 },
+        "new_pass_at_k": { "type": "number", "minimum": 0, "maximum": 1 },
+        "reason": { "type": "string" },
+        "duration_ms": { "type": "number", "minimum": 0 },
+        "outcome": { "$ref": "#/$defs/nullableString" },
+        "failure_reason": { "$ref": "#/$defs/nullableString" }
+      },
+      "required": ["operation"],
+      "additionalProperties": false
     }
   },
   "type": "object",
@@ -224,7 +339,24 @@
     "vcs_repository": { "type": "string" },
     "duration_ms": { "type": "number", "minimum": 0 },
     "agent": { "type": "string" },
-    "detail": { "type": "object" }
+    "detail": { "type": "object" },
+    "traceId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{32}$",
+      "description": "Spec-120 §4.1: optional W3C trace-context-style 32-hex trace identifier."
+    },
+    "spanId": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$",
+      "description": "Spec-120 §4.1: optional 16-hex span identifier (unique per event)."
+    },
+    "parentSpanId": {
+      "oneOf": [
+        { "type": "string", "pattern": "^[0-9a-f]{16}$" },
+        { "type": "null" }
+      ],
+      "description": "Spec-120 §4.1: optional 16-hex logical parent span identifier; null at the root span."
+    }
   },
   "required": ["timestamp", "event", "actor"],
   "allOf": [
@@ -346,6 +478,28 @@
       "then": {
         "properties": {
           "detail": { "$ref": "#/$defs/detail_instinct_extracted" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "event": { "const": "memory_event" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "detail": { "$ref": "#/$defs/detail_memory_event" }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "event": { "const": "eval_run" } },
+        "required": ["event"]
+      },
+      "then": {
+        "properties": {
+          "detail": { "$ref": "#/$defs/detail_eval_run" }
         }
       }
     }

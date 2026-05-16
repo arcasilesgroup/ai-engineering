@@ -1,0 +1,12 @@
+
+ Usage: ai-eng setup platforms [OPTIONS] [TARGET]
+
+ Detect and configure all platforms found in the repository.
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│   target      [TARGET]  Target project root. Defaults to cwd.                │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --vcs-provider        TEXT                                                   │
+│ --help                      Show this message and exit.                      │
+╰──────────────────────────────────────────────────────────────────────────────╯

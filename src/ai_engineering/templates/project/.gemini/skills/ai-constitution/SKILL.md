@@ -1,99 +1,107 @@
 ---
 name: ai-constitution
-description: Use when installing ai-engineering on a new project, when AI agents need foundational rules about what this project is, what it aims to achieve, and what must NEVER be violated. Trigger for 'set up the constitution', 'define project principles', 'what are the rules for this project', 'agents keep breaking boundaries', 'update the constitution', 'new team member needs orientation'. Generates CONSTITUTION.md — the non-negotiable governance document consumed by ALL skills and agents at Step 0.
-effort: medium
+description: Interviews the operator to produce a project-identity CONSTITUTION.md (Mission / Stakeholders / Vocabulary / Prohibitions / Compliance gates / Anti-goals / Boundaries / Escalation / Language / Lifecycle phase). Trigger for 'set up the constitution', 'define project identity', 'who is this project for', 'what does this project never do', 'amend the constitution'. Not for AI-behaviour rules — those live in CANONICAL.md / AGENTS.md. Not for spec governance; use /ai-governance instead.
+effort: mid
 argument-hint: "[generate|update|amend]"
+model_tier: sonnet
+mirror_family: gemini-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-constitution/SKILL.md
+edit_policy: generated-do-not-edit
 ---
-
 
 
 # Constitution
 
-## Purpose
-
-Generate and maintain `.ai-engineering/CONSTITUTION.md` — the foundational governance document that defines who the project is, what it aims to achieve, what principles are non-negotiable, and what the AI must NEVER do.
-
-This is the first document loaded at Step 0 of every skill and agent invocation. It governs all AI behavior in the project.
-
-## When to Use
-
-- First-time `ai-eng install` -- seed the constitution with auto-detected data + interview
-- Project scope changes -- update identity, mission, or principles
-- Agents keep violating boundaries -- strengthen prohibitions
-- New team member needs orientation -- review the constitution
-- Formal amendment needed -- version bump with governance trail
-
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
-
-## Procedure
-
-1. **Auto-detect** -- read `manifest.yml`, `pyproject.toml`, `package.json`, `Cargo.toml`, or `*.csproj` to infer:
-   - Project name and stack
-   - Existing quality gate configuration
-   - Framework version
-
-2. **Read existing** -- if `.ai-engineering/CONSTITUTION.md` exists, load current values as defaults.
-
-3. **Interview** -- for any section that cannot be inferred, ask the user:
-   - **Identity**: What does this project do? Who is it for? (1-3 sentences)
-   - **Mission**: What are the 2-3 measurable goals? What is the "north star"?
-   - **Principles**: What are the non-negotiable rules? (guide with examples from the framework)
-   - **Prohibitions**: What must the AI NEVER do in this project?
-   - **Boundaries**: What is framework-owned vs team-owned?
-
-4. **Write** -- save to `.ai-engineering/CONSTITUTION.md` using the 7-section structure. Minimal template skeleton:
-
-   ```markdown
-   # CONSTITUTION
-
-   ## 1. Identity
-   <!-- Project name, purpose, audience -->
-
-   ## 2. Mission
-   <!-- Measurable goals, north star metric -->
-
-   ## 3. Principles
-   <!-- Non-negotiable rules for AI behavior -->
-
-   ## 4. Prohibitions
-   <!-- What the AI must NEVER do -->
-
-   ## 5. Quality Gates
-   <!-- Thresholds: coverage, complexity, security -->
-
-   ## 6. Boundaries
-   <!-- Framework-owned vs team-owned zones -->
-
-   ## 7. Governance
-   <!-- version: "1.0.0" -->
-   <!-- ratified: "YYYY-MM-DD" -->
-   <!-- last_amended: "YYYY-MM-DD" -->
-   <!-- amendments: [] -->
-   ```
-
-5. **Verify** -- confirm all 7 sections are populated and internally coherent.
-
-6. **Version** -- set governance metadata (version, ratified date, last amended).
-
-## Arguments
-
-- `generate` -- create from scratch with auto-detect + interview
-- `update` -- update specific sections preserving the rest. User specifies section(s) to update in the prompt. The skill loads the existing document, presents the target section for review, and applies changes while preserving all other sections.
-- `amend` -- formal amendment with semantic version bump and governance trail. Record amendment in CONSTITUTION.md governance metadata (version, date, description) and emit a framework event to `state/framework-events.ndjson`.
-
-## Quick Reference
+## Quick start
 
 ```
-/ai-constitution generate   # create from scratch
-/ai-constitution update     # update specific sections
-/ai-constitution amend      # formal amendment with version bump
+/ai-constitution generate   # interview + write CONSTITUTION.md from scratch
+/ai-constitution update     # change a single section (Mission, Prohibitions, etc.)
+/ai-constitution amend      # formal amendment with version bump + audit event
 ```
+
+## Workflow
+
+Apply §10.6 (SDD) — every CONSTITUTION.md write is traceable to a spec
+decision (D-131-04 anchored this rewrite). Apply §10.4 (DRY) — project
+identity lives ONCE in CONSTITUTION.md; AI-behaviour content lives in
+CANONICAL.md. The two never overlap.
+
+1. **Auto-detect** — read `.ai-engineering/manifest.yml`, package files
+   (`pyproject.toml` / `package.json` / `Cargo.toml`) to seed the
+   interview with project name, stack, version.
+2. **Read existing** — if `CONSTITUTION.md` exists, load it and show
+   the operator the diff BEFORE any overwrite. NEVER overwrite without
+   diff + explicit confirm (R-131-03 mitigation).
+3. **Interview the 10 sections** — see "Interview" below.
+4. **Write** — emit `CONSTITUTION.md` using the 10-section skeleton.
+   Refuse to write any header from
+   `tools/skill_lint/checks/md_mirror.py:FORBIDDEN_CONSTITUTION_HEADERS`
+   (those are AI-behaviour headers; CONSTITUTION owns project identity
+   only).
+5. **Rotate** — when `update` or `amend` replaces operator-authored
+   content, copy the pre-write body to
+   `.ai-engineering/specs/_history-constitution-<YYYY-MM-DD>.md` so
+   the prior identity is recoverable.
+6. **Verify + record** — run `python -m skill_lint --check` after the
+   write to confirm CONSTITUTION.md passes the md_mirror sweep. Emit a
+   `constitution_updated` audit event to
+   `.ai-engineering/state/framework-events.ndjson`.
+
+## Interview
+
+| Section | Question |
+|---------|----------|
+| Mission | What does this project do, and what does it never do? |
+| Stakeholders | Who relies on this project? Who pays the cost when it breaks? |
+| Vocabulary | What domain terms must every contributor use precisely? |
+| Prohibitions | What must the AI / contributors NEVER do? |
+| Compliance gates | What pipelines / audits / certifications gate releases? |
+| Anti-goals | What use cases are explicitly out of scope (and why)? |
+| Boundaries | Which surfaces are framework-owned vs team-owned? |
+| Escalation | Who is paged when prohibitions / gates fail? |
+| Language | Project natural language for docs / commits. |
+| Lifecycle phase | greenfield · stabilising · mature · sunset. |
+
+## Examples
+
+### Example 1 — first install, no prior CONSTITUTION
+
+User: "set up the constitution for this project"
+
+```
+/ai-constitution generate
+```
+
+Interviews the 10 sections, seeds defaults from `manifest.yml`, writes
+`CONSTITUTION.md` v1.0.0 with the ratified date stamped. Emits one
+`constitution_updated` audit event.
+
+### Example 2 — formal amendment with version bump
+
+User: "amend the constitution to add 'no LLM-generated production
+secrets' to prohibitions"
+
+```
+/ai-constitution amend
+```
+
+Loads the existing body, presents the diff for the Prohibitions
+section, applies the amendment, bumps the minor version, records the
+amendment row in the governance footer, rotates the pre-amendment
+body into `_history-constitution-<date>.md`.
 
 ## Integration
 
-- **Called by**: installer (governance phase), `/ai-start`
-- **Reads**: `manifest.yml`, package files, existing `CONSTITUTION.md`
-- **Writes**: `.ai-engineering/CONSTITUTION.md`
-- **Consumed by**: ALL skills and agents via Step 0 protocol
+Called by: `ai-eng install` (governance phase), `/ai-start` (cold-load
+identity context). Reads: `manifest.yml`, package files, existing
+`CONSTITUTION.md`, `state.db.decisions`. Writes: `CONSTITUTION.md`,
+`_history-constitution-<date>.md` (when rotating). Audited by:
+`tools/skill_lint/checks/md_mirror.py:check_constitution_clean` (any
+AI-behaviour header rejects the write). Consumed by: every skill at
+Step 0. See also: `/ai-governance` (compliance against the
+constitution), CANONICAL.md (AI-behaviour layer — never written by
+this skill).
 
 $ARGUMENTS

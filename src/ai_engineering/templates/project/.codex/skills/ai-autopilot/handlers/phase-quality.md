@@ -1,8 +1,10 @@
 # Handler: Phase 5 -- QUALITY LOOP
 
+**Contract**: single round, fail-loud -- spec-131 D-131-05.
+
 ## Purpose
 
-Converge on quality through assessment and targeted fixing. Dispatch the verify agent + the guard agent + the review agent in parallel on the full changeset, consolidate findings with unified severity mapping. Default: 1 round. Escalate to round 2-3 only when blocker-severity findings are present (max 3 rounds). This is where cross-sub-spec integration issues are caught -- the first time all sub-spec changes are evaluated as a single unit.
+Converge on quality through a single assessment pass. Dispatch the verify agent + the guard agent + the review agent in parallel on the full changeset, consolidate findings with unified severity mapping. Single round, fail-loud. Verify + guard + review dispatched once in parallel on the full changeset; blockers STOP and escalate to user with no auto-retry. This is where cross-sub-spec integration issues are caught -- the first time all sub-spec changes are evaluated as a single unit.
 
 ## Prerequisites
 
@@ -10,7 +12,7 @@ Converge on quality through assessment and targeted fixing. Dispatch the verify 
 |-----------|--------|
 | Phase 4 complete | All waves committed. Manifest updated with per-sub-spec statuses. |
 | Sub-spec Self-Reports exist | Each implemented sub-spec has a Self-Report section in its `sub-NNN/plan.md` with classifications (real/aspirational/stub/failing/invented/hallucinated). |
-| Manifest has sub-spec statuses | `specs/autopilot/manifest.md` shows `complete` or `blocked` per sub-spec. |
+| Manifest has sub-spec statuses | `.ai-engineering/runtime/autopilot/manifest.md` shows `complete` or `blocked` per sub-spec. |
 
 ## Thin Orchestrator
 
@@ -22,13 +24,13 @@ This handler does NOT contain verify, guard, or review logic. It reads:
 
 These protocols are embedded verbatim into subagent prompts at dispatch time. When those skills improve, this handler benefits automatically.
 
-**Token efficiency**: All three skill files are read ONCE at quality loop entry (before Step 2 begins) and cached for the duration of the loop. They are NOT re-read per round. The changeset diff and Self-Reports are also computed/read once and reused.
+**Token efficiency**: All three skill files are read ONCE at quality loop entry (before Step 2 begins). The changeset diff and Self-Reports are also computed/read once.
 
 ## Procedure
 
 ### Step 1 -- Scope the Changeset
 
-Check `specs/autopilot/manifest.md` for blocked or cascade-blocked sub-specs.
+Check `.ai-engineering/runtime/autopilot/manifest.md` for blocked or cascade-blocked sub-specs.
 
 - If all sub-specs are `complete`: quality loop covers the full changeset.
 - If partial (some sub-specs `blocked`): note which scope was not delivered. The quality loop verifies only the implemented subset. Record the gap:
@@ -38,21 +40,19 @@ Quality Scope: partial (sub-003, sub-007 blocked)
 Verified subset: sub-001, sub-002, sub-004, sub-005, sub-006
 ```
 
-Compute the changeset diff: `git diff main...HEAD` -- this is the input for all assessment agents. Store the diff result for reuse across rounds.
+Compute the changeset diff: `git diff main...HEAD` -- this is the input for all assessment agents.
 
-### Step 1b -- Pre-load Shared Context (once, before loop)
+### Step 1b -- Pre-load Shared Context
 
-Read the following files ONCE and cache their content for the entire quality loop:
+Read the following files ONCE and cache their content for the quality loop:
 
 1. **Skill files**: `.codex/skills/ai-verify/SKILL.md`, `.codex/skills/ai-review/SKILL.md`, `.codex/skills/ai-governance/SKILL.md`
-2. **Self-Reports**: glob `specs/autopilot/sub-*/plan.md`, extract `## Self-Report` sections from each
+2. **Self-Reports**: glob `.ai-engineering/runtime/autopilot/sub-*/plan.md`, extract `## Self-Report` sections from each
 3. **Changeset diff**: the `git diff main...HEAD` computed in Step 1
 
-These are static during the quality loop. Do NOT re-read them per round. Assessment agents in round 2+ receive the cached content plus a delta of fixes applied since the previous round.
+### Step 2 -- Assessment (single round, fail-loud)
 
-### Step 2 -- Assessment and Fix (1 round default, escalate on blockers)
-
-Run 1 round by default. Escalate to round 2 only if blockers are found. Escalate to round 3 only if blockers persist after round 2. Track the current round number (R = 1, 2, or 3).
+Run **once**. Track no round number.
 
 #### Step 2a -- Assess (3 agents in parallel)
 
@@ -66,7 +66,7 @@ Dispatch three assessment agents simultaneously. Each gets fresh context. Use th
 
 **The guard agent** -- advise mode:
 - Use the cached `ai-governance/SKILL.md` content.
-- Run governance check against `state/decision-store.json`.
+- Run governance check against `state/state.db.decisions`.
 - Check for: expired risk acceptances, ownership violations, framework integrity drift.
 - Output: advisory findings with severity levels (concern, warn, info).
 
@@ -76,7 +76,7 @@ Dispatch three assessment agents simultaneously. Each gets fresh context. Use th
 - Run the full review protocol on the cached changeset diff.
 - Output: findings with severity, confidence score, and corroboration status.
 
-If all 3 assessment agents fail in this round: retry the round once. If the second attempt also fails: **STOP**. Report the failure and escalate to user. Do not proceed.
+If all 3 assessment agents fail to RUN in this round (operational failure — agent timeout / crash / missing skill file / dispatch error), retry the dispatch once. If the second attempt also fails to RUN: **STOP**. Report the failure and escalate to user. Do not proceed. This is OPERATIONAL retry of the assessment dispatch itself, not a quality-finding retry — Non-Goal #13 forbids retrying the quality loop to chase a clean verdict.
 
 #### Step 2b -- Consolidate Findings
 
@@ -100,12 +100,11 @@ Deduplicate findings that appear in multiple sources. When two or more agents fl
 
 - If Self-Report classifies a test as `real` but Verify finds it failing: flag the discrepancy as a blocker. The Self-Report was inaccurate.
 - If Self-Report classifies something as `aspirational` or `stub` and Verify confirms it: not a discrepancy -- the gap was declared.
-- If Self-Report classifies something as `failing` and the fix round resolved it: update the Self-Report entry.
 
 Produce a consolidated findings list:
 
 ```
-Consolidated Findings (Round R):
+Consolidated Findings:
 | # | Unified Severity | Source(s) | Category | Description | File:Line | Self-Report Match |
 ```
 
@@ -121,55 +120,38 @@ Decision matrix:
 
 | Condition | Action |
 |-----------|--------|
-| 0 blockers | **PASS**. Exit loop. Proceed to Phase 6. Critical/high findings are documented in the PR but do NOT trigger additional rounds. |
-| Blockers found AND round < 3 | Proceed to Step 2d (fix blockers only). Then escalate to next round. |
-| Round = 3 AND blockers remain | **STOP**. Do NOT proceed to Phase 6. Do NOT create PR. Report all blockers with evidence and escalate to user. |
-| Round = 3 AND only criticals/highs remain (0 blockers) | Proceed to Phase 6 with issues documented. PR is created but flagged in the Integrity Report. |
+| 0 blockers | **PASS**. Proceed to Phase 6. Critical/high findings are documented in the PR but do NOT trigger additional rounds. |
+| Any blocker | **STOP**. Do NOT proceed to Phase 6. Do NOT create PR. Emit `autopilot.quality_loop_blocked` framework event. Report all blockers with evidence and escalate to user. |
 
-**Escalation policy**: Only blocker-severity findings trigger additional rounds. Critical and high findings are reported and documented but are non-blocking for round escalation. This reduces the common case from 3 rounds to 1 round when no blockers are present.
+**Escalation policy**: No additional rounds. Blockers STOP; criticals/highs proceed with Integrity Report flag (spec-131 D-131-05).
 
-#### Step 2d -- Fix
+#### Step 2d -- Escalation Report (on blocker)
 
-For each finding at blocker, critical, or high unified severity:
+For each finding at blocker severity:
 
-1. **Dispatch the build agent** with focused context:
-   - The finding: severity, description, file, line
-   - The affected sub-spec context (scope from `sub-NNN/spec.md`, plan from `sub-NNN/plan.md`)
-   - The Self-Report entry for that area (so the agent understands what was claimed)
+1. Capture the finding: severity, description, file, line.
+2. Capture the affected sub-spec context (scope from `sub-NNN/spec.md`, plan from `sub-NNN/plan.md`).
+3. Capture the Self-Report entry for that area (so the operator understands what was claimed).
+4. Emit STOP + write blocker findings to the manifest under `## Blocker Findings`.
 
-2. **The agent writes the fix** and updates the Self-Report classification:
-   - `failing` -> `real` (if the fix makes a test pass)
-   - `aspirational` -> `real` (if the fix implements the missing behavior)
-   - `stub` -> `real` (if the fix replaces the stub with real logic)
+The operator is responsible for resolution; `/ai-autopilot --resume` after manual fix is the explicit retry path. The handler does NOT auto-retry.
 
-3. **Commit fixes** with message format:
-   ```
-   spec-NNN: quality round R -- fix [category]
-   ```
-   Where `[category]` is the finding category (e.g., security, performance, correctness).
+### Step 3 -- Record Quality Outcome
 
-4. **Return to Step 2a** for the next round.
-
-### Step 3 -- Record Quality Rounds
-
-After the loop completes (pass or exhausted), write the quality rounds log to `specs/autopilot/manifest.md` under a `## Quality Rounds` section:
+After Step 2 completes (PASS or STOP), write a single-row outcome to `.ai-engineering/runtime/autopilot/manifest.md` under a `## Quality Outcome` section:
 
 ```markdown
-## Quality Rounds
+## Quality Outcome
 
-Round 1: 3 blockers, 5 criticals, 12 highs -> FIX
-Round 2: 0 blockers, 1 critical, 4 highs -> FIX
-Round 3: 0 blockers, 0 criticals, 0 highs -> PASS
+Final: 0 blockers, 0 criticals, 0 highs -> PASS
 ```
 
-Or if exhausted with remaining issues:
+Or if blocked:
 
 ```markdown
-## Quality Rounds
+## Quality Outcome
 
-Round 1: 2 blockers, 3 criticals, 8 highs -> FIX
-Round 2: 1 blocker, 1 critical, 3 highs -> FIX
-Round 3: 1 blocker, 0 criticals, 1 high -> STOP (blockers remain)
+Final: 1 blocker, 0 criticals, 1 high -> STOP (blockers remain, escalated)
 ```
 
 ## Output
@@ -179,17 +161,17 @@ Report to orchestrator upon completion:
 **If PASS:**
 ```
 QUALITY LOOP COMPLETE
-- Rounds: R
+- Round: single
 - Final: 0 blockers, 0 criticals, 0 highs
 - Changeset scope: full | partial (list blocked sub-specs)
-- Self-Report discrepancies found: N (all resolved)
+- Self-Report discrepancies found: N
 - Ready for Phase 6: DELIVER
 ```
 
-**If exhausted with blockers:**
+**If blocker found:**
 ```
-QUALITY LOOP EXHAUSTED -- BLOCKERS REMAIN
-- Rounds: 3
+QUALITY LOOP BLOCKED
+- Round: single
 - Remaining: B blockers, C criticals, H highs
 - Blocker details:
   1. [severity] [category] [file:line] -- [description]
@@ -198,33 +180,21 @@ QUALITY LOOP EXHAUSTED -- BLOCKERS REMAIN
 - Rollback hint: git reset --soft HEAD~N (N = wave + fix commits)
 ```
 
-**If exhausted without blockers:**
-```
-QUALITY LOOP EXHAUSTED -- FLAGGED
-- Rounds: 3
-- Remaining: 0 blockers, C criticals, H highs
-- Flagged issues documented in manifest for Integrity Report.
-- Proceeding to Phase 6: DELIVER (with flags)
-```
-
 ## Gate
 
 **Pass condition**: 0 blockers after assessment. Critical/high findings are documented but do not prevent passing.
 
-**Exit condition**: pass achieved (0 blockers) OR 3 rounds exhausted.
+**Exit condition**: PASS achieved (0 blockers) OR blocker found (STOP, escalate).
 
-**Escalation trigger**: Only blocker-severity findings trigger additional rounds. 1 round is the default.
-
-**Hard stop**: blockers remaining after round 3 prevent Phase 6 entry. No exceptions.
+**Hard stop**: any blocker prevents Phase 6 entry. No exceptions. No auto-retry.
 
 ## Failure Modes
 
 | Condition | Action |
 |-----------|--------|
-| All 3 assessment agents fail in a round | Retry the round once. If second attempt also fails: STOP and escalate to user. |
-| Fix agent introduces new issues | Next assessment round catches them. The loop either converges or exhausts at round 3. |
+| All 3 assessment agents fail to RUN (operational failure: timeout/crash/missing skill file/dispatch error) | Retry the dispatch once. If second attempt also fails to RUN: STOP and escalate to user. NOT a quality-finding retry — Non-Goal #13. |
 | Partial changeset (blocked sub-specs from Phase 4) | Verify only implemented files. Note gaps in the consolidated findings and the manifest. |
-| Self-Report discrepancy (claimed `real`, found failing) | Reclassify as blocker. Fix agent must resolve in the next fix cycle. |
+| Self-Report discrepancy (claimed `real`, found failing) | Reclassify as blocker. Operator must resolve before re-dispatch. |
 | Single assessment agent fails but others succeed | Use available findings. Log the missing assessment. Do not retry the entire round for a single agent failure -- only retry when all 3 fail. |
 
 ## Behavioral Negatives
@@ -232,9 +202,9 @@ QUALITY LOOP EXHAUSTED -- FLAGGED
 The following actions are prohibited during this phase:
 
 - **Do NOT** weaken severity mappings to force a pass.
-- **Do NOT** skip any of the 3 assessment agents (Verify, Guard, Review). All three run every round.
+- **Do NOT** skip any of the 3 assessment agents (Verify, Guard, Review). All three run.
 - **Do NOT** proceed to Phase 6 with known blockers remaining.
-- **Do NOT** retry more than 3 rounds. 3 is the hard ceiling.
+- **Do NOT** retry the quality loop after a CLEAN dispatch returned findings. Single round on the quality outcome is the contract; blockers stop the pipeline (spec-131 D-131-05). The dispatch-level retry above (when all 3 agents fail to RUN) is an operational retry distinct from this quality-finding retry, which is forbidden.
 - **Do NOT** modify assessment agent findings to make them less severe.
 - **Do NOT** use forbidden language in status reports: "should work", "looks good", "probably fine", "seems to", "I think", "most likely".
 - **Do NOT** merge findings in a way that loses information. Every finding must be traceable to its source agent.

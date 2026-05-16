@@ -1,0 +1,13 @@
+
+ Usage: ai-eng spec verify [OPTIONS]
+
+ Verify spec task counters and status consistency.
+
+ Reads specs/plan.md, counts checkboxes, verifies frontmatter, and
+ optionally auto-corrects drift.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --fix           Auto-correct drifted counters in plan.md frontmatter         │
+│                 (opt-in).                                                    │
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

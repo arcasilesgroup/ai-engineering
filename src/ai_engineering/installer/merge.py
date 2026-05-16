@@ -9,9 +9,10 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import shutil
 from pathlib import Path
+
+from ai_engineering.lib.path_safety import safe_realpath_within
 
 logger = logging.getLogger(__name__)
 
@@ -43,14 +44,9 @@ def merge_settings(template_data: dict, target_path: Path, *, base: Path) -> Pat
         ValueError: If ``target_path`` resolves outside ``base``.
     """
     # Validate target_path is within the trusted base (CWE-22 / S2083).
-    # os.path.realpath() resolves symlinks; the prefix check enforces containment.
     # All I/O uses the validated string ``real_target`` directly -- never a Path
     # object derived from it -- so SonarCloud tracks the sanitization correctly.
-    real_base = os.path.realpath(base)
-    real_target = os.path.realpath(target_path)
-    if real_target != real_base and not real_target.startswith(real_base + os.sep):
-        msg = f"Path traversal rejected: {target_path!r} is outside trusted base {base!r}"
-        raise ValueError(msg)
+    real_target = safe_realpath_within(target_path, base)
 
     try:
         with open(real_target, encoding="utf-8") as fh:

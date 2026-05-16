@@ -21,7 +21,17 @@ The contract under test (per plan-110.md T-3.7 and the dispatch task spec):
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
+
+import pytest
+
+if shutil.which("opa") is None:
+    pytest.skip(
+        "opa binary not on PATH; policy engine shim relies on the OPA CLI. "
+        "Run 'ai-eng install' or install OPA to exercise these tests.",
+        allow_module_level=True,
+    )
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _POLICIES_DIR = _REPO_ROOT / ".ai-engineering" / "policies"

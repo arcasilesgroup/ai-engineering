@@ -8,9 +8,8 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
-import typer
 
-from ai_engineering.cli_commands import gate, maintenance, skills, stack_ide, validate, vcs
+from ai_engineering.cli_commands import check, config, gate, maintenance, skills
 from ai_engineering.maintenance import branch_cleanup
 from ai_engineering.policy import gates
 from ai_engineering.skills import service as skills_service
@@ -25,51 +24,44 @@ def _reset_json_mode() -> None:
     set_json_mode(False)
 
 
-def test_stack_ide_remaining_exception_paths(tmp_path: Path) -> None:
+def test_config_inspection_exception_paths(tmp_path: Path) -> None:
+    """``ai-eng config {stack,ide,provider} list`` surface installer errors.
+
+    Spec-132 D-132-04 collapsed the old ``stack``/``ide``/``provider``
+    mutator verbs into the interactive ``config`` flow. The surviving
+    inspection commands all exit non-zero when ``list_status`` raises
+    :class:`InstallerError` — the renderer's ``error()`` raises
+    :class:`SystemExit` for the human path.
+    """
+    err = config.InstallerError("manifest unreadable")
     with (
-        patch(
-            "ai_engineering.cli_commands.stack_ide.remove_stack",
-            side_effect=stack_ide.InstallerError("x"),
-        ),
-        pytest.raises(typer.Exit),
+        patch("ai_engineering.cli_commands.config.list_status", side_effect=err),
+        pytest.raises(SystemExit),
     ):
-        stack_ide.stack_remove("python", target=tmp_path)
+        config.stack_list(target=tmp_path)
     with (
-        patch(
-            "ai_engineering.cli_commands.stack_ide.add_ide",
-            side_effect=stack_ide.InstallerError("x"),
-        ),
-        pytest.raises(typer.Exit),
+        patch("ai_engineering.cli_commands.config.list_status", side_effect=err),
+        pytest.raises(SystemExit),
     ):
-        stack_ide.ide_add("vscode", target=tmp_path)
-    with (
-        patch(
-            "ai_engineering.cli_commands.stack_ide.remove_ide",
-            side_effect=stack_ide.InstallerError("x"),
-        ),
-        pytest.raises(typer.Exit),
-    ):
-        stack_ide.ide_remove("vscode", target=tmp_path)
+        config.surface_list(target=tmp_path)
 
 
-def test_vcs_missing_manifest_paths(tmp_path: Path) -> None:
-    with pytest.raises(typer.Exit):
-        vcs.vcs_status(target=tmp_path)
-    with pytest.raises(typer.Exit):
-        vcs.vcs_set_primary("github", target=tmp_path)
+def test_config_vcs_status_missing_framework(tmp_path: Path) -> None:
+    """``ai-eng config vcs status`` exits when the framework is uninstalled."""
+    with pytest.raises(SystemExit):
+        config.vcs_status(target=tmp_path)
 
 
-def test_validate_single_category_mapping(tmp_path: Path) -> None:
+def test_check_single_category_mapping(tmp_path: Path) -> None:
+    """``ai-eng check`` honours the ``--category`` filter (renamed from validate)."""
     fake = SimpleNamespace(
         passed=True,
         by_category=lambda: {},
         category_passed=lambda _c: True,
         to_dict=lambda: {"passed": True, "checks": []},
     )
-    with patch(
-        "ai_engineering.cli_commands.validate.validate_content_integrity", return_value=fake
-    ):
-        validate.validate_cmd(target=tmp_path, category="file-existence")
+    with patch("ai_engineering.cli_commands.check.validate_content_integrity", return_value=fake):
+        check.check_cmd(target=tmp_path, category="file-existence")
 
 
 def test_gate_risk_all_current_message(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

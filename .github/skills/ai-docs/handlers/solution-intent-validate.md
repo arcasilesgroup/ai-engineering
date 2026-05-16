@@ -43,7 +43,7 @@ Cross-reference with project state:
 - manifest.yml tooling vs Section 3.1 tooling
 - manifest.yml quality gates vs Section 6.1 gates
 - Active spec pointer vs Section 7.4
-- decision-store.json active count vs Section 2.2 decisions
+- state.db.decisions active count vs Section 2.2 decisions
 
 ### 5. Produce scorecard
 

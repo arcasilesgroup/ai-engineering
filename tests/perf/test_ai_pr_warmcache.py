@@ -21,7 +21,7 @@ by the gate cache when re-running with identical staged files.
 This test asserts that contract directly:
 
 1. Build a fixture project with five staged Python files.
-2. Wipe ``.ai-engineering/state/gate-cache/`` so the first run is COLD.
+2. Wipe ``.ai-engineering/cache/gate/`` so the first run is COLD.
 3. Measure wall-clock of ``ai-eng gate run --cache-aware --json --mode=local``.
 4. Re-run with the cache populated (WARM) -- must hit cache for every check.
 5. Assert ``warm_wall_clock <= 0.6 * cold_wall_clock`` (40% reduction).
@@ -169,12 +169,14 @@ def _git_init_and_stage(repo: Path, files: list[str]) -> None:
 
 
 def _wipe_gate_cache(repo: Path) -> None:
-    """Remove ``.ai-engineering/state/gate-cache/`` so the next run is COLD.
+    """Remove ``.ai-engineering/cache/gate/`` so the next run is COLD.
 
     Uses ``shutil.rmtree(..., ignore_errors=True)`` because the directory
     may not exist on the first call.
     """
-    cache_dir = repo / ".ai-engineering" / "state" / "gate-cache"
+    # spec-125 Wave 2 (T-2.13): canonical gate cache dir relocated under
+    # ``.ai-engineering/cache/gate/`` (per ``hook_context.CACHE_DIR`` SSOT).
+    cache_dir = repo / ".ai-engineering" / "cache" / "gate"
     if cache_dir.exists():
         shutil.rmtree(cache_dir, ignore_errors=True)
 

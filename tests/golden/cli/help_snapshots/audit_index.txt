@@ -1,0 +1,13 @@
+
+ Usage: ai-eng audit index [OPTIONS]
+
+ Build / refresh the SQLite projection of framework-events.ndjson.
+
+ Always exits 0 on success. Uncaught exceptions surface through the
+ standard ``_cli_error_boundary`` wrapper applied at registration.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --rebuild          Drop tables and re-index from offset 0.                   │
+│ --json             Emit machine-readable JSON.                               │
+│ --help             Show this message and exit.                               │
+╰──────────────────────────────────────────────────────────────────────────────╯

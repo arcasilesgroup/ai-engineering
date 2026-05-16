@@ -444,14 +444,18 @@ def _check_required_tools(target: Path, report: IntegrityReport, **_kwargs: obje
 
     block = data.get("required_tools")
     if not isinstance(block, dict):
-        _fail(
+        # Slim-manifest tolerance: absence of the block means "use
+        # framework defaults" — the loader supplies the canonical
+        # DEFAULT_REQUIRED_TOOLS at runtime. Governance still validates
+        # whatever the user wrote; nothing to lint when nothing is
+        # declared.
+        _ok(
             report,
-            name="block-missing",
+            name="required-tools",
             message=(
-                "required_tools block is missing from manifest.yml — every "
-                "ai-engineering project must declare baseline + per-stack tools."
+                "required_tools block not declared — falling back to framework "
+                "defaults (apply_framework_defaults)."
             ),
-            file_path=file_ref,
         )
         return
 

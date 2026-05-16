@@ -1,8 +1,13 @@
 ---
 name: ai-debug
-description: "Use when something is broken and you need to find out why: test failures, runtime errors, crashes, regressions, or unexpected behavior. Trigger for 'it's not working', 'something broke', 'this used to work', 'I'm getting an error', 'CI is failing', 'the output is wrong', or 'why is X happening'. Systematic 4-phase diagnosis — never patches symptoms without finding the root cause."
-effort: high
+description: "Diagnoses broken behavior systematically with a 4-phase root-cause loop: test failures, runtime errors, crashes, regressions. Never patches symptoms. Trigger for 'it is not working', 'something broke', 'this used to work', 'I am getting an error', 'CI is failing', 'why is X happening'. Not for adding tests; use /ai-test instead. Not for security findings; use /ai-security instead."
+effort: mid
 argument-hint: "[error description or file:line]"
+model_tier: sonnet
+mirror_family: codex-skills
+generated_by: ai-eng sync
+canonical_source: .claude/skills/ai-debug/SKILL.md
+edit_policy: generated-do-not-edit
 ---
 
 
@@ -105,26 +110,40 @@ Fix: add `config = yaml.safe_load(f) or {}` instead of `config = yaml.safe_load(
 - Not writing a regression test for the fix.
 - Changing multiple things at once (change one thing, verify, repeat).
 
-## Handlers
+## Stack-specific guidance
 
-When the error involves a build or compilation failure, load the language-specific handler for resolution patterns.
+spec-133 D-133-10 consolidates stack-specific debug guidance into the
+`.ai-engineering/overrides/<stack>/debug.md` files. When debugging a
+build / compilation failure, load `overrides/<stack>/debug.md` for the
+relevant stack (python, typescript, rust, go, java, kotlin, csharp,
+swift, flutter, react-native, php, ruby). Greenfield mode (stacks=[]):
+follow the generic procedure above and hint
+"add a project file and run `ai-eng doctor --fix`".
 
-| Handler | Trigger | File |
-|---------|---------|------|
-| C++ | `.cpp`, `.h`, `.hpp` files or CMake/Make errors | `handlers/cpp.md` |
-| Go | `.go` files or `go build` errors | `handlers/go.md` |
-| Java | `.java` files or Maven/Gradle errors | `handlers/java.md` |
-| Kotlin | `.kt` files or Gradle/KSP errors | `handlers/kotlin.md` |
-| Python Build | `pyproject.toml`, build failures, dependency resolution | `handlers/python-build.md` |
-| PyTorch | CUDA, tensor, GPU-related errors | `handlers/pytorch.md` |
-| Rust | `.rs` files or `cargo` errors | `handlers/rust.md` |
-| TypeScript Build | `.ts`, `.tsx` files or tsc/webpack/vite errors | `handlers/typescript-build.md` |
+## Examples
+
+### Example 1 — failing test with unclear root cause
+
+User: "test_user_signup is failing with 'invalid email format' but the email looks valid"
+
+```
+/ai-debug test_user_signup
+```
+
+Phase 1 reproduce, Phase 2 hypothesize (regex anchors? trailing whitespace? unicode?), Phase 3 instrument, Phase 4 confirm + add regression test before patching.
+
+### Example 2 — CI failure on a fresh branch
+
+User: "CI is failing only on this branch — what changed?"
+
+```
+/ai-debug "CI failing on feat/new-auth"
+```
+
+Walks the diff vs `main`, isolates the suspect change, reproduces locally, identifies root cause without symptom-patching.
 
 ## Integration
 
-- **Called by**: `/ai-dispatch` (debug tasks), `ai-build agent` (when tests fail), user directly
-- **Calls**: test runners (to reproduce), `/ai-test` (regression test)
-- **Transitions to**: `ai-build` (fix implementation), `/ai-commit` (after verified fix)
-- **See also**: `/ai-test` (reproduce failures before fixing), `/ai-postmortem` (for production incidents)
+Called by: `/ai-build`, `/ai-build` (test fail), user directly. Calls: test runners (reproduction), `/ai-test` (regression test). Transitions to: `/ai-build` (fix), `/ai-commit` (verified). See also: `/ai-test`, `/ai-postmortem`, `/ai-resolve-conflicts`.
 
 $ARGUMENTS

@@ -16,13 +16,19 @@ import subprocess
 
 
 def test_ai_eng_sync_check_returns_zero_post_phase_7() -> None:
-    """G-9 -- ai-eng sync --check exits 0 after skill updates + sync run."""
+    """G-9 -- ``ai-eng dev sync --check`` exits 0 after skill updates + sync run.
+
+    Renamed from ``ai-eng sync`` to ``ai-eng dev sync`` per spec-132
+    D-132-05 (the top-level ``sync`` verb was retired in favour of a
+    hidden ``dev`` sub-group so consumer projects no longer see the
+    source-repo helper).
+    """
     result = subprocess.run(
-        ["uv", "run", "ai-eng", "sync", "--check"],
+        ["uv", "run", "ai-eng", "dev", "sync", "--check"],
         capture_output=True,
         text=True,
         check=False,
     )
     assert result.returncode == 0, (
-        f"ai-eng sync --check failed: stdout={result.stdout!r} stderr={result.stderr!r}"
+        f"ai-eng dev sync --check failed: stdout={result.stdout!r} stderr={result.stderr!r}"
     )

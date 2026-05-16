@@ -1,0 +1,14 @@
+
+ Usage: ai-eng risk resolve [OPTIONS] DEC_ID
+
+ Mark a risk acceptance as remediated (fix landed).
+
+╭─ Arguments ──────────────────────────────────────────────────────────────────╮
+│ *    dec_id      TEXT  DEC-XXXX-YYYY ID to mark remediated. [required]       │
+╰──────────────────────────────────────────────────────────────────────────────╯
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ *  --note         TEXT  Remediation note (commit, PR, fix link). [required]  │
+│    --actor        TEXT  Resolver identity; defaults to ``git config          │
+│                         user.email``.                                        │
+│    --help               Show this message and exit.                          │
+╰──────────────────────────────────────────────────────────────────────────────╯

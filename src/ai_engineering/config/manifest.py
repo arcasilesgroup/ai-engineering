@@ -9,23 +9,44 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from ai_engineering.domain.surface import SURFACE_IDS
 
 # --- Nested models ---
 
 
-class AiProvidersConfig(BaseModel):
-    """AI coding assistant provider configuration."""
+class SurfacesConfig(BaseModel):
+    """Surface configuration — single source of truth (spec-133 D-133-16).
 
-    enabled: list[str] = Field(default_factory=lambda: ["claude_code"])
-    primary: str = "claude_code"
+    A Surface fuses AI Provider + IDE Integration into one capability
+    matrix. Every value MUST be a member of
+    :data:`ai_engineering.domain.surface.SURFACE_IDS` (closed enum).
+    The legacy ``providers.ides`` and ``ai_providers.enabled`` fields
+    were deleted in the slim-manifest refactor (no backward compat).
+    """
+
+    enabled: list[str] = Field(default_factory=lambda: ["claude-code"])
+
+    @field_validator("enabled")
+    @classmethod
+    def _validate_closed_enum(cls, value: list[str]) -> list[str]:
+        unknown = [s for s in value if s not in SURFACE_IDS]
+        if unknown:
+            known = ", ".join(sorted(SURFACE_IDS))
+            raise ValueError(f"Unknown surface id(s): {unknown}. Known surfaces: {known}.")
+        return value
 
 
 class ProvidersConfig(BaseModel):
-    """VCS, IDE, and stack provider configuration."""
+    """VCS + technology-stack provider configuration.
+
+    Note: ``ides`` and ``ai_providers`` were deleted from this model;
+    use :class:`SurfacesConfig` (manifest field ``surfaces.enabled``)
+    for both axes.
+    """
 
     vcs: str = "github"
-    ides: list[str] = Field(default_factory=lambda: ["claude_code"])
     stacks: list[str] = Field(default_factory=lambda: ["python"])
 
 
@@ -131,10 +152,28 @@ class AgentsConfig(BaseModel):
     names: list[str] = Field(default_factory=list)
 
 
+class RootEntryPointSyncConfig(BaseModel):
+    """Structured sync metadata for a governed root entry point."""
+
+    mode: str = ""
+    template_path: str = ""
+    mirror_paths: list[str] = Field(default_factory=list)
+
+
+class RootEntryPointConfig(BaseModel):
+    """Manifest ownership metadata for a governed root instruction surface."""
+
+    owner: str = ""
+    canonical_source: str = ""
+    runtime_role: str = ""
+    sync: RootEntryPointSyncConfig = Field(default_factory=RootEntryPointSyncConfig)
+
+
 class OwnershipConfig(BaseModel):
     """Path-ownership glob patterns."""
 
     framework: list[str] = Field(default_factory=list)
+    root_entry_points: dict[str, RootEntryPointConfig] = Field(default_factory=dict)
     team: list[str] = Field(default_factory=list)
     system: list[str] = Field(default_factory=list)
 
@@ -181,6 +220,66 @@ class GatesConfig(BaseModel):
     pre_commit: PreCommitGateConfig = Field(default_factory=PreCommitGateConfig)
 
 
+class AutoSpecGateThresholds(BaseModel):
+    """Trivial-vs-spec thresholds for ``/ai-brainstorm`` (spec-134 D-134-04).
+
+    All three thresholds are upper bounds (a diff that strictly exceeds
+    any one of them routes to full interrogation). The same shape is
+    reused for ``regulated_overrides`` — only the default values differ.
+    """
+
+    files: int = 3
+    loc: int = 50
+    cross_module: int = 1
+
+
+class AutoSpecGateHardTriggers(BaseModel):
+    """Hard-trigger toggles for ``/ai-brainstorm`` auto-spec gate.
+
+    Each flag controls whether a vector participates in the gate. The
+    default is "all on" — operators can disable a vector to silence
+    false positives, but the framework treats every disabled flag as a
+    risk acceptance (documented in `auto-spec-gate.md`).
+    """
+
+    public_api: bool = True
+    state_or_schema: bool = True
+    new_dependency: bool = True
+    security_surface: bool = True
+
+
+class AutoSpecGateConfig(BaseModel):
+    """Auto-spec gate knob block (spec-134 D-134-04).
+
+    Lives under ``brainstorm.auto_spec_gate`` in ``manifest.yml``. When
+    :attr:`enabled` is ``False`` the gate becomes a no-op and every
+    call routes to full interrogation. When :attr:`enabled` is ``True``
+    the gate consults the thresholds + hard-trigger toggles to classify
+    a working-tree diff. ``regulated_overrides`` are substituted over
+    ``thresholds`` when ``gates.mode == "regulated"`` (the runtime
+    consults the existing :class:`GatesConfig` — no new top-level enum
+    is needed).
+    """
+
+    enabled: bool = True
+    thresholds: AutoSpecGateThresholds = Field(default_factory=AutoSpecGateThresholds)
+    hard_triggers: AutoSpecGateHardTriggers = Field(default_factory=AutoSpecGateHardTriggers)
+    regulated_overrides: AutoSpecGateThresholds = Field(
+        default_factory=lambda: AutoSpecGateThresholds(files=1, loc=20, cross_module=1)
+    )
+
+
+class BrainstormConfig(BaseModel):
+    """``brainstorm.*`` manifest block (spec-134 D-134-04).
+
+    Currently exposes only :attr:`auto_spec_gate`; the namespace is
+    reserved for future brainstorm-scoped knobs (e.g., max-question
+    budgets, evidence-sweep toggles).
+    """
+
+    auto_spec_gate: AutoSpecGateConfig = Field(default_factory=AutoSpecGateConfig)
+
+
 class HotPathSlosConfig(BaseModel):
     """Hot-path SLO budgets driving ``ai-eng doctor --check hot-path``.
 
@@ -220,7 +319,7 @@ class ManifestConfig(BaseModel):
     version: str = ""
 
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
-    ai_providers: AiProvidersConfig = Field(default_factory=AiProvidersConfig)
+    surfaces: SurfacesConfig = Field(default_factory=SurfacesConfig)
     artifact_feeds: ArtifactFeedsConfig = Field(default_factory=ArtifactFeedsConfig)
     work_items: WorkItemsConfig = Field(default_factory=WorkItemsConfig)
     quality: QualityConfig = Field(default_factory=QualityConfig)
@@ -233,3 +332,4 @@ class ManifestConfig(BaseModel):
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
     gates: GatesConfig = Field(default_factory=GatesConfig)
     hot_path_slos: HotPathSlosConfig = Field(default_factory=HotPathSlosConfig)
+    brainstorm: BrainstormConfig = Field(default_factory=BrainstormConfig)

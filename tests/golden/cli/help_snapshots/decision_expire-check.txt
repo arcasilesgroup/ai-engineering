@@ -1,0 +1,8 @@
+
+ Usage: ai-eng decision expire-check [OPTIONS]
+
+ Flag decisions whose ``expires_at`` is past or within 7 days.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯

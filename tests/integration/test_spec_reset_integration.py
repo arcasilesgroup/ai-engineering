@@ -9,9 +9,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from ai_engineering.maintenance.spec_activate import run_spec_activate
 from ai_engineering.maintenance.spec_reset import (
     SpecResetResult,
     run_spec_reset,
+)
+from ai_engineering.state.work_plane import (
+    active_work_plane_pointer_path,
+    resolve_active_work_plane,
 )
 
 
@@ -172,3 +177,37 @@ class TestRunSpecResetIntegration:
         assert data["spec_title"] == "Dict Test"
         assert data["history_updated"] is True
         assert data["files_cleared"] is True
+
+    def test_activation_then_reset_restores_legacy_buffer(self, tmp_path: Path) -> None:
+        """Activation to a spec-local work plane can be closed back to legacy state."""
+        project = _create_project(tmp_path)
+        pointed_specs_dir = project / ".ai-engineering" / "specs" / "spec-117-hx-02"
+
+        activation = run_spec_activate(project, pointed_specs_dir)
+        assert activation.success is True
+
+        (pointed_specs_dir / "spec.md").write_text(
+            '---\nid: "117-02"\n---\n\n# Activated Spec\n\nSpec content.\n',
+            encoding="utf-8",
+        )
+        (pointed_specs_dir / "plan.md").write_text(
+            "---\ntotal: 1\ncompleted: 0\n---\n\n# Plan\n\n- [ ] Task\n",
+            encoding="utf-8",
+        )
+
+        result = run_spec_reset(project)
+
+        assert result.success is True
+        assert result.spec_title == "Activated Spec"
+        assert active_work_plane_pointer_path(project).exists() is False
+        assert resolve_active_work_plane(project).specs_dir == project / ".ai-engineering" / "specs"
+        assert (
+            (project / ".ai-engineering" / "specs" / "spec.md")
+            .read_text(encoding="utf-8")
+            .startswith("# No active spec")
+        )
+        assert (
+            (project / ".ai-engineering" / "specs" / "plan.md")
+            .read_text(encoding="utf-8")
+            .startswith("# No active plan")
+        )

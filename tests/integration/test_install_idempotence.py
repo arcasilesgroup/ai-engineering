@@ -70,10 +70,9 @@ def context(tmp_path: Path, state_dir: Path) -> InstallContext:
     return InstallContext(
         target=tmp_path,
         mode=InstallMode.INSTALL,
-        providers=["claude_code"],
+        surfaces=["claude-code"],
         vcs_provider="github",
         stacks=["python"],
-        ides=["terminal"],
     )
 
 

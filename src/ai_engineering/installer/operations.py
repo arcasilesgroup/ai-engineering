@@ -1,4 +1,10 @@
-"""Stack, IDE, and AI provider add/remove/list operations for ai-engineering."""
+"""Stack and Surface add/remove/list operations for ai-engineering.
+
+spec-133 D-133-16 hard-cut: ``providers.ides`` and ``ai_providers.enabled``
+were deleted. The unified ``Surface`` primitive (domain) replaces both
+axes. CRUD here operates on ``surfaces.enabled`` against the closed
+:data:`ai_engineering.domain.surface.SURFACE_IDS` enum.
+"""
 
 from __future__ import annotations
 
@@ -6,24 +12,10 @@ from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config, update_manifest_field
 from ai_engineering.config.manifest import ManifestConfig
+from ai_engineering.domain.surface import SURFACE_IDS
 from ai_engineering.state.observability import emit_framework_operation
 
-from .templates import TEMPLATES_ROOT, copy_project_templates, remove_provider_templates
-
-# Known IDE identifiers recognised by the framework.
-_KNOWN_IDES: frozenset[str] = frozenset(
-    {"terminal", "vscode", "jetbrains", "cursor", "antigravity"}
-)
-
-# Valid AI provider identifiers.
-_VALID_AI_PROVIDERS: frozenset[str] = frozenset(
-    {
-        "claude_code",
-        "github_copilot",
-        "gemini",
-        "codex",
-    }
-)
+from .templates import TEMPLATES_ROOT, copy_project_templates, remove_surface_templates
 
 
 class InstallerError(Exception):
@@ -31,27 +23,28 @@ class InstallerError(Exception):
 
 
 def get_available_stacks() -> list[str]:
-    """Return the list of stack names that have bundled instruction files.
+    """Return the list of stack names that have bundled overrides.
 
-    Scans the ``contexts/languages/`` template directory for
-    ``.md`` files and returns their stems as valid stack identifiers.
+    Scans the ``overrides/`` template directory for per-stack
+    subdirectories (spec-128 D-128-03) and returns their names as valid
+    stack identifiers. The ``_shared/`` sibling is excluded — it carries
+    cross-stack conventions, not a stack.
 
     Returns:
-        Sorted list of available stack names (e.g. ``["python"]``).
+        Sorted list of available stack names (e.g. ``["python", "typescript"]``).
     """
-    stacks_dir = TEMPLATES_ROOT / ".ai-engineering" / "contexts" / "languages"
-    if not stacks_dir.is_dir():
+    overrides_dir = TEMPLATES_ROOT / ".ai-engineering" / "overrides"
+    if not overrides_dir.is_dir():
         return []
-    return sorted(p.stem for p in stacks_dir.glob("*.md"))
+    return sorted(p.name for p in overrides_dir.iterdir() if p.is_dir() and p.name != "_shared")
 
 
-def get_available_ides() -> list[str]:
-    """Return the list of recognised IDE identifiers.
+def get_available_surfaces() -> list[str]:
+    """Return the list of recognised Surface identifiers (closed enum).
 
-    Returns:
-        Sorted list of known IDE names.
+    The source of truth is :data:`ai_engineering.domain.surface.SURFACE_IDS`.
     """
-    return sorted(_KNOWN_IDES)
+    return sorted(SURFACE_IDS)
 
 
 def _ensure_framework_install(target: Path) -> None:
@@ -127,7 +120,6 @@ def add_stack(target: Path, stack: str) -> ManifestConfig:
     update_manifest_field(target, "providers.stacks", new_stacks)
     _log_operation(target, operation="stack-add", detail=f"added stack: {stack}")
 
-    # Re-read to return updated config
     return load_manifest_config(target)
 
 
@@ -158,66 +150,6 @@ def remove_stack(target: Path, stack: str) -> ManifestConfig:
     return load_manifest_config(target)
 
 
-def add_ide(target: Path, ide: str) -> ManifestConfig:
-    """Add an IDE to the manifest config.
-
-    Args:
-        target: Root directory of the target project.
-        ide: IDE identifier to add (e.g., ``"vscode"``).
-
-    Returns:
-        Updated ManifestConfig.
-
-    Raises:
-        InstallerError: If the framework is not installed, IDE already exists,
-            or IDE name is not recognised.
-    """
-    available = get_available_ides()
-    if ide not in available:
-        msg = f"Unknown IDE '{ide}'. Available IDEs: {', '.join(available)}"
-        raise InstallerError(msg)
-
-    _ensure_framework_install(target)
-    config = _load_config(target)
-
-    if ide in config.providers.ides:
-        msg = f"IDE '{ide}' is already installed."
-        raise InstallerError(msg)
-
-    new_ides = [*config.providers.ides, ide]
-    update_manifest_field(target, "providers.ides", new_ides)
-    _log_operation(target, operation="ide-add", detail=f"added IDE: {ide}")
-
-    return load_manifest_config(target)
-
-
-def remove_ide(target: Path, ide: str) -> ManifestConfig:
-    """Remove an IDE from the manifest config.
-
-    Args:
-        target: Root directory of the target project.
-        ide: IDE identifier to remove.
-
-    Returns:
-        Updated ManifestConfig.
-
-    Raises:
-        InstallerError: If the framework is not installed or IDE not found.
-    """
-    _ensure_framework_install(target)
-    config = _load_config(target)
-
-    if ide not in config.providers.ides:
-        msg = f"IDE '{ide}' is not installed."
-        raise InstallerError(msg)
-
-    new_ides = [i for i in config.providers.ides if i != ide]
-    update_manifest_field(target, "providers.ides", new_ides)
-    _log_operation(target, operation="ide-remove", detail=f"removed IDE: {ide}")
-
-    return load_manifest_config(target)
-
-
 def list_status(target: Path) -> ManifestConfig:
     """Load and return the current manifest config.
 
@@ -234,89 +166,87 @@ def list_status(target: Path) -> ManifestConfig:
 
 
 # ---------------------------------------------------------------------------
-# AI Provider operations
+# Surface operations (replaces legacy add_ide / add_provider).
 # ---------------------------------------------------------------------------
 
 
-def add_provider(target: Path, provider: str) -> ManifestConfig:
-    """Add an AI provider to the manifest config and copy its templates.
+def add_surface(target: Path, surface: str) -> ManifestConfig:
+    """Add a Surface to the manifest config and copy its templates.
+
+    A Surface fuses AI Provider + IDE Integration into one capability
+    matrix (spec-133 D-133-16). Allowed values live in
+    :data:`ai_engineering.domain.surface.SURFACE_IDS`.
 
     Args:
         target: Root directory of the target project.
-        provider: Provider identifier to add (e.g., ``"github_copilot"``).
+        surface: Surface identifier to add (e.g., ``"github-copilot"``).
 
     Returns:
         Updated ManifestConfig.
 
     Raises:
-        InstallerError: If the framework is not installed, provider already
-            exists, or provider name is not recognised.
+        InstallerError: If the framework is not installed, the surface is
+            already enabled, or the identifier is not recognised.
     """
-    if provider not in _VALID_AI_PROVIDERS:
-        msg = f"Unknown provider '{provider}'. Available: {', '.join(sorted(_VALID_AI_PROVIDERS))}"
+    if surface not in SURFACE_IDS:
+        msg = f"Unknown surface '{surface}'. Known: {', '.join(get_available_surfaces())}."
         raise InstallerError(msg)
 
     _ensure_framework_install(target)
     config = _load_config(target)
 
-    if provider in config.ai_providers.enabled:
-        msg = f"Provider '{provider}' is already enabled."
+    if surface in config.surfaces.enabled:
+        msg = f"Surface '{surface}' is already enabled."
         raise InstallerError(msg)
 
-    # Copy provider templates
-    copy_project_templates(target, providers=[provider])
+    copy_project_templates(target, surfaces=[surface])
 
-    # Persist to manifest
-    new_enabled = [*config.ai_providers.enabled, provider]
-    update_manifest_field(target, "ai_providers.enabled", new_enabled)
-    if len(new_enabled) == 1:
-        update_manifest_field(target, "ai_providers.primary", new_enabled[0])
+    new_enabled = [*config.surfaces.enabled, surface]
+    update_manifest_field(target, "surfaces.enabled", new_enabled)
 
-    _log_operation(target, operation="provider-add", detail=f"added AI provider: {provider}")
+    _log_operation(target, operation="surface-add", detail=f"added surface: {surface}")
 
     return load_manifest_config(target)
 
 
-def remove_provider(target: Path, provider: str) -> ManifestConfig:
-    """Remove an AI provider and delete its templates.
+def remove_surface(target: Path, surface: str) -> ManifestConfig:
+    """Remove a Surface from the manifest config and delete its templates.
 
-    Does not allow removing the last provider.
+    The last remaining Surface cannot be removed — every install must keep
+    at least one active surface so the framework has somewhere to render
+    its instruction files.
 
     Args:
         target: Root directory of the target project.
-        provider: Provider identifier to remove.
+        surface: Surface identifier to remove.
 
     Returns:
         Updated ManifestConfig.
 
     Raises:
-        InstallerError: If the framework is not installed, provider not found,
-            or it is the last remaining provider.
+        InstallerError: If the framework is not installed, the surface is
+            not enabled, or it is the last remaining surface.
     """
     _ensure_framework_install(target)
     config = _load_config(target)
 
-    if provider not in config.ai_providers.enabled:
-        msg = f"Provider '{provider}' is not enabled."
+    enabled = list(config.surfaces.enabled)
+    if surface not in enabled:
+        msg = f"Surface '{surface}' is not enabled."
         raise InstallerError(msg)
 
-    remaining = [p for p in config.ai_providers.enabled if p != provider]
-
+    remaining = [s for s in enabled if s != surface]
     if not remaining:
-        msg = "Cannot remove the last AI provider."
+        msg = "Cannot remove the last Surface — every install must keep at least one."
         raise InstallerError(msg)
 
-    # Remove provider templates (respects shared files)
-    remove_provider_templates(target, provider, remaining)
-
-    # Persist to manifest
-    update_manifest_field(target, "ai_providers.enabled", remaining)
-    update_manifest_field(target, "ai_providers.primary", remaining[0])
+    remove_surface_templates(target, surface, remaining)
+    update_manifest_field(target, "surfaces.enabled", remaining)
 
     _log_operation(
         target,
-        operation="provider-remove",
-        detail=f"removed AI provider: {provider}",
+        operation="surface-remove",
+        detail=f"removed surface: {surface}",
     )
 
     return load_manifest_config(target)

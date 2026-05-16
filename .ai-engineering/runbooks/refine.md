@@ -19,7 +19,7 @@ when the issue is ready for local execution.
 - Authenticated CLI session: `gh auth status` (GitHub) or `az account show` (Azure DevOps).
 - Repository cloned locally with at least 30 days of git history (required for Step 2b codebase search).
 - Issues have been processed by the triage runbook (carrying `needs-refinement` label).
-- `.ai-engineering/CONSTITUTION.md` exists for boundary constraint extraction.
+- `CONSTITUTION.md` exists for boundary constraint extraction. If only `.ai-engineering/CONSTITUTION.md` exists, treat it as a legacy compatibility input.
 
 ## Procedimiento
 
@@ -74,7 +74,7 @@ git log --oneline --all -- ".ai-engineering/specs/" | head -20
 **2d. Read project boundaries** -- extract constraints that apply to the issue scope.
 
 ```bash
-cat .ai-engineering/CONSTITUTION.md
+cat CONSTITUTION.md || cat .ai-engineering/CONSTITUTION.md
 ```
 
 ### Step 3 -- Draft acceptance criteria

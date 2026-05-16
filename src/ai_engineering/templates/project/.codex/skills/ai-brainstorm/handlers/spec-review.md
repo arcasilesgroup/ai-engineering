@@ -8,7 +8,7 @@ Dispatch a spec-reviewer subagent to challenge the draft spec. The reviewer argu
 
 ### Step 1 -- Write the Spec
 
-Create `specs/spec.md` with a structure that conforms to `.ai-engineering/contexts/spec-schema.md`:
+Create `.ai-engineering/specs/spec.md` with a structure that conforms to `.ai-engineering/contexts/spec-schema.md`:
 
 ```markdown
 ---

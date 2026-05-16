@@ -1,7 +1,7 @@
 """Tests for manifest-driven provider resolution in the validator.
 
 These tests verify that instruction file lists, path patterns, and mirror
-sync checks are derived from ``ai_providers.enabled`` in manifest.yml
+sync checks are derived from ``surfaces.enabled`` in manifest.yml
 rather than being hardcoded.
 
 RED phase: all tests target functionality that does not yet exist and MUST
@@ -29,18 +29,60 @@ from ai_engineering.validator.categories.mirror_sync import (
 _MANIFEST_TEMPLATE = """\
 name: test-project
 version: 1.0.0
-ai_providers:
+surfaces:
   enabled: [{providers}]
-  primary: {primary}
+"""
+
+_ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE = """\
+name: test-project
+version: 1.0.0
+surfaces:
+    enabled: [{providers}]
+ownership:
+    root_entry_points:
+        "AGENTS.md":
+            owner: framework
+            canonical_source: scripts/sync_command_mirrors.py:generate_agents_md
+            runtime_role: shared-runtime-contract
+            sync:
+                mode: generate
+                template_path: {agents_template_path}
+                mirror_paths: []
+        ".github/copilot-instructions.md":
+            owner: framework
+            canonical_source: src/ai_engineering/templates/project/copilot-instructions.md
+            runtime_role: ide-overlay
+            sync:
+                mode: render
+                template_path: src/ai_engineering/templates/project/copilot-instructions.md
+                mirror_paths: []
 """
 
 
 def _write_manifest(ai: Path, providers: list[str]) -> None:
     """Write a manifest.yml with the given AI providers."""
-    primary = providers[0] if providers else "claude_code"
+    primary = providers[0] if providers else "claude-code"
     content = _MANIFEST_TEMPLATE.format(
         providers=", ".join(providers),
         primary=primary,
+    )
+    manifest = ai / "manifest.yml"
+    manifest.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_text(content, encoding="utf-8")
+
+
+def _write_manifest_with_root_entry_points(
+    ai: Path,
+    providers: list[str],
+    *,
+    agents_template_path: str,
+) -> None:
+    """Write a manifest.yml that declares root entry point sync metadata."""
+    primary = providers[0] if providers else "claude-code"
+    content = _ROOT_ENTRY_POINTS_MANIFEST_TEMPLATE.format(
+        providers=", ".join(providers),
+        primary=primary,
+        agents_template_path=agents_template_path,
     )
     manifest = ai / "manifest.yml"
     manifest.parent.mkdir(parents=True, exist_ok=True)
@@ -62,16 +104,16 @@ def _make_governance(root: Path) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# T10: instruction files — claude_code only
+# T10: instruction files — claude-code only
 # ---------------------------------------------------------------------------
 
 
 class TestInstructionFilesClaudeOnly:
-    """With only claude_code enabled, only CLAUDE.md paths are returned."""
+    """With only claude-code enabled, only CLAUDE.md paths are returned."""
 
     def test_instruction_files_claude_only(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code"])
+        _write_manifest(ai, ["claude-code"])
 
         files = _instruction_files(tmp_path)
 
@@ -80,51 +122,78 @@ class TestInstructionFilesClaudeOnly:
         # Must NOT include AGENTS.md or copilot-instructions.md
         assert not any("AGENTS.md" in f for f in files), (
             "_instruction_files should not return AGENTS.md "
-            "when github_copilot is not in ai_providers.enabled"
+            "when github-copilot is not in surfaces.enabled"
         )
         assert not any("copilot-instructions" in f for f in files), (
             "_instruction_files should not return copilot-instructions.md "
-            "when github_copilot is not in ai_providers.enabled"
+            "when github-copilot is not in surfaces.enabled"
         )
 
 
 # ---------------------------------------------------------------------------
-# T11: instruction files — claude_code + github_copilot
+# T11: instruction files — claude-code + github-copilot
 # ---------------------------------------------------------------------------
 
 
 class TestInstructionFilesClaudeCopilot:
-    """With claude_code and github_copilot enabled, all three file types appear."""
+    """With claude-code and github-copilot enabled, all three file types appear."""
 
     def test_instruction_files_claude_copilot(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code", "github_copilot"])
+        _write_manifest(ai, ["claude-code", "github-copilot"])
 
         files = _instruction_files(tmp_path)
 
         assert any("CLAUDE.md" in f for f in files), (
-            "CLAUDE.md must be present when claude_code is enabled"
+            "CLAUDE.md must be present when claude-code is enabled"
         )
         assert any("AGENTS.md" in f for f in files), (
-            "AGENTS.md must be present when github_copilot is enabled"
+            "AGENTS.md must be present when github-copilot is enabled"
         )
         assert any("copilot-instructions" in f for f in files), (
-            "copilot-instructions.md must be present when github_copilot is enabled"
+            "copilot-instructions.md must be present when github-copilot is enabled"
         )
 
     def test_instruction_files_copilot_only_excludes_claude(self, tmp_path: Path) -> None:
-        """When only github_copilot is enabled, CLAUDE.md must NOT appear."""
+        """When only github-copilot is enabled, CLAUDE.md must NOT appear."""
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["github_copilot"])
+        _write_manifest(ai, ["github-copilot"])
 
         files = _instruction_files(tmp_path)
 
         assert any("AGENTS.md" in f for f in files), (
-            "AGENTS.md must be present when github_copilot is enabled"
+            "AGENTS.md must be present when github-copilot is enabled"
         )
         assert not any("CLAUDE.md" in f for f in files), (
             "_instruction_files must not return CLAUDE.md "
-            "when claude_code is not in ai_providers.enabled"
+            "when claude-code is not in surfaces.enabled"
+        )
+
+
+class TestInstructionFilesRootEntryPointMetadata:
+    """Source-repo template counterparts should come from manifest metadata."""
+
+    def test_instruction_files_uses_manifest_declared_template_path(self, tmp_path: Path) -> None:
+        ai = _make_governance(tmp_path)
+        custom_template_path = "src/ai_engineering/templates/project/custom/AGENTS.custom.md"
+        _write_manifest_with_root_entry_points(
+            ai,
+            ["github-copilot"],
+            agents_template_path=custom_template_path,
+        )
+        (tmp_path / "src" / "ai_engineering" / "templates").mkdir(parents=True, exist_ok=True)
+
+        files = _instruction_files(tmp_path)
+
+        assert "AGENTS.md" in files
+        assert ".github/copilot-instructions.md" in files
+        assert custom_template_path in files, (
+            "_instruction_files should include the manifest-declared template_path "
+            "for AGENTS.md in a source-repo layout"
+        )
+        assert "src/ai_engineering/templates/project/AGENTS.md" not in files, (
+            "_instruction_files should not derive the AGENTS.md template counterpart "
+            "from the hardcoded default map when the manifest declares a custom template_path"
         )
 
 
@@ -139,7 +208,7 @@ class TestValidatorErrorOnMissingInstructionFile:
 
     def test_validator_errors_on_missing_instruction_file(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code"])
+        _write_manifest(ai, ["claude-code"])
         # Deliberately do NOT create CLAUDE.md on disk.
 
         report = IntegrityReport()
@@ -170,12 +239,12 @@ class TestValidatorErrorOnMissingInstructionFile:
 
 
 class TestValidatorNoErrorForDisabledProvider:
-    """When a provider is not in ai_providers.enabled, its missing instruction
+    """When a provider is not in surfaces.enabled, its missing instruction
     files must not produce errors."""
 
     def test_validator_no_error_for_disabled_provider(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code"])
+        _write_manifest(ai, ["claude-code"])
         # Create CLAUDE.md so the enabled provider passes
         (tmp_path / "CLAUDE.md").write_text("# Instructions\n", encoding="utf-8")
         # Deliberately do NOT create AGENTS.md or copilot-instructions.md
@@ -184,11 +253,11 @@ class TestValidatorNoErrorForDisabledProvider:
 
         # Disabled provider files must not appear in the list
         assert not any("AGENTS.md" in f for f in files), (
-            "AGENTS.md should not be in instruction files when github_copilot is disabled"
+            "AGENTS.md should not be in instruction files when github-copilot is disabled"
         )
         assert not any("copilot-instructions" in f for f in files), (
             "copilot-instructions.md should not be in instruction files "
-            "when github_copilot is disabled"
+            "when github-copilot is disabled"
         )
 
         # Also verify that the validator does not report errors for them
@@ -241,17 +310,17 @@ class TestPathRefPattern:
 
 class TestMirrorSyncEnabledProviders:
     """_check_instruction_parity should only validate files for providers
-    listed in ai_providers.enabled."""
+    listed in surfaces.enabled."""
 
     def test_mirror_sync_checks_only_enabled_providers(self, tmp_path: Path) -> None:
         ai = _make_governance(tmp_path)
-        _write_manifest(ai, ["claude_code"])
+        _write_manifest(ai, ["claude-code"])
 
         # Create CLAUDE.md with required sections
         claude_content = "# Instructions\n\n## Skills\n\n- skill1\n\n## Agents\n\n- agent1\n\n"
         (tmp_path / "CLAUDE.md").write_text(claude_content, encoding="utf-8")
 
-        # Do NOT create AGENTS.md — github_copilot is disabled, so
+        # Do NOT create AGENTS.md — github-copilot is disabled, so
         # parity check must not require AGENTS.md.
         report = IntegrityReport()
         _check_instruction_parity(tmp_path, report)
@@ -264,6 +333,6 @@ class TestMirrorSyncEnabledProviders:
         ]
         assert agents_checks == [], (
             "mirror_sync parity should not check AGENTS.md when "
-            "github_copilot is not enabled, but found: "
+            "github-copilot is not enabled, but found: "
             f"{[c.message for c in agents_checks]}"
         )

@@ -15,11 +15,10 @@ ai-eng doctor --fix                # Attempt repairs for fixable findings
 ai-eng doctor --fix --phase hooks  # Attempt hook-specific repairs only
 ai-eng doctor --fix --phase tools  # Attempt tool-specific repairs only
 ai-eng doctor --json               # Output report as JSON
-ai-eng validate [TARGET]           # Validate content integrity (all 6 categories)
-ai-eng validate --category <cat>   # Run a specific category only
-ai-eng validate --json             # Output report as JSON
+ai-eng check [TARGET]              # Validate content integrity (all 6 categories) — renamed from `validate` (spec-132 D-132-02)
+ai-eng check --category <cat>      # Run a specific category only
+ai-eng check --json                # Output report as JSON
 ai-eng version                     # Show installed version and lifecycle status
-ai-eng guide [TARGET]              # Display branch policy setup instructions
 ai-eng release <VERSION>           # Create a governed release (validate, bump, PR, tag)
 ai-eng release --draft             # Create pre-release
 ai-eng release --dry-run           # Validate only, no changes
@@ -27,17 +26,54 @@ ai-eng release --wait              # Wait for pipeline after tagging
 ai-eng release --skip-bump         # Skip version bump step
 ```
 
-## Stack and IDE management
+Release rule: treat `ai-eng release <VERSION>` as the only supported write path for framework releases.
+It is responsible for updating `pyproject.toml`, `src/ai_engineering/version/registry.json`,
+the source-repo `framework_version` manifests, and promoting `CHANGELOG.md` out of `Unreleased`.
+Do not edit those version surfaces by hand during a normal release.
+
+Use `--dry-run` first, then run the real release command. Reserve `--skip-bump` for recovery or
+resume flows when the version bump commit already exists.
+
+## Configuration (stack / IDE / provider / VCS)
+
+Mutating subcommands collapse into `ai-eng config` per spec-132
+D-132-04. The standalone `stack`, `ide`, `provider`, and `vcs` verbs
+are removed; their list / status flows live under
+`ai-eng config <resource> <verb>`.
 
 ```bash
-ai-eng stack add python            # Add a technology stack
-ai-eng stack remove python         # Remove a technology stack
-ai-eng stack list                  # List active stacks
-
-ai-eng ide add vscode              # Add IDE integration
-ai-eng ide remove vscode           # Remove IDE integration
-ai-eng ide list                    # List active IDEs
+ai-eng config                      # Interactive reconfigure (re-runs the install wizard)
+ai-eng config stack list           # List active stacks (was `ai-eng stack list`)
+ai-eng config ide list             # List active IDEs (was `ai-eng ide list`)
+ai-eng config provider list        # List active AI providers (was `ai-eng provider list`)
+ai-eng config vcs status           # Show current VCS provider (was `ai-eng vcs status`)
 ```
+
+## Audit and observability
+
+The audit chain is the append-only ledger at
+`.ai-engineering/state/framework-events.ndjson` plus the
+SQLite-projection at `.ai-engineering/state/audit-index.sqlite`
+(spec-120 D-120-04). All commands are read-only.
+
+```bash
+ai-eng audit verify                           # Verify hash chain (events + decisions)
+ai-eng audit verify --decisions               # Decision ledger only
+ai-eng audit index                            # Build / refresh the SQLite projection
+ai-eng audit index --force                    # Rebuild from scratch
+ai-eng audit query "SELECT ..."               # Run a read-only SQL query
+ai-eng audit tokens --by skill                # Token usage by skill
+ai-eng audit tokens --by agent                # Token usage by agent
+ai-eng audit tokens --by session              # Token usage by session
+ai-eng audit replay --session <id>            # Walk a session as a span tree
+ai-eng audit otel-export --trace <id>         # Export trace as OTLP/JSON
+```
+
+> Spec-122-b (sub-002) also planned `audit retention`, `rotate`,
+> `compress`, `verify-chain`, `health`, `vacuum` subcommands as part of
+> the unified `state.db` rollout. Those landed as infrastructure
+> primitives in sub-002; the user-facing CLI verbs are queued for a
+> follow-up release once the rotation policy is finalised.
 
 ## Quality gates
 
@@ -78,19 +114,20 @@ ai-eng maintenance spec-reset --dry-run           # Report findings without modi
 ai-eng maintenance all                            # Combined maintenance dashboard
 ```
 
-## AI provider management
+## Issue board sync
 
 ```bash
-ai-eng provider add <provider>     # Add an AI provider (claude_code, github_copilot, gemini, codex)
-ai-eng provider remove <provider>  # Remove an AI provider (keeps last)
-ai-eng provider list               # List active AI providers
+ai-eng issue sync                  # Sync GitHub Projects board with the local ledger
+                                   # (renamed from `ai-eng work-item sync` per D-132-03)
 ```
 
-## VCS provider
+## Source-repo developer helpers
 
 ```bash
-ai-eng vcs status                  # Show current VCS provider
-ai-eng vcs set-primary <provider>  # Switch primary VCS provider (github, azure_devops)
+ai-eng dev sync                    # Re-sync IDE mirrors (replaces `ai-eng sync`, D-132-10)
+                                   # Hidden in consumer projects; visible only in the
+                                   # source repo when `[tool.aiengineering.source_repo]`
+                                   # is set in pyproject.toml.
 ```
 
 ## Platform setup

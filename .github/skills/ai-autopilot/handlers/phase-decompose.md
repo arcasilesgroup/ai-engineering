@@ -8,8 +8,8 @@ Take an approved spec and decompose it into N independent concerns, each becomin
 
 | Source | What to extract |
 |--------|----------------|
-| `specs/spec.md` | Full approved spec -- requirements, scope, constraints, acceptance criteria |
-| `state/decision-store.json` | Architectural decisions and constraints that bound decomposition |
+| `.ai-engineering/specs/spec.md` | Full approved spec -- requirements, scope, constraints, acceptance criteria |
+| `state/state.db.decisions` | Architectural decisions and constraints that bound decomposition |
 
 ## Procedure
 
@@ -31,16 +31,16 @@ If N < 3: **ABORT**. Report to orchestrator:
 
 ```
 DECOMPOSE ABORTED: Spec has N concerns -- below autopilot threshold (3).
-Recommendation: Use /ai-dispatch for direct execution.
+Recommendation: Use /ai-build for direct execution.
 ```
 
 This is a hard gate. Do not proceed. Do not attempt to split concerns further to meet the threshold -- that produces artificial granularity.
 
 ### Step 3 -- Write Sub-Spec Shells
 
-For each concern, create a directory `specs/autopilot/sub-NNN/` containing two files:
+For each concern, create a directory `.ai-engineering/runtime/autopilot/sub-NNN/` containing two files:
 
-**`specs/autopilot/sub-NNN/spec.md`** (Shell Schema):
+**`.ai-engineering/runtime/autopilot/sub-NNN/spec.md`** (Shell Schema):
 
 ```markdown
 ---
@@ -61,7 +61,7 @@ depends_on: []
 [EMPTY -- populated by Phase 2]
 ```
 
-**`specs/autopilot/sub-NNN/plan.md`**:
+**`.ai-engineering/runtime/autopilot/sub-NNN/plan.md`**:
 
 ```markdown
 ---
@@ -87,7 +87,7 @@ Rules:
 
 ### Step 4 -- Write Manifest
 
-Write `specs/autopilot/manifest.md` with the full sub-spec list. All statuses start as `planning`.
+Write `.ai-engineering/runtime/autopilot/manifest.md` with the full sub-spec list. All statuses start as `planning`.
 
 Format:
 
@@ -135,8 +135,8 @@ If orphans remain after 2 reassignment attempts: **STOP**. Report the orphan req
 ## Output
 
 Artifacts written:
-- N sub-spec directories at `specs/autopilot/sub-001/` through `specs/autopilot/sub-NNN/` (each containing `spec.md` and `plan.md`)
-- Execution manifest at `specs/autopilot/manifest.md`
+- N sub-spec directories at `.ai-engineering/runtime/autopilot/sub-001/` through `.ai-engineering/runtime/autopilot/sub-NNN/` (each containing `spec.md` and `plan.md`)
+- Execution manifest at `.ai-engineering/runtime/autopilot/manifest.md`
 
 Report to orchestrator:
 ```
@@ -153,7 +153,7 @@ DECOMPOSE COMPLETE
 | Condition | Action |
 |-----------|--------|
 | Spec is placeholder or draft (no real requirements) | STOP. Report: "No approved spec. Run `/ai-brainstorm` first." |
-| < 3 concerns extracted | ABORT. Report concern count and recommend `/ai-dispatch`. |
+| < 3 concerns extracted | ABORT. Report concern count and recommend `/ai-build`. |
 | Orphan requirements after 2 reassignment attempts | STOP. Report orphan list with spec section references for human review. |
 | Spec references external systems not in the repo | Flag as constraint in manifest. Do not block -- Phase 2 agents will assess feasibility. |
 | Ambiguous scope boundaries between concerns | Prefer larger concerns over artificial splits. Note the ambiguity in the manifest for Phase 3 resolution. |

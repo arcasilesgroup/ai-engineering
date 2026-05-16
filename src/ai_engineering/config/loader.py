@@ -21,7 +21,8 @@ from typing import Any
 import yaml
 from ruamel.yaml import YAML
 
-from ai_engineering.config.manifest import ManifestConfig
+from ai_engineering.config.framework_defaults import apply_framework_defaults
+from ai_engineering.config.manifest import ManifestConfig, RootEntryPointConfig
 
 logger = logging.getLogger(__name__)
 
@@ -59,42 +60,26 @@ def load_manifest_config(root: Path) -> ManifestConfig:
         logger.debug("Manifest at %s is empty or non-mapping, returning defaults", manifest_path)
         return ManifestConfig()
 
-    # Migration: derive ai_providers from providers.ides when absent
-    if "ai_providers" not in data:
-        _migrate_ai_providers(data)
+    # Slim-manifest support: inject framework-managed defaults for any
+    # canonical section the user omitted. User-supplied values win.
+    apply_framework_defaults(data)
 
     return ManifestConfig.model_validate(data)
 
 
-# Known AI provider identifiers (mirrored from operations.py).
-_AI_PROVIDER_IDS: frozenset[str] = frozenset({"claude_code", "github_copilot", "gemini", "codex"})
+def load_manifest_root_entry_points(root: Path) -> dict[str, RootEntryPointConfig] | None:
+    """Load governed root-entry metadata when a manifest file is present.
 
-
-def _migrate_ai_providers(data: dict[str, Any]) -> None:
-    """Derive ``ai_providers`` from legacy ``providers.ides`` entries.
-
-    AI provider entries are moved to ``ai_providers.enabled`` and the
-    first becomes ``primary``.  Non-AI entries remain in
-    ``providers.ides``.  The ``ai_providers`` dict is injected into
-    *data* in-place.
+    Returns ``None`` when the manifest file does not exist so callers can
+    preserve backward-compatible fallback behavior that distinguishes
+    "manifest absent" from "manifest present but empty/defaulted".
     """
-    providers = data.get("providers")
-    if not isinstance(providers, dict):
-        return
+    manifest_path = root / _MANIFEST_REL
+    if not manifest_path.is_file():
+        logger.debug("Manifest not found at %s, root entry points unavailable", manifest_path)
+        return None
 
-    ides = providers.get("ides")
-    if not isinstance(ides, list):
-        return
-
-    ai_entries = [i for i in ides if i in _AI_PROVIDER_IDS]
-    non_ai_entries = [i for i in ides if i not in _AI_PROVIDER_IDS]
-
-    if ai_entries:
-        data["ai_providers"] = {
-            "enabled": ai_entries,
-            "primary": ai_entries[0],
-        }
-        providers["ides"] = non_ai_entries
+    return load_manifest_config(root).ownership.root_entry_points
 
 
 def update_manifest_field(root: Path, field_path: str, value: Any) -> None:

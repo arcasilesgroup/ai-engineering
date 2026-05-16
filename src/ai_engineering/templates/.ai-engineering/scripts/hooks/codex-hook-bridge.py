@@ -91,8 +91,12 @@ def _emit_skill_or_malformed(
     if not match:
         event = _build_event(
             project_root=project_root,
-            kind="skill_invoked_malformed",
-            detail={"reason": "no_ai_prefix" if prompt else "empty_prompt"},
+            kind="ide_hook",
+            detail={
+                "hook_kind": "user-prompt-submit",
+                "reason": "no_ai_prefix" if prompt else "empty_prompt",
+                "skill": None,
+            },
             correlation_id=correlation_id,
             session_id=session_id,
             outcome="warn",
@@ -167,4 +171,6 @@ def main() -> None:
 if __name__ == "__main__":
     # Lazy load so we can invoke run_hook_safe with the resolved module.
     hc_mod = _load_hook_common()
-    hc_mod.run_hook_safe(main, component="hook.codex-bridge", hook_kind="codex-bridge")
+    hc_mod.run_hook_safe(
+        main, component="hook.codex-bridge", hook_kind="codex-bridge", script_path=Path(__file__)
+    )

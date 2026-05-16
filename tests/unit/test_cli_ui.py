@@ -311,7 +311,7 @@ class TestUnifiedTreeRenderer:
                 explanation="New skill file.",
             ),
             FileChange(
-                path=Path("/repo/.claude/skills/ai-guide/SKILL.md"),
+                path=Path("/repo/.claude/skills/ai-onboard/SKILL.md"),
                 action="update",
                 reason_code="template-drift",
                 explanation="Framework update.",
@@ -353,7 +353,7 @@ class TestUnifiedTreeRenderer:
                 reason_code="new-file",
             ),
             FileChange(
-                path=Path("/repo/.claude/skills/ai-guide/SKILL.md"),
+                path=Path("/repo/.claude/skills/ai-onboard/SKILL.md"),
                 action="update",
                 reason_code="template-drift",
             ),
@@ -372,7 +372,7 @@ class TestUnifiedTreeRenderer:
         assert ".claude" in err
         assert ".ai-engineering" in err
         assert "ai-start" in err
-        assert "ai-guide" in err
+        assert "ai-onboard" in err
         assert "stack.md" in err
         # Single unified tree -- no bucket headings separating the directories
         assert "Available" not in err, "Should not contain bucket heading 'Available'"
@@ -401,7 +401,7 @@ class TestUnifiedTreeRenderer:
                 reason_code="new-file",
             ),
             FileChange(
-                path=Path("/repo/.claude/skills/ai-guide/SKILL.md"),
+                path=Path("/repo/.claude/skills/ai-onboard/SKILL.md"),
                 action="update",
                 reason_code="template-drift",
             ),
@@ -424,9 +424,9 @@ class TestUnifiedTreeRenderer:
             "State label 'new' should appear on the same line as the file"
         )
 
-        skill_guide_lines = [ln for ln in lines if "ai-guide" in ln and "SKILL.md" in ln]
-        assert skill_guide_lines, "Should find a line with ai-guide/SKILL.md"
-        assert any("updated" in ln for ln in skill_guide_lines), (
+        skill_onboard_lines = [ln for ln in lines if "ai-onboard" in ln and "SKILL.md" in ln]
+        assert skill_onboard_lines, "Should find a line with ai-onboard/SKILL.md"
+        assert any("updated" in ln for ln in skill_onboard_lines), (
             "State label 'updated' should appear on the same line as the file"
         )
 

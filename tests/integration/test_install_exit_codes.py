@@ -145,10 +145,13 @@ class TestExitEightyToolFailure:
         """``AIENG_TEST_SIMULATE_FAIL=ruff`` + ``--no-auto-remediate`` -> exit 80."""
         monkeypatch.setenv("AIENG_TEST", "1")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "ruff")
+        # spec-133 D-133-XX: --no-auto-remediate CLI flag was removed; the
+        # env var AIENG_AUTO_REMEDIATE=0 now drives the same behaviour.
+        monkeypatch.setenv("AIENG_AUTO_REMEDIATE", "0")
 
         result = runner.invoke(
             app,
-            ["install", str(project_dir), "--stack", "python", "--no-auto-remediate"],
+            ["install", str(project_dir), "--stack", "python"],
         )
         assert result.exit_code == EXIT_TOOLS_FAILED, (
             f"Expected EXIT 80 (tools failed); got {result.exit_code}\n{result.output}"
@@ -241,10 +244,11 @@ class TestPrereqPrecedenceBeatsTools:
         monkeypatch.setenv("AIENG_TEST", "1")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_PREREQ_MISSING", "uv")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "ruff")
+        monkeypatch.setenv("AIENG_AUTO_REMEDIATE", "0")
 
         result = runner.invoke(
             app,
-            ["install", str(project_dir), "--stack", "python", "--no-auto-remediate"],
+            ["install", str(project_dir), "--stack", "python"],
         )
         assert result.exit_code == EXIT_PREREQS_MISSING, (
             f"Expected EXIT 81 (prereq precedence); got {result.exit_code}\n{result.output}"

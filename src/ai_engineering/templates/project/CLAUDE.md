@@ -1,70 +1,197 @@
-# CLAUDE.md — Claude Code Overlay
+# Canonical Cross-IDE Rulebook
 
-> See [AGENTS.md](./AGENTS.md) for the canonical cross-IDE rules (Step 0,
-> available skills, agents, and the hard rules that delegate to
-> [CONSTITUTION.md](./CONSTITUTION.md)). Read those first; this file
-> only adds Claude-Code-specific specifics.
+> Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
+> the canonical multi-IDE entry point for "how AI works in this repo".
+> Every IDE-native mirror (AGENTS.md, CLAUDE.md, GEMINI.md,
+> .github/copilot-instructions.md) carries identical canonical payload;
+> IDE-specific extras live in the fenced block at the bottom.
 
-## Native Surface
+## 0. Bootstrap
 
-- **Slash commands** — invoke skills via `/ai-<name>` in the Claude Code agent
-  surface. Do not invent `ai-eng <skill>` terminal equivalents that are not
-  listed in the CLI reference.
-- **Skill location** — Claude Code project-scope skills live under
-  `.claude/skills/` (one directory per skill, `SKILL.md` inside). User-scope
-  copies live under `~/.claude/skills/` and are loaded as a fallback. The
-  authoritative path is the one referenced from
-  [AGENTS.md → Skills Available](./AGENTS.md#skills-available); see
-  Article V of [CONSTITUTION.md](./CONSTITUTION.md) for the SSOT contract.
-- **Subagents** — the dispatch surface is the 10 first-class agents listed in
-  [AGENTS.md → Agents Available](./AGENTS.md#agents-available). Each runs in
-  its own context window; offload research and parallel analysis to them.
+Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
+identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
+(3) query `.ai-engineering/state/state.db` `decisions` table (active
+decisions / risk posture); (4) no implementation without an approved
+spec — invoke `/ai-brainstorm` first when a task has no spec.
 
-## Hooks Configuration
+## Operating Mindset (§1–§9 condensed)
 
-Claude Code reads its hook wiring from `.claude/settings.json`:
+Karpathy / Boris one-liners that frame the §10 principles. Full prose
+in [docs/principles.md](docs/principles.md) under "Operating Mindset".
 
-- `UserPromptSubmit` runs the `/ai-*` dispatcher and emits `skill_invoked`
-  telemetry events.
-- `PostToolUse` runs the agent observability hooks (`agent_dispatched`,
-  `ide_hook` events).
-- All hook outcomes flow to `.ai-engineering/state/framework-events.ndjson`
-  for the audit chain.
+1. **Think Before Coding** — read failing input + spec gates BEFORE editing.
+2. **Simplicity First** — fewest moving parts; prefer deletion over abstraction.
+3. **Surgical Changes** — one commit, one change; drive-by refactors get their own justification.
+4. **Goal-Driven Execution** (Verification Before Done) — green gate before "done"; staff-engineer bar.
+5. **Plan-Mode Default** — enter plan mode for non-trivial tasks; re-plan when things go sideways.
+6. **Subagent Strategy** — one task per subagent; offload research into fresh context windows.
+7. **Self-Improvement Loop** — every user correction updates `.ai-engineering/LESSONS.md`.
+8. **Demand Elegance** — "is there a more elegant way?" on non-trivial changes; clear beats clever.
+9. **Autonomous Bug Fixing** — fix bugs you spot; mention them in the commit.
 
-Hook scripts are hash-verified and the deny rules in `.claude/settings.json`
-are tracked in source control — treat both as read-only at the IDE layer.
+## 10. Engineering Principles (pointer)
 
-## Hot-Path Discipline
+The eight first-class principles (§10.1 KISS, §10.2 YAGNI, §10.3 SOLID,
+§10.4 DRY, §10.5 TDD, §10.6 SDD, §10.7 Clean Code, §10.8 Hexagonal
+Architecture) live in [docs/principles.md](docs/principles.md). Every
+SKILL.md `## Workflow` cites at least one §10.x anchor; anchors are
+stable at the new home.
 
-Claude Code triggers pre-commit and pre-push hooks on every save/commit, so
-the local critical path must stay fast:
+## 11. Canonical Chain
 
-- **Pre-commit budget**: under 1 second wall-clock for the deterministic
-  Layer-1 gate (lint, format check, secret scan on staged hunks only).
-- **Pre-push budget**: under 5 seconds for the residual checks before the
+The active spec workflow is:
+
+**/ai-brainstorm → /ai-plan → /ai-build → /ai-pr**
+
+- `/ai-brainstorm` produces an approved spec at
+  `.ai-engineering/specs/spec.md`.
+- `/ai-plan` produces an exhaustive patch-ready plan at
+  `.ai-engineering/specs/plan.md`.
+- `/ai-build` executes the plan (multi-stack implementation gateway,
+  D-127-11). For specs with ≥3 concerns or ≥10 file changes,
+  `/ai-autopilot` wraps the chain.
+- `/ai-pr` runs the final quality loop (verify + review + commit
+  pipeline internally) and opens the PR.
+
+`/ai-commit` is preserved as a standalone off-chain skill for WIP
+checkpoints. It does NOT appear in the canonical chain (D-131-07).
+
+## 12. Surface Index
+
+## Skills (53)
+
+Canonical skills and agents live under `.claude/`; mirror surfaces under
+`.codex/`, `.gemini/`, and `.github/` are byte-equivalent regenerations
+written by `scripts/sync_mirrors/core.py`. Invoke a skill via
+`/ai-<name>` in the IDE agent surface — never via a synthetic terminal
+equivalent.
+
+## Agents (9)
+
+The 9 first-class agents are listed in
+`.ai-engineering/manifest.yml` under `agents.registry` and documented at
+`.claude/agents/ai-<name>.md`. Each runs in its own context window —
+offload research and parallel analysis to them.
+
+## Source of Truth
+
+| Surface | Where |
+|---------|-------|
+| Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (9) | `.claude/agents/ai-<name>.md` |
+| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
+| Hook scripts | `.ai-engineering/scripts/hooks/` |
+| CLI | `ai-eng <command>` |
+| Audit chain | `.ai-engineering/state/framework-events.ndjson` |
+| Decisions | `.ai-engineering/state/state.db` `decisions` table |
+| Config | `.ai-engineering/manifest.yml` |
+| Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
+
+## 13. Hard Rules
+
+Non-negotiable rules per commit, push, and risk-acceptance decision:
+
+1. **Secrets gate.** `gitleaks protect --staged` on commit;
+   `semgrep --config .semgrep.yml` + `pip-audit` on push. BLOCK at
+   CRITICAL/HIGH/MEDIUM; LOW warns. Risk acceptance via
+   `ai-eng risk accept --finding-id …` (never inline).
+2. **No suppression.** No `# noqa`, `# nosec`, `// @ts-ignore`,
+   `// nolint`, `# pragma: no cover`, `// NOSONAR`. Refactor or
+   risk-accept (spec-128 sub-d gate).
+3. **No backwards-compat shims** for renamed/deleted/migrated content.
+   Hard rename, hard delete, hard migration. CHANGELOG documents the
+   breakage.
+4. **Anonymous content.** No PII, no machine paths, no operator names
+   in committed files. Use placeholders (`$HOME/.local/bin`, `$(which
+   …)`) for machine-relative references.
+5. **Single-round fail-loud quality loop.** `/ai-build`,
+   `/ai-autopilot` Phase 5, `/ai-pr` run ONE final-quality-loop round
+   on the full changeset. Blockers STOP and escalate — no auto-retry.
+6. **Conventional Commits.** `<type>(<scope>): <subject>` imperative
+   mood. Body explains "why", not "what". Never `--no-verify`.
+
+## 14–16. Pointer rows
+
+The bulk of the canonical-payload prose lives in `docs/` so the
+mirrors stay lean (spec-134 sub-005 mirror diet). Authoritative homes:
+
+- **§10 Engineering Principles** → [docs/principles.md](docs/principles.md)
+  (§10.1 KISS through §10.8 Hexagonal Architecture; the 34 skill /
+  agent files that cite `§10.x` resolve here).
+- **§14 Strict Content Contracts** + **§15 IDE-Extras Escape Hatch** →
+  [docs/mirror-authoring.md](docs/mirror-authoring.md) (per-file
+  authoring table + the `<!-- ide-extras:start -->` fence contract).
+- **§16 Surface Axioms** (A1 / A2) →
+  [docs/surface-axioms.md](docs/surface-axioms.md) (Surface Axiom and
+  No-Twin Axiom; D-133-04 enforcement at `test_surface_parity.py`).
+
+<!-- ide-extras:start -->
+## Hot-Path Discipline (Claude Code)
+
+Claude Code triggers pre-commit and pre-push hooks on every save and
+commit, so the deterministic gate must finish fast:
+
+- **Pre-commit budget**: under 1 second wall-clock (lint, format check,
+  secret scan on staged hunks only).
+- **Pre-push budget**: under 5 seconds for residual checks before the
   push pipeline takes over.
-- Anything heavier (full test suite, dependency audit, governance
-  evaluation) belongs in CI, not on the local hot path.
+- **Heavier work belongs in CI**: full test suite, dependency audit, and
+  governance evaluation never run on the local hot path.
 
-If a check exceeds budget, profile it and move work off the hot path before
-adding new logic to the hook.
+If a check exceeds budget, profile it and move work off the hot path
+before adding new logic to the hook.
 
-## Token Efficiency Tips
+## Hooks Configuration (Claude Code)
 
-- Use `/clear` when context is no longer load-bearing rather than letting
-  the conversation balloon — Claude Code keeps the full transcript in
-  context until cleared.
-- For deep codebase research, dispatch the `ai-explore` agent (read-only,
-  fresh context) instead of having the main thread read the whole tree.
+Claude Code reads hook wiring from `.claude/settings.json`. The project
+registers **11 canonical hook events** (audited in spec-122-d D-122-27,
+CI-guarded by `tests/unit/hooks/test_canonical_events_count.py`):
+`UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PostToolUseFailure`,
+`Stop`, `PreCompact`, `PostCompact`, `SessionStart`, `SubagentStop`,
+`Notification`, `SessionEnd`.
+
+Hook scripts live under `.ai-engineering/scripts/hooks/` (canonical).
+`.claude/hooks/` is a read-only symlink to that directory. Hook bytes
+are pinned in `.ai-engineering/state/hooks-manifest.json` (sha256 per
+script); `run_hook_safe` enforces integrity per
+`AIENG_HOOK_INTEGRITY_MODE` (default `enforce`).
+
+## Runtime Layer Tunables
+
+```
+AIENG_TOOL_OFFLOAD_BYTES         # default 4096
+AIENG_LOOP_WINDOW                # default 6
+AIENG_RALPH_MAX_RETRIES          # default 5
+AIENG_RALPH_BLOCK                # default 0 (observe-only)
+AIENG_HOOK_INTEGRITY_MODE        # default enforce
+```
+
+State lives under `.ai-engineering/runtime/` (gitignored — session
+state, not source of truth).
+
+## Token Efficiency
+
+- Use `/clear` aggressively when context is no longer load-bearing.
+- Dispatch `ai-explore` for deep codebase research (read-only, fresh
+  context).
 - Cite files with `startLine:endLine:filepath`; never paste large code
   blocks the user did not ask for.
-- Treat `/ai-start` as the session bootstrap — it loads only what the
-  current task needs and avoids re-reading already-loaded context.
 
-## Observability
+## Optional: Engram (third-party memory)
 
-Telemetry is automatic — refer to
-[AGENTS.md → Skills Available → `/ai-start`](./AGENTS.md#skills-available)
-for the bootstrap that registers hooks. Session discovery and transcript
-viewing are delegated to the separately installed `agentsview` companion
-tool.
+`ai-engineering` ships without a built-in memory layer. Engram is no
+longer wired into the installer (spec-132 D-132-06); install it
+separately if you want cross-session memory. See
+`docs/integrations/engram.md` for OS-specific install commands and the
+`engram setup claude_code` post-step.
+
+## Audit Observability (spec-120)
+
+```bash
+ai-eng audit index                       # build / refresh the SQLite projection
+ai-eng audit query "SELECT ..."          # read-only SQL over the index
+ai-eng audit tokens --by skill|agent|session   # token rollup
+ai-eng audit replay --session <id>       # depth-first span-tree walk
+ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope
+```
+<!-- ide-extras:end -->

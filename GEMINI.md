@@ -1,181 +1,158 @@
-# GEMINI.md — Gemini CLI Overlay
+# Canonical Cross-IDE Rulebook
 
-> See [AGENTS.md](AGENTS.md) for the canonical cross-IDE rules (Step 0,
-> available skills, agents, and the hard rules that delegate to
-> [CONSTITUTION.md](CONSTITUTION.md)). Read those first; this file
-> only adds Gemini-CLI-specific specifics.
+> Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
+> the canonical multi-IDE entry point for "how AI works in this repo".
+> Every IDE-native mirror (AGENTS.md, CLAUDE.md, GEMINI.md,
+> .github/copilot-instructions.md) carries identical canonical payload;
+> IDE-specific extras live in the fenced block at the bottom.
 
-## FIRST ACTION -- Mandatory
+## 0. Bootstrap
 
-Your first action in every session MUST be to run `/ai-start`.
-Do not respond to any user request until `/ai-start` completes.
-`/ai-start` and the rest of `/ai-*` are slash commands in the IDE agent surface, not terminal commands.
-Do not invent `ai-eng <skill>` equivalents unless the CLI reference explicitly lists them.
+Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
+identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
+(3) query `.ai-engineering/state/state.db` `decisions` table (active
+decisions / risk posture); (4) no implementation without an approved
+spec — invoke `/ai-brainstorm` first when a task has no spec.
 
-### 1. Plan Mode Default
+## Operating Mindset (§1–§9 condensed)
 
-- Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately -- don't keep pushing
-- Use plan mode for verification steps, not just building
-- Write detailed specs upfront to reduce ambiguity via `/ai-brainstorm`
+Karpathy / Boris one-liners that frame the §10 principles. Full prose
+in [docs/principles.md](docs/principles.md) under "Operating Mindset".
 
-### 2. Subagent Strategy
+1. **Think Before Coding** — read failing input + spec gates BEFORE editing.
+2. **Simplicity First** — fewest moving parts; prefer deletion over abstraction.
+3. **Surgical Changes** — one commit, one change; drive-by refactors get their own justification.
+4. **Goal-Driven Execution** (Verification Before Done) — green gate before "done"; staff-engineer bar.
+5. **Plan-Mode Default** — enter plan mode for non-trivial tasks; re-plan when things go sideways.
+6. **Subagent Strategy** — one task per subagent; offload research into fresh context windows.
+7. **Self-Improvement Loop** — every user correction updates `.ai-engineering/LESSONS.md`.
+8. **Demand Elegance** — "is there a more elegant way?" on non-trivial changes; clear beats clever.
+9. **Autonomous Bug Fixing** — fix bugs you spot; mention them in the commit.
 
-- Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
-- One task per subagent for focused execution
-- Never have a subagent do two unrelated things
+## 10. Engineering Principles (pointer)
 
-### 3. Self-Improvement Loop
+The eight first-class principles (§10.1 KISS, §10.2 YAGNI, §10.3 SOLID,
+§10.4 DRY, §10.5 TDD, §10.6 SDD, §10.7 Clean Code, §10.8 Hexagonal
+Architecture) live in [docs/principles.md](docs/principles.md). Every
+SKILL.md `## Workflow` cites at least one §10.x anchor; anchors are
+stable at the new home.
 
-- After ANY correction from the user: update `.ai-engineering/LESSONS.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start: read `.ai-engineering/LESSONS.md` proactively
+## 11. Canonical Chain
 
-### 4. Verification Before Done
+The active spec workflow is:
 
-- Never mark a task complete without proving it works
-- Run the tests. Run the linter. Check the output
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
+**/ai-brainstorm → /ai-plan → /ai-build → /ai-pr**
 
-### 5. Demand Elegance (Balanced)
+- `/ai-brainstorm` produces an approved spec at
+  `.ai-engineering/specs/spec.md`.
+- `/ai-plan` produces an exhaustive patch-ready plan at
+  `.ai-engineering/specs/plan.md`.
+- `/ai-build` executes the plan (multi-stack implementation gateway,
+  D-127-11). For specs with ≥3 concerns or ≥10 file changes,
+  `/ai-autopilot` wraps the chain.
+- `/ai-pr` runs the final quality loop (verify + review + commit
+  pipeline internally) and opens the PR.
 
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes -- don't over-engineer
-- Clever is bad. Simple and clear is elegant
+`/ai-commit` is preserved as a standalone off-chain skill for WIP
+checkpoints. It does NOT appear in the canonical chain (D-131-07).
 
-### 6. Autonomous Bug Fixing
+## 12. Surface Index
 
-- When given a bug report: just fix it. Don't ask for hand-holding
-- Point at logs, errors, failing tests -- then resolve them
-- If you see a bug while working on something else -- fix it and mention it in the commit
-- Zero context switching required from the user
+## Skills (53)
 
-### 7. Parallel Execution
+Canonical skills and agents live under `.claude/`; mirror surfaces under
+`.codex/`, `.gemini/`, and `.github/` are byte-equivalent regenerations
+written by `scripts/sync_mirrors/core.py`. Invoke a skill via
+`/ai-<name>` in the IDE agent surface — never via a synthetic terminal
+equivalent.
 
-- Batch independent operations into simultaneous tool calls
-- Never go sequential when you can go parallel
+## Agents (9)
 
-### 8. Context Efficiency
-
-- Never re-read files already in context. Never dump code the user did not ask for
-- Use `startLine:endLine:filepath` to cite. Use `// ... existing code ...` for omissions
-
-### 9. Proactive Memory
-
-- Read/write `.ai-engineering/LESSONS.md` to persist learnings across sessions
-
-### 10. Context Loading
-
-Before writing or reviewing code, load the applicable context files:
-1. Detect the project's languages from file extensions and build config
-2. Read `.ai-engineering/contexts/languages/{language}.md` for each detected language
-3. Read `.ai-engineering/contexts/frameworks/{framework}.md` for each detected framework
-4. Read shared framework contexts when relevant: `.ai-engineering/contexts/cli-ux.md` for CLI work and `.ai-engineering/contexts/mcp-integrations.md` for MCP/server usage
-5. Read `.ai-engineering/contexts/team/*.md` for team conventions
-6. Apply loaded standards to all code generation and review
-
-## Task Management
-
-1. **Plan First**: Write plan via `/ai-plan` to `.ai-engineering/specs/plan.md` with checkable items
-2. **Verify Plan**: Check in before starting implementation
-3. **Track Progress**: Mark items complete in `.ai-engineering/specs/plan.md` as you go
-4. **Explain Changes**: High-level summary at each step
-5. **Document Results**: Add review to the spec tasks file
-6. **Capture Lessons**: Update `.ai-engineering/LESSONS.md` after corrections
-
-## Core Principles
-
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
-- **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
-- **Cross-Platform**: All generated code, scripts, and paths must work on Windows, macOS, and Linux. Use platform-agnostic idioms. No OS-specific assumptions without explicit fallbacks.
-
-## Agent Selection
-
-| Task | Agent | Invoke |
-|------|-------|--------|
-| Planning, specs, architecture | plan | `/ai-brainstorm` |
-| Writing/editing code | build | `/ai-dispatch` (after plan) |
-| Quality + security scanning | verify | `/ai-verify` |
-| Governance, compliance | guard | `/ai-governance` |
-| Code review (parallel agents) | review | `/ai-review` |
-| Deep codebase research | explore | direct dispatch |
-| Onboarding, teaching | guide | `/ai-guide` |
-| Simplify/refactor code | simplify | direct dispatch |
-| Multi-spec autonomous execution | autopilot | `/ai-autopilot` |
-| Autonomous backlog execution | run-orchestrator | `/ai-run` |
-
-## Agents (10)
-
-The agents table above lists every agent shipped with the framework. Counts mirror `.ai-engineering/manifest.yml` (`agents.total`).
-
-## Skills (49)
-
-Grouped by type. Invoke as `/ai-<name>`.
-
-**Workflow:** brainstorm, plan, dispatch, code, test, debug, verify, review, eval, schema
-**Delivery:** commit, pr, release-gate, cleanup, market
-**Enterprise:** security, governance, pipeline, docs, board-discover, board-sync, platform-audit
-**Teaching:** explain, guide, write, slides, media, video-editing
-**SDLC:** note, standup, sprint, postmortem, support, resolve-conflicts
-**Meta:** create, learn, prompt, start, analyze-permissions, instinct, autopilot, run, constitution, skill-evolve
-
-## Effort Levels
-
-Each skill declares `effort` in frontmatter. Assignment by cognitive weight:
-
-| Effort | Count |
-|--------|-------|
-| max | 11 (autopilot, brainstorm, governance, platform-audit, review, run, schema, security, skill-evolve, verify, eval) |
-| high | 20 (board-discover, code, create, debug, dispatch, docs, explain, guide, market, pipeline, plan, postmortem, pr, release-gate, slides, sprint, support, test, video-editing, write) |
-| medium | 13 (analyze-permissions, board-sync, cleanup, commit, instinct, learn, media, note, start, constitution, prompt, resolve-conflicts, standup) |
-
-## Quality Gates
-
-| Metric | Threshold |
-|--------|-----------|
-| Test coverage | >= 80% |
-| Code duplication | <= 3% |
-| Cyclomatic complexity | <= 10 per function |
-| Cognitive complexity | <= 15 per function |
-| Blocker/critical issues | 0 |
-| Security findings (medium+) | 0 |
-| Secret leaks | 0 |
-| Dependency vulnerabilities | 0 |
-
-Tooling: `ruff` + `ty` (lint/format), `pytest` (test), `gitleaks` (secrets), `pip-audit` (deps).
-
-## Observability
-
-Telemetry is automatic via hooks and writes only canonical framework events.
-- `BeforeAgent(/ai-*)` hook emits `skill_invoked` events
-- `AfterTool` agent hooks emit `agent_dispatched` and `ide_hook` events
-- Hook, gate, governance, security, and quality outcomes flow to `.ai-engineering/state/framework-events.ndjson`
-- Registered skills, agents, contexts, and hooks are catalogued in `.ai-engineering/state/framework-capabilities.json`
-- Session discovery and transcript viewing are delegated to separately installed `agentsview`
-
-## Hard Rules
-
-The non-negotiable rules live in [CONSTITUTION.md](CONSTITUTION.md), with the
-canonical cross-IDE summary in [AGENTS.md](AGENTS.md). Do not restate them
-here — read those first. This overlay only adds Gemini-CLI-specific notes
-below.
-
-Gate failure: diagnose, fix, retry. Use `ai-eng doctor --fix` or `ai-eng doctor --fix --phase <name>`.
+The 9 first-class agents are listed in
+`.ai-engineering/manifest.yml` under `agents.registry` and documented at
+`.claude/agents/ai-<name>.md`. Each runs in its own context window —
+offload research and parallel analysis to them.
 
 ## Source of Truth
 
+| Surface | Where |
+|---------|-------|
+| Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (9) | `.claude/agents/ai-<name>.md` |
+| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
+| Hook scripts | `.ai-engineering/scripts/hooks/` |
+| CLI | `ai-eng <command>` |
+| Audit chain | `.ai-engineering/state/framework-events.ndjson` |
+| Decisions | `.ai-engineering/state/state.db` `decisions` table |
+| Config | `.ai-engineering/manifest.yml` |
+| Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
+
+## 13. Hard Rules
+
+Non-negotiable rules per commit, push, and risk-acceptance decision:
+
+1. **Secrets gate.** `gitleaks protect --staged` on commit;
+   `semgrep --config .semgrep.yml` + `pip-audit` on push. BLOCK at
+   CRITICAL/HIGH/MEDIUM; LOW warns. Risk acceptance via
+   `ai-eng risk accept --finding-id …` (never inline).
+2. **No suppression.** No `# noqa`, `# nosec`, `// @ts-ignore`,
+   `// nolint`, `# pragma: no cover`, `// NOSONAR`. Refactor or
+   risk-accept (spec-128 sub-d gate).
+3. **No backwards-compat shims** for renamed/deleted/migrated content.
+   Hard rename, hard delete, hard migration. CHANGELOG documents the
+   breakage.
+4. **Anonymous content.** No PII, no machine paths, no operator names
+   in committed files. Use placeholders (`$HOME/.local/bin`, `$(which
+   …)`) for machine-relative references.
+5. **Single-round fail-loud quality loop.** `/ai-build`,
+   `/ai-autopilot` Phase 5, `/ai-pr` run ONE final-quality-loop round
+   on the full changeset. Blockers STOP and escalate — no auto-retry.
+6. **Conventional Commits.** `<type>(<scope>): <subject>` imperative
+   mood. Body explains "why", not "what". Never `--no-verify`.
+
+## 14–16. Pointer rows
+
+The bulk of the canonical-payload prose lives in `docs/` so the
+mirrors stay lean (spec-134 sub-005 mirror diet). Authoritative homes:
+
+- **§10 Engineering Principles** → [docs/principles.md](docs/principles.md)
+  (§10.1 KISS through §10.8 Hexagonal Architecture; the 34 skill /
+  agent files that cite `§10.x` resolve here).
+- **§14 Strict Content Contracts** + **§15 IDE-Extras Escape Hatch** →
+  [docs/mirror-authoring.md](docs/mirror-authoring.md) (per-file
+  authoring table + the `<!-- ide-extras:start -->` fence contract).
+- **§16 Surface Axioms** (A1 / A2) →
+  [docs/surface-axioms.md](docs/surface-axioms.md) (Surface Axiom and
+  No-Twin Axiom; D-133-04 enforcement at `test_surface_parity.py`).
+
+<!-- ide-extras:start -->
+## First Action (Gemini CLI)
+
+Your first action in every session MUST be to run `/ai-start`. Do not
+respond to any user request until `/ai-start` completes. `/ai-*` are
+slash commands in the IDE agent surface, not `ai-eng` CLI subcommands.
+
+## Hooks Wiring (Gemini-specific)
+
+Gemini CLI hook configuration lives in `.gemini/settings.json`. Hook
+event mapping (canonical Python script in
+`.ai-engineering/scripts/hooks/`):
+
+| Cross-IDE primitive          | Gemini event |
+|------------------------------|--------------|
+| Progressive disclosure       | `BeforeAgent` |
+| Tool offload + loop detect   | `AfterTool` |
+| Checkpoint + Ralph Loop      | `AfterAgent` |
+
+Compaction events (PreCompact / PostCompact) are not surfaced by
+Gemini CLI; the snapshot primitive degrades gracefully.
+
+## Surface Pointers (Gemini)
+
 | What | Where |
 |------|-------|
-| Skills (49) | `.gemini/skills/ai-<name>/SKILL.md` |
-| Agents (10) | `.gemini/agents/ai-<name>.md` |
-| Config | `.ai-engineering/manifest.yml` |
-| Decisions | `.ai-engineering/state/decision-store.json` |
-| Active spec | `.ai-engineering/specs/spec.md` |
-| Contexts | `.ai-engineering/contexts/languages/`, `frameworks/`, `team/` |
-| Lessons | `.ai-engineering/LESSONS.md` |
+| Skills | `.gemini/skills/ai-<name>/SKILL.md` |
+| Agents | `.gemini/agents/ai-<name>.md` |
+| Hook scripts | `.ai-engineering/scripts/hooks/` (shared) |
 | CLI | `ai-eng <command>` |
+<!-- ide-extras:end -->

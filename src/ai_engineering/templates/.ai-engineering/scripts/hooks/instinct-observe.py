@@ -6,13 +6,13 @@ Fail-open: exit 0 always and preserve hook chaining for all IDEs.
 
 from __future__ import annotations
 
-import contextlib
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import passthrough_stdin
+from _lib.hook_common import run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.instincts import append_instinct_observation
 
@@ -37,6 +37,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    with contextlib.suppress(Exception):
-        main()
-    sys.exit(0)
+    run_hook_safe(
+        main, component="hook.instinct-observe", hook_kind="post-tool-use", script_path=__file__
+    )

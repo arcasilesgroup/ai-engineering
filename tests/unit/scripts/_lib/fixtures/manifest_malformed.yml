@@ -1,0 +1,10 @@
+# Malformed YAML fixture for `InvalidManifestError` coverage.
+# Unbalanced brackets + bare colon mid-stream guarantees `yaml.safe_load`
+# raises `yaml.YAMLError`. Intentionally broken — do NOT autoformat.
+providers:
+  stacks: [python, typescript
+work_items: {provider: github,
+  state_mapping: {
+    ready: "Ready",
+  hierarchy:
+    feature: : never_close

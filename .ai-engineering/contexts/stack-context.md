@@ -1,16 +1,19 @@
 # Stack Context Protocol
 
-Coding standards loading sequence. Skills reference this file to load language, framework, and team
-contexts on demand. Project state (spec, plan, decisions, constitution, manifest) is loaded once at
-session start by `/ai-start` — do not re-read those files here.
+Coding standards loading sequence. Skills reference this file to load stack-specific
+overrides and team conventions on demand. Project state (spec, plan, decisions,
+constitution, manifest) is loaded once at session start by `/ai-start` — do not
+re-read those files here.
 
 ## Sequence
 
 1. **Detect stacks** -- read `.ai-engineering/manifest.yml` field `providers.stacks`
-2. **Language contexts** -- for each detected language, read `.ai-engineering/contexts/languages/{lang}.md`
-   Available (14): bash, cpp, csharp, dart, go, java, javascript, kotlin, php, python, rust, sql, swift, typescript
-3. **Framework contexts** -- for each detected framework, read `.ai-engineering/contexts/frameworks/{fw}.md`
-   Available (15): android, api-design, aspnetcore, backend-patterns, bun, claude-api, deployment-patterns, django, flutter, ios, mcp-sdk, nextjs, nodejs, react, react-native
+2. **Stack overrides** -- for each detected stack, read `.ai-engineering/overrides/{stack}/conventions.md`
+   Supported (7): python, typescript, go, rust, swift, csharp, kotlin (spec-128 D-128-09).
+   Framework variants (Azure, React, Django, etc.) live as sections inside the stack's
+   `conventions.md` rather than separate files.
+3. **Shared overrides** -- read `.ai-engineering/overrides/_shared/conventions.md` for
+   cross-stack rules (compliance, security floor common to all stacks).
 4. **Shared framework contexts** -- when relevant, read:
    - `.ai-engineering/contexts/cli-ux.md` for CLI/UI output work
    - `.ai-engineering/contexts/mcp-integrations.md` for MCP/server usage work
@@ -26,3 +29,11 @@ Follow `.ai-engineering/contexts/stack-context.md`. Apply loaded standards to al
 ```
 
 This protocol loads only coding standards. `/ai-start` owns project state loading at session start.
+
+## Migration note (spec-128)
+
+Pre-spec-128 layout used `.ai-engineering/contexts/languages/{lang}.md` (14 files) and
+`.ai-engineering/contexts/frameworks/{fw}.md` (15 files). Both directories deleted
+per D-128-03 (training-redundant content; model has stronger priors than 200-line
+markdown). New layout: `.ai-engineering/overrides/{stack}/` with project-specific
+deltas only.

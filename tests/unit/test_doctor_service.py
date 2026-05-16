@@ -13,7 +13,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorReport, PhaseReport
+from ai_engineering.doctor.models import (
+    CheckResult,
+    CheckStatus,
+    DoctorContext,
+    DoctorReport,
+    PhaseReport,
+)
 from ai_engineering.doctor.service import (
     _PRE_INSTALL_RUNTIME,
     _RUNTIME_MODULES,
@@ -134,6 +140,33 @@ class TestPhaseOrdering:
         assert len(report.phases) == len(PHASE_ORDER)
         for i, phase_report in enumerate(report.phases):
             assert phase_report.name == PHASE_ORDER[i]
+
+    def test_run_phase_uses_reconciler_lifecycle(self, target_dir: Path, monkeypatch) -> None:
+        """Doctor phase execution is routed through the shared reconciler."""
+        from ai_engineering.doctor import service as service_module
+
+        calls: list[tuple[str, bool]] = []
+        real_reconciler = service_module.ResourceReconciler
+
+        class _TrackingReconciler(real_reconciler):
+            def run(self, adapter, context, *, preview: bool = False):
+                calls.append((adapter.name, preview))
+                return super().run(adapter, context, preview=preview)
+
+        monkeypatch.setattr(service_module, "ResourceReconciler", _TrackingReconciler)
+        monkeypatch.setattr(service_module, "_PHASE_MODULES", {"tools": _make_phase_module()})
+
+        report = DoctorReport()
+        service_module._run_phase(
+            DoctorContext(target=target_dir),
+            "tools",
+            report,
+            fix=False,
+            dry_run=False,
+        )
+
+        assert calls == [("tools", False)]
+        assert [phase.name for phase in report.phases] == ["tools"]
 
 
 # ---------------------------------------------------------------------------

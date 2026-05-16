@@ -127,7 +127,7 @@ emit_event() {
     local entry
     entry="$(jq -nc \
         --arg kind "$kind" \
-        --arg engine "github_copilot" \
+        --arg engine "copilot" \
         --arg timestamp "$timestamp" \
         --arg component "$component" \
         --arg outcome "$outcome" \

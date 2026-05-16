@@ -17,7 +17,7 @@ Diff-aware update of `docs/solution-intent.md` based on current project state. C
 | Release completion | 7.1 roadmap, 7.3 KPIs | release skill |
 | Stack add/remove | 3.1 stack & architecture | manifest.yml |
 | Security scan delta | 5.4 hardening checklist, 7.3 KPIs | verify agent |
-| Decision store update | 2.2 if domain-relevant | decision-store.json |
+| Decision store update | 2.2 if domain-relevant | state.db.decisions |
 | Skill/agent add/remove | 2.2 AI Ecosystem, 6.4 scalability | manifest.yml |
 | Quality gate change | 6.1 quality gates, 2.3 NFRs | manifest.yml |
 
@@ -31,7 +31,7 @@ Load `docs/solution-intent.md`. If file does not exist, report "no solution inte
 
 Collect authoritative data from ALL sources:
 - `.ai-engineering/manifest.yml` -- stack/skill/agent counts, quality gates, tooling, providers
-- `.ai-engineering/state/decision-store.json` -- active decisions, risk acceptances
+- `.ai-engineering/state/state.db.decisions` -- active decisions, risk acceptances
 - `.ai-engineering/specs/spec.md` -- current spec status
 - Recent spec closures (done.md files)
 - `.claude/skills/` -- actual skill count and categories

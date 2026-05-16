@@ -27,7 +27,6 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import yaml
 from pydantic import BaseModel
 
 from ai_engineering.state.models import (
@@ -54,8 +53,6 @@ __all__ = [
     "load_sdk_prereqs",
 ]
 
-
-_MANIFEST_REL = Path(".ai-engineering") / "manifest.yml"
 
 # Canonical 9 SDK-required stacks (spec.md D-101-14).
 SDK_REQUIRED_STACKS: frozenset[str] = frozenset(
@@ -188,17 +185,10 @@ class _PythonEnvWrapper(BaseModel):
 
 def _read_raw_manifest(root: Path) -> dict[str, Any]:
     """Return the raw manifest dict, or ``{}`` when absent / unreadable."""
-    manifest_path = root / _MANIFEST_REL
-    if not manifest_path.is_file():
-        return {}
-    try:
-        raw = manifest_path.read_text(encoding="utf-8")
-        data = yaml.safe_load(raw)
-    except (OSError, yaml.YAMLError):
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    return data
+    # Delayed to keep projection imports acyclic while the repository wraps this module.
+    from ai_engineering.state.repository import ManifestRepository
+
+    return ManifestRepository(root).load_raw()
 
 
 def _normalise_os(current_os: str | None) -> Platform | None:
@@ -234,6 +224,7 @@ def load_required_tools(
     *,
     root: Path | None = None,
     current_os: str | None = None,
+    apply_defaults: bool = False,
 ) -> LoadResult:
     """Resolve the union of baseline + per-stack tools for the given stacks.
 
@@ -265,6 +256,16 @@ def load_required_tools(
     """
     project_root = (root or Path.cwd()).resolve()
     data = _read_raw_manifest(project_root)
+    # spec-128 slim-manifest: required_tools is framework-managed and
+    # injected at validate-time. The raw read does not carry it. Callers
+    # that need the canonical block in both layouts (notably the SDK
+    # carve-out D-101-13) pass ``apply_defaults=True``; everyone else
+    # gets the user's literal manifest content so tests / probes that
+    # rely on "no required_tools" semantics still work.
+    if apply_defaults:
+        from ai_engineering.config.framework_defaults import apply_framework_defaults
+
+        apply_framework_defaults(data)
     block = _resolve_required_tools_block(data)
     os_platform = _normalise_os(current_os)
 

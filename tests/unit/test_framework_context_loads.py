@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from ai_engineering.state.io import read_ndjson_entries
@@ -9,30 +10,40 @@ from ai_engineering.state.models import FrameworkEvent
 from ai_engineering.state.observability import emit_declared_context_loads, framework_events_path
 
 
-def _seed_project(tmp_path: Path) -> None:
+def _seed_project(
+    tmp_path: Path,
+    *,
+    constitution_paths: tuple[str, ...] = (".ai-engineering/CONSTITUTION.md",),
+) -> None:
     manifest_path = tmp_path / ".ai-engineering" / "manifest.yml"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.write_text(
         """
 name: demo-project
 providers:
-  stacks: [python, react]
+  stacks: [python, typescript]
 """.strip()
         + "\n",
         encoding="utf-8",
     )
 
     for rel in (
-        ".ai-engineering/contexts/languages/python.md",
-        ".ai-engineering/contexts/frameworks/react.md",
+        # spec-128 D-128-08: language + framework taxonomy collapsed to stack.
+        ".ai-engineering/overrides/python/conventions.md",
+        ".ai-engineering/overrides/typescript/conventions.md",
+        ".ai-engineering/overrides/_shared/conventions.md",
         ".ai-engineering/contexts/team/conventions.md",
         ".ai-engineering/contexts/cli-ux.md",
         ".ai-engineering/contexts/mcp-integrations.md",
-        ".ai-engineering/CONSTITUTION.md",
         ".ai-engineering/specs/spec.md",
         ".ai-engineering/specs/plan.md",
         ".ai-engineering/state/decision-store.json",
     ):
+        path = tmp_path / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("seed\n", encoding="utf-8")
+
+    for rel in constitution_paths:
         path = tmp_path / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("seed\n", encoding="utf-8")
@@ -59,9 +70,11 @@ class TestDeclaredContextLoads:
         entries = read_ndjson_entries(framework_events_path(tmp_path), FrameworkEvent)
         classes = {entry.detail["context_class"] for entry in entries}
 
+        # spec-128 D-128-08: language + framework collapsed to stack.
+        # _shared sub-dir under overrides/ surfaces as the shared-stack class.
         assert classes == {
-            "language",
-            "framework",
+            "stack",
+            "shared-stack",
             "shared-framework",
             "team",
             "constitution",
@@ -69,6 +82,18 @@ class TestDeclaredContextLoads:
             "plan",
             "decision-store",
         }
+        stack_names = {
+            entry.detail["context_name"]
+            for entry in entries
+            if entry.detail["context_class"] == "stack"
+        }
+        assert stack_names == {"python", "typescript"}
+        shared_stack_names = {
+            entry.detail["context_name"]
+            for entry in entries
+            if entry.detail["context_class"] == "shared-stack"
+        }
+        assert shared_stack_names == {"_shared"}
         shared_context_names = {
             entry.detail["context_name"]
             for entry in entries
@@ -99,3 +124,59 @@ class TestDeclaredContextLoads:
         entries = read_ndjson_entries(framework_events_path(tmp_path), FrameworkEvent)
         plan_event = next(entry for entry in entries if entry.detail["context_class"] == "plan")
         assert plan_event.outcome == "failure"
+
+    def test_root_constitution_is_preferred_when_present(self, tmp_path: Path) -> None:
+        # spec-123 D-123-17: workspace-charter stub deleted; only root
+        # CONSTITUTION.md remains. Test asserts the canonical path emits.
+        _seed_project(
+            tmp_path,
+            constitution_paths=("CONSTITUTION.md",),
+        )
+
+        emit_declared_context_loads(
+            tmp_path,
+            engine="claude_code",
+            initiator_kind="skill",
+            initiator_name="ai-start",
+            component="hook.telemetry-skill",
+            source="hook",
+            session_id="session-3",
+            trace_id="trace-3",
+            correlation_id="corr-3",
+        )
+
+        entries = read_ndjson_entries(framework_events_path(tmp_path), FrameworkEvent)
+        constitution_event = next(
+            entry for entry in entries if entry.detail["context_class"] == "constitution"
+        )
+        assert constitution_event.outcome == "success"
+        assert constitution_event.detail["path"] == "CONSTITUTION.md"
+
+    def test_active_pointer_redirects_declared_spec_contexts(self, tmp_path: Path) -> None:
+        _seed_project(tmp_path)
+        resolved_specs_dir = tmp_path / "resolved-work-plane"
+        resolved_specs_dir.mkdir()
+        (resolved_specs_dir / "spec.md").write_text("resolved spec\n", encoding="utf-8")
+        (resolved_specs_dir / "plan.md").write_text("resolved plan\n", encoding="utf-8")
+        (tmp_path / ".ai-engineering" / "specs" / "active-work-plane.json").write_text(
+            json.dumps({"specsDir": "resolved-work-plane"}),
+            encoding="utf-8",
+        )
+
+        emit_declared_context_loads(
+            tmp_path,
+            engine="claude_code",
+            initiator_kind="skill",
+            initiator_name="ai-start",
+            component="hook.telemetry-skill",
+            source="hook",
+            session_id="session-5",
+            trace_id="trace-5",
+            correlation_id="corr-5",
+        )
+
+        entries = read_ndjson_entries(framework_events_path(tmp_path), FrameworkEvent)
+        spec_event = next(entry for entry in entries if entry.detail["context_class"] == "spec")
+        plan_event = next(entry for entry in entries if entry.detail["context_class"] == "plan")
+        assert spec_event.detail["path"] == "resolved-work-plane/spec.md"
+        assert plan_event.detail["path"] == "resolved-work-plane/plan.md"

@@ -10,7 +10,7 @@ via the `Agent` tool for real context isolation. `normal` is the default profile
 
 | Specialist | Agent | What it verifies | `normal` runner |
 |------------|-------|------------------|-----------------|
-| `deterministic` | `verify-deterministic.md` | security, quality, deps, tests | runs first (alone) |
+| `deterministic` | `verifier-deterministic.md` | security, quality, deps, tests | runs first (alone) |
 | `governance` | `verifier-governance.md` | integrity, ownership, compliance | `macro-agent-2` |
 | `architecture` | `verifier-architecture.md` | cycles, boundary drift, alignment | `macro-agent-2` |
 | `feature` | `verifier-feature.md` | spec/plan completeness, handoff | `macro-agent-2` |
@@ -30,13 +30,13 @@ Load `.ai-engineering/contexts/evidence-protocol.md` before making claims.
 
 ### Step 2: Dispatch deterministic agent via Agent tool
 
-Dispatch `verify-deterministic.md` via the **Agent** tool:
+Dispatch `verifier-deterministic.md` via the **Agent** tool:
 
 ```
 Agent prompt: "You are the deterministic verification agent.
-Read and follow .claude/agents/verify-deterministic.md
+Read and follow .claude/agents/verifier-deterministic.md
 Execute all tool-driven checks against the current codebase.
-Read .ai-engineering/state/decision-store.json for accepted exceptions.
+Query state.db.decisions (via `ai-eng audit query`) for accepted exceptions.
 Produce structured YAML output."
 ```
 

@@ -179,6 +179,49 @@ def _decision_to_dict(decision: Any) -> dict[str, Any]:
     return decision.model_dump(by_alias=True, exclude_none=True, mode="json")
 
 
+def _gate_risk_acceptance_via_opa(
+    *,
+    project_root: Path,
+    now: datetime,
+    expires_at: datetime | None,
+    severity: str,
+    justification: str,
+) -> None:
+    """Run ``risk_acceptance_ttl.deny`` and exit 2 on a deny verdict.
+
+    Spec-122 Phase C T-3.13: the policy denies when the requested
+    ``ttl_expires_at`` is at or before ``now``. We only invoke OPA when
+    the binary is on PATH (fail-open during the rollout window) and
+    only when the caller actually supplied an explicit ``--expires-at``;
+    severity-default TTLs land in the future by construction.
+    """
+    if expires_at is None:
+        return
+
+    from ai_engineering.governance import opa_runner
+
+    if not opa_runner.available():
+        return
+
+    from ai_engineering.policy.checks.opa_gate import evaluate_deny
+
+    decision = evaluate_deny(
+        project_root=project_root,
+        policy="risk_acceptance_ttl",
+        input_data={
+            "ttl_expires_at": expires_at.isoformat(),
+            "now": now.isoformat(),
+            "severity": severity,
+            "justification": justification,
+        },
+        component="risk-cmd",
+        source="risk-accept",
+    )
+    if not decision.passed:
+        error("; ".join(decision.deny_messages) or "risk acceptance denied by policy")
+        raise typer.Exit(code=2)
+
+
 # --- Commands ---------------------------------------------------------------
 
 
@@ -252,6 +295,18 @@ def risk_accept(
     now = datetime.now(tz=UTC)
     existing_ids = {d.id for d in store.decisions}
     dec_id = _generate_dec_id(now, existing_ids)
+
+    # Spec-122 Phase C T-3.13: gate the acceptance on the OPA TTL policy
+    # before persisting. The policy denies when the requested expiry is
+    # already in the past relative to ``now``; the rule lives in
+    # ``risk_acceptance_ttl.rego`` and is the canonical source of truth.
+    _gate_risk_acceptance_via_opa(
+        project_root=root,
+        now=now,
+        expires_at=parsed_expires,
+        severity=severity_value,
+        justification=justification,
+    )
 
     decision = create_risk_acceptance(
         store,

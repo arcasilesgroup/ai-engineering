@@ -1,55 +1,49 @@
 """Unit tests for ai_engineering.cli_commands.decisions_cmd module.
 
-Tests the decision list and expire-check CLI commands using the
-Typer CLI runner with temporary state files.
+Covers the four canonical decision subcommands -- ``list``, ``record``,
+``expire-check``, ``backfill`` -- against the canonical state.db
+``decisions`` table (per CLAUDE.md §0 bootstrap + D-132-08). The legacy
+``decision-store.json`` shape is no longer load-bearing for the CLI.
 """
 
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
+from ai_engineering.state.state_db import (
+    list_decisions,
+    upsert_decision_rows_raw,
+)
 
 runner = CliRunner()
 
 
-def _make_decision_store(root: Path, decisions: list[dict]) -> None:
-    """Write a decision-store.json file under the .ai-engineering/state dir."""
-    state_dir = root / ".ai-engineering" / "state"
-    state_dir.mkdir(parents=True, exist_ok=True)
-    payload = {"schemaVersion": "1.1", "decisions": decisions}
-    (state_dir / "decision-store.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
-
-
-def _base_decision(**overrides: object) -> dict:
-    """Return a minimal valid decision dict with optional overrides."""
-    base = {
-        "id": "DEC-001",
-        "context": "Some context for the decision that might be rather long",
-        "decision": "We decided to accept this risk for now",
-        "decidedAt": "2025-01-01T00:00:00Z",
-        "spec": "spec-001",
-        "severity": "medium",
+def _seed_decision(root: Path, **overrides: object) -> dict[str, object]:
+    """Seed one decision row into ``state.db`` under *root*."""
+    row: dict[str, object] = {
+        "decision_id": "DEC-001",
+        "spec_id": "spec-001",
         "status": "active",
+        "title": "Test decision",
+        "rationale": None,
+        "context": "test context",
     }
-    base.update(overrides)
-    return base
+    row.update(overrides)
+    upsert_decision_rows_raw(root, [row])
+    return row
 
 
 class TestDecisionList:
-    """Tests for `ai-eng decision list`."""
+    """Tests for `ai-eng decision list` against state.db."""
 
-    def test_empty_store_no_file(self, tmp_path: Path) -> None:
-        """When no decision-store.json exists, report empty."""
-        # Arrange
+    def test_empty_store_no_db(self, tmp_path: Path) -> None:
+        """When no state.db exists, report empty + the backfill hint."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
-
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -57,36 +51,13 @@ class TestDecisionList:
             app = create_app()
             result = runner.invoke(app, ["decision", "list"])
 
-        # Assert
         assert result.exit_code == 0
         assert "empty" in result.output.lower()
-
-    def test_empty_decisions_list(self, tmp_path: Path) -> None:
-        """When decisions list is empty, report empty."""
-        # Arrange
-        _make_decision_store(tmp_path, [])
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["decision", "list"])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "empty" in result.output.lower()
+        assert "backfill" in result.output.lower()
 
     def test_lists_single_decision(self, tmp_path: Path) -> None:
-        """A single decision is printed with ID, status, severity, and expiry."""
-        # Arrange
-        _make_decision_store(
-            tmp_path,
-            [_base_decision(expiresAt="2026-06-01T00:00:00Z")],
-        )
+        _seed_decision(tmp_path)
 
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -94,26 +65,17 @@ class TestDecisionList:
             app = create_app()
             result = runner.invoke(app, ["decision", "list"])
 
-        # Assert
         assert result.exit_code == 0
         assert "DEC-001" in result.output
+        assert "spec-001" in result.output
         assert "active" in result.output
-        assert "medium" in result.output
-        assert "2026-06-01" in result.output
+        assert "Test decision" in result.output
         assert "1 total" in result.output
 
-    def test_lists_multiple_decisions(self, tmp_path: Path) -> None:
-        """Multiple decisions are all printed."""
-        # Arrange
-        _make_decision_store(
-            tmp_path,
-            [
-                _base_decision(id="DEC-001"),
-                _base_decision(id="DEC-002", severity="high", status="expired"),
-            ],
-        )
+    def test_lists_multiple_decisions_sorted(self, tmp_path: Path) -> None:
+        _seed_decision(tmp_path, decision_id="DEC-002", title="Second")
+        _seed_decision(tmp_path, decision_id="DEC-001", title="First")
 
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -121,77 +83,19 @@ class TestDecisionList:
             app = create_app()
             result = runner.invoke(app, ["decision", "list"])
 
-        # Assert
         assert result.exit_code == 0
         assert "DEC-001" in result.output
         assert "DEC-002" in result.output
         assert "2 total" in result.output
-
-    def test_decision_no_expiry(self, tmp_path: Path) -> None:
-        """Decision without expiresAt shows 'no expiry'."""
-        # Arrange
-        _make_decision_store(tmp_path, [_base_decision()])
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["decision", "list"])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "no expiry" in result.output
-
-    def test_decision_no_severity(self, tmp_path: Path) -> None:
-        """Decision without severity shows '?'."""
-        # Arrange
-        dec = _base_decision()
-        del dec["severity"]
-        _make_decision_store(tmp_path, [dec])
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["decision", "list"])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "?" in result.output
-
-    def test_invalid_json_returns_none(self, tmp_path: Path) -> None:
-        """Corrupt decision-store.json is treated as empty."""
-        # Arrange
-        state_dir = tmp_path / ".ai-engineering" / "state"
-        state_dir.mkdir(parents=True, exist_ok=True)
-        (state_dir / "decision-store.json").write_text("NOT JSON", encoding="utf-8")
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["decision", "list"])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "empty" in result.output.lower()
+        # Sorted ascending: DEC-001 appears before DEC-002.
+        assert result.output.index("DEC-001") < result.output.index("DEC-002")
 
 
 class TestDecisionExpireCheck:
-    """Tests for `ai-eng decision expire-check`."""
+    """`expire-check` flags decisions whose ``expires_at`` is past or near."""
 
-    def test_no_decisions_to_check(self, tmp_path: Path) -> None:
-        """When no decision-store.json exists, report nothing to check."""
-        # Arrange
+    def test_empty_store_reports_no_decisions(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering").mkdir(parents=True)
-
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -199,20 +103,12 @@ class TestDecisionExpireCheck:
             app = create_app()
             result = runner.invoke(app, ["decision", "expire-check"])
 
-        # Assert
         assert result.exit_code == 0
-        assert "No decisions to check" in result.output
+        assert "no active decisions" in result.output.lower()
 
-    def test_all_active_within_validity(self, tmp_path: Path) -> None:
-        """Active decisions with far-future expiry are fine."""
-        # Arrange
-        future = (datetime.now(tz=UTC) + timedelta(days=60)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        _make_decision_store(
-            tmp_path,
-            [_base_decision(expiresAt=future)],
-        )
+    def test_decisions_without_expiry_are_within_validity(self, tmp_path: Path) -> None:
+        _seed_decision(tmp_path)
 
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -220,20 +116,17 @@ class TestDecisionExpireCheck:
             app = create_app()
             result = runner.invoke(app, ["decision", "expire-check"])
 
-        # Assert
         assert result.exit_code == 0
         assert "within validity" in result.output.lower()
 
-    def test_expired_decision_detected(self, tmp_path: Path) -> None:
-        """A decision with expiry in the past is flagged as EXPIRED."""
-        # Arrange
-        past = (datetime.now(tz=UTC) - timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        _make_decision_store(
-            tmp_path,
-            [_base_decision(expiresAt=past)],
-        )
+    def test_flags_expired_and_expiring_soon(self, tmp_path: Path) -> None:
+        from datetime import UTC, datetime, timedelta
 
-        # Act
+        past = (datetime.now(tz=UTC) - timedelta(days=1)).isoformat()
+        soon = (datetime.now(tz=UTC) + timedelta(days=3)).isoformat()
+        _seed_decision(tmp_path, decision_id="DEC-EXPIRED", expires_at=past)
+        _seed_decision(tmp_path, decision_id="DEC-SOON", expires_at=soon)
+
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -241,43 +134,23 @@ class TestDecisionExpireCheck:
             app = create_app()
             result = runner.invoke(app, ["decision", "expire-check"])
 
-        # Assert
         assert result.exit_code == 0
         assert "expired" in result.output.lower()
-        assert "DEC-001" in result.output
-
-    def test_expiring_soon_detected(self, tmp_path: Path) -> None:
-        """A decision expiring within 7 days is flagged as EXPIRING SOON."""
-        # Arrange
-        soon = (datetime.now(tz=UTC) + timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        _make_decision_store(
-            tmp_path,
-            [_base_decision(expiresAt=soon)],
-        )
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["decision", "expire-check"])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "expiring" in result.output.lower()
-        assert "DEC-001" in result.output
+        assert "DEC-EXPIRED" in result.output
+        assert "expiring soon" in result.output.lower()
+        assert "DEC-SOON" in result.output
 
     def test_non_active_decisions_skipped(self, tmp_path: Path) -> None:
-        """Decisions with status != 'active' are not checked for expiry."""
-        # Arrange
-        past = (datetime.now(tz=UTC) - timedelta(days=5)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        _make_decision_store(
+        from datetime import UTC, datetime, timedelta
+
+        past = (datetime.now(tz=UTC) - timedelta(days=1)).isoformat()
+        _seed_decision(
             tmp_path,
-            [_base_decision(status="expired", expiresAt=past)],
+            decision_id="DEC-REVOKED",
+            status="revoked",
+            expires_at=past,
         )
 
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -285,68 +158,17 @@ class TestDecisionExpireCheck:
             app = create_app()
             result = runner.invoke(app, ["decision", "expire-check"])
 
-        # Assert
         assert result.exit_code == 0
-        assert "within validity" in result.output.lower()
-
-    def test_active_no_expiry_skipped(self, tmp_path: Path) -> None:
-        """Active decisions without expiresAt are skipped in expire-check."""
-        # Arrange
-        _make_decision_store(
-            tmp_path,
-            [_base_decision()],  # no expiresAt
-        )
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["decision", "expire-check"])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "within validity" in result.output.lower()
-
-    def test_mixed_expired_and_expiring(self, tmp_path: Path) -> None:
-        """Both EXPIRED and EXPIRING SOON sections appear when applicable."""
-        # Arrange
-        past = (datetime.now(tz=UTC) - timedelta(days=1)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        soon = (datetime.now(tz=UTC) + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
-        _make_decision_store(
-            tmp_path,
-            [
-                _base_decision(id="DEC-001", expiresAt=past),
-                _base_decision(id="DEC-002", expiresAt=soon),
-            ],
-        )
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(app, ["decision", "expire-check"])
-
-        # Assert
-        assert result.exit_code == 0
-        assert "expired" in result.output.lower()
-        assert "DEC-001" in result.output
-        assert "expiring" in result.output.lower()
-        assert "DEC-002" in result.output
+        # Revoked decisions are excluded; status='active' filter applies.
+        assert "no active decisions" in result.output.lower()
 
 
 class TestDecisionRecord:
-    """Tests for `ai-eng decision record`."""
+    """Tests for `ai-eng decision record` writing to state.db."""
 
-    def test_record_creates_new_decision(self, tmp_path: Path) -> None:
-        """Record creates decision-store.json with the new entry."""
-        # Arrange
+    def test_record_creates_new_decision_in_state_db(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
 
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -367,54 +189,19 @@ class TestDecisionRecord:
                 ],
             )
 
-        # Assert
         assert result.exit_code == 0
         assert "Recorded" in result.output
         assert "d-test-001" in result.output
-        store_path = tmp_path / ".ai-engineering" / "state" / "decision-store.json"
-        assert store_path.exists()
-        data = json.loads(store_path.read_text())
-        assert len(data["decisions"]) == 1
-        assert data["decisions"][0]["id"] == "d-test-001"
-        assert data["decisions"][0]["status"] == "active"
-
-    def test_record_appends_to_existing_store(self, tmp_path: Path) -> None:
-        """Record appends to an existing store without losing entries."""
-        # Arrange
-        _make_decision_store(tmp_path, [_base_decision(id="DEC-001")])
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(
-                app,
-                [
-                    "decision",
-                    "record",
-                    "d-test-002",
-                    "--context",
-                    "new context",
-                    "--decision",
-                    "new decision",
-                ],
-            )
-
-        # Assert
-        assert result.exit_code == 0
-        data = json.loads(
-            (tmp_path / ".ai-engineering" / "state" / "decision-store.json").read_text()
-        )
-        assert len(data["decisions"]) == 2
+        rows = list_decisions(tmp_path)
+        assert len(rows) == 1
+        assert rows[0]["decision_id"] == "d-test-001"
+        assert rows[0]["spec_id"] == "spec-034"
+        assert rows[0]["status"] == "active"
+        assert rows[0]["title"] == "test decision"
 
     def test_record_rejects_duplicate_id(self, tmp_path: Path) -> None:
-        """Record fails when the ID already exists."""
-        # Arrange
-        _make_decision_store(tmp_path, [_base_decision(id="DEC-001")])
+        _seed_decision(tmp_path)
 
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -433,86 +220,12 @@ class TestDecisionRecord:
                 ],
             )
 
-        # Assert
         assert result.exit_code == 1
         assert "already exists" in result.output
 
-    def test_record_with_severity_and_category(self, tmp_path: Path) -> None:
-        """Record stores optional severity and category."""
-        # Arrange
-        (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(
-                app,
-                [
-                    "decision",
-                    "record",
-                    "d-test-003",
-                    "--context",
-                    "risk ctx",
-                    "--decision",
-                    "accept risk",
-                    "--severity",
-                    "high",
-                    "--category",
-                    "risk-acceptance",
-                ],
-            )
-
-        # Assert
-        assert result.exit_code == 0
-        data = json.loads(
-            (tmp_path / ".ai-engineering" / "state" / "decision-store.json").read_text()
-        )
-        entry = data["decisions"][0]
-        assert entry["severity"] == "high"
-        assert entry["riskCategory"] == "risk-acceptance"
-
-    def test_record_with_expires(self, tmp_path: Path) -> None:
-        """Record stores expiry date."""
-        # Arrange
-        (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
-
-        # Act
-        with patch(
-            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
-            return_value=tmp_path,
-        ):
-            app = create_app()
-            result = runner.invoke(
-                app,
-                [
-                    "decision",
-                    "record",
-                    "d-test-004",
-                    "--context",
-                    "ctx",
-                    "--decision",
-                    "dec",
-                    "--expires",
-                    "2026-01-15",
-                ],
-            )
-
-        # Assert
-        assert result.exit_code == 0
-        data = json.loads(
-            (tmp_path / ".ai-engineering" / "state" / "decision-store.json").read_text()
-        )
-        assert "2026-01-15" in data["decisions"][0]["expiresAt"]
-
     def test_record_emits_framework_event(self, tmp_path: Path) -> None:
-        """Record writes a canonical framework event."""
-        # Arrange
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
 
-        # Act
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
             return_value=tmp_path,
@@ -531,7 +244,6 @@ class TestDecisionRecord:
                 ],
             )
 
-        # Assert
         events_path = tmp_path / ".ai-engineering" / "state" / "framework-events.ndjson"
         assert events_path.exists()
         line = events_path.read_text().strip()
@@ -539,3 +251,74 @@ class TestDecisionRecord:
         assert event["kind"] == "control_outcome"
         assert event["detail"]["control"] == "decision-record"
         assert event["detail"]["decision_id"] == "d-test-005"
+
+
+class TestDecisionBackfill:
+    """Tests for `ai-eng decision backfill` markdown scanning."""
+
+    def _write_markdown(self, root: Path) -> None:
+        specs_dir = root / ".ai-engineering" / "specs"
+        specs_dir.mkdir(parents=True, exist_ok=True)
+        (specs_dir / "spec-200-example.md").write_text(
+            "## Decisions\n\n"
+            "D-200-01: First decision in this spec.\n"
+            "D-200-02: Second decision in this spec.\n",
+            encoding="utf-8",
+        )
+        (root / "CHANGELOG.md").write_text(
+            "# Changelog\n- D-201-01 ships in changelog only.\n",
+            encoding="utf-8",
+        )
+        (root / "CONSTITUTION.md").write_text(
+            "# Constitution\n\nno decision ids here.\n",
+            encoding="utf-8",
+        )
+        (root / "CLAUDE.md").write_text(
+            "# CLAUDE.md\nD-200-01 reference (should not override spec source).\n",
+            encoding="utf-8",
+        )
+
+    def test_dry_run_lists_candidates_without_writing(self, tmp_path: Path) -> None:
+        self._write_markdown(tmp_path)
+
+        with patch(
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            result = runner.invoke(app, ["decision", "backfill", "--dry-run"])
+
+        assert result.exit_code == 0
+        assert "D-200-01" in result.output
+        assert "D-200-02" in result.output
+        assert "D-201-01" in result.output
+        assert "Dry run" in result.output
+        # Dry-run does not populate state.db.
+        assert list_decisions(tmp_path) == []
+
+    def test_writes_and_dedups_via_upsert(self, tmp_path: Path) -> None:
+        self._write_markdown(tmp_path)
+
+        with patch(
+            "ai_engineering.cli_commands.decisions_cmd.find_project_root",
+            return_value=tmp_path,
+        ):
+            app = create_app()
+            first = runner.invoke(app, ["decision", "backfill"])
+            assert first.exit_code == 0
+            rows_after_first = {r["decision_id"]: r for r in list_decisions(tmp_path)}
+
+            # Idempotent re-run keeps the row count stable.
+            second = runner.invoke(app, ["decision", "backfill"])
+            assert second.exit_code == 0
+            rows_after_second = {r["decision_id"]: r for r in list_decisions(tmp_path)}
+
+        assert {"D-200-01", "D-200-02", "D-201-01"} <= rows_after_first.keys()
+        assert rows_after_first.keys() == rows_after_second.keys()
+
+        # Spec source wins over CLAUDE.md fallback for D-200-01 title.
+        assert "First decision" in (rows_after_first["D-200-01"]["title"] or "")
+        # Spec ID is parsed from the regex (`D-200-01` -> `spec-200`).
+        assert rows_after_first["D-200-01"]["spec_id"] == "spec-200"
+        # Changelog-only ID still landed.
+        assert rows_after_first["D-201-01"]["spec_id"] == "spec-201"

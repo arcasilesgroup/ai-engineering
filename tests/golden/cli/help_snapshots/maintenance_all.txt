@@ -1,0 +1,16 @@
+
+ Usage: ai-eng maintenance all [OPTIONS]
+
+ Run all maintenance checks and produce a combined report.
+
+ Executes: report, risk-status, repo-status, and spec-reset (dry-run).
+ Intended for dashboard overview.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --target          -t      PATH     Target project root.                      │
+│ --base            -b      TEXT     Base branch for comparisons.              │
+│                                    [default: main]                           │
+│ --staleness-days          INTEGER  Days before a file is stale.              │
+│                                    [default: 90]                             │
+│ --help                             Show this message and exit.               │
+╰──────────────────────────────────────────────────────────────────────────────╯

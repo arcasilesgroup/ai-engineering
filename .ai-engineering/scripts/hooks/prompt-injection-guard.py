@@ -12,7 +12,7 @@ CRITICAL. Whitelisted invocations bypass the pattern scan but still emit
 a telemetry event so the bypass is auditable.
 
 spec-107 D-107-05/06/07 (Phase 4): the hook also matches tool inputs
-against a vendored IOC catalog (``.ai-engineering/references/iocs.json``)
+against a vendored IOC catalog (``.ai-engineering/security/iocs/iocs.json``)
 and emits a 3-valued verdict per IOC match:
 
 - ``allow``: no IOC match (default, fast path).
@@ -35,6 +35,7 @@ installer's runtime.
 import contextlib
 import hashlib
 import json
+import os
 import re
 import shlex
 import sys
@@ -44,11 +45,112 @@ from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from _lib import risk_accumulator
 from _lib.audit import is_debug_mode, passthrough_stdin
-from _lib.hook_common import run_hook_safe
+from _lib.hook_common import get_correlation_id, run_hook_safe
 from _lib.hook_context import get_hook_context
 from _lib.injection_patterns import PATTERNS
-from _lib.observability import emit_control_outcome
+from _lib.observability import (
+    emit_control_outcome,
+    emit_framework_error,
+    emit_framework_operation,
+)
+
+# spec-120 follow-up: PRISM-style risk accumulator wiring. Disable
+# entirely with ``AIENG_RISK_ACCUMULATOR_DISABLED=1`` (e.g. tests that
+# do not want risk-state.json side effects).
+RISK_DISABLED = (os.environ.get("AIENG_RISK_ACCUMULATOR_DISABLED") or "").strip() == "1"
+_RISK_COMPONENT = "hook.prompt-injection-guard"
+
+
+def _apply_risk(
+    project_root: Path,
+    *,
+    session_id: str | None,
+    severity: str,
+    ioc_id: str,
+    correlation_id: str,
+) -> None:
+    """Add a finding to the per-session risk accumulator and act on the threshold.
+
+    Pipeline:
+    1. ``risk_accumulator.add(...)`` to bump the running score (writes
+       ``runtime/risk-score.json``).
+    2. ``risk_accumulator.threshold_action(...)`` maps the new score
+       to one of ``silent | warn | block | force_stop``.
+    3. ``warn`` emits a ``framework_operation`` (``risk_warn``) so the
+       audit chain records the elevation. The hook does NOT block.
+    4. ``block`` emits a ``framework_error`` (``risk_threshold_block``)
+       and exits 2 — Claude Code interprets that as deny.
+    5. ``force_stop`` emits ``risk_force_stop``, writes a ``decision:
+       block`` JSON to stdout (so the user sees a deterministic
+       termination message), and exits 2.
+
+    Defensive: any exception inside the accumulator (corrupt state,
+    write race) is swallowed — the host hook MUST keep running.
+    Disable with ``AIENG_RISK_ACCUMULATOR_DISABLED=1``.
+    """
+    if RISK_DISABLED:
+        return
+    try:
+        state = risk_accumulator.add(
+            project_root,
+            session_id=session_id or "unknown",
+            severity=severity,
+            ioc_id=ioc_id,
+        )
+        action = risk_accumulator.threshold_action(state.score)
+    except Exception:
+        return  # fail-open: never let risk telemetry break the host hook.
+    if action == "warn":
+        with contextlib.suppress(Exception):
+            emit_framework_operation(
+                project_root,
+                operation="risk_warn",
+                component=_RISK_COMPONENT,
+                source="hook",
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+    elif action == "block":
+        with contextlib.suppress(Exception):
+            emit_framework_error(
+                project_root,
+                engine="ai_engineering",
+                component=_RISK_COMPONENT,
+                error_code="risk_threshold_block",
+                source="hook",
+                session_id=session_id,
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+        sys.exit(2)
+    elif action == "force_stop":
+        with contextlib.suppress(Exception):
+            emit_framework_error(
+                project_root,
+                engine="ai_engineering",
+                component=_RISK_COMPONENT,
+                error_code="risk_force_stop",
+                source="hook",
+                session_id=session_id,
+                correlation_id=correlation_id,
+                metadata={"score": round(state.score, 2), "ioc_id": ioc_id},
+            )
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "decision": "block",
+                    "additionalContext": (
+                        f"Session terminated — accumulated risk "
+                        f"{state.score:.1f} exceeds force_stop threshold."
+                    ),
+                }
+            )
+        )
+        sys.stdout.flush()
+        sys.exit(2)
+
 
 _GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit"}
 _MIN_CONTENT_LEN = 10
@@ -58,7 +160,7 @@ _MAX_CONTENT_LEN = 4000
 # upstream catalog also exposes ``suspicious_network`` and
 # ``dangerous_commands`` aliases; both names index the same payload.
 _IOC_CATEGORIES = ("sensitive_paths", "sensitive_env_vars", "malicious_domains", "shell_patterns")
-_IOC_RELATIVE = Path(".ai-engineering") / "references" / "iocs.json"
+_IOC_RELATIVE = Path(".ai-engineering") / "security" / "iocs" / "iocs.json"
 
 # spec-105 G-12: commands that legitimately handle gate-findings JSON
 # embedding secret-related rule names. Match by argv[0..2] joined with
@@ -116,6 +218,155 @@ def _is_whitelisted(tool_name: str, content: str) -> str | None:
     return None
 
 
+# spec-131 sub-004 T-4.B / D-131-11: positive allow-list of read-only
+# commands that legitimately bypass the IOC scan when invoked by a
+# Task-tool sub-agent. The main thread still runs the full scan.
+#
+# spec-131 closure sweep (review-H1): ``cat`` is intentionally OMITTED
+# from this allow-list. The lane was designed for read-only PROBES
+# (``rg`` / ``grep`` / ``find`` / ``ls`` — discovery primitives) and
+# ``cat`` is the highest-value exfiltration primitive a sub-agent can
+# wield to leak arbitrary file content while bypassing the IOC scan.
+# Removing it forces ``cat`` invocations through the full IOC veto
+# path so ``sensitive_paths`` / ``sensitive_env_vars`` still apply.
+# Regression test: ``tests/unit/hooks/test_prompt_injection_guard_subagent_lane.py``.
+_SUBAGENT_READONLY_CMDS: frozenset[str] = frozenset({"rg", "grep", "find", "ls"})
+_SUBAGENT_SHELL_META: frozenset[str] = frozenset({"|", ";", "&&", "||", ">", ">>", "<", "<<", "&"})
+_SUBAGENT_FIND_DESTRUCTIVE: frozenset[str] = frozenset(
+    {"-delete", "-exec", "-execdir", "-ok", "-okdir"}
+)
+
+
+# spec-131 sub-004 T-4.F / D-131-12: trusted-script lane.
+#
+# Dual-key enforcement (literal argv match + script bytes match) closes
+# two bypass vectors:
+#   1. ``bash -c "python3 trusted.py"`` — the inner command runs in a
+#      subshell so the literal-argv match fails, denying the bypass.
+#   2. Byte modification of ``trusted.py`` — sha256 in ``trustedScripts``
+#      changes, the integrity check fails, drift is surfaced as a
+#      framework_error.
+#
+# ``_TRUSTED_SCRIPT_DRIFT_SENTINEL`` is a non-empty constant returned
+# when argv matches a trusted entry but the underlying bytes have
+# drifted, so callers can distinguish a clean miss (None) from a
+# tampered match.
+_TRUSTED_SCRIPT_DRIFT_SENTINEL: str = "__trusted_script_drift__"
+
+
+def _load_trusted_argvs(project_root: Path) -> list[str]:
+    """Return the ``trustedArgvs`` list from ``hooks-manifest.json``.
+
+    Fail-open: any I/O / parse failure returns an empty list — a missing
+    or malformed manifest must never crash the host hook.
+    """
+    manifest_path = project_root / ".ai-engineering" / "state" / "hooks-manifest.json"
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+    argvs = payload.get("trustedArgvs") or []
+    if not isinstance(argvs, list):
+        return []
+    return [str(x) for x in argvs if isinstance(x, str) and x]
+
+
+def _resolve_trusted_script_path(content: str, project_root: Path) -> Path | None:
+    """Resolve the script path from a trusted argv form.
+
+    Trusted argv forms are ``python3 <relative-path>`` shapes. The helper
+    parses tokens and returns the absolute path to the candidate script
+    so the integrity check can verify its bytes. Returns ``None`` when
+    parsing fails or the path does not resolve to a regular file.
+    """
+    try:
+        tokens = shlex.split(content)
+    except ValueError:
+        return None
+    candidate: str | None = None
+    for token in tokens:
+        if token.endswith(".py") and not token.startswith("-"):
+            candidate = token
+            break
+    if not candidate:
+        return None
+    abs_path = (project_root / candidate).resolve()
+    if not abs_path.is_file():
+        return None
+    return abs_path
+
+
+def _is_trusted_script_argv(content: str, project_root: Path) -> str | None:
+    """Return the matched trusted argv, the drift sentinel, or None.
+
+    Contract (spec-131 sub-004 D-131-12):
+    1. ``content`` MUST literally equal one of the entries in
+       ``trustedArgvs`` (post strip()). No wildcard, no prefix match —
+       this closes the ``bash -c "..."`` and "extra args" bypasses.
+    2. The corresponding script path MUST resolve to a file whose
+       sha256 matches the ``trustedScripts`` entry.
+    3. On a clean match -> return the matched argv string.
+    4. On argv match + bytes drift -> return
+       :data:`_TRUSTED_SCRIPT_DRIFT_SENTINEL` so the caller can emit a
+       distinct framework_error (drift) instead of a clean bypass.
+    5. No match -> ``None``.
+    """
+    if not content:
+        return None
+    stripped = content.strip()
+    if not stripped:
+        return None
+    trusted_argvs = _load_trusted_argvs(project_root)
+    if stripped not in trusted_argvs:
+        return None
+    script_path = _resolve_trusted_script_path(stripped, project_root)
+    if script_path is None:
+        return _TRUSTED_SCRIPT_DRIFT_SENTINEL
+    try:
+        from _lib.integrity import verify_trusted_script
+    except Exception:
+        return _TRUSTED_SCRIPT_DRIFT_SENTINEL
+    ok, _reason = verify_trusted_script(script_path, project_root)
+    if not ok:
+        return _TRUSTED_SCRIPT_DRIFT_SENTINEL
+    return stripped
+
+
+def _is_subagent_readonly(content: str) -> str | None:
+    """Return the matched argv0 when ``content`` is a clear read-only command.
+
+    Contract (spec-131 sub-004 E-3):
+    1. Parse via ``shlex.split``; malformed quoting -> None (fail-closed).
+    2. ``argv[0]`` must be in :data:`_SUBAGENT_READONLY_CMDS`.
+    3. No shell metacharacter token (``|``, ``;``, ``&&``, ``>``, ...).
+    4. ``find`` must not carry destructive predicates
+       (``-delete``, ``-exec``, ``-execdir``, ``-ok``, ``-okdir``).
+
+    Returns the matched argv0 (for telemetry) on success, ``None`` otherwise.
+    """
+    if not content:
+        return None
+    try:
+        tokens = shlex.split(content)
+    except ValueError:
+        return None
+    if not tokens:
+        return None
+    argv0 = tokens[0]
+    if argv0 not in _SUBAGENT_READONLY_CMDS:
+        return None
+    for token in tokens:
+        if token in _SUBAGENT_SHELL_META:
+            return None
+    if argv0 == "find":
+        for token in tokens:
+            if token in _SUBAGENT_FIND_DESTRUCTIVE:
+                return None
+    return argv0
+
+
 def _is_test_fixture_target(tool_name: str, tool_input: dict) -> str | None:
     """Return the file_path when Write/Edit targets a test fixture, else None.
 
@@ -159,6 +410,15 @@ def load_iocs(project_root: Path) -> dict[str, Any]:
     catalog never blocks the host. This is the deliberate fail-open
     posture: spec-107 D-107-05 prefers availability over secret-leak
     blocking when the catalog itself is absent (e.g. fresh checkout).
+
+    spec-122-a (D-122-04): the catalog now stores only canonical
+    category keys (``suspicious_network``, ``dangerous_commands``).
+    Alias keys that legacy callers depend on (``malicious_domains``,
+    ``shell_patterns``) are derived at load time from the
+    ``spec107_aliases`` pointer map, which removes ~30 LOC of
+    duplicated payload from ``iocs.json``. Pointers to unknown
+    canonical keys are silently skipped (defensive: malformed catalog
+    must never break callers).
     """
     path = _ioc_catalog_path(project_root)
     if not path.exists():
@@ -170,6 +430,24 @@ def load_iocs(project_root: Path) -> dict[str, Any]:
         return {}
     if not isinstance(payload, dict):
         return {}
+
+    # Dereference spec107_aliases: alias_key -> canonical_key. Inject the
+    # canonical payload under the alias name so downstream evaluators that
+    # reference the alias key continue to work without per-callsite changes.
+    aliases = payload.get("spec107_aliases")
+    if isinstance(aliases, dict):
+        for alias_key, canonical_key in aliases.items():
+            if not isinstance(alias_key, str) or not isinstance(canonical_key, str):
+                continue
+            if alias_key in payload:
+                # Don't clobber an explicit (non-alias) entry.
+                continue
+            canonical = payload.get(canonical_key)
+            if canonical is None:
+                # Pointer to a missing canonical — skip silently (fail-open).
+                continue
+            payload[alias_key] = canonical
+
     return payload
 
 
@@ -462,6 +740,18 @@ def _emit_ioc_outcomes(project_root: Path, tool_name: str, result: dict[str, Any
                 source="hook",
                 metadata=meta,
             )
+        # spec-120 #17: feed risk accumulator. Severity inferred from the
+        # match category. CRITICAL on deny (un-accepted), HIGH otherwise.
+        finding_id = match.get("finding_id") or match.get("pattern") or "unknown"
+        severity = "CRITICAL" if (verdict == "deny" and not accepted) else "HIGH"
+        with contextlib.suppress(Exception):
+            _apply_risk(
+                project_root,
+                session_id=None,
+                severity=severity,
+                ioc_id=str(finding_id),
+                correlation_id=get_correlation_id(),
+            )
 
 
 def main() -> None:
@@ -484,6 +774,75 @@ def main() -> None:
     if len(content) < _MIN_CONTENT_LEN:
         passthrough_stdin(ctx.data)
         return
+
+    # spec-131 sub-004 T-4.B / D-131-11: sub-agent positive allow-list lane.
+    # When the caller is a Task-tool sub-agent, short-circuit on clean
+    # read-only commands (rg/grep/find/ls/cat without shell-metacharacters
+    # or destructive predicates). Main-thread invocations still go through
+    # the full IOC + injection-pattern scan. Telemetry preserves the bypass
+    # in the audit chain (CLAUDE.md G-12 auditable-bypass contract).
+    if tool_name == "Bash" and ctx.agent_kind == "subagent":
+        matched_argv0 = _is_subagent_readonly(content)
+        if matched_argv0 is not None:
+            argv_hash = hashlib.sha256(content.encode("utf-8")).hexdigest()
+            with contextlib.suppress(Exception):
+                emit_control_outcome(
+                    ctx.project_root,
+                    category="security",
+                    control="subagent-readonly-bypass",
+                    component="hook.prompt-injection-guard",
+                    outcome="success",
+                    source="hook",
+                    metadata={
+                        "tool": tool_name,
+                        "argv0": matched_argv0,
+                        "argv_hash": argv_hash,
+                    },
+                )
+            passthrough_stdin(ctx.data)
+            return
+
+    # spec-131 sub-004 T-4.F / D-131-12: trusted-script lane. Hash-pinned
+    # scripts (e.g. session_bootstrap.py once sub-003 lands it) bypass
+    # RTK rewriting + IOC re-evaluation when invoked in the exact argv
+    # form the manifest pins. Drift on the underlying bytes surfaces as
+    # a framework_error (R-131-07 mitigation).
+    if tool_name == "Bash":
+        trusted_outcome = _is_trusted_script_argv(content, ctx.project_root)
+        if trusted_outcome == _TRUSTED_SCRIPT_DRIFT_SENTINEL:
+            with contextlib.suppress(Exception):
+                emit_framework_error(
+                    ctx.project_root,
+                    engine="ai_engineering",
+                    component="hook.prompt-injection-guard",
+                    error_code="trusted_script_drift",
+                    source="hook",
+                    session_id=ctx.session_id,
+                    correlation_id=get_correlation_id(),
+                    metadata={"tool": tool_name, "argv": content[:200]},
+                )
+            sys.stderr.write(
+                "[prompt-injection-guard] trusted-script integrity drift; "
+                "regenerate hooks-manifest.json and retry.\n"
+            )
+            sys.stderr.flush()
+            sys.exit(3)
+        if trusted_outcome is not None:
+            with contextlib.suppress(Exception):
+                emit_control_outcome(
+                    ctx.project_root,
+                    category="security",
+                    control="trusted-script-bypass",
+                    component="hook.prompt-injection-guard",
+                    outcome="success",
+                    source="hook",
+                    metadata={
+                        "tool": tool_name,
+                        "argv": trusted_outcome[:200],
+                    },
+                )
+            passthrough_stdin(ctx.data)
+            return
 
     # spec-105 G-12: short-circuit pattern scan for whitelisted CLI
     # invocations. The findings.json payload embeds rule names like
@@ -620,4 +979,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    run_hook_safe(main, component="hook.prompt-injection-guard", hook_kind="pre-tool-use")
+    run_hook_safe(
+        main,
+        component="hook.prompt-injection-guard",
+        hook_kind="pre-tool-use",
+        script_path=__file__,
+    )

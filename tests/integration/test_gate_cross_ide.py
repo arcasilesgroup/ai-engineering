@@ -99,8 +99,8 @@ WAVE2_LOCAL_CHECKS = ("gitleaks", "ruff", "ty", "pytest-smoke", "validate")
 # The four IDE identifiers spec-104 G-8 enumerates. Test parity must hold
 # for the cartesian product of these values x orchestrator behaviour.
 SUPPORTED_IDES: tuple[str, ...] = (
-    "claude_code",
-    "github_copilot",
+    "claude-code",
+    "github-copilot",
     "codex",
     "gemini",
 )
@@ -120,9 +120,7 @@ IDE_SPECIFIC_SESSION_ENVS: tuple[str, ...] = (
 # word-bounded so we don't false-positive on substrings of unrelated
 # identifiers (e.g., a hypothetical ``code_xchange`` doesn't trip
 # ``codex``). Each IDE name is matched as an isolated token.
-IDE_LITERAL_GREP = re.compile(
-    r"\b(claude_code|claude-code|github_copilot|github-copilot|copilot|codex|gemini)\b"
-)
+IDE_LITERAL_GREP = re.compile(r"\b(claude-code|github-copilot|copilot|codex|gemini)\b")
 
 # Allow-list: substrings of the source we explicitly tolerate even if
 # they happen to contain an IDE token. Every entry is a verbatim match
@@ -646,7 +644,7 @@ def test_run_gate_skill_caller_attributed_correctly(
 
     # Set AIENG_IDE so that IF the orchestrator accidentally used it
     # for produced_by attribution, the test would catch it.
-    monkeypatch.setenv("AIENG_IDE", "claude_code")
+    monkeypatch.setenv("AIENG_IDE", "claude-code")
 
     observed_produced_by: dict[str, str] = {}
 
@@ -671,7 +669,7 @@ def test_run_gate_skill_caller_attributed_correctly(
         assert observed == caller, (
             f"run_gate(produced_by={caller!r}) emitted produced_by={observed!r}; "
             "schema v1 (D-104-06) requires exact attribution to one of "
-            f"{list(SKILL_CALLERS)!r}. The IDE name (AIENG_IDE='claude_code') "
+            f"{list(SKILL_CALLERS)!r}. The IDE name (AIENG_IDE='claude-code') "
             "must NOT leak into produced_by."
         )
 

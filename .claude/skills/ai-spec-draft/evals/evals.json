@@ -1,0 +1,91 @@
+{
+  "skill": "ai-spec-draft",
+  "version": 1,
+  "notes": "Skill-creator eval corpus (spec-134 D-134-02). >=10 prompts: >=5 should-trigger + >=5 should-not-trigger. Verifiable assertions check brief structural shape.",
+  "cases": [
+    {
+      "id": "trigger-01",
+      "prompt": "draft a spec brief for adding /ai-feedback to the framework",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-spec-draft'",
+      "rationale": "'draft a spec brief' is the canonical verb."
+    },
+    {
+      "id": "trigger-02",
+      "prompt": "put together a one-pager for the windows installer overhaul",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-spec-draft'",
+      "rationale": "'one-pager' is a brief synonym; skill description registers the phrase."
+    },
+    {
+      "id": "trigger-03",
+      "prompt": "research the codebase and write up the problem before brainstorming",
+      "expected": "trigger",
+      "assertion": "skill_invoked == 'ai-spec-draft'",
+      "rationale": "Pre-brainstorm research-and-write is the skill's home."
+    },
+    {
+      "id": "trigger-04-14-sections",
+      "prompt": "draft a brief for the new CLI exit-code refactor",
+      "expected": "trigger",
+      "assertion": "rendered_brief_contains_all 14 canonical sections (Vision...Acceptance)",
+      "rationale": "Brief shape is byte-equivalent across drafts."
+    },
+    {
+      "id": "trigger-05-citations",
+      "prompt": "draft a brief for the audit pipeline rearchitecture",
+      "expected": "trigger",
+      "assertion": "rendered_brief_citation_count >= 5",
+      "rationale": "Minimum 5 file:line citations per the brief contract."
+    },
+    {
+      "id": "trigger-06-path",
+      "prompt": "capture the diagnostic for this work into a brief",
+      "expected": "trigger",
+      "assertion": "output_path STARTSWITH '.ai-engineering/specs/drafts/' AND output_path ENDSWITH '-brief.md'",
+      "rationale": "Output destination is fixed by skill contract."
+    },
+    {
+      "id": "no-trigger-01",
+      "prompt": "approve this spec and start working on it",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-brainstorm'",
+      "rationale": "Spec approval is /ai-brainstorm consuming a brief, not drafting one."
+    },
+    {
+      "id": "no-trigger-02",
+      "prompt": "plan out the tasks for spec-134",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-plan'",
+      "rationale": "Task planning is /ai-plan operating on an approved spec."
+    },
+    {
+      "id": "no-trigger-03",
+      "prompt": "implement the changes described in plan.md",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-build'",
+      "rationale": "Execution is /ai-build, not /ai-spec-draft."
+    },
+    {
+      "id": "no-trigger-04",
+      "prompt": "save my finding about pytest plugin ordering",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-note'",
+      "rationale": "Ad-hoc notes are /ai-note, not draft briefs."
+    },
+    {
+      "id": "no-trigger-05",
+      "prompt": "open an issue to track the cleanup work",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-issue'",
+      "rationale": "Issue creation is /ai-issue, distinct from brief authoring."
+    },
+    {
+      "id": "no-trigger-06",
+      "prompt": "review what I've drafted so far",
+      "expected": "no-trigger",
+      "assertion": "skill_invoked == 'ai-review'",
+      "rationale": "Review existing work is /ai-review, not drafting new briefs."
+    }
+  ]
+}

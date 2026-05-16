@@ -1,0 +1,13 @@
+
+ Usage: ai-eng audit health [OPTIONS]
+
+ Report state.db health: ledger, table counts, NDJSON freshness.
+
+ Returns exit code 0 when state.db carries the migration ledger and
+ every required table is present. Used by ``ai-eng doctor`` and CI
+ smoke tests.
+
+╭─ Options ────────────────────────────────────────────────────────────────────╮
+│ --json          Emit JSON envelope.                                          │
+│ --help          Show this message and exit.                                  │
+╰──────────────────────────────────────────────────────────────────────────────╯
