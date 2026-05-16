@@ -171,31 +171,12 @@ script); `run_hook_safe` enforces integrity per
 ## Runtime Layer Tunables
 
 ```
-AIENG_TOOL_OFFLOAD_BYTES         # default 16384
+AIENG_TOOL_OFFLOAD_BYTES         # default 4096
 AIENG_LOOP_WINDOW                # default 6
 AIENG_RALPH_MAX_RETRIES          # default 5
 AIENG_RALPH_BLOCK                # default 0 (observe-only)
 AIENG_HOOK_INTEGRITY_MODE        # default enforce
-AIENG_MAX_WAVE_AGENTS            # default auto (floor=2, ceiling=6)
-AIENG_MAX_QUALITY_AGENTS         # default 3 (Phase 5 assessor cap)
-AIENG_MAX_THREAD_WORKERS         # default 4 (orchestrator ThreadPoolExecutor cap)
-AIENG_HOST_PREFLIGHT_DISABLED        # pending spec-139 M2
-AIENG_HOST_PREFLIGHT_MIN_FREE_MB     # pending spec-139 M2
-AIENG_HOST_PREFLIGHT_MAX_PRESSURE_PCT # pending spec-139 M2
-AIENG_HOOK_CACHE_TTL_SEC         # pending spec-139 M5
-AIENG_HOOK_BUDGET_PROFILE        # pending spec-139 M5
-AIENG_AUTOFORMAT_DEBOUNCE_SEC    # pending spec-139 M5
-AIENG_NDJSON_MAX_LINES           # pending spec-139 M6
-AIENG_NDJSON_MAX_BYTES           # pending spec-139 M6
 ```
-
-Sort order: established tunables first (top 5), then the M1 concurrency
-budget primitive trio that landed with spec-139 M1, then env vars
-documented now but wired in later milestones (each marked with the
-landing milestone). Defaults for established + M1 vars MUST match the
-code defaults in `.ai-engineering/scripts/hooks/_lib/runtime_state.py`
-(established) and `src/ai_engineering/config/concurrency.py` (M1) —
-drift is gated by `tests/architecture/test_tunables_docs_match_code.py`.
 
 State lives under `.ai-engineering/runtime/` (gitignored — session
 state, not source of truth).
