@@ -7,6 +7,132 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-138 — Harness Persistence Strategy (SSOT-PD foundation, partial)
+
+Mantra: **One canonical store per datum. Caches are rebuildable. No silent
+dual-writes.** Lands the M1 bug clearance of the silent dual-write failure
+mode: every `INSERT INTO events` from the policy-decision hot path was
+writing to a phantom schema and swallowing every `sqlite3.Error`; the
+`audit-index.sqlite` 0-byte zombie was being opened by `runtime-stop.py:474`
+and the `session_token_rollup` query failed silently every Stop. M2-M5
+(doctrine document, autopopulation, derived-cache positioning, hooks_integrity
+table drop) are scoped in `.ai-engineering/specs/archive/spec-138-plan.md`
+and deferred to follow-up work.
+
+#### Removed — silent dual-write paths
+
+- `src/ai_engineering/governance/decision_log.py` — deleted `_insert_events_row`
+  (writing to phantom schema, swallowing `sqlite3.Error`), `_events_table_present`,
+  and `STATE_DB_REL`. Module no longer imports `sqlite3`. NDJSON is the
+  canonical store for events per Article-III / spec-138 SSOT-PD; `state.db.events`
+  is a SessionEnd-rebuilt derived cache via `ai-eng audit index`.
+- `src/ai_engineering/state/audit_index.py` — deleted `_delete_legacy_index`
+  and `_LEGACY_INDEX_REL` constant. The legacy `audit-index.sqlite` is absent
+  from every operator checkout and from this repo.
+
+#### Fixed — runtime-stop.py zombie read
+
+- `.ai-engineering/scripts/hooks/runtime-stop.py` and template mirror —
+  `_AUDIT_INDEX_REL` now points at `state.db` (unified projection per
+  spec-123 D-123-22), not the 0-byte zombie. The `session_token_rollup`
+  view is defined on `state.db` via `audit_index.py:131`.
+
+#### Added — contract test
+
+- `tests/unit/governance/test_decision_log.py` —
+  `test_no_sql_dual_write_module_no_longer_imports_sqlite` asserts on
+  module attributes (sqlite3 not imported, `_insert_events_row` and
+  `STATE_DB_REL` removed). Prevents regression of the dual-write bug.
+
+### spec-139 — Framework Performance Hardening (partial: M4 stale-x3 correction)
+
+Mantra: **ai-engineering NEVER causes WindowServer to hang. Every wave
+declares a concurrency budget. Every LLM call earns its place.** Lands
+the safety-critical single-character correction (D-139-10 hard rename).
+M1-M3 and M5-M9 (concurrency cap, host probe, hot-path cache, etc.) are
+scoped in `.ai-engineering/specs/archive/spec-139-plan.md` and deferred to
+follow-up work because their delivery exceeds a single autonomous run.
+
+#### Fixed — stale "x3" agent description (correctness/safety)
+
+- `.claude/agents/ai-autopilot.md:3` and every mirror surface
+  (`.codex/`, `.gemini/`, and the `src/ai_engineering/templates/project/`
+  tree) — replaced "verify+guard+review x3" with "single fail-loud
+  quality round (verify+guard+review — spec-131 D-131-05)". Closes the
+  interpretive blast radius where an LLM could read the description as
+  license to run 3 rounds × 16 agents = 48 invocations contradicting
+  the canonical contract at `phase-quality.md:3`.
+
+#### Added — agent description contract test
+
+- `tests/architecture/test_agent_description_contract.py` — parametrized
+  test forbids "verify+guard+review x3", "verify+guard+review ×3",
+  "review x3", "review ×3", "3 rounds of verify", "three rounds of
+  verify" from any committed file under `.claude/`, `.codex/`, `.gemini/`,
+  `.github/`, `.opencode/`, `.cursor/`, or `src/.../templates/project/`.
+
+### spec-140 — Less-Is-More Quality Engine (partial: W1 hard-delete)
+
+Mantra: **Con menos, hacemos más.** Lands Wave 1 hard-delete of dead-test
+archaeology. Waves 2 (CI matrix collapse), 2.5 (validator monolith split),
+and 3 (reviewer roster shrink) are scoped in
+`.ai-engineering/specs/archive/spec-140-plan.md` and deferred to follow-up
+work — each is sized for its own focused PR with empirical gates.
+
+#### Removed — dead test archaeology
+
+- `tests/unit/test_verify_service.py:610-end` — `TestVerifyCmdJsonFlag`
+  class (~97 LOC, 5 tests). The skip reason named git history as the
+  correct archaeology location.
+- `tests/perf/test_hot_path_budgets.py:191-228` — four xfail stubs
+  whose bodies were `pytest.fail("...not wired yet")`. Permanent XFAIL
+  with no harness. Real perf gates land with the deterministic compose
+  paths in spec-139 M8.
+- `tests/integration/test_hooks_git.py:121-184` —
+  `test_hook_blocks_commit_with_mock_secret` (~64 LOC). Skip reason
+  cited a "fixture redesign tracked separately" with no owner.
+- `tests/integration/test_updater.py:150-201` —
+  `test_denied_changes_reported` and `test_create_blocked_by_deny_ownership`
+  (~52 LOC). Both depended on a feature the updater does not implement
+  (emit skip-denied for paths the bundled template tree never visits).
+
+### spec-141 — Semgrep Pack Coverage Restoration (partial: M3 + M4)
+
+Mantra: **Real syntax, real budget, real coverage — no invented YAML,
+no network on the hot path.** Lands the Article VII parity for
+`# nosemgrep:` markers (M3) and the documentation rewrite + drift gate
+(M4). M1 (in-tree rule ID namespacing), M2 (CI pack coverage with repeated
+`--config` flags), and M5 (CI finding triage) are scoped in
+`.ai-engineering/specs/archive/spec-141-plan.md` and deferred to a focused
+follow-up PR after the upstream rule-ID rename has a planned migration
+window.
+
+#### Added — `# nosemgrep:` suppression Article VII parity (M3)
+
+- `tools/no_suppression/scanner.py` — detects `# nosemgrep` markers and
+  emits `rule_id="nosemgrep_hash"`. Capture group preserves the rule
+  target after the colon for granular allowlist matching.
+- `.ai-engineering/suppression-allowlist.yml` — header comment now
+  enumerates `nosemgrep_hash` alongside the existing pattern enum.
+- `tests/unit/no_suppression/test_scanner.py` — bare-marker and
+  with-target detection tests.
+
+#### Fixed — `semgrep-update-model.md` invented-YAML drift (M4)
+
+- `.ai-engineering/reference/semgrep-update-model.md` and template
+  mirror — rewritten to describe documented Semgrep syntax (repeated
+  `--config` flags + pinned CLI version). Removed the invented
+  `extends:` YAML block and the invalid `p/<name>@1.96.0` pack-version-pin
+  claims. Documents the two-tier scan model (pre-push in-tree only
+  with `--baseline-commit`; CI full pack coverage) and the new
+  `# nosemgrep:` Article VII enforcement.
+
+#### Added — semgrep doc drift gate (M4)
+
+- `tests/unit/contexts/test_semgrep_update_model_drift.py` — forbids
+  `extends:` and `@1.` patterns from re-entering the doc on any future
+  edit. Fails RED if the rewrite is silently undone.
+
 ### spec-137 — Event Relevance Discipline (D-137-01)
 
 Mantra: **lo que escribamos, donde sea, debe ser relevante.** A read-only survey
