@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Write `.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md` with deterministic frontmatter and body sections so subsequent sessions short-circuit at Tier 0 over the persisted corpus. Auto-persist when Tier 3 was invoked; opt-in via `--persist` for quick/standard depth.
+Write `.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md` with deterministic frontmatter and body sections so subsequent sessions short-circuit at Tier 0 over the persisted corpus. Auto-persist when Tier 3 was invoked; opt-in via `--persist` for quick/standard depth.
 
 ## Algorithm
 
@@ -28,7 +28,7 @@ This handler documents the algorithm that the agent (and the lockstep helper at 
 
 ### Output Path
 
-`<repo_root>/.ai-engineering/research/<slug>-<YYYY-MM-DD>.md`
+`<repo_root>/.ai-engineering/runtime/research/<slug>-<YYYY-MM-DD>.md`
 
 - `slug` = `topic_slug(query)` (re-uses the Tier 3 helper so the slug matches the NotebookLM title).
 - `<YYYY-MM-DD>` = first 10 chars of `created_at`.

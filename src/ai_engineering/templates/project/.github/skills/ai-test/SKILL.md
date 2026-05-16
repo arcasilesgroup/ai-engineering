@@ -28,7 +28,7 @@ TDD enforcement and testing skill. Tests are executable specifications -- they d
 
 ## Process
 
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
 
 ### Mode: tdd (RED-GREEN-REFACTOR)
 

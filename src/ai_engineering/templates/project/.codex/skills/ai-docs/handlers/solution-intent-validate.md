@@ -7,7 +7,7 @@ Read-only completeness and freshness check. Produces a scorecard without modifyi
 ## Procedure
 
 ### 1. Read document
-Load `docs/solution-intent.md`.
+Load `.ai-engineering/solution-intent.md`.
 
 ### 2. Check completeness per section
 

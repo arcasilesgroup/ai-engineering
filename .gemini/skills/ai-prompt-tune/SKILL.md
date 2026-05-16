@@ -138,7 +138,7 @@ User: 'optimize this: "check if the code follows our standards"'
 /ai-prompt-tune "check if the code follows our standards"
 ```
 
-Rewrites to a specific, observable instruction (e.g. "Run ruff on the staged hunks; flag any violation of lines 1-N of `.ai-engineering/contexts/python-stack.md`; report findings as a Markdown table"), shows before/after with annotations.
+Rewrites to a specific, observable instruction (e.g. "Run ruff on the staged hunks; flag any violation of lines 1-N of `.ai-engineering/overrides/python/conventions.md`; report findings as a Markdown table"), shows before/after with annotations.
 
 ### Example 2 — CSO-optimize a skill's description
 

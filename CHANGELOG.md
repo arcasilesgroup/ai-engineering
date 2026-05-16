@@ -7,6 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-136 — Prune low-value surfaces (`docs/`, `contexts/`, `research/`, `evals/`)
+
+Hard rename per `CONSTITUTION.md §3`. Four top-level knowledge surfaces
+(`.ai-engineering/contexts/`, `.ai-engineering/research/`, `docs/`,
+`evals/`) collapse into one coherent home (`.ai-engineering/reference/`)
+plus runtime state under `.ai-engineering/runtime/{research,presentations,reports}/`
+and a committed eval corpus at `.ai-engineering/evals/`. `docs/` is now
+reserved for the consumer project that installs ai-engineering; the
+framework owns nothing under `docs/` (D-136-02). Operator-as-dogfooder
+`docs/*.pen` files survive.
+
+#### BREAKING CHANGES — spec-136 D-136-01
+
+**Moved**:
+
+- `docs/principles.md` → `.ai-engineering/reference/principles.md`
+- `docs/mirror-authoring.md` → `.ai-engineering/reference/mirror-authoring.md`
+- `docs/surface-axioms.md` → `.ai-engineering/reference/surface-axioms.md`
+- `docs/cli-reference.md` → `.ai-engineering/reference/cli-reference.md`
+- `docs/model-dispatch-policy.md` → `.ai-engineering/reference/model-dispatch-policy.md`
+- `docs/solution-intent.md` → `.ai-engineering/solution-intent.md`
+- `docs/conformance-report.md` → `.ai-engineering/runtime/reports/conformance.md`
+- `.ai-engineering/contexts/{architecture-patterns,engineering-standards,harness-engineering,harness-adoption,knowledge-placement,gate-policy,risk-acceptance-flow,mcp-binary-policy,semgrep-update-model,spec-schema,plan-schema,operational-principles,gather-activity-data}.md` → `.ai-engineering/reference/`
+- `.ai-engineering/contexts/team/` → `.ai-engineering/team/`
+- `evals/baseline.json` + `evals/ai-debug.jsonl` + `evals/cli-ux-cross-ide/` → `.ai-engineering/evals/`
+
+**Removed**:
+
+- `docs/{anti-patterns,copilot-subagents,agentsview-source-contract,ci-alpine-smoke,getting-started}.md` — no test or skill consumer.
+- `docs/integrations/{antigravity,engram}.md` — Engram install snippet folded into `CLAUDE.md` `Optional: Engram` section (D-136-10); antigravity doc had no consumer.
+- `docs/architecture/dir-schemas.md`, `docs/presentations/` (all 8 files including `svg/`) — operator export artefacts misplaced in source tree (D-136-09).
+- `.ai-engineering/contexts/{cli-ux,evidence-protocol,mcp-integrations,permissions-migration,python-env-modes,session-governance,sentinel-iocs-update,stack-context}.md` — no current consumer (D-136-13).
+- `.ai-engineering/research/{ide-hook-engines,stack-classification,git-branch-cleanup-modes}-2026-05-12.md` — dated spec-133 artefacts; `/ai-research` Tier 0 cache rebuilds at the new gitignored runtime path (D-136-08).
+- `evals/` parent dir at repo root.
+- `src/ai_engineering/templates/.ai-engineering/contexts/` — template mirror of deleted live source.
+
+**Changed**:
+
+- `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `.github/copilot-instructions.md` — pointer rows retarget from `docs/` to `.ai-engineering/reference/`; placement-contract row retargets; Engram install snippet inlined into `Optional: Engram` section. Master payload at `scripts/sync_mirrors/core.py` updated.
+- `scripts/run_loop_skill_evals.py` — fail-loud on `--regression` with missing baseline (D-136-07); closes the silent gate-degradation footgun. `--baseline` and `--corpus-root` defaults retarget to `.ai-engineering/evals/`.
+- `tools/skill_lint/checks/md_mirror.py` — `_DOCS_TARGETS` retargets to `.ai-engineering/reference/`; CRITICAL-on-missing safety invariant preserved (D-136-14).
+- `tools/skill_lint/checks/no_orphan_dirs.py` — `_FIXED_ORPHAN_PATHS` collapses `.ai-engineering/contexts/{frameworks,languages}` to just `.ai-engineering/contexts` (whole tree forbidden).
+- `src/ai_engineering/state/control_plane.py`, `src/ai_engineering/config/{mirror_inventory,framework_defaults}.py`, `src/ai_engineering/validator/_shared.py`, `src/ai_engineering/installer/{phases/governance,service}.py`, `src/ai_engineering/updater/service.py`, `src/ai_engineering/doctor/phases/ide_config.py` — ownership / exclusion / migration rules retarget from `contexts/` to `reference/` and `team/`. `_DEPRECATED_GOVERNANCE_PATHS` extends to `("contexts", "research")` so consumer installs prune the legacy trees on next `ai-eng update`.
+- `tools/skill_domain/standards.py`, `tools/skill_lint/{checks/effort,cli}.py`, `tools/spec_lint/checks/references.py`, `tools/skill_app/eval_runner.py`, `tools/skill_infra/markdown_reporter.py`, `tools/no_suppression/scanner.py` — path strings retarget to new homes.
+- `.github/workflows/skill-evals.yml` — retarget corpus paths to `.ai-engineering/evals/`.
+- `README.md`, `CONTRIBUTING.md` — drop stale links to deleted docs; retarget cli-reference link; project-structure prose updated.
+- 76 `§10.x` citations across skill / agent files — anchor strings unchanged; pointer rows in mirrors retarget.
+
+Migration: consumers run `ai-eng update` after this lands; the updater's
+deprecation logic extends to cover the deleted paths. Consumers with
+operator-owned `.ai-engineering/contexts/team/` content must move it to
+`.ai-engineering/team/` before update (the updater deletes deprecated
+paths; it does not migrate contents).
+
 ### spec-134 Wave 4 — Hard-rename wave for ambiguous skill / agent names
 
 Per D-134-06, executes one atomic rename wave across 8 ambiguous

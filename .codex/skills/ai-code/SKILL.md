@@ -27,7 +27,7 @@ NOT for: tests (use /ai-test), debugging (use /ai-debug), refactoring (dispatch 
 
 ## Process
 
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
 
 ### Step 1: Pre-Coding Checklist
 
@@ -54,7 +54,7 @@ Before writing any code:
 
 ### Step 4: Write Code
 
-Implement following all loaded context standards. Apply stack-specific conventions from Step 0 and `.ai-engineering/contexts/operational-principles.md`. Write the minimal code that satisfies the requirement.
+Implement following all loaded context standards. Apply stack-specific conventions from Step 0 and `.ai-engineering/reference/operational-principles.md`. Write the minimal code that satisfies the requirement.
 
 ### Step 5: Backward Compatibility Check
 

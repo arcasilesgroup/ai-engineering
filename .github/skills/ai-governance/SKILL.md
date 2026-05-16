@@ -42,7 +42,7 @@ Compliance validation for regulated industries. Default mode is `compliance`. Pi
 - NOT for code quality — use `/ai-verify quality`.
 - NOT for security scanning — use `/ai-security`.
 
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
 
 ## Common Mistakes
 
@@ -84,6 +84,6 @@ Records a risk-acceptance entry in `state.db.decisions` with severity-based TTL,
 
 - `.ai-engineering/manifest.yml` — governance non-negotiables and quality thresholds.
 - `state/state.db` — risk acceptance records in `decisions` table (spec-124 D-124-12).
-- `.ai-engineering/contexts/risk-acceptance-flow.md` — DEC lineage and risk-acceptance lifecycle.
+- `.ai-engineering/reference/risk-acceptance-flow.md` — DEC lineage and risk-acceptance lifecycle.
 
 $ARGUMENTS

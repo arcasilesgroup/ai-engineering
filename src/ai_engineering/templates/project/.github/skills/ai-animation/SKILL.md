@@ -55,7 +55,7 @@ Motion design based on Emil Kowalski's design-engineering philosophy: animation 
 | GPU, WAAPI, CSS vs JS | `handlers/performance.md` |
 | DX, defaults, cohesion | `handlers/sonner-principles.md` |
 
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
 
 ## Common Mistakes
 

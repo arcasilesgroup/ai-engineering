@@ -30,7 +30,7 @@ Discoverable wrapper around the `ai-simplify` agent: dispatches the agent via th
 
 Principles applied: §10.1 KISS (the simplified version must actually be simpler — not just different; the self-check protocol enforces it); §10.7 Clean Code (names tell the story, functions do one thing well, cyclomatic complexity ≤8 per the engineering principles).
 
-1. **Step 0** — load contexts per `.ai-engineering/contexts/stack-context.md` so the stack-specific linter is wired up before any edit.
+1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` so the stack-specific linter is wired up before any edit.
 2. **Detect target** — `$ARGUMENTS` resolves to one of: explicit paths, `--diff` (current staged changes), or empty (current diff is the default).
 3. **Dependency preflight** — verify `.gemini/agents/ai-simplify.md` is on disk. STOP and report the exact missing path if absent.
 4. **Dispatch** — invoke the `ai-simplify` agent via the Agent tool with `{paths, aggressiveness}`. The agent runs in its own context window. The agent applies guard clauses, extracts methods, flattens nesting, removes dead code, simplifies conditionals — and validates after EVERY change (stack-specific linter + tests if fast).
@@ -121,7 +121,7 @@ the agent rolls back on test failure (behavior-preserving contract).
 **See also**:
 - `.gemini/skills/ai-simplify-sweep/SKILL.md` — scheduled wrapper with draft-PR side effect (different cadence and contract).
 - `.ai-engineering/manifest.yml` `quality` section — complexity thresholds the agent consults (cyclomatic ≤10, cognitive ≤15, nesting ≤3, method length ≤50).
-- `.ai-engineering/contexts/stack-context.md` — stack overrides.
+- `.ai-engineering/overrides/<stack>/conventions.md` — stack overrides.
 - Engineering anchors: CLAUDE.md §10.1 KISS, §10.7 Clean Code.
 - D-134-07 (cohesion test — first-class agents must have a discoverable slash-skill).
 

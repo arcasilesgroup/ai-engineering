@@ -1119,11 +1119,34 @@ state, not source of truth).
 
 ## Optional: Engram (third-party memory)
 
-`ai-engineering` ships without a built-in memory layer. Engram is no
-longer wired into the installer (spec-132 D-132-06); install it
-separately if you want cross-session memory. See
-`docs/integrations/engram.md` for OS-specific install commands and the
-`engram setup claude_code` post-step.
+`ai-engineering` ships without a built-in memory layer. Engram is a
+peer product maintained by `Gentleman-Programming/engram`; install it
+separately if you want cross-session memory (spec-132 D-132-06; the
+installer no longer wires Engram automatically).
+
+Install:
+
+```bash
+# macOS
+brew install engram
+# Linux
+curl -fsSL https://github.com/Gentleman-Programming/engram/releases/latest/download/engram-linux-x86_64 \\
+  -o "$HOME/.local/bin/engram" && chmod +x "$HOME/.local/bin/engram"
+# Windows
+winget install Engram
+```
+
+Then run the IDE-specific setup once per project (use the entry that
+matches your IDE):
+
+```bash
+engram setup claude_code   # Claude Code
+engram setup codex          # OpenAI Codex
+engram setup gemini_cli     # Gemini CLI
+```
+
+GitHub Copilot is not currently supported by Engram. Verify the
+integration with `ai-eng doctor`.
 
 ## Audit Observability (spec-120)
 

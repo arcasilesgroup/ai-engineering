@@ -36,7 +36,7 @@ edit_policy: generated-do-not-edit
 
 ## Workflow
 
-The skill body owns the user-facing routing contract. Detail files own the per-subcommand procedure. Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
+The skill body owns the user-facing routing contract. Detail files own the per-subcommand procedure. Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
 
 1. Detect subcommand from the first positional argument.
 2. If `discover`: read [`discover.md`](discover.md) and execute. Returns when manifest is updated atomically (or aborts with no partial write on failure).

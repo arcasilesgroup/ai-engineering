@@ -29,7 +29,7 @@ Run `git diff --cached` (or `git diff main...HEAD` for full branch diff). Parse 
 Read the documentation changes produced by subagents 1-4:
 - **CHANGELOG.md** -- staged entries from the changelog subagent
 - **README*.md** -- staged changes from the readme subagent
-- **docs/solution-intent.md** -- staged changes from the solution-intent-sync subagent
+- **.ai-engineering/solution-intent.md** -- staged changes from the solution-intent-sync subagent
 - **External portal** -- changes reported by the docs-portal subagent (if applicable)
 
 ### 3. Map changes to documentation coverage
