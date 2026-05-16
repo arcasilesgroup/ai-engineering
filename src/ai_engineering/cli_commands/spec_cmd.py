@@ -226,16 +226,22 @@ def spec_verify(
         kv("AFTER", f"{real_completed}/{real_total} (no drift)")
         status_line("ok", "Counters", "match")
 
-    # Emit signal
-    _emit_signal(
-        root,
-        "spec_verified",
-        {
-            "total": real_total,
-            "completed": real_completed,
-            "drift_detected": drift_detected,
-        },
-    )
+    # Emit signal -- spec-137 D-137-01 relevance discipline.
+    # `spec_verified` was the #1 polling-style emitter (848 rows/day,
+    # 63.5% of the audit tail). Convert to change-driven: only emit when
+    # drift was actually detected. Read-time consumers that want to know
+    # "did spec verify run" should derive it from git hook traces, not a
+    # heartbeat row.
+    if drift_detected:
+        _emit_signal(
+            root,
+            "spec_verified",
+            {
+                "total": real_total,
+                "completed": real_completed,
+                "drift_detected": drift_detected,
+            },
+        )
 
 
 def spec_list() -> None:

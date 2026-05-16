@@ -36,6 +36,12 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
         "memory_event",
         # spec-119 evaluation layer
         "eval_run",
+        # spec-122 Phase C governance layer (parity-fix per spec-137 D-137-01:
+        # this mirror was missing two kinds present in the authoritative
+        # frozenset, surfacing the drift the brief flagged in §3 third bullet).
+        "policy_decision",
+        # spec-123 D-123-26 retention layer
+        "retention_applied",
     }
 )
 

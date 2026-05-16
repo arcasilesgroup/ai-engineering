@@ -1,185 +1,191 @@
 ---
-spec: spec-135
-slug: framework-performance-hardening
-title: Framework Performance Hardening — Concurrency Budget, Host Preflight, Hook Hot-Path Discipline
+spec: spec-137
+slug: event-relevance-discipline
+title: Event Relevance Discipline — Kill the 92% Heartbeat Tail
 status: approved
 effort: large
-branch: spec-135/framework-performance-hardening
-source_brief: .ai-engineering/specs/drafts/framework-performance-hardening-brief.md
-target_dispatch: /ai-autopilot
-chains_after: spec-134
-trigger_incident: macOS M1 Pro kernel panic during /ai-autopilot — WindowServer watchdog timeout 171s; compressor 100% segments (BAD); 42 swapfiles
-summary: Cap parallel agent dispatch, add host preflight probe, enforce hook hot-path budgets, wire runtime rotation to SessionEnd across 3 active surfaces, and replace LLM calls with deterministic Python on structural paths so the framework cannot kernel-panic an operator machine.
+branch: claude/merge-and-draft-spec-M5T9f
+source_brief: .ai-engineering/specs/drafts/event-relevance-discipline-brief.md
+target_dispatch: /ai-build
+chains_after: spec-136
+mantra: "lo que escribamos, donde sea, debe ser relevante"
+date_approved: 2026-05-16
+auto_approved: true
+auto_approval_reason: operator invoked /ai-brainstorm --no-hitl with delegated spec authority for offline plane-travel autonomous run
+summary: Collapse the 92% heartbeat tail in framework-events.ndjson by enforcing a single relevance contract at the writer boundary — drop two unconditional polling emitters (spec_verified at 848/day, install_simulate_hook at 382/day), collapse three drifting ALLOWED_EVENT_KINDS frozensets to one authoritative source, introduce a severity tier (S0-S3) as a first-class schema field, declare audit_policy in manifest, retire telemetry-debug.log, and ship the migration in a single PR with all consumers and tests updated.
 ---
 
-# Framework Performance Hardening
+# spec-137 — Event Relevance Discipline
+
+> Mantra: **lo que escribamos, donde sea, debe ser relevante.**
+> When 92% of the audit tail is two unconditional emit sites, signal stops being signal.
 
 ## Summary
 
-A real macOS M1 Pro (16 GB) kernel-panicked under userspace-watchdog timeout while executing `/ai-autopilot`: WindowServer missed 171 s of check-ins, the memory compressor reached 100 % of segments (BAD), and 42 swapfiles existed. The proximate cause traces to ai-engineering itself — four uncapped parallel-dispatch sites (autopilot Phase 2 deep-plan fan-out, Phase 4 wave build fan-out, the policy-orchestrator `ThreadPoolExecutor`, and an interpretable "verify+guard+review x3" stale claim contradicting the canonical single-round contract), compounded by per-tool-call hook tax (`prompt-injection-guard.py` reloads a 38 KB IOC catalogue on every Bash/Write/Edit; `instinct-observe.py` writes NDJSON on both Pre and Post; `runtime-stop.py` invokes ruff + pytest-smoke on every SubagentStop cascade), runtime artefacts whose retention policies exist but are never triggered, and structural LLM calls that a 20-line Python script could do better. This spec lands a single PR `spec-135/framework-performance-hardening` carrying nine milestones that close the kernel-panic class, surface host capacity to dispatchers, enforce hook hot-path budgets, wire runtime rotation to SessionEnd across the three active runtime surfaces (claude-code, codex, gemini-cli), and replace LLM judgment with deterministic scripts on every structural path that earns nothing from LLM reasoning.
+A read-only survey on 2026-05-15 found that 1,230 of 1,335 NDJSON rows (92.1%) in a single working day came from just two unconditional polling emitters: `ai-eng spec verify` writes a `spec_verified` row on every invocation (848 rows/day, fires from the pre-commit hook), and `install_simulate_hook` writes one row per tool per synthetic install (382 rows/day). Neither emit-site honours an "emit only on state change" or "emit only on signal-worthy outcome" guard. Compounding the problem: `ALLOWED_EVENT_KINDS` is declared in three places that drift independently ([tools/skill_domain/event_schema.py:37](tools/skill_domain/event_schema.py:37), [.ai-engineering/scripts/hooks/_lib/observability.py:24](.ai-engineering/scripts/hooks/_lib/observability.py:24), [.ai-engineering/scripts/hooks/_lib/hook-common.py:54](.ai-engineering/scripts/hooks/_lib/hook-common.py:54)), the `FrameworkEvent` model has no severity/relevance hint, and `telemetry-debug.log` has zero readers anywhere in the codebase.
+
+This spec lands a single PR that (a) enforces a **relevance contract at the writer boundary**, (b) drops the two unconditional polling emitters in favour of emit-on-change semantics with a fail-open carve-out for failures, (c) collapses the three frozensets to a single authoritative source with two import-only mirrors and a CI test that asserts no drift, (d) introduces `severity` as a first-class enum field (`S0` critical, `S1` state-change, `S2` decision, `S3` debug) on `FrameworkEvent` with `schemaVersion` bumped to `2`, (e) declares an `audit_policy:` block in the manifest carrying the kind allow-list and per-kind severity floor, (f) retires `telemetry-debug.log` entirely (no readers), (g) updates every consumer (`audit index`, `query`, `tokens`, `replay`, `otel-export`, instinct extractor) to handle both pre-v2 (read-only) and post-v2 (read+write) shapes via a schema-version-aware reader, (h) rewrites the 18 enumerated tests, (i) adds a new test asserting the three frozenset sites import from the same authority, (j) adds a new test asserting no unconditional emit exists for the two retired heartbeats, (k) records the mechanism decision in `state.db decisions` as D-137-01, and (l) commits a CHANGELOG entry documenting the breakage.
 
 ## Goals
 
-1. **Concurrency-cap effective.** `AIENG_MAX_WAVE_AGENTS=2` on the trigger machine causes Phase 2 to dispatch 2 agents at a time, not N. Verified via the new `wave_dispatch_batched` framework event (introduced by M1 — emitted by `phase-deep-plan.md`, `phase-implement.md`, and the orchestrator on each batch boundary) showing 3 batches of 2 instead of one batch of 6.
-2. **Host preflight active.** `ai-eng host probe` returns valid JSON on darwin and linux; `host_capacity` event is emitted before every wave by any skill that dispatches ≥ 2 parallel subagents; degradation to cap = 1 triggers when `memory_pressure ≥ 50 %` or `swap_used_pct ≥ 20 %`.
-3. **Manifest reads eliminated from dispatched agents.** Phase 0 resolves stack context once, propagates as `STACK_CONTEXT=…` JSON in every dispatch prompt; `tool-history.ndjson` for a N=6 autopilot run shows zero `Read` tool calls on `manifest.yml` from build / explore / plan agents.
-4. **No residual stale "x3" or "max 3 rounds" claim.** Framework-wide grep across `.claude/`, `.codex/`, `.gemini/`, `.github/`, and `docs/` returns zero matches conflicting with the canonical single-round contract at `phase-quality.md:3`.
-5. **Hook hot-path budget enforced.** Measured p95 on the trigger machine: `prompt-injection-guard.py` < 50 ms (cached); `instinct-observe.py` < 5 ms (buffered); `auto-format.py` < 30 ms (debounced); `runtime-stop.py` convergence skipped on SubagentStop cascade when `< 30 s` since last green check.
-6. **Runtime rotation triggered automatically.** `SessionEnd` (and surface-equivalents on codex / gemini-cli) invokes `runtime-rotate-throttled.py`; `framework-events.ndjson` rotates above 100 k lines or 50 MB; `state.db PRAGMA incremental_vacuum` runs when free pages > 1000.
-7. **Deterministic short-circuits in place.** `/ai-brainstorm` calls `ai-eng spec verify --sections` before any LLM section-presence judgment; `/ai-autopilot` Phase 3 calls `ai-eng plan dag-build` first and only escalates to LLM when the import-graph parser reports unresolvable conflicts.
-8. **No residual avoidable LLM compose calls.** `/ai-commit`, `/ai-build`, `/ai-autopilot`, `/ai-pr` always pass `commit_compose.py --desc "<plan-task-title>"`; `/ai-pr` never invokes `pr_body_compose.py --bullets-prompt` when spec carries `summary:` frontmatter.
-9. **Tunables documented; doc/code drift closed.** Every new and existing `AIENG_*` env var documented in `CLAUDE.md` (and mirrors); `AIENG_TOOL_OFFLOAD_BYTES` default reconciled (16384 in code, was misdocumented as 4096); `test_tunables_docs_match_code.py` green.
-10. **Trigger-machine validation.** Pre-merge: synthetic `/ai-autopilot` run with N = 8 sub-specs on the trigger 16 GB M1 Pro; memory pressure stays < 60 % throughout; no watchdog timeout; no kernel panic; outcome documented in the PR body. Post-merge: a 30-day operator-dashboard follow-up brief consumes `host_capacity` events.
-11. **Cross-IDE wiring parity.** M6 SessionEnd wiring lands in `.claude/settings.json`, `.codex/hooks.json`, and `.gemini/settings.json` (with Gemini-native event mapping verified during implementation); `test_hook_wiring_parity.py` green; `github-copilot` waived in fixture (no conversational SessionEnd).
-12. **Manifest hygiene.** `manifest.yml surfaces.enabled` no longer declares `opencode` or `cursor` — only surfaces with materialized mirrors remain (claude-code, codex, gemini-cli, github-copilot).
-13. **Lifecycle plumbing portable.** `python3 .ai-engineering/scripts/spec_lifecycle.py start_new <slug> <title>` runs successfully on Python 3.9 (and later); `/ai-brainstorm` no longer fail-opens on the host that triggered this spec.
+1. **Volume reduction.** After this PR, framework-events.ndjson contains ≤ 150 lines after a typical working day (down from 1,335 — ~89% reduction). Measured via a synthetic full-day session in the post-merge follow-up; the unit-test substitute is `tests/unit/state/test_event_relevance_no_heartbeats.py` asserting zero unconditional emit sites for the two retired operations.
+2. **Single source of truth for kinds.** Only one authoritative `ALLOWED_EVENT_KINDS` exists at [tools/skill_domain/event_schema.py:37](tools/skill_domain/event_schema.py:37); the other two sites are import-only mirrors. Test `tests/unit/state/test_event_kinds_single_source.py` asserts the three sites resolve to the same frozenset membership.
+3. **Severity is first-class.** `FrameworkEvent` carries a required `severity` field with the four-value enum `S0|S1|S2|S3`. All emitters post-migration set it explicitly. Default-deny posture: callers must pick a tier; no fallback default.
+4. **Manifest declares the policy.** [.ai-engineering/manifest.yml:98](.ai-engineering/manifest.yml:98) carries a new `audit_policy:` block with `kind_allowlist`, `severity_floor`, `sampling`, and `failure_emission` fields. The installer carries the policy default. Test `tests/unit/test_manifest_audit_policy_default.py` asserts the default block is loaded by every template.
+5. **Telemetry-debug.log retired.** All four call sites stripped; no new emit sites; `AIENG_TELEMETRY_DEBUG` env var removed from runtime tunables; `state/telemetry-debug.log` no longer created.
+6. **Hot-path budget preserved.** Relevance gate is pure-Python dict lookup (manifest-loaded kind allow-list) plus int comparison (severity floor). Pre-commit < 1 s, pre-push < 5 s (CLAUDE.md Hot-Path Discipline).
+7. **Audit chain integrity preserved.** `ai-eng audit verify` green; `prev_event_hash` chain unbroken end-to-end across the migration cut. The chain is append-only; the migration only changes what is written after the cut, not what was written before.
+8. **Consumers updated.** `ai-eng audit index`, `query`, `tokens`, `replay`, `otel-export` all green against both pre-v2 (read-only, historical) and post-v2 (read+write, current) event shapes via a schema-version-aware reader. The instinct extractor handles the new kind set.
+9. **Failure-emission asymmetric.** Even if normal-success row is filtered, the corresponding failure row always emits. `spec_verified` with `drift_detected=true` always emits; `install_simulate_hook` with `outcome != success` always emits. Encoded as the `failure_emission: always` field in the manifest audit policy.
+10. **CHANGELOG documents the breakage.** Entry under "Unreleased" enumerates retired emit semantics, retired sinks, schemaVersion bump (1 → 2), and the new manifest `audit_policy:` shape.
 
 ## Non-Goals
 
-- Do **not** reduce or restructure the total skill / agent count in this spec — that is the orthogonal cohesion concern of the predecessor spec-134 brief.
-- Do **not** adopt a different LLM provider, local-only mode, or replace the Claude CLI subprocess contract.
-- Do **not** redesign `/ai-autopilot` phase architecture (this brief caps concurrency, not phases).
-- Do **not** remove the auditing layer (`framework-events.ndjson`, `state.db`) — audit-chain immutability is a Constitution §13.1 hard rule.
-- Do **not** re-architect the hexagonal layer; performance hardening must be layer-respectful.
-- Do **not** introduce per-spec custom concurrency budgets, real-time pressure-based dynamic re-throttling mid-wave, or distributed / remote orchestration — explicit YAGNI in this brief.
-- Do **not** wire `runtime-rotate-throttled.py` into `.opencode/` or `.cursor/` — those mirror directories do not exist and are being **removed** from `manifest.yml surfaces.enabled` in this PR (D-135-11).
-- Do **not** add a runtime SessionEnd surface to `.github/hooks/hooks.json` — `.github/` is git-lifecycle, not conversational; explicitly waived in `test_hook_wiring_parity.py`.
-- Do **not** ship the mandatory-`summary:` block in this PR — it lands soft (warn + autopopulate from title) and hardens in spec-140 (D-135-06).
+- Do **not** retire any `ALLOWED_EVENT_KINDS` member. All 13 declared kinds preserved (D-137-02).
+- Do **not** unify `observation-events.ndjson` with `framework-events.ndjson` (D-137-03).
+- Do **not** bring `lock-failures.ndjson` under the relevance contract (D-137-04).
+- Do **not** rewrite historical NDJSON (D-137-05).
+- Do **not** introduce an `AIENG_AUDIT_POLICY_PATH` env-var runtime override (D-137-06).
+- Do **not** add a CI gate rejecting new emit sites without a paired policy entry (D-137-07; deferred).
+- Do **not** bootstrap `state.db decisions` with historical decisions (D-137-08; deferred).
+- Do **not** introduce per-kind sampling beyond the existing 10% policy-decision allow-sampler (D-137-09; deferred).
+- Do **not** redesign the `outcome` enum (D-137-10).
 
 ## Decisions
 
-### D-135-01 — Single PR delivery, all nine milestones, severity-first commit sequencing
+### D-137-01: Relevance mechanism — hybrid emitter-side allow-list + severity tier + change-driven
 
-**Decision**: Land M1 – M9 in one PR on `spec-135/framework-performance-hardening`. Commit order within the PR mirrors brief §11 hand-off: safety (M1, M4) → observability + docs (M2, M9) → hot-path (M5) → determinism (M3, M7, M8) → retention (M6). Each milestone composes as a discrete atomic commit set under Conventional Commits §13.6.
+Three-layer contract at the writer boundary:
 
-**Rationale**: Operator confirmed (interrogation Q1) that a single cohesive PR is preferred over a hotfix split. The brief flagged "M1 + M4 alone is the safety-critical subset and can ship first as a hotfix branch if needed," but the operator chose the cohesive perf-story narrative. Severity-first ordering preserves the option to validate the safety subset on the trigger machine before later commits stack on, without splitting the PR.
+1. **Kind allow-list** (manifest-driven). The emitted `kind` must be in `audit_policy.kind_allowlist`. Default: all 13 kinds allowed.
+2. **Severity floor** (manifest-driven). Each kind has a configurable severity floor; emits below the floor drop. Defaults: `S2` for `framework_operation` and `ide_hook`, `S0` for `framework_error`, `S1` otherwise.
+3. **Change-driven emission** (caller-asserted). Callers that previously emitted unconditionally now compute a relevance condition: `spec_verified` emits only when `drift_detected=true` OR previous-drift-state differs; `install_simulate_hook` emits only when `outcome != success` OR mechanism is first-seen.
 
-### D-135-02 — Concurrency cap default = auto-tune with floor = 2, ceiling = 6
+Recorded in `state.db decisions` as D-137-01 with rationale and SHA placeholder.
 
-**Decision**: `AIENG_MAX_WAVE_AGENTS` default is `auto`, computed as `min(free_ram_gb // 4, cores // 2, 6)` with a hard floor of `2` and a hard ceiling of `6`. On the trigger machine (16 GB / 8 cores / ~8 GB free / 10 % pressure) this yields cap = 2. On a 32 GB / 16-core workstation it yields cap = 4. On a 64 GB workstation it caps at 6 to prevent accidental fan-out. Env override has precedence over manifest knob (D-135-12).
+### D-137-02..D-137-10
 
-**Rationale**: Auto-tune adapts to operator hardware rather than imposing a one-size-fits-all cap. Floor = 2 protects single-core / 8 GB hosts from accidentally serializing to cap = 0 due to integer truncation. Ceiling = 6 prevents wave-fan-out from running away on large workstations where parallelism is technically affordable but operationally rarely justified. This is the brief default and it directly closes the kernel-panic vector on the trigger machine: cap = 2 makes the 6-agent fan-out simply impossible.
+See spec body §Non-Goals — each decision is captured there with rationale.
 
-### D-135-03 — Host preflight applies to every skill that dispatches ≥ 2 parallel subagents
+## Architecture
 
-**Decision**: `/ai-autopilot`, `/ai-build` (wave dispatch path), `/ai-review` (specialist roster), `/ai-verify` (4-verifier roster), and `/ai-plan` (parallel exploration phase) all consult `probe()` before fan-out. Single-dispatch skills (`/ai-explore` alone, `/ai-debug`, `/ai-test`, `/ai-commit`, etc.) skip the probe to preserve their hot-path budget.
+The intervention lives at the **writer boundary** — the two canonical writers [src/ai_engineering/state/observability.py:107](src/ai_engineering/state/observability.py:107) (package side, `_append_framework_events_locked`) and [.ai-engineering/scripts/hooks/_lib/observability.py:224](.ai-engineering/scripts/hooks/_lib/observability.py:224) (hook-side stdlib mirror). Both writers gain a `_relevance_admits(event, policy)` precondition that returns `True` if the event survives the contract; otherwise the writer drops silently.
 
-**Rationale**: The risk surface is parallel dispatch, not the skill identity. Wrapping single-shot operations in the probe would add latency to every hot path, violating the < 200 ms hook budget. Limiting the probe to fan-out sites matches the actual concurrency exposure and keeps single-shot skills fast.
+```
+┌───────────────────────────────────────────────────────────────────┐
+│ Caller emits with kind, severity, detail                          │
+└───────────────────────────────┬───────────────────────────────────┘
+                                │
+                                ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ Relevance Contract  (audit_policy from manifest)                  │
+│   1. kind ∈ kind_allowlist?  ─ no → DROP                          │
+│   2. severity ≥ severity_floor[kind]?  ─ no → DROP                │
+│   3. failure_emission=always AND outcome != success?  ─ yes → KEEP│
+│   4. caller's relevance_claim admissible?  ─ no → DROP             │
+└───────────────────────────────┬───────────────────────────────────┘
+                                │ admitted
+                                ▼
+┌───────────────────────────────────────────────────────────────────┐
+│ Canonical writer (chooses sink)                                   │
+│   - framework-events.ndjson (hash-chained)                        │
+│   - state.db events (projection)                                  │
+│   - runtime/event-sidecars/<sha>.json                             │
+└───────────────────────────────────────────────────────────────────┘
+```
 
-### D-135-04 — Hot-path cache invalidation = mtime-based
+The contract is implemented in a single helper, `relevance_gate(event, policy) -> bool`, located in `src/ai_engineering/state/relevance.py`. The hook-side stdlib copy at `.ai-engineering/scripts/hooks/_lib/relevance.py` mirrors it byte-for-byte (asserted by a parity test).
 
-**Decision**: Module-level caches in `prompt-injection-guard.py` (IOC catalogue, decision-store) and other hot-path scripts key on `Path.stat().st_mtime`. On mtime change, reload; otherwise serve from cache. Per-process scope — no cross-process shared state.
+The three `ALLOWED_EVENT_KINDS` frozensets collapse: only [tools/skill_domain/event_schema.py:37](tools/skill_domain/event_schema.py:37) is authoritative; the hook-side mirror re-declares the constant and a CI test asserts the membership equality.
 
-**Rationale**: mtime is an atomic syscall, cheap, and sufficient for the worst-case failure mode (one extra reload). Content-hash invalidation would be more correct but more expensive, and the false-negative scenario (stale cache despite content tampering) is already covered by hook-integrity sha256 enforcement (`AIENG_HOOK_INTEGRITY_MODE=enforce`).
+`FrameworkEvent` gains a new required field `severity: Literal["S0", "S1", "S2", "S3"]`. `schemaVersion` bumps `1 → 2`. The `events` table in `state.db` gains a new nullable `severity` column.
 
-### D-135-05 — NDJSON rotation policy = archive + retain 3 archives + start fresh
+## Implementation Surface (M1..M7)
 
-**Decision**: When `framework-events.ndjson` exceeds 100 k lines or 50 MB, `ai-eng maintenance reset-events --auto` archives the current chain to `state/archives/framework-events-<timestamp>.ndjson.gz` and starts a fresh chain. Up to three archives retained; older archives age out via `runtime_rotate.py`.
+### M1 — Decision row
 
-**Rationale**: Preserves Constitution §13.1 audit-chain immutability (archive, never truncate). Three archives is enough historical depth to investigate any incident within a reasonable forensic window without unbounded growth. Older archives are bounded by `runtime_rotate.py`'s 30-day TTL.
+- Persist D-137-01 into `state.db decisions` with rationale, alternatives, and SHA placeholder.
 
-### D-135-06 — Mandatory spec `summary:` frontmatter — soft now, hard at spec-140
+### M2 — Schema migration (single source of truth + severity field)
 
-**Decision**: `spec-schema.md` adds `summary:` to required frontmatter. `/ai-brainstorm` warns when missing and autopopulates from `title:`. `/ai-pr` reads `summary:` when present, falls back to `--bullets-prompt` LLM call when absent. CHANGELOG flags a 30-day deprecation window; hard cutover lands in spec-140.
+- Add `severity` to [tools/skill_domain/event_schema.py](tools/skill_domain/event_schema.py) required-field tuple and `FrameworkEvent` TypedDict.
+- Bump `schemaVersion` constant `1 → 2`.
+- Mirror sites: re-declare `_ALLOWED_KINDS` in [.ai-engineering/scripts/hooks/_lib/observability.py:24](.ai-engineering/scripts/hooks/_lib/observability.py:24) and [.ai-engineering/scripts/hooks/_lib/hook-common.py:54](.ai-engineering/scripts/hooks/_lib/hook-common.py:54); add CI test asserting equality with authority.
+- Add `severity` to `state.db events` table via new migration.
 
-**Rationale**: Hard cutover in this PR would force migration of every existing approved spec (some lack `summary:`) inside the same already-large spec-135 PR, mixing perf hardening with spec metadata churn. The soft path captures the optimization for new specs immediately and lets existing specs migrate during the window. Brief default.
+### M3 — Relevance gate + emitter updates
 
-### D-135-07 — Tunable surface = both manifest and env, env precedence
+- Create `src/ai_engineering/state/relevance.py` exporting `relevance_gate(event, policy) -> bool`.
+- Create `.ai-engineering/scripts/hooks/_lib/relevance.py` (stdlib mirror).
+- Wire `relevance_gate` into both canonical writers before the write.
+- Update `spec_verified` emit-site: emit only when drift detected or state changed.
+- Update `install_simulate_hook` emit-site: emit only on failure or first-seen mechanism.
+- All other emitters: add explicit `severity=` argument.
 
-**Decision**: Every tunable introduced or touched in this spec has both a manifest knob (e.g., `performance.concurrency.max_wave_agents`) and an env override (e.g., `AIENG_MAX_WAVE_AGENTS`). Env beats manifest beats hard-coded default.
+### M4 — Consumer updates (schema-version-aware reader)
 
-**Rationale**: Mirrors the existing `AIENG_*` pattern. Manifest captures the project-wide default committed to source; env enables one-off operator overrides without editing tracked files. Documented in `CLAUDE.md` "Runtime Layer Tunables" (M9).
+- Add `severity` column to the `events` projection in `audit_index.py`.
+- Bulk-read inspects `schemaVersion` per row and applies default severity for v1 rows.
+- Map `severity` to OTel `SeverityNumber` in `audit_otel_export.py`.
 
-### D-135-08 — Phase-3 DAG fallback = escalate to LLM on conflict
+### M5 — Test updates
 
-**Decision**: `ai-eng plan dag-build` parses sub-spec `exports:/imports:` YAML and returns a wave-assignment JSON. When the parser detects conflicts unresolvable by import-graph alone (cycle, missing export, ambiguous overlap), it returns `{"status": "ambiguous", "conflicts": […]}` and `/ai-autopilot` Phase 3 escalates to the LLM-driven reasoning that lives there today. The 90 % structural case is deterministic; the 10 % semantic case keeps the existing behavior.
+Rewrite the 18 enumerated tests in brief §5 to include `severity` and post-v2 shape.
 
-**Rationale**: Preserves the safety net for genuinely ambiguous decompositions (which do occur and require judgment) while eliminating LLM cost for the common case where the YAML alone suffices.
+New tests:
+- `tests/unit/state/test_event_kinds_single_source.py` — asserts the three frozenset sites cannot drift.
+- `tests/unit/state/test_event_relevance_gate.py` — parametrized over all 13 kinds × 4 severities × failure_emission on/off.
+- `tests/unit/state/test_event_relevance_no_heartbeats.py` — grep-test asserting no unconditional emit for the two retired heartbeats.
+- `tests/unit/test_manifest_audit_policy_default.py` — asserts default audit_policy shape in manifest.
+- `tests/unit/hooks/test_telemetry_debug_log_retired.py` — asserts no call sites + env-var removed.
 
-### D-135-09 — Host probe placement = adapter layer, not domain
+### M6 — Manifest + docs
 
-**Decision**: `src/ai_engineering/adapters/host/probe.py` carries the platform adapters (darwin, linux); `src/ai_engineering/host/policy.py` (domain) carries the `auto_concurrency_cap(...)` decision. Mirrors how `state/db.py` and `state/instincts.py` are organized.
+Add to `.ai-engineering/manifest.yml`:
+```yaml
+audit_policy:
+  kind_allowlist: [skill_invoked, agent_dispatched, context_load, ide_hook,
+    framework_error, framework_operation, git_hook, control_outcome, task_trace,
+    memory_event, eval_run, retention_applied, policy_decision]
+  severity_floor:
+    framework_operation: S2
+    ide_hook: S2
+    framework_error: S0
+    default: S1
+  sampling:
+    policy_decision_allow: 0.10
+  failure_emission: always
+```
 
-**Rationale**: Host inspection is a port to the operating system; concurrency budget is the domain decision. Hexagonal §10.8 layering test (`tests/architecture/test_layer_isolation.py`) enforces this.
+Mirror into installer template. Create `docs/event-relevance.md`.
 
-### D-135-10 — "x3" / "max 3 rounds" correction is a hard rename, framework-wide
+### M7 — Audit chain verification + CHANGELOG
 
-**Decision**: Sweep all stale references across `.claude/`, `.codex/`, `.gemini/`, `.github/`, and `docs/`. Replace with the canonical single-round phrasing matched to `phase-quality.md:3`. Verified by `test_agent_description_contract.py` which greps the entire tree for the forbidden patterns. No backwards-compat shim, no deprecation alias — Constitution §13.3.
+- `ai-eng audit verify` green.
+- CHANGELOG entry under `## Unreleased` enumerating breakages and migration.
 
-**Rationale**: Operator confirmed (interrogation Q2) that the M4 sweep must be framework-wide, not the brief's narrower "fix line 3 only." The brief itself flagged line 3, but the same contradiction also exists on `ai-autopilot.md:18` ("max 3 rounds") and the grep test (`test_agent_description_contract.py`) is the authoritative verification surface. The panic vector is interpretation-sensitive — the LLM that reads any description must see exactly one consistent claim everywhere.
+## Acceptance
 
-### D-135-11 — Drop `opencode` and `cursor` from `manifest.yml surfaces.enabled` in this PR
+- [ ] Relevance mechanism implemented; D-137-01 persisted.
+- [ ] Single-source-of-truth test green.
+- [ ] `severity` first-class; `schemaVersion=2`.
+- [ ] Manifest carries `audit_policy:` with documented default.
+- [ ] `telemetry-debug.log` retired.
+- [ ] Hot-path budget preserved.
+- [ ] `ai-eng audit verify` green.
+- [ ] All 18 enumerated tests rewritten; 5 new tests added.
+- [ ] No suppression added; no backwards-compat shim.
+- [ ] CHANGELOG entry committed.
+- [ ] `pytest tests/unit/` green.
 
-**Decision**: Diverges from brief recommendation. `manifest.yml surfaces.enabled` is edited to list only the materialized surfaces — `claude-code`, `codex`, `gemini-cli`, `github-copilot`. The `.opencode/` and `.cursor/` directories do not exist on disk; declaring them creates a conceptual debt that downstream tooling (parity tests, hook-wiring tests) must work around. CHANGELOG documents the removal as a `BREAKING CHANGES` entry with a "re-declare in a future spec when the mirror payload is authored" note.
+## Quality Stamps
 
-**Rationale**: Operator chose this over the brief's "defer entirely" recommendation (interrogation Q6). Cleaner posture: we do not declare surfaces we cannot materialize. Removing the declarations simplifies `test_hook_wiring_parity.py` (no "deferred" stub list) and prevents downstream specs from inheriting unwarranted parity obligations. When opencode or cursor are wanted, a dedicated spec materializes mirror + skill + agent + wiring atomically.
-
-### D-135-12 — Validation commitment = synthetic repro pre-merge + 30-day post-merge monitoring
-
-**Decision**: Pre-merge DoD gate: operator runs `/ai-autopilot` on a spec with N = 8 sub-specs on the same 16 GB M1 Pro that originally panicked; captures `top -l 1 -s 0 -n 0` samples; confirms memory pressure < 60 % throughout; no watchdog timeout; no kernel panic; documents the outcome in the PR body. Post-merge: a follow-up brief (`framework-observability-dashboard-brief.md`) consumes `host_capacity` framework events to build a 30-day operator dashboard. The dashboard work is **out of scope** for spec-135 — only the event substrate is in scope here.
-
-**Rationale**: Operator owns the trigger machine; the synthetic repro is the only way to actually prove the panic vector is closed. Tests alone (`test_concurrency_budgets.py`) prove the mechanism works in isolation, not that the panic vector is closed on the specific hardware. The 30-day monitoring extends confidence but is correctly deferred to a follow-up brief that owns the dashboard.
-
-### D-135-13 — `spec_lifecycle.py` Python 3.11 dependency fix
-
-**Decision**: `.ai-engineering/scripts/spec_lifecycle.py` uses `from datetime import UTC` (requires Python ≥ 3.11). The brainstorm session for *this very spec* failed to bootstrap the DRAFT sidecar because the host runs Python 3.9 (fail-open per skill spec, but the script is silently broken on every < 3.11 host). The fix replaces the import with the 3.9-compatible `datetime.timezone.utc`. The Python-floor sub-question (raise `python_requires` vs maintain 3.9 compatibility) defers to `/ai-plan` after a grep of the existing codebase. A goal entry (Goal 13) is added to verify closure.
-
-**Rationale**: Caught during evidence sweep — the framework's own lifecycle plumbing silently no-ops on common operator hosts. Including this fix preserves the perf-hardening narrative's "every script earns its place" mantra. Small, localized change; out-of-scope deferral would orphan the bug. Operator confirmed in-scope during spec review.
-
-### D-135-14 — Brief's evidence catalog promoted intact to the plan; severity assignments accepted
-
-**Decision**: The 23 P-IDs in brief §5 (P1 – P23) map 1:1 onto the M1 – M9 implementation milestones, with the brief's severity classification preserved (CRITICAL: P1, P2, P15; HIGH: P3, P4, P5, P6, P8, P16; MEDIUM: P7, P9, P10, P11, P12, P13, P18, P22, P23; LOW: P14, P17, P19, P20, P21). `/ai-plan` MUST decompose milestones into TDD-first tasks that resolve each P-ID it covers.
-
-**Rationale**: The brief's evidence catalog is the load-bearing artefact for verifying spec-135 closure. Renumbering or recategorizing would lose the audit trail back to the kernel panic. The plan is the contract that closes each P explicitly.
-
-### D-135-15 — Adopt brief defaults silently for D3, D4, D5, D7, D9, D10
-
-**Decision**: Decisions D-135-04 (mtime invalidation), D-135-05 (NDJSON rotation), D-135-07 (env precedence), D-135-08 (DAG fallback), D-135-09 (hexagonal placement), D-135-10 (hard rename for x3) all follow the brief's recommended resolutions verbatim. No interrogation question was asked for these because every alternative is materially worse (e.g., content-hash invalidation vs mtime adds expense for no real correctness gain in a sha256-pinned-hook environment).
-
-**Rationale**: Interrogation budget is best spent on decisions where the operator has genuine policy preference. Where the brief's recommendation is technically dominant, adopting silently preserves the budget. All such decisions are surfaced here so the operator can override during the review loop.
-
-## Risks
-
-| # | Risk | Severity | Mitigation |
-|---|------|----------|------------|
-| R1 | Concurrency cap of 2 – 3 makes autopilot feel slow on healthy hosts | MEDIUM | Auto-tune from host capacity (D-135-02) — 32 GB / 16 cores yields cap = 4; cap is per-host not global; manifest knob + env override allow project-wide adjustment |
-| R2 | Host probe returns wrong values on macOS Sonoma / Sequoia | HIGH | Snapshot tests on multiple macOS versions; fail-open default falls back to cap = auto with `floor = 2`; `tests/integration/test_host_preflight.py` covers 4 scenarios (healthy / high pressure / low free RAM / single core) |
-| R3 | `prompt-injection-guard.py` mtime-based cache misses a tampered IOC file with preserved mtime | LOW | `AIENG_HOOK_INTEGRITY_MODE=enforce` (default) already verifies hook script sha256; IOC catalog tampering is a higher-privilege threat than the perf optimization addresses; risk-accept via `ai-eng risk accept` if surfaced by security review |
-| R4 | `instinct-observe.py` buffered writes lose the last < 5 s of events on a crash | LOW | SubagentStop is the natural flush point; instinct data is advisory not audit (Article-III audit chain lives in `framework-events.ndjson` which is unbuffered); document the bound in the script docstring |
-| R5 | `runtime-rotate-throttled.py` fires while autopilot is mid-run | MEDIUM | Throttle to 1 hour minimum; SessionEnd in Claude Code only fires when conversation ends (not mid-tool-call); equivalent on codex / gemini-cli verified during M6 wiring |
-| R6 | Deterministic plan DAG misses semantic conflicts (cycle detection only) | MEDIUM | Phase 3 LLM still runs when script returns `{"status": "ambiguous"}` (D-135-08); script handles structural 90 %, LLM handles semantic 10 % |
-| R7 | Forced `--desc` from plan task title produces poor commit messages | LOW | Task titles in `plan.md` are either human-written or `/ai-plan`-curated; quality bound by plan quality, not commit-time prose; soft fallback to `<DESC>` placeholder when title is empty |
-| R8 | Mandatory `summary:` field breaks existing specs | MEDIUM (mitigated by D-135-06) | Soft enforcement initially; `/ai-brainstorm` autopopulates from title; CHANGELOG announces 30-day window; hard cutover lands in spec-140 |
-| R9 | `state.db PRAGMA incremental_vacuum` interferes with active session | LOW | Runs only at SessionEnd; never mid-session; bounded to a single 1000-page vacuum per invocation |
-| R10 | `STACK_CONTEXT` propagation drifts semantically from a fresh manifest re-parse | LOW | `tests/integration/test_stack_context_propagation.py` asserts byte-equivalence; Phase 0 re-computes per session, not cached across sessions |
-| R11 | New tunables proliferate "knob soup" in `CLAUDE.md` | MEDIUM | Single `AIENG_HOST_PREFLIGHT_DISABLED=1` opt-out covers all preflight tunables; CLAUDE.md table is sorted by relevance; M9 owns the documentation hygiene |
-| R12 | Single PR with 9 milestones overwhelms reviewers | MEDIUM | Atomic commits per milestone with severity-first ordering (D-135-01); CHANGELOG is the index; brief's §11 hand-off sequence guides reviewer through the safety subset first |
-| R13 | Dropping `opencode` / `cursor` from `surfaces.enabled` surprises operators expecting that support | MEDIUM | CHANGELOG `BREAKING CHANGES` entry explicitly calls out the removal; D-135-11 documents the re-declare-when-materialized policy; predecessor spec-134 governance referenced |
-| R14 | The kernel panic recurs despite this work | CRITICAL | DoD validation step (D-135-12): rerun the failing autopilot on the same hardware post-merge; document outcome in PR body; 30-day monitoring catches regression via `host_capacity` events |
-| R15 | `spec_lifecycle.py` fix introduces unrelated Python-version churn | LOW | D-135-13 scopes the fix to a single import replacement; `/ai-plan` decides whether to add a `python_requires` floor based on what other framework code already requires |
-
-## References
-
-- doc: .ai-engineering/specs/drafts/framework-performance-hardening-brief.md
-- doc: CONSTITUTION.md
-- doc: docs/principles.md
-- doc: .ai-engineering/contexts/spec-schema.md
-- doc: .ai-engineering/manifest.yml
-- pr: arcasilesgroup/ai-engineering#509
-- doc: .claude/skills/ai-autopilot/handlers/phase-quality.md
-- doc: .claude/agents/ai-autopilot.md
-- doc: .ai-engineering/scripts/hooks/prompt-injection-guard.py
-- doc: .ai-engineering/scripts/runtime_rotate.py
-- doc: src/ai_engineering/policy/orchestrator.py
-- doc: CLAUDE.md
-
-## Open Questions
-
-1. **Python version floor for D-135-13.** Does the framework already require Python ≥ 3.11 elsewhere? `/ai-plan` resolves by grepping `pyproject.toml` and any `python_requires` declarations before deciding between 3.9-compat backfill vs raising the floor.
-2. **Gemini-native end-of-session event mapping (M6).** Brief speculates `AfterAgent` or session-stop equivalent. `/ai-plan` must read Gemini hook docs (or `/ai-research`) and pin the exact event name before M6 wiring lands. Failure mode is a silent no-op on gemini-cli, which `test_hook_wiring_parity.py` would catch.
-3. **`state.db` schema for `host_capacity` events.** Does the existing `events` table accept the JSON shape proposed in §4.2 of the brief, or does it require a migration? `/ai-plan` decides whether the event lives in `framework-events.ndjson` only (Article-III chain) or both NDJSON and `events` (queryable).
-4. **CHANGELOG `BREAKING CHANGES` shape for the manifest surface removal (D-135-11).** Phrasing must be unambiguous about the re-declare path for opencode / cursor and must not promise a future spec timeline.
+- **§10.1 KISS** — Fewer rows, one contract surface, one writer pair, one frozenset authority.
+- **§10.2 YAGNI** — No env-var override, no per-kind sampling, no CI guard, no historical bootstrap.
+- **§10.5 TDD** — New tests precede writer changes.
+- **§10.6 SDD** — Brief → spec → plan → build.
+- **§10.7 Clean Code** — `severity` named at point of emission; relevance is a precondition.
 
 ---
 
-**Status**: approved 2026-05-15 — `/ai-plan` may consume.
+**Handoff**: this spec is the contract for `/ai-plan`.

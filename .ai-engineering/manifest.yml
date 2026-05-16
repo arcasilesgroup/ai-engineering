@@ -99,6 +99,47 @@ telemetry:
   consent: strict-opt-in
   default: disabled
 
+# spec-137 D-137-01 -- Event Relevance Discipline.
+# Manifest-driven relevance contract enforced at the writer boundary
+# (src/ai_engineering/state/relevance.py). Three layers:
+#   1. kind_allowlist -- empty means "no restriction" (allow every
+#      declared kind in ALLOWED_EVENT_KINDS). Operators shrink the
+#      list to silence categories.
+#   2. severity_floor -- per-kind severity floor (S0..S3, S0 highest
+#      signal). Events at or above the floor pass; below the floor
+#      drop, except when failure-emission asymmetry fires.
+#   3. failure_emission=always -- a failure outcome (anything other
+#      than "success" or "allow") emits regardless of the floor, so
+#      failures never get silenced by the gate.
+# Default block below preserves the existing behaviour for every
+# emit site that has not yet been migrated to set severity
+# explicitly; it raises the floor for the two noisiest categories
+# (framework_operation, ide_hook) to S2 so future S3 debug-tier
+# emissions can be added without re-touching the manifest.
+audit_policy:
+  kind_allowlist:
+    - skill_invoked
+    - agent_dispatched
+    - context_load
+    - ide_hook
+    - framework_error
+    - framework_operation
+    - git_hook
+    - control_outcome
+    - task_trace
+    - memory_event
+    - eval_run
+    - retention_applied
+    - policy_decision
+  severity_floor:
+    default: S1
+    framework_operation: S2
+    ide_hook: S2
+    framework_error: S0
+  sampling:
+    policy_decision_allow: 0.10
+  failure_emission: always
+
 # /ai-build operator defaults (spec-134 D-134-03).
 # Reserved namespace: `no_hitl_default` is documentation-only today; the
 # canonical gate for unattended single-concern builds is the `--no-hitl`
