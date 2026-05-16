@@ -45,11 +45,20 @@ The repo's semgrep posture is incoherent: `.ai-engineering/contexts/semgrep-upda
 
 ## Decisions
 
-- **D-141-01 — Vendor vs registry.** Registry with CLI version pin in CI workflow + GH Actions cache keyed by Semgrep CLI version. Rationale: vendoring adds repo weight (low single-digit MB per pack); registry keeps config small and pack updates flow through CLI upgrades. Resolves brief D-A.
-- **D-141-02 — Registry failure policy.** Fail-closed (current Semgrep default, exit 2). Rationale: this is a security gate; transient outage is preferable to silently degraded coverage. CI badge surfaces "registry failure" distinctly from "real finding". Resolves brief D-B.
-- **D-141-03 — Rule ID rename breaking surface.** Hard rename (CONSTITUTION.md §3); CHANGELOG under BREAKING documents the mapping. Rationale: no external consumer of these rule IDs is known; the rename is the only way to prevent silent dedup with community-pack rule IDs. Resolves brief D-C.
-- **D-141-04 — Operator opt-in `--full` mode on pre-push.** No. Rationale: YAGNI — `ai-eng gate pre-push` exists for the default path; full-pack coverage is a CI responsibility per the two-tier model; operators wanting paranoid pre-push can invoke `semgrep --config p/python ...` directly. Resolves brief D-D.
-- **D-141-05 — Quarterly bump cadence.** Manual via CHANGELOG-driven CLI version pin update. Rationale: dependabot's automatic PR cadence (weekly) is too aggressive for a security gate where every bump can surface findings that block PRs; quarterly manual triage is more sustainable. Resolves brief D-E.
+- **D-141-01 — Vendor vs registry.** Registry with CLI version pin in CI workflow + GH Actions cache keyed by Semgrep CLI version. Resolves brief D-A.
+  *Rationale*: vendoring adds repo weight (low single-digit MB per pack); registry keeps config small and pack updates flow through CLI upgrades.
+
+- **D-141-02 — Registry failure policy.** Fail-closed (current Semgrep default, exit 2). CI badge surfaces "registry failure" distinctly from "real finding". Resolves brief D-B.
+  *Rationale*: this is a security gate; transient outage is preferable to silently degraded coverage.
+
+- **D-141-03 — Rule ID rename breaking surface.** Hard rename (CONSTITUTION.md §3); CHANGELOG under BREAKING documents the mapping. Resolves brief D-C.
+  *Rationale*: no external consumer of these rule IDs is known; the rename is the only way to prevent silent dedup with community-pack rule IDs.
+
+- **D-141-04 — Operator opt-in `--full` mode on pre-push.** No. Resolves brief D-D.
+  *Rationale*: YAGNI — `ai-eng gate pre-push` exists for the default path; full-pack coverage is a CI responsibility per the two-tier model; operators wanting paranoid pre-push can invoke `semgrep --config p/python ...` directly.
+
+- **D-141-05 — Quarterly bump cadence.** Manual via CHANGELOG-driven CLI version pin update. Resolves brief D-E.
+  *Rationale*: dependabot's automatic PR cadence (weekly) is too aggressive for a security gate where every bump can surface findings that block PRs; quarterly manual triage is more sustainable.
 
 ## Risks
 
