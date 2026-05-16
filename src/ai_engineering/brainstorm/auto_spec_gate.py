@@ -115,7 +115,9 @@ def _diff_adds_dependency(diff_text: str) -> bool:
         stripped = line[1:].strip()
         if re.match(r'^"[^"]+"\s*:\s*"[^"]+",?$', stripped):
             return True
-        if re.match(r'^"[a-zA-Z_][\w\-]*[><=!~]+[^"]+",?$', stripped):
+        # Bounded quantifiers satisfy Sonar S5852 (ReDoS). Realistic
+        # package-name and version-string lengths are well under 200.
+        if re.match(r'^"[a-zA-Z_][\w\-]{0,200}[><=!~]{1,10}[^"]{1,200}",?$', stripped):
             return True
     return False
 
