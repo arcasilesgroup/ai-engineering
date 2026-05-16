@@ -55,7 +55,7 @@ _CANONICAL_PAYLOAD = textwrap.dedent(
 
     ## 10. Engineering Principles (pointer)
 
-    See `docs/principles.md` for §10.1 KISS … §10.8 Hexagonal.
+    See `.ai-engineering/reference/principles.md` for §10.1 KISS … §10.8 Hexagonal.
     """
 )
 
@@ -356,8 +356,8 @@ def test_forbidden_constitution_headers_constant_is_complete() -> None:
 def _build_docs_targets(repo: Path) -> None:
     """Write the three sub-005 `docs/` destinations into the fixture root.
 
-    The sub-005 driver requires ``docs/principles.md``,
-    ``docs/mirror-authoring.md``, and ``docs/surface-axioms.md`` to
+    The sub-005 driver requires ``.ai-engineering/reference/principles.md``,
+    ``.ai-engineering/reference/mirror-authoring.md``, and ``.ai-engineering/reference/surface-axioms.md`` to
     exist on disk; their contents are not inspected by the lint
     sub-checks (they are content-existence guards only). Test
     fixtures therefore write stub files; integration tests
@@ -435,7 +435,7 @@ def test_no_extracted_sections_allows_pointer_stub_with_suffix(tmp_path: Path) -
     _build_fixture(tmp_path)
     _build_docs_targets(tmp_path)
     pointer = _CANONICAL_PAYLOAD + (
-        "\n## 10. Engineering Principles (pointer)\n\nsee docs/principles.md\n"
+        "\n## 10. Engineering Principles (pointer)\n\nsee .ai-engineering/reference/principles.md\n"
     )
     (tmp_path / "CLAUDE.md").write_text(pointer, encoding="utf-8")
     from skill_lint.checks.md_mirror import check_no_extracted_sections_in_mirrors
@@ -463,14 +463,14 @@ def test_docs_targets_present_passes_when_files_exist(tmp_path: Path) -> None:
 
 @pytest.mark.unit
 def test_docs_targets_present_fails_when_principles_missing(tmp_path: Path) -> None:
-    """CRITICAL when docs/principles.md is absent."""
+    """CRITICAL when .ai-engineering/reference/principles.md is absent."""
     _build_docs_targets(tmp_path)
     (tmp_path / "docs" / "principles.md").unlink()
     from skill_lint.checks.md_mirror import check_docs_targets_exist
 
     result = check_docs_targets_exist(tmp_path)
     assert result.severity == "CRITICAL", result.reason
-    assert "docs/principles.md" in result.reason, (
+    assert ".ai-engineering/reference/principles.md" in result.reason, (
         f"reason must surface the missing target; got {result.reason!r}"
     )
 

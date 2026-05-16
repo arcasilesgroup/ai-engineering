@@ -458,7 +458,7 @@ def test_local_mode_check_count_is_5(tmp_path: Path, explicit_mode_kwarg: bool) 
         f"{_EXPECTED_LOCAL_COUNT} checkers (D-104-02); got "
         f"{len(log.invoked)}: {sorted(log.invoked)}. If you intentionally "
         "expanded the fast-slice set, update this constant AND "
-        ".ai-engineering/contexts/gate-policy.md AND the spec D-104-02 "
+        ".ai-engineering/reference/gate-policy.md AND the spec D-104-02 "
         "table — never silently."
     )
     # And the count of unique checks must equal the count of invocations

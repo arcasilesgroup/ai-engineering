@@ -356,7 +356,7 @@ def tier0_local(
 
     ``repo_root`` is the repository root the agent was invoked from. The
     helper resolves the three default local source paths under it:
-    ``.ai-engineering/research/``, ``.ai-engineering/LESSONS.md``, and
+    ``.ai-engineering/runtime/research/``, ``.ai-engineering/LESSONS.md``, and
     ``.ai-engineering/state/framework-events.ndjson``.
     """
     repo_root = Path(repo_root)

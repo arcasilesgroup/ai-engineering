@@ -33,7 +33,7 @@ from skill_domain.eval_types import (
 
 
 def load_baseline(baseline_path: Path) -> tuple[BaselineEntry, ...]:
-    """Read ``evals/baseline.json`` and return the entries.
+    """Read ``.ai-engineering/evals/baseline.json`` and return the entries.
 
     The file format is ``{"entries": [...]}`` with one
     :class:`BaselineEntry` ``to_dict`` payload per row. This wrapper

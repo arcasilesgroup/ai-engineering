@@ -73,7 +73,7 @@ class RubricResult:
 
 
 # ---------------------------------------------------------------------------
-# Policy loader (SSOT = docs/model-dispatch-policy.md)
+# Policy loader (SSOT = .ai-engineering/reference/model-dispatch-policy.md)
 # ---------------------------------------------------------------------------
 
 

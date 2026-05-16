@@ -35,7 +35,7 @@ _DEFAULT_AGENTS_ROOT = Path(".claude/agents")
 _DEFAULT_REPO_ROOT = Path(".")
 _DEFAULT_HOOKS_ROOT = Path(".ai-engineering/scripts/hooks")
 _DEFAULT_SCHEDULED_ROOT = Path(".ai-engineering/scripts/scheduled")
-_DEFAULT_POLICY_PATH = Path("docs/model-dispatch-policy.md")
+_DEFAULT_POLICY_PATH = Path(".ai-engineering/reference/model-dispatch-policy.md")
 
 
 def _exit_code(

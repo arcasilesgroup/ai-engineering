@@ -61,14 +61,14 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--baseline",
         type=Path,
-        default=Path("evals/baseline.json"),
-        help="Path to evals/baseline.json (default: evals/baseline.json).",
+        default=Path(".ai-engineering/evals/baseline.json"),
+        help="Path to baseline.json (default: .ai-engineering/evals/baseline.json).",
     )
     parser.add_argument(
         "--corpus-root",
         type=Path,
-        default=Path("evals"),
-        help="Directory containing <skill>.jsonl corpora (default: evals/).",
+        default=Path(".ai-engineering/evals"),
+        help="Directory containing <skill>.jsonl corpora (default: .ai-engineering/evals/).",
     )
     parser.add_argument(
         "--out",
@@ -84,10 +84,18 @@ def main(argv: list[str] | None = None) -> int:
 
     baseline = load_baseline(args.baseline)
     if not baseline:
-        # Empty baseline ⇒ first-run capture flow. Per
-        # ``ai-reliability-eval --regression`` semantics, the absence of a
-        # baseline is treated as a no-op pass; ``--regression``
-        # only gates after a baseline exists.
+        if args.regression:
+            # spec-136 D-136-07: fail-loud when the operator explicitly
+            # asked for the regression gate but the baseline contract is
+            # missing. Silent green here masked broken CI gates pre-spec-136.
+            print(
+                f"missing baseline at {args.baseline} but --regression was requested; "
+                "the regression gate has no contract to evaluate against. Capture a "
+                "baseline first (drop --regression on the first run).",
+                file=sys.stderr,
+            )
+            return 2
+        # First-run capture flow preserved when --regression is NOT set.
         print(
             f"no baseline at {args.baseline} — skipping regression gate (first-run capture).",
             file=sys.stderr,

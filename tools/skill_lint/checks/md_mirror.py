@@ -255,11 +255,12 @@ _EXTRACTED_HEADING_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"^## 16\. Surface Axioms\b.*$", re.MULTILINE),
 )
 
-# Required `docs/` destinations for the extracted prose.
+# Required `.ai-engineering/reference/` destinations for the extracted prose
+# (D-136-04 / D-136-14: §10 / §14 / §16 relocated; check retargets, never disappears).
 _DOCS_TARGETS: tuple[str, ...] = (
-    "docs/principles.md",
-    "docs/mirror-authoring.md",
-    "docs/surface-axioms.md",
+    ".ai-engineering/reference/principles.md",
+    ".ai-engineering/reference/mirror-authoring.md",
+    ".ai-engineering/reference/surface-axioms.md",
 )
 
 

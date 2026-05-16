@@ -72,10 +72,6 @@ DEFAULT_EXCLUDE_GLOBS: tuple[str, ...] = (
     "tests/unit/test_skill_contract_completeness.py",
     "tests/unit/test_no_suppression*.py",
     "tests/unit/test_path_safety.py",
-    # Slide/presentation generators echo the rule names as content, not as
-    # suppression comments. Allowlisted explicitly because the strings are
-    # parameterised into rendered HTML.
-    "docs/presentations/**",
 )
 
 

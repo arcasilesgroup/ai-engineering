@@ -31,11 +31,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # mirror also surfaces here.
 #
 # spec-134 sub-005 mirror diet: §10 Engineering Principles (full prose
-# including TDD / SDD anchors) extracted to ``docs/principles.md``.
+# including TDD / SDD anchors) extracted to ``.ai-engineering/reference/principles.md``.
 # The hard-rule patterns still match the canonical home, but they are
 # carried via §10 anchors at the new location AND via the
 # ``Verification Before Done`` / ``Goal-Driven Execution`` Karpathy
-# §4 one-liner that remains in mirrors. Add ``docs/principles.md`` to
+# §4 one-liner that remains in mirrors. Add ``.ai-engineering/reference/principles.md`` to
 # GOVERNANCE_PATHS so the scan covers the extracted home; keep
 # ``CANONICAL.md`` + ``AGENTS.md`` so the pointer-row contract is
 # still verified at mirror granularity.

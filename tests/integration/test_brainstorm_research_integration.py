@@ -93,7 +93,7 @@ def test_spec_schema_documents_research_prefix_convention() -> None:
 
     Asserts:
       * The Optional Sections / References row mentions the
-        ``- research: .ai-engineering/research/<artifact>.md`` syntax.
+        ``- research: .ai-engineering/runtime/research/<artifact>.md`` syntax.
       * The prefix convention is named explicitly so authors of brand-new
         prefixes (e.g., ``rfc:``) can follow the same shape.
     """
@@ -104,9 +104,9 @@ def test_spec_schema_documents_research_prefix_convention() -> None:
         "spec-schema.md must document the 'research:' prefix in the "
         "References section per spec-111 T-4.6"
     )
-    assert ".ai-engineering/research/" in text, (
+    assert ".ai-engineering/runtime/research/" in text, (
         "spec-schema.md must show the canonical artifact path "
-        ".ai-engineering/research/<artifact>.md"
+        ".ai-engineering/runtime/research/<artifact>.md"
     )
     assert "prefix" in text.lower(), (
         "spec-schema.md must call out the convention as a 'prefix' so future "

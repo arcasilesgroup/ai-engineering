@@ -81,9 +81,9 @@ _VERIFY_MODES = (
     "platform",
 )
 
-_OPERATIONAL_PRINCIPLES = ".ai-engineering/contexts/operational-principles.md"
-_ENGINEERING_STANDARDS = ".ai-engineering/contexts/engineering-standards.md"
-_HARNESS_ENGINEERING = ".ai-engineering/contexts/harness-engineering.md"
+_OPERATIONAL_PRINCIPLES = ".ai-engineering/reference/operational-principles.md"
+_ENGINEERING_STANDARDS = ".ai-engineering/reference/engineering-standards.md"
+_HARNESS_ENGINEERING = ".ai-engineering/reference/harness-engineering.md"
 _CONSTITUTION = "CONSTITUTION.md"
 
 _T = TypeVar("_T")

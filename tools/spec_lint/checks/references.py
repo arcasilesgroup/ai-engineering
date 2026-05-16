@@ -27,9 +27,10 @@ _PR_SHAPE_RE = re.compile(r"^(?:[\w.-]+/[\w.-]+#\d+|https?://\S+)$")
 _REF_RE = re.compile(r"^- ([A-Za-z][A-Za-z0-9-]*): (.+)$")
 
 # Acceptable research target shape: a repo-relative path under
-# ``.ai-engineering/research/`` ending in ``.md``. Anything else under
-# the ``research:`` prefix (e.g. NotebookLM UUIDs) emits ADVISORY.
-_RESEARCH_MD_RE = re.compile(r"^\.ai-engineering/research/.+\.md$")
+# ``.ai-engineering/runtime/research/`` ending in ``.md`` (D-136-08:
+# cache target relocated to gitignored runtime path). Anything else
+# under the ``research:`` prefix (e.g. NotebookLM UUIDs) emits ADVISORY.
+_RESEARCH_MD_RE = re.compile(r"^\.ai-engineering/runtime/research/.+\.md$")
 
 
 def check_references(spec_path: Path) -> list[CheckResult]:

@@ -65,11 +65,12 @@ _SURFACE_SKILLS_ROOTS: tuple[str, ...] = (
 
 _HANDLERS_OWNERS: tuple[str, ...] = ("ai-debug", "ai-review")
 
-# Repo-rooted paths that must never exist (D-133-13 hard deletes).
+# Repo-rooted paths that must never exist (D-133-13 + spec-136 D-136-01
+# hard deletes). Whole ``.ai-engineering/contexts/`` parent dir removed
+# by spec-136; individual frameworks/languages entries no longer needed.
 _FIXED_ORPHAN_PATHS: tuple[str, ...] = (
     ".ai-engineering/adapters",
-    ".ai-engineering/contexts/frameworks",
-    ".ai-engineering/contexts/languages",
+    ".ai-engineering/contexts",
 )
 
 

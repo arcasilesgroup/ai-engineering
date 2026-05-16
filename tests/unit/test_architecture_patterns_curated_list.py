@@ -1,7 +1,7 @@
 """Phase 3 GREEN: architecture-patterns curated list contract (spec-106 G-3).
 
 Asserts the curated patterns context at
-``.ai-engineering/contexts/architecture-patterns.md`` lists the canonical
+``.ai-engineering/reference/architecture-patterns.md`` lists the canonical
 patterns from D-106-03 and that each entry includes the required subsections
 (``**Description**``, ``**When to use**``, ``**When NOT to use**``,
 ``**Example**``) so /ai-plan consumers can reason about applicability

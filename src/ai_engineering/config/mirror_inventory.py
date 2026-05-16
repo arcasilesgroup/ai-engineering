@@ -146,8 +146,8 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
 _GOVERNANCE_MIRROR_RULE = GovernanceMirrorRule(
     canonical_rel=".ai-engineering",
     mirror_rel="src/ai_engineering/templates/.ai-engineering",
-    glob_patterns=("contexts/**/*.md", "runbooks/**/*.md", "README.md"),
-    exclusions=("context/", "contexts/team/", "CONSTITUTION.md", "state/", "evals/", "tasks/"),
+    glob_patterns=("reference/**/*.md", "README.md"),
+    exclusions=("team/", "CONSTITUTION.md", "state/", "tasks/", "runtime/"),
 )
 
 _VALIDATOR_PAIR_ROOTS: dict[str, tuple[str, str]] = {

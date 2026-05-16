@@ -24,15 +24,15 @@ from . import (
     PlannedAction,
 )
 
-_EXCLUDE_PREFIXES = ("agents/", "skills/", "contexts/team/")
+_EXCLUDE_PREFIXES = ("agents/", "skills/", "team/")
 
-_TEAM_OWNED = "contexts/team/"
+_TEAM_OWNED = "team/"
 _STATE_PREFIX = "state/"
 _STATE_REGENERATED = {"state/install-state.json", "state/ownership-map.json"}
 
 # Migration mappings: new_rel -> old_rel (for files that moved between versions)
 _MIGRATIONS: dict[str, str] = {
-    "LESSONS.md": "contexts/team/lessons.md",
+    "LESSONS.md": "team/lessons.md",
 }
 
 

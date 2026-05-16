@@ -79,11 +79,11 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
         OwnershipLevel.FRAMEWORK_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),
-    (".ai-engineering/contexts/team/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
+    (".ai-engineering/team/**", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".ai-engineering/LESSONS.md", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.APPEND_ONLY),
     (_CONSTITUTIONAL_PRIMARY, OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (
-        ".ai-engineering/contexts/*.md",
+        ".ai-engineering/reference/*.md",
         OwnershipLevel.FRAMEWORK_MANAGED,
         FrameworkUpdatePolicy.ALLOW,
     ),

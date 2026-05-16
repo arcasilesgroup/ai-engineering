@@ -1,7 +1,7 @@
 """Phase 3 GREEN: /ai-plan reads architecture-patterns.md + records pattern (spec-106 G-3).
 
 These tests assert that the architecture-patterns context exists at
-``.ai-engineering/contexts/architecture-patterns.md``, that ``/ai-plan``
+``.ai-engineering/reference/architecture-patterns.md``, that ``/ai-plan``
 SKILL.md adds a Process step that reads the context and records the chosen
 pattern under a ``## Architecture`` section in ``plan.md``, and that the
 SKILL.md change is mirrored across every IDE mirror so non-Claude IDEs see
