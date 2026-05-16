@@ -601,7 +601,7 @@ class TestInstallCallsCopyTemplateTree:
         patched["copy_template_tree"].assert_called_once_with(
             Path("/fake/templates"),
             tmp_path / ".ai-engineering",
-            exclude=["agents/", "skills/", "contexts/team/"],
+            exclude=["agents/", "skills/", "team/"],
         )
 
 

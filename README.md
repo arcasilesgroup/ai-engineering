@@ -56,13 +56,13 @@ ai-eng doctor
 
 `install` scaffolds the governance root, detects your stack, mirrors skills to every configured IDE, and wires the secrets-gate. `doctor` validates the result.
 
-See [docs/getting-started.md](docs/getting-started.md) for the 3-minute walkthrough from clone to merged PR.
+Run `ai-eng install --help` for the full options matrix; the doctor output names every step that has to pass.
 
 **Telemetry** is strict-opt-in (default disabled). The audit chain is local NDJSON; external emitters require explicit operator opt-in via `.ai-engineering/manifest.yml > telemetry.*`.
 
 ### Optional: Engram (third-party memory)
 
-`ai-engineering` ships **without** a built-in memory layer. Engram is no longer wired into the installer (spec-132 D-132-06); install it separately if you want cross-session memory. See [docs/integrations/engram.md](docs/integrations/engram.md) for OS-specific install commands and the `engram setup claude_code` post-step.
+`ai-engineering` ships **without** a built-in memory layer. Engram is a peer product maintained by `Gentleman-Programming/engram`; install it separately if you want cross-session memory (spec-132 D-132-06; the installer no longer wires Engram automatically). See the `Optional: Engram` section of [CLAUDE.md](CLAUDE.md) for OS-specific install commands and the IDE setup matrix.
 
 ## How AI Works Here
 
@@ -72,7 +72,7 @@ This framework defines a single canonical chain that every supported IDE follows
 - [CONSTITUTION.md](CONSTITUTION.md) — project identity (mission, stakeholders, vocabulary, prohibitions, compliance gates)
 - [CHANGELOG.md](CHANGELOG.md) — version history and breaking-change reference
 
-The skill catalogue, agent roster, runbook list, quality-gate thresholds, and CLI command reference all live in [AGENTS.md](AGENTS.md) (canonical) and [docs/cli-reference.md](docs/cli-reference.md). They are not duplicated here.
+The skill catalogue, agent roster, runbook list, quality-gate thresholds, and CLI command reference all live in [AGENTS.md](AGENTS.md) (canonical) and [.ai-engineering/reference/cli-reference.md](.ai-engineering/reference/cli-reference.md). They are not duplicated here.
 
 ## Standing on the shoulders of...
 

@@ -73,11 +73,11 @@ class TestOwnershipMap:
 
     def test_writable_by_framework_allow(self) -> None:
         om = default_ownership_map()
-        assert om.is_writable_by_framework(".ai-engineering/contexts/languages/python.md") is True
+        assert om.is_writable_by_framework(".ai-engineering/reference/principles.md") is True
 
     def test_writable_by_framework_deny(self) -> None:
         om = default_ownership_map()
-        assert om.is_writable_by_framework(".ai-engineering/contexts/team/custom.md") is False
+        assert om.is_writable_by_framework(".ai-engineering/team/custom.md") is False
 
     def test_writable_by_framework_no_match_defaults_deny(self) -> None:
         om = default_ownership_map()
@@ -89,16 +89,17 @@ class TestOwnershipMap:
 
     def test_update_allowed_for_framework_managed(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/contexts/languages/python.md") is True
+        assert om.is_update_allowed(".ai-engineering/reference/principles.md") is True
 
     def test_update_allowed_for_promoted_root_context(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/contexts/cli-ux.md") is True
-        assert om.is_update_allowed(".ai-engineering/contexts/mcp-integrations.md") is True
+        # spec-136 D-136-01: promoted context files now live under reference/.
+        assert om.is_update_allowed(".ai-engineering/reference/gate-policy.md") is True
+        assert om.is_update_allowed(".ai-engineering/reference/mcp-binary-policy.md") is True
 
     def test_update_denied_for_team_managed(self) -> None:
         om = default_ownership_map()
-        assert om.is_update_allowed(".ai-engineering/contexts/team/custom.md") is False
+        assert om.is_update_allowed(".ai-engineering/team/custom.md") is False
 
     def test_update_denied_for_append_only(self) -> None:
         om = default_ownership_map()
@@ -129,7 +130,7 @@ class TestOwnershipMap:
 
     def test_has_deny_rule_true(self) -> None:
         om = default_ownership_map()
-        assert om.has_deny_rule(".ai-engineering/contexts/team/core.md") is True
+        assert om.has_deny_rule(".ai-engineering/team/core.md") is True
 
     def test_has_deny_rule_false_for_allow(self) -> None:
         om = default_ownership_map()

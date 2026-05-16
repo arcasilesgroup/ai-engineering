@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Diff-aware update of `docs/solution-intent.md` based on current project state. Compares document content against project reality section-by-section and rewrites any section where content is misaligned. Preserves user-authored content that is still accurate.
+Diff-aware update of `.ai-engineering/solution-intent.md` based on current project state. Compares document content against project reality section-by-section and rewrites any section where content is misaligned. Preserves user-authored content that is still accurate.
 
 ## Pre-conditions
 
@@ -25,7 +25,7 @@ Diff-aware update of `docs/solution-intent.md` based on current project state. C
 
 ### 1. Read current document
 
-Load `docs/solution-intent.md`. If file does not exist, report "no solution intent found -- run `/ai-docs solution-intent-init` first" and stop.
+Load `.ai-engineering/solution-intent.md`. If file does not exist, report "no solution intent found -- run `/ai-docs solution-intent-init` first" and stop.
 
 ### 2. Gather current project state
 
@@ -58,7 +58,7 @@ For each STALE section:
 
 ### 5. Stage
 
-`git add docs/solution-intent.md`
+`git add .ai-engineering/solution-intent.md`
 
 ### 6. Report
 

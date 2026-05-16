@@ -2,7 +2,7 @@
 
 Spec acceptance:
     Persist artifact handler at ``persist-artifact.md`` writes
-    ``.ai-engineering/research/<topic-slug>-<YYYY-MM-DD>.md`` with
+    ``.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md`` with
     deterministic frontmatter (query, depth, tiers_invoked, sources_used,
     notebook_id, created_at, slug) and Question/Findings/Sources/
     Notebook Reference body sections.
@@ -80,7 +80,7 @@ def test_artifact_format_complete(tmp_path: Path) -> None:
     Act: invoke ``persist_artifact``.
 
     Assert:
-      * File path is ``<repo>/.ai-engineering/research/<slug>-<YYYY-MM-DD>.md``.
+      * File path is ``<repo>/.ai-engineering/runtime/research/<slug>-<YYYY-MM-DD>.md``.
       * Frontmatter block contains: ``query``, ``depth``, ``tiers_invoked``,
         ``sources_used`` (list with title/url/accessed_at per item),
         ``notebook_id``, ``created_at``, ``slug``.
@@ -96,7 +96,7 @@ def test_artifact_format_complete(tmp_path: Path) -> None:
 
     expected_dir = repo_root / ".ai-engineering" / "research"
     assert written_path.parent == expected_dir, (
-        f"Artifact must land under .ai-engineering/research/; got {written_path.parent}"
+        f"Artifact must land under .ai-engineering/runtime/research/; got {written_path.parent}"
     )
     expected_name = "compare-option-a-vs-option-b-2026-04-28.md"
     assert written_path.name == expected_name, (

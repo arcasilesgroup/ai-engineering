@@ -7,6 +7,133 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-137 — Event Relevance Discipline (D-137-01)
+
+Mantra: **lo que escribamos, donde sea, debe ser relevante.** A read-only survey
+on 2026-05-15 found 1,230 of 1,335 NDJSON rows in a single working day (92.1%)
+came from just two unconditional polling emitters. This release lands the
+relevance contract at the writer boundary that ends the heartbeat tail.
+
+#### Behavior change — emit-on-change semantics for two heartbeat sites
+
+- `spec_verified` (cli.spec) — previously fired on every `ai-eng spec verify`
+  invocation (~848 rows/day, 63.5% of the audit tail). Now emits **only when
+  drift is detected**. Read-time consumers that want "did spec verify run"
+  should derive it from git hook traces, not the audit chain.
+- `install_simulate_hook` (installer.user_scope_install) — previously fired
+  one row per tool per synthetic install run (~382 rows/day, 28.6%). Now
+  emits **only on failure or degraded outcome** (success rows drop, failure
+  rows always emit per the manifest `failure_emission: always` policy).
+
+Volume target: ≤ 150 lines/day after a typical working-day session (down
+from 1,335 -- ~89% reduction).
+
+#### New -- `audit_policy:` block in manifest
+
+`.ai-engineering/manifest.yml` declares a new top-level `audit_policy:`
+block with four fields: `kind_allowlist` (the 13 declared kinds, empty
+means no restriction), `severity_floor` (per-kind S0..S3 tiers),
+`sampling` (e.g. `policy_decision_allow: 0.10`), and `failure_emission:
+always` (failure outcomes always emit). The installer template mirror
+at `src/ai_engineering/templates/.ai-engineering/manifest.yml` carries
+the same default block.
+
+#### New -- relevance gate helper (package + stdlib mirror)
+
+- `src/ai_engineering/state/relevance.py` -- typed gate +
+  `AuditPolicy` dataclass + `load_audit_policy_from_manifest()` helper.
+- `.ai-engineering/scripts/hooks/_lib/relevance.py` -- stdlib-only
+  mirror so hook scripts (running before `uv sync`) can import it.
+
+Three layers asserted at emit time at the writer boundary: kind allow-list,
+severity floor, and failure-emission asymmetry.
+
+#### Frozenset drift repair (parity-fix per D-137-01)
+
+The three `ALLOWED_EVENT_KINDS` declaration sites had silently drifted:
+the hook-side `_lib/observability.py` mirror was missing `policy_decision`
+and `retention_applied` (added in spec-122 / spec-123 respectively). This
+release re-aligns the hook-side mirror and the installer-template mirror
+with the authoritative frozenset in `tools/skill_domain/event_schema.py`.
+A new test `tests/unit/state/test_event_kinds_single_source.py` asserts
+the three sites cannot drift again.
+
+#### New tests
+
+- `tests/unit/state/test_event_kinds_single_source.py` -- locks the three
+  frozenset sites against drift.
+- `tests/unit/state/test_event_relevance_gate.py` -- 13 parametrized cases
+  covering all three contract layers.
+- `tests/unit/state/test_event_relevance_no_heartbeats.py` -- AST guard
+  asserting the two retired heartbeats are emit-on-change only.
+- `tests/unit/test_manifest_audit_policy_default.py` -- asserts both
+  manifests carry the documented default `audit_policy:` block.
+
+#### Deferred (open scope, not in this PR)
+
+- D-137-07 CI guard for new emit sites without a paired policy entry.
+- D-137-08 historical decision backfill into `state.db decisions`.
+- D-137-09 per-kind sampling beyond the existing 10% policy-decision
+  allow-sampler.
+- `schemaVersion` bump and required `severity` field on `FrameworkEvent`
+  -- deferred to keep this PR's blast radius bounded; the optional
+  severity field is honoured by the gate today and can be made
+  required in a follow-up spec without touching emit sites.
+
+### spec-136 — Prune low-value surfaces (`docs/`, `contexts/`, `research/`, `evals/`)
+
+Hard rename per `CONSTITUTION.md §3`. Four top-level knowledge surfaces
+(`.ai-engineering/contexts/`, `.ai-engineering/research/`, `docs/`,
+`evals/`) collapse into one coherent home (`.ai-engineering/reference/`)
+plus runtime state under `.ai-engineering/runtime/{research,presentations,reports}/`
+and a committed eval corpus at `.ai-engineering/evals/`. `docs/` is now
+reserved for the consumer project that installs ai-engineering; the
+framework owns nothing under `docs/` (D-136-02). Operator-as-dogfooder
+`docs/*.pen` files survive.
+
+#### BREAKING CHANGES — spec-136 D-136-01
+
+**Moved**:
+
+- `docs/principles.md` → `.ai-engineering/reference/principles.md`
+- `docs/mirror-authoring.md` → `.ai-engineering/reference/mirror-authoring.md`
+- `docs/surface-axioms.md` → `.ai-engineering/reference/surface-axioms.md`
+- `docs/cli-reference.md` → `.ai-engineering/reference/cli-reference.md`
+- `docs/model-dispatch-policy.md` → `.ai-engineering/reference/model-dispatch-policy.md`
+- `docs/solution-intent.md` → `.ai-engineering/solution-intent.md`
+- `docs/conformance-report.md` → `.ai-engineering/runtime/reports/conformance.md`
+- `.ai-engineering/contexts/{architecture-patterns,engineering-standards,harness-engineering,harness-adoption,knowledge-placement,gate-policy,risk-acceptance-flow,mcp-binary-policy,semgrep-update-model,spec-schema,plan-schema,operational-principles,gather-activity-data}.md` → `.ai-engineering/reference/`
+- `.ai-engineering/contexts/team/` → `.ai-engineering/team/`
+- `evals/baseline.json` + `evals/ai-debug.jsonl` + `evals/cli-ux-cross-ide/` → `.ai-engineering/evals/`
+
+**Removed**:
+
+- `docs/{anti-patterns,copilot-subagents,agentsview-source-contract,ci-alpine-smoke,getting-started}.md` — no test or skill consumer.
+- `docs/integrations/{antigravity,engram}.md` — Engram install snippet folded into `CLAUDE.md` `Optional: Engram` section (D-136-10); antigravity doc had no consumer.
+- `docs/architecture/dir-schemas.md`, `docs/presentations/` (all 8 files including `svg/`) — operator export artefacts misplaced in source tree (D-136-09).
+- `.ai-engineering/contexts/{cli-ux,evidence-protocol,mcp-integrations,permissions-migration,python-env-modes,session-governance,sentinel-iocs-update,stack-context}.md` — no current consumer (D-136-13).
+- `.ai-engineering/research/{ide-hook-engines,stack-classification,git-branch-cleanup-modes}-2026-05-12.md` — dated spec-133 artefacts; `/ai-research` Tier 0 cache rebuilds at the new gitignored runtime path (D-136-08).
+- `evals/` parent dir at repo root.
+- `src/ai_engineering/templates/.ai-engineering/contexts/` — template mirror of deleted live source.
+
+**Changed**:
+
+- `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `.github/copilot-instructions.md` — pointer rows retarget from `docs/` to `.ai-engineering/reference/`; placement-contract row retargets; Engram install snippet inlined into `Optional: Engram` section. Master payload at `scripts/sync_mirrors/core.py` updated.
+- `scripts/run_loop_skill_evals.py` — fail-loud on `--regression` with missing baseline (D-136-07); closes the silent gate-degradation footgun. `--baseline` and `--corpus-root` defaults retarget to `.ai-engineering/evals/`.
+- `tools/skill_lint/checks/md_mirror.py` — `_DOCS_TARGETS` retargets to `.ai-engineering/reference/`; CRITICAL-on-missing safety invariant preserved (D-136-14).
+- `tools/skill_lint/checks/no_orphan_dirs.py` — `_FIXED_ORPHAN_PATHS` collapses `.ai-engineering/contexts/{frameworks,languages}` to just `.ai-engineering/contexts` (whole tree forbidden).
+- `src/ai_engineering/state/control_plane.py`, `src/ai_engineering/config/{mirror_inventory,framework_defaults}.py`, `src/ai_engineering/validator/_shared.py`, `src/ai_engineering/installer/{phases/governance,service}.py`, `src/ai_engineering/updater/service.py`, `src/ai_engineering/doctor/phases/ide_config.py` — ownership / exclusion / migration rules retarget from `contexts/` to `reference/` and `team/`. `_DEPRECATED_GOVERNANCE_PATHS` extends to `("contexts", "research")` so consumer installs prune the legacy trees on next `ai-eng update`.
+- `tools/skill_domain/standards.py`, `tools/skill_lint/{checks/effort,cli}.py`, `tools/spec_lint/checks/references.py`, `tools/skill_app/eval_runner.py`, `tools/skill_infra/markdown_reporter.py`, `tools/no_suppression/scanner.py` — path strings retarget to new homes.
+- `.github/workflows/skill-evals.yml` — retarget corpus paths to `.ai-engineering/evals/`.
+- `README.md`, `CONTRIBUTING.md` — drop stale links to deleted docs; retarget cli-reference link; project-structure prose updated.
+- 76 `§10.x` citations across skill / agent files — anchor strings unchanged; pointer rows in mirrors retarget.
+
+Migration: consumers run `ai-eng update` after this lands; the updater's
+deprecation logic extends to cover the deleted paths. Consumers with
+operator-owned `.ai-engineering/contexts/team/` content must move it to
+`.ai-engineering/team/` before update (the updater deletes deprecated
+paths; it does not migrate contents).
+
 ### spec-134 Wave 4 — Hard-rename wave for ambiguous skill / agent names
 
 Per D-134-06, executes one atomic rename wave across 8 ambiguous

@@ -67,7 +67,7 @@ def test_frontmatter_effort_cheap(frontmatter: dict[str, str]) -> None:
 
 @pytest.mark.unit
 def test_frontmatter_model_tier_haiku(frontmatter: dict[str, str]) -> None:
-    """Cheap effort routes to haiku per docs/model-dispatch-policy.md."""
+    """Cheap effort routes to haiku per .ai-engineering/reference/model-dispatch-policy.md."""
     assert frontmatter.get("model_tier") == "haiku"
 
 

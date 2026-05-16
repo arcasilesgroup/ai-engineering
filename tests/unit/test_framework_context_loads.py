@@ -29,12 +29,13 @@ providers:
 
     for rel in (
         # spec-128 D-128-08: language + framework taxonomy collapsed to stack.
+        # spec-136 D-136-06: contexts/team/ lifted to top-level team/.
+        # spec-136 D-136-13: shared-framework emitter dropped (cli-ux +
+        # mcp-integrations hard-deleted).
         ".ai-engineering/overrides/python/conventions.md",
         ".ai-engineering/overrides/typescript/conventions.md",
         ".ai-engineering/overrides/_shared/conventions.md",
-        ".ai-engineering/contexts/team/conventions.md",
-        ".ai-engineering/contexts/cli-ux.md",
-        ".ai-engineering/contexts/mcp-integrations.md",
+        ".ai-engineering/team/conventions.md",
         ".ai-engineering/specs/spec.md",
         ".ai-engineering/specs/plan.md",
         ".ai-engineering/state/decision-store.json",
@@ -72,10 +73,11 @@ class TestDeclaredContextLoads:
 
         # spec-128 D-128-08: language + framework collapsed to stack.
         # _shared sub-dir under overrides/ surfaces as the shared-stack class.
+        # spec-136 D-136-13: shared-framework class no longer emitted —
+        # contexts/cli-ux.md + contexts/mcp-integrations.md hard-deleted.
         assert classes == {
             "stack",
             "shared-stack",
-            "shared-framework",
             "team",
             "constitution",
             "spec",
@@ -94,12 +96,6 @@ class TestDeclaredContextLoads:
             if entry.detail["context_class"] == "shared-stack"
         }
         assert shared_stack_names == {"_shared"}
-        shared_context_names = {
-            entry.detail["context_name"]
-            for entry in entries
-            if entry.detail["context_class"] == "shared-framework"
-        }
-        assert shared_context_names == {"cli-ux", "mcp-integrations"}
         assert all(entry.kind == "context_load" for entry in entries)
         assert all(entry.detail["initiator_kind"] == "skill" for entry in entries)
         assert all(entry.detail["initiator_name"] == "ai-code" for entry in entries)

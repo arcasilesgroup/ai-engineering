@@ -12,7 +12,7 @@ top-level command registration ONLY when:
 This test enumerates the overlap set and asserts every entry is either:
 
 - A2-aligned (engine + contract identical) — verified by a presence
-  marker in ``docs/cli-reference.md`` ``## Skill ↔ CLI mapping`` table.
+  marker in ``.ai-engineering/reference/cli-reference.md`` ``## Skill ↔ CLI mapping`` table.
 - A2-distinct — verified by the same table marking the entry as such
   with a one-line rationale.
 
@@ -88,7 +88,7 @@ def test_no_twin_axiom_every_overlap_is_classified() -> None:
         "Unclassified skill/CLI overlap(s). Each must be marked a2-aligned\n"
         "(shared engine + contract) or a2-distinct (different engines)\n"
         "in tests/architecture/test_surface_parity.py:_KNOWN_OVERLAPS\n"
-        "AND documented in docs/cli-reference.md.\n"
+        "AND documented in .ai-engineering/reference/cli-reference.md.\n"
         f"Unclassified: {sorted(unclassified)}"
     )
 

@@ -10,7 +10,7 @@ every SKILL.md frontmatter declares:
   and audited.
 
 It also cross-checks each skill's declaration against the per-skill row in
-``docs/model-dispatch-policy.md`` (SSOT) — declaration / policy mismatch
+``.ai-engineering/reference/model-dispatch-policy.md`` (SSOT) — declaration / policy mismatch
 is MAJOR (effort) or MINOR (model_tier, grace window).
 
 This is the TDD RED partner of T-3.3. **DO NOT MODIFY THIS FILE during

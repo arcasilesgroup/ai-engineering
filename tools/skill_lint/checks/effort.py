@@ -15,7 +15,7 @@ Posture (per R-131-09 grace window):
   CLI ``--enforce-tier`` flag, post-grace) promotes both to MAJOR.
 
 In addition the declaration is cross-checked against
-``docs/model-dispatch-policy.md`` (SSOT). Mismatch surfaces as MAJOR
+``.ai-engineering/reference/model-dispatch-policy.md`` (SSOT). Mismatch surfaces as MAJOR
 (effort) or MINOR (model_tier, grace window). The policy doc is parsed
 once via ``load_policy`` and threaded through the driver to avoid
 per-skill re-reads.
@@ -73,7 +73,7 @@ class RubricResult:
 
 
 # ---------------------------------------------------------------------------
-# Policy loader (SSOT = docs/model-dispatch-policy.md)
+# Policy loader (SSOT = .ai-engineering/reference/model-dispatch-policy.md)
 # ---------------------------------------------------------------------------
 
 
@@ -189,7 +189,7 @@ def _check_effort_policy_match(
         return RubricResult(
             "effort_policy_match",
             "MINOR",
-            "skill not listed in docs/model-dispatch-policy.md (advisory)",
+            "skill not listed in .ai-engineering/reference/model-dispatch-policy.md (advisory)",
         )
     expected_effort, _ = policy_row
     declared = fm.get("effort")
@@ -223,7 +223,7 @@ def _check_model_tier_policy_match(
         return RubricResult(
             "model_tier_policy_match",
             "MINOR",
-            "skill not listed in docs/model-dispatch-policy.md (advisory)",
+            "skill not listed in .ai-engineering/reference/model-dispatch-policy.md (advisory)",
         )
     _, expected_tier = policy_row
     declared = fm.get("model_tier")

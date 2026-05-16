@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-05-15T16:35:36Z",
-  "hookCount": 72,
+  "generatedAt": "2026-05-16T19:04:09Z",
+  "hookCount": 73,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "ef4a571b410d6e7a0392bab1864c7cb382785ec6b4a0f9ff8a63ebc92c2bf1a6",
@@ -16,7 +16,8 @@
     ".ai-engineering/scripts/hooks/_lib/integrity.py": "f3f6312739ab388c15a4a5863d75e0a87b004c37cfd41c14be5981fd1e4ae4ad",
     ".ai-engineering/scripts/hooks/_lib/locked_append.py": "c865b4703eb680b59cd033a78030c2077d956da49dd81e8115082be1cc0fcd88",
     ".ai-engineering/scripts/hooks/_lib/locking.py": "33717578f361f9518dd016a21ccf5d2359ab25801557801cd2a7b07f32f0ba7f",
-    ".ai-engineering/scripts/hooks/_lib/observability.py": "71ca7dc6883f9e21f6188ff874d15b0a40c2bade29e892d17b61e8efe8063149",
+    ".ai-engineering/scripts/hooks/_lib/observability.py": "39b04f1654b948199959afd922e44768626476a910f7a56706d92a270706415b",
+    ".ai-engineering/scripts/hooks/_lib/relevance.py": "f0e0b8cae628c6ca739e3919fbef04e02ed48a715a87209a3c6caa8958c04014",
     ".ai-engineering/scripts/hooks/_lib/risk_accumulator.py": "c26f974f19ab4f32bde07b8e13799f5f454e94b28a7ec84b904791a46b7c01cc",
     ".ai-engineering/scripts/hooks/_lib/runtime_state.py": "e82a58eb98c7d78462a4ee16c8d5498e81243229f17ad0ad3d57a01083dbb1eb",
     ".ai-engineering/scripts/hooks/_lib/trace_context.py": "aaae7336ffaf9d48a4396ac0d9f625c3747c88ce71c506adf8b2bf3975f94122",

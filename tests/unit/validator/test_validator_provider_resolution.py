@@ -92,10 +92,10 @@ def _write_manifest_with_root_entry_points(
 def _make_governance(root: Path) -> Path:
     """Create a minimal .ai-engineering governance tree."""
     ai = root / ".ai-engineering"
+    # spec-136 D-136-01/D-136-06: contexts/ retired; reference/ + top-level team/.
     for d in [
-        "contexts/languages",
-        "contexts/frameworks",
-        "contexts/team",
+        "reference",
+        "team",
         "specs",
         "state",
     ]:
@@ -287,19 +287,20 @@ class TestValidatorNoErrorForDisabledProvider:
 
 
 class TestPathRefPattern:
-    """_PATH_REF_PATTERN must match ``contexts/`` but reject ``context/``."""
+    """_PATH_REF_PATTERN must match ``reference/`` but reject ``references/``."""
 
-    def test_matches_contexts_path(self) -> None:
+    def test_matches_reference_path(self) -> None:
+        # spec-136 D-136-01: reference/ replaces contexts/ in the validator pattern.
+        text = "`reference/principles.md`"
+        match = _PATH_REF_PATTERN.search(text)
+        assert match is not None, "_PATH_REF_PATTERN must match 'reference/principles.md'"
+
+    def test_rejects_obsolete_contexts_path(self) -> None:
         text = "`contexts/team/foo.md`"
         match = _PATH_REF_PATTERN.search(text)
-        assert match is not None, "_PATH_REF_PATTERN must match 'contexts/team/foo.md'"
-
-    def test_rejects_obsolete_context_path(self) -> None:
-        text = "`context/team/foo.md`"
-        match = _PATH_REF_PATTERN.search(text)
         assert match is None, (
-            "_PATH_REF_PATTERN must NOT match obsolete 'context/team/foo.md' "
-            "(only 'contexts/' is valid)"
+            "_PATH_REF_PATTERN must NOT match obsolete 'contexts/team/foo.md' "
+            "(spec-136 deleted contexts/; only 'reference/' is valid)"
         )
 
 

@@ -33,14 +33,14 @@ Generate standup notes from actual PR and commit activity. Produces concise, cop
 ## Pre-conditions (MANDATORY)
 
 1. Read `.ai-engineering/manifest.yml` — `work_items` section.
-2. Read `.ai-engineering/contexts/gather-activity-data.md` for the canonical git log, PR query, and work item commands.
+2. Read `.ai-engineering/reference/gather-activity-data.md` for the canonical git log, PR query, and work item commands.
 3. Use the active provider to gather work item data and include status in standup notes when available.
 
 ## Workflow
 
 1. **Determine lookback** -- default: 1 working day. Override with `--days N`. Skip weekends unless `--days` explicitly covers them.
 
-2. **Collect activity** -- use the commands from `.ai-engineering/contexts/gather-activity-data.md` to scan:
+2. **Collect activity** -- use the commands from `.ai-engineering/reference/gather-activity-data.md` to scan:
    a. Local commits (git log with author filter)
    b. PRs (provider-specific query)
    c. Active spec tasks from `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` -- current work

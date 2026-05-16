@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Scaffold a comprehensive `docs/solution-intent.md` from real project state. This is the Solution Intent -- defines what you are building, how, and why.
+Scaffold a comprehensive `.ai-engineering/solution-intent.md` from real project state. This is the Solution Intent -- defines what you are building, how, and why.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@ Scaffold a comprehensive `docs/solution-intent.md` from real project state. This
 ## Procedure
 
 ### 1. Check existence
-If `docs/solution-intent.md` exists, warn and ask user to confirm overwrite.
+If `.ai-engineering/solution-intent.md` exists, warn and ask user to confirm overwrite.
 
 ### 2. Deep audit
 Gather data from REAL project state -- never from old documentation:
@@ -23,7 +23,8 @@ Gather data from REAL project state -- never from old documentation:
 | `.ai-engineering/manifest.yml` | Skills count, agents, stacks, providers, IDEs, quality gates, tooling, ownership |
 | `.ai-engineering/state/state.db.decisions` | Active decisions, risk acceptances |
 | `.ai-engineering/specs/spec.md` | Current spec, status |
-| `.ai-engineering/contexts/` | Available language/framework/team contexts |
+| `.ai-engineering/reference/` | Framework reference docs |
+| `.ai-engineering/overrides/` | Stack overrides and team conventions |
 | `.ai-engineering/runbooks/` | Available operational runbooks |
 | `src/ai_engineering/` | Module structure, CLI commands, services, layers |
 | `.claude/skills/` | Actual skill count and categories |
@@ -86,7 +87,7 @@ Each section MUST have at least one Mermaid diagram or table. If data is not ava
 - 7.5 Blockers and Risks (table: ID, description, severity, owner, expiry)
 
 ### 4. Write
-Save to `docs/solution-intent.md` with header:
+Save to `.ai-engineering/solution-intent.md` with header:
 ```
 > Status: Evolving
 > Last Review: YYYY-MM-DD
@@ -103,4 +104,4 @@ Show sections populated vs TBD.
 
 **Writing patterns**: use `/ai-prose` conventions -- audience = technical team, concise, no filler.
 
-**Ownership**: `docs/solution-intent.md` is project-managed. The sync mode updates data fields but never removes user-authored content. The framework updater (`ai-eng update`) does not touch this file.
+**Ownership**: `.ai-engineering/solution-intent.md` is project-managed. The sync mode updates data fields but never removes user-authored content. The framework updater (`ai-eng update`) does not touch this file.

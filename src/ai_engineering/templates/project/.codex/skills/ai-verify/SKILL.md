@@ -28,9 +28,9 @@ edit_policy: generated-do-not-edit
 
 Evidence before claims. Two faces: (1) a verification protocol that proves claims with commands, and (2) a specialist verification surface that aggregates deterministic evidence into merge-readiness judgments. Same principle: run the command, read the output, check the exit code. No guessing. This SKILL.md owns the user-facing contract; verifier agent files provide specialist lenses and must not redefine mode semantics.
 
-1. **Step 0** — load contexts per `.ai-engineering/contexts/stack-context.md`.
+1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` for each stack.
 2. **Dependency preflight** — verify `.codex/skills/ai-verify/handlers/verify.md` plus required `.codex/agents/verify*-*.md` files exist for the selected mode (`normal` requires governance + architecture + feature; `--full` requires all four; individual modes require only the matching specialist). STOP and report exact missing path(s) — never improvise.
-3. **Run protocol** — load `.ai-engineering/contexts/evidence-protocol.md` for the IRRV protocol; if unavailable, the only inline fallback is: per claim, identify command → run → capture output + exit code → classify CONFIRMED (exit 0 + expected) or REFUTED.
+3. **Run protocol** — run the IRRV protocol: per claim, identify command → run → capture output + exit code → classify CONFIRMED (exit 0 + expected) or REFUTED.
 4. **Dispatch specialists** via the Agent tool (never read them inline). Output is always reported by original specialist lens.
 
 ## Dispatch threshold

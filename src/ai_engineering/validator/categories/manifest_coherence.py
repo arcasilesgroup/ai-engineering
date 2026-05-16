@@ -464,7 +464,7 @@ def _check_manifest_coherence(target: Path, report: IntegrityReport, **_kwargs: 
     # Note: skills/ and agents/ no longer live under .ai-engineering/ —
     # they have moved to IDE-specific directories (.claude/, .codex/, .gemini/).
     ownership_dirs = [
-        ("contexts", "framework_managed"),
+        ("reference", "framework_managed"),
         ("state", "system_managed"),
     ]
 

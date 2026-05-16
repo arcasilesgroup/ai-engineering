@@ -128,7 +128,7 @@ DEFAULT_OWNERSHIP_ROOT_ENTRY_POINTS: dict[str, dict[str, Any]] = {
 }
 
 
-DEFAULT_OWNERSHIP_TEAM: list[str] = [".ai-engineering/contexts/team/**"]
+DEFAULT_OWNERSHIP_TEAM: list[str] = [".ai-engineering/team/**"]
 DEFAULT_OWNERSHIP_SYSTEM: list[str] = [".ai-engineering/state/**"]
 
 

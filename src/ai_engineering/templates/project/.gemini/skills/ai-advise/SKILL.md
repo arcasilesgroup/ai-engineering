@@ -30,7 +30,7 @@ Discoverable wrapper around the `ai-advise` governance advisor: dispatches the a
 
 Principles applied: §10.6 SDD (the advisory output traces every warning to an active decision or stack standard — no advice without a documented anchor); §10.4 DRY (the agent contract owns the analysis loop — the skill never paraphrases standards inline).
 
-1. **Step 0** — load contexts per `.ai-engineering/contexts/stack-context.md` so stack-specific standards are in scope when guard analyses changed files.
+1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` so stack-specific standards are in scope when guard analyses changed files.
 2. **Detect mode** — first positional argument is `advise` (default), `gate`, or `drift`. Anything else is treated as a path filter and the mode defaults to `advise`.
 3. **Dependency preflight** — verify `.gemini/agents/ai-advise.md` (or, post-rename, `.gemini/agents/ai-advise.md`) is on disk. STOP and report the exact missing path if absent — never paraphrase agent instructions inline.
 4. **Dispatch** — invoke the `ai-advise` agent (or post-rename `ai-advise` agent) via the Agent tool with `{mode, paths, severity_floor}`. The agent runs in its own context window and returns the structured advisory.
@@ -123,7 +123,7 @@ tool. Never reads or executes the agent body inline — strictly dispatch.
 **See also**:
 - `.gemini/skills/ai-verify/SKILL.md` — evidence-backed BLOCK lane (different engine).
 - `.gemini/skills/ai-review/SKILL.md` — narrative human-judgment review.
-- `.ai-engineering/contexts/stack-context.md` — stack overrides the agent consults.
+- `.ai-engineering/overrides/<stack>/conventions.md` — stack overrides the agent consults.
 - D-134-06 (rename direction `ai-guard` agent → `ai-advise`), D-134-07 (cohesion test enforcement).
 
 $ARGUMENTS

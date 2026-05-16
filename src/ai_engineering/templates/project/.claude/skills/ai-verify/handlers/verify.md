@@ -19,8 +19,8 @@ via the `Agent` tool for real context isolation. `normal` is the default profile
 
 ### Step 0: Load Stack Contexts
 
-Follow `.ai-engineering/contexts/stack-context.md`.
-Load `.ai-engineering/contexts/evidence-protocol.md` before making claims.
+Apply stack overrides: read `.ai-engineering/manifest.yml` `providers.stacks` and load `.ai-engineering/overrides/<stack>/conventions.md` for each stack.
+Run the IRRV protocol before making claims: per claim, identify command → run → capture output + exit code → classify CONFIRMED or REFUTED.
 
 ### Step 1: Select profile
 

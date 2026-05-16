@@ -20,7 +20,7 @@ def project(tmp_path: Path) -> Path:
     """Create a project directory with all governance artifacts present."""
     ai_eng = tmp_path / ".ai-engineering"
     ai_eng.mkdir()
-    (ai_eng / "contexts").mkdir()
+    (ai_eng / "reference").mkdir()
     (ai_eng / "state").mkdir()
     (ai_eng / "scripts" / "hooks").mkdir(parents=True)
     (ai_eng / "manifest.yml").write_text(
@@ -50,18 +50,18 @@ class TestGovernanceDirs:
         assert dirs_check.status == CheckStatus.FAIL
         assert ".ai-engineering" in dirs_check.message
 
-    def test_fail_when_contexts_missing(self, tmp_path: Path):
+    def test_fail_when_reference_missing(self, tmp_path: Path):
         (tmp_path / ".ai-engineering").mkdir()
         (tmp_path / ".ai-engineering" / "state").mkdir()
         ctx = DoctorContext(target=tmp_path)
         results = governance.check(ctx)
         dirs_check = next(r for r in results if r.name == "governance-dirs")
         assert dirs_check.status == CheckStatus.FAIL
-        assert "contexts" in dirs_check.message
+        assert "reference" in dirs_check.message
 
     def test_fail_when_state_missing(self, tmp_path: Path):
         (tmp_path / ".ai-engineering").mkdir()
-        (tmp_path / ".ai-engineering" / "contexts").mkdir()
+        (tmp_path / ".ai-engineering" / "reference").mkdir()
         ctx = DoctorContext(target=tmp_path)
         results = governance.check(ctx)
         dirs_check = next(r for r in results if r.name == "governance-dirs")
@@ -181,7 +181,7 @@ class TestFixGovernanceDirs:
         assert result[0].name == "governance-dirs"
         assert result[0].status == CheckStatus.FIXED
         assert (tmp_path / ".ai-engineering").is_dir()
-        assert (tmp_path / ".ai-engineering" / "contexts").is_dir()
+        assert (tmp_path / ".ai-engineering" / "reference").is_dir()
         assert (tmp_path / ".ai-engineering" / "state").is_dir()
 
     def test_dry_run_does_not_create(self, tmp_path: Path):

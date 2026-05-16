@@ -498,7 +498,7 @@ def test_references_doc_url_passes(tmp_path: Path) -> None:
 
 @pytest.mark.unit
 def test_references_research_md_path_passes(tmp_path: Path) -> None:
-    spec_path = _write(tmp_path, _refs_spec("- research: .ai-engineering/research/foo.md"))
+    spec_path = _write(tmp_path, _refs_spec("- research: .ai-engineering/runtime/research/foo.md"))
     results = check_references(spec_path)
     assert results == [], results
 

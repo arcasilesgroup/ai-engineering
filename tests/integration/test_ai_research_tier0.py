@@ -2,7 +2,7 @@
 
 Spec acceptance:
     Tier 0 (local) implemented in ``tier0-local.md`` -- handler executes:
-    (a) glob ``.ai-engineering/research/*.md`` and match topic-slug
+    (a) glob ``.ai-engineering/runtime/research/*.md`` and match topic-slug
     similarity ≥0.7; (b) grep ``LESSONS.md`` by keywords from the query;
     (c) parse ``framework-events.ndjson`` last 30 days filtering by
     ``kind: skill_invoked`` with ``detail.skill = "ai-research"`` for prior

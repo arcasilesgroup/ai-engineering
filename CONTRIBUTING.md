@@ -138,7 +138,7 @@ Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
 ## Project structure
 
-Top-level: `src/ai_engineering/` (CLI, installer, updater, doctor, hooks, policy, state, git, pipeline, skills, maintenance, detector, and bundled templates); `tests/` (unit, integration, conformance, perf, docs); `.ai-engineering/` (governance root: contexts, runbooks, scripts, specs, state); `.claude/` plus the `.github/`, `.codex/`, `.gemini/` IDE mirrors (skills + agents); `templates/` (consumer-project assets); `scripts/` (sync utilities); `tools/` (linters, no-suppression gate); `docs/` (CLI reference, getting-started, architecture).
+Top-level: `src/ai_engineering/` (CLI, installer, updater, doctor, hooks, policy, state, git, pipeline, skills, maintenance, detector, and bundled templates); `tests/` (unit, integration, conformance, perf, docs); `.ai-engineering/` (governance root: reference, evals, runtime, scripts, specs, state, team); `.claude/` plus the `.github/`, `.codex/`, `.gemini/` IDE mirrors (skills + agents); `templates/` (consumer-project assets); `scripts/` (sync utilities); `tools/` (linters, no-suppression gate); `docs/` (operator dogfooding artifacts only; framework reference content lives under `.ai-engineering/reference/`).
 
 See [AGENTS.md](AGENTS.md) for the full architecture map and canonical chain.
 

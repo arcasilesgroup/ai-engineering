@@ -41,8 +41,8 @@ Step 1 — **Work-item context (opt)**: spec.md frontmatter `refs` → commit bo
 Step 2 — **Instinct consolidation**: if `.ai-engineering/observations/observations.yml` exists, run `/ai-session-watch --review` before committing.
 Step 3 — **Stage** selectively (`git add <file>...`). Use `git add -A` only when explicitly requested. Exclude generated files, secrets, large binaries.
 Step 4 — **Run gate orchestrator**: `ai-eng gate run --cache-aware --json --mode=local`. The 2-wave collector (Wave 1 fixers serial → Wave 2 checkers parallel) emits `.ai-engineering/state/gate-findings.json` (schema v1); Wave 1 re-stages the safe `S_pre & M_post` intersection (spec-105 D-105-09; disable via `--no-auto-stage` or manifest `gates.pre_commit.auto_stage: false`).
-Step 5 — **Handle gate**: exit 0 → continue. Exit non-zero → STOP, fix root cause, re-run. Publish-window override: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <id> --follow-up "<plan>"` (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
-Step 6 — **Docs gate** inside the orchestrator is mandatory; see `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI authoritative split.
+Step 5 — **Handle gate**: exit 0 → continue. Exit non-zero → STOP, fix root cause, re-run. Publish-window override: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <id> --follow-up "<plan>"` (see `.ai-engineering/reference/risk-acceptance-flow.md`).
+Step 6 — **Docs gate** inside the orchestrator is mandatory; see `.ai-engineering/reference/gate-policy.md` for the local fast-slice + CI authoritative split.
 
 ### 7. Concurrent dispatch -- docs + pre-push gate (3 lanes)
 
@@ -64,7 +64,7 @@ See Step 2 — `/ai-session-watch --review` runs once before commit if `.ai-engi
 
 ### 9. Pre-push gate (concurrent Lane 3 of step 7)
 
-Dispatched concurrently with the docs lanes — total wall-clock is `max(docs, pre-push)`, not the legacy sum. `ai-eng gate run --cache-aware --json --mode=local` runs Wave 1 fixers (`ruff format` → `ruff check --fix` → `spec verify --fix`) in parallel with Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate). CI uses `--mode=ci` (adds `semgrep`, `pip-audit`, full `pytest` matrix). Non-zero exit → parse `gate-findings.json`, report, STOP; resolve or accept via `ai-eng risk accept-all` (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
+Dispatched concurrently with the docs lanes — total wall-clock is `max(docs, pre-push)`, not the legacy sum. `ai-eng gate run --cache-aware --json --mode=local` runs Wave 1 fixers (`ruff format` → `ruff check --fix` → `spec verify --fix`) in parallel with Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate). CI uses `--mode=ci` (adds `semgrep`, `pip-audit`, full `pytest` matrix). Non-zero exit → parse `gate-findings.json`, report, STOP; resolve or accept via `ai-eng risk accept-all` (see `.ai-engineering/reference/risk-acceptance-flow.md`).
 
 ### 10. Work item context
 
@@ -115,7 +115,7 @@ Title: `type(scope): description` or `spec-NNN: Task X.Y -- description` (max 72
 
 ## Drift recovery
 
-Exit 78 = stack drift. Run `ai-eng doctor --fix` in shell, retry. Never `--no-verify`. See docs/cli-reference.md for the 6-stack tool matrix.
+Exit 78 = stack drift. Run `ai-eng doctor --fix` in shell, retry. Never `--no-verify`. See .ai-engineering/reference/cli-reference.md for the 6-stack tool matrix.
 
 ## Examples
 

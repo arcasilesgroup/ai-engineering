@@ -1203,15 +1203,22 @@ def _is_dev_build() -> bool:
 def _emit_simulate_event(*, tool_name: str, mechanism: str, outcome: str) -> None:
     """Write an audit-trail entry to ``framework-events.ndjson`` (Sec-2 audit).
 
-    The event records every synthetic hook firing so an operator reviewing
-    a CI run can distinguish real installs from simulated ones. Failures
-    to write the event are silently swallowed -- the function is purely
-    advisory and must NEVER block the install pipeline.
+    spec-137 D-137-01 relevance discipline: this was the #2 polling-style
+    emitter (382 rows/day, 28.6% of the audit tail) -- one row per tool
+    per synthetic install regardless of outcome. The relevance contract
+    is fail-open emission: emit only on failure (so install regressions
+    stay visible) and drop the success rows that produced the heartbeat
+    tail. Read-time consumers that want to know "this install was
+    simulated" can derive it from the canonical ``install`` event already
+    on disk; the per-tool detail is only signal when something went
+    wrong.
 
     Resolves the project root from the current working directory because
     the install hook does not propagate the install target through this
     layer; CWD matches the install target during ``ai-eng install`` runs.
     """
+    if outcome == "success":
+        return
     try:
         from ai_engineering.state.observability import emit_framework_operation
     except ImportError:  # pragma: no cover - circular guard

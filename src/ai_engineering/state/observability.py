@@ -621,35 +621,12 @@ def emit_declared_context_loads(
             )
         )
 
-    shared_contexts = (
-        ("shared-framework", "cli-ux", root / "contexts" / "cli-ux.md"),
-        (
-            "shared-framework",
-            "mcp-integrations",
-            root / "contexts" / "mcp-integrations.md",
-        ),
-    )
-    for context_class, context_name, path in shared_contexts:
-        events.append(
-            emit_context_load(
-                project_root,
-                engine=engine,
-                context_class=context_class,
-                context_name=context_name,
-                component=component,
-                source=source,
-                initiator_kind=initiator_kind,
-                initiator_name=initiator_name,
-                load_mode="declared",
-                path=path.relative_to(project_root).as_posix(),
-                session_id=session_id,
-                trace_id=trace_id,
-                correlation_id=correlation_id,
-                force_outcome="success" if path.exists() else "failure",
-            )
-        )
+    # spec-136 D-136-13: shared-framework contexts (cli-ux.md +
+    # mcp-integrations.md) hard-deleted; emitter removed so the loader
+    # stops fabricating "failure" outcomes for files that no longer
+    # exist by design.
 
-    team_dir = root / "contexts" / "team"
+    team_dir = root / "team"
     if team_dir.is_dir():
         for path in sorted(team_dir.glob("*.md")):
             events.append(

@@ -26,7 +26,7 @@ edit_policy: generated-do-not-edit
 
 High-signal code review with full specialist coverage and aggressive false-positive control. `review` is review-only. This SKILL.md owns the user-facing contract; reviewer agent files provide specialist lenses and validation stages, not a competing surface.
 
-1. **Step 0** — load contexts per `.ai-engineering/contexts/stack-context.md`.
+1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` for each stack.
 2. **Detect target** — PR number, file paths, or current diff.
 3. **Dependency preflight** — verify `review-context.md`, `review-validator.md`, plus required `.gemini/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
 4. **Pre-review** — dispatch `review-context.md` via Agent tool; serialize output for every specialist.

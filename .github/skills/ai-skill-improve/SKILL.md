@@ -1,6 +1,6 @@
 ---
 name: ai-skill-improve
-description: Improves an existing skill based on real project pain (prior eval corpora under evals/, Engram cross-session observations, LESSONS.md, decision-store, instincts, proposals) by analysing the failure pattern, rewriting SKILL.md, and emitting the proposed delta as a PR comment only — no auto-merge. Trigger for 'improve this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch improve skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-scaffold instead. Not for platform audit; use /ai-ide-audit instead.
+description: Improves an existing skill based on real project pain (prior eval corpora under .ai-engineering/evals/, Engram cross-session observations, LESSONS.md, decision-store, instincts, proposals) by analysing the failure pattern, rewriting SKILL.md, and emitting the proposed delta as a PR comment only — no auto-merge. Trigger for 'improve this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch improve skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-scaffold instead. Not for platform audit; use /ai-ide-audit instead.
 effort: mid
 argument-hint: "[skill-name]|all [--dry-run]"
 mode: agent
@@ -25,9 +25,9 @@ edit_policy: generated-do-not-edit
 
 ## Workflow
 
-Improve existing skills using evidence from real project pain (prior eval corpora under `evals/`, Engram cross-session observations via `MemoryPort`, `LESSONS.md` operator notes, decision-store, instincts, proposals). The skill owns pain diagnosis and rewrite strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator`. **Output is PR-comment only — never auto-merged** (sub-007 M6).
+Improve existing skills using evidence from real project pain (prior eval corpora under `.ai-engineering/evals/`, Engram cross-session observations via `MemoryPort`, `LESSONS.md` operator notes, decision-store, instincts, proposals). The skill owns pain diagnosis and rewrite strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator`. **Output is PR-comment only — never auto-merged** (sub-007 M6).
 
-1. **Phase 0.5** — load corpora (`evals/<skill>.jsonl`), Engram observations (`/ai-memory` MCP), and `LESSONS.md` H3 sections that mention the target skill.
+1. **Phase 0.5** — load corpora (`.ai-engineering/evals/<skill>.jsonl`), Engram observations (`/ai-memory` MCP), and `LESSONS.md` H3 sections that mention the target skill.
 2. **Phase 1** — load remaining pain context (decision-store, observations.yml, proposals.md).
 3. **Phase 2** — analyze the target skill, score the 5 dimensions.
 4. **Phase 3** — generate test prompts that exercise the failing pattern.
@@ -46,7 +46,7 @@ Improve existing skills using evidence from real project pain (prior eval corpor
 - NOT for creating new skills from scratch — use `/ai-scaffold`.
 - NOT for platform audit — use `/ai-ide-audit`.
 
-Step 0 (load contexts): per `.ai-engineering/contexts/stack-context.md`.
+Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
 
 ## Common Mistakes
 

@@ -31,23 +31,23 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # mirror also surfaces here.
 #
 # spec-134 sub-005 mirror diet: §10 Engineering Principles (full prose
-# including TDD / SDD anchors) extracted to ``docs/principles.md``.
+# including TDD / SDD anchors) extracted to ``.ai-engineering/reference/principles.md``.
 # The hard-rule patterns still match the canonical home, but they are
 # carried via §10 anchors at the new location AND via the
 # ``Verification Before Done`` / ``Goal-Driven Execution`` Karpathy
-# §4 one-liner that remains in mirrors. Add ``docs/principles.md`` to
+# §4 one-liner that remains in mirrors. Add ``.ai-engineering/reference/principles.md`` to
 # GOVERNANCE_PATHS so the scan covers the extracted home; keep
 # ``CANONICAL.md`` + ``AGENTS.md`` so the pointer-row contract is
 # still verified at mirror granularity.
 ROOT_CONSTITUTION = REPO_ROOT / "CONSTITUTION.md"
 CANONICAL_MD = REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CANONICAL.md"
 AGENTS_MD = REPO_ROOT / "AGENTS.md"
-DOCS_PRINCIPLES_MD = REPO_ROOT / "docs" / "principles.md"
+REFERENCE_PRINCIPLES_MD = REPO_ROOT / ".ai-engineering" / "reference" / "principles.md"
 GOVERNANCE_PATHS: tuple[Path, ...] = (
     ROOT_CONSTITUTION,
     CANONICAL_MD,
     AGENTS_MD,
-    DOCS_PRINCIPLES_MD,
+    REFERENCE_PRINCIPLES_MD,
 )
 
 CORE_OPERATIONAL_SURFACE_PATHS: tuple[Path, ...] = (
@@ -63,6 +63,9 @@ EXCLUDED_OPERATIONAL_PREFIXES: tuple[str, ...] = (
     ".ai-engineering/specs",
     ".ai-engineering/state",
     ".ai-engineering/observations",
+    # spec-136 D-136-05: solution-intent.md is the framework's project-level
+    # design intent, not the canonical operational-principles source.
+    ".ai-engineering/solution-intent.md",
 )
 
 HARD_RULE_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
@@ -118,7 +121,7 @@ def _principle_mentions(text: str) -> tuple[str, ...]:
 def _is_operational_candidate_path(path: Path) -> bool:
     rel_path = path.relative_to(REPO_ROOT).as_posix()
     return not any(
-        rel_path == prefix or rel_path.startswith(prefix + "/")
+        rel_path == prefix or rel_path.startswith(prefix + "/") or rel_path == prefix.lstrip("/")
         for prefix in EXCLUDED_OPERATIONAL_PREFIXES
     )
 

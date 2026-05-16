@@ -140,7 +140,7 @@ Governance uses a deliberate hybrid split:
 
 - `CONSTITUTION.md` is the sole constitutional surface: spec-driven development, TDD, and proof-before-done obligations live there.
 - `.ai-engineering/CONSTITUTION.md` is retained only as a subordinate workspace charter compatibility alias for legacy installs; new content goes in the root `CONSTITUTION.md`.
-- `.ai-engineering/contexts/operational-principles.md` is the single canonical source for the operational implementation and review subset.
+- `.ai-engineering/reference/operational-principles.md` is the single canonical source for the operational implementation and review subset.
 - Core implementation and review surfaces should reference that operational-principles context instead of restating the operational subset ad hoc.
 
 ## Runbooks

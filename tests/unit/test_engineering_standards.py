@@ -42,17 +42,17 @@ def test_standards_contexts_exist_in_live_and_template_surfaces() -> None:
     )
 
     for context_name in required_contexts:
-        live_path = _PROJECT_ROOT / ".ai-engineering/contexts" / context_name
+        live_path = _PROJECT_ROOT / ".ai-engineering/reference" / context_name
         template_path = (
-            _PROJECT_ROOT / "src/ai_engineering/templates/.ai-engineering/contexts" / context_name
+            _PROJECT_ROOT / "src/ai_engineering/templates/.ai-engineering/reference" / context_name
         )
         assert live_path.is_file(), str(live_path.relative_to(_PROJECT_ROOT))
         assert template_path.is_file(), str(template_path.relative_to(_PROJECT_ROOT))
         assert live_path.read_text(encoding="utf-8") == template_path.read_text(encoding="utf-8")
 
-    standards_doc = (_PROJECT_ROOT / ".ai-engineering/contexts/engineering-standards.md").read_text(
-        encoding="utf-8"
-    )
+    standards_doc = (
+        _PROJECT_ROOT / ".ai-engineering/reference/engineering-standards.md"
+    ).read_text(encoding="utf-8")
     for standard in EngineeringStandard:
         assert standard.value in standards_doc
 

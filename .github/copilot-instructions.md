@@ -17,7 +17,7 @@ spec — invoke `/ai-brainstorm` first when a task has no spec.
 ## Operating Mindset (§1–§9 condensed)
 
 Karpathy / Boris one-liners that frame the §10 principles. Full prose
-in [docs/principles.md](docs/principles.md) under "Operating Mindset".
+in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md) under "Operating Mindset".
 
 1. **Think Before Coding** — read failing input + spec gates BEFORE editing.
 2. **Simplicity First** — fewest moving parts; prefer deletion over abstraction.
@@ -33,7 +33,7 @@ in [docs/principles.md](docs/principles.md) under "Operating Mindset".
 
 The eight first-class principles (§10.1 KISS, §10.2 YAGNI, §10.3 SOLID,
 §10.4 DRY, §10.5 TDD, §10.6 SDD, §10.7 Clean Code, §10.8 Hexagonal
-Architecture) live in [docs/principles.md](docs/principles.md). Every
+Architecture) live in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md). Every
 SKILL.md `## Workflow` cites at least one §10.x anchor; anchors are
 stable at the new home.
 
@@ -79,7 +79,7 @@ offload research and parallel analysis to them.
 |---------|-------|
 | Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
-| Placement contract | `.ai-engineering/contexts/knowledge-placement.md` |
+| Placement contract | `.ai-engineering/reference/knowledge-placement.md` |
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
 | CLI | `ai-eng <command>` |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |
@@ -112,17 +112,17 @@ Non-negotiable rules per commit, push, and risk-acceptance decision:
 
 ## 14–16. Pointer rows
 
-The bulk of the canonical-payload prose lives in `docs/` so the
+The bulk of the canonical-payload prose lives in `.ai-engineering/reference/` so the
 mirrors stay lean (spec-134 sub-005 mirror diet). Authoritative homes:
 
-- **§10 Engineering Principles** → [docs/principles.md](docs/principles.md)
+- **§10 Engineering Principles** → [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md)
   (§10.1 KISS through §10.8 Hexagonal Architecture; the 34 skill /
   agent files that cite `§10.x` resolve here).
 - **§14 Strict Content Contracts** + **§15 IDE-Extras Escape Hatch** →
-  [docs/mirror-authoring.md](docs/mirror-authoring.md) (per-file
+  [.ai-engineering/reference/mirror-authoring.md](.ai-engineering/reference/mirror-authoring.md) (per-file
   authoring table + the `<!-- ide-extras:start -->` fence contract).
 - **§16 Surface Axioms** (A1 / A2) →
-  [docs/surface-axioms.md](docs/surface-axioms.md) (Surface Axiom and
+  [.ai-engineering/reference/surface-axioms.md](.ai-engineering/reference/surface-axioms.md) (Surface Axiom and
   No-Twin Axiom; D-133-04 enforcement at `test_surface_parity.py`).
 
 <!-- ide-extras:start -->

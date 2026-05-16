@@ -1,7 +1,6 @@
 """Antigravity surface generators (spec-133 D-133-06 — MIRROR-ONLY).
 
-Per research artifact ``.ai-engineering/research/ide-hook-engines-2026-05-12.md``
-and Google staff statement on the Antigravity forum, Antigravity does
+Per Google staff statement on the Antigravity forum, Antigravity does
 NOT support hooks today (workaround-only). The framework treats it as
 mirror-only: copy instruction payload to ``GEMINI.md`` (priority 1) and
 ``AGENTS.md`` (v1.20.3+) at the repo root; copy skills to

@@ -56,13 +56,13 @@ The orchestrator runs the 2-wave collector (Wave 1 fixers serial -> Wave 2 check
 ### 5. Handle gate result
 
 - **Exit 0** -- all checks PASS or auto-fixed. Continue to Commit.
-- **Exit non-zero** -- parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, **STOP**. Fix root cause, re-stage, re-run `/ai-commit`. Override only when remediation is tracked elsewhere and the publish window forces it: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` writes one DEC entry per finding with severity-default TTL (see `.ai-engineering/contexts/risk-acceptance-flow.md`).
+- **Exit non-zero** -- parse `gate-findings.json`, report failing checks per `rule_id` + `severity`, **STOP**. Fix root cause, re-stage, re-run `/ai-commit`. Override only when remediation is tracked elsewhere and the publish window forces it: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <spec-id> --follow-up "<plan>"` writes one DEC entry per finding with severity-default TTL (see `.ai-engineering/reference/risk-acceptance-flow.md`).
 
 ### 6. Confirm commit readiness
 
 The documentation gate inside the orchestrator is mandatory.
 
-See `.ai-engineering/contexts/gate-policy.md` for the local fast-slice + CI authoritative split.
+See `.ai-engineering/reference/gate-policy.md` for the local fast-slice + CI authoritative split.
 
 ### 7. Commit
 
