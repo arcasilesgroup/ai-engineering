@@ -67,7 +67,7 @@ _REPO_PRIVATE_RE = re.compile(r"/private/[^\s]+")
 # strict mode redacts it anyway.
 # ---------------------------------------------------------------------------
 
-_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}")
+_EMAIL_RE = re.compile(r"[A-Za-z0-9._%+\-]{1,64}@[A-Za-z0-9.\-]{1,253}\.[A-Za-z]{2,63}")
 
 # ---------------------------------------------------------------------------
 # Vector 5 — GitHub tokens. `gh[psouar]_` prefix + 36-255 base62 chars.

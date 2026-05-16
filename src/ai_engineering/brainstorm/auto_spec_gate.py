@@ -71,25 +71,28 @@ class GateDecision:
 # Hard-trigger predicates — one regex per signal vector.
 # ---------------------------------------------------------------------------
 
+# Path patterns use bounded quantifiers ({1,500}) instead of unbounded `.+`
+# to satisfy Sonar S5852 (catastrophic-backtracking) on simple path matches.
+# 500 chars comfortably exceeds any realistic repo path.
 _PUBLIC_API_PATTERNS = (
-    re.compile(r"^src/.+/__init__\.py$"),
-    re.compile(r"^src/.+/cli_factory\.py$"),
-    re.compile(r"^src/.+/cli_commands/.+$"),
+    re.compile(r"^src/.{1,500}/__init__\.py$"),
+    re.compile(r"^src/.{1,500}/cli_factory\.py$"),
+    re.compile(r"^src/.{1,500}/cli_commands/.{1,500}$"),
 )
 
 _STATE_OR_SCHEMA_PATTERNS = (
-    re.compile(r"^\.ai-engineering/state/.+$"),
-    re.compile(r"^\.ai-engineering/schemas/.+\.json$"),
-    re.compile(r".+\.sql$"),
-    re.compile(r".+/migrations/.+$"),
+    re.compile(r"^\.ai-engineering/state/.{1,500}$"),
+    re.compile(r"^\.ai-engineering/schemas/.{1,500}\.json$"),
+    re.compile(r".{1,500}\.sql$"),
+    re.compile(r".{1,500}/migrations/.{1,500}$"),
 )
 
 _SECURITY_SURFACE_PATTERNS = (
-    re.compile(r".+/_shared/redactor\.py$"),
-    re.compile(r".+/security/.+$"),
-    re.compile(r"^\.ai-engineering/scripts/hooks/.+$"),
+    re.compile(r".{1,500}/_shared/redactor\.py$"),
+    re.compile(r".{1,500}/security/.{1,500}$"),
+    re.compile(r"^\.ai-engineering/scripts/hooks/.{1,500}$"),
     re.compile(r"^\.ai-engineering/state/hooks-manifest\.json$"),
-    re.compile(r"^\.ai-engineering/security/.+$"),
+    re.compile(r"^\.ai-engineering/security/.{1,500}$"),
 )
 
 _DEPENDENCY_FILES = frozenset({"pyproject.toml", "package.json"})
