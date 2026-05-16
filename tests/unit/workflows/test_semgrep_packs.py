@@ -67,10 +67,20 @@ def _step_by_name(steps: list[dict], name: str) -> dict:
 
 
 def test_semgrep_step_contains_all_four_community_packs(workflow: dict) -> None:
-    """spec-141 M2.T1 — every required pack appears as a `--config p/<name>` flag."""
-    semgrep_step = _step_by_name(_security_steps(workflow), "semgrep")
-    run_block = semgrep_step.get("run", "")
-    assert run_block, "semgrep step has empty `run:` block"
+    """spec-141 M2.T1 — every required pack appears as a `--config p/<name>` flag.
+
+    As of 2026-05 the semgrep.dev registry returns HTTP 403 for
+    unauthenticated requests, so the community-pack invocation runs as a
+    separate `continue-on-error` step (`semgrep (community packs —
+    advisory)`) while the in-tree rules stay in the authoritative gate
+    step (`semgrep (in-tree rules — must pass)`). This test asserts the
+    advisory step still names all four packs so the coverage matrix is
+    not silently dropped when SEMGREP_APP_TOKEN gets provisioned later.
+    """
+    steps = _security_steps(workflow)
+    pack_step = _step_by_name(steps, "semgrep (community packs — advisory)")
+    run_block = pack_step.get("run", "")
+    assert run_block, "community-pack step has empty `run:` block"
 
     missing: list[str] = []
     for pack in sorted(REQUIRED_PACKS):
@@ -78,22 +88,32 @@ def test_semgrep_step_contains_all_four_community_packs(workflow: dict) -> None:
         if flag not in run_block:
             missing.append(flag)
     assert not missing, (
-        f"spec-141 M2 drift: semgrep step missing required `--config` flag(s): "
+        f"spec-141 M2 drift: community-pack step missing required `--config` flag(s): "
         f"{missing}. Run block:\n{run_block}"
     )
 
 
 def test_semgrep_step_keeps_in_tree_config(workflow: dict) -> None:
-    """The in-tree `.semgrep.yml` config MUST stay alongside the packs.
+    """The in-tree `.semgrep.yml` config MUST stay in the authoritative gate.
 
     Removing it would silently drop the project-specific rules
     (aieng.injection.*, aieng.deserialize.*, …) from the CI surface.
+    The in-tree step runs WITHOUT `continue-on-error` so any finding
+    fails the build loudly.
     """
-    semgrep_step = _step_by_name(_security_steps(workflow), "semgrep")
-    run_block = semgrep_step.get("run", "")
+    steps = _security_steps(workflow)
+    intree_step = _step_by_name(steps, "semgrep (in-tree rules — must pass)")
+    run_block = intree_step.get("run", "")
     assert "--config .semgrep.yml" in run_block, (
-        "spec-141 M2: semgrep step must keep `--config .semgrep.yml` "
-        f"alongside the community packs. Run block:\n{run_block}"
+        "spec-141 M2: in-tree semgrep step must keep `--config .semgrep.yml`. "
+        f"Run block:\n{run_block}"
+    )
+    assert "--error" in run_block, (
+        "spec-141 M2: in-tree semgrep step must keep `--error` so findings fail the build."
+    )
+    # The in-tree step is the authoritative gate — must NOT continue-on-error.
+    assert not intree_step.get("continue-on-error", False), (
+        "spec-141 M2: in-tree semgrep step must be authoritative (no continue-on-error)."
     )
 
 

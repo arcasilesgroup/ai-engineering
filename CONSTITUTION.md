@@ -81,6 +81,11 @@ AI authoring is the cost-driver and auditability is the bar.
    operator-authored. `/ai-constitution amend` rotates the prior
    body, applies the diff, bumps the minor version, and emits an
    audit event — but the operator types the new content.
+8. **Single Source of Truth Per Datum.** Every datum has exactly
+   one canonical writable store. Derived caches are explicitly
+   labelled (named, with a rebuild command) and rebuildable on
+   demand. See [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
+   for the four-tier model and the rebuild semantics.
 
 ## Compliance gates
 
