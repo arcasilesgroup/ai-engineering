@@ -6,7 +6,8 @@
  Exit codes: 0 (pass), 1 (fail), 2 (warnings only). When ``--check
  hot-path`` is passed, runs the spec-114 advisory hot-path SLO
  audit and always exits 0 per D-114-03 (advisory through
- 2026-05-31).
+ 2026-05-31). When ``--check state-db`` is passed, runs the spec-138
+ M5.T3 informational state.db health report and always exits 0.
 
 ╭─ Arguments ──────────────────────────────────────────────────────────────────╮
 │   target      [TARGET]  Target project root. Defaults to cwd.                │
@@ -16,7 +17,8 @@
 │ --phase          TEXT  Run only this phase (e.g., hooks, tools, governance). │
 │ --dry-run              Show what --fix would do without executing.           │
 │ --json                 Output report as JSON for agent consumption.          │
-│ --check          TEXT  Run a focused sub-check (e.g., 'hot-path' for SLO     │
-│                        budgets).                                             │
+│ --check          TEXT  Run a focused sub-check: 'hot-path' (SLO budgets,     │
+│                        advisory) or 'state-db' (table-by-table health        │
+│                        report, informational).                               │
 │ --help                 Show this message and exit.                           │
 ╰──────────────────────────────────────────────────────────────────────────────╯
