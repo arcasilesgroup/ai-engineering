@@ -633,7 +633,7 @@ sequenceDiagram
 | Environment-Aware Failure Policy | Fail fast for bootstrap/runtime integrity, try repair for framework packaging drift, validate then block unreachable private feeds, and require manual follow-up when platform tool automation is unavailable |
 | Factory Pattern | VCS provider resolution: manifest-first, remote-URL-fallback |
 | Single-Source Mirror | Canonical `.claude/` generates all IDE mirrors via native IDE directories |
-| Hybrid Principle Split | `CONSTITUTION.md` is the sole constitutional hard-rule source for spec-driven development, TDD, and proof-before-done; `.ai-engineering/CONSTITUTION.md` is retained only as a subordinate workspace charter compatibility alias; `.ai-engineering/contexts/operational-principles.md` is the canonical source for YAGNI, DRY, KISS, SOLID, clean architecture, and clean code consumed by build/review surfaces |
+| Hybrid Principle Split | `CONSTITUTION.md` is the sole constitutional hard-rule source for spec-driven development, TDD, and proof-before-done; `.ai-engineering/CONSTITUTION.md` is retained only as a subordinate workspace charter compatibility alias; `.ai-engineering/reference/operational-principles.md` is the canonical source for YAGNI, DRY, KISS, SOLID, clean architecture, and clean code consumed by build/review surfaces (spec-136 D-136-03 collapsed contexts/ into reference/) |
 | Constitution-Driven Governance | `CONSTITUTION.md` as foundational governance document replacing project-identity |
 | Consolidated Learning | `LESSONS.md` as single learning store (consolidated from team/lessons.md) |
 | Instincts v2 | Confidence scoring, pattern families, improvement funnel (proposals.md to work items) |
@@ -768,7 +768,7 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Framework events | `.ai-engineering/state/framework-events.ndjson` |
 | Framework capabilities | `.ai-engineering/state/framework-capabilities.json` |
-| Contexts (39) | `.ai-engineering/contexts/{languages,frameworks,team}/` |
+| Reference (18) | `.ai-engineering/reference/*.md` (spec-136 D-136-03 collapsed contexts/ + framework docs/ into a single flat home) |
 | Runbooks (14) | `.ai-engineering/runbooks/` |
 | CLI source | `src/ai_engineering/` |
 | Tests (123 files) | `tests/{unit,integration,e2e}/` |

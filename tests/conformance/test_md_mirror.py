@@ -356,9 +356,10 @@ def test_forbidden_constitution_headers_constant_is_complete() -> None:
 def _build_docs_targets(repo: Path) -> None:
     """Write the three sub-005 `docs/` destinations into the fixture root.
 
-    The sub-005 driver requires ``.ai-engineering/reference/principles.md``,
-    ``.ai-engineering/reference/mirror-authoring.md``, and ``.ai-engineering/reference/surface-axioms.md`` to
-    exist on disk; their contents are not inspected by the lint
+    The sub-005 driver requires the three ``.ai-engineering/reference/``
+    targets (``principles.md``, ``mirror-authoring.md``,
+    ``surface-axioms.md``) to exist on disk; their contents are not
+    inspected by the lint
     sub-checks (they are content-existence guards only). Test
     fixtures therefore write stub files; integration tests
     (``test_canonical_mirror_parity.py``) cover content shape.

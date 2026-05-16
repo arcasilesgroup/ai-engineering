@@ -14,7 +14,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-ARCH_PATTERNS_CONTEXT = REPO_ROOT / ".ai-engineering" / "contexts" / "architecture-patterns.md"
+ARCH_PATTERNS_CONTEXT = REPO_ROOT / ".ai-engineering" / "reference" / "architecture-patterns.md"
 PLAN_SKILL = REPO_ROOT / ".claude" / "skills" / "ai-plan" / "SKILL.md"
 
 # Mirrored copies of the ai-plan SKILL.md propagated by `ai-eng sync`.

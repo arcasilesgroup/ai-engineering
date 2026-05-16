@@ -1130,8 +1130,9 @@ Install:
 # macOS
 brew install engram
 # Linux
-curl -fsSL https://github.com/Gentleman-Programming/engram/releases/latest/download/engram-linux-x86_64 \\
-  -o "$HOME/.local/bin/engram" && chmod +x "$HOME/.local/bin/engram"
+ENGRAM_URL="https://github.com/Gentleman-Programming/engram/releases/latest"
+curl -fsSL "$ENGRAM_URL/download/engram-linux-x86_64" -o "$HOME/.local/bin/engram"
+chmod +x "$HOME/.local/bin/engram"
 # Windows
 winget install Engram
 ```

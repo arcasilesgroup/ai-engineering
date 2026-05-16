@@ -43,7 +43,7 @@ def check_references(spec_path: Path) -> list[CheckResult]:
     * ``BLOCKER references_pr_shape`` when a ``pr:`` target does not
       match the ``<owner>/<repo>#<number>`` or URL shape.
     * ``ADVISORY references_research_shape`` when a ``research:`` target
-      is neither a ``.ai-engineering/research/*.md`` path nor a URL.
+      is neither a ``.ai-engineering/runtime/research/*.md`` path nor a URL.
     """
     text = spec_path.read_text(encoding="utf-8")
     block = _slice_section(text, "References")
@@ -89,7 +89,7 @@ def check_references(spec_path: Path) -> list[CheckResult]:
                     "ADVISORY",
                     (
                         f"research reference target {target!r} is neither "
-                        "a .ai-engineering/research/*.md path nor a URL"
+                        "a .ai-engineering/runtime/research/*.md path nor a URL"
                     ),
                 )
             )
