@@ -7,19 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### spec-138 — Harness Persistence Strategy (SSOT-PD foundation, partial)
+### spec-138 — Harness Persistence Strategy (partial: M1 + M2 + M5)
 
 Mantra: **One canonical store per datum. Caches are rebuildable. No silent
 dual-writes.** Lands the M1 bug clearance of the silent dual-write failure
 mode: every `INSERT INTO events` from the policy-decision hot path was
 writing to a phantom schema and swallowing every `sqlite3.Error`; the
 `audit-index.sqlite` 0-byte zombie was being opened by `runtime-stop.py:474`
-and the `session_token_rollup` query failed silently every Stop. Now also
+and the `session_token_rollup` query failed silently every Stop. Also
 lands the M2 doctrine document, the CONSTITUTION.md §13 amendment that
 ratifies the SSOT-PD rule, and the CLAUDE.md §0 bootstrap pointer that
-replaces the misleading `state.db.decisions` query instruction. M3-M5
-(autopopulation, derived-cache positioning, hooks_integrity table drop)
-are scoped in `.ai-engineering/specs/archive/spec-138-plan.md` and
+replaces the misleading `state.db.decisions` query instruction. M5 closes
+out the dead-schema cleanup: migration `0008_drop_hooks_integrity` removes
+the `hooks_integrity` table (D-138-01 — no consumer materialised; the
+sha256 manifest at `state/hooks-manifest.json` plus the NDJSON
+`integrity_violation` event stream cover the surface), and the new
+`ai-eng doctor --check state-db` subcommand surfaces table-by-table
+health (row counts, mtime, advisory flags for empty rows-expected tables).
+M3-M4 (autopopulation writers, events as derived cache + NDJSON rotation)
+remain scoped in `.ai-engineering/specs/archive/spec-138-plan.md` and
 deferred to follow-up work.
 
 #### Added — persistence doctrine (M2)
@@ -85,6 +91,61 @@ deferred to follow-up work.
   `test_no_sql_dual_write_module_no_longer_imports_sqlite` asserts on
   module attributes (sqlite3 not imported, `_insert_events_row` and
   `STATE_DB_REL` removed). Prevents regression of the dual-write bug.
+
+#### Removed — hooks_integrity table (M5)
+
+- `src/ai_engineering/state/migrations/0008_drop_hooks_integrity.py` —
+  new forward-only migration drops the `hooks_integrity` table and its
+  `idx_hooks_recent` index (D-138-01). The table was declared by
+  `0001_initial_schema` as a "verification ledger populated at runtime
+  by `run_hook_safe`" but no consumer ever materialised. Per SSOT-PD
+  (CONSTITUTION.md Prohibition #8), the sha256 manifest at
+  `state/hooks-manifest.json` is the single canonical store for hook
+  script integrity, and the NDJSON `integrity_violation` event stream
+  (mirrored via `state.db.events` after the SessionEnd rebuild) covers
+  the audit surface. `0001_initial_schema` retains its original CREATE
+  TABLE per the forward-only contract — the drop lands in 0008 on the
+  next bootstrap.
+- `src/ai_engineering/state/migrations/0002_seed_from_json.py` —
+  removed the docstring promise that "runtime hook checks land their
+  first rows" into `hooks_integrity`. Replaced with a pointer to
+  migration 0008 documenting the drop rationale. `BODY_SHA256` updated
+  to the new body hash.
+- `src/ai_engineering/state/state_db.py` — module docstring updated
+  from "Seven STRICT tables" to "Six STRICT tables", with the legacy
+  `hooks_integrity` entry removed.
+- `src/ai_engineering/cli_commands/audit_cmd.py` — `audit health`
+  removes `hooks_integrity` from `required_tables`, so the integrity
+  check no longer fails when the (intentionally absent) table is
+  missing.
+- `tests/unit/state/test_lazy_bootstrap.py` —
+  `test_business_tables_exist` no longer expects `hooks_integrity`;
+  new `test_hooks_integrity_table_absent_after_bootstrap` asserts the
+  drop via `SELECT name FROM sqlite_master WHERE name='hooks_integrity'`
+  returns no rows. `_expected_migration_ids()` adds
+  `0008_drop_hooks_integrity` to the canonical migration set.
+
+#### Added — `ai-eng doctor --check state-db` (M5)
+
+- `src/ai_engineering/cli_commands/doctor_state_db.py` (new) — new
+  focused doctor sub-check. Connects to `state.db` read-only, enumerates
+  the canonical tables declared by migrations 0001 through 0008, and
+  prints a structured report (table | rows | last_modified | advisory).
+  Advisories flag tables expected to carry rows once steady-state
+  operation kicks in but currently empty (`decisions` post-`/ai-brainstorm`
+  or backfill, `install_steps` post-installer-run). Missing tables and
+  missing DB file both surface as advisories rather than failures.
+  Per the spec-138 M5 acceptance gate the check is informational only:
+  exit code is always 0, never blocks.
+- `src/ai_engineering/cli_commands/core.py` — `_run_focused_doctor_check`
+  now dispatches `state-db` to the new module; help text updated to
+  list both supported `--check` values (`hot-path`, `state-db`).
+- `tests/unit/cli/test_doctor_state_db.py` (new) — covers the four
+  acceptance points: every canonical table appears in the report (and
+  `hooks_integrity` does NOT); empty `decisions` triggers the advisory
+  banner; absent DB file exits 0 with advisories instead of crashing;
+  unknown `--check` value still raises `BadParameter` and lists
+  `state-db` among supported values.
 
 ### spec-139 — Framework Performance Hardening (partial: M1 + M4 + M9)
 

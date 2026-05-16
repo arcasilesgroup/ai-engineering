@@ -1,9 +1,10 @@
 """Unified ``state.db`` connection manager (spec-122-b D-122-06, D-122-16).
 
 The framework's persistence is consolidated into a single SQLite database at
-``.ai-engineering/state/state.db``. Seven STRICT tables (events, decisions,
-risk_acceptances, gate_findings, hooks_integrity, ownership_map,
-install_steps) plus a ``_migrations`` ledger live here. The NDJSON
+``.ai-engineering/state/state.db``. Six STRICT tables (events, decisions,
+risk_acceptances, gate_findings, ownership_map, install_steps) plus a
+``_migrations`` ledger live here (the legacy ``hooks_integrity`` table was
+dropped in migration 0008 per spec-138 D-138-01). The NDJSON
 ``framework-events.ndjson`` file remains the immutable Article-III
 source-of-truth (CQRS read-model split); this DB is a derived projection
 that can be rebuilt by replay.

@@ -109,9 +109,9 @@ Five phases mapped to the brief's M1–M5 milestones. TDD-first; every change ca
 
 ### Tasks
 
-- **M5.T1 — Migration `0008_drop_hooks_integrity.py`.** DROP TABLE `hooks_integrity`. Removes the dead schema declared in `0001_initial_schema.py` and the documented-but-never-honored intent in `0002_seed_from_json.py`.
-- **M5.T2 — Strip references.** Remove `hooks_integrity` from `audit_index.py` schema docs (if any) and the docstring in `0002_seed_from_json.py:15-17`.
-- **M5.T3 — `ai-eng doctor --check state-db`.** New subcommand: connects to `state.db`, lists every table with row count and `last_modified` mtime, flags expected-but-empty tables (decisions if 0 rows post-backfill, install_steps if 0 rows post-install).
+- **[x] M5.T1 — Migration `0008_drop_hooks_integrity.py`.** DROP TABLE `hooks_integrity`. Removes the dead schema declared in `0001_initial_schema.py` and the documented-but-never-honored intent in `0002_seed_from_json.py`.
+- **[x] M5.T2 — Strip references.** Remove `hooks_integrity` from `audit_index.py` schema docs (if any) and the docstring in `0002_seed_from_json.py:15-17`.
+- **[x] M5.T3 — `ai-eng doctor --check state-db`.** New subcommand: connects to `state.db`, lists every table with row count and `last_modified` mtime, flags expected-but-empty tables (decisions if 0 rows post-backfill, install_steps if 0 rows post-install).
 - **M5.T4 — CHANGELOG entries.** `## [Unreleased] ### Removed`: `_insert_events_row` dual-write, `decision-store.json` legacy mirror, `audit-index.sqlite` legacy 0-byte file, `state.db.hooks_integrity` table.
 - **M5.T5 — Update `_history.md`.** Add row for spec-138 with status `approved`.
 
