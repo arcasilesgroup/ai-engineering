@@ -111,6 +111,13 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
         packaged_counterpart="ai_engineering.state.observability",
     ),
     HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "relevance.py",
+        runtime_class=HookAssetRuntimeClass.STDLIB_MIRROR,
+        import_policy=_STDLIB_ONLY,
+        rationale="Mirrors the spec-137 relevance gate for installed hooks.",
+        packaged_counterpart="ai_engineering.state.relevance",
+    ),
+    HookRuntimeAsset(
         relative_path=_HOOK_LIB_REL / "audit.py",
         runtime_class=HookAssetRuntimeClass.STDLIB_MIRROR,
         import_policy=_STDLIB_ONLY,

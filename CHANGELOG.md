@@ -7,6 +7,79 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### spec-137 — Event Relevance Discipline (D-137-01)
+
+Mantra: **lo que escribamos, donde sea, debe ser relevante.** A read-only survey
+on 2026-05-15 found 1,230 of 1,335 NDJSON rows in a single working day (92.1%)
+came from just two unconditional polling emitters. This release lands the
+relevance contract at the writer boundary that ends the heartbeat tail.
+
+#### Behavior change — emit-on-change semantics for two heartbeat sites
+
+- `spec_verified` (cli.spec) — previously fired on every `ai-eng spec verify`
+  invocation (~848 rows/day, 63.5% of the audit tail). Now emits **only when
+  drift is detected**. Read-time consumers that want "did spec verify run"
+  should derive it from git hook traces, not the audit chain.
+- `install_simulate_hook` (installer.user_scope_install) — previously fired
+  one row per tool per synthetic install run (~382 rows/day, 28.6%). Now
+  emits **only on failure or degraded outcome** (success rows drop, failure
+  rows always emit per the manifest `failure_emission: always` policy).
+
+Volume target: ≤ 150 lines/day after a typical working-day session (down
+from 1,335 -- ~89% reduction).
+
+#### New -- `audit_policy:` block in manifest
+
+`.ai-engineering/manifest.yml` declares a new top-level `audit_policy:`
+block with four fields: `kind_allowlist` (the 13 declared kinds, empty
+means no restriction), `severity_floor` (per-kind S0..S3 tiers),
+`sampling` (e.g. `policy_decision_allow: 0.10`), and `failure_emission:
+always` (failure outcomes always emit). The installer template mirror
+at `src/ai_engineering/templates/.ai-engineering/manifest.yml` carries
+the same default block.
+
+#### New -- relevance gate helper (package + stdlib mirror)
+
+- `src/ai_engineering/state/relevance.py` -- typed gate +
+  `AuditPolicy` dataclass + `load_audit_policy_from_manifest()` helper.
+- `.ai-engineering/scripts/hooks/_lib/relevance.py` -- stdlib-only
+  mirror so hook scripts (running before `uv sync`) can import it.
+
+Three layers asserted at emit time at the writer boundary: kind allow-list,
+severity floor, and failure-emission asymmetry.
+
+#### Frozenset drift repair (parity-fix per D-137-01)
+
+The three `ALLOWED_EVENT_KINDS` declaration sites had silently drifted:
+the hook-side `_lib/observability.py` mirror was missing `policy_decision`
+and `retention_applied` (added in spec-122 / spec-123 respectively). This
+release re-aligns the hook-side mirror and the installer-template mirror
+with the authoritative frozenset in `tools/skill_domain/event_schema.py`.
+A new test `tests/unit/state/test_event_kinds_single_source.py` asserts
+the three sites cannot drift again.
+
+#### New tests
+
+- `tests/unit/state/test_event_kinds_single_source.py` -- locks the three
+  frozenset sites against drift.
+- `tests/unit/state/test_event_relevance_gate.py` -- 13 parametrized cases
+  covering all three contract layers.
+- `tests/unit/state/test_event_relevance_no_heartbeats.py` -- AST guard
+  asserting the two retired heartbeats are emit-on-change only.
+- `tests/unit/test_manifest_audit_policy_default.py` -- asserts both
+  manifests carry the documented default `audit_policy:` block.
+
+#### Deferred (open scope, not in this PR)
+
+- D-137-07 CI guard for new emit sites without a paired policy entry.
+- D-137-08 historical decision backfill into `state.db decisions`.
+- D-137-09 per-kind sampling beyond the existing 10% policy-decision
+  allow-sampler.
+- `schemaVersion` bump and required `severity` field on `FrameworkEvent`
+  -- deferred to keep this PR's blast radius bounded; the optional
+  severity field is honoured by the gate today and can be made
+  required in a follow-up spec without touching emit sites.
+
 ### spec-136 — Prune low-value surfaces (`docs/`, `contexts/`, `research/`, `evals/`)
 
 Hard rename per `CONSTITUTION.md §3`. Four top-level knowledge surfaces

@@ -32,6 +32,7 @@ def test_stdlib_mirrors_have_packaged_counterparts_and_are_not_reducible() -> No
         "hook-common.py",
         "instincts.py",
         "observability.py",
+        "relevance.py",
     }
     assert all(asset.packaged_counterpart for asset in mirrors)
     assert all(asset.import_policy == "stdlib-only" for asset in mirrors)

@@ -72,3 +72,32 @@ cicd:
 telemetry:
   consent: strict-opt-in
   default: disabled
+
+# spec-137 D-137-01 -- Event Relevance Discipline.
+# Manifest-driven relevance contract enforced at the writer boundary.
+# Empty kind_allowlist means "no restriction". Operators shrink the
+# list to silence categories. Severity floors are per-kind; failure
+# outcomes always emit regardless of the floor.
+audit_policy:
+  kind_allowlist:
+    - skill_invoked
+    - agent_dispatched
+    - context_load
+    - ide_hook
+    - framework_error
+    - framework_operation
+    - git_hook
+    - control_outcome
+    - task_trace
+    - memory_event
+    - eval_run
+    - retention_applied
+    - policy_decision
+  severity_floor:
+    default: S1
+    framework_operation: S2
+    ide_hook: S2
+    framework_error: S0
+  sampling:
+    policy_decision_allow: 0.10
+  failure_emission: always
