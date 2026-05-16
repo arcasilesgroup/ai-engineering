@@ -85,10 +85,24 @@ def test_thread_workers_env_overrides_manifest() -> None:
 
 
 @pytest.mark.parametrize(
-    ("env_value", "expected_floor"),
-    [(None, 2), ("1", 1), ("2", 2)],
+    ("env_value", "expected"),
+    [
+        # `env="1"` is the operator opt-in serial mode — always returns 1
+        # regardless of host cores.
+        ("1", lambda c: c == 1),
+        # `env="2"` is an explicit cap of 2 — always returns 2 regardless of
+        # host cores.
+        ("2", lambda c: c == 2),
+        # `env=None` defers to auto-tune which depends on `os.cpu_count()`.
+        # The resolver guarantees `[WAVE_FLOOR, WAVE_CEILING_AUTO]` = `[2, 6]`.
+        # Tests run on hosts with anywhere from 2 to 16+ cores (macOS CI
+        # runners are 3-core or 4-core depending on the macOS runner image
+        # generation), so the assertion has to accept the whole resolved
+        # range — exact equality would be host-dependent flakiness.
+        (None, lambda c: 2 <= c <= 6),
+    ],
 )
-def test_floor_invariant(env_value: str | None, expected_floor: int) -> None:
+def test_floor_invariant(env_value: str | None, expected) -> None:  # type: ignore[no-untyped-def]
     """When the env or manifest pushes below the floor, the floor wins.
 
     Floor = 2 except when the env explicitly sets cap=1 (operator
@@ -96,7 +110,9 @@ def test_floor_invariant(env_value: str | None, expected_floor: int) -> None:
     never let auto-tune drift below 2 on its own.
     """
     cap = resolve_wave_cap(env_var=env_value, manifest_value=None, host_probe=None)
-    assert cap == expected_floor
+    assert expected(cap), (
+        f"resolver returned {cap} for env_value={env_value!r}; expected predicate not satisfied"
+    )
 
 
 # ---------------------------------------------------------------------------
