@@ -80,13 +80,13 @@ jobs:
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
           mkdir -p smoke-wizard
           git init -b main smoke-wizard
-          ai-eng install smoke-wizard --non-interactive --provider claude --vcs github
+          ai-eng install smoke-wizard --non-interactive --surface claude-code --vcs github
       - name: Dry-run produces JSON
         run: |
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
           mkdir -p smoke-dryrun
           git init -b main smoke-dryrun
-          ai-eng install smoke-dryrun --dry-run --provider claude --vcs github > plan.json
+          ai-eng install smoke-dryrun --dry-run --surface claude-code --vcs github > plan.json
           python3 -c "import json; d=json.load(open('plan.json')); assert 'plans' in d; print('OK')"
       - name: Doctor diagnostics
         run: |
