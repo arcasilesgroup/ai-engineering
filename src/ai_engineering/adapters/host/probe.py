@@ -408,7 +408,9 @@ def _probe_windows() -> HostProbe:
     swap_used_pct = 0
 
     try:
-        import psutil  # type: ignore[import-not-found]
+        import importlib
+
+        psutil = importlib.import_module("psutil")
     except ImportError:
         return HostProbe(
             cores=cores,

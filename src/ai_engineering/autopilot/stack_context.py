@@ -228,7 +228,7 @@ def resolve_stack_context(
 
     try:
         stacks = _extract_stacks(text)
-    except re.error:  # pragma: no cover — regex is static; defence in depth
+    except re.error:
         return dict(_DEGRADED_DEFAULT)
 
     if not stacks:

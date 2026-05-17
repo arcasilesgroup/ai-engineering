@@ -45,7 +45,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-BODY_SHA256 = "927d82058dad112d2ffd9d1b07e9e38fb53d933574ff0b5db07343be7acca7dd"
+BODY_SHA256 = "87ed89c4aad4a44f408a610fef5765de5c7a86a28d3e38abb0b458555df727f4"
 
 _NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 

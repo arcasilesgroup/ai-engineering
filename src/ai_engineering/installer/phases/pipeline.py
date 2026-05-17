@@ -289,7 +289,7 @@ class PipelineRunner:
                 integrity_verified=verdict.passed and not verdict.errors,
                 detail=detail,
             )
-        except Exception as exc:  # pragma: no cover - fail-open
+        except Exception as exc:
             _logger.warning(
                 "install_steps UPSERT failed for phase %s: %s",
                 phase.name,

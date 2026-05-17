@@ -672,15 +672,23 @@ def upsert_ownership_rows_raw(
             pattern = row.get("path_pattern")
             if not pattern:
                 continue
-            owners = row.get("owners") or []
-            if isinstance(owners, str):
-                owners = [owners]
-            owners_json = _json.dumps(list(owners))
+            owners_raw = row.get("owners") or []
+            if isinstance(owners_raw, str):
+                owners: list[str] = [owners_raw]
+            elif isinstance(owners_raw, list):
+                owners = [str(item) for item in owners_raw]
+            else:
+                owners = []
+            owners_json = _json.dumps(owners)
             severity = row.get("severity")
-            reviewers = row.get("reviewers") or []
-            if isinstance(reviewers, str):
-                reviewers = [reviewers]
-            reviewers_json = _json.dumps(list(reviewers))
+            reviewers_raw = row.get("reviewers") or []
+            if isinstance(reviewers_raw, str):
+                reviewers: list[str] = [reviewers_raw]
+            elif isinstance(reviewers_raw, list):
+                reviewers = [str(item) for item in reviewers_raw]
+            else:
+                reviewers = []
+            reviewers_json = _json.dumps(reviewers)
             conn.execute(
                 """
                 INSERT INTO ownership_map
