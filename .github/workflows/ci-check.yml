@@ -548,7 +548,7 @@ jobs:
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: ~/.semgrep
-          key: semgrep-packs-${{ runner.os }}-1.96.0
+          key: semgrep-packs-${{ runner.os }}-1.130.0
           restore-keys: |
             semgrep-packs-${{ runner.os }}-
       - name: Install semgrep
@@ -556,7 +556,13 @@ jobs:
         # deterministic reproducibility anchor. Pack aliases (p/python,
         # p/owasp-top-ten, …) roll forward from HEAD; pinning the CLI
         # is the only documented way to fix the scan surface.
-        run: python -m pip install "semgrep==1.96.0"
+        #
+        # Bumped 1.96.0 → 1.130.0: the 1.96.0 wheel exits 1 without
+        # writing JSON on the Ubuntu 24.04 ubuntu-latest runner (no
+        # findings reported locally; runner-side stderr inaccessible).
+        # 1.130.0 is the next quarterly anchor with active OCaml
+        # binary maintenance; pack aliases still roll forward from HEAD.
+        run: python -m pip install "semgrep==1.130.0"
       - name: semgrep (in-tree rules — must pass)
         # spec-141 M2.T1 (D-141-01): in-tree rules under aieng.<area>.
         # namespace run as the authoritative gate. ``--error`` is kept
