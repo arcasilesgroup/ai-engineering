@@ -614,16 +614,135 @@ focused follow-up.
   reconciled). Flipping the code default to `enforce` is a security
   posture decision that belongs in its own focused spec, not in M9.
 
-### spec-140 — Less-Is-More Quality Engine (partial: W1 + W2 + W3)
+### spec-140 — Less-Is-More Quality Engine (partial: W1 + W2 + W2.5-test-split + W3)
 
 Mantra: **Con menos, hacemos más.** Lands Wave 1 hard-delete of dead-test
-archaeology, Wave 2 CI matrix collapse + composite-action extraction, and
-Wave 3 quality-roster collapse (11 reviewers → 6, 4 verifiers → 2). Wave
-2.5 (validator monolith split) is scoped in
-`.ai-engineering/specs/archive/spec-140-plan.md` and deferred to a focused
-follow-up PR. The pass@k eval harness for W3 is operator-deferred — the
-structural collapse ships now, the empirical gate runs from the gitignored
-`.ai-engineering/runtime/quality-evals/` harness in follow-up work (D-140-04).
+archaeology, Wave 2 CI matrix collapse + composite-action extraction, the
+W2.5 test-split (validator monolith broken along category seams; production
+splits W2.5.T1 / W2.5.T2 deferred — see below), and Wave 3 quality-roster
+collapse (11 reviewers → 6, 4 verifiers → 2). The pass@k eval harness for
+W3 is operator-deferred — the structural collapse ships now, the empirical
+gate runs from the gitignored `.ai-engineering/runtime/quality-evals/`
+harness in follow-up work (D-140-04).
+
+#### Changed — validator test monolith split (W2.5.T5 / W2.5.T6)
+
+`tests/unit/test_validator.py` (2,554 LOC, 127 test functions) hard-deleted
+and replaced by 9 split files under `tests/unit/validator/` plus a shared
+`conftest.py`. Every test is preserved — the split collected 127 tests,
+matching the pre-split count exactly. Categories are now addressable in
+isolation (one file per category check) and the heaviest single file
+(`test_mirror_sync_categories.py` at 541 LOC) is < 60% of the pre-split
+monolith.
+
+- `tests/unit/validator/conftest.py` (415 LOC) — extracts every shared
+  fixture / helper / dynamic-discovery constant (`_PROJECT_ROOT`,
+  `_TEMPLATES_CLAUDE_DIR`, `_SKILL_PATHS`, `_AGENT_PATHS`,
+  `_make_governance`, `_write_skill`, `_make_instruction_content`,
+  `_write_all_instruction_files`, `_write_manifest`,
+  `_write_manifest_with_capabilities`, `_source_repo_manifest_text`,
+  `_write_source_repo_markers`, `_write_source_repo_control_plane_files`,
+  `_write_work_plane`, `_write_task_artifacts`, `_write_active_spec`,
+  `_write_readme`, `_setup_full_project`, `_setup_governance_mirror`,
+  `_frontmatter_with_provenance`). Two new path helpers
+  (`_mirror_pair`, `_copilot_agents_pair`) collapse the 8-segment
+  canonical/mirror path repetition that consumed ~130 LOC of the original
+  mirror-sync test class.
+- `tests/unit/validator/test_parse_counter_and_report.py` (206 LOC) — the
+  ReDoS-safe `_parse_counter` plain-string parser tests + `IntegrityReport`
+  dataclass tests.
+- `tests/unit/validator/test_file_existence_categories.py` (210 LOC) —
+  Category 1 (file existence + spec-buffer + source-repo control-plane
+  paths).
+- `tests/unit/validator/test_mirror_sync_categories.py` (541 LOC) —
+  Category 2 (governance / per-IDE skill+agent / generated-provenance /
+  public-root-contract / leak-detection). 8 nested test classes preserved
+  byte-equivalently; helpers absorbed the canonical-mirror-path duplication.
+- `tests/unit/validator/test_counter_accuracy_categories.py` (305 LOC) —
+  Category 3 (counter accuracy: listings, pointer-format, manifest match)
+  plus Category 4 (cross-reference integrity).
+- `tests/unit/validator/test_manifest_coherence_categories.py` (309 LOC) —
+  Category 5 (manifest coherence: ownership map, framework-capabilities
+  snapshot, control-plane authority contract).
+- `tests/unit/validator/test_skill_frontmatter_categories.py` (212 LOC) —
+  Category 7 (skill frontmatter happy path + extended edge cases).
+- `tests/unit/validator/test_validate_content_integrity.py` (48 LOC) —
+  integration tests for the `validate_content_integrity` entry-point.
+- `tests/unit/validator/test_shared_utilities.py` (309 LOC) — `FileCache`,
+  `_is_source_repo`, `_instruction_files`, `_glob_files`, `_is_excluded`,
+  `_extract_section`, `_is_table_separator`, `_parse_skill_names`,
+  `_parse_agent_names`, `_extract_subsection`,
+  `_parse_skill_names_from_subsection`, `_parse_agent_names_from_subsection`,
+  `_extract_listings` — all pure utility tests from `validator._shared`.
+- `tests/unit/validator/test_category_public_api.py` (155 LOC) — new
+  parity guard. AST-walks every `.py` file under the repo for
+  `from ai_engineering.validator.categories[...] import ...` statements,
+  records every imported symbol per-module, then asserts each name still
+  resolves on its declaring module. Adds two complementary tests:
+  the seven category check functions remain callable from
+  `ai_engineering.validator.categories`, and `tools/skill_app/lint_service`
+  re-exports the canonical public-API symbol set unchanged.
+
+LOC delta (W2.5 only):
+
+| File                                       | Pre   | Post  | Delta |
+| ------------------------------------------ | ----- | ----- | ----- |
+| `tests/unit/test_validator.py`             | 2,554 | 0     | -2554 |
+| `tests/unit/validator/conftest.py`         | 0     | 415   | +415  |
+| `tests/unit/validator/test_parse_counter_and_report.py` | 0 | 206 | +206 |
+| `tests/unit/validator/test_file_existence_categories.py` | 0 | 210 | +210 |
+| `tests/unit/validator/test_mirror_sync_categories.py` | 0 | 541 | +541 |
+| `tests/unit/validator/test_counter_accuracy_categories.py` | 0 | 305 | +305 |
+| `tests/unit/validator/test_manifest_coherence_categories.py` | 0 | 309 | +309 |
+| `tests/unit/validator/test_skill_frontmatter_categories.py` | 0 | 212 | +212 |
+| `tests/unit/validator/test_validate_content_integrity.py` | 0 | 48 | +48 |
+| `tests/unit/validator/test_shared_utilities.py` | 0 | 309 | +309 |
+| `tests/unit/validator/test_category_public_api.py` | 0 | 155 | +155 |
+| **Net test delta**                         |       |       | **+156** |
+| **Net production delta**                   |       |       | **0**    |
+
+D-140-07 gate (test deletion ≥ 2 × production-LOC overhead): production
+overhead is 0 (no production refactor landed); the gate is vacuously
+satisfied. The +156 LOC test growth is necessary boilerplate for splitting
+a 2,554-LOC monolith into 10 files (per-file module docstrings, imports,
+test-class skeletons) plus the 155-LOC parity test that is itself a new
+W2.5 deliverable. Excluding the parity test, the test-split overhead is
++1 LOC.
+
+#### Deferred — production splits + 5-LOC stub deletions (W2.5.T1 / T2 / T3 / T4)
+
+- **W2.5.T1** (`manifest_coherence.py` → per-dimension package). Splitting
+  the 1,221-LOC file into a `manifest_coherence/{__init__,
+  skill_inventory, agent_inventory, surface_axioms, counter_accuracy}.py`
+  package would add ~80-150 LOC of import/`__init__.py` re-export
+  scaffolding (the 17 top-level functions share private helpers and a
+  `_EXPECTED_CONTROL_PLANE` constant table that the split would
+  duplicate). D-140-07 demands ≥ 300 LOC of corresponding test deletion
+  to offset the production growth at the 2× ratio, which the current
+  test surface does not support. Re-attempt only after a clear ROI use
+  case justifies the scaffolding overhead.
+- **W2.5.T2** (`mirror_sync.py` → per-mirror package). Same reasoning as
+  W2.5.T1; the 21 functions in `mirror_sync.py` share the
+  `_PUBLIC_AGENT_ROOTS` / `_NON_CLAUDE_LOCAL_REFERENCE_ROOTS` constant
+  tables plus `_FRONTMATTER_BLOCK_RE` / `_STRAY_CLAUDE_LOCAL_REF_RE`
+  regexes from `_shared.py`. The split cannot land cleanly without a
+  `_mirror_helpers.py` companion module, and that companion grows
+  production LOC further.
+- **W2.5.T3** (delete `cross_references.py` 5-LOC stub). **Blocked.** The
+  spec claim "no consumer" was incorrect.
+  `tools/skill_app/lint_service.py:31` imports `_check_cross_references`
+  via `from ai_engineering.validator.categories import ...`, and
+  `tests/integration/test_gap_fillers4.py:388` exercises the same
+  re-export. Deleting the stub would break both consumers. The stub must
+  stay until the consuming surfaces are intentionally re-routed (out of
+  scope for W2.5).
+- **W2.5.T4** (absorb remaining 5-LOC stubs). Depends on W2.5.T1 / W2.5.T2;
+  deferred with them.
+
+These deferrals are tracked in `.ai-engineering/specs/archive/spec-140-plan.md`
+with the same rationale and the W2.5 acceptance-gate amendments. The
+W2.5.T6 parity test guarantees that any future split attempt cannot land
+without keeping every external importer's symbol resolvable.
 
 #### Changed — quality roster collapse (W3)
 
