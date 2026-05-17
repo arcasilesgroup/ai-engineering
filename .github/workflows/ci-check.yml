@@ -562,15 +562,18 @@ jobs:
         # namespace run as the authoritative gate. ``--error`` exits
         # non-zero on any finding (the spec-141 contract guarded by
         # ``test_semgrep_packs::test_semgrep_step_keeps_in_tree_config``).
-        # ``--metrics=off`` silences the semgrep.dev telemetry fetch
-        # which returns HTTP 403 for unauthenticated runners and is
-        # observed to leak into the ``--error`` exit status.
+        # ``--metrics=off`` + ``--disable-version-check`` silence the
+        # two semgrep.dev network calls that return HTTP 403 for
+        # unauthenticated runners and have been observed to leak into
+        # the ``--error`` exit status.
         env:
           SEMGREP_SEND_METRICS: "off"
+          SEMGREP_ENABLE_VERSION_CHECK: "0"
         run: |
           semgrep \
             --config .semgrep.yml \
             --metrics=off \
+            --disable-version-check \
             --error --json . > semgrep-results.json
       - name: semgrep (community packs — advisory)
         # spec-141 M2.T1 follow-up: as of 2026-05, semgrep.dev returns
