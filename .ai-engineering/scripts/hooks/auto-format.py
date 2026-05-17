@@ -280,7 +280,17 @@ def main() -> None:
     file_dir = file_path_obj.parent if file_path_obj.parent.is_dir() else Path.cwd()
     project_root = _find_project_root(file_dir)
 
+    # spec-139 M5.T4: debounce repeated formats of the same path inside the
+    # 1 s default window. Lookup key is the absolute path so relative-vs-
+    # absolute callsites can never produce a false debounce. When debounced
+    # we still pass stdin through so hook chaining stays intact.
+    abs_path = str(file_path_obj.resolve()) if file_path_obj.exists() else file_path
+    if _should_debounce(abs_path):
+        passthrough_stdin(data)
+        return
+
     formatter_fn(file_path, project_root)
+    _record_format(abs_path)
 
     # spec-105 D-105-09: re-stage the safe intersection after formatting.
     # The formatter may have rewritten the file; the user's staged commit

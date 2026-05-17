@@ -106,22 +106,12 @@ Five tight milestones; single PR scope; smallest and most isolated of the four s
 
 ### Tasks
 
-- [ ] **M5.T1** — Run CI with the new pack invocation; capture findings.
-- [ ] **M5.T2** — Triage each new finding: fix inline OR risk-accept via `ai-eng risk accept --finding-id <ID>`.
-- [ ] **M5.T3** — CHANGELOG entry under `## [Unreleased] ### BREAKING CHANGES`:
-  ```
-  - Semgrep in-tree rule IDs renamed to namespace `aieng.<area>.`:
-    - subprocess-shell-true → aieng.injection.subprocess-shell-true
-    - eval-exec-usage → aieng.injection.eval-exec-usage
-    - pickle-load → aieng.deserialize.pickle-load
-    - yaml-load-unsafe → aieng.deserialize.yaml-load-unsafe
-    - tempfile-mktemp → aieng.fs.tempfile-mktemp
-    - requests-no-verify → aieng.net.requests-no-verify
-    - (etc — 9 total)
-  ```
-- [ ] **M5.T4** — CHANGELOG under `### Added`: `# nosemgrep:` markers are now Article-VII enforceable; `nosemgrep_hash` in `.ai-engineering/suppression-allowlist.yml`.
-- [ ] **M5.T5** — CHANGELOG under `### Changed`: CI semgrep job now runs `.semgrep.yml` + `p/python` + `p/owasp-top-ten` + `p/security-audit` + `p/bash` via repeated `--config` flags.
-- [ ] **M5.T6** — CHANGELOG under `### Fixed`: `.ai-engineering/contexts/semgrep-update-model.md` rewritten — references only documented Semgrep syntax; `extends:` and `@<version>` claims removed.
+- [ ] **M5.T1** — Run CI with the new pack invocation; capture findings. (Deferred — depends on first post-merge CI run.)
+- [ ] **M5.T2** — Triage each new finding: fix inline OR risk-accept via `ai-eng risk accept --finding-id <ID>`. (Deferred — pending M5.T1 output.)
+- [x] **M5.T3** — CHANGELOG entry under `## [Unreleased] ### BREAKING CHANGES`: nine rule-ID renames consolidated under `#### BREAKING CHANGES — spec-141 D-141-04 in-tree rule ID rename (M1)` at `CHANGELOG.md:942-963`.
+- [x] **M5.T4** — CHANGELOG under `### Added`: `# nosemgrep:` Article-VII parity consolidated under `#### Added — # nosemgrep: suppression Article VII parity (M3)` at `CHANGELOG.md:1001-1010`.
+- [x] **M5.T5** — CHANGELOG under `### Changed`: CI semgrep job invocation consolidated under `#### Changed — CI semgrep job now runs four community packs (M2)` at `CHANGELOG.md:981-999`.
+- [x] **M5.T6** — CHANGELOG under `### Fixed`: `semgrep-update-model.md` rewrite consolidated under `#### Fixed — semgrep-update-model.md invented-YAML drift (M4)` at `CHANGELOG.md:1012-1020`.
 
 ## Cross-spec coordination
 

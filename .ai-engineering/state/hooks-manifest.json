@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-17T13:49:31Z",
+  "generatedAt": "2026-05-17T13:55:22Z",
   "hookCount": 74,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -22,7 +22,7 @@
     ".ai-engineering/scripts/hooks/_lib/runtime_state.py": "e82a58eb98c7d78462a4ee16c8d5498e81243229f17ad0ad3d57a01083dbb1eb",
     ".ai-engineering/scripts/hooks/_lib/trace_context.py": "aaae7336ffaf9d48a4396ac0d9f625c3747c88ce71c506adf8b2bf3975f94122",
     ".ai-engineering/scripts/hooks/_lib/transcript_usage.py": "86f1919bd8b84698b8c3fb38a859205663d04bcc1159b69864290e5b2fa0bed8",
-    ".ai-engineering/scripts/hooks/auto-format.py": "2f3429e27171a0d80bd9861daf878b17c07c3622e78f5c829e71ef042e0544d7",
+    ".ai-engineering/scripts/hooks/auto-format.py": "8bc6de05f5d2333c4796c051bf00c35f30ca787f3f34606fdbbf5fb3c288ca7e",
     ".ai-engineering/scripts/hooks/codex-hook-bridge.py": "f6733bc121d8b54eb0e1d42335e7e04e475755833e1f6a9dd514cfa10bfb22e3",
     ".ai-engineering/scripts/hooks/copilot-adapter.py": "4d9660a904f5e3ca977e18dac8e4ae8f56255cf3c8e1729eb1af83840961195e",
     ".ai-engineering/scripts/hooks/copilot-agent.ps1": "7705ec6ccaf3a7a05a6f9013933e122c2e3011e28c39263e05df51f54f2a6c8f",
