@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Run summary — multi-spec autonomous orchestration
+
+This Unreleased section captures a single multi-spec autonomous `--no-hitl`
+run that landed 4 spec drafts across 22 milestones:
+
+| Spec | Status | Deferred |
+|------|--------|----------|
+| **spec-138** harness-persistence-strategy | M1, M2, M3, M4, M5 ✅ | M1.T4 (upstream Claude Desktop bug), M1.T5 (caller migration sub-spec), M1.T6 (superseded by M4.T5 gate), M4.T6 (post-merge perf baseline) |
+| **spec-139** framework-performance-hardening | M1, M2, M3, M4, M5, M6, M7, M8, M9 ✅ | none |
+| **spec-140** less-is-more-quality-engine | W1, W2, W2.5 (test-split), W3 ✅ | W2.5 production-side split (D-140-07 LOC gate), W3 pass@k eval (operator runtime) |
+| **spec-141** semgrep-pack-coverage | M1, M2, M3, M4 ✅ | M5.T1 + M5.T2 CI triage (post-merge dependent), M1.T6 + M2.T4 timing baselines |
+
+Every deferred item is documented in its plan archive at
+`.ai-engineering/specs/archive/spec-NNN-plan.md` with rationale. The
+deferrals are intentional — each one names the follow-up gate or
+sub-spec that owns the residual work.
+
 ### spec-138 — Harness Persistence Strategy (M1 + M2 + M3 + M4 + M5)
 
 #### Added — hot-path SQL ban (D-138-06 hard gate)

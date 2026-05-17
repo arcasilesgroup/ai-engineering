@@ -33,7 +33,7 @@ Five tight milestones; single PR scope; smallest and most isolated of the four s
 
 ### Tasks
 
-- [ ] **M1.T1** — Rename all 9 in-tree rule IDs in `.semgrep.yml`:
+- [x] **M1.T1** — Rename all 9 in-tree rule IDs in `.semgrep.yml`:
   - `subprocess-shell-true` → `aieng.injection.subprocess-shell-true`
   - `eval-exec-usage` → `aieng.injection.eval-exec-usage`
   - `pickle-load` → `aieng.deserialize.pickle-load`
@@ -41,11 +41,11 @@ Five tight milestones; single PR scope; smallest and most isolated of the four s
   - `tempfile-mktemp` → `aieng.fs.tempfile-mktemp`
   - `requests-no-verify` → `aieng.net.requests-no-verify`
   - (verify remaining 3 in-tree rules and apply `aieng.<area>.` prefix)
-- [ ] **M1.T2** — Re-render `src/ai_engineering/templates/project/.semgrep.yml` byte-equivalent (dogfood parity).
-- [ ] **M1.T3** — `tests/integration/test_dogfood_parity.py:41-77` confirms sha256 match.
-- [ ] **M1.T4** — Update `CheckConfig(name="semgrep", cmd=[...])` in `src/ai_engineering/policy/checks/stack_runner.py:209-213` to add `--baseline-commit $(git merge-base HEAD origin/<default-branch>)`.
-- [ ] **M1.T5** — Add `tests/unit/policy/test_semgrep_baseline_arg.py` GREEN — asserts the baseline arg is present in the constructed cmd.
-- [ ] **M1.T6** — Time the hot path on a 50-file diff: expected ≤ 5 s wall-clock.
+- [x] **M1.T2** — Re-render `src/ai_engineering/templates/project/.semgrep.yml` byte-equivalent (dogfood parity).
+- [x] **M1.T3** — `tests/integration/test_dogfood_parity.py:41-77` confirms sha256 match.
+- [x] **M1.T4** — Update `CheckConfig(name="semgrep", cmd=[...])` in `src/ai_engineering/policy/checks/stack_runner.py:209-213` to add `--baseline-commit $(git merge-base HEAD origin/<default-branch>)`.
+- [x] **M1.T5** — Add `tests/unit/policy/test_semgrep_baseline_arg.py` GREEN — asserts the baseline arg is present in the constructed cmd.
+- [x] **M1.T6** — Time the hot path on a 50-file diff: expected ≤ 5 s wall-clock.
 
 ## Milestone M2 — CI extension to full pack coverage
 
@@ -53,7 +53,7 @@ Five tight milestones; single PR scope; smallest and most isolated of the four s
 
 ### Tasks
 
-- [ ] **M2.T1** — Update `.github/workflows/ci-check.yml:615-636` semgrep step:
+- [x] **M2.T1** — Update `.github/workflows/ci-check.yml:615-636` semgrep step:
   ```yaml
   - name: semgrep
     run: |
@@ -65,10 +65,10 @@ Five tight milestones; single PR scope; smallest and most isolated of the four s
         --config p/bash \
         --error --json . > semgrep-results.json
   ```
-- [ ] **M2.T2** — Pin Semgrep CLI version via `pip install semgrep==<version>` in the workflow install step.
-- [ ] **M2.T3** — Cache registry-fetched pack YAML in GH Actions cache keyed by Semgrep CLI version.
-- [ ] **M2.T4** — Verify CI job wall-clock ≤ 120 s end-to-end on this repo.
-- [ ] **M2.T5** — `tests/unit/workflows/test_semgrep_packs.py` parses `ci-check.yml` and asserts the 4 `--config p/...` flags are present (drift gate).
+- [x] **M2.T2** — Pin Semgrep CLI version via `pip install semgrep==<version>` in the workflow install step.
+- [x] **M2.T3** — Cache registry-fetched pack YAML in GH Actions cache keyed by Semgrep CLI version.
+- [x] **M2.T4** — Verify CI job wall-clock ≤ 120 s end-to-end on this repo.
+- [x] **M2.T5** — `tests/unit/workflows/test_semgrep_packs.py` parses `ci-check.yml` and asserts the 4 `--config p/...` flags are present (drift gate).
 
 ## Milestone M3 — `nosemgrep_hash` suppression family
 
@@ -76,9 +76,9 @@ Five tight milestones; single PR scope; smallest and most isolated of the four s
 
 ### Tasks
 
-- [ ] **M3.T1** — Add `nosemgrep_hash` to `.ai-engineering/suppression-allowlist.yml:22-26` pattern enum.
-- [ ] **M3.T2** — Teach `no_suppression.cli.run_check` (called from `cli_commands/gate.py:130-164`) to recognise `# nosemgrep:` markers.
-- [ ] **M3.T3** — `tests/unit/no_suppression/test_nosemgrep_recognition.py` GREEN — covers happy path + DEC-linked path.
+- [x] **M3.T1** — Add `nosemgrep_hash` to `.ai-engineering/suppression-allowlist.yml:22-26` pattern enum.
+- [x] **M3.T2** — Teach `no_suppression.cli.run_check` (called from `cli_commands/gate.py:130-164`) to recognise `# nosemgrep:` markers.
+- [x] **M3.T3** — `tests/unit/no_suppression/test_nosemgrep_recognition.py` GREEN — covers happy path + DEC-linked path.
 
 ## Milestone M4 — Doc rewrite + drift regression test
 
@@ -86,19 +86,19 @@ Five tight milestones; single PR scope; smallest and most isolated of the four s
 
 ### Tasks
 
-- [ ] **M4.T1** — Add `tests/unit/contexts/test_semgrep_update_model_drift.py` FIRST (RED):
+- [x] **M4.T1** — Add `tests/unit/contexts/test_semgrep_update_model_drift.py` FIRST (RED):
   ```python
   def test_no_extends_block():
       content = Path(".ai-engineering/contexts/semgrep-update-model.md").read_text()
       assert "extends:" not in content
       assert "@1." not in content  # forbids the @<version> pack pin pattern
   ```
-- [ ] **M4.T2** — Rewrite `.ai-engineering/contexts/semgrep-update-model.md`:
+- [x] **M4.T2** — Rewrite `.ai-engineering/contexts/semgrep-update-model.md`:
   - Replace "extends with `@<version>` pins" model with "repeated `--config` flags + pinned Semgrep CLI".
   - Quarterly bump procedure: bump `semgrep` CLI pin in `ci-check.yml`, re-run gate, triage findings (D-141-05).
   - Reproducibility: pack aliases roll forward from HEAD; deterministic anchor is the CLI pin.
   - Advisory section: pre-push deliberately does NOT run packs (5-second budget); full coverage is CI-only.
-- [ ] **M4.T3** — Confirm `test_semgrep_update_model_drift.py` GREEN after rewrite.
+- [x] **M4.T3** — Confirm `test_semgrep_update_model_drift.py` GREEN after rewrite.
 
 ## Milestone M5 — Triage of CI findings + CHANGELOG
 

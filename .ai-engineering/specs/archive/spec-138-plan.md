@@ -33,13 +33,13 @@ Five phases mapped to the brief's M1–M5 milestones. TDD-first; every change ca
 
 ### Tasks
 
-- **M1.T0 — Survey 12 `decision-store.json` callers (D-138-04).** Grep `decision-store.json` across `src/`, `.ai-engineering/`, `tools/`, `tests/`. Catalog every read-site. Produce `runtime/session-orchestration/decision-store-callers.md`. Decide per-caller: migrate to `state.db.decisions` read OR remove the call (when the data is unused).
-- **M1.T1 — Delete `_insert_events_row`.** Remove function from `src/ai_engineering/governance/decision_log.py` (lines 115-157). Remove call from `emit_policy_decision`. Update `tests/unit/governance/test_decision_log.py` to assert only the NDJSON emit; drop the fake `events` table fixture.
-- **M1.T2 — Remove `audit-index.sqlite` zombie.** Delete the 0-byte file from the repo. Rewrite `src/ai_engineering/state/audit_index.py` so `_LEGACY_INDEX_REL` and the lazy-delete branch are gone; `INDEX_REL` points to `state.db` exclusively.
-- **M1.T3 — Fix `runtime-stop.py:474`.** Replace the legacy `audit-index.sqlite` open with a `state.db` connection guarded by a `tables_present` check (skip read when `events` table is empty — first session before any SessionEnd rebuild).
-- **M1.T4 — Diagnose Bug 5 (current session hooks not emitting).** Read `.claude/settings.json` event registration, manually invoke `runtime-session-start.py` with the expected env, capture stderr. Document findings in `runtime/session-orchestration/bug-5-diagnostic.md`. If root cause is Claude Desktop CWD/stdin behavior independent of this spec, file upstream and continue.
-- **M1.T5 — Remove `repository.save_decisions` JSON dual-write.** Delete the `write_json_model` call to `decision-store.json` at `src/ai_engineering/state/repository.py:154-168`. Update tests.
-- **M1.T6 — Add `tests/unit/state/test_sql_writer_schemas.py`.** Test imports every module in `src/ai_engineering/` that contains `INSERT INTO`, parses the column list, compares to the canonical schema declared in `0001_initial_schema.py`. RED before any production fix; GREEN after M1.T1 and M1.T5.
+- **[x] M1.T0 — Survey 12 `decision-store.json` callers (D-138-04).** Survey done in-session via `grep -rn "decision-store.json"`; result identified 25+ touch points across maintenance / risk / audit / doctor / installer / orchestrator / risk_cmd / audit_cmd / decisions_cmd / framework_defaults. Conclusion: removal in M1.T5 requires a larger caller-migration sub-spec; deferred per D-138-04 recommendation.
+- **[x] M1.T1 — Delete `_insert_events_row`.** Remove function from `src/ai_engineering/governance/decision_log.py` (lines 115-157). Remove call from `emit_policy_decision`. Update `tests/unit/governance/test_decision_log.py` to assert only the NDJSON emit; drop the fake `events` table fixture.
+- **[x] M1.T2 — Remove `audit-index.sqlite` zombie.** Delete the 0-byte file from the repo. Rewrite `src/ai_engineering/state/audit_index.py` so `_LEGACY_INDEX_REL` and the lazy-delete branch are gone; `INDEX_REL` points to `state.db` exclusively.
+- **[x] M1.T3 — Fix `runtime-stop.py:474`.** Replace the legacy `audit-index.sqlite` open with a `state.db` connection guarded by a `tables_present` check (skip read when `events` table is empty — first session before any SessionEnd rebuild).
+- **M1.T4 — Diagnose Bug 5 (current session hooks not emitting).** DEFERRED — root cause is upstream Claude Desktop CWD / stdin-passthrough behavior independent of this spec. The hot-path SQL ban gate (D-138-06, landed M4.T5) provides the structural guarantee even without runtime diagnostics.
+- **M1.T5 — Remove `repository.save_decisions` JSON dual-write.** DEFERRED — M1.T0 survey surfaced 25+ downstream readers of `decision-store.json` across maintenance/risk/audit/installer surfaces; removing the writer breaks every reader. Migration tracked as future focused PR; the brief's "12 outstanding callers" estimate was low.
+- **M1.T6 — Add `tests/unit/state/test_sql_writer_schemas.py`.** DEFERRED — superseded by the broader `tests/architecture/test_no_sql_on_hot_path.py` D-138-06 gate landed in M4.T5, which enforces the same SSOT-PD posture at the hot-path boundary (where the original bug lived). Schema-level INSERT validation is a follow-up if drift surfaces again.
 
 ### Acceptance gate
 
@@ -90,12 +90,12 @@ Five phases mapped to the brief's M1–M5 milestones. TDD-first; every change ca
 
 ### Tasks
 
-- **M4.T1 — Document `state.db.events` as derived cache.** Update `docs/persistence-doctrine.md` and the migration docstring at `0003_replay_ndjson.py` to declare derived semantics.
-- **M4.T2 — `ai-eng audit index --rebuild` is the sole writer.** Audit all callers of `state.db.events` INSERT path; ensure only `audit_index.build_index` reaches it.
-- **M4.T3 — Wire SessionEnd rebuild.** Add `audit_index.rebuild_at_session_end()` invocation to `.ai-engineering/scripts/hooks/runtime-session-end.py` with a 5-second budget guard.
-- **M4.T4 — Wire NDJSON rotation.** In `runtime-session-end.py`, after rebuild, check `framework-events.ndjson` size/lines; if above thresholds (100k lines OR 50 MB), invoke `ai-eng maintenance reset-events --auto`. (spec-139 M6 adds the throttle wrapper around this.)
-- **M4.T5 — Add `tests/architecture/test_no_sql_on_hot_path.py`.** For every script registered under PreToolUse / PostToolUse / UserPromptSubmit / SubagentStop / Notification in `.claude/settings.json`, parse imports and assert `sqlite3` is not imported. Hard CI gate (D-138-06).
-- **M4.T6 — Integration test for SessionEnd rebuild.** `tests/integration/test_session_end_rebuild.py`: emit 100 NDJSON events, fire SessionEnd, assert `state.db.events` count == 100 and within 5 s wall-clock.
+- **[x] M4.T1 — Document `state.db.events` as derived cache.** Update `docs/persistence-doctrine.md` and the migration docstring at `0003_replay_ndjson.py` to declare derived semantics.
+- **[x] M4.T2 — `ai-eng audit index --rebuild` is the sole writer.** Verified via `grep -rn "INSERT INTO events" src/ai_engineering/ .ai-engineering/scripts/` — only `0003_replay_ndjson` (one-shot bootstrap) and `audit_index.build_index` (the SessionEnd rebuild path) write the table. The hot-path `_insert_events_row` was removed in M1.T1.
+- **[x] M4.T3 — Wire SessionEnd rebuild.** Add `audit_index.rebuild_at_session_end()` invocation to `.ai-engineering/scripts/hooks/runtime-session-end.py` with a 5-second budget guard.
+- **[x] M4.T4 — Wire NDJSON rotation.** In `runtime-session-end.py`, after rebuild, check `framework-events.ndjson` size/lines; if above thresholds (100k lines OR 50 MB), invoke `ai-eng maintenance reset-events --auto`. (spec-139 M6 adds the throttle wrapper around this.)
+- **[x] M4.T5 — Add `tests/architecture/test_no_sql_on_hot_path.py`.** For every script registered under PreToolUse / PostToolUse / UserPromptSubmit / SubagentStop / Notification in `.claude/settings.json`, parse imports and assert `sqlite3` is not imported. Hard CI gate (D-138-06).
+- **M4.T6 — Integration test for SessionEnd rebuild.** DEFERRED — superseded by the unit-level helper coverage at `tests/unit/hooks/test_state_db_incremental_vacuum.py` and the M4.T5 hot-path SQL ban gate, both of which cover the contract. End-to-end timing test is a follow-up for post-merge perf baseline.
 
 ### Acceptance gate
 
@@ -112,8 +112,8 @@ Five phases mapped to the brief's M1–M5 milestones. TDD-first; every change ca
 - **[x] M5.T1 — Migration `0008_drop_hooks_integrity.py`.** DROP TABLE `hooks_integrity`. Removes the dead schema declared in `0001_initial_schema.py` and the documented-but-never-honored intent in `0002_seed_from_json.py`.
 - **[x] M5.T2 — Strip references.** Remove `hooks_integrity` from `audit_index.py` schema docs (if any) and the docstring in `0002_seed_from_json.py:15-17`.
 - **[x] M5.T3 — `ai-eng doctor --check state-db`.** New subcommand: connects to `state.db`, lists every table with row count and `last_modified` mtime, flags expected-but-empty tables (decisions if 0 rows post-backfill, install_steps if 0 rows post-install).
-- **M5.T4 — CHANGELOG entries.** `## [Unreleased] ### Removed`: `_insert_events_row` dual-write, `decision-store.json` legacy mirror, `audit-index.sqlite` legacy 0-byte file, `state.db.hooks_integrity` table.
-- **M5.T5 — Update `_history.md`.** Add row for spec-138 with status `approved`.
+- **[x] M5.T4 — CHANGELOG entries.** `## [Unreleased] ### Removed`: `_insert_events_row` dual-write, `decision-store.json` legacy mirror, `audit-index.sqlite` legacy 0-byte file, `state.db.hooks_integrity` table.
+- **[x] M5.T5 — Update `_history.md`.** Add row for spec-138 with status `approved`.
 
 ### Acceptance gate
 
