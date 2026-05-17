@@ -22,9 +22,9 @@ Python, .NET, React, TypeScript, Next.js, Node, NestJS, React Native, Rust, YAML
 
 ## Behavior
 
-### 1. Read Stacks from Manifest
+### 1. Read Stacks from STACK_CONTEXT
 
-Read `.ai-engineering/manifest.yml` field `providers.stacks` to determine the project's active stacks. This is the single source of truth -- do not scan project files for stack detection. For polyglot projects the manifest lists all applicable stacks.
+Read `STACK_CONTEXT` from your dispatch prompt — do NOT re-read `manifest.yml` from disk. The dispatcher already resolved it in Phase 0 (spec-139 M3). The variable carries a JSON object with the project's `stacks` list plus per-stack `test_command` / `format_command` / `lint_command` strings. For polyglot projects the JSON lists all applicable stacks. When dispatched outside an autopilot run (no `STACK_CONTEXT` supplied), fall back to `ai_engineering.autopilot.stack_context.resolve_stack_context()` — never read `manifest.yml` directly from this agent.
 
 ### 2. Load Contexts
 

@@ -196,20 +196,64 @@ work.
   unknown `--check` value still raises `BadParameter` and lists
   `state-db` among supported values.
 
-### spec-139 — Framework Performance Hardening (partial: M1 + M2 + M4 + M6 + M7 + M8 + M9)
+### spec-139 — Framework Performance Hardening (partial: M1 + M2 + M3 + M4 + M6 + M7 + M8 + M9)
 
 Mantra: **ai-engineering NEVER causes WindowServer to hang. Every wave
 declares a concurrency budget. Every LLM call earns its place.** Lands
 M1 (concurrency budget primitive that closes the kernel-panic class),
-M2 (host preflight probe + `ai-eng host probe` CLI), M4 (stale-x3
-correction), M7 (deterministic `ai-eng spec verify --sections` +
+M2 (host preflight probe + `ai-eng host probe` CLI), M3 (Phase-0 stack
+context pre-resolution — single manifest read propagated as
+`STACK_CONTEXT` to every dispatched agent), M4 (stale-x3 correction),
+M7 (deterministic `ai-eng spec verify --sections` +
 `ai-eng plan dag-build` pre-passes), M8 (commit + PR compose
 determinism — `commit_compose.py --desc` mandatory across the chain
 and `pr_body_compose.py` consumes spec `summary:` frontmatter without
 an LLM call), and M9 (CLAUDE.md tunables reconciliation + drift gate).
-M3 and M5 (stack context pre-resolution, hot-path hook cache) are
-scoped in `.ai-engineering/specs/archive/spec-139-plan.md` and deferred
-to focused follow-ups.
+M5 (hot-path hook cache) remains scoped in
+`.ai-engineering/specs/archive/spec-139-plan.md` and deferred to a
+focused follow-up.
+
+#### Added — Phase-0 stack context pre-resolution (M3)
+
+- `src/ai_engineering/autopilot/stack_context.py` (new ~210 LOC) —
+  pure-stdlib `resolve_stack_context()` reads
+  `.ai-engineering/manifest.yml` ONCE per autopilot session and emits a
+  dict keyed `stacks` / `test_command` / `format_command` /
+  `lint_command` (plus a `degraded` flag for fail-open detection).
+  `write_stack_context()` persists the JSON to
+  `.ai-engineering/runtime/autopilot/<active>/stack-context.json`
+  (gitignored — session state, not source of truth). Fail-open
+  everywhere: missing or unreadable manifest collapses to the degraded
+  default rather than crashing.
+- `src/ai_engineering/autopilot/__init__.py` — new package scaffold.
+- `.claude/skills/ai-autopilot/handlers/phase-deep-plan.md` — new
+  "Step 0 — Stack context resolution (spec-139 M3)" block invokes the
+  resolver once and documents the `STACK_CONTEXT=<JSON>` dispatch-prompt
+  contract; the Step 2 dispatch list now requires the variable on every
+  agent invocation. Mirrored across `.codex/`, `.gemini/`, `.github/`,
+  `.opencode/`, `.cursor/`, and `templates/project/` via
+  `ai-eng dev sync`.
+- `.claude/skills/ai-autopilot/handlers/phase-implement.md` — Step 2b
+  now carries item 3b: every Build agent invocation MUST include
+  `STACK_CONTEXT=<JSON>` in the dispatch prompt.
+- `.claude/agents/ai-build.md`, `ai-explore.md`, `ai-plan.md` rewritten:
+  stack reads come from `STACK_CONTEXT` dispatch-prompt variable; the
+  remaining `manifest.yml` mentions are explicit "do NOT re-read"
+  pointers. `resolve_stack_context()` is the documented fallback for
+  non-autopilot dispatch.
+- Closes the N-manifest-reads-per-run regression flagged in the
+  framework-performance-hardening brief §4.3 (each redundant Read used
+  to fan out 8 hooks per dispatch).
+
+#### Added — Phase-0 stack context tests (M3)
+
+- `tests/integration/test_stack_context_propagation.py` — 10 cases
+  defending the four M3 contracts: canonical key shape, python default
+  commands, polyglot stack fan-out, idempotency, missing-manifest
+  degraded default, manifest-without-stacks degraded default,
+  unreadable-manifest fail-open (directory passed for path), valid
+  JSON round-trip, byte-stable sorted output across two writes, and
+  automatic runtime subdir creation on first write.
 
 #### Added — concurrency budget primitive (M1)
 

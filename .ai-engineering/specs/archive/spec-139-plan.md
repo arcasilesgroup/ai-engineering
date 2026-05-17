@@ -64,11 +64,12 @@ Nine milestones mapped 1-to-1 to the brief's M1–M9. Each milestone is independ
 
 ### Tasks
 
-- **M3.T1** — Phase 0 reads `manifest.yml` once, computes resolved stack list + test command + format command.
-- **M3.T2** — Write `.ai-engineering/runtime/autopilot/<spec>/stack-context.json`.
-- **M3.T3** — Every Phase 2 / Phase 4 / Phase 5 dispatch prompt includes `STACK_CONTEXT=...` JSON.
-- **M3.T4** — Agent description files (`ai-build.md:27`, etc.) updated: "Read `STACK_CONTEXT` from dispatch prompt — do NOT re-read manifest.yml."
-- **M3.T5** — `tests/integration/test_stack_context_propagation.py` GREEN.
+- [x] **M3.T1** — Phase 0 reads `manifest.yml` once, computes resolved stack list + test command + format command. Resolver lives at `src/ai_engineering/autopilot/stack_context.py` (`resolve_stack_context` + `write_stack_context`, pure stdlib, fail-open).
+- [x] **M3.T2** — `phase-deep-plan.md` now carries the new "Step 0 — Stack context resolution (spec-139 M3)" block that invokes `resolve_stack_context()` / `write_stack_context()` and writes `.ai-engineering/runtime/autopilot/<active>/stack-context.json`.
+- [x] **M3.T3** — `phase-implement.md` dispatch loop (step 2b, item 3b) now requires every Build agent invocation to include `STACK_CONTEXT=<JSON>`; the Phase 2 dispatch list in `phase-deep-plan.md` carries the same requirement.
+- [x] **M3.T4** — `.claude/agents/ai-build.md`, `ai-explore.md`, `ai-plan.md` rewritten: stack reads now come from the `STACK_CONTEXT` dispatch-prompt variable; manifest.yml mentions remain only as "do NOT re-read" pointers. Fallback path (`resolve_stack_context()`) documented for non-autopilot dispatch.
+- [x] **M3.T5** — `.venv/bin/ai-eng dev sync` regenerated `.codex/`, `.gemini/`, `.github/`, `.opencode/`, `.cursor/`, and `templates/project/` mirrors after the skill/agent edits; `ai-eng dev sync --check` returns "Mirrors in sync".
+- [x] **M3.T6** — `tests/integration/test_stack_context_propagation.py` GREEN (10 cases): canonical keys, python defaults, polyglot fan-out, idempotency, missing manifest, manifest without stacks, unreadable manifest (directory), valid JSON, byte-stable sorted output, runtime-subdir creation.
 
 ## Milestone M4 — Stale "x3" claim correction
 
