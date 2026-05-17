@@ -63,7 +63,21 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _ensure_utf8_streams() -> None:
+    # Windows defaults stdout/stderr to cp1252, which crashes on Unicode glyphs
+    # like ≤ that legitimately appear in advisory check reasons. Force UTF-8
+    # with replacement so writes never raise UnicodeEncodeError.
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
 def main(argv: list[str] | None = None) -> int:
+    _ensure_utf8_streams()
     parser = _build_parser()
     args = parser.parse_args(argv)
 
