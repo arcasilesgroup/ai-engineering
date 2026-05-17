@@ -62,3 +62,22 @@ def _wave1_active_spec_default(request: pytest.FixtureRequest) -> None:
 
     monkeypatch = request.getfixturevalue("monkeypatch")
     monkeypatch.setattr(orchestrator, "_has_active_spec", _wrapper)
+
+
+@pytest.fixture(autouse=True)
+def _wave2_thread_workers_floor(request: pytest.FixtureRequest) -> None:
+    """Raise the ThreadPoolExecutor cap so wave2 spawns all 5 checkers at once.
+
+    spec-139 M1.T5 caps ``max_workers`` at 4 (env: ``AIENG_MAX_THREAD_WORKERS``)
+    by default. spec-104 D-104-01 contract test
+    ``test_wave2_spawns_checkers_in_parallel`` asserts all 5 local-mode
+    checkers spawn within a 100 ms span — impossible when the 5th must wait
+    for one of the first 4 to finish a 50 ms sleep, especially on noisy CI
+    runners where the wait stretches to ~190 ms. Bumping the cap to 8 for
+    just these unit tests honours both invariants: the cap still exists
+    for production hot paths, and the parallel-spawn contract still holds.
+    """
+    if "test_orchestrator_wave2.py" not in str(request.fspath):
+        return
+    monkeypatch = request.getfixturevalue("monkeypatch")
+    monkeypatch.setenv("AIENG_MAX_THREAD_WORKERS", "8")
