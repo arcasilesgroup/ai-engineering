@@ -614,14 +614,105 @@ focused follow-up.
   reconciled). Flipping the code default to `enforce` is a security
   posture decision that belongs in its own focused spec, not in M9.
 
-### spec-140 — Less-Is-More Quality Engine (partial: W1 + W2)
+### spec-140 — Less-Is-More Quality Engine (partial: W1 + W2 + W3)
 
 Mantra: **Con menos, hacemos más.** Lands Wave 1 hard-delete of dead-test
-archaeology and Wave 2 CI matrix collapse + composite-action extraction.
-Waves 2.5 (validator monolith split) and 3 (reviewer roster shrink) are
-scoped in `.ai-engineering/specs/archive/spec-140-plan.md` and deferred
-to follow-up work — each is sized for its own focused PR with empirical
-gates.
+archaeology, Wave 2 CI matrix collapse + composite-action extraction, and
+Wave 3 quality-roster collapse (11 reviewers → 6, 4 verifiers → 2). Wave
+2.5 (validator monolith split) is scoped in
+`.ai-engineering/specs/archive/spec-140-plan.md` and deferred to a focused
+follow-up PR. The pass@k eval harness for W3 is operator-deferred — the
+structural collapse ships now, the empirical gate runs from the gitignored
+`.ai-engineering/runtime/quality-evals/` harness in follow-up work (D-140-04).
+
+#### Changed — quality roster collapse (W3)
+
+- `.claude/agents/reviewer-correctness.md` — absorbed the DRY/reuse/proportionality
+  lenses from the former `reviewer-architecture` and the readability/naming
+  lenses from the former `reviewer-maintainability`. The agent now carries five
+  correctness lenses (intent-implementation alignment, integration boundary
+  correctness, basic logic correctness, cross-function correctness, behavioural
+  change analysis) PLUS the absorbed architecture / maintainability heuristics,
+  documented in a new "Absorbed from reviewer-architecture /
+  reviewer-maintainability (spec-140 W3)" section. Self-challenge stays per
+  lens; findings emit with `correctness-architecture-N` / `correctness-maintainability-N`
+  sub-IDs to preserve attribution after the merge.
+- `.claude/agents/verifier-acceptance.md` — new merged specialist. Combines the
+  feature lens (spec coverage, acceptance criteria, deletion/creation
+  manifests, plan-task completion, handoff readiness) and the governance lens
+  (decision compliance, ownership boundaries, gate enforcement, integrity,
+  process compliance) into one agent. Findings emit a `lens: feature|governance`
+  attribution per finding so downstream readers see both halves preserved.
+- `.claude/agents/ai-advise.md` — `drift` mode absorbed the former
+  `verifier-architecture` heuristics: alongside the decision walk it now
+  surfaces solution-intent alignment, layer violations, structural drift,
+  dependency-health concerns (circular imports, deep chains), and boundary
+  integrity. All advisory; never emits BLOCK. Blocking architecture concerns
+  are still caught by `/ai-review --full` through the absorbed lenses inside
+  `reviewer-correctness`.
+- `.claude/skills/ai-review/SKILL.md` — Specialist Roster table collapsed to
+  6 entries (correctness, security, testing, performance, frontend,
+  compatibility). `normal` macro-agent grouping updated to reflect the new
+  3-macro structure. `--full` now dispatches 6 individual agents (was 9).
+- `.claude/skills/ai-verify/SKILL.md` + `handlers/verify.md` — Specialist
+  Roster collapsed to 2 entries (deterministic, acceptance). `normal` and
+  `--full` both dispatch the single acceptance specialist post-W3; the
+  former 3-way LLM fanout is gone. The `governance` / `feature` mode
+  aliases preserved for operator muscle memory; both route to acceptance.
+- `.claude/agents/ai-review.md` + `ai-verify.md` — dispatch patterns updated
+  to reflect the new rosters (6 reviewer / 2 verifier).
+
+#### Added — roster contract enforcement (W3)
+
+- `tests/architecture/test_reviewer_roster_count.py` — pins reviewer roster
+  at 6 (correctness, security, testing, performance, frontend, compatibility)
+  and asserts the canonical name set. Drift fails CI.
+- `tests/architecture/test_verifier_roster_count.py` — pins verifier roster
+  at 2 (deterministic, acceptance) and documents the spec-header math
+  discrepancy ("4 → 3" advertised, "4 → 2" actually landed).
+- `tests/architecture/test_no_deleted_agents.py` — parameterised guard that
+  scans every IDE mirror surface (`.claude`, `.codex`, `.gemini`, `.github`,
+  `.opencode`, `.cursor`, `src/.../templates/project`) for any of the 6
+  deleted filenames. Aggregates into one summary assertion plus per-file
+  parametrised cases for fast triage.
+
+#### Removed — 6 reviewer/verifier agents (W3)
+
+Hard deletes per Constitution §13.3 (no backwards-compat shims). Includes
+the legacy `deprecated: true` forwarder stubs that previously routed the
+flat `agents/<name>.md` path to `agents/internal/<name>.md` — the
+forwarders were also deleted because the canonical target is gone.
+
+- `reviewer-architecture.md` → heuristics absorbed into
+  `reviewer-correctness` (A1 necessity + proportionality, A2 DRY + reuse +
+  established patterns).
+- `reviewer-maintainability.md` → heuristics absorbed into
+  `reviewer-correctness` (M1 readability + clarity, M2 naming + intent,
+  M3 maintainability anti-pattern watch list).
+- `reviewer-backend.md` → deleted outright. Categorical mismatch: this
+  repo is a Python CLI with no separate backend tier. The lens does not
+  apply.
+- `verifier-governance.md` → merged into `verifier-acceptance` (governance
+  half).
+- `verifier-feature.md` → merged into `verifier-acceptance` (feature half).
+- `verifier-architecture.md` → heuristics moved to `/ai-advise drift` mode
+  (advisory non-blocking); standalone agent deleted.
+
+Each mirror surface (`.codex`, `.gemini`, `.github`, `.opencode`,
+`.cursor`, plus every `src/.../templates/project/` template root) had its
+copy of every deleted agent removed via `ai-eng dev sync` + explicit
+forwarder-stub deletion.
+
+#### Deferred — pass@k eval harness (W3.T1, W3.T2)
+
+D-140-04 designates `.ai-engineering/runtime/quality-evals/` (gitignored —
+operator runtime state, not source of truth) as the eval source. The
+harness does not yet exist on disk; the structural collapse above ships
+in this commit and the empirical gate (pass@k per reviewer specialty
+matches or beats the prior 11-reviewer roster on the recent PR corpus)
+becomes an operator follow-up. The acceptance gate in
+`.ai-engineering/specs/archive/spec-140-plan.md` was updated to mark W3.T1
+and W3.T2 as deferred with explicit rationale.
 
 #### Changed — CI matrix collapse + composite actions (W2)
 

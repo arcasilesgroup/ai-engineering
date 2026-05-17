@@ -109,19 +109,19 @@ Four independent waves; the safety-critical subset is Wave 1 alone (closes the d
 
 ### Tasks
 
-- **W3.T1** — Define pass@k eval per reviewer specialty against the recent PR corpus in `.ai-engineering/runtime/quality-evals/`.
-- **W3.T2** — Use `/ai-reliability-eval` to anchor the baseline.
-- **W3.T3** — Merge `reviewer-architecture`'s reuse/DRY heuristics into `reviewer-correctness`; delete the standalone agent.
-- **W3.T4** — Merge `reviewer-maintainability` into `reviewer-correctness`; delete standalone.
-- **W3.T5** — Delete `reviewer-backend` (categorically mismatched — repo is Python CLI, no separate backend tier).
-- **W3.T6** — Merge `verifier-governance` + `verifier-feature` into a single `verifier-acceptance`.
-- **W3.T7** — Move `verifier-architecture`'s heuristics to `/ai-advise` (advisory, non-blocking).
+- [ ] **W3.T1** — Define pass@k eval per reviewer specialty against the recent PR corpus in `.ai-engineering/runtime/quality-evals/`. **Deferred** — eval harness does not yet exist on disk; the structural collapse below ships first, the operator runs the pass@k gate in a follow-up.
+- [ ] **W3.T2** — Use `/ai-reliability-eval` to anchor the baseline. **Deferred** — depends on W3.T1.
+- [x] **W3.T3** — Merge `reviewer-architecture`'s reuse/DRY heuristics into `reviewer-correctness`; delete the standalone agent.
+- [x] **W3.T4** — Merge `reviewer-maintainability` into `reviewer-correctness`; delete standalone.
+- [x] **W3.T5** — Delete `reviewer-backend` (categorically mismatched — repo is Python CLI, no separate backend tier).
+- [x] **W3.T6** — Merge `verifier-governance` + `verifier-feature` into a single `verifier-acceptance`.
+- [x] **W3.T7** — Move `verifier-architecture`'s heuristics to `/ai-advise` drift mode (advisory, non-blocking); delete the standalone verifier.
 
 ### Acceptance gate
 
-- Reviewer count ≤ 7 (current 11).
-- Verifier count ≤ 3 (current 4).
-- pass@k eval shows the smaller roster matches or beats the current roster on the corpus.
+- Reviewer count ≤ 7 (current 11). **Landed at 6** (correctness absorbs architecture + maintainability; backend deleted outright).
+- Verifier count ≤ 3 (current 4). **Landed at 2** (deterministic + acceptance). The brief header advertised "4 → 3" but the explicit operations (delete 3 files, create 1) yield 2; the test pins the actual count and the CHANGELOG documents the discrepancy.
+- pass@k eval shows the smaller roster matches or beats the current roster on the corpus. **Deferred** — operator-run gate at `.ai-engineering/runtime/quality-evals/` (gitignored, harness not yet built).
 
 ## Cross-spec coordination
 

@@ -51,7 +51,7 @@ Principles applied: §10.6 SDD (the advisory output traces every warning to an a
 |---|---|---|
 | `advise` (default) | Post-edit in build | Scan changed files against stack standards + active decisions; emit warnings with severity and recommendation. |
 | `gate` | Pre-dispatch | Validate the proposed task respects governance boundaries (agent capabilities, expired risk acceptances, scope leakage). |
-| `drift` | On-demand | Compare implementation against active architectural decisions; classify drift `none | minor | major | critical`. |
+| `drift` | On-demand | Compare implementation against active architectural decisions; classify drift `none | minor | major | critical`. **Spec-140 W3** absorbed the former `verifier-architecture` heuristics: in `drift` mode also surface solution-intent alignment gaps, layer violations, structural drift, dependency-health concerns (circular imports, deep dependency chains), and boundary integrity (agents/skills/handlers staying within declared scope). All advisory only -- `drift` never emits BLOCK. |
 
 ## Output Contract
 

@@ -8,12 +8,12 @@ via the `Agent` tool for real context isolation. `normal` is the default profile
 
 ## Specialist Surface
 
+Spec-140 W3 collapsed the verifier roster from 4 to 2. `verifier-governance` + `verifier-feature` merged into `verifier-acceptance`. `verifier-architecture`'s heuristics moved to `/ai-advise` (advisory non-blocking).
+
 | Specialist | Agent | What it verifies | `normal` runner |
 |------------|-------|------------------|-----------------|
 | `deterministic` | `verifier-deterministic.md` | security, quality, deps, tests | runs first (alone) |
-| `governance` | `verifier-governance.md` | integrity, ownership, compliance | `macro-agent-2` |
-| `architecture` | `verifier-architecture.md` | cycles, boundary drift, alignment | `macro-agent-2` |
-| `feature` | `verifier-feature.md` | spec/plan completeness, handoff | `macro-agent-2` |
+| `acceptance` | `verifier-acceptance.md` | spec/plan completeness, handoff, integrity, ownership, compliance, gate enforcement | `macro-agent-2` |
 
 ## Procedure
 
@@ -42,30 +42,22 @@ Produce structured YAML output."
 
 Wait for deterministic results before dispatching LLM judgment agents.
 
-### Step 3: Dispatch LLM judgment agents via Agent tool
+### Step 3: Dispatch LLM judgment agent via Agent tool
 
-**Normal mode** -- Dispatch 1 macro-agent with all 3 LLM specialists:
+**Normal mode** -- Dispatch the single acceptance specialist (covers both feature + governance lenses post-W3):
 
 ```
-Agent prompt: "You are verifying this codebase with these specialist lenses:
-governance, architecture, feature.
+Agent prompt: "You are the acceptance verification specialist.
 [deterministic evidence from Step 2]
-Read and follow these agent files:
-.claude/agents/verifier-governance.md
-.claude/agents/verifier-architecture.md
-.claude/agents/verifier-feature.md
-Produce findings in YAML format attributed by original specialist."
+Read and follow .claude/agents/verifier-acceptance.md
+Cover both lenses (feature + governance) and produce findings in YAML
+format with `lens: feature|governance` attribution preserved per finding."
 ```
 
-**Full mode** -- Dispatch 3 individual agents in parallel:
-
-```
-For each specialist (governance, architecture, feature):
-Agent prompt: "You are the [specialist] verification agent.
-[deterministic evidence from Step 2]
-Read and follow .claude/agents/verifier-[specialist].md
-Produce findings in YAML format."
-```
+**Full mode** -- Same single dispatch; `--full` no longer fans out beyond
+deterministic + acceptance because the post-W3 roster has only those two
+specialists. Architecture concerns route to `/ai-advise drift` for
+advisory non-blocking signal.
 
 ### Step 4: Aggregate by specialist
 

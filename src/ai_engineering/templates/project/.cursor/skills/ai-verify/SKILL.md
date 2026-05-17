@@ -1,6 +1,6 @@
 ---
 name: ai-verify
-description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works', 'is this ready to ship', 'run the release checks', 'pre-release checklist', 'GO/NO-GO'. Runs 4 specialists (deterministic, governance, architecture, feature) with `normal` implicit and `--full` explicit; the `--release` mode flag aggregates 8-dimension release readiness (coverage, security, tests, lint, dependencies, types, docs, packaging) and emits GO/CONDITIONAL GO/NO-GO. For narrative code review with human judgment, use /ai-review instead."
+description: "Use when verification with evidence is needed — not assumptions. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'does this meet our standards', 'prove it works', 'is this ready to ship', 'run the release checks', 'pre-release checklist', 'GO/NO-GO'. Runs 2 specialists post-W3 (deterministic, acceptance) with `normal` implicit and `--full` explicit; the `--release` mode flag aggregates 8-dimension release readiness (coverage, security, tests, lint, dependencies, types, docs, packaging) and emits GO/CONDITIONAL GO/NO-GO. For narrative code review with human judgment, use /ai-review instead."
 effort: mid
 argument-hint: "claim|governance|security|quality|feature|architecture|platform|--release [version] [--full]"
 model_tier: sonnet
@@ -19,7 +19,7 @@ edit_policy: generated-do-not-edit
 /ai-verify                      # normal: deterministic + LLM judgment
 /ai-verify --full               # one agent per specialist
 /ai-verify quality              # deterministic quality scan only
-/ai-verify platform             # 4-specialist aggregate verdict
+/ai-verify platform             # 2-specialist aggregate verdict (post-W3)
 /ai-verify --release            # 8-dimension release-readiness gate (GO|CONDITIONAL GO|NO-GO)
 /ai-verify --release v2.0       # tag-specific release run
 ```
@@ -29,7 +29,7 @@ edit_policy: generated-do-not-edit
 Evidence before claims. Two faces: (1) a verification protocol that proves claims with commands, and (2) a specialist verification surface that aggregates deterministic evidence into merge-readiness judgments. Same principle: run the command, read the output, check the exit code. No guessing. This SKILL.md owns the user-facing contract; verifier agent files provide specialist lenses and must not redefine mode semantics.
 
 1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` for each stack.
-2. **Dependency preflight** — verify `.gemini/skills/ai-verify/handlers/verify.md` plus required `.gemini/agents/verify*-*.md` files exist for the selected mode (`normal` requires governance + architecture + feature; `--full` requires all four; individual modes require only the matching specialist). STOP and report exact missing path(s) — never improvise.
+2. **Dependency preflight** — verify `.gemini/skills/ai-verify/handlers/verify.md` plus required `.gemini/agents/verifier-*.md` files exist for the selected mode (`normal` and `--full` both require deterministic + acceptance post-W3; individual modes require only the matching specialist). STOP and report exact missing path(s) — never improvise.
 3. **Run protocol** — run the IRRV protocol: per claim, identify command → run → capture output + exit code → classify CONFIRMED (exit 0 + expected) or REFUTED.
 4. **Dispatch specialists** via the Agent tool (never read them inline). Output is always reported by original specialist lens.
 
@@ -46,23 +46,23 @@ Dispatch the `ai-verify` agent for any merge-readiness check, scan, or evidence-
 
 ## Specialist Roster & Modes
 
+Spec-140 W3 collapsed the verifier roster: `verifier-governance` + `verifier-feature` merged into `verifier-acceptance`; `verifier-architecture`'s heuristics moved to `/ai-advise` (advisory non-blocking) and the standalone verifier was deleted.
+
 | Specialist | Agent File | Lens |
 | --- | --- | --- |
 | `deterministic` | `verifier-deterministic.md` | Security, quality, dependencies, tests (tool-driven) |
-| `governance` | `verifier-governance.md` | Compliance, ownership, gate enforcement (LLM) |
-| `architecture` | `verifier-architecture.md` | Alignment, layer violations (LLM) |
-| `feature` | `verifier-feature.md` | Spec coverage, acceptance criteria (LLM) |
+| `acceptance` | `verifier-acceptance.md` | Spec coverage, acceptance criteria, governance compliance, ownership boundaries, gate enforcement (LLM; merged from governance + feature) |
 
 | Mode | What runs |
 | --- | --- |
-| `normal` (implicit) | 2 macro-agents: deterministic first, then LLM judgment (gov+arch+feature in one) |
-| `--full` | 4 individual specialists in parallel after deterministic |
+| `normal` (implicit) | 2 macro-agents: deterministic first, then acceptance (single LLM macro) |
+| `--full` | Same 2 specialists, dispatched explicitly in parallel after deterministic |
 | `quality` / `security` | Deterministic agent only (one scan slice) |
-| `governance` / `architecture` / `feature` | That specialist only |
-| `platform` | 4-specialist aggregate verdict |
+| `acceptance` / `governance` / `feature` | Acceptance specialist only (the `governance` / `feature` aliases preserved for operator muscle memory) |
+| `platform` | Aggregate verdict over deterministic + acceptance |
 | `--release [version]` | 8-dimension release-readiness gate (D-127-10, absorbs the legacy `/ai-verify --release` skill). Stack-detected (Python/JS/Rust/Go); aggregates **coverage** (≥ manifest threshold), **security** (gitleaks + semgrep + pip-audit, zero crit/high), **tests** (100% pass), **lint** (zero unfixable), **dependency vulns** (zero known CVEs unless risk-accepted in `state.db.decisions`), **types** (zero errors), **documentation coherence** (CHANGELOG current), **packaging integrity** (build clean). Verdict is **GO** (all PASS) / **CONDITIONAL GO** (PASS with risk acceptances) / **NO-GO** (≥1 blocker). Closure path printed for NO-GO. |
 
-Both profiles run the same four specialists — difference is grouping, not coverage. Deterministic always runs first and feeds every judgment path. See `handlers/verify.md` for orchestration.
+Both profiles run the same two specialists — difference is grouping (single macro vs. parallel), not coverage. Deterministic always runs first and feeds the acceptance judgment. Architecture lens runs as advisory through `/ai-advise drift` rather than as a blocking verify lens. See `handlers/verify.md` for orchestration.
 
 ## Output Contract
 
@@ -71,9 +71,7 @@ Every scan mode produces score / verdict (PASS/WARN/FAIL) / profile / specialist
 | Mode | Blocker if… | Critical if… |
 | --- | --- | --- |
 | deterministic | Any secret detected, any test failure | Coverage < 80%, critical lint |
-| governance | Any integrity FAIL | Any compliance FAIL |
-| architecture | Circular dependency | Critical structural drift |
-| feature | Spec goal missing | Acceptance criterion unmet |
+| acceptance | Spec goal missing, integrity FAIL, suppression added | Acceptance criterion unmet, compliance FAIL, count drift |
 | **platform** | Any blocker in ANY mode | Score < 60 |
 
 ## Verification Checklist (before claiming DONE)
@@ -104,7 +102,7 @@ User: "is this branch ready to merge?"
 /ai-verify platform
 ```
 
-Dispatches all 4 specialist agents in parallel, aggregates findings, scores against the gate, returns PASS / WARN / FAIL with evidence per finding.
+Dispatches deterministic + acceptance in parallel (post-W3 the roster is 2), aggregates findings, scores against the gate, returns PASS / WARN / FAIL with evidence per finding.
 
 ### Example 2 — quality-only sweep mid-implementation
 
@@ -128,6 +126,6 @@ Aggregates 8 dimensions, scores against manifest thresholds, emits GO / CONDITIO
 
 ## Integration
 
-Called by: `/ai-build` (post-task), `/ai-autopilot` (Phase 5), user directly. Dispatches: `verifier-deterministic`, `verifier-governance`, `verifier-architecture`, `verifier-feature` agents. Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-reliability-eval` (AI reliability over time), `/ai-security` (deep CVE/SBOM only), `/ai-governance` (compliance, risk acceptance).
+Called by: `/ai-build` (post-task), `/ai-autopilot` (Phase 5), user directly. Dispatches: `verifier-deterministic`, `verifier-acceptance` agents (post-W3 roster of 2). Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-advise` (advisory architecture lens), `/ai-reliability-eval` (AI reliability over time), `/ai-security` (deep CVE/SBOM only), `/ai-governance` (compliance, risk acceptance).
 
 $ARGUMENTS

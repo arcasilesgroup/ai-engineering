@@ -12,7 +12,7 @@ argument-hint: "[--full] [PR number or file paths]"
 
 ```
 /ai-review                      # normal: 3 macro-agents, validator stage
-/ai-review --full               # one agent per specialist (8-10)
+/ai-review --full               # one agent per specialist (6 post-W3)
 /ai-review 42                   # review PR #42
 /ai-review src/auth/            # review specific paths
 ```
@@ -42,19 +42,18 @@ Dispatch the `ai-review` agent for any narrative review (PR, branch, diff, or pa
 
 ## Specialist Roster
 
+Spec-140 W3 collapsed the roster from 11 specialists to 6. `reviewer-architecture` (DRY/reuse/proportionality) and `reviewer-maintainability` (readability/naming) heuristics are absorbed into `reviewer-correctness`. `reviewer-backend` was deleted outright (categorically mismatched: this repo is a Python CLI, no separate backend tier).
+
 | Specialist | Agent File | Focus |
 | --- | --- | --- |
+| `correctness` | `reviewer-correctness.md` | logic bugs, null handling, races, edge cases + absorbed architecture (DRY/reuse/proportionality) + maintainability (readability/naming) lenses |
 | `security` | `reviewer-security.md` | vulnerabilities, auth, data exposure, dependency risk |
-| `backend` | `reviewer-backend.md` | API boundaries, service logic, persistence, jobs |
-| `performance` | `reviewer-performance.md` | query shape, complexity, hot paths, memory |
-| `correctness` | `reviewer-correctness.md` | logic bugs, null handling, races, edge cases |
 | `testing` | `reviewer-testing.md` | coverage, quality, edge cases, mocking patterns |
-| `compatibility` | `reviewer-compatibility.md` | breaking changes, backwards compat, migrations |
-| `architecture` | `reviewer-architecture.md` | necessity, patterns, reuse, proportionality |
-| `maintainability` | `reviewer-maintainability.md` | complexity, readability, naming, duplication |
+| `performance` | `reviewer-performance.md` | query shape, complexity, hot paths, memory |
 | `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript, animation, typography, forms (conditional; absorbs the legacy `design` lens per D-127-10) |
+| `compatibility` | `reviewer-compatibility.md` | breaking changes, backwards compat, migrations |
 
-`normal` macro-agent grouping: (1) correctness + testing + compatibility, (2) security + backend + performance, (3) architecture + maintainability + frontend.
+`normal` macro-agent grouping: (1) correctness + testing + compatibility, (2) security + performance, (3) frontend (conditional on UI diff; merges with macro-agent-2 when not dispatched).
 
 ## Output Contract
 
@@ -96,7 +95,7 @@ User: "do the full reviewer roster on this branch"
 /ai-review --full
 ```
 
-Dispatches one agent per specialist (correctness, security, performance, architecture, testing, frontend, backend, maintainability, compatibility), runs the validator stage, deduplicates and ranks findings.
+Dispatches one agent per specialist (correctness, security, testing, performance, frontend, compatibility — 6 post-W3), runs the validator stage, deduplicates and ranks findings.
 
 ## Integration
 
