@@ -579,16 +579,29 @@ jobs:
             --config .semgrep.yml \
             --metrics=off \
             --disable-version-check \
-            --error --json . > semgrep-results.json
+            --error --json . > semgrep-results.json 2>semgrep-stderr.log
           semgrep_exit=$?
           set -e
-          findings=$(python3 -c 'import json; print(len(json.load(open("semgrep-results.json")).get("results", [])))')
-          echo "semgrep exit=${semgrep_exit} findings=${findings}"
+          echo "semgrep exit code: ${semgrep_exit}"
+          if [ ! -s semgrep-results.json ]; then
+            echo "::error::semgrep produced no results JSON. stderr tail:"
+            tail -50 semgrep-stderr.log || true
+            exit 1
+          fi
+          findings=$(python3 -c 'import json; print(len(json.load(open("semgrep-results.json")).get("results", [])))' 2>/dev/null || echo "PARSE_ERROR")
+          echo "findings=${findings}"
+          if [ "${findings}" = "PARSE_ERROR" ]; then
+            echo "::error::semgrep JSON could not be parsed. stderr tail:"
+            tail -50 semgrep-stderr.log || true
+            head -20 semgrep-results.json || true
+            exit 1
+          fi
           if [ "${findings}" -gt 0 ]; then
             echo "::error::semgrep in-tree gate found ${findings} violation(s)."
             python3 -c 'import json; d=json.load(open("semgrep-results.json")); [print(f"  - {r[\"check_id\"]}: {r[\"path\"]}:{r[\"start\"][\"line\"]}") for r in d.get("results", [])]'
             exit 1
           fi
+          echo "semgrep in-tree gate passed (0 findings)"
       - name: semgrep (community packs — advisory)
         # spec-141 M2.T1 follow-up: as of 2026-05, semgrep.dev returns
         # HTTP 403 for unauthenticated registry fetches. The community
