@@ -39,6 +39,16 @@ echo "[]" > "$OUTPUT_PATH"
 skill_count=0
 sub_threshold=()
 
+# Probe once: is `uv run ai-eng skill eval` wired up? spec-106 ships
+# advisory only, so the subcommand is currently absent. Without this
+# probe, every skill in the loop pays the cold-cache `uv run` startup
+# cost (~3-10s on CI) only to land on the stable fallback. With ~50
+# skills, that overshoots the 180 s test budget on noisy runners.
+EVAL_CLI_AVAILABLE=0
+if uv run ai-eng skill eval --help >/dev/null 2>&1; then
+    EVAL_CLI_AVAILABLE=1
+fi
+
 # Glob the canonical skill directory pattern from REPO_ROOT so the script
 # works no matter the caller's cwd.
 shopt -s nullglob
@@ -50,7 +60,8 @@ for skill in "$REPO_ROOT"/.claude/skills/ai-*/SKILL.md; do
     # into the CLI (spec-106 ships advisory only), so fall back gracefully
     # to a stable JSON literal. Future specs that wire the eval CLI will
     # have it parsed here without script changes.
-    if eval_output="$(uv run ai-eng skill eval "$skill" --threshold "$THRESHOLD" --json 2>/dev/null)" \
+    if [ "$EVAL_CLI_AVAILABLE" = "1" ] \
+        && eval_output="$(uv run ai-eng skill eval "$skill" --threshold "$THRESHOLD" --json 2>/dev/null)" \
         && [ -n "$eval_output" ] \
         && echo "$eval_output" | jq -e '.score and .reason' >/dev/null 2>&1; then
         result_json="$eval_output"
