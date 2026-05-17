@@ -58,14 +58,14 @@ Four independent waves; the safety-critical subset is Wave 1 alone (closes the d
 
 ### Tasks
 
-- **W2.T1** — Reduce `ci-check.yml` python matrix from `[3.11, 3.12, 3.13]` to `[3.12]`. Keep 3-OS matrix.
-- **W2.T2** — Add `nightly-matrix.yml` on `schedule:` with full python+OS sweep (advisory, non-blocking).
-- **W2.T3** — Extract `setup-env` composite action at `.github/actions/setup-env/` (checkout + setup-python + uv sync).
-- **W2.T4** — Extract `run-gates` composite action at `.github/actions/run-gates/` (lint + type + security + tests).
-- **W2.T5** — Replace 27 inline `setup-uv` blocks across all `.github/workflows/*.yml` with `uses: ./.github/actions/setup-env`.
-- **W2.T6** — Fold the four `verifier-*` callers into a single reusable workflow step.
-- **W2.T7** — Delete one of the two mirror-parity tests (keep `tests/conformance/test_md_mirror.py`; remove `tests/integration/sync/test_canonical_mirror_parity.py`).
-- **W2.T8** — Delete `tests/integration/cli/test_help_snapshots.py`; replace with a "command-list exists" assertion in `tests/unit/cli/test_command_list.py`.
+- [x] **W2.T1** — Reduce `ci-check.yml` python matrix from `[3.11, 3.12, 3.13]` to `[3.12]`. Keep 3-OS matrix.
+- [x] **W2.T2** — Add `nightly-matrix.yml` on `schedule:` with full python+OS sweep (advisory, non-blocking).
+- [x] **W2.T3** — Extract `setup-env` composite action at `.github/actions/setup-env/` (checkout + setup-python + uv sync).
+- [x] **W2.T4** — Extract `run-gates` composite action at `.github/actions/run-gates/` (lint + type + security + tests).
+- [x] **W2.T5** — Replace 27 inline `setup-uv` blocks across all `.github/workflows/*.yml` with `uses: ./.github/actions/setup-env`. (19 of ~22 inline blocks replaced; `ci-build.yml` retains its inline checkout because the `ref: main` + `token` flow cannot be represented in the composite without growing conditional inputs.)
+- [ ] **W2.T6** — Fold the four `verifier-*` callers into a single reusable workflow step. (Deferred — sized for its own focused PR; out of scope for the W2 lane that landed alongside W1.)
+- [x] **W2.T7** — Delete one of the two mirror-parity tests (keep `tests/conformance/test_md_mirror.py`; remove `tests/integration/sync/test_canonical_mirror_parity.py`).
+- [x] **W2.T8** — Delete `tests/integration/cli/test_help_snapshots.py`; replace with a "command-list exists" assertion in `tests/unit/cli/test_command_list.py`. Drift gates added under `tests/unit/workflows/` (python-matrix-collapsed, nightly-matrix-advisory, composite-actions).
 
 ### Acceptance gate
 
