@@ -559,31 +559,19 @@ jobs:
         run: python -m pip install "semgrep==1.96.0"
       - name: semgrep (in-tree rules — must pass)
         # spec-141 M2.T1 (D-141-01): in-tree rules under aieng.<area>.
-        # namespace run as the authoritative gate. CI failure on findings
-        # is enforced explicitly via the JSON results below, not via the
-        # ``--error`` flag — semgrep 1.96.0 on the ubuntu-latest runner
-        # is observed to exit non-zero under ``--error`` even when the
-        # findings array is empty (likely metrics-fetch HTTP 403 leaking
-        # to the exit code). The explicit JSON check keeps the gate
-        # authoritative for findings without that environmental
-        # flakiness.
+        # namespace run as the authoritative gate. ``--error`` exits
+        # non-zero on any finding (the spec-141 contract guarded by
+        # ``test_semgrep_packs::test_semgrep_step_keeps_in_tree_config``).
+        # ``--metrics=off`` silences the semgrep.dev telemetry fetch
+        # which returns HTTP 403 for unauthenticated runners and is
+        # observed to leak into the ``--error`` exit status.
         env:
           SEMGREP_SEND_METRICS: "off"
         run: |
-          set +e
           semgrep \
             --config .semgrep.yml \
             --metrics=off \
-            --json . > semgrep-results.json
-          semgrep_exit=$?
-          set -e
-          findings=$(python3 -c 'import json,sys; d=json.load(open("semgrep-results.json")); print(len(d.get("results", [])))')
-          echo "semgrep exit: ${semgrep_exit}; findings: ${findings}"
-          if [ "${findings}" -gt 0 ]; then
-            echo "::error::semgrep found ${findings} in-tree violations — see semgrep-results.json"
-            python3 -c 'import json; d=json.load(open("semgrep-results.json")); [print(f"  - {r[\"check_id\"]}: {r[\"path\"]}:{r[\"start\"][\"line\"]}") for r in d.get("results", [])]'
-            exit 1
-          fi
+            --error --json . > semgrep-results.json
       - name: semgrep (community packs — advisory)
         # spec-141 M2.T1 follow-up: as of 2026-05, semgrep.dev returns
         # HTTP 403 for unauthenticated registry fetches. The community
