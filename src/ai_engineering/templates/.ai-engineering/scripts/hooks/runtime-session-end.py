@@ -100,28 +100,62 @@ def _rebuild_events_index(project_root: Path) -> dict[str, int] | None:
     ``{"rows_indexed": N, "rows_total": M, "duration_ms": K}`` on
     success, ``None`` on any failure (fail-open). The hook never blocks
     SessionEnd on this path.
+
+    Invokes ``ai-eng audit index --json`` as a subprocess rather than
+    importing the package directly: the hook runs under the system
+    ``python3`` shebang where the ``ai_engineering`` package may not be
+    importable, while the ``ai-eng`` console entry point (installed by
+    ``pip install -e .`` or via ``uv sync``) carries its own venv
+    shebang and always resolves the package. Subprocess timeout caps at
+    the 5-s SessionEnd budget; on timeout / non-zero exit / missing CLI
+    we return None and the SessionEnd path continues.
     """
+    import shutil as _shutil
+    import subprocess as _subprocess
     import time as _time
 
     started = _time.monotonic()
-    try:
-        # Local import — keeps the hot path stdlib-only; cold-path import
-        # cost is paid once at SessionEnd, never on PreToolUse / PostToolUse.
-        from ai_engineering.state.audit_index import build_index
-    except Exception:
+    # Resolve ai-eng entry point. PATH first (canonical install via
+    # `pip install -e .` or system-wide), then project-local fallback
+    # to `.venv/bin/ai-eng` so the hook still rebuilds the cache on
+    # operator hosts that only ran `uv sync` (no PATH activation).
+    ai_eng = _shutil.which("ai-eng")
+    if ai_eng is None:
+        venv_candidate = project_root / ".venv" / "bin" / "ai-eng"
+        if venv_candidate.is_file():
+            ai_eng = str(venv_candidate)
+    if ai_eng is None:
+        # CLI not installed — cold-path operators run the rebuild via
+        # ``ai-eng audit index --rebuild`` themselves. Fail-open.
         return None
     try:
-        result = build_index(project_root, rebuild=False)
-    except Exception:
+        proc = _subprocess.run(
+            [ai_eng, "audit", "index", "--json"],
+            cwd=str(project_root),
+            capture_output=True,
+            text=True,
+            timeout=_REBUILD_BUDGET_SEC,
+            encoding="utf-8",
+            errors="replace",
+        )
+    except (_subprocess.TimeoutExpired, OSError):
         return None
     elapsed = _time.monotonic() - started
-    if elapsed > _REBUILD_BUDGET_SEC:
-        # Soft warning via the framework operation event below; not a
-        # hard error — operators can monitor via the host_capacity feed.
-        pass
+    if proc.returncode != 0:
+        return None
+    try:
+        # The audit index --json command emits a single JSON object with
+        # rows_indexed + rows_total at minimum. Tolerate framing noise.
+        payload_line = next(
+            (line for line in proc.stdout.splitlines() if line.strip().startswith("{")),
+            "",
+        )
+        payload = json.loads(payload_line) if payload_line else {}
+    except (json.JSONDecodeError, StopIteration):
+        return None
     return {
-        "rows_indexed": int(getattr(result, "rows_indexed", 0) or 0),
-        "rows_total": int(getattr(result, "rows_total", 0) or 0),
+        "rows_indexed": int(payload.get("rows_indexed", 0) or 0),
+        "rows_total": int(payload.get("rows_total", 0) or 0),
         "duration_ms": int(elapsed * 1000),
     }
 
