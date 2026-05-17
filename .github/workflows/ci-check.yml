@@ -75,6 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -96,6 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Check code duplication
         run: uv run python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3
@@ -125,6 +127,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Check risk acceptances
         run: uv run ai-eng gate risk-check --strict
@@ -136,6 +139,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Scan for suppression markers
         run: uv run no_suppression --root .
@@ -147,6 +151,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -176,10 +181,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.12"]
     steps:
-      - uses: ./.github/actions/setup-env
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          python-version: ${{ matrix.python-version }}
-          fetch-depth: "0"
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -248,10 +253,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.12"]
     steps:
-      - uses: ./.github/actions/setup-env
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          python-version: ${{ matrix.python-version }}
-          fetch-depth: "0"
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -290,9 +295,10 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: ./.github/actions/setup-env
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: "0"
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
       - name: Configure git defaults
         run: |
           git config --global init.defaultBranch main
@@ -372,6 +378,7 @@ jobs:
           - { os: windows-latest, python-version: "3.12" }
           - { os: macos-latest, python-version: "3.12" }
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
         with:
           python-version: ${{ matrix.python-version }}
@@ -413,6 +420,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install actionlint
         run: |
@@ -463,6 +471,7 @@ jobs:
     timeout-minutes: 15
     if: needs.change-scope.outputs.has-snyk-token == 'true'
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install Snyk CLI
         run: npm install -g snyk --ignore-scripts
@@ -493,6 +502,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install gitleaks
         env:
@@ -587,9 +597,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: ./.github/actions/setup-env
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
-          fetch-depth: "0"
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
       - name: Guard governed version surfaces
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
@@ -670,6 +681,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
         with:
           sync: "false"

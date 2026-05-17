@@ -58,12 +58,16 @@ def test_setup_env_inputs_match_contract(setup_env: dict) -> None:
     """Inputs MUST cover the parameters every caller relies on.
 
     ``python-version`` (default 3.12) is consumed by the matrix jobs;
-    ``uv-version`` pins the uv release; ``fetch-depth`` switches between
-    shallow and full clone; ``sync`` lets callers skip the default
-    ``uv sync --dev`` step for build-from-wheel flows.
+    ``uv-version`` pins the uv release; ``sync`` lets callers skip the
+    default ``uv sync --dev`` step for build-from-wheel flows. Per the
+    fix landed after the first CI green attempt, ``fetch-depth`` is no
+    longer accepted — callers do their own ``actions/checkout`` before
+    invoking this composite so the action.yml file is resolvable on the
+    runner (chicken-and-egg: a local composite cannot perform its own
+    checkout because the action file itself must already be on disk).
     """
     inputs = setup_env.get("inputs") or {}
-    required_inputs = {"python-version", "uv-version", "fetch-depth", "sync"}
+    required_inputs = {"python-version", "uv-version", "sync"}
     missing = required_inputs - set(inputs)
     assert not missing, f"setup-env missing inputs: {sorted(missing)}"
     # `python-version` defaults to 3.12 — the PR-blocking version (D-140-03).
@@ -71,18 +75,30 @@ def test_setup_env_inputs_match_contract(setup_env: dict) -> None:
         f"setup-env python-version default must be 3.12; "
         f"got {inputs['python-version'].get('default')!r}"
     )
+    # Composite must NOT advertise fetch-depth: callers own checkout.
+    assert "fetch-depth" not in inputs, (
+        "setup-env must NOT accept fetch-depth — callers do their own checkout "
+        "before invoking this composite. See action.yml IMPORTANT note."
+    )
 
 
-def test_setup_env_steps_cover_checkout_python_uv_and_sync(setup_env: dict) -> None:
-    """Composite must wire checkout + setup-python + setup-uv + uv sync."""
+def test_setup_env_steps_cover_python_uv_and_sync(setup_env: dict) -> None:
+    """Composite must wire setup-python + setup-uv + uv sync.
+
+    ``actions/checkout`` is intentionally NOT in the composite — callers
+    own it (see ``test_setup_env_inputs_match_contract`` for the why).
+    """
     steps = (setup_env.get("runs") or {}).get("steps") or []
     uses_strings = " ".join(step.get("uses", "") for step in steps if "uses" in step)
     run_strings = " ".join(step.get("run", "") for step in steps if "run" in step)
 
-    assert "actions/checkout" in uses_strings, "setup-env must call actions/checkout"
     assert "actions/setup-python" in uses_strings, "setup-env must call actions/setup-python"
     assert "astral-sh/setup-uv" in uses_strings, "setup-env must call astral-sh/setup-uv"
     assert "uv sync" in run_strings, "setup-env must run `uv sync` by default"
+    # Negative assertion: caller-owned checkout must not be in the composite.
+    assert "actions/checkout" not in uses_strings, (
+        "setup-env must NOT include actions/checkout — callers must checkout first"
+    )
 
 
 # ---------------------------------------------------------------------------

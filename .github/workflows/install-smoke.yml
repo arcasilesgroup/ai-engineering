@@ -47,6 +47,7 @@ jobs:
           - { os: windows-latest }
           - { os: macos-latest }
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
         with:
           sync: "false"
@@ -147,6 +148,7 @@ jobs:
       AIENG_DEV_BUILD: "1"
       FIXTURE_DIR: tests/fixtures/install-smoke/clean-project
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
         with:
           uv-version: ${{ matrix.uv_version }}
