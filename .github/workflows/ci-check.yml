@@ -205,6 +205,17 @@ jobs:
         #     mtime-based change detection misfires on Windows (FAT/NTFS
         #     mtime resolution ~1-2s; write_text + immediate stat returns
         #     unchanged mtime so the orchestrator records files_modified=[]).
+        #
+        # SKIP_HOT_PATH_SLO=1: the ``tests/unit/hooks/test_hot_path_slo``
+        # benchmarks measure real wall-clock subprocess timing. Under
+        # xdist parallel load on shared macOS / Windows runners the p95
+        # exceeds even the 2x CI slack budget (thermal scaling + noisy
+        # disk + cold cache). Per the test docstring those tests are
+        # local-machine guards; the framework's own hot-path SLO
+        # contract is governed by ``ai-eng doctor --check hot-path`` on
+        # the dedicated workflow, not the unit suite.
+        env:
+          SKIP_HOT_PATH_SLO: "1"
         run: |
           uv run pytest tests/unit -v -n auto --dist worksteal --durations=25 \
             --deselect tests/unit/test_orchestrator_wave2.py::test_wave2_wall_clock_ms_is_max_not_sum \
@@ -216,6 +227,8 @@ jobs:
             | tee test-output.log
       - name: Run unit tests with coverage (ubuntu/3.12 only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        env:
+          SKIP_HOT_PATH_SLO: "1"
         run: |
           uv run pytest tests/unit -v -n auto --dist worksteal \
             --deselect tests/unit/test_orchestrator_wave2.py::test_wave2_wall_clock_ms_is_max_not_sum \
