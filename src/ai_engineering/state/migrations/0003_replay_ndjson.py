@@ -4,6 +4,25 @@ Idempotent: ``ON CONFLICT(span_id) DO NOTHING`` so re-running the migration
 on a populated DB produces zero net inserts. Malformed lines are skipped
 with stderr warnings; non-UTF-8 lines also skipped.
 
+Derived-cache status (spec-138 M4)
+----------------------------------
+``state.db.events`` is a **derived cache** of
+``.ai-engineering/state/framework-events.ndjson`` (Tier 1 NDJSON audit log;
+see ``docs/persistence-doctrine.md``). This migration is positioned as a
+**one-shot bootstrap** that ingests the historical NDJSON on first
+``ai-eng install`` / fresh checkout; for ongoing data the SessionEnd hook
+(``.ai-engineering/scripts/hooks/runtime-session-end.py``) invokes
+``ai_engineering.state.audit_index.build_index(rebuild=False)`` which
+incrementally indexes new NDJSON lines using ``indexed_lines.last_offset``.
+The migration and the SessionEnd writer share the same INSERT shape and
+``ON CONFLICT(span_id) DO NOTHING`` semantics so a bootstrap that is later
+followed by a SessionEnd rebuild produces zero net duplicates. Operators
+who want a hard rebuild use ``ai-eng audit index --rebuild`` (cold path).
+
+The SessionEnd writer is therefore the **sole** ongoing producer of
+``state.db.events`` rows; hot-path hooks MUST NOT touch the table and are
+mechanically gated by ``tests/architecture/test_no_sql_on_hot_path.py``.
+
 Span ID derivation
 ------------------
 Pre-spec-120 events did not always carry ``span_id``. We derive a stable

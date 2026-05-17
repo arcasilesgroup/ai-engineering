@@ -131,7 +131,7 @@ audit, gate, or compliance claim.
 
 | Cache name                     | Source-of-truth                                                                | Rebuild command                          | Freshness contract                                                                                          |
 |--------------------------------|--------------------------------------------------------------------------------|------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| `state.db.events`              | `.ai-engineering/state/framework-events.ndjson` (Tier 1)                       | `ai-eng audit index --rebuild`           | Rebuilt at SessionEnd (5-second budget); operators MAY re-run on demand. Drift acceptable until next rebuild. |
+| `state.db.events`              | `.ai-engineering/state/framework-events.ndjson` (Tier 1)                       | `ai-eng audit index --rebuild` (cold path only — incremental at SessionEnd, full on operator demand) | Rebuilt at SessionEnd (5-second budget) via `build_index(project_root, rebuild=False)`; operators MAY re-run on demand. Drift acceptable until next rebuild. Hot-path code MUST NOT write directly — enforced by `tests/architecture/test_no_sql_on_hot_path.py`. Incremental indexing via `indexed_lines.last_offset` keeps the SessionEnd budget under 5 s; on-demand `--rebuild` truncates and re-reads from offset 0. |
 | `state.db.decisions_fts`       | `state.db.decisions` (Tier 2) — itself populated from spec markdown (Tier 4)   | SQLite FTS5 triggers (auto on INSERT)    | Triggered on every `decisions` INSERT / UPDATE; never out of sync intra-process.                            |
 | `state.db.ownership_map`       | `.github/CODEOWNERS` or operator-provided `ownership-map.json` (Tier 3 / 4)    | `ai-eng ownership import`                | Rebuilt on operator demand; CODEOWNERS edits do not auto-propagate.                                         |
 | `state.db.decisions`           | `.ai-engineering/specs/*.md` + `CHANGELOG.md` (Tier 4)                         | `ai-eng decision backfill`               | Rebuilt on operator demand and on `/ai-brainstorm` approval (M3 follow-up).                                 |
@@ -147,8 +147,13 @@ audit, gate, or compliance claim.
 2. **The audit chain stays on NDJSON.** `framework-events.ndjson` is
    the canonical witness. `state.db.events` is a derived cache for
    indexed query convenience; gates and external audits MUST verify
-   against the NDJSON (`ai-eng audit verify-chain`) before trusting
-   the projection.
+   against the NDJSON (`ai-eng audit verify`) before trusting the
+   projection. The **only** writer to `state.db.events` is
+   `ai-eng audit index --rebuild` (which dispatches into
+   `ai_engineering.state.audit_index.build_index`). The SessionEnd hook
+   invokes this writer in incremental mode (`rebuild=False`); the
+   migration `0003_replay_ndjson.py` is positioned as a one-shot
+   bootstrap that the SessionEnd rebuild supersedes for ongoing data.
 3. **The hot path never writes SQL.** Hooks registered under
    PreToolUse, PostToolUse, UserPromptSubmit, SubagentStop, and
    Notification MUST NOT import `sqlite3`. SessionEnd is the

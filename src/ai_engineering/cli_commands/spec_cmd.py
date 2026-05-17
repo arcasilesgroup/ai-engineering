@@ -4,11 +4,14 @@ Provides deterministic, zero-token commands for spec management:
 
 - ``ai-eng spec activate`` -- point runtime consumers at a work-plane root.
 - ``ai-eng spec verify``  -- count checkboxes in plan.md, auto-correct frontmatter.
+- ``ai-eng spec verify --sections <path>`` -- deterministic section header
+  pre-flight per ``.ai-engineering/reference/spec-schema.md`` (spec-139 M7.T1).
 - ``ai-eng spec list``    -- display current spec title and progress.
 """
 
 from __future__ import annotations
 
+import json as _json
 from contextlib import suppress
 from pathlib import Path
 from typing import Annotated
@@ -25,6 +28,21 @@ from ai_engineering.state.work_plane import read_task_ledger, resolve_active_wor
 
 _SPEC_FILENAME = "spec.md"
 _PLAN_FILENAME = "plan.md"
+
+# spec-139 M7.T1 -- required section headers per spec-schema.md rule 2.
+# Optional sections (References, Open Questions) are recognised but not
+# required for ``valid=true``.
+_REQUIRED_SECTIONS: tuple[str, ...] = (
+    "## Summary",
+    "## Goals",
+    "## Non-Goals",
+    "## Decisions",
+    "## Risks",
+)
+_OPTIONAL_SECTIONS: tuple[str, ...] = (
+    "## References",
+    "## Open Questions",
+)
 
 
 def _specs_dir(root: Path) -> Path:
@@ -173,6 +191,27 @@ def spec_activate(
     spec_start(path=path, specs_dir=specs_dir)
 
 
+def _classify_sections(text: str) -> tuple[list[str], list[str]]:
+    """Return ``(present, missing)`` required-section lists for a spec body.
+
+    spec-139 M7.T1: pure string-contains scan. A section header matches
+    when its canonical ``## Title`` literal appears at the start of any
+    line in the document (after frontmatter stripping is unnecessary —
+    headers live in the body and ``## Title`` never appears inside a
+    fenced frontmatter block by contract).
+    """
+    lines = text.splitlines()
+    line_set = {line.rstrip() for line in lines}
+    present: list[str] = []
+    missing: list[str] = []
+    for header in _REQUIRED_SECTIONS:
+        if header in line_set:
+            present.append(header)
+        else:
+            missing.append(header)
+    return present, missing
+
+
 def spec_verify(
     fix: Annotated[
         bool,
@@ -181,12 +220,34 @@ def spec_verify(
             help="Auto-correct drifted counters in plan.md frontmatter (opt-in).",
         ),
     ] = False,
+    sections: Annotated[
+        Path | None,
+        typer.Option(
+            "--sections",
+            help=(
+                "Deterministic section-header pre-flight (spec-139 M7.T1). "
+                "Reads <path> (defaults to the active spec.md), checks for "
+                "required headers per spec-schema.md, emits JSON, exits 1 "
+                "when required sections are missing."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Verify spec task counters and status consistency.
 
     Reads specs/plan.md, counts checkboxes, verifies frontmatter, and
     optionally auto-corrects drift.
+
+    When ``--sections`` is supplied, runs the spec-139 M7.T1 deterministic
+    section-header pre-flight instead: scans the target spec.md for the
+    required headers declared in ``.ai-engineering/reference/spec-schema.md``
+    and emits a JSON report. Exits 0 when every required header is
+    present, 1 when one or more are missing. The structural counter
+    workflow is skipped when ``--sections`` is provided.
     """
+    if sections is not None:
+        _run_sections_preflight(sections)
+        return
     root = find_project_root()
     plan_path = _specs_dir(root) / _PLAN_FILENAME
 
@@ -242,6 +303,43 @@ def spec_verify(
                 "drift_detected": drift_detected,
             },
         )
+
+
+def _run_sections_preflight(target: Path) -> None:
+    """Run the spec-139 M7.T1 section-header pre-flight on ``target``.
+
+    Emits a JSON report to stdout and raises ``typer.Exit`` with the
+    appropriate exit code (0 valid, 1 missing required sections).
+    Missing-file errors emit a JSON error envelope to stderr and exit 1.
+    """
+    # Resolve relative paths against the caller's CWD so the flag behaves
+    # like a normal positional path: ``ai-eng spec verify --sections foo.md``.
+    spec_path = target if target.is_absolute() else Path.cwd() / target
+    if not spec_path.exists() or not spec_path.is_file():
+        message = f"spec file not found: {spec_path}"
+        typer.echo(
+            _json.dumps(
+                {
+                    "path": str(spec_path),
+                    "missing_sections": [],
+                    "present_sections": [],
+                    "valid": False,
+                    "error": message,
+                }
+            ),
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    text = spec_path.read_text(encoding="utf-8")
+    present, missing = _classify_sections(text)
+    payload = {
+        "path": str(spec_path),
+        "missing_sections": missing,
+        "present_sections": present,
+        "valid": not missing,
+    }
+    typer.echo(_json.dumps(payload))
+    raise typer.Exit(code=0 if not missing else 1)
 
 
 def spec_list() -> None:

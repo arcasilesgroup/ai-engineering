@@ -15,6 +15,23 @@ Required state:
 
 ## Procedure
 
+### Step 0 -- Deterministic DAG Pre-Pass (spec-139 M7)
+
+**Before** running the LLM-driven analysis below, invoke the deterministic CLI:
+
+```bash
+ai-eng plan dag-build .ai-engineering/runtime/autopilot
+```
+
+The command walks `sub-*/plan.md` files, parses each plan's `exports:` / `imports:` frontmatter lists, builds the dependency DAG, runs a topological sort to assign waves, and emits JSON: `{"waves": [["sub-001", "sub-002"], ["sub-003"], ...], "conflicts": [...]}`. Exit 0 when the DAG resolves cleanly; exit 1 when cycles or unresolvable imports are present.
+
+**Decision tree**:
+
+- **Exit 0 (no conflicts)**: accept the script's wave assignment and skip directly to **Step 5 -- Update Manifest** below, recording the DAG output verbatim. Do NOT spend LLM tokens re-deriving the same graph.
+- **Exit 1 (conflicts non-empty)**: the script could not resolve the DAG deterministically (cycle or missing producer). Continue to Step 1 below and use LLM reasoning to investigate file overlaps, propose tie-breakers, or escalate to the user for cycle resolution.
+
+The deterministic short-circuit keeps Phase 3 cheap for the common case where the Phase 2 plan declarations are already consistent. LLM reasoning is reserved for the genuinely ambiguous case where the structured data is insufficient.
+
 ### Step 1 -- Extract Declarations
 
 Read all non-failed sub-spec directories from `.ai-engineering/runtime/autopilot/sub-*/`. For each sub-spec, extract:

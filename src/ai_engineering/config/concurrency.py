@@ -66,24 +66,55 @@ class HostProbe:
     """Snapshot of host capacity used to auto-tune the wave cap.
 
     Populated by :mod:`ai_engineering.adapters.host.probe` (spec-139 M2).
-    Until M2 lands, callers may construct a degraded probe directly or
-    let :func:`resolve_wave_cap` fall back to its ``os.cpu_count``-only
-    estimator.
+    The probe adapter dispatches by ``sys.platform`` to ``_probe_darwin`` /
+    ``_probe_linux`` / ``_probe_windows`` and returns this dataclass with
+    real measurements; failures degrade to zero-valued fields so the
+    resolver clamps to the safe ``WAVE_FLOOR`` rather than crashing.
 
     Attributes
     ----------
     cores:
         Logical core count.
     free_ram_gb:
-        Free RAM in gibibytes (integer).
+        Free RAM in gibibytes (integer floor). ``0`` when unknown.
     pressure_pct:
         Memory pressure as a percentage 0-100 (per macOS ``memory_pressure``
-        / linux ``MemAvailable``-derived heuristic).
+        / linux ``MemAvailable``-derived heuristic). ``0`` when unknown.
+    swap_used_pct:
+        Swap utilisation as a percentage 0-100. ``0`` when unknown.
+        Spec-139 M2 adds this so the dispatch guard refuses to fan out
+        into swap thrash.
+    platform:
+        ``sys.platform`` string captured by the probe adapter:
+        ``"darwin"`` | ``"linux"`` | ``"win32"`` | ``"unknown"``.
+        Defaults to ``"unknown"`` so callers that construct ``HostProbe``
+        without the spec-139 M2 fields keep working unchanged.
     """
 
     cores: int
     free_ram_gb: int
     pressure_pct: int
+    swap_used_pct: int = 0
+    platform: str = "unknown"
+
+    @property
+    def ok_to_dispatch(self) -> bool:
+        """Whether the host has enough headroom to fan out parallel agents.
+
+        Three independent guards, all must pass:
+
+        * ``free_ram_gb * 1024 >= 2048`` — at least 2 GiB free RAM.
+        * ``pressure_pct < 50`` — memory pressure below the auto-tune
+          serial-mode cutoff (matches :func:`_auto_tune_from_probe`).
+        * ``swap_used_pct < 20`` — host is not actively swap thrashing.
+
+        Callers (``/ai-autopilot`` Phase 0, ``/ai-build`` step 0) emit a
+        ``host_pressure_warning`` and degrade to ``cap=1`` when this
+        predicate is False.
+        """
+        return (
+            self.free_ram_gb * 1024 >= 2048 and self.pressure_pct < 50 and self.swap_used_pct < 20
+        )
 
 
 def _env_int(name: str, default: int | None, *, ceiling: int | None = None) -> int | None:
