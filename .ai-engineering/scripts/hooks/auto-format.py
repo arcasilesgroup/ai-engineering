@@ -12,8 +12,10 @@ formatted state. The intersection is set-strict; never a superset.
 
 import contextlib
 import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -33,6 +35,60 @@ with contextlib.suppress(Exception):
 
 _FORMAT_TOOLS = {"Edit", "Write", "MultiEdit"}
 _FORMATTER_TIMEOUT = 15
+
+# spec-139 M5.T4: per-process debounce. The PostToolUse hook fires after
+# every Edit/Write/MultiEdit, so rapid back-to-back edits to the same
+# file otherwise pay the full formatter cost N times. We track the wall-
+# clock time of the last format per absolute file path and short-circuit
+# when the next invocation lands inside the debounce window. Default 1 s;
+# overridable via ``AIENG_AUTOFORMAT_DEBOUNCE_SEC`` so test suites can
+# tighten or widen the window deterministically.
+_AUTOFORMAT_DEBOUNCE_DEFAULT_SEC = 1.0
+_LAST_FORMAT_TIMES: dict[str, float] = {}
+
+
+def _autoformat_debounce_window_sec() -> float:
+    """Return the debounce window in seconds (env-overridable).
+
+    Reads ``AIENG_AUTOFORMAT_DEBOUNCE_SEC`` per call (cheap env lookup).
+    Negative / unparseable values fall back to the 1 s default so a stray
+    env var never disables the debounce silently.
+    """
+    raw = (os.environ.get("AIENG_AUTOFORMAT_DEBOUNCE_SEC") or "").strip()
+    if not raw:
+        return _AUTOFORMAT_DEBOUNCE_DEFAULT_SEC
+    try:
+        value = float(raw)
+    except ValueError:
+        return _AUTOFORMAT_DEBOUNCE_DEFAULT_SEC
+    if value < 0:
+        return _AUTOFORMAT_DEBOUNCE_DEFAULT_SEC
+    return value
+
+
+def _should_debounce(file_path: str, *, now: float | None = None) -> bool:
+    """Return True when ``file_path`` was formatted within the debounce window.
+
+    Lookup key is the absolute path so a relative-vs-absolute mismatch
+    does NOT cause a false debounce. ``now`` is parameterised so tests
+    can drive deterministic windows without monkey-patching ``time``.
+    Returns False when the path has never been formatted or the window
+    setting is zero (explicit disable).
+    """
+    window = _autoformat_debounce_window_sec()
+    if window <= 0:
+        return False
+    last = _LAST_FORMAT_TIMES.get(file_path)
+    if last is None:
+        return False
+    reference = now if now is not None else time.monotonic()
+    return (reference - last) < window
+
+
+def _record_format(file_path: str, *, now: float | None = None) -> None:
+    """Stamp the per-process last-format map for ``file_path``."""
+    _LAST_FORMAT_TIMES[file_path] = now if now is not None else time.monotonic()
+
 
 _PROJECT_ROOT_MARKERS = {
     "package.json",
