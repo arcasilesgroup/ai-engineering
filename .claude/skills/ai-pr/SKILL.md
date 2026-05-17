@@ -78,15 +78,7 @@ If frontmatter has `refs`:
 
 ### 13. Commit, push, detect VCS, find existing PR
 
-Compose the commit subject deterministically before invoking `git commit` (spec-139 M8 D-139-06). Pull the description from the current `.ai-engineering/specs/plan.md` task title rather than asking an LLM to fill the `<DESC>` placeholder:
-
-```bash
-TASK_TITLE=$(grep -m1 '^- \[ \] ' .ai-engineering/specs/plan.md | sed 's/^- \[ \] //' | head -c 60)
-SUBJECT=$(python3 .ai-engineering/scripts/commit_compose.py --type <type> [--task X.Y] --desc "$TASK_TITLE")
-git commit -m "$SUBJECT"
-```
-
-`--desc` is mandatory. The legacy `<DESC>` placeholder fallback only fires when `--desc` is omitted entirely and is deprecated for the PR pipeline. Push to current branch (block on `main`/`master`). Detect provider via `manifest.yml` `providers.vcs.primary`, fallback to `git remote get-url origin` parsing (`github.com` -> `gh`, `dev.azure.com` -> `az repos`). Find existing PR with `gh pr list --head <branch>` or `az repos pr list --source-branch <branch>`.
+Compose the commit subject deterministically (spec-139 M8 D-139-06): derive the description from the current `.ai-engineering/specs/plan.md` task title (`grep -m1 '^- \[ \] ' .ai-engineering/specs/plan.md`) and pass it via `python3 .ai-engineering/scripts/commit_compose.py --type <type> [--task X.Y] --desc "$TASK_TITLE"`. `--desc` is mandatory; the legacy `<DESC>` placeholder fallback is deprecated for the PR pipeline. Push to current branch (block on `main`/`master`). Detect provider via `manifest.yml` `providers.vcs.primary`, fallback to `git remote get-url origin` parsing (`github.com` -> `gh`, `dev.azure.com` -> `az repos`). Find existing PR with `gh pr list --head <branch>` or `az repos pr list --source-branch <branch>`.
 
 ### 14. Create or update PR
 
