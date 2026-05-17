@@ -7,7 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### spec-138 — Harness Persistence Strategy (partial: M1 + M2 + M3 + M5)
+### spec-138 — Harness Persistence Strategy (M1 + M2 + M3 + M4 + M5)
+
+#### Added — hot-path SQL ban (D-138-06 hard gate)
+
+- `tests/architecture/test_no_sql_on_hot_path.py` — parametrized
+  per-event test (PreToolUse / PostToolUse / UserPromptSubmit /
+  SubagentStop / Notification) asserting no hot-path hook imports
+  `sqlite3` or its submodules. AST-based scan resolves `import` /
+  `from-import` statements without false positives on docstring
+  archaeology. Hot-path coverage invariant: the event set scanned must
+  equal `HOT_PATH_EVENTS` (catches silent omission of new hot paths).
+  6/6 cases pass on the current hook roster.
 
 Mantra: **One canonical store per datum. Caches are rebuildable. No silent
 dual-writes.** Lands the M1 bug clearance of the silent dual-write failure
