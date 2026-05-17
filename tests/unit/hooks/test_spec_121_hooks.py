@@ -170,10 +170,16 @@ def test_session_end_emits_summary_with_checkpoint(
     end_mod.main()
 
     events = _events(project)
-    last = events[-1]
-    assert last["component"] == "hook.runtime-session-end"
-    detail = last["detail"]
-    assert detail["operation"] == "session_end_summary"
+    # spec-138 M4.T3: SessionEnd may emit a follow-up
+    # ``audit_index_rebuilt`` event after the summary; filter for the
+    # summary by operation so the assertion isn't order-fragile.
+    summary = next(
+        e
+        for e in events
+        if e["component"] == "hook.runtime-session-end"
+        and e.get("detail", {}).get("operation") == "session_end_summary"
+    )
+    detail = summary["detail"]
     assert detail["recent_edit_count"] == 2
     assert detail["recent_tool_call_count"] == 3
     assert detail["converged"] is True
