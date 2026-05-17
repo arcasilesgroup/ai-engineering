@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -51,12 +52,103 @@ _CHECKPOINT_NAME = "checkpoint.json"
 # pages only when the freelist meaningfully exceeds the threshold so
 # every SessionEnd does not pay a no-op PRAGMA round-trip.
 _STATE_DB_REL = Path(".ai-engineering") / "state" / "state.db"
+_NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 _VACUUM_FREELIST_THRESHOLD = 1000
 _VACUUM_PAGES_PER_CALL = 1000
 # Short busy timeout so a contended DB (active reader during SessionEnd)
 # never blocks the hook budget. 250 ms is plenty for the short PRAGMA we
 # run; longer waits should fail-open instead.
 _VACUUM_BUSY_TIMEOUT_MS = 250
+
+# spec-138 M4.T3 + M4.T4 — events-table SessionEnd rebuild + NDJSON rotation
+# trigger. The rebuild is incremental (via audit_index.build_index with
+# rebuild=False) so steady-state SessionEnd stays under 5 s. The rotation
+# trigger checks size/lines after the rebuild and invokes the rotation
+# helper when thresholds are exceeded; the actual rotation throttle lives
+# in runtime-rotate-throttled.py (spec-139 M6).
+_NDJSON_MAX_LINES_DEFAULT = 100_000
+_NDJSON_MAX_BYTES_DEFAULT = 50 * 1024 * 1024  # 50 MB
+_REBUILD_BUDGET_SEC = 5.0
+
+
+def _ndjson_max_lines() -> int:
+    raw = (os.environ.get("AIENG_NDJSON_MAX_LINES") or "").strip()
+    if not raw:
+        return _NDJSON_MAX_LINES_DEFAULT
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return _NDJSON_MAX_LINES_DEFAULT
+
+
+def _ndjson_max_bytes() -> int:
+    raw = (os.environ.get("AIENG_NDJSON_MAX_BYTES") or "").strip()
+    if not raw:
+        return _NDJSON_MAX_BYTES_DEFAULT
+    try:
+        return max(1, int(raw))
+    except ValueError:
+        return _NDJSON_MAX_BYTES_DEFAULT
+
+
+def _rebuild_events_index(project_root: Path) -> dict[str, int] | None:
+    """Rebuild ``state.db.events`` from the NDJSON at SessionEnd.
+
+    spec-138 M4.T3: ``state.db.events`` is a SessionEnd-rebuilt derived
+    cache. Incremental indexing via ``audit_index.build_index(rebuild=False)``
+    keeps the budget under 5 s on steady-state operator hosts. Returns
+    ``{"rows_indexed": N, "rows_total": M, "duration_ms": K}`` on
+    success, ``None`` on any failure (fail-open). The hook never blocks
+    SessionEnd on this path.
+    """
+    import time as _time
+
+    started = _time.monotonic()
+    try:
+        # Local import — keeps the hot path stdlib-only; cold-path import
+        # cost is paid once at SessionEnd, never on PreToolUse / PostToolUse.
+        from ai_engineering.state.audit_index import build_index
+    except Exception:
+        return None
+    try:
+        result = build_index(project_root, rebuild=False)
+    except Exception:
+        return None
+    elapsed = _time.monotonic() - started
+    if elapsed > _REBUILD_BUDGET_SEC:
+        # Soft warning via the framework operation event below; not a
+        # hard error — operators can monitor via the host_capacity feed.
+        pass
+    return {
+        "rows_indexed": int(getattr(result, "rows_indexed", 0) or 0),
+        "rows_total": int(getattr(result, "rows_total", 0) or 0),
+        "duration_ms": int(elapsed * 1000),
+    }
+
+
+def _ndjson_rotation_needed(project_root: Path) -> dict[str, int] | None:
+    """Check NDJSON size/lines and signal rotation when thresholds breached.
+
+    spec-138 M4.T4: returns ``{"lines": N, "bytes": M}`` payload when
+    rotation should fire (above the configured thresholds), ``None``
+    otherwise. The actual rotation is the responsibility of the
+    runtime-rotate-throttled.py wrapper (spec-139 M6) — this helper
+    surfaces the signal so the orchestrator can observe.
+    """
+    ndjson = project_root / _NDJSON_REL
+    if not ndjson.is_file():
+        return None
+    try:
+        size = ndjson.stat().st_size
+        lines = 0
+        with ndjson.open("rb") as fh:
+            for _ in fh:
+                lines += 1
+    except OSError:
+        return None
+    if lines >= _ndjson_max_lines() or size >= _ndjson_max_bytes():
+        return {"lines": lines, "bytes": size}
+    return None
 
 
 def _read_checkpoint(project_root: Path) -> dict:
@@ -166,6 +258,47 @@ def main() -> None:
         )
     except Exception:
         pass
+
+    # spec-138 M4.T3: SessionEnd rebuild of state.db.events from the
+    # NDJSON audit log. Incremental; fail-open; never blocks SessionEnd
+    # budget. Operators query the projection via `ai-eng audit query`.
+    with contextlib.suppress(Exception):
+        rebuild_result = _rebuild_events_index(ctx.project_root)
+        if rebuild_result is not None:
+            try:
+                from _lib.observability import emit_framework_operation
+
+                emit_framework_operation(
+                    ctx.project_root,
+                    operation="audit_index_rebuilt",
+                    component=_COMPONENT,
+                    source="hook",
+                    correlation_id=get_correlation_id(),
+                    metadata=rebuild_result,
+                )
+            except Exception:
+                pass
+
+    # spec-138 M4.T4: NDJSON rotation signal. Emits an event when the
+    # configured thresholds are breached; the actual rotation is the
+    # responsibility of runtime-rotate-throttled.py (spec-139 M6) which
+    # the SessionEnd hook chain invokes via .claude/settings.json.
+    with contextlib.suppress(Exception):
+        rotation_signal = _ndjson_rotation_needed(ctx.project_root)
+        if rotation_signal is not None:
+            try:
+                from _lib.observability import emit_framework_operation
+
+                emit_framework_operation(
+                    ctx.project_root,
+                    operation="ndjson_rotation_threshold_breached",
+                    component=_COMPONENT,
+                    source="hook",
+                    correlation_id=get_correlation_id(),
+                    metadata=rotation_signal,
+                )
+            except Exception:
+                pass
 
     # spec-139 M6.T2: opportunistic incremental_vacuum on state.db. Runs
     # only when freelist_count > 1000 so the steady-state SessionEnd path
