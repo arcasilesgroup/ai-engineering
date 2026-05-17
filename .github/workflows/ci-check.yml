@@ -556,7 +556,14 @@ jobs:
         # deterministic reproducibility anchor. Pack aliases (p/python,
         # p/owasp-top-ten, …) roll forward from HEAD; pinning the CLI
         # is the only documented way to fix the scan surface.
-        run: python -m pip install "semgrep==1.96.0"
+        run: |
+          python -m pip install "semgrep==1.96.0"
+          semgrep --version
+          which semgrep
+          # Smoke test: validate the in-tree config parses without
+          # scanning anything so we know the binary is functional
+          # before the gate step runs.
+          semgrep --validate --config .semgrep.yml --metrics=off --disable-version-check
       - name: semgrep (in-tree rules — must pass)
         # spec-141 M2.T1 (D-141-01): in-tree rules under aieng.<area>.
         # namespace run as the authoritative gate. ``--error`` is kept
