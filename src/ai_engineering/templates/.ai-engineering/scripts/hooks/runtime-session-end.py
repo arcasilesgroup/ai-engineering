@@ -117,13 +117,20 @@ def _rebuild_events_index(project_root: Path) -> dict[str, int] | None:
     started = _time.monotonic()
     # Resolve ai-eng entry point. PATH first (canonical install via
     # `pip install -e .` or system-wide), then project-local fallback
-    # to `.venv/bin/ai-eng` so the hook still rebuilds the cache on
-    # operator hosts that only ran `uv sync` (no PATH activation).
+    # to `.venv/bin/ai-eng` (POSIX) or `.venv\Scripts\ai-eng.exe`
+    # (Windows) so the hook still rebuilds the cache on operator hosts
+    # that only ran `uv sync` (no PATH activation).
     ai_eng = _shutil.which("ai-eng")
     if ai_eng is None:
-        venv_candidate = project_root / ".venv" / "bin" / "ai-eng"
-        if venv_candidate.is_file():
-            ai_eng = str(venv_candidate)
+        venv_candidates = (
+            project_root / ".venv" / "bin" / "ai-eng",
+            project_root / ".venv" / "Scripts" / "ai-eng.exe",
+            project_root / ".venv" / "Scripts" / "ai-eng",
+        )
+        for candidate in venv_candidates:
+            if candidate.is_file():
+                ai_eng = str(candidate)
+                break
     if ai_eng is None:
         # CLI not installed — cold-path operators run the rebuild via
         # ``ai-eng audit index --rebuild`` themselves. Fail-open.

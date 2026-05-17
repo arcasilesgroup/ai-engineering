@@ -70,7 +70,7 @@
     ".ai-engineering/scripts/hooks/runtime-notification.py": "82d0b13d64598f7cd475d874ac69b7698a3195c635bff14f2f880765739ceed6",
     ".ai-engineering/scripts/hooks/runtime-progressive-disclosure.py": "a7b5108602ef961317a2b1f9e6ec886c360075721295e8c9b2c3ed85ad860edd",
     ".ai-engineering/scripts/hooks/runtime-rotate-throttled.py": "ee07aba81cfba912baa48cad575b7639adaccf39c647e30e951f45be21b51fce",
-    ".ai-engineering/scripts/hooks/runtime-session-end.py": "6fc869c76909cd3b2a5b42df3be2be1de4828b80be853717f958276de50198d0",
+    ".ai-engineering/scripts/hooks/runtime-session-end.py": "49e68a01c7712328e7fa661e669253b46e6498dbb0154a1397cca7a03ae30491",
     ".ai-engineering/scripts/hooks/runtime-session-start.py": "2f8d497f55a031f2df7e6a36c30fcf95a129c9dab127cc447eab83d2fbe3b90f",
     ".ai-engineering/scripts/hooks/runtime-stop.py": "bb3d491a68f205657994868910b63b5f81d7b30324314b5de94581bf99256d59",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "e1bda43b4f2a24df679c8f0ac7743a9a61e005151e824e2e79ffda92b04c743f",
