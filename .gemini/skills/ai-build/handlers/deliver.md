@@ -72,9 +72,11 @@ Execute after the PR merges (detected by the watch loop), or immediately after P
 
 4. **Verify cleanup**: re-read `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/plan.md` after clearing. If either file still contains old spec content (anything other than the placeholder text), clear it again. Do not trust the write succeeded without reading back.
 
-5. **Stage and commit** all cleanup changes:
-   ```
-   chore: clear spec state after dispatch delivery
+5. **Stage and commit** all cleanup changes. Compose the subject deterministically via `commit_compose.py --desc` (spec-139 M8 D-139-06) — never rely on the legacy `<DESC>` placeholder LLM call:
+   ```bash
+   git add .ai-engineering/specs/spec.md .ai-engineering/specs/plan.md .ai-engineering/specs/_history.md
+   SUBJECT=$(python3 .ai-engineering/scripts/commit_compose.py --type chore --desc "clear spec state after dispatch delivery")
+   git commit -m "$SUBJECT"
    ```
 
 ### Step 4: Final Report

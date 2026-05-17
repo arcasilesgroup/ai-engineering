@@ -6,14 +6,32 @@ constraints (``status`` / ``effort``). Declared extras (operator
 metadata fields) clear via the explicit allow-list; unknown keys
 emit ``ADVISORY`` warnings (exit 0) so operator-added metadata never
 trips the hot path.
+
+spec-139 M8 D-139-06: adds the ``summary`` field with a dated rollout.
+During the soft window (today through :data:`SUMMARY_HARD_REQUIRED_AFTER`)
+missing ``summary`` emits an ``ADVISORY``; after the cutover the same
+condition promotes to ``BLOCKER``. The two-stage rollout lets the
+existing spec corpus backfill ``summary:`` without breaking the hot
+path on day one. Length cap is 300 chars (1-2 sentences).
 """
 
 from __future__ import annotations
 
+import datetime as _dt
 from dataclasses import dataclass
 from pathlib import Path
 
 _VALID_SEVERITIES = {"OK", "ADVISORY", "BLOCKER"}
+
+# spec-139 M8 D-139-06 — date on which the ``summary`` advisory promotes
+# to BLOCKER. Stored as a UTC date so timezone drift never flips the gate
+# unexpectedly. The 30-day soft window starts from the M8 ship date
+# (2026-05-17) and lands on 2026-06-16.
+SUMMARY_HARD_REQUIRED_AFTER = _dt.date(2026, 6, 16)
+
+# Maximum length of the ``summary`` field (1-2 sentence target, per
+# spec-schema.md ``summary`` row).
+SUMMARY_MAX_LEN = 300
 
 
 @dataclass(frozen=True)
@@ -56,6 +74,17 @@ EXTRAS_ALLOWLIST = frozenset(
         "chains_after",
         "approved_at",
         "approved_by",
+        # spec-139 M8 D-139-06 — ``summary`` is validated explicitly by the
+        # dated-rollout block below; listing it here keeps the
+        # ``frontmatter_unknown_key`` advisory silent when the field is
+        # present.
+        "summary",
+        # Spec corpus surface fields observed in the run (spec-138/139/140/141).
+        "mantra",
+        "trigger_incident",
+        "auto_approved",
+        "auto_approval_reason",
+        "date_approved",
     }
 )
 
@@ -102,6 +131,11 @@ def check_frontmatter(spec_path: Path) -> list[CheckResult]:
     * ``BLOCKER frontmatter_invalid_enum`` per enum violation.
     * ``ADVISORY frontmatter_unknown_key`` per unknown key (not in
       required, not in :data:`EXTRAS_ALLOWLIST`).
+    * ``ADVISORY frontmatter_missing_summary`` until
+      :data:`SUMMARY_HARD_REQUIRED_AFTER`; ``BLOCKER`` after the cutover
+      (spec-139 M8 D-139-06).
+    * ``ADVISORY frontmatter_summary_too_long`` when ``summary`` exceeds
+      :data:`SUMMARY_MAX_LEN`.
     """
     text = spec_path.read_text(encoding="utf-8")
     fields, fence_line = _parse_frontmatter(text)
@@ -135,6 +169,36 @@ def check_frontmatter(spec_path: Path) -> list[CheckResult]:
                     f"required frontmatter field '{required}' is missing or empty",
                 )
             )
+
+    # spec-139 M8 D-139-06 — ``summary`` rollout: soft window emits
+    # ADVISORY, hard window emits BLOCKER. The severity is computed at
+    # check-time from the system clock so the gate flips automatically
+    # on 2026-06-16 without a code change.
+    summary_value = fields.get("summary", "").strip()
+    if not summary_value:
+        severity = "BLOCKER" if _dt.date.today() > SUMMARY_HARD_REQUIRED_AFTER else "ADVISORY"
+        results.append(
+            CheckResult(
+                "frontmatter_missing_summary",
+                severity,
+                (
+                    "frontmatter field 'summary' is missing or empty "
+                    f"(soft requirement until {SUMMARY_HARD_REQUIRED_AFTER.isoformat()}, "
+                    "hard requirement after; see spec-schema.md)"
+                ),
+            )
+        )
+    elif len(summary_value) > SUMMARY_MAX_LEN:
+        results.append(
+            CheckResult(
+                "frontmatter_summary_too_long",
+                "ADVISORY",
+                (
+                    f"frontmatter 'summary' is {len(summary_value)} chars; "
+                    f"target is ≤{SUMMARY_MAX_LEN} chars (1-2 sentences)"
+                ),
+            )
+        )
 
     for enum_field, allowed in ENUMS.items():
         if fields.get(enum_field) and fields[enum_field] not in allowed:

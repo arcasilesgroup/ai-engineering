@@ -143,12 +143,16 @@ After all agents in the wave complete (success or failure):
 
    The script rewrites the frontmatter `total` / `completed` to match the real `- [x]` count in the body. Honest tracking is mandatory — never trust a hand-written `completed:` value.
 
-2. **Commit the wave's changes:**
+2. **Compose the wave commit subject deterministically (spec-139 M8 D-139-06).** Build a one-line description from the wave's sub-spec titles and feed it to `commit_compose.py` via `--desc`. **Never rely on the legacy `<DESC>` placeholder LLM call.**
 
    ```bash
+   WAVE_DESC="wave W -- [comma-separated sub-spec titles]"
+   SUBJECT=$(python3 .ai-engineering/scripts/commit_compose.py --type feat --desc "$WAVE_DESC")
    git add [files from all sub-specs in this wave]
-   git commit -m "spec-NNN: wave W -- [comma-separated sub-spec titles]"
+   git commit -m "$SUBJECT"
    ```
+
+   `commit_compose.py` reads `.ai-engineering/specs/spec.md` frontmatter to inject the `spec-NNN` scope so the final subject reads `feat(spec-NNN): wave W -- ...`. The `--desc` flag is mandatory; omitting it leaves a `<DESC>` placeholder that the framework no longer fills.
 
 Commit scope:
 - Include only files owned by sub-specs in this wave, plus the sub-plan files re-synced in step 3.1.

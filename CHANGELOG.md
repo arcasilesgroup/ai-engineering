@@ -147,16 +147,20 @@ deferred to follow-up work.
   unknown `--check` value still raises `BadParameter` and lists
   `state-db` among supported values.
 
-### spec-139 — Framework Performance Hardening (partial: M1 + M4 + M6 + M9)
+### spec-139 — Framework Performance Hardening (partial: M1 + M2 + M4 + M6 + M7 + M8 + M9)
 
 Mantra: **ai-engineering NEVER causes WindowServer to hang. Every wave
 declares a concurrency budget. Every LLM call earns its place.** Lands
 M1 (concurrency budget primitive that closes the kernel-panic class),
-M4 (stale-x3 correction), and M9 (CLAUDE.md tunables reconciliation +
-drift gate). M2–M3 and M5–M8 (host probe, stack context, hot-path cache,
-SessionEnd rotation, deterministic CLIs, compose determinism) are scoped
-in `.ai-engineering/specs/archive/spec-139-plan.md` and deferred to
-focused follow-ups.
+M2 (host preflight probe + `ai-eng host probe` CLI), M4 (stale-x3
+correction), M7 (deterministic `ai-eng spec verify --sections` +
+`ai-eng plan dag-build` pre-passes), M8 (commit + PR compose
+determinism — `commit_compose.py --desc` mandatory across the chain
+and `pr_body_compose.py` consumes spec `summary:` frontmatter without
+an LLM call), and M9 (CLAUDE.md tunables reconciliation + drift gate).
+M3 and M5 (stack context pre-resolution, hot-path hook cache) are
+scoped in `.ai-engineering/specs/archive/spec-139-plan.md` and deferred
+to focused follow-ups.
 
 #### Added — concurrency budget primitive (M1)
 
@@ -197,6 +201,58 @@ focused follow-ups.
   — assertion relaxed from "must equal 5" to "must be in [1, 5]" so the
   new cap (default 4) does not break the existing Wave 2 invariant
   while still preventing unbounded fan-out.
+
+#### Added — host preflight probe + `ai-eng host probe` CLI (M2)
+
+- `src/ai_engineering/adapters/host/probe.py` (new ~280 LOC) — adapter
+  layer (Hexagonal §10.8, D-139-09) hosting the per-platform
+  measurements that populate `HostProbe`. Dispatches by `sys.platform`
+  to `_probe_darwin` (`vm_stat` / `sysctl hw.memsize` / `sysctl hw.ncpu`
+  / `sysctl vm.swapusage` with 1-second timeouts), `_probe_linux`
+  (`/proc/meminfo` + `/proc/swaps` + `os.cpu_count`), `_probe_windows`
+  (`psutil` when importable, degraded fallback when not). Every backend
+  is fail-open: subprocess errors, parse failures, and unsupported
+  platforms collapse to a zero-valued snapshot so the resolver clamps
+  to `WAVE_FLOOR` rather than crashing.
+- `src/ai_engineering/adapters/__init__.py`,
+  `src/ai_engineering/adapters/host/__init__.py` — adapter package
+  scaffolding. Re-exports `HostProbe` from
+  `ai_engineering.config.concurrency` so the single source of truth
+  for the dataclass stays in the inner ring.
+- `src/ai_engineering/cli_commands/host_cmd.py` (new ~60 LOC) +
+  `cli_factory.py` registration — adds `ai-eng host probe` with an
+  optional `--json` flag. Default emits a single-line JSON; `--json`
+  pretty-prints. Payload schema (sorted keys): `cores`, `free_ram_gb`,
+  `ok_to_dispatch`, `platform`, `pressure_pct`, `recommended_cap`,
+  `swap_used_pct`. The CLI deliberately does NOT emit a
+  `host_capacity` framework event — the caller is the operator, no
+  skill dispatched (spec-139 M2.T4).
+- `src/ai_engineering/state/observability.py` — new `emit_host_capacity`
+  helper that skill-side callers (`/ai-autopilot` Phase 0,
+  `/ai-build` step 0) use to log the probe payload to
+  `framework-events.ndjson` with the `caller` field identifying the
+  dispatching skill.
+- `tools/skill_domain/event_schema.py` — added `host_capacity` to
+  `ALLOWED_EVENT_KINDS` so the new event passes the schema validator.
+- `.claude/skills/ai-autopilot/SKILL.md` — Step 0 now runs
+  `ai-eng host probe` and aborts with an operator warning if
+  `ok_to_dispatch == False`. Mirror trees regenerated via
+  `ai-eng dev sync`.
+
+#### Added — host preflight tests (M2)
+
+- `tests/integration/test_host_preflight.py` — 14 cases covering the
+  four canonical scenarios (healthy host, high memory pressure, low
+  free RAM, single-core) plus swap thrash, fail-open backend errors,
+  and platform-dispatch verification.
+- `tests/unit/cli/test_host_probe_cli.py` — 6 cases asserting the JSON
+  shape, `--json` pretty-print, `ok_to_dispatch=False` on stressed
+  hosts, and the no-emit contract for the operator-facing CLI.
+- `tests/architecture/test_layer_isolation.py` — 3 cases confirming
+  `adapters/host/` lives in the adapter ring per D-139-09: the
+  directory exists, no `.py` file imports forbidden outer-ring modules
+  (cli_commands, governance, installer, etc.), and the package
+  imports cleanly without side-effects.
 
 #### Fixed — stale "x3" agent description (correctness/safety)
 
@@ -281,6 +337,130 @@ focused follow-ups.
   vacuum runs when `freelist_count > 1000`, skips when ≤1000, no-ops
   cleanly when the DB is absent, and no-ops without raising on a
   corrupt DB file.
+
+#### Added — deterministic spec verify + plan DAG construction (M7)
+
+- `src/ai_engineering/cli_commands/spec_cmd.py` — new `--sections <path>`
+  flag on `ai-eng spec verify` (spec-139 M7.T1). Deterministic
+  regex / string-contains scan for the five required headers declared in
+  `.ai-engineering/reference/spec-schema.md`: `## Summary`, `## Goals`,
+  `## Non-Goals`, `## Decisions`, `## Risks`. Optional headers
+  (`## References`, `## Open Questions`) do not influence validity.
+  Emits JSON `{"path", "missing_sections", "present_sections", "valid"}`
+  on stdout (or the error envelope on stderr when the path is missing)
+  and exits 0 when every required section is present, 1 otherwise.
+  Pure-Python, zero-token — the gate runs before any LLM validation
+  pass so structural failures short-circuit the LLM call.
+- `src/ai_engineering/cli_commands/plan_cmd.py` (new) — new
+  `ai-eng plan dag-build <subdir>` command (spec-139 M7.T2). Walks
+  `<subdir>/sub-*/plan.md`, parses each plan's `exports:` and
+  `imports:` frontmatter lists (tolerating both flow `[a, b]` and
+  block-style YAML lists), resolves the producer/consumer graph, and
+  runs a Kahn-style topological sort to assign waves. Emits JSON
+  `{"waves": [[sub_name, ...], ...], "conflicts": [...]}`. Exits 0
+  when the DAG resolves cleanly; exits 1 when cycles or unresolvable
+  imports surface. Pure-Python, ~210 LOC.
+- `src/ai_engineering/cli_factory.py` — new `plan` Typer sub-group
+  registers `dag-build` so the command is reachable as
+  `ai-eng plan dag-build`. The `spec verify` command picked up the
+  `--sections` option without growing a new verb (drop-in flag).
+- `.claude/skills/ai-brainstorm/SKILL.md` — Step 6 now invokes
+  `ai-eng spec verify --sections .ai-engineering/specs/spec.md` BEFORE
+  the LLM validation pass; exit-1 short-circuits LLM reasoning until
+  the operator patches the missing headers (spec-139 M7.T3).
+- `.claude/skills/ai-autopilot/handlers/phase-orchestrate.md` — new
+  "Step 0 -- Deterministic DAG Pre-Pass" calls
+  `ai-eng plan dag-build .ai-engineering/runtime/autopilot` FIRST. On
+  exit 0 the script's wave assignment is accepted verbatim and the
+  phase jumps to Step 5; only the exit-1 conflict path falls through to
+  LLM-driven file-overlap analysis (spec-139 M7.T4).
+- Cross-IDE skill mirrors regenerated via `ai-eng dev sync` so
+  `.codex/`, `.gemini/`, `.github/`, `.opencode/`, `.cursor/`, and the
+  `src/ai_engineering/templates/project/` tree carry the same Step 0 /
+  Step 6 wiring.
+
+#### Added — M7 deterministic CLI tests
+
+- `tests/unit/cli/test_spec_verify.py` (new, 4 cases) — covers
+  `spec verify --sections` happy path (every required header → valid),
+  missing-Risks failure (exit 1, JSON missing list isolates the gap),
+  optional-section absence (References / Open Questions absent →
+  valid=true), and missing-file error envelope (nonexistent path →
+  exit 1, JSON `error` field surfaces the operator-facing message).
+- `tests/unit/cli/test_plan_dag_build.py` (new, 5 cases) — covers
+  `plan dag-build` no-imports-all-wave-0, linear-chain one-per-wave,
+  no-overlap independent set, cycle detection (conflicts non-empty,
+  exit 1, both participants named), and unresolvable-import diagnostics
+  (phantom token surfaces in the conflict message).
+- `tests/unit/cli/fixtures/spec_verify/{complete,missing_risks,no_optionals}.md`
+  + `tests/unit/cli/fixtures/plan_dag/{all_independent,linear_chain,no_overlap,cycle}/sub-*/plan.md`
+  — committed fixture trees so the deterministic checks reproduce on a
+  fresh checkout without harness side effects.
+
+#### Added — compose determinism (M8)
+
+- `.claude/skills/ai-commit/SKILL.md` Step 7 — `commit_compose.py
+  --desc "<plan-task-title>"` is now mandatory. Skill markdown
+  documents the helper snippet that extracts the description from the
+  active `.ai-engineering/specs/plan.md` first-incomplete task line
+  (`grep -m1 '^- \[ \] ' ... | sed ... | head -c 60`) so the chain
+  composes commit subjects deterministically. The legacy `<DESC>`
+  placeholder LLM fallback is deprecated.
+- `.claude/skills/ai-autopilot/handlers/phase-implement.md` Step 3 —
+  wave commits now build a `WAVE_DESC` string from the wave's
+  sub-spec titles and feed it through `commit_compose.py --desc`. The
+  script automatically injects the `spec-NNN` scope from
+  `.ai-engineering/specs/spec.md` frontmatter.
+- `.claude/skills/ai-autopilot/handlers/phase-deliver.md` Step 5 +
+  `.claude/skills/ai-build/handlers/deliver.md` Step 3.5 — spec-state
+  cleanup commits now route through `commit_compose.py --desc` too.
+- `.claude/skills/ai-pr/SKILL.md` Step 13 + Step 14 — Step 13 adopts
+  the same plan-derived `--desc` discipline before invoking `git
+  commit`. Step 14 documents that `pr_body_compose.py` runs WITHOUT
+  `--bullets-prompt` whenever the active spec carries `summary:` in
+  its frontmatter (the script already prefers `frontmatter.summary`
+  over the flag, so no Python change was needed). Legacy specs
+  without `summary:` fall back with an advisory warning prompting
+  backfill.
+- `.ai-engineering/reference/spec-schema.md` — added `summary` to the
+  Required Frontmatter table with a 1-2 sentence / ≤300 char
+  contract and a "summary field" subsection explaining the soft-then-
+  hard rollout (D-139-06). The field is the deterministic feedstock
+  for `pr_body_compose.py`'s Summary section.
+- `tools/spec_lint/checks/frontmatter.py` — `check_frontmatter` now
+  emits `frontmatter_missing_summary` as ADVISORY until
+  `SUMMARY_HARD_REQUIRED_AFTER = 2026-06-16` and BLOCKER after, plus
+  `frontmatter_summary_too_long` as ADVISORY when the field exceeds
+  `SUMMARY_MAX_LEN = 300` chars. `summary` joined the EXTRAS_ALLOWLIST
+  so the unknown-key advisory stays silent. Auxiliary fields used by
+  the in-flight spec corpus (`mantra`, `trigger_incident`,
+  `auto_approved`, `auto_approval_reason`, `date_approved`) joined
+  the same allowlist to remove stale advisory noise.
+- `.codex/`, `.gemini/`, `.github/`, and project-template mirror
+  trees regenerated via `ai-eng dev sync`; `ai-eng dev sync --check`
+  reports "Mirrors in sync".
+
+#### Added — compose determinism tests (M8)
+
+- `tests/unit/skills/test_no_residual_llm_compose.py` (new, 3 cases)
+  — greps every committed skill markdown file under `.claude/`,
+  `.codex/`, `.gemini/`, `.github/`, and the seven project-template
+  IDE surfaces for the two forbidden patterns: a `commit_compose.py`
+  invocation missing `--desc`, and a `pr_body_compose.py` invocation
+  hard-coding `--bullets-prompt`. Skips lines that are explicitly
+  documenting the legacy fallback path (e.g., "Never rely on the
+  legacy `<DESC>` placeholder"). The third case asserts the active
+  `.ai-engineering/specs/spec.md` declares a non-empty `summary:`
+  field as defence-in-depth against drift during the soft-rollout
+  window.
+- `tests/unit/test_spec_lint.py` — `_FRONTMATTER_FULL` and
+  `_FRONTMATTER_MINIMAL` fixtures grew a `summary:` line so the
+  existing "zero findings" assertions keep passing under the new
+  rollout severity rules.
+- `tests/integration/test_spec_lint_e2e.py` — tightened the
+  substring guard from `frontmatter_missing` to
+  `frontmatter_missing_required` so the new advisory does not trip
+  the legacy-archive acceptance test during the soft-rollout window.
 
 #### Added — tunables documentation reconciliation (M9)
 

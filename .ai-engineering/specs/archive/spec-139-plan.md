@@ -48,15 +48,15 @@ Nine milestones mapped 1-to-1 to the brief's M1–M9. Each milestone is independ
 
 ### Tasks
 
-- **M2.T1** — New module `src/ai_engineering/adapters/host/probe.py` with `HostProbe` dataclass + `probe()` function.
-- **M2.T2** — darwin adapter: `vm_stat`, `sysctl hw.memsize`, `sysctl hw.ncpu`, `sysctl vm.swapusage`.
-- **M2.T3** — linux adapter: `/proc/meminfo`, `/proc/cpuinfo`, `/proc/swaps`.
-- **M2.T4** — New CLI subcommand `ai-eng host probe` emits JSON.
-- **M2.T5** — New framework event `host_capacity` written to NDJSON (per spec-138 SSOT-PD: NDJSON canonical for events).
-- **M2.T6** — `/ai-autopilot` Phase 0 + `/ai-build` step 0 consult `probe()` before dispatch.
-- **M2.T7** — When `probe.ok_to_dispatch == False`: emit `host_pressure_warning`; degrade to cap=1.
-- **M2.T8** — `tests/integration/test_host_preflight.py` GREEN: 4 scenarios (healthy / high pressure / low free RAM / single core).
-- **M2.T9** — `tests/architecture/test_layer_isolation.py` confirms `adapters/host/` is a port, not domain.
+- [x] **M2.T1** — New module `src/ai_engineering/adapters/host/probe.py` with `HostProbe` dataclass + `probe()` function.
+- [x] **M2.T2** — darwin adapter: `vm_stat`, `sysctl hw.memsize`, `sysctl hw.ncpu`, `sysctl vm.swapusage`.
+- [x] **M2.T3** — linux adapter: `/proc/meminfo`, `/proc/cpuinfo`, `/proc/swaps`.
+- [x] **M2.T4** — New CLI subcommand `ai-eng host probe` emits JSON.
+- [x] **M2.T5** — New framework event `host_capacity` written to NDJSON (per spec-138 SSOT-PD: NDJSON canonical for events).
+- [x] **M2.T6** — `/ai-autopilot` Phase 0 + `/ai-build` step 0 consult `probe()` before dispatch.
+- [x] **M2.T7** — When `probe.ok_to_dispatch == False`: emit `host_pressure_warning`; degrade to cap=1.
+- [x] **M2.T8** — `tests/integration/test_host_preflight.py` GREEN: 4 scenarios (healthy / high pressure / low free RAM / single core).
+- [x] **M2.T9** — `tests/architecture/test_layer_isolation.py` confirms `adapters/host/` is a port, not domain.
 
 ## Milestone M3 — Phase-0 stack context pre-resolution
 
@@ -115,11 +115,10 @@ Nine milestones mapped 1-to-1 to the brief's M1–M9. Each milestone is independ
 
 ### Tasks
 
-- **M7.T1** — New CLI: `ai-eng spec verify --sections <path>` returns missing section headers (20-line regex check).
-- **M7.T2** — New CLI: `ai-eng plan dag-build <subdir>` returns wave assignment JSON.
-- **M7.T3** — `/ai-brainstorm` calls `ai-eng spec verify --sections` BEFORE invoking the LLM validation pass.
-- **M7.T4** — `/ai-autopilot` Phase 3 calls `ai-eng plan dag-build` FIRST; LLM only when the script returns conflicts.
-- **M7.T5** — `tests/unit/cli/test_spec_verify.py` + `test_plan_dag_build.py` GREEN.
+- [x] **M7.T1** — New CLI: `ai-eng spec verify --sections <path>` returns missing section headers (deterministic regex / string-contains check, lives in `src/ai_engineering/cli_commands/spec_cmd.py`).
+- [x] **M7.T2** — New CLI: `ai-eng plan dag-build <subdir>` returns wave assignment JSON (pure-Python topological sort in `src/ai_engineering/cli_commands/plan_cmd.py`, wired through the new `plan` Typer sub-group in `cli_factory.py`).
+- [x] **M7.T3** — `/ai-brainstorm` Step 6 now runs `ai-eng spec verify --sections .ai-engineering/specs/spec.md` BEFORE the LLM validation pass; the structural exit-1 short-circuits the LLM call.
+- [x] **M7.T4** — `/ai-autopilot` Phase 3 ORCHESTRATE now invokes `ai-eng plan dag-build` FIRST in a new "Step 0 -- Deterministic DAG Pre-Pass" section; LLM reasoning fires only when the script reports conflicts. `tests/unit/cli/test_spec_verify.py` (4 cases) and `tests/unit/cli/test_plan_dag_build.py` (5 cases) GREEN; fixtures live under `tests/unit/cli/fixtures/{spec_verify,plan_dag}/`.
 
 ## Milestone M8 — Determinism final-mile (commit + PR)
 
@@ -127,10 +126,11 @@ Nine milestones mapped 1-to-1 to the brief's M1–M9. Each milestone is independ
 
 ### Tasks
 
-- **M8.T1** — Update `/ai-commit`, `/ai-build`, `/ai-autopilot`, `/ai-pr` to pass `commit_compose.py --desc "<plan-task-title>"` always.
-- **M8.T2** — Add mandatory `summary:` field to spec-schema (`/ai-brainstorm` blocks approval without it after 30-day soft window per D-139-06).
-- **M8.T3** — Update `/ai-pr` to call `pr_body_compose.py` without `--bullets-prompt` when spec has `summary:`.
-- **M8.T4** — `tests/unit/skills/test_no_residual_llm_compose.py` GREEN — greps skills for forbidden invocations.
+- [x] **M8.T1** — Updated `/ai-commit`, `/ai-build` (`handlers/deliver.md`), `/ai-autopilot` (`handlers/phase-implement.md`, `handlers/phase-deliver.md`), and `/ai-pr` Step 13 to compose commit subjects via `commit_compose.py --desc "<plan-task-title>"` deterministically. Skill markdown now documents the `grep -m1 '^- \[ \] ' .ai-engineering/specs/plan.md | sed 's/^- \[ \] //' | head -c 60` helper for callers and marks the `<DESC>` placeholder fallback as deprecated.
+- [x] **M8.T2** — Added the mandatory `summary:` field to `.ai-engineering/reference/spec-schema.md` with a 30-day soft-rollout window (D-139-06): `frontmatter_missing_summary` emits ADVISORY until 2026-06-16 and BLOCKER after. `tools/spec_lint/checks/frontmatter.py` enforces the dated severity at lint time; `summary` joined `EXTRAS_ALLOWLIST` so the unknown-key advisory stays silent. All four archive specs in the run (138/139/140/141) already carry `summary:`.
+- [x] **M8.T3** — Rewrote `.claude/skills/ai-pr/SKILL.md` Step 14 to invoke `pr_body_compose.py` WITHOUT `--bullets-prompt` whenever spec frontmatter carries `summary:`. Legacy specs that predate the field still trigger an advisory-warning fall back. The script already prefers `frontmatter.summary` over `--bullets-prompt`, so no Python change was needed.
+- [x] **M8.T4** — `tests/unit/skills/test_no_residual_llm_compose.py` (3 cases) GREEN: greps every committed skill file across `.claude/`, `.codex/`, `.gemini/`, `.github/`, and every project-template surface for forbidden patterns; defends the active spec.md `summary:` field as defence-in-depth.
+- [x] **M8.T5** — `ai-eng dev sync` regenerated `.codex/`, `.gemini/`, `.github/`, and project-template mirrors after each skill edit; `ai-eng dev sync --check` returns "Mirrors in sync".
 
 ## Milestone M9 — CLAUDE.md reconciliation + tunables documentation
 

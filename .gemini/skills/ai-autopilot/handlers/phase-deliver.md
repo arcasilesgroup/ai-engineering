@@ -114,10 +114,11 @@ Execute after the PR merges (detected by the watch loop), or immediately after P
    | spec-NNN | <title> | merged | YYYY-MM-DD | <branch> |
    ```
 
-5. **Stage and commit** all cleanup changes:
+5. **Stage and commit** all cleanup changes. Compose the subject deterministically via `commit_compose.py --desc` (spec-139 M8 D-139-06):
    ```bash
    git add .ai-engineering/specs/spec.md .ai-engineering/specs/plan.md .ai-engineering/specs/_history.md
-   git commit -m "chore: clear autopilot state after spec-NNN delivery"
+   SUBJECT=$(python3 .ai-engineering/scripts/commit_compose.py --type chore --desc "clear autopilot state after spec-NNN delivery")
+   git commit -m "$SUBJECT"
    ```
 
 6. **Verification gate** — MUST execute before reporting Phase 6 complete (spec-123 D-123-27). Run each assertion explicitly; any failure aborts Phase 6 with a clear diagnostic and instructs the user to retry the failed sub-step manually:

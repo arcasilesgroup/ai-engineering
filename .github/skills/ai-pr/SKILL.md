@@ -84,11 +84,19 @@ If frontmatter has `refs`:
 
 ### 13. Commit, push, detect VCS, find existing PR
 
-Commit, push to current branch (block on `main`/`master`). Detect provider via `manifest.yml` `providers.vcs.primary`, fallback to `git remote get-url origin` parsing (`github.com` -> `gh`, `dev.azure.com` -> `az repos`). Find existing PR with `gh pr list --head <branch>` or `az repos pr list --source-branch <branch>`.
+Compose the commit subject deterministically before invoking `git commit` (spec-139 M8 D-139-06). Pull the description from the current `.ai-engineering/specs/plan.md` task title rather than asking an LLM to fill the `<DESC>` placeholder:
+
+```bash
+TASK_TITLE=$(grep -m1 '^- \[ \] ' .ai-engineering/specs/plan.md | sed 's/^- \[ \] //' | head -c 60)
+SUBJECT=$(python3 .ai-engineering/scripts/commit_compose.py --type <type> [--task X.Y] --desc "$TASK_TITLE")
+git commit -m "$SUBJECT"
+```
+
+`--desc` is mandatory. The legacy `<DESC>` placeholder fallback only fires when `--desc` is omitted entirely and is deprecated for the PR pipeline. Push to current branch (block on `main`/`master`). Detect provider via `manifest.yml` `providers.vcs.primary`, fallback to `git remote get-url origin` parsing (`github.com` -> `gh`, `dev.azure.com` -> `az repos`). Find existing PR with `gh pr list --head <branch>` or `az repos pr list --source-branch <branch>`.
 
 ### 14. Create or update PR
 
-Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README staged, gate passed). Compose body deterministically: `python3 .ai-engineering/scripts/pr_body_compose.py [--bullets-prompt "<llm-bullets>"]` reads spec.md/plan.md frontmatter and emits Summary, Test Plan, Work Items, Checklist sections. Use `--bullets-prompt` only when the LLM needs to author Summary bullets that the spec frontmatter does not capture.
+Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README staged, gate passed). Compose body deterministically: `python3 .ai-engineering/scripts/pr_body_compose.py` reads `.ai-engineering/specs/spec.md` frontmatter (`summary:` field — mandatory per spec-139 M8 D-139-06 after the 2026-06-16 cutover) plus plan.md `[ ]` rows and emits Summary, Test Plan, Work Items, Checklist sections. **When `summary:` is present in the spec frontmatter the PR body Summary section is composed without any LLM call.** Legacy specs that predate the field fall back to `--bullets-prompt "<llm-bullets>"`; emit an advisory warning prompting the operator to backfill the spec frontmatter `summary:` field. Do NOT pass `--bullets-prompt` when the active spec already declares `summary:`.
 
 **New**: `gh pr create --title "<t>" --body "<b>"` or `az repos pr create --source-branch <b> --target-branch <t> --title "<t>" --description "<b>"`.
 
