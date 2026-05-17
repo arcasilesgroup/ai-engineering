@@ -1,9 +1,0 @@
-
- Usage: ai-eng config stack list [OPTIONS]
-
- List active technology stacks.
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Target project root.                                 │
-│ --help                  Show this message and exit.                          │
-╰──────────────────────────────────────────────────────────────────────────────╯

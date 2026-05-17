@@ -1,9 +1,0 @@
-
- Usage: ai-eng verify [OPTIONS]
-
- Run every verification specialist and emit a scored report.
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Project root to verify. Defaults to cwd.             │
-│ --help                  Show this message and exit.                          │
-╰──────────────────────────────────────────────────────────────────────────────╯

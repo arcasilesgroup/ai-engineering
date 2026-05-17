@@ -47,10 +47,9 @@ jobs:
           - { os: windows-latest }
           - { os: macos-latest }
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - uses: ./.github/actions/setup-env
         with:
-          enable-cache: true
+          sync: "false"
       - name: Build wheel
         run: uv build
       - name: Create clean venv and install package
@@ -148,13 +147,10 @@ jobs:
       AIENG_DEV_BUILD: "1"
       FIXTURE_DIR: tests/fixtures/install-smoke/clean-project
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Setup uv (pinned ${{ matrix.uv_version }})
-        uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - uses: ./.github/actions/setup-env
         with:
-          version: ${{ matrix.uv_version }}
-          enable-cache: true
+          uv-version: ${{ matrix.uv_version }}
+          sync: "false"
 
       - name: Configure git defaults
         run: |

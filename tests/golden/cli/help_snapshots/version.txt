@@ -1,8 +1,0 @@
-
- Usage: ai-eng version [OPTIONS]
-
- Show the installed ai-engineering version and lifecycle status.
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                  │
-╰──────────────────────────────────────────────────────────────────────────────╯

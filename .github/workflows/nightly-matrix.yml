@@ -1,0 +1,51 @@
+name: Nightly Matrix (advisory)
+
+# spec-140 W2 D-140-03: full 3-python x 3-OS matrix moved off the PR
+# hot path and into a nightly advisory sweep. PRs run 3.12 only
+# (`ci-check.yml`); the full Python-version coverage signal lives here.
+#
+# This workflow is ADVISORY — `continue-on-error: true` per matrix cell
+# means cell failures surface in the run summary but do NOT block any
+# PR or push. Failures triage on the morning sweep, not on the merge
+# queue.
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # 06:00 UTC daily — quiet hours before US morning
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-matrix-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  nightly-matrix:
+    name: Nightly Matrix (Python ${{ matrix.python-version }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    # spec-140 W2 D-140-03: advisory only — cell failures do not block.
+    continue-on-error: true
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: ./.github/actions/setup-env
+        with:
+          python-version: ${{ matrix.python-version }}
+          fetch-depth: "0"
+      - name: Configure git defaults
+        run: |
+          git config --global init.defaultBranch main
+          git config --global user.email "ci@test.com"
+          git config --global user.name "CI"
+      - name: Run unit + integration tests (advisory)
+        run: |
+          uv run pytest tests/unit tests/integration -q -x --maxfail=3
