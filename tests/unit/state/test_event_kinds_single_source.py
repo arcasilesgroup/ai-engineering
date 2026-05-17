@@ -105,9 +105,9 @@ def test_three_frozensets_agree_on_kind_membership() -> None:
     )
 
 
-def test_authority_has_thirteen_declared_kinds() -> None:
-    """The brief surveyed 13 declared kinds; locking the count prevents silent drops."""
+def test_authority_has_fourteen_declared_kinds() -> None:
+    """spec-137 surveyed 13 kinds; spec-139 M2 added ``host_capacity`` (14)."""
     authority = _load_kinds_from_authority()
-    assert len(authority) == 13, (
-        f"expected 13 declared kinds; got {len(authority)}: {sorted(authority)}"
+    assert len(authority) == 14, (
+        f"expected 14 declared kinds; got {len(authority)}: {sorted(authority)}"
     )
