@@ -29,9 +29,12 @@ from ai_engineering.cli_commands import (
     decisions_cmd,
     dev_sync,
     gate,
+    host_cmd,
     internal,
     issue,
     maintenance,
+    ownership_cmd,
+    plan_cmd,
     release,
     risk_cmd,
     setup,
@@ -388,6 +391,18 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     skill_app.command("status")(_safe(skills.skill_status))
     app.add_typer(skill_app, name="skill")
 
+    # Host sub-group (spec-139 M2 D-139-02): resource preflight probe.
+    # ``ai-eng host probe`` prints the current HostProbe snapshot plus the
+    # cap that ``resolve_wave_cap`` would recommend, for operator-facing
+    # diagnosis of wave-fan-out decisions.
+    host_app = typer.Typer(
+        name="host",
+        help="Inspect host capacity (cores, free RAM, memory pressure, swap).",
+        no_args_is_help=True,
+    )
+    host_app.command("probe")(_safe(host_cmd.host_probe_cmd))
+    app.add_typer(host_app, name="host")
+
     # Maintenance sub-group
     maint_app = typer.Typer(
         name="maintenance",
@@ -438,6 +453,15 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     decision_app.command("record")(_safe(decisions_cmd.decision_record))
     decision_app.command("backfill")(_safe(decisions_cmd.decision_backfill))
     app.add_typer(decision_app, name="decision")
+
+    # Ownership sub-group (spec-138 M3.T5: CODEOWNERS -> state.db importer).
+    ownership_app = typer.Typer(
+        name="ownership",
+        help="Manage the canonical ownership map (state.db.ownership_map).",
+        no_args_is_help=True,
+    )
+    ownership_app.command("import")(_safe(ownership_cmd.ownership_import))
+    app.add_typer(ownership_app, name="ownership")
 
     # Audit sub-group (spec-107 D-107-10: hash-chained audit trail verifier;
     # spec-120 Phase B: SQLite-backed audit index, query, token rollups)
@@ -498,6 +522,15 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     spec_app.command("show")(_safe(spec_cmd.spec_show))
     app.add_typer(spec_app, name="spec")
+
+    # Plan sub-group (spec-139 M7.T2: deterministic DAG construction).
+    plan_app = typer.Typer(
+        name="plan",
+        help="Plan-level deterministic helpers (DAG construction over sub-spec plans).",
+        no_args_is_help=True,
+    )
+    plan_app.command("dag-build")(_safe(plan_cmd.plan_dag_build))
+    app.add_typer(plan_app, name="plan")
 
     # Issue sub-group (D-132-03 -- renamed from work-item).
     issue_app = typer.Typer(

@@ -71,12 +71,12 @@ Five phases mapped to the brief's M1–M5 milestones. TDD-first; every change ca
 
 ### Tasks
 
-- **M3.T1 — `/ai-brainstorm` writes decisions to `state.db.decisions`.** At spec-approval handler in `src/ai_engineering/brainstorm/`, call `upsert_decision_rows` for every `D-NNN-NN` in the approved spec. Cold path — fired once per approval.
-- **M3.T2 — `/ai-plan` upserts decisions when the plan introduces new ones.** Same writer; idempotent on duplicate D-IDs.
-- **M3.T3 — `ai-eng decision backfill`.** New CLI subcommand under `ai-eng decision` group. Parses `.ai-engineering/specs/*.md` and `CHANGELOG.md`, extracts `D-NNN-NN` patterns with rationale strings, populates `state.db.decisions`. Idempotent on re-run.
-- **M3.T4 — Installer wires `install_steps`.** After each completed installer phase, call `upsert_install_step` with the step ID and outcome. Cold path — fired during install only.
-- **M3.T5 — `ai-eng ownership import`.** Parse `.github/CODEOWNERS` (or operator-provided `ownership-map.json` if present), populate `state.db.ownership_map`. New subcommand under `ai-eng` group.
-- **M3.T6 — Unit tests for each writer.** `tests/unit/state/test_decision_writer.py`, `test_install_step_writer.py`, `test_ownership_writer.py`. RED before each writer.
+- **[x] M3.T1 — `/ai-brainstorm` writes decisions to `state.db.decisions`.** At spec-approval handler in `src/ai_engineering/brainstorm/`, call `upsert_decision_rows` for every `D-NNN-NN` in the approved spec. Cold path — fired once per approval. (`src/ai_engineering/brainstorm/spec_approval.py::handle_spec_approval`.)
+- **[x] M3.T2 — `/ai-plan` upserts decisions when the plan introduces new ones.** Same writer; idempotent on duplicate D-IDs. (Shared `handle_spec_approval` entry point accepts `plan.md` paths.)
+- **[x] M3.T3 — `ai-eng decision backfill`.** New CLI subcommand under `ai-eng decision` group. Parses `.ai-engineering/specs/*.md`, `.ai-engineering/specs/archive/*.md`, and `CHANGELOG.md`, extracts `D-NNN-NN` patterns with rationale strings, populates `state.db.decisions`. Idempotent on re-run. Summary line distinguishes `backfilled` vs `already_current`.
+- **[x] M3.T4 — Installer wires `install_steps`.** After each completed installer phase, `PipelineRunner._record_step` calls `upsert_install_step` with the step ID and outcome (`done` / `failed` / `non_critical_failure`). Cold path — fired during install only. Fail-open: an UPSERT error never masks a phase failure.
+- **[x] M3.T5 — `ai-eng ownership import`.** Parse `.github/CODEOWNERS` (or `--source <path>`), populate `state.db.ownership_map`. New `ownership_app` Typer group registered in `cli_factory`.
+- **[x] M3.T6 — Unit tests for each writer.** `tests/unit/state/test_decision_writer_integration.py`, `tests/unit/cli/test_decision_backfill.py`, `tests/unit/installer/test_install_steps_writer.py`, `tests/unit/cli/test_ownership_import.py` (23 cases total, all green).
 
 ### Acceptance gate
 

@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### spec-138 — Harness Persistence Strategy (partial: M1 + M2 + M5)
+### spec-138 — Harness Persistence Strategy (partial: M1 + M2 + M3 + M5)
 
 Mantra: **One canonical store per datum. Caches are rebuildable. No silent
 dual-writes.** Lands the M1 bug clearance of the silent dual-write failure
@@ -24,9 +24,16 @@ sha256 manifest at `state/hooks-manifest.json` plus the NDJSON
 `integrity_violation` event stream cover the surface), and the new
 `ai-eng doctor --check state-db` subcommand surfaces table-by-table
 health (row counts, mtime, advisory flags for empty rows-expected tables).
-M3-M4 (autopopulation writers, events as derived cache + NDJSON rotation)
-remain scoped in `.ai-engineering/specs/archive/spec-138-plan.md` and
-deferred to follow-up work.
+M3 lands the autopopulation writers: `/ai-brainstorm` and `/ai-plan`
+approval handlers parse the `## Decisions` section of `spec.md` / `plan.md`
+and UPSERT every `D-NNN-NN` into `state.db.decisions`; `ai-eng decision
+backfill` walks active specs + archive + CHANGELOG + CONSTITUTION + CLAUDE.md
+(197 decisions on the real repo); the installer pipeline records one
+`install_steps` row per phase outcome; new `ai-eng ownership import`
+imports `.github/CODEOWNERS` into `state.db.ownership_map`. M4 (events as
+derived cache + NDJSON rotation) remains scoped in
+`.ai-engineering/specs/archive/spec-138-plan.md` and deferred to follow-up
+work.
 
 #### Added — persistence doctrine (M2)
 
@@ -66,6 +73,48 @@ deferred to follow-up work.
   the CONSTITUTION.md citation, and the CLAUDE.md §0 + §13 references.
   Drift fails CI so a future operator cannot silently delete the
   doctrine without breaking the identity contract.
+
+#### Added — state.db autopopulation (M3)
+
+- `src/ai_engineering/brainstorm/spec_approval.py` — new pure parser +
+  approval handler. Reads the `## Decisions` section of `spec.md` /
+  `plan.md`, extracts every `D-NNN-NN` reference with its title and
+  rationale (inline `Rationale:` / `*Rationale*:` / `**Rationale**:`
+  markers, including wrapped continuation lines), and UPSERTs into
+  `state.db.decisions` via `upsert_decision_rows_raw`. Idempotent.
+  Exposed at the package level as
+  `ai_engineering.brainstorm.handle_spec_approval` so `/ai-brainstorm`
+  and `/ai-plan` skill handlers fire it at approval time (M3.T1, M3.T2).
+- `src/ai_engineering/cli_commands/decisions_cmd.py` — `ai-eng decision
+  backfill` now walks `.ai-engineering/specs/archive/*.md` in addition
+  to active specs + CHANGELOG + CONSTITUTION + CLAUDE.md (M3.T3). The
+  summary line distinguishes `backfilled` from `already_current` so
+  operators see net-new vs idempotent re-run counts. Real-repo
+  invocation surfaces 197 decisions across `specs=55`, `changelog=51`,
+  `specs-archive=91`.
+- `src/ai_engineering/state/state_db.py` — new `upsert_install_step`
+  helper (single-row UPSERT into `install_steps`) and
+  `upsert_ownership_rows_raw` helper (row-dict UPSERT into
+  `ownership_map`, used by the CODEOWNERS importer). Both are
+  idempotent; lazy bootstrap ensures the schema exists before the
+  first INSERT.
+- `src/ai_engineering/installer/phases/pipeline.py` — `PipelineRunner`
+  now calls `upsert_install_step` after every phase outcome (`done` /
+  `failed` / `non_critical_failure`) so `state.db.install_steps`
+  reflects per-phase state without the legacy `install-state.json`
+  sidecar (M3.T4). Fail-open: an UPSERT error never masks the underlying
+  phase failure.
+- `src/ai_engineering/cli_commands/ownership_cmd.py` — new
+  `ai-eng ownership import` subcommand. Parses `.github/CODEOWNERS`
+  (or `--source <path>`), UPSERTs each `<pattern> @owner...` rule into
+  `state.db.ownership_map`. Idempotent. Dry-run mode (`--dry-run`)
+  prints parsed rules without writing (M3.T5).
+- `tests/unit/state/test_decision_writer_integration.py`,
+  `tests/unit/cli/test_decision_backfill.py`,
+  `tests/unit/installer/test_install_steps_writer.py`,
+  `tests/unit/cli/test_ownership_import.py` — 23 new unit tests covering
+  every writer + parser + idempotency + dry-run + archive walk + sort
+  order (M3.T6).
 
 #### Removed — silent dual-write paths
 
@@ -521,13 +570,81 @@ to focused follow-ups.
   reconciled). Flipping the code default to `enforce` is a security
   posture decision that belongs in its own focused spec, not in M9.
 
-### spec-140 — Less-Is-More Quality Engine (partial: W1 hard-delete)
+### spec-140 — Less-Is-More Quality Engine (partial: W1 + W2)
 
 Mantra: **Con menos, hacemos más.** Lands Wave 1 hard-delete of dead-test
-archaeology. Waves 2 (CI matrix collapse), 2.5 (validator monolith split),
-and 3 (reviewer roster shrink) are scoped in
-`.ai-engineering/specs/archive/spec-140-plan.md` and deferred to follow-up
-work — each is sized for its own focused PR with empirical gates.
+archaeology and Wave 2 CI matrix collapse + composite-action extraction.
+Waves 2.5 (validator monolith split) and 3 (reviewer roster shrink) are
+scoped in `.ai-engineering/specs/archive/spec-140-plan.md` and deferred
+to follow-up work — each is sized for its own focused PR with empirical
+gates.
+
+#### Changed — CI matrix collapse + composite actions (W2)
+
+- `.github/workflows/ci-check.yml` — every PR-blocking matrix collapsed
+  to `python-version: ["3.12"]` (D-140-03). The 3-OS sweep
+  (`ubuntu-latest` x `macos-latest` x `windows-latest`) survives intact;
+  only the Python-version axis collapsed. The full 3 python x 3 OS
+  sweep moved to `nightly-matrix.yml` (advisory) so PR job count drops
+  from ~57 to ~25 without losing the cross-Python regression signal.
+- `.github/workflows/nightly-matrix.yml` — new advisory workflow:
+  schedule (`0 6 * * *` daily) + `workflow_dispatch` trigger; runs the
+  full 3 python (`3.11` / `3.12` / `3.13`) x 3 OS matrix with
+  `continue-on-error: true` per cell so cell failures triage on the
+  morning sweep instead of blocking PRs.
+- `.github/actions/setup-env/action.yml` — new composite action.
+  Wraps `actions/checkout` + `actions/setup-python` + `astral-sh/setup-uv`
+  + `uv sync --dev` into one reusable step. Inputs cover the parameters
+  every caller relies on: `python-version` (default `3.12`),
+  `uv-version` (default `0.9.0`), `fetch-depth`, `enable-cache`, and
+  `sync` (skip the default `uv sync --dev` for build-from-wheel flows).
+- `.github/actions/run-gates/action.yml` — new composite action. One
+  `case` dispatch handles every PR-blocking gate (lint, type-check,
+  unit, integration) so the gate commands live in exactly one place.
+- 19 inline `astral-sh/setup-uv` blocks across the workflow tree
+  collapsed into `uses: ./.github/actions/setup-env` calls
+  (`ci-check.yml` x 14, `nightly-matrix.yml`, `test-hooks-matrix.yml`,
+  `sbom.yml`, `skill-evals.yml`, `maintenance.yml`, `install-smoke.yml`
+  x 2, `install-time-budget.yml`, `worktree-fast-second.yml`). The one
+  holdout is `ci-build.yml`, which carries an explicit `ref: main` +
+  `token` checkout for the release version commit-back path; the
+  composite action cannot represent that contract without growing a
+  pile of conditional inputs.
+
+#### Removed — redundant test surface (W2.T6 / D-140-06)
+
+- `tests/integration/cli/test_help_snapshots.py` — 128-LOC parametrised
+  snapshot driver. The 66 golden files at
+  `tests/golden/cli/help_snapshots/` were a maintenance tax (every Rich
+  box-character drift, every Typer minor bump caused a regen). The
+  signal is binary: "every top-level command is still wired into the
+  Typer app". Replaced with a single command-list assertion at
+  `tests/unit/cli/test_command_list.py` that runs in <50ms and survives
+  unchanged across help-text edits.
+- `tests/golden/cli/help_snapshots/` — 66 golden text files deleted
+  with the driver.
+- `tests/integration/sync/test_canonical_mirror_parity.py` — mirror
+  payload sha256 + idempotency contract. The same invariants are
+  covered by `tests/conformance/test_md_mirror.py` (37 tests; faster,
+  no subprocess invocations); keeping both was duplicated effort.
+
+#### Added — workflow drift gates (W2.T7)
+
+- `tests/unit/workflows/test_python_matrix_collapsed.py` — parses
+  `ci-check.yml` and asserts every matrix declares `["3.12"]` so a
+  silent re-expansion (e.g. a copy/paste from an older branch) trips
+  CI. Also asserts the 3-OS axis is preserved.
+- `tests/unit/workflows/test_nightly_matrix_advisory.py` — parses
+  `nightly-matrix.yml` and asserts the full 3 python x 3 OS matrix is
+  declared, schedule + dispatch triggers are present, and
+  `continue-on-error: true` is set so the workflow stays advisory.
+- `tests/unit/workflows/test_composite_actions.py` — asserts both
+  composite actions exist, declare the required inputs, and dispatch
+  to every supported gate (lint, type-check, unit, integration).
+- `tests/unit/cli/test_command_list.py` — single-test replacement for
+  the help-snapshot ceremony. Confirms every required top-level
+  command (`install`, `doctor`, `verify`, `audit`, `spec`, `decision`,
+  `risk`, `config`, `gate`) appears in `ai-eng --help` output.
 
 #### Removed — dead test archaeology
 

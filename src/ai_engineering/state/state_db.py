@@ -560,6 +560,144 @@ def list_full_decisions(project_root: Path) -> list[dict[str, str | None]]:
         conn.close()
 
 
+def upsert_install_step(
+    project_root: Path,
+    step_id: str,
+    *,
+    status: str,
+    installed: bool = False,
+    authenticated: bool = False,
+    integrity_verified: bool = False,
+    detail: dict[str, object] | None = None,
+    updated_at: str | None = None,
+) -> int:
+    """UPSERT a single ``install_steps`` row.
+
+    Spec-138 M3.T4: installer-phase autopopulation. The installer pipeline
+    calls this helper once per completed phase so the canonical
+    ``install_steps`` table reflects per-step state without the legacy
+    ``install-state.json`` JSON sidecar (already retired by spec-125).
+
+    Idempotent: re-running with the same ``step_id`` UPSERTs in place. The
+    function lazily bootstraps the schema so a fresh ``state.db`` (test or
+    first install) gets the ``install_steps`` table before the INSERT.
+
+    Args:
+        project_root: Repository root holding ``.ai-engineering/``.
+        step_id: Stable identifier for the install step (typically the
+            phase name -- ``detect`` / ``governance`` / ``state`` / ...).
+        status: Outcome string -- ``done`` / ``pending`` / ``failed`` /
+            ``skipped`` (no enum, the column is plain TEXT).
+        installed: True when the step's artefact is on disk.
+        authenticated: True when the step required auth and it succeeded.
+        integrity_verified: True when the step ran the post-write
+            integrity check successfully.
+        detail: Optional structured payload serialised into ``detail_json``.
+        updated_at: Override the timestamp (test hook); defaults to now.
+
+    Returns:
+        ``1`` on a successful UPSERT.
+    """
+    import json as _json
+
+    # Lazy bootstrap so a fresh state.db has the schema before INSERT.
+    bootstrap = connect(project_root, read_only=False, apply_migrations=None)
+    bootstrap.close()
+
+    timestamp = updated_at or _now_iso()
+    detail_json = _json.dumps(detail, sort_keys=True) if detail else None
+
+    with projection_write(project_root) as conn:
+        conn.execute(
+            """
+            INSERT INTO install_steps
+              (step_id, status, installed, authenticated, integrity_verified,
+               detail_json, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(step_id) DO UPDATE SET
+              status              = excluded.status,
+              installed           = excluded.installed,
+              authenticated       = excluded.authenticated,
+              integrity_verified  = excluded.integrity_verified,
+              detail_json         = excluded.detail_json,
+              updated_at          = excluded.updated_at
+            """,
+            (
+                step_id,
+                status,
+                int(installed),
+                int(authenticated),
+                int(integrity_verified),
+                detail_json,
+                timestamp,
+            ),
+        )
+    return 1
+
+
+def upsert_ownership_rows_raw(
+    project_root: Path,
+    rows: list[dict[str, object | None]],
+) -> int:
+    """UPSERT raw ownership rows parsed from ``.github/CODEOWNERS``.
+
+    Spec-138 M3.T5: complements :func:`upsert_ownership_rows` (which takes
+    a Pydantic ``OwnershipMap``). The CODEOWNERS importer works with
+    plain row dicts (``path_pattern`` + ``owners`` list) so we keep the
+    helper free of legacy model imports.
+
+    Args:
+        project_root: Repository root holding ``.ai-engineering/``.
+        rows: List of row dicts. Required keys: ``path_pattern``,
+            ``owners`` (a list of owner strings or a single string).
+            Optional: ``severity``, ``reviewers`` (list).
+
+    Returns:
+        Count of rows attempted (one per non-empty pattern).
+    """
+    import json as _json
+
+    bootstrap = connect(project_root, read_only=False, apply_migrations=None)
+    bootstrap.close()
+
+    if not rows:
+        with projection_write(project_root):
+            pass
+        return 0
+
+    updated_at = _now_iso()
+    with projection_write(project_root) as conn:
+        attempted = 0
+        for row in rows:
+            pattern = row.get("path_pattern")
+            if not pattern:
+                continue
+            owners = row.get("owners") or []
+            if isinstance(owners, str):
+                owners = [owners]
+            owners_json = _json.dumps(list(owners))
+            severity = row.get("severity")
+            reviewers = row.get("reviewers") or []
+            if isinstance(reviewers, str):
+                reviewers = [reviewers]
+            reviewers_json = _json.dumps(list(reviewers))
+            conn.execute(
+                """
+                INSERT INTO ownership_map
+                  (path_pattern, owners_json, severity, reviewers_json, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(path_pattern) DO UPDATE SET
+                  owners_json    = excluded.owners_json,
+                  severity       = excluded.severity,
+                  reviewers_json = excluded.reviewers_json,
+                  updated_at     = excluded.updated_at
+                """,
+                (pattern, owners_json, severity, reviewers_json, updated_at),
+            )
+            attempted += 1
+        return attempted
+
+
 __all__ = [
     "STATE_DB_REL",
     "connect",
@@ -569,5 +707,7 @@ __all__ = [
     "state_db_path",
     "upsert_decision_rows",
     "upsert_decision_rows_raw",
+    "upsert_install_step",
     "upsert_ownership_rows",
+    "upsert_ownership_rows_raw",
 ]
