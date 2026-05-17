@@ -556,14 +556,7 @@ jobs:
         # deterministic reproducibility anchor. Pack aliases (p/python,
         # p/owasp-top-ten, …) roll forward from HEAD; pinning the CLI
         # is the only documented way to fix the scan surface.
-        run: |
-          python -m pip install "semgrep==1.96.0"
-          semgrep --version
-          which semgrep
-          # Smoke test: validate the in-tree config parses without
-          # scanning anything so we know the binary is functional
-          # before the gate step runs.
-          semgrep --validate --config .semgrep.yml --metrics=off --disable-version-check
+        run: python -m pip install "semgrep==1.96.0"
       - name: semgrep (in-tree rules — must pass)
         # spec-141 M2.T1 (D-141-01): in-tree rules under aieng.<area>.
         # namespace run as the authoritative gate. ``--error`` is kept
@@ -582,6 +575,10 @@ jobs:
           SEMGREP_ENABLE_VERSION_CHECK: "0"
         run: |
           set +e
+          echo "::group::semgrep environment diagnostics"
+          which semgrep || echo "(semgrep not on PATH)"
+          semgrep --version || echo "(semgrep --version failed)"
+          echo "::endgroup::"
           semgrep \
             --config .semgrep.yml \
             --metrics=off \
@@ -590,9 +587,11 @@ jobs:
           semgrep_exit=$?
           set -e
           echo "semgrep exit code: ${semgrep_exit}"
+          echo "::group::semgrep stderr"
+          cat semgrep-stderr.log || true
+          echo "::endgroup::"
           if [ ! -s semgrep-results.json ]; then
-            echo "::error::semgrep produced no results JSON. stderr tail:"
-            tail -50 semgrep-stderr.log || true
+            echo "::error::semgrep produced no results JSON (see stderr above)."
             exit 1
           fi
           findings=$(python3 -c 'import json; print(len(json.load(open("semgrep-results.json")).get("results", [])))' 2>/dev/null || echo "PARSE_ERROR")
