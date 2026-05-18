@@ -18,7 +18,6 @@ _CHANGELOG_SUBGROUPS = frozenset(
     }
 )
 _SECTION_HEADING_PATTERN = re.compile(r"^##\s+\[(?P<name>[^\]]+)\](?P<suffix>.*)$", re.MULTILINE)
-_SUBGROUP_PATTERN = re.compile(r"^###\s+(?P<name>.+?)\s*$", re.MULTILINE)
 _TARGET_DATE_PATTERN = re.compile(r"^-\s+(?P<date>\d{4}-\d{2}-\d{2})$")
 
 
@@ -95,10 +94,22 @@ def _has_release_note_content(section_body: str) -> bool:
     )
 
 
+def _changelog_subgroup_name(line: str) -> str | None:
+    stripped = line.strip()
+    if not stripped.startswith("###"):
+        return None
+    name = stripped[3:]
+    if not name or not name[0].isspace():
+        return None
+    normalized = name.strip()
+    return normalized or None
+
+
 def _has_keep_a_changelog_subgroup(section_body: str) -> bool:
     return any(
-        match.group("name").strip() in _CHANGELOG_SUBGROUPS
-        for match in _SUBGROUP_PATTERN.finditer(section_body)
+        name in _CHANGELOG_SUBGROUPS
+        for line in section_body.splitlines()
+        if (name := _changelog_subgroup_name(line)) is not None
     )
 
 
@@ -119,13 +130,21 @@ def _release_path_semantics_changed(text: str) -> bool:
 
 
 def _subsection_body(section_body: str, heading: str) -> str | None:
-    pattern = re.compile(rf"^###\s+{re.escape(heading)}\s*$", re.MULTILINE)
-    match = pattern.search(section_body)
-    if match is None:
+    lines = section_body.splitlines()
+    start: int | None = None
+    for index, line in enumerate(lines):
+        if _changelog_subgroup_name(line) == heading:
+            start = index + 1
+            break
+    if start is None:
         return None
-    next_match = _SUBGROUP_PATTERN.search(section_body, match.end())
-    end = len(section_body) if next_match is None else next_match.start()
-    return section_body[match.end() : end].strip()
+
+    end = len(lines)
+    for index in range(start, len(lines)):
+        if _changelog_subgroup_name(lines[index]) is not None:
+            end = index
+            break
+    return "\n".join(lines[start:end]).strip()
 
 
 def _validate_target_section_date(text: str, version: str) -> str | None:

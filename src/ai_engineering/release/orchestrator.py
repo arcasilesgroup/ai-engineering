@@ -33,6 +33,7 @@ from ai_engineering.verify.service import verify_release
 
 _RELEASE_PACKET_NAME = "release-packet.json"
 _RELEASE_READINESS_NAME = "release-readiness.json"
+_CHANGELOG_REL = Path("CHANGELOG.md")
 
 
 class Clock(Protocol):
@@ -337,7 +338,9 @@ def _build_dry_run_plan(config: ReleaseConfig, state: ReleaseState) -> ReleaseDr
         release_branch=state.release_branch,
         tag=tag_name,
         governed_changed_files=_governed_changed_files(config.project_root),
-        changelog_promotion=f"Promote CHANGELOG.md [Unreleased] to [{config.version}]",
+        changelog_promotion=(
+            f"Promote {_CHANGELOG_REL.as_posix()} [Unreleased] to [{config.version}]"
+        ),
         workflow_trigger=f"Push tag {tag_name} to trigger the Release workflow",
         testpypi_stage="TestPyPI publish and install verification before production",
         pypi_stage="PyPI publish only after TestPyPI, readiness, and attestations pass",
@@ -353,7 +356,7 @@ def _format_dry_run_plan(plan: dict[str, object]) -> str:
 
 
 def _governed_changed_files(project_root: Path) -> list[str]:
-    files = ["pyproject.toml", "CHANGELOG.md"]
+    files = ["pyproject.toml", _CHANGELOG_REL.as_posix()]
     registry = Path("src") / "ai_engineering" / "version" / "registry.json"
     if (project_root / registry).is_file():
         files.append(registry.as_posix())
@@ -465,9 +468,9 @@ def _validate(config: ReleaseConfig, provider: VcsProvider) -> list[str]:
         if not auth.success:
             errors.append(f"VCS auth check failed: {auth.output}")
 
-    changelog_path = config.project_root / "CHANGELOG.md"
+    changelog_path = config.project_root / _CHANGELOG_REL
     if not changelog_path.exists():
-        errors.append("CHANGELOG.md not found")
+        errors.append(f"{_CHANGELOG_REL.as_posix()} not found")
     else:
         errors.extend(validate_changelog(changelog_path, config.version))
 
@@ -519,16 +522,16 @@ def _prepare_branch(config: ReleaseConfig, clock: Clock) -> PhaseResult:
         return PhaseResult(phase="prepare", success=False, output=str(exc))
 
     today = clock.utcnow().strftime("%Y-%m-%d")
-    changelog_path = config.project_root / "CHANGELOG.md"
+    changelog_path = config.project_root / _CHANGELOG_REL
     if not promote_unreleased(changelog_path, config.version, today):
         return PhaseResult(
             phase="prepare",
             success=False,
-            output="Failed to promote [Unreleased] in CHANGELOG.md",
+            output=f"Failed to promote [Unreleased] in {_CHANGELOG_REL.as_posix()}",
         )
 
     files_to_add = [str(p.relative_to(config.project_root)) for p in bump.files_modified]
-    files_to_add.append("CHANGELOG.md")
+    files_to_add.append(_CHANGELOG_REL.as_posix())
     add_ok, add_out = run_git(["add", *files_to_add], config.project_root)
     if not add_ok:
         return PhaseResult(phase="prepare", success=False, output=f"git add failed: {add_out}")
