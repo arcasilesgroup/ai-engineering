@@ -27,8 +27,11 @@ _SUB_PREFIX = "sub-"
 # blocks. Accepts both single-line flow syntax (``exports: [a, b]``) and
 # block-style YAML lists (``- token``). Tokens are stripped of trailing
 # punctuation and surrounding quotes so common syntactic variants behave
-# identically.
-_LIST_ITEM_RE = re.compile(r"^\s*-\s+(.+?)\s*$")
+# identically. The captured group uses a greedy ``.*`` (linear-time)
+# rather than a reluctant quantifier + trailing ``\s*$`` (potential
+# catastrophic backtracking, SonarCloud python:S5852); _normalize_token
+# strips the trailing whitespace.
+_LIST_ITEM_RE = re.compile(r"^\s*-\s+(.*)$")
 _FLOW_LIST_RE = re.compile(r"^\s*(exports|imports)\s*:\s*\[(.*)\]\s*$")
 _BLOCK_KEY_RE = re.compile(r"^\s*(exports|imports)\s*:\s*$")
 _FRONTMATTER_FENCE_RE = re.compile(r"^---\s*$")
