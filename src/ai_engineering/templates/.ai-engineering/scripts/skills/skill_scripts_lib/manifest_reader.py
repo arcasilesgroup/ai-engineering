@@ -33,13 +33,13 @@ own UX around them without ``isinstance`` chains against stdlib types.
 
 from __future__ import annotations
 
+import importlib.util
 from pathlib import Path
 from typing import Any
 
-try:
-    import yaml  # type: ignore[import-untyped]
-except ImportError:  # pragma: no cover
-    yaml = None  # type: ignore[assignment]
+_HAS_YAML = importlib.util.find_spec("yaml") is not None
+if _HAS_YAML:
+    import yaml
 
 __all__ = [
     "InvalidManifestError",
@@ -84,7 +84,7 @@ def _load_manifest(manifest_path: Path) -> dict[str, Any]:
     if not manifest_path.is_file():
         raise MissingManifestError(f"manifest not found: {manifest_path}")
 
-    if yaml is None:
+    if not _HAS_YAML:
         raise InvalidManifestError(
             f"pyyaml is not installed — manifest cannot be parsed: {manifest_path}"
         )

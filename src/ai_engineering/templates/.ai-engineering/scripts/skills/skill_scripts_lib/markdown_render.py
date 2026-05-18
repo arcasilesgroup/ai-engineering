@@ -43,12 +43,12 @@ cases without re-reading the tests):
 
 from __future__ import annotations
 
+import importlib.util
 from typing import Any
 
-try:
-    import yaml  # type: ignore[import-untyped]
-except ImportError:  # pragma: no cover
-    yaml = None  # type: ignore[assignment]
+_HAS_YAML = importlib.util.find_spec("yaml") is not None
+if _HAS_YAML:
+    import yaml
 
 __all__ = [
     "InvalidFrontmatterError",
@@ -256,7 +256,7 @@ def parse_frontmatter(md_text: str) -> dict[str, Any]:
     if not stripped:
         return {}
 
-    if yaml is None:
+    if not _HAS_YAML:
         raise InvalidFrontmatterError(
             "pyyaml is not installed — frontmatter cannot be parsed; "
             "run `uv pip install pyyaml` or add it to the project venv"
