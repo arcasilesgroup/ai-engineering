@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `python_env.mode`, and `14 stacks` stay documented here so the most
   recent BREAKING block preserves those required keywords.
 
+### Fixed
+
+- Release recovery hardening: remove a secret-shaped fixture literal from
+  `.gitleaksignore` comments so the Security Audit does not self-detect the
+  allowlist file, and unwrap `ai-eng --json verify --release` output into the
+  direct `release-readiness.json` evidence payload consumed by the Release
+  workflow.
+
 ### Run summary — multi-spec autonomous orchestration
 
 This Unreleased section captures a single multi-spec autonomous `--no-hitl`
