@@ -282,9 +282,11 @@ def test_github_release_packet_finalization(workflow: dict) -> None:
 def test_release_workflow_runs_readiness_before_publish(workflow: dict) -> None:
     """T-32 — readiness JSON is generated before either publish job."""
     text = _step_text(workflow, "release-readiness")
-    assert "ai-eng verify --release" in text
-    assert "--json" in text
+    assert "ai-eng --json verify --release" in text
+    assert "release-readiness-envelope.json" in text
+    assert "release_readiness" in text
     assert "release-readiness.json" in text
+    assert "CONDITIONAL GO" in text
     assert "NO-GO" in text
     assert "release-readiness" in _needs(workflow, "publish-testpypi")
     assert "release-readiness" in _needs(workflow, "publish-pypi")

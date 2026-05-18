@@ -339,7 +339,14 @@ def check_release_workflow_policy(workflow: Path, data: dict[str, Any]) -> list[
         failures.extend(
             _expect_text(
                 _steps_text(readiness),
-                ("ai-eng verify --release", "--json", "release-readiness.json", "NO-GO"),
+                (
+                    "ai-eng --json verify --release",
+                    "release-readiness-envelope.json",
+                    "release-readiness.json",
+                    "release_readiness",
+                    "CONDITIONAL GO",
+                    "NO-GO",
+                ),
                 f"{workflow}: release-readiness",
             )
         )

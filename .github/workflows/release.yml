@@ -111,7 +111,7 @@ jobs:
         run: |
           set -euo pipefail
           set +e
-          uv run ai-eng verify --release "${VERSION}" --json > release-readiness.json
+          uv run ai-eng --json verify --release "${VERSION}" > release-readiness-envelope.json
           VERIFY_STATUS=$?
           set -e
           python - <<'PY'
@@ -119,12 +119,20 @@ jobs:
           import sys
           from pathlib import Path
 
-          path = Path("release-readiness.json")
-          payload = json.loads(path.read_text(encoding="utf-8"))
+          envelope_path = Path("release-readiness-envelope.json")
+          envelope = json.loads(envelope_path.read_text(encoding="utf-8"))
+          payload = envelope.get("result", {}).get("release_readiness", envelope)
+          Path("release-readiness.json").write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
           verdict = str(payload.get("verdict", "")).upper().replace("_", "-")
           print(f"Release readiness verdict: {verdict}")
           if verdict == "NO-GO":
               print("::error::release readiness returned NO-GO")
+              sys.exit(1)
+          if verdict not in {"GO", "CONDITIONAL GO"}:
+              print(f"::error::release readiness JSON missing valid verdict: {verdict!r}")
               sys.exit(1)
           PY
           if [ "${VERIFY_STATUS}" -ne 0 ]; then
