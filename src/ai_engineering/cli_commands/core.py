@@ -6,6 +6,7 @@ Human-first Rich output by default; ``--json`` for agent consumption.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from functools import partial
 from pathlib import Path
@@ -231,6 +232,8 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         auto_remediation_report=auto_remediation_report,
         no_auto_remediate=no_auto_remediate,
     )
+
+    _finalize_hooks_manifest(root)
 
     _render_install_success(
         root,
@@ -689,6 +692,36 @@ def _render_install_success(
         resolved_vcs=resolved_vcs,
         active_surfaces=active_surfaces,
     )
+
+
+def _finalize_hooks_manifest(root: Path) -> None:
+    """spec-142 D-142-05: regenerate hooks-manifest after install.
+
+    Fail-open: if the script is missing, exits non-zero, or times out,
+    emit a one-line stderr warning and continue. The dashboard's
+    ``unverified`` state (D-142-04) covers the partial case.
+    """
+    regen = root / ".ai-engineering" / "scripts" / "regenerate-hooks-manifest.py"
+    if not regen.is_file():
+        return
+    try:
+        result = subprocess.run(
+            [sys.executable, str(regen)],
+            cwd=root,
+            check=False,
+            timeout=30,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        print(f"warning: regenerate-hooks-manifest failed: {exc}", file=sys.stderr)
+        return
+    if result.returncode != 0:
+        print(
+            f"warning: regenerate-hooks-manifest exited {result.returncode}; "
+            f"hooks-manifest.json may be missing or stale",
+            file=sys.stderr,
+        )
 
 
 def _emit_install_success_json(

@@ -97,6 +97,23 @@ BOARD_PAGE_SIZE = 100
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
+# spec-142 D-142-02: surface→(skills, agents) directory map. Keys MUST stay
+# in sync with the closed 7-surface enum at
+# src/ai_engineering/config/mirror_inventory.py (`_PROVIDER_TREE_MAPS` keys
+# plus the no-mirror-tree surfaces). CI test in
+# tests/unit/scripts/test_session_bootstrap.py::TestSurfaceDirs enforces parity.
+_SURFACE_DIRS: dict[str, tuple[str, str]] = {
+    "claude-code": (".claude/skills", ".claude/agents"),
+    "codex": (".codex/skills", ".codex/agents"),
+    "gemini-cli": (".gemini/skills", ".gemini/agents"),
+    "github-copilot": (".github/skills", ".github/agents"),
+    "opencode": (".opencode/skills", ".opencode/agents"),
+    "cursor": (".cursor/skills", ".cursor/agents"),
+    "antigravity": (".agent/skills", ".agent/agents"),
+}
+_DEFAULT_SURFACE = "claude-code"  # spec-133 D-133-16 fallback when surfaces.enabled is empty
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -126,6 +143,46 @@ def _read_yaml(path: Path) -> dict | None:
     except yaml.YAMLError:
         return None
     return data if isinstance(data, dict) else None
+
+
+def _read_manifest_minimal(path: Path) -> dict:
+    """Stdlib-only mini-parser: extract ``name`` and ``surfaces.enabled`` only.
+
+    Never raises.  Returns ``{}`` on any error or when fields are absent.
+    Anchors: D-142-01 (≤30 LOC body), D-142-07 (2-field grammar).
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except Exception:  # OSError, UnicodeDecodeError, etc.
+        return {}
+
+    result: dict = {}
+
+    # --- name: unquoted or double-quoted scalar on its own line ---------------
+    m = re.search(r'^name:\s+"?([^"\r\n]+?)"?\s*(?:#.*)?$', text, re.MULTILINE)
+    if m:
+        result["name"] = m.group(1).strip()
+
+    # --- surfaces.enabled: flow list  [a, b, c] ------------------------------
+    flow = re.search(r"^surfaces:\s*\n\s+enabled:\s*\[([^\]]*)\]", text, re.MULTILINE)
+    if flow:
+        items = [s.strip() for s in flow.group(1).split(",") if s.strip()]
+        if items:
+            result["surfaces"] = {"enabled": items}
+        return result
+
+    # --- surfaces.enabled: block list  \n  - item ----------------------------
+    block = re.search(
+        r"^surfaces:\s*\n\s+enabled:\s*\n((?:\s+-\s+\S[^\n]*\n?)+)",
+        text,
+        re.MULTILINE,
+    )
+    if block:
+        items = re.findall(r"^\s+-\s+(\S+)", block.group(1), re.MULTILINE)
+        if items:
+            result["surfaces"] = {"enabled": items}
+
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +337,11 @@ def _read_recent_events(path: Path, window_days: int = RECENT_WINDOW_DAYS) -> in
 
 
 def _read_manifest(root: Path) -> dict:
-    return _read_yaml(root / ".ai-engineering" / "manifest.yml") or {}
+    path = root / ".ai-engineering" / "manifest.yml"
+    data = _read_yaml(path)
+    if data is not None:
+        return data
+    return _read_manifest_minimal(path)
 
 
 def _project_name(manifest: dict) -> str:
@@ -299,7 +360,10 @@ def _hooks_health(root: Path) -> str:
     across Windows / Linux / macOS checkouts.
     """
     manifest_path = root / ".ai-engineering" / "state" / "hooks-manifest.json"
+    scripts_dir = root / ".ai-engineering" / "scripts" / "hooks"
     if not manifest_path.is_file():
+        if scripts_dir.is_dir() and any(scripts_dir.iterdir()):
+            return "unverified"
         return "unknown"
     try:
         data = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -332,15 +396,39 @@ def _hooks_health(root: Path) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _count_skills(root: Path) -> int:
-    base = root / ".claude" / "skills"
+def _primary_surface(manifest: dict) -> str:
+    surfaces = manifest.get("surfaces") or {}
+    enabled = surfaces.get("enabled") if isinstance(surfaces, dict) else None
+    if isinstance(enabled, list) and enabled:
+        first = enabled[0]
+        if isinstance(first, str) and first in _SURFACE_DIRS:
+            return first
+    return _DEFAULT_SURFACE
+
+
+def _resolved_surface_or_none(manifest: dict) -> str | None:
+    """spec-142 D-142-06 / R-142-06: emit the raw first surface only if it
+    is in the closed enum; otherwise None for tooling detection."""
+    surfaces = manifest.get("surfaces") or {}
+    enabled = surfaces.get("enabled") if isinstance(surfaces, dict) else None
+    if isinstance(enabled, list) and enabled:
+        first = enabled[0]
+        if isinstance(first, str) and first in _SURFACE_DIRS:
+            return first
+    return None
+
+
+def _count_skills(root: Path, manifest: dict) -> int:
+    skills_rel, _ = _SURFACE_DIRS.get(_primary_surface(manifest), _SURFACE_DIRS[_DEFAULT_SURFACE])
+    base = root / skills_rel
     if not base.is_dir():
         return 0
     return sum(1 for p in base.iterdir() if p.is_dir() and (p / "SKILL.md").is_file())
 
 
-def _count_agents(root: Path) -> int:
-    base = root / ".claude" / "agents"
+def _count_agents(root: Path, manifest: dict) -> int:
+    _, agents_rel = _SURFACE_DIRS.get(_primary_surface(manifest), _SURFACE_DIRS[_DEFAULT_SURFACE])
+    base = root / agents_rel
     if not base.is_dir():
         return 0
     return sum(1 for p in base.glob("ai-*.md") if p.is_file())
@@ -837,7 +925,11 @@ def _render_markdown(d: dict) -> str:
         state.append(f"**{pending} to review** → `/ai-session-watch --review`")
     elif pending:
         state.append(f"{pending} pending review")
-    state.append(f"hooks: {d.get('hooks_health', 'unknown')}")
+    hh = d.get("hooks_health", "unknown")
+    if hh == "unverified":
+        state.append("hooks: unverified — run `regenerate-hooks-manifest.py`")
+    else:
+        state.append(f"hooks: {hh}")
     lines.append("> " + " · ".join(state))
     lines.append("")
     lines.append("---")
@@ -982,8 +1074,9 @@ def build_dashboard(repo_root: Path | None = None) -> dict:
         "recent_events_7d": recent_events,
         "hooks_health": _hooks_health(root),
         "lessons_count": _count_lessons(root / ".ai-engineering" / "LESSONS.md"),
-        "skills_total": _count_skills(root),
-        "agents_total": _count_agents(root),
+        "skills_total": _count_skills(root, manifest),
+        "agents_total": _count_agents(root, manifest),
+        "surface_resolved": _resolved_surface_or_none(manifest),
         "active_decisions": _count_active_decisions(db),
         "accepted_risks": _count_accepted_risks(db),
         "proposals_count": _count_proposals(root),
