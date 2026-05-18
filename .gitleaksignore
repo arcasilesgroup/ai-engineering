@@ -8,8 +8,8 @@
 # it from on-disk payloads.
 tests/unit/hooks/test_runtime_state.py:generic-api-key:85
 # Synthetic redaction fixture: tests/unit/security/test_redactor.py (spec-134
-# D-134-09) exercises the strict-mode 7-vector redactor with a literal
-# api_key="abcd1234567890" example. The literal is the test contract —
+# D-134-09) exercises the strict-mode 7-vector redactor with a fixed synthetic
+# generic API-key example. The literal is the test contract —
 # it must be present in the source so the regression test can assert the
 # redactor strips it.
 tests/unit/security/test_redactor.py:generic-api-key:345
