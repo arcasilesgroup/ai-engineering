@@ -639,3 +639,88 @@ entries:
     severity: "low"
     dec_id: ""
   # === END spec-128 sub-d transitional allowlist (round 3, CI catch) =====
+
+  # === spec-142 — defensive yaml import in skill_scripts_lib =============
+  # spec-142 (surface-aware-dashboard) made session_bootstrap.py stdlib-only
+  # so /ai-start runs without pyyaml. But session_bootstrap.py imports from
+  # skill_scripts_lib.markdown_render and skill_scripts_lib.manifest_reader,
+  # which also need to be defensive — otherwise fresh installs without
+  # pyyaml in the venv crash on import before the mini-parser fallback runs.
+  # Both modules get the same 3-line defensive shim that session_bootstrap.py
+  # already carries; entries here mirror lines 185-198.
+  #
+  # Follow-up: refactor to the _HAS_YAML boolean-flag pattern (prior art at
+  # .ai-engineering/scripts/hooks/_lib/instincts.py:23-28) before expires_at,
+  # removing the type:ignore + pragma:no_cover markers entirely.
+  - path: ".ai-engineering/scripts/skills/skill_scripts_lib/markdown_render.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: "Defensive yaml import — stdlib-only execution path (spec-142). Refactor to _HAS_YAML pattern before expiry."
+    spec_ref: "spec-142"
+    expires_at: "2026-08-18T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: ".ai-engineering/scripts/skills/skill_scripts_lib/markdown_render.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: "Defensive yaml import — stdlib-only execution path (spec-142). Refactor to _HAS_YAML pattern before expiry."
+    spec_ref: "spec-142"
+    expires_at: "2026-08-18T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: ".ai-engineering/scripts/skills/skill_scripts_lib/manifest_reader.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: "Defensive yaml import — stdlib-only execution path (spec-142). Refactor to _HAS_YAML pattern before expiry."
+    spec_ref: "spec-142"
+    expires_at: "2026-08-18T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: ".ai-engineering/scripts/skills/skill_scripts_lib/manifest_reader.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: "Defensive yaml import — stdlib-only execution path (spec-142). Refactor to _HAS_YAML pattern before expiry."
+    spec_ref: "spec-142"
+    expires_at: "2026-08-18T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: "src/ai_engineering/templates/.ai-engineering/scripts/skills/skill_scripts_lib/markdown_render.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: "Defensive yaml import — template mirror of live (spec-142). Refactor with live module before expiry."
+    spec_ref: "spec-142"
+    expires_at: "2026-08-18T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: "src/ai_engineering/templates/.ai-engineering/scripts/skills/skill_scripts_lib/markdown_render.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: "Defensive yaml import — template mirror of live (spec-142). Refactor with live module before expiry."
+    spec_ref: "spec-142"
+    expires_at: "2026-08-18T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: "src/ai_engineering/templates/.ai-engineering/scripts/skills/skill_scripts_lib/manifest_reader.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: "Defensive yaml import — template mirror of live (spec-142). Refactor with live module before expiry."
+    spec_ref: "spec-142"
+    expires_at: "2026-08-18T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+
+  - path: "src/ai_engineering/templates/.ai-engineering/scripts/skills/skill_scripts_lib/manifest_reader.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: "Defensive yaml import — template mirror of live (spec-142). Refactor with live module before expiry."
+    spec_ref: "spec-142"
+    expires_at: "2026-08-18T00:00:00Z"
+    severity: "low"
+    dec_id: ""
+  # === END spec-142 defensive yaml allowlist =============================

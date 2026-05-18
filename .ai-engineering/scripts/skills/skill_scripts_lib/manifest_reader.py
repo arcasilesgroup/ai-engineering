@@ -36,7 +36,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
+try:
+    import yaml  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover
+    yaml = None  # type: ignore[assignment]
 
 __all__ = [
     "InvalidManifestError",
@@ -80,6 +83,11 @@ def _load_manifest(manifest_path: Path) -> dict[str, Any]:
     """
     if not manifest_path.is_file():
         raise MissingManifestError(f"manifest not found: {manifest_path}")
+
+    if yaml is None:
+        raise InvalidManifestError(
+            f"pyyaml is not installed — manifest cannot be parsed: {manifest_path}"
+        )
 
     try:
         raw = manifest_path.read_text(encoding="utf-8")

@@ -45,7 +45,10 @@ from __future__ import annotations
 
 from typing import Any
 
-import yaml
+try:
+    import yaml  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover
+    yaml = None  # type: ignore[assignment]
 
 __all__ = [
     "InvalidFrontmatterError",
@@ -252,6 +255,12 @@ def parse_frontmatter(md_text: str) -> dict[str, Any]:
     stripped = yaml_block.strip()
     if not stripped:
         return {}
+
+    if yaml is None:
+        raise InvalidFrontmatterError(
+            "pyyaml is not installed — frontmatter cannot be parsed; "
+            "run `uv pip install pyyaml` or add it to the project venv"
+        )
 
     try:
         loaded = yaml.safe_load(yaml_block)
