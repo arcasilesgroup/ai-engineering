@@ -65,7 +65,13 @@ Always advisory, NEVER blocks. Catch compliance issues before they reach the gat
 2. **Map decisions to code** -- identify governed locations from decision scope
 3. **Check alignment** -- verify current code matches each decision's intent
 4. **Classify drift** -- `none`, `minor` (cosmetic), `major` (structural), `critical` (contradicts)
-5. **Report** -- decision ID, expected state, actual state, severity, recommended action
+5. **Architecture sweeps (absorbed from verifier-architecture, spec-140 W3)** -- run alongside the decision walk:
+   - **Solution-intent alignment**: does the implementation match what the active spec describes? Flag gaps.
+   - **Layer violations**: imports crossing boundaries that should not cross; business logic leaking into infrastructure or presentation.
+   - **Structural drift**: new patterns diverging from established codebase patterns; naming inconsistencies; new files not following directory conventions.
+   - **Dependency health**: circular imports introduced; dependency chains growing unreasonably deep; external dependencies that are unjustified.
+   - **Boundary integrity**: agents staying within declared tool access; skills staying within declared scope; read-only agents actually read-only; handlers within their skill domain.
+6. **Report** -- decision ID (or `architecture-sweep` for absorbed heuristics), expected state, actual state, severity (`info | warn | concern` — never `error`/`critical`/`blocker` even for architecture findings), recommended action. All findings stay advisory; blocking architecture concerns are handled by code review (`/ai-review --full` invokes the absorbed lenses inside `reviewer-correctness`).
 
 ## Advisory Output Contract
 

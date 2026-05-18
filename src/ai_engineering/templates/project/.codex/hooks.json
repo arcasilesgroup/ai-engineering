@@ -80,6 +80,11 @@
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-stop.py",
             "timeout": 15
+          },
+          {
+            "type": "command",
+            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-rotate-throttled.py",
+            "timeout": 30
           }
         ]
       }

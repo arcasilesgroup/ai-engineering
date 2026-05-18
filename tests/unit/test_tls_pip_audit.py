@@ -38,6 +38,13 @@ def test_main_sets_bundle_env_on_windows_when_missing(
         lambda: str(bundle_path),
         raising=False,
     )
+    # spec-139 follow-fix: the host (Linux CI runners, macOS dev boxes)
+    # may have REQUESTS_CA_BUNDLE / SSL_CERT_FILE set from the OS bundle.
+    # `_configure_windows_ca_bundle` short-circuits when either is set,
+    # which makes this test environment-dependent. Clear both so the
+    # "missing bundle" assertion is exercised regardless of host.
+    monkeypatch.delenv("REQUESTS_CA_BUNDLE", raising=False)
+    monkeypatch.delenv("SSL_CERT_FILE", raising=False)
 
     def _run(cmd: list[str], *, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
         captured["cmd"] = cmd

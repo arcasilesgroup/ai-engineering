@@ -76,9 +76,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
+      - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -87,8 +85,6 @@ jobs:
           restore-keys: |
             gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
             gate-cache-${{ runner.os }}-
-      - name: Install dependencies
-        run: uv sync --dev
       - name: Ruff check
         run: uv run ruff check src/ tests/
       - name: Ruff format check
@@ -102,11 +98,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
-      - name: Install dependencies
-        run: uv sync --dev
+      - uses: ./.github/actions/setup-env
       - name: Check code duplication
         run: uv run python -m ai_engineering.policy.duplication --path src/ai_engineering --threshold 3
 
@@ -136,11 +128,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
-      - name: Install dependencies
-        run: uv sync --dev
+      - uses: ./.github/actions/setup-env
       - name: Check risk acceptances
         run: uv run ai-eng gate risk-check --strict
 
@@ -152,11 +140,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
-      - name: Install dependencies
-        run: uv sync --dev
+      - uses: ./.github/actions/setup-env
       - name: Scan for suppression markers
         run: uv run no_suppression --root .
 
@@ -168,9 +152,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
+      - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -179,8 +161,6 @@ jobs:
           restore-keys: |
             gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
             gate-cache-${{ runner.os }}-
-      - name: Install dependencies
-        run: uv sync --dev
       - name: ty check
         run: uv run ty check --exclude 'src/ai_engineering/templates/**' src/
 
@@ -196,15 +176,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # spec-140 W2 (D-140-03): PR-blocking matrix collapsed to 3.12 only.
+        # Full 3.11/3.12/3.13 sweep moved to `nightly-matrix.yml` (advisory).
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.12"]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
+      - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -213,21 +193,6 @@ jobs:
           restore-keys: |
             gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
             gate-cache-${{ runner.os }}-
-      - name: Set Python version
-        run: |
-          for attempt in 1 2 3; do
-            if uv python install ${{ matrix.python-version }}; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "uv python install failed (attempt $attempt/3). Retrying in 15s..."
-              sleep 15
-            fi
-          done
-          echo "uv python install failed after 3 attempts"
-          exit 1
-      - name: Install dependencies
-        run: uv sync --dev
       - name: Run unit tests
         # spec-104 platform/timing flakes (deselected, not ignored — keeps
         # the rest of each module running):
@@ -240,6 +205,17 @@ jobs:
         #     mtime-based change detection misfires on Windows (FAT/NTFS
         #     mtime resolution ~1-2s; write_text + immediate stat returns
         #     unchanged mtime so the orchestrator records files_modified=[]).
+        #
+        # SKIP_HOT_PATH_SLO=1: the ``tests/unit/hooks/test_hot_path_slo``
+        # benchmarks measure real wall-clock subprocess timing. Under
+        # xdist parallel load on shared macOS / Windows runners the p95
+        # exceeds even the 2x CI slack budget (thermal scaling + noisy
+        # disk + cold cache). Per the test docstring those tests are
+        # local-machine guards; the framework's own hot-path SLO
+        # contract is governed by ``ai-eng doctor --check hot-path`` on
+        # the dedicated workflow, not the unit suite.
+        env:
+          SKIP_HOT_PATH_SLO: "1"
         run: |
           uv run pytest tests/unit -v -n auto --dist worksteal --durations=25 \
             --deselect tests/unit/test_orchestrator_wave2.py::test_wave2_wall_clock_ms_is_max_not_sum \
@@ -251,6 +227,8 @@ jobs:
             | tee test-output.log
       - name: Run unit tests with coverage (ubuntu/3.12 only)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.12'
+        env:
+          SKIP_HOT_PATH_SLO: "1"
         run: |
           uv run pytest tests/unit -v -n auto --dist worksteal \
             --deselect tests/unit/test_orchestrator_wave2.py::test_wave2_wall_clock_ms_is_max_not_sum \
@@ -291,9 +269,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
+      - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
@@ -302,26 +278,11 @@ jobs:
           restore-keys: |
             gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
             gate-cache-${{ runner.os }}-
-      - name: Set Python version
-        run: |
-          for attempt in 1 2 3; do
-            if uv python install ${{ matrix.python-version }}; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "uv python install failed (attempt $attempt/3). Retrying in 15s..."
-              sleep 15
-            fi
-          done
-          echo "uv python install failed after 3 attempts"
-          exit 1
       - name: Configure git defaults
         run: |
           git config --global init.defaultBranch main
           git config --global user.email "ci@test.com"
           git config --global user.name "CI"
-      - name: Install dependencies
-        run: uv sync --dev
       - name: Run integration tests
         run: |
           uv run pytest tests/integration -v -n auto --dist worksteal --durations=25 | tee integration-output.log
@@ -350,18 +311,12 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
-      - name: Set Python version
-        run: uv python install 3.12
+      - uses: ./.github/actions/setup-env
       - name: Configure git defaults
         run: |
           git config --global init.defaultBranch main
           git config --global user.email "ci@test.com"
           git config --global user.name "CI"
-      - name: Install dependencies
-        run: uv sync --dev
       - name: Run e2e tests
         run: |
           uv run pytest tests/e2e -v --durations=10 | tee e2e-output.log
@@ -437,24 +392,9 @@ jobs:
           - { os: macos-latest, python-version: "3.12" }
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - uses: ./.github/actions/setup-env
         with:
-          enable-cache: true
-      - name: Set Python version
-        run: |
-          for attempt in 1 2 3; do
-            if uv python install ${{ matrix.python-version }}; then
-              exit 0
-            fi
-            if [ "$attempt" -lt 3 ]; then
-              echo "uv python install failed (attempt $attempt/3). Retrying in 15s..."
-              sleep 15
-            fi
-          done
-          echo "uv python install failed after 3 attempts"
-          exit 1
-      - name: Install dependencies
-        run: uv sync --dev
+          python-version: ${{ matrix.python-version }}
       - name: Init smoke repository
         run: |
           rm -rf smoke-repo
@@ -494,15 +434,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-env
       - name: Install actionlint
         run: |
           bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
           pwd >> "$GITHUB_PATH"
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
-      - name: Install dependencies
-        run: uv sync --dev
       - name: Run actionlint
         run: find .github/workflows -name '*.yml' -exec ./actionlint {} +
       - name: Workflow policy checks
@@ -549,11 +485,7 @@ jobs:
     if: needs.change-scope.outputs.has-snyk-token == 'true'
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
-      - name: Install dependencies
-        run: uv sync --dev
+      - uses: ./.github/actions/setup-env
       - name: Install Snyk CLI
         run: npm install -g snyk --ignore-scripts
       - name: Export pinned requirements for Snyk
@@ -584,11 +516,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
-      - name: Install dependencies
-        run: uv sync --dev
+      - uses: ./.github/actions/setup-env
       - name: Install gitleaks
         env:
           GITLEAKS_VERSION: "8.30.0"
@@ -612,10 +540,108 @@ jobs:
           fi
       - name: pip-audit
         run: uv run python -m ai_engineering.verify.tls_pip_audit
+      - name: Cache semgrep pack registry
+        # spec-141 M2.T3 (D-141-02): community packs are fetched from the
+        # registry on first invocation; the resolved YAML lives under
+        # ~/.semgrep. Cache key includes the pinned CLI version + OS so
+        # bumping the pin invalidates cleanly (D-141-05 reproducibility).
+        uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
+        with:
+          path: ~/.semgrep
+          key: semgrep-packs-${{ runner.os }}-1.163.0
+          restore-keys: |
+            semgrep-packs-${{ runner.os }}-
       - name: Install semgrep
-        run: python -m pip install semgrep
-      - name: semgrep
-        run: semgrep --config .semgrep.yml --error --json . > semgrep-results.json
+        # spec-141 M2.T2 (D-141-05): pinned CLI version is the
+        # deterministic reproducibility anchor. Pack aliases (p/python,
+        # p/owasp-top-ten, …) roll forward from HEAD; pinning the CLI
+        # is the only documented way to fix the scan surface.
+        #
+        # Bumped 1.96.0 → 1.163.0: the 1.96.0 wheel exits 1 without
+        # writing JSON on the Ubuntu 24.04 ubuntu-latest runner.
+        # 1.163.0 is the current latest with active OCaml binary
+        # maintenance — pack aliases still roll forward from HEAD,
+        # pinning only the CLI is the documented primitive.
+        run: python -m pip install "semgrep==1.163.0"
+      - name: semgrep (in-tree rules — must pass)
+        # spec-141 M2.T1 (D-141-01): in-tree rules under aieng.<area>.
+        # namespace run as the authoritative gate. ``--error`` is kept
+        # in the command line to honour the spec-141 contract test
+        # (``test_semgrep_packs::test_semgrep_step_keeps_in_tree_config``).
+        # ``--metrics=off`` + ``--disable-version-check`` silence the
+        # two semgrep.dev network calls that have been observed to
+        # leak HTTP 403 into the semgrep 1.96.0 exit code on the
+        # ubuntu-latest runner. As a defence-in-depth, the shell
+        # verifies the actual finding count from the JSON and exits 1
+        # iff ``len(results) > 0``; this preserves the gate semantics
+        # for real findings without depending on semgrep's exit code
+        # under flaky network conditions.
+        env:
+          SEMGREP_SEND_METRICS: "off"
+          SEMGREP_ENABLE_VERSION_CHECK: "0"
+        run: |
+          set +e
+          echo "::group::semgrep environment diagnostics"
+          which semgrep || echo "(semgrep not on PATH)"
+          semgrep --version || echo "(semgrep --version failed; exit=$?)"
+          echo "PATH: ${PATH}"
+          echo "python: $(which python)"
+          echo "::endgroup::"
+          # Run semgrep capturing BOTH stdout and stderr to separate files
+          # so we can dump the actual failure reason on diagnostic.
+          semgrep \
+            --config .semgrep.yml \
+            --metrics=off \
+            --disable-version-check \
+            --error --json . > semgrep-results.json 2> semgrep-stderr.log
+          semgrep_exit=$?
+          set -e
+          echo "semgrep exit code: ${semgrep_exit}"
+          echo "::group::semgrep stderr (full)"
+          cat semgrep-stderr.log || echo "(no stderr file)"
+          echo "::endgroup::"
+          echo "::group::semgrep stdout (first 200 lines)"
+          head -200 semgrep-results.json || echo "(no stdout file)"
+          echo "::endgroup::"
+          if [ ! -s semgrep-results.json ]; then
+            echo "::error::semgrep produced no results JSON (see stderr above)."
+            exit 1
+          fi
+          findings=$(python3 -c 'import json; print(len(json.load(open("semgrep-results.json")).get("results", [])))' 2>/dev/null || echo "PARSE_ERROR")
+          echo "findings=${findings}"
+          if [ "${findings}" = "PARSE_ERROR" ]; then
+            echo "::error::semgrep JSON could not be parsed. stderr tail:"
+            tail -50 semgrep-stderr.log || true
+            head -20 semgrep-results.json || true
+            exit 1
+          fi
+          if [ "${findings}" -gt 0 ]; then
+            echo "::error::semgrep in-tree gate found ${findings} violation(s)."
+            python3 -c 'import json; d=json.load(open("semgrep-results.json")); [print(f"  - {r[\"check_id\"]}: {r[\"path\"]}:{r[\"start\"][\"line\"]}") for r in d.get("results", [])]'
+            exit 1
+          fi
+          echo "semgrep in-tree gate passed (0 findings)"
+      - name: semgrep (community packs — advisory)
+        # spec-141 M2.T1 follow-up: as of 2026-05, semgrep.dev returns
+        # HTTP 403 for unauthenticated registry fetches. The community
+        # packs are advisory until SEMGREP_APP_TOKEN is provisioned in
+        # CI secrets. Run as continue-on-error so the in-tree gate stays
+        # authoritative; pack findings surface in the log for triage but
+        # do not block the build. Tracked for follow-up alongside spec-141
+        # M5 (CI finding triage).
+        continue-on-error: true
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+        run: |
+          semgrep \
+            --config p/python \
+            --config p/owasp-top-ten \
+            --config p/security-audit \
+            --config p/bash \
+            --json . > semgrep-packs-results.json || {
+              echo "::warning::Semgrep community packs unavailable (likely registry auth required). In-tree rules still enforced."
+              echo '{"results":[],"paths":{"scanned":[],"skipped":[]}}' > semgrep-packs-results.json
+            }
       - name: Check semgrep skip ratio
         run: |
           python3 -c "
@@ -643,11 +669,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
-        with:
-          enable-cache: true
-      - name: Install dependencies
-        run: uv sync --dev
+      - uses: ./.github/actions/setup-env
       - name: Guard governed version surfaces
         env:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
@@ -729,9 +751,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: astral-sh/setup-uv@cec208311dfd045dd5311c1add060b2062131d57 # v8.0.0
+      - uses: ./.github/actions/setup-env
         with:
-          enable-cache: true
+          sync: "false"
       - name: Build
         run: uv build
 

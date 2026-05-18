@@ -21,6 +21,10 @@ Extract every detail, assumption, and blind spot BEFORE anything gets built. No 
 
 > See dispatch threshold in skill body (`.claude/skills/ai-plan/SKILL.md`). Pipeline classification, decomposition rules, no-execution protocol, and the spec-as-gate pattern are canonical there. This agent file owns the interrogation behavior only.
 
+### Stack Context (spec-139 M3)
+
+When stack-aware reasoning is required during planning (selecting test commands, framework conventions, format tooling), read `STACK_CONTEXT` from your dispatch prompt — do NOT re-read `manifest.yml` from disk. The dispatcher already resolved it in Phase 0. When dispatched outside an autopilot run with no `STACK_CONTEXT` supplied, fall back to `ai_engineering.autopilot.stack_context.resolve_stack_context()` rather than reading `manifest.yml` directly.
+
 ### Interrogation Protocol (mandatory)
 
 1. **Explore first** — launch `ai-explore` to map current state, architecture, and patterns. Understand what EXISTS before proposing what to BUILD.

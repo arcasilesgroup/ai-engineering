@@ -59,7 +59,20 @@ class TestInstallClean:
     ) -> None:
         install(tmp_path, stacks=["python"])
 
-        assert (tmp_path / "CONSTITUTION.md").is_file(), "Missing root CONSTITUTION.md"
+        constitution = tmp_path / "CONSTITUTION.md"
+        assert constitution.is_file(), "Missing root CONSTITUTION.md"
+        assert constitution.read_text(encoding="utf-8") == ""
+
+    def test_install_initializes_manifest_name_from_root(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        install(tmp_path, stacks=["python"])
+
+        manifest = tmp_path / ".ai-engineering" / "manifest.yml"
+        manifest_text = manifest.read_text(encoding="utf-8")
+        assert f"name: {tmp_path.name}" in manifest_text
+        assert "name: ai-engineering" not in manifest_text
 
     def test_install_creates_state_files(
         self,

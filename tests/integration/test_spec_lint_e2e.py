@@ -87,10 +87,14 @@ def test_spec_lint_accepts_legacy_heading_form() -> None:
     assert "decisions_section_empty" not in result.stdout, result.stdout
 
     # Sections + frontmatter pass (no section_missing,
-    # frontmatter_missing*, frontmatter_invalid_enum, non_goals_empty).
+    # frontmatter_missing_required, frontmatter_invalid_enum,
+    # non_goals_empty). ``frontmatter_missing_summary`` is excluded
+    # from this guard because spec-139 M8 D-139-06 introduces a
+    # soft-rollout advisory that legacy archives are expected to
+    # trigger until 2026-06-16.
     for expected_form_check in (
         "section_missing",
-        "frontmatter_missing",
+        "frontmatter_missing_required",
         "frontmatter_invalid_enum",
         "non_goals_empty",
         "references_unknown_prefix",

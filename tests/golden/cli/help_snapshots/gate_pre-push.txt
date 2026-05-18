@@ -1,9 +1,0 @@
-
- Usage: ai-eng gate pre-push [OPTIONS]
-
- Run pre-push gate checks (semgrep, pip-audit, tests, ty).
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Target project root.                                 │
-│ --help                  Show this message and exit.                          │
-╰──────────────────────────────────────────────────────────────────────────────╯

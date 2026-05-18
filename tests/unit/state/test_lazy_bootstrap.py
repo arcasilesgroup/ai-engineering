@@ -54,6 +54,7 @@ def _expected_migration_ids() -> set[str]:
         "0005_migrate_framework_capabilities",
         "0006_add_expires_at_to_decisions",
         "0007_add_details_json_to_decisions",
+        "0008_drop_hooks_integrity",
     }
 
 
@@ -99,8 +100,13 @@ class TestLazyBootstrap:
             f"expected {_expected_migration_ids()}, got {applied_ids}"
         )
 
-    def test_seven_business_tables_exist(self, project_root: Path) -> None:
-        """All 7 STRICT business tables exist after bootstrap."""
+    def test_business_tables_exist(self, project_root: Path) -> None:
+        """All STRICT business tables exist after bootstrap.
+
+        ``hooks_integrity`` was dropped in migration 0008 per spec-138
+        D-138-01 (no consumer materialised; ``state/hooks-manifest.json``
+        plus the NDJSON ``integrity_violation`` stream cover the surface).
+        """
         db_path = state_db.state_db_path(project_root)
         if db_path.exists():
             db_path.unlink()
@@ -121,7 +127,6 @@ class TestLazyBootstrap:
             "decisions",
             "risk_acceptances",
             "gate_findings",
-            "hooks_integrity",
             "ownership_map",
             "install_steps",
             "install_state",
@@ -130,6 +135,30 @@ class TestLazyBootstrap:
         }
         missing = expected - tables
         assert not missing, f"missing tables after bootstrap: {missing}"
+
+    def test_hooks_integrity_table_absent_after_bootstrap(self, project_root: Path) -> None:
+        """Migration 0008 (spec-138 D-138-01) removes ``hooks_integrity``.
+
+        Asserts the table is NOT present after running all migrations on
+        a fresh DB. The contract is forward-only: ``0001_initial_schema``
+        still CREATEs the table, then ``0008_drop_hooks_integrity`` DROPs
+        it in the same bootstrap pass.
+        """
+        db_path = state_db.state_db_path(project_root)
+        if db_path.exists():
+            db_path.unlink()
+
+        conn = state_db.connect(project_root)
+        try:
+            row = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='hooks_integrity'"
+            ).fetchone()
+        finally:
+            conn.close()
+
+        assert row is None, (
+            f"hooks_integrity table should be absent after migration 0008; got row={row!r}"
+        )
 
     def test_ndjson_replayed_into_events(self, project_root: Path) -> None:
         """Pre-existing NDJSON lines populate the events table on bootstrap."""

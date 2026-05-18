@@ -70,6 +70,10 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
         "policy_decision",
         # spec-123 D-123-26 retention layer
         "retention_applied",
+        # spec-139 M2 host preflight (D-139-02). Emitted by
+        # ``ai_engineering.adapters.host.probe`` when a skill consults the
+        # host before dispatch.
+        "host_capacity",
     }
 )
 

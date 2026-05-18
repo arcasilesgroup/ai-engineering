@@ -37,7 +37,7 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 ## Process
 
-**Step 0 — Validate**: confirm `.ai-engineering/specs/spec.md` is not a placeholder (else STOP and report `/ai-brainstorm`). On `--resume`, read `.ai-engineering/runtime/autopilot/manifest.md` and re-enter at the Resume Protocol. Load stack contexts (manifest `providers.stacks` + `.ai-engineering/overrides/<stack>/conventions.md`) and pass paths (not content) to subagents. plan.md is not required — Phase 2 agents generate their own.
+**Step 0 — Validate**: confirm `.ai-engineering/specs/spec.md` is not a placeholder (else STOP and report `/ai-brainstorm`). On `--resume`, read `.ai-engineering/runtime/autopilot/manifest.md` and re-enter at the Resume Protocol. Load stack contexts (manifest `providers.stacks` + `.ai-engineering/overrides/<stack>/conventions.md`) and pass paths (not content) to subagents. plan.md is not required — Phase 2 agents generate their own. Run `ai-eng host probe` and abort with an operator warning if `ok_to_dispatch == False` (spec-139 M2 D-139-02 — refuses to fan out into a kernel-panic-prone host).
 
 **Step 1 — DECOMPOSE** (`handlers/phase-decompose.md`): extract N independent concerns; abort if N<3 (recommend `/ai-build`); write sub-spec dirs and the execution manifest.
 

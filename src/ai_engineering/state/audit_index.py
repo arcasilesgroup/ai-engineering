@@ -21,8 +21,10 @@ to relearn anything:
   on ``state.db`` for query callers (CLI ``audit query``, ``audit
   tokens``, ``audit replay``).
 
-The legacy ``audit-index.sqlite`` is removed lazily on the first call
-through :func:`build_index` / :func:`open_index_readonly`.
+Per spec-138 M1 the lazy-deletion of the legacy
+``audit-index.sqlite`` is removed: the file is absent from every
+operator checkout and from this repo; ``runtime-stop.py`` no longer
+reads it (spec-138 M1.T3).
 
 Robustness contract
 -------------------
@@ -37,7 +39,6 @@ Stdlib-only by design (``sqlite3`` + ``json`` + ``hashlib`` + ``pathlib``
 
 from __future__ import annotations
 
-import contextlib
 import hashlib
 import json
 import sqlite3
@@ -53,10 +54,8 @@ from typing import Any
 # ---------------------------------------------------------------------------
 
 NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
-# spec-123 D-123-22: index path now points at the unified state.db. The
-# legacy audit-index.sqlite is deleted on first use.
+# spec-123 D-123-22: index path is the unified state.db.
 INDEX_REL = Path(".ai-engineering") / "state" / "state.db"
-_LEGACY_INDEX_REL = Path(".ai-engineering") / "state" / "audit-index.sqlite"
 
 # Spec-120 §4.3 schema. CREATE statements are IF NOT EXISTS so the writer
 # can run on a fresh DB or an existing one without an explicit migration
@@ -200,22 +199,6 @@ def _ndjson_path(project_root: Path) -> Path:
 # ---------------------------------------------------------------------------
 
 
-def _delete_legacy_index(project_root: Path) -> None:
-    """Best-effort cleanup of the pre-spec-123 audit-index.sqlite.
-
-    The redirect lands every consumer on ``state.db``; the legacy file
-    becomes dead state. We delete it (and its WAL/SHM siblings) on the
-    first call through this module so a stale projection doesn't quietly
-    drift away from the unified DB.
-    """
-    legacy = project_root / _LEGACY_INDEX_REL
-    for suffix in ("", "-wal", "-shm"):
-        candidate = legacy.with_name(legacy.name + suffix) if suffix else legacy
-        if candidate.exists():
-            with contextlib.suppress(OSError):
-                candidate.unlink()
-
-
 def _connect_writer(project_root: Path) -> sqlite3.Connection:
     """Open a writer connection on ``state.db`` (lazy bootstrap aware).
 
@@ -226,7 +209,6 @@ def _connect_writer(project_root: Path) -> sqlite3.Connection:
     """
     from ai_engineering.state import state_db as _state_db
 
-    _delete_legacy_index(project_root)
     return _state_db.connect(project_root)
 
 
@@ -246,7 +228,6 @@ def open_index_readonly(project_root: Path) -> sqlite3.Connection:
     """
     from ai_engineering.state import state_db as _state_db
 
-    _delete_legacy_index(project_root)
     path = index_path(project_root)
     if not path.exists() or path.stat().st_size == 0:
         # Lazy bootstrap from the writer side so the read URI below has

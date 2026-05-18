@@ -1,0 +1,40 @@
+name: Run gates
+description: |
+  Dispatch to the canonical gate command for the requested gate. Spec-140 W2.T4
+  collapses inline gate run blocks into one reusable composite. The
+  `gate` input selects the gate; the action runs the matching `uv run` command
+  with the canonical arguments.
+
+inputs:
+  gate:
+    description: "Gate to run. One of lint, type-check, unit, integration."
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run gate
+      shell: bash
+      env:
+        AIENG_GATE_INPUT: ${{ inputs['gate'] }}
+      run: |
+        case "${AIENG_GATE_INPUT}" in
+          lint)
+            uv run ruff check src/ tests/
+            uv run ruff format --check src/ tests/
+            ;;
+          type-check)
+            uv run ty check --exclude 'src/ai_engineering/templates/**' src/
+            ;;
+          unit)
+            uv run pytest tests/unit -v -n auto --dist worksteal --durations=25
+            ;;
+          integration)
+            uv run pytest tests/integration -v -n auto --dist worksteal --durations=25
+            ;;
+          *)
+            printf 'Unknown gate: %s\n' "${AIENG_GATE_INPUT}" 1>&2
+            printf 'Allowed: lint | type-check | unit | integration\n' 1>&2
+            exit 1
+            ;;
+        esac

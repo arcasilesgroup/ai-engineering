@@ -14,6 +14,36 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 
 ## Procedure
 
+### Step 0 — Stack context resolution (spec-139 M3)
+
+Read `.ai-engineering/manifest.yml` ONCE here. Compute resolved stack
+context (stacks list + test/format/lint commands per stack) via
+`ai_engineering.autopilot.stack_context.resolve_stack_context()`. Write
+the JSON to `.ai-engineering/runtime/autopilot/<active>/stack-context.json`.
+Every subsequent dispatch prompt MUST include `STACK_CONTEXT=<contents>`
+as a top-level variable. Agents read STACK_CONTEXT from the dispatch
+prompt — they do NOT re-read manifest.yml.
+
+Minimal invocation (Python; runs once per autopilot session):
+
+```bash
+.venv/bin/python -c "from ai_engineering.autopilot.stack_context import \
+  resolve_stack_context, write_stack_context; \
+  ctx = resolve_stack_context(); \
+  write_stack_context(ctx, active='<active>')"
+```
+
+`<active>` is the autopilot session id (typically the parent spec slug
+or `manifest.md` directory name). The resolver is fail-open: if the
+manifest is missing or malformed, the JSON carries `"degraded": true`
+and empty command tables; downstream agents still receive the variable
+and degrade their own validation accordingly.
+
+The serialised JSON is then embedded verbatim into every Phase 2 /
+Phase 4 / Phase 5 dispatch prompt under the `STACK_CONTEXT=` key.
+Dispatchers MUST NOT re-resolve from disk on a per-agent basis — that
+is the N-reads-per-run regression spec-139 M3 closes.
+
 ### Step 1: Load Sub-Specs
 
 1. Glob `.ai-engineering/runtime/autopilot/sub-*/spec.md`. Collect the full list of sub-spec directories.
@@ -27,12 +57,34 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 
 ### Step 2: Dispatch the Explore and Plan Agents Per Sub-Spec
 
-Dispatch all agents in parallel (parallel in Claude Code, sequential in other IDEs). Each agent receives a self-contained prompt with:
+#### Concurrency cap (spec-139 M1)
+
+Before dispatch, read the wave concurrency cap:
+
+1. Read `AIENG_MAX_WAVE_AGENTS` from the environment (positive integer; clamped to `[1, 64]`).
+2. If unset, read `performance.concurrency.max_wave_agents` from `.ai-engineering/manifest.yml`. Value `"auto"` (default) defers to the framework's host-capacity auto-tune; positive integers override.
+3. If both unset, the framework derives `cap` from host capacity per D-139-01: floor `2`, ceiling `6`, dropping to `1` if the host probe reports memory pressure ≥ 50 %.
+
+Dispatch in batches of `cap` agents. Await each batch before dispatching the next. After every batch boundary emit a framework event:
+
+```
+event: wave_dispatch_batched
+phase: deep-plan
+batch_index: K (zero-based)
+batch_size: <number dispatched in this batch>
+cap: <resolved cap>
+total_sub_specs: N
+```
+
+The cap is consulted by the dispatching agent at runtime — read the env var first, then the manifest, then fall back to the framework default. The skill handler is prose; the cap value is not embedded here.
+
+Dispatch agents within a batch in parallel (parallel in Claude Code, sequential in other IDEs). Each agent receives a self-contained prompt with:
 
 - The full sub-spec content (frontmatter + scope)
 - The parent spec's relevant section for this concern
 - Decision-store constraints that apply to this sub-spec's scope
 - Stack context file paths from the `context_paths` list resolved in Phase 0. Pass paths only — agents read on demand if they need stack guidance: `"Stack guidance available at: [context_paths]. Read these files if you need language/framework conventions for planning decisions."`
+- `STACK_CONTEXT=<JSON>` — the resolved stack-context blob from Step 0 (`.ai-engineering/runtime/autopilot/<active>/stack-context.json`). Embed the JSON verbatim. Agents read STACK_CONTEXT from the dispatch prompt and MUST NOT re-read `manifest.yml` from disk (spec-139 M3).
 
 Each agent executes the following five-step procedure:
 

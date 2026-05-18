@@ -19,5 +19,15 @@ from ai_engineering.brainstorm.auto_spec_gate import (
     GateDecision,
     classify_diff,
 )
+from ai_engineering.brainstorm.spec_approval import (
+    extract_decisions,
+    handle_spec_approval,
+)
 
-__all__ = ["AutoSpecGateConfig", "GateDecision", "classify_diff"]
+__all__ = [
+    "AutoSpecGateConfig",
+    "GateDecision",
+    "classify_diff",
+    "extract_decisions",
+    "handle_spec_approval",
+]

@@ -62,6 +62,11 @@ ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(
         # the audit CLI ``retention apply`` verb whenever a non-zero number
         # of rows is pruned from the events projection.
         "retention_applied",
+        # spec-139 M2 host preflight (D-139-02). Emitted by
+        # ``ai_engineering.adapters.host.probe`` when a skill consults the
+        # host before dispatch. CLI invocations of ``ai-eng host probe``
+        # do not emit (caller is the operator, no skill dispatched).
+        "host_capacity",
     }
 )
 

@@ -31,9 +31,9 @@ Evidence before claims. Every finding cites a concrete source, or explicitly rep
 ## Dispatch Pattern
 
 1. Dispatch `verifier-deterministic.md` via Agent tool. Wait for results.
-2. Choose profile (normal=1 LLM macro-agent, full=3 individual LLM agents).
-3. Dispatch LLM judgment agents via Agent tool, passing deterministic evidence.
-4. Aggregate findings by original specialist lens.
+2. Choose profile (`normal` and `--full` both dispatch the single acceptance specialist post-W3; architecture concerns route to `/ai-advise drift`).
+3. Dispatch `verifier-acceptance.md` via Agent tool, passing deterministic evidence. Acceptance covers both feature and governance lenses.
+4. Aggregate findings by `lens` attribution (feature vs. governance) inside the acceptance specialist; deterministic findings stay grouped by scan.
 5. Produce final report with scores, verdicts, and gate check.
 
 ## Boundaries

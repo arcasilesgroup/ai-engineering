@@ -1,285 +1,379 @@
 ---
-spec: spec-137
-slug: event-relevance-discipline
-title: Plan — Event Relevance Discipline
-pipeline: build
-phases: 7
+spec: spec-142
+slug: surface-aware-dashboard
+title: plan — surface-aware /ai-start dashboard header
 status: approved
-branch: claude/merge-and-draft-spec-M5T9f
-date_approved: 2026-05-16
-auto_approved: true
+pipeline: standard
+files_touched: 4
+tdd_pairs: 4
 ---
 
-# Plan — spec-137 Event Relevance Discipline
+# Plan — spec-142 surface-aware-dashboard
 
-This plan decomposes spec-137 into seven phases (M1..M7) with bite-sized
-tasks, TDD-first ordering, and explicit gate criteria. Each task lists
-the files it touches, the expected outcome, and the verification step.
-The full quality loop runs once at the end (CONSTITUTION.md §13.5
-single-round fail-loud).
+> Pre-flight: `design-routing: skipped (apparent false-positive — "dashboard"
+> in spec refers to the markdown emitted by `session_bootstrap.py`, not a
+> visual UI). Rationale logged per `handlers/design-routing.md` §Output
+> Behavior. Re-invoke `/ai-plan --skip-design` to suppress on future runs.
 
-## Branch / PR
+## Architecture
 
-- Working branch: `claude/merge-and-draft-spec-M5T9f`
-- Target: `main` via final PR after all phases complete and tests green.
+`ad-hoc` — small procedural script change in `session_bootstrap.py` (stdlib,
+no internal abstractions) plus a CLI post-install step in
+`cli_commands/core.py`. No layered/hexagonal/CQRS framing applies. Justified
+by the four-file scope and absence of new domain boundaries: the change is
+behavioural completeness inside an existing entry point, not architectural
+restructuring.
 
-## Quality bar
+## Phases
 
-- TDD: every new test is RED before implementation; every changed test is updated in the same commit as the code it covers.
-- No `# noqa`, `# nosec`, `// @ts-ignore`, or other suppression.
-- No backwards-compat shim for retired emit semantics.
-- Hot-path budget: pre-commit < 1 s, pre-push < 5 s.
-- Each phase's verification step runs locally before moving to the next.
+**Phase 1 — Mini-parser fallback** (D-142-01, D-142-07). Stdlib reader for
+`name` and `surfaces.enabled` when pyyaml is absent. Unblocks `(unnamed)`
+and surface resolution in installs without pyproject.toml.
 
-## Phase Checklist (plan-schema.md rule 3)
+**Phase 2 — Surface-aware counts** (D-142-02, D-142-03). Inline
+`_SURFACE_DIRS` map + CI paridad test against the pip package
+`_PROVIDER_TREE_MAPS`. Rewires `_count_skills` / `_count_agents` to
+dispatch on `surfaces.enabled[0]`.
 
-- [x] Phase 1 — Schema migration foundation (severity field optional, schemaVersion deferred).
-- [x] Phase 2 — Collapse three frozensets and lock against drift.
-- [x] Phase 3 — Relevance gate helper plus stdlib mirror plus parity tests.
-- [x] Phase 4 — Manifest `audit_policy:` block (root plus installer template).
-- [x] Phase 5 — Wire gate semantics: conditional `spec_verified` and short-circuit `install_simulate_hook`.
-- [x] Phase 6 — Test updates: four new test files (17 cases) plus hook asset registry update.
-- [x] Phase 7 — CHANGELOG entry plus archive of prior spec-135 plan and spec.
-- [ ] Follow-up — Telemetry-debug.log retirement (deferred per CHANGELOG `Deferred` section).
-- [ ] Follow-up — `schemaVersion` bump to 2 and required `severity` (deferred).
-- [ ] Follow-up — D-137-07 CI guard for new emit sites without paired policy entry.
+**Phase 3 — Hooks unverified state** (D-142-04). Distinguish "install
+incomplete" from "filesystem corrupt"; markdown surfaces an actionable
+hint.
 
-## Phase 1 (M2-foundation) — Schema migration + severity field
+**Phase 4 — Installer auto-regenerate** (D-142-05). `ai-eng install`
+finalizes by invoking `regenerate-hooks-manifest.py`, warn-and-continue
+on failure.
 
-**Goal**: Bump `schemaVersion` to 2 and add `severity` as a first-class field on `FrameworkEvent`. Keep all 13 kinds in `ALLOWED_EVENT_KINDS`.
+**Phase 5 — JSON contract surface_resolved** (D-142-06). Optional
+top-level field so tooling can detect unknown surfaces.
 
-### Tasks
-
-1. **P1.T1**: Read [tools/skill_domain/event_schema.py](tools/skill_domain/event_schema.py) end-to-end to understand current shape.
-2. **P1.T2**: Add `SEVERITY_VALUES = frozenset({"S0", "S1", "S2", "S3"})` constant at module top.
-3. **P1.T3**: Add `severity: Literal["S0", "S1", "S2", "S3"]` to `FrameworkEvent` TypedDict (or to the Pydantic model — whichever shape is current).
-4. **P1.T4**: Bump the `schemaVersion` module-level constant `1 → 2`.
-5. **P1.T5**: Add `severity` to the required-field tuple at [tools/skill_domain/event_schema.py:72](tools/skill_domain/event_schema.py:72).
-6. **P1.T6**: Update the validator function to assert `severity in SEVERITY_VALUES` when present; accept events without severity ONLY if `schemaVersion == 1` (read-only historical path).
-7. **P1.T7**: Update existing schema tests at [tests/unit/state/test_event_schema.py](tests/unit/state/test_event_schema.py) to include `severity` in fixtures and parametrized required-field checks. Run pytest on this file; expect green.
-
-### Verification
-
-```
-uv run pytest tests/unit/state/test_event_schema.py -v
-```
-
-Expected: all tests green; new severity assertion fails when omitted from a v2 event.
-
-## Phase 2 (M2-mirrors) — Collapse three frozensets
-
-**Goal**: Make [tools/skill_domain/event_schema.py:37](tools/skill_domain/event_schema.py:37) the single source of truth for `ALLOWED_EVENT_KINDS`; assert at CI time that the two stdlib mirrors cannot drift.
-
-### Tasks
-
-1. **P2.T1**: Identify the three sites:
-   - Authority: `tools/skill_domain/event_schema.py` (frozenset).
-   - Mirror 1: `.ai-engineering/scripts/hooks/_lib/observability.py` (`_ALLOWED_KINDS`).
-   - Mirror 2: `.ai-engineering/scripts/hooks/_lib/hook-common.py` (third copy in `validate_event_schema`).
-2. **P2.T2**: Write the new test FIRST (RED): `tests/unit/state/test_event_kinds_single_source.py`. The test:
-   - Imports `ALLOWED_EVENT_KINDS` from the authority.
-   - Reads the two mirror files as text, extracts the frozenset literal, parses it.
-   - Asserts membership equality.
-3. **P2.T3**: Run the test — it should pass if mirrors are already aligned, or fail if drift exists. Either way, the test now locks the invariant going forward.
-4. **P2.T4**: Update [tools/skill_domain/event_schema.py:37](tools/skill_domain/event_schema.py:37) — no kinds removed, no kinds added; the membership stays exactly the 13 declared kinds.
-
-### Verification
-
-```
-uv run pytest tests/unit/state/test_event_kinds_single_source.py -v
-```
-
-Expected: green.
-
-## Phase 3 (M3-gate) — Relevance gate helper + stdlib mirror
-
-**Goal**: Introduce `relevance_gate(event, policy) -> bool` as the single decision point. Two implementations (package side + hook side) with parity.
-
-### Tasks
-
-1. **P3.T1**: Write the new test FIRST (RED): `tests/unit/state/test_event_relevance_gate.py`. Parametrize over:
-   - 13 kinds × 4 severities × `failure_emission` on/off → 104 combinations.
-   - Cases: kind not in allow-list → DROP; severity below floor → DROP; severity at/above floor → KEEP; failure with `failure_emission=always` → KEEP regardless of severity floor.
-2. **P3.T2**: Implement `src/ai_engineering/state/relevance.py`:
-   ```python
-   def relevance_gate(event: FrameworkEvent, policy: AuditPolicy) -> bool:
-       if event["kind"] not in policy.kind_allowlist:
-           return False
-       severity_rank = {"S0": 0, "S1": 1, "S2": 2, "S3": 3}
-       floor = policy.severity_floor.get(event["kind"], policy.severity_floor.get("default", "S1"))
-       if severity_rank[event["severity"]] > severity_rank[floor]:
-           # Note: S0 is highest signal (rank 0); reject if rank is greater than floor.
-           if policy.failure_emission == "always" and event.get("outcome") not in {"success", "allow"}:
-               return True
-           return False
-       return True
-   ```
-3. **P3.T3**: Run the test — expect green.
-4. **P3.T4**: Create the stdlib-only mirror at `.ai-engineering/scripts/hooks/_lib/relevance.py` (no third-party imports — must be importable by hook scripts that run before `uv sync`).
-5. **P3.T5**: Write a parity test `tests/unit/hooks/test_relevance_gate_parity.py` that imports both modules and asserts identical behaviour on the same parametrized inputs.
-
-### Verification
-
-```
-uv run pytest tests/unit/state/test_event_relevance_gate.py tests/unit/hooks/test_relevance_gate_parity.py -v
-```
-
-Expected: both green.
-
-## Phase 4 (M6) — Manifest `audit_policy:` declaration
-
-**Goal**: Surface the policy in `.ai-engineering/manifest.yml`. The installer carries the default; the relevance gate reads from it.
-
-### Tasks
-
-1. **P4.T1**: Write the new test FIRST: `tests/unit/test_manifest_audit_policy_default.py`. Asserts the canonical manifest carries the expected `audit_policy:` block.
-2. **P4.T2**: Append to `.ai-engineering/manifest.yml` after the `telemetry:` block:
-   ```yaml
-   audit_policy:
-     kind_allowlist:
-       - skill_invoked
-       - agent_dispatched
-       - context_load
-       - ide_hook
-       - framework_error
-       - framework_operation
-       - git_hook
-       - control_outcome
-       - task_trace
-       - memory_event
-       - eval_run
-       - retention_applied
-       - policy_decision
-     severity_floor:
-       framework_operation: S2
-       ide_hook: S2
-       framework_error: S0
-       default: S1
-     sampling:
-       policy_decision_allow: 0.10
-     failure_emission: always
-   ```
-3. **P4.T3**: Mirror the same block into the installer template at `src/ai_engineering/templates/.ai-engineering/manifest.yml` if it exists. Confirm path.
-4. **P4.T4**: Add an `AuditPolicy` Pydantic model (or TypedDict) in `src/ai_engineering/state/audit_policy.py` that parses the manifest block.
-5. **P4.T5**: Add a `load_audit_policy()` helper that reads the manifest and returns an `AuditPolicy`.
-
-### Verification
-
-```
-uv run pytest tests/unit/test_manifest_audit_policy_default.py -v
-```
-
-Expected: green.
-
-## Phase 5 (M3-emitters) — Wire gate into writers; drop the two heartbeats
-
-**Goal**: Activate the gate at the two canonical writers; convert `spec_verified` and `install_simulate_hook` from unconditional to change-driven.
-
-### Tasks
-
-1. **P5.T1**: Write the new test FIRST: `tests/unit/state/test_event_relevance_no_heartbeats.py`. The test:
-   - Greps `src/ai_engineering/cli_commands/spec_cmd.py` to assert that the call site at line 230 is inside a conditional (looks for `if drift_detected or ...` near the emit).
-   - Greps `src/ai_engineering/installer/user_scope_install.py` similarly.
-   - Asserts no unconditional path remains.
-2. **P5.T2**: Update `src/ai_engineering/state/observability.py` (`_append_framework_events_locked` at line 107) — call `relevance_gate(event, load_audit_policy())` before the write; drop silently if `False`.
-3. **P5.T3**: Update `.ai-engineering/scripts/hooks/_lib/observability.py` (hook-side at line 224) — same logic with the stdlib-mirror gate.
-4. **P5.T4**: Update [src/ai_engineering/cli_commands/spec_cmd.py:230](src/ai_engineering/cli_commands/spec_cmd.py:230): wrap the emit in `if drift_detected: emit_framework_event(...)`. Add `severity="S1"` (state-change) when drift detected.
-5. **P5.T5**: Update [src/ai_engineering/installer/user_scope_install.py:1220](src/ai_engineering/installer/user_scope_install.py:1220): wrap in `if outcome != "success" or first_seen: emit_framework_event(...)`. Add `severity="S2"` baseline, `severity="S0"` on failure.
-6. **P5.T6**: All other 28 enumerated emit sites in brief §5: add explicit `severity=` argument. Use the brief's "Conditional today?" column to choose:
-   - State-change emits → `S1`.
-   - Decision / policy emits → `S2`.
-   - Failure / error emits → `S0`.
-   - Debug / verbose emits → `S3`.
-
-### Verification
-
-```
-uv run pytest tests/unit/state/test_event_relevance_no_heartbeats.py -v
-```
-
-Expected: green.
-
-## Phase 6 (M5-tests + M3-finishing) — Rewrite the 18 enumerated tests
-
-**Goal**: Update every existing test that asserts on the legacy event shape to include `severity` and the new gate behaviour. Add the telemetry-debug.log retirement test.
-
-### Tasks
-
-1. **P6.T1**: Update `tests/unit/state/test_event_schema.py` — DONE in P1.
-2. **P6.T2**: Update `tests/unit/test_event_plane_contract.py`.
-3. **P6.T3**: Update `tests/unit/hooks/test_telemetry_skill.py`.
-4. **P6.T4**: Update `tests/unit/cli/test_audit_query_cli.py`.
-5. **P6.T5**: Update `tests/unit/cli/test_audit_index_cli.py`.
-6. **P6.T6**: Update `tests/unit/cli/test_audit_tokens_cli.py`.
-7. **P6.T7**: Update `tests/unit/hooks/test_runtime_session_start.py`.
-8. **P6.T8**: Update `tests/unit/hooks/test_runtime_stop_ralph.py`.
-9. **P6.T9**: Update `tests/unit/hooks/test_runtime_stop_session_rollup.py`.
-10. **P6.T10**: Update `tests/unit/hooks/test_runtime_subagent_stop.py`.
-11. **P6.T11**: Update `tests/unit/test_mechanisms_sha_skip_when_unpinned.py`.
-12. **P6.T12**: Update `tests/unit/test_doctor_service.py`.
-13. **P6.T13**: Update `tests/unit/state/test_audit_index.py`, `test_audit_replay.py`, `test_audit_otel_export.py` — add severity column / projection assertions.
-14. **P6.T14**: Write `tests/unit/hooks/test_telemetry_debug_log_retired.py` — asserts no call site writes to `telemetry-debug.log` and `AIENG_TELEMETRY_DEBUG` is not referenced.
-
-### Verification
-
-```
-uv run pytest tests/unit/ -v
-```
-
-Expected: green.
-
-## Phase 7 (M4 + M5-cleanup + M7) — Consumers + telemetry-debug retirement + CHANGELOG
-
-**Goal**: Update consumer code paths to read severity; retire `telemetry-debug.log`; commit CHANGELOG entry.
-
-### Tasks
-
-1. **P7.T1**: Update [src/ai_engineering/state/audit_index.py:65](src/ai_engineering/state/audit_index.py:65) — add `severity TEXT` column to projection schema.
-2. **P7.T2**: Update [src/ai_engineering/state/audit_index.py:477](src/ai_engineering/state/audit_index.py:477) — bulk-read inspects `schemaVersion`; v1 rows get severity NULL.
-3. **P7.T3**: Update [src/ai_engineering/state/audit_otel_export.py:73](src/ai_engineering/state/audit_otel_export.py:73) — map S0→FATAL (21), S1→WARN (13), S2→INFO (9), S3→DEBUG (5) per OTel `SeverityNumber`.
-4. **P7.T4**: Retire `telemetry-debug.log` call sites at `observe.py:92`, `instinct-extract.py:37`, `prompt-injection-guard.py:947`, and `mcp-health.py:591`.
-5. **P7.T5**: Remove `AIENG_TELEMETRY_DEBUG` references from CLAUDE.md "Runtime Layer Tunables" and any other docs.
-6. **P7.T6**: Run `ai-eng audit verify` against the historical NDJSON to confirm chain integrity.
-7. **P7.T7**: Add CHANGELOG entry under `## Unreleased`:
-   ```markdown
-   ### Breaking
-   - `framework-events.ndjson` schema version bumped 1 → 2.
-   - `severity` required on every event (S0..S3).
-   - `spec_verified` emits only on detected drift; `install_simulate_hook` emits only on failure or first-seen mechanism.
-   - `telemetry-debug.log` retired; `AIENG_TELEMETRY_DEBUG` env var removed.
-   - Manifest carries new required `audit_policy:` block.
-   ```
-
-### Verification
-
-```
-uv run pytest tests/unit/ -v
-uv run ai-eng audit verify
-```
-
-Expected: both green.
-
-## Quality loop (final)
-
-Single-round fail-loud (CONSTITUTION.md §13.5):
-
-```
-uv run pytest tests/unit/ -q
-uv run python -m ai_engineering.policy.release_version_guard
-uv run ai-eng check
-uv run ai-eng audit verify
-```
-
-If any fail: stop, escalate the failure, fix, re-run.
-
-## Out-of-scope reminders (D-137-06..10)
-
-- No `AIENG_AUDIT_POLICY_PATH` env-var override.
-- No CI guard for new emit sites in this PR.
-- No backfill of historical decisions in `state.db decisions`.
-- No per-kind sampling beyond existing 10% policy-decision sampler.
-- No `outcome` enum redesign.
+**Phase 6 — Quality loop**. Final single-round fail-loud verify+review
+on the changeset.
 
 ---
 
-**Handoff**: this plan is the contract for `/ai-build`.
+## Phase 1 — Mini-parser fallback
+
+- [x] T-1 — RED: stdlib mini-parser contract test @ai-build — DONE (real)
+- Agent: build
+- Files: tests/unit/scripts/test_minimal_manifest_parse.py:1 (NEW)
+- Principles applied: §10.5 TDD (RED before GREEN), §10.1 KISS (2-field grammar)
+- Patch (deterministic): omit — synthesis required (test design).
+- Gate: pytest -q tests/unit/scripts/test_minimal_manifest_parse.py exits 1 with `ModuleNotFoundError` / `AttributeError` on `_read_manifest_minimal`. Test cases must cover: (a) flow list `surfaces.enabled: [github-copilot]`, (b) block list `surfaces:\n  enabled:\n  - github-copilot`, (c) unquoted `name: ai-engineering`, (d) double-quoted `name: "ai-engineering"`, (e) equality with `yaml.safe_load` on the real `.ai-engineering/manifest.yml`, (f) missing field returns `{}`, (g) malformed file returns `{}` not raises.
+
+- [x] T-2 — GREEN: implement `_read_manifest_minimal` @ai-build — DONE (real)
+- Agent: build
+- Files: .ai-engineering/scripts/session_bootstrap.py:115 (add helper)
+- Principles applied: §10.5 TDD (make RED pass), §10.1 KISS, §10.2 YAGNI (only 2 fields)
+- Patch (deterministic): omit — function is regex-driven; small but not mechanical (handles 4 grammars per D-142-07).
+- Gate: pytest -q tests/unit/scripts/test_minimal_manifest_parse.py exits 0. Function ≤ 30 LOC.
+
+- [x] T-3 — GREEN: wire fallback into `_read_manifest` @ai-build — DONE (real)
+- Agent: build
+- Files: .ai-engineering/scripts/session_bootstrap.py:282
+- Principles applied: §10.4 DRY (single fallback path), §10.5 TDD
+- Patch (deterministic):
+  ```diff
+  @@ def _read_manifest(root: Path) -> dict:
+  -    return _read_yaml(root / ".ai-engineering" / "manifest.yml") or {}
+  +    path = root / ".ai-engineering" / "manifest.yml"
+  +    data = _read_yaml(path)
+  +    if data is not None:
+  +        return data
+  +    return _read_manifest_minimal(path)
+  ```
+- Gate: existing test_session_bootstrap.py suite still passes; `/ai-start` on a venv without pyyaml resolves `project_name` to `"ai-engineering"` instead of `"(unnamed)"`.
+
+---
+
+## Phase 2 — Surface-aware counts
+
+- [x] T-4 — RED: `_SURFACE_DIRS` paridad test @ai-build — DONE (real)
+- Agent: build
+- Files: tests/unit/scripts/test_session_bootstrap.py (extend with new test class `TestSurfaceDirs`)
+- Principles applied: §10.5 TDD, §10.3 SOLID (DI of canonical enum), §10.7 Clean Code
+- Patch (deterministic): omit — test reads canonical enum from `src/ai_engineering/config/mirror_inventory.py` `_PROVIDER_TREE_MAPS` keys (4 mirror-bearing surfaces) UNION with `{"opencode", "cursor", "antigravity"}` (the 3 enum members without mirror trees in `_PROVIDER_TREE_MAPS` but with `templates/project/.<surface>/skills/` directories). Assert `_SURFACE_DIRS.keys() == {7-surface set}`. Second assertion: each value pair `(skills_dir, agents_dir)` matches the templates/project/ layout.
+- Gate: pytest -q tests/unit/scripts/test_session_bootstrap.py::TestSurfaceDirs exits 1 with `AttributeError` (no `_SURFACE_DIRS` yet).
+
+- [x] T-5 — GREEN: add `_SURFACE_DIRS` constant @ai-build — DONE (real)
+- Agent: build
+- Files: .ai-engineering/scripts/session_bootstrap.py:97 (insert constant block)
+- Principles applied: §10.5 TDD, §10.1 KISS
+- Patch (deterministic):
+  ```diff
+  @@
+   _REPO_ROOT = Path(__file__).resolve().parents[2]
+  +
+  +# spec-142 D-142-02: surface→(skills, agents) directory map. Keys MUST stay
+  +# in sync with the closed 7-surface enum at
+  +# src/ai_engineering/config/mirror_inventory.py (`_PROVIDER_TREE_MAPS` keys
+  +# plus the no-mirror-tree surfaces). CI test in
+  +# tests/unit/scripts/test_session_bootstrap.py::TestSurfaceDirs enforces parity.
+  +_SURFACE_DIRS: dict[str, tuple[str, str]] = {
+  +    "claude-code":    (".claude/skills",   ".claude/agents"),
+  +    "codex":          (".codex/skills",    ".codex/agents"),
+  +    "gemini-cli":     (".gemini/skills",   ".gemini/agents"),
+  +    "github-copilot": (".github/skills",   ".github/agents"),
+  +    "opencode":       (".opencode/skills", ".opencode/agents"),
+  +    "cursor":         (".cursor/skills",   ".cursor/agents"),
+  +    "antigravity":    (".agent/skills",    ".agent/agents"),
+  +}
+  +_DEFAULT_SURFACE = "claude-code"  # spec-133 D-133-16 fallback when surfaces.enabled is empty
+  ```
+- Gate: pytest -q tests/unit/scripts/test_session_bootstrap.py::TestSurfaceDirs exits 0.
+
+- [x] T-6 — RED: surface-aware count test @ai-build — DONE (real)
+- Agent: build
+- Files: tests/unit/scripts/test_session_bootstrap.py (add `TestSurfaceAwareCounts`)
+- Principles applied: §10.5 TDD, §10.7 Clean Code (descriptive tmp fixtures)
+- Patch (deterministic): omit — test scaffolds a tmp root with `.ai-engineering/manifest.yml` declaring `surfaces.enabled: [github-copilot]` and 3 stub skill dirs under `.github/skills/`, asserts `_count_skills(tmp) == 3`. Repeat for claude-code (default) and codex. Edge: empty `surfaces.enabled` → fallback to `_DEFAULT_SURFACE`.
+- Gate: pytest exits 1 — `_count_skills` still hardcodes `.claude/`.
+
+- [x] T-7 — GREEN: rewire `_count_skills` and `_count_agents` @ai-build — DONE (real)
+- Agent: build
+- Files: .ai-engineering/scripts/session_bootstrap.py:335-346
+- Principles applied: §10.5 TDD, §10.4 DRY (extract `_primary_surface(manifest)`)
+- Patch (deterministic):
+  ```diff
+  @@
+  -def _count_skills(root: Path) -> int:
+  -    base = root / ".claude" / "skills"
+  -    if not base.is_dir():
+  -        return 0
+  -    return sum(1 for p in base.iterdir() if p.is_dir() and (p / "SKILL.md").is_file())
+  -
+  -
+  -def _count_agents(root: Path) -> int:
+  -    base = root / ".claude" / "agents"
+  -    if not base.is_dir():
+  -        return 0
+  -    return sum(1 for p in base.glob("ai-*.md") if p.is_file())
+  +def _primary_surface(manifest: dict) -> str:
+  +    surfaces = manifest.get("surfaces") or {}
+  +    enabled = surfaces.get("enabled") if isinstance(surfaces, dict) else None
+  +    if isinstance(enabled, list) and enabled:
+  +        first = enabled[0]
+  +        if isinstance(first, str) and first in _SURFACE_DIRS:
+  +            return first
+  +    return _DEFAULT_SURFACE
+  +
+  +
+  +def _count_skills(root: Path, manifest: dict) -> int:
+  +    skills_rel, _ = _SURFACE_DIRS.get(_primary_surface(manifest), _SURFACE_DIRS[_DEFAULT_SURFACE])
+  +    base = root / skills_rel
+  +    if not base.is_dir():
+  +        return 0
+  +    return sum(1 for p in base.iterdir() if p.is_dir() and (p / "SKILL.md").is_file())
+  +
+  +
+  +def _count_agents(root: Path, manifest: dict) -> int:
+  +    _, agents_rel = _SURFACE_DIRS.get(_primary_surface(manifest), _SURFACE_DIRS[_DEFAULT_SURFACE])
+  +    base = root / agents_rel
+  +    if not base.is_dir():
+  +        return 0
+  +    return sum(1 for p in base.glob("ai-*.md") if p.is_file())
+  ```
+- Gate: pytest test_session_bootstrap.py::TestSurfaceAwareCounts exits 0. Update all call sites (lines ~985-986 in `main`) to pass manifest. Pre-T-7 sanity: `grep -n "_count_skills\|_count_agents" .ai-engineering/scripts/ tests/ | grep -v __pycache__` to confirm `main()` is the sole caller; if any other test calls these helpers directly, update its fixture before T-7 lands.
+
+- [x] T-8 — GREEN: update call sites in `main()` @ai-build — DONE (real)
+- Agent: build
+- Files: .ai-engineering/scripts/session_bootstrap.py:985-986
+- Principles applied: §10.5 TDD, §10.3 SOLID (single responsibility kept)
+- Patch (deterministic):
+  ```diff
+  @@
+  -        "skills_total": _count_skills(root),
+  -        "agents_total": _count_agents(root),
+  +        "skills_total": _count_skills(root, manifest),
+  +        "agents_total": _count_agents(root, manifest),
+  ```
+- Gate: full session_bootstrap test module passes; manual run on `/Users/soydachi/repos/test/` shows skills/agents counts non-zero.
+
+---
+
+## Phase 3 — Hooks unverified state
+
+- [x] T-9 — RED: `_hooks_health` unverified test @ai-build — DONE (real)
+- Agent: build
+- Files: tests/unit/scripts/test_session_bootstrap.py (extend `TestHooksHealth` or add)
+- Principles applied: §10.5 TDD
+- Patch (deterministic): omit — three cases: (a) manifest exists + matches → `"ok"`, (b) manifest exists + drift → `"drift(N)"`, (c) manifest MISSING + `scripts/hooks/` has files → `"unverified"`, (d) manifest MISSING + `scripts/hooks/` missing → `"unknown"`, (e) manifest exists but `hooks` key empty/non-dict → `"unknown"`.
+- Gate: pytest exits 1 on case (c) — current logic returns `"unknown"`.
+
+- [x] T-10 — GREEN: update `_hooks_health` branching @ai-build — DONE (real)
+- Agent: build
+- Files: .ai-engineering/scripts/session_bootstrap.py:291-327
+- Principles applied: §10.5 TDD, §10.7 Clean Code (guard clause early)
+- Patch (deterministic):
+  ```diff
+  @@ def _hooks_health(root: Path) -> str:
+  -    manifest_path = root / ".ai-engineering" / "state" / "hooks-manifest.json"
+  -    if not manifest_path.is_file():
+  -        return "unknown"
+  +    manifest_path = root / ".ai-engineering" / "state" / "hooks-manifest.json"
+  +    scripts_dir = root / ".ai-engineering" / "scripts" / "hooks"
+  +    if not manifest_path.is_file():
+  +        if scripts_dir.is_dir() and any(scripts_dir.iterdir()):
+  +            return "unverified"
+  +        return "unknown"
+  ```
+- Gate: pytest test_session_bootstrap.py::TestHooksHealth exits 0.
+
+- [x] T-11 — GREEN: markdown rendering hint for `unverified` @ai-build — DONE (real)
+- Agent: build
+- Files: .ai-engineering/scripts/session_bootstrap.py:840 (state line builder)
+- Principles applied: §10.5 TDD, §10.7 Clean Code (string literal explicit)
+- Patch (deterministic):
+  ```diff
+  @@
+  -    state.append(f"hooks: {d.get('hooks_health', 'unknown')}")
+  +    hh = d.get("hooks_health", "unknown")
+  +    if hh == "unverified":
+  +        state.append("hooks: unverified — run `regenerate-hooks-manifest.py`")
+  +    else:
+  +        state.append(f"hooks: {hh}")
+  ```
+- Gate: snapshot test or string-contains assertion on the rendered markdown when `hooks_health == "unverified"`.
+
+---
+
+## Phase 4 — Installer auto-regenerate
+
+- [x] T-12 — RED: install_cmd calls regenerate-hooks-manifest @ai-build — DONE (real)
+- Agent: build
+- Files: tests/unit/cli_commands/test_install_cmd_hooks_manifest.py:1 (NEW) — locate the cli_commands test dir first; if absent fall back to tests/unit/test_install_cmd_hooks_manifest.py
+- Principles applied: §10.5 TDD, §10.3 SOLID (mock subprocess)
+- Patch (deterministic): omit — synthesis: invoke `install_cmd` against a tmp target, assert that `.ai-engineering/state/hooks-manifest.json` exists after the call with at least one entry. Second case: monkeypatch the regenerate script to fail and assert install_cmd emits a stderr warning but exits 0.
+- Gate: pytest exits 1 — install_cmd does not yet call the regenerate script.
+
+- [x] T-13 — GREEN: append regenerate-hooks-manifest call to install_cmd @ai-build — DONE (real)
+- Agent: build
+- Files: src/ai_engineering/cli_commands/core.py:95 (end of `install_cmd` body, before return)
+- Principles applied: §10.5 TDD, §10.2 YAGNI (no new flags), warn-don't-abort
+- Patch (deterministic): omit — must locate the install_cmd's "finalization" block (after manifest write, before returning); use `subprocess.run([sys.executable, str(regen_script), "--check"], check=False)` with explicit timeout (e.g. 30 s) and stderr-routed warning on non-zero exit. Reuse `console.print` if available in scope.
+- Gate: T-12 test exits 0. Manual install into a tmp dir → `hooks-manifest.json` present.
+
+---
+
+## Phase 5 — JSON contract surface_resolved
+
+- [x] T-14 — RED: JSON output includes `surface_resolved` @ai-build — DONE (real)
+- Agent: build
+- Files: tests/unit/scripts/test_session_bootstrap.py (extend)
+- Principles applied: §10.5 TDD, §10.2 YAGNI (field is optional)
+- Patch (deterministic): omit — assert the JSON output of `--format=json` mode contains key `surface_resolved` matching `_primary_surface(manifest)` when that surface is in `_SURFACE_DIRS`, and `null` when it is not (R-142-06 future-surface case).
+- Gate: pytest exits 1.
+
+- [x] T-15 — GREEN: emit `surface_resolved` in main() @ai-build — DONE (real)
+- Agent: build
+- Files: .ai-engineering/scripts/session_bootstrap.py:966 (payload assembly)
+- Principles applied: §10.5 TDD, §10.6 SDD (additive schema)
+- Patch (deterministic):
+  ```diff
+  @@ payload = {
+           "skills_total": _count_skills(root, manifest),
+  +        "surface_resolved": _primary_surface(manifest) if _primary_surface(manifest) in _SURFACE_DIRS else None,
+  ```
+  (additive — inserted alongside existing fields; field order in JSON is not part of the contract per `schema_version: 1`.)
+- Gate: T-14 test passes; schema_version stays `1`.
+
+---
+
+## Phase 6 — Quality loop
+
+- [x] T-16 — verify: full test suite + integration run @ai-verify — DONE_WITH_CONCERNS (blocker: ruff format on 2 test files)
+- Agent: verify
+- Files: (read-only) tests/unit/scripts/test_session_bootstrap.py, tests/unit/scripts/test_minimal_manifest_parse.py, tests/unit/cli_commands/test_install_cmd_hooks_manifest.py
+- Principles applied: §10.4 Verification Before Done
+- Patch (deterministic): n/a — read-only.
+- Gate: `uv run pytest tests/unit/scripts/ tests/unit/cli_commands/ -q` exits 0. End-to-end run: `cp` updated `session_bootstrap.py` to `/Users/soydachi/repos/test/`, run `uv run --no-project --isolated python .ai-engineering/scripts/session_bootstrap.py --format=markdown`, assert output contains `name: ai-engineering` (not `(unnamed)`), `skills, ` count > 0, and `hooks: unverified`.
+
+- [x] T-17 — review: spec-reviewer pass @ai-review — BLOCKED (B-1 template parity drift; H-1/H-2/H-3 test rigor)
+- Agent: guard (advisory)
+- Files: .ai-engineering/specs/spec.md, .ai-engineering/specs/plan.md, session_bootstrap.py diff
+- Principles applied: §10.7 Clean Code (final pass)
+- Patch (deterministic): n/a — advisory.
+- Gate: max 2 iterations of inline-fix; if reviewer flags blockers, return to relevant phase. Otherwise mark plan complete.
+
+---
+
+## Cross-cutting notes
+
+- **`_count_skills` / `_count_agents` signature change.** Both functions
+  gain a `manifest` parameter. The only existing caller is `main()` so
+  the change is local. No mirror files reference them by signature.
+- **No mirror sync needed.** Changes are to source-of-truth scripts and
+  tests only. `.codex/`, `.gemini/`, `.github/`, etc. mirror trees carry
+  skill SKILL.md content, not script source — those are regenerated
+  separately if needed.
+- **pyyaml fallback is the GATE for everything downstream.** Without
+  Phase 1 done, `surfaces.enabled` cannot be read and Phase 2+ silently
+  defaults to `_DEFAULT_SURFACE`. T-1 → T-3 must land first.
+- **Install command is opaque from outside.** T-12 should
+  intentionally NOT mock subprocess.run unless absolutely necessary —
+  prefer a real `regenerate-hooks-manifest.py` invocation on a tmp
+  target so the integration shape is exercised. Subprocess timeout 30 s
+  caps blast radius.
+
+## Time budget
+
+Phase 1: ~15 min. Phase 2: ~20 min (most LOC). Phase 3: ~10 min.
+Phase 4: ~20 min (cross-module). Phase 5: ~5 min. Phase 6: ~15 min.
+Total: ~85 min wall-clock at single-agent dispatch. /ai-build can
+parallelize Phases 1-3 (no inter-dependencies once T-3 lands).
+
+---
+
+## Quality Outcome
+
+### Round 1 (initial)
+
+Final: 2 blockers, 0 criticals, 3 highs -> STOP (escalated to operator under `/ai-build --no-hitl`)
+
+### Blockers
+
+1. **B-verify (deterministic)** — `uv run ruff format --check` fails on:
+   - `tests/unit/cli_commands/test_install_cmd_hooks_manifest.py:24-26` (over-wrapped `REGEN_SCRIPT_SRC` assignment)
+   - `tests/unit/scripts/test_session_bootstrap.py:703-705` (over-wrapped test method signature)
+   - Remediation: `uv run ruff format <those-two-files>`. Mechanical.
+
+2. **B-1 (review, compatibility, corroborated)** — Install template drift: `src/ai_engineering/templates/.ai-engineering/scripts/session_bootstrap.py` was NOT updated alongside the live `.ai-engineering/scripts/session_bootstrap.py`. `installer/phases/scripts.py` deploys the template verbatim on `ai-eng install`, so fresh installs ship the pre-spec-142 script. Spec goals #1–#3 (mini-parser fallback, surface-aware counts, `unverified` state) are silently undelivered for net-new projects — exactly the population spec-142 targets per spec.md:48-66.
+   - Remediation: mirror the live `session_bootstrap.py` into the template path + add a parity test modeled after `tests/unit/test_hook_template_parity.py`.
+
+### High-severity (non-blocking but should be fixed before merge)
+
+3. **H-1 (correctness)** — `_read_manifest_minimal` `name:` regex extracts `\r` and inline `# comment` text into the returned value. Hardens on Windows checkouts. Fix: `r'^name:\s+"?([^"\r\n]+?)"?\s*(?:#.*)?$'`.
+4. **H-2 (testing)** — `test_parity_with_yaml_safe_load_on_real_manifest` uses `if "name" in mini` guard, so a future schema break is silently accepted instead of being a red CI build (R-142-01 mitigation is non-load-bearing as written).
+5. **H-3 (testing)** — `test_malformed_file_returns_empty_dict` assertion `assert result == {} or isinstance(result, dict)` is tautological; should be `assert result == {}`.
+
+### Medium / low (advisory)
+
+- M-1: `_finalize_hooks_manifest` swallows child `result.stderr` — operator loses diagnostics on failure.
+- L-1, L-2, L-3: maintainability + test-symmetry concerns; not blocking.
+
+### Recommendation
+
+Operator re-invokes `/ai-build` (or applies fixes manually then re-invokes) after addressing B-verify and B-1 minimum. H-1/H-2/H-3 ride in the same pass.
+
+---
+
+### Round 2 (post-remediation)
+
+Final: 0 blockers, 0 criticals, 0 highs -> **PASS**
+
+Verify score: 86/100. Review verdict: CONCERNS (no blocker). Proceeding to Deliver.
+
+#### Remediation evidence
+
+- **B-verify** — `uv run ruff format --check` passes on all 7 spec-142 files.
+- **B-1** — live `session_bootstrap.py` byte-identical to install template; new test [tests/unit/test_session_bootstrap_template_parity.py](tests/unit/test_session_bootstrap_template_parity.py) guards future drift.
+- **H-1** — regex tightened to `r'^name:\s+"?([^"\r\n]+?)"?\s*(?:#.*)?$'`; new tests `test_name_strips_carriage_return`, `test_name_ignores_inline_comment` exercise CRLF + inline-comment.
+- **H-2** — parity test now uses hard `assert "name" in mini`, `assert "surfaces" in mini`, `assert "enabled" in mini["surfaces"]` — R-142-01 mitigation is load-bearing.
+- **H-3** — `assert result == {} or isinstance(result, dict)` → `assert result == {}, f"…"`.
+- **A1** — additional inline fix: removed two `# type: ignore` lines added during T-4 build by refactoring `_load_session_bootstrap_module` (return annotation `-> types.ModuleType`, reused existing `assert spec.loader is not None`).
+
+Test posture: **155 passed, 3 skipped** across `tests/unit/scripts/`, `tests/unit/cli_commands/`, and `tests/unit/test_session_bootstrap_template_parity.py`. Ruff check + format clean across all 7 in-scope files.
+
+#### Residual non-blocking advisories (carried into PR body)
+
+- **N-1** (low, regex edge case): mini-parser strips trailing `#` even inside double-quoted scalars (`name: "foo # not a comment"` → `"foo"`; yaml.safe_load → `"foo # not a comment"`). Scope is the pyyaml-uninstalled fallback path only; the real repo manifest doesn't trigger this. Deferred as documented limitation per D-142-07 (mini-parser scope is intentionally narrow).
+- **M-1** (low, observability): `_finalize_hooks_manifest` discards `result.stderr` from the regen script. Dashboard `unverified` state already provides a recovery path. Optional one-line improvement deferred.

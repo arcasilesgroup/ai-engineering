@@ -54,9 +54,12 @@ CORE_OPERATIONAL_SURFACE_PATHS: tuple[Path, ...] = (
     REPO_ROOT / ".claude" / "skills" / "ai-code" / "SKILL.md",
     REPO_ROOT / ".claude" / "skills" / "ai-test" / "handlers" / "tdd.md",
     REPO_ROOT / ".claude" / "agents" / "ai-build.md",
-    REPO_ROOT / ".claude" / "agents" / "reviewer-architecture.md",
+    # Spec-140 W3 consolidated the reviewer roster from 11 to 6 agents;
+    # ``reviewer-architecture.md`` + ``reviewer-maintainability.md``
+    # were merged into ``reviewer-correctness.md`` which now carries
+    # both responsibilities. Only the merged agent remains in the
+    # operational-consumer surface.
     REPO_ROOT / ".claude" / "agents" / "reviewer-correctness.md",
-    REPO_ROOT / ".claude" / "agents" / "reviewer-maintainability.md",
 )
 
 EXCLUDED_OPERATIONAL_PREFIXES: tuple[str, ...] = (

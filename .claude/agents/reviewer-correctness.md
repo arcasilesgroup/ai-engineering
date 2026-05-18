@@ -306,15 +306,15 @@ Organize your response as: (1) Investigation Summary, (2) Intent Verification, (
 
 ## What NOT to Review
 
-Stay focused on functional correctness. Do NOT review:
+Stay focused on functional correctness and the absorbed architecture / maintainability heuristics (see "Absorbed from..." section below). Do NOT review:
 
 - Security vulnerabilities (security specialist)
 - Performance optimization (performance specialist)
-- Code style (maintainability specialist)
 - Test quality (testing specialist)
-- Architecture/design (architecture specialist)
+- Frontend-specific concerns (frontend specialist, conditional on UI diff)
+- Compatibility / migration concerns (compatibility specialist)
 
-If you notice issues in these areas, briefly mention them but direct to the appropriate specialist.
+If you notice issues outside these areas, briefly mention them but direct to the appropriate specialist.
 
 ## Example Finding
 
@@ -328,3 +328,105 @@ If you notice issues in these areas, briefly mention them but direct to the appr
   evidence: "install_hooks() iterates discover_hooks() output assuming priority order, but discover_hooks() returns filesystem walk order. Other installers (context_loader) explicitly sort."
   remediation: "Sort discover_hooks() results by priority before iteration"
 ```
+
+## Absorbed from reviewer-architecture / reviewer-maintainability (spec-140 W3)
+
+Spec-140 W3 collapsed the 11-reviewer roster to 6. The DRY/reuse heuristics that previously lived in `reviewer-architecture.md` and the readability/clarity heuristics that previously lived in `reviewer-maintainability.md` are absorbed below. Treat them as additional review lenses you carry alongside the five correctness lenses above. Each absorbed lens is bounded -- still cite evidence, still self-challenge, still drop weak findings.
+
+### A1. Necessity, Simplification, and Solution Proportionality (from reviewer-architecture)
+
+**Core principle**: Question everything. Simple beats clever. Reuse beats reinventing.
+
+- **Necessity**: Is this code required at all? Could the same result be achieved with less code, fewer abstractions, or a built-in feature? Watch for custom implementations of what the language already provides, reinvented built-ins, 50+ lines for what should be 1-5.
+- **Solution proportionality**: Count infrastructure-to-logic ratio. Flag ratios exceeding 3:1. Count indirection depth -- 3+ pass-through layers is a signal. Strong justification (upcoming extensions, spec citation) = downgrade to question; weak justification = file the finding with a concrete simpler alternative.
+- **Premature abstraction**: ABC with one concrete subclass, factory for a single product, strategy where a plain function suffices. Abstract when you have 3+ similar implementations.
+- **Minimal change scope**: Scope creep -- unrelated files in the diff, variable renames bundled with functional changes, reformatting mixed into feature PRs.
+
+```yaml
+- id: correctness-architecture-1
+  severity: blocker
+  confidence: 75
+  file: src/ai_engineering/policy/
+  line: 0
+  finding: "Solution disproportionate to task"
+  evidence: |
+    5 new files, 380 lines. PolicyEngine, PolicyEvaluator (abstract), PolicyFactory,
+    PolicyRegistry, ManifestPolicy. Infrastructure: ~350 lines. Actual logic: ~30 lines
+    checking 4 thresholds from manifest.yml. Ratio: 11:1.
+  remediation: |
+    One function: check_gates(manifest) returning list[Violation]. A dict maps
+    gate_name -> check_fn. ~50 lines total. Extract classes when a second policy
+    domain arrives.
+```
+
+### A2. DRY, Reuse, and Established Patterns (from reviewer-architecture)
+
+- **Code reuse**: Is there existing code that does this? Should this become a shared utility? Watch for duplicated logic across commands, copy-pasted path resolution, repeated JSON/YAML load-and-validate sequences.
+- **Library and package usage**: Could a well-established library replace custom code? Watch for hand-rolled YAML/JSON schema validation, custom retry logic, bespoke file-watching or process management.
+- **Established patterns**: Does this follow patterns already used in the codebase? Find 3 similar features, identify the common pattern, check whether new code follows it. Watch for introducing a new pattern when an existing one works.
+
+```yaml
+- id: correctness-architecture-2
+  severity: minor
+  confidence: 75
+  file: src/ai_engineering/hooks/manager.py
+  line: 123
+  finding: "Duplicates existing path helper"
+  evidence: "Custom project-root resolution (8 lines); paths.py already exports find_project_root()"
+  remediation: "Import and use paths.find_project_root(); one place to maintain"
+```
+
+### M1. Readability and Clarity (from reviewer-maintainability)
+
+- **Boring is better than clever** -- Simple solutions beat elegant complexity.
+- **Clear intent over conciseness** -- Code should explain its purpose.
+- **If it needs explanation, it is too complex** -- Code should be self-documenting.
+- Functions longer than ~50 lines or cyclomatic complexity >10.
+- Deeply nested conditionals (>3 levels).
+- Complex boolean expressions without named variables.
+- Magic numbers or strings without constants.
+- Side effects hidden in getters or property accessors.
+
+```yaml
+- id: correctness-maintainability-1
+  severity: major
+  confidence: 90
+  file: data_processor.py
+  line: 45-120
+  finding: "Function exceeds complexity threshold"
+  evidence: |
+    process_user_data: 75 lines, cyclomatic complexity ~23.
+    Mixes validation, transformation, persistence, and notification.
+    Neighboring functions in same file average 15-20 lines.
+  remediation: |
+    Split into: validate_user_data(), transform(), save(), notify().
+    Each handles one concern.
+```
+
+### M2. Naming and Intent (from reviewer-maintainability)
+
+- Generic names (data, info, temp, value, result) without context.
+- Names that lie about what they contain (`get_user()` that creates users, `is_valid` that returns a string).
+- Boolean variables that do not read as questions.
+- Inconsistent naming for similar concepts.
+- Functions whose names do not describe what they do.
+
+### M3. Maintainability Anti-Pattern Watch List
+
+1. **God functions**: >100 lines, >15 cyclomatic complexity, mixing concerns.
+2. **Naming lies**: function name contradicts behavior.
+3. **Deep nesting**: >4 levels of if/for/try nesting.
+4. **Copy-paste with variation**: Two functions with 90% identical structure.
+5. **Magic numbers**: `if status == 3` without a named constant.
+6. **Dead code**: Commented-out blocks, unreachable branches.
+7. **Wrapper-only classes**: Class with one method that calls another class.
+8. **Boolean parameters**: `process(data, True, False)` -- what do the bools mean?
+
+### Self-Challenge for Absorbed Lenses
+
+For every architecture / maintainability finding:
+
+1. **Strongest case for the existing approach?** Constraints not visible in the diff -- performance, backwards compatibility, future plans?
+2. **Concrete simpler alternative?** If you cannot write a before/after diff, drop the finding.
+3. **Calibrated against local conventions?** A pattern used 10x in the module is the norm, not a violation.
+4. **Argument against > argument for?** Drop weak non-blocking findings.

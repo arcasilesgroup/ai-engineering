@@ -10,9 +10,16 @@
 
 Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
 identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
-(3) query `.ai-engineering/state/state.db` `decisions` table (active
-decisions / risk posture); (4) no implementation without an approved
-spec — invoke `/ai-brainstorm` first when a task has no spec.
+(3) consult [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
+for the canonical store of each datum (decisions live in spec markdown;
+the `state.db.decisions` cache is populated after `ai-eng decision
+backfill` or `/ai-brainstorm` approval per spec-138 M3 follow-up);
+(4) no implementation without an approved spec — invoke
+`/ai-brainstorm` first when a task has no spec.
+
+See [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
+the four-tier model (NDJSON audit, SQLite `state.db`, JSON/YAML
+config, Markdown) and the SSOT-PD rebuild semantics.
 
 ## Operating Mindset (§1–§9 condensed)
 
@@ -109,6 +116,11 @@ Non-negotiable rules per commit, push, and risk-acceptance decision:
    on the full changeset. Blockers STOP and escalate — no auto-retry.
 6. **Conventional Commits.** `<type>(<scope>): <subject>` imperative
    mood. Body explains "why", not "what". Never `--no-verify`.
+7. **Single Source of Truth Per Datum.** Every datum has exactly one
+   canonical writable store. Derived caches are explicitly labelled
+   (named, with a rebuild command) and rebuildable on demand. See
+   [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
+   the four-tier model and the rebuild semantics.
 
 ## 14–16. Pointer rows
 

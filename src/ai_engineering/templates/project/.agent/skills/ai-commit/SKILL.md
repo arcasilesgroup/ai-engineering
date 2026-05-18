@@ -65,7 +65,7 @@ See `.ai-engineering/reference/gate-policy.md` for the local fast-slice + CI aut
 
 ### 7. Commit
 
-Compose message via `python3 .ai-engineering/scripts/commit_compose.py --type <type> [--task X.Y] [--desc "<desc>"]`. Without `--desc`, the script returns the template with a `<DESC>` placeholder for the LLM to fill (the only LLM call on the commit hot-path). Doc-gate via `python3 .ai-engineering/scripts/doc_gate.py --changed-paths "<staged>"` (exit 1 → block; CHANGELOG.md or README.md must accompany changes under `src/`, `tools/`, `.gemini/skills/`).
+Compose message via `python3 .ai-engineering/scripts/commit_compose.py --type <type> [--task X.Y] --desc "<desc>"`. **`--desc` is mandatory (spec-139 M8 D-139-06)** — derive it from the current plan.md task title (`grep -m1 '^- \[ \] ' .ai-engineering/specs/plan.md`) or from staged-files / operator hint on off-chain WIP commits. The legacy `<DESC>` placeholder fallback is deprecated. Doc-gate via `python3 .ai-engineering/scripts/doc_gate.py --changed-paths "<staged>"` (exit 1 → block; CHANGELOG.md or README.md must accompany changes under `src/`, `tools/`, `.gemini/skills/`).
 
 - **With active spec**: `feat(spec-NNN): Task X.Y -- <desc>`, `fix(spec-NNN): <desc>`, `chore(spec-NNN): <desc>`.
 - **Without spec**: `type(scope): description` (conventional commits, imperative mood). Valid types: `feat`, `fix`, `perf`, `refactor`, `style`, `docs`, `test`, `build`, `ci`, `chore`, `revert`.

@@ -188,41 +188,9 @@ def test_ai_start_under_500ms() -> None:
     assert elapsed_s <= 2.0
 
 
-@pytest.mark.perf
-@pytest.mark.xfail(
-    reason="depends on commit_compose.py + branch_slug.py landing in /ai-commit",
-    strict=False,
-)
-def test_ai_commit_under_3s() -> None:
-    """``/ai-commit`` must finish under 3.0 s ceiling on the no-LLM path."""
-    pytest.fail("commit_compose.py wired but no end-to-end harness yet")
-
-
-@pytest.mark.perf
-@pytest.mark.xfail(
-    reason="depends on pr_body_compose.py + doc_gate.py landing in /ai-pr",
-    strict=False,
-)
-def test_ai_pr_under_15s() -> None:
-    """``/ai-pr`` (deterministic compose mode) must finish under 15 s ceiling."""
-    pytest.fail("pr_body_compose.py wired but no end-to-end harness yet")
-
-
-@pytest.mark.perf
-@pytest.mark.xfail(
-    reason="depends on /ai-verify Markdown-out path landing",
-    strict=False,
-)
-def test_ai_verify_pass_under_3s() -> None:
-    """``/ai-verify`` PASS path must finish under 3.0 s ceiling."""
-    pytest.fail("verify-fast PASS path not wired yet")
-
-
-@pytest.mark.perf
-@pytest.mark.xfail(
-    reason="depends on cleanup-run.py landing in /ai-repo-tidy",
-    strict=False,
-)
-def test_ai_cleanup_under_3s() -> None:
-    """``/ai-repo-tidy`` must finish under 3.0 s ceiling."""
-    pytest.fail("cleanup-run.py not yet wired")
+# spec-140 W1.T2 — four `pytest.fail()`-bodied xfail stubs removed
+# (test_ai_commit_under_3s, test_ai_pr_under_15s, test_ai_verify_pass_under_3s,
+# test_ai_cleanup_under_3s). They were permanent XFAILs producing zero
+# signal; their end-to-end harnesses do not exist in the tree. When the
+# deterministic compose mode for /ai-commit and /ai-pr is wired by
+# spec-139 M8, real perf gates will land alongside the implementations.

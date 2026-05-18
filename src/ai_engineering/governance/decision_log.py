@@ -1,10 +1,14 @@
-"""Policy decision log emitter (spec-122 Phase C, T-3.7).
+"""Policy decision log emitter.
 
 Writes ``kind='policy_decision'`` events to
-``.ai-engineering/state/framework-events.ndjson`` and (when present) to
-the SQLite ``state.db.events`` projection landed by sub-002. The dual-
-write is gated on capability detection so sub-003 ships without
-sub-002.
+``.ai-engineering/state/framework-events.ndjson``.
+
+Per spec-138 SSOT-PD doctrine: NDJSON is the canonical store for events
+(Article-III, hash-chained). ``state.db.events`` is a derived cache
+rebuilt at SessionEnd by ``ai-eng audit index --rebuild`` and never
+written from this hot-path emitter (the prior dual-write at
+``_insert_events_row`` was silently writing to a phantom schema and
+swallowing every ``sqlite3.Error`` -- removed in spec-138 M1).
 
 Sample mask
 -----------
@@ -26,9 +30,6 @@ prefix to preserve cardinality without leaking content.
 from __future__ import annotations
 
 import hashlib
-import json
-import sqlite3
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -39,12 +40,9 @@ from ai_engineering.state.observability import (
 )
 
 __all__ = [
-    "STATE_DB_REL",
     "emit_policy_decision",
     "should_sample",
 ]
-
-STATE_DB_REL: Path = Path(".ai-engineering") / "state" / "state.db"
 
 # Sensitive fields masked before persisting. Keys map to the input dict
 # under `data.input`. Values are replaced with `sha256(value)[:12]`
@@ -76,31 +74,6 @@ def _mask_input(payload: dict[str, Any]) -> dict[str, Any]:
     return masked
 
 
-def _events_table_present(db_path: Path) -> bool:
-    """Probe the SQLite projection for the ``events`` table.
-
-    Returns ``False`` on any error: missing file, locked database, missing
-    table. The dual-write is best-effort; the NDJSON stream is the
-    immutable source-of-truth.
-    """
-    if not db_path.exists():
-        return False
-    try:
-        conn = sqlite3.connect(db_path, timeout=0.5)
-    except sqlite3.Error:
-        return False
-    try:
-        cur = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='events'",
-        )
-        row = cur.fetchone()
-        return row is not None
-    except sqlite3.Error:
-        return False
-    finally:
-        conn.close()
-
-
 def _project_name(project_root: Path) -> str:
     """Best-effort project name -- falls back to the directory name."""
     try:
@@ -110,51 +83,6 @@ def _project_name(project_root: Path) -> str:
         return config.name or project_root.name
     except Exception:
         return project_root.name
-
-
-def _insert_events_row(
-    db_path: Path,
-    event: dict[str, Any],
-) -> None:
-    """Insert a row into the ``events`` table when present.
-
-    The schema landed by sub-002 is a thin projection over the NDJSON
-    stream. We aim at the columns the projection is documented to expose
-    (``kind``, ``timestamp``, ``component``, ``outcome``,
-    ``correlation_id``, ``project``, ``detail_json``); any column-set
-    drift falls through to a no-op rather than raising.
-    """
-    detail_json = json.dumps(event.get("detail", {}), sort_keys=True)
-    try:
-        conn = sqlite3.connect(db_path, timeout=0.5)
-    except sqlite3.Error:
-        return
-    try:
-        try:
-            conn.execute(
-                """
-                INSERT INTO events (
-                    kind, timestamp, component, outcome, correlation_id,
-                    project, detail_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    event["kind"],
-                    event["timestamp"],
-                    event["component"],
-                    event["outcome"],
-                    event["correlationId"],
-                    event["project"],
-                    detail_json,
-                ),
-            )
-            conn.commit()
-        except sqlite3.Error:
-            # Schema drift / locked DB / missing column -> skip silently;
-            # NDJSON is the source of truth.
-            return
-    finally:
-        conn.close()
 
 
 def emit_policy_decision(
@@ -216,7 +144,6 @@ def emit_policy_decision(
         "deny_messages": deny,
     }
 
-    timestamp = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
     project_name = _project_name(project_root)
 
     event = FrameworkEvent(
@@ -230,7 +157,8 @@ def emit_policy_decision(
         detail=detail,
     )  # ty:ignore[missing-argument]
 
-    # NDJSON is always written -- immutable source of truth.
+    # NDJSON is the canonical store for events (Article-III; spec-138
+    # SSOT-PD). state.db.events is a derived cache rebuilt at SessionEnd.
     try:
         append_framework_event(project_root, event)
     except Exception:
@@ -238,17 +166,3 @@ def emit_policy_decision(
         # caller is the gate hook which has its own framework_error
         # surface for I/O failures.
         return
-
-    # Optional dual-write to SQLite projection (sub-002).
-    db_path = project_root / STATE_DB_REL
-    if _events_table_present(db_path):
-        wire = {
-            "kind": "policy_decision",
-            "timestamp": timestamp,
-            "component": component,
-            "outcome": outcome,
-            "correlationId": cid,
-            "project": project_name,
-            "detail": detail,
-        }
-        _insert_events_row(db_path, wire)

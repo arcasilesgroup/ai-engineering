@@ -212,14 +212,20 @@ def decision_record(
 # Source priority: specs are authoritative; CHANGELOG / CONSTITUTION /
 # CLAUDE.md are fallbacks. The first hit in this order wins (most
 # descriptive `title` from spec context).
+#
+# spec-138 M3.T3: archived specs are walked too so shipped decisions
+# are not lost when the active spec.md is cleared back to its
+# placeholder shape.
 _DEFAULT_BACKFILL_GLOBS: tuple[str, ...] = (
     ".ai-engineering/specs/*.md",
+    ".ai-engineering/specs/archive/*.md",
     "CHANGELOG.md",
     "CONSTITUTION.md",
     "CLAUDE.md",
 )
 
 _SOURCE_LABELS = {
+    ".ai-engineering/specs/archive": "specs-archive",
     ".ai-engineering/specs": "specs",
     "CHANGELOG.md": "changelog",
     "CONSTITUTION.md": "constitution",
@@ -345,8 +351,14 @@ def decision_backfill(
         info("Dry run: no rows written.")
         return
 
+    # spec-138 M3.T3: count rows already at the canonical shape before
+    # writing so the summary distinguishes net-new from idempotent re-runs.
+    existing_ids = {row.get("decision_id") for row in list_decisions(root)}
+    already_current = sum(1 for row in rows if row.get("decision_id") in existing_ids)
+
     write_rows = [{k: v for k, v in row.items() if k != "_source"} for row in rows]
     attempted = upsert_decision_rows_raw(root, write_rows)
+    backfilled = max(attempted - already_current, 0)
 
     emit_control_outcome(
         root,
@@ -357,10 +369,15 @@ def decision_backfill(
         source="cli",
         metadata={
             "count": attempted,
+            "backfilled": backfilled,
+            "already_current": already_current,
             "by_source": by_source,
             "db_path": str(db_path),
             "globs": list(globs),
         },
     )
 
-    success(f"Backfilled {attempted} decision rows → state.db.")
+    success(
+        f"{backfilled} decisions backfilled, {already_current} already current "
+        f"(of {attempted} scanned) -> state.db."
+    )

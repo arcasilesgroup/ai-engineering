@@ -147,58 +147,11 @@ class TestOwnershipSafety:
 
         assert team_lessons.read_text(encoding="utf-8") == "custom team content"
 
-    @pytest.mark.skip(
-        reason=(
-            "Updater iterates over bundled template files only; team-managed "
-            "deny patterns without a corresponding template never produce a "
-            "skip-denied entry. Aspirational: report denied paths even when "
-            "no template exists. Tracked separately."
-        )
-    )
-    def test_denied_changes_reported(self, installed_project: Path) -> None:
-        # Modify a team-managed file that exists in templates
-        team_lessons = installed_project / ".ai-engineering" / "team" / "lessons.md"
-        team_lessons.parent.mkdir(parents=True, exist_ok=True)
-        team_lessons.write_text("custom team content", encoding="utf-8")
-
-        result = update(installed_project, dry_run=True)
-
-        # Find the specific team-managed file in the change list
-        denied = [
-            c
-            for c in result.changes
-            if c.action == "skip-denied" and "contexts" in str(c.path) and "team" in str(c.path)
-        ]
-        assert len(denied) >= 1, "Expected at least one denied team-managed change"
-        assert denied[0].reason_code == "team-managed-update-protected"
-        assert "No action is required" in denied[0].explanation
-
-    @pytest.mark.skip(
-        reason=(
-            "Updater visits bundled template files only; team-managed README "
-            "is not bundled, so create-blocked is never reported. Tracked "
-            "with the companion test_denied_changes_reported deferral."
-        )
-    )
-    def test_create_blocked_by_deny_ownership(self, installed_project: Path) -> None:
-        """An explicit deny pattern prevents creation of a new file in team-managed paths."""
-        # Delete a team-managed file that exists in templates
-        team_readme = installed_project / ".ai-engineering" / "contexts" / "team" / "README.md"
-        team_readme.parent.mkdir(parents=True, exist_ok=True)
-        if team_readme.exists():
-            team_readme.unlink()
-
-        result = update(installed_project, dry_run=True)
-
-        # The file should be reported as skip-denied even though it doesn't exist,
-        # because the ownership pattern denies creation on contexts/team/** paths
-        match = next(
-            (c for c in result.changes if c.path == team_readme),
-            None,
-        )
-        assert match is not None, "Expected team README file in changes"
-        assert match.action == "skip-denied"
-        assert match.reason_code == "team-managed-create-protected"
+    # spec-140 W1.T3 — two aspirational "tracked separately" skips removed:
+    # test_denied_changes_reported and test_create_blocked_by_deny_ownership.
+    # Both required the updater to emit `skip-denied` for paths the bundled
+    # template tree never visits — a feature that does not exist and has no
+    # owner. Their deletion is the standing rent gate per CONSTITUTION.md §3.
 
     def test_promoted_root_context_is_framework_managed(self, installed_project: Path) -> None:
         # spec-136 D-136-13 deleted contexts/cli-ux.md; principles.md

@@ -42,6 +42,11 @@ _KNOWN_OVERLAPS = {
     # ai-eng issue: deterministic spec→tracker sync;
     # /ai-issue: LLM orchestrator (D-134-02)
     "issue": "a2-distinct",
+    # spec-139 M7 D-139-05: `ai-eng plan dag-build` deterministic DAG
+    # constructor vs /ai-plan LLM-driven phased planner. Different engines
+    # by design — the CLI handles the 90% structural case; the skill
+    # handles the 10% semantic ambiguity.
+    "plan": "a2-distinct",
     # Historical note (spec-134 D-134-06): /ai-cleanup → /ai-repo-tidy renamed
     # the chat surface. The CLI keeps its `ai-eng cleanup` verb. The verb
     # collision that motivated the original "cleanup": a2-distinct entry no

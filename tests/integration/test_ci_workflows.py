@@ -101,9 +101,13 @@ def test_test_hooks_matrix_workflow_present() -> None:
         )
 
     # Spec-110 Article VI: every uses: pins a 40-char SHA.
+    # Local composite actions (``./.github/actions/...``) are pinned by
+    # the surrounding repo commit and have no upstream SHA to pin.
     uses_refs = _iter_uses(wf)
     assert uses_refs, "workflow must reference at least one action"
     for ref in uses_refs:
+        if ref.startswith("./"):
+            continue
         if "@" not in ref:
             raise AssertionError(f"uses ref missing @: {ref}")
         _, _, sha = ref.partition("@")

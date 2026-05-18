@@ -27,7 +27,9 @@ import contextlib
 import json
 import os
 import sqlite3
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -50,10 +52,11 @@ from _lib.runtime_state import (
 )
 from _lib.transcript_usage import aggregate_session_usage, find_active_transcript
 
-# Spec-120 §4.3: SQLite projection of framework-events.ndjson. Path is
-# inlined here (mirrors `ai_engineering.state.audit_index.INDEX_REL`) so
-# the hook stays stdlib-only and never imports from the pkg.
-_AUDIT_INDEX_REL = Path(".ai-engineering") / "state" / "audit-index.sqlite"
+# spec-123 D-123-22 + spec-138 M1: the events projection lives on the
+# unified state.db (the legacy audit-index.sqlite was a 0-byte zombie).
+# Path is inlined here (mirrors `ai_engineering.state.audit_index.INDEX_REL`)
+# so the hook stays stdlib-only and never imports from the pkg.
+_AUDIT_INDEX_REL = Path(".ai-engineering") / "state" / "state.db"
 _HOOK_COMPONENT = "hook.runtime-stop"
 
 
@@ -95,6 +98,111 @@ _FAILURE_PATTERNS = (
     "TypeError",
     "ImportError",
 )
+
+# spec-139 M5.T3: convergence-skip predicate. The Stop hook can fire many
+# times per autopilot run as sub-agent cascades terminate; running the full
+# ruff + pytest-collect convergence suite on every fire is the dominant
+# hot-path tax (D-139-03). Skip when ALL three clauses hold:
+#
+#   (a) ``.convergence-lastrun`` sentinel was touched < 30 s ago, AND
+#   (b) ``git diff --quiet --staged`` returns 0 (no staged work), AND
+#   (c) ``ctx.agent_kind == "subagent"`` (this Stop is a sub-agent cascade,
+#       not a top-level user-driven Stop).
+#
+# Any individual clause being false MUST trigger the full convergence run
+# — partial information is worse than no skip at all.
+_CONVERGENCE_SKIP_WINDOW_SEC = 30.0
+_CONVERGENCE_LASTRUN_NAME = ".convergence-lastrun"
+
+
+def _convergence_lastrun_path(project_root: Path) -> Path:
+    """Resolve the convergence-skip sentinel inside the canonical runtime dir."""
+    return runtime_dir(project_root) / _CONVERGENCE_LASTRUN_NAME
+
+
+def _convergence_recently_ran(project_root: Path, *, now: float | None = None) -> bool:
+    """Return True when the sentinel was touched within the skip window.
+
+    The sentinel is a zero-byte file whose mtime is the only signal.
+    Reading mtime is the cheapest possible probe (one ``stat`` call); we
+    intentionally avoid wall-clock comparisons against ``time.time()``
+    because the hook may be invoked from a frozen / suspended process
+    whose monotonic clock drifted. ``time.time()`` matches the
+    filesystem clock so the comparison is internally consistent.
+    Returns False on any error (missing sentinel, stat failure) — the
+    fail-open posture mirrors the surrounding hook contract.
+    """
+    sentinel = _convergence_lastrun_path(project_root)
+    try:
+        mtime = sentinel.stat().st_mtime
+    except OSError:
+        return False
+    reference = now if now is not None else time.time()
+    return (reference - mtime) < _CONVERGENCE_SKIP_WINDOW_SEC
+
+
+def _git_staged_clean(project_root: Path) -> bool:
+    """Return True when ``git diff --quiet --staged`` reports a clean index.
+
+    Bounded subprocess (1 s timeout) so a hung git invocation cannot
+    block the Stop hook. Any failure — git not installed, not a repo,
+    timeout, non-zero unexpected exit — returns False so the caller
+    falls back to the full convergence path. We MUST NOT skip
+    convergence when we cannot prove the index is clean.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "diff", "--quiet", "--staged"],
+            cwd=str(project_root),
+            capture_output=True,
+            timeout=1.0,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return False
+    return proc.returncode == 0
+
+
+def _is_subagent_cascade(agent_kind: str | None) -> bool:
+    """Return True when this Stop is firing as a sub-agent cascade.
+
+    A "subagent cascade" is the natural Stop event emitted after a
+    Task-tool dispatch ends. Top-level user-driven Stop events
+    (``agent_kind == "main"``) MUST run convergence so the user receives
+    accurate convergence feedback before turn-end.
+    """
+    return agent_kind == "subagent"
+
+
+def should_skip_convergence(
+    project_root: Path,
+    *,
+    agent_kind: str | None,
+    now: float | None = None,
+) -> bool:
+    """spec-139 M5.T3: return True when ALL skip clauses hold.
+
+    Each predicate is checked independently so the test suite can pin
+    every clause-individually-false → skip-does-not-fire contract.
+    Order is cheapest-first: sentinel mtime stat is O(1); ``git diff``
+    spawns a process; agent_kind is a string compare.
+    """
+    if not _is_subagent_cascade(agent_kind):
+        return False
+    if not _convergence_recently_ran(project_root, now=now):
+        return False
+    return _git_staged_clean(project_root)
+
+
+def _touch_convergence_sentinel(project_root: Path) -> None:
+    """Touch ``.convergence-lastrun`` so subsequent Stops within 30 s skip.
+
+    Fail-open: any I/O error is swallowed — failing to touch the sentinel
+    only costs one extra convergence run, never a correctness loss.
+    """
+    sentinel = _convergence_lastrun_path(project_root)
+    with contextlib.suppress(OSError):
+        sentinel.parent.mkdir(parents=True, exist_ok=True)
+        sentinel.touch()
 
 
 def _recent_edited_files(
@@ -306,6 +414,7 @@ def _ralph_convergence_loop(
     session_id: str | None,
     correlation_id: str,
     last_prompt: str | None,
+    agent_kind: str | None = None,
 ) -> bool:
     """Run convergence + Ralph retry/reinjection orchestration.
 
@@ -314,8 +423,29 @@ def _ralph_convergence_loop(
     Returns ``False`` for every other terminal state (converged, max
     retries exceeded, fail-open) so the caller continues with the
     normal stdout passthrough.
+
+    spec-139 M5.T3: short-circuit when :func:`should_skip_convergence`
+    confirms the Stop is a sub-agent cascade firing within 30 s of the
+    previous convergence run AND the staged index is clean. Skipping
+    emits a telemetry event so the audit chain records the bypass.
     """
     if _RALPH_DISABLED:
+        return False
+
+    if should_skip_convergence(project_root, agent_kind=agent_kind):
+        with contextlib.suppress(Exception):
+            emit_framework_operation(
+                project_root,
+                operation="ralph_convergence_skipped",
+                component=_HOOK_COMPONENT,
+                source="hook",
+                correlation_id=correlation_id,
+                metadata={
+                    "reason": "subagent_cascade_within_window",
+                    "window_sec": _CONVERGENCE_SKIP_WINDOW_SEC,
+                    "session_id": session_id,
+                },
+            )
         return False
 
     try:
@@ -335,6 +465,11 @@ def _ralph_convergence_loop(
             metadata={"reason": f"{type(exc).__name__}: {str(exc)[:200]}"},
         )
         return False
+
+    # spec-139 M5.T3: stamp the sentinel after every real convergence
+    # invocation (success OR failure). The next Stop within 30 s will
+    # short-circuit when the other clauses hold.
+    _touch_convergence_sentinel(project_root)
 
     # Fail-open: empty failures means "no checks ran" OR "everything
     # passed". Either way we treat it as converged so a sandbox without
@@ -683,6 +818,7 @@ def main() -> None:
         session_id=session_id,
         correlation_id=correlation_id,
         last_prompt=last_prompt,
+        agent_kind=ctx.agent_kind,
     )
     if not reinjected:
         passthrough_stdin(ctx.data)

@@ -1,8 +1,0 @@
-
- Usage: ai-eng spec list [OPTIONS]
-
- Display current spec title and progress.
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help          Show this message and exit.                                  │
-╰──────────────────────────────────────────────────────────────────────────────╯

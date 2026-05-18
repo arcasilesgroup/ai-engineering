@@ -1,9 +1,0 @@
-
- Usage: ai-eng config ide list [OPTIONS]
-
- List active IDE integrations.
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --target  -t      PATH  Target project root.                                 │
-│ --help                  Show this message and exit.                          │
-╰──────────────────────────────────────────────────────────────────────────────╯

@@ -39,6 +39,7 @@ import os
 import re
 import shlex
 import sys
+import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -61,6 +62,52 @@ from _lib.observability import (
 # do not want risk-state.json side effects).
 RISK_DISABLED = (os.environ.get("AIENG_RISK_ACCUMULATOR_DISABLED") or "").strip() == "1"
 _RISK_COMPONENT = "hook.prompt-injection-guard"
+
+# spec-139 M5.T1: module-level mtime LRU caches for the IOC catalogue and
+# decision-store. The PreToolUse hook fires on every Bash/Edit/Write/MultiEdit
+# call; without caching each invocation reparses ~38 KB of JSON from disk.
+# The cache keys on (path, mtime_ns, size, ttl_window) — any change to the
+# file invalidates the cache. Fail-open: any cache error falls back to a
+# fresh read so a corrupt mtime never traps the host hook.
+#
+# Tunables:
+# - ``AIENG_HOOK_CACHE_TTL_SEC`` (default 300): a wall-clock fallback so
+#   long-lived interpreters (worktree shells, watch loops) eventually drop
+#   the cache even when mtime is stable.
+_IOC_CACHE: tuple[float, float, int, dict[str, Any]] | None = None
+_DECISION_STORE_CACHE: tuple[float, float, int, dict[str, Any]] | None = None
+
+
+def _hook_cache_ttl() -> float:
+    """Return the per-process cache TTL in seconds.
+
+    Reads ``AIENG_HOOK_CACHE_TTL_SEC`` once per call (cheap env lookup).
+    Defaults to 300 s. Negative / unparseable values fall back to the
+    default so a stray env var never disables the cache silently.
+    """
+    raw = (os.environ.get("AIENG_HOOK_CACHE_TTL_SEC") or "").strip()
+    if not raw:
+        return 300.0
+    try:
+        value = float(raw)
+    except ValueError:
+        return 300.0
+    if value <= 0:
+        return 300.0
+    return value
+
+
+def _stat_signature(path: Path) -> tuple[float, int] | None:
+    """Return ``(mtime_ns, size)`` for ``path``, or ``None`` on stat failure.
+
+    Returning ``None`` on any OS error keeps the cache miss path deterministic
+    — the caller falls back to a fresh read rather than crashing.
+    """
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (float(st.st_mtime_ns), int(st.st_size))
 
 
 def _apply_risk(
@@ -402,35 +449,16 @@ def _ioc_catalog_path(project_root: Path) -> Path:
     return project_root / _IOC_RELATIVE
 
 
-def load_iocs(project_root: Path) -> dict[str, Any]:
-    """Load the vendored IOC catalog (fail-open).
+def _parse_ioc_catalog(payload: Any) -> dict[str, Any]:
+    """Apply spec107_aliases dereference to a freshly-parsed catalog payload.
 
-    Returns an empty dict when the file is missing or corrupt — downstream
-    callers treat empty as "no IOC layer active" so a missing or broken
-    catalog never blocks the host. This is the deliberate fail-open
-    posture: spec-107 D-107-05 prefers availability over secret-leak
-    blocking when the catalog itself is absent (e.g. fresh checkout).
-
-    spec-122-a (D-122-04): the catalog now stores only canonical
-    category keys (``suspicious_network``, ``dangerous_commands``).
-    Alias keys that legacy callers depend on (``malicious_domains``,
-    ``shell_patterns``) are derived at load time from the
-    ``spec107_aliases`` pointer map, which removes ~30 LOC of
-    duplicated payload from ``iocs.json``. Pointers to unknown
-    canonical keys are silently skipped (defensive: malformed catalog
-    must never break callers).
+    Pulled out of :func:`load_iocs` so the cache fast-path can re-use the
+    same dereferenced dict without re-parsing JSON. ``payload`` is the raw
+    ``json.loads`` result; non-dict values collapse to an empty dict
+    (fail-open).
     """
-    path = _ioc_catalog_path(project_root)
-    if not path.exists():
-        return {}
-    try:
-        raw = path.read_text(encoding="utf-8")
-        payload = json.loads(raw)
-    except (OSError, json.JSONDecodeError):
-        return {}
     if not isinstance(payload, dict):
         return {}
-
     # Dereference spec107_aliases: alias_key -> canonical_key. Inject the
     # canonical payload under the alias name so downstream evaluators that
     # reference the alias key continue to work without per-callsite changes.
@@ -447,8 +475,60 @@ def load_iocs(project_root: Path) -> dict[str, Any]:
                 # Pointer to a missing canonical — skip silently (fail-open).
                 continue
             payload[alias_key] = canonical
-
     return payload
+
+
+def load_iocs(project_root: Path) -> dict[str, Any]:
+    """Load the vendored IOC catalog (fail-open + module-level mtime cache).
+
+    Returns an empty dict when the file is missing or corrupt — downstream
+    callers treat empty as "no IOC layer active" so a missing or broken
+    catalog never blocks the host. This is the deliberate fail-open
+    posture: spec-107 D-107-05 prefers availability over secret-leak
+    blocking when the catalog itself is absent (e.g. fresh checkout).
+
+    spec-122-a (D-122-04): the catalog now stores only canonical
+    category keys (``suspicious_network``, ``dangerous_commands``).
+    Alias keys that legacy callers depend on (``malicious_domains``,
+    ``shell_patterns``) are derived at load time from the
+    ``spec107_aliases`` pointer map, which removes ~30 LOC of
+    duplicated payload from ``iocs.json``. Pointers to unknown
+    canonical keys are silently skipped (defensive: malformed catalog
+    must never break callers).
+
+    spec-139 M5.T1: the parsed catalog (~38 KB) is cached at module scope
+    keyed on (mtime_ns, size, last-load-wall-clock). A fresh stat returns
+    the cached dict when (mtime_ns, size) match the cache key AND the
+    cache age is below ``AIENG_HOOK_CACHE_TTL_SEC``. The cache is shared
+    across hook invocations within a single Python process (worktree
+    shells, watch loops). Fail-open: any cache error reverts to a fresh
+    read so a corrupt mtime never traps the host hook.
+    """
+    global _IOC_CACHE
+    path = _ioc_catalog_path(project_root)
+    if not path.exists():
+        # Drop a stale cache when the catalog disappears between calls.
+        _IOC_CACHE = None
+        return {}
+    sig = _stat_signature(path)
+    now = time.monotonic()
+    ttl = _hook_cache_ttl()
+    cache = _IOC_CACHE
+    if cache is not None and sig is not None:
+        cached_loaded_at, cached_mtime, cached_size, cached_payload = cache
+        if cached_mtime == sig[0] and cached_size == sig[1] and (now - cached_loaded_at) <= ttl:
+            return cached_payload
+    try:
+        raw = path.read_text(encoding="utf-8")
+        payload = json.loads(raw)
+    except (OSError, json.JSONDecodeError):
+        _IOC_CACHE = None
+        return {}
+    parsed = _parse_ioc_catalog(payload)
+    # Cache only when stat succeeded — otherwise we cannot validate the
+    # next call cheaply and would risk serving a stale catalog forever.
+    _IOC_CACHE = (now, sig[0], sig[1], parsed) if sig is not None else None
+    return parsed
 
 
 def _decision_store_path(project_root: Path) -> Path:
@@ -486,6 +566,41 @@ def canonical_finding_id(category: str, pattern: str) -> str:
     return f"sentinel-{category}-{_normalize_pattern(pattern)}"
 
 
+def _load_decision_store(project_root: Path) -> dict[str, Any]:
+    """Load + cache the project decision-store.json (fail-open).
+
+    spec-139 M5.T1: separate module-level cache from the IOC catalogue —
+    the decision-store is mutated by ``ai-eng risk accept`` so we still
+    invalidate on mtime change, but cache hits within the same TTL avoid
+    the per-call JSON parse. Returns an empty dict on any I/O / parse
+    failure so callers transparently treat it as "no acceptances".
+    """
+    global _DECISION_STORE_CACHE
+    store_path = _decision_store_path(project_root)
+    if not store_path.exists():
+        _DECISION_STORE_CACHE = None
+        return {}
+    sig = _stat_signature(store_path)
+    now = time.monotonic()
+    ttl = _hook_cache_ttl()
+    cache = _DECISION_STORE_CACHE
+    if cache is not None and sig is not None:
+        cached_loaded_at, cached_mtime, cached_size, cached_payload = cache
+        if cached_mtime == sig[0] and cached_size == sig[1] and (now - cached_loaded_at) <= ttl:
+            return cached_payload
+    try:
+        raw = store_path.read_text(encoding="utf-8")
+        payload = json.loads(raw)
+    except (OSError, json.JSONDecodeError):
+        _DECISION_STORE_CACHE = None
+        return {}
+    if not isinstance(payload, dict):
+        _DECISION_STORE_CACHE = None
+        return {}
+    _DECISION_STORE_CACHE = (now, sig[0], sig[1], payload) if sig is not None else None
+    return payload
+
+
 def find_active_risk_acceptance(
     project_root: Path,
     finding_id: str,
@@ -507,18 +622,12 @@ def find_active_risk_acceptance(
 
     Returns the matching decision dict, or ``None``. Failures opening or
     parsing the store are treated as "no acceptance" — the hook never
-    crashes the host on malformed state.
+    crashes the host on malformed state. The store payload is fetched
+    via the module-level cache (spec-139 M5.T1).
     """
     reference = now or datetime.now(UTC)
-    store_path = _decision_store_path(project_root)
-    if not store_path.exists():
-        return None
-    try:
-        raw = store_path.read_text(encoding="utf-8")
-        payload = json.loads(raw)
-    except (OSError, json.JSONDecodeError):
-        return None
-    if not isinstance(payload, dict):
+    payload = _load_decision_store(project_root)
+    if not payload:
         return None
     decisions = payload.get("decisions")
     if not isinstance(decisions, list):

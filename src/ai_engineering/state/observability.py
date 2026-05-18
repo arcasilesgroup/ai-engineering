@@ -836,6 +836,54 @@ def emit_control_outcome(
     return entry
 
 
+def emit_host_capacity(
+    project_root: Path,
+    *,
+    caller: str,
+    probe_payload: dict[str, object],
+    component: str = "host-preflight",
+    source: str | None = None,
+    correlation_id: str | None = None,
+    metadata: dict[str, object] | None = None,
+) -> FrameworkEvent:
+    """Emit a canonical ``host_capacity`` event (spec-139 M2 D-139-02).
+
+    Skill-side callers (``/ai-autopilot`` Phase 0, ``/ai-build`` step 0)
+    consult :func:`ai_engineering.adapters.host.probe` and forward the
+    resulting :class:`HostProbe` payload here so the dispatch decision
+    is auditable in ``framework-events.ndjson``. The CLI surface
+    (``ai-eng host probe``) does NOT emit -- the operator is the caller,
+    no skill dispatched.
+
+    Parameters
+    ----------
+    caller:
+        Identifier of the dispatching skill, e.g. ``"ai-autopilot"`` or
+        ``"ai-build"``. Stamped onto ``detail.caller`` so audit tooling
+        can correlate the probe with the dispatch wave it gated.
+    probe_payload:
+        ``asdict(HostProbe)`` plus any derived fields the caller wishes
+        to retain (``ok_to_dispatch``, ``recommended_cap``). Merged into
+        ``detail`` as-is; sort the keys at the call site if you care
+        about wire stability.
+    """
+    detail: dict[str, object] = {"caller": caller}
+    detail.update(probe_payload)
+    if metadata:
+        detail.update(metadata)
+    entry = build_framework_event(
+        project_root,
+        engine="ai_engineering",
+        kind="host_capacity",
+        component=component,
+        source=source,
+        correlation_id=correlation_id,
+        detail=detail,
+    )
+    append_framework_event(project_root, entry)
+    return entry
+
+
 def emit_framework_operation(
     project_root: Path,
     *,

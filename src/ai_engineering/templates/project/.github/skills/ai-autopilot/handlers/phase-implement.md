@@ -46,12 +46,35 @@ If all sub-specs in the wave are blocked, the wave is empty. Log and proceed to 
 
 #### 2b -- Dispatch the Build Agent Per Sub-Spec (Parallel)
 
-For each non-blocked sub-spec in the wave, dispatch the build agent with a fresh context containing:
+##### Concurrency cap (spec-139 M1)
+
+Before dispatch, read the wave concurrency cap (same primitive as Phase 2):
+
+1. Read `AIENG_MAX_WAVE_AGENTS` from the environment (positive integer; clamped to `[1, 64]`).
+2. If unset, read `performance.concurrency.max_wave_agents` from `.ai-engineering/manifest.yml`. Value `"auto"` (default) defers to the framework's host-capacity auto-tune; positive integers override.
+3. If both unset, the framework derives `cap` from host capacity per D-139-01: floor `2`, ceiling `6`, dropping to `1` if the host probe reports memory pressure ≥ 50 %.
+
+Dispatch in batches of `cap` build agents within the current wave. Await each batch before dispatching the next. After every batch boundary emit a framework event:
+
+```
+event: wave_dispatch_batched
+phase: implement
+wave_index: W (one-based, matches DAG wave numbering)
+batch_index: K (zero-based, within the wave)
+batch_size: <number dispatched in this batch>
+cap: <resolved cap>
+wave_sub_spec_count: <count of non-blocked sub-specs in this wave>
+```
+
+The cap is consulted by the dispatching agent at runtime — read the env var first, then the manifest, then fall back to the framework default. The cap applies within a single wave; the DAG wave boundary itself is independent of `cap`.
+
+For each non-blocked sub-spec in the current batch, dispatch the build agent with a fresh context containing:
 
 1. **Sub-spec scope and exploration** -- from `.ai-engineering/runtime/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
 1b. **Sub-spec plan** -- from `.ai-engineering/runtime/autopilot/sub-NNN/plan.md` (task checkboxes).
 2. **Decision-store constraints** -- relevant entries from `state/state.db.decisions` that apply to this sub-spec's domain.
 3. **Stack standards** -- passed as file path references from the `context_paths` list resolved in Phase 0. Agents read these files on demand if they need stack guidance. Do NOT embed full context file content in the dispatch prompt — pass paths only: `"Stack guidance available at: [context_paths]. Read on demand if needed."`.
+3b. **STACK_CONTEXT (spec-139 M3)** -- every Build agent invocation MUST include `STACK_CONTEXT=<JSON>` in the dispatch prompt. The JSON is the verbatim payload written by Phase 0 (`.ai-engineering/runtime/autopilot/<active>/stack-context.json`) — stacks list plus per-stack test/format/lint commands. Build agents read STACK_CONTEXT from the dispatch prompt; they do NOT re-read `manifest.yml`. The dispatcher already resolved it in Phase 0 — propagation is free.
 4. **Inline guard suppression** -- when dispatched by autopilot, include this directive: `"skip_inline_guard: true — governance advisory is handled at wave level, not per-file. Do NOT dispatch the guard agent on individual file edits."` This overrides the build agent's default per-file guard behavior within the autopilot context only.
 5. **File boundary enforcement** -- explicit instruction embedded in the agent prompt:
 
@@ -121,12 +144,16 @@ After all agents in the wave complete (success or failure):
 
    The script rewrites the frontmatter `total` / `completed` to match the real `- [x]` count in the body. Honest tracking is mandatory — never trust a hand-written `completed:` value.
 
-2. **Commit the wave's changes:**
+2. **Compose the wave commit subject deterministically (spec-139 M8 D-139-06).** Build a one-line description from the wave's sub-spec titles and feed it to `commit_compose.py` via `--desc`. **Never rely on the legacy `<DESC>` placeholder LLM call.**
 
    ```bash
+   WAVE_DESC="wave W -- [comma-separated sub-spec titles]"
+   SUBJECT=$(python3 .ai-engineering/scripts/commit_compose.py --type feat --desc "$WAVE_DESC")
    git add [files from all sub-specs in this wave]
-   git commit -m "spec-NNN: wave W -- [comma-separated sub-spec titles]"
+   git commit -m "$SUBJECT"
    ```
+
+   `commit_compose.py` reads `.ai-engineering/specs/spec.md` frontmatter to inject the `spec-NNN` scope so the final subject reads `feat(spec-NNN): wave W -- ...`. The `--desc` flag is mandatory; omitting it leaves a `<DESC>` placeholder that the framework no longer fills.
 
 Commit scope:
 - Include only files owned by sub-specs in this wave, plus the sub-plan files re-synced in step 3.1.

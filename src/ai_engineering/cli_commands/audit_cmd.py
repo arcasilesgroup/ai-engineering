@@ -667,12 +667,14 @@ def audit_health(
         "migrations": [],
         "ok": True,
     }
+    # ``hooks_integrity`` was dropped in migration 0008 per spec-138 D-138-01;
+    # the manifest at ``state/hooks-manifest.json`` (sha256 truth) plus the
+    # NDJSON ``integrity_violation`` event stream cover the surface.
     required_tables = {
         "events",
         "decisions",
         "risk_acceptances",
         "gate_findings",
-        "hooks_integrity",
         "ownership_map",
         "install_steps",
         "_migrations",

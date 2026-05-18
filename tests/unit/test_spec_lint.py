@@ -39,6 +39,7 @@ pr: arcasilesgroup/ai-engineering#509
 target_dispatch: /ai-autopilot
 source_brief: .ai-engineering/specs/drafts/dx-excellence-refactor-brief.md
 chains_after: spec-129
+summary: DX excellence refactor lands the canonical chain skeleton.
 ---
 
 ## Summary
@@ -52,6 +53,7 @@ spec: spec-129
 title: Spec 129
 status: approved
 effort: medium
+summary: Minimal spec fixture used by the spec_lint frontmatter test suite.
 ---
 
 ## Summary

@@ -37,6 +37,7 @@ from ai_engineering.doctor.models import DoctorContext
 from ai_engineering.doctor.remediation import RemediationEngine
 from ai_engineering.doctor.runtime.feeds import validate_feeds_for_install
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
+from ai_engineering.installer.identity import initialize_manifest_project_name
 from ai_engineering.installer.phases import (
     PHASE_GOVERNANCE,
     PHASE_HOOKS,
@@ -171,6 +172,7 @@ def install(
     result.governance_files = copy_template_tree(
         src_root, ai_eng_dir, exclude=["agents/", "skills/", "team/"]
     )
+    initialize_manifest_project_name(target)
 
     result.project_files = copy_project_templates(target, surfaces=surfaces)
 
@@ -303,6 +305,7 @@ def install_with_pipeline(
     result = _summary_to_install_result(summary, mode)
 
     if not dry_run:
+        initialize_manifest_project_name(target, force=mode is InstallMode.FRESH)
         _write_providers(target, stacks=stacks, vcs_provider=vcs_provider)
         _write_surfaces(target, surfaces)
 

@@ -99,7 +99,8 @@ def _prepare_project(tmp_path: Path) -> Path:
             runtime_path.symlink_to(sys.executable)
         except (OSError, NotImplementedError):
             shutil.copy2(sys.executable, runtime_path)
-        runtime_path.chmod(runtime_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
+        if not runtime_path.is_symlink():
+            runtime_path.chmod(runtime_path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP)
 
     manifest_path = tmp_path / ".ai-engineering" / "manifest.yml"
     manifest_path.parent.mkdir(parents=True, exist_ok=True)

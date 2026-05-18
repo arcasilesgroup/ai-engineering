@@ -194,6 +194,25 @@ def _is_cache_debug() -> bool:
     return os.environ.get("AIENG_CACHE_DEBUG") == "1"
 
 
+def _max_thread_workers() -> int:
+    """Resolve the ``ThreadPoolExecutor`` worker cap (spec-139 M1.T5).
+
+    Reads ``AIENG_MAX_THREAD_WORKERS`` (env) or
+    ``performance.concurrency.max_thread_workers`` (manifest), defaulting
+    to ``THREAD_WORKERS_DEFAULT`` (4). Callers still wrap the result with
+    ``min(N, cap)`` to preserve the "shrink to fit" behaviour when there
+    are fewer items than the cap.
+    """
+    # Imported locally so a missing config module never breaks the
+    # orchestrator hot path — fall back to the historical implicit
+    # ceiling of 4 if anything goes wrong.
+    try:
+        from ai_engineering.config.concurrency import resolve_thread_workers
+    except Exception:
+        return 4
+    return resolve_thread_workers()
+
+
 # --- Wave 1 helpers ---------------------------------------------------------
 
 
@@ -486,7 +505,12 @@ def run_wave2(
                 continue
             _aggregate_one_checker(outcome, findings, cache_hits, cache_misses, accounted)
     else:
-        max_workers = max(1, len(checkers))
+        # spec-139 M1.T5: cap fan-out at AIENG_MAX_THREAD_WORKERS (default 4)
+        # to prevent the unbounded ThreadPoolExecutor allocation class.
+        # ``max(1, ...)`` preserves the floor for the single-checker case
+        # where both len(checkers) and the cap could theoretically agree at
+        # a smaller positive value but min(0, x) would still be 0.
+        max_workers = max(1, min(len(checkers), _max_thread_workers()))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_check = {
                 executor.submit(
@@ -1206,7 +1230,9 @@ def run_gate(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
             )
             _merge_outcome(outcome, findings, cache_hits, cache_misses, accounted)
     else:
-        max_workers = max(1, len(spec_list))
+        # spec-139 M1.T5: cap dispatch fan-out at AIENG_MAX_THREAD_WORKERS
+        # (default 4) — single global ceiling shared with the Wave 2 site.
+        max_workers = max(1, min(len(spec_list), _max_thread_workers()))
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             future_to_spec = {
                 executor.submit(

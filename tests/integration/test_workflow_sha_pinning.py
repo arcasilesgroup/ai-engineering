@@ -114,6 +114,11 @@ def test_all_actions_pinned_to_sha() -> None:
     for workflow_path in workflow_files:
         parsed = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))
         for uses in _iter_uses(parsed):
+            # Local composite actions (paths starting with ``./``) live
+            # alongside the workflow and are pinned by the repo commit
+            # itself; they have no upstream tag/SHA to pin against.
+            if uses.startswith("./"):
+                continue
             owner = _extract_owner(uses)
             if owner == SELF_REFERENCE_OWNER:
                 continue

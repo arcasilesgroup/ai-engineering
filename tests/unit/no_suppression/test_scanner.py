@@ -63,6 +63,19 @@ class TestScanText:
         findings = scan_text(Path("a.ts"), text)
         assert findings and findings[0].rule_id == "eslint_disable_slash"
 
+    def test_detects_nosemgrep_without_target(self) -> None:
+        """spec-141 M3 — bare `# nosemgrep` marker is detected as a finding."""
+        text = "x = eval(user_input)  # nosemgrep\n"
+        findings = scan_text(Path("a.py"), text)
+        assert findings and findings[0].rule_id == "nosemgrep_hash"
+
+    def test_detects_nosemgrep_with_rule_target(self) -> None:
+        """spec-141 M3 — `# nosemgrep: rule-id` captures the rule target."""
+        text = "x = eval(user_input)  # nosemgrep: aieng.injection.eval-usage\n"
+        findings = scan_text(Path("a.py"), text)
+        assert findings and findings[0].rule_id == "nosemgrep_hash"
+        assert findings[0].rule_target == "aieng.injection.eval-usage"
+
     def test_clean_file_has_no_findings(self) -> None:
         text = "def f():\n    return 1\n# this is a regular comment\n"
         assert scan_text(Path("a.py"), text) == []

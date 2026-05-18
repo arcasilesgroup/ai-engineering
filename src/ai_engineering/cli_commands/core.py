@@ -6,6 +6,7 @@ Human-first Rich output by default; ``--json`` for agent consumption.
 
 from __future__ import annotations
 
+import subprocess
 import sys
 from functools import partial
 from pathlib import Path
@@ -231,6 +232,8 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         auto_remediation_report=auto_remediation_report,
         no_auto_remediate=no_auto_remediate,
     )
+
+    _finalize_hooks_manifest(root)
 
     _render_install_success(
         root,
@@ -689,6 +692,36 @@ def _render_install_success(
         resolved_vcs=resolved_vcs,
         active_surfaces=active_surfaces,
     )
+
+
+def _finalize_hooks_manifest(root: Path) -> None:
+    """spec-142 D-142-05: regenerate hooks-manifest after install.
+
+    Fail-open: if the script is missing, exits non-zero, or times out,
+    emit a one-line stderr warning and continue. The dashboard's
+    ``unverified`` state (D-142-04) covers the partial case.
+    """
+    regen = root / ".ai-engineering" / "scripts" / "regenerate-hooks-manifest.py"
+    if not regen.is_file():
+        return
+    try:
+        result = subprocess.run(
+            [sys.executable, str(regen)],
+            cwd=root,
+            check=False,
+            timeout=30,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        print(f"warning: regenerate-hooks-manifest failed: {exc}", file=sys.stderr)
+        return
+    if result.returncode != 0:
+        print(
+            f"warning: regenerate-hooks-manifest exited {result.returncode}; "
+            f"hooks-manifest.json may be missing or stale",
+            file=sys.stderr,
+        )
 
 
 def _emit_install_success_json(
@@ -1251,7 +1284,10 @@ def doctor_cmd(
         str | None,
         typer.Option(
             "--check",
-            help="Run a focused sub-check (e.g., 'hot-path' for SLO budgets).",
+            help=(
+                "Run a focused sub-check: 'hot-path' (SLO budgets, advisory) "
+                "or 'state-db' (table-by-table health report, informational)."
+            ),
         ),
     ] = None,
 ) -> None:
@@ -1260,7 +1296,8 @@ def doctor_cmd(
     Exit codes: 0 (pass), 1 (fail), 2 (warnings only). When ``--check
     hot-path`` is passed, runs the spec-114 advisory hot-path SLO
     audit and always exits 0 per D-114-03 (advisory through
-    2026-05-31).
+    2026-05-31). When ``--check state-db`` is passed, runs the spec-138
+    M5.T3 informational state.db health report and always exits 0.
     """
     if output_json:
         set_json_mode(True)
@@ -1292,15 +1329,28 @@ def doctor_cmd(
 
 
 def _run_focused_doctor_check(root: Path, focused_check: str | None) -> bool:
-    """Run a focused doctor sub-check when requested."""
+    """Run a focused doctor sub-check when requested.
+
+    Supported values:
+    * ``hot-path`` -- spec-114 advisory SLO audit (D-114-03).
+    * ``state-db`` -- spec-138 M5.T3 informational state.db health
+      report (always exit 0; never blocks).
+    """
     if focused_check is None:
         return False
-    if focused_check != "hot-path":
-        raise typer.BadParameter(f"Unknown --check value: {focused_check!r}. Supported: hot-path.")
-    from ai_engineering.cli_commands.doctor_hot_path import run_hot_path_check
+    if focused_check == "hot-path":
+        from ai_engineering.cli_commands.doctor_hot_path import run_hot_path_check
 
-    run_hot_path_check(root)
-    return True
+        run_hot_path_check(root)
+        return True
+    if focused_check == "state-db":
+        from ai_engineering.cli_commands.doctor_state_db import run_state_db_check
+
+        run_state_db_check(root)
+        return True
+    raise typer.BadParameter(
+        f"Unknown --check value: {focused_check!r}. Supported: hot-path, state-db."
+    )
 
 
 def _emit_doctor_json(report: DoctorReport, *, fixable_count: int) -> None:

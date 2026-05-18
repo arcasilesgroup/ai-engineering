@@ -23,6 +23,10 @@ Produce structured context that makes other agents more effective. Read everythi
 
 ## Behavior
 
+### 0. Stack Context (spec-139 M3)
+
+When you need to know the project's active stacks, read `STACK_CONTEXT` from your dispatch prompt — do NOT re-read `manifest.yml` from disk. The dispatcher already resolved it in Phase 0. The variable carries the resolved `stacks` list plus per-stack test/format/lint commands. When dispatched outside an autopilot run with no `STACK_CONTEXT` supplied, fall back to `ai_engineering.autopilot.stack_context.resolve_stack_context()` rather than reading `manifest.yml` directly.
+
 ### 1. Scope the Investigation
 
 Determine what the requesting agent or user needs:

@@ -11,10 +11,11 @@ Idempotent: ``ON CONFLICT(...) DO NOTHING`` for everything except
 projection in sync if the source JSON evolved between reads.
 
 The fifth file referenced in the spec (``hooks-manifest.json``) is a
-sha256 manifest, not a verification log -- the projection target
-``hooks_integrity`` is a verification ledger populated at runtime by
-``run_hook_safe``. This migration therefore creates ZERO rows in
-``hooks_integrity``; runtime hook checks land their first rows.
+sha256 manifest, not a verification log -- it remains the canonical
+source of truth for registered hook script integrity. This migration
+seeds nothing from it. The originally-paired ``hooks_integrity`` table
+was dropped in migration ``0008_drop_hooks_integrity`` per spec-138
+D-138-01 (no consumer materialised; manifest + NDJSON cover the surface).
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-BODY_SHA256 = "f09285c9940ca09422b771c969f5d453399404e406017567435edac6b070bfe8"
+BODY_SHA256 = "df209153b50a366e651287ee9095b78549f98c62d88592070783a24a5470a8d8"
 
 _STATE_REL = Path(".ai-engineering") / "state"
 _ARCHIVE_REL = _STATE_REL / "archive" / "pre-state-db"
