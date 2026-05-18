@@ -27,14 +27,27 @@ _SUB_PREFIX = "sub-"
 # blocks. Accepts both single-line flow syntax (``exports: [a, b]``) and
 # block-style YAML lists (``- token``). Tokens are stripped of trailing
 # punctuation and surrounding quotes so common syntactic variants behave
-# identically. The captured group uses a greedy ``.*`` (linear-time)
-# rather than a reluctant quantifier + trailing ``\s*$`` (potential
-# catastrophic backtracking, SonarCloud python:S5852); _normalize_token
-# strips the trailing whitespace.
-_LIST_ITEM_RE = re.compile(r"^\s*-\s+(.*)$")
+# identically. The list-item probe is plain string parsing rather than a
+# regex with ``\s+`` + capturing group + ``$`` (the combination triggers
+# SonarCloud python:S5852 polynomial-backtracking warnings even when the
+# pattern is safe in practice).
 _FLOW_LIST_RE = re.compile(r"^\s*(exports|imports)\s*:\s*\[(.*)\]\s*$")
 _BLOCK_KEY_RE = re.compile(r"^\s*(exports|imports)\s*:\s*$")
 _FRONTMATTER_FENCE_RE = re.compile(r"^---\s*$")
+
+
+def _match_list_item(line: str) -> str | None:
+    """Return the token inside a ``- token`` YAML list line, or ``None``.
+
+    Linear-time alternative to a regex match — no backtracking class.
+    """
+    stripped = line.lstrip()
+    if not stripped.startswith("-"):
+        return None
+    after_dash = stripped[1:]
+    if not after_dash or after_dash[0] not in (" ", "\t"):
+        return None
+    return after_dash.lstrip()
 
 
 def _normalize_token(raw: str) -> str:
@@ -84,9 +97,9 @@ def _parse_exports_imports(text: str) -> tuple[list[str], list[str]]:
             continue
 
         if active is not None:
-            item_match = _LIST_ITEM_RE.match(line)
-            if item_match:
-                token = _normalize_token(item_match.group(1))
+            raw_token = _match_list_item(line)
+            if raw_token is not None:
+                token = _normalize_token(raw_token)
                 if token:
                     if active == "exports":
                         exports.append(token)
