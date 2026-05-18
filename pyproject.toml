@@ -39,7 +39,6 @@ dev = [
   "pip-audit>=2.7.0",
   "types-pyyaml>=6.0,<7.0",
   "pytest-xdist>=3.5,<4.0",
-  "python-semantic-release>=9.0,<10",
   # spec-132 sub-005 D-132-13 — hexagonal direction contract enforcement.
   # ``lint-imports`` runs against ``[tool.importlinter]`` in this file and
   # is policed by ``tests/architecture/test_hexagonal.py``.
@@ -173,33 +172,11 @@ requires = ["hatchling>=1.25.0"]
 build-backend = "hatchling.build"
 
 [tool.uv]
-# Override transitive gitpython pulled in by python-semantic-release.
-# CVE-2026-44244 affects 3.1.47; 3.1.49 carries the fix. Direct override
-# unblocks the Security Audit `pip-audit` gate without waiting for the
-# upstream semantic-release release.
-#
 # Override transitive urllib3 (pulled via requests / pip-audit / others).
 # CVE-2026-44431 + CVE-2026-44432 affect 2.6.3; 2.7.0 carries the fix.
-# Same Security-Audit unblock pattern as gitpython.
 override-dependencies = [
-  "gitpython>=3.1.49",
   "urllib3>=2.7.0",
 ]
-
-[tool.semantic_release]
-version_toml = ["pyproject.toml:project.version"]
-commit_parser = "conventional"
-tag_format = "v{version}"
-major_on_zero = false
-changelog_file = false
-
-[tool.semantic_release.branches.main]
-match = "main"
-
-[tool.semantic_release.commit_parser_options]
-allowed_types = ["feat", "fix", "perf", "refactor", "style", "docs", "test", "build", "ci", "chore", "revert"]
-minor_types = ["feat"]
-patch_types = ["fix", "perf"]
 
 # spec-132 sub-005 D-132-13 — Hexagonal direction contract.
 #

@@ -9,11 +9,13 @@ import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Protocol
+from typing import Protocol, cast
 
 from ai_engineering.git.operations import current_branch, run_git
 from ai_engineering.release.changelog import promote_unreleased, validate_changelog
 from ai_engineering.release.version_bump import (
+    _ROOT_MANIFEST_REL,
+    _TEMPLATE_MANIFEST_REL,
     bump_python_version,
     compare_versions,
     detect_current_version,
@@ -27,6 +29,11 @@ from ai_engineering.vcs.protocol import (
     VcsContext,
     VcsProvider,
 )
+from ai_engineering.verify.service import verify_release
+
+_RELEASE_PACKET_NAME = "release-packet.json"
+_RELEASE_READINESS_NAME = "release-readiness.json"
+_CHANGELOG_REL = Path("CHANGELOG.md")
 
 
 class Clock(Protocol):
@@ -90,6 +97,39 @@ class PhaseResult:
     success: bool
     output: str = ""
     skipped: bool = False
+    details: dict[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class ReleaseDryRunPlan:
+    """Structured no-write preview for governed release execution."""
+
+    old_version: str
+    target_version: str
+    release_branch: str
+    tag: str
+    governed_changed_files: list[str]
+    changelog_promotion: str
+    workflow_trigger: str
+    testpypi_stage: str
+    pypi_stage: str
+    readiness_gate: str
+    release_packet_outputs: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "old_version": self.old_version,
+            "target_version": self.target_version,
+            "release_branch": self.release_branch,
+            "tag": self.tag,
+            "governed_changed_files": list(self.governed_changed_files),
+            "changelog_promotion": self.changelog_promotion,
+            "workflow_trigger": self.workflow_trigger,
+            "testpypi_stage": self.testpypi_stage,
+            "pypi_stage": self.pypi_stage,
+            "readiness_gate": self.readiness_gate,
+            "release_packet_outputs": self.release_packet_outputs,
+        }
 
 
 @dataclass
@@ -105,6 +145,10 @@ class ReleaseResult:
     pipeline_status: str = ""
     errors: list[str] = field(default_factory=list)
     bump_files: list[str] = field(default_factory=list)
+    readiness: dict[str, object] | None = None
+    dry_run_plan: dict[str, object] | None = None
+    release_packet_url: str = ""
+    release_packet_ref: str = ""
 
 
 @dataclass
@@ -146,12 +190,17 @@ def execute_release(
     state = _detect_state(config, provider)
 
     if config.dry_run:
-        dry_output = (
-            f"release_branch={state.release_branch} "
-            f"local_branch_exists={state.local_branch_exists} "
-            f"remote_branch_exists={state.remote_branch_exists} tag_exists={state.tag_exists}"
+        plan = _build_dry_run_plan(config, state)
+        result.dry_run_plan = plan.to_dict()
+        phases.append(
+            PhaseResult(
+                phase="plan",
+                success=True,
+                output=_format_dry_run_plan(result.dry_run_plan),
+                skipped=True,
+                details={"dry_run_plan": result.dry_run_plan},
+            )
         )
-        phases.append(PhaseResult(phase="plan", success=True, output=dry_output, skipped=True))
         result.success = True
         return result
 
@@ -181,9 +230,8 @@ def execute_release(
             )
         )
         result.success = True
-        result.release_url = (
-            f"https://github.com/{_repo_slug(config.project_root)}/releases/tag/{tag_name}"
-        )
+        result.release_url = _release_url_for_tag(config)
+        _attach_release_packet(result)
         return result
 
     if not config.skip_bump:
@@ -214,12 +262,21 @@ def execute_release(
             result.errors.append(wait_phase.output)
             return result
 
+        readiness_phase = _run_release_readiness(config)
+        phases.append(readiness_phase)
+        result.readiness = _readiness_payload(readiness_phase)
+        if not readiness_phase.success:
+            result.errors.append(readiness_phase.output)
+            return result
+
         tag_phase = _create_tag(config, provider)
         phases.append(tag_phase)
         if not tag_phase.success:
             result.errors.append(tag_phase.output)
             return result
 
+        result.release_url = _release_url_for_tag(config)
+        _attach_release_packet(result)
         manifest_phase = _update_manifest(config, clock)
         phases.append(manifest_phase)
         if not manifest_phase.success:
@@ -232,6 +289,8 @@ def execute_release(
             strategy="tag",
             version=config.version,
             result=f"tag={tag_name}",
+            release_packet_url=result.release_packet_url,
+            release_packet_ref=result.release_packet_ref,
         )
 
         monitor_phase = _monitor_pipeline(config, provider, config.wait_timeout)
@@ -241,13 +300,16 @@ def execute_release(
             return result
         result.pipeline_status = monitor_phase.output
         if monitor_phase.output.startswith("http"):
-            result.release_url = monitor_phase.output.splitlines()[0]
+            result.release_url = _release_url_from_monitor(config, monitor_phase.output)
+            _attach_release_packet(result)
         emit_deploy_event(
             config.project_root,
             environment="production",
             strategy="pipeline",
             version=config.version,
             result=monitor_phase.output,
+            release_packet_url=result.release_packet_url,
+            release_packet_ref=result.release_packet_ref,
         )
     else:
         skip_msg = "Tag deferred -- run `ai-eng release <version> --wait` after merge"
@@ -266,6 +328,103 @@ def execute_release(
         if slug:
             result.release_url = f"https://github.com/{slug}/releases/tag/{tag_name}"
     return result
+
+
+def _build_dry_run_plan(config: ReleaseConfig, state: ReleaseState) -> ReleaseDryRunPlan:
+    tag_name = f"v{config.version}"
+    return ReleaseDryRunPlan(
+        old_version=state.current_version,
+        target_version=config.version,
+        release_branch=state.release_branch,
+        tag=tag_name,
+        governed_changed_files=_governed_changed_files(config.project_root),
+        changelog_promotion=(
+            f"Promote {_CHANGELOG_REL.as_posix()} [Unreleased] to [{config.version}]"
+        ),
+        workflow_trigger=f"Push tag {tag_name} to trigger the Release workflow",
+        testpypi_stage="TestPyPI publish and install verification before production",
+        pypi_stage="PyPI publish only after TestPyPI, readiness, and attestations pass",
+        readiness_gate=f"readiness gate: ai-eng verify --release {config.version}",
+        release_packet_outputs=(
+            f"{_RELEASE_READINESS_NAME}, {_RELEASE_PACKET_NAME}, SBOM, checksums, attestations"
+        ),
+    )
+
+
+def _format_dry_run_plan(plan: dict[str, object]) -> str:
+    return "\n".join(f"{key}={value}" for key, value in plan.items())
+
+
+def _governed_changed_files(project_root: Path) -> list[str]:
+    files = ["pyproject.toml", _CHANGELOG_REL.as_posix()]
+    registry = Path("src") / "ai_engineering" / "version" / "registry.json"
+    if (project_root / registry).is_file():
+        files.append(registry.as_posix())
+    if (project_root / _TEMPLATE_MANIFEST_REL).is_file():
+        files.extend([_ROOT_MANIFEST_REL.as_posix(), _TEMPLATE_MANIFEST_REL.as_posix()])
+    return files
+
+
+def _run_release_readiness(config: ReleaseConfig) -> PhaseResult:
+    report = verify_release(config.project_root, config.version)
+    payload = dict(report.to_dict())
+    artifact = config.project_root / ".ai-engineering" / "runtime" / "release" / config.version
+    payload["artifact_path"] = str(artifact / _RELEASE_READINESS_NAME)
+    _write_readiness_payload(Path(str(payload["artifact_path"])), payload)
+    return PhaseResult(
+        phase="readiness",
+        success=bool(report.allows_release),
+        output=_readiness_output(payload),
+        details={"readiness": payload},
+    )
+
+
+def _write_readiness_payload(path: Path, payload: dict[str, object]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _readiness_output(payload: dict[str, object]) -> str:
+    verdict = str(payload.get("verdict", "NO-GO"))
+    conditions = payload.get("conditions")
+    if isinstance(conditions, list) and conditions:
+        return f"{verdict}: {'; '.join(str(condition) for condition in conditions)}"
+    return verdict
+
+
+def _readiness_payload(phase: PhaseResult) -> dict[str, object] | None:
+    payload = phase.details.get("readiness")
+    if isinstance(payload, dict):
+        return cast(dict[str, object], payload)
+    return None
+
+
+def _attach_release_packet(result: ReleaseResult) -> None:
+    if not result.release_url:
+        return
+    result.release_packet_ref = _RELEASE_PACKET_NAME
+    result.release_packet_url = _release_packet_url(result.release_url)
+
+
+def _release_packet_url(release_url: str) -> str:
+    if "/releases/tag/" in release_url:
+        base = release_url.replace("/releases/tag/", "/releases/download/")
+        return f"{base.rstrip('/')}/{_RELEASE_PACKET_NAME}"
+    return f"{release_url.rstrip('/')}/{_RELEASE_PACKET_NAME}"
+
+
+def _release_url_for_tag(config: ReleaseConfig) -> str:
+    slug = _repo_slug(config.project_root)
+    if not slug:
+        return ""
+    return f"https://github.com/{slug}/releases/tag/v{config.version}"
+
+
+def _release_url_from_monitor(config: ReleaseConfig, output: str) -> str:
+    url = output.splitlines()[0].strip()
+    if "/actions/runs/" not in url:
+        return url
+    return _release_url_for_tag(config) or url
 
 
 def _validate(config: ReleaseConfig, provider: VcsProvider) -> list[str]:
@@ -309,9 +468,9 @@ def _validate(config: ReleaseConfig, provider: VcsProvider) -> list[str]:
         if not auth.success:
             errors.append(f"VCS auth check failed: {auth.output}")
 
-    changelog_path = config.project_root / "CHANGELOG.md"
+    changelog_path = config.project_root / _CHANGELOG_REL
     if not changelog_path.exists():
-        errors.append("CHANGELOG.md not found")
+        errors.append(f"{_CHANGELOG_REL.as_posix()} not found")
     else:
         errors.extend(validate_changelog(changelog_path, config.version))
 
@@ -363,16 +522,16 @@ def _prepare_branch(config: ReleaseConfig, clock: Clock) -> PhaseResult:
         return PhaseResult(phase="prepare", success=False, output=str(exc))
 
     today = clock.utcnow().strftime("%Y-%m-%d")
-    changelog_path = config.project_root / "CHANGELOG.md"
+    changelog_path = config.project_root / _CHANGELOG_REL
     if not promote_unreleased(changelog_path, config.version, today):
         return PhaseResult(
             phase="prepare",
             success=False,
-            output="Failed to promote [Unreleased] in CHANGELOG.md",
+            output=f"Failed to promote [Unreleased] in {_CHANGELOG_REL.as_posix()}",
         )
 
     files_to_add = [str(p.relative_to(config.project_root)) for p in bump.files_modified]
-    files_to_add.append("CHANGELOG.md")
+    files_to_add.append(_CHANGELOG_REL.as_posix())
     add_ok, add_out = run_git(["add", *files_to_add], config.project_root)
     if not add_ok:
         return PhaseResult(phase="prepare", success=False, output=f"git add failed: {add_out}")

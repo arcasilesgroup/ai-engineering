@@ -22,6 +22,7 @@ from ai_engineering.release.orchestrator import (
     _parse_runs,
     _prepare_branch,
     _repo_slug,
+    _run_release_readiness,
     _update_manifest,
     _validate,
     _version_from_git_ref,
@@ -104,6 +105,26 @@ class _Runner:
         return self.ok, self.out
 
 
+def _readiness_phase(
+    verdict: str = "GO",
+    *,
+    success: bool = True,
+    conditions: list[str] | None = None,
+) -> PhaseResult:
+    return PhaseResult(
+        "readiness",
+        success,
+        verdict,
+        details={
+            "readiness": {
+                "verdict": verdict,
+                "conditions": conditions or [],
+                "artifact_path": ".ai-engineering/runtime/release/0.2.0/release-readiness.json",
+            }
+        },
+    )
+
+
 def test_execute_release_returns_validation_errors(tmp_path: Path) -> None:
     # Arrange
     config = ReleaseConfig(version="0.2.0", project_root=tmp_path)
@@ -142,6 +163,15 @@ def test_execute_release_dry_run_outputs_plan(tmp_path: Path) -> None:
     # Assert
     assert result.success is True
     assert any(phase.phase == "plan" and phase.skipped for phase in result.phases)
+    assert result.dry_run_plan is not None
+    assert result.dry_run_plan["old_version"] == "0.1.0"
+    assert result.dry_run_plan["target_version"] == "0.2.0"
+    assert result.dry_run_plan["release_branch"] == "release/v0.2.0"
+    assert result.dry_run_plan["tag"] == "v0.2.0"
+    assert "readiness gate" in result.dry_run_plan["readiness_gate"]
+    assert "TestPyPI" in result.dry_run_plan["testpypi_stage"]
+    assert "PyPI" in result.dry_run_plan["pypi_stage"]
+    assert "release-packet.json" in result.dry_run_plan["release_packet_outputs"]
 
 
 def test_execute_release_noops_when_tag_exists(tmp_path: Path) -> None:
@@ -473,6 +503,10 @@ def test_execute_release_wait_path_success(tmp_path: Path) -> None:
             return_value=PhaseResult("wait-for-merge", True, "https://example/pr/1"),
         ),
         patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase(),
+        ),
+        patch(
             "ai_engineering.release.orchestrator._create_tag",
             return_value=PhaseResult("tag", True, "ok"),
         ),
@@ -492,6 +526,175 @@ def test_execute_release_wait_path_success(tmp_path: Path) -> None:
     assert result.success is True
     assert result.pr_url == "https://example/pr/1"
     assert result.release_url == "https://example/release/v0.2.0"
+    assert [phase.phase for phase in result.phases][3:6] == [
+        "wait-for-merge",
+        "readiness",
+        "tag",
+    ]
+
+
+def test_run_release_readiness_writes_runtime_artifact(tmp_path: Path, monkeypatch) -> None:
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+
+    class _Report:
+        verdict = "GO"
+        allows_release = True
+
+        def __init__(self) -> None:
+            self.conditions: list[str] = []
+
+        def to_dict(self) -> dict[str, object]:
+            return {
+                "version": "0.2.0",
+                "verdict": "GO",
+                "conditions": [],
+                "dimensions": {"security": {"status": "PASS"}},
+                "artifact_path": str(tmp_path / "ignored.json"),
+            }
+
+    monkeypatch.setattr("ai_engineering.release.orchestrator.verify_release", lambda *_: _Report())
+
+    phase = _run_release_readiness(cfg)
+
+    assert phase.success is True
+    assert phase.details["readiness"]["verdict"] == "GO"
+    readiness_path = (
+        tmp_path / ".ai-engineering" / "runtime" / "release" / "0.2.0" / "release-readiness.json"
+    )
+    assert readiness_path.is_file()
+
+
+def test_execute_release_readiness_runs_after_merge_before_tag(tmp_path: Path) -> None:
+    config = ReleaseConfig(version="0.2.0", project_root=tmp_path, wait=True)
+    provider = _FakeProvider()
+    state = ReleaseState("release/v0.2.0", False, False, False, "0.1.0")
+    calls: list[str] = []
+
+    def wait_phase(*_args) -> PhaseResult:
+        calls.append("wait")
+        return PhaseResult("wait-for-merge", True, "merged")
+
+    def readiness_phase(_config: ReleaseConfig) -> PhaseResult:
+        calls.append("readiness")
+        return _readiness_phase()
+
+    def tag_phase(_config: ReleaseConfig, _provider: _FakeProvider) -> PhaseResult:
+        calls.append("tag")
+        return PhaseResult("tag", True, "ok")
+
+    with (
+        patch("ai_engineering.release.orchestrator._validate", return_value=[]),
+        patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
+        patch(
+            "ai_engineering.release.orchestrator._prepare_branch",
+            return_value=PhaseResult("prepare", True, "pyproject.toml"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._create_release_pr",
+            return_value=PhaseResult("pr", True, "https://example/pr/1"),
+        ),
+        patch("ai_engineering.release.orchestrator._wait_for_merge", side_effect=wait_phase),
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            side_effect=readiness_phase,
+        ),
+        patch("ai_engineering.release.orchestrator._create_tag", side_effect=tag_phase),
+        patch(
+            "ai_engineering.release.orchestrator._update_manifest",
+            return_value=PhaseResult("manifest", True, "ok"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._monitor_pipeline",
+            return_value=PhaseResult("monitor", True, "https://example/release/v0.2.0"),
+        ),
+        patch("ai_engineering.release.orchestrator.emit_deploy_event"),
+    ):
+        result = execute_release(config, provider, clock=_FixedClock())
+
+    assert result.success is True
+    assert calls == ["wait", "readiness", "tag"]
+
+
+def test_execute_release_blocks_tag_on_readiness_no_go(tmp_path: Path) -> None:
+    config = ReleaseConfig(version="0.2.0", project_root=tmp_path, wait=True)
+    provider = _FakeProvider()
+    state = ReleaseState("release/v0.2.0", False, False, False, "0.1.0")
+
+    with (
+        patch("ai_engineering.release.orchestrator._validate", return_value=[]),
+        patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
+        patch(
+            "ai_engineering.release.orchestrator._prepare_branch",
+            return_value=PhaseResult("prepare", True, "pyproject.toml"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._create_release_pr",
+            return_value=PhaseResult("pr", True, "https://example/pr/1"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._wait_for_merge",
+            return_value=PhaseResult("wait-for-merge", True, "merged"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase("NO-GO", success=False),
+        ),
+        patch("ai_engineering.release.orchestrator._create_tag") as tag,
+    ):
+        result = execute_release(config, provider, clock=_FixedClock())
+
+    assert result.success is False
+    assert result.phases[-1].phase == "readiness"
+    assert result.errors == ["NO-GO"]
+    tag.assert_not_called()
+
+
+def test_execute_release_conditional_readiness_proceeds_and_records_conditions(
+    tmp_path: Path,
+) -> None:
+    config = ReleaseConfig(version="0.2.0", project_root=tmp_path, wait=True)
+    provider = _FakeProvider()
+    state = ReleaseState("release/v0.2.0", False, False, False, "0.1.0")
+
+    with (
+        patch("ai_engineering.release.orchestrator._validate", return_value=[]),
+        patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
+        patch(
+            "ai_engineering.release.orchestrator._prepare_branch",
+            return_value=PhaseResult("prepare", True, "pyproject.toml"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._create_release_pr",
+            return_value=PhaseResult("pr", True, "https://example/pr/1"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._wait_for_merge",
+            return_value=PhaseResult("wait-for-merge", True, "merged"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase("CONDITIONAL GO", conditions=["accepted via D-143-09"]),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._create_tag",
+            return_value=PhaseResult("tag", True, "ok"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._update_manifest",
+            return_value=PhaseResult("manifest", True, "ok"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._monitor_pipeline",
+            return_value=PhaseResult("monitor", True, "https://example/release/v0.2.0"),
+        ),
+        patch("ai_engineering.release.orchestrator.emit_deploy_event"),
+    ):
+        result = execute_release(config, provider, clock=_FixedClock())
+
+    assert result.success is True
+    assert result.readiness is not None
+    assert result.readiness["verdict"] == "CONDITIONAL GO"
+    assert result.readiness["conditions"] == ["accepted via D-143-09"]
 
 
 def test_validate_collects_branch_provider_and_changelog_errors(tmp_path: Path) -> None:
@@ -823,6 +1026,10 @@ def test_execute_release_tag_manifest_and_monitor_failures(tmp_path: Path) -> No
             return_value=PhaseResult("wait-for-merge", True, "u"),
         ),
         patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase(),
+        ),
+        patch(
             "ai_engineering.release.orchestrator._create_tag",
             return_value=PhaseResult("tag", False, "tag-fail"),
         ),
@@ -844,6 +1051,10 @@ def test_execute_release_tag_manifest_and_monitor_failures(tmp_path: Path) -> No
         patch(
             "ai_engineering.release.orchestrator._wait_for_merge",
             return_value=PhaseResult("wait-for-merge", True, "u"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase(),
         ),
         patch(
             "ai_engineering.release.orchestrator._create_tag",
@@ -872,6 +1083,10 @@ def test_execute_release_tag_manifest_and_monitor_failures(tmp_path: Path) -> No
         patch(
             "ai_engineering.release.orchestrator._wait_for_merge",
             return_value=PhaseResult("wait-for-merge", True, "u"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase(),
         ),
         patch(
             "ai_engineering.release.orchestrator._create_tag",

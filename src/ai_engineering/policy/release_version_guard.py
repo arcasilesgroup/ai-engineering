@@ -5,17 +5,20 @@ from __future__ import annotations
 import argparse
 import os
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from ai_engineering.git.operations import get_changed_files, get_merge_base, run_git
 
 _RELEASE_BRANCH_PREFIX = "release/v"
 _CHANGELOG_PATH = "CHANGELOG.md"
+_PYPROJECT_PATH = "pyproject.toml"
+_PYPROJECT_VERSION_ADDITION = re.compile(r'^\+version\s*=\s*"(?P<version>[^"]+)"\s*$')
 
 _SURFACE_RULES: tuple[tuple[str, str, re.Pattern[str] | None], ...] = (
     (
         "pyproject.version",
-        "pyproject.toml",
+        _PYPROJECT_PATH,
         re.compile(r'^[+-]version\s*=\s*"', flags=re.MULTILINE),
     ),
     (
@@ -38,6 +41,20 @@ _SURFACE_RULES: tuple[tuple[str, str, re.Pattern[str] | None], ...] = (
 _REQUIRED_RELEASE_FILES = frozenset(path for _, path, _ in _SURFACE_RULES) | frozenset(
     {_CHANGELOG_PATH}
 )
+
+
+@dataclass(frozen=True)
+class ReleaseVersionEvidence:
+    """Changed release files plus best-effort target-version evidence."""
+
+    changed_files: list[str]
+    changed_surfaces: set[str]
+    target_version: str | None
+
+
+def required_release_files() -> set[str]:
+    """Return the complete file set expected in a governed release PR."""
+    return set(_REQUIRED_RELEASE_FILES)
 
 
 def normalize_paths(paths: list[str]) -> set[str]:
@@ -67,12 +84,27 @@ def detect_changed_version_surfaces(diff_by_file: dict[str, str]) -> set[str]:
     return surfaces
 
 
+def detect_pyproject_target_version(diff_text: str) -> str | None:
+    """Return the added pyproject version when the diff exposes one clearly."""
+    versions: set[str] = set()
+    for line in diff_text.splitlines():
+        if line.startswith("+++") or not line.startswith("+"):
+            continue
+        match = _PYPROJECT_VERSION_ADDITION.fullmatch(line.strip())
+        if match is not None:
+            versions.add(match.group("version"))
+    if len(versions) != 1:
+        return None
+    return next(iter(versions))
+
+
 def evaluate_release_version_guard(
     changed_files: list[str],
     changed_surfaces: set[str],
     *,
     event_name: str,
     head_ref: str,
+    target_version: str | None = None,
 ) -> tuple[bool, str]:
     """Evaluate whether changed version surfaces are allowed in the current PR context."""
     if event_name != "pull_request":
@@ -101,6 +133,15 @@ def evaluate_release_version_guard(
             f"{missing}.",
         )
 
+    branch_version = _release_branch_version(head_ref)
+    if target_version is not None and branch_version != target_version:
+        return (
+            False,
+            "release-version-guard failed: release PR branch "
+            f"{head_ref!r} does not match pyproject.toml target version "
+            f"{target_version!r}. Use 'release/v{target_version}'.",
+        )
+
     changed = ", ".join(sorted(changed_surfaces))
     return (
         True,
@@ -113,6 +154,12 @@ def collect_release_version_changes(
     project_root: Path, base_ref: str
 ) -> tuple[list[str], set[str]]:
     """Collect changed files and governed version surfaces relative to ``base_ref``."""
+    evidence = collect_release_version_evidence(project_root, base_ref)
+    return evidence.changed_files, evidence.changed_surfaces
+
+
+def collect_release_version_evidence(project_root: Path, base_ref: str) -> ReleaseVersionEvidence:
+    """Collect governed version-surface evidence relative to ``base_ref``."""
     remote_base = f"origin/{base_ref}"
     changed_files = get_changed_files(project_root, remote_base)
     merge_base = get_merge_base(project_root, remote_base)
@@ -125,7 +172,12 @@ def collect_release_version_changes(
         diff_by_file[file_path] = _read_diff(project_root, merge_base, file_path)
 
     changed_surfaces = detect_changed_version_surfaces(diff_by_file)
-    return sorted(normalized_files), changed_surfaces
+    target_version = detect_pyproject_target_version(diff_by_file.get(_PYPROJECT_PATH, ""))
+    return ReleaseVersionEvidence(
+        changed_files=sorted(normalized_files),
+        changed_surfaces=changed_surfaces,
+        target_version=target_version,
+    )
 
 
 def main() -> int:
@@ -153,16 +205,17 @@ def main() -> int:
 
     project_root = Path(args.project_root).resolve()
     try:
-        changed_files, changed_surfaces = collect_release_version_changes(project_root, base_ref)
+        evidence = collect_release_version_evidence(project_root, base_ref)
     except RuntimeError as exc:
         print(f"release-version-guard failed: unable to inspect git diff: {exc}")
         return 1
 
     passed, message = evaluate_release_version_guard(
-        changed_files,
-        changed_surfaces,
+        evidence.changed_files,
+        evidence.changed_surfaces,
         event_name=event_name,
         head_ref=head_ref,
+        target_version=evidence.target_version,
     )
     print(message)
     return 0 if passed else 1
@@ -175,6 +228,10 @@ def _has_substantive_diff(diff_text: str) -> bool:
         if line.startswith(("+", "-")):
             return True
     return False
+
+
+def _release_branch_version(head_ref: str) -> str:
+    return head_ref.removeprefix(_RELEASE_BRANCH_PREFIX)
 
 
 def _read_diff(project_root: Path, merge_base: str, file_path: str) -> str:

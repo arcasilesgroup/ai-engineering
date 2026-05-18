@@ -198,6 +198,8 @@ def emit_deploy_event(
     result: str,
     rollback: bool = False,
     source: str | None = None,
+    release_packet_url: str = "",
+    release_packet_ref: str = "",
 ) -> None:
     """Emit a canonical deployment operation event."""
     emit_framework_operation(
@@ -212,6 +214,8 @@ def emit_deploy_event(
             "version": version,
             "result": result,
             "rollback": rollback,
+            "release_packet_url": release_packet_url,
+            "release_packet_ref": release_packet_ref,
             "spec_id": _read_active_spec(project_root),
         },
     )

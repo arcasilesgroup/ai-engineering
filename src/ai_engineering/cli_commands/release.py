@@ -52,13 +52,18 @@ def release_cmd(
             "tag": result.tag_name,
             "pr_url": result.pr_url,
             "release_url": result.release_url,
+            "release_packet_url": result.release_packet_url,
+            "release_packet_ref": result.release_packet_ref,
             "pipeline_status": result.pipeline_status,
+            "readiness": result.readiness,
+            "dry_run_plan": result.dry_run_plan,
             "phases": [
                 {
                     "phase": phase.phase,
                     "success": phase.success,
                     "skipped": phase.skipped,
                     "output": phase.output,
+                    "details": phase.details,
                 }
                 for phase in result.phases
             ],
@@ -93,13 +98,25 @@ def release_cmd(
         status_line(status, label, phase.output or ("passed" if phase.success else "failed"))
 
     if result.success:
+        if result.dry_run_plan:
+            info("Dry-run plan")
+            for line in _dry_run_plan_lines(result.dry_run_plan):
+                info(f"  {line}")
+            success(f"Dry run for v{result.version} completed without publishing")
+            return
         if result.pr_url:
             success(f"PR: {result.pr_url}")
         if result.release_url:
             success(f"Release: {result.release_url}")
+        if result.release_packet_url:
+            success(f"Release packet: {result.release_packet_url}")
         success(f"Release v{result.version} completed")
         return
 
     error(result.errors[0] if result.errors else "Release failed")
     info("Next action: fix the failed phase and rerun the same command to resume.")
     raise typer.Exit(code=1)
+
+
+def _dry_run_plan_lines(plan: dict[str, object]) -> list[str]:
+    return [f"{key}: {value}" for key, value in plan.items()]

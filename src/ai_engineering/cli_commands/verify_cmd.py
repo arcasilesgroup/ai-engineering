@@ -19,7 +19,12 @@ import typer
 from ai_engineering.core.output import NextAction, Renderer
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.state.locking import artifact_lock
-from ai_engineering.verify.service import verify_platform
+from ai_engineering.verify.service import (
+    verify_platform,
+)
+from ai_engineering.verify.service import (
+    verify_release as verify_release_readiness,
+)
 
 
 def verify_cmd(
@@ -27,10 +32,18 @@ def verify_cmd(
         Path | None,
         typer.Option("--target", "-t", help="Project root to verify. Defaults to cwd."),
     ] = None,
+    release: Annotated[
+        str | None,
+        typer.Option("--release", help="Run release-readiness GO/NO-GO for VERSION."),
+    ] = None,
 ) -> None:
     """Run every verification specialist and emit a scored report."""
     root = resolve_project_root(target)
     renderer = Renderer.from_app("verify")
+
+    if release:
+        _verify_release_cmd(renderer, root, release)
+        return
 
     t0 = _time.monotonic()
     renderer.header()
@@ -85,6 +98,66 @@ def verify_cmd(
             ],
         },
     )
+
+
+def _verify_release_cmd(renderer: Renderer, root: Path, version: str) -> None:
+    t0 = _time.monotonic()
+    renderer.header()
+    renderer.action("Verifying", "release readiness", detail=f"{version} @ {root}")
+    with artifact_lock(root, "release-readiness"):
+        report = verify_release_readiness(root, version)
+    elapsed_ms = int((_time.monotonic() - t0) * 1000)
+    _emit_release_telemetry(root, report, elapsed_ms)
+    _render_release_report(renderer, report)
+
+    payload = {"version": version, "release_readiness": report.to_dict()}
+    if report.verdict == "NO-GO":
+        if renderer.is_json:
+            renderer.ok("release readiness: NO-GO", result=payload)
+            raise typer.Exit(code=1)
+        renderer.error(
+            "release readiness: NO-GO",
+            code="RELEASE_READINESS_FAILED",
+            fix="Resolve failed readiness dimensions or record governed risk acceptance.",
+        )
+    renderer.ok(f"release readiness: {report.verdict}", result=payload)
+
+
+def _render_release_report(renderer: Renderer, report) -> None:
+    renderer.kv("Release", report.version)
+    renderer.kv("Verdict", report.verdict)
+    renderer.kv("Artifact", report.artifact_path)
+    renderer.section("Release readiness")
+    for name, dimension in report.dimensions.items():
+        status = str(dimension.get("status", "UNKNOWN"))
+        summary = str(dimension.get("summary", ""))
+        renderer.check_result(
+            name,
+            status == "PASS",
+            detail=summary,
+            warn=status == "CONDITIONAL",
+        )
+    if report.conditions:
+        renderer.section("Conditions")
+        for condition in report.conditions:
+            renderer.step(f"    {condition}")
+
+
+def _emit_release_telemetry(root: Path, report, elapsed_ms: int) -> None:
+    with contextlib.suppress(Exception):
+        from ai_engineering.state.audit import emit_scan_event
+
+        emit_scan_event(
+            root,
+            mode="release",
+            score=100 if report.allows_release else 0,
+            findings={
+                "verdict": report.verdict,
+                "conditions": len(report.conditions),
+            },
+            duration_ms=elapsed_ms,
+            outcome="success" if report.allows_release else "failure",
+        )
 
 
 def _emit_telemetry(root: Path, result, elapsed_ms: int) -> None:
