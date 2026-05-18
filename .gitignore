@@ -195,3 +195,4 @@ state.db-shm
 .ai-engineering/runtime/research/
 .ai-engineering/runtime/presentations/
 .ai-engineering/runtime/reports/
+.claude/scheduled_tasks.lock
