@@ -86,6 +86,19 @@ class TestInstallPipeline:
         assert result.total_created > 0
         assert summary.failed_phase is None
 
+    def test_pipeline_initializes_manifest_name_from_root(
+        self,
+        tmp_path: Path,
+        stub_ops: None,
+    ) -> None:
+        """Pipeline install writes the consumer root folder name into manifest.yml."""
+        _result, summary = install_with_pipeline(tmp_path, stacks=["python"])
+
+        manifest_text = (tmp_path / ".ai-engineering" / "manifest.yml").read_text(encoding="utf-8")
+        assert summary.failed_phase is None
+        assert f"name: {tmp_path.name}" in manifest_text
+        assert "name: ai-engineering" not in manifest_text
+
     def test_pipeline_install_leaves_hook_runtime_update_clean(
         self,
         tmp_path: Path,

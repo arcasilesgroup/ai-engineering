@@ -427,11 +427,18 @@ def _count_skills(root: Path, manifest: dict) -> int:
 
 
 def _count_agents(root: Path, manifest: dict) -> int:
-    _, agents_rel = _SURFACE_DIRS.get(_primary_surface(manifest), _SURFACE_DIRS[_DEFAULT_SURFACE])
+    surface = _primary_surface(manifest)
+    _, agents_rel = _SURFACE_DIRS.get(surface, _SURFACE_DIRS[_DEFAULT_SURFACE])
     base = root / agents_rel
     if not base.is_dir():
         return 0
-    return sum(1 for p in base.glob("ai-*.md") if p.is_file())
+    if surface == "github-copilot":
+        pattern = "*.agent.md"
+    elif surface == "cursor":
+        pattern = "ai-*.mdc"
+    else:
+        pattern = "ai-*.md"
+    return sum(1 for p in base.glob(pattern) if p.is_file())
 
 
 def _count_lessons(path: Path) -> int:

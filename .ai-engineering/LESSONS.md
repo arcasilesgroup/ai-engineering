@@ -251,3 +251,9 @@ Never skip these steps. Verify by reading the files after clearing.
 **Context**: spec-104 RED-phase test files llevan comentario "TDD CONSTRAINT: this file is IMMUTABLE after T-N.N lands. T-N.N+1 GREEN phase may only add behaviour to satisfy these assertions; it must NEVER edit them." Cuando un test del archivo presenta flake platform-specific post-GREEN, surge tensión.
 **Learning**: La inmutabilidad protege la fase GREEN de un spec ACTIVO. Una vez el spec está cerrado y mergeado, la inmutabilidad cumplió su función — el contrato ya está validado y persistido en git. Si surge un flake platform-specific válido, la decisión correcta es modificar el threshold/guard con un commit explícito que justifique la flexibilización post-spec. Mientras tanto, `--deselect` en CI es la opción menos intrusiva para no bloquear PRs adyacentes.
 **Rule**: Inmutabilidad es contractual al spec ACTIVO. Tras merge, los tests son código normal sujeto a refactor justificado. Para flakes en tests IMMUTABLE de specs cerrados: (a) `--deselect` temporal en CI workflow + commit explícito, o (b) widening del threshold + commit con "post-spec-NNN refinement" en el mensaje.
+
+### Installs de cliente nunca deben heredar identidad de ai-engineering
+
+**Context**: Un repo cliente de prueba mostraba `/ai-start` como `ai-engineering` porque el template copiaba `name: ai-engineering` y un `CONSTITUTION.md` completo del framework.
+**Learning**: `ai-engineering` es el framework, no el proyecto cliente. El install debe inicializar identidad desde la carpeta raíz del consumidor y dejar `CONSTITUTION.md` vacío para que `/ai-constitution` lo cree con el engineer.
+**Rule**: En cambios de installer/templates, verificar que manifests instalados no mantienen `name: ai-engineering` y que la constitución de cliente no contiene misión del framework.

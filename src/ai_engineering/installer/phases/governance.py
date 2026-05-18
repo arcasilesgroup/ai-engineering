@@ -10,6 +10,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from ai_engineering.installer.identity import initialize_manifest_project_name
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
     get_ai_engineering_template_root,
@@ -131,6 +132,8 @@ class GovernancePhase:
             result.skipped.append(
                 f".ai-engineering/policies/.signatures.json (deferred: {bundle_state['message']})"
             )
+
+        initialize_manifest_project_name(context.target, force=context.mode is InstallMode.FRESH)
 
         return result
 

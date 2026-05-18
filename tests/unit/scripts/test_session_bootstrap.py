@@ -306,7 +306,7 @@ class TestSurfaceAwareCounts:
     # case 1 — github-copilot surface
     # ------------------------------------------------------------------
     def test_github_copilot_surface_skills_and_agents(self, tmp_path: Path) -> None:
-        """github-copilot surface: 3 skills + 2 agents under .github/."""
+        """github-copilot surface: 3 skills + 2 ``*.agent.md`` agents under .github/."""
         manifest = self._write_manifest(
             tmp_path,
             "surfaces:\n  enabled:\n  - github-copilot\n",
@@ -321,12 +321,64 @@ class TestSurfaceAwareCounts:
         # stub agents
         agents_dir = tmp_path / ".github" / "agents"
         agents_dir.mkdir(parents=True)
-        (agents_dir / "ai-foo.md").write_text("# ai-foo\n")
-        (agents_dir / "ai-bar.md").write_text("# ai-bar\n")
+        (agents_dir / "foo.agent.md").write_text("# foo\n")
+        (agents_dir / "bar.agent.md").write_text("# bar\n")
 
         mod = _load_session_bootstrap_module()
         assert mod._count_skills(tmp_path, manifest) == 3
         assert mod._count_agents(tmp_path, manifest) == 2
+
+    def test_github_copilot_ignores_internal_agents(self, tmp_path: Path) -> None:
+        """github-copilot dashboard counts only first-class ``*.agent.md`` files."""
+        manifest = self._write_manifest(
+            tmp_path,
+            "surfaces:\n  enabled:\n  - github-copilot\n",
+        )
+
+        agents_dir = tmp_path / ".github" / "agents"
+        agents_dir.mkdir(parents=True)
+        (agents_dir / "build.agent.md").write_text("# build\n")
+        (agents_dir / "internal").mkdir()
+        (agents_dir / "internal" / "reviewer-security.md").write_text("# internal\n")
+
+        mod = _load_session_bootstrap_module()
+        assert mod._count_agents(tmp_path, manifest) == 1
+
+    @pytest.mark.parametrize(
+        ("surface", "agents_dir", "counted_name", "ignored_name"),
+        [
+            ("claude-code", ".claude/agents", "ai-build.md", "build.agent.md"),
+            ("codex", ".codex/agents", "ai-build.md", "build.agent.md"),
+            ("gemini-cli", ".gemini/agents", "ai-build.md", "build.agent.md"),
+            ("github-copilot", ".github/agents", "build.agent.md", "ai-build.md"),
+            ("opencode", ".opencode/agents", "ai-build.md", "build.agent.md"),
+            ("cursor", ".cursor/agents", "ai-build.mdc", "ai-build.md"),
+            ("antigravity", ".agent/agents", "ai-build.md", "build.agent.md"),
+        ],
+    )
+    def test_agent_filename_pattern_for_each_surface(
+        self,
+        tmp_path: Path,
+        surface: str,
+        agents_dir: str,
+        counted_name: str,
+        ignored_name: str,
+    ) -> None:
+        """Every supported surface uses its own first-class agent filename convention."""
+        manifest = self._write_manifest(
+            tmp_path,
+            f"surfaces:\n  enabled:\n  - {surface}\n",
+        )
+
+        base = tmp_path / agents_dir
+        base.mkdir(parents=True)
+        (base / counted_name).write_text("# counted\n")
+        (base / ignored_name).write_text("# ignored\n")
+        (base / "internal").mkdir()
+        (base / "internal" / counted_name).write_text("# internal ignored\n")
+
+        mod = _load_session_bootstrap_module()
+        assert mod._count_agents(tmp_path, manifest) == 1
 
     # ------------------------------------------------------------------
     # case 2 — claude-code surface (explicit)
