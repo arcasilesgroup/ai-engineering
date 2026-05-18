@@ -4,7 +4,7 @@ slug: surface-aware-dashboard
 title: Surface-aware /ai-start dashboard header — render correctly on all 7 surfaces
 status: approved
 effort: medium
-summary: Rework `session_bootstrap.py` so the `/ai-start` header renders project name, skill/agent counts, and hooks status correctly on every supported surface (claude-code, codex, gemini-cli, github-copilot, opencode, cursor, antigravity), and make `ai-eng install` generate `hooks-manifest.json` so fresh installs are not stuck in `hooks: unknown`.
+summary: Make `/ai-start` dashboard render correctly on all 7 surfaces (project name, skill/agent counts, hooks status), and have `ai-eng install` generate `hooks-manifest.json` so fresh installs don't show `hooks: unknown` on first launch.
 branch: claude/review-spec-drafts-DX2pD
 source_brief: ""
 target_dispatch: /ai-plan
@@ -95,19 +95,23 @@ cross-IDE one.
 
 ## Decisions
 
-**D-142-01 — stdlib mini-parser for `manifest.yml`, gated by pyyaml
-fallback.** When `pyyaml` is importable, `_read_yaml` keeps using
+### D-142-01 — stdlib mini-parser for `manifest.yml`, gated by pyyaml
+fallback
+When `pyyaml` is importable, `_read_yaml` keeps using
 `yaml.safe_load` for the full manifest. When `pyyaml` is *not*
 importable, `session_bootstrap.py` calls a new internal function
 `_read_manifest_minimal(path) -> dict` that scans the file with a small
 regex set to extract `name: <string>` and `surfaces.enabled: [<list>]`
-only. Rationale: keeps the script stdlib-only, restores the two
+only.
+
+**Rationale**: keeps the script stdlib-only, restores the two
 header-critical fields in every install, and accepts the maintenance
 burden of a 2-field parser (≤ 30 LOC). The mini-parser is intentionally
 narrow — adding new fields to it is an explicit cost, which is the
 right pressure to keep the dashboard surface lean.
 
-**D-142-02 — surface→path map inlined in `session_bootstrap.py`.** The
+### D-142-02 — surface→path map inlined in `session_bootstrap.py`
+The
 canonical map `_PROVIDER_TREE_MAPS` lives in
 `src/ai_engineering/config/mirror_inventory.py` (pip package). The
 stdlib script cannot import it without breaking the stdlib-only
@@ -129,57 +133,72 @@ _SURFACE_DIRS = {
 A CI test (`tests/unit/scripts/test_session_bootstrap_surface_map.py`)
 asserts `_SURFACE_DIRS` keys equal the canonical surface enum, so drift
 between the inline map and the pip-package source of truth is caught at
-test time, not at user runtime. Rationale: small duplication beats the
+test time, not at user runtime.
+
+**Rationale**: small duplication beats the
 import cycle, and the CI guard makes the duplication safe.
 
-**D-142-03 — primary-surface counting.** When `surfaces.enabled`
+### D-142-03 — primary-surface counting
+When `surfaces.enabled`
 contains multiple entries (e.g. `[claude-code, github-copilot]`),
 `_count_skills` / `_count_agents` count from the first entry only.
-Rationale: mirror trees are byte-equivalent regenerations
+**Rationale**: mirror trees are byte-equivalent regenerations
 (CLAUDE.md §12 "byte-equivalent regenerations"), so counts are
 identical across surfaces. Counting from the primary is correct,
 single-numbered, and keeps the header one line. Drift between mirrors
 is a doctor-phase concern, not a dashboard concern.
 
-**D-142-04 — `_hooks_health` reports `unverified` when scripts exist
-but manifest is missing.** Today, missing manifest → `unknown`. New
+### D-142-04 — `_hooks_health` reports `unverified` when scripts exist
+but manifest is missing
+Today, missing manifest → `unknown`. New
 behaviour: if `.ai-engineering/state/hooks-manifest.json` is missing
 *and* `.ai-engineering/scripts/hooks/` exists with at least one file,
 return `"unverified"`; the markdown rendering surfaces this as
 `hooks: unverified — run regenerate-hooks-manifest`. The genuine
 unreadable case (manifest present but malformed JSON or empty `hooks`
-mapping) keeps `unknown`. Rationale: distinguishes "install incomplete"
+mapping) keeps `unknown`.
+
+**Rationale**: distinguishes "install incomplete"
 (actionable) from "filesystem error" (investigate).
 
-**D-142-05 — `ai-eng install` finalizes by generating
-`hooks-manifest.json`.** The install command runs
+### D-142-05 — `ai-eng install` finalizes by generating
+`hooks-manifest.json`
+The install command runs
 `regenerate-hooks-manifest.py` as a final step before exiting. The
 hook script already runs in O(seconds) (74 files × sha256). If it
 fails (permission error, missing scripts dir), the install warns but
 does not abort — the dashboard's `unverified` state remains the
-fallback. Rationale: the manual one-shot has been documented since
+fallback.
+
+**Rationale**: the manual one-shot has been documented since
 spec-122, but nothing closes the loop in practice. Auto-generating
 costs ~50 ms at install time and prevents the entire class of
 `hooks: unknown` dashboard reports for new installs. Existing installs
 still show `unverified` until the operator runs the command (D-142-04
 makes the path discoverable).
 
-**D-142-06 — JSON schema additive contract.** The JSON payload gains
+### D-142-06 — JSON schema additive contract
+The JSON payload gains
 no new top-level fields. `hooks_health` already exists; its set of
 accepted string values expands to include `"unverified"`. The
-`schema_version: 1` integer is unchanged. Rationale: cross-IDE
+`schema_version: 1` integer is unchanged.
+
+**Rationale**: cross-IDE
 renderers (which are markdown-only consumers) parse the embedded
 `markdown` field anyway; the JSON contract only matters for tooling
 that already accepts new enum members defensively.
 
-**D-142-07 — manifest mini-parser owns its grammar, not yaml's.** The
+### D-142-07 — manifest mini-parser owns its grammar, not yaml's
+The
 mini-parser does *not* attempt to handle arbitrary YAML. It supports:
 - `name: <unquoted-or-double-quoted-string>` at top level,
 - `surfaces:\n  enabled:\n  - <surface>` (block list) and
   `surfaces.enabled: [<surface>, …]` (flow list) at top level.
 Anything else (anchors, multi-line strings, nested mappings) falls
 through to "field unresolved" and the dashboard shows `(unnamed)` /
-empty surface list — same as today, no regression. Rationale: the
+empty surface list — same as today, no regression.
+
+**Rationale**: the
 manifest schema is stable per spec-133; we own the parser scope.
 
 ## Risks

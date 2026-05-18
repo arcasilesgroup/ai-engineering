@@ -2,6 +2,7 @@
 spec: spec-142
 slug: surface-aware-dashboard
 title: plan — surface-aware /ai-start dashboard header
+status: approved
 pipeline: standard
 files_touched: 4
 tdd_pairs: 4
