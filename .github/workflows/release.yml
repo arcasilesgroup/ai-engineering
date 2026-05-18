@@ -1,233 +1,578 @@
-# Release Pipeline — Artifact-Driven (spec-097, D-097-04)
-#
-# Publishes a pre-built artifact to PyPI and finalizes the GitHub Release.
-# Artifacts are produced by ci-build.yml (semantic-release creates tags and draft releases).
-#
-# Usage:
-#   - Default (latest): Actions > Release > Run workflow > leave version empty
-#   - Specific version: Actions > Release > Run workflow > version: 1.2.3
-#   - Rollback: same as specific version, but with an older version number
-#
-# Constraints:
-#   - Target version's tag (v*) must exist (created by ci-build semantic-release)
-#   - ci-build must have run successfully for the tag's commit (artifact within 90-day retention)
-#   - CHANGELOG.md must contain a ## [VERSION] section
-#   - PyPI is immutable — cannot re-publish a version that was already published
-
 name: Release
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release (e.g., 1.2.3). Leave empty for latest tag."
-        required: false
+        description: "Protected recovery version (for example, 1.2.3 or v1.2.3)."
+        required: true
         type: string
-        default: ""
+      recovery_reason:
+        description: "Required audit reason for manually recovering the tag-triggered release."
+        required: true
+        type: string
 
 permissions:
-  contents: write
-  actions: read
-  id-token: write
+  contents: read
 
 concurrency:
-  group: release-${{ github.event.inputs.version || 'latest' }}
+  group: release-${{ github.ref_name || github.event.inputs.version }}
+  cancel-in-progress: false
 
 jobs:
   resolve-version:
-    name: Resolve Version
+    name: Resolve version and recovery context
+    if: >-
+      github.repository == 'arcasilesgroup/ai-engineering' &&
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+       github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
     outputs:
       version: ${{ steps.resolve.outputs.version }}
       tag-name: ${{ steps.resolve.outputs.tag_name }}
-      ci-run-id: ${{ steps.resolve.outputs.ci_run_id }}
+      recovery: ${{ steps.resolve.outputs.recovery }}
+      recovery-reason: ${{ steps.resolve.outputs.recovery_reason }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
-      - name: Resolve version and locate artifact
+      - name: Resolve version and recovery context
         id: resolve
         env:
-          GH_TOKEN: ${{ github.token }}
-          INPUT_VERSION: ${{ github.event.inputs.version }}
+          INPUT_VERSION: ${{ github.event.inputs.version || '' }}
+          RECOVERY_REASON: ${{ github.event.inputs.recovery_reason || '' }}
         run: |
-          # Resolve version: use input or find latest tag
-          if [ -n "$INPUT_VERSION" ]; then
-            VERSION="${INPUT_VERSION#v}"
+          set -euo pipefail
+
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            TAG_NAME="${GITHUB_REF_NAME}"
+            VERSION="${TAG_NAME#v}"
+            RECOVERY="false"
+            RECOVERY_REASON=""
           else
-            LATEST_TAG=$(git tag --list 'v*' --sort=-v:refname | head -1)
-            if [ -z "$LATEST_TAG" ]; then
-              echo "::error::No version tags found and no version input provided"
+            if [ -z "${INPUT_VERSION}" ]; then
+              echo "::error::workflow_dispatch recovery requires version"
               exit 1
             fi
-            VERSION="${LATEST_TAG#v}"
-            echo "Using latest tag: $LATEST_TAG (version: $VERSION)"
+            if [ -z "${RECOVERY_REASON}" ]; then
+              echo "::error::workflow_dispatch recovery requires recovery_reason"
+              exit 1
+            fi
+            VERSION="${INPUT_VERSION#v}"
+            TAG_NAME="v${VERSION}"
+            RECOVERY="true"
           fi
 
-          TAG_NAME="v${VERSION}"
-
-          # Verify tag exists
+          if [[ ! "${TAG_NAME}" == v* ]]; then
+            echo "::error::release tag must start with v*: ${TAG_NAME}"
+            exit 1
+          fi
           if ! git rev-parse --verify "refs/tags/${TAG_NAME}" >/dev/null 2>&1; then
-            echo "::error::Tag ${TAG_NAME} does not exist. Ensure ci-build created it via semantic-release."
-            exit 1
-          fi
-
-          TAG_SHA=$(git rev-parse "refs/tags/${TAG_NAME}^{commit}" 2>/dev/null || git rev-parse "refs/tags/${TAG_NAME}")
-
-          # Find ci-build run for this tag's commit
-          RUN_JSON=$(gh run list \
-            --workflow=ci-build.yml \
-            --commit="${TAG_SHA}" \
-            --status=completed \
-            --json databaseId,conclusion \
-            --limit 1)
-
-          if [ "$(echo "$RUN_JSON" | jq length)" -eq 0 ]; then
-            echo "::error::No completed ci-build run found for commit ${TAG_SHA} (tag ${TAG_NAME})"
-            exit 1
-          fi
-
-          CONCLUSION=$(echo "$RUN_JSON" | jq -r '.[0].conclusion')
-          if [ "$CONCLUSION" != "success" ]; then
-            echo "::error::ci-build run for ${TAG_NAME} concluded with '${CONCLUSION}', not 'success'"
-            exit 1
-          fi
-
-          RUN_ID=$(echo "$RUN_JSON" | jq -r '.[0].databaseId')
-
-          # Verify dist artifact exists in that run
-          ARTIFACT_ID=$(gh api "repos/${{ github.repository }}/actions/runs/${RUN_ID}/artifacts" \
-            --jq '.artifacts[] | select(.name=="dist") | .id')
-          if [ -z "$ARTIFACT_ID" ]; then
-            echo "::error::No 'dist' artifact found in ci-build run ${RUN_ID}. Artifact may have expired (90-day retention)."
+            echo "::error::tag ${TAG_NAME} does not exist"
             exit 1
           fi
 
           {
             echo "version=${VERSION}"
             echo "tag_name=${TAG_NAME}"
-            echo "ci_run_id=${RUN_ID}"
-          } >> "$GITHUB_OUTPUT"
-          echo "Resolved: version=${VERSION}, tag=${TAG_NAME}, ci-run=${RUN_ID}"
+            echo "recovery=${RECOVERY}"
+            echo "recovery_reason<<EOF"
+            printf '%s\n' "${RECOVERY_REASON}"
+            echo "EOF"
+          } >> "${GITHUB_OUTPUT}"
 
-  validate-changelog:
-    name: Validate CHANGELOG
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
+          echo "Resolved release ${TAG_NAME} (recovery=${RECOVERY})"
+
+  release-readiness:
+    name: Release readiness
     needs: resolve-version
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.resolve-version.outputs.tag-name }}
+          fetch-depth: 0
 
-      - name: Extract release notes
+      - uses: ./.github/actions/setup-env
+
+      - name: Generate release-readiness.json
         env:
           VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          # Try version-specific section first, fall back to [Unreleased]
-          if grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
-            SECTION="${VERSION}"
-          elif grep -q "^## \[Unreleased\]" CHANGELOG.md; then
-            SECTION="Unreleased"
-          else
-            echo "No release notes found in CHANGELOG.md — using auto-generated notes"
-            echo "See the full changelog in the repository." > release-notes.md
-            exit 0
-          fi
-          awk "/^## \\[${SECTION}\\]/{flag=1; next} /^## \\[/{flag=0} flag" CHANGELOG.md > release-notes.md
-          echo "Release notes extracted from [${SECTION}]:"
-          cat release-notes.md
+          set -euo pipefail
+          set +e
+          uv run ai-eng verify --release "${VERSION}" --json > release-readiness.json
+          VERIFY_STATUS=$?
+          set -e
+          python - <<'PY'
+          import json
+          import sys
+          from pathlib import Path
 
-      - name: Upload release notes
+          path = Path("release-readiness.json")
+          payload = json.loads(path.read_text(encoding="utf-8"))
+          verdict = str(payload.get("verdict", "")).upper().replace("_", "-")
+          print(f"Release readiness verdict: {verdict}")
+          if verdict == "NO-GO":
+              print("::error::release readiness returned NO-GO")
+              sys.exit(1)
+          PY
+          if [ "${VERIFY_STATUS}" -ne 0 ]; then
+            echo "::error::ai-eng verify --release exited ${VERIFY_STATUS}"
+            exit "${VERIFY_STATUS}"
+          fi
+
+      - name: Upload release readiness evidence
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
-          name: release-notes
-          path: release-notes.md
-          retention-days: 1
+          name: release-readiness
+          path: release-readiness.json
+          retention-days: 7
+
+  release-build:
+    name: Build release artifacts once
+    needs: [resolve-version, release-readiness]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.resolve-version.outputs.tag-name }}
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup-env
+
+      - name: Build package distributions
+        run: uv build
+
+      - name: Validate package metadata version
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os
+          import sys
+          import tarfile
+          import zipfile
+          from email.parser import Parser
+          from pathlib import Path
+
+          expected = os.environ["VERSION"]
+          dist = Path("dist")
+          artifacts = sorted(dist.glob("*.whl")) + sorted(dist.glob("*.tar.gz"))
+          if not artifacts:
+              print("::error::dist/ contains no wheel or sdist artifacts")
+              sys.exit(1)
+
+          for artifact in artifacts:
+              if artifact.suffix == ".whl":
+                  with zipfile.ZipFile(artifact) as archive:
+                      metadata_name = next(
+                          name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
+                      )
+                      metadata_text = archive.read(metadata_name).decode("utf-8")
+              else:
+                  with tarfile.open(artifact, "r:gz") as archive:
+                      member = next(
+                          item for item in archive.getmembers() if item.name.endswith("/PKG-INFO")
+                      )
+                      extracted = archive.extractfile(member)
+                      if extracted is None:
+                          print(f"::error::{artifact} is missing PKG-INFO")
+                          sys.exit(1)
+                      metadata_text = extracted.read().decode("utf-8")
+              version = Parser().parsestr(metadata_text).get("Version")
+              if version != expected:
+                  print(f"::error::{artifact} metadata Version {version!r} != {expected!r}")
+                  sys.exit(1)
+              print(f"{artifact}: Version {version}")
+          PY
+
+      - name: Clean environment install smoke from local dist
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python -m venv /tmp/release-dist-smoke
+          /tmp/release-dist-smoke/bin/python -m pip install --upgrade pip
+          /tmp/release-dist-smoke/bin/python -m pip install --find-links dist "ai-engineering==${VERSION}"
+          /tmp/release-dist-smoke/bin/ai-eng version
+
+      - name: Generate CycloneDX SBOM
+        run: |
+          set -euo pipefail
+          uv export --no-dev --frozen > requirements-prod.txt
+          uv run --with cyclonedx-bom cyclonedx-py requirements requirements-prod.txt \
+            --output-format json \
+            -o sbom.cdx.json \
+            --spec-version 1.5
+
+      - name: Generate SHA256 checksums
+        run: |
+          set -euo pipefail
+          sha256sum dist/* sbom.cdx.json > CHECKSUMS-SHA256.txt
+          cat CHECKSUMS-SHA256.txt
+
+      - name: Upload release-dists artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: release-dists
+          path: dist/*
+          retention-days: 7
+
+      - name: Upload release-supply-chain artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: release-supply-chain
+          path: |
+            sbom.cdx.json
+            CHECKSUMS-SHA256.txt
+          retention-days: 7
+
+  attest-and-verify:
+    name: Attest and verify GitHub provenance
+    needs: [resolve-version, release-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - name: Download release-dists artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-dists
+          path: dist
+
+      - name: Generate GitHub artifact attestations
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: dist/*
+
+      - name: Verify GitHub artifact attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p packet
+          : > packet/github-attestation-verify.log
+          for artifact in dist/*; do
+            gh attestation verify "${artifact}" --repo "${REPO}" | tee -a packet/github-attestation-verify.log
+          done
+
+      - name: Upload attestation verification evidence
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: release-attestation-proof
+          path: packet/github-attestation-verify.log
+          retention-days: 7
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: [resolve-version, release-readiness, release-build, attest-and-verify]
+    if: >-
+      github.repository == 'arcasilesgroup/ai-engineering' &&
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+       github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/ai-engineering/${{ needs.resolve-version.outputs.version }}/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download release-dists artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-dists
+          path: dist
+
+      - name: Publish package distributions to TestPyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          packages-dir: dist/
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Capture TestPyPI publish proof
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cat > testpypi-proof.txt <<EOF
+          TestPyPI publish completed
+          Package: ai-engineering==${VERSION}
+          URL: https://test.pypi.org/project/ai-engineering/${VERSION}/
+          CI run URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+
+      - name: Upload TestPyPI publish proof
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: release-testpypi-proof
+          path: testpypi-proof.txt
+          retention-days: 7
+
+  verify-testpypi-install:
+    name: Verify TestPyPI install
+    needs: [resolve-version, publish-testpypi]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install release from TestPyPI
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          python3 -m venv /tmp/testpypi-smoke
+          /tmp/testpypi-smoke/bin/python -m pip install --upgrade pip
+          /tmp/testpypi-smoke/bin/python -m pip install \
+            --index-url https://test.pypi.org/simple/ \
+            --extra-index-url https://pypi.org/simple/ \
+            "ai-engineering==${VERSION}"
+          /tmp/testpypi-smoke/bin/ai-eng version
+          cat > testpypi-install-proof.txt <<EOF
+          TestPyPI install proof completed
+          Package: ai-engineering==${VERSION}
+          EOF
+
+      - name: Upload TestPyPI install proof
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: release-testpypi-install-proof
+          path: testpypi-install-proof.txt
+          retention-days: 7
 
   publish-pypi:
     name: Publish to PyPI
+    needs:
+      - resolve-version
+      - release-readiness
+      - release-build
+      - attest-and-verify
+      - publish-testpypi
+      - verify-testpypi-install
+    if: >-
+      github.repository == 'arcasilesgroup/ai-engineering' &&
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+       github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: [resolve-version, validate-changelog]
     environment:
       name: pypi
-      url: https://pypi.org/project/ai-engineering/
+      url: https://pypi.org/project/ai-engineering/${{ needs.resolve-version.outputs.version }}/
+    permissions:
+      contents: read
+      id-token: write
     steps:
-      - name: Download dist from CI build
+      - name: Download release-dists artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
-          name: dist
-          path: dist/
-          run-id: ${{ needs.resolve-version.outputs.ci-run-id }}
-          github-token: ${{ github.token }}
+          name: release-dists
+          path: dist
 
-      - name: Verify artifact contents
+      - name: Publish package distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+        with:
+          packages-dir: dist/
+
+      - name: Capture PyPI publish proof
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          echo "Downloaded artifacts:"
-          ls -la dist/
-          if [ -z "$(ls -A dist/)" ]; then
-            echo "::error::dist/ is empty — CI artifact download failed"
+          set -euo pipefail
+          cat > pypi-proof.txt <<EOF
+          PyPI publish completed
+          Package: ai-engineering==${VERSION}
+          URL: https://pypi.org/project/ai-engineering/${VERSION}/
+          CI run URL: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
+          EOF
+
+      - name: Upload PyPI publish proof
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: release-pypi-proof
+          path: pypi-proof.txt
+          retention-days: 7
+
+  finalize-release-packet:
+    name: Finalize GitHub Release packet
+    needs:
+      - resolve-version
+      - release-readiness
+      - release-build
+      - attest-and-verify
+      - publish-testpypi
+      - verify-testpypi-install
+      - publish-pypi
+    if: >-
+      github.repository == 'arcasilesgroup/ai-engineering' &&
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+       github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ needs.resolve-version.outputs.tag-name }}
+          fetch-depth: 0
+
+      - name: Download release-dists artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-dists
+          path: dist
+
+      - name: Download release-supply-chain artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-supply-chain
+          path: supply-chain
+
+      - name: Download release-readiness artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-readiness
+          path: packet
+
+      - name: Download attestation verification proof
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-attestation-proof
+          path: packet
+
+      - name: Download TestPyPI publish proof
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-testpypi-proof
+          path: packet
+
+      - name: Download TestPyPI install proof
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-testpypi-install-proof
+          path: packet
+
+      - name: Download PyPI publish proof
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: release-pypi-proof
+          path: packet
+
+      - name: Extract release notes from CHANGELOG.md
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          awk "/^## \\[${VERSION}\\]/{flag=1; next} /^## \\[/{flag=0} flag" \
+            CHANGELOG.md > packet/release-notes.md
+          if [ ! -s packet/release-notes.md ]; then
+            echo "::error::CHANGELOG.md is missing non-empty release notes for ${VERSION}"
             exit 1
           fi
 
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@ed0c53931b1dc9bd32cbe73a98c7f6766f8a527e # v1.13.0
+      - name: Write release-packet.json manifest
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+          TAG_NAME: ${{ needs.resolve-version.outputs.tag-name }}
+          RECOVERY: ${{ needs.resolve-version.outputs.recovery }}
+          RECOVERY_REASON: ${{ needs.resolve-version.outputs.recovery-reason }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-  finalize-release:
-    name: Finalize GitHub Release
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    needs: [resolve-version, validate-changelog, publish-pypi]
-    steps:
-      - name: Download release notes
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
-        with:
-          name: release-notes
-          path: .
+          packet_dir = Path("packet")
+          readiness = json.loads((packet_dir / "release-readiness.json").read_text(encoding="utf-8"))
+          checksums = Path("supply-chain/CHECKSUMS-SHA256.txt").read_text(encoding="utf-8")
+          tag = os.environ["TAG_NAME"]
+          version = os.environ["VERSION"]
+          release_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/releases/tag/{tag}"
+          ci_run_url = f"{os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}"
+          manifest = {
+              "schema": "ai-engineering/release-packet/v1",
+              "version": version,
+              "tag": tag,
+              "release_url": release_url,
+              "ci_run_url": ci_run_url,
+              "artifact_sources": {
+                  "release-dists": sorted(path.name for path in Path("dist").glob("*")),
+                  "release-supply-chain": ["CHECKSUMS-SHA256.txt", "sbom.cdx.json"],
+              },
+              "checksums_sha256": checksums,
+              "readiness": readiness,
+              "attestation_verification": "github-attestation-verify.log",
+              "testpypi": {
+                  "publish_proof": "testpypi-proof.txt",
+                  "install_proof": "testpypi-install-proof.txt",
+                  "url": f"https://test.pypi.org/project/ai-engineering/{version}/",
+              },
+              "pypi": {
+                  "publish_proof": "pypi-proof.txt",
+                  "url": f"https://pypi.org/project/ai-engineering/{version}/",
+              },
+              "changelog_source": "CHANGELOG.md",
+              "release_notes": "release-notes.md",
+              "recovery": {
+                  "used": os.environ.get("RECOVERY") == "true",
+                  "reason": os.environ.get("RECOVERY_REASON", ""),
+              },
+          }
+          (packet_dir / "release-packet.json").write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          (packet_dir / "release-packet-url.txt").write_text(release_url + "\n", encoding="utf-8")
+          PY
 
-      - name: Promote draft release or create new
+      - name: Create or update GitHub Release and upload packet assets
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.resolve-version.outputs.tag-name }}
         run: |
-          TAG="${{ needs.resolve-version.outputs.tag-name }}"
-
-          # Check if draft release exists
-          if gh release view "$TAG" --json isDraft --jq '.isDraft' 2>/dev/null | grep -q true; then
-            echo "Promoting draft release ${TAG} to published"
-            gh release edit "$TAG" \
-              --repo "${{ github.repository }}" \
-              --draft=false \
-              --notes-file release-notes.md \
+          set -euo pipefail
+          if gh release view "${TAG_NAME}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
+            gh release edit "${TAG_NAME}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "${TAG_NAME}" \
+              --notes-file packet/release-notes.md \
               --latest
           else
-            echo "No draft release found for ${TAG}, checking if published release exists"
-            if gh release view "$TAG" 2>/dev/null; then
-              echo "Release ${TAG} already exists and is published — updating notes only"
-              gh release edit "$TAG" \
-                --repo "${{ github.repository }}" \
-                --notes-file release-notes.md \
-                --latest
-            else
-              echo "Creating new published release for ${TAG}"
-              gh release create "$TAG" \
-                --repo "${{ github.repository }}" \
-                --title "$TAG" \
-                --notes-file release-notes.md \
-                --latest
-            fi
+            gh release create "${TAG_NAME}" \
+              --repo "${GITHUB_REPOSITORY}" \
+              --verify-tag \
+              --title "${TAG_NAME}" \
+              --notes-file packet/release-notes.md \
+              --latest
           fi
-
-      - name: Verify release is published
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG="${{ needs.resolve-version.outputs.tag-name }}"
-          IS_DRAFT=$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq '.isDraft')
-          if [ "$IS_DRAFT" = "true" ]; then
-            echo "::error::Release ${TAG} is still a draft after finalization attempt"
-            exit 1
-          fi
-          echo "Release ${TAG} is published successfully"
+          gh release upload "${TAG_NAME}" dist/* supply-chain/* packet/* \
+            --repo "${GITHUB_REPOSITORY}" \
+            --clobber

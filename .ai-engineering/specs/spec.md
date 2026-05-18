@@ -1,271 +1,168 @@
 ---
-spec: spec-142
-slug: surface-aware-dashboard
-title: Surface-aware /ai-start dashboard header — render correctly on all 7 surfaces
+spec: spec-143
+slug: ai-engineering-release-version-cicd-pypi
+title: Release Version CI/CD PyPI Spine — One Authority, Hardened Provenance, Trusted Publish
 status: approved
-effort: medium
-summary: Make `/ai-start` dashboard render correctly on all 7 surfaces (project name, skill/agent counts, hooks status), and have `ai-eng install` generate `hooks-manifest.json` so fresh installs don't show `hooks: unknown` on first launch.
-branch: claude/review-spec-drafts-DX2pD
-source_brief: ""
+effort: large
+summary: Make `ai-eng release` the only framework release authority, hard-remove semantic-release writes, and align tag-triggered TestPyPI→PyPI publishing with full provenance, least-privilege CI, protected recovery, and release-packet evidence.
+branch: codex/ai-engineering-release-version-cicd-pypi
+source_brief: .ai-engineering/specs/drafts/ai-engineering-release-version-cicd-pypi-brief.md
 target_dispatch: /ai-plan
-chains_after: spec-141
+mantra: "One release command, one version truth, one audited publish path."
+approved_at: 2026-05-18
+approved_by: operator
 ---
+
+# spec-143 — Release Version CI/CD PyPI Spine
+
+> Mantra: **One release command, one version truth, one audited publish path.**
 
 ## Summary
 
-The `/ai-start` dashboard is the first artifact every operator sees on a
-new session. Today it renders three incorrect fields in any install whose
-surface is not `claude-code` (e.g. `/Users/soydachi/repos/test/`, surface
-`github-copilot`):
-
-1. **`(unnamed)`** instead of the project name — the script reads
-   `.ai-engineering/manifest.yml` with `yaml.safe_load`, but a fresh
-   install with no `pyproject.toml` has no `pyyaml` in the venv. The
-   recently-landed defensive `import yaml` (this branch) makes the script
-   *run*, but the name still cannot be resolved.
-2. **`0 skills, 0 agents`** even though 18 skills live under
-   `.github/skills/` and N agents under `.github/agents/`. Cause:
-   `_count_skills` and `_count_agents` in `session_bootstrap.py` hard-code
-   `.claude/skills/` and `.claude/agents/` and never consult
-   `surfaces.enabled` from the manifest. The framework already has the
-   canonical surface→path map in
-   `src/ai_engineering/config/mirror_inventory.py` (`_PROVIDER_TREE_MAPS`),
-   but that module is part of the pip package and cannot be imported by
-   a stdlib-only script.
-3. **`hooks: unknown`** because `.ai-engineering/state/hooks-manifest.json`
-   does not exist. Root cause is an installer gap, not a surface mismatch:
-   the framework documents `regenerate-hooks-manifest.py` as a manual
-   one-shot (`CONSTITUTION.md` template line 153,
-   `doctor/phases/scripts.py:24`) and `ai-eng install` never invokes it.
-   Every fresh install of every surface starts with `hooks: unknown` until
-   the operator runs the script by hand.
-
-The dashboard is the canonical cross-IDE contract (per `ai-start/SKILL.md`
-line 45-47, the same bytes render in Claude Code, Codex, Gemini CLI,
-Copilot). Today it is a Claude-Code-only artifact masquerading as a
-cross-IDE one.
+The framework source repo already has a release command, version registry, release-version guard, CI build workflow, artifact/SBOM generation, and PyPI Trusted Publishing workflow. The defect is not missing machinery; it is competing authority. `.ai-engineering/reference/cli-reference.md` says `ai-eng release <VERSION>` is the only supported write path, while `.github/workflows/ci-build.yml` can still use semantic-release to create tags and force-commit version changes directly to `main`. That dual-writer design violates SSOT-PD, bypasses release PR semantics, omits some governed version surfaces, and exposes the package publish path to avoidable supply-chain risk. This spec consolidates releases around `ai-eng release`, hard-removes semantic-release release authority, aligns `ai-eng release --wait` with an automatic `v*` tag-triggered `Release` workflow, validates the final artifact set through TestPyPI before production PyPI, and requires full provenance evidence in a GitHub Release packet with an NDJSON audit pointer.
 
 ## Goals
 
-1. `session_bootstrap.py` reads the project name from `manifest.yml`
-   without requiring `pyyaml` to be installed — a stdlib mini-parser
-   covers the two fields the dashboard actually needs (`name`,
-   `surfaces.enabled`). When `pyyaml` *is* available it remains the
-   preferred path; the mini-parser is only the fallback.
-2. `_count_skills` and `_count_agents` dispatch on the primary surface
-   from `surfaces.enabled[0]`, mapping to the correct directory for each
-   of the 7 supported surfaces. For the test repo the count rises from
-   `0/0` to the real `.github/skills/` and `.github/agents/` totals.
-3. `_hooks_health` reports an actionable state in every install:
-   `ok`, `drift(N)`, or `unverified — run regenerate-hooks-manifest`
-   (when scripts exist on disk but the manifest is missing). `unknown`
-   is reserved for the genuinely-unreadable case (manifest exists but
-   is corrupt).
-4. `ai-eng install` (and any subcommand that finalizes an install)
-   invokes `regenerate-hooks-manifest.py` as a final step so every new
-   project leaves the installer with `hooks: ok` on first `/ai-start`.
-5. Schema-version 1 of the JSON output stays additive — every new field
-   is optional, every renamed field keeps its old name as an alias for
-   one release. Existing IDE renderers (Claude Code, Codex, Gemini,
-   Copilot) parse the new payload without modification.
-6. Wall-clock budget stays under 3 s cold-path (per the existing
-   docstring). The mini-parser path is ~5 ms; the installer hook step
-   runs ~50 ms at install time and is not on the dashboard hot path.
+1. **Single release authority.** `ai-eng release <TARGET_VERSION>` is the only normal command or workflow allowed to mutate framework release state: package version, registry, root/template framework manifests, changelog, release branch, release tag, GitHub Release, and PyPI/TestPyPI publication.
+2. **Semantic-release removed.** python-semantic-release configuration, dependency surface, and CI release write steps are hard-removed. No disabled semantic-release release path remains as confusing dead machinery.
+3. **Version SSOT preserved.** `pyproject.toml` `[project].version` remains the version SSOT. `src/ai_engineering/version/registry.json`, root/template `framework_version` manifests, and `CHANGELOG.md` are governed derived release surfaces updated together through the release PR.
+4. **Dry-run parity.** `ai-eng release <TARGET_VERSION> --dry-run` reports old version, target version, release branch, tag, governed changed files, changelog promotion state, workflow trigger, TestPyPI stage, PyPI stage, and release-packet outputs before any write.
+5. **Guarded release PRs.** Release-version guard tests prove that governed version-surface changes fail outside `release/v<version>` and that release PRs fail unless the full file set is present or the guard file set is intentionally changed with tests.
+6. **Tag-triggered governed publish.** `ai-eng release --wait` creates or verifies a `v<TARGET_VERSION>` tag after the release PR merges, and the `Release` workflow starts automatically from a `push` trigger on `v*` tags. The orchestrator monitors the run that this tag event creates.
+7. **Manual dispatch is recovery-only.** `workflow_dispatch` remains on the `Release` workflow only as a protected recovery path. It requires protected environment approval and records recovery context; it is not documented or treated as a normal equivalent release path.
+8. **Build once, publish same artifacts.** The release pipeline builds sdist and wheel once from the trusted release ref, verifies metadata/version parity, runs clean-environment install smoke, generates SHA256 checksums and CycloneDX SBOM, verifies artifact attestations, publishes that same artifact set to TestPyPI, installs from TestPyPI, and only then promotes the same artifact set to production PyPI.
+9. **Full provenance and release packet.** Every release publishes a GitHub Release packet containing or linking the dist artifacts, checksums, CycloneDX SBOM, GitHub artifact attestations, PyPI publish attestations when emitted by Trusted Publishing, release-readiness result, changelog section, CI run URL, TestPyPI proof, PyPI URL, and recovery/manual-dispatch context when used. `.ai-engineering/state/framework-events.ndjson` records the canonical pointer to that packet.
+10. **Supply-chain hardening.** Release jobs use least-privilege permissions, job-scoped OIDC, protected `testpypi` and `pypi` environments, immutable action SHA pins, timeouts, concurrency, no long-lived PyPI tokens, no untrusted PR artifacts, no privileged publish from fork/PR contexts, and fail-closed verification where required auth/config exists.
+11. **Release readiness gate.** `/ai-verify --release <TARGET_VERSION>` or an equivalent deterministic release-readiness command returns GO before tag creation and before production PyPI publication. CONDITIONAL GO is allowed only when risk acceptance or explicitly advisory evidence is recorded in the release packet.
+12. **Security scanner policy explicit.** Production releases block on in-tree Semgrep, gitleaks, and pip-audit now. Semgrep community packs remain conditional/advisory until registry authentication is configured; the release packet must state that condition rather than silently dropping the signal.
+13. **Documentation and changelog updated.** CLI reference, release docs, workflow comments, and `CHANGELOG.md` document the hard migration away from semantic-release/manual CI commit-back and the governed release path.
 
 ## Non-Goals
 
-- No rewrite of the rest of the markdown dashboard (Active Work, Recent,
-  Recent Lessons, Board, footer). Only the header (lines ~797-840 of
-  `session_bootstrap.py`) is in scope.
-- No change to the `pyyaml` dependency contract of *other* scripts. The
-  recently-landed defensive `import yaml` in `markdown_render.py` and
-  `manifest_reader.py` stays — those raise typed errors as before.
-- No change to the `uv run python …` invocation form in
-  `ai-start/SKILL.md` line 30. PEP 723 inline metadata is rejected
-  because it would require updating `hooks-manifest.json` `trustedArgvs`
-  (D-131-12) for every surface mirror.
-- No new external dependency. The mini-parser is regex + string-contains;
-  `session_bootstrap.py` remains stdlib-only.
-- No general health-check across surface mirrors (parity, drift
-  detection). That belongs in a separate `ai-eng doctor` spec.
-- No fix for `(no commits)` in the `Recent` section when the repo has
-  zero commits — accurate today, low-value to dress up.
-- No rename of `events 7d: N` or `N pending review` strings. They are
-  technically correct; UX clarity is a future spec.
+- No actual PyPI/TestPyPI publication or concrete package version bump as part of this spec implementation. `<TARGET_VERSION>` remains execution input to `ai-eng release <TARGET_VERSION>`.
+- No replacement of GitHub Actions as the CI/CD provider.
+- No long-lived PyPI API tokens, username/password publishing, or secret-based normal PyPI publish path.
+- No deprecation shim for semantic-release. The removed release path is a hard migration documented in `CHANGELOG.md`.
+- No support for publishing artifacts built from pull request, fork, or other untrusted refs.
+- No broad rewrite of unrelated CI jobs except where they participate in release/version mutation, artifact provenance, release readiness, or publish governance.
+- No weakening of existing pre-commit, pre-push, CI, action-pinning, SBOM, SAST, dependency-audit, or risk-acceptance controls to make release publishing easier.
+- No change to consumer-project install/update semantics except where release metadata in the packaged framework must remain coherent.
+- No attempt to store large release artifacts in `state.db` or committed markdown archives.
 
 ## Decisions
 
-### D-142-01 — stdlib mini-parser for `manifest.yml`, gated by pyyaml
-fallback
-When `pyyaml` is importable, `_read_yaml` keeps using
-`yaml.safe_load` for the full manifest. When `pyyaml` is *not*
-importable, `session_bootstrap.py` calls a new internal function
-`_read_manifest_minimal(path) -> dict` that scans the file with a small
-regex set to extract `name: <string>` and `surfaces.enabled: [<list>]`
-only.
+### D-143-01 — `ai-eng release` is the sole release authority
 
-**Rationale**: keeps the script stdlib-only, restores the two
-header-critical fields in every install, and accepts the maintenance
-burden of a 2-field parser (≤ 30 LOC). The mini-parser is intentionally
-narrow — adding new fields to it is an explicit cost, which is the
-right pressure to keep the dashboard surface lean.
+`ai-eng release <TARGET_VERSION>` remains the only normal release write path. It owns release validation, version mutation, release PR creation, release PR merge waiting, tag creation, workflow monitoring, and release packet audit pointers.
 
-### D-142-02 — surface→path map inlined in `session_bootstrap.py`
-The
-canonical map `_PROVIDER_TREE_MAPS` lives in
-`src/ai_engineering/config/mirror_inventory.py` (pip package). The
-stdlib script cannot import it without breaking the stdlib-only
-contract. Instead, `session_bootstrap.py` carries a small inline
-constant `_SURFACE_DIRS` covering all 7 surfaces:
+**Rationale**: The CLI reference, release guard, tests, and existing mutator already encode this authority. Keeping an independent CI semantic-release writer would preserve the SSOT-PD violation and leave two paths capable of changing immutable release state.
 
-```python
-_SURFACE_DIRS = {
-    "claude-code":    (".claude/skills",   ".claude/agents"),
-    "codex":          (".codex/skills",    ".codex/agents"),
-    "gemini-cli":     (".gemini/skills",   ".gemini/agents"),
-    "github-copilot": (".github/skills",   ".github/agents"),
-    "opencode":       (".opencode/skills", ".opencode/agents"),
-    "cursor":         (".cursor/skills",   ".cursor/agents"),
-    "antigravity":    (".agent/skills",    ".agent/agents"),
-}
-```
+### D-143-02 — semantic-release is hard-removed, not disabled
 
-A CI test (`tests/unit/scripts/test_session_bootstrap_surface_map.py`)
-asserts `_SURFACE_DIRS` keys equal the canonical surface enum, so drift
-between the inline map and the pip-package source of truth is caught at
-test time, not at user runtime.
+python-semantic-release release configuration and CI write behavior are removed from the framework release flow. The implementation must not leave a disabled or comments-only semantic-release release path behind.
 
-**Rationale**: small duplication beats the
-import cycle, and the CI guard makes the duplication safe.
+**Rationale**: The user selected hard removal. A disabled release engine is operational ambiguity; the constitution forbids backwards-compatibility shims for removed or migrated content. The migration is documented in `CHANGELOG.md`.
 
-### D-142-03 — primary-surface counting
-When `surfaces.enabled`
-contains multiple entries (e.g. `[claude-code, github-copilot]`),
-`_count_skills` / `_count_agents` count from the first entry only.
-**Rationale**: mirror trees are byte-equivalent regenerations
-(CLAUDE.md §12 "byte-equivalent regenerations"), so counts are
-identical across surfaces. Counting from the primary is correct,
-single-numbered, and keeps the header one line. Drift between mirrors
-is a doctor-phase concern, not a dashboard concern.
+### D-143-03 — `pyproject.toml` package version is the version SSOT
 
-### D-142-04 — `_hooks_health` reports `unverified` when scripts exist
-but manifest is missing
-Today, missing manifest → `unknown`. New
-behaviour: if `.ai-engineering/state/hooks-manifest.json` is missing
-*and* `.ai-engineering/scripts/hooks/` exists with at least one file,
-return `"unverified"`; the markdown rendering surfaces this as
-`hooks: unverified — run regenerate-hooks-manifest`. The genuine
-unreadable case (manifest present but malformed JSON or empty `hooks`
-mapping) keeps `unknown`.
+`pyproject.toml` `[project].version` remains the canonical writable package version. The registry, root/template framework manifests, and changelog are derived release surfaces updated atomically by the release PR.
 
-**Rationale**: distinguishes "install incomplete"
-(actionable) from "filesystem error" (investigate).
+**Rationale**: The current project uses static package metadata; PyPA requires project version metadata to be present statically or dynamically, and the repo already uses a static version. Keeping this SSOT minimizes churn and lets the existing guard and mutator evolve rather than invert the release model.
 
-### D-142-05 — `ai-eng install` finalizes by generating
-`hooks-manifest.json`
-The install command runs
-`regenerate-hooks-manifest.py` as a final step before exiting. The
-hook script already runs in O(seconds) (74 files × sha256). If it
-fails (permission error, missing scripts dir), the install warns but
-does not abort — the dashboard's `unverified` state remains the
-fallback.
+### D-143-04 — target version is execution input
 
-**Rationale**: the manual one-shot has been documented since
-spec-122, but nothing closes the loop in practice. Auto-generating
-costs ~50 ms at install time and prevents the entire class of
-`hooks: unknown` dashboard reports for new installs. Existing installs
-still show `unverified` until the operator runs the command (D-142-04
-makes the path discoverable).
+The spec does not pick the next real framework version. `<TARGET_VERSION>` is supplied when the operator runs `ai-eng release <TARGET_VERSION>`.
 
-### D-142-06 — JSON schema additive contract
-The JSON payload gains
-no new top-level fields. `hooks_health` already exists; its set of
-accepted string values expands to include `"unverified"`. The
-`schema_version: 1` integer is unchanged.
+**Rationale**: This spec designs and hardens the release system. Choosing the next package version belongs to release execution, not to the system-design spec.
 
-**Rationale**: cross-IDE
-renderers (which are markdown-only consumers) parse the embedded
-`markdown` field anyway; the JSON contract only matters for tooling
-that already accepts new enum members defensively.
+### D-143-05 — `Release` workflow starts from `push` on `v*` tags
 
-### D-142-07 — manifest mini-parser owns its grammar, not yaml's
-The
-mini-parser does *not* attempt to handle arbitrary YAML. It supports:
-- `name: <unquoted-or-double-quoted-string>` at top level,
-- `surfaces:\n  enabled:\n  - <surface>` (block list) and
-  `surfaces.enabled: [<surface>, …]` (flow list) at top level.
-Anything else (anchors, multi-line strings, nested mappings) falls
-through to "field unresolved" and the dashboard shows `(unnamed)` /
-empty surface list — same as today, no regression.
+The governed publish workflow starts automatically when the release command creates or verifies a `v<TARGET_VERSION>` tag after the release PR merges. `ai-eng release --wait` monitors the workflow run for that tag's commit.
 
-**Rationale**: the
-manifest schema is stable per spec-133; we own the parser scope.
+**Rationale**: This directly aligns existing orchestrator behavior with GitHub Actions. It avoids creating a GitHub Release before PyPI succeeds and avoids adding a separate workflow-dispatch API dependency to the orchestrator.
+
+### D-143-06 — manual `workflow_dispatch` is protected recovery only
+
+`workflow_dispatch` remains on the `Release` workflow only as a recovery path. It requires protected environment approval and records recovery context in the release packet and audit event.
+
+**Rationale**: Operators need a way to recover from a failed or expired tag-triggered run, but the normal path must remain one governed path. Recovery must be visible and reviewable, not an equivalent hidden release path.
+
+### D-143-07 — TestPyPI runs after merge/tag and before production PyPI
+
+TestPyPI publication and install verification run on the final artifact set after the release PR merges and tag-triggered release starts, before production PyPI publication.
+
+**Rationale**: This validates the exact artifacts intended for production while avoiding TestPyPI version exhaustion on every release PR. Release PR CI still builds and validates artifacts without publishing.
+
+### D-143-08 — full provenance set is mandatory when available
+
+The release evidence set includes GitHub artifact attestations, PyPI Trusted Publishing attestations when the platform emits them, CycloneDX SBOM, SHA256 checksums, metadata/version checks, install smoke results, and verification output before production publish. If a supported attestation mechanism is missing or unverifiable, production publish blocks; if a mechanism is genuinely unsupported by the platform, the release packet records that unsupported status explicitly.
+
+**Rationale**: The user emphasized supply-chain security and governance. The release surface is a package-compromise vector; minimum viable OIDC publish is not enough for the framework's regulated-environment promise.
+
+### D-143-09 — GitHub Release assets are the canonical release packet store
+
+The release packet is stored as GitHub Release assets and links attached to the release tag. `.ai-engineering/state/framework-events.ndjson` records an audit pointer to that packet.
+
+**Rationale**: Release assets are public, discoverable next to the tag, and suitable for generated artifacts. `state.db` is inappropriate for large provenance artifacts, and a markdown archive would require post-release commits and duplicate CI-generated evidence.
+
+### D-143-10 — privileged publish jobs never consume untrusted artifacts
+
+Release publish jobs must build from or download artifacts produced on trusted release refs only, must not use artifacts uploaded by pull request/fork contexts, and must scope `id-token: write` to publish jobs rather than the entire workflow.
+
+**Rationale**: The user explicitly called out preventing CI/CD changes from injecting hacks. Artifact substitution and overbroad OIDC are high-impact supply-chain failure modes.
+
+### D-143-11 — release readiness can be CONDITIONAL only with evidence
+
+Release readiness returns GO or NO-GO by default. CONDITIONAL GO is allowed only when the condition is explicit, traceable, and recorded in the release packet, such as advisory Semgrep community-pack status before registry authentication exists.
+
+**Rationale**: Silent degradation is worse than a visible conditional release. This preserves progress while keeping auditors and operators aware of unresolved release posture.
+
+### D-143-12 — changelog validation is strengthened for release quality
+
+The release path validates a Keep a Changelog-compatible target section, date, non-empty release notes, and explicit breaking-change placement when release-path semantics change.
+
+**Rationale**: The current changelog helper only checks `[Unreleased]` and duplicate target sections. Release hardening needs deterministic documentation quality, especially for hard-removing semantic-release from the release path.
 
 ## Risks
 
-- **R-142-01 — mini-parser drift from manifest schema.** If a future
-  spec changes the manifest layout for `name` or `surfaces.enabled`
-  (e.g. moves them under a new top-level key), the mini-parser silently
-  returns empty. *Mitigation:* a CI test parses the actual repo
-  manifest with the mini-parser and asserts the result equals
-  `yaml.safe_load`. Lives at `tests/unit/scripts/test_minimal_manifest_parse.py`.
-  Any schema change that breaks the dashboard is then a red CI build,
-  not a silent UX regression.
-
-- **R-142-02 — `_SURFACE_DIRS` diverges from `_PROVIDER_TREE_MAPS`.**
-  New surface added in `mirror_inventory.py`, inline map forgotten.
-  *Mitigation:* CI test in D-142-02 enforces equality. Operator who
-  adds a new surface gets a red test pointing them to the inline map
-  with a one-line fix.
-
-- **R-142-03 — `regenerate-hooks-manifest.py` slows the install.**
-  On a cold machine the script enumerates ~74 files and hashes them.
-  Benchmark on the framework repo today: ~120 ms. *Mitigation:* fits
-  inside the install command's overall budget (install already does
-  filesystem writes). If a future benchmark shows it crossing 500 ms
-  on cold installs, gate behind `--skip-hooks-manifest` or move to a
-  post-install async step.
-
-- **R-142-04 — counter drift on installs that copy raw mirrors and
-  symlinks.** If a surface's skill directory is a symlink (e.g.
-  `.claude/hooks → ../../.ai-engineering/scripts/hooks` per CLAUDE.md
-  line 165), `is_dir()` / `iterdir()` still works but symlink loops
-  could in theory slow the count. *Mitigation:* the count is one
-  shallow `iterdir` plus an `is_file()` check per entry, no recursion.
-  The function already caps work at one directory level.
-
-- **R-142-05 — installs without `surfaces.enabled` field at all.**
-  Older manifests or hand-edited ones may omit the field. *Mitigation:*
-  fallback to `claude-code` as the implicit primary (matches the legacy
-  hardcoded behaviour) and log a single-line warning to stderr. The
-  manifest schema itself defaults to `claude-code` as the first
-  surface (per spec-133 D-133-16), so this fallback aligns with the
-  framework's own default.
-
-- **R-142-06 — operator on a surface beyond the 7 enum entries.**
-  Today the enum is closed (claude-code, codex, gemini-cli,
-  github-copilot, opencode, cursor, antigravity). If a future surface
-  is added, the inline `_SURFACE_DIRS` returns no entry and the count
-  falls back to `0`. *Mitigation:* the JSON output gains an optional
-  `surface_resolved: <surface-or-null>` field (one-line addition under
-  D-142-06's additive contract) so tooling can detect the unknown
-  surface. CI test in D-142-02 still gates the inline map vs. enum.
+| Risk | Likelihood | Impact | Mitigation |
+|---|---:|---:|---|
+| Release workflow refactor creates a new supply-chain injection path | Medium | Critical | Enforce trusted refs only, no PR/fork artifacts, job-scoped OIDC, protected environments, SHA-pinned actions, artifact attestation verification, and workflow-policy tests. |
+| Tag-triggered workflow does not match orchestrator monitor lookup | Medium | High | Add tests/policy checks proving `ai-eng release --wait` creates the event that the `Release` workflow listens to and monitors by tag SHA. |
+| Removing semantic-release breaks an unknown maintainer habit | Medium | Medium | Hard migration documented in `CHANGELOG.md` and release docs; no shim, but `ai-eng release --dry-run` provides the supported replacement workflow. |
+| TestPyPI or PyPI Trusted Publishing configuration is absent | Medium | High | Fail with named environment/config error before production PyPI; manual project setup remains operator-owned but documented. |
+| TestPyPI version immutability blocks rerun after a partial failure | Medium | Medium | Run TestPyPI only after final tag; require dry-run and artifact verification before publish; document recovery via new target version or explicit recovery path. |
+| Attestations are generated but not verified | Medium | High | Verification is an acceptance criterion before production PyPI, and results must appear in the release packet. |
+| Community Semgrep packs remain advisory longer than intended | Medium | Medium | Release packet records CONDITIONAL GO while unauthenticated; once registry auth exists, release policy can fail-closed without changing the architecture. |
+| Manual recovery dispatch becomes a shadow normal path | Low | High | Keep it protected, require recovery context, and document tag push as the only normal governed path. |
+| CI action SHA pins drift or are replaced with mutable tags | Medium | High | Workflow policy tests block mutable action references in release-related workflows. |
+| Changelog stricter validation blocks urgent release | Medium | Medium | Block by default; risk acceptance can be recorded only through canonical risk workflow and linked in the release packet. |
 
 ## References
 
-- doc: src/ai_engineering/config/mirror_inventory.py — canonical surface→path map (`_PROVIDER_TREE_MAPS`)
-- doc: .ai-engineering/scripts/regenerate-hooks-manifest.py — one-shot hooks-manifest generator
-- doc: .ai-engineering/scripts/session_bootstrap.py — script being reworked (lines 282-346, 797-840)
-- doc: .claude/skills/ai-start/SKILL.md — dashboard contract surface
-- doc: CLAUDE.md §12 — "byte-equivalent regenerations" cross-surface invariant
-- doc: spec-133 D-133-16 — closed enum of 7 surfaces, first-entry primary
-- doc: spec-131 D-131-12 — trusted-argv lane (why we do NOT change the invocation)
+- doc: .ai-engineering/specs/drafts/ai-engineering-release-version-cicd-pypi-brief.md
+- doc: .ai-engineering/reference/cli-reference.md:21-35 — documented release command and sole write-path rule.
+- doc: src/ai_engineering/cli_commands/release.py:18-105 — CLI release entry point and phase output.
+- doc: src/ai_engineering/release/orchestrator.py:121-318 — current release phases and validation.
+- doc: src/ai_engineering/release/orchestrator.py:543-559 — current monitor lookup for workflow `Release` by tag SHA.
+- doc: src/ai_engineering/release/version_bump.py:191-273 — version mutation and registry sync.
+- doc: src/ai_engineering/release/changelog.py:35-76 — current changelog validation and promotion helper.
+- doc: src/ai_engineering/policy/release_version_guard.py:12-109 — guarded release file set and branch policy.
+- doc: tests/unit/test_release_version_guard.py:71-94 — current full release PR file-set test.
+- doc: .github/workflows/ci-build.yml:50-228 — competing semantic-release/tag/main commit-back path.
+- doc: .github/workflows/release.yml:1-233 — current manual artifact-driven PyPI workflow.
+- doc: .github/workflows/ci-check.yml:513-698 — current security and content-integrity gates.
+- doc: .codex/skills/ai-verify/SKILL.md:63-69 — release-readiness gate contract.
+- doc: CONSTITUTION.md:85-115 — mandatory gates and supply-chain bar.
+- doc: Python Packaging User Guide, `pyproject.toml` specification — https://packaging.python.org/en/latest/specifications/pyproject-toml/
+- doc: Python Packaging User Guide, version specifiers — https://packaging.python.org/en/latest/specifications/version-specifiers/
+- doc: PyPI Trusted Publishers — https://docs.pypi.org/trusted-publishers/
+- doc: PyPI publishing with a Trusted Publisher — https://docs.pypi.org/trusted-publishers/using-a-publisher/
+- doc: PyPI digital attestations — https://docs.pypi.org/attestations/
+- doc: GitHub Docs, build/test Python and publish to PyPI — https://docs.github.com/en/actions/tutorials/build-and-test-code/python#publishing-to-pypi
+- doc: GitHub Docs, artifact attestations — https://docs.github.com/en/actions/concepts/security/artifact-attestations
+- doc: PyPA `gh-action-pypi-publish` — https://github.com/pypa/gh-action-pypi-publish
 
 ## Open Questions
 
-None blocking. Items deferred to plan-time:
-- Whether `unverified` markdown rendering should also include a one-line
-  install-completion hint (e.g. "this install is partial").
-- Whether `surface_resolved: null` (R-142-06) should trigger a
-  stderr warning at all, or remain silent for tooling integrations
-  that intentionally pre-resolve.
+None. The brainstorm resolved the release authority, semantic-release disposition, TestPyPI timing, workflow trigger, Semgrep community-pack policy, manual dispatch policy, provenance set, release-packet store, and target-version handling.

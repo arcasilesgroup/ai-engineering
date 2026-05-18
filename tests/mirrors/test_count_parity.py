@@ -24,8 +24,9 @@ must contain the same number of skill directories as the canonical
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
+
+from ai_engineering.config.loader import load_manifest_config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLAUDE_SKILLS = REPO_ROOT / ".claude" / "skills"
@@ -77,21 +78,13 @@ def _count_agent_files(root: Path) -> int:
 
 
 def _manifest_total(section: str) -> int:
-    """Tiny pyyaml-free reader for `manifest.yml <section>.total`."""
-    text = MANIFEST.read_text(encoding="utf-8")
-    in_section = False
-    for line in text.splitlines():
-        if re.match(rf"^{re.escape(section)}:\s*$", line):
-            in_section = True
-            continue
-        if in_section:
-            if line and not line.startswith((" ", "\t")):
-                in_section = False
-                continue
-            stripped = line.lstrip()
-            if stripped.startswith("total:"):
-                return int(stripped.split(":", 1)[1].strip())
-    raise AssertionError(f"manifest.yml is missing {section}.total")
+    """Read effective manifest totals after framework defaults injection."""
+    config = load_manifest_config(REPO_ROOT)
+    if section == "skills":
+        return config.skills.total
+    if section == "agents":
+        return config.agents.total
+    raise AssertionError(f"unsupported manifest section: {section}")
 
 
 # ---------------------------------------------------------------------------
@@ -158,21 +151,17 @@ class TestAgentCountParity:
         )
 
     def test_disk_agent_total_in_documented_range(self) -> None:
-        """Total `.claude/agents/*.md` count is the value committed by sub-005.
+        """Total `.claude/agents/*.md` reflects the post-collapse roster.
 
-        spec-127 umbrella target was 23 agents end-to-end; sub-005 achieved
-        24 (`reviewer-design` content was merged into `reviewer-frontend`,
-        `ai-run-orchestrator` deleted; the 23 target also assumed an
-        additional consolidation that did not materialise — see CHANGELOG
-        Wave 8 section for the explanation). Wave 8 (D-127-10 strict-count
-        audit) confirmed all 24 agents are dispatch-referenced from a
-        live SKILL.md, so no orphan deletion was available without an
-        arbitrary merger; the count stays at 24. This test pins the
-        achieved count so future regressions are caught loudly.
+        spec-140 W3 collapsed six reviewer/verifier specialists and spec-134
+        promotes only 9 first-class `ai-*` orchestrators. The current canonical
+        disk roster is 19 files: 9 orchestrators plus 10 internal reviewer /
+        verifier support agents. This pins the achieved count so future
+        accidental resurrection of deleted specialists is caught loudly.
         """
         actual = _count_agent_files(CLAUDE_AGENTS)
-        assert actual == 24, (
-            f"`.claude/agents/*.md` count is {actual}; Wave 8 "
-            f"committed 24 (audit confirmed no orphan agents). If you "
-            f"intentionally adjusted this, update the assertion + CHANGELOG."
+        assert actual == 19, (
+            f"`.claude/agents/*.md` count is {actual}; spec-140 W3 collapse "
+            "committed 19 canonical agent files. If you intentionally adjusted "
+            "this, update the assertion + CHANGELOG."
         )

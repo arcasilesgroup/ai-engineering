@@ -43,7 +43,7 @@ within that tier to exactly one canonical file.
   `src/ai_engineering/governance/decision_log.py:emit_policy_decision`.
 - **Hot-path status:** yes — must stay append-only and lock-free.
   Article III preservation (formerly CONSTITUTION.md
-  [Article III — Dual-Plane Security](../.ai-engineering/specs/_history-constitution-2026-05-11.md#L52-L69),
+  [Article III — Dual-Plane Security](../.ai-engineering/specs/_history-constitution-2026-05-11.md#article-iii-dual-plane-security),
   now folded into the current CONSTITUTION.md "Compliance gates"
   section at lines 85-110).
 

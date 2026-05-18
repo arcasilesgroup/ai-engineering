@@ -11,7 +11,7 @@ from ai_engineering.release.changelog import (
 )
 
 
-def _write_changelog(path: Path, unreleased_body: str = "- item\n") -> None:
+def _write_changelog(path: Path, unreleased_body: str = "### Added\n- item\n") -> None:
     path.write_text(
         "\n".join(
             [
@@ -54,6 +54,123 @@ def test_validate_changelog_reports_duplicate_version_section(tmp_path: Path) ->
 
     # Assert
     assert any("already contains" in err for err in errors)
+
+
+def test_validate_changelog_reports_missing_unreleased_section(tmp_path: Path) -> None:
+    # Arrange
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text("# Changelog\n\n## [0.1.0] - 2026-03-01\n\n- old\n", encoding="utf-8")
+
+    # Act
+    errors = validate_changelog(changelog, "0.2.0")
+
+    # Assert
+    assert any("Missing [Unreleased]" in err for err in errors)
+
+
+def test_validate_changelog_reports_target_section_bad_date_format(tmp_path: Path) -> None:
+    # Arrange
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        "\n".join(
+            [
+                "# Changelog",
+                "",
+                "## [Unreleased]",
+                "",
+                "### Added",
+                "- item",
+                "",
+                "## [0.2.0] - 2026/03/02",
+                "",
+                "### Fixed",
+                "- old",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    # Act
+    errors = validate_changelog(changelog, "0.2.0")
+
+    # Assert
+    assert any("YYYY-MM-DD" in err for err in errors)
+
+
+def test_validate_changelog_reports_empty_unreleased_notes(tmp_path: Path) -> None:
+    # Arrange
+    changelog = tmp_path / "CHANGELOG.md"
+    changelog.write_text(
+        "# Changelog\n\n## [Unreleased]\n\n## [0.1.0] - 2026-03-01\n\n- old\n",
+        encoding="utf-8",
+    )
+
+    # Act
+    errors = validate_changelog(changelog, "0.2.0")
+
+    # Assert
+    assert any("release notes are empty" in err for err in errors)
+
+
+def test_validate_changelog_reports_missing_keep_a_changelog_subgroup(tmp_path: Path) -> None:
+    # Arrange
+    changelog = tmp_path / "CHANGELOG.md"
+    _write_changelog(changelog, "- item without subgroup\n")
+
+    # Act
+    errors = validate_changelog(changelog, "0.2.0")
+
+    # Assert
+    assert any("Keep-a-Changelog subgroup" in err for err in errors)
+
+
+def test_validate_changelog_requires_breaking_subgroup_for_release_path_semantics(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    changelog = tmp_path / "CHANGELOG.md"
+    _write_changelog(
+        changelog,
+        "\n".join(
+            [
+                "### Changed",
+                "- semantic-release and manual CI commit-back are removed; "
+                "ai-eng release is sole authority.",
+                "",
+            ]
+        ),
+    )
+
+    # Act
+    errors = validate_changelog(changelog, "0.2.0")
+
+    # Assert
+    assert any("### BREAKING" in err for err in errors)
+
+
+def test_validate_changelog_accepts_release_path_semantics_under_breaking(
+    tmp_path: Path,
+) -> None:
+    # Arrange
+    changelog = tmp_path / "CHANGELOG.md"
+    _write_changelog(
+        changelog,
+        "\n".join(
+            [
+                "### BREAKING",
+                "- semantic-release and manual CI commit-back are removed; "
+                "ai-eng release is sole authority.",
+                "",
+            ]
+        ),
+    )
+
+    # Act
+    errors = validate_changelog(changelog, "0.2.0")
+
+    # Assert
+    assert not any("### BREAKING" in err for err in errors)
 
 
 def test_promote_unreleased_moves_content_and_leaves_empty_section(tmp_path: Path) -> None:

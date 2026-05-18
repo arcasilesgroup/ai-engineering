@@ -488,6 +488,13 @@ def verify_platform(project_root: Path, *, profile: str = "normal") -> VerifySco
     return combined
 
 
+def verify_release(project_root: Path, version: str):
+    """Return release-readiness evidence without importing release code at module load."""
+    from ai_engineering.release.readiness import evaluate_release_readiness
+
+    return evaluate_release_readiness(project_root, version)
+
+
 def _frontmatter_value(content: str, key: str) -> str | None:
     marker = f"{key}:"
     in_frontmatter = False

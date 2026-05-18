@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 from ai_engineering.release import orchestrator as orchestrator_module
 from ai_engineering.release.orchestrator import (
+    PhaseResult,
     ReleaseConfig,
     execute_release,
 )
@@ -178,6 +179,24 @@ class TestEmitDeployEventWiring:
                 ),
             ),
             patch(
+                "ai_engineering.release.orchestrator._run_release_readiness",
+                return_value=PhaseResult(
+                    "readiness",
+                    True,
+                    "GO",
+                    details={
+                        "readiness": {
+                            "verdict": "GO",
+                            "conditions": [],
+                            "artifact_path": str(
+                                tmp_path
+                                / ".ai-engineering/runtime/release/9.9.9/release-readiness.json"
+                            ),
+                        }
+                    },
+                ),
+            ),
+            patch(
                 "ai_engineering.release.orchestrator._create_tag",
                 return_value=MagicMock(
                     phase="tag",
@@ -261,6 +280,24 @@ class TestEmitDeployEventWiring:
                 ),
             ),
             patch(
+                "ai_engineering.release.orchestrator._run_release_readiness",
+                return_value=PhaseResult(
+                    "readiness",
+                    True,
+                    "GO",
+                    details={
+                        "readiness": {
+                            "verdict": "GO",
+                            "conditions": [],
+                            "artifact_path": str(
+                                tmp_path
+                                / ".ai-engineering/runtime/release/9.9.9/release-readiness.json"
+                            ),
+                        }
+                    },
+                ),
+            ),
+            patch(
                 "ai_engineering.release.orchestrator._create_tag",
                 return_value=MagicMock(
                     phase="tag", success=True, output="v9.9.9 created", skipped=False
@@ -296,3 +333,5 @@ class TestEmitDeployEventWiring:
         assert pipeline_call.kwargs["strategy"] == "pipeline"
         assert pipeline_call.kwargs["version"] == "9.9.9"
         assert pipeline_call.kwargs["result"] == "https://example/actions/runs/1"
+        assert pipeline_call.kwargs["release_packet_url"].endswith("release-packet.json")
+        assert pipeline_call.kwargs["release_packet_ref"] == "release-packet.json"

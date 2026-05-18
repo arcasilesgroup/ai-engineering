@@ -20,6 +20,24 @@ def test_detect_changed_version_surfaces_ignores_unrelated_manifest_version() ->
     assert result == set()
 
 
+def test_detect_pyproject_target_version_reads_added_version_line() -> None:
+    diff_text = '@@ -2 +2 @@\n-version = "0.4.0"\n+version = "0.5.0"\n'
+
+    result = release_version_guard.detect_pyproject_target_version(diff_text)
+
+    assert result == "0.5.0"
+
+
+def test_required_release_file_set_stays_complete() -> None:
+    assert release_version_guard.required_release_files() == {
+        "pyproject.toml",
+        "src/ai_engineering/version/registry.json",
+        ".ai-engineering/manifest.yml",
+        "src/ai_engineering/templates/.ai-engineering/manifest.yml",
+        "CHANGELOG.md",
+    }
+
+
 def test_evaluate_release_version_guard_skips_non_pull_request() -> None:
     passed, message = release_version_guard.evaluate_release_version_guard(
         ["pyproject.toml"],
@@ -66,6 +84,53 @@ def test_evaluate_release_version_guard_fails_when_release_file_set_is_incomplet
     assert passed is False
     assert "Missing" in message
     assert "src/ai_engineering/templates/.ai-engineering/manifest.yml" in message
+
+
+def test_evaluate_release_version_guard_fails_when_branch_version_mismatches_target() -> None:
+    changed_files = [
+        "pyproject.toml",
+        "src/ai_engineering/version/registry.json",
+        ".ai-engineering/manifest.yml",
+        "src/ai_engineering/templates/.ai-engineering/manifest.yml",
+        "CHANGELOG.md",
+    ]
+
+    passed, message = release_version_guard.evaluate_release_version_guard(
+        changed_files,
+        {
+            "pyproject.version",
+            "version-registry",
+            "root-manifest.framework_version",
+            "template-manifest.framework_version",
+        },
+        event_name="pull_request",
+        head_ref="release/v0.5.0",
+        target_version="0.6.0",
+    )
+
+    assert passed is False
+    assert "release/v0.6.0" in message
+
+
+def test_evaluate_release_version_guard_allows_branch_when_target_is_not_detectable() -> None:
+    changed_files = [
+        "pyproject.toml",
+        "src/ai_engineering/version/registry.json",
+        ".ai-engineering/manifest.yml",
+        "src/ai_engineering/templates/.ai-engineering/manifest.yml",
+        "CHANGELOG.md",
+    ]
+
+    passed, message = release_version_guard.evaluate_release_version_guard(
+        changed_files,
+        {"pyproject.version", "version-registry"},
+        event_name="pull_request",
+        head_ref="release/v0.5.0",
+        target_version=None,
+    )
+
+    assert passed is True
+    assert "passed" in message
 
 
 def test_evaluate_release_version_guard_passes_for_release_pr() -> None:

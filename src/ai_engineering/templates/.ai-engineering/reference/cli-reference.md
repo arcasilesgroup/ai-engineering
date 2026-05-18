@@ -26,13 +26,18 @@ ai-eng release --wait              # Wait for pipeline after tagging
 ai-eng release --skip-bump         # Skip version bump step
 ```
 
-Release rule: treat `ai-eng release <VERSION>` as the only supported write path for framework releases.
+Release rule: ai-eng release <VERSION> is the sole authority for framework releases.
 It is responsible for updating `pyproject.toml`, `src/ai_engineering/version/registry.json`,
 the source-repo `framework_version` manifests, and promoting `CHANGELOG.md` out of `Unreleased`.
 Do not edit those version surfaces by hand during a normal release.
 
-Use `--dry-run` first, then run the real release command. Reserve `--skip-bump` for recovery or
-resume flows when the version bump commit already exists.
+Release path: use `--dry-run` first, then run the real release command to create the governed
+`release/v<VERSION>` branch and release commit. After merge, the tag-triggered Release workflow
+publishes the release: it validates on TestPyPI before PyPI Trusted Publishing, then attaches the
+provenance packet (checksums, SBOM, attestations, and release notes) to the GitHub Release.
+`workflow_dispatch` is a protected recovery dispatch only; it is not the normal release path.
+legacy automated release tooling and manual CI commit-back are hard-removed, so CI never invents a release commit.
+Reserve `--skip-bump` for recovery or resume flows when the version bump commit already exists.
 
 ## Configuration (stack / IDE / provider / VCS)
 

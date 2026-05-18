@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING
+
+- semantic-release and manual CI commit-back are hard-removed from the
+  framework release spine. `ai-eng release <VERSION>` is now the sole
+  authority for version bumps, changelog promotion, release branch/tag
+  creation, and publish hand-off. The tag-triggered Release workflow
+  validates artifacts on TestPyPI before PyPI Trusted Publishing and
+  attaches the release packet (checksums, SBOM, attestations/provenance,
+  and release notes) to the GitHub Release.
+- The prior spec-101 installer BREAKING contract remains in force for
+  release notes and operator automation: `EXIT 80`, `EXIT 81`,
+  `python_env.mode`, and `14 stacks` stay documented here so the most
+  recent BREAKING block preserves those required keywords.
+
 ### Run summary — multi-spec autonomous orchestration
 
 This Unreleased section captures a single multi-spec autonomous `--no-hitl`
