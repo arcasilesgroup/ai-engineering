@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-05-18
+
 ### BREAKING
 
 - semantic-release and manual CI commit-back are hard-removed from the
@@ -2362,7 +2364,6 @@ quiet. Dry-run installs do not emit the banner.
   migration; queued for Phase 5 quality loop.
 - `policy_engine.py` legacy Rego interpreter still present
   (sub-003 T-3.16 deferred). Removal scheduled for spec-123.
-
 ## [0.4.6] - 2026-04-07
 
 ### Fixed
