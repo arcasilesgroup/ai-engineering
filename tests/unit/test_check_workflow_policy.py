@@ -112,7 +112,10 @@ def _minimal_release_workflow() -> dict:
                         "run": (
                             'uv run ai-eng --json verify --release "$VERSION" '
                             "> release-readiness-envelope.json\n"
+                            "find_readiness\n"
                             "release_readiness\n"
+                            ".ai-engineering\n"
+                            "runtime\n"
                             "release-readiness.json\n"
                             "CONDITIONAL GO\n"
                             "NO-GO"

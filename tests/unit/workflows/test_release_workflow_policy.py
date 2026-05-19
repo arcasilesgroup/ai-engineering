@@ -284,7 +284,10 @@ def test_release_workflow_runs_readiness_before_publish(workflow: dict) -> None:
     text = _step_text(workflow, "release-readiness")
     assert "ai-eng --json verify --release" in text
     assert "release-readiness-envelope.json" in text
+    assert "find_readiness" in text
     assert "release_readiness" in text
+    assert ".ai-engineering" in text
+    assert "runtime" in text
     assert "release-readiness.json" in text
     assert "CONDITIONAL GO" in text
     assert "NO-GO" in text
