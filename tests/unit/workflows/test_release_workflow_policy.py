@@ -297,6 +297,8 @@ def test_release_workflow_runs_readiness_before_publish(workflow: dict) -> None:
     assert ".ai-engineering" in text
     assert "runtime" in text
     assert "release-readiness.json" in text
+    assert "always()" in text
+    assert "if-no-files-found" in text
     assert "CONDITIONAL GO" in text
     assert "NO-GO" in text
     assert "release-readiness" in _needs(workflow, "publish-testpypi")

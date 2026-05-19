@@ -124,6 +124,8 @@ def _minimal_release_workflow() -> dict:
                             ".ai-engineering\n"
                             "runtime\n"
                             "release-readiness.json\n"
+                            "always()\n"
+                            "if-no-files-found\n"
                             "CONDITIONAL GO\n"
                             "NO-GO"
                         )

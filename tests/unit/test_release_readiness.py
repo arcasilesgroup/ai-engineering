@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 
 from ai_engineering.release.readiness import evaluate_release_readiness
@@ -12,11 +13,13 @@ from ai_engineering.verify.scoring import FindingSeverity, SpecialistResult, Ver
 class _Runner:
     def __init__(self, *, fail: str | None = None) -> None:
         self.fail = fail
-        self.calls: list[list[str]] = []
+        self.calls: list[tuple[list[str], int]] = []
+        self.skip_hot_path_slo: list[str | None] = []
 
     def __call__(self, cmd: list[str], cwd: Path, timeout: int = 120) -> tuple[bool, str]:
-        del cwd, timeout
-        self.calls.append(cmd)
+        del cwd
+        self.calls.append((cmd, timeout))
+        self.skip_hot_path_slo.append(os.environ.get("SKIP_HOT_PATH_SLO"))
         cmd_text = " ".join(cmd)
         if self.fail and self.fail in cmd_text:
             return False, f"{self.fail} failed"
@@ -64,6 +67,39 @@ def test_release_readiness_go_when_every_dimension_passes(tmp_path: Path, monkey
     assert payload["dimensions"]["packaging"]["status"] == "PASS"
     assert Path(str(payload["artifact_path"])).is_file()
     json.loads(Path(str(payload["artifact_path"])).read_text(encoding="utf-8"))
+
+
+def test_release_readiness_uses_ci_parity_commands(tmp_path: Path, monkeypatch) -> None:
+    _seed_release_project(tmp_path)
+    monkeypatch.setattr(
+        "ai_engineering.release.readiness.verify_platform", lambda _root: _platform_score()
+    )
+    runner = _Runner()
+
+    evaluate_release_readiness(tmp_path, "0.5.0", command_runner=runner)
+
+    test_calls = [call for call in runner.calls if "pytest" in call[0]]
+    assert len(test_calls) == 3
+    assert all(timeout == 1200 for _cmd, timeout in test_calls)
+    assert all(value == "1" for value in runner.skip_hot_path_slo[:3])
+    assert any("tests/unit" in cmd for cmd, _timeout in test_calls)
+    assert any("tests/integration" in cmd for cmd, _timeout in test_calls)
+    assert any("tests/e2e" in cmd for cmd, _timeout in test_calls)
+    unit_cmd = next(cmd for cmd, _timeout in test_calls if "tests/unit" in cmd)
+    assert "-n" in unit_cmd
+    assert "--deselect" in unit_cmd
+    assert (
+        [
+            "uv",
+            "run",
+            "ty",
+            "check",
+            "--exclude",
+            "src/ai_engineering/templates/**",
+            "src/",
+        ],
+        300,
+    ) in runner.calls
 
 
 def test_release_readiness_no_go_for_blocker_or_critical_security(

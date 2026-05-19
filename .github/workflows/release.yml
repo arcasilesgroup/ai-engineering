@@ -197,10 +197,12 @@ jobs:
           fi
 
       - name: Upload release readiness evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
         with:
           name: release-readiness
           path: release-readiness.json
+          if-no-files-found: warn
           retention-days: 7
 
   release-build:
