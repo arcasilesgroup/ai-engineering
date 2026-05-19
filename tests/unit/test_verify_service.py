@@ -548,6 +548,42 @@ class TestAdditionalSpecialists:
         assert result.findings
         assert result.findings[0].category == "cycle"
 
+    def test_verify_architecture_ignores_lazy_import_cycle_breakers(self, tmp_path: Path) -> None:
+        """Function-local imports are cycle-breaking adapters, not eager cycles."""
+        root = tmp_path
+        package = root / "src" / "ai_engineering" / "demo"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "a.py").write_text(
+            "def load_b():\n    from ai_engineering.demo import b\n    return b\n",
+            encoding="utf-8",
+        )
+        (package / "b.py").write_text("from ai_engineering.demo import a\n", encoding="utf-8")
+
+        result = verify_architecture(root)
+
+        assert result.findings == []
+
+    def test_verify_architecture_ignores_imported_symbol_as_fake_module(
+        self, tmp_path: Path
+    ) -> None:
+        """Imported objects do not become graph nodes unless they are real modules."""
+        root = tmp_path
+        package = root / "src" / "ai_engineering" / "demo"
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("", encoding="utf-8")
+        (package / "a.py").write_text(
+            "from ai_engineering.demo.b import helper\n", encoding="utf-8"
+        )
+        (package / "b.py").write_text(
+            "def helper():\n    return 'ok'\n",
+            encoding="utf-8",
+        )
+
+        result = verify_architecture(root)
+
+        assert result.findings == []
+
     def test_verify_feature_reads_active_spec_and_plan(self, tmp_path: Path) -> None:
         spec_dir = tmp_path / ".ai-engineering" / "specs"
         spec_dir.mkdir(parents=True)

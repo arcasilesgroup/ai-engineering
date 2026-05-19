@@ -535,17 +535,23 @@ def _detect_import_cycles(project_root: Path) -> list[list[str]]:
 
 def _build_internal_import_graph(package_root: Path) -> tuple[dict[str, set[str]], set[str]]:
     """Build a module import graph for the ai_engineering package."""
-    graph: dict[str, set[str]] = defaultdict(set)
-    modules: set[str] = set()
+    files: list[tuple[Path, str]] = []
+    real_modules: set[str] = set()
     for file_path in package_root.rglob("*.py"):
         module = _module_name(package_root, file_path)
-        modules.add(module)
+        files.append((file_path, module))
+        real_modules.add(module)
+
+    graph: dict[str, set[str]] = defaultdict(set)
+    for file_path, module in files:
         graph.setdefault(module, set())
         for import_name in _parsed_internal_imports(file_path, module):
-            graph[module].add(import_name)
-            modules.add(import_name)
-            graph.setdefault(import_name, set())
-    return graph, modules
+            target = _resolve_existing_module(import_name, real_modules)
+            if target is None or target == module:
+                continue
+            graph[module].add(target)
+            graph.setdefault(target, set())
+    return graph, real_modules
 
 
 def _parsed_internal_imports(file_path: Path, module: str) -> Iterable[str]:
@@ -609,12 +615,32 @@ def _module_name(package_root: Path, file_path: Path) -> str:
 def _internal_imports(module_name: str, tree: ast.AST) -> Iterable[str]:
     package_parts = module_name.split(".")
     parent_parts = package_parts[:-1]
-    for node in ast.walk(tree):
+    if not isinstance(tree, ast.Module):
+        return
+    for node in tree.body:
         if isinstance(node, ast.Import):
             yield from _import_targets(node)
             continue
         if isinstance(node, ast.ImportFrom):
             yield from _import_from_targets(node, parent_parts)
+
+
+def _resolve_existing_module(import_name: str, modules: set[str]) -> str | None:
+    """Resolve an import target to a real module in ``modules``.
+
+    ``from ai_engineering.foo import Bar`` yields both the module and the
+    imported alias syntactically.  Only real modules belong in the import
+    graph; imported classes/functions must collapse to their owning module
+    instead of becoming fake nodes.
+    """
+    candidate = import_name
+    while candidate.startswith("ai_engineering"):
+        if candidate in modules:
+            return candidate
+        if "." not in candidate:
+            return None
+        candidate = candidate.rsplit(".", 1)[0]
+    return None
 
 
 def _import_targets(node: ast.Import) -> Iterable[str]:

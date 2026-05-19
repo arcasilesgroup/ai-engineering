@@ -1,6 +1,6 @@
 ---
 name: ai-autopilot
-description: "Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs a single final quality loop (verify+guard+review on full changeset), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship', 'run the backlog', 'execute these GitHub issues', 'process the sprint backlog'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-build instead. Not for ambiguous requirements; use /ai-brainstorm first."
+description: "Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs a single final quality loop with one bounded quality-remediation pass (verify+guard+review on full changeset), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship', 'run the backlog', 'execute these GitHub issues', 'process the sprint backlog'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-build instead. Not for ambiguous requirements; use /ai-brainstorm first."
 effort: high
 argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 tags: [orchestration, autonomous, multi-spec, backlog, pipeline, execution, dag, transparency]
@@ -16,7 +16,7 @@ edit_policy: generated-do-not-edit
 
 ## Purpose
 
-Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes a spec into N focused sub-specs, deep-plans each with parallel agents, orchestrates a dependency-aware execution DAG, implements in waves, runs a single final verify+guard+review pass on the full changeset, and delivers the full changeset via PR with a transparency report. Execution is not complete until sub-spec work converges into a final delivery PR against protected main. One invocation, zero interruptions, full disclosure.
+Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes a spec into N focused sub-specs, deep-plans each with parallel agents, orchestrates a dependency-aware execution DAG, implements in waves, runs a single final verify+guard+review pass with one bounded quality-remediation pass on the full changeset, and delivers the full changeset via PR with a transparency report. Execution is not complete until sub-spec work converges into a final delivery PR against protected main. One invocation, zero interruptions, full disclosure.
 
 ## When to Use
 
@@ -36,7 +36,7 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 ## Process
 
-**Step 0 — Validate**: confirm `.ai-engineering/specs/spec.md` is not a placeholder (else STOP and report `/ai-brainstorm`). On `--resume`, read `.ai-engineering/runtime/autopilot/manifest.md` and re-enter at the Resume Protocol. Load stack contexts (manifest `providers.stacks` + `.ai-engineering/overrides/<stack>/conventions.md`) and pass paths (not content) to subagents. plan.md is not required — Phase 2 agents generate their own. Run `ai-eng host probe` and abort with an operator warning if `ok_to_dispatch == False` (spec-139 M2 D-139-02 — refuses to fan out into a kernel-panic-prone host).
+**Step 0 — Validate**: confirm `.ai-engineering/specs/spec.md` is not a placeholder (else STOP and report `/ai-brainstorm`). On `--resume`, read `.ai-engineering/runtime/autopilot/manifest.md` and re-enter at the Resume Protocol. Load stack contexts (manifest `providers.stacks` + `.ai-engineering/overrides/<stack>/conventions.md`) and pass paths (not content) to subagents. plan.md is not required — Phase 2 agents generate their own. `ai-eng host probe` is diagnostic/advisory only; `ok_to_dispatch` is not a standard-flow execution gate and cannot block `/ai-autopilot`.
 
 **Step 1 — DECOMPOSE** (`handlers/phase-decompose.md`): extract N independent concerns; abort if N<3 (recommend `/ai-build`); write sub-spec dirs and the execution manifest.
 
@@ -46,7 +46,9 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 **Step 4 — IMPLEMENT** (`handlers/phase-implement.md`): per-wave kernel from `.gemini/skills/_shared/execution-kernel.md`. Dispatch build agents per sub-spec in parallel within a wave; each task self-validates via TDD; wave-end guard advisory remains for governance. Collect Self-Reports + per-wave commits. Cascade-block dependents of failed sub-specs.
 
-**Step 5 — QUALITY LOOP** (`handlers/phase-quality.md`): read ai-verify / ai-review / ai-governance SKILL.md once at loop entry; dispatch verify+guard+review in parallel on the full changeset; consolidate findings (unified severity). Clean → Phase 6. Blockers → STOP + escalate to user (no auto-retry). Criticals/highs → proceed to Phase 6 with Integrity Report flag.
+**Step 5 — QUALITY LOOP** (`handlers/phase-quality.md`): read ai-verify / ai-review / ai-governance SKILL.md once at loop entry; dispatch verify+guard+review in parallel on the full changeset; consolidate findings (unified severity). Clean → Phase 6. Blocker/critical/high findings enter Phase 5b only if the one bounded quality-remediation pass is unused and the fixes are finding-scoped. Remaining blocker/critical/high findings after final reassessment → STOP + escalate to user.
+
+**Phase 5b — BOUNDED REMEDIATION** (`handlers/phase-quality.md`): persist `quality_remediation.max_attempts: 1` in the autopilot manifest, map each finding to `sub-NNN`, `integration`, or `shared`, run cross-platform focal reproducers, and then return to Step 5 final reassessment. No re-decompose, no re-plan, no second remediation pass.
 
 **Step 6 — DELIVER** (`handlers/phase-deliver.md`): build the Integrity Report; follow `/ai-pr` SKILL.md; cleanup runtime dir; clear spec.md + plan.md; verify cleanup. `--resume` handles mid-pipeline re-entry.
 

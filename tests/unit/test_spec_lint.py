@@ -648,3 +648,114 @@ def test_plan_duplicate_task_id_is_advisory(tmp_path: Path) -> None:
         r.check_name == "plan_task_id_duplicate" and r.severity == "ADVISORY" for r in results
     )
     assert [r for r in results if r.severity == "BLOCKER"] == []
+
+
+@pytest.mark.unit
+def test_plan_execution_route_valid_metadata_passes(tmp_path: Path) -> None:
+    plan = (
+        "---\n"
+        "spec: spec-test\n"
+        "title: T\n"
+        "status: approved\n"
+        "execution_route:\n"
+        "  version: 1\n"
+        "  spec: spec-test\n"
+        "  executor: build\n"
+        "  automation: hitl\n"
+        "  concern_count: 1\n"
+        "  estimated_files: 3\n"
+        '  reason: "Single-concern plan."\n'
+        '  safe_next_command: "/ai-build"\n'
+        "---\n"
+        "# Plan\n\n"
+        "- [ ] **T-1.1**: pending\n"
+    )
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    route_results = [r for r in results if r.check_name.startswith("plan_execution_route")]
+    assert route_results == []
+
+
+@pytest.mark.unit
+def test_plan_execution_route_rejects_unknown_executor(tmp_path: Path) -> None:
+    plan = (
+        "---\n"
+        "spec: spec-test\n"
+        "title: T\n"
+        "status: approved\n"
+        "execution_route:\n"
+        "  version: 1\n"
+        "  spec: spec-test\n"
+        "  executor: serial\n"
+        "  automation: hitl\n"
+        "  concern_count: 1\n"
+        "  estimated_files: 3\n"
+        '  reason: "No host-admission states are valid executors."\n'
+        '  safe_next_command: "/ai-build"\n'
+        "---\n"
+        "# Plan\n\n"
+        "- [ ] **T-1.1**: pending\n"
+    )
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert any(
+        r.check_name == "plan_execution_route_executor_invalid" and r.severity == "BLOCKER"
+        for r in results
+    )
+
+
+@pytest.mark.unit
+def test_plan_execution_route_command_must_match_executor(tmp_path: Path) -> None:
+    plan = (
+        "---\n"
+        "spec: spec-test\n"
+        "title: T\n"
+        "status: approved\n"
+        "execution_route:\n"
+        "  version: 1\n"
+        "  spec: spec-test\n"
+        "  executor: autopilot\n"
+        "  automation: hitl\n"
+        "  concern_count: 3\n"
+        "  estimated_files: 12\n"
+        '  reason: "Multi-concern plan."\n'
+        '  safe_next_command: "/ai-build"\n'
+        "---\n"
+        "# Plan\n\n"
+        "- [ ] **T-1.1**: pending\n"
+    )
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert any(
+        r.check_name == "plan_execution_route_command_mismatch" and r.severity == "BLOCKER"
+        for r in results
+    )
+
+
+@pytest.mark.unit
+def test_plan_execution_route_cannot_duplicate_approval_state(tmp_path: Path) -> None:
+    plan = (
+        "---\n"
+        "spec: spec-test\n"
+        "title: T\n"
+        "status: approved\n"
+        "execution_route:\n"
+        "  version: 1\n"
+        "  spec: spec-test\n"
+        "  executor: build\n"
+        "  automation: hitl\n"
+        "  concern_count: 1\n"
+        "  estimated_files: 3\n"
+        '  reason: "Single-concern plan."\n'
+        '  safe_next_command: "/ai-build"\n'
+        "  approved: true\n"
+        "---\n"
+        "# Plan\n\n"
+        "- [ ] **T-1.1**: pending\n"
+    )
+    spec_path = _spec_and_plan(tmp_path, plan)
+    results = check_plan(spec_path)
+    assert any(
+        r.check_name == "plan_execution_route_approval_duplicate" and r.severity == "BLOCKER"
+        for r in results
+    )

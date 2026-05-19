@@ -1,11 +1,12 @@
 """spec-139 M4 — agent description must match canonical quality-loop contract.
 
 The canonical contract at `.claude/skills/ai-autopilot/handlers/phase-quality.md:3`
-mandates a single fail-loud quality round (spec-131 D-131-05). An agent
-description that says "verify+guard+review x3" can be misread by an LLM as
-license to run 3 rounds, fanning out to 3 * 16 = 48 agent invocations — exactly
-the class of regression that produced the macOS kernel-panic incident
-documented in `.ai-engineering/specs/drafts/framework-performance-hardening-brief.md`.
+mandates a single fail-loud quality loop with at most one bounded remediation
+pass (spec-131 D-131-05 / spec-145). An agent description that says
+"verify+guard+review x3" can be misread by an LLM as license to run 3 rounds,
+fanning out to 3 * 16 = 48 agent invocations — exactly the class of regression
+that produced the macOS kernel-panic incident documented in
+`.ai-engineering/specs/drafts/framework-performance-hardening-brief.md`.
 
 This test forbids the stale strings from reappearing in any mirror surface.
 """
@@ -29,7 +30,7 @@ SURFACES = [
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project",
 ]
 
-# Patterns that contradict the canonical single-round contract.
+# Patterns that contradict the canonical bounded single-loop contract.
 # The U+00D7 MULTIPLICATION SIGN is constructed via ``chr(0x00D7)`` to
 # keep the source ASCII-clean (avoiding ruff RUF001 on the ambiguous
 # character) while still matching the same code-point at runtime.
@@ -70,5 +71,5 @@ def test_no_x3_pattern_in_any_surface(pattern: str) -> None:
     assert not hits, (
         f"Forbidden multi-round pattern {pattern!r} found in: {hits}. "
         "The canonical contract at .claude/skills/ai-autopilot/handlers/phase-quality.md "
-        "mandates a single fail-loud round (spec-131 D-131-05)."
+        "mandates a single fail-loud loop with at most one bounded remediation pass."
     )

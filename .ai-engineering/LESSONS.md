@@ -13,6 +13,12 @@ When the user corrects AI behavior:
 
 ## Patterns
 
+### Quality loops may self-remediate once, then fail loud
+
+**Context**: The user rejected slow manual `resuelve` recovery after a quality gate because targeted blockers had already been isolated.
+**Learning**: `/ai-build` and `/ai-autopilot` should spend one bounded remediation pass on concrete blocker/critical/high quality-loop findings, then stop after the final reassessment if anything remains.
+**Rule**: Never turn quality remediation into an infinite retry loop; fix only finding-scoped issues, use cross-platform reproducers, and ask before long full-suite gates.
+
 ### Plan tasks must have checkboxes for progress tracking
 
 **Context**: `/ai-plan` generates `plan.md` as the contract for `/ai-dispatch`.
@@ -257,3 +263,9 @@ Never skip these steps. Verify by reading the files after clearing.
 **Context**: Un repo cliente de prueba mostraba `/ai-start` como `ai-engineering` porque el template copiaba `name: ai-engineering` y un `CONSTITUTION.md` completo del framework.
 **Learning**: `ai-engineering` es el framework, no el proyecto cliente. El install debe inicializar identidad desde la carpeta raíz del consumidor y dejar `CONSTITUTION.md` vacío para que `/ai-constitution` lo cree con el engineer.
 **Rule**: En cambios de installer/templates, verificar que manifests instalados no mantienen `name: ai-engineering` y que la constitución de cliente no contiene misión del framework.
+
+### Keep ai-engineering execution control to framework routing, not local host admission
+
+**Context**: During spec-145, host-pressure admission (`fanout`/`serial`/`deferred`) was proposed after `/ai-autopilot` blocked on `ok_to_dispatch=false`.
+**Learning**: The user considers host resource admission over-engineering for ai-engineering; local host telemetry can be inaccurate and should not be a framework execution responsibility.
+**Rule**: For standard flow execution, only decide the framework route (`/ai-build` vs `/ai-autopilot`). Do not add host-admission states or block execution based on local host capacity unless the user explicitly reintroduces that requirement.

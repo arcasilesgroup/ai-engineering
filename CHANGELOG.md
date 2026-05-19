@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Standard plan execution now records route-only `execution_route`
+  metadata (`/ai-build` vs `/ai-autopilot`) and treats host-probe data as
+  diagnostic/advisory rather than a framework admission gate.
+- `/ai-build` and `/ai-autopilot` quality loops now allow exactly one
+  bounded quality-remediation pass for blocker/critical/high findings,
+  require final reassessment, persist autopilot remediation state in the
+  manifest, and require cross-platform focal reproducers before delivery.
+
 ### Fixed
 
 - Release finalization now caps GitHub Release body notes below GitHub's

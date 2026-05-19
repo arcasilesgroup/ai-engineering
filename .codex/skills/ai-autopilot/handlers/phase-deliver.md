@@ -6,8 +6,8 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 
 ## Prerequisites
 
-- Phase 5 (QUALITY LOOP) is complete: either PASS (0 blockers/criticals/highs) or exhausted (round 3 reached with only criticals/highs remaining).
-- Manifest at `.ai-engineering/runtime/autopilot/manifest.md` has `## Quality Rounds` section with round log.
+- Phase 5 (QUALITY LOOP) is complete: PASS after the initial assessment or after the one bounded remediation pass and terminal final reassessment. Phase 6 must not run with remaining blocker/critical/high findings.
+- Manifest at `.ai-engineering/runtime/autopilot/manifest.md` has `## Quality Outcome` and, when used, `quality_remediation.max_attempts: 1` evidence.
 - Sub-spec directories exist at `.ai-engineering/runtime/autopilot/sub-NNN/` with `plan.md` containing populated `## Self-Report` sections from Phase 4 implementation agents.
 - Parent spec is available at `.ai-engineering/specs/spec.md`.
 
@@ -16,7 +16,7 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 ### Step 1: Build Transparency Report
 
 1. Glob `.ai-engineering/runtime/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
-2. Read the manifest's `## Quality Rounds` section. Extract the consolidated findings from Phase 5: final state (CLEAN or remaining issues with severity breakdown), number of rounds executed, and per-round summaries.
+2. Read the manifest's `## Quality Outcome` and optional `quality_remediation` section. Extract the consolidated findings from Phase 5: final state (CLEAN or remaining medium/low issues), whether the bounded remediation pass was used, and the final reassessment result.
 3. If any sub-specs have status `blocked` or `cascade-blocked` in the manifest: collect their ID, title, scope, and blocking reason. These form the "Blocked / Undelivered" section.
 4. Aggregate all classifications across sub-specs into totals. Cross-reference against quality findings -- a file classified as "real" in a Self-Report but failing checks in Phase 5 should be reclassified as "failing".
 5. Produce the `## Integrity Report` section:
@@ -33,8 +33,10 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 - Hallucinated: N (referenced non-existent things -- fixed or flagged)
 
 ### Quality Convergence
-- Rounds: N/3
-- Final state: CLEAN | N remaining issues (severity breakdown)
+- Remediation used: true|false
+- Max remediation attempts: 1
+- Final reassessment: pass
+- Final state: CLEAN | N remaining medium/low issues (severity breakdown)
 
 ### Blocked / Undelivered
 [Only present if blocked sub-specs exist]
@@ -159,7 +161,7 @@ Autopilot Complete!
 Spec: spec-NNN -- [title]
 Sub-specs: N completed, M blocked
 Waves: W executed
-Quality rounds: R/3
+Quality remediation: used true|false, final reassessment pass
 PR: #NNN (merged|pending)
 Integrity: N real, N aspirational, N stub, N failing, N invented, N hallucinated
 ```
@@ -168,7 +170,7 @@ Field sources:
 - **Spec**: from `.ai-engineering/specs/spec.md` frontmatter (read before cleanup clears it).
 - **Sub-specs**: count from manifest. "completed" = status `complete`. "blocked" = status `blocked` or `cascade-blocked`.
 - **Waves**: count from manifest's `## Execution DAG` section.
-- **Quality rounds**: from manifest's `## Quality Rounds` section.
+- **Quality remediation**: from manifest's `## Quality Outcome` and optional `quality_remediation` section.
 - **PR**: number from the PR creation step. State is "merged" if watch loop confirmed merge, "pending" if `--no-watch` was used.
 - **Integrity**: totals from the Integrity Report built in Step 1.
 
@@ -186,9 +188,9 @@ Read the manifest. Inspect sub-spec statuses, section presence, and wave complet
 
 3. **Some waves are `implemented` and others are not**: Phase 4 (IMPLEMENT) was interrupted mid-execution. Identify the first incomplete wave (a wave where not all sub-specs are `complete`, `blocked`, or `cascade-blocked`). Re-enter Phase 4 at that wave. Skip all completed waves -- do not re-dispatch their agents.
 
-4. **All waves are `implemented` but `## Quality Rounds` section is absent**: Phase 5 (QUALITY LOOP) never started. Re-enter at Phase 5 by reading `handlers/phase-quality.md` and executing from the start.
+4. **All waves are `implemented` but `## Quality Outcome` section is absent**: Phase 5 (QUALITY LOOP) never started. Re-enter at Phase 5 by reading `handlers/phase-quality.md` and executing from the start.
 
-5. **`## Quality Rounds` exists but pipeline stopped** (e.g., blockers after round 3 that have since been manually resolved, or a crash during the quality loop): Re-enter at Phase 5 for another attempt. Reset the round counter to 0. The quality loop starts fresh but operates on the current state of the codebase.
+5. **`## Quality Outcome` exists but pipeline stopped** (for example, blocker/critical/high findings after final reassessment that have since been manually resolved, or a crash during the quality loop): Re-enter at Phase 5 only if `quality_remediation.used` is absent or false. If `quality_remediation.used: true`, STOP and ask the operator whether to re-plan or explicitly restart the quality loop; do not silently grant a second remediation pass.
 
 6. **Quality passed but PR not created**: Phase 6 delivery was interrupted before the PR was created. Re-enter at Phase 6 Step 2 (Deliver PR). Skip the Integrity Report build only if `## Integrity Report` already exists in the manifest -- otherwise, start from Step 1.
 

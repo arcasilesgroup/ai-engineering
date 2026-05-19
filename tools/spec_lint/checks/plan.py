@@ -28,6 +28,33 @@ VALID_PLAN_STATUSES = frozenset(
 )
 
 ACTIVE_PLAN_STATUSES = frozenset({"draft", "approved", "in-progress"})
+VALID_EXECUTION_ROUTE_EXECUTORS = frozenset({"build", "autopilot"})
+EXECUTION_ROUTE_REQUIRED_FIELDS = frozenset(
+    {
+        "automation",
+        "concern_count",
+        "estimated_files",
+        "executor",
+        "reason",
+        "safe_next_command",
+        "spec",
+        "version",
+    }
+)
+EXECUTION_ROUTE_COMMANDS = {
+    "build": "/ai-build",
+    "autopilot": "/ai-autopilot",
+}
+EXECUTION_ROUTE_FORBIDDEN_APPROVAL_FIELDS = frozenset(
+    {
+        "approval",
+        "approved",
+        "approved_at",
+        "approved_by",
+        "is_approved",
+        "plan_approved",
+    }
+)
 
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 _TASK_RE = re.compile(r"^\s*-\s*\[([ xX])\]", re.MULTILINE)
@@ -35,31 +62,61 @@ _CHECKBOX_LIKE_RE = re.compile(r"^\s*-\s*\[([^\]]*)\]", re.MULTILINE)
 _TASK_ID_RE = re.compile(r"\bT-(\d+)\.(\d+)\b")
 
 
+def _strip_scalar_quotes(value: str) -> str:
+    if (value.startswith('"') and value.endswith('"')) or (
+        value.startswith("'") and value.endswith("'")
+    ):
+        return value[1:-1]
+    return value
+
+
 def _parse_frontmatter(text: str) -> dict[str, str]:
     """Lightweight YAML-frontmatter extractor (no PyYAML dep).
 
-    Reads key: value pairs from the leading ``---`` fenced block.
-    Quoted values strip the quotes; nested structures are out of scope
-    (the plan schema only requires flat scalar fields).
+    Reads key: value pairs from the leading ``---`` fenced block and
+    the ``execution_route:`` one-level nested map used by spec-145.
+    Quoted values strip the quotes; arbitrary YAML remains out of
+    scope so this lint path stays dependency-free.
     """
     match = _FRONTMATTER_RE.match(text)
     if not match:
         return {}
     out: dict[str, str] = {}
+    nested_key: str | None = None
     for raw_line in match.group(1).splitlines():
-        line = raw_line.strip()
+        stripped = raw_line.strip()
+        if not stripped or stripped.startswith("#"):
+            continue
+        indent = len(raw_line) - len(raw_line.lstrip(" "))
+
+        if indent == 0:
+            nested_key = None
+        elif nested_key:
+            if ":" not in stripped:
+                continue
+            key, _, value = stripped.partition(":")
+            out[f"{nested_key}.{key.strip()}"] = _strip_scalar_quotes(value.strip())
+            continue
+        else:
+            continue
+
+        line = stripped
         if not line or line.startswith("#"):
             continue
         if ":" not in line:
             continue
         key, _, value = line.partition(":")
         value = value.strip()
-        if (value.startswith('"') and value.endswith('"')) or (
-            value.startswith("'") and value.endswith("'")
-        ):
-            value = value[1:-1]
-        out[key.strip()] = value
+        key = key.strip()
+        out[key] = _strip_scalar_quotes(value)
+        if key == "execution_route" and not value:
+            nested_key = key
     return out
+
+
+def _execution_route_fields(fm: dict[str, str]) -> dict[str, str]:
+    prefix = "execution_route."
+    return {key.removeprefix(prefix): value for key, value in fm.items() if key.startswith(prefix)}
 
 
 def _resolve_plan_path(spec_path: Path) -> Path:
@@ -126,6 +183,71 @@ def check_plan(spec_path: Path) -> list[CheckResult]:
                     "plan_frontmatter_missing_field",
                     "BLOCKER",
                     f"plan.md frontmatter missing required {required!r} field",
+                )
+            )
+
+    route = _execution_route_fields(fm)
+    if route:
+        missing = sorted(EXECUTION_ROUTE_REQUIRED_FIELDS - route.keys())
+        for field in missing:
+            results.append(
+                CheckResult(
+                    "plan_execution_route_missing_field",
+                    "BLOCKER",
+                    f"execution_route missing required {field!r} field",
+                )
+            )
+
+        forbidden = sorted(EXECUTION_ROUTE_FORBIDDEN_APPROVAL_FIELDS & route.keys())
+        for field in forbidden:
+            results.append(
+                CheckResult(
+                    "plan_execution_route_approval_duplicate",
+                    "BLOCKER",
+                    (
+                        f"execution_route field {field!r} duplicates approval state; "
+                        "plan frontmatter 'status' is the approval source of truth"
+                    ),
+                )
+            )
+
+        route_spec = route.get("spec")
+        if route_spec and route_spec != fm.get("spec"):
+            results.append(
+                CheckResult(
+                    "plan_execution_route_spec_mismatch",
+                    "BLOCKER",
+                    (
+                        f"execution_route.spec {route_spec!r} does not match "
+                        f"plan spec {fm.get('spec')!r}"
+                    ),
+                )
+            )
+
+        executor = route.get("executor", "")
+        if executor and executor not in VALID_EXECUTION_ROUTE_EXECUTORS:
+            results.append(
+                CheckResult(
+                    "plan_execution_route_executor_invalid",
+                    "BLOCKER",
+                    (
+                        f"execution_route.executor {executor!r} not in "
+                        f"{sorted(VALID_EXECUTION_ROUTE_EXECUTORS)}"
+                    ),
+                )
+            )
+
+        expected_command = EXECUTION_ROUTE_COMMANDS.get(executor)
+        command = route.get("safe_next_command")
+        if expected_command and command and command != expected_command:
+            results.append(
+                CheckResult(
+                    "plan_execution_route_command_mismatch",
+                    "BLOCKER",
+                    (
+                        f"execution_route.safe_next_command {command!r} must be "
+                        f"{expected_command!r} when executor is {executor!r}"
+                    ),
                 )
             )
 

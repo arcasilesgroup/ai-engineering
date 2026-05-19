@@ -1,6 +1,6 @@
 ---
 name: ai-build
-description: "Canonical implementation gateway: reads approved plan.md, resolves stack from manifest, deterministic-routes each task to its adapter, dispatches the build agent in an isolated worktree, runs TDD self-validation per task, then a single final quality loop on the full changeset before /ai-pr. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'build the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead."
+description: "Canonical implementation gateway: reads approved plan.md, resolves stack from manifest, deterministic-routes each task to its adapter, dispatches the build agent in an isolated worktree, runs TDD self-validation per task, then a single final quality loop with one bounded quality-remediation pass on the full changeset before /ai-pr. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'build the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead."
 effort: cheap
 argument-hint: "[spec-NNN | --resume | --no-hitl]"
 model_tier: haiku
@@ -15,7 +15,7 @@ edit_policy: generated-do-not-edit
 
 ## Purpose
 
-Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one subagent per task (fresh context); each task self-validates via TDD; a single final quality loop runs verify+review on the full changeset before /ai-pr. If stuck: STOP and re-plan.
+Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one subagent per task (fresh context); each task self-validates via TDD; a single final quality loop runs verify+review plus one bounded quality-remediation pass on the full changeset before /ai-pr. If stuck: STOP and re-plan.
 
 ## When to Use
 
@@ -26,6 +26,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 ## Process
 
 0. **Preflight dependencies** -- verify `.ai-engineering/specs/plan.md`, `.codex/skills/_shared/execution-kernel.md`, `.codex/skills/ai-build/handlers/quality.md`, and `.codex/skills/ai-build/handlers/deliver.md` exist. If any are missing: STOP and report the exact missing path(s). Never improvise missing orchestration logic.
+0b. **Executor route gate (spec-145)** -- read plan frontmatter `status` and `execution_route.executor`. If `status` is not `approved`, STOP for operator approval. If `executor: autopilot`, refuse this `/ai-build` run, print `execution_route.safe_next_command` (normally `/ai-autopilot`), and STOP. If route metadata is absent, continue with legacy behavior.
 1. **Board sync (in_progress)** -- read `.ai-engineering/specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
 2. **Advise advisory** -- before dispatching any build task, invoke the Advise agent (`ai-advise`) in `gate` mode for governance advisory. Fail-open: if advise is unavailable or errors, log warning and continue -- never block dispatch.
 2b. **Stack overrides routing (D-127-06 / sub-008, spec-128 D-128-01)** -- per task, call `tools.skill_app.deterministic_router.resolve_adapter(task_path, spec_stack)` to obtain the overrides directory under `.ai-engineering/overrides/<stack>/`. Pass the resolved path to the build agent so it loads `conventions.md`, `tdd_harness.md`, `security_floor.md`, and `examples/` into context before writing code. `spec_stack` precedence: spec frontmatter `stack:` field over file-extension inference. `UnknownStackError` halts the task with a clear "no overrides for this stack" message.
@@ -36,7 +37,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
     Pass the resolved tier to the build agent via env var `AIENG_MODEL_TIER`. Log the decision via `emit_agent_dispatched(..., metadata={"model_tier": <tier>, "effort": <effort>, "patch_present": <bool>})`. Investing in `/ai-plan` (high-tier, exhaustive patch-ready output) is what unlocks cheap-tier execution everywhere downstream (brief §2.6 / spec D-131-08).
 2d. **No-HITL Contract (D-134-03)** -- if `--no-hitl` is set, read `handlers/no-hitl.md` and apply its contract: single-concern gate, `NEEDS_CONTEXT → BLOCKED` promotion, `quality_loop_blocked → exit 78`, `--no-watch` implied for delivery, no auto-retry. Default `/ai-build` behavior is unchanged when the flag is absent.
 3. **Execute kernel**: see `.codex/skills/_shared/execution-kernel.md`. Build wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build self-validation (TDD RED/GREEN/REFACTOR) -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain build-specific.
-4. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, single round, fail-loud. Blockers → STOP + escalate (no auto-retry).
+4. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, single round, fail-loud with one bounded quality-remediation pass. Blocker/critical/high findings may be fixed once when scoped to quality-loop evidence; remaining blocker/critical/high findings → STOP + escalate (no second remediation pass).
 5. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report.
 
 ## Resume Protocol
@@ -45,7 +46,7 @@ When invoked with `--resume`, use observable evidence only. Never guess hidden s
 
 1. **Missing or placeholder plan**: if `.ai-engineering/specs/plan.md` is missing or still contains the placeholder `# No active plan`, STOP and run `/ai-plan`.
 2. **Incomplete task execution**: if `.ai-engineering/specs/plan.md` still has unchecked task checkboxes, resume at the first incomplete phase. Skip completed tasks.
-3. **Quality evidence missing**: if all task checkboxes are complete but `.ai-engineering/specs/plan.md` does not contain a `## Quality Rounds` section, resume at the Quality Check step. Read `handlers/quality.md`.
+3. **Quality evidence missing**: if all task checkboxes are complete but `.ai-engineering/specs/plan.md` does not contain a `## Quality Outcome` section, resume at the Quality Check step. Read `handlers/quality.md`.
 4. **Quality evidence present**: resume at the Deliver step. `handlers/deliver.md` is responsible for detecting whether an open PR already exists and either entering the watch-and-fix loop or creating/updating the PR.
 5. **Conflicting evidence**: choose the earliest safe step and log why. Safety wins over convenience.
 
@@ -78,7 +79,7 @@ User: "the plan is approved, go"
 /ai-build
 ```
 
-Reads `plan.md`, dispatches one agent per task with fresh context; each task self-validates via TDD; final quality loop verifies full changeset once before handing off to `/ai-pr` for delivery.
+Reads `plan.md`, dispatches one agent per task with fresh context; each task self-validates via TDD; final quality loop verifies the full changeset and may consume one bounded quality-remediation pass before handing off to `/ai-pr` for delivery.
 
 ### Example 2 — resume after interruption
 

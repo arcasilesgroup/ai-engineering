@@ -53,9 +53,10 @@ The active spec workflow is:
 - `/ai-brainstorm` produces an approved spec at
   `.ai-engineering/specs/spec.md`.
 - `/ai-plan` produces an exhaustive patch-ready plan at
-  `.ai-engineering/specs/plan.md`.
-- `/ai-build` executes the plan (multi-stack implementation gateway,
-  D-127-11). For specs with ≥3 concerns or ≥10 file changes,
+  `.ai-engineering/specs/plan.md` and records the recommended executor
+  route (`/ai-build` or `/ai-autopilot`).
+- `/ai-build` executes plans routed to build (multi-stack implementation
+  gateway, D-127-11). For specs with ≥3 concerns or ≥10 file changes,
   `/ai-autopilot` wraps the chain.
 - `/ai-pr` runs the final quality loop (verify + review + commit
   pipeline internally) and opens the PR.
@@ -111,9 +112,12 @@ Non-negotiable rules per commit, push, and risk-acceptance decision:
 4. **Anonymous content.** No PII, no machine paths, no operator names
    in committed files. Use placeholders (`$HOME/.local/bin`, `$(which
    …)`) for machine-relative references.
-5. **Single-round fail-loud quality loop.** `/ai-build`,
-   `/ai-autopilot` Phase 5, `/ai-pr` run ONE final-quality-loop round
-   on the full changeset. Blockers STOP and escalate — no auto-retry.
+5. **Bounded fail-loud quality loop.** `/ai-build` and
+   `/ai-autopilot` Phase 5 may spend ONE finding-scoped remediation
+   pass on blocker/critical/high quality-loop findings, then run a
+   terminal final reassessment. Remaining blocker/critical/high
+   findings STOP and escalate — no second remediation pass. `/ai-pr`
+   keeps its final quality gate fail-loud.
 6. **Conventional Commits.** `<type>(<scope>): <subject>` imperative
    mood. Body explains "why", not "what". Never `--no-verify`.
 7. **Single Source of Truth Per Datum.** Every datum has exactly one
