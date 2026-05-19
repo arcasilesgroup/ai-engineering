@@ -54,7 +54,8 @@ def _platform_score(*findings: tuple[FindingSeverity, str, str, str]) -> VerifyS
 def test_release_readiness_go_when_every_dimension_passes(tmp_path: Path, monkeypatch) -> None:
     _seed_release_project(tmp_path)
     monkeypatch.setattr(
-        "ai_engineering.release.readiness.verify_platform", lambda _root: _platform_score()
+        "ai_engineering.release.readiness.verify_platform",
+        lambda _root, **_kwargs: _platform_score(),
     )
 
     report = evaluate_release_readiness(tmp_path, "0.5.0", command_runner=_Runner())
@@ -72,7 +73,8 @@ def test_release_readiness_go_when_every_dimension_passes(tmp_path: Path, monkey
 def test_release_readiness_uses_ci_parity_commands(tmp_path: Path, monkeypatch) -> None:
     _seed_release_project(tmp_path)
     monkeypatch.setattr(
-        "ai_engineering.release.readiness.verify_platform", lambda _root: _platform_score()
+        "ai_engineering.release.readiness.verify_platform",
+        lambda _root, **_kwargs: _platform_score(),
     )
     runner = _Runner()
 
@@ -102,13 +104,28 @@ def test_release_readiness_uses_ci_parity_commands(tmp_path: Path, monkeypatch) 
     ) in runner.calls
 
 
+def test_release_readiness_uses_release_verify_profile(tmp_path: Path, monkeypatch) -> None:
+    _seed_release_project(tmp_path)
+    profiles: list[str] = []
+
+    def _fake_verify_platform(_root: Path, *, profile: str = "normal") -> VerifyScore:
+        profiles.append(profile)
+        return _platform_score()
+
+    monkeypatch.setattr("ai_engineering.release.readiness.verify_platform", _fake_verify_platform)
+
+    evaluate_release_readiness(tmp_path, "0.5.0", command_runner=_Runner())
+
+    assert profiles == ["release"]
+
+
 def test_release_readiness_no_go_for_blocker_or_critical_security(
     tmp_path: Path, monkeypatch
 ) -> None:
     _seed_release_project(tmp_path)
     monkeypatch.setattr(
         "ai_engineering.release.readiness.verify_platform",
-        lambda _root: _platform_score(
+        lambda _root, **_kwargs: _platform_score(
             (FindingSeverity.CRITICAL, "security", "dependency", "CVE blocks release")
         ),
     )
@@ -123,7 +140,8 @@ def test_release_readiness_no_go_for_failed_tests_package_or_missing_changelog(
     tmp_path: Path, monkeypatch
 ) -> None:
     monkeypatch.setattr(
-        "ai_engineering.release.readiness.verify_platform", lambda _root: _platform_score()
+        "ai_engineering.release.readiness.verify_platform",
+        lambda _root, **_kwargs: _platform_score(),
     )
 
     tests_project = tmp_path / "tests"
@@ -158,7 +176,7 @@ def test_release_readiness_conditional_go_for_accepted_or_advisory_findings(
     _seed_release_project(tmp_path)
     monkeypatch.setattr(
         "ai_engineering.release.readiness.verify_platform",
-        lambda _root: _platform_score(
+        lambda _root, **_kwargs: _platform_score(
             (
                 FindingSeverity.INFO,
                 "security",
