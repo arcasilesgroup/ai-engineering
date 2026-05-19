@@ -136,6 +136,7 @@ def test_release_workflow_permissions_are_job_scoped(workflow: dict) -> None:
 
     for job_name, job in (workflow.get("jobs") or {}).items():
         assert "timeout-minutes" in job, f"job {job_name!r} must set timeout-minutes"
+    assert _job(workflow, "release-readiness")["timeout-minutes"] >= 30
 
     concurrency = yaml.safe_dump(workflow.get("concurrency"), sort_keys=False)
     assert "github.ref_name" in concurrency or "version" in concurrency

@@ -165,6 +165,9 @@ def check_release_workflow_policy(workflow: Path, data: dict[str, Any]) -> list[
             continue
         if "timeout-minutes" not in job:
             failures.append(f"{workflow}: job {job_name!r} missing timeout-minutes")
+    readiness_timeout = (jobs.get("release-readiness") or {}).get("timeout-minutes")
+    if not isinstance(readiness_timeout, int) or readiness_timeout < 30:
+        failures.append(f"{workflow}: release-readiness timeout-minutes must be at least 30")
 
     expected_needs: dict[str, set[str]] = {
         "release-readiness": {"resolve-version"},
