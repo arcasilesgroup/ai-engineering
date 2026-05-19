@@ -105,7 +105,7 @@ def _minimal_release_workflow() -> dict:
             "resolve-version": {"runs-on": "ubuntu-latest", "timeout-minutes": 5, "steps": []},
             "release-readiness": {
                 "runs-on": "ubuntu-latest",
-                "timeout-minutes": 10,
+                "timeout-minutes": 30,
                 "needs": "resolve-version",
                 "steps": [
                     {
@@ -278,6 +278,12 @@ class TestReleaseWorkflowPolicy:
         data["permissions"]["id-token"] = "write"
         failures = check_release_workflow_policy(Path(".github/workflows/release.yml"), data)
         assert any("top-level permissions" in failure for failure in failures)
+
+    def test_release_workflow_requires_readiness_timeout_budget(self):
+        data = _minimal_release_workflow()
+        data["jobs"]["release-readiness"]["timeout-minutes"] = 10
+        failures = check_release_workflow_policy(Path(".github/workflows/release.yml"), data)
+        assert any("release-readiness timeout-minutes" in failure for failure in failures)
 
     def test_release_workflow_rejects_cross_run_artifact_download(self):
         data = _minimal_release_workflow()
