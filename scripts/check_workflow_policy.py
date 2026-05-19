@@ -248,6 +248,7 @@ def check_release_workflow_policy(workflow: Path, data: dict[str, Any]) -> list[
                     "subject-path: dist/*",
                     "gh attestation verify",
                     "github-attestation-verify.log",
+                    "Result: PASS (exit 0)",
                 ),
                 f"{workflow}: attest-and-verify",
             )
@@ -325,6 +326,8 @@ def check_release_workflow_policy(workflow: Path, data: dict[str, Any]) -> list[
                     "--clobber",
                     "release-packet.json",
                     "release-notes.md",
+                    "release-notes-full.md",
+                    "GITHUB_RELEASE_BODY_LIMIT",
                     "release-readiness.json",
                     "github-attestation-verify.log",
                     "testpypi-proof.txt",

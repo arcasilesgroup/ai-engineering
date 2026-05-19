@@ -167,7 +167,12 @@ def _minimal_release_workflow() -> dict:
                         "uses": "actions/attest-build-provenance@v1",
                         "with": {"subject-path": "dist/*"},
                     },
-                    {"run": "gh attestation verify dist/a.whl > github-attestation-verify.log"},
+                    {
+                        "run": (
+                            "gh attestation verify dist/a.whl > github-attestation-verify.log\n"
+                            "echo 'Result: PASS (exit 0)' >> github-attestation-verify.log"
+                        )
+                    },
                 ],
             },
             "publish-testpypi": {
@@ -246,6 +251,7 @@ def _minimal_release_workflow() -> dict:
                             'gh release edit "$TAG" --notes-file release-notes.md\n'
                             'gh release upload "$TAG" dist/* --clobber\n'
                             "release-packet.json release-readiness.json "
+                            "release-notes-full.md GITHUB_RELEASE_BODY_LIMIT "
                             "github-attestation-verify.log testpypi-proof.txt "
                             "testpypi-install-proof.txt pypi-proof.txt ci_run_url recovery"
                         )

@@ -43,6 +43,8 @@ PACKET_EVIDENCE = {
     "pypi-proof.txt",
     "release-readiness.json",
     "release-notes.md",
+    "release-notes-full.md",
+    "GITHUB_RELEASE_BODY_LIMIT",
     "ci_run_url",
     "recovery",
 }
@@ -224,6 +226,7 @@ def test_github_artifact_attestation(workflow: dict) -> None:
     assert "subject-path: dist/*" in text
     assert "gh attestation verify" in text
     assert "github-attestation-verify.log" in text
+    assert "Result: PASS (exit 0)" in text
 
 
 def test_testpypi_publish_and_install_gate(workflow: dict) -> None:
@@ -273,11 +276,27 @@ def test_github_release_packet_finalization(workflow: dict) -> None:
         "--clobber",
         "release-packet.json",
         "release-notes.md",
+        "release-notes-full.md",
+        "GITHUB_RELEASE_BODY_LIMIT",
         "CHANGELOG.md",
         "ci_run_url",
     ]
     missing = [needle for needle in required if needle not in text]
     assert not missing, f"finalize-release-packet missing command(s): {missing}\n{text}"
+
+
+def test_github_release_body_is_bounded(workflow: dict) -> None:
+    """T-22 regression — large CHANGELOG sections must not break finalization."""
+    text = _step_text(workflow, "finalize-release-packet")
+    required = [
+        "GITHUB_RELEASE_BODY_LIMIT = 125_000",
+        "MAX_RELEASE_BODY_BYTES",
+        "release-notes-full.md",
+        "Full changelog at tag",
+        "truncate_utf8",
+    ]
+    missing = [needle for needle in required if needle not in text]
+    assert not missing, f"release body limit guard missing: {missing}\n{text}"
 
 
 def test_release_workflow_runs_readiness_before_publish(workflow: dict) -> None:

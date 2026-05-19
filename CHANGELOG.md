@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Release finalization now caps GitHub Release body notes below GitHub's
+  125,000-character limit, uploads the full changelog section as
+  `release-notes-full.md`, and writes non-empty attestation verification
+  proof logs so release packet asset uploads do not fail on zero-byte files.
+
 ## [0.7.0] - 2026-05-18
 
 ### BREAKING
