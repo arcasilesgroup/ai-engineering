@@ -341,6 +341,10 @@ def check_release_workflow_policy(workflow: Path, data: dict[str, Any]) -> list[
                 _steps_text(readiness),
                 (
                     "ai-eng --json verify --release",
+                    "--target release-source",
+                    "Checkout workflow tooling",
+                    "Checkout release tag source",
+                    "path: release-source",
                     "release-readiness-envelope.json",
                     "release-readiness.json",
                     "find_readiness",

@@ -98,9 +98,16 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Checkout workflow tooling
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Checkout release tag source
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ needs.resolve-version.outputs.tag-name }}
+          path: release-source
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-env
@@ -111,7 +118,7 @@ jobs:
         run: |
           set -euo pipefail
           set +e
-          uv run ai-eng --json verify --release "${VERSION}" > release-readiness-envelope.json
+          uv run ai-eng --json verify --release "${VERSION}" --target release-source > release-readiness-envelope.json
           VERIFY_STATUS=$?
           set -e
           python - <<'PY'
@@ -141,7 +148,8 @@ jobs:
           payload = find_readiness(envelope)
           if payload is None:
               cli_artifact = (
-                  Path(".ai-engineering")
+                  Path("release-source")
+                  / ".ai-engineering"
                   / "runtime"
                   / "release"
                   / version
@@ -152,10 +160,12 @@ jobs:
 
           if payload is None:
               result = envelope.get("result") if isinstance(envelope, dict) else None
+              error = envelope.get("error") if isinstance(envelope, dict) else None
               print(
                   "::error::release readiness JSON missing release_readiness payload; "
                   f"top-level keys={sorted(envelope) if isinstance(envelope, dict) else type(envelope).__name__}; "
-                  f"result keys={sorted(result) if isinstance(result, dict) else type(result).__name__}"
+                  f"result keys={sorted(result) if isinstance(result, dict) else type(result).__name__}; "
+                  f"error={error!r}"
               )
               sys.exit(1)
 
