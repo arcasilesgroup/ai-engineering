@@ -112,6 +112,15 @@ jobs:
 
       - uses: ./.github/actions/setup-env
 
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | sudo tar xz -C /usr/local/bin gitleaks
+          gitleaks version
+
       - name: Generate release-readiness.json
         env:
           VERSION: ${{ needs.resolve-version.outputs.version }}

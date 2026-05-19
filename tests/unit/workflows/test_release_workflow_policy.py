@@ -287,6 +287,9 @@ def test_release_workflow_runs_readiness_before_publish(workflow: dict) -> None:
     assert "Checkout workflow tooling" in text
     assert "Checkout release tag source" in text
     assert "path: release-source" in text
+    assert "Install gitleaks" in text
+    assert "GITLEAKS_VERSION" in text
+    assert "gitleaks version" in text
     assert "release-readiness-envelope.json" in text
     assert "find_readiness" in text
     assert "release_readiness" in text
