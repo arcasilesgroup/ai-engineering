@@ -338,7 +338,21 @@ jobs:
           mkdir -p packet
           : > packet/github-attestation-verify.log
           for artifact in dist/*; do
-            gh attestation verify "${artifact}" --repo "${REPO}" | tee -a packet/github-attestation-verify.log
+            echo "## gh attestation verify $(basename "${artifact}")" | tee -a packet/github-attestation-verify.log
+            if output="$(gh attestation verify "${artifact}" --repo "${REPO}" 2>&1)"; then
+              if [ -n "${output}" ]; then
+                printf '%s\n' "${output}" | tee -a packet/github-attestation-verify.log
+              fi
+              echo "Result: PASS (exit 0)" | tee -a packet/github-attestation-verify.log
+            else
+              status=$?
+              if [ -n "${output}" ]; then
+                printf '%s\n' "${output}" | tee -a packet/github-attestation-verify.log
+              fi
+              echo "Result: FAIL (exit ${status})" | tee -a packet/github-attestation-verify.log
+              exit "${status}"
+            fi
+            echo | tee -a packet/github-attestation-verify.log
           done
 
       - name: Upload attestation verification evidence
@@ -554,14 +568,72 @@ jobs:
       - name: Extract release notes from CHANGELOG.md
         env:
           VERSION: ${{ needs.resolve-version.outputs.version }}
+          TAG_NAME: ${{ needs.resolve-version.outputs.tag-name }}
         run: |
           set -euo pipefail
           awk "/^## \\[${VERSION}\\]/{flag=1; next} /^## \\[/{flag=0} flag" \
-            CHANGELOG.md > packet/release-notes.md
-          if [ ! -s packet/release-notes.md ]; then
+            CHANGELOG.md > packet/release-notes-full.md
+          if [ ! -s packet/release-notes-full.md ]; then
             echo "::error::CHANGELOG.md is missing non-empty release notes for ${VERSION}"
             exit 1
           fi
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          GITHUB_RELEASE_BODY_LIMIT = 125_000
+          RELEASE_BODY_HEADROOM = 4_096
+          MAX_RELEASE_BODY_BYTES = GITHUB_RELEASE_BODY_LIMIT - RELEASE_BODY_HEADROOM
+
+          packet_dir = Path("packet")
+          full_notes_path = packet_dir / "release-notes-full.md"
+          release_notes_path = packet_dir / "release-notes.md"
+          version = os.environ["VERSION"]
+          tag = os.environ["TAG_NAME"]
+          repo = os.environ["GITHUB_REPOSITORY"]
+          full_notes = full_notes_path.read_text(encoding="utf-8")
+          full_notes_bytes = len(full_notes.encode("utf-8"))
+
+          if full_notes_bytes <= MAX_RELEASE_BODY_BYTES:
+              release_notes_path.write_text(full_notes, encoding="utf-8")
+              raise SystemExit(0)
+
+          def truncate_utf8(text: str, max_bytes: int) -> str:
+              encoded = text.encode("utf-8")
+              if len(encoded) <= max_bytes:
+                  return text
+              return encoded[:max_bytes].decode("utf-8", errors="ignore").rstrip()
+
+          changelog_url = f"https://github.com/{repo}/blob/{tag}/CHANGELOG.md"
+          prefix = f"""# ai-engineering {tag}
+
+          The full CHANGELOG section for `{version}` is {full_notes_bytes} bytes, which
+          exceeds GitHub's {GITHUB_RELEASE_BODY_LIMIT}-byte release body limit. This
+          GitHub Release body is therefore capped deliberately; the complete notes are
+          attached as `release-notes-full.md` and remain canonical in CHANGELOG.md.
+
+          Full changelog at tag: {changelog_url}
+
+          ---
+
+          """
+          suffix = """
+
+          ---
+
+          _Release notes truncated for GitHub's release body limit. Download
+          `release-notes-full.md` from this release packet, or read the full
+          CHANGELOG.md section at the tag link above._
+          """
+          remaining = MAX_RELEASE_BODY_BYTES - len(prefix.encode("utf-8")) - len(
+              suffix.encode("utf-8")
+          )
+          if remaining <= 0:
+              release_notes = prefix + suffix
+          else:
+              release_notes = prefix + truncate_utf8(full_notes, remaining) + suffix
+          release_notes_path.write_text(release_notes, encoding="utf-8")
+          PY
 
       - name: Write release-packet.json manifest
         env:
@@ -607,6 +679,7 @@ jobs:
               },
               "changelog_source": "CHANGELOG.md",
               "release_notes": "release-notes.md",
+              "release_notes_full": "release-notes-full.md",
               "recovery": {
                   "used": os.environ.get("RECOVERY") == "true",
                   "reason": os.environ.get("RECOVERY_REASON", ""),
