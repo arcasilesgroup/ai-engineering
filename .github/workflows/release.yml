@@ -116,12 +116,49 @@ jobs:
           set -e
           python - <<'PY'
           import json
+          import os
           import sys
           from pathlib import Path
 
           envelope_path = Path("release-readiness-envelope.json")
           envelope = json.loads(envelope_path.read_text(encoding="utf-8"))
-          payload = envelope.get("result", {}).get("release_readiness", envelope)
+          version = os.environ["VERSION"]
+
+          def find_readiness(value):
+              if not isinstance(value, dict):
+                  return None
+              nested = value.get("release_readiness")
+              if isinstance(nested, dict):
+                  return nested
+              if {"verdict", "dimensions", "artifact_path"}.issubset(value):
+                  return value
+              for key in ("result", "data", "payload"):
+                  nested_payload = find_readiness(value.get(key))
+                  if nested_payload is not None:
+                      return nested_payload
+              return None
+
+          payload = find_readiness(envelope)
+          if payload is None:
+              cli_artifact = (
+                  Path(".ai-engineering")
+                  / "runtime"
+                  / "release"
+                  / version
+                  / "release-readiness.json"
+              )
+              if cli_artifact.is_file():
+                  payload = json.loads(cli_artifact.read_text(encoding="utf-8"))
+
+          if payload is None:
+              result = envelope.get("result") if isinstance(envelope, dict) else None
+              print(
+                  "::error::release readiness JSON missing release_readiness payload; "
+                  f"top-level keys={sorted(envelope) if isinstance(envelope, dict) else type(envelope).__name__}; "
+                  f"result keys={sorted(result) if isinstance(result, dict) else type(result).__name__}"
+              )
+              sys.exit(1)
+
           Path("release-readiness.json").write_text(
               json.dumps(payload, indent=2, sort_keys=True) + "\n",
               encoding="utf-8",
