@@ -357,6 +357,8 @@ def check_release_workflow_policy(workflow: Path, data: dict[str, Any]) -> list[
                     "release_readiness",
                     ".ai-engineering",
                     "runtime",
+                    "always()",
+                    "if-no-files-found",
                     "CONDITIONAL GO",
                     "NO-GO",
                 ),
