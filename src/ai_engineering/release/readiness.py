@@ -180,7 +180,7 @@ def _initial_dimensions() -> dict[str, dict[str, Any]]:
 def _apply_verify_findings(
     dimensions: dict[str, dict[str, Any]], conditions: list[str], root: Path
 ) -> None:
-    score = verify_platform(root)
+    score = verify_platform(root, profile="release")
     for finding in score.findings:
         dimension = _dimension_for_finding(finding)
         if dimension is None:

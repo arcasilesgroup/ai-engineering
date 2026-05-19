@@ -277,6 +277,30 @@ class TestVerifySecurity:
         assert len(secret_findings) == 1
         assert secret_findings[0].severity == FindingSeverity.BLOCKER
 
+    def test_release_profile_scans_current_tree_not_git_history(
+        self, fake_run: FakeSubprocess, project_root: Path
+    ) -> None:
+        # Arrange — release readiness validates the checked-out tag contents.
+        # Historical deleted fixtures are governed by CI's commit-range scan,
+        # not by the release-source tree scan.
+        (project_root / ".gitleaks.toml").write_text("title = 'fake'\n", encoding="utf-8")
+        fake_run.set_response("gitleaks", returncode=0, stdout="[]")
+        fake_run.set_response("tls_pip_audit", returncode=0, stdout="")
+
+        # Act
+        result = verify_security(project_root, profile="release")
+
+        # Assert
+        assert result.score == 100
+        gitleaks_call = next(call for call in fake_run.calls if call[0] == "gitleaks")
+        assert "--no-git" in gitleaks_call
+        assert "--config" in gitleaks_call
+        assert ".gitleaks.toml" in gitleaks_call
+        assert "--report-format" in gitleaks_call
+        assert "json" in gitleaks_call
+        assert "--report-path" in gitleaks_call
+        assert "-" in gitleaks_call
+
     def test_pip_audit_vulnerabilities_are_critical_severity(
         self, fake_run: FakeSubprocess, project_root: Path
     ) -> None:

@@ -292,29 +292,18 @@ def verify_security(project_root: Path, *, profile: str = "normal") -> VerifySco
     document = _load_gate_findings_document(project_root)
     if document is not None:
         _record_security_gate_findings(specialist, document)
-    _record_gitleaks_findings(specialist, project_root)
+    _record_gitleaks_findings(specialist, project_root, profile=profile)
     if _project_has_dependency_manifest(project_root):
         _record_pip_audit_findings(specialist, project_root)
 
     return _finalize_specialist(report, specialist)
 
 
-def _record_gitleaks_findings(specialist: SpecialistResult, project_root: Path) -> None:
+def _record_gitleaks_findings(
+    specialist: SpecialistResult, project_root: Path, *, profile: str
+) -> None:
     """Add secret-scan findings to the security specialist."""
-    tool_result = _run(
-        [
-            "gitleaks",
-            "detect",
-            "--source",
-            ".",
-            "--no-banner",
-            "--report-format",
-            "json",
-            "--report-path",
-            "/dev/stdout",
-        ],
-        project_root,
-    )
+    tool_result = _run(_gitleaks_command(project_root, profile=profile), project_root)
     if tool_result.returncode == 0 or not tool_result.stdout:
         return
 
@@ -331,6 +320,26 @@ def _record_gitleaks_findings(specialist: SpecialistResult, project_root: Path) 
             file=leak.get("File"),
             line=leak.get("StartLine"),
         )
+
+
+def _gitleaks_command(project_root: Path, *, profile: str) -> list[str]:
+    """Return the gitleaks command for the verification profile."""
+    command = [
+        "gitleaks",
+        "detect",
+        "--source",
+        ".",
+        "--no-banner",
+        "--report-format",
+        "json",
+        "--report-path",
+        "-",
+    ]
+    if (project_root / ".gitleaks.toml").is_file():
+        command.extend(("--config", ".gitleaks.toml"))
+    if profile == "release":
+        command.append("--no-git")
+    return command
 
 
 def _record_pip_audit_findings(specialist: SpecialistResult, project_root: Path) -> None:
