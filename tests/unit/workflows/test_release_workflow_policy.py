@@ -283,6 +283,10 @@ def test_release_workflow_runs_readiness_before_publish(workflow: dict) -> None:
     """T-32 — readiness JSON is generated before either publish job."""
     text = _step_text(workflow, "release-readiness")
     assert "ai-eng --json verify --release" in text
+    assert "--target release-source" in text
+    assert "Checkout workflow tooling" in text
+    assert "Checkout release tag source" in text
+    assert "path: release-source" in text
     assert "release-readiness-envelope.json" in text
     assert "find_readiness" in text
     assert "release_readiness" in text
