@@ -1,137 +1,144 @@
 ---
-spec: spec-145
-title: Standard Flow Executor Routing
+spec: spec-144
+title: README Rewrite and Branch Cleanup Rename
 status: approved
-effort: medium
-summary: Add deterministic executor routing so plans state whether the next command is /ai-build or /ai-autopilot, remove host-capacity admission from the standard flow, and add one bounded quality-remediation pass for executor quality loops.
+effort: large
+summary: Rewrite README surfaces around the governed-flow brand and hard-rename /ai-repo-tidy to /ai-branch-cleanup with no shim, verified by sync, docs, changelog, and rename tests.
 ---
 
-# Spec 145 - Standard Flow Executor Routing
+# Spec 144 - README Rewrite and Branch Cleanup Rename
 
 ## Summary
 
-The governed chain currently makes the operator discover the right executor late: a multi-concern plan can be tried with `/ai-build --no-hitl`, refused, then retried through `/ai-autopilot`. The first part is a framework routing problem and belongs in ai-engineering: the plan must say whether the next command is `/ai-build` or `/ai-autopilot`. The host-capacity admission layer proposed earlier is out of scope because local resource telemetry is not reliable enough to be a framework execution gate and ai-engineering must not own local machine resource control. The same standard-flow fix also needs a bounded recovery path after the final quality loop: executor quality gates may repair quality-loop blocker/critical/high findings once, but must fail loud after the terminal reassessment.
+The repository onboarding surface is stale in two user-visible ways: the root README names Antigravity while the active manifest enables OpenCode and Cursor, and the governance README plus installer-template twin link to the deleted `GETTING_STARTED.md`. This spec rewrites the README surfaces around the current `{ai} engineering` brand voice, creates a prose brand-voice reference extracted from the Penpot design sources, and hard-renames `/ai-repo-tidy` to `/ai-branch-cleanup` without a compatibility shim so the skill slug reveals its actual branch-cleanup purpose.
 
 ## Goals
 
-- Add deterministic executor metadata to newly generated `plan.md` files so `/ai-plan` records exactly one next executor: `build` or `autopilot`.
-- Print the recommended command at the end of `/ai-plan` and stop; the operator remains the approval gate and manually invokes the command.
-- Use `plan.md` frontmatter `status` as the single source of truth for plan approval; do not add a duplicate approval field.
-- Update `/ai-build` and `/ai-build --no-hitl` so new plans use `execution_route.executor` as the authoritative single-concern/multi-concern gate; heading-shape checks become legacy diagnostics only.
-- Update `/ai-autopilot` Step 0 so host probe data does not block execution; local host capacity is not an ai-engineering admission-control responsibility.
-- Keep bounded execution/concurrency configuration as implementation mechanics, but remove host-admission states (`fanout`, `serial`, `deferred`) and any host-capacity go/no-go decision from the standard flow.
-- Add tests for the spec-144 failure sequence: multi-concern work receives `executor: autopilot`, `/ai-build --no-hitl` refuses with the recommended command, and `/ai-autopilot` no longer aborts solely because host telemetry reports unsafe fan-out.
-- Record executor-route decisions in the audit chain using existing `framework_operation` events; do not add new top-level event kinds.
-- Add one bounded quality-remediation pass to `/ai-build` and `/ai-autopilot` quality loops: fix only blocker/critical/high findings that are concrete, scoped, and attributable to the current quality-loop evidence; then run one terminal final reassessment.
-- Require cross-platform reproducers for quality remediation evidence: prefer Python/pytest/uv/ai-eng commands, avoid POSIX-only pipelines unless a Windows PowerShell equivalent is reported.
-- Persist `/ai-autopilot` quality remediation state in the runtime manifest so `--resume` can tell whether the single remediation budget has already been consumed.
+- Replace the root `README.md` with a concise landing page that stays at or below the existing 120-line test cap, opens with the design-system tagline, declares the six enabled surfaces from `.ai-engineering/manifest.yml`, preserves the existing attribution table, and points first-time operators to the canonical chain `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`.
+- Rewrite `.ai-engineering/README.md` so it has zero dead links, includes an inline Quick Start instead of pointing to deleted `GETTING_STARTED.md`, explains the four-tier persistence doctrine, and uses the same terminal-native brand voice as the root README.
+- Keep `src/ai_engineering/templates/.ai-engineering/README.md` byte-identical to `.ai-engineering/README.md` and add a test that fails when those two files drift.
+- Review `.ai-engineering/team/README.md` and preserve the existing four-line placeholder unless a concrete defect is found during implementation.
+- Add `.ai-engineering/reference/brand-voice.md` as the prose authority for README voice rules, citing `docs/design.pen` and `docs/untitled.pen` line evidence for the `{ai} engineering` wordmark, shell-prompt CTA, mid-dot stat line, code-comment header, bracket-tag status grammar, and no-emoji convention.
+- Hard-rename the `/ai-repo-tidy` skill to `/ai-branch-cleanup` across canonical `.claude/` skill sources, generated root mirrors, installer-template provider surfaces, Python registry/user-facing strings, reference docs, session bootstrap scripts, tests, and non-historical documentation references.
+- Leave historical audit/state records untouched while ensuring a fresh `rg --hidden -n 'ai-repo-tidy'` after implementation returns only explicitly allowed historical hits.
+- Update `CHANGELOG.md` `[Unreleased]` with one `### BREAKING` entry for the skill rename and one `### Changed` entry for the README/brand rewrite.
+- Run the rename and documentation gates: `pytest tests/docs/test_links.py -q`, `pytest tests/architecture/test_naming_clarity.py tests/unit/test_cleanup_history_rotation.py tests/unit/test_consolidate_spec_action.py -q`, `ai-eng dev sync --check`, `ai-eng verify --full`, and full `pytest -q` before PR handoff.
 
 ## Non-Goals
 
-- Do not introduce `/ai-execute` or any new public execution command.
-- Do not auto-dispatch from `/ai-plan`.
-- Do not implement host-admission states, host deferral packets, manual host overrides, heartbeats, or background retries.
-- Do not hard-rename `ok_to_dispatch` to `ok_to_fanout`; the host predicate no longer participates in the standard flow gate.
-- Do not make ai-engineering responsible for deciding whether the operator machine has enough RAM, swap, or pressure headroom.
-- Do not mutate historical audit/state records solely to remove old host-probe wording.
-- Do not implement the parked spec-144 README/rename plan as part of this spec.
-- Do not add infinite retry, multi-round quality chasing, automatic full-suite reruns, or a second remediation pass.
-- Do not let `/ai-autopilot` re-decompose, re-plan, or reopen all waves as part of quality remediation.
-- Do not repair broad baseline debt or cross-repo findings unless the quality-loop finding is a concrete gate-owned artifact required for the current source-tree gate.
+- Do not edit `docs/design.pen` or `docs/untitled.pen`; stale counts in those design assets are tracked by a separate asset-team follow-up.
+- Do not generate new logos, SVGs, screenshots, raster images, or inline visual assets for the README files.
+- Do not change `/ai-repo-tidy` behavior while renaming it; branch cleanup, spec sweep, runtime rotation, and report behavior remain identical under the new slug.
+- Do not preserve an `/ai-repo-tidy` alias, shim, deprecation wrapper, or compatibility fallback.
+- Do not rewrite `CONSTITUTION.md`, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or `.github/copilot-instructions.md` unless the sanity review finds a blocker and the operator explicitly approves a follow-up.
+- Do not expand the docs portal under `docs/` beyond the new `.ai-engineering/reference/brand-voice.md` reference.
+- Do not rewrite append-only `.ai-engineering/state/framework-events.ndjson` or mutate historical records in `.ai-engineering/state/state.db`.
 
 ## Decisions
 
-### D-145-01 — Scope the fix to executor routing only
+### D-144-01 — Promote the consumed brief as one large, four-wave spec
 
-This spec fixes only the framework decision between `/ai-build` and `/ai-autopilot`. Host-capacity admission, `fanout`/`serial`/`deferred` states, host deferral packets, and host telemetry overrides are removed from scope.
+The work ships as one large spec with four implementation waves: brand voice reference, README rewrite, skill rename, and canonical-doc sanity review.
 
-**Rationale**: The user explicitly rejected host admission as over-engineering. Local host telemetry can be inaccurate, and ai-engineering does not block work based on resource-control data it does not own.
+**Rationale**: The README rewrite and skill rename touch different file families but share one first-contact DX goal: make the front door current, branded, and intent-revealing. Splitting them would duplicate sync/checklist work across mirrors, tests, CHANGELOG, and PR review.
 
-### D-145-02 — Keep the public command surface unchanged
+### D-144-02 — Brand voice gets a Markdown prose source of truth
 
-The public commands remain `/ai-plan`, `/ai-build`, and `/ai-autopilot`. `/ai-plan` prints the recommended next command and stops.
+Create `.ai-engineering/reference/brand-voice.md` as the Markdown authority for prose rules extracted from `docs/design.pen` and `docs/untitled.pen`; leave the `.pen` files as read-only visual design sources.
 
-**Rationale**: A new `/ai-execute` command would add orchestration surface area without solving the actual problem. The missing piece is visible route metadata, not another command.
+**Rationale**: README authors and doc skills can consume a small Markdown reference reliably. Reading encrypted or large design artifacts for every future prose edit would be expensive and error-prone, while editing `.pen` assets is outside the documentation wave.
 
-### D-145-03 — Store executor metadata in `plan.md`
+### D-144-03 — README replacements are targeted, not exhaustive docs rewrites
 
-New plans include an `execution_route` object with `version`, `spec`, `executor`, `automation`, `concern_count`, `estimated_files`, `reason`, and `safe_next_command`. `executor` is limited to `build` or `autopilot`.
+Rewrite `README.md`, `.ai-engineering/README.md`, and `src/ai_engineering/templates/.ai-engineering/README.md`; review `.ai-engineering/team/README.md` and keep its four-line placeholder unless a concrete defect appears.
 
-**Rationale**: The plan is the execution contract and the right place for a reviewable next-command recommendation. Runtime host measurements do not belong in this metadata.
+**Rationale**: The brief identifies specific stale onboarding links, stale surface names, and missing brand voice. The team placeholder already has the desired minimal shape, so rewriting it without evidence would violate KISS and add noise.
 
-### D-145-04 — Use `status` as the only plan approval source
+### D-144-04 — Governance README quick start is inline
 
-Plan approval is represented only by `plan.md` frontmatter `status`: `draft` means not executable; `approved` means execution may proceed through the recorded executor.
+Replace the dead `GETTING_STARTED.md` link in `.ai-engineering/README.md` and the installer template twin with a short inline Quick Start that points to `ai-eng install`, `/ai-start`, and the canonical chain.
 
-**Rationale**: SSOT-PD forbids duplicate writable truth. A second approval field inside `execution_route` would drift from plan lifecycle state.
+**Rationale**: A new operator stays inside the governance README for the next command. Inline quick start removes a deleted-file dependency and keeps the first-success path in one Tier 4 document.
 
-### D-145-05 — Make route metadata authoritative for no-HITL
+### D-144-05 — Template README drift is blocked by a test
 
-For newly generated plans, `/ai-build --no-hitl` reads `execution_route.executor` and plan `status` first. If `executor: autopilot`, it refuses loudly and prints `/ai-autopilot`. Heading-count checks remain only as legacy diagnostics when route metadata is missing.
+Add or extend a CI test that asserts `.ai-engineering/README.md` and `src/ai_engineering/templates/.ai-engineering/README.md` are byte-identical.
 
-**Rationale**: Heading shape can misclassify semantically multi-concern work. Plan-time metadata is explicit, deterministic, and reviewed before execution.
+**Rationale**: A test is less machinery than a pre-commit copier and stronger than a manual checklist. It preserves the existing mirror-sync expectation while keeping the canonical store obvious: the live governance README is copied into the template twin during implementation.
 
-### D-145-06 — Remove host probe as an autopilot hard gate
+### D-144-06 — `/ai-repo-tidy` hard-renames to `/ai-branch-cleanup`
 
-`/ai-autopilot` Step 0 no longer aborts solely because `ai-eng host probe` returns `ok_to_dispatch: false`. Host probe may remain a diagnostic command, but it is not a standard-flow admission gate.
+Rename the skill slug, directories, frontmatter, examples, cross-references, registry key, tests, and generated/template surfaces from `ai-repo-tidy` to `ai-branch-cleanup` with no alias.
 
-**Rationale**: The current host gate blocked spec-145 itself on data the user considers unreliable and outside framework responsibility. ai-engineering can bound its own orchestration mechanics, but it does not own local resource admission.
+**Rationale**: `ai-repo-tidy` is vague and overlaps general cleanup language; `ai-branch-cleanup` names the dominant behavior. The Constitution forbids backward-compatibility shims for renamed content, so the break is documented rather than hidden.
 
-### D-145-07 — Keep route audit evidence simple
+### D-144-07 — Rename audits use `framework_operation` with `detail.operation=skill_renamed`
 
-Executor classification emits or records a `framework_operation` detail such as `execution_routed`; no new top-level event kind is required.
+Emit rename traceability as `kind=framework_operation` with `detail.operation=skill_renamed`, `from=ai-repo-tidy`, `to=ai-branch-cleanup`, and `spec=spec-144`.
 
-**Rationale**: The existing audit schema already supports lifecycle and operation evidence. Adding event kinds for a simple route recommendation creates unnecessary schema churn.
+**Rationale**: `skill_renamed` is a detail operation, not a top-level event kind in the current event schema. Reusing `framework_operation` preserves the audit-kind allowlist and avoids a schema expansion for a one-off rename.
 
-### D-145-08 — Treat spec-144 as the routing regression
+### D-144-08 — Stale registry-count comment is fixed in the rename wave
 
-Tests and examples encode the observed spec-144 route problem: multi-concern work belongs to `/ai-autopilot`, and `/ai-build --no-hitl` must refuse with the correct next command.
+Update the stale `src/ai_engineering/config/framework_defaults.py` comment that claims the skill registry has 48 entries while touching the registry key for the rename.
 
-**Rationale**: The concrete failure was late executor discovery. Tests tied to that case prevent the fix from drifting back into heuristic heading checks.
+**Rationale**: The same file is already in scope for the slug replacement. Fixing the adjacent stale comment in the same wave reduces future confusion without creating a separate hygiene commit.
 
-### D-145-09 — Allow exactly one bounded quality-remediation pass
+### D-144-09 — Changelog records one breaking change and one docs change
 
-`/ai-build` and `/ai-autopilot` may fix quality-loop blocker/critical/high findings once when the finding has concrete evidence, a narrow reproducer, and a localized patch. The final reassessment is terminal: remaining blocker/critical/high findings STOP and escalate.
+Place the skill rename under `CHANGELOG.md` `[Unreleased]` `### BREAKING`, and place the README/brand rewrite under `### Changed`.
 
-**Rationale**: A single bounded pass improves speed for obvious quality blockers without reintroducing open-ended auto-retry loops.
+**Rationale**: Only the slug rename breaks external automation. The README rewrite is user-visible but not API-breaking, so it belongs in `Changed` while the rename gets the required hard-rename notice.
 
-### D-145-10 — Make autopilot remediation manifest-aware
+### D-144-10 — Design-asset count drift becomes a follow-up issue
 
-`/ai-autopilot` records `quality_remediation.max_attempts: 1`, `used`, finding owners, reproducers, and final reassessment status in `.ai-engineering/runtime/autopilot/manifest.md`.
+File a separate `/ai-issue` for stale counts in `docs/design.pen` and `docs/untitled.pen` instead of editing those assets in this PR.
 
-**Rationale**: Autopilot spans sub-specs and waves, so recovery state must survive `--resume` and cannot live only in agent memory.
+**Rationale**: The `.pen` files are visual design sources outside this spec's textual documentation scope. A tracked issue prevents the drift from being forgotten without forcing asset editing into the README/rename PR.
 
-### D-145-11 — Require multi-IDE and cross-OS propagation
+### D-144-11 — Canonical-doc sanity review reports divergence but does not auto-rewrite
 
-Quality remediation contract text is authored in canonical `.claude/` skills, regenerated into root IDE mirrors and installer templates, and requires platform-neutral reproducers or Windows PowerShell equivalents when POSIX shell pipelines are used.
+Read `CONSTITUTION.md`, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and `.github/copilot-instructions.md` during Wave 4; if divergence exists, report it and spin off a follow-up unless the operator explicitly approves inclusion.
 
-**Rationale**: The framework supports multiple IDE surfaces and operating systems. Recovery guidance that only works in one IDE or shell creates hidden drift.
+**Rationale**: The operator scoped this work to README rewrite plus rename. Canonical mirrors are generated governance surfaces with their own contracts, so unplanned rewrites risk broad review churn.
+
+### D-144-12 — README code fences and symbols use terminal-native conventions
+
+Codify `bash` for shell-command fences, `yaml` for manifest snippets, literal `{ai} engineering` in prose, mid-dot stat lines for compact counts, bracket tags for statuses, and a hard no-emoji rule in `brand-voice.md`.
+
+**Rationale**: The design sources use shell prompts, monospaced command blocks, and bracket statuses instead of emoji. Making these rules explicit keeps future documentation edits consistent without rereading the visual assets.
+
+### D-144-13 — Historical state is read-only during the rename
+
+Do not edit `.ai-engineering/state/framework-events.ndjson`, `.ai-engineering/state/state.db`, or archived historical spec/CHANGELOG references solely to remove `ai-repo-tidy`.
+
+**Rationale**: The audit chain and history files are witnesses, not rewrite targets. The verification grep must distinguish active references from historical records so the hard rename does not corrupt audit provenance.
 
 ## Risks
 
-- **Route metadata drift after plan edits**: Plan content can change after route classification. Mitigation: validate route metadata during plan verification or require `/ai-plan` regeneration when concern/file signals change.
-- **Autopilot resource use becomes operator-managed**: Removing host admission means ai-engineering no longer blocks based on local pressure/swap telemetry. Mitigation: keep ordinary bounded concurrency knobs and let the operator/OS manage local capacity.
-- **Route-only scope is mistaken for less governance**: Removing host admission could be read as weakening all gates. Mitigation: keep spec approval, plan approval, no-HITL refusal, single-round quality, secrets, and policy gates unchanged.
-- **Legacy plans lack route metadata**: Older plans still need understandable behavior. Mitigation: keep legacy heading-shape diagnostics only for plans without `execution_route`.
-- **Audit schema misuse**: Implementers can accidentally add route-specific top-level event kinds. Mitigation: tests assert `framework_operation/detail.operation=execution_routed` or equivalent existing-kind usage.
-- **Remediation becomes an infinite retry loop**: A quality fix pass can drift into repeated patching. Mitigation: tests and docs require `max_attempts: 1`, final reassessment, and no second remediation pass.
-- **Autopilot remediation loses ownership**: Multi-concern fixes can patch the wrong sub-spec. Mitigation: Phase 5b maps findings to `sub-NNN`, `integration`, or `shared` before editing.
-- **Cross-OS reproducers are shell-specific**: POSIX-only commands can fail on Windows. Mitigation: require platform-neutral commands or a Windows PowerShell equivalent in reports.
+- **README structural gate failure**: `tests/docs/test_links.py::test_readme_minimal` enforces the root README cap and required links. Mitigation: run `pytest tests/docs/test_links.py -q` before and after the rewrite; keep the root README at or below 120 lines.
+- **Mirror drift after the rename**: root mirrors and installer-template provider surfaces can diverge from `.claude/` after directory moves. Mitigation: run `ai-eng dev sync`, then `ai-eng dev sync --check`, and inspect residual `ai-repo-tidy` hits.
+- **Historical grep false positives**: append-only state and archived history contain valid old slugs. Mitigation: define the allowlist in the plan and fail only on non-historical active references.
+- **External automation breakage**: operators with scripts invoking `/ai-repo-tidy` must update them. Mitigation: document the exact `/ai-branch-cleanup` replacement in `CHANGELOG.md` under `### BREAKING`.
+- **Brand voice overreach**: README prose can become decorative instead of useful. Mitigation: brand rules must support command-first onboarding; root README line cap and link tests keep the result concise.
+- **Template README sync remains manual by accident**: a future edit can change one README without the other. Mitigation: add the byte-equivalence test in the same wave as the template update.
+- **Audit schema misuse**: emitting `skill_renamed` as a top-level event kind would violate the current event schema. Mitigation: use D-144-07 and test/inspect event-shape code before writing any audit row.
 
 ## References
 
-- doc: `.ai-engineering/specs/drafts/standard-flow-execution-admission-control-brief.md`
-- doc: `.ai-engineering/specs/archive/spec-144-readme-rewrite-and-branch-cleanup-rename/spec.md` documents the README Rewrite and Branch Cleanup Rename case that exposed late executor discovery.
-- doc: `CONSTITUTION.md` requires deterministic gates before probabilistic execution and forbids compatibility shims for renamed content.
-- doc: `docs/persistence-doctrine.md` defines SSOT-PD and the Markdown/state/audit storage split.
-- doc: `.ai-engineering/reference/plan-schema.md` defines `plan.md` lifecycle states.
-- doc: `src/ai_engineering/templates/project/CANONICAL.md:47-60` documents `/ai-build` as executor and `/ai-autopilot` as large-work wrapper.
-- doc: `.claude/skills/ai-plan/SKILL.md:19-32` writes `plan.md` and stops before execution.
-- doc: `.claude/skills/ai-build/handlers/no-hitl.md:18-29` restricts no-HITL to approved single-concern plans.
-- doc: `.claude/skills/ai-autopilot/SKILL.md:26-44` routes large work to autopilot but currently blocks on host probe.
-- doc: `.claude/skills/ai-build/handlers/quality.md` defines the bounded build quality-remediation pass.
-- doc: `.claude/skills/ai-autopilot/handlers/phase-quality.md` defines manifest-aware Phase 5b remediation.
+- doc: `.ai-engineering/specs/drafts/readme-rewrite-and-branch-cleanup-rename-brief.md`
+- doc: `CONSTITUTION.md` (hard-rename/no-shim policy)
+- doc: `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `.github/copilot-instructions.md` (canonical chain and mirror payload)
+- doc: `docs/persistence-doctrine.md` (Tier 4 Markdown source-of-truth doctrine)
+- doc: `.ai-engineering/reference/spec-schema.md` (spec shape)
+- doc: `README.md:23` lists Antigravity while `.ai-engineering/manifest.yml:28` enables OpenCode and Cursor.
+- doc: `.ai-engineering/README.md:5` and `src/ai_engineering/templates/.ai-engineering/README.md:5` link to deleted `GETTING_STARTED.md`.
+- doc: `tests/docs/test_links.py:203-228` enforces the root README structural cap and link requirements.
+- doc: `docs/design.pen:3291` provides the tagline; `docs/design.pen:3862-3911` provides bracket-tag status grammar.
+- doc: `docs/untitled.pen:522` provides the shell-prompt CTA; `docs/untitled.pen:1944` provides the mid-dot stat-line pattern.
+- doc: `src/ai_engineering/config/framework_defaults.py:262`, `src/ai_engineering/validator/categories/file_existence.py:282`, `.ai-engineering/reference/model-dispatch-policy.md:44`, and `.ai-engineering/reference/surface-axioms.md:39` contain active `ai-repo-tidy` references.
+- doc: `tests/unit/test_cleanup_history_rotation.py:19-22`, `tests/unit/test_consolidate_spec_action.py:21`, and `tests/architecture/test_naming_clarity.py:59` pin rename-sensitive behavior.
 
 ## Open Questions
 
-None. The scope correction removes host admission, leaves executor routing as the admission decision, and bounds quality-loop remediation to one finding-scoped pass.
+None. The eight open decisions from the consumed brief are resolved in this spec: template sync (D-144-05), stale registry comment (D-144-08), dead-link replacement (D-144-04), no-emoji/code-fence voice rules (D-144-12), changelog shape (D-144-09), asset-team handoff (D-144-10), canonical-doc review scope (D-144-11), and README code-block conventions (D-144-12).

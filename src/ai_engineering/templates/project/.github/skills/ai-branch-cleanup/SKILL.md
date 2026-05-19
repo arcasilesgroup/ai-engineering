@@ -1,6 +1,6 @@
 ---
-name: ai-repo-tidy
-description: "Tidies the repository safely: switches to default branch, prunes merged and squash-merged branches, syncs to remote, sweeps stale specs, rotates `.ai-engineering/runtime/` per retention policy. Trigger for 'tidy up', 'tidy branches', 'sync to main', 'delete old branches', 'start fresh', 'rotate runtime'. Auto-invoked by /ai-pr after merge. Not for committing changes; use /ai-commit instead. Not for code-level dead-code removal; use /ai-simplify instead."
+name: ai-branch-cleanup
+description: "Cleans branches safely: switches to the default branch, prunes merged and squash-merged branches, syncs to remote, sweeps stale specs, rotates `.ai-engineering/runtime/` per retention policy. Trigger for 'tidy up', 'tidy branches', 'sync to main', 'delete old branches', 'start fresh', 'rotate runtime'. Auto-invoked by /ai-pr after merge. Not for committing changes; use /ai-commit instead. Not for code-level dead-code removal; use /ai-simplify instead."
 effort: cheap
 argument-hint: "--branches|--sync|--specs|--runtime|--consolidate-spec <slug>|--all"
 mode: agent
@@ -11,23 +11,23 @@ requires:
 model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
-canonical_source: .claude/skills/ai-repo-tidy/SKILL.md
+canonical_source: .claude/skills/ai-branch-cleanup/SKILL.md
 edit_policy: generated-do-not-edit
 ---
 
 
 
-# Repo Tidy
+# Branch Cleanup
 
 ## Quick start
 
 ```
-/ai-repo-tidy              # full: sync + branch cleanup + spec sweep + runtime rotate + report
-/ai-repo-tidy --sync       # sync to default branch only
-/ai-repo-tidy --branches   # branch cleanup only
-/ai-repo-tidy --specs      # spec lifecycle sweep + _history.md rotation
-/ai-repo-tidy --runtime    # rotate .ai-engineering/runtime/ per retention policy
-/ai-repo-tidy --consolidate-spec <slug>   # delete finalised spec, append _history row
+/ai-branch-cleanup              # full: sync + branch cleanup + spec sweep + runtime rotate + report
+/ai-branch-cleanup --sync       # sync to default branch only
+/ai-branch-cleanup --branches   # branch cleanup only
+/ai-branch-cleanup --specs      # spec lifecycle sweep + _history.md rotation
+/ai-branch-cleanup --runtime    # rotate .ai-engineering/runtime/ per retention policy
+/ai-branch-cleanup --consolidate-spec <slug>   # delete finalised spec, append _history row
 ```
 
 Full repository hygiene: safely migrate to the default branch, delete merged and squash-merged branches, rotate runtime artifacts, and produce a per-branch status report. No destructive operations without confirmation.
@@ -116,13 +116,13 @@ For any SHIPPED spec record in `.ai-engineering/state/specs/<slug>.json` whose `
 ## Quick Reference
 
 ```
-/ai-repo-tidy              # full: sync + branch cleanup + spec sweep + runtime rotate + report
-/ai-repo-tidy --sync       # sync to default branch only
-/ai-repo-tidy --branches   # branch cleanup only (no migration)
-/ai-repo-tidy --specs      # spec lifecycle sweep + _history.md rotation (DRAFT > 14d → ABANDONED; SHIPPED → row appended)
-/ai-repo-tidy --runtime    # runtime rotation only
-/ai-repo-tidy --consolidate-spec <slug>  # manual spec consolidation via _shared/consolidate-spec.md
-/ai-repo-tidy --all        # explicit full cleanup
+/ai-branch-cleanup              # full: sync + branch cleanup + spec sweep + runtime rotate + report
+/ai-branch-cleanup --sync       # sync to default branch only
+/ai-branch-cleanup --branches   # branch cleanup only (no migration)
+/ai-branch-cleanup --specs      # spec lifecycle sweep + _history.md rotation (DRAFT > 14d → ABANDONED; SHIPPED → row appended)
+/ai-branch-cleanup --runtime    # runtime rotation only
+/ai-branch-cleanup --consolidate-spec <slug>  # manual spec consolidation via _shared/consolidate-spec.md
+/ai-branch-cleanup --all        # explicit full cleanup
 ```
 
 ### Phase 6: Spec consolidation (`--consolidate-spec`)
@@ -140,7 +140,7 @@ When invoked with `--consolidate-spec <slug>`, read `.github/skills/_shared/cons
 User: "tidy up before I start a new task"
 
 ```
-/ai-repo-tidy
+/ai-branch-cleanup
 ```
 
 Switches to `main`, ff-pulls, prunes merged + squash-merged branches, sweeps stale spec drafts, prints the per-branch report.
@@ -150,7 +150,7 @@ Switches to `main`, ff-pulls, prunes merged + squash-merged branches, sweeps sta
 User: "just clean up old branches, leave the specs alone"
 
 ```
-/ai-repo-tidy --branches
+/ai-branch-cleanup --branches
 ```
 
 Skips sync and spec sweep; runs branch classification + delete + report only.

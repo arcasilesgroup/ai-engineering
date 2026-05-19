@@ -246,7 +246,7 @@ DEFAULT_REQUIRED_TOOLS: dict[str, Any] = {
 }
 
 
-# --- skills registry (48 entries, kept here so /ai-scaffold maintains a single source) ---
+# --- skills registry (53 entries, kept here so /ai-scaffold maintains a single source) ---
 
 DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     "ai-brainstorm": {"type": "workflow", "tags": ["planning"]},
@@ -259,7 +259,7 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     "ai-review": {"type": "workflow", "tags": ["quality"]},
     "ai-commit": {"type": "delivery", "tags": ["git"]},
     "ai-pr": {"type": "delivery", "tags": ["git"]},
-    "ai-repo-tidy": {"type": "delivery", "tags": ["git"]},
+    "ai-branch-cleanup": {"type": "delivery", "tags": ["git"]},
     "ai-security": {"type": "enterprise", "tags": ["security"]},
     "ai-governance": {"type": "enterprise", "tags": ["compliance"]},
     "ai-advise": {"type": "workflow", "tags": ["governance", "advisory", "proactive"]},
@@ -420,7 +420,7 @@ def apply_framework_defaults(data: dict[str, Any]) -> dict[str, Any]:
         data["required_tools"] = _copy(DEFAULT_REQUIRED_TOOLS)
 
     # skills registry (auto-discovery is in loader.py; here we supply
-    # the canonical 48-entry default for environments without a
+    # the canonical 53-entry default for environments without a
     # ``.claude/skills/`` tree).
     skills = data.setdefault("skills", {})
     if isinstance(skills, dict):

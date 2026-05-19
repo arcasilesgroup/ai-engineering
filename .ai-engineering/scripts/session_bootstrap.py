@@ -1021,7 +1021,7 @@ def _render_markdown(d: dict) -> str:
         lines.append("")
         lines.append("### ▸ Proposals")
         lines.append("")
-        lines.append(f"- {pc} pending — run `/ai-repo-tidy` to review")
+        lines.append(f"- {pc} pending — run `/ai-branch-cleanup` to review")
 
     warnings = d.get("compat_warnings") or []
     if warnings:
@@ -1037,7 +1037,9 @@ def _render_markdown(d: dict) -> str:
     lines.append(
         "`/ai-brainstorm` design · `/ai-debug` fix · `/ai-onboard` explore · `/ai-commit` save"
     )
-    lines.append("`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-repo-tidy` tidy")
+    lines.append(
+        "`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-branch-cleanup` tidy"
+    )
     lines.append("")
     return "\n".join(lines)
 

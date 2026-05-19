@@ -100,3 +100,15 @@ class TestTemplateSkillParity:
         assert _sha256(root_file) == _sha256(template_file), (
             f"Content mismatch for {skill_rel}. Run: python scripts/sync_command_mirrors.py"
         )
+
+
+def test_no_old_branch_cleanup_template_orphans() -> None:
+    """Canonical skill renames must delete stale provider-template skills."""
+    old_slug = "-".join(("ai", "repo", "tidy"))
+    stale = sorted(
+        p.relative_to(_PROJECT_ROOT).as_posix()
+        for p in (_PROJECT_ROOT / "src" / "ai_engineering" / "templates" / "project").rglob(
+            f"*{old_slug}*"
+        )
+    )
+    assert not stale, f"stale old branch-cleanup template artifacts remain: {stale}"

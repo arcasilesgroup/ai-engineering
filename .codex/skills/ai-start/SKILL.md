@@ -126,4 +126,4 @@ instantaneous.
   or any other skill. Suggestions (e.g. "no active spec — run
   `/ai-brainstorm`") are embedded inside the markdown the script emits.
 - **See also**: `/ai-onboard` (human onboarding, different audience),
-  `/ai-repo-tidy` (pre-start hygiene).
+  `/ai-branch-cleanup` (pre-start hygiene).

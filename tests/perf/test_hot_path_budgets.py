@@ -11,7 +11,7 @@ path of the framework:
 | ``/ai-commit``          | 1.5s |  3.0s |
 | ``/ai-pr``              | 8.0s | 15.0s |
 | ``/ai-verify`` (PASS)   | 1.0s |  3.0s |
-| ``/ai-repo-tidy``       | 1.5s |  3.0s |
+| ``/ai-branch-cleanup``       | 1.5s |  3.0s |
 
 Two surfaces ship in this PR: pre-commit and pre-push (both mediated by
 ``ai-eng gate run --cache-aware --json --mode=local``). The remaining

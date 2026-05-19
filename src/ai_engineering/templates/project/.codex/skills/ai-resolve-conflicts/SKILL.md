@@ -1,6 +1,6 @@
 ---
 name: ai-resolve-conflicts
-description: "Resolves git conflicts intent-aware: categorizes by type (lock files, migrations, generated, config, code), regenerates or merges per category, never blindly accepts. Trigger for 'I have conflicts', 'rebase failed', 'merge conflict', 'cherry-pick failed', 'unmerged paths'. Not for branch hygiene; use /ai-repo-tidy instead. Not for committing the resolution; use /ai-commit instead."
+description: "Resolves git conflicts intent-aware: categorizes by type (lock files, migrations, generated, config, code), regenerates or merges per category, never blindly accepts. Trigger for 'I have conflicts', 'rebase failed', 'merge conflict', 'cherry-pick failed', 'unmerged paths'. Not for branch hygiene; use /ai-branch-cleanup instead. Not for committing the resolution; use /ai-commit instead."
 effort: cheap
 argument-hint: 
 model_tier: haiku
@@ -108,6 +108,6 @@ Reads both sides, detects category = code, applies intent-aware resolution (pres
 
 ## Integration
 
-Called by: `/ai-pr` watch-and-fix loop (CI repair), user directly. Calls: git (rebase / merge / cherry-pick continuation), package managers (lock-file regeneration). See also: `/ai-repo-tidy` (after resolution), `/ai-commit` (commit the resolved state).
+Called by: `/ai-pr` watch-and-fix loop (CI repair), user directly. Calls: git (rebase / merge / cherry-pick continuation), package managers (lock-file regeneration). See also: `/ai-branch-cleanup` (after resolution), `/ai-commit` (commit the resolved state).
 
 $ARGUMENTS

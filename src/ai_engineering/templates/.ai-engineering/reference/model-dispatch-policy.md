@@ -41,7 +41,7 @@ economics rubric: deterministic execution → cheap, synthesis with judgment
 | ai-board | cheap | haiku | Deterministic board sync against work-item refs. |
 | ai-brainstorm | mid | sonnet | Synthesis + interrogation; multi-turn judgment. |
 | ai-build | cheap | haiku | Executes patch-ready plan; mechanical when patches present. |
-| ai-repo-tidy | cheap | haiku | Mechanical hygiene (rotate `_history.md`, delete shipped). |
+| ai-branch-cleanup | cheap | haiku | Mechanical hygiene (rotate `_history.md`, delete shipped). |
 | ai-code | mid | sonnet | Targeted code writes with stack-overrides judgment. |
 | ai-commit | cheap | haiku | Deterministic stage + compose commit. |
 | ai-constitution | mid | sonnet | Interview-driven; project-identity judgment. |

@@ -1,245 +1,451 @@
 ---
-spec: spec-145
-title: Standard Flow Executor Routing
-status: in-progress
-pipeline: standard
+spec: spec-144
+title: README Rewrite and Branch Cleanup Rename
+status: draft
+pipeline: autopilot
 phases: 6
-total: 26
-completed: 25
+total: 35
+completed: 0
 execution_route:
   version: 1
-  spec: spec-145
-  executor: build
+  spec: spec-144
+  executor: autopilot
   automation: hitl
-  concern_count: 1
-  estimated_files: 8
-  reason: "Single-concern framework routing change: choose /ai-build vs /ai-autopilot and remove host-probe admission from the standard flow."
-  safe_next_command: "/ai-build"
+  concern_count: 6
+  estimated_files: 35
+  reason: "Plan status 'draft' is not approved; recommendation only. 6 independent concerns meets the /ai-autopilot threshold of 3."
+  safe_next_command: "/ai-autopilot"
 ---
 
-# Plan — spec-145 Standard Flow Executor Routing
+# Plan — spec-144 README Rewrite and Branch Cleanup Rename
+
+## Design
+
+Design intent captured at `.ai-engineering/specs/spec-144-design-intent.md` (auto-routed from `/ai-plan` because matched keywords: design system, ui, ux, typography, layout, interface).
 
 ## Architecture
 
 **Pattern:** Ports and Adapters.
 
-**Why:** Executor routing is deterministic framework logic consumed by skill/documentation adapters. The core decision is small: classify a plan as `executor: build` or `executor: autopilot`. Skill markdown, mirror surfaces, tests, and docs are adapters around that contract. Host-capacity admission is explicitly out of scope.
+**Why:** The rename is a port-label change: canonical `.claude/skills/ai-branch-cleanup/` is the port surface, while `.codex/`, `.gemini/`, `.github/`, `.cursor/`, `.opencode/`, `.agent/`, and installer templates are adapters regenerated or verified from the canonical source. The README work follows the same shape: `.ai-engineering/README.md` is the Tier 4 narrative source, `src/ai_engineering/templates/.ai-engineering/README.md` is the install adapter, and tests enforce the adapter stays byte-identical.
 
-**Pipeline classification:** standard. The work touches multiple generated surfaces, but it is one concern: executor routing. It executes through `/ai-build` after approval to avoid the current `/ai-autopilot` host-probe deadlock that this spec removes.
+**Pipeline classification:** autopilot route. The spec touches more than five files, crosses docs/tests/config/skill/template surfaces, includes a hard rename, and decomposes into six independent concerns. It therefore records `execution_route.executor: autopilot` and stops for operator approval; the plan remains `status: draft` until explicitly approved.
 
 ## Gate Strategy
 
-- Plan approved by the operator /ai-build invocation; execution follows the recorded route.
-- No host-admission states or host deferral work remain in scope.
-- RED/GREEN pairs cover route metadata, no-HITL route refusal, autopilot host-gate removal, and docs/mirror consistency.
-- Quality-loop recovery is bounded to one finding-scoped remediation pass for blocker/critical/high findings, followed by terminal reassessment.
-- Remediation evidence must use platform-neutral reproducers or report a Windows PowerShell equivalent when a POSIX shell pipeline is unavoidable.
-- Canonical `.claude/` skill sources update first; mirrors/templates are regenerated or verified afterward.
-- Historical state/audit records remain read-only.
+- Section preflight already passed: `rtk ai-eng spec verify --sections .ai-engineering/specs/spec.md`.
+- Executor route is `autopilot` because six concerns / 35 estimated files exceed the route thresholds; `/ai-plan` does not execute it.
+- RED/GREEN pairs are explicit for brand contract, README parity, README content, rename guards, and changelog entries.
+- Generated mirrors are not hand-edited except when a generator misses a non-generated template; canonical `.claude/` edits precede `rtk ai-eng dev sync`.
+- Historical `.ai-engineering/state/framework-events.ndjson`, `.ai-engineering/state/state.db`, archived specs, and prior CHANGELOG sections are read-only except for one new append-only rename audit event.
 
-## Phase 1: RED Routing Contract Tests
+## Phase 1: Brand Voice Contract
 
-- [x] T-1.1 — RED: add route metadata lint tests
+- [ ] T-1.1 — RED: add brand-voice contract test
   - Agent: build
-  - Files: tests/unit/test_spec_lint.py:560; tools/spec_lint/checks/plan.py:1
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): add fixtures asserting `execution_route.executor` accepts only `build|autopilot`, `safe_next_command` matches the executor, and approval remains `status` only.
-  - Gate: `pytest tests/unit/test_spec_lint.py -q` fails before route metadata validation.
+  - Files: tests/unit/docs/test_brand_voice_contract.py:new
+  - Principles applied: §10.5 TDD, §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic):
+    ```diff
+    --- /dev/null
+    +++ b/tests/unit/docs/test_brand_voice_contract.py
+    @@
+    +from pathlib import Path
+    +
+    +ROOT = Path(__file__).resolve().parents[3]
+    +BRAND = ROOT / ".ai-engineering" / "reference" / "brand-voice.md"
+    +
+    +
+    +def test_brand_voice_reference_exists_and_cites_design_sources() -> None:
+    +    text = BRAND.read_text(encoding="utf-8")
+    +    for needle in ("docs/design.pen:", "docs/untitled.pen:"):
+    +        assert needle in text
+    +
+    +
+    +def test_brand_voice_declares_terminal_native_rules() -> None:
+    +    text = BRAND.read_text(encoding="utf-8")
+    +    for needle in (
+    +        "{ai} engineering",
+    +        "mid-dot stat line",
+    +        "[PASS]",
+    +        "[WARN]",
+    +        "[FAIL]",
+    +        "no emoji",
+    +        "bash fences",
+    +        "yaml fences",
+    +    ):
+    +        assert needle in text
+    ```
+  - Gate: `rtk pytest tests/unit/docs/test_brand_voice_contract.py -q` fails before the reference exists.
 
-- [x] T-1.2 — RED: add executor routing unit tests
+- [ ] T-1.2 — GREEN: create prose brand voice source of truth
   - Agent: build
-  - Files: tests/unit/execution/test_route_classifier.py:new
+  - Files: .ai-engineering/reference/brand-voice.md:new
+  - Principles applied: §10.1 KISS, §10.4 DRY, §10.6 SDD
+  - Patch (deterministic): prose synthesis required from `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/spec-144-design-intent.md`; no fixed hunk because the document is authored content, not a mechanical replacement.
+  - Gate: `rtk pytest tests/unit/docs/test_brand_voice_contract.py -q` passes.
+
+- [ ] T-1.3 — VERIFY: ensure brand reference contains no anonymous-content violations
+  - Agent: verify
+  - Files: .ai-engineering/reference/brand-voice.md:new; tests/docs/test_links.py:79
   - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): assert single-concern plans route to `build`, multi-concern or large estimated file-count plans route to `autopilot`, and draft plans produce a non-executable recommendation.
-  - Gate: `pytest tests/unit/execution/test_route_classifier.py -q` fails before classifier exists.
+  - Patch (deterministic): read-only verification.
+  - Gate: `rtk pytest tests/docs/test_links.py::test_readme_minimal tests/unit/docs/test_brand_voice_contract.py -q` passes with no `/Users/`, `/home/<name>/`, or conversational PII patterns.
 
-- [x] T-1.3 — RED: update no-HITL contract tests
+## Phase 2: README Contracts and Rewrite
+
+- [ ] T-2.1 — RED: add governance README/template parity test
   - Agent: build
-  - Files: tests/unit/skills/test_build_no_hitl.py:1; tests/unit/skills/test_execution_routing_contract.py:new
+  - Files: tests/unit/docs/test_governance_readme_template_parity.py:new
+  - Principles applied: §10.4 DRY, §10.5 TDD
+  - Patch (deterministic):
+    ```diff
+    --- /dev/null
+    +++ b/tests/unit/docs/test_governance_readme_template_parity.py
+    @@
+    +from pathlib import Path
+    +
+    +ROOT = Path(__file__).resolve().parents[3]
+    +LIVE = ROOT / ".ai-engineering" / "README.md"
+    +TEMPLATE = ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "README.md"
+    +
+    +
+    +def test_governance_readme_template_is_byte_identical() -> None:
+    +    assert LIVE.exists(), f"missing live governance README: {LIVE}"
+    +    assert TEMPLATE.exists(), f"missing template governance README: {TEMPLATE}"
+    +    assert LIVE.read_bytes().replace(b"\r\n", b"\n") == TEMPLATE.read_bytes().replace(b"\r\n", b"\n")
+    ```
+  - Gate: `rtk pytest tests/unit/docs/test_governance_readme_template_parity.py -q` passes today or fails with clear drift after rewrite-only edits.
+
+- [ ] T-2.2 — RED: add README content contract tests
+  - Agent: build
+  - Files: tests/unit/docs/test_readme_brand_contract.py:new
   - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): assert no-HITL reads `execution_route.executor`, refuses `executor: autopilot`, prints `/ai-autopilot`, and keeps no prompts/no fallback/no auto-retry.
-  - Gate: `pytest tests/unit/skills/test_build_no_hitl.py tests/unit/skills/test_execution_routing_contract.py -q` fails before docs change.
+  - Patch (deterministic):
+    ```diff
+    --- /dev/null
+    +++ b/tests/unit/docs/test_readme_brand_contract.py
+    @@
+    +from pathlib import Path
+    +
+    +ROOT = Path(__file__).resolve().parents[3]
+    +
+    +
+    +def test_root_readme_declares_current_surfaces_and_brand() -> None:
+    +    text = (ROOT / "README.md").read_text(encoding="utf-8")
+    +    assert "Antigravity" not in text
+    +    for surface in ("Claude Code", "GitHub Copilot", "OpenAI Codex", "Gemini CLI", "OpenCode", "Cursor"):
+    +        assert surface in text
+    +    assert "{ai} engineering" in text
+    +    assert "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr" in text
+    +    assert len(text.splitlines()) <= 120
+    +
+    +
+    +def test_governance_readme_has_inline_quick_start_and_no_deleted_link() -> None:
+    +    text = (ROOT / ".ai-engineering" / "README.md").read_text(encoding="utf-8")
+    +    assert "GETTING_STARTED.md" not in text
+    +    assert "## Quick Start" in text
+    +    assert "ai-eng install" in text
+    +    assert "/ai-start" in text
+    +    assert "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr" in text
+    ```
+  - Gate: `rtk pytest tests/unit/docs/test_readme_brand_contract.py -q` fails before README rewrite.
 
-- [x] T-1.4 — RED: add autopilot no-host-gate contract test
+- [ ] T-2.3 — GREEN: rewrite root README hero and install block
   - Agent: build
-  - Files: tests/unit/skills/test_execution_routing_contract.py:new; .claude/skills/ai-autopilot/SKILL.md:42
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): assert autopilot Step 0 does not require `ok_to_dispatch == False` abort wording and does not describe host probe as a hard admission gate.
-  - Gate: `pytest tests/unit/skills/test_execution_routing_contract.py -q` fails before autopilot docs change.
+  - Files: README.md:1
+  - Principles applied: §10.1 KISS, §10.7 Clean Code
+  - Patch (deterministic): authored replacement of the top section only; preserve existing banner/badge block, then add the approved tagline, a copyable `ai-eng install` command, and the mid-dot stat line.
+  - Gate: `rtk python - <<'PY'\nfrom pathlib import Path\ntext=Path('README.md').read_text(); assert '{ai} engineering' in text; assert 'ai-eng install' in text; assert len(text.splitlines()) <= 120\nPY` passes.
 
-## Phase 2: Route Metadata and Classifier
-
-- [x] T-2.1 — GREEN: implement a small route classifier
+- [ ] T-2.4 — GREEN: rewrite root README chain, surfaces, and attribution
   - Agent: build
-  - Files: src/ai_engineering/execution/__init__.py:new; src/ai_engineering/execution/route.py:new; tests/unit/execution/test_route_classifier.py:1
-  - Principles applied: §10.1 KISS, §10.5 TDD, §10.8 Hexagonal Architecture
-  - Patch (deterministic): define a pure classifier that returns `executor`, `concern_count`, `estimated_files`, `reason`, and `safe_next_command`; no host probe imports.
-  - Gate: `pytest tests/unit/execution/test_route_classifier.py -q` passes.
+  - Files: README.md:35
+  - Principles applied: §10.4 DRY, §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic): authored replacement of the middle/end sections; include `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`, all six enabled surfaces, required links, and preserve the “Standing on the shoulders of …” attribution table.
+  - Gate: `rtk pytest tests/docs/test_links.py::test_readme_minimal tests/unit/docs/test_readme_brand_contract.py::test_root_readme_declares_current_surfaces_and_brand -q` passes.
 
-- [x] T-2.2 — GREEN: update plan schema docs
+- [ ] T-2.5 — GREEN: rewrite governance README header and Quick Start
   - Agent: build
-  - Files: .ai-engineering/reference/plan-schema.md:8; src/ai_engineering/templates/.ai-engineering/reference/plan-schema.md:8
-  - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): document `execution_route` fields and explicitly state that host capacity is not plan metadata.
-  - Gate: `pytest tests/docs/test_links.py tests/unit/test_spec_lint.py -q` passes.
-
-- [x] T-2.3 — GREEN: validate route metadata in plan lint
-  - Agent: build
-  - Files: tools/spec_lint/checks/plan.py:1; tests/unit/test_spec_lint.py:560
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): extend the lightweight frontmatter parser enough to validate the nested `execution_route` block without adding PyYAML.
-  - Gate: `pytest tests/unit/test_spec_lint.py -q` passes.
-
-- [x] T-2.4 — GREEN: expose route classification to `/ai-plan`
-  - Agent: build
-  - Files: .claude/skills/ai-plan/SKILL.md:19; .codex/skills/ai-plan/SKILL.md:19; .gemini/skills/ai-plan/SKILL.md:19; .github/skills/ai-plan/SKILL.md:19
-  - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): add a route-classification step that writes `execution_route` and prints `/ai-build` or `/ai-autopilot` at exit.
-  - Gate: `pytest tests/unit/skills/test_execution_routing_contract.py -q` passes.
-
-## Phase 3: Build and Autopilot Skill Contracts
-
-- [x] T-3.1 — GREEN: update no-HITL route gate
-  - Agent: build
-  - Files: .claude/skills/ai-build/handlers/no-hitl.md:18; .codex/skills/ai-build/handlers/no-hitl.md:18; .gemini/skills/ai-build/handlers/no-hitl.md:18; .github/skills/ai-build/handlers/no-hitl.md:18
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): make `execution_route.executor == build` authoritative for new plans; keep heading-count only as legacy fallback.
-  - Gate: `pytest tests/unit/skills/test_build_no_hitl.py tests/unit/skills/test_execution_routing_contract.py -q` passes.
-
-- [x] T-3.2 — GREEN: update `/ai-build` routing preflight wording
-  - Agent: build
-  - Files: .claude/skills/ai-build/SKILL.md:19; .codex/skills/ai-build/SKILL.md:19; .gemini/skills/ai-build/SKILL.md:19; .github/skills/ai-build/SKILL.md:19
-  - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): document that `/ai-build` reads `execution_route.executor` and refuses `autopilot` plans with the safe next command.
-  - Gate: `pytest tests/unit/skills/test_execution_routing_contract.py -q` passes.
-
-- [x] T-3.3 — GREEN: remove autopilot host-probe hard gate
-  - Agent: build
-  - Files: .claude/skills/ai-autopilot/SKILL.md:42; .codex/skills/ai-autopilot/SKILL.md:39; .gemini/skills/ai-autopilot/SKILL.md:39; .github/skills/ai-autopilot/SKILL.md:40
+  - Files: .ai-engineering/README.md:1
   - Principles applied: §10.1 KISS, §10.6 SDD
-  - Patch (deterministic): remove Step 0 abort on `ok_to_dispatch == False`; if host probe remains mentioned, it is diagnostic/advisory only and cannot block the standard flow.
-  - Gate: `pytest tests/unit/skills/test_execution_routing_contract.py -q` passes.
+  - Patch (deterministic): authored replacement of the top section; remove `GETTING_STARTED.md`, add `## Quick Start`, `ai-eng install`, `/ai-start`, and the canonical chain.
+  - Gate: `rtk pytest tests/unit/docs/test_readme_brand_contract.py::test_governance_readme_has_inline_quick_start_and_no_deleted_link -q` passes.
 
-- [x] T-3.4 — GREEN: update autopilot examples and integration text
+- [ ] T-2.6 — GREEN: rewrite governance README doctrine and sync map
   - Agent: build
-  - Files: .claude/skills/ai-autopilot/references/examples.md:1; .codex/skills/ai-autopilot/references/examples.md:1
+  - Files: .ai-engineering/README.md:40
+  - Principles applied: §10.4 DRY, §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic): authored replacement of persistence, runbook, skill-chain, and sync sections; cite `docs/persistence-doctrine.md`; replace stale `ai-eng sync` mentions with `ai-eng dev sync`.
+  - Gate: `rtk rg -n "GETTING_STARTED.md|ai-eng sync( |$)" .ai-engineering/README.md` returns no hits.
+
+- [ ] T-2.7 — GREEN: copy governance README to installer template
+  - Agent: build
+  - Files: src/ai_engineering/templates/.ai-engineering/README.md:1
+  - Principles applied: §10.4 DRY, §10.8 Hexagonal Architecture
+  - Patch (deterministic): `rtk cp .ai-engineering/README.md src/ai_engineering/templates/.ai-engineering/README.md`.
+  - Gate: `rtk pytest tests/unit/docs/test_governance_readme_template_parity.py -q` passes.
+
+- [ ] T-2.8 — VERIFY: preserve team README placeholder
+  - Agent: verify
+  - Files: .ai-engineering/team/README.md:1
+  - Principles applied: §10.1 KISS, §10.2 YAGNI
+  - Patch (deterministic): read-only verification; if no defect is found, leave the file unchanged.
+  - Gate: `rtk proxy bash -lc 'test "$(wc -l < .ai-engineering/team/README.md | tr -d " ")" = "4"'` passes.
+
+- [ ] T-2.9 — VERIFY: run README/documentation slice
+  - Agent: verify
+  - Files: README.md:1; .ai-engineering/README.md:1; src/ai_engineering/templates/.ai-engineering/README.md:1; tests/docs/test_links.py:203
+  - Principles applied: §10.5 TDD, §10.7 Clean Code
+  - Patch (deterministic): read-only verification.
+  - Gate: `rtk pytest tests/docs/test_links.py tests/unit/docs/test_brand_voice_contract.py tests/unit/docs/test_readme_brand_contract.py tests/unit/docs/test_governance_readme_template_parity.py -q` passes.
+
+## Phase 3: Canonical Skill Rename
+
+- [ ] T-3.1 — RED: update canonical naming guard for new skill slug
+  - Agent: build
+  - Files: tests/architecture/test_naming_clarity.py:40
+  - Principles applied: §10.5 TDD, §10.7 Clean Code
+  - Patch (deterministic):
+    ```diff
+    --- a/tests/architecture/test_naming_clarity.py
+    +++ b/tests/architecture/test_naming_clarity.py
+    @@
+     _DEPRECATED_SKILLS: tuple[str, ...] = (
+    @@
+         "ai-write",
+         "ai-prompt",
+    +    "ai-repo-tidy",
+     )
+    @@
+    -    "ai-repo-tidy",
+    +    "ai-branch-cleanup",
+    ```
+  - Gate: `rtk pytest tests/architecture/test_naming_clarity.py -q` fails before the directory rename.
+
+- [ ] T-3.2 — RED: retarget cleanup/consolidation tests to `/ai-branch-cleanup`
+  - Agent: build
+  - Files: tests/unit/test_cleanup_history_rotation.py:1; tests/unit/test_consolidate_spec_action.py:1
+  - Principles applied: §10.5 TDD, §10.7 Clean Code
+  - Patch (deterministic): replace active `ai-repo-tidy` paths/caller names with `ai-branch-cleanup`; keep historical spec IDs unchanged.
+  - Gate: `rtk pytest tests/unit/test_cleanup_history_rotation.py tests/unit/test_consolidate_spec_action.py -q` fails before canonical rename.
+
+- [ ] T-3.3 — GREEN: rename canonical `.claude` skill directory and self-references
+  - Agent: build
+  - Files: .claude/skills/ai-repo-tidy/SKILL.md:1 -> .claude/skills/ai-branch-cleanup/SKILL.md:1
+  - Principles applied: §10.1 KISS, §10.2 YAGNI, §10.8 Hexagonal Architecture
+  - Patch (deterministic):
+    ```diff
+    git mv .claude/skills/ai-repo-tidy .claude/skills/ai-branch-cleanup
+    --- a/.claude/skills/ai-branch-cleanup/SKILL.md
+    +++ b/.claude/skills/ai-branch-cleanup/SKILL.md
+    @@
+    -name: ai-repo-tidy
+    +name: ai-branch-cleanup
+    @@
+    -# Repo Tidy
+    +# Branch Cleanup
+    ```
+    Then replace every active `/ai-repo-tidy` occurrence in that file with `/ai-branch-cleanup`.
+  - Gate: `rtk pytest tests/architecture/test_naming_clarity.py tests/unit/test_cleanup_history_rotation.py -q` passes for `.claude` canonical path.
+
+- [ ] T-3.4 — GREEN: update canonical sibling skill references
+  - Agent: build
+  - Files: .claude/skills/ai-commit/SKILL.md:3; .claude/skills/ai-resolve-conflicts/SKILL.md:3; .claude/skills/ai-autopilot/SKILL.md:84; .claude/skills/ai-pr/SKILL.md:104; .claude/skills/ai-pr/handlers/watch.md:22; .claude/skills/ai-simplify-sweep/SKILL.md:114; .claude/skills/ai-start/SKILL.md:124; .claude/skills/_shared/consolidate-spec.md:5
+  - Principles applied: §10.4 DRY, §10.7 Clean Code
+  - Patch (deterministic): replace active `/ai-repo-tidy` and `ai-repo-tidy` caller references with `/ai-branch-cleanup` and `ai-branch-cleanup`.
+  - Gate: `rtk rg --hidden -n "ai-repo-tidy" .claude/skills` returns no active hits.
+
+- [ ] T-3.5 — GREEN: update default skill registry key and count comment
+  - Agent: build
+  - Files: src/ai_engineering/config/framework_defaults.py:249
+  - Principles applied: §10.1 KISS, §10.4 DRY
+  - Patch (deterministic):
+    ```diff
+    --- a/src/ai_engineering/config/framework_defaults.py
+    +++ b/src/ai_engineering/config/framework_defaults.py
+    @@
+    -# --- skills registry (48 entries, kept here so /ai-scaffold maintains a single source) ---
+    +# --- skills registry (53 entries, kept here so /ai-scaffold maintains a single source) ---
+    @@
+    -    "ai-repo-tidy": {"type": "delivery", "tags": ["git"]},
+    +    "ai-branch-cleanup": {"type": "delivery", "tags": ["git"]},
+    ```
+  - Gate: `rtk pytest tests/unit/config/test_manifest.py -q` passes.
+
+- [ ] T-3.6 — GREEN: update validator user-facing lifecycle messages
+  - Agent: build
+  - Files: src/ai_engineering/validator/categories/file_existence.py:282; tests/unit/validator/test_history_md_warn.py:1; tests/unit/installer/test_phases.py:155
+  - Principles applied: §10.1 KISS, §10.7 Clean Code
+  - Patch (deterministic): replace active `/ai-repo-tidy` references with `/ai-branch-cleanup` in messages/tests; preserve spec-131 IDs.
+  - Gate: `rtk pytest tests/unit/validator/test_history_md_warn.py tests/unit/installer/test_phases.py -q` passes.
+
+- [ ] T-3.7 — GREEN: update reference docs and template reference copies
+  - Agent: build
+  - Files: .ai-engineering/reference/model-dispatch-policy.md:44; .ai-engineering/reference/surface-axioms.md:39; src/ai_engineering/templates/.ai-engineering/reference/model-dispatch-policy.md:44; src/ai_engineering/templates/.ai-engineering/reference/surface-axioms.md:39
+  - Principles applied: §10.4 DRY, §10.8 Hexagonal Architecture
+  - Patch (deterministic): replace active `ai-repo-tidy` with `ai-branch-cleanup` and copy live reference docs to template counterparts if those reference docs are byte-equivalent mirrors.
+  - Gate: `rtk pytest tests/unit/validator/test_mirror_sync_categories.py -q` passes.
+
+- [ ] T-3.8 — GREEN: update session bootstrap live/template footer references
+  - Agent: build
+  - Files: .ai-engineering/scripts/session_bootstrap.py:1024; src/ai_engineering/templates/.ai-engineering/scripts/session_bootstrap.py:1024; tests/unit/test_session_bootstrap_template_parity.py:1
+  - Principles applied: §10.4 DRY, §10.5 TDD
+  - Patch (deterministic):
+    ```diff
+    --- a/.ai-engineering/scripts/session_bootstrap.py
+    +++ b/.ai-engineering/scripts/session_bootstrap.py
+    @@
+    -        lines.append(f"- {pc} pending — run `/ai-repo-tidy` to review")
+    +        lines.append(f"- {pc} pending — run `/ai-branch-cleanup` to review")
+    @@
+    -    lines.append("`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-repo-tidy` tidy")
+    +    lines.append("`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-branch-cleanup` tidy")
+    ```
+    Copy the same bytes to the template script or apply the same hunk there.
+  - Gate: `rtk pytest tests/unit/test_session_bootstrap_template_parity.py tests/unit/scripts/test_session_bootstrap.py -q` passes.
+
+- [ ] T-3.9 — GREEN: update remaining active tests that pin old slug
+  - Agent: build
+  - Files: tests/perf/test_hot_path_budgets.py:14; tests/mirrors/test_count_parity.py:14
+  - Principles applied: §10.1 KISS, §10.7 Clean Code
+  - Patch (deterministic): replace active expected slug with `ai-branch-cleanup`; leave old CHANGELOG historical entries untouched unless the line lives in `[Unreleased]`.
+  - Gate: `rtk pytest tests/perf/test_hot_path_budgets.py tests/mirrors/test_count_parity.py -q` passes.
+
+- [ ] T-3.10 — VERIFY: canonical rename slice passes
+  - Agent: verify
+  - Files: .claude/skills/ai-branch-cleanup/SKILL.md:1; src/ai_engineering/config/framework_defaults.py:249; tests/architecture/test_naming_clarity.py:1
+  - Principles applied: §10.5 TDD, §10.7 Clean Code
+  - Patch (deterministic): read-only verification.
+  - Gate: `rtk pytest tests/architecture/test_naming_clarity.py tests/unit/test_cleanup_history_rotation.py tests/unit/test_consolidate_spec_action.py tests/unit/test_session_bootstrap_template_parity.py -q` passes.
+
+## Phase 4: Mirror and Template Propagation
+
+- [ ] T-4.1 — GREEN: regenerate generated IDE and provider mirrors
+  - Agent: build
+  - Files: .codex/skills/**; .gemini/skills/**; .github/skills/**; src/ai_engineering/templates/project/**
+  - Principles applied: §10.4 DRY, §10.8 Hexagonal Architecture
+  - Patch (deterministic): run `rtk ai-eng dev sync` from the repository root after canonical `.claude` edits.
+  - Gate: `rtk ai-eng dev sync --check` reports mirrors in sync.
+
+- [ ] T-4.2 — GREEN: handle non-generated residual template command names
+  - Agent: build
+  - Files: src/ai_engineering/templates/project/.opencode/commands/ai-repo-tidy.md:1 -> src/ai_engineering/templates/project/.opencode/commands/ai-branch-cleanup.md:1
+  - Principles applied: §10.1 KISS, §10.4 DRY
+  - Patch (deterministic): if `rtk ai-eng dev sync` does not delete/regenerate the old command file, `rtk git mv` it to the new command name and replace active slug text inside.
+  - Gate: `rtk rg --hidden -n "ai-repo-tidy" src/ai_engineering/templates/project/.opencode/commands` returns no active hits.
+
+- [ ] T-4.3 — VERIFY: mirror generated provenance and parity
+  - Agent: verify
+  - Files: tests/integration/test_skill_mirror_consistency.py:1; tests/unit/test_template_skill_parity.py:1; tests/integration/test_shared_handler_mirror.py:1
+  - Principles applied: §10.4 DRY, §10.5 TDD
+  - Patch (deterministic): read-only verification.
+  - Gate: `rtk pytest tests/integration/test_skill_mirror_consistency.py tests/unit/test_template_skill_parity.py tests/integration/test_shared_handler_mirror.py -q` passes.
+
+- [ ] T-4.4 — VERIFY: residual old-slug scan with historical allowlist
+  - Agent: verify
+  - Files: repository-wide grep result
   - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): document that executor routing comes from `plan.md`; remove host-admission recovery examples.
-  - Gate: `pytest tests/unit/skills/test_execution_routing_contract.py -q` passes.
+  - Patch (deterministic): read-only verification; command must fail if active code/docs/tests still contain `ai-repo-tidy` outside `.ai-engineering/state/`, `.ai-engineering/specs/archive/`, `.ai-engineering/specs/drafts/`, and historical CHANGELOG sections before `[Unreleased]`.
+  - Gate: `rtk rg --hidden -n "ai-repo-tidy" . --glob '!/.git/**'` reviewed; only allowed historical hits remain.
 
-## Phase 4: Mirrors, Templates, and Docs
+## Phase 5: Changelog, Audit, and Follow-up Issue
 
-- [x] T-4.1 — GREEN: propagate skill changes to installer templates
+- [ ] T-5.1 — RED: add changelog expectation for current Unreleased rename/docs entries
   - Agent: build
-  - Files: src/ai_engineering/templates/project/.claude/skills/ai-plan/SKILL.md:19; src/ai_engineering/templates/project/.claude/skills/ai-build/SKILL.md:19; src/ai_engineering/templates/project/.claude/skills/ai-autopilot/SKILL.md:42; src/ai_engineering/templates/project/.codex/skills/:all; src/ai_engineering/templates/project/.gemini/skills/:all; src/ai_engineering/templates/project/.github/skills/:all; src/ai_engineering/templates/project/.cursor/skills/:all; src/ai_engineering/templates/project/.opencode/skills/:all; src/ai_engineering/templates/project/.agent/skills/:all
-  - Principles applied: §10.4 DRY, §10.6 SDD
-  - Patch (deterministic): run the repository mirror/template sync command and inspect generated changes.
-  - Gate: `ai-eng dev sync --check` passes.
+  - Files: tests/unit/docs/test_changelog_spec144.py:new
+  - Principles applied: §10.5 TDD, §10.6 SDD
+  - Patch (deterministic):
+    ```diff
+    --- /dev/null
+    +++ b/tests/unit/docs/test_changelog_spec144.py
+    @@
+    +from pathlib import Path
+    +
+    +ROOT = Path(__file__).resolve().parents[3]
+    +
+    +
+    +def _unreleased() -> str:
+    +    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    +    start = text.index("## [Unreleased]")
+    +    end = text.find("\n## [", start + 1)
+    +    return text[start:end if end != -1 else None]
+    +
+    +
+    +def test_spec144_breaking_rename_is_documented() -> None:
+    +    block = _unreleased()
+    +    assert "### BREAKING" in block
+    +    assert "/ai-repo-tidy" in block
+    +    assert "/ai-branch-cleanup" in block
+    +    assert "no alias" in block.lower() or "no shim" in block.lower()
+    +
+    +
+    +def test_spec144_readme_rewrite_is_documented_as_changed() -> None:
+    +    block = _unreleased()
+    +    assert "### Changed" in block
+    +    assert "README" in block
+    +    assert "brand" in block.lower()
+    ```
+  - Gate: `rtk pytest tests/unit/docs/test_changelog_spec144.py -q` fails before CHANGELOG update.
 
-- [x] T-4.2 — GREEN: update canonical chain wording minimally
+- [ ] T-5.2 — GREEN: update `[Unreleased]` changelog
   - Agent: build
-  - Files: src/ai_engineering/templates/project/CANONICAL.md:47; AGENTS.md:47; CLAUDE.md:47; GEMINI.md:47; .github/copilot-instructions.md:47
-  - Principles applied: §10.1 KISS, §10.6 SDD
-  - Patch (deterministic): keep the public chain unchanged while clarifying that `/ai-plan` recommends `/ai-build` or `/ai-autopilot`.
-  - Gate: `pytest tests/unit/specs/test_active_workflow_compliance.py -q` passes.
+  - Files: CHANGELOG.md:8
+  - Principles applied: §10.2 YAGNI, §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic): add `### BREAKING` entry for `/ai-repo-tidy` to `/ai-branch-cleanup` with no alias/shim and add `### Changed` entry for README/brand rewrite; keep prior `### Fixed` release-finalization entry.
+  - Gate: `rtk pytest tests/unit/docs/test_changelog_spec144.py tests/unit/test_changelog_parser.py tests/unit/test_changelog_breaking_keywords.py -q` passes.
 
-- [x] T-4.3 — GREEN: update CHANGELOG and lesson-linked docs
+- [ ] T-5.3 — GREEN: append rename audit event without rewriting history
   - Agent: build
-  - Files: CHANGELOG.md:1; .ai-engineering/LESSONS.md:1
+  - Files: .ai-engineering/state/framework-events.ndjson:append-only
+  - Principles applied: §10.6 SDD, §10.8 Hexagonal Architecture
+  - Patch (deterministic): append one `framework_operation` event using the existing spec lifecycle append helper or equivalent stdlib append under the framework-events lock, with `detail.operation=skill_renamed`, `from=ai-repo-tidy`, `to=ai-branch-cleanup`, `policy_source=CONSTITUTION.md`, and `spec=spec-144`.
+  - Gate: `rtk proxy bash -lc 'tail -n 20 .ai-engineering/state/framework-events.ndjson | rg "\"operation\": \"skill_renamed\"|\"operation\":\"skill_renamed\""'` finds the new event.
+
+- [ ] T-5.4 — GUARD: create asset-team follow-up issue or record blocker
+  - Agent: guard
+  - Files: .ai-engineering/specs/spec-144-asset-follow-up.md:new
+  - Principles applied: §10.2 YAGNI, §10.6 SDD
+  - Patch (deterministic): if `/ai-issue`/GitHub issue creation is available, create an issue for stale counts in `docs/design.pen:15131` and `docs/untitled.pen:482`; otherwise write `.ai-engineering/specs/spec-144-asset-follow-up.md` with the blocked issue payload for operator filing.
+  - Gate: follow-up issue URL exists in the PR body, or the blocked payload file exists and names both stale design-file lines.
+
+## Phase 6: Sanity Review and Final Gates
+
+- [ ] T-6.1 — VERIFY: canonical-doc sanity review report
+  - Agent: verify
+  - Files: CONSTITUTION.md:1; CLAUDE.md:1; AGENTS.md:1; GEMINI.md:1; .github/copilot-instructions.md:1; .ai-engineering/specs/spec-144-canonical-doc-sanity.md:new
+  - Principles applied: §10.3 SOLID, §10.6 SDD
+  - Patch (deterministic): create a short report recording zero divergences or listing divergences as follow-up items; do not rewrite canonical mirrors in this task.
+  - Gate: `.ai-engineering/specs/spec-144-canonical-doc-sanity.md` exists and states whether any follow-up is needed.
+
+- [ ] T-6.2 — VERIFY: no accidental source changes outside spec scope
+  - Agent: verify
+  - Files: git diff
+  - Principles applied: §10.3 SOLID, §10.7 Clean Code
+  - Patch (deterministic): read-only verification.
+  - Gate: `rtk git diff --name-only` contains only README/brand docs, rename surfaces, generated mirrors/templates, tests, CHANGELOG, plan/spec artifacts, and append-only audit event.
+
+- [ ] T-6.3 — VERIFY: documentation, rename, mirror, and release-quality gates
+  - Agent: verify
+  - Files: full repository
+  - Principles applied: §10.5 TDD, §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic): read-only verification.
+  - Gate: `rtk proxy bash -lc 'pytest tests/docs/test_links.py -q && pytest tests/architecture/test_naming_clarity.py tests/unit/test_cleanup_history_rotation.py tests/unit/test_consolidate_spec_action.py -q && ai-eng dev sync --check && ai-eng verify --full'` pass.
+
+- [ ] T-6.4 — VERIFY: full test suite
+  - Agent: verify
+  - Files: full repository
+  - Principles applied: §10.5 TDD, §10.7 Clean Code
+  - Patch (deterministic): read-only verification.
+  - Gate: `rtk pytest -q` passes.
+
+- [ ] T-6.5 — GUARD: PR handoff checklist
+  - Agent: guard
+  - Files: .ai-engineering/specs/spec-144-pr-handoff.md:new
   - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): add `[Unreleased]` Changed entry for route-only standard-flow simplification; keep the LESSONS entry added during replanning.
-  - Gate: `pytest tests/docs/test_links.py -q` passes.
-
-- [x] T-4.4 — VERIFY: active host-admission terms are gone from the standard flow
-  - Agent: verify
-  - Files: .claude/skills/:all; .codex/skills/:all; .gemini/skills/:all; .github/skills/:all; src/ai_engineering/templates/project/:all; .ai-engineering/reference/:all
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): read-only grep with archive/history allowlist.
-  - Gate: `rg --hidden -n "host_admission|fanout|serial|deferred|ok_to_fanout" .claude .codex .gemini .github src/ai_engineering/templates/project .ai-engineering/reference | grep -v archive` returns no standard-flow hits except unrelated prose explicitly allowed by tests.
-
-## Phase 5: Final Verification and Handoff
-
-- [x] T-5.1 — VERIFY: run route and spec lint suites
-  - Agent: verify
-  - Files: tests/unit/execution/:all; tests/unit/test_spec_lint.py:560; tools/spec_lint/checks/plan.py:1
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `pytest tests/unit/execution tests/unit/test_spec_lint.py -q` passes.
-
-- [x] T-5.2 — VERIFY: run skill contract tests
-  - Agent: verify
-  - Files: tests/unit/skills/:all; .claude/skills/:all
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): read-only verification.
-  - Gate: `pytest tests/unit/skills -q` passes.
-
-- [x] T-5.3 — VERIFY: run docs and mirror gates
-  - Agent: verify
-  - Files: README.md:1; AGENTS.md:1; CLAUDE.md:1; GEMINI.md:1; .github/copilot-instructions.md:1
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): read-only verification.
-  - Gate: `pytest tests/docs/test_links.py tests/unit/specs/test_active_workflow_compliance.py -q && ai-eng dev sync --check` passes.
-
-- [x] T-5.4 — VERIFY: run framework verification
-  - Agent: verify
-  - Files: .ai-engineering/specs/spec.md:1; .ai-engineering/specs/plan.md:1
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): read-only verification.
-  - Gate: `ai-eng spec verify --sections .ai-engineering/specs/spec.md && ai-eng spec verify && uv run ai-eng verify` pass.
-  - Result: PASS. `.venv/bin/python -m spec_lint --check` returned 6/6 checks with zero blockers/advisories, `.venv/bin/ai-eng dev sync --check` reported mirrors in sync, and `uv run ai-eng verify` returned 100/100.
-
-- [ ] T-5.5 — VERIFY: run full test suite
-  - Agent: verify
-  - Files: tests/:all; src/:all; tools/:all
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `pytest -q` passes.
-
-## Phase 6: Bounded Quality Remediation Contract Extension
-
-- [x] T-6.1 — RED: add bounded quality-remediation contract tests
-  - Agent: build
-  - Files: tests/unit/skills/test_quality_remediation_contract.py:new
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): assert `/ai-build` and `/ai-autopilot` expose one bounded remediation pass, final reassessment, cross-platform reproducers, and mirror/template propagation.
-  - Gate: `pytest tests/unit/skills/test_quality_remediation_contract.py -q` fails before skill changes.
-
-- [x] T-6.2 — GREEN: update `/ai-build` quality remediation contract
-  - Agent: build
-  - Files: .claude/skills/ai-build/handlers/quality.md:1; .claude/skills/ai-build/SKILL.md:1
-  - Principles applied: §10.1 KISS, §10.6 SDD
-  - Patch (deterministic): add one bounded quality-remediation pass for blocker/critical/high findings, final reassessment, no second pass, and operator approval before long full-suite gates.
-  - Gate: `pytest tests/unit/skills/test_quality_remediation_contract.py -q` passes for build assertions.
-
-- [x] T-6.3 — GREEN: update `/ai-autopilot` Phase 5b remediation contract
-  - Agent: build
-  - Files: .claude/skills/ai-autopilot/handlers/phase-quality.md:1; .claude/skills/ai-autopilot/SKILL.md:1; .claude/skills/ai-autopilot/references/examples.md:1
-  - Principles applied: §10.4 DRY, §10.6 SDD
-  - Patch (deterministic): add manifest-aware `quality_remediation.max_attempts: 1`, owner mapping (`sub-NNN`/`integration`/`shared`), no re-decompose/no re-plan/no second pass.
-  - Gate: `pytest tests/unit/skills/test_quality_remediation_contract.py -q` passes for autopilot assertions.
-
-- [x] T-6.4 — GREEN: propagate quality remediation to multi-IDE surfaces
-  - Agent: build
-  - Files: .codex/skills/:all; .gemini/skills/:all; .github/skills/:all; src/ai_engineering/templates/project/:all
-  - Principles applied: §10.4 DRY, §10.6 SDD
-  - Patch (deterministic): run `.venv/bin/ai-eng dev sync` after canonical `.claude/` edits.
-  - Gate: `pytest tests/unit/skills/test_quality_remediation_contract.py -q` passes mirror/template assertions.
-
-- [x] T-6.5 — VERIFY: run focused quality-remediation gates
-  - Agent: verify
-  - Files: tests/unit/skills/test_quality_remediation_contract.py:1; tests/unit/test_phase_quality_single_round.py:1; tests/architecture/test_agent_description_contract.py:1
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `pytest tests/unit/skills/test_quality_remediation_contract.py tests/unit/test_phase_quality_single_round.py tests/architecture/test_agent_description_contract.py -q` passes.
-  - Result: PASS as part of the 38-test focused quality-contract slice.
+  - Patch (deterministic): create a PR handoff note that references `spec-144`, the consumed brief, gate results, residual historical grep hits, and the asset follow-up issue/payload.
+  - Gate: handoff note exists and contains the commands/results from T-6.3 and T-6.4.
 
 ## Approval Gate
 
-This revised plan was approved by the operator /ai-build invocation. Execution is in progress through /ai-build.
-
-
-## Quality Rounds
-
-Round 1: BLOCKED. `ai-eng spec verify --sections` and `ai-eng spec verify` passed; `ai-eng verify` failed with Security/Architecture findings (`idna` CVE-2026-45409, historical gitleaks examples, and internal import-cycle false positives). Per the pre-remediation single-round fail-loud policy, delivery stopped for operator direction.
-
-Round 2 (operator requested remediation): PASS. Resolved the verifier false positives, dependency blocker, historical gitleaks findings, spec lint shape, canonical specs directory shape, and the new bounded quality-remediation contract. The focused 38-test quality-contract slice passed, docs/mirror checks passed (`358 passed, 3 skipped`), mirror sync passed, and `uv run ai-eng verify` returned 100/100. Full `pytest -q` remains intentionally pending until the operator approves the long-running gate.
+This plan is planning-only. `/ai-autopilot` must not run until the operator explicitly approves `.ai-engineering/specs/plan.md`.

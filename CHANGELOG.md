@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING
+
+- `/ai-repo-tidy` is hard-renamed to `/ai-branch-cleanup`. Update external automation that invokes the old slug; no alias or shim is preserved. The historical release-contract guard keywords remain documented for continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
+
 ### Changed
 
+- README surfaces now use the `{ai} engineering` brand voice, current six-surface inventory, inline governance Quick Start, and byte-identical governance README template.
 - Standard plan execution now records route-only `execution_route`
   metadata (`/ai-build` vs `/ai-autopilot`) and treats host-probe data as
   diagnostic/advisory rather than a framework admission gate.

@@ -2057,6 +2057,17 @@ def _handle_orphans(
         (TPL_GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_GITHUB_AGENTS, "glob", "*.md"),
         (TPL_GITHUB_AGENTS / "internal", "glob", "*.md"),
+        # spec-144: newer installer-template provider surfaces must also
+        # participate in orphan cleanup. Otherwise a canonical skill rename
+        # creates the new OpenCode/Cursor/Agent files while stale old-slug
+        # template files survive indefinitely.
+        (TPL_OPENCODE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (TPL_OPENCODE_COMMANDS, "glob", "*.md"),
+        (TPL_OPENCODE_AGENTS, "glob", "*.md"),
+        (TPL_CURSOR_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (TPL_CURSOR_AGENTS, "glob", "*.md"),
+        (TPL_ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (TPL_ANTIGRAVITY_AGENTS, "glob", "*.md"),
     ]
 
     # Legacy reviewer/verifier path forwarders: spec-116 moved these agents

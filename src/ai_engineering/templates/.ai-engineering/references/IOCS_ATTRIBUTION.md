@@ -16,7 +16,7 @@ posture so consumers can audit the chain of custody.
 Consumers should treat the on-disk catalog at
 `.ai-engineering/security/iocs/iocs.json` as authoritative; refresh
 guidance is documented at `.ai-engineering/contexts/sentinel-iocs-update.md`
-once `/ai-repo-tidy` or `/ai-mcp-audit` lands the next vendor cycle.
+once `/ai-branch-cleanup` or `/ai-mcp-audit` lands the next vendor cycle.
 
 ## Attribution
 

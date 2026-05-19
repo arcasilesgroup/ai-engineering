@@ -19,7 +19,7 @@ Azure: `az repos pr show --id <PR_ID> -o json` then `az repos pr policy list --i
 
 ### Step 2 -- Check exit condition
 
-- `state == MERGED` (GitHub) / `status == completed` (Azure): run `/ai-repo-tidy --all`, EXIT.
+- `state == MERGED` (GitHub) / `status == completed` (Azure): run `/ai-branch-cleanup --all`, EXIT.
 - `state == CLOSED` / `status == abandoned`: EXIT.
 - `isDraft == true`: print "Draft PR -- skipping watch loop", EXIT.
 

@@ -1,5 +1,5 @@
 """Regression: the shared ``--consolidate-spec`` action is wired across
-``/ai-repo-tidy``, ``/ai-pr``, and ``/ai-brainstorm`` (spec-131 sub-002,
+``/ai-branch-cleanup``, ``/ai-pr``, and ``/ai-brainstorm`` (spec-131 sub-002,
 Phase F).
 
 The shared handler lives at
@@ -18,7 +18,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 SHARED_HANDLER = REPO_ROOT / ".claude" / "skills" / "_shared" / "consolidate-spec.md"
 CALLER_SKILLS = (
-    REPO_ROOT / ".claude" / "skills" / "ai-repo-tidy" / "SKILL.md",
+    REPO_ROOT / ".claude" / "skills" / "ai-branch-cleanup" / "SKILL.md",
     REPO_ROOT / ".claude" / "skills" / "ai-pr" / "SKILL.md",
     REPO_ROOT / ".claude" / "skills" / "ai-brainstorm" / "SKILL.md",
 )
@@ -40,7 +40,7 @@ def test_shared_handler_declares_purpose_and_callers() -> None:
         "Handler must reference the load-bearing spec_lifecycle.py entry point."
     )
     # Must list all three callers.
-    for caller in ("ai-repo-tidy", "ai-pr", "ai-brainstorm"):
+    for caller in ("ai-branch-cleanup", "ai-pr", "ai-brainstorm"):
         assert caller in text, f"Handler must list {caller} as a caller."
 
 

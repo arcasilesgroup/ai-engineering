@@ -1,4 +1,4 @@
-"""Regression: ``/ai-repo-tidy`` SKILL.md documents the ``_history.md`` rotation
+"""Regression: ``/ai-branch-cleanup`` SKILL.md documents the ``_history.md`` rotation
 step (spec-131 D-131-05 acceptance criterion).
 
 The actual rotation lives in ``.ai-engineering/scripts/spec_lifecycle.py
@@ -16,10 +16,10 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 CLEANUP_SKILL_FILES = (
-    REPO_ROOT / ".claude" / "skills" / "ai-repo-tidy" / "SKILL.md",
-    REPO_ROOT / ".github" / "skills" / "ai-repo-tidy" / "SKILL.md",
-    REPO_ROOT / ".codex" / "skills" / "ai-repo-tidy" / "SKILL.md",
-    REPO_ROOT / ".gemini" / "skills" / "ai-repo-tidy" / "SKILL.md",
+    REPO_ROOT / ".claude" / "skills" / "ai-branch-cleanup" / "SKILL.md",
+    REPO_ROOT / ".github" / "skills" / "ai-branch-cleanup" / "SKILL.md",
+    REPO_ROOT / ".codex" / "skills" / "ai-branch-cleanup" / "SKILL.md",
+    REPO_ROOT / ".gemini" / "skills" / "ai-branch-cleanup" / "SKILL.md",
 )
 
 REQUIRED_SUBSTRINGS = (
