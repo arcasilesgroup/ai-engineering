@@ -960,3 +960,118 @@ class TestSonarHttpHelpers:
         )
 
         assert response is None
+
+
+# ── spec-147 G1: gate CLI fail-loud contracts ───────────────────────────
+
+
+class TestNoSuppressionGateFailLoud:
+    """T-1.3/1.4: a missing ``no_suppression`` module must BLOCK, not skip.
+
+    The previous code caught ``ImportError`` and ``return``ed, silently
+    disabling the CONSTITUTION Article VII gate. With all env vars unset a
+    gate whose tool is absent MUST exit non-zero (fail loud).
+    """
+
+    def test_import_error_raises_exit_1(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        import sys
+
+        import typer
+
+        from ai_engineering.cli_commands import gate as gate_cli
+
+        # Setting the module to ``None`` in sys.modules makes the inner
+        # ``from no_suppression.cli import run_check`` raise ImportError.
+        monkeypatch.setitem(sys.modules, "no_suppression.cli", None)
+        monkeypatch.setitem(sys.modules, "no_suppression", None)
+
+        with pytest.raises(typer.Exit) as exc_info:
+            gate_cli._run_no_suppression(Path("/fake"))
+
+        assert exc_info.value.exit_code == 1
+
+    def test_import_error_message_names_module(
+        self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        import sys
+
+        import typer
+
+        from ai_engineering.cli_commands import gate as gate_cli
+
+        monkeypatch.setitem(sys.modules, "no_suppression.cli", None)
+        monkeypatch.setitem(sys.modules, "no_suppression", None)
+
+        with pytest.raises(typer.Exit):
+            gate_cli._run_no_suppression(Path("/fake"))
+
+        captured = capsys.readouterr()
+        combined = captured.out + captured.err
+        assert "no_suppression" in combined
+
+
+class TestPrePushRiskInline:
+    """T-1.7/1.8: an expired risk-acceptance must block ``gate pre-push``.
+
+    Previously ``_check_risk_inline`` only ``warning()``-ed about expired
+    DECs and the pre-push path never invoked it strictly, so an expired
+    risk acceptance silently passed the push gate.
+    """
+
+    def _expired_store(self) -> DecisionStore:
+        store = DecisionStore()
+        store.decisions = [
+            Decision(
+                id="RA-EXPIRED",
+                context="expired vuln acceptance",
+                decision="accept for 15 days",
+                decidedAt=datetime.now(tz=UTC) - timedelta(days=30),
+                spec="147",
+                expiresAt=datetime.now(tz=UTC) - timedelta(days=1),
+                riskCategory=RiskCategory.RISK_ACCEPTANCE,
+                severity=RiskSeverity.HIGH,
+                status=DecisionStatus.ACTIVE,
+            )
+        ]
+        return store
+
+    def test_pre_push_exits_1_on_expired_risk(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import typer
+
+        from ai_engineering.cli_commands import gate as gate_cli
+
+        # The early-return guard requires the legacy decision-store.json
+        # sentinel to exist before the (state.db-backed) reader is consulted.
+        ds_path = tmp_path / ".ai-engineering" / "state" / "decision-store.json"
+        ds_path.parent.mkdir(parents=True, exist_ok=True)
+        ds_path.write_text("{}", encoding="utf-8")
+
+        # Make the state.db-backed reader return an expired DEC.
+        store = self._expired_store()
+        monkeypatch.setattr(
+            "ai_engineering.cli_commands.gate.StateService.load_decisions",
+            lambda _self: store,
+        )
+        # Suppress the no_suppression gate and the kernel hook so we isolate
+        # the risk check (both run inside gate_pre_push).
+        monkeypatch.setattr(gate_cli, "_run_no_suppression", lambda _root: None)
+        monkeypatch.setattr(gate_cli, "_run_gate_hook_via_kernel", lambda *_a, **_k: None)
+
+        with pytest.raises(typer.Exit) as exc_info:
+            gate_cli.gate_pre_push(target=tmp_path)
+
+        assert exc_info.value.exit_code == 1
+
+    def test_pre_push_passes_when_no_expired_risk(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from ai_engineering.cli_commands import gate as gate_cli
+
+        # No decision-store.json -> no risk acceptances to evaluate.
+        monkeypatch.setattr(gate_cli, "_run_no_suppression", lambda _root: None)
+        monkeypatch.setattr(gate_cli, "_run_gate_hook_via_kernel", lambda *_a, **_k: None)
+
+        # Must NOT raise: clean tree, no expired DECs.
+        gate_cli.gate_pre_push(target=tmp_path)

@@ -36,6 +36,7 @@ class FakeSubprocess:
 
     def __init__(self) -> None:
         self._responses: dict[str, subprocess.CompletedProcess[str]] = {}
+        self._raises: dict[str, BaseException] = {}
         self.calls: list[list[str]] = []
 
     def set_response(
@@ -49,6 +50,11 @@ class FakeSubprocess:
             args=[], returncode=returncode, stdout=stdout, stderr=""
         )
 
+    def set_raises(self, cmd_contains: str, exc: BaseException) -> None:
+        """Configure a command substring to raise ``exc`` (e.g. a missing
+        binary surfaces as ``FileNotFoundError`` from ``subprocess.run``)."""
+        self._raises[cmd_contains] = exc
+
     def __call__(
         self,
         cmd: list[str],
@@ -57,6 +63,9 @@ class FakeSubprocess:
     ) -> subprocess.CompletedProcess[str]:
         self.calls.append(cmd)
         cmd_str = " ".join(cmd)
+        for key, exc in self._raises.items():
+            if key in cmd_str:
+                raise exc
         for key, response in self._responses.items():
             if key in cmd_str:
                 return response
@@ -273,6 +282,52 @@ class TestVerifySecurity:
         result = verify_security(project_root)
 
         # Assert — secrets are BLOCKER severity
+        secret_findings = [f for f in result.findings if f.category == "secrets"]
+        assert len(secret_findings) == 1
+        assert secret_findings[0].severity == FindingSeverity.BLOCKER
+
+    # ── spec-147 G1 T-1.5/1.6: a broken gitleaks must BLOCK, not look clean ──
+
+    def test_gitleaks_binary_missing_is_blocker(
+        self, fake_run: FakeSubprocess, project_root: Path
+    ) -> None:
+        """Case (a): the gitleaks binary is absent (FileNotFoundError).
+
+        A missing secret scanner means we CANNOT prove the tree is clean, so
+        the gate must surface a BLOCKER secrets finding — never a clean
+        verdict (spec-147 G1, fail loud)."""
+        fake_run.set_raises("gitleaks", FileNotFoundError(2, "No such file", "gitleaks"))
+
+        result = verify_security(project_root)
+
+        secret_findings = [f for f in result.findings if f.category == "secrets"]
+        assert len(secret_findings) == 1
+        assert secret_findings[0].severity == FindingSeverity.BLOCKER
+
+    def test_gitleaks_crash_empty_stdout_is_blocker(
+        self, fake_run: FakeSubprocess, project_root: Path
+    ) -> None:
+        """Case (b): gitleaks exits non-zero with empty stdout (crash / bad
+        config). The previous code early-returned clean here — a crash looked
+        identical to "no leaks". It must now BLOCK."""
+        fake_run.set_response("gitleaks", returncode=1, stdout="")
+
+        result = verify_security(project_root)
+
+        secret_findings = [f for f in result.findings if f.category == "secrets"]
+        assert len(secret_findings) == 1
+        assert secret_findings[0].severity == FindingSeverity.BLOCKER
+
+    def test_gitleaks_malformed_json_is_blocker(
+        self, fake_run: FakeSubprocess, project_root: Path
+    ) -> None:
+        """Case (c): gitleaks emits non-JSON on a failing exit. The previous
+        code swallowed ``JSONDecodeError`` and returned clean; it must now
+        BLOCK so a parse failure cannot mask a leak."""
+        fake_run.set_response("gitleaks", returncode=1, stdout="not-json <<garbage>>")
+
+        result = verify_security(project_root)
+
         secret_findings = [f for f in result.findings if f.category == "secrets"]
         assert len(secret_findings) == 1
         assert secret_findings[0].severity == FindingSeverity.BLOCKER

@@ -302,14 +302,42 @@ def verify_security(project_root: Path, *, profile: str = "normal") -> VerifySco
 def _record_gitleaks_findings(
     specialist: SpecialistResult, project_root: Path, *, profile: str
 ) -> None:
-    """Add secret-scan findings to the security specialist."""
-    tool_result = _run(_gitleaks_command(project_root, profile=profile), project_root)
-    if tool_result.returncode == 0 or not tool_result.stdout:
+    """Add secret-scan findings to the security specialist.
+
+    spec-147 G1 T-1.5/1.6: a broken gitleaks must surface a BLOCKER, never a
+    clean verdict. The ONLY clean path is ``returncode == 0`` (the scanner
+    ran and found nothing). Every other shape — missing binary, non-zero
+    exit with empty stdout (crash / bad config), or non-JSON stdout — means
+    we cannot prove the tree is secret-free, so we block. ``gitleaks detect``
+    exits non-zero when it finds leaks, so a non-zero exit with valid JSON is
+    the genuine findings path.
+    """
+    try:
+        tool_result = _run(_gitleaks_command(project_root, profile=profile), project_root)
+    except FileNotFoundError:
+        _add_secrets_scan_failure(
+            specialist,
+            "gitleaks binary not found — cannot scan for secrets (install: brew install gitleaks)",
+        )
+        return
+
+    if tool_result.returncode == 0:
+        return  # scanner ran clean — the only safe "no finding" path.
+
+    if not tool_result.stdout:
+        _add_secrets_scan_failure(
+            specialist,
+            "gitleaks failed (non-zero exit, no output) — secret scan inconclusive",
+        )
         return
 
     try:
         leaks = json.loads(tool_result.stdout)
     except json.JSONDecodeError:
+        _add_secrets_scan_failure(
+            specialist,
+            "gitleaks failed (non-JSON output) — secret scan inconclusive",
+        )
         return
 
     for leak in leaks:
@@ -320,6 +348,19 @@ def _record_gitleaks_findings(
             file=leak.get("File"),
             line=leak.get("StartLine"),
         )
+
+
+def _add_secrets_scan_failure(specialist: SpecialistResult, message: str) -> None:
+    """Record a secret-scan tool failure as a BLOCKER (spec-147 G1).
+
+    A scanner that cannot run is treated as a blocking secrets finding so the
+    inability to prove the tree is clean fails loud rather than passing.
+    """
+    specialist.add(
+        FindingSeverity.BLOCKER,
+        "secrets",
+        message,
+    )
 
 
 def _gitleaks_command(project_root: Path, *, profile: str) -> list[str]:

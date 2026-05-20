@@ -239,10 +239,12 @@ def _stack_drift_middleware(command: str) -> None:
     except Exception:
         return  # not a project root — silent no-op
 
-    try:
-        cfg = load_manifest_config(root)
-    except Exception:
-        return
+    # spec-147 G1 T-1.9/1.10: a corrupt manifest must NOT silently disable
+    # stack-drift detection. ``load_manifest_config`` returns defaults for a
+    # missing manifest (legitimate) and raises ``InvalidManifestError`` for a
+    # corrupt one — let that surface loud rather than swallowing it under a
+    # bare ``except Exception``.
+    cfg = load_manifest_config(root)
 
     configured = set(getattr(getattr(cfg, "providers", None), "stacks", []) or [])
     try:

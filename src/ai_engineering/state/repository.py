@@ -40,13 +40,22 @@ class ManifestRepository:
         return load_manifest_config(self.project_root)
 
     def load_raw(self) -> dict[str, Any]:
-        """Load a raw manifest snapshot for compatibility readers."""
+        """Load a raw manifest snapshot for compatibility readers.
+
+        spec-147 G1 T-1.9/1.10: a missing manifest is a legitimate empty
+        snapshot (``{}``); a manifest that EXISTS but cannot be parsed fails
+        loud via :class:`InvalidManifestError` rather than masquerading as
+        an empty one.
+        """
         if not self.manifest_path.is_file():
             return {}
         try:
             data = yaml.safe_load(self.manifest_path.read_text(encoding="utf-8"))
-        except (OSError, yaml.YAMLError):
-            return {}
+        except (OSError, yaml.YAMLError) as exc:
+            from ai_engineering.config.loader import InvalidManifestError
+
+            msg = f"failed to read or parse manifest at {self.manifest_path}: {exc}"
+            raise InvalidManifestError(msg) from exc
         return data if isinstance(data, dict) else {}
 
     def get_partial(self, field_path: str) -> Any | None:

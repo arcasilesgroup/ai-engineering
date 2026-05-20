@@ -731,6 +731,37 @@ def _safe_transcript_aggregate(project_root: Path, *, session_id: str | None) ->
     return payload
 
 
+def _safe_write_checkpoint(project_root: Path, payload: dict, *, writer=write_json) -> str | None:
+    """Write the resume checkpoint, surfacing failures instead of hiding them.
+
+    spec-147 G1 T-1.11/1.12: the Stop hook previously let the checkpoint
+    write "degrade silently". The checkpoint is NOT a security gate (the
+    Stop hook must never block shutdown), but a write failure means
+    ``/ai-start`` will resume from a stale or absent checkpoint with no
+    signal. The failure is now made VISIBLE on stderr (which never corrupts
+    the single-JSON-object Stop decision contract) and returned so callers /
+    tests can observe it. Returns ``None`` on success.
+
+    ``writer`` is injectable so tests can drive the failure path without a
+    real read-only filesystem.
+    """
+    cp_path = checkpoint_path(project_root)
+    try:
+        writer(cp_path, payload)
+    except Exception as exc:
+        message = (
+            f"WARN [runtime-stop] failed to write resume checkpoint to {cp_path} "
+            f"({type(exc).__name__}); /ai-start may resume from stale state"
+        )
+        with contextlib.suppress(Exception):
+            sys.stderr.write(message + "\n")
+            sys.stderr.flush()
+        return message
+    with contextlib.suppress(OSError):
+        cp_path.chmod(0o600)
+    return None
+
+
 def main() -> None:
     ctx = get_hook_context()
     if ctx.event_name != "Stop":
@@ -765,10 +796,9 @@ def main() -> None:
             for r in history[-10:]
         ],
     }
-    cp_path = checkpoint_path(project_root)
-    write_json(cp_path, checkpoint_payload)
-    with contextlib.suppress(OSError):
-        cp_path.chmod(0o600)
+    # spec-147 G1 T-1.11/1.12: surface a checkpoint-write failure on stderr
+    # instead of degrading silently.
+    _safe_write_checkpoint(project_root, checkpoint_payload)
 
     incomplete, reason = _looks_incomplete(history)
     raw_prompt = ctx.data.get("user_prompt") or ctx.data.get("prompt")

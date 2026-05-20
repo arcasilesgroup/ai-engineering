@@ -124,6 +124,12 @@ def gate_pre_push(
     """Run pre-push gate checks (semgrep, pip-audit, tests, ty)."""
     root = resolve_project_root(target)
     _run_no_suppression(root)
+    # spec-147 G1 T-1.7/1.8: an expired risk-acceptance must block the push
+    # gate. ``_check_risk_inline`` reports failure on expired DECs (and, in
+    # strict mode, expiring-soon ones); a fail-open warning is no longer
+    # sufficient — the gate exits non-zero so the breach cannot ship.
+    if _check_risk_inline(root, strict=True):
+        raise typer.Exit(code=1)
     _run_gate_hook_via_kernel(GateHook.PRE_PUSH, root)
 
 
@@ -132,12 +138,25 @@ def _run_no_suppression(root: Path) -> None:
 
     Invokes :mod:`no_suppression.cli` against ``root`` and exits 1 when
     any suppression marker lacks an active allowlist entry or DEC binding.
+
+    spec-147 G1 T-1.3/1.4: a missing ``no_suppression`` module is a BLOCKER,
+    not a skip. Silently disabling the Article VII gate when its tool is
+    absent is a fail-open hole; the gate now exits non-zero and names the
+    missing module + how to restore it ("solve, don't punt").
     """
     try:
         from no_suppression.cli import run_check
-    except ImportError:
-        warning("no_suppression module not installed; skipping Article VII gate")
-        return
+    except ImportError as exc:
+        sys.stderr.write(
+            "BLOCKER: the 'no_suppression' module is not importable, so the "
+            "CONSTITUTION.md Article VII suppression gate cannot run "
+            f"({exc}).\n"
+            "Restore it (it ships under tools/no_suppression) and ensure "
+            "tools/ is on PYTHONPATH / installed in the active environment; "
+            "do not bypass the gate.\n"
+        )
+        sys.stderr.flush()
+        raise typer.Exit(code=1) from exc
     decisions = run_check(
         root=root,
         allowlist_path=None,

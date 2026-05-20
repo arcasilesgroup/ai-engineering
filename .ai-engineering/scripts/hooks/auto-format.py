@@ -232,21 +232,61 @@ _EXTENSION_FORMATTERS = {
 }
 
 
-def _maybe_restage_after_format(project_root: Path) -> None:
+def _maybe_restage_after_format(project_root: Path) -> str | None:
     """Best-effort re-stage of ``S_pre & M_post`` after the formatter ran.
 
     spec-105 D-105-09: the hook captures S_pre once per invocation, runs
-    the formatter, and re-stages exactly the intersection. Errors are
-    silently swallowed so the hook never breaks the user's edit flow.
+    the formatter, and re-stages exactly the intersection.
+
+    spec-147 G1 T-1.11/1.12: a re-stage failure is no longer swallowed
+    silently. Re-staging is NOT a security gate, so the hook stays
+    non-blocking (it never breaks the user's edit flow), but it returns a
+    one-line warning string that ``main`` surfaces via ``hookSpecificOutput``
+    so the operator can see that the index may not reflect the formatted
+    bytes. Returns ``None`` on the happy path (and when there is nothing
+    staged to re-stage).
     """
     try:
         s_pre = capture_staged_set(project_root)
-    except Exception:
-        return
+    except Exception as exc:
+        return (
+            "[auto-format] could not read the staged set after formatting "
+            f"({type(exc).__name__}); the index may not reflect formatter output"
+        )
     if not s_pre:
-        return
-    with contextlib.suppress(Exception):
+        return None
+    try:
         restage_intersection(project_root, s_pre)
+    except Exception as exc:
+        return (
+            "[auto-format] failed to re-stage formatted files "
+            f"({type(exc).__name__}); run `git add` to stage the formatted bytes"
+        )
+    return None
+
+
+def _emit_hook_warning(event_name: str, message: str, data: dict) -> None:
+    """Emit a visible, non-blocking ``hookSpecificOutput`` warning.
+
+    Mirrors the runtime-guard contract: Claude Code reads exactly one JSON
+    object per hook, so when we have something to surface we write the
+    ``hookSpecificOutput`` envelope INSTEAD of the bare stdin passthrough.
+    """
+    try:
+        sys.stdout.write(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": event_name,
+                        "additionalContext": message,
+                    }
+                },
+                separators=(",", ":"),
+            )
+        )
+        sys.stdout.flush()
+    except Exception:
+        passthrough_stdin(data)
 
 
 def main() -> None:
@@ -295,7 +335,12 @@ def main() -> None:
     # spec-105 D-105-09: re-stage the safe intersection after formatting.
     # The formatter may have rewritten the file; the user's staged commit
     # should reflect the formatted state without leaking unrelated files.
-    _maybe_restage_after_format(project_root)
+    # spec-147 G1 T-1.11/1.12: a re-stage failure is surfaced as a visible
+    # (non-blocking) warning instead of being swallowed.
+    warning = _maybe_restage_after_format(project_root)
+    if warning is not None:
+        _emit_hook_warning("PostToolUse", warning, data)
+        return
 
     passthrough_stdin(data)
 

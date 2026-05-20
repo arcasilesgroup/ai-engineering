@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+- spec-147 G1 (wave 1) seals the fail-open gates so no gate or hook
+  exits 0 when its tool is absent, broken, or its input is malformed.
+  Two hard behavior flips (no shims):
+  - **Hook integrity default flips `warn` → `enforce`.** With
+    `AIENG_HOOK_INTEGRITY_MODE` unset, a hook whose bytes drift from the
+    committed `hooks-manifest.json` (or is missing from it) now refuses
+    to run (fail closed) instead of running with a silent warning. The
+    dev escape hatch is `AIENG_HOOK_INTEGRITY_MODE=warn`; after an
+    intentional hook edit run
+    `python scripts/regenerate-hooks-manifest.py`.
+  - **A broken security/governance tool now BLOCKS instead of being
+    skipped.** A missing `no_suppression` module fails the pre-push
+    Article VII gate (was: silent skip); a missing/crashing/malformed
+    `gitleaks` yields a BLOCKER secrets finding (was: clean verdict); an
+    expired risk-acceptance blocks `gate pre-push` (was: warning only); a
+    corrupt `manifest.yml` raises `InvalidManifestError` (was:
+    all-defaults substitution); and `no-verify-guard` fails closed on an
+    unparseable command (was: allow). Formatter re-stage, Stop-hook
+    checkpoint, and MCP-health state-write failures are now surfaced as
+    visible warnings instead of being swallowed silently.
 - `/ai-repo-tidy` is hard-renamed to `/ai-branch-cleanup`. Update external automation that invokes the old slug; no alias or shim is preserved. The historical release-contract guard keywords remain documented for continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
 - spec-146 removes the no-production-caller Python import surfaces
   `ai_engineering.state.agentsview`, `ai_engineering.state.outbox`,

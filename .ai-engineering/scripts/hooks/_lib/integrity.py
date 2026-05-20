@@ -37,8 +37,20 @@ import os
 from pathlib import Path
 
 _MANIFEST_REL = Path(".ai-engineering") / "state" / "hooks-manifest.json"
-_DEFAULT_MODE = "warn"
+# spec-147 G1: fail-closed by default. A hook whose bytes drift from the
+# committed manifest (or is missing from it) MUST refuse to run when no env
+# var relaxes the check. The dev escape hatch is the ``warn`` mode below.
+_DEFAULT_MODE = "enforce"
 _VALID_MODES: frozenset[str] = frozenset({"enforce", "warn", "off"})
+
+# spec-147 G1: one-line, actionable hint appended to every enforce-mode
+# failure reason so the fail-closed stderr line names BOTH the dev escape
+# hatch and the recovery command. ``run_hook_safe`` writes the reason
+# verbatim to stderr before exiting non-zero.
+_ENFORCE_HINT = (
+    "set AIENG_HOOK_INTEGRITY_MODE=warn to bypass during dev, "
+    "or run python scripts/regenerate-hooks-manifest.py after an intentional edit"
+)
 
 # Module-level cache: load_manifest is called on every hook invocation. Cache
 # keyed on (resolved path, mtime_ns) so edits during dev still bust the cache
@@ -141,12 +153,15 @@ def verify_hook_integrity(script_path: Path, project_root: Path) -> tuple[bool, 
     expected = manifest.get(rel.as_posix())
     if expected is None:
         if _resolve_mode() == "enforce":
-            return False, f"hook {rel} not enrolled in hooks-manifest.json"
+            return False, f"hook {rel} not enrolled in hooks-manifest.json — {_ENFORCE_HINT}"
         return True, None
     actual = compute_file_sha256(script_path)
     if actual.lower() == expected.lower():
         return True, None
-    return False, f"sha256 mismatch (expected {expected[:12]}…, got {actual[:12]}…)"
+    reason = f"sha256 mismatch (expected {expected[:12]}…, got {actual[:12]}…)"
+    if _resolve_mode() == "enforce":
+        reason = f"{reason} — {_ENFORCE_HINT}"
+    return False, reason
 
 
 def verify_trusted_script(script_path: Path, project_root: Path) -> tuple[bool, str | None]:
