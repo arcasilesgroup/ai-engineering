@@ -815,15 +815,21 @@ def load_ownership_map(project_root: Path):
         if not isinstance(pattern, str) or not pattern:
             continue
         owners = row.get("owners")
-        first_owner = owners[0] if isinstance(owners, list) and owners else None
+        first_owner = (
+            owners[0]
+            if isinstance(owners, list) and owners and isinstance(owners[0], str)
+            else None
+        )
         severity = row.get("severity")
         entries.append(
-            OwnershipEntry(
-                pattern=pattern,
-                owner=_ownership_level(first_owner),
-                framework_update=_framework_update_policy(
-                    severity if isinstance(severity, str) else None
-                ),
+            OwnershipEntry.model_validate(
+                {
+                    "pattern": pattern,
+                    "owner": _ownership_level(first_owner),
+                    "framework_update": _framework_update_policy(
+                        severity if isinstance(severity, str) else None
+                    ),
+                }
             )
         )
     return OwnershipMap(paths=entries)
