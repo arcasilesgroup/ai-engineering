@@ -38,6 +38,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   host-preflight/budget-profile names remain reserved.
 - `.ai-engineering/cache/gate/` is documented as an existing bounded cache
   with 24-hour/256-entry limits and existing status/clear commands.
+- Test suite runs faster with no loss of coverage, security, or
+  governance assertions: the doctor and skills integration tests now
+  share a module-scoped read-only install fixture (`installed_project_ro`)
+  instead of re-running the ~2s installer per test, the docs link walker
+  is memoised, and the default `pytest` invocation no longer forces `-v`
+  (CI passes it explicitly). A new top-level `Makefile` exposes parallel
+  `make test` / `test-unit` / `test-integration` / `test-e2e` targets via
+  pytest-xdist, with integration and full runs grouped by `--dist
+  loadscope` so module-scoped fixtures build once per worker.
 
 ### Fixed
 

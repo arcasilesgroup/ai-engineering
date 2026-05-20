@@ -35,6 +35,19 @@ def installed_project(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture(scope="module")
+def installed_project_ro(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Module-scoped install shared by read-only report tests.
+
+    install() costs ~2s; tests that only call generate_report() (no
+    writes) share one tree. Tests that mutate the tree (write files,
+    create_maintenance_pr) keep the function-scoped ``installed_project``.
+    """
+    project = tmp_path_factory.mktemp("installed_ro")
+    install(project, stacks=["python"])
+    return project
+
+
 # ---------------------------------------------------------------------------
 # Maintenance — Report generation
 # ---------------------------------------------------------------------------
@@ -45,9 +58,9 @@ class TestGenerateReport:
 
     def test_report_on_installed_project(
         self,
-        installed_project: Path,
+        installed_project_ro: Path,
     ) -> None:
-        report = generate_report(installed_project)
+        report = generate_report(installed_project_ro)
         assert report.total_governance_files >= 0
         assert report.total_state_files >= 1
         assert report.install_manifest_version != ""
@@ -59,9 +72,9 @@ class TestGenerateReport:
 
     def test_report_counts_framework_events(
         self,
-        installed_project: Path,
+        installed_project_ro: Path,
     ) -> None:
-        report = generate_report(installed_project)
+        report = generate_report(installed_project_ro)
         # Install creates at least one framework event
         assert report.recent_framework_events >= 1
 
@@ -69,8 +82,8 @@ class TestGenerateReport:
 class TestStalenessDetection:
     """Tests for stale file detection."""
 
-    def test_fresh_files_not_stale(self, installed_project: Path) -> None:
-        report = generate_report(installed_project, staleness_days=90)
+    def test_fresh_files_not_stale(self, installed_project_ro: Path) -> None:
+        report = generate_report(installed_project_ro, staleness_days=90)
         assert len(report.stale_files) == 0
 
     def test_old_files_detected_as_stale(
@@ -94,11 +107,11 @@ class TestStalenessDetection:
 
     def test_custom_staleness_threshold(
         self,
-        installed_project: Path,
+        installed_project_ro: Path,
     ) -> None:
         # With threshold of 0 days everything is stale (if governance
         # files exist); with a very large threshold nothing is stale
-        report = generate_report(installed_project, staleness_days=999_999)
+        report = generate_report(installed_project_ro, staleness_days=999_999)
         assert len(report.stale_files) == 0
 
 

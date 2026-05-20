@@ -20,6 +20,7 @@ to that test and does not re-implement.
 
 from __future__ import annotations
 
+import functools
 import os
 import re
 from pathlib import Path
@@ -86,14 +87,15 @@ PII_PATTERNS = [
 ]
 
 
-def _walk_md_files() -> list[Path]:
+@functools.cache
+def _walk_md_files() -> tuple[Path, ...]:
     files: list[Path] = []
     for p in REPO_ROOT.rglob("*.md"):
         s = str(p)
         if any(frag in s for frag in EXCLUDED_PATH_FRAGMENTS):
             continue
         files.append(p)
-    return sorted(files)
+    return tuple(sorted(files))
 
 
 def _slugify(heading: str) -> str:
