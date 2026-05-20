@@ -1120,6 +1120,16 @@ AIENG_RUNTIME_ROTATE_THROTTLE_SEC   # default 3600 (1 hour throttle)
 AIENG_NDJSON_MAX_LINES              # default 100000 (rotation signal line cap)
 AIENG_NDJSON_MAX_BYTES              # default 52428800 (rotation signal byte cap; 50 MiB)
 
+# spec-147 G2 — escape-hatch toggles + overrides (behavior-changing; unset = the safe/standard path)
+AIENG_RALPH_DISABLED                # set "1" to disable the Ralph Stop-loop guard
+AIENG_RISK_ACCUMULATOR_DISABLED     # set "1" to disable the risk accumulator
+AIENG_INSTINCT_BATCH_DISABLED       # set "1" to disable instinct batch extraction
+AIENG_TELEMETRY_DEBUG               # set "1" to enable verbose telemetry logging
+AIENG_HOOK_ENGINE                   # override the detected IDE engine (unset -> claude_code)
+AIENG_HOOK_ENGINE_DEFAULT           # fallback engine label when none is detected (unset -> unknown)
+AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; override the event-payload sidecar-offload threshold
+AIE_MCP_HEALTH_FAIL_OPEN            # set "1" to make the MCP health gate pass-through instead of blocking -- SECURITY RISK: disables a blocking gate
+
 # Reserved roadmap — not implemented
 AIENG_HOST_PREFLIGHT_DISABLED       # reserved spec-139 M2
 AIENG_HOST_PREFLIGHT_MIN_FREE_MB    # reserved spec-139 M2

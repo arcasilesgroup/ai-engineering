@@ -48,6 +48,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `tests/architecture/test_surface_counts.py` guard pins the documented
   agent/skill counts against the on-disk file counts so the doc cannot
   silently drift.
+- spec-147 G2 (wave 2a) documents the eight previously-undocumented
+  behavior-changing hook env vars in the Runtime Layer Tunables block
+  (D-147-08), with an explicit SECURITY RISK note on
+  `AIE_MCP_HEALTH_FAIL_OPEN` (it flips the MCP health gate from blocking
+  to pass-through). A new `tests/architecture/test_env_var_docs.py` guard
+  asserts every `AIENG_*`/`AIE_*` var a hook reads is documented.
 - README surfaces now use the `{ai} engineering` brand voice, current six-surface inventory, inline governance Quick Start, and byte-identical governance README template.
 - Standard plan execution now records route-only `execution_route`
   metadata (`/ai-build` vs `/ai-autopilot`) and treats host-probe data as
