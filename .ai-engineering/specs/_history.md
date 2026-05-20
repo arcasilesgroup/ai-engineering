@@ -4,8 +4,33 @@ Completed specs. Details in git history.
 
 | ID | Title | Status | Created | Shipped | PR | Branch |
 |----|-------|--------|---------|---------|----|--------|
+| 146 | Framework Simplification — Less is More | implemented | 2026-05-19 | — | #530 | codex/spec-145-quality-remediation-next-drafts |
+| 145 | Standard Flow Executor Routing | implemented | 2026-05-19 | — | #530 | codex/spec-145-quality-remediation-next-drafts |
+| 144 | README Rewrite and Branch Cleanup Rename | implemented | 2026-05-19 | — | #530 | codex/spec-145-quality-remediation-next-drafts |
+| 143 | Release Version CI/CD PyPI Spine | done | 2026-05-18 | 2026-05-19 | #517 | codex/ai-engineering-release-version-cicd-pypi |
+| 142 | Surface-aware /ai-start Dashboard Header | done | 2026-05-18 | 2026-05-18 | #515 | claude/review-spec-drafts-DX2pD |
+| 141 | Semgrep Pack Coverage Restoration | partial | 2026-05-16 | 2026-05-18 | #515 | claude/review-spec-drafts-DX2pD |
+| 140 | Less-Is-More Quality Engine | partial | 2026-05-16 | 2026-05-18 | #515 | claude/review-spec-drafts-DX2pD |
+| 139 | Framework Performance Hardening — Concurrency Cap, Host Preflight, Hook Hot-Path Budget, SessionEnd Retention | partial | 2026-05-16 | 2026-05-18 | #515 | claude/review-spec-drafts-DX2pD |
+| 138 | Harness Persistence Strategy — SSOT-PD Doctrine and Silent Dual-Write Clearance | partial | 2026-05-16 | 2026-05-18 | #515 | claude/review-spec-drafts-DX2pD |
+| 137 | Event Relevance Discipline — Kill the 92% Heartbeat Tail | done | 2026-05-16 | 2026-05-16 | #514 | claude/merge-and-draft-spec-M5T9f |
+| 136 | Prune low-value surfaces (`docs/`, `contexts/`, `research/`, `evals/`) | done | 2026-05-16 | 2026-05-16 | #514 | spec-136/prune-low-value-surfaces |
+| 135 | Framework Performance Hardening — Concurrency Budget, Host Preflight, Hook Hot-Path Discipline | approved | 2026-05-15 | — | — | spec-135/framework-performance-hardening |
+| 134 | Skills + Agents Excellence v2 — Cohesive UX, No-HITL Build, Auto-Spec Gate, Lean Mirrors | done | 2026-05-15 | 2026-05-16 | #509 | spec-128/context-overrides-refactor |
+| 133 | Surface Primitive Re-architecture (CLI UX + Cross-IDE) | done | 2026-05-12 | 2026-05-16 | #509 | spec-128/context-overrides-refactor |
+| 132 | CLI UX & Architecture Overhaul | done | 2026-05-12 | 2026-05-16 | #509 | spec-128/context-overrides-refactor |
+| 131 | DX Excellence Refactor | done | 2026-05-11 | 2026-05-16 | #509 | spec-128/context-overrides-refactor |
+| 130 | Skills + Agents Excellence — Phase C Deferred Bundle | draft-deferred | 2026-05-11 | — | — | spec-128/context-overrides-refactor |
+| 129 | Skills + Agents Excellence Refactor — Pragmatic Scope | done | 2026-05-11 | 2026-05-16 | #509 | spec-128/context-overrides-refactor |
+| 128 | Context Layout Refactor — Stack-Based Overrides | done | 2026-05-08 | 2026-05-16 | #509 | spec-128/context-overrides-refactor |
+| 127 | Skills/Agents Surface Consolidation, Rubrics, and Canonical Implementation Gateway | done | 2026-05-08 | 2026-05-08 | — | feat/spec-127-skill-agent-excellence-refactor |
 | 126 | Hook-side NDJSON Append Lock Parity (Windows multi-IDE concurrency fix) | done | 2026-05-07 | 2026-05-07 | #506 | feat/spec-126-hook-ndjson-lock-parity |
 | 125 | state/ Canonical Hardening — Eliminate Optional Category, Relocate Cache/Runtime, Migrate JSON Fallbacks | approved | 2026-05-07 | — | — | feat/spec-122-framework-cleanup-phase-1 |
+| 124 | State JSON Fallback Deletion + Canonical Guard (wave 5 of 122 umbrella) | done | 2026-05-06 | — | — | feat/spec-122-framework-cleanup-phase-1 |
+| 123 | specs/ Canonical Structure Migration + CONSTITUTION Article XIII | done | 2026-05-06 | — | — | feat/spec-122-framework-cleanup-phase-1 |
+| 122 | Framework Cleanup Phase 1 — Hygiene + Config + Eval Cleanup + State-Plane Consolidation | done | 2026-05-05 | — | — | feat/spec-122-framework-cleanup-phase-1 |
+| 121 | Self-Improvement Loop + Hook Event Coverage Closure | done | 2026-05-04 | — | — | feat/spec-120-observability-modernization |
+| 120 | Observability Modernization — Ralph Loop + PRISM Risk Accumulator + Runtime Layer | done | 2026-05-04 | — | — | feat/spec-120-observability-modernization |
 | 119 | Evaluation Layer — Generator/Evaluator Split, CI Eval Gates, pass@k Telemetry, Lint-as-Prompt | runtime-landed-docs-deferred | 2026-05-04 | — | — | feat/knowledge-placement-governance-cleanup |
 | 118 | Memory Layer — Episodic, Semantic, Knowledge Objects, Dreaming, Cross-Session Retrieval | done | 2026-05-03 | — | — | feat/knowledge-placement-governance-cleanup |
 | 117 | Harness Engineering Root Refactor Program | done | 2026-05-02 | — | — | main |
@@ -69,6 +94,7 @@ Completed specs. Details in git history.
 | 058 | Watch & Fix Loop for /ai-pr | done | 2026-03-20 | — | — | feat/pr-wait-merge-cleanup |
 | 057 | Fix skill_invoked telemetry — UserPromptSubmit hook | done | 2026-03-20 | — | — | fix/skill-telemetry-hook |
 | 056 | Enterprise Artifact Feed & Manifest Reorganization | done | 2026-03-20 | — | — | feat/skill-effort-model-frontmatter |
+| 055b | GitHub Copilot Parity — Hooks, Deny-List, Multi-Platform Completeness | done | 2026-03-20 | — | — | feat/spec-055-copilot-hooks-parity |
 | 055 | Radical Simplification | done | 2026-03-17 | — | — | spec/055-radical-simplification |
 | 054 | Pipeline Skill v2: Enterprise CI/CD Generation | done | 2026-03-16 | — | — | spec/054-pipeline-skill-v2 |
 | 053 | Full IDE-Adapted Mirrors | done | 2026-03-16 | — | — | spec/053-full-ide-adapted-mirrors |
@@ -124,7 +150,6 @@ Completed specs. Details in git history.
 | 003 | Governance Enforcement | done | 2026-02-10 | — | — | spec/003-governance-enforcement |
 | 002 | Cross-Reference Hardening + Skill Registration | done | 2026-02-09 | — | — | spec/002-cross-ref-hardening |
 | 001 | AI-Engineering Framework: Rewrite from Scratch | done | 2026-02-08 | — | — | spec/001-rewrite-v2 |
-| 055b | GitHub Copilot Parity — Hooks, Deny-List, Multi-Platform Completeness | done | 2026-03-20 | — | — | feat/spec-055-copilot-hooks-parity |
 
 ---
 
@@ -335,11 +360,3 @@ The runtime engine is independently dispatchable; the deferred files are documen
 ## 2026-05-05 — spec-122-a / sub-001 (Hygiene + Config + Delete Evals)
 
 **Relocation**: `git mv .ai-engineering/specs/spec-117-progress/` → `.ai-engineering/state/archive/delivery-logs/spec-117/` (197 build/verify proof markdowns). The originating spec (117) is `done`; the per-task progress logs are reclassified as durable delivery logs under the state-plane archive (matches the spec-117 hx-05 state-plane archive contract). Path references in `src/ai_engineering/standards.py` (6 entries) and `tests/unit/test_validator.py` (2 fixture paths) updated in the same commit. Empty scaffolds (`v2/`, `handoffs/`, `harness-gap-2026-05-04/`, `evidence/`) deleted.
-
-## 2026-05-18 — spec-143 Release Version CI/CD PyPI Spine
-
-| ID | Title | Status | Created | Branch |
-|----|-------|--------|---------|--------|
-| spec-143 | Release Version CI/CD PyPI Spine | PR pending (#517) | 2026-05-18 | codex/ai-engineering-release-version-cicd-pypi |
-
-Quality: T-50 through T-54 passed; PR opened with no-watch delivery.

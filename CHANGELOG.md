@@ -49,6 +49,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `state.db.ownership_map` before evaluating file changes, so team/deny
   rules protect both existing files and denied missing files without
   requiring the retired `ownership-map.json` sidecar.
+- spec-146 fixes spec history consolidation so `ai-eng cleanup specs`,
+  `spec_lifecycle.py mark_shipped`, and `ai-eng maintenance spec-reset`
+  all upsert the canonical 7-column `_history.md` projection instead of
+  leaving shipped sidecars unrecorded or writing legacy 4-column rows.
 
 ### Removed
 

@@ -97,8 +97,8 @@ class TestAppendHistory:
 
         content = (specs_dir / "_history.md").read_text()
         assert "# Spec History" in content
-        assert "| ID | Title | Date | Branch |" in content
-        assert "| 055 | Radical Simplification |" in content
+        assert "| ID | Title | Status | Created | Shipped | PR | Branch |" in content
+        assert "| 055 | Radical Simplification | done |" in content
 
     def test_appends_to_existing_file(self, tmp_path: Path) -> None:
         """Appends to existing _history.md without duplicating header."""
@@ -112,6 +112,27 @@ class TestAppendHistory:
         assert content.count("# Spec History") == 1
         assert "| 054 | First Spec |" in content
         assert "| 055 | Second Spec |" in content
+
+    def test_migrates_legacy_history_without_duplicate_id(self, tmp_path: Path) -> None:
+        """Legacy 4-column rows are normalized and same-id rows are upserted."""
+        specs_dir = tmp_path / "specs"
+        specs_dir.mkdir()
+        (specs_dir / "_history.md").write_text(
+            "# Spec History\n\n"
+            "| ID | Title | Date | Branch |\n"
+            "|----|-------|------|--------|\n"
+            "| 055 | Old Title | 2026-05-01 | feat/old |\n",
+            encoding="utf-8",
+        )
+
+        append_history(specs_dir, "055", "New Title", "feat/new")
+
+        content = (specs_dir / "_history.md").read_text()
+        assert "| ID | Title | Status | Created | Shipped | PR | Branch |" in content
+        assert content.count("| 055 |") == 1
+        assert "| 055 | New Title | done |" in content
+        assert "| feat/new |" in content
+        assert "Old Title" not in content
 
 
 class TestClearSpecBuffer:

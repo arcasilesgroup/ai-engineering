@@ -1,10 +1,11 @@
 """Regression: ``/ai-branch-cleanup`` SKILL.md documents the ``_history.md`` rotation
 step (spec-131 D-131-05 acceptance criterion).
 
-The actual rotation lives in ``.ai-engineering/scripts/spec_lifecycle.py
-mark_shipped``; this skill is a verification-only documentation surface
-that points operators at the entry point. The canonical SKILL.md plus the
-three IDE mirrors are all checked.
+The bulk catch-up rotation lives in ``.ai-engineering/scripts/spec_lifecycle.py
+consolidate_shipped``; explicit post-merge closure still uses
+``mark_shipped``. This skill is a verification-only documentation surface
+that points operators at those entry points. The canonical SKILL.md plus
+the three IDE mirrors are all checked.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ CLEANUP_SKILL_FILES = (
 REQUIRED_SUBSTRINGS = (
     "_history.md",
     "spec_lifecycle.py mark_shipped",
+    "spec_lifecycle.py consolidate_shipped",
 )
 
 

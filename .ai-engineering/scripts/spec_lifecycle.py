@@ -11,9 +11,9 @@ Hexagonal layout in one file (~250 LOC):
   projection that reads any 5/6/7-col legacy header and preserves
   free-form retro sections verbatim).
 - **Application** (CLI): ``start_new``, ``mark_shipped``, ``archive``,
-  ``sweep``, ``status``, ``migrate_history`` — each composes one domain
-  transition + one infra write under one lock. Every atomic op
-  completes <500ms (no LLM, stdlib only).
+  ``sweep``, ``status``, ``migrate_history``, ``consolidate_shipped`` —
+  each composes one domain transition + one infra write under one lock.
+  Every atomic op completes <500ms (no LLM, stdlib only).
 
 Idempotency is enforced at the application layer: re-issuing the same
 verb on a record already in the target state is a no-op (no FSM raise,
@@ -302,7 +302,19 @@ def _render_history(project_root: Path, append_row: list[str] | None = None) -> 
     data_rows = _migrate_rows(rows)
     if append_row:
         candidate = "| " + " | ".join(append_row) + " |"
-        if candidate not in data_rows:
+        candidate_id = append_row[0]
+        replaced = False
+        upserted_rows: list[str] = []
+        for row in data_rows:
+            row_cells = _normalize_row(row)
+            if row_cells and row_cells[0] == candidate_id:
+                if not replaced:
+                    upserted_rows.append(candidate)
+                    replaced = True
+            else:
+                upserted_rows.append(row)
+        data_rows = upserted_rows
+        if not replaced:
             data_rows.append(candidate)
     body = _PREAMBLE + _HISTORY_HEADER + "\n".join(data_rows) + "\n"
     if tail.strip():
@@ -341,11 +353,16 @@ def mark_shipped(spec_id: str, pr: str, branch: str, project_root: Path) -> Spec
     """Walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED in one call (idempotent)."""
     record = _load_state(project_root, spec_id)
     if record.state is LifecycleState.SHIPPED:
-        # Idempotent: refresh PR/branch metadata if missing, but no event.
-        if record.pr != pr or record.branch != branch:
+        # Idempotent: refresh metadata if needed and re-materialize the
+        # projection. This supports the shared consolidation handler when a
+        # SHIPPED sidecar exists but `_history.md` was deleted, stale, or
+        # migrated from a legacy shape.
+        if record.pr != pr or record.branch != branch or record.shipped is None:
             record.pr = pr
             record.branch = branch
+            record.shipped = record.shipped or _utcnow_iso()
             _write_state(project_root, record)
+        _render_history(project_root, append_row=_history_row_for(record))
         return record
     # Walk legal chain. Any illegal start state (ARCHIVED, ABANDONED) raises.
     chain = [
@@ -430,6 +447,82 @@ def migrate_history(project_root: Path) -> None:
     _render_history(project_root)
 
 
+def _history_spec_ids(project_root: Path) -> set[str]:
+    """Return spec ids already present in the canonical history table."""
+    history = _history_path(project_root)
+    if not history.exists():
+        return set()
+    rows, _tail = _split_history(history.read_text(encoding="utf-8"))
+    data_rows = _migrate_rows(rows)
+    ids: set[str] = set()
+    for row in data_rows:
+        row_cells = _normalize_row(row)
+        if row_cells:
+            ids.add(row_cells[0])
+    return ids
+
+
+def _history_row_for(record: SpecRecord) -> list[str]:
+    """Project a shipped sidecar record into the 7-column history row."""
+    return [
+        record.spec_id,
+        record.title,
+        record.state.value,
+        record.created.split("T")[0],
+        record.shipped.split("T")[0] if record.shipped else "—",
+        record.pr or "—",
+        record.branch or "—",
+    ]
+
+
+def consolidate_shipped(project_root: Path, *, dry_run: bool = False) -> dict:
+    """Append missing `_history.md` rows for already-SHIPPED spec sidecars.
+
+    This is the cold-path cleanup verb used by `ai-eng cleanup specs`. It
+    deliberately does **not** mark APPROVED or IN_PROGRESS specs as shipped;
+    lifecycle closure remains explicit via `mark_shipped`.
+    """
+    summary: dict[str, object] = {
+        "consolidated": 0,
+        "already_present": 0,
+        "skipped": 0,
+        "would_consolidate": [],
+        "sweep": {"abandoned": 0, "archived": 0},
+    }
+    specs_dir = _specs_dir(project_root)
+    if not specs_dir.exists():
+        return summary
+
+    if not dry_run:
+        summary["sweep"] = sweep(project_root)
+
+    known_ids = _history_spec_ids(project_root)
+    for path in sorted(specs_dir.glob("*.json")):
+        try:
+            record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError, KeyError, ValueError):
+            summary["skipped"] = int(summary["skipped"]) + 1
+            continue
+        if record.state is not LifecycleState.SHIPPED:
+            summary["skipped"] = int(summary["skipped"]) + 1
+            continue
+        if record.spec_id in known_ids:
+            summary["already_present"] = int(summary["already_present"]) + 1
+            continue
+        if dry_run:
+            cast_list = summary["would_consolidate"]
+            if isinstance(cast_list, list):
+                cast_list.append(record.spec_id)
+            continue
+        _render_history(project_root, append_row=_history_row_for(record))
+        known_ids.add(record.spec_id)
+        summary["consolidated"] = int(summary["consolidated"]) + 1
+
+    if not dry_run and int(summary["consolidated"]) > 0:
+        _append_event(project_root, "spec_history_consolidated", summary)
+    return summary
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -473,6 +566,9 @@ def _build_parser() -> argparse.ArgumentParser:
     _common(st)
     mh = sub.add_parser("migrate-history", help="One-shot legacy history migration")
     _common(mh)
+    cs = sub.add_parser("consolidate_shipped", help="Append missing history rows for SHIPPED specs")
+    cs.add_argument("--dry-run", action="store_true", help="Preview rows without mutating files")
+    _common(cs)
     return p
 
 
@@ -504,6 +600,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "migrate-history":
             migrate_history(project_root)
             print("migrated _history.md to 7-col canonical layout")
+        elif args.cmd == "consolidate_shipped":
+            print(json.dumps(consolidate_shipped(project_root, dry_run=args.dry_run), indent=2))
         else:
             return 2
     except (ValueError, FileNotFoundError, KeyError) as exc:
