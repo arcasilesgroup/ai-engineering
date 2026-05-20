@@ -1,0 +1,25 @@
+# Spec 146 Caller Inventory
+
+Command: `rtk .venv/bin/python tools/caller_inventory.py > .ai-engineering/specs/spec-146-caller-inventory.md`
+
+Scope scanned: `src/`, `tests/`, `tools/`, hook scripts, docs, specs, and active IDE surfaces.
+
+| Candidate | Classification | Decision | Evidence | Rationale |
+|---|---|---|---|---|
+| `agentsview.py` | test-only/deleted | Hard-delete | `tests/architecture/test_no_dead_module_imports.py`; `tests/unit/specs/test_spec_146_caller_inventory.py` | Only preservation tests and fail-open hook comments referenced it; capability data remains in state.db/tool_capabilities. |
+| `outbox.py` | test-only/deleted | Hard-delete | `tests/architecture/test_no_dead_module_imports.py` | No production writer used the in-process outbox; canonical audit emission remains direct and fail-loud. |
+| `governance/policy_engine.py` | test-only/deleted | Hard-delete | `tests/architecture/test_no_dead_module_imports.py` | OPA runner is the production policy path; this file was a downstream-fork insurance shim. |
+| `cli_ui_skill_ref.py` | test-only/deleted | Hard-delete | `tests/architecture/test_no_dead_module_imports.py`; `tests/unit/specs/test_spec_146_caller_inventory.py` | No production CLI imported the helper; active docs now state the wording rule directly. |
+| `trace_context.py` | production/hook-parity | Preserve | `.ai-engineering/scripts/hooks/_lib/observability.py`; `.ai-engineering/scripts/hooks/_lib/trace_context.py`; `.ai-engineering/scripts/hooks/runtime-session-start.py`; `src/ai_engineering/state/observability.py`; `src/ai_engineering/state/trace_context.py`; `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/observability.py`; `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/trace_context.py`; `src/ai_engineering/templates/.ai-engineering/scripts/hooks/runtime-session-start.py`; +5 more | Observability and hook parity tests use trace/span context; replacement would need separate migration tests. |
+| `capabilities.py` | production/validator | Preserve | `src/ai_engineering/state/capabilities.py`; `src/ai_engineering/state/observability.py`; `src/ai_engineering/validator/categories/manifest_coherence.py`; `tests/unit/test_capabilities.py` | Framework capability generation feeds observability and manifest-coherence validation. |
+| `context_packs.py` | production/validator | Preserve | `src/ai_engineering/state/context_packs.py`; `src/ai_engineering/validator/categories/manifest_coherence.py`; `tests/unit/test_context_packs.py` | Manifest-coherence validation uses context pack helpers. |
+| `relevance.py` | production/hook-asset | Preserve | `.ai-engineering/scripts/hooks/_lib/relevance.py`; `src/ai_engineering/hooks/asset_runtime.py`; `src/ai_engineering/state/relevance.py`; `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/relevance.py`; `tests/unit/state/test_event_relevance_gate.py` | Hook asset runtime packages the relevance gate counterpart for installed hooks. |
+| `StateService` | production/facade | Partially flatten | `src/ai_engineering/cli_commands/gate.py`; `src/ai_engineering/cli_commands/maintenance.py`; `src/ai_engineering/cli_commands/risk_cmd.py`; `src/ai_engineering/installer/service.py`; `src/ai_engineering/state/service.py`; `tests/integration/test_cli_command_modules.py`; `tests/integration/test_coverage_closure.py`; `tests/integration/test_gate_skip_accepted.py`; +6 more | Policy orchestrator no longer needs the forwarding facade; other CLI/install callsites retain it pending smaller migrations. |
+| `DurableStateRepository` | production/adapter | Preserve | `src/ai_engineering/doctor/phases/state.py`; `src/ai_engineering/hooks/manager.py`; `src/ai_engineering/policy/orchestrator.py`; `src/ai_engineering/state/manifest.py`; `src/ai_engineering/state/migrations/0007_add_details_json_to_decisions.py`; `src/ai_engineering/state/repository.py`; `src/ai_engineering/state/service.py`; `src/ai_engineering/validator/categories/manifest_coherence.py`; +10 more | Repository owns model reconstruction from state.db and remains a useful adapter boundary. |
+| `installer/mechanisms/__init__.py` | production/registry | Split with thin re-export | `src/ai_engineering/doctor/phases/tools.py`; `src/ai_engineering/installer/mechanisms/__init__.py`; `src/ai_engineering/installer/mechanisms/_common.py`; `src/ai_engineering/installer/mechanisms/language_tools.py`; `src/ai_engineering/installer/mechanisms/node_tools.py`; `src/ai_engineering/installer/results.py`; `src/ai_engineering/installer/tool_registry.py`; `tests/integration/test_doctor_fix_go_stack.py`; +16 more | Simple mechanism classes moved to focused modules while package root preserves the internal import contract. |
+
+## Summary
+
+- Deleted candidates are limited to no-production-caller surfaces.
+- Production state modules remain because observability, validators, hooks, or adapters still use them.
+- Installer mechanisms are split internally but keep a thin package-root re-export for current registry imports.

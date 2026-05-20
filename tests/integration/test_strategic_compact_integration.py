@@ -98,6 +98,36 @@ class TestMainFlow:
         output = captured_stdout.getvalue()
         assert json.loads(output)["tool_name"] == "Edit"
 
+    def test_default_counter_file_lives_under_runtime_not_state(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        """Default hook persistence writes runtime/, never state/."""
+        mod = _import_hook()
+        project_root = tmp_path / "project"
+        (project_root / ".ai-engineering").mkdir(parents=True)
+        stdin_data = json.dumps({"tool_name": "Edit"})
+        captured_stdout = StringIO()
+
+        monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project_root))
+        monkeypatch.setenv("CLAUDE_HOOK_EVENT_NAME", "PreToolUse")
+        monkeypatch.setenv("CLAUDE_SESSION_ID", "runtime-session")
+        monkeypatch.setattr("sys.stdin", StringIO(stdin_data))
+        monkeypatch.setattr("sys.stdout", captured_stdout)
+
+        with (
+            patch.object(mod, "_COUNTER_FILE", None),
+            patch.object(mod, "_STATE_DIR", None),
+        ):
+            mod.main()
+
+        runtime_counter = project_root / ".ai-engineering" / "runtime" / "strategic-compact.json"
+        state_counter = project_root / ".ai-engineering" / "state" / "strategic-compact.json"
+
+        assert json.loads(runtime_counter.read_text(encoding="utf-8")) == {"runtime-session": 1}
+        assert not state_counter.exists()
+
     def test_advisory_printed_at_threshold(
         self,
         monkeypatch: pytest.MonkeyPatch,

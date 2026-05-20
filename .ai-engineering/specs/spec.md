@@ -1,144 +1,145 @@
 ---
-spec: spec-144
-title: README Rewrite and Branch Cleanup Rename
+spec: spec-146
+title: Framework Simplification — Less is More
 status: approved
 effort: large
-summary: Rewrite README surfaces around the governed-flow brand and hard-rename /ai-repo-tidy to /ai-branch-cleanup with no shim, verified by sync, docs, changelog, and rename tests.
+summary: Make ai-engineering smaller and safer by fixing update ownership reads first, reconciling persistence docs, pruning only evidence-proven dead surfaces, and documenting implemented tunables without broad state migrations.
+source_brief: .ai-engineering/specs/drafts/framework-simplification-less-is-more-brief.md
+pr: arcasilesgroup/ai-engineering#530
 ---
-
-# Spec 144 - README Rewrite and Branch Cleanup Rename
+# Spec 146 - Framework Simplification — Less is More
 
 ## Summary
 
-The repository onboarding surface is stale in two user-visible ways: the root README names Antigravity while the active manifest enables OpenCode and Cursor, and the governance README plus installer-template twin link to the deleted `GETTING_STARTED.md`. This spec rewrites the README surfaces around the current `{ai} engineering` brand voice, creates a prose brand-voice reference extracted from the Penpot design sources, and hard-renames `/ai-repo-tidy` to `/ai-branch-cleanup` without a compatibility shim so the skill slug reveals its actual branch-cleanup purpose.
+The framework has accumulated complexity in three connected places — `ai-eng update` still loads ownership from a removed JSON sidecar, persistence docs describe some state tables too broadly, and cleanup candidates span `.ai-engineering/` data files, tunables docs, and Python modules with uneven caller evidence. This spec chooses a conservative less-is-more path — fix the operator-visible ownership bug first, align the persistence contract table by table, then delete or inline only surfaces proven non-load-bearing by inventory, tests, and CHANGELOG-backed hard-delete documentation.
 
 ## Goals
 
-- Replace the root `README.md` with a concise landing page that stays at or below the existing 120-line test cap, opens with the design-system tagline, declares the six enabled surfaces from `.ai-engineering/manifest.yml`, preserves the existing attribution table, and points first-time operators to the canonical chain `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`.
-- Rewrite `.ai-engineering/README.md` so it has zero dead links, includes an inline Quick Start instead of pointing to deleted `GETTING_STARTED.md`, explains the four-tier persistence doctrine, and uses the same terminal-native brand voice as the root README.
-- Keep `src/ai_engineering/templates/.ai-engineering/README.md` byte-identical to `.ai-engineering/README.md` and add a test that fails when those two files drift.
-- Review `.ai-engineering/team/README.md` and preserve the existing four-line placeholder unless a concrete defect is found during implementation.
-- Add `.ai-engineering/reference/brand-voice.md` as the prose authority for README voice rules, citing `docs/design.pen` and `docs/untitled.pen` line evidence for the `{ai} engineering` wordmark, shell-prompt CTA, mid-dot stat line, code-comment header, bracket-tag status grammar, and no-emoji convention.
-- Hard-rename the `/ai-repo-tidy` skill to `/ai-branch-cleanup` across canonical `.claude/` skill sources, generated root mirrors, installer-template provider surfaces, Python registry/user-facing strings, reference docs, session bootstrap scripts, tests, and non-historical documentation references.
-- Leave historical audit/state records untouched while ensuring a fresh `rg --hidden -n 'ai-repo-tidy'` after implementation returns only explicitly allowed historical hits.
-- Update `CHANGELOG.md` `[Unreleased]` with one `### BREAKING` entry for the skill rename and one `### Changed` entry for the README/brand rewrite.
-- Run the rename and documentation gates: `pytest tests/docs/test_links.py -q`, `pytest tests/architecture/test_naming_clarity.py tests/unit/test_cleanup_history_rotation.py tests/unit/test_consolidate_spec_action.py -q`, `ai-eng dev sync --check`, `ai-eng verify --full`, and full `pytest -q` before PR handoff.
+- Fix `ai-eng update` so deny/team/operator ownership rows in `state.db.ownership_map` block create/update decisions, including the case where an operator deletes a denied file and update must leave it absent.
+- Add tested ownership read helpers that expose both raw SQLite rows and the updater-ready `OwnershipMap` view, with a one-time legacy JSON fallback only when SQLite has no rows.
+- Reconcile `docs/persistence-doctrine.md` and `src/ai_engineering/state/state_db.py` so each `state.db` table is classified as canonical lifecycle state, derived cache, or transitional/placeholder state.
+- Keep `gate-findings.json` as the canonical gate/risk/verify artifact for this spec, and document `state.db.gate_findings` as non-primary placeholder/transitional state rather than migrating consumers now.
+- Clean `.ai-engineering/` data surfaces by removing byte-identical duplicates, dead state artifacts, and duplicate learning files only after link, hook, and policy evidence proves the target store.
+- Replace stale tunables documentation with implemented default-bearing entries, and reserve genuinely unimplemented host-preflight/budget-profile variables in one clearly labelled roadmap block or remove them.
+- Run a caller inventory across `src/`, `tests/`, `tools/`, hooks, templates, docs, and specs before deleting or inlining Python modules.
+- Preserve `trace_context.py`, `capabilities.py`, and other production-used state modules unless replacement tests prove observability and manifest-coherence behavior survives.
+- Split or shrink oversized facades and registry modules only when it reduces behavior-free indirection without adding compatibility shims.
+- Document every hard delete under `CHANGELOG.md` `Removed`, keep hot-path budgets green, and avoid deleting tests solely to make simplification appear successful.
 
 ## Non-Goals
 
-- Do not edit `docs/design.pen` or `docs/untitled.pen`; stale counts in those design assets are tracked by a separate asset-team follow-up.
-- Do not generate new logos, SVGs, screenshots, raster images, or inline visual assets for the README files.
-- Do not change `/ai-repo-tidy` behavior while renaming it; branch cleanup, spec sweep, runtime rotation, and report behavior remain identical under the new slug.
-- Do not preserve an `/ai-repo-tidy` alias, shim, deprecation wrapper, or compatibility fallback.
-- Do not rewrite `CONSTITUTION.md`, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, or `.github/copilot-instructions.md` unless the sanity review finds a blocker and the operator explicitly approves a follow-up.
-- Do not expand the docs portal under `docs/` beyond the new `.ai-engineering/reference/brand-voice.md` reference.
-- Do not rewrite append-only `.ai-engineering/state/framework-events.ndjson` or mutate historical records in `.ai-engineering/state/state.db`.
+- Do not create a new branch or PR for this work; it continues on the existing branch and PR named in the references.
+- Do not re-litigate the canonical chain `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`.
+- Do not change `CONSTITUTION.md` hard rules or introduce backwards-compatibility shims for approved deletes/renames.
+- Do not migrate gate findings from JSON to SQLite or remove the placeholder table in this spec; that larger migration requires separate approval if chosen later.
+- Do not delete production-used trace, capability, context, facade, or registry modules based on name/size alone.
+- Do not remove `.ai-engineering/cache/gate/`; it is a bounded cache whose documentation may be corrected.
+- Do not treat overlapping draft briefs as automatically superseded until this spec's final delivered scope is known.
+- Do not rewrite append-only audit history or archived specs to make grep output cleaner.
 
 ## Decisions
 
-### D-144-01 — Promote the consumed brief as one large, four-wave spec
+### D-146-01 — Ship a conservative multi-wave simplification, not a deletion spree
 
-The work ships as one large spec with four implementation waves: brand voice reference, README rewrite, skill rename, and canonical-doc sanity review.
+Promote the consumed brief as one large, evidence-gated simplification spec with five waves — ownership update bug fix, persistence doctrine reconciliation, data-tree cleanup, tunables docs/code reconciliation, and caller-inventory module simplification.
 
-**Rationale**: The README rewrite and skill rename touch different file families but share one first-contact DX goal: make the front door current, branded, and intent-revealing. Splitting them would duplicate sync/checklist work across mirrors, tests, CHANGELOG, and PR review.
+**Rationale**: The brief shows one concrete operator-visible bug and several cleanup opportunities with different risk profiles. Shipping the bug fix first preserves operator data intent while later cleanup waits for inventories and tests instead of relying on intuition.
 
-### D-144-02 — Brand voice gets a Markdown prose source of truth
+### D-146-02 — Ownership helpers expose both raw rows and updater-ready model
 
-Create `.ai-engineering/reference/brand-voice.md` as the Markdown authority for prose rules extracted from `docs/design.pen` and `docs/untitled.pen`; leave the `.pen` files as read-only visual design sources.
+Add a raw `state_db.list_ownership_rows(project_root)`-style reader plus a high-level helper or mapper that reconstructs the updater's `OwnershipMap`; use the high-level path in `ai-eng update` and the raw path in diagnostics/tests.
 
-**Rationale**: README authors and doc skills can consume a small Markdown reference reliably. Reading encrypted or large design artifacts for every future prose edit would be expensive and error-prone, while editing `.pen` assets is outside the documentation wave.
+**Rationale**: Raw rows keep the SQLite boundary inspectable and useful for doctor/diagnostic flows, while the updater should not duplicate row-to-policy mapping logic. Exposing both is still simpler than preserving the deleted JSON sidecar as the normal read path.
 
-### D-144-03 — README replacements are targeted, not exhaustive docs rewrites
+### D-146-03 — SQLite ownership is authoritative for update decisions
 
-Rewrite `README.md`, `.ai-engineering/README.md`, and `src/ai_engineering/templates/.ai-engineering/README.md`; review `.ai-engineering/team/README.md` and keep its four-line placeholder unless a concrete defect appears.
+`_initialize_update_context` must load ownership from `state.db.ownership_map` before evaluating file changes; `ownership-map.json` is a one-time migration fallback only when SQLite has no rows and the sidecar exists.
 
-**Rationale**: The brief identifies specific stale onboarding links, stale surface names, and missing brand voice. The team placeholder already has the desired minimal shape, so rewriting it without evidence would violate KISS and add noise.
+**Rationale**: The installer already writes ownership rows to SQLite and removes the legacy sidecar. The updater's current sidecar read can therefore recreate files an operator intended to deny, so the canonical lifecycle store must drive update policy.
 
-### D-144-04 — Governance README quick start is inline
+### D-146-04 — Keep `gate-findings.json` canonical in this spec
 
-Replace the dead `GETTING_STARTED.md` link in `.ai-engineering/README.md` and the installer template twin with a short inline Quick Start that points to `ai-eng install`, `/ai-start`, and the canonical chain.
+Retain `.ai-engineering/state/gate-findings.json` as the primary gate/risk/verify artifact for this spec. Classify `state.db.gate_findings` as non-primary placeholder/transitional state unless a later spec approves a full consumer migration.
 
-**Rationale**: A new operator stays inside the governance README for the next command. Inline quick start removes a deleted-file dependency and keeps the first-success path in one Tier 4 document.
+**Rationale**: Multiple live paths and tests read/write the JSON artifact today. Migrating gate findings to SQLite is a cross-surface state migration, not necessary to fix ownership or remove obvious dead weight, and would make the simplification spec larger rather than simpler.
 
-### D-144-05 — Template README drift is blocked by a test
+### D-146-05 — Gate cache receives documentation, not a new lifecycle
 
-Add or extend a CI test that asserts `.ai-engineering/README.md` and `src/ai_engineering/templates/.ai-engineering/README.md` are byte-identical.
+Document `.ai-engineering/cache/gate/` as a bounded ephemeral cache with existing age/count limits and reuse the current clear path if manual cleanup is needed.
 
-**Rationale**: A test is less machinery than a pre-commit copier and stronger than a manual checklist. It preserves the existing mirror-sync expectation while keeping the canonical store obvious: the live governance README is copied into the template twin during implementation.
+**Rationale**: The brief verifies that the cache already has a TTL and entry cap. Adding a new cleanup subsystem or moving the cache to SQLite would solve a documentation problem with more machinery.
 
-### D-144-06 — `/ai-repo-tidy` hard-renames to `/ai-branch-cleanup`
+### D-146-06 — Data-tree cleanup is content-preserving and policy-aware
 
-Rename the skill slug, directories, frontmatter, examples, cross-references, registry key, tests, and generated/template surfaces from `ai-repo-tidy` to `ai-branch-cleanup` with no alias.
+Delete `.ai-engineering/references/` only after links/tests use `.ai-engineering/security/iocs/`; remove dead state files only after grep proves no reader/writer; merge `.ai-engineering/team/lessons.md` into `.ai-engineering/LESSONS.md` before deleting the duplicate learning surface.
 
-**Rationale**: `ai-repo-tidy` is vague and overlaps general cleanup language; `ai-branch-cleanup` names the dominant behavior. The Constitution forbids backward-compatibility shims for renamed content, so the break is documented rather than hidden.
+**Rationale**: The same-looking files have different policy semantics in the control plane. Less-is-more means one canonical store per datum, not silent loss of team-owned or append-only learning content.
 
-### D-144-07 — Rename audits use `framework_operation` with `detail.operation=skill_renamed`
+### D-146-07 — Tunables docs distinguish implemented defaults from reserved roadmap variables
 
-Emit rename traceability as `kind=framework_operation` with `detail.operation=skill_renamed`, `from=ai-repo-tidy`, `to=ai-branch-cleanup`, and `spec=spec-144`.
+Update root and template rulebooks so implemented variables (`AIENG_HOOK_CACHE_TTL_SEC`, `AIENG_AUTOFORMAT_DEBOUNCE_SEC`, `AIENG_NDJSON_MAX_LINES`, `AIENG_NDJSON_MAX_BYTES`) show defaults and behavior, while truly unimplemented host-preflight/budget-profile names are either removed or isolated in one explicit reserved block.
 
-**Rationale**: `skill_renamed` is a detail operation, not a top-level event kind in the current event schema. Reusing `framework_operation` preserves the audit-kind allowlist and avoids a schema expansion for a one-off rename.
+**Rationale**: The current docs mark implemented variables as pending, which misleads operators. A small documentation reconciliation preserves the useful knobs and avoids inventing host-admission behavior that prior spec-145 learning already narrowed out.
 
-### D-144-08 — Stale registry-count comment is fixed in the rename wave
+### D-146-08 — Production-used state modules require replacement plans
 
-Update the stale `src/ai_engineering/config/framework_defaults.py` comment that claims the skill registry has 48 entries while touching the registry key for the rename.
+Do not delete `trace_context.py`, `capabilities.py`, or `context_packs.py` unless caller inventory plus regression tests prove an equivalent replacement for observability and manifest-coherence behavior.
 
-**Rationale**: The same file is already in scope for the slug replacement. Fixing the adjacent stale comment in the same wave reduces future confusion without creating a separate hygiene commit.
+**Rationale**: These modules have production consumers. Removing them because they look like framework scaffolding would violate KISS by creating hidden breakage and follow-up repair work.
 
-### D-144-09 — Changelog records one breaking change and one docs change
+### D-146-09 — Dead/test-only modules can be hard-deleted after inventory
 
-Place the skill rename under `CHANGELOG.md` `[Unreleased]` `### BREAKING`, and place the README/brand rewrite under `### Changed`.
+Allow deletion of low-risk candidates such as `agentsview.py`, `outbox.py`, `governance/policy_engine.py`, and `cli_ui_skill_ref.py` only after source, hook, template, doc, and test inventory proves there is no production dependency; update tests and CHANGELOG in the same wave.
 
-**Rationale**: Only the slug rename breaks external automation. The README rewrite is user-visible but not API-breaking, so it belongs in `Changed` while the rename gets the required hard-rename notice.
+**Rationale**: The Constitution forbids compatibility shims, so approved deletes must be direct and documented. The inventory gate prevents downstream-fork insurance and future-scale placeholders from surviving forever while still protecting real callers.
 
-### D-144-10 — Design-asset count drift becomes a follow-up issue
+### D-146-10 — Facade flattening is staged by callsite, not dogma
 
-File a separate `/ai-issue` for stale counts in `docs/design.pen` and `docs/untitled.pen` instead of editing those assets in this PR.
+Migrate `StateService` and `DurableStateRepository` callers to explicit helpers only where it removes behavior-free forwarding. Keep useful adapter boundaries until risk, gate, install, doctor, and update callsites have a tested replacement.
 
-**Rationale**: The `.pen` files are visual design sources outside this spec's textual documentation scope. A tracked issue prevents the drift from being forgotten without forcing asset editing into the README/rename PR.
+**Rationale**: Service classes are not inherently bad; pointless pass-through layers are. A callsite-by-callsite migration avoids an oversized PR and makes each layer removal prove its value.
 
-### D-144-11 — Canonical-doc sanity review reports divergence but does not auto-rewrite
+### D-146-11 — Split oversized installer mechanisms without breaking imports
 
-Read `CONSTITUTION.md`, `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, and `.github/copilot-instructions.md` during Wave 4; if divergence exists, report it and spin off a follow-up unless the operator explicitly approves inclusion.
+Split `src/ai_engineering/installer/mechanisms/__init__.py` into mechanism-specific modules or explicitly exempt it with rationale; keep a thin, stable re-export surface during internal migration only when required by existing imports.
 
-**Rationale**: The operator scoped this work to README rewrite plus rename. Canonical mirrors are generated governance surfaces with their own contracts, so unplanned rewrites risk broad review churn.
+**Rationale**: The current module centralizes many mechanism classes for registry use. Splitting improves navigability, but import stability during the same PR is acceptable as an internal migration step, not as a long-term compatibility shim.
 
-### D-144-12 — README code fences and symbols use terminal-native conventions
+### D-146-12 — Overlapping briefs remain related, not automatically superseded
 
-Codify `bash` for shell-command fences, `yaml` for manifest snippets, literal `{ai} engineering` in prose, mid-dot stat lines for compact counts, bracket tags for statuses, and a hard no-emoji rule in `brand-voice.md`.
+Treat `harness-persistence-strategy`, `less-is-more-quality-engine`, `prune-contexts-docs-research-evals`, and `dx-excellence-refactor` as related context. Mark a draft superseded only after this spec's implementation fully absorbs that draft's scope.
 
-**Rationale**: The design sources use shell prompts, monospaced command blocks, and bracket statuses instead of emoji. Making these rules explicit keeps future documentation edits consistent without rereading the visual assets.
-
-### D-144-13 — Historical state is read-only during the rename
-
-Do not edit `.ai-engineering/state/framework-events.ndjson`, `.ai-engineering/state/state.db`, or archived historical spec/CHANGELOG references solely to remove `ai-repo-tidy`.
-
-**Rationale**: The audit chain and history files are witnesses, not rewrite targets. The verification grep must distinguish active references from historical records so the hard rename does not corrupt audit provenance.
+**Rationale**: This spec intentionally narrows broad simplification pressure into evidence-backed waves. Prematurely closing adjacent drafts would hide unresolved work and violate the persistence doctrine's source-of-truth discipline.
 
 ## Risks
 
-- **README structural gate failure**: `tests/docs/test_links.py::test_readme_minimal` enforces the root README cap and required links. Mitigation: run `pytest tests/docs/test_links.py -q` before and after the rewrite; keep the root README at or below 120 lines.
-- **Mirror drift after the rename**: root mirrors and installer-template provider surfaces can diverge from `.claude/` after directory moves. Mitigation: run `ai-eng dev sync`, then `ai-eng dev sync --check`, and inspect residual `ai-repo-tidy` hits.
-- **Historical grep false positives**: append-only state and archived history contain valid old slugs. Mitigation: define the allowlist in the plan and fail only on non-historical active references.
-- **External automation breakage**: operators with scripts invoking `/ai-repo-tidy` must update them. Mitigation: document the exact `/ai-branch-cleanup` replacement in `CHANGELOG.md` under `### BREAKING`.
-- **Brand voice overreach**: README prose can become decorative instead of useful. Mitigation: brand rules must support command-first onboarding; root README line cap and link tests keep the result concise.
-- **Template README sync remains manual by accident**: a future edit can change one README without the other. Mitigation: add the byte-equivalence test in the same wave as the template update.
-- **Audit schema misuse**: emitting `skill_renamed` as a top-level event kind would violate the current event schema. Mitigation: use D-144-07 and test/inspect event-shape code before writing any audit row.
+- **Ownership row mapping drift**: SQLite rows may not reconstruct `OwnershipMap` semantics exactly. Mitigation: add roundtrip unit tests for allow/deny/team/append-only rows and an integration test for the denied-missing-file update scenario.
+- **Gate findings ambiguity persists**: Keeping JSON canonical leaves the SQLite placeholder visible. Mitigation: explicitly document the placeholder/non-primary status and add tests that gate/risk/verify continue to read the approved canonical artifact.
+- **Cleanup deletes a hidden consumer**: Hooks, templates, or docs may reference candidates not visible from source imports. Mitigation: require a caller inventory that covers `src/`, `tests/`, `tools/`, `.ai-engineering/scripts/hooks/`, templates, docs, and specs before deletion.
+- **Learning content is lost during merge**: `.ai-engineering/team/lessons.md` and `.ai-engineering/LESSONS.md` may contain overlapping but non-identical rules. Mitigation: content-preserving merge with duplicate detection before deleting either surface.
+- **Tunables docs overcorrect**: Removing or relabelling a variable can break operator expectations. Mitigation: grep exact env names, update docs tests, and keep one explicit reserved block for intentionally future variables.
+- **Facade flattening becomes too large**: Migrating every `StateService`/repository caller in one wave can exceed reviewable scope. Mitigation: plan callsite groups and stop before public API removal if the wave grows past the agreed review size.
+- **Hot-path regression**: New SQLite readers could accidentally move into hooks. Mitigation: keep ownership reads in `ai-eng update`/doctor cold paths and run existing no-SQL-on-hot-path architecture tests.
+- **PR scope confusion**: This spec lands on the existing branch/PR rather than a fresh one. Mitigation: references and handoff notes must name the active PR and distinguish this draft from already archived spec-144 artifacts.
 
 ## References
 
-- doc: `.ai-engineering/specs/drafts/readme-rewrite-and-branch-cleanup-rename-brief.md`
-- doc: `CONSTITUTION.md` (hard-rename/no-shim policy)
-- doc: `CLAUDE.md` / `AGENTS.md` / `GEMINI.md` / `.github/copilot-instructions.md` (canonical chain and mirror payload)
-- doc: `docs/persistence-doctrine.md` (Tier 4 Markdown source-of-truth doctrine)
-- doc: `.ai-engineering/reference/spec-schema.md` (spec shape)
-- doc: `README.md:23` lists Antigravity while `.ai-engineering/manifest.yml:28` enables OpenCode and Cursor.
-- doc: `.ai-engineering/README.md:5` and `src/ai_engineering/templates/.ai-engineering/README.md:5` link to deleted `GETTING_STARTED.md`.
-- doc: `tests/docs/test_links.py:203-228` enforces the root README structural cap and link requirements.
-- doc: `docs/design.pen:3291` provides the tagline; `docs/design.pen:3862-3911` provides bracket-tag status grammar.
-- doc: `docs/untitled.pen:522` provides the shell-prompt CTA; `docs/untitled.pen:1944` provides the mid-dot stat-line pattern.
-- doc: `src/ai_engineering/config/framework_defaults.py:262`, `src/ai_engineering/validator/categories/file_existence.py:282`, `.ai-engineering/reference/model-dispatch-policy.md:44`, and `.ai-engineering/reference/surface-axioms.md:39` contain active `ai-repo-tidy` references.
-- doc: `tests/unit/test_cleanup_history_rotation.py:19-22`, `tests/unit/test_consolidate_spec_action.py:21`, and `tests/architecture/test_naming_clarity.py:59` pin rename-sensitive behavior.
+- doc: .ai-engineering/specs/drafts/framework-simplification-less-is-more-brief.md
+- pr: arcasilesgroup/ai-engineering#530
+- doc: CONSTITUTION.md (hard-delete/no-shim and SSOT rules)
+- doc: docs/persistence-doctrine.md (four-tier persistence model)
+- doc: .ai-engineering/reference/principles.md (§10.1 KISS, §10.2 YAGNI, §10.3 SOLID, §10.4 DRY, §10.7 Clean Code, §10.8 Hexagonal Architecture)
+- doc: .ai-engineering/specs/archive/spec-138-harness-persistence-strategy.md (persistence doctrine predecessor)
+- doc: .ai-engineering/specs/archive/spec-140-less-is-more-quality-engine.md (quality-surface simplification predecessor)
+- doc: src/ai_engineering/updater/service.py (current update ownership load and file-change evaluation)
+- doc: src/ai_engineering/state/state_db.py (SQLite lifecycle helpers and placeholder notes)
+- doc: src/ai_engineering/policy/orchestrator.py (gate-findings JSON writer)
+- doc: src/ai_engineering/verify/service.py (gate-findings JSON reader)
+- doc: src/ai_engineering/cli_commands/risk_cmd.py (gate-findings JSON risk acceptance)
+- doc: .ai-engineering/scripts/hooks/prompt-injection-guard.py (implemented hook-cache TTL tunable)
+- doc: .ai-engineering/scripts/hooks/auto-format.py (implemented autoformat debounce tunable)
+- doc: .ai-engineering/scripts/hooks/runtime-session-end.py (implemented NDJSON rotation tunables)
 
 ## Open Questions
 
-None. The eight open decisions from the consumed brief are resolved in this spec: template sync (D-144-05), stale registry comment (D-144-08), dead-link replacement (D-144-04), no-emoji/code-fence voice rules (D-144-12), changelog shape (D-144-09), asset-team handoff (D-144-10), canonical-doc review scope (D-144-11), and README code-block conventions (D-144-12).
+None for spec approval. The six open choices in the consumed brief are resolved by D-146-02, D-146-04, D-146-05, D-146-08, D-146-07, and D-146-12 respectively; implementation may split waves if `/ai-plan` finds the caller-inventory or facade work too large for one PR.

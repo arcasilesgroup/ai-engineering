@@ -1,13 +1,19 @@
 """Unified ``state.db`` connection manager (spec-122-b D-122-06, D-122-16).
 
-The framework's persistence is consolidated into a single SQLite database at
+The framework's SQLite persistence is a mixed lifecycle database at
 ``.ai-engineering/state/state.db``. Six STRICT tables (events, decisions,
 risk_acceptances, gate_findings, ownership_map, install_steps) plus a
 ``_migrations`` ledger live here (the legacy ``hooks_integrity`` table was
-dropped in migration 0008 per spec-138 D-138-01). The NDJSON
-``framework-events.ndjson`` file remains the immutable Article-III
-source-of-truth (CQRS read-model split); this DB is a derived projection
-that can be rebuilt by replay.
+dropped in migration 0008 per spec-138 D-138-01).
+
+Table roles are explicit. ``state.db.events`` is an NDJSON-derived cache
+rebuilt from ``framework-events.ndjson``. ``decisions`` is a mixed
+lifecycle/cache table: risk-acceptance and flow lifecycle rows are written by
+CLI flows, while ADR-style decision rows can be backfilled from spec markdown.
+``risk_acceptances``, ``ownership_map``, and ``install_steps`` are canonical
+cold-path lifecycle tables. ``gate_findings`` is a non-primary placeholder /
+transitional table; ``.ai-engineering/state/gate-findings.json`` remains the
+primary gate/risk/verify artifact for this spec.
 
 Key contract
 ------------
@@ -42,6 +48,7 @@ import logging
 import sqlite3
 from collections.abc import Iterator
 from contextlib import contextmanager
+from json import JSONDecodeError
 from pathlib import Path
 
 _logger = logging.getLogger(__name__)
@@ -274,6 +281,8 @@ def upsert_ownership_rows(project_root: Path, ownership_map: object) -> int:
     import json
 
     paths = getattr(ownership_map, "paths", []) or []
+    bootstrap = connect(project_root, read_only=False, apply_migrations=None)
+    bootstrap.close()
     updated_at = _now_iso()
 
     with projection_write(project_root) as conn:
@@ -706,11 +715,127 @@ def upsert_ownership_rows_raw(
         return attempted
 
 
+def _decode_json_list(value: object | None) -> list[str]:
+    """Decode a JSON list column into a list of strings.
+
+    The ownership table stores owners/reviewers as JSON arrays.  Readers
+    should be tolerant of malformed legacy rows and expose an empty list
+    rather than failing update diagnostics.
+    """
+    if not isinstance(value, str) or not value:
+        return []
+    try:
+        decoded = __import__("json").loads(value)
+    except (JSONDecodeError, TypeError):
+        return []
+    if not isinstance(decoded, list):
+        return []
+    return [str(item) for item in decoded]
+
+
+def list_ownership_rows(project_root: Path) -> list[dict[str, object]]:
+    """Read raw ownership rows from ``state.db``.
+
+    This is the diagnostics-friendly boundary for the canonical
+    ``ownership_map`` table: JSON array columns are decoded, but no
+    updater-domain model is constructed.  Missing databases or missing
+    tables return an empty list so cold-path probes can run before a
+    project is fully bootstrapped.
+    """
+    db_path = state_db_path(project_root)
+    if not db_path.exists() or db_path.stat().st_size == 0:
+        return []
+
+    try:
+        conn = connect(project_root, read_only=True, apply_migrations=False)
+    except sqlite3.OperationalError:
+        return []
+    try:
+        try:
+            cursor = conn.execute(
+                "SELECT path_pattern, owners_json, severity, reviewers_json, updated_at"
+                " FROM ownership_map ORDER BY rowid ASC"
+            )
+        except sqlite3.OperationalError:
+            return []
+        return [
+            {
+                "path_pattern": row["path_pattern"],
+                "owners": _decode_json_list(row["owners_json"]),
+                "severity": row["severity"],
+                "reviewers": _decode_json_list(row["reviewers_json"]),
+                "updated_at": row["updated_at"],
+            }
+            for row in cursor.fetchall()
+        ]
+    finally:
+        conn.close()
+
+
+def _ownership_level(value: str | None):
+    """Return a valid ``OwnershipLevel`` for a row owner value."""
+    from ai_engineering.state.models import OwnershipLevel
+
+    try:
+        return OwnershipLevel(value or "")
+    except ValueError:
+        # CODEOWNERS imports can store ``@team``/email owners.  The
+        # updater model only distinguishes framework/team/project/system
+        # ownership levels, so non-enum owners are conservatively treated
+        # as team-managed.
+        return OwnershipLevel.TEAM_MANAGED
+
+
+def _framework_update_policy(value: str | None):
+    """Return a valid ``FrameworkUpdatePolicy`` for a row severity value."""
+    from ai_engineering.state.models import FrameworkUpdatePolicy
+
+    try:
+        return FrameworkUpdatePolicy(value or "")
+    except ValueError:
+        # Rows imported from CODEOWNERS do not always carry a framework
+        # update severity.  Treat ownership without an explicit allow as
+        # protected so update never overwrites operator-owned paths by
+        # surprise.
+        return FrameworkUpdatePolicy.DENY
+
+
+def load_ownership_map(project_root: Path):
+    """Build the updater-ready ``OwnershipMap`` from ``state.db`` rows.
+
+    The raw reader remains the SQLite boundary for diagnostics; this
+    mapper is the single place that translates row values into the
+    updater's Pydantic ownership model.
+    """
+    from ai_engineering.state.models import OwnershipEntry, OwnershipMap
+
+    entries: list[OwnershipEntry] = []
+    for row in list_ownership_rows(project_root):
+        pattern = row.get("path_pattern")
+        if not isinstance(pattern, str) or not pattern:
+            continue
+        owners = row.get("owners")
+        first_owner = owners[0] if isinstance(owners, list) and owners else None
+        severity = row.get("severity")
+        entries.append(
+            OwnershipEntry(
+                pattern=pattern,
+                owner=_ownership_level(first_owner),
+                framework_update=_framework_update_policy(
+                    severity if isinstance(severity, str) else None
+                ),
+            )
+        )
+    return OwnershipMap(paths=entries)
+
+
 __all__ = [
     "STATE_DB_REL",
     "connect",
     "list_decisions",
     "list_full_decisions",
+    "list_ownership_rows",
+    "load_ownership_map",
     "projection_write",
     "state_db_path",
     "upsert_decision_rows",

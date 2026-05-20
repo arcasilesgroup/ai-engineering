@@ -10,7 +10,9 @@ import pytest
 
 from ai_engineering.config.manifest import RootEntryPointConfig, RootEntryPointSyncConfig
 from ai_engineering.state.models import OwnershipMap
+from ai_engineering.state.state_db import upsert_ownership_rows_raw
 from ai_engineering.updater.service import (
+    _evaluate_file_change,
     _initialize_update_context,
     _merge_missing_ownership_rules,
     _migrate_legacy_dirs,
@@ -152,6 +154,39 @@ class TestInitializeUpdateContext:
 
         assert providers is None
 
+    def test_dry_run_loads_sqlite_ownership_without_json_sidecar(self, tmp_path: Path) -> None:
+        _write_minimal_manifest(tmp_path)
+        upsert_ownership_rows_raw(
+            tmp_path,
+            [
+                {
+                    "path_pattern": "custom/**",
+                    "owners": ["team-managed"],
+                    "severity": "deny",
+                    "reviewers": [],
+                }
+            ],
+        )
+
+        _ai_eng_dir, ownership_path, ownership, _rules_added, _vcs_provider, _providers = (
+            _initialize_update_context(tmp_path, dry_run=True)
+        )
+        src = tmp_path / "template" / "custom.md"
+        src.parent.mkdir()
+        src.write_text("framework template\n", encoding="utf-8")
+
+        change = _evaluate_file_change(
+            src,
+            tmp_path / "custom" / "example.md",
+            "custom/example.md",
+            ownership,
+        )
+
+        assert not ownership_path.exists()
+        assert ownership.has_deny_rule("custom/example.md") is True
+        assert change.action == "skip-denied"
+        assert change.reason_code == "team-managed-create-protected"
+
     def test_dry_run_does_not_migrate_legacy_hooks(self, tmp_path: Path) -> None:
         _write_minimal_manifest(tmp_path)
 
@@ -174,7 +209,10 @@ class TestInitializeUpdateContext:
         with (
             patch("ai_engineering.updater.service._evaluate_governance_files", return_value=[]),
             patch("ai_engineering.updater.service._evaluate_project_files", return_value=[]),
-            patch("ai_engineering.updater.service.write_json_model", side_effect=OSError("boom")),
+            patch(
+                "ai_engineering.updater.service.upsert_ownership_rows",
+                side_effect=OSError("boom"),
+            ),
             pytest.raises(OSError, match="boom"),
         ):
             update(tmp_path, dry_run=False)

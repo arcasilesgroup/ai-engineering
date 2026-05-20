@@ -49,10 +49,10 @@ within that tier to exactly one canonical file.
 
 ### Tier 2 — SQLite `state.db`
 
-- **Canonical for:** stateful lifecycle data — decisions
-  (`D-NNN-NN` records), risk acceptances, gate findings, install
-  steps, ownership map. Anything that needs UPDATE / DELETE / FTS
-  semantics.
+- **Canonical for:** cold-path lifecycle rows that need indexed
+  UPDATE / DELETE / FTS semantics, plus explicitly named derived
+  caches and transitional placeholders. The database is not one
+  uniform replay projection; every table declares its role below.
 - **File pattern:** `.ai-engineering/state/state.db` (single STRICT
   SQLite file; schema in
   [`src/ai_engineering/state/migrations/0001_initial_schema.py:27-217`](../src/ai_engineering/state/migrations/0001_initial_schema.py#L27-L217)).
@@ -60,8 +60,8 @@ within that tier to exactly one canonical file.
   hot-path hooks (PreToolUse / PostToolUse / UserPromptSubmit /
   SubagentStop / Notification).
 - **Read pattern:** indexed SQL via `ai-eng audit query`,
-  `ai-eng decision list`, `ai-eng risk list`. The seven STRICT
-  tables map one-to-one to a named consumer surface.
+  `ai-eng decision list`, `ai-eng risk list`, `ai-eng update`, and
+  installer/doctor diagnostics.
 - **Write trigger:** spec approval (`/ai-brainstorm`, `/ai-plan`),
   CLI commands (`ai-eng decision backfill`, `ai-eng ownership
   import`, `ai-eng risk accept`), installer phases (cold path), and
@@ -70,6 +70,16 @@ within that tier to exactly one canonical file.
 - **Hot-path status:** no — cold-path-only. The contract test
   `tests/architecture/test_no_sql_on_hot_path.py` (spec-138 M4)
   enforces that no hot-path hook imports `sqlite3`.
+
+| Table | Role | Source of truth / primary writer | Primary consumers |
+|-------|------|----------------------------------|-------------------|
+| `events` | derived cache | `.ai-engineering/state/framework-events.ndjson`; rebuilt by `ai-eng audit index --rebuild` and SessionEnd incremental indexing | `ai-eng audit query`, `ai-eng audit tokens` |
+| `decisions` | mixed lifecycle/cache | CLI risk/flow decisions are lifecycle rows; ADR-style `D-NNN-NN` rows are backfilled from spec markdown/CHANGELOG | `ai-eng decision list`, risk lifecycle commands, `/ai-explain` decision lookup |
+| `decisions_fts` | derived cache | SQLite FTS5 triggers over `decisions` | decision search |
+| `risk_acceptances` | canonical lifecycle | risk lifecycle commands and release-gate flows | release/risk gates |
+| `gate_findings` | transitional placeholder | schema placeholder only in this spec | not primary; gate/risk/verify use `gate-findings.json` |
+| `ownership_map` | canonical lifecycle | installer state phase, `ai-eng ownership import`, and one-time legacy `ownership-map.json` fallback migration | `ai-eng update` reads this table before file evaluation; doctor/ownership diagnostics inspect it |
+| `install_steps` | canonical lifecycle | installer phase outcomes | `ai-eng doctor --check state-db`, install idempotence checks |
 
 ### Tier 3 — JSON / YAML configuration
 
@@ -82,8 +92,9 @@ within that tier to exactly one canonical file.
   - `.ai-engineering/state/hooks-manifest.json` — pinned sha256
     digests of every hook script for `run_hook_safe` integrity
     verification.
-  - `.ai-engineering/state/gate-findings.json` — `/ai-pr`
-    code-review surface (when emitted by the review agent).
+  - `.ai-engineering/state/gate-findings.json` — primary
+    gate/risk/verify artifact for this spec; emitted by gate/review
+    orchestration and read by verify/risk surfaces.
   - `.ai-engineering/suppression-allowlist.yml` — Article VII
     suppression exceptions (governed by `tools/no_suppression/`).
 - **Write SLA:** human-typed plus tooling-validated; no perf budget.
@@ -132,10 +143,37 @@ audit, gate, or compliance claim.
 | Cache name                     | Source-of-truth                                                                | Rebuild command                          | Freshness contract                                                                                          |
 |--------------------------------|--------------------------------------------------------------------------------|------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | `state.db.events`              | `.ai-engineering/state/framework-events.ndjson` (Tier 1)                       | `ai-eng audit index --rebuild` (cold path only — incremental at SessionEnd, full on operator demand) | Rebuilt at SessionEnd (5-second budget) via `build_index(project_root, rebuild=False)`; operators MAY re-run on demand. Drift acceptable until next rebuild. Hot-path code MUST NOT write directly — enforced by `tests/architecture/test_no_sql_on_hot_path.py`. Incremental indexing via `indexed_lines.last_offset` keeps the SessionEnd budget under 5 s; on-demand `--rebuild` truncates and re-reads from offset 0. |
-| `state.db.decisions_fts`       | `state.db.decisions` (Tier 2) — itself populated from spec markdown (Tier 4)   | SQLite FTS5 triggers (auto on INSERT)    | Triggered on every `decisions` INSERT / UPDATE; never out of sync intra-process.                            |
-| `state.db.ownership_map`       | `.github/CODEOWNERS` or operator-provided `ownership-map.json` (Tier 3 / 4)    | `ai-eng ownership import`                | Rebuilt on operator demand; CODEOWNERS edits do not auto-propagate.                                         |
-| `state.db.decisions`           | `.ai-engineering/specs/*.md` + `CHANGELOG.md` (Tier 4)                         | `ai-eng decision backfill`               | Rebuilt on operator demand and on `/ai-brainstorm` approval (M3 follow-up).                                 |
+| `state.db.decisions_fts`       | `state.db.decisions` (Tier 2)                                                  | SQLite FTS5 triggers (auto on INSERT)    | Triggered on every `decisions` INSERT / UPDATE; never out of sync intra-process.                            |
+| `state.db.decisions` (ADR rows only) | `.ai-engineering/specs/*.md` + `CHANGELOG.md` (Tier 4)                   | `ai-eng decision backfill`               | Rebuilt on operator demand and on `/ai-brainstorm` approval (M3 follow-up). Risk/flow decision rows written by CLI remain lifecycle rows, not rebuildable from specs. |
 | `state.db.install_steps`       | Installer phase outcomes (process state, not on disk)                          | Re-run `ai-eng install` (idempotent)     | Populated on install; stale after manual filesystem surgery.                                                |
+
+`state.db.ownership_map` is not a derived cache in spec-146. It is the
+canonical update-decision table; `ai-eng update` reads this table before
+evaluating create/update actions. A one-time legacy `ownership-map.json`
+fallback may seed the table only when SQLite has no rows.
+
+`state.db.gate_findings` is a non-primary placeholder/transitional
+table in this spec. `.ai-engineering/state/gate-findings.json` remains
+the primary gate/risk/verify artifact until a later approved migration
+moves every producer and consumer.
+
+## Bounded operational caches
+
+`.ai-engineering/cache/gate/` is a bounded performance cache for
+`ai-eng gate run`, not a canonical state-plane datum and not a deletion
+target for `.ai-engineering/state/` cleanup. Entries are JSON files
+keyed by gate-check inputs (tool version, relevant config hashes,
+arguments, and staged blob SHAs); cache hits only skip recomputation,
+they do not become audit or compliance witnesses.
+
+- **Bounds:** entries expire after the existing 24-hour freshness
+  window and writes prune the directory to 256 JSON entries.
+- **Inspect:** `ai-eng gate cache --status`.
+- **Clear:** `ai-eng gate cache --clear --yes` for a full wipe, or
+  `ai-eng gate run --force` to clear matching entries before a fresh
+  run.
+- **State boundary:** old `.ai-engineering/state/gate-cache/` remains
+  forbidden; the live cache belongs under `.ai-engineering/cache/gate/`.
 
 ## Strict rules
 

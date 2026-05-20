@@ -5,7 +5,6 @@
 .ai-engineering/overrides/
 .ai-engineering/policies/
 .ai-engineering/reference/
-.ai-engineering/references/
 .ai-engineering/runbooks/
 .ai-engineering/scripts/
 .ai-engineering/security/

@@ -17,11 +17,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 
 from ai_engineering.installer.service import install
+from ai_engineering.state.state_db import upsert_ownership_rows_raw
 from ai_engineering.updater.service import FileChange, UpdateResult, update
 
 
@@ -166,6 +168,54 @@ class TestOwnershipSafety:
         assert promoted.read_text(encoding="utf-8") == original
         updated = [c for c in result.changes if c.path == promoted and c.action == "update"]
         assert len(updated) == 1
+
+    def test_sqlite_deny_rule_blocks_missing_file_creation(
+        self,
+        installed_project: Path,
+        tmp_path: Path,
+    ) -> None:
+        template_root = tmp_path / "templates"
+        template_root.mkdir()
+        (template_root / "custom.md").write_text("framework template\n", encoding="utf-8")
+        upsert_ownership_rows_raw(
+            installed_project,
+            [
+                {
+                    "path_pattern": "custom.md",
+                    "owners": ["team-managed"],
+                    "severity": "deny",
+                    "reviewers": [],
+                }
+            ],
+        )
+        target = installed_project / "custom.md"
+        target.unlink(missing_ok=True)
+        template_maps = SimpleNamespace(
+            file_map={"custom.md": "custom.md"},
+            common_file_map={},
+            tree_list=[],
+            common_tree_list=[],
+            vcs_tree_list=[],
+        )
+
+        with (
+            patch("ai_engineering.updater.service._evaluate_governance_files", return_value=[]),
+            patch(
+                "ai_engineering.updater.service.get_project_template_root",
+                return_value=template_root,
+            ),
+            patch(
+                "ai_engineering.updater.service.resolve_template_maps",
+                return_value=template_maps,
+            ),
+        ):
+            result = update(installed_project, dry_run=False)
+
+        denied = [change for change in result.changes if change.path == target]
+        assert not target.exists()
+        assert len(denied) == 1
+        assert denied[0].action == "skip-denied"
+        assert denied[0].reason_code == "team-managed-create-protected"
 
 
 # ---------------------------------------------------------------------------

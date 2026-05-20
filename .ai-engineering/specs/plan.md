@@ -1,451 +1,319 @@
 ---
-spec: spec-144
-title: README Rewrite and Branch Cleanup Rename
-status: draft
+spec: spec-146
+title: Framework Simplification — Less is More
+status: approved
 pipeline: autopilot
 phases: 6
-total: 35
-completed: 0
+total: 38
+completed: 38
 execution_route:
   version: 1
-  spec: spec-144
+  spec: spec-146
   executor: autopilot
   automation: hitl
   concern_count: 6
-  estimated_files: 35
-  reason: "Plan status 'draft' is not approved; recommendation only. 6 independent concerns meets the /ai-autopilot threshold of 3."
+  estimated_files: 45
+  reason: "Plan status 'approved'; 6 independent concerns meets the /ai-autopilot threshold of 3."
   safe_next_command: "/ai-autopilot"
 ---
 
-# Plan — spec-144 README Rewrite and Branch Cleanup Rename
+# Plan — spec-146 Framework Simplification — Less is More
 
-## Design
+## Design Routing
 
-Design intent captured at `.ai-engineering/specs/spec-144-design-intent.md` (auto-routed from `/ai-plan` because matched keywords: design system, ui, ux, typography, layout, interface).
+design-routing: skipped (no UI/frontend semantics; substring hits were false positives from `autoformat` and generic prose: `form`, `ui`). No design-intent artifact is required.
 
 ## Architecture
 
-**Pattern:** Ports and Adapters.
+**Pattern:** Hexagonal Architecture / Ports and Adapters.
 
-**Why:** The rename is a port-label change: canonical `.claude/skills/ai-branch-cleanup/` is the port surface, while `.codex/`, `.gemini/`, `.github/`, `.cursor/`, `.opencode/`, `.agent/`, and installer templates are adapters regenerated or verified from the canonical source. The README work follows the same shape: `.ai-engineering/README.md` is the Tier 4 narrative source, `src/ai_engineering/templates/.ai-engineering/README.md` is the install adapter, and tests enforce the adapter stays byte-identical.
+**Why:** The spec separates domain policy decisions from adapters: ownership matching remains the domain contract, `state_db` is the SQLite lifecycle adapter, updater/service is a CLI/file-system adapter, hook sidecars are runtime adapters, and JSON/Markdown persistence surfaces retain explicit ownership. This pattern lets the plan fix the concrete ownership bug first without spreading SQLite reads into hot-path hooks or turning every cleanup into a new abstraction.
 
-**Pipeline classification:** autopilot route. The spec touches more than five files, crosses docs/tests/config/skill/template surfaces, includes a hard rename, and decomposes into six independent concerns. It therefore records `execution_route.executor: autopilot` and stops for operator approval; the plan remains `status: draft` until explicitly approved.
+**Pipeline classification:** autopilot route. The work spans six independent concerns and at least forty-five files across Python source, tests, hook scripts, templates, generated mirrors, `.ai-engineering/` state/reference files, and CHANGELOG. The approved plan was executed through `/ai-autopilot` on the existing branch and PR.
 
 ## Gate Strategy
 
-- Section preflight already passed: `rtk ai-eng spec verify --sections .ai-engineering/specs/spec.md`.
-- Executor route is `autopilot` because six concerns / 35 estimated files exceed the route thresholds; `/ai-plan` does not execute it.
-- RED/GREEN pairs are explicit for brand contract, README parity, README content, rename guards, and changelog entries.
-- Generated mirrors are not hand-edited except when a generator misses a non-generated template; canonical `.claude/` edits precede `rtk ai-eng dev sync`.
-- Historical `.ai-engineering/state/framework-events.ndjson`, `.ai-engineering/state/state.db`, archived specs, and prior CHANGELOG sections are read-only except for one new append-only rename audit event.
+- Section preflight passed for `.ai-engineering/specs/spec.md` after approval.
+- Plan status is `approved`; `/ai-autopilot` executed the approved task DAG and all 38 tasks are complete.
+- RED/GREEN pairs precede each implementation wave per §10.5 TDD.
+- Hook and state changes must run the targeted unit/integration tests before broader verification.
+- Mirror or template edits must be followed by `ai-eng dev sync` and `ai-eng dev sync --check` when the edited surface participates in generated mirrors.
+- Historical audit files and archived specs remain read-only except for new append-only `framework_operation` telemetry emitted by tools.
 
-## Phase 1: Brand Voice Contract
+## Phase 1: Ownership Read Path and Update Bug Fix
 
-- [ ] T-1.1 — RED: add brand-voice contract test
+- [x] T-1.1 — RED: add state-db ownership reader contract tests
   - Agent: build
-  - Files: tests/unit/docs/test_brand_voice_contract.py:new
-  - Principles applied: §10.5 TDD, §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic):
-    ```diff
-    --- /dev/null
-    +++ b/tests/unit/docs/test_brand_voice_contract.py
-    @@
-    +from pathlib import Path
-    +
-    +ROOT = Path(__file__).resolve().parents[3]
-    +BRAND = ROOT / ".ai-engineering" / "reference" / "brand-voice.md"
-    +
-    +
-    +def test_brand_voice_reference_exists_and_cites_design_sources() -> None:
-    +    text = BRAND.read_text(encoding="utf-8")
-    +    for needle in ("docs/design.pen:", "docs/untitled.pen:"):
-    +        assert needle in text
-    +
-    +
-    +def test_brand_voice_declares_terminal_native_rules() -> None:
-    +    text = BRAND.read_text(encoding="utf-8")
-    +    for needle in (
-    +        "{ai} engineering",
-    +        "mid-dot stat line",
-    +        "[PASS]",
-    +        "[WARN]",
-    +        "[FAIL]",
-    +        "no emoji",
-    +        "bash fences",
-    +        "yaml fences",
-    +    ):
-    +        assert needle in text
-    ```
-  - Gate: `rtk pytest tests/unit/docs/test_brand_voice_contract.py -q` fails before the reference exists.
+  - Files: tests/unit/state/test_ownership_state_db_read.py:new; src/ai_engineering/state/state_db.py:257
+  - Principles applied: §10.5 TDD, §10.8 Hexagonal Architecture
+  - Patch (deterministic): create tests that upsert raw and model ownership rows, then assert `list_ownership_rows(project_root)` returns ordered dict rows with `path_pattern`, decoded owners/reviewers, `severity`, and timestamps without requiring `ownership-map.json`.
+  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py -q` fails before readers exist.
 
-- [ ] T-1.2 — GREEN: create prose brand voice source of truth
+- [x] T-1.2 — GREEN: implement raw ownership row reader
   - Agent: build
-  - Files: .ai-engineering/reference/brand-voice.md:new
-  - Principles applied: §10.1 KISS, §10.4 DRY, §10.6 SDD
-  - Patch (deterministic): prose synthesis required from `.ai-engineering/specs/spec.md` and `.ai-engineering/specs/spec-144-design-intent.md`; no fixed hunk because the document is authored content, not a mechanical replacement.
-  - Gate: `rtk pytest tests/unit/docs/test_brand_voice_contract.py -q` passes.
+  - Files: src/ai_engineering/state/state_db.py:638; src/ai_engineering/state/state_db.py:709
+  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
+  - Patch (deterministic): add `list_ownership_rows(project_root: Path) -> list[dict[str, object]]`, decode `owners_json` and `reviewers_json`, return `[]` on missing table, and export it in `__all__`.
+  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py -q` reaches mapper-specific failures only.
 
-- [ ] T-1.3 — VERIFY: ensure brand reference contains no anonymous-content violations
-  - Agent: verify
-  - Files: .ai-engineering/reference/brand-voice.md:new; tests/docs/test_links.py:79
+- [x] T-1.3 — RED: add OwnershipMap reconstruction tests
+  - Agent: build
+  - Files: tests/unit/state/test_ownership_state_db_read.py:1; tools/skill_domain/state_models.py:115
+  - Principles applied: §10.5 TDD, §10.3 SOLID
+  - Patch (deterministic): extend the reader tests to assert `load_ownership_map(project_root)` reconstructs `OwnershipMap.paths` with `OwnershipLevel` and `FrameworkUpdatePolicy` values for allow, deny, team-managed, and append-only rows; assert first-match order is stable.
+  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py -q` fails until the high-level mapper exists.
+
+- [x] T-1.4 — GREEN: implement updater-ready ownership mapper
+  - Agent: build
+  - Files: src/ai_engineering/state/state_db.py:638; src/ai_engineering/state/defaults.py:70
+  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
+  - Patch (deterministic): add `load_ownership_map(project_root: Path) -> OwnershipMap` or equivalent mapper next to the raw reader, mapping the first owner to `OwnershipEntry.owner`, mapping `severity` to `frameworkUpdate`, preserving table order, and returning an empty `OwnershipMap()` when no rows exist.
+  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py -q` passes.
+
+- [x] T-1.5 — RED: prove updater ignores absent JSON and honors SQLite deny rules
+  - Agent: build
+  - Files: tests/unit/test_updater.py:147; src/ai_engineering/updater/service.py:395
   - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `rtk pytest tests/docs/test_links.py::test_readme_minimal tests/unit/docs/test_brand_voice_contract.py -q` passes with no `/Users/`, `/home/<name>/`, or conversational PII patterns.
+  - Patch (deterministic): add a test project with `.ai-engineering/state/state.db` ownership rows, no `ownership-map.json`, and a deny/team rule for a missing template path; assert `_initialize_update_context(..., dry_run=True)` loads the rule and `_evaluate_file_change(...)` returns `skip-denied` for the missing path.
+  - Gate: `rtk .venv/bin/pytest tests/unit/test_updater.py::TestInitializeUpdateContext -q` fails before updater reads SQLite.
 
-## Phase 2: README Contracts and Rewrite
-
-- [ ] T-2.1 — RED: add governance README/template parity test
+- [x] T-1.6 — GREEN: load SQLite ownership before updater evaluation
   - Agent: build
-  - Files: tests/unit/docs/test_governance_readme_template_parity.py:new
-  - Principles applied: §10.4 DRY, §10.5 TDD
-  - Patch (deterministic):
-    ```diff
-    --- /dev/null
-    +++ b/tests/unit/docs/test_governance_readme_template_parity.py
-    @@
-    +from pathlib import Path
-    +
-    +ROOT = Path(__file__).resolve().parents[3]
-    +LIVE = ROOT / ".ai-engineering" / "README.md"
-    +TEMPLATE = ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "README.md"
-    +
-    +
-    +def test_governance_readme_template_is_byte_identical() -> None:
-    +    assert LIVE.exists(), f"missing live governance README: {LIVE}"
-    +    assert TEMPLATE.exists(), f"missing template governance README: {TEMPLATE}"
-    +    assert LIVE.read_bytes().replace(b"\r\n", b"\n") == TEMPLATE.read_bytes().replace(b"\r\n", b"\n")
-    ```
-  - Gate: `rtk pytest tests/unit/docs/test_governance_readme_template_parity.py -q` passes today or fails with clear drift after rewrite-only edits.
+  - Files: src/ai_engineering/updater/service.py:395; src/ai_engineering/state/state_db.py:638
+  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
+  - Patch (deterministic): replace the normal `ownership-map.json` read in `_initialize_update_context` with the new SQLite mapper; keep a one-time JSON fallback only when SQLite returns zero rows and the sidecar exists, then upsert those fallback rows and remove the sidecar on non-dry-run.
+  - Gate: `rtk .venv/bin/pytest tests/unit/test_updater.py::TestInitializeUpdateContext tests/unit/state/test_ownership_state_db_read.py -q` passes.
 
-- [ ] T-2.2 — RED: add README content contract tests
+- [x] T-1.7 — RED/GREEN: add operator integration scenario for denied missing file
   - Agent: build
-  - Files: tests/unit/docs/test_readme_brand_contract.py:new
+  - Files: tests/integration/test_updater.py:1; src/ai_engineering/updater/service.py:848
   - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic):
-    ```diff
-    --- /dev/null
-    +++ b/tests/unit/docs/test_readme_brand_contract.py
-    @@
-    +from pathlib import Path
-    +
-    +ROOT = Path(__file__).resolve().parents[3]
-    +
-    +
-    +def test_root_readme_declares_current_surfaces_and_brand() -> None:
-    +    text = (ROOT / "README.md").read_text(encoding="utf-8")
-    +    assert "Antigravity" not in text
-    +    for surface in ("Claude Code", "GitHub Copilot", "OpenAI Codex", "Gemini CLI", "OpenCode", "Cursor"):
-    +        assert surface in text
-    +    assert "{ai} engineering" in text
-    +    assert "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr" in text
-    +    assert len(text.splitlines()) <= 120
-    +
-    +
-    +def test_governance_readme_has_inline_quick_start_and_no_deleted_link() -> None:
-    +    text = (ROOT / ".ai-engineering" / "README.md").read_text(encoding="utf-8")
-    +    assert "GETTING_STARTED.md" not in text
-    +    assert "## Quick Start" in text
-    +    assert "ai-eng install" in text
-    +    assert "/ai-start" in text
-    +    assert "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr" in text
-    ```
-  - Gate: `rtk pytest tests/unit/docs/test_readme_brand_contract.py -q` fails before README rewrite.
+  - Patch (deterministic): add an integration test that installs/minimally bootstraps a project, writes a deny/team ownership row for a template-managed path, ensures the destination file is absent, runs `update(..., dry_run=True)`, and asserts the result reports `skip-denied` and the file remains absent.
+  - Gate: `rtk .venv/bin/pytest tests/integration/test_updater.py tests/unit/test_updater.py tests/unit/state/test_ownership_state_db_read.py -q` passes.
 
-- [ ] T-2.3 — GREEN: rewrite root README hero and install block
+## Phase 2: Persistence Doctrine and Gate-Findings Canonicality
+
+- [x] T-2.1 — RED: add persistence classification tests
   - Agent: build
-  - Files: README.md:1
-  - Principles applied: §10.1 KISS, §10.7 Clean Code
-  - Patch (deterministic): authored replacement of the top section only; preserve existing banner/badge block, then add the approved tagline, a copyable `ai-eng install` command, and the mid-dot stat line.
-  - Gate: `rtk python - <<'PY'\nfrom pathlib import Path\ntext=Path('README.md').read_text(); assert '{ai} engineering' in text; assert 'ai-eng install' in text; assert len(text.splitlines()) <= 120\nPY` passes.
+  - Files: tests/unit/specs/test_persistence_doctrine_contract.py:new; docs/persistence-doctrine.md:50; src/ai_engineering/state/state_db.py:1
+  - Principles applied: §10.5 TDD, §10.6 SDD
+  - Patch (deterministic): create tests asserting `state_db.py` no longer calls the entire DB a replayable derived projection, `docs/persistence-doctrine.md` classifies lifecycle tables table-by-table, and `gate-findings.json` remains the named JSON artifact for gate/risk/verify in this spec.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_persistence_doctrine_contract.py -q` fails on current docstring/doctrine drift.
 
-- [ ] T-2.4 — GREEN: rewrite root README chain, surfaces, and attribution
+- [x] T-2.2 — GREEN: correct `state_db.py` module contract
   - Agent: build
-  - Files: README.md:35
-  - Principles applied: §10.4 DRY, §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): authored replacement of the middle/end sections; include `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`, all six enabled surfaces, required links, and preserve the “Standing on the shoulders of …” attribution table.
-  - Gate: `rtk pytest tests/docs/test_links.py::test_readme_minimal tests/unit/docs/test_readme_brand_contract.py::test_root_readme_declares_current_surfaces_and_brand -q` passes.
+  - Files: src/ai_engineering/state/state_db.py:1
+  - Principles applied: §10.7 Clean Code, §10.8 Hexagonal Architecture
+  - Patch (deterministic): rewrite the module docstring so `state.db` is described as a mixed lifecycle database with named derived projections; keep `state.db.events` as NDJSON-derived and `gate_findings` as non-primary placeholder/transitional state.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_persistence_doctrine_contract.py -q` advances to docs failures only.
 
-- [ ] T-2.5 — GREEN: rewrite governance README header and Quick Start
+- [x] T-2.3 — GREEN: reconcile persistence doctrine table entries
   - Agent: build
-  - Files: .ai-engineering/README.md:1
-  - Principles applied: §10.1 KISS, §10.6 SDD
-  - Patch (deterministic): authored replacement of the top section; remove `GETTING_STARTED.md`, add `## Quick Start`, `ai-eng install`, `/ai-start`, and the canonical chain.
-  - Gate: `rtk pytest tests/unit/docs/test_readme_brand_contract.py::test_governance_readme_has_inline_quick_start_and_no_deleted_link -q` passes.
+  - Files: docs/persistence-doctrine.md:50; docs/persistence-doctrine.md:132; tests/unit/specs/test_state_canonical.py:1
+  - Principles applied: §10.4 DRY, §10.6 SDD
+  - Patch (deterministic): update Tier 2 and Derived Caches sections to distinguish canonical lifecycle tables, derived caches, and transitional placeholders; ensure `state.db.ownership_map` is not described as rebuildable only from a deleted sidecar and gate findings are documented as JSON-primary for this spec.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_persistence_doctrine_contract.py tests/unit/specs/test_state_canonical.py -q` passes.
 
-- [ ] T-2.6 — GREEN: rewrite governance README doctrine and sync map
+- [x] T-2.4 — RED/GREEN: pin gate-findings JSON consumers
   - Agent: build
-  - Files: .ai-engineering/README.md:40
-  - Principles applied: §10.4 DRY, §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): authored replacement of persistence, runbook, skill-chain, and sync sections; cite `docs/persistence-doctrine.md`; replace stale `ai-eng sync` mentions with `ai-eng dev sync`.
-  - Gate: `rtk rg -n "GETTING_STARTED.md|ai-eng sync( |$)" .ai-engineering/README.md` returns no hits.
+  - Files: tests/unit/test_gate_findings_schema.py:1; tests/integration/test_gate_findings_persisted.py:1; src/ai_engineering/verify/service.py:45; src/ai_engineering/cli_commands/risk_cmd.py:351
+  - Principles applied: §10.5 TDD, §10.6 SDD
+  - Patch (deterministic): add or extend tests that fail if `verify`, `risk`, `gate`, or orchestrator paths switch to `state.db.gate_findings` without an explicit later migration spec.
+  - Gate: `rtk .venv/bin/pytest tests/unit/test_gate_findings_schema.py tests/integration/test_gate_findings_persisted.py tests/integration/test_risk_accept_all_e2e.py -q` passes.
 
-- [ ] T-2.7 — GREEN: copy governance README to installer template
-  - Agent: build
-  - Files: src/ai_engineering/templates/.ai-engineering/README.md:1
-  - Principles applied: §10.4 DRY, §10.8 Hexagonal Architecture
-  - Patch (deterministic): `rtk cp .ai-engineering/README.md src/ai_engineering/templates/.ai-engineering/README.md`.
-  - Gate: `rtk pytest tests/unit/docs/test_governance_readme_template_parity.py -q` passes.
-
-- [ ] T-2.8 — VERIFY: preserve team README placeholder
+- [x] T-2.5 — VERIFY: persistence hot-path guard remains green
   - Agent: verify
-  - Files: .ai-engineering/team/README.md:1
-  - Principles applied: §10.1 KISS, §10.2 YAGNI
-  - Patch (deterministic): read-only verification; if no defect is found, leave the file unchanged.
-  - Gate: `rtk proxy bash -lc 'test "$(wc -l < .ai-engineering/team/README.md | tr -d " ")" = "4"'` passes.
+  - Files: tests/architecture/test_no_sql_on_hot_path.py:1; src/ai_engineering/state/state_db.py:1
+  - Principles applied: §10.5 TDD, §10.8 Hexagonal Architecture
+  - Patch (deterministic): read-only verification; do not edit production files in this task.
+  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_sql_on_hot_path.py tests/unit/specs/test_persistence_doctrine_contract.py -q` passes.
 
-- [ ] T-2.9 — VERIFY: run README/documentation slice
-  - Agent: verify
-  - Files: README.md:1; .ai-engineering/README.md:1; src/ai_engineering/templates/.ai-engineering/README.md:1; tests/docs/test_links.py:203
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `rtk pytest tests/docs/test_links.py tests/unit/docs/test_brand_voice_contract.py tests/unit/docs/test_readme_brand_contract.py tests/unit/docs/test_governance_readme_template_parity.py -q` passes.
+## Phase 3: `.ai-engineering/` Data-Tree Cleanup
 
-## Phase 3: Canonical Skill Rename
-
-- [ ] T-3.1 — RED: update canonical naming guard for new skill slug
+- [x] T-3.1 — RED: add IOC attribution single-home contract
   - Agent: build
-  - Files: tests/architecture/test_naming_clarity.py:40
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic):
-    ```diff
-    --- a/tests/architecture/test_naming_clarity.py
-    +++ b/tests/architecture/test_naming_clarity.py
-    @@
-     _DEPRECATED_SKILLS: tuple[str, ...] = (
-    @@
-         "ai-write",
-         "ai-prompt",
-    +    "ai-repo-tidy",
-     )
-    @@
-    -    "ai-repo-tidy",
-    +    "ai-branch-cleanup",
-    ```
-  - Gate: `rtk pytest tests/architecture/test_naming_clarity.py -q` fails before the directory rename.
+  - Files: tests/integration/test_sentinel_runtime_iocs.py:36; tests/unit/skills/test_ioc_attribution_references.py:new; .claude/skills/ai-mcp-audit/SKILL.md:118
+  - Principles applied: §10.4 DRY, §10.5 TDD
+  - Patch (deterministic): add a test asserting active skills and templates reference `.ai-engineering/security/iocs/IOCS_ATTRIBUTION.md`, not `.ai-engineering/references/IOCS_ATTRIBUTION.md`, and that the duplicate references copy is absent after migration.
+  - Gate: `rtk .venv/bin/pytest tests/integration/test_sentinel_runtime_iocs.py tests/unit/skills/test_ioc_attribution_references.py -q` fails before references are updated.
 
-- [ ] T-3.2 — RED: retarget cleanup/consolidation tests to `/ai-branch-cleanup`
+- [x] T-3.2 — GREEN: move IOC attribution references to the security/iocs home
   - Agent: build
-  - Files: tests/unit/test_cleanup_history_rotation.py:1; tests/unit/test_consolidate_spec_action.py:1
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): replace active `ai-repo-tidy` paths/caller names with `ai-branch-cleanup`; keep historical spec IDs unchanged.
-  - Gate: `rtk pytest tests/unit/test_cleanup_history_rotation.py tests/unit/test_consolidate_spec_action.py -q` fails before canonical rename.
-
-- [ ] T-3.3 — GREEN: rename canonical `.claude` skill directory and self-references
-  - Agent: build
-  - Files: .claude/skills/ai-repo-tidy/SKILL.md:1 -> .claude/skills/ai-branch-cleanup/SKILL.md:1
-  - Principles applied: §10.1 KISS, §10.2 YAGNI, §10.8 Hexagonal Architecture
-  - Patch (deterministic):
-    ```diff
-    git mv .claude/skills/ai-repo-tidy .claude/skills/ai-branch-cleanup
-    --- a/.claude/skills/ai-branch-cleanup/SKILL.md
-    +++ b/.claude/skills/ai-branch-cleanup/SKILL.md
-    @@
-    -name: ai-repo-tidy
-    +name: ai-branch-cleanup
-    @@
-    -# Repo Tidy
-    +# Branch Cleanup
-    ```
-    Then replace every active `/ai-repo-tidy` occurrence in that file with `/ai-branch-cleanup`.
-  - Gate: `rtk pytest tests/architecture/test_naming_clarity.py tests/unit/test_cleanup_history_rotation.py -q` passes for `.claude` canonical path.
-
-- [ ] T-3.4 — GREEN: update canonical sibling skill references
-  - Agent: build
-  - Files: .claude/skills/ai-commit/SKILL.md:3; .claude/skills/ai-resolve-conflicts/SKILL.md:3; .claude/skills/ai-autopilot/SKILL.md:84; .claude/skills/ai-pr/SKILL.md:104; .claude/skills/ai-pr/handlers/watch.md:22; .claude/skills/ai-simplify-sweep/SKILL.md:114; .claude/skills/ai-start/SKILL.md:124; .claude/skills/_shared/consolidate-spec.md:5
+  - Files: .claude/skills/ai-mcp-audit/SKILL.md:118; .codex/skills/ai-mcp-audit/SKILL.md:123; .gemini/skills/ai-mcp-audit/SKILL.md:123; .github/skills/ai-mcp-audit/SKILL.md:124; src/ai_engineering/templates/.ai-engineering/references/IOCS_ATTRIBUTION.md:1; .ai-engineering/references/IOCS_ATTRIBUTION.md:1
   - Principles applied: §10.4 DRY, §10.7 Clean Code
-  - Patch (deterministic): replace active `/ai-repo-tidy` and `ai-repo-tidy` caller references with `/ai-branch-cleanup` and `ai-branch-cleanup`.
-  - Gate: `rtk rg --hidden -n "ai-repo-tidy" .claude/skills` returns no active hits.
+  - Patch (deterministic): update canonical skill source to the security path, run mirror sync, remove the byte-identical `.ai-engineering/references/IOCS_ATTRIBUTION.md` and template duplicate, and add the security/iocs attribution file to any installer template path that still needs it.
+  - Gate: `rtk .venv/bin/pytest tests/integration/test_sentinel_runtime_iocs.py tests/unit/skills/test_ioc_attribution_references.py -q` passes and `cmp` no longer has duplicate inputs.
 
-- [ ] T-3.5 — GREEN: update default skill registry key and count comment
+- [x] T-3.3 — RED: add strategic compact runtime-path test
   - Agent: build
-  - Files: src/ai_engineering/config/framework_defaults.py:249
-  - Principles applied: §10.1 KISS, §10.4 DRY
-  - Patch (deterministic):
-    ```diff
-    --- a/src/ai_engineering/config/framework_defaults.py
-    +++ b/src/ai_engineering/config/framework_defaults.py
-    @@
-    -# --- skills registry (48 entries, kept here so /ai-scaffold maintains a single source) ---
-    +# --- skills registry (53 entries, kept here so /ai-scaffold maintains a single source) ---
-    @@
-    -    "ai-repo-tidy": {"type": "delivery", "tags": ["git"]},
-    +    "ai-branch-cleanup": {"type": "delivery", "tags": ["git"]},
-    ```
-  - Gate: `rtk pytest tests/unit/config/test_manifest.py -q` passes.
+  - Files: tests/integration/test_strategic_compact_integration.py:1; .ai-engineering/scripts/hooks/strategic-compact.py:64; tests/unit/specs/test_state_canonical.py:70
+  - Principles applied: §10.5 TDD, §10.8 Hexagonal Architecture
+  - Patch (deterministic): add a test proving `strategic-compact.py` writes `.ai-engineering/runtime/strategic-compact.json` and no longer writes `.ai-engineering/state/strategic-compact.json`.
+  - Gate: `rtk .venv/bin/pytest tests/integration/test_strategic_compact_integration.py tests/unit/specs/test_state_canonical.py -q` fails before the hook path moves.
 
-- [ ] T-3.6 — GREEN: update validator user-facing lifecycle messages
+- [x] T-3.4 — GREEN: move strategic compact sidecar out of state
   - Agent: build
-  - Files: src/ai_engineering/validator/categories/file_existence.py:282; tests/unit/validator/test_history_md_warn.py:1; tests/unit/installer/test_phases.py:155
-  - Principles applied: §10.1 KISS, §10.7 Clean Code
-  - Patch (deterministic): replace active `/ai-repo-tidy` references with `/ai-branch-cleanup` in messages/tests; preserve spec-131 IDs.
-  - Gate: `rtk pytest tests/unit/validator/test_history_md_warn.py tests/unit/installer/test_phases.py -q` passes.
+  - Files: .ai-engineering/scripts/hooks/strategic-compact.py:64; .ai-engineering/state/hooks-manifest.json:77; tests/unit/specs/test_state_canonical.py:70
+  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
+  - Patch (deterministic): change the hook sidecar path to `.ai-engineering/runtime/strategic-compact.json`, remove `strategic-compact.json` from documented state transients, delete the old state file, and regenerate hook manifest hashes.
+  - Gate: `rtk .venv/bin/pytest tests/integration/test_strategic_compact_integration.py tests/unit/specs/test_state_canonical.py -q` passes.
 
-- [ ] T-3.7 — GREEN: update reference docs and template reference copies
+- [x] T-3.5 — RED/GREEN: remove dead `instinct-observations.ndjson` state artifact
   - Agent: build
-  - Files: .ai-engineering/reference/model-dispatch-policy.md:44; .ai-engineering/reference/surface-axioms.md:39; src/ai_engineering/templates/.ai-engineering/reference/model-dispatch-policy.md:44; src/ai_engineering/templates/.ai-engineering/reference/surface-axioms.md:39
-  - Principles applied: §10.4 DRY, §10.8 Hexagonal Architecture
-  - Patch (deterministic): replace active `ai-repo-tidy` with `ai-branch-cleanup` and copy live reference docs to template counterparts if those reference docs are byte-equivalent mirrors.
-  - Gate: `rtk pytest tests/unit/validator/test_mirror_sync_categories.py -q` passes.
+  - Files: tests/unit/specs/test_state_canonical.py:67; src/ai_engineering/state/instincts.py:25; .ai-engineering/state/instinct-observations.ndjson:1
+  - Principles applied: §10.2 YAGNI, §10.7 Clean Code
+  - Patch (deterministic): add a state-canonical assertion that `instinct-observations.ndjson` is forbidden, confirm active code writes `observation-events.ndjson`, then delete the zero-byte legacy file and remove the documented-transient exception.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_state_canonical.py tests/integration/test_framework_hook_emitters.py -q` passes.
 
-- [ ] T-3.8 — GREEN: update session bootstrap live/template footer references
+- [x] T-3.6 — RED/GREEN: merge team lessons into canonical LESSONS.md
   - Agent: build
-  - Files: .ai-engineering/scripts/session_bootstrap.py:1024; src/ai_engineering/templates/.ai-engineering/scripts/session_bootstrap.py:1024; tests/unit/test_session_bootstrap_template_parity.py:1
-  - Principles applied: §10.4 DRY, §10.5 TDD
-  - Patch (deterministic):
-    ```diff
-    --- a/.ai-engineering/scripts/session_bootstrap.py
-    +++ b/.ai-engineering/scripts/session_bootstrap.py
-    @@
-    -        lines.append(f"- {pc} pending — run `/ai-repo-tidy` to review")
-    +        lines.append(f"- {pc} pending — run `/ai-branch-cleanup` to review")
-    @@
-    -    lines.append("`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-repo-tidy` tidy")
-    +    lines.append("`/ai-review` review · `/ai-pr` ship · `/ai-test` verify · `/ai-branch-cleanup` tidy")
-    ```
-    Copy the same bytes to the template script or apply the same hunk there.
-  - Gate: `rtk pytest tests/unit/test_session_bootstrap_template_parity.py tests/unit/scripts/test_session_bootstrap.py -q` passes.
+  - Files: .ai-engineering/team/lessons.md:1; .ai-engineering/LESSONS.md:1; tests/unit/specs/test_lessons_single_home.py:new; src/ai_engineering/installer/phases/governance.py:36
+  - Principles applied: §10.4 DRY, §10.6 SDD
+  - Patch (deterministic): add a preservation test for the two unique headings in `.ai-engineering/team/lessons.md`, append missing content to `.ai-engineering/LESSONS.md` without duplicating existing lessons, remove the team copy, and update installer/governance mappings if they still create the duplicate file.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_lessons_single_home.py tests/e2e/test_install_clean.py -q` passes.
 
-- [ ] T-3.9 — GREEN: update remaining active tests that pin old slug
+- [x] T-3.7 — GREEN: document gate cache as bounded cache, not deletion target
   - Agent: build
-  - Files: tests/perf/test_hot_path_budgets.py:14; tests/mirrors/test_count_parity.py:14
-  - Principles applied: §10.1 KISS, §10.7 Clean Code
-  - Patch (deterministic): replace active expected slug with `ai-branch-cleanup`; leave old CHANGELOG historical entries untouched unless the line lives in `[Unreleased]`.
-  - Gate: `rtk pytest tests/perf/test_hot_path_budgets.py tests/mirrors/test_count_parity.py -q` passes.
+  - Files: docs/persistence-doctrine.md:125; src/ai_engineering/cli_commands/gate.py:799; tests/perf/test_ai_pr_coldcache.py:109
+  - Principles applied: §10.1 KISS, §10.6 SDD
+  - Patch (deterministic): update docs to cite the existing cache status/clear commands and the 24h/256-entry implementation rather than inventing a new lifecycle or removing `.ai-engineering/cache/gate/`.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_persistence_doctrine_contract.py tests/unit/specs/test_state_canonical.py -q` passes.
 
-- [ ] T-3.10 — VERIFY: canonical rename slice passes
+- [x] T-3.8 — VERIFY: state/data-tree cleanup sweep
   - Agent: verify
-  - Files: .claude/skills/ai-branch-cleanup/SKILL.md:1; src/ai_engineering/config/framework_defaults.py:249; tests/architecture/test_naming_clarity.py:1
+  - Files: .ai-engineering/state/:1; .ai-engineering/runtime/:1; .ai-engineering/security/iocs/:1
   - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `rtk pytest tests/architecture/test_naming_clarity.py tests/unit/test_cleanup_history_rotation.py tests/unit/test_consolidate_spec_action.py tests/unit/test_session_bootstrap_template_parity.py -q` passes.
+  - Patch (deterministic): read-only verification; use `rg`/`find` to confirm no active references to removed paths except archived specs/history.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_state_canonical.py tests/integration/test_sentinel_runtime_iocs.py tests/integration/test_strategic_compact_integration.py -q` passes.
 
-## Phase 4: Mirror and Template Propagation
+## Phase 4: Tunables Documentation and Mirror Reconciliation
 
-- [ ] T-4.1 — GREEN: regenerate generated IDE and provider mirrors
+- [x] T-4.1 — RED: extend tunables test to promoted M5/M6 variables
   - Agent: build
-  - Files: .codex/skills/**; .gemini/skills/**; .github/skills/**; src/ai_engineering/templates/project/**
-  - Principles applied: §10.4 DRY, §10.8 Hexagonal Architecture
-  - Patch (deterministic): run `rtk ai-eng dev sync` from the repository root after canonical `.claude` edits.
-  - Gate: `rtk ai-eng dev sync --check` reports mirrors in sync.
-
-- [ ] T-4.2 — GREEN: handle non-generated residual template command names
-  - Agent: build
-  - Files: src/ai_engineering/templates/project/.opencode/commands/ai-repo-tidy.md:1 -> src/ai_engineering/templates/project/.opencode/commands/ai-branch-cleanup.md:1
-  - Principles applied: §10.1 KISS, §10.4 DRY
-  - Patch (deterministic): if `rtk ai-eng dev sync` does not delete/regenerate the old command file, `rtk git mv` it to the new command name and replace active slug text inside.
-  - Gate: `rtk rg --hidden -n "ai-repo-tidy" src/ai_engineering/templates/project/.opencode/commands` returns no active hits.
-
-- [ ] T-4.3 — VERIFY: mirror generated provenance and parity
-  - Agent: verify
-  - Files: tests/integration/test_skill_mirror_consistency.py:1; tests/unit/test_template_skill_parity.py:1; tests/integration/test_shared_handler_mirror.py:1
-  - Principles applied: §10.4 DRY, §10.5 TDD
-  - Patch (deterministic): read-only verification.
-  - Gate: `rtk pytest tests/integration/test_skill_mirror_consistency.py tests/unit/test_template_skill_parity.py tests/integration/test_shared_handler_mirror.py -q` passes.
-
-- [ ] T-4.4 — VERIFY: residual old-slug scan with historical allowlist
-  - Agent: verify
-  - Files: repository-wide grep result
-  - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification; command must fail if active code/docs/tests still contain `ai-repo-tidy` outside `.ai-engineering/state/`, `.ai-engineering/specs/archive/`, `.ai-engineering/specs/drafts/`, and historical CHANGELOG sections before `[Unreleased]`.
-  - Gate: `rtk rg --hidden -n "ai-repo-tidy" . --glob '!/.git/**'` reviewed; only allowed historical hits remain.
-
-## Phase 5: Changelog, Audit, and Follow-up Issue
-
-- [ ] T-5.1 — RED: add changelog expectation for current Unreleased rename/docs entries
-  - Agent: build
-  - Files: tests/unit/docs/test_changelog_spec144.py:new
+  - Files: tests/architecture/test_tunables_docs_match_code.py:95; .ai-engineering/scripts/hooks/prompt-injection-guard.py:81; .ai-engineering/scripts/hooks/auto-format.py:50; .ai-engineering/scripts/hooks/runtime-session-end.py:69
   - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic):
-    ```diff
-    --- /dev/null
-    +++ b/tests/unit/docs/test_changelog_spec144.py
-    @@
-    +from pathlib import Path
-    +
-    +ROOT = Path(__file__).resolve().parents[3]
-    +
-    +
-    +def _unreleased() -> str:
-    +    text = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    +    start = text.index("## [Unreleased]")
-    +    end = text.find("\n## [", start + 1)
-    +    return text[start:end if end != -1 else None]
-    +
-    +
-    +def test_spec144_breaking_rename_is_documented() -> None:
-    +    block = _unreleased()
-    +    assert "### BREAKING" in block
-    +    assert "/ai-repo-tidy" in block
-    +    assert "/ai-branch-cleanup" in block
-    +    assert "no alias" in block.lower() or "no shim" in block.lower()
-    +
-    +
-    +def test_spec144_readme_rewrite_is_documented_as_changed() -> None:
-    +    block = _unreleased()
-    +    assert "### Changed" in block
-    +    assert "README" in block
-    +    assert "brand" in block.lower()
-    ```
-  - Gate: `rtk pytest tests/unit/docs/test_changelog_spec144.py -q` fails before CHANGELOG update.
+  - Patch (deterministic): add code-default resolution for `AIENG_HOOK_CACHE_TTL_SEC=300`, `AIENG_AUTOFORMAT_DEBOUNCE_SEC=1.0`, `AIENG_NDJSON_MAX_LINES=100000`, and `AIENG_NDJSON_MAX_BYTES=52428800`; assert they are documented with defaults, not pending markers.
+  - Gate: `rtk .venv/bin/pytest tests/architecture/test_tunables_docs_match_code.py -q` fails on current pending rows.
 
-- [ ] T-5.2 — GREEN: update `[Unreleased]` changelog
+- [x] T-4.2 — GREEN: update root and template tunables docs
   - Agent: build
-  - Files: CHANGELOG.md:8
-  - Principles applied: §10.2 YAGNI, §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): add `### BREAKING` entry for `/ai-repo-tidy` to `/ai-branch-cleanup` with no alias/shim and add `### Changed` entry for README/brand rewrite; keep prior `### Fixed` release-finalization entry.
-  - Gate: `rtk pytest tests/unit/docs/test_changelog_spec144.py tests/unit/test_changelog_parser.py tests/unit/test_changelog_breaking_keywords.py -q` passes.
+  - Files: CLAUDE.md:175; src/ai_engineering/templates/project/CLAUDE.md:175; tests/architecture/test_tunables_docs_match_code.py:58
+  - Principles applied: §10.4 DRY, §10.7 Clean Code
+  - Patch (deterministic): move implemented M5/M6 variables from the pending block into default-bearing sections, leave or remove only true reserved variables (`AIENG_HOST_PREFLIGHT_*`, `AIENG_HOOK_BUDGET_PROFILE`) per D-146-07, and update `_PENDING_MILESTONES` so only genuinely pending buckets remain.
+  - Gate: `rtk .venv/bin/pytest tests/architecture/test_tunables_docs_match_code.py -q` passes.
 
-- [ ] T-5.3 — GREEN: append rename audit event without rewriting history
+- [x] T-4.3 — GREEN: regenerate rulebook mirrors after CLAUDE/template edit
   - Agent: build
-  - Files: .ai-engineering/state/framework-events.ndjson:append-only
-  - Principles applied: §10.6 SDD, §10.8 Hexagonal Architecture
-  - Patch (deterministic): append one `framework_operation` event using the existing spec lifecycle append helper or equivalent stdlib append under the framework-events lock, with `detail.operation=skill_renamed`, `from=ai-repo-tidy`, `to=ai-branch-cleanup`, `policy_source=CONSTITUTION.md`, and `spec=spec-144`.
-  - Gate: `rtk proxy bash -lc 'tail -n 20 .ai-engineering/state/framework-events.ndjson | rg "\"operation\": \"skill_renamed\"|\"operation\":\"skill_renamed\""'` finds the new event.
+  - Files: AGENTS.md:175; GEMINI.md:175; .github/copilot-instructions.md:175; src/ai_engineering/templates/project/AGENTS.md:175; src/ai_engineering/templates/project/GEMINI.md:175; src/ai_engineering/templates/project/copilot-instructions.md:175
+  - Principles applied: §10.4 DRY, §10.6 SDD
+  - Patch (deterministic): run the project mirror-sync command so generated root and template rulebooks carry the same tunables block; do not hand-edit generated mirrors.
+  - Gate: `rtk .venv/bin/ai-eng dev sync --check` passes.
 
-- [ ] T-5.4 — GUARD: create asset-team follow-up issue or record blocker
-  - Agent: guard
-  - Files: .ai-engineering/specs/spec-144-asset-follow-up.md:new
-  - Principles applied: §10.2 YAGNI, §10.6 SDD
-  - Patch (deterministic): if `/ai-issue`/GitHub issue creation is available, create an issue for stale counts in `docs/design.pen:15131` and `docs/untitled.pen:482`; otherwise write `.ai-engineering/specs/spec-144-asset-follow-up.md` with the blocked issue payload for operator filing.
-  - Gate: follow-up issue URL exists in the PR body, or the blocked payload file exists and names both stale design-file lines.
-
-## Phase 6: Sanity Review and Final Gates
-
-- [ ] T-6.1 — VERIFY: canonical-doc sanity review report
+- [x] T-4.4 — VERIFY: docs/code tunables reconciliation
   - Agent: verify
-  - Files: CONSTITUTION.md:1; CLAUDE.md:1; AGENTS.md:1; GEMINI.md:1; .github/copilot-instructions.md:1; .ai-engineering/specs/spec-144-canonical-doc-sanity.md:new
-  - Principles applied: §10.3 SOLID, §10.6 SDD
-  - Patch (deterministic): create a short report recording zero divergences or listing divergences as follow-up items; do not rewrite canonical mirrors in this task.
-  - Gate: `.ai-engineering/specs/spec-144-canonical-doc-sanity.md` exists and states whether any follow-up is needed.
-
-- [ ] T-6.2 — VERIFY: no accidental source changes outside spec scope
-  - Agent: verify
-  - Files: git diff
-  - Principles applied: §10.3 SOLID, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `rtk git diff --name-only` contains only README/brand docs, rename surfaces, generated mirrors/templates, tests, CHANGELOG, plan/spec artifacts, and append-only audit event.
-
-- [ ] T-6.3 — VERIFY: documentation, rename, mirror, and release-quality gates
-  - Agent: verify
-  - Files: full repository
-  - Principles applied: §10.5 TDD, §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `rtk proxy bash -lc 'pytest tests/docs/test_links.py -q && pytest tests/architecture/test_naming_clarity.py tests/unit/test_cleanup_history_rotation.py tests/unit/test_consolidate_spec_action.py -q && ai-eng dev sync --check && ai-eng verify --full'` pass.
-
-- [ ] T-6.4 — VERIFY: full test suite
-  - Agent: verify
-  - Files: full repository
+  - Files: tests/architecture/test_tunables_docs_match_code.py:1; CLAUDE.md:175; src/ai_engineering/templates/project/CLAUDE.md:175
   - Principles applied: §10.5 TDD, §10.7 Clean Code
   - Patch (deterministic): read-only verification.
-  - Gate: `rtk pytest -q` passes.
+  - Gate: `rtk .venv/bin/pytest tests/architecture/test_tunables_docs_match_code.py -q && rtk .venv/bin/ai-eng dev sync --check` passes.
 
-- [ ] T-6.5 — GUARD: PR handoff checklist
-  - Agent: guard
-  - Files: .ai-engineering/specs/spec-144-pr-handoff.md:new
+## Phase 5: Caller Inventory and Module Simplification
+
+- [x] T-5.1 — RED: add caller-inventory artifact contract
+  - Agent: build
+  - Files: tests/unit/specs/test_spec_146_caller_inventory.py:new; .ai-engineering/specs/spec-146-caller-inventory.md:new
+  - Principles applied: §10.5 TDD, §10.6 SDD
+  - Patch (deterministic): add a test requiring a spec-146 inventory artifact with rows for `agentsview.py`, `outbox.py`, `governance/policy_engine.py`, `cli_ui_skill_ref.py`, `trace_context.py`, `capabilities.py`, `context_packs.py`, `relevance.py`, `StateService`, `DurableStateRepository`, and `installer/mechanisms/__init__.py`.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_spec_146_caller_inventory.py -q` fails before the artifact exists.
+
+- [x] T-5.2 — GREEN: generate and commit caller inventory
+  - Agent: build
+  - Files: .ai-engineering/specs/spec-146-caller-inventory.md:new; tools/caller_inventory.py:new
+  - Principles applied: §10.1 KISS, §10.6 SDD
+  - Patch (deterministic): create a small script or documented command output that classifies each candidate as production, test, hook, template, doc, archive, or unused; write the resulting Markdown artifact with exact command and timestamp-free evidence.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_spec_146_caller_inventory.py -q` passes.
+
+- [x] T-5.3 — RED: pin production-used module preservation
+  - Agent: build
+  - Files: tests/unit/specs/test_spec_146_module_boundaries.py:new; src/ai_engineering/state/observability.py:357; src/ai_engineering/validator/categories/manifest_coherence.py:13
+  - Principles applied: §10.5 TDD, §10.3 SOLID
+  - Patch (deterministic): add tests asserting `trace_context.py`, `capabilities.py`, and `context_packs.py` are either present or explicitly represented by replacement modules named in the caller inventory.
+  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_spec_146_module_boundaries.py -q` passes before deletion tasks begin.
+
+- [x] T-5.4 — RED: add dead-module import guards
+  - Agent: build
+  - Files: tests/architecture/test_no_dead_module_imports.py:new; src/ai_engineering/state/agentsview.py:1; src/ai_engineering/state/outbox.py:1; src/ai_engineering/cli_ui_skill_ref.py:1
+  - Principles applied: §10.5 TDD, §10.2 YAGNI
+  - Patch (deterministic): add an architecture test that fails when production code imports candidates classified as unused/test-only and asserts replacements are documented for any public import removed.
+  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_dead_module_imports.py -q` fails until deletion/update is complete.
+
+- [x] T-5.5 — GREEN: hard-delete low-risk dead/test-only modules
+  - Agent: build
+  - Files: src/ai_engineering/state/agentsview.py:1; src/ai_engineering/state/outbox.py:1; src/ai_engineering/cli_ui_skill_ref.py:1; tests/unit/test_agentsview_contract.py:1; tests/integration/state/test_outbox_atomic.py:1
+  - Principles applied: §10.2 YAGNI, §10.7 Clean Code
+  - Patch (deterministic): delete only candidates classified as no-production-callers; update or remove tests that exist solely to preserve deleted modules; do not touch production-used modules in this task.
+  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_dead_module_imports.py tests/unit/specs/test_spec_146_module_boundaries.py -q` passes.
+
+- [x] T-5.6 — RED/GREEN: remove or replace governance policy-engine shim
+  - Agent: build
+  - Files: src/ai_engineering/governance/policy_engine.py:1; src/ai_engineering/governance/__init__.py:1; src/ai_engineering/governance/opa_runner.py:1; src/ai_engineering/installer/tool_registry.py:207
+  - Principles applied: §10.2 YAGNI, §10.4 DRY
+  - Patch (deterministic): if the inventory confirms zero production callers beyond re-export/documentation, delete `policy_engine.py`, update `governance/__init__.py` to expose the real OPA path or nothing, and update references that called it downstream-fork insurance.
+  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_dead_module_imports.py tests/unit/test_aieng_test_simulate_fail.py -q` passes.
+
+- [x] T-5.7 — RED/GREEN: split installer mechanisms by mechanism class
+  - Agent: build
+  - Files: src/ai_engineering/installer/mechanisms/__init__.py:1; src/ai_engineering/installer/tool_registry.py:26; tests/integration/test_install_idempotence.py:41
+  - Principles applied: §10.3 SOLID, §10.7 Clean Code
+  - Patch (deterministic): add import-contract tests, move mechanism classes into focused modules, keep `mechanisms/__init__.py` as a thin re-export surface during internal migration, and ensure RUF022-sorted `__all__` remains stable.
+  - Gate: `rtk .venv/bin/pytest tests/integration/test_install_idempotence.py tests/integration/test_doctor_fix_node_stack.py tests/unit/test_aieng_test_simulate_fail.py -q` passes.
+
+- [x] T-5.8 — RED/GREEN: migrate one facade callsite group away from behavior-free forwarding
+  - Agent: build
+  - Files: src/ai_engineering/state/service.py:29; src/ai_engineering/state/repository.py:66; src/ai_engineering/cli_commands/gate.py:47; src/ai_engineering/cli_commands/risk_cmd.py:52
+  - Principles applied: §10.1 KISS, §10.3 SOLID
+  - Patch (deterministic): select the smallest callsite group identified by the inventory where direct `state_db` helpers remove a pass-through layer; add tests first, migrate those callsites, and leave facades in place for remaining production users.
+  - Gate: `rtk .venv/bin/pytest tests/integration/test_orchestrator_lookup.py tests/integration/test_risk_accept_all_e2e.py tests/unit/specs/test_spec_146_module_boundaries.py -q` passes.
+
+- [x] T-5.9 — VERIFY: import graph and module simplification sweep
+  - Agent: verify
+  - Files: src/ai_engineering/:1; tests/:1; tools/:1
+  - Principles applied: §10.5 TDD, §10.7 Clean Code
+  - Patch (deterministic): read-only verification using `pytest` plus `rg` to ensure deleted module names appear only in CHANGELOG/spec artifacts or allowed archives.
+  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_dead_module_imports.py tests/unit/specs/test_spec_146_caller_inventory.py tests/unit/specs/test_spec_146_module_boundaries.py -q` passes.
+
+## Phase 6: Changelog, Sync, and Final Quality Gates
+
+- [x] T-6.1 — RED: add changelog removal coverage test
+  - Agent: build
+  - Files: tests/docs/test_changelog_spec_146.py:new; CHANGELOG.md:1
+  - Principles applied: §10.5 TDD, §10.6 SDD
+  - Patch (deterministic): add a test requiring `[Unreleased]` entries for spec-146 ownership fix, persistence clarification, removed artifacts/modules, and any non-shim breaking import removals.
+  - Gate: `rtk .venv/bin/pytest tests/docs/test_changelog_spec_146.py -q` fails before CHANGELOG is updated.
+
+- [x] T-6.2 — GREEN: update CHANGELOG for spec-146
+  - Agent: build
+  - Files: CHANGELOG.md:1
   - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): create a PR handoff note that references `spec-144`, the consumed brief, gate results, residual historical grep hits, and the asset follow-up issue/payload.
-  - Gate: handoff note exists and contains the commands/results from T-6.3 and T-6.4.
+  - Patch (deterministic): add concise `[Unreleased]` sections for `Fixed`, `Changed`, and `Removed`; list every deleted file/module and exact replacement or rationale; do not mention machine paths.
+  - Gate: `rtk .venv/bin/pytest tests/docs/test_changelog_spec_146.py -q` passes.
 
-## Approval Gate
+- [x] T-6.3 — GREEN: write spec-146 handoff evidence
+  - Agent: build
+  - Files: .ai-engineering/specs/spec-146-pr-handoff.md:new; .ai-engineering/specs/spec-146-caller-inventory.md:1
+  - Principles applied: §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic): create a handoff note summarizing decisions, files removed, files preserved, gate results, and residual follow-ups; keep it timestamp-free and path-anonymized.
+  - Gate: `test -s .ai-engineering/specs/spec-146-pr-handoff.md` passes, and the project anonymous-content grep reports no machine-absolute paths in the handoff note.
 
-This plan is planning-only. `/ai-autopilot` must not run until the operator explicitly approves `.ai-engineering/specs/plan.md`.
+- [x] T-6.4 — VERIFY: targeted quality gate suite
+  - Agent: verify
+  - Files: tests/:1; src/:1; .ai-engineering/:1
+  - Principles applied: §10.5 TDD, §10.7 Clean Code
+  - Patch (deterministic): read-only verification; do not patch failures in this task unless the operator starts a bounded remediation pass.
+  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py tests/unit/test_updater.py tests/integration/test_updater.py tests/unit/specs/test_persistence_doctrine_contract.py tests/unit/specs/test_state_canonical.py tests/architecture/test_tunables_docs_match_code.py tests/architecture/test_no_dead_module_imports.py tests/docs/test_changelog_spec_146.py -q` passes.
+
+- [x] T-6.5 — VERIFY: sync, lint, spec lint, and full test pass
+  - Agent: verify
+  - Files: .ai-engineering/specs/spec.md:1; .ai-engineering/specs/plan.md:1; scripts/sync_mirrors/core.py:1
+  - Principles applied: §10.5 TDD, §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic): read-only verification; if failures remain, record blockers in `spec-146-pr-handoff.md` rather than silently loosening gates.
+  - Gate: `rtk .venv/bin/python tools/spec_lint/cli.py --check .ai-engineering/specs/spec.md && rtk .venv/bin/ai-eng dev sync --check && rtk .venv/bin/ruff check && rtk .venv/bin/ruff format --check && rtk .venv/bin/pytest -q` passes.

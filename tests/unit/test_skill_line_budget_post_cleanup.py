@@ -58,7 +58,7 @@ FUNCTIONAL_ADDITIONS_POST_BASELINE: dict[str, tuple[str, int]] = {
     "ai-platform-audit": ("spec-107 D-107-04", 65),
     # spec-110 T-3.10 added the Policy Engine Integration section to
     # /ai-governance: documents the Rego-subset evaluator at
-    # src/ai_engineering/governance/policy_engine.py and the three
+    # the OPA-backed governance runner and the three
     # .ai-engineering/policies/*.rego files (branch_protection,
     # commit_conventional, risk_acceptance_ttl) shipped in spec-110 Phase 3.
     # New functional content (engine invocation contract + grammar scope per
