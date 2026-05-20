@@ -17,7 +17,8 @@ version: "1.0.0"
 # matching .ai-engineering/overrides/<stack>/ directory names.
 providers:
   vcs: github
-  stacks: [python]
+  stacks:
+  - python
 
 # Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16,
 # spec-128 Wave 4 supersedes D-133-06/D-133-07: OpenCode + Cursor now activated
@@ -25,7 +26,14 @@ providers:
 # Closed enum: claude-code, codex, gemini-cli, github-copilot,
 # opencode, cursor, antigravity.
 surfaces:
-  enabled: [claude-code, github-copilot, gemini-cli, codex, opencode, cursor]
+  enabled:
+  - claude-code
+  - codex
+  - gemini-cli
+  - github-copilot
+  - opencode
+  - cursor
+  - antigravity
 
 # Work items — board/issue tracker integration (project-specific overrides)
 work_items:
@@ -42,23 +50,23 @@ work_items:
     done: "Done"
   process_template: "github_projects_v2"
   custom_fields:
-    - id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuM"
-      name: "Priority"
-      type: "single_select"
-      options: ["P0", "P1", "P2"]
-    - id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuQ"
-      name: "Size"
-      type: "single_select"
-      options: ["XS", "S", "M", "L", "XL"]
-    - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuU"
-      name: "Estimate"
-      type: "number"
-    - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuY"
-      name: "Start date"
-      type: "date"
-    - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuc"
-      name: "Target date"
-      type: "date"
+  - id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuM"
+    name: "Priority"
+    type: "single_select"
+    options: ["P0", "P1", "P2"]
+  - id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuQ"
+    name: "Size"
+    type: "single_select"
+    options: ["XS", "S", "M", "L", "XL"]
+  - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuU"
+    name: "Estimate"
+    type: "number"
+  - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuY"
+    name: "Start date"
+    type: "date"
+  - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuc"
+    name: "Target date"
+    type: "date"
   github_project:
     owner: arcasilesgroup
     number: 4
@@ -118,19 +126,19 @@ telemetry:
 # emissions can be added without re-touching the manifest.
 audit_policy:
   kind_allowlist:
-    - skill_invoked
-    - agent_dispatched
-    - context_load
-    - ide_hook
-    - framework_error
-    - framework_operation
-    - git_hook
-    - control_outcome
-    - task_trace
-    - memory_event
-    - eval_run
-    - retention_applied
-    - policy_decision
+  - skill_invoked
+  - agent_dispatched
+  - context_load
+  - ide_hook
+  - framework_error
+  - framework_operation
+  - git_hook
+  - control_outcome
+  - task_trace
+  - memory_event
+  - eval_run
+  - retention_applied
+  - policy_decision
   severity_floor:
     default: S1
     framework_operation: S2
