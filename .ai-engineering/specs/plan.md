@@ -1,319 +1,385 @@
 ---
-spec: spec-146
-title: Framework Simplification — Less is More
-status: approved
-pipeline: autopilot
-phases: 6
-total: 38
-completed: 38
 execution_route:
   version: 1
-  spec: spec-146
+  spec: spec-147
   executor: autopilot
-  automation: hitl
-  concern_count: 6
+  automation: autopilot
+  concern_count: 5
   estimated_files: 45
-  reason: "Plan status 'approved'; 6 independent concerns meets the /ai-autopilot threshold of 3."
+  reason: "Five independent concerns (waves) spanning hooks, gate/verify services, config/state, skill+agent surface, CLI, and docs; ~45 files; the decision-store migration alone touches 17 caller call-sites. Multi-concern + large → autopilot wave-shipping (D-147-01)."
   safe_next_command: "/ai-autopilot"
+status: draft
+pipeline: full
+spec: spec-147
+title: Plan — Obvious by Default (fail-loud safety and legibility refactor)
 ---
 
-# Plan — spec-146 Framework Simplification — Less is More
+# Plan — spec-147 Obvious by Default
 
-## Design Routing
+## Summary
 
-design-routing: skipped (no UI/frontend semantics; substring hits were false positives from `autoformat` and generic prose: `form`, `ui`). No design-intent artifact is required.
+Decompose spec-147 into five independent waves, each shipped by `/ai-autopilot` as its own single-concern PR. Wave 1 (seal the fail-open gates) is sequenced first because it is the only active safety emergency. Each wave is TDD-paired (a RED test asserting the fail-loud/poka-yoke behavior precedes every GREEN implementation). Planning-phase exploration resolved both spec Open Questions and surfaced three task-shaping refinements (17 not 12 decision-store callers; gate-findings SQLite table is reader-less; the quality-loop STOP is already deterministic except one condition) — recorded below so autopilot's per-wave deep-planning starts from real ground truth.
+
+## Pipeline classification
+
+`full` — new cross-cutting refactor, >5 files, five concerns. Executor route: `autopilot` (see frontmatter). `/ai-plan` does not execute; operator approves this plan, then runs `/ai-autopilot`.
+
+## Design routing
+
+N/A — no user-facing UI surface. All changes are Python services, stdlib hooks, CLI behavior, CI tests, skill/doc markdown, and mirror regeneration. No `/ai-design` dispatch.
 
 ## Architecture
 
-**Pattern:** Hexagonal Architecture / Ports and Adapters.
+Pattern: **ad-hoc multi-wave remediation** (no single canonical pattern; each wave has its own shape). Hexagonal hardening (§10.8) is the spine of Waves 1 and 4: a tool/port adapter that cannot run must raise into the port, never return a clean result. Waves 2/3/5 are poka-yoke CI guards + SSOT consolidation + surface de-collision.
 
-**Why:** The spec separates domain policy decisions from adapters: ownership matching remains the domain contract, `state_db` is the SQLite lifecycle adapter, updater/service is a CLI/file-system adapter, hook sidecars are runtime adapters, and JSON/Markdown persistence surfaces retain explicit ownership. This pattern lets the plan fix the concrete ownership bug first without spreading SQLite reads into hot-path hooks or turning every cleanup into a new abstraction.
+Module boundaries touched:
 
-**Pipeline classification:** autopilot route. The work spans six independent concerns and at least forty-five files across Python source, tests, hook scripts, templates, generated mirrors, `.ai-engineering/` state/reference files, and CHANGELOG. The approved plan was executed through `/ai-autopilot` on the existing branch and PR.
+- **Hooks** (`.ai-engineering/scripts/hooks/`) — Waves 1, 2. stdlib-only sealed contract; `sqlite3` IS stdlib, so hooks MAY read `state.db` directly.
+- **Gate / verify services** (`src/ai_engineering/cli_commands/gate.py`, `src/ai_engineering/verify/service.py`, `src/ai_engineering/policy/`) — Waves 1, 4.
+- **Config / state** (`src/ai_engineering/config/`, `src/ai_engineering/state/`, `installer/`, `policy/checks/risk.py`) — Waves 1, 2.
+- **Skill + agent surface + docs** (`.claude/skills/`, `CLAUDE.md`, `CONSTITUTION.md`) — Waves 2, 3, 5. Canonical-payload edits require `python scripts/sync_command_mirrors.py` to regenerate mirrors; byte-drift is caught by `validate_content_integrity` (via `verify_governance`), not `test_surface_parity.py` (which enforces the No-Twin Axiom).
+- **CLI** (`src/ai_engineering/cli_commands/cleanup.py`, `maintenance.py`) — Waves 3, 5.
 
-## Gate Strategy
+## Wave DAG (ordering)
 
-- Section preflight passed for `.ai-engineering/specs/spec.md` after approval.
-- Plan status is `approved`; `/ai-autopilot` executed the approved task DAG and all 38 tasks are complete.
-- RED/GREEN pairs precede each implementation wave per §10.5 TDD.
-- Hook and state changes must run the targeted unit/integration tests before broader verification.
-- Mirror or template edits must be followed by `ai-eng dev sync` and `ai-eng dev sync --check` when the edited surface participates in generated mirrors.
-- Historical audit files and archived specs remain read-only except for new append-only `framework_operation` telemetry emitted by tools.
+```
+Wave 1 (safety)  ──►  [ships first, independent PR]
+Wave 2 (docs+SSOT) ─┐
+Wave 3 (one way)   ─┤  independent of each other; any order after Wave 1
+Wave 4 (determinism)┤  (no hard cross-wave blockers)
+Wave 5 (poka-yoke) ─┘  internal dep: §10.x backfill (T-5.1) precedes its CI test (T-5.2)
+```
 
-## Phase 1: Ownership Read Path and Update Bug Fix
+No wave hard-blocks another. Each wave is its own PR, so each regenerates mirrors independently (no concurrent-regen conflict). Recommended sequence: 1 → 2 → 3 → 4 → 5 (safety first, then the highest-risk migration while attention is fresh).
 
-- [x] T-1.1 — RED: add state-db ownership reader contract tests
+## Resolved Open Questions (from spec §Open Questions)
+
+- **OQ1 gate-findings (D-147-10)** → RESOLVED by caller audit: no production code reads the `gate_findings` SQLite table (only `tests/integration/state/test_db_migration.py:133`). Decision: **remove the SQLite seed + table; keep `gate-findings.json` canonical** (matches doctrine). Update the one migration test.
+- **OQ2 naming-grammar (D-147-15)** → CANDIDATE for operator confirm in Wave 5: codify the *already-universal* grammar — `ai-` prefix + lowercase-kebab + (imperative-verb | domain-noun); all 53 skills already satisfy it, so **zero renames expected**. CI locks it for new skills. Confirm in T-5.3 before any rename.
+
+---
+
+## Phase 1 — Wave 1: Seal the fail-open gates (D-147-02..06)
+
+Concern: no gate or hook exits 0 when its tool is absent/broken/malformed. Agent: build (code), with verify gates. Highest priority.
+
+- [ ] T-1.1 — RED: assert hook integrity default is `enforce`
   - Agent: build
-  - Files: tests/unit/state/test_ownership_state_db_read.py:new; src/ai_engineering/state/state_db.py:257
-  - Principles applied: §10.5 TDD, §10.8 Hexagonal Architecture
-  - Patch (deterministic): create tests that upsert raw and model ownership rows, then assert `list_ownership_rows(project_root)` returns ordered dict rows with `path_pattern`, decoded owners/reviewers, `severity`, and timestamps without requiring `ownership-map.json`.
-  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py -q` fails before readers exist.
+  - Files: `tests/unit/hooks/test_integrity_default.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — author a test modeled on `tests/unit/hooks/test_canonical_events_count.py` (plain `assert`, `parents[N]` anchor) asserting `integrity._DEFAULT_MODE == "enforce"` and that a drifted-script run with no env var exits non-zero.
+  - Gate: test fails against current `warn` default.
 
-- [x] T-1.2 — GREEN: implement raw ownership row reader
+- [ ] T-1.2 — GREEN: flip `_DEFAULT_MODE` to `enforce`; regenerate manifest; loud hint
   - Agent: build
-  - Files: src/ai_engineering/state/state_db.py:638; src/ai_engineering/state/state_db.py:709
-  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
-  - Patch (deterministic): add `list_ownership_rows(project_root: Path) -> list[dict[str, object]]`, decode `owners_json` and `reviewers_json`, return `[]` on missing table, and export it in `__all__`.
-  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py -q` reaches mapper-specific failures only.
+  - Files: `.ai-engineering/scripts/hooks/_lib/integrity.py:40`, `.ai-engineering/state/hooks-manifest.json`
+  - Principles applied: §10.8 Hexagonal (adapter fails into the port), §10.6 SDD
+  - Patch (deterministic):
+    ```diff
+    --- a/.ai-engineering/scripts/hooks/_lib/integrity.py
+    +++ b/.ai-engineering/scripts/hooks/_lib/integrity.py
+    @@
+    -_DEFAULT_MODE = "warn"
+    +_DEFAULT_MODE = "enforce"
+    ```
+    Then run `python scripts/regenerate-hooks-manifest.py`. Add a one-line first-run hint (prose edit) in the mismatch path naming `AIENG_HOOK_INTEGRITY_MODE=warn` + the regenerate command.
+  - Gate: T-1.1 passes; drifted-hook run exits non-zero with the hint.
 
-- [x] T-1.3 — RED: add OwnershipMap reconstruction tests
+- [ ] T-1.3 — RED: `no_suppression` ImportError → BLOCKER, non-zero exit
   - Agent: build
-  - Files: tests/unit/state/test_ownership_state_db_read.py:1; tools/skill_domain/state_models.py:115
-  - Principles applied: §10.5 TDD, §10.3 SOLID
-  - Patch (deterministic): extend the reader tests to assert `load_ownership_map(project_root)` reconstructs `OwnershipMap.paths` with `OwnershipLevel` and `FrameworkUpdatePolicy` values for allow, deny, team-managed, and append-only rows; assert first-match order is stable.
-  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py -q` fails until the high-level mapper exists.
+  - Files: `tests/unit/test_gates.py`
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — monkeypatch the import to raise `ImportError`; assert `_run_no_suppression` raises `typer.Exit(code=1)` (not a clean return). Model on existing `test_gates.py` patterns.
+  - Gate: fails against current `warning(...skipping...); return`.
 
-- [x] T-1.4 — GREEN: implement updater-ready ownership mapper
+- [ ] T-1.4 — GREEN: broken no_suppression module blocks
   - Agent: build
-  - Files: src/ai_engineering/state/state_db.py:638; src/ai_engineering/state/defaults.py:70
-  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
-  - Patch (deterministic): add `load_ownership_map(project_root: Path) -> OwnershipMap` or equivalent mapper next to the raw reader, mapping the first owner to `OwnershipEntry.owner`, mapping `severity` to `frameworkUpdate`, preserving table order, and returning an empty `OwnershipMap()` when no rows exist.
-  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py -q` passes.
+  - Files: `src/ai_engineering/cli_commands/gate.py:136-140`
+  - Principles applied: §10.8 Hexagonal, §10.1 KISS
+  - Patch (deterministic): omit — judgment: replace the `except ImportError: warning(...); return` with a BLOCKER finding + `raise typer.Exit(code=1)`, error text naming the missing module and its install path. Honor "solve don't punt".
+  - Gate: T-1.3 passes.
 
-- [x] T-1.5 — RED: prove updater ignores absent JSON and honors SQLite deny rules
+- [ ] T-1.5 — RED: gitleaks missing/crash/empty/bad-JSON → BLOCKER
   - Agent: build
-  - Files: tests/unit/test_updater.py:147; src/ai_engineering/updater/service.py:395
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): add a test project with `.ai-engineering/state/state.db` ownership rows, no `ownership-map.json`, and a deny/team rule for a missing template path; assert `_initialize_update_context(..., dry_run=True)` loads the rule and `_evaluate_file_change(...)` returns `skip-denied` for the missing path.
-  - Gate: `rtk .venv/bin/pytest tests/unit/test_updater.py::TestInitializeUpdateContext -q` fails before updater reads SQLite.
+  - Files: `tests/unit/test_verify_service.py`
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — extend the `FakeSubprocess` fixture (`test_verify_service.py:34-71`); add cases: binary missing (`shutil.which`→None per `test_secrets_gate.py:64-73`), `returncode!=0`+empty stdout, malformed JSON. Each asserts a `FindingSeverity.BLOCKER` secrets finding, not a clean verdict.
+  - Gate: fails against current early-return/JSONDecodeError-swallow.
 
-- [x] T-1.6 — GREEN: load SQLite ownership before updater evaluation
+- [ ] T-1.6 — GREEN: verify service treats broken gitleaks as BLOCKER
   - Agent: build
-  - Files: src/ai_engineering/updater/service.py:395; src/ai_engineering/state/state_db.py:638
-  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
-  - Patch (deterministic): replace the normal `ownership-map.json` read in `_initialize_update_context` with the new SQLite mapper; keep a one-time JSON fallback only when SQLite returns zero rows and the sidecar exists, then upsert those fallback rows and remove the sidecar on non-dry-run.
-  - Gate: `rtk .venv/bin/pytest tests/unit/test_updater.py::TestInitializeUpdateContext tests/unit/state/test_ownership_state_db_read.py -q` passes.
+  - Files: `src/ai_engineering/verify/service.py:53-54,307-313`
+  - Principles applied: §10.8 Hexagonal, §10.4 DRY
+  - Patch (deterministic): omit — judgment: guard `FileNotFoundError`, distinguish crash (non-zero+empty) from clean, and convert swallowed `JSONDecodeError` into a BLOCKER. Error names gitleaks + install command.
+  - Gate: T-1.5 passes.
 
-- [x] T-1.7 — RED/GREEN: add operator integration scenario for denied missing file
+- [ ] T-1.7 — RED: expired risk-acceptance DEC blocks `gate pre-push`
   - Agent: build
-  - Files: tests/integration/test_updater.py:1; src/ai_engineering/updater/service.py:848
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): add an integration test that installs/minimally bootstraps a project, writes a deny/team ownership row for a template-managed path, ensures the destination file is absent, runs `update(..., dry_run=True)`, and asserts the result reports `skip-denied` and the file remains absent.
-  - Gate: `rtk .venv/bin/pytest tests/integration/test_updater.py tests/unit/test_updater.py tests/unit/state/test_ownership_state_db_read.py -q` passes.
+  - Files: `tests/unit/test_gates.py`
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — fixture with an expired DEC; assert `gate_pre_push` exits 1. Reference deny logic at `.ai-engineering/policies/risk_acceptance_ttl.rego:19-25`.
+  - Gate: fails against current warn-only path.
 
-## Phase 2: Persistence Doctrine and Gate-Findings Canonicality
-
-- [x] T-2.1 — RED: add persistence classification tests
+- [ ] T-1.8 — GREEN: wire risk TTL into pre-push hot path
   - Agent: build
-  - Files: tests/unit/specs/test_persistence_doctrine_contract.py:new; docs/persistence-doctrine.md:50; src/ai_engineering/state/state_db.py:1
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): create tests asserting `state_db.py` no longer calls the entire DB a replayable derived projection, `docs/persistence-doctrine.md` classifies lifecycle tables table-by-table, and `gate-findings.json` remains the named JSON artifact for gate/risk/verify in this spec.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_persistence_doctrine_contract.py -q` fails on current docstring/doctrine drift.
+  - Files: `src/ai_engineering/cli_commands/gate.py:91-99,118-127,167-195`
+  - Principles applied: §10.8 Hexagonal, §10.6 SDD
+  - Patch (deterministic): omit — judgment: call `_check_risk_inline(root, strict=True)` from `gate_pre_push`; expired → exit 1. Keep <5s hot-path budget (state.db read, no LLM).
+  - Gate: T-1.7 passes; pre-push budget unbroken.
 
-- [x] T-2.2 — GREEN: correct `state_db.py` module contract
+- [ ] T-1.9 — RED: malformed manifest/state exits 1 with a named error
   - Agent: build
-  - Files: src/ai_engineering/state/state_db.py:1
-  - Principles applied: §10.7 Clean Code, §10.8 Hexagonal Architecture
-  - Patch (deterministic): rewrite the module docstring so `state.db` is described as a mixed lifecycle database with named derived projections; keep `state.db.events` as NDJSON-derived and `gate_findings` as non-primary placeholder/transitional state.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_persistence_doctrine_contract.py -q` advances to docs failures only.
+  - Files: `tests/unit/test_config_loader.py`, `tests/unit/state/test_repository.py` (extend or new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — corrupt-YAML fixture; assert non-zero exit + a one-line named error; assert a *missing* file still returns defaults (the contrast case).
+  - Gate: fails against current silent-defaults-on-parse-error.
 
-- [x] T-2.3 — GREEN: reconcile persistence doctrine table entries
+- [ ] T-1.10 — GREEN: distinguish absent (default) vs corrupt (fail loud)
   - Agent: build
-  - Files: docs/persistence-doctrine.md:50; docs/persistence-doctrine.md:132; tests/unit/specs/test_state_canonical.py:1
-  - Principles applied: §10.4 DRY, §10.6 SDD
-  - Patch (deterministic): update Tier 2 and Derived Caches sections to distinguish canonical lifecycle tables, derived caches, and transitional placeholders; ensure `state.db.ownership_map` is not described as rebuildable only from a deleted sidecar and gate findings are documented as JSON-primary for this spec.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_persistence_doctrine_contract.py tests/unit/specs/test_state_canonical.py -q` passes.
+  - Files: `src/ai_engineering/config/loader.py:55-57`, `src/ai_engineering/state/repository.py:48-50`, `src/ai_engineering/cli_factory.py:237-245`
+  - Principles applied: §10.8 Hexagonal, §10.1 KISS
+  - Patch (deterministic): omit — judgment: raise/exit on parse error, keep defaults only for genuine `FileNotFoundError`; narrow the stack-drift `except Exception` to expected types.
+  - Gate: T-1.9 passes.
 
-- [x] T-2.4 — RED/GREEN: pin gate-findings JSON consumers
+- [ ] T-1.11 — RED: hook silent-swallow fault injection
   - Agent: build
-  - Files: tests/unit/test_gate_findings_schema.py:1; tests/integration/test_gate_findings_persisted.py:1; src/ai_engineering/verify/service.py:45; src/ai_engineering/cli_commands/risk_cmd.py:351
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): add or extend tests that fail if `verify`, `risk`, `gate`, or orchestrator paths switch to `state.db.gate_findings` without an explicit later migration spec.
-  - Gate: `rtk .venv/bin/pytest tests/unit/test_gate_findings_schema.py tests/integration/test_gate_findings_persisted.py tests/integration/test_risk_accept_all_e2e.py -q` passes.
+  - Files: `tests/unit/hooks/test_hook_failloud.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — inject formatter failure (`auto-format.py`), checkpoint-write failure (`runtime-stop.py`), MCP-state failure (`mcp-health.py`) → assert a `hookSpecificOutput` warning is emitted; feed an unparseable command to `no-verify-guard.py` → assert it blocks (refuses), not allows.
+  - Gate: fails against current swallow/allow behavior.
 
-- [x] T-2.5 — VERIFY: persistence hot-path guard remains green
-  - Agent: verify
-  - Files: tests/architecture/test_no_sql_on_hot_path.py:1; src/ai_engineering/state/state_db.py:1
-  - Principles applied: §10.5 TDD, §10.8 Hexagonal Architecture
-  - Patch (deterministic): read-only verification; do not edit production files in this task.
-  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_sql_on_hot_path.py tests/unit/specs/test_persistence_doctrine_contract.py -q` passes.
-
-## Phase 3: `.ai-engineering/` Data-Tree Cleanup
-
-- [x] T-3.1 — RED: add IOC attribution single-home contract
+- [ ] T-1.12 — GREEN: convert silent swallows to visible signals
   - Agent: build
-  - Files: tests/integration/test_sentinel_runtime_iocs.py:36; tests/unit/skills/test_ioc_attribution_references.py:new; .claude/skills/ai-mcp-audit/SKILL.md:118
+  - Files: `.ai-engineering/scripts/hooks/auto-format.py:30-34,242-249`, `runtime-stop.py:15-21`, `mcp-health.py:132-138`, `no-verify-guard.py:80-86`
+  - Principles applied: §10.8 Hexagonal, §10.7 Clean Code
+  - Patch (deterministic): omit — formatters/state writes emit `hookSpecificOutput` warning (visible, non-blocking); no-verify-guard fails closed on parse error (security boundary). Regenerate hooks-manifest after edits.
+  - Gate: T-1.11 passes; hot-path budgets intact.
+  - **Wave-1 acceptance**: with all `AIENG_*`/`AIE_*` unset, no gate/hook exits 0 on absent/broken/malformed tool or input (G1).
+
+---
+
+## Phase 2 — Wave 2: Reconcile docs with code + finish SSOT (D-147-07..10)
+
+Concern: every doc claim resolves to an on-disk fact; one canonical store per datum. Highest-risk wave (17-caller decision-store migration). Agent: build.
+
+### 2a — Doc reconciliation
+
+- [ ] T-2.1 — RED: documented agent/skill counts == files on disk
+  - Agent: build
+  - Files: `tests/architecture/test_surface_counts.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — glob `.claude/skills/*/SKILL.md` (expect 53) and `.claude/agents/*.md` (expect 19; 9 `ai-*`), assert against the counts stated in CLAUDE.md (regex-extracted) and `manifest.yml` totals. Model on `test_canonical_events_count.py` locked-constant style.
+  - Gate: fails against current `agents.registry` claim / count mismatch.
+
+- [ ] T-2.2 — GREEN: correct CLAUDE.md to reference the directory (no registry)
+  - Agent: build
+  - Files: `CLAUDE.md:79-80` + §12 surface-index; then `python scripts/sync_command_mirrors.py`
+  - Principles applied: §10.4 DRY, §10.7 Clean Code
+  - Patch (deterministic): omit — judgment: remove the `agents.registry` claim; point at `.claude/agents/`+`.claude/skills/`; distinguish 9 user-facing `ai-*` from the review/verifier families. Regenerate mirrors.
+  - Gate: T-2.1 passes; `sync_command_mirrors --check` clean.
+
+- [ ] T-2.3 — RED: every hook-read `AIENG_*`/`AIE_*` env var is documented
+  - Agent: build
+  - Files: `tests/architecture/test_env_var_docs.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — glob hook scripts, `re.findall` `os.environ.get`/`os.getenv` for `AIENG_`/`AIE_` reads, assert each appears in the CLAUDE.md Runtime tunables table. (Exploration found undocumented: `AIENG_INSTINCT_BATCH_DISABLED`, `AIENG_RISK_ACCUMULATOR_DISABLED`, `AIENG_RALPH_DISABLED`, `AIE_MCP_HEALTH_FAIL_OPEN`, `AIE_MCP_URL/CMD/RECONNECT_*`, et al.)
+  - Gate: fails listing the undocumented vars.
+
+- [ ] T-2.4 — GREEN: document the escape-hatch env vars + risk annotation
+  - Agent: build
+  - Files: `CLAUDE.md` (Runtime tunables table); then `python scripts/sync_command_mirrors.py`
+  - Principles applied: §10.7 Clean Code
+  - Patch (deterministic): omit — add each var with default; annotate `AIE_MCP_HEALTH_FAIL_OPEN` as converting the MCP health gate from blocking to pass-through. Regenerate mirrors.
+  - Gate: T-2.3 passes.
+
+### 2b — decision-store.json full migration (17 callers → state.db, then delete)
+
+- [ ] T-2.5 — Hooks read state.db via stdlib sqlite3 (RED+GREEN)
+  - Agent: build
+  - Files: `.ai-engineering/scripts/hooks/mcp-health.py:166-212`, `prompt-injection-guard.py:534-629`; tests under `tests/unit/hooks/`
+  - Principles applied: §10.8 Hexagonal, §10.5 TDD
+  - Patch (deterministic): omit — judgment: add a stdlib `sqlite3` reader (sealed-contract-safe) for the `decisions` table; RED test asserts hooks resolve decisions from state.db with no JSON present.
+  - Gate: hooks pass with `decision-store.json` absent.
+
+- [ ] T-2.6 — Migrate direct-JSON readers to the repository/state.db
+  - Agent: build
+  - Files: `src/ai_engineering/policy/checks/risk.py:15`, `commands/workflows.py:655`, `maintenance/report.py:400-408`
   - Principles applied: §10.4 DRY, §10.5 TDD
-  - Patch (deterministic): add a test asserting active skills and templates reference `.ai-engineering/security/iocs/IOCS_ATTRIBUTION.md`, not `.ai-engineering/references/IOCS_ATTRIBUTION.md`, and that the duplicate references copy is absent after migration.
-  - Gate: `rtk .venv/bin/pytest tests/integration/test_sentinel_runtime_iocs.py tests/unit/skills/test_ioc_attribution_references.py -q` fails before references are updated.
+  - Patch (deterministic): omit — judgment: replace direct `read_json_model(ds_path, DecisionStore)` with `DurableStateRepository.load_decisions()`. RED tests per caller first.
+  - Gate: each caller reads from state.db; JSON-read removed.
 
-- [x] T-3.2 — GREEN: move IOC attribution references to the security/iocs home
+- [ ] T-2.7 — Migrate the audit-chain verifiers (delicate)
   - Agent: build
-  - Files: .claude/skills/ai-mcp-audit/SKILL.md:118; .codex/skills/ai-mcp-audit/SKILL.md:123; .gemini/skills/ai-mcp-audit/SKILL.md:123; .github/skills/ai-mcp-audit/SKILL.md:124; src/ai_engineering/templates/.ai-engineering/references/IOCS_ATTRIBUTION.md:1; .ai-engineering/references/IOCS_ATTRIBUTION.md:1
-  - Principles applied: §10.4 DRY, §10.7 Clean Code
-  - Patch (deterministic): update canonical skill source to the security path, run mirror sync, remove the byte-identical `.ai-engineering/references/IOCS_ATTRIBUTION.md` and template duplicate, and add the security/iocs attribution file to any installer template path that still needs it.
-  - Gate: `rtk .venv/bin/pytest tests/integration/test_sentinel_runtime_iocs.py tests/unit/skills/test_ioc_attribution_references.py -q` passes and `cmp` no longer has duplicate inputs.
+  - Files: `src/ai_engineering/cli_commands/audit_cmd.py:129,182`, `doctor/phases/state.py:290-300`
+  - Principles applied: §10.8 Hexagonal, §10.6 SDD
+  - Patch (deterministic): omit — judgment: these hash-chain-verify the JSON as an append-only audit artifact. Re-point verification at the canonical audit source (tier-1 NDJSON / state.db projection) per `docs/persistence-doctrine.md`. RED test replays a known chain. **FLAG: most regression-prone task — keep isolated in its own commit.**
+  - Gate: audit-chain verification passes against the canonical source; no JSON dependency.
 
-- [x] T-3.3 — RED: add strategic compact runtime-path test
+- [ ] T-2.8 — Stop dual-write; drop JSON from the control plane
   - Agent: build
-  - Files: tests/integration/test_strategic_compact_integration.py:1; .ai-engineering/scripts/hooks/strategic-compact.py:64; tests/unit/specs/test_state_canonical.py:70
-  - Principles applied: §10.5 TDD, §10.8 Hexagonal Architecture
-  - Patch (deterministic): add a test proving `strategic-compact.py` writes `.ai-engineering/runtime/strategic-compact.json` and no longer writes `.ai-engineering/state/strategic-compact.json`.
-  - Gate: `rtk .venv/bin/pytest tests/integration/test_strategic_compact_integration.py tests/unit/specs/test_state_canonical.py -q` fails before the hook path moves.
+  - Files: `src/ai_engineering/state/repository.py:154-168`, `state/context_packs.py:35`, `config/framework_defaults.py:25`
+  - Principles applied: §10.4 DRY (single SSOT), §10.2 YAGNI
+  - Patch (deterministic): omit — judgment: remove the `write_json_model(decision_store_path,...)` mirror from `save_decisions`; remove `decision-store.json` from `_AUTHORITATIVE_CONTROL_PLANE` and from session-context injection.
+  - Gate: writes go only to state.db; sessions no longer ingest the JSON.
 
-- [x] T-3.4 — GREEN: move strategic compact sidecar out of state
+- [ ] T-2.9 — CI caller-count ratchet
   - Agent: build
-  - Files: .ai-engineering/scripts/hooks/strategic-compact.py:64; .ai-engineering/state/hooks-manifest.json:77; tests/unit/specs/test_state_canonical.py:70
-  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
-  - Patch (deterministic): change the hook sidecar path to `.ai-engineering/runtime/strategic-compact.json`, remove `strategic-compact.json` from documented state transients, delete the old state file, and regenerate hook manifest hashes.
-  - Gate: `rtk .venv/bin/pytest tests/integration/test_strategic_compact_integration.py tests/unit/specs/test_state_canonical.py -q` passes.
+  - Files: `tests/architecture/test_decision_store_ratchet.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — grep src/+hooks for `decision-store.json`/`decision_store_path` reads; assert the count ≤ a locked ceiling that only decreases. Guards every PR against regression mid-migration.
+  - Gate: count monotonically decreases; never increases.
 
-- [x] T-3.5 — RED/GREEN: remove dead `instinct-observations.ndjson` state artifact
+- [ ] T-2.10 — Delete decision-store.json + residue
   - Agent: build
-  - Files: tests/unit/specs/test_state_canonical.py:67; src/ai_engineering/state/instincts.py:25; .ai-engineering/state/instinct-observations.ndjson:1
-  - Principles applied: §10.2 YAGNI, §10.7 Clean Code
-  - Patch (deterministic): add a state-canonical assertion that `instinct-observations.ndjson` is forbidden, confirm active code writes `observation-events.ndjson`, then delete the zero-byte legacy file and remove the documented-transient exception.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_state_canonical.py tests/integration/test_framework_hook_emitters.py -q` passes.
-
-- [x] T-3.6 — RED/GREEN: merge team lessons into canonical LESSONS.md
-  - Agent: build
-  - Files: .ai-engineering/team/lessons.md:1; .ai-engineering/LESSONS.md:1; tests/unit/specs/test_lessons_single_home.py:new; src/ai_engineering/installer/phases/governance.py:36
-  - Principles applied: §10.4 DRY, §10.6 SDD
-  - Patch (deterministic): add a preservation test for the two unique headings in `.ai-engineering/team/lessons.md`, append missing content to `.ai-engineering/LESSONS.md` without duplicating existing lessons, remove the team copy, and update installer/governance mappings if they still create the duplicate file.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_lessons_single_home.py tests/e2e/test_install_clean.py -q` passes.
-
-- [x] T-3.7 — GREEN: document gate cache as bounded cache, not deletion target
-  - Agent: build
-  - Files: docs/persistence-doctrine.md:125; src/ai_engineering/cli_commands/gate.py:799; tests/perf/test_ai_pr_coldcache.py:109
-  - Principles applied: §10.1 KISS, §10.6 SDD
-  - Patch (deterministic): update docs to cite the existing cache status/clear commands and the 24h/256-entry implementation rather than inventing a new lifecycle or removing `.ai-engineering/cache/gate/`.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_persistence_doctrine_contract.py tests/unit/specs/test_state_canonical.py -q` passes.
-
-- [x] T-3.8 — VERIFY: state/data-tree cleanup sweep
-  - Agent: verify
-  - Files: .ai-engineering/state/:1; .ai-engineering/runtime/:1; .ai-engineering/security/iocs/:1
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification; use `rg`/`find` to confirm no active references to removed paths except archived specs/history.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_state_canonical.py tests/integration/test_sentinel_runtime_iocs.py tests/integration/test_strategic_compact_integration.py -q` passes.
-
-## Phase 4: Tunables Documentation and Mirror Reconciliation
-
-- [x] T-4.1 — RED: extend tunables test to promoted M5/M6 variables
-  - Agent: build
-  - Files: tests/architecture/test_tunables_docs_match_code.py:95; .ai-engineering/scripts/hooks/prompt-injection-guard.py:81; .ai-engineering/scripts/hooks/auto-format.py:50; .ai-engineering/scripts/hooks/runtime-session-end.py:69
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): add code-default resolution for `AIENG_HOOK_CACHE_TTL_SEC=300`, `AIENG_AUTOFORMAT_DEBOUNCE_SEC=1.0`, `AIENG_NDJSON_MAX_LINES=100000`, and `AIENG_NDJSON_MAX_BYTES=52428800`; assert they are documented with defaults, not pending markers.
-  - Gate: `rtk .venv/bin/pytest tests/architecture/test_tunables_docs_match_code.py -q` fails on current pending rows.
-
-- [x] T-4.2 — GREEN: update root and template tunables docs
-  - Agent: build
-  - Files: CLAUDE.md:175; src/ai_engineering/templates/project/CLAUDE.md:175; tests/architecture/test_tunables_docs_match_code.py:58
-  - Principles applied: §10.4 DRY, §10.7 Clean Code
-  - Patch (deterministic): move implemented M5/M6 variables from the pending block into default-bearing sections, leave or remove only true reserved variables (`AIENG_HOST_PREFLIGHT_*`, `AIENG_HOOK_BUDGET_PROFILE`) per D-146-07, and update `_PENDING_MILESTONES` so only genuinely pending buckets remain.
-  - Gate: `rtk .venv/bin/pytest tests/architecture/test_tunables_docs_match_code.py -q` passes.
-
-- [x] T-4.3 — GREEN: regenerate rulebook mirrors after CLAUDE/template edit
-  - Agent: build
-  - Files: AGENTS.md:175; GEMINI.md:175; .github/copilot-instructions.md:175; src/ai_engineering/templates/project/AGENTS.md:175; src/ai_engineering/templates/project/GEMINI.md:175; src/ai_engineering/templates/project/copilot-instructions.md:175
-  - Principles applied: §10.4 DRY, §10.6 SDD
-  - Patch (deterministic): run the project mirror-sync command so generated root and template rulebooks carry the same tunables block; do not hand-edit generated mirrors.
-  - Gate: `rtk .venv/bin/ai-eng dev sync --check` passes.
-
-- [x] T-4.4 — VERIFY: docs/code tunables reconciliation
-  - Agent: verify
-  - Files: tests/architecture/test_tunables_docs_match_code.py:1; CLAUDE.md:175; src/ai_engineering/templates/project/CLAUDE.md:175
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification.
-  - Gate: `rtk .venv/bin/pytest tests/architecture/test_tunables_docs_match_code.py -q && rtk .venv/bin/ai-eng dev sync --check` passes.
-
-## Phase 5: Caller Inventory and Module Simplification
-
-- [x] T-5.1 — RED: add caller-inventory artifact contract
-  - Agent: build
-  - Files: tests/unit/specs/test_spec_146_caller_inventory.py:new; .ai-engineering/specs/spec-146-caller-inventory.md:new
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): add a test requiring a spec-146 inventory artifact with rows for `agentsview.py`, `outbox.py`, `governance/policy_engine.py`, `cli_ui_skill_ref.py`, `trace_context.py`, `capabilities.py`, `context_packs.py`, `relevance.py`, `StateService`, `DurableStateRepository`, and `installer/mechanisms/__init__.py`.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_spec_146_caller_inventory.py -q` fails before the artifact exists.
-
-- [x] T-5.2 — GREEN: generate and commit caller inventory
-  - Agent: build
-  - Files: .ai-engineering/specs/spec-146-caller-inventory.md:new; tools/caller_inventory.py:new
-  - Principles applied: §10.1 KISS, §10.6 SDD
-  - Patch (deterministic): create a small script or documented command output that classifies each candidate as production, test, hook, template, doc, archive, or unused; write the resulting Markdown artifact with exact command and timestamp-free evidence.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_spec_146_caller_inventory.py -q` passes.
-
-- [x] T-5.3 — RED: pin production-used module preservation
-  - Agent: build
-  - Files: tests/unit/specs/test_spec_146_module_boundaries.py:new; src/ai_engineering/state/observability.py:357; src/ai_engineering/validator/categories/manifest_coherence.py:13
-  - Principles applied: §10.5 TDD, §10.3 SOLID
-  - Patch (deterministic): add tests asserting `trace_context.py`, `capabilities.py`, and `context_packs.py` are either present or explicitly represented by replacement modules named in the caller inventory.
-  - Gate: `rtk .venv/bin/pytest tests/unit/specs/test_spec_146_module_boundaries.py -q` passes before deletion tasks begin.
-
-- [x] T-5.4 — RED: add dead-module import guards
-  - Agent: build
-  - Files: tests/architecture/test_no_dead_module_imports.py:new; src/ai_engineering/state/agentsview.py:1; src/ai_engineering/state/outbox.py:1; src/ai_engineering/cli_ui_skill_ref.py:1
-  - Principles applied: §10.5 TDD, §10.2 YAGNI
-  - Patch (deterministic): add an architecture test that fails when production code imports candidates classified as unused/test-only and asserts replacements are documented for any public import removed.
-  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_dead_module_imports.py -q` fails until deletion/update is complete.
-
-- [x] T-5.5 — GREEN: hard-delete low-risk dead/test-only modules
-  - Agent: build
-  - Files: src/ai_engineering/state/agentsview.py:1; src/ai_engineering/state/outbox.py:1; src/ai_engineering/cli_ui_skill_ref.py:1; tests/unit/test_agentsview_contract.py:1; tests/integration/state/test_outbox_atomic.py:1
-  - Principles applied: §10.2 YAGNI, §10.7 Clean Code
-  - Patch (deterministic): delete only candidates classified as no-production-callers; update or remove tests that exist solely to preserve deleted modules; do not touch production-used modules in this task.
-  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_dead_module_imports.py tests/unit/specs/test_spec_146_module_boundaries.py -q` passes.
-
-- [x] T-5.6 — RED/GREEN: remove or replace governance policy-engine shim
-  - Agent: build
-  - Files: src/ai_engineering/governance/policy_engine.py:1; src/ai_engineering/governance/__init__.py:1; src/ai_engineering/governance/opa_runner.py:1; src/ai_engineering/installer/tool_registry.py:207
+  - Files: `src/ai_engineering/state/state_db.py:72` (`_DEPRECATED_JSON_FALLBACKS`), `state/observability.py:602`, `validator/categories/manifest_coherence.py:52`, installer cleanup (already `unlink(missing_ok=True)`)
   - Principles applied: §10.2 YAGNI, §10.4 DRY
-  - Patch (deterministic): if the inventory confirms zero production callers beyond re-export/documentation, delete `policy_engine.py`, update `governance/__init__.py` to expose the real OPA path or nothing, and update references that called it downstream-fork insurance.
-  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_dead_module_imports.py tests/unit/test_aieng_test_simulate_fail.py -q` passes.
+  - Patch (deterministic): omit — remove the JSON from fallback/observability/coherence path maps; confirm the installer cleanup unlink remains. CHANGELOG hard-delete entry.
+  - Gate: repo-wide grep shows zero JSON readers; T-2.9 ceiling at 0.
 
-- [x] T-5.7 — RED/GREEN: split installer mechanisms by mechanism class
+### 2c — gate-findings reconciliation (OQ1 resolved)
+
+- [ ] T-2.11 — Remove the reader-less gate_findings SQLite seed/table
   - Agent: build
-  - Files: src/ai_engineering/installer/mechanisms/__init__.py:1; src/ai_engineering/installer/tool_registry.py:26; tests/integration/test_install_idempotence.py:41
+  - Files: `src/ai_engineering/state/migrations/0002_seed_from_json.py:96-128,227`, `state/control_plane.py:154-156`, `tests/integration/state/test_db_migration.py:133`, `docs/persistence-doctrine.md:155-158`
+  - Principles applied: §10.4 DRY (single SSOT), §10.2 YAGNI
+  - Patch (deterministic): omit — judgment: drop `_seed_gate_findings`; remove the `gate_findings` table (or document as removed); update the migration test; align the doctrine to JSON-canonical with no transitional SQLite pressure.
+  - Gate: doctrine + code agree; JSON is the single store; migration test green.
+  - **Wave-2 acceptance**: G2 (doc claims CI-asserted) + G3 (one canonical store per datum).
+
+---
+
+## Phase 3 — Wave 3: One obvious way (D-147-11, D-147-12)
+
+Concern: no ambiguous trigger; one branch-cleanup. No skill folds/deletes (surface count stays). Agent: build.
+
+- [ ] T-3.1 — De-collide contested trigger phrases
+  - Agent: build
+  - Files: `.claude/skills/{ai-prose,ai-marketing,ai-verify,ai-governance,ai-security,ai-explore,ai-explain,ai-onboard,ai-code,ai-build}/SKILL.md` descriptions; then `python scripts/sync_command_mirrors.py`
+  - Principles applied: §10.3 SOLID (single-responsibility trigger), §10.7 Clean Code
+  - Patch (deterministic): omit — assign each contested phrase ("write a blog post", "pre-release", "architecture", "scan for security issues", "implement it"/"implement this") to exactly one skill; others cross-reference. No merges.
+  - Gate: no listed trigger phrase appears in >1 description (verifiable form of G4); mirrors clean.
+
+- [ ] T-3.2 — Surface ai-spec-draft in the canonical chain; clarify ai-code vs ai-build
+  - Agent: build
+  - Files: `CLAUDE.md` §11 chain; `.claude/skills/ai-spec-draft/SKILL.md`, `ai-code`/`ai-build` descriptions; then `python scripts/sync_command_mirrors.py`
+  - Principles applied: §10.7 Clean Code
+  - Patch (deterministic): omit — note ai-spec-draft as the optional pre-step; state the code-subcomponent vs implementation-gateway boundary explicitly. Regenerate mirrors.
+  - Gate: chain doc shows the pre-step; mirrors clean.
+
+- [ ] T-3.3 — RED: single branch-cleanup implementation
+  - Agent: build
+  - Files: `tests/architecture/test_branch_cleanup_single_impl.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — assert exactly one implementation import path for branch cleanup.
+  - Gate: fails against the two current paths.
+
+- [ ] T-3.4 — GREEN: delegate maintenance branch-cleanup to cleanup branches
+  - Agent: build
+  - Files: `src/ai_engineering/cli_commands/maintenance.py:123-149` (delegate), `cli_factory.py:414`, CHANGELOG
+  - Principles applied: §10.4 DRY, §10.1 KISS
+  - Patch (deterministic): omit — judgment: make `maintenance branch-cleanup` a thin delegation to `cleanup branches`; CHANGELOG documents the consolidation (no shim alias).
+  - Gate: T-3.3 passes.
+  - **Wave-3 acceptance**: G4 (one obvious surface; surface count unchanged).
+
+---
+
+## Phase 4 — Wave 4: Deterministic "done" (D-147-13) — NARROWED
+
+Concern: reproducible STOP + method-tagged findings. Exploration confirmed the count-threshold STOP is already deterministic; only `quality.md` Step 2d condition 4 is LLM-judged. Agent: build.
+
+- [ ] T-4.1 — RED: every verify Finding carries `method: deterministic|llm`
+  - Agent: build
+  - Files: `tests/unit/test_verify_service.py`
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — assert each finding exposes `method` ∈ {deterministic, llm}; deterministic for tool runners, llm for `verifier-acceptance`.
+  - Gate: fails (no field today).
+
+- [ ] T-4.2 — GREEN: add `method` to the Finding model + verify contract
+  - Agent: build
+  - Files: `src/ai_engineering/verify/` Finding model + assembly; `.claude/skills/ai-verify/SKILL.md:64-70` output contract; then `python scripts/sync_command_mirrors.py`
   - Principles applied: §10.3 SOLID, §10.7 Clean Code
-  - Patch (deterministic): add import-contract tests, move mechanism classes into focused modules, keep `mechanisms/__init__.py` as a thin re-export surface during internal migration, and ensure RUF022-sorted `__all__` remains stable.
-  - Gate: `rtk .venv/bin/pytest tests/integration/test_install_idempotence.py tests/integration/test_doctor_fix_node_stack.py tests/unit/test_aieng_test_simulate_fail.py -q` passes.
+  - Patch (deterministic): omit — tag tool-runner findings `deterministic`, `verifier-acceptance` findings `llm`; document the field in the contract.
+  - Gate: T-4.1 passes; mirrors clean.
 
-- [x] T-5.8 — RED/GREEN: migrate one facade callsite group away from behavior-free forwarding
+- [ ] T-4.3 — Make the one LLM STOP element deterministic/advisory (RED+GREEN)
   - Agent: build
-  - Files: src/ai_engineering/state/service.py:29; src/ai_engineering/state/repository.py:66; src/ai_engineering/cli_commands/gate.py:47; src/ai_engineering/cli_commands/risk_cmd.py:52
-  - Principles applied: §10.1 KISS, §10.3 SOLID
-  - Patch (deterministic): select the smallest callsite group identified by the inventory where direct `state_db` helpers remove a pass-through layer; add tests first, migrate those callsites, and leave facades in place for remaining production users.
-  - Gate: `rtk .venv/bin/pytest tests/integration/test_orchestrator_lookup.py tests/integration/test_risk_accept_all_e2e.py tests/unit/specs/test_spec_146_module_boundaries.py -q` passes.
+  - Files: `.claude/skills/ai-build/handlers/quality.md:124-141` (Step 2d condition 4); replay test under `tests/`
+  - Principles applied: §10.6 SDD, §10.5 TDD
+  - Patch (deterministic): omit — judgment: condition 4 ("requires product decision/architecture redesign/destructive migration") becomes a deterministic signal OR is reclassified as advisory-only (cannot silently auto-block or auto-pass). RED replay test: same diff → same STOP verdict across runs.
+  - Gate: identical-diff replay is reproducible.
+  - **Wave-4 acceptance**: G5 (reproducible STOP; method-tagged findings).
 
-- [x] T-5.9 — VERIFY: import graph and module simplification sweep
-  - Agent: verify
-  - Files: src/ai_engineering/:1; tests/:1; tools/:1
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification using `pytest` plus `rg` to ensure deleted module names appear only in CHANGELOG/spec artifacts or allowed archives.
-  - Gate: `rtk .venv/bin/pytest tests/architecture/test_no_dead_module_imports.py tests/unit/specs/test_spec_146_caller_inventory.py tests/unit/specs/test_spec_146_module_boundaries.py -q` passes.
+---
 
-## Phase 6: Changelog, Sync, and Final Quality Gates
+## Phase 5 — Wave 5: Poka-yoke the conventions (D-147-14..17)
 
-- [x] T-6.1 — RED: add changelog removal coverage test
+Concern: CI enforces §10.x citation, naming grammar, suppression DEC-binding; destructive verbs default to dry-run. Agent: build.
+
+- [ ] T-5.1 — Backfill §10.x into Workflow-without-citation skills
   - Agent: build
-  - Files: tests/docs/test_changelog_spec_146.py:new; CHANGELOG.md:1
-  - Principles applied: §10.5 TDD, §10.6 SDD
-  - Patch (deterministic): add a test requiring `[Unreleased]` entries for spec-146 ownership fix, persistence clarification, removed artifacts/modules, and any non-shim breaking import removals.
-  - Gate: `rtk .venv/bin/pytest tests/docs/test_changelog_spec_146.py -q` fails before CHANGELOG is updated.
+  - Files: the ~22 `.claude/skills/*/SKILL.md` with a `## Workflow` lacking a `§10.x` anchor; then `python scripts/sync_command_mirrors.py`
+  - Principles applied: §10.7 Clean Code
+  - Patch (deterministic): omit — add the most relevant `§10.x` anchor to each Workflow. Mechanical but per-file judgment on which anchor.
+  - Gate: every Workflow section cites §10.x.
 
-- [x] T-6.2 — GREEN: update CHANGELOG for spec-146
+- [ ] T-5.2 — RED+GREEN: CI test "Workflow ⇒ §10.x"
   - Agent: build
-  - Files: CHANGELOG.md:1
-  - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): add concise `[Unreleased]` sections for `Fixed`, `Changed`, and `Removed`; list every deleted file/module and exact replacement or rationale; do not mention machine paths.
-  - Gate: `rtk .venv/bin/pytest tests/docs/test_changelog_spec_146.py -q` passes.
+  - Files: `tests/architecture/test_workflow_principle_citation.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — for each SKILL.md, if a `## Workflow` section exists, assert it contains `§10.\d`. Model on `test_canonical_events_count.py`. Runs after T-5.1 (intra-wave dep).
+  - Gate: green post-backfill; fails if any Workflow drops its citation.
 
-- [x] T-6.3 — GREEN: write spec-146 handoff evidence
+- [ ] T-5.3 — Codify + CI-lock the naming grammar (confirm zero renames)
   - Agent: build
-  - Files: .ai-engineering/specs/spec-146-pr-handoff.md:new; .ai-engineering/specs/spec-146-caller-inventory.md:1
-  - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): create a handoff note summarizing decisions, files removed, files preserved, gate results, and residual follow-ups; keep it timestamp-free and path-anonymized.
-  - Gate: `test -s .ai-engineering/specs/spec-146-pr-handoff.md` passes, and the project anonymous-content grep reports no machine-absolute paths in the handoff note.
+  - Files: `.claude/skills/ai-scaffold/SKILL.md`, `CONSTITUTION.md`, `tests/architecture/test_skill_naming_grammar.py` (new); then `python scripts/sync_command_mirrors.py`
+  - Principles applied: §10.7 Clean Code
+  - Patch (deterministic): omit — document the candidate rule (`ai-` + lowercase-kebab + verb|noun); CI asserts all skill dirs match. Confirm with operator that no renames are needed before touching any skill dir (OQ2).
+  - Gate: all 53 skills satisfy the locked grammar; zero renames.
 
-- [x] T-6.4 — VERIFY: targeted quality gate suite
-  - Agent: verify
-  - Files: tests/:1; src/:1; .ai-engineering/:1
-  - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification; do not patch failures in this task unless the operator starts a bounded remediation pass.
-  - Gate: `rtk .venv/bin/pytest tests/unit/state/test_ownership_state_db_read.py tests/unit/test_updater.py tests/integration/test_updater.py tests/unit/specs/test_persistence_doctrine_contract.py tests/unit/specs/test_state_canonical.py tests/architecture/test_tunables_docs_match_code.py tests/architecture/test_no_dead_module_imports.py tests/docs/test_changelog_spec_146.py -q` passes.
+- [ ] T-5.4 — RED: `cleanup branches` no-flag deletes nothing
+  - Agent: build
+  - Files: `tests/unit/test_cleanup.py`
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — invoke with no mode flag; assert no deletion, a plan is printed, confirmation required.
+  - Gate: fails against current `merged=True` default.
 
-- [x] T-6.5 — VERIFY: sync, lint, spec lint, and full test pass
-  - Agent: verify
-  - Files: .ai-engineering/specs/spec.md:1; .ai-engineering/specs/plan.md:1; scripts/sync_mirrors/core.py:1
-  - Principles applied: §10.5 TDD, §10.6 SDD, §10.7 Clean Code
-  - Patch (deterministic): read-only verification; if failures remain, record blockers in `spec-146-pr-handoff.md` rather than silently loosening gates.
-  - Gate: `rtk .venv/bin/python tools/spec_lint/cli.py --check .ai-engineering/specs/spec.md && rtk .venv/bin/ai-eng dev sync --check && rtk .venv/bin/ruff check && rtk .venv/bin/ruff format --check && rtk .venv/bin/pytest -q` passes.
+- [ ] T-5.5 — GREEN: dry-run-by-default for destructive CLI verbs
+  - Agent: build
+  - Files: `src/ai_engineering/cli_commands/cleanup.py:257-260,297-300`
+  - Principles applied: §10.7 Clean Code (pit of success)
+  - Patch (deterministic): omit — judgment: no-flag prints plan + requires confirm; deletion is opt-in.
+  - Gate: T-5.4 passes.
+
+- [ ] T-5.6 — RED: nosemgrep suppression without dec_id fails allowlist load
+  - Agent: build
+  - Files: `tests/unit/test_suppression_allowlist.py` (or existing no_suppression tests)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): omit — a `nosemgrep_hash` entry with `dec_id: ""` → load raises/blocks; a non-security entry with empty dec_id → warning only (not block, until 2026-07-10).
+  - Gate: fails against current accept-empty behavior.
+
+- [ ] T-5.7 — GREEN: phased suppression DEC-binding
+  - Agent: build
+  - Files: `.ai-engineering/suppression-allowlist.yml:20-26,64-641`, allowlist loader, `src/ai_engineering/no_suppression/`
+  - Principles applied: §10.8 Hexagonal (fail into the port), §10.6 SDD
+  - Patch (deterministic): omit — hard-require DEC on `nosemgrep_hash` (author the DECs for current nosemgrep entries in this PR); per-entry warning for the other 50+ empty `dec_id` until expiry 2026-07-10.
+  - Gate: T-5.6 passes; gate not globally blocked by the non-security backlog.
+  - **Wave-5 acceptance**: G6 (conventions CI-enforced; destructive verbs dry-run-by-default).
+
+---
+
+## Cross-cutting gates (every wave)
+
+- CHANGELOG documents each behavior flip + hard-rename; zero backwards-compat shims (G7; `CONSTITUTION.md:70-73`).
+- Any canonical-payload edit (CLAUDE.md / SKILL.md / CONSTITUTION.md) runs `python scripts/sync_command_mirrors.py`; `--check` is clean before PR.
+- Hot-path budgets preserved (pre-commit <1s, pre-push <5s) for Wave-1 gate changes.
+- `regenerate-hooks-manifest.py` run after any hook-script edit (Waves 1, 2).
+
+## Self-review (Clean Code §10.7) — 2 iterations
+
+- **Iter 1** — Found Wave 4 over-scoped (spec implied a STOP rewrite; exploration shows STOP is already deterministic). Narrowed Phase 4 to the `method` tag + the single LLM condition. Resolved.
+- **Iter 1** — Found the decision-store migration under-scoped at 12 callers; corrected to 17 with the hook (stdlib sqlite3) + audit-chain sub-classes split into distinct tasks (T-2.5..T-2.10). Resolved.
+- **Iter 2** — Verified TDD pairing (every GREEN has a preceding RED), agent assignments are all `build` (code-write; verify/guard run as gates inside autopilot's Phase 5), and no task exceeds single-concern. Confirmed the two spec Open Questions are resolved/answered above. No remaining concerns.
+
+## Next
+
+Operator approves this plan, then runs **`/ai-autopilot`** (executor route: autopilot — 5 concerns, ~45 files). Autopilot deep-plans each wave into a sub-spec, builds the DAG, implements in waves, runs the bounded fail-loud quality loop, and delivers per-wave PRs (Wave 1 first).

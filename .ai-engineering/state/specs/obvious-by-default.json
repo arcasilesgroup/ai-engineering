@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-05-20T12:42:08.537833+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "obvious-by-default",
+  "spec_id": "obvious-by-default",
+  "state": "draft",
+  "title": "Obvious by Default \u2014 fail-loud safety and legibility refactor"
+}
