@@ -73,13 +73,13 @@ ty check src/
 
 ## Testing
 
-Run the full test suite with:
+Run the full test suite in parallel (mirrors CI) with:
 
 ```bash
-pytest
+make test
 ```
 
-This automatically runs with verbose output and coverage reporting (configured in `pyproject.toml`).
+Scoped targets: `make test-unit`, `make test-integration`, `make test-e2e`. These run `pytest -n auto --dist worksteal` via `pytest-xdist`. Bare `pytest` still works and runs serially — prefer it for focused, `--pdb`-friendly runs.
 
 **Test conventions**:
 

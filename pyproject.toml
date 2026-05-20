@@ -147,7 +147,7 @@ known-first-party = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v -m 'not slow'"
+addopts = "-m 'not slow'"
 # spec-127 M1: expose ``tools/`` so ``skill_domain``, ``skill_app``,
 # ``skill_infra``, and ``skill_lint`` import as top-level packages
 # without a project-root ``tools/__init__.py`` (which would make

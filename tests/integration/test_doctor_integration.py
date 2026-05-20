@@ -39,6 +39,20 @@ def installed_git_project(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture(scope="module")
+def installed_project_ro(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """Module-scoped install shared by diagnose-only (read-only) tests.
+
+    install() costs ~2s; sharing one tree across the read-only tests
+    avoids re-paying it per test. Tests that mutate the tree (drift
+    simulation, --fix, state edits) MUST use the function-scoped
+    ``installed_project`` to preserve isolation.
+    """
+    project = tmp_path_factory.mktemp("installed_ro")
+    install(project)
+    return project
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -110,8 +124,8 @@ def _force_venv_mode(project: Path) -> None:
 class TestGovernancePhaseCheck:
     """Tests for governance phase validation (framework layout + manifest)."""
 
-    def test_passes_on_valid_layout(self, installed_project: Path) -> None:
-        report = diagnose(installed_project)
+    def test_passes_on_valid_layout(self, installed_project_ro: Path) -> None:
+        report = diagnose(installed_project_ro)
         governance = _find_phase(report, "governance")
         governance_dirs = next((c for c in governance.checks if c.name == "governance-dirs"), None)
         assert governance_dirs is not None
@@ -142,8 +156,8 @@ class TestGovernancePhaseCheck:
 class TestStatePhaseChecks:
     """Tests for state file integrity validation."""
 
-    def test_all_state_files_valid(self, installed_project: Path) -> None:
-        report = diagnose(installed_project)
+    def test_all_state_files_valid(self, installed_project_ro: Path) -> None:
+        report = diagnose(installed_project_ro)
         state_phase = _find_phase(report, "state")
         parseable = next((c for c in state_phase.checks if c.name == "state-files-parseable"), None)
         assert parseable is not None
@@ -193,9 +207,9 @@ class TestStatePhaseChecks:
 class TestHookChecks:
     """Tests for git hook verification."""
 
-    def test_ok_when_installed_with_git(self, installed_project: Path) -> None:
+    def test_ok_when_installed_with_git(self, installed_project_ro: Path) -> None:
         # Since spec-072, install() auto-initializes git and installs hooks
-        report = diagnose(installed_project)
+        report = diagnose(installed_project_ro)
         hooks_phase = _find_phase(report, "hooks")
         hook_check = next((c for c in hooks_phase.checks if c.name == "hooks-integrity"), None)
         assert hook_check is not None
@@ -367,9 +381,9 @@ class TestVenvHealthCheck:
 class TestToolChecks:
     """Tests for tool availability checks."""
 
-    def test_tool_checks_produce_results(self, installed_project: Path) -> None:
+    def test_tool_checks_produce_results(self, installed_project_ro: Path) -> None:
         """Tools phase should produce check results for required tools."""
-        report = diagnose(installed_project)
+        report = diagnose(installed_project_ro)
         tools_phase = _find_phase(report, "tools")
         assert len(tools_phase.checks) > 0
 
@@ -382,12 +396,12 @@ class TestToolChecks:
 class TestVersionLifecycleCheck:
     """Tests for version lifecycle diagnostic check."""
 
-    def test_version_check_appears_in_report(self, installed_project: Path) -> None:
-        report = diagnose(installed_project)
+    def test_version_check_appears_in_report(self, installed_project_ro: Path) -> None:
+        report = diagnose(installed_project_ro)
         check = _find_check_in_runtime(report, "version")
         assert check.status in (CheckStatus.OK, CheckStatus.WARN)
 
-    def test_version_check_ok_when_current(self, installed_project: Path) -> None:
+    def test_version_check_ok_when_current(self, installed_project_ro: Path) -> None:
         from unittest.mock import patch
 
         from ai_engineering.version.checker import VersionCheckResult
@@ -404,11 +418,11 @@ class TestVersionLifecycleCheck:
             message="0.1.0 (current)",
         )
         with patch("ai_engineering.doctor.runtime.version.check_version", return_value=mock_result):
-            report = diagnose(installed_project)
+            report = diagnose(installed_project_ro)
         check = _find_check_in_runtime(report, "version")
         assert check.status == CheckStatus.OK
 
-    def test_version_check_fail_when_deprecated(self, installed_project: Path) -> None:
+    def test_version_check_fail_when_deprecated(self, installed_project_ro: Path) -> None:
         from unittest.mock import patch
 
         from ai_engineering.version.checker import VersionCheckResult
@@ -425,7 +439,7 @@ class TestVersionLifecycleCheck:
             message="0.0.1 is deprecated",
         )
         with patch("ai_engineering.doctor.runtime.version.check_version", return_value=mock_result):
-            report = diagnose(installed_project)
+            report = diagnose(installed_project_ro)
         check = _find_check_in_runtime(report, "version")
         assert check.status == CheckStatus.FAIL
 
@@ -499,8 +513,8 @@ class TestDoctorReport:
         serialized = json.dumps(data)
         assert '"test"' in serialized
 
-    def test_full_report_on_installed_project(self, installed_project: Path) -> None:
-        report = diagnose(installed_project)
+    def test_full_report_on_installed_project(self, installed_project_ro: Path) -> None:
+        report = diagnose(installed_project_ro)
         assert len(report.phases) > 0
         data = report.to_dict()
         assert "passed" in data
