@@ -40,6 +40,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- spec-147 G2 (wave 2a) corrects the canonical rulebook to stop claiming a
+  non-existent `agents.registry` manifest key (D-147-07). The
+  `.claude/agents/` and `.claude/skills/` directories are the source of
+  truth; the prose now distinguishes the 9 user-facing `ai-*` agents from
+  the internal `review-*`/`reviewer-*`/`verifier-*` families. A new
+  `tests/architecture/test_surface_counts.py` guard pins the documented
+  agent/skill counts against the on-disk file counts so the doc cannot
+  silently drift.
 - README surfaces now use the `{ai} engineering` brand voice, current six-surface inventory, inline governance Quick Start, and byte-identical governance README template.
 - Standard plan execution now records route-only `execution_route`
   metadata (`/ai-build` vs `/ai-autopilot`) and treats host-probe data as

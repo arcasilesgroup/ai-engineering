@@ -76,10 +76,13 @@ equivalent.
 
 ## Agents (9)
 
-The 9 first-class agents are listed in
-`.ai-engineering/manifest.yml` under `agents.registry` and documented at
-`.claude/agents/ai-<name>.md`. Each runs in its own context window —
-offload research and parallel analysis to them.
+The 9 user-facing agents are defined at
+`.claude/agents/ai-<name>.md` — that directory is the source of truth
+(there is no `agents.registry` manifest key). `.claude/agents/` also
+holds the internal review and verifier families (`review-*`,
+`reviewer-*`, `verifier-*`) dispatched by `/ai-review` and `/ai-verify`;
+those are not part of the user-facing 9. Each agent runs in
+its own context window — offload research and parallel analysis to them.
 
 ## Source of Truth
 
