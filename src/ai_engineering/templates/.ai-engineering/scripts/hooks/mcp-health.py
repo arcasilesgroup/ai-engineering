@@ -124,8 +124,17 @@ def _load_state() -> dict:
         return {"version": _STATE_VERSION, "servers": {}}
 
 
-def _save_state(state: dict) -> None:
-    """Save MCP health state to file with locking."""
+def _save_state(state: dict) -> str | None:
+    """Save MCP health state to file with locking.
+
+    spec-147 G1 T-1.11/1.12: a failed persist is no longer swallowed by a
+    bare ``except Exception: pass``. Persisting health/backoff state is NOT
+    a security gate, so the hook stays non-blocking, but the failure is made
+    VISIBLE: a one-line warning is written to stderr (which never corrupts
+    the single-JSON-object stdout contract this hook relies on for its
+    ``decision: block`` / passthrough paths) AND returned so callers /
+    tests can observe it. Returns ``None`` on success.
+    """
     try:
         _STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(_STATE_FILE, "w", encoding="utf-8") as f:
@@ -134,8 +143,16 @@ def _save_state(state: dict) -> None:
                 json.dump(state, f, indent=2)
             finally:
                 _unlock(f)
-    except Exception:
-        pass
+    except Exception as exc:
+        message = (
+            f"WARN [mcp-health] failed to persist health state to {_STATE_FILE} "
+            f"({type(exc).__name__}); backoff state for this run was lost"
+        )
+        with contextlib.suppress(Exception):
+            sys.stderr.write(message + "\n")
+            sys.stderr.flush()
+        return message
+    return None
 
 
 def _get_server_state(state: dict, server_name: str) -> dict:
