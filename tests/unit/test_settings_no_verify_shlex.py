@@ -86,11 +86,13 @@ def test_unrelated_git_command_allowed(guard) -> None:
     assert guard._is_no_verify_attempt("git status") is False
 
 
-def test_malformed_argv_fails_open(guard) -> None:
-    """``shlex.split`` raises on unterminated quoting; the matcher must
-    return False (fail-open: legitimate quote errors are not deny
-    candidates)."""
-    assert guard._is_no_verify_attempt('git commit "unterminated --no-verify') is False
+def test_malformed_argv_fails_closed(guard) -> None:
+    """spec-147 G1: ``shlex.split`` raises on unterminated quoting; the
+    matcher now fails CLOSED (returns True) — an unparseable command on
+    a security boundary is treated as a deny candidate, not waved
+    through. Better to block a rare legitimate quote error than to let a
+    crafted unparseable ``--no-verify`` bypass the guard."""
+    assert guard._is_no_verify_attempt('git commit "unterminated --no-verify') is True
 
 
 def test_empty_argv_returns_false(guard) -> None:
