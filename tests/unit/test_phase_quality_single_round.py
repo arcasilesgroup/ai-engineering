@@ -1,9 +1,10 @@
 """Regression: ``.claude/skills/ai-autopilot/handlers/phase-quality.md`` has
-single-round, fail-loud semantics after spec-131 D-131-05.
+single-round, fail-loud semantics with one bounded remediation pass.
 
-The handler MUST NOT carry any multi-round language. The trim removes the
+The handler MUST NOT carry any legacy multi-round language. The trim removes the
 ``round<3`` / ``round = 3`` / ``max 3 rounds`` / ``Round 2`` / ``Round 3``
-language and replaces the loop body with a single-round contract.
+language and keeps the loop body to one initial assessment, at most one
+bounded quality-remediation pass, and one terminal final reassessment.
 """
 
 from __future__ import annotations
@@ -37,8 +38,8 @@ def handler_text() -> str:
 def test_no_multi_round_language(handler_text: str) -> None:
     matches = MULTI_ROUND_RE.findall(handler_text)
     assert not matches, (
-        f"phase-quality.md must not reference multi-round retries (spec-131 "
-        f"D-131-05); matches: {matches}"
+        "phase-quality.md must not reference legacy multi-round retries "
+        f"(spec-131 D-131-05 / spec-145 bounded pass); matches: {matches}"
     )
 
 

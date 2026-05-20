@@ -174,8 +174,11 @@ build-backend = "hatchling.build"
 [tool.uv]
 # Override transitive urllib3 (pulled via requests / pip-audit / others).
 # CVE-2026-44431 + CVE-2026-44432 affect 2.6.3; 2.7.0 carries the fix.
+# Override transitive idna (pulled via requests/httpx) to avoid
+# CVE-2026-45409; 3.15 is the current PyPI release as of 2026-05-12.
 override-dependencies = [
   "urllib3>=2.7.0",
+  "idna>=3.15",
 ]
 
 # spec-132 sub-005 D-132-13 — Hexagonal direction contract.

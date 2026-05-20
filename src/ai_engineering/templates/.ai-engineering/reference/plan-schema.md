@@ -14,6 +14,7 @@ and consumed by `/ai-build`. Sub-spec plans under
 | `status` | enum | `draft` \| `approved` \| `in-progress` \| `shipped-pending-pr-merge` \| `shipped` |
 | `pipeline` | enum | `standard` \| `autopilot` |
 | `phases` | integer | `5` |
+| `execution_route` | object | see "Execution Route" below |
 
 Notes:
 
@@ -24,6 +25,29 @@ Notes:
 - `status: shipped` is the post-merge terminal state. Plans in this state
   are usually rotated to `.ai-engineering/specs/archive/<spec>/plan.md`
   by `/ai-pr` cleanup.
+- `status` is the only approval source of truth. Do not add `approved`,
+  `approval`, or similar fields under `execution_route`.
+
+## Execution Route
+
+New plans include an `execution_route` frontmatter object so `/ai-plan`
+records the next framework executor without auto-dispatching it:
+
+| Field | Type | Example |
+|-------|------|---------|
+| `version` | integer | `1` |
+| `spec` | string | `spec-145` |
+| `executor` | enum | `build` \| `autopilot` |
+| `automation` | enum/string | `hitl` |
+| `concern_count` | integer | `1` |
+| `estimated_files` | integer | `4` |
+| `reason` | string | `Single-concern plan below autopilot threshold.` |
+| `safe_next_command` | enum | `/ai-build` \| `/ai-autopilot` |
+
+`executor: build` requires `safe_next_command: "/ai-build"`.
+`executor: autopilot` requires `safe_next_command: "/ai-autopilot"`.
+Host capacity, RAM, swap, pressure, and `ok_to_dispatch` data are not
+plan metadata and do not participate in plan approval.
 
 ## Required Sections
 
@@ -116,6 +140,10 @@ Enforced by `tools/spec_lint/checks/plan.py` (invoked by
 6. **No duplicate task IDs**: when present, `T-<phase>.<index>` tokens
    must be unique within the file. ADVISORY (not BLOCKER) so the rule
    does not break sub-spec plans that share a numbering range.
+7. **Execution route shape**: when `execution_route` is present,
+   `executor` must be `build` or `autopilot`, `safe_next_command` must
+   match the executor, `execution_route.spec` must match plan `spec`,
+   and approval fields inside `execution_route` are forbidden.
 
 ## Why This Schema Exists
 

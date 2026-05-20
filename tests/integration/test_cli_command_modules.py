@@ -14,6 +14,7 @@ import typer
 
 from ai_engineering.cli_commands import (
     check,
+    cleanup,
     config,
     core,
     gate,
@@ -834,3 +835,15 @@ def test_maintenance_all_combined_report(
     captured = capsys.readouterr()
     assert "report-md" in captured.out
     assert "Maintenance" in captured.err
+
+
+def test_cleanup_specs_invokes_existing_lifecycle_consolidation(tmp_path: Path) -> None:
+    completed = SimpleNamespace(returncode=0)
+    with (
+        patch("ai_engineering.cli_commands.cleanup.resolve_project_root", return_value=tmp_path),
+        patch("ai_engineering.cli_commands.cleanup.subprocess.run", return_value=completed) as run,
+    ):
+        cleanup.cleanup_specs_cmd(dry_run=True)
+
+    args = run.call_args.args[0]
+    assert args[-2:] == ["consolidate_shipped", "--dry-run"]

@@ -36,7 +36,7 @@ entry; CLI = shell entry. The same verb name appears in BOTH iff
 2. **Identical contract** — `--json` shape, exit codes, and side-effects
    are byte-equivalent.
 
-Otherwise the verbs MUST be distinct. `/ai-repo-tidy` (LLM-orchestrated)
+Otherwise the verbs MUST be distinct. `/ai-branch-cleanup` (LLM-orchestrated)
 and `ai-eng cleanup` (deterministic 7-mode CLI) are distinct verbs by
 A2 because the engines differ — the skill calls the CLI but adds AI
 judgment on top.
@@ -47,5 +47,5 @@ judgment on top.
   surfaces (any name that appears in both `.claude/skills/<name>/` and
   `cli_factory.py` registrations must have identical contracts or be
   documented as A2-distinct in `docs/cli-reference.md`).
-- `cli_ui_skill_ref.skill_ref(name)` renders every chat-only command
-  unambiguously when printed from the CLI (D-133-22).
+- CLI output that mentions chat-only `/ai-*` commands must label them
+  as AI-surface commands, not shell commands (D-133-22).

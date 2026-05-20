@@ -2,15 +2,15 @@
 
 ## Purpose
 
-Delete a finalised spec file, append a canonical row to `_history.md`, and leave the canonical `spec.md` slot ready for the next iteration. Exposed by `/ai-repo-tidy`, `/ai-pr`, and `/ai-brainstorm` as the `--consolidate-spec` action.
+Delete a finalised spec file, append a canonical row to `_history.md`, and leave the canonical `spec.md` slot ready for the next iteration. Exposed by `/ai-branch-cleanup`, `/ai-pr`, and `/ai-brainstorm` as the `--consolidate-spec` action.
 
-Single source of truth for the consolidation flow (DRY §10.4). The load-bearing call lives in `.ai-engineering/scripts/spec_lifecycle.py mark_shipped`; this handler is the thin orchestration layer.
+Single source of truth for the explicit post-merge consolidation flow (DRY §10.4). The load-bearing call lives in `.ai-engineering/scripts/spec_lifecycle.py mark_shipped`; bulk catch-up of already-SHIPPED sidecars lives in `.ai-engineering/scripts/spec_lifecycle.py consolidate_shipped`. This handler is the thin orchestration layer.
 
 ## CLI surface
 
 `--consolidate-spec <spec-id|slug>` -- accepted by any of the three callers:
 
-- `/ai-repo-tidy --consolidate-spec <slug>` -- manual hygiene.
+- `/ai-branch-cleanup --consolidate-spec <slug>` -- manual hygiene.
 - `/ai-pr --consolidate-spec` -- auto-invoked after merge (the existing post-merge `mark_shipped` call is the same handler under the hood).
 - `/ai-brainstorm --consolidate-spec <slug>` -- when resetting the canonical slot before a new brainstorm.
 
@@ -20,7 +20,7 @@ Single source of truth for the consolidation flow (DRY §10.4). The load-bearing
 2. **Check status.** Confirm the spec status is SHIPPED. If not:
    - Interactive mode: ask the operator for confirmation before mutating.
    - Non-interactive mode: refuse and escalate.
-3. **Invoke spec lifecycle.** Run `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-id> <pr> <branch>` -- this is the single load-bearing call. It walks DRAFT → APPROVED → IN_PROGRESS → SHIPPED, appends the canonical 7-col `_history.md` row, and emits the `framework_operation` audit event. **Fail-open**: log a warning on non-zero exit; do not block the caller.
+3. **Invoke spec lifecycle.** Run `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-id> <pr> <branch>` -- this is the single load-bearing call for one spec. It walks DRAFT → APPROVED → IN_PROGRESS → SHIPPED when needed; if the sidecar is already SHIPPED it re-materializes/upserts the canonical 7-col `_history.md` row instead of duplicating it. For bulk catch-up, run `python .ai-engineering/scripts/spec_lifecycle.py consolidate_shipped`. **Fail-open**: log a warning on non-zero exit; do not block the caller.
 4. **Clear the canonical slot.** Reset `.ai-engineering/specs/spec.md` to its placeholder (`# No active spec`).
 5. **Clear the active plan.** Reset `.ai-engineering/specs/plan.md` to its placeholder (`# No active plan`).
 6. **Emit telemetry.** Emit a `framework_operation` event with kind `spec_consolidated`, fields `{spec_id, slug, pr, branch}`.
@@ -36,7 +36,7 @@ Single source of truth for the consolidation flow (DRY §10.4). The load-bearing
 
 ## Callers
 
-- `/ai-repo-tidy --consolidate-spec <slug>` -- manual hygiene from the cleanup surface.
+- `/ai-branch-cleanup --consolidate-spec <slug>` -- manual hygiene from the cleanup surface.
 - `/ai-pr --consolidate-spec` -- auto-invoked post-merge (replaces the inline `mark_shipped` block; same call site).
 - `/ai-brainstorm --consolidate-spec <slug>` -- Step 0a fast-path when resetting the canonical slot before a new brainstorm.
 

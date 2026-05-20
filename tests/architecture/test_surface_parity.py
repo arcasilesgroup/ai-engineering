@@ -47,7 +47,7 @@ _KNOWN_OVERLAPS = {
     # by design — the CLI handles the 90% structural case; the skill
     # handles the 10% semantic ambiguity.
     "plan": "a2-distinct",
-    # Historical note (spec-134 D-134-06): /ai-cleanup → /ai-repo-tidy renamed
+    # Historical note (spec-134 D-134-06): /ai-cleanup → /ai-branch-cleanup renamed
     # the chat surface. The CLI keeps its `ai-eng cleanup` verb. The verb
     # collision that motivated the original "cleanup": a2-distinct entry no
     # longer exists, so the overlap row drops from _KNOWN_OVERLAPS.

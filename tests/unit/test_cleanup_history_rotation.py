@@ -1,10 +1,11 @@
-"""Regression: ``/ai-repo-tidy`` SKILL.md documents the ``_history.md`` rotation
+"""Regression: ``/ai-branch-cleanup`` SKILL.md documents the ``_history.md`` rotation
 step (spec-131 D-131-05 acceptance criterion).
 
-The actual rotation lives in ``.ai-engineering/scripts/spec_lifecycle.py
-mark_shipped``; this skill is a verification-only documentation surface
-that points operators at the entry point. The canonical SKILL.md plus the
-three IDE mirrors are all checked.
+The bulk catch-up rotation lives in ``.ai-engineering/scripts/spec_lifecycle.py
+consolidate_shipped``; explicit post-merge closure still uses
+``mark_shipped``. This skill is a verification-only documentation surface
+that points operators at those entry points. The canonical SKILL.md plus
+the three IDE mirrors are all checked.
 """
 
 from __future__ import annotations
@@ -16,15 +17,16 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 CLEANUP_SKILL_FILES = (
-    REPO_ROOT / ".claude" / "skills" / "ai-repo-tidy" / "SKILL.md",
-    REPO_ROOT / ".github" / "skills" / "ai-repo-tidy" / "SKILL.md",
-    REPO_ROOT / ".codex" / "skills" / "ai-repo-tidy" / "SKILL.md",
-    REPO_ROOT / ".gemini" / "skills" / "ai-repo-tidy" / "SKILL.md",
+    REPO_ROOT / ".claude" / "skills" / "ai-branch-cleanup" / "SKILL.md",
+    REPO_ROOT / ".github" / "skills" / "ai-branch-cleanup" / "SKILL.md",
+    REPO_ROOT / ".codex" / "skills" / "ai-branch-cleanup" / "SKILL.md",
+    REPO_ROOT / ".gemini" / "skills" / "ai-branch-cleanup" / "SKILL.md",
 )
 
 REQUIRED_SUBSTRINGS = (
     "_history.md",
     "spec_lifecycle.py mark_shipped",
+    "spec_lifecycle.py consolidate_shipped",
 )
 
 

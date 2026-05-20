@@ -28,13 +28,14 @@ Takes an approved spec and produces a phased execution plan — bite-sized tasks
 1. **Read spec** — load `.ai-engineering/specs/spec.md`; flag missing sections per `spec-schema.md`.
 2. **Explore codebase** (read-only) — current architecture, patterns, affected files (§10.3 SOLID).
 3. **Classify pipeline** — full / standard / hotfix / trivial.
-4. **Design routing** — invoke `handlers/design-routing.md`; capture output at `.ai-engineering/specs/<spec-id>/design-intent.md` under `## Design`. `--skip-design` logs reason and proceeds.
-5. **Identify architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`. Record under `## Architecture` BEFORE decomposition.
-6. **Decompose into tasks** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered. Apply the **exhaustive patch-ready output template** below (D-131-08 / sub-003).
-7. **Assign agents** — capability-match (build = code; verify = read-only; guard = advisory).
-8. **Order phases** + gate criteria. **TDD pairs** (§10.5): write a RED test task before any GREEN implementation task.
-9. **Self-review** (§10.7 Clean Code) — spec-reviewer pattern, max 2 iterations.
-10. **Write** to `.ai-engineering/specs/plan.md` and **STOP** — operator runs `/ai-build`.
+4. **Classify executor route** — write `execution_route` frontmatter: `executor: build` + `safe_next_command: "/ai-build"` for single-concern plans, or `executor: autopilot` + `safe_next_command: "/ai-autopilot"` for multi-concern/large plans. `status` remains the only approval field; draft plans are recommendations only. Emit `framework_operation` detail `operation=execution_routed`.
+5. **Design routing** — invoke `handlers/design-routing.md`; capture output at `.ai-engineering/specs/<spec-id>/design-intent.md` under `## Design`. `--skip-design` logs reason and proceeds.
+6. **Identify architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`. Record under `## Architecture` BEFORE decomposition.
+7. **Decompose into tasks** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered. Apply the **exhaustive patch-ready output template** below (D-131-08 / sub-003).
+8. **Assign agents** — capability-match (build = code; verify = read-only; guard = advisory).
+9. **Order phases** + gate criteria. **TDD pairs** (§10.5): write a RED test task before any GREEN implementation task.
+10. **Self-review** (§10.7 Clean Code) — spec-reviewer pattern, max 2 iterations.
+11. **Write** to `.ai-engineering/specs/plan.md`, print `safe_next_command`, and **STOP** — operator approves and runs that command.
 
 ### Output template — exhaustive patch-ready (D-131-08)
 
@@ -48,6 +49,8 @@ Each task block carries five lines so `/ai-build` can route to the cheap model t
 - `- Gate: <test/check>`
 
 Patch hunk present → `/ai-build` dispatches `effort: cheap / model_tier: haiku`. Absent patch or synthesis hint → `effort: mid / model_tier: sonnet`. Operator `--max-effort` → `effort: high / model_tier: opus`.
+
+Plan frontmatter MUST include `execution_route.version`, `spec`, `executor`, `automation`, `concern_count`, `estimated_files`, `reason`, and `safe_next_command`. Do not add `approved`/`approval` under `execution_route`; plan `status` is the approval source of truth.
 
 ## Dispatch threshold
 

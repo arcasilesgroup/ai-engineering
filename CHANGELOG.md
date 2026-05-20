@@ -7,12 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### BREAKING
+
+- `/ai-repo-tidy` is hard-renamed to `/ai-branch-cleanup`. Update external automation that invokes the old slug; no alias or shim is preserved. The historical release-contract guard keywords remain documented for continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
+- spec-146 removes the no-production-caller Python import surfaces
+  `ai_engineering.state.agentsview`, `ai_engineering.state.outbox`,
+  `ai_engineering.cli_ui_skill_ref`, and
+  `ai_engineering.governance.policy_engine`. No compatibility shim is
+  preserved: use the OPA-backed governance runner for policy execution,
+  direct CLI copy for AI-surface wording, and `state.db/tool_capabilities`
+  for capability data.
+
+### Changed
+
+- README surfaces now use the `{ai} engineering` brand voice, current six-surface inventory, inline governance Quick Start, and byte-identical governance README template.
+- Standard plan execution now records route-only `execution_route`
+  metadata (`/ai-build` vs `/ai-autopilot`) and treats host-probe data as
+  diagnostic/advisory rather than a framework admission gate.
+- `/ai-build` and `/ai-autopilot` quality loops now allow exactly one
+  bounded quality-remediation pass for blocker/critical/high findings,
+  require final reassessment, persist autopilot remediation state in the
+  manifest, and require cross-platform focal reproducers before delivery.
+- spec-146 clarifies the persistence doctrine table-by-table: `state.db`
+  is a mixed lifecycle database, `gate-findings.json` remains the primary
+  gate/risk/verify artifact, and `state.db.gate_findings` is documented as
+  a non-primary transitional placeholder.
+- Runtime Layer Tunables docs now show implemented defaults for
+  `AIENG_HOOK_CACHE_TTL_SEC`, `AIENG_AUTOFORMAT_DEBOUNCE_SEC`,
+  `AIENG_NDJSON_MAX_LINES`, and `AIENG_NDJSON_MAX_BYTES`; only
+  host-preflight/budget-profile names remain reserved.
+- `.ai-engineering/cache/gate/` is documented as an existing bounded cache
+  with 24-hour/256-entry limits and existing status/clear commands.
+
 ### Fixed
 
 - Release finalization now caps GitHub Release body notes below GitHub's
   125,000-character limit, uploads the full changelog section as
   `release-notes-full.md`, and writes non-empty attestation verification
   proof logs so release packet asset uploads do not fail on zero-byte files.
+- spec-146 fixes `ai-eng update` to read SQLite ownership rows from
+  `state.db.ownership_map` before evaluating file changes, so team/deny
+  rules protect both existing files and denied missing files without
+  requiring the retired `ownership-map.json` sidecar.
+- spec-146 fixes spec history consolidation so `ai-eng cleanup specs`,
+  `spec_lifecycle.py mark_shipped`, and `ai-eng maintenance spec-reset`
+  all upsert the canonical 7-column `_history.md` projection instead of
+  leaving shipped sidecars unrecorded or writing legacy 4-column rows.
+
+### Removed
+
+- spec-146 deletes the duplicate IOC attribution copy at
+  `.ai-engineering/references/IOCS_ATTRIBUTION.md` and the matching
+  installer-template duplicate; the single home is now
+  `.ai-engineering/security/iocs/IOCS_ATTRIBUTION.md`.
+- spec-146 deletes `.ai-engineering/team/lessons.md`; unique content is
+  preserved in `.ai-engineering/LESSONS.md`.
+- spec-146 deletes stale state sidecars
+  `.ai-engineering/state/strategic-compact.json` and
+  `.ai-engineering/state/instinct-observations.ndjson`; strategic compact
+  now writes under `.ai-engineering/runtime/`, and
+  `observation-events.ndjson` remains the instinct-learning log.
+- spec-146 deletes test-only preservation suites for removed modules and
+  adds import/caller-inventory guards so the deleted surfaces do not return.
 
 ## [0.7.0] - 2026-05-18
 

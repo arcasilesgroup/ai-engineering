@@ -19,6 +19,7 @@ from __future__ import annotations
 import argparse
 import sys
 import time
+from contextlib import suppress
 from pathlib import Path
 
 from spec_lint.checks.decisions import check_decisions
@@ -70,10 +71,8 @@ def _ensure_utf8_streams() -> None:
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
         if callable(reconfigure):
-            try:
+            with suppress(OSError, ValueError):
                 reconfigure(encoding="utf-8", errors="replace")
-            except (OSError, ValueError):
-                pass
 
 
 def main(argv: list[str] | None = None) -> int:

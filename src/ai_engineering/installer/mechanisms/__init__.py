@@ -24,11 +24,9 @@ Design choices
   is the action). Frozen dataclasses give positional construction, attribute
   access, hashability, and equality without pulling in pydantic on the hot
   path.
-* **Single-file package**: the test contract imports every class from the
-  package root (``ai_engineering.installer.mechanisms``). One module keeps
-  the import surface trivial and the cross-mechanism helpers
-  (``_install_result_from_proc``, ``_verify_sha256``) co-located with the
-  callers.
+* **Focused modules with root re-export**: simple language/package-manager
+  mechanisms live in focused sibling modules while the package root keeps
+  the historical import surface (``ai_engineering.installer.mechanisms``).
 * **Registry de-duplication**: ``tool_registry.py`` imports these classes
   rather than defining parallel dataclass stubs (removed in this commit).
   The registry tests still pass because the mechanism classes carry the
@@ -60,6 +58,22 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from ai_engineering.installer.mechanisms.language_tools import (
+    CargoInstallMechanism,
+    ComposerGlobalMechanism,
+    DotnetToolMechanism,
+    GoInstallMechanism,
+    SdkmanMechanism,
+)
+from ai_engineering.installer.mechanisms.node_tools import NpmDevMechanism
+from ai_engineering.installer.mechanisms.python_tools import (
+    UvPipVenvMechanism,
+    UvToolMechanism,
+)
+from ai_engineering.installer.mechanisms.windows_tools import (
+    ScoopMechanism,
+    WingetMechanism,
+)
 from ai_engineering.installer.results import (
     InstallResult,
     SecurityError,
@@ -600,225 +614,6 @@ class GitHubReleaseBinaryMechanism:
         expected = self.expected_sha256 or ""
         _verify_sha256(target_path, expected)
         return result
-
-
-# ---------------------------------------------------------------------------
-# 3. WingetMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class WingetMechanism:
-    """Install via Windows Package Manager with explicit user scope.
-
-    The ``--scope user`` flag is load-bearing per D-101-02: admin scope is
-    forbidden. The flag is rendered as the literal pair ``--scope user``
-    (the test asserts ``argv[argv.index('--scope') + 1] == 'user'``).
-    """
-
-    package_id: str
-    scope: str = "user"
-
-    def install(self) -> InstallResult:
-        """Run ``winget install --scope user <package_id>`` via ``_safe_run``."""
-        proc = _safe_run(
-            [
-                "winget",
-                "install",
-                "--scope",
-                self.scope,
-                self.package_id,
-            ]
-        )
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 4. ScoopMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class ScoopMechanism:
-    """Install via Scoop on Windows (user-scope by design)."""
-
-    package: str
-
-    def install(self) -> InstallResult:
-        """Run ``scoop install <package>`` via ``_safe_run``."""
-        proc = _safe_run(["scoop", "install", self.package])
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 5. UvToolMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class UvToolMechanism:
-    """Install via ``uv tool install <package>`` (user-global; D-101-12)."""
-
-    package: str
-
-    def install(self) -> InstallResult:
-        """Run ``uv tool install <package>`` via ``_safe_run``."""
-        proc = _safe_run(["uv", "tool", "install", self.package])
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 6. UvPipVenvMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class UvPipVenvMechanism:
-    """Install via ``uv pip install --python <venv>/bin/python <pkg>``.
-
-    Used for Python tools that genuinely need to be inside the project
-    venv (pytest plugins resolved via the project's pyproject). Lands in
-    the target venv's ``bin/`` directory.
-    """
-
-    package: str
-    venv: Path
-
-    def install(self) -> InstallResult:
-        """Run ``uv pip install --python <venv>/bin/python <pkg>``."""
-        python_path = self.venv / "bin" / "python"
-        proc = _safe_run(
-            [
-                "uv",
-                "pip",
-                "install",
-                "--python",
-                str(python_path),
-                self.package,
-            ]
-        )
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 7. NpmDevMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class NpmDevMechanism:
-    """Install via ``npm install --save-dev <package>`` (project-local).
-
-    NEVER ``-g`` / ``--global`` -- D-101-02 forbids global npm installs.
-    The argv shape is asserted in
-    ``test_install_mechanisms.TestNpmDevMechanism.test_install_invokes_safe_run_with_npm_argv``.
-    """
-
-    package: str
-
-    def install(self) -> InstallResult:
-        """Run ``npm install --save-dev <package>`` via ``_safe_run``."""
-        proc = _safe_run(["npm", "install", "--save-dev", self.package])
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 8. DotnetToolMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class DotnetToolMechanism:
-    """Install via ``dotnet tool install --global <package>``.
-
-    The ``--global`` flag is the .NET CLI's user-scope semantic despite
-    the misleading name -- it lands in ``~/.dotnet/tools``, NOT a system
-    path. This is the only mechanism where ``--global`` is permitted.
-    """
-
-    package: str
-
-    def install(self) -> InstallResult:
-        """Run ``dotnet tool install --global <package>`` via ``_safe_run``."""
-        proc = _safe_run(["dotnet", "tool", "install", "--global", self.package])
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 9. CargoInstallMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class CargoInstallMechanism:
-    """Install via ``cargo install <crate>`` -> ``~/.cargo/bin``."""
-
-    crate: str
-
-    def install(self) -> InstallResult:
-        """Run ``cargo install <crate>`` via ``_safe_run``."""
-        proc = _safe_run(["cargo", "install", self.crate])
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 10. GoInstallMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class GoInstallMechanism:
-    """Install via ``go install <import_path>`` -> ``$GOPATH/bin``."""
-
-    import_path: str
-
-    def install(self) -> InstallResult:
-        """Run ``go install <import_path>`` via ``_safe_run``."""
-        proc = _safe_run(["go", "install", self.import_path])
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 11. ComposerGlobalMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class ComposerGlobalMechanism:
-    """Install via ``composer global require <package>``.
-
-    Lands in ``~/.composer/vendor/bin``. Composer itself must be
-    pre-installed via the prereqs phase (D-101-14).
-    """
-
-    package: str
-
-    def install(self) -> InstallResult:
-        """Run ``composer global require <package>`` via ``_safe_run``."""
-        proc = _safe_run(["composer", "global", "require", self.package])
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
-
-
-# ---------------------------------------------------------------------------
-# 12. SdkmanMechanism
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class SdkmanMechanism:
-    """Install via SDKMAN: ``sdk install <candidate> <version>``.
-
-    Used for JVM-stack tools (kotlin compiler, gradle) where SDKMAN is
-    the canonical user-scope distribution channel. Lands in ``~/.sdkman/``.
-    """
-
-    candidate: str
-    version: str
-
-    def install(self) -> InstallResult:
-        """Run ``sdk install <candidate> <version>`` via ``_safe_run``."""
-        proc = _safe_run(["sdk", "install", self.candidate, self.version])
-        return _install_result_from_proc(proc, mechanism=type(self).__name__)
 
 
 # Local import-time sanity: the public 12 are all defined above. Defended by

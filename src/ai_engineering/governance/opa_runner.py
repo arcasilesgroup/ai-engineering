@@ -1,6 +1,6 @@
 """OPA subprocess wrapper (spec-122 Phase C, T-3.5).
 
-Replaces the custom mini-Rego interpreter at ``governance.policy_engine``
+Replaces the custom mini-Rego interpreter
 with a thin shim around the OPA CLI. ``evaluate(query, input_dict, *,
 bundle_path=None, timeout=5.0) -> OpaResult`` invokes
 ``opa eval --bundle <path> --input <stdin>``, parses the JSON result, and

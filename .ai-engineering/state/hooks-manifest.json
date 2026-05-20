@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-18T15:31:54Z",
+  "generatedAt": "2026-05-20T00:14:33Z",
   "hookCount": 74,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -48,9 +48,9 @@
     ".ai-engineering/scripts/hooks/copilot-runtime-stop.ps1": "7ecae35133b8011a979c13bafc893df1af5d838d460dde41e9ccb966fbbf1dff",
     ".ai-engineering/scripts/hooks/copilot-runtime-stop.sh": "8a8001b4e30a2b8d8ec392bd54899ac99d52ac7ea07f483bd4c064c337b93127",
     ".ai-engineering/scripts/hooks/copilot-session-end.ps1": "9bbc8e35dd49a1e51d964c0b02ceb42d5f36e725e009d93aca19f2805680ac3d",
-    ".ai-engineering/scripts/hooks/copilot-session-end.sh": "8ffc4b65e4d92e704bffc4f635f7769e3c14972dbaabc73042aad3e4c037825e",
+    ".ai-engineering/scripts/hooks/copilot-session-end.sh": "695bb4a382deba1134f8cfabf93d6a5bcb6b1d2ae6617e281455ae40fadb4161",
     ".ai-engineering/scripts/hooks/copilot-session-start.ps1": "c993ebdfa09b25116e997373525ae76d14378748f1f5081081385daf128477fe",
-    ".ai-engineering/scripts/hooks/copilot-session-start.sh": "8ffc4b65e4d92e704bffc4f635f7769e3c14972dbaabc73042aad3e4c037825e",
+    ".ai-engineering/scripts/hooks/copilot-session-start.sh": "695bb4a382deba1134f8cfabf93d6a5bcb6b1d2ae6617e281455ae40fadb4161",
     ".ai-engineering/scripts/hooks/copilot-skill.ps1": "0e91a3003506bc96facda0a51f04655733b157ee7ac64a52edd9b31ce8c50117",
     ".ai-engineering/scripts/hooks/copilot-skill.sh": "2f40280962e2ec50025157b1916becfc730588a910cb46bfe4cac6e6fbb5afce",
     ".ai-engineering/scripts/hooks/copilot-strategic-compact.ps1": "2ab31e5b2847cf09d29bbb1e270abb5909a498462717c4cc2a8576dad62a49b1",
@@ -74,7 +74,7 @@
     ".ai-engineering/scripts/hooks/runtime-session-start.py": "2f8d497f55a031f2df7e6a36c30fcf95a129c9dab127cc447eab83d2fbe3b90f",
     ".ai-engineering/scripts/hooks/runtime-stop.py": "bb3d491a68f205657994868910b63b5f81d7b30324314b5de94581bf99256d59",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "e1bda43b4f2a24df679c8f0ac7743a9a61e005151e824e2e79ffda92b04c743f",
-    ".ai-engineering/scripts/hooks/strategic-compact.py": "428582f228cea31d5b512d49be3f5e0970ba621bb5d4a3f22edb8afb08ae42aa",
+    ".ai-engineering/scripts/hooks/strategic-compact.py": "5d1619adb316e3cfb481ac6cae58ac84057b38304b039398fc971a601be582eb",
     ".ai-engineering/scripts/hooks/telemetry-skill.py": "b400039e292936d8ab4aa03cd0a7e07e9e7c557d73f712ff3d58ff99cf190254"
   },
   "schemaVersion": "1.0",
@@ -85,6 +85,6 @@
   ],
   "trustedScripts": {
     ".ai-engineering/scripts/hooks/no-verify-guard.py": "1863867bece3aba1c262bcf335c674bdafa2e64530ff0e53fbf1424b5c56063e",
-    ".ai-engineering/scripts/session_bootstrap.py": "fdae9cc4ab549e1c719c75b9cec6e099c7bcaf047ed22c5dfacce7496e548a6b"
+    ".ai-engineering/scripts/session_bootstrap.py": "39deee70a1c7b261d5fd59924c8b1facb6d2c6889b43df66c0453bb8ecb8c28d"
   }
 }

@@ -733,9 +733,9 @@ def _load_decision_store_safely(project_root: Path | None) -> DecisionStore | No
     if project_root is None:
         return None
     try:
-        from ai_engineering.state.service import StateService
+        from ai_engineering.state.repository import DurableStateRepository
 
-        return StateService(project_root).load_decisions()
+        return DurableStateRepository(project_root).load_decisions()
     except (FileNotFoundError, OSError):
         return None
     except Exception:

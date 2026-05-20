@@ -7,7 +7,7 @@
     </picture>
   </a>
 
-  <p><strong>Open-source AI governance framework</strong></p>
+  <p><strong>{ai} engineering turns AI-assisted delivery into a governed local workflow.</strong></p>
 
   <p>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
@@ -20,59 +20,61 @@
   </p>
 </div>
 
-**AI governance that ships.** Turn any repository into a governed AI workspace: policies, skills, agents, runbooks, and specs as versioned files. No hosted control plane, no vendor lock-in. One canonical chain across Claude Code, GitHub Copilot, OpenAI Codex, Gemini CLI, and Antigravity.
+53 skills · 9 agents · 6 surfaces · 1 governed flow
+
+{ai} engineering installs a deterministic governance layer into any repository: specs, decisions, skills, agents, runbooks, hooks, and audit trails as versioned local files. No hosted control plane. No provider lock-in. Every IDE follows the same rules.
 
 ## Install
 
-**Prerequisites**: Python 3.11+ and Git.
+**Prerequisites:** Python 3.11+ and Git.
 
 ```bash
-# pipx (recommended)
 pipx install ai-engineering
-
-# uv
-uv tool install ai-engineering
-
-# pip (inside a venv)
-python -m venv .venv && source .venv/bin/activate
-pip install ai-engineering
+# or: uv tool install ai-engineering
 ```
 
-Verify:
+Verify the CLI, then install governance into a repository:
 
 ```bash
 ai-eng version
-```
-
-Update later with `pipx upgrade ai-engineering` (or `uv tool upgrade` / `pip install --upgrade`), then `ai-eng update` in each project followed by `ai-eng doctor` to verify.
-
-## Quick Start
-
-```bash
 cd your-project
 ai-eng install .
 ai-eng doctor
 ```
 
-`install` scaffolds the governance root, detects your stack, mirrors skills to every configured IDE, and wires the secrets-gate. `doctor` validates the result.
+[PASS] `doctor` confirms hooks, mirrors, manifest defaults, and required tools. Update later with `pipx upgrade ai-engineering` or `uv tool upgrade ai-engineering`, then run `ai-eng update` and `ai-eng doctor` in each governed project.
 
-Run `ai-eng install --help` for the full options matrix; the doctor output names every step that has to pass.
+## Governed Flow
 
-**Telemetry** is strict-opt-in (default disabled). The audit chain is local NDJSON; external emitters require explicit operator opt-in via `.ai-engineering/manifest.yml > telemetry.*`.
+The canonical chain is:
 
-### Optional: Engram (third-party memory)
+```text
+/ai-brainstorm → /ai-plan → /ai-build → /ai-pr
+```
 
-`ai-engineering` ships **without** a built-in memory layer. Engram is a peer product maintained by `Gentleman-Programming/engram`; install it separately if you want cross-session memory (spec-132 D-132-06; the installer no longer wires Engram automatically). See the `Optional: Engram` section of [CLAUDE.md](CLAUDE.md) for OS-specific install commands and the IDE setup matrix.
+Use it when work changes product behavior, framework behavior, security posture, public docs, or release state. `/ai-commit` remains available for WIP checkpoints; it is not part of the canonical delivery chain.
 
-## How AI Works Here
+## Supported Surfaces
 
-This framework defines a single canonical chain that every supported IDE follows identically. The full ruleset, principles, surface index, and chain definition live in:
+One canonical payload is mirrored into all enabled surfaces:
 
-- [AGENTS.md](AGENTS.md) — canonical "how AI works in this repo" payload (mirrored byte-equivalent into [CLAUDE.md](CLAUDE.md), [GEMINI.md](GEMINI.md), and [.github/copilot-instructions.md](.github/copilot-instructions.md))
-- [CONSTITUTION.md](CONSTITUTION.md) — project identity (mission, stakeholders, vocabulary, prohibitions, compliance gates)
-- [CHANGELOG.md](CHANGELOG.md) — version history and breaking-change reference
+| Surface | Entry point |
+|---------|-------------|
+| Claude Code | [CLAUDE.md](CLAUDE.md) |
+| GitHub Copilot | [.github/copilot-instructions.md](.github/copilot-instructions.md) |
+| OpenAI Codex | [AGENTS.md](AGENTS.md) |
+| Gemini CLI | [GEMINI.md](GEMINI.md) |
+| OpenCode | `.opencode/` skills and commands |
+| Cursor | `.cursor/` skills |
 
-The skill catalogue, agent roster, runbook list, quality-gate thresholds, and CLI command reference all live in [AGENTS.md](AGENTS.md) (canonical) and [.ai-engineering/reference/cli-reference.md](.ai-engineering/reference/cli-reference.md). They are not duplicated here.
+The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibitions live in [CONSTITUTION.md](CONSTITUTION.md). Release history and breakage notes live in [CHANGELOG.md](CHANGELOG.md).
+
+## Why Governance Matters
+
+- Spec-driven work keeps LLM output tied to approved scope.
+- Deterministic gates catch secrets, broken mirrors, missing docs, and policy drift.
+- The local NDJSON audit chain records what happened without sending telemetry by default.
+- Skills and agents are file-backed, reviewable, and synchronized across IDEs.
 
 ## Standing on the shoulders of...
 

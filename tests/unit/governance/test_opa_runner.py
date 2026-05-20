@@ -32,7 +32,7 @@ def _reset_path_cache() -> Any:
     which propagates into ``opa_runner.which()``'s memoisation and leaks
     across test files (the cache is module-level state in
     ``opa_runner``). Resetting on teardown keeps neighbouring suites
-    such as ``test_policy_engine`` clean.
+    such as ``test_legacy_policy_runner`` clean.
     """
     opa_runner.reset_path_cache()
     yield

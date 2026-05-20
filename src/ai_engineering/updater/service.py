@@ -41,7 +41,7 @@ from ai_engineering.reconciler import (
     ResourceReconciler,
 )
 from ai_engineering.state.defaults import default_ownership_map
-from ai_engineering.state.io import read_json_model, write_json_model
+from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import (
     InstallState,
     OwnershipEntry,
@@ -53,6 +53,7 @@ from ai_engineering.state.service import (
     remove_legacy_audit_log,
     save_install_state,
 )
+from ai_engineering.state.state_db import load_ownership_map, upsert_ownership_rows
 
 logger = logging.getLogger(__name__)
 
@@ -279,7 +280,7 @@ class _UpdateAdapter:
             _apply_orphan_deletions(payload.orphan_changes, self._target)
 
         if payload.rules_added:
-            write_json_model(payload.ownership_path, payload.ownership)
+            upsert_ownership_rows(self._target, payload.ownership)
 
         removed_legacy_dirs = _migrate_legacy_dirs(self._target, payload.ai_eng_dir)
         legacy_audit_log_removed = remove_legacy_audit_log(self._target)
@@ -402,10 +403,15 @@ def _initialize_update_context(
     state_dir = ai_eng_dir / "state"
 
     ownership_path = state_dir / "ownership-map.json"
-    if ownership_path.exists():
+    ownership = load_ownership_map(target)
+    loaded_legacy_ownership = False
+    if not ownership.paths and ownership_path.exists():
         ownership = read_json_model(ownership_path, OwnershipMap)
-    else:
-        ownership = OwnershipMap()
+        loaded_legacy_ownership = True
+
+    if loaded_legacy_ownership and not dry_run:
+        upsert_ownership_rows(target, ownership)
+        ownership_path.unlink(missing_ok=True)
 
     if not dry_run:
         _migrate_install_manifest(ai_eng_dir)

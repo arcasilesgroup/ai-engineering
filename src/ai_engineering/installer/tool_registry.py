@@ -204,7 +204,7 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
     },
     "opa": {
         # spec-122 Phase C (D-122-09): OPA replaces the custom mini-Rego
-        # interpreter that lived under `governance.policy_engine`. The
+        # interpreter. The
         # ~50 MB CNCF Go binary is install-on-demand; the install chain
         # mirrors gitleaks (brew → GitHub release on darwin; GitHub
         # release on linux; winget → scoop → GitHub release on win32).

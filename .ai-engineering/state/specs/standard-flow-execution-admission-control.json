@@ -1,0 +1,23 @@
+{
+  "branch": null,
+  "created": "2026-05-19T15:39:33.150787+00:00",
+  "extra": {
+    "active_spec": "spec-145",
+    "approach": "plan-time route metadata plus runtime host admission",
+    "approved_at": "2026-05-19",
+    "approved_by": "operator-via-ai-plan",
+    "decisions_count": 8,
+    "execution_attempt": "blocked-by-host-probe",
+    "plan_approved_at": "2026-05-19",
+    "plan_approved_by": "operator-via-ai-autopilot",
+    "recommended_executor": "build",
+    "scope_correction": "route-only-no-host-admission",
+    "source_brief": ".ai-engineering/specs/drafts/standard-flow-execution-admission-control-brief.md"
+  },
+  "pr": null,
+  "shipped": null,
+  "slug": "standard-flow-execution-admission-control",
+  "spec_id": "standard-flow-execution-admission-control",
+  "state": "approved",
+  "title": "Standard Flow Executor Routing"
+}

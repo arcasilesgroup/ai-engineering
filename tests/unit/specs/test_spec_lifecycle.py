@@ -1,8 +1,8 @@
 """RED tests for the spec_lifecycle.py automation script (sub-spec sub-001).
 
-Covers five public CLI verbs (`start_new`, `mark_shipped`, `archive`, `sweep`,
-`status`) plus the one-shot `migrate_history` migration. Each verb is a
-hexagonal composition of:
+Covers public CLI verbs (`start_new`, `mark_shipped`, `archive`, `sweep`,
+`status`, `consolidate_shipped`) plus the one-shot `migrate_history`
+migration. Each verb is a hexagonal composition of:
 
 - domain (pure FSM): ``LifecycleState`` enum, ``transition`` validator,
   ``SpecRecord`` dataclass.
@@ -201,6 +201,30 @@ class TestMarkShipped:
             lifecycle.status(record.spec_id, project_root).state is lifecycle.LifecycleState.SHIPPED
         )
 
+    def test_already_shipped_record_rematerializes_missing_history_row(
+        self, lifecycle, project_root
+    ):
+        """Shared consolidation can call mark_shipped on an already-SHIPPED sidecar."""
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n",
+            encoding="utf-8",
+        )
+
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+
+        rows = [
+            line for line in history.read_text().splitlines() if line.startswith("| my-feature |")
+        ]
+        assert len(rows) == 1
+        assert "| my-feature | My Feature | shipped |" in rows[0]
+        assert "PR-101" in rows[0]
+
     def test_rejects_illegal_transition_from_archived(self, lifecycle, project_root):
         record = lifecycle.start_new("my-feature", "My Feature", project_root)
         lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
@@ -257,6 +281,76 @@ class TestMarkShipped:
         assert elapsed < _PERF_BUDGET_S, (
             f"mark_shipped took {elapsed:.3f}s (>{_PERF_BUDGET_S}s budget)"
         )
+
+    def test_upserts_existing_history_row_for_same_spec_id(self, lifecycle, project_root):
+        """A stale approved row is replaced, not duplicated, when a spec ships."""
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n"
+            "| my-feature | My Feature | approved | 2026-05-01 | — | — | feat/old |\n"
+            "| my-feature | My Feature | approved | 2026-05-02 | — | — | feat/duplicate |\n",
+            encoding="utf-8",
+        )
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+
+        rows = [
+            line for line in history.read_text().splitlines() if line.startswith("| my-feature |")
+        ]
+        assert len(rows) == 1
+        assert "| my-feature | My Feature | shipped |" in rows[0]
+        assert "PR-101" in rows[0]
+
+
+# ---------------------------------------------------------------------------
+# consolidate_shipped
+# ---------------------------------------------------------------------------
+
+
+class TestConsolidateShipped:
+    def test_appends_missing_history_row_for_existing_shipped_sidecar(
+        self, lifecycle, project_root
+    ):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        # Simulate a stale history file while the sidecar is already shipped.
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n",
+            encoding="utf-8",
+        )
+
+        summary = lifecycle.consolidate_shipped(project_root)
+
+        assert summary["consolidated"] == 1
+        text = history.read_text()
+        assert "| my-feature | My Feature | shipped |" in text
+        assert "PR-101" in text
+
+    def test_dry_run_reports_without_mutating_history(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n",
+            encoding="utf-8",
+        )
+        before = history.read_text()
+
+        summary = lifecycle.consolidate_shipped(project_root, dry_run=True)
+
+        assert summary["would_consolidate"] == ["my-feature"]
+        assert history.read_text() == before
 
 
 # ---------------------------------------------------------------------------
@@ -454,3 +548,9 @@ class TestCLI:
     def test_unknown_subcommand_returns_nonzero(self, lifecycle, project_root):
         rc = lifecycle.main(["nope", "--project-root", str(project_root)])
         assert rc != 0
+
+    def test_consolidate_shipped_subcommand_accepts_dry_run(self, lifecycle, project_root):
+        rc = lifecycle.main(
+            ["consolidate_shipped", "--dry-run", "--project-root", str(project_root)]
+        )
+        assert rc == 0

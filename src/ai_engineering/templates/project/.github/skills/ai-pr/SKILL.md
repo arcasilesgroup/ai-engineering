@@ -102,7 +102,7 @@ For new PRs with `refs`: invoke `/ai-board sync in_review <ref>` for each non-`n
 
 Auto-complete only queues the merge -- CI must pass first. Enter the watch-and-fix loop following `handlers/watch.md`. The loop polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
 
-Once `state == "MERGED"`: run `/ai-repo-tidy --all` and report.
+Once `state == "MERGED"`: run `/ai-branch-cleanup --all` and report.
 
 ### `/pr --only` / `/pr --draft`
 
@@ -147,7 +147,7 @@ Same pipeline, but opens with `--draft` and skips the review request; reviewers 
 | Open as draft | `/ai-pr --draft` |
 | Skip CI watch | `/ai-pr --no-watch` |
 | Update existing PR | `/ai-pr --update` |
-| Resume after merge | `/ai-repo-tidy` (auto-invoked) |
+| Resume after merge | `/ai-branch-cleanup` (auto-invoked) |
 
 ## Integration
 

@@ -1111,18 +1111,20 @@ AIENG_MAX_WAVE_AGENTS            # default auto (floor=2, ceiling=6)
 AIENG_MAX_QUALITY_AGENTS         # default 3 (Phase 5 assessor cap)
 AIENG_MAX_THREAD_WORKERS         # default 4 (orchestrator ThreadPoolExecutor cap)
 
-# spec-139 M6 — SessionEnd rotation throttle
-AIENG_RUNTIME_ROTATE_THROTTLE_SEC  # default 3600 (1 hour)
+# spec-139 M5 — hook hot-path cache/debounce controls
+AIENG_HOOK_CACHE_TTL_SEC            # default 300 (IOC/decision cache TTL seconds)
+AIENG_AUTOFORMAT_DEBOUNCE_SEC       # default 1.0 (per-file formatter debounce seconds)
 
-# Pending — populated when the milestone lands
-AIENG_HOST_PREFLIGHT_DISABLED       # pending spec-139 M2
-AIENG_HOST_PREFLIGHT_MIN_FREE_MB    # pending spec-139 M2
-AIENG_HOST_PREFLIGHT_MAX_PRESSURE_PCT  # pending spec-139 M2
-AIENG_HOOK_CACHE_TTL_SEC            # pending spec-139 M5
-AIENG_HOOK_BUDGET_PROFILE           # pending spec-139 M5
-AIENG_NDJSON_MAX_LINES              # pending spec-139 M6
-AIENG_NDJSON_MAX_BYTES              # pending spec-139 M6
-AIENG_AUTOFORMAT_DEBOUNCE_SEC       # pending spec-139 M5
+# spec-139 M6 — SessionEnd rotation controls
+AIENG_RUNTIME_ROTATE_THROTTLE_SEC   # default 3600 (1 hour throttle)
+AIENG_NDJSON_MAX_LINES              # default 100000 (rotation signal line cap)
+AIENG_NDJSON_MAX_BYTES              # default 52428800 (rotation signal byte cap; 50 MiB)
+
+# Reserved roadmap — not implemented
+AIENG_HOST_PREFLIGHT_DISABLED       # reserved spec-139 M2
+AIENG_HOST_PREFLIGHT_MIN_FREE_MB    # reserved spec-139 M2
+AIENG_HOST_PREFLIGHT_MAX_PRESSURE_PCT  # reserved spec-139 M2
+AIENG_HOOK_BUDGET_PROFILE           # reserved spec-139 M5
 ```
 
 State lives under `.ai-engineering/runtime/` (gitignored — session
@@ -2057,6 +2059,17 @@ def _handle_orphans(
         (TPL_GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_GITHUB_AGENTS, "glob", "*.md"),
         (TPL_GITHUB_AGENTS / "internal", "glob", "*.md"),
+        # spec-144: newer installer-template provider surfaces must also
+        # participate in orphan cleanup. Otherwise a canonical skill rename
+        # creates the new OpenCode/Cursor/Agent files while stale old-slug
+        # template files survive indefinitely.
+        (TPL_OPENCODE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (TPL_OPENCODE_COMMANDS, "glob", "*.md"),
+        (TPL_OPENCODE_AGENTS, "glob", "*.md"),
+        (TPL_CURSOR_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (TPL_CURSOR_AGENTS, "glob", "*.md"),
+        (TPL_ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (TPL_ANTIGRAVITY_AGENTS, "glob", "*.md"),
     ]
 
     # Legacy reviewer/verifier path forwarders: spec-116 moved these agents

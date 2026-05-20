@@ -28,6 +28,8 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CANONICAL_SKILLS = _REPO_ROOT / ".claude" / "skills"
 _CANONICAL_AGENTS = _REPO_ROOT / ".claude" / "agents"
 
+OLD_BRANCH_CLEANUP_SKILL = "-".join(("ai", "repo", "tidy"))
+
 # Skills that must NOT exist after D-134-06.
 _DEPRECATED_SKILLS: tuple[str, ...] = (
     "ai-gtm",
@@ -36,6 +38,7 @@ _DEPRECATED_SKILLS: tuple[str, ...] = (
     "ai-observe",
     "ai-create",
     "ai-cleanup",
+    OLD_BRANCH_CLEANUP_SKILL,
     "ai-write",
     "ai-prompt",
 )
@@ -56,7 +59,7 @@ _RENAMED_SKILLS: tuple[str, ...] = (
     "ai-onboard",
     "ai-session-watch",
     "ai-scaffold",
-    "ai-repo-tidy",
+    "ai-branch-cleanup",
     "ai-prose",
     "ai-prompt-tune",
 )

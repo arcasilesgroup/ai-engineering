@@ -1,0 +1,30 @@
+{
+  "branch": null,
+  "created": "2026-05-19T23:34:05.194495+00:00",
+  "extra": {
+    "active_spec": "spec-146",
+    "approval_status": "approved",
+    "approved_at": "2026-05-20",
+    "approved_by": "operator-via-ai-plan",
+    "consumed_at": "2026-05-20",
+    "current_branch": "codex/spec-145-quality-remediation-next-drafts",
+    "current_pr": "arcasilesgroup/ai-engineering#530",
+    "decisions_count": 12,
+    "plan_approved_at": "2026-05-20",
+    "plan_approved_by": "operator-via-dale",
+    "plan_created_at": "2026-05-20",
+    "plan_phases": 6,
+    "plan_requested_at": "2026-05-20",
+    "plan_status": "approved",
+    "plan_tasks_total": 38,
+    "recommended_executor": "autopilot",
+    "safe_next_command": "/ai-autopilot",
+    "source_brief": ".ai-engineering/specs/drafts/framework-simplification-less-is-more-brief.md"
+  },
+  "pr": null,
+  "shipped": null,
+  "slug": "framework-simplification-less-is-more",
+  "spec_id": "framework-simplification-less-is-more",
+  "state": "approved",
+  "title": "Framework Simplification \u2014 Less is More"
+}

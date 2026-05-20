@@ -152,7 +152,7 @@ class TestGovernancePhase:
         """Execute in INSTALL mode creates specs placeholders without seeding team files.
 
         spec-133: the only canonical specs buffer files are ``spec.md`` and
-        ``plan.md``. ``_history.md`` is created on first ``/ai-repo-tidy``
+        ``plan.md``. ``_history.md`` is created on first ``/ai-branch-cleanup``
         invocation (spec-131 D-131-04). Other former artifacts are dead.
         """
         from ai_engineering.installer.phases.governance import GovernancePhase

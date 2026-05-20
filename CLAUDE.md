@@ -53,9 +53,10 @@ The active spec workflow is:
 - `/ai-brainstorm` produces an approved spec at
   `.ai-engineering/specs/spec.md`.
 - `/ai-plan` produces an exhaustive patch-ready plan at
-  `.ai-engineering/specs/plan.md`.
-- `/ai-build` executes the plan (multi-stack implementation gateway,
-  D-127-11). For specs with ≥3 concerns or ≥10 file changes,
+  `.ai-engineering/specs/plan.md` and records the recommended executor
+  route (`/ai-build` or `/ai-autopilot`).
+- `/ai-build` executes plans routed to build (multi-stack implementation
+  gateway, D-127-11). For specs with ≥3 concerns or ≥10 file changes,
   `/ai-autopilot` wraps the chain.
 - `/ai-pr` runs the final quality loop (verify + review + commit
   pipeline internally) and opens the PR.
@@ -111,9 +112,12 @@ Non-negotiable rules per commit, push, and risk-acceptance decision:
 4. **Anonymous content.** No PII, no machine paths, no operator names
    in committed files. Use placeholders (`$HOME/.local/bin`, `$(which
    …)`) for machine-relative references.
-5. **Single-round fail-loud quality loop.** `/ai-build`,
-   `/ai-autopilot` Phase 5, `/ai-pr` run ONE final-quality-loop round
-   on the full changeset. Blockers STOP and escalate — no auto-retry.
+5. **Bounded fail-loud quality loop.** `/ai-build` and
+   `/ai-autopilot` Phase 5 may spend ONE finding-scoped remediation
+   pass on blocker/critical/high quality-loop findings, then run a
+   terminal final reassessment. Remaining blocker/critical/high
+   findings STOP and escalate — no second remediation pass. `/ai-pr`
+   keeps its final quality gate fail-loud.
 6. **Conventional Commits.** `<type>(<scope>): <subject>` imperative
    mood. Body explains "why", not "what". Never `--no-verify`.
 7. **Single Source of Truth Per Datum.** Every datum has exactly one
@@ -183,18 +187,20 @@ AIENG_MAX_WAVE_AGENTS            # default auto (floor=2, ceiling=6)
 AIENG_MAX_QUALITY_AGENTS         # default 3 (Phase 5 assessor cap)
 AIENG_MAX_THREAD_WORKERS         # default 4 (orchestrator ThreadPoolExecutor cap)
 
-# spec-139 M6 — SessionEnd rotation throttle
-AIENG_RUNTIME_ROTATE_THROTTLE_SEC  # default 3600 (1 hour)
+# spec-139 M5 — hook hot-path cache/debounce controls
+AIENG_HOOK_CACHE_TTL_SEC            # default 300 (IOC/decision cache TTL seconds)
+AIENG_AUTOFORMAT_DEBOUNCE_SEC       # default 1.0 (per-file formatter debounce seconds)
 
-# Pending — populated when the milestone lands
-AIENG_HOST_PREFLIGHT_DISABLED       # pending spec-139 M2
-AIENG_HOST_PREFLIGHT_MIN_FREE_MB    # pending spec-139 M2
-AIENG_HOST_PREFLIGHT_MAX_PRESSURE_PCT  # pending spec-139 M2
-AIENG_HOOK_CACHE_TTL_SEC            # pending spec-139 M5
-AIENG_HOOK_BUDGET_PROFILE           # pending spec-139 M5
-AIENG_NDJSON_MAX_LINES              # pending spec-139 M6
-AIENG_NDJSON_MAX_BYTES              # pending spec-139 M6
-AIENG_AUTOFORMAT_DEBOUNCE_SEC       # pending spec-139 M5
+# spec-139 M6 — SessionEnd rotation controls
+AIENG_RUNTIME_ROTATE_THROTTLE_SEC   # default 3600 (1 hour throttle)
+AIENG_NDJSON_MAX_LINES              # default 100000 (rotation signal line cap)
+AIENG_NDJSON_MAX_BYTES              # default 52428800 (rotation signal byte cap; 50 MiB)
+
+# Reserved roadmap — not implemented
+AIENG_HOST_PREFLIGHT_DISABLED       # reserved spec-139 M2
+AIENG_HOST_PREFLIGHT_MIN_FREE_MB    # reserved spec-139 M2
+AIENG_HOST_PREFLIGHT_MAX_PRESSURE_PCT  # reserved spec-139 M2
+AIENG_HOOK_BUDGET_PROFILE           # reserved spec-139 M5
 ```
 
 State lives under `.ai-engineering/runtime/` (gitignored — session

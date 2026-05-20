@@ -52,14 +52,20 @@ def test_no_hitl_flag_documented_in_skill() -> None:
 
 @pytest.mark.unit
 def test_no_hitl_handler_declares_single_concern_gate() -> None:
-    """Handler names the heading-count + autopilot-manifest absence gate."""
+    """Handler uses route metadata first and heading-count as legacy fallback."""
     body = _read(_HANDLER_MD)
-    # Heading-count signal: must reference counting ``## Task Group`` or
-    # ``### Phase`` headings and refusing when >1.
-    assert "## Task Group" in body, (
-        "no-hitl handler must reference `## Task Group` heading count signal"
+    assert "execution_route.executor" in body, (
+        "no-hitl handler must use execution_route.executor as the authoritative gate"
     )
-    assert "### Phase" in body, "no-hitl handler must reference `### Phase` heading count signal"
+    assert "executor: build" in body, "no-hitl handler must allow executor: build"
+    assert "executor: autopilot" in body, "no-hitl handler must refuse executor: autopilot"
+    assert "/ai-autopilot" in body, "no-hitl handler must print the autopilot recovery command"
+    assert "legacy" in body.lower(), "heading-count checks must be legacy fallback only"
+    # Legacy heading-count signal remains for old plans without route metadata.
+    assert "## Task Group" in body, (
+        "no-hitl handler must reference `## Task Group` as a legacy signal"
+    )
+    assert "### Phase" in body, "no-hitl handler must reference `### Phase` as a legacy signal"
     # Autopilot manifest absence signal.
     assert ".ai-engineering/runtime/autopilot/manifest.md" in body, (
         "no-hitl handler must reference autopilot manifest path as a refusal signal"

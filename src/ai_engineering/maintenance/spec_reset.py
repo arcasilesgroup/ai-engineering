@@ -1,13 +1,14 @@
 """Spec lifecycle reset after PR merge (Working Buffer model).
 
-Reads the current spec from ``specs/spec.md``, appends a history entry
-to ``specs/_history.md``, and writes placeholder content to clear the
+Reads the current spec from ``specs/spec.md``, upserts a canonical
+7-column history entry to ``specs/_history.md``, and writes placeholder
+content to clear the
 working buffer for the next ``/ai-brainstorm`` invocation.
 
 Functions:
 - ``check_active_spec`` -- read ``specs/spec.md`` and determine if content exists.
 - ``clear_spec_buffer`` -- write placeholder content to spec.md and plan.md.
-- ``append_history`` -- add a line to ``_history.md``.
+- ``append_history`` -- upsert a canonical row in ``_history.md``.
 - ``run_spec_reset`` -- orchestrate the full reset flow.
 """
 
@@ -26,6 +27,11 @@ from ai_engineering.state.work_plane import (
 
 _SPEC_PLACEHOLDER = "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n"
 _PLAN_PLACEHOLDER = "# No active plan\n\nRun /ai-plan after brainstorm approval.\n"
+_HISTORY_PREAMBLE = "# Spec History\n\nCompleted specs. Details in git history.\n\n"
+_HISTORY_HEADER = (
+    "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+    "|----|-------|--------|---------|---------|----|--------|\n"
+)
 
 
 @dataclass
@@ -123,9 +129,11 @@ def append_history(
     title: str | None,
     branch: str = "",
 ) -> bool:
-    """Append a line to ``_history.md`` recording the completed spec.
+    """Upsert a canonical ``_history.md`` row for the completed spec.
 
-    Creates the file with a table header if it does not exist.
+    Creates the file with the 7-column canonical table when missing and
+    migrates legacy 4/5/6-column rows on write. Existing rows with the
+    same spec id are replaced rather than duplicated.
 
     Args:
         specs_dir: Path to ``specs/`` directory.
@@ -139,18 +147,81 @@ def append_history(
     specs_dir.mkdir(parents=True, exist_ok=True)
     history_path = specs_dir / "_history.md"
     today = datetime.now(tz=UTC).strftime("%Y-%m-%d")
+    target_id = spec_id or "?"
+    entry = [
+        target_id,
+        title or "untitled",
+        "done",
+        today,
+        today,
+        "—",
+        branch or "—",
+    ]
 
-    if not history_path.exists():
-        header = (
-            "# Spec History\n\n| ID | Title | Date | Branch |\n|-----|-------|------|--------|\n"
-        )
-        history_path.write_text(header, encoding="utf-8")
+    rows: list[list[str]] = []
+    tail = ""
+    if history_path.exists():
+        rows, tail = _read_history_rows(history_path.read_text(encoding="utf-8"))
 
-    entry = f"| {spec_id or '?'} | {title or 'untitled'} | {today} | {branch} |\n"
-    with history_path.open("a", encoding="utf-8") as f:
-        f.write(entry)
+    replaced = False
+    rendered_rows: list[list[str]] = []
+    for row in rows:
+        if row and row[0] == target_id:
+            if not replaced:
+                rendered_rows.append(entry)
+                replaced = True
+            continue
+        rendered_rows.append(row)
+    if not replaced:
+        rendered_rows.append(entry)
+
+    body = _HISTORY_PREAMBLE + _HISTORY_HEADER
+    body += "\n".join("| " + " | ".join(row) + " |" for row in rendered_rows)
+    body += "\n"
+    if tail.strip():
+        body += "\n" + tail.rstrip() + "\n"
+    history_path.write_text(body, encoding="utf-8")
 
     return True
+
+
+def _read_history_rows(text: str) -> tuple[list[list[str]], str]:
+    """Read canonical row cells plus preserved free-form tail from history text."""
+    table_rows, tail = _split_history(text)
+    if len(table_rows) < 2:
+        return [], tail
+    migrated: list[list[str]] = []
+    for row in table_rows[2:]:
+        cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+        if len(cells) == 4:
+            spec_id, row_title, date, row_branch = cells
+            migrated.append([spec_id, row_title, "done", date, date, "—", row_branch or "—"])
+        elif len(cells) == 5:
+            spec_id, row_title, status, created, row_branch = cells
+            migrated.append([spec_id, row_title, status, created, "—", "—", row_branch or "—"])
+        elif len(cells) == 6:
+            spec_id, row_title, status, created, shipped, row_branch = cells
+            migrated.append([spec_id, row_title, status, created, shipped, "—", row_branch or "—"])
+        elif len(cells) == 7:
+            migrated.append(cells)
+    return migrated, tail
+
+
+def _split_history(text: str) -> tuple[list[str], str]:
+    """Split markdown history into table rows and preserved free-form tail."""
+    lines = text.splitlines()
+    rows: list[str] = []
+    tail_start = len(lines)
+    in_table = False
+    for i, line in enumerate(lines):
+        if line.startswith("|"):
+            in_table = True
+            rows.append(line)
+            continue
+        if in_table:
+            tail_start = i
+            break
+    return rows, "\n".join(lines[tail_start:]).lstrip("\n")
 
 
 def clear_spec_buffer(specs_dir: Path) -> None:

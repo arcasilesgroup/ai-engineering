@@ -8,8 +8,9 @@ Closes the M9 reconciliation loop by mechanically enforcing that every
    ``runtime-stop.py`` for Ralph tunables,
    ``integrity.py`` for the hook integrity mode,
    ``src/ai_engineering/config/concurrency.py`` for spec-139 M1
-   concurrency primitives), OR
-2. Is explicitly marked ``# pending spec-139 M<n>`` so the reader can
+   concurrency primitives, hook scripts for M5, and SessionEnd hooks
+   for M6), OR
+2. Is explicitly marked ``# reserved spec-139 M<n>`` so the reader can
    tell the var is reserved but not yet wired.
 
 The opposite direction (every code-defaulted var appears in docs) is
@@ -30,18 +31,30 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _CLAUDE_MD = _REPO_ROOT / "CLAUDE.md"
+_TEMPLATE_CLAUDE_MD = _REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CLAUDE.md"
 _RUNTIME_STATE = _REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "_lib" / "runtime_state.py"
 _RUNTIME_STOP = _REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "runtime-stop.py"
 _INTEGRITY = _REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "_lib" / "integrity.py"
 _CONCURRENCY = _REPO_ROOT / "src" / "ai_engineering" / "config" / "concurrency.py"
+_PROMPT_INJECTION_GUARD = (
+    _REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "prompt-injection-guard.py"
+)
+_AUTO_FORMAT = _REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "auto-format.py"
+_RUNTIME_ROTATE_THROTTLED = (
+    _REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "runtime-rotate-throttled.py"
+)
+_RUNTIME_SESSION_END = (
+    _REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "runtime-session-end.py"
+)
 
 # Regex that pulls every ``AIENG_<NAME>  # default <value>`` or
-# ``AIENG_<NAME>  # pending spec-139 M<n>`` row out of the tunables fenced
+# ``AIENG_<NAME>  # reserved spec-139 M<n>`` row out of the tunables fenced
 # code block. The trailing parenthetical (e.g. ``(observe-only)`` or
 # ``(Phase 5 assessor cap)``) is allowed but ignored — the default token
 # is just the first whitespace-bounded value after ``default ``.
 _TUNABLE_RE = re.compile(
-    r"^(AIENG_[A-Z_]+)\s+#\s*(?:default\s+(\S+)|pending\s+spec-139\s+(M\d+))",
+    r"^(AIENG_[A-Z_]+)\s+#\s*"
+    r"(?:default\s+(\S+)|(?:(pending|reserved)\s+spec-139\s+(M\d+)))",
     re.MULTILINE,
 )
 
@@ -55,17 +68,25 @@ _TUNABLE_RE = re.compile(
 # code re-converge.
 _KNOWN_DOC_CODE_DISAGREEMENTS: frozenset[str] = frozenset({"AIENG_HOOK_INTEGRITY_MODE"})
 
-# Pending milestones acknowledged in CLAUDE.md but not yet wired in code.
+# Reserved milestones acknowledged in CLAUDE.md but not yet wired in code.
 # Removing an entry here means the corresponding milestone has landed and
 # the var now has a real code default that the test must verify.
-_PENDING_MILESTONES: frozenset[str] = frozenset({"M2", "M5", "M6"})
+_RESERVED_MILESTONES: frozenset[str] = frozenset({"M2", "M5"})
+_RESERVED_TUNABLES: frozenset[str] = frozenset(
+    {
+        "AIENG_HOST_PREFLIGHT_DISABLED",
+        "AIENG_HOST_PREFLIGHT_MIN_FREE_MB",
+        "AIENG_HOST_PREFLIGHT_MAX_PRESSURE_PCT",
+        "AIENG_HOOK_BUDGET_PROFILE",
+    }
+)
 
 
-def _read_tunables_block() -> str:
+def _read_tunables_block(doc_path: Path = _CLAUDE_MD) -> str:
     """Extract the fenced code block following ``## Runtime Layer Tunables``."""
-    text = _CLAUDE_MD.read_text(encoding="utf-8")
+    text = doc_path.read_text(encoding="utf-8")
     marker = "## Runtime Layer Tunables"
-    assert marker in text, "CLAUDE.md missing the Runtime Layer Tunables section"
+    assert marker in text, f"{doc_path} missing the Runtime Layer Tunables section"
     after_header = text.split(marker, 1)[1]
     # The first triple-backtick fence after the header is the tunables block.
     fence_open = after_header.find("```")
@@ -75,13 +96,18 @@ def _read_tunables_block() -> str:
     return after_header[fence_open + 3 : fence_close]
 
 
-def _parse_documented_tunables() -> dict[str, tuple[str | None, str | None]]:
-    """Return ``{name: (default, pending_milestone)}`` from CLAUDE.md."""
-    block = _read_tunables_block()
-    parsed: dict[str, tuple[str | None, str | None]] = {}
+def _parse_documented_tunables(
+    doc_path: Path = _CLAUDE_MD,
+) -> dict[str, tuple[str | None, str | None, str | None]]:
+    """Return ``{name: (default, marker_kind, marker_milestone)}``."""
+    block = _read_tunables_block(doc_path)
+    parsed: dict[str, tuple[str | None, str | None, str | None]] = {}
     for match in _TUNABLE_RE.finditer(block):
-        name, default, pending = match.group(1), match.group(2), match.group(3)
-        parsed[name] = (default, pending)
+        name = match.group(1)
+        default = match.group(2)
+        marker_kind = match.group(3)
+        marker_milestone = match.group(4)
+        parsed[name] = (default, marker_kind, marker_milestone)
     return parsed
 
 
@@ -90,6 +116,11 @@ def _grep_default(path: Path, pattern: str) -> str | None:
     text = path.read_text(encoding="utf-8")
     m = re.search(pattern, text)
     return m.group(1) if m else None
+
+
+def _normalized_int_literal(raw: str | None) -> str | None:
+    """Normalize a Python integer literal token for doc-default comparison."""
+    return raw.replace("_", "") if raw is not None else None
 
 
 def _code_default_for(name: str) -> str | None:
@@ -136,6 +167,41 @@ def _code_default_for(name: str) -> str | None:
             _CONCURRENCY,
             r"THREAD_WORKERS_DEFAULT:\s*Final\[int\]\s*=\s*(\d+)",
         )
+    if name == "AIENG_RUNTIME_ROTATE_THROTTLE_SEC":
+        return _grep_default(
+            _RUNTIME_ROTATE_THROTTLED,
+            r"_DEFAULT_THROTTLE_SEC\s*=\s*(\d+)",
+        )
+    if name == "AIENG_HOOK_CACHE_TTL_SEC":
+        code_default = _grep_default(
+            _PROMPT_INJECTION_GUARD,
+            r"if not raw:\s+return\s+(\d+)(?:\.0)?",
+        )
+        return code_default
+    if name == "AIENG_AUTOFORMAT_DEBOUNCE_SEC":
+        return _grep_default(
+            _AUTO_FORMAT,
+            r"_AUTOFORMAT_DEBOUNCE_DEFAULT_SEC\s*=\s*(\d+\.\d+)",
+        )
+    if name == "AIENG_NDJSON_MAX_LINES":
+        return _normalized_int_literal(
+            _grep_default(
+                _RUNTIME_SESSION_END,
+                r"_NDJSON_MAX_LINES_DEFAULT\s*=\s*([0-9_]+)",
+            )
+        )
+    if name == "AIENG_NDJSON_MAX_BYTES":
+        expression = _grep_default(
+            _RUNTIME_SESSION_END,
+            r"_NDJSON_MAX_BYTES_DEFAULT\s*=\s*([0-9_]+\s*\*\s*[0-9_]+\s*\*\s*[0-9_]+)",
+        )
+        if expression is None:
+            return None
+        factors = [int(factor.strip().replace("_", "")) for factor in expression.split("*")]
+        product = 1
+        for factor in factors:
+            product *= factor
+        return str(product)
     return None
 
 
@@ -159,6 +225,17 @@ _M1_TUNABLES: tuple[str, ...] = (
 # spec-139 M6 SessionEnd rotation throttle var that landed with M6.
 _M6_TUNABLES: tuple[str, ...] = ("AIENG_RUNTIME_ROTATE_THROTTLE_SEC",)
 
+# spec-139 M5/M6 tunables that are implemented in hook/runtime code and
+# therefore MUST be default-bearing docs entries, never reserved/pending.
+_PROMOTED_M5_M6_TUNABLES: tuple[str, ...] = (
+    "AIENG_HOOK_CACHE_TTL_SEC",
+    "AIENG_AUTOFORMAT_DEBOUNCE_SEC",
+    "AIENG_NDJSON_MAX_LINES",
+    "AIENG_NDJSON_MAX_BYTES",
+)
+
+_CANONICAL_TUNABLE_DOCS: tuple[Path, ...] = (_CLAUDE_MD, _TEMPLATE_CLAUDE_MD)
+
 
 @pytest.mark.unit
 def test_tunables_block_exists_in_claude_md() -> None:
@@ -175,8 +252,8 @@ def test_established_tunable_documented_with_code_matching_default(name: str) ->
     """
     documented = _parse_documented_tunables()
     assert name in documented, f"CLAUDE.md tunables block missing {name}"
-    doc_default, pending = documented[name]
-    assert pending is None, f"{name} is an established tunable but marked pending"
+    doc_default, marker_kind, _milestone = documented[name]
+    assert marker_kind is None, f"{name} is an established tunable but marked {marker_kind}"
     assert doc_default is not None, f"{name} missing a documented default"
 
     code_default = _code_default_for(name)
@@ -211,8 +288,8 @@ def test_m1_concurrency_tunable_matches_code_default(name: str) -> None:
     """
     documented = _parse_documented_tunables()
     assert name in documented, f"CLAUDE.md tunables block missing M1 var {name}"
-    doc_default, pending = documented[name]
-    assert pending is None, f"{name} landed in M1 but is marked pending"
+    doc_default, marker_kind, _milestone = documented[name]
+    assert marker_kind is None, f"{name} landed in M1 but is marked {marker_kind}"
     assert doc_default is not None, f"{name} missing a documented default"
 
     code_default = _code_default_for(name)
@@ -227,59 +304,119 @@ def test_m1_concurrency_tunable_matches_code_default(name: str) -> None:
 
 
 @pytest.mark.unit
-def test_pending_milestone_markers_use_documented_format() -> None:
-    """Every pending var MUST use the ``# pending spec-139 M<n>`` format and
-    cite one of the milestones still open in spec-139.
+@pytest.mark.parametrize("doc_path", _CANONICAL_TUNABLE_DOCS)
+@pytest.mark.parametrize("name", _PROMOTED_M5_M6_TUNABLES)
+def test_promoted_m5_m6_tunable_documented_with_code_matching_default(
+    doc_path: Path,
+    name: str,
+) -> None:
+    """Implemented spec-139 M5/M6 vars MUST show real defaults in rulebooks."""
+    documented = _parse_documented_tunables(doc_path)
+    assert name in documented, f"{doc_path} tunables block missing {name}"
+    doc_default, marker_kind, _milestone = documented[name]
+    assert marker_kind is None, f"{name} is implemented but marked {marker_kind} in {doc_path}"
+    assert doc_default is not None, f"{name} missing a documented default in {doc_path}"
+
+    code_default = _code_default_for(name)
+    assert code_default is not None, (
+        f"Could not resolve code default for {name} — update _code_default_for() "
+        "if the hook/runtime source moved."
+    )
+    assert doc_default == code_default, (
+        f"{name} doc/code drift in {doc_path}: docs say default={doc_default!r}, "
+        f"code says default={code_default!r}."
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("doc_path", _CANONICAL_TUNABLE_DOCS)
+def test_tunables_block_uses_reserved_not_pending_markers(doc_path: Path) -> None:
+    """Tunables docs use default-bearing entries or explicit reserved rows."""
+    block = _read_tunables_block(doc_path)
+    assert "pending spec-139" not in block, (
+        f"{doc_path} still uses pending markers; implemented vars need defaults "
+        "and future-only vars should use reserved markers."
+    )
+
+
+@pytest.mark.unit
+def test_reserved_milestone_markers_use_documented_format() -> None:
+    """Every reserved var MUST use the ``# reserved spec-139 M<n>`` format and
+    cite one of the roadmap milestones still open in spec-139.
     """
     documented = _parse_documented_tunables()
-    pending_entries = {
-        name: pending for name, (_, pending) in documented.items() if pending is not None
+    reserved_entries = {
+        name: milestone
+        for name, (_default, marker_kind, milestone) in documented.items()
+        if marker_kind is not None
     }
-    assert pending_entries, (
-        "Tunables block declares zero pending entries — at least the M2 / M5 / M6 "
-        "vars from spec-139 M9.T1 are expected here. If every milestone has "
-        "landed, this test can be deleted along with _PENDING_MILESTONES."
+    assert reserved_entries, (
+        "Tunables block declares zero reserved entries — keep the genuinely future "
+        "host-preflight/budget-profile vars in one reserved block, or delete this "
+        "test if D-146-07 removes them entirely."
     )
-    for name, milestone in pending_entries.items():
-        assert milestone in _PENDING_MILESTONES, (
-            f"{name} cites pending milestone {milestone!r}; the only acknowledged "
-            f"pending milestones are {sorted(_PENDING_MILESTONES)}. Update the "
-            "whitelist if a new spec-139 milestone genuinely opened."
+    for name, milestone in reserved_entries.items():
+        assert name in _RESERVED_TUNABLES, f"{name} is not an approved reserved roadmap tunable"
+        assert milestone in _RESERVED_MILESTONES, (
+            f"{name} cites reserved milestone {milestone!r}; the only acknowledged "
+            f"reserved milestones are {sorted(_RESERVED_MILESTONES)}. Update the "
+            "whitelist if a new spec-139 roadmap milestone genuinely opened."
         )
 
 
 @pytest.mark.unit
 def test_every_documented_var_classified() -> None:
     """Every var documented in CLAUDE.md MUST be either established / M1 /
-    pending. Catches accidental new entries that bypass the classification.
+    M5-M6 / reserved. Catches accidental entries that bypass classification.
     """
     documented = _parse_documented_tunables()
-    classified = set(_ESTABLISHED_TUNABLES) | set(_M1_TUNABLES) | set(_M6_TUNABLES)
-    for name, (_default, pending) in documented.items():
+    classified = (
+        set(_ESTABLISHED_TUNABLES)
+        | set(_M1_TUNABLES)
+        | set(_M6_TUNABLES)
+        | set(_PROMOTED_M5_M6_TUNABLES)
+        | set(_RESERVED_TUNABLES)
+    )
+    for name, (_default, marker_kind, _milestone) in documented.items():
         if name in classified:
             continue
-        if pending is not None:
+        if marker_kind is not None:
             continue
         pytest.fail(
             f"{name} documented in CLAUDE.md but not classified as "
-            "established / M1 / pending. Add it to _ESTABLISHED_TUNABLES or "
-            "_M1_TUNABLES or mark the doc entry as pending spec-139 M<n>."
+            "established / M1 / M5-M6 / reserved. Add it to the matching "
+            "classification or mark the doc entry as reserved spec-139 M<n>."
         )
 
 
 @pytest.mark.unit
-def test_pending_set_covers_m2_m5_m6_per_spec_139() -> None:
-    """spec-139 M9.T1 asks for M2 / M5 / M6 vars to be reserved. Verify each
-    bucket has at least one entry so a future docs edit cannot quietly drop
-    the placeholder.
-    """
+def test_reserved_set_covers_future_m2_m5_only_per_spec_146() -> None:
+    """D-146-07 keeps only future host-preflight/budget-profile vars reserved."""
     documented = _parse_documented_tunables()
-    pending_milestones_seen = {
-        pending for _, (_, pending) in documented.items() if pending is not None
+    reserved_entries = {
+        name: milestone
+        for name, (_default, marker_kind, milestone) in documented.items()
+        if marker_kind == "reserved"
     }
-    for required in _PENDING_MILESTONES:
-        assert required in pending_milestones_seen, (
-            f"No CLAUDE.md tunable cites pending spec-139 {required}; "
-            "M9.T1 reserves at least one var per milestone (M2 host probe, "
-            "M5 hook cache, M6 NDJSON rotation)."
+    assert set(reserved_entries) == _RESERVED_TUNABLES
+    assert set(reserved_entries.values()) == _RESERVED_MILESTONES
+
+
+@pytest.mark.unit
+def test_m6_runtime_rotate_tunable_matches_code_default() -> None:
+    """M6 runtime rotation throttle is documented with its wrapper default."""
+    documented = _parse_documented_tunables()
+    for name in _M6_TUNABLES:
+        assert name in documented, f"CLAUDE.md tunables block missing M6 var {name}"
+        doc_default, marker_kind, _milestone = documented[name]
+        assert marker_kind is None, f"{name} landed in M6 but is marked {marker_kind}"
+        assert doc_default is not None, f"{name} missing a documented default"
+        code_default = _code_default_for(name)
+        assert code_default is not None, (
+            f"Could not resolve code default for {name} — update _code_default_for() "
+            "if runtime-rotate-throttled.py moved."
+        )
+        assert doc_default == code_default, (
+            f"{name} M6 doc/code drift: CLAUDE.md says default={doc_default!r}, "
+            f"code says default={code_default!r}."
         )
