@@ -35,7 +35,6 @@ read-only against the SQLite projection.
 from __future__ import annotations
 
 import json
-import sqlite3
 from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
@@ -49,7 +48,6 @@ from ai_engineering.state.audit_index import (
     NDJSON_REL,
     build_index,
     index_path,
-    open_index_readonly,
 )
 from ai_engineering.state.audit_replay import (
     build_span_tree,
@@ -202,68 +200,6 @@ audit_app_marker = "audit verify"
 # Spec-120 Phase B: audit index / query / tokens
 # ---------------------------------------------------------------------------
 
-# Maximum number of rows ``audit query`` and ``audit tokens`` will return
-# unless the user provides their own LIMIT clause. Mirrors the typer
-# default but is reused by the LIMIT-injection logic below.
-_DEFAULT_QUERY_LIMIT = 1000
-
-# Mapping ``--by`` value -> SQLite view name shipped by audit_index.
-_TOKEN_VIEWS: dict[str, str] = {
-    "skill": "skill_token_rollup",
-    "agent": "agent_token_rollup",
-    "session": "session_token_rollup",
-}
-
-
-def _strip_sql_comments(sql: str) -> str:
-    """Strip leading whitespace and ``--`` line comments from ``sql``.
-
-    Used by :func:`audit_query` to decide whether a query is a SELECT
-    after the user has prefixed it with comments. Block comments
-    (``/* ... */``) are intentionally not handled -- queries that need
-    them are exotic enough that requiring the user to clean them up
-    before invocation is acceptable.
-    """
-    lines = []
-    for raw in sql.splitlines():
-        stripped = raw.strip()
-        if stripped.startswith("--"):
-            continue
-        lines.append(raw)
-    return "\n".join(lines).strip()
-
-
-def _is_select(sql: str) -> bool:
-    """Return ``True`` when the first token of ``sql`` is ``SELECT``.
-
-    The check is case-insensitive and tolerates leading whitespace +
-    ``--`` line comments. WITH-clauses (CTEs) are intentionally NOT
-    accepted today -- the rollup views and the events table cover the
-    canonical query shapes; we can revisit if a real CTE need surfaces.
-    """
-    cleaned = _strip_sql_comments(sql)
-    if not cleaned:
-        return False
-    first_word = cleaned.split(None, 1)[0].upper()
-    return first_word == "SELECT"
-
-
-def _ensure_limit(sql: str, limit: int) -> str:
-    """Append ``LIMIT <n>`` to ``sql`` when no explicit LIMIT is present.
-
-    Detection is whitespace + word-boundary tolerant: ``LIMIT`` must
-    appear as its own token (case-insensitive) for the check to skip
-    rewriting. Subqueries with ``LIMIT`` inside parens still trigger
-    the "already-limited" path, which is the conservative behaviour --
-    we never silently double-cap.
-    """
-    upper = sql.upper()
-    # crude but effective: split into tokens and look for a bare LIMIT
-    tokens = upper.replace("\n", " ").replace("(", " ( ").replace(")", " ) ").split()
-    if "LIMIT" in tokens:
-        return sql
-    return f"{sql.rstrip().rstrip(';')} LIMIT {limit}"
-
 
 def _index_is_stale(project_root: Path) -> bool:
     """Return ``True`` when the SQLite index is missing or out-of-date.
@@ -354,57 +290,24 @@ def audit_index(
 def audit_query(
     sql: Annotated[
         str,
-        typer.Argument(help="SQL query (SELECT only)."),
-    ],
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Emit JSON array."),
-    ] = False,
-    limit: Annotated[
-        int,
-        typer.Option("--limit", help="Cap rows returned (default 1000)."),
-    ] = _DEFAULT_QUERY_LIMIT,
+        typer.Argument(help="(removed in spec-148) formerly arbitrary SELECT."),
+    ] = "",
 ) -> None:
-    """Run a read-only SQL query against the audit index.
+    """Removed in spec-148 (files-only persistence).
 
-    Auto-builds the SQLite projection when missing or stale. Only
-    ``SELECT`` queries are accepted -- DDL / DML attempts exit with
-    code 2 and a clear error on stderr.
+    The SQLite projection of ``framework-events.ndjson`` no longer
+    exists, so arbitrary ``SELECT`` over the audit log is gone. Use
+    ``audit tokens`` (skill/agent/session rollups) or ``audit replay``
+    (span tree) — both computed directly over the NDJSON — or parse
+    ``framework-events.ndjson`` yourself.
     """
-    if not _is_select(sql):
-        typer.echo(
-            "Error: only SELECT queries are permitted via 'audit query'.",
-            err=True,
-        )
-        raise typer.Exit(code=2)
-
-    project_root = _resolve_project_root()
-    _ensure_fresh_index(project_root)
-
-    if not index_path(project_root).exists():
-        # Soft-success: an empty NDJSON means no SQLite was created.
-        # Treat this like "no rows" so scripted callers see the empty
-        # set instead of a path error.
-        if json_output:
-            typer.echo("[]")
-        else:
-            typer.echo("(no rows)")
-        return
-
-    final_sql = _ensure_limit(sql, limit)
-    conn = open_index_readonly(project_root)
-    try:
-        try:
-            cur = conn.execute(final_sql)
-        except sqlite3.Error as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            raise typer.Exit(code=1) from None
-        columns = [desc[0] for desc in cur.description or []]
-        rows = cur.fetchall()
-    finally:
-        conn.close()
-
-    _print_query_result(columns, rows, json_output)
+    typer.echo(
+        "Error: 'audit query' was removed in spec-148 — the SQLite projection "
+        "no longer exists. Use 'audit tokens' / 'audit replay' (computed over "
+        "framework-events.ndjson), or parse the NDJSON directly.",
+        err=True,
+    )
+    raise typer.Exit(code=2)
 
 
 def audit_tokens(
