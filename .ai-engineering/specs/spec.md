@@ -3,7 +3,7 @@ spec: spec-148
 title: Files-only persistence + obvious-by-default conventions
 status: approved
 effort: large
-summary: "Retire embedded SQLite (state.db) entirely for files-only persistence (JSON records, append-only hash-chained NDJSON audit, Markdown docs), and land the remaining obvious-by-default conventions carried from spec-147 (de-collided skill triggers, one branch-cleanup, deterministic STOP + method-tagged findings, CI-enforced §10.x/naming/suppression DEC-binding, dry-run destructive verbs). Supersedes spec-147 Waves 2b-5; all on PR #532."
+summary: "Retire embedded SQLite (state.db) for files-only persistence — JSON records, append-only hash-chained NDJSON audit, Markdown docs — and land the obvious-by-default conventions carried from spec-147. Supersedes spec-147 Waves 2b-5; all on PR #532."
 supersedes: [spec-147 D-147-09, spec-147 D-147-10, spec-147 D-147-11, spec-147 D-147-12, spec-147 D-147-13, spec-147 D-147-14, spec-147 D-147-15, spec-147 D-147-16, spec-147 D-147-17]
 ---
 
@@ -75,7 +75,8 @@ Keep the `DurableStateRepository`/`StateService` port but back it with file IO (
 **Rationale**: Existing installs hold data only in `state.db`. Export-verify-delete with no backup keeps it clean; the fail-loud verify gate is the safety net (operator chose no `.bak`).
 
 ### D-148-10 — Supersede spec-147 Wave 2 SSOT
-Supersedes spec-147 D-147-09 (decision-store→state.db) + D-147-10 (gate-findings). The reverted spec-147 A1 reader migration (commit `da1e5686`) is not carried forward.
+Supersedes spec-147 D-147-09 (decision-store→state.db) + D-147-10 (gate-findings). The reverted spec-147 A1 reader migration is not carried forward (the migrate-then-revert pair was dropped from branch history as a net-zero no-op).
+**Rationale**: spec-147 Wave 2 chose `state.db` as the decision/gate SoT; the files-only pivot inverts that, so the superseded decisions must be named explicitly to keep one canonical store per datum (Hard Rule 7).
 
 ### Part B — Obvious-by-default conventions (carried from spec-147 Waves 3-5, adapted)
 
