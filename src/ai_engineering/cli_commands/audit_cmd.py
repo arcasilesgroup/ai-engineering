@@ -8,34 +8,22 @@ Original surface (spec-107 D-107-10 / G-12, H2):
   (mode=json_array). Intentionally advisory: it always exits 0 so it
   never blocks installs, doctor flows, or CI.
 
-Spec-120 additions (Phase B, T-B2 / T-B3 / T-B4):
+spec-148 (files-only): the SQLite projection is retired. The audit
+surface reads ``framework-events.ndjson`` directly:
 
-* ``ai-eng audit index`` -- build / refresh the SQLite projection of
-  ``framework-events.ndjson`` documented in
-  :mod:`ai_engineering.state.audit_index`. ``--rebuild`` drops the
-  schema and re-reads from offset 0; default is incremental. Single
-  one-line summary on success, or :func:`json.dumps(asdict(result))`
-  with ``--json``.
-* ``ai-eng audit query "SELECT ..."`` -- read-only SQL over the index.
-  Auto-rebuilds when the SQLite mtime is older than the NDJSON. Only
-  ``SELECT`` (case-insensitive, after stripping line comments) is
-  permitted; everything else exits with code 2. Tabular human output
-  or ``--json`` array of dicts.
-* ``ai-eng audit tokens --by skill|agent|session`` -- thin wrapper that
-  selects from one of the three rollup views shipped by
-  :mod:`audit_index` (``skill_token_rollup``, ``agent_token_rollup``,
-  ``session_token_rollup``). Output formatting matches ``audit query``.
-
-The original ``audit verify`` command, the underlying
-``state/audit_chain.py``, and the ``framework-events.ndjson`` writer
-path are intentionally untouched -- the new commands are additive and
-read-only against the SQLite projection.
+* ``ai-eng audit tokens --by skill|agent|session`` -- token rollups
+  computed over the NDJSON (see :mod:`ai_engineering.state.audit_rollup`).
+* ``ai-eng audit replay`` -- span tree built directly from the NDJSON
+  (see :mod:`ai_engineering.state.audit_replay`).
+* ``ai-eng audit verify`` -- hash-chain verifier for
+  ``framework-events.ndjson`` + ``decision-store.json`` (unchanged).
+* ``ai-eng audit index`` / ``ai-eng audit query`` -- removed (fail-loud
+  stubs): there is no SQLite projection to build or run ``SELECT`` over.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
@@ -46,8 +34,6 @@ from ai_engineering.cli_ui import header, kv, status_line, success, warning
 from ai_engineering.state.audit_chain import AuditChainVerdict, verify_audit_chain
 from ai_engineering.state.audit_index import (
     NDJSON_REL,
-    build_index,
-    index_path,
 )
 from ai_engineering.state.audit_replay import (
     build_span_tree,
@@ -201,30 +187,6 @@ audit_app_marker = "audit verify"
 # ---------------------------------------------------------------------------
 
 
-def _index_is_stale(project_root: Path) -> bool:
-    """Return ``True`` when the SQLite index is missing or out-of-date.
-
-    "Out-of-date" means the NDJSON source mtime is greater than the
-    SQLite mtime -- new events were appended since the last index
-    build. Both files missing is treated as "not stale" because
-    :func:`build_index` already handles the missing-source case as a
-    soft success.
-    """
-    sqlite_path = index_path(project_root)
-    ndjson_path = project_root / NDJSON_REL
-    if not sqlite_path.exists():
-        return True
-    if not ndjson_path.exists():
-        return False
-    return ndjson_path.stat().st_mtime > sqlite_path.stat().st_mtime
-
-
-def _ensure_fresh_index(project_root: Path) -> None:
-    """Auto-build the SQLite index when missing or stale (incremental)."""
-    if _index_is_stale(project_root):
-        build_index(project_root, rebuild=False)
-
-
 def _format_table(columns: list[str], rows: list[tuple[Any, ...]]) -> str:
     """Render rows as a fixed-width text table with a dashed header.
 
@@ -263,28 +225,27 @@ def _print_query_result(columns: list[str], rows: list[tuple[Any, ...]], json_ou
 def audit_index(
     rebuild: Annotated[
         bool,
-        typer.Option("--rebuild", help="Drop tables and re-index from offset 0."),
+        typer.Option("--rebuild", help="(removed in spec-148)"),
     ] = False,
     json_output: Annotated[
         bool,
-        typer.Option("--json", help="Emit machine-readable JSON."),
+        typer.Option("--json", help="(removed in spec-148)"),
     ] = False,
 ) -> None:
-    """Build / refresh the SQLite projection of framework-events.ndjson.
+    """Removed in spec-148 (files-only persistence).
 
-    Always exits 0 on success. Uncaught exceptions surface through the
-    standard ``_cli_error_boundary`` wrapper applied at registration.
+    There is no SQLite projection to build — ``framework-events.ndjson``
+    is the single source of truth, read directly by ``audit tokens`` /
+    ``audit replay``. The verb stays as a fail-loud stub so scripted
+    callers get a clear message instead of silent success.
     """
-    project_root = _resolve_project_root()
-    result = build_index(project_root, rebuild=rebuild)
-    if json_output:
-        typer.echo(json.dumps(asdict(result)))
-        return
     typer.echo(
-        f"Indexed {result.rows_indexed} rows "
-        f"(total={result.rows_total}, last_offset={result.last_offset}) "
-        f"in {result.elapsed_ms}ms (rebuild={result.rebuilt})"
+        "Error: 'audit index' was removed in spec-148 — there is no SQLite "
+        "projection to build; framework-events.ndjson is read directly by "
+        "'audit tokens' / 'audit replay'.",
+        err=True,
     )
+    raise typer.Exit(code=2)
 
 
 def audit_query(
