@@ -12,7 +12,8 @@ Inputs (each one fail-open per field):
 * ``.ai-engineering/specs/spec.md`` frontmatter (yaml.safe_load).
 * ``.ai-engineering/specs/plan.md`` (regex count of ``[x]`` vs ``[ ]``).
 * ``.ai-engineering/state/framework-events.ndjson`` tail (last 7 d window).
-* ``.ai-engineering/state/state.db`` decisions + risk_acceptances tables.
+* ``.ai-engineering/state/decision-store.json`` decision records (active
+  decisions + risk-acceptance decisions; spec-148 files-only).
 * ``.ai-engineering/manifest.yml`` (``name`` + ``hooks_health`` + work_items).
 * ``.ai-engineering/LESSONS.md`` line count.
 * ``.claude/skills/`` + ``.claude/agents/`` filesystem counts.
@@ -63,7 +64,6 @@ import hashlib
 import json
 import os
 import re
-import sqlite3
 import subprocess
 import sys
 import time
@@ -466,30 +466,36 @@ def _count_proposals(root: Path) -> int:
     return sum(1 for p in base.glob("**/*.md") if p.is_file())
 
 
-def _query_count(db: Path, sql: str) -> int:
-    if not db.is_file():
-        return 0
+def _read_decision_records(root: Path) -> list[dict]:
+    """Load decision records from ``decision-store.json`` (stdlib; spec-148).
+
+    Files-only: the dashboard counts come straight from the JSON decision
+    store (the canonical SoT), not a SQLite projection. Returns ``[]`` on
+    any read/parse error.
+    """
+    path = root / ".ai-engineering" / "state" / "decision-store.json"
     try:
-        conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True, timeout=1.0)
-    except sqlite3.OperationalError:
-        return 0
-    try:
-        cur = conn.execute(sql)
-        row = cur.fetchone()
-        return int(row[0]) if row and row[0] is not None else 0
-    except sqlite3.Error:
-        return 0
-    finally:
-        with contextlib.suppress(sqlite3.Error):
-            conn.close()
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return []
+    decisions = data.get("decisions") if isinstance(data, dict) else None
+    if not isinstance(decisions, list):
+        return []
+    return [d for d in decisions if isinstance(d, dict)]
 
 
-def _count_active_decisions(db: Path) -> int:
-    return _query_count(db, "SELECT COUNT(*) FROM decisions WHERE status='active'")
+def _count_active_decisions(root: Path) -> int:
+    return sum(1 for d in _read_decision_records(root) if d.get("status") == "active")
 
 
-def _count_accepted_risks(db: Path) -> int:
-    return _query_count(db, "SELECT COUNT(*) FROM risk_acceptances WHERE status='accepted'")
+def _count_accepted_risks(root: Path) -> int:
+    # spec-148: the risk_acceptances table was dead (zero writers); risk
+    # acceptances are decision records with riskCategory == 'risk-acceptance'.
+    return sum(
+        1
+        for d in _read_decision_records(root)
+        if d.get("riskCategory") == "risk-acceptance" and d.get("status") == "active"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1060,8 +1066,6 @@ def build_dashboard(repo_root: Path | None = None) -> dict:
     recent_events = _read_recent_events(
         root / ".ai-engineering" / "state" / "framework-events.ndjson"
     )
-    db = root / ".ai-engineering" / "state" / "state.db"
-
     dashboard: dict = {
         "schema_version": SCHEMA_VERSION,
         "project_name": _project_name(manifest),
@@ -1086,8 +1090,8 @@ def build_dashboard(repo_root: Path | None = None) -> dict:
         "skills_total": _count_skills(root, manifest),
         "agents_total": _count_agents(root, manifest),
         "surface_resolved": _resolved_surface_or_none(manifest),
-        "active_decisions": _count_active_decisions(db),
-        "accepted_risks": _count_accepted_risks(db),
+        "active_decisions": _count_active_decisions(root),
+        "accepted_risks": _count_accepted_risks(root),
         "proposals_count": _count_proposals(root),
         "board_summary": _board_summary(root, manifest),
         "observation_backlog": _count_unconsolidated_events(root),
