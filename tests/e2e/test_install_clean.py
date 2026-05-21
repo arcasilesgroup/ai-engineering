@@ -81,19 +81,20 @@ class TestInstallClean:
         install(tmp_path, stacks=["python"])
         state_dir = tmp_path / ".ai-engineering" / "state"
 
-        # Spec-125: install_state + framework_capabilities live in state.db.
-        # Only the audit + instincts NDJSON streams + the canonical SQLite
-        # projection remain on disk.
+        # spec-148 (files-only): every state datum is a file; install
+        # creates NO state.db.
         expected_files = [
-            "state.db",
+            "install-state.json",
+            "framework-capabilities.json",
+            "decision-store.json",
+            "ownership-map.json",
             "observation-events.ndjson",
+            "framework-events.ndjson",
         ]
         for fname in expected_files:
             assert (state_dir / fname).is_file(), f"Missing: {fname}"
         assert not (state_dir / "audit-log.ndjson").exists()
-        # Spec-125 cutover: legacy JSON files MUST NOT be recreated.
-        assert not (state_dir / "install-state.json").exists()
-        assert not (state_dir / "framework-capabilities.json").exists()
+        assert not (state_dir / "state.db").exists()
         observations_dir = tmp_path / ".ai-engineering" / "observations"
         assert (observations_dir / "observations.yml").is_file()
         assert (observations_dir / "meta.json").is_file()

@@ -119,15 +119,13 @@ class TestInstallResultDefaults:
 class TestStateFilesConstant:
     """Verify _STATE_FILES contains expected entries.
 
-    Spec-125: ``install-state`` and ``framework-capabilities`` migrated
-    from JSON sinks to state.db tables. Both keys remain in the dict so
-    callers that look up the pseudo-path still resolve, but they now
-    reference the canonical SQLite projection at ``state/state.db``.
+    spec-148 (files-only): every state datum is a real file under
+    ``.ai-engineering/state/`` — there is no state.db.
     """
 
     def test_contains_install_state(self) -> None:
         assert "install-state" in _STATE_FILES
-        assert _STATE_FILES["install-state"] == "state/state.db"
+        assert _STATE_FILES["install-state"] == "state/install-state.json"
 
     def test_contains_ownership_map(self) -> None:
         assert "ownership-map" in _STATE_FILES
@@ -139,7 +137,7 @@ class TestStateFilesConstant:
 
     def test_contains_framework_capabilities(self) -> None:
         assert "framework-capabilities" in _STATE_FILES
-        assert _STATE_FILES["framework-capabilities"] == "state/state.db"
+        assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
 
     def test_contains_instinct_artifacts(self) -> None:
         assert _STATE_FILES["observation-events"] == "state/observation-events.ndjson"
@@ -154,10 +152,8 @@ class TestFrameworkCapabilitiesPath:
     """Verify installer state files include the canonical capability catalog."""
 
     def test_framework_capabilities_path_value(self) -> None:
-        # Spec-125: framework_capabilities now lives in state.db
-        # (``tool_capabilities`` singleton row). The pseudo-path still
-        # resolves through the dict but points at the SQLite projection.
-        assert _STATE_FILES["framework-capabilities"] == "state/state.db"
+        # spec-148 P4 (files-only): the catalog is framework-capabilities.json.
+        assert _STATE_FILES["framework-capabilities"] == "state/framework-capabilities.json"
 
 
 class TestGenerateStateFiles:
@@ -613,10 +609,10 @@ class TestInstallCreatesStateFiles:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python"])
 
-        # Assert -- spec-125: install_state + framework_capabilities both
-        # resolve to ``state/state.db``; the deduped ``created`` list
-        # therefore contains 6 distinct paths instead of the legacy 7.
-        assert len(result.state_files) == 6
+        # spec-148 (files-only): install-state.json, ownership-map.json,
+        # decision-store.json, framework-capabilities.json + the 3 instinct
+        # artifacts are 7 distinct files (no state.db dedup).
+        assert len(result.state_files) == 7
 
 
 class TestInstallSkipsExistingStateFiles:
@@ -638,16 +634,15 @@ class TestInstallCreatesDefaultState:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path, stacks=["python", "dotnet"], surfaces=["claude-code"])
 
-        # Spec-125: install_state + framework_capabilities collapse to
-        # state/state.db so the deduped ``created`` list contains 6 paths.
-        assert len(result.state_files) == 6
+        # spec-148 (files-only): 7 distinct state files (no state.db dedup).
+        assert len(result.state_files) == 7
 
     def test_default_stacks_none_passes(self, patched, tmp_path: Path) -> None:
         with patch.object(Path, "exists", return_value=False):
             result = install(tmp_path)
 
-        # State files still created (6 distinct paths post spec-125 cutover).
-        assert len(result.state_files) == 6
+        # spec-148 (files-only): 7 distinct state files (no state.db dedup).
+        assert len(result.state_files) == 7
 
 
 class TestInstallCallsInstallHooks:
