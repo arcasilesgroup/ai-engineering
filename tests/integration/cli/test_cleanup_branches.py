@@ -57,11 +57,11 @@ def test_cleanup_branches_refuses_detached_head(tmp_path: Path) -> None:
     assert excinfo.value.exit_code == 2
 
 
-def test_cleanup_branches_modes_default_to_merged(tmp_path: Path) -> None:
-    """When no mode flag is passed, default to --merged (least surprising)."""
+def test_cleanup_branches_resolver_merged_mode(tmp_path: Path) -> None:
+    """The resolver returns merged branches when --merged is set explicitly."""
     _init_git(tmp_path)
     subprocess.run(["git", "branch", "feature/foo"], cwd=tmp_path, check=True)
-    # default: merged should pick up feature/foo
+    # explicit --merged should pick up feature/foo
     from ai_engineering.cli_commands.cleanup import _resolve_target_branches
 
     targets = _resolve_target_branches(
@@ -75,6 +75,45 @@ def test_cleanup_branches_modes_default_to_merged(tmp_path: Path) -> None:
         all_modes=False,
     )
     assert "feature/foo" in targets
+
+
+def test_cleanup_branches_no_flag_is_plan_only_deletes_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-149-02: no mode flag must NOT delete (plan-only). Destructive default removed.
+
+    Previously a bare ``cleanup branches`` set ``merged=True`` and deleted. Now a
+    no-flag invocation computes a plan and deletes nothing; the operator must pass
+    an explicit mode flag (or ``--dry-run``) to act.
+    """
+    _init_git(tmp_path)
+    subprocess.run(["git", "branch", "feature/foo"], cwd=tmp_path, check=True)
+
+    import ai_engineering.cli_commands.cleanup as cl
+
+    monkeypatch.setattr(cl, "resolve_project_root", lambda _target=None: tmp_path)
+    deleted_calls: list[list[str]] = []
+
+    def _spy_delete(
+        root: Path, branches: list[str], **kwargs: object
+    ) -> tuple[list[str], list[str]]:
+        deleted_calls.append(list(branches))
+        return [], []
+
+    monkeypatch.setattr(cl, "delete_branches", _spy_delete)
+
+    # No mode flag, not --dry-run: must compute a plan but delete nothing.
+    cl.cleanup_branches_cmd()
+
+    assert deleted_calls == [], "no-flag invocation must not call delete_branches (plan-only)"
+    out = subprocess.run(
+        ["git", "branch", "--format=%(refname:short)"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.split()
+    assert "feature/foo" in out
 
 
 def test_cleanup_branches_untracked_picks_local_only(tmp_path: Path) -> None:

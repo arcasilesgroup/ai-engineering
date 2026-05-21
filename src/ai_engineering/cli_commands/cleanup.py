@@ -254,10 +254,14 @@ def cleanup_branches_cmd(
     root = resolve_project_root(None)
     _refuse_detached_head(root)
 
-    # If no mode flag set, default to --merged (most common, least surprising).
-    if not any([pruned, merged, squashed, stale, untracked, reset, all_modes]):
-        merged = True
-        chosen_mode = "merged (default)"
+    # D-149-02 (was D-148-16): a no-flag invocation is PLAN-ONLY and deletes
+    # nothing. The old "default to --merged and delete" was a destructive
+    # default (the inverse of the pit of success). Now the operator must pass
+    # an explicit mode (--merged/.../--all) to delete, or --dry-run to preview.
+    plan_only = not any([pruned, merged, squashed, stale, untracked, reset, all_modes])
+    if plan_only:
+        merged = True  # compute the merged candidate set to show in the plan
+        chosen_mode = "plan-only (no mode flag)"
     else:
         modes = [
             n
@@ -292,9 +296,12 @@ def cleanup_branches_cmd(
         all_modes=all_modes,
     )
 
-    result = CleanupBranchesResult(mode=chosen_mode, dry_run=dry_run, pruned_refs=pruned_refs)
+    # Plan-only and dry-run both delete nothing; the envelope reports
+    # ``dry_run`` truthfully so machine consumers never see a silent delete.
+    no_delete = dry_run or plan_only
+    result = CleanupBranchesResult(mode=chosen_mode, dry_run=no_delete, pruned_refs=pruned_refs)
 
-    if dry_run:
+    if no_delete:
         result.skipped = targets
     elif targets:
         deleted, failed = delete_branches(root, targets, force=force)
@@ -304,7 +311,15 @@ def cleanup_branches_cmd(
     if is_json_mode():
         print(json.dumps(result.to_envelope()))
     else:
-        if dry_run:
+        if plan_only:
+            print(f"PLAN-ONLY: {len(targets)} branch(es) match --merged; nothing deleted.")
+            for b in targets:
+                print(f"  - {b}")
+            print(
+                "Re-run with an explicit mode (--merged / --pruned / --all) to delete, "
+                "or --dry-run to preview."
+            )
+        elif dry_run:
             print(f"DRY-RUN: would delete {len(targets)} branches (mode: {chosen_mode})")
             for b in targets:
                 print(f"  - {b}")

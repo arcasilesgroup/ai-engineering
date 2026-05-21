@@ -31,7 +31,7 @@ _CLAUDE_MD = _REPO_ROOT / "CLAUDE.md"
 # with so renaming a section is a deliberate, reviewable edit.
 _REQUIRED_HEADERS = (
     "## The SSOT-PD rule",
-    "## The four tiers",
+    "## The three tiers",
     "## Derived caches",
     "## Strict rules",
     "## Operator surface — what changes for you",

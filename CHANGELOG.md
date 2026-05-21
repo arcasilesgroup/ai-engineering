@@ -27,6 +27,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   export verifies). No backwards-compat shim. A fresh install creates no
   `state.db`. CI guard `tests/architecture/test_no_sqlite.py` forbids any
   `import sqlite3` in `src/` or hooks except the one-shot migration.
+- **spec-149 — obvious-by-default essentials (trimmed): `cleanup branches`
+  no longer deletes by default.** A bare `ai-eng cleanup branches` (no mode
+  flag) now prints a plan and deletes nothing; deletion requires an explicit
+  mode (`--merged` / `--pruned` / `--all`) or `--dry-run` to preview. The old
+  destructive default (silent `merged=True` → delete) is removed (no shim;
+  Hard-Rule 3). Also in spec-149: the §11 canonical chain now surfaces
+  `/ai-spec-draft` as the optional pre-`/ai-brainstorm` step and states the
+  `/ai-code` (subcomponent) vs `/ai-build` (gateway) boundary; the
+  `/ai-build` and `/ai-autopilot` quality-loop Step 2d condition 4 is now
+  advisory + conservative (escalates when uncertain, never silently
+  auto-passes) so an identical diff yields a reproducible STOP verdict.
+  spec-149 supersedes spec-148 Part B: **dropped** D-148-11 (trigger
+  de-collision), D-148-12 (branch-cleanup orchestrator merge), D-148-14
+  (§10.x citation CI), D-148-15 (naming-grammar CI) as YAGNI gate-theater the
+  repo already satisfies; **re-scoped** D-148-13 (STOP determinism → the one
+  real fix) and D-148-16 (dry-run default); **deferred** D-148-17
+  (security-suppression DEC-binding) to a dedicated spec — it cannot be
+  CI-enforced until `decision-store.json` is committed (Part-A doctrine fix;
+  see `.ai-engineering/specs/drafts/decision-store-commit-brief.md`).
 - spec-147 G1 (wave 1) seals the fail-open gates so no gate or hook
   exits 0 when its tool is absent, broken, or its input is malformed.
   Two hard behavior flips (no shims):

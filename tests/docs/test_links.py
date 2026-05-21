@@ -35,7 +35,14 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Rationale per sub-005 plan §Out-of-scope: the walker enforces link
 # integrity on contributor-facing markdown. Skips:
 #   - generated payload mirrors (.github/copilot-instructions.md,
-#     .gemini/, .codex/ — enforced by tools/skill_lint/md_mirror.py)
+#     .gemini/, .codex/ — enforced by tools/skill_lint/md_mirror.py).
+#     .agent/ (Antigravity) and .opencode/ are lean SKILL.md-only
+#     mirror surfaces (scripts/sync_mirrors/{antigravity,opencode}_target.py
+#     copy SKILL.md but NOT sibling reference files like discover.md /
+#     sync.md / references/). Canonical SKILL.md bodies carry relative
+#     sibling links that resolve under .claude/ (which IS walked) but
+#     cannot resolve in a lean mirror by design — excluding them avoids
+#     testing a non-contract.
 #   - .ai-engineering/specs/ (working specs; upstream issues live
 #     there, sub-005 cannot fix outside its allowlist)
 #   - drafts, runtime, state, observations (scratch / generated)
@@ -59,6 +66,9 @@ EXCLUDED_PATH_FRAGMENTS = (
     "/.github/copilot-instructions.md",
     "/.gemini/",
     "/.codex/",
+    # Lean SKILL.md-only generated mirror surfaces (no sibling refs).
+    "/.agent/",
+    "/.opencode/",
 )
 
 # Matches inline markdown links: [text](target). Greedy on text so it

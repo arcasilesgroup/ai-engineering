@@ -133,8 +133,17 @@ Eligibility for remediation:
    artifact required for the current source-tree gate (for example a
    verifier false positive, lockfile vulnerability pin, or allowlist
    entry that does not store secret-shaped literals).
-4. The fix does not require a product decision, architecture redesign,
-   destructive migration, cross-repo edit, or baseline cleanup campaign.
+4. The fix is mechanical: it does NOT require a product decision,
+   architecture redesign, destructive migration, cross-repo edit, or
+   baseline cleanup campaign.
+
+**Advisory + conservative (D-149-04).** Condition 4 is a judgment call, so
+it is biased to the safe side: when eligibility under it is uncertain,
+treat the finding as INELIGIBLE and escalate (Step 2f). Condition 4 may
+only escalate — it can never silently auto-pass a finding (deem eligible →
+remediate → PASS) on an optimistic read. The STOP/PASS verdict (Steps 2c /
+2e) is a **deterministic count of remaining blocker/critical/high**
+findings, so the same diff yields the same STOP verdict.
 
 Ineligible findings STOP immediately with the escalation report from
 Step 2f.
