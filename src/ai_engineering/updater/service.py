@@ -452,6 +452,16 @@ def update(
     Returns:
         UpdateResult with details of all changes.
     """
+    if not dry_run:
+        # spec-148 P5 (D-148-09): one-shot migration — ingest a legacy
+        # state.db into the canonical file stores, VERIFY, then delete it
+        # (fail-loud, no .bak). Runs before the reconciler reads state so the
+        # exported install-state/decisions/ownership are visible. Idempotent:
+        # a no-op once state.db is gone.
+        from ai_engineering.updater.state_db_export import migrate_state_db_to_files
+
+        migrate_state_db_to_files(target)
+
     adapter = _UpdateAdapter(target, dry_run=dry_run)
     run = ResourceReconciler().run(adapter, target, preview=dry_run)  # ty:ignore[invalid-argument-type]
 
