@@ -6,10 +6,10 @@ Use OPA `.rego` policies under `.ai-engineering/policies/` over ad-hoc procedura
 - The evaluator (`src/ai_engineering/governance/opa_runner.py`) is owned by governance code, not by this skill.
 - If a rule exceeds OPA's grammar, STOP and escalate to spec/implementation work.
 
-Every OPA evaluation is recorded in the state.db audit projection. Inspect via:
+Every OPA evaluation is recorded in `framework-events.ndjson`. Inspect via:
 
 ```bash
-ai-eng audit query "SELECT created_at, source, policy, decision, deny_messages FROM events WHERE kind = 'policy_decision' ORDER BY created_at DESC LIMIT 10"
+ai-eng audit replay   # span tree over framework-events.ndjson (filter kind=policy_decision)
 ```
 
 `ai-eng doctor` runs four advisory OPA probes (binary, version, bundle-load, bundle-signature). Failures surface as WARN (non-blocking).

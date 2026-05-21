@@ -1,4 +1,4 @@
-"""Unit tests for ``ai-eng audit replay`` (spec-120 T-C5).
+"""Unit tests for ``ai-eng audit replay`` (spec-120 T-C5; spec-148 NDJSON).
 
 Covers the CLI surface registered in
 :mod:`ai_engineering.cli_commands.audit_cmd`:
@@ -7,7 +7,7 @@ Covers the CLI surface registered in
 * ``--json`` emits a JSON envelope with ``trees`` and ``tokens``
 * exactly one of ``--session`` / ``--trace`` is required
 * both flags simultaneously is an error
-* the SQLite index is auto-built when missing or stale
+* the span tree is read directly from framework-events.ndjson (no SQLite)
 
 Each test pins ``cwd`` to a fresh ``tmp_path`` so the project's real
 ``framework-events.ndjson`` is never touched.
@@ -24,7 +24,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-from ai_engineering.state.audit_index import NDJSON_REL, index_path
+from ai_engineering.state.audit_rollup import NDJSON_REL
 
 runner = CliRunner()
 
@@ -114,22 +114,17 @@ def test_replay_session_indented(project_root: Path) -> None:
             _make_event(index=1, span_id=span_a, parent_span_id=span_root),
         ],
     )
-    # Pre-build so we don't depend on auto-build for this test.
-    runner.invoke(create_app(), ["audit", "index"])
 
     result = runner.invoke(
         create_app(),
         ["audit", "replay", "--session", "session-replay"],
     )
     assert result.exit_code == 0, result.output
-    # Two lines for the two events, plus the footer.
     lines = [line for line in result.output.splitlines() if line.strip()]
     body_lines = [line for line in lines if not line.startswith("---")]
     assert len(body_lines) >= 2
-    # The child line carries leading indentation.
     indented = [line for line in body_lines if line.startswith("  ")]
     assert indented, f"Expected an indented child line in {result.output!r}"
-    # Footer present with the cumulative tokens.
     assert "Tokens:" in result.output
     assert "input=20" in result.output
     assert "output=10" in result.output
@@ -147,14 +142,12 @@ def test_replay_json_output(project_root: Path) -> None:
             _make_event(index=1, span_id=span_a, parent_span_id=span_root),
         ],
     )
-    runner.invoke(create_app(), ["audit", "index"])
 
     result = runner.invoke(
         create_app(),
         ["audit", "replay", "--session", "session-replay", "--json"],
     )
     assert result.exit_code == 0, result.output
-    # Find the JSON envelope in the output (banners may precede it).
     last_json = next(
         line for line in reversed(result.output.splitlines()) if line.strip().startswith("{")
     )
@@ -178,7 +171,6 @@ def test_replay_trace_filter(project_root: Path) -> None:
             _make_event(index=1, span_id=span_b, trace_id="trace-B"),
         ],
     )
-    runner.invoke(create_app(), ["audit", "index"])
 
     result = runner.invoke(
         create_app(),
@@ -201,10 +193,7 @@ def test_replay_trace_filter(project_root: Path) -> None:
 def test_replay_requires_session_or_trace(project_root: Path) -> None:
     """Calling with neither --session nor --trace exits non-zero."""
     _seed_ndjson(project_root, [_make_event(index=0, span_id=_hex16("only"))])
-    runner.invoke(create_app(), ["audit", "index"])
 
-    # ``mix_stderr=False`` is rejected by older Typer; merge streams via
-    # ``CliRunner()`` default and read combined ``output``.
     result = runner.invoke(create_app(), ["audit", "replay"])
     assert result.exit_code != 0
     assert "exactly one" in result.output.lower()
@@ -213,7 +202,6 @@ def test_replay_requires_session_or_trace(project_root: Path) -> None:
 def test_replay_rejects_both_session_and_trace(project_root: Path) -> None:
     """Calling with both --session and --trace exits non-zero."""
     _seed_ndjson(project_root, [_make_event(index=0, span_id=_hex16("only"))])
-    runner.invoke(create_app(), ["audit", "index"])
 
     result = runner.invoke(
         create_app(),
@@ -231,31 +219,28 @@ def test_replay_rejects_both_session_and_trace(project_root: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Auto-build behaviour
+# Files-only behaviour (spec-148)
 # ---------------------------------------------------------------------------
 
 
-def test_replay_auto_builds_index(project_root: Path) -> None:
-    """No SQLite present -> the CLI builds one on demand before walking."""
+def test_replay_reads_ndjson_without_state_db(project_root: Path) -> None:
+    """spec-148: replay reads framework-events.ndjson directly; no state.db."""
     _seed_ndjson(project_root, [_make_event(index=0, span_id=_hex16("auto"))])
-    # Index intentionally NOT pre-built.
-    assert not index_path(project_root).exists()
+    assert not (project_root / ".ai-engineering" / "state" / "state.db").exists()
 
     result = runner.invoke(
         create_app(),
         ["audit", "replay", "--session", "session-replay"],
     )
     assert result.exit_code == 0, result.output
-    # The auto-build should have created the SQLite file.
-    assert index_path(project_root).exists()
-    # And the rendered output should include at least the kind cell.
     assert "skill_invoked" in result.output
+    # No SQLite is created as a side effect.
+    assert not (project_root / ".ai-engineering" / "state" / "state.db").exists()
 
 
 def test_replay_handles_empty_session(project_root: Path) -> None:
     """A session with zero matching rows prints '(no events)'."""
     _seed_ndjson(project_root, [_make_event(index=0, span_id=_hex16("only"))])
-    runner.invoke(create_app(), ["audit", "index"])
 
     result = runner.invoke(
         create_app(),
@@ -267,32 +252,9 @@ def test_replay_handles_empty_session(project_root: Path) -> None:
 
 def test_replay_missing_ndjson_returns_empty(project_root: Path) -> None:
     """No NDJSON at all -> '(no events)' on stdout, exit 0."""
-    # No NDJSON, no SQLite.
     result = runner.invoke(
         create_app(),
         ["audit", "replay", "--session", "session-replay"],
     )
     assert result.exit_code == 0, result.output
     assert "(no events)" in result.output
-
-
-def test_replay_missing_ndjson_json_mode(project_root: Path) -> None:
-    """No NDJSON at all in JSON mode emits an empty trees envelope."""
-    result = runner.invoke(
-        create_app(),
-        ["audit", "replay", "--session", "session-replay", "--json"],
-    )
-    assert result.exit_code == 0, result.output
-    last_json = next(
-        line for line in reversed(result.output.splitlines()) if line.strip().startswith("{")
-    )
-    payload = json.loads(last_json)
-    assert payload == {
-        "trees": [],
-        "tokens": {
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "total_tokens": 0,
-            "cost_usd": 0.0,
-        },
-    }

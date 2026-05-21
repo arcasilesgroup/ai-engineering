@@ -170,9 +170,8 @@ def test_session_end_emits_summary_with_checkpoint(
     end_mod.main()
 
     events = _events(project)
-    # spec-138 M4.T3: SessionEnd may emit a follow-up
-    # ``audit_index_rebuilt`` event after the summary; filter for the
-    # summary by operation so the assertion isn't order-fragile.
+    # Filter for the summary by operation so the assertion isn't
+    # order-fragile (other SessionEnd ops may share the component).
     summary = next(
         e
         for e in events

@@ -59,14 +59,14 @@ _TUNABLE_RE = re.compile(
 )
 
 # Whitelisted established tunables where the code default and the
-# CLAUDE.md / CONSTITUTION.md documented value disagree because the
-# ``integrity.py`` source-file constant ``_DEFAULT_MODE = "warn"`` lags
-# behind the docstring + governance posture (``enforce``). Tracked as a
-# deferred reconciliation item from spec-139 M9. Removing this entry
-# requires the code default to be flipped to ``enforce`` in
-# ``.ai-engineering/scripts/hooks/_lib/integrity.py`` so the docs and
-# code re-converge.
-_KNOWN_DOC_CODE_DISAGREEMENTS: frozenset[str] = frozenset({"AIENG_HOOK_INTEGRITY_MODE"})
+# CLAUDE.md / CONSTITUTION.md documented value intentionally disagree.
+# spec-147 G1 flipped ``integrity.py`` ``_DEFAULT_MODE`` from ``warn`` to
+# ``enforce`` so it now matches the docs — the former
+# ``AIENG_HOOK_INTEGRITY_MODE`` entry was removed once they re-converged.
+# Add an entry here only for a deliberate, documented divergence; the
+# test below asserts each entry's disagreement still holds so the
+# whitelist cannot silently rot.
+_KNOWN_DOC_CODE_DISAGREEMENTS: frozenset[str] = frozenset()
 
 # Reserved milestones acknowledged in CLAUDE.md but not yet wired in code.
 # Removing an entry here means the corresponding milestone has landed and

@@ -87,7 +87,7 @@ Diffs changed surfaces against documentation; flags un-documented public APIs or
 
 ## Integration
 
-Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-*.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`. Reads: `manifest.yml`, `.ai-engineering/solution-intent.md`, `state.db.decisions`. See also: `/ai-prose` (prose content), `/ai-marketing` (outreach).
+Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/changelog.md`, `handlers/readme.md`, `handlers/solution-intent-*.md`, `handlers/docs-portal.md`, `handlers/docs-quality-gate.md`. Reads: `manifest.yml`, `.ai-engineering/solution-intent.md`, `decision-store.json`. See also: `/ai-prose` (prose content), `/ai-marketing` (outreach).
 
 ## Governance Notes
 

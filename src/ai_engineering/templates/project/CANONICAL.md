@@ -12,14 +12,14 @@ Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
 identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
 (3) consult [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
 for the canonical store of each datum (decisions live in spec markdown;
-the `state.db.decisions` cache is populated after `ai-eng decision
+the `decision-store.json` cache is populated after `ai-eng decision
 backfill` or `/ai-brainstorm` approval per spec-138 M3 follow-up);
 (4) no implementation without an approved spec — invoke
 `/ai-brainstorm` first when a task has no spec.
 
 See [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-the four-tier model (NDJSON audit, SQLite `state.db`, JSON/YAML
-config, Markdown) and the SSOT-PD rebuild semantics.
+the three-tier files-only model (NDJSON audit, JSON/YAML
+records+config, Markdown) and the SSOT-PD rebuild semantics.
 
 ## Operating Mindset (§1–§9 condensed)
 
@@ -76,10 +76,13 @@ equivalent.
 
 ## Agents (__AGENT_COUNT__)
 
-The __AGENT_COUNT__ first-class agents are listed in
-`.ai-engineering/manifest.yml` under `agents.registry` and documented at
-`.claude/agents/ai-<name>.md`. Each runs in its own context window —
-offload research and parallel analysis to them.
+The __AGENT_COUNT__ user-facing agents are defined at
+`.claude/agents/ai-<name>.md` — that directory is the source of truth
+(there is no `agents.registry` manifest key). `.claude/agents/` also
+holds the internal review and verifier families (`review-*`,
+`reviewer-*`, `verifier-*`) dispatched by `/ai-review` and `/ai-verify`;
+those are not part of the user-facing __AGENT_COUNT__. Each agent runs in
+its own context window — offload research and parallel analysis to them.
 
 ## Source of Truth
 
@@ -91,7 +94,7 @@ offload research and parallel analysis to them.
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
 | CLI | `ai-eng <command>` |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |
-| Decisions | `.ai-engineering/state/state.db` `decisions` table |
+| Decisions | `.ai-engineering/state/decision-store.json` |
 | Config | `.ai-engineering/manifest.yml` |
 | Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
 
@@ -124,7 +127,7 @@ Non-negotiable rules per commit, push, and risk-acceptance decision:
    canonical writable store. Derived caches are explicitly labelled
    (named, with a rebuild command) and rebuildable on demand. See
    [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-   the four-tier model and the rebuild semantics.
+   the three-tier files-only model and the rebuild semantics.
 
 ## 14–16. Pointer rows
 

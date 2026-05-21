@@ -20,7 +20,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-from ai_engineering.state.audit_index import NDJSON_REL
+from ai_engineering.state.audit_rollup import NDJSON_REL
 
 runner = CliRunner()
 
@@ -109,7 +109,6 @@ def _seed_mixed_corpus(project_root: Path) -> None:
         _agent_event(agent="ai-explore", span_id="span-agent-xx-0002", total_tokens=400),
     ]
     _seed_ndjson(project_root, events)
-    runner.invoke(create_app(), ["audit", "index"])
 
 
 def test_tokens_by_skill(project_root: Path) -> None:

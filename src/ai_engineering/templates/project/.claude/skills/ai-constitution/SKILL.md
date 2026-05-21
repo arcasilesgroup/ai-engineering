@@ -91,7 +91,7 @@ body into `_history-constitution-<date>.md`.
 
 Called by: `ai-eng install` (governance phase), `/ai-start` (cold-load
 identity context). Reads: `manifest.yml`, package files, existing
-`CONSTITUTION.md`, `state.db.decisions`. Writes: `CONSTITUTION.md`,
+`CONSTITUTION.md`, `decision-store.json`. Writes: `CONSTITUTION.md`,
 `_history-constitution-<date>.md` (when rotating). Audited by:
 `tools/skill_lint/checks/md_mirror.py:check_constitution_clean` (any
 AI-behaviour header rejects the write). Consumed by: every skill at

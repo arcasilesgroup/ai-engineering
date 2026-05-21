@@ -1,20 +1,19 @@
-"""Spec-138 M3.T5: ``ai-eng ownership import`` parses CODEOWNERS.
+"""``ai-eng ownership import`` parses CODEOWNERS (spec-148 P3 files-only).
 
-The importer reads ``.github/CODEOWNERS`` (or ``--source <path>``) and
-UPSERTs each ``<pattern> @owner...`` rule into the canonical
-``state.db.ownership_map`` table. Idempotent.
+The importer reads ``.github/CODEOWNERS`` (or ``--source <path>``),
+collapses each ``<pattern> @owner...`` rule into an ``OwnershipEntry``
+(pattern + ownership level + framework-update policy), and merges it into
+the canonical ``ownership-map.json`` by pattern. Idempotent. (Originally
+spec-138 M3.T5 against ``state.db.ownership_map``.)
 """
 
 from __future__ import annotations
 
-import json
-import sqlite3
 from pathlib import Path
 
 import pytest
 
 from ai_engineering.cli_commands import ownership_cmd
-from ai_engineering.state.state_db import state_db_path
 
 _SAMPLE_CODEOWNERS = """# AI Engineering Framework - Code Owners
 # Comments are ignored.
@@ -39,17 +38,20 @@ def _seed_codeowners(tmp_path: Path, content: str = _SAMPLE_CODEOWNERS) -> Path:
     return path
 
 
-def _ownership_rows(tmp_path: Path) -> list[tuple[str, str]]:
-    db_path = state_db_path(tmp_path)
-    if not db_path.exists():
-        return []
-    conn = sqlite3.connect(db_path)
-    try:
-        return conn.execute(
-            "SELECT path_pattern, owners_json FROM ownership_map ORDER BY path_pattern"
-        ).fetchall()
-    finally:
-        conn.close()
+def _ownership_patterns(tmp_path: Path) -> list[str]:
+    """Sorted patterns from the canonical ownership-map.json (empty if absent)."""
+    from ai_engineering.state.repository import DurableStateRepository
+
+    store = DurableStateRepository(tmp_path).load_ownership()
+    return sorted(entry.pattern for entry in store.paths)
+
+
+def _ownership_entries(tmp_path: Path) -> dict[str, object]:
+    """Map pattern -> OwnershipEntry from the canonical ownership-map.json."""
+    from ai_engineering.state.repository import DurableStateRepository
+
+    store = DurableStateRepository(tmp_path).load_ownership()
+    return {entry.pattern: entry for entry in store.paths}
 
 
 def test_parse_codeowners_returns_three_rules() -> None:
@@ -68,51 +70,52 @@ def test_parse_codeowners_resolves_owner_tokens() -> None:
     assert by_pattern["docs/"] == ["@docs-team", "@writer-1"]
 
 
-def test_ownership_import_populates_state_db(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """spec-138 M3.T5: ownership_map table is non-empty after import."""
+def test_ownership_import_populates_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """spec-148 P3: ownership-map.json carries an entry per CODEOWNERS rule."""
     _seed_codeowners(tmp_path)
     monkeypatch.setattr(ownership_cmd, "find_project_root", lambda: tmp_path)
     ownership_cmd.ownership_import(source=None, dry_run=False)
-    rows = _ownership_rows(tmp_path)
-    patterns = sorted(p for p, _ in rows)
-    assert patterns == ["*", ".ai-engineering/manifest.yml", "docs/"]
+    assert _ownership_patterns(tmp_path) == ["*", ".ai-engineering/manifest.yml", "docs/"]
 
 
-def test_ownership_import_stores_owners_as_json(
+def test_ownership_import_collapses_owner_to_level(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The owners list lands as a JSON-encoded array in ``owners_json``."""
+    """spec-148 P3: each rule collapses to an OwnershipEntry (level + policy).
+
+    CODEOWNERS @team/@user owners are not OwnershipLevel enum values, so
+    they collapse to TEAM_MANAGED (matching the prior state.db semantics).
+    """
+    from ai_engineering.state.models import FrameworkUpdatePolicy, OwnershipLevel
+
     _seed_codeowners(tmp_path)
     monkeypatch.setattr(ownership_cmd, "find_project_root", lambda: tmp_path)
     ownership_cmd.ownership_import(source=None, dry_run=False)
-    rows = _ownership_rows(tmp_path)
-    by_pattern = {p: json.loads(owners) for p, owners in rows}
-    assert by_pattern["docs/"] == ["@docs-team", "@writer-1"]
+    entries = _ownership_entries(tmp_path)
+    docs = entries["docs/"]
+    assert docs.owner == OwnershipLevel.TEAM_MANAGED
+    # No explicit severity in CODEOWNERS -> conservative DENY policy.
+    assert docs.framework_update == FrameworkUpdatePolicy.DENY
 
 
 def test_ownership_import_is_idempotent(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Re-running the import yields the same row set, not duplicates."""
+    """Re-running the import yields the same entries, not duplicates."""
     _seed_codeowners(tmp_path)
     monkeypatch.setattr(ownership_cmd, "find_project_root", lambda: tmp_path)
     ownership_cmd.ownership_import(source=None, dry_run=False)
     ownership_cmd.ownership_import(source=None, dry_run=False)
-    rows = _ownership_rows(tmp_path)
-    patterns = [p for p, _ in rows]
-    # Three rules, still three rows -- not six.
-    assert len(patterns) == 3
+    # Three rules, still three entries -- not six.
+    assert len(_ownership_patterns(tmp_path)) == 3
 
 
 def test_ownership_import_missing_file_returns_zero(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """A missing CODEOWNERS file is a no-op; exit 0 and no rows written."""
+    """A missing CODEOWNERS file is a no-op; the store file is not written."""
     monkeypatch.setattr(ownership_cmd, "find_project_root", lambda: tmp_path)
-    # No .github/CODEOWNERS exists.
+    # No .github/CODEOWNERS exists -> import bails before touching the store.
     ownership_cmd.ownership_import(source=None, dry_run=False)
-    rows = _ownership_rows(tmp_path)
-    assert rows == []
+    assert not (tmp_path / ".ai-engineering" / "state" / "ownership-map.json").exists()
 
 
 def test_ownership_import_respects_source_override(
@@ -125,17 +128,14 @@ def test_ownership_import_respects_source_override(
     alt.write_text("alt/path  @custom-team\n", encoding="utf-8")
     monkeypatch.setattr(ownership_cmd, "find_project_root", lambda: tmp_path)
     ownership_cmd.ownership_import(source=str(alt), dry_run=False)
-    rows = _ownership_rows(tmp_path)
-    patterns = [p for p, _ in rows]
-    assert patterns == ["alt/path"]
+    assert _ownership_patterns(tmp_path) == ["alt/path"]
 
 
 def test_ownership_import_dry_run_writes_nothing(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Dry-run lists the parsed rules but does not UPSERT."""
+    """Dry-run lists the parsed rules but does not write the store file."""
     _seed_codeowners(tmp_path)
     monkeypatch.setattr(ownership_cmd, "find_project_root", lambda: tmp_path)
     ownership_cmd.ownership_import(source=None, dry_run=True)
-    rows = _ownership_rows(tmp_path)
-    assert rows == []
+    assert not (tmp_path / ".ai-engineering" / "state" / "ownership-map.json").exists()

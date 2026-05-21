@@ -224,20 +224,13 @@ class PipelineRunner:
             if not verdict.passed:
                 if getattr(phase, "critical", True):
                     summary.failed_phase = phase.name
-                    # spec-138 M3.T4: record the failed step in state.db
-                    # so doctor / forensic queries see what stopped the
-                    # install. Fail-open: an UPSERT error must never
-                    # mask the underlying phase failure.
-                    self._record_step(context, phase, result, verdict, status="failed")
                     break
                 summary.non_critical_failures.append(phase.name)
                 # Non-critical phase still completed its attempt; keep going.
                 summary.completed_phases.append(phase.name)
-                self._record_step(context, phase, result, verdict, status="non_critical_failure")
                 continue
 
             summary.completed_phases.append(phase.name)
-            self._record_step(context, phase, result, verdict, status="done")
 
         return summary
 
@@ -251,47 +244,3 @@ class PipelineRunner:
             return
         with suppress(Exception):
             self._progress_callback(message)
-
-    @staticmethod
-    def _record_step(
-        context: InstallContext,
-        phase: PhaseProtocol,
-        result: PhaseResult,
-        verdict: PhaseVerdict,
-        *,
-        status: str,
-    ) -> None:
-        """UPSERT one ``install_steps`` row after a phase completes.
-
-        Spec-138 M3.T4: autopopulate ``state.db.install_steps`` from the
-        installer pipeline so ``ai-eng doctor --check state-db`` sees a
-        row per phase outcome. Failures are swallowed (fail-open) — the
-        UPSERT must never block install on a transient DB error; the
-        NDJSON event stream remains the canonical audit record.
-        """
-        try:
-            from ai_engineering.state.state_db import upsert_install_step
-
-            detail = {
-                "created": list(result.created),
-                "skipped": list(result.skipped),
-                "failed": list(result.failed),
-                "warnings": list(verdict.warnings) + list(result.warnings),
-                "errors": list(verdict.errors),
-                "mode": context.mode.value,
-            }
-            upsert_install_step(
-                context.target,
-                phase.name,
-                status=status,
-                installed=verdict.passed,
-                authenticated=False,
-                integrity_verified=verdict.passed and not verdict.errors,
-                detail=detail,
-            )
-        except Exception as exc:
-            _logger.warning(
-                "install_steps UPSERT failed for phase %s: %s",
-                phase.name,
-                exc,
-            )

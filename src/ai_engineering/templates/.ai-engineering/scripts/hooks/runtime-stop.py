@@ -23,15 +23,15 @@ The hook never blocks ``Stop``; failures degrade silently.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
-import sqlite3
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-
-import contextlib
 
 from _lib.audit import passthrough_stdin
 from _lib.convergence import ConvergenceResult, check_convergence
@@ -51,11 +51,10 @@ from _lib.runtime_state import (
 )
 from _lib.transcript_usage import aggregate_session_usage, find_active_transcript
 
-# spec-123 D-123-22 + spec-138 M1: the events projection lives on the
-# unified state.db (the legacy audit-index.sqlite was a 0-byte zombie).
-# Path is inlined here (mirrors `ai_engineering.state.audit_index.INDEX_REL`)
-# so the hook stays stdlib-only and never imports from the pkg.
-_AUDIT_INDEX_REL = Path(".ai-engineering") / "state" / "state.db"
+# spec-148: the session token rollup is computed directly from the
+# append-only NDJSON audit log (no SQLite). Path inlined so the hook
+# stays stdlib-only and never imports from the pkg.
+_NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 _HOOK_COMPONENT = "hook.runtime-stop"
 
 
@@ -97,6 +96,111 @@ _FAILURE_PATTERNS = (
     "TypeError",
     "ImportError",
 )
+
+# spec-139 M5.T3: convergence-skip predicate. The Stop hook can fire many
+# times per autopilot run as sub-agent cascades terminate; running the full
+# ruff + pytest-collect convergence suite on every fire is the dominant
+# hot-path tax (D-139-03). Skip when ALL three clauses hold:
+#
+#   (a) ``.convergence-lastrun`` sentinel was touched < 30 s ago, AND
+#   (b) ``git diff --quiet --staged`` returns 0 (no staged work), AND
+#   (c) ``ctx.agent_kind == "subagent"`` (this Stop is a sub-agent cascade,
+#       not a top-level user-driven Stop).
+#
+# Any individual clause being false MUST trigger the full convergence run
+# — partial information is worse than no skip at all.
+_CONVERGENCE_SKIP_WINDOW_SEC = 30.0
+_CONVERGENCE_LASTRUN_NAME = ".convergence-lastrun"
+
+
+def _convergence_lastrun_path(project_root: Path) -> Path:
+    """Resolve the convergence-skip sentinel inside the canonical runtime dir."""
+    return runtime_dir(project_root) / _CONVERGENCE_LASTRUN_NAME
+
+
+def _convergence_recently_ran(project_root: Path, *, now: float | None = None) -> bool:
+    """Return True when the sentinel was touched within the skip window.
+
+    The sentinel is a zero-byte file whose mtime is the only signal.
+    Reading mtime is the cheapest possible probe (one ``stat`` call); we
+    intentionally avoid wall-clock comparisons against ``time.time()``
+    because the hook may be invoked from a frozen / suspended process
+    whose monotonic clock drifted. ``time.time()`` matches the
+    filesystem clock so the comparison is internally consistent.
+    Returns False on any error (missing sentinel, stat failure) — the
+    fail-open posture mirrors the surrounding hook contract.
+    """
+    sentinel = _convergence_lastrun_path(project_root)
+    try:
+        mtime = sentinel.stat().st_mtime
+    except OSError:
+        return False
+    reference = now if now is not None else time.time()
+    return (reference - mtime) < _CONVERGENCE_SKIP_WINDOW_SEC
+
+
+def _git_staged_clean(project_root: Path) -> bool:
+    """Return True when ``git diff --quiet --staged`` reports a clean index.
+
+    Bounded subprocess (1 s timeout) so a hung git invocation cannot
+    block the Stop hook. Any failure — git not installed, not a repo,
+    timeout, non-zero unexpected exit — returns False so the caller
+    falls back to the full convergence path. We MUST NOT skip
+    convergence when we cannot prove the index is clean.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "diff", "--quiet", "--staged"],
+            cwd=str(project_root),
+            capture_output=True,
+            timeout=1.0,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return False
+    return proc.returncode == 0
+
+
+def _is_subagent_cascade(agent_kind: str | None) -> bool:
+    """Return True when this Stop is firing as a sub-agent cascade.
+
+    A "subagent cascade" is the natural Stop event emitted after a
+    Task-tool dispatch ends. Top-level user-driven Stop events
+    (``agent_kind == "main"``) MUST run convergence so the user receives
+    accurate convergence feedback before turn-end.
+    """
+    return agent_kind == "subagent"
+
+
+def should_skip_convergence(
+    project_root: Path,
+    *,
+    agent_kind: str | None,
+    now: float | None = None,
+) -> bool:
+    """spec-139 M5.T3: return True when ALL skip clauses hold.
+
+    Each predicate is checked independently so the test suite can pin
+    every clause-individually-false → skip-does-not-fire contract.
+    Order is cheapest-first: sentinel mtime stat is O(1); ``git diff``
+    spawns a process; agent_kind is a string compare.
+    """
+    if not _is_subagent_cascade(agent_kind):
+        return False
+    if not _convergence_recently_ran(project_root, now=now):
+        return False
+    return _git_staged_clean(project_root)
+
+
+def _touch_convergence_sentinel(project_root: Path) -> None:
+    """Touch ``.convergence-lastrun`` so subsequent Stops within 30 s skip.
+
+    Fail-open: any I/O error is swallowed — failing to touch the sentinel
+    only costs one extra convergence run, never a correctness loss.
+    """
+    sentinel = _convergence_lastrun_path(project_root)
+    with contextlib.suppress(OSError):
+        sentinel.parent.mkdir(parents=True, exist_ok=True)
+        sentinel.touch()
 
 
 def _recent_edited_files(
@@ -308,6 +412,7 @@ def _ralph_convergence_loop(
     session_id: str | None,
     correlation_id: str,
     last_prompt: str | None,
+    agent_kind: str | None = None,
 ) -> bool:
     """Run convergence + Ralph retry/reinjection orchestration.
 
@@ -316,8 +421,29 @@ def _ralph_convergence_loop(
     Returns ``False`` for every other terminal state (converged, max
     retries exceeded, fail-open) so the caller continues with the
     normal stdout passthrough.
+
+    spec-139 M5.T3: short-circuit when :func:`should_skip_convergence`
+    confirms the Stop is a sub-agent cascade firing within 30 s of the
+    previous convergence run AND the staged index is clean. Skipping
+    emits a telemetry event so the audit chain records the bypass.
     """
     if _RALPH_DISABLED:
+        return False
+
+    if should_skip_convergence(project_root, agent_kind=agent_kind):
+        with contextlib.suppress(Exception):
+            emit_framework_operation(
+                project_root,
+                operation="ralph_convergence_skipped",
+                component=_HOOK_COMPONENT,
+                source="hook",
+                correlation_id=correlation_id,
+                metadata={
+                    "reason": "subagent_cascade_within_window",
+                    "window_sec": _CONVERGENCE_SKIP_WINDOW_SEC,
+                    "session_id": session_id,
+                },
+            )
         return False
 
     try:
@@ -337,6 +463,11 @@ def _ralph_convergence_loop(
             metadata={"reason": f"{type(exc).__name__}: {str(exc)[:200]}"},
         )
         return False
+
+    # spec-139 M5.T3: stamp the sentinel after every real convergence
+    # invocation (success OR failure). The next Stop within 30 s will
+    # short-circuit when the other clauses hold.
+    _touch_convergence_sentinel(project_root)
 
     # Fail-open: empty failures means "no checks ran" OR "everything
     # passed". Either way we treat it as converged so a sandbox without
@@ -440,15 +571,85 @@ def _emit_summary_event(
     emit_event(project_root, event)
 
 
+def _ndjson_session_rollup(project_root: Path, session_id: str) -> dict | None:
+    """Stdlib NDJSON rollup for ``session_id`` (spec-148).
+
+    Mirrors the retired ``session_token_rollup`` SQLite view: events count,
+    MIN/MAX timestamp, and summed ``detail.genai.usage`` tokens. Returns
+    ``None`` when the NDJSON is absent or the session has no events. Token
+    counts are usually zero today — the transcript is the real source and
+    is merged by the caller.
+    """
+    ndjson_path = project_root / _NDJSON_REL
+    try:
+        text = ndjson_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    events = 0
+    started: str | None = None
+    ended: str | None = None
+    inp = out = tot = 0
+    cost = 0.0
+    seen_cost = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(event, dict) or event.get("sessionId") != session_id:
+            continue
+        events += 1
+        ts = event.get("timestamp")
+        if isinstance(ts, str) and ts:
+            if started is None or ts < started:
+                started = ts
+            if ended is None or ts > ended:
+                ended = ts
+        detail = event.get("detail")
+        genai = detail.get("genai") if isinstance(detail, dict) else None
+        usage = genai.get("usage") if isinstance(genai, dict) else None
+        if isinstance(usage, dict):
+            iv, ov, tv = (
+                usage.get("input_tokens"),
+                usage.get("output_tokens"),
+                usage.get("total_tokens"),
+            )
+            cv = usage.get("cost_usd")
+            if isinstance(iv, int) and not isinstance(iv, bool):
+                inp += iv
+            if isinstance(ov, int) and not isinstance(ov, bool):
+                out += ov
+            if isinstance(tv, int) and not isinstance(tv, bool):
+                tot += tv
+            if isinstance(cv, (int, float)) and not isinstance(cv, bool):
+                cost += float(cv)
+                seen_cost = True
+    if events == 0:
+        return None
+    return {
+        "session_id": session_id,
+        "started_at": started,
+        "ended_at": ended,
+        "events": events,
+        "input_tokens": inp,
+        "output_tokens": out,
+        "total_tokens": tot,
+        "cost_usd": cost if seen_cost else None,
+    }
+
+
 def _emit_session_token_rollup(
     project_root: Path,
     *,
     session_id: str | None,
     correlation_id: str,
 ) -> None:
-    """Spec-120 T-E1: stamp a session-end token rollup from the SQLite index.
+    """Spec-120 T-E1 (spec-148): stamp a session-end token rollup from NDJSON.
 
-    Best-effort: SQLite missing, locked, or any exception → emit a
+    Best-effort: NDJSON missing or any exception → emit a
     ``framework_error`` (``error_code = session_rollup_skipped``) and
     continue. ``session_id is None`` → silent skip (no error event;
     nothing meaningful to roll up).
@@ -456,46 +657,8 @@ def _emit_session_token_rollup(
     if not session_id:
         return
 
-    index_path = project_root / _AUDIT_INDEX_REL
-    if not index_path.exists():
-        emit_framework_error(
-            project_root,
-            engine="ai_engineering",
-            component=_HOOK_COMPONENT,
-            error_code="session_rollup_skipped",
-            source="hook",
-            session_id=session_id,
-            correlation_id=correlation_id,
-            metadata={"reason": "audit_index_missing"},
-        )
-        return
-
     try:
-        # Read-only URI: the OS rejects writes even if the view query
-        # is somehow rewritten downstream.
-        uri = f"file:{index_path}?mode=ro"
-        conn = sqlite3.connect(uri, uri=True, timeout=2.0)
-        try:
-            row = conn.execute(
-                "SELECT session_id, started_at, ended_at, events, "
-                "input_tokens, output_tokens, total_tokens, cost_usd "
-                "FROM session_token_rollup WHERE session_id = ?",
-                (session_id,),
-            ).fetchone()
-        finally:
-            conn.close()
-    except sqlite3.Error as exc:
-        emit_framework_error(
-            project_root,
-            engine="ai_engineering",
-            component=_HOOK_COMPONENT,
-            error_code="session_rollup_skipped",
-            source="hook",
-            session_id=session_id,
-            correlation_id=correlation_id,
-            metadata={"reason": f"sqlite_error: {type(exc).__name__}"},
-        )
-        return
+        rollup = _ndjson_session_rollup(project_root, session_id)
     except Exception as exc:
         emit_framework_error(
             project_root,
@@ -505,7 +668,7 @@ def _emit_session_token_rollup(
             source="hook",
             session_id=session_id,
             correlation_id=correlation_id,
-            metadata={"reason": f"unexpected_error: {type(exc).__name__}"},
+            metadata={"reason": f"ndjson_error: {type(exc).__name__}"},
         )
         return
 
@@ -515,23 +678,23 @@ def _emit_session_token_rollup(
     # reason). Read directly from the Claude Code transcript and merge.
     transcript_payload = _safe_transcript_aggregate(project_root, session_id=session_id)
 
-    if row is None and transcript_payload is None:
+    if rollup is None and transcript_payload is None:
         # Neither source has anything to roll up. Stay silent rather than
         # emitting a zeroed event.
         return
 
-    if row is not None:
+    if rollup is not None:
         metadata = {
-            "session_id": row[0],
-            "started_at": row[1],
-            "ended_at": row[2],
-            "events": row[3],
-            "input_tokens": row[4],
-            "output_tokens": row[5],
-            "total_tokens": row[6],
-            "cost_usd": row[7],
+            "session_id": rollup["session_id"],
+            "started_at": rollup["started_at"],
+            "ended_at": rollup["ended_at"],
+            "events": rollup["events"],
+            "input_tokens": rollup["input_tokens"],
+            "output_tokens": rollup["output_tokens"],
+            "total_tokens": rollup["total_tokens"],
+            "cost_usd": rollup["cost_usd"],
         }
-        usage_source = "index"
+        usage_source = "ndjson"
     else:
         # Synthesise the rollup from the transcript only.
         metadata = {
@@ -557,7 +720,7 @@ def _emit_session_token_rollup(
         if transcript_payload.get("model"):
             metadata["genai_model"] = transcript_payload["model"]
         metadata["genai_system"] = transcript_payload.get("system", "anthropic")
-        if usage_source == "index":
+        if usage_source == "ndjson":
             usage_source = "merged"
 
     metadata["usage_source"] = usage_source
@@ -598,6 +761,37 @@ def _safe_transcript_aggregate(project_root: Path, *, session_id: str | None) ->
     return payload
 
 
+def _safe_write_checkpoint(project_root: Path, payload: dict, *, writer=write_json) -> str | None:
+    """Write the resume checkpoint, surfacing failures instead of hiding them.
+
+    spec-147 G1 T-1.11/1.12: the Stop hook previously let the checkpoint
+    write "degrade silently". The checkpoint is NOT a security gate (the
+    Stop hook must never block shutdown), but a write failure means
+    ``/ai-start`` will resume from a stale or absent checkpoint with no
+    signal. The failure is now made VISIBLE on stderr (which never corrupts
+    the single-JSON-object Stop decision contract) and returned so callers /
+    tests can observe it. Returns ``None`` on success.
+
+    ``writer`` is injectable so tests can drive the failure path without a
+    real read-only filesystem.
+    """
+    cp_path = checkpoint_path(project_root)
+    try:
+        writer(cp_path, payload)
+    except Exception as exc:
+        message = (
+            f"WARN [runtime-stop] failed to write resume checkpoint to {cp_path} "
+            f"({type(exc).__name__}); /ai-start may resume from stale state"
+        )
+        with contextlib.suppress(Exception):
+            sys.stderr.write(message + "\n")
+            sys.stderr.flush()
+        return message
+    with contextlib.suppress(OSError):
+        cp_path.chmod(0o600)
+    return None
+
+
 def main() -> None:
     ctx = get_hook_context()
     if ctx.event_name != "Stop":
@@ -632,19 +826,15 @@ def main() -> None:
             for r in history[-10:]
         ],
     }
-    cp_path = checkpoint_path(project_root)
-    write_json(cp_path, checkpoint_payload)
-    with contextlib.suppress(OSError):
-        cp_path.chmod(0o600)
+    # spec-147 G1 T-1.11/1.12: surface a checkpoint-write failure on stderr
+    # instead of degrading silently.
+    _safe_write_checkpoint(project_root, checkpoint_payload)
 
     incomplete, reason = _looks_incomplete(history)
     raw_prompt = ctx.data.get("user_prompt") or ctx.data.get("prompt")
-    if isinstance(raw_prompt, str):  # noqa: SIM108
-        # Redact before truncation: the 1000-char window is enough to leak an
-        # accidentally pasted env export or curl command otherwise.
-        last_prompt = redact(raw_prompt)[:1000]
-    else:
-        last_prompt = None
+    # Redact before truncation: the 1000-char window is enough to leak an
+    # accidentally pasted env export or curl command otherwise.
+    last_prompt = redact(raw_prompt)[:1000] if isinstance(raw_prompt, str) else None
 
     ralph_state: dict | None = None
     if incomplete and reason:
@@ -688,6 +878,7 @@ def main() -> None:
         session_id=session_id,
         correlation_id=correlation_id,
         last_prompt=last_prompt,
+        agent_kind=ctx.agent_kind,
     )
     if not reinjected:
         passthrough_stdin(ctx.data)

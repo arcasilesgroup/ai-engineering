@@ -67,23 +67,31 @@ def _is_no_verify_attempt(argv: str) -> bool:
     """Return True when ``argv`` is a git verb invocation carrying ``--no-verify``.
 
     Contract:
-    1. shlex-parse ``argv``; malformed quoting -> False (fail-open).
+    1. shlex-parse ``argv``; malformed quoting -> True (fail CLOSED).
     2. Strip leading ``KEY=VALUE`` env-var prefix tokens.
     3. First non-env token MUST be ``git``.
     4. ``--no-verify`` MUST appear as a discrete argv token (not as a
        substring inside a quoted literal or a flag value).
     5. The first non-flag token after ``git`` MUST be in
        :data:`_NO_VERIFY_VERBS`.
+
+    spec-147 G1 T-1.11/1.12: this hook is a security boundary on untrusted
+    input. Previously a command with malformed quoting fell through to
+    ``False`` (allow) — a ``git commit --no-verify`` hidden behind an
+    unterminated quote slipped past the deny rule. We now fail CLOSED: a
+    command we cannot parse is refused, because we cannot prove it is NOT a
+    ``--no-verify`` bypass.
     """
     if not argv:
         return False
     try:
         tokens = shlex.split(argv)
     except ValueError:
-        # Unterminated quoting — fail-open. A legitimate caller does not
-        # ship malformed Bash here; the prompt-injection-guard catches
-        # other forms of mischief.
-        return False
+        # Unparseable (e.g. unterminated quoting). We cannot prove the
+        # command is safe, so refuse it (fail closed). A legitimate caller
+        # ships well-formed Bash; a malformed command is itself a defect the
+        # author must fix before re-running.
+        return True
     tokens = _strip_env_prefix(tokens)
     if not tokens or tokens[0] != "git":
         return False

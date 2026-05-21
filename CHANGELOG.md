@@ -9,6 +9,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+- **spec-148 — files-only persistence: the embedded SQLite `state.db` is
+  removed.** Every datum now has a single file source of truth — decisions
+  and risk acceptances in `decision-store.json`, ownership in
+  `ownership-map.json`, install state in `install-state.json`, framework
+  capabilities in `framework-capabilities.json` (rebuilt on demand), and
+  the audit log in `framework-events.ndjson` (already canonical). This is a
+  hard reversal of spec-123 (state.db bootstrap), spec-125 (install-state +
+  capabilities → state.db) and spec-132 (decisions + ownership → state.db).
+  Deleted: `state/state_db.py`, `state/migrations/**`, `state/audit_index.py`,
+  `state/retention.py`, the `ai-eng doctor --check state-db` command, and the
+  `ai-eng audit index/query/health/vacuum` + `audit retention apply`
+  subcommands (`audit verify/tokens/replay` stay, computed over the NDJSON).
+  Migration: `ai-eng update` runs a one-shot export→verify→delete that
+  ingests a legacy `state.db` into the file stores, verifies the export, then
+  deletes `state.db` (no `.bak`; fail-loud — it never deletes unless the
+  export verifies). No backwards-compat shim. A fresh install creates no
+  `state.db`. CI guard `tests/architecture/test_no_sqlite.py` forbids any
+  `import sqlite3` in `src/` or hooks except the one-shot migration.
+- spec-147 G1 (wave 1) seals the fail-open gates so no gate or hook
+  exits 0 when its tool is absent, broken, or its input is malformed.
+  Two hard behavior flips (no shims):
+  - **Hook integrity default flips `warn` → `enforce`.** With
+    `AIENG_HOOK_INTEGRITY_MODE` unset, a hook whose bytes drift from the
+    committed `hooks-manifest.json` (or is missing from it) now refuses
+    to run (fail closed) instead of running with a silent warning. The
+    dev escape hatch is `AIENG_HOOK_INTEGRITY_MODE=warn`; after an
+    intentional hook edit run
+    `python scripts/regenerate-hooks-manifest.py`.
+  - **A broken security/governance tool now BLOCKS instead of being
+    skipped.** A missing `no_suppression` module fails the pre-push
+    Article VII gate (was: silent skip); a missing/crashing/malformed
+    `gitleaks` yields a BLOCKER secrets finding (was: clean verdict); an
+    expired risk-acceptance blocks `gate pre-push` (was: warning only); a
+    corrupt `manifest.yml` raises `InvalidManifestError` (was:
+    all-defaults substitution); and `no-verify-guard` fails closed on an
+    unparseable command (was: allow). Formatter re-stage, Stop-hook
+    checkpoint, and MCP-health state-write failures are now surfaced as
+    visible warnings instead of being swallowed silently.
 - `/ai-repo-tidy` is hard-renamed to `/ai-branch-cleanup`. Update external automation that invokes the old slug; no alias or shim is preserved. The historical release-contract guard keywords remain documented for continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
 - spec-146 removes the no-production-caller Python import surfaces
   `ai_engineering.state.agentsview`, `ai_engineering.state.outbox`,
@@ -20,6 +58,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- spec-147 G2 (wave 2a) corrects the canonical rulebook to stop claiming a
+  non-existent `agents.registry` manifest key (D-147-07). The
+  `.claude/agents/` and `.claude/skills/` directories are the source of
+  truth; the prose now distinguishes the 9 user-facing `ai-*` agents from
+  the internal `review-*`/`reviewer-*`/`verifier-*` families. A new
+  `tests/architecture/test_surface_counts.py` guard pins the documented
+  agent/skill counts against the on-disk file counts so the doc cannot
+  silently drift.
+- spec-147 G2 (wave 2a) documents the eight previously-undocumented
+  behavior-changing hook env vars in the Runtime Layer Tunables block
+  (D-147-08), with an explicit SECURITY RISK note on
+  `AIE_MCP_HEALTH_FAIL_OPEN` (it flips the MCP health gate from blocking
+  to pass-through). A new `tests/architecture/test_env_var_docs.py` guard
+  asserts every `AIENG_*`/`AIE_*` var a hook reads is documented.
 - README surfaces now use the `{ai} engineering` brand voice, current six-surface inventory, inline governance Quick Start, and byte-identical governance README template.
 - Standard plan execution now records route-only `execution_route`
   metadata (`/ai-build` vs `/ai-autopilot`) and treats host-probe data as

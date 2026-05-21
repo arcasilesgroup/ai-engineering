@@ -82,7 +82,7 @@ The advisory is grouped by severity and rendered as a markdown table. Severity s
 - **Never modifies code** — advisory only.
 - **Never blocks execution** — fail-open always.
 - **Never emits FAIL / BLOCK / CRITICAL** — those vocabularies are reserved for `/ai-verify` and git hooks.
-- **Read-only** for all files except `state.db.decisions` (drift annotations only, via the audit API) and `state/framework-events.ndjson` (canonical outcomes).
+- **Read-only** for all files except `decision-store.json` (drift annotations only, via the audit API) and `state/framework-events.ndjson` (canonical outcomes).
 - **Single agent dispatch** — the SKILL.md never reads the agent file inline; it dispatches via the Agent tool so the agent runs in its own context window.
 
 ## Examples
@@ -95,7 +95,7 @@ User: "advise on the changes I just made under src/auth/"
 /ai-advise advise src/auth/
 ```
 
-Skill dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`. The agent loads cross-cutting standards (`core.md`, `quality/core.md`) plus the Python stack overrides, checks decision drift against the active `state.db.decisions` rows that intersect `src/auth/`, and returns an advisory listing two `warn` findings (a complexity trend approaching the cyclomatic ceiling, and a missing telemetry field per an active observability decision). The skill renders the advisory and emits a `framework_event`. No code is modified.
+Skill dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`. The agent loads cross-cutting standards (`core.md`, `quality/core.md`) plus the Python stack overrides, checks decision drift against the active `decision-store.json` rows that intersect `src/auth/`, and returns an advisory listing two `warn` findings (a complexity trend approaching the cyclomatic ceiling, and a missing telemetry field per an active observability decision). The skill renders the advisory and emits a `framework_event`. No code is modified.
 
 ### Example 2 — drift scan against active architectural decisions
 

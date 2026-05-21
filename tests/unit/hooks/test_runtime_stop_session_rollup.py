@@ -1,27 +1,20 @@
-"""Tests for the spec-120 T-E1 session token rollup wiring inside
-``runtime-stop.py``.
+"""Tests for the session token rollup wiring inside ``runtime-stop.py``
+(spec-120 T-E1; spec-148 files-only).
 
-Pin three branches of ``_emit_session_token_rollup`` so the best-effort
-contract stays honest:
+Pins ``_emit_session_token_rollup`` against the append-only NDJSON audit
+log (no SQLite). Best-effort contract:
 
-1. **Rollup row found** -> a single ``framework_operation`` event with
-   ``detail.operation = "session_token_rollup"`` and the rollup payload.
-2. **Rollup view exists but no row for the session_id** -> silent skip
-   (no ``framework_operation``, no ``framework_error``).
-3. **SQLite index file missing** -> a single ``framework_error`` event
-   with ``detail.error_code = "session_rollup_skipped"``; the hook never
-   raises.
-
-The earlier ``runtime-stop.py`` had no session-end rollup, so the
-NDJSON stream lost the per-session token tally that the audit-index
-view publishes -- this suite is the regression guard.
+1. **Session has NDJSON events** -> a single ``framework_operation`` event
+   with ``detail.operation = "session_token_rollup"`` and the rollup payload.
+2. **No events for the session_id** -> silent skip (no operation, no error).
+3. **No NDJSON + no transcript** -> silent skip (nothing to roll up).
+4. **session_id is None** -> silent skip.
 """
 
 from __future__ import annotations
 
 import importlib.util
 import json
-import sqlite3
 import sys
 from pathlib import Path
 
@@ -30,16 +23,10 @@ import pytest
 REPO = Path(__file__).resolve().parents[3]
 RUNTIME_STOP_PATH = REPO / ".ai-engineering" / "scripts" / "hooks" / "runtime-stop.py"
 NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
-INDEX_REL = Path(".ai-engineering") / "state" / "state.db"
 
 
 def _project_slug(project: Path) -> str:
-    """Cross-OS Claude Code transcripts slug (mirrors ``_lib.transcript_usage._project_slug``).
-
-    POSIX: ``replace("/", "-")`` is sufficient. Windows absolute paths
-    contain ``\\`` and a drive-letter ``:``; both must be stripped so the
-    result is a single valid filesystem component.
-    """
+    """Cross-OS Claude Code transcripts slug (mirrors ``_lib.transcript_usage``)."""
     return str(project.resolve()).replace("/", "-").replace("\\", "-").replace(":", "-")
 
 
@@ -73,95 +60,50 @@ def _read_events(project_root: Path) -> list[dict]:
     return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
 
 
-def _seed_index(project_root: Path, *, session_id: str, totals: dict) -> None:
-    """Write a minimal SQLite DB with the spec-120 session_token_rollup view.
+def _seed_ndjson(project_root: Path, *, session_id: str, totals: dict) -> None:
+    """Append one ``skill_invoked`` NDJSON event carrying a usage block.
 
-    Mirrors the schema in ``ai_engineering.state.audit_index`` so the
-    hook's read-only query lands on the same column ordering.
+    spec-148: the rollup is computed directly from this NDJSON, not a
+    SQLite projection.
     """
-    path = project_root / INDEX_REL
+    path = project_root / NDJSON_REL
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
-    try:
-        conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS events (
-              span_id            TEXT PRIMARY KEY,
-              trace_id           TEXT,
-              parent_span_id     TEXT,
-              correlation_id     TEXT NOT NULL,
-              session_id         TEXT,
-              timestamp          TEXT NOT NULL,
-              ts_unix_ms         INTEGER NOT NULL,
-              engine             TEXT NOT NULL,
-              kind               TEXT NOT NULL,
-              component          TEXT NOT NULL,
-              outcome            TEXT NOT NULL,
-              source             TEXT,
-              prev_event_hash    TEXT,
-              genai_system       TEXT,
-              genai_model        TEXT,
-              input_tokens       INTEGER,
-              output_tokens      INTEGER,
-              total_tokens       INTEGER,
-              cost_usd           REAL,
-              detail_json        TEXT NOT NULL
-            );
-            CREATE VIEW IF NOT EXISTS session_token_rollup AS
-              SELECT session_id,
-                     MIN(timestamp)        AS started_at,
-                     MAX(timestamp)        AS ended_at,
-                     COUNT(*)              AS events,
-                     SUM(input_tokens)     AS input_tokens,
-                     SUM(output_tokens)    AS output_tokens,
-                     SUM(total_tokens)     AS total_tokens,
-                     SUM(cost_usd)         AS cost_usd
-                FROM events
-               WHERE session_id IS NOT NULL
-               GROUP BY session_id;
-            """
-        )
-        conn.execute(
-            "INSERT INTO events VALUES "
-            "(:span_id, :trace_id, :parent_span_id, :correlation_id, :session_id, "
-            ":timestamp, :ts_unix_ms, :engine, :kind, :component, :outcome, :source, "
-            ":prev_event_hash, :genai_system, :genai_model, :input_tokens, "
-            ":output_tokens, :total_tokens, :cost_usd, :detail_json)",
-            {
-                "span_id": "0123456789abcdef",
-                "trace_id": "f" * 32,
-                "parent_span_id": None,
-                "correlation_id": "corr-1",
-                "session_id": session_id,
-                "timestamp": "2026-05-04T00:00:00Z",
-                "ts_unix_ms": 1_746_316_800_000,
-                "engine": "claude_code",
-                "kind": "skill_invoked",
-                "component": "hook.telemetry-skill",
-                "outcome": "success",
-                "source": "hook",
-                "prev_event_hash": None,
-                "genai_system": "anthropic",
-                "genai_model": "claude-opus-4.7",
-                "input_tokens": totals["input_tokens"],
-                "output_tokens": totals["output_tokens"],
-                "total_tokens": totals["total_tokens"],
-                "cost_usd": totals["cost_usd"],
-                "detail_json": "{}",
+    event = {
+        "kind": "skill_invoked",
+        "engine": "claude_code",
+        "timestamp": "2026-05-04T00:00:00Z",
+        "component": "hook.telemetry-skill",
+        "outcome": "success",
+        "correlationId": "corr-1",
+        "schemaVersion": "1.0",
+        "project": "test",
+        "spanId": "0123456789abcdef",
+        "sessionId": session_id,
+        "detail": {
+            "skill": "ai-brainstorm",
+            "genai": {
+                "system": "anthropic",
+                "request": {"model": "claude-opus-4.7"},
+                "usage": {
+                    "input_tokens": totals["input_tokens"],
+                    "output_tokens": totals["output_tokens"],
+                    "total_tokens": totals["total_tokens"],
+                    "cost_usd": totals["cost_usd"],
+                },
             },
-        )
-        conn.commit()
-    finally:
-        conn.close()
+        },
+    }
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(event) + "\n")
 
 
 # ---------------------------------------------------------------------------
-# Branch 1: rollup row found
+# Branch 1: session has NDJSON events
 # ---------------------------------------------------------------------------
 
 
-def test_session_rollup_emits_framework_operation_when_row_found(rstop, project: Path) -> None:
-    """Happy path: SQLite index has a row for the session -> one
+def test_session_rollup_emits_framework_operation_when_events_found(rstop, project: Path) -> None:
+    """Happy path: NDJSON has an event for the session -> one
     ``framework_operation`` event with the rollup payload."""
     session_id = "sess-happy"
     totals = {
@@ -170,7 +112,7 @@ def test_session_rollup_emits_framework_operation_when_row_found(rstop, project:
         "total_tokens": 1250,
         "cost_usd": 0.0125,
     }
-    _seed_index(project, session_id=session_id, totals=totals)
+    _seed_ndjson(project, session_id=session_id, totals=totals)
 
     rstop._emit_session_token_rollup(project, session_id=session_id, correlation_id="corr-test")
 
@@ -198,22 +140,17 @@ def test_session_rollup_emits_framework_operation_when_row_found(rstop, project:
 
 
 # ---------------------------------------------------------------------------
-# Branch 2: rollup view exists, no row for this session_id
+# Branch 2: NDJSON exists, no event for this session_id
 # ---------------------------------------------------------------------------
 
 
-def test_session_rollup_silent_skip_when_no_row_for_session(rstop, project: Path) -> None:
-    """View exists but the session has no events -> no event emitted at all
+def test_session_rollup_silent_skip_when_no_event_for_session(rstop, project: Path) -> None:
+    """NDJSON has events for another session -> no event emitted at all
     (neither framework_operation nor framework_error)."""
-    _seed_index(
+    _seed_ndjson(
         project,
         session_id="sess-other",
-        totals={
-            "input_tokens": 1,
-            "output_tokens": 1,
-            "total_tokens": 2,
-            "cost_usd": 0.0,
-        },
+        totals={"input_tokens": 1, "output_tokens": 1, "total_tokens": 2, "cost_usd": 0.0},
     )
 
     rstop._emit_session_token_rollup(project, session_id="sess-missing", correlation_id="corr-test")
@@ -229,35 +166,36 @@ def test_session_rollup_silent_skip_when_no_row_for_session(rstop, project: Path
 
 
 # ---------------------------------------------------------------------------
-# Branch 3: SQLite missing -> framework_error
+# Branch 3: no NDJSON + no transcript -> silent skip (spec-148 change)
 # ---------------------------------------------------------------------------
 
 
-def test_session_rollup_emits_framework_error_when_sqlite_missing(rstop, project: Path) -> None:
-    """Index file absent -> single ``framework_error`` event with
-    ``error_code = session_rollup_skipped``; hook does not raise."""
-    assert not (project / INDEX_REL).exists()
+def test_session_rollup_silent_when_no_ndjson_and_no_transcript(rstop, project: Path) -> None:
+    """spec-148: no NDJSON (and no transcript) -> nothing to roll up; the
+    hook stays silent (no framework_operation, no framework_error). This
+    replaces the old SQLite-missing -> framework_error behavior; an empty
+    repo simply has no events to summarise."""
+    assert not (project / NDJSON_REL).exists()
 
     rstop._emit_session_token_rollup(
-        project, session_id="sess-no-index", correlation_id="corr-test"
+        project, session_id="sess-no-events", correlation_id="corr-test"
     )
 
     events = _read_events(project)
-    errors = [
-        e
+    assert not any(
+        e.get("kind") == "framework_operation"
+        and (e.get("detail") or {}).get("operation") == "session_token_rollup"
         for e in events
-        if e.get("kind") == "framework_error"
+    )
+    assert not any(
+        e.get("kind") == "framework_error"
         and (e.get("detail") or {}).get("error_code") == "session_rollup_skipped"
-    ]
-    assert len(errors) == 1, f"expected exactly one error event, got {events}"
-    assert errors[0]["component"] == "hook.runtime-stop"
-    assert errors[0]["correlationId"] == "corr-test"
-    assert errors[0]["sessionId"] == "sess-no-index"
-    assert errors[0]["detail"]["reason"] == "audit_index_missing"
+        for e in events
+    )
 
 
 # ---------------------------------------------------------------------------
-# Branch 4: session_id is None -> silent (no event of any kind)
+# Branch 4: session_id is None -> silent
 # ---------------------------------------------------------------------------
 
 
@@ -268,194 +206,3 @@ def test_session_rollup_silent_when_session_id_missing(rstop, project: Path) -> 
 
     events = _read_events(project)
     assert events == []
-
-
-# ---------------------------------------------------------------------------
-# Branch 5: SQLite raises -> framework_error with sqlite_error metadata
-# ---------------------------------------------------------------------------
-
-
-def test_session_rollup_emits_framework_error_on_sqlite_failure(
-    rstop, project: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Force ``sqlite3.connect`` to raise mid-call -> single framework_error
-    with ``reason`` starting with ``sqlite_error:``."""
-    # Write a valid-looking file so the existence check passes; the
-    # connect call below is what raises.
-    (project / INDEX_REL).parent.mkdir(parents=True, exist_ok=True)
-    (project / INDEX_REL).write_bytes(b"not a real sqlite db")
-
-    real_connect = sqlite3.connect
-
-    def boom(*args, **kwargs):  # type: ignore[no-untyped-def]
-        raise sqlite3.OperationalError("synthetic failure")
-
-    monkeypatch.setattr(rstop.sqlite3, "connect", boom)
-
-    rstop._emit_session_token_rollup(project, session_id="sess-locked", correlation_id="corr-test")
-
-    # Restore so other tests see the real sqlite3.connect.
-    monkeypatch.setattr(rstop.sqlite3, "connect", real_connect)
-
-    events = _read_events(project)
-    errors = [
-        e
-        for e in events
-        if e.get("kind") == "framework_error"
-        and (e.get("detail") or {}).get("error_code") == "session_rollup_skipped"
-    ]
-    assert len(errors) == 1
-    assert errors[0]["detail"]["reason"].startswith("sqlite_error:")
-
-
-# ---------------------------------------------------------------------------
-# Branch 6 (spec-120 follow-up Item C): transcript merge
-# ---------------------------------------------------------------------------
-
-
-def test_session_rollup_merges_transcript_usage(
-    rstop, project: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """When a Claude Code transcript is available, the rollup merges its
-    aggregated usage into the metadata. Index-side numbers are zero today
-    (because no hook emits per-call usage), so transcript wins and
-    ``usage_source`` reflects the merge."""
-    session_id = "sess-merge"
-    # Seed an index row with zero token counts (the realistic case today).
-    _seed_index(
-        project,
-        session_id=session_id,
-        totals={
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "total_tokens": 0,
-            "cost_usd": 0.0,
-        },
-    )
-
-    # Build a fake transcript discoverable via $HOME/.claude/projects/<slug>/.
-    fake_home = tmp_path / "home"
-    # Cross-OS: shared helper handles Windows path separator + drive colon.
-    slug = _project_slug(project)
-    transcripts_dir = fake_home / ".claude" / "projects" / slug
-    transcripts_dir.mkdir(parents=True, exist_ok=True)
-    transcript = transcripts_dir / f"{session_id}.jsonl"
-    import json as _json
-
-    transcript.write_text(
-        "\n".join(
-            [
-                _json.dumps(
-                    {
-                        "type": "assistant",
-                        "message": {
-                            "model": "claude-opus-4-7",
-                            "role": "assistant",
-                            "content": [],
-                            "usage": {"input_tokens": 1234, "output_tokens": 567},
-                        },
-                    }
-                ),
-                _json.dumps(
-                    {
-                        "type": "assistant",
-                        "message": {
-                            "model": "claude-opus-4-7",
-                            "role": "assistant",
-                            "content": [],
-                            "usage": {"input_tokens": 100, "output_tokens": 50},
-                        },
-                    }
-                ),
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("HOME", str(fake_home))
-    monkeypatch.delenv("CLAUDE_TRANSCRIPT_PATH", raising=False)
-
-    rstop._emit_session_token_rollup(project, session_id=session_id, correlation_id="corr-test")
-
-    events = _read_events(project)
-    rollup_events = [
-        e
-        for e in events
-        if e.get("kind") == "framework_operation"
-        and (e.get("detail") or {}).get("operation") == "session_token_rollup"
-    ]
-    assert len(rollup_events) == 1, f"expected one rollup event, got {events}"
-
-    detail = rollup_events[0]["detail"]
-    # Transcript wins on token counts (index had zero).
-    assert detail["input_tokens"] == 1334
-    assert detail["output_tokens"] == 617
-    assert detail["total_tokens"] == 1951
-    assert detail["genai_model"] == "claude-opus-4-7"
-    assert detail["genai_system"] == "anthropic"
-    assert detail["usage_source"] == "merged"
-
-
-def test_session_rollup_synthesised_from_transcript_when_no_index_row(
-    rstop, project: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """Transcript-only path: no row in the index, but a transcript carries
-    usage. Emit a single rollup event marked ``usage_source = transcript``."""
-    session_id = "sess-transcript-only"
-    # Seed the index with a different session so the view exists but the
-    # query returns no row for our session_id.
-    _seed_index(
-        project,
-        session_id="sess-other",
-        totals={
-            "input_tokens": 1,
-            "output_tokens": 1,
-            "total_tokens": 2,
-            "cost_usd": 0.0,
-        },
-    )
-
-    fake_home = tmp_path / "home"
-    # Cross-OS: shared helper handles Windows path separator + drive colon.
-    slug = _project_slug(project)
-    transcripts_dir = fake_home / ".claude" / "projects" / slug
-    transcripts_dir.mkdir(parents=True, exist_ok=True)
-    transcript = transcripts_dir / f"{session_id}.jsonl"
-    import json as _json
-
-    transcript.write_text(
-        _json.dumps(
-            {
-                "type": "assistant",
-                "message": {
-                    "model": "claude-sonnet-4-5",
-                    "role": "assistant",
-                    "content": [],
-                    "usage": {"input_tokens": 42, "output_tokens": 8},
-                },
-            }
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    monkeypatch.setenv("HOME", str(fake_home))
-    monkeypatch.delenv("CLAUDE_TRANSCRIPT_PATH", raising=False)
-
-    rstop._emit_session_token_rollup(project, session_id=session_id, correlation_id="corr-test")
-
-    events = _read_events(project)
-    rollup_events = [
-        e
-        for e in events
-        if e.get("kind") == "framework_operation"
-        and (e.get("detail") or {}).get("operation") == "session_token_rollup"
-    ]
-    assert len(rollup_events) == 1
-    detail = rollup_events[0]["detail"]
-    assert detail["usage_source"] == "transcript"
-    assert detail["input_tokens"] == 42
-    assert detail["output_tokens"] == 8
-    assert detail["total_tokens"] == 50
-    assert detail["genai_model"] == "claude-sonnet-4-5"

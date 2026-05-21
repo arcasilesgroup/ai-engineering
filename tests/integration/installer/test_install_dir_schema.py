@@ -40,7 +40,6 @@ import os
 from pathlib import Path
 
 from ai_engineering.installer.service import install
-from ai_engineering.state.state_db import _reset_fallback_warnings
 
 FIXTURE_PATH = Path(__file__).parent / "fixtures" / "install-dir-schema.txt"
 
@@ -84,7 +83,6 @@ def _snapshot_install_layout(tmp_path: Path) -> list[str]:
 
 def test_install_directory_layout_matches_snapshot(tmp_path: Path) -> None:
     """spec-132 D-132-24: fresh install layout matches the golden snapshot."""
-    _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
     install(tmp_path, stacks=["python"])

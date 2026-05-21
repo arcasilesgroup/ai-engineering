@@ -195,6 +195,6 @@ Runs the 5-step consolidation: extract observations from the conversation, enric
 
 ## Integration
 
-Called by: user directly at session start. Calls: `gh issue create` / `az boards work-item create` (Step 5 work-item creation). Reads: `state.db.decisions`, `LESSONS.md`, `observations.yml`, `proposals.md`. See also: `/ai-learn` (cross-session retro), `/ai-skill-improve` (acts on high-confidence proposals).
+Called by: user directly at session start. Calls: `gh issue create` / `az boards work-item create` (Step 5 work-item creation). Reads: `decision-store.json`, `LESSONS.md`, `observations.yml`, `proposals.md`. See also: `/ai-learn` (cross-session retro), `/ai-skill-improve` (acts on high-confidence proposals).
 
 $ARGUMENTS

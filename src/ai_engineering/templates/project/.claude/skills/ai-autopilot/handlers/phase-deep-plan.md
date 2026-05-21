@@ -10,7 +10,7 @@ Dispatch N parallel agents (one per sub-spec) to deep-explore the codebase and w
 - Sub-spec directories exist at `.ai-engineering/runtime/autopilot/sub-NNN/` with `spec.md` (Scope + `files:` frontmatter) and `plan.md` (Plan placeholder).
 - Manifest exists at `.ai-engineering/runtime/autopilot/manifest.md` with all sub-spec statuses set to `planning`.
 - Parent spec is available at `.ai-engineering/specs/spec.md`.
-- Decision store is loaded from `state/state.db.decisions`.
+- Decision store is loaded from `state/decision-store.json`.
 
 ## Procedure
 

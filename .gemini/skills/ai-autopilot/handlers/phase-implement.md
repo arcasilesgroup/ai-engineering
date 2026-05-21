@@ -9,7 +9,7 @@ Execute the implementation plan following the DAG. For each wave, dispatch the b
 - Phase 3 (Orchestrate) complete.
 - Manifest at `.ai-engineering/runtime/autopilot/manifest.md` contains a `## Execution DAG` section with wave assignments.
 - All sub-specs targeted for implementation have enriched Exploration, Plan, and file ownership sections (populated by Phase 2 and refined by Phase 3).
-- Decision-store at `state/state.db.decisions` is readable (constraints apply to all agents).
+- Decision-store at `state/decision-store.json` is readable (constraints apply to all agents).
 
 ## Procedure
 
@@ -72,7 +72,7 @@ For each non-blocked sub-spec in the current batch, dispatch the build agent wit
 
 1. **Sub-spec scope and exploration** -- from `.ai-engineering/runtime/autopilot/sub-NNN/spec.md` (Scope, Exploration, file ownership).
 1b. **Sub-spec plan** -- from `.ai-engineering/runtime/autopilot/sub-NNN/plan.md` (task checkboxes).
-2. **Decision-store constraints** -- relevant entries from `state/state.db.decisions` that apply to this sub-spec's domain.
+2. **Decision-store constraints** -- relevant entries from `state/decision-store.json` that apply to this sub-spec's domain.
 3. **Stack standards** -- passed as file path references from the `context_paths` list resolved in Phase 0. Agents read these files on demand if they need stack guidance. Do NOT embed full context file content in the dispatch prompt — pass paths only: `"Stack guidance available at: [context_paths]. Read on demand if needed."`.
 3b. **STACK_CONTEXT (spec-139 M3)** -- every Build agent invocation MUST include `STACK_CONTEXT=<JSON>` in the dispatch prompt. The JSON is the verbatim payload written by Phase 0 (`.ai-engineering/runtime/autopilot/<active>/stack-context.json`) — stacks list plus per-stack test/format/lint commands. Build agents read STACK_CONTEXT from the dispatch prompt; they do NOT re-read `manifest.yml`. The dispatcher already resolved it in Phase 0 — propagation is free.
 4. **Inline guard suppression** -- when dispatched by autopilot, include this directive: `"skip_inline_guard: true — governance advisory is handled at wave level, not per-file. Do NOT dispatch the guard agent on individual file edits."` This overrides the build agent's default per-file guard behavior within the autopilot context only.

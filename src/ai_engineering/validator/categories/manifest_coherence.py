@@ -336,11 +336,13 @@ def _check_source_repo_framework_capabilities_snapshot(
     target: Path,
     report: IntegrityReport,
 ) -> None:
-    """Verify the state.db framework capabilities catalog matches the builder output.
+    """Flag a STALE ``framework-capabilities.json`` against the builder output.
 
-    Spec-125 D-125-01: the framework-capabilities catalog moved from a JSON
-    snapshot at `state/framework-capabilities.json` to the
-    `tool_capabilities` singleton row in state.db.
+    spec-148 P4 (D-148-08): the catalog is a rebuildable-on-demand file
+    projection at ``state/framework-capabilities.json`` (gitignored). When
+    the file is absent there is no committed snapshot to drift against, so
+    the check is skipped; when present, it is compared to the builder so a
+    stale catalog (skills/agents changed without a regenerate) is flagged.
     """
     template_manifest_path = _template_manifest_path(target)
     if not template_manifest_path.is_file():
@@ -348,16 +350,20 @@ def _check_source_repo_framework_capabilities_snapshot(
 
     from ai_engineering.state.repository import DurableStateRepository
 
-    relative_path = ".ai-engineering/state/state.db (tool_capabilities)"
+    repo = DurableStateRepository(target)
+    if not repo.framework_capabilities_path.is_file():
+        return
+
+    relative_path = ".ai-engineering/state/framework-capabilities.json"
     try:
-        snapshot = DurableStateRepository(target).load_framework_capabilities()
+        snapshot = repo.load_framework_capabilities()
     except (OSError, ValueError) as exc:
         report.checks.append(
             IntegrityCheckResult(
                 category=IntegrityCategory.MANIFEST_COHERENCE,
                 name="framework-capabilities-snapshot",
                 status=IntegrityStatus.FAIL,
-                message=f"Unable to read framework capabilities from state.db: {exc}",
+                message=f"Unable to read framework-capabilities.json: {exc}",
                 file_path=relative_path,
             )
         )

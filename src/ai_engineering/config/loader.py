@@ -29,6 +29,19 @@ logger = logging.getLogger(__name__)
 _MANIFEST_REL = Path(".ai-engineering") / "manifest.yml"
 
 
+class InvalidManifestError(ValueError):
+    """Raised when ``manifest.yml`` exists but cannot be parsed.
+
+    spec-147 G1 T-1.9/1.10: a corrupt manifest must NOT be silently
+    substituted with all-defaults — that made a broken config
+    indistinguishable from a missing one. The error subclasses
+    ``ValueError`` so existing callers that already wrap the load in
+    ``except (OSError, ValueError)`` keep their opt-in fail-open posture
+    (e.g. ``policy.gates._get_active_stacks``); callers that do not catch
+    now fail loud instead of running on phantom defaults.
+    """
+
+
 def load_manifest_config(root: Path) -> ManifestConfig:
     """Read and validate the project manifest.
 
@@ -40,8 +53,14 @@ def load_manifest_config(root: Path) -> ManifestConfig:
     Returns
     -------
     ManifestConfig
-        Validated config. Returns all-defaults if the file is missing
-        or empty.
+        Validated config. Returns all-defaults only when the file is
+        missing (a legitimate fresh-install state) or present-but-empty.
+
+    Raises
+    ------
+    InvalidManifestError
+        The manifest file exists but cannot be read or parsed as YAML
+        (spec-147 G1: fail loud rather than masking a corrupt config).
     """
     manifest_path = root / _MANIFEST_REL
 
@@ -53,8 +72,10 @@ def load_manifest_config(root: Path) -> ManifestConfig:
         raw = manifest_path.read_text(encoding="utf-8")
         data = yaml.safe_load(raw)
     except (OSError, yaml.YAMLError) as exc:
-        logger.debug("Failed to read manifest at %s (%s), returning defaults", manifest_path, exc)
-        return ManifestConfig()
+        # The file exists but is unreadable / unparseable. Surface a named,
+        # path-bearing error instead of silently returning defaults.
+        msg = f"failed to read or parse manifest at {manifest_path}: {exc}"
+        raise InvalidManifestError(msg) from exc
 
     if not isinstance(data, dict):
         logger.debug("Manifest at %s is empty or non-mapping, returning defaults", manifest_path)

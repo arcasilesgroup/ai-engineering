@@ -1,9 +1,12 @@
-"""End-to-end integration test for spec-120 observability modernization (T-D1).
+"""End-to-end integration test for the audit observability surface
+(spec-120 T-D1; spec-148 files-only).
 
-Drives the full pipeline introduced by Phases A/B/C against a synthetic
-5-event nested session emitted through the **real** ``emit_*`` helpers
-(no mocking) and verifies the four spec-120 CLI subcommands plus the OTLP
-exporter envelope shape.
+Drives the audit CLI against a synthetic 5-event nested session emitted
+through the **real** ``emit_*`` helpers (no mocking). spec-148 retired the
+SQLite projection, so this exercises the files-only surface: ``audit
+tokens`` and ``audit replay`` computed directly over
+``framework-events.ndjson`` (the former ``audit index`` / ``audit query``
+/ ``audit otel-export`` stages were removed).
 
 Test sequence:
 
@@ -11,20 +14,15 @@ Test sequence:
    ``.ai-engineering/state/`` and a generated trace context.
 2. Emit five events (S1..S5) covering nested skill / agent dispatch +
    independent root, mirroring the spec-120 §4.4 replay contract.
-3. Run ``ai-eng audit index --json`` and assert ``rows_indexed == 5``.
-4. Run ``ai-eng audit query "SELECT COUNT(*) FROM events" --json`` and
-   assert the count.
-5. Run ``ai-eng audit tokens --by skill --json`` and assert the per-skill
-   token sums.
-6. Run ``ai-eng audit replay --session sess-spec120 --json`` and assert
-   tree shape + token rollup totals.
-7. Run ``ai-eng audit otel-export --trace <trace_id> --out <file>`` and
-   assert the OTLP/JSON envelope shape.
+3. Run ``ai-eng audit tokens --by skill --json`` and assert the per-skill
+   token sums (computed over the NDJSON).
+4. Run ``ai-eng audit replay --session sess-spec120 --json`` and assert
+   tree shape + token rollup totals (built from the NDJSON).
 
-Hard constraints (per spec-120 Phase D plan):
+Hard constraints:
 
-* Hits real production code -- no mocking of ``emit_*``, ``build_index``,
-  ``build_span_tree``, ``build_otlp_spans``.
+* Hits real production code -- no mocking of ``emit_*`` or the
+  NDJSON-backed rollup / span-tree builders.
 * Pins ``cwd`` at ``tmp_path`` via :meth:`MonkeyPatch.chdir` so the CLI's
   :func:`_resolve_project_root` lands inside the temp directory.
 * Does not touch the audit-chain canary surface
@@ -218,36 +216,16 @@ def seeded_session(
 
 
 def test_spec_120_e2e_full_pipeline(seeded_session: dict[str, Any]) -> None:
-    """Index, query, tokens, replay, and otel-export run green end-to-end.
+    """tokens + replay run green end-to-end over framework-events.ndjson.
 
-    Asserts each subcommand's output shape against the seeded 5-event
-    session. Drives every spec-120 CLI surface introduced by Phases B/C
-    via the real Typer app -- no mocking, no shortcuts.
+    spec-148 (files-only): the SQLite-backed `audit index` / `audit query`
+    / `audit otel-export` stages were removed; tokens and replay now read
+    the NDJSON directly (no index build prerequisite).
     """
-    project_root = seeded_session["project_root"]
-    trace_id = seeded_session["trace_id"]
     spans = seeded_session["spans"]
-
-    # ---- Stage 1: audit index --------------------------------------------
     app = create_app()
-    result = runner.invoke(app, ["audit", "index", "--json"])
-    assert result.exit_code == 0, result.output
-    index_payload = _extract_json(result.output, prefix="{")
-    assert index_payload["rows_indexed"] == 5, index_payload
-    assert index_payload["rows_total"] == 5, index_payload
-    assert index_payload["rebuilt"] is False
 
-    # ---- Stage 2: audit query --------------------------------------------
-    result = runner.invoke(
-        app,
-        ["audit", "query", "SELECT COUNT(*) AS n FROM events", "--json"],
-    )
-    assert result.exit_code == 0, result.output
-    rows = _extract_json(result.output, prefix="[")
-    assert isinstance(rows, list) and len(rows) == 1, rows
-    assert rows[0].get("n") == 5, rows
-
-    # ---- Stage 3: audit tokens --by skill --------------------------------
+    # ---- audit tokens --by skill (computed over NDJSON) ------------------
     result = runner.invoke(app, ["audit", "tokens", "--by", "skill", "--json"])
     assert result.exit_code == 0, result.output
     rollup_rows = _extract_json(result.output, prefix="[")
@@ -266,11 +244,8 @@ def test_spec_120_e2e_full_pipeline(seeded_session: dict[str, Any]) -> None:
         assert row["input_tokens"] == expected_in, (skill_name, row)
         assert row["output_tokens"] == expected_out, (skill_name, row)
 
-    # ---- Stage 4: audit replay --session ---------------------------------
-    result = runner.invoke(
-        app,
-        ["audit", "replay", "--session", _SESSION_ID, "--json"],
-    )
+    # ---- audit replay --session (span tree over NDJSON) ------------------
+    result = runner.invoke(app, ["audit", "replay", "--session", _SESSION_ID, "--json"])
     assert result.exit_code == 0, result.output
     replay_payload = _extract_json(result.output, prefix="{")
 
@@ -296,20 +271,6 @@ def test_spec_120_e2e_full_pipeline(seeded_session: dict[str, Any]) -> None:
     # S5 is an independent root with no children.
     assert roots_by_span[spans["S5"]]["children"] == [], roots_by_span[spans["S5"]]
 
-    # ---- Stage 5: audit otel-export --------------------------------------
-    out_path = project_root / "otel-export.json"
-    result = runner.invoke(
-        app,
-        ["audit", "otel-export", "--trace", trace_id, "--out", str(out_path)],
-    )
-    assert result.exit_code == 0, result.output
-    assert out_path.exists(), result.output
-
-    envelope = json.loads(out_path.read_text(encoding="utf-8"))
-    assert isinstance(envelope, dict), envelope
-    assert "resourceSpans" in envelope, envelope
-    assert isinstance(envelope["resourceSpans"], list), envelope
-
 
 def test_spec_120_e2e_replay_tree_shape(seeded_session: dict[str, Any]) -> None:
     """Focused tree-shape assertion isolated from the full pipeline.
@@ -320,9 +281,7 @@ def test_spec_120_e2e_replay_tree_shape(seeded_session: dict[str, Any]) -> None:
     spans = seeded_session["spans"]
 
     app = create_app()
-    # Build the index first so the replay command sees populated rows.
-    runner.invoke(app, ["audit", "index"])
-
+    # spec-148: replay reads framework-events.ndjson directly — no index build.
     result = runner.invoke(app, ["audit", "replay", "--session", _SESSION_ID, "--json"])
     assert result.exit_code == 0, result.output
 
@@ -348,69 +307,3 @@ def test_spec_120_e2e_replay_tree_shape(seeded_session: dict[str, Any]) -> None:
     # S5 is a sibling root with no children.
     s5_tree = roots_by_span[spans["S5"]]
     assert s5_tree["children"] == [], s5_tree
-
-
-def test_spec_120_e2e_otlp_shape(seeded_session: dict[str, Any]) -> None:
-    """OTLP/JSON envelope adheres to the spec-120 §4.5 wire contract.
-
-    Asserts the minimum portable shape: ``resourceSpans`` outer list,
-    ``scopeSpans[0].scope.name == "ai-engineering"``, every span carries
-    the OTLP-required fields (``traceId`` / ``spanId`` / ``name`` /
-    ``startTimeUnixNano`` as a string / ``kind`` / ``status`` /
-    ``attributes`` list of ``{key, value}`` dicts), and at least one span
-    surfaces the GenAI semantic-convention attributes.
-    """
-    project_root = seeded_session["project_root"]
-    trace_id = seeded_session["trace_id"]
-
-    app = create_app()
-    # Build the index so otel-export has rows.
-    runner.invoke(app, ["audit", "index"])
-
-    out_path = project_root / "spans.json"
-    result = runner.invoke(
-        app,
-        ["audit", "otel-export", "--trace", trace_id, "--out", str(out_path)],
-    )
-    assert result.exit_code == 0, result.output
-    assert out_path.exists()
-
-    envelope = json.loads(out_path.read_text(encoding="utf-8"))
-
-    resource_spans = envelope.get("resourceSpans")
-    assert isinstance(resource_spans, list) and resource_spans, envelope
-
-    scope_spans = resource_spans[0].get("scopeSpans")
-    assert isinstance(scope_spans, list) and scope_spans, resource_spans
-    scope_block = scope_spans[0]
-    assert scope_block.get("scope", {}).get("name") == "ai-engineering", scope_block
-
-    spans = scope_block.get("spans", [])
-    assert spans, scope_block
-
-    for span in spans:
-        # OTLP/JSON required minima -- mirrors spec-120 §4.5.
-        assert isinstance(span.get("traceId"), str) and span["traceId"], span
-        assert isinstance(span.get("spanId"), str) and span["spanId"], span
-        assert isinstance(span.get("name"), str) and span["name"], span
-        # ``startTimeUnixNano`` MUST be a string per the protobuf-JSON
-        # convention (large integers are not safely round-trippable).
-        assert isinstance(span.get("startTimeUnixNano"), str), span
-        assert span.get("kind"), span
-        status = span.get("status")
-        assert isinstance(status, dict) and "code" in status, span
-        attrs = span.get("attributes")
-        assert isinstance(attrs, list), span
-        for attr in attrs:
-            assert isinstance(attr, dict), attr
-            assert "key" in attr and "value" in attr, attr
-
-    # At least one span must carry the GenAI semantic-convention markers
-    # (``gen_ai.system`` and ``gen_ai.usage.input_tokens``) -- every event
-    # in the seeded session has a usage block, so this is a hard check.
-    flat_attrs: set[str] = set()
-    for span in spans:
-        for attr in span.get("attributes", []):
-            flat_attrs.add(attr["key"])
-    assert "gen_ai.system" in flat_attrs, flat_attrs
-    assert "gen_ai.usage.input_tokens" in flat_attrs, flat_attrs

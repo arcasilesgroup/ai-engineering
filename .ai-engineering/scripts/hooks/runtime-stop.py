@@ -26,7 +26,6 @@ from __future__ import annotations
 import contextlib
 import json
 import os
-import sqlite3
 import subprocess
 import sys
 import time
@@ -52,11 +51,10 @@ from _lib.runtime_state import (
 )
 from _lib.transcript_usage import aggregate_session_usage, find_active_transcript
 
-# spec-123 D-123-22 + spec-138 M1: the events projection lives on the
-# unified state.db (the legacy audit-index.sqlite was a 0-byte zombie).
-# Path is inlined here (mirrors `ai_engineering.state.audit_index.INDEX_REL`)
-# so the hook stays stdlib-only and never imports from the pkg.
-_AUDIT_INDEX_REL = Path(".ai-engineering") / "state" / "state.db"
+# spec-148: the session token rollup is computed directly from the
+# append-only NDJSON audit log (no SQLite). Path inlined so the hook
+# stays stdlib-only and never imports from the pkg.
+_NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 _HOOK_COMPONENT = "hook.runtime-stop"
 
 
@@ -573,15 +571,85 @@ def _emit_summary_event(
     emit_event(project_root, event)
 
 
+def _ndjson_session_rollup(project_root: Path, session_id: str) -> dict | None:
+    """Stdlib NDJSON rollup for ``session_id`` (spec-148).
+
+    Mirrors the retired ``session_token_rollup`` SQLite view: events count,
+    MIN/MAX timestamp, and summed ``detail.genai.usage`` tokens. Returns
+    ``None`` when the NDJSON is absent or the session has no events. Token
+    counts are usually zero today — the transcript is the real source and
+    is merged by the caller.
+    """
+    ndjson_path = project_root / _NDJSON_REL
+    try:
+        text = ndjson_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    events = 0
+    started: str | None = None
+    ended: str | None = None
+    inp = out = tot = 0
+    cost = 0.0
+    seen_cost = False
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(event, dict) or event.get("sessionId") != session_id:
+            continue
+        events += 1
+        ts = event.get("timestamp")
+        if isinstance(ts, str) and ts:
+            if started is None or ts < started:
+                started = ts
+            if ended is None or ts > ended:
+                ended = ts
+        detail = event.get("detail")
+        genai = detail.get("genai") if isinstance(detail, dict) else None
+        usage = genai.get("usage") if isinstance(genai, dict) else None
+        if isinstance(usage, dict):
+            iv, ov, tv = (
+                usage.get("input_tokens"),
+                usage.get("output_tokens"),
+                usage.get("total_tokens"),
+            )
+            cv = usage.get("cost_usd")
+            if isinstance(iv, int) and not isinstance(iv, bool):
+                inp += iv
+            if isinstance(ov, int) and not isinstance(ov, bool):
+                out += ov
+            if isinstance(tv, int) and not isinstance(tv, bool):
+                tot += tv
+            if isinstance(cv, (int, float)) and not isinstance(cv, bool):
+                cost += float(cv)
+                seen_cost = True
+    if events == 0:
+        return None
+    return {
+        "session_id": session_id,
+        "started_at": started,
+        "ended_at": ended,
+        "events": events,
+        "input_tokens": inp,
+        "output_tokens": out,
+        "total_tokens": tot,
+        "cost_usd": cost if seen_cost else None,
+    }
+
+
 def _emit_session_token_rollup(
     project_root: Path,
     *,
     session_id: str | None,
     correlation_id: str,
 ) -> None:
-    """Spec-120 T-E1: stamp a session-end token rollup from the SQLite index.
+    """Spec-120 T-E1 (spec-148): stamp a session-end token rollup from NDJSON.
 
-    Best-effort: SQLite missing, locked, or any exception → emit a
+    Best-effort: NDJSON missing or any exception → emit a
     ``framework_error`` (``error_code = session_rollup_skipped``) and
     continue. ``session_id is None`` → silent skip (no error event;
     nothing meaningful to roll up).
@@ -589,46 +657,8 @@ def _emit_session_token_rollup(
     if not session_id:
         return
 
-    index_path = project_root / _AUDIT_INDEX_REL
-    if not index_path.exists():
-        emit_framework_error(
-            project_root,
-            engine="ai_engineering",
-            component=_HOOK_COMPONENT,
-            error_code="session_rollup_skipped",
-            source="hook",
-            session_id=session_id,
-            correlation_id=correlation_id,
-            metadata={"reason": "audit_index_missing"},
-        )
-        return
-
     try:
-        # Read-only URI: the OS rejects writes even if the view query
-        # is somehow rewritten downstream.
-        uri = f"file:{index_path}?mode=ro"
-        conn = sqlite3.connect(uri, uri=True, timeout=2.0)
-        try:
-            row = conn.execute(
-                "SELECT session_id, started_at, ended_at, events, "
-                "input_tokens, output_tokens, total_tokens, cost_usd "
-                "FROM session_token_rollup WHERE session_id = ?",
-                (session_id,),
-            ).fetchone()
-        finally:
-            conn.close()
-    except sqlite3.Error as exc:
-        emit_framework_error(
-            project_root,
-            engine="ai_engineering",
-            component=_HOOK_COMPONENT,
-            error_code="session_rollup_skipped",
-            source="hook",
-            session_id=session_id,
-            correlation_id=correlation_id,
-            metadata={"reason": f"sqlite_error: {type(exc).__name__}"},
-        )
-        return
+        rollup = _ndjson_session_rollup(project_root, session_id)
     except Exception as exc:
         emit_framework_error(
             project_root,
@@ -638,7 +668,7 @@ def _emit_session_token_rollup(
             source="hook",
             session_id=session_id,
             correlation_id=correlation_id,
-            metadata={"reason": f"unexpected_error: {type(exc).__name__}"},
+            metadata={"reason": f"ndjson_error: {type(exc).__name__}"},
         )
         return
 
@@ -648,23 +678,23 @@ def _emit_session_token_rollup(
     # reason). Read directly from the Claude Code transcript and merge.
     transcript_payload = _safe_transcript_aggregate(project_root, session_id=session_id)
 
-    if row is None and transcript_payload is None:
+    if rollup is None and transcript_payload is None:
         # Neither source has anything to roll up. Stay silent rather than
         # emitting a zeroed event.
         return
 
-    if row is not None:
+    if rollup is not None:
         metadata = {
-            "session_id": row[0],
-            "started_at": row[1],
-            "ended_at": row[2],
-            "events": row[3],
-            "input_tokens": row[4],
-            "output_tokens": row[5],
-            "total_tokens": row[6],
-            "cost_usd": row[7],
+            "session_id": rollup["session_id"],
+            "started_at": rollup["started_at"],
+            "ended_at": rollup["ended_at"],
+            "events": rollup["events"],
+            "input_tokens": rollup["input_tokens"],
+            "output_tokens": rollup["output_tokens"],
+            "total_tokens": rollup["total_tokens"],
+            "cost_usd": rollup["cost_usd"],
         }
-        usage_source = "index"
+        usage_source = "ndjson"
     else:
         # Synthesise the rollup from the transcript only.
         metadata = {
@@ -690,7 +720,7 @@ def _emit_session_token_rollup(
         if transcript_payload.get("model"):
             metadata["genai_model"] = transcript_payload["model"]
         metadata["genai_system"] = transcript_payload.get("system", "anthropic")
-        if usage_source == "index":
+        if usage_source == "ndjson":
             usage_source = "merged"
 
     metadata["usage_source"] = usage_source
@@ -731,6 +761,37 @@ def _safe_transcript_aggregate(project_root: Path, *, session_id: str | None) ->
     return payload
 
 
+def _safe_write_checkpoint(project_root: Path, payload: dict, *, writer=write_json) -> str | None:
+    """Write the resume checkpoint, surfacing failures instead of hiding them.
+
+    spec-147 G1 T-1.11/1.12: the Stop hook previously let the checkpoint
+    write "degrade silently". The checkpoint is NOT a security gate (the
+    Stop hook must never block shutdown), but a write failure means
+    ``/ai-start`` will resume from a stale or absent checkpoint with no
+    signal. The failure is now made VISIBLE on stderr (which never corrupts
+    the single-JSON-object Stop decision contract) and returned so callers /
+    tests can observe it. Returns ``None`` on success.
+
+    ``writer`` is injectable so tests can drive the failure path without a
+    real read-only filesystem.
+    """
+    cp_path = checkpoint_path(project_root)
+    try:
+        writer(cp_path, payload)
+    except Exception as exc:
+        message = (
+            f"WARN [runtime-stop] failed to write resume checkpoint to {cp_path} "
+            f"({type(exc).__name__}); /ai-start may resume from stale state"
+        )
+        with contextlib.suppress(Exception):
+            sys.stderr.write(message + "\n")
+            sys.stderr.flush()
+        return message
+    with contextlib.suppress(OSError):
+        cp_path.chmod(0o600)
+    return None
+
+
 def main() -> None:
     ctx = get_hook_context()
     if ctx.event_name != "Stop":
@@ -765,10 +826,9 @@ def main() -> None:
             for r in history[-10:]
         ],
     }
-    cp_path = checkpoint_path(project_root)
-    write_json(cp_path, checkpoint_payload)
-    with contextlib.suppress(OSError):
-        cp_path.chmod(0o600)
+    # spec-147 G1 T-1.11/1.12: surface a checkpoint-write failure on stderr
+    # instead of degrading silently.
+    _safe_write_checkpoint(project_root, checkpoint_payload)
 
     incomplete, reason = _looks_incomplete(history)
     raw_prompt = ctx.data.get("user_prompt") or ctx.data.get("prompt")

@@ -1120,6 +1120,16 @@ AIENG_RUNTIME_ROTATE_THROTTLE_SEC   # default 3600 (1 hour throttle)
 AIENG_NDJSON_MAX_LINES              # default 100000 (rotation signal line cap)
 AIENG_NDJSON_MAX_BYTES              # default 52428800 (rotation signal byte cap; 50 MiB)
 
+# spec-147 G2 — escape-hatch toggles + overrides (behavior-changing; unset = the safe/standard path)
+AIENG_RALPH_DISABLED                # set "1" to disable the Ralph Stop-loop guard
+AIENG_RISK_ACCUMULATOR_DISABLED     # set "1" to disable the risk accumulator
+AIENG_INSTINCT_BATCH_DISABLED       # set "1" to disable instinct batch extraction
+AIENG_TELEMETRY_DEBUG               # set "1" to enable verbose telemetry logging
+AIENG_HOOK_ENGINE                   # override the detected IDE engine (unset -> claude_code)
+AIENG_HOOK_ENGINE_DEFAULT           # fallback engine label when none is detected (unset -> unknown)
+AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; override the event-payload sidecar-offload threshold
+AIE_MCP_HEALTH_FAIL_OPEN            # set "1" to make the MCP health gate pass-through instead of blocking -- SECURITY RISK: disables a blocking gate
+
 # Reserved roadmap — not implemented
 AIENG_HOST_PREFLIGHT_DISABLED       # reserved spec-139 M2
 AIENG_HOST_PREFLIGHT_MIN_FREE_MB    # reserved spec-139 M2
@@ -1170,14 +1180,12 @@ engram setup gemini_cli     # Gemini CLI
 GitHub Copilot is not currently supported by Engram. Verify the
 integration with `ai-eng doctor`.
 
-## Audit Observability (spec-120)
+## Audit Observability (files-only)
 
 ```bash
-ai-eng audit index                       # build / refresh the SQLite projection
-ai-eng audit query "SELECT ..."          # read-only SQL over the index
-ai-eng audit tokens --by skill|agent|session   # token rollup
-ai-eng audit replay --session <id>       # depth-first span-tree walk
-ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope
+ai-eng audit verify                            # verify the framework-events.ndjson hash chain
+ai-eng audit tokens --by skill|agent|session   # token rollup over the NDJSON
+ai-eng audit replay --session <id>             # depth-first span-tree walk over the NDJSON
 ```
 """
 
@@ -1435,6 +1443,23 @@ def validate_manifest(
     return errors, warnings
 
 
+# spec-148 files-only: per-install runtime state files are gitignored and
+# legitimately absent on a clean checkout, so references to them are not
+# "broken". (framework-events.ndjson + the JSON SoTs are written by install /
+# decision / risk / ownership flows, never committed.)
+_RUNTIME_STATE_REFS: frozenset[str] = frozenset(
+    {
+        "state/framework-events.ndjson",
+        "state/observation-events.ndjson",
+        "state/decision-store.json",
+        "state/ownership-map.json",
+        "state/install-state.json",
+        "state/framework-capabilities.json",
+        "state/gate-findings.json",
+    }
+)
+
+
 def validate_cross_references(*, verbose: bool = False) -> list[str]:
     """Check that .ai-engineering/ paths in instruction files exist."""
     warnings: list[str] = []
@@ -1445,13 +1470,16 @@ def validate_cross_references(*, verbose: bool = False) -> list[str]:
             continue
         text = ref_file.read_text(encoding="utf-8")
         for match in pattern.finditer(text):
-            ref_path = ROOT / ".ai-engineering" / match.group(1)
-            # Allow glob-like references and placeholder patterns
-            if "*" in match.group(1) or "<" in match.group(1) or "{" in match.group(1):
+            ref = match.group(1)
+            ref_path = ROOT / ".ai-engineering" / ref
+            # Allow glob-like references, placeholder patterns, and the
+            # gitignored per-install runtime state files (absent on a clean
+            # checkout by design).
+            if "*" in ref or "<" in ref or "{" in ref or ref in _RUNTIME_STATE_REFS:
                 continue
             if not ref_path.exists():
                 rel_file = ref_file.relative_to(ROOT)
-                warnings.append(f"{rel_file}: broken reference `.ai-engineering/{match.group(1)}`")
+                warnings.append(f"{rel_file}: broken reference `.ai-engineering/{ref}`")
     return warnings
 
 

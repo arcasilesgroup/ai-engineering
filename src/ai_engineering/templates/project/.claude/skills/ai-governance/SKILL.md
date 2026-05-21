@@ -25,7 +25,7 @@ Compliance validation for regulated industries. Default mode is `compliance`. Pi
 
 1. **compliance** — verify quality-gate enforcement (hooks, CI workflows, non-negotiables, security contract).
 2. **ownership** — map files to ownership zones (framework / team / project / system); verify modification history.
-3. **risk** — record / resolve / renew risk acceptances in `state.db.decisions` with severity-based TTL.
+3. **risk** — record / resolve / renew risk acceptances in `decision-store.json` with severity-based TTL.
 4. **integrity** — manifest counters vs disk reality; agent-skill cross-refs; state-file schemas.
 
 > Detail: see [the four modes (compliance/ownership/risk/integrity)](references/modes.md), [OPA policy-engine integration](references/policy-engine.md), [`--report` format and scoring](references/formal-report.md).
@@ -64,7 +64,7 @@ User: "we've reviewed the gitleaks finding and want to accept it for 30 days"
 /ai-governance risk accept
 ```
 
-Records a risk-acceptance entry in `state.db.decisions` with severity-based TTL, mandatory `follow_up_action`, and an audit trail consumed by pre-push.
+Records a risk-acceptance entry in `decision-store.json` with severity-based TTL, mandatory `follow_up_action`, and an audit trail consumed by pre-push.
 
 ## Integration
 
@@ -77,7 +77,7 @@ Records a risk-acceptance entry in `state.db.decisions` with severity-based TTL,
 ## Key Files
 
 - `.ai-engineering/manifest.yml` — governance non-negotiables and quality thresholds.
-- `state/state.db` — risk acceptance records in `decisions` table (spec-124 D-124-12).
+- `state/decision-store.json` — risk acceptance records (decision records).
 - `.ai-engineering/reference/risk-acceptance-flow.md` — DEC lineage and risk-acceptance lifecycle.
 
 $ARGUMENTS

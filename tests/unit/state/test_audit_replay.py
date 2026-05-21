@@ -1,7 +1,6 @@
-"""Unit tests for ``ai_engineering.state.audit_replay`` (spec-120 T-C5).
+"""Unit tests for ``ai_engineering.state.audit_replay`` (spec-120 T-C5; spec-148).
 
-Covers the public API surface declared in spec-120 §4.4 and the legacy
-event handling documented in the module docstring:
+Covers the public API surface and the legacy event handling:
 
 * :func:`build_span_tree` -- forest assembly with nested children, an
   orphan whose parent is missing, and the session-vs-trace selector.
@@ -10,27 +9,21 @@ event handling documented in the module docstring:
 * :func:`render_json` -- round-trips through ``json.dumps``.
 * :func:`token_rollup` -- sums every node in the visited subtree.
 
-Each test stages its own SQLite via :func:`audit_index.build_index`
-against a tmp NDJSON so the suite is hermetic and never touches the
-project's real audit-index.sqlite.
+spec-148: the span tree is built directly from ``framework-events.ndjson``
+(no SQLite). Each test writes a tmp NDJSON so the suite is hermetic and
+never touches the project's real audit log.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
-import sqlite3
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from ai_engineering.state.audit_index import (
-    NDJSON_REL,
-    build_index,
-    open_index_readonly,
-)
 from ai_engineering.state.audit_replay import (
     SpanNode,
     build_span_tree,
@@ -39,6 +32,7 @@ from ai_engineering.state.audit_replay import (
     token_rollup,
     walk_tree,
 )
+from ai_engineering.state.audit_rollup import NDJSON_REL
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -115,14 +109,13 @@ def _genai_detail(
     }
 
 
-def _seed_db(project_root: Path, events: list[dict[str, Any]]) -> sqlite3.Connection:
-    """Write ``events`` as NDJSON, build the SQLite index, return read-only conn."""
+def _seed_ndjson(project_root: Path, events: list[dict[str, Any]]) -> Path:
+    """Write ``events`` as NDJSON and return the path (spec-148: no SQLite)."""
     target = project_root / NDJSON_REL
     target.parent.mkdir(parents=True, exist_ok=True)
     body = "".join(json.dumps(event, sort_keys=True) + "\n" for event in events)
     target.write_text(body, encoding="utf-8")
-    build_index(project_root, rebuild=True)
-    return open_index_readonly(project_root)
+    return target
 
 
 @pytest.fixture()
@@ -157,11 +150,8 @@ def test_tree_built_from_synthetic_chain(project_root: Path) -> None:
         _make_event(index=3, span_id=span_a_child, parent_span_id=span_a),
         _make_event(index=4, span_id=span_orphan, parent_span_id=missing_parent),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, session_id="session-A")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
 
     assert len(roots) == 2
     # Real root sorts first by ts (index=0); orphan last (index=4).
@@ -187,11 +177,8 @@ def test_dfs_walk_order(project_root: Path) -> None:
         _make_event(index=2, span_id=span_a_child, parent_span_id=span_a),
         _make_event(index=3, span_id=span_b, parent_span_id=span_root),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, session_id="session-A")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
 
     visited = [node.span_id for node in walk_tree(roots)]
     # Pre-order: root, A, A-child, B (A sorts before B by ts).
@@ -205,11 +192,8 @@ def test_orphan_legacy_event_emitted_as_root(project_root: Path) -> None:
         _make_event(index=1, span_id=_hex16("second")),
         _make_event(index=2, span_id=_hex16("third")),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, session_id="session-A")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
 
     assert len(roots) == 3
     assert [r.span_id for r in roots] == [
@@ -245,11 +229,8 @@ def test_token_rollup_sums_subtree(project_root: Path) -> None:
             detail=_genai_detail(input_tokens=30, output_tokens=11, total_tokens=41, cost_usd=0.03),
         ),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, session_id="session-A")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
 
     rollup = token_rollup(roots)
     assert rollup["input_tokens"] == 60
@@ -268,11 +249,8 @@ def test_token_rollup_ignores_missing_usage(project_root: Path) -> None:
             detail=_genai_detail(input_tokens=10, output_tokens=5, total_tokens=15, cost_usd=0.01),
         ),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, session_id="session-A")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
 
     rollup = token_rollup(roots)
     assert rollup["input_tokens"] == 10
@@ -291,18 +269,11 @@ def test_render_json_round_trips(project_root: Path) -> None:
     span_root = _hex16("root")
     span_a = _hex16("A")
     events = [
-        _make_event(
-            index=0,
-            span_id=span_root,
-            detail=_genai_detail(),
-        ),
+        _make_event(index=0, span_id=span_root, detail=_genai_detail()),
         _make_event(index=1, span_id=span_a, parent_span_id=span_root),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, session_id="session-A")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
 
     envelope = render_json(roots)
     serialised = json.dumps(envelope, default=str)
@@ -327,11 +298,8 @@ def test_render_text_indents_by_depth(project_root: Path) -> None:
         _make_event(index=1, span_id=span_a, parent_span_id=span_root),
         _make_event(index=2, span_id=span_a_child, parent_span_id=span_a),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, session_id="session-A")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
 
     text = render_text(roots, color=False)
     lines = text.splitlines()
@@ -350,18 +318,13 @@ def test_render_text_color_wraps_outcome(project_root: Path) -> None:
         _make_event(index=2, span_id=_hex16("warn"), outcome="degraded"),
         _make_event(index=3, span_id=_hex16("plain"), outcome="other"),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, session_id="session-A")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
 
     text = render_text(roots, color=True)
     assert "\033[32m" in text  # green for success
     assert "\033[31m" in text  # red for failure
     assert "\033[33m" in text  # yellow for degraded
-    # Plain outcomes do NOT get an ANSI wrap; the reset escape still
-    # appears for the wrapped lines but ``other`` is not wrapped.
     assert "\033[0m" in text
 
 
@@ -372,14 +335,11 @@ def test_render_text_color_wraps_outcome(project_root: Path) -> None:
 
 def test_build_span_tree_requires_session_or_trace_exclusive(project_root: Path) -> None:
     """Both / neither of session_id / trace_id raises ValueError."""
-    conn = _seed_db(project_root, [_make_event(index=0, span_id=_hex16("only"))])
-    try:
-        with pytest.raises(ValueError, match="exactly one"):
-            build_span_tree(conn, session_id="x", trace_id="y")
-        with pytest.raises(ValueError, match="exactly one"):
-            build_span_tree(conn)
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, [_make_event(index=0, span_id=_hex16("only"))])
+    with pytest.raises(ValueError, match="exactly one"):
+        build_span_tree(ndjson_path, session_id="x", trace_id="y")
+    with pytest.raises(ValueError, match="exactly one"):
+        build_span_tree(ndjson_path)
 
 
 def test_build_span_tree_filters_by_trace_id(project_root: Path) -> None:
@@ -391,22 +351,16 @@ def test_build_span_tree_filters_by_trace_id(project_root: Path) -> None:
         _make_event(index=0, span_id=span_a, trace_id="trace-A"),
         _make_event(index=1, span_id=span_b, trace_id="trace-B"),
     ]
-    conn = _seed_db(project_root, events)
-    try:
-        roots = build_span_tree(conn, trace_id=_hex32("trace-A"))
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, trace_id=_hex32("trace-A"))
     assert len(roots) == 1
     assert roots[0].span_id == span_a
 
 
 def test_build_span_tree_returns_empty_for_unknown_filter(project_root: Path) -> None:
     """Filter that matches nothing returns an empty list (not None)."""
-    conn = _seed_db(project_root, [_make_event(index=0, span_id=_hex16("only"))])
-    try:
-        roots = build_span_tree(conn, session_id="does-not-exist")
-    finally:
-        conn.close()
+    ndjson_path = _seed_ndjson(project_root, [_make_event(index=0, span_id=_hex16("only"))])
+    roots = build_span_tree(ndjson_path, session_id="does-not-exist")
     assert roots == []
 
 

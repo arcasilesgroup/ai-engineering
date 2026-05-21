@@ -18,7 +18,7 @@ edit_policy: generated-do-not-edit
 
 ```
 /ai-explore "where does the install pipeline run hooks?"
-/ai-explore "trace the import chain from cli_factory to state.db"
+/ai-explore "trace the import chain from cli_factory to the durable repository"
 /ai-explore "what files reference the legacy ai_providers schema?"
 ```
 

@@ -4,7 +4,7 @@ The approval handler is the entry point invoked by ``/ai-brainstorm``
 when a spec moves to ``status: approved`` (and ``/ai-plan`` for new
 decisions surfaced during planning). These tests pin the contract that
 every ``D-NNN-NN`` marker in the spec markdown's ``## Decisions``
-section lands in ``state.db.decisions`` exactly once.
+section lands in ``decision-store.json`` exactly once (spec-148 P2).
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from ai_engineering.brainstorm.spec_approval import (
     extract_decisions,
     handle_spec_approval,
 )
-from ai_engineering.state.state_db import list_decisions
+from ai_engineering.state.decision_store_io import list_decision_rows
 
 _SAMPLE_SPEC = """---
 spec: spec-999
@@ -80,11 +80,11 @@ def test_extract_decisions_resolves_rationale(tmp_path: Path) -> None:
 
 
 def test_handle_spec_approval_writes_rows(tmp_path: Path) -> None:
-    """The approval handler UPSERTs every parsed decision into state.db."""
+    """The approval handler UPSERTs every parsed decision into decision-store.json."""
     spec_path = _seed_spec(tmp_path)
     attempted = handle_spec_approval(tmp_path, spec_path)
     assert attempted == 3
-    rows = list_decisions(tmp_path)
+    rows = list_decision_rows(tmp_path)
     decision_ids = sorted(r["decision_id"] for r in rows)
     assert decision_ids == ["D-999-01", "D-999-02", "D-999-03"]
     by_id = {r["decision_id"]: r for r in rows}
@@ -97,19 +97,19 @@ def test_handle_spec_approval_is_idempotent(tmp_path: Path) -> None:
     spec_path = _seed_spec(tmp_path)
     handle_spec_approval(tmp_path, spec_path)
     handle_spec_approval(tmp_path, spec_path)
-    rows = list_decisions(tmp_path)
+    rows = list_decision_rows(tmp_path)
     decision_ids = sorted(r["decision_id"] for r in rows)
     # Still exactly three -- not six.
     assert decision_ids == ["D-999-01", "D-999-02", "D-999-03"]
 
 
 def test_handle_spec_approval_returns_zero_when_missing(tmp_path: Path) -> None:
-    """A missing spec.md yields zero rows attempted and no state.db rows."""
+    """A missing spec.md yields zero rows attempted and no decision-store.json rows."""
     missing = tmp_path / ".ai-engineering" / "specs" / "spec.md"
     attempted = handle_spec_approval(tmp_path, missing)
     assert attempted == 0
-    # list_decisions returns [] when state.db has no rows.
-    assert list_decisions(tmp_path) == []
+    # list_decision_rows returns [] when the store file is absent.
+    assert list_decision_rows(tmp_path) == []
 
 
 def test_extract_decisions_ignores_non_decisions_section(tmp_path: Path) -> None:

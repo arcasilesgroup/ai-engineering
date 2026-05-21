@@ -12,14 +12,14 @@ Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
 identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
 (3) consult [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
 for the canonical store of each datum (decisions live in spec markdown;
-the `state.db.decisions` cache is populated after `ai-eng decision
+the `decision-store.json` cache is populated after `ai-eng decision
 backfill` or `/ai-brainstorm` approval per spec-138 M3 follow-up);
 (4) no implementation without an approved spec — invoke
 `/ai-brainstorm` first when a task has no spec.
 
 See [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-the four-tier model (NDJSON audit, SQLite `state.db`, JSON/YAML
-config, Markdown) and the SSOT-PD rebuild semantics.
+the three-tier files-only model (NDJSON audit, JSON/YAML
+records+config, Markdown) and the SSOT-PD rebuild semantics.
 
 ## Operating Mindset (§1–§9 condensed)
 
@@ -76,10 +76,13 @@ equivalent.
 
 ## Agents (9)
 
-The 9 first-class agents are listed in
-`.ai-engineering/manifest.yml` under `agents.registry` and documented at
-`.claude/agents/ai-<name>.md`. Each runs in its own context window —
-offload research and parallel analysis to them.
+The 9 user-facing agents are defined at
+`.claude/agents/ai-<name>.md` — that directory is the source of truth
+(there is no `agents.registry` manifest key). `.claude/agents/` also
+holds the internal review and verifier families (`review-*`,
+`reviewer-*`, `verifier-*`) dispatched by `/ai-review` and `/ai-verify`;
+those are not part of the user-facing 9. Each agent runs in
+its own context window — offload research and parallel analysis to them.
 
 ## Source of Truth
 
@@ -91,7 +94,7 @@ offload research and parallel analysis to them.
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
 | CLI | `ai-eng <command>` |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |
-| Decisions | `.ai-engineering/state/state.db` `decisions` table |
+| Decisions | `.ai-engineering/state/decision-store.json` |
 | Config | `.ai-engineering/manifest.yml` |
 | Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
 
@@ -124,7 +127,7 @@ Non-negotiable rules per commit, push, and risk-acceptance decision:
    canonical writable store. Derived caches are explicitly labelled
    (named, with a rebuild command) and rebuildable on demand. See
    [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-   the four-tier model and the rebuild semantics.
+   the three-tier files-only model and the rebuild semantics.
 
 ## 14–16. Pointer rows
 
@@ -196,6 +199,16 @@ AIENG_RUNTIME_ROTATE_THROTTLE_SEC   # default 3600 (1 hour throttle)
 AIENG_NDJSON_MAX_LINES              # default 100000 (rotation signal line cap)
 AIENG_NDJSON_MAX_BYTES              # default 52428800 (rotation signal byte cap; 50 MiB)
 
+# spec-147 G2 — escape-hatch toggles + overrides (behavior-changing; unset = the safe/standard path)
+AIENG_RALPH_DISABLED                # set "1" to disable the Ralph Stop-loop guard
+AIENG_RISK_ACCUMULATOR_DISABLED     # set "1" to disable the risk accumulator
+AIENG_INSTINCT_BATCH_DISABLED       # set "1" to disable instinct batch extraction
+AIENG_TELEMETRY_DEBUG               # set "1" to enable verbose telemetry logging
+AIENG_HOOK_ENGINE                   # override the detected IDE engine (unset -> claude_code)
+AIENG_HOOK_ENGINE_DEFAULT           # fallback engine label when none is detected (unset -> unknown)
+AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; override the event-payload sidecar-offload threshold
+AIE_MCP_HEALTH_FAIL_OPEN            # set "1" to make the MCP health gate pass-through instead of blocking -- SECURITY RISK: disables a blocking gate
+
 # Reserved roadmap — not implemented
 AIENG_HOST_PREFLIGHT_DISABLED       # reserved spec-139 M2
 AIENG_HOST_PREFLIGHT_MIN_FREE_MB    # reserved spec-139 M2
@@ -246,13 +259,11 @@ engram setup gemini_cli     # Gemini CLI
 GitHub Copilot is not currently supported by Engram. Verify the
 integration with `ai-eng doctor`.
 
-## Audit Observability (spec-120)
+## Audit Observability (files-only)
 
 ```bash
-ai-eng audit index                       # build / refresh the SQLite projection
-ai-eng audit query "SELECT ..."          # read-only SQL over the index
-ai-eng audit tokens --by skill|agent|session   # token rollup
-ai-eng audit replay --session <id>       # depth-first span-tree walk
-ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope
+ai-eng audit verify                            # verify the framework-events.ndjson hash chain
+ai-eng audit tokens --by skill|agent|session   # token rollup over the NDJSON
+ai-eng audit replay --session <id>             # depth-first span-tree walk over the NDJSON
 ```
 <!-- ide-extras:end -->

@@ -1,145 +1,134 @@
 ---
-spec: spec-146
-title: Framework Simplification — Less is More
+spec: spec-148
+title: Files-only persistence + obvious-by-default conventions
 status: approved
 effort: large
-summary: Make ai-engineering smaller and safer by fixing update ownership reads first, reconciling persistence docs, pruning only evidence-proven dead surfaces, and documenting implemented tunables without broad state migrations.
-source_brief: .ai-engineering/specs/drafts/framework-simplification-less-is-more-brief.md
-pr: arcasilesgroup/ai-engineering#530
+summary: "Retire embedded SQLite (state.db) for files-only persistence — JSON records, append-only hash-chained NDJSON audit, Markdown docs — and land the obvious-by-default conventions carried from spec-147. Supersedes spec-147 Waves 2b-5; all on PR #532."
+supersedes: [spec-147 D-147-09, spec-147 D-147-10, spec-147 D-147-11, spec-147 D-147-12, spec-147 D-147-13, spec-147 D-147-14, spec-147 D-147-15, spec-147 D-147-16, spec-147 D-147-17]
 ---
-# Spec 146 - Framework Simplification — Less is More
+
+# Spec 148 — Files-only persistence + obvious-by-default conventions
 
 ## Summary
 
-The framework has accumulated complexity in three connected places — `ai-eng update` still loads ownership from a removed JSON sidecar, persistence docs describe some state tables too broadly, and cleanup candidates span `.ai-engineering/` data files, tunables docs, and Python modules with uneven caller evidence. This spec chooses a conservative less-is-more path — fix the operator-visible ownership bug first, align the persistence contract table by table, then delete or inline only surfaces proven non-load-bearing by inventory, tests, and CHANGELOG-backed hard-delete documentation.
+Two threads land together on PR #532, both serving the "obvious by default" thesis. **(A) Files-only persistence:** `ai-engineering`'s embedded SQLite `state.db` (11 tables, 9 migrations) is over-engineering for its scale — kilobyte data, single-writer, read-whole, mtime-cached — and a cross-OS hot-path liability (Windows WAL holds locks beyond `close()`; two hooks read `state.db` live). Six of eleven tables are already derived/dead/orphaned; the rest already have file counterparts (`decision-store.json`, `ownership-map.json` is even read first today, `framework-events.ndjson`, `gate-findings.json`). This spec retires `state.db` entirely: each datum gets one file SoT (JSON / append-only hash-chained NDJSON / Markdown), the migration runner and `state_db.py` are deleted, and the SQLite-backed `audit query`/`index` are dropped (rollups recomputed over NDJSON). **(B) Obvious-by-default conventions** carried from spec-147 (its Waves 3-5, never executed): de-collide colliding skill triggers, collapse to one branch-cleanup, make the quality-loop STOP deterministic + tag findings by method, and CI-enforce §10.x citation / naming grammar / suppression DEC-binding with dry-run-by-default destructive verbs. This spec supersedes spec-147 Waves 2b-5; spec-147 keeps only its shipped Waves 1 + 2a (on #532).
 
 ## Goals
 
-- Fix `ai-eng update` so deny/team/operator ownership rows in `state.db.ownership_map` block create/update decisions, including the case where an operator deletes a denied file and update must leave it absent.
-- Add tested ownership read helpers that expose both raw SQLite rows and the updater-ready `OwnershipMap` view, with a one-time legacy JSON fallback only when SQLite has no rows.
-- Reconcile `docs/persistence-doctrine.md` and `src/ai_engineering/state/state_db.py` so each `state.db` table is classified as canonical lifecycle state, derived cache, or transitional/placeholder state.
-- Keep `gate-findings.json` as the canonical gate/risk/verify artifact for this spec, and document `state.db.gate_findings` as non-primary placeholder/transitional state rather than migrating consumers now.
-- Clean `.ai-engineering/` data surfaces by removing byte-identical duplicates, dead state artifacts, and duplicate learning files only after link, hook, and policy evidence proves the target store.
-- Replace stale tunables documentation with implemented default-bearing entries, and reserve genuinely unimplemented host-preflight/budget-profile variables in one clearly labelled roadmap block or remove them.
-- Run a caller inventory across `src/`, `tests/`, `tools/`, hooks, templates, docs, and specs before deleting or inlining Python modules.
-- Preserve `trace_context.py`, `capabilities.py`, and other production-used state modules unless replacement tests prove observability and manifest-coherence behavior survives.
-- Split or shrink oversized facades and registry modules only when it reduces behavior-free indirection without adding compatibility shims.
-- Document every hard delete under `CHANGELOG.md` `Removed`, keep hot-path budgets green, and avoid deleting tests solely to make simplification appear successful.
+- **G1 — No SQLite anywhere.** `state.db`, `state_db.py`, the migration runner, and migrations `0001`–`0008` are deleted; no framework code imports `sqlite3`. CI asserts the absence.
+- **G2 — One file SoT per datum.** decisions → `decision-store.json`; ownership → `ownership-map.json`; risk → decision records (the `risk_acceptances` table is dead, zero writers); install → `install-state.json` (writable, = current `InstallState` Pydantic dump); tool capabilities → `framework-capabilities.json` (rebuilt on demand); events → `framework-events.ndjson`; gate findings → `gate-findings.json`. No dual-write, no derived SQLite cache.
+- **G3 — Tamper-evidence stays in the file.** The SHA-256 hash chain lives inside `decision-store.json` and `framework-events.ndjson`; `ai-eng audit verify` verifies both file chains. No SQL table is needed for integrity.
+- **G4 — Hooks read files, not SQLite.** `runtime-stop.py`, `runtime-session-end.py`, `session_bootstrap.py` (+ templates) drop all `sqlite3`/`state.db` access; rollups/counts come from NDJSON / JSON. Removes the Windows-WAL hot-path liability.
+- **G5 — `audit` reshaped, not broken.** `audit query` + `audit index` removed; `audit tokens`/`replay`/`otel-export` reimplemented as NDJSON scans; `audit verify` unchanged. Existing installs migrate once (export → verify → delete `state.db`).
+- **G6 — One obvious surface per task.** No skill trigger phrase routes ambiguously; exactly one branch-cleanup implementation; surface count unchanged (no folds).
+- **G7 — Deterministic "done".** The quality-loop STOP verdict is reproducible for an identical diff; every `/ai-verify` finding is tagged `method: deterministic|llm`.
+- **G8 — Conventions enforced, not hoped.** CI enforces §10.x citation in skill Workflows, a documented naming grammar, and suppression DEC-binding; destructive CLI verbs default to dry-run/confirm.
+- **G9 — Truthful docs + clean reversal.** `docs/persistence-doctrine.md` rewritten to files-only; every `state.db` reference in CLAUDE.md/CANONICAL.md + ~26 skills + ~6 agents updated; mirrors regenerated. Every hard-delete/behavior change in CHANGELOG; no shims; the reversal of spec-123/125/132 is explicit.
 
 ## Non-Goals
 
-- Do not create a new branch or PR for this work; it continues on the existing branch and PR named in the references.
-- Do not re-litigate the canonical chain `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`.
-- Do not change `CONSTITUTION.md` hard rules or introduce backwards-compatibility shims for approved deletes/renames.
-- Do not migrate gate findings from JSON to SQLite or remove the placeholder table in this spec; that larger migration requires separate approval if chosen later.
-- Do not delete production-used trace, capability, context, facade, or registry modules based on name/size alone.
-- Do not remove `.ai-engineering/cache/gate/`; it is a bounded cache whose documentation may be corrected.
-- Do not treat overlapping draft briefs as automatically superseded until this spec's final delivered scope is known.
-- Do not rewrite append-only audit history or archived specs to make grep output cleaner.
+- **No change to the event NDJSON schema or the hash-chain algorithm** — only storage changes (drop the SQLite `events` projection; keep the NDJSON SoT + `compute_entry_hash`).
+- **No removal of Tier-3 config files** (`manifest.yml`, `hooks-manifest.json`, `gate-findings.json`, `suppression-allowlist.yml`).
+- **No new query DSL** to replace arbitrary `audit query` SQL — dropped; only fixed NDJSON rollups survive.
+- **No skill folds/deletes/new surfaces** — trigger collisions resolved by description edits + cross-references only (surface count stays).
+- **No re-introduction of a database "for scale"** within this spec (YAGNI).
+- **No touching spec-147 Waves 1/2a** (shipped on #532) — this spec supersedes only spec-147 Waves 2b-5.
 
 ## Decisions
 
-### D-146-01 — Ship a conservative multi-wave simplification, not a deletion spree
+### Part A — Files-only persistence
 
-Promote the consumed brief as one large, evidence-gated simplification spec with five waves — ownership update bug fix, persistence doctrine reconciliation, data-tree cleanup, tunables docs/code reconciliation, and caller-inventory module simplification.
+### D-148-01 — Retire SQLite `state.db` entirely (Option A)
+Delete `state.db` + the SQLite layer (`state_db.py`, `state/migrations/`, `_runner.py`); persist all state in files (JSON / append-only NDJSON / Markdown).
+**Rationale**: Flat files fit our scale (kilobyte, single-writer, read-whole, mtime-cached); SQLite only pays for concurrency/large-indexed/joins we don't have (research [1][2][8][9]) and imposes a cross-OS hot-path liability (Windows WAL, research [10][11][12]). Operator call: SQLite is premature over-engineering here.
 
-**Rationale**: The brief shows one concrete operator-visible bug and several cleanup opportunities with different risk profiles. Shipping the bug fix first preserves operator data intent while later cleanup waits for inventories and tests instead of relying on intuition.
+### D-148-02 — Per-datum file homes (single SoT, no dual-write)
+decisions→`decision-store.json`; ownership→`ownership-map.json` (repo already reads it first); risk→decision records (`risk_acceptances` table is dead); install→`install-state.json`; tool_capabilities→`framework-capabilities.json` (rebuilt on demand); events→`framework-events.ndjson`; gate findings→`gate-findings.json`.
+**Rationale**: 6 of 11 tables already derived/dead/orphaned; the rest already have file counterparts. Files-only collapses split-brain + dual-writes to one obvious store per datum.
 
-### D-146-02 — Ownership helpers expose both raw rows and updater-ready model
+### D-148-03 — Tamper-evidence lives in the file's hash chain
+Keep the SHA-256 chain inside `decision-store.json` + `framework-events.ndjson`; `audit verify` verifies both via `compute_entry_hash`. No SQLite chain table.
+**Rationale**: Append-only ≠ tamper-evident, but a canonical-bytes hash chain IS the zero-dependency tamper-evident pattern, O(n) verify (research [5][6][7]); Merkle is overkill at our scale [4]. Deleting `state.db` loses no integrity guarantee.
 
-Add a raw `state_db.list_ownership_rows(project_root)`-style reader plus a high-level helper or mapper that reconstructs the updater's `OwnershipMap`; use the high-level path in `ai-eng update` and the raw path in diagnostics/tests.
+### D-148-04 — `install-state.json` = current `InstallState` Pydantic dump (resolved OQ)
+Reinstate a writable `install-state.json` whose shape is the serialization of the current `InstallState` Pydantic model (the DB already stored `state_json` = a full Pydantic dump); per-step state rides as a list/sidecar.
+**Rationale**: One source of shape (the live model), no archaeology of the pre-spec-125 schema, no model↔file drift.
 
-**Rationale**: Raw rows keep the SQLite boundary inspectable and useful for doctor/diagnostic flows, while the updater should not duplicate row-to-policy mapping logic. Exposing both is still simpler than preserving the deleted JSON sidecar as the normal read path.
+### D-148-05 — Drop SQLite `audit query`/`index`; rollups over NDJSON (resolved OQ)
+Remove `ai-eng audit query` (arbitrary SELECT) + `audit index`. Reimplement `audit tokens` (rollups by skill/agent/session), `audit replay` (span tree), and `audit otel-export` as direct `framework-events.ndjson` scans. `audit verify` unchanged.
+**Rationale**: The audit found `audit query` is an optional dev surface with no gate/CI/runtime dependents; the stop-hook token rollup is a sum over NDJSON. Keep the useful fixed rollups, drop only the SQL.
 
-### D-146-03 — SQLite ownership is authoritative for update decisions
+### D-148-06 — Hooks drop all SQLite access
+`runtime-stop.py`, `runtime-session-end.py` (no vacuum), `session_bootstrap.py` (+ templates) read NDJSON/JSON, never `state.db`.
+**Rationale**: Removes the Windows-WAL hot-path locking liability from the stdlib-only, cross-IDE, cross-OS hook surface (research [10][11]); mtime-cached file reads have no locking surface.
 
-`_initialize_update_context` must load ownership from `state.db.ownership_map` before evaluating file changes; `ownership-map.json` is a one-time migration fallback only when SQLite has no rows and the sidecar exists.
+### D-148-07 — Collapse repository/service to file-backed wrappers (resolved OQ)
+Keep the `DurableStateRepository`/`StateService` port but back it with file IO (not SQLite); callers' imports unchanged.
+**Rationale**: Preserves the hexagonal port boundary (§10.8) with a smaller blast radius + easier testing than inlining file IO across ~15 call sites.
 
-**Rationale**: The installer already writes ownership rows to SQLite and removes the legacy sidecar. The updater's current sidecar read can therefore recreate files an operator intended to deny, so the canonical lifecycle store must drive update policy.
+### D-148-08 — Installer/update write files, never create `state.db`
+`ai-eng install` writes `install-state.json`/`ownership-map.json`/`decision-store.json`/`framework-capabilities.json`; never creates `state.db`. `ai-eng update` reads `ownership-map.json`.
+**Rationale**: The installer is the origin of `state.db`; files-only requires it to treat the files as canonical.
 
-### D-146-04 — Keep `gate-findings.json` canonical in this spec
+### D-148-09 — One-shot export → verify → delete migration (resolved OQ: no `.bak`)
+`ai-eng update`: if `state.db` exists, export any DB-only data (chiefly `install_state`/`install_steps` + any unmirrored `decisions`) to file homes, VERIFY the export, then delete `state.db`(+`-wal`/`-shm`) directly. Idempotent; no-op when absent; fail-loud (no delete) if export/verify fails.
+**Rationale**: Existing installs hold data only in `state.db`. Export-verify-delete with no backup keeps it clean; the fail-loud verify gate is the safety net (operator chose no `.bak`).
 
-Retain `.ai-engineering/state/gate-findings.json` as the primary gate/risk/verify artifact for this spec. Classify `state.db.gate_findings` as non-primary placeholder/transitional state unless a later spec approves a full consumer migration.
+### D-148-10 — Supersede spec-147 Wave 2 SSOT
+Supersedes spec-147 D-147-09 (decision-store→state.db) + D-147-10 (gate-findings). The reverted spec-147 A1 reader migration is not carried forward (the migrate-then-revert pair was dropped from branch history as a net-zero no-op).
+**Rationale**: spec-147 Wave 2 chose `state.db` as the decision/gate SoT; the files-only pivot inverts that, so the superseded decisions must be named explicitly to keep one canonical store per datum (Hard Rule 7).
 
-**Rationale**: Multiple live paths and tests read/write the JSON artifact today. Migrating gate findings to SQLite is a cross-surface state migration, not necessary to fix ownership or remove obvious dead weight, and would make the simplification spec larger rather than simpler.
+### Part B — Obvious-by-default conventions (carried from spec-147 Waves 3-5, adapted)
 
-### D-146-05 — Gate cache receives documentation, not a new lifecycle
+### D-148-11 — De-collide skill triggers (no folds) [was D-147-11]
+Assign each contested trigger phrase to exactly one skill, others cross-reference: "write a blog post" (ai-prose vs ai-marketing), "pre-release" (ai-verify/ai-governance/ai-security), "architecture" (ai-explore/ai-explain/ai-onboard), "scan for security issues" (ai-verify/ai-security), "implement it"/"implement this" (ai-build gateway vs ai-code subcomponent). Make `ai-spec-draft` visible in the CLAUDE.md §11 chain as the optional pre-step. No merges; surface count unchanged.
+**Rationale**: Anthropic's rule — if a human can't say which skill fires, neither can the agent. Description edits, no behavior loss. Exact phrase→skill assignments settled in `/ai-plan`.
 
-Document `.ai-engineering/cache/gate/` as a bounded ephemeral cache with existing age/count limits and reuse the current clear path if manual cleanup is needed.
+### D-148-12 — One branch-cleanup implementation (hard-rename) [was D-147-12]
+`ai-eng maintenance branch-cleanup` becomes a thin delegation to the richer `ai-eng cleanup branches`; CHANGELOG documents the consolidation; an architecture test asserts a single implementation import. No alias shim.
+**Rationale**: Two entry points + two orchestration paths for one operation violate "one obvious way"; delegation is the DRY fix.
 
-**Rationale**: The brief verifies that the cache already has a TTL and entry cap. Adding a new cleanup subsystem or moving the cache to SQLite would solve a documentation problem with more machinery.
+### D-148-13 — Deterministic STOP authority + method-tagged findings [was D-147-13]
+Deterministic tool signals are the sole auto-STOP authority; the LLM acceptance layer is advisory + operator-confirmable. Every `/ai-verify` finding carries `method: deterministic|llm`. The one LLM-judged element (quality.md Step 2d condition 4) becomes deterministic or advisory-only (cannot silently auto-pass/auto-block). Same diff → same STOP verdict.
+**Rationale**: Bazel-style hermeticity for "done"; the `method` tag lets callers threshold the two classes. (Exploration: the count-threshold STOP is already deterministic; this is the narrow gap.)
 
-### D-146-06 — Data-tree cleanup is content-preserving and policy-aware
+### D-148-14 — CI-enforced §10.x citation in skill Workflows (backfill first) [was D-147-14]
+Backfill the ~22 skills with a `## Workflow` lacking a `§10.x` anchor, then add a CI test (modeled on `test_canonical_events_count.py`) asserting every Workflow section cites `§10.\d`.
+**Rationale**: A convention enforced by hope isn't a convention; failing-first CI is the poka-yoke.
 
-Delete `.ai-engineering/references/` only after links/tests use `.ai-engineering/security/iocs/`; remove dead state files only after grep proves no reader/writer; merge `.ai-engineering/team/lessons.md` into `.ai-engineering/LESSONS.md` before deleting the duplicate learning surface.
+### D-148-15 — Document + CI-lock the naming grammar (zero renames expected) [was D-147-15]
+Codify the already-universal grammar (`ai-` + lowercase-kebab + verb|noun) in `ai-scaffold` + CONSTITUTION.md; CI asserts all skill dirs match. All 53 skills already satisfy it → zero renames; confirm before any rename.
+**Rationale**: Names that don't predict behavior force memorized exceptions (Clean Code). Lock the existing pattern.
 
-**Rationale**: The same-looking files have different policy semantics in the control plane. Less-is-more means one canonical store per datum, not silent loss of team-owned or append-only learning content.
+### D-148-16 — Dry-run-by-default for destructive CLI verbs [was D-147-16]
+`cleanup branches` with no mode flag prints a plan + requires confirmation rather than silently activating `merged=True` + deleting. A test asserts a no-flag invocation deletes nothing.
+**Rationale**: A destructive default with opt-in `--dry-run` is the inverse of the pit-of-success.
 
-### D-146-07 — Tunables docs distinguish implemented defaults from reserved roadmap variables
-
-Update root and template rulebooks so implemented variables (`AIENG_HOOK_CACHE_TTL_SEC`, `AIENG_AUTOFORMAT_DEBOUNCE_SEC`, `AIENG_NDJSON_MAX_LINES`, `AIENG_NDJSON_MAX_BYTES`) show defaults and behavior, while truly unimplemented host-preflight/budget-profile names are either removed or isolated in one explicit reserved block.
-
-**Rationale**: The current docs mark implemented variables as pending, which misleads operators. A small documentation reconciliation preserves the useful knobs and avoids inventing host-admission behavior that prior spec-145 learning already narrowed out.
-
-### D-146-08 — Production-used state modules require replacement plans
-
-Do not delete `trace_context.py`, `capabilities.py`, or `context_packs.py` unless caller inventory plus regression tests prove an equivalent replacement for observability and manifest-coherence behavior.
-
-**Rationale**: These modules have production consumers. Removing them because they look like framework scaffolding would violate KISS by creating hidden breakage and follow-up repair work.
-
-### D-146-09 — Dead/test-only modules can be hard-deleted after inventory
-
-Allow deletion of low-risk candidates such as `agentsview.py`, `outbox.py`, `governance/policy_engine.py`, and `cli_ui_skill_ref.py` only after source, hook, template, doc, and test inventory proves there is no production dependency; update tests and CHANGELOG in the same wave.
-
-**Rationale**: The Constitution forbids compatibility shims, so approved deletes must be direct and documented. The inventory gate prevents downstream-fork insurance and future-scale placeholders from surviving forever while still protecting real callers.
-
-### D-146-10 — Facade flattening is staged by callsite, not dogma
-
-Migrate `StateService` and `DurableStateRepository` callers to explicit helpers only where it removes behavior-free forwarding. Keep useful adapter boundaries until risk, gate, install, doctor, and update callsites have a tested replacement.
-
-**Rationale**: Service classes are not inherently bad; pointless pass-through layers are. A callsite-by-callsite migration avoids an oversized PR and makes each layer removal prove its value.
-
-### D-146-11 — Split oversized installer mechanisms without breaking imports
-
-Split `src/ai_engineering/installer/mechanisms/__init__.py` into mechanism-specific modules or explicitly exempt it with rationale; keep a thin, stable re-export surface during internal migration only when required by existing imports.
-
-**Rationale**: The current module centralizes many mechanism classes for registry use. Splitting improves navigability, but import stability during the same PR is acceptable as an internal migration step, not as a long-term compatibility shim.
-
-### D-146-12 — Overlapping briefs remain related, not automatically superseded
-
-Treat `harness-persistence-strategy`, `less-is-more-quality-engine`, `prune-contexts-docs-research-evals`, and `dx-excellence-refactor` as related context. Mark a draft superseded only after this spec's implementation fully absorbs that draft's scope.
-
-**Rationale**: This spec intentionally narrows broad simplification pressure into evidence-backed waves. Prematurely closing adjacent drafts would hide unresolved work and violate the persistence doctrine's source-of-truth discipline.
+### D-148-17 — Phased suppression DEC-binding [was D-147-17]
+Security-rule suppressions (`nosemgrep_hash`) hard-require a DEC at allowlist load (author the DECs for current entries in this PR); the other 50+ `dec_id: ""` entries warn per-entry until expiry 2026-07-10.
+**Rationale**: Split the security-critical subset (bind now) from the churny backlog (phase to a dated deadline); hard-blocking all at once is a self-inflicted gate outage.
 
 ## Risks
 
-- **Ownership row mapping drift**: SQLite rows may not reconstruct `OwnershipMap` semantics exactly. Mitigation: add roundtrip unit tests for allow/deny/team/append-only rows and an integration test for the denied-missing-file update scenario.
-- **Gate findings ambiguity persists**: Keeping JSON canonical leaves the SQLite placeholder visible. Mitigation: explicitly document the placeholder/non-primary status and add tests that gate/risk/verify continue to read the approved canonical artifact.
-- **Cleanup deletes a hidden consumer**: Hooks, templates, or docs may reference candidates not visible from source imports. Mitigation: require a caller inventory that covers `src/`, `tests/`, `tools/`, `.ai-engineering/scripts/hooks/`, templates, docs, and specs before deletion.
-- **Learning content is lost during merge**: `.ai-engineering/team/lessons.md` and `.ai-engineering/LESSONS.md` may contain overlapping but non-identical rules. Mitigation: content-preserving merge with duplicate detection before deleting either surface.
-- **Tunables docs overcorrect**: Removing or relabelling a variable can break operator expectations. Mitigation: grep exact env names, update docs tests, and keep one explicit reserved block for intentionally future variables.
-- **Facade flattening becomes too large**: Migrating every `StateService`/repository caller in one wave can exceed reviewable scope. Mitigation: plan callsite groups and stop before public API removal if the wave grows past the agreed review size.
-- **Hot-path regression**: New SQLite readers could accidentally move into hooks. Mitigation: keep ownership reads in `ai-eng update`/doctor cold paths and run existing no-SQL-on-hot-path architecture tests.
-- **PR scope confusion**: This spec lands on the existing branch/PR rather than a fresh one. Mitigation: references and handoff notes must name the active PR and distinguish this draft from already archived spec-144 artifacts.
+- **install_state/steps reversal is the hardest piece** (High/High): reinstating writable `install-state.json` reverses spec-125; installer + doctor + readiness change. Mitigation: its own wave with the export migration + a focused installer e2e before touching readers.
+- **No-`.bak` export migration loses data on a partial/corrupt `state.db`** (Low/High): mitigated by the fail-loud verify gate — `state.db` is deleted ONLY after the export verifiably succeeds.
+- **`audit query` removal breaks a hidden dependent** (Low/Med): none gate/CI/runtime-blocking found; CHANGELOG + a fail-loud "removed — use `audit tokens`" stub.
+- **~100-110 files + large mirror/test rewrite** (High/Low): wave-by-datum sequencing, each green before next; mirror regen once per wave.
+- **Cross-OS hook behavior change** (Med/Med): NDJSON scans replace SQLite reads on the hot path. Mitigation: mtime-cached + tail-N bounded to keep <1s/<5s budgets; cross-OS hook tests.
+- **Skill-editing waves overlap (persistence docs + trigger de-collision + §10.x backfill all touch SKILL.md/mirrors)** (Med/Low): sequence the SKILL.md-touching waves to serialize mirror regen.
+- **Reversing three shipped specs (123/125/132)** (Med/Low): doctrine rewrite + CHANGELOG record the rationale (scale never materialized) with research citations.
 
 ## References
 
-- doc: .ai-engineering/specs/drafts/framework-simplification-less-is-more-brief.md
-- pr: arcasilesgroup/ai-engineering#530
-- doc: CONSTITUTION.md (hard-delete/no-shim and SSOT rules)
-- doc: docs/persistence-doctrine.md (four-tier persistence model)
-- doc: .ai-engineering/reference/principles.md (§10.1 KISS, §10.2 YAGNI, §10.3 SOLID, §10.4 DRY, §10.7 Clean Code, §10.8 Hexagonal Architecture)
-- doc: .ai-engineering/specs/archive/spec-138-harness-persistence-strategy.md (persistence doctrine predecessor)
-- doc: .ai-engineering/specs/archive/spec-140-less-is-more-quality-engine.md (quality-surface simplification predecessor)
-- doc: src/ai_engineering/updater/service.py (current update ownership load and file-change evaluation)
-- doc: src/ai_engineering/state/state_db.py (SQLite lifecycle helpers and placeholder notes)
-- doc: src/ai_engineering/policy/orchestrator.py (gate-findings JSON writer)
-- doc: src/ai_engineering/verify/service.py (gate-findings JSON reader)
-- doc: src/ai_engineering/cli_commands/risk_cmd.py (gate-findings JSON risk acceptance)
-- doc: .ai-engineering/scripts/hooks/prompt-injection-guard.py (implemented hook-cache TTL tunable)
-- doc: .ai-engineering/scripts/hooks/auto-format.py (implemented autoformat debounce tunable)
-- doc: .ai-engineering/scripts/hooks/runtime-session-end.py (implemented NDJSON rotation tunables)
+- research: .ai-engineering/runtime/research/sqlite-vs-files-only-persistence-2026-05-21.md
+- doc: docs/persistence-doctrine.md (to be rewritten)
+- doc: spec-147 (Waves 1/2a shipped on PR #532; Waves 2b-5 superseded here)
+- doc: https://twdev.blog/2025/06/fsdb/
+- doc: https://dev.to/veritaschain/building-a-tamper-evident-audit-log-with-sha-256-hash-chains-zero-dependencies-h0b
+- doc: https://sqlite.org/wal.html
+- doc: https://github.com/oven-sh/bun/issues/25964
 
 ## Open Questions
 
-None for spec approval. The six open choices in the consumed brief are resolved by D-146-02, D-146-04, D-146-05, D-146-08, D-146-07, and D-146-12 respectively; implementation may split waves if `/ai-plan` finds the caller-inventory or facade work too large for one PR.
+- **Exact contested-phrase → skill assignments (D-148-11)**: which skill owns each phrase; settled in `/ai-plan`.
+- **`audit otel-export` worth reimplementing over NDJSON vs dropping (D-148-05)**: confirm in `/ai-plan` (low usage).

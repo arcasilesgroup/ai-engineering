@@ -126,8 +126,22 @@ _PATH_REF_PATTERN = re.compile(
 # documented as runtime-only and (b) referenced from at least one
 # canonical skill/agent doc.
 _KNOWN_OPTIONAL_PATHS: set[str] = {
+    # spec-148 files-only: per-install state SoTs are gitignored and created
+    # on demand (install / decision / risk / ownership flows), so docs that
+    # name them must not trip the existence checks. (state.db kept so the
+    # export-migration / CHANGELOG references to the retired DB still pass.)
     "state/state.db",
     ".ai-engineering/state/state.db",
+    "state/decision-store.json",
+    ".ai-engineering/state/decision-store.json",
+    "state/ownership-map.json",
+    ".ai-engineering/state/ownership-map.json",
+    "state/install-state.json",
+    ".ai-engineering/state/install-state.json",
+    "state/framework-capabilities.json",
+    ".ai-engineering/state/framework-capabilities.json",
+    "state/framework-events.ndjson",
+    ".ai-engineering/state/framework-events.ndjson",
 }
 
 # Legacy hardcoded instruction file lists — kept as fallback when

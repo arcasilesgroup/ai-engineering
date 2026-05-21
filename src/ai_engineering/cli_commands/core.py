@@ -296,38 +296,11 @@ def _emit_install_dry_run_plan(
 def _is_reinstall(root: Path) -> bool:
     """Return whether the target already has install state.
 
-    Spec-125: install_state lives in state.db. The presence of state.db
-    plus a populated singleton row is the new reinstall signal. A
-    legacy ``install-state.json`` on disk also counts as an existing
-    install (pre-spec-125 deployments) so the reinstall preview path
-    still fires for upgrade scenarios. Falls back to ``False`` when
-    nothing on disk indicates a previous install.
+    spec-148 P4 (files-only): ``install-state.json`` is the canonical
+    install-completed signal. Its presence means a previous install, so
+    the reinstall preview path fires for upgrade scenarios.
     """
-    state_dir = root / ".ai-engineering" / "state"
-    db_path = state_dir / "state.db"
-    legacy_json = state_dir / "install-state.json"
-
-    if legacy_json.exists():
-        return True
-
-    if not db_path.is_file():
-        return False
-    import sqlite3
-
-    try:
-        conn = sqlite3.connect(db_path, timeout=2)
-        try:
-            tbl = conn.execute(
-                "SELECT 1 FROM sqlite_master WHERE type='table' AND name='install_state'"
-            ).fetchone()
-            if tbl is None:
-                return False
-            row = conn.execute("SELECT 1 FROM install_state WHERE id = 1").fetchone()
-            return row is not None
-        finally:
-            conn.close()
-    except sqlite3.Error:
-        return False
+    return (root / ".ai-engineering" / "state" / "install-state.json").is_file()
 
 
 def _resolve_install_mode(
@@ -1333,8 +1306,9 @@ def _run_focused_doctor_check(root: Path, focused_check: str | None) -> bool:
 
     Supported values:
     * ``hot-path`` -- spec-114 advisory SLO audit (D-114-03).
-    * ``state-db`` -- spec-138 M5.T3 informational state.db health
-      report (always exit 0; never blocks).
+
+    (spec-148 removed ``state-db``: there is no state.db in the files-only
+    model.)
     """
     if focused_check is None:
         return False
@@ -1343,14 +1317,7 @@ def _run_focused_doctor_check(root: Path, focused_check: str | None) -> bool:
 
         run_hot_path_check(root)
         return True
-    if focused_check == "state-db":
-        from ai_engineering.cli_commands.doctor_state_db import run_state_db_check
-
-        run_state_db_check(root)
-        return True
-    raise typer.BadParameter(
-        f"Unknown --check value: {focused_check!r}. Supported: hot-path, state-db."
-    )
+    raise typer.BadParameter(f"Unknown --check value: {focused_check!r}. Supported: hot-path.")
 
 
 def _emit_doctor_json(report: DoctorReport, *, fixable_count: int) -> None:

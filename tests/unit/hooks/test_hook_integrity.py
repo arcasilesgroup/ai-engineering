@@ -121,26 +121,26 @@ def test_load_manifest_busts_cache_on_edit(integ, tmp_path: Path) -> None:
     assert second["a.py"] == _sha("b")
 
 
-def test_default_mode_is_warn(integ, monkeypatch: pytest.MonkeyPatch) -> None:
-    """spec-120 follow-up: default reverted from ``enforce`` to ``warn``.
+def test_default_mode_is_enforce(integ, monkeypatch: pytest.MonkeyPatch) -> None:
+    """spec-147 G1: default is ``enforce`` (fail-closed).
 
-    The enforce default created a chicken-and-egg self-lock during
-    development: editing any hook script changed its SHA, and the next
-    Bash/Edit invocation triggered the hook's own integrity check, which
-    refused to run before the manifest could be regenerated. Default is
-    now ``warn`` for active dev sessions; CI flips to ``enforce`` via
-    explicit ``AIENG_HOOK_INTEGRITY_MODE=enforce``."""
+    The framework that preaches fail-loud must ship a fail-closed
+    default: a hook whose bytes drift from the committed manifest MUST
+    refuse to run rather than warn into a log nobody reads. The dev
+    escape hatch is ``AIENG_HOOK_INTEGRITY_MODE=warn`` (named in the
+    enforce-mode failure hint), used during active hook edits before
+    regenerating the manifest."""
     monkeypatch.delenv("AIENG_HOOK_INTEGRITY_MODE", raising=False)
-    assert integ.integrity_mode() == "warn"
+    assert integ.integrity_mode() == "enforce"
 
 
-def test_unset_env_allows_unenrolled_hook_under_warn(
+def test_unset_env_refuses_unenrolled_hook_under_enforce(
     integ, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Unset env var inherits the warn default — unenrolled hooks pass
-    through with a None reason, matching the lenient developer-machine
-    posture. Enforce mode (CI) tightens this; covered by
-    ``test_enforce_mode_refuses_unenrolled_hook``."""
+    """spec-147 G1: unset env var inherits the ``enforce`` default — an
+    unenrolled hook (not in the manifest) is REFUSED (ok=False) with a
+    non-empty reason. This is the fail-closed posture: a hook the
+    manifest does not vouch for must not run silently."""
     monkeypatch.delenv("AIENG_HOOK_INTEGRITY_MODE", raising=False)
     integ._MANIFEST_CACHE.clear()
     project = tmp_path
@@ -148,13 +148,16 @@ def test_unset_env_allows_unenrolled_hook_under_warn(
     hook.write_text("anything")
     _write_manifest(project, {"other-hook.py": _sha("x")})
     ok, reason = integ.verify_hook_integrity(hook, project)
-    assert ok is True
-    assert reason is None
+    assert ok is False
+    assert reason is not None
 
 
-def test_unrecognised_env_value_falls_back_to_warn(integ, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A typo or stale value (e.g. ``AIENG_HOOK_INTEGRITY_MODE=foo``) falls
-    back to the default ``warn`` mode. Operators who need fail-closed in
-    CI must set the env var explicitly to ``enforce``."""
+def test_unrecognised_env_value_falls_back_to_enforce(
+    integ, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """spec-147 G1: a typo or stale value (e.g.
+    ``AIENG_HOOK_INTEGRITY_MODE=foo``) falls back to the ``enforce``
+    default — an unparseable mode must not silently relax the gate.
+    Operators who want the dev bypass must set ``warn`` explicitly."""
     monkeypatch.setenv("AIENG_HOOK_INTEGRITY_MODE", "not-a-valid-mode")
-    assert integ.integrity_mode() == "warn"
+    assert integ.integrity_mode() == "enforce"

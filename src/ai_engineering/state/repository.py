@@ -40,13 +40,22 @@ class ManifestRepository:
         return load_manifest_config(self.project_root)
 
     def load_raw(self) -> dict[str, Any]:
-        """Load a raw manifest snapshot for compatibility readers."""
+        """Load a raw manifest snapshot for compatibility readers.
+
+        spec-147 G1 T-1.9/1.10: a missing manifest is a legitimate empty
+        snapshot (``{}``); a manifest that EXISTS but cannot be parsed fails
+        loud via :class:`InvalidManifestError` rather than masquerading as
+        an empty one.
+        """
         if not self.manifest_path.is_file():
             return {}
         try:
             data = yaml.safe_load(self.manifest_path.read_text(encoding="utf-8"))
-        except (OSError, yaml.YAMLError):
-            return {}
+        except (OSError, yaml.YAMLError) as exc:
+            from ai_engineering.config.loader import InvalidManifestError
+
+            msg = f"failed to read or parse manifest at {self.manifest_path}: {exc}"
+            raise InvalidManifestError(msg) from exc
         return data if isinstance(data, dict) else {}
 
     def get_partial(self, field_path: str) -> Any | None:
@@ -100,71 +109,26 @@ class DurableStateRepository:
         return load_install_state(self.state_dir)
 
     def load_decisions(self) -> DecisionStore:
-        """Load the decision-store family from the canonical state.db.
+        """Load the decision-store family from ``decision-store.json``.
 
-        spec-132 D-132-08 + spec-133 cleanup: state.db ``decisions`` is
-        the source of truth. ``details_json`` carries the full Pydantic
-        payload (risk_category, severity, finding_id, ...). A row with a
-        valid ``details_json`` is used directly; otherwise the row's
-        scalar columns synthesize a minimal Decision. Returns the
-        default empty store when state.db has no rows.
+        spec-148 P2 (files-only): ``decision-store.json`` is the single
+        source of truth — it already carries the optional per-entry hash
+        chain verified by ``ai-eng audit verify``. Returns the default
+        empty store when the file is absent (first install / fresh repo).
         """
-        import json as _json
+        if not self.decision_store_path.exists():
+            from ai_engineering.state.defaults import default_decision_store
 
-        from ai_engineering.state.defaults import default_decision_store
-        from ai_engineering.state.models import Decision
-        from ai_engineering.state.state_db import list_full_decisions
-
-        rows = list_full_decisions(self.project_root)
-        if not rows:
             return default_decision_store()
-
-        decisions: list[Decision] = []
-        for row in rows:
-            payload = row.get("details_json")
-            if payload:
-                try:
-                    decisions.append(Decision.model_validate_json(payload))
-                    continue
-                except (ValueError, _json.JSONDecodeError):
-                    pass
-            # Fallback: synthesise a Decision from the scalar columns
-            # (backfill rows have no details_json blob).
-            try:
-                decisions.append(
-                    Decision.model_validate(
-                        {
-                            "id": row["decision_id"],
-                            "context": row.get("context") or "",
-                            "decision": row.get("title") or "",
-                            "decidedAt": row.get("created_at"),
-                            "spec": row.get("spec_id") or "",
-                            "status": row.get("status") or "active",
-                            "expiresAt": row.get("expires_at"),
-                        }
-                    )
-                )
-            except (ValueError, TypeError):
-                continue
-
-        store = default_decision_store()
-        store.decisions = decisions
-        return store
+        return read_json_model(self.decision_store_path, DecisionStore)
 
     def save_decisions(self, store: DecisionStore) -> None:
-        """Persist the decision-store to state.db AND the legacy JSON mirror.
+        """Persist the decision-store to ``decision-store.json`` (sole SoT).
 
-        spec-132 D-132-08 + spec-133 cleanup: state.db ``decisions`` is
-        canonical (``load_decisions`` reads from there). The legacy
-        ``decision-store.json`` mirror remains until the 12 outstanding
-        Decision view-model callers (risk_cmd, gate, maintenance,
-        installer, policy.orchestrator) are migrated — tracked in a
-        separate spec. Tests that inspect the JSON directly continue to
-        work without modification.
+        spec-148 P2 (files-only): the SQLite ``decisions`` dual-write is
+        gone; this is the only durable write path for decisions and risk
+        acceptances.
         """
-        from ai_engineering.state.state_db import upsert_decision_rows
-
-        upsert_decision_rows(self.project_root, store)
         write_json_model(self.decision_store_path, store)
 
     def load_ownership(self) -> OwnershipMap:
@@ -185,82 +149,25 @@ class DurableStateRepository:
         write_json_model(self.ownership_map_path, ownership)
 
     def load_framework_capabilities(self) -> FrameworkCapabilitiesCatalog:
-        """Load the framework-capabilities derived projection.
+        """Load the framework-capabilities catalog from ``framework-capabilities.json``.
 
-        Spec-125: the catalog moved from
-        ``framework-capabilities.json`` to the ``tool_capabilities``
-        singleton row in state.db. Reads now go through the state.db
-        connection helpers; the JSON path is no longer authoritative.
+        spec-148 P4 (files-only): the catalog is a rebuildable-on-demand
+        file projection (reverses the spec-125 move into the state.db
+        ``tool_capabilities`` row). Returns an empty catalog when the file
+        is absent.
         """
-        from ai_engineering.state.state_db import connect
-
-        conn = connect(self.project_root, read_only=False, apply_migrations=None)
-        try:
-            row = conn.execute("SELECT catalog_json FROM tool_capabilities WHERE id = 1").fetchone()
-        finally:
-            conn.close()
-        if row is None:
+        if not self.framework_capabilities_path.exists():
             return FrameworkCapabilitiesCatalog()
-        raw = row[0] if not hasattr(row, "keys") else row["catalog_json"]
-        if not raw:
-            return FrameworkCapabilitiesCatalog()
-        return FrameworkCapabilitiesCatalog.model_validate_json(raw)
+        return read_json_model(self.framework_capabilities_path, FrameworkCapabilitiesCatalog)
 
     def save_framework_capabilities(self, catalog: FrameworkCapabilitiesCatalog) -> None:
-        """Save the framework-capabilities derived projection.
+        """Save the framework-capabilities catalog to ``framework-capabilities.json``.
 
-        Spec-125: routes through the canonical state.db UPSERT in
-        :func:`ai_engineering.state.observability.write_framework_capabilities`
-        helper logic. Implemented inline here to avoid circular imports
-        between repository <-> observability.
+        spec-148 P4 (files-only): the only durable write path for the
+        catalog. Rebuild it with
+        :func:`ai_engineering.state.observability.write_framework_capabilities`.
         """
-        import json as _json
-        from datetime import UTC as _UTC
-        from datetime import datetime as _datetime
-
-        from ai_engineering.state.state_db import connect, projection_write
-
-        # Lazy bootstrap so a fresh state.db has the
-        # ``tool_capabilities`` table before the UPSERT.
-        _bootstrap = connect(self.project_root, read_only=False, apply_migrations=None)
-        _bootstrap.close()
-
-        payload = catalog.model_dump(mode="json", by_alias=True)
-        schema_version = str(payload.get("schemaVersion", "1.0"))
-        generated_at = payload.get("generatedAt", "")
-        if not isinstance(generated_at, str):
-            generated_at = str(generated_at)
-        agents = payload.get("agents") or []
-        skills = payload.get("skills") or []
-        cards = payload.get("capabilityCards") or []
-        catalog_json = _json.dumps(payload, sort_keys=True, separators=(",", ":"))
-        updated_at = _datetime.now(_UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
-        with projection_write(self.project_root) as conn:
-            conn.execute(
-                """
-                INSERT INTO tool_capabilities
-                  (id, schema_version, generated_at, agents_count,
-                   skills_count, capability_cards_count, catalog_json, updated_at)
-                VALUES (1, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                  schema_version          = excluded.schema_version,
-                  generated_at            = excluded.generated_at,
-                  agents_count            = excluded.agents_count,
-                  skills_count            = excluded.skills_count,
-                  capability_cards_count  = excluded.capability_cards_count,
-                  catalog_json            = excluded.catalog_json,
-                  updated_at              = excluded.updated_at
-                """,
-                (
-                    schema_version,
-                    generated_at,
-                    len(agents),
-                    len(skills),
-                    len(cards),
-                    catalog_json,
-                    updated_at,
-                ),
-            )
+        write_json_model(self.framework_capabilities_path, catalog)
 
     def append_framework_event(self, entry: FrameworkEvent) -> None:
         """Append a framework event through the existing observability writer."""

@@ -1,11 +1,10 @@
-"""Span tree builder + walker for the SQLite audit index (spec-120 §4.4).
+"""Span tree builder + walker over the NDJSON audit log (spec-120 §4.4; spec-148).
 
-Reads rows from the ``events`` table maintained by
-:mod:`ai_engineering.state.audit_index` and reconstructs the per-trace
-or per-session span tree that the linear NDJSON stream encodes via
-``parentSpanId``. Provides text/JSON renderers and a token rollup for
-the walk so the ``ai-eng audit replay`` CLI can present a session as a
-human-readable, indented sequence of nested events.
+Reads events directly from ``framework-events.ndjson`` (no SQLite) and
+reconstructs the per-trace or per-session span tree that the linear
+NDJSON stream encodes via ``parentSpanId``. Provides text/JSON renderers
+and a token rollup for the walk so the ``ai-eng audit replay`` CLI can
+present a session as a human-readable, indented sequence of nested events.
 
 Public API
 ----------
@@ -33,15 +32,18 @@ by ``ts_unix_ms``. Orphan events whose ``parent_span_id`` points at a
 ``span_id`` that is NOT present in the result set are likewise treated
 as roots so the forensic surface stays complete.
 
-Stdlib-only by design (``sqlite3`` + ``json`` + ``dataclasses``). No
+Stdlib-only by design (``json`` + ``hashlib`` + ``dataclasses``). No
 third-party dependencies.
 """
 
 from __future__ import annotations
 
-import sqlite3
+import hashlib
+import json
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 # ---------------------------------------------------------------------------
@@ -62,31 +64,8 @@ _KIND_WIDTH = 24
 _COMPONENT_WIDTH = 32
 _OUTCOME_WIDTH = 7
 
-# SQL columns selected for span-tree construction. Keeping the projection
-# explicit keeps the contract with audit_index.py honest -- if the schema
-# adds a column we want, this list is the only place to update.
-_EVENT_COLUMNS = (
-    "span_id",
-    "trace_id",
-    "parent_span_id",
-    "correlation_id",
-    "session_id",
-    "timestamp",
-    "ts_unix_ms",
-    "engine",
-    "kind",
-    "component",
-    "outcome",
-    "source",
-    "prev_event_hash",
-    "genai_system",
-    "genai_model",
-    "input_tokens",
-    "output_tokens",
-    "total_tokens",
-    "cost_usd",
-    "detail_json",
-)
+# spec-148: the span tree is built directly from framework-events.ndjson
+# (see `_event_to_row`); no SQLite projection / column list is needed.
 
 
 # ---------------------------------------------------------------------------
@@ -132,48 +111,113 @@ class SpanNode:
 # ---------------------------------------------------------------------------
 
 
-def _row_to_dict(row: sqlite3.Row | tuple[Any, ...]) -> dict[str, Any]:
-    """Normalise a SQLite row into a column-keyed dict.
+def _iter_events(ndjson_path: Path) -> Iterator[dict[str, Any]]:
+    """Yield parsed event dicts from the NDJSON log; skip malformed lines."""
+    try:
+        text = ndjson_path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(event, dict):
+            yield event
 
-    Tolerates both ``sqlite3.Row`` (which behaves like a mapping when the
-    connection has its row factory set) and a plain tuple (the default).
-    Tests that build SpanNodes by hand can pass any dict that satisfies
-    the schema -- this helper is only used on the SQL boundary.
+
+def _iso_to_unix_ms(timestamp: str) -> int:
+    """Parse an ISO-8601 timestamp to epoch milliseconds; 0 on miss."""
+    if not timestamp:
+        return 0
+    try:
+        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return 0
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=UTC)
+    return int(dt.timestamp() * 1000)
+
+
+def _event_to_row(event: dict[str, Any]) -> dict[str, Any]:
+    """Map an NDJSON event to the column-keyed row build_span_tree expects.
+
+    spec-148: replaces the SQLite ``events`` projection. Mirrors the field
+    derivation audit_index used — a synthetic span_id for legacy events
+    lacking ``spanId``; tokens read from ``detail.genai.usage``.
     """
-    if isinstance(row, dict):
-        return dict(row)
-    keys_callable = getattr(row, "keys", None)
-    if keys_callable is not None:
-        # sqlite3.Row exposes column names via ``.keys()`` and indexes by
-        # name -- iteration yields values, so we can't use ``key in row``.
-        return {key: row[key] for key in keys_callable()}
-    # Plain tuple path -- pair positionally with the column projection used
-    # in :func:`_fetch_rows`.
-    return dict(zip(_EVENT_COLUMNS, row, strict=True))
+    span_raw = event.get("spanId") or event.get("span_id")
+    if isinstance(span_raw, str) and span_raw:
+        span_id = span_raw
+    else:
+        canonical = json.dumps(
+            event, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+        ).encode("utf-8")
+        span_id = "synthetic:" + hashlib.sha256(canonical).hexdigest()[:24]
+
+    detail = event.get("detail")
+    detail = detail if isinstance(detail, dict) else {}
+    genai = detail.get("genai")
+    genai = genai if isinstance(genai, dict) else {}
+    usage = genai.get("usage")
+    usage = usage if isinstance(usage, dict) else {}
+    request = genai.get("request")
+    request = request if isinstance(request, dict) else {}
+    timestamp = event.get("timestamp")
+    timestamp = timestamp if isinstance(timestamp, str) else ""
+
+    def _s(value: Any) -> str | None:
+        return value if isinstance(value, str) and value else None
+
+    def _i(value: Any) -> int | None:
+        return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+    def _f(value: Any) -> float | None:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return float(value)
+        return None
+
+    return {
+        "span_id": span_id,
+        "parent_span_id": _s(event.get("parentSpanId") or event.get("parent_span_id")),
+        "trace_id": _s(event.get("traceId")),
+        "session_id": _s(event.get("sessionId")),
+        "timestamp": timestamp,
+        "ts_unix_ms": _iso_to_unix_ms(timestamp),
+        "kind": _s(event.get("kind")) or "unknown",
+        "component": _s(event.get("component")) or "unknown",
+        "outcome": _s(event.get("outcome")) or "unknown",
+        "genai_system": _s(genai.get("system")),
+        "genai_model": _s(request.get("model")),
+        "input_tokens": _i(usage.get("input_tokens")),
+        "output_tokens": _i(usage.get("output_tokens")),
+        "total_tokens": _i(usage.get("total_tokens")),
+        "cost_usd": _f(usage.get("cost_usd")),
+    }
 
 
-def _fetch_rows(
-    conn: sqlite3.Connection,
+def _fetch_rows_ndjson(
+    ndjson_path: Path,
     *,
     session_id: str | None,
     trace_id: str | None,
 ) -> list[dict[str, Any]]:
-    """Run the filtered SELECT and return rows as column-keyed dicts.
+    """Read NDJSON and return rows matching the session_id / trace_id filter.
 
-    Exactly one of ``session_id`` / ``trace_id`` is set when this is
-    called -- :func:`build_span_tree` validates that contract before us.
-    Rows are returned in arbitrary order; sorting happens during tree
-    assembly so children land in their parent's ts_unix_ms-ascending list.
+    Exactly one of ``session_id`` / ``trace_id`` is set when this is called
+    -- :func:`build_span_tree` validates that contract before us.
     """
-    columns = ", ".join(_EVENT_COLUMNS)
-    if session_id is not None:
-        sql = f"SELECT {columns} FROM events WHERE session_id = ?"
-        params: tuple[Any, ...] = (session_id,)
-    else:
-        sql = f"SELECT {columns} FROM events WHERE trace_id = ?"
-        params = (trace_id,)
-    cur = conn.execute(sql, params)
-    return [_row_to_dict(row) for row in cur.fetchall()]
+    rows: list[dict[str, Any]] = []
+    for event in _iter_events(ndjson_path):
+        row = _event_to_row(event)
+        if (session_id is not None and row["session_id"] == session_id) or (
+            trace_id is not None and row["trace_id"] == trace_id
+        ):
+            rows.append(row)
+    return rows
 
 
 def _ts_unix_ms_or_zero(event: dict[str, Any]) -> int:
@@ -250,7 +294,7 @@ def _color_outcome(outcome: str) -> str:
 
 
 def build_span_tree(
-    conn: sqlite3.Connection,
+    ndjson_path: Path,
     *,
     session_id: str | None = None,
     trace_id: str | None = None,
@@ -275,9 +319,8 @@ def build_span_tree(
 
     Parameters
     ----------
-    conn:
-        A live :class:`sqlite3.Connection` -- typically returned by
-        :func:`audit_index.open_index_readonly`.
+    ndjson_path:
+        Path to ``framework-events.ndjson`` (the single source of truth).
     session_id:
         Filter on the ``session_id`` column. Mutually exclusive with
         ``trace_id``. Passing both / neither raises :class:`ValueError`.
@@ -299,7 +342,7 @@ def build_span_tree(
     if (session_id is None) == (trace_id is None):
         raise ValueError("build_span_tree requires exactly one of session_id / trace_id")
 
-    rows = _fetch_rows(conn, session_id=session_id, trace_id=trace_id)
+    rows = _fetch_rows_ndjson(ndjson_path, session_id=session_id, trace_id=trace_id)
     if not rows:
         return []
 

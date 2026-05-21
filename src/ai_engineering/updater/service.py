@@ -41,19 +41,18 @@ from ai_engineering.reconciler import (
     ResourceReconciler,
 )
 from ai_engineering.state.defaults import default_ownership_map
-from ai_engineering.state.io import read_json_model
 from ai_engineering.state.models import (
     InstallState,
     OwnershipEntry,
     OwnershipMap,
 )
 from ai_engineering.state.observability import emit_framework_operation
+from ai_engineering.state.repository import DurableStateRepository
 from ai_engineering.state.service import (
     load_install_state,
     remove_legacy_audit_log,
     save_install_state,
 )
-from ai_engineering.state.state_db import load_ownership_map, upsert_ownership_rows
 
 logger = logging.getLogger(__name__)
 
@@ -280,7 +279,7 @@ class _UpdateAdapter:
             _apply_orphan_deletions(payload.orphan_changes, self._target)
 
         if payload.rules_added:
-            upsert_ownership_rows(self._target, payload.ownership)
+            DurableStateRepository(self._target).save_ownership(payload.ownership)
 
         removed_legacy_dirs = _migrate_legacy_dirs(self._target, payload.ai_eng_dir)
         legacy_audit_log_removed = remove_legacy_audit_log(self._target)
@@ -402,16 +401,10 @@ def _initialize_update_context(
     ai_eng_dir = target / _AI_ENGINEERING_DIR
     state_dir = ai_eng_dir / "state"
 
+    # spec-148 P3 (files-only): ownership-map.json is the single SoT,
+    # read through the durable repository (default empty when absent).
     ownership_path = state_dir / "ownership-map.json"
-    ownership = load_ownership_map(target)
-    loaded_legacy_ownership = False
-    if not ownership.paths and ownership_path.exists():
-        ownership = read_json_model(ownership_path, OwnershipMap)
-        loaded_legacy_ownership = True
-
-    if loaded_legacy_ownership and not dry_run:
-        upsert_ownership_rows(target, ownership)
-        ownership_path.unlink(missing_ok=True)
+    ownership = DurableStateRepository(target).load_ownership()
 
     if not dry_run:
         _migrate_install_manifest(ai_eng_dir)
@@ -459,6 +452,16 @@ def update(
     Returns:
         UpdateResult with details of all changes.
     """
+    if not dry_run:
+        # spec-148 P5 (D-148-09): one-shot migration — ingest a legacy
+        # state.db into the canonical file stores, VERIFY, then delete it
+        # (fail-loud, no .bak). Runs before the reconciler reads state so the
+        # exported install-state/decisions/ownership are visible. Idempotent:
+        # a no-op once state.db is gone.
+        from ai_engineering.updater.state_db_export import migrate_state_db_to_files
+
+        migrate_state_db_to_files(target)
+
     adapter = _UpdateAdapter(target, dry_run=dry_run)
     run = ResourceReconciler().run(adapter, target, preview=dry_run)  # ty:ignore[invalid-argument-type]
 

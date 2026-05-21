@@ -2,13 +2,13 @@
 
 Provides ``ai-eng decision list``, ``ai-eng decision expire-check``,
 ``ai-eng decision record``, and ``ai-eng decision backfill`` for
-managing the canonical ``decisions`` table in ``state.db``.
+managing the canonical decision store.
 
-Per CLAUDE.md §0 bootstrap, ``state.db decisions`` is the source of
-truth (D-132-08 wave; legacy ``decision-store.json`` is deprecated).
-These commands read and write the SQL table directly via
-``state_db.list_decisions`` and ``state_db.upsert_decision_rows_raw``;
-no Pydantic shape is reconstructed for the CLI surface.
+spec-148 P2 (files-only): ``decision-store.json`` is the single source
+of truth. These commands read and write it through the file-backed
+``decision_store_io`` adapter (``list_decision_rows`` /
+``upsert_decision_rows_raw``), which maps the flat CLI row vocabulary
+onto the canonical ``Decision`` model.
 """
 
 from __future__ import annotations
@@ -22,12 +22,12 @@ import typer
 
 from ai_engineering.cli_ui import error, header, info, status_line, success
 from ai_engineering.paths import find_project_root
-from ai_engineering.state.observability import emit_control_outcome
-from ai_engineering.state.state_db import (
-    list_decisions,
-    state_db_path,
+from ai_engineering.state.decision_store_io import (
+    decision_store_path,
+    list_decision_rows,
     upsert_decision_rows_raw,
 )
+from ai_engineering.state.observability import emit_control_outcome
 
 # Canonical regex for governance decision IDs: ``D-<spec>-<NN>[a-z]?``.
 # Examples: D-127-11, D-131-09b, D-131-09. Matches three-digit specs (100+).
@@ -35,9 +35,9 @@ _DECISION_ID_RE = re.compile(r"\bD-(?P<spec>\d{3})-(?P<num>\d{2}[a-z]?)\b")
 
 
 def decision_list() -> None:
-    """List all decisions in the canonical state.db ``decisions`` table."""
+    """List all decisions from the canonical ``decision-store.json``."""
     root = find_project_root()
-    rows = list_decisions(root)
+    rows = list_decision_rows(root)
 
     if not rows:
         info("Decision store is empty.")
@@ -75,7 +75,7 @@ def _parse_expires_at(value: str | None) -> datetime | None:
 def decision_expire_check() -> None:
     """Flag decisions whose ``expires_at`` is past or within 7 days."""
     root = find_project_root()
-    rows = list_decisions(root, status="active")
+    rows = list_decision_rows(root, status="active")
 
     if not rows:
         info("No active decisions to check.")
@@ -155,10 +155,10 @@ def decision_record(
         ),
     ] = None,
 ) -> None:
-    """Record a new decision into the canonical state.db ``decisions`` table."""
+    """Record a new decision into the canonical ``decision-store.json``."""
     root = find_project_root()
 
-    existing = list_decisions(root)
+    existing = list_decision_rows(root)
     if any(r.get("decision_id") == decision_id for r in existing):
         error(f"Decision '{decision_id}' already exists. Use a unique ID.")
         raise typer.Exit(code=1)
@@ -201,7 +201,7 @@ def decision_record(
         },
     )
 
-    success(f"Recorded decision '{decision_id}' → state.db + framework-events.")
+    success(f"Recorded decision '{decision_id}' → decision-store.json + framework-events.")
 
 
 # ---------------------------------------------------------------------------
@@ -313,7 +313,7 @@ def decision_backfill(
     rows already match.
     """
     root = find_project_root()
-    db_path = state_db_path(root)
+    store_path = decision_store_path(root)
 
     globs = tuple(sources) if sources else _DEFAULT_BACKFILL_GLOBS
     files = _iter_source_files(root, globs)
@@ -353,7 +353,7 @@ def decision_backfill(
 
     # spec-138 M3.T3: count rows already at the canonical shape before
     # writing so the summary distinguishes net-new from idempotent re-runs.
-    existing_ids = {row.get("decision_id") for row in list_decisions(root)}
+    existing_ids = {row.get("decision_id") for row in list_decision_rows(root)}
     already_current = sum(1 for row in rows if row.get("decision_id") in existing_ids)
 
     write_rows = [{k: v for k, v in row.items() if k != "_source"} for row in rows]
@@ -372,12 +372,12 @@ def decision_backfill(
             "backfilled": backfilled,
             "already_current": already_current,
             "by_source": by_source,
-            "db_path": str(db_path),
+            "store_path": str(store_path),
             "globs": list(globs),
         },
     )
 
     success(
         f"{backfilled} decisions backfilled, {already_current} already current "
-        f"(of {attempted} scanned) -> state.db."
+        f"(of {attempted} scanned) -> decision-store.json."
     )

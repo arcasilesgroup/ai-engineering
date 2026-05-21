@@ -9,7 +9,7 @@ Take an approved spec and decompose it into N independent concerns, each becomin
 | Source | What to extract |
 |--------|----------------|
 | `.ai-engineering/specs/spec.md` | Full approved spec -- requirements, scope, constraints, acceptance criteria |
-| `state/state.db.decisions` | Architectural decisions and constraints that bound decomposition |
+| `state/decision-store.json` | Architectural decisions and constraints that bound decomposition |
 
 ## Procedure
 

@@ -23,7 +23,7 @@ Verify files live in correct ownership zones.
 
 Sub-modes: `accept`, `resolve`, `renew`.
 
-**Accept**: record time-limited risk in `state.db` `decisions` table (spec-124 D-124-12).
+**Accept**: record time-limited risk in `decision-store.json` (a decision record).
 
 - Classify finding, determine severity, register with mandatory `follow_up_action`.
 - Auto-expiry: Critical 15d, High 30d, Medium 60d, Low 90d.
