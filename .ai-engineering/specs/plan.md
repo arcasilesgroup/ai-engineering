@@ -160,6 +160,8 @@ Concern: no gate or hook exits 0 when its tool is absent/broken/malformed. Agent
 
 ## Phase 2 — Wave 2: Reconcile docs with code + finish SSOT (D-147-07..10)
 
+> **Wave 2 split (2026-05-21).** 2a (doc reconciliation, D-147-07/08) is **DONE + shipped** on PR #532. The SSOT half (2b: decision-store migration to state.db, D-147-09/10) is **SUPERSEDED by spec-148 (Files-only persistence)** — route reversed to retire `state.db` and make files the SoT. The 2b tasks below are retained for history but are NOT executed under spec-147; see `spec-148-files-only-persistence-plan.md`.
+
 Concern: every doc claim resolves to an on-disk fact; one canonical store per datum. Highest-risk wave (17-caller decision-store migration). Agent: build.
 
 ### 2a — Doc reconciliation

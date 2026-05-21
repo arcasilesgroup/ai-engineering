@@ -85,11 +85,15 @@ Add the ≥8 behavior-changing `AIENG_*`/`AIE_*` env vars read by hooks (E-12) t
 
 ### D-147-09 — Finish the full decision-store migration to state.db and delete the JSON
 
+> **SUPERSEDED by spec-148 (Files-only persistence, 2026-05-21).** Route reversed: rather than migrating decisions INTO `state.db`, spec-148 retires `state.db` entirely and makes `decision-store.json` the sole file SoT. The spec-147 Wave 2b A1 reader migration was reverted (commit `da1e5686`). Original text retained below for history.
+
 Migrate all Decision view-model callers (the ~12 noted at `state/repository.py:157-163`) to read from `state.db`, including the risk-acceptance gate reader at `gate.py:169` (`_check_risk_inline` currently reads `decision-store.json`). Stop dual-writing in `save_decisions` (`state/repository.py:154-168`); remove `decision-store.json` from `_AUTHORITATIVE_CONTROL_PLANE` (`state/context_packs.py:32-36`) and from session context injection (`config/framework_defaults.py:21-25`); delete the JSON file. A CI caller-count ratchet guards the migration: the count of remaining JSON readers may only decrease, never increase.
 
 **Rationale**: Operator decision — go deep and close E-13/E-14 completely rather than the surgical interim. `state.db` is already the documented canonical store; the JSON is both a dual-write (SSOT violation) and, worse, fed to LLM sessions as ground truth (predictability violation). The caller-count ratchet converts the migration risk into an incremental, CI-guarded sequence so no PR can regress it.
 
 ### D-147-10 — Reconcile the gate-findings transitional dual-store to one canonical store
+
+> **SUPERSEDED by spec-148 (Files-only persistence, 2026-05-21).** `gate-findings.json` is confirmed the sole SoT and the orphaned SQLite `gate_findings` table is dropped wholesale when `state.db` is retired (spec-148 D-148-02/05), rather than reconciled here.
 
 Resolve E-15 by aligning `gate-findings` to the persistence doctrine's declared primary (JSON, per `docs/persistence-doctrine.md:155-158`): either remove the non-primary SQLite seed/table (`state/migrations/0002_seed_from_json.py:221-227`, `state/control_plane.py:154-156`) if a caller audit shows no readers, or label the SQLite projection as a derived cache with a named rebuild command. The caller audit runs in `/ai-plan`.
 

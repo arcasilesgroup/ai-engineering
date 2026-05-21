@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-05-21T10:20:15.317347+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "files-only-persistence",
+  "spec_id": "files-only-persistence",
+  "state": "draft",
+  "title": "Files-only persistence \u2014 retire state.db"
+}
