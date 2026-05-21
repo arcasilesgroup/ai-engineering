@@ -48,8 +48,11 @@ stable at the new home.
 
 The active spec workflow is:
 
-**/ai-brainstorm → /ai-plan → /ai-build → /ai-pr**
+**(/ai-spec-draft) → /ai-brainstorm → /ai-plan → /ai-build → /ai-pr**
 
+- `/ai-spec-draft` is the OPTIONAL pre-step: it produces a researched
+  problem brief at `.ai-engineering/specs/drafts/<topic>-brief.md` to hand
+  off to `/ai-brainstorm`. Skip it when the problem is already well-scoped.
 - `/ai-brainstorm` produces an approved spec at
   `.ai-engineering/specs/spec.md`.
 - `/ai-plan` produces an exhaustive patch-ready plan at

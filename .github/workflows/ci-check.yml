@@ -30,6 +30,7 @@ jobs:
     timeout-minutes: 5
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      docs: ${{ steps.filter.outputs.docs }}
       test-config: ${{ steps.filter.outputs.test-config }}
       has-snyk-token: ${{ steps.tokens.outputs.has-snyk-token }}
     steps:
@@ -59,6 +60,13 @@ jobs:
               - 'uv.lock'
               - '.github/workflows/**'
               - '**/*.yml'
+            docs:
+              # tests/docs walks repo markdown (link/anchor integrity) and
+              # gates README/CONTRIBUTING/CHANGELOG/ai-ide-audit acceptance +
+              # anonymous-content (D-131-15). Markdown-only edits must trigger
+              # it — the `code` filter omits **/*.md, so a pure-doc PR that
+              # adds a machine path would otherwise skip the gate.
+              - '**/*.md'
             test-config:
               - 'pyproject.toml'
               - 'tests/conftest.py'
@@ -330,6 +338,21 @@ jobs:
         with:
           name: coverage-e2e
           path: coverage-e2e.xml
+
+  test-docs:
+    name: Docs (link integrity + acceptance gates)
+    needs: [change-scope]
+    # tests/docs is enforced by no other gate: the pre-push/PR gate runs
+    # `pytest -m smoke` (these tests carry no smoke marker) and the Stop-loop
+    # convergence run is observe-only. CI is the only authoritative home.
+    if: needs.change-scope.outputs.code == 'true' || needs.change-scope.outputs.docs == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-env
+      - name: Run docs tests
+        run: uv run pytest tests/docs -q
 
   sonarcloud:
     name: SonarCloud
@@ -773,6 +796,7 @@ jobs:
         test-unit,
         test-integration,
         test-e2e,
+        test-docs,
         sonarcloud,
         framework-smoke,
         workflow-sanity,
@@ -809,6 +833,7 @@ jobs:
             "test-unit:${{ needs.test-unit.result }}"
             "test-integration:${{ needs.test-integration.result }}"
             "test-e2e:${{ needs.test-e2e.result }}"
+            "test-docs:${{ needs.test-docs.result }}"
             "framework-smoke:${{ needs.framework-smoke.result }}"
             "build-check:${{ needs.build-check.result }}"
             "sonarcloud:${{ needs.sonarcloud.result }}"

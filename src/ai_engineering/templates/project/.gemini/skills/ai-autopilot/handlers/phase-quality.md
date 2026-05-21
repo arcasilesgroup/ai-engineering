@@ -203,9 +203,16 @@ Eligibility for remediation:
    explicitly shared file.
 3. The finding has concrete evidence: file/path, command, failing test,
    policy rule, or review location.
-4. The fix is localized and does not require new decomposition,
-   deep-planning, product approval, architecture redesign, destructive
-   migration, cross-repo edits, or baseline cleanup.
+4. The fix is mechanical and localized: it does NOT require new
+   decomposition, deep-planning, product approval, architecture redesign,
+   destructive migration, cross-repo edits, or baseline cleanup.
+
+**Advisory + conservative (D-149-04).** Condition 4 is a judgment call, so
+it is biased to the safe side: when eligibility under it is uncertain,
+treat the finding as INELIGIBLE and escalate. It may only escalate — it can
+never silently auto-pass a finding — so the same changeset yields the same
+STOP verdict (the verdict is a deterministic count of remaining
+blocker/critical/high findings).
 
 Ineligible findings STOP immediately with the escalation report from
 Step 2f.

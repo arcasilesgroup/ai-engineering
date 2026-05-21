@@ -32,6 +32,7 @@ Pattern coverage (per spec D-101-02 Hardening 3):
 from __future__ import annotations
 
 import re
+import sys
 from typing import Any
 
 import pytest
@@ -109,7 +110,14 @@ MALICIOUS_ARGVS: tuple[tuple[list[str], str], ...] = (
 
 LEGITIMATE_ARGVS: tuple[tuple[list[str], str], ...] = (
     (["bash", "-c", "echo ok"], "bash-echo"),
-    (["python", "-c", "print('hi')"], "python-print"),
+    # ``sys.executable`` is an absolute path (resolution branch 1 in
+    # ``_safe_run``: ``os.path.isabs(name)``), so it bypasses the
+    # ``shutil.which`` DRIVER_BINARIES lookup and never raises
+    # ``MissingDriverError`` on machines that ship ``python3`` but no bare
+    # ``python`` on PATH (uv-managed envs, macOS dev setups). The bare
+    # ``"python"`` literal made this case depend on a specific binary being
+    # installed, which is orthogonal to the guard-misfire contract under test.
+    ([sys.executable, "-c", "print('hi')"], "python-print"),
     (["bash", "-c", "ls -la"], "bash-ls"),
     (["sh", "-c", "test -f file.txt"], "sh-test-f"),
 )

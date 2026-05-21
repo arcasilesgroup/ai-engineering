@@ -1,118 +1,213 @@
 ---
 execution_route:
   version: 1
-  spec: spec-148
-  executor: autopilot
-  automation: autopilot
-  concern_count: 9
-  estimated_files: 115
-  reason: "Unified spec-148: retire state.db (per-datum strangler across installer/update/migrations/~15 readers/3 hooks/audit CLI) + obvious-by-default conventions (triggers, branch-cleanup, deterministic STOP, §10.x/naming/suppression CI). ~115 files, 9 waves. Multi-concern + large → autopilot. Operator launches; may pause before the gated SQLite deletion (Wave P5)."
-  safe_next_command: "/ai-autopilot"
+  spec: spec-149
+  executor: build
+  automation: build
+  concern_count: 3
+  estimated_files: 12
+  reason: "Trimmed spec (effort small). 3 independent, low-complexity concerns: one CLI safety default (cleanup dry-run, DONE), and two doc/handler edits with mechanical mirror regen (§11 chain, quality.md cond-4). D-149-03 (suppression DEC-bind) was DEFERRED to its own spec mid-build — it cannot be CI-enforced until decision-store.json is committed (a Part-A doctrine fix; see drafts/decision-store-commit-brief.md). No cross-concern DAG, no irreversible step. Build's sequential TDD + single quality loop is proportionate; autopilot's machinery is unwarranted overhead. File count is inflated by mechanical mirror regen, not real concerns."
+  safe_next_command: "/ai-build"
 status: approved
 pipeline: full
-spec: spec-148
-title: Plan — Files-only persistence + obvious-by-default conventions
+spec: spec-149
+title: Plan — Obvious-by-default essentials (trimmed)
 ---
 
-# Plan — spec-148 (unified)
+# Plan — spec-149
 
 ## Summary
 
-Nine waves on branch `spec-147-wave-1` / PR #532. **Part A (P1-P6): files-only persistence** via per-datum strangler — migrate each datum's read/write to its file SoT FIRST (reversible, `state.db` still present), retire the cross-OS SQLite hot-path reads early, do the hard install-state reversal as its own wave, then DELETE the SQLite layer LAST behind a fail-loud export→verify→delete migration (PAUSE for operator approval). **Part B (W7-W9): obvious-by-default conventions** carried from spec-147 Waves 3-5 (triggers, branch-cleanup, deterministic STOP, poka-yoke CI). Each wave green before the next; the SKILL.md-touching waves (P6, W7, W9) are serialized so mirror regen never collides.
+Three small, independent concerns + a de-scope record. Each is its own
+phase; the only ordering constraint is mirror-regen serialization
+(Phase 3 §11 edit and Phase 4 handler edit both regenerate IDE mirrors —
+serialize their `ai-eng dev sync` so the `--check` parity gate is
+deterministic). TDD pairs throughout (RED before GREEN). No phase has an
+irreversible step, so no operator PAUSE is needed.
 
 ## Pipeline classification
 
-`full` — ~115 files, 9 concerns. Executor route: `autopilot` (frontmatter). PAUSE before Wave P5 (irreversible SQLite deletion). Operator may run directly per the spec-147 rogue-agent incident.
+`standard` (a handful of files across 3 small concerns + mechanical
+mirror regen). Executor route: **build** (frontmatter). The 3 concerns
+are independent and small — no sub-spec decomposition or wave DAG needed.
 
 ## Architecture
 
-Pattern: **per-datum strangler** (Part A) + **convention poka-yoke** (Part B). Files-first persistence (research [1][2]); NDJSON + SHA-256 hash chain for audit (research [5][6]). Boundaries: `state/` (delete SQLite, keep file IO + NDJSON; collapse Repository/Service to file-backed wrappers), `cli_commands/audit_cmd.py` (NDJSON), `installer/`+`updater/` (files + export migration), hooks (drop sqlite), `.claude/skills`+`agents`+`CLAUDE.md`/`CANONICAL.md`+`docs/persistence-doctrine.md` (rewrite + mirror regen), `tests/**`.
+Pattern: **ad-hoc localized edits** (no new architecture). Two concerns
+are pure convention/doc (§11 chain, quality.md handler); one is a CLI
+default flip (`cleanup branches`). Boundaries respected:
+`cli_commands/cleanup.py` (CLI), `CANONICAL.md` + mirrors (canonical
+payload), `.claude/skills/ai-build/handlers/quality.md` + mirrors
+(handler).
 
-## Wave DAG
+## Phase DAG
 
 ```
-P1 events/audit ─► P2 decisions/risk ─► P3 ownership ─► P4 install+capabilities ─► P5 DELETE layer (GATED) ─► P6 persistence docs/tests
-                                                                                                                   │
-                                                                          W7 one-obvious-way ─► W8 deterministic-done ─► W9 poka-yoke
+P1 cleanup-dry-run (independent, DONE)
+P3 §11-doc ─► P4 quality-cond4 ─► P5 CHANGELOG/de-scope
+P3,P4 share mirror regen → serialized (P3 sync, then P4 sync, --check clean each)
+(P2 suppression-bind DROPPED → deferred to the decision-store-commit spec)
 ```
-Part A is strictly sequential (each leaves `state.db` present + reversible until P5). Part B (W7-W9) runs after P6 so all SKILL.md/mirror edits serialize (P6 persistence-ref edits → W7 trigger edits → W9 §10.x edits). W8 (verify/quality code) is mirror-light and may overlap W7.
 
-## PART A — Files-only persistence
+---
 
-### Phase P1 — Events/audit off SQLite (D-148-05, D-148-06)
-Retire hot-path + cross-OS SQLite reads first.
-- [ ] T-P1.1 RED: `audit tokens`/`replay`/`otel-export` produce correct output from `framework-events.ndjson` (no SQLite). Files: `tests/unit/cli/test_audit_*.py`. §10.5
-- [ ] T-P1.2 GREEN: reimplement those as NDJSON scans; remove `audit query`+`audit index` (fail-loud "removed — use `audit tokens`" stub for `query`). Files: `cli_commands/audit_cmd.py`, `state/audit_index.py` (del), `state/audit_replay.py`, `state/audit_otel_export.py`. §10.1
-- [ ] T-P1.3 RED+GREEN: hooks (`runtime-stop.py`, `runtime-session-end.py`, `session_bootstrap.py` + templates) drop `sqlite3`/`state.db` → NDJSON/JSON scans (mtime-cached, tail-N bounded for hot-path budget); regenerate hooks-manifest. Files: those + `tests/unit/hooks/test_runtime_stop_session_rollup.py`, `test_state_db_incremental_vacuum.py` (del/rewrite). §10.8 §10.5
-- [ ] Gate: `audit verify` green; hot-path <1s/<5s preserved. **P1 acceptance**: zero sqlite reads in hooks + audit-query path.
+## PHASE 1 — D-149-02: dry-run-by-default for `cleanup branches`
 
-### Phase P2 — Decisions + risk off SQLite (D-148-02, D-148-03)
-`decision-store.json` sole SoT (already carries the hash chain).
-- [ ] T-P2.1 RED: decision read/write round-trips through `decision-store.json`; risk = decision record; `audit verify --decisions` verifies the file chain. Files: `tests/unit/test_decision_store.py`, `test_cli_decisions.py`, `cli/test_decision_backfill.py`. §10.5
-- [ ] T-P2.2 GREEN: collapse `DurableStateRepository`/`StateService` to file-backed (D-148-07); repoint decision readers/writers; remove the state.db dual-write. Files: `state/repository.py`, `state/service.py`, `cli_commands/decisions_cmd.py`, `risk_cmd.py`, `brainstorm/spec_approval.py`, `policy/checks/risk.py`, `commands/workflows.py`, `maintenance/report.py`, `policy/orchestrator.py`. §10.4 §10.8
-- [ ] T-P2.3 GREEN: rewrite the ~6 decision/risk SQLite-seeding tests to seed `decision-store.json` (test_gate_skip_accepted, decision_writer_integration, gates/coverage/gap-fillers risk tests). §10.5
-- [ ] Gate: `ai-eng decision *`, `ai-eng risk *` green against the file. **P2 acceptance**: decisions/risk one file SoT, no dual-write.
+- [x] T-1.1 — RED: no-flag `cleanup branches` deletes nothing
+  - Agent: build
+  - Files: `tests/integration/cli/test_cleanup_branches.py:60` (rewrite
+    `test_cleanup_branches_modes_default_to_merged` → assert no-flag
+    invocation produces a PLAN/skips, deletes nothing; add a CLI-level
+    test that no-flag with no `--dry-run` still acts non-destructively
+    until confirmed).
+  - Principles applied: §10.5 TDD, §10.7 Clean Code (pit-of-success).
+  - Gate: test RED against current `merged=True` default.
 
-### Phase P3 — Ownership off SQLite (D-148-02)
-`ownership-map.json` sole SoT (repo already reads it first — collapse split-brain).
-- [ ] T-P3.1 RED: ownership read/write + `ownership import` + `ai-eng update` round-trip through `ownership-map.json`. Files: `tests/unit/cli/test_ownership_import.py`, `state/test_ownership_state_db_read.py` (rewrite), `installer/test_phases_state_upserts.py`. §10.5
-- [ ] T-P3.2 GREEN: repoint ownership readers/writers to JSON; installer writes (stop deleting) `ownership-map.json`; `updater/service.py` reads it; drop state_db ownership fns. §10.4
-- [ ] Gate: `ai-eng update` ownership flow green. **P3 acceptance**: ownership one file SoT.
+- [x] T-1.2 — GREEN: flip the no-flag default to plan + confirm
+  - Agent: build
+  - Files: `src/ai_engineering/cli_commands/cleanup.py:257-260` (drop the
+    silent `merged = True`; no-flag → print plan + require confirm, or
+    require an explicit mode/`--dry-run`), `:297-300` (guard the delete
+    path behind explicit mode/confirmation).
+  - Principles applied: §10.7 Clean Code, §10.1 KISS.
+  - Patch (deterministic): omitted — confirmation-prompt UX requires
+    judgment (interactive confirm vs require-explicit-mode); decide the
+    mechanism in implementation, keep it non-interactive-test-friendly.
+  - Gate: T-1.1 GREEN; `cleanup branches` (no flag, no `--dry-run`)
+    deletes zero branches; existing 7-mode tests still pass.
 
-### Phase P4 — Install-state + capabilities off SQLite (D-148-04, D-148-08) — HARDEST
-Reinstate writable `install-state.json` (= `InstallState` Pydantic dump); `framework-capabilities.json` rebuilt on demand. Reverses spec-125.
-- [ ] T-P4.1 RED: install pipeline writes+reads `install-state.json` (singleton + steps); doctor + readiness read the file. Files: `tests/unit/state/test_install_state_table.py` (→file), `installer/test_install_steps_writer.py`, `cli/test_doctor_state_db.py` (rewrite). §10.5
-- [ ] T-P4.2 GREEN: `install-state.json` writable SoT = `InstallState` model dump; installer pipeline + `service.py` + `doctor/service.py` + `detector/readiness.py` + `cli_commands/core.py` read/write the file. §10.8
-- [ ] T-P4.3 GREEN: `framework-capabilities.json` rebuilt from manifest+disk on demand; readers (`manifest_coherence.py`, `context_packs.py`) read the file. §10.2
-- [ ] Gate: installer e2e (`tests/e2e/test_install_pipeline.py`) green WITHOUT `state.db`. **P4 acceptance**: install/capabilities one file SoT; install creates no state.db.
+## PHASE 2 — DEFERRED (was: security suppression DEC-bind)
 
-### Phase P5 — DELETE the SQLite layer + export migration (D-148-01, D-148-09) — GATED/IRREVERSIBLE
-After P1-P4 no datum reads SQLite. **PAUSE for operator approval before deletion.**
-- [ ] T-P5.1 RED: `ai-eng update` exports state.db-only data (install_state/steps, unmirrored decisions) to files, VERIFIES, then deletes `state.db`(+wal/shm) directly (no `.bak`); idempotent; no-op when absent; fail-loud (no delete) on export/verify failure. Files: `tests/unit/updater/test_state_db_export_migration.py` (new). §10.5
-- [ ] T-P5.2 GREEN: implement export→verify→delete in `updater/service.py`. §10.6
-- [ ] T-P5.3 GREEN: delete `state/state_db.py`, `state/migrations/**`, `_runner.py`; finish collapsing Repository/Service file-backed; remove every framework `sqlite3` import. CHANGELOG hard-delete + spec-123/125/132 reversal note. §10.2
-- [ ] T-P5.4 RED+GREEN: `tests/architecture/test_no_sqlite.py` asserts no `import sqlite3` / `state.db` in src+hooks (replaces `test_no_sql_on_hot_path.py`). §10.5
-- [ ] Gate: full suite green; fresh `install` + `update` over a pre-existing state.db fixture both green. **P5 acceptance**: G1 — no SQLite anywhere.
+D-149-03 was dropped from this spec during `/ai-build`. Binding
+`nosemgrep_hash` suppressions to a DEC cannot be CI-enforced while
+`decision-store.json` is gitignored — the `no_suppression` gate
+(`ci-check.yml:145`) validates `dec_id` against a store that is absent in
+CI, so binding would turn the gate red. Root cause is a Part-A doctrine
+flaw (the decision store holds non-rebuildable risk/flow rows yet is a
+gitignored cache; `persistence-doctrine.md:120` admits it). The fix —
+commit the decision store — is captured in
+`.ai-engineering/specs/drafts/decision-store-commit-brief.md` for its own
+`/ai-brainstorm`. **No Phase 2 work runs here.**
 
-### Phase P6 — Persistence doctrine + docs/skills/tests (D-148-09/G9)
-- [ ] T-P6.1 GREEN: rewrite `docs/persistence-doctrine.md` to files-only (NDJSON audit / JSON-YAML records+config / Markdown); update `tests/unit/specs/test_persistence_doctrine_contract.py`. §10.7
-- [ ] T-P6.2 GREEN: update `state.db` refs in `CANONICAL.md` (15/21/97/265) + the ~26 skills + ~6 agents citing `state.db.decisions` → `decision-store.json`; `python scripts/sync_command_mirrors.py`. §10.4 §10.7
-- [ ] T-P6.3 GREEN: delete/rewrite remaining SQLite tests (migration, lazy-bootstrap, connection-pragma, db-migration integration); update ~57 string-ref tests. §10.5
-- [ ] Gate: `sync_command_mirrors --check` clean; grep shows zero stale `state.db` doc claims. **P6 acceptance**: G9.
+## PHASE 3 — D-149-01: surface ai-spec-draft in §11 + ai-code/ai-build boundary
 
-## PART B — Obvious-by-default conventions (from spec-147 W3-5, adapted)
+- [x] T-3.1 — GREEN: edit the canonical §11 chain + boundary note
+  - Agent: build
+  - Files: `src/ai_engineering/templates/project/CANONICAL.md:47-65`
+    (canonical source of §11): add `ai-spec-draft` as the OPTIONAL
+    pre-`/ai-brainstorm` step (research one-pager hand-off); add a line
+    stating `ai-code` = write a specific subcomponent (no plan) vs
+    `ai-build` = gateway that executes an approved plan. Confirm whether
+    the repo-root `CANONICAL.md`/`CLAUDE.md` is a separate authored copy
+    or a mirror before editing (sync owns the mirrors).
+  - Principles applied: §10.7 Clean Code (one obvious on-ramp), §10.3 SOLID.
+  - Patch (deterministic): omitted — wording is a judgment call.
+  - Gate: §11 shows ai-spec-draft + the boundary; no surface count change.
 
-### Phase W7 — One obvious way (D-148-11, D-148-12)
-- [ ] T-W7.1 GREEN: de-collide contested trigger phrases across `.claude/skills/{ai-prose,ai-marketing,ai-verify,ai-governance,ai-security,ai-explore,ai-explain,ai-onboard,ai-code,ai-build}/SKILL.md`; assign each phrase to one skill, others cross-reference; no merges; `sync_command_mirrors.py`. Gate: no listed phrase in >1 description. §10.3 §10.7
-- [ ] T-W7.2 GREEN: surface `ai-spec-draft` in CLAUDE.md §11 chain; state ai-code(subcomponent) vs ai-build(gateway) boundary; regen mirrors. §10.7
-- [ ] T-W7.3 RED: `tests/architecture/test_branch_cleanup_single_impl.py` asserts one branch-cleanup import path. §10.5
-- [ ] T-W7.4 GREEN: delegate `maintenance branch-cleanup` → `cleanup branches` (`maintenance.py:123-149`, `cli_factory.py:414`); CHANGELOG; no shim. Gate: T-W7.3 passes. §10.4 §10.1
-- [ ] **W7 acceptance**: G6 (one obvious surface; surface count unchanged).
+- [x] T-3.2 — GREEN: regenerate mirrors
+  - Agent: build
+  - Files: run `ai-eng dev sync` (or `python scripts/sync_command_mirrors.py`);
+    regenerates `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`,
+    `.github/copilot-instructions.md` + template surfaces.
+  - Principles applied: §10.4 DRY (single canonical source).
+  - Gate: `ai-eng dev sync --check` clean (no drift).
 
-### Phase W8 — Deterministic done (D-148-13)
-- [ ] T-W8.1 RED: every verify Finding carries `method: deterministic|llm`. Files: `tests/unit/test_verify_service.py`. §10.5
-- [ ] T-W8.2 GREEN: add `method` to the Finding model + assembly (tool runners=deterministic, verifier-acceptance=llm); document in `.claude/skills/ai-verify/SKILL.md` contract; regen mirrors. §10.3 §10.7
-- [ ] T-W8.3 RED+GREEN: make quality.md Step 2d condition 4 deterministic-or-advisory; replay test: same diff → same STOP verdict. Files: `.claude/skills/ai-build/handlers/quality.md` + replay test. §10.6 §10.5
-- [ ] **W8 acceptance**: G7 (reproducible STOP; method-tagged findings).
+## PHASE 4 — D-149-04: quality.md Step 2d condition 4 → advisory (reproducible STOP)
 
-### Phase W9 — Poka-yoke conventions (D-148-14..17)
-- [ ] T-W9.1 GREEN: backfill §10.x into the ~22 Workflow-without-citation skills; regen mirrors. §10.7
-- [ ] T-W9.2 RED+GREEN: `tests/architecture/test_workflow_principle_citation.py` — Workflow ⇒ `§10.\d` (after T-W9.1). §10.5
-- [ ] T-W9.3 GREEN: codify naming grammar (`ai-` + lowercase-kebab + verb|noun) in `ai-scaffold` + CONSTITUTION.md; `tests/architecture/test_skill_naming_grammar.py`; confirm zero renames; regen mirrors. §10.7
-- [ ] T-W9.4 RED+GREEN: `cleanup branches` no-flag deletes nothing (plan + confirm). Files: `tests/unit/test_cleanup.py`, `cli_commands/cleanup.py:257-260,297-300`. §10.7 §10.5
-- [ ] T-W9.5 RED+GREEN: nosemgrep suppression without dec_id fails allowlist load; non-security empty dec_id warns until 2026-07-10; author DECs for current nosemgrep entries. Files: `.ai-engineering/suppression-allowlist.yml`, `no_suppression/` loader, `tests/unit/test_suppression_allowlist.py`. §10.8 §10.6
-- [ ] **W9 acceptance**: G8 (conventions CI-enforced; destructive verbs dry-run-by-default).
+- [x] T-4.1 — RED: contract test — cond-4 advisory + STOP matrices count-deterministic
+  - Agent: build
+  - Files: `tests/unit/skills/test_quality_stop_determinism.py` (new):
+    assert `quality.md` Step 2d condition 4 is advisory/operator-confirmable
+    (it cannot silently auto-block/auto-pass), and the Step 2c/2e STOP
+    decision matrices are count-based (deterministic). Mirror-parity of
+    the edited handler asserted alongside.
+  - Principles applied: §10.5 TDD, §10.6 SDD (reproducible "done").
+  - Gate: RED against current cond-4 wording.
 
-## Cross-cutting gates (every wave)
-- CHANGELOG documents each hard-delete + behavior change; zero shims (G9); record the spec-123/125/132 reversal.
-- Canonical-payload / SKILL.md edits → `scripts/sync_command_mirrors.py`; `--check` clean before PR.
-- Hot-path budgets preserved (<1s/<5s); hooks-manifest regenerated after hook edits.
-- One file SoT per datum; no dual-write reintroduced. SKILL.md-touching waves (P6→W7→W9) serialized for mirror regen.
+- [x] T-4.2 — GREEN: reword cond-4 + align cross-references
+  - Agent: build
+  - Files: `.claude/skills/ai-build/handlers/quality.md:122-140` (Step 2d
+    condition 4 → advisory/operator-confirmable, cannot silently flip the
+    verdict); verify consistency at `.claude/skills/ai-build/handlers/no-hitl.md:116`
+    and `.claude/skills/ai-autopilot/handlers/phase-quality.md:207`
+    (align language; no behavioral divergence). DROP any blanket
+    `method: deterministic|llm` finding-tag plan (no consumer).
+  - Principles applied: §10.6 SDD, §10.1 KISS.
+  - Patch (deterministic): omitted — protocol wording is a judgment call.
+  - Gate: T-4.1 GREEN.
+
+- [x] T-4.3 — GREEN: regenerate handler mirrors
+  - Agent: build
+  - Files: `ai-eng dev sync` → propagate `quality.md` to
+    `.codex/.gemini/.github` + `src/ai_engineering/templates/project/.../quality.md`.
+  - Principles applied: §10.4 DRY.
+  - Gate: `ai-eng dev sync --check` clean.
+
+## PHASE 5 — De-scope record + CHANGELOG
+
+- [x] T-5.1 — GREEN: CHANGELOG the behavior changes + the de-scope
+  - Agent: build
+  - Files: `CHANGELOG.md` — entries for: (1) `cleanup branches` no-flag
+    now non-destructive (behavior change); (2) §11 chain now lists
+    `ai-spec-draft` + the ai-code/ai-build boundary; (3) quality.md cond-4
+    advisory (reproducible STOP). Record that spec-148 **D-148-11,
+    D-148-12, D-148-14, D-148-15 are superseded/dropped** (YAGNI) and
+    **D-148-13/16 re-scoped**, with **D-148-17 (suppression DEC-bind)
+    deferred** to the decision-store-commit spec.
+  - Principles applied: §10.7 Clean Code (truthful docs), Hard-Rule 3 (no
+    shims; document breakage).
+  - Gate: CHANGELOG documents each behavior change + the dropped/deferred
+    decisions; grep finds no orphaned reference to the dropped gates.
+
+## Quality Outcome
+
+Final: spec-149 scope GREEN. TDD per task (RED→GREEN), mirror parity
+(`ai-eng dev sync --check`) clean, broad deterministic sweep across
+architecture / mirrors / specs / skills / docs / cleanup-integration
+(~1,150 passed). Two failures I introduced were fixed:
+- `/ai-code` named in the §11 canonical payload tripped `LEGACY_NAMES`
+  (canonical payload stays lean) → moved the ai-code/ai-build boundary to
+  the two skill descriptions instead.
+- drive-by (§9): stale Part-A test `test_persistence_doctrine_exists`
+  asserted `## The four tiers`; the files-only doctrine ships
+  `## The three tiers` — corrected the stale expectation.
+
+Known PRE-EXISTING (not spec-149; 0 files changed vs `origin/main`):
+12 `tests/docs/test_links.py` broken-link failures in `.agent/` +
+`.opencode/` skill mirrors (ai-animation / board / governance / ide-audit
+/ skill-improve / video-editing). Flagged for a separate fix. Did not run
+the entire suite (would surface unrelated pre-existing failures); the
+sweep covers every surface spec-149 modifies.
+
+## Cross-cutting gates (every phase)
+
+- TDD pair present for each behavioral change (RED before GREEN).
+- No `# noqa` / `# nosec` / suppression-without-DEC introduced (Hard-Rule 2).
+- No backwards-compat shim for the cleanup default (Hard-Rule 3);
+  CHANGELOG records the breakage.
+- Mirror-touching phases (P3, P4) serialize `ai-eng dev sync`; `--check`
+  clean before PR.
+- Full test suite green; hot-path budgets untouched (none of these are on
+  the hook hot path).
 
 ## Self-review (§10.7) — 2 iterations
-- **Iter 1** — Sequenced hot-path/cross-OS SQLite reads into P1 (retire Windows-WAL liability before the bulk migration); install-state reversal isolated in P4 with an e2e gate before deletion (P5). Resolved.
-- **Iter 1** — Serialized the three SKILL.md-touching waves (P6 persistence refs → W7 triggers → W9 §10.x) to avoid mirror-regen collisions. Resolved.
-- **Iter 2** — P5 deletion gated/PAUSED behind fail-loud export→verify→delete; each P1-P4 wave leaves state.db present + reversible. TDD pairs present; Part B carries spec-147's approved decisions. No remaining concerns.
+
+- **Build discovery** — D-149-03's DEC-bind is CI-incompatible (it
+  validates against the gitignored `decision-store.json`, absent in CI).
+  Root cause is a Part-A doctrine flaw; D-149-03 DEFERRED to its own spec
+  (`drafts/decision-store-commit-brief.md`) and spec + plan re-scoped to 3
+  concerns. Resolved.
+- **Iter 1** — Serialized P3/P4 mirror regen (both hit `ai-eng dev sync`
+  / parity `--check`) to avoid a non-deterministic drift gate. Resolved.
+- **Iter 2** — Confirmed every KEEP/SIMPLIFY task is TDD-paired and every
+  DROP is a documentation-only supersession (P5), so no half-built gate
+  remains. The "replay test" (D-149-04) is realized as a handler-contract
+  assertion (the protocol is LLM-executed; a true live replay is not
+  testable) — scoped honestly in T-4.1. No remaining concerns.
 
 ## Next
-Operator runs **`/ai-autopilot`** (executor: autopilot — 9 concerns, ~115 files, all on PR #532). PAUSE before Wave P5 (SQLite deletion). Resolve the 2 spec Open Questions (exact phrase→skill assignments; `otel-export` reimplement-vs-drop) during planning of W7 / P1.
+
+Build IN PROGRESS (`/ai-build --no-hitl`). P1 (cleanup dry-run) DONE;
+P2 DEFERRED; P3 (§11 doc), P4 (quality cond-4), P5 (CHANGELOG/de-scope)
+remaining, then the quality loop + PR. Open question resolved during
+build: cond-4 → **advisory** (T-4). No PAUSE (no irreversible step).
