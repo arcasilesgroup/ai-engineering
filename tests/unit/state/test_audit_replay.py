@@ -24,7 +24,6 @@ from typing import Any
 
 import pytest
 
-from ai_engineering.state.audit_index import NDJSON_REL
 from ai_engineering.state.audit_replay import (
     SpanNode,
     build_span_tree,
@@ -33,6 +32,7 @@ from ai_engineering.state.audit_replay import (
     token_rollup,
     walk_tree,
 )
+from ai_engineering.state.audit_rollup import NDJSON_REL
 
 # ---------------------------------------------------------------------------
 # Helpers

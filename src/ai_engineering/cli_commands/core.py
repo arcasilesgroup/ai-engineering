@@ -1306,8 +1306,9 @@ def _run_focused_doctor_check(root: Path, focused_check: str | None) -> bool:
 
     Supported values:
     * ``hot-path`` -- spec-114 advisory SLO audit (D-114-03).
-    * ``state-db`` -- spec-138 M5.T3 informational state.db health
-      report (always exit 0; never blocks).
+
+    (spec-148 removed ``state-db``: there is no state.db in the files-only
+    model.)
     """
     if focused_check is None:
         return False
@@ -1316,14 +1317,7 @@ def _run_focused_doctor_check(root: Path, focused_check: str | None) -> bool:
 
         run_hot_path_check(root)
         return True
-    if focused_check == "state-db":
-        from ai_engineering.cli_commands.doctor_state_db import run_state_db_check
-
-        run_state_db_check(root)
-        return True
-    raise typer.BadParameter(
-        f"Unknown --check value: {focused_check!r}. Supported: hot-path, state-db."
-    )
+    raise typer.BadParameter(f"Unknown --check value: {focused_check!r}. Supported: hot-path.")
 
 
 def _emit_doctor_json(report: DoctorReport, *, fixable_count: int) -> None:

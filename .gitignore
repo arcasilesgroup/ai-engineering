@@ -164,6 +164,11 @@ credentials*.json
 .ai-engineering/state/framework-events.ndjson
 .ai-engineering/state/framework-capabilities.json
 .ai-engineering/state/observation-events.ndjson
+# spec-148 files-only: per-install state SoTs (machine-specific, regenerated
+# by install / decision / risk / ownership flows — never committed).
+.ai-engineering/state/install-state.json
+.ai-engineering/state/decision-store.json
+.ai-engineering/state/ownership-map.json
 # spec-127 cleanup: legacy artifacts (post-rename, prevent resurrection if stale processes run)
 .ai-engineering/instincts/
 .ai-engineering/state/instinct-observations.ndjson

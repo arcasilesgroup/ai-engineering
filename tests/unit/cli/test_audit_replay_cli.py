@@ -24,7 +24,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-from ai_engineering.state.audit_index import NDJSON_REL, index_path
+from ai_engineering.state.audit_rollup import NDJSON_REL
 
 runner = CliRunner()
 
@@ -226,7 +226,7 @@ def test_replay_rejects_both_session_and_trace(project_root: Path) -> None:
 def test_replay_reads_ndjson_without_state_db(project_root: Path) -> None:
     """spec-148: replay reads framework-events.ndjson directly; no state.db."""
     _seed_ndjson(project_root, [_make_event(index=0, span_id=_hex16("auto"))])
-    assert not index_path(project_root).exists()
+    assert not (project_root / ".ai-engineering" / "state" / "state.db").exists()
 
     result = runner.invoke(
         create_app(),
@@ -235,7 +235,7 @@ def test_replay_reads_ndjson_without_state_db(project_root: Path) -> None:
     assert result.exit_code == 0, result.output
     assert "skill_invoked" in result.output
     # No SQLite is created as a side effect.
-    assert not index_path(project_root).exists()
+    assert not (project_root / ".ai-engineering" / "state" / "state.db").exists()
 
 
 def test_replay_handles_empty_session(project_root: Path) -> None:

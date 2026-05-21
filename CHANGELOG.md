@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+- **spec-148 — files-only persistence: the embedded SQLite `state.db` is
+  removed.** Every datum now has a single file source of truth — decisions
+  and risk acceptances in `decision-store.json`, ownership in
+  `ownership-map.json`, install state in `install-state.json`, framework
+  capabilities in `framework-capabilities.json` (rebuilt on demand), and
+  the audit log in `framework-events.ndjson` (already canonical). This is a
+  hard reversal of spec-123 (state.db bootstrap), spec-125 (install-state +
+  capabilities → state.db) and spec-132 (decisions + ownership → state.db).
+  Deleted: `state/state_db.py`, `state/migrations/**`, `state/audit_index.py`,
+  `state/retention.py`, the `ai-eng doctor --check state-db` command, and the
+  `ai-eng audit index/query/health/vacuum` + `audit retention apply`
+  subcommands (`audit verify/tokens/replay` stay, computed over the NDJSON).
+  Migration: `ai-eng update` runs a one-shot export→verify→delete that
+  ingests a legacy `state.db` into the file stores, verifies the export, then
+  deletes `state.db` (no `.bak`; fail-loud — it never deletes unless the
+  export verifies). No backwards-compat shim. A fresh install creates no
+  `state.db`. CI guard `tests/architecture/test_no_sqlite.py` forbids any
+  `import sqlite3` in `src/` or hooks except the one-shot migration.
 - spec-147 G1 (wave 1) seals the fail-open gates so no gate or hook
   exits 0 when its tool is absent, broken, or its input is malformed.
   Two hard behavior flips (no shims):

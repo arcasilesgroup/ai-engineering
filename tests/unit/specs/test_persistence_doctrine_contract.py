@@ -7,27 +7,14 @@ JSON-primary in this spec; the SQLite table is only transitional.
 
 from __future__ import annotations
 
-import ast
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-STATE_DB = PROJECT_ROOT / "src" / "ai_engineering" / "state" / "state_db.py"
 DOCTRINE = PROJECT_ROOT / "docs" / "persistence-doctrine.md"
 
-
-def _state_db_docstring() -> str:
-    return ast.get_docstring(ast.parse(STATE_DB.read_text(encoding="utf-8"))) or ""
-
-
-def test_state_db_docstring_describes_mixed_lifecycle_database() -> None:
-    docstring = _state_db_docstring()
-
-    assert "mixed lifecycle database" in docstring
-    assert "state.db.events" in docstring
-    assert "NDJSON-derived cache" in docstring
-    assert "gate_findings" in docstring
-    assert "non-primary placeholder" in docstring
-    assert "this DB is a derived projection that can be rebuilt by replay" not in docstring
+# spec-148 removed src/ai_engineering/state/state_db.py (files-only); the
+# state_db.py docstring contract test was retired with it. The doctrine
+# document rewrite (three-tier: NDJSON / JSON / Markdown) is tracked in P6.
 
 
 def test_persistence_doctrine_classifies_state_db_tables_by_role() -> None:

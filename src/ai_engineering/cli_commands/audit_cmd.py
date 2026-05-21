@@ -32,9 +32,6 @@ import typer
 from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_ui import header, kv, status_line, success, warning
 from ai_engineering.state.audit_chain import AuditChainVerdict, verify_audit_chain
-from ai_engineering.state.audit_index import (
-    NDJSON_REL,
-)
 from ai_engineering.state.audit_replay import (
     build_span_tree,
     render_json,
@@ -42,6 +39,7 @@ from ai_engineering.state.audit_replay import (
     token_rollup,
 )
 from ai_engineering.state.audit_rollup import (
+    NDJSON_REL,
     agent_token_rollup,
     session_token_rollup,
     skill_token_rollup,
@@ -222,55 +220,6 @@ def _print_query_result(columns: list[str], rows: list[tuple[Any, ...]], json_ou
     typer.echo(_format_table(columns, rows))
 
 
-def audit_index(
-    rebuild: Annotated[
-        bool,
-        typer.Option("--rebuild", help="(removed in spec-148)"),
-    ] = False,
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="(removed in spec-148)"),
-    ] = False,
-) -> None:
-    """Removed in spec-148 (files-only persistence).
-
-    There is no SQLite projection to build — ``framework-events.ndjson``
-    is the single source of truth, read directly by ``audit tokens`` /
-    ``audit replay``. The verb stays as a fail-loud stub so scripted
-    callers get a clear message instead of silent success.
-    """
-    typer.echo(
-        "Error: 'audit index' was removed in spec-148 — there is no SQLite "
-        "projection to build; framework-events.ndjson is read directly by "
-        "'audit tokens' / 'audit replay'.",
-        err=True,
-    )
-    raise typer.Exit(code=2)
-
-
-def audit_query(
-    sql: Annotated[
-        str,
-        typer.Argument(help="(removed in spec-148) formerly arbitrary SELECT."),
-    ] = "",
-) -> None:
-    """Removed in spec-148 (files-only persistence).
-
-    The SQLite projection of ``framework-events.ndjson`` no longer
-    exists, so arbitrary ``SELECT`` over the audit log is gone. Use
-    ``audit tokens`` (skill/agent/session rollups) or ``audit replay``
-    (span tree) — both computed directly over the NDJSON — or parse
-    ``framework-events.ndjson`` yourself.
-    """
-    typer.echo(
-        "Error: 'audit query' was removed in spec-148 — the SQLite projection "
-        "no longer exists. Use 'audit tokens' / 'audit replay' (computed over "
-        "framework-events.ndjson), or parse the NDJSON directly.",
-        err=True,
-    )
-    raise typer.Exit(code=2)
-
-
 def audit_tokens(
     by: Annotated[
         str,
@@ -398,158 +347,9 @@ def audit_replay(
 # ---------------------------------------------------------------------------
 
 
-def audit_retention_apply(
-    days: Annotated[
-        int,
-        typer.Option("--days", help="HOT cutoff window in days (default 90)."),
-    ] = 90,
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Emit JSON envelope."),
-    ] = False,
-) -> None:
-    """Apply the HOT retention cutoff to the events projection (D-123-26).
-
-    Deletes ``events`` rows older than ``now - days`` from ``state.db``.
-    NDJSON archives retain the original lines so the prune is loss-free.
-    Emits a ``retention_applied`` framework event when rows are deleted.
-    """
-    from ai_engineering.state import retention, state_db
-
-    project_root = _resolve_project_root()
-    conn = state_db.connect(project_root)
-    try:
-        verdict = retention.apply_hot_cutoff(conn, days=days)
-    finally:
-        conn.close()
-
-    if json_output:
-        typer.echo(json.dumps(verdict))
-        return
-    typer.echo(
-        f"Retention cutoff applied: deleted={verdict['deleted']} "
-        f"cutoff_days={verdict['cutoff_days']} "
-        f"status={verdict['status']}"
-    )
-
-
-def audit_health(
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Emit JSON envelope."),
-    ] = False,
-) -> None:
-    """Report state.db health: ledger, table counts, NDJSON freshness.
-
-    Returns exit code 0 when state.db carries the migration ledger and
-    every required table is present. Used by ``ai-eng doctor`` and CI
-    smoke tests.
-    """
-    from ai_engineering.state import state_db
-
-    project_root = _resolve_project_root()
-    payload: dict[str, Any] = {
-        "state_db": str(state_db.STATE_DB_REL),
-        "tables": {},
-        "migrations": [],
-        "ok": True,
-    }
-    # ``hooks_integrity`` was dropped in migration 0008 per spec-138 D-138-01;
-    # the manifest at ``state/hooks-manifest.json`` (sha256 truth) plus the
-    # NDJSON ``integrity_violation`` event stream cover the surface.
-    required_tables = {
-        "events",
-        "decisions",
-        "risk_acceptances",
-        "gate_findings",
-        "ownership_map",
-        "install_steps",
-        "_migrations",
-    }
-    try:
-        conn = state_db.connect(project_root)
-        try:
-            tables = {
-                row[0]
-                for row in conn.execute(
-                    "SELECT name FROM sqlite_master WHERE type='table'"
-                ).fetchall()
-            }
-            payload["migrations"] = [
-                row[0] for row in conn.execute("SELECT id FROM _migrations ORDER BY id").fetchall()
-            ]
-            for table in required_tables:
-                if table in tables:
-                    count = conn.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
-                    payload["tables"][table] = int(count)
-                else:
-                    payload["tables"][table] = None
-                    payload["ok"] = False
-        finally:
-            conn.close()
-    except Exception as exc:  # pragma: no cover -- defensive
-        payload["ok"] = False
-        payload["error"] = str(exc)
-
-    if json_output:
-        typer.echo(json.dumps(payload))
-    else:
-        typer.echo(f"audit health: ok={payload['ok']}")
-        typer.echo(f"  migrations: {payload['migrations']}")
-        for table, count in sorted(payload["tables"].items()):
-            typer.echo(f"  {table}: {count}")
-
-    if not payload["ok"]:
-        raise typer.Exit(code=1)
-
-
-def audit_vacuum(
-    json_output: Annotated[
-        bool,
-        typer.Option("--json", help="Emit JSON envelope."),
-    ] = False,
-) -> None:
-    """Reclaim free pages in ``state.db`` via ``PRAGMA incremental_vacuum``.
-
-    Runs ``PRAGMA incremental_vacuum`` (which honours the
-    ``auto_vacuum=INCREMENTAL`` setting applied at DB creation per
-    D-122-16) and reports pages reclaimed. Safe to run on a hot DB; the
-    operation is short and concurrent reads are unaffected.
-    """
-    from ai_engineering.state import state_db
-
-    project_root = _resolve_project_root()
-    conn = state_db.connect(project_root)
-    try:
-        before = int(conn.execute("PRAGMA freelist_count").fetchone()[0] or 0)
-        conn.execute("PRAGMA incremental_vacuum")
-        conn.commit()
-        after = int(conn.execute("PRAGMA freelist_count").fetchone()[0] or 0)
-    finally:
-        conn.close()
-
-    payload = {
-        "freelist_pages_before": before,
-        "freelist_pages_after": after,
-        "pages_reclaimed": max(0, before - after),
-    }
-    if json_output:
-        typer.echo(json.dumps(payload))
-        return
-    typer.echo(
-        f"audit vacuum: reclaimed {payload['pages_reclaimed']} page(s) "
-        f"(freelist {before} -> {after})"
-    )
-
-
 __all__ = [
     "audit_app_marker",
-    "audit_health",
-    "audit_index",
-    "audit_query",
     "audit_replay",
-    "audit_retention_apply",
     "audit_tokens",
-    "audit_vacuum",
     "audit_verify",
 ]

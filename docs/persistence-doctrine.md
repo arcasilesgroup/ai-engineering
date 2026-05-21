@@ -53,9 +53,10 @@ within that tier to exactly one canonical file.
   UPDATE / DELETE / FTS semantics, plus explicitly named derived
   caches and transitional placeholders. The database is not one
   uniform replay projection; every table declares its role below.
-- **File pattern:** `.ai-engineering/state/state.db` (single STRICT
-  SQLite file; schema in
-  [`src/ai_engineering/state/migrations/0001_initial_schema.py:27-217`](../src/ai_engineering/state/migrations/0001_initial_schema.py#L27-L217)).
+- **File pattern:** `.ai-engineering/state/state.db` (REMOVED in spec-148 —
+  the embedded SQLite layer and its migrations were deleted; this tier no
+  longer exists. Full doctrine rewrite to the three-tier files-only model
+  is tracked in spec-148 P6).
 - **Write SLA:** sub-second per write. Never written from the
   hot-path hooks (PreToolUse / PostToolUse / UserPromptSubmit /
   SubagentStop / Notification).
@@ -192,15 +193,13 @@ they do not become audit or compliance witnesses.
    invokes this writer in incremental mode (`rebuild=False`); the
    migration `0003_replay_ndjson.py` is positioned as a one-shot
    bootstrap that the SessionEnd rebuild supersedes for ongoing data.
-3. **The hot path never writes SQL.** Hooks registered under
-   PreToolUse, PostToolUse, UserPromptSubmit, SubagentStop, and
-   Notification MUST NOT import `sqlite3`. SessionEnd is the
-   sole hook permitted to run the rebuild; it carries a 5-second
-   budget guard. Enforced mechanically by
-   `tests/architecture/test_no_sql_on_hot_path.py` (spec-138 M4).
-4. **Schema authority lives in Pydantic, not DDL.** The
-   `state.db` schema is declared in
-   [`src/ai_engineering/state/migrations/0001_initial_schema.py`](../src/ai_engineering/state/migrations/0001_initial_schema.py).
+3. **No SQLite anywhere (spec-148 files-only).** The embedded `state.db`
+   was removed; no `src/` module nor hook may import `sqlite3` (except the
+   one-shot legacy export migration). Enforced mechanically by
+   `tests/architecture/test_no_sqlite.py`.
+4. **Schema authority lives in Pydantic, not DDL.** The state models
+   (`tools/skill_domain/state_models.py`) define each file's shape; the
+   JSON file homes are written via the durable repository.
    Every INSERT site is contract-tested
    (`tests/unit/state/test_sql_writer_schemas.py`, spec-138 M1)
    to match the canonical column list. Drift between writer and

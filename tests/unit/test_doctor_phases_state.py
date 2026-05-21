@@ -69,7 +69,7 @@ class TestFilesParseableCheck:
         results = state_phase.check(ctx)
         parseable = next(r for r in results if r.name == "state-files-parseable")
         assert parseable.status == CheckStatus.FAIL
-        assert "unparseable" in parseable.message
+        assert "install-state.json" in parseable.message
 
     def test_fail_when_no_state_dir(self, tmp_path: Path) -> None:
         ctx = DoctorContext(target=tmp_path)

@@ -25,6 +25,10 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+# Canonical location of the append-only framework event stream (the single
+# source of truth for the audit surface, spec-148 files-only).
+NDJSON_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
+
 
 def _iter_events(ndjson_path: Path):
     """Yield parsed event dicts from an NDJSON file; skip malformed lines."""
@@ -135,4 +139,9 @@ def session_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
     return [{"session_id": sid, **acc} for sid, acc in sorted(groups.items())]
 
 
-__all__ = ["agent_token_rollup", "session_token_rollup", "skill_token_rollup"]
+__all__ = [
+    "NDJSON_REL",
+    "agent_token_rollup",
+    "session_token_rollup",
+    "skill_token_rollup",
+]

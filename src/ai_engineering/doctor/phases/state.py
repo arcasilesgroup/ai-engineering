@@ -1,16 +1,14 @@
-"""Doctor phase: state file validation.
+"""Doctor phase: state file validation (spec-148 files-only).
 
 Checks:
-- state-files-parseable: state.db install_state singleton row loads via the
-  canonical state.db reader (post-spec-125 D-125-01; install-state.json
-  + framework-capabilities.json migrated to state.db tables).
-- state-schema: install_state row has schema_version "2.0" and required fields.
-- ownership-coverage: state.db.ownership_map covers all defaults from state/defaults.py.
+- state-files-parseable: install-state.json + framework-capabilities.json
+  load cleanly via the canonical repository readers.
+- state-schema: install-state.json has schema_version "2.0" and required fields.
+- ownership-coverage: ownership-map.json covers all defaults from state/defaults.py.
 """
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_root_entry_points
@@ -20,7 +18,7 @@ from ai_engineering.state.defaults import (
     default_ownership_paths,
 )
 from ai_engineering.state.io import write_json_model
-from ai_engineering.state.models import InstallState, OwnershipMap
+from ai_engineering.state.models import InstallState
 
 
 def _state_dir(ctx: DoctorContext) -> Path:
@@ -28,54 +26,30 @@ def _state_dir(ctx: DoctorContext) -> Path:
 
 
 def _check_files_parseable(ctx: DoctorContext) -> CheckResult:
-    """Validate that the canonical state.db projections load cleanly.
+    """Validate that the canonical state files load cleanly (spec-148 files-only).
 
-    spec-125 D-125-01: ``install-state.json`` + ``framework-capabilities.json``
-    migrated to state.db tables (``install_state``, ``tool_capabilities``).
-    Validation now hits the SQLite singleton rows via the canonical
-    repository readers; missing rows surface as FAIL.
-
-    Spec-125 also retains a one-time migration path for the legacy
-    ``install-state.json`` so a pre-cutover install can still be
-    detected. The probe therefore reports FAIL only when neither
-    ``state.db`` nor the legacy JSON is present (truly uninstalled),
-    or when the JSON exists but is unparseable.
+    The install-completed signal is ``install-state.json``; FAIL when it is
+    absent (uninstalled) or when it / framework-capabilities.json fail to
+    load via the canonical repository readers.
     """
     from ai_engineering.state.repository import DurableStateRepository
 
     state_dir = _state_dir(ctx)
-    db_path = state_dir / "state.db"
-    legacy_json = state_dir / "install-state.json"
-
     if not state_dir.is_dir():
         return CheckResult(
             name="state-files-parseable",
             status=CheckStatus.FAIL,
-            message=(
-                "state directory missing — install-state.json and state.db "
-                "absent at .ai-engineering/state/"
-            ),
+            message="state directory missing at .ai-engineering/state/",
             fixable=True,
         )
 
-    if not db_path.is_file() and not legacy_json.exists():
+    if not (state_dir / "install-state.json").is_file():
         return CheckResult(
             name="state-files-parseable",
             status=CheckStatus.FAIL,
-            message="install-state.json missing and no state.db present",
+            message="install-state.json missing",
             fixable=True,
         )
-
-    if legacy_json.exists():
-        try:
-            json.loads(legacy_json.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError) as exc:
-            return CheckResult(
-                name="state-files-parseable",
-                status=CheckStatus.FAIL,
-                message=f"install-state.json unparseable: {exc}",
-                fixable=True,
-            )
 
     repo = DurableStateRepository(ctx.target)
     failures: list[str] = []
@@ -84,12 +58,12 @@ def _check_files_parseable(ctx: DoctorContext) -> CheckResult:
         state = repo.load_install_state()
         InstallState.model_validate(state.model_dump(mode="python"))
     except (ValueError, OSError) as exc:
-        failures.append(f"install_state: {exc}")
+        failures.append(f"install-state.json: {exc}")
 
     try:
         repo.load_framework_capabilities()
     except (ValueError, OSError) as exc:
-        failures.append(f"tool_capabilities: {exc}")
+        failures.append(f"framework-capabilities.json: {exc}")
 
     if failures:
         return CheckResult(
@@ -102,41 +76,25 @@ def _check_files_parseable(ctx: DoctorContext) -> CheckResult:
     return CheckResult(
         name="state-files-parseable",
         status=CheckStatus.OK,
-        message="state.db projections load cleanly",
+        message="state files load cleanly",
     )
 
 
 def _check_state_schema(ctx: DoctorContext) -> CheckResult:
-    """Check install_state singleton row has schema_version 2.0 and required fields.
+    """Check install-state.json has schema_version 2.0 and required fields.
 
-    spec-125 D-125-01: install_state lives in state.db; the JSON fallback
-    was deleted in wave 1. The probe WARNs (rather than fixing) when the
-    state surface is absent: schema validation is not the right place to
-    create state, and ``_check_files_parseable`` reports the FAIL with a
-    fixer.
+    spec-148 files-only: install state lives in ``install-state.json``. WARN
+    (rather than fix) when the file is absent — ``_check_files_parseable``
+    reports the FAIL with a fixer.
     """
     from ai_engineering.state.repository import DurableStateRepository
 
-    state_dir = _state_dir(ctx)
-    db_path = state_dir / "state.db"
-    legacy_json = state_dir / "install-state.json"
-
-    if not db_path.is_file() and not legacy_json.exists():
+    if not (_state_dir(ctx) / "install-state.json").is_file():
         return CheckResult(
             name="state-schema",
             status=CheckStatus.WARN,
-            message="install_state row missing; schema cannot be validated",
+            message="install-state.json missing; schema cannot be validated",
         )
-
-    if legacy_json.exists():
-        try:
-            json.loads(legacy_json.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return CheckResult(
-                name="state-schema",
-                status=CheckStatus.WARN,
-                message="install-state.json unparseable; schema cannot be validated",
-            )
 
     try:
         state = DurableStateRepository(ctx.target).load_install_state()
@@ -144,7 +102,7 @@ def _check_state_schema(ctx: DoctorContext) -> CheckResult:
         return CheckResult(
             name="state-schema",
             status=CheckStatus.WARN,
-            message="state.db install_state row unloadable; cannot validate schema",
+            message="install-state.json unloadable; cannot validate schema",
         )
 
     if state.schema_version != "2.0":
@@ -169,49 +127,26 @@ def _check_state_schema(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_ownership_coverage(ctx: DoctorContext) -> CheckResult:
-    """Compare ownership map patterns against defaults.
+    """Compare ownership-map.json patterns against defaults (spec-148 files-only)."""
+    from ai_engineering.state.repository import DurableStateRepository
 
-    spec-124 D-124-12: prefer ``state.db.ownership_map`` (canonical) and
-    fall back to a lingering ``ownership-map.json`` only when state.db
-    is unavailable.
-    """
-    sd = _state_dir(ctx)
-    current_patterns: set[str] = set()
-    source_label = "state.db"
+    path = _state_dir(ctx) / "ownership-map.json"
+    if not path.is_file():
+        return CheckResult(
+            name="ownership-coverage",
+            status=CheckStatus.WARN,
+            message="ownership-map.json absent; cannot check coverage",
+        )
     try:
-        from ai_engineering.state import state_db as _state_db_mod
+        omap = DurableStateRepository(ctx.target).load_ownership()
+    except (ValueError, OSError):
+        return CheckResult(
+            name="ownership-coverage",
+            status=CheckStatus.WARN,
+            message="ownership-map.json unparseable; cannot check coverage",
+        )
+    current_patterns = {entry.pattern for entry in omap.paths}
 
-        conn = _state_db_mod.connect(ctx.target, read_only=False)
-        try:
-            cur = conn.execute("SELECT path_pattern FROM ownership_map")
-            current_patterns = {row[0] for row in cur.fetchall()}
-        finally:
-            conn.close()
-    except Exception:
-        # Fall back to JSON projection if state.db unavailable.
-        path = sd / "ownership-map.json"
-        source_label = "ownership-map.json"
-        if not path.is_file():
-            return CheckResult(
-                name="ownership-coverage",
-                status=CheckStatus.WARN,
-                message=(
-                    "state.db unreadable and ownership-map.json absent; cannot check coverage"
-                ),
-            )
-        try:
-            raw = path.read_text(encoding="utf-8")
-            data = json.loads(raw)
-            omap = OwnershipMap.model_validate(data)
-        except (json.JSONDecodeError, ValueError, OSError):
-            return CheckResult(
-                name="ownership-coverage",
-                status=CheckStatus.WARN,
-                message="ownership-map.json unparseable; cannot check coverage",
-            )
-        current_patterns = {entry.pattern for entry in omap.paths}
-
-    _ = source_label  # acknowledge fallback path; kept for diagnostics
     default_patterns = {
         pattern
         for pattern, _, _ in default_ownership_paths(

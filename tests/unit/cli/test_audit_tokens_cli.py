@@ -20,7 +20,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-from ai_engineering.state.audit_index import NDJSON_REL
+from ai_engineering.state.audit_rollup import NDJSON_REL
 
 runner = CliRunner()
 

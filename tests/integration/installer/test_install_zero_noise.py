@@ -20,7 +20,6 @@ import time
 from pathlib import Path
 
 from ai_engineering.installer.service import install
-from ai_engineering.state.state_db import _reset_fallback_warnings
 
 
 def _ensure_project_marker(tmp_path: Path) -> None:
@@ -32,7 +31,6 @@ def _ensure_project_marker(tmp_path: Path) -> None:
 
 def test_fresh_install_emits_no_stale_state_warning(tmp_path: Path, caplog) -> None:
     """spec-132 D-132-07: no stale-state warnings during a fresh install."""
-    _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
     with caplog.at_level(logging.WARNING):
@@ -51,7 +49,6 @@ def test_fresh_install_state_files(tmp_path: Path) -> None:
     decision-store.json (P2) and ownership-map.json (P3) are the canonical
     stores and must both exist post-install.
     """
-    _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
     install(tmp_path, stacks=["python"])
@@ -67,7 +64,6 @@ def test_fresh_install_state_files(tmp_path: Path) -> None:
 
 def test_fresh_install_under_thirty_seconds(tmp_path: Path) -> None:
     """spec-132 sub-001 acceptance: install completes in <30s wall-clock."""
-    _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
     started = time.monotonic()
@@ -79,7 +75,6 @@ def test_fresh_install_under_thirty_seconds(tmp_path: Path) -> None:
 
 def test_only_root_constitution_after_install(tmp_path: Path) -> None:
     """spec-132 D-132-14: exactly one CONSTITUTION.md after install."""
-    _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
     install(tmp_path, stacks=["python"])
