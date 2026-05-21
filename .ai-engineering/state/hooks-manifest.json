@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-20T14:23:04Z",
+  "generatedAt": "2026-05-21T13:08:19Z",
   "hookCount": 74,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -72,7 +72,7 @@
     ".ai-engineering/scripts/hooks/runtime-rotate-throttled.py": "ee07aba81cfba912baa48cad575b7639adaccf39c647e30e951f45be21b51fce",
     ".ai-engineering/scripts/hooks/runtime-session-end.py": "49e68a01c7712328e7fa661e669253b46e6498dbb0154a1397cca7a03ae30491",
     ".ai-engineering/scripts/hooks/runtime-session-start.py": "2f8d497f55a031f2df7e6a36c30fcf95a129c9dab127cc447eab83d2fbe3b90f",
-    ".ai-engineering/scripts/hooks/runtime-stop.py": "1a849130f6b518ed4505e4db47461b380b9194eed29d18727334e9a4e217e5ba",
+    ".ai-engineering/scripts/hooks/runtime-stop.py": "9b5f63269b89746646647c49f24207a3cc1be31b2fea5a26d0c6d2ce019bbb5a",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "e1bda43b4f2a24df679c8f0ac7743a9a61e005151e824e2e79ffda92b04c743f",
     ".ai-engineering/scripts/hooks/strategic-compact.py": "5d1619adb316e3cfb481ac6cae58ac84057b38304b039398fc971a601be582eb",
     ".ai-engineering/scripts/hooks/telemetry-skill.py": "b400039e292936d8ab4aa03cd0a7e07e9e7c557d73f712ff3d58ff99cf190254"
