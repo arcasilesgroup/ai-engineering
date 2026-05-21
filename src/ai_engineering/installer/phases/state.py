@@ -108,14 +108,12 @@ class StatePhase:
             if action.action_type == "skip":
                 result.skipped.append(action.destination)
                 continue
-            # spec-132 D-132-08: ownership map rows are UPSERTed directly
-            # into state.db (the ``_OWNERSHIP`` pseudo-path keeps its
-            # plan/result key; no JSON lands on disk yet — P3 moves it).
-            # spec-148 P2: decisions are files-only — ``_DECISIONS`` writes
-            # the canonical ``decision-store.json`` via the durable repo.
+            # spec-148 P2/P3 (files-only): ownership-map.json and
+            # decision-store.json are the canonical stores, written via the
+            # durable repository (the ``_OWNERSHIP`` / ``_DECISIONS``
+            # pseudo-paths keep their plan/result keys).
             if action.destination == _OWNERSHIP:
-                state_db.upsert_ownership_rows(
-                    context.target,
+                DurableStateRepository(context.target).save_ownership(
                     default_ownership_map(root_entry_points=root_entry_points),
                 )
                 result.created.append(action.destination)
@@ -124,13 +122,6 @@ class StatePhase:
                 DurableStateRepository(context.target).save_decisions(default_decision_store())
                 result.created.append(action.destination)
                 continue
-
-        # spec-132 D-132-18: one-shot cleanup of the legacy ownership-map.json
-        # sidecar (still state.db-backed until P3). spec-148 P2: decision-store.json
-        # is now the canonical decision SoT and is intentionally NOT removed.
-        # Idempotent: a missing file is silently ignored.
-        for legacy_name in ("ownership-map.json",):
-            (context.target / _SD / legacy_name).unlink(missing_ok=True)
 
         legacy_audit_log_removed = remove_legacy_audit_log(context.target)
 
@@ -176,8 +167,16 @@ class StatePhase:
         for r in (_INSTINCT_OBSERVATIONS, _INSTINCTS, _INSTINCT_META):
             if not (context.target / r).exists():
                 errors.append(f"State file missing: {r}")
-        # state.db backed: install_state singleton, tool_capabilities,
-        # ownership_map, decisions.
+        # spec-148 P3: ownership lives in ownership-map.json (files-only).
+        # The default map carries the root-entry patterns, so a populated
+        # file is the post-install expectation.
+        ownership_repo = DurableStateRepository(context.target)
+        if not ownership_repo.ownership_map_path.is_file():
+            errors.append(f"State file missing: {_OWNERSHIP}")
+        elif not ownership_repo.load_ownership().paths:
+            errors.append(f"State file empty: {_OWNERSHIP}")
+        # state.db backed (until P4/P5): install_state singleton,
+        # tool_capabilities.
         try:
             conn = state_db.connect(context.target, read_only=True)
             try:
@@ -196,13 +195,8 @@ class StatePhase:
                         errors.append(f"State file missing: {_FRAMEWORK_CAPABILITIES}")
                 else:
                     errors.append(f"State file missing: {_FRAMEWORK_CAPABILITIES}")
-                # spec-132 D-132-08: ownership rows must be present.
-                ownership_count = conn.execute("SELECT COUNT(*) FROM ownership_map").fetchone()[0]
-                if not ownership_count:
-                    errors.append(f"State file missing: {_OWNERSHIP}")
-                # decisions can be empty on a fresh install (no risks
-                # accepted yet) -- the table existence alone is
-                # validated indirectly by the connect/migration ledger.
+                # ownership + decisions are files-only (spec-148 P2/P3) and
+                # verified above / off the state.db connection.
             finally:
                 conn.close()
         except Exception as exc:

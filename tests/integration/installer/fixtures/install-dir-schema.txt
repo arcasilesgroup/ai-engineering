@@ -12,8 +12,10 @@
 .ai-engineering/specs/plan.md
 .ai-engineering/specs/spec.md
 .ai-engineering/state/
+.ai-engineering/state/decision-store.json
 .ai-engineering/state/framework-events.ndjson
 .ai-engineering/state/locks/
 .ai-engineering/state/locks/framework-events.lock
 .ai-engineering/state/observation-events.ndjson
+.ai-engineering/state/ownership-map.json
 .ai-engineering/state/state.db

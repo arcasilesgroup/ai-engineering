@@ -189,25 +189,17 @@ class TestGenerateStateFiles:
             surfaces=None,
         )
 
-        # spec-132 D-132-08: ownership now lives in the state.db
-        # ``ownership_map`` table. Probe the row directly to confirm
-        # the manifest root-entry rule survived the install path.
-        import sqlite3
+        # spec-148 P3: ownership now lives in ownership-map.json. Read the
+        # entry through the durable repository to confirm the manifest
+        # root-entry rule survived the install path.
+        from ai_engineering.state.models import FrameworkUpdatePolicy
+        from ai_engineering.state.repository import DurableStateRepository
 
-        db_path = ai_eng_dir / "state" / "state.db"
-        assert db_path.is_file(), "state.db should exist after _generate_state_files"
-        conn = sqlite3.connect(db_path)
-        try:
-            row = conn.execute(
-                "SELECT severity FROM ownership_map WHERE path_pattern = ?",
-                ("CLAUDE.md",),
-            ).fetchone()
-        finally:
-            conn.close()
-        assert row is not None, "CLAUDE.md ownership rule should be present"
-        # Manifest declared `owner: team` + DENY framework policy -> severity
-        # column stores the framework_update value.
-        assert row[0] == "deny"
+        store = DurableStateRepository(ai_eng_dir.parent).load_ownership()
+        by_pattern = {entry.pattern: entry for entry in store.paths}
+        assert "CLAUDE.md" in by_pattern, "CLAUDE.md ownership rule should be present"
+        # Manifest declared `owner: team` + DENY framework policy.
+        assert by_pattern["CLAUDE.md"].framework_update == FrameworkUpdatePolicy.DENY
 
 
 # ---------------------------------------------------------------------------
@@ -479,10 +471,10 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["get_ai_engineering_template_root"] = MagicMock(return_value=Path("/fake/templates"))
     mocks["copy_template_tree"] = MagicMock(return_value=CopyResult())
     mocks["copy_project_templates"] = MagicMock(return_value=CopyResult())
-    # spec-132 D-132-08: ownership lands via the state.db UPSERT helper.
-    # spec-148 P2: decisions land via DurableStateRepository.save_decisions
-    # (files-only) — mock the write so install() stays isolated.
-    mocks["upsert_ownership_rows"] = MagicMock()
+    # spec-148 P2/P3: ownership + decisions land via
+    # DurableStateRepository.save_ownership / save_decisions (files-only) —
+    # mock the writes so install() stays isolated.
+    mocks["save_ownership"] = MagicMock()
     mocks["save_decisions"] = MagicMock()
     mocks["state_db_table_has_rows"] = MagicMock(return_value=False)
     mocks["write_framework_capabilities"] = MagicMock()
@@ -537,12 +529,12 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     )
     stack.enter_context(patch(f"{_SVC}.copy_template_tree", mocks["copy_template_tree"]))
     stack.enter_context(patch(f"{_SVC}.copy_project_templates", mocks["copy_project_templates"]))
-    # spec-132 D-132-08: ownership UPSERT helper. spec-148 P2: decisions
-    # write through DurableStateRepository.save_decisions (files-only).
+    # spec-148 P2/P3: ownership + decisions write through the durable
+    # repository (files-only).
     stack.enter_context(
         patch(
-            "ai_engineering.state.state_db.upsert_ownership_rows",
-            mocks["upsert_ownership_rows"],
+            "ai_engineering.state.repository.DurableStateRepository.save_ownership",
+            mocks["save_ownership"],
         )
     )
     stack.enter_context(

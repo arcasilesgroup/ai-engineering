@@ -1,7 +1,8 @@
 """Ownership map CLI commands.
 
-Spec-138 M3.T5: imports ``.github/CODEOWNERS`` (or an operator-provided
-override path) into the canonical ``state.db.ownership_map`` table.
+Imports ``.github/CODEOWNERS`` (or an operator-provided override path)
+into the canonical ``ownership-map.json`` (spec-148 P3 files-only;
+originally spec-138 M3.T5 against ``state.db.ownership_map``).
 
 CODEOWNERS grammar (per `GitHub docs <https://docs.github.com/en/
 repositories/managing-your-repositorys-settings-and-features/
@@ -24,11 +25,14 @@ import typer
 
 from ai_engineering.cli_ui import error, header, info, status_line, success
 from ai_engineering.paths import find_project_root
-from ai_engineering.state.observability import emit_control_outcome
-from ai_engineering.state.state_db import (
-    state_db_path,
-    upsert_ownership_rows_raw,
+from ai_engineering.state.models import (
+    FrameworkUpdatePolicy,
+    OwnershipEntry,
+    OwnershipLevel,
+    OwnershipMap,
 )
+from ai_engineering.state.observability import emit_control_outcome
+from ai_engineering.state.repository import DurableStateRepository
 
 __all__ = [
     "ownership_import",
@@ -40,6 +44,30 @@ __all__ = [
 # also valid CODEOWNERS entries (RFC 5322); we accept anything that
 # matches the GitHub grammar.
 _OWNER_TOKEN_RE = re.compile(r"^(?:@[\w\-./]+|[^\s@]+@[\w\-.]+)$")
+
+
+def _ownership_level(value: str | None) -> OwnershipLevel:
+    """Coerce a CODEOWNERS owner token into a valid ``OwnershipLevel``.
+
+    Non-enum owners (``@team`` / email forms) are conservatively treated
+    as team-managed, preserving the prior state.db import semantics.
+    """
+    try:
+        return OwnershipLevel(value or "")
+    except ValueError:
+        return OwnershipLevel.TEAM_MANAGED
+
+
+def _framework_update_policy(value: str | None) -> FrameworkUpdatePolicy:
+    """Coerce a row severity into a valid ``FrameworkUpdatePolicy``.
+
+    Absent severity → ``DENY`` so update never overwrites operator-owned
+    paths by surprise, preserving the prior state.db import semantics.
+    """
+    try:
+        return FrameworkUpdatePolicy(value or "")
+    except ValueError:
+        return FrameworkUpdatePolicy.DENY
 
 
 def parse_codeowners(content: str) -> list[dict[str, object | None]]:
@@ -137,7 +165,39 @@ def ownership_import(
         info("Dry run: no rows written.")
         return
 
-    attempted = upsert_ownership_rows_raw(root, rows)
+    # spec-148 P3 (files-only): collapse CODEOWNERS rows into the
+    # OwnershipEntry model (the only shape consumers read) and merge by
+    # pattern into the canonical ownership-map.json via the durable repo.
+    # Start from the persisted file when present; an absent file is an
+    # empty base (the framework defaults are the installer's job, not the
+    # importer's — load_ownership() would otherwise synthesise them).
+    repo = DurableStateRepository(root)
+    store = repo.load_ownership() if repo.ownership_map_path.exists() else OwnershipMap()
+    by_pattern: dict[str, OwnershipEntry] = {entry.pattern: entry for entry in store.paths}
+    attempted = 0
+    for row in rows:
+        pattern = row.get("path_pattern")
+        if not isinstance(pattern, str) or not pattern:
+            continue
+        owners = row.get("owners")
+        first_owner = (
+            owners[0]
+            if isinstance(owners, list) and owners and isinstance(owners[0], str)
+            else None
+        )
+        severity = row.get("severity")
+        by_pattern[pattern] = OwnershipEntry.model_validate(
+            {
+                "pattern": pattern,
+                "owner": _ownership_level(first_owner),
+                "framework_update": _framework_update_policy(
+                    severity if isinstance(severity, str) else None
+                ),
+            }
+        )
+        attempted += 1
+    store.paths = list(by_pattern.values())
+    repo.save_ownership(store)
 
     emit_control_outcome(
         root,
@@ -149,8 +209,8 @@ def ownership_import(
         metadata={
             "count": attempted,
             "source": str(codeowners_path),
-            "db_path": str(state_db_path(root)),
+            "store_path": str(repo.ownership_map_path),
         },
     )
 
-    success(f"Imported {attempted} ownership rules -> state.db.ownership_map.")
+    success(f"Imported {attempted} ownership rules -> ownership-map.json.")

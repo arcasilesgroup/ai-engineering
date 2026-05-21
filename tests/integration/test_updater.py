@@ -23,7 +23,13 @@ from unittest.mock import patch
 import pytest
 
 from ai_engineering.installer.service import install
-from ai_engineering.state.state_db import upsert_ownership_rows_raw
+from ai_engineering.state.models import (
+    FrameworkUpdatePolicy,
+    OwnershipEntry,
+    OwnershipLevel,
+    OwnershipMap,
+)
+from ai_engineering.state.repository import DurableStateRepository
 from ai_engineering.updater.service import FileChange, UpdateResult, update
 
 
@@ -169,7 +175,7 @@ class TestOwnershipSafety:
         updated = [c for c in result.changes if c.path == promoted and c.action == "update"]
         assert len(updated) == 1
 
-    def test_sqlite_deny_rule_blocks_missing_file_creation(
+    def test_deny_rule_blocks_missing_file_creation(
         self,
         installed_project: Path,
         tmp_path: Path,
@@ -177,16 +183,17 @@ class TestOwnershipSafety:
         template_root = tmp_path / "templates"
         template_root.mkdir()
         (template_root / "custom.md").write_text("framework template\n", encoding="utf-8")
-        upsert_ownership_rows_raw(
-            installed_project,
-            [
-                {
-                    "path_pattern": "custom.md",
-                    "owners": ["team-managed"],
-                    "severity": "deny",
-                    "reviewers": [],
-                }
-            ],
+        # spec-148 P3: seed the deny rule into the canonical ownership-map.json.
+        DurableStateRepository(installed_project).save_ownership(
+            OwnershipMap(
+                paths=[
+                    OwnershipEntry(
+                        pattern="custom.md",
+                        owner=OwnershipLevel.TEAM_MANAGED,
+                        framework_update=FrameworkUpdatePolicy.DENY,
+                    )
+                ]
+            )
         )
         target = installed_project / "custom.md"
         target.unlink(missing_ok=True)

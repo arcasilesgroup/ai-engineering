@@ -24,10 +24,14 @@ from ai_engineering.state import state_db
 
 @pytest.fixture()
 def project_root(tmp_path: Path) -> Path:
-    """Tmp project root with state dir and a single stale JSON fallback."""
+    """Tmp project root with state dir and a single stale JSON fallback.
+
+    spec-148 P2/P3 retired decision-store.json / ownership-map.json from
+    the deprecated list; install-state.json stays deprecated until P4.
+    """
     state_dir = tmp_path / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
-    (state_dir / "ownership-map.json").write_text("{}", encoding="utf-8")
+    (state_dir / "install-state.json").write_text("{}", encoding="utf-8")
     return tmp_path
 
 
@@ -45,7 +49,7 @@ def test_warn_emits_once_then_dedups(project_root: Path, caplog) -> None:
         for _ in range(10):
             state_db._warn_on_deprecated_fallbacks(state_dir)
 
-    matching = [r for r in caplog.records if "ownership-map.json" in r.getMessage()]
+    matching = [r for r in caplog.records if "install-state.json" in r.getMessage()]
     assert len(matching) == 1, f"Expected exactly one warning across 10 calls; got {len(matching)}"
 
 
@@ -56,10 +60,10 @@ def test_reset_re_enables_warning(project_root: Path, caplog) -> None:
 
     with caplog.at_level(logging.WARNING):
         state_db._warn_on_deprecated_fallbacks(state_dir)
-        before_reset = sum(1 for r in caplog.records if "ownership-map.json" in r.getMessage())
+        before_reset = sum(1 for r in caplog.records if "install-state.json" in r.getMessage())
         state_db._reset_fallback_warnings()
         state_db._warn_on_deprecated_fallbacks(state_dir)
-        after_reset = sum(1 for r in caplog.records if "ownership-map.json" in r.getMessage())
+        after_reset = sum(1 for r in caplog.records if "install-state.json" in r.getMessage())
 
     assert before_reset == 1
     assert after_reset == 2, "Second warning should re-emit after reset"
@@ -79,9 +83,9 @@ def test_dedup_is_per_file(project_root: Path, caplog) -> None:
     """
     state_db._reset_fallback_warnings()
     state_dir = project_root / ".ai-engineering" / "state"
-    # The fixture seeds ownership-map.json; add a second STILL-deprecated
-    # file. (spec-148 P2: decision-store.json is canonical, not deprecated.)
-    (state_dir / "install-state.json").write_text("{}", encoding="utf-8")
+    # The fixture seeds install-state.json; add a second STILL-deprecated
+    # file (spec-148 P2/P3 retired decision-store.json / ownership-map.json).
+    (state_dir / "framework-capabilities.json").write_text("{}", encoding="utf-8")
 
     with caplog.at_level(logging.WARNING):
         state_db._warn_on_deprecated_fallbacks(state_dir)

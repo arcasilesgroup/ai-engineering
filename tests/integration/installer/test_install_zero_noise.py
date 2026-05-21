@@ -46,10 +46,10 @@ def test_fresh_install_emits_no_stale_state_warning(tmp_path: Path, caplog) -> N
 
 
 def test_fresh_install_state_files(tmp_path: Path) -> None:
-    """Install state-file shape: ownership stays state.db-only; decisions are files-only.
+    """Install writes the canonical file SoTs (spec-148 P2/P3 files-only).
 
-    spec-132 D-132-08: no ownership-map.json sidecar (still state.db until P3).
-    spec-148 P2: decision-store.json IS the canonical decision SoT and must exist.
+    decision-store.json (P2) and ownership-map.json (P3) are the canonical
+    stores and must both exist post-install.
     """
     _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
@@ -57,11 +57,11 @@ def test_fresh_install_state_files(tmp_path: Path) -> None:
     install(tmp_path, stacks=["python"])
 
     state_dir = tmp_path / ".ai-engineering" / "state"
-    assert not (state_dir / "ownership-map.json").exists(), (
-        "ownership-map.json must not appear post-install (spec-132 D-132-08; state.db until P3)"
-    )
     assert (state_dir / "decision-store.json").is_file(), (
         "decision-store.json must exist post-install (spec-148 P2 files-only)"
+    )
+    assert (state_dir / "ownership-map.json").is_file(), (
+        "ownership-map.json must exist post-install (spec-148 P3 files-only)"
     )
 
 
