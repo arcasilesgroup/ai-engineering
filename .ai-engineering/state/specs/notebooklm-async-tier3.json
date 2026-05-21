@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-05-21T09:56:17.134624+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "notebooklm-async-tier3",
+  "spec_id": "notebooklm-async-tier3",
+  "state": "draft",
+  "title": "Async-first NotebookLM autonomous deep research (Tier 3 redesign)"
+}
