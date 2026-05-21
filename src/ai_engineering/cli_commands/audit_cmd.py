@@ -488,7 +488,7 @@ def audit_replay(
 ) -> None:
     """Walk a session or trace as a span tree.
 
-    Builds the span tree from the SQLite audit index, walks it
+    Builds the span tree directly from framework-events.ndjson, walks it
     depth-first, and prints either an indented text rendering (default)
     or a JSON dump under ``--json``. Exactly one of ``--session`` /
     ``--trace`` must be supplied.
@@ -502,22 +502,8 @@ def audit_replay(
     _validate_session_xor_trace(session, trace)
 
     project_root = _resolve_project_root()
-    _ensure_fresh_index(project_root)
-
-    if not index_path(project_root).exists():
-        # Soft success -- empty NDJSON means an empty SQLite would be
-        # equally empty. Mirrors the behaviour of ``audit query``.
-        if json_output:
-            typer.echo(json.dumps({"trees": [], "tokens": _empty_token_rollup()}))
-        else:
-            typer.echo("(no events)")
-        return
-
-    conn = open_index_readonly(project_root)
-    try:
-        roots = build_span_tree(conn, session_id=session, trace_id=trace)
-    finally:
-        conn.close()
+    ndjson_path = project_root / NDJSON_REL
+    roots = build_span_tree(ndjson_path, session_id=session, trace_id=trace)
 
     rollup = token_rollup(roots)
 
