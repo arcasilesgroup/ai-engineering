@@ -77,7 +77,7 @@ def _new_acc() -> dict[str, Any]:
 
 def skill_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
     """Per-skill token rollup over ``skill_invoked`` events."""
-    groups: dict[str, dict[str, Any]] = defaultdict(lambda: {**_new_acc(), "invocations": 0})
+    groups: dict[str | None, dict[str, Any]] = defaultdict(lambda: {**_new_acc(), "invocations": 0})
     for event in _iter_events(ndjson_path):
         if event.get("kind") != "skill_invoked":
             continue
@@ -85,18 +85,18 @@ def skill_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
         skill = detail.get("skill") if isinstance(detail, dict) else None
         if not isinstance(skill, str):
             skill = None
-        acc = groups[skill]  # type: ignore[index]
+        acc = groups[skill]
         acc["invocations"] += 1
         _accumulate(event, acc)
     return [
         {"skill": skill, **acc}
-        for skill, acc in sorted(groups.items(), key=lambda kv: (kv[0] is None, kv[0]))
+        for skill, acc in sorted(groups.items(), key=lambda kv: (kv[0] is None, kv[0] or ""))
     ]
 
 
 def agent_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
     """Per-agent token rollup over ``agent_dispatched`` events."""
-    groups: dict[str, dict[str, Any]] = defaultdict(lambda: {**_new_acc(), "dispatches": 0})
+    groups: dict[str | None, dict[str, Any]] = defaultdict(lambda: {**_new_acc(), "dispatches": 0})
     for event in _iter_events(ndjson_path):
         if event.get("kind") != "agent_dispatched":
             continue
@@ -104,12 +104,12 @@ def agent_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
         agent = detail.get("agent") if isinstance(detail, dict) else None
         if not isinstance(agent, str):
             agent = None
-        acc = groups[agent]  # type: ignore[index]
+        acc = groups[agent]
         acc["dispatches"] += 1
         _accumulate(event, acc)
     return [
         {"agent": agent, **acc}
-        for agent, acc in sorted(groups.items(), key=lambda kv: (kv[0] is None, kv[0]))
+        for agent, acc in sorted(groups.items(), key=lambda kv: (kv[0] is None, kv[0] or ""))
     ]
 
 
@@ -122,7 +122,7 @@ def session_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
             continue
         ts = event.get("timestamp")
         ts = ts if isinstance(ts, str) else ""
-        acc = groups.get(session_id)
+        acc: dict[str, Any] | None = groups.get(session_id)
         if acc is None:
             acc = {**_new_acc(), "events": 0, "started_at": ts, "ended_at": ts}
             groups[session_id] = acc
