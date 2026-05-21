@@ -164,37 +164,19 @@ class TestStatePhaseChecks:
         assert parseable.status == CheckStatus.OK
 
     def test_fails_on_missing_state(self, installed_project: Path) -> None:
-        # Spec-125: install_state lives in state.db. Drop the singleton row
-        # to simulate the "framework not installed" state. Diagnose then
+        # spec-148 P4: install_state lives in install-state.json. Remove it
+        # to simulate the "framework not installed" state; diagnose() then
         # falls back to pre-install mode.
-        import sqlite3
-
-        db_path = installed_project / ".ai-engineering" / "state" / "state.db"
-        conn = sqlite3.connect(db_path)
-        try:
-            conn.execute("DELETE FROM install_state WHERE id = 1")
-            conn.commit()
-        finally:
-            conn.close()
+        install_state_path = installed_project / ".ai-engineering" / "state" / "install-state.json"
+        install_state_path.unlink()
         report = diagnose(installed_project)
         assert report.installed is False
 
     def test_falls_to_preinstall_on_corrupt_state(self, installed_project: Path) -> None:
-        # Spec-125: corrupt the install_state.state_json column instead of
-        # the JSON file. Validation in load_install_state must fail and
-        # diagnose() must enter pre-install mode.
-        import sqlite3
-
-        db_path = installed_project / ".ai-engineering" / "state" / "state.db"
-        conn = sqlite3.connect(db_path)
-        try:
-            conn.execute(
-                "UPDATE install_state SET state_json = ? WHERE id = 1",
-                ("{invalid json",),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        # spec-148 P4: corrupt install-state.json. load_install_state must
+        # fail validation and diagnose() must enter pre-install mode.
+        install_state_path = installed_project / ".ai-engineering" / "state" / "install-state.json"
+        install_state_path.write_text("{invalid json", encoding="utf-8")
         report = diagnose(installed_project)
         assert report.installed is False
 

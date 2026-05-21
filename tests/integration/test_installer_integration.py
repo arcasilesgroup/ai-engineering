@@ -291,11 +291,14 @@ class TestInstallOnEmptyRepo:
         # ships from the installer template.
         assert (tmp_path / ".ai-engineering" / "reference" / "principles.md").is_file()
 
-        # spec-125 D-125-01: install_state, decisions, ownership_map, and
-        # tool_capabilities live in state.db tables. The JSON fallbacks were
-        # deleted in spec-124 wave 5 (decision-store, ownership-map) and
-        # spec-125 wave 1 (install-state, framework-capabilities).
-        assert (tmp_path / ".ai-engineering" / "state" / "state.db").is_file()
+        # spec-148 (files-only): install_state, decisions, ownership, and
+        # capabilities are file SoTs — install creates NO state.db.
+        state_dir = tmp_path / ".ai-engineering" / "state"
+        assert (state_dir / "install-state.json").is_file()
+        assert (state_dir / "framework-capabilities.json").is_file()
+        assert (state_dir / "decision-store.json").is_file()
+        assert (state_dir / "ownership-map.json").is_file()
+        assert not (state_dir / "state.db").exists()
 
         # Project files created
         assert (tmp_path / "CLAUDE.md").is_file()

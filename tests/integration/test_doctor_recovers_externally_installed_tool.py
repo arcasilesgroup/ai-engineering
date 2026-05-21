@@ -161,13 +161,13 @@ def test_doctor_persists_recovery_to_disk(tmp_path: Path) -> None:
     ):
         doctor_tools._check_required_tools(ctx)
 
-    # Spec-125 cutover: assertion against the canonical state.db row.
+    # spec-148 P4: doctor persists recovery to the canonical install-state.json.
     from ai_engineering.state.service import load_install_state
 
     persisted = load_install_state(tmp_path / ".ai-engineering" / "state")
     record = persisted.required_tools_state["jq"]
     assert record.state == ToolInstallState.INSTALLED
     assert record.mechanism == "external"
-    # Legacy JSON file MUST NOT be recreated by the doctor write path.
+    # The doctor write path persists to install-state.json (files-only SoT).
     state_path = tmp_path / ".ai-engineering" / "state" / "install-state.json"
-    assert not state_path.exists(), "spec-125: doctor must not recreate install-state.json"
+    assert state_path.is_file(), "spec-148 P4: doctor persists recovery to install-state.json"

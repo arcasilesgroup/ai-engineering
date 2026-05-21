@@ -308,12 +308,10 @@ class TestInstallHooks:
         # Act
         install_hooks(git_hooks_dir)
 
-        # spec-125: install_state lives in the state.db ``install_state``
-        # singleton row (the legacy JSON projection was deleted in
-        # wave 1). The hooks manager still calls ``save_install_state``
-        # to record hashes; we assert the singleton row is loadable
-        # rather than probing for the forbidden JSON file.
-        assert (state_dir / "state.db").exists()
+        # spec-148 P4: install_state lives in install-state.json (files-only).
+        # The hooks manager calls ``save_install_state`` to record hashes;
+        # assert the canonical file exists and is loadable.
+        assert (state_dir / "install-state.json").is_file()
         assert load_install_state(state_dir) is not None
 
 

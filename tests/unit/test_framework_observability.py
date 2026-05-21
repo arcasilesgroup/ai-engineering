@@ -218,12 +218,11 @@ class TestFrameworkCapabilities:
         assert MutationClass.CODE_WRITE not in plan_card.mutation_classes
 
     def test_write_framework_capabilities_persists_canonical_catalog(self, tmp_path: Path) -> None:
-        """Spec-125 cutover: catalog lives in ``tool_capabilities`` (state.db).
+        """spec-148 P4: catalog lives in ``framework-capabilities.json`` (files-only).
 
-        The legacy ``framework-capabilities.json`` sink was retired; the
-        writer now UPSERTs into the singleton row at ``tool_capabilities.id = 1``.
-        We probe the row via the canonical repository reader so the test
-        keeps tracking the live source of truth.
+        Reverses the spec-125 cutover: the writer rebuilds the catalog and
+        writes the JSON file via the durable repository. We assert the file
+        exists and probe it via the canonical repository reader.
         """
         from ai_engineering.state.repository import DurableStateRepository
 
@@ -231,8 +230,8 @@ class TestFrameworkCapabilities:
 
         catalog = write_framework_capabilities(tmp_path)
 
-        # JSON file is forbidden post-spec-125; assert its absence.
-        assert not framework_capabilities_path(tmp_path).exists()
+        # spec-148 P4: framework-capabilities.json is the canonical sink.
+        assert framework_capabilities_path(tmp_path).is_file()
 
         repo = DurableStateRepository(tmp_path)
         loaded = repo.load_framework_capabilities()

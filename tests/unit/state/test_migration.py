@@ -135,9 +135,8 @@ class TestMigrateInstallManifest:
         # Old file gone
         assert not (ai_eng / "state" / "install-manifest.json").exists()
 
-        # Spec-125: install_state lives in state.db, not a JSON file.
-        # The legacy JSON sink is gone; read the singleton row instead.
-        assert not (ai_eng / "state" / "install-state.json").exists()
+        # spec-148 P4: install_state lives in install-state.json (files-only).
+        assert (ai_eng / "state" / "install-state.json").is_file()
         data = _read_state_dict(ai_eng / "state")
 
         # Config fields absent

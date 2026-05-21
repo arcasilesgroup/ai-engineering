@@ -476,7 +476,6 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     # mock the writes so install() stays isolated.
     mocks["save_ownership"] = MagicMock()
     mocks["save_decisions"] = MagicMock()
-    mocks["state_db_table_has_rows"] = MagicMock(return_value=False)
     mocks["write_framework_capabilities"] = MagicMock()
     mocks["emit_framework_operation"] = MagicMock()
     mocks["install_hooks"] = MagicMock(return_value=HookInstallResult())
@@ -496,12 +495,6 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["default_install_state"] = MagicMock()
     mocks["default_ownership_map"] = MagicMock()
     mocks["default_decision_store"] = MagicMock()
-    # Spec-125: ``_state_db_row_exists`` decides whether to append the
-    # state.db pseudo-paths to ``created``. Mirror the mocked
-    # ``Path.exists`` semantics so each individual test can drive
-    # "fresh install" (False) or "already installed" (True) behavior
-    # via ``patched["state_db_row_exists"].return_value``.
-    mocks["state_db_row_exists"] = MagicMock(return_value=False)
 
     return mocks
 
@@ -543,7 +536,6 @@ def _apply_patches(mocks: dict[str, MagicMock]):
             mocks["save_decisions"],
         )
     )
-    stack.enter_context(patch(f"{_SVC}._state_db_table_has_rows", mocks["state_db_table_has_rows"]))
     stack.enter_context(
         patch(f"{_SVC}.write_framework_capabilities", mocks["write_framework_capabilities"])
     )
@@ -563,7 +555,6 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     stack.enter_context(patch(f"{_SVC}.default_install_state", mocks["default_install_state"]))
     stack.enter_context(patch(f"{_SVC}.default_ownership_map", mocks["default_ownership_map"]))
     stack.enter_context(patch(f"{_SVC}.default_decision_store", mocks["default_decision_store"]))
-    stack.enter_context(patch(f"{_SVC}._state_db_row_exists", mocks["state_db_row_exists"]))
     return stack
 
 
@@ -632,19 +623,11 @@ class TestInstallSkipsExistingStateFiles:
     """install() skips state files that already exist."""
 
     def test_no_writes_when_all_exist(self, patched, tmp_path: Path) -> None:
-        # Spec-125: signal that the state.db rows already exist so the
-        # installer treats the run as idempotent and reports no fresh
-        # state writes.
-        # Spec-132 D-132-08: ownership rows now backed by state.db too;
-        # signal they exist so the new UPSERT path stays idempotent.
-        patched["state_db_row_exists"].return_value = True
-        patched["state_db_table_has_rows"].return_value = True
-
-        # Act
+        # spec-148 files-only: every state file already exists, so the
+        # installer skips all seeds and reports no fresh state writes.
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
 
-        # Assert
         assert result.state_files == []
 
 
@@ -955,19 +938,11 @@ class TestInstallAlreadyInstalled:
             created=[],
             skipped=[Path("b")],
         )
-        # Spec-125: also signal that the state.db singletons already
-        # exist so the install summary stays empty and ``already_installed``
-        # remains True.
-        # Spec-132 D-132-08: ownership rows backed by state.db; signal
-        # they already exist on a re-install so created stays empty.
-        patched["state_db_row_exists"].return_value = True
-        patched["state_db_table_has_rows"].return_value = True
-
-        # Act
+        # spec-148 files-only: every state file already exists, so the
+        # install summary stays empty and ``already_installed`` is True.
         with patch.object(Path, "exists", return_value=True):
             result = install(tmp_path)
 
-        # Assert
         assert result.already_installed is True
 
     def test_not_already_installed_when_governance_created(

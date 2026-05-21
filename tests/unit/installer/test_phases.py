@@ -332,37 +332,47 @@ class TestStatePhase:
         overwrite_actions = [a for a in plan.actions if a.action_type == "overwrite"]
         assert any("install-state" in a.destination for a in overwrite_actions)
 
-    def test_decision_store_is_idempotent_upsert(self, tmp_path: Path) -> None:
-        """spec-148 P2: decisions write to the canonical decision-store.json.
+    def test_decision_store_preserved_on_reinstall(self, tmp_path: Path) -> None:
+        """spec-148 P4: a pre-existing decision-store.json is never wiped.
 
-        FRESH mode regenerates the store through the durable repository; a
-        pre-existing file is overwritten with the default (empty) store,
-        not pruned. The action type is ``create``/``overwrite`` -- the
-        legacy JSON-skip rule was retired with the state.db cutover.
+        Decisions are not ``regenerate_on_fresh``, so the state phase skips
+        an existing decision-store.json even on a FRESH reinstall — recorded
+        decisions survive instead of being clobbered by the empty default
+        seed.
         """
         from ai_engineering.installer.phases.state import StatePhase
+        from ai_engineering.state.decision_store_io import upsert_decision_rows_raw
         from ai_engineering.state.repository import DurableStateRepository
 
         phase = StatePhase()
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)
-        (state_dir / "decision-store.json").write_text("{}")
+        # Seed a real recorded decision into the canonical store.
+        upsert_decision_rows_raw(
+            tmp_path,
+            [
+                {
+                    "decision_id": "D-1-01",
+                    "spec_id": "spec-1",
+                    "status": "active",
+                    "title": "keep me",
+                    "context": "x",
+                }
+            ],
+        )
 
         ctx = _ctx(tmp_path, mode=InstallMode.FRESH)
         plan = phase.plan(ctx)
         decision_actions = [a for a in plan.actions if "decision-store" in a.destination]
         assert decision_actions, "decision-store pseudo-path must still appear in plan"
-        for a in decision_actions:
-            assert a.action_type in {"create", "overwrite"}, (
-                f"file-backed decisions should not 'skip'; got {a.action_type}"
-            )
+        # An existing decision store is skipped (decisions are not regenerated).
+        assert all(a.action_type == "skip" for a in decision_actions), decision_actions
 
-        # Execute: decision-store.json is the canonical SoT -- it survives
-        # (overwritten with the default empty store), it is not pruned.
         phase.execute(plan, ctx)
-        store_path = state_dir / "decision-store.json"
-        assert store_path.is_file(), "decision-store.json must survive FRESH execute (spec-148 P2)"
-        assert DurableStateRepository(tmp_path).load_decisions().decisions == []
+        store = DurableStateRepository(tmp_path).load_decisions()
+        assert [d.id for d in store.decisions] == ["D-1-01"], (
+            "a recorded decision must survive a reinstall"
+        )
 
 
 # ---------------------------------------------------------------------------
