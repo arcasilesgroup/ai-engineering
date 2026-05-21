@@ -58,6 +58,11 @@ from ai_engineering.state.audit_replay import (
     render_text,
     token_rollup,
 )
+from ai_engineering.state.audit_rollup import (
+    agent_token_rollup,
+    session_token_rollup,
+    skill_token_rollup,
+)
 
 _AuditMode = Literal["ndjson", "json_array"]
 
@@ -415,45 +420,35 @@ def audit_tokens(
 ) -> None:
     """Aggregate token usage by skill / agent / session.
 
-    Thin wrapper around the rollup views shipped by
-    :mod:`ai_engineering.state.audit_index`. Auto-builds the SQLite
-    projection if missing or stale, then ``SELECT * FROM <view>``
-    ordered by ``total_tokens`` descending.
+    spec-148: computes the rollups directly from
+    ``framework-events.ndjson`` via
+    :mod:`ai_engineering.state.audit_rollup` (no SQLite), ordered by
+    ``total_tokens`` descending.
     """
-    if by not in _TOKEN_VIEWS:
+    by_map = {
+        "skill": skill_token_rollup,
+        "agent": agent_token_rollup,
+        "session": session_token_rollup,
+    }
+    if by not in by_map:
         typer.echo(
-            f"Error: --by must be one of {sorted(_TOKEN_VIEWS)}, got {by!r}.",
+            f"Error: --by must be one of {sorted(by_map)}, got {by!r}.",
             err=True,
         )
         raise typer.Exit(code=2)
 
     project_root = _resolve_project_root()
-    _ensure_fresh_index(project_root)
+    ndjson_path = project_root / NDJSON_REL
+    rows_dicts = by_map[by](ndjson_path)
+    # Order by total_tokens descending; NULL/0 sink to the bottom.
+    rows_dicts.sort(key=lambda r: r.get("total_tokens") or 0, reverse=True)
 
-    if not index_path(project_root).exists():
-        if json_output:
-            typer.echo("[]")
-        else:
-            typer.echo("(no rows)")
+    if not rows_dicts:
+        typer.echo("[]" if json_output else "(no rows)")
         return
 
-    view = _TOKEN_VIEWS[by]
-    # ``IS NULL`` ASC sorts NULLs last on every SQLite version we ship,
-    # avoiding the ``NULLS LAST`` keyword that older builds may not
-    # support. ``total_tokens DESC`` then orders the populated rows.
-    sql = f"SELECT * FROM {view} ORDER BY total_tokens IS NULL ASC, total_tokens DESC"
-    conn = open_index_readonly(project_root)
-    try:
-        try:
-            cur = conn.execute(sql)
-        except sqlite3.Error as exc:
-            typer.echo(f"Error: {exc}", err=True)
-            raise typer.Exit(code=1) from None
-        columns = [desc[0] for desc in cur.description or []]
-        rows = cur.fetchall()
-    finally:
-        conn.close()
-
+    columns = list(rows_dicts[0].keys())
+    rows = [tuple(row.get(col) for col in columns) for row in rows_dicts]
     _print_query_result(columns, rows, json_output)
 
 
