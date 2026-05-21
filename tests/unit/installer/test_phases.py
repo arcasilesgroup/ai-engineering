@@ -333,15 +333,15 @@ class TestStatePhase:
         assert any("install-state" in a.destination for a in overwrite_actions)
 
     def test_decision_store_is_idempotent_upsert(self, tmp_path: Path) -> None:
-        """spec-132 D-132-08: decisions now UPSERT into state.db.
+        """spec-148 P2: decisions write to the canonical decision-store.json.
 
-        FRESH mode regenerates rows via the same idempotent UPSERT path;
-        any pre-existing ``decision-store.json`` sidecar is cleaned up
-        by the one-shot legacy sweep (D-132-18). The action type is no
-        longer ``skip`` -- the legacy JSON-skip rule was retired with
-        the cutover.
+        FRESH mode regenerates the store through the durable repository; a
+        pre-existing file is overwritten with the default (empty) store,
+        not pruned. The action type is ``create``/``overwrite`` -- the
+        legacy JSON-skip rule was retired with the state.db cutover.
         """
         from ai_engineering.installer.phases.state import StatePhase
+        from ai_engineering.state.repository import DurableStateRepository
 
         phase = StatePhase()
         state_dir = tmp_path / ".ai-engineering" / "state"
@@ -354,15 +354,15 @@ class TestStatePhase:
         assert decision_actions, "decision-store pseudo-path must still appear in plan"
         for a in decision_actions:
             assert a.action_type in {"create", "overwrite"}, (
-                f"db-backed decisions should not 'skip'; got {a.action_type}"
+                f"file-backed decisions should not 'skip'; got {a.action_type}"
             )
 
-        # Execute the phase and confirm the legacy JSON file is removed
-        # by the spec-132 D-132-18 cleanup.
+        # Execute: decision-store.json is the canonical SoT -- it survives
+        # (overwritten with the default empty store), it is not pruned.
         phase.execute(plan, ctx)
-        assert not (state_dir / "decision-store.json").exists(), (
-            "Legacy decision-store.json should be removed after FRESH execute"
-        )
+        store_path = state_dir / "decision-store.json"
+        assert store_path.is_file(), "decision-store.json must survive FRESH execute (spec-148 P2)"
+        assert DurableStateRepository(tmp_path).load_decisions().decisions == []
 
 
 # ---------------------------------------------------------------------------

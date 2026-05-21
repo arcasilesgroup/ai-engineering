@@ -547,14 +547,14 @@ def _generate_state_files(
     if not install_state_existed and install_state_path not in created:
         created.append(install_state_path)
 
-    # spec-132 D-132-08: ownership_map + decisions UPSERT directly into
-    # state.db. Pseudo-paths kept in ``_STATE_FILES`` for stable
-    # caller-visible identifiers; the legacy JSON files are no longer
-    # written and -- if present from a pre-spec-132 install -- are
-    # pruned below. Mirrors the install_state idempotency contract: a
-    # re-install observes the pre-existing rows and leaves ``created``
-    # alone so ``already_installed`` stays True.
-    from ai_engineering.state.state_db import upsert_decision_rows, upsert_ownership_rows
+    # spec-132 D-132-08: ownership_map still UPSERTs into state.db (P3
+    # moves it to a file). spec-148 P2: decisions are files-only — the
+    # canonical ``decision-store.json`` is written via the durable repo.
+    # Mirrors the install_state idempotency contract: a re-install
+    # observes the pre-existing state and leaves ``created`` alone so
+    # ``already_installed`` stays True.
+    from ai_engineering.state.repository import DurableStateRepository
+    from ai_engineering.state.state_db import upsert_ownership_rows
 
     ownership_pseudo_path = ai_eng_dir / _STATE_FILES["ownership-map"]
     decisions_pseudo_path = ai_eng_dir / _STATE_FILES["decision-store"]
@@ -565,15 +565,16 @@ def _generate_state_files(
     )
     if not ownership_existed and ownership_pseudo_path not in created:
         created.append(ownership_pseudo_path)
-    # decisions table starts empty on a fresh install (no risks accepted
-    # yet) -- presence of the install_state row is the install marker.
-    upsert_decision_rows(ai_eng_dir.parent, default_decision_store())
+    # decision-store.json starts empty on a fresh install (no risks
+    # accepted yet) -- presence of the install_state row is the marker.
+    DurableStateRepository(ai_eng_dir.parent).save_decisions(default_decision_store())
     if not install_state_existed and decisions_pseudo_path not in created:
         created.append(decisions_pseudo_path)
 
-    # spec-132 D-132-18: one-shot cleanup of legacy ownership-map.json /
-    # decision-store.json sidecars left behind by pre-spec-132 installs.
-    for legacy_name in ("ownership-map.json", "decision-store.json"):
+    # spec-132 D-132-18: prune the legacy ownership-map.json sidecar from
+    # pre-spec-132 installs (still state.db-backed until P3). spec-148 P2:
+    # decision-store.json is the canonical decision SoT — never pruned.
+    for legacy_name in ("ownership-map.json",):
         (state_dir / legacy_name).unlink(missing_ok=True)
 
     capabilities_path = ai_eng_dir / _STATE_FILES["framework-capabilities"]

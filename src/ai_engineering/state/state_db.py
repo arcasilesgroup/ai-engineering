@@ -68,8 +68,11 @@ STATE_DB_REL = Path(".ai-engineering") / "state" / "state.db"
 # ``gate_findings`` table is a structural placeholder only (audit-cmd
 # integrity check) and is never read by the orchestrator. Treating the
 # file as deprecated produced false-positive warnings on every CLI run.
+# spec-148 P2: ``decision-store.json`` is the canonical decision SoT
+# (files-only) — it is no longer a deprecated fallback and must NOT warn.
+# The remaining three move to files in P3/P4; they stay deprecated here
+# until then.
 _DEPRECATED_JSON_FALLBACKS = (
-    "decision-store.json",
     "ownership-map.json",
     "install-state.json",
     "framework-capabilities.json",

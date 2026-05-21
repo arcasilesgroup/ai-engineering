@@ -28,12 +28,12 @@ import pytest
 def _seed_decision_store(root: Path, dec_id: str, finding_rule_id: str) -> None:
     """Persist a single active risk-acceptance covering ``finding_rule_id``.
 
-    spec-124 D-124-12 / spec-125: decision-store moved from JSON sidecar to
-    state.db. The orchestrator's lookup now reads via the StateService, so
-    seeding must UPSERT into state.db rather than write the legacy JSON.
+    spec-148 P2 (files-only): decision-store.json is the single SoT. The
+    orchestrator's lookup reads it through the durable repository, so
+    seeding writes the file directly.
     """
     from ai_engineering.state.models import DecisionStore
-    from ai_engineering.state.state_db import upsert_decision_rows
+    from ai_engineering.state.repository import DurableStateRepository
 
     state_dir = root / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -56,7 +56,7 @@ def _seed_decision_store(root: Path, dec_id: str, finding_rule_id: str) -> None:
         ],
     }
     store = DecisionStore.model_validate(payload)
-    upsert_decision_rows(root, store)
+    DurableStateRepository(root).save_decisions(store)
 
 
 def test_orchestrator_partitions_accepted_findings_post_wave2(

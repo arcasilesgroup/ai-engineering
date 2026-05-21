@@ -33,12 +33,12 @@ def _runner_invoke(args: list[str]):
 def _seed_decision_for_finding(root: Path, dec_id: str, rule_id: str) -> None:
     """Write a single active risk-acceptance keyed by finding context.
 
-    spec-124 D-124-12 / spec-125: decision-store moved from JSON sidecar
-    to state.db. The orchestrator's lookup reads via the StateService,
-    so seeding must UPSERT into state.db rather than write the legacy JSON.
+    spec-148 P2 (files-only): decision-store.json is the single SoT. The
+    orchestrator's risk-acceptance lookup reads it through the durable
+    repository, so seeding writes the file directly.
     """
     from ai_engineering.state.models import DecisionStore
-    from ai_engineering.state.state_db import upsert_decision_rows
+    from ai_engineering.state.repository import DurableStateRepository
 
     state_dir = root / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -61,7 +61,7 @@ def _seed_decision_for_finding(root: Path, dec_id: str, rule_id: str) -> None:
         ],
     }
     store = DecisionStore.model_validate(payload)
-    upsert_decision_rows(root, store)
+    DurableStateRepository(root).save_decisions(store)
 
 
 @pytest.mark.skipif(

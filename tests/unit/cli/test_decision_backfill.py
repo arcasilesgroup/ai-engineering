@@ -3,7 +3,7 @@
 The backfill subcommand is the cold-path autopopulator: it discovers
 every ``D-NNN-NN`` marker across active specs, archived specs, the
 CHANGELOG, the constitution, and CLAUDE.md, then UPSERTs the result
-into ``state.db.decisions``. Idempotent on re-run.
+into ``decision-store.json`` (spec-148 P2). Idempotent on re-run.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.cli_commands import decisions_cmd
-from ai_engineering.state.state_db import list_decisions
+from ai_engineering.state.decision_store_io import list_decision_rows
 
 _ACTIVE_SPEC = """---
 spec: spec-900
@@ -62,7 +62,7 @@ def test_decision_backfill_walks_archive(tmp_path: Path, monkeypatch: pytest.Mon
     """Both active spec.md AND archive/*.md are scanned."""
     _seed_repo(tmp_path, monkeypatch)
     decisions_cmd.decision_backfill(sources=None, dry_run=False)
-    rows = list_decisions(tmp_path)
+    rows = list_decision_rows(tmp_path)
     decision_ids = sorted(r["decision_id"] for r in rows)
     # All four IDs across the three sources.
     assert decision_ids == ["D-900-01", "D-901-01", "D-901-02", "D-902-01"]
@@ -73,7 +73,7 @@ def test_decision_backfill_is_idempotent(tmp_path: Path, monkeypatch: pytest.Mon
     _seed_repo(tmp_path, monkeypatch)
     decisions_cmd.decision_backfill(sources=None, dry_run=False)
     decisions_cmd.decision_backfill(sources=None, dry_run=False)
-    rows = list_decisions(tmp_path)
+    rows = list_decision_rows(tmp_path)
     decision_ids = sorted(r["decision_id"] for r in rows)
     assert decision_ids == ["D-900-01", "D-901-01", "D-901-02", "D-902-01"]
 
@@ -84,7 +84,7 @@ def test_decision_backfill_dry_run_writes_nothing(
     """Dry-run mode prints candidates but never UPSERTs."""
     _seed_repo(tmp_path, monkeypatch)
     decisions_cmd.decision_backfill(sources=None, dry_run=True)
-    rows = list_decisions(tmp_path)
+    rows = list_decision_rows(tmp_path)
     assert rows == []
 
 

@@ -479,10 +479,11 @@ def _build_install_mocks() -> dict[str, MagicMock]:
     mocks["get_ai_engineering_template_root"] = MagicMock(return_value=Path("/fake/templates"))
     mocks["copy_template_tree"] = MagicMock(return_value=CopyResult())
     mocks["copy_project_templates"] = MagicMock(return_value=CopyResult())
-    # spec-132 D-132-08: write_json_model retired from service.py; ownership +
-    # decisions now land via state.db UPSERT helpers.
+    # spec-132 D-132-08: ownership lands via the state.db UPSERT helper.
+    # spec-148 P2: decisions land via DurableStateRepository.save_decisions
+    # (files-only) — mock the write so install() stays isolated.
     mocks["upsert_ownership_rows"] = MagicMock()
-    mocks["upsert_decision_rows"] = MagicMock()
+    mocks["save_decisions"] = MagicMock()
     mocks["state_db_table_has_rows"] = MagicMock(return_value=False)
     mocks["write_framework_capabilities"] = MagicMock()
     mocks["emit_framework_operation"] = MagicMock()
@@ -536,7 +537,8 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     )
     stack.enter_context(patch(f"{_SVC}.copy_template_tree", mocks["copy_template_tree"]))
     stack.enter_context(patch(f"{_SVC}.copy_project_templates", mocks["copy_project_templates"]))
-    # spec-132 D-132-08: UPSERT helpers replace write_json_model.
+    # spec-132 D-132-08: ownership UPSERT helper. spec-148 P2: decisions
+    # write through DurableStateRepository.save_decisions (files-only).
     stack.enter_context(
         patch(
             "ai_engineering.state.state_db.upsert_ownership_rows",
@@ -545,8 +547,8 @@ def _apply_patches(mocks: dict[str, MagicMock]):
     )
     stack.enter_context(
         patch(
-            "ai_engineering.state.state_db.upsert_decision_rows",
-            mocks["upsert_decision_rows"],
+            "ai_engineering.state.repository.DurableStateRepository.save_decisions",
+            mocks["save_decisions"],
         )
     )
     stack.enter_context(patch(f"{_SVC}._state_db_table_has_rows", mocks["state_db_table_has_rows"]))

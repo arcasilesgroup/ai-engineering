@@ -1,4 +1,4 @@
-"""Tests for the canonical state.db ``decisions`` table CLI surface."""
+"""Tests for the canonical ``decision-store.json`` CLI surface (spec-148 P2)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-from ai_engineering.state.state_db import upsert_decision_rows_raw
+from ai_engineering.state.decision_store_io import upsert_decision_rows_raw
 
 runner = CliRunner()
 
@@ -100,7 +100,7 @@ def test_decision_record_with_expires(tmp_path: Path, monkeypatch: pytest.Monkey
     )
 
     assert result.exit_code == 0
-    from ai_engineering.state.state_db import list_decisions
+    from ai_engineering.state.decision_store_io import list_decision_rows
 
-    rows = list_decisions(tmp_path)
+    rows = list_decision_rows(tmp_path)
     assert any(r["decision_id"] == "DEC-EXP" and r["expires_at"] for r in rows)

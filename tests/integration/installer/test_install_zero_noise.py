@@ -45,18 +45,24 @@ def test_fresh_install_emits_no_stale_state_warning(tmp_path: Path, caplog) -> N
     )
 
 
-def test_fresh_install_no_legacy_json_sidecars(tmp_path: Path) -> None:
-    """spec-132 D-132-08: no ownership-map.json / decision-store.json after install."""
+def test_fresh_install_state_files(tmp_path: Path) -> None:
+    """Install state-file shape: ownership stays state.db-only; decisions are files-only.
+
+    spec-132 D-132-08: no ownership-map.json sidecar (still state.db until P3).
+    spec-148 P2: decision-store.json IS the canonical decision SoT and must exist.
+    """
     _reset_fallback_warnings()
     _ensure_project_marker(tmp_path)
 
     install(tmp_path, stacks=["python"])
 
     state_dir = tmp_path / ".ai-engineering" / "state"
-    for legacy in ("ownership-map.json", "decision-store.json"):
-        assert not (state_dir / legacy).exists(), (
-            f"Legacy sidecar {legacy} must not appear post-install (spec-132 D-132-08)"
-        )
+    assert not (state_dir / "ownership-map.json").exists(), (
+        "ownership-map.json must not appear post-install (spec-132 D-132-08; state.db until P3)"
+    )
+    assert (state_dir / "decision-store.json").is_file(), (
+        "decision-store.json must exist post-install (spec-148 P2 files-only)"
+    )
 
 
 def test_fresh_install_under_thirty_seconds(tmp_path: Path) -> None:

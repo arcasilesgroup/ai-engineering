@@ -79,7 +79,9 @@ def test_dedup_is_per_file(project_root: Path, caplog) -> None:
     """
     state_db._reset_fallback_warnings()
     state_dir = project_root / ".ai-engineering" / "state"
-    (state_dir / "decision-store.json").write_text("{}", encoding="utf-8")
+    # The fixture seeds ownership-map.json; add a second STILL-deprecated
+    # file. (spec-148 P2: decision-store.json is canonical, not deprecated.)
+    (state_dir / "install-state.json").write_text("{}", encoding="utf-8")
 
     with caplog.at_level(logging.WARNING):
         state_db._warn_on_deprecated_fallbacks(state_dir)

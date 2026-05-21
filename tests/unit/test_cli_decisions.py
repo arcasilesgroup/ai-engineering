@@ -1,9 +1,9 @@
 """Unit tests for ai_engineering.cli_commands.decisions_cmd module.
 
 Covers the four canonical decision subcommands -- ``list``, ``record``,
-``expire-check``, ``backfill`` -- against the canonical state.db
-``decisions`` table (per CLAUDE.md §0 bootstrap + D-132-08). The legacy
-``decision-store.json`` shape is no longer load-bearing for the CLI.
+``expire-check``, ``backfill`` -- against the canonical
+``decision-store.json`` (spec-148 P2 files-only). Seeds and assertions go
+through the same file-backed ``decision_store_io`` adapter the CLI uses.
 """
 
 from __future__ import annotations
@@ -15,8 +15,10 @@ from unittest.mock import patch
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-from ai_engineering.state.state_db import (
-    list_decisions,
+from ai_engineering.state.decision_store_io import (
+    list_decision_rows as list_decisions,
+)
+from ai_engineering.state.decision_store_io import (
     upsert_decision_rows_raw,
 )
 
@@ -24,7 +26,7 @@ runner = CliRunner()
 
 
 def _seed_decision(root: Path, **overrides: object) -> dict[str, object]:
-    """Seed one decision row into ``state.db`` under *root*."""
+    """Seed one decision row into ``decision-store.json`` under *root*."""
     row: dict[str, object] = {
         "decision_id": "DEC-001",
         "spec_id": "spec-001",
@@ -39,10 +41,10 @@ def _seed_decision(root: Path, **overrides: object) -> dict[str, object]:
 
 
 class TestDecisionList:
-    """Tests for `ai-eng decision list` against state.db."""
+    """Tests for `ai-eng decision list` against decision-store.json."""
 
     def test_empty_store_no_db(self, tmp_path: Path) -> None:
-        """When no state.db exists, report empty + the backfill hint."""
+        """When no decision store exists, report empty + the backfill hint."""
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         with patch(
             "ai_engineering.cli_commands.decisions_cmd.find_project_root",
@@ -164,9 +166,9 @@ class TestDecisionExpireCheck:
 
 
 class TestDecisionRecord:
-    """Tests for `ai-eng decision record` writing to state.db."""
+    """Tests for `ai-eng decision record` writing to decision-store.json."""
 
-    def test_record_creates_new_decision_in_state_db(self, tmp_path: Path) -> None:
+    def test_record_creates_new_decision(self, tmp_path: Path) -> None:
         (tmp_path / ".ai-engineering" / "state").mkdir(parents=True)
 
         with patch(
@@ -293,7 +295,7 @@ class TestDecisionBackfill:
         assert "D-200-02" in result.output
         assert "D-201-01" in result.output
         assert "Dry run" in result.output
-        # Dry-run does not populate state.db.
+        # Dry-run does not populate decision-store.json.
         assert list_decisions(tmp_path) == []
 
     def test_writes_and_dedups_via_upsert(self, tmp_path: Path) -> None:

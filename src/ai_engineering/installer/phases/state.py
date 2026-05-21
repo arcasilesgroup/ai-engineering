@@ -16,6 +16,7 @@ from ai_engineering.state.observability import (
     emit_framework_operation,
     write_framework_capabilities,
 )
+from ai_engineering.state.repository import DurableStateRepository
 from ai_engineering.state.service import remove_legacy_audit_log, save_install_state
 
 from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict, PlannedAction
@@ -107,11 +108,11 @@ class StatePhase:
             if action.action_type == "skip":
                 result.skipped.append(action.destination)
                 continue
-            # spec-132 D-132-08: ownership map + decision store rows are
-            # UPSERTed directly into state.db. The pseudo-paths
-            # ``_OWNERSHIP`` / ``_DECISIONS`` keep their plan/result keys
-            # so external callers see the same string identifiers, but
-            # no JSON files land on disk.
+            # spec-132 D-132-08: ownership map rows are UPSERTed directly
+            # into state.db (the ``_OWNERSHIP`` pseudo-path keeps its
+            # plan/result key; no JSON lands on disk yet — P3 moves it).
+            # spec-148 P2: decisions are files-only — ``_DECISIONS`` writes
+            # the canonical ``decision-store.json`` via the durable repo.
             if action.destination == _OWNERSHIP:
                 state_db.upsert_ownership_rows(
                     context.target,
@@ -120,15 +121,15 @@ class StatePhase:
                 result.created.append(action.destination)
                 continue
             if action.destination == _DECISIONS:
-                state_db.upsert_decision_rows(context.target, default_decision_store())
+                DurableStateRepository(context.target).save_decisions(default_decision_store())
                 result.created.append(action.destination)
                 continue
 
-        # spec-132 D-132-18: one-shot cleanup of legacy ownership-map.json
-        # / decision-store.json sidecars. Idempotent: missing files are
-        # silently ignored. Runs after the UPSERT so a partial failure
-        # never strands the rows behind the deleted JSON.
-        for legacy_name in ("ownership-map.json", "decision-store.json"):
+        # spec-132 D-132-18: one-shot cleanup of the legacy ownership-map.json
+        # sidecar (still state.db-backed until P3). spec-148 P2: decision-store.json
+        # is now the canonical decision SoT and is intentionally NOT removed.
+        # Idempotent: a missing file is silently ignored.
+        for legacy_name in ("ownership-map.json",):
             (context.target / _SD / legacy_name).unlink(missing_ok=True)
 
         legacy_audit_log_removed = remove_legacy_audit_log(context.target)

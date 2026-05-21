@@ -1,15 +1,14 @@
-"""Tests for StatePhase UPSERT semantics (spec-132 D-132-08).
+"""Tests for StatePhase persistence semantics.
 
-Spec-132 requires the installer's state phase to write ownership +
-decision rows directly into ``state.db`` instead of materialising the
-legacy ``ownership-map.json`` / ``decision-store.json`` JSON sidecars.
-The phase also performs a one-shot cleanup pass that removes the
-legacy files if they already exist (D-132-18).
+Ownership still UPSERTs into ``state.db`` (spec-132 D-132-08; P3 moves it
+to a file) and its legacy ``ownership-map.json`` sidecar is still pruned.
+spec-148 P2 inverts the decision contract: decisions are files-only, so
+the phase WRITES the canonical ``decision-store.json`` and never prunes it.
 
 These tests pin both contracts:
 
-* Rows appear in ``ownership_map`` and ``decisions`` after the phase.
-* No legacy JSON files exist on disk after the phase completes.
+* ``ownership_map`` rows appear and no ``ownership-map.json`` lands.
+* ``decision-store.json`` is created (and preserved) by the phase.
 """
 
 from __future__ import annotations
@@ -81,17 +80,21 @@ def test_state_phase_does_not_create_ownership_json(tmp_path: Path) -> None:
     )
 
 
-def test_state_phase_does_not_create_decision_store_json(tmp_path: Path) -> None:
-    """spec-132 D-132-08: no decision-store.json sidecar on disk."""
+def test_state_phase_creates_decision_store_json(tmp_path: Path) -> None:
+    """spec-148 P2: the state phase writes the canonical decision-store.json."""
     _seed_minimal_install(tmp_path)
     phase = StatePhase()
     ctx = _ctx(tmp_path)
     phase.execute(phase.plan(ctx), ctx)
 
-    legacy = tmp_path / ".ai-engineering" / "state" / "decision-store.json"
-    assert not legacy.exists(), (
-        f"Legacy decision-store.json must not exist (spec-132 D-132-08); found at {legacy}"
+    store_path = tmp_path / ".ai-engineering" / "state" / "decision-store.json"
+    assert store_path.is_file(), (
+        f"decision-store.json must exist (spec-148 P2 files-only); expected at {store_path}"
     )
+    from ai_engineering.state.repository import DurableStateRepository
+
+    # A fresh install seeds an empty (default) store — no decisions yet.
+    assert DurableStateRepository(tmp_path).load_decisions().decisions == []
 
 
 def test_state_phase_cleans_up_legacy_ownership_json(tmp_path: Path) -> None:
@@ -108,15 +111,15 @@ def test_state_phase_cleans_up_legacy_ownership_json(tmp_path: Path) -> None:
     )
 
 
-def test_state_phase_cleans_up_legacy_decision_store_json(tmp_path: Path) -> None:
-    """spec-132 D-132-18: pre-existing decision-store.json is removed."""
+def test_state_phase_keeps_decision_store_json(tmp_path: Path) -> None:
+    """spec-148 P2: decision-store.json is the SoT — written, never pruned."""
     state_dir = _state_dir(tmp_path)
     (state_dir / "decision-store.json").write_text("{}", encoding="utf-8")
     phase = StatePhase()
     ctx = _ctx(tmp_path)
     phase.execute(phase.plan(ctx), ctx)
 
-    legacy = state_dir / "decision-store.json"
-    assert not legacy.exists(), (
-        "Pre-existing decision-store.json should be cleaned up by the state phase"
+    store_path = state_dir / "decision-store.json"
+    assert store_path.is_file(), (
+        "decision-store.json must survive the state phase (spec-148 P2 files-only)"
     )

@@ -109,71 +109,26 @@ class DurableStateRepository:
         return load_install_state(self.state_dir)
 
     def load_decisions(self) -> DecisionStore:
-        """Load the decision-store family from the canonical state.db.
+        """Load the decision-store family from ``decision-store.json``.
 
-        spec-132 D-132-08 + spec-133 cleanup: state.db ``decisions`` is
-        the source of truth. ``details_json`` carries the full Pydantic
-        payload (risk_category, severity, finding_id, ...). A row with a
-        valid ``details_json`` is used directly; otherwise the row's
-        scalar columns synthesize a minimal Decision. Returns the
-        default empty store when state.db has no rows.
+        spec-148 P2 (files-only): ``decision-store.json`` is the single
+        source of truth — it already carries the optional per-entry hash
+        chain verified by ``ai-eng audit verify``. Returns the default
+        empty store when the file is absent (first install / fresh repo).
         """
-        import json as _json
+        if not self.decision_store_path.exists():
+            from ai_engineering.state.defaults import default_decision_store
 
-        from ai_engineering.state.defaults import default_decision_store
-        from ai_engineering.state.models import Decision
-        from ai_engineering.state.state_db import list_full_decisions
-
-        rows = list_full_decisions(self.project_root)
-        if not rows:
             return default_decision_store()
-
-        decisions: list[Decision] = []
-        for row in rows:
-            payload = row.get("details_json")
-            if payload:
-                try:
-                    decisions.append(Decision.model_validate_json(payload))
-                    continue
-                except (ValueError, _json.JSONDecodeError):
-                    pass
-            # Fallback: synthesise a Decision from the scalar columns
-            # (backfill rows have no details_json blob).
-            try:
-                decisions.append(
-                    Decision.model_validate(
-                        {
-                            "id": row["decision_id"],
-                            "context": row.get("context") or "",
-                            "decision": row.get("title") or "",
-                            "decidedAt": row.get("created_at"),
-                            "spec": row.get("spec_id") or "",
-                            "status": row.get("status") or "active",
-                            "expiresAt": row.get("expires_at"),
-                        }
-                    )
-                )
-            except (ValueError, TypeError):
-                continue
-
-        store = default_decision_store()
-        store.decisions = decisions
-        return store
+        return read_json_model(self.decision_store_path, DecisionStore)
 
     def save_decisions(self, store: DecisionStore) -> None:
-        """Persist the decision-store to state.db AND the legacy JSON mirror.
+        """Persist the decision-store to ``decision-store.json`` (sole SoT).
 
-        spec-132 D-132-08 + spec-133 cleanup: state.db ``decisions`` is
-        canonical (``load_decisions`` reads from there). The legacy
-        ``decision-store.json`` mirror remains until the 12 outstanding
-        Decision view-model callers (risk_cmd, gate, maintenance,
-        installer, policy.orchestrator) are migrated — tracked in a
-        separate spec. Tests that inspect the JSON directly continue to
-        work without modification.
+        spec-148 P2 (files-only): the SQLite ``decisions`` dual-write is
+        gone; this is the only durable write path for decisions and risk
+        acceptances.
         """
-        from ai_engineering.state.state_db import upsert_decision_rows
-
-        upsert_decision_rows(self.project_root, store)
         write_json_model(self.decision_store_path, store)
 
     def load_ownership(self) -> OwnershipMap:

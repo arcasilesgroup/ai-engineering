@@ -41,7 +41,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ai_engineering.state.state_db import upsert_decision_rows_raw
+from ai_engineering.state.decision_store_io import upsert_decision_rows_raw
 
 __all__ = [
     "extract_decisions",
@@ -216,7 +216,7 @@ def handle_spec_approval(
     *,
     default_spec_id: str | None = None,
 ) -> int:
-    """UPSERT every decision found in ``spec_path`` into ``state.db.decisions``.
+    """UPSERT every decision found in ``spec_path`` into ``decision-store.json``.
 
     Spec-138 M3.T1 + M3.T2 entry point. Idempotent on duplicate
     ``decision_id`` values (the canonical UPSERT clause keeps the latest
