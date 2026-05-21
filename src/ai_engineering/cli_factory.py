@@ -480,7 +480,6 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     audit_app.command("query")(_safe(audit_cmd.audit_query))
     audit_app.command("tokens")(_safe(audit_cmd.audit_tokens))
     audit_app.command("replay")(_safe(audit_cmd.audit_replay))
-    audit_app.command("otel-export")(_safe(audit_cmd.audit_otel_export))
     # spec-125 T-3.8: rotate/compress/verify-chain removed with archive plane.
     # The single immutable append-only `framework-events.ndjson` is the only
     # ledger; chain integrity is covered by `audit verify`.

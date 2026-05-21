@@ -51,7 +51,6 @@ from ai_engineering.state.audit_index import (
     index_path,
     open_index_readonly,
 )
-from ai_engineering.state.audit_otel_export import build_otlp_spans
 from ai_engineering.state.audit_replay import (
     build_span_tree,
     render_json,
@@ -453,7 +452,7 @@ def audit_tokens(
 
 
 # ---------------------------------------------------------------------------
-# Spec-120 Phase C: audit replay / otel-export
+# Spec-120 Phase C: audit replay (spec-148: otel-export removed)
 # ---------------------------------------------------------------------------
 
 
@@ -527,63 +526,6 @@ def audit_replay(
         f"total={rollup['total_tokens']}, "
         f"cost=${rollup['cost_usd']:.4f} ---"
     )
-
-
-def _empty_token_rollup() -> dict[str, Any]:
-    """Return the zero-state rollup used when there are no events."""
-    return {
-        "input_tokens": 0,
-        "output_tokens": 0,
-        "total_tokens": 0,
-        "cost_usd": 0.0,
-    }
-
-
-def audit_otel_export(
-    trace: Annotated[
-        str,
-        typer.Option("--trace", help="Trace id to export."),
-    ],
-    out: Annotated[
-        Path | None,
-        typer.Option("--out", help="Output file path; stdout when omitted."),
-    ] = None,
-) -> None:
-    """Export a trace as OTLP/JSON.
-
-    Builds the OTLP envelope via
-    :func:`ai_engineering.state.audit_otel_export.build_otlp_spans` and
-    either writes it to ``--out`` (when supplied) or pretty-prints it
-    to stdout. Auto-builds the SQLite index when missing or stale.
-    """
-    project_root = _resolve_project_root()
-    _ensure_fresh_index(project_root)
-
-    if not index_path(project_root).exists():
-        envelope: dict[str, Any] = {
-            "resourceSpans": [
-                {
-                    "resource": {"attributes": []},
-                    "scopeSpans": [
-                        {"scope": {"name": "ai-engineering", "version": "spec-120"}, "spans": []}
-                    ],
-                }
-            ]
-        }
-    else:
-        conn = open_index_readonly(project_root)
-        try:
-            envelope = build_otlp_spans(conn, trace_id=trace)
-        finally:
-            conn.close()
-
-    body = json.dumps(envelope, indent=2)
-    if out is not None:
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(body, encoding="utf-8")
-        typer.echo(f"Wrote OTLP envelope to {out}")
-        return
-    typer.echo(body)
 
 
 # ---------------------------------------------------------------------------
@@ -740,7 +682,6 @@ __all__ = [
     "audit_app_marker",
     "audit_health",
     "audit_index",
-    "audit_otel_export",
     "audit_query",
     "audit_replay",
     "audit_retention_apply",
