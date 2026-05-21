@@ -36,7 +36,7 @@ Dispatch `verifier-deterministic.md` via the **Agent** tool:
 Agent prompt: "You are the deterministic verification agent.
 Read and follow .claude/agents/verifier-deterministic.md
 Execute all tool-driven checks against the current codebase.
-Query state.db.decisions (via `ai-eng audit query`) for accepted exceptions.
+Query decision-store.json (via `ai-eng decision list`) for accepted exceptions.
 Produce structured YAML output."
 ```
 

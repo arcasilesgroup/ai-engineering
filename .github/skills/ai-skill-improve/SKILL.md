@@ -79,6 +79,6 @@ Walks every skill in priority tier order, shows the proposed diff per skill, and
 
 ## Integration
 
-Reads: state.db.decisions, LESSONS.md, observations.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `python scripts/sync_command_mirrors.py` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-scaffold` (new skills), `/ai-ide-audit` (cross-IDE).
+Reads: decision-store.json, LESSONS.md, observations.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `python scripts/sync_command_mirrors.py` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-scaffold` (new skills), `/ai-ide-audit` (cross-IDE).
 
 $ARGUMENTS

@@ -29,8 +29,8 @@ edit_policy: generated-do-not-edit
 Project onboarding, architecture tours, and decision archaeology. Optimized for the human, not the code. Reads everything, modifies nothing. Teaches understanding, not artifacts.
 
 1. **`tour`** — Glob/identify directories, entry points, config; detect stack; present overview with ASCII diagram (component boundaries, dependencies, data flow); explain key patterns; `git log --oneline` for evolution; flag gotchas; suggest next paths.
-2. **`find [topic]`** — Grep/Glob across source/config/docs; check `state.db.decisions` and `.ai-engineering/specs/`; present file:line refs and context; answer "where does X happen?".
-3. **`history [decision]`** — search `state.db.decisions`, `git log --all --grep`, and `specs/`; reconstruct what was known, constraints, alternatives considered; assess current relevance; **do NOT recommend** — present analysis, let developer decide.
+2. **`find [topic]`** — Grep/Glob across source/config/docs; check `decision-store.json` and `.ai-engineering/specs/`; present file:line refs and context; answer "where does X happen?".
+3. **`history [decision]`** — search `decision-store.json`, `git log --all --grep`, and `specs/`; reconstruct what was known, constraints, alternatives considered; assess current relevance; **do NOT recommend** — present analysis, let developer decide.
 4. **`onboard`** — map structure; identify stack; discover patterns; find key files; review `.ai-engineering/standards/`; Socratic checkpoint per phase; personalize path to developer's interest.
 
 ## Dispatch threshold
@@ -72,16 +72,16 @@ User: "why did we choose hexagonal architecture for this codebase?"
 /ai-onboard history hexagonal-architecture
 ```
 
-Reads `state.db.decisions` for the matching record, surfaces the original tradeoffs, links to the spec or commit that ratified it.
+Reads `decision-store.json` for the matching record, surfaces the original tradeoffs, links to the spec or commit that ratified it.
 
 ## Integration
 
-Calls: `/ai-explain` (3-tier depth). Reads: `state.db.decisions`, `framework-events.ndjson`, `manifest.yml`. See also: `/ai-start` (agent session bootstrap), `/ai-explain` (code-level), `/ai-research` (external evidence).
+Calls: `/ai-explain` (3-tier depth). Reads: `decision-store.json`, `framework-events.ndjson`, `manifest.yml`. See also: `/ai-start` (agent session bootstrap), `/ai-explain` (code-level), `/ai-research` (external evidence).
 
 ## References
 
 - `.gemini/skills/ai-explain/SKILL.md` -- 3-tier depth model.
 - `.ai-engineering/manifest.yml` -- governance structure.
-- `.ai-engineering/state/state.db` `decisions` table -- decision records.
+- `.ai-engineering/state/decision-store.json` -- decision records.
 
 $ARGUMENTS

@@ -12,14 +12,14 @@ Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
 identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
 (3) consult [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
 for the canonical store of each datum (decisions live in spec markdown;
-the `state.db.decisions` cache is populated after `ai-eng decision
+the `decision-store.json` cache is populated after `ai-eng decision
 backfill` or `/ai-brainstorm` approval per spec-138 M3 follow-up);
 (4) no implementation without an approved spec — invoke
 `/ai-brainstorm` first when a task has no spec.
 
 See [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-the four-tier model (NDJSON audit, SQLite `state.db`, JSON/YAML
-config, Markdown) and the SSOT-PD rebuild semantics.
+the three-tier files-only model (NDJSON audit, JSON/YAML
+records+config, Markdown) and the SSOT-PD rebuild semantics.
 
 ## Operating Mindset (§1–§9 condensed)
 
@@ -94,7 +94,7 @@ its own context window — offload research and parallel analysis to them.
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
 | CLI | `ai-eng <command>` |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |
-| Decisions | `.ai-engineering/state/state.db` `decisions` table |
+| Decisions | `.ai-engineering/state/decision-store.json` |
 | Config | `.ai-engineering/manifest.yml` |
 | Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
 
@@ -127,7 +127,7 @@ Non-negotiable rules per commit, push, and risk-acceptance decision:
    canonical writable store. Derived caches are explicitly labelled
    (named, with a rebuild command) and rebuildable on demand. See
    [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-   the four-tier model and the rebuild semantics.
+   the three-tier files-only model and the rebuild semantics.
 
 ## 14–16. Pointer rows
 
@@ -259,13 +259,11 @@ engram setup gemini_cli     # Gemini CLI
 GitHub Copilot is not currently supported by Engram. Verify the
 integration with `ai-eng doctor`.
 
-## Audit Observability (spec-120)
+## Audit Observability (files-only)
 
 ```bash
-ai-eng audit index                       # build / refresh the SQLite projection
-ai-eng audit query "SELECT ..."          # read-only SQL over the index
-ai-eng audit tokens --by skill|agent|session   # token rollup
-ai-eng audit replay --session <id>       # depth-first span-tree walk
-ai-eng audit otel-export --trace <id>    # OTLP/JSON envelope
+ai-eng audit verify                            # verify the framework-events.ndjson hash chain
+ai-eng audit tokens --by skill|agent|session   # token rollup over the NDJSON
+ai-eng audit replay --session <id>             # depth-first span-tree walk over the NDJSON
 ```
 <!-- ide-extras:end -->

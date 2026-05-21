@@ -94,7 +94,7 @@ User: "how does the audit chain work in this repo?"
 /ai-explain "audit chain" --depth brief
 ```
 
-Anchors to `framework-events.ndjson`, the audit indexer, and the projection schema; emits a 3-paragraph overview with a small ASCII flow.
+Anchors to `framework-events.ndjson`; emits a 3-paragraph overview with a small ASCII flow.
 
 ### Example 2 — deep walk-through of a tricky function
 

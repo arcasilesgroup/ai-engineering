@@ -112,7 +112,7 @@ re-read them from disk.
 **The guard agent** -- advise mode:
 
 - Use the cached `ai-governance/SKILL.md` content.
-- Run governance check against `state/state.db.decisions`.
+- Run governance check against `state/decision-store.json`.
 - Check for: expired risk acceptances, ownership violations, framework
   integrity drift.
 - Output: advisory findings with severity levels (concern, warn, info).

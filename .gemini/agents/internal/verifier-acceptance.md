@@ -19,7 +19,7 @@ Spec-140 W3 merged the former `verifier-governance` and `verifier-feature` speci
 
 1. Read the active spec (`.ai-engineering/specs/spec.md`) in full.
 2. Read the active plan (`.ai-engineering/specs/plan.md`) for task breakdown.
-3. Query `state.db.decisions` (via `ai-eng audit query`) -- the authoritative record of architectural and governance decisions.
+3. Query `decision-store.json` (via `ai-eng decision list`) -- the authoritative record of architectural and governance decisions.
 4. Read `.ai-engineering/manifest.yml` -- ownership, quality thresholds, and skill/agent registries.
 5. Read `CLAUDE.md` -- absolute prohibitions and gate requirements.
 6. Read the diff to understand what changed.
@@ -45,7 +45,7 @@ For each explicit or implicit acceptance criterion:
 
 ### 3. Decision Compliance (Critical — governance lens)
 
-For each active decision in `state.db.decisions`:
+For each active decision in `decision-store.json`:
 
 - Does the change comply with or violate the decision?
 - If the decision has expired, note it as a warning but do not block.
@@ -163,7 +163,7 @@ Group findings by `lens` (feature first, then governance) and within each lens b
 
 ### Governance half
 
-1. **Load all active decisions**: Query `state.db.decisions`, filter to status=active, sort by criticality.
+1. **Load all active decisions**: Query `decision-store.json`, filter to status=active, sort by criticality.
 2. **For each changed file**: Check if the change touches a surface governed by a decision.
 3. **Check for suppression additions**: Grep the diff for noqa, nosec, type: ignore, pragma: no cover, NOSONAR, nolint.
 4. **Check for threshold changes**: Grep the diff for coverage, duplication, complexity numbers.
