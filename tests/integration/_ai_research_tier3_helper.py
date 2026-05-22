@@ -5,18 +5,30 @@ The handler is a Markdown spec consumed by an LLM agent. To validate the
 algorithm with deterministic tests, this helper mirrors it 1:1. If the
 handler changes, this module must follow (and vice versa).
 
+Backend: ``claude-world/notebooklm-skill`` (``uvx --from notebooklm-skill
+notebooklm-mcp``, the 13 ``nlm_*`` MCP tools). NotebookLM runs an
+*autonomous deep-research* job that discovers its own sources -- so Tier 3
+no longer ingests Tier 1+2 URLs. The job is *launched first* (at T0, in a
+background subagent) and *harvested last* with a bounded wait, overlapping
+Tiers 0-2 (spec ``notebooklm-async-tier3`` D1/D4).
+
 Public API:
 
-* :class:`Tier3Result`        -- aggregated dataclass (notebook_id,
-  conversation_id, synthesized_response).
-* :func:`topic_slug`          -- T-3.3: query → URL-safe topic slug.
-* :func:`hash6`               -- T-3.4: stable 6-char SHA-256 prefix
-  derived from the query plus an ISO timestamp.
+* :class:`Tier3Result`        -- aggregated dataclass (report_markdown,
+  sources_discovered, notebook_id, timed_out, degraded, ...).
+* :func:`topic_slug`          -- query -> URL-safe topic slug.
+* :func:`hash6`               -- stable 6-char SHA-256 prefix of
+  ``query|timestamp``.
 * :func:`notebook_title`      -- compose ``ai-research/<slug>-<date>-<hash6>``.
-* :func:`should_invoke_tier3` -- T-3.6: trigger heuristic.
-* :func:`tier3_notebooklm`    -- T-3.5: run the create/add/query flow.
+* :func:`should_launch_tier3` -- D3 trigger: launch whenever NotebookLM is
+  available (no depth/comparative/source gating).
+* :func:`tier3_launch`        -- probe ``nlm_list``; create (or reuse) a
+  notebook and start ``nlm_research(mode='deep')``; fail-soft on absence.
+* :func:`tier3_harvest`       -- bounded poll of ``job_status`` against an
+  injected ``clock`` until completion or timeout.
 
-The MCP callables are passed in by the caller so tests can inject mocks.
+The ``nlm_*`` callables, ``job_status`` poll, and ``clock`` are passed in by
+the caller so tests can inject mocks (deterministic async modelling).
 """
 
 from __future__ import annotations
@@ -31,17 +43,30 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Tier3Result:
-    """Output of a Tier 3 NotebookLM invocation."""
+    """Output of a Tier 3 NotebookLM autonomous deep-research harvest.
+
+    * ``synthesized_response`` -- optional final ``nlm_ask`` answer.
+    * ``report_markdown``      -- the deep-research report from
+      ``nlm_research`` (the primary Tier 3 product).
+    * ``notebook_id``          -- preserved on timeout for a later
+      ``--reuse-notebook`` harvest.
+    * ``sources_discovered``   -- URLs NotebookLM found autonomously.
+    * ``timed_out``            -- True when the bounded wait was exceeded.
+    * ``degraded``             -- True when Tier 3 produced no usable report
+      (unavailable backend or harvest timeout).
+    * ``warnings``             -- visible operator-facing notes.
+    """
 
     synthesized_response: str = ""
+    report_markdown: str = ""
     notebook_id: str = ""
-    conversation_id: str = ""
-    sources_added: list[str] = field(default_factory=list)
+    sources_discovered: list[str] = field(default_factory=list)
+    timed_out: bool = False
     degraded: bool = False
     warnings: list[str] = field(default_factory=list)
 
 
-# --- T-3.3: topic-slug generator --------------------------------------------
+# --- Notebook-naming helpers (persist helper depends on ``topic_slug``) ------
 
 _SLUG_CLEAN_RE = re.compile(r"[^a-z0-9]+")
 
@@ -59,14 +84,11 @@ def topic_slug(query: str) -> str:
     return _SLUG_CLEAN_RE.sub("-", query.lower())[:40].strip("-")
 
 
-# --- T-3.4: hash6 generator --------------------------------------------------
-
-
 def hash6(query: str, timestamp_iso: str) -> str:
     """Return a stable 6-char SHA-256 prefix for the (query, timestamp) pair.
 
     Mirrors ``tier3-notebooklm.md`` §"Notebook Naming". The hash gives the
-    notebook a unique suffix even when the same query is invoked twice on
+    notebook a unique suffix even when the same query is launched twice on
     the same day (different timestamps).
     """
     return hashlib.sha256(f"{query}|{timestamp_iso}".encode()).hexdigest()[:6]
@@ -82,126 +104,191 @@ def notebook_title(query: str, timestamp_iso: str) -> str:
     return f"ai-research/{slug}-{date_part}-{hash6(query, timestamp_iso)}"
 
 
-# --- T-3.6: trigger heuristic ------------------------------------------------
-
-_COMPARATIVE_RE = re.compile(
-    r"\b(vs|versus|compare|difference between|alternatives?)\b",
-    re.IGNORECASE,
-)
-
-_DEEP_DEPTH = "deep"
-_TIER3_SOURCE_THRESHOLD = 10
+# --- D3 trigger --------------------------------------------------------------
 
 
-def should_invoke_tier3(query: str, *, depth: str, tier12_source_count: int) -> bool:
-    """Decide whether Tier 3 should run for the given query.
+def should_launch_tier3(*, notebooklm_available: bool) -> bool:
+    """Decide whether to launch the Tier 3 autonomous deep-research job.
 
-    Mirrors ``tier3-notebooklm.md`` §"Trigger Heuristic":
-
-    * ``depth == 'deep'`` always triggers.
-    * Comparative queries (regex ``\\b(vs|versus|compare|difference between|
-      alternatives?)\\b``) trigger.
-    * ``tier12_source_count >= 10`` triggers.
-    * Otherwise: do not invoke.
-
-    ``depth`` is matched case-insensitively; the threshold and regex are
-    pinned constants.
+    Mirrors ``tier3-notebooklm.md`` §"Trigger (default-on)". D3: NotebookLM
+    deep research is the DEFAULT path -- it launches whenever the backend is
+    available. The legacy ``depth=deep`` / comparative / ``>=10-sources``
+    heuristic is dropped (the source count is unknowable at T0, when the
+    background launch happens).
     """
-    if depth.lower() == _DEEP_DEPTH:
-        return True
-    if _COMPARATIVE_RE.search(query):
-        return True
-    return tier12_source_count >= _TIER3_SOURCE_THRESHOLD
+    return notebooklm_available
 
 
-# --- T-3.5: main flow --------------------------------------------------------
+# --- Launch (T0, background subagent) ----------------------------------------
 
-_MAX_SOURCES = 20
+_NlmListCallable = Callable[[], dict]
+_CreateNotebookCallable = Callable[..., dict]
+_ResearchCallable = Callable[..., dict]
+_AskCallable = Callable[..., dict]
+_JobStatusCallable = Callable[[str], dict]
+_ClockCallable = Callable[[], float]
 
-_CITATION_INSTRUCTION = " Answer with citations to the provided sources, using `[N]` notation."
+_RESEARCH_INSTRUCTION = (
+    " Run autonomous deep research and cite discovered sources using `[N]` notation."
+)
 
-_NotebookCreateCallable = Callable[..., dict]
-_SourceAddCallable = Callable[..., dict]
-_NotebookQueryCallable = Callable[..., dict]
-_ServerInfoCallable = Callable[[], dict]
-
-
-_AUTH_EXPIRED_WARNING = (
-    "notebooklm auth expired -- run `nlm login` to re-authenticate; "
-    "Tier 3 skipped, falling back to Tier 2 sources"
+# Operator recovery path for an absent / unauthenticated NotebookLM. References
+# the ``claude-world/notebooklm-skill`` auth model (NOT the legacy ``nlm login``).
+_UNAVAILABLE_WARNING = (
+    "notebooklm unavailable or unauthenticated -- run `uvx notebooklm login` "
+    "(auth state at `~/.notebooklm/storage_state.json`); Tier 3 skipped, "
+    "synthesizing from Tiers 0-2 only"
 )
 
 
-def tier3_notebooklm(
+def _notebooklm_available(nlm_list: _NlmListCallable) -> bool:
+    """Capability/auth probe via ``nlm_list`` (replaces ``server_info``).
+
+    NotebookLM is treated as unavailable when the probe raises, returns a
+    falsy payload, or reports ``{"authenticated": False}``. Fail-soft (D7):
+    a probe error never propagates.
+    """
+    try:
+        info = nlm_list()
+    except Exception:
+        return False
+    if not info:
+        return False
+    return bool(info.get("authenticated", True))
+
+
+def tier3_launch(
     query: str,
     *,
-    sources: list[str],
     timestamp_iso: str,
-    notebook_create: _NotebookCreateCallable,
-    source_add: _SourceAddCallable,
-    notebook_query: _NotebookQueryCallable,
+    nlm_list: _NlmListCallable,
+    nlm_create_notebook: _CreateNotebookCallable,
+    nlm_research: _ResearchCallable,
     reuse_notebook: str | None = None,
-    server_info: _ServerInfoCallable | None = None,
-) -> Tier3Result:
-    """Run the Tier 3 NotebookLM flow.
+) -> dict:
+    """Launch the Tier 3 autonomous deep-research job (at T0).
 
-    Sequence (mirrors ``tier3-notebooklm.md`` §"Sequence"):
+    Sequence (mirrors ``tier3-notebooklm.md`` §"Launch"):
 
-    1. (T-4.9) If ``server_info`` is provided, probe it first. If the
-       probe returns ``authenticated: False``, return immediately with
-       ``degraded=True`` and the auth-expired warning. ``notebook_create``,
-       ``source_add``, ``notebook_query`` are NOT called in this case.
-    2. If ``reuse_notebook`` is provided, use that ID; else call
-       ``notebook_create(title=...)`` with the templated title and capture
-       the returned ID.
-    3. Call ``source_add`` for each URL in ``sources``, capped at the first
-       20 entries.
-    4. Call ``notebook_query`` with the user query plus the citation
-       instruction; capture ``answer`` and ``conversation_id``.
-    5. Return a :class:`Tier3Result`.
+    1. Probe ``nlm_list`` (capability/auth). If NotebookLM is unavailable or
+       unauthenticated, return ``{"degraded": True, "notebook_id": "",
+       "warnings": [...]}`` and call NOTHING else (D7 fail-soft).
+    2. Resolve the notebook id: reuse ``reuse_notebook`` when provided, else
+       call ``nlm_create_notebook(title=...)`` and read ``notebook_id``.
+    3. Start ``nlm_research(notebook=..., query=..., mode="deep")`` -- the
+       autonomous deep-research job. Per D1/OQ2 this is assumed BLOCKING
+       (the background subagent holds it); a future non-blocking handle is
+       supported because the harvest reads job state via the injected
+       ``job_status`` callable rather than this return value.
 
-    Resilience: a single per-call exception during ``source_add`` or
-    ``notebook_query`` is captured and surfaced via ``degraded=True`` plus
-    the corresponding warning, but does not propagate to the caller -- the
-    skill should fall back to Tier 2 results in that case.
+    Returns a launch dict ``{"notebook_id", "degraded", "warnings"}`` that is
+    handed to :func:`tier3_harvest`.
     """
-    # Step 1 (T-4.9): auth probe.
-    if server_info is not None:
-        try:
-            info = server_info() or {}
-        except Exception as exc:
-            return Tier3Result(
-                degraded=True,
-                warnings=[
-                    f"notebooklm server_info probe failed: {exc!r} -- "
-                    "Tier 3 skipped, run `nlm login` and retry"
-                ],
-            )
-        if not info.get("authenticated", True):
-            return Tier3Result(degraded=True, warnings=[_AUTH_EXPIRED_WARNING])
+    # Step 1: capability/auth probe. Absent backend -> degrade, no side effects.
+    if not _notebooklm_available(nlm_list):
+        return {
+            "notebook_id": "",
+            "degraded": True,
+            "warnings": [_UNAVAILABLE_WARNING],
+        }
 
-    # Step 2: notebook id.
+    # Step 2: resolve notebook id.
     if reuse_notebook is not None:
         notebook_id = reuse_notebook
     else:
         title = notebook_title(query, timestamp_iso)
-        created = notebook_create(title=title)
+        created = nlm_create_notebook(title=title)
         notebook_id = created["notebook_id"]
 
-    # Step 3: add sources, capped at 20.
-    capped_sources = list(sources)[:_MAX_SOURCES]
-    for url in capped_sources:
-        source_add(notebook_id=notebook_id, source_type="url", url=url)
+    # Step 3: start the autonomous deep-research job.
+    research_query = f"{query}{_RESEARCH_INSTRUCTION}"
+    nlm_research(notebook=notebook_id, query=research_query, mode="deep")
 
-    # Step 4: query with citation instruction appended.
-    query_payload = f"{query}{_CITATION_INSTRUCTION}"
-    queried = notebook_query(notebook_id=notebook_id, query=query_payload)
+    return {"notebook_id": notebook_id, "degraded": False, "warnings": []}
+
+
+# --- Harvest (bounded wait, after Tiers 0-2) ---------------------------------
+
+
+def _read_report(payload: dict) -> str:
+    """Read the deep report from a completed ``job_status`` payload.
+
+    Accepts either ``report_markdown`` or ``report`` (backend field-name
+    variance) and normalises onto a single string.
+    """
+    return payload.get("report_markdown") or payload.get("report") or ""
+
+
+def tier3_harvest(
+    launch: dict,
+    *,
+    job_status: _JobStatusCallable,
+    clock: _ClockCallable,
+    wait_budget_sec: float,
+    nlm_ask: _AskCallable | None = None,
+) -> Tier3Result:
+    """Harvest the deep-research job with a bounded wait (D4).
+
+    Sequence (mirrors ``tier3-notebooklm.md`` §"Harvest"):
+
+    1. If ``launch`` is already degraded (NotebookLM was unavailable at
+       launch), pass it straight through -- no polling.
+    2. Otherwise poll ``job_status(notebook_id)`` repeatedly. ``clock()`` is
+       a zero-arg monotonically-increasing wall-clock reading. The first
+       reading is the start time; on each subsequent reading, if the elapsed
+       time exceeds ``wait_budget_sec`` the harvest *times out*: return
+       ``timed_out=True`` with the ``notebook_id`` preserved (for a later
+       ``--reuse-notebook`` harvest) and a degraded warning. No report.
+    3. When ``job_status`` reports ``{"status": "completed"}``, read the
+       ``report_markdown`` (or ``report``) and ``sources``.
+    4. If ``nlm_ask`` is provided, run one optional cited follow-up after
+       completion and fill ``synthesized_response``.
+
+    Returns a :class:`Tier3Result`.
+    """
+    notebook_id = launch.get("notebook_id", "")
+
+    # Step 1: a degraded launch is passed straight through.
+    if launch.get("degraded"):
+        return Tier3Result(
+            notebook_id=notebook_id,
+            degraded=True,
+            warnings=list(launch.get("warnings", [])),
+        )
+
+    # Step 2: bounded poll. The first reading anchors the start time.
+    start = clock()
+    while True:
+        status = job_status(notebook_id)
+        if status.get("status") == "completed":
+            break
+        if (clock() - start) > wait_budget_sec:
+            return Tier3Result(
+                notebook_id=notebook_id,
+                timed_out=True,
+                degraded=True,
+                warnings=[
+                    "notebooklm deep research still running after the wait budget; "
+                    f"synthesizing without it -- harvest later with "
+                    f"`--reuse-notebook={notebook_id}`"
+                ],
+            )
+
+    # Step 3: completed -- read report + autonomously-discovered sources.
+    report_markdown = _read_report(status)
+    sources_discovered = list(status.get("sources", []))
+
+    # Step 4: optional cited follow-up.
+    synthesized_response = ""
+    if nlm_ask is not None:
+        answer = nlm_ask(notebook=notebook_id, query="Summarise the key findings with citations.")
+        synthesized_response = answer.get("answer", "")
 
     return Tier3Result(
-        synthesized_response=queried.get("answer", ""),
+        synthesized_response=synthesized_response,
+        report_markdown=report_markdown,
         notebook_id=notebook_id,
-        conversation_id=queried.get("conversation_id", ""),
-        sources_added=capped_sources,
+        sources_discovered=sources_discovered,
     )
 
 
@@ -209,7 +296,8 @@ __all__: Iterable[str] = (
     "Tier3Result",
     "hash6",
     "notebook_title",
-    "should_invoke_tier3",
-    "tier3_notebooklm",
+    "should_launch_tier3",
+    "tier3_harvest",
+    "tier3_launch",
     "topic_slug",
 )

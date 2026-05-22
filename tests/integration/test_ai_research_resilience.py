@@ -6,17 +6,16 @@ Spec acceptance:
     ``degraded_sources`` list and the synthesizer surfaces a visible
     warning to the user.
 
-    Tier 3 (NotebookLM) MUST probe ``server_info`` first; if auth is
-    expired (probe returns ``authenticated: False``), Tier 3 is skipped
-    with a ``notebooklm auth expired`` warning suggesting ``nlm login``.
+    Tier 3 (NotebookLM, ``claude-world/notebooklm-skill`` backend) MUST
+    probe ``nlm_list`` first (capability/auth); if auth is expired (probe
+    returns ``authenticated: False``), the launch is skipped (degraded)
+    with a warning suggesting ``uvx notebooklm login`` and no other
+    ``nlm_*`` calls (D7 fail-soft).
 
     All-external-down case: Tier 1 + Tier 2 + Tier 3 all fail -> the
     synthesizer falls back to local context (Tier 0 results) and surfaces
     a "all external sources down" warning so the user knows the answer
     is local-only.
-
-Status: RED until T-4.9 wires the auth probe into the Tier 3 helper and
-T-4.10 confirms the test suite is GREEN.
 """
 
 from __future__ import annotations
@@ -26,8 +25,7 @@ from tests.integration._ai_research_tier1_helper import (
     tier1_free_mcps,
 )
 from tests.integration._ai_research_tier3_helper import (
-    Tier3Result,
-    tier3_notebooklm,
+    tier3_launch,
 )
 
 # ---------------------------------------------------------------------------
@@ -156,62 +154,50 @@ def test_ms_learn_down_continues_with_other_mcps() -> None:
 
 
 def test_notebooklm_auth_expired_degrades_to_tier2_only_with_warning() -> None:
-    """When ``server_info`` reports ``authenticated: False``, Tier 3 is skipped.
+    """When ``nlm_list`` reports ``authenticated: False``, Tier 3 is skipped.
 
-    Arrange: server_info probe returns ``{authenticated: False, ...}``.
+    Arrange: the ``nlm_list`` capability/auth probe returns
+    ``{authenticated: False, ...}``.
 
-    Act: invoke ``tier3_notebooklm`` with the probe injected.
+    Act: invoke ``tier3_launch`` with the probe injected.
 
     Assert:
-      * ``notebook_create``, ``source_add``, ``notebook_query`` were NOT called.
-      * The result is degraded with the ``notebooklm auth expired`` warning.
-      * The warning suggests running ``nlm login`` so the user can recover.
+      * ``nlm_create_notebook`` and ``nlm_research`` were NOT called.
+      * The launch is degraded with an empty ``notebook_id``.
+      * A warning suggests ``uvx notebooklm login`` so the user can recover.
     """
     create_calls: list[dict] = []
-    source_calls: list[dict] = []
-    query_calls: list[dict] = []
+    research_calls: list[dict] = []
 
-    def server_info_unauth() -> dict:
-        return {"authenticated": False, "user": None}
+    def nlm_list_unauth() -> dict:
+        return {"authenticated": False, "notebooks": []}
 
-    def notebook_create(*, title: str) -> dict:
+    def nlm_create_notebook(*, title: str) -> dict:
         create_calls.append({"title": title})
         return {"notebook_id": "should-not-be-used"}
 
-    def source_add(**kwargs) -> dict:
-        source_calls.append(kwargs)
-        return {"source_id": "x"}
+    def nlm_research(**kwargs) -> dict:
+        research_calls.append(kwargs)
+        return {"job_id": "should-not-happen", "status": "running"}
 
-    def notebook_query(**kwargs) -> dict:
-        query_calls.append(kwargs)
-        return {"answer": "should not happen", "conversation_id": "x"}
-
-    result = tier3_notebooklm(
+    launch = tier3_launch(
         "compare A vs B",
-        sources=["https://example.com/a", "https://example.com/b"],
         timestamp_iso="2026-04-28T12:00:00+00:00",
-        notebook_create=notebook_create,
-        source_add=source_add,
-        notebook_query=notebook_query,
-        server_info=server_info_unauth,
+        nlm_list=nlm_list_unauth,
+        nlm_create_notebook=nlm_create_notebook,
+        nlm_research=nlm_research,
     )
 
-    assert isinstance(result, Tier3Result)
-    assert result.degraded is True, "Tier 3 must mark degraded when auth expired"
+    assert launch["degraded"] is True, "Tier 3 must degrade when auth expired"
+    assert launch["notebook_id"] == "", "No notebook id when the launch is skipped"
     assert create_calls == [], (
-        f"notebook_create MUST NOT be called when auth expired; got {create_calls}"
+        f"nlm_create_notebook MUST NOT be called when auth expired; got {create_calls}"
     )
-    assert source_calls == [], (
-        f"source_add MUST NOT be called when auth expired; got {source_calls}"
+    assert research_calls == [], (
+        f"nlm_research MUST NOT be called when auth expired; got {research_calls}"
     )
-    assert query_calls == [], (
-        f"notebook_query MUST NOT be called when auth expired; got {query_calls}"
-    )
-    assert any("auth" in w.lower() for w in result.warnings), (
-        f"Warnings must mention 'auth' so the user knows what's wrong; got {result.warnings}"
-    )
-    assert any("nlm login" in w for w in result.warnings), (
-        f"Warnings must suggest 'nlm login' for recovery; got {result.warnings}"
+    assert any("uvx notebooklm login" in w for w in launch["warnings"]), (
+        f"Warnings must suggest 'uvx notebooklm login' for recovery; got {launch['warnings']}"
     )
 
 
