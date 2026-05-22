@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-05-22T10:34:28.650616+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "github-actions-supply-chain-hardening",
+  "spec_id": "github-actions-supply-chain-hardening",
+  "state": "draft",
+  "title": "GitHub Actions CI/CD Supply-Chain Hardening and Simplification"
+}
