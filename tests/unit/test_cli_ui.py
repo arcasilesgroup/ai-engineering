@@ -531,6 +531,36 @@ class TestUnifiedTreeRenderer:
         assert "3 files unchanged" in err, "Footer should say '3 files unchanged'"
 
 
+class TestStateLabelColorSemantics:
+    """Tree color is keyed to actionability, not to existence.
+
+    Inert states (nothing happens to the file) must recede; only
+    content-changing or destructive states may use an alarm color.
+    """
+
+    def test_protected_label_is_dim_not_alarm(self) -> None:
+        """skip-denied (protected) is an inert no-op and must not use red.
+
+        The updater intentionally leaves protected files alone, so painting
+        them red falsely signals an error and drowns the actionable files in
+        a wall of alarm color. Dim lets them recede.
+        """
+        from ai_engineering.cli_ui import _STATE_LABELS
+
+        label, style = _STATE_LABELS["skip-denied"]
+        assert label == "protected"
+        assert style == "dim", (
+            f"Protected is inert; expected calm 'dim' so it recedes, got '{style}'."
+        )
+
+    def test_actionable_labels_keep_meaningful_colors(self) -> None:
+        """create stays green (additive) and update stays yellow (caution)."""
+        from ai_engineering.cli_ui import _STATE_LABELS
+
+        assert _STATE_LABELS["create"] == ("new", "green")
+        assert _STATE_LABELS["update"] == ("updated", "yellow")
+
+
 class TestHeaderFallback:
     """Tests for header() ImportError fallback."""
 
