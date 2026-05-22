@@ -26,6 +26,8 @@ import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
+from tests.integration._ai_research_capability import is_available
+
 # --- Result types ------------------------------------------------------------
 
 
@@ -104,9 +106,12 @@ def tier2_web(
     if len(tier1_hits) >= _SKIP_THRESHOLD and explicit_url is None:
         return Tier2Result(hits=[], skipped=True, degraded_sources=[])
 
-    # Provider selection -- Exa primary, built-in fallback (D6/D7).
+    # Provider selection -- Exa primary, built-in fallback (D6/D7). The
+    # caller's ``exa_available`` boolean is routed through the shared
+    # capability guard so absence has identical semantics across every tier
+    # (notebooklm-async-tier3 D7; the boolean is wrapped as a trivial probe).
     degraded: list[str] = []
-    if exa_available:
+    if is_available(lambda: exa_available):
         search_fn: _SearchCallable = exa_search
         fetch_fn: _FetchCallable = exa_fetch
         search_tool = _EXA_SEARCH_TOOL

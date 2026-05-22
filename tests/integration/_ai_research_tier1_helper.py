@@ -24,6 +24,8 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from urllib.parse import urlparse, urlunparse
 
+from tests.integration._ai_research_capability import is_available
+
 # --- Result types ------------------------------------------------------------
 
 
@@ -162,30 +164,58 @@ def tier1_free_mcps(
     ms_learn: _MCPCallable,
     gh_search: _MCPCallable,
     tags: dict | None = None,
+    context7_available: bool = True,
+    ms_learn_available: bool = True,
+    gh_search_available: bool = True,
 ) -> Tier1Result:
     """Dispatch the three free MCPs concurrently and merge their results.
 
-    Only MCPs whose corresponding classifier tag is True are invoked. Any
-    callable that raises is caught and recorded in ``degraded_sources`` so
-    the synthesizer can surface a degraded-mode warning. Hits across MCPs
-    are merged then deduplicated.
+    Only MCPs whose corresponding classifier tag is True are invoked. Hits
+    across MCPs are merged then deduplicated.
+
+    Fail-soft (notebooklm-async-tier3 D7) operates on two distinct paths,
+    both feeding ``degraded_sources``:
+
+    * **Absence** -- when a source's ``*_available`` flag is False, the
+      capability guard (:func:`is_available`) reports it absent, so its
+      callable is NEVER invoked; the source name is appended to
+      ``degraded_sources`` up front.
+    * **Transient failure** -- an available callable that raises mid-call is
+      caught post-hoc and recorded the same way, without aborting the other
+      futures.
     """
     if tags is None:
         tags = classify_tags(query)
 
+    # Per-source capability detection (D7). The boolean flag is routed
+    # through the shared guard so "absent" has identical semantics across
+    # every tier (a False flag -> probe returns False -> unavailable).
+    availability = {
+        "context7": context7_available,
+        "ms_learn": ms_learn_available,
+        "gh_search": gh_search_available,
+    }
+    candidates: list[tuple[str, _MCPCallable, bool]] = [
+        ("context7", context7, bool(tags.get("mentions_library"))),
+        ("ms_learn", ms_learn, bool(tags.get("mentions_microsoft"))),
+        ("gh_search", gh_search, bool(tags.get("mentions_code_pattern"))),
+    ]
+
     plan: list[tuple[str, _MCPCallable]] = []
-    if tags.get("mentions_library"):
-        plan.append(("context7", context7))
-    if tags.get("mentions_microsoft"):
-        plan.append(("ms_learn", ms_learn))
-    if tags.get("mentions_code_pattern"):
-        plan.append(("gh_search", gh_search))
+    degraded: list[str] = []
+    for name, callable_, applicable in candidates:
+        if not applicable:
+            continue
+        if not is_available(lambda flag=availability[name]: flag):
+            # Absent tool: skipped silently, recorded, never invoked (D7).
+            degraded.append(name)
+            continue
+        plan.append((name, callable_))
 
     if not plan:
-        return Tier1Result()
+        return Tier1Result(degraded_sources=degraded)
 
     all_hits: list[Tier1Hit] = []
-    degraded: list[str] = []
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(plan)) as pool:
         future_to_name = {

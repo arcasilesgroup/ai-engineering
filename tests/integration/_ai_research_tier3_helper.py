@@ -38,6 +38,8 @@ import re
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 
+from tests.integration._ai_research_capability import is_available
+
 # --- Result types ------------------------------------------------------------
 
 
@@ -144,17 +146,13 @@ _UNAVAILABLE_WARNING = (
 def _notebooklm_available(nlm_list: _NlmListCallable) -> bool:
     """Capability/auth probe via ``nlm_list`` (replaces ``server_info``).
 
-    NotebookLM is treated as unavailable when the probe raises, returns a
-    falsy payload, or reports ``{"authenticated": False}``. Fail-soft (D7):
+    Delegates to the shared :func:`is_available` guard so NotebookLM uses the
+    same absence semantics as Context7 and Exa (notebooklm-async-tier3 D7,
+    DRY §10.4): unavailable when the probe raises, returns a falsy payload,
+    or reports ``{"authenticated": False}``; available otherwise. Fail-soft:
     a probe error never propagates.
     """
-    try:
-        info = nlm_list()
-    except Exception:
-        return False
-    if not info:
-        return False
-    return bool(info.get("authenticated", True))
+    return is_available(nlm_list)
 
 
 def tier3_launch(
