@@ -150,6 +150,7 @@ Completed specs. Details in git history.
 | 003 | Governance Enforcement | done | 2026-02-10 | — | — | spec/003-governance-enforcement |
 | 002 | Cross-Reference Hardening + Skill Registration | done | 2026-02-09 | — | — | spec/002-cross-ref-hardening |
 | 001 | AI-Engineering Framework: Rewrite from Scratch | done | 2026-02-08 | — | — | spec/001-rewrite-v2 |
+| github-actions-supply-chain-hardening | GitHub Actions CI/CD Supply-Chain Hardening and Simplification | shipped | 2026-05-22 | 2026-05-22 | 536 | spec-152-github-actions-supply-chain-hardening |
 
 ---
 
