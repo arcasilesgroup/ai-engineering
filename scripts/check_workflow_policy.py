@@ -8,6 +8,13 @@ Current enforced policies:
 - Workflows with `pull_request` trigger must have `concurrency` key, unless the
   filename is in the reviewed `_CONCURRENCY_ALLOWLIST`.
 - Every non-local action `uses:` (workflows AND composite actions) must SHA-pin.
+- No unpinned runtime install in a step `run:` block — `curl|bash` bootstraps,
+  `npm install -g <pkg>` without `@<version>`, `uv run --with <pkg>` /
+  `uv pip install <pkg>` without `==` — unless allowlisted (spec-152 D-152-12).
+- No `actions/cache`(`/restore`,`/save`), and no `setup-*` composite with
+  `enable-cache: true`, inside a privileged/untrusted job (pull_request_target,
+  untrusted workflow_run checkout, or `id-token: write`) unless a reviewed
+  `_CACHE_EXCEPTIONS` entry names it (spec-152 D-152-11).
 - `release.yml` must preserve the governed tag-triggered publish path.
 
 The script also exposes an opt-in `--check-reachability` mode (off the PR hot
@@ -38,6 +45,22 @@ _FIRST_PARTY_PREFIXES: tuple[str, ...] = ()
 # than being allowlisted. Each entry maps `<workflow filename>` -> rationale and
 # MUST carry a `# expires: <date>` token in its value when added.
 _CONCURRENCY_ALLOWLIST: dict[str, str] = {}
+
+# spec-152 D-152-12: workflows permitted to keep an UNPINNED runtime install in a
+# step `run:` block. Empty by default — every runtime tool the repo installs
+# (actionlint, gitleaks, snyk, cyclonedx-bom) is pinnable and is pinned in T-22,
+# so no entry is warranted. If a genuinely unpinnable case ever appears, add it
+# WITH an inline rationale and a `# expires: <date>` token in its value.
+_INSTALL_ALLOWLIST: dict[str, str] = {}
+
+# spec-152 D-152-11: workflows permitted to run an `actions/cache`(`/restore`,
+# `/save`) — or a composite `enable-cache: true` — inside a privileged or
+# untrusted-input job (pull_request_target, untrusted workflow_run checkout, or
+# an `id-token: write` / release-OIDC job). Empty by default: ci-check caches run
+# under plain `push`/`pull_request` non-OIDC jobs and release caches are disabled
+# (T-17), so no trust boundary is crossed. Each entry maps `<workflow filename>`
+# -> rationale and MUST carry a `# expires: <date>` token when added.
+_CACHE_EXCEPTIONS: dict[str, str] = {}
 
 # Pattern: owner/action@<40-hex-char SHA>
 _SHA_PIN_RE = re.compile(r"^[^/]+/[^@]+@[0-9a-f]{40}$")
@@ -440,6 +463,246 @@ def _check_sha_pinning(workflow: Path, data: dict) -> list[str]:
     return failures
 
 
+# --- spec-152 D-152-12: unpinned-runtime-install detection (pure core) -------
+
+# A shell bootstrap that pipes a freshly-downloaded script straight into an
+# interpreter (`curl ... | bash`, `wget ... | sh`) or runs it via process
+# substitution (`bash <(curl ...)`). The fetched bytes are whatever the
+# upstream serves at run time, so the install is unpinned by construction.
+_CURL_PIPE_SHELL_RE = re.compile(r"(?:curl|wget)\b[^\n|]*\|\s*(?:sudo\s+)?(?:ba)?sh\b")
+_SHELL_PROCESS_SUB_RE = re.compile(r"\b(?:ba)?sh\s+<\(\s*(?:curl|wget)\b")
+
+# `npm install -g <pkg>` / `npm i -g <pkg>`. The package token is captured so a
+# missing `@<version>` (anything other than a leading-scope `@`) can be flagged.
+_NPM_GLOBAL_RE = re.compile(r"\bnpm\s+(?:install|i)\s+(?:--global|-g)\s+(?P<pkg>[^\s;&|]+)")
+
+# `uv run --with <pkg>` and `uv pip install <pkg>`. Surrounding quotes are
+# stripped by the caller before the `==` pin check.
+_UV_RUN_WITH_RE = re.compile(r"\buv\s+run\b[^\n]*?--with[=\s]+(?P<pkg>[^\s;&|]+)")
+_UV_PIP_INSTALL_RE = re.compile(r"\buv\s+pip\s+install\s+(?P<pkg>[^\s;&|]+)")
+
+
+def _unquote(token: str) -> str:
+    """Strip a single layer of matching surrounding quotes from a shell token."""
+    token = token.strip()
+    if len(token) >= 2 and token[0] == token[-1] and token[0] in {'"', "'"}:
+        return token[1:-1]
+    return token
+
+
+def _npm_pkg_is_pinned(pkg: str) -> bool:
+    """Return whether an ``npm install -g`` package token carries an ``@version``.
+
+    ``snyk@1.1305.0`` → pinned. ``snyk`` → not. ``@scope/name@1.2.3`` → pinned
+    (the leading scope ``@`` is ignored; a *second* ``@`` carries the version).
+    ``@scope/name`` → not pinned.
+    """
+    pkg = _unquote(pkg)
+    body = pkg[1:] if pkg.startswith("@") else pkg
+    return "@" in body
+
+
+def scan_install_pins(text: str) -> list[str]:
+    """Return a failure message for every unpinned runtime install in ``text``.
+
+    Pure predicate over a step's ``run:`` text (spec-152 D-152-12, §10.8
+    Hexagonal core). Detects four ingress shapes:
+
+    * ``curl ... | bash`` / ``bash <(curl ...)`` script bootstrap;
+    * ``npm install -g <pkg>`` without ``@<version>``;
+    * ``uv run --with <pkg>`` without ``==``;
+    * ``uv pip install <pkg>`` without ``==``.
+
+    Each detected offender yields one message; an empty list means every install
+    in the text is pinned (or there is no install at all).
+    """
+    failures: list[str] = []
+    if not isinstance(text, str) or not text:
+        return failures
+
+    if _CURL_PIPE_SHELL_RE.search(text) or _SHELL_PROCESS_SUB_RE.search(text):
+        failures.append(
+            "unpinned install: `curl|bash`/`bash <(curl ...)` bootstrap fetches "
+            "unpinned bytes at run time; download a pinned release and verify its "
+            "sha256 instead"
+        )
+
+    for match in _NPM_GLOBAL_RE.finditer(text):
+        pkg = match.group("pkg")
+        if not _npm_pkg_is_pinned(pkg):
+            failures.append(
+                f"unpinned install: `npm install -g {pkg}` must pin a version "
+                f"(`{_unquote(pkg)}@<version>`)"
+            )
+
+    for label, pattern in (
+        ("uv run --with", _UV_RUN_WITH_RE),
+        ("uv pip install", _UV_PIP_INSTALL_RE),
+    ):
+        for match in pattern.finditer(text):
+            pkg = _unquote(match.group("pkg"))
+            # Only python distribution specs are pinnable here; a bare flag or a
+            # local path (`.`, `-r`, `requirements.txt`) is not a named package.
+            if pkg.startswith("-") or pkg in {".", ".."} or "/" in pkg:
+                continue
+            if "==" not in pkg:
+                failures.append(
+                    f"unpinned install: `{label} {pkg}` must pin a version (`{pkg}==<version>`)"
+                )
+
+    return failures
+
+
+def _job_run_text(job: dict[str, Any]) -> str:
+    """Concatenate every step ``run:`` block in a job for textual scanning."""
+    steps = job.get("steps", [])
+    if not isinstance(steps, list):
+        return ""
+    parts: list[str] = []
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        run = step.get("run")
+        if isinstance(run, str):
+            parts.append(run)
+    return "\n".join(parts)
+
+
+def _check_install_pins(workflow: Path, data: dict[str, Any]) -> list[str]:
+    """Flag unpinned runtime installs across a workflow's job ``run:`` steps."""
+    if workflow.name in _INSTALL_ALLOWLIST:
+        return []
+    jobs = data.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return []
+    failures: list[str] = []
+    for job_name, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
+        for message in scan_install_pins(_job_run_text(job)):
+            failures.append(f"{workflow}: job '{job_name}': {message}")
+    return failures
+
+
+# --- spec-152 D-152-11: cache trust-boundary classification (pure core) ------
+
+_CACHE_USES_PREFIXES = (
+    "actions/cache@",
+    "actions/cache/restore@",
+    "actions/cache/save@",
+)
+# Composite setup actions whose `enable-cache: true` input turns on a uv/tool
+# cache inside the composite. Consuming one of these in a privileged job is the
+# same trust-boundary crossing as a direct `actions/cache` step.
+_CACHE_ENABLING_COMPOSITE_PREFIX = "./.github/actions/setup-"
+
+
+def _job_uses_cache(job: dict[str, Any]) -> bool:
+    """Return whether any step invokes an ``actions/cache`` action."""
+    steps = job.get("steps", [])
+    if not isinstance(steps, list):
+        return False
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        uses = step.get("uses", "")
+        if isinstance(uses, str) and any(
+            _clean_uses(uses).startswith(prefix) for prefix in _CACHE_USES_PREFIXES
+        ):
+            return True
+    return False
+
+
+def _job_enables_composite_cache(job: dict[str, Any]) -> bool:
+    """Return whether a step consumes a ``setup-*`` composite with cache enabled."""
+    steps = job.get("steps", [])
+    if not isinstance(steps, list):
+        return False
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        uses = step.get("uses", "")
+        if not isinstance(uses, str):
+            continue
+        if not _clean_uses(uses).startswith(_CACHE_ENABLING_COMPOSITE_PREFIX):
+            continue
+        with_block = step.get("with", {})
+        enable = with_block.get("enable-cache") if isinstance(with_block, dict) else None
+        # The composite default is cache-on (setup-env action.yml default "true"),
+        # so an absent or empty input is also the on-state; only an explicit
+        # "false" turns the cache off.
+        normalized = "true" if enable is None else str(enable).strip().lower()
+        return normalized in {"true", ""}
+    return False
+
+
+def _job_has_oidc(job: dict[str, Any]) -> bool:
+    """Return whether a job grants ``id-token: write`` (release/OIDC context)."""
+    permissions = job.get("permissions")
+    return isinstance(permissions, dict) and permissions.get("id-token") == "write"
+
+
+def _job_checks_out_untrusted_workflow_run(job: dict[str, Any]) -> bool:
+    """Return whether a job checks out the untrusted head ref of a ``workflow_run``."""
+    text = _steps_text(job)
+    return "github.event.workflow_run" in text
+
+
+def classify_cache_usage(workflow: Path, data: dict[str, Any]) -> list[str]:
+    """Flag cache usage that crosses a trust boundary (spec-152 D-152-11).
+
+    Pure predicate (§10.8 Hexagonal core, §10.3 SOLID). A cache step — direct
+    ``actions/cache``(`/restore`,`/save`) or a ``setup-*`` composite with
+    ``enable-cache: true`` — is rejected when its job runs in any of:
+
+    * a ``pull_request_target`` workflow (fork code, repo-write token);
+    * a job that checks out an untrusted ``workflow_run`` head ref; or
+    * a job granting ``id-token: write`` (release/OIDC publish context).
+
+    A reviewed ``_CACHE_EXCEPTIONS`` entry naming the workflow file suppresses
+    every flag for that workflow. Plain ``push``/``pull_request`` caches in
+    non-OIDC jobs are allowed (their isolation is the trust-tier key prefix, not
+    removal).
+    """
+    if workflow.name in _CACHE_EXCEPTIONS:
+        return []
+
+    triggers = workflow_triggers(data)
+    workflow_is_pr_target = "pull_request_target" in triggers
+
+    jobs = data.get("jobs", {})
+    if not isinstance(jobs, dict):
+        return []
+
+    failures: list[str] = []
+    for job_name, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
+        uses_cache = _job_uses_cache(job)
+        enables_composite = _job_enables_composite_cache(job)
+        if not (uses_cache or enables_composite):
+            continue
+
+        reasons: list[str] = []
+        if workflow_is_pr_target:
+            reasons.append("pull_request_target (untrusted fork code with write token)")
+        if _job_checks_out_untrusted_workflow_run(job):
+            reasons.append("untrusted workflow_run head-ref checkout")
+        if _job_has_oidc(job):
+            reasons.append("id-token: write (release/OIDC publish context)")
+
+        if not reasons:
+            continue
+
+        surface = "composite enable-cache:true" if enables_composite and not uses_cache else "cache"
+        failures.append(
+            f"{workflow}: job '{job_name}': {surface} is not allowed in a "
+            f"privileged/untrusted context [{', '.join(reasons)}]; remove the "
+            f"cache, run cold, or add a reviewed _CACHE_EXCEPTIONS entry"
+        )
+    return failures
+
+
 def check_composite_action_policy(action: Path, data: dict[str, Any]) -> list[str]:
     """Check a composite ``action.yml``: its ``runs.steps`` must SHA-pin actions.
 
@@ -569,6 +832,8 @@ def check_generic_workflow_policy(workflow: Path, data: dict[str, Any]) -> list[
                 failures.append(f"{workflow}: job '{job_name}' missing 'timeout-minutes'")
 
     failures.extend(_check_sha_pinning(workflow, data))
+    failures.extend(_check_install_pins(workflow, data))
+    failures.extend(classify_cache_usage(workflow, data))
     return failures
 
 

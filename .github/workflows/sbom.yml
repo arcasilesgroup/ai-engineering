@@ -43,7 +43,9 @@ jobs:
       - uses: ./.github/actions/setup-env
 
       - name: Install cyclonedx-bom (provides cyclonedx-py CLI)
-        run: uv pip install cyclonedx-bom
+        # spec-152 T-22 (D-152-12): pin cyclonedx-bom (current stable on PyPI).
+        # Same version pinned in release.yml's `uv run --with`.
+        run: uv pip install "cyclonedx-bom==7.3.0"
 
       - name: Generate CycloneDX SBOM
         run: uv run cyclonedx-py environment --output-file sbom.cdx.json

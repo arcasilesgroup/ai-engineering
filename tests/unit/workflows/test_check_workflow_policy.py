@@ -459,3 +459,355 @@ jobs:
     _write(workflows_dir / "pinned.yml", body)
     policy.main([])
     assert called is False, "default main() must not perform reachability git calls"
+
+
+# ---------------------------------------------------------------------------
+# spec-152 Wave 3 — T-20 / T-21: unpinned runtime-install policy (D-152-12)
+# ---------------------------------------------------------------------------
+#
+# A runtime tool fetched at job time (curl|bash bootstrap, `npm install -g`,
+# `uv run --with`, `uv pip install`) is a supply-chain ingress point: an
+# unpinned fetch resolves to whatever the upstream serves at run time, so a
+# poisoned upstream release executes inside CI. The checker must FLAG these
+# unpinned forms in any job step `run:` text unless the workflow is named in a
+# reviewed `_INSTALL_ALLOWLIST`.
+
+
+def test_scan_install_pins_flags_curl_pipe_bash(policy: ModuleType) -> None:
+    """`curl ... | bash` (and `bash <(curl ...)`) bootstraps are flagged."""
+    piped = "curl -sSfL https://example.test/install.sh | bash"
+    process_sub = "bash <(curl -sSfL https://example.test/install.sh)"
+    assert policy.scan_install_pins(piped), f"curl|bash must be flagged; got none for {piped!r}"
+    assert policy.scan_install_pins(process_sub), (
+        f"bash <(curl ...) must be flagged; got none for {process_sub!r}"
+    )
+
+
+def test_scan_install_pins_flags_unpinned_npm_global(policy: ModuleType) -> None:
+    """`npm install -g <pkg>` without `@<version>` is flagged; pinned passes."""
+    unpinned = "npm install -g snyk --ignore-scripts"
+    pinned = "npm install -g snyk@1.1305.0 --ignore-scripts"
+    assert policy.scan_install_pins(unpinned), f"unpinned npm -g must be flagged: {unpinned!r}"
+    assert not policy.scan_install_pins(pinned), f"pinned npm -g must pass: {pinned!r}"
+
+
+def test_scan_install_pins_flags_unpinned_uv_run_with(policy: ModuleType) -> None:
+    """`uv run --with <pkg>` without `==` is flagged; pinned passes."""
+    unpinned = "uv run --with cyclonedx-bom cyclonedx-py requirements requirements-prod.txt"
+    pinned = 'uv run --with "cyclonedx-bom==7.3.0" cyclonedx-py requirements requirements-prod.txt'
+    assert policy.scan_install_pins(unpinned), (
+        f"unpinned uv run --with must be flagged: {unpinned!r}"
+    )
+    assert not policy.scan_install_pins(pinned), f"pinned uv run --with must pass: {pinned!r}"
+
+
+def test_scan_install_pins_flags_unpinned_uv_pip_install(policy: ModuleType) -> None:
+    """`uv pip install <pkg>` without `==` is flagged; pinned passes."""
+    unpinned = "uv pip install cyclonedx-bom"
+    pinned = 'uv pip install "cyclonedx-bom==7.3.0"'
+    assert policy.scan_install_pins(unpinned), (
+        f"unpinned uv pip install must be flagged: {unpinned!r}"
+    )
+    assert not policy.scan_install_pins(pinned), f"pinned uv pip install must pass: {pinned!r}"
+
+
+def test_install_allowlist_empty_by_default(policy: ModuleType) -> None:
+    """The install allowlist ships empty/minimal — offenders are pinned, not waived."""
+    assert isinstance(policy._INSTALL_ALLOWLIST, dict)
+    assert policy._INSTALL_ALLOWLIST == {}, (
+        "spec-152 D-152-12: every runtime tool is pinnable, so the install "
+        f"allowlist must ship empty; got {policy._INSTALL_ALLOWLIST}"
+    )
+
+
+def test_generic_check_flags_unpinned_install_in_run_step(policy: ModuleType) -> None:
+    """The generic per-workflow check surfaces an unpinned install in a `run:` step."""
+    body = """\
+name: UnpinnedInstall
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install thing
+        run: uv pip install cyclonedx-bom
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.check_generic_workflow_policy(Path("unpinned-install.yml"), data)
+    assert any("cyclonedx-bom" in f or "pin" in f.lower() for f in failures), (
+        f"generic check must flag the unpinned uv pip install; got {failures}"
+    )
+
+
+def test_generic_check_install_allowlist_waives(
+    policy: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An allowlisted workflow filename suppresses the install-pin failure."""
+    filename = "legacy-install.yml"
+    monkeypatch.setitem(
+        policy._INSTALL_ALLOWLIST,
+        filename,
+        "test rationale # expires: 2099-01-01",
+    )
+    body = """\
+name: LegacyInstall
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Install thing
+        run: uv pip install cyclonedx-bom
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.check_generic_workflow_policy(Path(filename), data)
+    assert not any("cyclonedx-bom" in f for f in failures), (
+        f"allowlisted workflow must not be flagged for unpinned install; got {failures}"
+    )
+
+
+def test_pinned_installs_pass_generic_check(policy: ModuleType) -> None:
+    """A workflow whose installs are all pinned passes the generic check."""
+    body = """\
+name: PinnedInstalls
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Pinned installs
+        run: |
+          npm install -g snyk@1.1305.0 --ignore-scripts
+          uv pip install "cyclonedx-bom==7.3.0"
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.check_generic_workflow_policy(Path("pinned-installs.yml"), data)
+    assert not any("pin" in f.lower() and "install" in f.lower() for f in failures), (
+        f"pinned-install workflow must pass; got {failures}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# spec-152 Wave 3 — T-18 / T-19: cache trust-boundary policy (D-152-11)
+# ---------------------------------------------------------------------------
+#
+# A cache step that runs in a privileged or untrusted-input context is a
+# poisoning vector: a fork PR (pull_request_target / untrusted workflow_run
+# checkout) can write the cache, and a release/OIDC job can then restore it
+# into a context that signs or publishes artifacts. `classify_cache_usage`
+# must FLAG `actions/cache`(`/restore`,`/save`) and composite `enable-cache:
+# true` used by such jobs, unless a reviewed `_CACHE_EXCEPTIONS` entry names
+# the trust boundary.
+
+
+def test_classify_cache_flags_pull_request_target_cache(policy: ModuleType) -> None:
+    """`actions/cache` under a `pull_request_target` workflow is flagged."""
+    body = """\
+name: PRTargetCache
+on:
+  pull_request_target:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: prtc-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .cache
+          key: k-${{ runner.os }}
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.classify_cache_usage(Path("prtc.yml"), data)
+    assert any("cache" in f.lower() for f in failures), (
+        f"cache under pull_request_target must be flagged; got {failures}"
+    )
+
+
+def test_classify_cache_flags_untrusted_workflow_run_checkout(policy: ModuleType) -> None:
+    """`actions/cache` in a `workflow_run` job that checks out an untrusted ref is flagged."""
+    body = """\
+name: WorkflowRunCache
+on:
+  workflow_run:
+    workflows: [CI Check]
+    types: [completed]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .cache
+          key: k-${{ runner.os }}
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.classify_cache_usage(Path("workflow-run.yml"), data)
+    assert any("cache" in f.lower() for f in failures), (
+        f"cache restore in an untrusted workflow_run checkout job must be flagged; got {failures}"
+    )
+
+
+def test_classify_cache_flags_oidc_job_cache(policy: ModuleType) -> None:
+    """`actions/cache` in a job with `id-token: write` (release/OIDC) is flagged."""
+    body = """\
+name: OidcCache
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .cache
+          key: k-${{ runner.os }}
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.classify_cache_usage(Path("oidc.yml"), data)
+    assert any("cache" in f.lower() for f in failures), (
+        f"cache in an OIDC (id-token: write) job must be flagged; got {failures}"
+    )
+
+
+def test_classify_cache_flags_composite_enable_cache_in_privileged_job(
+    policy: ModuleType,
+) -> None:
+    """A composite `setup-*` consumed by an OIDC job with `enable-cache: true` is flagged."""
+    body = """\
+name: CompositeCache
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-env
+        with:
+          enable-cache: "true"
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.classify_cache_usage(Path("composite-cache.yml"), data)
+    assert any("enable-cache" in f.lower() or "cache" in f.lower() for f in failures), (
+        f"composite enable-cache:true in an OIDC job must be flagged; got {failures}"
+    )
+
+
+def test_classify_cache_named_exception_passes(
+    policy: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A reviewed `_CACHE_EXCEPTIONS` entry naming the workflow suppresses the flag."""
+    filename = "reviewed-cache.yml"
+    monkeypatch.setitem(
+        policy._CACHE_EXCEPTIONS,
+        filename,
+        "test rationale # expires: 2099-01-01",
+    )
+    body = """\
+name: ReviewedCache
+on:
+  pull_request_target:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: rc-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .cache
+          key: k-${{ runner.os }}
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.classify_cache_usage(Path(filename), data)
+    assert failures == [], f"named cache exception must suppress the flag; got {failures}"
+
+
+def test_cache_exceptions_empty_by_default(policy: ModuleType) -> None:
+    """The cache-exceptions map ships empty — privileged caches are removed, not waived."""
+    assert isinstance(policy._CACHE_EXCEPTIONS, dict)
+    assert policy._CACHE_EXCEPTIONS == {}, (
+        "spec-152 D-152-11: ci-check caches run under push/pull_request and "
+        "release caches are disabled, so the cache-exceptions map ships empty; "
+        f"got {policy._CACHE_EXCEPTIONS}"
+    )
+
+
+def test_classify_cache_allows_plain_push_pr_cache(policy: ModuleType) -> None:
+    """A cache under plain `push`/`pull_request` (no privileged class) is allowed.
+
+    This is the live ``ci-check.yml`` shape: gate-cache + semgrep caches run on
+    ``push``/``pull_request`` events in non-OIDC jobs, so they must NOT be
+    flagged (the trust-tier prefix from T-16 is their isolation, not removal).
+    """
+    body = """\
+name: PlainCache
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: plain-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: .cache
+          key: cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}
+"""
+    data = _load_yaml(policy, body)
+    failures = policy.classify_cache_usage(Path("plain.yml"), data)
+    assert failures == [], f"plain push/pull_request cache must be allowed; got {failures}"

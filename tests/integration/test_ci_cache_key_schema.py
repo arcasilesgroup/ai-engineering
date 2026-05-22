@@ -26,6 +26,22 @@ Coverage:
    per-cwd local cache directory ``.ai-engineering/cache/gate/`` so a CI
    cache restore lands entries where ``gate_cache.lookup`` will read them
    (D-104-03 storage contract).
+
+spec-152 W3.T15 (D-152-09) adds trust-tier isolation to the cache-key
+schema. A PR/fork run must never be able to restore a cache entry that a
+push-to-main run wrote (or vice-versa), because a poisoned PR cache could
+otherwise leak into a privileged main/release build. Every
+``actions/cache`` ``key:`` must therefore begin with a trust-tier token
+(``pr-``/``main-``/``release-``) derived from ``github.event_name``, and
+NO ``restore-keys`` entry may be a broad cross-tier fallback (one that
+omits the tier token). The two assertions below extend the existing
+schema-parity coverage:
+
+4. ``test_ci_cache_keys_carry_trust_tier_prefix`` -- every ``key:`` and
+   every ``restore-keys`` entry begins with a tier-token expression.
+5. ``test_ci_cache_has_no_cross_tier_restore_fallback`` -- no
+   ``restore-keys`` entry is a broad ``<cache-name>-${{ runner.os }}-``
+   fallback that lacks the tier token.
 """
 
 from __future__ import annotations
@@ -68,6 +84,21 @@ REQUIRED_HASHFILES_INPUTS = (
 # ``ai-eng gate run --cache-aware`` lookup hits the restored entries
 # without an extra copy step.
 EXPECTED_CACHE_PATH = ".ai-engineering/cache/gate/"
+
+# spec-152 W3.T15 (D-152-09): the trust-tier token a cache key must carry
+# immediately after its ``<cache-name>-`` namespace. The canonical scheme
+# derives the token from the event class via a GHA conditional expression
+# (``github.event_name == 'pull_request' && 'pr' || 'main'``); a literal
+# ``release-`` is also accepted for release-only caches. The token isolates
+# PR/fork caches from push/main caches so a poisoned PR cache cannot leak
+# into a privileged build (the spec-152 cache-poisoning defect).
+TRUST_TIER_LITERALS = ("pr", "main", "release")
+
+# A ``restore-keys`` entry is a forbidden cross-tier fallback when, after the
+# ``<cache-name>-`` namespace, it jumps straight to ``${{ runner.os }}``
+# without first carrying a tier token. This is the broad
+# ``gate-cache-${{ runner.os }}-`` form the migration removes.
+_RUNNER_OS_EXPR = "${{ runner.os }}"
 
 
 # ---------------------------------------------------------------------------
@@ -127,6 +158,93 @@ def _is_v4(uses: str, *, workflow_path: Path | None = None) -> bool:
     raw = workflow_path.read_text(encoding="utf-8")
     pin_marker = f"{CACHE_ACTION_PREFIX}{sha}"
     return any(pin_marker in line and "# v4" in line for line in raw.splitlines())
+
+
+def _tier_segment(cache_entry: str) -> str:
+    """Return the text that follows the ``<cache-name>-`` namespace prefix.
+
+    A cache key is ``<cache-name>-<tier>-<rest>`` (e.g.
+    ``gate-cache-${{ ... && 'pr' || 'main' }}-Linux-<hash>``). The cache name
+    itself contains hyphens (``gate-cache``, ``semgrep-packs``), so the tier
+    token is not simply ``split("-")[0]``. This helper strips the leading
+    ``${{ ... }}`` expression block (if present) and returns the remainder so
+    the caller can inspect what the tier position holds.
+
+    We locate the first ``${{`` (every tier-bearing expression starts there)
+    and return the substring from that point; for a literal-tier key
+    (``release-...``) the whole string is returned. The caller then checks
+    that a tier token appears before ``${{ runner.os }}``.
+    """
+    return cache_entry.strip()
+
+
+def _carries_trust_tier(cache_entry: str) -> bool:
+    """Return whether ``cache_entry`` carries a trust-tier token before the OS.
+
+    Accepts either form:
+
+    * a GHA conditional expression that yields the tier — recognised by the
+      presence of every tier literal it can resolve to (``'pr'`` and
+      ``'main'``) inside a ``${{ ... }}`` block that precedes
+      ``${{ runner.os }}``; or
+    * a literal tier prefix (``release-...``).
+
+    The tier MUST appear *before* ``${{ runner.os }}`` — a key that reaches
+    ``${{ runner.os }}`` without first emitting a tier token is a cross-tier
+    key and fails.
+    """
+    text = _tier_segment(cache_entry)
+    os_idx = text.find(_RUNNER_OS_EXPR)
+    head = text if os_idx == -1 else text[:os_idx]
+    # Conditional-expression form: the tier expression resolves to a quoted
+    # literal such as 'pr' / 'main' and sits ahead of the OS segment.
+    if any(f"'{literal}'" in head for literal in TRUST_TIER_LITERALS):
+        return True
+    # Literal-tier form: ``release-...`` / ``pr-...`` / ``main-...`` namespace
+    # token sitting ahead of the OS segment.
+    return any(
+        f"-{literal}-" in head or head.startswith(f"{literal}-") for literal in TRUST_TIER_LITERALS
+    )
+
+
+def _is_cross_tier_fallback(restore_entry: str) -> bool:
+    """Return whether a ``restore-keys`` line is a broad cross-tier fallback.
+
+    The forbidden shape reaches ``${{ runner.os }}`` with no tier token in
+    front of it — i.e. ``gate-cache-${{ runner.os }}-`` — so a push/main run
+    could restore a PR-written entry. A same-tier hash-scoped restore key
+    (``gate-cache-<tier>-${{ runner.os }}-<hashFiles...>-``) is allowed.
+    """
+    return not _carries_trust_tier(restore_entry)
+
+
+def _cache_key_strings(cache_steps: list[dict[str, Any]]) -> list[str]:
+    """Collect every non-empty ``with.key`` expression across cache steps."""
+    keys: list[str] = []
+    for step in cache_steps:
+        with_block = (step or {}).get("with", {}) or {}
+        key = with_block.get("key")
+        if isinstance(key, str) and key.strip():
+            keys.append(key)
+    return keys
+
+
+def _restore_key_entries(cache_steps: list[dict[str, Any]]) -> list[str]:
+    """Collect every individual ``with.restore-keys`` entry across cache steps.
+
+    GHA ``restore-keys`` is a newline-separated YAML literal; PyYAML returns it
+    as a single string. Each non-blank line is one restore key.
+    """
+    entries: list[str] = []
+    for step in cache_steps:
+        with_block = (step or {}).get("with", {}) or {}
+        restore = with_block.get("restore-keys")
+        if not isinstance(restore, str):
+            continue
+        for line in restore.splitlines():
+            if line.strip():
+                entries.append(line)
+    return entries
 
 
 # ---------------------------------------------------------------------------
@@ -238,4 +356,73 @@ def test_ci_cache_path_matches_local() -> None:
         f"Found: {paths!r}. "
         "The local gate_cache writes to this exact directory; CI restore "
         "must land entries in the same location."
+    )
+
+
+def test_ci_cache_keys_carry_trust_tier_prefix() -> None:
+    """spec-152 T-15 (D-152-09): every cache ``key`` and ``restore-keys`` entry
+    carries a trust-tier token before the OS segment.
+
+    A PR/fork run must not share a cache namespace with a push-to-main run. The
+    canonical scheme derives the tier from ``github.event_name`` via a GHA
+    conditional (``... && 'pr' || 'main'``) immediately after the cache-name
+    namespace, so a PR run can only ever read/write the ``pr`` tier and a push
+    run only the ``main`` tier. ``release-`` is accepted for release-only
+    caches. RED today: the live keys go straight from ``gate-cache-`` /
+    ``semgrep-packs-`` to ``${{ runner.os }}`` with no tier token.
+    """
+    workflow = _load_workflow(CI_CHECK_PATH)
+    cache_steps = _iter_cache_steps(workflow)
+    assert cache_steps, (
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} has no cache step "
+        "to inspect for trust-tier prefixes."
+    )
+
+    keys = _cache_key_strings(cache_steps)
+    assert keys, f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache steps have no with.key."
+
+    untiered_keys = [key for key in keys if not _carries_trust_tier(key)]
+    assert not untiered_keys, (
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache key(s) lack a trust-tier "
+        f"token before ${{{{ runner.os }}}}: {untiered_keys}. "
+        "Each key must begin with a tier expression "
+        "(e.g. gate-cache-${{ github.event_name == 'pull_request' && 'pr' "
+        "|| 'main' }}-${{ runner.os }}-...) so PR caches are isolated from "
+        "main/release caches (D-152-09)."
+    )
+
+    restore_entries = _restore_key_entries(cache_steps)
+    untiered_restores = [entry for entry in restore_entries if not _carries_trust_tier(entry)]
+    assert not untiered_restores, (
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} restore-keys entry/entries lack "
+        f"a trust-tier token before ${{{{ runner.os }}}}: {untiered_restores}. "
+        "Every restore-key must stay within its own tier."
+    )
+
+
+def test_ci_cache_has_no_cross_tier_restore_fallback() -> None:
+    """spec-152 T-15 (D-152-09): no ``restore-keys`` entry is a broad
+    cross-tier fallback.
+
+    The pre-migration keys ended their ``restore-keys`` list with a broad
+    ``gate-cache-${{ runner.os }}-`` (and ``semgrep-packs-${{ runner.os }}-``)
+    that a push/main job could use to restore a PR-written cache. That fallback
+    MUST be removed; only same-tier restore keys (which still carry the tier
+    token) may remain. RED today.
+    """
+    workflow = _load_workflow(CI_CHECK_PATH)
+    cache_steps = _iter_cache_steps(workflow)
+    assert cache_steps, (
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} has no cache step to inspect "
+        "for cross-tier restore fallbacks."
+    )
+
+    cross_tier = [
+        entry for entry in _restore_key_entries(cache_steps) if _is_cross_tier_fallback(entry)
+    ]
+    assert not cross_tier, (
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} has cross-tier restore-key "
+        f"fallback(s) that let one tier restore another tier's cache: {cross_tier}. "
+        "Drop the broad '<cache-name>-${{ runner.os }}-' restore-key; keep only "
+        "the same-tier (tier-prefixed) hash-scoped restore-key (D-152-09)."
     )

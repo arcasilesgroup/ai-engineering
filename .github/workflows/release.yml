@@ -111,6 +111,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-env
+        with:
+          enable-cache: "false"
 
       - name: Install gitleaks
         env:
@@ -219,6 +221,8 @@ jobs:
           fetch-depth: 0
 
       - uses: ./.github/actions/setup-env
+        with:
+          enable-cache: "false"
 
       - name: Build package distributions
         run: uv build
@@ -281,7 +285,7 @@ jobs:
         run: |
           set -euo pipefail
           uv export --no-dev --frozen > requirements-prod.txt
-          uv run --with cyclonedx-bom cyclonedx-py requirements requirements-prod.txt \
+          uv run --with "cyclonedx-bom==7.3.0" cyclonedx-py requirements requirements-prod.txt \
             --output-format json \
             -o sbom.cdx.json \
             --spec-version 1.5

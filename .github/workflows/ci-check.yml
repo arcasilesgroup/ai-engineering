@@ -89,10 +89,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ai-engineering/cache/gate/
-          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          key: gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.sha }}
           restore-keys: |
-            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
-            gate-cache-${{ runner.os }}-
+            gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
       - name: Ruff check
         run: uv run ruff check src/ tests/
       - name: Ruff format check
@@ -165,10 +164,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ai-engineering/cache/gate/
-          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          key: gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.sha }}
           restore-keys: |
-            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
-            gate-cache-${{ runner.os }}-
+            gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
       - name: ty check
         run: uv run ty check --exclude 'src/ai_engineering/templates/**' src/
 
@@ -197,10 +195,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ai-engineering/cache/gate/
-          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          key: gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.sha }}
           restore-keys: |
-            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
-            gate-cache-${{ runner.os }}-
+            gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
       - name: Run unit tests
         # spec-104 platform/timing flakes (deselected, not ignored — keeps
         # the rest of each module running):
@@ -283,10 +280,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ai-engineering/cache/gate/
-          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          key: gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.sha }}
           restore-keys: |
-            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
-            gate-cache-${{ runner.os }}-
+            gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
       - name: Configure git defaults
         run: |
           git config --global init.defaultBranch main
@@ -460,11 +456,20 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install actionlint
+        # spec-152 T-22 (D-152-12): pinned release + sha256 verify, replacing the
+        # mutable `main`-branch curl|bash bootstrap. Checksum is the linux_amd64
+        # line from the official actionlint_1.7.12_checksums.txt.
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
         run: |
-          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-          pwd >> "$GITHUB_PATH"
+          scripts/ci/install_tool.sh \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            "${ACTIONLINT_SHA256}" \
+            /usr/local/bin \
+            actionlint
       - name: Run actionlint
-        run: find .github/workflows -name '*.yml' -exec ./actionlint {} +
+        run: find .github/workflows -name '*.yml' -exec actionlint {} +
       - name: Workflow policy checks
         run: uv run python scripts/check_workflow_policy.py
       - name: Mirror sync integrity
@@ -511,7 +516,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install Snyk CLI
-        run: npm install -g snyk --ignore-scripts
+        # spec-152 T-22 (D-152-12): pin the Snyk CLI version (current stable from
+        # `npm view snyk version`). `--ignore-scripts` retained.
+        run: npm install -g snyk@1.1305.0 --ignore-scripts
       - name: Export pinned requirements for Snyk
         run: |
           uv pip freeze > requirements.txt
@@ -542,10 +549,18 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install gitleaks
+        # spec-152 T-22 (D-152-12): add sha256 verification before extracting.
+        # Checksum is the linux_x64 line from the official
+        # gitleaks_8.30.0_checksums.txt (defence-in-depth on the pinned tarball).
         env:
           GITLEAKS_VERSION: "8.30.0"
+          GITLEAKS_SHA256: "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e"
         run: |
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
+          scripts/ci/install_tool.sh \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            "${GITLEAKS_SHA256}" \
+            /usr/local/bin \
+            gitleaks
       - name: gitleaks
         # Article XII §4: scope to the PR's commits, not full repo history.
         # Historical fakes in deleted docs (pre-spec-126) would otherwise
@@ -572,9 +587,9 @@ jobs:
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: ~/.semgrep
-          key: semgrep-packs-${{ runner.os }}-1.163.0
+          key: semgrep-packs-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-1.163.0
           restore-keys: |
-            semgrep-packs-${{ runner.os }}-
+            semgrep-packs-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-
       - name: Install semgrep
         # spec-141 M2.T2 (D-141-05): pinned CLI version is the
         # deterministic reproducibility anchor. Pack aliases (p/python,
