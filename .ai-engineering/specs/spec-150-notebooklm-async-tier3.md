@@ -1,10 +1,9 @@
 ---
-spec: notebooklm-async-tier3
-title: Async-first NotebookLM autonomous deep research (Tier 3 redesign)
-status: draft
+spec: spec-150
 slug: notebooklm-async-tier3
-created: 2026-05-21
-refs: []
+title: Async-first NotebookLM autonomous deep research (Tier 3 redesign)
+status: approved
+summary: "Async-first /ai-research Tier 3: NotebookLM autonomous deep research launched first (background) and harvested last, overlapping Tiers 0-2. Backend swapped to claude-world/notebooklm-skill (nlm_* tools); Exa wired into Tier 2; capability fail-soft; output ends with exactly 3 cited recommended directions."
 ---
 
 # Async-first NotebookLM autonomous deep research — /ai-research Tier 3 redesign

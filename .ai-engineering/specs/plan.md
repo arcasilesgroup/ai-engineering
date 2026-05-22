@@ -1,7 +1,7 @@
 ---
 execution_route:
   version: 1
-  spec: notebooklm-async-tier3
+  spec: spec-150
   executor: autopilot
   automation: assisted
   concern_count: 7
@@ -14,7 +14,7 @@ execution_route:
     files + config, plus generated mirrors. Crosses ≥3 concerns and ≥10 files →
     autopilot wraps plan+build in waves.
   safe_next_command: "/ai-autopilot"
-spec: notebooklm-async-tier3
+spec: spec-150
 status: draft
 pipeline: full
 ---
