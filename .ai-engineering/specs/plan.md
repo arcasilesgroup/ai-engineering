@@ -19,7 +19,7 @@ title: "Plan — Antigravity-only Google surface after Gemini CLI retirement"
 status: approved
 pipeline: full
 total: 18
-completed: 17
+completed: 18
 ---
 
 # Plan — Antigravity-only Google surface after Gemini CLI retirement
@@ -190,7 +190,7 @@ Gate: all local verification green; pushed PR CI green.
   - Patch (deterministic): none.
   - Gate: `ruff format --check`, `ruff check`, `pytest` relevant/full suite as feasible, `ai-eng spec verify`, `ai-eng check`/`ai-eng verify` as available.
 
-- [ ] T-6.3 — Commit, push, open/update PR, and watch CI
+- [x] T-6.3 — Commit, push, open/update PR, and watch CI
   - Agent: build
   - Files: full changeset
   - Principles applied: §10.6 SDD, §10.7 Clean Code
