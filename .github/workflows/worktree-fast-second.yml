@@ -27,6 +27,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: worktree-fast-second-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   guard-perf-label:
     name: Guard perf trigger

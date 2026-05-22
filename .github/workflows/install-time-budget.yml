@@ -22,6 +22,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: install-time-budget-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   guard-perf-label:
     # Cheap gate: only proceed for nightly + dispatch + `perf`-labelled PRs.

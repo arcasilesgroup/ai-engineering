@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: install-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   smoke-test:
     name: Install Smoke (${{ matrix.os }})
