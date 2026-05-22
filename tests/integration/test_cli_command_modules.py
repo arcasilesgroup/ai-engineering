@@ -420,6 +420,48 @@ def test_core_update_interactive_preview_then_apply(
     mock_confirm.assert_called_once()
 
 
+def test_core_render_update_omits_zero_applied_row_in_preview(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Preview must not print the structurally-zero 'Applied' count row.
+
+    In preview mode ``Applied`` can only ever be 0, so the row is pure noise.
+    """
+    preview = UpdateResult(
+        dry_run=True,
+        changes=[
+            FileChange(path=Path("f"), action="update", reason_code="template-drift"),
+        ],
+    )
+
+    core._render_update_result(preview, root=tmp_path, show_diff=False)
+    err = capsys.readouterr().err
+
+    assert "Available  1" in err, "Preview must still report the actionable count"
+    assert "Applied" not in err, "Preview must not print the always-zero 'Applied' row"
+
+
+def test_core_render_update_omits_zero_available_row_on_apply(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Apply must not print the structurally-zero 'Available' count row.
+
+    Once applied, ``Available`` can only ever be 0, so the row is pure noise.
+    """
+    applied = UpdateResult(
+        dry_run=False,
+        changes=[
+            FileChange(path=Path("f"), action="update", reason_code="template-drift"),
+        ],
+    )
+
+    core._render_update_result(applied, root=tmp_path, show_diff=False)
+    err = capsys.readouterr().err
+
+    assert "Applied  1" in err, "Apply must report the applied count"
+    assert "Available" not in err, "Apply must not print the always-zero 'Available' row"
+
+
 def test_core_update_interactive_decline_keeps_preview_only(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

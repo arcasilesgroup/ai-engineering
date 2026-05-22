@@ -285,7 +285,7 @@ def _tree_parts(path: Path, *, root: Path) -> tuple[str, ...]:
 _STATE_LABELS: dict[str, tuple[str, str]] = {
     "create": ("new", "green"),
     "update": ("updated", "yellow"),
-    "skip-denied": ("protected", "red"),
+    "skip-denied": ("protected", "dim"),
     "overwrite": ("overwrite", "bold red"),
     "skip-unchanged": ("unchanged", "dim"),
     "orphan": ("orphan", "dim magenta"),

@@ -1147,8 +1147,12 @@ def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
     mode = "APPLIED" if not result.dry_run else "PREVIEW"
     print_stdout(f"Update [{mode}]: {root}")
 
-    kv("Available", result.available_count if result.dry_run else 0)
-    kv("Applied", result.applied_count if not result.dry_run else 0)
+    # Show only the count that can be non-zero in this mode; the other is
+    # structurally always zero and would be pure noise.
+    if result.dry_run:
+        kv("Available", result.available_count)
+    else:
+        kv("Applied", result.applied_count)
     kv("Protected", result.protected_count)
     kv("Unchanged", result.unchanged_count)
     kv("Orphan", result.orphan_count)
