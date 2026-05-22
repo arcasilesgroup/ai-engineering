@@ -167,6 +167,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `ai-eng install` now writes a managed `.ai-engineering/.gitignore` so the
+  transient, per-install, and derived artifacts it generates — the audit and
+  observation NDJSON streams, per-install state SoTs, the compiled & signed
+  OPA bundle (`state/runtime/bundle.tar.gz`), and the per-install OPA signing
+  outputs (`policies/.signatures.json`, `policies/.manifest`) — never leak
+  into a consumer's version control. Sources of truth (`policies/*.rego`,
+  `manifest.yml`, `specs/*.md`, `notes/`, and the `state/hooks-manifest.json`
+  integrity baseline) stay tracked, and a secret-material safety net
+  (`*.pem`, `*.key`, `*.p12`, `*.pfx`, `credentials*.json`) blocks accidental
+  key commits under the managed tree. The file is written programmatically
+  rather than copied from the template tree because the wheel only ships
+  `templates/**/*.{md,yml,json}` and a dotfile has no matching extension;
+  it is create-only outside FRESH installs so operator edits survive a
+  reinstall.
 - spec-152 (W2) — the `CI Result` aggregate gate now evaluates the
   `no-suppression` (Anti-Suppression, Article VII) job. It was previously
   absent from both `ci-check-result.needs` and every evaluated array, so a
