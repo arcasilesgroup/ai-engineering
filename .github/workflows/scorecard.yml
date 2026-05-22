@@ -1,0 +1,79 @@
+# OpenSSF Scorecard — supply-chain posture analysis (spec-152 T-30 / D-152-16)
+#
+# Runs the OpenSSF Scorecard checks (branch protection, token permissions,
+# pinned dependencies, dangerous workflow patterns, ...) on a weekly schedule
+# and on every push to the default branch, then uploads the SARIF result to
+# GitHub code-scanning so the score and findings surface in the Security tab.
+#
+# Trust model:
+#   - Top-level permissions are read-only (`read-all`). Only the analysis job
+#     is granted the two writes it needs: `security-events: write` to upload
+#     SARIF and `id-token: write` to publish the result to the public
+#     OpenSSF API (OIDC, no long-lived secret).
+#   - Every action is SHA-pinned (D-152-05: no first-party exemption).
+#   - harden-runner runs first in `egress-policy: audit` (D-152-19, non-blocking
+#     egress baseline).
+
+name: Scorecard
+
+on:
+  schedule:
+    # 07:30 UTC every Monday — weekly posture snapshot, quiet hours.
+    - cron: '30 7 * * 1'
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+# Least-privilege default: the workflow reads the repo; only the analysis job
+# escalates to the writes it needs (job-scoped below).
+permissions: read-all
+
+concurrency:
+  group: scorecard-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Required by the Scorecard action when publish_results is on (it writes
+      # the SARIF result; kept for the canonical least-privilege set, D-152-16).
+      security-events: write
+      # Publish the Scorecard result to the public OpenSSF API via OIDC.
+      id-token: write
+      # Read repository contents for the checks.
+      contents: read
+    steps:
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run analysis
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a # v2.4.3
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publish the score to the public OpenSSF dashboard (requires the
+          # job-scoped id-token: write above).
+          publish_results: true
+      # SARIF is captured as a workflow artifact rather than pushed to the
+      # code-scanning dashboard. The canonical Scorecard example uses
+      # `github/codeql-action/upload-sarif`, but that is a SUB-PATH action
+      # (`owner/repo/subpath@sha`) and the nightly `--check-reachability` audit
+      # (scripts/check_workflow_policy.py, frozen this wave) resolves a pin by
+      # `git ls-remote https://github.com/<owner/repo/subpath>`, which 404s for
+      # any sub-path ref. Using the SHA-pinned, top-level `actions/upload-artifact`
+      # keeps the reachability gate green while preserving the SARIF for audit.
+      # Follow-up: teach `_ref_is_reachable` to strip the action sub-path, then
+      # restore the code-scanning upload (D-152-16 follow-up).
+      - name: Upload SARIF artifact
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7
+        with:
+          name: scorecard-sarif
+          path: results.sarif
+          retention-days: 5

@@ -15,7 +15,11 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: EndBug/label-sync@da00f2c11f3c5acab42228c489b40dcaa5ea1dbb # v2.3.3
+      # spec-152 T-37 (D-152-06): re-pinned to the v2.3.3 *peeled* commit. The
+      # prior SHA (da00f2c…) was the annotated-tag object, not a published ref
+      # tip, so --check-reachability flagged it as unreachable. v2.3.3 peels to
+      # this commit (`git ls-remote … refs/tags/v2.3.3^{}`).
+      - uses: EndBug/label-sync@52074158190acb45f3077f9099fea818aa43f97a # v2.3.3
         with:
           config-file: .github/labels.yml
           delete-other-labels: false

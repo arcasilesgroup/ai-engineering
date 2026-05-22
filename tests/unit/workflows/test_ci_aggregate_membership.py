@@ -57,9 +57,14 @@ TOKEN_CONDITIONAL_JOBS: frozenset[str] = frozenset({"snyk-security"})
 #             here so a malicious-dependency PR cannot merge even from dependabot.
 # ``token_conditional`` (spec-152 T-28/D-152-07/08) — required when the gating
 #             token is provisioned; skip tolerated only when it is absent.
+# ``docs_conditional`` (spec-152 T-34/D-152-22) — MUST succeed when docs OR code
+#             changed (the docs CI floor); skip tolerated otherwise.
+#             ``docs-gate`` lives here so a docs-only change is still inspected
+#             instead of fully bypassing CI.
 EVALUATED_ARRAYS = (
     "always_required",
     "code_conditional",
+    "docs_conditional",
     "pr_only",
     "pr_all",
     "token_conditional",

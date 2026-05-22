@@ -84,6 +84,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   direct CLI copy for AI-surface wording, and `state.db/tool_capabilities`
   for capability data.
 
+### Added
+
+- spec-152 (W5, T-30) — OpenSSF Scorecard CI workflow
+  (`.github/workflows/scorecard.yml`). Runs the Scorecard supply-chain
+  posture analysis weekly (`cron`), on every push to `main`, and on manual
+  dispatch, publishing the score to the public OpenSSF dashboard via OIDC
+  (`publish_results: true`). Top-level permissions are `read-all`; the
+  analysis job alone adds `security-events: write` + `id-token: write` +
+  `contents: read`. `ossf/scorecard-action` is SHA-pinned (v2.4.3). The
+  SARIF result is captured as a workflow artifact via the SHA-pinned,
+  top-level `actions/upload-artifact` rather than the canonical
+  `github/codeql-action/upload-sarif` *sub-path* action, because the nightly
+  `--check-reachability` audit cannot resolve a sub-path ref
+  (`git ls-remote` 404s); a follow-up will teach the resolver to strip the
+  sub-path and restore the code-scanning upload. Guarded by
+  `tests/unit/workflows/test_scorecard.py`.
+- spec-152 (W5, T-31) — StepSecurity `harden-runner` egress monitoring as
+  the FIRST step of every job in the CI workflows (`ci-check.yml`,
+  `sbom.yml`, `scorecard.yml`), pinned to v2.19.4 in `egress-policy: audit`.
+  Audit mode is non-blocking: it logs every outbound connection to build an
+  egress baseline without breaking any build (OQ2 — a future flip to `block`
+  with an allowlist follows one green cycle). The release publish workflow is
+  intentionally out of scope this wave. Guarded by
+  `tests/unit/workflows/test_harden_runner.py`.
+- spec-152 (W5, T-36) — cache-cleanup runbook
+  (`docs/cache-cleanup-runbook.md`): how to list/delete/rotate GitHub Actions
+  caches (`gh cache list` / `gh cache delete`) after suspected poisoning or
+  after the Wave 3 trust-tier key migration (the old untiered
+  `gate-cache-${os}-*` / `semgrep-packs-${os}-*` keys are now orphaned), plus
+  post-incident verification and the cache trust-tier model. Owned by
+  `@arcasilesgroup/maintainers`.
+- spec-152 (W5, T-37) — `nightly-matrix.yml` gains an advisory
+  `reachability-audit` job that runs
+  `scripts/check_workflow_policy.py --check-reachability` off the PR hot path,
+  resolving every pinned action SHA via `git ls-remote` and surfacing any
+  shaped-but-unreachable pin on the morning sweep (`continue-on-error: true`).
+
 ### Changed
 
 - spec-147 G2 (wave 2a) corrects the canonical rulebook to stop claiming a
@@ -138,6 +175,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ci-check-result.needs`, and the `code_conditional` class, and a new
   membership gate (`tests/unit/workflows/test_ci_aggregate_membership.py`)
   asserts every blocking job is evaluated so the hole cannot reopen.
+- spec-152 (W5, T-34) — docs-only changes no longer fully bypass CI.
+  `docs/**` was in the `paths-ignore` of both the `push` and `pull_request`
+  triggers, so a docs-only change never started the workflow and the required
+  `CI Result` check defaulted to success — a docs-only PR introducing a
+  machine path, a leaked secret in a fenced block, or a malformed workflow
+  snippet would merge unchecked (fail-open, D-152-22). `docs/**` is removed
+  from `paths-ignore`; a new lightweight `docs-gate` job runs the CHEAP,
+  docs-relevant checks (content/link/anchor integrity via `pytest tests/docs`,
+  governance `ai-eng check`, a `gitleaks` secret scan, and the workflow policy
+  check) whenever docs or code change. It is wired into `ci-check-result.needs`
+  and a new required `docs_conditional` aggregate class; the heavy test matrix
+  stays gated to `code == 'true'`. Pure prose extensions (`.mdx`/`.rst`/`.txt`)
+  remain ignored. Guarded by `tests/unit/workflows/test_docs_gate.py`.
+- spec-152 (W5, T-37) — re-pinned `EndBug/label-sync` in `label-sync.yml` to
+  the v2.3.3 *peeled* commit (`52074158…`). The prior pin (`da00f2c…`) was the
+  annotated-tag *object* SHA, which is not a published ref tip, so the W1
+  reachability audit flagged it as shaped-but-unreachable (D-152-06). The
+  intended version is unchanged; only the SHA now resolves via
+  `git ls-remote … refs/tags/v2.3.3^{}`. `--check-reachability` is now clean.
 - Release finalization now caps GitHub Release body notes below GitHub's
   125,000-character limit, uploads the full changelog section as
   `release-notes-full.md`, and writes non-empty attestation verification

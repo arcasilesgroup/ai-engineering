@@ -3,18 +3,28 @@ name: CI Check
 on:
   push:
     branches: [main, "rewrite/**"]
+    # spec-152 T-34 (D-152-22): 'docs/**' is intentionally NOT ignored. A
+    # docs-only change still runs the lightweight `docs-gate` floor (content
+    # integrity + secret scan + workflow sanity) so it cannot fully bypass CI
+    # while the required `CI Result` check reports success by default. The
+    # heavy test matrix stays gated to `code == true`. Pure prose extensions
+    # (.mdx/.rst/.txt) remain ignored — they touch no governed surface.
     paths-ignore:
       - '**.mdx'
       - '**.rst'
       - '**.txt'
-      - 'docs/**'
   pull_request:
     branches: [main]
+    # spec-152 T-34 (D-152-22): 'docs/**' is intentionally NOT ignored. A
+    # docs-only change still runs the lightweight `docs-gate` floor (content
+    # integrity + secret scan + workflow sanity) so it cannot fully bypass CI
+    # while the required `CI Result` check reports success by default. The
+    # heavy test matrix stays gated to `code == true`. Pure prose extensions
+    # (.mdx/.rst/.txt) remain ignored — they touch no governed surface.
     paths-ignore:
       - '**.mdx'
       - '**.rst'
       - '**.txt'
-      - 'docs/**'
 
 permissions:
   contents: read
@@ -34,6 +44,10 @@ jobs:
       test-config: ${{ steps.filter.outputs.test-config }}
       has-snyk-token: ${{ steps.tokens.outputs.has-snyk-token }}
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -76,6 +90,60 @@ jobs:
               - '.semgrep.yml'
               - '.gitleaks.toml'
 
+  docs-gate:
+    name: Docs Floor (content integrity + secret scan)
+    # spec-152 T-34 (D-152-22): the lightweight floor that runs when docs
+    # change so a docs-only change is no longer fully CI-bypassed (it used to
+    # be skipped via `paths-ignore: docs/**`, and `CI Result` then defaulted to
+    # success). Runs the CHEAP, docs-relevant checks only — content integrity,
+    # the docs link/anchor + anonymous-content suite, a secret scan, and the
+    # workflow policy check — NOT the heavy test matrix (that stays
+    # `code == 'true'`). Runs whenever docs OR code changed; on a code PR the
+    # full gates run alongside it.
+    needs: [change-scope]
+    if: needs.change-scope.outputs.docs == 'true' || needs.change-scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+      - name: Install gitleaks
+        # Pinned release + sha256 verify (mirrors the `security` job, D-152-12).
+        # Checksum is the linux_x64 line from gitleaks_8.30.0_checksums.txt.
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+          GITLEAKS_SHA256: "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e"
+        run: |
+          scripts/ci/install_tool.sh \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            "${GITLEAKS_SHA256}" \
+            /usr/local/bin \
+            gitleaks
+      - name: Secret scan (docs floor)
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ] && [ -n "${{ github.event.pull_request.head.sha }}" ]; then
+            gitleaks detect \
+              --source . \
+              --config .gitleaks.toml \
+              --no-banner \
+              --redact \
+              --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
+          fi
+      - name: Content integrity (links, anchors, anonymous content)
+        run: uv run pytest tests/docs -q
+      - name: Governance content checks
+        run: uv run ai-eng check
+      - name: Workflow policy sanity
+        run: uv run python scripts/check_workflow_policy.py
+
   lint:
     name: Lint & Format
     needs: [change-scope]
@@ -83,6 +151,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
@@ -104,6 +176,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Check code duplication
@@ -116,6 +192,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: open-policy-agent/setup-opa@b2b258e089860efaadaaf71bf6e3aecb4a3eeff1 # v2.4.0
         with:
@@ -134,6 +214,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Check risk acceptances
@@ -146,6 +230,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Scan for suppression markers
@@ -158,6 +246,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
@@ -187,6 +279,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.12"]
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -272,6 +368,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.12"]
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -313,6 +413,10 @@ jobs:
       run:
         shell: bash
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -345,6 +449,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Run docs tests
@@ -357,6 +465,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -411,6 +523,10 @@ jobs:
           - { os: windows-latest, python-version: "3.12" }
           - { os: macos-latest, python-version: "3.12" }
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
         with:
@@ -453,6 +569,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install actionlint
@@ -481,6 +601,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -522,6 +646,10 @@ jobs:
     permissions:
       contents: read
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Dependency review
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
@@ -537,6 +665,10 @@ jobs:
     timeout-minutes: 15
     if: needs.change-scope.outputs.has-snyk-token == 'true'
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install Snyk CLI
@@ -570,6 +702,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install gitleaks
@@ -729,6 +865,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -814,6 +954,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
         with:
@@ -828,6 +972,7 @@ jobs:
     needs:
       [
         change-scope,
+        docs-gate,
         lint,
         duplication,
         opa-policies,
@@ -850,11 +995,16 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - name: Evaluate CI results
         run: |
           set -euo pipefail
 
           CODE="${{ needs.change-scope.outputs.code }}"
+          DOCS="${{ needs.change-scope.outputs.docs }}"
           IS_PR="${{ github.event_name == 'pull_request' }}"
           IS_DEPENDABOT="${{ github.actor == 'dependabot[bot]' }}"
 
@@ -880,6 +1030,17 @@ jobs:
             "framework-smoke:${{ needs.framework-smoke.result }}"
             "build-check:${{ needs.build-check.result }}"
             "sonarcloud:${{ needs.sonarcloud.result }}"
+          )
+
+          # -- docs-conditional: MUST succeed when docs OR code changed --
+          # spec-152 T-34 (D-152-22). The lightweight docs CI floor. It runs
+          # whenever docs or code change, so a docs-only change is still
+          # inspected (content integrity + secret scan + workflow policy)
+          # instead of fully bypassing CI. A skip is tolerated only when
+          # neither docs nor code changed (the workflow would not normally
+          # trigger then). A failure always fails the aggregate.
+          docs_conditional=(
+            "docs-gate:${{ needs.docs-gate.result }}"
           )
 
           # -- pr-only: MUST succeed on non-dependabot PRs, skip accepted otherwise --
@@ -945,6 +1106,28 @@ jobs:
             if [[ "$CODE" == "true" ]]; then
               if [[ "$result" != "success" ]]; then
                 echo "  FAIL: $name is required (code changed) but got $result"
+                FAILED=1
+              fi
+            else
+              if [[ "$result" == "failure" ]]; then
+                echo "  FAIL: $name failed unexpectedly"
+                FAILED=1
+              fi
+            fi
+          done
+
+          echo ""
+          echo "-- Docs-Conditional (docs floor; required when docs OR code changed) --"
+          # spec-152 T-34 (D-152-22): docs-gate runs the cheap floor whenever
+          # docs or code change. Required to succeed in that case; a skip is
+          # tolerated only when neither changed; a failure always fails.
+          for entry in "${docs_conditional[@]}"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            echo "  $name: $result (docs=$DOCS, code=$CODE)"
+            if [[ "$DOCS" == "true" || "$CODE" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "  FAIL: $name is required (docs or code changed) but got $result"
                 FAILED=1
               fi
             else
