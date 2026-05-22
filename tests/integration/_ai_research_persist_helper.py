@@ -21,6 +21,11 @@ Notes:
   forms the filename date stamp.
 * No PyYAML import: the helper hand-formats the frontmatter so the
   produced text is byte-stable for tests.
+* ``notebook_id`` is persisted so a later ``--reuse-notebook=<id>`` run can
+  re-attach and harvest the deep report (spec notebooklm-async-tier3 AC6).
+  When NotebookLM returned a deep ``report_markdown`` it is appended under a
+  ``## Deep Research Report`` section; when absent that section is omitted
+  while the four mandatory sections stay present.
 """
 
 from __future__ import annotations
@@ -45,7 +50,14 @@ class Source:
 
 @dataclass(frozen=True)
 class PersistInputs:
-    """All fields needed to write a research artifact."""
+    """All fields needed to write a research artifact.
+
+    ``notebook_id`` is preserved verbatim so a later ``--reuse-notebook=<id>``
+    run can re-attach to the NotebookLM notebook and harvest its deep report
+    (spec notebooklm-async-tier3 AC6). ``report_markdown`` carries the deep
+    report when NotebookLM completed within the harvest wait; when empty the
+    optional ``## Deep Research Report`` section is omitted.
+    """
 
     query: str
     depth: str
@@ -54,6 +66,7 @@ class PersistInputs:
     notebook_id: str | None = None
     findings: str = ""
     created_at: str = ""
+    report_markdown: str = ""
 
 
 # --- T-3.9: persistence trigger ---------------------------------------------
@@ -119,15 +132,23 @@ def _format_notebook_section(notebook_id: str | None) -> str:
     return f"## Notebook Reference\n{body}"
 
 
+def _format_report_section(report_markdown: str) -> str:
+    """Render the deep NotebookLM report verbatim under its own section."""
+    return f"## Deep Research Report\n{report_markdown}"
+
+
 def _format_body(inputs: PersistInputs) -> str:
-    return "\n\n".join(
-        [
-            f"## Question\n{inputs.query}",
-            f"## Findings\n{inputs.findings}",
-            _format_sources_section(inputs.sources_used),
-            _format_notebook_section(inputs.notebook_id),
-        ]
-    )
+    # The four mandatory sections are always present so Tier 0 readers can
+    # rely on a stable layout. The deep report is appended ONLY when present.
+    sections = [
+        f"## Question\n{inputs.query}",
+        f"## Findings\n{inputs.findings}",
+        _format_sources_section(inputs.sources_used),
+        _format_notebook_section(inputs.notebook_id),
+    ]
+    if inputs.report_markdown:
+        sections.append(_format_report_section(inputs.report_markdown))
+    return "\n\n".join(sections)
 
 
 # --- T-3.10: main entry point -----------------------------------------------
