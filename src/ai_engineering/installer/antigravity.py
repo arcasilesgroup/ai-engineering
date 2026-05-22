@@ -12,7 +12,6 @@ import shutil
 import subprocess
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,7 +80,7 @@ def probe_agy_cli(
 
     return AgyProbeResult(
         available=True,
-        binary=str(Path(binary)),
+        binary=binary,
         version=output or None,
         reason="Antigravity CLI is available.",
     )
