@@ -5,7 +5,7 @@ effort: cheap
 argument-hint: "discover [--refresh] | sync <phase> <work-item-ref> [--comment text]"
 tags: [board, discovery, sync, work-items, configuration]
 model_tier: haiku
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-board/SKILL.md
 edit_policy: generated-do-not-edit

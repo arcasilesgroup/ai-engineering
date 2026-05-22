@@ -98,18 +98,17 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 # spec-142 D-142-02: surface→(skills, agents) directory map. Keys MUST stay
-# in sync with the closed 7-surface enum at
+# in sync with the closed 6-surface enum at
 # src/ai_engineering/config/mirror_inventory.py (`_PROVIDER_TREE_MAPS` keys
 # plus the no-mirror-tree surfaces). CI test in
 # tests/unit/scripts/test_session_bootstrap.py::TestSurfaceDirs enforces parity.
 _SURFACE_DIRS: dict[str, tuple[str, str]] = {
     "claude-code": (".claude/skills", ".claude/agents"),
     "codex": (".codex/skills", ".codex/agents"),
-    "gemini-cli": (".gemini/skills", ".gemini/agents"),
     "github-copilot": (".github/skills", ".github/agents"),
     "opencode": (".opencode/skills", ".opencode/agents"),
     "cursor": (".cursor/skills", ".cursor/agents"),
-    "antigravity": (".agent/skills", ".agent/agents"),
+    "antigravity": (".agents/skills", ".agents/agents"),
 }
 _DEFAULT_SURFACE = "claude-code"  # spec-133 D-133-16 fallback when surfaces.enabled is empty
 

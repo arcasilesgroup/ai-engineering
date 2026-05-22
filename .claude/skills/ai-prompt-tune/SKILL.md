@@ -105,7 +105,7 @@ For skills that enforce process (guard, verify, commit):
 3. **CSO-optimize** -- rewrite using triggering-condition pattern.
 4. **Present** -- show before/after for approval.
 5. **Apply** -- update the frontmatter if approved.
-6. **Sync mirrors** -- run `python scripts/sync_command_mirrors.py` to propagate the updated description to `.github/`, `.codex/`, and `.gemini/` mirrors. Verify no tests break.
+6. **Sync mirrors** -- run `python scripts/sync_command_mirrors.py` to propagate the updated description to `.github/`, `.codex/`, and `.agents/` mirrors. Verify no tests break.
 
 ## Quick Reference
 

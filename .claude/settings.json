@@ -14,8 +14,6 @@
       "Bash(rm -rf .git/*)",
       "Bash(rm -rf .claude)",
       "Bash(rm -rf .claude/*)",
-      "Bash(rm -rf .gemini)",
-      "Bash(rm -rf .gemini/*)",
       "Bash(rm -rf .github)",
       "Bash(rm -rf .github/*)",
       "Bash(rm -rf .codex)",

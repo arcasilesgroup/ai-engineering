@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "[--review]"
 tags: [meta, learning, continuous-improvement, observe]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-session-watch/SKILL.md
 edit_policy: generated-do-not-edit
@@ -122,7 +122,7 @@ Merge rules:
 Cross-reference the updated instincts with project knowledge to produce actionable proposals:
 
 1. Read `.ai-engineering/LESSONS.md` to check for already-captured patterns.
-2. Read project context: `CONSTITUTION.md`, `.ai-engineering/manifest.yml`, and the target artifact (e.g., `.gemini/skills/ai-<skill>/SKILL.md` or `.gemini/agents/ai-<agent>.md`) to understand the improvement surface. If only `.ai-engineering/CONSTITUTION.md` exists, use it as a compatibility fallback.
+2. Read project context: `CONSTITUTION.md`, `.ai-engineering/manifest.yml`, and the target artifact (e.g., `.cursor/skills/ai-<skill>/SKILL.md` or `.cursor/agents/ai-<agent>.mdc`) to understand the improvement surface. If only `.ai-engineering/CONSTITUTION.md` exists, use it as a compatibility fallback.
 3. Filter instincts: only those with `confidence >= 0.7` AND `evidenceCount >= 3` qualify as proposals.
 4. For each qualifying instinct, check if the pattern is already captured in LESSONS.md -- if so, skip.
 5. Append a new `PROP-NNN` entry to `.ai-engineering/observations/proposals.md`:

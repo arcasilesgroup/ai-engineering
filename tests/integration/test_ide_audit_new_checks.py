@@ -1,13 +1,11 @@
-"""RED skeleton for spec-107 G-6 (Phase 3) — ide-audit Checks 6/7/8.
+"""Regression tests for ide-audit cross-IDE checks after spec-151.
 
 Spec-107 D-107-05 extends `/ai-ide-audit` with three new checks:
 
 - Check 6: agent naming consistency cross-IDE — every IDE agent file's
   front-matter `name:` must equal its slug; flag mismatches.
-- Check 7: GEMINI.md skill count freshness — extract `## Skills (N)` from
-  every rendered GEMINI.md and compare with disk count.
 - Check 8: generic instruction-file count scan — walk every CLAUDE.md /
-  AGENTS.md / copilot-instructions.md / GEMINI.md and validate
+  AGENTS.md / copilot-instructions.md and validate
   `## Skills (N)` and `## Agents (N)` headers vs canonical counts.
 
 These tests are marked ``spec_107_red`` and excluded from CI default
@@ -36,15 +34,12 @@ def test_skill_md_documents_check_6() -> None:
     )
 
 
-def test_skill_md_documents_check_7() -> None:
-    """G-6: SKILL.md must document Check 7 (GEMINI.md skill count freshness)."""
+def test_skill_md_does_not_reference_retired_gemini_count_check() -> None:
+    """spec-151: ide-audit must not document the retired GEMINI.md count check."""
     assert IDE_AUDIT_SKILL.is_file()
     text = IDE_AUDIT_SKILL.read_text(encoding="utf-8")
-    assert "Check 7" in text, (
-        "SKILL.md missing `Check 7` documentation — Phase 3 T-3.6 must "
-        "land the GEMINI.md count freshness check"
-    )
-    assert "GEMINI" in text, "Check 7 documentation must reference GEMINI.md by name"
+    assert "GEMINI.md" not in text
+    assert "Check 7" not in text
 
 
 def test_skill_md_documents_check_8() -> None:
@@ -57,7 +52,7 @@ def test_skill_md_documents_check_8() -> None:
     )
     # The generic scan must reference at least the four canonical
     # instruction-file names so reviewers know the surface covered.
-    for instruction_file in ("CLAUDE.md", "AGENTS.md", "GEMINI.md"):
+    for instruction_file in ("CLAUDE.md", "AGENTS.md"):
         assert instruction_file in text, (
             f"Check 8 documentation must mention {instruction_file} as part "
             "of the generic scan surface"

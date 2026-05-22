@@ -4,7 +4,7 @@ description: "Decomposes an approved spec into a phased execution plan with bite
 effort: high
 argument-hint: "[spec-NNN or topic]"
 model_tier: opus
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-plan/SKILL.md
 edit_policy: generated-do-not-edit
@@ -54,7 +54,7 @@ Plan frontmatter MUST include `execution_route.version`, `spec`, `executor`, `au
 
 ## Dispatch threshold
 
-Dispatch the `ai-plan` agent for any approved spec needing decomposition. Hand off to `/ai-build` only after explicit user approval. The agent file (`.gemini/agents/ai-plan.md`) is the interrogator handle; pipeline classification, decomposition rules, and the no-execution protocol live here.
+Dispatch the `ai-plan` agent for any approved spec needing decomposition. Hand off to `/ai-build` only after explicit user approval. The agent file (`.cursor/agents/ai-plan.mdc`) is the interrogator handle; pipeline classification, decomposition rules, and the no-execution protocol live here.
 
 ## When to Use
 

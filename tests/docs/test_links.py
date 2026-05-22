@@ -35,8 +35,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Rationale per sub-005 plan §Out-of-scope: the walker enforces link
 # integrity on contributor-facing markdown. Skips:
 #   - generated payload mirrors (.github/copilot-instructions.md,
-#     .gemini/, .codex/ — enforced by tools/skill_lint/md_mirror.py).
-#     .agent/ (Antigravity) and .opencode/ are lean SKILL.md-only
+#     .codex/ — enforced by tools/skill_lint/md_mirror.py).
+#     .opencode/ is a lean SKILL.md-only
 #     mirror surfaces (scripts/sync_mirrors/{antigravity,opencode}_target.py
 #     copy SKILL.md but NOT sibling reference files like discover.md /
 #     sync.md / references/). Canonical SKILL.md bodies carry relative
@@ -64,10 +64,8 @@ EXCLUDED_PATH_FRAGMENTS = (
     "/build/",
     "/.github/ISSUE_TEMPLATE/",
     "/.github/copilot-instructions.md",
-    "/.gemini/",
     "/.codex/",
     # Lean SKILL.md-only generated mirror surfaces (no sibling refs).
-    "/.agent/",
     "/.opencode/",
 )
 
@@ -325,9 +323,8 @@ def test_ai_ide_audit_antigravity_row() -> None:
         REPO_ROOT / ".claude" / "skills" / "ai-ide-audit" / "references" / "capability-matrix.md"
     ).read_text()
     assert "Antigravity" in matrix_md
-    assert "GEMINI.md" in matrix_md
     assert "AGENTS.md" in matrix_md
-    assert "advisory" in matrix_md.lower()
+    assert ".agents" in matrix_md
 
 
 def test_ai_ide_audit_skill_lists_antigravity() -> None:
@@ -336,7 +333,7 @@ def test_ai_ide_audit_skill_lists_antigravity() -> None:
 
 
 def test_ai_ide_audit_mirrors_carry_antigravity() -> None:
-    for mirror in (".github", ".codex", ".gemini"):
+    for mirror in (".github", ".codex", ".agents"):
         skill_md = (REPO_ROOT / mirror / "skills" / "ai-ide-audit" / "SKILL.md").read_text()
         assert "antigravity" in skill_md.lower(), f"{mirror} mirror SKILL.md missing Antigravity"
 

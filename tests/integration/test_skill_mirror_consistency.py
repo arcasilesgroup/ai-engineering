@@ -1,7 +1,7 @@
 """RED skeleton for spec-105 Phase 7 -- skill mirror consistency.
 
 Covers G-9: ``ai-eng sync --check`` PASS post-changes; espejos en
-``.github/``, ``.codex/``, ``.gemini/`` regenerated consistent with
+``.github/``, ``.codex/``, ``.agents/`` regenerated consistent with
 updated SKILL.md content (T-7.5..T-7.8 skill updates + T-7.13 sync).
 
 Status: RED -- mirror regeneration lands in Phase 7 T-7.13 once the

@@ -90,24 +90,42 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
         template_surface_rel="src/ai_engineering/templates/project/.codex/agents",
     ),
     MirrorFamily(
-        family_id="gemini-skills",
-        provider="gemini-cli",
+        family_id="cursor-skills",
+        provider="cursor",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
         transform_mode="translate",
-        repo_surface_rel=".gemini/skills",
-        template_surface_rel="src/ai_engineering/templates/project/.gemini/skills",
+        template_surface_rel="src/ai_engineering/templates/project/.cursor/skills",
     ),
     MirrorFamily(
-        family_id="gemini-agents",
-        provider="gemini-cli",
+        family_id="cursor-agents",
+        provider="cursor",
         public=True,
         generated=True,
         edit_policy="generated-do-not-edit",
         transform_mode="translate",
-        repo_surface_rel=".gemini/agents",
-        template_surface_rel="src/ai_engineering/templates/project/.gemini/agents",
+        template_surface_rel="src/ai_engineering/templates/project/.cursor/agents",
+    ),
+    MirrorFamily(
+        family_id="antigravity-skills",
+        provider="antigravity",
+        public=True,
+        generated=True,
+        edit_policy="generated-do-not-edit",
+        transform_mode="translate",
+        repo_surface_rel=".agents/skills",
+        template_surface_rel="src/ai_engineering/templates/project/.agents/skills",
+    ),
+    MirrorFamily(
+        family_id="antigravity-agents",
+        provider="antigravity",
+        public=True,
+        generated=True,
+        edit_policy="generated-do-not-edit",
+        transform_mode="translate",
+        repo_surface_rel=".agents/agents",
+        template_surface_rel="src/ai_engineering/templates/project/.agents/agents",
     ),
     MirrorFamily(
         family_id="copilot-skills",
@@ -171,13 +189,21 @@ _VALIDATOR_PAIR_ROOTS: dict[str, tuple[str, str]] = {
         ".codex/agents",
         "src/ai_engineering/templates/project/.codex/agents",
     ),
-    "gemini-skills": (
-        ".gemini/skills",
-        "src/ai_engineering/templates/project/.gemini/skills",
+    "cursor-skills": (
+        "src/ai_engineering/templates/project/.cursor/skills",
+        "src/ai_engineering/templates/project/.cursor/skills",
     ),
-    "gemini-agents": (
-        ".gemini/agents",
-        "src/ai_engineering/templates/project/.gemini/agents",
+    "cursor-agents": (
+        "src/ai_engineering/templates/project/.cursor/agents",
+        "src/ai_engineering/templates/project/.cursor/agents",
+    ),
+    "antigravity-skills": (
+        ".agents/skills",
+        "src/ai_engineering/templates/project/.agents/skills",
+    ),
+    "antigravity-agents": (
+        ".agents/agents",
+        "src/ai_engineering/templates/project/.agents/agents",
     ),
     "copilot-skills": (
         ".github/skills",
@@ -201,11 +227,10 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
         "AGENTS.md": "AGENTS.md",
         "copilot-instructions.md": ".github/copilot-instructions.md",
     },
-    "gemini-cli": {
-        "AGENTS.md": "AGENTS.md",
-        "GEMINI.md": "GEMINI.md",
-    },
     "codex": {
+        "AGENTS.md": "AGENTS.md",
+    },
+    "antigravity": {
         "AGENTS.md": "AGENTS.md",
     },
 }
@@ -220,11 +245,11 @@ _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
         ("agents", ".github/agents"),
         ("instructions", ".github/instructions"),
     ],
-    "gemini-cli": [
-        (".gemini", ".gemini"),
-    ],
     "codex": [
         (".codex", ".codex"),
+    ],
+    "antigravity": [
+        (".agents", ".agents"),
     ],
 }
 
@@ -233,13 +258,13 @@ _SPECIALIST_AGENT_TARGETS: dict[str, tuple[str, str]] = {
         ".github/agents/internal",
         "src/ai_engineering/templates/project/agents/internal",
     ),
-    "gemini-cli": (
-        ".gemini/agents/internal",
-        "src/ai_engineering/templates/project/.gemini/agents/internal",
-    ),
     "codex": (
         ".codex/agents/internal",
         "src/ai_engineering/templates/project/.codex/agents/internal",
+    ),
+    "antigravity": (
+        ".agents/agents/internal",
+        "src/ai_engineering/templates/project/.agents/agents/internal",
     ),
 }
 

@@ -16,7 +16,7 @@ The four IDE-emulated environments mirror the spec-104 fixture:
 - ``claude_code`` -- baseline, no special env.
 - ``github_copilot`` -- ``COPILOT=true``.
 - ``codex`` -- ``CODEX=true``.
-- ``gemini`` -- ``GEMINI=true``.
+- ``antigravity`` -- ``ANTIGRAVITY=true``.
 
 Each invocation gets its own fresh project root + cache_dir so the
 comparison is on what the CLI EMITS given identical inputs -- not on
@@ -39,7 +39,7 @@ SUPPORTED_IDES: tuple[tuple[str, dict[str, str]], ...] = (
     ("claude_code", {}),
     ("github_copilot", {"COPILOT": "true"}),
     ("codex", {"CODEX": "true"}),
-    ("gemini", {"GEMINI": "true"}),
+    ("antigravity", {"ANTIGRAVITY": "true"}),
 )
 
 
@@ -111,10 +111,10 @@ def _set_ide_env(monkeypatch: pytest.MonkeyPatch, overrides: dict[str, str]) -> 
         "CLAUDE_CODE_SESSION_ID",
         "COPILOT_SESSION_ID",
         "CODEX_SESSION_ID",
-        "GEMINI_SESSION_ID",
+        "ANTIGRAVITY_SESSION_ID",
         "COPILOT",
         "CODEX",
-        "GEMINI",
+        "ANTIGRAVITY",
     ):
         monkeypatch.delenv(key, raising=False)
     for key, value in overrides.items():

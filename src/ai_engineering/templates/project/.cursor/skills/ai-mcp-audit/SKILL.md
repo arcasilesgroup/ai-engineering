@@ -5,7 +5,7 @@ effort: high
 argument-hint: "scan|audit-update [skill]|baseline set [--target skill-or-all]"
 tags: [security, mcp, audit, governance]
 model_tier: opus
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-mcp-audit/SKILL.md
 edit_policy: generated-do-not-edit
@@ -42,7 +42,7 @@ Does NOT replace `/ai-security` (CVE/SBOM), `/ai-governance` (compliance), `/ai-
 - After installing a new skill or MCP server (`scan`).
 - After updating an existing skill, especially auto-update (`audit-update <skill>`).
 - After fresh-cloning or anchoring known-good state (`baseline set`).
-- Before merging PRs touching `.gemini/skills/`, `.codex/skills/`, `.gemini/skills/`, `.github/skills/`.
+- Before merging PRs touching `.cursor/skills/`, `.codex/skills/`, `.agents/skills/`, `.github/skills/`.
 - NOT for runtime payload inspection (use prompt-injection-guard hook).
 - NOT for CVE/dependency vulnerabilities (use `/ai-security`).
 

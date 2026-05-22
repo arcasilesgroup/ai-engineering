@@ -11,7 +11,7 @@ requires:
   bins:
   - gitleaks
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-pr/SKILL.md
 edit_policy: generated-do-not-edit
@@ -71,7 +71,7 @@ Read `.ai-engineering/manifest.yml` `work_items` and spec.md frontmatter `refs` 
 
 ### 11. Spec operations
 
-If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use updated content for PR body (Summary from spec, Test Plan from plan). After PR merge, run the shared spec-consolidation handler at `.gemini/skills/_shared/consolidate-spec.md` (which invokes `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-id> <pr> <branch>` to walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED, append the canonical 7-col `_history.md` row, and emit the `framework_operation` audit event). **Fail-open**: lifecycle write failure logs but does not block merge. Then clear spec.md and plan.md to placeholders; stage cleared files. The same handler is exposed manually via `/ai-pr --consolidate-spec` as a pre-merge override.
+If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use updated content for PR body (Summary from spec, Test Plan from plan). After PR merge, run the shared spec-consolidation handler at `.cursor/skills/_shared/consolidate-spec.md` (which invokes `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-id> <pr> <branch>` to walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED, append the canonical 7-col `_history.md` row, and emit the `framework_operation` audit event). **Fail-open**: lifecycle write failure logs but does not block merge. Then clear spec.md and plan.md to placeholders; stage cleared files. The same handler is exposed manually via `/ai-pr --consolidate-spec` as a pre-merge override.
 
 ### 12. Work item references
 

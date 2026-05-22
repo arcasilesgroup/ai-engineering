@@ -5,7 +5,7 @@ effort: high
 argument-hint: "[component or interaction to animate]"
 tags: [animation, motion, transitions, micro-interactions, css]
 model_tier: opus
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-animation/SKILL.md
 edit_policy: generated-do-not-edit

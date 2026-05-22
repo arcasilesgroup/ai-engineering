@@ -19,11 +19,10 @@ from ai_engineering.domain.surface import (
 )
 
 
-def test_surface_registry_has_seven_canonical_ids() -> None:
+def test_surface_registry_has_six_canonical_ids() -> None:
     expected = {
         "claude-code",
         "codex",
-        "gemini-cli",
         "github-copilot",
         "opencode",
         "cursor",
@@ -32,9 +31,9 @@ def test_surface_registry_has_seven_canonical_ids() -> None:
     assert set(SURFACE_IDS) == expected
 
 
-def test_iter_surfaces_returns_seven_frozen_dataclasses() -> None:
+def test_iter_surfaces_returns_six_frozen_dataclasses() -> None:
     surfaces = list(iter_surfaces())
-    assert len(surfaces) == 7
+    assert len(surfaces) == 6
     for s in surfaces:
         assert isinstance(s, Surface)
         with pytest.raises((AttributeError, TypeError, FrozenInstanceError)):
@@ -72,10 +71,19 @@ def test_cursor_carries_stdio_engine_full_surface() -> None:
     assert ".cursor/" in s.tree_dir
 
 
-def test_antigravity_is_mirror_only() -> None:
+def test_antigravity_is_first_class_partial_audit_surface() -> None:
     s = get_surface("antigravity")
-    assert s.hook_engine == "none"
-    assert s.audit_capability == "none"
+    assert s.instruction_files == ("AGENTS.md",)
+    assert s.tree_dir == ".agents/"
+    assert s.hook_engine == "native"
+    assert s.audit_capability == "partial"
+    assert s.autodetect_marker == (".agents/",)
+
+
+def test_gemini_cli_removed_from_surface_registry() -> None:
+    assert "gemini-cli" not in SURFACE_IDS
+    with pytest.raises(SurfaceUnknownError):
+        get_surface("gemini-cli")
 
 
 def test_get_surface_unknown_raises() -> None:

@@ -23,7 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SURFACES = [
     REPO_ROOT / ".claude",
     REPO_ROOT / ".codex",
-    REPO_ROOT / ".gemini",
+    REPO_ROOT / ".agents",
     REPO_ROOT / ".github",
     REPO_ROOT / ".opencode",
     REPO_ROOT / ".cursor",

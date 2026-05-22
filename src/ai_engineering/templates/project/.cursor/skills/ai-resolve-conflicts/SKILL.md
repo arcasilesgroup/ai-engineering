@@ -4,7 +4,7 @@ description: "Resolves git conflicts intent-aware: categorizes by type (lock fil
 effort: cheap
 argument-hint: 
 model_tier: haiku
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-resolve-conflicts/SKILL.md
 edit_policy: generated-do-not-edit

@@ -4,7 +4,7 @@ description: "Forces rigorous design interrogation BEFORE any code: explores app
 effort: mid
 argument-hint: "[feature or problem description] [work item ID] | --consolidate-spec <slug>"
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-brainstorm/SKILL.md
 edit_policy: generated-do-not-edit
@@ -29,7 +29,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Process
 
 0a. **Fast-path — `--consolidate-spec <slug>`**: when invoked with the
-   `--consolidate-spec` flag, read `.gemini/skills/_shared/consolidate-spec.md`
+   `--consolidate-spec` flag, read `.cursor/skills/_shared/consolidate-spec.md`
    and execute the shared handler (resolve record, append `_history.md` row
    via `spec_lifecycle.py mark_shipped`, clear `spec.md`/`plan.md` to
    placeholders). STOP after consolidation — no interrogation runs. Fail-open

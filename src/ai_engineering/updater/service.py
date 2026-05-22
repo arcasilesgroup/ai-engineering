@@ -712,7 +712,7 @@ def _detect_orphan_files(
     A file is an orphan when:
     1. It belongs to a provider that is NOT in the active providers list.
     2. No active provider also maps to the same destination path (shared
-       file rule -- e.g., AGENTS.md is used by copilot, gemini, codex).
+       file rule -- e.g., AGENTS.md is used by copilot, antigravity, codex).
     3. The file exists on disk.
 
     Args:
@@ -1244,12 +1244,12 @@ def _migrate_legacy_dirs(target: Path, ai_eng_dir: Path) -> list[str]:
     if legacy_dirs:
         # Safety check: confirm at least one IDE directory has content.
         # IDE directories live at the project root (e.g., .claude/,
-        # .github/agents/, .codex/, .gemini/).
+        # .github/agents/, .codex/, .agents/).
         ide_candidates = [
             target / ".claude",
             target / _GITHUB_DIR / "agents",
             target / ".codex",
-            target / ".gemini",
+            target / ".agents",
         ]
         ide_has_content = any(d.is_dir() and any(d.rglob("*")) for d in ide_candidates)
         if ide_has_content:

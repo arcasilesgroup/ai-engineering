@@ -35,16 +35,18 @@ def test_load_manifest_reads_surfaces_key(tmp_path: Path) -> None:
     assert cfg.surfaces.enabled == ["claude-code", "opencode", "cursor"]
 
 
-def test_load_manifest_mirrors_surfaces_to_ai_providers(tmp_path: Path) -> None:
-    """In-flight compat: setting surfaces.enabled mirrors to ai_providers.enabled."""
+def test_load_manifest_rejects_removed_gemini_cli_surface(tmp_path: Path) -> None:
+    """gemini-cli was hard-removed before public release."""
     yml = tmp_path / ".ai-engineering" / "manifest.yml"
     yml.parent.mkdir(parents=True)
     yml.write_text(
         "surfaces:\n  enabled: [claude-code, gemini-cli]\n",
         encoding="utf-8",
     )
-    cfg = load_manifest_config(tmp_path)
-    assert cfg.surfaces.enabled == ["claude-code", "gemini-cli"]
+    import pytest
+
+    with pytest.raises(ValueError, match="gemini-cli"):
+        load_manifest_config(tmp_path)
 
 
 def test_load_manifest_populates_surfaces_from_legacy_ai_providers(tmp_path: Path) -> None:
@@ -59,7 +61,7 @@ def test_load_manifest_populates_surfaces_from_legacy_ai_providers(tmp_path: Pat
     assert cfg.surfaces.enabled == ["codex"]
 
 
-def test_surfaces_enabled_accepts_new_surface_ids(tmp_path: Path) -> None:
+def test_surfaces_enabled_accepts_current_surface_ids(tmp_path: Path) -> None:
     """opencode + cursor + antigravity are valid in surfaces.enabled."""
     yml = tmp_path / ".ai-engineering" / "manifest.yml"
     yml.parent.mkdir(parents=True)

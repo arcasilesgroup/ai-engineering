@@ -61,7 +61,6 @@ _IDE_POPULARITY: tuple[str, ...] = (
 _PROVIDER_POPULARITY: tuple[str, ...] = (
     "github-copilot",
     "claude-code",
-    "gemini-cli",
     "codex",
 )
 
@@ -219,17 +218,14 @@ def detect_stacks(root: Path) -> list[str]:
 def detect_surfaces(root: Path) -> list[str]:
     """Detect AI Surfaces configured in *root*.
 
-    spec-133 D-133-06: 7 Surfaces. Root-level only — ``.claude/``,
-    ``.github/``, ``.gemini/``, ``.opencode/``, ``.cursor/``, ``.codex/``,
-    ``.agent/`` are project-root markers.
+    spec-151: 6 Surfaces. Root-level only — ``.claude/``, ``.github/``,
+    ``.opencode/``, ``.cursor/``, ``.codex/``, and ``.agents/`` are
+    project-root markers.
     """
     surfaces: list[str] = []
 
     if (root / ".claude").is_dir():
         surfaces.append("claude-code")
-
-    if (root / ".gemini").is_dir() or (root / "GEMINI.md").is_file():
-        surfaces.append("gemini-cli")
 
     copilot_instructions = (root / ".github" / "copilot-instructions.md").is_file()
     copilot_skills = (root / ".github" / "skills").is_dir()
@@ -247,7 +243,7 @@ def detect_surfaces(root: Path) -> list[str]:
     if (root / ".cursor").is_dir():
         surfaces.append("cursor")
 
-    if (root / ".agent").is_dir():
+    if (root / ".agents").is_dir():
         surfaces.append("antigravity")
 
     return sorted(surfaces)

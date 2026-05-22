@@ -1,11 +1,11 @@
 ---
 name: ai-ide-audit
-description: Audits an IDE end-to-end (instruction surface, hooks, skills, agents, installer wiring) using strict file-evidence — never assumptions. Trigger for 'audit IDE support', 'is Copilot wired up correctly', 'check Claude Code integration', 'are there orphaned hooks', 'verify IDE setup'. Accepts Claude Code, GitHub Copilot, Gemini, Codex, Antigravity, or all. Not for code quality; use /ai-verify instead. Not for security scanning; use /ai-security instead.
+description: Audits an IDE end-to-end (instruction surface, hooks, skills, agents, installer wiring) using strict file-evidence — never assumptions. Trigger for 'audit IDE support', 'is Copilot wired up correctly', 'check Claude Code integration', 'are there orphaned hooks', 'verify IDE setup'. Accepts Claude Code, GitHub Copilot, Codex, Antigravity, or all. Not for code quality; use /ai-verify instead. Not for security scanning; use /ai-security instead.
 effort: high
-argument-hint: "claude-code|github-copilot|gemini|codex|antigravity|all [--fix]"
+argument-hint: "claude-code|github-copilot|codex|antigravity|all [--fix]"
 tags: [audit, ide, copilot, claude-code, governance]
 model_tier: opus
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-ide-audit/SKILL.md
 edit_policy: generated-do-not-edit
@@ -20,7 +20,7 @@ edit_policy: generated-do-not-edit
 /ai-ide-audit all              # audit all platforms
 /ai-ide-audit github-copilot   # Copilot only
 /ai-ide-audit claude-code      # Claude Code only
-/ai-ide-audit antigravity      # Antigravity advisory probe (R-131-08)
+/ai-ide-audit antigravity      # Antigravity app + agy CLI
 /ai-ide-audit all --fix        # audit + auto-fix P0 issues
 ```
 
@@ -33,8 +33,7 @@ Strict evidence-based audit of IDE support in ai-engineering. No assumptions —
 3. **Classify each capability per platform** (SUPPORTED / PARTIAL / UNSUPPORTED) using the capability matrix.
 4. **Run spec-107 advisory checks** (advisory-only per NG-11):
    - **Check 6** — agent naming consistency cross-IDE: every agent file's frontmatter `name:` must equal its slug.
-   - **Check 7** — GEMINI.md skill count freshness: extract `## Skills (N)` from rendered GEMINI.md and compare against disk count.
-   - **Check 8** — generic instruction-file count scan: walk every CLAUDE.md / AGENTS.md / GEMINI.md / copilot-instructions.md and validate `## Skills (N)` + `## Agents (N)` headers vs canonical counts.
+   - **Check 8** — generic instruction-file count scan: walk every CLAUDE.md / AGENTS.md / copilot-instructions.md and validate `## Skills (N)` + `## Agents (N)` headers vs canonical counts.
 5. **With `--fix`**, auto-remediate P0 issues only; re-run mirror sync; verify tests still pass.
 
 > Detail: see [evidence collection (instruction surfaces, hooks, mirrors, sync script)](references/evidence-collection.md), [capability matrix + advisory checks + auto-fix policy](references/capability-matrix.md), [audit document skeleton](references/report-template.md).

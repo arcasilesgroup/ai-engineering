@@ -169,7 +169,7 @@ def _check_hooks_registered(ctx: DoctorContext) -> CheckResult:
     settings.json file simply does not exist on disk — that is not a
     health problem, it is a valid configuration choice. The check
     becomes OK with a "not applicable" message in that case so non-
-    Claude-Code IDE users (codex / gemini / copilot) do not see a
+    Claude-Code IDE users (codex / antigravity / copilot) do not see a
     spurious WARN.
     """
     providers = _enabled_providers(ctx)

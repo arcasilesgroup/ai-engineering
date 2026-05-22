@@ -36,7 +36,7 @@ from ai_engineering.updater.service import FileChange, UpdateResult, update
 @pytest.fixture()
 def installed_project(tmp_path: Path) -> Path:
     """Create a fully installed project with all providers enabled."""
-    install(tmp_path, surfaces=["claude-code", "github-copilot", "gemini-cli", "codex"])
+    install(tmp_path, surfaces=["claude-code", "github-copilot", "antigravity", "codex"])
     return tmp_path
 
 

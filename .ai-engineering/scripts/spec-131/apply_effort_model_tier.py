@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """apply_effort_model_tier — spec-131 S3 (sub-003) frontmatter migration.
 
-Walks every IDE mirror (``.claude`` / ``.codex`` / ``.gemini`` /
+Walks every IDE mirror (``.claude`` / ``.codex`` / ``.agents`` /
 ``.github``) and edits each ``SKILL.md`` frontmatter to:
 
 * Replace legacy ``effort: medium|high|max`` with the policy-mapped
@@ -51,7 +51,7 @@ load_policy = importlib.import_module("skill_lint.checks.effort").load_policy
 
 # IDE mirrors walked by the script. Order matters only for log
 # determinism — the migration shape is identical per mirror.
-_MIRRORS = (".claude", ".codex", ".gemini", ".github")
+_MIRRORS = (".claude", ".codex", ".agents", ".github")
 
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)

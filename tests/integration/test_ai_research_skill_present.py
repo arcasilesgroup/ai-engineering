@@ -4,7 +4,7 @@ Spec acceptance:
     The ``/ai-research`` multi-tier research skill (local → MCPs gratis →
     web → NotebookLM persistent) must ship as a Claude Code SKILL.md
     backed by 7 handler files, plus full IDE-adapted mirrors for Codex,
-    Gemini CLI, and GitHub Copilot.
+    Antigravity, and GitHub Copilot.
 
 Verifiable by ``tests/integration/test_ai_research_skill_present.py::
 test_skill_and_mirrors_exist`` which asserts:
@@ -16,7 +16,7 @@ test_skill_and_mirrors_exist`` which asserts:
    ``synthesize-with-citations.md``, ``persist-artifact.md``.
 3. Mirror SKILL.md exists for each non-Claude IDE surface:
    ``.codex/skills/ai-research/SKILL.md``,
-   ``.gemini/skills/ai-research/SKILL.md``,
+   ``.agents/skills/ai-research/SKILL.md``,
    ``.github/skills/ai-research/SKILL.md``.
 
 Status: RED. None of these files exist yet. T-1.2 creates the canonical
@@ -48,7 +48,7 @@ EXPECTED_HANDLER_FILES = (
 
 MIRROR_SKILL_FILES = (
     REPO_ROOT / ".codex" / "skills" / "ai-research" / "SKILL.md",
-    REPO_ROOT / ".gemini" / "skills" / "ai-research" / "SKILL.md",
+    REPO_ROOT / ".agents" / "skills" / "ai-research" / "SKILL.md",
     REPO_ROOT / ".github" / "skills" / "ai-research" / "SKILL.md",
 )
 
@@ -62,7 +62,7 @@ def test_skill_and_mirrors_exist() -> None:
     2. Each of the 7 expected handler files exists under
        ``.claude/skills/ai-research/handlers/``.
     3. Mirror ``SKILL.md`` exists at ``.codex/skills/ai-research/``,
-       ``.gemini/skills/ai-research/``, and ``.github/skills/ai-research/``.
+       ``.agents/skills/ai-research/``, and ``.github/skills/ai-research/``.
     """
     assert CLAUDE_SKILL_FILE.is_file(), (
         f"Canonical /ai-research SKILL.md must exist at: {CLAUDE_SKILL_FILE}. "
@@ -81,7 +81,7 @@ def test_skill_and_mirrors_exist() -> None:
     missing_mirrors = [str(path) for path in MIRROR_SKILL_FILES if not path.is_file()]
     assert not missing_mirrors, (
         "Full IDE-adapted mirrors of /ai-research SKILL.md must exist for "
-        "Codex, Gemini CLI, and GitHub Copilot. "
+        "Codex, Antigravity, and GitHub Copilot. "
         f"Missing: {missing_mirrors}. "
         "Run sync-mirrors per spec-111 T-1.4."
     )

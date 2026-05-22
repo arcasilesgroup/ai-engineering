@@ -4,7 +4,7 @@ description: Generates standup notes and status updates from actual git commits 
 effort: cheap
 argument-hint: "--days N|--author [name]"
 model_tier: haiku
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-standup/SKILL.md
 edit_policy: generated-do-not-edit

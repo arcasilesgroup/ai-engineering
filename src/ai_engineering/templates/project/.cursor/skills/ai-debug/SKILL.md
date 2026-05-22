@@ -4,7 +4,7 @@ description: "Diagnoses broken behavior systematically with a 4-phase root-cause
 effort: mid
 argument-hint: "[error description or file:line]"
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-debug/SKILL.md
 edit_policy: generated-do-not-edit

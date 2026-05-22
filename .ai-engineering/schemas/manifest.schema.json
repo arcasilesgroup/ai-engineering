@@ -32,7 +32,7 @@
           "type": "array",
           "items": {
             "type": "string",
-            "enum": ["claude_code", "github_copilot", "codex", "gemini", "cursor"]
+            "enum": ["claude_code", "github_copilot", "codex", "antigravity", "cursor"]
           },
           "minItems": 1,
           "uniqueItems": true

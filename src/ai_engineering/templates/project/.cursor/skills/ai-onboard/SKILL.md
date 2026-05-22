@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "tour|find [topic]|history [decision]|onboard"
 tags: [onboarding, architecture, teaching, archaeology]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-onboard/SKILL.md
 edit_policy: generated-do-not-edit
@@ -35,7 +35,7 @@ Project onboarding, architecture tours, and decision archaeology. Optimized for 
 
 ## Dispatch threshold
 
-Dispatch the `ai-onboard` agent for any human-onboarding, archaeology, or codebase-tour request. Strictly read-only. The agent file (`.gemini/agents/ai-onboard.md`) is the dispatch handle; mode procedures and pedagogical principles live here.
+Dispatch the `ai-onboard` agent for any human-onboarding, archaeology, or codebase-tour request. Strictly read-only. The agent file (`.cursor/agents/ai-onboard.mdc`) is the dispatch handle; mode procedures and pedagogical principles live here.
 
 ## When to Use
 
@@ -80,7 +80,7 @@ Calls: `/ai-explain` (3-tier depth). Reads: `decision-store.json`, `framework-ev
 
 ## References
 
-- `.gemini/skills/ai-explain/SKILL.md` -- 3-tier depth model.
+- `.cursor/skills/ai-explain/SKILL.md` -- 3-tier depth model.
 - `.ai-engineering/manifest.yml` -- governance structure.
 - `.ai-engineering/state/decision-store.json` -- decision records.
 

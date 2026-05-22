@@ -21,7 +21,7 @@ PLAN_SKILL = REPO_ROOT / ".claude" / "skills" / "ai-plan" / "SKILL.md"
 MIRROR_PLAN_SKILLS = (
     REPO_ROOT / ".github" / "skills" / "ai-plan" / "SKILL.md",
     REPO_ROOT / ".codex" / "skills" / "ai-plan" / "SKILL.md",
-    REPO_ROOT / ".gemini" / "skills" / "ai-plan" / "SKILL.md",
+    REPO_ROOT / ".agents" / "skills" / "ai-plan" / "SKILL.md",
 )
 
 

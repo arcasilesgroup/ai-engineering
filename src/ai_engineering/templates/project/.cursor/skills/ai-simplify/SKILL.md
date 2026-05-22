@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "[paths|--diff] [--conservative|--aggressive]"
 tags: [refactor, complexity, simplification]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-simplify/SKILL.md
 edit_policy: generated-do-not-edit
@@ -32,7 +32,7 @@ Principles applied: §10.1 KISS (the simplified version must actually be simpler
 
 1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` so the stack-specific linter is wired up before any edit.
 2. **Detect target** — `$ARGUMENTS` resolves to one of: explicit paths, `--diff` (current staged changes), or empty (current diff is the default).
-3. **Dependency preflight** — verify `.gemini/agents/ai-simplify.md` is on disk. STOP and report the exact missing path if absent.
+3. **Dependency preflight** — verify `.cursor/agents/ai-simplify.mdc` is on disk. STOP and report the exact missing path if absent.
 4. **Dispatch** — invoke the `ai-simplify` agent via the Agent tool with `{paths, aggressiveness}`. The agent runs in its own context window. The agent applies guard clauses, extracts methods, flattens nesting, removes dead code, simplifies conditionals — and validates after EVERY change (stack-specific linter + tests if fast).
 5. **Self-check** — for each simplification the agent applies, the self-check protocol must answer favourably: (a) is the simplified version actually simpler, or just different? (b) would a newcomer find the new version easier to understand? (c) did the change introduce a new abstraction — and if so, does it earn its existence? (d) am I reducing complexity or just moving it somewhere else? Any unfavourable answer → revert.
 6. **Render report** — emit the simplification report grouped by file, with columns `File | Change | Complexity Before | After | Lines Saved`.
@@ -114,12 +114,12 @@ Skill dispatches the `ai-simplify` agent in conservative mode against `git diff 
 **Called by**: operators directly via `/ai-simplify` (ad-hoc, single-file or
 diff-scoped). Not auto-invoked by any other skill.
 
-**Calls**: the `ai-simplify` agent (`.gemini/agents/ai-simplify.md`) via the
+**Calls**: the `ai-simplify` agent (`.cursor/agents/ai-simplify.mdc`) via the
 Agent tool with the operator-chosen scope. Validation runs after each edit;
 the agent rolls back on test failure (behavior-preserving contract).
 
 **See also**:
-- `.gemini/skills/ai-simplify-sweep/SKILL.md` — scheduled wrapper with draft-PR side effect (different cadence and contract).
+- `.cursor/skills/ai-simplify-sweep/SKILL.md` — scheduled wrapper with draft-PR side effect (different cadence and contract).
 - `.ai-engineering/manifest.yml` `quality` section — complexity thresholds the agent consults (cyclomatic ≤10, cognitive ≤15, nesting ≤3, method length ≤50).
 - `.ai-engineering/overrides/<stack>/conventions.md` — stack overrides.
 - Engineering anchors: CLAUDE.md §10.1 KISS, §10.7 Clean Code.

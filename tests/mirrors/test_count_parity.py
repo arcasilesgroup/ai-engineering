@@ -5,7 +5,7 @@ Asserts the canonical surface counts are stable across all IDE mirror trees:
 * `.claude/skills/` (canonical source)
 * `.github/skills/` (Copilot Agent Skills mirror)
 * `.codex/skills/` (Codex IDE skills mirror)
-* `.gemini/skills/` (Gemini CLI skills mirror)
+* `.agents/skills/` (Antigravity skills mirror)
 
 The disk count target landed by sub-005 is documented in
 `.ai-engineering/manifest.yml skills.total`. The umbrella spec target was
@@ -33,17 +33,17 @@ CLAUDE_SKILLS = REPO_ROOT / ".claude" / "skills"
 CLAUDE_AGENTS = REPO_ROOT / ".claude" / "agents"
 GITHUB_SKILLS = REPO_ROOT / ".github" / "skills"
 CODEX_SKILLS = REPO_ROOT / ".codex" / "skills"
-GEMINI_SKILLS = REPO_ROOT / ".gemini" / "skills"
+ANTIGRAVITY_SKILLS = REPO_ROOT / ".agents" / "skills"
 MANIFEST = REPO_ROOT / ".ai-engineering" / "manifest.yml"
 
 
 # Provider-scoped skills that opt out of specific IDE mirrors.
 # Documented in `.claude/skills/ai-scaffold/SKILL.md`. ai-analyze-permissions
-# is Claude-Code-only and never appears in `.github/`, `.codex/`, `.gemini/`.
+# is Claude-Code-only and never appears in `.github/`, `.codex/`, `.agents/`.
 PROVIDER_SCOPED_SKIPS: dict[str, set[str]] = {
     "github": {"ai-analyze-permissions"},
     "codex": set(),
-    "gemini": set(),
+    "antigravity": set(),
 }
 
 
@@ -118,11 +118,11 @@ class TestSkillCountParity:
             f"(provider-scoped opt-outs applied)"
         )
 
-    def test_gemini_mirror_count_matches_canonical(self) -> None:
-        canonical = _count_skill_dirs(CLAUDE_SKILLS, ide="gemini")
-        mirror = _count_skill_dirs(GEMINI_SKILLS, ide="gemini")
+    def test_antigravity_mirror_count_matches_canonical(self) -> None:
+        canonical = _count_skill_dirs(CLAUDE_SKILLS, ide="antigravity")
+        mirror = _count_skill_dirs(ANTIGRAVITY_SKILLS, ide="antigravity")
         assert mirror == canonical, (
-            f".gemini/skills/ has {mirror} entries; canonical .claude/skills/ has {canonical} "
+            f".agents/skills/ has {mirror} entries; canonical .claude/skills/ has {canonical} "
             f"(provider-scoped opt-outs applied)"
         )
 

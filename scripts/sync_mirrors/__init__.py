@@ -3,7 +3,7 @@
 Splits the legacy `scripts/sync_command_mirrors.py` monolith (~82 KB,
 ~50 top-level callables) into a small package with one logic module
 (`core`) plus thin per-concern facades (`frontmatter`, `manifest_sync`,
-`claude_target`, `codex_target`, `gemini_target`, `copilot_target`).
+`claude_target`, `codex_target`, `antigravity_target`, `copilot_target`).
 
 The original entry point at `scripts/sync_command_mirrors.py` is now a
 backwards-compat shim (<= 2 KB) that delegates to `__main__:main`.

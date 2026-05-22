@@ -4,7 +4,7 @@ description: "Canonical implementation gateway: reads approved plan.md, resolves
 effort: cheap
 argument-hint: "[spec-NNN | --resume | --no-hitl]"
 model_tier: haiku
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-build/SKILL.md
 edit_policy: generated-do-not-edit
@@ -25,7 +25,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
 
 ## Process
 
-0. **Preflight dependencies** -- verify `.ai-engineering/specs/plan.md`, `.gemini/skills/_shared/execution-kernel.md`, `.gemini/skills/ai-build/handlers/quality.md`, and `.gemini/skills/ai-build/handlers/deliver.md` exist. If any are missing: STOP and report the exact missing path(s). Never improvise missing orchestration logic.
+0. **Preflight dependencies** -- verify `.ai-engineering/specs/plan.md`, `.cursor/skills/_shared/execution-kernel.md`, `.cursor/skills/ai-build/handlers/quality.md`, and `.cursor/skills/ai-build/handlers/deliver.md` exist. If any are missing: STOP and report the exact missing path(s). Never improvise missing orchestration logic.
 0b. **Executor route gate (spec-145)** -- read plan frontmatter `status` and `execution_route.executor`. If `status` is not `approved`, STOP for operator approval. If `executor: autopilot`, refuse this `/ai-build` run, print `execution_route.safe_next_command` (normally `/ai-autopilot`), and STOP. If route metadata is absent, continue with legacy behavior.
 1. **Board sync (in_progress)** -- read `.ai-engineering/specs/spec.md` frontmatter `refs`; for each work item ref where the hierarchy rule is not `never_close` (i.e., user_stories, tasks, bugs, issues), invoke `/ai-board sync in_progress <work-item-ref>`. Fail-open: do not block DAG construction if this fails.
 2. **Advise advisory** -- before dispatching any build task, invoke the Advise agent (`ai-advise`) in `gate` mode for governance advisory. Fail-open: if advise is unavailable or errors, log warning and continue -- never block dispatch.
@@ -36,7 +36,7 @@ Execution engine for approved plans. Reads plan.md and tasks.md, dispatches one 
     * Operator opt-in `--max-effort` flag OR plan task tagged `architecture: true` → dispatch with `model_tier=opus, effort=high` (deep-architecture override).
     Pass the resolved tier to the build agent via env var `AIENG_MODEL_TIER`. Log the decision via `emit_agent_dispatched(..., metadata={"model_tier": <tier>, "effort": <effort>, "patch_present": <bool>})`. Investing in `/ai-plan` (high-tier, exhaustive patch-ready output) is what unlocks cheap-tier execution everywhere downstream (brief §2.6 / spec D-131-08).
 2d. **No-HITL Contract (D-134-03)** -- if `--no-hitl` is set, read `handlers/no-hitl.md` and apply its contract: single-concern gate, `NEEDS_CONTEXT → BLOCKED` promotion, `quality_loop_blocked → exit 78`, `--no-watch` implied for delivery, no auto-retry. Default `/ai-build` behavior is unchanged when the flag is absent.
-3. **Execute kernel**: see `.gemini/skills/_shared/execution-kernel.md`. Build wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build self-validation (TDD RED/GREEN/REFACTOR) -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain build-specific.
+3. **Execute kernel**: see `.cursor/skills/_shared/execution-kernel.md`. Build wraps each task with the kernel (Sub-flow 1 dispatch -> Sub-flow 2 build self-validation (TDD RED/GREEN/REFACTOR) -> Sub-flow 3 artifact collection -> Sub-flow 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec. The pre/post wrappers above and below remain build-specific.
 4. **Quality check** -- read `handlers/quality.md` and execute: Verify+Review on full changeset, single round, fail-loud with one bounded quality-remediation pass. Blocker/critical/high findings may be fixed once when scoped to quality-loop evidence; remaining blocker/critical/high findings → STOP + escalate (no second remediation pass).
 5. **Deliver** -- read `handlers/deliver.md` and execute: PR via ai-pr with quality report.
 

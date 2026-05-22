@@ -8,7 +8,7 @@ matrix: [python, typescript, rust, csharp, go, java]
 # Stack Drift Recovery Flow — AI Eval Matrix
 
 This eval simulates the cognitive recovery loop documented in
-spec-133 D-133-24. The AI surface (Claude Code / Codex / Gemini CLI /
+spec-133 D-133-24. The AI surface (Claude Code / Codex / Antigravity /
 GitHub Copilot / OpenCode / Cursor) MUST:
 
 1. Run `/ai-commit` (or `/ai-pr`) on a repo whose `.ai-engineering/manifest.yml`

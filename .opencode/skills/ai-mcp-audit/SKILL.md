@@ -42,7 +42,7 @@ Does NOT replace `/ai-security` (CVE/SBOM), `/ai-governance` (compliance), `/ai-
 - After installing a new skill or MCP server (`scan`).
 - After updating an existing skill, especially auto-update (`audit-update <skill>`).
 - After fresh-cloning or anchoring known-good state (`baseline set`).
-- Before merging PRs touching `.codex/skills/`, `.codex/skills/`, `.gemini/skills/`, `.github/skills/`.
+- Before merging PRs touching `.codex/skills/`, `.codex/skills/`, `.agents/skills/`, `.github/skills/`.
 - NOT for runtime payload inspection (use prompt-injection-guard hook).
 - NOT for CVE/dependency vulnerabilities (use `/ai-security`).
 
@@ -92,7 +92,7 @@ Anchors snapshot to `.ai-engineering/state/sentinel-baseline.json`. Per skill: S
 
 - `.ai-engineering/state/sentinel-baseline.json` — trusted snapshot (Mode 3 writes; Mode 2 reads).
 - `.ai-engineering/state/sentinel-scan-report.json` — most recent Mode 1 output.
-- `.ai-engineering/state/state.db.decisions` — risk-acceptance entries for accepted ROJO verdicts (`sentinel-coherence-<skill>` finding-id, spec-105 lifecycle).
+- `.ai-engineering/state/decision-store.json` — risk-acceptance entries for accepted ROJO verdicts (`sentinel-coherence-<skill>` finding-id, spec-105 lifecycle).
 
 ## Examples
 

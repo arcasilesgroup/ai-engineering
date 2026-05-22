@@ -44,11 +44,11 @@ class TestSurfaceAdd:
 
     def test_add_surface_without_framework_raises(self, tmp_path: Path) -> None:
         with pytest.raises(InstallerError, match="not installed"):
-            add_surface(tmp_path, "gemini-cli")
+            add_surface(tmp_path, "antigravity")
 
-    def test_add_gemini_creates_agents_md(self, tmp_path: Path) -> None:
+    def test_add_antigravity_creates_agents_md(self, tmp_path: Path) -> None:
         install(tmp_path)
-        add_surface(tmp_path, "gemini-cli")
+        add_surface(tmp_path, "antigravity")
         assert (tmp_path / "AGENTS.md").is_file()
 
 
@@ -69,7 +69,7 @@ class TestSurfaceRemove:
     def test_remove_nonexistent_surface_raises(self, tmp_path: Path) -> None:
         install(tmp_path)
         with pytest.raises(InstallerError, match="not enabled"):
-            remove_surface(tmp_path, "gemini-cli")
+            remove_surface(tmp_path, "antigravity")
 
     def test_remove_does_not_delete_shared_agents_md(
         self,
@@ -77,10 +77,10 @@ class TestSurfaceRemove:
     ) -> None:
         """When removing a surface that uses AGENTS.md but another active
         surface also uses it, AGENTS.md should NOT be deleted."""
-        install(tmp_path, surfaces=["github-copilot", "gemini-cli"])
-        # Both copilot and gemini-cli use AGENTS.md
+        install(tmp_path, surfaces=["github-copilot", "antigravity"])
+        # Both copilot and antigravity use AGENTS.md
         assert (tmp_path / "AGENTS.md").is_file()
-        remove_surface(tmp_path, "gemini-cli")
+        remove_surface(tmp_path, "antigravity")
         # AGENTS.md should still exist (needed by copilot)
         assert (tmp_path / "AGENTS.md").is_file()
 
@@ -94,10 +94,10 @@ class TestSurfaceList:
         assert "claude-code" in manifest.surfaces.enabled
 
     def test_list_custom_surfaces(self, tmp_path: Path) -> None:
-        install(tmp_path, surfaces=["github-copilot", "gemini-cli"])
+        install(tmp_path, surfaces=["github-copilot", "antigravity"])
         manifest = list_status(tmp_path)
         assert "github-copilot" in manifest.surfaces.enabled
-        assert "gemini-cli" in manifest.surfaces.enabled
+        assert "antigravity" in manifest.surfaces.enabled
 
 
 class TestSurfaceAwareInstall:

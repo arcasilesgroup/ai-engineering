@@ -9,7 +9,6 @@ runtime surface:
 |----------------|--------------------------|-----------------|
 | Claude Code    | ``.claude/settings.json``| ``SessionEnd``  |
 | OpenAI Codex   | ``.codex/hooks.json``    | ``Stop``        |
-| Gemini CLI     | ``.gemini/settings.json``| ``AfterAgent``  |
 
 Out of scope (documented N/A or deferred per spec-139 M6.T3):
 
@@ -37,7 +36,6 @@ REPO = Path(__file__).resolve().parents[2]
 SURFACES: list[tuple[str, Path, str]] = [
     ("claude_code", REPO / ".claude" / "settings.json", "SessionEnd"),
     ("codex", REPO / ".codex" / "hooks.json", "Stop"),
-    ("gemini", REPO / ".gemini" / "settings.json", "AfterAgent"),
 ]
 WRAPPER_BASENAME = "runtime-rotate-throttled.py"
 
@@ -45,7 +43,7 @@ WRAPPER_BASENAME = "runtime-rotate-throttled.py"
 def _walk_commands(hooks_block: object) -> list[str]:
     """Flatten an IDE hooks block into a list of command strings.
 
-    All three IDEs share the same nested shape:
+    The committed hook-config surfaces share the same nested shape:
 
         {
           "<event>": [
@@ -55,8 +53,7 @@ def _walk_commands(hooks_block: object) -> list[str]:
         }
 
     The walker is defensive about shape mismatches because each IDE has a
-    slightly different schema (e.g. Gemini wraps timeouts in milliseconds,
-    Codex uses ``"command"`` only). We collect every ``"command"`` string
+    slightly different schemas. We collect every ``"command"`` string
     we can reach and return them flat.
     """
     out: list[str] = []
@@ -139,16 +136,4 @@ def test_codex_invocation_carries_aieng_hook_engine_label() -> None:
     for cmd in rotates:
         assert "AIENG_HOOK_ENGINE=codex" in cmd, (
             f"codex: rotation command missing engine label: {cmd!r}"
-        )
-
-
-def test_gemini_invocation_carries_aieng_hook_engine_label() -> None:
-    """Gemini routing convention: ``AIENG_HOOK_ENGINE=gemini`` is set explicitly."""
-    cfg = json.loads((REPO / ".gemini" / "settings.json").read_text(encoding="utf-8"))
-    commands = _walk_commands(cfg.get("hooks", {}).get("AfterAgent"))
-    rotates = [c for c in commands if WRAPPER_BASENAME in c]
-    assert rotates, "gemini: rotation wrapper not wired into AfterAgent"
-    for cmd in rotates:
-        assert "AIENG_HOOK_ENGINE=gemini" in cmd, (
-            f"gemini: rotation command missing engine label: {cmd!r}"
         )

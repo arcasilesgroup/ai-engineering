@@ -35,8 +35,8 @@ def _check_cross_references(
         target / ".claude" / "agents",
         target / ".codex" / "skills",
         target / ".codex" / "agents",
-        target / ".gemini" / "skills",
-        target / ".gemini" / "agents",
+        target / ".agents" / "skills",
+        target / ".agents" / "agents",
     ]
 
     # Build reference map: file -> list of referenced paths

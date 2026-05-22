@@ -8,7 +8,7 @@ field differently. Empirical schemas (researched 2026-05-12):
 - OpenCode: hex ``^#[0-9a-fA-F]{6}$`` OR semantic tokens
   (primary, secondary, accent, success, warning, error, info).
   Zod-strict — fails fast on invalid (root of probando/ bug).
-- Gemini / Copilot / Cursor / Antigravity: ``color`` field not
+- Copilot / Cursor / Antigravity: ``color`` field not
   documented in their schemas. Strip to avoid future strict-mode
   breakage (defensive: same Zod-tightening risk as OpenCode).
 - Codex: ``color`` field undocumented in spec but accepts names
@@ -76,14 +76,7 @@ def test_opencode_color_is_valid_token_or_hex(agent_path: Path) -> None:
     )
 
 
-# ── Gemini / Cursor / Antigravity / Copilot: color field stripped ─────────
-
-
-@pytest.mark.parametrize("agent_path", _iter_agent_files(TPL / ".gemini" / "agents"))
-def test_gemini_color_stripped(agent_path: Path) -> None:
-    assert _extract_color(agent_path) is None, (
-        f"{agent_path.name}: color field must be stripped from Gemini mirror"
-    )
+# ── Cursor / Antigravity / Copilot: color field stripped ─────────
 
 
 @pytest.mark.parametrize("agent_path", _iter_agent_files(TPL / ".cursor" / "agents", suffix=".mdc"))
@@ -93,7 +86,7 @@ def test_cursor_color_stripped(agent_path: Path) -> None:
     )
 
 
-@pytest.mark.parametrize("agent_path", _iter_agent_files(TPL / ".agent" / "agents"))
+@pytest.mark.parametrize("agent_path", _iter_agent_files(TPL / ".agents" / "agents"))
 def test_antigravity_color_stripped(agent_path: Path) -> None:
     assert _extract_color(agent_path) is None, (
         f"{agent_path.name}: color field must be stripped from Antigravity mirror"

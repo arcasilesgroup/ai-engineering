@@ -2,7 +2,7 @@
 name: ai-onboard
 description: Project onboarding and teaching. Architecture tours, decision archaeology, knowledge transfer. Reads everything, writes nothing.
 model: sonnet
-mirror_family: gemini-agents
+mirror_family: cursor-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-onboard.md
 edit_policy: generated-do-not-edit
@@ -22,7 +22,7 @@ Produce understanding, not artifacts. Guide NEVER writes code, tests, documentat
 
 ## Behavior
 
-> See dispatch threshold in skill body (`.gemini/skills/ai-onboard/SKILL.md`). Mode procedures (`tour`, `find`, `history`, `onboard`) and pedagogical principles are canonical there. This agent file owns context-loading and read-only boundary enforcement.
+> See dispatch threshold in skill body (`.cursor/skills/ai-onboard/SKILL.md`). Mode procedures (`tour`, `find`, `history`, `onboard`) and pedagogical principles are canonical there. This agent file owns context-loading and read-only boundary enforcement.
 
 ### Context Loading (all modes)
 
@@ -59,8 +59,8 @@ Every teaching interaction produces this structured output to make knowledge tra
 
 ## Referenced Skills
 
-- `.gemini/skills/ai-onboard/SKILL.md` -- interactive guidance procedures
-- `.gemini/skills/ai-explain/SKILL.md` -- 3-tier depth model for explanations
+- `.cursor/skills/ai-onboard/SKILL.md` -- interactive guidance procedures
+- `.cursor/skills/ai-explain/SKILL.md` -- 3-tier depth model for explanations
 
 ## Boundaries
 

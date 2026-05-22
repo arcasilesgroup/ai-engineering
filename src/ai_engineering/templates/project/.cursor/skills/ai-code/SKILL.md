@@ -4,7 +4,7 @@ description: "Writes production code that satisfies stack-context standards on t
 effort: mid
 argument-hint: "[task description or file:target]"
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-code/SKILL.md
 edit_policy: generated-do-not-edit

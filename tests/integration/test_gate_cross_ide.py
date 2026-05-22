@@ -2,7 +2,7 @@
 
 RED phase for spec-104 G-8 / D-104-08 — the orchestrator must produce
 identical output regardless of which IDE driver (Claude Code, GitHub
-Copilot, Codex, Gemini) is invoking the CLI. The bottleneck spec-104
+Copilot, Codex, Antigravity) is invoking the CLI. The bottleneck spec-104
 addresses lives entirely in the CLI/Python layer, so cross-IDE parity is
 guaranteed only if the orchestrator never branches on IDE-identifying
 state (env vars, imports, conditional code paths).
@@ -57,7 +57,7 @@ Coverage (8 tests):
    all four IDE-emulated environments.
 4. ``test_run_gate_does_not_read_claude_specific_env`` — orchestrator
    does NOT consult ``CLAUDE_CODE_SESSION_ID``, ``COPILOT_SESSION_ID``,
-   ``CODEX_SESSION_ID``, or ``GEMINI_SESSION_ID``.
+   ``CODEX_SESSION_ID``, or ``ANTIGRAVITY_SESSION_ID``.
 5. ``test_run_gate_skill_caller_attributed_correctly`` — the
    ``produced_by`` field reflects the skill caller (one of
    ``ai-commit`` / ``ai-pr`` / ``watch-loop``), never the IDE.
@@ -102,7 +102,7 @@ SUPPORTED_IDES: tuple[str, ...] = (
     "claude-code",
     "github-copilot",
     "codex",
-    "gemini",
+    "antigravity",
 )
 
 # IDE-specific session-ID env vars the orchestrator must NEVER consult.
@@ -112,7 +112,7 @@ IDE_SPECIFIC_SESSION_ENVS: tuple[str, ...] = (
     "CLAUDE_CODE_SESSION_ID",
     "COPILOT_SESSION_ID",
     "CODEX_SESSION_ID",
-    "GEMINI_SESSION_ID",
+    "ANTIGRAVITY_SESSION_ID",
 )
 
 # Substrings that, if present as bare literal tokens in the orchestrator
@@ -120,7 +120,7 @@ IDE_SPECIFIC_SESSION_ENVS: tuple[str, ...] = (
 # word-bounded so we don't false-positive on substrings of unrelated
 # identifiers (e.g., a hypothetical ``code_xchange`` doesn't trip
 # ``codex``). Each IDE name is matched as an isolated token.
-IDE_LITERAL_GREP = re.compile(r"\b(claude-code|github-copilot|copilot|codex|gemini)\b")
+IDE_LITERAL_GREP = re.compile(r"\b(claude-code|github-copilot|copilot|codex|antigravity)\b")
 
 # Allow-list: substrings of the source we explicitly tolerate even if
 # they happen to contain an IDE token. Every entry is a verbatim match
@@ -441,7 +441,7 @@ def test_orchestrator_module_no_ide_string_grep() -> None:
     """Source-level grep for IDE-identifying tokens in ``orchestrator.py``.
 
     The orchestrator MUST NOT contain literal references to any IDE
-    name (``claude_code``, ``copilot``, ``codex``, ``gemini``). Any
+    name (``claude_code``, ``copilot``, ``codex``, ``antigravity``). Any
     occurrence is structural evidence of IDE branching and breaks the
     G-8 parity guarantee.
 

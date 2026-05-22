@@ -59,7 +59,7 @@ class StatePhase:
         legacy_audit_log_removed = False
 
         # Spec-124 T-3.1: seed ownership map with manifest-derived root-entry
-        # patterns (CLAUDE.md, AGENTS.md, GEMINI.md, .github/copilot-instructions.md)
+        # patterns (CLAUDE.md, AGENTS.md, .github/copilot-instructions.md)
         # so doctor's `ownership-coverage` probe passes on fresh install.
         # The manifest is already on disk by the time the state phase runs
         # (governance phase precedes state phase in pipeline.py).

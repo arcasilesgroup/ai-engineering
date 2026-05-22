@@ -20,7 +20,7 @@ SCAN_ROOTS = (
     "docs",
     ".claude",
     ".codex",
-    ".gemini",
+    ".agents",
     ".github",
 )
 EXCLUDED_PARTS = {".git", "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache"}

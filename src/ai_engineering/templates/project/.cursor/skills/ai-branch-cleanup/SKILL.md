@@ -8,7 +8,7 @@ requires:
   bins:
   - git
 model_tier: haiku
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-branch-cleanup/SKILL.md
 edit_policy: generated-do-not-edit
@@ -92,7 +92,7 @@ dirs; emits a `runtime-rotate` `framework_event` per run.
 
 ### Phase 5: Spec consolidation (`--specs` or `--all`)
 
-For any SHIPPED spec record in `.ai-engineering/state/specs/<slug>.json` whose `_history.md` row is not yet appended, invoke `ai-eng cleanup specs` (wrapper for `python .ai-engineering/scripts/spec_lifecycle.py consolidate_shipped`) to append the canonical 7-col `_history.md` row and emit the `framework_operation` audit event. **Verification-only step** — actual rotation lives in `spec_lifecycle.py`; this skill calls the entry point. **Fail-open**: missing script or locked sidecar logs and continues. See `.gemini/skills/_shared/consolidate-spec.md` for the shared handler; the `--consolidate-spec <slug>` flag exposes the explicit post-merge action via `spec_lifecycle.py mark_shipped`.
+For any SHIPPED spec record in `.ai-engineering/state/specs/<slug>.json` whose `_history.md` row is not yet appended, invoke `ai-eng cleanup specs` (wrapper for `python .ai-engineering/scripts/spec_lifecycle.py consolidate_shipped`) to append the canonical 7-col `_history.md` row and emit the `framework_operation` audit event. **Verification-only step** — actual rotation lives in `spec_lifecycle.py`; this skill calls the entry point. **Fail-open**: missing script or locked sidecar logs and continues. See `.cursor/skills/_shared/consolidate-spec.md` for the shared handler; the `--consolidate-spec <slug>` flag exposes the explicit post-merge action via `spec_lifecycle.py mark_shipped`.
 
 ### Phase 2: Status Report
 
@@ -126,7 +126,7 @@ For any SHIPPED spec record in `.ai-engineering/state/specs/<slug>.json` whose `
 
 ### Phase 6: Spec consolidation (`--consolidate-spec`)
 
-When invoked with `--consolidate-spec <slug>`, read `.gemini/skills/_shared/consolidate-spec.md` and execute the shared handler: resolve the spec record, append/upsert the `_history.md` row via `spec_lifecycle.py mark_shipped`, clear `.ai-engineering/specs/spec.md` and `plan.md` to placeholders. Fail-open on missing script.
+When invoked with `--consolidate-spec <slug>`, read `.cursor/skills/_shared/consolidate-spec.md` and execute the shared handler: resolve the spec record, append/upsert the `_history.md` row via `spec_lifecycle.py mark_shipped`, clear `.ai-engineering/specs/spec.md` and `plan.md` to placeholders. Fail-open on missing script.
 
 ## Common Mistakes
 
@@ -161,5 +161,5 @@ Called by: `/ai-pr` (auto after merge), `/ai-start` (session bootstrap). Calls: 
 ## References
 
 - `.ai-engineering/manifest.yml` -- protected branch rules.
-- `.gemini/skills/ai-brainstorm/SKILL.md` -- spec creation composes cleanup.
+- `.cursor/skills/ai-brainstorm/SKILL.md` -- spec creation composes cleanup.
 $ARGUMENTS

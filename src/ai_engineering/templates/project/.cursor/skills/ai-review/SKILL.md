@@ -4,7 +4,7 @@ description: "Reviews code changes with human-quality judgment: PR reviews, file
 effort: mid
 argument-hint: "[--full] [PR number or file paths]"
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-review/SKILL.md
 edit_policy: generated-do-not-edit
@@ -28,7 +28,7 @@ High-signal code review with full specialist coverage and aggressive false-posit
 
 1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` for each stack.
 2. **Detect target** — PR number, file paths, or current diff.
-3. **Dependency preflight** — verify `review-context.md`, `review-validator.md`, plus required `.gemini/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
+3. **Dependency preflight** — verify `review-context.md`, `review-validator.md`, plus required `.cursor/agents/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
 4. **Pre-review** — dispatch `review-context.md` via Agent tool; serialize output for every specialist.
 5. **Specialists** — `normal` = 3 macro-agents; `--full` = one agent per specialist. Both run the full roster — grouping controls cost only.
 6. **Validate** — dispatch `review-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
@@ -36,7 +36,7 @@ High-signal code review with full specialist coverage and aggressive false-posit
 
 ## Dispatch threshold
 
-Dispatch the `ai-review` agent for any narrative review (PR, branch, diff, or path scope). Each specialist runs in its own context window via the Agent tool. The agent file (`.gemini/agents/ai-review.md`) is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
+Dispatch the `ai-review` agent for any narrative review (PR, branch, diff, or path scope). Each specialist runs in its own context window via the Agent tool. The agent file (`.cursor/agents/ai-review.mdc`) is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
 
 ## When to Use
 

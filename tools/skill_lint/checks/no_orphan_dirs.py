@@ -19,7 +19,7 @@ Canonical orphan paths (D-133-13 + D-133-10):
 5. ``.claude/skills/ai-review/handlers/``   — moved to ``overrides/<stack>/review.md`` (D-133-10)
 
 Surface mirrors of the ai-debug / ai-review handlers/ dirs are scanned
-under .codex, .gemini, .github, and the template tree, since
+under .codex, .agents, .github, and the template tree, since
 ``ai-eng sync`` regenerates them and any one of those copies leaking
 back constitutes a regression.
 
@@ -55,11 +55,11 @@ class RubricResult:
 _SURFACE_SKILLS_ROOTS: tuple[str, ...] = (
     ".claude/skills",
     ".codex/skills",
-    ".gemini/skills",
+    ".agents/skills",
     ".github/skills",
     "src/ai_engineering/templates/project/.claude/skills",
     "src/ai_engineering/templates/project/.codex/skills",
-    "src/ai_engineering/templates/project/.gemini/skills",
+    "src/ai_engineering/templates/project/.agents/skills",
     "src/ai_engineering/templates/project/.github/skills",
 )
 

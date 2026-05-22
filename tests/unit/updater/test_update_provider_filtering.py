@@ -55,7 +55,7 @@ _COPILOT_PREFIXES = (
     ".github/agents/",
     "AGENTS.md",
 )
-_GEMINI_PREFIXES = (".gemini/", "GEMINI.md")
+_ANTIGRAVITY_PREFIXES = (".agents/",)
 _CODEX_PREFIXES = (".codex/",)
 
 
@@ -104,10 +104,10 @@ def claude_copilot_project(tmp_path: Path) -> Path:
 
 
 @pytest.fixture()
-def claude_gemini_project(tmp_path: Path) -> Path:
-    """Install a project with ``claude-code`` and ``gemini-cli``."""
+def claude_antigravity_project(tmp_path: Path) -> Path:
+    """Install a project with ``claude-code`` and ``antigravity``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, surfaces=["claude-code", "gemini-cli"])
+    install(tmp_path, surfaces=["claude-code", "antigravity"])
     return tmp_path
 
 
@@ -135,7 +135,7 @@ class TestUpdateProviderFiltering:
         claude_only_project: Path,
     ) -> None:
         """T1: When only claude-code is enabled, update must not produce
-        changes for github_copilot, gemini, or codex paths.
+        changes for github_copilot, antigravity, or codex paths.
         """
         result = update(claude_only_project, dry_run=True)
         paths = _changed_relative_paths(result, claude_only_project)
@@ -146,9 +146,9 @@ class TestUpdateProviderFiltering:
             f"Found github_copilot paths in claude-only update: "
             f"{[p for p in paths if _has_provider_paths({p}, _COPILOT_PREFIXES)]}"
         )
-        assert not _has_provider_paths(paths, _GEMINI_PREFIXES), (
-            f"Found gemini paths in claude-only update: "
-            f"{[p for p in paths if _has_provider_paths({p}, _GEMINI_PREFIXES)]}"
+        assert not _has_provider_paths(paths, _ANTIGRAVITY_PREFIXES), (
+            f"Found antigravity paths in claude-only update: "
+            f"{[p for p in paths if _has_provider_paths({p}, _ANTIGRAVITY_PREFIXES)]}"
         )
         assert not _has_provider_paths(paths, _CODEX_PREFIXES), (
             f"Found codex paths in claude-only update: "
@@ -160,29 +160,29 @@ class TestUpdateProviderFiltering:
         claude_copilot_project: Path,
     ) -> None:
         """T2: When claude-code + github-copilot are enabled, update must
-        include .claude/ and .github/ paths but NOT .codex/ or .gemini/.
+        include .claude/ and .github/ paths but NOT .codex/ or .agents/.
         """
         result = update(claude_copilot_project, dry_run=True)
         paths = _changed_relative_paths(result, claude_copilot_project)
 
-        assert not _has_provider_paths(paths, _GEMINI_PREFIXES), (
-            f"Found gemini paths in claude+copilot update: "
-            f"{[p for p in paths if _has_provider_paths({p}, _GEMINI_PREFIXES)]}"
+        assert not _has_provider_paths(paths, _ANTIGRAVITY_PREFIXES), (
+            f"Found antigravity paths in claude+copilot update: "
+            f"{[p for p in paths if _has_provider_paths({p}, _ANTIGRAVITY_PREFIXES)]}"
         )
         assert not _has_provider_paths(paths, _CODEX_PREFIXES), (
             f"Found codex paths in claude+copilot update: "
             f"{[p for p in paths if _has_provider_paths({p}, _CODEX_PREFIXES)]}"
         )
 
-    def test_update_claude_gemini_excludes_copilot_codex(
+    def test_update_claude_antigravity_excludes_copilot_codex(
         self,
-        claude_gemini_project: Path,
+        claude_antigravity_project: Path,
     ) -> None:
-        """T3: When claude-code + gemini-cli are enabled, update must include
-        .claude/ and .gemini/ paths but NOT .github/ or .codex/.
+        """T3: When claude-code + antigravity are enabled, update must include
+        .claude/ and .agents/ paths but NOT .github/ or .codex/.
         """
-        result = update(claude_gemini_project, dry_run=True)
-        paths = _changed_relative_paths(result, claude_gemini_project)
+        result = update(claude_antigravity_project, dry_run=True)
+        paths = _changed_relative_paths(result, claude_antigravity_project)
 
         # Exclude common .github/ paths that come from VCS templates (not copilot).
         # VCS trees are provider-independent and always included.
@@ -193,10 +193,10 @@ class TestUpdateProviderFiltering:
             and not _is_vcs_template_path(p)
         }
         assert not provider_copilot_paths, (
-            f"Found copilot-specific paths in claude+gemini update: {provider_copilot_paths}"
+            f"Found copilot-specific paths in claude+antigravity update: {provider_copilot_paths}"
         )
         assert not _has_provider_paths(paths, _CODEX_PREFIXES), (
-            f"Found codex paths in claude+gemini update: "
+            f"Found codex paths in claude+antigravity update: "
             f"{[p for p in paths if _has_provider_paths({p}, _CODEX_PREFIXES)]}"
         )
 
@@ -208,7 +208,7 @@ class TestUpdateProviderFiltering:
         for relative_path in (
             "CLAUDE.md",
             ".github/copilot-instructions.md",
-            "GEMINI.md",
+            ".agents/skills/ai-start/SKILL.md",
             ".codex/config.toml",
         ):
             path = no_manifest_project / relative_path
@@ -220,7 +220,7 @@ class TestUpdateProviderFiltering:
 
         assert _has_provider_paths(paths, _CLAUDE_PREFIXES)
         assert _has_provider_paths(paths, _COPILOT_PREFIXES)
-        assert _has_provider_paths(paths, _GEMINI_PREFIXES)
+        assert _has_provider_paths(paths, _ANTIGRAVITY_PREFIXES)
         assert _has_provider_paths(paths, _CODEX_PREFIXES)
 
 

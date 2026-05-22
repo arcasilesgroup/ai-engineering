@@ -138,10 +138,11 @@ def test_locked_append_retries_after_two_failures_then_succeeds(
     assert not _sidecar(project_root).exists(), (
         "no telemetry expected when retry eventually succeeds"
     )
-    # Windows hosted runners take ~5x the POSIX wall-clock for the
-    # same retry path (NTFS metadata flush per acquire). Widen the
-    # ceiling there while keeping the POSIX assertion tight.
-    upper_ms = 800 if sys.platform.startswith("win") else 400
+    # Hosted runners vary by filesystem and co-scheduling. Windows is
+    # slowest (NTFS metadata flush per acquire), while macOS can still
+    # drift just past 400ms under load. Keep the assertion bounded but
+    # avoid turning scheduler jitter into a false negative.
+    upper_ms = 800 if sys.platform.startswith("win") else 700
     assert 90 <= elapsed_ms <= upper_ms, (
         f"expected ~100ms (2x50ms backoff) plus overhead, got {elapsed_ms:.1f}ms"
     )

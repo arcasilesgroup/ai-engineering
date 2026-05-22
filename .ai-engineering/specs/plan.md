@@ -1,309 +1,198 @@
 ---
 execution_route:
   version: 1
-  spec: spec-150
+  spec: spec-151
   executor: autopilot
-  automation: assisted
-  concern_count: 7
-  estimated_files: 18
+  automation: autonomous-no-hitl
+  concern_count: 6
+  estimated_files: 90
   reason: >
-    Multi-concern refactor of /ai-research — Tier 3 backend swap + async
-    redesign, Tier 2 Exa wiring, capability-detection fail-soft, +3-directions
-    output contract, persist/classify changes, env tunable, SKILL.md + mirror
-    regen. ~16 hand-edited files across handlers + 5 lockstep helpers + 6 test
-    files + config, plus generated mirrors. Crosses ≥3 concerns and ≥10 files →
-    autopilot wraps plan+build in waves.
+    Large cross-surface refactor: remove the retired gemini-cli surface and
+    generated GEMINI/.gemini assets, promote antigravity to the sole Google
+    surface, rename generated Antigravity layout from .agent to .agents, add
+    agy CLI diagnostics, update validators/docs/tests, and regenerate mirrors.
+    This crosses registry, installer, updater, mirror generation, docs, and CI
+    tests, so /ai-autopilot is the executor.
   safe_next_command: "/ai-autopilot"
-spec: spec-150
-title: "Plan — Async-first NotebookLM autonomous deep research (Tier 3 redesign)"
-status: draft
+spec: spec-151
+title: "Plan — Antigravity-only Google surface after Gemini CLI retirement"
+status: approved
 pipeline: full
+total: 18
+completed: 18
 ---
 
-# Plan — Async-first NotebookLM autonomous deep research (Tier 3 redesign)
+# Plan — Antigravity-only Google surface after Gemini CLI retirement
 
-> Contract for execution. Operator approves before build. Spec:
-> `.ai-engineering/specs/spec.md` (D1–D8, AC1–7).
+> Contract for autonomous execution. Operator already approved no-HITL execution in
+> this thread. Spec: `.ai-engineering/specs/spec.md` (D-151-01..07, AC1..7).
 
 ## Architecture
 
-- **Pattern**: `ad-hoc` — the existing **lockstep mirror** pattern. `/ai-research`
-  is pure LLM-driven markdown; the only testable code is the Python lockstep
-  helpers under `tests/integration/_ai_research_*`, which mirror each handler 1:1.
-  Every handler edit MUST be matched in its helper and tests (AC7).
-- **New element**: async launch via **background subagent** (`Agent`
-  `run_in_background`) blocking on `nlm_research(mode=deep)` at T0; main runs Tiers
-  0–2; bounded-wait harvest at the end (D1, D4). In the lockstep helper this is
-  modeled with injected `clock` + `job_status` callables (deterministic tests).
-- **Cross-helper dep (caution)**: `_ai_research_persist_helper.py:32` imports
-  `topic_slug` from `_ai_research_tier3_helper`. The Tier 3 helper rewrite MUST keep
-  `topic_slug`, `hash6`, `notebook_title` exported.
+- **Pattern**: Ports and Adapters / Hexagonal. `src/ai_engineering/domain/surface.py`
+  remains the inner domain registry; installer, updater, mirror sync, validation,
+  and doctor/diagnostics are adapters that consume the registry contract.
+- **Key invariant**: one Google surface id: `antigravity`. No `gemini-cli` alias,
+  no `antigravity-cli` split, no dual-write `GEMINI.md` + `AGENTS.md` root context.
+- **Generated mirror invariant**: `.agents/` and install templates are derived from
+  canonical `.claude/` sources via `scripts/sync_mirrors/core.py`; do not hand-copy
+  generated mirror content except through deterministic generator output.
+- **Audit honesty invariant**: Antigravity can be first-class for workspace layout
+  and CLI diagnostics while `audit_capability` remains `partial` until hook payload
+  fixtures are public and tested.
 
 ## Design
 
-`--skip-design` rationale: no new UI surface. Output is CLI-skill markdown; the only
-contract change is the appended `## Recommended Directions` section (D8), specified
-in the spec. No design-intent doc required.
+No UI design artifact required. This is a CLI/configuration governance migration.
+The user-facing design is the install/status/doctor wording: Google support is now
+"Antigravity" and CLI availability is reported as `agy` runtime diagnostics.
 
-## Prerequisites (DONE — do not redo)
+## Phase 1 — RED tests for the new surface contract
 
-- Branch `notebooklm-async-tier3` created off `main`.
-- spec.md promoted (spec-149 preserved at
-  `.ai-engineering/specs/spec-149-obvious-by-default-essentials.md`).
-- MCP config aligned (Claude user-scope + Codex `mcp_servers` → `uvx --from
-  notebooklm-skill notebooklm-mcp`). **Do NOT re-touch MCP config.**
-- Operator-only manual step (NOT a build task): `uvx notebooklm login`. Build +
-  tests use injected mocks.
+Gate: `pytest tests/unit/domain/test_surface.py tests/unit/config/test_manifest_surface_schema.py tests/integration/test_install_matrix.py -q` fails before implementation, then passes after Phase 2.
 
----
-
-## Phase 1 — Tier 3 backend swap + async redesign (core)
-
-Gate (phase): `pytest tests/integration/test_ai_research_tier3.py
-tests/integration/test_ai_research_resilience.py -q` green.
-
-- [ ] **T-1.1 — RED: rewrite Tier 3 tests for the new contract**
+- [x] T-1.1 — RED: update domain surface tests for six canonical surfaces plus Antigravity first-class posture
   - Agent: build
-  - Files: `tests/integration/test_ai_research_tier3.py`
-  - Principles applied: §10.5 TDD
-  - Patch (deterministic): none — judgment required (new tool surface + async).
-  - Detail: replace `notebook_create/source_add/notebook_query/server_info` mocks
-    with `nlm_create_notebook`, `nlm_research(mode=deep)`, `nlm_ask`, `nlm_list`
-    (capability/auth probe). Add tests: default-launch (no flag) when available;
-    background-launch ordering (launched before Tier 1); bounded-wait harvest
-    success; harvest timeout → degrade + `notebook_id` persisted + `timed_out=True`;
-    capability probe fail → degrade, no `nlm_*` calls. Keep `should_invoke_tier3`
-    parametrized test updated to the default-on rule.
-  - Gate: tests fail (RED) against current helper.
-
-- [ ] **T-1.2 — GREEN: rewrite Tier 3 lockstep helper**
-  - Agent: build
-  - Files: `tests/integration/_ai_research_tier3_helper.py`
-  - Principles applied: §10.5 TDD, §10.3 SOLID (inject `clock`/`job_status`)
-  - Detail: extend `Tier3Result` with `report_markdown`, `sources_discovered:
-    list[str]`, `timed_out: bool`. Replace callables with `nlm_create_notebook`,
-    `nlm_research`, `nlm_ask`, `nlm_list`. New
-    `should_launch_tier3(*, notebooklm_available)` → True whenever available (D3);
-    drop legacy `should_invoke_tier3` (hard delete, no shim per Hard Rule 3) unless a
-    test still needs it. Implement `tier3_launch()` (create notebook + start
-    research) and `tier3_harvest(*, clock, job_status, wait_budget_sec)` (bounded
-    poll → report or `timed_out`). KEEP `topic_slug`, `hash6`, `notebook_title`
-    exported (persist dep). Capability/auth probe via `nlm_list` (replaces
-    `server_info`).
-  - Gate: T-1.1 tests pass (GREEN).
-
-- [ ] **T-1.3 — GREEN: rewrite Tier 3 handler markdown (lockstep)**
-  - Agent: build
-  - Files: `.claude/skills/ai-research/handlers/tier3-notebooklm.md`
-  - Principles applied: §10.6 SDD, §10.7 Clean Code
-  - Detail: document the new sequence verbatim to the helper — background launch at
-    T0, `nlm_*` tool names, capability/auth probe via `nlm_list` (drop `server_info`
-    / `nlm login` text → `uvx notebooklm login` + `~/.notebooklm/storage_state.json`),
-    bounded-wait harvest, timeout→degrade+persist `notebook_id`, default-on trigger.
-    Update the "Implementation Reference" + "Status" sections.
-  - Gate: handler ↔ helper algorithm match (AC7); manual diff review.
-
----
-
-## Phase 2 — Tier 2 Exa wiring
-
-Gate (phase): `pytest tests/integration/test_ai_research_tier2.py -q` green.
-
-- [ ] **T-2.1 — RED: Tier 2 Exa tests**
-  - Agent: build
-  - Files: `tests/integration/test_ai_research_tier2.py`
-  - Principles applied: §10.5 TDD
-  - Detail: add `web_search_exa` / `web_fetch_exa` mock callables; assert Exa used
-    when available; assert fallback to built-in `WebSearch`/`WebFetch` when Exa
-    absent (capability detection); preserve domain-filter pass-through + skip
-    threshold tests.
-  - Gate: RED.
-
-- [ ] **T-2.2 — GREEN: Tier 2 lockstep helper adds Exa + fallback**
-  - Agent: build
-  - Files: `tests/integration/_ai_research_tier2_helper.py`
-  - Principles applied: §10.5 TDD, §10.4 DRY (shared availability check w/ Phase 3)
-  - Detail: add `web_search_exa`/`web_fetch_exa` callables; select Exa when
-    available else built-in; record absent provider in `degraded_sources`; keep
-    `detect_explicit_url` + skip heuristic.
-  - Gate: T-2.1 GREEN.
-
-- [ ] **T-2.3 — GREEN: Tier 2 handler markdown (Exa)**
-  - Agent: build
-  - Files: `.claude/skills/ai-research/handlers/tier2-web.md`
-  - Principles applied: §10.6 SDD
-  - Detail: document Exa as the primary web provider with built-in fallback; exact
-    MCP names `mcp__exa__web_search_exa` / `mcp__exa__web_fetch_exa`.
-  - Gate: handler ↔ helper match.
-
----
-
-## Phase 3 — Capability-detection fail-soft (D7, G5)
-
-Gate (phase): `pytest tests/integration/test_ai_research_resilience.py -q` green.
-
-- [ ] **T-3.1 — RED: absence (not just exception) tests**
-  - Agent: build
-  - Files: `tests/integration/test_ai_research_resilience.py`
-  - Principles applied: §10.5 TDD
-  - Detail: NotebookLM / Context7 / Exa **absent** (capability probe says
-    unavailable) → tier skipped silently, recorded in `degraded_sources`, run exits 0
-    with output (AC2, AC4). Distinct from transient-exception path.
-  - Gate: RED.
-
-- [ ] **T-3.2 — GREEN: shared capability detection in helpers**
-  - Agent: build
-  - Files: `tests/integration/_ai_research_tier1_helper.py`,
-    `tests/integration/_ai_research_tier2_helper.py`,
-    `tests/integration/_ai_research_tier3_helper.py`
-  - Principles applied: §10.4 DRY, §10.2 YAGNI (minimal probe, no framework)
-  - Detail: a small `is_available(probe)`-style guard reused by tiers; absent →
-    skip + degrade, never raise. No generic async-job framework (Non-Goal).
-  - Gate: T-3.1 GREEN; Phase 1/2 tests still green.
-
----
-
-## Phase 4 — Output contract: +3 recommended directions (D8, G7)
-
-Gate (phase): `pytest tests/unit/skills/ai_research/test_citation_validator.py -q` green.
-
-- [ ] **T-4.1 — RED: 3-directions tests**
-  - Agent: build
-  - Files: `tests/unit/skills/ai_research/test_citation_validator.py`
-  - Principles applied: §10.5 TDD
-  - Detail: assert `SynthesizeResult.recommended_directions` has EXACTLY 3 entries,
-    each carrying ≥1 `[N]` or `[unsourced]` (AC5); merged-sources dedup from
-    NotebookLM + Tiers 0–2 (D2).
-  - Gate: RED.
-
-- [ ] **T-4.2 — GREEN: synthesize helper +directions +merge**
-  - Agent: build
-  - Files: `tests/integration/_ai_research_synthesize_helper.py`
-  - Principles applied: §10.5 TDD
-  - Detail: add `recommended_directions: list[Direction]` (title, rationale,
-    trade-off, citations); validator enforces count==3 + citation per direction;
-    merge+dedup NotebookLM `sources_discovered` with tier hits. Keep
-    `CITATION_PATTERN` pinned.
-  - Gate: T-4.1 GREEN.
-
-- [ ] **T-4.3 — GREEN: synthesize handler markdown**
-  - Agent: build
-  - Files: `.claude/skills/ai-research/handlers/synthesize-with-citations.md`
-  - Principles applied: §10.6 SDD
-  - Detail: document the `## Recommended Directions` block (exactly 3) + source merge.
-  - Gate: handler ↔ helper match.
-
----
-
-## Phase 5 — Persist notebook_id + classify default-deep
-
-Gate (phase): `pytest tests/unit/skills/ai_research/test_persist.py -q` green.
-
-- [ ] **T-5.1 — Persist notebook_id + report for --reuse-notebook**
-  - Agent: build
-  - Files: `.claude/skills/ai-research/handlers/persist-artifact.md`,
-    `tests/integration/_ai_research_persist_helper.py`,
-    `tests/unit/skills/ai_research/test_persist.py`
-  - Principles applied: §10.6 SDD, §10.5 TDD
-  - Detail: persist `notebook_id` + (when present) deep `report_markdown` so a later
-    `--reuse-notebook=<id>` harvests it (AC6). Preserve `topic_slug` import from tier3
-    helper.
-  - Gate: persist tests green.
-
-- [ ] **T-5.2 — classify-query default-deep**
-  - Agent: build
-  - Files: `.claude/skills/ai-research/handlers/classify-query.md`,
-    `tests/integration/_ai_research_tier1_helper.py` (`classify_tags`)
-  - Principles applied: §10.6 SDD
-  - Detail: NotebookLM deep research is default-on when available (D3); comparative
-    tag no longer gates Tier 3 launch (kept only for routing metadata if used).
-  - Gate: tier1 classify tests green.
-
----
-
-## Phase 6 — Env tunable (harvest timeout)
-
-- [ ] **T-6.1 — Add `AIENG_RESEARCH_NLM_WAIT_SEC`**
-  - Agent: build
-  - Files: `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/runtime_state.py`
-  - Principles applied: §10.4 DRY (reuse `_env_int`)
-  - Patch (deterministic):
-    ```python
-    # after the existing _env_int constant block (~line 96)
-    RESEARCH_NLM_WAIT_SEC = _env_int("AIENG_RESEARCH_NLM_WAIT_SEC", 300, ceiling=900)
-    ```
-  - Gate: import test; value-bounds test.
-
----
-
-## Phase 7 — SKILL.md + mirror regen + docs
-
-Gate (phase): `uv run ai-eng dev sync --check` clean; full
-`pytest tests/integration/test_ai_research_*.py tests/unit/skills/ai_research -q` green.
-
-- [ ] **T-7.1 — Rewrite SKILL.md**
-  - Agent: build
-  - Files: `.claude/skills/ai-research/SKILL.md`
-  - Principles applied: §10.7 Clean Code, §10.6 SDD
-  - Detail: update Process (Tier 3 launches first / harvested last; Exa in Tier 2;
-    default-deep), CLI Flags (clarify `--reuse-notebook`; NotebookLM deep is default
-    when available), Output Contract (+`## Recommended Directions`), Common Mistakes
-    (drop `server_info` line; add capability-skip note), Examples.
-  - Gate: section sanity; manual review.
-
-- [ ] **T-7.2 — Regenerate mirrors**
-  - Agent: build
-  - Files: `.codex/skills/ai-research/**`, `.gemini/skills/ai-research/**`,
-    `.github/skills/ai-research/**`, install templates under
-    `src/ai_engineering/templates/project/`
-  - Principles applied: §10.4 DRY (single source `.claude/`)
-  - Patch (deterministic):
-    ```bash
-    uv run ai-eng dev sync && uv run ai-eng dev sync --check
-    ```
-  - Gate: `dev sync --check` exit 0.
-
-- [ ] **T-7.3 — Document env var in canonical rulebook**
-  - Agent: build
-  - Files: `CLAUDE.md` (+ mirrors regenerated by T-7.2)
-  - Principles applied: §10.7 Clean Code
-  - Detail: add `AIENG_RESEARCH_NLM_WAIT_SEC` (default 300, ceiling 900) to the
-    "Runtime Layer Tunables" list with a one-line description.
-  - Gate: present in tunables section.
-
----
-
-## Phase 8 — Final verification
-
-- [ ] **T-8.1 — Full verify**
-  - Agent: verify (read-only)
-  - Files: n/a
+  - Files: `tests/unit/domain/test_surface.py:14`
   - Principles applied: §10.5 TDD, §10.7 Clean Code
-  - Detail: run full ai-research test suite + `ai-eng dev sync --check` +
-    `ai-eng spec verify --sections`. Confirm AC1–AC7 evidence.
-  - Gate: all green; no suppressions (Hard Rule 2).
+  - Patch (deterministic): replace seven-id expectation with six ids excluding `gemini-cli`; assert `get_surface("gemini-cli")` raises; assert Antigravity uses `AGENTS.md`, `.agents/`, `hook_engine != "none"` only if fixture-backed else `audit_capability == "partial"`.
+  - Gate: test fails against current registry.
 
-- [ ] **T-8.2 — OQ2 verification (deferred / manual)**
-  - Agent: verify
-  - Files: n/a
+- [x] T-1.2 — RED: update manifest schema tests to reject `gemini-cli` and accept `antigravity`
+  - Agent: build
+  - Files: `tests/unit/config/test_manifest_surface_schema.py:30`
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): remove `gemini-cli` examples; add invalid-manifest assertion for `gemini-cli` if loader exposes validation, or assert unknown surface fails in the consuming resolver.
+  - Gate: schema/config tests fail before implementation.
+
+- [x] T-1.3 — RED: update install matrix for Antigravity-only output
+  - Agent: build
+  - Files: `tests/integration/test_install_matrix.py:11`
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): remove gemini single/multi-provider cases; add Antigravity GitHub/Azure cases expecting `AGENTS.md` + `.agents`; assert `GEMINI.md`, `.gemini`, `.agent` are absent for Antigravity installs.
+  - Gate: install matrix fails before implementation.
+
+## Phase 2 — GREEN registry, manifest, installer, autodetect, and ownership
+
+Gate: Phase 1 tests green plus `pytest tests/unit/config tests/unit/domain tests/integration/test_install_matrix.py -q`.
+
+- [x] T-2.1 — Remove `gemini-cli` and promote Antigravity in the surface registry
+  - Agent: build
+  - Files: `src/ai_engineering/domain/surface.py:1`
+  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
+  - Patch (deterministic): delete `gemini-cli` registry entry; change Antigravity to `instruction_files=("AGENTS.md",)`, `tree_dir=".agents/"`, `hook_engine="native"` only if fixture-backed else a conservative non-full posture, `audit_capability="partial"`, `autodetect_marker=(".agents/",)`; update docstring count.
+  - Gate: T-1.1 green.
+
+- [x] T-2.2 — Update dogfood manifest and CLI help text
+  - Agent: build
+  - Files: `.ai-engineering/manifest.yml:28`, `src/ai_engineering/cli_commands/core.py:105`
+  - Principles applied: §10.1 KISS, §10.6 SDD
+  - Patch (deterministic): remove `gemini-cli` from enabled/default lists and prose; keep `antigravity`.
+  - Gate: manifest/config tests green.
+
+- [x] T-2.3 — Update installer template maps
+  - Agent: build
+  - Files: `src/ai_engineering/installer/templates.py:35`
+  - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture
+  - Patch (deterministic): remove `_SURFACE_FILE_MAPS["gemini-cli"]`; change Antigravity file map to `AGENTS.md` only; remove `.gemini` tree map; change Antigravity tree map from `.agent` to `.agents`.
+  - Gate: install matrix green.
+
+- [x] T-2.4 — Update autodetect and ownership/write-scope/control-plane defaults
+  - Agent: build
+  - Files: `src/ai_engineering/installer/autodetect.py:222`, `src/ai_engineering/config/framework_defaults.py:71`, `src/ai_engineering/state/capabilities.py:293`, `src/ai_engineering/state/control_plane.py:25`, `src/ai_engineering/updater/service.py:1247`
+  - Principles applied: §10.3 SOLID, §10.7 Clean Code
+  - Patch (deterministic): remove `GEMINI.md`/`.gemini` detection for current surfaces; detect `.agents/`; classify `.agents/` as mirror/framework-owned; remove `.agent/**` as current generated ownership.
+  - Gate: targeted unit tests plus grep for stale current-support references.
+
+## Phase 3 — CLI diagnostics for `agy`
+
+Gate: new `agy` probe unit tests green.
+
+- [x] T-3.1 — RED: add deterministic tests for `agy` runtime probe
+  - Agent: build
+  - Files: `tests/unit/installer/test_antigravity_cli_probe.py` or nearest existing doctor/status test
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): test missing binary returns unavailable fail-soft; fake `agy --version` returns available/version; Windows `agy.exe` lookup is considered.
+  - Gate: tests fail before probe exists.
+
+- [x] T-3.2 — GREEN: implement `agy` probe behind a small adapter
+  - Agent: build
+  - Files: `src/ai_engineering/installer/antigravity.py` or nearest diagnostics module, `src/ai_engineering/cli_commands/core.py`/doctor integration if needed
+  - Principles applied: §10.8 Hexagonal Architecture, §10.2 YAGNI
+  - Patch (deterministic): use `shutil.which("agy")`/`agy.exe` and bounded `subprocess.run([binary, "--version"], timeout=...)`; return a dataclass/dict with available/version/reason; no auth or network calls.
+  - Gate: T-3.1 green.
+
+## Phase 4 — Mirror generator and generated surface cleanup
+
+Gate: `python scripts/sync_mirrors/core.py --check` or equivalent mirror check passes after regeneration, plus mirror tests green.
+
+- [x] T-4.1 — RED: update mirror target tests for `.agents` and no Gemini current surface
+  - Agent: build
+  - Files: `tests/integration/sync_mirrors/test_new_surface_targets.py:96`, mirror inventory tests if present
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): assert Antigravity generator docs mention `.agents`; add stale `gemini-cli` current-surface guard.
+  - Gate: tests fail before generator update.
+
+- [x] T-4.2 — Update Antigravity generator constants and target module
+  - Agent: build
+  - Files: `scripts/sync_mirrors/core.py:1809`, `scripts/sync_mirrors/antigravity_target.py:1`
+  - Principles applied: §10.4 DRY, §10.7 Clean Code
+  - Patch (deterministic): route Antigravity output to `.agents/skills` and `.agents/agents`; update comments/docstrings from mirror-only/Gemini-shaped to Antigravity-native; remove `.gemini` surface generation from supported targets.
+  - Gate: mirror target tests green.
+
+- [x] T-4.3 — Regenerate/delete derived mirrors and templates
+  - Agent: build
+  - Files: `.gemini/**`, `GEMINI.md`, `src/ai_engineering/templates/project/.gemini/**`, `src/ai_engineering/templates/project/GEMINI.md`, `.agent/**`, `src/ai_engineering/templates/project/.agent/**`, `.agents/**`, `src/ai_engineering/templates/project/.agents/**`
+  - Principles applied: §10.1 KISS, §10.6 SDD
+  - Patch (deterministic): `git rm -r` retired generated `.gemini`, `GEMINI.md`, and `.agent`; run mirror sync to create `.agents`; verify no hand-edited generated drift.
+  - Gate: mirror sync check green.
+
+## Phase 5 — Validators, IDE audit, docs, and CHANGELOG
+
+Gate: validator/doc tests green; stale-reference grep only allows historical/migration references.
+
+- [x] T-5.1 — Update mirror inventory and validators
+  - Agent: build
+  - Files: `src/ai_engineering/config/mirror_inventory.py:94`, `src/ai_engineering/validator/_shared.py:194`, `src/ai_engineering/validator/categories/mirror_sync.py:59`, `src/ai_engineering/validator/categories/file_existence.py:170`, `src/ai_engineering/validator/categories/manifest_coherence.py:471`
+  - Principles applied: §10.3 SOLID, §10.7 Clean Code
+  - Patch (deterministic): remove Gemini current inventory; add Antigravity `.agents/skills` and `.agents/agents`; update root instruction parity from `GEMINI.md` to `AGENTS.md` where Google/Antigravity is concerned.
+  - Gate: validator tests green.
+
+- [x] T-5.2 — Update canonical docs and generated mirror prose
+  - Agent: build
+  - Files: `AGENTS.md`, `CLAUDE.md`, `src/ai_engineering/templates/project/CANONICAL.md`, `.claude/skills/ai-ide-audit/**`, `README.md`, `docs/**` if referenced
+  - Principles applied: §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic): remove current support claims for Gemini CLI/GEMINI.md/.gemini; describe Antigravity as `AGENTS.md` + `.agents` + `agy` diagnostics.
+  - Gate: doc grep and mirror lint green.
+
+- [x] T-5.3 — Update CHANGELOG and spec brief if needed
+  - Agent: build
+  - Files: `CHANGELOG.md`, `.ai-engineering/specs/drafts/antigravity-app-cli-support-brief.md`
   - Principles applied: §10.6 SDD
-  - Detail: confirm whether MCP `nlm_research` blocks until done or returns a job
-    handle. Requires `uvx notebooklm login` (operator). If unavailable, the build
-    assumes **blocking** (D1) — background subagent holds the call. Record outcome;
-    if it returns a handle, file a follow-up to simplify the wait model.
-  - Gate: documented finding (non-blocking for this PR if auth absent).
+  - Patch (deterministic): add Unreleased breaking-change note for `gemini-cli`, `GEMINI.md`, `.gemini`, `.agent` removal and `.agents` Antigravity migration.
+  - Gate: doc gate green.
 
----
+## Phase 6 — Final verification, quality loop, and PR delivery
 
-## Risks carried from spec
+Gate: all local verification green; pushed PR CI green.
 
-R1 fragile browser-automation backend · R2 subagent must load `notebooklm` MCP ·
-R3 notebook proliferation (default-on) · R4 async lockstep testability (injected
-clock/job_status) · R5 Exa quota (fallback) · R6 own-branch isolation (done).
+- [x] T-6.1 — Run targeted tests
+  - Agent: verify
+  - Files: `tests/unit/domain/test_surface.py`, `tests/unit/config/test_manifest_surface_schema.py`, `tests/integration/test_install_matrix.py`, `tests/integration/sync_mirrors/test_new_surface_targets.py`, validator/doctor tests touched
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): none.
+  - Gate: targeted pytest green.
 
-## Notes
+- [x] T-6.2 — Run repository gates
+  - Agent: verify
+  - Files: `pyproject.toml`, `.semgrep.yml`, `.gitleaks.toml`
+  - Principles applied: §10.6 SDD
+  - Patch (deterministic): none.
+  - Gate: `ruff format --check`, `ruff check`, `pytest` relevant/full suite as feasible, `ai-eng spec verify`, `ai-eng check`/`ai-eng verify` as available.
 
-- Hard Rule 3 (no shims): the Tier 3 tool-name swap is a hard rename — delete old
-  callables, do not alias.
-- TDD pairs: every GREEN helper task is preceded by its RED test task.
-- `safe_next_command`: **/ai-autopilot** (multi-concern, ~18 files).
+- [x] T-6.3 — Commit, push, open/update PR, and watch CI
+  - Agent: build
+  - Files: full changeset
+  - Principles applied: §10.6 SDD, §10.7 Clean Code
+  - Patch (deterministic): conventional commit `feat(surfaces): replace gemini cli with antigravity`; push branch; create PR; poll GitHub checks; remediate failures in one bounded loop until green.
+  - Gate: PR checks all green for manual merge.

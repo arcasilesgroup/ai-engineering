@@ -39,7 +39,7 @@ def test_constitution_present_at_repo_root() -> None:
     spec-131 closure (C1): the original spec-110 G-1 article-count
     assertion is retired — CONSTITUTION.md is now project-identity
     only per D-131-04. The presence contract still applies because
-    every byte-equivalent mirror (AGENTS.md, CLAUDE.md, GEMINI.md,
+    every byte-equivalent mirror (AGENTS.md, CLAUDE.md, and
     copilot-instructions.md) links back to it from §0 Bootstrap.
     """
     assert CONSTITUTION_PATH.is_file(), (

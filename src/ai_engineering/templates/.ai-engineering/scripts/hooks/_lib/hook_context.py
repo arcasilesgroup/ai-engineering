@@ -8,13 +8,13 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-# Gemini -> Claude event name normalization.
+# Antigravity -> Claude event name normalization.
 #
 # WARNING: BeforeAgent / AfterAgent are NOT symmetric with UserPromptSubmit /
-# Stop. Gemini's "agent" lifecycle is broader than a Claude "user prompt" — a
+# Stop. Antigravity's "agent" lifecycle is broader than a Claude "user prompt" — a
 # BeforeAgent may fire for non-prompt agent boots. Hooks gated to
 # UserPromptSubmit (e.g. runtime-progressive-disclosure) should add an extra
-# guard against ``ctx.engine == "gemini"`` if firing on agent-boot is unwanted.
+# guard against ``ctx.engine == "antigravity"`` if firing on agent-boot is unwanted.
 _EVENT_NAME_MAP: dict[str, str] = {
     "BeforeTool": "PreToolUse",
     "AfterTool": "PostToolUse",
@@ -55,7 +55,7 @@ def CACHE_DIR(project_root: Path) -> Path:
 
 @dataclass
 class HookContext:
-    engine: str  # claude_code, gemini, github_copilot, codex
+    engine: str  # claude_code, antigravity, github_copilot, codex
     project_root: Path
     session_id: str | None
     event_name: str  # Normalized to Claude convention
@@ -69,8 +69,8 @@ def get_hook_context() -> HookContext:
     Detection priority:
     1. AIENG_HOOK_ENGINE env var (explicitly set in hook command strings)
     2. CLAUDE_PROJECT_DIR -> claude_code
-    3. GEMINI_PROJECT_DIR -> gemini
-    4. Fallback: check CWD for .codex/ or .gemini/ markers
+    3. ANTIGRAVITY_PROJECT_DIR -> antigravity
+    4. Fallback: check CWD for .codex/ or .agents/ markers
     """
     # Read stdin
     try:
@@ -87,15 +87,15 @@ def get_hook_context() -> HookContext:
     if not engine:
         if os.environ.get("CLAUDE_PROJECT_DIR"):
             engine = "claude_code"
-        elif os.environ.get("GEMINI_PROJECT_DIR"):
-            engine = "gemini"
+        elif os.environ.get("ANTIGRAVITY_PROJECT_DIR"):
+            engine = "antigravity"
         else:
             # Infer from project markers
             cwd = Path.cwd()
             if (cwd / ".codex").is_dir():
                 engine = "codex"
-            elif (cwd / ".gemini").is_dir():
-                engine = "gemini"
+            elif (cwd / ".agents").is_dir():
+                engine = "antigravity"
             elif (cwd / ".claude").is_dir():
                 engine = "claude_code"
             else:
@@ -104,7 +104,7 @@ def get_hook_context() -> HookContext:
     # Detect project root
     project_root_str = (
         os.environ.get("CLAUDE_PROJECT_DIR")
-        or os.environ.get("GEMINI_PROJECT_DIR")
+        or os.environ.get("ANTIGRAVITY_PROJECT_DIR")
         or data.get("cwd")
         or str(Path.cwd())
     )
@@ -113,7 +113,7 @@ def get_hook_context() -> HookContext:
     # Detect session ID
     session_id = (
         os.environ.get("CLAUDE_SESSION_ID")
-        or os.environ.get("GEMINI_SESSION_ID")
+        or os.environ.get("ANTIGRAVITY_SESSION_ID")
         or data.get("session_id")
     )
 

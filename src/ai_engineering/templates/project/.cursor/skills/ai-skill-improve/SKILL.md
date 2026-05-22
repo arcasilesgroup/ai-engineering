@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "[skill-name]|all [--dry-run]"
 tags: [meta, improvement, skills, optimization, improve]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-skill-improve/SKILL.md
 edit_policy: generated-do-not-edit

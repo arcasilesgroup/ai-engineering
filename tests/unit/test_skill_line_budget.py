@@ -24,7 +24,7 @@ Phase 7 cuts they go GREEN and act as a regression guard against future drift.
 
 TDD CONSTRAINT: this file is IMMUTABLE once written -- test names, targets and
 asserts must NOT be edited to make implementation easier. Skill markdown is the
-load-bearing surface for non-Claude IDEs (Codex/Gemini do not auto-load
+load-bearing surface for non-Claude IDEs (Codex/Antigravity do not auto-load
 CLAUDE.md), so the line-budget contract guards genuine adoption friction.
 """
 

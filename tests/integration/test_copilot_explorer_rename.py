@@ -4,7 +4,7 @@ Spec-107 D-107-03 renames `.github/agents/explore.agent.md` to
 `.github/agents/ai-explore.agent.md`, updates the front-matter
 `name: ai-explore`, and ships a new chatmode alias
 `.github/chatmodes/ai-explore.chatmode.md` so Copilot users get parity
-with Claude / Codex / Gemini (`@ai-explore` and `/ai-explore`).
+with Claude / Codex / Antigravity (`@ai-explore` and `/ai-explore`).
 
 `scripts/sync_command_mirrors.py` `AGENT_METADATA["explore"]["name"]`
 must change from `"Explorer"` to `"ai-explore"` so every IDE mirror
@@ -51,7 +51,7 @@ def test_renamed_agent_front_matter_name() -> None:
     assert ("name: ai-explore" in text) or ('name: "ai-explore"' in text), (
         f"front-matter `name:` not set to canonical `ai-explore` in {renamed}. "
         "Spec-107 D-107-03 requires the slug to be ai-explore for cross-IDE "
-        "parity (Claude / Codex / Gemini already use ai-explore)."
+        "parity (Claude / Codex / Antigravity already use ai-explore)."
     )
 
 

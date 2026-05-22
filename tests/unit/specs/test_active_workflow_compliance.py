@@ -49,7 +49,7 @@ def test_canonical_md_carries_four_verb_chain() -> None:
     spec-131 closure (C1) replaces the legacy ``test_constitution_has_article_xiii``:
     the canonical chain prose moved out of CONSTITUTION.md when the
     AI-behaviour articles migrated to CANONICAL.md §11. The byte-equivalent
-    mirrors (AGENTS.md / CLAUDE.md / GEMINI.md / copilot-instructions.md)
+    mirrors (AGENTS.md / CLAUDE.md / copilot-instructions.md)
     are validated separately by ``test_canonical_docs_consistency``.
     """
     assert CANONICAL_MD.is_file(), (

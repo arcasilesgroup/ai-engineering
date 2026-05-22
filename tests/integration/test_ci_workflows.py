@@ -93,7 +93,6 @@ def test_test_hooks_matrix_workflow_present() -> None:
         "tests/unit/_lib",
         "tests/unit/hooks",
         "tests/integration/test_codex_hooks.py",
-        "tests/integration/test_gemini_hooks.py",
         "tests/integration/test_copilot_",
     ):
         assert path in pytest_invocations, (

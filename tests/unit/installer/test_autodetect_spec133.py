@@ -1,7 +1,7 @@
 """Tests for spec-133 autodetect additions (D-133-06, D-133-12).
 
 - New Surfaces: opencode, cursor, antigravity detected from .opencode/,
-  .cursor/, .agent/ root markers.
+  .cursor/, .agents/ root markers.
 - New stacks: react-native (package.json deps), flutter (pubspec.yaml
   flutter: block).
 """
@@ -27,24 +27,22 @@ def test_detect_cursor_surface(tmp_path: Path) -> None:
 
 
 def test_detect_antigravity_surface(tmp_path: Path) -> None:
-    (tmp_path / ".agent").mkdir()
+    (tmp_path / ".agents").mkdir()
     assert "antigravity" in detect_surfaces(tmp_path)
 
 
-def test_detect_all_seven_surfaces(tmp_path: Path) -> None:
+def test_detect_all_six_surfaces(tmp_path: Path) -> None:
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".codex").mkdir()
-    (tmp_path / ".gemini").mkdir()
     (tmp_path / ".github").mkdir()
     (tmp_path / ".github" / "copilot-instructions.md").write_text("")
     (tmp_path / ".opencode").mkdir()
     (tmp_path / ".cursor").mkdir()
-    (tmp_path / ".agent").mkdir()
+    (tmp_path / ".agents").mkdir()
     detected = detect_surfaces(tmp_path)
     assert set(detected) == {
         "claude-code",
         "codex",
-        "gemini-cli",
         "github-copilot",
         "opencode",
         "cursor",

@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "[text]|--skill [name]"
 tags: [meta, optimization, prompts]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-prompt-tune/SKILL.md
 edit_policy: generated-do-not-edit
@@ -105,12 +105,12 @@ For skills that enforce process (guard, verify, commit):
 
 ### Optimizing a skill description
 
-1. **Read skill** -- load `.gemini/skills/ai-{name}/SKILL.md`.
+1. **Read skill** -- load `.cursor/skills/ai-{name}/SKILL.md`.
 2. **Extract current description** -- from frontmatter.
 3. **CSO-optimize** -- rewrite using triggering-condition pattern.
 4. **Present** -- show before/after for approval.
 5. **Apply** -- update the frontmatter if approved.
-6. **Sync mirrors** -- run `python scripts/sync_command_mirrors.py` to propagate the updated description to `.github/`, `.codex/`, and `.gemini/` mirrors. Verify no tests break.
+6. **Sync mirrors** -- run `python scripts/sync_command_mirrors.py` to propagate the updated description to `.github/`, `.codex/`, and `.agents/` mirrors. Verify no tests break.
 
 ## Quick Reference
 
@@ -148,7 +148,7 @@ User: "optimize the description for /ai-governance"
 /ai-prompt-tune --skill ai-governance
 ```
 
-Reads `.gemini/skills/ai-governance/SKILL.md`, rewrites the description with explicit triggers + negative scoping, presents before/after, applies on approval, runs `sync_command_mirrors.py`.
+Reads `.cursor/skills/ai-governance/SKILL.md`, rewrites the description with explicit triggers + negative scoping, presents before/after, applies on approval, runs `sync_command_mirrors.py`.
 
 ## Integration
 

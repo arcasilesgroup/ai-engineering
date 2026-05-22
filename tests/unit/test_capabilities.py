@@ -36,7 +36,7 @@ def _manifest_config() -> ManifestConfig:
         ),
         agents=AgentsConfig(total=3, names=["plan", "build", "explore"]),
         surfaces=SurfacesConfig(
-            enabled=["claude-code", "github-copilot", "gemini-cli", "codex"],
+            enabled=["claude-code", "github-copilot", "antigravity", "codex"],
         ),
     )
 

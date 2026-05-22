@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "[mode] [topic]"
 tags: [gtm, marketing, content, social, investor, go-to-market]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-marketing/SKILL.md
 edit_policy: generated-do-not-edit

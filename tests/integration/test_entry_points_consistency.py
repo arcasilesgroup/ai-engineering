@@ -1,11 +1,11 @@
 """Entry-point overlay consistency — recalibrated per spec-131 D-131-04.
 
-spec-110 originally asserted that IDE overlays (CLAUDE.md / GEMINI.md /
+spec-110 originally asserted that IDE overlays (CLAUDE.md /
 copilot-instructions.md) (a) referenced AGENTS.md via a relative
 markdown link and (b) did NOT restate CONSTITUTION numbered rules
 verbatim. Both contracts are obsolete after spec-131:
 
-* D-131-04 made AGENTS.md / CLAUDE.md / GEMINI.md /
+* D-131-04 made AGENTS.md / CLAUDE.md /
   copilot-instructions.md **byte-equivalent mirrors** of
   ``templates/project/CANONICAL.md``. The overlays do not LINK to
   AGENTS.md; they CARRY the same canonical payload.
@@ -34,7 +34,6 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # Overlays whose entry points must funnel into AGENTS.md.
 OVERLAY_PATHS: tuple[Path, ...] = (
     REPO_ROOT / "CLAUDE.md",
-    REPO_ROOT / "GEMINI.md",
     REPO_ROOT / ".github" / "copilot-instructions.md",
 )
 

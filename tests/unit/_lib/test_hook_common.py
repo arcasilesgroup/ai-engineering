@@ -90,7 +90,7 @@ def test_emit_event_records_duration_ms(hc: Any, project_root: Path) -> None:
     assert detail.get("hook_kind") == "pre-commit"
     assert detail.get("outcome") == "success"
     assert heartbeat.get("kind") == "ide_hook"
-    assert heartbeat.get("engine") in {"claude_code", "codex", "gemini", "copilot"}
+    assert heartbeat.get("engine") in {"claude_code", "codex", "antigravity", "copilot"}
 
 
 # ---------------------------------------------------------------------------

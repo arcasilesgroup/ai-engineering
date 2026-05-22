@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-05-22T00:44:21Z",
-  "hookCount": 74,
+  "generatedAt": "2026-05-22T08:48:19Z",
+  "hookCount": 73,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "ef4a571b410d6e7a0392bab1864c7cb382785ec6b4a0f9ff8a63ebc92c2bf1a6",
@@ -8,8 +8,8 @@
     ".ai-engineering/scripts/hooks/_lib/copilot-common.sh": "0249a872a2760f35fb0ee5f734dadeb75d39a62e4b4d65e53583ca96e9033bea",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.ps1": "576913bb87dc2b8767d432404278c42d4115b2894b4b8f52adcc13eef3a08624",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.sh": "8a779c3458dc73835938ee2a42033a0770ebd5bbbd2178a6b563f94c60fed262",
-    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "40f00a6ca3a16945622c8993b50f3b24f0959ac0be58cec0b1e71e73b6820b14",
-    ".ai-engineering/scripts/hooks/_lib/hook_context.py": "4449f1c1fa7241094c6f181e3261bee9f6c124d602ffb6672323f1b17a8a52f1",
+    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "5cf985a5db093d15356ee1ec28466723f51b0aaae1d5cd927afbdbd6cae2abe4",
+    ".ai-engineering/scripts/hooks/_lib/hook_context.py": "fff7fbd6a26e681771b21d30c2bfc35a05e1e59a5ef7cf019c02385608177735",
     ".ai-engineering/scripts/hooks/_lib/hook_http.py": "1f9a541a3d38bc3be967de875105aed06a9768476eeaf75a74715f172fc4d5e1",
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",
     ".ai-engineering/scripts/hooks/_lib/instincts.py": "077cffa6e4050d4c22c1549d7e00c7e7688e54f7cc8bfb29bc6ce1f51c1069b4",
@@ -56,7 +56,6 @@
     ".ai-engineering/scripts/hooks/copilot-strategic-compact.ps1": "2ab31e5b2847cf09d29bbb1e270abb5909a498462717c4cc2a8576dad62a49b1",
     ".ai-engineering/scripts/hooks/copilot-strategic-compact.sh": "387235c2057cb4c159005b4d33503cf4ac016e5ea2ff5a8f0f1feede444dca44",
     ".ai-engineering/scripts/hooks/cursor-hook-bridge.py": "9ae6e342c63500d0af5acd61364cd2144a1cd83aa6c7e6b74fa0dbb5f160020b",
-    ".ai-engineering/scripts/hooks/gemini-hook-bridge.py": "a45f7eb3836b3d8d60dbeeb10a57e854999a69d30878431c2d45eb69736f1308",
     ".ai-engineering/scripts/hooks/instinct-extract.py": "9f6b6829f85a8b16154b47b529212b0fae55f8e352ae8a306f184c00d62b78e2",
     ".ai-engineering/scripts/hooks/instinct-observe.py": "084d54ee9ae9f35e2122380e1c1e15619e8faede8fed6731bf7e2e37049eb53a",
     ".ai-engineering/scripts/hooks/mcp-health.py": "ddca871cb12ca26e09735b408895627b184129d5a53cc09be25825bb160c738f",
@@ -69,7 +68,7 @@
     ".ai-engineering/scripts/hooks/runtime-guard.py": "918efa4847df819b3b91e2b0f7a56828a95ee15ad4d03452f54970dfb784a3ff",
     ".ai-engineering/scripts/hooks/runtime-notification.py": "82d0b13d64598f7cd475d874ac69b7698a3195c635bff14f2f880765739ceed6",
     ".ai-engineering/scripts/hooks/runtime-progressive-disclosure.py": "a7b5108602ef961317a2b1f9e6ec886c360075721295e8c9b2c3ed85ad860edd",
-    ".ai-engineering/scripts/hooks/runtime-rotate-throttled.py": "ee07aba81cfba912baa48cad575b7639adaccf39c647e30e951f45be21b51fce",
+    ".ai-engineering/scripts/hooks/runtime-rotate-throttled.py": "0a9173fbccd68754c43d067d711c089f45588aa60676fd633bc7b7acbe0e3a29",
     ".ai-engineering/scripts/hooks/runtime-session-end.py": "52a8aa184a9bad8e3f629f32058ed6a7b328d741daabf99ddffdef37fb0300e2",
     ".ai-engineering/scripts/hooks/runtime-session-start.py": "2f8d497f55a031f2df7e6a36c30fcf95a129c9dab127cc447eab83d2fbe3b90f",
     ".ai-engineering/scripts/hooks/runtime-stop.py": "9b5f63269b89746646647c49f24207a3cc1be31b2fea5a26d0c6d2ce019bbb5a",
@@ -85,6 +84,6 @@
   ],
   "trustedScripts": {
     ".ai-engineering/scripts/hooks/no-verify-guard.py": "38cf04d30f394d74e95904a9a7b532fa1e02a1038869ed98c5e1274264d3c00f",
-    ".ai-engineering/scripts/session_bootstrap.py": "30ab8300c8b73ca40b6bea3223cb4995e9f64f36cada67283dd1b3d811f8eb63"
+    ".ai-engineering/scripts/session_bootstrap.py": "90f4a27ca9c569d4e0588ea3a6fb8fea31a19ac2d79cf11e823243efc9e934f8"
   }
 }

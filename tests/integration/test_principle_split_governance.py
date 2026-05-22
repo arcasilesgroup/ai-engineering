@@ -25,7 +25,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 # CANONICAL.md §10.5 / §10.6 / §10.7 first-class engineering
 # principles. The canonical source lives in
 # ``templates/project/CANONICAL.md`` and its byte-equivalent mirrors
-# at the repo root (AGENTS.md / CLAUDE.md / GEMINI.md /
+# at the repo root (AGENTS.md / CLAUDE.md /
 # copilot-instructions.md). Any mirror suffices because the bytes
 # match — we check the canonical source plus AGENTS.md so a missing
 # mirror also surfaces here.

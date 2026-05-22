@@ -1,6 +1,6 @@
 # Platform Support Audit — Report Template
 
-Determine the TARGET_PLATFORM from `$ARGUMENTS`. If it is a single platform (`claude-code`, `github-copilot`, `gemini`, or `codex`), the Capability Matrix has **one data column** for that platform only. If it is `all`, use four columns. Never add columns for platforms outside the scope.
+Determine the TARGET_PLATFORM from `$ARGUMENTS`. If it is a single platform (`claude-code`, `github-copilot`, `codex`, or `antigravity`), the Capability Matrix has **one data column** for that platform only. If it is `all`, use four columns. Never add columns for platforms outside the scope.
 
 ```
 # Platform Support Audit — [TARGET_PLATFORM] — [DATE]

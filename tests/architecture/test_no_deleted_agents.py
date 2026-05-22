@@ -31,7 +31,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 _SURFACE_ROOTS: tuple[Path, ...] = (
     _REPO_ROOT / ".claude",
     _REPO_ROOT / ".codex",
-    _REPO_ROOT / ".gemini",
+    _REPO_ROOT / ".agents",
     _REPO_ROOT / ".github",
     _REPO_ROOT / ".opencode",
     _REPO_ROOT / ".cursor",

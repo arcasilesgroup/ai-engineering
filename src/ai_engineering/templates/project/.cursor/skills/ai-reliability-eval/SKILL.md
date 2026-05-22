@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "define|check|report|regression|--skill-set [feature]"
 tags: [quality, evals, improvement]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-reliability-eval/SKILL.md
 edit_policy: generated-do-not-edit
@@ -27,7 +27,7 @@ Eval-Driven Development (EDD) treats evals as the unit tests of AI development. 
 - `check`: running current evals and reporting status mid-implementation
 - `report`: generating full eval report after implementation
 - `regression`: ensuring changes to prompts, agents, or models don't break existing capabilities
-- `--skill-set`: skill-set mode — runs the optimizer over each skill's eval corpus under `.ai-engineering/evals/<skill>.jsonl` and gates pass@1 vs `.ai-engineering/evals/baseline.json`. Combine with `--regression` to fail on >5 pp pass@1 drop (sub-007 M6, D-127-07). Wired into `.github/workflows/skill-evals.yml` on PRs touching `.gemini/skills/**`.
+- `--skill-set`: skill-set mode — runs the optimizer over each skill's eval corpus under `.ai-engineering/evals/<skill>.jsonl` and gates pass@1 vs `.ai-engineering/evals/baseline.json`. Combine with `--regression` to fail on >5 pp pass@1 drop (sub-007 M6, D-127-07). Wired into `.github/workflows/skill-evals.yml` on PRs touching `.cursor/skills/**`.
 
 ## Process
 

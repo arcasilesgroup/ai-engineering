@@ -1,6 +1,6 @@
 """apply_effort_model_tier migration script — spec-131 S3 (sub-003 T-3.5 RED).
 
-The script walks every IDE mirror (.claude / .codex / .gemini / .github)
+The script walks every IDE mirror (.claude / .codex / .agents / .github)
 and edits each SKILL.md frontmatter in place:
 
 * Replace legacy ``effort: medium|high|max`` with the policy-mapped
@@ -83,7 +83,7 @@ def _build_tree(tmp_path: Path) -> tuple[Path, Path]:
     ``ai-analyze-permissions`` to simulate the live gap.
     """
     repo_root = tmp_path / "repo"
-    for mirror in [".claude", ".codex", ".gemini", ".github"]:
+    for mirror in [".claude", ".codex", ".agents", ".github"]:
         for skill in ["ai-demo", "ai-analyze-permissions"]:
             if mirror == ".github" and skill == "ai-analyze-permissions":
                 continue

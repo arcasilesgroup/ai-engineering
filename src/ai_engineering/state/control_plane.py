@@ -22,7 +22,6 @@ _CONSTITUTIONAL_ALIASES: tuple[str, ...] = ()
 _DEFAULT_ROOT_ENTRY_POINT_PATHS: tuple[str, ...] = (
     "CLAUDE.md",
     "AGENTS.md",
-    "GEMINI.md",
     ".github/copilot-instructions.md",
 )
 
@@ -122,7 +121,7 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
     (".claude/settings.json", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".claude/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".codex/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
-    (".gemini/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".github/CODEOWNERS", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".github/dependabot.yml", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (

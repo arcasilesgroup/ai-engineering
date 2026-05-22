@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 tags: [documentation, architecture, governance]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-docs/SKILL.md
 edit_policy: generated-do-not-edit
@@ -100,7 +100,7 @@ Called by: `/ai-pr` (step 7, parallel subagent dispatch). Calls: `handlers/chang
 
 ## References
 
-- `.gemini/skills/ai-pr/SKILL.md` -- PR workflow that dispatches documentation subagents
-- `.gemini/skills/ai-prose/SKILL.md` -- documentation writing patterns
+- `.cursor/skills/ai-pr/SKILL.md` -- PR workflow that dispatches documentation subagents
+- `.cursor/skills/ai-prose/SKILL.md` -- documentation writing patterns
 - `.ai-engineering/manifest.yml` -- documentation flags and portal config
   $ARGUMENTS

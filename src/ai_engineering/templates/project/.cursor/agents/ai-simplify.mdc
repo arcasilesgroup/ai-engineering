@@ -2,7 +2,7 @@
 name: ai-simplify
 description: Code simplification and complexity reduction. Guard clauses, method extraction, nesting flattening, dead code removal. Behavior preserved.
 model: sonnet
-mirror_family: gemini-agents
+mirror_family: cursor-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-simplify.md
 edit_policy: generated-do-not-edit
@@ -90,8 +90,8 @@ If any answer is unfavorable, revert and move to the next target.
 
 ## Referenced Skills
 
-- `.gemini/skills/ai-code/SKILL.md` -- change-minimization and code hygiene patterns
-- `.gemini/skills/ai-test/SKILL.md` -- regression-safety checks while simplifying
+- `.cursor/skills/ai-code/SKILL.md` -- change-minimization and code hygiene patterns
+- `.cursor/skills/ai-test/SKILL.md` -- regression-safety checks while simplifying
 
 ## Referenced Standards
 

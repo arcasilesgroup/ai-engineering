@@ -1,6 +1,6 @@
 ---
 name: ai-code
-description: "Writes production code that satisfies stack-context standards on the first pass: interface-first design, backward-compatibility checks, lightweight self-review. Trigger for 'implement this', 'write the code for', 'add X to Y', 'build this function', 'make this work'. Not for tests; use /ai-test instead. Not for debugging; use /ai-debug instead. Not for refactoring; use /ai-simplify instead."
+description: "Writes production code that satisfies stack-context standards on the first pass: interface-first design, backward-compatibility checks, lightweight self-review. Trigger for 'implement this', 'write the code for', 'add X to Y', 'build this function', 'make this work'. Not for tests; use /ai-test instead. Not for debugging; use /ai-debug instead. Not for refactoring; use /ai-simplify instead. Not for executing an approved plan end-to-end; use /ai-build (the gateway)."
 effort: mid
 argument-hint: "[task description or file:target]"
 model_tier: sonnet
@@ -36,7 +36,7 @@ Before writing any code:
 1. **Restate the task** in one sentence -- confirm understanding
 2. **Identify target files** -- existing files to modify or new files to create
 3. **Search for existing patterns** -- grep for similar implementations in the codebase to match conventions
-4. **Check state.db.decisions** -- read `.ai-engineering/state/state.db.decisions` for relevant architectural decisions
+4. **Check decision-store.json** -- read `.ai-engineering/state/decision-store.json` for relevant architectural decisions
 
 ### Step 2: File Placement Protocol
 

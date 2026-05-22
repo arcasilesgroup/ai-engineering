@@ -10,7 +10,7 @@ T-5.1 via ``wc -l .claude/skills/ai-*/SKILL.md`` and recorded as
 TDD CONSTRAINT: this file is IMMUTABLE once Phase 5 T-5.1 records the
 baseline -- BASELINE_LINES, the cut target, and the assertion must NOT be
 edited downward to make implementation easier. Skill markdown is the
-load-bearing surface for non-Claude IDEs (Codex/Gemini do not auto-load
+load-bearing surface for non-Claude IDEs (Codex/Antigravity do not auto-load
 CLAUDE.md), so the line-budget contract guards genuine adoption friction.
 """
 
@@ -52,8 +52,7 @@ SKILLS_ADDED_POST_BASELINE: tuple[str, ...] = (
 # audit evidence that the line count grew for legitimate functional reasons.
 FUNCTIONAL_ADDITIONS_POST_BASELINE: dict[str, tuple[str, int]] = {
     # spec-107 D-107-04 added Checks 6 (agent naming consistency cross-IDE),
-    # 7 (GEMINI.md skill count freshness), 8 (generic instruction-file
-    # count scan) to /ai-platform-audit. These are new functional checks,
+    # 8 (generic instruction-file count scan) to /ai-platform-audit. These are new
     # not restatement. ~60 lines of new content.
     "ai-platform-audit": ("spec-107 D-107-04", 65),
     # spec-110 T-3.10 added the Policy Engine Integration section to
