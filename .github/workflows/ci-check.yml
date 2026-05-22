@@ -1,5 +1,10 @@
 name: CI Check
 
+# spec-152 (W5): step-security/harden-runner and ossf/scorecard-action require
+# the repository Actions allowlist to permit `step-security/*` and `ossf/*`
+# (Settings → Actions → General → Allowed actions). Without those patterns the
+# whole workflow startup-fails before any job runs.
+
 on:
   push:
     branches: [main, "rewrite/**"]
