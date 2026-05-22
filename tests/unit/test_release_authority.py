@@ -8,10 +8,14 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+# spec-152 W2.T13 hard-deleted ``.github/workflows/ci-build.yml``. The CI
+# build now lives in ``ci-check.yml`` (the ``build-check`` job, ``uv build``
+# only). Surfaces retargeted to ``ci-check.yml`` so the single-release-
+# authority guarantee still covers a CI workflow, not a vanished file.
 ACTIVE_RELEASE_SURFACES = (
     Path("pyproject.toml"),
     Path("uv.lock"),
-    Path(".github/workflows/ci-build.yml"),
+    Path(".github/workflows/ci-check.yml"),
     Path(".github/workflows/release.yml"),
     Path(".ai-engineering/reference/cli-reference.md"),
     Path("src/ai_engineering/templates/.ai-engineering/reference/cli-reference.md"),
@@ -24,10 +28,15 @@ SEMANTIC_RELEASE_PATTERNS = (
     re.compile(r"\[tool\.semantic_release"),
 )
 
+# Writer signals that denote a CI workflow mutating release/version state and
+# pushing it back. ``refs/heads/main`` (a read-only ``if: github.ref ==`` branch
+# guard, used by the benign Snyk-monitor step in ci-check.yml) is intentionally
+# excluded — it is a run condition, not a commit-back writer. The remaining
+# patterns are the spec-100 commit-back writer fingerprint that the deleted
+# ci-build.yml carried; the surviving build job must never reintroduce them.
 CI_COMMIT_BACK_PATTERNS = (
     re.compile(r"Commit version bump back"),
     re.compile(r"chore\(release\): bump version"),
-    re.compile(r"refs/heads/main"),
     re.compile(r"\bforce=true\b"),
     re.compile(r"src/ai_engineering/version/registry\.json"),
 )
@@ -71,12 +80,19 @@ def test_active_release_surfaces_do_not_reference_semantic_release() -> None:
 
 
 def test_ci_build_workflow_does_not_commit_release_state_back_to_main() -> None:
-    """CI package builds must not mutate version state or write release commits."""
+    """CI package builds must not mutate version state or write release commits.
+
+    spec-152 W2.T13 deleted ``ci-build.yml``; the CI build moved to the
+    ``build-check`` job in ``ci-check.yml`` (``uv build`` only, under a
+    top-level ``permissions: contents: read``). The guarantee is unchanged:
+    the surviving CI build path must not carry the spec-100 commit-back
+    writer fingerprint.
+    """
     findings = _find_matches(
-        (Path(".github/workflows/ci-build.yml"),),
+        (Path(".github/workflows/ci-check.yml"),),
         CI_COMMIT_BACK_PATTERNS,
     )
 
-    assert findings == [], "ci-build release commit-back writer found:\n" + "\n".join(
+    assert findings == [], "CI build release commit-back writer found:\n" + "\n".join(
         finding.render() for finding in findings
     )

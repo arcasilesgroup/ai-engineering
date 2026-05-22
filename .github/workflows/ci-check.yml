@@ -1,20 +1,35 @@
 name: CI Check
 
+# spec-152 (W5): step-security/harden-runner and ossf/scorecard-action require
+# the repository Actions allowlist to permit `step-security/*` and `ossf/*`
+# (Settings → Actions → General → Allowed actions). Without those patterns the
+# whole workflow startup-fails before any job runs.
+
 on:
   push:
     branches: [main, "rewrite/**"]
+    # spec-152 T-34 (D-152-22): 'docs/**' is intentionally NOT ignored. A
+    # docs-only change still runs the lightweight `docs-gate` floor (content
+    # integrity + secret scan + workflow sanity) so it cannot fully bypass CI
+    # while the required `CI Result` check reports success by default. The
+    # heavy test matrix stays gated to `code == true`. Pure prose extensions
+    # (.mdx/.rst/.txt) remain ignored — they touch no governed surface.
     paths-ignore:
       - '**.mdx'
       - '**.rst'
       - '**.txt'
-      - 'docs/**'
   pull_request:
     branches: [main]
+    # spec-152 T-34 (D-152-22): 'docs/**' is intentionally NOT ignored. A
+    # docs-only change still runs the lightweight `docs-gate` floor (content
+    # integrity + secret scan + workflow sanity) so it cannot fully bypass CI
+    # while the required `CI Result` check reports success by default. The
+    # heavy test matrix stays gated to `code == true`. Pure prose extensions
+    # (.mdx/.rst/.txt) remain ignored — they touch no governed surface.
     paths-ignore:
       - '**.mdx'
       - '**.rst'
       - '**.txt'
-      - 'docs/**'
 
 permissions:
   contents: read
@@ -34,6 +49,10 @@ jobs:
       test-config: ${{ steps.filter.outputs.test-config }}
       has-snyk-token: ${{ steps.tokens.outputs.has-snyk-token }}
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -76,6 +95,60 @@ jobs:
               - '.semgrep.yml'
               - '.gitleaks.toml'
 
+  docs-gate:
+    name: Docs Floor (content integrity + secret scan)
+    # spec-152 T-34 (D-152-22): the lightweight floor that runs when docs
+    # change so a docs-only change is no longer fully CI-bypassed (it used to
+    # be skipped via `paths-ignore: docs/**`, and `CI Result` then defaulted to
+    # success). Runs the CHEAP, docs-relevant checks only — content integrity,
+    # the docs link/anchor + anonymous-content suite, a secret scan, and the
+    # workflow policy check — NOT the heavy test matrix (that stays
+    # `code == 'true'`). Runs whenever docs OR code changed; on a code PR the
+    # full gates run alongside it.
+    needs: [change-scope]
+    if: needs.change-scope.outputs.docs == 'true' || needs.change-scope.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-env
+      - name: Install gitleaks
+        # Pinned release + sha256 verify (mirrors the `security` job, D-152-12).
+        # Checksum is the linux_x64 line from gitleaks_8.30.0_checksums.txt.
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+          GITLEAKS_SHA256: "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e"
+        run: |
+          scripts/ci/install_tool.sh \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            "${GITLEAKS_SHA256}" \
+            /usr/local/bin \
+            gitleaks
+      - name: Secret scan (docs floor)
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ] && [ -n "${{ github.event.pull_request.head.sha }}" ]; then
+            gitleaks detect \
+              --source . \
+              --config .gitleaks.toml \
+              --no-banner \
+              --redact \
+              --log-opts="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          else
+            gitleaks detect --source . --config .gitleaks.toml --no-banner --redact
+          fi
+      - name: Content integrity (links, anchors, anonymous content)
+        run: uv run pytest tests/docs -q
+      - name: Governance content checks
+        run: uv run ai-eng check
+      - name: Workflow policy sanity
+        run: uv run python scripts/check_workflow_policy.py
+
   lint:
     name: Lint & Format
     needs: [change-scope]
@@ -83,16 +156,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ai-engineering/cache/gate/
-          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          key: gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.sha }}
           restore-keys: |
-            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
-            gate-cache-${{ runner.os }}-
+            gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
       - name: Ruff check
         run: uv run ruff check src/ tests/
       - name: Ruff format check
@@ -105,6 +181,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Check code duplication
@@ -117,6 +197,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: open-policy-agent/setup-opa@b2b258e089860efaadaaf71bf6e3aecb4a3eeff1 # v2.4.0
         with:
@@ -135,6 +219,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Check risk acceptances
@@ -147,6 +235,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Scan for suppression markers
@@ -159,16 +251,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Cache spec-104 gate-cache
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ai-engineering/cache/gate/
-          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          key: gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.sha }}
           restore-keys: |
-            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
-            gate-cache-${{ runner.os }}-
+            gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
       - name: ty check
         run: uv run ty check --exclude 'src/ai_engineering/templates/**' src/
 
@@ -189,6 +284,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.12"]
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -197,10 +296,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ai-engineering/cache/gate/
-          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          key: gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.sha }}
           restore-keys: |
-            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
-            gate-cache-${{ runner.os }}-
+            gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
       - name: Run unit tests
         # spec-104 platform/timing flakes (deselected, not ignored — keeps
         # the rest of each module running):
@@ -275,6 +373,10 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
         python-version: ["3.12"]
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -283,10 +385,9 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ai-engineering/cache/gate/
-          key: gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.event.pull_request.base.sha || github.sha }}
+          key: gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-${{ github.sha }}
           restore-keys: |
-            gate-cache-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
-            gate-cache-${{ runner.os }}-
+            gate-cache-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-${{ hashFiles('pyproject.toml', '.ruff.toml', '.gitleaks.toml') }}-
       - name: Configure git defaults
         run: |
           git config --global init.defaultBranch main
@@ -317,6 +418,10 @@ jobs:
       run:
         shell: bash
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -349,6 +454,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Run docs tests
@@ -361,6 +470,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -415,6 +528,10 @@ jobs:
           - { os: windows-latest, python-version: "3.12" }
           - { os: macos-latest, python-version: "3.12" }
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
         with:
@@ -457,14 +574,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install actionlint
+        # spec-152 T-22 (D-152-12): pinned release + sha256 verify, replacing the
+        # mutable `main`-branch curl|bash bootstrap. Checksum is the linux_amd64
+        # line from the official actionlint_1.7.12_checksums.txt.
+        env:
+          ACTIONLINT_VERSION: "1.7.12"
+          ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
         run: |
-          bash <(curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
-          pwd >> "$GITHUB_PATH"
+          scripts/ci/install_tool.sh \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" \
+            "${ACTIONLINT_SHA256}" \
+            /usr/local/bin \
+            actionlint
       - name: Run actionlint
-        run: find .github/workflows -name '*.yml' -exec ./actionlint {} +
+        run: find .github/workflows -name '*.yml' -exec actionlint {} +
       - name: Workflow policy checks
         run: uv run python scripts/check_workflow_policy.py
       - name: Mirror sync integrity
@@ -476,6 +606,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -508,10 +642,16 @@ jobs:
     timeout-minutes: 15
     if: needs.change-scope.outputs.has-snyk-token == 'true'
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install Snyk CLI
-        run: npm install -g snyk --ignore-scripts
+        # spec-152 T-22 (D-152-12): pin the Snyk CLI version (current stable from
+        # `npm view snyk version`). `--ignore-scripts` retained.
+        run: npm install -g snyk@1.1305.0 --ignore-scripts
       - name: Export pinned requirements for Snyk
         run: |
           uv pip freeze > requirements.txt
@@ -539,13 +679,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
       - name: Install gitleaks
+        # spec-152 T-22 (D-152-12): add sha256 verification before extracting.
+        # Checksum is the linux_x64 line from the official
+        # gitleaks_8.30.0_checksums.txt (defence-in-depth on the pinned tarball).
         env:
           GITLEAKS_VERSION: "8.30.0"
+          GITLEAKS_SHA256: "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e"
         run: |
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar xz -C /usr/local/bin gitleaks
+          scripts/ci/install_tool.sh \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            "${GITLEAKS_SHA256}" \
+            /usr/local/bin \
+            gitleaks
       - name: gitleaks
         # Article XII §4: scope to the PR's commits, not full repo history.
         # Historical fakes in deleted docs (pre-spec-126) would otherwise
@@ -572,9 +724,9 @@ jobs:
         uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4.2.0
         with:
           path: ~/.semgrep
-          key: semgrep-packs-${{ runner.os }}-1.163.0
+          key: semgrep-packs-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-1.163.0
           restore-keys: |
-            semgrep-packs-${{ runner.os }}-
+            semgrep-packs-${{ github.event_name == 'pull_request' && 'pr' || 'main' }}-${{ runner.os }}-
       - name: Install semgrep
         # spec-141 M2.T2 (D-141-05): pinned CLI version is the
         # deterministic reproducibility anchor. Pack aliases (p/python,
@@ -690,6 +842,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
@@ -760,6 +916,7 @@ jobs:
         lint,
         duplication,
         risk-acceptance,
+        no-suppression,
         typecheck,
         test-unit,
         test-integration,
@@ -774,6 +931,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
         with:
@@ -788,10 +949,12 @@ jobs:
     needs:
       [
         change-scope,
+        docs-gate,
         lint,
         duplication,
         opa-policies,
         risk-acceptance,
+        no-suppression,
         typecheck,
         test-unit,
         test-integration,
@@ -808,11 +971,16 @@ jobs:
       ]
     runs-on: ubuntu-latest
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - name: Evaluate CI results
         run: |
           set -euo pipefail
 
           CODE="${{ needs.change-scope.outputs.code }}"
+          DOCS="${{ needs.change-scope.outputs.docs }}"
           IS_PR="${{ github.event_name == 'pull_request' }}"
           IS_DEPENDABOT="${{ github.actor == 'dependabot[bot]' }}"
 
@@ -829,6 +997,7 @@ jobs:
             "duplication:${{ needs.duplication.result }}"
             "opa-policies:${{ needs.opa-policies.result }}"
             "risk-acceptance:${{ needs.risk-acceptance.result }}"
+            "no-suppression:${{ needs.no-suppression.result }}"
             "typecheck:${{ needs.typecheck.result }}"
             "test-unit:${{ needs.test-unit.result }}"
             "test-integration:${{ needs.test-integration.result }}"
@@ -839,15 +1008,35 @@ jobs:
             "sonarcloud:${{ needs.sonarcloud.result }}"
           )
 
+          # -- docs-conditional: MUST succeed when docs OR code changed --
+          # spec-152 T-34 (D-152-22). The lightweight docs CI floor. It runs
+          # whenever docs or code change, so a docs-only change is still
+          # inspected (content integrity + secret scan + workflow policy)
+          # instead of fully bypassing CI. A skip is tolerated only when
+          # neither docs nor code changed (the workflow would not normally
+          # trigger then). A failure always fails the aggregate.
+          docs_conditional=(
+            "docs-gate:${{ needs.docs-gate.result }}"
+          )
+
           # -- pr-only: MUST succeed on non-dependabot PRs, skip accepted otherwise --
           pr_only=(
             "verify-gate-trailers:${{ needs.verify-gate-trailers.result }}"
           )
 
-          # -- optional: may skip or fail — informational only --
-          optional=(
+          # -- token-conditional: required when the gating token is provisioned --
+          # spec-152 T-28 (D-152-07/08). snyk-security runs only when
+          # `has-snyk-token == 'true'`. A *failure* always fails the aggregate.
+          # A *skip* is a FAIL when the token is present (the job must run), but
+          # is TOLERATED when the token is absent — including on a fork PR where
+          # GitHub withholds repo secrets, so `has-snyk-token` resolves to
+          # 'false'. This keeps CI green with no token and becomes enforcing the
+          # moment the operator provisions SNYK_TOKEN.
+          token_conditional=(
             "snyk-security:${{ needs.snyk-security.result }}"
           )
+
+          HAS_SNYK_TOKEN="${{ needs.change-scope.outputs.has-snyk-token }}"
 
           FAILED=0
 
@@ -895,7 +1084,29 @@ jobs:
           done
 
           echo ""
-          echo "-- PR-Only --"
+          echo "-- Docs-Conditional (docs floor; required when docs OR code changed) --"
+          # spec-152 T-34 (D-152-22): docs-gate runs the cheap floor whenever
+          # docs or code change. Required to succeed in that case; a skip is
+          # tolerated only when neither changed; a failure always fails.
+          for entry in "${docs_conditional[@]}"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            echo "  $name: $result (docs=$DOCS, code=$CODE)"
+            if [[ "$DOCS" == "true" || "$CODE" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "  FAIL: $name is required (docs or code changed) but got $result"
+                FAILED=1
+              fi
+            else
+              if [[ "$result" == "failure" ]]; then
+                echo "  FAIL: $name failed unexpectedly"
+                FAILED=1
+              fi
+            fi
+          done
+
+          echo ""
+          echo "-- PR-Only (dependabot exempt) --"
           for entry in "${pr_only[@]}"; do
             name="${entry%%:*}"
             result="${entry##*:}"
@@ -914,14 +1125,28 @@ jobs:
           done
 
           echo ""
-          echo "-- Optional --"
-          for entry in "${optional[@]}"; do
+          echo "-- Token-Conditional (snyk; required iff token provisioned) --"
+          # has-snyk-token == 'true'  -> snyk MUST succeed; a skip is a FAIL.
+          # has-snyk-token == 'false' -> token unprovisioned OR a fork PR where
+          #   GitHub withholds repo secrets; a skip is TOLERATED, only an
+          #   explicit failure fails the gate (D-152-08). This is what keeps the
+          #   repo's CI green today and flips to enforcing on token provisioning.
+          for entry in "${token_conditional[@]}"; do
             name="${entry%%:*}"
             result="${entry##*:}"
-            echo "  $name: $result"
-            if [[ "$result" == "failure" ]]; then
-              echo "  FAIL: $name is optional but must not fail (got failure)"
-              FAILED=1
+            echo "  $name: $result (has_snyk_token=$HAS_SNYK_TOKEN)"
+            if [[ "$HAS_SNYK_TOKEN" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "  FAIL: $name is required when SNYK_TOKEN is provisioned but got $result"
+                FAILED=1
+              fi
+            else
+              # No token (or fork PR secret withheld): tolerate a skip; a real
+              # failure (e.g. the job ran via a different path and broke) fails.
+              if [[ "$result" == "failure" ]]; then
+                echo "  FAIL: $name failed unexpectedly"
+                FAILED=1
+              fi
             fi
           done
 

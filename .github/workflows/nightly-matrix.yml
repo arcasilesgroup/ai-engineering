@@ -49,3 +49,20 @@ jobs:
       - name: Run unit + integration tests (advisory)
         run: |
           uv run pytest tests/unit tests/integration -q -x --maxfail=3
+
+  reachability-audit:
+    name: Pinned-SHA reachability audit (advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # spec-152 T-37 (D-152-06): off the PR hot path. Resolves every pinned
+    # action SHA via `git ls-remote` and fails (exit 1) on a shaped-but-
+    # unreachable ref — the audit found `label-sync` pinned to an annotated-tag
+    # object that was never a published ref tip. Advisory here (continue-on-
+    # error) so an upstream retag/outage surfaces on the morning sweep without
+    # blocking a merge; the PR hot path stays regex-only.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: ./.github/actions/setup-env
+      - name: Check pinned-SHA reachability
+        run: uv run python scripts/check_workflow_policy.py --check-reachability

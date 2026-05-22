@@ -39,11 +39,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
+      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
+        with:
+          egress-policy: audit
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - uses: ./.github/actions/setup-env
 
       - name: Install cyclonedx-bom (provides cyclonedx-py CLI)
-        run: uv pip install cyclonedx-bom
+        # spec-152 T-22 (D-152-12): pin cyclonedx-bom (current stable on PyPI).
+        # Same version pinned in release.yml's `uv run --with`.
+        run: uv pip install "cyclonedx-bom==7.3.0"
 
       - name: Generate CycloneDX SBOM
         run: uv run cyclonedx-py environment --output-file sbom.cdx.json

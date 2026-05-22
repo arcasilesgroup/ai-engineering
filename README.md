@@ -20,6 +20,13 @@
   </p>
 </div>
 
+<div align="center">
+  <picture>
+    <source srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.webp" type="image/webp">
+    <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="ai-eng install, then ai-eng doctor (warnings are advisory, non-blocking), then exploring the .ai-engineering tree plus 53 skills and 9 agents in VS Code, ending with /ai-start in Claude Code" width="900">
+  </picture>
+</div>
+
 53 skills · 9 agents · 6 surfaces · 1 governed flow
 
 {ai} engineering installs a deterministic governance layer into any repository: specs, decisions, skills, agents, runbooks, hooks, and audit trails as versioned local files. No hosted control plane. No provider lock-in. Every IDE follows the same rules.

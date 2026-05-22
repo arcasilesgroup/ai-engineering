@@ -39,8 +39,18 @@ class TestCheckShaPinning:
         assert len(failures) == 1
         assert "SHA pinning" in failures[0]
 
-    def test_first_party_tag_passes(self):
+    def test_first_party_tag_fails(self):
+        # spec-152 D-152-05 (T-8b): the first-party org exemption is removed,
+        # so even ``actions/*`` must SHA-pin. A bare major-version tag now fails.
         data = {"jobs": {"build": {"steps": [{"uses": "actions/checkout@v4"}]}}}
+        failures = _check_sha_pinning(Path("test.yml"), data)
+        assert len(failures) == 1
+        assert "SHA pinning" in failures[0]
+
+    def test_first_party_sha_passes(self):
+        # A SHA-pinned first-party action remains acceptable.
+        sha = "de0fac2e4500dabe0009e67214ff5f5447ce83dd"
+        data = {"jobs": {"build": {"steps": [{"uses": f"actions/checkout@{sha} # v6.0.2"}]}}}
         assert _check_sha_pinning(Path("test.yml"), data) == []
 
     def test_local_action_skipped(self):
@@ -59,12 +69,13 @@ class TestCheckShaPinning:
         assert len(failures) == 1
 
     def test_step_without_uses_skipped(self):
+        sha = "de0fac2e4500dabe0009e67214ff5f5447ce83dd"
         data = {
             "jobs": {
                 "build": {
                     "steps": [
                         {"run": "echo hello"},
-                        {"uses": "actions/checkout@v4"},
+                        {"uses": f"actions/checkout@{sha} # v6.0.2"},
                     ]
                 }
             }

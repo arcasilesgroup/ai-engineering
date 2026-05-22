@@ -10,6 +10,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
+from ai_engineering.installer.gitignore import ensure_project_gitignore
 from ai_engineering.installer.identity import initialize_manifest_project_name
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
@@ -134,6 +135,18 @@ class GovernancePhase:
             )
 
         initialize_manifest_project_name(context.target, force=context.mode is InstallMode.FRESH)
+
+        # Scope a .gitignore to the managed tree so install-generated transient
+        # artifacts (audit streams, per-install state, the signed OPA bundle)
+        # never leak into the consumer's version control. Create-only outside
+        # FRESH so operator edits survive a reinstall.
+        gitignore_state = ensure_project_gitignore(
+            context.target, fresh=context.mode is InstallMode.FRESH
+        )
+        if gitignore_state["written"]:
+            result.created.append(".ai-engineering/.gitignore")
+        else:
+            result.skipped.append(".ai-engineering/.gitignore")
 
         return result
 
