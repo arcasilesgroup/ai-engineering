@@ -1,213 +1,308 @@
 ---
 execution_route:
   version: 1
-  spec: spec-149
-  executor: build
-  automation: build
-  concern_count: 3
-  estimated_files: 12
-  reason: "Trimmed spec (effort small). 3 independent, low-complexity concerns: one CLI safety default (cleanup dry-run, DONE), and two doc/handler edits with mechanical mirror regen (§11 chain, quality.md cond-4). D-149-03 (suppression DEC-bind) was DEFERRED to its own spec mid-build — it cannot be CI-enforced until decision-store.json is committed (a Part-A doctrine fix; see drafts/decision-store-commit-brief.md). No cross-concern DAG, no irreversible step. Build's sequential TDD + single quality loop is proportionate; autopilot's machinery is unwarranted overhead. File count is inflated by mechanical mirror regen, not real concerns."
-  safe_next_command: "/ai-build"
-status: approved
+  spec: notebooklm-async-tier3
+  executor: autopilot
+  automation: assisted
+  concern_count: 7
+  estimated_files: 18
+  reason: >
+    Multi-concern refactor of /ai-research — Tier 3 backend swap + async
+    redesign, Tier 2 Exa wiring, capability-detection fail-soft, +3-directions
+    output contract, persist/classify changes, env tunable, SKILL.md + mirror
+    regen. ~16 hand-edited files across handlers + 5 lockstep helpers + 6 test
+    files + config, plus generated mirrors. Crosses ≥3 concerns and ≥10 files →
+    autopilot wraps plan+build in waves.
+  safe_next_command: "/ai-autopilot"
+spec: notebooklm-async-tier3
+status: draft
 pipeline: full
-spec: spec-149
-title: Plan — Obvious-by-default essentials (trimmed)
 ---
 
-# Plan — spec-149
+# Plan — Async-first NotebookLM autonomous deep research (Tier 3 redesign)
 
-## Summary
-
-Three small, independent concerns + a de-scope record. Each is its own
-phase; the only ordering constraint is mirror-regen serialization
-(Phase 3 §11 edit and Phase 4 handler edit both regenerate IDE mirrors —
-serialize their `ai-eng dev sync` so the `--check` parity gate is
-deterministic). TDD pairs throughout (RED before GREEN). No phase has an
-irreversible step, so no operator PAUSE is needed.
-
-## Pipeline classification
-
-`standard` (a handful of files across 3 small concerns + mechanical
-mirror regen). Executor route: **build** (frontmatter). The 3 concerns
-are independent and small — no sub-spec decomposition or wave DAG needed.
+> Contract for execution. Operator approves before build. Spec:
+> `.ai-engineering/specs/spec.md` (D1–D8, AC1–7).
 
 ## Architecture
 
-Pattern: **ad-hoc localized edits** (no new architecture). Two concerns
-are pure convention/doc (§11 chain, quality.md handler); one is a CLI
-default flip (`cleanup branches`). Boundaries respected:
-`cli_commands/cleanup.py` (CLI), `CANONICAL.md` + mirrors (canonical
-payload), `.claude/skills/ai-build/handlers/quality.md` + mirrors
-(handler).
+- **Pattern**: `ad-hoc` — the existing **lockstep mirror** pattern. `/ai-research`
+  is pure LLM-driven markdown; the only testable code is the Python lockstep
+  helpers under `tests/integration/_ai_research_*`, which mirror each handler 1:1.
+  Every handler edit MUST be matched in its helper and tests (AC7).
+- **New element**: async launch via **background subagent** (`Agent`
+  `run_in_background`) blocking on `nlm_research(mode=deep)` at T0; main runs Tiers
+  0–2; bounded-wait harvest at the end (D1, D4). In the lockstep helper this is
+  modeled with injected `clock` + `job_status` callables (deterministic tests).
+- **Cross-helper dep (caution)**: `_ai_research_persist_helper.py:32` imports
+  `topic_slug` from `_ai_research_tier3_helper`. The Tier 3 helper rewrite MUST keep
+  `topic_slug`, `hash6`, `notebook_title` exported.
 
-## Phase DAG
+## Design
 
-```
-P1 cleanup-dry-run (independent, DONE)
-P3 §11-doc ─► P4 quality-cond4 ─► P5 CHANGELOG/de-scope
-P3,P4 share mirror regen → serialized (P3 sync, then P4 sync, --check clean each)
-(P2 suppression-bind DROPPED → deferred to the decision-store-commit spec)
-```
+`--skip-design` rationale: no new UI surface. Output is CLI-skill markdown; the only
+contract change is the appended `## Recommended Directions` section (D8), specified
+in the spec. No design-intent doc required.
+
+## Prerequisites (DONE — do not redo)
+
+- Branch `notebooklm-async-tier3` created off `main`.
+- spec.md promoted (spec-149 preserved at
+  `.ai-engineering/specs/spec-149-obvious-by-default-essentials.md`).
+- MCP config aligned (Claude user-scope + Codex `mcp_servers` → `uvx --from
+  notebooklm-skill notebooklm-mcp`). **Do NOT re-touch MCP config.**
+- Operator-only manual step (NOT a build task): `uvx notebooklm login`. Build +
+  tests use injected mocks.
 
 ---
 
-## PHASE 1 — D-149-02: dry-run-by-default for `cleanup branches`
+## Phase 1 — Tier 3 backend swap + async redesign (core)
 
-- [x] T-1.1 — RED: no-flag `cleanup branches` deletes nothing
+Gate (phase): `pytest tests/integration/test_ai_research_tier3.py
+tests/integration/test_ai_research_resilience.py -q` green.
+
+- [ ] **T-1.1 — RED: rewrite Tier 3 tests for the new contract**
   - Agent: build
-  - Files: `tests/integration/cli/test_cleanup_branches.py:60` (rewrite
-    `test_cleanup_branches_modes_default_to_merged` → assert no-flag
-    invocation produces a PLAN/skips, deletes nothing; add a CLI-level
-    test that no-flag with no `--dry-run` still acts non-destructively
-    until confirmed).
-  - Principles applied: §10.5 TDD, §10.7 Clean Code (pit-of-success).
-  - Gate: test RED against current `merged=True` default.
+  - Files: `tests/integration/test_ai_research_tier3.py`
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): none — judgment required (new tool surface + async).
+  - Detail: replace `notebook_create/source_add/notebook_query/server_info` mocks
+    with `nlm_create_notebook`, `nlm_research(mode=deep)`, `nlm_ask`, `nlm_list`
+    (capability/auth probe). Add tests: default-launch (no flag) when available;
+    background-launch ordering (launched before Tier 1); bounded-wait harvest
+    success; harvest timeout → degrade + `notebook_id` persisted + `timed_out=True`;
+    capability probe fail → degrade, no `nlm_*` calls. Keep `should_invoke_tier3`
+    parametrized test updated to the default-on rule.
+  - Gate: tests fail (RED) against current helper.
 
-- [x] T-1.2 — GREEN: flip the no-flag default to plan + confirm
+- [ ] **T-1.2 — GREEN: rewrite Tier 3 lockstep helper**
   - Agent: build
-  - Files: `src/ai_engineering/cli_commands/cleanup.py:257-260` (drop the
-    silent `merged = True`; no-flag → print plan + require confirm, or
-    require an explicit mode/`--dry-run`), `:297-300` (guard the delete
-    path behind explicit mode/confirmation).
-  - Principles applied: §10.7 Clean Code, §10.1 KISS.
-  - Patch (deterministic): omitted — confirmation-prompt UX requires
-    judgment (interactive confirm vs require-explicit-mode); decide the
-    mechanism in implementation, keep it non-interactive-test-friendly.
-  - Gate: T-1.1 GREEN; `cleanup branches` (no flag, no `--dry-run`)
-    deletes zero branches; existing 7-mode tests still pass.
+  - Files: `tests/integration/_ai_research_tier3_helper.py`
+  - Principles applied: §10.5 TDD, §10.3 SOLID (inject `clock`/`job_status`)
+  - Detail: extend `Tier3Result` with `report_markdown`, `sources_discovered:
+    list[str]`, `timed_out: bool`. Replace callables with `nlm_create_notebook`,
+    `nlm_research`, `nlm_ask`, `nlm_list`. New
+    `should_launch_tier3(*, notebooklm_available)` → True whenever available (D3);
+    drop legacy `should_invoke_tier3` (hard delete, no shim per Hard Rule 3) unless a
+    test still needs it. Implement `tier3_launch()` (create notebook + start
+    research) and `tier3_harvest(*, clock, job_status, wait_budget_sec)` (bounded
+    poll → report or `timed_out`). KEEP `topic_slug`, `hash6`, `notebook_title`
+    exported (persist dep). Capability/auth probe via `nlm_list` (replaces
+    `server_info`).
+  - Gate: T-1.1 tests pass (GREEN).
 
-## PHASE 2 — DEFERRED (was: security suppression DEC-bind)
-
-D-149-03 was dropped from this spec during `/ai-build`. Binding
-`nosemgrep_hash` suppressions to a DEC cannot be CI-enforced while
-`decision-store.json` is gitignored — the `no_suppression` gate
-(`ci-check.yml:145`) validates `dec_id` against a store that is absent in
-CI, so binding would turn the gate red. Root cause is a Part-A doctrine
-flaw (the decision store holds non-rebuildable risk/flow rows yet is a
-gitignored cache; `persistence-doctrine.md:120` admits it). The fix —
-commit the decision store — is captured in
-`.ai-engineering/specs/drafts/decision-store-commit-brief.md` for its own
-`/ai-brainstorm`. **No Phase 2 work runs here.**
-
-## PHASE 3 — D-149-01: surface ai-spec-draft in §11 + ai-code/ai-build boundary
-
-- [x] T-3.1 — GREEN: edit the canonical §11 chain + boundary note
+- [ ] **T-1.3 — GREEN: rewrite Tier 3 handler markdown (lockstep)**
   - Agent: build
-  - Files: `src/ai_engineering/templates/project/CANONICAL.md:47-65`
-    (canonical source of §11): add `ai-spec-draft` as the OPTIONAL
-    pre-`/ai-brainstorm` step (research one-pager hand-off); add a line
-    stating `ai-code` = write a specific subcomponent (no plan) vs
-    `ai-build` = gateway that executes an approved plan. Confirm whether
-    the repo-root `CANONICAL.md`/`CLAUDE.md` is a separate authored copy
-    or a mirror before editing (sync owns the mirrors).
-  - Principles applied: §10.7 Clean Code (one obvious on-ramp), §10.3 SOLID.
-  - Patch (deterministic): omitted — wording is a judgment call.
-  - Gate: §11 shows ai-spec-draft + the boundary; no surface count change.
+  - Files: `.claude/skills/ai-research/handlers/tier3-notebooklm.md`
+  - Principles applied: §10.6 SDD, §10.7 Clean Code
+  - Detail: document the new sequence verbatim to the helper — background launch at
+    T0, `nlm_*` tool names, capability/auth probe via `nlm_list` (drop `server_info`
+    / `nlm login` text → `uvx notebooklm login` + `~/.notebooklm/storage_state.json`),
+    bounded-wait harvest, timeout→degrade+persist `notebook_id`, default-on trigger.
+    Update the "Implementation Reference" + "Status" sections.
+  - Gate: handler ↔ helper algorithm match (AC7); manual diff review.
 
-- [x] T-3.2 — GREEN: regenerate mirrors
+---
+
+## Phase 2 — Tier 2 Exa wiring
+
+Gate (phase): `pytest tests/integration/test_ai_research_tier2.py -q` green.
+
+- [ ] **T-2.1 — RED: Tier 2 Exa tests**
   - Agent: build
-  - Files: run `ai-eng dev sync` (or `python scripts/sync_command_mirrors.py`);
-    regenerates `CLAUDE.md`, `AGENTS.md`, `GEMINI.md`,
-    `.github/copilot-instructions.md` + template surfaces.
-  - Principles applied: §10.4 DRY (single canonical source).
-  - Gate: `ai-eng dev sync --check` clean (no drift).
+  - Files: `tests/integration/test_ai_research_tier2.py`
+  - Principles applied: §10.5 TDD
+  - Detail: add `web_search_exa` / `web_fetch_exa` mock callables; assert Exa used
+    when available; assert fallback to built-in `WebSearch`/`WebFetch` when Exa
+    absent (capability detection); preserve domain-filter pass-through + skip
+    threshold tests.
+  - Gate: RED.
 
-## PHASE 4 — D-149-04: quality.md Step 2d condition 4 → advisory (reproducible STOP)
-
-- [x] T-4.1 — RED: contract test — cond-4 advisory + STOP matrices count-deterministic
+- [ ] **T-2.2 — GREEN: Tier 2 lockstep helper adds Exa + fallback**
   - Agent: build
-  - Files: `tests/unit/skills/test_quality_stop_determinism.py` (new):
-    assert `quality.md` Step 2d condition 4 is advisory/operator-confirmable
-    (it cannot silently auto-block/auto-pass), and the Step 2c/2e STOP
-    decision matrices are count-based (deterministic). Mirror-parity of
-    the edited handler asserted alongside.
-  - Principles applied: §10.5 TDD, §10.6 SDD (reproducible "done").
-  - Gate: RED against current cond-4 wording.
+  - Files: `tests/integration/_ai_research_tier2_helper.py`
+  - Principles applied: §10.5 TDD, §10.4 DRY (shared availability check w/ Phase 3)
+  - Detail: add `web_search_exa`/`web_fetch_exa` callables; select Exa when
+    available else built-in; record absent provider in `degraded_sources`; keep
+    `detect_explicit_url` + skip heuristic.
+  - Gate: T-2.1 GREEN.
 
-- [x] T-4.2 — GREEN: reword cond-4 + align cross-references
+- [ ] **T-2.3 — GREEN: Tier 2 handler markdown (Exa)**
   - Agent: build
-  - Files: `.claude/skills/ai-build/handlers/quality.md:122-140` (Step 2d
-    condition 4 → advisory/operator-confirmable, cannot silently flip the
-    verdict); verify consistency at `.claude/skills/ai-build/handlers/no-hitl.md:116`
-    and `.claude/skills/ai-autopilot/handlers/phase-quality.md:207`
-    (align language; no behavioral divergence). DROP any blanket
-    `method: deterministic|llm` finding-tag plan (no consumer).
-  - Principles applied: §10.6 SDD, §10.1 KISS.
-  - Patch (deterministic): omitted — protocol wording is a judgment call.
+  - Files: `.claude/skills/ai-research/handlers/tier2-web.md`
+  - Principles applied: §10.6 SDD
+  - Detail: document Exa as the primary web provider with built-in fallback; exact
+    MCP names `mcp__exa__web_search_exa` / `mcp__exa__web_fetch_exa`.
+  - Gate: handler ↔ helper match.
+
+---
+
+## Phase 3 — Capability-detection fail-soft (D7, G5)
+
+Gate (phase): `pytest tests/integration/test_ai_research_resilience.py -q` green.
+
+- [ ] **T-3.1 — RED: absence (not just exception) tests**
+  - Agent: build
+  - Files: `tests/integration/test_ai_research_resilience.py`
+  - Principles applied: §10.5 TDD
+  - Detail: NotebookLM / Context7 / Exa **absent** (capability probe says
+    unavailable) → tier skipped silently, recorded in `degraded_sources`, run exits 0
+    with output (AC2, AC4). Distinct from transient-exception path.
+  - Gate: RED.
+
+- [ ] **T-3.2 — GREEN: shared capability detection in helpers**
+  - Agent: build
+  - Files: `tests/integration/_ai_research_tier1_helper.py`,
+    `tests/integration/_ai_research_tier2_helper.py`,
+    `tests/integration/_ai_research_tier3_helper.py`
+  - Principles applied: §10.4 DRY, §10.2 YAGNI (minimal probe, no framework)
+  - Detail: a small `is_available(probe)`-style guard reused by tiers; absent →
+    skip + degrade, never raise. No generic async-job framework (Non-Goal).
+  - Gate: T-3.1 GREEN; Phase 1/2 tests still green.
+
+---
+
+## Phase 4 — Output contract: +3 recommended directions (D8, G7)
+
+Gate (phase): `pytest tests/unit/skills/ai_research/test_citation_validator.py -q` green.
+
+- [ ] **T-4.1 — RED: 3-directions tests**
+  - Agent: build
+  - Files: `tests/unit/skills/ai_research/test_citation_validator.py`
+  - Principles applied: §10.5 TDD
+  - Detail: assert `SynthesizeResult.recommended_directions` has EXACTLY 3 entries,
+    each carrying ≥1 `[N]` or `[unsourced]` (AC5); merged-sources dedup from
+    NotebookLM + Tiers 0–2 (D2).
+  - Gate: RED.
+
+- [ ] **T-4.2 — GREEN: synthesize helper +directions +merge**
+  - Agent: build
+  - Files: `tests/integration/_ai_research_synthesize_helper.py`
+  - Principles applied: §10.5 TDD
+  - Detail: add `recommended_directions: list[Direction]` (title, rationale,
+    trade-off, citations); validator enforces count==3 + citation per direction;
+    merge+dedup NotebookLM `sources_discovered` with tier hits. Keep
+    `CITATION_PATTERN` pinned.
   - Gate: T-4.1 GREEN.
 
-- [x] T-4.3 — GREEN: regenerate handler mirrors
+- [ ] **T-4.3 — GREEN: synthesize handler markdown**
   - Agent: build
-  - Files: `ai-eng dev sync` → propagate `quality.md` to
-    `.codex/.gemini/.github` + `src/ai_engineering/templates/project/.../quality.md`.
-  - Principles applied: §10.4 DRY.
-  - Gate: `ai-eng dev sync --check` clean.
+  - Files: `.claude/skills/ai-research/handlers/synthesize-with-citations.md`
+  - Principles applied: §10.6 SDD
+  - Detail: document the `## Recommended Directions` block (exactly 3) + source merge.
+  - Gate: handler ↔ helper match.
 
-## PHASE 5 — De-scope record + CHANGELOG
+---
 
-- [x] T-5.1 — GREEN: CHANGELOG the behavior changes + the de-scope
+## Phase 5 — Persist notebook_id + classify default-deep
+
+Gate (phase): `pytest tests/unit/skills/ai_research/test_persist.py -q` green.
+
+- [ ] **T-5.1 — Persist notebook_id + report for --reuse-notebook**
   - Agent: build
-  - Files: `CHANGELOG.md` — entries for: (1) `cleanup branches` no-flag
-    now non-destructive (behavior change); (2) §11 chain now lists
-    `ai-spec-draft` + the ai-code/ai-build boundary; (3) quality.md cond-4
-    advisory (reproducible STOP). Record that spec-148 **D-148-11,
-    D-148-12, D-148-14, D-148-15 are superseded/dropped** (YAGNI) and
-    **D-148-13/16 re-scoped**, with **D-148-17 (suppression DEC-bind)
-    deferred** to the decision-store-commit spec.
-  - Principles applied: §10.7 Clean Code (truthful docs), Hard-Rule 3 (no
-    shims; document breakage).
-  - Gate: CHANGELOG documents each behavior change + the dropped/deferred
-    decisions; grep finds no orphaned reference to the dropped gates.
+  - Files: `.claude/skills/ai-research/handlers/persist-artifact.md`,
+    `tests/integration/_ai_research_persist_helper.py`,
+    `tests/unit/skills/ai_research/test_persist.py`
+  - Principles applied: §10.6 SDD, §10.5 TDD
+  - Detail: persist `notebook_id` + (when present) deep `report_markdown` so a later
+    `--reuse-notebook=<id>` harvests it (AC6). Preserve `topic_slug` import from tier3
+    helper.
+  - Gate: persist tests green.
 
-## Quality Outcome
+- [ ] **T-5.2 — classify-query default-deep**
+  - Agent: build
+  - Files: `.claude/skills/ai-research/handlers/classify-query.md`,
+    `tests/integration/_ai_research_tier1_helper.py` (`classify_tags`)
+  - Principles applied: §10.6 SDD
+  - Detail: NotebookLM deep research is default-on when available (D3); comparative
+    tag no longer gates Tier 3 launch (kept only for routing metadata if used).
+  - Gate: tier1 classify tests green.
 
-Final: spec-149 scope GREEN. TDD per task (RED→GREEN), mirror parity
-(`ai-eng dev sync --check`) clean, broad deterministic sweep across
-architecture / mirrors / specs / skills / docs / cleanup-integration
-(~1,150 passed). Two failures I introduced were fixed:
-- `/ai-code` named in the §11 canonical payload tripped `LEGACY_NAMES`
-  (canonical payload stays lean) → moved the ai-code/ai-build boundary to
-  the two skill descriptions instead.
-- drive-by (§9): stale Part-A test `test_persistence_doctrine_exists`
-  asserted `## The four tiers`; the files-only doctrine ships
-  `## The three tiers` — corrected the stale expectation.
+---
 
-Known PRE-EXISTING (not spec-149; 0 files changed vs `origin/main`):
-12 `tests/docs/test_links.py` broken-link failures in `.agent/` +
-`.opencode/` skill mirrors (ai-animation / board / governance / ide-audit
-/ skill-improve / video-editing). Flagged for a separate fix. Did not run
-the entire suite (would surface unrelated pre-existing failures); the
-sweep covers every surface spec-149 modifies.
+## Phase 6 — Env tunable (harvest timeout)
 
-## Cross-cutting gates (every phase)
+- [ ] **T-6.1 — Add `AIENG_RESEARCH_NLM_WAIT_SEC`**
+  - Agent: build
+  - Files: `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/runtime_state.py`
+  - Principles applied: §10.4 DRY (reuse `_env_int`)
+  - Patch (deterministic):
+    ```python
+    # after the existing _env_int constant block (~line 96)
+    RESEARCH_NLM_WAIT_SEC = _env_int("AIENG_RESEARCH_NLM_WAIT_SEC", 300, ceiling=900)
+    ```
+  - Gate: import test; value-bounds test.
 
-- TDD pair present for each behavioral change (RED before GREEN).
-- No `# noqa` / `# nosec` / suppression-without-DEC introduced (Hard-Rule 2).
-- No backwards-compat shim for the cleanup default (Hard-Rule 3);
-  CHANGELOG records the breakage.
-- Mirror-touching phases (P3, P4) serialize `ai-eng dev sync`; `--check`
-  clean before PR.
-- Full test suite green; hot-path budgets untouched (none of these are on
-  the hook hot path).
+---
 
-## Self-review (§10.7) — 2 iterations
+## Phase 7 — SKILL.md + mirror regen + docs
 
-- **Build discovery** — D-149-03's DEC-bind is CI-incompatible (it
-  validates against the gitignored `decision-store.json`, absent in CI).
-  Root cause is a Part-A doctrine flaw; D-149-03 DEFERRED to its own spec
-  (`drafts/decision-store-commit-brief.md`) and spec + plan re-scoped to 3
-  concerns. Resolved.
-- **Iter 1** — Serialized P3/P4 mirror regen (both hit `ai-eng dev sync`
-  / parity `--check`) to avoid a non-deterministic drift gate. Resolved.
-- **Iter 2** — Confirmed every KEEP/SIMPLIFY task is TDD-paired and every
-  DROP is a documentation-only supersession (P5), so no half-built gate
-  remains. The "replay test" (D-149-04) is realized as a handler-contract
-  assertion (the protocol is LLM-executed; a true live replay is not
-  testable) — scoped honestly in T-4.1. No remaining concerns.
+Gate (phase): `uv run ai-eng dev sync --check` clean; full
+`pytest tests/integration/test_ai_research_*.py tests/unit/skills/ai_research -q` green.
 
-## Next
+- [ ] **T-7.1 — Rewrite SKILL.md**
+  - Agent: build
+  - Files: `.claude/skills/ai-research/SKILL.md`
+  - Principles applied: §10.7 Clean Code, §10.6 SDD
+  - Detail: update Process (Tier 3 launches first / harvested last; Exa in Tier 2;
+    default-deep), CLI Flags (clarify `--reuse-notebook`; NotebookLM deep is default
+    when available), Output Contract (+`## Recommended Directions`), Common Mistakes
+    (drop `server_info` line; add capability-skip note), Examples.
+  - Gate: section sanity; manual review.
 
-Build IN PROGRESS (`/ai-build --no-hitl`). P1 (cleanup dry-run) DONE;
-P2 DEFERRED; P3 (§11 doc), P4 (quality cond-4), P5 (CHANGELOG/de-scope)
-remaining, then the quality loop + PR. Open question resolved during
-build: cond-4 → **advisory** (T-4). No PAUSE (no irreversible step).
+- [ ] **T-7.2 — Regenerate mirrors**
+  - Agent: build
+  - Files: `.codex/skills/ai-research/**`, `.gemini/skills/ai-research/**`,
+    `.github/skills/ai-research/**`, install templates under
+    `src/ai_engineering/templates/project/`
+  - Principles applied: §10.4 DRY (single source `.claude/`)
+  - Patch (deterministic):
+    ```bash
+    uv run ai-eng dev sync && uv run ai-eng dev sync --check
+    ```
+  - Gate: `dev sync --check` exit 0.
+
+- [ ] **T-7.3 — Document env var in canonical rulebook**
+  - Agent: build
+  - Files: `CLAUDE.md` (+ mirrors regenerated by T-7.2)
+  - Principles applied: §10.7 Clean Code
+  - Detail: add `AIENG_RESEARCH_NLM_WAIT_SEC` (default 300, ceiling 900) to the
+    "Runtime Layer Tunables" list with a one-line description.
+  - Gate: present in tunables section.
+
+---
+
+## Phase 8 — Final verification
+
+- [ ] **T-8.1 — Full verify**
+  - Agent: verify (read-only)
+  - Files: n/a
+  - Principles applied: §10.5 TDD, §10.7 Clean Code
+  - Detail: run full ai-research test suite + `ai-eng dev sync --check` +
+    `ai-eng spec verify --sections`. Confirm AC1–AC7 evidence.
+  - Gate: all green; no suppressions (Hard Rule 2).
+
+- [ ] **T-8.2 — OQ2 verification (deferred / manual)**
+  - Agent: verify
+  - Files: n/a
+  - Principles applied: §10.6 SDD
+  - Detail: confirm whether MCP `nlm_research` blocks until done or returns a job
+    handle. Requires `uvx notebooklm login` (operator). If unavailable, the build
+    assumes **blocking** (D1) — background subagent holds the call. Record outcome;
+    if it returns a handle, file a follow-up to simplify the wait model.
+  - Gate: documented finding (non-blocking for this PR if auth absent).
+
+---
+
+## Risks carried from spec
+
+R1 fragile browser-automation backend · R2 subagent must load `notebooklm` MCP ·
+R3 notebook proliferation (default-on) · R4 async lockstep testability (injected
+clock/job_status) · R5 Exa quota (fallback) · R6 own-branch isolation (done).
+
+## Notes
+
+- Hard Rule 3 (no shims): the Tier 3 tool-name swap is a hard rename — delete old
+  callables, do not alias.
+- TDD pairs: every GREEN helper task is preceded by its RED test task.
+- `safe_next_command`: **/ai-autopilot** (multi-concern, ~18 files).
