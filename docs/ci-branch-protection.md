@@ -32,19 +32,20 @@ the GitHub branch-protection UI — is deliberate:
   context resolve to `skipped` on irrelevant changes; the aggregate
   accepts the skip for those classes instead of blocking the merge.
 
-## The four job classes
+## The job classes
 
-The evaluate step sorts every dependency into one of four arrays and
+The evaluate step sorts every dependency into one of five arrays and
 applies a class-specific rule. (`change-scope`, the upstream
 `paths-filter` data provider, is checked separately and must always
-succeed — it feeds the `code`/`docs` signals the classes below read.)
+succeed — it feeds the `code`/`docs`/token signals the classes below read.)
 
 | Class | Rule | Skip accepted? | Failure tolerated? |
 |-------|------|----------------|--------------------|
 | `always_required` | MUST succeed on every run | No | No |
 | `code_conditional` | MUST succeed when `code == true`; otherwise skip is fine | When `code != true` | Only when `code != true` |
 | `pr_only` | MUST succeed on non-Dependabot PRs | On push / Dependabot | Only off the PR path |
-| `optional` | Informational — may skip | Yes | **No** (a `failure` still fails the gate) |
+| `pr_all` | MUST succeed on every PR, **including Dependabot** | On push | Only off the PR path |
+| `token_conditional` | MUST succeed when `has-snyk-token == true`; skip tolerated only when the token is absent | When no `SNYK_TOKEN` (unprovisioned / fork PR) | No |
 
 Current membership (authoritative source is the workflow itself):
 
@@ -54,11 +55,15 @@ Current membership (authoritative source is the workflow itself):
   `test-integration`, `test-e2e`, `test-docs`, `framework-smoke`,
   `build-check`, `sonarcloud`.
 - **`pr_only`** — `verify-gate-trailers`.
-- **`optional`** — `snyk-security` (skipped when no `SNYK_TOKEN` is
-  available, e.g. fork PRs; covered on push-to-main).
+- **`pr_all`** — `dependency-review` (runs on every PR, including
+  Dependabot, so no update PR bypasses the dependency gate — D-152-14).
+- **`token_conditional`** — `snyk-security`. Mandatory (blocking high+)
+  the moment `SNYK_TOKEN` is provisioned; until then — and on fork PRs that
+  cannot read the secret — the job skips and the skip is tolerated so CI is
+  not wedged. A *failure* always fails the gate (D-152-07/08).
 
-Note that `optional` is not a free pass: an optional job that *fails*
-still fails `CI Result`. The class only tolerates a *skip*.
+There is no `optional` class: spec-152 removed the catch-all informational
+bucket so every dependency lands in a class with a defined blocking rule.
 
 ## Individual-gate requirements are optional defense-in-depth
 

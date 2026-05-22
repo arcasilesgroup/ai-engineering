@@ -506,6 +506,30 @@ jobs:
           fi
           echo "All $(git log --no-merges --format=%H "$BASE".."$HEAD" | wc -l | tr -d ' ') commits verified."
 
+  dependency-review:
+    name: Dependency Review
+    # spec-152 T-24 (D-152-14): blocking dependency-ingress gate. Reviews the
+    # PR's dependency diff and fails on a newly-introduced high+ vulnerability,
+    # matching the Snyk SCA `--severity-threshold=high`. Runs on EVERY pull
+    # request, dependabot included (it is NOT in the dependabot-exempting
+    # `pr_only` aggregate class). Skips on push (no dependency diff exists).
+    needs: [change-scope]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    # Least-privilege: the action only reads the PR's dependency graph. No
+    # `pull-requests: write` because the summary-comment feature is disabled.
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - name: Dependency review
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          # OQ4 default: block on high+ to match the Snyk SCA threshold.
+          fail-on-severity: high
+          comment-summary-in-pr: never
+
   snyk-security:
     name: Snyk Security
     needs: [change-scope]
@@ -818,6 +842,7 @@ jobs:
         framework-smoke,
         workflow-sanity,
         verify-gate-trailers,
+        dependency-review,
         snyk-security,
         security,
         content-integrity,
@@ -862,10 +887,28 @@ jobs:
             "verify-gate-trailers:${{ needs.verify-gate-trailers.result }}"
           )
 
-          # -- optional: may skip or fail — informational only --
-          optional=(
+          # -- pr-all: MUST succeed on EVERY pull request, dependabot INCLUDED --
+          # spec-152 T-24 (D-152-14). Distinct from pr_only (which exempts
+          # dependabot). dependency-review is the blocking dependency-ingress
+          # gate; a malicious-dependency PR must not merge even from dependabot.
+          # Skip tolerated on push (the job's `if: pull_request` skips it there).
+          pr_all=(
+            "dependency-review:${{ needs.dependency-review.result }}"
+          )
+
+          # -- token-conditional: required when the gating token is provisioned --
+          # spec-152 T-28 (D-152-07/08). snyk-security runs only when
+          # `has-snyk-token == 'true'`. A *failure* always fails the aggregate.
+          # A *skip* is a FAIL when the token is present (the job must run), but
+          # is TOLERATED when the token is absent — including on a fork PR where
+          # GitHub withholds repo secrets, so `has-snyk-token` resolves to
+          # 'false'. This keeps CI green with no token and becomes enforcing the
+          # moment the operator provisions SNYK_TOKEN.
+          token_conditional=(
             "snyk-security:${{ needs.snyk-security.result }}"
           )
+
+          HAS_SNYK_TOKEN="${{ needs.change-scope.outputs.has-snyk-token }}"
 
           FAILED=0
 
@@ -913,7 +956,7 @@ jobs:
           done
 
           echo ""
-          echo "-- PR-Only --"
+          echo "-- PR-Only (dependabot exempt) --"
           for entry in "${pr_only[@]}"; do
             name="${entry%%:*}"
             result="${entry##*:}"
@@ -932,14 +975,48 @@ jobs:
           done
 
           echo ""
-          echo "-- Optional --"
-          for entry in "${optional[@]}"; do
+          echo "-- PR-All (dependabot INCLUDED) --"
+          # MUST succeed on every PR including dependabot; skip tolerated on push.
+          for entry in "${pr_all[@]}"; do
             name="${entry%%:*}"
             result="${entry##*:}"
-            echo "  $name: $result"
-            if [[ "$result" == "failure" ]]; then
-              echo "  FAIL: $name is optional but must not fail (got failure)"
-              FAILED=1
+            echo "  $name: $result (is_pr=$IS_PR, is_dependabot=$IS_DEPENDABOT)"
+            if [[ "$IS_PR" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "  FAIL: $name is required on all PRs (dependabot included) but got $result"
+                FAILED=1
+              fi
+            else
+              if [[ "$result" == "failure" ]]; then
+                echo "  FAIL: $name failed unexpectedly"
+                FAILED=1
+              fi
+            fi
+          done
+
+          echo ""
+          echo "-- Token-Conditional (snyk; required iff token provisioned) --"
+          # has-snyk-token == 'true'  -> snyk MUST succeed; a skip is a FAIL.
+          # has-snyk-token == 'false' -> token unprovisioned OR a fork PR where
+          #   GitHub withholds repo secrets; a skip is TOLERATED, only an
+          #   explicit failure fails the gate (D-152-08). This is what keeps the
+          #   repo's CI green today and flips to enforcing on token provisioning.
+          for entry in "${token_conditional[@]}"; do
+            name="${entry%%:*}"
+            result="${entry##*:}"
+            echo "  $name: $result (has_snyk_token=$HAS_SNYK_TOKEN)"
+            if [[ "$HAS_SNYK_TOKEN" == "true" ]]; then
+              if [[ "$result" != "success" ]]; then
+                echo "  FAIL: $name is required when SNYK_TOKEN is provisioned but got $result"
+                FAILED=1
+              fi
+            else
+              # No token (or fork PR secret withheld): tolerate a skip; a real
+              # failure (e.g. the job ran via a different path and broke) fails.
+              if [[ "$result" == "failure" ]]; then
+                echo "  FAIL: $name failed unexpectedly"
+                FAILED=1
+              fi
             fi
           done
 

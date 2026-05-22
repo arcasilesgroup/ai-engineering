@@ -10,3 +10,11 @@
 # manifest is the single source of truth for installer + doctor tool
 # resolution -- accidental edits can break install across 14 stacks.
 .ai-engineering/manifest.yml         @arcasilesgroup/maintainers
+
+# spec-152: supply-chain-sensitive paths require explicit maintainer review
+/.github/**                          @arcasilesgroup/maintainers
+/.github/actions/**                  @arcasilesgroup/maintainers
+/.github/workflows/release.yml       @arcasilesgroup/maintainers
+/scripts/check_workflow_policy.py    @arcasilesgroup/maintainers
+/pyproject.toml                      @arcasilesgroup/maintainers
+/uv.lock                             @arcasilesgroup/maintainers
