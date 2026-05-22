@@ -123,6 +123,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- spec-152 — the GitHub `dependency-review` PR-ingress gate was removed as
+  infeasible before it shipped. `actions/dependency-review-action` requires
+  the org-level Dependency Graph, which is disabled for this repo and cannot
+  be enabled without org-admin, so the action hard-fails every run
+  (*"Dependency review is not supported on this repository"*); a required
+  check that can never run is itself a fail-open hole, so it was not made
+  `continue-on-error` (fake-passing) either. The `pr_all` aggregate class
+  (whose only member was `dependency-review`) and its evaluate-step loop are
+  deleted with it. SCA coverage is carried by `snyk-security`
+  (`token_conditional`, blocking high+ when `SNYK_TOKEN` is provisioned) plus
+  `pip-audit` (advisory baseline in the `always_required` `security` job) and
+  `uv.lock` hash evidence. Wiring `dependency-review` back is a deferred
+  follow-up gated on the org enabling the Dependency Graph; see
+  `docs/supply-chain-control-matrix.md` and `docs/ci-branch-protection.md`.
 - spec-147 G2 (wave 2a) corrects the canonical rulebook to stop claiming a
   non-existent `agents.registry` manifest key (D-147-07). The
   `.claude/agents/` and `.claude/skills/` directories are the source of

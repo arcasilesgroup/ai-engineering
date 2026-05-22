@@ -13,11 +13,12 @@ except the ``ci-check-result`` aggregate itself and any job explicitly
 classified advisory/optional) and asserts each appears BOTH in
 ``ci-check-result.needs`` AND is *evaluated* by the aggregate. A job is
 evaluated when it appears in exactly one of the bash arrays
-(``always_required`` / ``code_conditional`` / ``pr_only`` / ``optional``)
-OR it is the ``change-scope`` data-provider checked through its dedicated
-``"$CHANGE_SCOPE" != "success"`` guard. Both mechanisms are recognized
-from the script text — neither is hardcoded as an exclusion — so a job
-that is awaited but inspected by nothing fails the gate.
+(``always_required`` / ``code_conditional`` / ``pr_only`` /
+``token_conditional`` / ``docs_conditional``) OR it is the ``change-scope``
+data-provider checked through its dedicated ``"$CHANGE_SCOPE" != "success"``
+guard. Both mechanisms are recognized from the script text — neither is
+hardcoded as an exclusion — so a job that is awaited but inspected by
+nothing fails the gate.
 
 The arrays live in the bash ``run:`` of the ``Evaluate CI results`` step
 (``ci-check-result``); they are parsed by scanning the script text for
@@ -51,31 +52,27 @@ TOKEN_CONDITIONAL_JOBS: frozenset[str] = frozenset({"snyk-security"})
 
 # The evaluated-array names inside the bash gate, in priority order.
 #
-# ``pr_all``  (spec-152 T-24/D-152-14) — MUST succeed on EVERY pull request,
-#             dependabot included; tolerate a skip on push events. Distinct from
-#             ``pr_only`` which *exempts* dependabot. ``dependency-review`` lives
-#             here so a malicious-dependency PR cannot merge even from dependabot.
 # ``token_conditional`` (spec-152 T-28/D-152-07/08) — required when the gating
 #             token is provisioned; skip tolerated only when it is absent.
+#             ``snyk-security`` lives here.
 # ``docs_conditional`` (spec-152 T-34/D-152-22) — MUST succeed when docs OR code
 #             changed (the docs CI floor); skip tolerated otherwise.
 #             ``docs-gate`` lives here so a docs-only change is still inspected
 #             instead of fully bypassing CI.
+#
+# spec-152 follow-up: the every-PR-including-dependabot class was removed when
+# its only member (the GitHub PR-diff dependency-ingress gate) was retired as
+# infeasible — the org has the GitHub Dependency Graph disabled, so that action
+# can never run, and a never-running required gate is itself a fail-open hole.
+# SCA is now carried by ``snyk-security`` (token_conditional) + ``pip-audit``
+# (security job). There is no ``optional`` class.
 EVALUATED_ARRAYS = (
     "always_required",
     "code_conditional",
     "docs_conditional",
     "pr_only",
-    "pr_all",
     "token_conditional",
-    "optional",
 )
-
-# Job that must run on every PR (including dependabot) as a blocking ingress
-# gate, SHA-pinned to ``actions/dependency-review-action`` (spec-152 T-23/T-24).
-DEPENDENCY_REVIEW_JOB = "dependency-review"
-DEPENDENCY_REVIEW_ACTION = "actions/dependency-review-action"
-_SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
 def _load_ci_check() -> dict[str, Any]:
@@ -159,9 +156,9 @@ def test_aggregate_evaluates_every_blocking_job() -> None:
 
     # Membership invariant covers every non-aggregate job: each must appear in
     # ``needs`` and be evaluated in exactly one array (or the change-scope
-    # dedicated guard). Context-aware jobs (``snyk-security`` token-conditional,
-    # ``dependency-review`` pr_all) are NOT exempt — they live in exactly one
-    # evaluated array, so they are checked here too.
+    # dedicated guard). Context-aware jobs (``snyk-security`` token-conditional)
+    # are NOT exempt — they live in exactly one evaluated array, so they are
+    # checked here too.
     blocking_jobs = all_jobs - {AGGREGATE_JOB}
 
     aggregate = data["jobs"][AGGREGATE_JOB]
@@ -246,101 +243,6 @@ def test_evaluated_arrays_only_reference_real_jobs() -> None:
                 unknown.append(f"{name} references undeclared job {job!r}")
 
     assert not unknown, "evaluated arrays reference unknown jobs:\n  - " + "\n  - ".join(unknown)
-
-
-def _step_uses(job: dict[str, Any]) -> list[str]:
-    """Return every (comment-stripped) ``uses:`` value in a job's steps."""
-    uses: list[str] = []
-    for step in job.get("steps") or []:
-        if isinstance(step, dict):
-            value = step.get("uses")
-            if isinstance(value, str) and value:
-                uses.append(value.split("#")[0].strip())
-    return uses
-
-
-# --- spec-152 T-23: dependency-review is a blocking PR ingress gate ---------
-
-
-def test_dependency_review_job_exists_and_is_sha_pinned() -> None:
-    """``dependency-review`` exists and SHA-pins ``actions/dependency-review-action``.
-
-    A tag/branch-pinned dependency-review action is a supply-chain risk
-    (retag/force-push); the policy mandates a 40-char commit SHA. RED until
-    the job is added with a SHA-pinned ``uses:`` (T-24).
-    """
-    data = _load_ci_check()
-    jobs = data["jobs"]
-    assert DEPENDENCY_REVIEW_JOB in jobs, (
-        f"{DEPENDENCY_REVIEW_JOB!r} job must exist in ci-check.yml (blocking PR "
-        "ingress gate, spec-152 T-24/D-152-14)"
-    )
-    job = jobs[DEPENDENCY_REVIEW_JOB]
-    assert isinstance(job, dict), f"{DEPENDENCY_REVIEW_JOB} must be a mapping"
-
-    uses_values = _step_uses(job)
-    review_uses = [u for u in uses_values if u.split("@")[0] == DEPENDENCY_REVIEW_ACTION]
-    assert review_uses, (
-        f"{DEPENDENCY_REVIEW_JOB} must invoke {DEPENDENCY_REVIEW_ACTION}; "
-        f"found uses: {uses_values!r}"
-    )
-    for use in review_uses:
-        assert "@" in use, f"{use!r} must be pinned with @<sha>"
-        ref = use.split("@", 1)[1]
-        assert _SHA40_RE.match(ref), (
-            f"{DEPENDENCY_REVIEW_ACTION} must be pinned to a 40-char commit SHA, got ref {ref!r}"
-        )
-
-
-def test_dependency_review_runs_on_pull_requests() -> None:
-    """``dependency-review`` is gated to pull_request events.
-
-    The action reads the PR's dependency diff, so it only runs on
-    ``pull_request`` (it would have no diff on push). RED until T-24.
-    """
-    data = _load_ci_check()
-    job = data["jobs"].get(DEPENDENCY_REVIEW_JOB)
-    assert isinstance(job, dict), f"{DEPENDENCY_REVIEW_JOB} job must exist (T-24)"
-    condition = str(job.get("if", ""))
-    assert "pull_request" in condition, (
-        f"{DEPENDENCY_REVIEW_JOB} must be gated to pull_request events; got if: {condition!r}"
-    )
-
-
-def test_dependency_review_is_required_on_all_prs_including_dependabot() -> None:
-    """``dependency-review`` is wired into ``needs`` and a non-exempting array.
-
-    It MUST run on dependabot PRs too (D-152-14), so it must NOT live in
-    ``pr_only`` (which exempts dependabot via ``IS_DEPENDABOT``). It must be
-    in ``ci-check-result.needs`` and in exactly one *required* evaluated
-    array (``pr_all`` or ``code_conditional``). RED until T-24 wires it.
-    """
-    data = _load_ci_check()
-    aggregate = data["jobs"][AGGREGATE_JOB]
-    aggregate_needs = _needs_set(aggregate)
-    assert DEPENDENCY_REVIEW_JOB in aggregate_needs, (
-        f"{DEPENDENCY_REVIEW_JOB} must be in {AGGREGATE_JOB}.needs so the "
-        "aggregate awaits and inspects it"
-    )
-
-    script = _aggregate_eval_script(data)
-    array_to_members = {name: _array_members(script, name) for name in EVALUATED_ARRAYS}
-    containing = [
-        name for name, members in array_to_members.items() if DEPENDENCY_REVIEW_JOB in members
-    ]
-
-    assert containing != ["pr_only"] and "pr_only" not in containing, (
-        f"{DEPENDENCY_REVIEW_JOB} must NOT be in 'pr_only' (that class exempts "
-        "dependabot via IS_DEPENDABOT, but dependency-review MUST run on "
-        "dependabot PRs — D-152-14)"
-    )
-    assert len(containing) == 1, (
-        f"{DEPENDENCY_REVIEW_JOB} must be evaluated in exactly one array; found {containing!r}"
-    )
-    assert containing[0] in {"pr_all", "code_conditional"}, (
-        f"{DEPENDENCY_REVIEW_JOB} must be in a required class that covers "
-        f"dependabot PRs ('pr_all' or 'code_conditional'); found {containing[0]!r}"
-    )
 
 
 # --- spec-152 T-27: snyk-security promoted from optional to required --------

@@ -635,34 +635,6 @@ jobs:
           fi
           echo "All $(git log --no-merges --format=%H "$BASE".."$HEAD" | wc -l | tr -d ' ') commits verified."
 
-  dependency-review:
-    name: Dependency Review
-    # spec-152 T-24 (D-152-14): blocking dependency-ingress gate. Reviews the
-    # PR's dependency diff and fails on a newly-introduced high+ vulnerability,
-    # matching the Snyk SCA `--severity-threshold=high`. Runs on EVERY pull
-    # request, dependabot included (it is NOT in the dependabot-exempting
-    # `pr_only` aggregate class). Skips on push (no dependency diff exists).
-    needs: [change-scope]
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    if: github.event_name == 'pull_request'
-    # Least-privilege: the action only reads the PR's dependency graph. No
-    # `pull-requests: write` because the summary-comment feature is disabled.
-    permissions:
-      contents: read
-    steps:
-      # spec-152 T-31 (D-152-19): egress monitor first, non-blocking audit mode.
-      - uses: step-security/harden-runner@9af89fc71515a100421586dfdb3dc9c984fbf411 # v2.19.4
-        with:
-          egress-policy: audit
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Dependency review
-        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
-        with:
-          # OQ4 default: block on high+ to match the Snyk SCA threshold.
-          fail-on-severity: high
-          comment-summary-in-pr: never
-
   snyk-security:
     name: Snyk Security
     needs: [change-scope]
@@ -992,7 +964,6 @@ jobs:
         framework-smoke,
         workflow-sanity,
         verify-gate-trailers,
-        dependency-review,
         snyk-security,
         security,
         content-integrity,
@@ -1051,15 +1022,6 @@ jobs:
           # -- pr-only: MUST succeed on non-dependabot PRs, skip accepted otherwise --
           pr_only=(
             "verify-gate-trailers:${{ needs.verify-gate-trailers.result }}"
-          )
-
-          # -- pr-all: MUST succeed on EVERY pull request, dependabot INCLUDED --
-          # spec-152 T-24 (D-152-14). Distinct from pr_only (which exempts
-          # dependabot). dependency-review is the blocking dependency-ingress
-          # gate; a malicious-dependency PR must not merge even from dependabot.
-          # Skip tolerated on push (the job's `if: pull_request` skips it there).
-          pr_all=(
-            "dependency-review:${{ needs.dependency-review.result }}"
           )
 
           # -- token-conditional: required when the gating token is provisioned --
@@ -1152,26 +1114,6 @@ jobs:
             if [[ "$IS_PR" == "true" && "$IS_DEPENDABOT" == "false" ]]; then
               if [[ "$result" != "success" ]]; then
                 echo "  FAIL: $name is required for non-dependabot PRs but got $result"
-                FAILED=1
-              fi
-            else
-              if [[ "$result" == "failure" ]]; then
-                echo "  FAIL: $name failed unexpectedly"
-                FAILED=1
-              fi
-            fi
-          done
-
-          echo ""
-          echo "-- PR-All (dependabot INCLUDED) --"
-          # MUST succeed on every PR including dependabot; skip tolerated on push.
-          for entry in "${pr_all[@]}"; do
-            name="${entry%%:*}"
-            result="${entry##*:}"
-            echo "  $name: $result (is_pr=$IS_PR, is_dependabot=$IS_DEPENDABOT)"
-            if [[ "$IS_PR" == "true" ]]; then
-              if [[ "$result" != "success" ]]; then
-                echo "  FAIL: $name is required on all PRs (dependabot included) but got $result"
                 FAILED=1
               fi
             else

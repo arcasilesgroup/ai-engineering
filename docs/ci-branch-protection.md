@@ -43,8 +43,8 @@ succeed — it feeds the `code`/`docs`/token signals the classes below read.)
 |-------|------|----------------|--------------------|
 | `always_required` | MUST succeed on every run | No | No |
 | `code_conditional` | MUST succeed when `code == true`; otherwise skip is fine | When `code != true` | Only when `code != true` |
+| `docs_conditional` | MUST succeed when `docs == true` OR `code == true` (the docs CI floor) | When neither docs nor code changed | Only when neither changed |
 | `pr_only` | MUST succeed on non-Dependabot PRs | On push / Dependabot | Only off the PR path |
-| `pr_all` | MUST succeed on every PR, **including Dependabot** | On push | Only off the PR path |
 | `token_conditional` | MUST succeed when `has-snyk-token == true`; skip tolerated only when the token is absent | When no `SNYK_TOKEN` (unprovisioned / fork PR) | No |
 
 Current membership (authoritative source is the workflow itself):
@@ -54,16 +54,26 @@ Current membership (authoritative source is the workflow itself):
   `risk-acceptance`, `no-suppression`, `typecheck`, `test-unit`,
   `test-integration`, `test-e2e`, `test-docs`, `framework-smoke`,
   `build-check`, `sonarcloud`.
+- **`docs_conditional`** — `docs-gate` (the lightweight docs floor —
+  content integrity + secret scan + workflow policy — that runs whenever
+  docs OR code change so a docs-only PR is still inspected instead of fully
+  bypassing CI — D-152-22).
 - **`pr_only`** — `verify-gate-trailers`.
-- **`pr_all`** — `dependency-review` (runs on every PR, including
-  Dependabot, so no update PR bypasses the dependency gate — D-152-14).
 - **`token_conditional`** — `snyk-security`. Mandatory (blocking high+)
   the moment `SNYK_TOKEN` is provisioned; until then — and on fork PRs that
   cannot read the secret — the job skips and the skip is tolerated so CI is
   not wedged. A *failure* always fails the gate (D-152-07/08).
 
-There is no `optional` class: spec-152 removed the catch-all informational
-bucket so every dependency lands in a class with a defined blocking rule.
+There is no `pr_all` class: its only member, `dependency-review`, was
+removed as infeasible — GitHub's `actions/dependency-review-action`
+requires the org Dependency Graph, which is disabled here, so the check
+could never run (a never-running required gate is itself a fail-open
+hole). SCA is carried by `snyk-security` (`token_conditional`) +
+`pip-audit` (in the `always_required` `security` job); see
+[`docs/supply-chain-control-matrix.md`](supply-chain-control-matrix.md).
+There is also no `optional` class: spec-152 removed the catch-all
+informational bucket so every dependency lands in a class with a defined
+blocking rule.
 
 ## Individual-gate requirements are optional defense-in-depth
 
