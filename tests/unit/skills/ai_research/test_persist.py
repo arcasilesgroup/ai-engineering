@@ -42,6 +42,7 @@ def _make_inputs(
     notebook_id: str | None = "nb-fresh-123",
     findings: str = "Option A is faster [1]; option B is simpler [2].",
     created_at: str = "2026-04-28T12:00:00+00:00",
+    report_markdown: str = "",
 ) -> PersistInputs:
     return PersistInputs(
         query=query,
@@ -63,6 +64,7 @@ def _make_inputs(
         notebook_id=notebook_id,
         findings=findings,
         created_at=created_at,
+        report_markdown=report_markdown,
     )
 
 
@@ -226,3 +228,75 @@ def test_artifact_filename_uses_created_at_date(tmp_path: Path) -> None:
     )
     path = persist_artifact(inputs, repo_root=tmp_path)
     assert path.name == "another-topic-2025-12-31.md"
+
+
+# ---------------------------------------------------------------------------
+# spec notebooklm-async-tier3 (AC6): notebook_id reuse + deep report
+# ---------------------------------------------------------------------------
+
+
+def test_notebook_reference_carries_notebook_id_for_reuse(tmp_path: Path) -> None:
+    """Notebook Reference must surface the notebook id so a later
+    ``--reuse-notebook=<id>`` can harvest the deep report (AC6, D4/G6).
+
+    The id appears both in frontmatter (``notebook_id:``) and in the
+    ``## Notebook Reference`` body section.
+    """
+    inputs = _make_inputs(notebook_id="nb-reuse-987")
+    text = persist_artifact(inputs, repo_root=tmp_path).read_text(encoding="utf-8")
+
+    assert "notebook_id: nb-reuse-987" in text
+    notebook_block = text[text.find("## Notebook Reference") :]
+    assert "nb-reuse-987" in notebook_block, (
+        f"Notebook Reference must mention the notebook id for --reuse-notebook; "
+        f"got:\n{notebook_block}"
+    )
+
+
+def test_artifact_includes_deep_research_report_when_present(tmp_path: Path) -> None:
+    """When NotebookLM returned a deep ``report_markdown``, the artifact gains a
+    ``## Deep Research Report`` section carrying that markdown verbatim (AC6).
+
+    The four mandatory sections remain present and ordered before it.
+    """
+    report = "### Deep dive\nOption A scales better under load [3].\n\n- bullet one\n- bullet two"
+    inputs = _make_inputs(report_markdown=report)
+    text = persist_artifact(inputs, repo_root=tmp_path).read_text(encoding="utf-8")
+
+    end_fence = text.find("\n---\n", 3)
+    body = text[end_fence + len("\n---\n") :]
+
+    report_index = body.find("## Deep Research Report")
+    assert report_index != -1, "Body must include a '## Deep Research Report' section"
+
+    # The deep report renders after the four mandatory sections.
+    for section in ("## Question", "## Findings", "## Sources", "## Notebook Reference"):
+        idx = body.find(section)
+        assert idx != -1, f"Body missing required section {section!r}"
+        assert idx < report_index, (
+            f"Deep report must follow the four mandatory sections; {section!r} came after it"
+        )
+
+    # The report markdown is preserved verbatim (heading, citation, and bullets).
+    report_block = body[report_index:]
+    assert "### Deep dive" in report_block
+    assert "Option A scales better under load [3]." in report_block
+    assert "- bullet one" in report_block
+    assert "- bullet two" in report_block
+
+
+def test_artifact_omits_deep_research_report_when_absent(tmp_path: Path) -> None:
+    """No deep report -> the ``## Deep Research Report`` section is absent.
+
+    The four mandatory sections stay in place; only the optional deep-report
+    block is conditional on ``report_markdown`` being non-empty.
+    """
+    inputs = _make_inputs(report_markdown="")
+    text = persist_artifact(inputs, repo_root=tmp_path).read_text(encoding="utf-8")
+
+    assert "## Deep Research Report" not in text, (
+        "Deep Research Report section must be omitted when report_markdown is empty"
+    )
+    # The mandatory sections are unaffected.
+    for section in ("## Question", "## Findings", "## Sources", "## Notebook Reference"):
+        assert section in text, f"Mandatory section {section!r} must still be present"

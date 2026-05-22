@@ -136,6 +136,11 @@ def _code_default_for(name: str) -> str | None:
             _RUNTIME_STATE,
             r'_env_int\("AIENG_TOOL_OFFLOAD_BYTES",\s*(\d+)',
         )
+    if name == "AIENG_RESEARCH_NLM_WAIT_SEC":
+        return _grep_default(
+            _RUNTIME_STATE,
+            r'_env_int\("AIENG_RESEARCH_NLM_WAIT_SEC",\s*(\d+)',
+        )
     if name == "AIENG_LOOP_WINDOW":
         return _grep_default(
             _RUNTIME_STATE,
@@ -233,6 +238,12 @@ _PROMOTED_M5_M6_TUNABLES: tuple[str, ...] = (
     "AIENG_NDJSON_MAX_LINES",
     "AIENG_NDJSON_MAX_BYTES",
 )
+
+# spec notebooklm-async-tier3: the /ai-research Tier 3 deep-research harvest
+# bounded-wait tunable. Implemented in runtime_state.py with a real default,
+# so it MUST be a default-bearing docs entry (never reserved/pending) whose
+# value matches the code.
+_SPEC_NOTEBOOKLM_TUNABLES: tuple[str, ...] = ("AIENG_RESEARCH_NLM_WAIT_SEC",)
 
 _CANONICAL_TUNABLE_DOCS: tuple[Path, ...] = (_CLAUDE_MD, _TEMPLATE_CLAUDE_MD)
 
@@ -375,6 +386,7 @@ def test_every_documented_var_classified() -> None:
         | set(_M1_TUNABLES)
         | set(_M6_TUNABLES)
         | set(_PROMOTED_M5_M6_TUNABLES)
+        | set(_SPEC_NOTEBOOKLM_TUNABLES)
         | set(_RESERVED_TUNABLES)
     )
     for name, (_default, marker_kind, _milestone) in documented.items():
@@ -384,8 +396,8 @@ def test_every_documented_var_classified() -> None:
             continue
         pytest.fail(
             f"{name} documented in CLAUDE.md but not classified as "
-            "established / M1 / M5-M6 / reserved. Add it to the matching "
-            "classification or mark the doc entry as reserved spec-139 M<n>."
+            "established / M1 / M5-M6 / spec-notebooklm / reserved. Add it to "
+            "the matching classification or mark the doc entry as reserved spec-139 M<n>."
         )
 
 
@@ -420,3 +432,26 @@ def test_m6_runtime_rotate_tunable_matches_code_default() -> None:
             f"{name} M6 doc/code drift: CLAUDE.md says default={doc_default!r}, "
             f"code says default={code_default!r}."
         )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("doc_path", _CANONICAL_TUNABLE_DOCS)
+@pytest.mark.parametrize("name", _SPEC_NOTEBOOKLM_TUNABLES)
+def test_spec_notebooklm_tunable_matches_code_default(doc_path: Path, name: str) -> None:
+    """spec notebooklm-async-tier3 Tier 3 harvest tunable is documented with
+    its ``runtime_state.py`` default in both canonical rulebooks.
+    """
+    documented = _parse_documented_tunables(doc_path)
+    assert name in documented, f"{doc_path} tunables block missing {name}"
+    doc_default, marker_kind, _milestone = documented[name]
+    assert marker_kind is None, f"{name} is implemented but marked {marker_kind} in {doc_path}"
+    assert doc_default is not None, f"{name} missing a documented default in {doc_path}"
+    code_default = _code_default_for(name)
+    assert code_default is not None, (
+        f"Could not resolve code default for {name} — update _code_default_for() "
+        "if runtime_state.py moved."
+    )
+    assert doc_default == code_default, (
+        f"{name} doc/code drift in {doc_path}: docs say default={doc_default!r}, "
+        f"code says default={code_default!r}."
+    )

@@ -14,9 +14,13 @@ This handler documents the algorithm that the agent (and the lockstep helper at 
 - `depth` (string) -- `quick|standard|deep`.
 - `tiers_invoked` (list[int]).
 - `sources_used` (list[`Source`]) -- each with `title`, `url`, `accessed_at`.
-- `notebook_id` (string|None).
+- `notebook_id` (string|None) -- the NotebookLM notebook id. Persisted so a later
+  `--reuse-notebook=<id>` run can re-attach and harvest the deep report (AC6).
 - `findings` (string with `[N]` citations from the synthesizer).
 - `created_at` (ISO 8601 UTC string).
+- `report_markdown` (string, optional) -- the NotebookLM deep-research report. Set
+  when the bounded harvest completed within the wait window; empty when the harvest
+  timed out (the run degraded and persisted `notebook_id` for later reuse).
 
 ### Trigger Conditions (T-3.9)
 
@@ -65,9 +69,14 @@ slug: <topic-slug>
 
 ## Notebook Reference
 NotebookLM notebook: <notebook_id>      # or "_(none)_" when null
+
+## Deep Research Report                 # OMITTED entirely when report_markdown is empty
+<report_markdown verbatim>
 ```
 
 The four body sections (`## Question`, `## Findings`, `## Sources`, `## Notebook Reference`) are ALWAYS present so Tier 0 readers can rely on a stable layout.
+
+`## Deep Research Report` is OPTIONAL: it is appended (after the four mandatory sections) only when `report_markdown` is non-empty -- i.e. when the NotebookLM bounded harvest completed within the wait window. On harvest timeout the report is absent but `notebook_id` is still recorded (in frontmatter and `## Notebook Reference`) so a follow-up `--reuse-notebook=<id>` run retrieves the report (AC6).
 
 ## Implementation Reference
 
@@ -75,4 +84,4 @@ The Python lockstep implementation lives at `tests/integration/_ai_research_pers
 
 ## Status
 
-Phase 3 (T-3.10) implementation. Validator coupling with the synthesizer ships in Phase 4.
+Phase 3 (T-3.10) implementation. Validator coupling with the synthesizer ships in Phase 4. Extended in spec notebooklm-async-tier3 Phase 5 (T-5.1) with the optional `## Deep Research Report` section and `notebook_id` reuse semantics (AC6).

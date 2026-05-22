@@ -212,6 +212,9 @@ AIENG_HOOK_ENGINE_DEFAULT           # fallback engine label when none is detecte
 AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; override the event-payload sidecar-offload threshold
 AIE_MCP_HEALTH_FAIL_OPEN            # set "1" to make the MCP health gate pass-through instead of blocking -- SECURITY RISK: disables a blocking gate
 
+# spec notebooklm-async-tier3 — /ai-research Tier 3 deep-research harvest
+AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; NotebookLM deep-research harvest)
+
 # Reserved roadmap — not implemented
 AIENG_HOST_PREFLIGHT_DISABLED       # reserved spec-139 M2
 AIENG_HOST_PREFLIGHT_MIN_FREE_MB    # reserved spec-139 M2

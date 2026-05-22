@@ -6,28 +6,29 @@ Spec acceptance:
     ``degraded_sources`` list and the synthesizer surfaces a visible
     warning to the user.
 
-    Tier 3 (NotebookLM) MUST probe ``server_info`` first; if auth is
-    expired (probe returns ``authenticated: False``), Tier 3 is skipped
-    with a ``notebooklm auth expired`` warning suggesting ``nlm login``.
+    Tier 3 (NotebookLM, ``claude-world/notebooklm-skill`` backend) MUST
+    probe ``nlm_list`` first (capability/auth); if auth is expired (probe
+    returns ``authenticated: False``), the launch is skipped (degraded)
+    with a warning suggesting ``uvx notebooklm login`` and no other
+    ``nlm_*`` calls (D7 fail-soft).
 
     All-external-down case: Tier 1 + Tier 2 + Tier 3 all fail -> the
     synthesizer falls back to local context (Tier 0 results) and surfaces
     a "all external sources down" warning so the user knows the answer
     is local-only.
-
-Status: RED until T-4.9 wires the auth probe into the Tier 3 helper and
-T-4.10 confirms the test suite is GREEN.
 """
 
 from __future__ import annotations
 
+from tests.integration._ai_research_capability import is_available
 from tests.integration._ai_research_tier1_helper import (
     Tier1Hit,
     tier1_free_mcps,
 )
+from tests.integration._ai_research_tier2_helper import tier2_web
 from tests.integration._ai_research_tier3_helper import (
-    Tier3Result,
-    tier3_notebooklm,
+    tier3_harvest,
+    tier3_launch,
 )
 
 # ---------------------------------------------------------------------------
@@ -156,62 +157,50 @@ def test_ms_learn_down_continues_with_other_mcps() -> None:
 
 
 def test_notebooklm_auth_expired_degrades_to_tier2_only_with_warning() -> None:
-    """When ``server_info`` reports ``authenticated: False``, Tier 3 is skipped.
+    """When ``nlm_list`` reports ``authenticated: False``, Tier 3 is skipped.
 
-    Arrange: server_info probe returns ``{authenticated: False, ...}``.
+    Arrange: the ``nlm_list`` capability/auth probe returns
+    ``{authenticated: False, ...}``.
 
-    Act: invoke ``tier3_notebooklm`` with the probe injected.
+    Act: invoke ``tier3_launch`` with the probe injected.
 
     Assert:
-      * ``notebook_create``, ``source_add``, ``notebook_query`` were NOT called.
-      * The result is degraded with the ``notebooklm auth expired`` warning.
-      * The warning suggests running ``nlm login`` so the user can recover.
+      * ``nlm_create_notebook`` and ``nlm_research`` were NOT called.
+      * The launch is degraded with an empty ``notebook_id``.
+      * A warning suggests ``uvx notebooklm login`` so the user can recover.
     """
     create_calls: list[dict] = []
-    source_calls: list[dict] = []
-    query_calls: list[dict] = []
+    research_calls: list[dict] = []
 
-    def server_info_unauth() -> dict:
-        return {"authenticated": False, "user": None}
+    def nlm_list_unauth() -> dict:
+        return {"authenticated": False, "notebooks": []}
 
-    def notebook_create(*, title: str) -> dict:
+    def nlm_create_notebook(*, title: str) -> dict:
         create_calls.append({"title": title})
         return {"notebook_id": "should-not-be-used"}
 
-    def source_add(**kwargs) -> dict:
-        source_calls.append(kwargs)
-        return {"source_id": "x"}
+    def nlm_research(**kwargs) -> dict:
+        research_calls.append(kwargs)
+        return {"job_id": "should-not-happen", "status": "running"}
 
-    def notebook_query(**kwargs) -> dict:
-        query_calls.append(kwargs)
-        return {"answer": "should not happen", "conversation_id": "x"}
-
-    result = tier3_notebooklm(
+    launch = tier3_launch(
         "compare A vs B",
-        sources=["https://example.com/a", "https://example.com/b"],
         timestamp_iso="2026-04-28T12:00:00+00:00",
-        notebook_create=notebook_create,
-        source_add=source_add,
-        notebook_query=notebook_query,
-        server_info=server_info_unauth,
+        nlm_list=nlm_list_unauth,
+        nlm_create_notebook=nlm_create_notebook,
+        nlm_research=nlm_research,
     )
 
-    assert isinstance(result, Tier3Result)
-    assert result.degraded is True, "Tier 3 must mark degraded when auth expired"
+    assert launch["degraded"] is True, "Tier 3 must degrade when auth expired"
+    assert launch["notebook_id"] == "", "No notebook id when the launch is skipped"
     assert create_calls == [], (
-        f"notebook_create MUST NOT be called when auth expired; got {create_calls}"
+        f"nlm_create_notebook MUST NOT be called when auth expired; got {create_calls}"
     )
-    assert source_calls == [], (
-        f"source_add MUST NOT be called when auth expired; got {source_calls}"
+    assert research_calls == [], (
+        f"nlm_research MUST NOT be called when auth expired; got {research_calls}"
     )
-    assert query_calls == [], (
-        f"notebook_query MUST NOT be called when auth expired; got {query_calls}"
-    )
-    assert any("auth" in w.lower() for w in result.warnings), (
-        f"Warnings must mention 'auth' so the user knows what's wrong; got {result.warnings}"
-    )
-    assert any("nlm login" in w for w in result.warnings), (
-        f"Warnings must suggest 'nlm login' for recovery; got {result.warnings}"
+    assert any("uvx notebooklm login" in w for w in launch["warnings"]), (
+        f"Warnings must suggest 'uvx notebooklm login' for recovery; got {launch['warnings']}"
     )
 
 
@@ -260,3 +249,215 @@ def test_all_external_down_returns_local_only_with_warning() -> None:
         f"All sources failed; hits must be empty so the synthesizer falls back to local; "
         f"got {result.hits}"
     )
+
+
+# ===========================================================================
+# Capability-ABSENCE resilience (notebooklm-async-tier3 D7 / AC2 / AC4)
+#
+# These tests are DISTINCT from the transient-exception cases above. Above, a
+# present-but-flaky source RAISES during its call and is caught post-hoc. Here
+# the source is ABSENT/unavailable up front (the capability probe says so), so
+# it is skipped silently, recorded in ``degraded_sources``, and the underlying
+# tool is NEVER invoked. Both paths converge on the same fail-soft contract:
+# the run proceeds and never raises.
+#
+# The shared guard ``is_available(probe)`` gives every tier uniform semantics.
+# ===========================================================================
+
+
+def test_is_available_guard_treats_absence_as_unavailable() -> None:
+    """The shared capability guard maps absence/falsy/auth-false to False.
+
+    ``is_available`` is the single DRY predicate every tier routes through so
+    "absent" means the same thing for Context7, Exa, and NotebookLM:
+
+      * ``None`` probe (tool not wired)            -> False
+      * probe raises (cannot even introspect)      -> False
+      * probe returns a falsy payload ({}, [], 0)  -> False
+      * probe returns ``{"authenticated": False}`` -> False
+      * any other truthy payload                   -> True
+    """
+
+    def probe_raises() -> dict:
+        raise RuntimeError("MCP server not reachable")
+
+    # Unavailable forms.
+    assert is_available(None) is False, "A missing probe means the tool is absent"
+    assert is_available(probe_raises) is False, "A raising probe is treated as absent"
+    assert is_available(lambda: {}) is False, "An empty payload is unavailable"
+    assert is_available(lambda: []) is False, "A falsy payload is unavailable"
+    assert is_available(lambda: None) is False, "A None payload is unavailable"
+    assert is_available(lambda: {"authenticated": False}) is False, (
+        "An unauthenticated payload is unavailable"
+    )
+
+    # Available forms.
+    assert is_available(lambda: {"authenticated": True}) is True
+    assert is_available(lambda: {"notebooks": []}) is True, (
+        "A truthy payload with no auth key defaults to available"
+    )
+    assert is_available(lambda: {"ok": 1}) is True
+
+
+def test_notebooklm_absent_probe_degrades_tier3_run_proceeds() -> None:
+    """AC2: NotebookLM ABSENT (probe falsy) -> Tier 3 degraded, run proceeds.
+
+    Distinct from ``test_notebooklm_auth_expired_*``: there the probe returns
+    ``{authenticated: False}``; here the probe returns an empty/falsy payload
+    (the tool is simply not present). Either way no ``nlm_*`` mutation runs and
+    the launch degrades silently so Tiers 0-2 can carry the run (exit 0).
+    """
+    create_calls: list[dict] = []
+    research_calls: list[dict] = []
+
+    def nlm_list_absent() -> dict:
+        # Empty payload: NotebookLM is not present at all.
+        return {}
+
+    def nlm_create_notebook(*, title: str) -> dict:
+        create_calls.append({"title": title})
+        return {"notebook_id": "should-not-be-used"}
+
+    def nlm_research(**kwargs) -> dict:
+        research_calls.append(kwargs)
+        return {"job_id": "should-not-happen", "status": "running"}
+
+    # Guard agrees the tool is absent before we even launch.
+    assert is_available(nlm_list_absent) is False
+
+    launch = tier3_launch(
+        "design an async harvest model",
+        timestamp_iso="2026-05-22T12:00:00+00:00",
+        nlm_list=nlm_list_absent,
+        nlm_create_notebook=nlm_create_notebook,
+        nlm_research=nlm_research,
+    )
+
+    assert launch["degraded"] is True, "Absent NotebookLM must degrade Tier 3"
+    assert launch["notebook_id"] == "", "No notebook id when the tool is absent"
+    assert create_calls == [], (
+        f"nlm_create_notebook MUST NOT be called when the tool is absent; got {create_calls}"
+    )
+    assert research_calls == [], (
+        f"nlm_research MUST NOT be called when the tool is absent; got {research_calls}"
+    )
+
+    # The run proceeds: harvesting a degraded launch passes through cleanly
+    # (no polling, no raise) so synthesis continues on Tiers 0-2 only.
+    harvest = tier3_harvest(
+        launch,
+        job_status=lambda _id: (_ for _ in ()).throw(
+            AssertionError("job_status MUST NOT be polled for an absent NotebookLM")
+        ),
+        clock=lambda: 0.0,
+        wait_budget_sec=300.0,
+    )
+    assert harvest.degraded is True
+    assert harvest.report_markdown == "", "No deep report when NotebookLM is absent"
+    assert harvest.warnings, "A degraded harvest must carry a visible note (AC2)"
+
+
+def test_context7_absent_probe_skipped_silently_and_degraded() -> None:
+    """AC4: an ABSENT Context7 is skipped silently and recorded as degraded.
+
+    Distinct from ``test_context7_down_*`` (where Context7 RAISES mid-call).
+    Here a per-source availability probe reports Context7 absent, so its
+    callable is NEVER invoked; the source name still lands in
+    ``degraded_sources`` and the surviving MCPs contribute hits. The run never
+    raises.
+    """
+    context7_calls: list[str] = []
+
+    def context7_absent_should_not_run(_query: str, **_) -> list[Tier1Hit]:
+        context7_calls.append(_query)
+        raise AssertionError("Context7 callable MUST NOT run when probed absent")
+
+    def ms_learn_ok(_query: str, **_) -> list[Tier1Hit]:
+        return [
+            Tier1Hit(
+                title="Azure Functions retry guide",
+                url="https://learn.microsoft.com/azure/functions/retry",
+                snippet="Retry policy",
+                source="ms_learn",
+            )
+        ]
+
+    def gh_search_ok(_query: str, **_) -> list[Tier1Hit]:
+        return [
+            Tier1Hit(
+                title="github.com/foo/bar",
+                url=None,
+                snippet="example",
+                source="gh_search",
+                repo="foo/bar",
+                path="src/retry.py",
+            )
+        ]
+
+    query = "Azure dotnet retry patterns library github examples"
+    result = tier1_free_mcps(
+        query,
+        context7=context7_absent_should_not_run,
+        ms_learn=ms_learn_ok,
+        gh_search=gh_search_ok,
+        # Per-source availability: Context7 absent, the others present.
+        context7_available=False,
+    )
+
+    assert context7_calls == [], "An absent Context7 must be skipped silently, not invoked"
+    assert "context7" in result.degraded_sources, (
+        f"Absent Context7 must be recorded in degraded_sources (AC4); got {result.degraded_sources}"
+    )
+    sources_in_hits = {hit.source for hit in result.hits}
+    assert "ms_learn" in sources_in_hits, "Surviving MS Learn hit must be present"
+    assert "gh_search" in sources_in_hits, "Surviving gh_search hit must be present"
+    assert "context7" not in sources_in_hits, "Absent Context7 contributes zero hits"
+
+
+def test_exa_absent_falls_back_to_builtin_and_records_degraded() -> None:
+    """AC4: ABSENT Exa -> built-in WebSearch fallback + ``exa`` degraded.
+
+    The Tier 2 capability flag is derived through the shared guard. When Exa
+    is absent the built-in WebSearch carries the search, ``"exa"`` is recorded
+    in ``degraded_sources`` (fail-soft), and the run still returns output.
+    """
+    exa_calls: list[str] = []
+    builtin_calls: list[str] = []
+
+    def exa_search_absent(_query: str, **_) -> list[dict]:
+        exa_calls.append(_query)
+        raise AssertionError("Exa search MUST NOT run when Exa is absent")
+
+    def exa_fetch_absent(_url: str, **_) -> list[dict]:
+        raise AssertionError("Exa fetch MUST NOT run when Exa is absent")
+
+    def builtin_search(_query: str, **_) -> list[dict]:
+        builtin_calls.append(_query)
+        return [{"title": "fallback result", "url": "https://example.org/x"}]
+
+    def builtin_fetch(_url: str, **_) -> list[dict]:
+        return []
+
+    # An absent Exa probe routed through the shared guard -> exa_available False.
+    exa_probe_absent = None
+    exa_available = is_available(exa_probe_absent)
+    assert exa_available is False, "An absent Exa probe must resolve to unavailable"
+
+    result = tier2_web(
+        "best practices for retries",
+        # Fewer than the skip threshold so Tier 2 actually runs.
+        tier1_hits=[{"title": "h", "url": "https://a"}],
+        exa_search=exa_search_absent,
+        exa_fetch=exa_fetch_absent,
+        web_search=builtin_search,
+        web_fetch=builtin_fetch,
+        exa_available=exa_available,
+    )
+
+    assert exa_calls == [], "Absent Exa must be skipped silently, not invoked"
+    assert len(builtin_calls) == 1, "Built-in WebSearch must carry the fallback"
+    assert "exa" in result.degraded_sources, (
+        f"Absent Exa must be recorded in degraded_sources (AC4); got {result.degraded_sources}"
+    )
+    assert result.skipped is False, "Tier 2 must still run and return output"
+    assert result.hits, "The built-in fallback must produce hits"
