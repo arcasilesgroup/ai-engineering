@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### BREAKING
 
+- **spec-151 — Google support is Antigravity-only before public release.**
+  The retired `gemini-cli` surface is hard-deleted from the supported
+  surface enum, installer/update maps, validators, generated mirrors, docs,
+  and tests. Fresh installs now use the single `antigravity` surface with
+  root `AGENTS.md`, generated `.agents/skills` + `.agents/agents`, and
+  fail-soft `agy`/`agy.exe` diagnostics. Removed with no shim: root
+  `GEMINI.md`, `.gemini/**`, template `GEMINI.md`/`.gemini/**`, the
+  Gemini hook bridge, and legacy Antigravity `.agent/**` generated output.
+  Historical changelog/spec references remain historical only.
 - **spec-148 — files-only persistence: the embedded SQLite `state.db` is
   removed.** Every datum now has a single file source of truth — decisions
   and risk acceptances in `decision-store.json`, ownership in

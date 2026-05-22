@@ -15,7 +15,7 @@ Six functions per G-12:
   * read_stdin_json()                      -> dict      (parse stdin, never raise)
   * compute_event_hash(event_dict)         -> str       (canonical sha256)
   * get_correlation_id()                   -> str       (env or uuid4)
-  * get_session_id()                       -> str|None  (Claude/Gemini env)
+  * get_session_id()                       -> str|None  (Claude/Antigravity env)
   * validate_event_schema(event)           -> bool      (delegates to validator)
 """
 
@@ -48,7 +48,7 @@ _REQUIRED_KEYS: tuple[str, ...] = (
     "project",
 )
 _ALLOWED_ENGINES: frozenset[str] = frozenset(
-    {"claude_code", "codex", "gemini", "copilot", "ai_engineering"}
+    {"claude_code", "codex", "antigravity", "copilot", "ai_engineering"}
 )
 _ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
 _ALLOWED_KINDS: frozenset[str] = frozenset(
@@ -162,13 +162,13 @@ def get_correlation_id() -> str:
 
 
 # ---------------------------------------------------------------------------
-# 5. get_session_id -- Claude or Gemini env, else None
+# 5. get_session_id -- Claude or Antigravity env, else None
 # ---------------------------------------------------------------------------
 
 
 def get_session_id() -> str | None:
     """Resolve the IDE-provided session id or return None."""
-    return os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("GEMINI_SESSION_ID") or None
+    return os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("ANTIGRAVITY_SESSION_ID") or None
 
 
 # ---------------------------------------------------------------------------

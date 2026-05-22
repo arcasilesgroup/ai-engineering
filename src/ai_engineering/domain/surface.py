@@ -6,15 +6,14 @@ collapses the legacy split between ``providers.ides`` and
 ``ai_providers.enabled`` (manifest schema sub-002 deletes both, replaces
 with ``surfaces.enabled``).
 
-The registry is the authoritative source of the 7 supported surfaces:
+The registry is the authoritative source of the 6 supported surfaces:
 
 * ``claude-code`` — Anthropic Claude Code (full surface, native hooks)
 * ``codex`` — OpenAI Codex CLI (full surface)
-* ``gemini-cli`` — Google Gemini CLI (full surface)
 * ``github-copilot`` — GitHub Copilot (full surface)
 * ``opencode`` — sst/opencode (full surface, plugin engine)
 * ``cursor`` — Cursor 1.7+ (full surface, stdio JSON hook engine)
-* ``antigravity`` — Google Antigravity (mirror-only, no hooks upstream)
+* ``antigravity`` — Google Antigravity app plus ``agy`` CLI (first-class, partial audit)
 
 Surface is a frozen dataclass — registry mutations are forbidden at
 runtime. ``domain.surface`` has zero infrastructure imports and lives
@@ -49,9 +48,9 @@ class Surface:
             they are lazy-loaded by the agent, not always-included.
         tree_dir: Relative path to the surface's tree-root directory
             (e.g. ``".claude/"``, ``".cursor/"``).
-        hook_engine: ``"native"`` (Claude Code stdio JSON),
-            ``"plugin"`` (OpenCode JS/TS plugin API), ``"stdio"`` (Cursor
-            stdio JSON), or ``"none"`` (Antigravity — no hooks).
+        hook_engine: ``"native"`` (Claude Code stdio JSON or compatible
+            host-native hook/config surface), ``"plugin"`` (OpenCode JS/TS
+            plugin API), ``"stdio"`` (Cursor stdio JSON), or ``"none"``.
         audit_capability: ``"full"`` if the surface can emit
             ``framework-events.ndjson`` envelopes via a deterministic
             CLI probe; ``"partial"`` if only some events flow;
@@ -71,7 +70,7 @@ class Surface:
 
 
 # ---------------------------------------------------------------------------
-# Canonical registry — single source of truth for the 7 Surfaces.
+# Canonical registry — single source of truth for the 6 Surfaces.
 # ---------------------------------------------------------------------------
 
 SURFACE_REGISTRY: Final[dict[str, Surface]] = {
@@ -92,15 +91,6 @@ SURFACE_REGISTRY: Final[dict[str, Surface]] = {
         hook_engine="native",
         audit_capability="full",
         autodetect_marker=(".codex/", ".config/codex/"),
-    ),
-    "gemini-cli": Surface(
-        id="gemini-cli",
-        display_name="Gemini CLI",
-        instruction_files=("GEMINI.md",),
-        tree_dir=".gemini/",
-        hook_engine="native",
-        audit_capability="full",
-        autodetect_marker=(".gemini/",),
     ),
     "github-copilot": Surface(
         id="github-copilot",
@@ -132,11 +122,11 @@ SURFACE_REGISTRY: Final[dict[str, Surface]] = {
     "antigravity": Surface(
         id="antigravity",
         display_name="Antigravity",
-        instruction_files=("GEMINI.md", "AGENTS.md"),
-        tree_dir=".agent/",
-        hook_engine="none",
-        audit_capability="none",
-        autodetect_marker=(".agent/",),
+        instruction_files=("AGENTS.md",),
+        tree_dir=".agents/",
+        hook_engine="native",
+        audit_capability="partial",
+        autodetect_marker=(".agents/",),
     ),
 }
 

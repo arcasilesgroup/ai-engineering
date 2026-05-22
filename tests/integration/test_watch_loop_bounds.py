@@ -5,7 +5,7 @@ RED phase for spec-104 T-6.1 (paired with T-6.2 GREEN that edits
 these assertions has two surfaces:
 
 1. **Markdown contract** in ``.claude/skills/ai-pr/handlers/watch.md`` — the
-   skill handler that the IDE agent (Claude Code, Copilot, Codex, Gemini)
+   skill handler that the IDE agent (Claude Code, Copilot, Codex, Antigravity)
    reads at runtime. T-6.2 must extend the document to encode the active
    30-min cap, the passive 4-h cap, the ``watch-residuals.json`` emit, the
    actionable ``ai-eng risk accept-all`` user message, and exit code 90 as

@@ -63,7 +63,7 @@ One canonical payload is mirrored into all enabled surfaces:
 | Claude Code | [CLAUDE.md](CLAUDE.md) |
 | GitHub Copilot | [.github/copilot-instructions.md](.github/copilot-instructions.md) |
 | OpenAI Codex | [AGENTS.md](AGENTS.md) |
-| Gemini CLI | [GEMINI.md](GEMINI.md) |
+| Antigravity | [AGENTS.md](AGENTS.md) + `.agents/` skills and agents |
 | OpenCode | `.opencode/` skills and commands |
 | Cursor | `.cursor/` skills |
 

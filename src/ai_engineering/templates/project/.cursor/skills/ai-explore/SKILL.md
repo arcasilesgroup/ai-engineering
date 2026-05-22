@@ -5,7 +5,7 @@ effort: cheap
 argument-hint: "[question]"
 tags: [exploration, research, codebase, architecture, mapping]
 model_tier: haiku
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-explore/SKILL.md
 edit_policy: generated-do-not-edit
@@ -38,7 +38,7 @@ edit_policy: generated-do-not-edit
 ## Process
 
 Per D-133-09 this is a thin wrapper: dispatches the existing
-`ai-explore` agent (`.gemini/agents/ai-explore.md`) with the user's
+`ai-explore` agent (`.cursor/agents/ai-explore.mdc`) with the user's
 question. The agent owns the heavy lifting (file-reading + grep tools
 structured findings output).
 

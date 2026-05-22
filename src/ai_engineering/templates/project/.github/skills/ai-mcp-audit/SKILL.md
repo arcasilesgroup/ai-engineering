@@ -43,7 +43,7 @@ Does NOT replace `/ai-security` (CVE/SBOM), `/ai-governance` (compliance), `/ai-
 - After installing a new skill or MCP server (`scan`).
 - After updating an existing skill, especially auto-update (`audit-update <skill>`).
 - After fresh-cloning or anchoring known-good state (`baseline set`).
-- Before merging PRs touching `.github/skills/`, `.codex/skills/`, `.gemini/skills/`, `.github/skills/`.
+- Before merging PRs touching `.github/skills/`, `.codex/skills/`, `.agents/skills/`, `.github/skills/`.
 - NOT for runtime payload inspection (use prompt-injection-guard hook).
 - NOT for CVE/dependency vulnerabilities (use `/ai-security`).
 

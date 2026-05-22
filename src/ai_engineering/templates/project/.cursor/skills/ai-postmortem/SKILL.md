@@ -4,7 +4,7 @@ description: Documents production incidents, outages, degradations, and near-mis
 effort: mid
 argument-hint: "start|continue [id]|find [query]|generate"
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-postmortem/SKILL.md
 edit_policy: generated-do-not-edit

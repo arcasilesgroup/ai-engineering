@@ -366,7 +366,7 @@ def _mirror_pair(
 ) -> tuple[Path, Path]:
     """Return (canonical, mirror) paths for an IDE skill/agent under tmp_path.
 
-    ``ide_root`` is ``.github`` / ``.claude`` / ``.codex`` / ``.gemini``; ``kind``
+    ``ide_root`` is ``.github`` / ``.claude`` / ``.codex`` / ``.agents``; ``kind``
     is ``skills`` / ``agents``; ``name`` (optional) appends a sub-directory.
     """
     canonical = tmp_path / ide_root / kind

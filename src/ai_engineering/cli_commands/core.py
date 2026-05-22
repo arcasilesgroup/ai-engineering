@@ -109,7 +109,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
             "-S",
             help=(
                 "Surface(s) to enable — closed enum: claude-code, codex, "
-                "gemini-cli, github-copilot, opencode, cursor, antigravity."
+                "github-copilot, opencode, cursor, antigravity."
             ),
         ),
     ] = None,
@@ -729,7 +729,7 @@ def _emit_install_success_json(
                 command="/ai-start",
                 description=(
                     "IDE assistant slash-command (Claude Code / Copilot / Codex / "
-                    "Gemini): begin the first governed session"
+                    "Antigravity): begin the first governed session"
                 ),
             ),
         ],
@@ -761,7 +761,7 @@ def _render_install_success_human(
     next_steps = [(_DOCTOR_COMMAND, "Run health diagnostics")]
     suggest_next(next_steps)
     info(
-        "Open your AI assistant (Claude Code / Copilot / Codex / Gemini) "
+        "Open your AI assistant (Claude Code / Copilot / Codex / Antigravity) "
         "and run /ai-start to begin the first governed session."
     )
     # spec-124 D-124-06: visual breathing room before the Install Complete panel

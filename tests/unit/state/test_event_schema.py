@@ -75,7 +75,7 @@ def test_engine_value_must_be_in_enum(engine) -> None:
 
 @pytest.mark.parametrize(
     "engine",
-    ["claude_code", "codex", "gemini", "copilot", "ai_engineering"],
+    ["claude_code", "codex", "antigravity", "copilot", "ai_engineering"],
 )
 def test_engine_enum_accepts_valid_values(engine: str) -> None:
     from ai_engineering.state.event_schema import validate_event_schema

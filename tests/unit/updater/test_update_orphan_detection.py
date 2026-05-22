@@ -5,7 +5,7 @@ disk, ``update()`` should detect them as orphans and report them with
 ``action="orphan"``.  Orphans are deleted on apply but preserved on
 dry-run.
 
-Shared files (e.g., ``AGENTS.md`` used by copilot, gemini, codex)
+Shared files (e.g., ``AGENTS.md`` used by copilot, antigravity, codex)
 should only be orphaned when ALL providers that use them are disabled.
 
 RED-phase tests -- expected to FAIL until orphan detection is
@@ -123,10 +123,10 @@ def claude_codex_project(tmp_path: Path) -> Path:
 
 
 @pytest.fixture()
-def claude_gemini_project(tmp_path: Path) -> Path:
-    """Install a project with ``claude-code`` and ``gemini``."""
+def claude_antigravity_project(tmp_path: Path) -> Path:
+    """Install a project with ``claude-code`` and ``antigravity``."""
     _ensure_git_repo(tmp_path)
-    install(tmp_path, surfaces=["claude-code", "gemini-cli"])
+    install(tmp_path, surfaces=["claude-code", "antigravity"])
     return tmp_path
 
 
@@ -232,34 +232,34 @@ class TestOrphanDetection:
 
 
 class TestSharedFileOrphanRules:
-    """AGENTS.md is shared by copilot, gemini, and codex.  It should
+    """AGENTS.md is shared by copilot, antigravity, and codex.  It should
     only be orphaned when ALL providers that use it are disabled.
     """
 
     def test_shared_file_not_orphaned_when_other_provider_active(
         self,
-        claude_gemini_project: Path,
+        claude_antigravity_project: Path,
     ) -> None:
-        """T8: With [claude-code, gemini] active and codex disabled,
-        AGENTS.md must NOT appear as an orphan because gemini still uses it.
+        """T8: With [claude-code, antigravity] active and codex disabled,
+        AGENTS.md must NOT appear as an orphan because antigravity still uses it.
         """
-        # Ensure AGENTS.md exists on disk (gemini install should create it).
-        agents_md = claude_gemini_project / "AGENTS.md"
+        # Ensure AGENTS.md exists on disk (antigravity install should create it).
+        agents_md = claude_antigravity_project / "AGENTS.md"
         if not agents_md.exists():
             agents_md.write_text("# AGENTS\n", encoding="utf-8")
 
-        result = update(claude_gemini_project, dry_run=True)
-        orphans = _orphan_relative_paths(result, claude_gemini_project)
+        result = update(claude_antigravity_project, dry_run=True)
+        orphans = _orphan_relative_paths(result, claude_antigravity_project)
 
         assert "AGENTS.md" not in orphans, (
-            "AGENTS.md should NOT be orphaned when gemini (which uses it) is active"
+            "AGENTS.md should NOT be orphaned when antigravity (which uses it) is active"
         )
 
     def test_shared_file_orphaned_when_all_providers_disabled(
         self,
         claude_only_project: Path,
     ) -> None:
-        """T9: With only [claude-code] active (no copilot, gemini, codex),
+        """T9: With only [claude-code] active (no copilot, antigravity, codex),
         AGENTS.md must appear as an orphan because no active provider uses it.
         """
         # Place AGENTS.md on disk manually (it should not have been installed

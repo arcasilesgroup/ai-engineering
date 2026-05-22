@@ -2,7 +2,7 @@
 
 > Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
 > the canonical multi-IDE entry point for "how AI works in this repo".
-> Every IDE-native mirror (AGENTS.md, CLAUDE.md, GEMINI.md,
+> Every IDE-native mirror (AGENTS.md, CLAUDE.md,
 > .github/copilot-instructions.md) carries identical canonical payload;
 > IDE-specific extras live in the fenced block at the bottom.
 
@@ -72,7 +72,7 @@ checkpoints. It does NOT appear in the canonical chain (D-131-07).
 ## Skills (53)
 
 Canonical skills and agents live under `.claude/`; mirror surfaces under
-`.codex/`, `.gemini/`, and `.github/` are byte-equivalent regenerations
+`.codex/`, `.agents/`, and `.github/` are byte-equivalent regenerations
 written by `scripts/sync_mirrors/core.py`. Invoke a skill via
 `/ai-<name>` in the IDE agent surface — never via a synthetic terminal
 equivalent.
@@ -209,8 +209,8 @@ AIENG_INSTINCT_BATCH_DISABLED       # set "1" to disable instinct batch extracti
 AIENG_TELEMETRY_DEBUG               # set "1" to enable verbose telemetry logging
 AIENG_HOOK_ENGINE                   # override the detected IDE engine (unset -> claude_code)
 AIENG_HOOK_ENGINE_DEFAULT           # fallback engine label when none is detected (unset -> unknown)
-AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; override the event-payload sidecar-offload threshold
-AIE_MCP_HEALTH_FAIL_OPEN            # set "1" to make the MCP health gate pass-through instead of blocking -- SECURITY RISK: disables a blocking gate
+AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; event sidecar threshold
+AIE_MCP_HEALTH_FAIL_OPEN            # "1" pass-through MCP health gate; SECURITY RISK
 
 # spec notebooklm-async-tier3 — /ai-research Tier 3 deep-research harvest
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; NotebookLM deep-research harvest)
@@ -259,7 +259,6 @@ matches your IDE):
 ```bash
 engram setup claude_code   # Claude Code
 engram setup codex          # OpenAI Codex
-engram setup gemini_cli     # Gemini CLI
 ```
 
 GitHub Copilot is not currently supported by Engram. Verify the

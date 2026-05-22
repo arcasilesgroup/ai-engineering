@@ -18,8 +18,8 @@ _SINGLE_PROVIDER_CASES = [
         "azure_devops",
         ["AGENTS.md", ".github/copilot-instructions.md"],
     ),
-    (["gemini-cli"], "github", ["GEMINI.md", ".gemini"]),
-    (["gemini-cli"], "azure_devops", ["GEMINI.md", ".gemini"]),
+    (["antigravity"], "github", ["AGENTS.md", ".agents"]),
+    (["antigravity"], "azure_devops", ["AGENTS.md", ".agents"]),
     (["codex"], "github", ["AGENTS.md", ".codex"]),
     (["codex"], "azure_devops", ["AGENTS.md", ".codex"]),
 ]
@@ -31,9 +31,9 @@ _MULTI_PROVIDER_CASES = [
         ["CLAUDE.md", "AGENTS.md", ".claude", ".github/copilot-instructions.md"],
     ),
     (
-        ["claude-code", "gemini-cli"],
+        ["claude-code", "antigravity"],
         "github",
-        ["CLAUDE.md", "GEMINI.md", ".claude", ".gemini"],
+        ["CLAUDE.md", "AGENTS.md", ".claude", ".agents"],
     ),
 ]
 
@@ -85,3 +85,23 @@ class TestInstallMatrix:
         for expected_path in expected:
             full = clean_target / expected_path
             assert full.exists() or full.is_dir(), f"Missing: {expected_path}"
+
+    @pytest.mark.parametrize(
+        "providers,vcs,_expected", _SINGLE_PROVIDER_CASES + _MULTI_PROVIDER_CASES
+    )
+    def test_retired_gemini_assets_are_not_installed(
+        self,
+        clean_target: Path,
+        providers: list[str],
+        vcs: str,
+        _expected: list[str],
+    ) -> None:
+        """Current installs do not create retired Gemini CLI or legacy Antigravity assets."""
+        install(
+            clean_target,
+            stacks=["python"],
+            vcs_provider=vcs,
+            surfaces=providers,
+        )
+        for retired_path in ("GEMINI.md", ".gemini", ".agent"):
+            assert not (clean_target / retired_path).exists(), retired_path

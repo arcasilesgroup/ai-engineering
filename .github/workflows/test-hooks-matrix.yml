@@ -1,7 +1,7 @@
 name: Test Hooks Matrix
 
 # spec-114 G-4 + D-114-04: targeted cross-OS matrix that exercises only
-# the hook surface (Codex/Gemini bridges, _lib, Copilot adapters).
+# the hook surface (Codex bridges, _lib, Copilot adapters).
 # Full-suite cross-OS lives in ci-check.yml; this workflow gives us the
 # 95% cross-platform signal at <10% of the runtime cost (D-114-04).
 #

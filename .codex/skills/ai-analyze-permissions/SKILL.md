@@ -1,6 +1,6 @@
 ---
 name: ai-analyze-permissions
-description: Use when Claude Code keeps asking to approve commands you have already approved, when settings.local.json has grown large, or when you want to consolidate permission grants into wildcard patterns. Trigger for 'too many permission prompts', 'clean up permissions', 'audit my settings', 'consolidate allow rules'. Claude Code only — not available in GitHub Copilot, Gemini, or Codex.
+description: Use when Claude Code keeps asking to approve commands you have already approved, when settings.local.json has grown large, or when you want to consolidate permission grants into wildcard patterns. Trigger for 'too many permission prompts', 'clean up permissions', 'audit my settings', 'consolidate allow rules'. Claude Code only — not available in GitHub Copilot, Antigravity, or Codex.
 effort: high
 argument-hint: "[analyze|apply|cleanup]"
 disable-model-invocation: True
@@ -8,7 +8,6 @@ model_tier: opus
 applies_to_surfaces: [claude-code]
 copilot_compatible: False
 codex_compatible: False
-gemini_compatible: False
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-analyze-permissions/SKILL.md

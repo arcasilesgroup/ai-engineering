@@ -41,14 +41,6 @@ ownership:
                 mode: generate
                 template_path: src/ai_engineering/templates/project/AGENTS.md
                 mirror_paths: []
-        "GEMINI.md":
-            owner: framework
-            canonical_source: src/ai_engineering/templates/project/GEMINI.md
-            runtime_role: ide-overlay
-            sync:
-                mode: render
-                template_path: src/ai_engineering/templates/project/GEMINI.md
-                mirror_paths: [".gemini/custom-GEMINI.md"]
         ".github/copilot-instructions.md":
             owner: framework
             canonical_source: src/ai_engineering/templates/project/copilot-instructions.md
@@ -132,10 +124,10 @@ class TestCrossReferenceResolution:
             encoding="utf-8",
         )
 
-    def test_resolve_cross_reference_files_includes_gemini_when_enabled(
+    def test_resolve_cross_reference_files_uses_antigravity_agents_root(
         self, tmp_path: Path
     ) -> None:
-        self._write_manifest(tmp_path, ["claude-code", "github-copilot", "gemini-cli"])
+        self._write_manifest(tmp_path, ["claude-code", "github-copilot", "antigravity"])
 
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
 
@@ -144,15 +136,12 @@ class TestCrossReferenceResolution:
             for path in _resolve_cross_reference_files(tmp_path)
         }
 
-        # Framework defaults injected by apply_framework_defaults declare
-        # `.gemini/GEMINI.md` as the canonical mirror_path for GEMINI.md
-        # (loader merges defaults into the user manifest at load time).
+        # Antigravity shares the AGENTS.md root instruction with Codex/Copilot;
+        # GEMINI.md is no longer a current root entry point.
         assert resolved == {
             ".github/copilot-instructions.md",
             "AGENTS.md",
             "CLAUDE.md",
-            "GEMINI.md",
-            ".gemini/GEMINI.md",
         }
 
     def test_resolve_cross_reference_files_uses_enabled_providers_only(
@@ -177,7 +166,7 @@ class TestCrossReferenceResolution:
     ) -> None:
         self._write_manifest_with_root_entry_points(
             tmp_path,
-            ["github-copilot", "gemini-cli"],
+            ["github-copilot", "antigravity"],
         )
 
         from scripts.sync_command_mirrors import _resolve_cross_reference_files
@@ -188,10 +177,8 @@ class TestCrossReferenceResolution:
         }
 
         assert resolved == {
-            ".gemini/custom-GEMINI.md",
             ".github/copilot-instructions.md",
             "AGENTS.md",
-            "GEMINI.md",
         }, (
             "_resolve_cross_reference_files should include manifest-declared mirror_paths "
             "for enabled root entry points and ignore disabled-provider root surfaces"
@@ -314,13 +301,13 @@ class TestGenerationFunctions:
         content = generate_copilot_agent("explore", meta, agent_path)
 
         # Assert -- spec-107 D-107-03 renamed Explorer -> ai-explore for
-        # cross-IDE parity (Claude/Codex/Gemini already used the canonical
+        # cross-IDE parity (Claude/Codex/Antigravity already use the canonical
         # ai-explore slug).
         assert 'name: "ai-explore"' in content
         assert "model: opus" in content
         # `color` is intentionally omitted: GitHub Copilot's documented
         # custom-agents schema does not include a color field, matching
-        # the Gemini/Cursor/Antigravity strip policy.
+        # the Cursor/Antigravity strip policy.
         assert "color:" not in content
         assert "readFile" in content  # explore has limited tools
         assert "editFiles" not in content  # explore is read-only
@@ -352,10 +339,10 @@ class TestGenerationFunctions:
             "src/ai_engineering/templates/project/.claude/agents/reviewer-correctness.md",
             ".github/agents/internal/reviewer-correctness.md",
             "src/ai_engineering/templates/project/agents/internal/reviewer-correctness.md",
-            ".gemini/agents/internal/reviewer-correctness.md",
-            "src/ai_engineering/templates/project/.gemini/agents/internal/reviewer-correctness.md",
             ".codex/agents/internal/reviewer-correctness.md",
             "src/ai_engineering/templates/project/.codex/agents/internal/reviewer-correctness.md",
+            ".agents/agents/internal/reviewer-correctness.md",
+            "src/ai_engineering/templates/project/.agents/agents/internal/reviewer-correctness.md",
         }
 
     def test_copilot_agent_tools_and_delegation_match_metadata(self) -> None:
@@ -798,7 +785,7 @@ class TestReferenceParity:
         missing: list[str] = []
         github_skills = _PROJECT_ROOT / ".github" / "skills"
         codex_skills = _PROJECT_ROOT / ".codex" / "skills"
-        gemini_skills = _PROJECT_ROOT / ".gemini" / "skills"
+        antigravity_skills = _PROJECT_ROOT / ".agents" / "skills"
 
         for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
             if not skill_dir.is_dir() or not skill_dir.name.startswith("ai-"):
@@ -809,11 +796,11 @@ class TestReferenceParity:
             references = discover_reference_files(skill_dir)
             for ref_name, _ in references:
                 cx_ref = codex_skills / f"ai-{bare_name}" / "references" / ref_name
-                gm_ref = gemini_skills / f"ai-{bare_name}" / "references" / ref_name
+                ag_ref = antigravity_skills / f"ai-{bare_name}" / "references" / ref_name
                 if not cx_ref.is_file():
                     missing.append(f".codex/skills/ai-{bare_name}/references/{ref_name}")
-                if not gm_ref.is_file():
-                    missing.append(f".gemini/skills/ai-{bare_name}/references/{ref_name}")
+                if not ag_ref.is_file():
+                    missing.append(f".agents/skills/ai-{bare_name}/references/{ref_name}")
                 if copilot_ok:
                     gh_ref = github_skills / f"ai-{bare_name}" / "references" / ref_name
                     if not gh_ref.is_file():

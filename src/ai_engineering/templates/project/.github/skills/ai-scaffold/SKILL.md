@@ -118,10 +118,9 @@ The `description` field is the skill's search ranking — it determines whether 
 | -------------------------------- | ---------------------------------------------------------------- |
 | `copilot_compatible: false`      | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
 | `codex_compatible: false`        | Excludes from `.codex/skills/` mirror                            |
-| `gemini_compatible: false`       | Excludes from `.gemini/skills/` mirror                           |
 | `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills)      |
 
-`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot, Codex, and Gemini mirrors.
+`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot and Codex mirrors.
 
 ## Quick Reference
 

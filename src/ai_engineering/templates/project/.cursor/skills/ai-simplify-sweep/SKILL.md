@@ -5,7 +5,7 @@ effort: cheap
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, simplification, scheduled, autonomous]
 model_tier: haiku
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-simplify-sweep/SKILL.md
 edit_policy: generated-do-not-edit
@@ -34,7 +34,7 @@ Codebases accumulate entropy: dead branches, redundant guards, copy-pasted helpe
 
 ### Step 1 — Invoke `/ai-simplify` in non-interactive mode
 
-Read `.gemini/skills/ai-simplify/SKILL.md` (when present) to confirm whether an explicit `--auto` flag exists. If not, invoke with conservative defaults equivalent to:
+Read `.cursor/skills/ai-simplify/SKILL.md` (when present) to confirm whether an explicit `--auto` flag exists. If not, invoke with conservative defaults equivalent to:
 
 ```
 /ai-simplify --conservative
@@ -128,7 +128,7 @@ Activate via `/ai-schedule weekly <project>/.ai-engineering/scripts/scheduled/si
 
 ## References
 
-- Skill source of truth: `.gemini/skills/ai-simplify-sweep/SKILL.md`
-- Related: `.gemini/skills/ai-simplify/SKILL.md`, `.gemini/skills/ai-schedule/SKILL.md`
+- Skill source of truth: `.cursor/skills/ai-simplify-sweep/SKILL.md`
+- Related: `.cursor/skills/ai-simplify/SKILL.md`, `.cursor/skills/ai-schedule/SKILL.md`
 - Manifest entry: `.ai-engineering/manifest.yml` `skills.registry.ai-simplify-sweep`
 - Scheduled wrapper: `.ai-engineering/scripts/scheduled/simplify-sweep.sh`

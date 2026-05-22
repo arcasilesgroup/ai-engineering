@@ -134,8 +134,8 @@ _PROVIDER_SCOPED_SKILLS = {
     "ai-analyze-permissions": {
         "claude-code": ProviderCompatibilityStatus.COMPATIBLE,
         "github-copilot": ProviderCompatibilityStatus.UNSUPPORTED,
-        "gemini-cli": ProviderCompatibilityStatus.UNSUPPORTED,
         "codex": ProviderCompatibilityStatus.UNSUPPORTED,
+        "antigravity": ProviderCompatibilityStatus.UNSUPPORTED,
     }
 }
 
@@ -290,7 +290,7 @@ def classify_write_scope(scope: str) -> WriteScopeClass:
         return WriteScopeClass.MANIFEST
     if normalized.startswith("src/ai_engineering/templates/.ai-engineering/"):
         return WriteScopeClass.GENERATED
-    if normalized.startswith((".claude/", ".codex/", ".gemini/")):
+    if normalized.startswith((".claude/", ".codex/", ".agents/")):
         return WriteScopeClass.MIRROR
     if normalized.startswith((".github/agents/", ".github/skills/")):
         return WriteScopeClass.MIRROR

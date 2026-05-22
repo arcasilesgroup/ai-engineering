@@ -4,14 +4,14 @@ Seven sub-checks enforce the byte-equivalent canonical payload, the
 project-identity CONSTITUTION rescope, and (spec-134 sub-005) the
 mirror-diet boundary that moves §10/§14/§15/§16 prose into ``docs/``:
 
-1. **check_sha256_equivalence** — AGENTS.md, CLAUDE.md, GEMINI.md, and
+1. **check_sha256_equivalence** — AGENTS.md, CLAUDE.md, and
    `.github/copilot-instructions.md` share identical canonical-payload
    bytes after the ``<!-- ide-extras:start -->…<!-- ide-extras:end -->``
    fence is stripped.
 2. **check_no_agents_import** — no mirror contains a bare ``@AGENTS.md``
    import directive (a Claude-only quirk that broke cross-IDE parity).
-3. **check_no_gemini_orphan** — D-131-03 deletes ``<repo>/.gemini/GEMINI.md``;
-   the file must not exist.
+3. **check_no_gemini_orphan** — spec-151 deletes ``<repo>/GEMINI.md`` and
+   ``<repo>/.gemini/``; neither artifact may exist.
 4. **check_no_codex_orphan** — Codex reads root AGENTS.md natively; an
    in-repo ``<repo>/.codex/AGENTS.md`` would shadow it.
 5. **check_constitution_clean** — after D-131-04 migration,
@@ -86,7 +86,6 @@ FORBIDDEN_CONSTITUTION_HEADERS: tuple[str, ...] = (
 _MIRRORS: tuple[str, ...] = (
     "AGENTS.md",
     "CLAUDE.md",
-    "GEMINI.md",
     ".github/copilot-instructions.md",
 )
 
@@ -124,7 +123,7 @@ def _sha256_payload(path: Path) -> str:
 
 
 def check_sha256_equivalence(repo_root: Path) -> RubricResult:
-    """OK when all four mirrors share canonical payload bytes."""
+    """OK when all three root mirrors share canonical payload bytes."""
     hashes: dict[str, str] = {}
     for rel in _MIRRORS:
         path = repo_root / rel
@@ -140,7 +139,7 @@ def check_sha256_equivalence(repo_root: Path) -> RubricResult:
         return RubricResult(
             "md_mirror_sha256",
             "OK",
-            f"4 mirrors share sha256 {next(iter(distinct))[:12]}",
+            f"3 mirrors share sha256 {next(iter(distinct))[:12]}",
         )
     summary = ", ".join(f"{rel}={h[:12]}" for rel, h in hashes.items())
     return RubricResult(
@@ -174,18 +173,18 @@ def check_no_agents_import(repo_root: Path) -> RubricResult:
 
 
 def check_no_gemini_orphan(repo_root: Path) -> RubricResult:
-    """OK when `<repo>/.gemini/GEMINI.md` does not exist (D-131-03)."""
-    orphan = repo_root / ".gemini" / "GEMINI.md"
-    if orphan.exists():
+    """OK when retired Gemini CLI root/tree artifacts do not exist."""
+    offenders = [rel for rel in ("GEMINI.md", ".gemini") if (repo_root / rel).exists()]
+    if offenders:
         return RubricResult(
             "md_mirror_no_gemini_orphan",
             "CRITICAL",
-            f"orphan present: {orphan.relative_to(repo_root)}",
+            f"retired Gemini artifact present: {offenders}",
         )
     return RubricResult(
         "md_mirror_no_gemini_orphan",
         "OK",
-        ".gemini/GEMINI.md absent (D-131-03)",
+        "GEMINI.md and .gemini absent (spec-151)",
     )
 
 
@@ -331,7 +330,7 @@ def check_md_mirror_consistency(repo_root: Path) -> list[RubricResult]:
     """Run all seven md_mirror sub-checks and return their results.
 
     spec-131 S1 contributed the first five sub-checks (sha256 parity,
-    @AGENTS.md import, gemini/codex orphans, CONSTITUTION cleanliness).
+    @AGENTS.md import, retired Gemini / Codex orphans, CONSTITUTION cleanliness).
     spec-134 sub-005 added the final two (no extracted sections in
     mirrors, docs/ targets exist).
     """

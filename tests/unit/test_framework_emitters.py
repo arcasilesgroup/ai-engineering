@@ -76,15 +76,17 @@ class TestCanonicalEmitters:
         assert entry.detail["degraded_reason"] == "missing-host-metadata"
         assert entry.detail["missing_fields"] == ["sessionId", "traceId"]
 
-    def test_gemini_agent_dispatch_succeeds_with_native_hooks(self, tmp_path: Path) -> None:
-        """Gemini has native hooks (spec-087) so missing host metadata no longer degrades."""
+    def test_antigravity_agent_dispatch_succeeds_without_host_metadata(
+        self, tmp_path: Path
+    ) -> None:
+        """Antigravity is a current Google surface; missing host metadata does not degrade."""
         _write_manifest(tmp_path)
 
         entry = emit_agent_dispatched(
             tmp_path,
-            engine="gemini",
+            engine="antigravity",
             agent_name="plan",
-            component="bridge.gemini",
+            component="bridge.antigravity",
             source="compat",
         )
 

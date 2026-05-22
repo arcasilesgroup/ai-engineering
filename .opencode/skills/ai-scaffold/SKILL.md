@@ -57,7 +57,7 @@ Two modes:
 Follow `handlers/create-skill.md`. Before creating anything, load project context:
 
 1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-improve` instead.
-2. **Load pain sources** — read state.db.decisions, LESSONS.md, observations.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
+2. **Load pain sources** — read decision-store.json, LESSONS.md, observations.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
 3. **Determine IDE compatibility** — see IDE-Compatibility Frontmatter below.
 
 ### Phase 2 — Delegate to skill-creator for TDD + Evals
@@ -117,10 +117,9 @@ The `description` field is the skill's search ranking — it determines whether 
 | -------------------------------- | ---------------------------------------------------------------- |
 | `copilot_compatible: false`      | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
 | `codex_compatible: false`        | Excludes from `.codex/skills/` mirror                            |
-| `gemini_compatible: false`       | Excludes from `.gemini/skills/` mirror                           |
 | `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills)      |
 
-`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot, Codex, and Gemini mirrors.
+`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot and Codex mirrors.
 
 ## Quick Reference
 
@@ -153,6 +152,6 @@ Scaffolds the agent file with CSO description, `tools` whitelist, `model: sonnet
 
 ## Integration
 
-Delegates to: Anthropic `skill-creator` (TDD + evals + description optimization). Reads: `manifest.yml`, `state.db.decisions`, `LESSONS.md`. Calls: `python scripts/sync_command_mirrors.py`. See also: `/ai-skill-improve` (improve existing), `/ai-prompt-tune` (description-only).
+Delegates to: Anthropic `skill-creator` (TDD + evals + description optimization). Reads: `manifest.yml`, `decision-store.json`, `LESSONS.md`. Calls: `python scripts/sync_command_mirrors.py`. See also: `/ai-skill-improve` (improve existing), `/ai-prompt-tune` (description-only).
 
 $ARGUMENTS

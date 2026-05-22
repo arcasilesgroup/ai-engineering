@@ -25,6 +25,8 @@ Generates mirrors in:
   - src/ai_engineering/templates/project/.codex/agents/    (install template)
   - src/ai_engineering/templates/project/.github/skills/   (install template)
   - src/ai_engineering/templates/project/agents/           (install template)
+  - .agents/skills/ and .agents/agents/                    (Antigravity)
+  - src/ai_engineering/templates/project/.agents/           (install template)
 
 Usage:
   python scripts/sync_command_mirrors.py            # generate all mirrors
@@ -60,8 +62,8 @@ RUNBOOKS_ROOT = ROOT / ".ai-engineering" / "runbooks"
 # ── Mirror surface paths ────────────────────────────────────────────────
 CODEX_SKILLS = ROOT / ".codex" / "skills"
 CODEX_AGENTS = ROOT / ".codex" / "agents"
-GEMINI_SKILLS = ROOT / ".gemini" / "skills"
-GEMINI_AGENTS = ROOT / ".gemini" / "agents"
+ANTIGRAVITY_SKILLS = ROOT / ".agents" / "skills"
+ANTIGRAVITY_AGENTS = ROOT / ".agents" / "agents"
 GITHUB_SKILLS = ROOT / ".github" / "skills"
 GITHUB_AGENTS = ROOT / ".github" / "agents"
 # spec-128 D-128-04, D-128-07: .github/instructions/ surface deleted entirely.
@@ -70,8 +72,6 @@ GITHUB_AGENTS = ROOT / ".github" / "agents"
 TPL_PROJECT = ROOT / "src" / "ai_engineering" / "templates" / "project"
 TPL_CLAUDE_SKILLS = TPL_PROJECT / ".claude" / "skills"
 TPL_CLAUDE_AGENTS = TPL_PROJECT / ".claude" / "agents"
-TPL_GEMINI_SKILLS = TPL_PROJECT / ".gemini" / "skills"
-TPL_GEMINI_AGENTS = TPL_PROJECT / ".gemini" / "agents"
 TPL_CODEX_SKILLS = TPL_PROJECT / ".codex" / "skills"
 TPL_CODEX_AGENTS = TPL_PROJECT / ".codex" / "agents"
 TPL_CODEX_HOOKS = TPL_PROJECT / ".codex" / "hooks.json"
@@ -79,8 +79,8 @@ TPL_CODEX_CONFIG = TPL_PROJECT / ".codex" / "config.toml"
 TPL_GITHUB_SKILLS = TPL_PROJECT / ".github" / "skills"
 TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
 # spec-128 Wave 4 (supersedes spec-133 D-133-06, D-133-07): install templates
-# for OpenCode + Cursor + Antigravity surfaces. Both OpenCode and Cursor read
-# native skills from ``.{ide}/skills/<name>/SKILL.md`` (folder per skill, on-
+# for OpenCode + Cursor + Antigravity surfaces. OpenCode, Cursor, and
+# Antigravity read native skills from ``.{ide}/skills/<name>/SKILL.md`` (folder per skill, on-
 # demand lazy-load by the agent). Per official Cursor 2.4+ and OpenCode docs,
 # skills supersede the prior ``.cursor/rules/`` and ``.opencode/commands/``
 # mappings, which were saved-prompt and always-included patterns respectively
@@ -90,8 +90,8 @@ TPL_OPENCODE_COMMANDS = TPL_PROJECT / ".opencode" / "commands"
 TPL_OPENCODE_AGENTS = TPL_PROJECT / ".opencode" / "agents"
 TPL_CURSOR_SKILLS = TPL_PROJECT / ".cursor" / "skills"
 TPL_CURSOR_AGENTS = TPL_PROJECT / ".cursor" / "agents"
-TPL_ANTIGRAVITY_SKILLS = TPL_PROJECT / ".agent" / "skills"
-TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agent" / "agents"
+TPL_ANTIGRAVITY_SKILLS = TPL_PROJECT / ".agents" / "skills"
+TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agents" / "agents"
 
 
 # ── Dataclasses ─────────────────────────────────────────────────────────────
@@ -346,7 +346,7 @@ def _resolve_cross_reference_files(target: Path) -> list[Path]:
     """Return enabled root instruction surfaces for cross-reference validation.
 
     Uses the manifest Surface set when available so Surface-specific root
-    files like GEMINI.md are validated only when they are actually enabled.
+    provider-specific root files are validated only when they are actually enabled.
     Falls back to the historical hardcoded list when the manifest is absent.
     """
     manifest_path = target / ".ai-engineering" / "manifest.yml"
@@ -458,7 +458,8 @@ def translate_refs(content: str, target_ide: str) -> str:
     Canonical form: .claude/skills/ai-X/SKILL.md, .claude/agents/ai-X.md
     Target surfaces:
       - codex (.codex/): .codex/skills/ai-X/SKILL.md, .codex/agents/ai-X.md
-      - gemini (.gemini/): .gemini/skills/ai-X/SKILL.md, .gemini/agents/ai-X.md
+      - cursor (.cursor/): .cursor/skills/ai-X/SKILL.md, .cursor/agents/ai-X.mdc
+      - antigravity (.agents/): .agents/skills/ai-X/SKILL.md, .agents/agents/ai-X.md
       - copilot (.github/): .github/skills/ai-X/SKILL.md, .github/agents/X.agent.md
       - claude: unchanged (canonical)
     """
@@ -470,8 +471,10 @@ def translate_refs(content: str, target_ide: str) -> str:
         name = m.group(2)
         if target_ide == "codex":
             path = f".codex/skills/ai-{name}/SKILL.md"
-        elif target_ide == "gemini":
-            path = f".gemini/skills/ai-{name}/SKILL.md"
+        elif target_ide == "cursor":
+            path = f".cursor/skills/ai-{name}/SKILL.md"
+        elif target_ide == "antigravity":
+            path = f".agents/skills/ai-{name}/SKILL.md"
         else:  # copilot
             path = f".github/skills/ai-{name}/SKILL.md"
         return f"{bt}{path}{bt}" if bt else path
@@ -481,8 +484,10 @@ def translate_refs(content: str, target_ide: str) -> str:
         name = m.group(2)
         if target_ide == "codex":
             path = f".codex/agents/ai-{name}.md"
-        elif target_ide == "gemini":
-            path = f".gemini/agents/ai-{name}.md"
+        elif target_ide == "cursor":
+            path = f".cursor/agents/ai-{name}.mdc"
+        elif target_ide == "antigravity":
+            path = f".agents/agents/ai-{name}.md"
         else:  # copilot
             # Spec-107 D-107-03: explore is renamed to ai-explore for cross-IDE
             # parity. Other Copilot agents keep bare slugs (build.agent.md etc.).
@@ -501,7 +506,8 @@ def translate_refs(content: str, target_ide: str) -> str:
     # subpath rewrite (with trailing `/`) wins where applicable.
     ide_target_map = {
         "codex": ".codex",
-        "gemini": ".gemini",
+        "cursor": ".cursor",
+        "antigravity": ".agents",
         "copilot": ".github",
     }
     target_root = ide_target_map.get(target_ide)
@@ -532,11 +538,12 @@ def translate_refs(content: str, target_ide: str) -> str:
         content = re.sub(r"\.claude/skills/(?!ai-)", ".codex/skills/", content)
         # .claude/agents/ -> .codex/agents/
         content = re.sub(r"\.claude/agents/(?!ai-)", ".codex/agents/", content)
-    elif target_ide == "gemini":
-        # .claude/skills/ -> .gemini/skills/
-        content = re.sub(r"\.claude/skills/(?!ai-)", ".gemini/skills/", content)
-        # .claude/agents/ -> .gemini/agents/
-        content = re.sub(r"\.claude/agents/(?!ai-)", ".gemini/agents/", content)
+    elif target_ide == "cursor":
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".cursor/skills/", content)
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".cursor/agents/", content)
+    elif target_ide == "antigravity":
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".agents/skills/", content)
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".agents/agents/", content)
     elif target_ide == "copilot":
         # .claude/skills/ -> .github/skills/
         content = re.sub(r"\.claude/skills/(?!ai-)", ".github/skills/", content)
@@ -544,54 +551,6 @@ def translate_refs(content: str, target_ide: str) -> str:
         content = re.sub(r"\.claude/agents/(?!ai-)", ".github/agents/", content)
 
     return content
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# GEMINI.md placeholder rendering (spec-107 D-107-04)
-# ═══════════════════════════════════════════════════════════════════════════
-
-
-def render_gemini_md_placeholders(
-    text: str,
-    canonical_skills: list,
-    canonical_agents: list,
-) -> str:
-    """Substitute __SKILL_COUNT__ and __AGENT_COUNT__ placeholders in `text`.
-
-    Pure string substitution; no path translation. Lengths are taken from the
-    canonical discovered skill/agent collections so the rendered file always
-    matches disk reality (spec-107 G-5).
-    """
-    skill_count = len(canonical_skills)
-    agent_count = len(canonical_agents)
-    text = text.replace("__SKILL_COUNT__", str(skill_count))
-    text = text.replace("__AGENT_COUNT__", str(agent_count))
-    return text
-
-
-def write_gemini_md(canonical_skills: list, canonical_agents: list) -> str:
-    """Render the canonical GEMINI.md content for the repo-root surface.
-
-    spec-131 D-131-14: GEMINI.md is now a byte-equivalent mirror of
-    CANONICAL.md plus a Gemini-specific IDE-extras fence (Hooks Wiring
-    table + Surface Pointers + First Action banner). The in-repo
-    `.gemini/GEMINI.md` orphan was DELETED (D-131-03); only the
-    repo-root `GEMINI.md` is now generated.
-
-    Path translation (`translate_refs(..., "gemini")`) is INTENTIONALLY
-    NOT applied to the canonical payload: D-131-03 mandates byte
-    equivalence (modulo IDE-extras fence) across the four mirrors. The
-    canonical body keeps `.claude/` references unchanged; Gemini-specific
-    surface pointers live inside the `<!-- ide-extras:start -->` fence
-    where `md_mirror.py` excludes them from the hash check.
-    """
-    payload = read_canonical_payload()
-    return assemble_mirror_payload(
-        payload,
-        ide_extras=_GEMINI_EXTRAS,
-        skill_count=len(canonical_skills),
-        agent_count=len(canonical_agents),
-    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -802,12 +761,14 @@ def generate_codex_agent(name: str, agent_path: Path) -> str:
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Generation -- .gemini/skills/ and .gemini/agents/ (Gemini CLI)
+# Generation -- translated markdown+frontmatter surfaces
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def generate_gemini_skill(name: str, skill_path: Path) -> str:
-    """Generate .gemini/skills/ai-<name>/SKILL.md -- translated refs, strip metadata."""
+def _generate_translated_skill(
+    name: str, skill_path: Path, *, target_ide: str, family_id: str
+) -> str:
+    """Generate an agent skill for a markdown+frontmatter surface."""
     fm = read_frontmatter(skill_path)
     body = read_body(skill_path)
 
@@ -815,42 +776,72 @@ def generate_gemini_skill(name: str, skill_path: Path) -> str:
     fm.pop("metadata", None)
     fm.update(
         get_generated_provenance_fields(
-            "gemini-skills",
+            family_id,
             canonical_source=f".claude/skills/ai-{name}/SKILL.md",
         )
     )
 
     header = _serialize_frontmatter(fm)
-    body = translate_refs(body, "gemini")
+    body = translate_refs(body, target_ide)
 
     return f"{header}\n\n{body.rstrip()}\n"
 
 
-def generate_gemini_agent(name: str, agent_path: Path) -> str:
-    """Generate .gemini/agents/ai-<name>.md -- translated refs, strip tools/metadata/color.
-
-    ``color`` is stripped because Gemini CLI's documented schema (and the
-    Cursor + Antigravity surfaces that delegate to this generator) do not
-    define a color field. Carrying it forward is dead bytes today and
-    invites OpenCode-style schema-strictness breakage tomorrow.
-    """
+def _generate_translated_agent(
+    name: str, agent_path: Path, *, target_ide: str, family_id: str
+) -> str:
+    """Generate an agent persona for a markdown+frontmatter surface."""
     fm = read_frontmatter(agent_path)
     body = read_body(agent_path)
 
     fm.pop("tools", None)  # tools are IDE-specific
     fm.pop("metadata", None)
-    fm.pop("color", None)  # not in Gemini/Cursor/Antigravity schemas
+    fm.pop("color", None)  # not in Cursor/Antigravity schemas
     fm.update(
         get_generated_provenance_fields(
-            "gemini-agents",
+            family_id,
             canonical_source=f".claude/agents/ai-{name}.md",
         )
     )
 
     header = _serialize_frontmatter(fm)
-    body = translate_refs(body, "gemini")
+    body = translate_refs(body, target_ide)
 
     return f"{header}\n\n{body.rstrip()}\n"
+
+
+def generate_cursor_skill(name: str, skill_path: Path) -> str:
+    """Generate .cursor/skills/ai-<name>/SKILL.md."""
+    return _generate_translated_skill(
+        name, skill_path, target_ide="cursor", family_id="cursor-skills"
+    )
+
+
+def generate_cursor_agent(name: str, agent_path: Path) -> str:
+    """Generate .cursor/agents/ai-<name>.mdc."""
+    return _generate_translated_agent(
+        name, agent_path, target_ide="cursor", family_id="cursor-agents"
+    )
+
+
+def generate_antigravity_skill(name: str, skill_path: Path) -> str:
+    """Generate .agents/skills/ai-<name>/SKILL.md."""
+    return _generate_translated_skill(
+        name,
+        skill_path,
+        target_ide="antigravity",
+        family_id="antigravity-skills",
+    )
+
+
+def generate_antigravity_agent(name: str, agent_path: Path) -> str:
+    """Generate .agents/agents/ai-<name>.md."""
+    return _generate_translated_agent(
+        name,
+        agent_path,
+        target_ide="antigravity",
+        family_id="antigravity-agents",
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -905,7 +896,7 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
     # ``color`` is intentionally omitted: GitHub Copilot's documented
     # custom-agents schema (name/description/target/tools/model/mcp-servers/
     # metadata/handoffs) does not include color. Stripping here mirrors
-    # the Gemini/Cursor/Antigravity policy applied in generate_gemini_agent.
+    # the Cursor/Antigravity policy applied in translated-agent generators.
     lines = [
         "---",
         f'name: "{meta.display_name}"',
@@ -995,7 +986,7 @@ def read_canonical_payload(template_root: Path = TPL_PROJECT) -> str:
     """Read the canonical "how AI works in this repo" payload from CANONICAL.md.
 
     spec-131 D-131-14 / D-131-03: the four IDE-native mirrors (AGENTS.md,
-    CLAUDE.md, GEMINI.md, .github/copilot-instructions.md) share a single
+    CLAUDE.md, .github/copilot-instructions.md) share a single
     canonical payload sourced from
     ``src/ai_engineering/templates/project/CANONICAL.md``. Each mirror
     appends an optional ``<!-- ide-extras:start -->…<!-- ide-extras:end -->``
@@ -1031,7 +1022,7 @@ def assemble_mirror_payload(
 
     spec-131 D-131-14: every mirror is canonical_payload + optional
     fenced extras. AGENTS.md passes ``ide_extras=""`` (it is the base
-    mirror). CLAUDE.md / GEMINI.md / copilot-instructions.md pass their
+    mirror). CLAUDE.md / copilot-instructions.md pass their
     IDE-specific content as a single string that gets wrapped in the
     fence.
 
@@ -1127,8 +1118,8 @@ AIENG_INSTINCT_BATCH_DISABLED       # set "1" to disable instinct batch extracti
 AIENG_TELEMETRY_DEBUG               # set "1" to enable verbose telemetry logging
 AIENG_HOOK_ENGINE                   # override the detected IDE engine (unset -> claude_code)
 AIENG_HOOK_ENGINE_DEFAULT           # fallback engine label when none is detected (unset -> unknown)
-AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; override the event-payload sidecar-offload threshold
-AIE_MCP_HEALTH_FAIL_OPEN            # set "1" to make the MCP health gate pass-through instead of blocking -- SECURITY RISK: disables a blocking gate
+AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; event sidecar threshold
+AIE_MCP_HEALTH_FAIL_OPEN            # "1" pass-through MCP health gate; SECURITY RISK
 
 # spec notebooklm-async-tier3 — /ai-research Tier 3 deep-research harvest
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; NotebookLM deep-research harvest)
@@ -1177,7 +1168,6 @@ matches your IDE):
 ```bash
 engram setup claude_code   # Claude Code
 engram setup codex          # OpenAI Codex
-engram setup gemini_cli     # Gemini CLI
 ```
 
 GitHub Copilot is not currently supported by Engram. Verify the
@@ -1190,38 +1180,6 @@ ai-eng audit verify                            # verify the framework-events.ndj
 ai-eng audit tokens --by skill|agent|session   # token rollup over the NDJSON
 ai-eng audit replay --session <id>             # depth-first span-tree walk over the NDJSON
 ```
-"""
-
-_GEMINI_EXTRAS = """\
-## First Action (Gemini CLI)
-
-Your first action in every session MUST be to run `/ai-start`. Do not
-respond to any user request until `/ai-start` completes. `/ai-*` are
-slash commands in the IDE agent surface, not `ai-eng` CLI subcommands.
-
-## Hooks Wiring (Gemini-specific)
-
-Gemini CLI hook configuration lives in `.gemini/settings.json`. Hook
-event mapping (canonical Python script in
-`.ai-engineering/scripts/hooks/`):
-
-| Cross-IDE primitive          | Gemini event |
-|------------------------------|--------------|
-| Progressive disclosure       | `BeforeAgent` |
-| Tool offload + loop detect   | `AfterTool` |
-| Checkpoint + Ralph Loop      | `AfterAgent` |
-
-Compaction events (PreCompact / PostCompact) are not surfaced by
-Gemini CLI; the snapshot primitive degrades gracefully.
-
-## Surface Pointers (Gemini)
-
-| What | Where |
-|------|-------|
-| Skills | `.gemini/skills/ai-<name>/SKILL.md` |
-| Agents | `.gemini/agents/ai-<name>.md` |
-| Hook scripts | `.ai-engineering/scripts/hooks/` (shared) |
-| CLI | `ai-eng <command>` |
 """
 
 _COPILOT_EXTRAS = """\
@@ -1254,7 +1212,7 @@ def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
     AGENTS.md is the base mirror — no IDE-extras block. The canonical
     payload (CANONICAL.md) carries the full "how AI works in this repo"
     contract; AGENTS.md is what Codex and any future native-AGENTS.md
-    consumer reads. CLAUDE.md / GEMINI.md / copilot-instructions.md
+    consumer reads. CLAUDE.md / copilot-instructions.md
     carry the same payload + their IDE-extras fence.
 
     The function preserves the test-asserted invariants:
@@ -1641,60 +1599,12 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_codex_surface(root_path)
         _generate_surface(tpl_path, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 2.1: .gemini/skills/ai-<name>/SKILL.md (keep ai- prefix, strip metadata)
-    for name, _fm, skill_path in skills:
-        path = GEMINI_SKILLS / f"ai-{name}" / "SKILL.md"
-        tpl = TPL_GEMINI_SKILLS / f"ai-{name}" / "SKILL.md"
-        content = generate_gemini_skill(name, skill_path)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
-
-        for handler_name, handler_path in skill_handlers[name]:
-            translated = translate_refs(skill_raw[handler_path], "gemini")
-            for target in (
-                GEMINI_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
-                TPL_GEMINI_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-        for ref_name, ref_path in skill_references[name]:
-            translated = translate_refs(skill_raw[ref_path], "gemini")
-            for target in (
-                GEMINI_SKILLS / f"ai-{name}" / "references" / ref_name,
-                TPL_GEMINI_SKILLS / f"ai-{name}" / "references" / ref_name,
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-        for script_name, script_path in skill_scripts[name]:
-            translated = translate_refs(skill_raw[script_path], "gemini")
-            for target in (
-                GEMINI_SKILLS / f"ai-{name}" / "scripts" / script_name,
-                TPL_GEMINI_SKILLS / f"ai-{name}" / "scripts" / script_name,
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-        for res_name, res_path in skill_resources[name]:
-            translated = translate_refs(skill_raw[res_path], "gemini")
-            for target in (
-                GEMINI_SKILLS / f"ai-{name}" / res_name,
-                TPL_GEMINI_SKILLS / f"ai-{name}" / res_name,
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-    # Surface 2.2: .gemini/agents/ai-<name>.md (strip tools/metadata)
-    for name, _fm, agent_path in agents:
-        path = GEMINI_AGENTS / f"ai-{name}.md"
-        tpl = TPL_GEMINI_AGENTS / f"ai-{name}.md"
-        content = generate_gemini_agent(name, agent_path)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
-
-    # Surface 2b: specialist agents (reviewer-*, verifier-*, review-*, verify-*)
-    # Mirrored into provider-local internal roots with generated provenance.
-    specialists = discover_specialist_agents()
-    for spec_path in specialists:
-        content = generate_specialist_agent(spec_path)
-        for target in _specialist_agent_output_paths(spec_path):
+    # Surface 2b: internal specialist agents (reviewer/verifier families).
+    # These are dispatched by orchestrator agents and must be present in the
+    # install templates for every provider that exposes local subagents.
+    for specialist_path in discover_specialist_agents():
+        content = generate_specialist_agent(specialist_path)
+        for target in _specialist_agent_output_paths(specialist_path):
             _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
 
     # Surface 3: .github/skills/ai-<name>/SKILL.md + handlers/ (Agent Skills)
@@ -1830,24 +1740,62 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     # at .cursor/agents/<name>.mdc.
     for name, _fm, skill_path in skills:
         tpl = TPL_CURSOR_SKILLS / f"ai-{name}" / "SKILL.md"
-        content = generate_gemini_skill(name, skill_path)
+        content = generate_cursor_skill(name, skill_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
     for name, _fm, agent_path in agents:
         tpl = TPL_CURSOR_AGENTS / f"ai-{name}.mdc"
-        content = generate_gemini_agent(name, agent_path)
+        content = generate_cursor_agent(name, agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 5d: templates/project/.agent/ (spec-133 D-133-06, MIRROR-ONLY).
-    # Antigravity has no hook engine today; only instruction payload ships.
-    # Content shape matches Gemini.
+    # Surface 5d: .agents/ + templates/project/.agents/ (Antigravity app + agy CLI).
+    # Antigravity uses AGENTS.md for root context and .agents/ for workspace skills.
     for name, _fm, skill_path in skills:
-        tpl = TPL_ANTIGRAVITY_SKILLS / f"ai-{name}" / "SKILL.md"
-        content = generate_gemini_skill(name, skill_path)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+        content = generate_antigravity_skill(name, skill_path)
+        for target in (
+            ANTIGRAVITY_SKILLS / f"ai-{name}" / "SKILL.md",
+            TPL_ANTIGRAVITY_SKILLS / f"ai-{name}" / "SKILL.md",
+        ):
+            _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
+
+        for handler_name, handler_path in skill_handlers[name]:
+            translated = translate_refs(skill_raw[handler_path], "antigravity")
+            for target in (
+                ANTIGRAVITY_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+                TPL_ANTIGRAVITY_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
+        for ref_name, ref_path in skill_references[name]:
+            translated = translate_refs(skill_raw[ref_path], "antigravity")
+            for target in (
+                ANTIGRAVITY_SKILLS / f"ai-{name}" / "references" / ref_name,
+                TPL_ANTIGRAVITY_SKILLS / f"ai-{name}" / "references" / ref_name,
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
+        for script_name, script_path in skill_scripts[name]:
+            translated = translate_refs(skill_raw[script_path], "antigravity")
+            for target in (
+                ANTIGRAVITY_SKILLS / f"ai-{name}" / "scripts" / script_name,
+                TPL_ANTIGRAVITY_SKILLS / f"ai-{name}" / "scripts" / script_name,
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
+        for res_name, res_path in skill_resources[name]:
+            translated = translate_refs(skill_raw[res_path], "antigravity")
+            for target in (
+                ANTIGRAVITY_SKILLS / f"ai-{name}" / res_name,
+                TPL_ANTIGRAVITY_SKILLS / f"ai-{name}" / res_name,
+            ):
+                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
+
     for name, _fm, agent_path in agents:
-        tpl = TPL_ANTIGRAVITY_AGENTS / f"ai-{name}.md"
-        content = generate_gemini_agent(name, agent_path)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+        content = generate_antigravity_agent(name, agent_path)
+        for target in (
+            ANTIGRAVITY_AGENTS / f"ai-{name}.md",
+            TPL_ANTIGRAVITY_AGENTS / f"ai-{name}.md",
+        ):
+            _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
 
     # Surface 5.5: CLAUDE.md (root + template, byte-equivalent mirror of CANONICAL.md).
     # spec-131 D-131-14: CLAUDE.md is now generated from CANONICAL.md + the
@@ -1894,13 +1842,19 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
             TPL_CODEX_SKILLS / "_shared" / rel_path,
         ):
             _generate_surface(target, codex_content, check_only, verbose, generated_paths, diffs)
-        # Gemini
-        gemini_content = translate_refs(raw, "gemini")
+        # Cursor
+        cursor_content = translate_refs(raw, "cursor")
+        for target in (TPL_CURSOR_SKILLS / "_shared" / rel_path,):
+            _generate_surface(target, cursor_content, check_only, verbose, generated_paths, diffs)
+        # Antigravity
+        antigravity_content = translate_refs(raw, "antigravity")
         for target in (
-            GEMINI_SKILLS / "_shared" / rel_path,
-            TPL_GEMINI_SKILLS / "_shared" / rel_path,
+            ANTIGRAVITY_SKILLS / "_shared" / rel_path,
+            TPL_ANTIGRAVITY_SKILLS / "_shared" / rel_path,
         ):
-            _generate_surface(target, gemini_content, check_only, verbose, generated_paths, diffs)
+            _generate_surface(
+                target, antigravity_content, check_only, verbose, generated_paths, diffs
+            )
         # GitHub Copilot
         copilot_content = translate_refs(raw, "copilot")
         for target in (
@@ -1921,25 +1875,6 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     _generate_surface(
         TPL_PROJECT / "AGENTS.md",
         agents_md_content,
-        check_only,
-        verbose,
-        generated_paths,
-        diffs,
-    )
-
-    # Surface 7.5: GEMINI.md (root + template, byte-equivalent mirror of CANONICAL.md).
-    # spec-131 D-131-03: the in-repo `.gemini/GEMINI.md` orphan is DELETED.
-    # spec-131 D-131-14: GEMINI.md is generated from CANONICAL.md + the
-    # Gemini-specific IDE-extras fence (Hooks Wiring + Surface Pointers +
-    # First Action). Both the repo-root surface (Gemini CLI primary
-    # directive) and the install template carry identical bytes.
-    gemini_md_content = write_gemini_md(skills, agents)
-    _generate_surface(
-        ROOT / "GEMINI.md", gemini_md_content, check_only, verbose, generated_paths, diffs
-    )
-    _generate_surface(
-        TPL_PROJECT / "GEMINI.md",
-        gemini_md_content,
         check_only,
         verbose,
         generated_paths,
@@ -2070,18 +2005,17 @@ def _handle_orphans(
         (CODEX_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (CODEX_AGENTS, "glob", "*.md"),
         (CODEX_AGENTS / "internal", "glob", "*.md"),
-        (GEMINI_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
-        (GEMINI_AGENTS, "glob", "*.md"),
-        (GEMINI_AGENTS / "internal", "glob", "*.md"),
+        (ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (ANTIGRAVITY_AGENTS, "glob", "*.md"),
+        (ANTIGRAVITY_AGENTS / "internal", "glob", "*.md"),
         # spec-128 D-128-07: GITHUB_INSTRUCTIONS orphan surface entry removed.
         (GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (GITHUB_AGENTS, "glob", "*.md"),
         (GITHUB_AGENTS / "internal", "glob", "*.md"),
         (TPL_CLAUDE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CLAUDE_AGENTS, "glob", "*.md"),
-        (TPL_GEMINI_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
-        (TPL_GEMINI_AGENTS, "glob", "*.md"),
-        (TPL_GEMINI_AGENTS / "internal", "glob", "*.md"),
+        (TPL_CURSOR_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (TPL_CURSOR_AGENTS, "glob", "*.mdc"),
         (TPL_CODEX_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CODEX_AGENTS, "glob", "*.md"),
         (TPL_CODEX_AGENTS / "internal", "glob", "*.md"),
@@ -2097,10 +2031,9 @@ def _handle_orphans(
         (TPL_OPENCODE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_OPENCODE_COMMANDS, "glob", "*.md"),
         (TPL_OPENCODE_AGENTS, "glob", "*.md"),
-        (TPL_CURSOR_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
-        (TPL_CURSOR_AGENTS, "glob", "*.md"),
         (TPL_ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_ANTIGRAVITY_AGENTS, "glob", "*.md"),
+        (TPL_ANTIGRAVITY_AGENTS / "internal", "glob", "*.md"),
     ]
 
     # Legacy reviewer/verifier path forwarders: spec-116 moved these agents

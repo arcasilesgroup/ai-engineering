@@ -77,10 +77,9 @@ DEFAULT_OWNERSHIP_FRAMEWORK: list[str] = [
     ".github/hooks/**",
     ".github/copilot-instructions.md",
     ".codex/**",
-    ".gemini/**",
     ".opencode/**",
     ".cursor/**",
-    ".agent/**",
+    ".agents/**",
 ]
 
 
@@ -103,16 +102,6 @@ DEFAULT_OWNERSHIP_ROOT_ENTRY_POINTS: dict[str, dict[str, Any]] = {
             "mode": "generate",
             "template_path": "src/ai_engineering/templates/project/AGENTS.md",
             "mirror_paths": [],
-        },
-    },
-    "GEMINI.md": {
-        "owner": "framework",
-        "canonical_source": "src/ai_engineering/templates/project/GEMINI.md",
-        "runtime_role": "ide-overlay",
-        "sync": {
-            "mode": "render",
-            "template_path": "src/ai_engineering/templates/project/GEMINI.md",
-            "mirror_paths": [".gemini/GEMINI.md"],
         },
     },
     ".github/copilot-instructions.md": {

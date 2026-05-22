@@ -39,15 +39,14 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILL_ROOTS = [
     REPO_ROOT / ".claude" / "skills",
     REPO_ROOT / ".codex" / "skills",
-    REPO_ROOT / ".gemini" / "skills",
+    REPO_ROOT / ".agents" / "skills",
     REPO_ROOT / ".github" / "skills",
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "skills",
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".codex" / "skills",
-    REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".gemini" / "skills",
+    REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".agents" / "skills",
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".github" / "skills",
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".cursor" / "skills",
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".opencode" / "skills",
-    REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".agent" / "skills",
 ]
 
 # Pattern 1: an invocation of ``commit_compose.py`` followed (on the

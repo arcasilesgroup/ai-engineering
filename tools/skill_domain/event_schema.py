@@ -31,7 +31,7 @@ _SPAN_ID_RE: re.Pattern[str] = re.compile(r"^[0-9a-f]{16}$")
 # the values below. Adding a 5th IDE means appending here AND adding the
 # adapter; the validator keeps the surface honest.
 ALLOWED_ENGINES: frozenset[str] = frozenset(
-    {"claude_code", "codex", "gemini", "copilot", "ai_engineering"}
+    {"claude_code", "codex", "antigravity", "copilot", "ai_engineering"}
 )
 
 ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(

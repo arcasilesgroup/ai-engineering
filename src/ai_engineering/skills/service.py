@@ -1,6 +1,6 @@
 """Local skill eligibility diagnostics.
 
-Evaluates which skills in `.claude/skills/`, `.codex/skills/`, `.gemini/skills/`, or
+Evaluates which skills in `.claude/skills/`, `.codex/skills/`, `.agents/skills/`, or
 legacy `.ai-engineering/skills/` meet their runtime requirements
 (binaries, environment variables, config paths, OS).
 """
@@ -59,7 +59,7 @@ def _collect_skill_files(skills_root: Path, *, include_flat_files: bool = False)
 _SKILL_DIRS: list[str] = [
     ".claude/skills",
     ".codex/skills",
-    ".gemini/skills",
+    ".agents/skills",
     ".ai-engineering/skills",  # legacy, backwards compat
 ]
 
@@ -67,7 +67,7 @@ _SKILL_DIRS: list[str] = [
 def list_local_skill_status(target: Path) -> list[SkillStatus]:
     """Evaluate local skill requirement eligibility.
 
-    Scans ``.claude/skills/``, ``.codex/skills/``, ``.gemini/skills/``,
+    Scans ``.claude/skills/``, ``.codex/skills/``, ``.agents/skills/``,
     and legacy ``.ai-engineering/skills/`` for SKILL.md files.
     """
     manifest = load_manifest_config(target).model_dump()

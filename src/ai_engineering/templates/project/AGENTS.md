@@ -2,7 +2,7 @@
 
 > Hard rules live in [CONSTITUTION.md](CONSTITUTION.md). This file is
 > the canonical multi-IDE entry point for "how AI works in this repo".
-> Every IDE-native mirror (AGENTS.md, CLAUDE.md, GEMINI.md,
+> Every IDE-native mirror (AGENTS.md, CLAUDE.md,
 > .github/copilot-instructions.md) carries identical canonical payload;
 > IDE-specific extras live in the fenced block at the bottom.
 
@@ -72,7 +72,7 @@ checkpoints. It does NOT appear in the canonical chain (D-131-07).
 ## Skills (53)
 
 Canonical skills and agents live under `.claude/`; mirror surfaces under
-`.codex/`, `.gemini/`, and `.github/` are byte-equivalent regenerations
+`.codex/`, `.agents/`, and `.github/` are byte-equivalent regenerations
 written by `scripts/sync_mirrors/core.py`. Invoke a skill via
 `/ai-<name>` in the IDE agent surface — never via a synthetic terminal
 equivalent.

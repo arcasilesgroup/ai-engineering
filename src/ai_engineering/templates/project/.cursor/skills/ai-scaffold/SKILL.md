@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "skill [name]|agent [name]"
 tags: [meta, framework, creation]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-scaffold/SKILL.md
 edit_policy: generated-do-not-edit
@@ -31,7 +31,7 @@ This is the invariant checklist that must be satisfied regardless of whether you
 ```
 ## Registration Checklist — [NAME]
 - [ ] No overlap with existing skills (checked skill list in manifest.yml)
-- [ ] File created at correct path (.gemini/skills/ai-{name}/SKILL.md or .gemini/agents/ai-{name}.md)
+- [ ] File created at correct path (.cursor/skills/ai-{name}/SKILL.md or .cursor/agents/ai-{name}.mdc)
 - [ ] Frontmatter has name, description, argument-hint
 - [ ] Description is CSO-optimized (triggering conditions, not summary)
 - [ ] IDE-compatibility fields set if needed (copilot_compatible, disable-model-invocation)
@@ -68,7 +68,7 @@ Invoke Anthropic's `skill-creator` with this context:
 Create a new skill called "ai-{name}" for the ai-engineering framework.
 
 Context about the framework:
-- Skills live in .gemini/skills/ai-{name}/SKILL.md
+- Skills live in .cursor/skills/ai-{name}/SKILL.md
 - They follow this frontmatter format: name, description (CSO-optimized), effort, argument-hint, tags
 - The description field is the primary triggering mechanism — it must describe WHEN to use, not WHAT it does
 - Pain sources found: [pass relevant lessons, decisions, instinct patterns from Phase 1]
@@ -76,7 +76,7 @@ Context about the framework:
 The skill should:
 [pass the user's requirements]
 
-Look at existing skills like .gemini/skills/ai-security/SKILL.md or .gemini/skills/ai-review/SKILL.md
+Look at existing skills like .cursor/skills/ai-security/SKILL.md or .cursor/skills/ai-review/SKILL.md
 for format reference.
 ```
 
@@ -94,7 +94,7 @@ Follow `handlers/create-agent.md`. Agents don't go through skill-creator (they'r
 
 1. **Define mandate** — singular responsibility (one thing).
 2. **Load pain sources** — same as skill Phase 1; check decision-store for agent-architecture constraints (e.g., DEC-019).
-3. **Scaffold** `.gemini/agents/ai-{name}.md` with: Identity (role/experience/specialization), Mandate (owns/does-not-own), Capabilities (declared permissions: read-only/read-write/paths), Behavior (modes/procedures), Output Contract (structured format), Boundaries (hard limits/escalation), Self-challenge protocol (pre-action questions).
+3. **Scaffold** `.cursor/agents/ai-{name}.mdc` with: Identity (role/experience/specialization), Mandate (owns/does-not-own), Capabilities (declared permissions: read-only/read-write/paths), Behavior (modes/procedures), Output Contract (structured format), Boundaries (hard limits/escalation), Self-challenge protocol (pre-action questions).
 4. **Register** in `manifest.yml` agents section (names array + total count).
 5. **Create matching skill** — if `/ai-{name}` entry point is needed, scaffold via `/ai-scaffold skill {name}`.
 6. **Sync and test** — same as skill Phase 3.
@@ -117,10 +117,9 @@ The `description` field is the skill's search ranking — it determines whether 
 | -------------------------------- | ---------------------------------------------------------------- |
 | `copilot_compatible: false`      | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
 | `codex_compatible: false`        | Excludes from `.codex/skills/` mirror                            |
-| `gemini_compatible: false`       | Excludes from `.gemini/skills/` mirror                           |
 | `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills)      |
 
-`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot, Codex, and Gemini mirrors.
+`ai-analyze-permissions` is the current example of a provider-scoped skill: it opts out of GitHub Copilot and Codex mirrors.
 
 ## Quick Reference
 

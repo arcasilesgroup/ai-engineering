@@ -3,7 +3,7 @@
 > Canonical home for the eight first-class engineering principles
 > (§10.1–§10.8) plus the "Operating Mindset" companion list
 > (§1–§9 Karpathy / Boris one-liners). Extracted from the IDE
-> mirrors (`AGENTS.md` / `CLAUDE.md` / `GEMINI.md` /
+> mirrors (`AGENTS.md` / `CLAUDE.md` /
 > `.github/copilot-instructions.md`) by spec-134 sub-005 so the
 > mirrors stay lean while the §10.x anchors remain stable.
 >
@@ -245,7 +245,7 @@ the commit.
 
 ## Related
 
-- `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` / `.github/copilot-instructions.md`
+- `AGENTS.md` / `CLAUDE.md` / `.github/copilot-instructions.md`
   carry the canonical chain and surface index; they point here for
   full principle prose.
 - `CONSTITUTION.md` owns project identity only (mission, stakeholders,

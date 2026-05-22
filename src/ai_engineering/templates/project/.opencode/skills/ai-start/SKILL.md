@@ -48,7 +48,7 @@ full IOC path and degrades latency.
   script already did all of that and embedded the result inside the
   markdown payload.
 - Do **not** rewrite the markdown the script emits. The format is the
-  cross-IDE contract (Claude Code, Codex, Gemini CLI, Copilot all render
+  cross-IDE contract (Claude Code, Codex, Antigravity, Copilot all render
   the same bytes).
 - Do **not** invoke `/ai-session-watch` from inside this skill. Observation is
   always-on via the `PreToolUse` + `PostToolUse` hooks (`instinct-

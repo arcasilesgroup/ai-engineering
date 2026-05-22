@@ -1,137 +1,89 @@
 ---
-spec: spec-150
-slug: notebooklm-async-tier3
-title: Async-first NotebookLM autonomous deep research (Tier 3 redesign)
+spec: spec-151
+slug: antigravity-gemini-cli-retirement
+title: Antigravity-only Google surface after Gemini CLI retirement
 status: approved
 effort: large
-summary: "Async-first /ai-research Tier 3: NotebookLM autonomous deep research launched first (background), harvested last, overlapping Tiers 0-2. Backend → claude-world/notebooklm-skill (nlm_* tools); Exa in Tier 2; capability fail-soft; output ends with 3 cited recommended directions."
+summary: "Replace the legacy Gemini CLI surface with a single Antigravity Google surface, generating AGENTS/.agents assets, probing agy, and removing GEMINI/.gemini/gemini-cli from pre-release support."
 ---
 
-# Async-first NotebookLM autonomous deep research — /ai-research Tier 3 redesign
+# Antigravity-only Google surface after Gemini CLI retirement
 
 ## Summary
 
-Redesign `/ai-research` so NotebookLM (Tier 3) runs an **autonomous deep-research
-job launched FIRST** (in a background subagent) and **harvested LAST**, overlapping
-with Tiers 0–2 — instead of running last and consuming Tier 1+2 URLs. Swap the
-NotebookLM backend from `pleaseprompto/notebooklm-mcp` to
-`claude-world/notebooklm-skill` (`uvx --from notebooklm-skill notebooklm-mcp`, 13
-`nlm_*` tools; MCP config already aligned in Claude user-scope + Codex
-`mcp_servers`). Wire **Exa** into Tier 2 web search (currently unused — Tier 2 uses
-the built-in `WebSearch`). Make all external tiers (NotebookLM, Context7, Exa)
-**capability-detected and fail-soft**: absent tools are skipped, never error. Extend
-the output contract to return the cited research narrative **PLUS exactly 3
-recommended strategic directions** ("rumbo").
+Google's May 19, 2026 transition moves the consumer Google terminal path from Gemini CLI to Antigravity CLI. ai-engineering currently gives the old `gemini-cli` surface first-class registry, install, mirror, hook, and audit treatment while Antigravity remains mirror-only under stale `.agent/` and `GEMINI.md` assumptions. Before public release, the framework should hard-delete `gemini-cli` support and ship exactly one Google agent surface: `antigravity`, covering the Antigravity app plus `agy` CLI runtime with `AGENTS.md`, `.agents/`, and deterministic diagnostics.
 
 ## Goals
 
-- **G1** — Launch NotebookLM deep research at T0 in a background subagent,
-  overlapping Tiers 0–2; harvest at the end with a bounded wait.
-- **G2** — NotebookLM autonomous deep research is the DEFAULT (no flag) whenever the
-  tool is available — the simplest path.
-- **G3** — Swap backend to `claude-world/notebooklm-skill`: replace the tool surface
-  (`server_info`/`notebook_create`/`source_add`/`notebook_query` →
-  `nlm_list`/`nlm_create_notebook`/`nlm_add_source`/`nlm_research`/`nlm_ask`) and the
-  auth probe (`nlm login --check` / `~/.notebooklm/storage_state.json`). Handler +
-  lockstep helper + tests stay in sync.
-- **G4** — Wire Exa (`mcp__exa__web_search_exa` / `mcp__exa__web_fetch_exa`) as the
-  Tier 2 web provider.
-- **G5** — Capability detection + fail-soft for NotebookLM, Context7, Exa: a missing
-  or unauthenticated tool is skipped silently (recorded as degraded), never fails the
-  run.
-- **G6** — Merge NotebookLM-discovered sources with Tier 0–2 sources at synthesis
-  (dedup); on harvest timeout, degrade gracefully and persist `notebook_id` for a
-  later `--reuse-notebook` harvest.
-- **G7** — Output returns the research synthesis (with `[N]` citations) PLUS exactly
-  3 recommended directions, each with rationale + trade-off + cited evidence.
+- **G1** — Remove `gemini-cli` from the supported surface enum, dogfood manifest, installer choices, docs matrices, generated mirrors, and tests that exist only for the retired Google CLI.
+- **G2** — Promote `antigravity` to the only Google agent surface, with one surface id for app/IDE and CLI runtimes; do not introduce `antigravity-cli`.
+- **G3** — Generate Antigravity workspace assets under `.agents/` and use `AGENTS.md` as the root context file; do not generate `GEMINI.md` or `.gemini/` for Google support.
+- **G4** — Add `agy`/`agy.exe` detection and diagnostics so selected Antigravity installs can report whether the CLI runtime is available.
+- **G5** — Update installer/update/autodetect/ownership/capability/validator paths so `.agents/` is framework-owned and governed consistently.
+- **G6** — Regenerate mirrors/templates so stale `.gemini`, `GEMINI.md`, npm `gemini`, and `gemini-cli` references are removed from generated Google support, except historical changelog/migration notes.
+- **G7** — Keep audit claims honest: do not mark Antigravity audit as full until hook payload fixtures prove the bridge; if hook schema remains undocumented, expose partial/diagnostic support rather than a false full-audit claim.
 
 ## Non-Goals
 
-- Not changing Tier 0 (local) or Tier 1 routing beyond capability-detection + dedup
-  with NotebookLM.
-- Not implementing notebook auto-cleanup/GC — a new notebook per run is acceptable;
-  `--reuse-notebook` stays opt-in.
-- Not building a generic async-job framework; the background-subagent pattern is
-  scoped to NotebookLM Tier 3.
-- Not adding artifact generation (`nlm_generate`/`nlm_download`: podcast/slides/quiz)
-  in v1.
-- Not performing interactive Google auth (`uvx notebooklm login`) — a one-time
-  operator step.
-- Not migrating other skills off the built-in `WebSearch`.
+- Not retaining enterprise/API-key Gemini CLI carveouts in the first public release. A future enterprise-only Gemini revival requires a separate approved spec.
+- Not creating a second `antigravity-cli` surface. CLI behavior is a runtime capability of `antigravity`.
+- Not writing user-home global Antigravity files such as `~/.gemini/antigravity-cli/` during project install.
+- Not promising non-interactive CI execution for `agy` until the CLI exposes and we verify a headless contract.
+- Not hand-editing generated mirror files without re-running the canonical mirror generator.
 
 ## Decisions
 
-- **D-150-01 — Async via background subagent.** `Agent` `run_in_background` blocks on `nlm_research(mode=deep)` at T0; main runs Tiers 0–2; harvest at end.
-  *Rationale*: real parallelism while staying MCP-native. Rejected Python `start`/`poll` bypassing MCP (out-of-MCP dependency + dual code path) and synchronous research-last (no time saved).
-- **D-150-02 — Merge sources at synthesis.** NotebookLM discovers its own sources; Tiers 0–2 run independently; the synthesizer fuses + dedups.
-  *Rationale*: zero cross-dependency = maximum parallelism. Rejected augment-then-reask (reintroduces dependency, kills parallelism) and autonomous-isolated (wastes Tier 1–2 sources).
-- **D-150-03 — NotebookLM deep research on by default.** Runs whenever the tool is available; no `--depth=deep`/comparative gating; drops the `≥10-sources` signal (unknowable at T0).
-  *Rationale*: simplest path per the operator. Rejected deep|comparative-only and deep-only-explicit (both less simple).
-- **D-150-04 — Bounded-wait harvest, then degrade.** Wait up to a tunable budget (default ≈5 min) after Tiers 0–2; on timeout, synthesize without NotebookLM and persist `notebook_id` for a later `--reuse-notebook` harvest.
-  *Rationale*: honors "wait for the result" without an unbounded hang. Rejected block-until-done (unbounded) and no-wait (current run lacks the report).
-- **D-150-05 — Backend = claude-world/notebooklm-skill.** `uvx --from notebooklm-skill notebooklm-mcp`; auth via `~/.notebooklm/storage_state.json`; capability probe `nlm_list`, replacing `server_info`/`nlm login`.
-  *Rationale*: the only backend exposing autonomous deep research + an async job model; config already aligned in Claude user-scope + Codex `mcp_servers`.
-- **D-150-06 — Exa primary in Tier 2.** `web_search_exa` + `web_fetch_exa` as the web provider; built-in `WebSearch`/`WebFetch` is the fallback when Exa is absent.
-  *Rationale*: Exa gives better technical recall; the built-in fallback keeps Tier 2 working without Exa.
-- **D-150-07 — Capability detection, fail-soft.** Every external tool (NotebookLM, Context7, Exa, MS Learn) is probed; absent/unauthed → skipped + appended to `degraded_sources`, never raised.
-  *Rationale*: a missing tool must degrade the run, never break it. Reuses the existing degraded pattern.
-- **D-150-08 — Output ends with three cited directions.** Append a `## Recommended Directions` section with EXACTLY 3 options, each: title, 1–2 line rationale, trade-off, and `[N]`-cited evidence.
-  *Rationale*: the operator wants a clear "rumbo" decision, not just a synthesis.
+- **D-151-01 — One Google surface.** Model Antigravity app and Antigravity CLI as one `antigravity` surface with runtime capabilities.
+  **Rationale**: the operator explicitly wants the same product model as Codex/Claude Code, where app and terminal entry points share a surface contract.
+- **D-151-02 — Hard-delete `gemini-cli` pre-release.** Remove `gemini-cli` from generated support before public launch rather than preserving enterprise/API-key carveouts.
+  **Rationale**: carrying a discontinued consumer CLI before first release adds legacy complexity and duplicated context with little user value.
+- **D-151-03 — `AGENTS.md` is the Antigravity root context.** Antigravity support emits `AGENTS.md`; it does not require or generate `GEMINI.md`.
+  **Rationale**: Antigravity CLI reads `AGENTS.md`, and the project SSOT rule forbids duplicating the same canonical payload through `GEMINI.md` when Gemini CLI is removed.
+- **D-151-04 — `.agents/` replaces `.agent/` with no shim.** New generated Antigravity assets live under `.agents/`; legacy `.agent/` generated paths are deleted.
+  **Rationale**: Google docs now default to `.agents/skills`, and the constitution forbids compatibility shims for renamed/generated content.
+- **D-151-05 — `agy` probe is diagnostic, not an execution gate.** Missing `agy` is surfaced by doctor/status/install diagnostics, but non-CLI app users can still install Antigravity workspace files.
+  **Rationale**: the desktop app and CLI are one surface with separate runtime availability.
+- **D-151-06 — Audit capability upgrades only with evidence.** Antigravity may move beyond mirror-only via workspace assets and CLI diagnostics, but `audit_capability` stays `partial` unless a tested hook fixture proves full event coverage.
+  **Rationale**: Antigravity migration docs say hooks exist, but public docs available during this spec do not define a complete workspace hook payload schema.
+- **D-151-07 — Generated mirrors remain derived.** Delete/regenerate `.gemini/` and Antigravity mirror outputs from canonical `.claude/` sources via `scripts/sync_mirrors/core.py`; do not dual-write manual copies.
+  **Rationale**: mirror parity and SSOT-PD require one generator path.
 
 ## Acceptance Criteria
 
-- **AC1** — With NotebookLM available, a run launches the deep-research subagent
-  before Tier 1 begins (observable ordering) and includes the deep report in the
-  final synthesis when it completes within the wait window.
-- **AC2** — With NotebookLM absent/unauthed, the run completes using Tiers 0–2 only,
-  emits a visible degraded note, and exits 0.
-- **AC3** — Tier 2 issues `web_search_exa` when Exa is available; falls back to
-  built-in `WebSearch` when not.
-- **AC4** — With Context7 / Exa absent, those tiers are skipped silently
-  (`degraded_sources` records them); the run still returns output.
-- **AC5** — Output always ends with exactly 3 recommended directions, each carrying
-  ≥1 `[N]` citation or `[unsourced]`.
-- **AC6** — On harvest timeout, output notes NotebookLM is still running and the
-  artifact persists `notebook_id`; a follow-up `--reuse-notebook=<id>` retrieves the
-  report.
-- **AC7** — `handlers/tier3-notebooklm.md` and
-  `tests/integration/_ai_research_tier3_helper.py` describe the SAME algorithm
-  (lockstep), validated by tests; tier2 + synthesize tests updated.
+- **AC1** — `SURFACE_IDS` no longer contains `gemini-cli`; `get_surface("gemini-cli")` raises `SurfaceUnknownError`; `get_surface("antigravity")` returns tree `.agents/`, instruction file `AGENTS.md`, and non-`none` diagnostics/audit posture consistent with D-151-06.
+- **AC2** — The dogfood manifest and install docs list `antigravity` but not `gemini-cli`; generated Antigravity installs contain `AGENTS.md` and `.agents/` and do not contain `GEMINI.md` or `.gemini/` because of Google support.
+- **AC3** — Installer template maps, autodetect, updater, ownership defaults, write-scope classification, and mirror inventory classify `.agents/` as the Antigravity tree and stop treating `.agent/` as current generated output.
+- **AC4** — Mirror sync generates Antigravity skills/agents under `.agents/` with Antigravity-native comments/docs and removes root/template `.gemini` generation from the supported surface set.
+- **AC5** — `ai-eng doctor`/surface diagnostics or an equivalent deterministic helper can detect `agy`/`agy.exe`, report version when present, and fail-soft when absent.
+- **AC6** — Tests cover registry shape, invalid `gemini-cli`, Antigravity install matrix, `.agents/` autodetect, mirror generation, stale Gemini reference policy, and `agy` detection.
+- **AC7** — CHANGELOG documents the breaking removal of `gemini-cli`, `GEMINI.md`, `.gemini/`, and `.agent/` generated Antigravity output.
 
 ## Affected Surfaces
 
-- `.claude/skills/ai-research/SKILL.md` (process, tiers, flags, output contract,
-  examples, common mistakes) + mirror regen (`.codex/`, `.gemini/`, `.github/` via
-  `scripts/sync_mirrors`).
-- `handlers/tier2-web.md` (Exa), `tier3-notebooklm.md` (rewrite),
-  `synthesize-with-citations.md` (merge + 3 directions), `classify-query.md`
-  (default-deep), `persist-artifact.md` (`notebook_id`).
-- `tests/integration/_ai_research_tier3_helper.py` (lockstep rewrite) +
-  tier2/tier3/synthesize tests.
-- New env tunable for the harvest timeout (e.g., `AIENG_RESEARCH_NLM_WAIT_SEC`).
+- Domain registry: `src/ai_engineering/domain/surface.py`.
+- Manifest/default configuration: `.ai-engineering/manifest.yml`, `src/ai_engineering/config/*`.
+- Installer/update/autodetect: `src/ai_engineering/installer/*`, `src/ai_engineering/updater/service.py`.
+- Mirrors/templates: `scripts/sync_mirrors/*`, `src/ai_engineering/templates/project/*`, root generated mirror directories.
+- Validators and IDE audit docs: `src/ai_engineering/validator/*`, `.claude/skills/ai-ide-audit/**` plus generated mirrors.
+- Tests: unit/integration suites for surfaces, manifest schema, installer matrix, mirror sync, and diagnostics.
 
 ## Risks
 
-- **R1** — NotebookLM backends are unofficial browser automation → fragile / auth
-  expiry. *Mitigation:* capability probe + fail-soft + bounded wait.
-- **R2** — The background subagent must have the `notebooklm` MCP loaded in its
-  context; if it cannot access it, the async launch fails. *Mitigation:* verify MCP
-  availability in the subagent; degrade.
-- **R3** — Default-on deep research → notebook proliferation + cost/latency per run.
-  *Mitigation:* `--reuse-notebook`; documented; cleanup is a non-goal.
-- **R4** — The lockstep helper now models async/background → harder to test
-  deterministically. *Mitigation:* inject clock + job-status callable; test
-  timeout/degrade branches with mocks.
-- **R5** — Exa quota/cost/rate limits. *Mitigation:* fallback to built-in
-  `WebSearch`; honor allowed/blocked domains.
-- **R6** — Branch collision: the current branch is `spec-147-wave-1` (active). This
-  spec MUST be planned/built on its own branch off `main`; do not mix with spec-147.
+- **R1 — Google docs are still moving.** Mitigation: encode only stable workspace facts (`AGENTS.md`, `.agents/skills`, `agy`) and gate hook-audit claims behind fixtures.
+- **R2 — Deleting `.gemini/` is a large generated diff.** Mitigation: perform deterministic mirror regeneration/deletion in one wave and verify with mirror-sync tests.
+- **R3 — Existing docs mention Gemini historically.** Mitigation: allow historical changelog/migration references but remove current support matrices and generated instructions.
+- **R4 — Antigravity hook schema may remain undocumented.** Mitigation: ship partial audit/diagnostic posture and explicit docs rather than claiming full hook parity.
+- **R5 — Broad surface enum removal can break config compatibility tests.** Mitigation: update tests RED-first and let unknown `gemini-cli` fail loudly per hard-delete policy.
+
+## References
+
+- research: `.ai-engineering/specs/drafts/antigravity-app-cli-support-brief.md`
+- doc: Google Developers Blog, "An important update: Transitioning Gemini CLI to Antigravity CLI", 2026-05-19 — https://developers.googleblog.com/an-important-update-transitioning-gemini-cli-to-antigravity-cli/
+- doc: Antigravity CLI migration — https://antigravity.google/docs/gcli-migration
+- doc: Antigravity skills — https://antigravity.google/docs/skills
+- doc: Persistence doctrine — `docs/persistence-doctrine.md`
 
 ## Open Questions
 
-- **OQ1** — Exact bounded-wait default (5 min?) and env var name.
-- **OQ2** — Does MCP `nlm_research` block until done or return a job handle? If it
-  returns early, the subagent wait model simplifies. Verify during `/ai-plan` against
-  the live tool.
-- **OQ3** — Are the 3 directions derived by the synthesizer LLM from merged evidence,
-  or partly from NotebookLM's report? (Lean: synthesizer-derived, evidence-cited.)
+- **OQ1** — What exact Antigravity hook payload schema should upgrade `audit_capability` from `partial` to `full`? If no public schema is available during implementation, keep full audit as a future spec.
+- **OQ2** — Does `agy` expose a non-interactive JSON/headless mode suitable for CI? If not, diagnostics stay interactive/runtime-only.

@@ -185,14 +185,12 @@ def _resolve_instruction_files(target: Path) -> list[str]:
 
 # Platform-filtered instruction files may intentionally have a lower skill count
 # because some skills are excluded per platform (e.g. Copilot excludes
-# ai-analyze-permissions, Gemini has its own subset).
+# ai-analyze-permissions, Antigravity has its own subset).
 # These files are checked separately and excluded from cross-file consistency.
 _PLATFORM_FILTERED_INSTRUCTION_FILES: frozenset[str] = frozenset(
     {
         ".github/copilot-instructions.md",
         "src/ai_engineering/templates/project/copilot-instructions.md",
-        "GEMINI.md",
-        "src/ai_engineering/templates/project/GEMINI.md",
     }
 )
 
@@ -241,7 +239,7 @@ def _instruction_files(target: Path) -> list[str]:
 
 # Mirror pairs: (canonical_root, mirror_root, glob_patterns, exclusion_prefixes)
 # Note: skills/, agents/ live in IDE-specific directories (.claude/, .codex/,
-# .gemini/). evals/ corpus lives at .ai-engineering/evals/ (committed). The
+# .agents/). evals/ corpus lives at .ai-engineering/evals/ (committed). The
 # governance mirror only validates reference docs and the manifest (D-136-03).
 _GOVERNANCE_MIRROR = (
     ".ai-engineering",
@@ -278,14 +276,14 @@ _CODEX_AGENTS_MIRROR = (
     "src/ai_engineering/templates/project/.codex/agents",
 )
 
-_GEMINI_SKILLS_MIRROR: tuple[str, str] = (
-    ".gemini/skills",
-    "src/ai_engineering/templates/project/.gemini/skills",
+_ANTIGRAVITY_SKILLS_MIRROR: tuple[str, str] = (
+    ".agents/skills",
+    "src/ai_engineering/templates/project/.agents/skills",
 )
 
-_GEMINI_AGENTS_MIRROR: tuple[str, str] = (
-    ".gemini/agents",
-    "src/ai_engineering/templates/project/.gemini/agents",
+_ANTIGRAVITY_AGENTS_MIRROR: tuple[str, str] = (
+    ".agents/agents",
+    "src/ai_engineering/templates/project/.agents/agents",
 )
 
 _COPILOT_SKILLS_MIRROR = (
@@ -304,11 +302,11 @@ _MANUAL_INSTRUCTION_FILES = get_manual_instruction_files()
 
 # Skill/agent listing patterns in instruction files (IDE-specific paths)
 _SKILL_PATH_PATTERN = re.compile(
-    r"^- `(?:\.claude|\.codex|\.gemini)/skills/([^`/]+)/SKILL\.md`",
+    r"^- `(?:\.claude|\.codex|\.agents)/skills/([^`/]+)/SKILL\.md`",
     re.MULTILINE,
 )
 _AGENT_PATH_PATTERN = re.compile(
-    r"^- `(?:\.claude|\.codex|\.gemini)/agents/([^`/]+)\.md`",
+    r"^- `(?:\.claude|\.codex|\.agents)/agents/([^`/]+)\.md`",
     re.MULTILINE,
 )
 _SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")

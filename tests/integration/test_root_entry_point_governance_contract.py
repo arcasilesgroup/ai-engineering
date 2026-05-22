@@ -1,8 +1,8 @@
 """RED-phase test for spec-116 T-2.1 - governed root-surface metadata contract.
 
 Spec acceptance:
-    The governed root entry-point surfaces ``AGENTS.md``, ``CLAUDE.md``,
-    ``GEMINI.md``, and ``.github/copilot-instructions.md`` must remain modeled
+    The governed root entry-point surfaces ``AGENTS.md``, ``CLAUDE.md``, and
+    ``.github/copilot-instructions.md`` must remain modeled
     explicitly in ``ownership.root_entry_points`` for both the live manifest and
     the template manifest.
 
@@ -10,7 +10,7 @@ Verifiable by
 ``test_root_entry_points_have_explicit_ownership_and_sync_contract`` which
 asserts:
 
-1. ``ownership.root_entry_points`` lists exactly the four governed root
+1. ``ownership.root_entry_points`` lists exactly the three governed root
    surfaces.
 2. Each entry still has non-empty ``owner`` and ``canonical_source`` fields.
 3. The old prose-only sync contract is replaced by machine-readable metadata:
@@ -37,7 +37,6 @@ TEMPLATE_MANIFEST_PATH = (
 EXPECTED_ROOT_ENTRY_POINTS = {
     "AGENTS.md",
     "CLAUDE.md",
-    "GEMINI.md",
     ".github/copilot-instructions.md",
 }
 
@@ -61,14 +60,6 @@ EXPECTED_ROOT_ENTRY_POINT_METADATA = {
             "mode": "generate",
             "template_path": "src/ai_engineering/templates/project/AGENTS.md",
             "mirror_paths": [],
-        },
-    },
-    "GEMINI.md": {
-        "runtime_role": "ide-overlay",
-        "sync": {
-            "mode": "render",
-            "template_path": "src/ai_engineering/templates/project/GEMINI.md",
-            "mirror_paths": [".gemini/GEMINI.md"],
         },
     },
     ".github/copilot-instructions.md": {
@@ -118,8 +109,8 @@ def _assert_root_entry_point_contract(manifest_path: Path, label: str) -> None:
     assert isinstance(root_entry_points, dict), (
         "Manifest must define ownership.root_entry_points as an explicit "
         "mapping for governed root entry points. Expected exactly these keys: "
-        "['.github/copilot-instructions.md', 'AGENTS.md', 'CLAUDE.md', "
-        "'GEMINI.md'], each with owner, canonical_source, runtime_role, and a "
+        "['.github/copilot-instructions.md', 'AGENTS.md', 'CLAUDE.md'], each with "
+        "owner, canonical_source, runtime_role, and a "
         "structured sync mapping. Broad ownership globs and prose-only sync "
         "metadata are not a sufficient contract for spec-116."
     )

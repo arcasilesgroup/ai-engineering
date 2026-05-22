@@ -167,7 +167,7 @@ def _should_skip_reference_path(ref_path: str, *, origin: str | None = None) -> 
     """Return True when ``ref_path`` should be ignored by the validator.
 
     spec-132 D-132-09: SKILL.md descriptors in
-    ``.claude/`` / ``.codex/`` / ``.gemini/`` / ``.github/`` carry
+    ``.claude/`` / ``.codex/`` / ``.agents/`` / ``.github/`` carry
     implementation notes that reference ``src/ai_engineering/...``
     paths. Those paths never ship to consumers, so we skip them when
     the origin file is a SKILL.md descriptor.
@@ -205,7 +205,7 @@ def _reference_exists(target: Path, ai_dir: Path, ref_path: str) -> bool:
     fallback_roots = [
         target / ".claude",
         target / ".codex",
-        target / ".gemini",
+        target / ".agents",
         target / ".github",
     ]
     candidates = [ref_path, _ide_adapted_reference(ref_path)]

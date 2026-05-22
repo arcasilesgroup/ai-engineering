@@ -645,8 +645,8 @@ class TestAiProvider:
 
         assert AiProvider.CLAUDE_CODE == "claude-code"
         assert AiProvider.GITHUB_COPILOT == "github-copilot"
-        assert AiProvider.GEMINI == "gemini-cli"
         assert AiProvider.CODEX == "codex"
+        assert AiProvider.ANTIGRAVITY == "antigravity"
 
     def test_is_str_enum(self) -> None:
         from ai_engineering.state.models import AiProvider

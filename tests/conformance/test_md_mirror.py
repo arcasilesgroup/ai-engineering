@@ -6,15 +6,15 @@ mirror strategy) and D-131-04 (CONSTITUTION rescoped to project-identity).
 
 Five sub-checks per S1 acceptance:
 
-1. **sha256 equivalence** — AGENTS.md, CLAUDE.md, GEMINI.md, and
+1. **sha256 equivalence** — AGENTS.md, CLAUDE.md, and
    ``.github/copilot-instructions.md`` carry IDENTICAL canonical payload
    bytes after stripping the ``<!-- ide-extras:start -->…<!-- ide-extras:end -->``
    fence.
 2. **no @AGENTS.md import** — no mirror file contains the literal
    ``@AGENTS.md`` import directive (a Claude-only quirk that broke
    parity).
-3. **no .gemini/GEMINI.md orphan** — D-131-03 deletes that path; the
-   sweep refuses to find it.
+3. **no retired Gemini artifacts** — spec-151 deletes `GEMINI.md` and `.gemini/`;
+   the sweep refuses to find them.
 4. **no .codex/AGENTS.md orphan** — Codex reads root AGENTS.md natively;
    an in-repo ``.codex/AGENTS.md`` would shadow the canonical surface.
 5. **CONSTITUTION.md is clean** — after D-131-04 migration, the
@@ -65,7 +65,7 @@ def _write_mirror(repo: Path, rel: str, payload: str, extras: str = "") -> Path:
 
     Mirrors reality: every output of ``assemble_mirror_payload`` (in
     ``scripts/sync_mirrors/core.py``) carries a fence at end-of-file —
-    AGENTS.md carries an empty fence placeholder; CLAUDE / GEMINI /
+    AGENTS.md carries an empty fence placeholder; CLAUDE /
     Copilot carry filled fences. The fence position is canonical so
     sha256 equivalence holds after fence-strip.
     """
@@ -81,19 +81,13 @@ def _write_mirror(repo: Path, rel: str, payload: str, extras: str = "") -> Path:
 
 
 def _build_fixture(repo: Path, *, with_extras: bool = True) -> None:
-    """Lay out a synthetic four-mirror tree with matching canonical payload."""
+    """Lay out a synthetic three-mirror tree with matching canonical payload."""
     _write_mirror(repo, "AGENTS.md", _CANONICAL_PAYLOAD)
     _write_mirror(
         repo,
         "CLAUDE.md",
         _CANONICAL_PAYLOAD,
         extras="Claude-specific hot-path bullets." if with_extras else "",
-    )
-    _write_mirror(
-        repo,
-        "GEMINI.md",
-        _CANONICAL_PAYLOAD,
-        extras="Gemini hooks wiring table." if with_extras else "",
     )
     _write_mirror(
         repo,
@@ -126,13 +120,13 @@ def _build_fixture(repo: Path, *, with_extras: bool = True) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Check 1 — sha256 equivalence across the four mirrors (with fence strip).
+# Check 1 — sha256 equivalence across the three root mirrors (with fence strip).
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 def test_sha256_equivalence_passes_with_matching_payload(tmp_path: Path) -> None:
-    """OK when all four mirrors share the same canonical payload."""
+    """OK when all three root mirrors share the same canonical payload."""
     _build_fixture(tmp_path)
     from skill_lint.checks.md_mirror import check_sha256_equivalence
 
@@ -193,13 +187,13 @@ def test_no_agents_import_fails_when_directive_present(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Check 3 — no .gemini/GEMINI.md orphan on disk.
+# Check 3 — no retired Gemini artifacts on disk.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
-def test_no_gemini_orphan_passes_when_absent(tmp_path: Path) -> None:
-    """OK when .gemini/GEMINI.md does not exist (D-131-03)."""
+def test_no_gemini_artifacts_pass_when_absent(tmp_path: Path) -> None:
+    """OK when GEMINI.md and .gemini do not exist."""
     _build_fixture(tmp_path)
     from skill_lint.checks.md_mirror import check_no_gemini_orphan
 
@@ -208,12 +202,12 @@ def test_no_gemini_orphan_passes_when_absent(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-def test_no_gemini_orphan_fails_when_present(tmp_path: Path) -> None:
-    """CRITICAL when .gemini/GEMINI.md exists (orphan from old sync)."""
+def test_no_gemini_artifacts_fail_when_present(tmp_path: Path) -> None:
+    """CRITICAL when retired Gemini artifacts exist."""
     _build_fixture(tmp_path)
-    orphan = tmp_path / ".gemini" / "GEMINI.md"
+    orphan = tmp_path / ".gemini" / "settings.json"
     orphan.parent.mkdir(parents=True, exist_ok=True)
-    orphan.write_text("stale gemini overlay\n", encoding="utf-8")
+    orphan.write_text("{}\n", encoding="utf-8")
     from skill_lint.checks.md_mirror import check_no_gemini_orphan
 
     result = check_no_gemini_orphan(tmp_path)
@@ -483,10 +477,10 @@ def test_docs_targets_present_fails_when_principles_missing(tmp_path: Path) -> N
 
 @pytest.mark.integration
 def test_live_repo_canonical_payload_matches(project_root: Path) -> None:
-    """After T-1.7 lands, the repo-root four mirrors must hash-equivalent.
+    """After T-1.7 lands, the repo-root three mirrors must hash-equivalent.
 
     This test guards against post-merge drift: any future hand-edit of
-    AGENTS / CLAUDE / GEMINI / copilot-instructions that breaks parity
+    AGENTS / CLAUDE / copilot-instructions that breaks parity
     will fail here.
     """
     from skill_lint.checks.md_mirror import check_sha256_equivalence

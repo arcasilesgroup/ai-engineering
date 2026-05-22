@@ -103,7 +103,7 @@ every store is a plain file on disk.
 - **Read pattern:** operator + LLM session bootstrap; CI parsers
   (decision backfill, mirror-parity gates).
 - **Write trigger:** operator commits; `scripts/sync_mirrors/core.py`
-  for the byte-equivalent CLAUDE.md / AGENTS.md / GEMINI.md /
+  for the byte-equivalent CLAUDE.md / AGENTS.md /
   copilot-instructions.md mirrors.
 - **Hot-path status:** no. Markdown is operator and reviewer surface.
 

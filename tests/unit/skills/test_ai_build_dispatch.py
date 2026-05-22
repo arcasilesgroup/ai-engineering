@@ -1,6 +1,6 @@
 """ai-build dispatch routing — spec-131 S3 (sub-003 T-3.9 RED).
 
-Asserts that ``/ai-build`` SKILL.md (and its three IDE mirrors) declare
+Asserts that ``/ai-build`` SKILL.md (and its active IDE mirrors) declare
 the cheap/mid/high dispatch routing required by D-131-08:
 
 * ``model_tier=haiku`` mentioned in the cheap-tier branch.
@@ -23,7 +23,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _AI_BUILD_MIRRORS = (
     _REPO_ROOT / ".claude" / "skills" / "ai-build" / "SKILL.md",
     _REPO_ROOT / ".codex" / "skills" / "ai-build" / "SKILL.md",
-    _REPO_ROOT / ".gemini" / "skills" / "ai-build" / "SKILL.md",
+    _REPO_ROOT / ".agents" / "skills" / "ai-build" / "SKILL.md",
     _REPO_ROOT / ".github" / "skills" / "ai-build" / "SKILL.md",
 )
 

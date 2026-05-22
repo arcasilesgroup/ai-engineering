@@ -2,7 +2,7 @@
 
 Verbosity reduction (Phase 7) cuts duplicated content from three skill files
 without removing the contractual sections that the four-IDE mirror system
-(Claude Code, GitHub Copilot, Codex, Gemini CLI) and downstream agents rely on.
+(Claude Code, GitHub Copilot, Codex, Antigravity) and downstream agents rely on.
 
 These tests pin the contract: regardless of how many lines are removed,
 - ai-commit/SKILL.md MUST keep `## Process`, `## Integration`, `## Quick Reference`

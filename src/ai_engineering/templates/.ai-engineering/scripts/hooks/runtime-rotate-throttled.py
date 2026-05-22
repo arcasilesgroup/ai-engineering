@@ -130,7 +130,7 @@ def _run_rotation(script: Path) -> bool:
 
 def main() -> None:
     ctx = get_hook_context()
-    # We honour SessionEnd (Claude / Codex) AND AfterAgent (Gemini's
+    # We honour SessionEnd (Claude / Codex) AND AfterAgent (Antigravity's
     # end-of-session event normalised to "Stop" by hook_context). Any
     # other event short-circuits — the IDE wiring should never fire us
     # outside those, but defence-in-depth keeps the hot path tight.

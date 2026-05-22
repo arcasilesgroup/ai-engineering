@@ -177,17 +177,17 @@ class TestDetectAIProviders:
         (tmp_path / "AGENTS.md").write_text("# AGENTS\n", encoding="utf-8")
         assert detect_surfaces(tmp_path) == ["codex"]
 
-    def test_all_four_provider_surfaces(self, tmp_path: Path) -> None:
+    def test_all_current_provider_surfaces(self, tmp_path: Path) -> None:
         (tmp_path / ".claude").mkdir()
         (tmp_path / ".codex").mkdir()
-        (tmp_path / ".gemini").mkdir()
+        (tmp_path / ".agents").mkdir()
         gh = tmp_path / ".github"
         gh.mkdir()
         (gh / "copilot-instructions.md").touch()
         assert detect_surfaces(tmp_path) == [
+            "antigravity",
             "claude-code",
             "codex",
-            "gemini-cli",
             "github-copilot",
         ]
 

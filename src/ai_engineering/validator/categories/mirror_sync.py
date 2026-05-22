@@ -12,6 +12,8 @@ from ai_engineering.config.mirror_inventory import (
     get_mirror_families,
 )
 from ai_engineering.validator._shared import (
+    _ANTIGRAVITY_AGENTS_MIRROR,
+    _ANTIGRAVITY_SKILLS_MIRROR,
     _CLAUDE_AGENTS_MIRROR,
     _CLAUDE_COMMANDS_MIRROR,
     _CLAUDE_SKILLS_MIRROR,
@@ -19,8 +21,6 @@ from ai_engineering.validator._shared import (
     _CODEX_SKILLS_MIRROR,
     _COPILOT_AGENTS_MIRROR,
     _COPILOT_SKILLS_MIRROR,
-    _GEMINI_AGENTS_MIRROR,
-    _GEMINI_SKILLS_MIRROR,
     _GOVERNANCE_MIRROR,
     FileCache,
     IntegrityCategory,
@@ -56,7 +56,6 @@ _SECTION_COUNT_RE = re.compile(r"\((\d+)\)")
 _ROOT_PARITY_SOURCE_FALLBACKS: dict[str, str] = {
     "CLAUDE.md": "CLAUDE.md",
     "AGENTS.md": "CLAUDE.md",
-    "GEMINI.md": "AGENTS.md",
     ".github/copilot-instructions.md": "CLAUDE.md",
 }
 
@@ -65,8 +64,8 @@ _FRONTMATTER_BLOCK_RE = re.compile(r"^---\n(.*?)\n---\n?", re.DOTALL)
 _PROVENANCE_GLOB_BY_FAMILY: dict[str, str] = {
     "codex-skills": "SKILL.md",
     "codex-agents": "ai-*.md",
-    "gemini-skills": "SKILL.md",
-    "gemini-agents": "ai-*.md",
+    "antigravity-skills": "SKILL.md",
+    "antigravity-agents": "ai-*.md",
     "copilot-skills": "SKILL.md",
     "copilot-agents": "*.agent.md",
 }
@@ -84,11 +83,11 @@ _PUBLIC_AGENT_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
     ),
     (
-        _GEMINI_AGENTS_MIRROR[0],
+        _ANTIGRAVITY_AGENTS_MIRROR[0],
         ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
     ),
     (
-        _GEMINI_AGENTS_MIRROR[1],
+        _ANTIGRAVITY_AGENTS_MIRROR[1],
         ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
     ),
     (
@@ -103,8 +102,8 @@ _PUBLIC_AGENT_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
 _PUBLIC_SKILL_ROOTS: tuple[str, ...] = (
     _CODEX_SKILLS_MIRROR[0],
     _CODEX_SKILLS_MIRROR[1],
-    _GEMINI_SKILLS_MIRROR[0],
-    _GEMINI_SKILLS_MIRROR[1],
+    _ANTIGRAVITY_SKILLS_MIRROR[0],
+    _ANTIGRAVITY_SKILLS_MIRROR[1],
     _COPILOT_SKILLS_MIRROR[0],
     _COPILOT_SKILLS_MIRROR[1],
 )
@@ -114,10 +113,10 @@ _NON_CLAUDE_LOCAL_REFERENCE_ROOTS: tuple[str, ...] = (
     _CODEX_SKILLS_MIRROR[1],
     _CODEX_AGENTS_MIRROR[0],
     _CODEX_AGENTS_MIRROR[1],
-    _GEMINI_SKILLS_MIRROR[0],
-    _GEMINI_SKILLS_MIRROR[1],
-    _GEMINI_AGENTS_MIRROR[0],
-    _GEMINI_AGENTS_MIRROR[1],
+    _ANTIGRAVITY_SKILLS_MIRROR[0],
+    _ANTIGRAVITY_SKILLS_MIRROR[1],
+    _ANTIGRAVITY_AGENTS_MIRROR[0],
+    _ANTIGRAVITY_AGENTS_MIRROR[1],
     _COPILOT_SKILLS_MIRROR[0],
     _COPILOT_SKILLS_MIRROR[1],
     _COPILOT_AGENTS_MIRROR[0],
@@ -245,9 +244,9 @@ def _check_mirror_sync(
     _check_codex_skills_mirror(target, report, _sha)
     _check_codex_agents_mirror(target, report, _sha)
 
-    # Gemini skills/agents mirrors
-    _check_gemini_skills_mirror(target, report, _sha)
-    _check_gemini_agents_mirror(target, report, _sha)
+    # Antigravity skills/agents mirrors
+    _check_antigravity_skills_mirror(target, report, _sha)
+    _check_antigravity_agents_mirror(target, report, _sha)
 
     # Copilot skills and agents mirrors
     _check_copilot_skills_mirror(target, report, _sha)
@@ -778,9 +777,9 @@ def _check_non_claude_local_reference_leaks(
 def _expected_generated_canonical_source(family_id: str, relative: Path) -> str:
     """Return the canonical source path encoded into generated provenance."""
     rel = relative.as_posix()
-    if family_id in {"codex-skills", "gemini-skills", "copilot-skills"}:
+    if family_id in {"codex-skills", "antigravity-skills", "copilot-skills"}:
         return f".claude/skills/{rel}"
-    if family_id in {"codex-agents", "gemini-agents"}:
+    if family_id in {"codex-agents", "antigravity-agents"}:
         return f".claude/agents/{rel}"
     if family_id == "copilot-agents":
         agent_name = relative.name.removesuffix(".agent.md")
@@ -839,36 +838,36 @@ def _check_codex_agents_mirror(
     )
 
 
-def _check_gemini_skills_mirror(
+def _check_antigravity_skills_mirror(
     target: Path,
     report: IntegrityReport,
     sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
-    """Check .gemini/skills/ mirror sync with templates."""
+    """Check .agents/skills/ mirror sync with templates."""
     _check_pair_mirror(
         target,
         report,
-        *_GEMINI_SKILLS_MIRROR,
+        *_ANTIGRAVITY_SKILLS_MIRROR,
         "*.md",
-        "gemini-skill",
-        "Gemini skill",
+        "antigravity-skill",
+        "Antigravity skill",
         sha_fn=sha_fn,
     )
 
 
-def _check_gemini_agents_mirror(
+def _check_antigravity_agents_mirror(
     target: Path,
     report: IntegrityReport,
     sha_fn: Callable[[Path], str] = _sha256,
 ) -> None:
-    """Check .gemini/agents/ mirror sync with templates."""
+    """Check .agents/agents/ mirror sync with templates."""
     _check_pair_mirror(
         target,
         report,
-        *_GEMINI_AGENTS_MIRROR,
+        *_ANTIGRAVITY_AGENTS_MIRROR,
         "*.md",
-        "gemini-agent",
-        "Gemini agent",
+        "antigravity-agent",
+        "Antigravity agent",
         sha_fn=sha_fn,
     )
 
@@ -1027,8 +1026,8 @@ def _check_instruction_parity(  # audit:exempt:pre-existing-debt-out-of-spec-114
 
     # Determine which instruction files to check for parity
     has_claude = "claude-code" in enabled
-    # Providers that use AGENTS.md: github-copilot, gemini-cli, codex
-    has_agents_provider = bool(enabled & {"github-copilot", "gemini-cli", "codex"})
+    # Providers that use AGENTS.md: github-copilot, antigravity, codex
+    has_agents_provider = bool(enabled & {"github-copilot", "antigravity", "codex"})
 
     claude_md = target / "CLAUDE.md"
     agents_md = target / "AGENTS.md"

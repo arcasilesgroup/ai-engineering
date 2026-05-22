@@ -18,7 +18,7 @@ TEMPLATE_LEGACY_ATTRIBUTION = (
 ACTIVE_SKILL_FILES = (
     ".claude/skills/ai-mcp-audit/SKILL.md",
     ".codex/skills/ai-mcp-audit/SKILL.md",
-    ".gemini/skills/ai-mcp-audit/SKILL.md",
+    ".agents/skills/ai-mcp-audit/SKILL.md",
     ".github/skills/ai-mcp-audit/SKILL.md",
 )
 

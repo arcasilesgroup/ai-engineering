@@ -53,7 +53,7 @@ def _write_file(path: Path, content: str) -> None:
     ("providers", "missing_surface"),
     [
         (["claude-code", "github-copilot"], ".github/copilot-instructions.md"),
-        (["claude-code", "gemini-cli"], "GEMINI.md"),
+        (["claude-code", "antigravity"], "AGENTS.md"),
     ],
 )
 def test_instruction_parity_flags_missing_enabled_provider_root_surface(
@@ -64,7 +64,8 @@ def test_instruction_parity_flags_missing_enabled_provider_root_surface(
     """Enabled provider-specific root instructions should be parity-validated."""
     _write_manifest(tmp_path, providers)
     _write_file(tmp_path / "CLAUDE.md", _MINIMAL_PARITY_CONTENT)
-    _write_file(tmp_path / "AGENTS.md", _MINIMAL_PARITY_CONTENT)
+    if missing_surface != "AGENTS.md":
+        _write_file(tmp_path / "AGENTS.md", _MINIMAL_PARITY_CONTENT)
 
     report = IntegrityReport()
 

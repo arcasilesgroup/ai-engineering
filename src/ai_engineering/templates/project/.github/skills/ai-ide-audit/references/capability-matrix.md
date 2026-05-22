@@ -14,40 +14,32 @@ After the Explore subagent returns, classify each capability for each in-scope p
 
 Mark PARTIAL whenever you find evidence of the capability but with a measurable gap. Mark UNSUPPORTED only when the capability is completely absent.
 
-## Per-IDE assertion lookup (brief §2.3 native paths)
+## Per-IDE assertion lookup (current native paths)
 
-| IDE | Native instruction path (highest priority) | Fallback | md_mirror lint contract |
-|-----|--------------------------------------------|----------|-------------------------|
-| Claude Code | `<repo>/CLAUDE.md` | `<repo>/AGENTS.md` | Enforced — byte-equivalent canonical payload (sha256) |
-| GitHub Copilot | `<repo>/.github/copilot-instructions.md` | `<repo>/AGENTS.md` | Enforced — byte-equivalent canonical payload (sha256) |
-| Gemini CLI | `<repo>/GEMINI.md` | `<repo>/AGENTS.md`, user-global `~/.gemini/` | Enforced — byte-equivalent canonical payload (sha256); `<repo>/.gemini/GEMINI.md` MUST NOT exist (D-131-03) |
-| Codex | `<repo>/AGENTS.md` (native) | n/a | Enforced — `<repo>/.codex/AGENTS.md` MUST NOT exist |
-| Antigravity (v1.20.3+) | `<repo>/GEMINI.md` (highest priority) | `<repo>/AGENTS.md` | ADVISORY — no deterministic CLI probe yet (R-131-08); md_mirror lint contract enforced via the GEMINI.md mirror |
+| IDE | Native instruction path | Workspace assets | md_mirror / sync contract |
+|-----|-------------------------|------------------|---------------------------|
+| Claude Code | `<repo>/CLAUDE.md` | `<repo>/.claude/skills`, `<repo>/.claude/agents` | Enforced — byte-equivalent canonical payload (sha256) |
+| GitHub Copilot | `<repo>/.github/copilot-instructions.md` | `<repo>/.github/skills`, `<repo>/.github/agents` | Enforced — byte-equivalent canonical payload (sha256) |
+| Codex | `<repo>/AGENTS.md` | `<repo>/.codex/skills`, `<repo>/.codex/agents` | Enforced — `<repo>/.codex/AGENTS.md` MUST NOT exist |
+| Antigravity | `<repo>/AGENTS.md` | `<repo>/.agents/skills`, `<repo>/.agents/agents`, `agy` runtime diagnostics | Enforced — `.agents/` generated from canonical `.claude/`; audit remains PARTIAL until hook fixtures prove full coverage |
 
-## Spec-131 S1 Antigravity Probe (advisory)
+## Spec-151 Antigravity Probe
 
-Per R-131-08: Antigravity v1.20.3+ reads `<repo>/GEMINI.md` as the
-highest-priority instruction surface and falls back to
-`<repo>/AGENTS.md` if absent. Because no Antigravity CLI exposes a
-deterministic version probe at the time of spec-131, the audit
-classification stays advisory:
+Antigravity app and `agy` CLI are one surface. Audit classification uses
+file evidence plus deterministic CLI diagnostics:
 
-- **SUPPORTED**: `<repo>/GEMINI.md` carries the canonical payload
-  (verified by `tools/skill_lint/checks/md_mirror.py` sha256
-  equivalence with the other three mirrors).
-- **PARTIAL**: GEMINI.md exists but drifts from the canonical sha256.
-- **UNSUPPORTED**: GEMINI.md is missing.
+- **SUPPORTED**: `AGENTS.md` exists, `.agents/skills` and `.agents/agents`
+  match canonical counts, and `agy --version` is available when CLI runtime
+  support is in scope.
+- **PARTIAL**: workspace assets are present but CLI runtime is missing, or
+  hook payload evidence is insufficient for full audit coverage.
+- **UNSUPPORTED**: `AGENTS.md` or `.agents/` assets are missing.
 
-No `--fix` action runs for Antigravity; remediation is the same
-`python scripts/sync_command_mirrors.py` run that fixes the other
-mirrors.
-
-## Spec-107 Advisory Checks (6/7/8)
+## Spec-107 Advisory Checks (6/8)
 
 Advisory-only per spec-107 NG-11 (never hard-fail; hard-gate lands in a future spec when ≥90% projects pass cleanly).
 
-- **Check 6 — Agent naming**: for every agent file across `.claude`/`.github`/`.codex`/`.gemini`/agents, flag when `name != basename(file).removesuffix(".md")`. Catches Explorer-style slug drift.
-- **Check 7 — GEMINI.md count**: extract `N` from `## Skills (N)`; compare with `len(glob(".gemini/skills/ai-*/SKILL.md"))`. Catches `__SKILL_COUNT__` placeholder removal.
+- **Check 6 — Agent naming**: for every agent file across `.claude`/`.github`/`.codex`/`.agents`/agents, flag when `name != basename(file).removesuffix(".md")`. Catches Explorer-style slug drift.
 - **Check 8 — Generic count scan**: regex `^## Skills \((\d+)\)$` / `^## Agents \((\d+)\)$` across every instruction file; compare to `manifest.yml` `skills.total` / `agents.total`. Defense-in-depth across future IDE adapters.
 
 Severity: advisory WARN. Remediation: re-run `ai-eng sync`.

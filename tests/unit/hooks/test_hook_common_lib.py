@@ -213,19 +213,19 @@ def test_get_correlation_id_unique(hc, monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_get_session_id_from_claude_env(hc, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("CLAUDE_SESSION_ID", "sess-claude")
-    monkeypatch.delenv("GEMINI_SESSION_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
     assert hc.get_session_id() == "sess-claude"
 
 
-def test_get_session_id_from_gemini_env(hc, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_get_session_id_from_antigravity_env(hc, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
-    monkeypatch.setenv("GEMINI_SESSION_ID", "sess-gemini")
-    assert hc.get_session_id() == "sess-gemini"
+    monkeypatch.setenv("ANTIGRAVITY_SESSION_ID", "sess-antigravity")
+    assert hc.get_session_id() == "sess-antigravity"
 
 
 def test_get_session_id_returns_none_when_unset(hc, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
-    monkeypatch.delenv("GEMINI_SESSION_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
     assert hc.get_session_id() is None
 
 

@@ -130,7 +130,6 @@ _SCRIPT_PATH = REPO_ROOT / ".ai-engineering" / "scripts" / "session_bootstrap.py
 _EXPECTED_SURFACES: set[str] = {
     "claude-code",
     "codex",
-    "gemini-cli",
     "github-copilot",
     "opencode",
     "cursor",
@@ -140,11 +139,10 @@ _EXPECTED_SURFACES: set[str] = {
 _EXPECTED_SURFACE_DIRS: dict[str, tuple[str, str]] = {
     "claude-code": (".claude/skills", ".claude/agents"),
     "codex": (".codex/skills", ".codex/agents"),
-    "gemini-cli": (".gemini/skills", ".gemini/agents"),
     "github-copilot": (".github/skills", ".github/agents"),
     "opencode": (".opencode/skills", ".opencode/agents"),
     "cursor": (".cursor/skills", ".cursor/agents"),
-    "antigravity": (".agent/skills", ".agent/agents"),
+    "antigravity": (".agents/skills", ".agents/agents"),
 }
 
 
@@ -191,8 +189,8 @@ class TestSurfaceDirs:
                 f"_SURFACE_DIRS[{surface!r}][1] (agents_dir) must be str, got {type(agents_dir)!r}"
             )
 
-    def test_surface_dirs_has_exactly_7_surfaces(self) -> None:
-        """``_SURFACE_DIRS`` must cover exactly the 7-surface canonical set."""
+    def test_surface_dirs_has_exactly_6_surfaces(self) -> None:
+        """``_SURFACE_DIRS`` must cover exactly the 6-surface canonical set."""
         mod = _load_session_bootstrap_module()
         surface_dirs: dict = mod._SURFACE_DIRS
         assert set(surface_dirs.keys()) == _EXPECTED_SURFACES, (
@@ -226,14 +224,6 @@ class TestSurfaceDirs:
         surface_dirs: dict = mod._SURFACE_DIRS
         assert surface_dirs["codex"] == _EXPECTED_SURFACE_DIRS["codex"], (
             f"codex layout mismatch: {surface_dirs['codex']!r}"
-        )
-
-    def test_surface_dirs_gemini_cli_layout(self) -> None:
-        """``gemini-cli`` must map to ``.gemini/skills`` / ``.gemini/agents``."""
-        mod = _load_session_bootstrap_module()
-        surface_dirs: dict = mod._SURFACE_DIRS
-        assert surface_dirs["gemini-cli"] == _EXPECTED_SURFACE_DIRS["gemini-cli"], (
-            f"gemini-cli layout mismatch: {surface_dirs['gemini-cli']!r}"
         )
 
     def test_surface_dirs_github_copilot_layout(self) -> None:
@@ -349,11 +339,10 @@ class TestSurfaceAwareCounts:
         [
             ("claude-code", ".claude/agents", "ai-build.md", "build.agent.md"),
             ("codex", ".codex/agents", "ai-build.md", "build.agent.md"),
-            ("gemini-cli", ".gemini/agents", "ai-build.md", "build.agent.md"),
             ("github-copilot", ".github/agents", "build.agent.md", "ai-build.md"),
             ("opencode", ".opencode/agents", "ai-build.md", "build.agent.md"),
             ("cursor", ".cursor/agents", "ai-build.mdc", "ai-build.md"),
-            ("antigravity", ".agent/agents", "ai-build.md", "build.agent.md"),
+            ("antigravity", ".agents/agents", "ai-build.md", "build.agent.md"),
         ],
     )
     def test_agent_filename_pattern_for_each_surface(

@@ -2,7 +2,7 @@
 name: ai-build
 description: Implementation coordinator. The ONLY agent with code write permissions. Test-first, dispatch-driven, quality-gated.
 model: opus
-mirror_family: gemini-agents
+mirror_family: cursor-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-build.md
 edit_policy: generated-do-not-edit
@@ -119,9 +119,9 @@ Every build task produces this structured output to enable downstream agents (ve
 
 ## Referenced Skills
 
-- `.gemini/skills/ai-code/SKILL.md`, `.gemini/skills/ai-test/SKILL.md`, `.gemini/skills/ai-debug/SKILL.md`
-- `.gemini/skills/ai-schema/SKILL.md`, `.gemini/skills/ai-pipeline/SKILL.md`
-- `.gemini/skills/ai-build/SKILL.md` -- task dispatch and agent coordination (canonical gateway, D-127-11)
+- `.cursor/skills/ai-code/SKILL.md`, `.cursor/skills/ai-test/SKILL.md`, `.cursor/skills/ai-debug/SKILL.md`
+- `.cursor/skills/ai-schema/SKILL.md`, `.cursor/skills/ai-pipeline/SKILL.md`
+- `.cursor/skills/ai-build/SKILL.md` -- task dispatch and agent coordination (canonical gateway, D-127-11)
 
 ## Boundaries
 

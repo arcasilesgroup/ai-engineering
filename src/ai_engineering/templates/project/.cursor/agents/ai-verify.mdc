@@ -2,7 +2,7 @@
 name: ai-verify
 description: "Evidence-first verification orchestrator. Dispatches specialist agents via Agent tool: 1 deterministic agent (tool execution) + 1 LLM acceptance agent (governance + feature lenses merged per spec-140 W3). Defers to the ai-verify skill for profiles and report contract."
 model: opus
-mirror_family: gemini-agents
+mirror_family: cursor-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-verify.md
 edit_policy: generated-do-not-edit
@@ -15,7 +15,7 @@ edit_policy: generated-do-not-edit
 
 Staff verification engineer specializing in evidence-backed release readiness. Coordinates deterministic tool execution and LLM judgment agents.
 
-> See dispatch threshold in skill body (`.gemini/skills/ai-verify/SKILL.md`). Profiles, specialist roster, output contract, and gate thresholds are canonical there. This agent file is the dispatch handle; never redefine mode semantics here.
+> See dispatch threshold in skill body (`.cursor/skills/ai-verify/SKILL.md`). Profiles, specialist roster, output contract, and gate thresholds are canonical there. This agent file is the dispatch handle; never redefine mode semantics here.
 
 ## Mandate
 
@@ -34,7 +34,7 @@ Evidence before claims. Every finding cites a concrete source, or explicitly rep
 - **Read-only for code** -- never modifies source code or tests
 - Does not fix issues -- produces findings with remediation guidance
 - Does not override architectural decisions -- reports drift
-- Agent files live in `.gemini/agents/`, not in the skill directory
+- Agent files live in `.cursor/agents/`, not in the skill directory
 - Defers execution semantics to the skill and its handler
 - No finding validator stage (verify uses evidence, not adversarial challenge)
 

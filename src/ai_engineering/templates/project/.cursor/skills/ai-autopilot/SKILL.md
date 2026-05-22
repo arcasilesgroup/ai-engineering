@@ -5,7 +5,7 @@ effort: high
 argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 tags: [orchestration, autonomous, multi-spec, backlog, pipeline, execution, dag, transparency]
 model_tier: opus
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-autopilot/SKILL.md
 edit_policy: generated-do-not-edit
@@ -44,7 +44,7 @@ Autonomous execution of large approved specs via a 6-phase pipeline. Decomposes 
 
 **Step 3 — ORCHESTRATE** (`handlers/phase-orchestrate.md`): build the file-overlap matrix and import-chain graph from Phase-2 evidence (never from spec text alone); construct the wave-assigned DAG; merge unresolvable conflicts.
 
-**Step 4 — IMPLEMENT** (`handlers/phase-implement.md`): per-wave kernel from `.gemini/skills/_shared/execution-kernel.md`. Dispatch build agents per sub-spec in parallel within a wave; each task self-validates via TDD; wave-end guard advisory remains for governance. Collect Self-Reports + per-wave commits. Cascade-block dependents of failed sub-specs.
+**Step 4 — IMPLEMENT** (`handlers/phase-implement.md`): per-wave kernel from `.cursor/skills/_shared/execution-kernel.md`. Dispatch build agents per sub-spec in parallel within a wave; each task self-validates via TDD; wave-end guard advisory remains for governance. Collect Self-Reports + per-wave commits. Cascade-block dependents of failed sub-specs.
 
 **Step 5 — QUALITY LOOP** (`handlers/phase-quality.md`): read ai-verify / ai-review / ai-governance SKILL.md once at loop entry; dispatch verify+guard+review in parallel on the full changeset; consolidate findings (unified severity). Clean → Phase 6. Blocker/critical/high findings enter Phase 5b only if the one bounded quality-remediation pass is unused and the fixes are finding-scoped. Remaining blocker/critical/high findings after final reassessment → STOP + escalate to user.
 
@@ -64,7 +64,7 @@ Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions int
 
 ## Dispatch threshold
 
-Dispatch the `ai-autopilot` agent when the work matches the "When to Use" criteria above (≥3 concerns, ≥10 files, post-`/ai-brainstorm` approval, or any backlog with `--backlog`). For smaller scope, hand off to `/ai-build` directly. The agent file (`.gemini/agents/ai-autopilot.md`) is the orchestrator handle; the procedural contract lives in this SKILL.md.
+Dispatch the `ai-autopilot` agent when the work matches the "When to Use" criteria above (≥3 concerns, ≥10 files, post-`/ai-brainstorm` approval, or any backlog with `--backlog`). For smaller scope, hand off to `/ai-build` directly. The agent file (`.cursor/agents/ai-autopilot.mdc`) is the orchestrator handle; the procedural contract lives in this SKILL.md.
 
 ## Governance
 

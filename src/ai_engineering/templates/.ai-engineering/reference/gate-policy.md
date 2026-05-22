@@ -15,7 +15,7 @@ clock. spec-104 splits that work into two layers:
 
 This document is the single source of truth for *which* checks live where and *why*.
 It is read at session start by `/ai-start` so every IDE driver (Claude Code, GitHub
-Copilot, Codex, Gemini) sees the same policy.
+Copilot, Codex, Antigravity) sees the same policy.
 
 ## Local fast-slice (~60 s budget)
 
@@ -67,9 +67,9 @@ The split is fixed at the framework level. There is no `manifest.yml` knob to ad
 - LESSONS rule: "stable framework orchestration should not become per-project
   config by default." Each per-project switch creates a drift surface where one
   project's policy diverges from the framework's contract.
-- Mirror drift across IDEs. Claude Code, GitHub Copilot, Codex, and Gemini all
+- Mirror drift across IDEs. Claude Code, GitHub Copilot, Codex, and Antigravity all
   consume the same `.claude/skills/`, `.github/skills/`, `.codex/skills/`,
-  `.gemini/skills/` mirrors. A configurable policy would have to be re-read per
+  `.agents/skills/` mirrors. A configurable policy would have to be re-read per
   IDE driver, multiplying the surface area for skew.
 - Audit traceability. Regulated consumers (banking, healthcare) need a single
   policy artefact that auditors can read in five minutes. A per-project knob means

@@ -41,10 +41,6 @@ _SURFACE_FILE_MAPS: dict[str, dict[str, str]] = {
         "AGENTS.md": "AGENTS.md",
         "copilot-instructions.md": ".github/copilot-instructions.md",
     },
-    "gemini-cli": {
-        "AGENTS.md": "AGENTS.md",
-        "GEMINI.md": "GEMINI.md",
-    },
     "codex": {
         "AGENTS.md": "AGENTS.md",
     },
@@ -56,7 +52,6 @@ _SURFACE_FILE_MAPS: dict[str, dict[str, str]] = {
     },
     "cursor": {},
     "antigravity": {
-        "GEMINI.md": "GEMINI.md",
         "AGENTS.md": "AGENTS.md",
     },
 }
@@ -191,9 +186,6 @@ _SURFACE_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
         # `.github/copilot-instructions.md` + `AGENTS.md` cover Copilot's
         # instruction surface.
     ],
-    "gemini-cli": [
-        (".gemini", ".gemini"),
-    ],
     "codex": [
         (".codex", ".codex"),
     ],
@@ -206,7 +198,7 @@ _SURFACE_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
         (".cursor", ".cursor"),
     ],
     "antigravity": [
-        (".agent", ".agent"),
+        (".agents", ".agents"),
     ],
 }
 
@@ -567,7 +559,7 @@ def remove_surface_templates(
     """Remove templates installed by a Surface.
 
     Does NOT remove files that are still needed by another active Surface
-    (e.g., AGENTS.md shared between github-copilot, gemini-cli, and codex).
+    (e.g., AGENTS.md shared between github-copilot, codex, and antigravity).
 
     Args:
         target: Target project root directory.

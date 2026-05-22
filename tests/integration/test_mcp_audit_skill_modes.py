@@ -2,7 +2,7 @@
 
 Spec-107 D-107-08 introduces the `/ai-mcp-audit` skill with three
 modes propagated to all four IDE locations (Claude Code, GitHub
-Copilot, Codex, Gemini):
+Copilot, Codex, Antigravity):
 
 - **Mode 1 — `scan`**: LLM-driven coherence analysis of installed
   skills + MCP servers; emits VERDE/ROJO verdicts per surface.
@@ -25,7 +25,7 @@ SKILL_PATHS = [
     REPO_ROOT / ".claude" / "skills" / "ai-mcp-audit" / "SKILL.md",
     REPO_ROOT / ".github" / "skills" / "ai-mcp-audit" / "SKILL.md",
     REPO_ROOT / ".codex" / "skills" / "ai-mcp-audit" / "SKILL.md",
-    REPO_ROOT / ".gemini" / "skills" / "ai-mcp-audit" / "SKILL.md",
+    REPO_ROOT / ".agents" / "skills" / "ai-mcp-audit" / "SKILL.md",
 ]
 
 
@@ -35,7 +35,7 @@ def test_skill_exists_in_all_four_ide_surfaces() -> None:
     assert not missing, (
         f"ai-mcp-audit skill missing from: {[str(p) for p in missing]} "
         "— Phase 5 T-5.1 / T-5.5 must create the canonical Claude Code "
-        "SKILL.md and sync it to .github/.codex/.gemini/ via "
+        "SKILL.md and sync it to .github/.codex/.agents/ via "
         "scripts/sync_command_mirrors.py"
     )
 

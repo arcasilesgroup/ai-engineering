@@ -12,14 +12,13 @@ AUTO_DELIVER_REL = Path("skills/ai-autopilot/handlers/phase-deliver.md")
 AUTO_SKILL_REL = Path("skills/ai-autopilot/SKILL.md")
 BUILD_SKILL_REL = Path("skills/ai-build/SKILL.md")
 
-ROOT_SURFACES = (".claude", ".codex", ".gemini", ".github")
-TEMPLATE_HANDLER_SURFACES = (".claude", ".codex", ".gemini", ".github")
+ROOT_SURFACES = (".claude", ".codex", ".agents", ".github")
+TEMPLATE_HANDLER_SURFACES = (".claude", ".codex", ".agents", ".github")
 TEMPLATE_SKILL_SURFACES = (
-    ".agent",
+    ".agents",
     ".claude",
     ".codex",
     ".cursor",
-    ".gemini",
     ".github",
     ".opencode",
 )
@@ -120,7 +119,6 @@ def test_canonical_rule_mentions_bounded_quality_loop() -> None:
     root_docs = (
         REPO_ROOT / "AGENTS.md",
         REPO_ROOT / "CLAUDE.md",
-        REPO_ROOT / "GEMINI.md",
         REPO_ROOT / ".github" / "copilot-instructions.md",
     )
     for path in root_docs:
@@ -132,7 +130,6 @@ def test_canonical_rule_mentions_bounded_quality_loop() -> None:
         REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CANONICAL.md",
         REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "AGENTS.md",
         REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CLAUDE.md",
-        REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "GEMINI.md",
         REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "copilot-instructions.md",
     )
     for path in template_docs:

@@ -3,7 +3,7 @@
 Provides the ``ai-eng dev sync`` command (renamed from ``ai-eng sync`` per
 spec-132 D-132-05) that regenerates all IDE-adapted mirrors from canonical
 ``.claude/skills/`` and ``.claude/agents/`` sources, plus provider-owned
-install surfaces, into ``.codex/``, ``.gemini/``, ``.github/``, and project
+install surfaces, into ``.codex/``, ``.agents/``, ``.github/``, and project
 templates, or verifies they are in sync (``--check`` mode).
 
 The command is registered under the ``dev`` hidden group; it is intended for
@@ -42,7 +42,7 @@ def dev_sync_cmd(
 
     Regenerates skill and agent mirrors from canonical .claude/skills/
     and .claude/agents/ sources, plus provider-owned install surfaces,
-    into .codex/, .gemini/, .github/, and project templates.
+    into .codex/, .agents/, .github/, and project templates.
 
     Use --check to verify without writing changes.
     """

@@ -2,7 +2,7 @@
 name: ai-advise
 description: Proactive governance advisor. Checks standards, decisions, and quality trends during development. Always advisory, NEVER blocks.
 model: sonnet
-mirror_family: gemini-agents
+mirror_family: cursor-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-advise.md
 edit_policy: generated-do-not-edit
@@ -93,8 +93,8 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.gemini/skills/ai-build/SKILL.md` -- guard advisory entry point during build execution
-- `.gemini/skills/ai-governance/SKILL.md` -- shared governance validation patterns
+- `.cursor/skills/ai-build/SKILL.md` -- guard advisory entry point during build execution
+- `.cursor/skills/ai-governance/SKILL.md` -- shared governance validation patterns
 
 ## Boundaries
 

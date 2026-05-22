@@ -7,12 +7,11 @@ Files asserted:
 * ``src/ai_engineering/templates/project/CANONICAL.md`` (canonical template)
 * ``AGENTS.md``
 * ``CLAUDE.md``
-* ``GEMINI.md``
 * ``.github/copilot-instructions.md``
 
 CANONICAL.md is the source-of-truth template; if Wave 1 has not landed it,
 the assertion against CANONICAL.md is logged but skipped (do not fail the
-suite). The four mirrors must always pass.
+suite). The active mirrors must always pass.
 """
 
 from __future__ import annotations
@@ -28,7 +27,6 @@ CANONICAL = REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / "CA
 MIRRORS = (
     REPO_ROOT / "AGENTS.md",
     REPO_ROOT / "CLAUDE.md",
-    REPO_ROOT / "GEMINI.md",
     REPO_ROOT / ".github" / "copilot-instructions.md",
 )
 

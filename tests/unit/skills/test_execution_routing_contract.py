@@ -8,7 +8,7 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
-_SURFACES = (".claude", ".codex", ".gemini", ".github")
+_SURFACES = (".claude", ".codex", ".agents", ".github")
 
 
 def _read(path: Path) -> str:

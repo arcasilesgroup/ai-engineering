@@ -11,13 +11,13 @@ slugs; any surviving citation in a tracked doc is a bug.
 
 Scope:
 - Walks markdown files at the repo root (`CLAUDE.md`, `AGENTS.md`,
-  `README.md`, `CONSTITUTION.md`, `GEMINI.md`).
+  `README.md`, `CONSTITUTION.md`).
 - Walks `.github/copilot-instructions.md`.
 - Walks `docs/` for human-facing documentation.
 - Excludes `.ai-engineering/specs/` (historical specs may reference
   deleted skills as past state).
 - Excludes `CHANGELOG.md` (historical entries by design).
-- Excludes mirror trees (.gemini/, .codex/, .github/skills/) -- they
+- Excludes mirror trees (.agents/, .codex/, .github/skills/) -- they
   are derived from .claude/skills/ and re-validated by sync_mirrors.
 """
 
@@ -37,7 +37,6 @@ SCAN_PATHS = [
     REPO_ROOT / "AGENTS.md",
     REPO_ROOT / "README.md",
     REPO_ROOT / "CONSTITUTION.md",
-    REPO_ROOT / "GEMINI.md",
     REPO_ROOT / ".github" / "copilot-instructions.md",
 ]
 SCAN_DIRS = [

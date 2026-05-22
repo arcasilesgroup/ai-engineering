@@ -4,7 +4,7 @@ description: "Bootstraps a coding session: loads project context, activates sess
 effort: mid
 argument-hint: 
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-start/SKILL.md
 edit_policy: generated-do-not-edit
@@ -48,7 +48,7 @@ full IOC path and degrades latency.
   script already did all of that and embedded the result inside the
   markdown payload.
 - Do **not** rewrite the markdown the script emits. The format is the
-  cross-IDE contract (Claude Code, Codex, Gemini CLI, Copilot all render
+  cross-IDE contract (Claude Code, Codex, Antigravity, Copilot all render
   the same bytes).
 - Do **not** invoke `/ai-session-watch` from inside this skill. Observation is
   always-on via the `PreToolUse` + `PostToolUse` hooks (`instinct-

@@ -8,8 +8,7 @@ Dispatch a single `Explore` subagent. It reads the files below and returns raw f
 |------|-------------|
 | `CLAUDE.md` | Claude Code only |
 | `.github/copilot-instructions.md` | GitHub Copilot only |
-| `AGENTS.md` | Codex (native); Antigravity (fallback) |
-| `GEMINI.md` | Gemini CLI; Antigravity (priority 1, advisory per R-131-08) |
+| `AGENTS.md` | Codex (native); Antigravity app + `agy` CLI |
 | `.claude/settings.json` hooks | Claude Code only |
 | `.github/hooks/hooks.json` hooks | GitHub Copilot only |
 
@@ -28,9 +27,9 @@ Any violation of the four checks below (paths use `.codex/`, copilot count formu
 
 ## Skill / Agent Distribution + Counter Cross-Check
 
-- Count directories in `.codex/skills/`, `.github/skills/`, `.codex/skills/`, `.gemini/skills/`; same for `.codex/agents/` etc.
+- Count directories in `.codex/skills/`, `.github/skills/`, `.codex/skills/`, `.agents/skills/`; same for `.codex/agents/` etc.
 - Scan `.codex/skills/*/SKILL.md` frontmatter for `copilot_compatible: false`; read `skills.total` and `agents.total` from `.ai-engineering/manifest.yml`.
-- Expected: canonical mirrors (Claude/Codex/Gemini) match manifest totals exactly; `.github/skills/` is lower by exactly the `copilot_compatible: false` count.
+- Expected: canonical mirrors (Claude/Codex/Antigravity) match manifest totals exactly; `.github/skills/` is lower by exactly the `copilot_compatible: false` count.
 - Cross-check `Skills (N)` and `Agents (N)` extracted from each instruction file against the same formula.
 
 ## Sync Script (`scripts/sync_command_mirrors.py`)

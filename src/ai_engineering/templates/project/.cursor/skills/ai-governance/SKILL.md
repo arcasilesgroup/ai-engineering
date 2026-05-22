@@ -5,7 +5,7 @@ effort: high
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
 model_tier: opus
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-governance/SKILL.md
 edit_policy: generated-do-not-edit

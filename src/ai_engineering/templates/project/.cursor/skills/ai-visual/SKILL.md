@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "[visual artifact description or brief]"
 tags: [visual-design, poster, banner, branding, artifact]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-visual/SKILL.md
 edit_policy: generated-do-not-edit

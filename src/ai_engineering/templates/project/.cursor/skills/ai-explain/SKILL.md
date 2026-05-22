@@ -5,7 +5,7 @@ effort: mid
 argument-hint: "[topic]|--depth brief|standard|deep"
 tags: [explanation, teaching, analysis, architecture]
 model_tier: sonnet
-mirror_family: gemini-skills
+mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-explain/SKILL.md
 edit_policy: generated-do-not-edit

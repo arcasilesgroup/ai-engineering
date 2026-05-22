@@ -7,7 +7,7 @@ ship to consumers, so the validator was emitting false-positive
 "broken reference" findings on every fresh install. The fix:
 ``_should_skip_reference_path`` early-returns ``True`` when the
 reference path starts with ``src/ai_engineering/`` AND the origin is a
-SKILL.md file (Claude / Copilot / Codex / Gemini skill descriptors).
+SKILL.md file (Claude / Copilot / Codex / Antigravity skill descriptors).
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ from ai_engineering.validator.categories.file_existence import _should_skip_refe
         ".claude/skills/ai-governance/SKILL.md",
         ".github/skills/ai-governance/SKILL.md",
         ".codex/skills/ai-governance/SKILL.md",
-        ".gemini/skills/ai-governance/SKILL.md",
+        ".agents/skills/ai-governance/SKILL.md",
     ],
 )
 def test_src_ai_engineering_skipped_when_origin_is_skill_md(origin: str) -> None:

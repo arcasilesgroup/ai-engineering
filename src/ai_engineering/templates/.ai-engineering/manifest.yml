@@ -21,7 +21,7 @@ providers:
   stacks: [python]
 
 # Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16).
-# Closed enum of 7: claude-code, codex, gemini-cli, github-copilot,
+# Closed enum of 6: claude-code, codex, github-copilot,
 # opencode, cursor, antigravity. The first entry is the implicit primary.
 surfaces:
   enabled: [claude-code]

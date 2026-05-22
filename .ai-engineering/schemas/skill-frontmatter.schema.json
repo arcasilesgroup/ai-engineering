@@ -66,7 +66,7 @@
       "type": "array",
       "items": {
         "type": "string",
-        "enum": ["claude_code", "github_copilot", "codex", "gemini", "cursor"]
+        "enum": ["claude_code", "github_copilot", "codex", "antigravity", "cursor"]
       },
       "uniqueItems": true
     },

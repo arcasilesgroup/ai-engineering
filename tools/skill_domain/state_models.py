@@ -65,8 +65,8 @@ class AiProvider(StrEnum):
 
     CLAUDE_CODE = "claude-code"
     GITHUB_COPILOT = "github-copilot"
-    GEMINI = "gemini-cli"
     CODEX = "codex"
+    ANTIGRAVITY = "antigravity"
 
 
 class RiskCategory(StrEnum):

@@ -1,6 +1,6 @@
 """ai-plan template — spec-131 S3 (sub-003 T-3.7 RED).
 
-Asserts that ``/ai-plan`` SKILL.md (and its three IDE mirrors) carry
+Asserts that ``/ai-plan`` SKILL.md (and its active IDE mirrors) carry
 the exhaustive patch-ready output template required by D-131-08:
 
 * ``Principles applied:`` line per task in the output template.
@@ -23,7 +23,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 _AI_PLAN_MIRRORS = (
     _REPO_ROOT / ".claude" / "skills" / "ai-plan" / "SKILL.md",
     _REPO_ROOT / ".codex" / "skills" / "ai-plan" / "SKILL.md",
-    _REPO_ROOT / ".gemini" / "skills" / "ai-plan" / "SKILL.md",
+    _REPO_ROOT / ".agents" / "skills" / "ai-plan" / "SKILL.md",
     _REPO_ROOT / ".github" / "skills" / "ai-plan" / "SKILL.md",
 )
 

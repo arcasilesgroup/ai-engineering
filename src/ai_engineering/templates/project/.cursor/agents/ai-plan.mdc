@@ -2,7 +2,7 @@
 name: ai-plan
 description: Relentless interrogator. Extracts every detail, assumption, and blind spot before anything gets built.
 model: opus
-mirror_family: gemini-agents
+mirror_family: cursor-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-plan.md
 edit_policy: generated-do-not-edit
@@ -22,7 +22,7 @@ Extract every detail, assumption, and blind spot BEFORE anything gets built. No 
 
 ## Behavior
 
-> See dispatch threshold in skill body (`.gemini/skills/ai-plan/SKILL.md`). Pipeline classification, decomposition rules, no-execution protocol, and the spec-as-gate pattern are canonical there. This agent file owns the interrogation behavior only.
+> See dispatch threshold in skill body (`.cursor/skills/ai-plan/SKILL.md`). Pipeline classification, decomposition rules, no-execution protocol, and the spec-as-gate pattern are canonical there. This agent file owns the interrogation behavior only.
 
 ### Stack Context (spec-139 M3)
 
@@ -74,9 +74,9 @@ Every planning session produces this structured output to ensure specs are actio
 
 ## Referenced Skills
 
-- `.gemini/skills/ai-plan/SKILL.md` -- classification, discovery, risk
-- `.gemini/skills/ai-brainstorm/SKILL.md` -- divergent exploration, spec creation, branch scaffolding
-- `.gemini/skills/ai-governance/SKILL.md` -- governance validation, risk acceptance
+- `.cursor/skills/ai-plan/SKILL.md` -- classification, discovery, risk
+- `.cursor/skills/ai-brainstorm/SKILL.md` -- divergent exploration, spec creation, branch scaffolding
+- `.cursor/skills/ai-governance/SKILL.md` -- governance validation, risk acceptance
 
 ## Boundaries
 

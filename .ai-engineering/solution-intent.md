@@ -25,7 +25,7 @@
 
 ### 1.2 Objective
 
-Deterministic CLI tooling, 47 AI skills, 10 agents (+ 15 specialist sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, and Gemini. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
+Deterministic CLI tooling, 47 AI skills, 10 agents (+ 15 specialist sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, and Antigravity. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
 
 ### 1.3 Problem Statement
 
@@ -82,7 +82,7 @@ C4Context
     System_Ext(claude, "Claude Code", "Primary IDE integration")
     System_Ext(copilot, "GitHub Copilot", "Secondary IDE integration")
     System_Ext(codex, "Codex", "Tertiary IDE integration")
-    System_Ext(gemini, "Gemini CLI", "Quaternary IDE integration")
+    System_Ext(antigravity, "Antigravity", "Google IDE/CLI integration")
 
     Rel(dev, framework, "ai-eng CLI + /ai-* skills")
     Rel(framework, github, "gh CLI / REST API")
@@ -93,7 +93,7 @@ C4Context
     Rel(framework, claude, "Skills, agents, hooks")
     Rel(framework, copilot, "Skills, agents, instructions")
     Rel(framework, codex, "Skills, agents")
-    Rel(framework, gemini, "Skills, agents")
+    Rel(framework, antigravity, "Skills, agents")
 ```
 
 ### 2.2 Functional Requirements by Domain
@@ -212,7 +212,7 @@ flowchart LR
     Skills["/ai-* Skills"] -->|SKILL.md| Claude["Claude Code"]
     Skills -->|SKILL.md| Copilot["GitHub Copilot"]
     Skills -->|SKILL.md| Codex
-    Skills -->|SKILL.md| Gemini
+    Skills -->|SKILL.md| Antigravity
 ```
 
 | System A | System B | Protocol | Contract | SLA |
@@ -315,7 +315,7 @@ ownership and sync metadata in `.ai-engineering/manifest.yml` under
 |--------------|-------|------------------|-----------|
 | `CLAUDE.md` | framework | `CLAUDE.md` | Root-authored surface copied to templates by `ai-eng dev sync` |
 | `AGENTS.md` | framework | `scripts/sync_command_mirrors.py:generate_agents_md` | Generated at the repo root and templates by `ai-eng dev sync` |
-| `GEMINI.md` | framework | `src/ai_engineering/templates/project/GEMINI.md` | Rendered to the repo root and `.gemini/` by `ai-eng dev sync` |
+| `AGENTS.md` | framework | `src/ai_engineering/templates/project/AGENTS.md` | Shared root instruction file for Codex, Copilot, and Antigravity | |
 | `.github/copilot-instructions.md` | framework | `CLAUDE.md` | Generated from the Claude overlay by `ai-eng dev sync` |
 
 ```mermaid
@@ -338,10 +338,10 @@ graph LR
         XI["AGENTS.md"]
     end
 
-    subgraph Gemini[".gemini/"]
+    subgraph Antigravity[".agents/"]
         MS["skills/ai-*/SKILL.md"]
         MA["agents/ai-*.md"]
-        MI["GEMINI.md"]
+        MI["AGENTS.md"]
     end
 
     CS -->|sync| GS
@@ -671,7 +671,7 @@ sequenceDiagram
 | Phase | Description | Status |
 |-------|-------------|--------|
 | Core framework | CLI, installer, quality gates, hooks | Complete |
-| Multi-IDE | Mirror generation for Copilot, Codex, Gemini | Complete |
+| Multi-IDE | Mirror generation for Copilot, Codex, Antigravity | Complete |
 | Governance | Decision store, risk acceptance, gate trailers | Complete |
 | Observability | Framework events, capability catalog, agentsview | Complete |
 | Board integration | GitHub Projects v2 discovery and sync | Complete |
@@ -695,7 +695,7 @@ sequenceDiagram
 | Agent count | 10 | 10 |
 | Active decisions | Tracked with expiry | 23 active, 5 superseded |
 | Runbook coverage | All operational areas | 14 runbooks |
-| IDE surfaces | 4 | 4 (Claude Code, Copilot, Codex, Gemini) |
+| IDE surfaces | 4 | 6 (Claude Code, Copilot, Codex, OpenCode, Cursor, Antigravity) |
 | Context files | Comprehensive | 39 (14 lang, 15 framework, 10 other) |
 
 ### 7.4 Active Spec

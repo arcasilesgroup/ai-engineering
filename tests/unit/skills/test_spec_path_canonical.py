@@ -1,6 +1,6 @@
 """CI guard for spec-path canonicalization (spec-122-d D-122-40).
 
-Skill markdown across `.claude/skills/`, `.gemini/skills/`, `.codex/skills/`
+Skill markdown across `.claude/skills/`, `.agents/skills/`, `.codex/skills/`
 must reference the canonical active-spec path
 `.ai-engineering/specs/spec.md` (matches the resolver default in
 `src/ai_engineering/state/work_plane.py:240`). Legacy paths
@@ -21,7 +21,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SKILL_TREES = [
     REPO_ROOT / ".claude" / "skills",
-    REPO_ROOT / ".gemini" / "skills",
+    REPO_ROOT / ".agents" / "skills",
     REPO_ROOT / ".codex" / "skills",
 ]
 

@@ -151,8 +151,8 @@ find "$TEMPLATE_ROOT/.claude" -type f | while read -r tmpl; do
   fi
 done
 
-# Compare .codex/, .gemini/ and .github/ templates
-for SURFACE in .codex .gemini .github; do
+# Compare .codex/, .agents/ and .github/ templates
+for SURFACE in .codex .agents .github; do
   find "$TEMPLATE_ROOT/$SURFACE" -type f 2>/dev/null | while read -r tmpl; do
     RELATIVE="${tmpl#$TEMPLATE_ROOT/}"
     if [ ! -f "$RELATIVE" ]; then
