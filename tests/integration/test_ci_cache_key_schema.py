@@ -1,4 +1,4 @@
-"""CI cache key schema parity with local gate cache (T-8.3 RED).
+"""CI cache key schema parity with local gate cache.
 
 Spec ref: ``.ai-engineering/specs/spec.md`` D-104-03 (CI integration via
 ``actions/cache@v4`` with key schema identical to local) and D-104-09
@@ -6,28 +6,26 @@ Spec ref: ``.ai-engineering/specs/spec.md`` D-104-03 (CI integration via
 `config_file_hashes`, `args` -- the CI ``hashFiles()`` mirror is the
 ``config_file_hashes`` slice).
 
-Plan ref: ``.ai-engineering/specs/plan.md`` Phase 8 (CI cache wiring).
-T-8.1 adds ``actions/cache@v4`` to ``ci-build.yml``; T-8.2 mirrors it to
-``ci-check.yml``; T-8.3 (this file) is the RED contract for that work;
-T-8.4 closes the GREEN by confirming key components match the local
-``_CONFIG_FILE_WHITELIST`` (D-104-09) inputs.
+spec-152 W2.T13 hard-deleted ``.github/workflows/ci-build.yml`` (orphaned
+post-CI build with zero ``dist``-artifact consumers). The cache-schema
+parity invariant survives against the workflow that still carries the
+gate-cache steps -- ``ci-check.yml`` -- so the three assertions below
+were retargeted from ``ci-build.yml`` to ``ci-check.yml``. The original
+spec-104 TDD-immutability note no longer applies: D-152-25 requires
+coupled tests to update in lockstep with the deletion they depend on.
 
-The 4 tests fail today because no cache step has been wired into either
-workflow yet:
+Coverage:
 
-1. ``test_ci_build_yml_has_cache_step`` -- fails until T-8.1 lands.
-2. ``test_ci_check_yml_has_cache_step`` -- fails until T-8.2 lands.
-3. ``test_ci_cache_key_includes_required_components`` -- fails until the
-   key string in ci-build.yml references the same config files the local
+1. ``test_ci_check_yml_has_cache_step`` -- ``ci-check.yml`` declares an
+   ``actions/cache@v4`` step.
+2. ``test_ci_cache_key_includes_required_components`` -- the key string
+   in ``ci-check.yml`` references the same config files the local
    ``_CONFIG_FILE_WHITELIST`` consumes (``pyproject.toml`` for ruff/ty,
    ``.ruff.toml`` for ruff, ``.gitleaks.toml`` for gitleaks).
-4. ``test_ci_cache_path_matches_local`` -- fails until ``with.path`` is
-   set to the per-cwd local cache directory ``.ai-engineering/state/gate-cache/``
-   so a CI cache restore lands the entries where ``gate_cache.lookup``
-   will read them (D-104-03 storage contract).
-
-TDD CONSTRAINT: this file is IMMUTABLE after T-8.3 lands. T-8.1 / T-8.2 /
-T-8.4 may only edit the workflow YAML; never edit these assertions.
+3. ``test_ci_cache_path_matches_local`` -- ``with.path`` points at the
+   per-cwd local cache directory ``.ai-engineering/cache/gate/`` so a CI
+   cache restore lands entries where ``gate_cache.lookup`` will read them
+   (D-104-03 storage contract).
 """
 
 from __future__ import annotations
@@ -44,7 +42,6 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-CI_BUILD_PATH = REPO_ROOT / ".github" / "workflows" / "ci-build.yml"
 CI_CHECK_PATH = REPO_ROOT / ".github" / "workflows" / "ci-check.yml"
 
 # The cache action pinned by ``actions/cache@v4`` is the GHA-side mirror
@@ -137,32 +134,11 @@ def _is_v4(uses: str, *, workflow_path: Path | None = None) -> bool:
 # ---------------------------------------------------------------------------
 
 
-def test_ci_build_yml_has_cache_step() -> None:
-    """``ci-build.yml`` declares an ``actions/cache@v4`` step (T-8.1).
-
-    FAIL today: no cache step has been wired into ci-build.yml yet.
-    """
-    workflow = _load_workflow(CI_BUILD_PATH)
-    cache_steps = _iter_cache_steps(workflow)
-
-    assert cache_steps, (
-        f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} has no actions/cache@v4 step. "
-        "T-8.1 must add one before lint/typecheck/test jobs."
-    )
-    # At least one of the cache steps must pin v4 (D-104-03 requires v4
-    # for cross-job save-always semantics).
-    v4_steps = [s for s in cache_steps if _is_v4(s["uses"], workflow_path=CI_BUILD_PATH)]
-    assert v4_steps, (
-        f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} cache step is not pinned to v4. "
-        f"Found: {[s['uses'] for s in cache_steps]}. "
-        "Required: actions/cache@v4 (cross-job save-always semantics)."
-    )
-
-
 def test_ci_check_yml_has_cache_step() -> None:
-    """``ci-check.yml`` declares an ``actions/cache@v4`` step (T-8.2).
+    """``ci-check.yml`` declares an ``actions/cache@v4`` step.
 
-    FAIL today: no cache step has been wired into ci-check.yml yet.
+    spec-104 wired the gate-cache; spec-152 W2.T13 left ``ci-check.yml``
+    as the sole workflow carrying it after ``ci-build.yml`` was deleted.
     """
     workflow = _load_workflow(CI_CHECK_PATH)
     cache_steps = _iter_cache_steps(workflow)
@@ -183,18 +159,16 @@ def test_ci_cache_key_includes_required_components() -> None:
     """CI cache key string includes ``hashFiles()`` for the same config
     files the local ``_CONFIG_FILE_WHITELIST`` consumes (D-104-09).
 
-    The cache key in either workflow must include ``hashFiles(...)``
-    references to ``pyproject.toml``, ``.ruff.toml``, and
-    ``.gitleaks.toml`` so that a config change invalidates the CI cache
-    in lock-step with the local ``_compute_cache_key`` rerun.
-
-    FAIL today: no cache step exists, so no key string to inspect.
+    The cache key must include ``hashFiles(...)`` references to
+    ``pyproject.toml``, ``.ruff.toml``, and ``.gitleaks.toml`` so that a
+    config change invalidates the CI cache in lock-step with the local
+    ``_compute_cache_key`` rerun.
     """
-    workflow = _load_workflow(CI_BUILD_PATH)
+    workflow = _load_workflow(CI_CHECK_PATH)
     cache_steps = _iter_cache_steps(workflow)
     assert cache_steps, (
-        f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} has no cache step "
-        "to inspect for key schema parity (T-8.1 must land first)."
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} has no cache step "
+        "to inspect for key schema parity."
     )
 
     # Concatenate every cache step's key expression so the assertion is
@@ -208,12 +182,12 @@ def test_ci_cache_key_includes_required_components() -> None:
     combined = "\n".join(key_strings)
 
     assert combined, (
-        f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} cache step is missing a with.key expression."
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache step is missing a with.key expression."
     )
 
     missing = [token for token in REQUIRED_HASHFILES_INPUTS if token not in combined]
     assert not missing, (
-        f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} cache key is missing "
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache key is missing "
         f"required hashFiles inputs: {missing}. "
         f"Required (matches local _CONFIG_FILE_WHITELIST): "
         f"{list(REQUIRED_HASHFILES_INPUTS)}. "
@@ -225,18 +199,15 @@ def test_ci_cache_path_matches_local() -> None:
     """CI cache ``with.path`` matches the local gate-cache directory
     (D-104-03 storage contract).
 
-    The cache step must point at ``.ai-engineering/state/gate-cache/`` so
-    a CI restore puts entries exactly where ``gate_cache.lookup`` reads
-    them at the next ``ai-eng gate run --cache-aware`` invocation; no
-    extra copy step is permitted.
-
-    FAIL today: no cache step exists, so no path field to inspect.
+    The cache step must point at ``.ai-engineering/cache/gate/`` so a CI
+    restore puts entries exactly where ``gate_cache.lookup`` reads them at
+    the next ``ai-eng gate run --cache-aware`` invocation; no extra copy
+    step is permitted.
     """
-    workflow = _load_workflow(CI_BUILD_PATH)
+    workflow = _load_workflow(CI_CHECK_PATH)
     cache_steps = _iter_cache_steps(workflow)
     assert cache_steps, (
-        f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} has no cache step "
-        "to inspect for path parity (T-8.1 must land first)."
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} has no cache step to inspect for path parity."
     )
 
     paths: list[str] = []
@@ -246,7 +217,7 @@ def test_ci_cache_path_matches_local() -> None:
         if isinstance(path_field, str):
             paths.append(path_field)
 
-    assert paths, f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} cache step is missing a with.path field."
+    assert paths, f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache step is missing a with.path field."
 
     # Accept either the exact directory or a multi-line YAML literal that
     # CONTAINS the directory (GHA cache action supports newline-separated
@@ -262,7 +233,7 @@ def test_ci_cache_path_matches_local() -> None:
     )
 
     assert matched, (
-        f"{CI_BUILD_PATH.relative_to(REPO_ROOT)} cache step path "
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache step path "
         f"does not include {EXPECTED_CACHE_PATH!r}. "
         f"Found: {paths!r}. "
         "The local gate_cache writes to this exact directory; CI restore "

@@ -11,11 +11,12 @@ are exempted because their tags are governed by the same trust boundary
 that owns the workflows; pinning a self-reference would defeat the
 purpose of versioned reusable workflows.
 
-Status: RED. Initial audit during ``/ai-brainstorm`` flagged at least
-``SonarSource/sonarqube-scan-action@v7.0.0`` (``ci-check.yml``) and
-``actions/cache@v4`` (multiple jobs in ``ci-check.yml`` and
-``ci-build.yml``) as mutable. T-2.3 replaces them with SHA pins. This
-test deliberately fails now to drive the GREEN phase.
+Status: GREEN. Initial audit during ``/ai-brainstorm`` flagged at least
+``SonarSource/sonarqube-scan-action@v7.0.0`` and ``actions/cache@v4``
+(multiple jobs in ``ci-check.yml``) as mutable; spec-110 T-2.3 replaced
+them with SHA pins. The test globs every ``.github/workflows/*.yml``
+dynamically so it stays correct as workflows are added or removed
+(spec-152 W2.T13 deleted ``ci-build.yml``).
 """
 
 from __future__ import annotations

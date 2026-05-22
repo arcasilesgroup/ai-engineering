@@ -1,14 +1,17 @@
-"""spec-140 W2.T7 — composite actions (setup-env + run-gates) drift gate.
+"""spec-140 W2.T7 — composite-action (setup-env) drift gate.
 
-W2.T3 / W2.T4 extracted two composite actions under ``.github/actions/``:
+W2.T3 extracted the ``setup-env`` composite under ``.github/actions/``:
 
-* ``setup-env`` — checkout + setup-python + setup-uv + uv sync. Replaces the
-  4-step pre-amble that lived in every CI job.
-* ``run-gates`` — a single ``case`` dispatch for the lint / type-check /
-  unit / integration gate commands.
+* ``setup-env`` — setup-python + setup-uv + uv sync. Replaces the
+  pre-amble that lived in every CI job (callers do their own checkout).
 
-The composites are byte-pinned via this drift gate so a future edit cannot
+The composite is byte-pinned via this drift gate so a future edit cannot
 silently strip an input or break the schema without CI catching it.
+
+spec-152 W2.T13 hard-deleted the ``run-gates`` composite (zero ``uses:``
+references; the gate commands are invoked inline in ``ci-check.yml``).
+Its drift tests were removed in the same change so the deletion fails
+loud rather than leaving an orphaned fixture asserting a vanished file.
 """
 
 from __future__ import annotations
@@ -22,7 +25,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 ACTIONS_DIR = REPO_ROOT / ".github" / "actions"
 
 SETUP_ENV_PATH = ACTIONS_DIR / "setup-env" / "action.yml"
-RUN_GATES_PATH = ACTIONS_DIR / "run-gates" / "action.yml"
 
 
 def _load(path: Path) -> dict:
@@ -99,44 +101,3 @@ def test_setup_env_steps_cover_python_uv_and_sync(setup_env: dict) -> None:
     assert "actions/checkout" not in uses_strings, (
         "setup-env must NOT include actions/checkout — callers must checkout first"
     )
-
-
-# ---------------------------------------------------------------------------
-# run-gates (W2.T4)
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(scope="module")
-def run_gates() -> dict:
-    return _load(RUN_GATES_PATH)
-
-
-def test_run_gates_action_file_exists() -> None:
-    """W2.T4 lands the composite at the canonical path."""
-    assert RUN_GATES_PATH.exists(), f"expected composite at {RUN_GATES_PATH}"
-
-
-def test_run_gates_is_a_composite_action(run_gates: dict) -> None:
-    """``runs.using: composite``."""
-    assert run_gates.get("name"), "run-gates action.yml must declare a name"
-    runs = run_gates.get("runs") or {}
-    assert runs.get("using") == "composite", (
-        f"run-gates must be a composite action; got runs.using={runs.get('using')!r}"
-    )
-
-
-def test_run_gates_accepts_gate_input(run_gates: dict) -> None:
-    """`gate` is the sole required input."""
-    inputs = run_gates.get("inputs") or {}
-    assert "gate" in inputs, f"run-gates must declare a `gate` input; got {list(inputs)}"
-    assert inputs["gate"].get("required") is True, "`gate` input must be required"
-
-
-def test_run_gates_dispatches_all_four_gates(run_gates: dict) -> None:
-    """The composite MUST handle every gate value the callers can pass."""
-    steps = (run_gates.get("runs") or {}).get("steps") or []
-    run_block = " ".join(step.get("run", "") for step in steps if "run" in step)
-    for gate in ("lint", "type-check", "unit", "integration"):
-        assert f"{gate})" in run_block, (
-            f"run-gates is missing a case arm for `{gate}`. Run block:\n{run_block}"
-        )

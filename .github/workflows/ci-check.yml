@@ -760,6 +760,7 @@ jobs:
         lint,
         duplication,
         risk-acceptance,
+        no-suppression,
         typecheck,
         test-unit,
         test-integration,
@@ -792,6 +793,7 @@ jobs:
         duplication,
         opa-policies,
         risk-acceptance,
+        no-suppression,
         typecheck,
         test-unit,
         test-integration,
@@ -829,6 +831,7 @@ jobs:
             "duplication:${{ needs.duplication.result }}"
             "opa-policies:${{ needs.opa-policies.result }}"
             "risk-acceptance:${{ needs.risk-acceptance.result }}"
+            "no-suppression:${{ needs.no-suppression.result }}"
             "typecheck:${{ needs.typecheck.result }}"
             "test-unit:${{ needs.test-unit.result }}"
             "test-integration:${{ needs.test-integration.result }}"

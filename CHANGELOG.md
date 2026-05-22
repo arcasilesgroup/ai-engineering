@@ -130,6 +130,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- spec-152 (W2) — the `CI Result` aggregate gate now evaluates the
+  `no-suppression` (Anti-Suppression, Article VII) job. It was previously
+  absent from both `ci-check-result.needs` and every evaluated array, so a
+  suppression-marker failure was awaited by no one and never blocked the
+  merge (fail-open). `no-suppression` is now wired into `build-check.needs`,
+  `ci-check-result.needs`, and the `code_conditional` class, and a new
+  membership gate (`tests/unit/workflows/test_ci_aggregate_membership.py`)
+  asserts every blocking job is evaluated so the hole cannot reopen.
 - Release finalization now caps GitHub Release body notes below GitHub's
   125,000-character limit, uploads the full changelog section as
   `release-notes-full.md`, and writes non-empty attestation verification
@@ -145,6 +153,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- spec-152 (W2) — deleted `.github/workflows/ci-build.yml` (orphaned
+  post-CI build triggered by `workflow_run`; its `dist` artifact had zero
+  consumers — releases build from a tag in `release.yml`, not from a
+  reused CI artifact). Use the release-pipeline artifacts. Breaking per
+  D-152-25 (hard deletion, no shim); coupled tests updated in lockstep.
+- spec-152 (W2) — deleted `.github/actions/run-gates` (unreferenced
+  composite; zero `uses:` references — the lint/type-check/unit/integration
+  gate commands are invoked inline in `ci-check.yml`). Breaking per
+  D-152-25; its drift tests in `test_composite_actions.py` removed so the
+  deletion fails loud rather than leaving an orphaned fixture.
 - spec-146 deletes the duplicate IOC attribution copy at
   `.ai-engineering/references/IOCS_ATTRIBUTION.md` and the matching
   installer-template duplicate; the single home is now
