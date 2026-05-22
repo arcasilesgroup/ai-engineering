@@ -15,6 +15,7 @@ execution_route:
     autopilot wraps plan+build in waves.
   safe_next_command: "/ai-autopilot"
 spec: spec-150
+title: "Plan — Async-first NotebookLM autonomous deep research (Tier 3 redesign)"
 status: draft
 pipeline: full
 ---

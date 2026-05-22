@@ -3,7 +3,8 @@ spec: spec-150
 slug: notebooklm-async-tier3
 title: Async-first NotebookLM autonomous deep research (Tier 3 redesign)
 status: approved
-summary: "Async-first /ai-research Tier 3: NotebookLM autonomous deep research launched first (background) and harvested last, overlapping Tiers 0-2. Backend swapped to claude-world/notebooklm-skill (nlm_* tools); Exa wired into Tier 2; capability fail-soft; output ends with exactly 3 cited recommended directions."
+effort: large
+summary: "Async-first /ai-research Tier 3: NotebookLM autonomous deep research launched first (background), harvested last, overlapping Tiers 0-2. Backend → claude-world/notebooklm-skill (nlm_* tools); Exa in Tier 2; capability fail-soft; output ends with 3 cited recommended directions."
 ---
 
 # Async-first NotebookLM autonomous deep research — /ai-research Tier 3 redesign
@@ -60,32 +61,22 @@ recommended strategic directions** ("rumbo").
 
 ## Decisions
 
-- **D1 (async mechanism)** — Background subagent (`Agent` `run_in_background`) blocks
-  on `nlm_research(mode=deep)` at T0; main runs Tiers 0–2; harvest at end.
-  *Rejected:* Python client `start`/`poll` bypassing MCP (out-of-MCP dependency +
-  dual code path); synchronous research-last (no time saved).
-- **D2 (source model)** — Merge at synthesis: NotebookLM discovers its own sources;
-  Tiers 0–2 run independently; synthesizer fuses + dedups. *Rejected:*
-  augment-then-reask (reintroduces dependency, kills parallelism); autonomous-isolated
-  (wastes Tier 1–2 sources).
-- **D3 (trigger)** — NotebookLM deep research runs BY DEFAULT when available; no
-  `--depth=deep`/comparative gating. Drops the `≥10-sources` signal (unknowable at
-  T0). *Rejected:* deep|comparative-only; deep-only-explicit (both less simple).
-- **D4 (harvest wait)** — Bounded wait (default ≈5 min, env-tunable) after Tiers 0–2;
-  on timeout, synthesize without NotebookLM + persist `notebook_id` so a later
-  `--reuse-notebook` harvests the report. *Rejected:* block-until-done (unbounded
-  hang); no-wait (current run lacks the deep report).
-- **D5 (backend)** — `claude-world/notebooklm-skill` via `uvx --from notebooklm-skill
-  notebooklm-mcp` (config already aligned: Claude user-scope + Codex `mcp_servers`).
-  Auth via `~/.notebooklm/storage_state.json`; probe `nlm_list` / `login --check`,
-  replacing `server_info` / `nlm login`.
-- **D6 (Exa)** — Tier 2 uses Exa (`web_search_exa` + `web_fetch_exa`) as the web
-  provider; built-in `WebSearch`/`WebFetch` becomes the fallback when Exa is absent.
-- **D7 (fail-soft)** — Every external tool (NotebookLM, Context7, Exa, MS Learn) is
-  capability-detected; absent/unauthed → skipped + appended to `degraded_sources`,
-  never raised. Reuses the existing degraded pattern.
-- **D8 (output)** — Append a `## Recommended Directions` section with EXACTLY 3
-  options, each: title, 1–2 line rationale, trade-off, and `[N]`-cited evidence.
+- **D-150-01 — Async via background subagent.** `Agent` `run_in_background` blocks on `nlm_research(mode=deep)` at T0; main runs Tiers 0–2; harvest at end.
+  *Rationale*: real parallelism while staying MCP-native. Rejected Python `start`/`poll` bypassing MCP (out-of-MCP dependency + dual code path) and synchronous research-last (no time saved).
+- **D-150-02 — Merge sources at synthesis.** NotebookLM discovers its own sources; Tiers 0–2 run independently; the synthesizer fuses + dedups.
+  *Rationale*: zero cross-dependency = maximum parallelism. Rejected augment-then-reask (reintroduces dependency, kills parallelism) and autonomous-isolated (wastes Tier 1–2 sources).
+- **D-150-03 — NotebookLM deep research on by default.** Runs whenever the tool is available; no `--depth=deep`/comparative gating; drops the `≥10-sources` signal (unknowable at T0).
+  *Rationale*: simplest path per the operator. Rejected deep|comparative-only and deep-only-explicit (both less simple).
+- **D-150-04 — Bounded-wait harvest, then degrade.** Wait up to a tunable budget (default ≈5 min) after Tiers 0–2; on timeout, synthesize without NotebookLM and persist `notebook_id` for a later `--reuse-notebook` harvest.
+  *Rationale*: honors "wait for the result" without an unbounded hang. Rejected block-until-done (unbounded) and no-wait (current run lacks the report).
+- **D-150-05 — Backend = claude-world/notebooklm-skill.** `uvx --from notebooklm-skill notebooklm-mcp`; auth via `~/.notebooklm/storage_state.json`; capability probe `nlm_list`, replacing `server_info`/`nlm login`.
+  *Rationale*: the only backend exposing autonomous deep research + an async job model; config already aligned in Claude user-scope + Codex `mcp_servers`.
+- **D-150-06 — Exa primary in Tier 2.** `web_search_exa` + `web_fetch_exa` as the web provider; built-in `WebSearch`/`WebFetch` is the fallback when Exa is absent.
+  *Rationale*: Exa gives better technical recall; the built-in fallback keeps Tier 2 working without Exa.
+- **D-150-07 — Capability detection, fail-soft.** Every external tool (NotebookLM, Context7, Exa, MS Learn) is probed; absent/unauthed → skipped + appended to `degraded_sources`, never raised.
+  *Rationale*: a missing tool must degrade the run, never break it. Reuses the existing degraded pattern.
+- **D-150-08 — Output ends with three cited directions.** Append a `## Recommended Directions` section with EXACTLY 3 options, each: title, 1–2 line rationale, trade-off, and `[N]`-cited evidence.
+  *Rationale*: the operator wants a clear "rumbo" decision, not just a synthesis.
 
 ## Acceptance Criteria
 
