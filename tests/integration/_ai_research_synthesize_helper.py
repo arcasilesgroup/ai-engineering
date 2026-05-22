@@ -249,9 +249,11 @@ def _unpack(output: object) -> tuple[str, list[Direction], bool]:
     the legacy string-returning synthesizer stubs (citation-only retry tests)
     working while the directions contract is layered on for tuple-form callers.
     """
-    if isinstance(output, tuple):
+    if isinstance(output, tuple) and len(output) == 2:
         findings, directions = output
         return findings, list(directions), True
+    # Bare string, or a malformed tuple of unexpected arity, falls through to
+    # the no-directions path -- never raises (fail-soft synthesize contract).
     return str(output), [], False
 
 
