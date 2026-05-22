@@ -15,13 +15,14 @@ This handler documents the algorithm that the agent (and the lockstep helper at 
 - `query` (string): the user's verbatim research question.
 - `tags` (object, optional): pre-computed tag set from `classify-query.md`. When omitted, the classifier is invoked here.
 - `context7`, `ms_learn`, `gh_search` (callables): MCP-shaped invocation handles. The helper module accepts these as injected dependencies so tests can substitute mocks.
+- `context7_available`, `ms_learn_available`, `gh_search_available` (bool, default True): per-source capability-detection results. Each routes through the shared `is_available` guard so a False flag means the source is treated as absent (not wired / unauthenticated) and its callable is NEVER invoked (spec `notebooklm-async-tier3` D7).
 
 ### Outputs
 
 A `Tier1Result` containing:
 
 - `hits` (list of `Tier1Hit`): deduplicated results across all invoked MCPs.
-- `degraded_sources` (list[str]): names of MCPs that raised exceptions during invocation. The synthesizer uses this list to surface a visible degraded-mode warning.
+- `degraded_sources` (list[str]): names of MCPs that were skipped because they were absent (capability detection said unavailable) OR that raised exceptions during invocation. The synthesizer uses this list to surface a visible degraded-mode warning. Both fail-soft paths feed the same list (see "Resilience").
 
 `Tier1Hit` shape: `{title: str, url: str|None, snippet: str, source: str, repo: str|None, path: str|None}`. `url` is set for web/doc sources; `repo` and `path` are set for code-search hits.
 
@@ -36,26 +37,50 @@ Build the tag set the way `classify-query.md` describes. The minimal heuristic:
 
 When the helper is called without tags, it computes them via `classify_tags(query)`.
 
-### Step 2 -- Concurrent dispatch
+### Step 2 -- Capability detection (per-source absence guard, D7)
 
-For each tag that resolves to True, schedule the matching MCP callable on a `concurrent.futures.ThreadPoolExecutor`. The helper records the start timestamp inside each callable; tests assert that the spread between starts is below 100ms, which is the empirical threshold separating concurrent dispatch from serial fallback.
+Before scheduling anything, build the dispatch `plan` by intersecting two predicates per source:
+
+1. **Applicable** -- the matching classifier tag is True (`mentions_library` → Context7, `mentions_microsoft` → MS Learn, `mentions_code_pattern` → `gh search`).
+2. **Available** -- the source's `*_available` flag, routed through the shared `is_available` guard in `tests/integration/_ai_research_capability.py`. The same guard every tier uses, so "absent" means the same thing across Tier 1 / Tier 2 / Tier 3 (spec `notebooklm-async-tier3` D7, §10.4 DRY).
+
+A source that is applicable but **absent** (its `*_available` flag is False, e.g. Context7 / MS Learn / `gh` not wired or unauthenticated) is **skipped silently**, its name is appended to `degraded_sources` up front, and its callable is **never invoked**. This is distinct from the transient-exception path below: absence is detected *before* dispatch, an exception is caught *during* dispatch -- both feed `degraded_sources`.
 
 ```python
-with concurrent.futures.ThreadPoolExecutor(max_workers=3) as pool:
-    futures = {}
-    if tags["mentions_library"]:
-        futures[pool.submit(context7, query, tags=tags)] = "context7"
-    if tags["mentions_microsoft"]:
-        futures[pool.submit(ms_learn, query, tags=tags)] = "ms_learn"
-    if tags["mentions_code_pattern"]:
-        futures[pool.submit(gh_search, query, tags=tags)] = "gh_search"
+availability = {
+    "context7": context7_available,
+    "ms_learn": ms_learn_available,
+    "gh_search": gh_search_available,
+}
+candidates = [
+    ("context7", context7, tags["mentions_library"]),
+    ("ms_learn", ms_learn, tags["mentions_microsoft"]),
+    ("gh_search", gh_search, tags["mentions_code_pattern"]),
+]
+plan, degraded = [], []
+for name, callable_, applicable in candidates:
+    if not applicable:
+        continue
+    if not is_available(lambda flag=availability[name]: flag):
+        degraded.append(name)   # absent: skipped silently, recorded, never invoked
+        continue
+    plan.append((name, callable_))
+```
+
+### Step 3 -- Concurrent dispatch
+
+Schedule each planned MCP callable on a `concurrent.futures.ThreadPoolExecutor`. The helper records the start timestamp inside each callable; tests assert that the spread between starts is below 100ms, which is the empirical threshold separating concurrent dispatch from serial fallback.
+
+```python
+with concurrent.futures.ThreadPoolExecutor(max_workers=len(plan)) as pool:
+    futures = {pool.submit(callable_, query, tags=tags): name for name, callable_ in plan}
     for future in concurrent.futures.as_completed(futures):
         ...
 ```
 
-Failures (any exception) append the source to `degraded_sources` and do NOT abort the other futures.
+When `plan` is empty (no applicable+available source), return `Tier1Result(degraded_sources=degraded)` immediately without opening a pool. Transient failures (any exception raised by an invoked callable) append the source to `degraded_sources` and do NOT abort the other futures.
 
-### Step 3 -- Dedup
+### Step 4 -- Dedup
 
 Two hits collide when:
 
@@ -64,9 +89,9 @@ Two hits collide when:
 
 The first occurrence wins (stable order, matching the order MCPs report results). The helper exposes `dedup_hits(hits)` so tests can exercise the dedup logic in isolation.
 
-### Step 4 -- Return
+### Step 5 -- Return
 
-Return `Tier1Result(hits=deduped, degraded_sources=names)`. The synthesizer in `synthesize-with-citations.md` consumes the hits with `[N]` citations.
+Return `Tier1Result(hits=deduped, degraded_sources=degraded)`. The `degraded` list already carries the names of absent sources (skipped up front in Step 2) plus any invoked source that raised in Step 3. The synthesizer in `synthesize-with-citations.md` consumes the hits with `[N]` citations and the `degraded_sources` for its degraded-mode banner.
 
 ## Sources Invoked
 
@@ -76,17 +101,22 @@ Return `Tier1Result(hits=deduped, degraded_sources=names)`. The synthesizer in `
 
 ## Resilience
 
-On any per-source failure (Context7 MCP down, MS Learn timeout, gh CLI rate-limited), the helper catches the exception, appends the source name to `degraded_sources`, and continues with the surviving futures. The synthesizer in `synthesize-with-citations.md` reads `degraded_sources` and surfaces a visible warning to the user, e.g.:
+Tier 1 fail-soft (spec `notebooklm-async-tier3` D7, G5) runs on **two distinct paths**, both feeding `degraded_sources` and neither ever raising:
 
-- A single source down -> "Tier 1 degraded: <source> unavailable; results from <surviving sources>".
-- All three sources down -> "Tier 1 degraded: all external MCPs unavailable; falling back to local context (Tier 0)".
+1. **Absence (capability detection).** A source whose `*_available` flag is False -- routed through the shared `is_available` guard -- is detected as absent BEFORE dispatch (Step 2). It is skipped silently, recorded in `degraded_sources`, and its callable is never invoked. This covers a source that is not wired at all or is present-but-unauthenticated (e.g. `gh` without a token). It is the same up-front absence semantics every tier uses, so "absent" is uniform across Tier 1 / Tier 2 / Tier 3.
+2. **Transient failure (exception during invocation).** An available source whose callable raises mid-call (Context7 MCP down, MS Learn timeout, gh CLI rate-limited) is caught post-hoc in Step 3, appended to `degraded_sources`, and the surviving futures continue.
 
-The helper never re-raises; the skill is responsible for routing degraded-mode warnings into the synthesizer's `warnings` list. This guarantees a query still returns useful output when one source fails transiently.
+The synthesizer in `synthesize-with-citations.md` reads `degraded_sources` (it does not distinguish the two paths -- a degraded source is degraded) and surfaces a visible warning to the user, e.g.:
+
+- A single source down/absent -> "Tier 1 degraded: <source> unavailable; results from <surviving sources>".
+- All three sources down/absent -> "Tier 1 degraded: all external MCPs unavailable; falling back to local context (Tier 0)".
+
+The helper never re-raises; the skill is responsible for routing degraded-mode warnings into the synthesizer's `warnings` list. This guarantees a query still returns useful output when a source is absent or fails transiently.
 
 ## Implementation Reference
 
-The Python lockstep implementation lives at `tests/integration/_ai_research_tier1_helper.py`. The helper and this handler stay in sync by design -- if either changes, the other must follow.
+The Python lockstep implementation lives at `tests/integration/_ai_research_tier1_helper.py` (with the shared absence guard in `tests/integration/_ai_research_capability.py`). The public `tier1_free_mcps` signature carries the three `*_available` flags. The helper and this handler stay in sync by design (AC7) -- if either changes, the other must follow.
 
 ## Status
 
-Phase 2 (T-2.3) implementation. Resilience hardening lands in Phase 4 (T-4.9).
+Capability detection + fail-soft for the three free MCPs in lockstep with `_ai_research_tier1_helper.py` (spec `notebooklm-async-tier3`, Phase 3, D7/G5/AC4): per-source `*_available` absence guard distinct from the transient-exception path, both feeding `degraded_sources`. The classifier-driven applicability, parallel dispatch, dedup, and `Tier1Result(hits, degraded_sources)` shape are unchanged from the spec-111 Phase 2 implementation.

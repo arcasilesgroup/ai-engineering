@@ -119,6 +119,13 @@ TOOL_HISTORY_MAX = _env_int("AIENG_TOOL_HISTORY_MAX", 500, ceiling=10_000)
 # inline event carries only the sha256 + summary. Default 3 KB sits
 # below the 4 KB POSIX PIPE_BUF guarantee for atomic appends.
 EVENT_SIDECAR_BYTES = _env_int("AIENG_EVENT_SIDECAR_BYTES", 3072, ceiling=64 * 1024)
+
+# spec notebooklm-async-tier3 D4: bounded wait (seconds) for the NotebookLM
+# Tier 3 deep-research harvest after Tiers 0-2 finish. On timeout the run
+# degrades and persists notebook_id so a later --reuse-notebook harvests the
+# report. 300s default (≈5 min), 900s ceiling.
+RESEARCH_NLM_WAIT_SEC = _env_int("AIENG_RESEARCH_NLM_WAIT_SEC", 300, ceiling=900)
+
 # Trim threshold: amortise rewrites by only trimming when file grows beyond
 # steady-state (~180 B/line x TOOL_HISTORY_MAX x 1.5 buffer).
 _TOOL_HISTORY_TRIM_BYTES = max(256 * 1024, TOOL_HISTORY_MAX * 280)
@@ -648,6 +655,7 @@ __all__ = [
     "LOOP_WINDOW",
     "PRECOMPACT_SNAPSHOT_REL",
     "RALPH_RESUME_REL",
+    "RESEARCH_NLM_WAIT_SEC",
     "RUNTIME_DIR_REL",
     "TOOL_HISTORY_MAX",
     "TOOL_HISTORY_REL",
