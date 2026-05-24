@@ -63,6 +63,17 @@ every store is a plain file on disk.
     (`InstallState` model dump: vcs/tooling/platforms/readiness + hook hashes).
   - `.ai-engineering/state/framework-capabilities.json` — the skill/agent
     capability catalog (a derived cache; see below).
+  - `.ai-engineering/state/specs/<spec_id>.json` — the **canonical
+    source-of-truth for spec lifecycle state** (one per-spec sidecar written
+    atomically by `scripts/spec_lifecycle.py` under `artifact_lock`). The
+    `LifecycleState` FSM (DRAFT→…→ARCHIVED), branch, PR, and timestamps live
+    here. `specs/_history.md` (Tier 3) is its **derived projection** —
+    rebuildable via `spec_lifecycle.py consolidate_shipped`.
+- **Canonical seed corpus (committed, evaluated by CI):**
+  - `.ai-engineering/evals/baseline.json` — the skill-evaluation baseline
+    plus its `*.jsonl` golden cases. Canonical (not a cache): the
+    `skill-evals.yml` CI workflow scores against `baseline.json`, so it is
+    durable source data, never wiped by cleanup.
 - **Configuration files:**
   - `.ai-engineering/manifest.yml` — framework configuration
     (stacks, surfaces, telemetry consent).
@@ -89,7 +100,20 @@ every store is a plain file on disk.
 - **File patterns:**
   - `.ai-engineering/specs/spec.md`, `.ai-engineering/specs/plan.md`
     (active spec workflow output).
-  - `.ai-engineering/specs/archive/spec-NNN-*.md` (post-merge archive).
+  - `.ai-engineering/specs/archive/spec-NNN-<slug>/` — the **canonical
+    immutable post-ship snapshot directory** (holds the `spec.md` / `plan.md`
+    captured by `mark_shipped` at the SHIPPED transition). The legacy flat
+    `specs/archive/spec-NNN-*.md` form is the same canonical archive. Never
+    rewritten; never a cleanup target.
+  - `.ai-engineering/specs/drafts/*-brief.md` — researched problem briefs
+    that feed `/ai-brainstorm`. **Tier 3, transient-with-TTL:** the `sweep`
+    verb MOVES briefs older than `lifecycle.draft_ttl_days` (fail-open 14d)
+    into `specs/archive/drafts/` when `reap_orphans` is set (never deletes).
+  - `.ai-engineering/state/archive/delivery-logs/spec-*.md` — **canonical
+    durable delivery-log prose** relocated out of `specs/_history.md`
+    (the spec-122-a precedent). Immutable historical record; the file-existence
+    validator excludes `state/archive/` from reference-checking (D-153-09)
+    because it legitimately cites deferred/retired artifacts.
   - `.ai-engineering/LESSONS.md` (self-improvement loop per
     CLAUDE.md operating mindset #7).
   - [`CONSTITUTION.md`](../CONSTITUTION.md) (project identity).
@@ -139,6 +163,46 @@ they do not become audit or compliance witnesses.
   `ai-eng gate run --force` to clear matching entries before a fresh run.
 - **State boundary:** old `.ai-engineering/state/gate-cache/` remains
   forbidden; the live cache belongs under `.ai-engineering/cache/gate/`.
+
+## Transient runtime state
+
+Some paths under `.ai-engineering/` are **not** a tier at all: they are
+per-machine runtime state, gitignored, recreated on demand, and safe to
+wipe. They carry no source-of-truth datum.
+
+- `.ai-engineering/state/locks/*.lock` — OS advisory mutexes (fcntl /
+  byte-range) created on demand by
+  `scripts/hooks/_lib/locking.py:artifact_lock` to serialize writers of a
+  shared artifact family. Single-byte files, gitignored, recreated when
+  missing. Never tracked, never a datum.
+- `.ai-engineering/runtime/` — session-scoped autopilot/tool/checkpoint
+  state (rotated by `runtime_rotate.py`, gitignored).
+- `.ai-engineering/cache/` — bounded performance caches (gate cache above).
+- `.ai-engineering/state/state.db` (+ `-wal` / `-shm`) — the retired
+  pre-spec-148 SQLite projection. Files-only since spec-148: no live writer,
+  reaped by `cleanup runtime` if a stale copy lingers.
+
+## Cleanup Contract
+
+What each `.ai-engineering/` location is, and which verb reclaims it. The
+contract is binary: **KEEP-canonical** paths are never a cleanup target;
+**TRANSIENT-wipe** paths are recreated on demand.
+
+| Path | Class | Handled by |
+|------|-------|------------|
+| `state/framework-events.ndjson` | KEEP-canonical (Tier 1) | rotated in place by `cleanup runtime` (SessionEnd) — never deleted |
+| `state/decision-store.json`, `state/ownership-map.json`, `state/install-state.json` | KEEP-canonical (Tier 2) | never wiped |
+| `state/specs/*.json` | KEEP-canonical (Tier 2 lifecycle SoT) | never wiped (`sweep` only transitions state) |
+| `evals/baseline.json` (+ `*.jsonl`) | KEEP-canonical seed corpus | never wiped |
+| `specs/spec.md`, `specs/plan.md` | KEEP-canonical (Tier 3) | reset to placeholder on ship; never deleted |
+| `specs/archive/spec-NNN-<slug>/` | KEEP-canonical immutable snapshot | never wiped |
+| `state/archive/delivery-logs/` | KEEP-canonical durable logs | never wiped |
+| `specs/drafts/*-brief.md` | TRANSIENT-with-TTL | `cleanup specs` → `sweep` MOVES briefs past `draft_ttl_days` into `specs/archive/drafts/` |
+| `runtime/` (tool-outputs, autopilot, tool-history) | TRANSIENT-wipe | `cleanup runtime` (`runtime_rotate.py`) rotates per retention |
+| `cache/gate/` | TRANSIENT-wipe | `ai-eng gate cache --clear --yes` |
+| `state/locks/*.lock` | TRANSIENT-wipe (recreated) | OS recreates on next `artifact_lock`; gitignored |
+| `state/state.db` (+ WAL/SHM) | TRANSIENT-wipe (stale) | `cleanup runtime` reaps a stale leftover |
+| `state/gate-findings.json` | TRANSIENT (DOCUMENTED) | regenerated by gate/review flows |
 
 ## Strict rules
 
