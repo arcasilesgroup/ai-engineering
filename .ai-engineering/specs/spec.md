@@ -74,19 +74,22 @@ their intended surfaces.
 ## Decisions
 
 - **D-153-01 — Numeric `spec-NNN` is the one canonical spec identity; slug is a
-  secondary descriptor.** Rationale: the `D-NNN-NN` decision-ID convention,
+  secondary descriptor.**
+  **Rationale**: the `D-NNN-NN` decision-ID convention,
   branch names (`spec-152-…`), `CHANGELOG`, and 152 of 153 `_history` rows
   already key numeric; choosing numeric aligns the majority surface and
   preserves the decision-ID scheme. Slug remains the human-readable tag in
   archive directory names and the `slug:` frontmatter field.
 - **D-153-02 — Freeze historical `_history.md` rows; bind only NEW rows to the
-  enum; correct the one slug-keyed row to `spec-152`.** Rationale: the brief's
+  enum; correct the one slug-keyed row to `spec-152`.**
+  **Rationale**: the brief's
   own governing precedents (PEP 1, ADRs) treat published records as immutable;
   remapping freeform strings (`partial`, `runtime-landed-docs-deferred`) onto
   six enum values is lossy. New rows render from the sidecar `LifecycleState`;
   the table carries mixed vocabulary only during the transition tail.
 - **D-153-03 — Merge wiring is `/ai-pr` mark (primary) + `/ai-branch-cleanup`
-  idempotent reconcile (backstop).** Rationale: `/ai-pr` holds the PR number
+  idempotent reconcile (backstop).**
+  **Rationale**: `/ai-pr` holds the PR number
   and branch at merge time and can mark immediately; `/ai-branch-cleanup`
   detects merged-but-unmarked specs and auto-marks as the idempotent safety net
   that also catches manual GitHub merges. Both run off the pre-push hot path
@@ -95,58 +98,64 @@ their intended surfaces.
 - **D-153-04 — Snapshot `spec.md`+`plan.md` into `archive/spec-NNN-<slug>/` and
   reset the working buffers to placeholders at the SHIPPED transition; ARCHIVED
   remains a logical terminal marker with no additional file movement.**
-  Rationale: clearing at merge directly eliminates the lingering-buffer pain;
+  **Rationale**: clearing at merge directly eliminates the lingering-buffer pain;
   keeping ARCHIVED as a bookkeeping-only terminal honors the Non-Goal of not
   changing the FSM.
 - **D-153-05 — `start_new` mints the next `spec-NNN` from the max of the ledger
   + sidecars, written atomically under the existing `specs-history` lock.**
-  Rationale: a numeric canonical ID requires a central counter; the lock and
+  **Rationale**: a numeric canonical ID requires a central counter; the lock and
   tempfile+`os.replace` pattern already exist in `spec_lifecycle.py`. Collision
   risk in parallel work is low and serialized by the lock.
 - **D-153-06 — One uniform archive layout: `archive/spec-NNN-<slug>/{spec.md,
   plan.md}`; migrate existing flat files and `-plan.md` pairs into it.**
-  Rationale: the current mix of flat files, separate plan files, and bundled
+  **Rationale**: the current mix of flat files, separate plan files, and bundled
   directories is the inconsistency the spec exists to remove.
 - **D-153-07 — An orphan reaper folds into the existing `sweep`; the `specs/`
   root invariant is `{spec.md, plan.md, _history.md, drafts/, archive/}`.**
-  Rationale: a single enforced invariant is the simplest durable guard against
+  **Rationale**: a single enforced invariant is the simplest durable guard against
   re-accumulation. The reaper moves stray files to their archive directory by
   default and deletes only on confirmed supersession.
 - **D-153-08 — A `manifest.yml` `lifecycle:` block (e.g. `draft_ttl_days`
   default 30, `archive_layout`, `reap_orphans`) replaces the hardcoded 14-day
-  sweep cutoff.** Rationale: SSOT-PD — retention is config and belongs in the
+  sweep cutoff.**
+  **Rationale**: SSOT-PD — retention is config and belongs in the
   one config store, not in source constants.
 - **D-153-09 — Freeform delivery-log prose moves out of `_history.md` to
-  `state/archive/delivery-logs/`.** Rationale: the ledger is an index over
+  `state/archive/delivery-logs/`.**
+  **Rationale**: the ledger is an index over
   shipped specs, not a log dump; the spec-122-a relocation of
   `spec-117-progress` is the established precedent.
 - **D-153-10 — Sidecars are renamed slug→`spec-NNN.json` and de-duplicated
-  (the `obvious-by-default` / `obvious-by-default-essentials` pair).** Rationale:
-  one identity scheme (D-153-01) implies one sidecar naming scheme.
+  (the `obvious-by-default` / `obvious-by-default-essentials` pair).**
+  **Rationale**: one identity scheme (D-153-01) implies one sidecar naming scheme.
 - **D-153-11 — `.ai-engineering/README.md` becomes the post-install client
   manual: a generated catalog of the 53 skills + 9 agents with concise how-to
   entries; maintainer plumbing (ownership boundaries, persistence tiers, sync
   contract) is trimmed to a short pointer linking `docs/persistence-doctrine.md`
-  and `CONSTITUTION.md`.** Rationale: the operator's intent is a quick, complete
+  and `CONSTITUTION.md`.**
+  **Rationale**: the operator's intent is a quick, complete
   reference an installed client uses to exploit the framework — not internal
   governance mechanics.
 - **D-153-12 — Both README capability catalogs are derived rebuildable caches
   generated from `framework-capabilities.json` / skill descriptions,
   regenerated on `ai-eng install`/`update`/`dev sync`, and drift-gated by
-  `dev sync --check`.** Rationale: SSOT-PD — the skill/agent files are the
+  `dev sync --check`.**
+  **Rationale**: SSOT-PD — the skill/agent files are the
   source; no count or description is hand-maintained in a README.
 - **D-153-13 — Root `README.md` scope is bounded to: verify the getting-started
   path is crystal-clear (it is) and wire the hardcoded `53 · 9 · 6` counts
   (banner alt text + tagline) to the D-153-12 drift gate; no full rewrite.**
-  Rationale: the landing already satisfies the operator's GitHub-visitor
+  **Rationale**: the landing already satisfies the operator's GitHub-visitor
   requirements; the only rot risk is the static counts.
 - **D-153-14 — Delete the stale "Four-Tier Persistence" table and every
   `state/state.db` reference in `.ai-engineering/README.md`; align to the
-  three-tier doctrine.** Rationale: `state.db` was deleted by spec-148; the
+  three-tier doctrine.**
+  **Rationale**: `state.db` was deleted by spec-148; the
   claim is factually wrong today. Hard delete, no deprecation shim
   (CONSTITUTION §3).
 - **D-153-15 — The README catalog is generated by a script that reads the skill
-  and agent files as source, invoked by `ai-eng dev sync`.** Rationale: the
+  and agent files as source, invoked by `ai-eng dev sync`.**
+  **Rationale**: the
   generation path itself must be a single tool so both READMEs and any future
   surface stay byte-consistent; mirrors the existing `sync_mirrors` model.
 
