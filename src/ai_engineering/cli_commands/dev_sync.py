@@ -81,11 +81,12 @@ def dev_sync_cmd(
         # verify) the README catalog block alongside the mirrors. Fail-open
         # when the README has no markers yet (Wave 6 adds them).
         catalog = check_capability_catalog(root) if check else apply_capability_catalog(root)
-        catalog_verb = (
-            "Skipping"
-            if catalog.status.name.startswith("SKIPPED")
-            else ("Verifying" if check else "Updating")
-        )
+        if catalog.status.name.startswith("SKIPPED"):
+            catalog_verb = "Skipping"
+        elif check:
+            catalog_verb = "Verifying"
+        else:
+            catalog_verb = "Updating"
         renderer.action(catalog_verb, catalog.message)
 
         if catalog.status is CatalogStatus.DRIFT:
