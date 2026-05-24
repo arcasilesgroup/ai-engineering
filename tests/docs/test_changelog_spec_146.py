@@ -8,15 +8,18 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CHANGELOG = PROJECT_ROOT / "CHANGELOG.md"
 
 
-def _unreleased() -> str:
-    text = CHANGELOG.read_text(encoding="utf-8")
-    start = text.index("## [Unreleased]")
-    next_release = text.index("\n## [", start + len("## [Unreleased]"))
-    return text[start:next_release]
+def _changelog_entries() -> str:
+    """Return the full changelog body.
+
+    Release promotion moves ``[Unreleased]`` content into a versioned
+    ``[X.Y.Z]`` section, so spec-coverage guards must search the whole
+    changelog, not only the (post-release empty) ``[Unreleased]`` section.
+    """
+    return CHANGELOG.read_text(encoding="utf-8")
 
 
 def test_spec_146_changelog_covers_fixed_changed_and_removed() -> None:
-    section = _unreleased()
+    section = _changelog_entries()
 
     assert "spec-146" in section
     assert "SQLite ownership" in section
@@ -26,7 +29,7 @@ def test_spec_146_changelog_covers_fixed_changed_and_removed() -> None:
 
 
 def test_spec_146_changelog_lists_removed_modules_and_artifacts() -> None:
-    section = _unreleased()
+    section = _changelog_entries()
     required = (
         "ai_engineering.state.agentsview",
         "ai_engineering.state.outbox",
@@ -43,7 +46,7 @@ def test_spec_146_changelog_lists_removed_modules_and_artifacts() -> None:
 
 
 def test_spec_146_changelog_documents_no_shim_import_breakage() -> None:
-    section = _unreleased()
+    section = _changelog_entries()
 
     assert "No compatibility shim" in section
     assert "OPA-backed governance runner" in section

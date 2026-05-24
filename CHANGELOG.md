@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-05-24
+
 ### BREAKING
 
 - **spec-153 — spec/plan lifecycle automation and a numeric canonical spec
@@ -326,7 +328,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `observation-events.ndjson` remains the instinct-learning log.
 - spec-146 deletes test-only preservation suites for removed modules and
   adds import/caller-inventory guards so the deleted surfaces do not return.
-
 ## [0.7.0] - 2026-05-18
 
 ### BREAKING
