@@ -33,6 +33,7 @@ from ai_engineering.doctor.runtime import (
     branch_policy,
     feeds,
     opa_health,
+    release_env_policy,
     secrets_gate,
     vcs_auth,
     version,
@@ -78,6 +79,7 @@ _RUNTIME_CHECK_MODULES = {
     "version": version,
     "opa_health": opa_health,
     "secrets_gate": secrets_gate,
+    "release_env_policy": release_env_policy,
 }
 
 _RUNTIME_MODULES: tuple[str, ...] = (
@@ -87,6 +89,7 @@ _RUNTIME_MODULES: tuple[str, ...] = (
     "version",
     "opa_health",
     "secrets_gate",
+    "release_env_policy",
 )
 
 

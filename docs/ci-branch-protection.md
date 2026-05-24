@@ -97,3 +97,79 @@ single-required-check model cannot silently regress into a fail-open hole.
 Repo settings → Branches → branch protection rule for `main` → "Require
 status checks to pass before merging" → add **`CI Result`**. This is an
 operator-applied repo-settings change; it is not enforced by code.
+
+## Environment deployment policies (release publishing)
+
+> The 0.8.0 release nearly failed here. Spec-152 made
+> [`release.yml`](../.github/workflows/release.yml) **tag-triggered**
+> (`on: push: tags: ['v*']`), but the `pypi` environment still allowed only
+> the `main` *branch* (correct for the pre-spec-152 branch-triggered
+> workflow). The first tag-triggered publish was rejected with *"Tag v0.8.0
+> is not allowed to deploy to pypi due to environment protection rules."*
+> This section is the operator contract that keeps that from recurring.
+
+The Release workflow runs from a **tag ref** (`refs/tags/vX.Y.Z`) and
+deploys through three GitHub **deployment environments**, each with its own
+protection rules under Settings → Environments:
+
+| Environment | Deploying job | Required deployment policy |
+|-------------|---------------|----------------------------|
+| `pypi` | `publish-pypi` | a **`v*` tag** policy (Selected branches and tags) |
+| `testpypi` | `publish-testpypi` | unrestricted, **or** a `v*` tag policy |
+| `github-release` | `finalize-release-packet` | unrestricted, **or** a `v*` tag policy |
+
+The rule: **any environment that restricts deployments MUST include a *tag*
+policy matching the workflow's `v*` glob.** GitHub's "Deployment branches
+and tags" setting has three modes:
+
+- **No restriction** (`deployment_branch_policy: null`) — every ref,
+  tags included, may deploy. `testpypi` and `github-release` sit here today.
+- **Protected branches only** — *tags can never deploy*; a tag-triggered
+  release is rejected outright. Never select this for a release environment.
+- **Selected branches and tags** (`custom_branch_policies: true`) — only the
+  listed patterns may deploy, so an explicit `v*` rule of type **`tag`** (not
+  `branch`) is mandatory. `pypi` sits here: `main` (branch) + `v*` (tag).
+
+### Coupling to the `tag-protection-v` ruleset
+
+The `v*` pattern is shared by two distinct controls that must stay in
+agreement:
+
+- the **`tag-protection-v`** ruleset (Settings → Rules, target `tag`)
+  governs *who may create* a `v*` release tag;
+- each environment's **`v*` tag deployment policy** governs *whether that
+  tag may deploy* to PyPI / TestPyPI / the GitHub Release.
+
+Both key on `v*`; changing the tag shape in one without the other reopens
+the drift.
+
+### Applying or repairing a policy
+
+To move an environment to "Selected branches and tags" and add the `v*`
+tag rule (repeat per restricted environment — the environment must already
+be in "Selected branches and tags" mode for the POST to take effect):
+
+```bash
+gh api --method POST \
+  repos/arcasilesgroup/ai-engineering/environments/pypi/deployment-branch-policies \
+  -f name='v*' -f type='tag'
+```
+
+### Why this is guarded twice
+
+Like the `CI Result` check above, environment policies live in **GitHub
+settings, not in the repo**, so committed code cannot enforce them. Two
+guards make drift loud instead of silent:
+
+- **`ai-eng doctor`** runs a `release-env-policy` runtime check
+  ([`src/ai_engineering/doctor/runtime/release_env_policy.py`](../src/ai_engineering/doctor/runtime/release_env_policy.py))
+  that reads each environment's *live* deployment policy and WARNs when the
+  `v*` tag pattern is missing. It is operator-run, needs `gh` authenticated
+  with admin scope, and is WARN-only (never blocks a developer's run).
+- **[`tests/unit/workflows/test_release_env_policy_docs.py`](../tests/unit/workflows/test_release_env_policy_docs.py)**
+  fails CI if `release.yml` stays tag-triggered while a deployment
+  environment it uses is left undocumented in this table — so adding a new
+  publish environment forces a matching policy note here. The tag trigger
+  itself is held in place by
+  [`scripts/check_workflow_policy.py`](../scripts/check_workflow_policy.py)
+  (`workflow-sanity` job).

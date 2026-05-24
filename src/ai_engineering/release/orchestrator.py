@@ -34,6 +34,12 @@ from ai_engineering.verify.service import verify_release
 _RELEASE_PACKET_NAME = "release-packet.json"
 _RELEASE_READINESS_NAME = "release-readiness.json"
 _CHANGELOG_REL = Path("CHANGELOG.md")
+_LOCKFILE_NAME = "uv.lock"
+# Editable-root pin in uv.lock: only the project's own `source = { editable = "." }`
+# package block is rewritten; dependency pins are left untouched.
+_LOCK_EDITABLE_ROOT_RE = re.compile(
+    r'(\[\[package\]\]\nname = "[^"]+"\nversion = ")([^"]+)("\nsource = \{ editable = "\." \})'
+)
 
 
 class Clock(Protocol):
@@ -234,93 +240,74 @@ def execute_release(
         _attach_release_packet(result)
         return result
 
-    if not config.skip_bump:
-        prepare = _prepare_branch(config, clock)
-        phases.append(prepare)
-        if not prepare.success:
-            result.errors.append(prepare.output)
+    if compare_versions(state.current_version, config.version) == 0:
+        # Resume path: the bump already merged to the default branch but the tag
+        # was never created (e.g. `--wait` was interrupted, or the PR merged out
+        # of band). Skip prepare/PR/wait-for-merge and go straight to completion.
+        base_branch = _default_branch(config.project_root)
+        phases.append(
+            PhaseResult(
+                phase="prepare",
+                success=True,
+                skipped=True,
+                output=f"Version {config.version} already on {base_branch}",
+            )
+        )
+        phases.append(
+            PhaseResult(phase="pr", success=True, skipped=True, output="Release PR already merged")
+        )
+        phases.append(
+            PhaseResult(
+                phase="wait-for-merge",
+                success=True,
+                skipped=True,
+                output="Release PR already merged",
+            )
+        )
+        if not _complete_release(config, provider, clock, result, phases):
             return result
-        if prepare.output:
-            result.bump_files.extend(prepare.output.split("\n"))
     else:
-        phases.append(
-            PhaseResult(phase="prepare", success=True, skipped=True, output="--skip-bump")
-        )
+        if not config.skip_bump:
+            prepare = _prepare_branch(config, clock)
+            phases.append(prepare)
+            if not prepare.success:
+                result.errors.append(prepare.output)
+                return result
+            if prepare.output:
+                result.bump_files.extend(prepare.output.split("\n"))
+        else:
+            phases.append(
+                PhaseResult(phase="prepare", success=True, skipped=True, output="--skip-bump")
+            )
 
-    pr_phase = _create_release_pr(config, provider, runner)
-    phases.append(pr_phase)
-    if not pr_phase.success:
-        result.errors.append(pr_phase.output)
-        return result
-    if pr_phase.output.startswith("http"):
-        result.pr_url = pr_phase.output.splitlines()[0].strip()
-
-    if config.wait:
-        wait_phase = _wait_for_merge(config, provider, config.wait_timeout, runner)
-        phases.append(wait_phase)
-        if not wait_phase.success:
-            result.errors.append(wait_phase.output)
+        pr_phase = _create_release_pr(config, provider, runner)
+        phases.append(pr_phase)
+        if not pr_phase.success:
+            result.errors.append(pr_phase.output)
             return result
+        if pr_phase.output.startswith("http"):
+            result.pr_url = pr_phase.output.splitlines()[0].strip()
 
-        readiness_phase = _run_release_readiness(config)
-        phases.append(readiness_phase)
-        result.readiness = _readiness_payload(readiness_phase)
-        if not readiness_phase.success:
-            result.errors.append(readiness_phase.output)
-            return result
-
-        tag_phase = _create_tag(config, provider)
-        phases.append(tag_phase)
-        if not tag_phase.success:
-            result.errors.append(tag_phase.output)
-            return result
-
-        result.release_url = _release_url_for_tag(config)
-        _attach_release_packet(result)
-        manifest_phase = _update_manifest(config, clock)
-        phases.append(manifest_phase)
-        if not manifest_phase.success:
-            result.errors.append(manifest_phase.output)
-            return result
-
-        emit_deploy_event(
-            config.project_root,
-            environment="production",
-            strategy="tag",
-            version=config.version,
-            result=f"tag={tag_name}",
-            release_packet_url=result.release_packet_url,
-            release_packet_ref=result.release_packet_ref,
-        )
-
-        monitor_phase = _monitor_pipeline(config, provider, config.wait_timeout)
-        phases.append(monitor_phase)
-        if not monitor_phase.success:
-            result.errors.append(monitor_phase.output)
-            return result
-        result.pipeline_status = monitor_phase.output
-        if monitor_phase.output.startswith("http"):
-            result.release_url = _release_url_from_monitor(config, monitor_phase.output)
-            _attach_release_packet(result)
-        emit_deploy_event(
-            config.project_root,
-            environment="production",
-            strategy="pipeline",
-            version=config.version,
-            result=monitor_phase.output,
-            release_packet_url=result.release_packet_url,
-            release_packet_ref=result.release_packet_ref,
-        )
-    else:
-        skip_msg = "Tag deferred -- run `ai-eng release <version> --wait` after merge"
-        phases.append(
-            PhaseResult(phase="wait-for-merge", success=True, skipped=True, output="--wait off")
-        )
-        phases.append(PhaseResult(phase="tag", success=True, skipped=True, output=skip_msg))
-        phases.append(
-            PhaseResult(phase="manifest", success=True, skipped=True, output="--wait off")
-        )
-        phases.append(PhaseResult(phase="monitor", success=True, skipped=True, output="--wait off"))
+        if config.wait:
+            wait_phase = _wait_for_merge(config, provider, config.wait_timeout, runner)
+            phases.append(wait_phase)
+            if not wait_phase.success:
+                result.errors.append(wait_phase.output)
+                return result
+            if not _complete_release(config, provider, clock, result, phases):
+                return result
+        else:
+            skip_msg = "Tag deferred -- run `ai-eng release <version> --wait` after merge"
+            phases.append(
+                PhaseResult(phase="wait-for-merge", success=True, skipped=True, output="--wait off")
+            )
+            phases.append(PhaseResult(phase="tag", success=True, skipped=True, output=skip_msg))
+            phases.append(
+                PhaseResult(phase="manifest", success=True, skipped=True, output="--wait off")
+            )
+            phases.append(
+                PhaseResult(phase="monitor", success=True, skipped=True, output="--wait off")
+            )
 
     result.success = True
     if not result.release_url:
@@ -328,6 +315,73 @@ def execute_release(
         if slug:
             result.release_url = f"https://github.com/{slug}/releases/tag/{tag_name}"
     return result
+
+
+def _complete_release(
+    config: ReleaseConfig,
+    provider: VcsProvider,
+    clock: Clock,
+    result: ReleaseResult,
+    phases: list[PhaseResult],
+) -> bool:
+    """Run the post-merge completion sequence: readiness -> tag -> manifest -> monitor.
+
+    Shared by the pre-merge ``--wait`` flow and the post-merge resume flow. Appends
+    each phase to *phases*, mutates *result*, and returns ``False`` on the first
+    failing phase (the caller returns the partially populated result).
+    """
+    tag_name = f"v{config.version}"
+
+    readiness_phase = _run_release_readiness(config)
+    phases.append(readiness_phase)
+    result.readiness = _readiness_payload(readiness_phase)
+    if not readiness_phase.success:
+        result.errors.append(readiness_phase.output)
+        return False
+
+    tag_phase = _create_tag(config, provider)
+    phases.append(tag_phase)
+    if not tag_phase.success:
+        result.errors.append(tag_phase.output)
+        return False
+
+    result.release_url = _release_url_for_tag(config)
+    _attach_release_packet(result)
+    manifest_phase = _update_manifest(config, clock)
+    phases.append(manifest_phase)
+    if not manifest_phase.success:
+        result.errors.append(manifest_phase.output)
+        return False
+
+    emit_deploy_event(
+        config.project_root,
+        environment="production",
+        strategy="tag",
+        version=config.version,
+        result=f"tag={tag_name}",
+        release_packet_url=result.release_packet_url,
+        release_packet_ref=result.release_packet_ref,
+    )
+
+    monitor_phase = _monitor_pipeline(config, provider, config.wait_timeout)
+    phases.append(monitor_phase)
+    if not monitor_phase.success:
+        result.errors.append(monitor_phase.output)
+        return False
+    result.pipeline_status = monitor_phase.output
+    if monitor_phase.output.startswith("http"):
+        result.release_url = _release_url_from_monitor(config, monitor_phase.output)
+        _attach_release_packet(result)
+    emit_deploy_event(
+        config.project_root,
+        environment="production",
+        strategy="pipeline",
+        version=config.version,
+        result=monitor_phase.output,
+        release_packet_url=result.release_packet_url,
+        release_packet_ref=result.release_packet_ref,
+    )
+    return True
 
 
 def _build_dry_run_plan(config: ReleaseConfig, state: ReleaseState) -> ReleaseDryRunPlan:
@@ -362,6 +416,8 @@ def _governed_changed_files(project_root: Path) -> list[str]:
         files.append(registry.as_posix())
     if (project_root / _TEMPLATE_MANIFEST_REL).is_file():
         files.extend([_ROOT_MANIFEST_REL.as_posix(), _TEMPLATE_MANIFEST_REL.as_posix()])
+    if (project_root / _LOCKFILE_NAME).is_file():
+        files.append(_LOCKFILE_NAME)
     return files
 
 
@@ -452,9 +508,18 @@ def _validate(config: ReleaseConfig, provider: VcsProvider) -> list[str]:
     elif output.strip():
         errors.append("Working tree must be clean")
 
+    resume = False
     try:
         current = detect_current_version(config.project_root)
-        if compare_versions(current, config.version) >= 0:
+        comparison = compare_versions(current, config.version)
+        if comparison == 0:
+            # Bump already landed on the default branch (release PR merged): the
+            # version pin already matches and the changelog is already promoted.
+            # This is a resume-to-tag run, not a downgrade -- skip the
+            # greater-than and changelog gates and let state detection drive the
+            # resume flow in execute_release.
+            resume = True
+        elif comparison > 0:
             errors.append(
                 f"New version ({config.version}) must be greater than current ({current})"
             )
@@ -468,11 +533,12 @@ def _validate(config: ReleaseConfig, provider: VcsProvider) -> list[str]:
         if not auth.success:
             errors.append(f"VCS auth check failed: {auth.output}")
 
-    changelog_path = config.project_root / _CHANGELOG_REL
-    if not changelog_path.exists():
-        errors.append(f"{_CHANGELOG_REL.as_posix()} not found")
-    else:
-        errors.extend(validate_changelog(changelog_path, config.version))
+    if not resume:
+        changelog_path = config.project_root / _CHANGELOG_REL
+        if not changelog_path.exists():
+            errors.append(f"{_CHANGELOG_REL.as_posix()} not found")
+        else:
+            errors.extend(validate_changelog(changelog_path, config.version))
 
     return errors
 
@@ -518,8 +584,13 @@ def _prepare_branch(config: ReleaseConfig, clock: Clock) -> PhaseResult:
 
     try:
         bump = bump_python_version(config.project_root, config.version)
+        lock_path = _update_lockfile_version(config.project_root, config.version)
     except (ValueError, FileNotFoundError) as exc:
         return PhaseResult(phase="prepare", success=False, output=str(exc))
+
+    files_modified = list(bump.files_modified)
+    if lock_path is not None:
+        files_modified.append(lock_path)
 
     today = clock.utcnow().strftime("%Y-%m-%d")
     changelog_path = config.project_root / _CHANGELOG_REL
@@ -530,7 +601,7 @@ def _prepare_branch(config: ReleaseConfig, clock: Clock) -> PhaseResult:
             output=f"Failed to promote [Unreleased] in {_CHANGELOG_REL.as_posix()}",
         )
 
-    files_to_add = [str(p.relative_to(config.project_root)) for p in bump.files_modified]
+    files_to_add = [str(p.relative_to(config.project_root)) for p in files_modified]
     files_to_add.append(_CHANGELOG_REL.as_posix())
     add_ok, add_out = run_git(["add", *files_to_add], config.project_root)
     if not add_ok:
@@ -545,8 +616,33 @@ def _prepare_branch(config: ReleaseConfig, clock: Clock) -> PhaseResult:
             phase="prepare", success=False, output=f"git commit failed: {commit_out}"
         )
 
-    files = [str(path.relative_to(config.project_root)) for path in bump.files_modified]
+    files = [str(path.relative_to(config.project_root)) for path in files_modified]
     return PhaseResult(phase="prepare", success=True, output="\n".join(files))
+
+
+def _update_lockfile_version(project_root: Path, new_version: str) -> Path | None:
+    """Sync the project's own version pin in ``uv.lock`` with the bump.
+
+    Only the editable root package (``source = { editable = "." }``) is rewritten,
+    so dependency pins are untouched and the result is byte-identical to what
+    ``uv lock`` would emit for a version-only bump. Returns the lockfile path when
+    updated, or ``None`` when no ``uv.lock`` is present (e.g. installed consumer
+    projects). Raises ``ValueError`` when the lockfile exists but the editable
+    root pin cannot be located, so the release fails loud rather than committing a
+    desynced lockfile.
+    """
+    lock_path = project_root / _LOCKFILE_NAME
+    if not lock_path.is_file():
+        return None
+
+    text = lock_path.read_text(encoding="utf-8")
+    updated, count = _LOCK_EDITABLE_ROOT_RE.subn(rf"\g<1>{new_version}\g<3>", text, count=1)
+    if count != 1:
+        msg = f"Unable to update project version in {_LOCKFILE_NAME}"
+        raise ValueError(msg)
+
+    lock_path.write_text(updated, encoding="utf-8")
+    return lock_path
 
 
 def _create_release_pr(
