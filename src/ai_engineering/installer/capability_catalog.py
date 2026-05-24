@@ -66,7 +66,7 @@ def _load_generator(project_root: Path) -> ModuleType | None:
     if not path.is_file():
         return None
     spec = importlib.util.spec_from_file_location("gen_capability_catalog", path)
-    if spec is None or spec.loader is None:  # pragma: no cover - defensive
+    if spec is None or spec.loader is None:
         return None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

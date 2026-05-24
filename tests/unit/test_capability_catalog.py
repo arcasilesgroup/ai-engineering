@@ -281,3 +281,22 @@ class TestCatalogBridge:
         applied = apply_capability_catalog(root)
         assert applied.status is CatalogStatus.SKIPPED_NO_TARGET
         assert applied.ok
+
+    def test_skips_when_spec_cannot_load(self, tmp_path: Path, monkeypatch) -> None:
+        """Generator file present but importlib yields no spec → treated as absent.
+
+        Covers the defensive ``spec is None`` branch in ``_load_generator`` so the
+        no-suppression rule holds without a ``# pragma: no cover`` marker.
+        """
+        import importlib.util as _ilu
+
+        from ai_engineering.installer.capability_catalog import (
+            CatalogStatus,
+            apply_capability_catalog,
+        )
+
+        root = self._fake_root_with_markers(tmp_path, "stale")
+        monkeypatch.setattr(_ilu, "spec_from_file_location", lambda *a, **k: None)
+        applied = apply_capability_catalog(root)
+        assert applied.status is CatalogStatus.SKIPPED_NO_GENERATOR
+        assert applied.ok
