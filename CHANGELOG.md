@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-05-24
+
 ### Fixed
 
 - **`ai-eng release <version> --wait` is now idempotent and resumable.** When the
@@ -33,7 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   required `pypi`, `testpypi`, and `github-release` deployment policies and the
   `tag-protection-v` ruleset coupling are documented in
   `docs/ci-branch-protection.md`.
-
 ## [0.8.0] - 2026-05-24
 
 ### BREAKING
