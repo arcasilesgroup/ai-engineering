@@ -1,0 +1,29 @@
+{
+  "branch": "spec-135/framework-performance-hardening",
+  "created": "2026-05-15T00:00:00+00:00",
+  "extra": {
+    "chains_after": "spec-134",
+    "decisions_count": 15,
+    "lifecycle_bootstrap": "manual (spec_lifecycle.py failed open on Python 3.9 host \u2014 see D-135-13)",
+    "milestones": [
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9"
+    ],
+    "source_brief": ".ai-engineering/specs/drafts/framework-performance-hardening-brief.md",
+    "target_dispatch": "/ai-autopilot",
+    "trigger_incident": "macOS M1 Pro kernel panic during /ai-autopilot \u2014 WindowServer watchdog timeout 171s; compressor 100% segments; 42 swapfiles"
+  },
+  "pr": null,
+  "shipped": null,
+  "slug": "spec-135-framework-performance-hardening",
+  "spec_id": "spec-135",
+  "state": "approved",
+  "title": "Framework Performance Hardening \u2014 Concurrency Budget, Host Preflight, Hook Hot-Path Discipline"
+}

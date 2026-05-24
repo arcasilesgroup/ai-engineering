@@ -17,7 +17,7 @@
   "pr": null,
   "shipped": null,
   "slug": "standard-flow-execution-admission-control",
-  "spec_id": "standard-flow-execution-admission-control",
+  "spec_id": "spec-145",
   "state": "approved",
   "title": "Standard Flow Executor Routing"
 }

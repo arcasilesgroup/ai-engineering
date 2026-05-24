@@ -24,9 +24,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 import time
-from datetime import UTC
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -218,11 +219,11 @@ class TestMarkShipped:
 
         lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
 
-        rows = [
-            line for line in history.read_text().splitlines() if line.startswith("| my-feature |")
-        ]
+        # Rows key on the canonical numeric spec_id (spec-153 D-153-01).
+        row_prefix = f"| {record.spec_id} |"
+        rows = [line for line in history.read_text().splitlines() if line.startswith(row_prefix)]
         assert len(rows) == 1
-        assert "| my-feature | My Feature | shipped |" in rows[0]
+        assert f"| {record.spec_id} | My Feature | shipped |" in rows[0]
         assert "PR-101" in rows[0]
 
     def test_rejects_illegal_transition_from_archived(self, lifecycle, project_root):
@@ -284,25 +285,26 @@ class TestMarkShipped:
 
     def test_upserts_existing_history_row_for_same_spec_id(self, lifecycle, project_root):
         """A stale approved row is replaced, not duplicated, when a spec ships."""
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        # Stale rows key on the canonical numeric spec_id (spec-153 D-153-01).
+        sid = record.spec_id
         history = project_root / ".ai-engineering" / "specs" / "_history.md"
         history.write_text(
             "# Spec History\n\n"
             "Completed specs. Details in git history.\n\n"
             "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
             "|----|-------|--------|---------|---------|----|--------|\n"
-            "| my-feature | My Feature | approved | 2026-05-01 | — | — | feat/old |\n"
-            "| my-feature | My Feature | approved | 2026-05-02 | — | — | feat/duplicate |\n",
+            f"| {sid} | My Feature | approved | 2026-05-01 | — | — | feat/old |\n"
+            f"| {sid} | My Feature | approved | 2026-05-02 | — | — | feat/duplicate |\n",
             encoding="utf-8",
         )
-        record = lifecycle.start_new("my-feature", "My Feature", project_root)
 
         lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
 
-        rows = [
-            line for line in history.read_text().splitlines() if line.startswith("| my-feature |")
-        ]
+        row_prefix = f"| {sid} |"
+        rows = [line for line in history.read_text().splitlines() if line.startswith(row_prefix)]
         assert len(rows) == 1
-        assert "| my-feature | My Feature | shipped |" in rows[0]
+        assert f"| {sid} | My Feature | shipped |" in rows[0]
         assert "PR-101" in rows[0]
 
 
@@ -331,7 +333,8 @@ class TestConsolidateShipped:
 
         assert summary["consolidated"] == 1
         text = history.read_text()
-        assert "| my-feature | My Feature | shipped |" in text
+        # Rows key on the canonical numeric spec_id (spec-153 D-153-01).
+        assert f"| {record.spec_id} | My Feature | shipped |" in text
         assert "PR-101" in text
 
     def test_dry_run_reports_without_mutating_history(self, lifecycle, project_root):
@@ -349,7 +352,7 @@ class TestConsolidateShipped:
 
         summary = lifecycle.consolidate_shipped(project_root, dry_run=True)
 
-        assert summary["would_consolidate"] == ["my-feature"]
+        assert summary["would_consolidate"] == [record.spec_id]
         assert history.read_text() == before
 
 
@@ -554,3 +557,183 @@ class TestCLI:
             ["consolidate_shipped", "--dry-run", "--project-root", str(project_root)]
         )
         assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# Numeric canonical identity (spec-153 D-153-01 / D-153-05)
+# ---------------------------------------------------------------------------
+
+_NUMERIC_SPEC_ID = re.compile(r"^spec-\d+$")
+
+
+def _seed_sidecar(project_root: Path, spec_id: str, *, slug: str, title: str) -> Path:
+    """Write a minimal DRAFT sidecar directly (bypassing start_new)."""
+    specs = project_root / ".ai-engineering" / "state" / "specs"
+    specs.mkdir(parents=True, exist_ok=True)
+    path = specs / f"{spec_id}.json"
+    path.write_text(
+        json.dumps(
+            {
+                "spec_id": spec_id,
+                "slug": slug,
+                "title": title,
+                "state": "draft",
+                "created": datetime.now(UTC).isoformat(),
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+class TestNumericIdentity:
+    def test_start_new_mints_numeric_spec_id_and_keeps_slug(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        assert _NUMERIC_SPEC_ID.match(record.spec_id), (
+            f"spec_id {record.spec_id!r} must match ^spec-\\d+$"
+        )
+        assert record.slug == "my-feature"
+        sidecar = project_root / ".ai-engineering" / "state" / "specs" / f"{record.spec_id}.json"
+        assert sidecar.exists()
+
+    def test_minted_number_is_max_history_plus_one(self, lifecycle, project_root):
+        # Fixture history tops out at id 099 -> next number is 100.
+        record = lifecycle.start_new("after-history", "After History", project_root)
+        assert record.spec_id == "spec-100"
+
+    def test_minted_number_scans_sidecar_ids_too(self, lifecycle, project_root):
+        # A numeric sidecar above the history max wins the +1 race.
+        _seed_sidecar(project_root, "spec-200", slug="prior", title="Prior")
+        record = lifecycle.start_new("next-after-sidecar", "Next", project_root)
+        assert record.spec_id == "spec-201"
+
+    def test_minted_number_takes_max_across_history_and_sidecars(self, lifecycle, project_root):
+        # history max is 099; a 150 sidecar must dominate.
+        _seed_sidecar(project_root, "spec-150", slug="mid", title="Mid")
+        record = lifecycle.start_new("dominant", "Dominant", project_root)
+        assert record.spec_id == "spec-151"
+
+    def test_first_spec_when_no_numbers_anywhere_is_spec_001(self, lifecycle, tmp_path):
+        # No seeded _history.md and no sidecars -> default to 1.
+        (tmp_path / ".ai-engineering" / "specs").mkdir(parents=True)
+        (tmp_path / ".ai-engineering" / "state" / "specs").mkdir(parents=True)
+        (tmp_path / ".ai-engineering" / "state" / "locks").mkdir(parents=True)
+        record = lifecycle.start_new("very-first", "Very First", tmp_path)
+        assert record.spec_id == "spec-001"
+
+    def test_idempotent_same_slug_does_not_mint_new_number(self, lifecycle, project_root):
+        first = lifecycle.start_new("my-feature", "My Feature", project_root)
+        second = lifecycle.start_new("my-feature", "My Feature", project_root)
+        assert first.spec_id == second.spec_id
+        assert _NUMERIC_SPEC_ID.match(second.spec_id)
+        # Only one sidecar exists for the slug; no spurious mint.
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        assert len(list(specs.glob("*.json"))) == 1
+
+    def test_next_spec_number_helper_returns_int(self, lifecycle, project_root):
+        # Fixture history tops out at 099 -> helper returns 100.
+        assert lifecycle._next_spec_number(project_root) == 100
+
+
+class TestLoadStateSlugFallback:
+    def test_load_state_resolves_by_slug_when_id_non_numeric(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        # The sidecar now lives at spec-NNN.json; resolving by the slug must work.
+        resolved = lifecycle._load_state(project_root, "my-feature")
+        assert resolved.spec_id == record.spec_id
+        assert resolved.slug == "my-feature"
+
+    def test_load_state_resolves_by_numeric_id_directly(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        resolved = lifecycle._load_state(project_root, record.spec_id)
+        assert resolved.spec_id == record.spec_id
+
+    def test_load_state_raises_when_both_id_and_slug_miss(self, lifecycle, project_root):
+        with pytest.raises(FileNotFoundError):
+            lifecycle._load_state(project_root, "no-such-spec-or-slug")
+
+
+class TestShippedRowEnumBinding:
+    def test_freshly_shipped_row_status_cell_is_enum_value(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        shipped = lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+        history = (project_root / ".ai-engineering" / "specs" / "_history.md").read_text()
+        row = next(
+            line for line in history.splitlines() if line.startswith(f"| {shipped.spec_id} |")
+        )
+        cells = [c.strip() for c in row.strip().strip("|").split("|")]
+        # Column order: ID, Title, Status, Created, Shipped, PR, Branch.
+        assert cells[2] == lifecycle.LifecycleState.SHIPPED.value
+
+
+# ---------------------------------------------------------------------------
+# migrate_ids (spec-153 D-153-01 / D-153-10)
+# ---------------------------------------------------------------------------
+
+
+class TestMigrateIds:
+    def test_renames_slug_sidecar_to_numeric_via_title_match(self, lifecycle, project_root):
+        # Seed a _history.md row whose title the slug sidecar will match.
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n"
+            "| 077 | Cool Feature | done | 2026-03-26 | — | — | feat/cool |\n",
+            encoding="utf-8",
+        )
+        _seed_sidecar(
+            project_root, "cool-feature-slug", slug="cool-feature-slug", title="Cool Feature"
+        )
+        # A numeric sidecar must be left untouched.
+        _seed_sidecar(project_root, "spec-077-extra", slug="spec-077-extra", title="Cool Feature")
+
+        report = lifecycle.migrate_ids(project_root)
+
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        renamed = specs / "spec-077.json"
+        assert renamed.exists(), "title-matched slug sidecar must be renamed to spec-077.json"
+        assert not (specs / "cool-feature-slug.json").exists()
+        data = json.loads(renamed.read_text())
+        assert data["spec_id"] == "spec-077"
+        assert data["slug"] == "cool-feature-slug"
+        assert "cool-feature-slug" in {r["slug"] for r in report["renamed"]}
+
+    def test_leaves_already_numeric_sidecar_untouched(self, lifecycle, project_root):
+        _seed_sidecar(project_root, "spec-131", slug="spec-131", title="Already Numeric")
+        lifecycle.migrate_ids(project_root)
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        assert (specs / "spec-131.json").exists()
+
+    def test_unresolvable_sidecar_is_skipped_and_reported(self, lifecycle, project_root):
+        _seed_sidecar(
+            project_root,
+            "totally-unmatched-slug",
+            slug="totally-unmatched-slug",
+            title="No History Row For This Title At All",
+        )
+        report = lifecycle.migrate_ids(project_root)
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        # Untouched on disk.
+        assert (specs / "totally-unmatched-slug.json").exists()
+        assert "totally-unmatched-slug" in report["unresolved"]
+
+    def test_dry_run_does_not_mutate_disk(self, lifecycle, project_root):
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n"
+            "| 077 | Cool Feature | done | 2026-03-26 | — | — | feat/cool |\n",
+            encoding="utf-8",
+        )
+        _seed_sidecar(
+            project_root, "cool-feature-slug", slug="cool-feature-slug", title="Cool Feature"
+        )
+        report = lifecycle.migrate_ids(project_root, dry_run=True)
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        assert (specs / "cool-feature-slug.json").exists(), "dry-run must not rename"
+        assert not (specs / "spec-077.json").exists()
+        assert "cool-feature-slug" in {r["slug"] for r in report["renamed"]}

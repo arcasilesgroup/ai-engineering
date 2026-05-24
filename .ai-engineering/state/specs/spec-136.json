@@ -1,0 +1,24 @@
+{
+  "branch": "spec-136/prune-low-value-surfaces",
+  "created": "2026-05-16T00:00:00+00:00",
+  "extra": {
+    "chains_after": "spec-135",
+    "decisions_count": 15,
+    "delivery_mode": "one-atomic-PR",
+    "files_deleted_estimate": 47,
+    "files_relocated": 19,
+    "files_touched_estimate_max": 100,
+    "files_touched_estimate_min": 80,
+    "lifecycle_bootstrap": "manual (spec_lifecycle.py failed open on Python 3.9 host \u2014 see D-135-13)",
+    "lines_edited_estimate_max": 330,
+    "lines_edited_estimate_min": 250,
+    "source_brief": ".ai-engineering/specs/drafts/prune-contexts-docs-research-evals-brief.md",
+    "target_dispatch": "/ai-autopilot"
+  },
+  "pr": null,
+  "shipped": null,
+  "slug": "spec-136-prune-low-value-surfaces",
+  "spec_id": "spec-136",
+  "state": "approved",
+  "title": "Prune docs/, contexts/, research/, evals/ \u2014 single .ai-engineering/reference/ home"
+}

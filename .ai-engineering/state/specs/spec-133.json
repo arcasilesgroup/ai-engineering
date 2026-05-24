@@ -5,7 +5,7 @@
   "pr": null,
   "shipped": null,
   "slug": "spec-133-surface-primitive-rearch",
-  "spec_id": "spec-133-surface-primitive-rearch",
+  "spec_id": "spec-133",
   "state": "draft",
   "title": "Surface Primitive Re-architecture (CLI UX + Cross-IDE)"
 }

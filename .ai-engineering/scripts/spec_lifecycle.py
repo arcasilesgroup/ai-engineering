@@ -30,6 +30,8 @@ import argparse
 import contextlib
 import json
 import os
+import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -169,10 +171,20 @@ def _atomic_write(target: Path, payload: str) -> None:
 
 
 def _load_state(project_root: Path, spec_id: str) -> SpecRecord:
+    """Resolve a record by sidecar id, falling back to slug lookup.
+
+    Numeric ``spec-NNN`` is the canonical identity (spec-153 D-153-01), but
+    callers that still pass a slug (e.g. the consolidate-spec handler) must
+    keep resolving after the slug→numeric rename. We try the direct sidecar
+    path first, then ``_find_by_slug``; only a miss on *both* raises.
+    """
     sidecar = _sidecar_path(project_root, spec_id)
-    if not sidecar.exists():
-        raise FileNotFoundError(f"spec sidecar missing: {spec_id}")
-    return SpecRecord.from_json(json.loads(sidecar.read_text(encoding="utf-8")))
+    if sidecar.exists():
+        return SpecRecord.from_json(json.loads(sidecar.read_text(encoding="utf-8")))
+    by_slug = _find_by_slug(project_root, spec_id)
+    if by_slug is not None:
+        return by_slug
+    raise FileNotFoundError(f"spec sidecar missing: {spec_id}")
 
 
 def _write_state(project_root: Path, record: SpecRecord) -> None:
@@ -329,18 +341,35 @@ def _render_history(project_root: Path, append_row: list[str] | None = None) -> 
 
 
 def start_new(slug: str, title: str, project_root: Path) -> SpecRecord:
-    """Create (or return existing) DRAFT record for ``slug``."""
+    """Create (or return existing) DRAFT record for ``slug``.
+
+    The canonical identity is numeric ``spec-NNN`` (spec-153 D-153-01). The
+    next number is the live max of ledger + sidecar numbers + 1, minted under
+    the shared ``specs-history`` lock so concurrent mints serialize and never
+    collide (D-153-05). The slug is preserved verbatim as the human tag.
+    ``_find_by_slug`` keeps the verb idempotent: re-running for an existing
+    slug returns the existing record without minting a new number.
+    """
     existing = _find_by_slug(project_root, slug)
     if existing is not None:
-        return existing  # idempotent
-    record = SpecRecord(
-        spec_id=slug,
-        slug=slug,
-        title=title,
-        state=LifecycleState.DRAFT,
-        created=_utcnow_iso(),
-    )
-    _write_state(project_root, record)
+        return existing  # idempotent — no new number minted.
+    with artifact_lock(project_root, "specs-history"):
+        # Re-check under the lock: a concurrent mint may have just created the
+        # slug, in which case we return it rather than mint a duplicate.
+        existing = _find_by_slug(project_root, slug)
+        if existing is not None:
+            return existing
+        record = SpecRecord(
+            spec_id=f"spec-{_next_spec_number(project_root):03d}",
+            slug=slug,
+            title=title,
+            state=LifecycleState.DRAFT,
+            created=_utcnow_iso(),
+        )
+        _atomic_write(
+            _sidecar_path(project_root, record.spec_id),
+            json.dumps(record.to_json(), indent=2, sort_keys=True),
+        )
     _append_event(
         project_root,
         "spec_started",
@@ -462,6 +491,48 @@ def _history_spec_ids(project_root: Path) -> set[str]:
     return ids
 
 
+_SPEC_NUMBER_RE = re.compile(r"^spec-(\d+)$")
+
+
+def _scan_spec_numbers(project_root: Path) -> set[int]:
+    """Collect every ``spec-NNN`` number from sidecars + the history ledger.
+
+    Scans both the sidecar ``spec_id`` fields and the canonical
+    ``_history.md`` ID cells, parsing the ``spec-(\\d+)`` form. Bare legacy
+    numeric ledger IDs (``099``) are intentionally ignored here: the canonical
+    identity is ``spec-NNN`` and the historical rows are frozen records, but
+    the highest historical number is still captured via its ``spec-``-prefixed
+    presence in sidecars / new rows. The fixture's bare ``099`` is matched by
+    the dedicated ledger pass below.
+    """
+    numbers: set[int] = set()
+    specs = _specs_dir(project_root)
+    if specs.exists():
+        for path in specs.glob("*.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            match = _SPEC_NUMBER_RE.match(str(data.get("spec_id", "")))
+            if match:
+                numbers.add(int(match.group(1)))
+    for hid in _history_spec_ids(project_root):
+        match = _SPEC_NUMBER_RE.match(hid)
+        if match:
+            numbers.add(int(match.group(1)))
+        elif hid.isdigit():
+            # Legacy bare-number ledger rows (e.g. ``099``) still anchor the
+            # max so the next mint never collides with a historical spec.
+            numbers.add(int(hid))
+    return numbers
+
+
+def _next_spec_number(project_root: Path) -> int:
+    """Return ``max(existing spec numbers) + 1`` (default 1 when none exist)."""
+    numbers = _scan_spec_numbers(project_root)
+    return (max(numbers) + 1) if numbers else 1
+
+
 def _history_row_for(record: SpecRecord) -> list[str]:
     """Project a shipped sidecar record into the 7-column history row."""
     return [
@@ -523,6 +594,241 @@ def consolidate_shipped(project_root: Path, *, dry_run: bool = False) -> dict:
     return summary
 
 
+# --- sidecar id migration (spec-153 D-153-01 / D-153-10) -------------------
+
+# Explicit slug→number mappings for sidecars with no resolvable ``_history.md``
+# numeric row. The supply-chain spec shipped under PR #536 as spec-152 but its
+# sidecar was minted slug-keyed before numeric identity existed (D-153-02).
+_EXPLICIT_ID_MAP: dict[str, str] = {
+    "github-actions-supply-chain-hardening": "spec-152",
+}
+
+# The slug→spec-NNN- prefix is a deterministic numeric signal (the number is
+# literally embedded in the slug), not a guess.
+_SLUG_PREFIX_RE = re.compile(r"^spec-(\d+)-")
+
+
+def _spec_frontmatter_id(project_root: Path) -> str | None:
+    """Read the canonical ``spec:`` id from ``specs/spec.md`` frontmatter."""
+    spec_md = project_root / ".ai-engineering" / "specs" / "spec.md"
+    if not spec_md.exists():
+        return None
+    in_frontmatter = False
+    for line in spec_md.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped == "---":
+            if in_frontmatter:
+                break
+            in_frontmatter = True
+            continue
+        if in_frontmatter and stripped.startswith("spec:"):
+            value = stripped.split(":", 1)[1].strip()
+            if _SPEC_NUMBER_RE.match(value):
+                return value
+    return None
+
+
+def _history_title_to_id(project_root: Path) -> dict[str, list[str]]:
+    """Map each ledger row title to the list of IDs that carry it."""
+    history = _history_path(project_root)
+    mapping: dict[str, list[str]] = {}
+    if not history.exists():
+        return mapping
+    rows, _tail = _split_history(history.read_text(encoding="utf-8"))
+    data_rows = _migrate_rows(rows)
+    for row in data_rows:
+        cells = _normalize_row(row)
+        if len(cells) >= 2:
+            mapping.setdefault(cells[1], []).append(cells[0])
+    return mapping
+
+
+def _resolve_numeric_id(
+    record: SpecRecord,
+    *,
+    project_root: Path,
+    frontmatter_id: str | None,
+    title_index: dict[str, list[str]],
+) -> str | None:
+    """Resolve a slug sidecar to its canonical ``spec-NNN`` — or ``None``.
+
+    Resolution order (all deterministic, never a guess):
+
+    1. Explicit known mapping (``_EXPLICIT_ID_MAP``).
+    2. This run's own sidecar → ``spec.md`` frontmatter ``spec:``.
+    3. Unique ``_history.md`` row whose title equals the sidecar title.
+    4. A ``spec-(\\d+)-`` slug prefix (number embedded literally in the slug).
+
+    Returns the resolved ``spec-NNN`` only when it parses to ``^spec-\\d+$``
+    and to exactly one candidate; otherwise ``None`` (caller reports it).
+    """
+    if record.slug in _EXPLICIT_ID_MAP:
+        return _EXPLICIT_ID_MAP[record.slug]
+    if record.slug == "spec-lifecycle-and-client-readme" and frontmatter_id:
+        return frontmatter_id
+    matches = title_index.get(record.title, [])
+    numeric_matches = sorted({m for m in matches if _SPEC_NUMBER_RE.match(m)})
+    if len(numeric_matches) == 1:
+        return numeric_matches[0]
+    bare_matches = sorted({m for m in matches if m.isdigit()})
+    if not numeric_matches and len(bare_matches) == 1:
+        return f"spec-{int(bare_matches[0]):03d}"
+    prefix = _SLUG_PREFIX_RE.match(record.slug)
+    if prefix:
+        return f"spec-{int(prefix.group(1)):03d}"
+    return None
+
+
+def _git_mv(project_root: Path, src: Path, dst: Path) -> None:
+    """``git mv`` to preserve history; fall back to ``os.replace`` if untracked."""
+    try:
+        subprocess.run(
+            ["git", "-C", str(project_root), "mv", str(src), str(dst)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Untracked file (fresh tmp fixture) or git absent — plain rename.
+        os.replace(str(src), str(dst))
+
+
+def _git_rm(project_root: Path, target: Path) -> None:
+    """``git rm`` to preserve history; fall back to ``unlink`` if untracked."""
+    try:
+        subprocess.run(
+            ["git", "-C", str(project_root), "rm", str(target)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        with contextlib.suppress(OSError):
+            target.unlink()
+
+
+def _dedup_obvious_by_default(project_root: Path, *, dry_run: bool) -> dict[str, str] | None:
+    """De-duplicate the ``obvious-by-default`` / ``-essentials`` sidecar pair.
+
+    Keeps the record with the later ``created`` timestamp (the more recent,
+    more-complete draft) and removes the other (D-153-10). Returns a report
+    entry describing the decision, or ``None`` when the pair is not both
+    present.
+    """
+    specs = _specs_dir(project_root)
+    primary = specs / "obvious-by-default.json"
+    essentials = specs / "obvious-by-default-essentials.json"
+    if not (primary.exists() and essentials.exists()):
+        return None
+    try:
+        p_created = json.loads(primary.read_text(encoding="utf-8")).get("created", "")
+        e_created = json.loads(essentials.read_text(encoding="utf-8")).get("created", "")
+    except (OSError, json.JSONDecodeError):
+        return None
+    # Later created wins; ISO-8601 strings sort lexicographically by time.
+    if e_created >= p_created:
+        keep, drop = essentials, primary
+    else:
+        keep, drop = primary, essentials
+    if not dry_run:
+        _git_rm(project_root, drop)
+    return {"kept": keep.stem, "dropped": drop.stem}
+
+
+def migrate_ids(project_root: Path, *, dry_run: bool = False) -> dict:
+    """Migrate slug-keyed sidecars to the canonical ``spec-NNN`` scheme.
+
+    For every sidecar whose ``spec_id`` is not already ``^spec-\\d+$``, resolve
+    its canonical number deterministically (see ``_resolve_numeric_id``),
+    rewrite ``spec_id`` in place, and ``git mv`` the file to ``spec-NNN.json``.
+    The ``obvious-by-default`` pair is de-duplicated first. Any sidecar whose
+    number cannot be unambiguously resolved is left untouched and listed under
+    ``unresolved`` — a guessed number is never assigned (spec-153 D-153-01).
+
+    Runs under the ``specs-history`` lock so it serializes against ``start_new``
+    minting and never races a concurrent number allocation.
+    """
+    # Explicit typed accumulators keep the report values concrete (no opaque
+    # ``object`` casts, so no suppression comments are needed).
+    renamed: list[dict[str, str]] = []
+    unresolved: list[str] = []
+    already_numeric: list[str] = []
+    dedup: dict[str, str] | None = None
+
+    specs = _specs_dir(project_root)
+    if not specs.exists():
+        return {
+            "renamed": renamed,
+            "unresolved": unresolved,
+            "already_numeric": already_numeric,
+            "dedup": dedup,
+            "dry_run": dry_run,
+        }
+
+    with artifact_lock(project_root, "specs-history"):
+        dedup = _dedup_obvious_by_default(project_root, dry_run=dry_run)
+        dropped_stem = dedup["dropped"] if dedup else None
+
+        frontmatter_id = _spec_frontmatter_id(project_root)
+        title_index = _history_title_to_id(project_root)
+
+        for path in sorted(specs.glob("*.json")):
+            if dropped_stem and path.stem == dropped_stem:
+                continue  # already removed by the dedup pass.
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                unresolved.append(path.stem)
+                continue
+            spec_id = str(data.get("spec_id", ""))
+            if _SPEC_NUMBER_RE.match(spec_id):
+                already_numeric.append(spec_id)
+                continue
+            try:
+                record = SpecRecord.from_json(data)
+            except (KeyError, ValueError):
+                unresolved.append(path.stem)
+                continue
+            target_id = _resolve_numeric_id(
+                record,
+                project_root=project_root,
+                frontmatter_id=frontmatter_id,
+                title_index=title_index,
+            )
+            if target_id is None:
+                unresolved.append(record.slug)
+                continue
+            target_path = specs / f"{target_id}.json"
+            # Never clobber an existing, distinct numeric sidecar.
+            if target_path.exists() and target_path != path:
+                unresolved.append(record.slug)
+                continue
+            renamed.append({"slug": record.slug, "from": path.name, "to": f"{target_id}.json"})
+            if dry_run:
+                continue
+            data["spec_id"] = target_id
+            _atomic_write(path, json.dumps(data, indent=2, sort_keys=True))
+            _git_mv(project_root, path, target_path)
+
+    if not dry_run and (renamed or dedup):
+        _append_event(
+            project_root,
+            "spec_ids_migrated",
+            {
+                "renamed": len(renamed),
+                "unresolved": len(unresolved),
+                "deduped": bool(dedup),
+            },
+        )
+    return {
+        "renamed": renamed,
+        "unresolved": unresolved,
+        "already_numeric": already_numeric,
+        "dedup": dedup,
+        "dry_run": dry_run,
+    }
+
+
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
@@ -569,6 +875,9 @@ def _build_parser() -> argparse.ArgumentParser:
     cs = sub.add_parser("consolidate_shipped", help="Append missing history rows for SHIPPED specs")
     cs.add_argument("--dry-run", action="store_true", help="Preview rows without mutating files")
     _common(cs)
+    mi = sub.add_parser("migrate_ids", help="Rename slug sidecars to canonical spec-NNN")
+    mi.add_argument("--dry-run", action="store_true", help="Preview renames without mutating files")
+    _common(mi)
     return p
 
 
@@ -602,6 +911,8 @@ def main(argv: list[str] | None = None) -> int:
             print("migrated _history.md to 7-col canonical layout")
         elif args.cmd == "consolidate_shipped":
             print(json.dumps(consolidate_shipped(project_root, dry_run=args.dry_run), indent=2))
+        elif args.cmd == "migrate_ids":
+            print(json.dumps(migrate_ids(project_root, dry_run=args.dry_run), indent=2))
         else:
             return 2
     except (ValueError, FileNotFoundError, KeyError) as exc:
