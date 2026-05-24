@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`ai-eng release <version> --wait` is now idempotent and resumable.** When the
+  release PR has already merged (the version bump is on the default branch and the
+  CHANGELOG `[Unreleased]` is already promoted) but the tag was never created, a
+  rerun now detects that the current version already equals the target and the tag
+  is absent, skips validate's version/changelog gate plus prepare/PR/wait-for-merge,
+  and proceeds straight to readiness → create-tag → monitor. The pre-merge flow is
+  unchanged when the bump has not landed, and a genuine downgrade still errors.
+- **Release `prepare` now syncs the project's own version pin in `uv.lock`.** The
+  bump updated `pyproject.toml`, `version/registry.json`, and the two `manifest.yml`
+  surfaces but left the `uv.lock` editable-root pin stale, which forced a manual
+  lockfile commit onto the release branch. The pin is now rewritten in place
+  alongside the other bumped files.
+- **Release deployment-environment drift is now guarded.** The 0.8.0 publish
+  nearly failed because `release.yml` became tag-triggered (spec-152) while the
+  `pypi` GitHub environment still allowed only the `main` branch — a setting
+  that lives in repo configuration, not the repository, so nothing in-tree
+  caught the drift. `ai-eng doctor` now runs a `release-env-policy` runtime
+  check that reads each release environment's live deployment policy and warns
+  when the `v*` tag pattern is missing, and a new
+  `tests/unit/workflows/test_release_env_policy_docs.py` fails CI if a publish
+  environment is added to the workflow without a matching policy note. The
+  required `pypi`, `testpypi`, and `github-release` deployment policies and the
+  `tag-protection-v` ruleset coupling are documented in
+  `docs/ci-branch-protection.md`.
+
 ## [0.8.0] - 2026-05-24
 
 ### BREAKING

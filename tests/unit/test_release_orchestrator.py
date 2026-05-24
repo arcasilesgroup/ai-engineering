@@ -7,6 +7,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from ai_engineering.release.orchestrator import (
     PhaseResult,
     ReleaseConfig,
@@ -23,6 +25,7 @@ from ai_engineering.release.orchestrator import (
     _prepare_branch,
     _repo_slug,
     _run_release_readiness,
+    _update_lockfile_version,
     _update_manifest,
     _validate,
     _version_from_git_ref,
@@ -1154,3 +1157,294 @@ def test_parse_runs_and_helpers_extra_branches(tmp_path: Path) -> None:
 
     with patch("ai_engineering.release.orchestrator.run_git", return_value=(True, "[1]")):
         assert _find_existing_pr_url(tmp_path, "release/v0.2.0", _FakeProvider(), _Runner()) == ""
+
+
+# --- Idempotent resume: bump already merged, tag still missing ------------------
+
+
+def _write_post_promotion_changelog(tmp_path: Path, version: str) -> None:
+    """Write a CHANGELOG in the post-promotion state: empty [Unreleased], [version] present."""
+    (tmp_path / "CHANGELOG.md").write_text(
+        f"# Changelog\n\n## [Unreleased]\n\n## [{version}] - 2026-01-01\n\n### Added\n- thing\n",
+        encoding="utf-8",
+    )
+
+
+def test_validate_resume_skips_version_and_changelog_gate(tmp_path: Path) -> None:
+    """current == target (bump merged) must skip the greater-than gate AND the
+    changelog gate so a post-merge rerun can resume to tag instead of failing."""
+    # Arrange — CHANGELOG already promoted (empty [Unreleased], [0.2.0] present)
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+    _write_post_promotion_changelog(tmp_path, "0.2.0")
+
+    # Act — tag absent (so no early return), branch main, clean tree, version equal
+    with (
+        patch(
+            "ai_engineering.release.orchestrator.run_git",
+            side_effect=[(False, ""), (True, "")],
+        ),
+        patch("ai_engineering.release.orchestrator.current_branch", return_value="main"),
+        patch("ai_engineering.release.orchestrator.detect_current_version", return_value="0.2.0"),
+    ):
+        errors = _validate(cfg, _FakeProvider())
+
+    # Assert — no errors despite empty [Unreleased] and existing [0.2.0] section
+    assert errors == []
+
+
+def test_validate_still_blocks_downgrade(tmp_path: Path) -> None:
+    """current > target is a genuine downgrade and must still error."""
+    # Arrange
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## [Unreleased]\n\n### Added\n- x\n", encoding="utf-8"
+    )
+
+    # Act
+    with (
+        patch(
+            "ai_engineering.release.orchestrator.run_git",
+            side_effect=[(False, ""), (True, "")],
+        ),
+        patch("ai_engineering.release.orchestrator.current_branch", return_value="main"),
+        patch("ai_engineering.release.orchestrator.detect_current_version", return_value="0.3.0"),
+    ):
+        errors = _validate(cfg, _FakeProvider())
+
+    # Assert
+    assert any("must be greater than current" in e for e in errors)
+
+
+def test_execute_release_resume_creates_tag_when_bump_already_merged(tmp_path: Path) -> None:
+    """When the bump is already on main and the tag is missing, skip
+    prepare/PR/wait-for-merge and proceed straight to readiness -> tag -> monitor."""
+    # Arrange — current_version equals target, tag absent
+    config = ReleaseConfig(version="0.2.0", project_root=tmp_path, wait=True)
+    provider = _FakeProvider()
+    state = ReleaseState("release/v0.2.0", False, False, tag_exists=False, current_version="0.2.0")
+
+    # Act
+    with (
+        patch("ai_engineering.release.orchestrator._validate", return_value=[]),
+        patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
+        patch("ai_engineering.release.orchestrator._prepare_branch") as prepare,
+        patch("ai_engineering.release.orchestrator._create_release_pr") as create_pr,
+        patch("ai_engineering.release.orchestrator._wait_for_merge") as wait,
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase(),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._create_tag",
+            return_value=PhaseResult("tag", True, "v0.2.0 created"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._update_manifest",
+            return_value=PhaseResult("manifest", True, "ok"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._monitor_pipeline",
+            return_value=PhaseResult("monitor", True, "https://example/release/v0.2.0"),
+        ),
+        patch("ai_engineering.release.orchestrator.emit_deploy_event"),
+    ):
+        result = execute_release(config, provider, clock=_FixedClock())
+
+    # Assert — pre-merge phases skipped (not invoked), completion phases ran
+    assert result.success is True
+    prepare.assert_not_called()
+    create_pr.assert_not_called()
+    wait.assert_not_called()
+    assert [phase.phase for phase in result.phases] == [
+        "validate",
+        "prepare",
+        "pr",
+        "wait-for-merge",
+        "readiness",
+        "tag",
+        "manifest",
+        "monitor",
+    ]
+    by_phase = {phase.phase: phase for phase in result.phases}
+    assert by_phase["prepare"].skipped is True
+    assert by_phase["pr"].skipped is True
+    assert by_phase["wait-for-merge"].skipped is True
+    assert by_phase["tag"].skipped is False
+    assert by_phase["tag"].success is True
+
+
+def test_execute_release_resume_completes_even_without_wait_flag(tmp_path: Path) -> None:
+    """Resume finishes (tag + monitor) even without --wait: there is no merge to
+    wait for once the bump has landed, so the deferred-tag path must not apply."""
+    # Arrange
+    config = ReleaseConfig(version="0.2.0", project_root=tmp_path, wait=False)
+    provider = _FakeProvider()
+    state = ReleaseState("release/v0.2.0", False, False, tag_exists=False, current_version="0.2.0")
+
+    # Act — _prepare_branch/_create_release_pr must not be called
+    with (
+        patch("ai_engineering.release.orchestrator._validate", return_value=[]),
+        patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
+        patch("ai_engineering.release.orchestrator._prepare_branch") as prepare,
+        patch("ai_engineering.release.orchestrator._create_release_pr") as create_pr,
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase(),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._create_tag",
+            return_value=PhaseResult("tag", True, "v0.2.0 created"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._update_manifest",
+            return_value=PhaseResult("manifest", True, "ok"),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._monitor_pipeline",
+            return_value=PhaseResult("monitor", True, "https://example/release/v0.2.0"),
+        ),
+        patch("ai_engineering.release.orchestrator.emit_deploy_event"),
+    ):
+        result = execute_release(config, provider, clock=_FixedClock())
+
+    # Assert — tag actually created (not deferred)
+    assert result.success is True
+    prepare.assert_not_called()
+    create_pr.assert_not_called()
+    tag_phases = [phase for phase in result.phases if phase.phase == "tag"]
+    assert len(tag_phases) == 1
+    assert tag_phases[0].skipped is False
+    assert "deferred" not in tag_phases[0].output.lower()
+
+
+def test_execute_release_resume_blocks_on_readiness_no_go(tmp_path: Path) -> None:
+    """Resume path still honors the readiness gate: NO-GO stops before tagging."""
+    # Arrange
+    config = ReleaseConfig(version="0.2.0", project_root=tmp_path, wait=True)
+    provider = _FakeProvider()
+    state = ReleaseState("release/v0.2.0", False, False, tag_exists=False, current_version="0.2.0")
+
+    # Act
+    with (
+        patch("ai_engineering.release.orchestrator._validate", return_value=[]),
+        patch("ai_engineering.release.orchestrator._detect_state", return_value=state),
+        patch("ai_engineering.release.orchestrator._prepare_branch"),
+        patch("ai_engineering.release.orchestrator._create_release_pr"),
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase("NO-GO", success=False),
+        ),
+        patch("ai_engineering.release.orchestrator._create_tag") as tag,
+    ):
+        result = execute_release(config, provider, clock=_FixedClock())
+
+    # Assert
+    assert result.success is False
+    assert result.errors == ["NO-GO"]
+    assert result.phases[-1].phase == "readiness"
+    tag.assert_not_called()
+
+
+# --- Secondary: uv.lock project pin stays consistent with the bump --------------
+
+
+_LOCK_FIXTURE = (
+    (
+        "version = 1\n"
+        "revision = 3\n\n"
+        "[[package]]\n"
+        'name = "ai-engineering"\n'
+        'version = "0.1.0"\n'
+        'source = {{ editable = "." }}\n'
+        "dependencies = [\n"
+        '    {{ name = "click" }},\n'
+        "]\n\n"
+        "[[package]]\n"
+        'name = "click"\n'
+        'version = "8.3.3"\n'
+    )
+    .replace("{{", "{")
+    .replace("}}", "}")
+)
+
+
+def test_update_lockfile_version_updates_editable_root_pin(tmp_path: Path) -> None:
+    # Arrange
+    lock = tmp_path / "uv.lock"
+    lock.write_text(_LOCK_FIXTURE, encoding="utf-8")
+
+    # Act
+    result = _update_lockfile_version(tmp_path, "0.2.0")
+
+    # Assert — only the editable-root pin moved
+    text = lock.read_text(encoding="utf-8")
+    assert result == lock
+    assert 'version = "0.2.0"\nsource = { editable = "." }' in text
+    # lockfile-format `version = 1` line and dependency pins untouched
+    assert text.startswith("version = 1\n")
+    assert 'name = "click"\nversion = "8.3.3"' in text
+
+
+def test_update_lockfile_version_missing_file_returns_none(tmp_path: Path) -> None:
+    assert _update_lockfile_version(tmp_path, "0.2.0") is None
+
+
+def test_update_lockfile_version_without_editable_root_raises(tmp_path: Path) -> None:
+    # Arrange — a lockfile with no editable root pin
+    lock = tmp_path / "uv.lock"
+    lock.write_text(
+        'version = 1\n\n[[package]]\nname = "click"\nversion = "8.3.3"\n', encoding="utf-8"
+    )
+
+    # Act / Assert
+    with pytest.raises(ValueError, match=r"uv\.lock"):
+        _update_lockfile_version(tmp_path, "0.2.0")
+
+
+def test_prepare_branch_updates_uv_lock_and_lists_it(tmp_path: Path) -> None:
+    # Arrange
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+    bump = type("Bump", (), {})()
+    bump.old_version = "0.1.0"
+    bump.new_version = "0.2.0"
+    bump.files_modified = [tmp_path / "pyproject.toml"]
+    # show-ref (absent), checkout -b, add, commit
+    seq = [(False, ""), (True, ""), (True, ""), (True, "")]
+
+    # Act
+    with (
+        patch("ai_engineering.release.orchestrator.run_git", side_effect=seq),
+        patch("ai_engineering.release.orchestrator.bump_python_version", return_value=bump),
+        patch("ai_engineering.release.orchestrator.promote_unreleased", return_value=True),
+        patch(
+            "ai_engineering.release.orchestrator._update_lockfile_version",
+            return_value=tmp_path / "uv.lock",
+        ),
+    ):
+        phase = _prepare_branch(cfg, _FixedClock())
+
+    # Assert — uv.lock listed among the bumped files
+    assert phase.success is True
+    assert "uv.lock" in phase.output
+
+
+def test_prepare_branch_propagates_lockfile_error(tmp_path: Path) -> None:
+    # Arrange
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+    bump = type("Bump", (), {})()
+    bump.files_modified = [tmp_path / "pyproject.toml"]
+
+    # Act — lock update fails after a successful bump
+    with (
+        patch("ai_engineering.release.orchestrator.run_git", side_effect=[(False, ""), (True, "")]),
+        patch("ai_engineering.release.orchestrator.bump_python_version", return_value=bump),
+        patch(
+            "ai_engineering.release.orchestrator._update_lockfile_version",
+            side_effect=ValueError("Unable to update project version in uv.lock"),
+        ),
+    ):
+        phase = _prepare_branch(cfg, _FixedClock())
+
+    # Assert
+    assert phase.success is False
+    assert "uv.lock" in phase.output

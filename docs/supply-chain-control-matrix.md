@@ -23,6 +23,17 @@ This matrix maps every dependency-ingress surface to its **owner**, the
 | 5 | Supply-chain-sensitive file edits | `@arcasilesgroup/maintainers` | `.github/CODEOWNERS` — explicit entries for `/.github/**`, `/.github/actions/**`, `release.yml`, `check_workflow_policy.py`, `pyproject.toml`, `uv.lock` | every PR touching those paths | required maintainer review before merge | PR review record | Request maintainer review; the rule is GitHub-enforced once branch protection requires CODEOWNERS review |
 | 6 | GitHub Action / runtime-tool pinning | `@arcasilesgroup/maintainers` | `scripts/check_workflow_policy.py` (`workflow-sanity` job) — every external `uses:` must be a 40-char SHA; runtime installs must be version-pinned | every run (`workflow-sanity` is `always_required`) | any unpinned action or install → policy fails → `CI Result` fails | policy-check log | Resolve the tag to a SHA via `git ls-remote`; pin the install version |
 
+## Release deployment authorization (egress)
+
+The matrix above guards dependency *ingress*. The complementary *egress*
+control — which refs may publish to PyPI / TestPyPI and cut the GitHub
+Release — is each environment's **deployment policy**. Because
+[`release.yml`](../.github/workflows/release.yml) is tag-triggered, every
+release environment must admit the `v*` tag pattern. That requirement, the
+`tag-protection-v` ruleset coupling, and the `release-env-policy` doctor
+guard are documented in
+[`docs/ci-branch-protection.md`](ci-branch-protection.md#environment-deployment-policies-release-publishing).
+
 ## Dependabot PRs run the same `CI Result`
 
 Dependabot opens PRs against `main` like any contributor, so its PRs run
