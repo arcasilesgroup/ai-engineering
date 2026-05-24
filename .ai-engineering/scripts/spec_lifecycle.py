@@ -164,6 +164,16 @@ def _archive_dir(project_root: Path) -> Path:
     return _specs_root(project_root) / "archive"
 
 
+def _drafts_dir(project_root: Path) -> Path:
+    """Researched problem briefs awaiting ``/ai-brainstorm``: ``specs/drafts/``."""
+    return _specs_root(project_root) / "drafts"
+
+
+def _archive_drafts_dir(project_root: Path) -> Path:
+    """Durable home for reaped stale briefs: ``specs/archive/drafts/``."""
+    return _archive_dir(project_root) / "drafts"
+
+
 # Placeholder both working buffers are reset to once a spec ships (D-153-04).
 _BUFFER_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
 
@@ -561,11 +571,19 @@ def sweep(project_root: Path) -> dict:
     ``reap_orphans``), fail-open to 14 days / reaping enabled (D-153-08). The
     DRAFT→ABANDONED pass runs first; then, when ``reap_orphans`` is set, the
     orphan reaper moves any stray ``specs/spec-*.md`` into its archive directory
-    (D-153-07). Idempotent re-runs: an empty root reaps nothing. The summary —
-    and the ``spec_sweep`` event detail — carries a ``reaped`` count.
+    (D-153-07) and the draft reaper moves stale ``specs/drafts/*-brief.md`` files
+    (older than ``draft_ttl_days`` by mtime) into ``specs/archive/drafts/``.
+    Idempotent re-runs: an empty root reaps nothing. The summary — and the
+    ``spec_sweep`` event detail — carries ``reaped`` (stray specs) and
+    ``drafts_reaped`` (stale briefs) counts.
     """
     draft_ttl_days, reap_orphans = _read_lifecycle_config(project_root)
-    summary: dict[str, int] = {"abandoned": 0, "archived": 0, "reaped": 0}
+    summary: dict[str, int] = {
+        "abandoned": 0,
+        "archived": 0,
+        "reaped": 0,
+        "drafts_reaped": 0,
+    }
     d = _specs_dir(project_root)
     if d.exists():
         cutoff = datetime.now(timezone.utc) - timedelta(days=draft_ttl_days)
@@ -587,6 +605,7 @@ def sweep(project_root: Path) -> dict:
                     summary["abandoned"] += 1
     if reap_orphans:
         summary["reaped"] = _reap_orphans(project_root)
+        summary["drafts_reaped"] = _reap_stale_drafts(project_root, draft_ttl_days)
     _append_event(project_root, "spec_sweep", summary)
     return summary
 
@@ -676,6 +695,41 @@ def _reap_orphans(project_root: Path) -> int:
         dest_dir = _archive_dir(project_root) / path.stem
         dest_dir.mkdir(parents=True, exist_ok=True)
         _git_mv(project_root, path, dest_dir / "spec.md")
+        reaped += 1
+    return reaped
+
+
+def _reap_stale_drafts(project_root: Path, draft_ttl_days: int) -> int:
+    """Move stale ``specs/drafts/*-brief.md`` files into ``specs/archive/drafts/``.
+
+    Researched problem briefs feed ``/ai-brainstorm`` and otherwise accumulate
+    unbounded. A brief whose mtime is older than ``draft_ttl_days`` is reaped to
+    ``archive/drafts/<basename>`` (preserving the filename). Like the orphan
+    reaper, this only ever *moves* (``git mv`` with a plain-rename fallback) —
+    it never deletes — and never follows a symlink (a hostile
+    ``evil-brief.md -> /outside`` must not escape the tree). Only ``*-brief.md``
+    files are reaped: other markdown in ``drafts/`` is left untouched. Returns
+    the number of briefs reaped.
+    """
+    drafts_dir = _drafts_dir(project_root)
+    if not drafts_dir.is_dir():
+        return 0
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=draft_ttl_days)).timestamp()
+    reaped = 0
+    for path in sorted(drafts_dir.glob("*-brief.md")):
+        if path.is_symlink():
+            continue
+        if not path.is_file():
+            continue
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if mtime >= cutoff:
+            continue
+        dest_dir = _archive_drafts_dir(project_root)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        _git_mv(project_root, path, dest_dir / path.name)
         reaped += 1
     return reaped
 

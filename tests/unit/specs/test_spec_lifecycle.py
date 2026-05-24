@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import re
 import sys
 import time
@@ -993,6 +994,144 @@ class TestSweepReaper:
         sweep_events = [e for e in events if e.get("detail", {}).get("operation") == "spec_sweep"]
         assert sweep_events, "sweep must emit a spec_sweep event"
         assert sweep_events[-1]["detail"].get("reaped") == 1
+
+
+# ---------------------------------------------------------------------------
+# sweep — stale draft-brief retention (spec-153 follow-up: drafts/ TTL)
+# ---------------------------------------------------------------------------
+
+
+def _backdate_mtime(path: Path, *, days: int) -> None:
+    """Set a file's atime+mtime to *days* in the past."""
+    past = time.time() - days * 24 * 3600
+    os.utime(path, (past, past))
+
+
+class TestSweepDraftRetention:
+    """``sweep`` reaps stale ``specs/drafts/*-brief.md`` past the draft TTL.
+
+    Briefs feed ``/ai-brainstorm`` and otherwise accumulate unbounded. The
+    manifest ``lifecycle.draft_ttl_days`` (default 30) + ``reap_orphans`` gate
+    the reap; stale briefs are MOVED (never deleted) to
+    ``specs/archive/drafts/<name>`` consistent with the orphan reaper.
+    """
+
+    def test_stale_brief_moved_to_archive_drafts_when_reap_enabled(self, lifecycle, project_root):
+        _write_manifest_lifecycle(project_root, draft_ttl_days=30, reap_orphans=True)
+        drafts = project_root / ".ai-engineering" / "specs" / "drafts"
+        drafts.mkdir(parents=True, exist_ok=True)
+        stale = drafts / "old-idea-brief.md"
+        stale.write_text("# old idea\n\nstale brief.\n", encoding="utf-8")
+        _backdate_mtime(stale, days=45)
+
+        result = lifecycle.sweep(project_root)
+
+        moved = (
+            project_root / ".ai-engineering" / "specs" / "archive" / "drafts" / "old-idea-brief.md"
+        )
+        assert moved.exists(), "stale brief must move into archive/drafts/"
+        assert moved.read_text(encoding="utf-8") == "# old idea\n\nstale brief.\n"
+        assert not stale.exists(), "the original brief must be moved, not copied"
+        assert result.get("drafts_reaped", 0) == 1
+
+    def test_recent_brief_left_untouched(self, lifecycle, project_root):
+        _write_manifest_lifecycle(project_root, draft_ttl_days=30, reap_orphans=True)
+        drafts = project_root / ".ai-engineering" / "specs" / "drafts"
+        drafts.mkdir(parents=True, exist_ok=True)
+        fresh = drafts / "fresh-idea-brief.md"
+        fresh.write_text("# fresh\n", encoding="utf-8")
+        _backdate_mtime(fresh, days=3)
+
+        result = lifecycle.sweep(project_root)
+
+        assert fresh.exists(), "a recent brief must not be reaped"
+        assert not (
+            project_root
+            / ".ai-engineering"
+            / "specs"
+            / "archive"
+            / "drafts"
+            / "fresh-idea-brief.md"
+        ).exists()
+        assert result.get("drafts_reaped", 0) == 0
+
+    def test_reap_orphans_false_leaves_stale_briefs_alone(self, lifecycle, project_root):
+        _write_manifest_lifecycle(project_root, draft_ttl_days=30, reap_orphans=False)
+        drafts = project_root / ".ai-engineering" / "specs" / "drafts"
+        drafts.mkdir(parents=True, exist_ok=True)
+        stale = drafts / "old-idea-brief.md"
+        stale.write_text("# old\n", encoding="utf-8")
+        _backdate_mtime(stale, days=90)
+
+        result = lifecycle.sweep(project_root)
+
+        assert stale.exists(), "reap_orphans=false must leave stale briefs in place"
+        assert result.get("drafts_reaped", 0) == 0
+
+    def test_fails_open_to_14_days_when_manifest_absent(self, lifecycle, project_root):
+        # No manifest.yml in the fixture -> fail-open to 14-day TTL + reaping on.
+        drafts = project_root / ".ai-engineering" / "specs" / "drafts"
+        drafts.mkdir(parents=True, exist_ok=True)
+        stale = drafts / "ancient-brief.md"
+        stale.write_text("# ancient\n", encoding="utf-8")
+        _backdate_mtime(stale, days=20)  # > the fail-open 14-day window
+
+        result = lifecycle.sweep(project_root)
+
+        moved = (
+            project_root / ".ai-engineering" / "specs" / "archive" / "drafts" / "ancient-brief.md"
+        )
+        assert moved.exists(), "fail-open 14d TTL must reap a 20-day-old brief"
+        assert result.get("drafts_reaped", 0) == 1
+
+    def test_only_brief_suffix_files_are_reaped(self, lifecycle, project_root):
+        # A non-brief markdown file in drafts/ is NOT a brief; leave it alone.
+        _write_manifest_lifecycle(project_root, draft_ttl_days=30, reap_orphans=True)
+        drafts = project_root / ".ai-engineering" / "specs" / "drafts"
+        drafts.mkdir(parents=True, exist_ok=True)
+        not_a_brief = drafts / "notes.md"
+        not_a_brief.write_text("# scratch notes\n", encoding="utf-8")
+        _backdate_mtime(not_a_brief, days=120)
+
+        result = lifecycle.sweep(project_root)
+
+        assert not_a_brief.exists(), "only *-brief.md files are reaped from drafts/"
+        assert result.get("drafts_reaped", 0) == 0
+
+    def test_sweep_event_detail_carries_drafts_reaped_count(self, lifecycle, project_root):
+        _write_manifest_lifecycle(project_root, draft_ttl_days=30, reap_orphans=True)
+        drafts = project_root / ".ai-engineering" / "specs" / "drafts"
+        drafts.mkdir(parents=True, exist_ok=True)
+        stale = drafts / "stale-brief.md"
+        stale.write_text("# stale\n", encoding="utf-8")
+        _backdate_mtime(stale, days=60)
+
+        lifecycle.sweep(project_root)
+
+        events = _events(project_root)
+        sweep_events = [e for e in events if e.get("detail", {}).get("operation") == "spec_sweep"]
+        assert sweep_events, "sweep must emit a spec_sweep event"
+        assert sweep_events[-1]["detail"].get("drafts_reaped") == 1
+
+    def test_stale_brief_symlink_is_not_followed(self, lifecycle, project_root):
+        # Security: a hostile symlink named *-brief.md must never be relocated
+        # (mirrors the orphan reaper's symlink guard).
+        _write_manifest_lifecycle(project_root, draft_ttl_days=30, reap_orphans=True)
+        drafts = project_root / ".ai-engineering" / "specs" / "drafts"
+        drafts.mkdir(parents=True, exist_ok=True)
+        outside = project_root / "outside-secret.md"
+        outside.write_text("secret\n", encoding="utf-8")
+        link = drafts / "evil-brief.md"
+        try:
+            link.symlink_to(outside)
+        except (OSError, NotImplementedError):
+            pytest.skip("platform cannot create symlinks without elevation")
+        _backdate_mtime(outside, days=99)
+
+        result = lifecycle.sweep(project_root)
+
+        assert outside.exists(), "the symlink target must never be relocated"
+        assert result.get("drafts_reaped", 0) == 0
 
 
 # ---------------------------------------------------------------------------
