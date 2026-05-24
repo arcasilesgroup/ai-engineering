@@ -5,7 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-ARTIFACT = PROJECT_ROOT / ".ai-engineering" / "specs" / "spec-146-caller-inventory.md"
+# spec-153 W3: reaped from specs/ root into the uniform per-spec archive
+# directory (D-153-07).
+ARTIFACT = (
+    PROJECT_ROOT
+    / ".ai-engineering"
+    / "specs"
+    / "archive"
+    / "spec-146-framework-simplification-less-is-more"
+    / "caller-inventory.md"
+)
 SCRIPT = PROJECT_ROOT / "tools" / "caller_inventory.py"
 
 REQUIRED_ROWS = (

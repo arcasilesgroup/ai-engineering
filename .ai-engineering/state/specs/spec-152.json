@@ -5,7 +5,7 @@
   "pr": "536",
   "shipped": "2026-05-22T16:09:26.702167+00:00",
   "slug": "github-actions-supply-chain-hardening",
-  "spec_id": "github-actions-supply-chain-hardening",
+  "spec_id": "spec-152",
   "state": "shipped",
   "title": "GitHub Actions CI/CD Supply-Chain Hardening and Simplification"
 }

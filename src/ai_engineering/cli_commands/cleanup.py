@@ -367,15 +367,33 @@ def cleanup_specs_cmd(
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview spec consolidation.")] = False,
     output_json: Annotated[bool, typer.Option("--json", help="Output structured JSON.")] = False,
 ) -> None:
-    """Consolidate shipped specs via ``spec_lifecycle.py consolidate_shipped``."""
+    """Reconcile merged specs, then consolidate shipped ledger rows.
+
+    Runs two ``spec_lifecycle.py`` verbs in order (spec-153 D-153-03):
+
+    1. ``reconcile_merged`` — the merged-branch backstop: auto-marks any
+       non-terminal spec whose branch is merged into the default branch as
+       SHIPPED (catching GitHub-UI merges ``/ai-pr`` never marked). It mutates,
+       so it is **skipped in ``--dry-run``** (the verb has no preview mode).
+    2. ``consolidate_shipped`` — appends the canonical ``_history.md`` row for
+       every SHIPPED sidecar (including the ones reconcile just marked).
+    """
     if output_json:
         set_json_mode(True)
     root = resolve_project_root(None)
     script = root / ".ai-engineering" / "scripts" / "spec_lifecycle.py"
-    args = [sys.executable, str(script), "consolidate_shipped"]
+
+    # 1. Reconcile merged-but-unshipped specs first (mutating; live runs only).
+    #    Fail-open: a non-zero reconcile must not block the consolidate pass.
+    if not dry_run:
+        reconcile_args = [sys.executable, str(script), "reconcile_merged"]
+        subprocess.run(reconcile_args, check=False)
+
+    # 2. Consolidate SHIPPED sidecars into the ledger (honours --dry-run).
+    consolidate_args = [sys.executable, str(script), "consolidate_shipped"]
     if dry_run:
-        args.append("--dry-run")
-    result = subprocess.run(args, check=False)
+        consolidate_args.append("--dry-run")
+    result = subprocess.run(consolidate_args, check=False)
     if result.returncode != 0:
         raise typer.Exit(code=result.returncode)
 

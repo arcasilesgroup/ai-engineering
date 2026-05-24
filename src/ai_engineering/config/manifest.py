@@ -280,6 +280,29 @@ class BrainstormConfig(BaseModel):
     auto_spec_gate: AutoSpecGateConfig = Field(default_factory=AutoSpecGateConfig)
 
 
+class LifecycleConfig(BaseModel):
+    """``lifecycle.*`` manifest block (spec-153 D-153-08).
+
+    Makes spec-retention windows SSOT config rather than hardcoded
+    constants in ``spec_lifecycle.py``. Read by the ``sweep``/archival
+    verbs to drive DRAFT expiry, the archive directory layout, and the
+    orphan reaper.
+
+    * ``draft_ttl_days`` -- DRAFT sidecars older than this sweep to
+      ABANDONED (default 30; provisional value confirmed at /ai-plan).
+    * ``archive_layout`` -- the on-disk archive shape; the single
+      supported value today is ``per-spec-dir``
+      (``archive/spec-NNN-<slug>/{spec.md,plan.md}``).
+    * ``reap_orphans`` -- when true, ``sweep`` moves stray
+      ``spec-*.md`` files out of the ``specs/`` root into their
+      archive directory.
+    """
+
+    draft_ttl_days: int = 30
+    archive_layout: str = "per-spec-dir"
+    reap_orphans: bool = True
+
+
 class PerformanceConcurrencyConfig(BaseModel):
     """Concurrency budget knobs (spec-139 M1 D-139-01).
 
@@ -367,4 +390,5 @@ class ManifestConfig(BaseModel):
     gates: GatesConfig = Field(default_factory=GatesConfig)
     hot_path_slos: HotPathSlosConfig = Field(default_factory=HotPathSlosConfig)
     brainstorm: BrainstormConfig = Field(default_factory=BrainstormConfig)
+    lifecycle: LifecycleConfig = Field(default_factory=LifecycleConfig)
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)

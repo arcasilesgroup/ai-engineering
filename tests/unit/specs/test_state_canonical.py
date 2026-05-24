@@ -85,8 +85,13 @@ FORBIDDEN_FILES = (
 )
 
 # Directories that MUST NOT be present (relocated or deleted in spec-125).
+#
+# spec-153 D-153-09 reintroduces ``state/archive/delivery-logs/`` as the
+# canonical home for freeform spec delivery-log prose relocated out of
+# ``specs/_history.md`` (the spec-122-a precedent that originally created
+# ``state/archive/delivery-logs/spec-117/``). ``archive`` is therefore no
+# longer forbidden; ``audit-archive`` remains deleted.
 FORBIDDEN_DIRS = (
-    "archive",
     "audit-archive",
     "gate-cache",
     "runtime",

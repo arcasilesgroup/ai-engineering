@@ -1,0 +1,3 @@
+## 2026-05-05 — spec-122-a / sub-001 (Hygiene + Config + Delete Evals)
+
+**Relocation**: `git mv .ai-engineering/specs/spec-117-progress/` → `.ai-engineering/state/archive/delivery-logs/spec-117/` (197 build/verify proof markdowns). The originating spec (117) is `done`; the per-task progress logs are reclassified as durable delivery logs under the state-plane archive (matches the spec-117 hx-05 state-plane archive contract). Path references in `src/ai_engineering/standards.py` (6 entries) and `tests/unit/test_validator.py` (2 fixture paths) updated in the same commit. Empty scaffolds (`v2/`, `handoffs/`, `harness-gap-2026-05-04/`, `evidence/`) deleted.

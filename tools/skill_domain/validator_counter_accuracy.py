@@ -20,6 +20,115 @@ from ai_engineering.validator._shared import (
 _POINTER_COUNT_RE = re.compile(r"Skills\s*\((\d+)\)", re.IGNORECASE)
 _POINTER_AGENT_COUNT_RE = re.compile(r"Agents\s*\((\d+)\)", re.IGNORECASE)
 
+# README tagline / catalog counts (spec-153 D-153-12/13). Both READMEs carry a
+# "N skills · M agents · K surfaces" line (root README.md tagline and the
+# .ai-engineering/README.md catalog block). The numbers are derived caches over
+# the skill/agent files + manifest surfaces; this check fails on count drift.
+_README_SKILLS_RE = re.compile(r"(\d+)\s+skills?\b", re.IGNORECASE)
+_README_AGENTS_RE = re.compile(r"(\d+)\s+agents?\b", re.IGNORECASE)
+_README_SURFACES_RE = re.compile(r"(\d+)\s+surfaces?\b", re.IGNORECASE)
+_CATALOG_START = "<!-- catalog:start -->"
+_CATALOG_END = "<!-- catalog:end -->"
+
+# README surfaces participating in the count drift gate, relative to the target
+# root. Each is optional: absent files (or files without the tagline) are
+# skipped, but a present tagline with a wrong count fails.
+_README_COUNT_FILES: tuple[str, ...] = (
+    "README.md",
+    ".ai-engineering/README.md",
+)
+
+
+def _readme_counts(content: str) -> tuple[list[int], list[int], list[int]]:
+    """Extract ALL (skills, agents, surfaces) counts from a README.
+
+    Returns one list per dimension carrying *every* occurrence of the count
+    string, not just the first (spec-153 quality loop FINDING 3). The root
+    README states each count twice — banner alt text + tagline — and a single
+    ``re.search`` would only validate the first, letting the second silently
+    rot. ``re.findall`` captures all occurrences so the caller can assert every
+    one agrees with canonical. An empty list means the token is absent (the
+    dimension is then skipped, not failed). The catalog marker block is used as
+    the haystack when present (generated counts are the authority); otherwise
+    the whole document is scanned.
+    """
+    haystack = content
+    start = content.find(_CATALOG_START)
+    end = content.find(_CATALOG_END)
+    if start != -1 and end != -1 and end > start:
+        haystack = content[start:end]
+    return (
+        [int(m) for m in _README_SKILLS_RE.findall(haystack)],
+        [int(m) for m in _README_AGENTS_RE.findall(haystack)],
+        [int(m) for m in _README_SURFACES_RE.findall(haystack)],
+    )
+
+
+def _check_readme_counts(
+    target: Path,
+    report: IntegrityReport,
+    canonical_skills: int,
+    canonical_agents: int,
+    canonical_surfaces: int,
+) -> None:
+    """Verify README skill/agent/surface counts match canonical truth.
+
+    Sources (spec-153 D-153-13): skills -> ``len(registry)`` / ``skills.total``;
+    agents -> ``agents.total`` (9); surfaces -> ``len(surfaces.enabled)`` from
+    the manifest. The surfaces literal is checked only when a clean manifest
+    source exists (``canonical_surfaces > 0``); otherwise it is left unchecked.
+    Absent READMEs / missing taglines are skipped (not failed) so consumer
+    projects and pre-Wave-6 READMEs without markers stay green.
+    """
+    expected = {
+        "skills": canonical_skills,
+        "agents": canonical_agents,
+        "surfaces": canonical_surfaces,
+    }
+    for file_rel in _README_COUNT_FILES:
+        file_path = target / file_rel
+        if not file_path.is_file():
+            continue
+        content = file_path.read_text(encoding="utf-8", errors="replace")
+        found = dict(zip(("skills", "agents", "surfaces"), _readme_counts(content), strict=True))
+        for dimension, occurrences in found.items():
+            canonical = expected[dimension]
+            # Skip when the token is absent in this README, or when there is no
+            # clean canonical source for the dimension (e.g. surfaces == 0).
+            if not occurrences or canonical <= 0:
+                continue
+            # EVERY occurrence must agree with canonical — the root README carries
+            # the count twice (banner alt + tagline); a single mismatch fails the
+            # gate (spec-153 quality loop FINDING 3).
+            mismatched = sorted({n for n in occurrences if n != canonical})
+            if mismatched:
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.COUNTER_ACCURACY,
+                        name=f"readme-{dimension}-{file_rel}",
+                        status=IntegrityStatus.FAIL,
+                        message=(
+                            f"{file_rel} reports {', '.join(str(n) for n in mismatched)} "
+                            f"{dimension} (across {len(occurrences)} occurrence(s)), "
+                            f"canonical is {canonical}. "
+                            "Fix: run 'ai-eng dev sync' to regenerate the catalog."
+                        ),
+                        file_path=file_rel,
+                    )
+                )
+            else:
+                report.checks.append(
+                    IntegrityCheckResult(
+                        category=IntegrityCategory.COUNTER_ACCURACY,
+                        name=f"readme-{dimension}-{file_rel}",
+                        status=IntegrityStatus.OK,
+                        message=(
+                            f"{file_rel} {dimension} count matches: {canonical} "
+                            f"(all {len(occurrences)} occurrence(s) agree)"
+                        ),
+                    )
+                )
+
 
 def _extract_skill_agent_counts(
     content: str,
@@ -81,13 +190,26 @@ def _check_counter_accuracy(  # audit:exempt:pre-existing-debt-out-of-spec-114-G
             continue
         counts[file_rel] = (skill_count, agent_count, is_pointer)
 
-    if not counts:
-        return
-
-    # Extract canonical counts from manifest.yml (source of truth)
+    # Extract canonical counts from manifest.yml (source of truth). Loaded
+    # before the early return so the README count drift gate (spec-153) runs
+    # even when no instruction file carries pointer counts.
     cfg = load_manifest_config(target)
     canonical_skills = cfg.skills.total
     canonical_agents = cfg.agents.total
+    canonical_surfaces = len(cfg.surfaces.enabled)
+
+    # README tagline / catalog count drift gate (spec-153 D-153-12/13). Runs
+    # independently of the instruction-file pointer counts.
+    _check_readme_counts(
+        target,
+        report,
+        canonical_skills=canonical_skills,
+        canonical_agents=canonical_agents,
+        canonical_surfaces=canonical_surfaces,
+    )
+
+    if not counts:
+        return
 
     # Copilot files intentionally have fewer skills (platform-filtered).
     # Exclude them from cross-file consistency so they don't cause false failures.

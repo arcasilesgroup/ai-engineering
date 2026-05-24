@@ -115,6 +115,11 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
 # remains 3.9-importable; the regression is guarded by
 # `tests/unit/scripts/test_spec_lifecycle_python_compat.py`.
 ".ai-engineering/scripts/spec_lifecycle.py" = ["UP017"]
+# spec-153 W4 — the install template MUST stay byte-identical to the canonical
+# script above (clients run it via the same `#!/usr/bin/env python3` shebang and
+# need the same 3.9 `timezone.utc` compat). Byte-parity is the install contract,
+# so the same UP017 ignore applies to the template copy.
+"src/ai_engineering/templates/.ai-engineering/scripts/spec_lifecycle.py" = ["UP017"]
 
 [tool.ruff.lint.isort]
 known-first-party = [

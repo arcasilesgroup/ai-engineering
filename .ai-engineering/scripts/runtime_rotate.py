@@ -40,6 +40,14 @@ AUTOPILOT_TTL_SECONDS = 30 * 24 * 3600
 TOOL_HISTORY_MAX_LINES = 10_000
 TOOL_HISTORY_MAX_BYTES = 5 * 1024 * 1024
 
+# spec-148 retired the embedded SQLite state.db (files-only). A pre-spec-148
+# install can leave a stale state.db (+ WAL/SHM) on disk after the one-shot
+# `ai-eng update` export migration; no live writer touches it. The cleanup
+# surface reaps it by name so the artifact disappears going forward. Scoped
+# to exactly these three filenames — the live JSON sources of truth
+# (install-state / decision-store / ownership-map) are never matched.
+STALE_STATE_DB_NAMES = ("state.db", "state.db-wal", "state.db-shm")
+
 
 def _now() -> float:
     return time.time()
@@ -136,6 +144,31 @@ def _truncate_tool_history() -> dict[str, int]:
     }
 
 
+def _remove_stale_state_db(root: Path) -> dict[str, int]:
+    """Delete a stale pre-spec-148 ``state.db`` (+ WAL/SHM) under *root*.
+
+    Files-only since spec-148: ``state.db`` has no live writer, and the
+    one-shot ``ai-eng update`` migration already exports-then-deletes it.
+    This reaps any leftover by exact filename — it never touches the live
+    JSON sources of truth. Fail-open: a missing file or an unlink error is a
+    silent skip. Idempotent: a clean tree reaps nothing.
+    """
+    state_dir = root / ".ai-engineering" / "state"
+    deleted = bytes_freed = 0
+    for name in STALE_STATE_DB_NAMES:
+        path = state_dir / name
+        try:
+            if not path.is_file():
+                continue
+            size = path.stat().st_size
+            path.unlink()
+            deleted += 1
+            bytes_freed += size
+        except OSError:
+            continue
+    return {"deleted": deleted, "bytes_freed": bytes_freed}
+
+
 def _emit_event(payload: dict[str, object]) -> None:
     events_path = ROOT / ".ai-engineering" / "state" / "framework-events.ndjson"
     events_path.parent.mkdir(parents=True, exist_ok=True)
@@ -160,6 +193,7 @@ def main(argv: list[str] | None = None) -> int:
         "tool_outputs": _rotate_tool_outputs(started),
         "autopilot": _rotate_autopilot(started),
         "tool_history": _truncate_tool_history(),
+        "stale_state_db": _remove_stale_state_db(ROOT),
         "elapsed_ms": int((_now() - started) * 1000),
     }
     _emit_event(payload)

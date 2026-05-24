@@ -5,7 +5,7 @@
   "pr": null,
   "shipped": null,
   "slug": "files-only-persistence",
-  "spec_id": "files-only-persistence",
+  "spec_id": "spec-148",
   "state": "draft",
   "title": "Files-only persistence \u2014 retire state.db"
 }

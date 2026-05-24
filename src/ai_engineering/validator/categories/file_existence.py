@@ -82,12 +82,21 @@ def _check_file_existence(
     # operational debris between cleanup waves.
     runtime_dir = ai_dir / "runtime"
 
+    # Exclude state/archive/ from reference checking (spec-153 D-153-09). The
+    # delivery-log archive holds immutable historical retro prose relocated out
+    # of ``specs/_history.md``; like ``runtime/`` and ``specs/`` it legitimately
+    # references deferred/retired artifacts (e.g. spec-119 documented files that
+    # were intentionally never created), which are durable historical record,
+    # not live wiring to validate.
+    archive_dir = ai_dir / "state" / "archive"
+
     broken_refs = _collect_broken_references(
         target=target,
         ai_dir=ai_dir,
         specs_dir=specs_dir,
         specs_exists=specs_exists,
         runtime_dir=runtime_dir,
+        archive_dir=archive_dir,
         cache=cache,
     )
     _record_broken_reference_results(report, broken_refs)
@@ -108,14 +117,18 @@ def _collect_broken_references(
     specs_dir: Path,
     specs_exists: bool,
     runtime_dir: Path,
+    archive_dir: Path,
     cache: FileCache | None,
 ) -> list[tuple[str, str, str, str]]:
     broken_refs: list[tuple[str, str, str, str]] = []
     runtime_exists = runtime_dir.is_dir()
+    archive_exists = archive_dir.is_dir()
     for md_file in _markdown_files(ai_dir, cache):
         if specs_exists and md_file.is_relative_to(specs_dir):
             continue
         if runtime_exists and md_file.is_relative_to(runtime_dir):
+            continue
+        if archive_exists and md_file.is_relative_to(archive_dir):
             continue
         content = md_file.read_text(encoding="utf-8", errors="replace")
         origin_relative = md_file.relative_to(target).as_posix()

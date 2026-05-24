@@ -6,7 +6,16 @@ import importlib
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
-INVENTORY = PROJECT_ROOT / ".ai-engineering" / "specs" / "spec-146-caller-inventory.md"
+# spec-153 W3: reaped from specs/ root into the uniform per-spec archive
+# directory (D-153-07).
+INVENTORY = (
+    PROJECT_ROOT
+    / ".ai-engineering"
+    / "specs"
+    / "archive"
+    / "spec-146-framework-simplification-less-is-more"
+    / "caller-inventory.md"
+)
 
 PRESERVED_MODULES = (
     "src/ai_engineering/state/trace_context.py",

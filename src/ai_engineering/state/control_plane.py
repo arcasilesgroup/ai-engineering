@@ -121,6 +121,12 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
     (".claude/settings.json", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".claude/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".codex/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    # spec-133 D-133-06 mirror surfaces. opencode/cursor introduced new
+    # destination trees; framework_defaults.DEFAULT_OWNERSHIP_FRAMEWORK
+    # listed them but these control-plane rules (which actually build the
+    # ownership map) were not, leaving their files protected-by-default.
+    (".opencode/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    (".cursor/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".github/CODEOWNERS", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),
     (".github/dependabot.yml", OwnershipLevel.TEAM_MANAGED, FrameworkUpdatePolicy.DENY),

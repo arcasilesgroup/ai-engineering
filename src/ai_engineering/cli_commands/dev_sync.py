@@ -20,6 +20,11 @@ from typing import Annotated
 import typer
 
 from ai_engineering.core.output import NextAction, Renderer
+from ai_engineering.installer.capability_catalog import (
+    CatalogStatus,
+    apply_capability_catalog,
+    check_capability_catalog,
+)
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.state.locking import artifact_lock
 
@@ -72,10 +77,36 @@ def dev_sync_cmd(
     exit_code = result.returncode
 
     if exit_code == 0:
+        # Capability catalog (spec-153 W5): regenerate (or, under --check,
+        # verify) the README catalog block alongside the mirrors. Fail-open
+        # when the README has no markers yet (Wave 6 adds them).
+        catalog = check_capability_catalog(root) if check else apply_capability_catalog(root)
+        if catalog.status.name.startswith("SKIPPED"):
+            catalog_verb = "Skipping"
+        elif check:
+            catalog_verb = "Verifying"
+        else:
+            catalog_verb = "Updating"
+        renderer.action(catalog_verb, catalog.message)
+
+        if catalog.status is CatalogStatus.DRIFT:
+            renderer.error(
+                "Capability catalog drift detected",
+                code="CATALOG_DRIFT",
+                fix="Run 'ai-eng dev sync' without --check to regenerate the catalog.",
+                next_actions=[
+                    NextAction(label="Regenerate catalog", command="ai-eng dev sync"),
+                ],
+            )
+
         status = "in sync" if check else "synced"
         renderer.ok(
             f"Mirrors {status}",
-            result={"status": "in_sync", "check": check},
+            result={
+                "status": "in_sync",
+                "check": check,
+                "catalog": catalog.status.value,
+            },
         )
     elif exit_code == 1:
         if not renderer.is_json and result.stdout:

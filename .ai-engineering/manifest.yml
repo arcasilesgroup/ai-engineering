@@ -176,3 +176,9 @@ brainstorm:
       files: 1
       loc: 20
       cross_module: 1
+
+# Spec lifecycle retention + archival knobs (spec-153 D-153-08).
+lifecycle:
+  draft_ttl_days: 30        # DRAFT sidecars older than this sweep to ABANDONED
+  archive_layout: per-spec-dir  # archive/spec-NNN-<slug>/{spec.md,plan.md}
+  reap_orphans: true        # sweep stray spec-*.md from specs/ root
