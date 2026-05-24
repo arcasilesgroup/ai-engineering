@@ -186,7 +186,7 @@ ADAPTATION NOTE (spec-131 D-131-04)
 This CONSTITUTION.md was rescoped on 2026-05-11 from a 13-Article
 AI-behaviour document into a 10-section project-identity contract.
 The pre-migration body is rotated verbatim to
-`.ai-engineering/specs/_history-constitution-2026-05-11.md` for
+`.ai-engineering/specs/archive/constitution-rotations/2026-05-11.md` for
 traceability per R-131-03. All AI-behaviour content migrated to
 `src/ai_engineering/templates/project/CANONICAL.md` §§1-13 and is
 mirrored byte-equivalent into AGENTS.md / CLAUDE.md / GEMINI.md /
@@ -198,5 +198,5 @@ Governance metadata:
 - decision_ref: D-131-04 (project-identity pivot)
 - ratified: 2026-05-11
 - last_amended: 2026-05-11
-- amendments: [pre-2026-05-11 body preserved in _history-constitution-2026-05-11.md]
+- amendments: [pre-2026-05-11 body preserved in archive/constitution-rotations/2026-05-11.md]
 -->

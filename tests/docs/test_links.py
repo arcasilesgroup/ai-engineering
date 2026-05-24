@@ -421,7 +421,14 @@ def test_spec_canonical_slot_carries_spec_marker() -> None:
     assert re.search(r"^spec: spec-\d+", body, re.MULTILINE), (
         "canonical slot must declare an active spec via `spec: spec-NNN`"
     )
+    # spec-153 W3: archive normalized to the uniform per-spec directory
+    # layout (D-153-06): archive/spec-NNN-<slug>/{spec.md,plan.md}.
     spec_131_archive = (
-        REPO_ROOT / ".ai-engineering" / "specs" / "archive" / "spec-131-dx-excellence-refactor.md"
+        REPO_ROOT
+        / ".ai-engineering"
+        / "specs"
+        / "archive"
+        / "spec-131-dx-excellence-refactor"
+        / "spec.md"
     )
     assert spec_131_archive.exists(), "spec-131 archive missing adjacent to canonical slot"

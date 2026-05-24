@@ -8,7 +8,7 @@ cases:
   ``.ai-engineering/specs/spec.md`` (spec-131) passes; this closes the
   D-131-17 self-validation gate.
 * ``test_spec_lint_accepts_legacy_heading_form`` — the spec-129 archive
-  (``.ai-engineering/specs/spec-129-skills-agents-excellence-pragmatic.md``)
+  (``.ai-engineering/specs/archive/spec-129-skills-agents-excellence-pragmatic/spec.md``)
   passes every *form* check (bullet vs heading + italic vs bold
   rationale). The archive has one known content defect (D-129-05
   missing rationale) which the validator correctly surfaces — the test
@@ -31,8 +31,14 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TOOLS_DIR = REPO_ROOT / "tools"
 CANONICAL_SPEC = REPO_ROOT / ".ai-engineering" / "specs" / "spec.md"
+# spec-153 W3: reaped into the uniform per-spec archive directory (D-153-06).
 LEGACY_ARCHIVE = (
-    REPO_ROOT / ".ai-engineering" / "specs" / "spec-129-skills-agents-excellence-pragmatic.md"
+    REPO_ROOT
+    / ".ai-engineering"
+    / "specs"
+    / "archive"
+    / "spec-129-skills-agents-excellence-pragmatic"
+    / "spec.md"
 )
 
 

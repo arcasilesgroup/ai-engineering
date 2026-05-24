@@ -19,7 +19,10 @@ def test_brand_voice_reference_exists_and_cites_design_sources() -> None:
     for needle in (
         "docs/design.pen:",
         "docs/untitled.pen:",
-        ".ai-engineering/specs/spec-144-design-intent.md",
+        # spec-153 W3: the design-intent doc was reaped into the uniform
+        # per-spec archive directory (D-153-06); the brand-voice reference
+        # tracks its canonical archived home.
+        ".ai-engineering/specs/archive/spec-144-readme-rewrite-and-branch-cleanup-rename/design-intent.md",
     ):
         assert needle in text
 

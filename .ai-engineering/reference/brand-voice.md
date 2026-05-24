@@ -4,7 +4,7 @@ This is the prose authority for spec-144 README and onboarding copy. The visual 
 
 ## Evidence
 
-- `.ai-engineering/specs/spec-144-design-intent.md` defines the approved direction: terminal-native editorial governance.
+- `.ai-engineering/specs/archive/spec-144-readme-rewrite-and-branch-cleanup-rename/design-intent.md` defines the approved direction: terminal-native editorial governance.
 - `docs/design.pen:40` and `docs/design.pen:3291` are the captured design-source evidence for the `{ai} engineering` wordmark.
 - `docs/design.pen:3862-3911` is the captured evidence for `[PASS]`, `[WARN]`, and `[FAIL]` status grammar.
 - `docs/untitled.pen:522` is the captured evidence for shell-prompt CTAs.

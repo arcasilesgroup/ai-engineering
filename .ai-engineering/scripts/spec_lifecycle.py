@@ -147,6 +147,27 @@ def _history_path(project_root: Path) -> Path:
     return project_root / ".ai-engineering" / "specs" / "_history.md"
 
 
+def _specs_root(project_root: Path) -> Path:
+    """The working-buffer + archive root: ``.ai-engineering/specs/``."""
+    return project_root / ".ai-engineering" / "specs"
+
+
+def _spec_buffer_path(project_root: Path) -> Path:
+    return _specs_root(project_root) / "spec.md"
+
+
+def _plan_buffer_path(project_root: Path) -> Path:
+    return _specs_root(project_root) / "plan.md"
+
+
+def _archive_dir(project_root: Path) -> Path:
+    return _specs_root(project_root) / "archive"
+
+
+# Placeholder both working buffers are reset to once a spec ships (D-153-04).
+_BUFFER_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
+
+
 def _events_path(project_root: Path) -> Path:
     return project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
 
@@ -378,6 +399,53 @@ def start_new(slug: str, title: str, project_root: Path) -> SpecRecord:
     return record
 
 
+def _buffer_is_placeholder(text: str) -> bool:
+    """True when a working-buffer's content carries no active spec.
+
+    A buffer is "empty" for snapshot purposes when it is whitespace-only or
+    byte-equal to the reset placeholder. We refuse to snapshot a placeholder so
+    an idempotent ``mark_shipped`` re-run never overwrites a real snapshot with
+    the reset stub.
+    """
+    stripped = text.strip()
+    return not stripped or text == _BUFFER_PLACEHOLDER
+
+
+def _snapshot_and_reset(project_root: Path, record: SpecRecord) -> bool:
+    """Snapshot ``spec.md``+``plan.md`` into the per-spec archive, then reset them.
+
+    At the SHIPPED transition (D-153-04 / D-153-06): when ``specs/spec.md``
+    exists and carries a real (non-placeholder) spec, copy ``spec.md`` and
+    ``plan.md`` into ``specs/archive/spec-NNN-<slug>/{spec.md,plan.md}`` and
+    overwrite both working buffers with the placeholder. When the buffers are
+    already placeholders / absent (existing bare-tmp callers, an idempotent
+    re-run after a prior ship), the snapshot is skipped gracefully and the
+    buffers are left untouched. Returns ``True`` when a snapshot was taken.
+
+    ARCHIVED stays a logical terminal marker with no file movement — this is
+    only ever called from ``mark_shipped``.
+    """
+    spec_buffer = _spec_buffer_path(project_root)
+    if not spec_buffer.exists():
+        return False
+    spec_text = spec_buffer.read_text(encoding="utf-8")
+    if _buffer_is_placeholder(spec_text):
+        return False
+
+    target_dir = _archive_dir(project_root) / f"{record.spec_id}-{record.slug}"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    _atomic_write(target_dir / "spec.md", spec_text)
+
+    plan_buffer = _plan_buffer_path(project_root)
+    plan_text = plan_buffer.read_text(encoding="utf-8") if plan_buffer.exists() else ""
+    _atomic_write(target_dir / "plan.md", plan_text)
+
+    # Reset the working buffers to the placeholder so the next spec starts clean.
+    _atomic_write(spec_buffer, _BUFFER_PLACEHOLDER)
+    _atomic_write(plan_buffer, _BUFFER_PLACEHOLDER)
+    return True
+
+
 def mark_shipped(spec_id: str, pr: str, branch: str, project_root: Path) -> SpecRecord:
     """Walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED in one call (idempotent)."""
     record = _load_state(project_root, spec_id)
@@ -424,6 +492,11 @@ def mark_shipped(spec_id: str, pr: str, branch: str, project_root: Path) -> Spec
         "spec_shipped",
         {"spec_id": record.spec_id, "pr": pr, "branch": branch},
     )
+    # Snapshot the working buffers into the per-spec archive directory and reset
+    # them to the placeholder (D-153-04). Runs only on the fresh SHIPPED
+    # transition — the already-SHIPPED idempotent branch returns earlier, so a
+    # re-run never re-snapshots a now-placeholder buffer.
+    _snapshot_and_reset(project_root, record)
     return record
 
 
@@ -439,29 +512,38 @@ def archive(spec_id: str, project_root: Path) -> SpecRecord:
 
 
 def sweep(project_root: Path) -> dict:
-    """Reap stale DRAFTs (>14d) → ABANDONED. Idempotent re-runs."""
-    summary = {"abandoned": 0, "archived": 0}
+    """Reap stale DRAFTs → ABANDONED and stray root spec files → archive.
+
+    Retention is read from the manifest ``lifecycle:`` block (``draft_ttl_days``,
+    ``reap_orphans``), fail-open to 14 days / reaping enabled (D-153-08). The
+    DRAFT→ABANDONED pass runs first; then, when ``reap_orphans`` is set, the
+    orphan reaper moves any stray ``specs/spec-*.md`` into its archive directory
+    (D-153-07). Idempotent re-runs: an empty root reaps nothing. The summary —
+    and the ``spec_sweep`` event detail — carries a ``reaped`` count.
+    """
+    draft_ttl_days, reap_orphans = _read_lifecycle_config(project_root)
+    summary: dict[str, int] = {"abandoned": 0, "archived": 0, "reaped": 0}
     d = _specs_dir(project_root)
-    if not d.exists():
-        _append_event(project_root, "spec_sweep", summary)
-        return summary
-    cutoff = datetime.now(timezone.utc) - timedelta(days=14)
-    for path in sorted(d.glob("*.json")):
-        try:
-            record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if record.state is LifecycleState.DRAFT:
+    if d.exists():
+        cutoff = datetime.now(timezone.utc) - timedelta(days=draft_ttl_days)
+        for path in sorted(d.glob("*.json")):
             try:
-                created = datetime.fromisoformat(record.created)
-            except ValueError:
+                record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, json.JSONDecodeError):
                 continue
-            if created.tzinfo is None:
-                created = created.replace(tzinfo=timezone.utc)
-            if created < cutoff:
-                record.state = transition(record.state, LifecycleState.ABANDONED)
-                _write_state(project_root, record)
-                summary["abandoned"] += 1
+            if record.state is LifecycleState.DRAFT:
+                try:
+                    created = datetime.fromisoformat(record.created)
+                except ValueError:
+                    continue
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                if created < cutoff:
+                    record.state = transition(record.state, LifecycleState.ABANDONED)
+                    _write_state(project_root, record)
+                    summary["abandoned"] += 1
+    if reap_orphans:
+        summary["reaped"] = _reap_orphans(project_root)
     _append_event(project_root, "spec_sweep", summary)
     return summary
 
@@ -469,6 +551,85 @@ def sweep(project_root: Path) -> dict:
 def status(spec_id: str, project_root: Path) -> SpecRecord:
     """Read-only status query."""
     return _load_state(project_root, spec_id)
+
+
+# --- manifest lifecycle retention (spec-153 D-153-07 / D-153-08) -----------
+
+# Fail-open defaults when the manifest or its ``lifecycle:`` block is absent.
+_DEFAULT_DRAFT_TTL_DAYS = 14
+_DEFAULT_REAP_ORPHANS = True
+
+# Working-buffer / housekeeping files that are never reaped from ``specs/``.
+_PROTECTED_SPEC_FILES = frozenset({"spec.md", "plan.md", "_history.md"})
+
+
+def _read_lifecycle_config(project_root: Path) -> tuple[int, bool]:
+    """Return ``(draft_ttl_days, reap_orphans)`` from the manifest ``lifecycle`` block.
+
+    Stdlib-only: ``ai_engineering.config.loader.load_manifest_config`` pulls in
+    third-party deps (``yaml``/``ruamel``/``pydantic``), so this script parses
+    the small top-level ``lifecycle:`` block by hand. Fail-open to the defaults
+    (14 days, reaping enabled) when ``manifest.yml`` is missing, has no
+    ``lifecycle`` block, or a value is unparseable — retention config must never
+    be a hard dependency of the sweep.
+    """
+    manifest = project_root / ".ai-engineering" / "manifest.yml"
+    if not manifest.exists():
+        return _DEFAULT_DRAFT_TTL_DAYS, _DEFAULT_REAP_ORPHANS
+    try:
+        lines = manifest.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return _DEFAULT_DRAFT_TTL_DAYS, _DEFAULT_REAP_ORPHANS
+
+    draft_ttl_days = _DEFAULT_DRAFT_TTL_DAYS
+    reap_orphans = _DEFAULT_REAP_ORPHANS
+    in_block = False
+    for raw in lines:
+        # A top-level key (column 0, non-space) closes the lifecycle block.
+        if in_block and raw[:1] not in (" ", "\t", "") and not raw.startswith("#"):
+            break
+        stripped = raw.strip()
+        if not in_block:
+            if stripped == "lifecycle:":
+                in_block = True
+            continue
+        if not stripped or stripped.startswith("#"):
+            continue
+        key, _sep, value = stripped.partition(":")
+        key = key.strip()
+        value = value.split("#", 1)[0].strip()
+        if key == "draft_ttl_days":
+            with contextlib.suppress(ValueError):
+                draft_ttl_days = int(value)
+        elif key == "reap_orphans":
+            reap_orphans = value.lower() in ("true", "yes", "1", "on")
+    return draft_ttl_days, reap_orphans
+
+
+def _reap_orphans(project_root: Path) -> int:
+    """Move stray ``specs/spec-*.md`` files into their per-spec archive directory.
+
+    The ``specs/`` root invariant is ``{spec.md, plan.md, _history.md, drafts/,
+    archive/}`` (D-153-07). Any other top-level ``spec-*.md`` file is an orphan:
+    its basename already carries ``spec-NNN-<slug>``, so it moves to
+    ``archive/<basename-without-.md>/spec.md``. The reaper only ever *moves*
+    (``git mv`` with a plain-rename fallback) — it never deletes. Returns the
+    number of files reaped.
+    """
+    specs_root = _specs_root(project_root)
+    if not specs_root.is_dir():
+        return 0
+    reaped = 0
+    for path in sorted(specs_root.glob("spec-*.md")):
+        if not path.is_file():
+            continue
+        if path.name in _PROTECTED_SPEC_FILES:
+            continue
+        dest_dir = _archive_dir(project_root) / path.stem
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        _git_mv(project_root, path, dest_dir / "spec.md")
+        reaped += 1
+    return reaped
 
 
 def migrate_history(project_root: Path) -> None:

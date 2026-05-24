@@ -737,3 +737,259 @@ class TestMigrateIds:
         assert (specs / "cool-feature-slug.json").exists(), "dry-run must not rename"
         assert not (specs / "spec-077.json").exists()
         assert "cool-feature-slug" in {r["slug"] for r in report["renamed"]}
+
+
+# ---------------------------------------------------------------------------
+# Snapshot-on-ship + working-buffer reset (spec-153 D-153-04 / D-153-06)
+# ---------------------------------------------------------------------------
+
+# The placeholder both working buffers are reset to at the SHIPPED transition.
+_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
+
+
+def _seed_working_buffers(
+    project_root: Path, *, spec_body: str, plan_body: str
+) -> tuple[Path, Path]:
+    """Write ``specs/spec.md`` + ``specs/plan.md`` working buffers with real content."""
+    specs = project_root / ".ai-engineering" / "specs"
+    specs.mkdir(parents=True, exist_ok=True)
+    spec_md = specs / "spec.md"
+    plan_md = specs / "plan.md"
+    spec_md.write_text(spec_body, encoding="utf-8")
+    plan_md.write_text(plan_body, encoding="utf-8")
+    return spec_md, plan_md
+
+
+class TestSnapshotAndReset:
+    """``mark_shipped`` snapshots the working buffers into a per-spec archive dir."""
+
+    def test_mark_shipped_snapshots_buffers_into_per_spec_archive_dir(
+        self, lifecycle, project_root
+    ):
+        record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
+        spec_md, plan_md = _seed_working_buffers(
+            project_root,
+            spec_body="---\nspec: " + record.spec_id + "\n---\n# Cool Feature\n\nbody.\n",
+            plan_body="---\nspec: " + record.spec_id + "\n---\n# Plan\n\nsteps.\n",
+        )
+        original_spec = spec_md.read_text()
+        original_plan = plan_md.read_text()
+
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+
+        archive_dir = (
+            project_root
+            / ".ai-engineering"
+            / "specs"
+            / "archive"
+            / f"{record.spec_id}-{record.slug}"
+        )
+        assert (archive_dir / "spec.md").read_text() == original_spec
+        assert (archive_dir / "plan.md").read_text() == original_plan
+
+    def test_mark_shipped_resets_working_buffers_to_placeholder(self, lifecycle, project_root):
+        record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
+        spec_md, plan_md = _seed_working_buffers(
+            project_root,
+            spec_body="# Cool Feature\n\nbody.\n",
+            plan_body="# Plan\n\nsteps.\n",
+        )
+
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+
+        assert spec_md.read_text() == _PLACEHOLDER
+        assert plan_md.read_text() == _PLACEHOLDER
+
+    def test_snapshot_is_idempotent_on_already_shipped_rerun(self, lifecycle, project_root):
+        record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
+        spec_md, _plan_md = _seed_working_buffers(
+            project_root,
+            spec_body="# Cool Feature\n\nbody.\n",
+            plan_body="# Plan\n\nsteps.\n",
+        )
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+        archive_dir = (
+            project_root
+            / ".ai-engineering"
+            / "specs"
+            / "archive"
+            / f"{record.spec_id}-{record.slug}"
+        )
+        snapshot_before = (archive_dir / "spec.md").read_text()
+
+        # Re-running on an already-SHIPPED record must NOT clobber the snapshot
+        # with the (now-placeholder) working buffer.
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+
+        assert (archive_dir / "spec.md").read_text() == snapshot_before
+        assert (archive_dir / "spec.md").read_text() != _PLACEHOLDER
+        assert spec_md.read_text() == _PLACEHOLDER
+
+    def test_mark_shipped_skips_snapshot_when_buffer_is_placeholder(self, lifecycle, project_root):
+        record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
+        _seed_working_buffers(
+            project_root,
+            spec_body=_PLACEHOLDER,
+            plan_body=_PLACEHOLDER,
+        )
+
+        # Must not crash and must not create an archive snapshot of the placeholder.
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+
+        archive_dir = (
+            project_root
+            / ".ai-engineering"
+            / "specs"
+            / "archive"
+            / f"{record.spec_id}-{record.slug}"
+        )
+        assert not archive_dir.exists()
+        assert (
+            lifecycle.status(record.spec_id, project_root).state is lifecycle.LifecycleState.SHIPPED
+        )
+
+    def test_mark_shipped_skips_snapshot_when_buffer_absent(self, lifecycle, project_root):
+        # The default project_root fixture has no spec.md/plan.md at all.
+        record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
+
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+
+        archive_dir = (
+            project_root
+            / ".ai-engineering"
+            / "specs"
+            / "archive"
+            / f"{record.spec_id}-{record.slug}"
+        )
+        assert not archive_dir.exists()
+        assert (
+            lifecycle.status(record.spec_id, project_root).state is lifecycle.LifecycleState.SHIPPED
+        )
+
+    def test_archive_verb_does_not_move_files(self, lifecycle, project_root):
+        """ARCHIVED is a terminal marker only — no extra file movement (D-153-04)."""
+        record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+        # Drop a sentinel into the working buffer post-ship; archive() must leave it.
+        spec_md = project_root / ".ai-engineering" / "specs" / "spec.md"
+        spec_md.write_text("sentinel\n", encoding="utf-8")
+
+        lifecycle.archive(record.spec_id, project_root)
+
+        assert spec_md.read_text() == "sentinel\n"
+
+
+# ---------------------------------------------------------------------------
+# sweep — orphan reaper + manifest retention (spec-153 D-153-07 / D-153-08)
+# ---------------------------------------------------------------------------
+
+
+def _write_manifest_lifecycle(
+    project_root: Path,
+    *,
+    draft_ttl_days: int | None = None,
+    reap_orphans: bool | None = None,
+) -> None:
+    """Write a minimal ``manifest.yml`` carrying a ``lifecycle:`` block."""
+    manifest = project_root / ".ai-engineering" / "manifest.yml"
+    lines = ["version: 1", "lifecycle:"]
+    if draft_ttl_days is not None:
+        lines.append(f"  draft_ttl_days: {draft_ttl_days}")
+    if reap_orphans is not None:
+        lines.append(f"  reap_orphans: {'true' if reap_orphans else 'false'}")
+    lines.append("  archive_layout: per-spec-dir")
+    manifest.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+class TestSweepReaper:
+    def test_reap_orphans_true_moves_stray_root_spec_into_archive(self, lifecycle, project_root):
+        _write_manifest_lifecycle(project_root, reap_orphans=True)
+        specs = project_root / ".ai-engineering" / "specs"
+        stray = specs / "spec-999-foo.md"
+        stray.write_text("# spec-999 foo\n\nstray orphan.\n", encoding="utf-8")
+
+        result = lifecycle.sweep(project_root)
+
+        moved = specs / "archive" / "spec-999-foo" / "spec.md"
+        assert moved.exists(), "stray spec-999-foo.md must move into archive/spec-999-foo/spec.md"
+        assert not stray.exists()
+        assert result.get("reaped", 0) == 1
+
+    def test_reap_leaves_canonical_buffers_and_dirs_untouched(self, lifecycle, project_root):
+        _write_manifest_lifecycle(project_root, reap_orphans=True)
+        specs = project_root / ".ai-engineering" / "specs"
+        (specs / "spec.md").write_text("# active\n", encoding="utf-8")
+        (specs / "plan.md").write_text("# plan\n", encoding="utf-8")
+        (specs / "drafts").mkdir(parents=True, exist_ok=True)
+        (specs / "drafts" / "spec-123-idea.md").write_text("# draft\n", encoding="utf-8")
+        (specs / "archive").mkdir(parents=True, exist_ok=True)
+        (specs / "archive" / "spec-100-old").mkdir(parents=True, exist_ok=True)
+        (specs / "archive" / "spec-100-old" / "spec.md").write_text("# old\n", encoding="utf-8")
+
+        lifecycle.sweep(project_root)
+
+        # Canonical buffers + history untouched.
+        assert (specs / "spec.md").read_text() == "# active\n"
+        assert (specs / "plan.md").read_text() == "# plan\n"
+        assert (specs / "_history.md").exists()
+        # drafts/ and archive/ contents untouched.
+        assert (specs / "drafts" / "spec-123-idea.md").read_text() == "# draft\n"
+        assert (specs / "archive" / "spec-100-old" / "spec.md").read_text() == "# old\n"
+
+    def test_reap_orphans_false_leaves_strays_alone(self, lifecycle, project_root):
+        _write_manifest_lifecycle(project_root, reap_orphans=False)
+        specs = project_root / ".ai-engineering" / "specs"
+        stray = specs / "spec-999-foo.md"
+        stray.write_text("# spec-999 foo\n", encoding="utf-8")
+
+        result = lifecycle.sweep(project_root)
+
+        assert stray.exists(), "reap_orphans=false must leave strays in place"
+        assert not (specs / "archive" / "spec-999-foo" / "spec.md").exists()
+        assert result.get("reaped", 0) == 0
+
+    def test_sweep_reads_draft_ttl_days_from_manifest(self, lifecycle, project_root):
+        # A 5-day TTL must abandon a 10-day-old draft that the default 14/30 window keeps.
+        _write_manifest_lifecycle(project_root, draft_ttl_days=5, reap_orphans=False)
+        record = lifecycle.start_new("borderline", "Borderline", project_root)
+        sidecar = project_root / ".ai-engineering" / "state" / "specs" / f"{record.spec_id}.json"
+        from datetime import datetime, timedelta
+
+        data = json.loads(sidecar.read_text())
+        data["created"] = (datetime.now(UTC) - timedelta(days=10)).isoformat()
+        sidecar.write_text(json.dumps(data))
+
+        result = lifecycle.sweep(project_root)
+
+        assert result.get("abandoned", 0) >= 1
+        assert (
+            lifecycle.status(record.spec_id, project_root).state
+            is lifecycle.LifecycleState.ABANDONED
+        )
+
+    def test_sweep_fails_open_to_14_days_when_manifest_absent(self, lifecycle, project_root):
+        # No manifest.yml in the fixture -> fail-open to a 14-day TTL.
+        record = lifecycle.start_new("aging", "Aging", project_root)
+        sidecar = project_root / ".ai-engineering" / "state" / "specs" / f"{record.spec_id}.json"
+        from datetime import datetime, timedelta
+
+        # 20 days old -> beyond the fail-open 14-day window -> abandoned.
+        data = json.loads(sidecar.read_text())
+        data["created"] = (datetime.now(UTC) - timedelta(days=20)).isoformat()
+        sidecar.write_text(json.dumps(data))
+
+        result = lifecycle.sweep(project_root)
+
+        assert result.get("abandoned", 0) >= 1
+
+    def test_sweep_event_detail_carries_reaped_count(self, lifecycle, project_root):
+        _write_manifest_lifecycle(project_root, reap_orphans=True)
+        specs = project_root / ".ai-engineering" / "specs"
+        (specs / "spec-999-foo.md").write_text("# foo\n", encoding="utf-8")
+
+        lifecycle.sweep(project_root)
+
+        events = _events(project_root)
+        sweep_events = [e for e in events if e.get("detail", {}).get("operation") == "spec_sweep"]
+        assert sweep_events, "sweep must emit a spec_sweep event"
+        assert sweep_events[-1]["detail"].get("reaped") == 1
