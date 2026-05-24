@@ -993,3 +993,305 @@ class TestSweepReaper:
         sweep_events = [e for e in events if e.get("detail", {}).get("operation") == "spec_sweep"]
         assert sweep_events, "sweep must emit a spec_sweep event"
         assert sweep_events[-1]["detail"].get("reaped") == 1
+
+
+# ---------------------------------------------------------------------------
+# reconcile_merged — merged-branch backstop auto-marks SHIPPED (spec-153 D-153-03)
+# ---------------------------------------------------------------------------
+
+
+class _FakeGit:
+    """Scripted ``subprocess.run`` replacement for git + gh classification.
+
+    ``reconcile_merged`` mirrors ``/ai-branch-cleanup`` classification:
+    a branch is "merged" when it appears in ``git branch --merged <default>``
+    OR ``git diff <default>..<branch>`` is empty (squash-merge). PR numbers
+    resolve via ``gh pr list --head <branch> --state merged --json number``.
+    The fake routes on the command verb so the test never couples to exact
+    flag ordering.
+    """
+
+    def __init__(
+        self,
+        *,
+        merged_branches: set[str] | None = None,
+        empty_diff_branches: set[str] | None = None,
+        pr_for_branch: dict[str, int] | None = None,
+        gh_available: bool = True,
+    ) -> None:
+        self.merged_branches = merged_branches or set()
+        self.empty_diff_branches = empty_diff_branches or set()
+        self.pr_for_branch = pr_for_branch or {}
+        self.gh_available = gh_available
+
+    def __call__(self, cmd, *args, **kwargs):
+        from subprocess import CalledProcessError, CompletedProcess
+
+        # Normalise to a plain list of strings.
+        argv = [str(c) for c in cmd]
+
+        def done(stdout: str = "", returncode: int = 0) -> CompletedProcess:
+            return CompletedProcess(argv, returncode, stdout=stdout, stderr="")
+
+        if argv[0] == "gh":
+            if not self.gh_available:
+                raise FileNotFoundError("gh")
+            # gh pr list --head <branch> --state merged --json number
+            head = argv[argv.index("--head") + 1] if "--head" in argv else ""
+            num = self.pr_for_branch.get(head)
+            if num is None:
+                return done(stdout="[]")
+            return done(stdout=json.dumps([{"number": num}]))
+
+        if "git" in argv[0] or argv[0] == "git":
+            # `git branch --merged <default>` -> newline list of branch names.
+            if "branch" in argv and "--merged" in argv:
+                lines = "".join(f"  {b}\n" for b in sorted(self.merged_branches))
+                return done(stdout=lines)
+            # `git diff <default>..<branch>` -> empty stdout when squash-merged.
+            if "diff" in argv:
+                rng = argv[-1]
+                branch = rng.split("..")[-1]
+                return done(stdout="" if branch in self.empty_diff_branches else "diffated\n")
+            # Any other git call (rev-parse, etc.) succeeds quietly.
+            return done()
+        raise CalledProcessError(1, argv)
+
+
+def _seed_branch_sidecar(
+    project_root: Path,
+    spec_id: str,
+    *,
+    slug: str,
+    title: str,
+    state: str,
+    branch: str | None,
+) -> Path:
+    """Seed a sidecar in an arbitrary lifecycle state carrying an optional branch."""
+    specs = project_root / ".ai-engineering" / "state" / "specs"
+    specs.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "spec_id": spec_id,
+        "slug": slug,
+        "title": title,
+        "state": state,
+        "created": datetime.now(UTC).isoformat(),
+    }
+    if branch is not None:
+        payload["branch"] = branch
+    path = specs / f"{spec_id}.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+class TestReconcileMerged:
+    def test_marks_shipped_when_branch_is_merged(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-200",
+            slug="merged-spec",
+            title="Merged Spec",
+            state="in_progress",
+            branch="spec-200-merged-spec",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(
+                merged_branches={"spec-200-merged-spec"},
+                pr_for_branch={"spec-200-merged-spec": 600},
+            ),
+        )
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert lifecycle.status("spec-200", project_root).state is lifecycle.LifecycleState.SHIPPED
+        assert "spec-200" in {r["spec_id"] for r in report["shipped"]}
+
+    def test_marks_shipped_on_squash_merge_empty_diff(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-201",
+            slug="squashed-spec",
+            title="Squashed Spec",
+            state="approved",
+            branch="spec-201-squashed-spec",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(
+                merged_branches=set(),
+                empty_diff_branches={"spec-201-squashed-spec"},
+                pr_for_branch={"spec-201-squashed-spec": 601},
+            ),
+        )
+
+        lifecycle.reconcile_merged(project_root)
+
+        shipped = lifecycle.status("spec-201", project_root)
+        assert shipped.state is lifecycle.LifecycleState.SHIPPED
+        assert shipped.pr == "601"
+
+    def test_unmerged_branch_left_untouched(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-202",
+            slug="active-spec",
+            title="Active Spec",
+            state="in_progress",
+            branch="spec-202-active-spec",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set(), empty_diff_branches=set()),
+        )
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert (
+            lifecycle.status("spec-202", project_root).state is lifecycle.LifecycleState.IN_PROGRESS
+        )
+        assert "spec-202" not in {r["spec_id"] for r in report["shipped"]}
+
+    def test_sidecar_without_branch_is_skipped(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-203",
+            slug="no-branch-spec",
+            title="No Branch Spec",
+            state="draft",
+            branch=None,
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches={"anything"}),
+        )
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert lifecycle.status("spec-203", project_root).state is lifecycle.LifecycleState.DRAFT
+        assert "spec-203" in {r["spec_id"] for r in report["skipped"]}
+
+    def test_already_shipped_is_idempotent_noop(self, lifecycle, project_root, monkeypatch):
+        record = lifecycle.start_new("done-spec", "Done Spec", project_root)
+        lifecycle.mark_shipped(record.spec_id, "PR-1", "spec-done", project_root)
+        # Stamp a branch on the now-SHIPPED sidecar so reconcile inspects it.
+        sidecar = project_root / ".ai-engineering" / "state" / "specs" / f"{record.spec_id}.json"
+        data = json.loads(sidecar.read_text())
+        data["branch"] = "spec-done"
+        sidecar.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches={"spec-done"}, pr_for_branch={"spec-done": 700}),
+        )
+
+        # Terminal SHIPPED records are skipped before any git classification.
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert (
+            lifecycle.status(record.spec_id, project_root).state is lifecycle.LifecycleState.SHIPPED
+        )
+        assert record.spec_id not in {r["spec_id"] for r in report["shipped"]}
+
+    def test_gh_absent_fails_open_to_em_dash_pr(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-204",
+            slug="no-gh-spec",
+            title="No GH Spec",
+            state="in_progress",
+            branch="spec-204-no-gh-spec",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches={"spec-204-no-gh-spec"}, gh_available=False),
+        )
+
+        lifecycle.reconcile_merged(project_root)
+
+        shipped = lifecycle.status("spec-204", project_root)
+        assert shipped.state is lifecycle.LifecycleState.SHIPPED
+        assert shipped.pr == "—"
+
+    def test_reconcile_does_not_snapshot_unrelated_current_buffer(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        """Snapshot-safety guard (W4): marking an OLD spec must not clear the live buffer.
+
+        ``reconcile_merged`` can mark a spec whose content is no longer in the
+        working buffer (the buffer now holds a *different*, in-flight spec).
+        ``_snapshot_and_reset`` snapshots only when ``spec.md`` frontmatter
+        ``spec:`` equals the record being shipped — so the unrelated current
+        buffer is left intact (no archive dir for the old spec, no reset).
+        """
+        # The live working buffer holds a DIFFERENT spec (spec-300), in flight.
+        specs = project_root / ".ai-engineering" / "specs"
+        specs.mkdir(parents=True, exist_ok=True)
+        current_spec_body = "---\nspec: spec-300\n---\n# Current In-Flight Spec\n\nbody.\n"
+        current_plan_body = "---\nspec: spec-300\n---\n# Current Plan\n\nsteps.\n"
+        spec_md = specs / "spec.md"
+        plan_md = specs / "plan.md"
+        spec_md.write_text(current_spec_body, encoding="utf-8")
+        plan_md.write_text(current_plan_body, encoding="utf-8")
+
+        # An OLD merged spec (spec-205) whose content is gone from the buffer.
+        _seed_branch_sidecar(
+            project_root,
+            "spec-205",
+            slug="old-merged-spec",
+            title="Old Merged Spec",
+            state="in_progress",
+            branch="spec-205-old-merged-spec",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(
+                merged_branches={"spec-205-old-merged-spec"},
+                pr_for_branch={"spec-205-old-merged-spec": 605},
+            ),
+        )
+
+        lifecycle.reconcile_merged(project_root)
+
+        # State transition + history row happen for the old spec ...
+        assert lifecycle.status("spec-205", project_root).state is lifecycle.LifecycleState.SHIPPED
+        history = (specs / "_history.md").read_text()
+        assert "| spec-205 |" in history
+        # ... but the unrelated current buffer is NOT snapshotted or cleared.
+        assert spec_md.read_text() == current_spec_body
+        assert plan_md.read_text() == current_plan_body
+        old_archive = specs / "archive" / "spec-205-old-merged-spec"
+        assert not old_archive.exists(), "old spec must NOT capture the unrelated buffer"
+
+    def test_mark_shipped_via_pr_path_still_snapshots_matching_buffer(
+        self, lifecycle, project_root
+    ):
+        """The /ai-pr path (buffer IS the shipping spec) still snapshots + resets.
+
+        This pins the guard's other arm: when ``spec.md`` frontmatter ``spec:``
+        equals the record being shipped, ``mark_shipped`` snapshots into the
+        per-spec archive and resets the buffer (the W3 behavior is preserved).
+        """
+        record = lifecycle.start_new("matching-spec", "Matching Spec", project_root)
+        specs = project_root / ".ai-engineering" / "specs"
+        specs.mkdir(parents=True, exist_ok=True)
+        spec_body = f"---\nspec: {record.spec_id}\n---\n# Matching Spec\n\nbody.\n"
+        plan_body = f"---\nspec: {record.spec_id}\n---\n# Plan\n\nsteps.\n"
+        spec_md = specs / "spec.md"
+        plan_md = specs / "plan.md"
+        spec_md.write_text(spec_body, encoding="utf-8")
+        plan_md.write_text(plan_body, encoding="utf-8")
+
+        lifecycle.mark_shipped(record.spec_id, "PR-9", "feat/match", project_root)
+
+        archive_dir = specs / "archive" / f"{record.spec_id}-{record.slug}"
+        assert (archive_dir / "spec.md").read_text() == spec_body
+        assert (archive_dir / "plan.md").read_text() == plan_body
+        assert spec_md.read_text() == _PLACEHOLDER
+        assert plan_md.read_text() == _PLACEHOLDER

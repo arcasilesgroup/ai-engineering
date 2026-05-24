@@ -879,7 +879,8 @@ def test_maintenance_all_combined_report(
     assert "Maintenance" in captured.err
 
 
-def test_cleanup_specs_invokes_existing_lifecycle_consolidation(tmp_path: Path) -> None:
+def test_cleanup_specs_dry_run_previews_consolidation_only(tmp_path: Path) -> None:
+    """Dry-run skips the mutating reconcile pass and only previews consolidation."""
     completed = SimpleNamespace(returncode=0)
     with (
         patch("ai_engineering.cli_commands.cleanup.resolve_project_root", return_value=tmp_path),
@@ -887,5 +888,20 @@ def test_cleanup_specs_invokes_existing_lifecycle_consolidation(tmp_path: Path) 
     ):
         cleanup.cleanup_specs_cmd(dry_run=True)
 
+    # Only one verb runs in dry-run: consolidate_shipped --dry-run (no reconcile).
+    assert run.call_count == 1
     args = run.call_args.args[0]
     assert args[-2:] == ["consolidate_shipped", "--dry-run"]
+
+
+def test_cleanup_specs_live_runs_reconcile_then_consolidate(tmp_path: Path) -> None:
+    """Live cleanup runs reconcile_merged first, then consolidate_shipped (D-153-03)."""
+    completed = SimpleNamespace(returncode=0)
+    with (
+        patch("ai_engineering.cli_commands.cleanup.resolve_project_root", return_value=tmp_path),
+        patch("ai_engineering.cli_commands.cleanup.subprocess.run", return_value=completed) as run,
+    ):
+        cleanup.cleanup_specs_cmd(dry_run=False)
+
+    verbs = [call.args[0][-1] for call in run.call_args_list]
+    assert verbs == ["reconcile_merged", "consolidate_shipped"]

@@ -11,9 +11,9 @@ Hexagonal layout in one file (~250 LOC):
   projection that reads any 5/6/7-col legacy header and preserves
   free-form retro sections verbatim).
 - **Application** (CLI): ``start_new``, ``mark_shipped``, ``archive``,
-  ``sweep``, ``status``, ``migrate_history`` — each composes one domain
-  transition + one infra write under one lock. Every atomic op
-  completes <500ms (no LLM, stdlib only).
+  ``sweep``, ``status``, ``migrate_history``, ``consolidate_shipped`` —
+  each composes one domain transition + one infra write under one lock.
+  Every atomic op completes <500ms (no LLM, stdlib only).
 
 Idempotency is enforced at the application layer: re-issuing the same
 verb on a record already in the target state is a no-op (no FSM raise,
@@ -30,12 +30,14 @@ import argparse
 import contextlib
 import json
 import os
+import re
+import subprocess
 import sys
 import tempfile
 import time
 import uuid
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 
@@ -145,12 +147,33 @@ def _history_path(project_root: Path) -> Path:
     return project_root / ".ai-engineering" / "specs" / "_history.md"
 
 
+def _specs_root(project_root: Path) -> Path:
+    """The working-buffer + archive root: ``.ai-engineering/specs/``."""
+    return project_root / ".ai-engineering" / "specs"
+
+
+def _spec_buffer_path(project_root: Path) -> Path:
+    return _specs_root(project_root) / "spec.md"
+
+
+def _plan_buffer_path(project_root: Path) -> Path:
+    return _specs_root(project_root) / "plan.md"
+
+
+def _archive_dir(project_root: Path) -> Path:
+    return _specs_root(project_root) / "archive"
+
+
+# Placeholder both working buffers are reset to once a spec ships (D-153-04).
+_BUFFER_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
+
+
 def _events_path(project_root: Path) -> Path:
     return project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
 
 
 def _utcnow_iso() -> str:
-    return datetime.now(UTC).isoformat()
+    return datetime.now(timezone.utc).isoformat()
 
 
 def _atomic_write(target: Path, payload: str) -> None:
@@ -169,10 +192,20 @@ def _atomic_write(target: Path, payload: str) -> None:
 
 
 def _load_state(project_root: Path, spec_id: str) -> SpecRecord:
+    """Resolve a record by sidecar id, falling back to slug lookup.
+
+    Numeric ``spec-NNN`` is the canonical identity (spec-153 D-153-01), but
+    callers that still pass a slug (e.g. the consolidate-spec handler) must
+    keep resolving after the slug→numeric rename. We try the direct sidecar
+    path first, then ``_find_by_slug``; only a miss on *both* raises.
+    """
     sidecar = _sidecar_path(project_root, spec_id)
-    if not sidecar.exists():
-        raise FileNotFoundError(f"spec sidecar missing: {spec_id}")
-    return SpecRecord.from_json(json.loads(sidecar.read_text(encoding="utf-8")))
+    if sidecar.exists():
+        return SpecRecord.from_json(json.loads(sidecar.read_text(encoding="utf-8")))
+    by_slug = _find_by_slug(project_root, spec_id)
+    if by_slug is not None:
+        return by_slug
+    raise FileNotFoundError(f"spec sidecar missing: {spec_id}")
 
 
 def _write_state(project_root: Path, record: SpecRecord) -> None:
@@ -302,7 +335,19 @@ def _render_history(project_root: Path, append_row: list[str] | None = None) -> 
     data_rows = _migrate_rows(rows)
     if append_row:
         candidate = "| " + " | ".join(append_row) + " |"
-        if candidate not in data_rows:
+        candidate_id = append_row[0]
+        replaced = False
+        upserted_rows: list[str] = []
+        for row in data_rows:
+            row_cells = _normalize_row(row)
+            if row_cells and row_cells[0] == candidate_id:
+                if not replaced:
+                    upserted_rows.append(candidate)
+                    replaced = True
+            else:
+                upserted_rows.append(row)
+        data_rows = upserted_rows
+        if not replaced:
             data_rows.append(candidate)
     body = _PREAMBLE + _HISTORY_HEADER + "\n".join(data_rows) + "\n"
     if tail.strip():
@@ -317,18 +362,35 @@ def _render_history(project_root: Path, append_row: list[str] | None = None) -> 
 
 
 def start_new(slug: str, title: str, project_root: Path) -> SpecRecord:
-    """Create (or return existing) DRAFT record for ``slug``."""
+    """Create (or return existing) DRAFT record for ``slug``.
+
+    The canonical identity is numeric ``spec-NNN`` (spec-153 D-153-01). The
+    next number is the live max of ledger + sidecar numbers + 1, minted under
+    the shared ``specs-history`` lock so concurrent mints serialize and never
+    collide (D-153-05). The slug is preserved verbatim as the human tag.
+    ``_find_by_slug`` keeps the verb idempotent: re-running for an existing
+    slug returns the existing record without minting a new number.
+    """
     existing = _find_by_slug(project_root, slug)
     if existing is not None:
-        return existing  # idempotent
-    record = SpecRecord(
-        spec_id=slug,
-        slug=slug,
-        title=title,
-        state=LifecycleState.DRAFT,
-        created=_utcnow_iso(),
-    )
-    _write_state(project_root, record)
+        return existing  # idempotent — no new number minted.
+    with artifact_lock(project_root, "specs-history"):
+        # Re-check under the lock: a concurrent mint may have just created the
+        # slug, in which case we return it rather than mint a duplicate.
+        existing = _find_by_slug(project_root, slug)
+        if existing is not None:
+            return existing
+        record = SpecRecord(
+            spec_id=f"spec-{_next_spec_number(project_root):03d}",
+            slug=slug,
+            title=title,
+            state=LifecycleState.DRAFT,
+            created=_utcnow_iso(),
+        )
+        _atomic_write(
+            _sidecar_path(project_root, record.spec_id),
+            json.dumps(record.to_json(), indent=2, sort_keys=True),
+        )
     _append_event(
         project_root,
         "spec_started",
@@ -337,26 +399,110 @@ def start_new(slug: str, title: str, project_root: Path) -> SpecRecord:
     return record
 
 
+def _buffer_is_placeholder(text: str) -> bool:
+    """True when a working-buffer's content carries no active spec.
+
+    A buffer is "empty" for snapshot purposes when it is whitespace-only or
+    byte-equal to the reset placeholder. We refuse to snapshot a placeholder so
+    an idempotent ``mark_shipped`` re-run never overwrites a real snapshot with
+    the reset stub.
+    """
+    stripped = text.strip()
+    return not stripped or text == _BUFFER_PLACEHOLDER
+
+
+def _snapshot_and_reset(project_root: Path, record: SpecRecord) -> bool:
+    """Snapshot ``spec.md``+``plan.md`` into the per-spec archive, then reset them.
+
+    At the SHIPPED transition (D-153-04 / D-153-06): when ``specs/spec.md``
+    exists and carries a real (non-placeholder) spec, copy ``spec.md`` and
+    ``plan.md`` into ``specs/archive/spec-NNN-<slug>/{spec.md,plan.md}`` and
+    overwrite both working buffers with the placeholder. When the buffers are
+    already placeholders / absent (existing bare-tmp callers, an idempotent
+    re-run after a prior ship), the snapshot is skipped gracefully and the
+    buffers are left untouched. Returns ``True`` when a snapshot was taken.
+
+    Snapshot-safety guard (spec-153 D-153-03 / W4): the live working buffer is
+    snapshotted **only** when its frontmatter ``spec:`` equals ``record.spec_id``.
+    The ``/ai-pr`` path always satisfies this — the buffer *is* the spec being
+    shipped. ``reconcile_merged``, by contrast, can mark an OLD/different spec
+    whose content is no longer in the buffer (the buffer now holds a later,
+    in-flight spec); in that case we MUST NOT snapshot/clear the unrelated
+    buffer. The caller still performs the state transition, history row, and
+    event — only the file movement is gated here.
+
+    ARCHIVED stays a logical terminal marker with no file movement — this is
+    only ever called from ``mark_shipped``.
+    """
+    spec_buffer = _spec_buffer_path(project_root)
+    if not spec_buffer.exists():
+        return False
+    spec_text = spec_buffer.read_text(encoding="utf-8")
+    if _buffer_is_placeholder(spec_text):
+        return False
+    # Only snapshot when the live buffer IS the spec being shipped. A mismatch
+    # means an unrelated in-flight spec is in the buffer (the reconcile path);
+    # leave it untouched.
+    buffer_id = _spec_frontmatter_id(project_root)
+    if buffer_id is not None and buffer_id != record.spec_id:
+        return False
+
+    target_dir = _archive_dir(project_root) / f"{record.spec_id}-{record.slug}"
+    target_dir.mkdir(parents=True, exist_ok=True)
+    _atomic_write(target_dir / "spec.md", spec_text)
+
+    plan_buffer = _plan_buffer_path(project_root)
+    plan_text = plan_buffer.read_text(encoding="utf-8") if plan_buffer.exists() else ""
+    _atomic_write(target_dir / "plan.md", plan_text)
+
+    # Reset the working buffers to the placeholder so the next spec starts clean.
+    _atomic_write(spec_buffer, _BUFFER_PLACEHOLDER)
+    _atomic_write(plan_buffer, _BUFFER_PLACEHOLDER)
+    return True
+
+
 def mark_shipped(spec_id: str, pr: str, branch: str, project_root: Path) -> SpecRecord:
-    """Walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED in one call (idempotent)."""
+    """Walk the current state forward to SHIPPED in one call (idempotent).
+
+    Starts from wherever the record is (DRAFT for the ``/ai-pr`` path,
+    APPROVED/IN_PROGRESS for the reconcile backstop) and advances along the
+    linear chain DRAFT→APPROVED→IN_PROGRESS→SHIPPED. Already-SHIPPED records
+    re-materialize their ledger row idempotently; terminal ARCHIVED/ABANDONED
+    raise via the FSM validator.
+    """
     record = _load_state(project_root, spec_id)
     if record.state is LifecycleState.SHIPPED:
-        # Idempotent: refresh PR/branch metadata if missing, but no event.
-        if record.pr != pr or record.branch != branch:
+        # Idempotent: refresh metadata if needed and re-materialize the
+        # projection. This supports the shared consolidation handler when a
+        # SHIPPED sidecar exists but `_history.md` was deleted, stale, or
+        # migrated from a legacy shape.
+        if record.pr != pr or record.branch != branch or record.shipped is None:
             record.pr = pr
             record.branch = branch
+            record.shipped = record.shipped or _utcnow_iso()
             _write_state(project_root, record)
+        _render_history(project_root, append_row=_history_row_for(record))
         return record
-    # Walk legal chain. Any illegal start state (ARCHIVED, ABANDONED) raises.
+    # Walk the linear lifecycle chain forward FROM the current state to SHIPPED.
+    # Records can start at DRAFT (start_new + /ai-pr) or mid-chain at APPROVED /
+    # IN_PROGRESS (the reconcile backstop marks a spec already under way). We
+    # advance only through the suffix of the chain after the current state, so a
+    # legal forward walk never attempts an illegal backward step (e.g.
+    # IN_PROGRESS -> APPROVED). Terminal start states (ARCHIVED/ABANDONED) are
+    # not in the chain and raise on the first transition — the FSM stays the gate.
     chain = [
+        LifecycleState.DRAFT,
         LifecycleState.APPROVED,
         LifecycleState.IN_PROGRESS,
         LifecycleState.SHIPPED,
     ]
-    for target in chain:
-        if record.state is target:
-            continue
-        record.state = transition(record.state, target)
+    if record.state in chain:
+        start = chain.index(record.state)
+        for target in chain[start + 1 :]:
+            record.state = transition(record.state, target)
+    else:
+        # ABANDONED/ARCHIVED: surface the illegal move via the FSM validator.
+        record.state = transition(record.state, LifecycleState.SHIPPED)
     record.pr = pr
     record.branch = branch
     record.shipped = _utcnow_iso()
@@ -378,6 +524,11 @@ def mark_shipped(spec_id: str, pr: str, branch: str, project_root: Path) -> Spec
         "spec_shipped",
         {"spec_id": record.spec_id, "pr": pr, "branch": branch},
     )
+    # Snapshot the working buffers into the per-spec archive directory and reset
+    # them to the placeholder (D-153-04). Runs only on the fresh SHIPPED
+    # transition — the already-SHIPPED idempotent branch returns earlier, so a
+    # re-run never re-snapshots a now-placeholder buffer.
+    _snapshot_and_reset(project_root, record)
     return record
 
 
@@ -393,29 +544,38 @@ def archive(spec_id: str, project_root: Path) -> SpecRecord:
 
 
 def sweep(project_root: Path) -> dict:
-    """Reap stale DRAFTs (>14d) → ABANDONED. Idempotent re-runs."""
-    summary = {"abandoned": 0, "archived": 0}
+    """Reap stale DRAFTs → ABANDONED and stray root spec files → archive.
+
+    Retention is read from the manifest ``lifecycle:`` block (``draft_ttl_days``,
+    ``reap_orphans``), fail-open to 14 days / reaping enabled (D-153-08). The
+    DRAFT→ABANDONED pass runs first; then, when ``reap_orphans`` is set, the
+    orphan reaper moves any stray ``specs/spec-*.md`` into its archive directory
+    (D-153-07). Idempotent re-runs: an empty root reaps nothing. The summary —
+    and the ``spec_sweep`` event detail — carries a ``reaped`` count.
+    """
+    draft_ttl_days, reap_orphans = _read_lifecycle_config(project_root)
+    summary: dict[str, int] = {"abandoned": 0, "archived": 0, "reaped": 0}
     d = _specs_dir(project_root)
-    if not d.exists():
-        _append_event(project_root, "spec_sweep", summary)
-        return summary
-    cutoff = datetime.now(UTC) - timedelta(days=14)
-    for path in sorted(d.glob("*.json")):
-        try:
-            record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
-        except (OSError, json.JSONDecodeError):
-            continue
-        if record.state is LifecycleState.DRAFT:
+    if d.exists():
+        cutoff = datetime.now(timezone.utc) - timedelta(days=draft_ttl_days)
+        for path in sorted(d.glob("*.json")):
             try:
-                created = datetime.fromisoformat(record.created)
-            except ValueError:
+                record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, json.JSONDecodeError):
                 continue
-            if created.tzinfo is None:
-                created = created.replace(tzinfo=UTC)
-            if created < cutoff:
-                record.state = transition(record.state, LifecycleState.ABANDONED)
-                _write_state(project_root, record)
-                summary["abandoned"] += 1
+            if record.state is LifecycleState.DRAFT:
+                try:
+                    created = datetime.fromisoformat(record.created)
+                except ValueError:
+                    continue
+                if created.tzinfo is None:
+                    created = created.replace(tzinfo=timezone.utc)
+                if created < cutoff:
+                    record.state = transition(record.state, LifecycleState.ABANDONED)
+                    _write_state(project_root, record)
+                    summary["abandoned"] += 1
+    if reap_orphans:
+        summary["reaped"] = _reap_orphans(project_root)
     _append_event(project_root, "spec_sweep", summary)
     return summary
 
@@ -425,9 +585,592 @@ def status(spec_id: str, project_root: Path) -> SpecRecord:
     return _load_state(project_root, spec_id)
 
 
+# --- manifest lifecycle retention (spec-153 D-153-07 / D-153-08) -----------
+
+# Fail-open defaults when the manifest or its ``lifecycle:`` block is absent.
+_DEFAULT_DRAFT_TTL_DAYS = 14
+_DEFAULT_REAP_ORPHANS = True
+
+# Working-buffer / housekeeping files that are never reaped from ``specs/``.
+_PROTECTED_SPEC_FILES = frozenset({"spec.md", "plan.md", "_history.md"})
+
+
+def _read_lifecycle_config(project_root: Path) -> tuple[int, bool]:
+    """Return ``(draft_ttl_days, reap_orphans)`` from the manifest ``lifecycle`` block.
+
+    Stdlib-only: ``ai_engineering.config.loader.load_manifest_config`` pulls in
+    third-party deps (``yaml``/``ruamel``/``pydantic``), so this script parses
+    the small top-level ``lifecycle:`` block by hand. Fail-open to the defaults
+    (14 days, reaping enabled) when ``manifest.yml`` is missing, has no
+    ``lifecycle`` block, or a value is unparseable — retention config must never
+    be a hard dependency of the sweep.
+    """
+    manifest = project_root / ".ai-engineering" / "manifest.yml"
+    if not manifest.exists():
+        return _DEFAULT_DRAFT_TTL_DAYS, _DEFAULT_REAP_ORPHANS
+    try:
+        lines = manifest.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return _DEFAULT_DRAFT_TTL_DAYS, _DEFAULT_REAP_ORPHANS
+
+    draft_ttl_days = _DEFAULT_DRAFT_TTL_DAYS
+    reap_orphans = _DEFAULT_REAP_ORPHANS
+    in_block = False
+    for raw in lines:
+        # A top-level key (column 0, non-space) closes the lifecycle block.
+        if in_block and raw[:1] not in (" ", "\t", "") and not raw.startswith("#"):
+            break
+        stripped = raw.strip()
+        if not in_block:
+            if stripped == "lifecycle:":
+                in_block = True
+            continue
+        if not stripped or stripped.startswith("#"):
+            continue
+        key, _sep, value = stripped.partition(":")
+        key = key.strip()
+        value = value.split("#", 1)[0].strip()
+        if key == "draft_ttl_days":
+            with contextlib.suppress(ValueError):
+                draft_ttl_days = int(value)
+        elif key == "reap_orphans":
+            reap_orphans = value.lower() in ("true", "yes", "1", "on")
+    return draft_ttl_days, reap_orphans
+
+
+def _reap_orphans(project_root: Path) -> int:
+    """Move stray ``specs/spec-*.md`` files into their per-spec archive directory.
+
+    The ``specs/`` root invariant is ``{spec.md, plan.md, _history.md, drafts/,
+    archive/}`` (D-153-07). Any other top-level ``spec-*.md`` file is an orphan:
+    its basename already carries ``spec-NNN-<slug>``, so it moves to
+    ``archive/<basename-without-.md>/spec.md``. The reaper only ever *moves*
+    (``git mv`` with a plain-rename fallback) — it never deletes. Returns the
+    number of files reaped.
+    """
+    specs_root = _specs_root(project_root)
+    if not specs_root.is_dir():
+        return 0
+    reaped = 0
+    for path in sorted(specs_root.glob("spec-*.md")):
+        if not path.is_file():
+            continue
+        if path.name in _PROTECTED_SPEC_FILES:
+            continue
+        dest_dir = _archive_dir(project_root) / path.stem
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        _git_mv(project_root, path, dest_dir / "spec.md")
+        reaped += 1
+    return reaped
+
+
 def migrate_history(project_root: Path) -> None:
     """One-shot migration: legacy 5/6-col `_history.md` → 7-col canonical."""
     _render_history(project_root)
+
+
+def _history_spec_ids(project_root: Path) -> set[str]:
+    """Return spec ids already present in the canonical history table."""
+    history = _history_path(project_root)
+    if not history.exists():
+        return set()
+    rows, _tail = _split_history(history.read_text(encoding="utf-8"))
+    data_rows = _migrate_rows(rows)
+    ids: set[str] = set()
+    for row in data_rows:
+        row_cells = _normalize_row(row)
+        if row_cells:
+            ids.add(row_cells[0])
+    return ids
+
+
+_SPEC_NUMBER_RE = re.compile(r"^spec-(\d+)$")
+
+
+def _scan_spec_numbers(project_root: Path) -> set[int]:
+    """Collect every ``spec-NNN`` number from sidecars + the history ledger.
+
+    Scans both the sidecar ``spec_id`` fields and the canonical
+    ``_history.md`` ID cells, parsing the ``spec-(\\d+)`` form. Bare legacy
+    numeric ledger IDs (``099``) are intentionally ignored here: the canonical
+    identity is ``spec-NNN`` and the historical rows are frozen records, but
+    the highest historical number is still captured via its ``spec-``-prefixed
+    presence in sidecars / new rows. The fixture's bare ``099`` is matched by
+    the dedicated ledger pass below.
+    """
+    numbers: set[int] = set()
+    specs = _specs_dir(project_root)
+    if specs.exists():
+        for path in specs.glob("*.json"):
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            match = _SPEC_NUMBER_RE.match(str(data.get("spec_id", "")))
+            if match:
+                numbers.add(int(match.group(1)))
+    for hid in _history_spec_ids(project_root):
+        match = _SPEC_NUMBER_RE.match(hid)
+        if match:
+            numbers.add(int(match.group(1)))
+        elif hid.isdigit():
+            # Legacy bare-number ledger rows (e.g. ``099``) still anchor the
+            # max so the next mint never collides with a historical spec.
+            numbers.add(int(hid))
+    return numbers
+
+
+def _next_spec_number(project_root: Path) -> int:
+    """Return ``max(existing spec numbers) + 1`` (default 1 when none exist)."""
+    numbers = _scan_spec_numbers(project_root)
+    return (max(numbers) + 1) if numbers else 1
+
+
+def _history_row_for(record: SpecRecord) -> list[str]:
+    """Project a shipped sidecar record into the 7-column history row."""
+    return [
+        record.spec_id,
+        record.title,
+        record.state.value,
+        record.created.split("T")[0],
+        record.shipped.split("T")[0] if record.shipped else "—",
+        record.pr or "—",
+        record.branch or "—",
+    ]
+
+
+def consolidate_shipped(project_root: Path, *, dry_run: bool = False) -> dict:
+    """Append missing `_history.md` rows for already-SHIPPED spec sidecars.
+
+    This is the cold-path cleanup verb used by `ai-eng cleanup specs`. It
+    deliberately does **not** mark APPROVED or IN_PROGRESS specs as shipped;
+    lifecycle closure remains explicit via `mark_shipped`.
+    """
+    summary: dict[str, object] = {
+        "consolidated": 0,
+        "already_present": 0,
+        "skipped": 0,
+        "would_consolidate": [],
+        "sweep": {"abandoned": 0, "archived": 0},
+    }
+    specs_dir = _specs_dir(project_root)
+    if not specs_dir.exists():
+        return summary
+
+    if not dry_run:
+        summary["sweep"] = sweep(project_root)
+
+    known_ids = _history_spec_ids(project_root)
+    for path in sorted(specs_dir.glob("*.json")):
+        try:
+            record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError, KeyError, ValueError):
+            summary["skipped"] = int(summary["skipped"]) + 1
+            continue
+        if record.state is not LifecycleState.SHIPPED:
+            summary["skipped"] = int(summary["skipped"]) + 1
+            continue
+        if record.spec_id in known_ids:
+            summary["already_present"] = int(summary["already_present"]) + 1
+            continue
+        if dry_run:
+            cast_list = summary["would_consolidate"]
+            if isinstance(cast_list, list):
+                cast_list.append(record.spec_id)
+            continue
+        _render_history(project_root, append_row=_history_row_for(record))
+        known_ids.add(record.spec_id)
+        summary["consolidated"] = int(summary["consolidated"]) + 1
+
+    if not dry_run and int(summary["consolidated"]) > 0:
+        _append_event(project_root, "spec_history_consolidated", summary)
+    return summary
+
+
+# --- merged-branch reconcile backstop (spec-153 D-153-03) ------------------
+
+# Default branch a spec PR merges into. The classification below mirrors
+# ``/ai-branch-cleanup`` Phase 1 exactly (SKILL.md:54-56).
+_DEFAULT_BRANCH = "main"
+
+# Non-terminal states whose merged branch should auto-transition to SHIPPED.
+_NON_TERMINAL_STATES = frozenset(
+    {
+        LifecycleState.DRAFT,
+        LifecycleState.APPROVED,
+        LifecycleState.IN_PROGRESS,
+    }
+)
+
+
+def _git_stdout(project_root: Path, *args: str) -> str | None:
+    """Run ``git -C <root> <args>`` and return stdout, or ``None`` on failure.
+
+    Fail-open: a missing ``git`` or non-zero exit returns ``None`` so the
+    reconcile pass never blocks branch cleanup (the load-bearing hot path).
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(project_root), *args],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def _branch_is_merged(project_root: Path, branch: str, default: str) -> bool:
+    """True when ``branch`` is merged into ``default`` (mirrors ai-branch-cleanup).
+
+    Two signals, identical to the cleanup classifier (SKILL.md:54-56):
+
+    1. ``branch`` appears in ``git branch --merged <default>`` (fast-forward /
+       true merge), OR
+    2. ``git diff <default>..<branch>`` is empty (squash-merge: the branch's
+       content is already on ``default`` under a single squashed commit).
+    """
+    merged = _git_stdout(project_root, "branch", "--merged", default)
+    if merged is not None:
+        names = {line.strip().lstrip("* ").strip() for line in merged.splitlines()}
+        names.discard("")
+        if branch in names:
+            return True
+    diff = _git_stdout(project_root, "diff", f"{default}..{branch}")
+    # An empty diff (and a successful git call) means squash-merged. A ``None``
+    # (git failed / branch absent) is *not* treated as merged — fail-safe.
+    return diff is not None and diff.strip() == ""
+
+
+def _resolve_merged_pr(project_root: Path, branch: str) -> str:
+    """Resolve the merged PR number for ``branch`` via ``gh``; fail-open to ``—``.
+
+    Runs ``gh pr list --head <branch> --state merged --json number`` and returns
+    the first number as a string. When ``gh`` is absent, errs, or returns no
+    rows, returns the em-dash placeholder so the ledger row stays well-formed.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--head",
+                branch,
+                "--state",
+                "merged",
+                "--json",
+                "number",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, OSError):
+        return "—"
+    if result.returncode != 0:
+        return "—"
+    try:
+        rows = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return "—"
+    if isinstance(rows, list) and rows:
+        number = rows[0].get("number")
+        if number is not None:
+            return str(number)
+    return "—"
+
+
+def reconcile_merged(project_root: Path, *, default_branch: str = _DEFAULT_BRANCH) -> dict:
+    """Auto-mark merged-but-unshipped specs SHIPPED (idempotent backstop).
+
+    The backstop for D-153-03: ``/ai-pr`` marks a spec at merge time when it
+    holds the PR + branch, but a spec merged via the GitHub UI (or any non-
+    ``/ai-pr`` path) never fires ``mark_shipped``. This verb closes that gap.
+
+    For each sidecar in a non-terminal state (DRAFT/APPROVED/IN_PROGRESS)
+    carrying a ``branch``, classify the branch with the same logic as
+    ``/ai-branch-cleanup`` (``git branch --merged`` + squash-merge emptiness).
+    A merged branch resolves its PR via ``gh`` (fail-open to ``—``) and calls
+    ``mark_shipped`` — which is idempotent, so already-SHIPPED records are a
+    no-op (they are terminal and skipped before any git work). Sidecars with no
+    branch are skipped. Stays off the pre-push hot path (cleanup-time only).
+
+    Returns ``{"shipped": [...], "skipped": [...], "unmerged": [...]}`` reports.
+    """
+    shipped: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
+    unmerged: list[dict[str, str]] = []
+
+    specs = _specs_dir(project_root)
+    if not specs.exists():
+        return {"shipped": shipped, "skipped": skipped, "unmerged": unmerged}
+
+    for path in sorted(specs.glob("*.json")):
+        try:
+            record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError, KeyError, ValueError):
+            skipped.append({"spec_id": path.stem, "reason": "unreadable"})
+            continue
+        if record.state not in _NON_TERMINAL_STATES:
+            # SHIPPED / ABANDONED / ARCHIVED are terminal for the reconcile.
+            skipped.append({"spec_id": record.spec_id, "reason": "terminal-state"})
+            continue
+        if not record.branch:
+            skipped.append({"spec_id": record.spec_id, "reason": "no-branch"})
+            continue
+        if not _branch_is_merged(project_root, record.branch, default_branch):
+            unmerged.append({"spec_id": record.spec_id, "branch": record.branch})
+            continue
+        pr = _resolve_merged_pr(project_root, record.branch)
+        mark_shipped(record.spec_id, pr, record.branch, project_root)
+        shipped.append({"spec_id": record.spec_id, "pr": pr, "branch": record.branch})
+
+    if shipped:
+        _append_event(
+            project_root,
+            "spec_reconciled_merged",
+            {"shipped": len(shipped), "default_branch": default_branch},
+        )
+    return {"shipped": shipped, "skipped": skipped, "unmerged": unmerged}
+
+
+# --- sidecar id migration (spec-153 D-153-01 / D-153-10) -------------------
+
+# Explicit slug→number mappings for sidecars with no resolvable ``_history.md``
+# numeric row. The supply-chain spec shipped under PR #536 as spec-152 but its
+# sidecar was minted slug-keyed before numeric identity existed (D-153-02).
+_EXPLICIT_ID_MAP: dict[str, str] = {
+    "github-actions-supply-chain-hardening": "spec-152",
+}
+
+# The slug→spec-NNN- prefix is a deterministic numeric signal (the number is
+# literally embedded in the slug), not a guess.
+_SLUG_PREFIX_RE = re.compile(r"^spec-(\d+)-")
+
+
+def _spec_frontmatter_id(project_root: Path) -> str | None:
+    """Read the canonical ``spec:`` id from ``specs/spec.md`` frontmatter."""
+    spec_md = project_root / ".ai-engineering" / "specs" / "spec.md"
+    if not spec_md.exists():
+        return None
+    in_frontmatter = False
+    for line in spec_md.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped == "---":
+            if in_frontmatter:
+                break
+            in_frontmatter = True
+            continue
+        if in_frontmatter and stripped.startswith("spec:"):
+            value = stripped.split(":", 1)[1].strip()
+            if _SPEC_NUMBER_RE.match(value):
+                return value
+    return None
+
+
+def _history_title_to_id(project_root: Path) -> dict[str, list[str]]:
+    """Map each ledger row title to the list of IDs that carry it."""
+    history = _history_path(project_root)
+    mapping: dict[str, list[str]] = {}
+    if not history.exists():
+        return mapping
+    rows, _tail = _split_history(history.read_text(encoding="utf-8"))
+    data_rows = _migrate_rows(rows)
+    for row in data_rows:
+        cells = _normalize_row(row)
+        if len(cells) >= 2:
+            mapping.setdefault(cells[1], []).append(cells[0])
+    return mapping
+
+
+def _resolve_numeric_id(
+    record: SpecRecord,
+    *,
+    project_root: Path,
+    frontmatter_id: str | None,
+    title_index: dict[str, list[str]],
+) -> str | None:
+    """Resolve a slug sidecar to its canonical ``spec-NNN`` — or ``None``.
+
+    Resolution order (all deterministic, never a guess):
+
+    1. Explicit known mapping (``_EXPLICIT_ID_MAP``).
+    2. This run's own sidecar → ``spec.md`` frontmatter ``spec:``.
+    3. Unique ``_history.md`` row whose title equals the sidecar title.
+    4. A ``spec-(\\d+)-`` slug prefix (number embedded literally in the slug).
+
+    Returns the resolved ``spec-NNN`` only when it parses to ``^spec-\\d+$``
+    and to exactly one candidate; otherwise ``None`` (caller reports it).
+    """
+    if record.slug in _EXPLICIT_ID_MAP:
+        return _EXPLICIT_ID_MAP[record.slug]
+    if record.slug == "spec-lifecycle-and-client-readme" and frontmatter_id:
+        return frontmatter_id
+    matches = title_index.get(record.title, [])
+    numeric_matches = sorted({m for m in matches if _SPEC_NUMBER_RE.match(m)})
+    if len(numeric_matches) == 1:
+        return numeric_matches[0]
+    bare_matches = sorted({m for m in matches if m.isdigit()})
+    if not numeric_matches and len(bare_matches) == 1:
+        return f"spec-{int(bare_matches[0]):03d}"
+    prefix = _SLUG_PREFIX_RE.match(record.slug)
+    if prefix:
+        return f"spec-{int(prefix.group(1)):03d}"
+    return None
+
+
+def _git_mv(project_root: Path, src: Path, dst: Path) -> None:
+    """``git mv`` to preserve history; fall back to ``os.replace`` if untracked."""
+    try:
+        subprocess.run(
+            ["git", "-C", str(project_root), "mv", str(src), str(dst)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Untracked file (fresh tmp fixture) or git absent — plain rename.
+        os.replace(str(src), str(dst))
+
+
+def _git_rm(project_root: Path, target: Path) -> None:
+    """``git rm`` to preserve history; fall back to ``unlink`` if untracked."""
+    try:
+        subprocess.run(
+            ["git", "-C", str(project_root), "rm", str(target)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        with contextlib.suppress(OSError):
+            target.unlink()
+
+
+def _dedup_obvious_by_default(project_root: Path, *, dry_run: bool) -> dict[str, str] | None:
+    """De-duplicate the ``obvious-by-default`` / ``-essentials`` sidecar pair.
+
+    Keeps the record with the later ``created`` timestamp (the more recent,
+    more-complete draft) and removes the other (D-153-10). Returns a report
+    entry describing the decision, or ``None`` when the pair is not both
+    present.
+    """
+    specs = _specs_dir(project_root)
+    primary = specs / "obvious-by-default.json"
+    essentials = specs / "obvious-by-default-essentials.json"
+    if not (primary.exists() and essentials.exists()):
+        return None
+    try:
+        p_created = json.loads(primary.read_text(encoding="utf-8")).get("created", "")
+        e_created = json.loads(essentials.read_text(encoding="utf-8")).get("created", "")
+    except (OSError, json.JSONDecodeError):
+        return None
+    # Later created wins; ISO-8601 strings sort lexicographically by time.
+    if e_created >= p_created:
+        keep, drop = essentials, primary
+    else:
+        keep, drop = primary, essentials
+    if not dry_run:
+        _git_rm(project_root, drop)
+    return {"kept": keep.stem, "dropped": drop.stem}
+
+
+def migrate_ids(project_root: Path, *, dry_run: bool = False) -> dict:
+    """Migrate slug-keyed sidecars to the canonical ``spec-NNN`` scheme.
+
+    For every sidecar whose ``spec_id`` is not already ``^spec-\\d+$``, resolve
+    its canonical number deterministically (see ``_resolve_numeric_id``),
+    rewrite ``spec_id`` in place, and ``git mv`` the file to ``spec-NNN.json``.
+    The ``obvious-by-default`` pair is de-duplicated first. Any sidecar whose
+    number cannot be unambiguously resolved is left untouched and listed under
+    ``unresolved`` — a guessed number is never assigned (spec-153 D-153-01).
+
+    Runs under the ``specs-history`` lock so it serializes against ``start_new``
+    minting and never races a concurrent number allocation.
+    """
+    # Explicit typed accumulators keep the report values concrete (no opaque
+    # ``object`` casts, so no suppression comments are needed).
+    renamed: list[dict[str, str]] = []
+    unresolved: list[str] = []
+    already_numeric: list[str] = []
+    dedup: dict[str, str] | None = None
+
+    specs = _specs_dir(project_root)
+    if not specs.exists():
+        return {
+            "renamed": renamed,
+            "unresolved": unresolved,
+            "already_numeric": already_numeric,
+            "dedup": dedup,
+            "dry_run": dry_run,
+        }
+
+    with artifact_lock(project_root, "specs-history"):
+        dedup = _dedup_obvious_by_default(project_root, dry_run=dry_run)
+        dropped_stem = dedup["dropped"] if dedup else None
+
+        frontmatter_id = _spec_frontmatter_id(project_root)
+        title_index = _history_title_to_id(project_root)
+
+        for path in sorted(specs.glob("*.json")):
+            if dropped_stem and path.stem == dropped_stem:
+                continue  # already removed by the dedup pass.
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                unresolved.append(path.stem)
+                continue
+            spec_id = str(data.get("spec_id", ""))
+            if _SPEC_NUMBER_RE.match(spec_id):
+                already_numeric.append(spec_id)
+                continue
+            try:
+                record = SpecRecord.from_json(data)
+            except (KeyError, ValueError):
+                unresolved.append(path.stem)
+                continue
+            target_id = _resolve_numeric_id(
+                record,
+                project_root=project_root,
+                frontmatter_id=frontmatter_id,
+                title_index=title_index,
+            )
+            if target_id is None:
+                unresolved.append(record.slug)
+                continue
+            target_path = specs / f"{target_id}.json"
+            # Never clobber an existing, distinct numeric sidecar.
+            if target_path.exists() and target_path != path:
+                unresolved.append(record.slug)
+                continue
+            renamed.append({"slug": record.slug, "from": path.name, "to": f"{target_id}.json"})
+            if dry_run:
+                continue
+            data["spec_id"] = target_id
+            _atomic_write(path, json.dumps(data, indent=2, sort_keys=True))
+            _git_mv(project_root, path, target_path)
+
+    if not dry_run and (renamed or dedup):
+        _append_event(
+            project_root,
+            "spec_ids_migrated",
+            {
+                "renamed": len(renamed),
+                "unresolved": len(unresolved),
+                "deduped": bool(dedup),
+            },
+        )
+    return {
+        "renamed": renamed,
+        "unresolved": unresolved,
+        "already_numeric": already_numeric,
+        "dedup": dedup,
+        "dry_run": dry_run,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -473,6 +1216,22 @@ def _build_parser() -> argparse.ArgumentParser:
     _common(st)
     mh = sub.add_parser("migrate-history", help="One-shot legacy history migration")
     _common(mh)
+    cs = sub.add_parser("consolidate_shipped", help="Append missing history rows for SHIPPED specs")
+    cs.add_argument("--dry-run", action="store_true", help="Preview rows without mutating files")
+    _common(cs)
+    mi = sub.add_parser("migrate_ids", help="Rename slug sidecars to canonical spec-NNN")
+    mi.add_argument("--dry-run", action="store_true", help="Preview renames without mutating files")
+    _common(mi)
+    rm = sub.add_parser(
+        "reconcile_merged",
+        help="Auto-mark merged-but-unshipped specs SHIPPED (idempotent backstop)",
+    )
+    rm.add_argument(
+        "--default-branch",
+        default=_DEFAULT_BRANCH,
+        help=f"Branch PRs merge into (default: {_DEFAULT_BRANCH})",
+    )
+    _common(rm)
     return p
 
 
@@ -504,6 +1263,17 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "migrate-history":
             migrate_history(project_root)
             print("migrated _history.md to 7-col canonical layout")
+        elif args.cmd == "consolidate_shipped":
+            print(json.dumps(consolidate_shipped(project_root, dry_run=args.dry_run), indent=2))
+        elif args.cmd == "migrate_ids":
+            print(json.dumps(migrate_ids(project_root, dry_run=args.dry_run), indent=2))
+        elif args.cmd == "reconcile_merged":
+            print(
+                json.dumps(
+                    reconcile_merged(project_root, default_branch=args.default_branch),
+                    indent=2,
+                )
+            )
         else:
             return 2
     except (ValueError, FileNotFoundError, KeyError) as exc:

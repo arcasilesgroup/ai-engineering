@@ -422,6 +422,15 @@ def _snapshot_and_reset(project_root: Path, record: SpecRecord) -> bool:
     re-run after a prior ship), the snapshot is skipped gracefully and the
     buffers are left untouched. Returns ``True`` when a snapshot was taken.
 
+    Snapshot-safety guard (spec-153 D-153-03 / W4): the live working buffer is
+    snapshotted **only** when its frontmatter ``spec:`` equals ``record.spec_id``.
+    The ``/ai-pr`` path always satisfies this — the buffer *is* the spec being
+    shipped. ``reconcile_merged``, by contrast, can mark an OLD/different spec
+    whose content is no longer in the buffer (the buffer now holds a later,
+    in-flight spec); in that case we MUST NOT snapshot/clear the unrelated
+    buffer. The caller still performs the state transition, history row, and
+    event — only the file movement is gated here.
+
     ARCHIVED stays a logical terminal marker with no file movement — this is
     only ever called from ``mark_shipped``.
     """
@@ -430,6 +439,12 @@ def _snapshot_and_reset(project_root: Path, record: SpecRecord) -> bool:
         return False
     spec_text = spec_buffer.read_text(encoding="utf-8")
     if _buffer_is_placeholder(spec_text):
+        return False
+    # Only snapshot when the live buffer IS the spec being shipped. A mismatch
+    # means an unrelated in-flight spec is in the buffer (the reconcile path);
+    # leave it untouched.
+    buffer_id = _spec_frontmatter_id(project_root)
+    if buffer_id is not None and buffer_id != record.spec_id:
         return False
 
     target_dir = _archive_dir(project_root) / f"{record.spec_id}-{record.slug}"
@@ -447,7 +462,14 @@ def _snapshot_and_reset(project_root: Path, record: SpecRecord) -> bool:
 
 
 def mark_shipped(spec_id: str, pr: str, branch: str, project_root: Path) -> SpecRecord:
-    """Walk DRAFT→APPROVED→IN_PROGRESS→SHIPPED in one call (idempotent)."""
+    """Walk the current state forward to SHIPPED in one call (idempotent).
+
+    Starts from wherever the record is (DRAFT for the ``/ai-pr`` path,
+    APPROVED/IN_PROGRESS for the reconcile backstop) and advances along the
+    linear chain DRAFT→APPROVED→IN_PROGRESS→SHIPPED. Already-SHIPPED records
+    re-materialize their ledger row idempotently; terminal ARCHIVED/ABANDONED
+    raise via the FSM validator.
+    """
     record = _load_state(project_root, spec_id)
     if record.state is LifecycleState.SHIPPED:
         # Idempotent: refresh metadata if needed and re-materialize the
@@ -461,16 +483,26 @@ def mark_shipped(spec_id: str, pr: str, branch: str, project_root: Path) -> Spec
             _write_state(project_root, record)
         _render_history(project_root, append_row=_history_row_for(record))
         return record
-    # Walk legal chain. Any illegal start state (ARCHIVED, ABANDONED) raises.
+    # Walk the linear lifecycle chain forward FROM the current state to SHIPPED.
+    # Records can start at DRAFT (start_new + /ai-pr) or mid-chain at APPROVED /
+    # IN_PROGRESS (the reconcile backstop marks a spec already under way). We
+    # advance only through the suffix of the chain after the current state, so a
+    # legal forward walk never attempts an illegal backward step (e.g.
+    # IN_PROGRESS -> APPROVED). Terminal start states (ARCHIVED/ABANDONED) are
+    # not in the chain and raise on the first transition — the FSM stays the gate.
     chain = [
+        LifecycleState.DRAFT,
         LifecycleState.APPROVED,
         LifecycleState.IN_PROGRESS,
         LifecycleState.SHIPPED,
     ]
-    for target in chain:
-        if record.state is target:
-            continue
-        record.state = transition(record.state, target)
+    if record.state in chain:
+        start = chain.index(record.state)
+        for target in chain[start + 1 :]:
+            record.state = transition(record.state, target)
+    else:
+        # ABANDONED/ARCHIVED: surface the illegal move via the FSM validator.
+        record.state = transition(record.state, LifecycleState.SHIPPED)
     record.pr = pr
     record.branch = branch
     record.shipped = _utcnow_iso()
@@ -753,6 +785,157 @@ def consolidate_shipped(project_root: Path, *, dry_run: bool = False) -> dict:
     if not dry_run and int(summary["consolidated"]) > 0:
         _append_event(project_root, "spec_history_consolidated", summary)
     return summary
+
+
+# --- merged-branch reconcile backstop (spec-153 D-153-03) ------------------
+
+# Default branch a spec PR merges into. The classification below mirrors
+# ``/ai-branch-cleanup`` Phase 1 exactly (SKILL.md:54-56).
+_DEFAULT_BRANCH = "main"
+
+# Non-terminal states whose merged branch should auto-transition to SHIPPED.
+_NON_TERMINAL_STATES = frozenset(
+    {
+        LifecycleState.DRAFT,
+        LifecycleState.APPROVED,
+        LifecycleState.IN_PROGRESS,
+    }
+)
+
+
+def _git_stdout(project_root: Path, *args: str) -> str | None:
+    """Run ``git -C <root> <args>`` and return stdout, or ``None`` on failure.
+
+    Fail-open: a missing ``git`` or non-zero exit returns ``None`` so the
+    reconcile pass never blocks branch cleanup (the load-bearing hot path).
+    """
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(project_root), *args],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    return result.stdout
+
+
+def _branch_is_merged(project_root: Path, branch: str, default: str) -> bool:
+    """True when ``branch`` is merged into ``default`` (mirrors ai-branch-cleanup).
+
+    Two signals, identical to the cleanup classifier (SKILL.md:54-56):
+
+    1. ``branch`` appears in ``git branch --merged <default>`` (fast-forward /
+       true merge), OR
+    2. ``git diff <default>..<branch>`` is empty (squash-merge: the branch's
+       content is already on ``default`` under a single squashed commit).
+    """
+    merged = _git_stdout(project_root, "branch", "--merged", default)
+    if merged is not None:
+        names = {line.strip().lstrip("* ").strip() for line in merged.splitlines()}
+        names.discard("")
+        if branch in names:
+            return True
+    diff = _git_stdout(project_root, "diff", f"{default}..{branch}")
+    # An empty diff (and a successful git call) means squash-merged. A ``None``
+    # (git failed / branch absent) is *not* treated as merged — fail-safe.
+    return diff is not None and diff.strip() == ""
+
+
+def _resolve_merged_pr(project_root: Path, branch: str) -> str:
+    """Resolve the merged PR number for ``branch`` via ``gh``; fail-open to ``—``.
+
+    Runs ``gh pr list --head <branch> --state merged --json number`` and returns
+    the first number as a string. When ``gh`` is absent, errs, or returns no
+    rows, returns the em-dash placeholder so the ledger row stays well-formed.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--head",
+                branch,
+                "--state",
+                "merged",
+                "--json",
+                "number",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, OSError):
+        return "—"
+    if result.returncode != 0:
+        return "—"
+    try:
+        rows = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return "—"
+    if isinstance(rows, list) and rows:
+        number = rows[0].get("number")
+        if number is not None:
+            return str(number)
+    return "—"
+
+
+def reconcile_merged(project_root: Path, *, default_branch: str = _DEFAULT_BRANCH) -> dict:
+    """Auto-mark merged-but-unshipped specs SHIPPED (idempotent backstop).
+
+    The backstop for D-153-03: ``/ai-pr`` marks a spec at merge time when it
+    holds the PR + branch, but a spec merged via the GitHub UI (or any non-
+    ``/ai-pr`` path) never fires ``mark_shipped``. This verb closes that gap.
+
+    For each sidecar in a non-terminal state (DRAFT/APPROVED/IN_PROGRESS)
+    carrying a ``branch``, classify the branch with the same logic as
+    ``/ai-branch-cleanup`` (``git branch --merged`` + squash-merge emptiness).
+    A merged branch resolves its PR via ``gh`` (fail-open to ``—``) and calls
+    ``mark_shipped`` — which is idempotent, so already-SHIPPED records are a
+    no-op (they are terminal and skipped before any git work). Sidecars with no
+    branch are skipped. Stays off the pre-push hot path (cleanup-time only).
+
+    Returns ``{"shipped": [...], "skipped": [...], "unmerged": [...]}`` reports.
+    """
+    shipped: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
+    unmerged: list[dict[str, str]] = []
+
+    specs = _specs_dir(project_root)
+    if not specs.exists():
+        return {"shipped": shipped, "skipped": skipped, "unmerged": unmerged}
+
+    for path in sorted(specs.glob("*.json")):
+        try:
+            record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError, KeyError, ValueError):
+            skipped.append({"spec_id": path.stem, "reason": "unreadable"})
+            continue
+        if record.state not in _NON_TERMINAL_STATES:
+            # SHIPPED / ABANDONED / ARCHIVED are terminal for the reconcile.
+            skipped.append({"spec_id": record.spec_id, "reason": "terminal-state"})
+            continue
+        if not record.branch:
+            skipped.append({"spec_id": record.spec_id, "reason": "no-branch"})
+            continue
+        if not _branch_is_merged(project_root, record.branch, default_branch):
+            unmerged.append({"spec_id": record.spec_id, "branch": record.branch})
+            continue
+        pr = _resolve_merged_pr(project_root, record.branch)
+        mark_shipped(record.spec_id, pr, record.branch, project_root)
+        shipped.append({"spec_id": record.spec_id, "pr": pr, "branch": record.branch})
+
+    if shipped:
+        _append_event(
+            project_root,
+            "spec_reconciled_merged",
+            {"shipped": len(shipped), "default_branch": default_branch},
+        )
+    return {"shipped": shipped, "skipped": skipped, "unmerged": unmerged}
 
 
 # --- sidecar id migration (spec-153 D-153-01 / D-153-10) -------------------
@@ -1039,6 +1222,16 @@ def _build_parser() -> argparse.ArgumentParser:
     mi = sub.add_parser("migrate_ids", help="Rename slug sidecars to canonical spec-NNN")
     mi.add_argument("--dry-run", action="store_true", help="Preview renames without mutating files")
     _common(mi)
+    rm = sub.add_parser(
+        "reconcile_merged",
+        help="Auto-mark merged-but-unshipped specs SHIPPED (idempotent backstop)",
+    )
+    rm.add_argument(
+        "--default-branch",
+        default=_DEFAULT_BRANCH,
+        help=f"Branch PRs merge into (default: {_DEFAULT_BRANCH})",
+    )
+    _common(rm)
     return p
 
 
@@ -1074,6 +1267,13 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(consolidate_shipped(project_root, dry_run=args.dry_run), indent=2))
         elif args.cmd == "migrate_ids":
             print(json.dumps(migrate_ids(project_root, dry_run=args.dry_run), indent=2))
+        elif args.cmd == "reconcile_merged":
+            print(
+                json.dumps(
+                    reconcile_merged(project_root, default_branch=args.default_branch),
+                    indent=2,
+                )
+            )
         else:
             return 2
     except (ValueError, FileNotFoundError, KeyError) as exc:
