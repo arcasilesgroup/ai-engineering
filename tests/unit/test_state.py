@@ -152,6 +152,25 @@ class TestOwnershipMap:
         assert om.is_update_allowed(".claude/settings.json") is False
         assert om.has_deny_rule(".claude/settings.json") is True
 
+    def test_mirror_surface_trees_allowed(self) -> None:
+        """Every spec-133 mirror surface tree is framework-managed (ALLOW).
+
+        opencode/cursor were registered as surfaces (templates._SURFACE_TREE_MAPS)
+        and listed in framework_defaults.DEFAULT_OWNERSHIP_FRAMEWORK, but the
+        control-plane ownership rules that build the on-disk ownership map were
+        never given matching entries. With no rule, is_update_allowed defaults to
+        deny, so installed .opencode/.cursor mirror files were protected-by-default
+        and ai-eng update could never refresh them — the opposite of the
+        framework-managed mirror contract their siblings (.claude/.codex/.agents)
+        already satisfied.
+        """
+        om = default_ownership_map()
+        assert om.is_update_allowed(".codex/agents/ai-build.md") is True
+        assert om.is_update_allowed(".agents/ai-build.md") is True
+        assert om.is_update_allowed(".opencode/skills/ai-commit/SKILL.md") is True
+        assert om.is_update_allowed(".opencode/commands/ai-pr.md") is True
+        assert om.is_update_allowed(".cursor/commands/ai-plan.md") is True
+
     # -- spec-070: new ownership rules tests -----------------------------------
 
     def test_governance_readme_allowed(self) -> None:
