@@ -22,6 +22,7 @@ from ai_engineering.config.manifest import (
     CicdConfig,
     DocumentationConfig,
     HotPathSlosConfig,
+    LifecycleConfig,
     ManifestConfig,
     OwnershipConfig,
     ProvidersConfig,
@@ -131,6 +132,29 @@ class TestRealManifest:
     def test_model_validate_succeeds(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert isinstance(config, ManifestConfig)
+
+    def test_lifecycle_defaults(self, real_manifest_data: dict) -> None:
+        """spec-153 D-153-08: lifecycle retention is SSOT config, not constants."""
+        config = ManifestConfig.model_validate(real_manifest_data)
+        assert isinstance(config.lifecycle, LifecycleConfig)
+        assert config.lifecycle.draft_ttl_days == 30
+        assert config.lifecycle.archive_layout == "per-spec-dir"
+        assert config.lifecycle.reap_orphans is True
+
+    def test_lifecycle_block_round_trips(self, tmp_project: Path) -> None:
+        """A manifest WITH an explicit lifecycle block parses + round-trips."""
+        manifest = tmp_project / ".ai-engineering" / "manifest.yml"
+        manifest.write_text(
+            "lifecycle:\n"
+            "  draft_ttl_days: 45\n"
+            "  archive_layout: per-spec-dir\n"
+            "  reap_orphans: false\n",
+            encoding="utf-8",
+        )
+        config = load_manifest_config(tmp_project)
+        assert config.lifecycle.draft_ttl_days == 45
+        assert config.lifecycle.archive_layout == "per-spec-dir"
+        assert config.lifecycle.reap_orphans is False
 
     def test_load_from_repo_root(self) -> None:
         config = load_manifest_config(REPO_ROOT)

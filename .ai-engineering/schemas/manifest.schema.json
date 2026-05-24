@@ -367,6 +367,27 @@
       },
       "required": ["auto_spec_gate"],
       "additionalProperties": false
+    },
+    "lifecycle": {
+      "type": "object",
+      "description": "Spec lifecycle retention + archival knobs (spec-153 D-153-08).",
+      "properties": {
+        "draft_ttl_days": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "DRAFT sidecars older than this sweep to ABANDONED."
+        },
+        "archive_layout": {
+          "type": "string",
+          "enum": ["per-spec-dir"],
+          "description": "archive/spec-NNN-<slug>/{spec.md,plan.md} layout."
+        },
+        "reap_orphans": {
+          "type": "boolean",
+          "description": "Sweep stray spec-*.md from the specs/ root."
+        }
+      },
+      "additionalProperties": false
     }
   },
   "required": [

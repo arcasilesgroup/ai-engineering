@@ -87,6 +87,34 @@ class TestManifestValid:
         manifest_check = next(r for r in results if r.name == "manifest-valid")
         assert manifest_check.status == CheckStatus.OK
 
+    def test_ok_with_lifecycle_block(self, project: Path):
+        """spec-153 D-153-08: a manifest carrying a lifecycle block validates.
+
+        The schema declares ``lifecycle`` so ``additionalProperties: false``
+        does not reject the key, and the loader parses it into a typed block.
+        """
+        from ai_engineering.config.loader import load_manifest_config
+
+        (project / ".ai-engineering" / "manifest.yml").write_text(
+            "schema_version: '2.0'\n"
+            "name: test\n"
+            "lifecycle:\n"
+            "  draft_ttl_days: 30\n"
+            "  archive_layout: per-spec-dir\n"
+            "  reap_orphans: true\n",
+            encoding="utf-8",
+        )
+        ctx = DoctorContext(target=project)
+        results = governance.check(ctx)
+        manifest_check = next(r for r in results if r.name == "manifest-valid")
+        assert manifest_check.status == CheckStatus.OK
+        # The block must round-trip through the typed loader, not merely be
+        # tolerated as an unknown key.
+        config = load_manifest_config(project)
+        assert config.lifecycle.draft_ttl_days == 30
+        assert config.lifecycle.archive_layout == "per-spec-dir"
+        assert config.lifecycle.reap_orphans is True
+
     def test_fail_when_missing(self, tmp_path: Path):
         (tmp_path / ".ai-engineering").mkdir(parents=True)
         ctx = DoctorContext(target=tmp_path)
