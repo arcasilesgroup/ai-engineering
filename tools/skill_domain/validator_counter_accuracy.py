@@ -39,27 +39,28 @@ _README_COUNT_FILES: tuple[str, ...] = (
 )
 
 
-def _readme_counts(content: str) -> tuple[int | None, int | None, int | None]:
-    """Extract (skills, agents, surfaces) from a README tagline or catalog block.
+def _readme_counts(content: str) -> tuple[list[int], list[int], list[int]]:
+    """Extract ALL (skills, agents, surfaces) counts from a README.
 
-    Each element is ``None`` when the corresponding token is absent, so a
-    README that only carries some of the counts is partially checked. The
-    catalog marker block is searched first (when present) so the generated
-    counts are the authority; otherwise the whole document is scanned for the
-    tagline.
+    Returns one list per dimension carrying *every* occurrence of the count
+    string, not just the first (spec-153 quality loop FINDING 3). The root
+    README states each count twice — banner alt text + tagline — and a single
+    ``re.search`` would only validate the first, letting the second silently
+    rot. ``re.findall`` captures all occurrences so the caller can assert every
+    one agrees with canonical. An empty list means the token is absent (the
+    dimension is then skipped, not failed). The catalog marker block is used as
+    the haystack when present (generated counts are the authority); otherwise
+    the whole document is scanned.
     """
     haystack = content
     start = content.find(_CATALOG_START)
     end = content.find(_CATALOG_END)
     if start != -1 and end != -1 and end > start:
         haystack = content[start:end]
-    skills_m = _README_SKILLS_RE.search(haystack)
-    agents_m = _README_AGENTS_RE.search(haystack)
-    surfaces_m = _README_SURFACES_RE.search(haystack)
     return (
-        int(skills_m.group(1)) if skills_m else None,
-        int(agents_m.group(1)) if agents_m else None,
-        int(surfaces_m.group(1)) if surfaces_m else None,
+        [int(m) for m in _README_SKILLS_RE.findall(haystack)],
+        [int(m) for m in _README_AGENTS_RE.findall(haystack)],
+        [int(m) for m in _README_SURFACES_RE.findall(haystack)],
     )
 
 
@@ -90,20 +91,25 @@ def _check_readme_counts(
             continue
         content = file_path.read_text(encoding="utf-8", errors="replace")
         found = dict(zip(("skills", "agents", "surfaces"), _readme_counts(content), strict=True))
-        for dimension, actual in found.items():
+        for dimension, occurrences in found.items():
             canonical = expected[dimension]
             # Skip when the token is absent in this README, or when there is no
             # clean canonical source for the dimension (e.g. surfaces == 0).
-            if actual is None or canonical <= 0:
+            if not occurrences or canonical <= 0:
                 continue
-            if actual != canonical:
+            # EVERY occurrence must agree with canonical — the root README carries
+            # the count twice (banner alt + tagline); a single mismatch fails the
+            # gate (spec-153 quality loop FINDING 3).
+            mismatched = sorted({n for n in occurrences if n != canonical})
+            if mismatched:
                 report.checks.append(
                     IntegrityCheckResult(
                         category=IntegrityCategory.COUNTER_ACCURACY,
                         name=f"readme-{dimension}-{file_rel}",
                         status=IntegrityStatus.FAIL,
                         message=(
-                            f"{file_rel} reports {actual} {dimension}, "
+                            f"{file_rel} reports {', '.join(str(n) for n in mismatched)} "
+                            f"{dimension} (across {len(occurrences)} occurrence(s)), "
                             f"canonical is {canonical}. "
                             "Fix: run 'ai-eng dev sync' to regenerate the catalog."
                         ),
@@ -116,7 +122,10 @@ def _check_readme_counts(
                         category=IntegrityCategory.COUNTER_ACCURACY,
                         name=f"readme-{dimension}-{file_rel}",
                         status=IntegrityStatus.OK,
-                        message=f"{file_rel} {dimension} count matches: {canonical}",
+                        message=(
+                            f"{file_rel} {dimension} count matches: {canonical} "
+                            f"(all {len(occurrences)} occurrence(s) agree)"
+                        ),
                     )
                 )
 

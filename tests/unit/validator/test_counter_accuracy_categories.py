@@ -295,6 +295,73 @@ class TestReadmeCountDrift:
         ]
         assert len(fail) == 1
 
+    def test_disagreeing_count_occurrences_fail(self, tmp_path: Path) -> None:
+        """A README whose two count-strings disagree FAILS the gate (FINDING 3).
+
+        The root README carries the skill count twice (banner alt text + the
+        tagline). ``re.search`` only checks the first occurrence, so a second
+        occurrence with a wrong count would silently pass. ``re.findall`` must
+        assert EVERY occurrence agrees with canonical.
+        """
+        ai = _make_governance(tmp_path)
+        _write_active_spec(ai)
+        _write_manifest(
+            ai,
+            providers=("claude-code", "github-copilot"),
+            skills_total=len(_SKILL_PATHS),
+            agents_total=len(_AGENT_PATHS),
+        )
+        _write_all_instruction_files(tmp_path)
+        # First occurrence (banner alt) is correct; the SECOND (tagline) is wrong.
+        good = len(_SKILL_PATHS)
+        bad = good + 7
+        (tmp_path / "README.md").write_text(
+            f"# Project\n\n"
+            f'<img alt="explore {good} skills and {len(_AGENT_PATHS)} agents">\n\n'
+            f"{bad} skills · {len(_AGENT_PATHS)} agents · 2 surfaces\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        assert report.category_passed(IntegrityCategory.COUNTER_ACCURACY) is False
+        fail = [
+            c
+            for c in report.checks
+            if c.name == "readme-skills-README.md" and c.status == IntegrityStatus.FAIL
+        ]
+        assert len(fail) == 1
+
+    def test_all_occurrences_agree_passes(self, tmp_path: Path) -> None:
+        """When every count occurrence agrees with canonical, the gate passes."""
+        ai = _make_governance(tmp_path)
+        _write_active_spec(ai)
+        _write_manifest(
+            ai,
+            providers=("claude-code", "github-copilot"),
+            skills_total=len(_SKILL_PATHS),
+            agents_total=len(_AGENT_PATHS),
+        )
+        _write_all_instruction_files(tmp_path)
+        good = len(_SKILL_PATHS)
+        (tmp_path / "README.md").write_text(
+            f"# Project\n\n"
+            f'<img alt="explore {good} skills and {len(_AGENT_PATHS)} agents">\n\n'
+            f"{good} skills · {len(_AGENT_PATHS)} agents · 2 surfaces\n",
+            encoding="utf-8",
+        )
+        report = validate_content_integrity(
+            tmp_path,
+            categories=[IntegrityCategory.COUNTER_ACCURACY],
+        )
+        readme_fail = [
+            c
+            for c in report.checks
+            if c.name.startswith("readme-") and c.status == IntegrityStatus.FAIL
+        ]
+        assert not readme_fail
+
     def test_readme_without_tagline_is_skipped(self, tmp_path: Path) -> None:
         """A README with no count tagline is skipped (not failed).
 

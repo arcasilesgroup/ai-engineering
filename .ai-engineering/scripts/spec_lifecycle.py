@@ -167,6 +167,13 @@ def _archive_dir(project_root: Path) -> Path:
 # Placeholder both working buffers are reset to once a spec ships (D-153-04).
 _BUFFER_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
 
+# Framework-wide placeholder markers RECOGNIZED (not written) as empty buffers.
+# ``maintenance/spec_reset.py`` clears buffers with ``# No active spec`` /
+# ``# No active plan``; recognizing them here keeps ``mark_shipped`` from
+# snapshotting a reset buffer (spec-153 quality loop FINDING 4, recognition-
+# widening only — lifecycle still WRITES ``_BUFFER_PLACEHOLDER``).
+_PLACEHOLDER_MARKER_PREFIXES = ("# No active spec", "# No active plan")
+
 
 def _events_path(project_root: Path) -> Path:
     return project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
@@ -402,13 +409,17 @@ def start_new(slug: str, title: str, project_root: Path) -> SpecRecord:
 def _buffer_is_placeholder(text: str) -> bool:
     """True when a working-buffer's content carries no active spec.
 
-    A buffer is "empty" for snapshot purposes when it is whitespace-only or
-    byte-equal to the reset placeholder. We refuse to snapshot a placeholder so
-    an idempotent ``mark_shipped`` re-run never overwrites a real snapshot with
-    the reset stub.
+    A buffer is "empty" for snapshot purposes when it is whitespace-only,
+    byte-equal to the reset placeholder, or carries a framework-wide reset
+    marker (``# No active spec`` / ``# No active plan`` written by
+    ``spec_reset.py``). We refuse to snapshot a placeholder so an idempotent
+    ``mark_shipped`` re-run — or a ``spec_reset``-cleared buffer — never
+    overwrites a real snapshot with the reset stub.
     """
     stripped = text.strip()
-    return not stripped or text == _BUFFER_PLACEHOLDER
+    if not stripped or text == _BUFFER_PLACEHOLDER:
+        return True
+    return stripped.startswith(_PLACEHOLDER_MARKER_PREFIXES)
 
 
 def _snapshot_and_reset(project_root: Path, record: SpecRecord) -> bool:
@@ -653,6 +664,11 @@ def _reap_orphans(project_root: Path) -> int:
         return 0
     reaped = 0
     for path in sorted(specs_root.glob("spec-*.md")):
+        # Skip symlinks outright: ``is_file()`` follows them, so a hostile
+        # ``spec-evil.md -> /outside`` would otherwise be relocated, escaping
+        # the tree (spec-153 quality loop FINDING 2). Never follow a symlink.
+        if path.is_symlink():
+            continue
         if not path.is_file():
             continue
         if path.name in _PROTECTED_SPEC_FILES:
@@ -685,6 +701,25 @@ def _history_spec_ids(project_root: Path) -> set[str]:
 
 
 _SPEC_NUMBER_RE = re.compile(r"^spec-(\d+)$")
+
+
+def _spec_id_in_ledger(spec_id: str, ledger_ids: set[str]) -> bool:
+    """True when ``spec_id`` (or its bare-numeric equivalent) is in the ledger.
+
+    The ledger keys historical rows numerically: ``spec-136`` may appear as the
+    bare ``136`` (152 of 153 rows) or the ``spec-NNN`` form. We match either so
+    the reconcile backstop is idempotent against any historical row shape
+    (spec-153 quality loop FINDING 1). ``spec-136`` ↔ ``136`` both resolve.
+    """
+    if spec_id in ledger_ids:
+        return True
+    match = _SPEC_NUMBER_RE.match(spec_id)
+    if match:
+        # bare-numeric equivalent: ``spec-136`` -> ``136`` (zero-padding-agnostic).
+        bare = str(int(match.group(1)))
+        if bare in ledger_ids or match.group(1) in ledger_ids:
+            return True
+    return False
 
 
 def _scan_spec_numbers(project_root: Path) -> set[int]:
@@ -826,12 +861,23 @@ def _git_stdout(project_root: Path, *args: str) -> str | None:
 def _branch_is_merged(project_root: Path, branch: str, default: str) -> bool:
     """True when ``branch`` is merged into ``default`` (mirrors ai-branch-cleanup).
 
-    Two signals, identical to the cleanup classifier (SKILL.md:54-56):
+    Two signals, matching ``cli_commands/cleanup.py`` exactly:
 
-    1. ``branch`` appears in ``git branch --merged <default>`` (fast-forward /
-       true merge), OR
-    2. ``git diff <default>..<branch>`` is empty (squash-merge: the branch's
-       content is already on ``default`` under a single squashed commit).
+    1. **True merge / fast-forward**: ``branch`` appears in
+       ``git branch --merged <default>``.
+    2. **Squash-merge**: the branch's content landed on ``default`` under a
+       single squashed commit — detected with the proven git-trim taxonomy
+       (``cleanup.py:_list_squashed_branches``): synthesise a commit of the
+       branch tree against the merge-base and ask ``git cherry`` whether that
+       patch is already present on ``default`` (a leading ``-``).
+
+    A *naive* empty ``git diff <default>..<branch>`` is deliberately **not**
+    used: an empty diff also occurs for a branch with zero unique commits
+    (freshly cut from ``default``, rebased away, or at/behind it), which would
+    phantom-ship a spec. We therefore require evidence the content actually
+    landed: a strictly-positive unique-commit count (``git rev-list --count
+    <default>..<branch>``) AND a squashed-patch hit from the cherry taxonomy.
+    Any ``None`` (git failed / branch absent) is never treated as merged.
     """
     merged = _git_stdout(project_root, "branch", "--merged", default)
     if merged is not None:
@@ -839,10 +885,43 @@ def _branch_is_merged(project_root: Path, branch: str, default: str) -> bool:
         names.discard("")
         if branch in names:
             return True
-    diff = _git_stdout(project_root, "diff", f"{default}..{branch}")
-    # An empty diff (and a successful git call) means squash-merged. A ``None``
-    # (git failed / branch absent) is *not* treated as merged — fail-safe.
-    return diff is not None and diff.strip() == ""
+    return _branch_is_squash_merged(project_root, branch, default)
+
+
+def _branch_is_squash_merged(project_root: Path, branch: str, default: str) -> bool:
+    """Squash-merge detection via the ``cleanup.py`` merge-base/cherry taxonomy.
+
+    Returns ``True`` only when the branch carries at least one unique commit
+    relative to ``default`` AND the synthesised commit of its tree is already
+    reachable (cherry-equivalent) on ``default``. A branch with zero unique
+    commits — the empty-diff false-positive — returns ``False``.
+    """
+    # Guard: zero unique commits is NOT a squash-merge (empty/behind/at-default).
+    count_out = _git_stdout(project_root, "rev-list", "--count", f"{default}..{branch}")
+    if count_out is None:
+        return False
+    try:
+        unique_commits = int(count_out.strip() or "0")
+    except ValueError:
+        return False
+    if unique_commits <= 0:
+        return False
+
+    # cleanup.py taxonomy: merge-base + commit-tree(branch-tree) + cherry.
+    merge_base = _git_stdout(project_root, "merge-base", default, branch)
+    if merge_base is None or not merge_base.strip():
+        return False
+    tree = _git_stdout(project_root, "rev-parse", f"{branch}^{{tree}}")
+    if tree is None or not tree.strip():
+        return False
+    synthetic = _git_stdout(
+        project_root, "commit-tree", tree.strip(), "-p", merge_base.strip(), "-m", "_check"
+    )
+    if synthetic is None or not synthetic.strip():
+        return False
+    cherry = _git_stdout(project_root, "cherry", default, synthetic.strip())
+    # A leading "-" marks a patch already present on <default> (squash-merged).
+    return cherry is not None and cherry.strip().startswith("-")
 
 
 def _resolve_merged_pr(project_root: Path, branch: str) -> str:
@@ -909,6 +988,13 @@ def reconcile_merged(project_root: Path, *, default_branch: str = _DEFAULT_BRANC
     if not specs.exists():
         return {"shipped": shipped, "skipped": skipped, "unmerged": unmerged}
 
+    # Ledger-presence idempotency guard (spec-153 quality loop FINDING 1): a
+    # spec already recorded in ``_history.md`` (under either its ``spec-NNN`` id
+    # or its bare-numeric equivalent ``NNN``) must never be re-shipped, even if
+    # its branch still classifies as merged. This neutralizes the empty-diff
+    # phantom-ship risk against historical rows regardless of branch-detection.
+    ledger_ids = _history_spec_ids(project_root)
+
     for path in sorted(specs.glob("*.json")):
         try:
             record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
@@ -918,6 +1004,10 @@ def reconcile_merged(project_root: Path, *, default_branch: str = _DEFAULT_BRANC
         if record.state not in _NON_TERMINAL_STATES:
             # SHIPPED / ABANDONED / ARCHIVED are terminal for the reconcile.
             skipped.append({"spec_id": record.spec_id, "reason": "terminal-state"})
+            continue
+        if _spec_id_in_ledger(record.spec_id, ledger_ids):
+            # Already shipped historically — skip regardless of branch state.
+            skipped.append({"spec_id": record.spec_id, "reason": "already-in-ledger"})
             continue
         if not record.branch:
             skipped.append({"spec_id": record.spec_id, "reason": "no-branch"})
@@ -950,6 +1040,36 @@ _EXPLICIT_ID_MAP: dict[str, str] = {
 # The slug→spec-NNN- prefix is a deterministic numeric signal (the number is
 # literally embedded in the slug), not a guess.
 _SLUG_PREFIX_RE = re.compile(r"^spec-(\d+)-")
+
+# Archive directory name shape: ``spec-NNN-<slug>`` (W3 layout, D-153-06). The
+# trailing ``<slug>`` must match a sidecar slug exactly for an authoritative
+# number adoption (spec-153 quality loop FINDING 5).
+_ARCHIVE_DIR_RE = re.compile(r"^spec-(\d+)-(.+)$")
+
+
+def _resolve_via_archive_dir(project_root: Path, slug: str) -> str | None:
+    """Adopt the number of the UNIQUE ``archive/spec-NNN-<slug>/`` dir, or None.
+
+    W3 created per-spec archive directories named ``spec-NNN-<slug>`` for
+    shipped specs (D-153-06). When a slug sidecar's ``<slug>`` exactly equals an
+    archive dir's trailing slug AND that match is unique, the embedded number is
+    an authoritative source (spec-153 quality loop FINDING 5). Zero matches or
+    an ambiguous (>1 distinct number) match returns ``None`` — a guessed or
+    ambiguous number is never assigned.
+    """
+    archive = _archive_dir(project_root)
+    if not archive.is_dir():
+        return None
+    numbers: set[int] = set()
+    for child in archive.iterdir():
+        if not child.is_dir():
+            continue
+        match = _ARCHIVE_DIR_RE.match(child.name)
+        if match and match.group(2) == slug:
+            numbers.add(int(match.group(1)))
+    if len(numbers) == 1:
+        return f"spec-{next(iter(numbers)):03d}"
+    return None
 
 
 def _spec_frontmatter_id(project_root: Path) -> str | None:
@@ -1002,6 +1122,9 @@ def _resolve_numeric_id(
     2. This run's own sidecar → ``spec.md`` frontmatter ``spec:``.
     3. Unique ``_history.md`` row whose title equals the sidecar title.
     4. A ``spec-(\\d+)-`` slug prefix (number embedded literally in the slug).
+    5. A UNIQUE ``archive/spec-NNN-<slug>/`` directory whose ``<slug>`` equals
+       the sidecar slug (W3 layout; authoritative for shipped specs, spec-153
+       quality loop FINDING 5).
 
     Returns the resolved ``spec-NNN`` only when it parses to ``^spec-\\d+$``
     and to exactly one candidate; otherwise ``None`` (caller reports it).
@@ -1020,7 +1143,7 @@ def _resolve_numeric_id(
     prefix = _SLUG_PREFIX_RE.match(record.slug)
     if prefix:
         return f"spec-{int(prefix.group(1)):03d}"
-    return None
+    return _resolve_via_archive_dir(project_root, record.slug)
 
 
 def _git_mv(project_root: Path, src: Path, dst: Path) -> None:

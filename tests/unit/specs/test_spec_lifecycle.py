@@ -1108,7 +1108,13 @@ class TestReconcileMerged:
         assert lifecycle.status("spec-200", project_root).state is lifecycle.LifecycleState.SHIPPED
         assert "spec-200" in {r["spec_id"] for r in report["shipped"]}
 
-    def test_marks_shipped_on_squash_merge_empty_diff(self, lifecycle, project_root, monkeypatch):
+    def test_marks_shipped_on_squash_merge(self, lifecycle, project_root, monkeypatch):
+        """A genuinely squash-merged branch (unique commits landed) is shipped.
+
+        Detection now uses the hardened ``cleanup.py`` taxonomy (unique-commit
+        count + cherry), not a naive empty-diff — so the fake models a real
+        squash: positive unique commits whose synthetic patch lands on default.
+        """
         _seed_branch_sidecar(
             project_root,
             "spec-201",
@@ -1120,9 +1126,10 @@ class TestReconcileMerged:
         monkeypatch.setattr(
             lifecycle.subprocess,
             "run",
-            _FakeGit(
+            _FakeGitTaxonomy(
                 merged_branches=set(),
-                empty_diff_branches={"spec-201-squashed-spec"},
+                squashed_branches={"spec-201-squashed-spec"},
+                unique_commit_counts={"spec-201-squashed-spec": 2},
                 pr_for_branch={"spec-201-squashed-spec": 601},
             ),
         )
@@ -1295,3 +1302,488 @@ class TestReconcileMerged:
         assert (archive_dir / "plan.md").read_text() == plan_body
         assert spec_md.read_text() == _PLACEHOLDER
         assert plan_md.read_text() == _PLACEHOLDER
+
+
+# ---------------------------------------------------------------------------
+# reconcile_merged hardening — robust squash-merge classification +
+# ledger-presence idempotency (spec-153 quality loop FINDING 1)
+# ---------------------------------------------------------------------------
+
+
+class _FakeGitTaxonomy:
+    """Scripted git replacement modelling the squash-merge commit taxonomy.
+
+    Mirrors ``cli_commands/cleanup.py:_list_squashed_branches`` exactly so the
+    hardened ``_branch_is_merged`` can reuse that proven classification:
+
+    - ``git branch --merged <default>``  -> true-merge / fast-forward list.
+    - ``git rev-list --count <default>..<branch>`` -> count of UNIQUE commits on
+      the branch (zero means at/behind ``default`` — NOT a squash-merge).
+    - ``git merge-base <default> <branch>`` -> a synthetic base sha.
+    - ``git rev-parse <branch>^{tree}``  -> the branch tree sha.
+    - ``git commit-tree <tree> -p <base> -m _check`` -> a synthetic commit sha.
+    - ``git cherry <default> <synthetic>`` -> a leading ``-`` when the synthetic
+      patch already landed on ``default`` (squash-merged).
+
+    ``squashed_branches`` is the set whose content actually landed under a
+    squash commit; ``unique_commit_counts`` maps a branch to its unique-commit
+    count (default 1 for a squashed branch, 0 otherwise unless overridden).
+    """
+
+    def __init__(
+        self,
+        *,
+        merged_branches: set[str] | None = None,
+        squashed_branches: set[str] | None = None,
+        unique_commit_counts: dict[str, int] | None = None,
+        pr_for_branch: dict[str, int] | None = None,
+        gh_available: bool = True,
+    ) -> None:
+        self.merged_branches = merged_branches or set()
+        self.squashed_branches = squashed_branches or set()
+        self.unique_commit_counts = dict(unique_commit_counts or {})
+        self.pr_for_branch = pr_for_branch or {}
+        self.gh_available = gh_available
+
+    def _unique_count(self, branch: str) -> int:
+        if branch in self.unique_commit_counts:
+            return self.unique_commit_counts[branch]
+        # A squashed branch carries real unique commits whose content landed;
+        # everything else defaults to zero (at/behind default).
+        return 1 if branch in self.squashed_branches else 0
+
+    def __call__(self, cmd, *args, **kwargs):
+        from subprocess import CalledProcessError, CompletedProcess
+
+        argv = [str(c) for c in cmd]
+
+        def done(stdout: str = "", returncode: int = 0) -> CompletedProcess:
+            return CompletedProcess(argv, returncode, stdout=stdout, stderr="")
+
+        if argv[0] == "gh":
+            if not self.gh_available:
+                raise FileNotFoundError("gh")
+            head = argv[argv.index("--head") + 1] if "--head" in argv else ""
+            num = self.pr_for_branch.get(head)
+            return done(stdout="[]" if num is None else json.dumps([{"number": num}]))
+
+        if argv[0] == "git" or "git" in argv[0]:
+            if "branch" in argv and "--merged" in argv:
+                lines = "".join(f"  {b}\n" for b in sorted(self.merged_branches))
+                return done(stdout=lines)
+            if "rev-list" in argv and "--count" in argv:
+                rng = argv[-1]
+                branch = rng.split("..")[-1]
+                return done(stdout=f"{self._unique_count(branch)}\n")
+            if "merge-base" in argv:
+                branch = argv[-1]
+                return done(stdout=f"mergebase-{branch}\n")
+            if "rev-parse" in argv:
+                ref = argv[-1]
+                branch = ref.split("^")[0]
+                return done(stdout=f"tree-{branch}\n")
+            if "commit-tree" in argv:
+                # commit-tree <tree> -p <base> -m _check ; the tree is the token
+                # immediately after ``commit-tree`` (robust to the ``-C <root>``
+                # prefix git wraps the call in).
+                tree = argv[argv.index("commit-tree") + 1]
+                branch = tree[len("tree-") :] if tree.startswith("tree-") else tree
+                return done(stdout=f"synthetic-{branch}\n")
+            if "cherry" in argv:
+                synthetic = argv[-1]
+                branch = (
+                    synthetic[len("synthetic-") :]
+                    if synthetic.startswith("synthetic-")
+                    else synthetic
+                )
+                # A leading "-" marks a patch already present on <default>.
+                marker = "-" if branch in self.squashed_branches else "+"
+                return done(stdout=f"{marker} {synthetic}\n")
+            return done()
+        raise CalledProcessError(1, argv)
+
+
+class TestBranchIsMergedHardened:
+    """``_branch_is_merged`` must demand real evidence, not just an empty diff."""
+
+    def test_branch_at_or_behind_main_is_not_merged(self, lifecycle, project_root, monkeypatch):
+        """Zero unique commits (fresh-cut / rebased-away / behind) is NOT merged.
+
+        This is the empty-diff false-positive: ``git diff main..branch`` is empty
+        for a branch with no unique commits, but its content never *landed* as a
+        squash — it simply has nothing. The hardened classifier returns False.
+        """
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGitTaxonomy(
+                merged_branches=set(),
+                squashed_branches=set(),
+                unique_commit_counts={"spec-900-empty": 0},
+            ),
+        )
+        assert lifecycle._branch_is_merged(project_root, "spec-900-empty", "main") is False
+
+    def test_genuine_squash_merged_branch_is_merged(self, lifecycle, project_root, monkeypatch):
+        """A branch whose unique commits landed under a squash IS merged."""
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGitTaxonomy(
+                merged_branches=set(),
+                squashed_branches={"spec-901-squashed"},
+                unique_commit_counts={"spec-901-squashed": 3},
+            ),
+        )
+        assert lifecycle._branch_is_merged(project_root, "spec-901-squashed", "main") is True
+
+    def test_true_merge_branch_still_detected(self, lifecycle, project_root, monkeypatch):
+        """A fast-forward / true-merge branch (in --merged) stays merged."""
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGitTaxonomy(merged_branches={"spec-902-ff"}),
+        )
+        assert lifecycle._branch_is_merged(project_root, "spec-902-ff", "main") is True
+
+    def test_unmerged_branch_with_unique_commits_not_merged(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        """Unique commits that did NOT land (cherry shows ``+``) is NOT merged."""
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGitTaxonomy(
+                merged_branches=set(),
+                squashed_branches=set(),
+                unique_commit_counts={"spec-903-live": 5},
+            ),
+        )
+        assert lifecycle._branch_is_merged(project_root, "spec-903-live", "main") is False
+
+
+class TestReconcileLedgerIdempotency:
+    """``reconcile_merged`` must skip any spec already in the ledger (FINDING 1)."""
+
+    def test_spec_already_in_ledger_is_skipped_even_if_branch_looks_merged(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        """A spec whose id is already a ledger row must NOT be re-shipped.
+
+        Backstop idempotency against historical rows regardless of branch-
+        detection accuracy: even when the branch classifies as merged, a spec
+        already present in ``_history.md`` is skipped (no duplicate ledger row,
+        no phantom re-ship with today's date).
+        """
+        # Seed a ledger that already carries a bare-numeric row for 136.
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n"
+            "| 136 | Prune low-value surfaces | done | 2026-05-16 | 2026-05-16 | #514 | "
+            "spec-136/prune |\n",
+            encoding="utf-8",
+        )
+        # Sidecar is still APPROVED with a branch that classifies as merged.
+        _seed_branch_sidecar(
+            project_root,
+            "spec-136",
+            slug="spec-136-prune",
+            title="Prune low-value surfaces",
+            state="approved",
+            branch="spec-136/prune",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGitTaxonomy(
+                merged_branches={"spec-136/prune"},
+                pr_for_branch={"spec-136/prune": 514},
+            ),
+        )
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        # NOT re-shipped: the bare-numeric ledger row neutralizes the backstop.
+        assert "spec-136" not in {r["spec_id"] for r in report["shipped"]}
+        assert lifecycle.status("spec-136", project_root).state is (
+            lifecycle.LifecycleState.APPROVED
+        )
+        # Ledger keeps exactly one row for 136 (no duplicate appended).
+        rows = [ln for ln in history.read_text().splitlines() if ln.startswith("| 136 |")]
+        assert len(rows) == 1
+        # Skip report records the ledger-presence reason.
+        assert "spec-136" in {r["spec_id"] for r in report["skipped"]}
+
+    def test_spec_with_spec_prefixed_ledger_row_is_skipped(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        """The guard also matches when the ledger row is ``spec-NNN`` form."""
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n"
+            "| spec-210 | Already Shipped | shipped | 2026-05-01 | 2026-05-01 | #1 | feat/x |\n",
+            encoding="utf-8",
+        )
+        _seed_branch_sidecar(
+            project_root,
+            "spec-210",
+            slug="already-shipped",
+            title="Already Shipped",
+            state="in_progress",
+            branch="spec-210-already",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGitTaxonomy(merged_branches={"spec-210-already"}),
+        )
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert "spec-210" not in {r["spec_id"] for r in report["shipped"]}
+        assert "spec-210" in {r["spec_id"] for r in report["skipped"]}
+
+    def test_genuinely_unshipped_squash_merged_spec_is_still_shipped(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        """A real squash-merged spec absent from the ledger IS still marked."""
+        _seed_branch_sidecar(
+            project_root,
+            "spec-211",
+            slug="fresh-squash",
+            title="Fresh Squash",
+            state="in_progress",
+            branch="spec-211-fresh",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGitTaxonomy(
+                squashed_branches={"spec-211-fresh"},
+                unique_commit_counts={"spec-211-fresh": 4},
+                pr_for_branch={"spec-211-fresh": 711},
+            ),
+        )
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert lifecycle.status("spec-211", project_root).state is (
+            lifecycle.LifecycleState.SHIPPED
+        )
+        assert "spec-211" in {r["spec_id"] for r in report["shipped"]}
+
+    def test_branch_at_main_is_not_phantom_shipped(self, lifecycle, project_root, monkeypatch):
+        """A fresh-cut branch (zero unique commits) is never phantom-shipped.
+
+        This is the core FINDING 1 fuel: an APPROVED spec with a branch sitting
+        at/behind main must NOT be classified merged and must NOT get a ledger
+        row with today's date.
+        """
+        _seed_branch_sidecar(
+            project_root,
+            "spec-212",
+            slug="behind-main",
+            title="Behind Main",
+            state="approved",
+            branch="spec-212-behind",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGitTaxonomy(
+                merged_branches=set(),
+                squashed_branches=set(),
+                unique_commit_counts={"spec-212-behind": 0},
+            ),
+        )
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert lifecycle.status("spec-212", project_root).state is (
+            lifecycle.LifecycleState.APPROVED
+        )
+        assert "spec-212" in {r["spec_id"] for r in report["unmerged"]}
+        assert "spec-212" not in {r["spec_id"] for r in report["shipped"]}
+
+
+# ---------------------------------------------------------------------------
+# orphan reaper — symlink safety (spec-153 quality loop FINDING 2)
+# ---------------------------------------------------------------------------
+
+
+class TestReaperSymlinkSafety:
+    def test_symlink_in_specs_root_is_left_untouched(self, lifecycle, project_root):
+        """A ``spec-*.md`` symlink in ``specs/`` root must not be followed/relocated.
+
+        ``path.is_file()`` follows symlinks, so a malicious
+        ``specs/spec-evil.md -> /outside`` would be relocated by the reaper. The
+        reaper must skip symlinks outright (defense against escaping the tree).
+        """
+        _write_manifest_lifecycle(project_root, reap_orphans=True)
+        specs = project_root / ".ai-engineering" / "specs"
+        # A real outside target the symlink points at.
+        outside = project_root / "outside-target.md"
+        outside.write_text("# outside\n", encoding="utf-8")
+        link = specs / "spec-evil.md"
+        link.symlink_to(outside)
+
+        result = lifecycle.sweep(project_root)
+
+        # The symlink is left in place; nothing reaped; outside target intact.
+        assert link.is_symlink(), "symlink must be left untouched by the reaper"
+        assert outside.read_text() == "# outside\n"
+        assert not (specs / "archive" / "spec-evil" / "spec.md").exists()
+        assert result.get("reaped", 0) == 0
+
+
+# ---------------------------------------------------------------------------
+# placeholder marker recognition widening (spec-153 quality loop FINDING 4)
+# ---------------------------------------------------------------------------
+
+
+class TestPlaceholderMarkerWidening:
+    def test_spec_reset_no_active_spec_marker_is_recognized_as_placeholder(self, lifecycle):
+        """The framework-wide ``# No active spec`` marker counts as a placeholder.
+
+        ``spec_reset.py`` writes ``# No active spec`` when it clears the buffer;
+        ``_buffer_is_placeholder`` must recognize it (recognition-widening only)
+        so a reset buffer is never snapshotted by ``mark_shipped``.
+        """
+        marker = "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n"
+        assert lifecycle._buffer_is_placeholder(marker) is True
+
+    def test_spec_reset_no_active_plan_marker_is_recognized_as_placeholder(self, lifecycle):
+        """The ``# No active plan`` plan marker is also a placeholder."""
+        marker = "# No active plan\n\nRun /ai-plan after brainstorm approval.\n"
+        assert lifecycle._buffer_is_placeholder(marker) is True
+
+    def test_own_placeholder_still_recognized(self, lifecycle):
+        """The lifecycle's own placeholder is still a placeholder (no regression)."""
+        assert lifecycle._buffer_is_placeholder(_PLACEHOLDER) is True
+
+    def test_real_spec_content_is_not_a_placeholder(self, lifecycle):
+        """A real spec buffer is NOT a placeholder (no false widening)."""
+        assert (
+            lifecycle._buffer_is_placeholder("---\nspec: spec-001\n---\n# Real\n\nbody.\n") is False
+        )
+
+    def test_mark_shipped_does_not_snapshot_spec_reset_cleared_buffer(
+        self, lifecycle, project_root
+    ):
+        """A ``spec_reset``-cleared buffer is not snapshotted on ship (FINDING 4)."""
+        record = lifecycle.start_new("reset-spec", "Reset Spec", project_root)
+        specs = project_root / ".ai-engineering" / "specs"
+        specs.mkdir(parents=True, exist_ok=True)
+        (specs / "spec.md").write_text(
+            "# No active spec\n\nRun /ai-brainstorm to start a new spec.\n", encoding="utf-8"
+        )
+        (specs / "plan.md").write_text(
+            "# No active plan\n\nRun /ai-plan after brainstorm approval.\n", encoding="utf-8"
+        )
+
+        lifecycle.mark_shipped(record.spec_id, "PR-1", "feat/x", project_root)
+
+        archive_dir = specs / "archive" / f"{record.spec_id}-{record.slug}"
+        assert not archive_dir.exists(), "spec_reset-cleared buffer must not be snapshotted"
+
+
+# ---------------------------------------------------------------------------
+# migrate_ids — archive-dir slug resolution (spec-153 quality loop FINDING 5)
+# ---------------------------------------------------------------------------
+
+
+def _make_archive_dir(project_root: Path, dir_name: str) -> None:
+    """Create an ``specs/archive/<dir_name>/`` directory with a spec.md."""
+    d = project_root / ".ai-engineering" / "specs" / "archive" / dir_name
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "spec.md").write_text(f"# {dir_name}\n", encoding="utf-8")
+
+
+class TestMigrateIdsArchiveDirResolution:
+    def test_slug_sidecar_resolves_via_unique_archive_dir(self, lifecycle, project_root):
+        """An unresolved slug sidecar adopts the number of its UNIQUE archive dir.
+
+        W3 created ``archive/spec-NNN-<slug>/`` dirs for shipped specs. When a
+        slug sidecar has no ledger/frontmatter/prefix signal, a unique archive
+        dir whose ``<slug>`` exactly matches is an authoritative source.
+        """
+        _make_archive_dir(project_root, "spec-150-notebooklm-async-tier3")
+        _seed_sidecar(
+            project_root,
+            "notebooklm-async-tier3",
+            slug="notebooklm-async-tier3",
+            title="Async-first NotebookLM autonomous deep research",
+        )
+
+        report = lifecycle.migrate_ids(project_root)
+
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        assert (specs / "spec-150.json").exists()
+        assert not (specs / "notebooklm-async-tier3.json").exists()
+        data = json.loads((specs / "spec-150.json").read_text())
+        assert data["spec_id"] == "spec-150"
+        assert data["slug"] == "notebooklm-async-tier3"
+        assert "notebooklm-async-tier3" in {r["slug"] for r in report["renamed"]}
+
+    def test_slug_with_no_archive_dir_is_left_unresolved(self, lifecycle, project_root):
+        """A slug with no matching archive dir is left untouched and reported.
+
+        e.g. ``antigravity-gemini-cli-retirement`` (never shipped) -> no archive
+        dir -> NEVER assigned a guessed number.
+        """
+        _make_archive_dir(project_root, "spec-150-notebooklm-async-tier3")
+        _seed_sidecar(
+            project_root,
+            "antigravity-gemini-cli-retirement",
+            slug="antigravity-gemini-cli-retirement",
+            title="Antigravity-only Google surface after Gemini CLI retirement",
+        )
+
+        report = lifecycle.migrate_ids(project_root)
+
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        assert (specs / "antigravity-gemini-cli-retirement.json").exists()
+        assert "antigravity-gemini-cli-retirement" in report["unresolved"]
+
+    def test_ambiguous_archive_dirs_for_same_slug_left_unresolved(self, lifecycle, project_root):
+        """Two archive dirs with the same slug suffix -> ambiguous -> unresolved.
+
+        A guessed/ambiguous number is never assigned.
+        """
+        _make_archive_dir(project_root, "spec-148-files-only-persistence")
+        _make_archive_dir(project_root, "spec-149-files-only-persistence")
+        _seed_sidecar(
+            project_root,
+            "files-only-persistence",
+            slug="files-only-persistence",
+            title="Files-only persistence",
+        )
+
+        report = lifecycle.migrate_ids(project_root)
+
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        assert (specs / "files-only-persistence.json").exists()
+        assert "files-only-persistence" in report["unresolved"]
+
+    def test_archive_dir_with_different_slug_does_not_match(self, lifecycle, project_root):
+        """An archive dir whose slug differs must NOT match (no partial match)."""
+        # The 148 dir for a DIFFERENT slug must not capture this sidecar.
+        _make_archive_dir(project_root, "spec-148-autopilot-manifest-prior-session")
+        _seed_sidecar(
+            project_root,
+            "files-only-persistence",
+            slug="files-only-persistence",
+            title="Files-only persistence",
+        )
+
+        report = lifecycle.migrate_ids(project_root)
+
+        specs = project_root / ".ai-engineering" / "state" / "specs"
+        assert (specs / "files-only-persistence.json").exists()
+        assert "files-only-persistence" in report["unresolved"]
