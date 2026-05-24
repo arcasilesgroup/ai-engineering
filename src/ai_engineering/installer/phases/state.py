@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from ai_engineering.config.loader import load_manifest_root_entry_points
+from ai_engineering.installer.capability_catalog import apply_capability_catalog
 from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_state,
@@ -81,6 +82,9 @@ class StatePhase:
                     continue
                 # spec-148 P4: rebuild + write framework-capabilities.json.
                 write_framework_capabilities(context.target)
+                # spec-153 W5: regenerate the derived README catalog block
+                # alongside it (fail-open when markers/generator are absent).
+                apply_capability_catalog(context.target)
                 result.created.append(action.destination)
                 continue
             if action.destination in {

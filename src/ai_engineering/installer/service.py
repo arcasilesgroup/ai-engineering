@@ -37,6 +37,7 @@ from ai_engineering.doctor.models import DoctorContext
 from ai_engineering.doctor.remediation import RemediationEngine
 from ai_engineering.doctor.runtime.feeds import validate_feeds_for_install
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
+from ai_engineering.installer.capability_catalog import apply_capability_catalog
 from ai_engineering.installer.identity import initialize_manifest_project_name
 from ai_engineering.installer.phases import (
     PHASE_GOVERNANCE,
@@ -497,6 +498,12 @@ def _generate_state_files(
     write_framework_capabilities(ai_eng_dir.parent)
     if not capabilities_existed and capabilities_path not in created:
         created.append(capabilities_path)
+
+    # Capability catalog (spec-153 W5): the README catalog block is a derived
+    # cache rebuilt wherever framework-capabilities.json is. Fail-open when the
+    # README has no markers yet (Wave 6 adds them) or the generator is absent
+    # (consumer projects).
+    apply_capability_catalog(ai_eng_dir.parent)
 
     instinct_paths = [
         ai_eng_dir / _STATE_FILES["observation-events"],
