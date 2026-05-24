@@ -65,7 +65,12 @@ def validate_changelog(changelog_path: Path, version: str) -> list[str]:
                 "subgroup (### Added, Changed, Deprecated, Removed, Fixed, Security, "
                 "or BREAKING)"
             )
-        if _release_path_semantics_changed(unreleased_body):
+        # Keep-a-Changelog ``### Fixed`` entries are non-breaking bug fixes by
+        # definition, so a release-path *fix* must not trip the BREAKING-subgroup
+        # requirement that exists for release-path *semantic changes*. Scan every
+        # subgroup except Fixed for the requirement trigger.
+        semantic_body = _body_excluding_subsection(unreleased_body, "Fixed")
+        if _release_path_semantics_changed(semantic_body):
             breaking_body = _subsection_body(unreleased_body, "BREAKING")
             if breaking_body is None or not _release_path_semantics_changed(breaking_body):
                 errors.append(
@@ -145,6 +150,23 @@ def _subsection_body(section_body: str, heading: str) -> str | None:
             end = index
             break
     return "\n".join(lines[start:end]).strip()
+
+
+def _body_excluding_subsection(section_body: str, heading: str) -> str:
+    """Return the section body with the named ``### heading`` subgroup removed."""
+    lines = section_body.splitlines()
+    kept: list[str] = []
+    in_target = False
+    for line in lines:
+        name = _changelog_subgroup_name(line)
+        if name is not None:
+            in_target = name == heading
+            if in_target:
+                continue
+        if in_target:
+            continue
+        kept.append(line)
+    return "\n".join(kept).strip()
 
 
 def _validate_target_section_date(text: str, version: str) -> str | None:

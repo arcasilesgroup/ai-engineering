@@ -173,6 +173,60 @@ def test_validate_changelog_accepts_release_path_semantics_under_breaking(
     assert not any("### BREAKING" in err for err in errors)
 
 
+def test_validate_changelog_allows_release_path_fix_under_fixed(
+    tmp_path: Path,
+) -> None:
+    # Arrange — a non-breaking release-path *fix* belongs under ### Fixed and
+    # must not be forced into a ### BREAKING subgroup (Keep-a-Changelog).
+    changelog = tmp_path / "CHANGELOG.md"
+    _write_changelog(
+        changelog,
+        "\n".join(
+            [
+                "### Fixed",
+                "- Release finalization now writes non-empty proof logs so "
+                "release packet asset uploads do not fail on zero-byte files.",
+                "",
+            ]
+        ),
+    )
+
+    # Act
+    errors = validate_changelog(changelog, "0.2.0")
+
+    # Assert
+    assert not any("### BREAKING" in err for err in errors)
+
+
+def test_validate_changelog_still_requires_breaking_when_fixed_subsection_present(
+    tmp_path: Path,
+) -> None:
+    # Arrange — the Fixed exemption is scoped: a release-path *semantic change*
+    # under ### Changed still requires a ### BREAKING entry even when a ### Fixed
+    # subsection coexists.
+    changelog = tmp_path / "CHANGELOG.md"
+    _write_changelog(
+        changelog,
+        "\n".join(
+            [
+                "### Changed",
+                "- semantic-release and manual CI commit-back are removed; "
+                "ai-eng release is sole authority.",
+                "",
+                "### Fixed",
+                "- unrelated typo fix.",
+                "",
+            ]
+        ),
+    )
+
+    # Act
+    errors = validate_changelog(changelog, "0.2.0")
+
+    # Assert
+    assert any("### BREAKING" in err for err in errors)
+
+
 def test_promote_unreleased_moves_content_and_leaves_empty_section(tmp_path: Path) -> None:
     # Arrange
     changelog = tmp_path / "CHANGELOG.md"

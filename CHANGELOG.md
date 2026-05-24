@@ -238,6 +238,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The release changelog gate no longer false-trips on non-breaking
+  release-path *fixes*. `validate_changelog` now exempts the `### Fixed`
+  subgroup from the "release-path semantic changes must be documented under
+  `### BREAKING`" requirement, since Keep-a-Changelog `### Fixed` entries are
+  non-breaking by definition. A release-path fix mentioning tokens like
+  "release packet" under `### Fixed` no longer blocks `ai-eng release`;
+  genuine semantic changes under `### Added`/`### Changed`/`### Removed` still
+  require a `### BREAKING` entry. Guarded by
+  `tests/unit/test_changelog_parser.py`.
 - `ai-eng install` now writes a managed `.ai-engineering/.gitignore` so the
   transient, per-install, and derived artifacts it generates — the audit and
   observation NDJSON streams, per-install state SoTs, the compiled & signed
