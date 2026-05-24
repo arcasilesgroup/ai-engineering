@@ -35,6 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   required `pypi`, `testpypi`, and `github-release` deployment policies and the
   `tag-protection-v` ruleset coupling are documented in
   `docs/ci-branch-protection.md`.
+- **Release readiness no longer false-positives on the pytest cache.** The
+  `ai-eng verify --release` gitleaks scan runs with `--no-git`, so it walked the
+  gitignored `.pytest_cache/` and flagged a synthetic GitHub App token baked into
+  a `test_redactor` parametrize node ID — turning a clean tree into a spurious
+  NO-GO. `.pytest_cache/` now sits in the `.gitleaks.toml` allowlist alongside the
+  other regenerable caches (`__pycache__/`, `.venv/`, `node_modules/`); the staged
+  pre-commit scan is unaffected (the cache is never staged).
+
 ## [0.8.0] - 2026-05-24
 
 ### BREAKING
