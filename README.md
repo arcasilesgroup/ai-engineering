@@ -33,23 +33,77 @@
 
 ## Install
 
-**Prerequisites:** Python 3.11+ and Git.
+### 1.1 — Prerequisites
+
+Python 3.11+ and Git.
+
+### 1.2 — Install ai-engineering
+
+1. If you use `uv`, install the published PyPI release as a managed tool:
+
+```bash
+uv tool install --force ai-engineering
+uv tool update-shell
+exec "$SHELL" -l
+```
+
+2. If you do not use `uv`, install with `pipx`:
 
 ```bash
 pipx install ai-engineering
-# or: uv tool install ai-engineering
 ```
 
-Verify the CLI, then install governance into a repository:
+3. If you do not use `uv` or `pipx`, install with `pip`:
+
+```bash
+python -m pip install --user ai-engineering
+```
+
+If `ai-eng` is not available after the `pip` install, add Python's user scripts directory to your `PATH`, then reopen your shell.
+
+4. Verify the CLI:
 
 ```bash
 ai-eng version
+```
+
+5. Install governance into a repository:
+
+```bash
 cd your-project
 ai-eng install .
 ai-eng doctor
 ```
 
-[PASS] `doctor` confirms hooks, mirrors, manifest defaults, and required tools. Update later with `pipx upgrade ai-engineering` or `uv tool upgrade ai-engineering`, then run `ai-eng update` and `ai-eng doctor` in each governed project.
+[PASS] `doctor` confirms hooks, mirrors, manifest defaults, and required tools.
+
+To update later from PyPI:
+
+1. Upgrade the installed CLI with the command that matches your install method:
+
+```bash
+uv tool upgrade ai-engineering
+# or
+pipx upgrade ai-engineering
+# or
+python -m pip install --user --upgrade ai-engineering
+```
+
+These commands fetch the latest published `ai-engineering` release from PyPI.
+
+2. Verify that the new version is available:
+
+```bash
+ai-eng version
+```
+
+3. In each governed project, refresh the installed framework files:
+
+```bash
+cd your-project
+ai-eng update
+ai-eng doctor
+```
 
 ## Governed Flow
 
@@ -95,7 +149,7 @@ ai-engineering builds on ideas, patterns, and principles from these projects:
 | [autoresearch](https://github.com/vgel/autoresearch) | Radical simplicity as a design principle |
 | [Emil Kowalski](https://emilkowal.ski) | Motion principles, spring physics, easing strategy |
 | [SpecKit](https://github.com/speckit/speckit) | Spec-driven workflow inspiration |
-| [GSD](https://github.com/jlowin/gsd) | Autonomous execution patterns |
+| [GSD](https://github.com/open-gsd/get-shit-done-redux) | Autonomous execution patterns |
 | [Anthropic Skills](https://github.com/anthropics/claude-code-skills) | Frontend-design, canvas, skill-creator — absorbed and extended |
 
 ## Contributing
