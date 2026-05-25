@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **README install section now gives explicit per-tool-manager
+  instructions.** The previous block collapsed `uv`/`pipx`/`pip` into a
+  two-line snippet and a one-line update note. It is now numbered steps that
+  spell out the `uv tool install --force` + `update-shell` + `exec "$SHELL"
+  -l` path, the `pipx` path, the `pip --user` path (with a `PATH` reminder
+  when `ai-eng` is not found), and a 3-step PyPI update flow (`upgrade` →
+  `version` → `ai-eng update`/`doctor` per project). Lowers first-run
+  friction for operators who do not already use `uv`.
+- **Corrected the GSD attribution link in "Standing on the shoulders
+  of...".** It pointed at `jlowin/gsd`; it now points at the canonical
+  `open-gsd/get-shit-done-redux` repository.
+
 ## [0.8.2] - 2026-05-25
 
 ### Fixed
