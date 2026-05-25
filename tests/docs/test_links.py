@@ -233,9 +233,12 @@ def test_readme_minimal() -> None:
     assert "docs/getting-started.md" not in body, (
         "docs/getting-started.md was deleted; README must not link to it"
     )
-    # Length cap
+    # Length cap — raised 120 -> 170 to accommodate the explicit
+    # per-tool-manager install section (uv/pipx/pip + PyPI update flow).
+    # The README stays a lean GitHub landing; the larger budget covers the
+    # expanded install walkthrough without reintroducing skill/agent tables.
     line_count = len(body.splitlines())
-    assert line_count <= 120, f"README too long: {line_count} lines (cap 120)"
+    assert line_count <= 170, f"README too long: {line_count} lines (cap 170)"
     # The deleted root-level GETTING_STARTED.md must be gone
     assert not (REPO_ROOT / "GETTING_STARTED.md").exists(), (
         "Legacy GETTING_STARTED.md still present at repo root"
