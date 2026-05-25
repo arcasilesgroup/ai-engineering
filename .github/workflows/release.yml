@@ -432,10 +432,32 @@ jobs:
           set -euo pipefail
           python3 -m venv /tmp/testpypi-smoke
           /tmp/testpypi-smoke/bin/python -m pip install --upgrade pip
-          /tmp/testpypi-smoke/bin/python -m pip install \
-            --index-url https://test.pypi.org/simple/ \
-            --extra-index-url https://pypi.org/simple/ \
-            "ai-engineering==${VERSION}"
+          # TestPyPI's index can lag seconds-to-minutes behind a successful
+          # upload before "pkg==version" resolves (the publish itself already
+          # succeeded upstream), so poll with backoff instead of failing on the
+          # first miss. 20 attempts x 15s caps polling at ~5 min, well inside
+          # this job's 10-minute timeout.
+          ATTEMPTS=20
+          SLEEP_SECONDS=15
+          installed=false
+          for attempt in $(seq 1 "${ATTEMPTS}"); do
+            if /tmp/testpypi-smoke/bin/python -m pip install \
+              --index-url https://test.pypi.org/simple/ \
+              --extra-index-url https://pypi.org/simple/ \
+              "ai-engineering==${VERSION}"; then
+              installed=true
+              echo "Installed ai-engineering==${VERSION} from TestPyPI (attempt ${attempt}/${ATTEMPTS})"
+              break
+            fi
+            if [ "${attempt}" -lt "${ATTEMPTS}" ]; then
+              echo "::warning::ai-engineering==${VERSION} not resolvable on TestPyPI yet (attempt ${attempt}/${ATTEMPTS}); retrying in ${SLEEP_SECONDS}s — TestPyPI index propagation lag"
+              sleep "${SLEEP_SECONDS}"
+            fi
+          done
+          if [ "${installed}" != "true" ]; then
+            echo "::error::ai-engineering==${VERSION} did not become installable from TestPyPI after ${ATTEMPTS} attempts (~$((ATTEMPTS * SLEEP_SECONDS / 60)) min of polling)"
+            exit 1
+          fi
           /tmp/testpypi-smoke/bin/ai-eng version
           cat > testpypi-install-proof.txt <<EOF
           TestPyPI install proof completed

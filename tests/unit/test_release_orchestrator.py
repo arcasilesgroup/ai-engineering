@@ -12,9 +12,11 @@ import pytest
 from ai_engineering.release.orchestrator import (
     PhaseResult,
     ReleaseConfig,
+    ReleaseResult,
     ReleaseState,
     SubprocessRunner,
     SystemClock,
+    _complete_release,
     _create_release_pr,
     _create_tag,
     _default_branch,
@@ -47,6 +49,7 @@ class _FakeProvider:
         self.tag_success = True
         self.pipeline_success = True
         self.pipeline_output = "[]"
+        self.last_head_sha: str | None = None
 
     def create_pr(self, ctx: VcsContext) -> VcsResult:
         del ctx
@@ -89,7 +92,7 @@ class _FakeProvider:
         return VcsResult(success=self.tag_success, output="ok" if self.tag_success else "bad")
 
     def get_pipeline_status(self, ctx: PipelineStatusContext) -> VcsResult:
-        del ctx
+        self.last_head_sha = ctx.head_sha
         return VcsResult(success=self.pipeline_success, output=self.pipeline_output)
 
 
@@ -439,6 +442,116 @@ def test_monitor_pipeline_success_and_failure(tmp_path: Path) -> None:
     ):
         phase_ok = _monitor_pipeline(cfg, provider, 5)
     assert phase_ok.success is True
+
+
+def test_monitor_pipeline_uses_threaded_sha_when_tag_is_remote_only(tmp_path: Path) -> None:
+    """Regression (v0.8.1): the tag ref is created remote-only via the GitHub API, so a
+    local ``git rev-parse v<version>`` fails. Monitor must use the SHA threaded from
+    _create_tag instead of re-deriving it locally.
+    """
+    # Arrange
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+    provider = _FakeProvider()
+    provider.pipeline_output = (
+        '[{"status":"completed","conclusion":"success","url":"https://x/run"}]'
+    )
+    local_rev_parse_fails = (
+        False,
+        "fatal: ambiguous argument 'v0.2.0': unknown revision or path not in the working tree.",
+    )
+
+    # Act / Assert — without the threaded SHA, the local lookup fails (the v0.8.1 symptom)
+    with patch("ai_engineering.release.orchestrator.run_git", return_value=local_rev_parse_fails):
+        broken = _monitor_pipeline(cfg, provider, 1)
+    assert broken.success is False
+    assert "Unable to read tag SHA" in broken.output
+
+    # Act / Assert — with the threaded SHA, monitor never touches the local tag
+    with (
+        patch("ai_engineering.release.orchestrator.run_git", return_value=local_rev_parse_fails),
+        patch("ai_engineering.release.orchestrator.time.time", side_effect=[0, 1]),
+    ):
+        fixed = _monitor_pipeline(cfg, provider, 5, tagged_sha="deadbeefcafe")
+    assert fixed.success is True
+    assert fixed.output == "https://x/run"
+    assert provider.last_head_sha == "deadbeefcafe"
+
+
+def test_monitor_pipeline_fallback_resolves_tag_via_refs_namespace(tmp_path: Path) -> None:
+    """The resume-flow fallback must resolve the local tag through the
+    ``refs/tags/`` namespace with ``--verify --quiet`` — the same safe form used
+    by _validate/_create_tag — not a bare ``rev-parse v<version>`` that can match
+    a branch or a partial SHA (0.8.2 release-robustness fix).
+    """
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+    provider = _FakeProvider()
+    captured: list[list[str]] = []
+
+    def capture_run_git(args: list[str], _root: Path) -> tuple[bool, str]:
+        captured.append(args)
+        return (False, "")
+
+    with patch("ai_engineering.release.orchestrator.run_git", side_effect=capture_run_git):
+        _monitor_pipeline(cfg, provider, 1)
+
+    assert captured == [["rev-parse", "--verify", "--quiet", "refs/tags/v0.2.0"]]
+
+
+def test_create_tag_exposes_tagged_sha_in_details(tmp_path: Path) -> None:
+    """_create_tag threads the freshly tagged commit SHA via PhaseResult.details so
+    _monitor_pipeline can avoid a (failing) local tag lookup."""
+    # Arrange
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+    provider = _FakeProvider()
+
+    # Act — fresh-tag success path (mirrors test_create_tag_failure_and_success_paths)
+    seq_success = [(False, ""), (True, ""), (True, ""), (True, ""), (True, "abc123\n")]
+    with patch("ai_engineering.release.orchestrator.run_git", side_effect=seq_success):
+        phase = _create_tag(cfg, provider)
+
+    # Assert
+    assert phase.success is True
+    assert phase.details.get("tagged_sha") == "abc123"
+
+
+def test_complete_release_threads_tag_sha_into_monitor(tmp_path: Path) -> None:
+    """_complete_release passes the SHA from _create_tag straight into _monitor_pipeline
+    rather than letting monitor re-derive it from a local tag that does not exist."""
+    # Arrange
+    cfg = ReleaseConfig(version="0.2.0", project_root=tmp_path)
+    provider = _FakeProvider()
+    result = ReleaseResult(success=True, phases=[], version="0.2.0", tag_name="v0.2.0")
+    captured: dict[str, object] = {}
+
+    def fake_monitor(_cfg, _provider, _timeout, tagged_sha=None):
+        captured["tagged_sha"] = tagged_sha
+        return PhaseResult("monitor", True, "https://example/release/v0.2.0")
+
+    # Act
+    with (
+        patch(
+            "ai_engineering.release.orchestrator._run_release_readiness",
+            return_value=_readiness_phase(),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._create_tag",
+            return_value=PhaseResult(
+                "tag", True, "v0.2.0 created (abc123)", details={"tagged_sha": "abc123def456"}
+            ),
+        ),
+        patch(
+            "ai_engineering.release.orchestrator._update_manifest",
+            return_value=PhaseResult("manifest", True, "ok"),
+        ),
+        patch("ai_engineering.release.orchestrator._release_url_for_tag", return_value=""),
+        patch("ai_engineering.release.orchestrator._monitor_pipeline", side_effect=fake_monitor),
+        patch("ai_engineering.release.orchestrator.emit_deploy_event"),
+    ):
+        ok = _complete_release(cfg, provider, _FixedClock(), result, [])
+
+    # Assert
+    assert ok is True
+    assert captured["tagged_sha"] == "abc123def456"
 
 
 def test_parse_runs_handles_valid_and_embedded_json() -> None:

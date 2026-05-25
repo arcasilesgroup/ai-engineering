@@ -344,6 +344,8 @@ def _complete_release(
     if not tag_phase.success:
         result.errors.append(tag_phase.output)
         return False
+    raw_sha = tag_phase.details.get("tagged_sha")
+    tagged_sha = raw_sha if isinstance(raw_sha, str) else None
 
     result.release_url = _release_url_for_tag(config)
     _attach_release_packet(result)
@@ -363,7 +365,7 @@ def _complete_release(
         release_packet_ref=result.release_packet_ref,
     )
 
-    monitor_phase = _monitor_pipeline(config, provider, config.wait_timeout)
+    monitor_phase = _monitor_pipeline(config, provider, config.wait_timeout, tagged_sha=tagged_sha)
     phases.append(monitor_phase)
     if not monitor_phase.success:
         result.errors.append(monitor_phase.output)
@@ -768,13 +770,22 @@ def _create_tag(config: ReleaseConfig, provider: VcsProvider) -> PhaseResult:
         lowered = tag_result.output.lower()
         if "already exists" in lowered or "reference already exists" in lowered:
             return PhaseResult(
-                phase="tag", success=True, skipped=True, output=f"Tag exists: {tag_name}"
+                phase="tag",
+                success=True,
+                skipped=True,
+                output=f"Tag exists: {tag_name}",
+                details={"tagged_sha": sha},
             )
         return PhaseResult(
             phase="tag", success=False, output=f"Tag creation failed: {tag_result.output}"
         )
 
-    return PhaseResult(phase="tag", success=True, output=f"{tag_name} created ({sha[:7]})")
+    return PhaseResult(
+        phase="tag",
+        success=True,
+        output=f"{tag_name} created ({sha[:7]})",
+        details={"tagged_sha": sha},
+    )
 
 
 def _update_manifest(config: ReleaseConfig, clock: Clock) -> PhaseResult:
@@ -795,20 +806,35 @@ def _update_manifest(config: ReleaseConfig, clock: Clock) -> PhaseResult:
     return PhaseResult(phase="manifest", success=True, output="install-state.json updated")
 
 
-def _monitor_pipeline(config: ReleaseConfig, provider: VcsProvider, timeout: int) -> PhaseResult:
-    sha_ok, sha_out = run_git(["rev-parse", f"v{config.version}"], config.project_root)
-    if not sha_ok:
-        return PhaseResult(
-            phase="monitor", success=False, output=f"Unable to read tag SHA: {sha_out}"
+def _monitor_pipeline(
+    config: ReleaseConfig,
+    provider: VcsProvider,
+    timeout: int,
+    tagged_sha: str | None = None,
+) -> PhaseResult:
+    # The tag ref is created remote-only via the GitHub API (see
+    # GitHubProvider.create_tag), so a local ``git rev-parse v<version>`` fails.
+    # Prefer the SHA threaded from _create_tag; fall back to a local lookup only
+    # for the resume flow, where the tag already exists locally.
+    if tagged_sha:
+        resolved_sha = tagged_sha
+    else:
+        sha_ok, sha_out = run_git(
+            ["rev-parse", "--verify", "--quiet", f"refs/tags/v{config.version}"],
+            config.project_root,
         )
-    tagged_sha = sha_out.splitlines()[0].strip()
+        if not sha_ok:
+            return PhaseResult(
+                phase="monitor", success=False, output=f"Unable to read tag SHA: {sha_out}"
+            )
+        resolved_sha = sha_out.splitlines()[0].strip()
 
     deadline = time.time() + timeout
     while time.time() < deadline:
         status = provider.get_pipeline_status(
             PipelineStatusContext(
                 project_root=config.project_root,
-                head_sha=tagged_sha,
+                head_sha=resolved_sha,
                 workflow_name="Release",
             )
         )
