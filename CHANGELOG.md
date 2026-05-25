@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-05-25
+
 ### Fixed
 
 - **The release pipeline's TestPyPI install verification now tolerates index
@@ -36,7 +38,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   This only affected the orchestrator's own progress monitoring; the published
   artifact was never at risk, since the tag is pushed and the tag-triggered
   `release.yml` publishes regardless.
-
 ## [0.8.1] - 2026-05-24
 
 ### Fixed
