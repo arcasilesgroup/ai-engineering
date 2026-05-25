@@ -67,14 +67,18 @@ def _job(workflow: dict, name: str) -> dict:
     return job
 
 
+# width=4096 disables PyYAML's default 80-col line folding, which would
+# otherwise split long shell lines (e.g. a `pip install --extra-index-url
+# https://pypi.org/simple/ ...` continuation) mid-token and break the exact
+# substring assertions these helpers feed.
 def _job_text(workflow: dict, name: str) -> str:
-    return yaml.safe_dump(_job(workflow, name), sort_keys=False)
+    return yaml.safe_dump(_job(workflow, name), sort_keys=False, width=4096)
 
 
 def _step_text(workflow: dict, name: str) -> str:
     steps = _job(workflow, name).get("steps") or []
     assert isinstance(steps, list), f"job {name!r} steps must be a list"
-    return yaml.safe_dump(steps, sort_keys=False)
+    return yaml.safe_dump(steps, sort_keys=False, width=4096)
 
 
 def _needs(workflow: dict, name: str) -> set[str]:
@@ -244,6 +248,10 @@ def test_testpypi_publish_and_install_gate(workflow: dict) -> None:
     assert "--extra-index-url https://pypi.org/simple/" in install_text
     assert "ai-engineering==${VERSION}" in install_text
     assert "testpypi-install-proof.txt" in install_text
+    # 0.8.2 release-robustness: the install must poll with backoff to ride out
+    # TestPyPI index propagation lag rather than failing on the first miss.
+    assert "for attempt in" in install_text
+    assert "sleep" in install_text
 
 
 def test_production_pypi_publish_gate(workflow: dict) -> None:

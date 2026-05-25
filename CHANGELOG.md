@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **The release pipeline's TestPyPI install verification now tolerates index
+  propagation lag.** The `verify-testpypi-install` job ran `pip install
+  ai-engineering==<version>` seconds after the TestPyPI publish succeeded, but
+  TestPyPI's index takes seconds-to-minutes to make a freshly uploaded version
+  resolvable via `pkg==version` — so every release failed the verify job on the
+  first miss and needed a manual `gh run rerun --failed`. The install step now
+  polls with backoff (20 attempts x 15s, ~5 min, inside the job's 10-minute
+  timeout) and fails only after the cap. The production-PyPI publish job has no
+  analogous index-install step, so it needed no change.
+- **`ai-eng release <version> --wait` no longer fails its `monitor` phase with
+  "Unable to read tag SHA".** `GitHubProvider.create_tag` creates the tag ref
+  remote-only via the GitHub API (`gh api .../git/refs`, bypassing the local
+  pre-push hook), so the tag never lands in the local repository. The monitor
+  phase then re-derived the head SHA with a local `git rev-parse v<version>`,
+  which failed (`fatal: ambiguous argument 'v<version>'`) even though readiness
+  was GO, the tag was created, and the publish workflow ran fine. `_create_tag`
+  now exposes the commit SHA it already computed (from `git rev-parse HEAD` on
+  the merged default branch) via `PhaseResult.details["tagged_sha"]`,
+  `_complete_release` threads it into `_monitor_pipeline`, and monitor uses it
+  directly — no local tag lookup, no network round-trip. The local lookup
+  remains a fallback for the resume flow (where the tag already exists locally)
+  and now resolves it through the safe `git rev-parse --verify --quiet
+  refs/tags/v<version>` form used by the validate and create-tag phases, rather
+  than a bare `rev-parse v<version>` that can match a branch or a partial SHA.
+  This only affected the orchestrator's own progress monitoring; the published
+  artifact was never at risk, since the tag is pushed and the tag-triggered
+  `release.yml` publishes regardless.
+
 ## [0.8.1] - 2026-05-24
 
 ### Fixed
