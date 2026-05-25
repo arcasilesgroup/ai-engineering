@@ -20,7 +20,9 @@ def test_root_readme_declares_current_surfaces_and_brand() -> None:
     assert "/ai-brainstorm → /ai-plan → /ai-build → /ai-pr" in text
     for required in ("AGENTS.md", "CONSTITUTION.md", "CHANGELOG.md", "CONTRIBUTING.md"):
         assert required in text
-    assert len(text.splitlines()) <= 120
+    # Length cap — raised 120 -> 170 to match tests/docs/test_links.py for the
+    # expanded per-tool-manager install section (uv/pipx/pip + PyPI update flow).
+    assert len(text.splitlines()) <= 170
 
 
 def test_governance_readme_is_client_manual_with_quick_wins() -> None:
