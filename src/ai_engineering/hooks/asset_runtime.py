@@ -85,6 +85,24 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
         rationale="Shell launcher must remain standalone for fresh installed workspaces.",
     ),
     HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "resolve-python.sh",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_SHELL_STDLIB_ONLY,
+        rationale=(
+            "Spec-154 >=3.11 interpreter resolver; pure bash so it runs "
+            "before any Python is selected for hook dispatch."
+        ),
+    ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "run-hook.sh",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_SHELL_STDLIB_ONLY,
+        rationale=(
+            "Spec-154 transparent hook launcher; pure bash that selects a "
+            ">=3.11 interpreter and execs the passed hook under it."
+        ),
+    ),
+    HookRuntimeAsset(
         relative_path=_HOOK_LIB_REL / "copilot-common.ps1",
         runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
         import_policy=_POWERSHELL_STDLIB_ONLY,

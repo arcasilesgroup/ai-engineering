@@ -1,332 +1,263 @@
 ---
 execution_route:
   version: 1
-  spec: spec-153
+  spec: spec-154
   executor: autopilot
   automation: hitl
   concern_count: 3
-  estimated_files: 30
-  reason: >
-    Three concerns (spec/plan lifecycle automation, the .ai-engineering/ post-install
-    client manual, the root GitHub landing) across six dependency-ordered waves with
-    schema/state/public-surface changes and a parallelizable catalog-generator track.
-    Multi-concern, ~30 files, DAG wave execution with parallel agents — /ai-autopilot
-    is the executor.
+  estimated_files: 12
+  reason: >-
+    12 files across 3 IDE surfaces (Claude/Codex/Copilot) + integrity manifest
+    + tests; meets the >=10-file autopilot threshold (CLAUDE.md §11). Security-
+    sensitive (prompt-injection-guard dispatch, hook integrity) and Copilot-
+    regression risk warrant wave decomposition + a final quality loop with HITL
+    review at PR.
   safe_next_command: "/ai-autopilot"
-spec: spec-153
-title: "Plan — Spec/Plan Lifecycle Automation and Client-Facing Capability READMEs"
 status: draft
 pipeline: full
-total: 28
-completed: 0
+spec: spec-154
+title: Resolve a Python >=3.11 interpreter for hook dispatch
 ---
 
-# Plan — Spec/Plan Lifecycle Automation and Client-Facing Capability READMEs
-
-## Architecture
-
-Pattern: **Hexagonal (ports-and-adapters)** — already the established shape of
-`.ai-engineering/scripts/spec_lifecycle.py:1-25` (pure `LifecycleState` domain +
-FSM table, filesystem infrastructure writers, a thin CLI application layer). This
-plan preserves that split: new lifecycle behavior lands as application verbs over
-the existing domain; the capability-catalog generator is a new read-only adapter
-over the skill/agent files; the manifest `lifecycle:` block is config injected
-through the existing `ManifestConfig` port. No new architectural seams.
-
-Two evidence-driven scope corrections from `/ai-plan` exploration:
-
-- **D-153-02 is mostly already satisfied.** `mark_shipped` and `_history_row_for`
-  already render the Status cell from `record.state.value`
-  (`spec_lifecycle.py:386,470`). The freeform `done`/`partial` strings are legacy
-  rows preserved verbatim by `_migrate_rows` (`spec_lifecycle.py:258-286`). The only
-  ledger work is correcting the one slug-keyed row, which falls out of the sidecar
-  rename + re-render (Wave 2), plus a regression test.
-- **D-153-03 gap is precise.** `/ai-pr` step 11 (`ai-pr/SKILL.md:67-70`) and
-  `/ai-branch-cleanup` Phase 5 (`ai-branch-cleanup/SKILL.md:88-91`) only append rows
-  for sidecars **already** in SHIPPED. Nothing auto-transitions IN_PROGRESS→SHIPPED
-  on a merged branch. The backstop (Wave 4) adds merged-branch detection that calls
-  `mark_shipped`.
+# Plan — spec-154: Resolve a Python >=3.11 interpreter for hook dispatch
 
 ## Design
 
-`--skip-design` (implicit): both README surfaces are Markdown documentation, not UI
-components. `handlers/design-routing.md` keyword set (React/CSS/animation/layout) does
-not match. No `design-intent.md` produced. Recorded reason: documentation surfaces,
-no interface design.
+`--skip-design` — pure infra/shell-dispatch change, no UI surface, no
+user-visible artifact. Design routing is a no-op.
 
-## Dependency DAG
+## Architecture
+
+Pattern: **adapter at the dispatch boundary** (ad-hoc). One shared shell
+resolver (`_lib/resolve-python.sh`) + one transparent per-IDE launcher
+(`_lib/run-hook.sh`) that all hook commands route through. Existing
+`copilot-runtime.sh` is refactored to *source* the shared resolver (DRY)
+while keeping its public functions so the 15 `copilot-*.sh` wrappers are
+untouched (D-154-02; preserves Copilot — AC5).
 
 ```
-Wave 1 (config/schema) ──┐
-                         ├─► Wave 3 (archival+reaper) ──► Wave 4 (merge wiring)
-Wave 2 (identity+ledger)─┘
-Wave 5 (catalog generator, parallel) ──► Wave 6 (README content)
+ IDE command string
+   Claude:  bash run-hook.sh  "$CLAUDE_PROJECT_DIR/.../x.py"
+   Codex:   AIENG_HOOK_ENGINE=codex bash run-hook.sh .ai-engineering/.../x.py
+   Copilot: copilot-x.sh  ── sources ──▶ copilot-runtime.sh ─┐
+                                                              │
+   run-hook.sh ── sources ──▶ resolve-python.sh ◀────────────┘
+                                   │
+                                   ▼
+              cache hit? runtime/resolved-python.txt (read builtin)
+                                   │ miss
+                                   ▼
+        .venv/bin/python → .venv/Scripts/python.exe → uv run python
+          → python3.13/3.12/3.11 (trusted by name) → python3 if >=3.11
+                                   │ none
+                                   ▼
+              one actionable line to stderr; exit 0 (non-blocking)
+                                   │ resolved
+                                   ▼
+                       exec "$PY" "$@"   (transparent — __file__ = the .py,
+                                          so run_hook_safe integrity intact)
 ```
 
-Waves 1+2 are independent and can run concurrently. Wave 3 depends on both. Wave 4
-depends on Wave 3 (mark_shipped now snapshots). Wave 5 is independent of 1-4 and runs
-in parallel. Wave 6 depends on Wave 5. Final gate (T-28) depends on all.
+## Plan corrections to spec (from OQ resolution — wf_9d7837f1-555)
 
----
+The exploration refined three spec assertions. These supersede the spec
+where they conflict:
 
-## Wave 1 — Config foundation (schema-first) [D-153-08]
+1. **Integrity blocking ≠ trustedArgvs** (corrects spec D-154-05 / R2 /
+   AC3). `run_hook_safe` blocks only on hook **script-byte drift** in the
+   manifest `hooks` (sha256) section — it never reads `trustedArgvs`
+   (that subsystem only feeds the prompt-injection-guard bypass lane for
+   `session_bootstrap` argvs). We are **not** editing any `.py`, so the
+   `.py`-block risk is nil. The real integrity task: after creating new
+   `_lib/*.sh` and editing `copilot-runtime.sh`, run
+   `regenerate-hooks-manifest.py` so the new/changed `.sh` bytes enroll;
+   the gate is `regenerate-hooks-manifest.py --check` exit 0 (CI). [OQ2]
+2. **Parity guard is `test_canonical_events_count.py`, not
+   `test_surface_parity.py`** (corrects spec AC4). `test_surface_parity`
+   enforces the No-Twin Axiom (skill↔CLI), unrelated to hooks.
+   `test_canonical_events_count.py::test_no_dead_wirings` scans
+   `settings.json` command path patterns and WILL catch a renamed launcher
+   path — that is the guard the wiring must satisfy. [FIX-SURFACE]
+3. **Transparent launcher is mandatory** (sharpens spec D-154-01). The
+   launcher must `exec "$PY" "$real_script.py" "$@"` — it must NOT pass
+   itself as the hook script, or `__file__`-based integrity resolution
+   breaks. [OQ1]
 
-> Schema MUST precede the manifest key: `manifest.schema.json` root sets
-> `additionalProperties: false` (`.ai-engineering/schemas/manifest.schema.json:387`),
-> so a `lifecycle:` key fails `ai-eng validate` until the schema declares it.
+Plus two scope rulings:
 
-- [ ] T-1 — RED: lifecycle config parses + validates
-- Agent: build
-- Files: `tests/unit/config/test_manifest.py:131`, `tests/unit/test_doctor_phases_governance.py:87`
-- Principles applied: §10.5 TDD, §10.6 SDD
-- Patch (deterministic): none — test bodies require judgment (assert `LifecycleConfig` defaults `draft_ttl_days==30`, `reap_orphans` bool, `archive_layout=="per-spec-dir"`; assert `ManifestConfig.model_validate` accepts a `lifecycle` block; assert doctor `manifest-valid` passes with the block present).
-- Gate: new tests fail (RED) for the right reason — `lifecycle` attribute / schema key absent.
+4. **Codex confirmed broken → in scope** (spec OQ3 resolved): `.codex/
+   hooks.json` uses identical bare `python3` (11 cmds). [OQ3, verdict
+   CONFIRMED]
+5. **Windows `.ps1` deferred** (spec OQ5 resolved as far as code allows):
+   whether Claude/Codex dispatch via git-bash vs pwsh on Windows is a
+   runtime fact not determinable from the repo. v1 ships the bash launcher
+   (covers macOS/Linux + Windows-git-bash; `resolve-python.sh` carries the
+   `.venv/Scripts/python.exe` probe). A parallel `run-hook.ps1` + the
+   `copilot-runtime.ps1` >=3.11 gate are deferred to a Windows follow-up
+   and recorded in Risks. [OQ5]
 
-- [ ] T-2 — GREEN: declare `lifecycle` block in manifest JSON schema
-- Agent: build
-- Files: `.ai-engineering/schemas/manifest.schema.json:314-388`
-- Principles applied: §10.3 SOLID (open/closed — additive optional block)
-- Patch (deterministic): none — mirror the `brainstorm` block shape (object, `properties` for `draft_ttl_days:{type:integer}`, `archive_layout:{type:string,enum:["per-spec-dir"]}`, `reap_orphans:{type:boolean}`, `additionalProperties:false`); add `lifecycle` to root `properties` only, NOT to the `required` array (lines 372-386).
-- Gate: `ai-eng validate` manifest-coherence PASS with a `lifecycle` block present.
+Simplification vs fix-surface draft: **no separate `run-codex-hook.sh`** —
+Codex sets `AIENG_HOOK_ENGINE=codex` inline before the generic
+`run-hook.sh` (DRY; drops 2 files, 13→12).
 
-- [ ] T-3 — GREEN: `LifecycleConfig` Pydantic model + field on `ManifestConfig`
-- Agent: build
-- Files: `src/ai_engineering/config/manifest.py:272-370`
-- Principles applied: §10.3 SOLID, §10.7 Clean Code
-- Patch (deterministic): none — add `class LifecycleConfig(BaseModel)` with `draft_ttl_days:int=30`, `archive_layout:str="per-spec-dir"`, `reap_orphans:bool=True`; add `lifecycle: LifecycleConfig = Field(default_factory=LifecycleConfig)` to `ManifestConfig` (matches `BrainstormConfig` pattern).
-- Gate: T-1 model tests GREEN.
+## Phases & tasks
 
-- [ ] T-4 — GREEN: add `lifecycle:` block to manifest.yml + template mirror
-- Agent: build
-- Files: `.ai-engineering/manifest.yml:178`, `src/ai_engineering/templates/project/.ai-engineering/manifest.yml`
-- Principles applied: §10.4 DRY (SSOT for retention config)
-- Patch (deterministic):
-  ```diff
-  @@ manifest.yml (append after the brainstorm: block, ~line 178) @@
-  +
-  +# Spec lifecycle retention + archival knobs (spec-153 D-153-08).
-  +lifecycle:
-  +  draft_ttl_days: 30        # DRAFT sidecars older than this sweep to ABANDONED
-  +  archive_layout: per-spec-dir  # archive/spec-NNN-<slug>/{spec.md,plan.md}
-  +  reap_orphans: true        # sweep stray spec-*.md from specs/ root
-  ```
-- Gate: `ai-eng validate` PASS; T-1 doctor test GREEN.
+### Phase 1 — Shared resolver core (TDD)
 
-**Wave 1 gate:** `pytest tests/unit/config/test_manifest.py` green; `ai-eng validate` PASS.
+- [ ] T-1 — RED: resolver behavior test
+  - Agent: build
+  - Files: tests/unit/hooks/test_resolve_python_sh.py (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): — (judgment: author cases) prefers `.venv/bin/python`; trusts `python3.13/12/11` by name; gates bare `python3` on `>=3.11`; on none → one stderr line + exit 0; cache read/write to `runtime/resolved-python.txt`; stale-cache (path no longer `-x`) re-resolves.
+  - Gate: test fails (script absent)
 
----
+- [ ] T-2 — GREEN: create `_lib/resolve-python.sh`
+  - Agent: build
+  - Files: .ai-engineering/scripts/hooks/_lib/resolve-python.sh (new)
+  - Principles applied: §10.2 YAGNI, §10.4 DRY, §10.8 Hexagonal (dispatch adapter)
+  - Patch (deterministic): — implement `resolve_python "$project_root"` per OQ4 design (cache-read via `read -r` builtin; venv → `.venv/Scripts/python.exe` → `uv run python` → named `python3.13/12/11` → bare `python3` with `python3 -c 'import sys;sys.exit(0 if sys.version_info>=(3,11) else 1)'`; guard line + `exit 0`; atomic cache write via mktemp+mv). Must be `set -eu`-safe and stdlib-shell only.
+  - Gate: T-1 passes
 
-## Wave 2 — Identity + ledger [D-153-01 / D-153-02 / D-153-05 / D-153-09 / D-153-10]
+- [ ] T-3 — template mirror of resolver
+  - Agent: build
+  - Files: src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/resolve-python.sh (new)
+  - Principles applied: §10.4 DRY
+  - Patch (deterministic): byte-equal copy of T-2 output.
+  - Gate: `diff` live vs template == empty
 
-- [ ] T-5 — RED: numeric identity + slug-resolution + enum-bound ledger
-- Agent: build
-- Files: `tests/unit/specs/test_spec_lifecycle.py`
-- Principles applied: §10.5 TDD
-- Patch (deterministic): none — assert: `start_new` sets `spec_id` matching `^spec-\d+$` while preserving `slug`; the minted number is `max(existing)+1`; `_load_state` resolves a record by slug when the id is non-numeric (fallback); a freshly shipped row's Status cell equals `LifecycleState.SHIPPED.value`.
-- Gate: tests fail (RED) — `start_new` currently sets `spec_id=slug` (`spec_lifecycle.py:337`).
+### Phase 2 — Transparent launcher (TDD)
 
-- [ ] T-6 — GREEN: numeric minting in `start_new`
-- Agent: build
-- Files: `.ai-engineering/scripts/spec_lifecycle.py:331-349`
-- Principles applied: §10.1 KISS, §10.5 TDD
-- Patch (deterministic): none — add `_next_spec_number(project_root)` (scan `_history_spec_ids` + sidecar `spec_id`s, parse `spec-(\d+)`, return max+1); set `spec_id=f"spec-{n:03d}"` in the new `SpecRecord` while keeping `slug=slug`. Keep `_find_by_slug` idempotency. Mint under the existing `specs-history` lock (D-153-05).
-- Gate: T-5 minting assertions GREEN.
+- [ ] T-4 — RED: launcher transparency + guard test
+  - Agent: build
+  - Files: tests/unit/hooks/test_run_hook_sh.py (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): — assert run-hook.sh execs the passed `.py` under the resolved interpreter; asserts the script arg (not the launcher) is what runs (integrity-transparency); asserts guard path exits 0 with one stderr line when resolver finds nothing.
+  - Gate: test fails (launcher absent)
 
-- [ ] T-7 — GREEN: slug-fallback resolver in `_load_state`
-- Agent: build
-- Files: `.ai-engineering/scripts/spec_lifecycle.py:171-198`
-- Principles applied: §10.3 SOLID (one resolution port)
-- Patch (deterministic): none — when `_sidecar_path(spec_id)` misses, fall back to `_find_by_slug`; raise only if both miss. Lets existing callers that pass a slug (consolidate-spec handler) keep working after the rename.
-- Gate: T-5 resolver assertion GREEN.
+- [ ] T-5 — GREEN: create `_lib/run-hook.sh`
+  - Agent: build
+  - Files: .ai-engineering/scripts/hooks/_lib/run-hook.sh (new)
+  - Principles applied: §10.1 KISS, §10.8 Hexagonal
+  - Patch (deterministic): — source `resolve-python.sh`; `PY=$(resolve_python "$root")`; `[ -n "$PY" ] || exit 0`; `exec "$PY" "$@"`. Resolve `root` from `CLAUDE_PROJECT_DIR` else walk up. Transparent exec — no self-reference (OQ1).
+  - Gate: T-4 passes
 
-- [ ] T-8 — RED+GREEN: sidecar id-migration verb
-- Agent: build
-- Files: `.ai-engineering/scripts/spec_lifecycle.py` (+ `tests/unit/specs/test_spec_lifecycle.py`)
-- Principles applied: §10.5 TDD, §10.7 Clean Code
-- Patch (deterministic): none — add `migrate_ids(project_root, *, dry_run)`: for each sidecar whose `spec_id` is non-numeric, derive `spec-NNN` (from spec.md frontmatter `spec:` when the slug matches, else next number), rewrite `spec_id`, `git mv` to `spec-NNN.json`, de-duplicate the `obvious-by-default`/`obvious-by-default-essentials` pair (keep the richer record, drop the stale). Register the CLI subparser (`spec_lifecycle.py:531-571`).
-- Gate: migration test GREEN; dry-run lists 17 sidecars + the dedup.
+- [ ] T-6 — template mirror of launcher
+  - Agent: build
+  - Files: src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/run-hook.sh (new)
+  - Principles applied: §10.4 DRY
+  - Patch (deterministic): byte-equal copy of T-5.
+  - Gate: `diff` live vs template == empty
 
-- [ ] T-9 — GREEN: run id-migration + re-render ledger
-- Agent: build
-- Files: `.ai-engineering/state/specs/*.json`, `.ai-engineering/specs/_history.md`
-- Principles applied: §10.6 SDD
-- Patch (deterministic): none — execution task: `python .ai-engineering/scripts/spec_lifecycle.py migrate_ids` then `migrate-history`. The slug-keyed row `github-actions-supply-chain-hardening` (`_history.md:153`) becomes `spec-152` via re-render. This spec's own sidecar becomes `spec-153.json`.
-- Gate: every `_history.md` ID cell matches `^spec-\d+$` or a legacy numeric; no slug-named sidecar remains; `spec-153.json` present.
+### Phase 3 — Wire IDE surfaces (mechanical)
 
-- [ ] T-10 — GREEN: relocate freeform delivery-log prose out of the ledger
-- Agent: build
-- Files: `.ai-engineering/specs/_history.md:157-`, new `.ai-engineering/state/archive/delivery-logs/`
-- Principles applied: §10.4 DRY (ledger is an index, not a log dump)
-- Patch (deterministic): none — move the post-table prose blocks (spec-105/106/107/115-119 retros) into `state/archive/delivery-logs/spec-<NNN>.md`; grep the repo for references to those blocks and update before moving (precedent: spec-122-a, `_history.md:363`). `_split_history` preserves the tail until it is relocated.
-- Gate: `_history.md` ends at the table; relocated files exist; no dangling references; before/after row count unchanged.
+- [ ] T-7 — rewrite `.claude/settings.json` (22 commands)
+  - Agent: build
+  - Files: .claude/settings.json
+  - Principles applied: §10.3 SOLID (single dispatch path)
+  - Patch (deterministic):
+    ```diff
+    - "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/telemetry-skill.py\""
+    + "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh\" \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/telemetry-skill.py\""
+    ```
+    (apply same transform to all 22 entries)
+  - Gate: `test_canonical_events_count.py::test_no_dead_wirings` green; 11-events-count test green
 
-**Wave 2 gate:** `pytest tests/unit/specs/test_spec_lifecycle.py` green; ledger all-numeric; zero slug sidecars.
+- [ ] T-8 — rewrite `templates/project/.claude/settings.json` (parallel)
+  - Agent: build
+  - Files: src/ai_engineering/templates/project/.claude/settings.json
+  - Principles applied: §10.4 DRY (consumer parity)
+  - Patch (deterministic): identical transform to T-7.
+  - Gate: `diff` semantic-equal to T-7 (path-pattern parity)
 
----
+- [ ] T-9 — rewrite `.codex/hooks.json` (11 commands)
+  - Agent: build
+  - Files: .codex/hooks.json
+  - Principles applied: §10.3 SOLID
+  - Patch (deterministic):
+    ```diff
+    - "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/codex-hook-bridge.py"
+    + "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/codex-hook-bridge.py"
+    ```
+    (apply to all 11; relative paths preserved — run-hook.sh resolves root)
+  - Gate: codex hooks.json valid JSON; T-15 codex case green
 
-## Wave 3 — Archival + reaper [D-153-04 / D-153-06 / D-153-07] (dep: W1, W2)
+- [ ] T-10 — refactor `_lib/copilot-runtime.sh` to source the shared resolver + add >=3.11 gate
+  - Agent: build
+  - Files: .ai-engineering/scripts/hooks/_lib/copilot-runtime.sh, src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/copilot-runtime.sh
+  - Principles applied: §10.4 DRY, §10.7 Clean Code
+  - Patch (deterministic): — keep public fns `copilot_framework_python_script` / `_inline` (signatures unchanged) but delegate path resolution to `resolve_python` from `resolve-python.sh`; add the >=3.11 gate that copilot-runtime.sh currently lacks. Behavior for the happy venv path must be unchanged (AC5).
+  - Gate: AC5 — Copilot emitter tests unchanged (T-16)
 
-- [ ] T-11 — RED: snapshot-on-ship + reset + reaper + root invariant
-- Agent: build
-- Files: `tests/unit/specs/test_spec_lifecycle.py`
-- Principles applied: §10.5 TDD
-- Patch (deterministic): none — assert: `mark_shipped` copies `spec.md`+`plan.md` into `archive/spec-NNN-<slug>/` and overwrites both working buffers with the placeholder; re-running is a no-op; `sweep` with `reap_orphans` moves a stray `specs/spec-999-x.md` into archive and leaves `{spec.md,plan.md,_history.md}` untouched.
-- Gate: tests fail (RED) — `archive()` only flips state today (`spec_lifecycle.py:401-409`).
+### Phase 4 — Integrity, sync, regression tests
 
-- [ ] T-12 — GREEN: snapshot + working-buffer reset at SHIPPED
-- Agent: build
-- Files: `.ai-engineering/scripts/spec_lifecycle.py:352-398`
-- Principles applied: §10.1 KISS, §10.8 Hexagonal
-- Patch (deterministic): none — add `_snapshot_and_reset(project_root, record)`: `mkdir archive/spec-NNN-<slug>/`, copy current `specs/spec.md`+`plan.md` in, then `_atomic_write` both buffers to the placeholder. Call it from `mark_shipped` after the SHIPPED write. ARCHIVED stays a no-file-move terminal marker (D-153-04). Placeholder content: `# (no active spec)\n\nRun /ai-brainstorm to start one.\n`.
-- Gate: T-11 snapshot+reset assertions GREEN.
+- [ ] T-11 — regenerate hook integrity manifest
+  - Agent: build
+  - Files: .ai-engineering/state/hooks-manifest.json
+  - Principles applied: §10.6 SDD (governance coherence)
+  - Patch (deterministic): run `python3 .ai-engineering/scripts/regenerate-hooks-manifest.py` (enrolls new `_lib/resolve-python.sh`, `_lib/run-hook.sh`, changed `copilot-runtime.sh`).
+  - Gate: `python3 .ai-engineering/scripts/regenerate-hooks-manifest.py --check` exit 0
 
-- [ ] T-13 — GREEN: orphan reaper folded into `sweep`, retention from manifest
-- Agent: build
-- Files: `.ai-engineering/scripts/spec_lifecycle.py:412-437`
-- Principles applied: §10.4 DRY (retention via manifest, not constant)
-- Patch (deterministic): none — read `draft_ttl_days`/`reap_orphans` from the manifest `lifecycle:` block (fail-open to 14/true); after the DRAFT→ABANDONED pass, when `reap_orphans`, move stray `specs/spec-*.md` (anything not in `{spec.md,plan.md,_history.md}` and not under `drafts/`/`archive/`) into its `archive/spec-NNN-<slug>/`, defaulting to move (never delete unless superseded). Extend the `spec_sweep` event detail with `reaped`.
-- Gate: T-11 reaper assertion GREEN.
+- [ ] T-12 — propagate Codex template via mirror sync
+  - Agent: build
+  - Files: src/ai_engineering/templates/project/.codex/hooks.json (auto-regenerated)
+  - Principles applied: §10.4 DRY
+  - Patch (deterministic): run `python scripts/sync_command_mirrors.py`.
+  - Gate: template == live `.codex/hooks.json` (sync idempotent on re-run)
 
-- [ ] T-14 — GREEN: migrate existing archive to the uniform per-spec-dir layout
-- Agent: build
-- Files: `.ai-engineering/specs/archive/**`
-- Principles applied: §10.7 Clean Code (one layout)
-- Patch (deterministic): none — `git mv` existing flat `spec-NNN-*.md` and `spec-NNN-plan.md` pairs into `archive/spec-NNN-<slug>/{spec.md,plan.md}`; normalize the already-bundled dirs (`spec-126-lock-parity/`, `spec-144-…/`) to the same shape.
-- Gate: every entry under `archive/` is a `spec-NNN-<slug>/` directory; no flat files; no `-plan.md`.
+- [ ] T-13 — RED→GREEN: <3.11 regression test (the spec's keystone test, D-154-07 / AC6)
+  - Agent: build
+  - Files: tests/integration/test_hook_interpreter_resolution.py (new)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): — with a forced <3.11 `python3` first on PATH but a >=3.11 named/venv present, invoke a representative hook (prompt-injection-guard) via `run-hook.sh`; assert it runs under >=3.11 (no `ImportError`, exit 0). Second case: no >=3.11 anywhere → exactly one stderr line + exit 0. Must FAIL on pre-fix wiring (bare python3) and PASS post-fix.
+  - Gate: fails pre-fix, passes post-fix
 
-- [ ] T-15 — GREEN: reap the 11 current `specs/` root orphans
-- Agent: build
-- Files: `.ai-engineering/specs/spec-129-*.md`, `spec-132-*`, `spec-144-*` (×4), `spec-146-*` (×2), `spec-148-*`, `spec-149-*`, `spec-150-*`
-- Principles applied: §10.6 SDD
-- Patch (deterministic): none — run the T-13 reaper (or one-shot `git mv`) to move each into its archive directory; delete only if confirmed superseded by an existing archive entry.
-- Gate: `ls .ai-engineering/specs/` returns exactly `spec.md plan.md _history.md drafts archive`.
+- [ ] T-14 — Copilot non-regression gate (AC5)
+  - Agent: verify
+  - Files: tests/integration/test_framework_hook_emitters.py (existing — Copilot cases)
+  - Principles applied: §10.5 TDD
+  - Patch (deterministic): — (read-only) run existing Copilot emitter tests; assert unchanged green after T-10.
+  - Gate: existing Copilot tests pass unchanged
 
-**Wave 3 gate:** `specs/` root invariant holds; archive uniform; `pytest tests/unit/specs/` green.
+- [ ] T-15 — full suite gate
+  - Agent: verify
+  - Files: tests/unit/hooks/, tests/integration/
+  - Principles applied: §10.4 Goal-Driven (green before done)
+  - Patch (deterministic): — run hook + integrity + canonical-events + trusted-script-lane suites.
+  - Gate: all green
 
----
+### Phase 5 — Docs
 
-## Wave 4 — Merge wiring [D-153-03] (dep: W3)
+- [ ] T-16 — CHANGELOG entry
+  - Agent: build
+  - Files: CHANGELOG.md
+  - Principles applied: §10.7 Clean Code (document the breakage)
+  - Patch (deterministic): — under Unreleased: "fix(hooks): resolve Python >=3.11 interpreter for hook dispatch across Claude Code, Codex, Copilot (spec-154)". Note the new launcher path in command wiring.
+  - Gate: docs gate green
 
-- [ ] T-16 — RED: merged-branch backstop auto-marks SHIPPED
-- Agent: build
-- Files: `tests/integration/test_cli_command_modules.py:882`, `tests/unit/specs/test_spec_lifecycle.py`
-- Principles applied: §10.5 TDD
-- Patch (deterministic): none — assert: `reconcile_merged` finds an IN_PROGRESS/APPROVED sidecar whose `branch` is merged into the default branch and calls `mark_shipped` (idempotent); a sidecar with an unmerged branch is untouched.
-- Gate: tests fail (RED) — no reconcile path exists.
+## Risks (carried + refined)
 
-- [ ] T-17 — GREEN: `reconcile_merged` verb
-- Agent: build
-- Files: `.ai-engineering/scripts/spec_lifecycle.py`
-- Principles applied: §10.8 Hexagonal (git as adapter), §10.1 KISS
-- Patch (deterministic): none — `reconcile_merged(project_root)`: for each non-terminal sidecar with a `branch`, check `git branch --merged <default>` / squash-merge emptiness (mirror `ai-branch-cleanup/SKILL.md:54-56` classification); if merged, resolve PR via `gh pr list --head <branch> --state merged` (fail-open to `—`) and call `mark_shipped`. Register the CLI subparser. Stays off the pre-push hot path (cleanup-time only).
-- Gate: T-16 GREEN.
+- **R1 Copilot regression** — T-10 edits the shared-by-15-wrappers
+  runtime. Mitigation: keep public fn signatures; AC5/T-14.
+- **R2 Manifest staleness (refined)** — new `.sh` files unenrolled →
+  `regenerate --check` fails CI (not `run_hook_safe` block). Mitigation:
+  T-11 + `--check` gate.
+- **R3 Codex relative-path root** — `run-hook.sh` must resolve project
+  root when Codex passes a *relative* script path. Mitigation: root walk
+  + T-13 codex case.
+- **R4 Windows-pwsh gap (deferred)** — if Claude/Codex dispatch via pwsh
+  (not git-bash) on Windows, bash `run-hook.sh` is not invoked → hooks
+  unguarded there. Deferred to a follow-up `run-hook.ps1` +
+  `copilot-runtime.ps1` gate. Documented, not closed in v1.
+- **R5 Residual <3.11-only machine** — all hooks (incl.
+  prompt-injection-guard) inert; one guard line shown. Accepted
+  (unsupported per requires-python).
+- **R6 No argv↔settings coherence test** (pre-existing gap, OQ2) — out of
+  scope; note for a future governance test.
 
-- [ ] T-18 — GREEN: wire reconcile into `/ai-branch-cleanup` + `ai-eng cleanup specs`
-- Agent: build
-- Files: `.claude/skills/ai-branch-cleanup/SKILL.md:88-91`, `src/ai_engineering/cli_commands/cleanup.py:366-380`
-- Principles applied: §10.6 SDD
-- Patch (deterministic): none — Phase 5 calls `reconcile_merged` BEFORE `consolidate_shipped` (so a merged-but-unshipped spec is marked, then its row appended); `cleanup_specs_cmd` runs `reconcile_merged` then `consolidate_shipped`. Fail-open preserved.
-- Gate: `ai-eng cleanup specs --dry-run` lists merged-unshipped candidates.
+## Follow-ups (not this spec)
 
-- [ ] T-19 — GREEN: `/ai-pr` passes the numeric spec id at merge
-- Agent: build
-- Files: `.claude/skills/ai-pr/SKILL.md:67-70`
-- Principles applied: §10.6 SDD
-- Patch (deterministic): none — step 11 resolves the canonical `spec-NNN` from spec.md frontmatter (not the slug) and passes it to the shared `mark_shipped` handler; note the `/ai-branch-cleanup` reconcile as the backstop for non-`/ai-pr` merges.
-- Gate: prose review; mirror parity in T-20.
-
-- [ ] T-20 — GREEN: regenerate IDE mirrors for changed skills
-- Agent: build
-- Files: `.codex/`, `.agents/`, `.github/`, `src/ai_engineering/templates/project/**` (ai-pr, ai-branch-cleanup mirrors)
-- Principles applied: §10.4 DRY (one canonical payload)
-- Patch (deterministic): none — `ai-eng dev sync` after T-18/T-19 SKILL.md edits.
-- Gate: `ai-eng dev sync --check` PASS.
-
-**Wave 4 gate:** backstop test green; a test merge transitions to SHIPPED with zero manual commands.
-
----
-
-## Wave 5 — Capability catalog generator [D-153-12 / D-153-15] (parallel with W1-4)
-
-> No `description` field exists in the catalog models (`CapabilityDescriptor`,
-> `SkillEntry`). Source descriptions from `.claude/skills/ai-*/SKILL.md` frontmatter
-> at generation time. No marker-section precedent exists — establish it.
-
-- [ ] T-21 — RED: generator emits catalog + drift gate fails on mismatch
-- Agent: build
-- Files: new `tests/unit/test_capability_catalog.py`
-- Principles applied: §10.5 TDD
-- Patch (deterministic): none — assert: the generator reads all 53 skill `description:` frontmatter + 9 agents and renders a markdown table between `<!-- catalog:start -->`/`<!-- catalog:end -->`; the drift check fails when the rendered count diverges from `len(DEFAULT_SKILLS_REGISTRY)` / agent count.
-- Gate: tests fail (RED) — generator absent.
-
-- [ ] T-22 — GREEN: `gen_capability_catalog.py` generator
-- Agent: build
-- Files: new `scripts/gen_capability_catalog.py`
-- Principles applied: §10.8 Hexagonal (read-only adapter), §10.1 KISS
-- Patch (deterministic): none — read `.claude/skills/ai-*/SKILL.md` frontmatter (`name`, `description`) + `.claude/agents/ai-*.md`; render a grouped markdown catalog; expose `render_section()` (returns the marker-delimited block) and `apply_to(path)` (idempotent in-place replacement between markers). Stdlib only.
-- Gate: T-21 render assertions GREEN.
-
-- [ ] T-23 — GREEN: wire generator into `dev sync` + install/update
-- Agent: build
-- Files: `src/ai_engineering/cli_commands/dev_sync.py:27-80`, `src/ai_engineering/installer/service.py:497`, `src/ai_engineering/installer/phases/state.py:83`
-- Principles applied: §10.4 DRY (generated alongside framework-capabilities.json)
-- Patch (deterministic): none — call `gen_capability_catalog.apply_to(.ai-engineering/README.md)` wherever `write_framework_capabilities` runs, and inside `dev_sync_cmd`.
-- Gate: `ai-eng dev sync` rewrites the catalog section; re-run is a no-op diff.
-
-- [ ] T-24 — GREEN: drift gate covers README counts
-- Agent: build
-- Files: `tools/skill_domain/validator_counter_accuracy.py:44`, `scripts/sync_mirrors/core.py`
-- Principles applied: §10.5 TDD, §10.7 Clean Code
-- Patch (deterministic): none — extend counter-accuracy `_instruction_files()` to parse the `N skills · M agents · K surfaces` pattern in both READMEs and the catalog marker block; `ai-eng dev sync --check` fails on catalog or count drift.
-- Gate: a deliberately wrong count makes `dev sync --check` and `ai-eng validate` FAIL.
-
-**Wave 5 gate:** `pytest tests/unit/test_capability_catalog.py` green; `dev sync --check` catches drift.
-
----
-
-## Wave 6 — README content [D-153-11 / D-153-13 / D-153-14] (dep: W5)
-
-- [ ] T-25 — GREEN: `.ai-engineering/README.md` → post-install client manual
-- Agent: build
-- Files: `.ai-engineering/README.md:1-95`, `src/ai_engineering/templates/project/.ai-engineering/README.md`
-- Principles applied: §10.7 Clean Code, Diátaxis (tutorial + reference separation)
-- Patch (deterministic): none — restructure to: welcome ("thanks for installing — here's what you can do") → quick-win path → the `<!-- catalog:start/end -->` generated section (53 skills / 9 agents with how-to) → a short maintainer pointer linking `docs/persistence-doctrine.md` + `CONSTITUTION.md`. DELETE the "Four-Tier Persistence" table and every `state/state.db` reference (`:34,:39-50,:61`) per D-153-14; align to three-tier doctrine.
-- Gate: no `state.db`/"four-tier" string remains; catalog section present; `ai-eng doctor` governance-templates check PASS.
-
-- [ ] T-26 — GREEN: root `README.md` de-drift counts
-- Agent: build
-- Files: `README.md:26,30`
-- Principles applied: §10.4 DRY
-- Patch (deterministic): none — wire the `53 skills · 9 agents · 6 surfaces` tagline (line 30) and banner alt text (line 26) to the T-24 drift gate (marker or generated values). Getting-started (`:34-52`) verified crystal-clear — left intact. Absolute `raw.githubusercontent` image URLs preserved.
-- Gate: T-24 drift gate green against live counts.
-
-- [ ] T-27 — GREEN: CHANGELOG entries for the hard migrations
-- Agent: build
-- Files: `CHANGELOG.md`
-- Principles applied: Keep a Changelog; CONSTITUTION §3 (document breakage)
-- Patch (deterministic): none — record: numeric spec-id rename, sidecar migration, archive layout change, orphan reap, delivery-log relocation, `.ai-engineering/README.md` rewrite + `state.db` reference removal, manifest `lifecycle:` block.
-- Gate: CHANGELOG documents every operator-visible breakage.
-
-- [ ] T-28 — VERIFY: final acceptance sweep
-- Agent: verify
-- Files: (read-only) `.ai-engineering/specs/`, both READMEs, `tests/`
-- Principles applied: §10.6 SDD, §10.4 Goal-Driven Execution
-- Patch (deterministic): none — read-only assertion of every spec Acceptance item: `specs/` root invariant, all-numeric ledger, archive uniform, catalog matches counts, no `state.db` refs, `ai-eng dev sync --check` green, full `pytest` green.
-- Gate: all DoD/Acceptance checks pass; no blocker/critical/high findings.
-
-**Wave 6 gate:** full quality loop green; spec-153 Acceptance checklist satisfied.
-
----
-
-## Notes for the executor
-
-- **Schema-first ordering is load-bearing** (Wave 1 before any manifest key) —
-  `additionalProperties:false` at the schema root breaks `ai-eng validate` otherwise.
-- **`mark_shipped` is the chokepoint** — Wave 3 adds the snapshot/reset; Wave 4 adds
-  the auto-trigger. Both lean on its existing idempotency (`spec_lifecycle.py:355-366`),
-  so re-runs stay safe.
-- **Mirror parity**: any `.claude/skills/**` edit (T-18, T-19) requires `ai-eng dev
-  sync` (T-20) and passes `dev sync --check`.
-- **Open Questions** (defer to execution / operator): `draft_ttl_days` default (30);
-  maintainer pointer vs separate `MAINTAINERS.md`; catalog inline vs linked include —
-  the plan assumes inline-generated.
+- `/ai-learn`: spec-153's own auto-consolidation did not self-apply at its
+  merge (PR #539) — generalize the merge→consolidate trigger.
+- Windows `run-hook.ps1` + `copilot-runtime.ps1` >=3.11 gate (R4).
+- Governance test asserting every `trustedArgvs` entry maps to a real
+  `settings.json` command (R6).

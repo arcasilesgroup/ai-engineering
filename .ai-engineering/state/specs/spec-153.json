@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "spec-153-lifecycle-and-client-readmes",
   "created": "2026-05-24T10:37:18.593934+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "539",
+  "shipped": "2026-05-29T17:39:17.971907+00:00",
   "slug": "spec-lifecycle-and-client-readme",
   "spec_id": "spec-153",
-  "state": "draft",
+  "state": "shipped",
   "title": "Spec/Plan Lifecycle Automation and Client-Facing Capability README"
 }
