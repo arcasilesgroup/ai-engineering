@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- fix(hooks): resolve Python >=3.11 interpreter for hook dispatch across
+  Claude Code, Codex, Copilot (spec-154). Hook commands previously
+  invoked scripts via bare `python3`, which on some hosts resolves to
+  <3.11 (e.g. macOS system 3.9.6) and raised
+  `ImportError: cannot import name 'UTC'`. A new `_lib/run-hook.sh`
+  launcher (backed by `_lib/resolve-python.sh`) now selects a >=3.11
+  interpreter (project `.venv` → named `python3.13`/`3.12`/`3.11` → `uv`
+  → gated bare `python3`) and is wired into the command dispatch for all
+  three IDE surfaces. Fail-open when no >=3.11 interpreter exists.
+
 ## [0.8.3] - 2026-05-29
 
 ### Fixed
