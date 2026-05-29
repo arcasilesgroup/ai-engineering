@@ -657,20 +657,47 @@ jobs:
           uv pip freeze > requirements.txt
           echo "Exported $(wc -l < requirements.txt) pinned packages"
       - name: Snyk dependency test
+        # spec-154: tolerate Snyk plan-quota / auth / infra errors as
+        # non-blocking (surfaced via ::warning::) while still failing on real
+        # >=high vulnerabilities (exit "$rc"). Dependency coverage is also
+        # enforced by pip-audit + SBOM + Scorecard, so a quota-throttled Snyk
+        # must not wedge the entire CI/merge pipeline.
         run: |
           . .venv/bin/activate
-          snyk test --file=requirements.txt --package-manager=pip --severity-threshold=high
+          set +e
+          out=$(snyk test --file=requirements.txt --package-manager=pip --severity-threshold=high 2>&1)
+          rc=$?
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota'; then
+            echo "::warning title=Snyk non-blocking::Snyk dependency test unavailable (plan quota/auth) — non-blocking; coverage retained via pip-audit, semgrep, gitleaks, SBOM, Scorecard."
+            exit 0
+          fi
+          exit "$rc"
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk code test (SAST)
-        run: snyk code test --severity-threshold=high
+        # spec-154: same quota/auth/infra tolerance; semgrep covers SAST.
+        run: |
+          set +e
+          out=$(snyk code test --severity-threshold=high 2>&1)
+          rc=$?
+          printf '%s\n' "$out"
+          if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qiE 'test limit|increase your tests|rate.?limit|429|too many requests|authentication (error|failed)|not authori|quota'; then
+            echo "::warning title=Snyk non-blocking::Snyk SAST unavailable (plan quota/auth) — non-blocking; semgrep covers SAST."
+            exit 0
+          fi
+          exit "$rc"
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
       - name: Snyk monitor (main only)
         if: github.ref == 'refs/heads/main'
+        # spec-154: monitor is best-effort telemetry; never fail CI on it.
         run: |
           . .venv/bin/activate
-          snyk monitor --file=requirements.txt --package-manager=pip
+          set +e
+          snyk monitor --file=requirements.txt --package-manager=pip || \
+            echo "::warning title=Snyk monitor non-blocking::snyk monitor failed (quota/auth/infra) — non-blocking."
+          exit 0
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
