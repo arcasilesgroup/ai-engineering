@@ -5,23 +5,23 @@
 transparent: the process that runs is the `.py` arg itself, NOT the
 launcher — `run_hook_safe` verifies integrity via the script's own
 `__file__`, so the launcher must not insert itself into argv.
+
+The subprocess ``PATH`` is HERMETIC — a single sandbox bin dir seeded
+with coreutils, never ``/usr/bin``/``/bin`` — so an ambient CI
+``python3.12`` cannot leak into the launcher's interpreter resolution.
 """
 
 from __future__ import annotations
 
-import os
-import stat
 import subprocess
 from pathlib import Path
+
+from tests._hermetic_bin import hermetic_env, make_exe, make_sandbox_bin
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 LAUNCHER = REPO_ROOT / ".ai-engineering" / "scripts" / "hooks" / "_lib" / "run-hook.sh"
 
-
-def _make_exe(path: Path, body: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(body, encoding="utf-8")
-    path.chmod(path.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+_make_exe = make_exe
 
 
 def _fake_python(version: tuple[int, int]) -> str:
@@ -55,17 +55,14 @@ def _setup_root(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def _run_launcher(
-    lib: Path, script: Path, path_dir: Path | None, *, project_dir: Path
+    lib: Path, script: Path, sandbox_bin: Path, *, project_dir: Path
 ) -> subprocess.CompletedProcess[str]:
-    env = dict(os.environ)
-    parts = []
-    if path_dir is not None:
-        parts.append(str(path_dir))
-    parts.extend(["/usr/bin", "/bin"])
-    env["PATH"] = os.pathsep.join(parts)
-    env["CLAUDE_PROJECT_DIR"] = str(project_dir)
+    # PATH is the single sandbox bin dir (never /usr/bin or /bin), so the
+    # launcher's interpreter resolution only sees the fakes the test placed.
+    env = hermetic_env(sandbox_bin, CLAUDE_PROJECT_DIR=str(project_dir))
+    bash = str(sandbox_bin / "bash")
     return subprocess.run(
-        ["bash", str(lib / "run-hook.sh"), str(script)],
+        [bash, str(lib / "run-hook.sh"), str(script)],
         capture_output=True,
         text=True,
         env=env,
@@ -79,8 +76,9 @@ def test_execs_passed_script_under_resolved_python(tmp_path: Path) -> None:
     script = root / ".ai-engineering" / "scripts" / "hooks" / "demo.py"
     script.parent.mkdir(parents=True, exist_ok=True)
     script.write_text("# demo hook\n", encoding="utf-8")
+    sandbox_bin = make_sandbox_bin(tmp_path)
 
-    res = _run_launcher(lib, script, None, project_dir=root)
+    res = _run_launcher(lib, script, sandbox_bin, project_dir=root)
     assert res.returncode == 0, res.stderr
     # The resolved interpreter received the .py path as $1 — transparent exec.
     assert res.stdout.strip() == f"ran:{script}"
@@ -88,14 +86,14 @@ def test_execs_passed_script_under_resolved_python(tmp_path: Path) -> None:
 
 def test_guard_path_one_stderr_line_exit_zero(tmp_path: Path) -> None:
     root, lib = _setup_root(tmp_path)
-    # No venv, no >=3.11 interpreter anywhere on PATH.
-    empty = tmp_path / "emptybin"
-    empty.mkdir()
+    # No venv, no >=3.11 interpreter anywhere on the hermetic PATH (the
+    # sandbox carries coreutils but NO python of any flavour).
+    sandbox_bin = make_sandbox_bin(tmp_path)
     script = root / ".ai-engineering" / "scripts" / "hooks" / "demo.py"
     script.parent.mkdir(parents=True, exist_ok=True)
     script.write_text("# demo hook\n", encoding="utf-8")
 
-    res = _run_launcher(lib, script, empty, project_dir=root)
+    res = _run_launcher(lib, script, sandbox_bin, project_dir=root)
     assert res.returncode == 0, f"guard path must exit 0, got {res.returncode}"
     assert res.stdout == ""
     stderr_lines = [ln for ln in res.stderr.splitlines() if ln.strip()]

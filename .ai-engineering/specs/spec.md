@@ -1,8 +1,10 @@
 ---
+spec: spec-154
 spec_id: spec-154
 slug: hook-interpreter-resolution
 title: Resolve a Python >=3.11 interpreter for hook dispatch (Claude Code, Codex, Copilot)
 status: draft
+summary: "Route all IDE hook dispatch (Claude Code, Codex, Copilot) through one shared resolver that selects a Python >=3.11 interpreter (project .venv first), instead of bare python3 — which hits system 3.9 when no venv is active and breaks every 3.11-idiom hook. Interpreter selection, not a compat shim."
 created: 2026-05-29
 refs:
   audit: wf_a933215e-70b
