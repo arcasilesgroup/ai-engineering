@@ -26,7 +26,8 @@ copilot_framework_python_script() {
     fi
 
     if [ "$resolved" = "uv" ]; then
-        (cd "$project_root" && uv run python "$script_path" "$@")
+        # Pin uv to >=3.11 so the venv-less path cannot land on a <3.11 env.
+        (cd "$project_root" && uv run --python '>=3.11' python "$script_path" "$@")
         return $?
     fi
 
@@ -44,7 +45,8 @@ copilot_framework_python_inline() {
     fi
 
     if [ "$resolved" = "uv" ]; then
-        (cd "$project_root" && uv run python - "$@")
+        # Pin uv to >=3.11 so the venv-less path cannot land on a <3.11 env.
+        (cd "$project_root" && uv run --python '>=3.11' python - "$@")
         return $?
     fi
 

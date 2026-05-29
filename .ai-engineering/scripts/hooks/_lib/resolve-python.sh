@@ -28,9 +28,13 @@ resolve_python() {
     local cache="$root/.ai-engineering/runtime/resolved-python.txt"
 
     # 1. Cache read — honour a still-executable cached interpreter.
+    # `read` returns nonzero at EOF-without-delimiter (a newline-less
+    # cache) even though it still populated `cached`; ignore that exit
+    # status so such a cache is honoured. Behaviour is identical for the
+    # normal newline-terminated cache written by this resolver.
     if [ -f "$cache" ]; then
         local cached=""
-        read -r cached <"$cache" || cached=""
+        IFS= read -r cached < "$cache" 2>/dev/null || true
         if [ -n "$cached" ] && [ -x "$cached" ]; then
             printf '%s\n' "$cached"
             return 0

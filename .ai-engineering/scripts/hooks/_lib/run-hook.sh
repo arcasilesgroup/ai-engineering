@@ -49,7 +49,10 @@ else
 fi
 
 if [ "$py" = "uv" ]; then
-    exec uv run --project "$root" python "$@"
+    # Pin the uv-resolved interpreter to >=3.11 so the venv-less path
+    # cannot silently land on a <3.11 env (the exact ImportError this
+    # spec prevents). uv honours the version request via --python.
+    exec uv run --python '>=3.11' --project "$root" python "$@"
 fi
 
 exec "$py" "$@"
