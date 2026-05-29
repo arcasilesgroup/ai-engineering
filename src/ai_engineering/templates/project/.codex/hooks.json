@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/codex-hook-bridge.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/codex-hook-bridge.py",
             "timeout": 10
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-progressive-disclosure.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/runtime-progressive-disclosure.py",
             "timeout": 5
           }
         ]
@@ -28,17 +28,17 @@
         "hooks": [
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/codex-hook-bridge.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/codex-hook-bridge.py",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/prompt-injection-guard.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/prompt-injection-guard.py",
             "timeout": 15
           },
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/instinct-observe.py",
             "timeout": 10
           }
         ]
@@ -50,12 +50,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-observe.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/instinct-observe.py",
             "timeout": 10
           },
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-guard.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/runtime-guard.py",
             "timeout": 10
           }
         ]
@@ -68,22 +68,22 @@
         "hooks": [
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/codex-hook-bridge.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/codex-hook-bridge.py",
             "timeout": 5
           },
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/instinct-extract.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/instinct-extract.py",
             "timeout": 30
           },
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-stop.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/runtime-stop.py",
             "timeout": 15
           },
           {
             "type": "command",
-            "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/runtime-rotate-throttled.py",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/runtime-rotate-throttled.py",
             "timeout": 30
           }
         ]
