@@ -111,3 +111,53 @@ def test_every_in_tree_import_target_is_shipped() -> None:
     assert not unresolved, "In-tree imports without shipped target:\n" + "\n".join(
         f"  {src}: from {pkg} import …" for src, pkg in unresolved
     )
+
+
+# ---------------------------------------------------------------------------
+# Article VII allowlist parity (shipped baseline).
+#
+# Same bug class as the skill_scripts_lib gap above: the installer deploys
+# `.ai-engineering/scripts/**` — which carry suppression markers (optional
+# import fallbacks, self-bootstrap E402, __main__ CLI shims, validated SSRF) —
+# but used to omit the `suppression-allowlist.yml` that authorizes them, so a
+# consumer's first `git push` was blocked by `ai-eng gate pre-push`. These
+# assertions keep the shipped baseline both PRESENT and COMPLETE.
+# ---------------------------------------------------------------------------
+
+_TEMPLATES_ROOT = _REPO_ROOT / "src" / "ai_engineering" / "templates"
+_TEMPLATE_ALLOWLIST = _TEMPLATES_ROOT / ".ai-engineering" / "suppression-allowlist.yml"
+
+
+def test_template_ships_suppression_allowlist() -> None:
+    """The installer template tree must ship the Article VII allowlist."""
+    assert _TEMPLATE_ALLOWLIST.is_file(), (
+        f"Template tree missing suppression-allowlist.yml at {_TEMPLATE_ALLOWLIST}. "
+        "Without it, a consumer's first `git push` fails the no-suppression gate "
+        "on the vendored `.ai-engineering/scripts/` tree."
+    )
+
+
+def test_template_script_suppressions_are_allowlisted() -> None:
+    """Every suppression in the shipped `scripts/` tree is covered by the
+    shipped allowlist, so the baseline can never drift out of sync."""
+    from no_suppression.allowlist import evaluate, load_allowlist
+    from no_suppression.scanner import scan_paths
+
+    findings = scan_paths(
+        _TEMPLATES_ROOT,
+        include_globs=(".ai-engineering/scripts/**/*.py",),
+        exclude_globs=(),
+    )
+    entries = load_allowlist(_TEMPLATE_ALLOWLIST)
+    # The baseline carries no DEC bindings, so state.db is never consulted.
+    decisions = evaluate(findings, entries, state_db=Path("/nonexistent-state.db"))
+    denied = [d for d in decisions if d.status != "allowed"]
+    assert not denied, (
+        "Shipped suppression-allowlist.yml does not cover every marker in the "
+        "template `scripts/` tree (add/adjust entries):\n"
+        + "\n".join(
+            f"  {d.finding.path.as_posix()}:{d.finding.line} "
+            f"[{d.finding.rule_id}/{d.finding.rule_target or '*'}] {d.status}: {d.reason}"
+            for d in denied
+        )
+    )

@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`ai-eng install` now ships the Article VII suppression allowlist, so a
+  consumer's first `git push` is no longer self-blocked.** The installer
+  deploys the vendored `.ai-engineering/scripts/` tree, whose framework
+  scripts legitimately carry suppression markers (optional-dependency import
+  fallbacks, self-bootstrap `E402` imports, `__main__` CLI shims, a
+  validated-SSRF `nosemgrep`). The authorizing `suppression-allowlist.yml`
+  was missing from the shipped template tree, so the pre-push no-suppression
+  gate denied every one of those markers and blocked the first push in every
+  installed project. A standard baseline allowlist — permanent (no TTL), no
+  DEC bindings, scoped strictly to `.ai-engineering/scripts/**` and never to
+  a consumer's own `src/`/`tools/`/`tests/` — now ships at
+  `src/ai_engineering/templates/.ai-engineering/suppression-allowlist.yml`.
+  Two regression guards lock it in: `test_template_tree_completeness.py`
+  asserts the baseline covers every marker the scanner finds in the shipped
+  scripts tree, and `test_install_clean.py` runs the gate against a freshly
+  installed tree and asserts zero denials. Same bug class as the earlier
+  `skill_scripts_lib` ship-gap.
+
 ### Changed
 
 - **README install section now gives explicit per-tool-manager

@@ -1,0 +1,230 @@
+# Suppression allowlist — ai-engineering shipped baseline (CONSTITUTION.md Article VII).
+#
+# This file is deployed by `ai-eng install` alongside the framework's
+# vendored scripts under `.ai-engineering/scripts/`. Those scripts carry
+# a small, fixed set of suppression markers that are INTRINSIC to the
+# tooling (optional-dependency import fallbacks, self-bootstrapping
+# `E402` imports, `__main__` CLI shims, validated-SSRF egress). Each
+# entry below authorizes exactly one such marker family on exactly one
+# shipped script so the Article VII pre-push gate passes out of the box.
+#
+# Contract:
+#   * These are PERMANENT framework authorizations, NOT time-boxed risk
+#     acceptances — `expires_at` and `dec_id` are intentionally empty.
+#   * Scope is limited to `.ai-engineering/scripts/**` (framework-vendored
+#     code). It never pre-authorizes a consumer's own `src/`, `tools/`,
+#     `tests/`, workflows, or `pyproject.toml` — those remain fully
+#     governed by the consumer's gate.
+#   * `tests/architecture/test_template_tree_completeness.py` asserts this
+#     file covers every suppression the scanner finds in the shipped
+#     `scripts/` tree, so the baseline can never drift out of sync.
+#
+# Entry keys: path (glob, consumer-relative) · rule (engine rule or "*")
+#   · pattern (scanner rule_id family) · justification · spec_ref
+#   · expires_at ("" = permanent) · dec_id ("" = no DEC binding)
+#   · severity.
+
+entries:
+  # --- branch_slug.py: optional PyYAML import fallback -------------------
+  - path: ".ai-engineering/scripts/branch_slug.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Optional-dependency import fallback: PyYAML is imported defensively
+      and rebound to None when absent. The type-checker cannot model the
+      conditional rebind, so the import and the None assignment carry
+      `type: ignore`.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+  - path: ".ai-engineering/scripts/branch_slug.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      Defensive `except ImportError` fallback branch — not exercised when
+      the optional dependency is present, so it is excluded from coverage.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- commit_compose.py: optional skill_scripts_lib import fallback -----
+  - path: ".ai-engineering/scripts/commit_compose.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Optional-dependency import fallback for skill_scripts_lib: the
+      symbols are rebound to None / Exception when the lib is unavailable.
+      The type-checker cannot model the rebind.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+  - path: ".ai-engineering/scripts/commit_compose.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      Defensive `except ImportError` fallback branch — not exercised when
+      skill_scripts_lib is present.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- pr_body_compose.py: self-bootstrap import ordering ----------------
+  - path: ".ai-engineering/scripts/pr_body_compose.py"
+    rule: "*"
+    pattern: "noqa"
+    justification: >-
+      `E402` module-level import after a runtime `sys.path` bootstrap. A
+      deployed standalone script must extend its own import path before
+      importing skill_scripts_lib, so import-at-top is not possible.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- session_bootstrap.py: optional import + self-bootstrap ordering ---
+  - path: ".ai-engineering/scripts/session_bootstrap.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Optional-dependency import fallback: PyYAML is imported defensively
+      and rebound to None when absent.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+  - path: ".ai-engineering/scripts/session_bootstrap.py"
+    rule: "*"
+    pattern: "noqa"
+    justification: >-
+      `E402` module-level imports after a runtime `sys.path` bootstrap, so
+      the script can resolve skill_scripts_lib once its path is extended.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- hooks/_lib/hook-common.py: defensive guard ------------------------
+  - path: ".ai-engineering/scripts/hooks/_lib/hook-common.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      Defensive `except Exception` guard in shared hook plumbing — the
+      failure branch is intentionally uncovered.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- hooks/_lib/hook_http.py: validated SSRF egress --------------------
+  - path: ".ai-engineering/scripts/hooks/_lib/hook_http.py"
+    rule: "ssrf-urllib-request"
+    pattern: "nosemgrep_hash"
+    justification: >-
+      The sink URL is operator-supplied via AIENG_HOOK_HTTP_SINK_URL
+      (opt-in) and its scheme + netloc are validated with
+      urllib.parse.urlsplit before reaching urlopen, so only http/https
+      endpoints are ever requested.
+    spec_ref: "spec-141"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- hooks/_lib/instincts.py: defensive import fallback ----------------
+  - path: ".ai-engineering/scripts/hooks/_lib/instincts.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      Defensive `except ImportError` fallback branch — uncovered when the
+      optional import succeeds.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- hooks/_lib/locked_append.py: type-checker boundary ----------------
+  - path: ".ai-engineering/scripts/hooks/_lib/locked_append.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Type-checker limitation at the platform file-locking boundary
+      (`arg-type`); the handle type cannot be expressed across the
+      conditional posix/Windows locking backends.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- hooks/mcp-health.py: Windows import fallback ----------------------
+  - path: ".ai-engineering/scripts/hooks/mcp-health.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      Defensive `except ImportError` Windows fallback branch — uncovered
+      on the primary posix path.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- hooks/runtime-guard.py: optional _lib import fallback -------------
+  - path: ".ai-engineering/scripts/hooks/runtime-guard.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Optional-dependency import fallback for the `_lib` risk accumulator
+      (`import-not-found`); resolved at runtime when the hook lib is on
+      path.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- skills/skill_scripts/cleanup_run.py: CLI entrypoint shim ----------
+  - path: ".ai-engineering/scripts/skills/skill_scripts/cleanup_run.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      `if __name__ == "__main__"` CLI entrypoint shim — exercised via
+      subprocess invocation, not unit coverage.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- skills/skill_scripts/resolve_classify.py: CLI entrypoint shim -----
+  - path: ".ai-engineering/scripts/skills/skill_scripts/resolve_classify.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      `if __name__ == "__main__"` CLI entrypoint shim — exercised via
+      subprocess invocation, not unit coverage.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- skills/skill_scripts/standup_render.py: dynamic typing + CLI shim -
+  - path: ".ai-engineering/scripts/skills/skill_scripts/standup_render.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Type-checker limitation at a dynamically-typed mapping access
+      (`index`) on a heterogeneous record.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+  - path: ".ai-engineering/scripts/skills/skill_scripts/standup_render.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      `if __name__ == "__main__"` CLI entrypoint shim — exercised via
+      subprocess invocation, not unit coverage.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
