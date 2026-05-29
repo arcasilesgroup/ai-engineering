@@ -20,3 +20,4 @@
 .ai-engineering/state/locks/framework-events.lock
 .ai-engineering/state/observation-events.ndjson
 .ai-engineering/state/ownership-map.json
+.ai-engineering/suppression-allowlist.yml

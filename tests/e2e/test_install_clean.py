@@ -248,3 +248,36 @@ class TestInstallClean:
         result = install(tmp_path, stacks=["python"])
         assert (tmp_path / ".git").is_dir()
         assert len(result.hooks.installed) == 3
+
+    def test_install_ships_allowlist_and_suppression_gate_passes(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        """A clean install must leave the Article VII gate green.
+
+        Regression: the installer deploys the vendored ``.ai-engineering/
+        scripts/`` tree (which carries suppression markers) but used to omit
+        the authorizing ``suppression-allowlist.yml``, so a consumer's first
+        ``git push`` was blocked by ``ai-eng gate pre-push``. This asserts the
+        allowlist ships AND that scanning the installed tree denies nothing.
+        """
+        from no_suppression.cli import run_check
+
+        install(tmp_path, stacks=["python"])
+
+        allowlist = tmp_path / ".ai-engineering" / "suppression-allowlist.yml"
+        assert allowlist.is_file(), "Install did not ship suppression-allowlist.yml"
+
+        decisions = run_check(
+            root=tmp_path,
+            allowlist_path=None,
+            state_db_path=None,
+            include=None,
+            exclude=None,
+        )
+        denied = [d for d in decisions if d.status != "allowed"]
+        assert not denied, "Post-install no-suppression gate would block first push:\n" + "\n".join(
+            f"  {d.finding.path.as_posix()}:{d.finding.line} "
+            f"[{d.finding.rule_id}] {d.status}: {d.reason}"
+            for d in denied
+        )
