@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.4] - 2026-05-29
+
 ### Fixed
 
 - fix(hooks): resolve Python >=3.11 interpreter for hook dispatch across
@@ -18,7 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   interpreter (project `.venv` → named `python3.13`/`3.12`/`3.11` → `uv`
   → gated bare `python3`) and is wired into the command dispatch for all
   three IDE surfaces. Fail-open when no >=3.11 interpreter exists.
-
 ## [0.8.3] - 2026-05-29
 
 ### Fixed
