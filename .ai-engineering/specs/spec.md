@@ -1,209 +1,187 @@
 ---
-spec: spec-153
-title: Spec/Plan Lifecycle Automation and Client-Facing Capability READMEs
+spec_id: spec-154
+slug: hook-interpreter-resolution
+title: Resolve a Python >=3.11 interpreter for hook dispatch (Claude Code, Codex, Copilot)
 status: draft
-effort: large
-summary: "Close the spec/plan lifecycle loop (auto-archive + working-buffer reset on merge, enum-bound numeric ledger, orphan reaping) and align both READMEs to their audiences: GitHub landing and a generated post-install capability manual."
+created: 2026-05-29
+refs:
+  audit: wf_a933215e-70b
+  related_decision: D-135-13
+  requires_python: pyproject.toml:8
 ---
 
-# Spec/Plan Lifecycle Automation and Client-Facing Capability READMEs
+# spec-154 — Resolve a Python >=3.11 interpreter for hook dispatch
 
 ## Summary
 
-The spec/plan lifecycle machinery is already built and structurally sound — a
-six-state FSM, per-spec JSON sidecars, an `_history.md` ledger renderer, and
-CLI verbs (`mark_shipped`, `archive`, `sweep`, `consolidate_shipped`) — but
-**nothing fires it automatically**, two SSOT violations have crept in, and
-working artifacts are never reaped. The most recent spec was recorded as
-shipped by a manual maintenance commit (`fa2564b5`); `spec.md`/`plan.md`
-linger after merge (this very spec overwrote a shipped spec-152 still sitting
-in the working buffer); the `_history.md` Status column carries freeform
-strings divorced from the state enum; eleven orphan `spec-NNN-*.md` files sit
-loose in `specs/` root; the sidecars use two competing ID schemes. Separately,
-the two README surfaces do not match their audiences: the root `README.md` is a
-solid GitHub landing but hardcodes drift-prone capability counts, and
-`.ai-engineering/README.md` is a maintainer reference carrying a factually
-stale persistence claim (`state/state.db`, deleted by spec-148) rather than the
-post-install operational manual an installed client needs to exploit the
-framework. This spec closes the lifecycle loop, restores one canonical
-identity and one ledger vocabulary, reaps orphans, and turns both READMEs into
-their intended surfaces.
+Framework hooks are dispatched by every IDE as a bare `python3
+"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/<x>.py"` command. Bare
+`python3` resolves via `PATH`. On a machine where the first `python3` on
+`PATH` is older than 3.11 — e.g. macOS CommandLineTools `/usr/bin/python3`
+(3.9.6) shadowing a Homebrew/`uv` 3.11+ — the hooks raise `ImportError`
+(`from datetime import UTC`, `from itertools import pairwise`) or
+`TypeError` (PEP 604 `X | Y` annotations without `from __future__`),
+because the hook code legitimately targets the declared floor
+(`requires-python = ">=3.11"`). Every hook that imports those idioms exits
+non-zero, surfacing as `Failed with non-blocking status code: Traceback`
+on every event, on any consumer install whose active interpreter is <3.11.
+
+The fix is interpreter **selection**, not a code change to the hook
+libraries: a single shared, dependency-free shell resolver that selects a
+>=3.11 interpreter (project `.venv` first) for hook dispatch across all
+supported IDEs, generalizing the resolver that already exists for the
+GitHub Copilot bridge (`_lib/copilot-runtime.sh`). Making the hook
+libraries run on <3.11 (a compat shim) is explicitly rejected.
 
 ## Goals
 
-- The lifecycle loop runs without manual steps: merging a spec PR auto-runs
-  `mark_shipped`, snapshots `spec.md`+`plan.md` into an immutable archive
-  directory, resets the working buffers to placeholders, and appends one ledger
-  row — verifiable by a test merge producing all four effects with zero manual
-  commands, idempotent on re-run.
-- There is exactly one canonical spec identity (numeric `spec-NNN`); the
-  ledger, sidecars, and archive paths all key on it; `start_new` mints the next
-  number atomically.
-- The `_history.md` Status column for every NEW row renders strictly from the
-  six-value `LifecycleState` enum; historical rows remain verbatim; the single
-  slug-keyed row is corrected to `spec-152`.
-- `specs/` root contains only `spec.md`, `plan.md`, `_history.md`, `drafts/`,
-  and `archive/`; the eleven current orphans are gone; sidecars are
-  single-scheme and de-duplicated; `archive/` uses one uniform per-spec-directory
-  layout.
-- Retention windows (draft TTL, archive layout, orphan-reap toggle) are read
-  from a `manifest.yml` `lifecycle:` block, not hardcoded.
-- `.ai-engineering/README.md` is a simple, complete post-install client manual:
-  a generated catalog of all 53 skills and 9 agents with how-to entries, no
-  stale `state.db`/four-tier reference, aligned to the three-tier doctrine.
-- The root `README.md` keeps its crystal-clear getting-started path and has its
-  hardcoded `53 · 9 · 6` counts wired to the same drift gate as the manual
-  catalog, so the numbers cannot silently rot.
-- All capability catalogs are derived rebuildable caches (SSOT remains the
-  skill/agent files); `ai-eng dev sync --check` fails on drift.
+- Every wired hook, on every supported IDE surface (Claude Code, Codex,
+  GitHub Copilot), runs under a Python >=3.11 interpreter regardless of how
+  the session was launched or what bare `python3` resolves to.
+- One source of truth for interpreter resolution, shared by all IDE hook
+  entry points (DRY); the Copilot-only resolution logic in
+  `copilot-runtime.sh` is absorbed into it.
+- When no >=3.11 interpreter can be found, fail **non-blocking** with
+  exactly one actionable message — never a per-event traceback.
+- Preserve existing GitHub Copilot hook behavior with no regression,
+  proven by tests.
+- Keep `run_hook_safe` green in `enforce` mode: the hook integrity
+  manifest (`trustedArgvs` / `trustedScripts`) is regenerated to match the
+  new command wiring.
+- Respect the hot-path budget (<1s pre-commit, <5s pre-push): the common
+  resolution path must not spawn an extra Python process for version
+  detection.
+- Propagate the fix to consumers through the installer template, with
+  mirror parity preserved (`test_surface_parity` stays green).
 
 ## Non-Goals
 
-- Changing the `LifecycleState` state set or the legal-transition table — the
-  six states are correct; the work is wiring and rendering, not re-modelling.
-- Rewriting the root `README.md` from scratch — it is already a strong landing;
-  scope is verify-getting-started + de-drift counts + minor polish only.
-- The `decision-store.json` backfill mechanics (`ai-eng decision backfill`) —
-  decisions reference `spec_id` but their lifecycle is a separate concern.
-- The `runtime_rotate.py` rotation policy itself — already working; referenced
-  only as the retention-model precedent.
-- Memory/Engram persistence, evals, or any non-spec state plane.
-- Lossy rewriting of the 152 historical ledger rows (explicitly preserved as
-  immutable records).
+- Making the hook libraries (`hooks/`, `_lib/`) compatible with Python
+  <3.11. Rejected: ~43 files, violates CONSTITUTION Prohibition 4 /
+  CLAUDE.md §13 Rule 3, hooks are stdlib-only (no shared compat module
+  injectable), and `sync_mirrors` would overwrite per-file edits
+  (audit verdict: `shim_feasible=False`, `policy_conflict=True`).
+- Changing `requires-python = ">=3.11"` or the supported-Python floor.
+- Adding an `ai-eng doctor` Python-version check in v1 (KISS — deferred;
+  `cli_preflight` already gates the CLI and the launcher guard already
+  emits an actionable line).
+- Changing the set, order, or count of hook events (11 canonical events
+  unchanged).
+- Touching the Apple/macOS system `python3`.
 
 ## Decisions
 
-- **D-153-01 — Numeric `spec-NNN` is the one canonical spec identity; slug is a
-  secondary descriptor.**
-  **Rationale**: the `D-NNN-NN` decision-ID convention,
-  branch names (`spec-152-…`), `CHANGELOG`, and 152 of 153 `_history` rows
-  already key numeric; choosing numeric aligns the majority surface and
-  preserves the decision-ID scheme. Slug remains the human-readable tag in
-  archive directory names and the `slug:` frontmatter field.
-- **D-153-02 — Freeze historical `_history.md` rows; bind only NEW rows to the
-  enum; correct the one slug-keyed row to `spec-152`.**
-  **Rationale**: the brief's
-  own governing precedents (PEP 1, ADRs) treat published records as immutable;
-  remapping freeform strings (`partial`, `runtime-landed-docs-deferred`) onto
-  six enum values is lossy. New rows render from the sidecar `LifecycleState`;
-  the table carries mixed vocabulary only during the transition tail.
-- **D-153-03 — Merge wiring is `/ai-pr` mark (primary) + `/ai-branch-cleanup`
-  idempotent reconcile (backstop).**
-  **Rationale**: `/ai-pr` holds the PR number
-  and branch at merge time and can mark immediately; `/ai-branch-cleanup`
-  detects merged-but-unmarked specs and auto-marks as the idempotent safety net
-  that also catches manual GitHub merges. Both run off the pre-push hot path
-  (CLAUDE.md budget). A native git `post-merge` hook is rejected (wrong layer,
-  no PR context, fires on every pull).
-- **D-153-04 — Snapshot `spec.md`+`plan.md` into `archive/spec-NNN-<slug>/` and
-  reset the working buffers to placeholders at the SHIPPED transition; ARCHIVED
-  remains a logical terminal marker with no additional file movement.**
-  **Rationale**: clearing at merge directly eliminates the lingering-buffer pain;
-  keeping ARCHIVED as a bookkeeping-only terminal honors the Non-Goal of not
-  changing the FSM.
-- **D-153-05 — `start_new` mints the next `spec-NNN` from the max of the ledger
-  + sidecars, written atomically under the existing `specs-history` lock.**
-  **Rationale**: a numeric canonical ID requires a central counter; the lock and
-  tempfile+`os.replace` pattern already exist in `spec_lifecycle.py`. Collision
-  risk in parallel work is low and serialized by the lock.
-- **D-153-06 — One uniform archive layout: `archive/spec-NNN-<slug>/{spec.md,
-  plan.md}`; migrate existing flat files and `-plan.md` pairs into it.**
-  **Rationale**: the current mix of flat files, separate plan files, and bundled
-  directories is the inconsistency the spec exists to remove.
-- **D-153-07 — An orphan reaper folds into the existing `sweep`; the `specs/`
-  root invariant is `{spec.md, plan.md, _history.md, drafts/, archive/}`.**
-  **Rationale**: a single enforced invariant is the simplest durable guard against
-  re-accumulation. The reaper moves stray files to their archive directory by
-  default and deletes only on confirmed supersession.
-- **D-153-08 — A `manifest.yml` `lifecycle:` block (e.g. `draft_ttl_days`
-  default 30, `archive_layout`, `reap_orphans`) replaces the hardcoded 14-day
-  sweep cutoff.**
-  **Rationale**: SSOT-PD — retention is config and belongs in the
-  one config store, not in source constants.
-- **D-153-09 — Freeform delivery-log prose moves out of `_history.md` to
-  `state/archive/delivery-logs/`.**
-  **Rationale**: the ledger is an index over
-  shipped specs, not a log dump; the spec-122-a relocation of
-  `spec-117-progress` is the established precedent.
-- **D-153-10 — Sidecars are renamed slug→`spec-NNN.json` and de-duplicated
-  (the `obvious-by-default` / `obvious-by-default-essentials` pair).**
-  **Rationale**: one identity scheme (D-153-01) implies one sidecar naming scheme.
-- **D-153-11 — `.ai-engineering/README.md` becomes the post-install client
-  manual: a generated catalog of the 53 skills + 9 agents with concise how-to
-  entries; maintainer plumbing (ownership boundaries, persistence tiers, sync
-  contract) is trimmed to a short pointer linking `docs/persistence-doctrine.md`
-  and `CONSTITUTION.md`.**
-  **Rationale**: the operator's intent is a quick, complete
-  reference an installed client uses to exploit the framework — not internal
-  governance mechanics.
-- **D-153-12 — Both README capability catalogs are derived rebuildable caches
-  generated from `framework-capabilities.json` / skill descriptions,
-  regenerated on `ai-eng install`/`update`/`dev sync`, and drift-gated by
-  `dev sync --check`.**
-  **Rationale**: SSOT-PD — the skill/agent files are the
-  source; no count or description is hand-maintained in a README.
-- **D-153-13 — Root `README.md` scope is bounded to: verify the getting-started
-  path is crystal-clear (it is) and wire the hardcoded `53 · 9 · 6` counts
-  (banner alt text + tagline) to the D-153-12 drift gate; no full rewrite.**
-  **Rationale**: the landing already satisfies the operator's GitHub-visitor
-  requirements; the only rot risk is the static counts.
-- **D-153-14 — Delete the stale "Four-Tier Persistence" table and every
-  `state/state.db` reference in `.ai-engineering/README.md`; align to the
-  three-tier doctrine.**
-  **Rationale**: `state.db` was deleted by spec-148; the
-  claim is factually wrong today. Hard delete, no deprecation shim
-  (CONSTITUTION §3).
-- **D-153-15 — The README catalog is generated by a script that reads the skill
-  and agent files as source, invoked by `ai-eng dev sync`.**
-  **Rationale**: the
-  generation path itself must be a single tool so both READMEs and any future
-  surface stay byte-consistent; mirrors the existing `sync_mirrors` model.
+- **D-154-01 — Mechanism: shell, not Python.** The resolver is a
+  POSIX/bash script. A Python-based resolver would need a good interpreter
+  to choose an interpreter (chicken-and-egg). The compat-shim alternative
+  is rejected (see Non-Goals).
+- **D-154-02 — Scope: unify all three IDEs via a shared resolution library
+  (recommended variant).** Introduce one shared resolution source
+  (e.g. `_lib/resolve-python.sh`) that `copilot-runtime.sh` and the new
+  Claude/Codex launcher both consume. Keep each IDE's existing **entry
+  wrappers** (Copilot's `copilot-*.sh`; a new `run-hook.sh` for
+  Claude/Codex) so the working Copilot dispatch path is structurally
+  preserved while the resolution *algorithm* becomes single-source.
+  (Alternative considered: one monolithic `run-hook.sh` fully replacing
+  `copilot-runtime.sh` — higher Copilot-regression risk for the same DRY
+  benefit; rejected in favor of the shared-lib variant.)
+- **D-154-03 — Resolution order (behavioral contract).** project venv
+  (`$CLAUDE_PROJECT_DIR/.venv/bin/python`, Windows
+  `.venv/Scripts/python.exe`) → `uv run python` (only when no venv) →
+  version-known named interpreters `python3.13` → `python3.12` →
+  `python3.11` (trusted by name, no version spawn) → bare `python3`
+  **only if** it reports >=3.11. Project venv always wins for
+  reproducibility, even when a newer system Python exists.
+- **D-154-04 — Guard.** If no >=3.11 interpreter is found, emit exactly one
+  actionable line to stderr (e.g. "ai-engineering hooks require Python
+  >=3.11; activate .venv or install 3.11+") and `exit 0`. Non-blocking.
+- **D-154-05 — Integrity.** Rewiring the hook command argv requires
+  regenerating `.ai-engineering/state/hooks-manifest.json` (`trustedArgvs`)
+  and registering the resolver/launcher script(s) under `trustedScripts`;
+  `run_hook_safe` must stay green in `enforce` mode.
+- **D-154-06 — Distribution + parity.** Edit the template source of truth
+  (`src/ai_engineering/templates/project/.claude/settings.json` and the
+  per-IDE hook configs) and regenerate mirrors via `sync_mirrors`; the
+  installer copies the template verbatim
+  (`installer/phases/hooks.py:179-191`) so consumers inherit the fix.
+  `.claude/settings.json` is regenerated from source, not hand-edited.
+- **D-154-07 — Prevention (KISS).** v1 ships the launcher + a regression
+  test that executes representative hooks under a forced <3.11 interpreter
+  and asserts upgrade-or-guard, plus a test asserting the Copilot path is
+  unchanged. No `ai-eng doctor` Python-version check in v1.
+
+## Acceptance Criteria
+
+- **AC1** With the session `python3` = 3.9 and a >=3.11 present (on `PATH`
+  or `.venv`), every wired hook dispatched via its IDE command runs under
+  >=3.11 and exits 0 with no traceback.
+- **AC2** With NO >=3.11 interpreter available anywhere, a wired hook
+  prints exactly one actionable line and exits 0; no traceback; the
+  session is not blocked.
+- **AC3** `run_hook_safe` in `enforce` mode passes for all rewired hooks
+  (manifest regenerated; argv ↔ manifest coherent).
+- **AC4** `test_surface_parity` and the canonical-events-count test stay
+  green.
+- **AC5** Existing GitHub Copilot hook integration tests pass unchanged.
+- **AC6** A new regression test fails on the pre-fix command wiring and
+  passes post-fix.
+- **AC7** Hot path: the common resolution path spawns no extra Python
+  process for version detection (named interpreters trusted by name;
+  `.venv/bin/python` invoked directly).
 
 ## Risks
 
-- **Auto-`mark_shipped` fires on the wrong branch or double-fires.** Likelihood
-  medium, impact medium. Mitigation: `consolidate_shipped` is already
-  idempotent (checks known IDs before appending); guard the `/ai-pr` mark on a
-  confirmed-merged PR + branch match; the M2 gate runs a dry-run first.
-- **Numeric counter collision in parallel spec work.** Likelihood low, impact
-  medium. Mitigation: minting is serialized under the existing `specs-history`
-  lock and reads the live max at mint time; sequential spec cadence makes
-  contention rare.
-- **`_history.md` migration drops the freeform delivery-log tail.** Likelihood
-  low, impact high. Mitigation: the existing `_split_history()` already
-  preserves the tail; the prose is relocated, not deleted, with references
-  grepped and updated first; a before/after row-count test guards it.
-- **Identity-scheme rename breaks references in skills, tests, or docs.**
-  Likelihood medium, impact high. Mitigation: grep all `spec-NNN` and slug
-  references before renaming; update them in the same commit; the CI
-  cross-reference and mirror validators catch stragglers.
-- **README capability catalog drifts from the live skill/agent set.**
-  Likelihood medium, impact low. Mitigation: the catalog is a derived cache
-  regenerated on install/update/sync and gated by `dev sync --check`.
-- **The orphan reaper deletes a still-load-bearing file.** Likelihood low,
-  impact high. Mitigation: the reaper moves to archive by default and deletes
-  only on confirmed supersession; a dry-run lists targets before any action.
-- **"Both READMEs" scope balloons the spec.** Likelihood medium, impact medium.
-  Mitigation: root README is bounded to verify + de-drift (D-153-13), not a
-  rewrite; the heavy work stays on concerns A and B.
+- **R1 — Copilot regression.** Sharing resolution logic risks breaking the
+  working Copilot path. Mitigation: keep Copilot entry wrappers; share only
+  the resolver; AC5.
+- **R2 — Integrity manifest drift.** If `trustedArgvs` is not regenerated,
+  `enforce`-mode `run_hook_safe` would block ALL hooks (worse than today).
+  Mitigation: explicit manifest-regen task + AC3 + an argv↔manifest
+  coherence assertion.
+- **R3 — Mirror parity break.** Editing live `settings.json` instead of the
+  template trips `test_surface_parity`. Mitigation: D-154-06 (edit source +
+  regen) + AC4.
+- **R4 — Hot-path regression.** Naive per-hook version probing spawns
+  Python and blows the <1s budget. Mitigation: D-154-03 trusts named
+  interpreters; per-session caching of the resolved path (plan detail);
+  AC7.
+- **R5 — Residual (accepted).** On a machine with NO >=3.11 Python, all
+  hooks — including the security hook `prompt-injection-guard` — are inert.
+  Accepted: such a machine is unsupported (`requires-python>=3.11`); the
+  guard line tells the user. Documented.
+- **R6 — `uv run` cost/availability.** `uv` may be slow or absent; it is a
+  fallback only when no `.venv` exists. Acceptable.
+- **R7 — Windows.** `.venv/Scripts/python.exe` plus bash availability
+  (git-bash) on Windows hook dispatch must keep parity with the existing
+  Copilot `.ps1` story.
+
+## Open Questions (for /ai-plan — technical HOW)
+
+- **OQ1** Does `run_hook_safe` wrap the command at dispatch, or do scripts
+  self-verify post-launch? Determines how the resolver integrates with the
+  integrity layer and how the guard interacts with enforcement.
+- **OQ2** Exact `trustedArgvs` regeneration workflow, and whether `.sh`
+  launchers must appear in `trustedScripts` (`copilot-runtime.sh`
+  currently does not).
+- **OQ3** How Codex (`.codex/hooks/`) dispatches hooks today — is it
+  actually broken, and what is its command form?
+- **OQ4** Per-session interpreter-cache mechanism within the hot-path
+  budget (env var vs runtime file).
+- **OQ5** Windows hook-dispatch shell: do Claude Code / Codex invoke bash
+  on Windows, or is a `.ps1` variant required (as Copilot has)?
 
 ## References
 
-- doc: .ai-engineering/specs/drafts/spec-lifecycle-and-client-readme-brief.md
-- doc: docs/persistence-doctrine.md
-- doc: https://peps.python.org/pep-0001/
-- doc: https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions
-- doc: https://adr.github.io/madr/
-- doc: https://keepachangelog.com/en/1.1.0/
-- doc: https://diataxis.fr/
-
-## Open Questions
-
-- Exact `draft_ttl_days` default — provisionally 30; confirm at `/ai-plan`.
-- Whether trimmed maintainer plumbing in `.ai-engineering/README.md` becomes a
-  short in-file pointer (current D-153-11 default) or a dedicated
-  `MAINTAINERS.md` — defaulted to pointer; revisit if the pointer proves too
-  thin.
-- Whether the generated catalog lives inline in the README or in a generated
-  include the README links — defaulted to inline-generated section; confirm at
-  `/ai-plan`.
+- doc: audit workflow wf_a933215e-70b (9 agents): root cause, per-hook
+  blast radius, shim rejection, fix-surface enumeration, adversarial
+  verdicts.
+- code: pyproject.toml:8 (`requires-python = ">=3.11"`)
+- code: src/ai_engineering/cli_preflight.py:15 (`_MINIMUM_PYTHON=(3,11)`,
+  gates CLI only — hooks bypass it)
+- code: .ai-engineering/scripts/hooks/_lib/copilot-runtime.sh:7-45
+  (existing venv→uv resolver to generalize)
+- code: .ai-engineering/state/hooks-manifest.json (`trustedArgvs` /
+  `trustedScripts`)
+- code: scripts/sync_mirrors/core.py; src/ai_engineering/installer/phases/hooks.py:179-191
+- decision: D-135-13 (`spec_lifecycle.py` fixed narrowly with
+  `timezone.utc`; lesson not generalized to hook dispatch)

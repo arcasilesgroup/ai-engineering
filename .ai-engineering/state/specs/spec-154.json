@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-05-29T17:28:57.993443+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "hook-interpreter-resolution",
+  "spec_id": "spec-154",
+  "state": "draft",
+  "title": "Resolve Python >=3.11 interpreter for Claude Code hook dispatch"
+}
