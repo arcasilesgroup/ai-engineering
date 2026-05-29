@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.3] - 2026-05-29
+
 ### Fixed
 - **`ai-eng install` now ships the Article VII suppression allowlist, so a
   consumer's first `git push` is no longer self-blocked.** The installer
@@ -39,7 +41,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Corrected the GSD attribution link in "Standing on the shoulders
   of...".** It pointed at `jlowin/gsd`; it now points at the canonical
   `open-gsd/get-shit-done-redux` repository.
-
 ## [0.8.2] - 2026-05-25
 
 ### Fixed
