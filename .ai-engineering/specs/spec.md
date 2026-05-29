@@ -1,15 +1,9 @@
 ---
 spec: spec-154
-spec_id: spec-154
-slug: hook-interpreter-resolution
 title: Resolve a Python >=3.11 interpreter for hook dispatch (Claude Code, Codex, Copilot)
 status: draft
+effort: medium
 summary: "Route all IDE hook dispatch (Claude Code, Codex, Copilot) through one shared resolver that selects a Python >=3.11 interpreter (project .venv first), instead of bare python3 — which hits system 3.9 when no venv is active and breaks every 3.11-idiom hook. Interpreter selection, not a compat shim."
-created: 2026-05-29
-refs:
-  audit: wf_a933215e-70b
-  related_decision: D-135-13
-  requires_python: pyproject.toml:8
 ---
 
 # spec-154 — Resolve a Python >=3.11 interpreter for hook dispatch
@@ -48,69 +42,74 @@ libraries run on <3.11 (a compat shim) is explicitly rejected.
 - Preserve existing GitHub Copilot hook behavior with no regression,
   proven by tests.
 - Keep `run_hook_safe` green in `enforce` mode: the hook integrity
-  manifest (`trustedArgvs` / `trustedScripts`) is regenerated to match the
-  new command wiring.
+  manifest is regenerated to match the new command wiring.
 - Respect the hot-path budget (<1s pre-commit, <5s pre-push): the common
   resolution path must not spawn an extra Python process for version
   detection.
 - Propagate the fix to consumers through the installer template, with
-  mirror parity preserved (`test_surface_parity` stays green).
+  mirror parity preserved.
 
 ## Non-Goals
 
 - Making the hook libraries (`hooks/`, `_lib/`) compatible with Python
   <3.11. Rejected: ~43 files, violates CONSTITUTION Prohibition 4 /
   CLAUDE.md §13 Rule 3, hooks are stdlib-only (no shared compat module
-  injectable), and `sync_mirrors` would overwrite per-file edits
-  (audit verdict: `shim_feasible=False`, `policy_conflict=True`).
+  injectable), and `sync_mirrors` would overwrite per-file edits.
 - Changing `requires-python = ">=3.11"` or the supported-Python floor.
-- Adding an `ai-eng doctor` Python-version check in v1 (KISS — deferred;
+- Adding an `ai-eng doctor` Python-version check in v1 (deferred;
   `cli_preflight` already gates the CLI and the launcher guard already
   emits an actionable line).
 - Changing the set, order, or count of hook events (11 canonical events
   unchanged).
 - Touching the Apple/macOS system `python3`.
+- Windows native (pwsh/.ps1) hook dispatch — deferred to a follow-up; v1
+  ships the POSIX bash launcher (covers macOS/Linux/git-bash).
 
 ## Decisions
 
 - **D-154-01 — Mechanism: shell, not Python.** The resolver is a
-  POSIX/bash script. A Python-based resolver would need a good interpreter
-  to choose an interpreter (chicken-and-egg). The compat-shim alternative
-  is rejected (see Non-Goals).
-- **D-154-02 — Scope: unify all three IDEs via a shared resolution library
-  (recommended variant).** Introduce one shared resolution source
-  (e.g. `_lib/resolve-python.sh`) that `copilot-runtime.sh` and the new
-  Claude/Codex launcher both consume. Keep each IDE's existing **entry
-  wrappers** (Copilot's `copilot-*.sh`; a new `run-hook.sh` for
-  Claude/Codex) so the working Copilot dispatch path is structurally
-  preserved while the resolution *algorithm* becomes single-source.
-  (Alternative considered: one monolithic `run-hook.sh` fully replacing
-  `copilot-runtime.sh` — higher Copilot-regression risk for the same DRY
-  benefit; rejected in favor of the shared-lib variant.)
-- **D-154-03 — Resolution order (behavioral contract).** project venv
-  (`$CLAUDE_PROJECT_DIR/.venv/bin/python`, Windows
-  `.venv/Scripts/python.exe`) → `uv run python` (only when no venv) →
-  version-known named interpreters `python3.13` → `python3.12` →
-  `python3.11` (trusted by name, no version spawn) → bare `python3`
-  **only if** it reports >=3.11. Project venv always wins for
-  reproducibility, even when a newer system Python exists.
+  POSIX/bash script, sourced by the per-IDE launchers.
+  **Rationale**: a Python-based resolver would itself need a working
+  interpreter to choose an interpreter (chicken-and-egg); the alternative
+  of shimming the hook libraries for <3.11 is rejected (Non-Goals;
+  CONSTITUTION Prohibition 4).
+- **D-154-02 — Scope: unify all three IDEs via a shared resolution
+  library.** One shared source (`_lib/resolve-python.sh`) is consumed by
+  both `copilot-runtime.sh` and the new `run-hook.sh`; each IDE keeps its
+  existing entry wrappers.
+  **Rationale**: this shares the resolution algorithm (DRY) while
+  structurally preserving the working Copilot dispatch path; a monolithic
+  launcher fully replacing `copilot-runtime.sh` carried higher
+  Copilot-regression risk for the same benefit.
+- **D-154-03 — Resolution order (behavioral contract).** project venv →
+  named `python3.13` / `python3.12` / `python3.11` → `uv run` → bare
+  `python3` only when it reports >=3.11; the project venv always wins.
+  **Rationale**: venv and named interpreters are instant and
+  version-known (no spawn); `uv run` spawns and is hot-path-hostile, so it
+  ranks below named; bare `python3` is gated to avoid the <3.11 trap.
 - **D-154-04 — Guard.** If no >=3.11 interpreter is found, emit exactly one
-  actionable line to stderr (e.g. "ai-engineering hooks require Python
-  >=3.11; activate .venv or install 3.11+") and `exit 0`. Non-blocking.
-- **D-154-05 — Integrity.** Rewiring the hook command argv requires
-  regenerating `.ai-engineering/state/hooks-manifest.json` (`trustedArgvs`)
-  and registering the resolver/launcher script(s) under `trustedScripts`;
-  `run_hook_safe` must stay green in `enforce` mode.
+  actionable stderr line and exit 0 (non-blocking).
+  **Rationale**: a missing-interpreter condition must not wedge the
+  session; one warning beats a per-event traceback, and other security
+  layers still run where they can.
+- **D-154-05 — Integrity.** Regenerate `hooks-manifest.json` so the new
+  launcher `.sh` files enroll; the gate is
+  `regenerate-hooks-manifest.py --check`.
+  **Rationale**: `run_hook_safe` verifies hook script bytes against the
+  manifest, and the CI `--check` gate fails on any unenrolled or drifted
+  `.sh`.
 - **D-154-06 — Distribution + parity.** Edit the template source of truth
-  (`src/ai_engineering/templates/project/.claude/settings.json` and the
-  per-IDE hook configs) and regenerate mirrors via `sync_mirrors`; the
-  installer copies the template verbatim
-  (`installer/phases/hooks.py:179-191`) so consumers inherit the fix.
-  `.claude/settings.json` is regenerated from source, not hand-edited.
-- **D-154-07 — Prevention (KISS).** v1 ships the launcher + a regression
-  test that executes representative hooks under a forced <3.11 interpreter
-  and asserts upgrade-or-guard, plus a test asserting the Copilot path is
-  unchanged. No `ai-eng doctor` Python-version check in v1.
+  and regenerate mirrors via `sync_mirrors`; the installer copies the
+  template verbatim.
+  **Rationale**: consumers inherit the fix with no per-repo edits, and
+  editing live files instead of the template source would break surface
+  parity.
+- **D-154-07 — Prevention (KISS).** v1 ships the launcher plus a
+  regression test (forced <3.11 → upgrade-or-guard); no `ai-eng doctor`
+  Python check.
+  **Rationale**: `cli_preflight` already gates the `ai-eng` CLI and the
+  launcher guard already warns, so a doctor check is redundant surface for
+  v1.
 
 ## Acceptance Criteria
 
@@ -118,72 +117,52 @@ libraries run on <3.11 (a compat shim) is explicitly rejected.
   or `.venv`), every wired hook dispatched via its IDE command runs under
   >=3.11 and exits 0 with no traceback.
 - **AC2** With NO >=3.11 interpreter available anywhere, a wired hook
-  prints exactly one actionable line and exits 0; no traceback; the
-  session is not blocked.
+  prints exactly one actionable line and exits 0; no traceback.
 - **AC3** `run_hook_safe` in `enforce` mode passes for all rewired hooks
-  (manifest regenerated; argv ↔ manifest coherent).
-- **AC4** `test_surface_parity` and the canonical-events-count test stay
-  green.
+  (manifest regenerated; `--check` exit 0).
+- **AC4** Surface/parity + canonical-events tests stay green.
 - **AC5** Existing GitHub Copilot hook integration tests pass unchanged.
-- **AC6** A new regression test fails on the pre-fix command wiring and
-  passes post-fix.
+- **AC6** A regression test fails on the pre-fix command wiring and passes
+  through the launcher.
 - **AC7** Hot path: the common resolution path spawns no extra Python
-  process for version detection (named interpreters trusted by name;
-  `.venv/bin/python` invoked directly).
+  process for version detection.
 
 ## Risks
 
-- **R1 — Copilot regression.** Sharing resolution logic risks breaking the
-  working Copilot path. Mitigation: keep Copilot entry wrappers; share only
-  the resolver; AC5.
-- **R2 — Integrity manifest drift.** If `trustedArgvs` is not regenerated,
-  `enforce`-mode `run_hook_safe` would block ALL hooks (worse than today).
-  Mitigation: explicit manifest-regen task + AC3 + an argv↔manifest
-  coherence assertion.
-- **R3 — Mirror parity break.** Editing live `settings.json` instead of the
-  template trips `test_surface_parity`. Mitigation: D-154-06 (edit source +
-  regen) + AC4.
-- **R4 — Hot-path regression.** Naive per-hook version probing spawns
-  Python and blows the <1s budget. Mitigation: D-154-03 trusts named
-  interpreters; per-session caching of the resolved path (plan detail);
-  AC7.
-- **R5 — Residual (accepted).** On a machine with NO >=3.11 Python, all
-  hooks — including the security hook `prompt-injection-guard` — are inert.
-  Accepted: such a machine is unsupported (`requires-python>=3.11`); the
-  guard line tells the user. Documented.
-- **R6 — `uv run` cost/availability.** `uv` may be slow or absent; it is a
-  fallback only when no `.venv` exists. Acceptable.
-- **R7 — Windows.** `.venv/Scripts/python.exe` plus bash availability
-  (git-bash) on Windows hook dispatch must keep parity with the existing
-  Copilot `.ps1` story.
+- **R1 — Copilot regression.** Sharing resolution logic risks the working
+  Copilot path. Mitigation: keep Copilot entry wrappers; share only the
+  resolver; AC5.
+- **R2 — Integrity manifest staleness.** New `.sh` unenrolled →
+  `regenerate --check` fails CI. Mitigation: regen task + the `--check`
+  gate.
+- **R3 — Mirror parity break.** Editing live files instead of the template
+  trips parity. Mitigation: edit source + regen (D-154-06).
+- **R4 — Windows pwsh gap (deferred).** If Claude/Codex dispatch via pwsh
+  (not git-bash) on Windows, the bash launcher is not invoked. Deferred to
+  a follow-up `run-hook.ps1` + `copilot-runtime.ps1` gate; documented, not
+  closed in v1.
+- **R5 — Residual <3.11-only machine.** All hooks (incl. the security hook)
+  are inert; one guard line is shown. Accepted (unsupported per
+  requires-python).
+- **R6 — Hot-path regression.** Naive per-hook version probing spawns
+  Python. Mitigation: trust named interpreters; per-session cache; AC7.
 
-## Open Questions (for /ai-plan — technical HOW)
+## Open Questions
 
-- **OQ1** Does `run_hook_safe` wrap the command at dispatch, or do scripts
-  self-verify post-launch? Determines how the resolver integrates with the
-  integrity layer and how the guard interacts with enforcement.
-- **OQ2** Exact `trustedArgvs` regeneration workflow, and whether `.sh`
-  launchers must appear in `trustedScripts` (`copilot-runtime.sh`
-  currently does not).
-- **OQ3** How Codex (`.codex/hooks/`) dispatches hooks today — is it
-  actually broken, and what is its command form?
-- **OQ4** Per-session interpreter-cache mechanism within the hot-path
-  budget (env var vs runtime file).
-- **OQ5** Windows hook-dispatch shell: do Claude Code / Codex invoke bash
-  on Windows, or is a `.ps1` variant required (as Copilot has)?
+- All five planning open questions (integrity dispatch model, manifest
+  regen workflow, Codex wiring, hot-path cache, Windows shell) were
+  resolved during `/ai-plan` and recorded in plan.md; none remain blocking
+  for v1.
 
 ## References
 
-- doc: audit workflow wf_a933215e-70b (9 agents): root cause, per-hook
-  blast radius, shim rejection, fix-surface enumeration, adversarial
-  verdicts.
-- code: pyproject.toml:8 (`requires-python = ">=3.11"`)
-- code: src/ai_engineering/cli_preflight.py:15 (`_MINIMUM_PYTHON=(3,11)`,
-  gates CLI only — hooks bypass it)
-- code: .ai-engineering/scripts/hooks/_lib/copilot-runtime.sh:7-45
-  (existing venv→uv resolver to generalize)
-- code: .ai-engineering/state/hooks-manifest.json (`trustedArgvs` /
-  `trustedScripts`)
-- code: scripts/sync_mirrors/core.py; src/ai_engineering/installer/phases/hooks.py:179-191
-- decision: D-135-13 (`spec_lifecycle.py` fixed narrowly with
-  `timezone.utc`; lesson not generalized to hook dispatch)
+- doc: audit workflow wf_a933215e-70b — root cause, per-hook blast radius,
+  shim rejection, fix-surface enumeration, adversarial verdicts.
+- doc: pyproject.toml:8 — requires-python = ">=3.11".
+- doc: src/ai_engineering/cli_preflight.py:15 — _MINIMUM_PYTHON gates the
+  CLI, not hook dispatch.
+- doc: .ai-engineering/scripts/hooks/_lib/copilot-runtime.sh — existing
+  venv resolver generalized into the shared resolver.
+- doc: .ai-engineering/state/hooks-manifest.json — hook integrity manifest.
+- doc: D-135-13 — prior spec_lifecycle.py narrow fix (timezone.utc), not
+  generalized to hook dispatch.

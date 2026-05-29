@@ -25,7 +25,10 @@ from __future__ import annotations
 import os
 import shutil
 import stat
+import sys
 from pathlib import Path
+
+import pytest
 
 # The only non-builtin binaries the scripts + fake-python shebangs invoke.
 # ``command -v`` is a bash builtin; ``cd``/``pwd``/``printf``/``[``/``read``
@@ -42,6 +45,9 @@ def make_sandbox_bin(tmp_path: Path, *, name: str = "sandbox-bin") -> Path:
     because this dir is the *only* ``PATH`` entry, the resolver cannot see
     any ambient python.
     """
+    if sys.platform == "win32":  # spec-154 R4: POSIX bash launcher; the Windows
+        # (pwsh/.ps1) hook-dispatch path is a deferred follow-up, not validated here.
+        pytest.skip("POSIX bash launcher; Windows hook dispatch deferred (spec-154 R4)")
     sandbox = tmp_path / name
     sandbox.mkdir(parents=True, exist_ok=True)
     for tool in _COREUTILS:

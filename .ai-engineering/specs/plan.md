@@ -16,6 +16,7 @@ execution_route:
 status: draft
 pipeline: full
 spec: spec-154
+title: Resolve a Python >=3.11 interpreter for hook dispatch
 ---
 
 # Plan — spec-154: Resolve a Python >=3.11 interpreter for hook dispatch
