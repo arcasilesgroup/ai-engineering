@@ -120,6 +120,23 @@ def test_global_claude_code_skin_to_home(home: Path, target: Path) -> None:
     assert not (target / ".claude").exists()
 
 
+def test_global_multi_surface_agents_md_fans_out(home: Path, target: Path) -> None:
+    """spec-156 D-156-08: a shared AGENTS.md lands in EVERY owning IDE home."""
+    context = InstallContext(
+        target=target,
+        mode=InstallMode.INSTALL,
+        scope="global",
+        surfaces=["codex", "antigravity"],
+    )
+    phase = IdeConfigPhase()
+    _run_phase(phase, context)
+
+    assert (home / ".codex" / "AGENTS.md").is_file()
+    assert (home / ".gemini" / "AGENTS.md").is_file()
+    # verify() must assert per-surface presence, not pass on a single file.
+    assert phase.verify(phase.execute(phase.plan(context), context), context).passed
+
+
 def test_global_codex_agents_to_home(home: Path, target: Path) -> None:
     context = InstallContext(
         target=target,

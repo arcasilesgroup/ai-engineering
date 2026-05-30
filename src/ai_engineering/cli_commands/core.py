@@ -261,7 +261,11 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         no_auto_remediate=no_auto_remediate,
     )
 
-    _finalize_hooks_manifest(root)
+    # spec-156 D-156-15: the regen script + manifest live under the scoped
+    # brain root, so a --global install regenerates ~/.ai-engineering's manifest.
+    from ai_engineering.installer.scope import brain_root as _brain_root
+
+    _finalize_hooks_manifest(_brain_root(scope, root))
 
     _render_install_success(
         root,

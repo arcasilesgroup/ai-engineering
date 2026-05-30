@@ -99,8 +99,14 @@ class ScriptsPhase:
 
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
+        # spec-156 D-156-06: the scripts tree is part of the brain
+        # (.ai-engineering/scripts), so --global materializes it under the home
+        # brain root, never the opted-out repo.
+        from ai_engineering.installer.scope import brain_root
+
+        brain = brain_root(context.scope, context.target)
         template_root = get_ai_engineering_template_root() / "scripts"
-        target_root = context.target / _SCRIPTS_REL
+        target_root = brain / _SCRIPTS_REL
         target_root.mkdir(parents=True, exist_ok=True)
         fresh = context.mode is InstallMode.FRESH
 
@@ -141,7 +147,7 @@ class ScriptsPhase:
                 copy_tree_for_mode(
                     skills_src,
                     skills_dst,
-                    target_root=context.target,
+                    target_root=brain,
                     fresh=fresh,
                     created=result.created,
                     skipped=result.skipped,
@@ -154,8 +160,10 @@ class ScriptsPhase:
         return result
 
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
+        from ai_engineering.installer.scope import brain_root
+
         verdict = PhaseVerdict(phase_name=self.name, passed=True)
-        target_root = context.target / _SCRIPTS_REL
+        target_root = brain_root(context.scope, context.target) / _SCRIPTS_REL
         missing: list[str] = []
         for script in ROOT_SCRIPT_FILES:
             if not (target_root / script).exists():

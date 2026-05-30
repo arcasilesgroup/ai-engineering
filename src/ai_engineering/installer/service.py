@@ -306,14 +306,22 @@ def install_with_pipeline(
     # Convert PipelineSummary to InstallResult
     result = _summary_to_install_result(summary, mode)
 
+    # spec-156 D-156-06: the manifest + state these writers touch live under
+    # the scoped brain root (home for --global), not the repo. Anchoring them at
+    # the repo `target` left the global manifest at template defaults and leaked
+    # a phantom repo-local marker (audit blocker 2 + finding 3).
+    from ai_engineering.installer.scope import brain_root as _brain_root
+
+    brain = _brain_root(scope, target)
+
     if not dry_run:
-        initialize_manifest_project_name(target, force=mode is InstallMode.FRESH)
-        _write_providers(target, stacks=stacks, vcs_provider=vcs_provider)
-        _write_surfaces(target, surfaces)
+        initialize_manifest_project_name(brain, force=mode is InstallMode.FRESH)
+        _write_providers(brain, stacks=stacks, vcs_provider=vcs_provider)
+        _write_surfaces(brain, surfaces)
 
     # Run operational phases (VCS auth, branch policy, tooling readiness)
     if not dry_run:
-        _run_operational_phases(target, vcs_provider=vcs_provider, result=result)
+        _run_operational_phases(brain, vcs_provider=vcs_provider, result=result)
 
     return result, summary
 

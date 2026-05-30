@@ -65,7 +65,11 @@ class HooksPhase:
         at = "overwrite" if fresh else "create"
         actions.append(PlannedAction(at, _HOOK_RUNTIME_REL, _HOOK_RUNTIME_REL, "hook scripts tree"))
 
-        actions.append(PlannedAction("create", "", ".git/hooks", "install git gate hooks"))
+        # spec-156 D-156-17: git hooks gate a repo working tree, so execute()
+        # skips them for --global. Mirror that guard in plan() so a global
+        # dry-run does not overstate a .git/hooks install that never happens.
+        if context.scope != "global":
+            actions.append(PlannedAction("create", "", ".git/hooks", "install git gate hooks"))
 
         if "claude-code" in context.surfaces:
             pr = get_project_template_root()
