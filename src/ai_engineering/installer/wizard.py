@@ -38,6 +38,7 @@ class WizardResult:
     stacks: list[str]
     surfaces: list[str]
     vcs: str
+    scope: str = "local"
 
 
 _VCS_CHOICES: list[str] = _order_by_popularity(
@@ -47,6 +48,23 @@ _VCS_CHOICES: list[str] = _order_by_popularity(
 
 _PROMPT_SURFACES = "Which Surface(s) do you use?"
 _PROMPT_VCS = "Which VCS provider? (no git remote detected — choose explicitly)"
+_PROMPT_SCOPE = "Where should ai-engineering live?"
+
+# Brand teal (matches ``ai_engineering.cli_ui.BRAND_TEAL``) so the scope
+# prompt wears the same identity as the logo and update notice. Degrades to
+# plain text automatically under NO_COLOR / no-TTY (questionary no-ops style).
+_BRAND_TEAL = "#00D4AA"
+_SCOPE_STYLE = questionary.Style(
+    [
+        ("qmark", f"fg:{_BRAND_TEAL} bold"),
+        ("question", "bold"),
+        ("pointer", f"fg:{_BRAND_TEAL} bold"),
+        ("highlighted", f"fg:{_BRAND_TEAL} bold"),
+        ("selected", f"fg:{_BRAND_TEAL}"),
+        ("answer", f"fg:{_BRAND_TEAL} bold"),
+        ("instruction", "fg:#808080"),
+    ]
+)
 
 
 def _build_surface_choices(detected_surfaces: list[str]) -> list[questionary.Choice]:
@@ -83,6 +101,37 @@ def _ask_vcs() -> str:
     return result
 
 
+def _ask_scope() -> str:
+    """Prompt local vs global install scope. Aborts (Ctrl+C) → ``"local"``.
+
+    Each choice carries its destination inline (``./`` vs ``~/``) so the
+    operator sees exactly where the framework lands before committing.
+    Fires only on a first interactive install with no ``--global``/``--local``
+    flag (gated by ``run_wizard(ask_scope=...)``).
+    """
+    choices = [
+        questionary.Choice(
+            title="Local   ·  ./   —  this repository only (default)",
+            value="local",
+        ),
+        questionary.Choice(
+            title="Global  ·  ~/   —  every project on this machine",
+            value="global",
+        ),
+    ]
+    result = questionary.select(
+        _PROMPT_SCOPE,
+        choices=choices,
+        default=choices[0],
+        instruction="(↑↓ to move, Enter to confirm)",
+        qmark="◈",
+        style=_SCOPE_STYLE,
+    ).ask()
+    if result is None:
+        return "local"
+    return result
+
+
 def _ask_surfaces(detected_surfaces: list[str] | None = None) -> list[str]:
     """Prompt the single Surface question. Aborts on Ctrl+C.
 
@@ -103,11 +152,18 @@ def _ask_surfaces(detected_surfaces: list[str] | None = None) -> list[str]:
 def run_wizard(
     detected: DetectionResult,
     resolved: dict[str, Any] | None = None,
+    *,
+    ask_scope: bool = False,
 ) -> WizardResult:
-    """Present the single-question wizard and return the user's selections.
+    """Present the interactive wizard and return the user's selections.
 
     Stack + VCS are auto-detected silently. CLI flags ``--surface``,
-    ``--stack``, and ``--vcs`` skip the wizard entirely when provided.
+    ``--stack``, and ``--vcs`` skip those questions when provided.
+
+    ``ask_scope`` enables the local/global scope question (asked before the
+    Surface question — "where → what"). It fires only on a first interactive
+    install with no ``--global``/``--local`` flag; a resolved ``scope`` key
+    (an explicit flag) always wins and suppresses the prompt.
     """
     if resolved is None:
         resolved = {}
@@ -127,6 +183,15 @@ def run_wizard(
     else:
         vcs = _ask_vcs()
 
+    # Scope: explicit flag wins; otherwise prompt only when asked (first
+    # interactive install). Default ``local`` preserves today's behavior.
+    if "scope" in resolved:
+        scope = resolved["scope"]
+    elif ask_scope:
+        scope = _ask_scope()
+    else:
+        scope = "local"
+
     # Surfaces: single user-facing question (or CLI override).
     if "surfaces" in resolved:
         surfaces = resolved["surfaces"]
@@ -137,4 +202,5 @@ def run_wizard(
         stacks=stacks,
         surfaces=surfaces,
         vcs=vcs,
+        scope=scope,
     )

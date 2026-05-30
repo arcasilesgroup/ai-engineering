@@ -177,7 +177,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
 
     no_auto_remediate = os.environ.get("AIENG_AUTO_REMEDIATE", "1").lower() in {"0", "false", "no"}
 
-    scope = _resolve_install_scope(scope_global=scope_global, scope_local=scope_local)
+    explicit_scope = _explicit_install_scope(scope_global=scope_global, scope_local=scope_local)
 
     root = resolve_project_root(target)
     _validate_install_target(root, non_interactive=non_interactive)
@@ -188,7 +188,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
             stacks=stacks,
             surfaces=surfaces,
             vcs=vcs,
-            scope=scope,
+            scope=explicit_scope or "local",
         )
         return
 
@@ -200,13 +200,14 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         non_interactive=non_interactive,
     )
 
-    resolved_stacks, resolved_surfaces, resolved_vcs = _resolve_install_configuration(
+    resolved_stacks, resolved_surfaces, resolved_vcs, scope = _resolve_install_configuration(
         root,
         is_reinstall=is_reinstall,
         mode=mode,
         stacks=stacks,
         surfaces=surfaces,
         vcs=vcs,
+        explicit_scope=explicit_scope,
     )
 
     _confirm_reinstall_if_needed(
@@ -368,8 +369,14 @@ def _resolve_install_configuration(
     stacks: list[str] | None,
     surfaces: list[str] | None,
     vcs: str | None,
-) -> tuple[list[str], list[str], str | None]:
-    """Resolve install stacks, surfaces, and VCS selections."""
+    explicit_scope: str | None = None,
+) -> tuple[list[str], list[str], str | None, str]:
+    """Resolve install stacks, surfaces, VCS, and scope selections.
+
+    *explicit_scope* is the ``--global``/``--local`` flag value (``None`` when
+    neither was passed). Scope is only ever *prompted* on a first interactive
+    install; reinstall/reconfigure honor the flag or fall back to ``local``.
+    """
     from ai_engineering.installer.autodetect import detect_all
 
     detected = detect_all(root)
@@ -379,17 +386,23 @@ def _resolve_install_configuration(
         vcs=vcs,
     )
     if is_reinstall and mode == InstallMode.RECONFIGURE:
-        return _resolve_wizard_configuration(detected, overrides)
+        stacks_r, surfaces_r, vcs_r = _resolve_wizard_configuration(detected, overrides)
+        return stacks_r, surfaces_r, vcs_r, explicit_scope or "local"
     if is_reinstall:
-        return _resolve_reinstall_configuration(root, overrides)
-    return _resolve_first_install_configuration(detected, overrides)
+        stacks_r, surfaces_r, vcs_r = _resolve_reinstall_configuration(root, overrides)
+        return stacks_r, surfaces_r, vcs_r, explicit_scope or "local"
+    return _resolve_first_install_configuration(detected, overrides, explicit_scope)
 
 
 def _resolve_wizard_configuration(
     detected: Any,
     overrides: dict[str, Any],
 ) -> tuple[list[str], list[str], str | None]:
-    """Run the interactive wizard and return its selections."""
+    """Run the interactive wizard and return its selections.
+
+    Used by the reconfigure path (scope is not re-prompted there — an existing
+    install's location is fixed); scope is resolved by the caller.
+    """
     if not is_json_mode():
         _show_detection_summary(detected)
     from ai_engineering.installer.wizard import run_wizard
@@ -418,15 +431,33 @@ def _resolve_reinstall_configuration(
 def _resolve_first_install_configuration(
     detected: Any,
     overrides: dict[str, Any],
-) -> tuple[list[str], list[str], str | None]:
-    """Resolve first-install selections from flags, detection, or wizard."""
+    explicit_scope: str | None = None,
+) -> tuple[list[str], list[str], str | None, str]:
+    """Resolve first-install selections from flags, detection, or wizard.
+
+    The interactive wizard adds the local/global scope question
+    (``ask_scope=True``) when no ``--global``/``--local`` flag was passed.
+    Non-interactive paths default scope to the flag value or ``local``.
+    """
     if overrides or is_json_mode() or not sys.stdin.isatty():
         return (
             overrides.get("stacks", detected.stacks or ["python"]),
             overrides.get("surfaces", detected.surfaces or ["claude-code"]),
             overrides.get("vcs", detected.vcs or "github"),
+            explicit_scope or "local",
         )
-    return _resolve_wizard_configuration(detected, overrides)
+    if not is_json_mode():
+        _show_detection_summary(detected)
+    from ai_engineering.installer.wizard import run_wizard
+
+    resolved = {"scope": explicit_scope} if explicit_scope else None
+    wizard_result = run_wizard(detected, resolved, ask_scope=explicit_scope is None)
+    return (
+        wizard_result.stacks,
+        wizard_result.surfaces,
+        wizard_result.vcs,
+        wizard_result.scope,
+    )
 
 
 def _confirm_reinstall_if_needed(
@@ -514,16 +545,20 @@ def _check_install_prerequisites(root: Path, resolved_stacks: list[str]) -> None
         raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
 
 
-def _resolve_install_scope(*, scope_global: bool, scope_local: bool) -> str:
-    """Resolve the install scope from the ``--global`` / ``--local`` flags.
+def _explicit_install_scope(*, scope_global: bool, scope_local: bool) -> str | None:
+    """Resolve the *explicit* install scope from ``--global`` / ``--local``.
 
-    Default is ``local`` (today's behavior). ``--global`` wins when both are set
-    (explicit machine-wide intent); ``--local`` is otherwise a no-op affirming
-    the default (sub-003 D8).
+    Returns ``"global"`` / ``"local"`` when a flag was passed, or ``None`` when
+    neither was — the signal for a first interactive install to prompt, and for
+    every other path to fall back to the ``local`` default. ``--global`` wins
+    when both are set (explicit machine-wide intent); ``--local`` affirms the
+    default (sub-003 D8).
     """
     if scope_global:
         return "global"
-    return "local"
+    if scope_local:
+        return "local"
+    return None
 
 
 def _run_install_pipeline(

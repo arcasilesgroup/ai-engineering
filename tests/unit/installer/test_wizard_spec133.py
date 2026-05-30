@@ -123,3 +123,72 @@ def test_detect_vcs_returns_empty_when_no_remote(tmp_path) -> None:
 
     # tmp_path has no .git/, so origin lookup must fail gracefully
     assert detect_vcs(tmp_path) == ""
+
+
+# ---------------------------------------------------------------------------
+# Install scope question (local vs global)
+# The wizard asks WHERE the framework lands only when interactive and no
+# ``--global`` / ``--local`` flag was passed. Default is ``local`` (safe).
+# ---------------------------------------------------------------------------
+
+
+def test_wizard_prompts_scope_when_requested() -> None:
+    """``ask_scope=True`` with no resolved scope MUST prompt interactively."""
+    detected = DetectionResult(stacks=[], surfaces=[], vcs="github")
+    with patch("ai_engineering.installer.wizard._ask_scope", return_value="global") as mock_ask:
+        result = run_wizard(detected, resolved={"surfaces": ["claude-code"]}, ask_scope=True)
+    mock_ask.assert_called_once()
+    assert result.scope == "global"
+
+
+def test_wizard_does_not_prompt_scope_by_default() -> None:
+    """``ask_scope`` defaults False (reconfigure/non-interactive): no prompt, local."""
+    detected = DetectionResult(stacks=[], surfaces=[], vcs="github")
+    with patch("ai_engineering.installer.wizard._ask_scope") as mock_ask:
+        result = run_wizard(detected, resolved={"surfaces": ["claude-code"]})
+    mock_ask.assert_not_called()
+    assert result.scope == "local"
+
+
+def test_wizard_scope_flag_skips_prompt() -> None:
+    """An explicit resolved scope (from ``--global``/``--local``) skips the prompt."""
+    detected = DetectionResult(stacks=[], surfaces=[], vcs="github")
+    with patch("ai_engineering.installer.wizard._ask_scope") as mock_ask:
+        result = run_wizard(
+            detected,
+            resolved={"surfaces": ["claude-code"], "scope": "global"},
+            ask_scope=True,
+        )
+    mock_ask.assert_not_called()
+    assert result.scope == "global"
+
+
+def test_wizard_scope_prompt_ctrl_c_falls_back_to_local() -> None:
+    """Aborting the scope prompt (Ctrl+C → ``_ask_scope`` returns ``local``) is safe."""
+    detected = DetectionResult(stacks=[], surfaces=[], vcs="github")
+    with patch("ai_engineering.installer.wizard._ask_scope", return_value="local") as mock_ask:
+        result = run_wizard(detected, resolved={"surfaces": ["claude-code"]}, ask_scope=True)
+    mock_ask.assert_called_once()
+    assert result.scope == "local"
+
+
+def test_ask_scope_returns_selection() -> None:
+    """``_ask_scope`` returns the questionary selection verbatim."""
+    from ai_engineering.installer import wizard
+
+    with patch.object(wizard.questionary, "select") as mock_select:
+        mock_select.return_value.ask.return_value = "global"
+        assert wizard._ask_scope() == "global"
+    # The prompt must offer both scopes as mutually-exclusive choices.
+    _args, kwargs = mock_select.call_args
+    values = {c.value for c in kwargs["choices"]}
+    assert values == {"local", "global"}
+
+
+def test_ask_scope_ctrl_c_returns_local() -> None:
+    """``_ask_scope`` returns ``local`` when the user aborts (ask() -> None)."""
+    from ai_engineering.installer import wizard
+
+    with patch.object(wizard.questionary, "select") as mock_select:
+        mock_select.return_value.ask.return_value = None
+        assert wizard._ask_scope() == "local"

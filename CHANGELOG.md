@@ -27,7 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ai-eng update`.** Global install writes the brain to `~/.ai-engineering/`
   plus per-surface skins (Claude `~/.claude/`, Codex `~/.codex/AGENTS.md`,
   OpenCode `~/.config/opencode/`, Antigravity `~/.gemini/AGENTS.md`);
-  Cursor/Copilot get printed wire-up steps. `ai-eng update` accepts
+  Cursor/Copilot get printed wire-up steps. A first interactive `ai-eng
+  install` now asks where the framework should live (local vs global) as a
+  branded wizard question; the flags skip the prompt. `ai-eng update` accepts
   `--global`/`--local`; with no flag it reconciles both scopes, local wins on
   conflict. `ai-eng doctor` now reports the active scope and version status.
 

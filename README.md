@@ -67,9 +67,9 @@ If `ai-eng` is not available after the `pip` install, add Python's user scripts 
 ai-eng version
 ```
 
-5. Install governance into a repository (`--local`, the default) or
-   machine-wide (`--global`, writes the brain to `~/.ai-engineering/` plus
-   per-surface skins):
+5. Install governance. Run interactively and the installer asks where it
+   should live — this repo (`--local`, default) or machine-wide (`--global`,
+   brain to `~/.ai-engineering/` plus per-surface skins):
 
 ```bash
 cd your-project
