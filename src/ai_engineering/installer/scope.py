@@ -146,6 +146,17 @@ def dest(surface: str, scope: str, target: Path, rel: str) -> Path | GuidanceSen
     return home
 
 
+def brain_root(scope: str, target: Path) -> Path:
+    """Return the root the brain (``.ai-engineering/`` tree + state) lives under.
+
+    Single source of truth for the ``Path.home() if global else target`` idiom
+    duplicated across the state, hooks, and post-pipeline phases (spec-156
+    D-156-04 / D-156-06). Global scope roots the brain at the home directory;
+    local scope keeps it repo-rooted.
+    """
+    return Path.home() if scope == GLOBAL else target
+
+
 def brain_dest(scope: str, target: Path, rel: str) -> Path:
     """Resolve a brain (``.ai-engineering/``) destination as a concrete path.
 
@@ -153,9 +164,7 @@ def brain_dest(scope: str, target: Path, rel: str) -> Path:
     :func:`dest` that always returns a :class:`~pathlib.Path` -- callers in the
     governance phase avoid an ``isinstance`` narrowing dance.
     """
-    if scope == GLOBAL:
-        return Path.home() / rel
-    return target / rel
+    return brain_root(scope, target) / rel
 
 
 def is_guidance(value: Path | GuidanceSentinel) -> bool:

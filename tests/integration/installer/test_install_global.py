@@ -50,6 +50,45 @@ def _run_phase(phase, context: InstallContext) -> None:
 # ---------------------------------------------------------------------------
 
 
+def test_global_state_persists_scope_to_home(home: Path, target: Path) -> None:
+    """spec-156 D-156-07: a global install records scope='global' on the HOME marker."""
+    import json
+
+    from ai_engineering.installer.phases.state import StatePhase
+
+    context = InstallContext(
+        target=target,
+        mode=InstallMode.INSTALL,
+        scope="global",
+        surfaces=["claude-code"],
+    )
+    _run_phase(GovernancePhase(), context)
+    _run_phase(StatePhase(), context)
+
+    marker = home / ".ai-engineering" / "state" / "install-state.json"
+    assert marker.is_file()
+    data = json.loads(marker.read_text(encoding="utf-8"))
+    assert data["scope"] == "global"
+    assert not (target / ".ai-engineering" / "state" / "install-state.json").exists()
+
+
+def test_is_reinstall_scope_aware_for_global(home: Path, target: Path) -> None:
+    """spec-156 D-156-07: --global reinstall detection checks the HOME marker."""
+    from ai_engineering.cli_commands.core import _is_reinstall
+    from ai_engineering.installer.phases.state import StatePhase
+
+    context = InstallContext(
+        target=target, mode=InstallMode.INSTALL, scope="global", surfaces=["claude-code"]
+    )
+    _run_phase(GovernancePhase(), context)
+    _run_phase(StatePhase(), context)
+
+    # Global marker exists at home, repo has none.
+    assert _is_reinstall(target, scope="global") is True
+    assert _is_reinstall(target, scope="local") is False
+    assert _is_reinstall(target) is False  # repo-rooted default
+
+
 def test_global_governance_writes_brain_to_home(home: Path, target: Path) -> None:
     """The governance (brain) phase writes ``.ai-engineering/`` under HOME."""
     context = InstallContext(

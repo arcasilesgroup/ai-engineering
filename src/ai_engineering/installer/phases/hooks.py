@@ -91,7 +91,9 @@ class HooksPhase:
         hook_source_dir = governance_root / "scripts" / "hooks"
         # sub-003 D9: the hook runtime tree rides with the brain, so global
         # scope materializes it under ~/.ai-engineering/scripts/hooks.
-        brain_root = Path.home() if context.scope == "global" else context.target
+        from ai_engineering.installer.scope import brain_root as _brain_root
+
+        brain_root = _brain_root(context.scope, context.target)
         hook_dest_dir = brain_root / _HOOK_RUNTIME_REL
 
         if hook_source_dir.is_dir():

@@ -17,8 +17,19 @@ from ai_engineering.installer.scope import (
     GLOBAL,
     LOCAL,
     GuidanceSentinel,
+    brain_root,
     dest,
 )
+
+
+class TestBrainRoot:
+    """spec-156 D-156-04: one helper for the global/local brain root idiom."""
+
+    def test_global_brain_root_is_home(self, home: Path, target: Path) -> None:
+        assert brain_root(GLOBAL, target) == home
+
+    def test_local_brain_root_is_target(self, home: Path, target: Path) -> None:
+        assert brain_root(LOCAL, target) == target
 
 
 @pytest.fixture

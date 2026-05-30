@@ -28,6 +28,7 @@ from ai_engineering.cli_envelope import NextAction, emit_success
 from ai_engineering.cli_output import is_json_mode, set_json_mode
 from ai_engineering.cli_progress import spinner, step_progress
 from ai_engineering.cli_ui import (
+    announce_scope,
     error,
     file_count,
     info,
@@ -192,7 +193,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         )
         return
 
-    is_reinstall = _is_reinstall(root)
+    is_reinstall = _is_reinstall(root, scope=explicit_scope)
     mode = _resolve_install_mode(
         is_reinstall,
         fresh=fresh,
@@ -209,6 +210,13 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         vcs=vcs,
         explicit_scope=explicit_scope,
     )
+
+    # spec-156 D-156-03: announce the scope an existing install is acted on.
+    # Fresh installs surface scope via the wizard, so only reinstalls announce.
+    if is_reinstall and not is_json_mode():
+        from ai_engineering.installer.scope_resolution import resolve_scope
+
+        announce_scope(resolve_scope(root, explicit_scope).announce)
 
     _confirm_reinstall_if_needed(
         is_reinstall=is_reinstall,
@@ -315,14 +323,22 @@ def _emit_install_dry_run_plan(
     print(json.dumps({"schema_version": "1", "plans": plans}, indent=2))
 
 
-def _is_reinstall(root: Path) -> bool:
-    """Return whether the target already has install state.
+def _is_reinstall(root: Path, *, scope: str | None = None) -> bool:
+    """Return whether the target already has install state for *scope*.
 
     spec-148 P4 (files-only): ``install-state.json`` is the canonical
     install-completed signal. Its presence means a previous install, so
     the reinstall preview path fires for upgrade scenarios.
+
+    spec-156 D-156-07: when an explicit ``--global`` scope is resolved, the
+    marker lives under the home brain root, so reinstall detection must look
+    there — otherwise a global reinstall/reconfigure/repair is undetectable.
+    Local / no-flag keep the repo-rooted check.
     """
-    return (root / ".ai-engineering" / "state" / "install-state.json").is_file()
+    from ai_engineering.installer.scope import brain_root
+
+    check_root = brain_root(scope, root) if scope else root
+    return (check_root / ".ai-engineering" / "state" / "install-state.json").is_file()
 
 
 def _resolve_install_mode(

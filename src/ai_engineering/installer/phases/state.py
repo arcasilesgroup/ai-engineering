@@ -44,9 +44,12 @@ def _state_root(context: InstallContext) -> Path:
 
     Global scope mirrors the install marker into ``~/.ai-engineering/state/`` so
     ``update`` can detect drift independently of any repo; local scope keeps
-    today's repo-rooted behavior.
+    today's repo-rooted behavior. Delegates to the single ``brain_root`` helper
+    (spec-156 D-156-04).
     """
-    return Path.home() if context.scope == "global" else context.target
+    from ai_engineering.installer.scope import brain_root
+
+    return brain_root(context.scope, context.target)
 
 
 def _stamp_framework_version(state_dir: Path) -> None:
@@ -63,6 +66,22 @@ def _stamp_framework_version(state_dir: Path) -> None:
         return
     data = json.loads(path.read_text(encoding="utf-8"))
     data["framework_version"] = __version__
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def _stamp_scope(state_dir: Path, scope: str) -> None:
+    """Stamp the install ``scope`` into install-state.json (spec-156 D-156-07).
+
+    ``InstallState`` now carries ``scope`` as a real field, but the write path
+    seeds the file from ``default_install_state()`` (scope-agnostic), so the
+    resolved scope is patched in after the model write — mirroring
+    :func:`_stamp_framework_version`.
+    """
+    path = state_dir / "install-state.json"
+    if not path.is_file():
+        return
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["scope"] = scope
     path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
@@ -107,6 +126,8 @@ class StatePhase:
                 save_install_state(state_dir, default_install_state())
                 # sub-003 D11: stamp framework_version so update detects drift.
                 _stamp_framework_version(state_dir)
+                # spec-156 D-156-07: record the scope this install lives under.
+                _stamp_scope(state_dir, context.scope)
                 result.created.append(action.destination)
                 continue
             if action.destination == _FRAMEWORK_CAPABILITIES:

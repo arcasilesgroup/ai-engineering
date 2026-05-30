@@ -426,6 +426,26 @@ def _load_version_check_config() -> object:
         return VersionCheckConfig()
 
 
+def announce_scope(message: str) -> None:
+    """Print the resolved install-scope announcement to stderr (spec-156 D-156-03).
+
+    No-op when *message* is empty (greenfield — nothing to announce) or in JSON
+    mode (machine output stays clean). Stderr-only, like every other messaging.
+    """
+    from ai_engineering.cli_output import is_json_mode
+
+    if not message or is_json_mode():
+        return
+    con = get_console()
+    if con.is_terminal and not _is_no_color():
+        try:
+            con.print(f"[brand.dim]{message}[/brand.dim]")
+            return
+        except (ImportError, ModuleNotFoundError):
+            pass
+    sys.stderr.write(message + "\n")
+
+
 def maybe_render_update_notice() -> None:
     """Render a one-line "update available" notice when appropriate.
 

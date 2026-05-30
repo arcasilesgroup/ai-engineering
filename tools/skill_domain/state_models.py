@@ -1136,6 +1136,10 @@ class InstallState(BaseModel):
 
     schema_version: str = "2.0"
     installed_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
+    # spec-156 D-156-07: the scope this install was materialized under
+    # ("local" | "global"). Persisted so update/doctor/reinstall detection
+    # agree on where the install lives instead of inferring from markers alone.
+    scope: str | None = None
     vcs_provider: str | None = None
     ai_providers: list[str] | None = None
     tooling: dict[str, ToolEntry] = Field(default_factory=dict)
