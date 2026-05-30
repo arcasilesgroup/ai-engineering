@@ -16,7 +16,8 @@ from ai_engineering.version.compare import is_newer
         ("0.9.0", "0.9.0", False),  # equal is not newer
         ("0.8.4", "0.9.0", False),  # older is not newer
         ("0.9", "0.9.0", False),  # ragged arity, equal
-        ("1.0.0", "1.0.0+local", True),  # local segment is lower precedence
+        ("1.0.0+local", "1.0.0", True),  # PEP 440: a local version > its base
+        ("1.0.0", "1.0.0+local", False),  # base is not newer than its local
         ("not-a-version", "0.9.0", False),  # invalid -> fail-open
         ("0.9.0", "garbage", False),  # invalid current -> fail-open
     ],
