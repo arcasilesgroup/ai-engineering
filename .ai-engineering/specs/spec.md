@@ -263,5 +263,5 @@ and threads scope correctly).
 
 ## References
 
-- pr: feat/version-update-notice (branch under audit vs `main`)
+- pr: arcasilesgroup/ai-engineering#556
 - doc: .ai-engineering/runtime/tool-outputs/2026-05-30T175210Z-84b456277f5b4fea89fcaccd53ebdecf.txt (17-agent CLI-wide audit synthesis)
