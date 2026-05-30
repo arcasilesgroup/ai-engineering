@@ -413,8 +413,11 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         invoke_without_command=True,
         help="Show version and upgrade the package.",
     )
-    version_app.callback(invoke_without_command=True)(core.version_cmd)
-    version_app.command("upgrade")(core.version_upgrade_cmd)
+    # spec-156 D-156-14: route version commands through the CLI error boundary
+    # (functools.wraps preserves the Typer signature) so OS/JSON/validation
+    # errors emit a clean one-line message or JSON envelope, not a traceback.
+    version_app.callback(invoke_without_command=True)(_safe(core.version_cmd))
+    version_app.command("upgrade")(_safe(core.version_upgrade_cmd))
     app.add_typer(version_app, name="version")
     app.command("release")(_safe(release.release_cmd))
     app.command("status")(_safe(status_cmd_mod.status_cmd))
