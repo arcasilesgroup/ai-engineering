@@ -210,6 +210,7 @@ def install_with_pipeline(
     stacks: list[str] | None = None,
     surfaces: list[str] | None = None,
     vcs_provider: str = "github",
+    scope: str = "local",
     external_references: dict[str, str] | None = None,
     dry_run: bool = False,
     force: bool = False,
@@ -239,7 +240,9 @@ def install_with_pipeline(
     """
     existing_state = None
     if mode in (InstallMode.REPAIR, InstallMode.RECONFIGURE):
-        state_dir = target / ".ai-engineering" / "state"
+        # sub-003 D11: global scope keeps its marker under the home brain root.
+        state_root = Path.home() if scope == "global" else target
+        state_dir = state_root / ".ai-engineering" / "state"
         try:
             existing_state = load_install_state(state_dir)
         except (json.JSONDecodeError, ValueError, OSError) as exc:
@@ -248,6 +251,7 @@ def install_with_pipeline(
     context = InstallContext(
         target=target,
         mode=mode,
+        scope=scope,
         surfaces=surfaces or [],
         vcs_provider=vcs_provider,
         stacks=stacks or [],

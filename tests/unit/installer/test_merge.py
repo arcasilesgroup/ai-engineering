@@ -152,6 +152,58 @@ class TestMergeSettings:
         with pytest.raises(ValueError, match="Path traversal rejected"):
             merge_settings({"permissions": {}, "hooks": {}}, outside, base=base)
 
+    def test_global_home_settings_merge_preserves_user_keys(self, tmp_path: Path) -> None:
+        """sub-003 D9/D10/R3: a global merge into ~/.claude/settings.json keeps user keys.
+
+        Simulates the global install path where the settings file lives under a
+        home ``.claude`` directory and the trusted base is its own parent. The
+        framework hooks/permissions are added, but the operator's bespoke top-level
+        key, custom permission rule, and custom hook matcher all survive.
+        """
+        home_claude = tmp_path / "home" / ".claude"
+        home_claude.mkdir(parents=True)
+        target = home_claude / "settings.json"
+        target.write_text(
+            json.dumps(
+                {
+                    "permissions": {
+                        "allow": ["Bash(my-tool *)"],
+                        "deny": ["Bash(rm -rf *)"],
+                    },
+                    "hooks": {
+                        "UserPromptSubmit": [
+                            {"matcher": "/me-", "hooks": [{"type": "command", "command": "mine"}]}
+                        ]
+                    },
+                    "theme": "operator-dark",
+                }
+            )
+        )
+        template_data = {
+            "permissions": {"allow": ["Bash(ruff *)"], "deny": ["Bash(rm -rf *)"]},
+            "hooks": {
+                "Stop": [{"matcher": "", "hooks": [{"type": "command", "command": "cost"}]}],
+                "UserPromptSubmit": [
+                    {"matcher": "/ai-", "hooks": [{"type": "command", "command": "fw"}]}
+                ],
+            },
+        }
+
+        # Base is the settings file's own parent (the home .claude dir), the same
+        # contract HooksPhase uses for global scope -- never the repo root.
+        merge_settings(template_data, target, base=target.parent)
+
+        result = json.loads(target.read_text())
+        # User customizations survive.
+        assert result["theme"] == "operator-dark"
+        assert "Bash(my-tool *)" in result["permissions"]["allow"]
+        user_matchers = [h["matcher"] for h in result["hooks"]["UserPromptSubmit"]]
+        assert "/me-" in user_matchers
+        # Framework additions land.
+        assert "Bash(ruff *)" in result["permissions"]["allow"]
+        assert "Stop" in result["hooks"]
+        assert "/ai-" in user_matchers
+
 
 # ---------------------------------------------------------------------------
 # validate_settings_structure

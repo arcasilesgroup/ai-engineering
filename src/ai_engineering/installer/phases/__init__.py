@@ -176,6 +176,10 @@ class InstallContext:
 
     target: Path
     mode: InstallMode
+    # sub-003 D8/D9: install scope. "local" (default) writes every surface into
+    # the repo root (today's behavior); "global" writes home-capable surfaces
+    # into their canonical home directories via ``installer.scope.dest``.
+    scope: str = "local"  # "local" | "global"
     # spec-133 D-133-16 hard-cut: `Surface` fuses AI Provider + IDE
     # Integration into one axis. The legacy `providers` / `ides` lists
     # were deleted.

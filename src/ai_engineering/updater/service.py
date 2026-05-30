@@ -397,7 +397,12 @@ def _initialize_update_context(
     *,
     dry_run: bool,
 ) -> tuple[Path, Path, OwnershipMap, bool, str | None, list[str] | None]:
-    """Load ownership and update state before evaluating changes."""
+    """Load ownership and update state before evaluating changes.
+
+    *target* is the scope root: the repo for local scope, ``Path.home()`` for
+    global scope. The brain (``.ai-engineering/``) is always rooted under it, so
+    a single parametrized root drives both scopes (sub-003 D10).
+    """
     ai_eng_dir = target / _AI_ENGINEERING_DIR
     state_dir = ai_eng_dir / "state"
 
@@ -430,10 +435,16 @@ def _initialize_update_context(
     return ai_eng_dir, ownership_path, ownership, rules_added, install_state.vcs_provider, surfaces
 
 
+def _scope_root(target: Path, scope: str) -> Path:
+    """Return the brain root for *scope*: home for global, repo for local."""
+    return Path.home() if scope == "global" else target
+
+
 def update(
     target: Path,
     *,
     dry_run: bool = True,
+    scope: str = "local",
 ) -> UpdateResult:
     """Update framework-managed files from bundled templates.
 
@@ -448,22 +459,27 @@ def update(
     Args:
         target: Root directory of the target project.
         dry_run: If True (default), only report what would change.
+        scope: ``"local"`` (default) reconciles the repo brain; ``"global"``
+            reconciles the home brain (``~/.ai-engineering/``) per sub-003 D10.
 
     Returns:
         UpdateResult with details of all changes.
     """
-    if not dry_run:
+    scope_root = _scope_root(target, scope)
+
+    if not dry_run and scope != "global":
         # spec-148 P5 (D-148-09): one-shot migration — ingest a legacy
         # state.db into the canonical file stores, VERIFY, then delete it
         # (fail-loud, no .bak). Runs before the reconciler reads state so the
         # exported install-state/decisions/ownership are visible. Idempotent:
-        # a no-op once state.db is gone.
+        # a no-op once state.db is gone. Legacy state.db is repo-bound, so the
+        # migration only runs for local scope.
         from ai_engineering.updater.state_db_export import migrate_state_db_to_files
 
-        migrate_state_db_to_files(target)
+        migrate_state_db_to_files(scope_root)
 
-    adapter = _UpdateAdapter(target, dry_run=dry_run)
-    run = ResourceReconciler().run(adapter, target, preview=dry_run)  # ty:ignore[invalid-argument-type]
+    adapter = _UpdateAdapter(scope_root, dry_run=dry_run)
+    run = ResourceReconciler().run(adapter, scope_root, preview=dry_run)  # ty:ignore[invalid-argument-type]
 
     if dry_run:
         payload = _UpdateAdapter._coerce_plan_payload(run.plan.payload)
@@ -480,6 +496,43 @@ def update(
         raise RuntimeError(f"update verification failed; rolled back changes: {message}")
     payload = _UpdateAdapter._coerce_apply_payload(run.apply_result.payload)
     return payload.result
+
+
+def _scope_is_installed(target: Path, scope: str) -> bool:
+    """Return True when *scope* has an install marker (install-state.json)."""
+    root = _scope_root(target, scope)
+    return (root / _AI_ENGINEERING_DIR / "state" / "install-state.json").is_file()
+
+
+def update_scopes(
+    target: Path,
+    *,
+    dry_run: bool = True,
+    scope: str | None = None,
+) -> dict[str, UpdateResult]:
+    """Reconcile one or both install scopes (sub-003 D10 dual-scope update).
+
+    Precedence is local-wins: each scope reconciles only its own brain root, so
+    a global update never writes into the local (repo) tree.
+
+    Args:
+        target: Repository root (the local scope root and the CWD anchor).
+        dry_run: Preview-only when True.
+        scope: ``"local"`` / ``"global"`` to target one scope; ``None`` (no flag)
+            reconciles *both* scopes that have an install marker.
+
+    Returns:
+        Mapping of scope name -> :class:`UpdateResult` for each scope run.
+    """
+    if scope is not None:
+        return {scope: update(target, dry_run=dry_run, scope=scope)}
+
+    results: dict[str, UpdateResult] = {}
+    # Local first so it is authoritative in any downstream presentation.
+    for candidate in ("local", "global"):
+        if _scope_is_installed(target, candidate):
+            results[candidate] = update(target, dry_run=dry_run, scope=candidate)
+    return results
 
 
 def _apply_actionable_file_changes(changes: list[FileChange], target: Path) -> Path | None:

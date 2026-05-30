@@ -12,6 +12,7 @@ from pathlib import Path
 
 from ai_engineering.installer.gitignore import ensure_project_gitignore
 from ai_engineering.installer.identity import initialize_manifest_project_name
+from ai_engineering.installer.scope import GLOBAL, brain_dest
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
     get_ai_engineering_template_root,
@@ -25,6 +26,27 @@ from . import (
     PhaseVerdict,
     PlannedAction,
 )
+
+
+def _brain_root(context: InstallContext) -> Path:
+    """Return the root the ``.ai-engineering/`` brain lives under for this scope.
+
+    Global scope roots the brain at ``~/`` (so ``~/.ai-engineering/``); local
+    scope roots it at the repo (today's behavior). Helpers that take a "project
+    root" and append ``.ai-engineering`` (OPA signing, manifest identity,
+    gitignore) must use this so they operate on the scoped brain.
+    """
+    return Path.home() if context.scope == GLOBAL else context.target
+
+
+def _brain_dest(context: InstallContext, rel: str) -> Path:
+    """Resolve the absolute brain destination for *rel* (always a real path).
+
+    ``rel`` is the repo-relative ``.ai-engineering/...`` path; for global scope
+    this becomes ``~/.ai-engineering/...``.
+    """
+    return brain_dest(context.scope, context.target, rel)
+
 
 _EXCLUDE_PREFIXES = ("agents/", "skills/", "team/")
 
@@ -51,7 +73,6 @@ class GovernancePhase:
 
     def plan(self, context: InstallContext) -> PhasePlan:
         src_root = get_ai_engineering_template_root()
-        dest_root = context.target / ".ai-engineering"
         actions: list[PlannedAction] = []
 
         for src_file in sorted(src_root.rglob("*")):
@@ -62,7 +83,7 @@ class GovernancePhase:
                 continue
 
             dest_rel = f".ai-engineering/{rel}"
-            dest_path = dest_root / rel
+            dest_path = _brain_dest(context, dest_rel)
 
             action_type, rationale = self._classify(rel, dest_path, context.mode)
             actions.append(
@@ -85,7 +106,7 @@ class GovernancePhase:
         src_root = get_ai_engineering_template_root()
 
         for action in plan.actions:
-            dest = context.target / action.destination
+            dest = _brain_dest(context, action.destination)
 
             if action.action_type == "skip":
                 result.skipped.append(action.destination)
@@ -93,7 +114,7 @@ class GovernancePhase:
 
             if action.action_type == "migrate":
                 old_rel = _MIGRATIONS.get(action.source, "")
-                old_path = context.target / ".ai-engineering" / old_rel
+                old_path = _brain_dest(context, f".ai-engineering/{old_rel}")
                 if old_path.exists() and not dest.exists():
                     dest.parent.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(old_path), str(dest))
@@ -128,20 +149,21 @@ class GovernancePhase:
         # manual_step note via the result.skipped channel.
         from ai_engineering.installer import opa as _opa
 
-        bundle_state = _opa.ensure_bundle_signed(context.target)
+        brain_root = _brain_root(context)
+        bundle_state = _opa.ensure_bundle_signed(brain_root)
         if not bundle_state["signed"]:
             result.skipped.append(
                 f".ai-engineering/policies/.signatures.json (deferred: {bundle_state['message']})"
             )
 
-        initialize_manifest_project_name(context.target, force=context.mode is InstallMode.FRESH)
+        initialize_manifest_project_name(brain_root, force=context.mode is InstallMode.FRESH)
 
         # Scope a .gitignore to the managed tree so install-generated transient
         # artifacts (audit streams, per-install state, the signed OPA bundle)
         # never leak into the consumer's version control. Create-only outside
         # FRESH so operator edits survive a reinstall.
         gitignore_state = ensure_project_gitignore(
-            context.target, fresh=context.mode is InstallMode.FRESH
+            brain_root, fresh=context.mode is InstallMode.FRESH
         )
         if gitignore_state["written"]:
             result.created.append(".ai-engineering/.gitignore")
@@ -157,8 +179,9 @@ class GovernancePhase:
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
         errors: list[str] = []
 
+        brain_root = _brain_root(context)
         for path_str in result.created:
-            if not (context.target / path_str).exists():
+            if not (brain_root / path_str).exists():
                 errors.append(f"Expected file missing after write: {path_str}")
 
         return PhaseVerdict(

@@ -17,6 +17,8 @@ from pathlib import Path
 
 from ai_engineering.hooks.manager import HookInstallResult, install_hooks
 from ai_engineering.installer.merge import merge_settings
+from ai_engineering.installer.scope import GuidanceSentinel
+from ai_engineering.installer.scope import dest as scope_dest
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
     copy_tree_for_mode,
@@ -30,6 +32,19 @@ from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict,
 
 _SETTINGS_REL = ".claude/settings.json"
 _HOOK_RUNTIME_REL = ".ai-engineering/scripts/hooks"
+
+
+def _settings_dest(context: InstallContext) -> Path | None:
+    """Resolve the settings.json destination for the active scope.
+
+    Local -> ``<repo>/.claude/settings.json``; global -> ``~/.claude/settings.json``.
+    Returns ``None`` if claude-code routes to a guidance surface (never the case
+    for claude-code, but the resolver contract is honored defensively).
+    """
+    resolved = scope_dest("claude-code", context.scope, context.target, _SETTINGS_REL)
+    if isinstance(resolved, GuidanceSentinel):
+        return None
+    return resolved
 
 
 class HooksPhase:
@@ -55,8 +70,8 @@ class HooksPhase:
         if "claude-code" in context.surfaces:
             pr = get_project_template_root()
             src = pr / ".claude" / "settings.json"
-            if src.is_file():
-                dest = context.target / _SETTINGS_REL
+            dest = _settings_dest(context)
+            if src.is_file() and dest is not None:
                 if dest.is_file():
                     actions.append(
                         PlannedAction("merge", _SETTINGS_REL, _SETTINGS_REL, "merge hooks")
@@ -74,13 +89,16 @@ class HooksPhase:
         pr = get_project_template_root()
         governance_root = get_ai_engineering_template_root()
         hook_source_dir = governance_root / "scripts" / "hooks"
-        hook_dest_dir = context.target / _HOOK_RUNTIME_REL
+        # sub-003 D9: the hook runtime tree rides with the brain, so global
+        # scope materializes it under ~/.ai-engineering/scripts/hooks.
+        brain_root = Path.home() if context.scope == "global" else context.target
+        hook_dest_dir = brain_root / _HOOK_RUNTIME_REL
 
         if hook_source_dir.is_dir():
             copy_tree_for_mode(
                 hook_source_dir,
                 hook_dest_dir,
-                context.target,
+                brain_root,
                 fresh=context.mode is InstallMode.FRESH,
                 created=result.created,
                 skipped=result.skipped,
@@ -106,9 +124,14 @@ class HooksPhase:
         # from the per-hook calls for downstream consumers. Callback
         # exceptions are swallowed (fail-open) so a broken UI never breaks
         # the install pipeline.
-        hr = self._install_hooks_with_progress(context)
-        result.created.extend(f".git/hooks/{h}" for h in hr.installed)
-        result.skipped.extend(f".git/hooks/{h}" for h in hr.skipped)
+        # Git hooks gate a single repository working tree, so they are only
+        # installed for local scope. A machine-wide (--global) install ships the
+        # hook runtime under ~/.ai-engineering but does not wire any repo's
+        # .git/hooks (each repo opts in via a local install).
+        if context.scope != "global":
+            hr = self._install_hooks_with_progress(context)
+            result.created.extend(f".git/hooks/{h}" for h in hr.installed)
+            result.skipped.extend(f".git/hooks/{h}" for h in hr.skipped)
 
         self._handle_settings(plan, context, pr, result)
         return result
@@ -157,10 +180,13 @@ class HooksPhase:
         w: list[str] = []
         errors: list[str] = []
         passed = True
-        if not (context.target / ".git/hooks/pre-commit").exists():
+        # Git hooks are only wired for local scope (global ships the runtime but
+        # gates no single repo), so the pre-commit assertion is local-only.
+        if context.scope != "global" and not (context.target / ".git/hooks/pre-commit").exists():
             errors.append("pre-commit hook not installed")
             passed = False
-        hd = context.target / ".ai-engineering" / "scripts" / "hooks"
+        brain_root = Path.home() if context.scope == "global" else context.target
+        hd = brain_root / ".ai-engineering" / "scripts" / "hooks"
         if not hd.is_dir() or not any(hd.iterdir()):
             w.append(".ai-engineering/scripts/hooks/ empty or missing")
         return PhaseVerdict(phase_name=self.name, passed=passed, warnings=w, errors=errors)
@@ -173,12 +199,16 @@ class HooksPhase:
         if not actions:
             return
         action = actions[0]
-        src, dest = pr / ".claude/settings.json", context.target / _SETTINGS_REL
-        if not src.is_file():
+        src = pr / ".claude/settings.json"
+        dest = _settings_dest(context)
+        if not src.is_file() or dest is None:
             return
         if action.action_type == "merge":
             template_data = json.loads(src.read_text(encoding="utf-8"))
-            merge_settings(template_data, dest, base=context.target)
+            # base is the path-traversal guard root: the settings file's own
+            # parent dir so global (~/.claude) and local (<repo>/.claude) both
+            # validate without widening the trusted root.
+            merge_settings(template_data, dest, base=dest.parent)
             result.created.append(_SETTINGS_REL)
         elif action.action_type == "create":
             if copy_file_if_missing(src, dest):

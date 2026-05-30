@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import logging
+from pathlib import Path
 
+from ai_engineering import __version__
 from ai_engineering.config.loader import load_manifest_root_entry_points
 from ai_engineering.installer.capability_catalog import apply_capability_catalog
 from ai_engineering.state.defaults import (
@@ -36,6 +39,33 @@ _INSTINCT_META = ".ai-engineering/observations/meta.json"
 _LEGACY_AUDIT_LOG = f"{_SD}/audit-log.ndjson"
 
 
+def _state_root(context: InstallContext) -> Path:
+    """Return the root the state tree lives under for this scope (sub-003 D11).
+
+    Global scope mirrors the install marker into ``~/.ai-engineering/state/`` so
+    ``update`` can detect drift independently of any repo; local scope keeps
+    today's repo-rooted behavior.
+    """
+    return Path.home() if context.scope == "global" else context.target
+
+
+def _stamp_framework_version(state_dir: Path) -> None:
+    """Stamp ``framework_version`` into install-state.json (sub-003 D11).
+
+    ``InstallState`` (pydantic, ignore-extra) does not carry the field, so the
+    value is patched directly into the on-disk JSON after the model write. This
+    lets ``update`` compare the recorded version against the running
+    ``ai_engineering.__version__`` to detect drift without altering the shared
+    state model.
+    """
+    path = state_dir / "install-state.json"
+    if not path.is_file():
+        return
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["framework_version"] = __version__
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
 class StatePhase:
     """Generate installation state files."""
 
@@ -58,13 +88,14 @@ class StatePhase:
     def execute(self, plan: PhasePlan, context: InstallContext) -> PhaseResult:
         result = PhaseResult(phase_name=self.name)
         legacy_audit_log_removed = False
+        state_root = _state_root(context)
 
         # Spec-124 T-3.1: seed ownership map with manifest-derived root-entry
         # patterns (CLAUDE.md, AGENTS.md, .github/copilot-instructions.md)
         # so doctor's `ownership-coverage` probe passes on fresh install.
         # The manifest is already on disk by the time the state phase runs
         # (governance phase precedes state phase in pipeline.py).
-        root_entry_points = load_manifest_root_entry_points(context.target)
+        root_entry_points = load_manifest_root_entry_points(state_root)
 
         for action in plan.actions:
             if action.destination == _STATE:
@@ -72,8 +103,10 @@ class StatePhase:
                     result.skipped.append(action.destination)
                     continue
                 # spec-148 P4: write install-state.json (files-only).
-                state_dir = context.target / _SD
+                state_dir = state_root / _SD
                 save_install_state(state_dir, default_install_state())
+                # sub-003 D11: stamp framework_version so update detects drift.
+                _stamp_framework_version(state_dir)
                 result.created.append(action.destination)
                 continue
             if action.destination == _FRAMEWORK_CAPABILITIES:
@@ -81,10 +114,10 @@ class StatePhase:
                     result.skipped.append(action.destination)
                     continue
                 # spec-148 P4: rebuild + write framework-capabilities.json.
-                write_framework_capabilities(context.target)
+                write_framework_capabilities(state_root)
                 # spec-153 W5: regenerate the derived README catalog block
                 # alongside it (fail-open when markers/generator are absent).
-                apply_capability_catalog(context.target)
+                apply_capability_catalog(state_root)
                 result.created.append(action.destination)
                 continue
             if action.destination in {
@@ -95,7 +128,7 @@ class StatePhase:
                 if action.action_type == "skip":
                     result.skipped.append(action.destination)
                     continue
-                ensure_instinct_artifacts(context.target)
+                ensure_instinct_artifacts(state_root)
                 result.created.append(action.destination)
                 continue
             if action.action_type == "skip":
@@ -106,23 +139,23 @@ class StatePhase:
             # durable repository (the ``_OWNERSHIP`` / ``_DECISIONS``
             # pseudo-paths keep their plan/result keys).
             if action.destination == _OWNERSHIP:
-                DurableStateRepository(context.target).save_ownership(
+                DurableStateRepository(state_root).save_ownership(
                     default_ownership_map(root_entry_points=root_entry_points),
                 )
                 result.created.append(action.destination)
                 continue
             if action.destination == _DECISIONS:
-                DurableStateRepository(context.target).save_decisions(default_decision_store())
+                DurableStateRepository(state_root).save_decisions(default_decision_store())
                 result.created.append(action.destination)
                 continue
 
-        legacy_audit_log_removed = remove_legacy_audit_log(context.target)
+        legacy_audit_log_removed = remove_legacy_audit_log(state_root)
 
         # spec-148 P4 (files-only): install no longer bootstraps state.db —
         # every datum (events, decisions, ownership, install-state,
         # capabilities) is file-backed. The state.db layer is deleted in P5.
         emit_framework_operation(
-            context.target,
+            state_root,
             operation="install-state-phase",
             component="installer.state-phase",
             source="installer",
@@ -136,14 +169,15 @@ class StatePhase:
 
     def verify(self, result: PhaseResult, context: InstallContext) -> PhaseVerdict:
         errors: list[str] = []
+        state_root = _state_root(context)
         # spec-148 P2/P3/P4 (files-only): every state datum is a file now.
         # The instinct triplet, install-state.json, framework-capabilities.json,
         # and ownership-map.json must all be present post-install. (decisions
         # may be an empty store on a fresh install, so it is not required.)
         for r in (_INSTINCT_OBSERVATIONS, _INSTINCTS, _INSTINCT_META):
-            if not (context.target / r).exists():
+            if not (state_root / r).exists():
                 errors.append(f"State file missing: {r}")
-        repo = DurableStateRepository(context.target)
+        repo = DurableStateRepository(state_root)
         if not repo.install_state_path.is_file():
             errors.append(f"State file missing: {_STATE}")
         if not repo.framework_capabilities_path.is_file():
@@ -154,7 +188,7 @@ class StatePhase:
             errors.append(f"State file missing: {_OWNERSHIP}")
         elif not repo.load_ownership().paths:
             errors.append(f"State file empty: {_OWNERSHIP}")
-        if (context.target / _LEGACY_AUDIT_LOG).exists():
+        if (state_root / _LEGACY_AUDIT_LOG).exists():
             errors.append(f"Legacy state file should be absent: {_LEGACY_AUDIT_LOG}")
         return PhaseVerdict(phase_name=self.name, passed=not errors, errors=errors)
 
@@ -167,7 +201,7 @@ class StatePhase:
         # plan again. FRESH + regenerate_on_fresh overwrites; an existing
         # file is skipped (so a reinstall never wipes decisions/ownership
         # with a default seed); an absent file is created.
-        exists = (context.target / rel).exists()
+        exists = (_state_root(context) / rel).exists()
 
         if context.mode is InstallMode.FRESH and regenerate_on_fresh:
             return PlannedAction("overwrite", "", rel, "FRESH: regenerate")

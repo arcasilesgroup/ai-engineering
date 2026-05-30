@@ -147,6 +147,20 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
             help="Internal — invoked by `ai-eng config` to re-run the wizard.",
         ),
     ] = False,
+    scope_global: Annotated[
+        bool,
+        typer.Option(
+            "--global",
+            help="Install machine-wide to home (~/) instead of this repo.",
+        ),
+    ] = False,
+    scope_local: Annotated[
+        bool,
+        typer.Option(
+            "--local",
+            help="Install into this repo (default).",
+        ),
+    ] = False,
 ) -> None:
     """Install the ai-engineering governance framework.
 
@@ -163,6 +177,8 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
 
     no_auto_remediate = os.environ.get("AIENG_AUTO_REMEDIATE", "1").lower() in {"0", "false", "no"}
 
+    scope = _resolve_install_scope(scope_global=scope_global, scope_local=scope_local)
+
     root = resolve_project_root(target)
     _validate_install_target(root, non_interactive=non_interactive)
 
@@ -172,6 +188,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
             stacks=stacks,
             surfaces=surfaces,
             vcs=vcs,
+            scope=scope,
         )
         return
 
@@ -210,6 +227,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
         resolved_stacks=resolved_stacks,
         resolved_surfaces=resolved_surfaces,
         resolved_vcs=resolved_vcs,
+        scope=scope,
     )
 
     _emit_noninteractive_skipped_tools(summary, non_interactive=non_interactive)
@@ -273,6 +291,7 @@ def _emit_install_dry_run_plan(
     stacks: list[str] | None,
     surfaces: list[str] | None,
     vcs: str | None,
+    scope: str = "local",
 ) -> None:
     """Run install dry-run mode and emit the JSON plan."""
     import json
@@ -288,6 +307,7 @@ def _emit_install_dry_run_plan(
         stacks=stacks or detected.stacks or [],
         surfaces=resolved_surfaces,
         vcs_provider=resolved_vcs,
+        scope=scope,
         dry_run=True,
     )
     plans = [p.to_dict() for p in summary.plans]
@@ -494,6 +514,18 @@ def _check_install_prerequisites(root: Path, resolved_stacks: list[str]) -> None
         raise typer.Exit(code=EXIT_PREREQS_MISSING) from exc
 
 
+def _resolve_install_scope(*, scope_global: bool, scope_local: bool) -> str:
+    """Resolve the install scope from the ``--global`` / ``--local`` flags.
+
+    Default is ``local`` (today's behavior). ``--global`` wins when both are set
+    (explicit machine-wide intent); ``--local`` is otherwise a no-op affirming
+    the default (sub-003 D8).
+    """
+    if scope_global:
+        return "global"
+    return "local"
+
+
 def _run_install_pipeline(
     root: Path,
     *,
@@ -501,6 +533,7 @@ def _run_install_pipeline(
     resolved_stacks: list[str],
     resolved_surfaces: list[str],
     resolved_vcs: str | None,
+    scope: str = "local",
 ) -> tuple[Any, Any]:
     """Run the installer pipeline with progress translation."""
     from ai_engineering.installer.phases import PHASE_ORDER as _PHASE_ORDER
@@ -515,6 +548,7 @@ def _run_install_pipeline(
             stacks=resolved_stacks,
             surfaces=resolved_surfaces,
             vcs_provider=resolved_vcs,  # ty:ignore[invalid-argument-type]
+            scope=scope,
             progress_callback=progress,
         )
 
@@ -1019,12 +1053,28 @@ def update_cmd(
         bool,
         typer.Option("--json", help="Output report as JSON (deprecated: use global --json)."),
     ] = False,
+    scope_global: Annotated[
+        bool,
+        typer.Option("--global", help="Reconcile the machine-wide (home ~/) install only."),
+    ] = False,
+    scope_local: Annotated[
+        bool,
+        typer.Option("--local", help="Reconcile this repo's install only."),
+    ] = False,
 ) -> None:
-    """Update framework-managed governance files."""
+    """Update framework-managed governance files.
+
+    With no scope flag, reconciles every install scope that exists (sub-003
+    D10): the repo (local) and, when a ``~/.ai-engineering`` marker is present,
+    the machine-wide (global) install. ``--local`` / ``--global`` target one.
+    """
     root = resolve_project_root(target)
     json_requested = is_json_mode() or output_json
     interactive_tty = not json_requested and sys.stdin.isatty()
-    update_runner = partial(_run_update_with_spinner, interactive_tty=interactive_tty)
+    update_scope = _resolve_update_scope(scope_global=scope_global, scope_local=scope_local)
+    update_runner = partial(
+        _run_update_with_spinner, interactive_tty=interactive_tty, scope=update_scope
+    )
     confirm_apply = partial(
         _confirm_update_apply,
         root=root,
@@ -1086,19 +1136,64 @@ def update_cmd(
     _render_update_result(result, root=root, show_diff=show_diff)
 
 
+def _resolve_update_scope(*, scope_global: bool, scope_local: bool) -> str | None:
+    """Resolve the update scope: ``None`` (no flag = both), or a single scope.
+
+    ``--global`` wins when both flags are set; otherwise ``--local`` pins the
+    repo scope. No flag returns ``None`` so the runner reconciles every scope
+    that exists (sub-003 D10).
+    """
+    if scope_global:
+        return "global"
+    if scope_local:
+        return "local"
+    return None
+
+
 def _run_update_with_spinner(
     target_root: Path,
     *,
     dry_run: bool,
     interactive_tty: bool,
+    scope: str | None = None,
 ) -> Any:
-    """Run the updater with CLI progress rendering."""
+    """Run the updater with CLI progress rendering.
+
+    When *scope* is ``None`` (no flag), reconciles every install scope present
+    and merges their reports so the existing single-result rendering still
+    works; an explicit scope targets one. Local results lead so local-wins
+    precedence is reflected in any merged summary (sub-003 D10).
+    """
     if interactive_tty:
         message = "Previewing framework updates..." if dry_run else "Applying framework updates..."
     else:
         message = "Checking for updates..."
     with spinner(message):
-        return update(target_root, dry_run=dry_run)
+        from ai_engineering.updater.service import update_scopes
+
+        results = update_scopes(target_root, dry_run=dry_run, scope=scope)
+        if not results:
+            # No install marker for any scope -- fall back to a repo-local run so
+            # the workflow still produces a (likely empty) report rather than
+            # silently doing nothing.
+            return update(target_root, dry_run=dry_run, scope="local")
+        return _merge_update_results(results)
+
+
+def _merge_update_results(results: dict[str, Any]) -> Any:
+    """Merge per-scope :class:`UpdateResult` reports into one, local-first.
+
+    A single result passes through unchanged; multiple scopes concatenate their
+    changes (local first) under the local result's ``dry_run`` flag so existing
+    renderers stay valid.
+    """
+    if len(results) == 1:
+        return next(iter(results.values()))
+    from ai_engineering.updater.service import UpdateResult
+
+    ordered = [results[s] for s in ("local", "global") if s in results]
+    merged_changes = [change for res in ordered for change in res.changes]
+    return UpdateResult(dry_run=ordered[0].dry_run, changes=merged_changes)
 
 
 def _confirm_update_apply(
