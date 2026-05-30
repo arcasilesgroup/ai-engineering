@@ -52,7 +52,7 @@ def test_spawn_background_is_nonblocking(monkeypatch: pytest.MonkeyPatch) -> Non
             captured["argv"] = argv
             captured["kwargs"] = kwargs
 
-        def wait(self) -> int:  # pragma: no cover - must NOT be called
+        def wait(self) -> int:
             raise AssertionError("spawn_background must not block on the child")
 
     monkeypatch.setattr(subprocess, "Popen", FakePopen)

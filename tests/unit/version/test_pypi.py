@@ -28,7 +28,7 @@ class _Resp:
 
 def _install_fake_httpx(monkeypatch: pytest.MonkeyPatch, get_impl) -> None:
     fake = types.ModuleType("httpx")
-    fake.get = get_impl  # type: ignore[attr-defined]
+    fake.get = get_impl
     monkeypatch.setitem(sys.modules, "httpx", fake)
 
 
