@@ -207,9 +207,10 @@ class _UpdateApplyPayload:
 class _UpdateAdapter:
     """Adapt framework update to inspect/plan/apply/verify reconciliation."""
 
-    def __init__(self, target: Path, *, dry_run: bool) -> None:
+    def __init__(self, target: Path, *, dry_run: bool, scope: str = "local") -> None:
         self._target = target
         self._dry_run = dry_run
+        self._scope = scope
         self._pending_apply_payload: _UpdateApplyPayload | None = None
 
     @property
@@ -242,9 +243,10 @@ class _UpdateAdapter:
                 snapshot.ownership,
                 vcs_provider=snapshot.vcs_provider,
                 providers=snapshot.providers,
+                scope=self._scope,
             )
         )
-        orphan_changes = _detect_orphan_files(self._target, snapshot.providers)
+        orphan_changes = _detect_orphan_files(self._target, snapshot.providers, scope=self._scope)
         changes.extend(orphan_changes)
         result = UpdateResult(dry_run=self._dry_run, changes=changes)
         actionable = [change for change in changes if change.action in ("create", "update")]
@@ -482,7 +484,7 @@ def update(
 
         migrate_state_db_to_files(scope_root)
 
-    adapter = _UpdateAdapter(scope_root, dry_run=dry_run)
+    adapter = _UpdateAdapter(scope_root, dry_run=dry_run, scope=scope)
     run = ResourceReconciler().run(adapter, scope_root, preview=dry_run)  # ty:ignore[invalid-argument-type]
 
     if dry_run:
@@ -761,17 +763,50 @@ def _evaluate_governance_files(
     return changes
 
 
+def _update_dests(target: Path, scope: str, dest_rel: str, index: dict | None) -> list[Path]:
+    """Resolve the physical destination(s) for *dest_rel* under *scope*.
+
+    spec-156 D-156-04/05: the updater MUST route IDE-surface destinations
+    through the same per-surface resolver the installer uses, or a global
+    update plans ``~/CLAUDE.md`` instead of ``~/.claude/CLAUDE.md`` and orphans
+    the real files (audit blocker 1). Local scope is repo-rooted (one path);
+    global fans a shared file out to every owning IDE home.
+    """
+    if scope != "global" or index is None:
+        return [target / dest_rel]
+    from ai_engineering.installer.phases.ide_config import _owning_surfaces
+    from ai_engineering.installer.scope import GuidanceSentinel
+    from ai_engineering.installer.scope import dest as scope_dest
+
+    out: list[Path] = []
+    seen: set[Path] = set()
+    for surface in _owning_surfaces(dest_rel, index):
+        resolved = scope_dest(surface, "global", target, dest_rel)
+        if isinstance(resolved, GuidanceSentinel):
+            continue
+        if resolved not in seen:
+            seen.add(resolved)
+            out.append(resolved)
+    return out
+
+
 def _evaluate_project_files(
     target: Path,
     ownership: OwnershipMap,
     *,
     vcs_provider: str | None = None,
     providers: list[str] | None = None,
+    scope: str = "local",
 ) -> list[FileChange]:
-    """Evaluate changes for project-level template files."""
+    """Evaluate changes for project-level template files (scope-aware)."""
     project_root = get_project_template_root()
     resolved = resolve_template_maps(providers, vcs_provider=vcs_provider)
     changes: list[FileChange] = []
+    index = None
+    if scope == "global":
+        from ai_engineering.installer.phases.ide_config import _build_dest_surface_index
+
+        index = _build_dest_surface_index(providers or [])
 
     # 1. Individual file mappings (provider + common)
     all_file_maps = {**resolved.file_map, **resolved.common_file_map}
@@ -779,12 +814,9 @@ def _evaluate_project_files(
         src_file = project_root / src_relative
         if not src_file.is_file():
             continue
-
-        dest = target / dest_relative
-        ownership_path = dest_relative
-
-        change = _evaluate_file_change(src_file, dest, ownership_path, ownership)
-        changes.append(change)
+        for dest in _update_dests(target, scope, dest_relative, index):
+            change = _evaluate_file_change(src_file, dest, dest_relative, ownership)
+            changes.append(change)
 
     # 2. Directory tree mappings (provider + common + VCS)
     all_trees = resolved.tree_list + resolved.common_tree_list + resolved.vcs_tree_list
@@ -799,11 +831,10 @@ def _evaluate_project_files(
             relative_in_tree = src_file.relative_to(src_dir)
             if _SKIP_DIR_NAMES & set(relative_in_tree.parts):
                 continue
-            dest = target / dest_tree / relative_in_tree
-            ownership_path = f"{dest_tree}/{relative_in_tree.as_posix()}"
-
-            change = _evaluate_file_change(src_file, dest, ownership_path, ownership)
-            changes.append(change)
+            dest_rel = f"{dest_tree}/{relative_in_tree.as_posix()}"
+            for dest in _update_dests(target, scope, dest_rel, index):
+                change = _evaluate_file_change(src_file, dest, dest_rel, ownership)
+                changes.append(change)
 
     return changes
 
@@ -811,6 +842,8 @@ def _evaluate_project_files(
 def _detect_orphan_files(
     target: Path,
     active_providers: list[str] | None,
+    *,
+    scope: str = "local",
 ) -> list[FileChange]:
     """Detect files on disk belonging to disabled providers.
 
@@ -849,6 +882,7 @@ def _detect_orphan_files(
             provider,
             active_file_dests=active_file_dests,
             active_tree_dests=active_tree_dests,
+            scope=scope,
         )
     ]
 
@@ -869,26 +903,45 @@ def _provider_orphan_changes(
     *,
     active_file_dests: set[str],
     active_tree_dests: set[str],
+    scope: str = "local",
 ) -> list[FileChange]:
     """Return orphan changes for one disabled provider."""
     return [
-        *_provider_file_orphans(target, provider, active_file_dests),
-        *_provider_tree_orphans(target, provider, active_tree_dests),
+        *_provider_file_orphans(target, provider, active_file_dests, scope=scope),
+        *_provider_tree_orphans(target, provider, active_tree_dests, scope=scope),
     ]
+
+
+def _orphan_path(target: Path, provider: str, dest_rel: str, scope: str) -> Path | None:
+    """Resolve where a disabled *provider*'s *dest_rel* lives on disk for *scope*.
+
+    spec-156 D-156-05: under --global a disabled surface's orphan lives in its
+    own home (``~/.codex/AGENTS.md``), not at ``target/dest_rel`` — so orphan
+    detection must route through the same per-surface resolver as install/update.
+    """
+    if scope != "global":
+        return target / dest_rel
+    from ai_engineering.installer.scope import GuidanceSentinel
+    from ai_engineering.installer.scope import dest as scope_dest
+
+    resolved = scope_dest(provider, "global", target, dest_rel)
+    return None if isinstance(resolved, GuidanceSentinel) else resolved
 
 
 def _provider_file_orphans(
     target: Path,
     provider: str,
     active_file_dests: set[str],
+    *,
+    scope: str = "local",
 ) -> list[FileChange]:
     """Return orphaned individual-file mappings for one disabled provider."""
     orphans: list[FileChange] = []
     for destination in _SURFACE_FILE_MAPS.get(provider, {}).values():
         if destination in active_file_dests:
             continue
-        dest = target / destination
-        if dest.is_file():
+        dest = _orphan_path(target, provider, destination, scope)
+        if dest is not None and dest.is_file():
             orphans.append(_orphan_change(dest, provider))
     return orphans
 
@@ -897,16 +950,18 @@ def _provider_tree_orphans(
     target: Path,
     provider: str,
     active_tree_dests: set[str],
+    *,
+    scope: str = "local",
 ) -> list[FileChange]:
     """Return orphaned tree-mapping files for one disabled provider."""
     orphans: list[FileChange] = []
     for _src_tree, dest_tree in _SURFACE_TREE_MAPS.get(provider, []):
         if dest_tree in active_tree_dests:
             continue
-        tree_path = target / dest_tree
-        if not tree_path.is_dir():
+        tree_root = _orphan_path(target, provider, dest_tree, scope)
+        if tree_root is None or not tree_root.is_dir():
             continue
-        orphans.extend(_orphan_files_in_tree(tree_path, provider))
+        orphans.extend(_orphan_files_in_tree(tree_root, provider))
     return orphans
 
 

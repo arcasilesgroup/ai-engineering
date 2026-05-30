@@ -82,6 +82,19 @@ def test_global_update_targets_home_brain(home: Path, repo: Path) -> None:
         )
 
 
+def test_global_update_reroots_ide_surfaces_to_home_skins(home: Path, repo: Path) -> None:
+    """spec-156 D-156-05 (blocker 1): global update plans ~/.claude/CLAUDE.md,
+    never the home-root ~/CLAUDE.md, so global installs stay updatable."""
+    _install_global(home)
+    result = update(repo, dry_run=True, scope="global")
+    paths = {str(c.path) for c in result.changes}
+
+    good = str(home / ".claude" / "CLAUDE.md")
+    bad = str(home / "CLAUDE.md")
+    assert good in paths, f"expected re-rooted {good} in planned paths: {sorted(paths)}"
+    assert bad not in paths, f"global update planned a home-root orphan: {bad}"
+
+
 def test_local_update_targets_repo_brain(home: Path, repo: Path) -> None:
     """`update(scope="local")` reconciles the repo brain, never the home brain."""
     _install_local(repo)
