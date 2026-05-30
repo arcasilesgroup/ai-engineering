@@ -38,6 +38,7 @@ from ai_engineering.cli_ui import (
     result_header,
     show_logo,
     status_line,
+    success,
     suggest_next,
     warning,
 )
@@ -1477,19 +1478,105 @@ def _prompt_for_doctor_fix(approve_all: bool) -> bool:
     return response.lower() == "all"
 
 
-def version_cmd() -> None:
-    """Show the installed ai-engineering version and lifecycle status."""
+def _cached_latest() -> str | None:
+    """Return the latest known release from the version cache, if any.
+
+    Read-only and fail-open: a missing or malformed cache yields ``None`` so
+    ``ai-eng version`` still renders the installed version + lifecycle message.
+    """
+    from ai_engineering.version import cache
+
+    latest = cache.read().get("latest")
+    return latest if isinstance(latest, str) and latest else None
+
+
+def version_cmd(ctx: typer.Context) -> None:
+    """Show the installed ai-engineering version and lifecycle status.
+
+    Serves as the ``version`` Typer sub-group callback: when a subcommand
+    (e.g. ``upgrade``) is invoked, this returns early so the subcommand owns
+    the output and there is no double render.
+    """
+    if ctx.invoked_subcommand is not None:
+        return
+
     from ai_engineering.version.checker import check_version, load_registry
 
+    registry = load_registry()
+    result = check_version(__version__, registry)
+    latest = _cached_latest()
+
     if is_json_mode():
-        registry = load_registry()
-        result = check_version(__version__, registry)
         emit_success(
             "ai-eng version",
-            {"version": __version__, "message": result.message},
+            {
+                "version": __version__,
+                "message": result.message,
+                "latest": latest,
+            },
         )
     else:
         show_logo()
-        registry = load_registry()
-        result = check_version(__version__, registry)
         print_stdout(f"ai-engineering {result.message}")
+        if latest:
+            print_stdout(f"latest known release: {latest}")
+
+
+def version_upgrade_cmd(
+    dry_run: Annotated[
+        bool,
+        typer.Option("--dry-run", help="Print the upgrade command without running it."),
+    ] = False,
+) -> None:
+    """Upgrade ai-engineering using the detected install method.
+
+    Detects the install method (pipx / uv tool / brew / pip) and runs the
+    matching upgrade command. ``--dry-run`` prints the exact command and runs
+    nothing. A non-zero return code fails loudly: it surfaces the manual
+    command and exits non-zero so an interrupted upgrade is never silent.
+    """
+    from ai_engineering.version import install_method
+
+    method, argv = install_method.detect()
+    command_str = " ".join(argv)
+
+    if dry_run:
+        if is_json_mode():
+            emit_success(
+                "ai-eng version upgrade",
+                {"method": method, "command": command_str, "dry_run": True},
+            )
+        else:
+            show_logo()
+            info(f"Detected install method: {method}")
+            print_stdout(command_str)
+        return
+
+    if not is_json_mode():
+        show_logo()
+        info(f"Upgrading via {method}: {command_str}")
+
+    completed = subprocess.run(argv, check=False)
+
+    if completed.returncode != 0:
+        if is_json_mode():
+            from ai_engineering.cli_envelope import emit_error
+
+            emit_error(
+                command="version-upgrade",
+                message=f"Upgrade via {method} failed (exit {completed.returncode}).",
+                code="UpgradeFailed",
+                fix=f"Run the upgrade manually: {command_str}",
+            )
+        else:
+            error(f"Upgrade via {method} failed (exit {completed.returncode}).")
+            error(f"Run it manually: {command_str}")
+        raise typer.Exit(code=1)
+
+    if is_json_mode():
+        emit_success(
+            "ai-eng version upgrade",
+            {"method": method, "command": command_str, "upgraded": True},
+        )
+    else:
+        success(f"Upgraded ai-engineering via {method}.")

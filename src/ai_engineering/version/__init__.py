@@ -6,7 +6,7 @@ Public API:
 - load_registry, check_version, find_latest_version — checker functions.
 """
 
-from ai_engineering.version import cache, pypi, refresh
+from ai_engineering.version import cache, install_method, pypi, refresh
 from ai_engineering.version.checker import (
     VersionCheckResult,
     check_version,
@@ -25,6 +25,7 @@ __all__ = [
     "check_version",
     "find_latest_version",
     "find_version_entry",
+    "install_method",
     "load_registry",
     "pypi",
     "refresh",

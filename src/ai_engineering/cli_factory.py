@@ -367,7 +367,14 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     app.command("doctor")(_safe(core.doctor_cmd))
     app.command("check")(_safe(check.check_cmd))
     app.command("verify")(_safe(verify_cmd.verify_cmd))
-    app.command("version")(core.version_cmd)
+    version_app = typer.Typer(
+        name="version",
+        invoke_without_command=True,
+        help="Show version and upgrade the package.",
+    )
+    version_app.callback(invoke_without_command=True)(core.version_cmd)
+    version_app.command("upgrade")(core.version_upgrade_cmd)
+    app.add_typer(version_app, name="version")
     app.command("release")(_safe(release.release_cmd))
     app.command("status")(_safe(status_cmd_mod.status_cmd))
     app.command("commit")(_safe(commit_cmd_mod.commit_cmd))
