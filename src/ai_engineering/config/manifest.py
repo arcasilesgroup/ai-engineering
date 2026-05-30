@@ -185,6 +185,19 @@ class TelemetryConfig(BaseModel):
     default: str = "disabled"
 
 
+class VersionCheckConfig(BaseModel):
+    """Update-available notice settings (spec version-update-notice).
+
+    ``enabled`` gates the PyPI-cache update notice entirely; ``ttl_hours``
+    controls both the cache staleness window and the notice throttle;
+    ``source`` selects the version source adapter (only ``pypi`` today).
+    """
+
+    enabled: bool = True
+    ttl_hours: int = 24
+    source: str = "pypi"
+
+
 class PreCommitGateConfig(BaseModel):
     """Pre-commit gate-specific settings (spec-105 D-105-09).
 
@@ -387,6 +400,7 @@ class ManifestConfig(BaseModel):
     ownership: OwnershipConfig = Field(default_factory=OwnershipConfig)
     tooling: list[str] = Field(default_factory=list)
     telemetry: TelemetryConfig = Field(default_factory=TelemetryConfig)
+    version_check: VersionCheckConfig = Field(default_factory=VersionCheckConfig)
     gates: GatesConfig = Field(default_factory=GatesConfig)
     hot_path_slos: HotPathSlosConfig = Field(default_factory=HotPathSlosConfig)
     brainstorm: BrainstormConfig = Field(default_factory=BrainstormConfig)

@@ -662,7 +662,15 @@ def _constitution_mission(path: Path) -> str | None:
 
 def _manifest_summary(manifest: dict) -> dict:
     """Surface ``providers.ides``, ``ai_providers.primary``, ``gates.mode``."""
-    out: dict = {"ides": [], "ai_primary": None, "gates_mode": None}
+    out: dict = {
+        "ides": [],
+        "ai_primary": None,
+        "gates_mode": None,
+        "framework_version": None,
+    }
+    fw = manifest.get("framework_version")
+    if isinstance(fw, str) and fw:
+        out["framework_version"] = fw
     providers = manifest.get("providers")
     if isinstance(providers, dict):
         ides = providers.get("ides")
@@ -679,6 +687,38 @@ def _manifest_summary(manifest: dict) -> dict:
         if isinstance(mode, str):
             out["gates_mode"] = mode
     return out
+
+
+def _version_cache_latest() -> str | None:
+    """Read the latest-known release from the version-check cache.
+
+    Stdlib-only, no network: reads
+    ``~/.ai-engineering/state/version-check.json`` written out of band by
+    ``ai-eng internal version-refresh``. Fail-open — any IO/JSON error or a
+    missing file yields ``None``.
+    """
+    path = Path.home() / ".ai-engineering" / "state" / "version-check.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    latest = data.get("latest")
+    return latest if isinstance(latest, str) and latest else None
+
+
+def _version_is_newer(latest: str, installed: str) -> bool:
+    """Return True if ``latest`` is a strictly higher semver than ``installed``.
+
+    Fail-open: any unparseable version yields ``False`` (no update block).
+    """
+    try:
+        lt = tuple(int(x) for x in latest.split("."))
+        it = tuple(int(x) for x in installed.split("."))
+    except ValueError:
+        return False
+    return lt > it
 
 
 def _compat_warnings(manifest: dict) -> list[str]:
@@ -1036,6 +1076,20 @@ def _render_markdown(d: dict) -> str:
         for w in warnings:
             lines.append(f"- {w}")
 
+    latest = d.get("version_latest")
+    installed = (d.get("manifest_summary") or {}).get("framework_version")
+    if (
+        isinstance(latest, str)
+        and latest
+        and isinstance(installed, str)
+        and installed
+        and _version_is_newer(latest, installed)
+    ):
+        lines.append("")
+        lines.append("### ▸ Update")
+        lines.append("")
+        lines.append(f"- ai-engineering {installed} → {latest} — run `ai-eng version upgrade`")
+
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -1098,6 +1152,7 @@ def build_dashboard(repo_root: Path | None = None) -> dict:
         "mission": _constitution_mission(root / "CONSTITUTION.md"),
         "manifest_summary": _manifest_summary(manifest),
         "compat_warnings": _compat_warnings(manifest),
+        "version_latest": _version_cache_latest(),
     }
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0

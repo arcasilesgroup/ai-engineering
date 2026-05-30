@@ -29,6 +29,7 @@ from ai_engineering.config.manifest import (
     QualityConfig,
     SkillsConfig,
     TelemetryConfig,
+    VersionCheckConfig,
     WorkItemsConfig,
 )
 from ai_engineering.release.version_bump import detect_current_version
@@ -604,3 +605,40 @@ class TestTypedAccess:
     def test_telemetry_type(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)
         assert isinstance(config.telemetry, TelemetryConfig)
+
+    def test_version_check_type(self, real_manifest_data: dict) -> None:
+        config = ManifestConfig.model_validate(real_manifest_data)
+        assert isinstance(config.version_check, VersionCheckConfig)
+
+
+class TestVersionCheckDefaults:
+    """Defaults for the version_check manifest block (spec version-update-notice)."""
+
+    def test_enabled_defaults_true(self) -> None:
+        assert ManifestConfig().version_check.enabled is True
+
+    def test_ttl_hours_defaults_24(self) -> None:
+        assert ManifestConfig().version_check.ttl_hours == 24
+
+    def test_source_defaults_pypi(self) -> None:
+        assert ManifestConfig().version_check.source == "pypi"
+
+    def test_round_trip_from_yaml(self) -> None:
+        data = {
+            "version_check": {
+                "enabled": False,
+                "ttl_hours": 12,
+                "source": "pypi",
+            }
+        }
+        config = ManifestConfig.model_validate(data)
+        assert config.version_check.enabled is False
+        assert config.version_check.ttl_hours == 12
+
+    def test_template_manifest_seeds_block(self) -> None:
+        raw = TEMPLATE_MANIFEST_PATH.read_text(encoding="utf-8")
+        data = yaml.safe_load(raw)
+        assert isinstance(data, dict)
+        assert data.get("version_check", {}).get("enabled") is True
+        assert data["version_check"]["ttl_hours"] == 24
+        assert data["version_check"]["source"] == "pypi"

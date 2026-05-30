@@ -214,3 +214,65 @@ class TestVersionCmd:
 
         # Assert
         assert "0.1.0 (current)" in result.output
+
+
+# ---------------------------------------------------------------------------
+# CLI callback — upgrade verb + update-notice gating (spec version-update-notice)
+# ---------------------------------------------------------------------------
+
+
+class TestUpgradeVerbAndNotice:
+    """Deprecation/eol messages point at the new ``version upgrade`` verb."""
+
+    def test_deprecation_uses_version_upgrade_verb(self) -> None:
+        app = create_app()
+        result_mock = _make_check_result(
+            is_deprecated=True,
+            status=VersionStatus.DEPRECATED,
+            message="0.1.0 (deprecated)",
+        )
+        with patch(_PATCH_TARGET, return_value=result_mock):
+            result = runner.invoke(app, ["install"])
+        assert "ai-eng version upgrade" in result.output
+        assert "Run 'ai-eng update'" not in result.output
+
+    def test_eol_uses_version_upgrade_verb(self) -> None:
+        app = create_app()
+        result_mock = _make_check_result(
+            is_eol=True,
+            status=VersionStatus.EOL,
+            message="0.1.0 (end-of-life)",
+        )
+        with patch(_PATCH_TARGET, return_value=result_mock):
+            result = runner.invoke(app, ["install"])
+        assert "ai-eng version upgrade" in result.output
+
+    def test_notice_suppressed_when_env_disabled(self) -> None:
+        app = create_app()
+        result_mock = _make_check_result(
+            is_outdated=True,
+            status=VersionStatus.SUPPORTED,
+            message="0.1.0 (outdated)",
+            latest="0.9.0",
+        )
+        with (
+            patch(_PATCH_TARGET, return_value=result_mock),
+            patch("ai_engineering.cli_ui.maybe_render_update_notice") as notice,
+        ):
+            runner.invoke(app, ["doctor"], env={"AIENG_NO_UPDATE_CHECK": "1"})
+        notice.assert_not_called()
+
+    def test_notice_suppressed_in_json_mode(self) -> None:
+        app = create_app()
+        result_mock = _make_check_result(
+            is_outdated=True,
+            status=VersionStatus.SUPPORTED,
+            message="0.1.0 (outdated)",
+            latest="0.9.0",
+        )
+        with (
+            patch(_PATCH_TARGET, return_value=result_mock),
+            patch("ai_engineering.cli_ui.maybe_render_update_notice") as notice,
+        ):
+            runner.invoke(app, ["--json", "doctor"])
+        notice.assert_not_called()

@@ -108,3 +108,11 @@ lifecycle:
   draft_ttl_days: 30        # DRAFT sidecars older than this sweep to ABANDONED
   archive_layout: per-spec-dir  # archive/spec-NNN-<slug>/{spec.md,plan.md}
   reap_orphans: true        # sweep stray spec-*.md from specs/ root
+
+# Update-available notice (spec version-update-notice). Controls the
+# PyPI-cache "newer release available" hint shown on CLI commands and at
+# /ai-start. Set enabled: false (or export AIENG_NO_UPDATE_CHECK=1) to opt out.
+version_check:
+  enabled: true
+  ttl_hours: 24
+  source: pypi

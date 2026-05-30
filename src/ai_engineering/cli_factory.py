@@ -115,6 +115,27 @@ def _cli_error_boundary(func: Callable[..., object]) -> Callable[..., object]:
     return wrapper
 
 
+def _update_check_disabled() -> bool:
+    """Return True when the update-available notice is opted out.
+
+    Disabled when ``AIENG_NO_UPDATE_CHECK`` is truthy, or when the project
+    manifest's ``version_check.enabled`` flag is false. Fail-open: any
+    error reading the manifest treats the notice as enabled.
+    """
+    import os
+
+    if os.environ.get("AIENG_NO_UPDATE_CHECK", "").strip().lower() in {"1", "true", "yes", "on"}:
+        return True
+    try:
+        from pathlib import Path
+
+        from ai_engineering.config.loader import load_manifest_config
+
+        return not load_manifest_config(Path.cwd()).version_check.enabled
+    except Exception:
+        return False
+
+
 def _app_callback(
     ctx: typer.Context,
     json_output: Annotated[
@@ -185,12 +206,17 @@ def _app_callback(
         sys.stderr.write(
             f"BLOCKED: ai-engineering {__version__} is {status_label}.\n"
             f"  {result.message}\n"
-            f"  Run 'ai-eng update' to upgrade or 'ai-eng doctor' to diagnose.\n"
+            f"  Run 'ai-eng version upgrade' to upgrade or 'ai-eng doctor' to diagnose.\n"
         )
         raise typer.Exit(code=1)
 
-    if result.is_outdated:
-        sys.stderr.write(f"WARNING: {result.message}\n  Run 'ai-eng update' to upgrade.\n")
+    # spec version-update-notice D1: the PyPI cache (not the bundled
+    # registry) is the source for the "outdated" hint. Render the compact
+    # notice off the cache, spawning a detached refresh when it is stale.
+    if not json_output and command != "version" and not _update_check_disabled():
+        from ai_engineering.cli_ui import maybe_render_update_notice
+
+        maybe_render_update_notice()
 
     # spec-133 D-133-23: stack-drift middleware (warn + optional block)
     _stack_drift_middleware(command)
@@ -550,6 +576,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         hidden=True,
     )(internal.internal_python)
+    internal_app.command("version-refresh", hidden=True)(internal.internal_version_refresh)
     app.add_typer(internal_app, name="internal", hidden=True)
 
     # spec-132 D-132-02..05: removed verbs print ``removed; use <new>`` and

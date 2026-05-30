@@ -751,3 +751,73 @@ class TestSurfaceResolvedJsonField:
             f"schema_version must stay 1 after adding surface_resolved, "
             f"got {dashboard['schema_version']!r} (D-142-06: additive contract)"
         )
+
+
+@pytest.mark.unit
+class TestUpdateBlock:
+    """The ``### ▸ Update`` block reflects the version-check cache (spec)."""
+
+    def _seed_cache(self, home: Path, latest: str) -> None:
+        state = home / ".ai-engineering" / "state"
+        state.mkdir(parents=True, exist_ok=True)
+        (state / "version-check.json").write_text(
+            json.dumps({"latest": latest, "source": "pypi"}),
+            encoding="utf-8",
+        )
+
+    def test_manifest_summary_extracts_framework_version(self) -> None:
+        mod = _load_session_bootstrap_module()
+        summary = mod._manifest_summary({"framework_version": "0.8.4"})
+        assert summary["framework_version"] == "0.8.4"
+
+    def test_manifest_summary_framework_version_none_when_absent(self) -> None:
+        mod = _load_session_bootstrap_module()
+        summary = mod._manifest_summary({})
+        assert summary.get("framework_version") is None
+
+    def test_render_includes_update_block_when_outdated(self) -> None:
+        mod = _load_session_bootstrap_module()
+        dashboard = {
+            "project_name": "demo",
+            "manifest_summary": {"framework_version": "0.1.0"},
+            "version_latest": "0.9.0",
+        }
+        md = mod._render_markdown(dashboard)
+        assert "### ▸ Update" in md
+        assert "0.9.0" in md
+        assert "ai-eng version upgrade" in md
+
+    def test_render_omits_update_block_when_current(self) -> None:
+        mod = _load_session_bootstrap_module()
+        dashboard = {
+            "project_name": "demo",
+            "manifest_summary": {"framework_version": "0.9.0"},
+            "version_latest": "0.9.0",
+        }
+        md = mod._render_markdown(dashboard)
+        assert "### ▸ Update" not in md
+
+    def test_render_omits_update_block_when_no_cache(self) -> None:
+        mod = _load_session_bootstrap_module()
+        dashboard = {
+            "project_name": "demo",
+            "manifest_summary": {"framework_version": "0.1.0"},
+            "version_latest": None,
+        }
+        md = mod._render_markdown(dashboard)
+        assert "### ▸ Update" not in md
+
+    def test_version_cache_latest_reads_home(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mod = _load_session_bootstrap_module()
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        self._seed_cache(tmp_path, "1.2.3")
+        assert mod._version_cache_latest() == "1.2.3"
+
+    def test_version_cache_latest_none_when_missing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mod = _load_session_bootstrap_module()
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        assert mod._version_cache_latest() is None

@@ -23,3 +23,14 @@ def internal_python(ctx: typer.Context) -> None:
     )
     if completed.returncode != 0:
         raise typer.Exit(code=completed.returncode)
+
+
+def internal_version_refresh() -> None:
+    """Refresh the version-check cache from PyPI (detached child entrypoint).
+
+    Invoked by ``version.refresh.spawn_background`` as
+    ``ai-eng internal version-refresh``. Fail-open: errors never surface.
+    """
+    from ai_engineering.version import refresh
+
+    refresh.refresh_now()
