@@ -24,13 +24,21 @@ from ai_engineering.version import cache, pypi
 
 
 def refresh_now() -> None:
-    """Fetch the latest release and persist it to the cache (fail-open)."""
+    """Fetch the latest release and persist it to the cache (fail-open).
+
+    spec-156 D-156-13: on any failure (exception or empty result) the cache's
+    ``checked_at`` is still advanced so an offline run does not respawn a
+    detached refresh on every subsequent CLI invocation.
+    """
     try:
         latest = pypi.fetch_latest()
     except Exception:
+        cache.touch_checked_at()
         return
     if latest:
         cache.write(latest, source="pypi")
+    else:
+        cache.touch_checked_at()
 
 
 def spawn_background() -> None:

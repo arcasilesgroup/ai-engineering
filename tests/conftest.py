@@ -22,6 +22,22 @@ TEST_GIT_USER = "Test User"
 TEST_GIT_EMAIL = "test@example.com"
 
 
+@pytest.fixture(autouse=True)
+def _reset_json_mode():
+    """Reset process-global json-mode after every test (spec-156 D-156-10).
+
+    ``cli_output._json_mode`` is a process global set by the app callback and
+    never restored. A lifecycle test invoking ``[--json, doctor]`` leaked
+    ``True`` into later tests, silently no-op'ing the update-notice tests
+    (``if is_json_mode(): return``) — CI was green only by alphabetical
+    collection order. This autouse teardown makes json-mode test-isolated.
+    """
+    from ai_engineering.cli_output import set_json_mode
+
+    yield
+    set_json_mode(False)
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _git_test_isolation():
     """Isolate git config so tests never read or write real global/system config.

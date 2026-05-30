@@ -61,6 +61,18 @@ from ai_engineering.cli_commands import (
 # Commands exempt from deprecation blocking (needed for diagnosis and remediation).
 _EXEMPT_COMMANDS: frozenset[str] = frozenset({"version", "update", "doctor", "internal"})
 
+# spec-156 D-156-09: commands that must NEVER render the human update notice —
+# automation / hot-path surfaces where a stderr line corrupts shim output or
+# blows the pre-commit budget. The notice is rendered AFTER the command (so
+# per-command ``--json`` is fully resolved via is_json_mode), never in the
+# pre-command callback.
+_NOTICE_EXEMPT: frozenset[str] = frozenset({"version", "internal", "gate"})
+
+# The subcommand resolved by the app callback, read by the error boundary to
+# decide whether to render the post-command update notice. Module-level because
+# the per-command wrapper does not otherwise see the invoked command name.
+_invoked_command: str | None = None
+
 # Exceptions that should produce a clean one-line error instead of a traceback.
 _USER_FACING_EXCEPTIONS: tuple[type[Exception], ...] = (
     FileNotFoundError,
@@ -94,6 +106,10 @@ def _cli_error_boundary(func: Callable[..., object]) -> Callable[..., object]:
                 con = get_console()
                 if con.is_terminal:
                     con.print()
+            # spec-156 D-156-09: render the update notice AFTER the command, so
+            # per-command ``--json`` (set inside the command, after the callback)
+            # is fully resolved and machine/automation surfaces never see it.
+            _maybe_render_post_command_notice()
             return result
         except _USER_FACING_EXCEPTIONS as exc:
             from ai_engineering.cli_output import is_json_mode
@@ -136,6 +152,28 @@ def _update_check_disabled() -> bool:
         return False
 
 
+def _maybe_render_post_command_notice() -> None:
+    """Render the human update notice after a command, when appropriate.
+
+    spec-156 D-156-09: gated on the fully-resolved output mode
+    (``is_json_mode()`` — true even for per-command ``--json`` set inside the
+    command), the ``_NOTICE_EXEMPT`` automation/hot-path set, and the
+    manifest/env opt-outs. Fail-open: any error is swallowed by the notice
+    renderer itself.
+    """
+    from ai_engineering.cli_output import is_json_mode
+
+    if is_json_mode():
+        return
+    if _invoked_command is None or _invoked_command in _NOTICE_EXEMPT:
+        return
+    if _update_check_disabled():
+        return
+    from ai_engineering.cli_ui import maybe_render_update_notice
+
+    maybe_render_update_notice()
+
+
 def _app_callback(
     ctx: typer.Context,
     json_output: Annotated[
@@ -147,6 +185,11 @@ def _app_callback(
     from ai_engineering.cli_output import set_json_mode
 
     set_json_mode(json_output)
+
+    # spec-156 D-156-09: record the invoked command so the error boundary can
+    # decide whether to render the post-command update notice.
+    global _invoked_command
+    _invoked_command = ctx.invoked_subcommand
 
     if ctx.invoked_subcommand is None:
         # No subcommand: show logo + help (human) or command tree (JSON)
@@ -210,13 +253,11 @@ def _app_callback(
         )
         raise typer.Exit(code=1)
 
-    # spec version-update-notice D1: the PyPI cache (not the bundled
-    # registry) is the source for the "outdated" hint. Render the compact
-    # notice off the cache, spawning a detached refresh when it is stale.
-    if not json_output and command != "version" and not _update_check_disabled():
-        from ai_engineering.cli_ui import maybe_render_update_notice
-
-        maybe_render_update_notice()
+    # spec-156 D-156-09: the update notice is rendered AFTER the command by the
+    # error boundary (see _maybe_render_post_command_notice), not here — the
+    # pre-command callback cannot see a per-command ``--json`` flag, which leaked
+    # the notice onto automation / agent surfaces and burned the once-per-TTL
+    # throttle (audit high 5).
 
     # spec-133 D-133-23: stack-drift middleware (warn + optional block)
     _stack_drift_middleware(command)

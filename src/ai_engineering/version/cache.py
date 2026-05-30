@@ -75,6 +75,19 @@ def write(latest: str, source: str = "pypi") -> None:
         _atomic_write(cache_path(), payload)
 
 
+def touch_checked_at() -> None:
+    """Advance ``checked_at`` to now WITHOUT changing ``latest`` (fail-open).
+
+    spec-156 D-156-13: a failed PyPI fetch must still bump ``checked_at`` so the
+    cache is not perpetually stale — otherwise every CLI invocation respawns a
+    detached refresh while offline. Preserves ``latest`` and ``last_shown_at``.
+    """
+    data = read()
+    data["checked_at"] = datetime.now(UTC).isoformat()
+    with contextlib.suppress(OSError):
+        _atomic_write(cache_path(), data)
+
+
 def is_stale(ttl_hours: int) -> bool:
     """Return True if the cache is missing, malformed, or older than TTL."""
     data = read()

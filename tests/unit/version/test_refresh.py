@@ -28,11 +28,14 @@ def test_refresh_now_writes_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     assert cache.read()["latest"] == "2.0.0"
 
 
-def test_refresh_now_skips_write_when_fetch_none(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_refresh_now_touches_checked_at_when_fetch_none(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(pypi, "fetch_latest", lambda *a, **k: None)
     refresh.refresh_now()
-    # No latest fetched -> no cache written.
-    assert cache.read() == {}
+    data = cache.read()
+    # spec-156 D-156-13: no latest is written, but checked_at is stamped so an
+    # offline run does not respawn a detached refresh on every invocation.
+    assert data.get("latest") is None
+    assert isinstance(data.get("checked_at"), str) and data["checked_at"]
 
 
 def test_refresh_now_fail_open_on_fetch_error(monkeypatch: pytest.MonkeyPatch) -> None:
