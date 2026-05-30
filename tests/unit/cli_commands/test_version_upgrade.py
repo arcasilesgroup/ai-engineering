@@ -165,6 +165,46 @@ class TestVersionUpgradeExecute:
 
 
 # ---------------------------------------------------------------------------
+# version upgrade — unknown method (pip unavailable on a standalone tool)
+# ---------------------------------------------------------------------------
+
+
+class TestVersionUpgradeUnknownMethod:
+    """When detect() cannot resolve a runnable upgrade, never execute a doomed
+    command. Print manual guidance (pipx / uv tool / pip) and exit non-zero."""
+
+    def test_unknown_prints_manual_guidance_and_exits_nonzero(self) -> None:
+        app = create_app()
+        with (
+            patch(_DETECT_TARGET, return_value=("unknown", [])),
+            patch(_RUN_TARGET) as run_mock,
+        ):
+            result = runner.invoke(app, ["version", "upgrade"])
+        assert result.exit_code != 0
+        # Never executes a subprocess in the unknown path.
+        run_mock.assert_not_called()
+        # Surfaces the likely manual commands.
+        assert "pipx upgrade ai-engineering" in result.output
+        assert "uv tool upgrade ai-engineering" in result.output
+        assert "pip install -U ai-engineering" in result.output
+
+    def test_unknown_json_envelope_is_error(self) -> None:
+        app = create_app()
+        with (
+            patch(_DETECT_TARGET, return_value=("unknown", [])),
+            patch(_RUN_TARGET) as run_mock,
+        ):
+            result = runner.invoke(app, ["--json", "version", "upgrade"])
+        assert result.exit_code != 0
+        run_mock.assert_not_called()
+        payload = json.loads(result.output)
+        assert payload["ok"] is False
+        blob = json.dumps(payload)
+        assert "pipx upgrade ai-engineering" in blob
+        assert "uv tool upgrade ai-engineering" in blob
+
+
+# ---------------------------------------------------------------------------
 # version upgrade — fail-loud
 # ---------------------------------------------------------------------------
 

@@ -1082,6 +1082,8 @@ def update_cmd(
         apply=apply,
     )
 
+    from ai_engineering.updater.service import ScopeNotInstalledError
+
     try:
         workflow_result = run_update_workflow(
             root,
@@ -1090,6 +1092,21 @@ def update_cmd(
             confirm_apply=confirm_apply if interactive_tty else None,
             update_runner=update_runner,
         )
+    except ScopeNotInstalledError as exc:
+        # An explicit --global / --local against an absent install: fail loud
+        # rather than report a silent empty run (HIGH-2).
+        if json_requested:
+            from ai_engineering.cli_envelope import emit_error
+
+            emit_error(
+                _UPDATE_COMMAND,
+                message=str(exc),
+                code="scope_not_installed",
+                fix=str(exc),
+            )
+            raise typer.Exit(code=1) from exc
+        error(str(exc))
+        raise typer.Exit(code=1) from exc
     except Exception as exc:
         if json_requested:
             from ai_engineering.cli_envelope import emit_error
@@ -1171,13 +1188,27 @@ def _run_update_with_spinner(
     with spinner(message):
         from ai_engineering.updater.service import update_scopes
 
-        results = update_scopes(target_root, dry_run=dry_run, scope=scope)
+        # Explicit scope raises ScopeNotInstalledError when absent (handled by
+        # update_cmd). No-flag returns the scopes that exist plus the names of
+        # any absent scope so we never report a silent empty success.
+        if scope is not None:
+            results = update_scopes(target_root, dry_run=dry_run, scope=scope)
+            return _merge_update_results(results)
+
+        from ai_engineering.updater.service import reconcile_scopes_with_skips
+
+        results, skipped = reconcile_scopes_with_skips(target_root, dry_run=dry_run)
         if not results:
             # No install marker for any scope -- fall back to a repo-local run so
             # the workflow still produces a (likely empty) report rather than
             # silently doing nothing.
-            return update(target_root, dry_run=dry_run, scope="local")
-        return _merge_update_results(results)
+            merged = update(target_root, dry_run=dry_run, scope="local")
+        else:
+            merged = _merge_update_results(results)
+        # Surface absent scopes so output never reads as a clean run when a
+        # scope (e.g. global) was simply never installed (HIGH-2).
+        merged.skipped_scopes = skipped
+        return merged
 
 
 def _merge_update_results(results: dict[str, Any]) -> Any:
@@ -1242,6 +1273,9 @@ def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
     """Render human-facing update results."""
     mode = "APPLIED" if not result.dry_run else "PREVIEW"
     print_stdout(f"Update [{mode}]: {root}")
+
+    for scope in getattr(result, "skipped_scopes", []):
+        warning(f"{scope} scope not installed (skipped) — run 'ai-eng install --{scope}'")
 
     # Show only the count that can be non-zero in this mode; the other is
     # structurally always zero and would be pure noise.
@@ -1617,6 +1651,41 @@ def version_cmd(ctx: typer.Context) -> None:
             print_stdout(f"latest known release: {latest}")
 
 
+_MANUAL_UPGRADE_COMMANDS: tuple[str, ...] = (
+    "pipx upgrade ai-engineering",
+    "uv tool upgrade ai-engineering",
+    "pip install -U ai-engineering",
+)
+"""Likely manual upgrade commands shown when the install method is unknown."""
+
+
+def _emit_manual_upgrade_guidance() -> None:
+    """Surface manual upgrade commands when no runnable method was detected.
+
+    Used when ``install_method.detect`` returns ``unknown`` (e.g. a pipx/uv
+    standalone tool with no importable pip). We never execute a doomed command;
+    instead we print the commands the operator can run by hand. The caller exits
+    non-zero so an un-upgraded install is never reported as success.
+    """
+    message = (
+        "Could not determine how ai-engineering was installed; not running a "
+        "guessed command. Upgrade manually with whichever installed it:"
+    )
+    if is_json_mode():
+        from ai_engineering.cli_envelope import emit_error
+
+        emit_error(
+            command="version-upgrade",
+            message=message,
+            code="UpgradeMethodUnknown",
+            fix="; ".join(_MANUAL_UPGRADE_COMMANDS),
+        )
+        return
+    error(message)
+    for command in _MANUAL_UPGRADE_COMMANDS:
+        print_stdout(f"  {command}")
+
+
 def version_upgrade_cmd(
     dry_run: Annotated[
         bool,
@@ -1633,6 +1702,11 @@ def version_upgrade_cmd(
     from ai_engineering.version import install_method
 
     method, argv = install_method.detect()
+
+    if method == "unknown":
+        _emit_manual_upgrade_guidance()
+        raise typer.Exit(code=1)
+
     command_str = " ".join(argv)
 
     if dry_run:

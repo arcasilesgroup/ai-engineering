@@ -11,11 +11,16 @@ Detection order (most specific first):
 1. **pipx** — package lives under a ``pipx/venvs`` tree.
 2. **uv tool** — package lives under a ``uv/tools`` tree.
 3. **brew** — package lives under a Homebrew ``Cellar`` tree.
-4. **pip** (default) — upgrade via this interpreter's pip.
+4. **pip** (default) — upgrade via this interpreter's pip, but ONLY when pip is
+   importable. A pipx/uv standalone tool whose path dodges the heuristics has a
+   private, often pip-less venv: ``sys.executable -m pip`` there fails or
+   upgrades the wrong env. When pip is unavailable we return ``unknown`` with an
+   empty argv so the caller prints manual guidance instead of a doomed command.
 """
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -43,6 +48,7 @@ def detect(
     *,
     prefix: Path | None = None,
     package_file: Path | None = None,
+    pip_available: bool | None = None,
 ) -> tuple[str, list[str]]:
     """Return ``(method, upgrade_argv)`` for the current install.
 
@@ -50,6 +56,16 @@ def detect(
         prefix: Interpreter prefix to inspect. Defaults to ``sys.prefix``.
         package_file: Path to the installed ``ai_engineering`` package.
             Defaults to ``ai_engineering.__file__``.
+        pip_available: Whether ``pip`` is importable in this interpreter. The
+            seam is injectable for tests; when ``None`` it is probed live via
+            ``importlib.util.find_spec``. Only consulted on the pip fallback
+            path.
+
+    Returns:
+        ``(method, upgrade_argv)``. ``method`` is one of ``pipx``, ``uv tool``,
+        ``brew``, ``pip``, or ``unknown``. For ``unknown`` the argv is empty:
+        no runnable command could be resolved, so the caller must surface manual
+        guidance rather than execute.
     """
     prefix = prefix if prefix is not None else Path(sys.prefix)
     package_file = package_file if package_file is not None else Path(ai_engineering.__file__)
@@ -66,5 +82,12 @@ def detect(
 
     if "cellar" in parts:
         return "brew", ["brew", "upgrade", PACKAGE_NAME]
+
+    if pip_available is None:
+        pip_available = importlib.util.find_spec("pip") is not None
+    if not pip_available:
+        # A standalone tool venv with no pip: a pip command would fail or target
+        # the wrong env. Defer to manual guidance in the caller.
+        return "unknown", []
 
     return "pip", [sys.executable, "-m", "pip", "install", "-U", PACKAGE_NAME]

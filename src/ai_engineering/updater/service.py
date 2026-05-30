@@ -119,6 +119,9 @@ class UpdateResult:
 
     dry_run: bool
     changes: list[FileChange] = field(default_factory=list)
+    skipped_scopes: list[str] = field(default_factory=list)
+    """Scope names absent at update time (no install marker), surfaced so a
+    no-flag run never reports a silent empty success for a missing scope."""
 
     @property
     def applied_count(self) -> int:
@@ -165,6 +168,7 @@ class UpdateResult:
                 "failed": 0,
             },
             "changes": [change.to_dict(dry_run=self.dry_run) for change in self.changes],
+            "skipped_scopes": list(self.skipped_scopes),
         }
 
 
@@ -498,6 +502,20 @@ def update(
     return payload.result
 
 
+class ScopeNotInstalledError(RuntimeError):
+    """Raised when an explicitly requested scope has no install marker.
+
+    An explicit ``--global`` / ``--local`` must fail loud rather than run an
+    empty reconcile that would read as success against a non-existent install.
+    """
+
+
+_SCOPE_INSTALL_HINT: dict[str, str] = {
+    "global": "ai-eng install --global",
+    "local": "ai-eng install",
+}
+
+
 def _scope_is_installed(target: Path, scope: str) -> bool:
     """Return True when *scope* has an install marker (install-state.json)."""
     root = _scope_root(target, scope)
@@ -522,9 +540,20 @@ def update_scopes(
             reconciles *both* scopes that have an install marker.
 
     Returns:
-        Mapping of scope name -> :class:`UpdateResult` for each scope run.
+        Mapping of scope name -> :class:`UpdateResult` for each scope run. For
+        no-flag (``scope=None``) the mapping contains only scopes that actually
+        have an install marker.
+
+    Raises:
+        ScopeNotInstalledError: when an explicit *scope* has no install marker —
+            an explicit request against a non-existent install fails loud rather
+            than reporting a silent empty success (HIGH-2).
     """
     if scope is not None:
+        if not _scope_is_installed(target, scope):
+            hint = _SCOPE_INSTALL_HINT.get(scope, "ai-eng install")
+            msg = f"no {scope} install found at {_scope_root(target, scope)} — run `{hint}`"
+            raise ScopeNotInstalledError(msg)
         return {scope: update(target, dry_run=dry_run, scope=scope)}
 
     results: dict[str, UpdateResult] = {}
@@ -533,6 +562,29 @@ def update_scopes(
         if _scope_is_installed(target, candidate):
             results[candidate] = update(target, dry_run=dry_run, scope=candidate)
     return results
+
+
+def reconcile_scopes_with_skips(
+    target: Path,
+    *,
+    dry_run: bool = True,
+) -> tuple[dict[str, UpdateResult], list[str]]:
+    """No-flag reconcile that also reports scopes skipped for being uninstalled.
+
+    Returns ``(results, skipped)`` where *skipped* lists scope names that had no
+    install marker, so the caller surfaces "not installed (skipped)" instead of
+    reporting a silent empty success when a scope (e.g. global) was never
+    installed (HIGH-2). Kept separate from :func:`update_scopes` so the latter's
+    return type stays a single plain dict.
+    """
+    results: dict[str, UpdateResult] = {}
+    skipped: list[str] = []
+    for candidate in ("local", "global"):
+        if _scope_is_installed(target, candidate):
+            results[candidate] = update(target, dry_run=dry_run, scope=candidate)
+        else:
+            skipped.append(candidate)
+    return results, skipped
 
 
 def _apply_actionable_file_changes(changes: list[FileChange], target: Path) -> Path | None:

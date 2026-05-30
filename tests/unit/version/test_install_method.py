@@ -107,6 +107,41 @@ class TestDetectPipDefault:
         assert argv[0] == sys.executable
 
 
+class TestDetectPipMissing:
+    """A pipx/uv standalone tool whose path dodges detection has no usable pip.
+
+    Running ``sys.executable -m pip`` there targets the tool's private venv
+    (often pip-less) and fails or upgrades the wrong env. ``detect`` must NOT
+    return a doomed pip command in that case — it returns ``unknown`` so the
+    caller can print manual guidance instead of executing.
+    """
+
+    def test_pip_unavailable_returns_unknown_no_doomed_argv(self) -> None:
+        # Arrange — a path that matches none of the manager heuristics, and a
+        # venv where ``pip`` is not importable (injected seam).
+        prefix = Path("/opt/standalone/ai-engineering")
+        pkg = prefix / "lib/python3.11/site-packages/ai_engineering/__init__.py"
+
+        # Act
+        method, argv = install_method.detect(prefix=prefix, package_file=pkg, pip_available=False)
+
+        # Assert — distinct method, and NOT a pip-install command list.
+        assert method == "unknown"
+        assert argv != [sys.executable, "-m", "pip", "install", "-U", "ai-engineering"]
+
+    def test_pip_available_keeps_pip_fallback(self) -> None:
+        # Arrange — same unmatched path, but pip IS importable.
+        prefix = Path("/opt/standalone/ai-engineering")
+        pkg = prefix / "lib/python3.11/site-packages/ai_engineering/__init__.py"
+
+        # Act
+        method, argv = install_method.detect(prefix=prefix, package_file=pkg, pip_available=True)
+
+        # Assert — unchanged pip behaviour.
+        assert method == "pip"
+        assert argv == [sys.executable, "-m", "pip", "install", "-U", "ai-engineering"]
+
+
 class TestDetectDefaults:
     """Calling detect() with no args inspects the live interpreter."""
 
@@ -116,5 +151,5 @@ class TestDetectDefaults:
 
         # Assert — deterministic shape regardless of environment.
         assert isinstance(method, str) and method
-        assert isinstance(argv, list) and argv
+        assert isinstance(argv, list)
         assert all(isinstance(part, str) for part in argv)

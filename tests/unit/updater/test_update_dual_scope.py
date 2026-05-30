@@ -19,7 +19,12 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.installer.service import install
-from ai_engineering.updater.service import update, update_scopes
+from ai_engineering.updater.service import (
+    ScopeNotInstalledError,
+    reconcile_scopes_with_skips,
+    update,
+    update_scopes,
+)
 
 
 @pytest.fixture
@@ -125,6 +130,45 @@ def test_update_scopes_explicit_global(home: Path, repo: Path) -> None:
     _install_global(home)
     results = update_scopes(repo, dry_run=True, scope="global")
     assert set(results) == {"global"}
+
+
+# ---------------------------------------------------------------------------
+# HIGH-2: absent scope must not be a silent success
+# ---------------------------------------------------------------------------
+
+
+def test_no_flag_records_absent_global_as_skipped(home: Path, repo: Path) -> None:
+    """No-flag update must signal that global was absent, not silently no-op.
+
+    Previously an absent global root merged an empty success, so output read
+    "update complete" with no hint global was never installed. The runner now
+    reports the absent scope as skipped instead of pretending it ran.
+    """
+    _install_local(repo)
+    # No global install.
+    results, skipped = reconcile_scopes_with_skips(repo, dry_run=True)
+    assert set(results) == {"local"}
+    assert "global" in skipped, "absent global scope must be surfaced as skipped"
+
+
+def test_no_flag_no_skips_when_both_present(home: Path, repo: Path) -> None:
+    """When both scopes exist, nothing is reported as skipped."""
+    _install_local(repo)
+    _install_global(home)
+    results, skipped = reconcile_scopes_with_skips(repo, dry_run=True)
+    assert set(results) == {"local", "global"}
+    assert skipped == []
+
+
+def test_explicit_global_absent_fails_loud(home: Path, repo: Path) -> None:
+    """`--global` with no global install fails loud — never a silent empty run."""
+    _install_local(repo)
+    # No global install.
+    with pytest.raises(ScopeNotInstalledError) as excinfo:
+        update_scopes(repo, dry_run=True, scope="global")
+    message = str(excinfo.value)
+    assert "global" in message
+    assert "ai-eng install --global" in message
 
 
 # ---------------------------------------------------------------------------
