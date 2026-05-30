@@ -1,0 +1,19 @@
+# Snyk (https://snyk.io) policy file. Tracked risk acceptances for the
+# `snyk-security` CI gate (.github/workflows/ci-check.yml). Each ignore is
+# time-boxed and removed once an upstream fix is published.
+version: v1.25.0
+ignore:
+  SNYK-PYTHON-PIP-16964647:
+    - '*':
+        reason: >-
+          CVE-2026-8643 (Directory Traversal in pip via crafted wheel
+          entry-point names). Affects all pip versions; no fixed release is
+          published (patch sits unreleased in pip master). pip is the
+          installer captured incidentally by `uv pip freeze`, not a runtime
+          dependency of the shipped ai-engineering wheel, and exploitation
+          requires installing a maliciously crafted wheel under elevated
+          privileges -- outside this project's threat model. Dependency
+          coverage is retained via pip-audit, semgrep, gitleaks, SBOM, and
+          Scorecard. Remove this ignore once pip publishes a fixed release.
+        expires: 2026-06-29T00:00:00.000Z
+patch: {}
