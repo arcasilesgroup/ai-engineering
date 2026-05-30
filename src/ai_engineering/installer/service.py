@@ -57,6 +57,7 @@ from ai_engineering.installer.phases.pipeline import PipelineRunner, PipelineSum
 from ai_engineering.installer.phases.scripts import ScriptsPhase
 from ai_engineering.installer.phases.state import StatePhase
 from ai_engineering.installer.phases.tools import ToolsPhase
+from ai_engineering.installer.scope import GuidanceSentinel
 from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_state,
@@ -120,6 +121,9 @@ class InstallResult:
     readiness_status: str = "pending"
     manual_steps: list[str] = field(default_factory=list)
     guide_text: str | None = None
+    # spec-156 D-156-15: per-surface wire-up guidance (cursor / copilot under
+    # --global) carried through from the pipeline so the CLI can print it.
+    guidance: list[GuidanceSentinel] = field(default_factory=list)
 
     @property
     def total_created(self) -> int:
@@ -409,6 +413,9 @@ def _summary_to_install_result(
         and not real_state_files
     ):
         result.already_installed = True
+
+    # spec-156 D-156-15: carry per-surface wire-up guidance through to the CLI.
+    result.guidance = list(summary.guidance)
 
     return result
 

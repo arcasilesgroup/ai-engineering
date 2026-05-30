@@ -811,6 +811,12 @@ def _emit_install_success_json(
             "already_installed": result.already_installed,
             "manual_steps": result.manual_steps,
             "guide_text": result.guide_text,
+            # spec-156 D-156-15: surface wire-up guidance (cursor / copilot
+            # under --global) so automation sees the manual steps too.
+            "guidance": [
+                {"surface": g.surface, "message": g.message, "steps": list(g.steps)}
+                for g in getattr(result, "guidance", [])
+            ],
             "auto_remediation": auto_remediation_report.to_dict(),
         },
         [
@@ -844,6 +850,7 @@ def _render_install_success_human(
 
     typer.echo("")
     _render_manual_install_steps(result.manual_steps)
+    _render_install_guidance(getattr(result, "guidance", []))
     if result.already_installed:
         print_stdout("  (framework was already installed — skipped existing files)")
 
@@ -870,6 +877,23 @@ def _render_manual_install_steps(manual_steps: list[str]) -> None:
     warning("Manual steps required:")
     for step in manual_steps:
         print_stdout(f"    - {step}")
+
+
+def _render_install_guidance(guidance: list[Any]) -> None:
+    """Render per-surface wire-up guidance (spec-156 D-156-15).
+
+    Surfaces with no machine-wide home file (cursor / github-copilot) under
+    ``--global`` contribute a guidance sentinel instead of a written file; print
+    its message and ordered steps so choosing them in global scope does
+    something visible.
+    """
+    if not guidance:
+        return
+    for sentinel in guidance:
+        typer.echo("")
+        warning(f"{sentinel.surface}: {sentinel.message}")
+        for index, step in enumerate(sentinel.steps, start=1):
+            print_stdout(f"    {index}. {step}")
 
 
 def _render_install_summary_panel(result: Any) -> None:
@@ -1127,6 +1151,14 @@ def update_cmd(
     json_requested = is_json_mode() or output_json
     interactive_tty = not json_requested and sys.stdin.isatty()
     update_scope = _resolve_update_scope(scope_global=scope_global, scope_local=scope_local)
+
+    # spec-156 D-156-03: announce the scope this update acts on (stderr-only,
+    # suppressed under --json) before any reconciliation runs.
+    if not json_requested:
+        from ai_engineering.installer.scope_resolution import resolve_scope
+
+        announce_scope(resolve_scope(root, update_scope).announce)
+
     update_runner = partial(
         _run_update_with_spinner, interactive_tty=interactive_tty, scope=update_scope
     )
@@ -1780,7 +1812,15 @@ def version_upgrade_cmd(
         show_logo()
         info(f"Upgrading via {method}: {command_str}")
 
-    completed = subprocess.run(argv, check=False)
+    # spec-156 D-156-14: in JSON mode the upgrade tool's stdout/stderr would
+    # interleave with — and corrupt — the success envelope, so redirect both to
+    # DEVNULL. Human mode streams the tool output so the operator sees progress.
+    if is_json_mode():
+        completed = subprocess.run(
+            argv, check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
+    else:
+        completed = subprocess.run(argv, check=False)
 
     if completed.returncode != 0:
         if is_json_mode():

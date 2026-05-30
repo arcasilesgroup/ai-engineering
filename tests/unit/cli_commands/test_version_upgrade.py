@@ -163,6 +163,28 @@ class TestVersionUpgradeExecute:
             result = runner.invoke(app, ["version", "upgrade"])
         assert result.exit_code == 0
 
+    def test_json_success_emits_clean_envelope_and_suppresses_subprocess_output(self) -> None:
+        """spec-156 D-156-14: in --json mode the upgrade subprocess stdout/stderr
+        redirect to DEVNULL so the tool's chatter never corrupts the JSON
+        envelope, and rc 0 emits a clean success envelope."""
+        import subprocess as _subprocess
+
+        app = create_app()
+        argv = ["pipx", "upgrade", "ai-engineering"]
+        with (
+            patch(_DETECT_TARGET, return_value=("pipx", argv)),
+            patch(_RUN_TARGET) as run_mock,
+        ):
+            run_mock.return_value.returncode = 0
+            result = runner.invoke(app, ["--json", "version", "upgrade"])
+        assert result.exit_code == 0
+        payload = json.loads(result.output)
+        assert payload["result"]["upgraded"] is True
+        assert payload["result"]["method"] == "pipx"
+        kwargs = run_mock.call_args.kwargs
+        assert kwargs.get("stdout") == _subprocess.DEVNULL
+        assert kwargs.get("stderr") == _subprocess.DEVNULL
+
 
 # ---------------------------------------------------------------------------
 # version upgrade — unknown method (pip unavailable on a standalone tool)

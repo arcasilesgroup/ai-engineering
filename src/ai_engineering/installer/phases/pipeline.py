@@ -22,6 +22,7 @@ from collections.abc import Callable
 from contextlib import suppress
 from dataclasses import dataclass, field
 
+from ai_engineering.installer.scope import GuidanceSentinel
 from ai_engineering.reconciler import (
     ReconcileAction,
     ReconcileApplyResult,
@@ -59,6 +60,10 @@ class PipelineSummary:
     failed_phase: str | None = None
     non_critical_failures: list[str] = field(default_factory=list)
     dry_run: bool = False
+    # spec-156 D-156-15: per-surface wire-up guidance for surfaces with no
+    # home destination under --global (cursor / copilot). Aggregated from any
+    # phase exposing a ``.guidance`` attribute so the CLI can print it.
+    guidance: list[GuidanceSentinel] = field(default_factory=list)
 
 
 class _InstallPhaseAdapter:
@@ -231,6 +236,16 @@ class PipelineRunner:
                 continue
 
             summary.completed_phases.append(phase.name)
+
+        # spec-156 D-156-15: collect wire-up guidance any phase recorded (e.g.
+        # IdeConfigPhase under --global for cursor / copilot) so the installer
+        # surface can print it. Dedupe by surface, preserving first occurrence.
+        seen_surfaces: set[str] = set()
+        for phase in self._phases:
+            for sentinel in getattr(phase, "guidance", None) or []:
+                if sentinel.surface not in seen_surfaces:
+                    seen_surfaces.add(sentinel.surface)
+                    summary.guidance.append(sentinel)
 
         return summary
 

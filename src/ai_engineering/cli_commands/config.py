@@ -54,6 +54,13 @@ def config_cmd(
         )
         return
 
+    # spec-156 D-156-03: announce the scope this view reflects (stderr-only,
+    # suppressed under --json).
+    from ai_engineering.cli_ui import announce_scope
+    from ai_engineering.installer.scope_resolution import resolve_scope
+
+    announce_scope(resolve_scope(root).announce)
+
     renderer.header()
     render_config(cfg, renderer)
     renderer.ok("config posture", result=render_config_payload(cfg))
