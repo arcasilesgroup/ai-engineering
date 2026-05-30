@@ -397,19 +397,6 @@ def metric_table(rows: list[tuple[str, str, str]]) -> None:
 # ── Update-available notice (spec version-update-notice) ──────────────
 
 
-def _is_newer(latest: str, installed: str) -> bool:
-    """Return True if ``latest`` is a strictly higher semver than ``installed``.
-
-    Fail-open: any unparseable version yields ``False`` (no notice).
-    """
-    try:
-        lt = tuple(int(x) for x in latest.split("."))
-        it = tuple(int(x) for x in installed.split("."))
-    except ValueError:
-        return False
-    return lt > it
-
-
 def _load_version_check_config() -> object:
     """Load the manifest ``version_check`` block from the cwd project root.
 
@@ -468,6 +455,7 @@ def maybe_render_update_notice() -> None:
 def _render_update_notice() -> None:
     from ai_engineering.cli_output import is_json_mode
     from ai_engineering.version import cache
+    from ai_engineering.version.compare import is_newer
 
     if is_json_mode():
         return
@@ -489,7 +477,7 @@ def _render_update_notice() -> None:
     latest = data.get("latest")
     if not isinstance(latest, str) or not latest:
         return
-    if not _is_newer(latest, __version__):
+    if not is_newer(latest, __version__):
         return
 
     # Throttle: suppress if shown within the TTL window.

@@ -708,11 +708,38 @@ def _version_cache_latest() -> str | None:
     return latest if isinstance(latest, str) and latest else None
 
 
-def _version_is_newer(latest: str, installed: str) -> bool:
-    """Return True if ``latest`` is a strictly higher semver than ``installed``.
+def _installed_version() -> str | None:
+    """Live installed version of ai-engineering (spec-156 D-156-12).
 
-    Fail-open: any unparseable version yields ``False`` (no update block).
+    Sources ``ai_engineering.__version__`` so the Update block reflects the
+    package that is actually running, not the manifest ``framework_version``
+    (which the updater never rewrites and so goes stale after ``version
+    upgrade``). Returns None when the package is not importable (degraded
+    bare-interpreter run); the caller then falls back to the manifest value.
     """
+    try:
+        import ai_engineering
+
+        live = getattr(ai_engineering, "__version__", None)
+        return live if isinstance(live, str) and live else None
+    except Exception:
+        return None
+
+
+def _version_is_newer(latest: str, installed: str) -> bool:
+    """Return True if ``latest`` is a strictly higher version than ``installed``.
+
+    Prefers the canonical PEP 440 comparator (spec-156 D-156-11) when the
+    installed package is importable; falls back to a stdlib tuple compare so the
+    standalone hook still works under a bare interpreter. Fail-open: any
+    unparseable version yields ``False`` (no update block).
+    """
+    try:
+        from ai_engineering.version.compare import is_newer
+
+        return is_newer(latest, installed)
+    except Exception:
+        pass
     try:
         lt = tuple(int(x) for x in latest.split("."))
         it = tuple(int(x) for x in installed.split("."))
@@ -1077,7 +1104,11 @@ def _render_markdown(d: dict) -> str:
             lines.append(f"- {w}")
 
     latest = d.get("version_latest")
-    installed = (d.get("manifest_summary") or {}).get("framework_version")
+    # spec-156 D-156-12: prefer the live installed version; manifest
+    # framework_version is a stale fallback (the updater never rewrites it).
+    installed = d.get("version_installed") or (d.get("manifest_summary") or {}).get(
+        "framework_version"
+    )
     if (
         isinstance(latest, str)
         and latest
@@ -1153,6 +1184,7 @@ def build_dashboard(repo_root: Path | None = None) -> dict:
         "manifest_summary": _manifest_summary(manifest),
         "compat_warnings": _compat_warnings(manifest),
         "version_latest": _version_cache_latest(),
+        "version_installed": _installed_version(),
     }
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0

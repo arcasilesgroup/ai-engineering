@@ -807,6 +807,49 @@ class TestUpdateBlock:
         md = mod._render_markdown(dashboard)
         assert "### ▸ Update" not in md
 
+    def test_render_prefers_live_version_over_stale_manifest(self) -> None:
+        """spec-156 D-156-12: a stale manifest framework_version must not nag.
+
+        The live ``version_installed`` (== latest here) wins, so no Update
+        block fires even though the manifest still records an old version.
+        """
+        mod = _load_session_bootstrap_module()
+        dashboard = {
+            "project_name": "demo",
+            "manifest_summary": {"framework_version": "0.1.0"},
+            "version_installed": "0.9.0",
+            "version_latest": "0.9.0",
+        }
+        md = mod._render_markdown(dashboard)
+        assert "### ▸ Update" not in md
+
+    def test_render_update_block_uses_live_version_installed(self) -> None:
+        """spec-156 D-156-12: the Update block renders the live installed
+        version, falling back to manifest only when it is absent."""
+        mod = _load_session_bootstrap_module()
+        dashboard = {
+            "project_name": "demo",
+            "version_installed": "0.2.0",
+            "version_latest": "0.9.0",
+        }
+        md = mod._render_markdown(dashboard)
+        assert "### ▸ Update" in md
+        assert "0.2.0 → 0.9.0" in md
+
+    def test_installed_version_reads_live_dunder(self) -> None:
+        """spec-156 D-156-12: _installed_version() sources ai_engineering.__version__."""
+        from ai_engineering import __version__
+
+        mod = _load_session_bootstrap_module()
+        assert mod._installed_version() == __version__
+
+    def test_version_is_newer_pep440_prerelease(self) -> None:
+        """spec-156 D-156-11: canonical comparator handles rc/dev/post correctly."""
+        mod = _load_session_bootstrap_module()
+        assert mod._version_is_newer("1.0.0", "1.0.0rc1") is True
+        assert mod._version_is_newer("1.0.0rc1", "1.0.0") is False
+        assert mod._version_is_newer("not-a-version", "1.0.0") is False
+
     def test_version_cache_latest_reads_home(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
