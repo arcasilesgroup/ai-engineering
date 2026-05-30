@@ -624,7 +624,6 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
         hidden=True,
     )(internal.internal_python)
-    internal_app.command("version-refresh", hidden=True)(internal.internal_version_refresh)
     app.add_typer(internal_app, name="internal", hidden=True)
 
     # spec-132 D-132-02..05: removed verbs print ``removed; use <new>`` and

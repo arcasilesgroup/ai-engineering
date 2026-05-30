@@ -18,19 +18,17 @@ from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.version import cache as version_cache
 
 
-def _marker(root: Path) -> bool:
-    """Return True when an install marker exists under *root*."""
-    return (root / ".ai-engineering" / "state" / "install-state.json").is_file()
-
-
 def _active_scopes(target: Path) -> list[str]:
-    """Return the install scopes present: ``local`` (repo) and/or ``global`` (home)."""
-    scopes: list[str] = []
-    if _marker(target):
-        scopes.append("local")
-    if _marker(Path.home()):
-        scopes.append("global")
-    return scopes
+    """Return the install scopes present: ``local`` (repo) and/or ``global`` (home).
+
+    spec-156 D-156-04/17: delegates to the single ``detect_scopes`` resolver,
+    which collapses to ``global`` when the repo IS the home directory (the two
+    markers are the same file) instead of double-counting ``local, global``.
+    """
+    from ai_engineering.installer.scope_resolution import detect_scopes
+
+    order = {"local": 0, "global": 1}
+    return sorted(detect_scopes(target), key=lambda s: order.get(s, 99))
 
 
 def check(ctx: DoctorContext) -> list[CheckResult]:
@@ -42,7 +40,9 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
     scopes = _active_scopes(ctx.target)
     scope_label = ", ".join(scopes) if scopes else "none detected"
 
-    if latest and latest != __version__:
+    from ai_engineering.version.compare import is_newer
+
+    if latest and is_newer(latest, __version__):
         version_label = f"v{__version__} (latest v{latest} — run `ai-eng version upgrade`)"
     elif latest:
         version_label = f"v{__version__} (latest)"

@@ -9,9 +9,9 @@ Two entrypoints:
   ``DEVNULL``) and returns immediately so the CLI hot path never blocks.
   Spawn failures are swallowed (fail-open).
 
-This is the first detached-spawn in ``src``. The child is reachable both as
-``python -m ai_engineering.version.refresh`` (see the ``__main__`` guard) and
-via the hidden ``ai-eng internal version-refresh`` command.
+This is the first detached-spawn in ``src``. The child is reached via
+``python -m ai_engineering.version.refresh`` (see the ``__main__`` guard) — the
+single spawn entrypoint (spec-156 D-156-16).
 """
 
 from __future__ import annotations
