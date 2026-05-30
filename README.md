@@ -67,37 +67,39 @@ If `ai-eng` is not available after the `pip` install, add Python's user scripts 
 ai-eng version
 ```
 
-5. Install governance into a repository:
+5. Install governance into a repository (`--local`, the default) or
+   machine-wide (`--global`, writes the brain to `~/.ai-engineering/` plus
+   per-surface skins):
 
 ```bash
 cd your-project
-ai-eng install .
+ai-eng install .          # or: ai-eng install --global
 ai-eng doctor
 ```
 
-[PASS] `doctor` confirms hooks, mirrors, manifest defaults, and required tools.
+[PASS] `doctor` confirms hooks, mirrors, manifest defaults, scope, and
+version status. When a newer release is published, `ai-eng` shows a compact
+update notice (async, cached, fail-open); silence it with
+`AIENG_NO_UPDATE_CHECK=1`.
 
 To update later from PyPI:
 
-1. Upgrade the installed CLI with the command that matches your install method:
+1. Upgrade the installed CLI. `ai-eng version upgrade` auto-detects your
+   manager (pip / pipx / uv / brew) and runs the right command (`--dry-run`
+   prints it):
 
 ```bash
-uv tool upgrade ai-engineering
-# or
-pipx upgrade ai-engineering
-# or
-python -m pip install --user --upgrade ai-engineering
+ai-eng version upgrade
 ```
 
-These commands fetch the latest published `ai-engineering` release from PyPI.
-
-2. Verify that the new version is available:
+2. Verify the installed and latest versions:
 
 ```bash
 ai-eng version
 ```
 
-3. In each governed project, refresh the installed framework files:
+3. Refresh the framework files in each governed project (`--global`/`--local`,
+   or both with no flag):
 
 ```bash
 cd your-project

@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Top-of-output update notice when the installed package is behind the
+  latest PyPI release.** Across `ai-eng` commands and `/ai-start`, a compact
+  one-line notice now surfaces when a newer `ai-engineering` is published. The
+  check is async and cached at `~/.ai-engineering/state/version-check.json`,
+  throttled to once per 24h, and fail-open (never blocks or errors the command
+  on network failure). Opt out with `AIENG_NO_UPDATE_CHECK=1` or the manifest
+  `version_check.enabled: false` block (keys: `enabled`, `ttl_hours`,
+  `source`).
+- **`ai-eng version upgrade` — cross-OS package self-upgrade.** Detects the
+  install manager (pip / pipx / uv / brew) and runs the matching upgrade;
+  `--dry-run` prints the command without executing it. `ai-eng version` now
+  reports both the installed and latest-published versions. `ai-eng update` is
+  unchanged — it still reconciles a project's framework files, not the
+  package.
+- **`ai-eng install --global | --local` (default `--local`) and dual-scope
+  `ai-eng update`.** Global install writes the brain to `~/.ai-engineering/`
+  plus per-surface skins (Claude `~/.claude/`, Codex `~/.codex/AGENTS.md`,
+  OpenCode `~/.config/opencode/`, Antigravity `~/.gemini/AGENTS.md`);
+  Cursor/Copilot get printed wire-up steps. `ai-eng update` accepts
+  `--global`/`--local`; with no flag it reconciles both scopes, local wins on
+  conflict. `ai-eng doctor` now reports the active scope and version status.
+
+### Changed
+
+- **The version-lifecycle "outdated" signal now comes from a live PyPI network
+  check instead of the bundled version registry.** Whether a release is behind
+  latest is determined at runtime against PyPI (async, cached, throttled,
+  fail-open) rather than read from a shipped registry. The deprecated/EOL
+  block message now points operators at `ai-eng version upgrade` (previously
+  `ai-eng update`). Networkless environments degrade gracefully: with no PyPI
+  reachable, no notice is shown and commands proceed normally.
+
 ## [0.8.4] - 2026-05-29
 
 ### Fixed

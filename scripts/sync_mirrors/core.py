@@ -1115,6 +1115,7 @@ AIENG_NDJSON_MAX_BYTES              # default 52428800 (rotation signal byte cap
 AIENG_RALPH_DISABLED                # set "1" to disable the Ralph Stop-loop guard
 AIENG_RISK_ACCUMULATOR_DISABLED     # set "1" to disable the risk accumulator
 AIENG_INSTINCT_BATCH_DISABLED       # set "1" to disable instinct batch extraction
+AIENG_NO_UPDATE_CHECK               # set "1" to disable the PyPI update-notice check
 AIENG_TELEMETRY_DEBUG               # set "1" to enable verbose telemetry logging
 AIENG_HOOK_ENGINE                   # override the detected IDE engine (unset -> claude_code)
 AIENG_HOOK_ENGINE_DEFAULT           # fallback engine label when none is detected (unset -> unknown)
