@@ -52,13 +52,17 @@ every store is a plain file on disk.
   configuration whose schema is declared in Python (Pydantic) and
   consumed by the deterministic plane. Small datasets read whole, with
   `mtime` caching — the scale at which a file beats a database.
-- **Canonical record files (per-install state, written via the durable
-  repository; gitignored):**
+- **Canonical record files (written via the durable repository):**
   - `.ai-engineering/state/decision-store.json` — governance decisions
     **and** risk acceptances (risk acceptances are decision records). Carries
     the optional per-entry SHA-256 hash chain verified by `ai-eng audit verify`.
+    **Committed (tracked), not gitignored:** risk acceptances (`DEC-*`) are
+    born here via `ai-eng risk accept` and are not rebuildable from spec
+    markdown, so the file is version-controlled — that is what lets the CI
+    `ai-eng gate risk-check` evaluate acceptances instead of fail-opening.
   - `.ai-engineering/state/ownership-map.json` — the update-decision
     ownership map (`ai-eng update` reads it before evaluating create/update).
+    Per-install state; gitignored.
   - `.ai-engineering/state/install-state.json` — the writable install state
     (`InstallState` model dump: vcs/tooling/platforms/readiness + hook hashes).
   - `.ai-engineering/state/framework-capabilities.json` — the skill/agent
@@ -237,8 +241,9 @@ Idempotent; a no-op once `state.db` is gone.
 None of these run on the hot path; all are idempotent and safe to re-run.
 
 - `ai-eng decision list` — read active decisions from
-  `decision-store.json`. Empty on a fresh checkout until
-  `ai-eng decision backfill` populates it from spec markdown.
+  `decision-store.json`. The committed file already carries any risk
+  acceptances; `ai-eng decision backfill` augments it with `D-NNN-NN`
+  rows parsed from spec markdown.
 - `ai-eng decision backfill` — parse `.ai-engineering/specs/*.md`
   and `CHANGELOG.md`, extract `D-NNN-NN` records, write
   `decision-store.json`. Idempotent.

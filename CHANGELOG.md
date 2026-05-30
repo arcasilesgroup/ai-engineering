@@ -41,6 +41,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `ai-eng update`). Networkless environments degrade gracefully: with no PyPI
   reachable, no notice is shown and commands proceed normally.
 
+### Fixed
+
+- **`decision-store.json` is now tracked, not gitignored.** Risk acceptances
+  (`DEC-*`, written by `ai-eng risk accept`) are born in `decision-store.json`
+  and are NOT rebuildable from spec markdown by `ai-eng decision backfill`, so
+  gitignoring the file made them ephemeral and invisible to CI — the
+  `ai-eng gate risk-check` job silently fail-opened on a fresh checkout because
+  the store was absent. Removed the ignore rule from the repo `.gitignore` and
+  from the installer-managed `.ai-engineering/.gitignore`
+  (`installer/gitignore.py`), reclassified it as a committed governance source
+  of truth in `docs/persistence-doctrine.md`, and added a regression assertion.
+  `install-state.json` and `ownership-map.json` remain gitignored per-install
+  state.
+
 ## [0.8.4] - 2026-05-29
 
 ### Fixed
