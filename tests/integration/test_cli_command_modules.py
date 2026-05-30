@@ -531,7 +531,7 @@ def test_core_update_non_tty_apply_skips_prompt(tmp_path: Path) -> None:
         core.update_cmd(target=tmp_path, apply=True)
 
     mock_confirm.assert_not_called()
-    mock_update.assert_called_once_with(tmp_path, dry_run=False)
+    mock_update.assert_called_once_with(tmp_path, dry_run=False, scope="local")
 
 
 # -- Post-apply output tests (spec-095, Phase 2) ----------------------------------
