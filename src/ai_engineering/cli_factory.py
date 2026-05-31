@@ -131,47 +131,37 @@ def _cli_error_boundary(func: Callable[..., object]) -> Callable[..., object]:
     return wrapper
 
 
-def _update_check_disabled() -> bool:
-    """Return True when the update-available notice is opted out.
-
-    Disabled when ``AIENG_NO_UPDATE_CHECK`` is truthy, or when the project
-    manifest's ``version_check.enabled`` flag is false. Fail-open: any
-    error reading the manifest treats the notice as enabled.
-    """
-    import os
-
-    if os.environ.get("AIENG_NO_UPDATE_CHECK", "").strip().lower() in {"1", "true", "yes", "on"}:
-        return True
-    try:
-        from pathlib import Path
-
-        from ai_engineering.config.loader import load_manifest_config
-
-        return not load_manifest_config(Path.cwd()).version_check.enabled
-    except Exception:
-        return False
-
-
 def _maybe_render_post_command_notice() -> None:
     """Render the human update notice after a command, when appropriate.
 
     spec-156 D-156-09: gated on the fully-resolved output mode
     (``is_json_mode()`` — true even for per-command ``--json`` set inside the
-    command), the ``_NOTICE_EXEMPT`` automation/hot-path set, and the
-    manifest/env opt-outs. Fail-open: any error is swallowed by the notice
-    renderer itself.
+    command), the ``_NOTICE_EXEMPT`` automation/hot-path set, the
+    ``AIENG_NO_UPDATE_CHECK`` env opt-out, and the manifest
+    ``version_check.enabled`` flag.
+
+    spec-157 review (F7): the manifest ``version_check`` block is parsed
+    exactly ONCE here and threaded into the renderer, which previously
+    re-loaded it — halving the per-command manifest parse on the CLI hot
+    path. Fail-open: any error is swallowed by the notice renderer itself.
     """
+    import os
+
     from ai_engineering.cli_output import is_json_mode
 
     if is_json_mode():
         return
     if _invoked_command is None or _invoked_command in _NOTICE_EXEMPT:
         return
-    if _update_check_disabled():
+    if os.environ.get("AIENG_NO_UPDATE_CHECK", "").strip().lower() in {"1", "true", "yes", "on"}:
         return
-    from ai_engineering.cli_ui import maybe_render_update_notice
 
-    maybe_render_update_notice()
+    from ai_engineering.cli_ui import _load_version_check_config, maybe_render_update_notice
+
+    config = _load_version_check_config()
+    if not getattr(config, "enabled", True):
+        return
+    maybe_render_update_notice(config=config)
 
 
 def _app_callback(

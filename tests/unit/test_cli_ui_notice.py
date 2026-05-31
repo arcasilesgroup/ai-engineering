@@ -124,3 +124,43 @@ def test_disabled_via_manifest_flag(monkeypatch: pytest.MonkeyPatch, capsys) -> 
     monkeypatch.setattr(cli_ui, "_load_version_check_config", lambda: _VersionCheck())
     cli_ui.maybe_render_update_notice()
     assert capsys.readouterr().err == ""
+
+
+def _seed_stale_cache(latest: str, *, checked_hours_ago: float) -> None:
+    payload = {
+        "latest": latest,
+        "checked_at": (datetime.now(UTC) - timedelta(hours=checked_hours_ago)).isoformat(),
+        "source": "pypi",
+    }
+    path = cache.cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_stale_cache_fires_background_refresh(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    # spec-157 review F4: a cache older than ttl_hours kicks off a detached
+    # refresh so it self-heals, while still rendering from current contents.
+    monkeypatch.setattr(cli_ui, "__version__", "0.1.0")
+    _seed_stale_cache("0.9.0", checked_hours_ago=48.0)  # past the 24h default TTL
+    spawned: dict = {}
+    monkeypatch.setattr(
+        "ai_engineering.version.refresh.spawn_background",
+        lambda: spawned.setdefault("called", True),
+    )
+    cli_ui.maybe_render_update_notice()
+    assert spawned.get("called") is True
+    assert "0.9.0" in capsys.readouterr().err
+
+
+def test_fresh_cache_does_not_spawn_refresh(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The detached refresh must NOT fire when the cache is fresh — otherwise
+    # every CLI invocation would spawn a child (spec-157 review F4).
+    monkeypatch.setattr(cli_ui, "__version__", "0.1.0")
+    _seed_cache("0.9.0")  # checked_at=now -> fresh
+    spawned: dict = {}
+    monkeypatch.setattr(
+        "ai_engineering.version.refresh.spawn_background",
+        lambda: spawned.setdefault("called", True),
+    )
+    cli_ui.maybe_render_update_notice()
+    assert "called" not in spawned

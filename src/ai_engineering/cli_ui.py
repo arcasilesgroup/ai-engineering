@@ -413,7 +413,7 @@ def _load_version_check_config() -> object:
         return VersionCheckConfig()
 
 
-def maybe_render_update_notice() -> None:
+def maybe_render_update_notice(config: object | None = None) -> None:
     """Render a one-line "update available" notice when appropriate.
 
     Reads the version-check cache, the installed ``__version__``, and the
@@ -424,15 +424,19 @@ def maybe_render_update_notice() -> None:
     stale (older than TTL) it fires a detached background refresh and still
     renders from whatever the cache currently holds.
 
-    Fail-open: any error is swallowed so the CLI hot path never breaks.
+    When ``config`` (the resolved ``version_check`` block) is supplied by the
+    caller, the manifest is NOT re-parsed here — the CLI hot path loads it
+    once and threads it in (spec-157 review F7). When ``None`` the config is
+    loaded lazily. Fail-open: any error is swallowed so the CLI hot path
+    never breaks.
     """
     try:
-        _render_update_notice()
+        _render_update_notice(config)
     except Exception:
         return
 
 
-def _render_update_notice() -> None:
+def _render_update_notice(config: object | None = None) -> None:
     from ai_engineering.cli_output import is_json_mode
     from ai_engineering.version import cache
     from ai_engineering.version.compare import is_newer
@@ -442,7 +446,8 @@ def _render_update_notice() -> None:
     if _truthy_env("AIENG_NO_UPDATE_CHECK"):
         return
 
-    config = _load_version_check_config()
+    if config is None:
+        config = _load_version_check_config()
     if not getattr(config, "enabled", True):
         return
     ttl_hours = int(getattr(config, "ttl_hours", 24))

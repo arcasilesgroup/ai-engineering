@@ -95,3 +95,63 @@ def test_mark_shown_stamps_last_shown_at(_home: Path) -> None:
 def test_mark_shown_fail_open_when_no_cache(_home: Path) -> None:
     # Should not raise even with no prior cache file.
     cache.mark_shown()
+
+
+def test_write_fail_open_when_atomic_write_raises(
+    _home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # spec-157 review F5: a read-only home (atomic write raises OSError) must
+    # never crash the CLI — write() swallows it and persists nothing.
+    def _boom(*_a: object, **_k: object) -> None:
+        raise OSError("read-only home directory")
+
+    monkeypatch.setattr(cache, "_atomic_write", _boom)
+    cache.write("0.9.0")  # must not raise
+    assert cache.read() == {}
+
+
+def test_touch_checked_at_preserves_latest_and_last_shown(_home: Path) -> None:
+    # spec-157 review F5 (D-156-13): touch advances checked_at WITHOUT
+    # clobbering latest/last_shown_at/source.
+    old_checked = (datetime.now(UTC) - timedelta(hours=10)).isoformat()
+    path = cache.cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "latest": "0.9.0",
+                "checked_at": old_checked,
+                "last_shown_at": "2020-01-01T00:00:00+00:00",
+                "source": "pypi",
+            }
+        ),
+        encoding="utf-8",
+    )
+    cache.touch_checked_at()
+    after = cache.read()
+    assert after["latest"] == "0.9.0"
+    assert after["last_shown_at"] == "2020-01-01T00:00:00+00:00"
+    assert after["source"] == "pypi"
+    assert after["checked_at"] != old_checked  # advanced to now
+
+
+def test_touch_checked_at_fail_open_when_no_cache(_home: Path) -> None:
+    # No prior cache file -> must not raise (fail-open).
+    cache.touch_checked_at()
+
+
+def test_atomic_write_cleans_temp_on_replace_error(
+    _home: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # spec-157 review F5: if os.replace fails mid-write, the temp file is
+    # unlinked and the error re-raised — no orphaned *.tmp left behind.
+    path = cache.cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    def _boom_replace(*_a: object, **_k: object) -> None:
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(cache.os, "replace", _boom_replace)
+    with pytest.raises(OSError):
+        cache._atomic_write(path, {"latest": "1.0.0"})
+    assert list(path.parent.glob("*.tmp")) == []

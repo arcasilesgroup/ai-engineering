@@ -11,12 +11,21 @@ def test_exempt_set_covers_automation_hot_paths() -> None:
     assert {"version", "internal", "gate"} <= cf._NOTICE_EXEMPT
 
 
+class _EnabledVersionCheck:
+    enabled = True
+    ttl_hours = 24
+
+
 def _run_post_notice(command: str, *, json_mode: bool) -> bool:
     """Return whether maybe_render_update_notice would be invoked."""
     cf._invoked_command = command
     with (
         patch("ai_engineering.cli_output.is_json_mode", return_value=json_mode),
-        patch.object(cf, "_update_check_disabled", return_value=False),
+        # spec-157 F7: the gate now loads version_check once and threads it in.
+        patch(
+            "ai_engineering.cli_ui._load_version_check_config",
+            return_value=_EnabledVersionCheck(),
+        ),
         patch("ai_engineering.cli_ui.maybe_render_update_notice") as render,
     ):
         cf._maybe_render_post_command_notice()
