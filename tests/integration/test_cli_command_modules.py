@@ -326,29 +326,6 @@ def test_config_stack_and_surface_empty_lists(
     assert "surfaces listed" in captured.err
 
 
-def test_config_announces_scope(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """spec-156 D-156-03: config announces the scope its view reflects."""
-    from ai_engineering.installer.scope_resolution import ResolvedScope
-
-    fake_cfg = SimpleNamespace(
-        providers=SimpleNamespace(stacks=[]),
-        surfaces=SimpleNamespace(enabled=[]),
-    )
-    announce_line = "◈ ai-engineering · acting on local install (./)"
-    ctx = SimpleNamespace(invoked_subcommand=None)
-    with (
-        patch("ai_engineering.cli_commands.config.list_status", return_value=fake_cfg),
-        patch("ai_engineering.cli_commands.config.render_config"),
-        patch("ai_engineering.cli_commands.config.render_config_payload", return_value={}),
-        patch(
-            "ai_engineering.installer.scope_resolution.resolve_scope",
-            return_value=ResolvedScope("local", False, announce_line),
-        ),
-    ):
-        config.config_cmd(ctx, target=tmp_path)
-    assert announce_line in capsys.readouterr().err
-
-
 def test_core_update_diff_truncation(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     diff_text = "\n".join([f"line-{i}" for i in range(200)])
     fake_result = UpdateResult(
@@ -367,43 +344,6 @@ def test_core_update_diff_truncation(tmp_path: Path, capsys: pytest.CaptureFixtu
     with patch("ai_engineering.cli_commands.core.update", return_value=fake_result):
         core.update_cmd(target=tmp_path, show_diff=True)
     assert "more lines" in capsys.readouterr().out
-
-
-def test_core_update_announces_scope(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """spec-156 D-156-03: update announces the resolved scope on stderr."""
-    from ai_engineering.installer.scope_resolution import ResolvedScope
-
-    fake_result = UpdateResult(dry_run=True, changes=[])
-    announce_line = "◈ ai-engineering · acting on local install (./)"
-    with (
-        patch("ai_engineering.cli_commands.core.update", return_value=fake_result),
-        patch(
-            "ai_engineering.installer.scope_resolution.resolve_scope",
-            return_value=ResolvedScope("local", False, announce_line),
-        ),
-    ):
-        core.update_cmd(target=tmp_path)
-    assert announce_line in capsys.readouterr().err
-
-
-def test_core_update_announce_suppressed_in_json(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    """spec-156 D-156-03/D-156-09: the announce line never leaks under --json."""
-    from ai_engineering.installer.scope_resolution import ResolvedScope
-
-    fake_result = UpdateResult(dry_run=True, changes=[])
-    announce_line = "◈ ai-engineering · acting on local install (./)"
-    set_json_mode(True)
-    with (
-        patch("ai_engineering.cli_commands.core.update", return_value=fake_result),
-        patch(
-            "ai_engineering.installer.scope_resolution.resolve_scope",
-            return_value=ResolvedScope("local", False, announce_line),
-        ),
-    ):
-        core.update_cmd(target=tmp_path, output_json=True)
-    assert announce_line not in capsys.readouterr().err
 
 
 def test_core_update_interactive_preview_then_apply(
@@ -591,7 +531,7 @@ def test_core_update_non_tty_apply_skips_prompt(tmp_path: Path) -> None:
         core.update_cmd(target=tmp_path, apply=True)
 
     mock_confirm.assert_not_called()
-    mock_update.assert_called_once_with(tmp_path, dry_run=False, scope="local")
+    mock_update.assert_called_once_with(tmp_path, dry_run=False)
 
 
 # -- Post-apply output tests (spec-095, Phase 2) ----------------------------------
