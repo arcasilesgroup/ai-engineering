@@ -1,0 +1,60 @@
+"""Detached background refresh of the version-check cache.
+
+Two entrypoints:
+
+* ``refresh_now()`` — the synchronous child entrypoint. Fetches the latest
+  release from the PyPI adapter and writes it to the cache. Fail-open.
+* ``spawn_background()`` — fire-and-forget. Launches ``refresh_now`` in a
+  fully detached child process (``start_new_session=True``, stdio to
+  ``DEVNULL``) and returns immediately so the CLI hot path never blocks.
+  Spawn failures are swallowed (fail-open).
+
+This is the first detached-spawn in ``src``. The child is reached via
+``python -m ai_engineering.version.refresh`` (see the ``__main__`` guard) — the
+single spawn entrypoint (spec-156 D-156-16).
+"""
+
+from __future__ import annotations
+
+import contextlib
+import subprocess
+import sys
+
+from ai_engineering.version import cache, pypi
+
+
+def refresh_now() -> None:
+    """Fetch the latest release and persist it to the cache (fail-open).
+
+    spec-156 D-156-13: on any failure (exception or empty result) the cache's
+    ``checked_at`` is still advanced so an offline run does not respawn a
+    detached refresh on every subsequent CLI invocation.
+    """
+    try:
+        latest = pypi.fetch_latest()
+    except Exception:
+        cache.touch_checked_at()
+        return
+    if latest:
+        cache.write(latest, source="pypi")
+    else:
+        cache.touch_checked_at()
+
+
+def spawn_background() -> None:
+    """Launch ``refresh_now`` in a detached child; return immediately.
+
+    Never blocks and never raises — any spawn error is swallowed so the
+    hot path stays unaffected when the cache is stale.
+    """
+    with contextlib.suppress(Exception):
+        subprocess.Popen(
+            [sys.executable, "-m", "ai_engineering.version.refresh"],
+            start_new_session=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+
+if __name__ == "__main__":
+    refresh_now()

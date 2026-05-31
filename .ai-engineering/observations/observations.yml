@@ -1,5 +1,5 @@
 schemaVersion: '2.0'
-updatedAt: '2026-05-16T21:17:57Z'
+updatedAt: '2026-05-31T18:21:15Z'
 corrections:
 - pattern: Verify file naming convention (underscore vs hyphen) before asserting files
     are missing

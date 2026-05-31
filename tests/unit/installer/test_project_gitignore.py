@@ -65,7 +65,6 @@ def test_ignores_transient_and_per_install_artifacts() -> None:
         "cache/",
         ".cache/",
         "state/install-state.json",
-        "state/decision-store.json",
         "state/ownership-map.json",
         "state/framework-capabilities.json",
         "state/framework-events.ndjson",
@@ -96,6 +95,9 @@ def test_sources_of_truth_are_not_ignored() -> None:
     # notes/ is the /ai-note knowledge base — committed across the team.
     assert "notes/" not in active
     assert "notes" not in active
+    # decision-store.json is the committed governance SoT: risk acceptances
+    # are born there and are not rebuildable from specs, so it stays tracked.
+    assert "state/decision-store.json" not in active
     # manifest.yml is the config source of truth.
     assert "manifest.yml" not in active
     # policy source files are never ignored (only the per-install signature is).

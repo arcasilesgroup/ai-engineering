@@ -1,263 +1,212 @@
 ---
 execution_route:
   version: 1
-  spec: spec-154
-  executor: autopilot
-  automation: hitl
-  concern_count: 3
-  estimated_files: 12
-  reason: >-
-    12 files across 3 IDE surfaces (Claude/Codex/Copilot) + integrity manifest
-    + tests; meets the >=10-file autopilot threshold (CLAUDE.md §11). Security-
-    sensitive (prompt-injection-guard dispatch, hook integrity) and Copilot-
-    regression risk warrant wave decomposition + a final quality loop with HITL
-    review at PR.
-  safe_next_command: "/ai-autopilot"
-status: draft
-pipeline: full
-spec: spec-154
-title: Resolve a Python >=3.11 interpreter for hook dispatch
+  spec: spec-157
+  executor: build
+  automation: assisted
+  concern_count: 1
+  estimated_files: 30
+  reason: "Single concern (re-land version-update-notice scope-free). Mostly mechanical transplant of proven green files + two targeted single-scope rewrites + two rider cherry-picks. One coherent feature, build-routable; not multi-concern, so not autopilot."
+  safe_next_command: "/ai-build"
+status: approved
+spec: spec-157
+title: Version Update Notice — Clean Re-land (scope-free)
+pipeline: standard
 ---
 
-# Plan — spec-154: Resolve a Python >=3.11 interpreter for hook dispatch
+# Plan — spec-157 Version Update Notice: Clean Re-land
 
 ## Design
 
-`--skip-design` — pure infra/shell-dispatch change, no UI surface, no
-user-visible artifact. Design routing is a no-op.
+Re-land is a TRANSPLANT, not a redesign. The version-notice design is proven and
+green in PR #556. The plan moves proven artifacts onto a fresh main-cut branch,
+rewrites only the two genuinely scope-coupled files back to single-scope, brings
+two CI-green riders, and asserts zero scope residue. Source of truth for the
+"old" artifacts is the `feat/version-update-notice` branch (PR #556); the build
+agent reads files from it via `git show <ref>:<path>` / `git checkout <ref> --
+<path>`.
+
+`OLD = feat/version-update-notice` (PR #556 tip). `BASE = main`.
 
 ## Architecture
 
-Pattern: **adapter at the dispatch boundary** (ad-hoc). One shared shell
-resolver (`_lib/resolve-python.sh`) + one transparent per-IDE launcher
-(`_lib/run-hook.sh`) that all hook commands route through. Existing
-`copilot-runtime.sh` is refactored to *source* the shared resolver (DRY)
-while keeping its public functions so the 15 `copilot-*.sh` wrappers are
-untouched (D-154-02; preserves Copilot — AC5).
+Pattern: **branch-transplant migration** (ad-hoc). Three rails:
+1. Verbatim copy of scope-clean source + tests from OLD.
+2. Single-scope rewrite of the two coupled files to the BASE shape + KEEP-block
+   graft.
+3. Rider cherry-pick (security/governance, scope-independent).
 
-```
- IDE command string
-   Claude:  bash run-hook.sh  "$CLAUDE_PROJECT_DIR/.../x.py"
-   Codex:   AIENG_HOOK_ENGINE=codex bash run-hook.sh .ai-engineering/.../x.py
-   Copilot: copilot-x.sh  ── sources ──▶ copilot-runtime.sh ─┐
-                                                              │
-   run-hook.sh ── sources ──▶ resolve-python.sh ◀────────────┘
-                                   │
-                                   ▼
-              cache hit? runtime/resolved-python.txt (read builtin)
-                                   │ miss
-                                   ▼
-        .venv/bin/python → .venv/Scripts/python.exe → uv run python
-          → python3.13/3.12/3.11 (trusted by name) → python3 if >=3.11
-                                   │ none
-                                   ▼
-              one actionable line to stderr; exit 0 (non-blocking)
-                                   │ resolved
-                                   ▼
-                       exec "$PY" "$@"   (transparent — __file__ = the .py,
-                                          so run_hook_safe integrity intact)
-```
+No new abstractions. local-always-wins is the only model (it is BASE's model).
 
-## Plan corrections to spec (from OQ resolution — wf_9d7837f1-555)
+## Phases
 
-The exploration refined three spec assertions. These supersede the spec
-where they conflict:
+Order: P0 branch+preserve → P1 riders → P2 verbatim transplant → P3 coupled
+rewrites → P4 strip+wire cleanup → P5 gate. RED-before-GREEN does not apply
+(tests are transplanted alongside their proven implementations); the gate phase
+is the verification contract.
 
-1. **Integrity blocking ≠ trustedArgvs** (corrects spec D-154-05 / R2 /
-   AC3). `run_hook_safe` blocks only on hook **script-byte drift** in the
-   manifest `hooks` (sha256) section — it never reads `trustedArgvs`
-   (that subsystem only feeds the prompt-injection-guard bypass lane for
-   `session_bootstrap` argvs). We are **not** editing any `.py`, so the
-   `.py`-block risk is nil. The real integrity task: after creating new
-   `_lib/*.sh` and editing `copilot-runtime.sh`, run
-   `regenerate-hooks-manifest.py` so the new/changed `.sh` bytes enroll;
-   the gate is `regenerate-hooks-manifest.py --check` exit 0 (CI). [OQ2]
-2. **Parity guard is `test_canonical_events_count.py`, not
-   `test_surface_parity.py`** (corrects spec AC4). `test_surface_parity`
-   enforces the No-Twin Axiom (skill↔CLI), unrelated to hooks.
-   `test_canonical_events_count.py::test_no_dead_wirings` scans
-   `settings.json` command path patterns and WILL catch a renamed launcher
-   path — that is the guard the wiring must satisfy. [FIX-SURFACE]
-3. **Transparent launcher is mandatory** (sharpens spec D-154-01). The
-   launcher must `exec "$PY" "$real_script.py" "$@"` — it must NOT pass
-   itself as the hook script, or `__file__`-based integrity resolution
-   breaks. [OQ1]
+---
 
-Plus two scope rulings:
+### Phase 0 — Branch + preserve briefs
 
-4. **Codex confirmed broken → in scope** (spec OQ3 resolved): `.codex/
-   hooks.json` uses identical bare `python3` (11 cmds). [OQ3, verdict
-   CONFIRMED]
-5. **Windows `.ps1` deferred** (spec OQ5 resolved as far as code allows):
-   whether Claude/Codex dispatch via git-bash vs pwsh on Windows is a
-   runtime fact not determinable from the repo. v1 ships the bash launcher
-   (covers macOS/Linux + Windows-git-bash; `resolve-python.sh` carries the
-   `.venv/Scripts/python.exe` probe). A parallel `run-hook.ps1` + the
-   `copilot-runtime.ps1` >=3.11 gate are deferred to a Windows follow-up
-   and recorded in Risks. [OQ5]
-
-Simplification vs fix-surface draft: **no separate `run-codex-hook.sh`** —
-Codex sets `AIENG_HOOK_ENGINE=codex` inline before the generic
-`run-hook.sh` (DRY; drops 2 files, 13→12).
-
-## Phases & tasks
-
-### Phase 1 — Shared resolver core (TDD)
-
-- [ ] T-1 — RED: resolver behavior test
+- [ ] T-0a — Preserve the two global briefs before switching branches
   - Agent: build
-  - Files: tests/unit/hooks/test_resolve_python_sh.py (new)
-  - Principles applied: §10.5 TDD
-  - Patch (deterministic): — (judgment: author cases) prefers `.venv/bin/python`; trusts `python3.13/12/11` by name; gates bare `python3` on `>=3.11`; on none → one stderr line + exit 0; cache read/write to `runtime/resolved-python.txt`; stale-cache (path no longer `-x`) re-resolves.
-  - Gate: test fails (script absent)
+  - Files: `.ai-engineering/specs/drafts/global-install-work-plane-brief.md`, `.ai-engineering/specs/drafts/global-hook-surface-resilience-brief.md`
+  - Principles applied: §10.2 YAGNI (keep the validated artifact, drop the over-built code)
+  - Patch (deterministic): none — `git stash push -- .ai-engineering/specs/drafts/global-*-brief.md` OR copy to `/tmp` so they survive the branch cut; restore after T-0b.
+  - Gate: both files readable after T-0b.
 
-- [ ] T-2 — GREEN: create `_lib/resolve-python.sh`
+- [ ] T-0b — Cut the clean branch from main
   - Agent: build
-  - Files: .ai-engineering/scripts/hooks/_lib/resolve-python.sh (new)
-  - Principles applied: §10.2 YAGNI, §10.4 DRY, §10.8 Hexagonal (dispatch adapter)
-  - Patch (deterministic): — implement `resolve_python "$project_root"` per OQ4 design (cache-read via `read -r` builtin; venv → `.venv/Scripts/python.exe` → `uv run python` → named `python3.13/12/11` → bare `python3` with `python3 -c 'import sys;sys.exit(0 if sys.version_info>=(3,11) else 1)'`; guard line + `exit 0`; atomic cache write via mktemp+mv). Must be `set -eu`-safe and stdlib-shell only.
-  - Gate: T-1 passes
+  - Files: (git ref only)
+  - Principles applied: §10.1 KISS (D-157-01 fresh branch, zero residue)
+  - Patch (deterministic): none — `git fetch origin && git switch -c feat/version-update-notice-clean origin/main` (or local `main` if current).
+  - Gate: `git rev-parse --abbrev-ref HEAD` == `feat/version-update-notice-clean`; `git merge-base --is-ancestor main HEAD` true; spec.md + plan.md (spec-157) and both briefs present in the working tree on the new branch.
 
-- [ ] T-3 — template mirror of resolver
+- [ ] T-0c — Land spec-157 spec.md + plan.md + briefs on the new branch
   - Agent: build
-  - Files: src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/resolve-python.sh (new)
-  - Principles applied: §10.4 DRY
-  - Patch (deterministic): byte-equal copy of T-2 output.
-  - Gate: `diff` live vs template == empty
+  - Files: `.ai-engineering/specs/spec.md`, `.ai-engineering/specs/plan.md`, `.ai-engineering/specs/drafts/global-*-brief.md`
+  - Principles applied: §10.6 SDD (the spec/plan are the contract for this branch)
+  - Patch (deterministic): none — ensure the spec-157 spec.md/plan.md (currently working-tree) and the restored briefs are on the new branch; commit them: `docs(spec-157): clean version-notice re-land spec + plan`.
+  - Gate: `git show HEAD:.ai-engineering/specs/spec.md` frontmatter `spec: spec-157`.
 
-### Phase 2 — Transparent launcher (TDD)
+---
 
-- [ ] T-4 — RED: launcher transparency + guard test
+### Phase 1 — Riders (cherry-pick, CI-green-required)
+
+- [ ] T-1a — Cherry-pick `.snyk` CVE-2026-8643 accept
   - Agent: build
-  - Files: tests/unit/hooks/test_run_hook_sh.py (new)
-  - Principles applied: §10.5 TDD
-  - Patch (deterministic): — assert run-hook.sh execs the passed `.py` under the resolved interpreter; asserts the script arg (not the launcher) is what runs (integrity-transparency); asserts guard path exits 0 with one stderr line when resolver finds nothing.
-  - Gate: test fails (launcher absent)
+  - Files: `.snyk`
+  - Principles applied: §13.1 Secrets/CVE gate (Hard Rule 1 — branch must pass the same gate as main)
+  - Patch (deterministic): none — `git cherry-pick 5b9b4272`. If it touches more than `.snyk`, instead `git checkout 5b9b4272 -- .snyk` and commit `chore(security): risk-accept CVE-2026-8643 (pip) in Snyk gate`.
+  - Gate: `.snyk` contains the CVE-2026-8643 entry; `pip-audit`/Snyk gate green locally if runnable.
 
-- [ ] T-5 — GREEN: create `_lib/run-hook.sh`
+- [ ] T-1b — Cherry-pick decision-store tracking
   - Agent: build
-  - Files: .ai-engineering/scripts/hooks/_lib/run-hook.sh (new)
-  - Principles applied: §10.1 KISS, §10.8 Hexagonal
-  - Patch (deterministic): — source `resolve-python.sh`; `PY=$(resolve_python "$root")`; `[ -n "$PY" ] || exit 0`; `exec "$PY" "$@"`. Resolve `root` from `CLAUDE_PROJECT_DIR` else walk up. Transparent exec — no self-reference (OQ1).
-  - Gate: T-4 passes
+  - Files: `.gitignore`, `.ai-engineering/state/decision-store.json`, `CHANGELOG.md`, `docs/persistence-doctrine.md`, `src/ai_engineering/installer/gitignore.py`, `tests/unit/installer/test_project_gitignore.py`
+  - Principles applied: §13.7 SSOT per datum (decision-store becomes a tracked canonical store)
+  - Patch (deterministic): none — `git cherry-pick d6db3dc7`; resolve any CHANGELOG conflict by keeping both entries.
+  - Gate: `git check-ignore .ai-engineering/state/decision-store.json` returns nothing (no longer ignored); `pytest tests/unit/installer/test_project_gitignore.py` green.
 
-- [ ] T-6 — template mirror of launcher
+---
+
+### Phase 2 — Verbatim transplant (scope-clean source + tests)
+
+- [ ] T-2a — Transplant the `version/` package from OLD
   - Agent: build
-  - Files: src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/run-hook.sh (new)
-  - Principles applied: §10.4 DRY
-  - Patch (deterministic): byte-equal copy of T-5.
-  - Gate: `diff` live vs template == empty
+  - Files: `src/ai_engineering/version/{cache,compare,install_method,pypi,refresh,__init__,checker}.py`
+  - Principles applied: §10.4 DRY (reuse proven green modules; do not rewrite)
+  - Patch (deterministic): none — `git checkout OLD -- src/ai_engineering/version/cache.py src/ai_engineering/version/compare.py src/ai_engineering/version/install_method.py src/ai_engineering/version/pypi.py src/ai_engineering/version/refresh.py src/ai_engineering/version/__init__.py src/ai_engineering/version/checker.py` (OLD = `feat/version-update-notice`).
+  - Gate: `grep -rE "scope|brain_root|global" src/ai_engineering/version/` returns only benign prose (no module refs); `python -c "import ai_engineering.version.refresh, ai_engineering.version.pypi, ai_engineering.version.cache, ai_engineering.version.compare, ai_engineering.version.install_method"` imports clean.
 
-### Phase 3 — Wire IDE surfaces (mechanical)
-
-- [ ] T-7 — rewrite `.claude/settings.json` (22 commands)
+- [ ] T-2b — Transplant `config/manifest.py` VersionCheckConfig
   - Agent: build
-  - Files: .claude/settings.json
-  - Principles applied: §10.3 SOLID (single dispatch path)
-  - Patch (deterministic):
-    ```diff
-    - "command": "python3 \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/telemetry-skill.py\""
-    + "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh\" \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/telemetry-skill.py\""
-    ```
-    (apply same transform to all 22 entries)
-  - Gate: `test_canonical_events_count.py::test_no_dead_wirings` green; 11-events-count test green
+  - Files: `src/ai_engineering/config/manifest.py`
+  - Principles applied: §10.3 SOLID (config model isolated)
+  - Patch (deterministic): none — if `manifest.py` has no other OLD changes, `git checkout OLD -- src/ai_engineering/config/manifest.py`; else graft only the `VersionCheckConfig` class + `version_check` field (+14 lines). Verify no scope field rode along.
+  - Gate: `pytest tests/unit/config/test_manifest.py` green; no `scope` field in the manifest model.
 
-- [ ] T-8 — rewrite `templates/project/.claude/settings.json` (parallel)
+- [ ] T-2c — Transplant `cli_factory.py` (fully scope-clean)
   - Agent: build
-  - Files: src/ai_engineering/templates/project/.claude/settings.json
-  - Principles applied: §10.4 DRY (consumer parity)
-  - Patch (deterministic): identical transform to T-7.
-  - Gate: `diff` semantic-equal to T-7 (path-pattern parity)
+  - Files: `src/ai_engineering/cli_factory.py`
+  - Principles applied: §10.4 DRY (proven notice wiring + `version_app` sub-typer)
+  - Patch (deterministic): none — `git checkout OLD -- src/ai_engineering/cli_factory.py` (agent confirmed zero scope imports).
+  - Gate: `grep -E "scope_resolution|installer.*scope|brain_root" src/ai_engineering/cli_factory.py` returns nothing; CLI builds (`python -c "import ai_engineering.cli_factory"`).
 
-- [ ] T-9 — rewrite `.codex/hooks.json` (11 commands)
+- [ ] T-2d — Transplant the 11 version-notice test files
   - Agent: build
-  - Files: .codex/hooks.json
-  - Principles applied: §10.3 SOLID
-  - Patch (deterministic):
-    ```diff
-    - "command": "AIENG_HOOK_ENGINE=codex python3 .ai-engineering/scripts/hooks/codex-hook-bridge.py"
-    + "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/codex-hook-bridge.py"
-    ```
-    (apply to all 11; relative paths preserved — run-hook.sh resolves root)
-  - Gate: codex hooks.json valid JSON; T-15 codex case green
+  - Files: `tests/unit/version/{__init__,test_cache,test_compare,test_install_method,test_pypi,test_refresh}.py`, `tests/unit/test_cli_ui_notice.py`, `tests/unit/test_cli_notice_exempt.py`, `tests/unit/test_version_lifecycle.py`, `tests/unit/cli_commands/test_version_upgrade.py`, `tests/integration/test_version_checker.py`
+  - Principles applied: §10.5 TDD (the proven test contract travels with its implementation)
+  - Patch (deterministic): none — `git checkout OLD -- tests/unit/version/ tests/unit/test_cli_ui_notice.py tests/unit/test_cli_notice_exempt.py tests/unit/test_version_lifecycle.py tests/unit/cli_commands/test_version_upgrade.py tests/integration/test_version_checker.py`.
+  - Gate: files present; `grep -rE "scope|--global|dual_scope" tests/unit/version/` clean. (Tests will fail to collect until P3 lands cli_ui/core/updater — expected; P5 is the green gate.)
 
-- [ ] T-10 — refactor `_lib/copilot-runtime.sh` to source the shared resolver + add >=3.11 gate
+---
+
+### Phase 3 — Coupled-file single-scope rewrites
+
+- [ ] T-3a — Transplant `cli_ui.py` notice block, strip `announce_scope`
   - Agent: build
-  - Files: .ai-engineering/scripts/hooks/_lib/copilot-runtime.sh, src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/copilot-runtime.sh
-  - Principles applied: §10.4 DRY, §10.7 Clean Code
-  - Patch (deterministic): — keep public fns `copilot_framework_python_script` / `_inline` (signatures unchanged) but delegate path resolution to `resolve_python` from `resolve-python.sh`; add the >=3.11 gate that copilot-runtime.sh currently lacks. Behavior for the happy venv path must be unchanged (AC5).
-  - Gate: AC5 — Copilot emitter tests unchanged (T-16)
+  - Files: `src/ai_engineering/cli_ui.py:392-528`, `cli_ui.py:416-433`
+  - Principles applied: §10.7 Clean Code (D-157-03 no dead scope rider)
+  - Patch (deterministic): none (judgment) — start from `git checkout OLD -- src/ai_engineering/cli_ui.py`, then DELETE the `announce_scope` function (`~416-433`) and any `announce_scope` export. Keep `maybe_render_update_notice`, `_render_update_notice`, `_load_version_check_config`.
+  - Gate: `grep -n "announce_scope" src/ai_engineering/cli_ui.py` returns nothing; `python -c "import ai_engineering.cli_ui"` clean.
 
-### Phase 4 — Integrity, sync, regression tests
-
-- [ ] T-11 — regenerate hook integrity manifest
+- [ ] T-3b — Rewrite `updater/service.py` to single-scope
   - Agent: build
-  - Files: .ai-engineering/state/hooks-manifest.json
-  - Principles applied: §10.6 SDD (governance coherence)
-  - Patch (deterministic): run `python3 .ai-engineering/scripts/regenerate-hooks-manifest.py` (enrolls new `_lib/resolve-python.sh`, `_lib/run-hook.sh`, changed `copilot-runtime.sh`).
-  - Gate: `python3 .ai-engineering/scripts/regenerate-hooks-manifest.py --check` exit 0
+  - Files: `src/ai_engineering/updater/service.py:122-171,444-446,449-504,507-589,766-790,793-839,842-887,900-912,915-928,931-946,949-965`
+  - Principles applied: §10.1 KISS, §10.4 DRY (collapse dual-scope to the BASE shape)
+  - Patch (deterministic): none (judgment) — base file is BASE's `updater/service.py`; graft ONLY the version-notice/self-upgrade additions from OLD. DROP: `ScopeNotInstalledError`, `_SCOPE_INSTALL_HINT`, `_scope_is_installed`, `update_scopes`, `reconcile_scopes_with_skips`, `_scope_root`, `_update_dests`, `_orphan_path`, `_merge_update_results`, `UpdateResult.skipped_scopes`. REVERT scope params on `update`, `_evaluate_project_files`, `_detect_orphan_files`, `_provider_orphan_changes`, `_provider_file_orphans`, `_provider_tree_orphans` to BASE signatures. Net: file should differ from BASE only by any genuine version-notice hook (likely none — confirm `git diff main -- src/ai_engineering/updater/service.py` is empty or notice-only).
+  - Gate: `grep -nE "scope|brain_root|_update_dests|_orphan_path|ScopeNotInstalled|skipped_scopes" src/ai_engineering/updater/service.py` returns nothing; `pytest tests/unit/updater/ -k "not dual_scope"` green.
 
-- [ ] T-12 — propagate Codex template via mirror sync
+- [ ] T-3c — Rewrite `cli_commands/core.py`: keep version block, drop scope
   - Agent: build
-  - Files: src/ai_engineering/templates/project/.codex/hooks.json (auto-regenerated)
-  - Principles applied: §10.4 DRY
-  - Patch (deterministic): run `python scripts/sync_command_mirrors.py`.
-  - Gate: template == live `.codex/hooks.json` (sync idempotent on re-run)
+  - Files: `src/ai_engineering/cli_commands/core.py:31,151-164,181,196,209,215-219,236,263-268,304,330-345,384-414,451-480,568-581,584-599,1135-1142,1144-1148,1153,1155-1160,1163,1172-1196,1243-1254,1257-1298,1301-1314,1697-1846`
+  - Principles applied: §10.3 SOLID, §10.7 Clean Code (one concern per command; no scope contamination)
+  - Patch (deterministic): none (judgment) — base file is BASE's `core.py`; graft the KEEP block (`_cached_latest` 1697-1706, `version_cmd` 1709-1738 incl. `ctx`/sub-command guard, `_MANUAL_UPGRADE_COMMANDS` 1741-1746, `_emit_manual_upgrade_guidance` 1749-1773, `version_upgrade_cmd` 1776-1846) and the notice wiring. DROP: `scope_global`/`scope_local` on `install_cmd` + `update_cmd`, `_explicit_install_scope`, `_resolve_update_scope`, `_merge_update_results`, `announce_scope` import (`31`), `brain_root` routing (`263-268`), scope except-block (`1172-1196`). REVERT `_is_reinstall`, `_resolve_install_configuration`, `_resolve_first_install_configuration`, `_run_update_with_spinner`, `_emit_install_dry_run_plan`, `_run_install_pipeline` to BASE signatures (no `scope` param). KEEP `success` import (`42`).
+  - Gate: `grep -nE "scope_global|scope_local|_explicit_install_scope|_resolve_update_scope|announce_scope|brain_root|ScopeNotInstalled" src/ai_engineering/cli_commands/core.py` returns nothing; `ai-eng version` and `ai-eng version upgrade --help` run; `pytest tests/unit/cli_commands/test_version_upgrade.py` green.
 
-- [ ] T-13 — RED→GREEN: <3.11 regression test (the spec's keystone test, D-154-07 / AC6)
+- [ ] T-3d — Drop scope-announce from `config.py`
   - Agent: build
-  - Files: tests/integration/test_hook_interpreter_resolution.py (new)
-  - Principles applied: §10.5 TDD
-  - Patch (deterministic): — with a forced <3.11 `python3` first on PATH but a >=3.11 named/venv present, invoke a representative hook (prompt-injection-guard) via `run-hook.sh`; assert it runs under >=3.11 (no `ImportError`, exit 0). Second case: no >=3.11 anywhere → exactly one stderr line + exit 0. Must FAIL on pre-fix wiring (bare python3) and PASS post-fix.
-  - Gate: fails pre-fix, passes post-fix
+  - Files: `src/ai_engineering/cli_commands/config.py:57-62`
+  - Principles applied: §10.7 Clean Code (remove scope rider)
+  - Patch (deterministic): none (judgment) — remove the `announce_scope(resolve_scope(root).announce)` block + the two scope imports; restore `config_cmd` to BASE behavior. Easiest: `git checkout main -- src/ai_engineering/cli_commands/config.py` (config has no version-notice additions).
+  - Gate: `grep -nE "scope_resolution|announce_scope" src/ai_engineering/cli_commands/config.py` returns nothing; `pytest tests/unit -k config` green.
 
-- [ ] T-14 — Copilot non-regression gate (AC5)
+---
+
+### Phase 4 — Residue sweep + manifest consistency
+
+- [ ] T-4a — Assert zero scope residue across src/
   - Agent: verify
-  - Files: tests/integration/test_framework_hook_emitters.py (existing — Copilot cases)
-  - Principles applied: §10.5 TDD
-  - Patch (deterministic): — (read-only) run existing Copilot emitter tests; assert unchanged green after T-10.
-  - Gate: existing Copilot tests pass unchanged
+  - Files: `src/`
+  - Principles applied: §10.7 Clean Code (no orphaned scope surface)
+  - Patch (deterministic): none — run `grep -rnE "scope_resolution|installer\.scope|brain_root|--global|--local|detect_scopes|scope_status|update_scopes|reconcile_scopes" src/` and confirm ZERO hits. Confirm pure-scope files ABSENT: `installer/scope.py`, `installer/scope_resolution.py`, `doctor/runtime/scope_status.py`.
+  - Gate: grep returns nothing; the three pure-scope modules do not exist; `doctor/service.py` has no `scope_status` registration.
 
-- [ ] T-15 — full suite gate
-  - Agent: verify
-  - Files: tests/unit/hooks/, tests/integration/
-  - Principles applied: §10.4 Goal-Driven (green before done)
-  - Patch (deterministic): — run hook + integrity + canonical-events + trusted-script-lane suites.
-  - Gate: all green
-
-### Phase 5 — Docs
-
-- [ ] T-16 — CHANGELOG entry
+- [ ] T-4b — Regenerate hooks-manifest if hook bytes changed
   - Agent: build
-  - Files: CHANGELOG.md
-  - Principles applied: §10.7 Clean Code (document the breakage)
-  - Patch (deterministic): — under Unreleased: "fix(hooks): resolve Python >=3.11 interpreter for hook dispatch across Claude Code, Codex, Copilot (spec-154)". Note the new launcher path in command wiring.
-  - Gate: docs gate green
+  - Files: `.ai-engineering/state/hooks-manifest.json`
+  - Principles applied: §13 hook integrity pin
+  - Patch (deterministic): none — hooks should be untouched; if `git diff main -- .ai-engineering/scripts/hooks/` is non-empty, regenerate the manifest per the established procedure; else leave as-is.
+  - Gate: hook integrity check passes; `git diff main -- .ai-engineering/scripts/hooks/` empty (expected).
 
-## Risks (carried + refined)
+---
 
-- **R1 Copilot regression** — T-10 edits the shared-by-15-wrappers
-  runtime. Mitigation: keep public fn signatures; AC5/T-14.
-- **R2 Manifest staleness (refined)** — new `.sh` files unenrolled →
-  `regenerate --check` fails CI (not `run_hook_safe` block). Mitigation:
-  T-11 + `--check` gate.
-- **R3 Codex relative-path root** — `run-hook.sh` must resolve project
-  root when Codex passes a *relative* script path. Mitigation: root walk
-  + T-13 codex case.
-- **R4 Windows-pwsh gap (deferred)** — if Claude/Codex dispatch via pwsh
-  (not git-bash) on Windows, bash `run-hook.sh` is not invoked → hooks
-  unguarded there. Deferred to a follow-up `run-hook.ps1` +
-  `copilot-runtime.ps1` gate. Documented, not closed in v1.
-- **R5 Residual <3.11-only machine** — all hooks (incl.
-  prompt-injection-guard) inert; one guard line shown. Accepted
-  (unsupported per requires-python).
-- **R6 No argv↔settings coherence test** (pre-existing gap, OQ2) — out of
-  scope; note for a future governance test.
+### Phase 5 — Green gate (the verification contract)
 
-## Follow-ups (not this spec)
+- [ ] T-5a — Full test suite green
+  - Agent: verify
+  - Files: `tests/`
+  - Principles applied: §10.5 TDD, §4 Verification Before Done
+  - Patch (deterministic): none — `pytest` (full). Expect the 11 transplanted version tests + BASE suite all green; NO scope tests present.
+  - Gate: full suite green; `pytest tests/unit/version tests/unit/test_cli_ui_notice.py tests/unit/test_cli_notice_exempt.py tests/unit/cli_commands/test_version_upgrade.py tests/unit/test_version_lifecycle.py tests/integration/test_version_checker.py` all pass.
 
-- `/ai-learn`: spec-153's own auto-consolidation did not self-apply at its
-  merge (PR #539) — generalize the merge→consolidate trigger.
-- Windows `run-hook.ps1` + `copilot-runtime.ps1` >=3.11 gate (R4).
-- Governance test asserting every `trustedArgvs` entry maps to a real
-  `settings.json` command (R6).
+- [ ] T-5b — Behavioral parity + notice purity smoke
+  - Agent: verify
+  - Files: (runtime)
+  - Principles applied: §4 Verification Before Done
+  - Patch (deterministic): none — confirm: `ai-eng install`/`update`/`config`/`doctor` carry no `--global`/`--local` and no scope announce (parity with main); `ai-eng version` shows the notice; `ai-eng version --json`/`gate`/`internal` are notice-free (stdout pure) and do not advance the throttle.
+  - Gate: all acceptance checkboxes in spec-157 satisfiable; ready for `/ai-pr`.
+
+---
+
+## Post-build (operator, not a build task)
+
+- Open the PR for `feat/version-update-notice-clean` via `/ai-pr`.
+- Close PR #556 as superseded with a note: "Scope (global/local) abandoned per
+  spec-157 + global-viability panel; version-update-notice re-landed clean in
+  #NNN. Global briefs preserved under specs/drafts/." (irreversible/outward —
+  operator confirms.)
+
+## Risks
+
+- `git checkout OLD -- <file>` brings a stray scope import → mitigated by the
+  per-file grep gates in P2/P3 and the T-4a sweep.
+- `core.py` / `updater/service.py` graft drifts from BASE → base ON main's file,
+  graft only the version block; gate asserts `git diff main` is notice-only.
+- Rider cherry-pick conflicts (CHANGELOG) → keep both entries.
+- Briefs lost across the branch cut → T-0a preserves before T-0b.
+
+## safe_next_command
+
+`/ai-build`

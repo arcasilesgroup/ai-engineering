@@ -11,6 +11,7 @@ import os
 import re
 import sys
 from collections import OrderedDict
+from datetime import UTC
 from functools import lru_cache
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -391,3 +392,122 @@ def metric_table(rows: list[tuple[str, str, str]]) -> None:
     for label, value, status in rows:
         style = status_styles.get(status, "muted")
         _safe_print(f"  {label:<22} [{style}]{value}[/{style}]")
+
+
+# ── Update-available notice (spec version-update-notice) ──────────────
+
+
+def _load_version_check_config() -> object:
+    """Load the manifest ``version_check`` block from the cwd project root.
+
+    Returns a config object exposing ``enabled``/``ttl_hours``. Fail-open:
+    a missing/unreadable manifest yields the all-defaults config.
+    """
+    from ai_engineering.config.manifest import VersionCheckConfig
+
+    try:
+        from ai_engineering.config.loader import load_manifest_config
+
+        return load_manifest_config(Path.cwd()).version_check
+    except Exception:
+        return VersionCheckConfig()
+
+
+def maybe_render_update_notice(config: object | None = None) -> None:
+    """Render a one-line "update available" notice when appropriate.
+
+    Reads the version-check cache, the installed ``__version__``, and the
+    manifest ``version_check`` block. Emits nothing when the installed
+    version is current, when the notice was shown within ``ttl_hours``,
+    when disabled (``AIENG_NO_UPDATE_CHECK`` truthy or
+    ``version_check.enabled`` false), or in JSON mode. When the cache is
+    stale (older than TTL) it fires a detached background refresh and still
+    renders from whatever the cache currently holds.
+
+    When ``config`` (the resolved ``version_check`` block) is supplied by the
+    caller, the manifest is NOT re-parsed here — the CLI hot path loads it
+    once and threads it in (spec-157 review F7). When ``None`` the config is
+    loaded lazily. Fail-open: any error is swallowed so the CLI hot path
+    never breaks.
+    """
+    try:
+        _render_update_notice(config)
+    except Exception:
+        return
+
+
+def _render_update_notice(config: object | None = None) -> None:
+    from ai_engineering.cli_output import is_json_mode
+    from ai_engineering.version import cache
+    from ai_engineering.version.compare import is_newer
+
+    if is_json_mode():
+        return
+    if _truthy_env("AIENG_NO_UPDATE_CHECK"):
+        return
+
+    if config is None:
+        config = _load_version_check_config()
+    if not getattr(config, "enabled", True):
+        return
+    ttl_hours = int(getattr(config, "ttl_hours", 24))
+
+    # Stale cache -> kick off a detached refresh, still render current cache.
+    if cache.is_stale(ttl_hours):
+        from ai_engineering.version import refresh
+
+        refresh.spawn_background()
+
+    data = cache.read()
+    latest = data.get("latest")
+    if not isinstance(latest, str) or not latest:
+        return
+    if not is_newer(latest, __version__):
+        return
+
+    # Throttle: suppress if shown within the TTL window.
+    last_shown = data.get("last_shown_at")
+    if (
+        isinstance(last_shown, str)
+        and last_shown
+        and not _shown_window_elapsed(last_shown, ttl_hours)
+    ):
+        return
+
+    con = get_console()
+    message = f"◈ ai-engineering {__version__} → {latest} · run `ai-eng version upgrade`"
+    if con.is_terminal and not _is_no_color():
+        markup = (
+            f"[brand.dim]◈ ai-engineering {__version__} → {latest}[/brand.dim] "
+            "[muted]· run [brand.dim]`ai-eng version upgrade`[/brand.dim][/muted]"
+        )
+        try:
+            con.print(markup)
+        except (ImportError, ModuleNotFoundError):
+            sys.stderr.write(message + "\n")
+    else:
+        sys.stderr.write(message + "\n")
+
+    cache.mark_shown()
+
+
+def _truthy_env(name: str) -> bool:
+    """Return True when the named env var holds a truthy value."""
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _shown_window_elapsed(last_shown: str, ttl_hours: int) -> bool:
+    """Return True when ``ttl_hours`` have passed since ``last_shown``.
+
+    Fail-open: an unparseable stamp is treated as elapsed (show again).
+    """
+    from datetime import datetime
+
+    try:
+        stamp = datetime.fromisoformat(last_shown)
+    except ValueError:
+        return True
+    if stamp.tzinfo is None:
+        stamp = stamp.replace(tzinfo=UTC)
+    age = datetime.now(UTC) - stamp
+    return age.total_seconds() > ttl_hours * 3600

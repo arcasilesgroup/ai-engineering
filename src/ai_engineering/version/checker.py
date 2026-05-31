@@ -12,11 +12,11 @@ corrupted or missing registry returns graceful defaults, never blocks.
 
 from __future__ import annotations
 
-import contextlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from ai_engineering.version.compare import is_newer
 from ai_engineering.version.models import VersionEntry, VersionRegistry, VersionStatus
 
 
@@ -43,21 +43,6 @@ class VersionCheckResult:
     is_eol: bool
     latest: str | None
     message: str
-
-
-def _parse_semver(version: str) -> tuple[int, ...]:
-    """Parse a strict X.Y.Z version string into a comparable tuple.
-
-    Args:
-        version: Version string in X.Y.Z format.
-
-    Returns:
-        Tuple of integers for comparison.
-
-    Raises:
-        ValueError: If the version string is not valid.
-    """
-    return tuple(int(x) for x in version.split("."))
 
 
 def load_registry(registry_path: Path | None = None) -> VersionRegistry | None:
@@ -114,14 +99,8 @@ def find_latest_version(registry: VersionRegistry) -> str | None:
 
     best: VersionEntry | None = None
     for entry in registry.versions:
-        if best is None:
+        if best is None or is_newer(entry.version, best.version):
             best = entry
-        else:
-            try:
-                if _parse_semver(entry.version) > _parse_semver(best.version):
-                    best = entry
-            except ValueError:
-                continue
     return best.version if best else None
 
 
@@ -178,11 +157,12 @@ def check_version(
     is_deprecated = entry.status == VersionStatus.DEPRECATED
     is_eol = entry.status == VersionStatus.EOL
 
-    # Outdated: supported but not current, AND a newer version exists
+    # Outdated: supported but not current, AND a newer version exists.
+    # Canonical PEP 440 comparator (spec-156 D-156-11); fail-open on any
+    # unparseable input — is_newer() never raises.
     is_outdated = False
     if entry.status == VersionStatus.SUPPORTED and latest:
-        with contextlib.suppress(ValueError):
-            is_outdated = _parse_semver(installed) < _parse_semver(latest)
+        is_outdated = is_newer(latest, installed)
 
     if is_current:
         message = f"{installed} (current)"

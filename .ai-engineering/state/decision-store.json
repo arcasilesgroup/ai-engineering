@@ -1,0 +1,41 @@
+{
+  "active_decisions": [
+    {
+      "acceptedBy": "maintainer",
+      "context": "finding:SNYK-PYTHON-PIP-16964647",
+      "contextHash": "0290d28254bcde9812d9197a70bbf040069b3e28efff3776ec7b75b259a8f9b6",
+      "decidedAt": "2026-05-30T11:15:30Z",
+      "decision": "CVE-2026-8643 Directory Traversal in pip; affects all versions, no published fix (patch unreleased in pip master). pip is the installer captured by uv pip freeze, not a shipped runtime dependency; exploit needs a malicious wheel installed with elevated privileges, outside threat model. Coverage retained via pip-audit, semgrep, gitleaks, SBOM, Scorecard.",
+      "expiresAt": "2026-06-29T00:00:00Z",
+      "findingId": "SNYK-PYTHON-PIP-16964647",
+      "followUpAction": "Remove .snyk ignore and this acceptance once pip publishes a fixed release for CVE-2026-8643; re-run snyk to confirm green.",
+      "id": "DEC-2026-05-30-AA949D01",
+      "renewalCount": 0,
+      "riskCategory": "risk-acceptance",
+      "severity": "high",
+      "source": "spec-152",
+      "spec": "spec-152",
+      "status": "active"
+    }
+  ],
+  "decisions": [
+    {
+      "acceptedBy": "maintainer",
+      "context": "finding:SNYK-PYTHON-PIP-16964647",
+      "contextHash": "0290d28254bcde9812d9197a70bbf040069b3e28efff3776ec7b75b259a8f9b6",
+      "decidedAt": "2026-05-30T11:15:30Z",
+      "decision": "CVE-2026-8643 Directory Traversal in pip; affects all versions, no published fix (patch unreleased in pip master). pip is the installer captured by uv pip freeze, not a shipped runtime dependency; exploit needs a malicious wheel installed with elevated privileges, outside threat model. Coverage retained via pip-audit, semgrep, gitleaks, SBOM, Scorecard.",
+      "expiresAt": "2026-06-29T00:00:00Z",
+      "findingId": "SNYK-PYTHON-PIP-16964647",
+      "followUpAction": "Remove .snyk ignore and this acceptance once pip publishes a fixed release for CVE-2026-8643; re-run snyk to confirm green.",
+      "id": "DEC-2026-05-30-AA949D01",
+      "renewalCount": 0,
+      "riskCategory": "risk-acceptance",
+      "severity": "high",
+      "source": "spec-152",
+      "spec": "spec-152",
+      "status": "active"
+    }
+  ],
+  "schemaVersion": "1.1"
+}

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- feat(version): cross-surface PyPI update-available notice + `ai-eng version
+  upgrade` self-upgrade (spec-157). A background, fail-open version check
+  surfaces a one-line "update available" notice on interactive human commands
+  (stdout-pure: exempt on `--json`, `internal`, and `gate`/hook hot paths;
+  throttled so automation never burns the cache), and `ai-eng version upgrade`
+  performs a cross-OS self-upgrade wrapped in the CLI error boundary with a
+  JSON envelope. New `ai_engineering.version` package: PyPI client, atomic
+  cache, canonical PEP 440 comparator, install-method detection, detached
+  background refresh. Manifest `version_check` block controls it
+  (`AIENG_NO_UPDATE_CHECK=1` opts out).
+
+### Changed
+
+- Scope (global/local install) was evaluated and deliberately dropped as an
+  architectural impedance mismatch (per the spec-157 viability analysis):
+  `ai-eng install`/`update`/`config`/`doctor` remain per-repo, exactly as
+  before. The version-update-notice feature was re-landed clean and scope-free,
+  superseding the earlier bundled attempt.
+
 ## [0.8.4] - 2026-05-29
 
 ### Fixed
