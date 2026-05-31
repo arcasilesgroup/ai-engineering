@@ -3,7 +3,7 @@ spec: spec-157
 title: Version Update Notice — Clean Re-land (scope-free)
 status: approved
 effort: medium
-summary: Re-land ONLY the version-update-notice + self-upgrade feature on a fresh branch cut from main, transplanting the proven scope-clean modules verbatim, rewriting the two scope-coupled files (updater/service.py, cli_commands/core.py) to single-scope, cherry-picking the two CI-green riders (.snyk CVE accept, decision-store tracking), and dropping ALL global/local scope machinery. PR #556 (spec-156) is abandoned.
+summary: Re-land only the version-update-notice + version-upgrade feature on a fresh branch cut from main, scope-free. Transplant the proven version modules, rewrite the two scope-coupled files to single-scope, and drop all global/local scope machinery. Supersedes PR #556 (spec-156).
 ---
 
 # spec-157 — Version Update Notice: Clean Re-land
@@ -130,7 +130,8 @@ version module back-depends on scope; `scope_status.py` imports version modules
 ## Decisions
 
 - **D-157-01 — Fresh branch from main, not surgical revert.** Cut
-  `feat/version-update-notice-clean` from `main`. Rationale: the six installer
+  `feat/version-update-notice-clean` from `main`.
+  **Rationale**: the six installer
   phases carry interwoven scope-routing (+14..+166 each); a fresh branch leaves
   them prístine by construction (scope never arrives) — zero residue — whereas
   reverting them in-place risks leftover scope fragments. Squash-merge yields a
@@ -140,32 +141,55 @@ version module back-depends on scope; `scope_status.py` imports version modules
   files.** The 13 scope-clean source files + 11 test files are copied as-is from
   the #556 branch (they carry zero scope refs). Only `updater/service.py` and
   `cli_commands/core.py` are rewritten to the single-scope (main) shape, plus the
-  3-line scope-announce drop in `config.py`. Rationale: §10.4 DRY / §10.1 KISS —
+  3-line scope-announce drop in `config.py`.
+  **Rationale**: §10.4 DRY / §10.1 KISS —
   do not rewrite tested, green code; minimize the rewrite surface to the genuine
   coupling.
 
 - **D-157-03 — Strip `announce_scope` from `cli_ui.py` on transplant.** The
   notice block is clean but `announce_scope` (`cli_ui.py:416-433`) is scope infra
   that happened to land there. Remove it during the copy so no dead scope rider
-  ships. Rationale: §10.7 Clean Code — no dead code; §13.3 no orphaned scope
+  ships.
+  **Rationale**: §10.7 Clean Code — no dead code; §13.3 no orphaned scope
   surface.
 
 - **D-157-04 — Cherry-pick the two riders; they are load-bearing for green CI.**
   `.snyk` (CVE-2026-8643 accept) and the decision-store tracking change are
   scope-independent and cherry-pick clean onto main. The `.snyk` accept is NOT
-  optional — the Snyk gate reds CI without it. Rationale: Hard Rule 1 (secrets/
+  optional — the Snyk gate reds CI without it.
+  **Rationale**: Hard Rule 1 (secrets/
   CVE gate) — the branch must pass the same gate `main` does.
 
 - **D-157-05 — Preserve the two global briefs.** Move
   `global-install-work-plane-brief.md` and
   `global-hook-surface-resilience-brief.md` onto the new branch (they are
-  untracked working-tree files). Rationale: they are the validated foundation for
+  untracked working-tree files).
+  **Rationale**: they are the validated foundation for
   a future correct global-defaults effort; they must not die with PR #556.
 
 - **D-157-06 — Close PR #556 as superseded.** After the clean branch opens its
   PR, close #556 with a note linking the successor and the abandoned-scope
-  decision. It has zero human reviews, so nothing is lost. Rationale: §10.2
+  decision. It has zero human reviews, so nothing is lost.
+  **Rationale**: §10.2
   YAGNI — abandon the over-built scope concern rather than carry it.
+
+## Risks
+
+- **Transplant brings a stray scope import.** Mitigation: per-file scope grep
+  gate on every transplanted file plus a full `src/` residue sweep; confirmed
+  zero scope references after the rewrite.
+- **The two coupled-file rewrites drift from the `main` shape.** Mitigation:
+  base each on `main`'s version and graft only the version block; assert
+  `git diff main` is version-only.
+- **Rider cherry-picks conflict (CHANGELOG).** Mitigation: keep both entries on
+  conflict; riders are otherwise scope-independent and apply clean.
+- **Fresh-from-main drops sibling non-scope fixes the #556 branch accrued.**
+  Mitigation: diff OLD's full commit list vs `main` and transplant every
+  non-scope fix (spec-lint conformance, spec-116 RED dormancy/evidence,
+  conftest json-mode isolation) — not only the feature code.
+- **spec.md / plan.md fail `spec_lint`.** Mitigation: keep `## Risks`, a
+  `**Rationale**:` line per decision, and the required plan frontmatter fields
+  (`spec`, `title`) so the canonical-spec lint gate stays green.
 
 ## Acceptance
 

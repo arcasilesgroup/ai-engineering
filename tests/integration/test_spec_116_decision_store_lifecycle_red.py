@@ -19,13 +19,6 @@ from ai_engineering.state.control_plane import resolve_state_plane_artifact_path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DECISION_STORE_PATH = REPO_ROOT / ".ai-engineering" / "state" / "decision-store.json"
-
-if not DECISION_STORE_PATH.exists():
-    pytest.skip(
-        "decision-store.json removed in spec-125 D-125-09; lifecycle "
-        "invariants migrated to state.db.decisions queries.",
-        allow_module_level=True,
-    )
 LEGACY_AUDIT_FINDINGS_PATH = (
     REPO_ROOT / ".ai-engineering" / "state" / "spec-116-t41-audit-findings.json"
 )
@@ -33,6 +26,21 @@ AUDIT_FINDINGS_PATH = resolve_state_plane_artifact_path(
     REPO_ROOT,
     ".ai-engineering/state/spec-116-t41-audit-findings.json",
 )
+
+# These RED invariants pin a spec-116 JSON shape against the spec-116-t41
+# audit-findings evidence fixture. decision-store.json is once again a
+# committed governance SoT, but the audit-findings fixture was retired
+# (spec-125 D-125-09) and no longer ships on the modern state surface, so
+# the lifecycle invariants stay dormant unless BOTH artifacts are present
+# (e.g. on a legacy branch that still carries the evidence fixture).
+if not (DECISION_STORE_PATH.exists() and AUDIT_FINDINGS_PATH.exists()):
+    pytest.skip(
+        "spec-116 lifecycle invariants require both decision-store.json and "
+        "the spec-116-t41 audit-findings evidence fixture; the audit fixture "
+        "was retired in spec-125 D-125-09, so these invariants migrated to "
+        "state.db.decisions queries and stay dormant here.",
+        allow_module_level=True,
+    )
 
 RETIRED_BUCKETS = frozenset({"superseded history", "completed cleanup", "archive candidate"})
 LIVE_RISK_BUCKET = "live risk"
