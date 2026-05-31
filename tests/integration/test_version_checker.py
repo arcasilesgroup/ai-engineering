@@ -17,7 +17,6 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.version.checker import (
-    _parse_semver,
     check_version,
     find_latest_version,
     find_version_entry,
@@ -74,27 +73,10 @@ class TestVersionModels:
 
 
 # ---------------------------------------------------------------------------
-# Semver parsing
+# Semver comparison is now exercised by the canonical comparator suite
+# (tests/unit/version/test_compare.py); spec-156 D-156-11 removed the
+# hand-rolled checker._parse_semver in favour of version.compare.is_newer.
 # ---------------------------------------------------------------------------
-
-
-class TestSemverParsing:
-    """Tests for _parse_semver helper."""
-
-    def test_basic_parse(self) -> None:
-        assert _parse_semver("1.2.3") == (1, 2, 3)
-
-    def test_comparison(self) -> None:
-        assert _parse_semver("1.0.0") > _parse_semver("0.9.0")
-        assert _parse_semver("0.2.0") > _parse_semver("0.1.0")
-        assert _parse_semver("0.1.1") > _parse_semver("0.1.0")
-
-    def test_equality(self) -> None:
-        assert _parse_semver("1.0.0") == _parse_semver("1.0.0")
-
-    def test_invalid_raises(self) -> None:
-        with pytest.raises(ValueError):
-            _parse_semver("not.a.version")
 
 
 # ---------------------------------------------------------------------------
