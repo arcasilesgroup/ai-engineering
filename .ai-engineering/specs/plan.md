@@ -9,6 +9,9 @@ execution_route:
   reason: "Single concern (re-land version-update-notice scope-free). Mostly mechanical transplant of proven green files + two targeted single-scope rewrites + two rider cherry-picks. One coherent feature, build-routable; not multi-concern, so not autopilot."
   safe_next_command: "/ai-build"
 status: approved
+spec: spec-157
+title: Version Update Notice — Clean Re-land (scope-free)
+pipeline: standard
 ---
 
 # Plan — spec-157 Version Update Notice: Clean Re-land
