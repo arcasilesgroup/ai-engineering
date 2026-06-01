@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-01
+
 ### Fixed
 
 - fix(update): `ai-eng update` now finalizes `hooks-manifest.json` on the apply
@@ -38,7 +40,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `include` plus a wheel-content CI test that inspects the **built artifact**
   (spec-159). The launchers were already shipped via `packages=` (verified by
   building the wheel); this pins them against a future packaging regression.
-
 ## [0.9.0] - 2026-06-01
 
 ### Added
