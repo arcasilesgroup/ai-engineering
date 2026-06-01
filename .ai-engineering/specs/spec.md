@@ -1,9 +1,9 @@
 ---
 spec: spec-158
-title: ai-eng update migrates hook commands in protected .claude/settings.json
+title: Public-install hardening — hook-command migration + operator-anonymity gate
 status: approved
 effort: small
-summary: spec-154 routed Claude Code hook commands through _lib/run-hook.sh (≥3.11 interpreter resolver) so hosts with python3 < 3.11 stop tracebacking on every tool call. Fresh installs are born correct, but existing installs that run `ai-eng update` never get the fix: the updater ships run-hook.sh/resolve-python.sh as new files, yet .claude/settings.json is ownership-protected, so its `python3 ".../X.py"` hook commands are never rewritten — the resolver lands unused and hooks keep failing. This spec adds a surgical, idempotent migrator in the updater that rewrites ONLY exact-shape framework-owned hook command strings inside the protected settings.json, with backup, dry-run visibility, and a skip report for anything non-canonical.
+summary: Two public-install correctness bugs in one spec. (A) spec-154 routed Claude Code hook commands through _lib/run-hook.sh (≥3.11 interpreter resolver) so hosts with python3 < 3.11 stop tracebacking on every tool call; fresh installs are born correct, but existing installs that run `ai-eng update` never get the fix because .claude/settings.json is ownership-protected, so its `python3 ".../X.py"` hook commands are never rewritten — the resolver lands unused. This spec adds a surgical, idempotent migrator that rewrites ONLY exact-shape framework-owned hook command strings inside the protected settings.json, with backup, dry-run visibility, and a skip report. (B) Shipped framework content leaks the operator's machine path/name (`/Users/soydachi/...` in transcript_usage.py docstrings — canonical + template, with template drift), violating Hard Rule 4 (anonymous content) on a public framework every company can install. This spec genericizes the leaks, syncs template↔canonical, and adds a name-agnostic CI gate that flags any `/Users/<name>` or `/home/<name>` operator path in shipped surfaces so no operator identity ever reships.
 ---
 
 # spec-158 — Migrate hook commands in protected `.claude/settings.json`
@@ -59,6 +59,25 @@ backup.
   uses `.sh`/`.ps1`, no `python3`-direct wiring. **`.claude/settings.json` is the
   only stranded surface.**
 
+**Concern B — operator-name leak (boundary evidence):**
+- A repo-wide `git grep` for `/(Users|home)/<name>` across shipped surfaces
+  (`src/**`, `.ai-engineering/scripts/**`, `docs/**`, root `*.md`) finds the
+  operator's machine path in exactly THREE lines, all `soydachi`, all in
+  `transcript_usage.py` docstrings:
+  `.ai-engineering/scripts/hooks/_lib/transcript_usage.py:9` (canonical),
+  `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/transcript_usage.py:9`
+  and `:67` (template). `/home/linuxbrew/.linuxbrew` is a legitimate default, not
+  an operator path.
+- **Template drift**: the canonical copy's `_project_slug` docstring (`:67`) was
+  already genericized to `/Users/.../ai-engineering`, but the **template** (the
+  copy that actually ships to installs) still carries `soydachi` at `:9` AND
+  `:67`. The template is what a company installs — so installed users receive the
+  leak (a copilotline contributor manually patched their installed copy).
+- **No anonymity gate exists.** `tests/unit/test_no_forbidden_substrings.py`
+  scans only `installer/`, `doctor/`, `prereqs/` for install-command literals —
+  it has no machine-path/operator-name rule and does not scan the hooks tree or
+  templates. Total blind spot for this bug class.
+
 ## Goals
 
 - An existing install receives the spec-154 hook-resolver wiring with a plain
@@ -69,6 +88,8 @@ backup.
   command values.
 - The migration is idempotent, visible in dry-run, backed up before mutation, and
   reports anything it declines to touch.
+- Zero operator-name / machine-home-path leaks in any shipped surface; a CI gate
+  prevents re-introduction by ANY operator (name-agnostic).
 
 ## Non-Goals
 
@@ -80,6 +101,10 @@ backup.
 - Auto-installing a ≥3.11 interpreter (`run-hook.sh` already degrades with one
   stderr line + exit 0 when none is found).
 - Re-deriving the resolver design (spec-154; proven).
+- Scrubbing operator paths from non-shipped surfaces (tests, runtime, specs) — the
+  gate scopes to what installs / publishes; test fixtures may use synthetic paths.
+- A general PII/secrets redactor (already covered by `security/redactor.py`); this
+  gate is specifically operator-home-path leakage in shipped content.
 
 ## Decisions
 
@@ -131,6 +156,27 @@ backup.
   `.claude/settings.json` (the `update` target root); no cross-scope traversal.
   **Rationale**: matches the updater's existing single-target contract.
 
+- **D-158-08 — Genericize the operator-name leaks + sync template↔canonical.**
+  Rewrite the three `soydachi` docstring examples in `transcript_usage.py` to
+  generic placeholders (`${HOME}/.claude/projects/<project-slug>/<session-id>.jsonl`
+  and `/Users/.../ai-engineering` → `-Users-...-ai-engineering`), matching the
+  already-genericized canonical `_project_slug` style, then make the template
+  copy byte-identical to the canonical copy so the drift cannot recur.
+  **Rationale**: Hard Rule 4 (anonymous content) — no operator name / machine path
+  in committed, shipped files; §10.4 DRY — one canonical source, template mirrors.
+
+- **D-158-09 — Add a name-agnostic operator-path gate.** New test scanning shipped
+  surfaces (`src/ai_engineering/**` incl. templates, `.ai-engineering/scripts/**`,
+  `docs/**/*.md`, root `*.md`/`CONSTITUTION.md`) for `/(Users|home)/<segment>`
+  (and `\Users\<segment>`) where `<segment>` is NOT in a small generic allowlist
+  (`user`, `you`, `runner`, `linuxbrew`, `root`, `test`, `example`, `name`,
+  `project`, `app`, `ci`, `build`, `home`). It flags ANY operator name — not a
+  `soydachi` denylist — so a future operator's path is caught automatically. Tests,
+  `runtime/`, `specs/`, `observations/` are out of scope (not shipped).
+  **Rationale**: durable prevention over one-off scrub; a public framework must
+  never reship operator identity. The existing install-command guard
+  (`test_no_forbidden_substrings.py`) is the precedent pattern.
+
 ## Risks
 
 - **Mutating a protected, user-owned file.** Mitigation: exact-shape match only
@@ -164,8 +210,16 @@ backup.
       the resolver with no `ImportError: UTC` traceback.
 - [ ] AC8 — If `run-hook.sh` is absent at migrate time, the rewrite is skipped and
       reported (no wiring to a missing wrapper).
-- [ ] AC9 — Full test suite green; `hooks-manifest.json` consistent (no hook bytes
-      changed by this spec).
+- [ ] AC9 — Full test suite green; `hooks-manifest.json` consistent (note: the
+      `transcript_usage.py` docstring fix DOES change canonical hook bytes →
+      `hooks-manifest.json` MUST be regenerated and committed).
+- [ ] AC10 — Zero `soydachi` (or any operator name) in shipped surfaces; the three
+      `transcript_usage.py` docstring leaks are genericized; template copy is
+      byte-identical to canonical.
+- [ ] AC11 — New name-agnostic gate flags any `/Users/<name>` or `/home/<name>`
+      operator path in shipped surfaces (allowlist of generic segments only);
+      proven by a fixture that the gate catches a planted operator path and passes
+      on `/home/linuxbrew` + `/Users/you`.
 
 ## References
 
