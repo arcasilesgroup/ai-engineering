@@ -70,6 +70,12 @@ def main() -> None:
         passthrough_stdin(ctx.data)
         return
 
+    # spec-158 D-158-12: honor ``stop_hook_active`` — release on a
+    # continuation without re-running the SubagentStop work.
+    if ctx.data.get("stop_hook_active"):
+        passthrough_stdin(ctx.data)
+        return
+
     subagent_type = _coerce_str(ctx.data.get("subagent_type")) or "unknown"
     duration_ms = _coerce_int(ctx.data.get("duration_ms"))
     subagent_run_id = _coerce_str(ctx.data.get("subagent_run_id"))

@@ -489,3 +489,54 @@ def _count_lines(path: Path) -> int:
     return len(
         [line for line in path.read_text(encoding="utf-8").strip().splitlines() if line.strip()]
     )
+
+
+_PREFIX = "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/"
+
+
+def _set_legacy_command(settings_path: Path) -> str:
+    """Rewrite the first PreToolUse hook command to the legacy python3 form."""
+    data = json.loads(settings_path.read_text(encoding="utf-8"))
+    legacy = f'python3 "{_PREFIX}observe.py"'
+    data["hooks"]["PreToolUse"][0]["hooks"][0]["command"] = legacy
+    settings_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return legacy
+
+
+class TestHookCommandMigration:
+    """spec-158 concern A — settings.json hook-command migration via update()."""
+
+    def test_dry_run_reports_migration_without_writing(self, installed_project: Path) -> None:
+        settings = installed_project / ".claude" / "settings.json"
+        legacy = _set_legacy_command(settings)
+        before = settings.read_text(encoding="utf-8")
+
+        result = update(installed_project, dry_run=True)
+
+        assert result.hook_migration is not None
+        assert legacy in result.hook_migration.migrated
+        assert settings.read_text(encoding="utf-8") == before  # untouched
+
+    def test_apply_rewrites_to_resolver_with_backup(self, installed_project: Path) -> None:
+        settings = installed_project / ".claude" / "settings.json"
+        _set_legacy_command(settings)
+
+        result = update(installed_project, dry_run=False)
+
+        assert result.hook_migration is not None and result.hook_migration.applied
+        data = json.loads(settings.read_text(encoding="utf-8"))
+        cmd = data["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+        # AC1/AC7: now routed through the resolver wrapper.
+        assert cmd == f'bash "{_PREFIX}_lib/run-hook.sh" "{_PREFIX}observe.py"'
+        # AC5: a timestamped backup exists.
+        backups = list((installed_project / ".claude").glob("settings.json.bak-*"))
+        assert backups, "expected a settings.json backup before mutation"
+
+    def test_apply_is_idempotent(self, installed_project: Path) -> None:
+        settings = installed_project / ".claude" / "settings.json"
+        _set_legacy_command(settings)
+        first = update(installed_project, dry_run=False)
+        assert first.hook_migration is not None and first.hook_migration.migrated_count >= 1
+        second = update(installed_project, dry_run=False)
+        assert second.hook_migration is not None
+        assert second.hook_migration.migrated == []

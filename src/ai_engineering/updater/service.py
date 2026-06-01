@@ -53,6 +53,10 @@ from ai_engineering.state.service import (
     remove_legacy_audit_log,
     save_install_state,
 )
+from ai_engineering.updater.hook_command_migration import (
+    HookMigrationReport,
+    migrate_hook_commands,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -119,6 +123,10 @@ class UpdateResult:
 
     dry_run: bool
     changes: list[FileChange] = field(default_factory=list)
+    # spec-158 D-158-03/04: framework-owned hook-command migration inside the
+    # ownership-protected .claude/settings.json (never a FileChange — it would
+    # be skip-denied). None until update() attaches the report.
+    hook_migration: HookMigrationReport | None = None
 
     @property
     def applied_count(self) -> int:
@@ -165,6 +173,9 @@ class UpdateResult:
                 "failed": 0,
             },
             "changes": [change.to_dict(dry_run=self.dry_run) for change in self.changes],
+            "hook_migration": (
+                self.hook_migration.to_dict() if self.hook_migration is not None else None
+            ),
         }
 
 
@@ -465,8 +476,15 @@ def update(
     adapter = _UpdateAdapter(target, dry_run=dry_run)
     run = ResourceReconciler().run(adapter, target, preview=dry_run)  # ty:ignore[invalid-argument-type]
 
+    # spec-158 D-158-03/04: the resolver wiring inside the ownership-protected
+    # .claude/settings.json is a framework-owned FIELD migration — it never
+    # flows through the (denied) FileChange path. Compute always (dry-run
+    # visibility); write + back up only on apply.
+    hook_migration = migrate_hook_commands(target, dry_run=dry_run)
+
     if dry_run:
         payload = _UpdateAdapter._coerce_plan_payload(run.plan.payload)
+        payload.result.hook_migration = hook_migration
         return payload.result
 
     if run.apply_result is None:
@@ -479,6 +497,7 @@ def update(
         message = "; ".join(details) or "update verification failed"
         raise RuntimeError(f"update verification failed; rolled back changes: {message}")
     payload = _UpdateAdapter._coerce_apply_payload(run.apply_result.payload)
+    payload.result.hook_migration = hook_migration
     return payload.result
 
 

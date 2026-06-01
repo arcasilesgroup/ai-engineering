@@ -42,6 +42,18 @@ def conv(monkeypatch: pytest.MonkeyPatch):
     return module
 
 
+@pytest.fixture(autouse=True)
+def _python_project(tmp_path: Path) -> None:
+    """Mark ``tmp_path`` as a Python project (spec-158 D-158-11).
+
+    Convergence now runs the Python lint+test tools ONLY in a Python project
+    (marker file present). Existing tests exercise ruff/pytest against
+    ``tmp_path``, so a ``pyproject.toml`` marker keeps them meaningful. Tests
+    that need a NON-Python project use a marker-less subdirectory instead.
+    """
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 't'\n", encoding="utf-8")
+
+
 class _CompletedProcStub:
     """Minimal stand-in for ``subprocess.CompletedProcess``."""
 
@@ -67,12 +79,13 @@ def _stub_run(rc_by_arg0: dict[str, _CompletedProcStub]):
 
     def _run(cmd, **_kwargs):
         head = cmd[0] if cmd else ""
-        # Match by the *script* invocation too: "python -m pytest …".
-        if head in ("python", "python3") and len(cmd) > 2 and cmd[1] == "-m":
+        # Match by the *script* invocation too, for ANY interpreter — incl.
+        # ``sys.executable`` (spec-158 D-158-10): "<interp> -m pytest …".
+        if len(cmd) > 2 and cmd[1] == "-m":
             key = f"{head} -m {cmd[2]}"
             if key in rc_by_arg0:
                 return rc_by_arg0[key]
-            # Try the generic "pytest" key too.
+            # Try the generic module key too (e.g. "pytest").
             if cmd[2] in rc_by_arg0:
                 return rc_by_arg0[cmd[2]]
         return rc_by_arg0.get(head, default)
@@ -294,3 +307,83 @@ def test_duration_ms_populated(
     # Frozen dataclass — mutability must be rejected.
     with pytest.raises(Exception):  # noqa: B017
         result.duration_ms = 999  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# spec-158 concern C — stack-aware convergence under the resolved interpreter
+# ---------------------------------------------------------------------------
+
+
+def test_pytest_runs_under_resolved_interpreter(
+    conv,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D-158-10/AC12: the pytest checks spawn ``sys.executable``, never a bare
+    PATH ``python``/``python3`` that may belong to another environment."""
+    monkeypatch.setattr(conv.shutil, "which", lambda _name: f"/usr/bin/{_name}")
+    calls: list[list[str]] = []
+
+    def _run(cmd, **_kwargs):
+        calls.append(list(cmd))
+        return _CompletedProcStub(returncode=0)
+
+    monkeypatch.setattr(conv.subprocess, "run", _run)
+    conv.check_convergence(tmp_path, fast=False)
+
+    pytest_cmds = [c for c in calls if "pytest" in c]
+    assert pytest_cmds, "expected at least one pytest invocation in a Python project"
+    for c in pytest_cmds:
+        assert c[0] == sys.executable, f"pytest must run under sys.executable, got {c[0]!r}"
+        assert c[0] not in ("python", "python3")
+
+
+def test_non_python_project_skips_python_tools(
+    conv,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D-158-11/AC13: a non-Python project (no marker) runs NO Python verifier,
+    so a TypeScript-only repo never trips a false convergence failure."""
+    ts_repo = tmp_path / "ts_repo"
+    ts_repo.mkdir()
+    (ts_repo / "package.json").write_text('{"name":"x"}', encoding="utf-8")
+    monkeypatch.setattr(conv.shutil, "which", lambda _name: f"/usr/bin/{_name}")
+    calls: list[list[str]] = []
+
+    def _run(cmd, **_kwargs):
+        calls.append(list(cmd))
+        # Even if invoked, pretend everything fails — must not matter (skipped).
+        return _CompletedProcStub(returncode=1, stderr="should never run")
+
+    monkeypatch.setattr(conv.subprocess, "run", _run)
+    result = conv.check_convergence(ts_repo, fast=False)
+
+    assert result.converged is True
+    assert result.failures == []
+    assert not any("pytest" in c for c in calls), "pytest must not run in a TS repo"
+    assert not any(c and c[0] == "ruff" for c in calls), "ruff must not run in a TS repo"
+
+
+def test_pytest_runner_absent_is_fail_open(
+    conv,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D-158-11/AC13: a Python project whose interpreter lacks the test runner
+    fails OPEN (nothing to verify), NOT a convergence failure that blocks Stop."""
+    monkeypatch.setattr(conv.shutil, "which", lambda _name: f"/usr/bin/{_name}")
+    monkeypatch.setattr(
+        conv.subprocess,
+        "run",
+        _stub_run(
+            {
+                "ruff": _CompletedProcStub(returncode=0),
+                "pytest": _CompletedProcStub(returncode=1, stderr="No module named pytest\n"),
+                "git": _CompletedProcStub(returncode=0),
+            }
+        ),
+    )
+    result = conv.check_convergence(tmp_path, fast=True)
+    assert result.converged is True
+    assert result.failures == []

@@ -62,6 +62,12 @@ def main() -> None:
         passthrough_stdin(ctx.data)
         return
 
+    # spec-158 D-158-12: honor ``stop_hook_active`` — on a Stop-hook
+    # continuation the work already ran on the first Stop; release silently.
+    if ctx.data.get("stop_hook_active"):
+        passthrough_stdin(ctx.data)
+        return
+
     project_root = ctx.project_root
     session_id = ctx.session_id
 

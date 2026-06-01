@@ -28,6 +28,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   before. The version-update-notice feature was re-landed clean and scope-free,
   superseding the earlier bundled attempt.
 
+### Fixed
+
+- fix(hooks): hooks no longer block an installed user (spec-158). The Stop-hook
+  convergence check was stack-blind — it ran the Python lint+test tools
+  (`pytest`/`ruff`) in ANY repo, spawning a bare-PATH `python3` rather than the
+  resolved interpreter. In a TypeScript-only project (no `pyproject.toml`, no
+  `pytest`) it reported the missing module as a convergence *failure*, so the
+  Ralph loop bumped retries and blocked turn-end to the cap. Convergence is now
+  stack-aware (Python tools run only in a Python project, under `sys.executable`,
+  and fail open when the runner is absent), and all four Stop/SubagentStop hooks
+  honor `stop_hook_active` so a block can never loop. The advisory
+  progressive-disclosure `UserPromptSubmit` timeout was raised 5s → 10s so it is
+  not killed (fail-closed) under load.
+- fix(updater): `ai-eng update` now migrates legacy hook commands inside the
+  ownership-protected `.claude/settings.json` (spec-158). Existing installs
+  never received the spec-154 resolver wiring because the protected file was
+  preserved verbatim; a surgical, idempotent field-migrator rewrites only the
+  exact-shape `python3 ".../hooks/X.py"` commands to route through
+  `run-hook.sh`, with a pre-mutation backup, dry-run visibility, minimum-diff
+  edits (matchers/timeouts/deny rules preserved), and a skip report for
+  non-canonical commands.
+- fix(hooks): removed an operator machine path/name leaked in shipped
+  `transcript_usage.py` docstrings and synced the template byte-for-byte to the
+  canonical copy (spec-158, Hard Rule 4).
+
+### Added
+
+- A name-agnostic operator-path gate (`tests/unit/test_no_operator_paths.py`)
+  that flags any `/Users/<name>` or `/home/<name>` operator home path in shipped
+  surfaces whose user segment is not a generic placeholder — so no operator
+  identity can ever reship (spec-158).
+
 ## [0.8.4] - 2026-05-29
 
 ### Fixed

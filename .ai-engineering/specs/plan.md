@@ -1,212 +1,370 @@
 ---
 execution_route:
   version: 1
-  spec: spec-157
-  executor: build
+  spec: spec-158
+  executor: autopilot
   automation: assisted
-  concern_count: 1
-  estimated_files: 30
-  reason: "Single concern (re-land version-update-notice scope-free). Mostly mechanical transplant of proven green files + two targeted single-scope rewrites + two rider cherry-picks. One coherent feature, build-routable; not multi-concern, so not autopilot."
-  safe_next_command: "/ai-build"
+  concern_count: 3
+  estimated_files: 14
+  reason: >
+    Three public-install reliability concerns across two subsystems (updater +
+    hooks). (A) settings.json hook-command migrator. (B) operator-anonymity
+    hardening. (C) hooks must never block an installed user: convergence under
+    sys.executable + fail-open without pytest + stop_hook_active guard on Stop
+    hooks + advisory timeout. ~14 files. >=3 concerns -> autopilot wraps the
+    chain (decompose into sub-specs A/B/C, DAG, waves, single quality loop).
+  safe_next_command: "/ai-autopilot"
+spec: spec-158
+title: Public-install hardening — hook migration + anonymity + hook reliability
 status: approved
-spec: spec-157
-title: Version Update Notice — Clean Re-land (scope-free)
-pipeline: standard
+pipeline: full
 ---
 
-# Plan — spec-157 Version Update Notice: Clean Re-land
-
-## Design
-
-Re-land is a TRANSPLANT, not a redesign. The version-notice design is proven and
-green in PR #556. The plan moves proven artifacts onto a fresh main-cut branch,
-rewrites only the two genuinely scope-coupled files back to single-scope, brings
-two CI-green riders, and asserts zero scope residue. Source of truth for the
-"old" artifacts is the `feat/version-update-notice` branch (PR #556); the build
-agent reads files from it via `git show <ref>:<path>` / `git checkout <ref> --
-<path>`.
-
-`OLD = feat/version-update-notice` (PR #556 tip). `BASE = main`.
+# spec-158 — Execution Plan
 
 ## Architecture
 
-Pattern: **branch-transplant migration** (ad-hoc). Three rails:
-1. Verbatim copy of scope-clean source + tests from OLD.
-2. Single-scope rewrite of the two coupled files to the BASE shape + KEEP-block
-   graft.
-3. Rider cherry-pick (security/governance, scope-independent).
+**Pattern: Hexagonal (§10.8) — pure core + IO shell.**
 
-No new abstractions. local-always-wins is the only model (it is BASE's model).
+The migrator splits into a **pure planner** (parse settings dict -> list of exact
+`(old_command, new_command)` rewrites + a skipped list; no IO) and an **IO
+wrapper** (`migrate_hook_commands(target, *, dry_run)` — reads
+`.claude/settings.json`, guards on `run-hook.sh` presence, applies rewrites via
+**literal `json.dumps` string replacement on the raw file text** for
+minimum-diff, backs up + writes only when `not dry_run`, returns a
+`HookMigrationReport`).
+
+Critical boundary decision (from updater evidence): `.claude/settings.json` is
+ownership-**denied** (`control_plane.py:121`, `FileChange` -> `skip-denied`). The
+migrator therefore does **NOT** flow through the `FileChange`/reconciler path —
+it is a **framework-owned field migration** (spec-158 D-158-04) called directly
+from `update()`, attached to `UpdateResult.hook_migration`, surfaced in
+`to_dict()` and the human summary. This bypasses the protected-file overwrite
+block while leaving whole-file ownership protection intact.
+
+**Minimum-diff mechanism (D-158-06):** for each exact-shape command, compute
+`old_literal = json.dumps(old_cmd)` and `new_literal = json.dumps(new_cmd)`
+(both include surrounding quotes + identical JSON escaping to what the file
+already contains) and do `raw = raw.replace(old_literal, new_literal)`. Only
+command string values change; matchers, timeouts, key order, whitespace, and
+`permissions.deny` survive byte-for-byte. A duplicated command (same script in
+two events) is rewritten in all positions (correct). Re-validate with
+`json.loads` after; if a literal is not found in raw (escaping mismatch), that
+command is reported `skipped`, never corrupted.
+
+**Detection (D-158-02):**
+- Exact-shape regex over a command:
+  `^python3 "\$CLAUDE_PROJECT_DIR/\.ai-engineering/scripts/hooks/(?P<script>[^"]+\.py)"(?P<args>.*)$`
+  -> rewrite to
+  `bash "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh" "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/<script>"<args>`.
+- Already routed through `run-hook.sh` -> not matched -> no rewrite (idempotent;
+  not counted as skipped-for-review).
+- Command referencing the framework hooks dir but NOT matching the exact shape
+  (custom interpreter, absolute path, extra flags, wrapper) -> `skipped`
+  (reported for manual review).
+- Command not referencing the framework hooks dir -> ignored (user's own).
 
 ## Phases
 
-Order: P0 branch+preserve → P1 riders → P2 verbatim transplant → P3 coupled
-rewrites → P4 strip+wire cleanup → P5 gate. RED-before-GREEN does not apply
-(tests are transplanted alongside their proven implementations); the gate phase
-is the verification contract.
+### Phase 1 — Pure planner core (TDD)
 
----
-
-### Phase 0 — Branch + preserve briefs
-
-- [ ] T-0a — Preserve the two global briefs before switching branches
+- [ ] T-1 — RED: pure planner tests
   - Agent: build
-  - Files: `.ai-engineering/specs/drafts/global-install-work-plane-brief.md`, `.ai-engineering/specs/drafts/global-hook-surface-resilience-brief.md`
-  - Principles applied: §10.2 YAGNI (keep the validated artifact, drop the over-built code)
-  - Patch (deterministic): none — `git stash push -- .ai-engineering/specs/drafts/global-*-brief.md` OR copy to `/tmp` so they survive the branch cut; restore after T-0b.
-  - Gate: both files readable after T-0b.
+  - Files: `tests/unit/updater/test_hook_command_migration.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (prose): create the test module (house style: plain `tmp_path`, no
+    fixtures needed for the pure fn). Cover `plan_command_rewrites(settings: dict)`:
+    (a) exact `python3 ".../observe.py"` -> `bash ".../run-hook.sh" ".../observe.py"`;
+    (b) trailing args preserved (`... .py" --flag` -> `...run-hook.sh" "....py" --flag`);
+    (c) duplicate command in two events -> both in rewrites;
+    (d) already-`run-hook.sh` command -> 0 rewrites, 0 skipped;
+    (e) non-canonical framework-dir command (`python /abs/x.py`, or `python3 '...'`
+    single-quote, or extra interpreter flag) -> 0 rewrites, 1 skipped;
+    (f) non-framework command (`echo hi`) -> ignored (0/0);
+    (g) missing/empty `hooks` block -> (0/0). Import
+    `from ai_engineering.updater.hook_command_migration import plan_command_rewrites`.
+  - Gate: `.venv/bin/python -m pytest tests/unit/updater/test_hook_command_migration.py -q` -> fails (ModuleNotFoundError).
 
-- [ ] T-0b — Cut the clean branch from main
+- [ ] T-2 — GREEN: planner module
   - Agent: build
-  - Files: (git ref only)
-  - Principles applied: §10.1 KISS (D-157-01 fresh branch, zero residue)
-  - Patch (deterministic): none — `git fetch origin && git switch -c feat/version-update-notice-clean origin/main` (or local `main` if current).
-  - Gate: `git rev-parse --abbrev-ref HEAD` == `feat/version-update-notice-clean`; `git merge-base --is-ancestor main HEAD` true; spec.md + plan.md (spec-157) and both briefs present in the working tree on the new branch.
+  - Files: `src/ai_engineering/updater/hook_command_migration.py` (new)
+  - Principles applied: §10.8 Hexagonal, §10.1 KISS
+  - Patch (prose): module constants
+    `_HOOKS_PREFIX = "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/"`,
+    `_RUN_HOOK = _HOOKS_PREFIX + "_lib/run-hook.sh"`, compiled regex
+    `_PY_CMD = re.compile(r'^python3 "\$CLAUDE_PROJECT_DIR/\.ai-engineering/scripts/hooks/(?P<script>[^"]+\.py)"(?P<args>.*)$')`.
+    `def plan_command_rewrites(settings: Mapping) -> tuple[list[tuple[str, str]], list[str]]`:
+    walk `settings.get("hooks", {})` -> each event -> list of entries -> each
+    `entry.get("hooks", [])` -> each hook dict's `command`. For each command:
+    skip if it already contains `_lib/run-hook.sh`; elif `_PY_CMD` matches ->
+    append `(old, f'bash "{_RUN_HOOK}" "{_HOOKS_PREFIX}{m["script"]}"{m["args"]}')`
+    to rewrites; elif command references `_HOOKS_PREFIX` -> append to skipped;
+    else ignore. De-dupe rewrites preserving order. Return `(rewrites, skipped)`.
+  - Gate: T-1 tests pass.
 
-- [ ] T-0c — Land spec-157 spec.md + plan.md + briefs on the new branch
+### Phase 2 — IO wrapper (TDD)
+
+- [ ] T-3 — RED: IO wrapper + report tests
   - Agent: build
-  - Files: `.ai-engineering/specs/spec.md`, `.ai-engineering/specs/plan.md`, `.ai-engineering/specs/drafts/global-*-brief.md`
-  - Principles applied: §10.6 SDD (the spec/plan are the contract for this branch)
-  - Patch (deterministic): none — ensure the spec-157 spec.md/plan.md (currently working-tree) and the restored briefs are on the new branch; commit them: `docs(spec-157): clean version-notice re-land spec + plan`.
-  - Gate: `git show HEAD:.ai-engineering/specs/spec.md` frontmatter `spec: spec-157`.
+  - Files: `tests/unit/updater/test_hook_command_migration.py` (extend)
+  - Principles applied: §10.5 TDD
+  - Patch (prose): add a `_write_settings(claude_dir, data)` helper and a
+    `_seed_run_hook(target)` helper (touch
+    `.ai-engineering/scripts/hooks/_lib/run-hook.sh`). Cover
+    `migrate_hook_commands(target, *, dry_run)`:
+    (a) absent `.claude/settings.json` -> `HookMigrationReport(migrated=[], skipped=[], backup_path=None, applied=False)`, nothing written;
+    (b) `run-hook.sh` absent -> rewrites NOT applied, report lists the candidates as `skipped` with reason, file unchanged (AC8);
+    (c) `dry_run=True` with candidates + run-hook.sh present -> report.migrated populated, file on disk UNCHANGED, backup_path None;
+    (d) `dry_run=False` -> file rewritten to `run-hook.sh` form, a backup file matching `settings.json.bak-*` exists, `permissions.deny` + matchers + timeouts preserved, JSON valid;
+    (e) minimum-diff: raw text equals the original except the rewritten command literals (assert non-command bytes unchanged);
+    (f) idempotent: second `migrate_hook_commands(dry_run=False)` -> `migrated == []`, file content stable.
+  - Gate: fails (function/dataclass absent).
 
----
-
-### Phase 1 — Riders (cherry-pick, CI-green-required)
-
-- [ ] T-1a — Cherry-pick `.snyk` CVE-2026-8643 accept
+- [ ] T-4 — GREEN: IO wrapper + report dataclass
   - Agent: build
-  - Files: `.snyk`
-  - Principles applied: §13.1 Secrets/CVE gate (Hard Rule 1 — branch must pass the same gate as main)
-  - Patch (deterministic): none — `git cherry-pick 5b9b4272`. If it touches more than `.snyk`, instead `git checkout 5b9b4272 -- .snyk` and commit `chore(security): risk-accept CVE-2026-8643 (pip) in Snyk gate`.
-  - Gate: `.snyk` contains the CVE-2026-8643 entry; `pip-audit`/Snyk gate green locally if runnable.
+  - Files: `src/ai_engineering/updater/hook_command_migration.py` (extend)
+  - Principles applied: §10.8 Hexagonal, §10.5 TDD, §10.7 Clean Code
+  - Patch (prose): `@dataclass HookMigrationReport` with
+    `migrated: list[str]`, `skipped: list[str]`, `backup_path: Path | None`,
+    `applied: bool`, plus `count`/`to_dict()` helpers.
+    `def migrate_hook_commands(target: Path, *, dry_run: bool) -> HookMigrationReport`:
+    resolve `settings = target/".claude"/"settings.json"`; if not file -> empty
+    report. `raw = settings.read_text()`, `data = json.loads(raw)`
+    (on `JSONDecodeError` -> empty report, do not touch). `rewrites, skipped =
+    plan_command_rewrites(data)`. If rewrites and
+    `not (target/".ai-engineering"/"scripts"/"hooks"/"_lib"/"run-hook.sh").is_file()`
+    -> move rewrite scripts into `skipped` (reason: resolver-absent), `rewrites=[]`
+    (AC8). `migrated = [old for old,_ in rewrites]`. If `dry_run` or not rewrites
+    -> return report (no write). Else: `new_raw = raw`; for `old,new` in rewrites:
+    `new_raw = new_raw.replace(json.dumps(old), json.dumps(new))`; if a literal
+    absent -> drop from migrated, add to skipped. `json.loads(new_raw)` (validate;
+    on failure -> return report unwritten + skipped). Backup:
+    `bak = settings.with_name(f"settings.json.bak-{datetime.now(UTC):%Y%m%dT%H%M%SZ}")`,
+    `shutil.copy2(settings, bak)`. Write `new_raw` (atomic: temp + `os.replace`).
+    Return report with `backup_path=bak`, `applied=True`.
+  - Gate: T-3 tests pass.
 
-- [ ] T-1b — Cherry-pick decision-store tracking
+### Phase 3 — Wire into updater + result + summary
+
+- [ ] T-5 — UpdateResult carries the migration report
   - Agent: build
-  - Files: `.gitignore`, `.ai-engineering/state/decision-store.json`, `CHANGELOG.md`, `docs/persistence-doctrine.md`, `src/ai_engineering/installer/gitignore.py`, `tests/unit/installer/test_project_gitignore.py`
-  - Principles applied: §13.7 SSOT per datum (decision-store becomes a tracked canonical store)
-  - Patch (deterministic): none — `git cherry-pick d6db3dc7`; resolve any CHANGELOG conflict by keeping both entries.
-  - Gate: `git check-ignore .ai-engineering/state/decision-store.json` returns nothing (no longer ignored); `pytest tests/unit/installer/test_project_gitignore.py` green.
+  - Files: `src/ai_engineering/updater/service.py:117-168`
+  - Principles applied: §10.3 SOLID (single result aggregate)
+  - Patch (deterministic):
+    ```diff
+    @@ class UpdateResult
+         dry_run: bool
+         changes: list[FileChange] = field(default_factory=list)
+    +    hook_migration: "HookMigrationReport | None" = None
+    @@ def to_dict(self) -> dict[str, object]:
+                 "changes": [change.to_dict(dry_run=self.dry_run) for change in self.changes],
+    +            "hook_migration": (
+    +                self.hook_migration.to_dict() if self.hook_migration is not None else None
+    +            ),
+             }
+    ```
+    Plus a top-of-file `from ai_engineering.updater.hook_command_migration import HookMigrationReport` (TYPE_CHECKING or runtime import).
+  - Gate: a unit assertion that `UpdateResult(dry_run=True).to_dict()["hook_migration"] is None`.
 
----
-
-### Phase 2 — Verbatim transplant (scope-clean source + tests)
-
-- [ ] T-2a — Transplant the `version/` package from OLD
+- [ ] T-6 — update() runs the migrator (both branches)
   - Agent: build
-  - Files: `src/ai_engineering/version/{cache,compare,install_method,pypi,refresh,__init__,checker}.py`
-  - Principles applied: §10.4 DRY (reuse proven green modules; do not rewrite)
-  - Patch (deterministic): none — `git checkout OLD -- src/ai_engineering/version/cache.py src/ai_engineering/version/compare.py src/ai_engineering/version/install_method.py src/ai_engineering/version/pypi.py src/ai_engineering/version/refresh.py src/ai_engineering/version/__init__.py src/ai_engineering/version/checker.py` (OLD = `feat/version-update-notice`).
-  - Gate: `grep -rE "scope|brain_root|global" src/ai_engineering/version/` returns only benign prose (no module refs); `python -c "import ai_engineering.version.refresh, ai_engineering.version.pypi, ai_engineering.version.cache, ai_engineering.version.compare, ai_engineering.version.install_method"` imports clean.
+  - Files: `src/ai_engineering/updater/service.py:465-482`
+  - Principles applied: §10.4 DRY (compute once, attach once)
+  - Patch (deterministic):
+    ```diff
+         adapter = _UpdateAdapter(target, dry_run=dry_run)
+         run = ResourceReconciler().run(adapter, target, preview=dry_run)  # ty:ignore[invalid-argument-type]
 
-- [ ] T-2b — Transplant `config/manifest.py` VersionCheckConfig
+    +    # spec-158 D-158-03/04: the resolver wiring inside the ownership-protected
+    +    # .claude/settings.json is a framework-owned FIELD migration — it never
+    +    # flows through the (denied) FileChange path. Compute always (dry-run
+    +    # visibility); write + backup only on apply.
+    +    from ai_engineering.updater.hook_command_migration import migrate_hook_commands
+    +
+    +    hook_migration = migrate_hook_commands(target, dry_run=dry_run)
+    +
+         if dry_run:
+             payload = _UpdateAdapter._coerce_plan_payload(run.plan.payload)
+    -        return payload.result
+    +        payload.result.hook_migration = hook_migration
+    +        return payload.result
+    @@
+         payload = _UpdateAdapter._coerce_apply_payload(run.apply_result.payload)
+    -    return payload.result
+    +    payload.result.hook_migration = hook_migration
+    +    return payload.result
+    ```
+  - Gate: integration tests T-7.
+
+- [ ] T-7 — Integration: dry-run report + apply rewrite + regression shape
   - Agent: build
-  - Files: `src/ai_engineering/config/manifest.py`
-  - Principles applied: §10.3 SOLID (config model isolated)
-  - Patch (deterministic): none — if `manifest.py` has no other OLD changes, `git checkout OLD -- src/ai_engineering/config/manifest.py`; else graft only the `VersionCheckConfig` class + `version_check` field (+14 lines). Verify no scope field rode along.
-  - Gate: `pytest tests/unit/config/test_manifest.py` green; no `scope` field in the manifest model.
+  - Files: `tests/integration/test_updater.py` (extend, new `TestHookCommandMigration`)
+  - Principles applied: §10.5 TDD
+  - Patch (prose): using the `installed_project` fixture (full `.ai-engineering/`
+    + `.claude/settings.json`): (AC5) seed a legacy `python3 ".../observe.py"`
+    command into `.claude/settings.json`, `update(dry_run=True)` ->
+    `result.hook_migration.migrated` non-empty, file unchanged on disk;
+    (AC1/AC7) `update(dry_run=False)` -> settings command rewritten to
+    `run-hook.sh` form, backup file present, JSON valid; (AC3) second
+    `update(dry_run=False)` -> `hook_migration.migrated == []`; (AC2/AC6) a
+    user-added hook + a `permissions.deny` entry survive the apply.
+  - Gate: `.venv/bin/python -m pytest tests/integration/test_updater.py -q`.
 
-- [ ] T-2c — Transplant `cli_factory.py` (fully scope-clean)
+- [ ] T-8 — Surface `migrate-hooks: N` in the update summary
   - Agent: build
-  - Files: `src/ai_engineering/cli_factory.py`
-  - Principles applied: §10.4 DRY (proven notice wiring + `version_app` sub-typer)
-  - Patch (deterministic): none — `git checkout OLD -- src/ai_engineering/cli_factory.py` (agent confirmed zero scope imports).
-  - Gate: `grep -E "scope_resolution|installer.*scope|brain_root" src/ai_engineering/cli_factory.py` returns nothing; CLI builds (`python -c "import ai_engineering.cli_factory"`).
+  - Files: `src/ai_engineering/cli_commands/core.py` (update_cmd summary render)
+  - Principles applied: §10.7 Clean Code (visible, not silent)
+  - Patch (prose): in the `update_cmd` human-summary block (where applied/denied
+    counts print), add a line when `result.hook_migration` has content:
+    `migrate-hooks: <len(migrated)> migrated, <len(skipped)> skipped` (preview vs
+    applied verb per `result.dry_run`); list skipped command(s) as a manual-review
+    hint. JSON path already carries it via `to_dict()` (T-5). Locate the exact
+    render site first (`grep -n "denied\|applied\|update" core.py` around update_cmd).
+  - Gate: `tests/integration/test_cli_command_modules.py` update assertions stay green; add one asserting the migrate line renders (human) and is absent under `--json`.
 
-- [ ] T-2d — Transplant the 11 version-notice test files
+### Phase 5 — Operator-anonymity hardening (concern B, TDD; parallelizable with Phases 1-3)
+
+- [ ] T-10 — RED: name-agnostic operator-path gate
   - Agent: build
-  - Files: `tests/unit/version/{__init__,test_cache,test_compare,test_install_method,test_pypi,test_refresh}.py`, `tests/unit/test_cli_ui_notice.py`, `tests/unit/test_cli_notice_exempt.py`, `tests/unit/test_version_lifecycle.py`, `tests/unit/cli_commands/test_version_upgrade.py`, `tests/integration/test_version_checker.py`
-  - Principles applied: §10.5 TDD (the proven test contract travels with its implementation)
-  - Patch (deterministic): none — `git checkout OLD -- tests/unit/version/ tests/unit/test_cli_ui_notice.py tests/unit/test_cli_notice_exempt.py tests/unit/test_version_lifecycle.py tests/unit/cli_commands/test_version_upgrade.py tests/integration/test_version_checker.py`.
-  - Gate: files present; `grep -rE "scope|--global|dual_scope" tests/unit/version/` clean. (Tests will fail to collect until P3 lands cli_ui/core/updater — expected; P5 is the green gate.)
+  - Files: `tests/unit/test_no_operator_paths.py` (new)
+  - Principles applied: §10.5 TDD, Hard Rule 4
+  - Patch (prose): model on `test_no_forbidden_substrings.py`. Scan shipped
+    surfaces relative to repo root: `src/ai_engineering/**/*` (all files incl.
+    `.py/.md/.json/.sh` — templates ship verbatim), `.ai-engineering/scripts/**/*`,
+    `docs/**/*.md`, root `*.md` + `CONSTITUTION.md`. Regex
+    `re.compile(r"[/\\](Users|home)[/\\]([A-Za-z][A-Za-z0-9_.-]*)")`; for each
+    match, FAIL if `group(2).lower()` not in
+    `GENERIC = {"user","users","you","youruser","runner","linuxbrew","root","test","example","name","project","app","ci","build","home","someone"}`.
+    Self-exclude this test file. Add explicit unit asserts: a planted string
+    `"/Users/plantedoperator/x"` is flagged by the matcher fn; `/home/linuxbrew`
+    and `/Users/you` are NOT. Skip binary files (decode errors -> skip).
+  - Gate: `.venv/bin/python -m pytest tests/unit/test_no_operator_paths.py -q` ->
+    FAILS, flagging the 3 `transcript_usage.py` `soydachi` lines (proves detection).
 
----
-
-### Phase 3 — Coupled-file single-scope rewrites
-
-- [ ] T-3a — Transplant `cli_ui.py` notice block, strip `announce_scope`
+- [ ] T-11 — GREEN: genericize leaks + sync template + regen manifest
   - Agent: build
-  - Files: `src/ai_engineering/cli_ui.py:392-528`, `cli_ui.py:416-433`
-  - Principles applied: §10.7 Clean Code (D-157-03 no dead scope rider)
-  - Patch (deterministic): none (judgment) — start from `git checkout OLD -- src/ai_engineering/cli_ui.py`, then DELETE the `announce_scope` function (`~416-433`) and any `announce_scope` export. Keep `maybe_render_update_notice`, `_render_update_notice`, `_load_version_check_config`.
-  - Gate: `grep -n "announce_scope" src/ai_engineering/cli_ui.py` returns nothing; `python -c "import ai_engineering.cli_ui"` clean.
+  - Files: `.ai-engineering/scripts/hooks/_lib/transcript_usage.py:9`,
+    `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/transcript_usage.py`,
+    `.ai-engineering/state/hooks-manifest.json`
+  - Principles applied: Hard Rule 4, §10.4 DRY
+  - Patch (prose): in canonical `transcript_usage.py:9` replace
+    `` ``/Users/soydachi/.claude/projects/-Users-<...>-ai-engineering/<session-id>.jsonl`` ``
+    with a generic placeholder consistent with line 44's
+    `${HOME}/.claude/projects/<slug>/<session-id>.jsonl` style (no operator name).
+    Then `cp` canonical `transcript_usage.py` -> the template path so both are
+    byte-identical (kills the `:67` drift too). Then regenerate the hooks manifest:
+    `.venv/bin/python .ai-engineering/scripts/regenerate-hooks-manifest.py` (the
+    canonical _lib byte change updates its sha256) and commit the manifest.
+  - Gate: T-10 gate now GREEN; `git grep -nI soydachi` returns 0;
+    `.venv/bin/python -m pytest tests/unit/hooks/test_transcript_usage.py
+    tests/unit/test_session_bootstrap_template_parity.py -q` (and any
+    transcript_usage parity/manifest test) green;
+    `.venv/bin/python -m ai_engineering.cli internal ...` not needed — verify
+    manifest via `ai-eng audit verify` or the hooks-manifest check test.
 
-- [ ] T-3b — Rewrite `updater/service.py` to single-scope
+### Phase 6 — Hook reliability (concern C, TDD; independent of A/B)
+
+- [ ] T-12 — RED: convergence interpreter + pytest-absent tests
   - Agent: build
-  - Files: `src/ai_engineering/updater/service.py:122-171,444-446,449-504,507-589,766-790,793-839,842-887,900-912,915-928,931-946,949-965`
-  - Principles applied: §10.1 KISS, §10.4 DRY (collapse dual-scope to the BASE shape)
-  - Patch (deterministic): none (judgment) — base file is BASE's `updater/service.py`; graft ONLY the version-notice/self-upgrade additions from OLD. DROP: `ScopeNotInstalledError`, `_SCOPE_INSTALL_HINT`, `_scope_is_installed`, `update_scopes`, `reconcile_scopes_with_skips`, `_scope_root`, `_update_dests`, `_orphan_path`, `_merge_update_results`, `UpdateResult.skipped_scopes`. REVERT scope params on `update`, `_evaluate_project_files`, `_detect_orphan_files`, `_provider_orphan_changes`, `_provider_file_orphans`, `_provider_tree_orphans` to BASE signatures. Net: file should differ from BASE only by any genuine version-notice hook (likely none — confirm `git diff main -- src/ai_engineering/updater/service.py` is empty or notice-only).
-  - Gate: `grep -nE "scope|brain_root|_update_dests|_orphan_path|ScopeNotInstalled|skipped_scopes" src/ai_engineering/updater/service.py` returns nothing; `pytest tests/unit/updater/ -k "not dual_scope"` green.
+  - Files: `tests/unit/hooks/test_convergence.py` (new or extend)
+  - Principles applied: §10.5 TDD
+  - Patch (prose): (AC12) assert `_check_pytest_collect` / `_check_pytest_run`
+    spawn `sys.executable` — monkeypatch `convergence._run` to capture argv, assert
+    `argv[0] == sys.executable` (not `"python"`/`"python3"`). (AC13) stub a
+    pytest-absent interpreter (argv probe returns "No module named pytest" / rc=1
+    with that stderr) and assert the function returns `None` (fail-open), so
+    `check_convergence(...).met` is not dragged false by a missing tool.
+  - Gate: fails (still bare python3 + treats missing pytest as failure).
 
-- [ ] T-3c — Rewrite `cli_commands/core.py`: keep version block, drop scope
+- [ ] T-13 — GREEN: stack-aware convergence under the resolved interpreter
   - Agent: build
-  - Files: `src/ai_engineering/cli_commands/core.py:31,151-164,181,196,209,215-219,236,263-268,304,330-345,384-414,451-480,568-581,584-599,1135-1142,1144-1148,1153,1155-1160,1163,1172-1196,1243-1254,1257-1298,1301-1314,1697-1846`
-  - Principles applied: §10.3 SOLID, §10.7 Clean Code (one concern per command; no scope contamination)
-  - Patch (deterministic): none (judgment) — base file is BASE's `core.py`; graft the KEEP block (`_cached_latest` 1697-1706, `version_cmd` 1709-1738 incl. `ctx`/sub-command guard, `_MANUAL_UPGRADE_COMMANDS` 1741-1746, `_emit_manual_upgrade_guidance` 1749-1773, `version_upgrade_cmd` 1776-1846) and the notice wiring. DROP: `scope_global`/`scope_local` on `install_cmd` + `update_cmd`, `_explicit_install_scope`, `_resolve_update_scope`, `_merge_update_results`, `announce_scope` import (`31`), `brain_root` routing (`263-268`), scope except-block (`1172-1196`). REVERT `_is_reinstall`, `_resolve_install_configuration`, `_resolve_first_install_configuration`, `_run_update_with_spinner`, `_emit_install_dry_run_plan`, `_run_install_pipeline` to BASE signatures (no `scope` param). KEEP `success` import (`42`).
-  - Gate: `grep -nE "scope_global|scope_local|_explicit_install_scope|_resolve_update_scope|announce_scope|brain_root|ScopeNotInstalled" src/ai_engineering/cli_commands/core.py` returns nothing; `ai-eng version` and `ai-eng version upgrade --help` run; `pytest tests/unit/cli_commands/test_version_upgrade.py` green.
+  - Files: convergence hook lib (_lib/convergence.py)
+  - Principles applied: §10.10 fail-open, §10.1 KISS
+  - Patch (prose): three changes to the two pytest check helpers.
+    (1) Stack gate — add a stdlib-only predicate that returns true only when a
+    Python project marker file exists at the project root (the three standard
+    Python packaging files). The pytest helpers return None (skip) when it is
+    false, so a TypeScript-only repo runs no Python verifier.
+    (2) Interpreter — the helpers spawn the already-running interpreter
+    (the resolved one), not a bare-PATH python.
+    (3) Tool-absent fail-open — probe whether the test runner is importable under
+    that interpreter; if not, return None, same class as the existing
+    missing-linter skip; a runner-missing stderr summary also maps to None.
+  - Gate: T-12 green (argv0 is the running interpreter; TS-project and
+    runner-absent both return None / no convergence failure).
 
-- [ ] T-3d — Drop scope-announce from `config.py`
+- [ ] T-14 — RED: stop_hook_active guard tests (4 Stop hooks)
   - Agent: build
-  - Files: `src/ai_engineering/cli_commands/config.py:57-62`
-  - Principles applied: §10.7 Clean Code (remove scope rider)
-  - Patch (deterministic): none (judgment) — remove the `announce_scope(resolve_scope(root).announce)` block + the two scope imports; restore `config_cmd` to BASE behavior. Easiest: `git checkout main -- src/ai_engineering/cli_commands/config.py` (config has no version-notice additions).
-  - Gate: `grep -nE "scope_resolution|announce_scope" src/ai_engineering/cli_commands/config.py` returns nothing; `pytest tests/unit -k config` green.
+  - Files: `tests/unit/hooks/test_stop_hook_active_guard.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (prose): for each of `runtime-stop.py`, `memory-stop.py`,
+    `instinct-extract.py`, `runtime-subagent-stop.py`: feed a payload with
+    `stop_hook_active: true`; assert exit 0, NO convergence invoked
+    (monkeypatch `check_convergence` to raise if called — must NOT be called for
+    runtime-stop), and no block/`decision` JSON on stdout.
+  - Gate: fails (no guard).
 
----
+- [ ] T-15 — GREEN: honor stop_hook_active in all Stop hooks
+  - Agent: build
+  - Files: `.ai-engineering/scripts/hooks/runtime-stop.py:795` (main),
+    `memory-stop.py`, `instinct-extract.py`, `runtime-subagent-stop.py`
+  - Principles applied: §10.7 Clean Code, §10.4 DRY
+  - Patch (prose): add a shared helper in `_lib/hook-common.py`
+    (`stop_continuation_active(payload) -> bool`, reads `stop_hook_active`). At the
+    top of each Stop hook `main()` (after reading stdin payload, before convergence
+    / memory / extract work), `if stop_continuation_active(payload): emit telemetry
+    + return`. For `runtime-stop` this short-circuits BEFORE `check_convergence`
+    (line 450) and any Ralph bump/block.
+  - Gate: T-14 green.
 
-### Phase 4 — Residue sweep + manifest consistency
+- [ ] T-16 — Advisory timeout (template) + manifest regen
+  - Agent: build
+  - Files: `src/ai_engineering/templates/project/.claude/settings.json`,
+    `.ai-engineering/state/hooks-manifest.json`
+  - Principles applied: §10.7 Clean Code
+  - Patch (deterministic): bump the `UserPromptSubmit`
+    `runtime-progressive-disclosure.py` `"timeout": 5` -> `"timeout": 10` in the
+    template settings.json. Regenerate `hooks-manifest.json` (convergence.py +
+    Stop-hook byte changes from T-13/T-15 change their sha256):
+    `.venv/bin/python .ai-engineering/scripts/regenerate-hooks-manifest.py`.
+  - Gate: `tests/unit/hooks/test_canonical_events_count.py` +
+    `test_settings_template_narrow.py` green; manifest check green.
 
-- [ ] T-4a — Assert zero scope residue across src/
+### Phase 4 — Quality gate
+
+- [ ] T-9 — Full gate
   - Agent: verify
-  - Files: `src/`
-  - Principles applied: §10.7 Clean Code (no orphaned scope surface)
-  - Patch (deterministic): none — run `grep -rnE "scope_resolution|installer\.scope|brain_root|--global|--local|detect_scopes|scope_status|update_scopes|reconcile_scopes" src/` and confirm ZERO hits. Confirm pure-scope files ABSENT: `installer/scope.py`, `installer/scope_resolution.py`, `doctor/runtime/scope_status.py`.
-  - Gate: grep returns nothing; the three pure-scope modules do not exist; `doctor/service.py` has no `scope_status` registration.
+  - Files: —
+  - Principles applied: §10.5, Hard Rule 5
+  - Patch: none.
+  - Gate: `.venv/bin/python -m pytest tests/unit/updater tests/integration/test_updater.py tests/integration/test_cli_command_modules.py tests/unit/test_no_operator_paths.py tests/unit/hooks/test_transcript_usage.py -q` green; `ruff check` + `ruff format --check` clean on changed files; `ty check` clean on the new module + service.py; **`hooks-manifest.json` regenerated + consistent** (canonical `transcript_usage.py` bytes changed → AC9); `git grep -nI soydachi` == 0. Then full suite `-n auto`.
 
-- [ ] T-4b — Regenerate hooks-manifest if hook bytes changed
-  - Agent: build
-  - Files: `.ai-engineering/state/hooks-manifest.json`
-  - Principles applied: §13 hook integrity pin
-  - Patch (deterministic): none — hooks should be untouched; if `git diff main -- .ai-engineering/scripts/hooks/` is non-empty, regenerate the manifest per the established procedure; else leave as-is.
-  - Gate: hook integrity check passes; `git diff main -- .ai-engineering/scripts/hooks/` empty (expected).
+## Gate Criteria (maps to spec Acceptance)
 
----
+- AC1 -> T-7 apply rewrite assertion.
+- AC2/AC6 -> T-7 user-hook + deny preserved; T-3(d/e) minimum-diff.
+- AC3 -> T-3(f) + T-7 second-apply idempotency.
+- AC4 -> T-1(e) + T-3(b) skip-report.
+- AC5 -> T-3(c) dry-run no-write + report; T-8 summary line.
+- AC7 -> T-7 regression (resolver form after apply).
+- AC8 -> T-3(b) run-hook.sh absent -> skip.
+- AC9 -> T-9 full gate + hooks-manifest REGEN (transcript_usage bytes changed).
+- AC10 -> T-11 genericize + template byte-sync; operator-name grep == 0.
+- AC11 -> T-10 name-agnostic gate (positive plant caught + linuxbrew/you pass).
+- AC12 -> T-12/T-13 (spawn argv0 is the resolved interpreter).
+- AC13 -> T-12/T-13 (TS-project + runner-absent -> None, no convergence failure).
+- AC14 -> T-14/T-15 (stop_hook_active:true -> exit 0, no convergence, no block).
+- AC15 -> T-16 (template advisory timeout >= 10s + manifest regen).
 
-### Phase 5 — Green gate (the verification contract)
+## Risks during build
 
-- [ ] T-5a — Full test suite green
-  - Agent: verify
-  - Files: `tests/`
-  - Principles applied: §10.5 TDD, §4 Verification Before Done
-  - Patch (deterministic): none — `pytest` (full). Expect the 11 transplanted version tests + BASE suite all green; NO scope tests present.
-  - Gate: full suite green; `pytest tests/unit/version tests/unit/test_cli_ui_notice.py tests/unit/test_cli_notice_exempt.py tests/unit/cli_commands/test_version_upgrade.py tests/unit/test_version_lifecycle.py tests/integration/test_version_checker.py` all pass.
-
-- [ ] T-5b — Behavioral parity + notice purity smoke
-  - Agent: verify
-  - Files: (runtime)
-  - Principles applied: §4 Verification Before Done
-  - Patch (deterministic): none — confirm: `ai-eng install`/`update`/`config`/`doctor` carry no `--global`/`--local` and no scope announce (parity with main); `ai-eng version` shows the notice; `ai-eng version --json`/`gate`/`internal` are notice-free (stdout pure) and do not advance the throttle.
-  - Gate: all acceptance checkboxes in spec-157 satisfiable; ready for `/ai-pr`.
-
----
-
-## Post-build (operator, not a build task)
-
-- Open the PR for `feat/version-update-notice-clean` via `/ai-pr`.
-- Close PR #556 as superseded with a note: "Scope (global/local) abandoned per
-  spec-157 + global-viability panel; version-update-notice re-landed clean in
-  #NNN. Global briefs preserved under specs/drafts/." (irreversible/outward —
-  operator confirms.)
-
-## Risks
-
-- `git checkout OLD -- <file>` brings a stray scope import → mitigated by the
-  per-file grep gates in P2/P3 and the T-4a sweep.
-- `core.py` / `updater/service.py` graft drifts from BASE → base ON main's file,
-  graft only the version block; gate asserts `git diff main` is notice-only.
-- Rider cherry-pick conflicts (CHANGELOG) → keep both entries.
-- Briefs lost across the branch cut → T-0a preserves before T-0b.
+- **JSON-escape mismatch** between `json.dumps(old)` and the on-disk literal ->
+  handled: literal-not-found drops to `skipped`, never corrupts (T-3 covers).
+- **`datetime` import** — service.py / migration module are Python (not a
+  Workflow script); `datetime.now(UTC)` is fine here.
+- **core.py render-site drift** — T-8 says locate the exact site first; do not
+  guess the line.
 
 ## safe_next_command
 
-`/ai-build`
+`/ai-autopilot`  (3 concerns A/B/C across updater + hooks → decompose, DAG, waves)

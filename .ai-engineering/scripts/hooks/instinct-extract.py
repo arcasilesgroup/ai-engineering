@@ -18,6 +18,10 @@ from _lib.observability import emit_framework_operation
 
 def main() -> None:
     ctx = get_hook_context()
+    # spec-158 D-158-12: honor ``stop_hook_active`` — skip extraction on a
+    # Stop-hook continuation (it already ran on the first Stop).
+    if ctx.data.get("stop_hook_active"):
+        return
     extracted = extract_instincts(ctx.project_root)
     if not extracted:
         return

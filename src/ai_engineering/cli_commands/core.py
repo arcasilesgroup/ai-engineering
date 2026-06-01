@@ -1158,6 +1158,15 @@ def _render_update_result(result: Any, *, root: Path, show_diff: bool) -> None:
     kv("Unchanged", result.unchanged_count)
     kv("Orphan", result.orphan_count)
 
+    # spec-158 D-158-03: surface the hook-command migration inside the
+    # protected settings.json (never silent — Hard Rule "no silent caps").
+    migration = getattr(result, "hook_migration", None)
+    if migration is not None and (migration.migrated_count or migration.skipped_count):
+        verb = "migrated" if not result.dry_run else "to migrate"
+        kv("Hook commands", f"{migration.migrated_count} {verb}, {migration.skipped_count} skipped")
+        for command in migration.skipped:
+            warning(f"  hook command needs manual review: {command}")
+
     if result.dry_run:
         # Preview: full unified tree of all non-unchanged changes.
         render_update_tree(result.changes, root=root, dry_run=result.dry_run)
