@@ -273,17 +273,16 @@ def _load_with_lock_retry():
     cleanly, then restore ``sys.path`` to avoid leaking state into
     other tests / hook entry points.
     """
-    try:
-        from _lib.locked_append import with_lock_retry as _wlr  # type: ignore[import-not-found]
+    import importlib
 
-        return _wlr
+    try:
+        return importlib.import_module("_lib.locked_append").with_lock_retry
     except ModuleNotFoundError:
         # Prepend the hooks parent dir so ``_lib`` resolves as a normal
         # implicit-namespace package; do NOT mutate ``sys.modules`` with
         # a synthetic ``_lib`` (would shadow downstream loads of sibling
         # modules like ``_lib.hook_common`` and ``_lib.observability``).
         import contextlib
-        import importlib
 
         hooks_parent = str(Path(__file__).parent.parent)
         added = hooks_parent not in sys.path

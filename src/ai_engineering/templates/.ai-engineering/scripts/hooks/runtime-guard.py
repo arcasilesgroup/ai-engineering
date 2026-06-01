@@ -205,7 +205,9 @@ def main() -> None:
     risk_disabled = (os.environ.get("AIENG_RISK_ACCUMULATOR_DISABLED") or "").strip() == "1"
     if not risk_disabled:
         try:
-            from _lib import risk_accumulator  # type: ignore[import-not-found]
+            import importlib
+
+            risk_accumulator = importlib.import_module("_lib.risk_accumulator")
 
             state = risk_accumulator.get(ctx.project_root, session_id=session_id or "unknown")
             if risk_accumulator.threshold_action(state.score) == "warn":
