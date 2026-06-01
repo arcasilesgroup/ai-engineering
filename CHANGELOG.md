@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-01
+
 ### Added
 
 - feat(version): cross-surface PyPI update-available notice + `ai-eng version
@@ -59,7 +61,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that flags any `/Users/<name>` or `/home/<name>` operator home path in shipped
   surfaces whose user segment is not a generic placeholder — so no operator
   identity can ever reship (spec-158).
-
 ## [0.8.4] - 2026-05-29
 
 ### Fixed
