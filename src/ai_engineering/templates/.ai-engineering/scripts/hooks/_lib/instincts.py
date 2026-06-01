@@ -122,6 +122,12 @@ def _write_ndjson(path: Path, entries: list[dict[str, Any]]) -> None:
     that race is exactly what produced the 8713 ``Unterminated string``
     framework_error events on this project. Writing to a sibling ``.tmp`` and
     then ``os.replace``'ing makes the swap atomic on POSIX and Windows.
+
+    Cross-OS: on Windows ``os.replace`` raises ``PermissionError`` (WinError 5)
+    when the destination has an open handle (e.g. a concurrent reader that
+    just opened ``path.read_text``). POSIX has no such restriction. We retry
+    a small number of times with a tight backoff so the transient handle
+    clears; the swap itself is still atomic when it succeeds.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [json.dumps(e, sort_keys=True, default=_json_serializer) for e in entries]
@@ -129,12 +135,47 @@ def _write_ndjson(path: Path, entries: list[dict[str, Any]]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         tmp.write_text(payload, encoding="utf-8")
-        os.replace(tmp, path)
+        _replace_with_retry(tmp, path)
     except OSError:
         # Best-effort cleanup so a half-written .tmp doesn't shadow future writes.
         with contextlib.suppress(OSError):
             tmp.unlink()
         raise
+
+
+def _replace_with_retry(src: Path, dst: Path, *, attempts: int = 200) -> None:
+    """``os.replace`` with a retry loop for the Windows reader-race.
+
+    POSIX: succeeds on the first try; the loop is a no-op.
+    Windows: a concurrent reader that briefly holds an open handle on ``dst``
+    causes ``os.replace`` to raise ``PermissionError`` (WinError 5). The
+    handle clears within microseconds (Path.read_text is fast). The retry
+    strategy: first 100 attempts spin without sleep (yielding only), then
+    exponential backoff up to 32ms for the next 100. Total worst case
+    ~1.5s but typical recovery is <1ms because the gap between reader
+    handle releases is tiny. Sleeping early wastes the gap; spinning
+    catches it.
+    """
+    import time as _time
+
+    last_exc: OSError | None = None
+    for attempt in range(attempts):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError as exc:
+            last_exc = exc
+            if attempt < 100:
+                # Spin: yield once but don't sleep -- reader handle clears
+                # in microseconds and the gap is what we need to land in.
+                continue
+            # After 100 spins, back off exponentially (slow path) so we
+            # don't burn CPU against a stuck reader.
+            _time.sleep(min(0.0001 * (2 ** (attempt - 100)), 0.032))
+    # All retries exhausted -- propagate the last PermissionError so the
+    # caller's ``except OSError`` cleanup path runs.
+    if last_exc is not None:
+        raise last_exc
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +246,8 @@ def _dump_yaml_or_json(path: Path, data: dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         tmp.write_text(payload, encoding="utf-8")
-        os.replace(tmp, path)
+        # Cross-OS: see ``_replace_with_retry`` for the Windows rationale.
+        _replace_with_retry(tmp, path)
     except OSError:
         with contextlib.suppress(OSError):
             tmp.unlink()
@@ -310,7 +352,8 @@ def _save_meta(project_root: Path, meta: dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         tmp.write_text(payload, encoding="utf-8")
-        os.replace(tmp, path)
+        # Cross-OS: see ``_replace_with_retry`` for the Windows rationale.
+        _replace_with_retry(tmp, path)
     except OSError:
         with contextlib.suppress(OSError):
             tmp.unlink()

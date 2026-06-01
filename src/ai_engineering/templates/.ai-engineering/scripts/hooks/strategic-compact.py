@@ -24,7 +24,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.audit import passthrough_stdin
-from _lib.hook_context import get_hook_context
+from _lib.hook_common import run_hook_safe
+from _lib.hook_context import RUNTIME_DIR, get_hook_context
 
 _COMPACT_THRESHOLD = max(1, int(os.environ.get("COMPACT_THRESHOLD", "50")))
 _COMPACT_REMINDER_INTERVAL = max(1, int(os.environ.get("COMPACT_REMINDER_INTERVAL", "25")))
@@ -65,7 +66,7 @@ def _counter_file() -> Path:
     from _lib.audit import get_project_root
 
     project_root = get_project_root()
-    return project_root / ".ai-engineering" / "state" / "strategic-compact.json"
+    return RUNTIME_DIR(project_root) / "strategic-compact.json"
 
 
 def _get_session_key(ctx_session_id: str | None) -> str:
@@ -124,8 +125,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    import contextlib
-
-    with contextlib.suppress(Exception):
-        main()
-    sys.exit(0)
+    run_hook_safe(main, component="hook.strategic-compact", hook_kind="pre-tool-use")

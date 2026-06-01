@@ -151,11 +151,22 @@ def _emit_corruption_event(project_root: Path, summary: str) -> None:
             "summary": summary[:200],
         },
     }
-    entry["prev_event_hash"] = _compute_prev_event_hash(events_path)
-    line = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+    # Spec-126 D-126-05 / T-3.5: hash compute + append must be inside
+    # the same critical section to prevent the TOCTOU race where two
+    # concurrent writers (this corruption logger and any other
+    # ``framework-events.ndjson`` appender) observe the same prev value
+    # and append duplicate-pointer entries. Lazy import to keep this
+    # corruption-fallback path stdlib-only at import time and avoid
+    # circular references through ``_lib`` siblings. Fail-open culture
+    # of this logger is preserved by the outer ``try / except OSError``.
     try:
-        with events_path.open("a", encoding="utf-8") as fh:
-            fh.write(line + "\n")
+        from _lib.locked_append import with_lock_retry
+
+        with with_lock_retry(project_root, "framework-events") as _locked:
+            entry["prev_event_hash"] = _compute_prev_event_hash(events_path)
+            line = json.dumps(entry, sort_keys=True, separators=(",", ":"))
+            with events_path.open("a", encoding="utf-8") as fh:
+                fh.write(line + "\n")
     except OSError:
         return
 

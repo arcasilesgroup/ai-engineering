@@ -12,6 +12,7 @@ p95; the subprocess is given 4s to keep the budget bounded.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import subprocess
@@ -19,8 +20,6 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-
-import contextlib
 
 from _lib.audit import passthrough_stdin
 from _lib.hook_common import emit_event, run_hook_safe

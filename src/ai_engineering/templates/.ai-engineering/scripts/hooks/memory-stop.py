@@ -17,14 +17,13 @@ Fail-open: any error degrades silently with a `framework_error` event.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-
-import contextlib
 
 from _lib.audit import passthrough_stdin
 from _lib.hook_common import emit_event, get_correlation_id, run_hook_safe
@@ -60,6 +59,12 @@ def _emit_failure(project_root: Path, *, session_id: str | None, reason: str) ->
 def main() -> None:
     ctx = get_hook_context()
     if ctx.event_name != "Stop":
+        passthrough_stdin(ctx.data)
+        return
+
+    # spec-158 D-158-12: honor ``stop_hook_active`` — on a Stop-hook
+    # continuation the work already ran on the first Stop; release silently.
+    if ctx.data.get("stop_hook_active"):
         passthrough_stdin(ctx.data)
         return
 

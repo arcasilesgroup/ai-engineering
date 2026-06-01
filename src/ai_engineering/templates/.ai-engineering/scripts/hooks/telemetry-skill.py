@@ -15,7 +15,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from _lib.hook_common import run_hook_safe
 from _lib.hook_context import get_hook_context
-from _lib.instincts import extract_instincts
 from _lib.observability import (
     emit_declared_context_loads,
     emit_ide_hook_outcome,
@@ -85,8 +84,10 @@ def main() -> None:
         trace_id=trace_id,
         correlation_id=entry["correlationId"],
     )
-    if skill_name == "ai-start":
-        extract_instincts(ctx.project_root)
+    # Note: extract_instincts is wired on Stop hook (.claude/settings.json
+    # line 172 via instinct-extract.py). Eager extraction here used to
+    # double-run for /ai-start and added ~570ms to the UserPromptSubmit
+    # hot path — removed to keep /ai-start under its 5s ceiling.
 
 
 if __name__ == "__main__":

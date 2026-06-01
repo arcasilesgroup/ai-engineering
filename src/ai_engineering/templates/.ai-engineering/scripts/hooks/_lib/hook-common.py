@@ -223,27 +223,79 @@ def emit_event(project_root: Path, event: dict) -> bool:
     path = _events_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = normalized_event
-    payload["prev_event_hash"] = _read_prev_event_hash(path)
     # Sidecar overflow (spec-122-b D-122-23): events whose serialised
     # bytes exceed AIENG_EVENT_SIDECAR_BYTES (default 3 KB) are offloaded
     # to ``RUNTIME_DIR(project_root) / "event-sidecars" / <sha256>.json``
     # (canonical ``.ai-engineering/runtime/event-sidecars/``) and the
     # inline NDJSON line carries only hash + summary. Keeps the
     # cross-IDE concurrent append safely under POSIX_BUF.
+    #
+    # Spec-126 T-3.4: ``maybe_offload_event`` does NOT mutate the
+    # shared chain file (writes only to the per-event sidecar named
+    # by content hash) so it stays OUTSIDE the lock. The hash compute
+    # (``_read_prev_event_hash``) and the actual append on the chain
+    # file move INSIDE the lock to prevent the TOCTOU race.
     try:
         from _lib.audit import maybe_offload_event  # local import; stdlib-only
 
         payload = maybe_offload_event(project_root, payload)
     except Exception:  # fail-open: never block emit
         pass
-    line = json.dumps(payload, sort_keys=True, default=str)
+
+    # Spec-126 D-126-05 / T-3.4: hash compute + write under
+    # ``with_lock_retry``. Lazy import keeps cold-start hooks fast.
+    # Fallback to file-path load when ``_lib`` is not on ``sys.path``
+    # (this module is sometimes loaded via ``spec_from_file_location``
+    # under a different package name in tests / hook bootstraps).
+    with_lock_retry = _load_with_lock_retry()
+
     try:
-        with path.open("a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        with with_lock_retry(project_root, "framework-events") as _locked:
+            payload["prev_event_hash"] = _read_prev_event_hash(path)
+            line = json.dumps(payload, sort_keys=True, default=str)
+            with path.open("a", encoding="utf-8") as f:
+                f.write(line + "\n")
     except OSError as exc:
         logger.error("hook-common: failed to append event: %s", exc)
         return False
     return True
+
+
+def _load_with_lock_retry():
+    """Resolve ``with_lock_retry`` even when ``_lib`` is not on ``sys.path``.
+
+    The hook-common module is sometimes loaded via
+    ``spec_from_file_location`` (tests, ad-hoc hook bootstrap shims)
+    under a synthetic package name like ``aieng_hook_common``. In that
+    case the canonical ``from _lib.locked_append import with_lock_retry``
+    raises ``ModuleNotFoundError``. Fall back to a temporary
+    ``sys.path`` prepend so the canonical package import resolves
+    cleanly, then restore ``sys.path`` to avoid leaking state into
+    other tests / hook entry points.
+    """
+    try:
+        from _lib.locked_append import with_lock_retry as _wlr  # type: ignore[import-not-found]
+
+        return _wlr
+    except ModuleNotFoundError:
+        # Prepend the hooks parent dir so ``_lib`` resolves as a normal
+        # implicit-namespace package; do NOT mutate ``sys.modules`` with
+        # a synthetic ``_lib`` (would shadow downstream loads of sibling
+        # modules like ``_lib.hook_common`` and ``_lib.observability``).
+        import contextlib
+        import importlib
+
+        hooks_parent = str(Path(__file__).parent.parent)
+        added = hooks_parent not in sys.path
+        if added:
+            sys.path.insert(0, hooks_parent)
+        try:
+            module = importlib.import_module("_lib.locked_append")
+            return module.with_lock_retry
+        finally:
+            if added:
+                with contextlib.suppress(ValueError):
+                    sys.path.remove(hooks_parent)
 
 
 # ---------------------------------------------------------------------------
@@ -476,9 +528,22 @@ def run_hook_safe(
             mode=integrity_mode_val,
         )
     if not integrity_ok:
-        # Enforce-mode mismatch: refuse execution. Exit 2 mirrors the
-        # injection-guard deny semantics so operators can grep for it.
-        sys.exit(2)
+        # spec-131 sub-004 T-4.C: surface the reason on stderr BEFORE
+        # exiting so operators see a one-line actionable signal. Distinct
+        # exit code 3 separates integrity drift from injection deny
+        # (exit 2). Contract is documented inline:
+        #   0 = ok
+        #   2 = injection deny (prompt-injection-guard semantics)
+        #   3 = integrity violation (hooks-manifest sha256 mismatch
+        #       or unenrolled hook in enforce mode)
+        reason = integrity_reason or "manifest mismatch"
+        sys.stderr.write(
+            f"[hook-integrity] refusing to run {hook_kind}: {reason}\n"
+            "[hook-integrity] regenerate with: python3 "
+            ".ai-engineering/scripts/regenerate-hooks-manifest.py\n"
+        )
+        sys.stderr.flush()
+        sys.exit(3)
 
     start = time.perf_counter()
     outcome = "success"

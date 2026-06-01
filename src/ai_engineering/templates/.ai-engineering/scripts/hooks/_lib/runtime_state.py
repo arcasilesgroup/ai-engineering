@@ -459,12 +459,17 @@ def offload_large_text(
     redacted_encoded = redacted_text.encode("utf-8", errors="replace")
     base_name = f"{iso_now().replace(':', '')}-{safe_id}"
     out_path = out_dir / f"{base_name}.txt"
+    # Cross-OS: `O_NOFOLLOW` is POSIX-only -- Windows has no symlink semantics
+    # at the filesystem layer that this flag protects against. Falling back to
+    # 0 on Windows preserves the security posture on POSIX (where the flag
+    # genuinely matters) without breaking import on win32.
+    _O_NOFOLLOW = getattr(os, "O_NOFOLLOW", 0)
     attempt = 0
     while True:
         try:
             fd = os.open(
                 str(out_path),
-                os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                os.O_WRONLY | os.O_CREAT | os.O_EXCL | _O_NOFOLLOW,
                 0o600,
             )
         except FileExistsError:
