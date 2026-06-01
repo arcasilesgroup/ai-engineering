@@ -32,7 +32,6 @@ _check_or_write = _core._check_or_write
 _format_yaml_field = _core._format_yaml_field
 _resolve_cross_reference_files = _core._resolve_cross_reference_files
 _serialize_frontmatter = _core._serialize_frontmatter
-_specialist_agent_output_paths = _core._specialist_agent_output_paths
 
 if __name__ == "__main__":
     sys.exit(main())

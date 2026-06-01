@@ -57,6 +57,32 @@ _SECRET_RE = re.compile(
 )
 _MAX_SUMMARY_LEN = 200
 
+# Spec-131 D-131-08 (sub-003) dispatch-metadata vocabulary. Validators
+# below enforce these enums so callers cannot smuggle drifted values
+# into the audit chain. The schema version stays 1.0 (additive
+# ``detail.*`` per spec-120 precedent + R-131-09 grace).
+_VALID_MODEL_TIERS: frozenset[str] = frozenset({"haiku", "sonnet", "opus"})
+_VALID_EFFORTS: frozenset[str] = frozenset({"cheap", "mid", "high"})
+
+
+def _validate_dispatch_metadata(detail: dict) -> None:
+    """Enum-validate ``model_tier`` + ``effort`` when present in ``detail``.
+
+    spec-131 D-131-08 (sub-003): ``emit_agent_dispatched`` /
+    ``emit_skill_invoked`` may carry the dispatch-economics metadata
+    ``{"model_tier": <h|s|o>, "effort": <c|m|h>}``. Invalid enums raise
+    ``ValueError`` so the audit chain stays drift-free. Absent keys are
+    fine — the metadata block is optional per R-131-09.
+    """
+    tier = detail.get("model_tier")
+    if tier is not None and tier not in _VALID_MODEL_TIERS:
+        msg = f"model_tier {tier!r} not in {sorted(_VALID_MODEL_TIERS)} (D-131-08)"
+        raise ValueError(msg)
+    effort = detail.get("effort")
+    if effort is not None and effort not in _VALID_EFFORTS:
+        msg = f"effort {effort!r} not in {sorted(_VALID_EFFORTS)} (D-131-08)"
+        raise ValueError(msg)
+
 
 # ---------------------------------------------------------------------------
 # Internal helpers
@@ -222,10 +248,24 @@ def append_framework_event(project_root: Path, entry: dict) -> None:
         msg = f"Unsupported framework event kind: {kind!r}"
         raise ValueError(msg)
     payload["engine"] = _normalize_engine_id(str(payload["engine"]))
-    payload["prev_event_hash"] = _compute_prev_event_hash(path)
-    line = json.dumps(payload, sort_keys=True, default=_json_serializer)
-    with path.open("a", encoding="utf-8") as f:
-        f.write(line + "\n")
+
+    # Spec-126 D-126-05 / T-3.3: hash compute + write must be inside the
+    # same critical section to prevent the TOCTOU race where two
+    # concurrent writers observe the same ``prev_event_hash`` and append
+    # duplicate-pointer entries. Lazy import keeps the module-load cost
+    # flat for callers that never reach this path.
+    from _lib.locked_append import with_lock_retry
+
+    with with_lock_retry(project_root, "framework-events") as _locked:
+        # ``_locked`` is unused: on fail-open (False) we still proceed
+        # with the same write so the user-visible flow is not derailed,
+        # mirroring the existing fail-open posture in
+        # ``_lib/hook-common.py``. Lock-acquisition telemetry is emitted
+        # by ``with_lock_retry`` itself to the sidecar.
+        payload["prev_event_hash"] = _compute_prev_event_hash(path)
+        line = json.dumps(payload, sort_keys=True, default=_json_serializer)
+        with path.open("a", encoding="utf-8") as f:
+            f.write(line + "\n")
 
 
 def _shape_genai_block(usage: dict) -> dict | None:
@@ -312,6 +352,11 @@ def build_framework_event(
         trace_id=trace_id,
     )
     payload = dict(detail or {})
+    # spec-131 D-131-08 (sub-003): enum-validate dispatch metadata before
+    # the event is written so drifted values fail loud at call-site
+    # rather than poison the audit chain. Absent keys are fine
+    # (additive contract; R-131-09 grace).
+    _validate_dispatch_metadata(payload)
     if missing_fields:
         payload["degraded_reason"] = "missing-host-metadata"
         payload["missing_fields"] = missing_fields
@@ -583,7 +628,7 @@ def emit_declared_context_loads(
             )
         )
 
-    team_dir = root / "contexts" / "team"
+    team_dir = root / "team"
     if team_dir.is_dir():
         for team_path in sorted(team_dir.glob("*.md")):
             events.append(

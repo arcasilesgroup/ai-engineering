@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -92,6 +93,11 @@ TPL_CURSOR_SKILLS = TPL_PROJECT / ".cursor" / "skills"
 TPL_CURSOR_AGENTS = TPL_PROJECT / ".cursor" / "agents"
 TPL_ANTIGRAVITY_SKILLS = TPL_PROJECT / ".agents" / "skills"
 TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agents" / "agents"
+# spec-159 D-159-04: installer template copy of the canonical hook-scripts
+# subtree. Surface 10 mirrors only the `.py` files here; the `.sh/.ps1`
+# launchers in the same tree are a separate packaging concern and must never
+# be orphan-deleted by this sync step.
+TPL_HOOK_SCRIPTS = TPL_PROJECT.parent / ".ai-engineering" / "scripts" / "hooks"
 
 
 # ── Dataclasses ─────────────────────────────────────────────────────────────
@@ -953,15 +959,6 @@ def generate_specialist_agent(agent_path: Path) -> str:
     return f"{_serialize_frontmatter(fm)}\n\n{body.rstrip()}\n"
 
 
-def _specialist_agent_output_paths(spec_path: Path) -> tuple[Path, ...]:
-    """Return all generated specialist-agent mirror paths for a canonical file."""
-    targets = [TPL_CLAUDE_AGENTS / spec_path.name]
-    for repo_rel, template_rel in get_internal_specialist_agent_targets().values():
-        targets.append(ROOT / repo_rel / spec_path.name)
-        targets.append(ROOT / template_rel / spec_path.name)
-    return tuple(targets)
-
-
 # ═══════════════════════════════════════════════════════════════════════════
 # Generation -- AGENTS.md (from CLAUDE.md as canonical source)
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1302,6 +1299,158 @@ def generate_install_codex_surface(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+# ── Copilot hooks.json (single canonical event→script source, D-159-06) ──
+# Before spec-159 this file was hand-maintained in two divergent copies
+# (122-line repo root vs 101-line install template). The mapping below is the
+# single source of truth; ``generate_copilot_hooks_json()`` serializes it and
+# the sync loop dual-writes it to repo root + install template (R2: the output
+# must reproduce the reviewed 122-line root copy byte-for-byte).
+_COPILOT_HOOK_DIR = "./.ai-engineering/scripts/hooks"
+
+_COPILOT_HOOKS_SPEC: tuple[tuple[str, tuple[dict[str, object], ...]], ...] = (
+    (
+        "sessionStart",
+        (
+            {
+                "script": "copilot-session-start",
+                "timeoutSec": 10,
+                "comment": "Emit session_start telemetry on session initialization",
+            },
+        ),
+    ),
+    (
+        "sessionEnd",
+        (
+            {
+                "script": "copilot-session-end",
+                "timeoutSec": 10,
+                "comment": "Emit session_end telemetry when session closes",
+            },
+            {
+                "script": "copilot-instinct-extract",
+                "timeoutSec": 20,
+                "comment": (
+                    "Aggregate recent instinct observations into the canonical "
+                    "project instinct store"
+                ),
+            },
+            {
+                "script": "copilot-runtime-stop",
+                "timeoutSec": 15,
+                "comment": ("Write runtime checkpoint + Ralph Loop resume marker (runtime-stop)"),
+            },
+        ),
+    ),
+    (
+        "userPromptSubmitted",
+        (
+            {
+                "script": "copilot-skill",
+                "timeoutSec": 10,
+                "comment": "Emit skill_invoked telemetry on /ai-* commands",
+            },
+            {
+                "script": "copilot-runtime-progressive-disclosure",
+                "timeoutSec": 5,
+                "comment": ("Rank skills by prompt relevance, surface top-K via additionalContext"),
+            },
+        ),
+    ),
+    (
+        "preToolUse",
+        (
+            {
+                "script": "copilot-injection-guard",
+                "timeoutSec": 15,
+                "comment": ("Scan tool inputs for prompt injection attacks before execution"),
+            },
+            {
+                "script": "copilot-mcp-health",
+                "timeoutSec": 15,
+                "comment": "Monitor MCP server health on tool invocations",
+            },
+            {
+                "script": "copilot-deny",
+                "timeoutSec": 5,
+                "comment": (
+                    "Enforce deny-list: block dangerous operations "
+                    "(rm -rf, force push, --no-verify)"
+                ),
+            },
+            {
+                "script": "copilot-instinct-observe",
+                "args": "pre",
+                "timeoutSec": 10,
+                "comment": "Capture sanitized pre-tool observations for instinct learning",
+            },
+        ),
+    ),
+    (
+        "postToolUse",
+        (
+            {
+                "script": "copilot-agent",
+                "timeoutSec": 10,
+                "comment": "Emit agent_dispatched telemetry on agent tool use",
+            },
+            {
+                "script": "copilot-instinct-observe",
+                "args": "post",
+                "timeoutSec": 10,
+                "comment": "Capture sanitized post-tool observations for instinct learning",
+            },
+            {
+                "script": "copilot-auto-format",
+                "timeoutSec": 15,
+                "comment": "Auto-format edited files after tool use",
+            },
+            {
+                "script": "copilot-runtime-guard",
+                "timeoutSec": 10,
+                "comment": "Tool-call offload + loop detection (runtime-guard)",
+            },
+        ),
+    ),
+    (
+        "errorOccurred",
+        (
+            {
+                "script": "copilot-error",
+                "timeoutSec": 10,
+                "comment": "Emit error_occurred telemetry on failures",
+            },
+        ),
+    ),
+)
+
+
+def generate_copilot_hooks_json() -> str:
+    """Deterministically build ``.github/hooks/hooks.json`` from one source.
+
+    Serializes ``_COPILOT_HOOKS_SPEC`` with ``indent=2`` + trailing newline so
+    the output is byte-identical to the reviewed canonical root copy (D-159-06).
+    """
+    hooks: dict[str, list[dict[str, object]]] = {}
+    for event, entries in _COPILOT_HOOKS_SPEC:
+        event_entries: list[dict[str, object]] = []
+        for entry in entries:
+            script = entry["script"]
+            args = entry.get("args")
+            suffix = f" {args}" if args else ""
+            event_entries.append(
+                {
+                    "type": "command",
+                    "bash": f"{_COPILOT_HOOK_DIR}/{script}.sh{suffix}",
+                    "powershell": f"{_COPILOT_HOOK_DIR}/{script}.ps1{suffix}",
+                    "timeoutSec": entry["timeoutSec"],
+                    "comment": entry["comment"],
+                }
+            )
+        hooks[event] = event_entries
+    payload = {"version": 1, "hooks": hooks}
+    return json.dumps(payload, indent=2, ensure_ascii=False) + "\n"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Validation
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1599,13 +1748,44 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_codex_surface(root_path)
         _generate_surface(tpl_path, content, check_only, verbose, generated_paths, diffs)
 
+    # Surface 2c: Copilot hooks.json generated from one canonical event→script
+    # source (D-159-06). Dual-write the repo-root copy + the install template so
+    # the two hand-maintained copies can no longer drift (R2).
+    copilot_hooks_json = generate_copilot_hooks_json()
+    for hooks_json_path in (
+        ROOT / ".github" / "hooks" / "hooks.json",
+        TPL_PROJECT / ".github" / "hooks" / "hooks.json",
+    ):
+        _generate_surface(
+            hooks_json_path, copilot_hooks_json, check_only, verbose, generated_paths, diffs
+        )
+
     # Surface 2b: internal specialist agents (reviewer/verifier families).
     # These are dispatched by orchestrator agents and must be present in the
     # install templates for every provider that exposes local subagents.
+    # D-159-05 (corrected): the .claude install TEMPLATE is a GENERATED mirror
+    # that carries governed provenance frontmatter (canonical body + provenance),
+    # enforced by validator/_check_claude_specialist_agents_mirror. Only the
+    # authored canonical .claude/agents/* source is provenance-free; the dogfood
+    # `ai-eng update --preview` "updated" delta on these 10 files is by design
+    # (canonical-vs-generated-template), not drift. An earlier draft wrote the
+    # template verbatim — that violated the mirror-sync governance contract.
     for specialist_path in discover_specialist_agents():
-        content = generate_specialist_agent(specialist_path)
-        for target in _specialist_agent_output_paths(specialist_path):
-            _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
+        provenance = generate_specialist_agent(specialist_path)
+        _generate_surface(
+            TPL_CLAUDE_AGENTS / specialist_path.name,
+            provenance,
+            check_only,
+            verbose,
+            generated_paths,
+            diffs,
+        )
+        for repo_rel, template_rel in get_internal_specialist_agent_targets().values():
+            for target in (
+                ROOT / repo_rel / specialist_path.name,
+                ROOT / template_rel / specialist_path.name,
+            ):
+                _generate_surface(target, provenance, check_only, verbose, generated_paths, diffs)
 
     # Surface 3: .github/skills/ai-<name>/SKILL.md + handlers/ (Agent Skills)
     for name, _fm, skill_path in skills:
@@ -1926,6 +2106,30 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                 diffs,
             )
 
+    # Surface 10: consumer hook-scripts subtree lockstep (spec-159 D-159-04).
+    # The canonical `.ai-engineering/scripts/hooks/` tree (incl. the `_lib/`
+    # shared lib) had no propagation path into the installer template, so every
+    # hook edit silently drifted the packaged copy (the updater's comparison
+    # baseline). Mirror every `.py` (incl. `_lib/`, skipping `__pycache__`) so
+    # `dev sync` is the single regen command for hook parity. The `.sh/.ps1`
+    # launchers are a separate packaging concern and are not touched here.
+    hook_scripts_src = ROOT / ".ai-engineering" / "scripts" / "hooks"
+    hook_scripts_dst = TPL_HOOK_SCRIPTS
+    if hook_scripts_src.is_dir():
+        for src_file in sorted(hook_scripts_src.rglob("*.py")):
+            if "__pycache__" in src_file.parts:
+                continue
+            relative = src_file.relative_to(hook_scripts_src)
+            dst_file = hook_scripts_dst / relative
+            _generate_surface(
+                dst_file,
+                src_file.read_text(encoding="utf-8"),
+                check_only,
+                verbose,
+                generated_paths,
+                diffs,
+            )
+
     # ── Phase 3: Orphan detection ───────────────────────────────────────
     orphan_diffs = _handle_orphans(generated_paths, check_only, verbose)
 
@@ -2034,6 +2238,12 @@ def _handle_orphans(
         (TPL_ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_ANTIGRAVITY_AGENTS, "glob", "*.md"),
         (TPL_ANTIGRAVITY_AGENTS / "internal", "glob", "*.md"),
+        # spec-159 D-159-04: Surface 10 mirrors the canonical hook-scripts
+        # subtree into the installer template. Scope orphan cleanup to `*.py`
+        # ONLY so a renamed/deleted canonical hook does not leave a stale copy
+        # shipping in the wheel. The `.sh/.ps1` launchers in this same tree are
+        # a separate packaging concern and must NEVER be orphan-deleted.
+        (TPL_HOOK_SCRIPTS, "rglob", "*.py"),
     ]
 
     # Legacy reviewer/verifier path forwarders: spec-116 moved these agents
@@ -2083,6 +2293,17 @@ def _handle_orphans(
                 for f in sub.rglob("*"):
                     if f.is_file() and f not in generated:
                         orphans.append(f)
+        elif mode == "rglob":
+            # Recursively scan the whole subtree but only consider files
+            # matching the suffix pattern (e.g. "*.py"). This deliberately
+            # leaves sibling files of other types untouched -- spec-159 relies
+            # on this to keep the `.sh/.ps1` hook launchers out of the orphan
+            # candidate set even though they live alongside the synced `.py`.
+            for f in root.rglob(str(pattern)):
+                if "__pycache__" in f.parts:
+                    continue
+                if f.is_file() and f not in generated:
+                    orphans.append(f)
 
     orphans.sort()
     diffs: list[str] = []

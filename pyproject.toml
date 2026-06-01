@@ -275,5 +275,9 @@ include = [
   "src/ai_engineering/templates/**/*.md",
   "src/ai_engineering/templates/**/*.yml",
   "src/ai_engineering/templates/**/*.json",
+  "src/ai_engineering/templates/**/*.sh",
+  "src/ai_engineering/templates/**/*.ps1",
+  "src/ai_engineering/templates/**/*.ts",
+  "src/ai_engineering/templates/**/*.rego",
   "src/ai_engineering/version/registry.json",
 ]

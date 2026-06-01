@@ -159,7 +159,8 @@ def with_lock_retry(
             yield True
         finally:
             with contextlib.suppress(OSError):
-                _locking._release_lock(handle)  # type: ignore[arg-type]
+                if handle is not None:
+                    _locking._release_lock(handle)
             if handle is not None:
                 with contextlib.suppress(OSError):
                     handle.close()

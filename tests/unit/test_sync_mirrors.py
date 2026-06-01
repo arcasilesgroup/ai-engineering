@@ -323,27 +323,30 @@ class TestGenerationFunctions:
         assert "edit_policy: generated-do-not-edit" in content
         assert "You are a senior code reviewer specializing in FUNCTIONAL CORRECTNESS" in content
 
-    def test_specialist_agent_output_paths_are_provider_internal_roots(self) -> None:
-        from scripts.sync_command_mirrors import (
-            CLAUDE_AGENTS,
-            ROOT,
-            _specialist_agent_output_paths,
-        )
+    def test_install_claude_specialist_template_carries_provenance(self) -> None:
+        # spec-159 D-159-05 (corrected): the `.claude` install TEMPLATE for a
+        # specialist agent is a GENERATED mirror carrying governed provenance
+        # frontmatter (canonical body + provenance), enforced by
+        # validator/_check_claude_specialist_agents_mirror. Only the authored
+        # canonical `.claude/agents/<name>.md` source is provenance-free. The
+        # dogfood `ai-eng update --preview` "updated" delta on these files is
+        # by design. An earlier draft wrote the template verbatim; that violated
+        # the mirror-sync governance contract and is reverted.
+        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_specialist_agent
 
-        paths = {
-            path.relative_to(ROOT).as_posix()
-            for path in _specialist_agent_output_paths(CLAUDE_AGENTS / "reviewer-correctness.md")
-        }
+        canonical = CLAUDE_AGENTS / "reviewer-correctness.md"
 
-        assert paths == {
-            "src/ai_engineering/templates/project/.claude/agents/reviewer-correctness.md",
-            ".github/agents/internal/reviewer-correctness.md",
-            "src/ai_engineering/templates/project/agents/internal/reviewer-correctness.md",
-            ".codex/agents/internal/reviewer-correctness.md",
-            "src/ai_engineering/templates/project/.codex/agents/internal/reviewer-correctness.md",
-            ".agents/agents/internal/reviewer-correctness.md",
-            "src/ai_engineering/templates/project/.agents/agents/internal/reviewer-correctness.md",
-        }
+        # The authored canonical source carries NO provenance.
+        canonical_text = canonical.read_text(encoding="utf-8")
+        assert "mirror_family: specialist-agents" not in canonical_text
+
+        # The generated `.claude` install template (and copilot mirrors) DO
+        # carry provenance frontmatter, matching the validator's expected shape.
+        provenance = generate_specialist_agent(canonical)
+        assert provenance != canonical_text
+        assert "mirror_family: specialist-agents" in provenance
+        assert "canonical_source: .claude/agents/reviewer-correctness.md" in provenance
+        assert "edit_policy: generated-do-not-edit" in provenance
 
     def test_copilot_agent_tools_and_delegation_match_metadata(self) -> None:
         from scripts.sync_command_mirrors import (

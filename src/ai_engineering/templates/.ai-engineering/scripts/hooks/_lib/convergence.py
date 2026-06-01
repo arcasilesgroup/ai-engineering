@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -100,11 +101,32 @@ def _short_reason(stderr: str, stdout: str, *, default: str) -> str:
     return default
 
 
+# spec-158 D-158-11: Python packaging markers. Convergence is multi-stack;
+# the Python lint+test tools run ONLY when the project IS a Python project.
+# A TypeScript-only repo (no marker) must run no Python verifier — otherwise a
+# missing test runner reports as a false convergence failure and blocks the
+# Stop hook. Marker detection is stdlib-only to honour the package-free hook
+# contract.
+_PYTHON_PROJECT_MARKERS = ("pyproject.toml", "setup.py")
+
+
+def _is_python_project(project_root: Path) -> bool:
+    """True iff a Python packaging marker file exists at the project root."""
+    return any((project_root / marker).is_file() for marker in _PYTHON_PROJECT_MARKERS)
+
+
+def _runner_absent(text: str) -> bool:
+    """True iff *text* shows the test runner module is not installed (fail-open)."""
+    return "No module named pytest" in text or "No module named 'pytest'" in text
+
+
 def _check_ruff(project_root: Path) -> str | None:
     """Run ``ruff check --quiet --no-fix``; return failure summary or None.
 
-    Missing binary is not a failure (returns None).
+    Missing binary, or a non-Python project, is not a failure (returns None).
     """
+    if not _is_python_project(project_root):
+        return None
     if shutil.which("ruff") is None:
         return None
     rc, stdout, stderr = _run(
@@ -122,50 +144,53 @@ def _check_ruff(project_root: Path) -> str | None:
 
 
 def _check_pytest_collect(project_root: Path) -> str | None:
-    """``python -m pytest --collect-only`` to verify the suite imports.
+    """``pytest --collect-only`` to verify the suite imports.
 
-    Missing ``python`` is not a failure (returns None) — see module
-    docstring on fail-open behavior.
+    spec-158 D-158-10/11: runs ONLY in a Python project, under
+    ``sys.executable`` (the resolved hook interpreter — NOT a bare PATH
+    ``python3`` that may belong to another environment), and fails open
+    when the test runner is not installed (a missing runner is "nothing
+    to verify", not a convergence failure).
     """
-    if shutil.which("python") is None and shutil.which("python3") is None:
+    if not _is_python_project(project_root):
         return None
-    interpreter = "python" if shutil.which("python") else "python3"
     rc, stdout, stderr = _run(
-        [interpreter, "-m", "pytest", "--collect-only", "-q"],
+        [sys.executable, "-m", "pytest", "--collect-only", "-q"],
         cwd=project_root,
         timeout=_TIMEOUT_PYTEST_COLLECT_S,
     )
     if rc is None:
         return f"pytest collect: {stderr.strip() or 'failed to run'}"
     # pytest exit codes: 0 = passed, 5 = no tests collected (treat as
-    # "nothing to verify" — fail-open). Anything else means collection
-    # itself blew up (import error, syntax error, …).
-    if rc in (0, 5):
+    # "nothing to verify" — fail-open). A missing runner module is also
+    # fail-open. Anything else means collection itself blew up.
+    if rc in (0, 5) or _runner_absent(stderr) or _runner_absent(stdout):
         return None
     summary = _short_reason(stderr, stdout, default=f"exit {rc}")
     return f"pytest collect: {summary}"
 
 
 def _check_pytest_run(project_root: Path) -> str | None:
-    """``python -m pytest -x --tb=no -q`` — full convergence (slow)."""
-    if shutil.which("python") is None and shutil.which("python3") is None:
+    """``pytest -x --tb=no -q`` — full convergence (slow); Python projects only."""
+    if not _is_python_project(project_root):
         return None
-    interpreter = "python" if shutil.which("python") else "python3"
     rc, stdout, stderr = _run(
-        [interpreter, "-m", "pytest", "-x", "--tb=no", "-q"],
+        [sys.executable, "-m", "pytest", "-x", "--tb=no", "-q"],
         cwd=project_root,
         timeout=_TIMEOUT_PYTEST_RUN_S,
     )
     if rc is None:
         return f"pytest run: {stderr.strip() or 'failed to run'}"
-    if rc in (0, 5):
+    if rc in (0, 5) or _runner_absent(stderr) or _runner_absent(stdout):
         return None
     summary = _short_reason(stderr, stdout, default=f"exit {rc}")
     return f"pytest run: {summary}"
 
 
 def _check_ruff_format(project_root: Path) -> str | None:
-    """``ruff format --check`` — full mode only, optional."""
+    """``ruff format --check`` — full mode only, Python projects only, optional."""
+    if not _is_python_project(project_root):
+        return None
     if shutil.which("ruff") is None:
         return None
     rc, stdout, stderr = _run(

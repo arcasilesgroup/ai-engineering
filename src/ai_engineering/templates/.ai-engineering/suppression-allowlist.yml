@@ -145,19 +145,6 @@ entries:
     dec_id: ""
     severity: "low"
 
-  # --- hooks/_lib/locked_append.py: type-checker boundary ----------------
-  - path: ".ai-engineering/scripts/hooks/_lib/locked_append.py"
-    rule: "*"
-    pattern: "type_ignore"
-    justification: >-
-      Type-checker limitation at the platform file-locking boundary
-      (`arg-type`); the handle type cannot be expressed across the
-      conditional posix/Windows locking backends.
-    spec_ref: "spec-133"
-    expires_at: ""
-    dec_id: ""
-    severity: "low"
-
   # --- hooks/mcp-health.py: Windows import fallback ----------------------
   - path: ".ai-engineering/scripts/hooks/mcp-health.py"
     rule: "*"
@@ -165,19 +152,6 @@ entries:
     justification: >-
       Defensive `except ImportError` Windows fallback branch — uncovered
       on the primary posix path.
-    spec_ref: "spec-133"
-    expires_at: ""
-    dec_id: ""
-    severity: "low"
-
-  # --- hooks/runtime-guard.py: optional _lib import fallback -------------
-  - path: ".ai-engineering/scripts/hooks/runtime-guard.py"
-    rule: "*"
-    pattern: "type_ignore"
-    justification: >-
-      Optional-dependency import fallback for the `_lib` risk accumulator
-      (`import-not-found`); resolved at runtime when the hook lib is on
-      path.
     spec_ref: "spec-133"
     expires_at: ""
     dec_id: ""

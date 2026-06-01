@@ -1,370 +1,238 @@
 ---
 execution_route:
   version: 1
-  spec: spec-158
+  spec: spec-159
   executor: autopilot
   automation: assisted
-  concern_count: 3
-  estimated_files: 14
+  concern_count: 6
+  estimated_files: 18
   reason: >
-    Three public-install reliability concerns across two subsystems (updater +
-    hooks). (A) settings.json hook-command migrator. (B) operator-anonymity
-    hardening. (C) hooks must never block an installed user: convergence under
-    sys.executable + fail-open without pytest + stop_hook_active guard on Stop
-    hooks + advisory timeout. ~14 files. >=3 concerns -> autopilot wraps the
-    chain (decompose into sub-specs A/B/C, DAG, waves, single quality loop).
+    Six concerns across four subsystems (packaging, updater CLI, sync_mirrors
+    generation, CI). (1) P0 wheel-include gap — 52 .sh/.ps1/.ts/.rego launchers
+    absent from the wheel break every external install. (2) update_cmd must
+    finalize hooks-manifest. (3) sync_mirrors parity: hook-scripts sync step +
+    specialist-agent verbatim split + hooks.json generator. (4) drop cursor from
+    manifest. (5) fail-loud CI wheel + drift guards. (6) 0.9.1 release. ~18
+    authored files plus a large mechanical `ai-eng dev sync` resync. >=3
+    concerns + a release step -> autopilot wraps the chain (sub-specs, DAG,
+    waves, single quality loop).
   safe_next_command: "/ai-autopilot"
-spec: spec-158
-title: Public-install hardening — hook migration + anonymity + hook reliability
+spec: spec-159
+title: Installer source-of-truth parity — wheel content + sync_mirrors drift + fail-loud guards
 status: approved
 pipeline: full
 ---
 
-# spec-158 — Execution Plan
+# spec-159 — Execution Plan
 
 ## Architecture
 
-**Pattern: Hexagonal (§10.8) — pure core + IO shell.**
+**Pattern: Pipeline parity + fail-loud guard ring.**
 
-The migrator splits into a **pure planner** (parse settings dict -> list of exact
-`(old_command, new_command)` rewrites + a skipped list; no IO) and an **IO
-wrapper** (`migrate_hook_commands(target, *, dry_run)` — reads
-`.claude/settings.json`, guards on `run-hook.sh` presence, applies rewrites via
-**literal `json.dumps` string replacement on the raw file text** for
-minimum-diff, backs up + writes only when `not dry_run`, returns a
-`HookMigrationReport`).
+The framework keeps two copies of every installable surface: the **canonical**
+authoring copy at the repo root (`.claude/`, `.ai-engineering/scripts/hooks/`,
+`.github/hooks/hooks.json`, …) and the **packaged install template** under
+`src/ai_engineering/templates/`. `scripts/sync_mirrors/core.py` is the
+generation pipeline that must keep template == canonical; the wheel build
+(`pyproject.toml`) is what ships the template tree to external users; the
+updater (`cli_commands/core.py`) compares an installed project against the
+packaged template.
 
-Critical boundary decision (from updater evidence): `.claude/settings.json` is
-ownership-**denied** (`control_plane.py:121`, `FileChange` -> `skip-denied`). The
-migrator therefore does **NOT** flow through the `FileChange`/reconciler path —
-it is a **framework-owned field migration** (spec-158 D-158-04) called directly
-from `update()`, attached to `UpdateResult.hook_migration`, surfaced in
-`to_dict()` and the human summary. This bypasses the protected-file overwrite
-block while leaving whole-file ownership protection intact.
+Every bug in this spec is a **missing pipeline edge**: a surface flows into one
+node but not the next. The fix set closes each edge and then wraps the whole
+pipeline in a **fail-loud guard ring** (CI) so a future missing edge turns the
+build red instead of silently drifting.
 
-**Minimum-diff mechanism (D-158-06):** for each exact-shape command, compute
-`old_literal = json.dumps(old_cmd)` and `new_literal = json.dumps(new_cmd)`
-(both include surrounding quotes + identical JSON escaping to what the file
-already contains) and do `raw = raw.replace(old_literal, new_literal)`. Only
-command string values change; matchers, timeouts, key order, whitespace, and
-`permissions.deny` survive byte-for-byte. A duplicated command (same script in
-two events) is rewritten in all positions (correct). Re-validate with
-`json.loads` after; if a literal is not found in raw (escaping mismatch), that
-command is reported `skipped`, never corrupted.
+> **Empirical correction (mid-build).** The original "P0" framing — that the
+> wheel `include` excluded the 52 `.sh/.ps1/.ts/.rego` launchers — was
+> **disproven by building the wheel**: `packages = ["src/ai_engineering"]` ships
+> them regardless of `include`, with and without the launcher globs (`run-hook.sh`
+> present both times). The **real** external-install reliability bug is
+> `update_cmd` not finalizing `hooks-manifest.json` (T-6) → stale sha256 → the
+> default `enforce` integrity mode kills hooks after every `ai-eng update`. T-5
+> (include globs) + T-1 (wheel-content test) are retained as a defensive
+> allowlist + regression guard, not as the fix.
 
-**Detection (D-158-02):**
-- Exact-shape regex over a command:
-  `^python3 "\$CLAUDE_PROJECT_DIR/\.ai-engineering/scripts/hooks/(?P<script>[^"]+\.py)"(?P<args>.*)$`
-  -> rewrite to
-  `bash "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh" "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/<script>"<args>`.
-- Already routed through `run-hook.sh` -> not matched -> no rewrite (idempotent;
-  not counted as skipped-for-review).
-- Command referencing the framework hooks dir but NOT matching the exact shape
-  (custom interpreter, absolute path, extra flags, wrapper) -> `skipped`
-  (reported for manual review).
-- Command not referencing the framework hooks dir -> ignored (user's own).
+Implementation boundaries:
+- **Packaging** (`pyproject.toml`) — pure declarative allowlist; no logic.
+- **Updater CLI** (`cli_commands/core.py`) — add one idempotent post-apply call;
+  must run on apply, NOT on `--preview`/dry-run.
+- **sync_mirrors** (`scripts/sync_mirrors/core.py`) — three generation edges
+  (hook-scripts copy step, specialist-agent `.claude` verbatim split, hooks.json
+  generator + dual-write). `ai-eng dev sync` then materializes the resync.
+- **Guards** (CI + tests) — inspect the *built artifact* and run
+  `sync_mirrors --check`; both blocking.
 
-## Phases
+## Design
 
-### Phase 1 — Pure planner core (TDD)
+UI/UX: none (backend packaging + CI). Design routing: **ad-hoc** — no surface
+affordances. `--skip-design` rationale: pure build-system / generation-pipeline
+work with no user-facing rendering.
 
-- [ ] T-1 — RED: pure planner tests
+## Pipeline classification
+
+`full` — >5 files, multi-subsystem, new generation logic + new CI guards.
+
+## Phases & Tasks
+
+### Phase 0 — RED tests first (§10.5 TDD)
+
+All four assert the bug as it exists today; they MUST fail before any GREEN task.
+
+- [ ] T-1 — RED: wheel-content test (built artifact)
   - Agent: build
-  - Files: `tests/unit/updater/test_hook_command_migration.py` (new)
+  - Files: `tests/unit/packaging/test_wheel_content.py` (new)
+  - Principles applied: §10.5 TDD, §10.6 SDD
+  - Patch (deterministic): none — judgment (build wheel into tmp, `python -m build --wheel` or `hatch build`, unzip, assert every `_lib/run-hook.sh`, `_lib/resolve-python.sh`, each `copilot-*.sh`/`.ps1`, the `.ts` bridge, and all three `.rego` exist under `ai_engineering/templates/`). Enumerate expected set from the repo's `templates/**` `.sh/.ps1/.ts/.rego` listing.
+  - Gate: test FAILS on current `pyproject.toml` (launchers absent from wheel).
+
+- [ ] T-2 — RED: surface-drift guard
+  - Agent: build
+  - Files: `tests/unit/sync/test_surface_drift.py` (new or extend existing sync test)
+  - Principles applied: §10.5 TDD, §10.4 DRY
+  - Patch (deterministic): none — judgment (invoke `sync_mirrors.sync_all(check_only=True)` and assert returns 0 / no diffs; the canonical fail-loud signal).
+  - Gate: test FAILS now (16 hook files + specialist agents + hooks.json drift).
+
+- [ ] T-3 — RED: hooks-manifest finalized after update
+  - Agent: build
+  - Files: `tests/unit/cli/test_update_finalizes_manifest.py` (new)
   - Principles applied: §10.5 TDD
-  - Patch (prose): create the test module (house style: plain `tmp_path`, no
-    fixtures needed for the pure fn). Cover `plan_command_rewrites(settings: dict)`:
-    (a) exact `python3 ".../observe.py"` -> `bash ".../run-hook.sh" ".../observe.py"`;
-    (b) trailing args preserved (`... .py" --flag` -> `...run-hook.sh" "....py" --flag`);
-    (c) duplicate command in two events -> both in rewrites;
-    (d) already-`run-hook.sh` command -> 0 rewrites, 0 skipped;
-    (e) non-canonical framework-dir command (`python /abs/x.py`, or `python3 '...'`
-    single-quote, or extra interpreter flag) -> 0 rewrites, 1 skipped;
-    (f) non-framework command (`echo hi`) -> ignored (0/0);
-    (g) missing/empty `hooks` block -> (0/0). Import
-    `from ai_engineering.updater.hook_command_migration import plan_command_rewrites`.
-  - Gate: `.venv/bin/python -m pytest tests/unit/updater/test_hook_command_migration.py -q` -> fails (ModuleNotFoundError).
+  - Patch (deterministic): none — judgment (install into tmp project, mutate a hook's bytes via an `update` apply, assert `hooks-manifest.json` sha256 matches deployed bytes; today it stays stale).
+  - Gate: test FAILS now (`update_cmd` never calls `_finalize_hooks_manifest`).
 
-- [ ] T-2 — GREEN: planner module
+- [ ] T-4 — RED: hooks.json single-source parity
   - Agent: build
-  - Files: `src/ai_engineering/updater/hook_command_migration.py` (new)
-  - Principles applied: §10.8 Hexagonal, §10.1 KISS
-  - Patch (prose): module constants
-    `_HOOKS_PREFIX = "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/"`,
-    `_RUN_HOOK = _HOOKS_PREFIX + "_lib/run-hook.sh"`, compiled regex
-    `_PY_CMD = re.compile(r'^python3 "\$CLAUDE_PROJECT_DIR/\.ai-engineering/scripts/hooks/(?P<script>[^"]+\.py)"(?P<args>.*)$')`.
-    `def plan_command_rewrites(settings: Mapping) -> tuple[list[tuple[str, str]], list[str]]`:
-    walk `settings.get("hooks", {})` -> each event -> list of entries -> each
-    `entry.get("hooks", [])` -> each hook dict's `command`. For each command:
-    skip if it already contains `_lib/run-hook.sh`; elif `_PY_CMD` matches ->
-    append `(old, f'bash "{_RUN_HOOK}" "{_HOOKS_PREFIX}{m["script"]}"{m["args"]}')`
-    to rewrites; elif command references `_HOOKS_PREFIX` -> append to skipped;
-    else ignore. De-dupe rewrites preserving order. Return `(rewrites, skipped)`.
-  - Gate: T-1 tests pass.
+  - Files: `tests/unit/sync/test_hooks_json_parity.py` (new)
+  - Principles applied: §10.5 TDD, §10.4 DRY
+  - Patch (deterministic): none — judgment (assert `.github/hooks/hooks.json` == `src/.../templates/project/.github/hooks/hooks.json` byte-for-byte, and that both equal the generator output).
+  - Gate: test FAILS now (122 vs 101 lines).
 
-### Phase 2 — IO wrapper (TDD)
+### Phase 1 — P0 packaging (D-159-01)
 
-- [ ] T-3 — RED: IO wrapper + report tests
+- [ ] T-5 — GREEN: ship launcher/policy extensions in the wheel
   - Agent: build
-  - Files: `tests/unit/updater/test_hook_command_migration.py` (extend)
-  - Principles applied: §10.5 TDD
-  - Patch (prose): add a `_write_settings(claude_dir, data)` helper and a
-    `_seed_run_hook(target)` helper (touch
-    `.ai-engineering/scripts/hooks/_lib/run-hook.sh`). Cover
-    `migrate_hook_commands(target, *, dry_run)`:
-    (a) absent `.claude/settings.json` -> `HookMigrationReport(migrated=[], skipped=[], backup_path=None, applied=False)`, nothing written;
-    (b) `run-hook.sh` absent -> rewrites NOT applied, report lists the candidates as `skipped` with reason, file unchanged (AC8);
-    (c) `dry_run=True` with candidates + run-hook.sh present -> report.migrated populated, file on disk UNCHANGED, backup_path None;
-    (d) `dry_run=False` -> file rewritten to `run-hook.sh` form, a backup file matching `settings.json.bak-*` exists, `permissions.deny` + matchers + timeouts preserved, JSON valid;
-    (e) minimum-diff: raw text equals the original except the rewritten command literals (assert non-command bytes unchanged);
-    (f) idempotent: second `migrate_hook_commands(dry_run=False)` -> `migrated == []`, file content stable.
-  - Gate: fails (function/dataclass absent).
-
-- [ ] T-4 — GREEN: IO wrapper + report dataclass
-  - Agent: build
-  - Files: `src/ai_engineering/updater/hook_command_migration.py` (extend)
-  - Principles applied: §10.8 Hexagonal, §10.5 TDD, §10.7 Clean Code
-  - Patch (prose): `@dataclass HookMigrationReport` with
-    `migrated: list[str]`, `skipped: list[str]`, `backup_path: Path | None`,
-    `applied: bool`, plus `count`/`to_dict()` helpers.
-    `def migrate_hook_commands(target: Path, *, dry_run: bool) -> HookMigrationReport`:
-    resolve `settings = target/".claude"/"settings.json"`; if not file -> empty
-    report. `raw = settings.read_text()`, `data = json.loads(raw)`
-    (on `JSONDecodeError` -> empty report, do not touch). `rewrites, skipped =
-    plan_command_rewrites(data)`. If rewrites and
-    `not (target/".ai-engineering"/"scripts"/"hooks"/"_lib"/"run-hook.sh").is_file()`
-    -> move rewrite scripts into `skipped` (reason: resolver-absent), `rewrites=[]`
-    (AC8). `migrated = [old for old,_ in rewrites]`. If `dry_run` or not rewrites
-    -> return report (no write). Else: `new_raw = raw`; for `old,new` in rewrites:
-    `new_raw = new_raw.replace(json.dumps(old), json.dumps(new))`; if a literal
-    absent -> drop from migrated, add to skipped. `json.loads(new_raw)` (validate;
-    on failure -> return report unwritten + skipped). Backup:
-    `bak = settings.with_name(f"settings.json.bak-{datetime.now(UTC):%Y%m%dT%H%M%SZ}")`,
-    `shutil.copy2(settings, bak)`. Write `new_raw` (atomic: temp + `os.replace`).
-    Return report with `backup_path=bak`, `applied=True`.
-  - Gate: T-3 tests pass.
-
-### Phase 3 — Wire into updater + result + summary
-
-- [ ] T-5 — UpdateResult carries the migration report
-  - Agent: build
-  - Files: `src/ai_engineering/updater/service.py:117-168`
-  - Principles applied: §10.3 SOLID (single result aggregate)
+  - Files: `pyproject.toml:274-279` (`[tool.hatch.build.targets.wheel].include`)
+  - Principles applied: §10.2 YAGNI (explicit allowlist, no `**/*`), §10.6 SDD
   - Patch (deterministic):
     ```diff
-    @@ class UpdateResult
-         dry_run: bool
-         changes: list[FileChange] = field(default_factory=list)
-    +    hook_migration: "HookMigrationReport | None" = None
-    @@ def to_dict(self) -> dict[str, object]:
-                 "changes": [change.to_dict(dry_run=self.dry_run) for change in self.changes],
-    +            "hook_migration": (
-    +                self.hook_migration.to_dict() if self.hook_migration is not None else None
-    +            ),
-             }
+     include = [
+       "src/ai_engineering/templates/**/*.md",
+       "src/ai_engineering/templates/**/*.yml",
+       "src/ai_engineering/templates/**/*.json",
+    +  "src/ai_engineering/templates/**/*.sh",
+    +  "src/ai_engineering/templates/**/*.ps1",
+    +  "src/ai_engineering/templates/**/*.ts",
+    +  "src/ai_engineering/templates/**/*.rego",
+       "src/ai_engineering/version/registry.json",
+     ]
     ```
-    Plus a top-of-file `from ai_engineering.updater.hook_command_migration import HookMigrationReport` (TYPE_CHECKING or runtime import).
-  - Gate: a unit assertion that `UpdateResult(dry_run=True).to_dict()["hook_migration"] is None`.
+  - Gate: T-1 passes; `python -m build --wheel` then unzip shows the 52 files.
 
-- [ ] T-6 — update() runs the migrator (both branches)
+### Phase 2 — updater finalizes manifest (D-159-03)
+
+- [ ] T-6 — GREEN: `update_cmd` calls `_finalize_hooks_manifest`
   - Agent: build
-  - Files: `src/ai_engineering/updater/service.py:465-482`
-  - Principles applied: §10.4 DRY (compute once, attach once)
-  - Patch (deterministic):
-    ```diff
-         adapter = _UpdateAdapter(target, dry_run=dry_run)
-         run = ResourceReconciler().run(adapter, target, preview=dry_run)  # ty:ignore[invalid-argument-type]
+  - Files: `src/ai_engineering/cli_commands/core.py:1071` (after `result = workflow_result.result`, on the apply path only — NOT under `--preview`/dry-run/`json_requested` early returns)
+  - Principles applied: §10.3 SOLID (parity with `install_cmd:237`), §10.9 autonomous-fix
+  - Patch (deterministic): none — judgment (guard so it runs only when an apply actually mutated hook bytes; mirror the `install_cmd` call but gated on `result` indicating applied changes, not preview).
+  - Gate: T-3 passes; hooks survive `AIENG_HOOK_INTEGRITY_MODE=enforce` after update.
 
-    +    # spec-158 D-158-03/04: the resolver wiring inside the ownership-protected
-    +    # .claude/settings.json is a framework-owned FIELD migration — it never
-    +    # flows through the (denied) FileChange path. Compute always (dry-run
-    +    # visibility); write + backup only on apply.
-    +    from ai_engineering.updater.hook_command_migration import migrate_hook_commands
-    +
-    +    hook_migration = migrate_hook_commands(target, dry_run=dry_run)
-    +
-         if dry_run:
-             payload = _UpdateAdapter._coerce_plan_payload(run.plan.payload)
-    -        return payload.result
-    +        payload.result.hook_migration = hook_migration
-    +        return payload.result
-    @@
-         payload = _UpdateAdapter._coerce_apply_payload(run.apply_result.payload)
-    -    return payload.result
-    +    payload.result.hook_migration = hook_migration
-    +    return payload.result
-    ```
-  - Gate: integration tests T-7.
+### Phase 3 — sync_mirrors parity (D-159-04, 05, 06)
 
-- [ ] T-7 — Integration: dry-run report + apply rewrite + regression shape
+- [ ] T-7 — GREEN: add hook-scripts sync step (new Surface 10)
   - Agent: build
-  - Files: `tests/integration/test_updater.py` (extend, new `TestHookCommandMigration`)
-  - Principles applied: §10.5 TDD
-  - Patch (prose): using the `installed_project` fixture (full `.ai-engineering/`
-    + `.claude/settings.json`): (AC5) seed a legacy `python3 ".../observe.py"`
-    command into `.claude/settings.json`, `update(dry_run=True)` ->
-    `result.hook_migration.migrated` non-empty, file unchanged on disk;
-    (AC1/AC7) `update(dry_run=False)` -> settings command rewritten to
-    `run-hook.sh` form, backup file present, JSON valid; (AC3) second
-    `update(dry_run=False)` -> `hook_migration.migrated == []`; (AC2/AC6) a
-    user-added hook + a `permissions.deny` entry survive the apply.
-  - Gate: `.venv/bin/python -m pytest tests/integration/test_updater.py -q`.
+  - Files: `scripts/sync_mirrors/core.py` (after Surface 9, ~line 1927)
+  - Principles applied: §10.4 DRY (single regen path), §10.3 SOLID
+  - Patch (deterministic): none — judgment (model on Surface 9: walk `ROOT/.ai-engineering/scripts/hooks/**/*.py` incl. `_lib/`, skip `__pycache__`, `_generate_surface` into `templates/.ai-engineering/scripts/hooks/<relative>`).
+  - Gate: `sync_mirrors --check` no longer reports the 16 hook files.
 
-- [ ] T-8 — Surface `migrate-hooks: N` in the update summary
+- [x] T-8 — REVERTED (was: write `.claude` specialist template verbatim)
+  - Outcome: the verbatim form FAILED CI `ai-eng check` mirror-sync —
+    `validator/_check_claude_specialist_agents_mirror` *requires* provenance on
+    the generated `.claude` specialist install template. Provenance restored;
+    only the authored canonical `.claude/agents/*` is provenance-free. The
+    dogfood `update --preview` "updated" delta on these 10 files is the intended
+    canonical-vs-generated-template difference, not drift. See D-159-05 (reverted).
+  - Gate: `ai-eng check` mirror-sync PASS.
+
+- [ ] T-9 — GREEN: generate `.github/hooks/hooks.json` from one source + dual-write
   - Agent: build
-  - Files: `src/ai_engineering/cli_commands/core.py` (update_cmd summary render)
-  - Principles applied: §10.7 Clean Code (visible, not silent)
-  - Patch (prose): in the `update_cmd` human-summary block (where applied/denied
-    counts print), add a line when `result.hook_migration` has content:
-    `migrate-hooks: <len(migrated)> migrated, <len(skipped)> skipped` (preview vs
-    applied verb per `result.dry_run`); list skipped command(s) as a manual-review
-    hint. JSON path already carries it via `to_dict()` (T-5). Locate the exact
-    render site first (`grep -n "denied\|applied\|update" core.py` around update_cmd).
-  - Gate: `tests/integration/test_cli_command_modules.py` update assertions stay green; add one asserting the migrate line renders (human) and is absent under `--json`.
+  - Files: `scripts/sync_mirrors/core.py` (new `generate_copilot_hooks_json()`, add to the dual-write tuple list near `:1596` alongside the codex `(ROOT/".codex"/"hooks.json", TPL_CODEX_HOOKS)` pattern)
+  - Principles applied: §10.4 DRY (eliminate dual hand-maintenance), §10.3 SOLID
+  - Patch (deterministic): none — judgment (build from the canonical hook event→script mapping; MUST reproduce the current 122-line repo content incl. the `copilot-runtime-stop` block; dual-write `ROOT/.github/hooks/hooks.json` + `TPL_PROJECT/.github/hooks/hooks.json`). See R2 — golden snapshot before replacing either copy.
+  - Gate: T-4 passes; both copies byte-identical to generator output.
 
-### Phase 5 — Operator-anonymity hardening (concern B, TDD; parallelizable with Phases 1-3)
-
-- [ ] T-10 — RED: name-agnostic operator-path gate
+- [ ] T-10 — materialize resync (mechanical churn, isolated commit)
   - Agent: build
-  - Files: `tests/unit/test_no_operator_paths.py` (new)
-  - Principles applied: §10.5 TDD, Hard Rule 4
-  - Patch (prose): model on `test_no_forbidden_substrings.py`. Scan shipped
-    surfaces relative to repo root: `src/ai_engineering/**/*` (all files incl.
-    `.py/.md/.json/.sh` — templates ship verbatim), `.ai-engineering/scripts/**/*`,
-    `docs/**/*.md`, root `*.md` + `CONSTITUTION.md`. Regex
-    `re.compile(r"[/\\](Users|home)[/\\]([A-Za-z][A-Za-z0-9_.-]*)")`; for each
-    match, FAIL if `group(2).lower()` not in
-    `GENERIC = {"user","users","you","youruser","runner","linuxbrew","root","test","example","name","project","app","ci","build","home","someone"}`.
-    Self-exclude this test file. Add explicit unit asserts: a planted string
-    `"/Users/plantedoperator/x"` is flagged by the matcher fn; `/home/linuxbrew`
-    and `/Users/you` are NOT. Skip binary files (decode errors -> skip).
-  - Gate: `.venv/bin/python -m pytest tests/unit/test_no_operator_paths.py -q` ->
-    FAILS, flagging the 3 `transcript_usage.py` `soydachi` lines (proves detection).
+  - Files: regenerated under `src/ai_engineering/templates/**` + any repo-root mirror (run `python scripts/sync_mirrors/core.py` / `ai-eng dev sync`)
+  - Principles applied: §10.4 DRY, §10.7 Clean Code (separate mechanical churn from logic — R6)
+  - Patch (deterministic): none — run the regen command; commit the byte-mechanical diff separately from T-7/T-8/T-9 logic.
+  - Gate: `git diff` shows only template-tree resync; `sync_mirrors --check` clean.
 
-- [ ] T-11 — GREEN: genericize leaks + sync template + regen manifest
+### Phase 4 — cursor surface (D-159-07, REVERTED)
+
+- [x] T-11 — REVERTED (was: remove `cursor` from `surfaces.enabled`)
+  - Outcome: dropping cursor made `ai-eng check` counter-accuracy FAIL — the
+    product README "6 surfaces" claim derives from `manifest.enabled`, and the
+    repo *produces* the cursor surface (64 templates) for external clients.
+    Removing it undercounted to 5 and undersold the product. `cursor` restored.
+    The 64 `.cursor` "new" in dogfood `update --preview` is cosmetic + by-design
+    (no live `.cursor/` working dir; the team doesn't edit with Cursor). See
+    D-159-07 (reverted).
+  - Gate: `ai-eng check` counter-accuracy PASS; README reports 6 surfaces.
+
+### Phase 5 — fail-loud CI guard ring (D-159-08)
+
+- [ ] T-12 — wire wheel-content + surface-drift guards into CI as blocking
   - Agent: build
-  - Files: `.ai-engineering/scripts/hooks/_lib/transcript_usage.py:9`,
-    `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/transcript_usage.py`,
-    `.ai-engineering/state/hooks-manifest.json`
-  - Principles applied: Hard Rule 4, §10.4 DRY
-  - Patch (prose): in canonical `transcript_usage.py:9` replace
-    `` ``/Users/soydachi/.claude/projects/-Users-<...>-ai-engineering/<session-id>.jsonl`` ``
-    with a generic placeholder consistent with line 44's
-    `${HOME}/.claude/projects/<slug>/<session-id>.jsonl` style (no operator name).
-    Then `cp` canonical `transcript_usage.py` -> the template path so both are
-    byte-identical (kills the `:67` drift too). Then regenerate the hooks manifest:
-    `.venv/bin/python .ai-engineering/scripts/regenerate-hooks-manifest.py` (the
-    canonical _lib byte change updates its sha256) and commit the manifest.
-  - Gate: T-10 gate now GREEN; `git grep -nI soydachi` returns 0;
-    `.venv/bin/python -m pytest tests/unit/hooks/test_transcript_usage.py
-    tests/unit/test_session_bootstrap_template_parity.py -q` (and any
-    transcript_usage parity/manifest test) green;
-    `.venv/bin/python -m ai_engineering.cli internal ...` not needed — verify
-    manifest via `ai-eng audit verify` or the hooks-manifest check test.
+  - Files: the CI workflow under `.github/workflows/*` (the lint/test job), plus ensure T-1/T-2 run there
+  - Principles applied: §10.6 SDD, Hard-Rule fail-loud doctrine
+  - Patch (deterministic): none — RESOLVED with NO new CI YAML. The drift guard already exists and is blocking: `ci-check.yml:601` "Mirror sync integrity: uv run ai-eng dev sync --check" (now covers the WAVE-1 hook-scripts + hooks.json sync). The wheel-content guard + the three sync/manifest guards ship as unit tests under `tests/unit/**`, collected by the blocking `test-unit` job (`ci-check.yml:327`). Editing CI YAML was rejected as redundant + risky (Actions allowlist / actionlint / SHA-pinning governance).
+  - Gate: an unsynced surface edit (drift) fails `dev sync --check`; a packaging regression that drops launchers (e.g. an `exclude` rule) fails `test_wheel_content`. NOTE: reverting the T-5 `include` globs alone does NOT drop launchers (hatchling ships them via `packages`), so the wheel guard is proven against a real `exclude`-style regression, not against T-5 reversion.
 
-### Phase 6 — Hook reliability (concern C, TDD; independent of A/B)
+### Phase 6 — verify + release (D-159-09)
 
-- [ ] T-12 — RED: convergence interpreter + pytest-absent tests
-  - Agent: build
-  - Files: `tests/unit/hooks/test_convergence.py` (new or extend)
-  - Principles applied: §10.5 TDD
-  - Patch (prose): (AC12) assert `_check_pytest_collect` / `_check_pytest_run`
-    spawn `sys.executable` — monkeypatch `convergence._run` to capture argv, assert
-    `argv[0] == sys.executable` (not `"python"`/`"python3"`). (AC13) stub a
-    pytest-absent interpreter (argv probe returns "No module named pytest" / rc=1
-    with that stderr) and assert the function returns `None` (fail-open), so
-    `check_convergence(...).met` is not dragged false by a missing tool.
-  - Gate: fails (still bare python3 + treats missing pytest as failure).
-
-- [ ] T-13 — GREEN: stack-aware convergence under the resolved interpreter
-  - Agent: build
-  - Files: convergence hook lib (_lib/convergence.py)
-  - Principles applied: §10.10 fail-open, §10.1 KISS
-  - Patch (prose): three changes to the two pytest check helpers.
-    (1) Stack gate — add a stdlib-only predicate that returns true only when a
-    Python project marker file exists at the project root (the three standard
-    Python packaging files). The pytest helpers return None (skip) when it is
-    false, so a TypeScript-only repo runs no Python verifier.
-    (2) Interpreter — the helpers spawn the already-running interpreter
-    (the resolved one), not a bare-PATH python.
-    (3) Tool-absent fail-open — probe whether the test runner is importable under
-    that interpreter; if not, return None, same class as the existing
-    missing-linter skip; a runner-missing stderr summary also maps to None.
-  - Gate: T-12 green (argv0 is the running interpreter; TS-project and
-    runner-absent both return None / no convergence failure).
-
-- [ ] T-14 — RED: stop_hook_active guard tests (4 Stop hooks)
-  - Agent: build
-  - Files: `tests/unit/hooks/test_stop_hook_active_guard.py` (new)
-  - Principles applied: §10.5 TDD
-  - Patch (prose): for each of `runtime-stop.py`, `memory-stop.py`,
-    `instinct-extract.py`, `runtime-subagent-stop.py`: feed a payload with
-    `stop_hook_active: true`; assert exit 0, NO convergence invoked
-    (monkeypatch `check_convergence` to raise if called — must NOT be called for
-    runtime-stop), and no block/`decision` JSON on stdout.
-  - Gate: fails (no guard).
-
-- [ ] T-15 — GREEN: honor stop_hook_active in all Stop hooks
-  - Agent: build
-  - Files: `.ai-engineering/scripts/hooks/runtime-stop.py:795` (main),
-    `memory-stop.py`, `instinct-extract.py`, `runtime-subagent-stop.py`
-  - Principles applied: §10.7 Clean Code, §10.4 DRY
-  - Patch (prose): add a shared helper in `_lib/hook-common.py`
-    (`stop_continuation_active(payload) -> bool`, reads `stop_hook_active`). At the
-    top of each Stop hook `main()` (after reading stdin payload, before convergence
-    / memory / extract work), `if stop_continuation_active(payload): emit telemetry
-    + return`. For `runtime-stop` this short-circuits BEFORE `check_convergence`
-    (line 450) and any Ralph bump/block.
-  - Gate: T-14 green.
-
-- [ ] T-16 — Advisory timeout (template) + manifest regen
-  - Agent: build
-  - Files: `src/ai_engineering/templates/project/.claude/settings.json`,
-    `.ai-engineering/state/hooks-manifest.json`
-  - Principles applied: §10.7 Clean Code
-  - Patch (deterministic): bump the `UserPromptSubmit`
-    `runtime-progressive-disclosure.py` `"timeout": 5` -> `"timeout": 10` in the
-    template settings.json. Regenerate `hooks-manifest.json` (convergence.py +
-    Stop-hook byte changes from T-13/T-15 change their sha256):
-    `.venv/bin/python .ai-engineering/scripts/regenerate-hooks-manifest.py`.
-  - Gate: `tests/unit/hooks/test_canonical_events_count.py` +
-    `test_settings_template_narrow.py` green; manifest check green.
-
-### Phase 4 — Quality gate
-
-- [ ] T-9 — Full gate
+- [ ] T-13 — full verification of parity
   - Agent: verify
-  - Files: —
-  - Principles applied: §10.5, Hard Rule 5
-  - Patch: none.
-  - Gate: `.venv/bin/python -m pytest tests/unit/updater tests/integration/test_updater.py tests/integration/test_cli_command_modules.py tests/unit/test_no_operator_paths.py tests/unit/hooks/test_transcript_usage.py -q` green; `ruff check` + `ruff format --check` clean on changed files; `ty check` clean on the new module + service.py; **`hooks-manifest.json` regenerated + consistent** (canonical `transcript_usage.py` bytes changed → AC9); `git grep -nI soydachi` == 0. Then full suite `-n auto`.
+  - Files: read-only across the changeset
+  - Principles applied: §10.6 SDD (Verification Before Done)
+  - Gate: `ai-eng update --preview` in dogfood = 0 Available / 0 Orphan (only protected operator files); all Phase-0 tests green; `sync_mirrors --check` clean.
 
-## Gate Criteria (maps to spec Acceptance)
+- [ ] T-14 — CHANGELOG + 0.9.1 release
+  - Agent: build
+  - Files: `CHANGELOG.md`, `pyproject.toml` version, `src/ai_engineering/version/registry.json`
+  - Principles applied: §10.6 SDD
+  - Patch (deterministic): none — follow the release runbook (staged/resume flow; R5 release gotchas: local-tag bug, TestPyPI propagation rerun, gate `ty` blind spot, Snyk pip-CVE gate). Release is the FINAL step, after merge — not mid-build.
+  - Gate: 0.9.1 published; a fresh external `uv tool install ai-engineering` (non-editable) deploys `run-hook.sh` and hooks fire.
 
-- AC1 -> T-7 apply rewrite assertion.
-- AC2/AC6 -> T-7 user-hook + deny preserved; T-3(d/e) minimum-diff.
-- AC3 -> T-3(f) + T-7 second-apply idempotency.
-- AC4 -> T-1(e) + T-3(b) skip-report.
-- AC5 -> T-3(c) dry-run no-write + report; T-8 summary line.
-- AC7 -> T-7 regression (resolver form after apply).
-- AC8 -> T-3(b) run-hook.sh absent -> skip.
-- AC9 -> T-9 full gate + hooks-manifest REGEN (transcript_usage bytes changed).
-- AC10 -> T-11 genericize + template byte-sync; operator-name grep == 0.
-- AC11 -> T-10 name-agnostic gate (positive plant caught + linuxbrew/you pass).
-- AC12 -> T-12/T-13 (spawn argv0 is the resolved interpreter).
-- AC13 -> T-12/T-13 (TS-project + runner-absent -> None, no convergence failure).
-- AC14 -> T-14/T-15 (stop_hook_active:true -> exit 0, no convergence, no block).
-- AC15 -> T-16 (template advisory timeout >= 10s + manifest regen).
+## TDD pairing
 
-## Risks during build
+- T-1 → T-5 (wheel content)
+- T-2 → T-7/T-8/T-9/T-10 (surface drift)
+- T-3 → T-6 (manifest finalize)
+- T-4 → T-9 (hooks.json parity)
 
-- **JSON-escape mismatch** between `json.dumps(old)` and the on-disk literal ->
-  handled: literal-not-found drops to `skipped`, never corrupts (T-3 covers).
-- **`datetime` import** — service.py / migration module are Python (not a
-  Workflow script); `datetime.now(UTC)` is fine here.
-- **core.py render-site drift** — T-8 says locate the exact site first; do not
-  guess the line.
+## Dependency DAG
 
-## safe_next_command
+```
+T-1 ─┐
+T-2 ─┤
+T-3 ─┼─(RED, parallel)
+T-4 ─┘
+T-5  ← T-1                         (packaging)
+T-6  ← T-3                         (updater)
+T-7,T-8,T-9 ← T-2,T-4              (generation; parallel to each other)
+T-10 ← T-7,T-8,T-9                 (resync — barrier on all three)
+T-11                              (manifest — independent)
+T-12 ← T-5,T-10                    (CI guards need the artifacts green)
+T-13 ← T-5,T-6,T-10,T-11,T-12      (verify — barrier)
+T-14 ← T-13 (+ merge)              (release — terminal)
+```
 
-`/ai-autopilot`  (3 concerns A/B/C across updater + hooks → decompose, DAG, waves)
+## Gate criteria (plan-level)
+
+1. All Phase-0 RED tests written and failing before any GREEN task.
+2. `sync_mirrors --check` exits clean after Phase 3.
+3. Dogfood `ai-eng update --preview` = 0 Available / 0 Orphan after Phase 4.
+4. CI fails on injected drift / missing wheel content (Phase 5 proven).
+5. 0.9.1 published and external-install hook smoke-test passes (Phase 6).

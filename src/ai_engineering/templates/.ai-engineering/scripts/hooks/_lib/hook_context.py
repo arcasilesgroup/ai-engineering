@@ -61,6 +61,51 @@ class HookContext:
     event_name: str  # Normalized to Claude convention
     event_name_raw: str  # As received from IDE
     data: dict  # Parsed stdin JSON
+    # spec-131 sub-004 T-4.A: distinguishes a Task-tool sub-agent dispatch
+    # ("subagent") from a main-thread invocation ("main"). Sub-agent posture
+    # unlocks the positive-allow-list lane in prompt-injection-guard.py
+    # for read-only commands (rg/grep/find/ls/cat without redirects).
+    agent_kind: str = "main"
+
+
+def _looks_like_subagent_transcript(transcript_path: object) -> bool:
+    """Return True when ``transcript_path`` basename looks like a sub-agent log.
+
+    Claude Code writes sub-agent transcripts to
+    ``.claude/projects/<project>/subagent-<id>.jsonl``. Defensive: a
+    non-string value (e.g. malformed payload where the field is an int)
+    returns False so the heuristic never raises.
+    """
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return False
+    try:
+        basename = Path(transcript_path).name
+    except (ValueError, TypeError):
+        return False
+    return basename.startswith("subagent-")
+
+
+def _resolve_agent_kind(data: dict) -> str:
+    """Detect ``main`` vs ``subagent`` from the stdin payload.
+
+    spec-131 sub-004 D-131-11 / E-1 heuristic:
+    - ``parent_session_id`` or alias ``parent_session`` set -> subagent.
+    - ``is_subagent`` is True (Codex bridge / Copilot adapter flag) ->
+      subagent.
+    - ``transcript_path`` basename starts with ``subagent-`` -> subagent.
+    - Otherwise -> main (false-negative is safer than false-positive — a
+      main-thread call mistakenly tagged subagent would skip the IOC
+      pattern scan that should run).
+    """
+    if not isinstance(data, dict):
+        return "main"
+    if data.get("parent_session_id") or data.get("parent_session"):
+        return "subagent"
+    if data.get("is_subagent") is True:
+        return "subagent"
+    if _looks_like_subagent_transcript(data.get("transcript_path")):
+        return "subagent"
+    return "main"
 
 
 def get_hook_context() -> HookContext:
@@ -128,6 +173,7 @@ def get_hook_context() -> HookContext:
         event_name=event_name,
         event_name_raw=event_name_raw,
         data=data,
+        agent_kind=_resolve_agent_kind(data),
     )
 
 
