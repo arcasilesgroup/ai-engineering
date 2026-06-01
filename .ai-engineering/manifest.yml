@@ -31,6 +31,7 @@ surfaces:
   - codex
   - github-copilot
   - opencode
+  - cursor
   - antigravity
 
 # Work items — board/issue tracker integration (project-specific overrides)

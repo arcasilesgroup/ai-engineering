@@ -146,12 +146,14 @@ All four assert the bug as it exists today; they MUST fail before any GREEN task
   - Patch (deterministic): none — judgment (model on Surface 9: walk `ROOT/.ai-engineering/scripts/hooks/**/*.py` incl. `_lib/`, skip `__pycache__`, `_generate_surface` into `templates/.ai-engineering/scripts/hooks/<relative>`).
   - Gate: `sync_mirrors --check` no longer reports the 16 hook files.
 
-- [ ] T-8 — GREEN: specialist-agent `.claude` template written verbatim
-  - Agent: build
-  - Files: `scripts/sync_mirrors/core.py:956-963` (`_specialist_agent_output_paths`) + `:1606-1607` (sync loop)
-  - Principles applied: §10.7 Clean Code, §10.4 DRY
-  - Patch (deterministic): none — judgment. Today `generate_specialist_agent()` (provenance-injected) is written to ALL targets including `TPL_CLAUDE_AGENTS / name`. Split: the `.claude` install-template target must receive `generate_install_claude_agent(specialist_path)` (raw verbatim copy, matching canonical `.claude/agents/*`); the non-claude copilot mirror targets (`repo_rel`/`template_rel`) keep the provenance-injected string. Do NOT strip provenance from the copilot mirrors.
-  - Gate: dogfood `ai-eng update --preview` reports `.claude/agents/*` as `unchanged`.
+- [x] T-8 — REVERTED (was: write `.claude` specialist template verbatim)
+  - Outcome: the verbatim form FAILED CI `ai-eng check` mirror-sync —
+    `validator/_check_claude_specialist_agents_mirror` *requires* provenance on
+    the generated `.claude` specialist install template. Provenance restored;
+    only the authored canonical `.claude/agents/*` is provenance-free. The
+    dogfood `update --preview` "updated" delta on these 10 files is the intended
+    canonical-vs-generated-template difference, not drift. See D-159-05 (reverted).
+  - Gate: `ai-eng check` mirror-sync PASS.
 
 - [ ] T-9 — GREEN: generate `.github/hooks/hooks.json` from one source + dual-write
   - Agent: build
@@ -167,19 +169,17 @@ All four assert the bug as it exists today; they MUST fail before any GREEN task
   - Patch (deterministic): none — run the regen command; commit the byte-mechanical diff separately from T-7/T-8/T-9 logic.
   - Gate: `git diff` shows only template-tree resync; `sync_mirrors --check` clean.
 
-### Phase 4 — drop cursor from dogfood manifest (D-159-07)
+### Phase 4 — cursor surface (D-159-07, REVERTED)
 
-- [ ] T-11 — GREEN: remove `cursor` from `surfaces.enabled`
-  - Agent: build
-  - Files: `.ai-engineering/manifest.yml:34`
-  - Principles applied: §10.2 YAGNI (dogfood doesn't run Cursor), §10.6 SDD
-  - Patch (deterministic):
-    ```diff
-       - opencode
-    -  - cursor
-       - antigravity
-    ```
-  - Gate: dogfood `ai-eng update --preview` reports zero `.cursor/**` changes; `.cursor` templates still present in tree.
+- [x] T-11 — REVERTED (was: remove `cursor` from `surfaces.enabled`)
+  - Outcome: dropping cursor made `ai-eng check` counter-accuracy FAIL — the
+    product README "6 surfaces" claim derives from `manifest.enabled`, and the
+    repo *produces* the cursor surface (64 templates) for external clients.
+    Removing it undercounted to 5 and undersold the product. `cursor` restored.
+    The 64 `.cursor` "new" in dogfood `update --preview` is cosmetic + by-design
+    (no live `.cursor/` working dir; the team doesn't edit with Cursor). See
+    D-159-07 (reverted).
+  - Gate: `ai-eng check` counter-accuracy PASS; README reports 6 surfaces.
 
 ### Phase 5 — fail-loud CI guard ring (D-159-08)
 

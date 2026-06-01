@@ -323,34 +323,28 @@ class TestGenerationFunctions:
         assert "edit_policy: generated-do-not-edit" in content
         assert "You are a senior code reviewer specializing in FUNCTIONAL CORRECTNESS" in content
 
-    def test_install_claude_specialist_template_is_verbatim_canonical(self) -> None:
-        # spec-159 D-159-05: the native `.claude` install template for a
-        # specialist agent is a VERBATIM copy of the canonical
-        # `.claude/agents/<name>.md` -- no injected provenance frontmatter.
-        # Only the genuinely transformed non-claude copilot mirrors keep
-        # provenance. This replaces the obsolete `_specialist_agent_output_paths`
-        # coverage which asserted the old shape where the `.claude` template
-        # shared the same provenance set as the internal mirrors.
-        from scripts.sync_command_mirrors import (
-            CLAUDE_AGENTS,
-            generate_install_claude_agent,
-            generate_specialist_agent,
-        )
+    def test_install_claude_specialist_template_carries_provenance(self) -> None:
+        # spec-159 D-159-05 (corrected): the `.claude` install TEMPLATE for a
+        # specialist agent is a GENERATED mirror carrying governed provenance
+        # frontmatter (canonical body + provenance), enforced by
+        # validator/_check_claude_specialist_agents_mirror. Only the authored
+        # canonical `.claude/agents/<name>.md` source is provenance-free. The
+        # dogfood `ai-eng update --preview` "updated" delta on these files is
+        # by design. An earlier draft wrote the template verbatim; that violated
+        # the mirror-sync governance contract and is reverted.
+        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_specialist_agent
 
         canonical = CLAUDE_AGENTS / "reviewer-correctness.md"
 
-        # The `.claude` install template is byte-identical to canonical.
-        verbatim = generate_install_claude_agent(canonical)
-        assert verbatim == canonical.read_text(encoding="utf-8")
-        assert "mirror_family: specialist-agents" not in verbatim
-        assert "generated_by: ai-eng sync" not in verbatim
-        assert "edit_policy: generated-do-not-edit" not in verbatim
+        # The authored canonical source carries NO provenance.
+        canonical_text = canonical.read_text(encoding="utf-8")
+        assert "mirror_family: specialist-agents" not in canonical_text
 
-        # The internal copilot mirror targets DO carry provenance frontmatter.
+        # The generated `.claude` install template (and copilot mirrors) DO
+        # carry provenance frontmatter, matching the validator's expected shape.
         provenance = generate_specialist_agent(canonical)
-        assert provenance != verbatim
+        assert provenance != canonical_text
         assert "mirror_family: specialist-agents" in provenance
-        assert "generated_by: ai-eng sync" in provenance
         assert "canonical_source: .claude/agents/reviewer-correctness.md" in provenance
         assert "edit_policy: generated-do-not-edit" in provenance
 

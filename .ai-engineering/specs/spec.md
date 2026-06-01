@@ -42,18 +42,29 @@ well after update" symptom. `install_cmd` finalizes the manifest
 Three drift gaps make `ai-eng update` in the dogfood repo report ~94 phantom
 changes and mean the framework cannot self-detect drift: (1) the
 `hooks-manifest.json` staleness above; (2) `scripts/sync_mirrors/core.py` has no
-sync step for `scripts/hooks/` (16 files perpetually drift), injects provenance
-frontmatter into specialist agents that the canonical `.claude/agents/*` lack
-(permanent byte mismatch on every `review-*`/`reviewer-*`/`verifier-*`), and
+sync step for `scripts/hooks/` so 16 hook `.py` files perpetually drift, and
 hand-maintains `.github/hooks/hooks.json` in two divergent copies (122 vs 101
-lines); (3) `manifest.yml` enables the `cursor` surface but `sync_mirrors` has no
-`CURSOR_*` dual-write, so the repo holds 0 live cursor files against 64 templates
-→ 64 perpetual "new".
+lines).
 
-This spec fixes the hooks-manifest staleness, restores byte-parity between
-packaged install templates and the dogfood repo surfaces, and adds **fail-loud**
-CI guards so this failure class cannot silently recur. It ships as a `0.9.1`
-patch so external users receive the hooks-manifest fix in `update_cmd`.
+> **Two "drift" items that turned out to be by-design (not bugs), corrected
+> after CI feedback:** (a) the specialist-agent `.claude` *install templates*
+> carry governed provenance frontmatter that the authored canonical
+> `.claude/agents/*` lack — this is **intentional** and enforced by
+> `validator/_check_claude_specialist_agents_mirror`; the dogfood
+> `ai-eng update --preview` "updated" delta on those 10 files is the expected
+> canonical-vs-generated-template difference, not drift. (b) The dogfood
+> `manifest.yml` enables `cursor` and ships 64 `.cursor` templates for external
+> Cursor clients but materializes no live `.cursor/` working dir (the team
+> doesn't edit with Cursor) — so `update --preview` lists 64 `.cursor` "new",
+> also cosmetic + by-design. An earlier draft tried to "fix" both (write the
+> template verbatim; drop `cursor` from the manifest); the first broke the
+> mirror-sync governance contract, the second made the product README undercount
+> supported surfaces (5 vs 6). Both were reverted.
+
+This spec fixes the genuine drift — hooks-manifest staleness, the missing
+hook-scripts sync step, and the dual-maintained `hooks.json` — and adds
+**fail-loud** CI guards so this failure class cannot silently recur. It ships as
+a `0.9.1` patch so external users receive the hooks-manifest fix in `update_cmd`.
 
 ## Goals
 
@@ -70,21 +81,29 @@ patch so external users receive the hooks-manifest fix in `update_cmd`.
 - **G3:** `ai-eng dev sync` propagates `scripts/hooks/**` (incl. `_lib/`) into
   the install-template tree; the 16 currently-drifted hook files resync to
   byte-identical.
-- **G4:** `.claude/agents/*` install templates are byte-identical to their
-  canonical repo sources (no injected provenance frontmatter); a fresh
-  `ai-eng update` in the dogfood repo reports them `unchanged`.
+- **G4 (corrected — by design, no change):** the specialist `.claude/agents/*`
+  **install templates** carry governed provenance frontmatter (canonical body +
+  provenance), matching `validator/_check_claude_specialist_agents_mirror`. The
+  authored canonical source stays provenance-free. `ai-eng check` mirror-sync
+  passes. (No verbatim rewrite — that draft was reverted.)
 - **G5:** `.github/hooks/hooks.json` is generated from a single
   event→script source and dual-written to repo root + template tree; the two
   copies are byte-identical.
-- **G6:** `cursor` is removed from `manifest.yml` `surfaces.enabled`; a fresh
-  `ai-eng update` in the dogfood repo reports zero `.cursor/**` changes. The
-  `.cursor` templates remain shipped so external Cursor users are unaffected.
+- **G6 (corrected — cursor stays enabled):** `cursor` remains in `manifest.yml`
+  `surfaces.enabled` (= a surface the repo *produces* for external clients);
+  the product README correctly reports **6 surfaces** and `ai-eng check`
+  counter-accuracy passes. The dogfood repo materializes no live `.cursor/`
+  working dir, so `update --preview` lists 64 `.cursor` "new" — cosmetic and
+  by-design, not drift.
 - **G7:** CI **blocks** (fails the build) on (a) any wheel missing the required
   launcher/policy extensions, and (b) any framework-managed surface drifting
   from its install template. Both guards name the regen command in the failure
   message.
-- **G8:** A clean dogfood `ai-eng update --preview` reports **0 Available / 0
-  Orphan** and only operator-owned (protected) files, proving end-to-end parity.
+- **G8:** `ai-eng check` reports 7/7 categories passing (mirror-sync,
+  counter-accuracy, etc.) and `ai-eng dev sync --check` is clean — the genuine
+  drift (hooks `.py`, `hooks.json`) is eliminated. Remaining
+  `ai-eng update --preview` deltas in dogfood are the by-design
+  canonical-vs-generated-template artifacts of G4/G6 only.
 - **G9:** Delivered as a `0.9.1` release so external pip/uv consumers receive the
   `update_cmd` hooks-manifest fix via republish.
 
@@ -136,25 +155,33 @@ patch so external users receive the hooks-manifest fix in `update_cmd`.
    *Rationale:* hook scripts had no propagation path at all; every hook edit
    silently drifted the template. Closing the gap makes `dev sync` the single
    regen command for hook parity.
-5. **D-159-05 — Write specialist agents verbatim (drop provenance injection).**
-   `generate_specialist_agent()` must emit byte-identical copies of the
-   canonical `.claude/agents/*`, like `generate_install_claude_agent()` — no
-   `mirror_family`/`generated_by`/`canonical_source`/`edit_policy` frontmatter.
-   *Rationale:* `.claude` is the native authoring surface, not a transformed
-   mirror; injecting fields the source lacks guarantees a permanent byte
-   mismatch and trains operators to ignore "updated" noise. Provenance belongs
-   only on genuinely transformed non-claude surfaces.
+5. **D-159-05 (REVERTED — keep provenance on specialist `.claude` templates).**
+   The specialist-agent `.claude` *install templates* keep their governed
+   provenance frontmatter (canonical body + provenance); only the authored
+   canonical `.claude/agents/*` source is provenance-free.
+   *Rationale:* an earlier draft wrote the template verbatim to silence the
+   dogfood `update --preview` "updated" delta — but
+   `validator/_check_claude_specialist_agents_mirror` *requires* provenance on
+   that generated mirror (governance for generated surfaces, `ai-eng check`
+   mirror-sync). The verbatim form failed CI. The "updated" delta is the
+   intended canonical-vs-generated-template difference, not drift; no fix is
+   warranted. Reverted.
 6. **D-159-06 — Generate `.github/hooks/hooks.json` from one source.** Add a
    generator that builds the file from the canonical hook event→script mapping
    and dual-writes repo root + template tree (mirroring the codex hooks
    generator).
    *Rationale:* two hand-maintained copies already drifted by 21 lines; a single
    generated source is the only durable fix and matches existing precedent.
-7. **D-159-07 — Drop `cursor` from `manifest.yml` `surfaces.enabled`.**
-   *Rationale:* the dogfood repo does not run Cursor IDE and never generated a
-   live `.cursor/` surface; the declaration produces 64 perpetual phantom
-   "new" entries. Templates still ship `.cursor` so external Cursor projects are
-   unaffected — this is a dogfood-config correction, not a product removal.
+7. **D-159-07 (REVERTED — keep `cursor` in `manifest.yml`).** `cursor` stays in
+   `surfaces.enabled`.
+   *Rationale:* `manifest.enabled` lists surfaces the repo *produces* for
+   external clients (cursor ships 64 templates), and the product README +
+   `ai-eng check` counter-accuracy derive the "6 surfaces" claim from it.
+   Dropping cursor conflated "the team doesn't edit with Cursor" with "we don't
+   support Cursor" — it made the README undercount to 5 and failed
+   counter-accuracy. The 64 `.cursor` "new" in dogfood `update --preview` is a
+   cosmetic by-design artifact (no live `.cursor/` working dir), not drift.
+   Reverted.
 8. **D-159-08 — CI drift + wheel guards are fail-loud (blocking).** The
    surface-drift guard fails the build on any framework-managed surface that
    differs from its install template; the wheel-content guard fails on any

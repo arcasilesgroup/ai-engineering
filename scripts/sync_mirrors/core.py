@@ -1763,20 +1763,23 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     # Surface 2b: internal specialist agents (reviewer/verifier families).
     # These are dispatched by orchestrator agents and must be present in the
     # install templates for every provider that exposes local subagents.
-    # D-159-05: the native .claude install template is a VERBATIM copy of the
-    # canonical .claude/agents/* (no injected provenance frontmatter); only the
-    # genuinely transformed non-claude copilot mirrors keep provenance.
+    # D-159-05 (corrected): the .claude install TEMPLATE is a GENERATED mirror
+    # that carries governed provenance frontmatter (canonical body + provenance),
+    # enforced by validator/_check_claude_specialist_agents_mirror. Only the
+    # authored canonical .claude/agents/* source is provenance-free; the dogfood
+    # `ai-eng update --preview` "updated" delta on these 10 files is by design
+    # (canonical-vs-generated-template), not drift. An earlier draft wrote the
+    # template verbatim — that violated the mirror-sync governance contract.
     for specialist_path in discover_specialist_agents():
-        verbatim = generate_install_claude_agent(specialist_path)
+        provenance = generate_specialist_agent(specialist_path)
         _generate_surface(
             TPL_CLAUDE_AGENTS / specialist_path.name,
-            verbatim,
+            provenance,
             check_only,
             verbose,
             generated_paths,
             diffs,
         )
-        provenance = generate_specialist_agent(specialist_path)
         for repo_rel, template_rel in get_internal_specialist_agent_targets().values():
             for target in (
                 ROOT / repo_rel / specialist_path.name,
