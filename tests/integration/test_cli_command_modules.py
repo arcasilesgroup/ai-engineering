@@ -905,3 +905,32 @@ def test_cleanup_specs_live_runs_reconcile_then_consolidate(tmp_path: Path) -> N
 
     verbs = [call.args[0][-1] for call in run.call_args_list]
     assert verbs == ["reconcile_merged", "consolidate_shipped"]
+
+
+def test_render_update_surfaces_hook_migration_line(capsys: pytest.CaptureFixture[str]) -> None:
+    """spec-158 AC5/T-8: the human update summary shows the hook-migration line;
+    the JSON envelope carries the structured report via to_dict()."""
+    from ai_engineering.cli_commands import core as core_mod
+    from ai_engineering.updater.hook_command_migration import HookMigrationReport
+    from ai_engineering.updater.service import UpdateResult
+
+    result = UpdateResult(dry_run=False, changes=[])
+    result.hook_migration = HookMigrationReport(
+        migrated=['python3 "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/observe.py"'],
+        skipped=["custom-wrapper cmd"],
+        applied=True,
+    )
+
+    core_mod._render_update_result(result, root=Path("/tmp/spec158-render"), show_diff=False)
+    # kv()/warning() render to stderr (like the Applied/Protected counts).
+    err = capsys.readouterr().err
+    assert "Hook commands" in err
+    assert "1 migrated" in err
+    assert "1 skipped" in err
+    assert "needs manual review" in err
+
+    # JSON consumers receive the structured report (the --json path emits to_dict,
+    # never the human render above).
+    payload = result.to_dict()
+    assert payload["hook_migration"]["migrated"] == 1
+    assert payload["hook_migration"]["skipped"] == 1

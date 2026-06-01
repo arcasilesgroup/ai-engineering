@@ -181,3 +181,25 @@ def test_migrate_is_idempotent(tmp_path: Path) -> None:
     second = migrate_hook_commands(tmp_path, dry_run=False)
     assert second.migrated == []
     assert second.applied is False
+
+
+def test_migrate_skips_command_literal_embedded_in_sibling_value(tmp_path: Path) -> None:
+    """Review correctness-1: a legacy command text embedded in a NON-command
+    string value must not be silently rewritten; the occurrence-count guard
+    skips it for manual review instead."""
+    _seed_run_hook(tmp_path)
+    legacy = _legacy("observe.py")
+    data = _settings(legacy)
+    # A sibling non-command value whose JSON encoding equals the command's
+    # literal — so the raw text holds the literal twice but only one is a
+    # command slot. The occurrence-count guard must refuse to rewrite.
+    data["_note"] = legacy
+    path = _write_settings(tmp_path, data)
+    before = path.read_text(encoding="utf-8")
+
+    report = migrate_hook_commands(tmp_path, dry_run=False)
+
+    # Ambiguous occurrence count -> not migrated, reported skipped, file untouched.
+    assert report.migrated == []
+    assert legacy in report.skipped
+    assert path.read_text(encoding="utf-8") == before

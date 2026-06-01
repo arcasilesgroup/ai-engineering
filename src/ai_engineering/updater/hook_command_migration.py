@@ -37,6 +37,7 @@ import json
 import os
 import re
 import shutil
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -166,15 +167,21 @@ def migrate_hook_commands(target: Path, *, dry_run: bool) -> HookMigrationReport
     if dry_run or not rewrites:
         return HookMigrationReport(migrated=migrated, skipped=skipped, applied=False)
 
+    # Occurrence guard (spec-158 review correctness-1): the JSON-encoded command
+    # value is replaced literally in the raw text. Only do so when its textual
+    # occurrences EXACTLY match the number of command slots holding it — so a
+    # legacy command accidentally embedded in a sibling non-command string value
+    # is never silently rewritten. On mismatch, skip + report for manual review.
+    slot_counts = Counter(_iter_commands(data))
     new_raw = raw
     applied: list[str] = []
     for old, new in rewrites:
         old_literal = json.dumps(old)
-        if old_literal in new_raw:
-            new_raw = new_raw.replace(old_literal, json.dumps(new))
-            applied.append(old)
-        else:
+        if raw.count(old_literal) != slot_counts[old]:
             skipped.append(old)
+            continue
+        new_raw = new_raw.replace(old_literal, json.dumps(new))
+        applied.append(old)
 
     # Validate the result is still JSON before touching disk.
     try:
