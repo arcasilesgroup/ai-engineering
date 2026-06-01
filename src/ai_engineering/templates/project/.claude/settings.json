@@ -72,7 +72,7 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh\" \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-progressive-disclosure.py\"",
-            "timeout": 5
+            "timeout": 10
           }
         ]
       }

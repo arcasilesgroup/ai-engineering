@@ -798,6 +798,14 @@ def main() -> None:
         passthrough_stdin(ctx.data)
         return
 
+    # spec-158 D-158-12: honor ``stop_hook_active``. When Claude Code is already
+    # in a Stop-hook continuation, running convergence again and emitting another
+    # ``decision: block`` would loop until the engine's cap (the "9x block").
+    # Release the turn without convergence or a block.
+    if ctx.data.get("stop_hook_active"):
+        passthrough_stdin(ctx.data)
+        return
+
     project_root = ctx.project_root
     session_id = ctx.session_id
     runtime_dir(project_root).mkdir(parents=True, exist_ok=True)
