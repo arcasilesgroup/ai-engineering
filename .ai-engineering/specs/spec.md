@@ -3,7 +3,7 @@ spec: spec-159
 title: Installer source-of-truth parity — wheel content + sync_mirrors drift + fail-loud guards
 status: approved
 effort: medium
-summary: Fix the real external-install reliability bug — update_cmd now finalizes hooks-manifest so enforce-mode stops killing hooks after ai-eng update; add sync_mirrors hook/agent/hooks.json parity, drop cursor from the dogfood manifest, keep an explicit wheel allowlist + content guard (launchers were already shipped — verified), and add fail-loud CI drift+wheel guards; ship as 0.9.1.
+summary: Fix the real external-install bug — update_cmd now finalizes hooks-manifest so enforce mode stops killing hooks after ai-eng update; add sync_mirrors hook-scripts + hooks.json parity and an explicit wheel allowlist + content guard (launchers were already shipped, verified); ship as 0.9.1.
 ---
 
 # spec-159 — Installer source-of-truth parity
@@ -126,76 +126,66 @@ a `0.9.1` patch so external users receive the hooks-manifest fix in `update_cmd`
 
 ## Decisions
 
-1. **D-159-01 — Make the wheel launcher/policy allowlist explicit.** Add `.sh`,
-   `.ps1`, `.ts`, `.rego` to `[tool.hatch.build.targets.wheel].include`.
-   *Rationale:* hatchling already ships these via `packages = ["src/ai_engineering"]`
-   (verified: a wheel built with **and** without these globs contains all 52
-   launchers + `run-hook.sh`), so this is **not** a fix for a missing-file gap —
-   the earlier "absent from every wheel" claim was disproven by building the
-   artifact. The explicit globs make the intent auditable and pin the launchers
-   so a future change to hatchling's package-data defaults cannot silently drop
-   them. Harmless and defensive; kept deliberately.
-2. **D-159-02 — Wheel-content CI test inspects the built artifact (regression
-   guard).** Add a test that builds the wheel, opens it as a zip, and asserts the
-   launcher/policy files exist under packaged `templates/`.
-   *Rationale:* the existing `test_hook_interpreter_resolution.py` reads
-   `REPO_ROOT` and so could never observe what the external user actually
-   receives. This guard inspects the real wheel, locking in the (already-correct)
-   packaging so a future regression turns CI red instead of silently shipping
-   dead hooks.
-3. **D-159-03 — `update_cmd` finalizes the hooks manifest.** Call
-   `_finalize_hooks_manifest(root)` from `update_cmd` after the workflow
-   completes, matching `install_cmd`.
-   *Rationale:* deploying new hook bytes without re-pinning their sha256 makes
-   `enforce` mode kill the very hooks the update just shipped — a self-inflicted
-   outage on every upgrade.
-4. **D-159-04 — Add a `sync_mirrors` hook-scripts sync step.** Add a surface
-   step that copies `scripts/hooks/**/*.py` (incl. `_lib/`) into the
-   install-template tree, modeled on the existing `scripts/skills/` step.
-   *Rationale:* hook scripts had no propagation path at all; every hook edit
-   silently drifted the template. Closing the gap makes `dev sync` the single
-   regen command for hook parity.
-5. **D-159-05 (REVERTED — keep provenance on specialist `.claude` templates).**
-   The specialist-agent `.claude` *install templates* keep their governed
-   provenance frontmatter (canonical body + provenance); only the authored
-   canonical `.claude/agents/*` source is provenance-free.
-   *Rationale:* an earlier draft wrote the template verbatim to silence the
-   dogfood `update --preview` "updated" delta — but
-   `validator/_check_claude_specialist_agents_mirror` *requires* provenance on
-   that generated mirror (governance for generated surfaces, `ai-eng check`
-   mirror-sync). The verbatim form failed CI. The "updated" delta is the
-   intended canonical-vs-generated-template difference, not drift; no fix is
-   warranted. Reverted.
-6. **D-159-06 — Generate `.github/hooks/hooks.json` from one source.** Add a
-   generator that builds the file from the canonical hook event→script mapping
-   and dual-writes repo root + template tree (mirroring the codex hooks
-   generator).
-   *Rationale:* two hand-maintained copies already drifted by 21 lines; a single
-   generated source is the only durable fix and matches existing precedent.
-7. **D-159-07 (REVERTED — keep `cursor` in `manifest.yml`).** `cursor` stays in
-   `surfaces.enabled`.
-   *Rationale:* `manifest.enabled` lists surfaces the repo *produces* for
-   external clients (cursor ships 64 templates), and the product README +
-   `ai-eng check` counter-accuracy derive the "6 surfaces" claim from it.
-   Dropping cursor conflated "the team doesn't edit with Cursor" with "we don't
-   support Cursor" — it made the README undercount to 5 and failed
-   counter-accuracy. The 64 `.cursor` "new" in dogfood `update --preview` is a
-   cosmetic by-design artifact (no live `.cursor/` working dir), not drift.
-   Reverted.
-8. **D-159-08 — CI drift + wheel guards are fail-loud (blocking).** The
-   surface-drift guard fails the build on any framework-managed surface that
-   differs from its install template; the wheel-content guard fails on any
-   missing launcher/policy file. Failure messages name the regen command
-   (`ai-eng dev sync` / rebuild).
-   *Rationale:* this whole bug class survived precisely because nothing ever
-   failed. Fail-loud matches the repo's Hard-Rule doctrine and converts silent
-   drift into an actionable red build.
-9. **D-159-09 — Deliver as a `0.9.1` patch release.** Bundle the code fixes with
-   a version bump + release.
-   *Rationale:* the `update_cmd` hooks-manifest fix lives in the package, so it
-   only reaches external users when they upgrade to a republished version;
-   landing it on `main` without a release leaves downstream `ai-eng update` runs
-   still killing hooks under `enforce`.
+- **D-159-01 — Make the wheel launcher/policy allowlist explicit.** Add `.sh`,
+  `.ps1`, `.ts`, `.rego` to `[tool.hatch.build.targets.wheel].include`.
+  *Rationale*: hatchling already ships these via `packages = ["src/ai_engineering"]`
+  (verified — a wheel built with and without these globs contains all 52
+  launchers + `run-hook.sh`), so this is **not** a missing-file fix; the earlier
+  "absent from every wheel" claim was disproven by building the artifact. The
+  explicit globs are auditable and pin the launchers against a future hatchling
+  default change. Defensive; kept deliberately.
+- **D-159-02 — Wheel-content CI test inspects the built artifact.** A regression
+  guard that builds the wheel, opens it as a zip, and asserts the launcher/policy
+  files exist under packaged `templates/`.
+  *Rationale*: the existing `test_hook_interpreter_resolution.py` reads
+  `REPO_ROOT` and never observes what the external user receives. This guard
+  inspects the real wheel, so a future packaging regression turns CI red instead
+  of silently shipping dead hooks.
+- **D-159-03 — `update_cmd` finalizes the hooks manifest.** Call
+  `_finalize_hooks_manifest(root)` from `update_cmd` on the apply path, matching
+  `install_cmd`.
+  *Rationale*: deploying new hook bytes without re-pinning their sha256 makes the
+  default `enforce` mode kill the very hooks the update just shipped — a
+  self-inflicted outage on every upgrade. This is the real external-install fix.
+- **D-159-04 — Add a `sync_mirrors` hook-scripts sync step.** Copy
+  `scripts/hooks/**/*.py` (incl. `_lib/`) into the install-template tree, modeled
+  on the existing `scripts/skills/` step, with `*.py`-scoped orphan cleanup.
+  *Rationale*: hook scripts had no propagation path; every hook edit silently
+  drifted the template. Closing the gap makes `dev sync` the single regen
+  command for hook parity.
+- **D-159-05 — REVERTED: keep provenance on specialist `.claude` templates.**
+  The specialist `.claude` install templates keep their governed provenance
+  frontmatter; only the authored canonical `.claude/agents/*` is provenance-free.
+  *Rationale*: an earlier draft wrote the template verbatim to silence a dogfood
+  `update --preview` delta, but `validator/_check_claude_specialist_agents_mirror`
+  *requires* provenance on that generated mirror (`ai-eng check` mirror-sync) —
+  the verbatim form failed CI. The delta is the intended
+  canonical-vs-generated-template difference, not drift. Reverted.
+- **D-159-06 — Generate `.github/hooks/hooks.json` from one source.** A generator
+  builds the file from a single in-code event→script spec and dual-writes repo
+  root + template tree (mirroring the codex hooks generator).
+  *Rationale*: two hand-maintained copies already drifted by 21 lines; a single
+  generated source is the only durable fix and matches existing precedent.
+- **D-159-07 — REVERTED: keep `cursor` in `manifest.yml`.** `cursor` stays in
+  `surfaces.enabled`.
+  *Rationale*: `manifest.enabled` lists surfaces the repo *produces* for external
+  clients (cursor ships 64 templates), and the product README + `ai-eng check`
+  counter-accuracy derive the "6 surfaces" claim from it. Dropping cursor
+  undercounted the README to 5 and failed counter-accuracy. The 64 `.cursor`
+  "new" in dogfood `update --preview` is a cosmetic by-design artifact (no live
+  `.cursor/` working dir), not drift. Reverted.
+- **D-159-08 — CI drift + wheel guards are fail-loud (blocking).** The
+  surface-drift guard (`ai-eng dev sync --check`) and the wheel-content + drift
+  unit tests fail the build on any unsynced surface or missing launcher.
+  *Rationale*: this whole bug class survived precisely because nothing ever
+  failed. Fail-loud matches the repo's Hard-Rule doctrine and converts silent
+  drift into an actionable red build.
+- **D-159-09 — Deliver as a `0.9.1` patch release.** Bundle the code fixes with a
+  version bump + release.
+  *Rationale*: the `update_cmd` hooks-manifest fix lives in the package, so it
+  only reaches external users on republish; landing it on `main` without a
+  release leaves downstream `ai-eng update` runs still killing hooks under
+  `enforce`.
 
 ## Risks
 
@@ -227,8 +217,9 @@ a `0.9.1` patch so external users receive the hooks-manifest fix in `update_cmd`
 
 ## References
 
-- pr: arcasilesgroup/ai-engineering#559 (spec-158 — `run-hook.sh` / resolver origin)
-- pr: arcasilesgroup/ai-engineering#554 (spec-154 — ≥3.11 interpreter resolver)
+- pr: arcasilesgroup/ai-engineering#559
+- pr: arcasilesgroup/ai-engineering#554
+- doc: spec-158 (#559) introduced `run-hook.sh`; spec-154 (#554) the ≥3.11 interpreter resolver
 - doc: src/ai_engineering/installer/templates.py (surface tree maps, wheel template root)
 - doc: scripts/sync_mirrors/core.py (mirror generation; antigravity dual-write reference pattern)
 - doc: pyproject.toml `[tool.hatch.build.targets.wheel]` (the P0 include allowlist)
