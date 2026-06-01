@@ -93,6 +93,11 @@ TPL_CURSOR_SKILLS = TPL_PROJECT / ".cursor" / "skills"
 TPL_CURSOR_AGENTS = TPL_PROJECT / ".cursor" / "agents"
 TPL_ANTIGRAVITY_SKILLS = TPL_PROJECT / ".agents" / "skills"
 TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agents" / "agents"
+# spec-159 D-159-04: installer template copy of the canonical hook-scripts
+# subtree. Surface 10 mirrors only the `.py` files here; the `.sh/.ps1`
+# launchers in the same tree are a separate packaging concern and must never
+# be orphan-deleted by this sync step.
+TPL_HOOK_SCRIPTS = TPL_PROJECT.parent / ".ai-engineering" / "scripts" / "hooks"
 
 
 # ── Dataclasses ─────────────────────────────────────────────────────────────
@@ -952,15 +957,6 @@ def generate_specialist_agent(agent_path: Path) -> str:
     )
 
     return f"{_serialize_frontmatter(fm)}\n\n{body.rstrip()}\n"
-
-
-def _specialist_agent_output_paths(spec_path: Path) -> tuple[Path, ...]:
-    """Return all generated specialist-agent mirror paths for a canonical file."""
-    targets = [TPL_CLAUDE_AGENTS / spec_path.name]
-    for repo_rel, template_rel in get_internal_specialist_agent_targets().values():
-        targets.append(ROOT / repo_rel / spec_path.name)
-        targets.append(ROOT / template_rel / spec_path.name)
-    return tuple(targets)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2115,9 +2111,7 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     # `dev sync` is the single regen command for hook parity. The `.sh/.ps1`
     # launchers are a separate packaging concern and are not touched here.
     hook_scripts_src = ROOT / ".ai-engineering" / "scripts" / "hooks"
-    hook_scripts_dst = (
-        ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "scripts" / "hooks"
-    )
+    hook_scripts_dst = TPL_HOOK_SCRIPTS
     if hook_scripts_src.is_dir():
         for src_file in sorted(hook_scripts_src.rglob("*.py")):
             if "__pycache__" in src_file.parts:
@@ -2241,6 +2235,12 @@ def _handle_orphans(
         (TPL_ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_ANTIGRAVITY_AGENTS, "glob", "*.md"),
         (TPL_ANTIGRAVITY_AGENTS / "internal", "glob", "*.md"),
+        # spec-159 D-159-04: Surface 10 mirrors the canonical hook-scripts
+        # subtree into the installer template. Scope orphan cleanup to `*.py`
+        # ONLY so a renamed/deleted canonical hook does not leave a stale copy
+        # shipping in the wheel. The `.sh/.ps1` launchers in this same tree are
+        # a separate packaging concern and must NEVER be orphan-deleted.
+        (TPL_HOOK_SCRIPTS, "rglob", "*.py"),
     ]
 
     # Legacy reviewer/verifier path forwarders: spec-116 moved these agents
@@ -2290,6 +2290,17 @@ def _handle_orphans(
                 for f in sub.rglob("*"):
                     if f.is_file() and f not in generated:
                         orphans.append(f)
+        elif mode == "rglob":
+            # Recursively scan the whole subtree but only consider files
+            # matching the suffix pattern (e.g. "*.py"). This deliberately
+            # leaves sibling files of other types untouched -- spec-159 relies
+            # on this to keep the `.sh/.ps1` hook launchers out of the orphan
+            # candidate set even though they live alongside the synced `.py`.
+            for f in root.rglob(str(pattern)):
+                if "__pycache__" in f.parts:
+                    continue
+                if f.is_file() and f not in generated:
+                    orphans.append(f)
 
     orphans.sort()
     diffs: list[str] = []

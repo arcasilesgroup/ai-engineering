@@ -91,3 +91,69 @@ def test_specialist_agent_claude_template_is_verbatim() -> None:
         f"Specialist-agent .claude install templates drifted from canonical "
         f"({_REMEDY}):\n" + "\n".join(drifted)
     )
+
+
+def test_orphan_py_in_template_hooks_is_flagged_but_launchers_are_safe() -> None:
+    """spec-159 D-159-04: orphan cleanup of the template hooks subtree is
+    scoped to ``*.py`` ONLY.
+
+    (a) A stray ``.py`` that the sync step does not own is reported as an
+        orphan by ``--check``.
+    (b) ``.sh``/``.ps1`` launchers living in the same tree are NEVER orphan
+        candidates -- they are a separate packaging concern and must survive.
+    """
+    from scripts.sync_command_mirrors import TPL_HOOK_SCRIPTS, sync_all
+    from scripts.sync_mirrors.core import _handle_orphans
+
+    TPL_HOOK_SCRIPTS.mkdir(parents=True, exist_ok=True)
+    stray_py = TPL_HOOK_SCRIPTS / "spec159_stray_orphan_probe.py"
+    stray_sh = TPL_HOOK_SCRIPTS / "spec159_stray_launcher_probe.sh"
+    stray_ps1 = TPL_HOOK_SCRIPTS / "spec159_stray_launcher_probe.ps1"
+    created = [stray_py, stray_sh, stray_ps1]
+    try:
+        stray_py.write_text("# stray\n", encoding="utf-8")
+        stray_sh.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+        stray_ps1.write_text("# launcher\n", encoding="utf-8")
+
+        # Build the full generated set the way a real sync does, then run
+        # orphan detection in check-only mode (non-destructive).
+        from scripts.sync_mirrors import core as _core
+
+        # Populate `generated` exactly as Surface 10 does so the legitimate
+        # synced `.py` files are NOT mis-reported as orphans.
+        generated: set[Path] = set()
+        canonical_root = _core.ROOT / ".ai-engineering" / "scripts" / "hooks"
+        for src_file in canonical_root.rglob("*.py"):
+            if "__pycache__" in src_file.parts:
+                continue
+            generated.add(TPL_HOOK_SCRIPTS / src_file.relative_to(canonical_root))
+
+        diffs = _handle_orphans(generated, check_only=True, verbose=False)
+
+        # (a) the stray `.py` is flagged as an orphan.
+        py_rel = stray_py.relative_to(_core.ROOT)
+        assert any(f"ORPHAN: {py_rel}" == d for d in diffs), (
+            f"stray template hook .py was not reported as orphan; diffs={diffs}"
+        )
+
+        # (b) the `.sh`/`.ps1` launchers are NOT orphan candidates.
+        sh_rel = stray_sh.relative_to(_core.ROOT)
+        ps1_rel = stray_ps1.relative_to(_core.ROOT)
+        assert not any(str(sh_rel) in d for d in diffs), (
+            f".sh launcher must never be an orphan candidate; diffs={diffs}"
+        )
+        assert not any(str(ps1_rel) in d for d in diffs), (
+            f".ps1 launcher must never be an orphan candidate; diffs={diffs}"
+        )
+
+        # The launchers must still exist on disk after a check-mode pass.
+        assert stray_sh.exists() and stray_ps1.exists()
+
+        # Belt-and-suspenders: a full check-mode sync_all flags the stray `.py`
+        # (proves it is wired into the surface registry, not just the helper).
+        assert sync_all(check_only=True) == 1
+        assert stray_sh.exists() and stray_ps1.exists()
+    finally:
+        for probe in created:
+            if probe.exists():
+                probe.unlink()
