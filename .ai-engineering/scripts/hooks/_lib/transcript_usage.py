@@ -5,8 +5,8 @@ per-call token counts; the schema slots existed but no real numbers ever
 flowed through. This module wires up the missing data source: Claude Code's
 session transcripts.
 
-Transcript layout (verified on 2026-05-04 against
-``/Users/soydachi/.claude/projects/-Users-<...>-ai-engineering/<session-id>.jsonl``)
+Transcript layout (verified against
+``${HOME}/.claude/projects/<project-slug>/<session-id>.jsonl``)
 -- one JSON object per line. Lines come in several ``type``s, of which we
 care about ``"assistant"``::
 

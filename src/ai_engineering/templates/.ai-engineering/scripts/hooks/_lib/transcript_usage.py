@@ -5,8 +5,8 @@ per-call token counts; the schema slots existed but no real numbers ever
 flowed through. This module wires up the missing data source: Claude Code's
 session transcripts.
 
-Transcript layout (verified on 2026-05-04 against
-``/Users/soydachi/.claude/projects/-Users-<...>-ai-engineering/<session-id>.jsonl``)
+Transcript layout (verified against
+``${HOME}/.claude/projects/<project-slug>/<session-id>.jsonl``)
 -- one JSON object per line. Lines come in several ``type``s, of which we
 care about ``"assistant"``::
 
@@ -63,11 +63,18 @@ __all__ = [
 def _project_slug(project_root: Path) -> str:
     """Return the Claude Code transcripts directory name for ``project_root``.
 
-    Convention: replace every ``/`` in the absolute path with ``-``. E.g.
-    ``/Users/soydachi/repos/ai-engineering`` -> ``-Users-soydachi-repos-ai-engineering``.
+    Convention: replace every path separator in the absolute path with ``-``.
+    E.g. POSIX ``/Users/.../ai-engineering`` -> ``-Users-...-ai-engineering``.
+
+    Cross-OS: Windows absolute paths use ``\\`` separators and a drive-letter
+    colon (``C:\\Users\\...``). The slug must be a single valid path
+    component on the destination filesystem, so we strip both ``/`` and
+    ``\\`` (the only two POSIX/NTFS separators) plus ``:`` (illegal in NTFS
+    path components). The POSIX result is unchanged because ``\\`` and
+    ``:`` never appear in absolute POSIX paths.
     """
     abs_path = str(project_root.resolve())
-    return abs_path.replace("/", "-")
+    return abs_path.replace("/", "-").replace("\\", "-").replace(":", "-")
 
 
 def _transcripts_root() -> Path | None:
