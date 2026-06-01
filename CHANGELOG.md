@@ -7,6 +7,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- fix(update): `ai-eng update` now finalizes `hooks-manifest.json` on the apply
+  path (spec-159). Previously only `install_cmd` re-pinned hook sha256, so after
+  an `ai-eng update` shipped new hook bytes the manifest went stale and the
+  default `AIENG_HOOK_INTEGRITY_MODE=enforce` killed every hook on the next
+  session — the real "install stops working after update" symptom in external
+  projects. The call is triple-gated (apply only; never preview/`--json`/no-op).
+- fix(hooks): refactored away three transitional `# type: ignore` suppressions in
+  shipped hot-path hook code (`hook-common.py`, `runtime-guard.py`,
+  `locked_append.py`) so a fresh install's no-suppression gate passes — the new
+  hook-scripts sync (below) surfaced them into install templates. Static `_lib`
+  imports became `importlib.import_module`; a provably-non-None handle gained a
+  guard. Behavior preserved; hooks-manifest regenerated.
+
+### Changed
+
+- chore(sync): `sync_mirrors` now syncs `.ai-engineering/scripts/hooks/**/*.py`
+  into the install-template tree with `*.py`-scoped orphan cleanup (launchers
+  never deleted), and `.github/hooks/hooks.json` is generated from a single
+  in-code event→script source and dual-written byte-identical to repo + template
+  (spec-159). Eliminates 16 perpetually-drifted hook files and a 21-line
+  hand-maintained `hooks.json` divergence; `ai-eng dev sync --check` and
+  `ai-eng check` mirror-sync now guard parity fail-loud in CI.
+
+### Added
+
+- build(wheel): explicit `.sh`/`.ps1`/`.ts`/`.rego` allowlist in the wheel
+  `include` plus a wheel-content CI test that inspects the **built artifact**
+  (spec-159). The launchers were already shipped via `packages=` (verified by
+  building the wheel); this pins them against a future packaging regression.
+
 ## [0.9.0] - 2026-06-01
 
 ### Added
