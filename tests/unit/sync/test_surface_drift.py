@@ -66,16 +66,21 @@ def test_hook_scripts_template_matches_canonical() -> None:
     )
 
 
-def test_specialist_agent_claude_template_is_verbatim() -> None:
-    """``.claude/agents/*`` install templates are verbatim canonical copies.
+def test_specialist_agent_claude_template_carries_provenance() -> None:
+    """``.claude/agents/*`` install templates are GENERATED mirrors with provenance.
 
-    The native ``.claude`` authoring surface carries no provenance frontmatter;
-    the install template must match it byte-for-byte (no injected
-    ``mirror_family``/``generated_by``/``canonical_source``/``edit_policy``).
+    spec-159 D-159-05 (corrected): the specialist ``.claude`` *install template*
+    carries governed provenance frontmatter (canonical body + provenance),
+    enforced by ``validator/_check_claude_specialist_agents_mirror``. Only the
+    authored canonical ``.claude/agents/<name>.md`` source is provenance-free.
+    An earlier draft wrote the template verbatim; that violated the mirror-sync
+    governance contract and was reverted. Each template must match
+    ``generate_specialist_agent`` output byte-for-byte.
     """
     from scripts.sync_command_mirrors import (
         TPL_CLAUDE_AGENTS,
         discover_specialist_agents,
+        generate_specialist_agent,
     )
 
     drifted: list[str] = []
@@ -84,12 +89,16 @@ def test_specialist_agent_claude_template_is_verbatim() -> None:
         if not tpl_file.exists():
             drifted.append(f"MISSING: {specialist_path.name}")
             continue
-        if specialist_path.read_bytes() != tpl_file.read_bytes():
+        expected = generate_specialist_agent(specialist_path)
+        if tpl_file.read_text(encoding="utf-8") != expected:
             drifted.append(f"DRIFT: {specialist_path.name}")
+        # Canonical authoring source stays provenance-free.
+        if "mirror_family: specialist-agents" in specialist_path.read_text(encoding="utf-8"):
+            drifted.append(f"CANONICAL-HAS-PROVENANCE: {specialist_path.name}")
 
     assert not drifted, (
-        f"Specialist-agent .claude install templates drifted from canonical "
-        f"({_REMEDY}):\n" + "\n".join(drifted)
+        f"Specialist-agent .claude install templates desynced from the generated "
+        f"provenance form ({_REMEDY}):\n" + "\n".join(drifted)
     )
 
 
