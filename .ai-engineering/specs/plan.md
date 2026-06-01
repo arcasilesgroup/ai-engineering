@@ -2,23 +2,22 @@
 execution_route:
   version: 1
   spec: spec-158
-  executor: build
+  executor: autopilot
   automation: assisted
-  concern_count: 2
-  estimated_files: 9
+  concern_count: 3
+  estimated_files: 14
   reason: >
-    Two tightly-related public-install concerns. (A) settings.json hook-command
-    migrator: pure-core module + IO wrapper, wired into update(), surfaced in
-    UpdateResult/summary, two test files. (B) operator-anonymity hardening:
-    genericize 3 transcript_usage.py docstring leaks (canonical + template),
-    regenerate hooks-manifest, add a name-agnostic operator-path gate. ~9 files,
-    one stack (python). 2 concerns / 9 files stays below the >=3-concern or
-    >=10-file autopilot threshold.
-  safe_next_command: "/ai-build"
+    Three public-install reliability concerns across two subsystems (updater +
+    hooks). (A) settings.json hook-command migrator. (B) operator-anonymity
+    hardening. (C) hooks must never block an installed user: convergence under
+    sys.executable + fail-open without pytest + stop_hook_active guard on Stop
+    hooks + advisory timeout. ~14 files. >=3 concerns -> autopilot wraps the
+    chain (decompose into sub-specs A/B/C, DAG, waves, single quality loop).
+  safe_next_command: "/ai-autopilot"
 spec: spec-158
-title: Public-install hardening — hook-command migration + operator-anonymity gate
+title: Public-install hardening — hook migration + anonymity + hook reliability
 status: approved
-pipeline: standard
+pipeline: full
 ---
 
 # spec-158 — Execution Plan
@@ -263,6 +262,74 @@ command is reported `skipped`, never corrupted.
     `.venv/bin/python -m ai_engineering.cli internal ...` not needed — verify
     manifest via `ai-eng audit verify` or the hooks-manifest check test.
 
+### Phase 6 — Hook reliability (concern C, TDD; independent of A/B)
+
+- [ ] T-12 — RED: convergence interpreter + pytest-absent tests
+  - Agent: build
+  - Files: `tests/unit/hooks/test_convergence.py` (new or extend)
+  - Principles applied: §10.5 TDD
+  - Patch (prose): (AC12) assert `_check_pytest_collect` / `_check_pytest_run`
+    spawn `sys.executable` — monkeypatch `convergence._run` to capture argv, assert
+    `argv[0] == sys.executable` (not `"python"`/`"python3"`). (AC13) stub a
+    pytest-absent interpreter (argv probe returns "No module named pytest" / rc=1
+    with that stderr) and assert the function returns `None` (fail-open), so
+    `check_convergence(...).met` is not dragged false by a missing tool.
+  - Gate: fails (still bare python3 + treats missing pytest as failure).
+
+- [ ] T-13 — GREEN: stack-aware convergence under the resolved interpreter
+  - Agent: build
+  - Files: convergence hook lib (_lib/convergence.py)
+  - Principles applied: §10.10 fail-open, §10.1 KISS
+  - Patch (prose): three changes to the two pytest check helpers.
+    (1) Stack gate — add a stdlib-only predicate that returns true only when a
+    Python project marker file exists at the project root (the three standard
+    Python packaging files). The pytest helpers return None (skip) when it is
+    false, so a TypeScript-only repo runs no Python verifier.
+    (2) Interpreter — the helpers spawn the already-running interpreter
+    (the resolved one), not a bare-PATH python.
+    (3) Tool-absent fail-open — probe whether the test runner is importable under
+    that interpreter; if not, return None, same class as the existing
+    missing-linter skip; a runner-missing stderr summary also maps to None.
+  - Gate: T-12 green (argv0 is the running interpreter; TS-project and
+    runner-absent both return None / no convergence failure).
+
+- [ ] T-14 — RED: stop_hook_active guard tests (4 Stop hooks)
+  - Agent: build
+  - Files: `tests/unit/hooks/test_stop_hook_active_guard.py` (new)
+  - Principles applied: §10.5 TDD
+  - Patch (prose): for each of `runtime-stop.py`, `memory-stop.py`,
+    `instinct-extract.py`, `runtime-subagent-stop.py`: feed a payload with
+    `stop_hook_active: true`; assert exit 0, NO convergence invoked
+    (monkeypatch `check_convergence` to raise if called — must NOT be called for
+    runtime-stop), and no block/`decision` JSON on stdout.
+  - Gate: fails (no guard).
+
+- [ ] T-15 — GREEN: honor stop_hook_active in all Stop hooks
+  - Agent: build
+  - Files: `.ai-engineering/scripts/hooks/runtime-stop.py:795` (main),
+    `memory-stop.py`, `instinct-extract.py`, `runtime-subagent-stop.py`
+  - Principles applied: §10.7 Clean Code, §10.4 DRY
+  - Patch (prose): add a shared helper in `_lib/hook-common.py`
+    (`stop_continuation_active(payload) -> bool`, reads `stop_hook_active`). At the
+    top of each Stop hook `main()` (after reading stdin payload, before convergence
+    / memory / extract work), `if stop_continuation_active(payload): emit telemetry
+    + return`. For `runtime-stop` this short-circuits BEFORE `check_convergence`
+    (line 450) and any Ralph bump/block.
+  - Gate: T-14 green.
+
+- [ ] T-16 — Advisory timeout (template) + manifest regen
+  - Agent: build
+  - Files: `src/ai_engineering/templates/project/.claude/settings.json`,
+    `.ai-engineering/state/hooks-manifest.json`
+  - Principles applied: §10.7 Clean Code
+  - Patch (deterministic): bump the `UserPromptSubmit`
+    `runtime-progressive-disclosure.py` `"timeout": 5` -> `"timeout": 10` in the
+    template settings.json. Regenerate `hooks-manifest.json` (convergence.py +
+    Stop-hook byte changes from T-13/T-15 change their sha256):
+    `.venv/bin/python .ai-engineering/scripts/regenerate-hooks-manifest.py`.
+  - Gate: `tests/unit/hooks/test_canonical_events_count.py` +
+    `test_settings_template_narrow.py` green; manifest check green.
+
 ### Phase 4 — Quality gate
 
 - [ ] T-9 — Full gate
@@ -282,8 +349,12 @@ command is reported `skipped`, never corrupted.
 - AC7 -> T-7 regression (resolver form after apply).
 - AC8 -> T-3(b) run-hook.sh absent -> skip.
 - AC9 -> T-9 full gate + hooks-manifest REGEN (transcript_usage bytes changed).
-- AC10 -> T-11 genericize + template byte-sync; `git grep soydachi` == 0.
+- AC10 -> T-11 genericize + template byte-sync; operator-name grep == 0.
 - AC11 -> T-10 name-agnostic gate (positive plant caught + linuxbrew/you pass).
+- AC12 -> T-12/T-13 (spawn argv0 is the resolved interpreter).
+- AC13 -> T-12/T-13 (TS-project + runner-absent -> None, no convergence failure).
+- AC14 -> T-14/T-15 (stop_hook_active:true -> exit 0, no convergence, no block).
+- AC15 -> T-16 (template advisory timeout >= 10s + manifest regen).
 
 ## Risks during build
 
@@ -296,4 +367,4 @@ command is reported `skipped`, never corrupted.
 
 ## safe_next_command
 
-`/ai-build`
+`/ai-autopilot`  (3 concerns A/B/C across updater + hooks → decompose, DAG, waves)

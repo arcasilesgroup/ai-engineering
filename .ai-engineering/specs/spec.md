@@ -3,7 +3,7 @@ spec: spec-158
 title: Public-install hardening — hook-command migration + operator-anonymity gate
 status: approved
 effort: small
-summary: Two public-install correctness bugs in one spec. (A) spec-154 routed Claude Code hook commands through _lib/run-hook.sh (≥3.11 interpreter resolver) so hosts with python3 < 3.11 stop tracebacking on every tool call; fresh installs are born correct, but existing installs that run `ai-eng update` never get the fix because .claude/settings.json is ownership-protected, so its `python3 ".../X.py"` hook commands are never rewritten — the resolver lands unused. This spec adds a surgical, idempotent migrator that rewrites ONLY exact-shape framework-owned hook command strings inside the protected settings.json, with backup, dry-run visibility, and a skip report. (B) Shipped framework content leaks the operator's machine path/name (`/Users/soydachi/...` in transcript_usage.py docstrings — canonical + template, with template drift), violating Hard Rule 4 (anonymous content) on a public framework every company can install. This spec genericizes the leaks, syncs template↔canonical, and adds a name-agnostic CI gate that flags any `/Users/<name>` or `/home/<name>` operator path in shipped surfaces so no operator identity ever reships.
+summary: Two public-install correctness bugs in one spec. (A) spec-154 routed Claude Code hook commands through _lib/run-hook.sh (≥3.11 interpreter resolver) so hosts with python3 < 3.11 stop tracebacking on every tool call; fresh installs are born correct, but existing installs that run `ai-eng update` never get the fix because .claude/settings.json is ownership-protected, so its `python3 ".../X.py"` hook commands are never rewritten — the resolver lands unused. This spec adds a surgical, idempotent migrator that rewrites ONLY exact-shape framework-owned hook command strings inside the protected settings.json, with backup, dry-run visibility, and a skip report. (B) Shipped framework content leaks the operator's machine path/name (`/Users/soydachi/...` in transcript_usage.py docstrings — canonical + template, with template drift), violating Hard Rule 4 (anonymous content) on a public framework every company can install. This spec genericizes the leaks, syncs template↔canonical, and adds a name-agnostic CI gate that flags any `/Users/<name>` or `/home/<name>` operator path in shipped surfaces so no operator identity ever reships. (C) Hooks block the user on installs: the Stop-hook convergence check spawns bare PATH `python`/`python3` (not the resolved ≥3.11 interpreter) so on any host where PATH python lacks pytest it reports `No module named pytest` as a convergence failure, Ralph bumps retries and blocks turn-end up to the cap (the "9× block"); no Stop hook honors `stop_hook_active` to break the loop; and the 5s advisory progressive-disclosure timeout is killed under load (fail-closed "No stderr output"). This spec makes hook subprocesses use `sys.executable`, fail-open when pytest is absent, honor `stop_hook_active`, and loosens the advisory timeout — so hooks never block an installed user.
 ---
 
 # spec-158 — Migrate hook commands in protected `.claude/settings.json`
@@ -78,6 +78,33 @@ backup.
   it has no machine-path/operator-name rule and does not scan the hooks tree or
   templates. Total blind spot for this bug class.
 
+**Concern C — hooks block the user on installs (boundary evidence):**
+- `.ai-engineering/scripts/hooks/_lib/convergence.py:124` `_check_pytest_collect`
+  (and `:149` `_check_pytest_run`) compute
+  `interpreter = "python" if shutil.which("python") else "python3"` and spawn
+  `[interpreter, "-m", "pytest", ...]` — **bare PATH python, not the resolved
+  ≥3.11/venv interpreter the hook runs under**. When PATH python lacks pytest
+  (system/CLT python on a fresh install) the result is rc≠0 with
+  `No module named pytest`, which `:140` treats as a convergence FAILURE (only
+  rc 0/5 fail-open; a missing pytest module is neither).
+- Observed: `ralph-resume.json` recorded
+  `convergence_failed: pytest collect: /Library/Developer/CommandLineTools/usr/bin/python3: No module named pytest`,
+  `retries:5 exhausted:true` — the Stop-hook Ralph guard bumped retries on this
+  false failure and blocked turn-end to the cap ("9× block").
+- `runtime-stop.py`, `memory-stop.py`, `instinct-extract.py`,
+  `runtime-subagent-stop.py` — `grep stop_hook_active` returns ZERO; no Stop hook
+  short-circuits when Claude Code is already in a stop-hook continuation, so a
+  block cannot self-break.
+- `.claude/settings.json` UserPromptSubmit `runtime-progressive-disclosure.py`
+  timeout is **5s**; under load the advisory hook is killed → Claude reports
+  "UserPromptSubmit operation blocked by hook … No stderr output" (fail-closed on
+  a purely advisory hook).
+- **Why dev differs from install**: in the dev repo PATH `python` resolves to the
+  `.venv` (pytest present) → convergence passes; on a fresh install PATH `python3`
+  is system/CLT (no pytest) → convergence fails → block. The run-hook.sh resolver
+  (spec-154) fixed the hook's OWN interpreter but NOT the interpreters the hooks
+  spawn internally.
+
 ## Goals
 
 - An existing install receives the spec-154 hook-resolver wiring with a plain
@@ -90,6 +117,9 @@ backup.
   reports anything it declines to touch.
 - Zero operator-name / machine-home-path leaks in any shipped surface; a CI gate
   prevents re-introduction by ANY operator (name-agnostic).
+- Hooks NEVER block an installed user: convergence runs under the resolved
+  interpreter, fails open when pytest is absent, Stop hooks honor
+  `stop_hook_active`, and the advisory prompt hook does not fail-closed under load.
 
 ## Non-Goals
 
@@ -177,6 +207,47 @@ backup.
   never reship operator identity. The existing install-command guard
   (`test_no_forbidden_substrings.py`) is the precedent pattern.
 
+- **D-158-10 — Hook subprocesses use `sys.executable`, never bare PATH python.**
+  `convergence.py` `_check_pytest_collect`/`_check_pytest_run` (and any other hook
+  subprocess that runs the project's Python) spawn `sys.executable` — the
+  interpreter run-hook.sh already resolved to ≥3.11/venv — instead of
+  `"python"`/`"python3"` off PATH.
+  **Rationale**: the resolver fixed the hook's own interpreter; its child
+  processes must inherit it or convergence runs under the wrong env. §10.1 KISS.
+
+- **D-158-11 — Stack-aware convergence; fail-open when the tool is absent.** The
+  convergence check is currently stack-blind — it runs the Python lint+test tools
+  in ANY repo, including TypeScript-only projects (copilotline declares a
+  typescript stack, has no Python project file, and no test runner for Python)
+  where those tools are neither present nor meaningful. Convergence must (a) detect
+  a Python project via stdlib-only marker files at the project root and run the
+  Python tools ONLY then; in a non-Python project it skips them (returns None,
+  fail-open); and (b) even within a Python project, treat a missing test-runner
+  module as the same skip as the existing missing-linter case — "nothing to
+  verify", NOT a convergence failure. Distinguish "wrong stack / tool missing"
+  from "tests broke".
+  **Rationale**: the framework is multi-stack; a Python-only convergence gate
+  blocking a TypeScript repo is the copilotline failure. Marker-file detection
+  stays inside the stdlib-only / package-free hook contract. A hook must never
+  block because a verifier is missing or belongs to another stack.
+
+- **D-158-12 — Stop/SubagentStop hooks honor `stop_hook_active`.** Each Stop hook
+  reads `stop_hook_active` from its payload and, when true, exits success
+  immediately (emit telemetry, no convergence, no block). Primary fix lands in the
+  blocking hook (`runtime-stop.py`); the guard is added to all four Stop hooks
+  defensively.
+  **Rationale**: Claude Code's own stop-loop breaker advises exactly this; it makes
+  any block structurally unable to loop. §10.7 Clean Code (no foot-guns).
+
+- **D-158-13 — Loosen the advisory progressive-disclosure timeout.** Raise the
+  `UserPromptSubmit` `runtime-progressive-disclosure.py` timeout in the template
+  settings.json from 5s to a load-tolerant budget (10s) and keep the hook's work
+  bounded. Existing installs whose `settings.json` is protected do not get the new
+  timeout from a normal update — concern A's settings.json field-migrator is the
+  vehicle that CAN carry it forward (follow-up, not required for this AC).
+  **Rationale**: a purely advisory hook must not fail-closed on the prompt under
+  CPU load.
+
 ## Risks
 
 - **Mutating a protected, user-owned file.** Mitigation: exact-shape match only
@@ -220,6 +291,16 @@ backup.
       operator path in shipped surfaces (allowlist of generic segments only);
       proven by a fixture that the gate catches a planted operator path and passes
       on `/home/linuxbrew` + `/Users/you`.
+- [ ] AC12 — `convergence.py` pytest checks spawn `sys.executable`; a test asserts
+      the spawned argv[0] is `sys.executable`, not a bare `python`/`python3`.
+- [ ] AC13 — When the running interpreter has no pytest, convergence returns
+      "converged / nothing to verify" (None), NOT a failure — proven by a test
+      that stubs pytest-absent and asserts no convergence failure / no Ralph bump.
+- [ ] AC14 — Each Stop/SubagentStop hook, given `stop_hook_active: true`, exits 0
+      without running convergence or emitting a block — proven per hook.
+- [ ] AC15 — Template `runtime-progressive-disclosure` UserPromptSubmit timeout is
+      >= 10s; `hooks-manifest.json` consistent (settings.json is not hook-pinned,
+      but convergence.py / runtime-stop.py byte changes require manifest regen).
 
 ## References
 
