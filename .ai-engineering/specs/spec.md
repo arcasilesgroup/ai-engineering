@@ -1,311 +1,207 @@
 ---
-spec: spec-158
-title: Public-install hardening — hook-command migration + operator-anonymity gate
+spec: spec-159
+title: Installer source-of-truth parity — wheel content + sync_mirrors drift + fail-loud guards
 status: approved
-effort: small
-summary: Two public-install correctness bugs in one spec. (A) spec-154 routed Claude Code hook commands through _lib/run-hook.sh (≥3.11 interpreter resolver) so hosts with python3 < 3.11 stop tracebacking on every tool call; fresh installs are born correct, but existing installs that run `ai-eng update` never get the fix because .claude/settings.json is ownership-protected, so its `python3 ".../X.py"` hook commands are never rewritten — the resolver lands unused. This spec adds a surgical, idempotent migrator that rewrites ONLY exact-shape framework-owned hook command strings inside the protected settings.json, with backup, dry-run visibility, and a skip report. (B) Shipped framework content leaks the operator's machine path/name (`/Users/soydachi/...` in transcript_usage.py docstrings — canonical + template, with template drift), violating Hard Rule 4 (anonymous content) on a public framework every company can install. This spec genericizes the leaks, syncs template↔canonical, and adds a name-agnostic CI gate that flags any `/Users/<name>` or `/home/<name>` operator path in shipped surfaces so no operator identity ever reships. (C) Hooks block the user on installs: the Stop-hook convergence check spawns bare PATH `python`/`python3` (not the resolved ≥3.11 interpreter) so on any host where PATH python lacks pytest it reports `No module named pytest` as a convergence failure, Ralph bumps retries and blocks turn-end up to the cap (the "9× block"); no Stop hook honors `stop_hook_active` to break the loop; and the 5s advisory progressive-disclosure timeout is killed under load (fail-closed "No stderr output"). This spec makes hook subprocesses use `sys.executable`, fail-open when pytest is absent, honor `stop_hook_active`, and loosens the advisory timeout — so hooks never block an installed user.
+effort: medium
+summary: Fix the real external-install reliability bug — update_cmd now finalizes hooks-manifest so enforce-mode stops killing hooks after ai-eng update; add sync_mirrors hook/agent/hooks.json parity, drop cursor from the dogfood manifest, keep an explicit wheel allowlist + content guard (launchers were already shipped — verified), and add fail-loud CI drift+wheel guards; ship as 0.9.1.
 ---
 
-# spec-158 — Migrate hook commands in protected `.claude/settings.json`
+# spec-159 — Installer source-of-truth parity
 
 ## Summary
 
-spec-154 (PR #554) introduced `_lib/run-hook.sh` — a wrapper that resolves a
-Python ≥3.11 interpreter before dispatching each hook — and rewired the template
-`.claude/settings.json` so every hook command runs through it. This removed
-`ImportError: cannot import name 'UTC' from 'datetime'` on hosts whose default
-`python3` is < 3.11 (e.g. macOS system `python3` = 3.9). **Fresh installs are
-born correct.** Existing installs are not.
+`ai-eng install`/`update` diverge from the dogfood repo and silently break
+**external** (non-editable `pip install` / `uv tool install`) projects. A
+15-agent diagnosis workflow (adversarial-verified, live-file confirmed) found a
+single recurring failure shape: a surface or file is added/edited in one place,
+but the pipeline step that would propagate it into the packaged install template
+(the updater's comparison baseline) was never written.
 
-When an existing user runs `ai-eng update`, the updater ships `run-hook.sh` and
-`resolve-python.sh` as net-new files (no ownership conflict), but
-`.claude/settings.json` is **ownership-protected** so update preserves it
-verbatim — its hook commands stay `python3 "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/X.py"`.
-Result: the resolver arrives but is never invoked, and every Bash/Workflow tool
-call keeps tracebacking on < 3.11 hosts. The upgrade path silently fails to
-deliver the spec-154 fix.
+The **real external-install reliability bug** is hook-integrity staleness on
+update. `update_cmd` never finalizes `hooks-manifest.json`, so after any
+`ai-eng update` ships new hook bytes the pinned sha256 values go stale; the
+default integrity mode is `enforce` (`integrity.py:43`, fail-closed), so on the
+next session **every hook is killed** (`sys.exit(2)`) — the "install doesn't work
+well after update" symptom. `install_cmd` finalizes the manifest
+(`cli_commands/core.py:237`); `update_cmd` did not. This is the headline fix.
 
-This spec adds a **surgical, idempotent settings.json hook-command migrator** to
-the updater: it rewrites only the exact-shape framework-owned command strings to
-route through `run-hook.sh`, leaves every user customization untouched, reports
-non-canonical commands as skipped, and is visible in dry-run with a pre-mutation
-backup.
+> **Empirical correction (recorded for honesty).** An earlier draft framed the
+> headline breakage as a wheel-packaging gap — that
+> `[tool.hatch.build.targets.wheel].include` listed only `*.{md,yml,json}` and
+> therefore the 52 `.sh/.ps1/.ts/.rego` launchers (incl. `run-hook.sh`) were
+> **absent from every published wheel**. **This was disproven by building the
+> wheel.** `packages = ["src/ai_engineering"]` makes hatchling ship the entire
+> template tree regardless of the `include` list; a wheel built *with and
+> without* the launcher globs contains all 52 files and `run-hook.sh` both
+> times. The published 0.9.0 wheel already contains them. The diagnosis had
+> reasoned from the `include` list without building an artifact. The `include`
+> globs and the wheel-content test are retained as an **explicit allowlist +
+> regression guard** (defence against a future hatchling default change), not as
+> a fix for a non-existent gap.
 
-## Current State (boundary evidence)
+Three drift gaps make `ai-eng update` in the dogfood repo report ~94 phantom
+changes and mean the framework cannot self-detect drift: (1) the
+`hooks-manifest.json` staleness above; (2) `scripts/sync_mirrors/core.py` has no
+sync step for `scripts/hooks/` (16 files perpetually drift), injects provenance
+frontmatter into specialist agents that the canonical `.claude/agents/*` lack
+(permanent byte mismatch on every `review-*`/`reviewer-*`/`verifier-*`), and
+hand-maintains `.github/hooks/hooks.json` in two divergent copies (122 vs 101
+lines); (3) `manifest.yml` enables the `cursor` surface but `sync_mirrors` has no
+`CURSOR_*` dual-write, so the repo holds 0 live cursor files against 64 templates
+→ 64 perpetual "new".
 
-- **The gap.** `updater/service.py::_migrate_hooks_dir` (line ~1181) migrates only
-  the hook **directory location** (`scripts/hooks/` → `.ai-engineering/scripts/hooks/`).
-  No function rewrites the **command strings** inside `.claude/settings.json`.
-  `grep -n "run-hook\|settings.json" updater/service.py` returns only the
-  directory-migrator name and an ownership comment — no command migrator.
-- **Why update can't touch it.** `.claude/settings.json` carries an ownership
-  **deny** rule (`updater/service.py:~599` comment: "`.claude/settings.json` deny
-  match before broad `.claude/**` allow"). `FileChange.status` resolves to
-  `"protected"` (`updater/service.py:96`), so the reconciler in
-  `_UpdateAdapter.plan` (`updater/service.py:231`) never overwrites it.
-- **Target post-state (proven, from the template).**
-  `templates/project/.claude/settings.json` already ships the correct form:
-  `"command": "bash \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh\" \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/telemetry-skill.py\""`.
-- **Resolver present after update.** `run-hook.sh` exists in both the canonical
-  tree and `templates/.ai-engineering/scripts/hooks/_lib/run-hook.sh`, and update
-  already ships it — so the only missing link is the settings.json rewrite.
-- **Empirical proof (copilotline, a real pre-spec-154 install).** Before fix,
-  every hook tracebacked `ImportError: ... 'UTC'` under `python3`=3.9; after a
-  manual settings.json rewrite to `run-hook.sh`, the resolver picked
-  `/opt/homebrew/bin/python3.13` and hooks ran clean. The framework must do this
-  rewrite automatically on `update`.
-- **Scope is narrow.** `.codex/hooks.json` is NOT ownership-protected (update
-  overwrites it → already self-heals to `run-hook.sh`); `.github/hooks/hooks.json`
-  uses `.sh`/`.ps1`, no `python3`-direct wiring. **`.claude/settings.json` is the
-  only stranded surface.**
-
-**Concern B — operator-name leak (boundary evidence):**
-- A repo-wide `git grep` for `/(Users|home)/<name>` across shipped surfaces
-  (`src/**`, `.ai-engineering/scripts/**`, `docs/**`, root `*.md`) finds the
-  operator's machine path in exactly THREE lines, all `soydachi`, all in
-  `transcript_usage.py` docstrings:
-  `.ai-engineering/scripts/hooks/_lib/transcript_usage.py:9` (canonical),
-  `src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/transcript_usage.py:9`
-  and `:67` (template). `/home/linuxbrew/.linuxbrew` is a legitimate default, not
-  an operator path.
-- **Template drift**: the canonical copy's `_project_slug` docstring (`:67`) was
-  already genericized to `/Users/.../ai-engineering`, but the **template** (the
-  copy that actually ships to installs) still carries `soydachi` at `:9` AND
-  `:67`. The template is what a company installs — so installed users receive the
-  leak (a copilotline contributor manually patched their installed copy).
-- **No anonymity gate exists.** `tests/unit/test_no_forbidden_substrings.py`
-  scans only `installer/`, `doctor/`, `prereqs/` for install-command literals —
-  it has no machine-path/operator-name rule and does not scan the hooks tree or
-  templates. Total blind spot for this bug class.
-
-**Concern C — hooks block the user on installs (boundary evidence):**
-- `.ai-engineering/scripts/hooks/_lib/convergence.py:124` `_check_pytest_collect`
-  (and `:149` `_check_pytest_run`) compute
-  `interpreter = "python" if shutil.which("python") else "python3"` and spawn
-  `[interpreter, "-m", "pytest", ...]` — **bare PATH python, not the resolved
-  ≥3.11/venv interpreter the hook runs under**. When PATH python lacks pytest
-  (system/CLT python on a fresh install) the result is rc≠0 with
-  `No module named pytest`, which `:140` treats as a convergence FAILURE (only
-  rc 0/5 fail-open; a missing pytest module is neither).
-- Observed: `ralph-resume.json` recorded
-  `convergence_failed: pytest collect: /Library/Developer/CommandLineTools/usr/bin/python3: No module named pytest`,
-  `retries:5 exhausted:true` — the Stop-hook Ralph guard bumped retries on this
-  false failure and blocked turn-end to the cap ("9× block").
-- `runtime-stop.py`, `memory-stop.py`, `instinct-extract.py`,
-  `runtime-subagent-stop.py` — `grep stop_hook_active` returns ZERO; no Stop hook
-  short-circuits when Claude Code is already in a stop-hook continuation, so a
-  block cannot self-break.
-- `.claude/settings.json` UserPromptSubmit `runtime-progressive-disclosure.py`
-  timeout is **5s**; under load the advisory hook is killed → Claude reports
-  "UserPromptSubmit operation blocked by hook … No stderr output" (fail-closed on
-  a purely advisory hook).
-- **Why dev differs from install**: in the dev repo PATH `python` resolves to the
-  `.venv` (pytest present) → convergence passes; on a fresh install PATH `python3`
-  is system/CLT (no pytest) → convergence fails → block. The run-hook.sh resolver
-  (spec-154) fixed the hook's OWN interpreter but NOT the interpreters the hooks
-  spawn internally.
+This spec fixes the hooks-manifest staleness, restores byte-parity between
+packaged install templates and the dogfood repo surfaces, and adds **fail-loud**
+CI guards so this failure class cannot silently recur. It ships as a `0.9.1`
+patch so external users receive the hooks-manifest fix in `update_cmd`.
 
 ## Goals
 
-- An existing install receives the spec-154 hook-resolver wiring with a plain
-  `ai-eng update` — no manual settings.json edit.
-- Zero `ImportError: UTC` tracebacks on < 3.11 hosts after `update`.
-- User customizations in `settings.json` (added hooks, matchers, timeouts, deny
-  rules, key order, formatting) are preserved byte-for-byte outside the rewritten
-  command values.
-- The migration is idempotent, visible in dry-run, backed up before mutation, and
-  reports anything it declines to touch.
-- Zero operator-name / machine-home-path leaks in any shipped surface; a CI gate
-  prevents re-introduction by ANY operator (name-agnostic).
-- Hooks NEVER block an installed user: convergence runs under the resolved
-  interpreter, fails open when pytest is absent, Stop hooks honor
-  `stop_hook_active`, and the advisory prompt hook does not fail-closed under load.
+- **G1 (real fix):** After `ai-eng update`,
+  `.ai-engineering/state/hooks-manifest.json` sha256 entries match the deployed
+  hook bytes, so hooks survive the default `AIENG_HOOK_INTEGRITY_MODE=enforce`
+  on the next session (no more post-update hook kill).
+- **G1b (regression guard):** A built wheel contains `run-hook.sh`,
+  `resolve-python.sh`, every `copilot-*.sh`/`copilot-*.ps1`, the `.ts` bridge,
+  and all `.rego` policies under `ai_engineering/templates/` — verified by a CI
+  test that builds and inspects the **actual wheel** (not `REPO_ROOT`). This
+  guards the already-correct packaging against a future regression; it is not a
+  fix for a pre-existing gap (none exists — confirmed empirically).
+- **G3:** `ai-eng dev sync` propagates `scripts/hooks/**` (incl. `_lib/`) into
+  the install-template tree; the 16 currently-drifted hook files resync to
+  byte-identical.
+- **G4:** `.claude/agents/*` install templates are byte-identical to their
+  canonical repo sources (no injected provenance frontmatter); a fresh
+  `ai-eng update` in the dogfood repo reports them `unchanged`.
+- **G5:** `.github/hooks/hooks.json` is generated from a single
+  event→script source and dual-written to repo root + template tree; the two
+  copies are byte-identical.
+- **G6:** `cursor` is removed from `manifest.yml` `surfaces.enabled`; a fresh
+  `ai-eng update` in the dogfood repo reports zero `.cursor/**` changes. The
+  `.cursor` templates remain shipped so external Cursor users are unaffected.
+- **G7:** CI **blocks** (fails the build) on (a) any wheel missing the required
+  launcher/policy extensions, and (b) any framework-managed surface drifting
+  from its install template. Both guards name the regen command in the failure
+  message.
+- **G8:** A clean dogfood `ai-eng update --preview` reports **0 Available / 0
+  Orphan** and only operator-owned (protected) files, proving end-to-end parity.
+- **G9:** Delivered as a `0.9.1` release so external pip/uv consumers receive the
+  `update_cmd` hooks-manifest fix via republish.
 
 ## Non-Goals
 
-- Touching `.codex/hooks.json` or `.github/hooks/hooks.json` (update already
-  overwrites / they have no `python3`-direct wiring).
-- A generic versioned settings-migration framework (YAGNI — one targeted rewrite).
-- Changing the ownership / protected model for full-file overwrites
-  (settings.json stays protected for whole-file replacement).
-- Auto-installing a ≥3.11 interpreter (`run-hook.sh` already degrades with one
-  stderr line + exit 0 when none is found).
-- Re-deriving the resolver design (spec-154; proven).
-- Scrubbing operator paths from non-shipped surfaces (tests, runtime, specs) — the
-  gate scopes to what installs / publishes; test fixtures may use synthetic paths.
-- A general PII/secrets redactor (already covered by `security/redactor.py`); this
-  gate is specifically operator-home-path leakage in shipped content.
+- The spec-157 version-update notice / banner staleness — already fixed
+  operationally this session (editable dist-info regenerated, cache cleared,
+  notice render proven). Not re-touched here.
+- Making `cursor` a **live** dogfood surface (the dual-write path) — explicitly
+  rejected; dogfood does not run Cursor IDE.
+- Retroactively repairing already-broken external installs beyond shipping the
+  corrected wheel and the `update_cmd` manifest fix (users still run
+  `pip install -U` / `ai-eng update` to adopt).
+- Re-architecting the updater reconciler, ownership model, or control-plane
+  rules.
+- Antigravity surface — already correct (`.agents/` = 157 live files via
+  existing dual-write); used only as the reference pattern.
+- Changing hook runtime behavior, integrity-mode defaults, or the py3.11
+  resolver logic itself (spec-154/158 scope).
 
 ## Decisions
 
-- **D-158-01 — Surgical migrator in the updater, not a registry.** Add a function
-  that scans `.claude/settings.json` `hooks[*].hooks[*].command` and rewrites only
-  framework-owned commands. No versioned migration registry, no ownership-model
-  split.
-  **Rationale**: §10.1 KISS / §10.2 YAGNI — one bug, one targeted fix; the
-  surface is a single known file and a single known command shape.
-
-- **D-158-02 — Exact-shape detection only; report skips.** Match exactly
-  `python3 "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/<file>.py"[ <args>]`
-  and rewrite to
-  `bash "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh" "$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/<file>.py"[ <args>]`.
-  Any command pointing into the framework hooks dir that does NOT match the exact
-  shape (different interpreter, absolute path, extra flags, custom wrapper) is
-  **left untouched and reported as skipped** for manual review.
-  **Rationale**: §10.7 Clean Code / safety — never guess at a user's customized
-  command inside a protected file; fail visible, not silent.
-
-- **D-158-03 — Auto on `update`, dry-run visible, backup before mutate.** The
-  migrator runs as part of `ai-eng update`; it appears in the dry-run plan as a
-  distinct change (e.g. `migrate-hooks: N commands`); it applies only under
-  `--apply`; it writes a timestamped `settings.json` backup before mutating; the
-  summary reports `migrated` + `skipped` counts.
-  **Rationale**: §10.5 reversibility — a mutation of a protected, user-owned file
-  must be previewable and recoverable.
-
-- **D-158-04 — Framework-owned field migration is exempt from the protected-file
-  overwrite block.** Introduce the narrow notion of a framework-owned **field**
-  migration that may edit specific values inside an ownership-protected file,
-  strictly bounded to exact-shape framework hook command strings. Whole-file
-  overwrite of `settings.json` stays denied.
-  **Rationale**: ownership protects user intent; a framework command string the
-  framework itself authored is framework intent — migrating it forward is not a
-  user-content overwrite.
-
-- **D-158-05 — Idempotent.** Commands already routed through `run-hook.sh` are
-  detected and skipped; a second `update` reports `migrated: 0`.
-  **Rationale**: update is run repeatedly; re-runs must be no-ops.
-
-- **D-158-06 — Minimum-diff rewrite (preserve structure).** Rewrite only the
-  `command` string value via targeted edit; preserve matchers, timeouts, sibling
-  keys, array order, and JSON validity. No full round-trip reformat.
-  **Rationale**: §10.7 Clean Code — the diff must read as "21 command strings
-  rewired", nothing else; a reformat would bury intent and churn the user's file.
-
-- **D-158-07 — Scope-agnostic, single target.** Operate on the resolved target's
-  `.claude/settings.json` (the `update` target root); no cross-scope traversal.
-  **Rationale**: matches the updater's existing single-target contract.
-
-- **D-158-08 — Genericize the operator-name leaks + sync template↔canonical.**
-  Rewrite the three `soydachi` docstring examples in `transcript_usage.py` to
-  generic placeholders (`${HOME}/.claude/projects/<project-slug>/<session-id>.jsonl`
-  and `/Users/.../ai-engineering` → `-Users-...-ai-engineering`), matching the
-  already-genericized canonical `_project_slug` style, then make the template
-  copy byte-identical to the canonical copy so the drift cannot recur.
-  **Rationale**: Hard Rule 4 (anonymous content) — no operator name / machine path
-  in committed, shipped files; §10.4 DRY — one canonical source, template mirrors.
-
-- **D-158-09 — Add a name-agnostic operator-path gate.** New test scanning shipped
-  surfaces (`src/ai_engineering/**` incl. templates, `.ai-engineering/scripts/**`,
-  `docs/**/*.md`, root `*.md`/`CONSTITUTION.md`) for `/(Users|home)/<segment>`
-  (and `\Users\<segment>`) where `<segment>` is NOT in a small generic allowlist
-  (`user`, `you`, `runner`, `linuxbrew`, `root`, `test`, `example`, `name`,
-  `project`, `app`, `ci`, `build`, `home`). It flags ANY operator name — not a
-  `soydachi` denylist — so a future operator's path is caught automatically. Tests,
-  `runtime/`, `specs/`, `observations/` are out of scope (not shipped).
-  **Rationale**: durable prevention over one-off scrub; a public framework must
-  never reship operator identity. The existing install-command guard
-  (`test_no_forbidden_substrings.py`) is the precedent pattern.
-
-- **D-158-10 — Hook subprocesses use `sys.executable`, never bare PATH python.**
-  `convergence.py` `_check_pytest_collect`/`_check_pytest_run` (and any other hook
-  subprocess that runs the project's Python) spawn `sys.executable` — the
-  interpreter run-hook.sh already resolved to ≥3.11/venv — instead of
-  `"python"`/`"python3"` off PATH.
-  **Rationale**: the resolver fixed the hook's own interpreter; its child
-  processes must inherit it or convergence runs under the wrong env. §10.1 KISS.
-
-- **D-158-11 — Stack-aware convergence; fail-open when the tool is absent.** The
-  convergence check is currently stack-blind — it runs the Python lint+test tools
-  in ANY repo, including TypeScript-only projects (copilotline declares a
-  typescript stack, has no Python project file, and no test runner for Python)
-  where those tools are neither present nor meaningful. Convergence must (a) detect
-  a Python project via stdlib-only marker files at the project root and run the
-  Python tools ONLY then; in a non-Python project it skips them (returns None,
-  fail-open); and (b) even within a Python project, treat a missing test-runner
-  module as the same skip as the existing missing-linter case — "nothing to
-  verify", NOT a convergence failure. Distinguish "wrong stack / tool missing"
-  from "tests broke".
-  **Rationale**: the framework is multi-stack; a Python-only convergence gate
-  blocking a TypeScript repo is the copilotline failure. Marker-file detection
-  stays inside the stdlib-only / package-free hook contract. A hook must never
-  block because a verifier is missing or belongs to another stack.
-
-- **D-158-12 — Stop/SubagentStop hooks honor `stop_hook_active`.** Each Stop hook
-  reads `stop_hook_active` from its payload and, when true, exits success
-  immediately (emit telemetry, no convergence, no block). Primary fix lands in the
-  blocking hook (`runtime-stop.py`); the guard is added to all four Stop hooks
-  defensively.
-  **Rationale**: Claude Code's own stop-loop breaker advises exactly this; it makes
-  any block structurally unable to loop. §10.7 Clean Code (no foot-guns).
-
-- **D-158-13 — Loosen the advisory progressive-disclosure timeout.** Raise the
-  `UserPromptSubmit` `runtime-progressive-disclosure.py` timeout in the template
-  settings.json from 5s to a load-tolerant budget (10s) and keep the hook's work
-  bounded. Existing installs whose `settings.json` is protected do not get the new
-  timeout from a normal update — concern A's settings.json field-migrator is the
-  vehicle that CAN carry it forward (follow-up, not required for this AC).
-  **Rationale**: a purely advisory hook must not fail-closed on the prompt under
-  CPU load.
+1. **D-159-01 — Make the wheel launcher/policy allowlist explicit.** Add `.sh`,
+   `.ps1`, `.ts`, `.rego` to `[tool.hatch.build.targets.wheel].include`.
+   *Rationale:* hatchling already ships these via `packages = ["src/ai_engineering"]`
+   (verified: a wheel built with **and** without these globs contains all 52
+   launchers + `run-hook.sh`), so this is **not** a fix for a missing-file gap —
+   the earlier "absent from every wheel" claim was disproven by building the
+   artifact. The explicit globs make the intent auditable and pin the launchers
+   so a future change to hatchling's package-data defaults cannot silently drop
+   them. Harmless and defensive; kept deliberately.
+2. **D-159-02 — Wheel-content CI test inspects the built artifact (regression
+   guard).** Add a test that builds the wheel, opens it as a zip, and asserts the
+   launcher/policy files exist under packaged `templates/`.
+   *Rationale:* the existing `test_hook_interpreter_resolution.py` reads
+   `REPO_ROOT` and so could never observe what the external user actually
+   receives. This guard inspects the real wheel, locking in the (already-correct)
+   packaging so a future regression turns CI red instead of silently shipping
+   dead hooks.
+3. **D-159-03 — `update_cmd` finalizes the hooks manifest.** Call
+   `_finalize_hooks_manifest(root)` from `update_cmd` after the workflow
+   completes, matching `install_cmd`.
+   *Rationale:* deploying new hook bytes without re-pinning their sha256 makes
+   `enforce` mode kill the very hooks the update just shipped — a self-inflicted
+   outage on every upgrade.
+4. **D-159-04 — Add a `sync_mirrors` hook-scripts sync step.** Add a surface
+   step that copies `scripts/hooks/**/*.py` (incl. `_lib/`) into the
+   install-template tree, modeled on the existing `scripts/skills/` step.
+   *Rationale:* hook scripts had no propagation path at all; every hook edit
+   silently drifted the template. Closing the gap makes `dev sync` the single
+   regen command for hook parity.
+5. **D-159-05 — Write specialist agents verbatim (drop provenance injection).**
+   `generate_specialist_agent()` must emit byte-identical copies of the
+   canonical `.claude/agents/*`, like `generate_install_claude_agent()` — no
+   `mirror_family`/`generated_by`/`canonical_source`/`edit_policy` frontmatter.
+   *Rationale:* `.claude` is the native authoring surface, not a transformed
+   mirror; injecting fields the source lacks guarantees a permanent byte
+   mismatch and trains operators to ignore "updated" noise. Provenance belongs
+   only on genuinely transformed non-claude surfaces.
+6. **D-159-06 — Generate `.github/hooks/hooks.json` from one source.** Add a
+   generator that builds the file from the canonical hook event→script mapping
+   and dual-writes repo root + template tree (mirroring the codex hooks
+   generator).
+   *Rationale:* two hand-maintained copies already drifted by 21 lines; a single
+   generated source is the only durable fix and matches existing precedent.
+7. **D-159-07 — Drop `cursor` from `manifest.yml` `surfaces.enabled`.**
+   *Rationale:* the dogfood repo does not run Cursor IDE and never generated a
+   live `.cursor/` surface; the declaration produces 64 perpetual phantom
+   "new" entries. Templates still ship `.cursor` so external Cursor projects are
+   unaffected — this is a dogfood-config correction, not a product removal.
+8. **D-159-08 — CI drift + wheel guards are fail-loud (blocking).** The
+   surface-drift guard fails the build on any framework-managed surface that
+   differs from its install template; the wheel-content guard fails on any
+   missing launcher/policy file. Failure messages name the regen command
+   (`ai-eng dev sync` / rebuild).
+   *Rationale:* this whole bug class survived precisely because nothing ever
+   failed. Fail-loud matches the repo's Hard-Rule doctrine and converts silent
+   drift into an actionable red build.
+9. **D-159-09 — Deliver as a `0.9.1` patch release.** Bundle the code fixes with
+   a version bump + release.
+   *Rationale:* the `update_cmd` hooks-manifest fix lives in the package, so it
+   only reaches external users when they upgrade to a republished version;
+   landing it on `main` without a release leaves downstream `ai-eng update` runs
+   still killing hooks under `enforce`.
 
 ## Risks
 
-- **Mutating a protected, user-owned file.** Mitigation: exact-shape match only
-  (D-158-02) + pre-mutation backup + dry-run visibility (D-158-03) + skip report.
-- **JSON formatting churn / corruption.** Mitigation: targeted value rewrite
-  preserving structure (D-158-06); test asserts minimum diff + JSON validity +
-  preserved deny rules.
-- **A user's custom command happens to match the exact framework shape.**
-  Mitigation: the matched path is framework-specific
-  (`.ai-engineering/scripts/hooks/<file>.py`); the canonical shape is what the
-  framework itself authored, so rewriting it forward is correct. Low residual
-  risk accepted.
-- **Double-run / concurrent update.** Mitigation: idempotency (D-158-05).
-- **`run-hook.sh` absent on a very old install that skips the file ship.**
-  Mitigation: update ships `run-hook.sh` in the same pass; if absent at migrate
-  time, skip the rewrite and report (do not wire to a missing wrapper).
-
-## Acceptance
-
-- [ ] AC1 — A settings.json with `python3 ".../hooks/X.py"` commands becomes
-      `bash ".../run-hook.sh" ".../hooks/X.py"` after `ai-eng update --apply`.
-- [ ] AC2 — User-added hooks, matchers, timeouts, and deny rules are preserved
-      unchanged.
-- [ ] AC3 — Idempotent: a second `update` reports `migrated: 0`.
-- [ ] AC4 — A framework-hooks-dir command that is NOT exact-shape (custom
-      interpreter / flags / wrapper) is left untouched and reported as `skipped`.
-- [ ] AC5 — Dry-run shows `migrate-hooks: N`; `--apply` writes a backup; the
-      summary reports `migrated` + `skipped` counts.
-- [ ] AC6 — `settings.json` remains valid JSON; user `deny` rules survive.
-- [ ] AC7 — Regression (copilotline shape): after `update`, hooks dispatch via
-      the resolver with no `ImportError: UTC` traceback.
-- [ ] AC8 — If `run-hook.sh` is absent at migrate time, the rewrite is skipped and
-      reported (no wiring to a missing wrapper).
-- [ ] AC9 — Full test suite green; `hooks-manifest.json` consistent (note: the
-      `transcript_usage.py` docstring fix DOES change canonical hook bytes →
-      `hooks-manifest.json` MUST be regenerated and committed).
-- [ ] AC10 — Zero `soydachi` (or any operator name) in shipped surfaces; the three
-      `transcript_usage.py` docstring leaks are genericized; template copy is
-      byte-identical to canonical.
-- [ ] AC11 — New name-agnostic gate flags any `/Users/<name>` or `/home/<name>`
-      operator path in shipped surfaces (allowlist of generic segments only);
-      proven by a fixture that the gate catches a planted operator path and passes
-      on `/home/linuxbrew` + `/Users/you`.
-- [ ] AC12 — `convergence.py` pytest checks spawn `sys.executable`; a test asserts
-      the spawned argv[0] is `sys.executable`, not a bare `python`/`python3`.
-- [ ] AC13 — When the running interpreter has no pytest, convergence returns
-      "converged / nothing to verify" (None), NOT a failure — proven by a test
-      that stubs pytest-absent and asserts no convergence failure / no Ralph bump.
-- [ ] AC14 — Each Stop/SubagentStop hook, given `stop_hook_active: true`, exits 0
-      without running convergence or emitting a block — proven per hook.
-- [ ] AC15 — Template `runtime-progressive-disclosure` UserPromptSubmit timeout is
-      >= 10s; `hooks-manifest.json` consistent (settings.json is not hook-pinned,
-      but convergence.py / runtime-stop.py byte changes require manifest regen).
+- **R1 — Wheel allowlist over/under-includes.** Adding extensions could ship
+  unintended files or still miss an asset type. *Mitigation:* explicit
+  per-extension list + D-159-02 test asserting the exact expected file set
+  (presence and, for a sample, that no stray cache/editor files appear).
+- **R2 — `hooks.json` generator must reproduce current behavior exactly.** A
+  generated file that drops the `copilot-runtime-stop` block (present only in the
+  122-line repo copy) would regress Copilot. *Mitigation:* golden-file test
+  diffing generated output against a reviewed known-good snapshot before
+  replacing either copy.
+- **R3 — Dropping provenance frontmatter may break a consumer.** Some tool might
+  read `canonical_source`/`edit_policy`. *Mitigation:* grep all surfaces for
+  readers of those keys before removal; if any exist, relocate provenance out of
+  frontmatter rather than deleting the data.
+- **R4 — Blocking CI drift guard causes friction on intentional changes.**
+  *Mitigation:* the guard compares only framework-managed (non-protected)
+  surfaces and always prints `ai-eng dev sync` as the one-line remedy; operator
+  surfaces are exempt by the existing ownership map.
+- **R5 — 0.9.1 release carries the usual release gotchas** (local-tag bug,
+  TestPyPI propagation rerun, gate `ty` blind spot, Snyk pip-CVE gate).
+  *Mitigation:* follow the documented release runbook and staged/resume flow;
+  treat release as the final delivery step, not mid-build.
+- **R6 — Resyncing 16 hook files + agent templates produces a large diff.** Risk
+  of burying a real semantic change in mechanical churn. *Mitigation:* land the
+  pure `dev sync` resync as its own commit, separate from logic changes, so
+  review can verify the resync is byte-mechanical.
 
 ## References
 
-- spec-154 (PR #554) — hook interpreter resolver `_lib/run-hook.sh`.
-- `src/ai_engineering/updater/service.py` — `_migrate_hooks_dir` (~1181),
-  `FileChange.status` (96), `_UpdateAdapter.plan` (231), ownership comment (~599).
-- `src/ai_engineering/templates/project/.claude/settings.json` — target command
-  shape.
+- pr: arcasilesgroup/ai-engineering#559 (spec-158 — `run-hook.sh` / resolver origin)
+- pr: arcasilesgroup/ai-engineering#554 (spec-154 — ≥3.11 interpreter resolver)
+- doc: src/ai_engineering/installer/templates.py (surface tree maps, wheel template root)
+- doc: scripts/sync_mirrors/core.py (mirror generation; antigravity dual-write reference pattern)
+- doc: pyproject.toml `[tool.hatch.build.targets.wheel]` (the P0 include allowlist)
