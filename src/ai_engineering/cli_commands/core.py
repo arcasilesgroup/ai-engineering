@@ -698,6 +698,25 @@ def _finalize_hooks_manifest(root: Path) -> None:
         )
 
 
+def _finalize_update_hooks_manifest(workflow_result: Any, root: Path) -> None:
+    """spec-159 D-159-03: re-pin hooks-manifest after an update applies changes.
+
+    Deploying new hook bytes without refreshing their sha256 makes
+    ``AIENG_HOOK_INTEGRITY_MODE=enforce`` kill the very hooks the update
+    just shipped. Mirror ``install_cmd``'s post-apply finalize, but gate
+    on an apply that actually mutated files — never on preview/dry-run or
+    a no-op apply, so a clean preview never rewrites the manifest.
+    """
+    if workflow_result.status != UpdateWorkflowStatus.APPLIED:
+        return
+    result = workflow_result.result
+    if getattr(result, "dry_run", True):
+        return
+    if not (result.applied_count or result.orphan_count):
+        return
+    _finalize_hooks_manifest(root)
+
+
 def _emit_install_success_json(
     root: Path,
     result: Any,
@@ -1060,6 +1079,11 @@ def update_cmd(
             raise typer.Exit(code=1) from exc
         error(f"Update failed while applying changes: {exc}")
         raise typer.Exit(code=1) from exc
+
+    # spec-159 D-159-03: after an apply that mutated hook bytes, re-pin
+    # hooks-manifest.json so enforce-mode does not kill the freshly
+    # deployed hooks. No-op on preview/dry-run/no-change applies.
+    _finalize_update_hooks_manifest(workflow_result, root)
 
     if _handle_interactive_update_result(
         workflow_result,
