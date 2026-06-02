@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-02
+
 ### Fixed
 
 - fix(version): the update-available notice and `ai-eng version` now read a
@@ -33,7 +35,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   SSOT resolver and stay silent for automation/`--json`/hook hot paths.
   `/ai-brainstorm` was deliberately left out — a version nag
   mid-design-interrogation breaks focus.
-
 ## [0.9.2] - 2026-06-02
 
 ### Fixed
