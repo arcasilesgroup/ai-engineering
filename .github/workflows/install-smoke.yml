@@ -67,7 +67,9 @@ jobs:
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
           VERSION_OUTPUT="$(ai-eng version)"
           echo "$VERSION_OUTPUT"
-          echo "$VERSION_OUTPUT" | grep -qE '^ai-engineering [0-9]+\.[0-9]+\.[0-9]+'
+          # The status line leads with the ◈ brand mark ("◈ ai-engineering X · up
+          # to date"), so match the name+semver anywhere on the line, not anchored.
+          echo "$VERSION_OUTPUT" | grep -qE 'ai-engineering [0-9]+\.[0-9]+\.[0-9]+'
       - name: Configure git defaults
         run: |
           git config --global init.defaultBranch main
