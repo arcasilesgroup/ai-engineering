@@ -182,3 +182,11 @@ lifecycle:
   draft_ttl_days: 30        # DRAFT sidecars older than this sweep to ABANDONED
   archive_layout: per-spec-dir  # archive/spec-NNN-<slug>/{spec.md,plan.md}
   reap_orphans: true        # sweep stray spec-*.md from specs/ root
+
+# Sentinel IOC runtime posture (spec-160 D-160-01).
+security:
+  iocs:
+    # Opt-in fail-closed. Default false = bootstrap-safe fail-open: a
+    # missing/corrupt iocs.json never locks out the host. Env
+    # AIENG_IOC_FAIL_CLOSED overrides this (env wins).
+    fail_closed: false

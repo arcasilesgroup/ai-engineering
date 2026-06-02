@@ -388,6 +388,23 @@
         }
       },
       "additionalProperties": false
+    },
+    "security": {
+      "type": "object",
+      "description": "Sentinel IOC runtime posture (spec-160 D-160-01).",
+      "additionalProperties": false,
+      "properties": {
+        "iocs": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "fail_closed": {
+              "type": "boolean",
+              "description": "Opt-in fail-closed on a missing/corrupt iocs.json. Default false (fail-open). Env AIENG_IOC_FAIL_CLOSED overrides."
+            }
+          }
+        }
+      }
     }
   },
   "required": [

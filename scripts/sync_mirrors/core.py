@@ -1117,6 +1117,7 @@ AIENG_HOOK_ENGINE                   # override the detected IDE engine (unset ->
 AIENG_HOOK_ENGINE_DEFAULT           # fallback engine label when none is detected (unset -> unknown)
 AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; event sidecar threshold
 AIE_MCP_HEALTH_FAIL_OPEN            # "1" pass-through MCP health gate; SECURITY RISK
+AIENG_IOC_FAIL_CLOSED               # set "1" to deny on a missing/corrupt iocs.json (default off)
 
 # spec notebooklm-async-tier3 — /ai-research Tier 3 deep-research harvest
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; NotebookLM deep-research harvest)

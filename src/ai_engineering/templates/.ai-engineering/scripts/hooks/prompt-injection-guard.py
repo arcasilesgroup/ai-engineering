@@ -33,6 +33,7 @@ installer's runtime.
 """
 
 import contextlib
+import functools
 import hashlib
 import json
 import os
@@ -439,6 +440,28 @@ def _is_test_fixture_target(tool_name: str, tool_input: dict) -> str | None:
     return None
 
 
+_DOC_EXTENSIONS = (".md", ".mdx", ".markdown", ".rst", ".txt")
+
+
+def _is_doc_target(tool_name: str, tool_input: dict) -> str | None:
+    """Return file_path when Write/Edit targets a non-executable doc file.
+
+    spec-160 D-160-04: documentation/spec/runbook text legitimately cites
+    sensitive-path and env-var literals. Such targets bypass ONLY the
+    sensitive_paths / sensitive_env_vars IOC categories (D-160-05); the
+    malicious_domains / shell_patterns categories and the Layer-2 injection
+    scan still apply. The call site emits an auditable bypass event.
+    """
+    if tool_name not in ("Write", "Edit", "MultiEdit"):
+        return None
+    file_path = tool_input.get("file_path") or ""
+    if not isinstance(file_path, str) or not file_path:
+        return None
+    if Path(file_path).suffix.lower() in _DOC_EXTENSIONS:
+        return file_path
+    return None
+
+
 # ---------------------------------------------------------------------------
 # spec-107 D-107-05/06/07: IOC catalog loading + 3-valued evaluation
 # ---------------------------------------------------------------------------
@@ -529,6 +552,76 @@ def load_iocs(project_root: Path) -> dict[str, Any]:
     # next call cheaply and would risk serving a stale catalog forever.
     _IOC_CACHE = (now, sig[0], sig[1], parsed) if sig is not None else None
     return parsed
+
+
+# spec-160 D-160-01/02: opt-in fail-closed posture.
+_FAIL_CLOSED_ENV = "AIENG_IOC_FAIL_CLOSED"
+_MANIFEST_RELATIVE = Path(".ai-engineering") / "manifest.yml"
+
+
+def _fail_closed_enabled(project_root: Path) -> bool:
+    """Return True when the IOC layer should fail CLOSED on an unavailable catalog.
+
+    spec-160 D-160-01: the posture is opt-in and default-off (fail-open).
+    Resolution order (env wins, matching the repo escape-hatch pattern):
+
+    1. ``AIENG_IOC_FAIL_CLOSED`` set to ``"1"`` -> True; ``"0"`` -> False.
+    2. Else read ``manifest.yml`` ``security.iocs.fail_closed`` (lazy
+       ``import yaml`` mirroring ``_lib/instincts.py``).
+    3. Any ImportError / I/O / parse failure -> fail-open ``False`` so a
+       broken manifest never locks out the host.
+    """
+    raw = (os.environ.get(_FAIL_CLOSED_ENV) or "").strip()
+    if raw == "1":
+        return True
+    if raw == "0":
+        return False
+    manifest_path = project_root / _MANIFEST_RELATIVE
+    try:
+        import yaml
+
+        payload = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    except Exception:
+        return False
+    if not isinstance(payload, dict):
+        return False
+    security = payload.get("security")
+    if not isinstance(security, dict):
+        return False
+    iocs = security.get("iocs")
+    if not isinstance(iocs, dict):
+        return False
+    return bool(iocs.get("fail_closed") is True)
+
+
+def _ioc_catalog_unavailable(project_root: Path) -> bool:
+    """Return True iff the on-disk IOC catalog is missing OR unparseable.
+
+    spec-160 D-160-02: an absent catalog and a corrupt/non-dict catalog are
+    equally dangerous (both disable enforcement), so both count as
+    "unavailable". A valid-but-empty ``{}`` catalog is AVAILABLE (returns
+    False) — it parses cleanly, it just has no entries. This distinction is
+    what lets a supplied ``catalog={}`` stay fail-open while a deleted or
+    truncated file fails closed under the flag.
+    """
+    path = _ioc_catalog_path(project_root)
+    if not path.exists():
+        return True
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, ValueError):
+        return True
+    return not isinstance(payload, dict)
+
+
+def _fail_closed_reason() -> str:
+    """Recovery banner for a fail-closed deny (names every recovery path)."""
+    return (
+        "Sentinel IOC catalog unavailable and fail-closed is enabled. "
+        "Recover by restoring .ai-engineering/security/iocs/iocs.json, "
+        f"setting {_FAIL_CLOSED_ENV}=0 to revert to fail-open, or running "
+        "ai-eng risk accept to bypass via the audited risk-acceptance lane."
+    )
 
 
 def _decision_store_path(project_root: Path) -> Path:
@@ -651,15 +744,70 @@ def find_active_risk_acceptance(
     return None
 
 
+_HOME_PREFIX = "~/"
+
+
 def _expand_user_path(pattern: str) -> str:
-    """Expand `~` in IOC path patterns to a regex-friendly home prefix.
+    """Return the ``$HOME/``-expanded form of a ``~/``-prefixed IOC pattern.
 
     The vendored catalog uses ``~/`` to denote the user's home directory.
-    For matching against arbitrary tool-call content we match either the
-    literal `~/` form or the expanded `$HOME/` form so the same pattern
-    catches both representations a tool may use.
+    For a ``~/X`` pattern this returns ``$HOME/X``; any other pattern is
+    returned unchanged. Kept as a thin compatibility shim — the full
+    equivalence set is produced by :func:`_expanded_literals` and
+    :func:`_home_path_regex` (spec-160 D-160-07).
     """
+    if pattern.startswith(_HOME_PREFIX):
+        return "$HOME/" + pattern[len(_HOME_PREFIX) :]
     return pattern
+
+
+@functools.lru_cache(maxsize=256)
+def _expanded_literals(pattern: str) -> tuple[str, ...]:
+    """Return the literal equivalence forms of a ``~/``-prefixed pattern.
+
+    spec-160 D-160-07: a ``~/X`` catalog literal is also written by tools
+    as ``$HOME/X`` and ``${HOME}/X``. For those forms a plain substring
+    compare is enough (no regex), so they live here. Absolute-home and
+    Windows forms need anchored regexes (see :func:`_home_path_regex`).
+
+    Non-``~/`` patterns return a single-element tuple of themselves, so the
+    caller can iterate uniformly. Cached because the catalog pattern set is
+    tiny and stable across the per-call hot path.
+    """
+    if not pattern.startswith(_HOME_PREFIX):
+        return (pattern,)
+    suffix = pattern[len(_HOME_PREFIX) :]
+    return (pattern, "$HOME/" + suffix, "${HOME}/" + suffix)
+
+
+@functools.lru_cache(maxsize=256)
+def _home_path_regex(pattern: str) -> re.Pattern[str] | None:
+    """Compile an absolute-home + Windows equivalence regex for ``~/X``.
+
+    spec-160 D-160-07/08: a ``~/X`` catalog literal must also match the
+    absolute-home POSIX forms (``/Users/<u>/X``, ``/home/<u>/X``) and the
+    Windows ``C:\\Users\\<u>\\X`` form (drive-letter, backslashes,
+    case-insensitive). The regex is anchored to the catalog's specific
+    suffix (R4 mitigation: never a bare home prefix) and the username
+    segment is bounded to a single path component (``[^/\\s]+`` POSIX,
+    ``[^\\\\\\s]+`` Windows) so it cannot over-broaden.
+
+    Returns ``None`` for non-``~/`` patterns. Cached: compiled once per
+    catalog pattern, reused across the hot path.
+    """
+    if not pattern.startswith(_HOME_PREFIX):
+        return None
+    suffix = pattern[len(_HOME_PREFIX) :]
+    # POSIX: /Users/<u>/<suffix> or /home/<u>/<suffix>. Escape the suffix
+    # so dots/special chars are literal; the username is one component.
+    posix_suffix = re.escape(suffix)
+    posix_alt = rf"(?:/Users/[^/\s]+|/home/[^/\s]+)/{posix_suffix}"
+    # Windows: <drive>:\Users\<u>\<suffix-with-backslashes>. The content is
+    # backslash-normalized to forward slashes by the caller for the compare,
+    # so we anchor on the normalized form: <drive>:/Users/<u>/<suffix>.
+    win_suffix = re.escape(suffix)
+    win_alt = rf"[A-Za-z]:/Users/[^/\s]+/{win_suffix}"
+    return re.compile(rf"(?:{posix_alt}|{win_alt})", re.IGNORECASE)
 
 
 def _category_patterns(catalog: dict[str, Any], category: str) -> list[tuple[str, str]]:
@@ -722,9 +870,23 @@ def _category_patterns(catalog: dict[str, Any], category: str) -> list[tuple[str
 def _match_pattern(content: str, kind: str, pattern: str) -> bool:
     """Return True when ``content`` matches ``pattern`` per ``kind`` rules."""
     if kind == "literal":
-        # Path patterns starting with ~/ are also matched against the
-        # literal form embedded inline (e.g. "cat ~/.ssh/id_rsa").
-        return pattern in content or _expand_user_path(pattern) in content
+        # spec-160 D-160-07: a ``~/X`` catalog literal is matched against its
+        # full equivalence set — the ``~/``/``$HOME/``/``${HOME}/`` literal
+        # forms (substring) plus the absolute-home + Windows regex forms.
+        # Non-``~/`` literals fall through to a single plain substring check.
+        if any(form in content for form in _expanded_literals(pattern)):
+            return True
+        rx = _home_path_regex(pattern)
+        if rx is None:
+            return False
+        # Windows-shaped inputs use backslashes; compare a backslash-
+        # normalized COPY so the POSIX match path (R3 mitigation) is never
+        # mutated. The regex's POSIX alternative still matches the original
+        # forward-slash form because normalization is a no-op there.
+        if rx.search(content):
+            return True
+        normalized = content.replace("\\", "/")
+        return bool(rx.search(normalized))
     if kind == "regex":
         try:
             return re.search(pattern, content) is not None
@@ -739,6 +901,7 @@ def evaluate_against_iocs(
     *,
     catalog: dict[str, Any] | None = None,
     now: datetime | None = None,
+    skip_categories: tuple[str, ...] = (),
 ) -> dict[str, Any]:
     """Evaluate ``content`` against the vendored IOC catalog.
 
@@ -762,11 +925,30 @@ def evaluate_against_iocs(
     """
     cat = catalog if catalog is not None else load_iocs(project_root)
     if not cat:
+        # spec-160 D-160-01/02: opt-in fail-closed. ONLY when the catalog was
+        # loaded from disk (``catalog is None`` arg) AND fail-closed is enabled
+        # AND the on-disk catalog is genuinely unavailable (missing/corrupt)
+        # do we deny. A supplied valid-but-empty ``catalog={}`` stays fail-open.
+        if (
+            catalog is None
+            and _fail_closed_enabled(project_root)
+            and _ioc_catalog_unavailable(project_root)
+        ):
+            return {
+                "verdict": "deny",
+                "matches": [],
+                "reason": _fail_closed_reason(),
+            }
         return {"verdict": "allow", "matches": [], "reason": ""}
 
     matches: list[dict[str, Any]] = []
     any_unaccepted = False
     for category in _IOC_CATEGORIES:
+        # spec-160 D-160-05: doc-context targets relax ONLY the credential
+        # categories (sensitive_paths / sensitive_env_vars). All other
+        # categories — and the Layer-2 injection scan in main() — stay active.
+        if category in skip_categories:
+            continue
         for kind, pattern in _category_patterns(cat, category):
             if not _match_pattern(content, kind, pattern):
                 continue
@@ -1002,11 +1184,38 @@ def main() -> None:
         passthrough_stdin(ctx.data)
         return
 
+    # spec-160 D-160-04/05/06: doc-context bypass. A Write/Edit to a
+    # doc-extension target legitimately cites credential-path / env-var
+    # literals (security runbooks, specs, CHANGELOG). Relax ONLY the
+    # sensitive_paths + sensitive_env_vars categories for those targets;
+    # malicious_domains / shell_patterns and the Layer-2 injection scan
+    # below stay active. Bash never receives this bypass. Emit an auditable
+    # event carrying tool + file_path + skipped categories — never the raw
+    # matched literal (Open Question resolution / D-160-06).
+    doc_path = _is_doc_target(tool_name, tool_input)
+    skip_cats: tuple[str, ...] = ()
+    if doc_path is not None:
+        skip_cats = ("sensitive_paths", "sensitive_env_vars")
+        with contextlib.suppress(Exception):
+            emit_control_outcome(
+                ctx.project_root,
+                category="security",
+                control="ioc-scan-doc-context-bypass",
+                component="hook.prompt-injection-guard",
+                outcome="success",
+                source="hook",
+                metadata={
+                    "tool": tool_name,
+                    "file_path": doc_path,
+                    "skipped_categories": list(skip_cats),
+                },
+            )
+
     # spec-107 D-107-05/06/07: IOC catalog evaluation. Runs BEFORE the
     # injection-pattern scan so a sentinel-classified payload never
     # reaches the (looser) prompt-injection layer. Fail-open: missing
     # catalog returns verdict=allow + matches=[] which is a no-op.
-    ioc_result = evaluate_against_iocs(ctx.project_root, scan_content)
+    ioc_result = evaluate_against_iocs(ctx.project_root, scan_content, skip_categories=skip_cats)
     if ioc_result["verdict"] in ("deny", "warn"):
         _emit_ioc_outcomes(ctx.project_root, tool_name, ioc_result)
     if ioc_result["verdict"] == "deny":

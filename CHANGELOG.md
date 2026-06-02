@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- feat(security): harden the Sentinel IOC runtime guard
+  (`prompt-injection-guard.py`) on three fronts (spec-160). (1) Opt-in
+  fail-closed: a new `security.iocs.fail_closed` manifest knob plus an
+  `AIENG_IOC_FAIL_CLOSED` env override (env wins) make a missing or corrupt
+  IOC catalog deny tool calls instead of silently disabling enforcement. The
+  default stays `false` (bootstrap-safe fail-open) so fresh installs never
+  lock out, and the deny banner names every recovery path (restore the
+  catalog, set the env var to `0`, or use `ai-eng risk accept`). (2)
+  Doc-context bypass: `Write`/`Edit`/`MultiEdit` to a doc-extension target
+  (`.md`, `.mdx`, `.markdown`, `.rst`, `.txt`) relaxes ONLY the
+  credential-path and sensitive-env-var IOC categories so security runbooks
+  can cite those literals; malicious-domain / shell-pattern categories and
+  the Layer-2 prompt-injection scan stay fully active, `Bash` is never
+  bypassed, and every relaxation emits an auditable
+  `ioc-scan-doc-context-bypass` event (path + categories only, never the raw
+  literal). (3) Path-equivalence matching: a `~/`-prefixed catalog path now
+  also matches its `$HOME/`, `${HOME}/`, absolute-home POSIX, and Windows
+  drive-letter forms (backslash-normalized, case-insensitive) so trivial
+  representation swaps no longer evade credential-path detection. Default
+  enforcement behavior is otherwise unchanged.
+
 ## [0.10.1] - 2026-06-02
 
 ### Changed
