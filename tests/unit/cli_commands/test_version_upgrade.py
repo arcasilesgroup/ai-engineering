@@ -78,7 +78,7 @@ class TestVersionShow:
             result = runner.invoke(app, ["version"])
         assert result.exit_code == 0
         assert "999.0.0" in result.output
-        assert "update available" in result.output
+        # CliRunner captures stdout (non-tty) -> the pure-ASCII plain path.
         assert "ai-eng version upgrade" in result.output
 
     def test_degrades_gracefully_when_latest_unknown(self) -> None:

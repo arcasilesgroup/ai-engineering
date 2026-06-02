@@ -478,7 +478,10 @@ def _render_update_notice(config: object | None = None) -> None:
         return
 
     con = get_console()
-    message = f"◈ ai-engineering {__version__} → {latest} · run `ai-eng version upgrade`"
+    # Pure-ASCII variant for raw stderr writes (pipes / CI / legacy cp1252
+    # consoles), so a non-UTF-8 stream never hits UnicodeEncodeError. The
+    # styled terminal path keeps the ◈/→ marks via Rich, which encodes safely.
+    plain_message = f"ai-engineering {__version__} -> {latest} (run: ai-eng version upgrade)"
     if con.is_terminal and not _is_no_color():
         markup = (
             f"[brand.dim]◈ ai-engineering {__version__} → {latest}[/brand.dim] "
@@ -487,9 +490,9 @@ def _render_update_notice(config: object | None = None) -> None:
         try:
             con.print(markup)
         except (ImportError, ModuleNotFoundError):
-            sys.stderr.write(message + "\n")
+            sys.stderr.write(plain_message + "\n")
     else:
-        sys.stderr.write(message + "\n")
+        sys.stderr.write(plain_message + "\n")
 
     cache.mark_shown()
 
@@ -508,6 +511,9 @@ def render_version_status(installed: str, latest: str | None) -> None:
     outdated = bool(latest) and is_newer(latest, installed)
     styled = con.is_terminal and not _is_no_color()
 
+    # The styled path keeps the ◈/→ marks (Rich encodes them safely for the
+    # terminal). The plain path is for pipes/CI/legacy consoles (e.g. Windows
+    # cp1252) and stays pure ASCII so a raw write never hits UnicodeEncodeError.
     if outdated:
         if styled:
             con.print(f"[brand]◈ ai-engineering[/brand] [bold]{installed}[/bold]")
@@ -517,8 +523,7 @@ def render_version_status(installed: str, latest: str | None) -> None:
             )
         else:
             sys.stdout.write(
-                f"◈ ai-engineering {installed}\n"
-                f"  update available → {latest} · run `ai-eng version upgrade`\n"
+                f"ai-engineering {installed} -> {latest} (run: ai-eng version upgrade)\n"
             )
         return
 
@@ -527,7 +532,7 @@ def render_version_status(installed: str, latest: str | None) -> None:
             f"[brand]◈ ai-engineering[/brand] [bold]{installed}[/bold] [muted]· up to date[/muted]"
         )
     else:
-        sys.stdout.write(f"◈ ai-engineering {installed} · up to date\n")
+        sys.stdout.write(f"ai-engineering {installed} (up to date)\n")
 
 
 def _truthy_env(name: str) -> bool:

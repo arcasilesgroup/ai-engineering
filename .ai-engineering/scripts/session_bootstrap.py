@@ -1146,6 +1146,14 @@ def build_dashboard(repo_root: Path | None = None) -> dict:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # The dashboard markdown is inherently UTF-8 (◈ brand mark, box-drawing,
+    # em-dashes, →). Force a UTF-8 stdout so a legacy cp1252 console (Windows)
+    # never crashes with UnicodeEncodeError. Fail-open if reconfigure is absent.
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure is not None:
+        with contextlib.suppress(ValueError, OSError):
+            reconfigure(encoding="utf-8")
+
     parser = argparse.ArgumentParser(
         prog="session_bootstrap",
         description="Emit /ai-start dashboard (deterministic, <3s incl. board).",
