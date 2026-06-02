@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- fix(version): the update-available notice and `ai-eng version` now read a
+  single source of truth for "latest". A new `version.resolve_latest_known()`
+  reconciles the two prior signals — the bundled `registry.json` high-water
+  mark and the live PyPI poll cache — by returning whichever is newer (PEP
+  440). Before, `ai-eng version` rendered one figure from each and could
+  print contradictory lines (`outdated — latest is 0.9.2` beside `latest known
+  release: 0.9.1`), and the inline notice consulted only the cache, so it
+  stayed silent whenever the cache lagged the registry. `ai-eng version` now
+  renders one coherent `◈` status block (`up to date` / `update available →
+  X`) and its `--json` envelope adds `latest`, `update_available`, and
+  `status`.
+
+### Added
+
+- feat(version): the update notice now also surfaces on bare `ai-eng` (the
+  no-subcommand help screen) and in the `/ai-start` session dashboard
+  (`session_bootstrap.py`), in addition to the existing post-command surfaces
+  (`install`/`update`/`status`/…). The dashboard shows the installed version
+  on EVERY start (`◈ ai-engineering X · up to date`), upgrading to
+  `◈ ai-engineering X → Y · run ai-eng version upgrade` when behind — so the
+  version is always visible, not only when outdated. All surfaces share the
+  SSOT resolver and stay silent for automation/`--json`/hook hot paths.
+  `/ai-brainstorm` was deliberately left out — a version nag
+  mid-design-interrogation breaks focus.
+
 ## [0.9.2] - 2026-06-02
 
 ### Fixed

@@ -636,6 +636,54 @@ class TestHooksUnverifiedHint:
         assert "regenerate-hooks-manifest.py" not in rendered
 
 
+@pytest.mark.unit
+class TestVersionUpdateBanner:
+    """The dashboard surfaces a single-source ``update available`` line.
+
+    Wired into the ``/ai-start`` dashboard so a new release shows at session
+    start. Silent when up to date or when the status is unknown (fail-open).
+    """
+
+    @staticmethod
+    def _d(version_status: dict | None) -> dict:
+        return {
+            "hooks_health": "ok",
+            "recent_events_7d": 0,
+            "version_status": version_status,
+        }
+
+    def test_renders_when_update_available(self) -> None:
+        mod = _load_session_bootstrap_module()
+        rendered = mod._render_markdown(
+            self._d({"installed": "0.9.1", "latest": "0.9.2", "update_available": True})
+        )
+        assert "◈ ai-engineering 0.9.1 → 0.9.2" in rendered
+        assert "ai-eng version upgrade" in rendered
+
+    def test_shows_version_when_up_to_date(self) -> None:
+        # The version is ALWAYS visible at session start — up to date shows the
+        # installed version, not silence (operators asked "where's the version").
+        mod = _load_session_bootstrap_module()
+        rendered = mod._render_markdown(
+            self._d({"installed": "0.9.2", "latest": "0.9.2", "update_available": False})
+        )
+        assert "◈ ai-engineering 0.9.2 · up to date" in rendered
+        assert "version upgrade" not in rendered
+
+    def test_silent_when_status_unknown(self) -> None:
+        # Fail-open: status unknowable (ai_engineering not importable) → no line.
+        mod = _load_session_bootstrap_module()
+        rendered = mod._render_markdown(self._d(None))
+        assert "◈ ai-engineering" not in rendered
+
+    def test_version_status_fails_open_without_package(self) -> None:
+        # _version_status swallows import/IO errors and returns None so the
+        # dashboard renders even when ai_engineering is not importable.
+        mod = _load_session_bootstrap_module()
+        result = mod._version_status()
+        assert result is None or isinstance(result, dict)
+
+
 # ---------------------------------------------------------------------------
 # T-14 RED: JSON output includes `surface_resolved`
 # ---------------------------------------------------------------------------

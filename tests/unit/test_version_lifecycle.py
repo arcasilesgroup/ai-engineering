@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
+from ai_engineering import __version__
 from ai_engineering.cli_factory import _EXEMPT_COMMANDS, create_app
 from ai_engineering.version.checker import VersionCheckResult
 from ai_engineering.version.models import VersionStatus
@@ -21,6 +22,7 @@ runner = CliRunner()
 # All patches target the canonical module where check_version is defined,
 # because cli_factory.py and core.py import it locally inside functions.
 _PATCH_TARGET = "ai_engineering.version.checker.check_version"
+_RESOLVE_TARGET = "ai_engineering.version.resolve_latest_known"
 
 
 def _make_check_result(
@@ -200,20 +202,24 @@ class TestVersionCmd:
     """Tests for the version command output."""
 
     def test_shows_lifecycle_status(self) -> None:
-        # Arrange
+        # Arrange: resolver agrees with installed -> coherent "up to date" line.
         app = create_app()
         result_mock = _make_check_result(
             is_current=True,
             status=VersionStatus.CURRENT,
-            message="0.1.0 (current)",
+            message=f"{__version__} (current)",
         )
 
         # Act
-        with patch(_PATCH_TARGET, return_value=result_mock):
+        with (
+            patch(_PATCH_TARGET, return_value=result_mock),
+            patch(_RESOLVE_TARGET, return_value=__version__),
+        ):
             result = runner.invoke(app, ["version"])
 
-        # Assert
-        assert "0.1.0 (current)" in result.output
+        # Assert: single-source status block, no contradictory dual-latest lines.
+        assert __version__ in result.output
+        assert "up to date" in result.output
 
 
 # ---------------------------------------------------------------------------

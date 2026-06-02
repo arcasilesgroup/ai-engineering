@@ -33,6 +33,19 @@ def _clear_console(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("NO_COLOR", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _resolver_reads_cache(monkeypatch: pytest.MonkeyPatch) -> None:
+    # These tests exercise the RENDERER, not the SSOT reconciliation (covered in
+    # tests/unit/version/test_latest.py). Pin the resolver to the seeded cache so
+    # the bundled registry's real high-water mark never leaks into renderer
+    # assertions — the renderer looks up resolve_latest_known on the version
+    # package at call time, so patch it there.
+    monkeypatch.setattr(
+        "ai_engineering.version.resolve_latest_known",
+        lambda: cache.read().get("latest") or None,
+    )
+
+
 def _seed_cache(latest: str, *, shown_hours_ago: float | None = None) -> None:
     payload: dict = {
         "latest": latest,

@@ -1511,48 +1511,49 @@ def _prompt_for_doctor_fix(approve_all: bool) -> bool:
     return response.lower() == "all"
 
 
-def _cached_latest() -> str | None:
-    """Return the latest known release from the version cache, if any.
-
-    Read-only and fail-open: a missing or malformed cache yields ``None`` so
-    ``ai-eng version`` still renders the installed version + lifecycle message.
-    """
-    from ai_engineering.version import cache
-
-    latest = cache.read().get("latest")
-    return latest if isinstance(latest, str) and latest else None
-
-
 def version_cmd(ctx: typer.Context) -> None:
     """Show the installed ai-engineering version and lifecycle status.
 
     Serves as the ``version`` Typer sub-group callback: when a subcommand
     (e.g. ``upgrade``) is invoked, this returns early so the subcommand owns
     the output and there is no double render.
+
+    The latest-version figure comes from the single SSOT resolver
+    (``resolve_latest_known``) — the newer of the bundled registry and the PyPI
+    cache — so this surface can never contradict the inline update notice (the
+    old dual ``message`` + ``latest known release`` lines could disagree).
     """
     if ctx.invoked_subcommand is not None:
         return
 
-    from ai_engineering.version.checker import check_version, load_registry
+    from ai_engineering.cli_ui import get_console, render_version_status
+    from ai_engineering.version import resolve_latest_known
+    from ai_engineering.version.checker import check_version
+    from ai_engineering.version.compare import is_newer
 
-    registry = load_registry()
-    result = check_version(__version__, registry)
-    latest = _cached_latest()
+    result = check_version(__version__)
+    latest = resolve_latest_known()
+    update_available = bool(latest) and is_newer(latest, __version__)
 
     if is_json_mode():
         emit_success(
             "ai-eng version",
             {
                 "version": __version__,
-                "message": result.message,
                 "latest": latest,
+                "update_available": update_available,
+                "status": result.status.value if result.status else None,
+                "message": result.message,
             },
         )
-    else:
-        show_logo()
-        print_stdout(f"ai-engineering {result.message}")
-        if latest:
-            print_stdout(f"latest known release: {latest}")
+        return
+
+    show_logo()
+    render_version_status(__version__, latest)
+    # Deprecated / EOL are security-relevant lifecycle states — surface the
+    # registry message beyond the one-line version status.
+    if result.is_deprecated or result.is_eol:
+        get_console().print(f"  [warning]{result.message}[/warning]")
 
 
 _MANUAL_UPGRADE_COMMANDS: tuple[str, ...] = (

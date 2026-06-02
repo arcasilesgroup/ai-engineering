@@ -47,53 +47,63 @@ def _check_result(message: str = "0.1.0 (current)") -> VersionCheckResult:
 # ---------------------------------------------------------------------------
 
 
+_RESOLVE_TARGET = "ai_engineering.version.resolve_latest_known"
+
+
 class TestVersionShow:
-    """``ai-eng version`` shows installed version and lifecycle message."""
+    """``ai-eng version`` shows installed version + single-source status.
 
-    def test_shows_installed_and_message(self) -> None:
-        app = create_app()
-        with patch(_CHECK_TARGET, return_value=_check_result("0.1.0 (current)")):
-            result = runner.invoke(app, ["version"])
-        assert result.exit_code == 0
-        assert "0.1.0 (current)" in result.output
+    The latest figure now comes from the SSOT resolver, so the human surface
+    renders ONE coherent line (no more contradictory ``latest known release``
+    vs lifecycle ``message``).
+    """
 
-    def test_shows_cached_latest_when_available(self) -> None:
+    def test_shows_up_to_date_when_current(self) -> None:
         app = create_app()
         with (
             patch(_CHECK_TARGET, return_value=_check_result()),
-            patch(
-                "ai_engineering.version.cache.read",
-                return_value={"latest": "0.9.0"},
-            ),
+            patch(_RESOLVE_TARGET, return_value=__version__),
         ):
             result = runner.invoke(app, ["version"])
         assert result.exit_code == 0
-        assert "0.9.0" in result.output
+        assert __version__ in result.output
+        assert "up to date" in result.output
 
-    def test_degrades_gracefully_when_cache_empty(self) -> None:
+    def test_shows_update_available_when_behind(self) -> None:
         app = create_app()
         with (
-            patch(_CHECK_TARGET, return_value=_check_result("0.1.0 (current)")),
-            patch("ai_engineering.version.cache.read", return_value={}),
+            patch(_CHECK_TARGET, return_value=_check_result()),
+            patch(_RESOLVE_TARGET, return_value="999.0.0"),
         ):
             result = runner.invoke(app, ["version"])
         assert result.exit_code == 0
-        assert "0.1.0 (current)" in result.output
+        assert "999.0.0" in result.output
+        assert "update available" in result.output
+        assert "ai-eng version upgrade" in result.output
+
+    def test_degrades_gracefully_when_latest_unknown(self) -> None:
+        app = create_app()
+        with (
+            patch(_CHECK_TARGET, return_value=_check_result()),
+            patch(_RESOLVE_TARGET, return_value=None),
+        ):
+            result = runner.invoke(app, ["version"])
+        assert result.exit_code == 0
+        assert __version__ in result.output
+        assert "up to date" in result.output
 
     def test_json_mode_emits_envelope(self) -> None:
         app = create_app()
         with (
             patch(_CHECK_TARGET, return_value=_check_result()),
-            patch(
-                "ai_engineering.version.cache.read",
-                return_value={"latest": "0.9.0"},
-            ),
+            patch(_RESOLVE_TARGET, return_value="999.0.0"),
         ):
             result = runner.invoke(app, ["--json", "version"])
         assert result.exit_code == 0
         payload = json.loads(result.output)
         assert payload["result"]["version"] == __version__
-        assert payload["result"]["latest"] == "0.9.0"
+        assert payload["result"]["latest"] == "999.0.0"
+        assert payload["result"]["update_available"] is True
 
 
 # ---------------------------------------------------------------------------

@@ -438,7 +438,7 @@ def maybe_render_update_notice(config: object | None = None) -> None:
 
 def _render_update_notice(config: object | None = None) -> None:
     from ai_engineering.cli_output import is_json_mode
-    from ai_engineering.version import cache
+    from ai_engineering.version import cache, resolve_latest_known
     from ai_engineering.version.compare import is_newer
 
     if is_json_mode():
@@ -458,12 +458,15 @@ def _render_update_notice(config: object | None = None) -> None:
 
         refresh.spawn_background()
 
-    data = cache.read()
-    latest = data.get("latest")
+    # SSOT: the newer of the bundled registry and the PyPI cache. Reading the
+    # cache alone left the notice silent whenever the cache lagged the registry.
+    latest = resolve_latest_known()
     if not isinstance(latest, str) or not latest:
         return
     if not is_newer(latest, __version__):
         return
+
+    data = cache.read()
 
     # Throttle: suppress if shown within the TTL window.
     last_shown = data.get("last_shown_at")
@@ -489,6 +492,42 @@ def _render_update_notice(config: object | None = None) -> None:
         sys.stderr.write(message + "\n")
 
     cache.mark_shown()
+
+
+def render_version_status(installed: str, latest: str | None) -> None:
+    """Render the ``ai-eng version`` status block — coherent, single-source.
+
+    Outdated → two lines (installed version + update CTA). Up-to-date or unknown
+    → one line. Uses the same ``◈`` brand mark and dim ink as the inline update
+    notice so both surfaces read as one design system, and takes its ``latest``
+    from the SSOT resolver so it can never contradict the notice.
+    """
+    from ai_engineering.version.compare import is_newer
+
+    con = get_console()
+    outdated = bool(latest) and is_newer(latest, installed)
+    styled = con.is_terminal and not _is_no_color()
+
+    if outdated:
+        if styled:
+            con.print(f"[brand]◈ ai-engineering[/brand] [bold]{installed}[/bold]")
+            con.print(
+                f"  [brand.dim]update available → {latest}[/brand.dim] "
+                "[muted]· run [brand.dim]`ai-eng version upgrade`[/brand.dim][/muted]"
+            )
+        else:
+            sys.stdout.write(
+                f"◈ ai-engineering {installed}\n"
+                f"  update available → {latest} · run `ai-eng version upgrade`\n"
+            )
+        return
+
+    if styled:
+        con.print(
+            f"[brand]◈ ai-engineering[/brand] [bold]{installed}[/bold] [muted]· up to date[/muted]"
+        )
+    else:
+        sys.stdout.write(f"◈ ai-engineering {installed} · up to date\n")
 
 
 def _truthy_env(name: str) -> bool:

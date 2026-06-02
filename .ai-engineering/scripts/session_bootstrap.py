@@ -892,6 +892,32 @@ def _board_summary(root: Path, manifest: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 
+def _version_status() -> dict | None:
+    """Update-available status for the dashboard, or None when unknowable.
+
+    Reuses the CLI's single-source resolver (``resolve_latest_known`` — the
+    newer of the bundled registry and the PyPI cache) so the dashboard agrees
+    with ``ai-eng version`` and the inline notice. Fail-open: any import/IO
+    error (e.g. ai_engineering not importable in a bare checkout) yields None so
+    the dashboard renders without a version line rather than breaking.
+    """
+    try:
+        from ai_engineering import __version__
+        from ai_engineering.version import resolve_latest_known
+        from ai_engineering.version.compare import is_newer
+
+        latest = resolve_latest_known()
+        if not isinstance(latest, str) or not latest:
+            return None
+        return {
+            "installed": __version__,
+            "latest": latest,
+            "update_available": bool(is_newer(latest, __version__)),
+        }
+    except Exception:
+        return None
+
+
 def _render_markdown(d: dict) -> str:
     lines: list[str] = []
     name = d.get("project_name") or "(unnamed)"
@@ -943,6 +969,16 @@ def _render_markdown(d: dict) -> str:
     else:
         state.append(f"hooks: {hh}")
     lines.append("> " + " · ".join(state))
+    vs = d.get("version_status") or {}
+    installed = vs.get("installed")
+    if installed:
+        if vs.get("update_available"):
+            lines.append(
+                f"> ◈ ai-engineering {installed} → {vs.get('latest')}"
+                " · run `ai-eng version upgrade`"
+            )
+        else:
+            lines.append(f"> ◈ ai-engineering {installed} · up to date")
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -1098,6 +1134,7 @@ def build_dashboard(repo_root: Path | None = None) -> dict:
         "mission": _constitution_mission(root / "CONSTITUTION.md"),
         "manifest_summary": _manifest_summary(manifest),
         "compat_warnings": _compat_warnings(manifest),
+        "version_status": _version_status(),
     }
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
