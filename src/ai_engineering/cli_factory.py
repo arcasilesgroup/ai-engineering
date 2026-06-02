@@ -145,13 +145,23 @@ def _maybe_render_post_command_notice() -> None:
     re-loaded it — halving the per-command manifest parse on the CLI hot
     path. Fail-open: any error is swallowed by the notice renderer itself.
     """
+    if _invoked_command is None or _invoked_command in _NOTICE_EXEMPT:
+        return
+    _render_update_notice_gated()
+
+
+def _render_update_notice_gated() -> None:
+    """Shared notice gate: JSON / env opt-out / manifest flag → cli_ui renderer.
+
+    Extracted so both the post-command path and the bare ``ai-eng`` invocation
+    (which exits in the app callback, never reaching the error boundary) render
+    the notice through one set of gates. Fail-open: the renderer swallows errors.
+    """
     import os
 
     from ai_engineering.cli_output import is_json_mode
 
     if is_json_mode():
-        return
-    if _invoked_command is None or _invoked_command in _NOTICE_EXEMPT:
         return
     if os.environ.get("AIENG_NO_UPDATE_CHECK", "").strip().lower() in {"1", "true", "yes", "on"}:
         return
@@ -220,6 +230,9 @@ def _app_callback(
 
             show_logo()
             typer.echo(ctx.get_help())
+            # Bare `ai-eng` exits here, never reaching the error boundary, so
+            # render the update notice inline before exiting.
+            _render_update_notice_gated()
             raise typer.Exit(code=0)
 
     if not json_output and ctx.invoked_subcommand not in {"version", "internal"}:
