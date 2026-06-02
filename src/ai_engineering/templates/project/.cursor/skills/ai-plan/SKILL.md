@@ -25,17 +25,26 @@ edit_policy: generated-do-not-edit
 
 Takes an approved spec and produces a phased execution plan — bite-sized tasks, agent assignments, gate criteria. The plan is the contract `/ai-build` executes. **HARD GATE**: operator must approve before `/ai-build` runs (§10.6 SDD).
 
-1. **Read spec** — load `.ai-engineering/specs/spec.md`; flag missing sections per `spec-schema.md`.
-2. **Explore codebase** (read-only) — current architecture, patterns, affected files (§10.3 SOLID).
-3. **Classify pipeline** — full / standard / hotfix / trivial.
-4. **Classify executor route** — write `execution_route` frontmatter: `executor: build` + `safe_next_command: "/ai-build"` for single-concern plans, or `executor: autopilot` + `safe_next_command: "/ai-autopilot"` for multi-concern/large plans. `status` remains the only approval field; draft plans are recommendations only. Emit `framework_operation` detail `operation=execution_routed`.
-5. **Design routing** — invoke `handlers/design-routing.md`; capture output at `.ai-engineering/specs/<spec-id>/design-intent.md` under `## Design`. `--skip-design` logs reason and proceeds.
-6. **Identify architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`. Record under `## Architecture` BEFORE decomposition.
-7. **Decompose into tasks** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered. Apply the **exhaustive patch-ready output template** below (D-131-08 / sub-003).
-8. **Assign agents** — capability-match (build = code; verify = read-only; guard = advisory).
-9. **Order phases** + gate criteria. **TDD pairs** (§10.5): write a RED test task before any GREEN implementation task.
-10. **Self-review** (§10.7 Clean Code) — spec-reviewer pattern, max 2 iterations.
-11. **Write** to `.ai-engineering/specs/plan.md`, print `safe_next_command`, and **STOP** — operator approves and runs that command.
+1. **Approval gate (HARD STOP, no escape hatch)** — BEFORE reading the spec for decomposition, resolve the active spec's CANONICAL lifecycle state. Read `<spec_id>` from `.ai-engineering/specs/spec.md` frontmatter `spec:` (fallback `slug:`), then run `python .ai-engineering/scripts/spec_lifecycle.py status <spec_id>` to read the sidecar `state`.
+   - **Sidecar resolves to a known state ≠ `approved`** → HARD STOP. Write NO `plan.md`. Emit exactly:
+     ```
+     Error: spec-<id> is in '<state>' state.
+     Complete /ai-brainstorm approval before running /ai-plan.
+     ```
+   - **No sidecar exists** → fall back to `spec.md` frontmatter `status:`; block (same HARD STOP) unless `status: approved`.
+   - **Neither sidecar NOR frontmatter `status:` resolves** → this is indeterminate plumbing only (D-161-03): emit a LOUD warning and proceed (fail-open).
+   - Vocab: sidecar `approved` ⇔ frontmatter `status: approved`. There is NO `--force` / escape hatch — the ONLY bypass is approving the spec via `/ai-brainstorm`.
+2. **Read spec** — load `.ai-engineering/specs/spec.md`; flag missing sections per `spec-schema.md`.
+3. **Explore codebase** (read-only) — current architecture, patterns, affected files (§10.3 SOLID).
+4. **Classify pipeline** — full / standard / hotfix / trivial.
+5. **Classify executor route** — write `execution_route` frontmatter: `executor: build` + `safe_next_command: "/ai-build"` for single-concern plans, or `executor: autopilot` + `safe_next_command: "/ai-autopilot"` for multi-concern/large plans. `status` remains the only approval field; draft plans are recommendations only. Emit `framework_operation` detail `operation=execution_routed`.
+6. **Design routing** — invoke `handlers/design-routing.md`; capture output at `.ai-engineering/specs/<spec-id>/design-intent.md` under `## Design`. `--skip-design` logs reason and proceeds.
+7. **Identify architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`. Record under `## Architecture` BEFORE decomposition.
+8. **Decompose into tasks** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered. Apply the **exhaustive patch-ready output template** below (D-131-08 / sub-003).
+9. **Assign agents** — capability-match (build = code; verify = read-only; guard = advisory).
+10. **Order phases** + gate criteria. **TDD pairs** (§10.5): write a RED test task before any GREEN implementation task.
+11. **Self-review** (§10.7 Clean Code) — spec-reviewer pattern, max 2 iterations.
+12. **Write** to `.ai-engineering/specs/plan.md`, print `safe_next_command`, and **STOP** — operator approves and runs that command.
 
 ### Output template — exhaustive patch-ready (D-131-08)
 

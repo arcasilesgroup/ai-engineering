@@ -553,6 +553,45 @@ def mark_shipped(spec_id: str, pr: str, branch: str, project_root: Path) -> Spec
     return record
 
 
+def approve(spec_id: str, project_root: Path) -> SpecRecord:
+    """Transition DRAFT → APPROVED (idempotent, FSM-guarded; spec-161 D-161-06).
+
+    Composes ``_load_state`` + the domain ``transition`` + ``_write_state`` +
+    ``_append_event`` under the shared write path. Re-approving an already-
+    APPROVED record is a no-op (no FSM raise, no duplicate event, no write).
+    Any other source state (SHIPPED/ABANDONED/ARCHIVED) surfaces an illegal move
+    via ``transition`` (ValueError → ``main`` returns 1). The sidecar JSON is the
+    canonical store; the ``spec.md`` frontmatter is a best-effort mirror written
+    AFTER the sidecar write (D-161-01).
+    """
+    record = _load_state(project_root, spec_id)
+    if record.state is LifecycleState.APPROVED:
+        return record  # idempotent — no event, no write.
+    record.state = transition(record.state, LifecycleState.APPROVED)
+    _write_state(project_root, record)
+    _append_event(project_root, "spec_approved", {"spec_id": record.spec_id})
+    _mirror_frontmatter_status(project_root, record)
+    return record
+
+
+def start(spec_id: str, project_root: Path) -> SpecRecord:
+    """Transition APPROVED → IN_PROGRESS (idempotent, FSM-guarded; spec-161 D-161-06).
+
+    Symmetric with ``approve``. The event kind ``spec_started_impl`` is distinct
+    from the ``spec_started`` create-event ``start_new`` emits, so the two never
+    collide in the audit stream. Re-starting an already-IN_PROGRESS record is a
+    no-op; an illegal source state surfaces via ``transition``.
+    """
+    record = _load_state(project_root, spec_id)
+    if record.state is LifecycleState.IN_PROGRESS:
+        return record  # idempotent — no event, no write.
+    record.state = transition(record.state, LifecycleState.IN_PROGRESS)
+    _write_state(project_root, record)
+    _append_event(project_root, "spec_started_impl", {"spec_id": record.spec_id})
+    _mirror_frontmatter_status(project_root, record)
+    return record
+
+
 def archive(spec_id: str, project_root: Path) -> SpecRecord:
     """Move SHIPPED|ABANDONED → ARCHIVED (idempotent)."""
     record = _load_state(project_root, spec_id)
@@ -777,15 +816,18 @@ def _spec_id_in_ledger(spec_id: str, ledger_ids: set[str]) -> bool:
 
 
 def _scan_spec_numbers(project_root: Path) -> set[int]:
-    """Collect every ``spec-NNN`` number from sidecars + the history ledger.
+    """Collect every ``spec-NNN`` number from sidecars, the ledger + archive dirs.
 
-    Scans both the sidecar ``spec_id`` fields and the canonical
-    ``_history.md`` ID cells, parsing the ``spec-(\\d+)`` form. Bare legacy
-    numeric ledger IDs (``099``) are intentionally ignored here: the canonical
-    identity is ``spec-NNN`` and the historical rows are frozen records, but
-    the highest historical number is still captured via its ``spec-``-prefixed
-    presence in sidecars / new rows. The fixture's bare ``099`` is matched by
-    the dedicated ledger pass below.
+    Scans three sources, all parsed via the ``spec-(\\d+)`` form: the sidecar
+    ``spec_id`` fields, the canonical ``_history.md`` ID cells, and the archive
+    ``spec-NNN-<slug>`` directory names under ``specs/archive/`` (spec-161 #574
+    Bug 1 — a shipped+archived spec whose sidecar was consolidated away must
+    still anchor the next mint so an archived number is never re-used). Bare
+    legacy numeric ledger IDs (``099``) are intentionally ignored here: the
+    canonical identity is ``spec-NNN`` and the historical rows are frozen
+    records, but the highest historical number is still captured via its
+    ``spec-``-prefixed presence in sidecars / new rows. The fixture's bare
+    ``099`` is matched by the dedicated ledger pass below.
     """
     numbers: set[int] = set()
     specs = _specs_dir(project_root)
@@ -806,6 +848,14 @@ def _scan_spec_numbers(project_root: Path) -> set[int]:
             # Legacy bare-number ledger rows (e.g. ``099``) still anchor the
             # max so the next mint never collides with a historical spec.
             numbers.add(int(hid))
+    archive = _archive_dir(project_root)
+    if archive.is_dir():
+        for child in archive.iterdir():
+            if not child.is_dir():
+                continue
+            amatch = _ARCHIVE_DIR_RE.match(child.name)
+            if amatch:
+                numbers.add(int(amatch.group(1)))
     return numbers
 
 
@@ -1017,6 +1067,44 @@ def _resolve_merged_pr(project_root: Path, branch: str) -> str:
     return "—"
 
 
+def _pr_merged_via_gh(project_root: Path, branch: str) -> bool:
+    """True when ``gh`` reports at least one merged PR for ``branch``; fail-open False.
+
+    Runs ``gh pr list --head <branch> --state merged --json number`` (mirroring
+    the subprocess fail-open shape of ``_resolve_merged_pr``). A merged PR closes
+    the gap where the local branch ref was pruned post-merge, so
+    ``_branch_is_merged`` alone would mis-classify a genuinely merged spec as
+    unmerged (spec-161 #574 Bug 2). ``gh`` absent / non-zero / empty / JSON error
+    all return ``False`` so the classification never blocks the cleanup path.
+    """
+    try:
+        result = subprocess.run(
+            [
+                "gh",
+                "pr",
+                "list",
+                "--head",
+                branch,
+                "--state",
+                "merged",
+                "--json",
+                "number",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, OSError):
+        return False
+    if result.returncode != 0:
+        return False
+    try:
+        rows = json.loads(result.stdout or "[]")
+    except json.JSONDecodeError:
+        return False
+    return isinstance(rows, list) and len(rows) >= 1
+
+
 def reconcile_merged(project_root: Path, *, default_branch: str = _DEFAULT_BRANCH) -> dict:
     """Auto-mark merged-but-unshipped specs SHIPPED (idempotent backstop).
 
@@ -1066,7 +1154,14 @@ def reconcile_merged(project_root: Path, *, default_branch: str = _DEFAULT_BRANC
         if not record.branch:
             skipped.append({"spec_id": record.spec_id, "reason": "no-branch"})
             continue
-        if not _branch_is_merged(project_root, record.branch, default_branch):
+        # Classify merged via two independent signals (spec-161 #574 Bug 2): a
+        # ``gh``-reported merged PR for the branch (survives a pruned local ref)
+        # OR the local-branch true-merge / squash taxonomy. The ledger guard
+        # above still precedes any git/gh work, so historical rows never re-ship.
+        merged = _pr_merged_via_gh(project_root, record.branch) or _branch_is_merged(
+            project_root, record.branch, default_branch
+        )
+        if not merged:
             unmerged.append({"spec_id": record.spec_id, "branch": record.branch})
             continue
         pr = _resolve_merged_pr(project_root, record.branch)
@@ -1144,6 +1239,86 @@ def _spec_frontmatter_id(project_root: Path) -> str | None:
             if _SPEC_NUMBER_RE.match(value):
                 return value
     return None
+
+
+# state.value → frontmatter ``status:`` vocabulary map (spec-161 D-161-02).
+_STATE_TO_STATUS: dict[str, str] = {
+    "draft": "draft",
+    "approved": "approved",
+    "in_progress": "in-progress",
+    "shipped": "done",
+}
+
+
+def _frontmatter_field(project_root: Path, field_name: str) -> str | None:
+    """Read a raw frontmatter ``field_name:`` value from ``specs/spec.md``, or None."""
+    spec_md = _spec_buffer_path(project_root)
+    if not spec_md.exists():
+        return None
+    in_frontmatter = False
+    prefix = f"{field_name}:"
+    for line in spec_md.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped == "---":
+            if in_frontmatter:
+                break
+            in_frontmatter = True
+            continue
+        if in_frontmatter and stripped.startswith(prefix):
+            return stripped.split(":", 1)[1].strip()
+    return None
+
+
+def _mirror_frontmatter_status(project_root: Path, record: SpecRecord) -> None:
+    """Best-effort mirror the record's state onto the ``specs/spec.md`` frontmatter.
+
+    The sidecar JSON is canonical; this mirror is a convenience projection written
+    AFTER the sidecar write (spec-161 D-161-01). The ``status:`` line is rewritten
+    using the ``state.value`` → status map (D-161-02) **only** when the live
+    buffer's frontmatter ``spec:`` equals ``record.spec_id`` OR its ``slug:``
+    equals ``record.slug`` — never a cross-spec write against an unrelated
+    in-flight buffer. All other frontmatter lines and the body bytes are preserved
+    exactly. Fail-open (D-161-08): any ``OSError`` logs to stderr and returns; this
+    function NEVER raises, so a missing/locked/unwritable buffer can't fail the verb.
+    """
+    spec_md = _spec_buffer_path(project_root)
+    new_status = _STATE_TO_STATUS.get(record.state.value)
+    if new_status is None:
+        return
+    try:
+        if not spec_md.exists():
+            return
+        fm_spec = _frontmatter_field(project_root, "spec")
+        fm_slug = _frontmatter_field(project_root, "slug")
+        if fm_spec != record.spec_id and fm_slug != record.slug:
+            return  # not this spec's buffer — never cross-write.
+        original = spec_md.read_text(encoding="utf-8")
+        lines = original.splitlines(keepends=True)
+        in_frontmatter = False
+        rewritten = False
+        out: list[str] = []
+        for line in lines:
+            stripped = line.strip()
+            if not rewritten and stripped == "---":
+                if in_frontmatter:
+                    # Closing fence reached without a status line — append one.
+                    out.append(f"status: {new_status}\n")
+                    out.append(line)
+                    rewritten = True
+                    in_frontmatter = False
+                    continue
+                in_frontmatter = True
+                out.append(line)
+                continue
+            if in_frontmatter and not rewritten and stripped.startswith("status:"):
+                newline = "\n" if line.endswith("\n") else ""
+                out.append(f"status: {new_status}{newline}")
+                rewritten = True
+                continue
+            out.append(line)
+        _atomic_write(spec_md, "".join(out))
+    except OSError as exc:
+        print(f"warning: frontmatter status mirror skipped: {exc}", file=sys.stderr)
 
 
 def _history_title_to_id(project_root: Path) -> dict[str, list[str]]:
@@ -1378,6 +1553,12 @@ def _build_parser() -> argparse.ArgumentParser:
     sn.add_argument("slug")
     sn.add_argument("title")
     _common(sn)
+    ap = sub.add_parser("approve", help="Transition DRAFT → APPROVED")
+    ap.add_argument("spec_id")
+    _common(ap)
+    sta = sub.add_parser("start", help="Transition APPROVED → IN_PROGRESS")
+    sta.add_argument("spec_id")
+    _common(sta)
     ms = sub.add_parser("mark_shipped", help="Mark spec SHIPPED post-merge")
     ms.add_argument("spec_id")
     ms.add_argument("pr")
@@ -1425,6 +1606,12 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.cmd == "start_new":
             record = start_new(args.slug, args.title, project_root)
+            print(json.dumps(record.to_json(), indent=2))
+        elif args.cmd == "approve":
+            record = approve(args.spec_id, project_root)
+            print(json.dumps(record.to_json(), indent=2))
+        elif args.cmd == "start":
+            record = start(args.spec_id, project_root)
             print(json.dumps(record.to_json(), indent=2))
         elif args.cmd == "mark_shipped":
             record = mark_shipped(args.spec_id, args.pr, args.branch, project_root)
