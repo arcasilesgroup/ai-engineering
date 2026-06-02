@@ -413,7 +413,7 @@ def _load_version_check_config() -> object:
         return VersionCheckConfig()
 
 
-def maybe_render_update_notice(config: object | None = None) -> None:
+def maybe_render_update_notice(config: object | None = None, *, force: bool = False) -> None:
     """Render a one-line "update available" notice when appropriate.
 
     Reads the version-check cache, the installed ``__version__``, and the
@@ -424,6 +424,11 @@ def maybe_render_update_notice(config: object | None = None) -> None:
     stale (older than TTL) it fires a detached background refresh and still
     renders from whatever the cache currently holds.
 
+    ``force`` bypasses ONLY the once-per-``ttl_hours`` show throttle (not the
+    up-to-date / disabled / JSON gates), for explicit "look at the tool"
+    surfaces like bare ``ai-eng`` that should behave like ``ai-eng version``
+    rather than a frequent automation command.
+
     When ``config`` (the resolved ``version_check`` block) is supplied by the
     caller, the manifest is NOT re-parsed here — the CLI hot path loads it
     once and threads it in (spec-157 review F7). When ``None`` the config is
@@ -431,12 +436,12 @@ def maybe_render_update_notice(config: object | None = None) -> None:
     never breaks.
     """
     try:
-        _render_update_notice(config)
+        _render_update_notice(config, force=force)
     except Exception:
         return
 
 
-def _render_update_notice(config: object | None = None) -> None:
+def _render_update_notice(config: object | None = None, *, force: bool = False) -> None:
     from ai_engineering.cli_output import is_json_mode
     from ai_engineering.version import cache, resolve_latest_known
     from ai_engineering.version.compare import is_newer
@@ -468,10 +473,12 @@ def _render_update_notice(config: object | None = None) -> None:
 
     data = cache.read()
 
-    # Throttle: suppress if shown within the TTL window.
+    # Throttle: suppress if shown within the TTL window — unless ``force`` (the
+    # caller is an explicit version-check surface, e.g. bare ``ai-eng``).
     last_shown = data.get("last_shown_at")
     if (
-        isinstance(last_shown, str)
+        not force
+        and isinstance(last_shown, str)
         and last_shown
         and not _shown_window_elapsed(last_shown, ttl_hours)
     ):

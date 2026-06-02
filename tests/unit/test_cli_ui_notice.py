@@ -90,6 +90,23 @@ def test_silent_when_throttled(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     assert capsys.readouterr().err == ""
 
 
+def test_force_bypasses_throttle(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    # Bare `ai-eng` passes force=True so it renders even within the throttle
+    # window (explicit version-check surface, like `ai-eng version`).
+    monkeypatch.setattr(cli_ui, "__version__", "0.1.0")
+    _seed_cache("0.9.0", shown_hours_ago=1.0)  # within 24h window
+    cli_ui.maybe_render_update_notice(force=True)
+    assert "0.9.0" in capsys.readouterr().err
+
+
+def test_force_still_silent_when_current(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    # force bypasses ONLY the throttle, never the up-to-date gate.
+    monkeypatch.setattr(cli_ui, "__version__", "0.9.0")
+    _seed_cache("0.9.0")
+    cli_ui.maybe_render_update_notice(force=True)
+    assert capsys.readouterr().err == ""
+
+
 def test_renders_when_throttle_expired(monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     monkeypatch.setattr(cli_ui, "__version__", "0.1.0")
     _seed_cache("0.9.0", shown_hours_ago=48.0)  # past 24h window
