@@ -154,5 +154,6 @@ Completed specs. Details in git history.
 | spec-153 | Spec/Plan Lifecycle Automation and Client-Facing Capability README | shipped | 2026-05-24 | 2026-05-29 | 539 | spec-153-lifecycle-and-client-readmes |
 | spec-157 | Version Update Notice — Clean Re-land (scope-free) | shipped | 2026-05-30 | 2026-05-31 | 557 | feat/version-update-notice-clean |
 | spec-158 | Installer source-of-truth parity | shipped | 2026-06-02 | 2026-06-02 | 561 | spec-159-installer-parity |
+| spec-160 | Harden Sentinel IOC runtime: fail-closed + doc-context + path-equivalence | shipped | 2026-06-02 | 2026-06-02 | 572 | spec-160-sentinel-ioc-hardening |
 
 ---
