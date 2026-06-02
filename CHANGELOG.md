@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-06-02
+
 ### Changed
 
 - feat(version): bare `ai-eng` (the no-subcommand help screen) now shows the
@@ -16,7 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keep the throttle so they never nag twice in a window. Threaded via a new
   `force` flag on `maybe_render_update_notice` (bypasses only the throttle, not
   the up-to-date / disabled / JSON gates).
-
 ## [0.10.0] - 2026-06-02
 
 ### Fixed
