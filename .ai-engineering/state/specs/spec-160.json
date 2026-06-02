@@ -2,10 +2,10 @@
   "branch": "spec-160-sentinel-ioc-hardening",
   "created": "2026-06-02T19:53:54.973253+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "572",
+  "shipped": "2026-06-02T21:59:38.855271+00:00",
   "slug": "sentinel-ioc-hardening",
   "spec_id": "spec-160",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Harden Sentinel IOC runtime: fail-closed + doc-context + path-equivalence"
 }
