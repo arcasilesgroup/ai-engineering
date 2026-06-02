@@ -57,7 +57,13 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 6. **Draft spec** -- write spec to `.ai-engineering/specs/spec.md`. Then run the **Step 0.5 — Section pre-flight** (deterministic gate) **before** any LLM validation pass: invoke `ai-eng spec verify --sections .ai-engineering/specs/spec.md` (spec-139 M7). The CLI runs a regex/string-contains scan for the five required headers (`## Summary`, `## Goals`, `## Non-Goals`, `## Decisions`, `## Risks`) and emits JSON with `valid`, `missing_sections`, `present_sections`. Exit 1 short-circuits the LLM validation — patch the missing headers and re-run before continuing. Only when the script reports `valid=true` proceed to the LLM-driven schema validation against `.ai-engineering/reference/spec-schema.md`.
 7. **Board sync (ready)** -- if a work item ID was provided in step 1, invoke `/ai-board sync ready <work-item-ref>` to transition the work item to ready state (fail-open: do not block brainstorm if this fails)
 8. **Review spec** -- follow `handlers/spec-review.md` for the review loop (max 3 iterations)
-9. **STOP** -- present approved spec. User runs `/ai-plan` to continue.
+9. **STOP** -- present the spec for approval. At the moment the operator
+   approves, call `python .ai-engineering/scripts/spec_lifecycle.py approve <spec_id>`
+   (read `<spec_id>` from the spec frontmatter `spec:`, fallback `slug:`) to
+   transition the canonical sidecar DRAFT→APPROVED, which also mirrors
+   `status: approved` into `spec.md` frontmatter. **Fail-open** (D-161-08): a
+   non-zero exit logs and does NOT block the STOP. Then present the approved
+   spec — User runs `/ai-plan` to continue.
 
 ## Questioning Rules
 
@@ -82,7 +88,7 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 ## Integration
 
 - **Called by**: user directly, or `/ai-plan` when requirements are unclear
-- **Calls**: `handlers/auto-spec-gate.md` (Step 0b trivial-vs-spec classifier via `ai_engineering.brainstorm.auto_spec_gate.classify_diff`), `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board sync` (refinement + ready transitions), `.ai-engineering/scripts/spec_lifecycle.py start_new` (fail-open lifecycle bootstrap)
+- **Calls**: `handlers/auto-spec-gate.md` (Step 0b trivial-vs-spec classifier via `ai_engineering.brainstorm.auto_spec_gate.classify_diff`), `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board sync` (refinement + ready transitions), `.ai-engineering/scripts/spec_lifecycle.py start_new` (fail-open lifecycle bootstrap), `.ai-engineering/scripts/spec_lifecycle.py approve` (Step 9 DRAFT→APPROVED on operator approval, fail-open)
 - **Transitions to**: `/ai-plan` (ONLY -- never directly to `ai-build` or `/ai-build`)
 
 ## Examples

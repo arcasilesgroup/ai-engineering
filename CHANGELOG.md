@@ -9,6 +9,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(spec): close the spec-lifecycle approval gate and harden the
+  numbering/reconcile integrity surface (spec-161, issues #550/#551/#574).
+  `spec_lifecycle.py` gains two CLI verbs — `approve` (DRAFT→APPROVED) and
+  `start` (APPROVED→IN_PROGRESS) — both idempotent, FSM-guarded, and emitting
+  `spec_approved` / `spec_started_impl` framework events. The sidecar JSON
+  stays the canonical lifecycle-state store (persistence-doctrine); each verb
+  best-effort mirrors the mapped `status:` into `spec.md` frontmatter
+  (`approved`→`approved`, `in_progress`→`in-progress`) and never raises on a
+  mirror failure. `/ai-brainstorm` Step 9 now calls `approve` at the operator
+  approval gate and `/ai-build` Step 1 calls `start`, so specs reach
+  `approved`/`in-progress` organically through the canonical chain (both
+  fail-open).
+
+### Changed
+
+- feat(spec): `/ai-plan` now enforces a HARD approval gate (issue #551). It
+  reads the active spec's canonical sidecar `state` (resolving the id from
+  `spec.md` frontmatter `spec:`, falling back to `slug:`, then to the
+  frontmatter `status:`) and refuses to produce `plan.md` for any resolvable
+  non-`approved` state, printing
+  `Error: spec-<id> is in '<state>' state. Complete /ai-brainstorm approval
+  before running /ai-plan.`. It fails open (loud warning + proceed) ONLY when
+  neither the sidecar nor the frontmatter status resolves — there is no
+  `--force` escape hatch. **Breaking**: a draft spec that previously decomposed
+  silently now blocks until approved.
+
+### Fixed
+
+- fix(spec): `spec_lifecycle.py` next-number minting is no longer blind to
+  archived specs (issue #574 Bug 1). `_scan_spec_numbers` now unions the
+  numbers parsed from `specs/archive/spec-NNN-*/` directory names with the
+  live sidecar + `_history.md` sources, so `start_new` can never re-mint a
+  number whose only surviving trace is its archive directory (the spec-159
+  collision that forced a manual bump).
+- fix(spec): `reconcile_merged` classifies merge state via `gh` PR state
+  (`gh pr list --head <branch> --state merged`) as the primary signal, with the
+  local git-ref check as fallback (issue #574 Bug 2). A spec merged via the
+  GitHub UI whose local branch was already pruned by an earlier branch-cleanup
+  phase is now still detected as merged and consolidated, instead of being
+  reported `unmerged` and skipped. Ordering-independent; `gh`-absent falls back
+  to the prior behavior; the `_history.md` idempotency guard is unchanged.
+- fix(spec): reconcile the installer-parity `_history.md` ledger row id
+  (`spec-158`) to match its archive directory, branch, and PR
+  (`spec-159-installer-parity`) — a one-time data correction (issue #574
+  Bug 1b).
+
 - feat(security): harden the Sentinel IOC runtime guard
   (`prompt-injection-guard.py`) on three fronts (spec-160). (1) Opt-in
   fail-closed: a new `security.iocs.fail_closed` manifest knob plus an

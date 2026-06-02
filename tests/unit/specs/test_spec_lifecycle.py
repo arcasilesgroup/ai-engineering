@@ -1926,3 +1926,400 @@ class TestMigrateIdsArchiveDirResolution:
         specs = project_root / ".ai-engineering" / "state" / "specs"
         assert (specs / "files-only-persistence.json").exists()
         assert "files-only-persistence" in report["unresolved"]
+
+
+# ---------------------------------------------------------------------------
+# P1 — archive-blind numbering (spec-161 #574 Bug 1)
+# ---------------------------------------------------------------------------
+
+
+def _make_archive_spec_dir(project_root: Path, dir_name: str) -> None:
+    """Create an empty ``specs/archive/<dir_name>/`` directory (no spec.md needed)."""
+    (project_root / ".ai-engineering" / "specs" / "archive" / dir_name).mkdir(
+        parents=True, exist_ok=True
+    )
+
+
+class TestNextSpecNumberArchiveAware:
+    """``_next_spec_number`` must also scan archive ``spec-NNN-*`` dir names.
+
+    Regression for #574 Bug 1: a shipped+archived spec whose sidecar was
+    consolidated away (cleared) left its number invisible to the scanner, so
+    ``start_new`` could re-mint an already-used (archived) number.
+    """
+
+    def test_archived_dir_number_dominates_next_mint(self, lifecycle, project_root):
+        # Live sidecar max is 158; an archive dir carries 207 -> next is 208.
+        _seed_sidecar(project_root, "spec-158", slug="live-max", title="Live Max")
+        _make_archive_spec_dir(project_root, "spec-207-foo")
+        assert lifecycle._next_spec_number(project_root) == 208
+
+    def test_sidecar_only_case_still_passes(self, lifecycle, tmp_path):
+        # No archive, no ledger: sidecar max + 1 (no regression).
+        (tmp_path / ".ai-engineering" / "specs").mkdir(parents=True)
+        (tmp_path / ".ai-engineering" / "state" / "specs").mkdir(parents=True)
+        (tmp_path / ".ai-engineering" / "state" / "locks").mkdir(parents=True)
+        _seed_sidecar(tmp_path, "spec-042", slug="only", title="Only")
+        assert lifecycle._next_spec_number(tmp_path) == 43
+
+    def test_ledger_only_case_still_passes(self, lifecycle, project_root):
+        # The fixture ledger tops out at bare 099; no sidecars, no archive.
+        assert lifecycle._next_spec_number(project_root) == 100
+
+    def test_scan_unions_archive_with_sidecar_and_ledger(self, lifecycle, project_root):
+        # Fixture ledger=099, sidecar=120, archive=207 -> union max 207, +1=208.
+        _seed_sidecar(project_root, "spec-120", slug="mid", title="Mid")
+        _make_archive_spec_dir(project_root, "spec-207-foo")
+        nums = lifecycle._scan_spec_numbers(project_root)
+        assert 99 in nums
+        assert 120 in nums
+        assert 207 in nums
+        assert lifecycle._next_spec_number(project_root) == 208
+
+
+# ---------------------------------------------------------------------------
+# P2 — reconcile gh-classify with no local branch ref (spec-161 #574 Bug 2)
+# ---------------------------------------------------------------------------
+
+
+class TestReconcileGhClassify:
+    """``reconcile_merged`` ships when ``gh`` reports a merged PR, even with no
+    local branch ref (the merged branch was pruned)."""
+
+    def test_gh_merged_pr_ships_without_local_branch_ref(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-220",
+            slug="gh-merged",
+            title="GH Merged",
+            state="in_progress",
+            branch="spec-220-gh-merged",
+        )
+        # ``_branch_is_merged`` would say False (no local branch ref), but the
+        # gh PR query reports a merged PR -> ship.
+        monkeypatch.setattr(lifecycle, "_branch_is_merged", lambda *a, **k: False)
+        monkeypatch.setattr(
+            lifecycle,
+            "_pr_merged_via_gh",
+            lambda root, branch: branch == "spec-220-gh-merged",
+        )
+        monkeypatch.setattr(lifecycle, "_resolve_merged_pr", lambda root, branch: "820")
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        shipped = lifecycle.status("spec-220", project_root)
+        assert shipped.state is lifecycle.LifecycleState.SHIPPED
+        assert "spec-220" in {r["spec_id"] for r in report["shipped"]}
+
+    def test_falls_back_to_branch_merged_when_gh_silent(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-221",
+            slug="local-merged",
+            title="Local Merged",
+            state="in_progress",
+            branch="spec-221-local-merged",
+        )
+        # gh returns nothing; the local-branch classifier says merged -> ship.
+        monkeypatch.setattr(lifecycle, "_pr_merged_via_gh", lambda root, branch: False)
+        monkeypatch.setattr(
+            lifecycle,
+            "_branch_is_merged",
+            lambda root, branch, default: branch == "spec-221-local-merged",
+        )
+        monkeypatch.setattr(lifecycle, "_resolve_merged_pr", lambda root, branch: "821")
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert lifecycle.status("spec-221", project_root).state is lifecycle.LifecycleState.SHIPPED
+        assert "spec-221" in {r["spec_id"] for r in report["shipped"]}
+
+    def test_unmerged_when_both_gh_and_branch_say_no(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-222",
+            slug="not-merged",
+            title="Not Merged",
+            state="in_progress",
+            branch="spec-222-not-merged",
+        )
+        monkeypatch.setattr(lifecycle, "_pr_merged_via_gh", lambda root, branch: False)
+        monkeypatch.setattr(lifecycle, "_branch_is_merged", lambda *a, **k: False)
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert (
+            lifecycle.status("spec-222", project_root).state is lifecycle.LifecycleState.IN_PROGRESS
+        )
+        assert "spec-222" in {r["spec_id"] for r in report["unmerged"]}
+        assert "spec-222" not in {r["spec_id"] for r in report["shipped"]}
+
+    def test_ledger_idempotency_guard_still_precedes_gh(self, lifecycle, project_root, monkeypatch):
+        """A spec already in the ledger is skipped before any gh/git work."""
+        history = project_root / ".ai-engineering" / "specs" / "_history.md"
+        history.write_text(
+            "# Spec History\n\n"
+            "Completed specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n"
+            "| spec-223 | Already In Ledger | shipped | 2026-05-01 | 2026-05-01 | #1 | feat/x |\n",
+            encoding="utf-8",
+        )
+        _seed_branch_sidecar(
+            project_root,
+            "spec-223",
+            slug="in-ledger",
+            title="Already In Ledger",
+            state="in_progress",
+            branch="spec-223-in-ledger",
+        )
+        # Even if gh would say merged, the ledger guard skips it first.
+        called = {"gh": False}
+
+        def _gh(root, branch):
+            called["gh"] = True
+            return True
+
+        monkeypatch.setattr(lifecycle, "_pr_merged_via_gh", _gh)
+        monkeypatch.setattr(lifecycle, "_branch_is_merged", lambda *a, **k: True)
+
+        report = lifecycle.reconcile_merged(project_root)
+
+        assert "spec-223" not in {r["spec_id"] for r in report["shipped"]}
+        assert "spec-223" in {r["spec_id"] for r in report["skipped"]}
+        assert called["gh"] is False, "ledger guard must precede any gh classification"
+        rows = [ln for ln in history.read_text().splitlines() if ln.startswith("| spec-223 |")]
+        assert len(rows) == 1
+
+
+class TestPrMergedViaGh:
+    """``_pr_merged_via_gh`` fail-open shape mirrors ``_resolve_merged_pr``."""
+
+    def test_returns_true_when_gh_lists_a_merged_pr(self, lifecycle, project_root, monkeypatch):
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(pr_for_branch={"feat/x": 900}),
+        )
+        assert lifecycle._pr_merged_via_gh(project_root, "feat/x") is True
+
+    def test_returns_false_when_gh_lists_nothing(self, lifecycle, project_root, monkeypatch):
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(pr_for_branch={}),
+        )
+        assert lifecycle._pr_merged_via_gh(project_root, "feat/x") is False
+
+    def test_returns_false_when_gh_absent(self, lifecycle, project_root, monkeypatch):
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(gh_available=False),
+        )
+        assert lifecycle._pr_merged_via_gh(project_root, "feat/x") is False
+
+
+# ---------------------------------------------------------------------------
+# P3 — approve / start verbs + frontmatter status mirror (spec-161)
+# ---------------------------------------------------------------------------
+
+
+def _read_frontmatter_status(spec_md: Path) -> str | None:
+    """Return the frontmatter ``status:`` value from a spec.md, or None."""
+    in_fm = False
+    for line in spec_md.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if stripped == "---":
+            if in_fm:
+                break
+            in_fm = True
+            continue
+        if in_fm and stripped.startswith("status:"):
+            return stripped.split(":", 1)[1].strip()
+    return None
+
+
+class TestApproveVerb:
+    def test_approve_moves_draft_to_approved(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        approved = lifecycle.approve(record.spec_id, project_root)
+        assert approved.state is lifecycle.LifecycleState.APPROVED
+        assert (
+            lifecycle.status(record.spec_id, project_root).state
+            is lifecycle.LifecycleState.APPROVED
+        )
+
+    def test_approve_emits_spec_approved_event(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.approve(record.spec_id, project_root)
+        events = _events(project_root)
+        assert any(
+            e.get("kind") == "framework_operation"
+            and e.get("detail", {}).get("operation") == "spec_approved"
+            for e in events
+        )
+
+    def test_approve_is_idempotent_no_duplicate_event(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.approve(record.spec_id, project_root)
+        lifecycle.approve(record.spec_id, project_root)  # no raise, no dup event.
+        events = _events(project_root)
+        approved = [e for e in events if e.get("detail", {}).get("operation") == "spec_approved"]
+        assert len(approved) == 1
+        assert (
+            lifecycle.status(record.spec_id, project_root).state
+            is lifecycle.LifecycleState.APPROVED
+        )
+
+    def test_approve_from_shipped_raises(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.mark_shipped(record.spec_id, "PR-1", "feat/x", project_root)
+        with pytest.raises(ValueError):
+            lifecycle.approve(record.spec_id, project_root)
+
+    def test_approve_main_returns_one_on_illegal(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.mark_shipped(record.spec_id, "PR-1", "feat/x", project_root)
+        rc = lifecycle.main(["approve", record.spec_id, "--project-root", str(project_root)])
+        assert rc == 1
+
+    def test_approve_main_exits_zero_on_draft(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        rc = lifecycle.main(["approve", record.spec_id, "--project-root", str(project_root)])
+        assert rc == 0
+
+
+class TestStartVerb:
+    def test_start_moves_approved_to_in_progress(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.approve(record.spec_id, project_root)
+        started = lifecycle.start(record.spec_id, project_root)
+        assert started.state is lifecycle.LifecycleState.IN_PROGRESS
+
+    def test_start_emits_distinct_event_kind(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.approve(record.spec_id, project_root)
+        lifecycle.start(record.spec_id, project_root)
+        events = _events(project_root)
+        ops = {e.get("detail", {}).get("operation") for e in events}
+        assert "spec_started_impl" in ops
+        # Must not collide with the create-event start_new emits.
+        assert "spec_started_impl" != "spec_started"
+
+    def test_start_is_idempotent_no_duplicate_event(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.approve(record.spec_id, project_root)
+        lifecycle.start(record.spec_id, project_root)
+        lifecycle.start(record.spec_id, project_root)  # no raise, no dup event.
+        events = _events(project_root)
+        started = [e for e in events if e.get("detail", {}).get("operation") == "spec_started_impl"]
+        assert len(started) == 1
+        assert (
+            lifecycle.status(record.spec_id, project_root).state
+            is lifecycle.LifecycleState.IN_PROGRESS
+        )
+
+    def test_start_from_draft_raises(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        with pytest.raises(ValueError):
+            lifecycle.start(record.spec_id, project_root)
+
+    def test_start_main_exits_zero_on_approved(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.approve(record.spec_id, project_root)
+        rc = lifecycle.main(["start", record.spec_id, "--project-root", str(project_root)])
+        assert rc == 0
+
+    def test_start_main_returns_one_from_draft(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        rc = lifecycle.main(["start", record.spec_id, "--project-root", str(project_root)])
+        assert rc == 1
+
+
+class TestFrontmatterStatusMirror:
+    def _seed_spec_md(self, project_root: Path, *, spec_id: str, slug: str, status: str) -> Path:
+        specs = project_root / ".ai-engineering" / "specs"
+        specs.mkdir(parents=True, exist_ok=True)
+        spec_md = specs / "spec.md"
+        spec_md.write_text(
+            f"---\nspec: {spec_id}\nslug: {slug}\nstatus: {status}\n---\n# Body\n\ntext.\n",
+            encoding="utf-8",
+        )
+        return spec_md
+
+    def test_approve_mirrors_status_to_approved(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        spec_md = self._seed_spec_md(
+            project_root, spec_id=record.spec_id, slug=record.slug, status="draft"
+        )
+        lifecycle.approve(record.spec_id, project_root)
+        assert _read_frontmatter_status(spec_md) == "approved"
+
+    def test_start_mirrors_status_to_in_progress(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        spec_md = self._seed_spec_md(
+            project_root, spec_id=record.spec_id, slug=record.slug, status="draft"
+        )
+        lifecycle.approve(record.spec_id, project_root)
+        lifecycle.start(record.spec_id, project_root)
+        assert _read_frontmatter_status(spec_md) == "in-progress"
+
+    def test_mirror_matches_on_slug_when_spec_id_absent(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        specs = project_root / ".ai-engineering" / "specs"
+        specs.mkdir(parents=True, exist_ok=True)
+        spec_md = specs / "spec.md"
+        spec_md.write_text(
+            f"---\nslug: {record.slug}\nstatus: draft\n---\n# Body\n",
+            encoding="utf-8",
+        )
+        lifecycle.approve(record.spec_id, project_root)
+        assert _read_frontmatter_status(spec_md) == "approved"
+
+    def test_mirror_does_not_fire_for_other_spec(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        spec_md = self._seed_spec_md(
+            project_root, spec_id="spec-999", slug="other-slug", status="draft"
+        )
+        lifecycle.approve(record.spec_id, project_root)
+        # Unrelated buffer must be left intact.
+        assert _read_frontmatter_status(spec_md) == "draft"
+
+    def test_mirror_preserves_other_lines_and_body(self, lifecycle, project_root):
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        specs = project_root / ".ai-engineering" / "specs"
+        specs.mkdir(parents=True, exist_ok=True)
+        spec_md = specs / "spec.md"
+        body = (
+            f"---\nspec: {record.spec_id}\nslug: {record.slug}\n"
+            f"status: draft\ntitle: My Feature\n---\n# Body\n\nexact text.\n"
+        )
+        spec_md.write_text(body, encoding="utf-8")
+        lifecycle.approve(record.spec_id, project_root)
+        text = spec_md.read_text(encoding="utf-8")
+        assert "title: My Feature" in text
+        assert "# Body\n\nexact text.\n" in text
+        assert "status: approved" in text
+        assert "status: draft" not in text
+
+    def test_mirror_is_fail_open_when_no_spec_md(self, lifecycle, project_root):
+        # No spec.md present: approve must still succeed (best-effort mirror).
+        record = lifecycle.start_new("my-feature", "My Feature", project_root)
+        lifecycle.approve(record.spec_id, project_root)
+        assert (
+            lifecycle.status(record.spec_id, project_root).state
+            is lifecycle.LifecycleState.APPROVED
+        )
+
+
+class TestApproveStartCLIHelp:
+    def test_approve_help_exits_zero(self, lifecycle):
+        rc = lifecycle.main(["approve", "--help"])
+        assert rc == 0
+
+    def test_start_help_exits_zero(self, lifecycle):
+        rc = lifecycle.main(["start", "--help"])
+        assert rc == 0
