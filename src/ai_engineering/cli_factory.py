@@ -150,12 +150,16 @@ def _maybe_render_post_command_notice() -> None:
     _render_update_notice_gated()
 
 
-def _render_update_notice_gated() -> None:
+def _render_update_notice_gated(*, force: bool = False) -> None:
     """Shared notice gate: JSON / env opt-out / manifest flag → cli_ui renderer.
 
     Extracted so both the post-command path and the bare ``ai-eng`` invocation
     (which exits in the app callback, never reaching the error boundary) render
     the notice through one set of gates. Fail-open: the renderer swallows errors.
+
+    ``force`` is threaded to the renderer to bypass the once-per-``ttl_hours``
+    show throttle — used by bare ``ai-eng`` so it behaves like an explicit
+    version check rather than a throttled frequent command.
     """
     import os
 
@@ -171,7 +175,7 @@ def _render_update_notice_gated() -> None:
     config = _load_version_check_config()
     if not getattr(config, "enabled", True):
         return
-    maybe_render_update_notice(config=config)
+    maybe_render_update_notice(config=config, force=force)
 
 
 def _app_callback(
@@ -231,8 +235,10 @@ def _app_callback(
             show_logo()
             typer.echo(ctx.get_help())
             # Bare `ai-eng` exits here, never reaching the error boundary, so
-            # render the update notice inline before exiting.
-            _render_update_notice_gated()
+            # render the update notice inline before exiting. force=True: it is
+            # an explicit "look at the tool" surface (like `ai-eng version`), so
+            # it bypasses the once-per-TTL throttle that gates frequent commands.
+            _render_update_notice_gated(force=True)
             raise typer.Exit(code=0)
 
     if not json_output and ctx.invoked_subcommand not in {"version", "internal"}:

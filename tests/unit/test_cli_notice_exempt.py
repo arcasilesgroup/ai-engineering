@@ -71,14 +71,30 @@ def test_gated_suppressed_in_json_mode() -> None:
 
 def test_bare_invocation_renders_notice() -> None:
     """Bare ``ai-eng`` exits in the app callback, so it must render the notice
-    inline via the shared gate (not via the post-command boundary)."""
+    inline via the shared gate (not via the post-command boundary), and with
+    ``force=True`` so it bypasses the throttle like an explicit version check."""
     from typer.testing import CliRunner
 
     from ai_engineering.cli_factory import create_app
 
     with patch("ai_engineering.cli_factory._render_update_notice_gated") as gate:
         CliRunner().invoke(create_app(), [])
-    gate.assert_called_once()
+    gate.assert_called_once_with(force=True)
+
+
+def test_gate_threads_force_to_renderer() -> None:
+    """The shared gate forwards ``force`` to the cli_ui renderer."""
+    with (
+        patch("ai_engineering.cli_output.is_json_mode", return_value=False),
+        patch(
+            "ai_engineering.cli_ui._load_version_check_config",
+            return_value=_EnabledVersionCheck(),
+        ),
+        patch("ai_engineering.cli_ui.maybe_render_update_notice") as render,
+    ):
+        cf._render_update_notice_gated(force=True)
+    render.assert_called_once()
+    assert render.call_args.kwargs.get("force") is True
 
 
 def test_bare_invocation_suppressed_in_json_mode() -> None:
