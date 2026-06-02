@@ -31,6 +31,15 @@ from spec_lint.checks.sections import check_sections
 
 _DEFAULT_SPEC_PATH = Path(".ai-engineering/specs/spec.md")
 
+# Idle-slot marker (spec-136 idle-placeholder contract). After a spec ships,
+# consolidation (``spec_lifecycle.py mark_shipped`` / ``spec_reset.py``) clears
+# the canonical slot to this framework-recognized placeholder. An idle slot has
+# no spec to schema-check, so lint passes clean rather than emitting a wall of
+# ``section_missing`` BLOCKERS — mirroring the idle-slot handling already in
+# ``validator/manifest_coherence`` and ``verify/service``. Inlined (not imported
+# from ``ai_engineering``) so ``spec_lint`` stays a decoupled top-level package.
+_IDLE_SLOT_PREFIX = "# No active spec"
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -88,6 +97,21 @@ def main(argv: list[str] | None = None) -> int:
     if not spec_path.is_file():
         sys.stderr.write(f"spec_lint: file not found: {spec_path}\n")
         return 2
+
+    # Idle slot: nothing to validate. Pass clean before running any check so a
+    # post-consolidation canonical slot (the normal between-specs state) never
+    # fails the gate.
+    if (
+        spec_path.read_text(encoding="utf-8", errors="replace")
+        .lstrip()
+        .startswith(_IDLE_SLOT_PREFIX)
+    ):
+        if args.check and not args.quiet:
+            sys.stdout.write(
+                "spec_lint: idle slot "
+                f"(BLOCKERS=0 ADVISORIES=0, file={spec_path}, idle-placeholder)\n"
+            )
+        return 0
 
     started = time.perf_counter()
 

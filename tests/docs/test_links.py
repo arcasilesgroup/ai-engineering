@@ -412,17 +412,25 @@ def test_sub005_plan_has_north_star_preamble() -> None:
 
 
 def test_spec_canonical_slot_carries_spec_marker() -> None:
-    """The canonical slot must always carry a `spec: spec-NNN` marker.
+    """The canonical slot carries an active spec OR the idle placeholder.
 
     spec-136 D-136-01 succeeded spec-132 in the slot. The contract is
-    "any active spec lives here", not "spec-132 specifically".
+    "any active spec lives here", not "spec-132 specifically". After spec
+    consolidation (`spec_lifecycle.py mark_shipped` / `spec_reset.py`) the
+    slot is legitimately cleared to the framework-recognized idle marker
+    `# No active spec` — the same empty-slot state the validator
+    (`manifest_coherence`) and `verify/service` already treat as valid.
+    Both states are accepted here; only an unrecognized slot fails.
     """
     p = REPO_ROOT / ".ai-engineering" / "specs" / "spec.md"
     body = p.read_text()
     import re
 
-    assert re.search(r"^spec: spec-\d+", body, re.MULTILINE), (
-        "canonical slot must declare an active spec via `spec: spec-NNN`"
+    has_active_spec = re.search(r"^spec: spec-\d+", body, re.MULTILINE)
+    is_idle_slot = body.lstrip().startswith("# No active spec")
+    assert has_active_spec or is_idle_slot, (
+        "canonical slot must declare an active spec via `spec: spec-NNN` "
+        "or carry the idle `# No active spec` placeholder"
     )
     # spec-153 W3: archive normalized to the uniform per-spec directory
     # layout (D-153-06): archive/spec-NNN-<slug>/{spec.md,plan.md}.

@@ -31,18 +31,32 @@ CANONICAL.md. The two never overlap.
    diff + explicit confirm (R-131-03 mitigation).
 3. **Interview the 10 sections** — see "Interview" below.
 4. **Write** — emit `CONSTITUTION.md` using the 10-section skeleton.
-   Refuse to write any header from
-   `tools/skill_lint/checks/md_mirror.py:FORBIDDEN_CONSTITUTION_HEADERS`
-   (those are AI-behaviour headers; CONSTITUTION owns project identity
-   only).
+   Refuse to write any AI-behaviour / engineering-principle header —
+   those belong to CANONICAL.md; CONSTITUTION owns project identity
+   only: Think Before Coding, Simplicity First, Surgical Changes,
+   Goal-Driven Execution, Plan-Mode Default, Subagent Strategy,
+   Self-Improvement Loop, Demand Elegance, Autonomous Bug Fixing,
+   KISS, YAGNI, SOLID, DRY, TDD, SDD, Clean Code, Hexagonal
+   Architecture. (Framework dev repo: the canonical list lives at
+   `tools/skill_lint/checks/md_mirror.py:FORBIDDEN_CONSTITUTION_HEADERS`.)
 5. **Rotate** — when `update` or `amend` replaces operator-authored
    content, copy the pre-write body to
    `.ai-engineering/specs/_history-constitution-<YYYY-MM-DD>.md` so
    the prior identity is recoverable.
-6. **Verify + record** — run `python -m skill_lint --check` after the
-   write to confirm CONSTITUTION.md passes the md_mirror sweep. Emit a
-   `constitution_updated` audit event to
-   `.ai-engineering/state/framework-events.ndjson`.
+6. **Verify + record** — confirm inline that the file you just wrote
+   carries only the 10 project-identity sections and none of the
+   AI-behaviour headers from Step 4 (re-read `CONSTITUTION.md`; do NOT
+   shell out to `skill_lint` — that is a framework-dev mirror-parity
+   gate whose module is absent on a consumer's bare `python3` and which
+   false-fails on the `.codex`/`.github` mirror surfaces a consuming
+   project legitimately lacks). The `/ai-constitution` run is already
+   audited automatically as a `skill_invoked` event by the
+   UserPromptSubmit hook — no manual emit is required. If a distinct
+   marker is wanted, emit a `framework_event` `kind=framework_operation`
+   (`operation=constitution_update`, `component: ai-constitution`,
+   `detail: {version, sections_changed, mode}`); it chains into the
+   standard audit pipeline. **Fail-open**: never block the
+   `CONSTITUTION.md` write on a verification or audit failure.
 
 ## Interview
 
@@ -70,8 +84,8 @@ User: "set up the constitution for this project"
 ```
 
 Interviews the 10 sections, seeds defaults from `manifest.yml`, writes
-`CONSTITUTION.md` v1.0.0 with the ratified date stamped. Emits one
-`constitution_updated` audit event.
+`CONSTITUTION.md` v1.0.0 with the ratified date stamped. The run is
+audited automatically as a `skill_invoked` event.
 
 ### Example 2 — formal amendment with version bump
 
@@ -92,10 +106,11 @@ body into `_history-constitution-<date>.md`.
 Called by: `ai-eng install` (governance phase), `/ai-start` (cold-load
 identity context). Reads: `manifest.yml`, package files, existing
 `CONSTITUTION.md`, `decision-store.json`. Writes: `CONSTITUTION.md`,
-`_history-constitution-<date>.md` (when rotating). Audited by:
-`tools/skill_lint/checks/md_mirror.py:check_constitution_clean` (any
-AI-behaviour header rejects the write). Consumed by: every skill at
-Step 0. See also: `/ai-governance` (compliance against the
+`_history-constitution-<date>.md` (when rotating). CI-guarded
+(framework dev repo only) by
+`tools/skill_lint/checks/md_mirror.py:check_constitution_clean` — any
+AI-behaviour header fails that gate; consumer projects rely on the
+inline Step 6 self-check. Consumed by: every skill at Step 0. See also: `/ai-governance` (compliance against the
 constitution), CANONICAL.md (AI-behaviour layer — never written by
 this skill).
 
