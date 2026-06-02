@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- fix(ai-constitution): `/ai-constitution` step 6 no longer instructs two
+  dev-repo-only operations that break in installed projects. It told the
+  agent to run `python -m skill_lint --check` — absent on a consumer's bare
+  `python3`, and even via the console script the full mirror-parity sweep
+  false-fails on the `.codex`/`.github` mirror surfaces a consuming project
+  legitimately lacks — and to emit a `constitution_updated` audit event,
+  a kind not in `ALLOWED_EVENT_KINDS` (would `ValueError`), with no
+  `ai-eng audit emit` command, into a hash-chained log. Both are now
+  replaced by an inline header self-check, the already-automatic
+  `skill_invoked` audit (UserPromptSubmit hook), and an optional fail-open
+  `framework_operation` marker; the forbidden-header list is inlined so the
+  skill is self-contained off the dev `tools/` tree. Synced to all mirrors
+  and install templates. Fixes the "2 pasos del skill no corren aquí" error
+  observed running `/ai-constitution` in consuming repos.
+
 ## [0.9.1] - 2026-06-01
 
 ### Fixed
