@@ -156,5 +156,6 @@ Completed specs. Details in git history.
 | spec-159 | Installer source-of-truth parity | shipped | 2026-06-02 | 2026-06-02 | 561 | spec-159-installer-parity |
 | spec-160 | Harden Sentinel IOC runtime: fail-closed + doc-context + path-equivalence | shipped | 2026-06-02 | 2026-06-02 | 572 | spec-160-sentinel-ioc-hardening |
 | spec-161 | Spec-lifecycle approval gate + integrity hardening | shipped | 2026-06-02 | 2026-06-02 | 575 | spec-161-spec-lifecycle-gate-integrity |
+| spec-162 | Eliminate instinct-store timestamp churn | shipped | 2026-06-03 | 2026-06-03 | 577 | spec-162-instinct-store-churn |
 
 ---

@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "spec-162-instinct-store-churn",
   "created": "2026-06-03T09:27:16.237299+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "577",
+  "shipped": "2026-06-03T10:27:26.303589+00:00",
   "slug": "instinct-store-churn",
   "spec_id": "spec-162",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Eliminate instinct-store timestamp churn"
 }
