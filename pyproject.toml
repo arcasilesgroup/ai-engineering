@@ -259,6 +259,131 @@ ignore_imports = [
   "ai_engineering.validator._shared -> ai_engineering.installer.templates",
 ]
 
+# spec-163 #496/#497 — solution-intent.md §3.1 layer-map enforcement.
+# The SI graph is CLI > {Policy, Platform} > Core > {Infra, Auxiliary}.
+# Modelled as three ``forbidden`` upward-fences (not one ``layers`` contract)
+# so legitimate intra-layer imports — e.g. installer -> state within Core —
+# are NOT flagged, while every UPWARD import is. Each fence carries a baseline
+# of the current violations (D-163-07): the gate BLOCKS any NEW upward import;
+# the baselined edges are documented in the spec-163 layer-fence decision as
+# either inherent-and-accepted (e.g. doctor orchestrating installer phases) or
+# tech-debt to invert in a follow-up. Same-tier cycles (e.g. policy <-> verify)
+# are DEC-accepted, not gated here. Enforcement rides the existing
+# ``lint-imports`` + ``tests/architecture/test_hexagonal.py`` path.
+
+[[tool.importlinter.contracts]]
+name = "layer fence: Infra/Auxiliary must not import upward (spec-163 #496)"
+type = "forbidden"
+allow_indirect_imports = "true"
+source_modules = [
+  "ai_engineering.updater",
+  "ai_engineering.hooks",
+  "ai_engineering.detector",
+  "ai_engineering.version",
+  "ai_engineering.git",
+  "ai_engineering.credentials",
+  "ai_engineering.doctor",
+  "ai_engineering.skills",
+  "ai_engineering.issues",
+]
+forbidden_modules = [
+  "ai_engineering.installer",
+  "ai_engineering.vcs",
+  "ai_engineering.state",
+  "ai_engineering.maintenance",
+  "ai_engineering.lib",
+  "ai_engineering.policy",
+  "ai_engineering.validator",
+  "ai_engineering.verify",
+  "ai_engineering.platforms",
+  "ai_engineering.release",
+  "ai_engineering.cli_commands",
+]
+ignore_imports = [
+  "ai_engineering.detector.readiness -> ai_engineering.installer.tools",
+  "ai_engineering.detector.readiness -> ai_engineering.state.service",
+  "ai_engineering.doctor.models -> ai_engineering.state.models",
+  "ai_engineering.doctor.phases.detect -> ai_engineering.installer.autodetect",
+  "ai_engineering.doctor.phases.detect -> ai_engineering.state.service",
+  "ai_engineering.doctor.phases.ide_config -> ai_engineering.installer.templates",
+  "ai_engineering.doctor.phases.scripts -> ai_engineering.installer.phases",
+  "ai_engineering.doctor.phases.scripts -> ai_engineering.installer.phases.scripts",
+  "ai_engineering.doctor.phases.state -> ai_engineering.state.audit_chain",
+  "ai_engineering.doctor.phases.state -> ai_engineering.state.defaults",
+  "ai_engineering.doctor.phases.state -> ai_engineering.state.io",
+  "ai_engineering.doctor.phases.state -> ai_engineering.state.models",
+  "ai_engineering.doctor.phases.state -> ai_engineering.state.repository",
+  "ai_engineering.doctor.phases.tools -> ai_engineering.installer.tool_registry",
+  "ai_engineering.doctor.phases.tools -> ai_engineering.installer.tools",
+  "ai_engineering.doctor.phases.tools -> ai_engineering.installer.user_scope_install",
+  "ai_engineering.doctor.phases.tools -> ai_engineering.state.manifest",
+  "ai_engineering.doctor.phases.tools -> ai_engineering.state.models",
+  "ai_engineering.doctor.phases.tools -> ai_engineering.state.service",
+  "ai_engineering.doctor.service -> ai_engineering.installer.phases",
+  "ai_engineering.doctor.service -> ai_engineering.state.observability",
+  "ai_engineering.doctor.service -> ai_engineering.state.service",
+  "ai_engineering.hooks.asset_runtime -> ai_engineering.installer.templates",
+  "ai_engineering.hooks.manager -> ai_engineering.state.manifest",
+  "ai_engineering.hooks.manager -> ai_engineering.state.models",
+  "ai_engineering.hooks.manager -> ai_engineering.state.repository",
+  "ai_engineering.hooks.manager -> ai_engineering.state.service",
+  "ai_engineering.issues.service -> ai_engineering.state.work_plane",
+  "ai_engineering.issues.service -> ai_engineering.vcs.factory",
+  "ai_engineering.issues.service -> ai_engineering.vcs.protocol",
+  "ai_engineering.updater.service -> ai_engineering.installer.templates",
+  "ai_engineering.updater.service -> ai_engineering.lib.path_safety",
+  "ai_engineering.updater.service -> ai_engineering.state.defaults",
+  "ai_engineering.updater.service -> ai_engineering.state.models",
+  "ai_engineering.updater.service -> ai_engineering.state.observability",
+  "ai_engineering.updater.service -> ai_engineering.state.repository",
+  "ai_engineering.updater.service -> ai_engineering.state.service",
+  "ai_engineering.updater.state_db_export -> ai_engineering.state.defaults",
+  "ai_engineering.updater.state_db_export -> ai_engineering.state.models",
+  "ai_engineering.updater.state_db_export -> ai_engineering.state.repository",
+  "ai_engineering.updater.state_db_export -> ai_engineering.state.service",
+]
+
+[[tool.importlinter.contracts]]
+name = "layer fence: Core must not import Policy/Platform/CLI (spec-163 #496)"
+type = "forbidden"
+allow_indirect_imports = "true"
+source_modules = [
+  "ai_engineering.installer",
+  "ai_engineering.vcs",
+  "ai_engineering.state",
+  "ai_engineering.maintenance",
+  "ai_engineering.lib",
+]
+forbidden_modules = [
+  "ai_engineering.policy",
+  "ai_engineering.validator",
+  "ai_engineering.verify",
+  "ai_engineering.platforms",
+  "ai_engineering.release",
+  "ai_engineering.cli_commands",
+]
+ignore_imports = [
+  "ai_engineering.installer.phases.sdk_prereqs -> ai_engineering.cli_commands._exit_codes",
+  "ai_engineering.state.audit -> ai_engineering.policy.gates",
+]
+
+[[tool.importlinter.contracts]]
+name = "layer fence: Policy/Platform must not import CLI (spec-163 #496)"
+type = "forbidden"
+allow_indirect_imports = "true"
+source_modules = [
+  "ai_engineering.policy",
+  "ai_engineering.validator",
+  "ai_engineering.verify",
+  "ai_engineering.platforms",
+  "ai_engineering.release",
+]
+forbidden_modules = [
+  "ai_engineering.cli_commands",
+]
+ignore_imports = [
+]
+
 [tool.hatch.build.targets.wheel]
 # spec-127 M1: top-level conformance lint packages live under ``tools/``
 # but ship as top-level distribution packages (``skill_domain``,
