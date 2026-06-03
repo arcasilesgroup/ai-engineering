@@ -158,5 +158,6 @@ Completed specs. Details in git history.
 | spec-161 | Spec-lifecycle approval gate + integrity hardening | shipped | 2026-06-02 | 2026-06-02 | 575 | spec-161-spec-lifecycle-gate-integrity |
 | spec-162 | Eliminate instinct-store timestamp churn | shipped | 2026-06-03 | 2026-06-03 | 577 | spec-162-instinct-store-churn |
 | spec-163 | Stale-issue audit remediation: bounded cleanups + architecture-drift CI gate | shipped | 2026-06-03 | 2026-06-03 | 580 | spec-163-workstream-b |
+| spec-164 | Agent soul.md values persona layer | shipped | 2026-06-03 | 2026-06-03 | 583 | claude/spec-164-soul-md |
 
 ---
