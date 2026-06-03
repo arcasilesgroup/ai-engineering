@@ -242,67 +242,6 @@ def query_sonar_quality_gate(project_root: Path) -> dict | None:
     return data.get("projectStatus", {})
 
 
-def query_sonar_measures(
-    project_root: Path,
-    metrics: list[str] | None = None,
-) -> dict[str, float] | None:
-    """Query detailed metrics from SonarCloud/SonarQube via Web API.
-
-    Returns dict like {"coverage": 87.5, "duplicated_lines_density": 2.1} or None.
-    Uses same token resolution as quality gate. Silent-skip if unconfigured.
-    """
-    props_file = project_root / "sonar-project.properties"
-    if not props_file.exists():
-        return None
-
-    props = _parse_properties(props_file)
-    project_key = props.get("sonar.projectKey", "")
-    host_url = props.get("sonar.host.url", "https://sonarcloud.io").rstrip("/")
-    if not project_key:
-        return None
-
-    token = _resolve_sonar_token(project_root)
-    if not token:
-        return None
-
-    if metrics is None:
-        metrics = [
-            "coverage",
-            "cognitive_complexity",
-            "duplicated_lines_density",
-            "vulnerabilities",
-            "security_hotspots",
-            "security_rating",
-            "reliability_rating",
-            "bugs",
-            "ncloc",
-        ]
-
-    api_url = _build_sonar_url(
-        host_url,
-        "/api/measures/component",
-        {"component": project_key, "metricKeys": ",".join(metrics)},
-    )
-    if not api_url:
-        return None
-
-    data = _sonar_api_get(api_url, token)
-    if data is None:
-        return None
-    try:
-        measures: dict[str, float] = {}
-        for measure in data.get("component", {}).get("measures", []):
-            key = measure.get("metric", measure.get("key", ""))
-            val = measure.get("value", "")
-            try:
-                measures[key] = float(val)
-            except (ValueError, TypeError):
-                measures[key] = 0.0
-        return measures if measures else None
-    except Exception:
-        return None
-
-
 def _parse_properties(path: Path) -> dict[str, str]:
     """Parse a Java .properties file into a dict."""
     result: dict[str, str] = {}

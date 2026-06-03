@@ -36,15 +36,6 @@ class AzureDevOpsValidationResult:
     error: str = ""
 
 
-@dataclass
-class AzureDevOpsSetupResult:
-    """Result of the full Azure DevOps setup flow."""
-
-    success: bool = False
-    org_url: str = ""
-    error: str = ""
-
-
 class AzureDevOpsSetup:
     """Azure DevOps PAT credential setup and validation.
 

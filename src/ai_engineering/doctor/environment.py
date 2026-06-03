@@ -90,19 +90,6 @@ def repair_strategy(category: FailureCategory) -> RemediationPolicy:
     }[category]
 
 
-def issue_from_failure(
-    exc: Exception,
-    context: dict[str, Any] | None = None,
-) -> EnvironmentIssue:
-    """Build a normalized environment issue from a raw exception."""
-    category = classify_failure(exc, context=context)
-    return EnvironmentIssue(
-        category=category,
-        detail=str(exc),
-        remediation_policy=repair_strategy(category),
-    )
-
-
 def _contains_any(text: str, fragments: tuple[str, ...]) -> bool:
     return any(fragment in text for fragment in fragments)
 

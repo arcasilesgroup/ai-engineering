@@ -122,12 +122,6 @@ def _resolve_stacks(ctx: DoctorContext) -> list[str]:
 # ---------------------------------------------------------------------------
 
 
-# Baseline tools probed when the manifest is absent. Mirrors the canonical
-# baseline in ``manifest.yml.required_tools.baseline`` so a fresh checkout
-# without ``.ai-engineering/manifest.yml`` still gets actionable diagnostics.
-_BASELINE_PATH_TOOLS: tuple[str, ...] = ("gitleaks", "ruff", "ty", "pip-audit")
-
-
 def _probe_one_required_tool(tool: ToolSpec) -> bool:
     """Return True when *tool* probes as available via PATH + verify.
 
@@ -243,8 +237,8 @@ def _check_required_tools(ctx: DoctorContext) -> CheckResult:
     is recorded missing, and the heavier verify subprocess is skipped.
 
     When the manifest is absent (``load_required_tools`` returns empty),
-    the helper falls back to :data:`_BASELINE_PATH_TOOLS` so the doctor
-    still surfaces actionable diagnostics on a fresh checkout.
+    the helper returns an actionable ``run 'ai-eng install'`` warning
+    instead of probing a hardcoded baseline list (spec-101 G-1, #510).
     """
     stacks = _resolve_stacks(ctx)
     try:
@@ -279,9 +273,14 @@ def _check_required_tools(ctx: DoctorContext) -> CheckResult:
     _recover_externally_installed_tools(ctx, recovered)
 
     if seen_user_global == 0:
-        # No manifest yet (fresh checkout): probe the canonical baseline so
-        # ``ai-eng doctor`` still gives the user something to act on.
-        missing.extend(name for name in _BASELINE_PATH_TOOLS if not is_tool_available(name))
+        # spec-101 G-1 (#510): no manifest yet (fresh checkout). Emit an
+        # actionable diagnostic instead of probing a hardcoded baseline list.
+        return CheckResult(
+            name="tools-required",
+            status=CheckStatus.WARN,
+            message=("required_tools manifest not found; run 'ai-eng install' to generate it"),
+            fixable=True,
+        )
 
     if missing:
         return CheckResult(
@@ -583,17 +582,15 @@ def fix(
 def _missing_tool_specs(ctx: DoctorContext) -> list[ToolSpec]:
     """Return the tool specs whose verify probe currently fails.
 
-    When the manifest is absent (loader returns an empty list), falls back
-    to synthesising :class:`ToolSpec` placeholders for
-    :data:`_BASELINE_PATH_TOOLS` whose PATH probe fails. This mirrors the
-    fallback in :func:`_check_required_tools` so the fix path has
-    something to act on for fresh checkouts.
+    When the manifest is absent (loader returns an empty list), returns an
+    empty list (spec-101 G-1, #510): there is no hardcoded baseline to fix,
+    and :func:`_check_required_tools` already surfaces the missing manifest.
     """
     stacks = _resolve_stacks(ctx)
     try:
         load_result = load_required_tools(stacks, root=ctx.target)
     except Exception:
-        return _baseline_missing_specs()
+        return []
 
     missing: list[ToolSpec] = []
     seen_tools = 0
@@ -626,19 +623,11 @@ def _missing_tool_specs(ctx: DoctorContext) -> list[ToolSpec]:
             missing.append(tool)
 
     if seen_tools == 0:
-        # No manifest yet: probe the canonical baseline.
-        return _baseline_missing_specs()
+        # spec-101 G-1 (#510): no manifest -> nothing to synthesise. The
+        # tools-required check already warns the user to run 'ai-eng install'.
+        return []
 
     return missing
-
-
-def _baseline_missing_specs() -> list[ToolSpec]:
-    """Build :class:`ToolSpec` placeholders for absent baseline tools."""
-    out: list[ToolSpec] = []
-    for name in _BASELINE_PATH_TOOLS:
-        if not is_tool_available(name):
-            out.append(ToolSpec(name=name, scope=ToolScope.USER_GLOBAL))
-    return out
 
 
 def _attempt_install_one(

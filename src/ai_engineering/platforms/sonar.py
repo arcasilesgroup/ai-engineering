@@ -40,16 +40,6 @@ class SonarValidationResult:
     error: str = ""
 
 
-@dataclass
-class SonarSetupResult:
-    """Result of the full Sonar setup flow."""
-
-    success: bool = False
-    url: str = ""
-    project_key: str = ""
-    error: str = ""
-
-
 class SonarSetup:
     """SonarCloud / SonarQube credential setup and validation.
 
