@@ -15,7 +15,9 @@ for the canonical store of each datum (decisions live in spec markdown;
 the `decision-store.json` cache is populated after `ai-eng decision
 backfill` or `/ai-brainstorm` approval per spec-138 M3 follow-up);
 (4) no implementation without an approved spec — invoke
-`/ai-brainstorm` first when a task has no spec.
+`/ai-brainstorm` first when a task has no spec; (5) read
+[SOUL.md](SOUL.md) (the agent's collaborator values — the judgment
+layer above the deterministic plane).
 
 See [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
 the three-tier files-only model (NDJSON audit, JSON/YAML
@@ -35,6 +37,15 @@ in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principle
 7. **Self-Improvement Loop** — every user correction updates `.ai-engineering/LESSONS.md`.
 8. **Demand Elegance** — "is there a more elegant way?" on non-trivial changes; clear beats clever.
 9. **Autonomous Bug Fixing** — fix bugs you spot; mention them in the commit.
+
+## Soul
+
+The agent's collaborator values — Pragmatic Helpfulness, Honest &
+Direct, Collaborative Partner, Learn & Grow — live in
+[SOUL.md](SOUL.md). They are the judgment layer above the deterministic
+plane (gates, Prohibitions), read each session per §0. SOUL.md owns the
+*values framing*; the Operating Mindset (§1-9) and §10 principles own
+the engineering prose.
 
 ## 10. Engineering Principles (pointer)
 

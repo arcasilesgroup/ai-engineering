@@ -43,8 +43,9 @@ def _drift_reason(path: Path) -> str | None:
     [
         (".gitleaks.toml", "src/ai_engineering/templates/project/.gitleaks.toml"),
         (".semgrep.yml", "src/ai_engineering/templates/project/.semgrep.yml"),
+        ("SOUL.md", "src/ai_engineering/templates/project/SOUL.md"),
     ],
-    ids=["gitleaks", "semgrep"],
+    ids=["gitleaks", "semgrep", "soul"],
 )
 def test_source_config_matches_template(source_relpath: str, template_relpath: str) -> None:
     """spec-132 D-132-16: source-repo configs are byte-equivalent to templates."""
