@@ -33,12 +33,6 @@ from ai_engineering.state.models import CredentialRef as StateCredentialRef
 from ai_engineering.state.models import PlatformEntry
 from ai_engineering.state.service import load_install_state, save_install_state
 
-setup_app = typer.Typer(
-    name="setup",
-    help="Configure platform credentials for governance workflows.",
-    no_args_is_help=True,
-)
-
 
 def _state_dir(root: Path) -> Path:
     """Return the ``.ai-engineering/state`` directory for *root*."""
@@ -50,7 +44,6 @@ def _state_dir(root: Path) -> Path:
 # ------------------------------------------------------------------
 
 
-@setup_app.command("platforms")
 def setup_platforms_cmd(
     target: Annotated[
         Path | None,
@@ -138,7 +131,6 @@ def setup_platforms_cmd(
 # ------------------------------------------------------------------
 
 
-@setup_app.command("github")
 def setup_github_cmd(
     target: Annotated[
         Path | None,
@@ -207,7 +199,6 @@ def _run_github_setup(root: Path) -> None:
 # ------------------------------------------------------------------
 
 
-@setup_app.command("sonar")
 def setup_sonar_cmd(
     target: Annotated[
         Path | None,
@@ -324,7 +315,6 @@ def _read_sonar_property(root: Path, key: str) -> str | None:
 # ------------------------------------------------------------------
 
 
-@setup_app.command("azure-devops")
 def setup_azure_devops_cmd(
     target: Annotated[
         Path | None,
@@ -402,7 +392,6 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
 # ------------------------------------------------------------------
 
 
-@setup_app.command("sonarlint")
 def setup_sonarlint_cmd(
     target: Annotated[
         Path | None,

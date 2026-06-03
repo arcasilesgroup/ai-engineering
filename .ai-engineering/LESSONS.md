@@ -269,3 +269,21 @@ Never skip these steps. Verify by reading the files after clearing.
 **Context**: During spec-145, host-pressure admission (`fanout`/`serial`/`deferred`) was proposed after `/ai-autopilot` blocked on `ok_to_dispatch=false`.
 **Learning**: The user considers host resource admission over-engineering for ai-engineering; local host telemetry can be inaccurate and should not be a framework execution responsibility.
 **Rule**: For standard flow execution, only decide the framework route (`/ai-build` vs `/ai-autopilot`). Do not add host-admission states or block execution based on local host capacity unless the user explicitly reintroduces that requirement.
+
+### Fix flaky tests by platform — never quarantine the whole module
+
+**Context**: spec-163 #502/#484 — OS-specific failures (Windows mtime/`os.replace` concurrency/no-bash, loaded macOS perf thresholds) recurred repeatedly; the temptation is `--ignore` the whole module, which drops Linux+macOS coverage too.
+**Learning**: A platform-attributable failure has a platform-scoped fix (skip-on-platform marker, OS guard, widened threshold), not a blanket module ignore.
+**Rule**: For a recurring OS-specific test failure, triage by platform and apply the narrowest fix; never `--ignore`/deselect an entire module that passes on the other OSes.
+
+### Batch fix waves when CI uses cancel-in-progress
+
+**Context**: spec-163 #502/#485 — `concurrency: cancel-in-progress: true` cancels the in-flight run on every push; several pushes faster than the Integration matrix means only the last run ever completes (observed in this session's PR CI loops).
+**Learning**: Under cancel-in-progress, each push restarts the slow matrix from zero, so rapid successive pushes waste CI and wall-clock.
+**Rule**: When CI cancels in progress and the matrix is slow, batch related fixes into one push rather than pushing each fix separately.
+
+### Re-Read before retrying a failed Edit
+
+**Context**: spec-163 #502/#482 — Edit fails with "File modified since read" / "String to replace not found" after a formatter hook or a concurrent agent touched the file between Read and Edit (hit repeatedly this session via the auto-format PostToolUse hook).
+**Learning**: The on-disk bytes drifted from the last Read; blindly retrying the same Edit keeps failing.
+**Rule**: On an Edit failure citing staleness or a missing string, Read the target region again to capture the current bytes (including formatter changes), then re-issue the Edit.
