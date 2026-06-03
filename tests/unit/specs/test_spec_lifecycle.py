@@ -744,8 +744,13 @@ class TestMigrateIds:
 # Snapshot-on-ship + working-buffer reset (spec-153 D-153-04 / D-153-06)
 # ---------------------------------------------------------------------------
 
-# The placeholder both working buffers are reset to at the SHIPPED transition.
-_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
+# The recognized placeholders the working buffers are reset to at the SHIPPED
+# transition (spec-161 follow-up: spec.md and plan.md get their OWN marker, and
+# the markers match the framework-wide idle-slot forms the gates recognize).
+_SPEC_PLACEHOLDER = "# No active spec\n\nRun /ai-brainstorm to start one.\n"
+_PLAN_PLACEHOLDER = "# No active plan\n\nRun /ai-plan after brainstorm approval.\n"
+# Legacy lowercase-paren form a pre-fix consolidation wrote; still RECOGNIZED.
+_LEGACY_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
 
 
 def _seed_working_buffers(
@@ -798,8 +803,29 @@ class TestSnapshotAndReset:
 
         lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
 
-        assert spec_md.read_text() == _PLACEHOLDER
-        assert plan_md.read_text() == _PLACEHOLDER
+        assert spec_md.read_text() == _SPEC_PLACEHOLDER
+        assert plan_md.read_text() == _PLAN_PLACEHOLDER
+
+    def test_reset_placeholders_are_recognized_idle_markers(self, lifecycle, project_root):
+        """spec-161 follow-up regression: the reset placeholders MUST be the
+        framework-recognized idle markers (``# No active spec`` / ``# No active
+        plan``) — the lowercase-paren form red the canonical-slot gate + spec_lint
+        on main — and plan.md MUST get the PLAN marker, not the spec one."""
+        record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
+        spec_md, plan_md = _seed_working_buffers(
+            project_root,
+            spec_body="# Cool Feature\n\nbody.\n",
+            plan_body="# Plan\n\nsteps.\n",
+        )
+
+        lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
+
+        assert spec_md.read_text().startswith("# No active spec")
+        assert plan_md.read_text().startswith("# No active plan")
+        # Both written placeholders + the legacy paren form are recognized.
+        assert lifecycle._buffer_is_placeholder(spec_md.read_text())
+        assert lifecycle._buffer_is_placeholder(plan_md.read_text())
+        assert lifecycle._buffer_is_placeholder(_LEGACY_PLACEHOLDER)
 
     def test_snapshot_is_idempotent_on_already_shipped_rerun(self, lifecycle, project_root):
         record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
@@ -823,15 +849,17 @@ class TestSnapshotAndReset:
         lifecycle.mark_shipped(record.spec_id, "PR-101", "feat/x", project_root)
 
         assert (archive_dir / "spec.md").read_text() == snapshot_before
-        assert (archive_dir / "spec.md").read_text() != _PLACEHOLDER
-        assert spec_md.read_text() == _PLACEHOLDER
+        assert (archive_dir / "spec.md").read_text() != _SPEC_PLACEHOLDER
+        assert spec_md.read_text() == _SPEC_PLACEHOLDER
 
     def test_mark_shipped_skips_snapshot_when_buffer_is_placeholder(self, lifecycle, project_root):
         record = lifecycle.start_new("cool-feature", "Cool Feature", project_root)
+        # Seed the legacy paren placeholder a pre-fix consolidation would have
+        # written — it must still be recognized and skipped (not re-snapshotted).
         _seed_working_buffers(
             project_root,
-            spec_body=_PLACEHOLDER,
-            plan_body=_PLACEHOLDER,
+            spec_body=_LEGACY_PLACEHOLDER,
+            plan_body=_LEGACY_PLACEHOLDER,
         )
 
         # Must not crash and must not create an archive snapshot of the placeholder.
@@ -1439,8 +1467,8 @@ class TestReconcileMerged:
         archive_dir = specs / "archive" / f"{record.spec_id}-{record.slug}"
         assert (archive_dir / "spec.md").read_text() == spec_body
         assert (archive_dir / "plan.md").read_text() == plan_body
-        assert spec_md.read_text() == _PLACEHOLDER
-        assert plan_md.read_text() == _PLACEHOLDER
+        assert spec_md.read_text() == _SPEC_PLACEHOLDER
+        assert plan_md.read_text() == _PLAN_PLACEHOLDER
 
 
 # ---------------------------------------------------------------------------
@@ -1803,8 +1831,8 @@ class TestPlaceholderMarkerWidening:
         assert lifecycle._buffer_is_placeholder(marker) is True
 
     def test_own_placeholder_still_recognized(self, lifecycle):
-        """The lifecycle's own placeholder is still a placeholder (no regression)."""
-        assert lifecycle._buffer_is_placeholder(_PLACEHOLDER) is True
+        """The lifecycle's legacy paren placeholder is still recognized (no regression)."""
+        assert lifecycle._buffer_is_placeholder(_LEGACY_PLACEHOLDER) is True
 
     def test_real_spec_content_is_not_a_placeholder(self, lifecycle):
         """A real spec buffer is NOT a placeholder (no false widening)."""
