@@ -112,6 +112,26 @@ class TestToolsRequiredCheck:
         required = next(r for r in results if r.name == "tools-required")
         assert required.status == CheckStatus.OK
 
+    def test_warn_manifest_missing_when_load_empty(self, ctx: DoctorContext) -> None:
+        # spec-101 G-1 (#510): an empty manifest must surface an actionable
+        # "run 'ai-eng install'" warning, NOT a silent hardcoded baseline probe.
+        # is_tool_available is forced False so the legacy baseline path -- if it
+        # still existed -- would leak gitleaks/ruff/ty/pip-audit into the message.
+        with (
+            patch.object(tools_phase, "load_required_tools", return_value=_empty_load_result()),
+            patch.object(tools_phase, "run_verify", side_effect=_verify_pass),
+            patch.object(tools_phase, "is_tool_available", return_value=False),
+        ):
+            results = tools_phase.check(ctx)
+
+        required = next(r for r in results if r.name == "tools-required")
+        assert required.status == CheckStatus.WARN
+        assert required.fixable is True
+        assert "manifest not found" in required.message
+        assert "ai-eng install" in required.message
+        for baseline in ("gitleaks", "ruff", "ty", "pip-audit"):
+            assert baseline not in required.message
+
     def test_warn_when_tools_missing(self, ctx: DoctorContext) -> None:
         load_result = LoadResult(
             tools=[ToolSpec(name="gitleaks"), ToolSpec(name="ruff")],

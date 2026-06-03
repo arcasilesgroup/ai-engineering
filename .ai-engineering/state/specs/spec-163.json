@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-06-03T10:50:04.964725+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "issue-audit-remediation",
+  "spec_id": "spec-163",
+  "state": "approved",
+  "title": "Stale-issue audit remediation: bounded cleanups + architecture-drift CI gate"
+}

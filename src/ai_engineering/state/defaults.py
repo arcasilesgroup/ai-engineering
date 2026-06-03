@@ -14,7 +14,6 @@ from .control_plane import resolve_control_plane_contract
 from .models import (
     DecisionStore,
     InstallState,
-    InstinctMeta,
     OwnershipMap,
     UpdateMetadata,
 )
@@ -103,8 +102,3 @@ def default_decision_store() -> DecisionStore:
         update_metadata=default_update_metadata(context="decision store"),
         decisions=[],
     )
-
-
-def default_instinct_meta() -> InstinctMeta:
-    """Create default bookkeeping for simplified instinct learning."""
-    return InstinctMeta()
