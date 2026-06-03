@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "spec-161-spec-lifecycle-gate-integrity",
   "created": "2026-06-02T22:31:52.526168+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "575",
+  "shipped": "2026-06-02T23:53:58.713422+00:00",
   "slug": "spec-lifecycle-gate-integrity",
   "spec_id": "spec-161",
-  "state": "draft",
+  "state": "shipped",
   "title": "Spec-lifecycle approval gate + integrity hardening"
 }

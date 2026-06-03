@@ -174,14 +174,24 @@ def _archive_drafts_dir(project_root: Path) -> Path:
     return _archive_dir(project_root) / "drafts"
 
 
-# Placeholder both working buffers are reset to once a spec ships (D-153-04).
-_BUFFER_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
+# Placeholders the working buffers are reset to once a spec ships (D-153-04).
+# These MUST match the framework-wide reset markers (``# No active spec`` /
+# ``# No active plan``) that the idle-slot gates and ``maintenance/spec_reset.py``
+# recognize — otherwise a freshly consolidated buffer reds the canonical-slot
+# gate + ``spec_lint`` on main (spec-161 follow-up). spec.md and plan.md get
+# their OWN marker (the plan buffer is not a spec).
+_SPEC_BUFFER_PLACEHOLDER = "# No active spec\n\nRun /ai-brainstorm to start one.\n"
+_PLAN_BUFFER_PLACEHOLDER = "# No active plan\n\nRun /ai-plan after brainstorm approval.\n"
 
-# Framework-wide placeholder markers RECOGNIZED (not written) as empty buffers.
+# Legacy lowercase-paren form previously WRITTEN by ``mark_shipped`` before the
+# spec-161 follow-up. Still RECOGNIZED so an idempotent re-run never snapshots a
+# buffer a prior (buggy) consolidation already reset.
+_LEGACY_BUFFER_PLACEHOLDER = "# (no active spec)\n\nRun /ai-brainstorm to start one.\n"
+
+# Framework-wide placeholder markers RECOGNIZED as empty buffers.
 # ``maintenance/spec_reset.py`` clears buffers with ``# No active spec`` /
 # ``# No active plan``; recognizing them here keeps ``mark_shipped`` from
-# snapshotting a reset buffer (spec-153 quality loop FINDING 4, recognition-
-# widening only — lifecycle still WRITES ``_BUFFER_PLACEHOLDER``).
+# snapshotting a reset buffer (spec-153 quality loop FINDING 4).
 _PLACEHOLDER_MARKER_PREFIXES = ("# No active spec", "# No active plan")
 
 
@@ -427,7 +437,11 @@ def _buffer_is_placeholder(text: str) -> bool:
     overwrites a real snapshot with the reset stub.
     """
     stripped = text.strip()
-    if not stripped or text == _BUFFER_PLACEHOLDER:
+    if not stripped or text in (
+        _SPEC_BUFFER_PLACEHOLDER,
+        _PLAN_BUFFER_PLACEHOLDER,
+        _LEGACY_BUFFER_PLACEHOLDER,
+    ):
         return True
     return stripped.startswith(_PLACEHOLDER_MARKER_PREFIXES)
 
@@ -476,9 +490,10 @@ def _snapshot_and_reset(project_root: Path, record: SpecRecord) -> bool:
     plan_text = plan_buffer.read_text(encoding="utf-8") if plan_buffer.exists() else ""
     _atomic_write(target_dir / "plan.md", plan_text)
 
-    # Reset the working buffers to the placeholder so the next spec starts clean.
-    _atomic_write(spec_buffer, _BUFFER_PLACEHOLDER)
-    _atomic_write(plan_buffer, _BUFFER_PLACEHOLDER)
+    # Reset the working buffers to their recognized placeholders so the next
+    # spec starts clean — and the idle canonical slot passes the slot gates.
+    _atomic_write(spec_buffer, _SPEC_BUFFER_PLACEHOLDER)
+    _atomic_write(plan_buffer, _PLAN_BUFFER_PLACEHOLDER)
     return True
 
 
