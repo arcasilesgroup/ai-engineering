@@ -83,6 +83,12 @@ documented posture on complexity thresholds.
    refactor.
 9. **No regressions** — `/ai-verify` is GO on the changeset; the secrets,
    lint, and test gates stay green.
+10. **Workstream C — session-end instinct consolidation.**
+    `/ai-branch-cleanup` runs `/ai-session-watch --review` (gated on
+    `observations.yml`, fail-open) before pruning, closing the no-commit/
+    no-PR consolidation gap; the stale `/ai-start` description and
+    `/ai-session-watch` Step 1 contradictions are corrected at their
+    canonical source and propagated via `ai-eng dev sync`.
 
 ## Non-Goals
 
@@ -103,6 +109,10 @@ documented posture on complexity thresholds.
 - **Mass complexity refactor** of all 189 C901/PLR findings (#495).
 - **Touching hook scripts** in a way that churns `hooks-manifest.json`
   unless strictly required.
+- **Workstream C scope guard** — no hook-script edits (no SessionEnd
+  drain path: `--review` is LLM-driven), no `observe.py`/
+  `instinct-observe.py` rename, no `state/instincts.py` dual-writer
+  changes. C is skill-text + `dev sync` only (D-163-10/11).
 
 ## Decisions
 
@@ -188,6 +198,38 @@ The five instinct proposals are out of scope; handle them via
 (promote/reject/defer), not code defects. Mixing a judgment-grading pass
 into a code-fix spec muddies both. Several likely overlap shipped
 spec-147/spec-162 work and warrant a dedicated trace.
+
+### D-163-10 — Session-end instinct consolidation belongs in `/ai-branch-cleanup`
+Add a fail-open step to `/ai-branch-cleanup`: if
+`.ai-engineering/observations/observations.yml` exists, run
+`/ai-session-watch --review` before pruning branches. Keep the existing
+`/ai-pr` Step 2 and `/ai-commit` Step 2 gates unchanged.
+**Rationale**: An evidence-backed audit (2026-06-03) confirmed the
+LLM-rich `--review` consolidation — the ONLY path that writes the
+`corrections` family — fires today only via `/ai-commit` or `/ai-pr`. A
+session that ends without a commit/PR (exploration, read-only, tidy-up)
+loses all conversation-level `corrections` permanently; the Stop-hook
+`extract_instincts()` only salvages structural recoveries+workflows. A
+SessionEnd hook CANNOT fix this — `--review` is LLM-driven and hooks run
+detached Python with no conversation access. `/ai-branch-cleanup` is the
+canonical end-of-session skill (auto-invoked by `/ai-pr` after merge, run
+manually as "tidy up"), has an LLM in the loop, and currently has zero
+consolidation step — making it the correct home for the no-PR path. The
+`observations.yml`-existence gate matches the established `/ai-pr` /
+`/ai-commit` contract and is OS-portable skill text (no hook fork).
+
+### D-163-11 — Repair the two post-spec-162 stale skill contradictions
+Fix the `/ai-start` description frontmatter (still claims "activates
+session observation", contradicting its own body that delegates to
+always-on hooks) and the `/ai-session-watch` Workflow Step 1 (says
+"invoke at session start to enter listening mode", conflicting with the
+always-on-hooks contract). Edit the canonical `.claude/skills/*/SKILL.md`
+only, then `ai-eng dev sync` to regenerate mirrors.
+**Rationale**: Both are stale artefacts left by the spec-162 refactor
+that removed observation-activation from `/ai-start`. They actively
+mislead operators about how observation works. Editing the canonical
+source + `dev sync` is the mandated multi-IDE propagation path
+(CLAUDE.md §12); hand-editing mirrors would be overwritten.
 
 ## Risks
 

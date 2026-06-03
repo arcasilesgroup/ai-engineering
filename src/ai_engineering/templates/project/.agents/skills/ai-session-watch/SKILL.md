@@ -25,7 +25,7 @@ Project-local instinct learning for `ai-engineering`. Two modes: passive observa
 
 ## Workflow
 
-1. Session start: invoke `/ai-session-watch` to enter listening mode.
+1. Observation is **always-on** via the `instinct-observe.py` hooks (PreToolUse + PostToolUse) — no manual activation, and `/ai-start` does NOT start it. Invoking bare `/ai-session-watch` is optional and only emits a one-line acknowledgement.
 2. As work happens, the model passively notes corrections, error recoveries, and skill-invocation sequences.
 3. Before a commit or PR, invoke `/ai-session-watch --review` to run the 5-step consolidation: extract → enrich → write → evaluate → create work items.
 4. High-confidence proposals (>= 0.7, evidence >= 3) auto-generate work items via `gh issue create` or `az boards work-item create`.

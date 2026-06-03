@@ -13,7 +13,7 @@
 |-------|-------|
 | Name | ai-engineering |
 | Organization | arcasilesgroup/ai-engineering |
-| Versions | 0.4.0 (framework), 2.0 (manifest schema), 0.1.0 (pyproject) |
+| Versions | 0.10.1 (framework), 2.0 (manifest schema), 0.10.1 (pyproject) |
 | Description | AI governance framework for secure software delivery |
 | License | MIT |
 | Python | >= 3.11 |
@@ -258,10 +258,10 @@ graph TB
     end
 
     subgraph Infra["Infrastructure"]
-        pipeline["pipeline<br/>CI/CD compliance"]
         updater["updater<br/>Ownership-safe updates"]
         hooks["hooks<br/>Git hook management"]
         detector["detector<br/>Tool readiness detection"]
+        prereqs["prereqs<br/>SDK prerequisite probes"]
         version["version<br/>Version lifecycle"]
     end
 
@@ -283,6 +283,11 @@ graph TB
     Policy --> state
     Platform --> vcs
 ```
+
+> Not graphed as layer components (spec-163 D-163-08): `config` and
+> `prereqs` are shared/Infra utilities, and `templates/` is installer
+> content **data** (Markdown/YAML/JSON shipped to installs), not a code
+> layer. They ride outside the component graph above by design.
 
 | Layer | Component | Technology |
 |-------|-----------|------------|
@@ -716,7 +721,7 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 
 | ID | Title | Category | Criticality |
 |----|-------|----------|-------------|
-| DEC-001 | Flat skill layout with `ai-` namespace | architecture | high |
+| DEC-001 | `ai-` skill namespace: flat top-level dirs, with nested `handlers/`/`references/`/`scripts/`/`evals/` subdirs permitted (amended spec-163 D-163-04) | architecture | high |
 | DEC-003 | Plan/Execute split with Spec-as-Gate | governance | high |
 | DEC-004 | Flat main with feature branches (no phase branching) | governance | medium |
 | DEC-005 | Multi-IDE governance via single-source generation | architecture | medium |
@@ -739,6 +744,8 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 | DEC-026 | contexts/orgs eliminated -- no implementation | architecture | low |
 | DEC-027 | contracts replaced by constitution + CLAUDE.md | architecture | medium |
 | DEC-028 | Canonical framework-events stream + agentsview | architecture | high |
+| DEC-029 | Layer-map enforced via import-linter `forbidden` upward-fences with a baseline; gate blocks NEW upward imports, current 43 edges baselined (doctor.* inherent-accepted, rest tech-debt). spec-163 #496/#497 D-163-03/07 | architecture | high |
+| DEC-030 | Complexity thresholds (C901/PLR0912/13/15) are ADVISORY (non-blocking); the largest debt carries `audit:exempt`; offenders reduced opportunistically, never mass-refactored. spec-163 #495 D-163-05 | governance | low |
 
 ---
 

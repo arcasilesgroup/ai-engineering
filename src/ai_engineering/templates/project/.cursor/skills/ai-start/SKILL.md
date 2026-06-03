@@ -1,6 +1,6 @@
 ---
 name: ai-start
-description: "Bootstraps a coding session: loads project context, activates session observation, displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-onboard instead. Not for governance review; use /ai-governance instead."
+description: "Bootstraps a coding session: loads project context and displays a welcome dashboard with recent activity, board items, and available commands. Trigger for 'hello', 'lets start', 'good morning', 'whats the status', 'get me up to speed', 'I am back'. Also invokable mid-session to re-bootstrap. Not for human onboarding; use /ai-onboard instead. Not for governance review; use /ai-governance instead."
 effort: mid
 argument-hint: 
 model_tier: sonnet
