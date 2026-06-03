@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "spec-163-workstream-b",
   "created": "2026-06-03T10:50:04.964725+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "580",
+  "shipped": "2026-06-03T18:52:07.658523+00:00",
   "slug": "issue-audit-remediation",
   "spec_id": "spec-163",
-  "state": "approved",
+  "state": "shipped",
   "title": "Stale-issue audit remediation: bounded cleanups + architecture-drift CI gate"
 }

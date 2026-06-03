@@ -10,17 +10,29 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+import typer
 from typer.testing import CliRunner
 
+from ai_engineering.cli_commands import setup as _setup_mod
 from ai_engineering.cli_commands.setup import (
     _read_sonar_property,
     _state_dir,
-    setup_app,
 )
 from ai_engineering.cli_output import set_json_mode
 from ai_engineering.credentials.models import PlatformKind
 
 runner = CliRunner()
+
+# spec-163 #462: setup.py no longer ships a redundant `setup_app` Typer
+# instance — cli_factory.py builds and `_safe`-wraps the production one. This
+# local bare app reproduces the prior test-harness semantics (no `_safe`
+# wrapper) so the existing invoke-based assertions are unchanged.
+setup_app = typer.Typer(name="setup", no_args_is_help=True)
+setup_app.command("platforms")(_setup_mod.setup_platforms_cmd)
+setup_app.command("github")(_setup_mod.setup_github_cmd)
+setup_app.command("sonar")(_setup_mod.setup_sonar_cmd)
+setup_app.command("azure-devops")(_setup_mod.setup_azure_devops_cmd)
+setup_app.command("sonarlint")(_setup_mod.setup_sonarlint_cmd)
 
 
 # ---------------------------------------------------------------
