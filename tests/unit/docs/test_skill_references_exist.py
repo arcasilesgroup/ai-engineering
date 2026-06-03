@@ -37,6 +37,7 @@ SCAN_PATHS = [
     REPO_ROOT / "AGENTS.md",
     REPO_ROOT / "README.md",
     REPO_ROOT / "CONSTITUTION.md",
+    REPO_ROOT / "SOUL.md",
     REPO_ROOT / ".github" / "copilot-instructions.md",
 ]
 SCAN_DIRS = [

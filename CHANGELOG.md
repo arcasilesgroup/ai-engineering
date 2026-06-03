@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(spec-164): ship `SOUL.md`, a canonical agent-values layer
+  (Pragmatic Helpfulness, Honest & Direct, Collaborative Partner, Learn &
+  Grow). Wired into the §0 Bootstrap read-list via a single `CANONICAL.md`
+  pointer that syncs byte-equivalent into every IDE mirror; content is
+  model-agnostic and ASCII (no emoji), guarded by a content contract
+  (`test_soul_md_contract.py`) and dogfood parity. SOUL.md is the
+  judgment layer above the deterministic plane — distinct from
+  CONSTITUTION (project identity) and the Operating Mindset (engineering
+  discipline).
 - feat(spec): close the spec-lifecycle approval gate and harden the
   numbering/reconcile integrity surface (spec-161, issues #550/#551/#574).
   `spec_lifecycle.py` gains two CLI verbs — `approve` (DRAFT→APPROVED) and
