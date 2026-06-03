@@ -7,11 +7,11 @@ cadence: weekly
 
 # Dependency Health
 
-## Objetivo
+## Objective
 
 This runbook is the **single owner** of all CVE and vulnerability findings originating from the dependency graph. It scans for outdated versions, known CVEs, and license compliance issues on a weekly cadence. The companion `security-scan` runbook handles SAST and secrets detection only -- it never duplicates dependency vulnerability work.
 
-## Precondiciones
+## Prerequisites
 
 - Package ecosystem detection: at least one of `pyproject.toml`, `requirements.txt`, `uv.lock`, `package.json`, or `Cargo.toml` must exist.
 - Repo Python dependencies installed via `uv sync --dev` so the TLS-aware dependency-audit wrapper is available.
@@ -20,7 +20,7 @@ This runbook is the **single owner** of all CVE and vulnerability findings origi
 - For Node ecosystems: `npm` available on PATH.
 - For Rust ecosystems: `cargo-audit` and `cargo-outdated` installed.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Detect Package Ecosystem
 

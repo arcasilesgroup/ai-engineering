@@ -7,20 +7,20 @@ cadence: weekly
 
 # Security Scan Runbook
 
-## Objetivo
+## Objective
 
 Detect leaked secrets, SAST/OWASP code-level vulnerabilities, and compliance gaps across source code, configuration files, CI/CD workflows, and scripts. Findings above the severity threshold are filed as task work items with full remediation context.
 
 This runbook does **not** scan for dependency CVEs or vulnerable package versions. That responsibility belongs to the `dependency-health` runbook, which owns the supply-chain surface. The boundary is strict: if the finding originates from a project dependency rather than authored code or configuration, it is out of scope here.
 
-## Precondiciones
+## Prerequisites
 
 - `gitleaks` installed for secret detection. Install via GitHub releases binary or package manager.
 - `semgrep` installed for SAST and OWASP scanning. Install via `pip3 install --user semgrep`.
 - `gh` or `az` CLI authenticated for work item creation and deduplication.
 - `.ai-engineering/runbooks/gitleaks-extended.toml` present for Step 3 extended config scan.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Secret detection
 

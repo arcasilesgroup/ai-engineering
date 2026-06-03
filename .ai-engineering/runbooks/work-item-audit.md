@@ -7,7 +7,7 @@ cadence: weekly
 
 # Work Item Audit
 
-## Objetivo
+## Objective
 
 Audit open non-functional work items before consolidation so the backlog reflects
 current repo reality instead of stale findings, false positives, or mixed-signal
@@ -18,7 +18,7 @@ with an audit rationale.
 
 This runbook is the standard hygiene step that runs before `consolidate`.
 
-## Precondiciones
+## Prerequisites
 
 - Work items provider configured in `manifest.yml` (`github` or `azure_devops`)
 - CLI access: `gh` for GitHub, `az` for Azure DevOps
@@ -29,7 +29,7 @@ This runbook is the standard hygiene step that runs before `consolidate`.
   normal feature backlog
 - Parallel analysis capacity available for bounded batch execution
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Fetch candidate work items
 

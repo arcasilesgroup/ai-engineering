@@ -7,18 +7,18 @@ cadence: weekly
 
 # Work Item Consolidation
 
-## Objetivo
+## Objective
 
 Reduce board noise by identifying duplicate, overlapping, or closely related work items and consolidating them into a single well-described task. The consolidated task is structured as a draft brainstorm input, ready for `/ai-brainstorm` to refine into a spec. Runs weekly and requires user confirmation before any mutations.
 
-## Precondiciones
+## Prerequisites
 
 - Work items provider configured in `manifest.yml` (`github` or `azure_devops`)
 - CLI access: `gh` for GitHub, `az` for Azure DevOps
 - `work-item-audit` has already run in the current weekly hygiene cycle; consolidate assumes invalid noise has been removed first
 - At least 5 open work items in the backlog (below this threshold, manual review is more efficient)
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Fetch all open work items
 
