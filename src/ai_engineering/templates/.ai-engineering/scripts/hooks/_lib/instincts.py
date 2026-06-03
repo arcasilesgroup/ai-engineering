@@ -381,6 +381,15 @@ def _load_instincts_document(project_root: Path) -> dict[str, Any]:
 def _save_instincts_document(project_root: Path, document: dict[str, Any]) -> None:
     ensure_instinct_artifacts(project_root)
     document["schemaVersion"] = INSTINCTS_SCHEMA_VERSION
+    # spec-162 D-162-01: content-idempotent write. Compare the candidate to the
+    # on-disk corpus with the volatile ``updatedAt`` excluded; skip the write
+    # entirely when the corpus is unchanged so no-op sessions do not churn the
+    # tracked file. Only a genuine corpus change advances updatedAt.
+    existing = _load_instincts_document(project_root)
+    candidate = {k: v for k, v in document.items() if k != "updatedAt"}
+    baseline = {k: v for k, v in existing.items() if k != "updatedAt"}
+    if candidate == baseline:
+        return
     document["updatedAt"] = _iso_now()
     _dump_yaml_or_json(_instincts_path(project_root), document)
 

@@ -37,6 +37,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(instincts): the instinct-store corpus writer is now content-idempotent,
+  ending the per-session timestamp churn on `.ai-engineering/observations/`
+  (spec-162). `_save_instincts_document` (hook lib + its byte-identical
+  installer-template mirror) and the pip-twin `save_instincts_document` now
+  compare the candidate corpus to disk with the volatile `updatedAt` excluded
+  and skip the write entirely when the corpus is unchanged — so a no-op session
+  no longer rewrites `observations.yml`. The extraction watermark
+  `observations/meta.json` (per-session runtime state, not a source-of-truth
+  datum) is untracked via `git rm --cached`, added to `.gitignore` and the
+  installer-managed gitignore, and regenerated on demand by
+  `ensure_instinct_artifacts`. **Breaking**: existing clones drop `meta.json`
+  from the index on the next pull (the file is retained on disk).
 - fix(spec): `spec_lifecycle.py` next-number minting is no longer blind to
   archived specs (issue #574 Bug 1). `_scan_spec_numbers` now unions the
   numbers parsed from `specs/archive/spec-NNN-*/` directory names with the

@@ -596,3 +596,95 @@ class TestContextFunctionsRemoved:
 
     def test_context_header_not_present(self) -> None:
         assert not hasattr(instincts, "INSTINCT_CONTEXT_HEADER")
+
+
+# ---------------------------------------------------------------------------
+# 12. spec-162 D-162-01: content-idempotent corpus write
+# ---------------------------------------------------------------------------
+
+
+class TestSaveInstinctsDocumentIdempotent:
+    """A no-op save must NOT rewrite observations.yml (no updatedAt churn)."""
+
+    def _corpus(self) -> dict:
+        doc = instincts._default_instincts_document()
+        doc["corrections"] = [
+            {
+                "pattern": "verify naming before claiming a file is missing",
+                "trigger": "about to claim a path does not exist",
+                "action": "ls the actual filesystem first",
+                "confidence": 0.3,
+            }
+        ]
+        return doc
+
+    @staticmethod
+    def _monotonic_now(monkeypatch: pytest.MonkeyPatch) -> None:
+        # Infinite, strictly-increasing stamp source. _iso_now is also called by
+        # _default_instincts_document / _load_instincts_document, so a finite
+        # iterator would StopIteration; the assertion is on the *persisted*
+        # updatedAt, which only advances when the file is actually rewritten.
+        counter = {"n": 0}
+
+        def fake_now() -> str:
+            counter["n"] += 1
+            return f"2026-01-01T00:00:{counter['n']:02d}Z"
+
+        monkeypatch.setattr(instincts, "_iso_now", fake_now)
+
+    def test_noop_save_does_not_bump_updated_at(
+        self, project: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._monotonic_now(monkeypatch)
+
+        instincts._save_instincts_document(project, self._corpus())
+        first = instincts._load_instincts_document(project)["updatedAt"]
+
+        # Same corpus again -> write must be skipped, persisted updatedAt frozen.
+        instincts._save_instincts_document(project, self._corpus())
+        second = instincts._load_instincts_document(project)["updatedAt"]
+
+        assert second == first
+
+    def test_real_change_advances_updated_at_and_persists(
+        self, project: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        self._monotonic_now(monkeypatch)
+
+        instincts._save_instincts_document(project, self._corpus())
+        first = instincts._load_instincts_document(project)["updatedAt"]
+
+        changed = self._corpus()
+        changed["corrections"].append(
+            {"pattern": "new lesson", "trigger": "x", "action": "y", "confidence": 0.3}
+        )
+        instincts._save_instincts_document(project, changed)
+        reloaded = instincts._load_instincts_document(project)
+
+        assert reloaded["updatedAt"] != first
+        assert len(reloaded["corrections"]) == 2
+        assert any(c["pattern"] == "new lesson" for c in reloaded["corrections"])
+
+    def test_noop_extraction_session_leaves_corpus_byte_identical(self, project: Path) -> None:
+        """spec-162 acceptance: a session that logs raw observations producing
+        no corpus delta must NOT rewrite observations.yml (the churn Goal)."""
+        now = datetime.now(tz=UTC)
+        # A lone successful Read yields no error-recovery and no skill-workflow,
+        # so extract_instincts merges nothing into the corpus.
+        _write_obs(
+            project,
+            [_make_obs(tool="Read", kind="tool_start", ts=now - timedelta(seconds=1))],
+        )
+
+        assert instincts.extract_instincts(project) is True  # raw obs consumed
+        inst_path = project / instincts.INSTINCTS_REL
+        before = inst_path.read_bytes()
+
+        # A second no-delta session: more raw obs, still nothing to merge.
+        _write_obs(
+            project,
+            [_make_obs(tool="Read", kind="tool_start", ts=now + timedelta(seconds=1))],
+        )
+        instincts.extract_instincts(project)
+
+        assert inst_path.read_bytes() == before  # observations.yml untouched
