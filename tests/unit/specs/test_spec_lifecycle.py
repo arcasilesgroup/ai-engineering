@@ -1834,6 +1834,27 @@ class TestPlaceholderMarkerWidening:
         """The lifecycle's legacy paren placeholder is still recognized (no regression)."""
         assert lifecycle._buffer_is_placeholder(_LEGACY_PLACEHOLDER) is True
 
+    def test_producer_markers_match_the_real_idle_slot_gate_prefix(self, lifecycle):
+        """spec-161 follow-up: the markers ``mark_shipped`` WRITES must match the
+        idle-slot gate's recognized prefix. The producer (``spec_lifecycle``) and
+        the gate (``tools/spec_lint/cli.py``) hardcode the literal independently —
+        couple them here so a future gate-constant rename can't silently
+        re-introduce the red-main drift this fix closed (review finding testing-2).
+        """
+        repo_root = Path(__file__).resolve().parents[3]
+        gate_src = (repo_root / "tools" / "spec_lint" / "cli.py").read_text(encoding="utf-8")
+        gate_match = re.search(r'_IDLE_SLOT_PREFIX\s*=\s*"([^"]+)"', gate_src)
+        assert gate_match, "could not locate _IDLE_SLOT_PREFIX in tools/spec_lint/cli.py"
+        gate_prefix = gate_match.group(1)
+        # The spec buffer marker MUST satisfy the spec_lint idle-slot gate prefix.
+        assert lifecycle._SPEC_BUFFER_PLACEHOLDER.startswith(gate_prefix)
+        # The plan buffer marker keys off the framework-wide plan marker the docs
+        # gate (tests/docs/test_links.py) + manifest_coherence recognize.
+        assert lifecycle._PLAN_BUFFER_PLACEHOLDER.startswith("# No active plan")
+        # Both written markers must also satisfy the lifecycle's own recognizer.
+        assert lifecycle._buffer_is_placeholder(lifecycle._SPEC_BUFFER_PLACEHOLDER)
+        assert lifecycle._buffer_is_placeholder(lifecycle._PLAN_BUFFER_PLACEHOLDER)
+
     def test_real_spec_content_is_not_a_placeholder(self, lifecycle):
         """A real spec buffer is NOT a placeholder (no false widening)."""
         assert (
