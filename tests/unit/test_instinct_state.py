@@ -322,3 +322,60 @@ skillAgentPreferences:
             builder=lambda k, c, t: {"key": k, "evidenceCount": c, "lastSeenAt": t},
         )
         assert len(target) == 0
+
+
+class TestSaveInstinctsDocumentIdempotent:
+    """spec-162 D-162-01: pip-twin save must skip a no-op write (no churn)."""
+
+    @staticmethod
+    def _corpus() -> dict[str, Any]:
+        from ai_engineering.state.instincts import default_instincts_document
+
+        doc = default_instincts_document()
+        doc["corrections"] = [{"pattern": "p", "trigger": "t", "action": "a", "confidence": 0.3}]
+        return doc
+
+    def test_noop_save_does_not_bump_updated_at(self, tmp_path: Path, monkeypatch: Any) -> None:
+        from ai_engineering.state import instincts as st
+
+        _seed_manifest(tmp_path)
+        counter = {"n": 0}
+
+        def fake_now() -> str:
+            counter["n"] += 1
+            return f"2026-01-01T00:00:{counter['n']:02d}Z"
+
+        monkeypatch.setattr(st, "_iso_now", fake_now)
+
+        st.save_instincts_document(tmp_path, self._corpus())
+        first = st.load_instincts_document(tmp_path)["updatedAt"]
+
+        st.save_instincts_document(tmp_path, self._corpus())
+        second = st.load_instincts_document(tmp_path)["updatedAt"]
+
+        assert second == first
+
+    def test_real_change_advances_updated_at(self, tmp_path: Path, monkeypatch: Any) -> None:
+        from ai_engineering.state import instincts as st
+
+        _seed_manifest(tmp_path)
+        counter = {"n": 0}
+
+        def fake_now() -> str:
+            counter["n"] += 1
+            return f"2026-01-01T00:00:{counter['n']:02d}Z"
+
+        monkeypatch.setattr(st, "_iso_now", fake_now)
+
+        st.save_instincts_document(tmp_path, self._corpus())
+        first = st.load_instincts_document(tmp_path)["updatedAt"]
+
+        changed = self._corpus()
+        changed["corrections"].append(
+            {"pattern": "q", "trigger": "t", "action": "a", "confidence": 0.3}
+        )
+        st.save_instincts_document(tmp_path, changed)
+        reloaded = st.load_instincts_document(tmp_path)
+
+        assert reloaded["updatedAt"] != first
+        assert len(reloaded["corrections"]) == 2

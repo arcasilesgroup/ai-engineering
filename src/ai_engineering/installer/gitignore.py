@@ -52,6 +52,9 @@ state/framework-events.ndjson
 state/observation-events.ndjson
 state/instinct-observations.ndjson
 
+# Instinct extraction watermark — per-session runtime state (spec-162 D-162-02)
+observations/meta.json
+
 # Derived database (per-user, rebuilt from the event stream)
 state/state.db
 state/state.db-wal

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-02T20:38:15Z",
+  "generatedAt": "2026-06-03T09:51:56Z",
   "hookCount": 75,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -12,7 +12,7 @@
     ".ai-engineering/scripts/hooks/_lib/hook_context.py": "fff7fbd6a26e681771b21d30c2bfc35a05e1e59a5ef7cf019c02385608177735",
     ".ai-engineering/scripts/hooks/_lib/hook_http.py": "1f9a541a3d38bc3be967de875105aed06a9768476eeaf75a74715f172fc4d5e1",
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",
-    ".ai-engineering/scripts/hooks/_lib/instincts.py": "077cffa6e4050d4c22c1549d7e00c7e7688e54f7cc8bfb29bc6ce1f51c1069b4",
+    ".ai-engineering/scripts/hooks/_lib/instincts.py": "0d576e540f021b226c869575ec82d2ba3936c3348ec8c80b4c94764ec035ee38",
     ".ai-engineering/scripts/hooks/_lib/integrity.py": "65b5b1c40f57c9814ca61e81fc8ea6e443d447273a3f94dbf45925db23255372",
     ".ai-engineering/scripts/hooks/_lib/locked_append.py": "7b1fcfc49524eb465b17a381e65872f9a9458b4f0d040cb40072721f995b4ff5",
     ".ai-engineering/scripts/hooks/_lib/locking.py": "33717578f361f9518dd016a21ccf5d2359ab25801557801cd2a7b07f32f0ba7f",
