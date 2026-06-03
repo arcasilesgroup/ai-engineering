@@ -108,7 +108,7 @@ Invoke a skill with `/ai-<name>` in your IDE agent surface.
 | `/ai-spec-draft` | Produces a 14-section spec brief in `.ai-engineering/specs/drafts/<topic>-brief.md` so an operator can hand off a fully-researched problem statement to `/ai-brainstorm`. |
 | `/ai-sprint` | Manages sprint lifecycle: plans a new sprint from backlog, runs data-driven retros comparing planned vs shipped, checks mid-sprint goal status, generates sprint review presentations. |
 | `/ai-standup` | Generates standup notes and status updates from actual git commits and PRs — never reconstructed from memory. |
-| `/ai-start` | Bootstraps a coding session: loads project context, activates session observation, displays a welcome dashboard with recent activity, board items, and available commands. |
+| `/ai-start` | Bootstraps a coding session: loads project context and displays a welcome dashboard with recent activity, board items, and available commands. |
 | `/ai-support` | Investigates customer-reported issues with structure: reproduces, traces to code, documents resolution, builds a searchable knowledge base organized by ticket ID. |
 | `/ai-test` | Writes tests, enforces TDD (RED-GREEN-REFACTOR), analyzes coverage gaps, defines test strategy across Python, TypeScript, .NET, Rust, Go. |
 | `/ai-verify` | Use when verification with evidence is needed — not assumptions. |

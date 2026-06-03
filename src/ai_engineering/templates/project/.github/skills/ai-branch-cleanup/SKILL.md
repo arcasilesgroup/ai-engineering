@@ -41,6 +41,20 @@ Full repository hygiene: safely migrate to the default branch, delete merged and
 
 Default (no flags) is equivalent to `--all`: runs sync, branch cleanup, and report.
 
+### Phase 0a: Instinct consolidation (default / `--all`, fail-open)
+
+0. **Consolidate session learnings BEFORE switching branches** -- if
+   `.ai-engineering/observations/observations.yml` exists, run
+   `/ai-session-watch --review` to fold this session's observations
+   (especially the LLM-only `corrections` family) into the corpus. This
+   closes the no-commit/no-PR gap: a session that ends at tidy-up time —
+   without a `/ai-commit` or `/ai-pr` having run `--review` — still
+   consolidates its learnings instead of losing them. Skip silently when
+   the file is absent (fail-open) or when a single-purpose flag
+   (`--branches` / `--sync` / `--specs` / `--runtime` /
+   `--consolidate-spec`) was passed without `--all`. Mirrors the
+   `/ai-pr` Step 2 and `/ai-commit` Step 2 gate.
+
 ### Phase 0: Safe Migration (`--sync` or `--all`)
 
 1. **Detect default branch** -- `git symbolic-ref refs/remotes/origin/HEAD` (main or master).
@@ -157,7 +171,7 @@ Skips sync and spec sweep; runs branch classification + delete + report only.
 
 ## Integration
 
-Called by: `/ai-pr` (auto after merge), `/ai-start` (session bootstrap). Calls: `git`, `python .ai-engineering/scripts/spec_lifecycle.py sweep`, `python .ai-engineering/scripts/runtime_rotate.py`. See also: `/ai-brainstorm` (run before new spec), `/ai-simplify` (code-level cleanup).
+Called by: `/ai-pr` (auto after merge), `/ai-start` (session bootstrap). Calls: `/ai-session-watch --review` (Phase 0a, fail-open instinct consolidation), `git`, `python .ai-engineering/scripts/spec_lifecycle.py sweep`, `python .ai-engineering/scripts/runtime_rotate.py`. See also: `/ai-brainstorm` (run before new spec), `/ai-simplify` (code-level cleanup).
 
 ## References
 
