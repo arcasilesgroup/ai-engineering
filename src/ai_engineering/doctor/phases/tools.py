@@ -630,6 +630,20 @@ def _missing_tool_specs(ctx: DoctorContext) -> list[ToolSpec]:
     return missing
 
 
+def _required_tools_manifest_present(ctx: DoctorContext) -> bool:
+    """True when the manifest declares at least one user-global required tool.
+
+    Distinguishes a fresh checkout (no manifest -> fix must keep warning the
+    user to run ``ai-eng install``) from a configured project whose tools all
+    pass (fix legitimately reports FIXED). spec-101 G-1 / #510.
+    """
+    try:
+        load_result = load_required_tools(_resolve_stacks(ctx), root=ctx.target)
+    except Exception:
+        return False
+    return any(tool.scope != ToolScope.PROJECT_LOCAL for tool in load_result)
+
+
 def _attempt_install_one(
     tool_name: str,
     *,
@@ -716,6 +730,15 @@ def _fix_tools_required(
     """
     missing = _missing_tool_specs(ctx)
     if not missing:
+        if not _required_tools_manifest_present(ctx):
+            # spec-101 G-1 (#510): no manifest -> the fix path cannot install
+            # anything and must NOT claim success. Preserve the actionable WARN.
+            return CheckResult(
+                name=cr.name,
+                status=CheckStatus.WARN,
+                message=("required_tools manifest not found; run 'ai-eng install' to generate it"),
+                fixable=True,
+            )
         return CheckResult(
             name=cr.name,
             status=CheckStatus.FIXED,
