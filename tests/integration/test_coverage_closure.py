@@ -127,6 +127,8 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
     from ai_engineering.doctor.phases import tools as doctor_tools
     from ai_engineering.doctor.runtime import branch_policy as doctor_branch
     from ai_engineering.doctor.runtime import version as doctor_version
+    from ai_engineering.state.manifest import LoadResult
+    from ai_engineering.state.models import ToolSpec
 
     ctx = DoctorContext(target=tmp_path)
 
@@ -134,7 +136,13 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
         results = doctor_tools.check(ctx)
     assert any(c.status == CheckStatus.WARN for c in results)
 
+    # Drive the manual-install WARN branch of _fix_tools_required with a real
+    # required tool. The removed spec-101 G-1 ``_BASELINE_PATH_TOOLS`` fallback
+    # (#510) used to synthesise this tool on a fresh checkout; supply it via the
+    # manifest loader now that the hardcoded baseline is gone.
+    load_result = LoadResult(tools=[ToolSpec(name="ruff")], skipped_stacks=[])
     with (
+        patch("ai_engineering.doctor.phases.tools.load_required_tools", return_value=load_result),
         patch("ai_engineering.doctor.phases.tools.is_tool_available", return_value=False),
         patch("ai_engineering.doctor.phases.tools.can_auto_install_tool", return_value=False),
         patch("ai_engineering.doctor.phases.tools.manual_install_step", return_value="manual"),
