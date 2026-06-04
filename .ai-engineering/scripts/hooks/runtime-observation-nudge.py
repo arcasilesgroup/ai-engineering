@@ -31,8 +31,8 @@ _NDJSON_REL = ".ai-engineering/state/observation-events.ndjson"
 
 _HINT = (
     "[observation-nudge] Unconsolidated session-watch observations are pending "
-    "review — run /ai-session-watch --review (or the scheduled "
-    "/ai-session-watch-sweep) to consolidate corrections into the corpus."
+    "review — run /ai-session-watch --review to consolidate corrections "
+    "into the corpus."
 )
 
 

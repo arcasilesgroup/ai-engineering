@@ -2372,3 +2372,100 @@ class TestApproveStartCLIHelp:
     def test_start_help_exits_zero(self, lifecycle):
         rc = lifecycle.main(["start", "--help"])
         assert rc == 0
+
+
+# ---------------------------------------------------------------------------
+# slot_status (spec-167 D-167-05) — read-only live-slot occupancy query
+# ---------------------------------------------------------------------------
+
+
+class TestSlotStatus:
+    """`slot_status` reports whether spec.md holds an un-shipped spec.
+
+    Read-only and fail-open: it never mutates state and never raises, so
+    /ai-brainstorm Step -1 can warn before clobbering the slot without the
+    guard ever blocking interrogation.
+    """
+
+    def _write_buffer(self, project_root: Path, text: str) -> None:
+        (project_root / ".ai-engineering" / "specs" / "spec.md").write_text(text, encoding="utf-8")
+
+    def test_idle_slot_reports_unoccupied(self, lifecycle, project_root):
+        """Placeholder buffer → occupied False, idle True, no spec id."""
+        self._write_buffer(project_root, "# No active spec\n\nRun /ai-brainstorm to start one.\n")
+        result = lifecycle.slot_status(project_root)
+        assert result["occupied"] is False
+        assert result["idle"] is True
+        assert result["spec_id"] is None
+
+    def test_missing_buffer_reports_idle(self, lifecycle, project_root):
+        """No spec.md at all → treated as idle (fail-open), never raises."""
+        result = lifecycle.slot_status(project_root)
+        assert result["occupied"] is False
+        assert result["idle"] is True
+
+    def test_occupied_by_unshipped_spec_reports_state(self, lifecycle, project_root):
+        """Real content + a DRAFT/APPROVED sidecar → occupied with state+slug."""
+        record = lifecycle.start_new("feat-x", "Feat X", project_root)
+        lifecycle.approve(record.spec_id, project_root)
+        self._write_buffer(
+            project_root,
+            f"---\nspec: {record.spec_id}\nslug: feat-x\n"
+            f"title: Feat X\nstatus: approved\n---\n\n# Feat X\n\nbody\n",
+        )
+        result = lifecycle.slot_status(project_root)
+        assert result["occupied"] is True
+        assert result["idle"] is False
+        assert result["spec_id"] == record.spec_id
+        assert result["state"] == "approved"
+        assert result["slug"] == "feat-x"
+
+    def test_occupied_by_shipped_spec_surfaces_shipped_state(self, lifecycle, project_root):
+        """Content present but sidecar SHIPPED → state='shipped' so the
+        consumer can treat the slot as safe-to-overwrite."""
+        sidecar = project_root / ".ai-engineering" / "state" / "specs" / "spec-200.json"
+        sidecar.parent.mkdir(parents=True, exist_ok=True)
+        sidecar.write_text(
+            json.dumps(
+                {
+                    "spec_id": "spec-200",
+                    "slug": "shipped-x",
+                    "title": "Shipped X",
+                    "state": "shipped",
+                    "created": "2026-01-01T00:00:00+00:00",
+                }
+            ),
+            encoding="utf-8",
+        )
+        self._write_buffer(
+            project_root,
+            "---\nspec: spec-200\nslug: shipped-x\n---\n\n# Shipped X\n\nbody\n",
+        )
+        result = lifecycle.slot_status(project_root)
+        assert result["occupied"] is True
+        assert result["state"] == "shipped"
+
+    def test_occupied_but_unresolvable_id_is_conservative(self, lifecycle, project_root):
+        """Content present, no resolvable spec id → occupied True (warn),
+        spec_id None. Conservative: never silently clobber."""
+        self._write_buffer(project_root, "# Some heading\n\nreal content, no spec frontmatter\n")
+        result = lifecycle.slot_status(project_root)
+        assert result["occupied"] is True
+        assert result["spec_id"] is None
+
+    def test_result_is_json_serializable(self, lifecycle, project_root):
+        """Output must round-trip through json.dumps (CLI prints it)."""
+        self._write_buffer(project_root, "# No active spec\n\nRun /ai-brainstorm to start one.\n")
+        json.dumps(lifecycle.slot_status(project_root))
+
+    def test_slot_status_help_exits_zero(self, lifecycle):
+        rc = lifecycle.main(["slot_status", "--help"])
+        assert rc == 0
+
+    def test_slot_status_cli_prints_json(self, lifecycle, project_root, capsys):
+        """The CLI verb prints a JSON object to stdout and exits 0."""
+        self._write_buffer(project_root, "# No active spec\n\nRun /ai-brainstorm to start one.\n")
+        rc = lifecycle.main(["slot_status", "--project-root", str(project_root)])
+        assert rc == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["occupied"] is False

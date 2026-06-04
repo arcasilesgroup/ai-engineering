@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-06-04T12:26:50.822604+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "lifecycle-execution-gaps",
+  "spec_id": "spec-167",
+  "state": "in_progress",
+  "title": "Session-watch sweep engine + brainstorm slot-clobber guard"
+}

@@ -1,9 +1,9 @@
 ---
 name: ai-session-watch-sweep
-description: "Consolidates the session-watch observation backlog on a schedule: runs /ai-session-watch --review, gates the result, and opens a draft chore PR for human review. Trigger for 'weekly observation sweep', 'scheduled consolidation', 'consolidate observations on a cadence', 'session-watch sweep'. Never auto-merges, never auto-files work items. Not for interactive review; use /ai-session-watch --review instead."
+description: "Consolidates the session-watch observation backlog on demand: runs /ai-session-watch --review, gates the result, and opens a draft chore PR for human review. Trigger for 'run the observation sweep', 'consolidate observations', 'session-watch sweep'. Never auto-merges, never auto-files work items, never runs unattended. Not for interactive review; use /ai-session-watch --review instead."
 effort: cheap
 argument-hint: "[--dry-run] [--no-pr]"
-tags: [meta, session-watch, scheduled, autonomous]
+tags: [meta, session-watch]
 model_tier: haiku
 mirror_family: codex-skills
 generated_by: ai-eng sync
@@ -18,14 +18,16 @@ edit_policy: generated-do-not-edit
 
 The session-watch `corrections` loop only consolidates when a human runs
 `/ai-session-watch --review` — it has no reliable trigger, so operator
-corrections accumulate unconsolidated (spec-165). This skill is a scheduled
-wrapper that runs the review on a cadence, gates the result, and opens a
-**draft chore PR** so a human reviews the consolidated lessons before merge —
-keeping consolidation off feature branches.
+corrections accumulate unconsolidated (spec-165). This skill is a manual
+wrapper that runs the review, gates the result, and opens a **draft chore PR**
+so a human reviews the consolidated lessons before merge — keeping
+consolidation off feature branches. It has no scheduler: an operator runs it,
+and the SessionStart observation-nudge (spec-165 D-165-03) surfaces the pending
+backlog as a reminder.
 
 ## When to Use
 
-- Weekly automated consolidation pass (recommended cadence).
+- Periodic manual consolidation pass (weekly cadence recommended).
 - Before a release-cut to capture accumulated session lessons.
 - NOT for interactive review — that should call `/ai-session-watch --review`
   directly (which keeps work-item creation).
@@ -68,26 +70,12 @@ failure summary and exit 1 — do NOT open a PR with a broken corpus.
 ### Step 3 — Commit + open draft chore PR
 
 ```bash
-/ai-commit "chore(session-watch-sweep): scheduled observation consolidation"
-/ai-pr --draft --title "chore(session-watch-sweep): observation consolidation" --body "Automated weekly session-watch consolidation. Review the consolidated corrections before merge. No work items were auto-filed (spec-165 D-165-04) — file any that warrant tracking."
+/ai-commit "chore(session-watch-sweep): observation consolidation"
+/ai-pr --draft --title "chore(session-watch-sweep): observation consolidation" --body "Manual session-watch consolidation. Review the consolidated corrections before merge. No work items were auto-filed (spec-165 D-165-04) — file any that warrant tracking."
 ```
 
 The PR commits `observations.yml` (the tracked corpus). `meta.json` and
 `observation-events.ndjson` are gitignored and stay out of the PR.
-
-## Scheduling
-
-Recommended invocation pattern (run once to register the routine):
-
-```
-/schedule weekly /ai-session-watch-sweep
-```
-
-This skill does NOT auto-create the cron entry — that requires user
-authorization via `/ai-schedule`. Operators register the routine after
-reviewing the skill behaviour. Until it is registered, the SessionStart
-observation-nudge (spec-165 D-165-03) is the safety net that surfaces the
-pending backlog.
 
 ## Telemetry
 
@@ -102,7 +90,7 @@ Each run emits one of:
 
 - Auto-merging the resulting PR. The skill MUST open a draft; merge requires a human.
 - Auto-filing work items in the unattended run. Suppressed by design (D-164 board-spam risk).
-- Scheduling more frequently than weekly. Sub-weekly cadence floods reviewers with noisy PRs.
+- Running more frequently than weekly. Sub-weekly runs flood reviewers with noisy PRs.
 
 ## Examples
 
@@ -117,46 +105,29 @@ User: "run the weekly observation sweep on this repo"
 Runs `/ai-session-watch --review` (work-items suppressed), gates the corpus
 change, and opens a draft PR titled `chore(session-watch-sweep): observation consolidation`.
 
-### Example 2 — dry-run before scheduling
+### Example 2 — dry-run preview
 
-User: "preview what the observation sweep would consolidate this week"
+User: "preview what the observation sweep would consolidate"
 
 ```
 /ai-session-watch-sweep --dry-run
 ```
 
 Runs the review and prints the consolidated corpus diff without staging a
-commit or PR — useful for reviewing scope before enabling a cron entry.
+commit or PR — useful for reviewing scope before a full run.
 
 ## Integration
 
-Called by: `/ai-schedule` (weekly cron) or operator manually. Calls:
-`/ai-session-watch --review` (work-items suppressed), `/ai-commit`,
-`/ai-pr --draft`. See also: `/ai-simplify-sweep` (the sibling scheduled
-sweep this mirrors), `/ai-session-watch` (interactive review).
+Called by: operator manually (or surfaced by the SessionStart
+observation-nudge). Calls: `/ai-session-watch --review` (work-items
+suppressed), `/ai-commit`, `/ai-pr --draft`. See also: `/ai-simplify-sweep`
+(the sibling manual sweep this mirrors), `/ai-session-watch` (interactive
+review).
 
 - Telemetry: `framework_operation` events aggregated from `framework-events.ndjson`.
-
-## Scheduled cadence
-
-The schedule layer should call the deterministic wrapper, not the slash
-command directly:
-
-```
-0 4 * * 2   <project>/.ai-engineering/scripts/scheduled/session-watch-sweep.sh
-```
-
-The wrapper resolves `$AIENG_PROJECT_ROOT` (or falls back to
-`git rev-parse --show-toplevel`) and emits a `framework_operation` event
-(`operation=session_watch_sweep_scheduled_run`) with
-`outcome=success|failure|skipped` for every cycle. Never auto-merges; PR
-opening stays the responsibility of the slash-command path.
-
-Activate via `/ai-schedule weekly <project>/.ai-engineering/scripts/scheduled/session-watch-sweep.sh` or copy the cron line above into your scheduler.
 
 ## References
 
 - Skill source of truth: `.codex/skills/ai-session-watch-sweep/SKILL.md`
 - Related: `.codex/skills/ai-session-watch/SKILL.md`, `.codex/skills/ai-simplify-sweep/SKILL.md`
 - Manifest entry: `.ai-engineering/manifest.yml` `skills.registry.ai-session-watch-sweep`
-- Scheduled wrapper: `.ai-engineering/scripts/scheduled/session-watch-sweep.sh`

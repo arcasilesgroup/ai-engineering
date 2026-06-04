@@ -23,8 +23,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 # ---------------------------------------------------------------------------
 # Module import contract.
 # ---------------------------------------------------------------------------
@@ -321,29 +319,4 @@ def test_r5_parity_passes_lib_copilot_common_pair(
     assert not common_violations, (
         f"copilot-common.{{sh,ps1}} pair should pass R5, got "
         f"{[(str(p), r.severity, r.reason) for p, r in common_violations]}"
-    )
-
-
-def test_r5_parity_flags_simplify_sweep_passes_after_landing(
-    skills_root: Path, agents_root: Path, project_root: Path
-) -> None:
-    """After T-6.5 lands `simplify-sweep.ps1`, R5 is OK (no longer deferred)."""
-    from skill_lint.checks.naming import check_naming
-
-    hooks_root = project_root / ".ai-engineering" / "scripts" / "hooks"
-    scheduled_root = project_root / ".ai-engineering" / "scripts" / "scheduled"
-
-    # If the .ps1 sibling has not landed yet, skip cleanly so the test
-    # encodes the AFTER state without breaking the RED phase.
-    if not (scheduled_root / "simplify-sweep.ps1").is_file():
-        pytest.skip("T-6.5 not landed yet — simplify-sweep.ps1 missing")
-
-    results = check_naming(skills_root, agents_root, hooks_root, scheduled_root)
-    r5_results = [(p, r) for p, r in results if r.rule_name == "naming_r5_sh_ps1_parity"]
-    simplify_results = [r for p, r in r5_results if p.stem == "simplify-sweep"]
-    assert simplify_results, "expected R5 entry for simplify-sweep"
-    non_ok = [r for r in simplify_results if r.severity not in {"OK"}]
-    assert not non_ok, (
-        f"simplify-sweep.{{sh,ps1}} should pass R5 after T-6.5, got "
-        f"{[(r.severity, r.reason) for r in non_ok]}"
     )

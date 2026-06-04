@@ -69,9 +69,9 @@ Dispatched concurrently with the docs lanes — total wall-clock is `max(docs, p
 
 Read `.ai-engineering/manifest.yml` `work_items` and spec.md frontmatter `refs` (yaml shape: `features` never close, `user_stories`/`tasks`/`bugs`/`issues` close on PR merge).
 
-### 11. Spec operations
+### 11. Spec operations (PR body)
 
-If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use updated content for PR body (Summary from spec, Test Plan from plan). After PR merge, resolve the canonical numeric id from the spec.md frontmatter `spec:` field (e.g. `spec-153` — NOT the human-readable slug; numeric `spec-NNN` is the one canonical identity per spec-153 D-153-01) and run the shared spec-consolidation handler at `.cursor/skills/_shared/consolidate-spec.md` (which invokes `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-NNN> <pr> <branch>` to walk the current state forward to SHIPPED, append the canonical 7-col `_history.md` row, snapshot spec.md+plan.md into `archive/spec-NNN-<slug>/`, and emit the `framework_operation` audit event). **Fail-open**: lifecycle write failure logs but does not block merge. Then clear spec.md and plan.md to placeholders; stage cleared files. The same handler is exposed manually via `/ai-pr --consolidate-spec` as a pre-merge override. `/ai-branch-cleanup` Phase 5 `reconcile_merged` is the idempotent backstop that auto-marks specs merged via the GitHub UI (or any path that bypasses this step).
+If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate the PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use the updated content for the PR body (Summary from spec, Test Plan from plan). Consolidation does NOT happen here — per D-167-07 it runs pre-merge on the feature branch in **Step 14b**, so the archive + slot-clear ride this same PR instead of a separate follow-up chore PR.
 
 ### 12. Work item references
 
@@ -93,13 +93,21 @@ Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README s
 
 **Existing** (extend, NEVER overwrite): read existing body; if `## Additional Changes` exists, append a `### <date> / <commit-range>` sub-heading underneath; otherwise append `\n\n---\n\n## Additional Changes` first. Update via `gh pr edit` or `az repos pr update`.
 
+### 14b. Consolidate on the feature branch (pre-merge, D-167-07)
+
+Runs immediately after Step 14 creates the PR (so the PR number `N` is known) and BEFORE Step 15 enables auto-complete. **Skip for `--draft` PRs** — a draft is not heading to merge, so consolidating would mark the spec SHIPPED while the draft sits open; consolidate when the draft is promoted (`/ai-pr review` / `--update` with auto-complete).
+
+If `.ai-engineering/specs/spec.md` is non-placeholder, resolve the canonical numeric id from its frontmatter `spec:` field (e.g. `spec-153` — NOT the human-readable slug; numeric `spec-NNN` is the one canonical identity per spec-153 D-153-01) and run the shared spec-consolidation handler at `.cursor/skills/_shared/consolidate-spec.md` **on the feature branch** (it invokes `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-NNN> N <branch>` to walk the state forward to SHIPPED, append the canonical 7-col `_history.md` row, snapshot spec.md+plan.md into `archive/spec-NNN-<slug>/`, clear spec.md+plan.md to placeholders, and emit the `framework_operation` audit event). Then `git add` the archived + cleared files, commit `chore(spec-NNN): consolidate (archive + clear live slot)`, and push to the same branch so the open PR updates.
+
+**Fail-open**: a lifecycle write failure logs but never blocks the PR. Because consolidation now rides the feature PR, it lands regardless of whether the PR is squash-merged via `gh`/`az` or the GitHub web UI — there is NO separate follow-up chore PR. The same handler stays exposed manually via `/ai-pr --consolidate-spec`. `/ai-branch-cleanup` Phase 5 `reconcile_merged` is now a defense-in-depth no-op backstop that only acts if this step was skipped or failed (e.g. a draft that merged without promotion).
+
 ### 15. Board sync + enable auto-complete
 
 For new PRs with `refs`: invoke `/ai-board sync in_review <ref>` for each non-`never_close` ref (fail-open: never block on failure). Then enable auto-complete: `gh pr merge --auto --squash --delete-branch` or `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`.
 
 ### 16. Watch and fix until merge
 
-Auto-complete only queues the merge -- CI must pass first. Enter the watch-and-fix loop following `handlers/watch.md`. The loop polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
+Auto-complete only queues the merge -- CI must pass first. The Step 14b consolidation commit is already part of the branch, so the CI run the loop watches is the FINAL commit set — and it now runs against the idle `# No active spec` slot (D-167-07); every spec.md-reading gate must tolerate that placeholder. Enter the watch-and-fix loop following `handlers/watch.md`. The loop polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
 
 Once `state == "MERGED"`: run `/ai-branch-cleanup --all` and report.
 
