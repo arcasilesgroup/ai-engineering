@@ -602,6 +602,7 @@ jobs:
 
   verify-gate-trailers:
     name: Verify Gate Trailers
+    needs: [change-scope]
     if: github.event_name == 'pull_request' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -618,6 +619,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # spec-166 D-166-02: waive the trailer requirement where it carries
+          # no signal — code-free changesets (the local gate protects no code)
+          # and fork PRs (the commit-msg hook cannot run; secrets withheld).
+          # change-scope.outputs.code is the same classifier the required code
+          # gates trust (D-166-03). The job stays success; CI Result is untouched.
+          CODE_CHANGED="${{ needs.change-scope.outputs.code }}"
+          IS_FORK="${{ github.event.pull_request.head.repo.fork }}"
+          if [ "$CODE_CHANGED" != "true" ]; then
+            echo "Docs-only changeset (code=$CODE_CHANGED) — gate-trailer requirement waived (spec-166)."
+            exit 0
+          fi
+          if [ "$IS_FORK" = "true" ]; then
+            echo "Fork PR — local commit-msg hook unavailable; gate-trailer requirement waived (spec-166)."
+            exit 0
+          fi
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
           FAILED=0
