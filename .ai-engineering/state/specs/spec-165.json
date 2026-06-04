@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-06-03T22:43:28.670631+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "consolidation-trigger",
+  "spec_id": "spec-165",
+  "state": "in_progress",
+  "title": "Observation consolidation nudge + scheduled sweep"
+}

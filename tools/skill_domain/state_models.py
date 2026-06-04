@@ -697,6 +697,9 @@ class InstinctMeta(BaseModel):
     schema_version: str = Field(default="1.0", alias="schemaVersion")
     last_extracted_at: datetime | None = Field(default=None, alias="lastExtractedAt")
     delta_threshold: int = Field(default=20, alias="deltaThreshold")
+    # spec-165 D-165-05: System-B (session-watch --review) review checkpoint.
+    last_reviewed_at: datetime | None = Field(default=None, alias="lastReviewedAt")
+    review_delta_threshold: int = Field(default=10, alias="reviewDeltaThreshold")
 
     model_config = {"populate_by_name": True}
 
