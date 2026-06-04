@@ -115,7 +115,11 @@ Merge rules:
 - If an existing entry matches the same pattern (fuzzy match on trigger + action), increment `evidenceCount` and update `lastSeen`. Match if the trigger and action describe the same behavioral pattern using different wording. When in doubt, increment the existing entry rather than creating a duplicate.
 - Apply confidence scoring: `confidence_for_count(evidenceCount)` yields 0.3/0.5/0.7/0.85 at thresholds 1/2/3/5+.
 - Drop entries with confidence below 0.2 (decay threshold).
-- Update `.ai-engineering/observations/meta.json` with new checkpoint.
+- Update `.ai-engineering/observations/meta.json` with new checkpoint. MUST
+  stamp `lastReviewedAt` (ISO 8601, now) on a successful review (spec-165
+  D-165-05) — the System-B checkpoint the SessionStart observation-nudge
+  reads to decide whether the backlog is stale (distinct from System-A
+  `lastExtractedAt`, owned by the Stop-hook instinct extractor).
 
 #### Step 4: EVALUATE
 

@@ -274,6 +274,10 @@ def _default_meta() -> dict[str, Any]:
         "schemaVersion": "1.0",
         "lastExtractedAt": None,
         "deltaThreshold": 10,
+        # spec-165 D-165-05: System-B (session-watch --review) checkpoint,
+        # distinct from System-A lastExtractedAt/deltaThreshold above.
+        "lastReviewedAt": None,
+        "reviewDeltaThreshold": 10,
     }
 
 

@@ -68,6 +68,9 @@ def test_load_meta_tolerates_truncated_meta_json(instincts, project: Path) -> No
     assert out["schemaVersion"] == "1.0"
     assert out["lastExtractedAt"] is None
     assert out["deltaThreshold"] == 10
+    # spec-165 D-165-05: System-B review checkpoint defaults.
+    assert out["lastReviewedAt"] is None
+    assert out["reviewDeltaThreshold"] == 10
 
 
 def test_load_meta_tolerates_empty_meta_json(instincts, project: Path) -> None:

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(spec-165): close the session-watch consolidation trigger gap with a
+  SessionStart **observation-nudge** (surfaces the pending `--review`
+  backlog; O(1) `stat`-based, fail-open, never scans the event stream) plus
+  a new scheduled **`/ai-session-watch-sweep`** skill (runs `--review` into
+  a draft chore PR, work-item creation suppressed, operator-registered via
+  `/schedule weekly`). Adds `lastReviewedAt` + `reviewDeltaThreshold` to
+  the observation `meta.json` (both writers), distinct from the System-A
+  `lastExtractedAt` extraction checkpoint.
 - feat(spec-164): ship `SOUL.md`, a canonical agent-values layer
   (Pragmatic Helpfulness, Honest & Direct, Collaborative Partner, Learn &
   Grow). Wired into the §0 Bootstrap read-list via a single `CANONICAL.md`
