@@ -43,6 +43,7 @@ SKILLS_ADDED_POST_BASELINE: tuple[str, ...] = (
     "ai-spec-draft",  # spec-134 D-134-02 (14-section brief producer)
     "ai-advise",  # spec-134 D-134-07 (advisory governance skill surface)
     "ai-simplify",  # spec-134 D-134-07 (on-demand simplification skill surface)
+    "ai-session-watch-sweep",  # spec-165 (scheduled observation-consolidation sweep)
 )
 
 # Functional additions to existing skills AFTER the spec-106 P5 baseline.
