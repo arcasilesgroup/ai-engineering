@@ -164,6 +164,11 @@ _COMMON_FILE_MAPS: dict[str, str] = {
     ".gitleaks.toml": ".gitleaks.toml",
     ".semgrep.yml": ".semgrep.yml",
     "CONSTITUTION.md": "CONSTITUTION.md",
+    # spec-164: SOUL.md is the model-agnostic collaborator-values layer
+    # read each session per §0 Bootstrap. Like CONSTITUTION.md it is a
+    # single canonical root file shipped to every surface (no per-provider
+    # transform), so it lives in the common map rather than _SURFACE_FILE_MAPS.
+    "SOUL.md": "SOUL.md",
 }
 
 # Additional destinations for files that need to land in multiple paths.

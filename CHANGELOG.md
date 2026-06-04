@@ -46,6 +46,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(installer): `SOUL.md` now ships to target projects on install. spec-164
+  added `SOUL.md` to the template tree and wired the §0 Bootstrap read-list of
+  every IDE mirror, but never registered it in any installer file-map — so
+  `ai-eng install` / `--fresh` / `config reconfigure` / `update` wrote a
+  `CLAUDE.md` that tells the agent to read a `SOUL.md` that was never copied.
+  `SOUL.md` is now in `_COMMON_FILE_MAPS` (the surface-independent map that
+  already ships `CONSTITUTION.md`), so it lands for every surface. A new
+  install regression test (`test_installs_common_root_instruction_files`)
+  closes the blind spot that `test_dogfood_parity` + template-tree-completeness
+  left open — those guard byte-parity and tree-presence, never that the
+  installer actually copies the file.
+
 - fix(instincts): the instinct-store corpus writer is now content-idempotent,
   ending the per-session timestamp churn on `.ai-engineering/observations/`
   (spec-162). `_save_instincts_document` (hook lib + its byte-identical
