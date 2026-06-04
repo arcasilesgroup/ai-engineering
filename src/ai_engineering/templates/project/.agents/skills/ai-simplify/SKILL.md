@@ -50,7 +50,7 @@ Principles applied: §10.1 KISS (the simplified version must actually be simpler
 
 | Aspect | `/ai-simplify` (this skill) | `/ai-simplify-sweep` (existing) |
 |---|---|---|
-| Invocation | On-demand by operator | Scheduled (weekly cron, `/ai-schedule`) |
+| Invocation | On-demand by operator | On-demand by operator (weekly cadence recommended) |
 | Scope | Operator-chosen paths or current diff | Repo-wide sweep |
 | PR behaviour | No PR (in-flight work) | Always opens draft PR |
 | Auto-commit | No (operator owns next commit) | Yes (`/ai-commit` before PR) |
