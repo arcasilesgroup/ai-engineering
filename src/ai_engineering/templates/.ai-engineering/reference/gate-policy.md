@@ -79,6 +79,45 @@ A team that legitimately needs a different cut may fork this context file and
 override via the `contexts.precedence: [team, frameworks, languages]` ordering in
 `manifest.yml`. The fork is visible, versioned, and reviewable -- a knob is not.
 
+## Error-handling posture (fail-open vs fail-closed)
+
+Every check, hook, and plumbing path makes one of two choices when it cannot
+complete: **fail closed** (block) or **fail open** (log and continue). The choice
+is not taste -- it is fixed by *blast radius if the path is wrong or absent*:
+
+- **Security / integrity boundaries fail CLOSED.** Secret scanning (the
+  `gitleaks` / `semgrep` / `pip-audit` gates, BLOCK at MEDIUM and above),
+  hook-integrity verification (`AIENG_HOOK_INTEGRITY_MODE`, default `enforce`),
+  and the MCP health gate (`AIE_MCP_HEALTH_FAIL_OPEN` defaults closed) all BLOCK
+  when they cannot run. A scanner that cannot execute is **not** a pass -- an
+  un-checkable secret is a leaked secret, and unverified hook bytes are untrusted
+  code.
+- **Framework plumbing fails OPEN, and must LOG.** Lifecycle sidecars
+  (`spec_lifecycle.py`), `/ai-board` sync, telemetry, advisory hooks, version
+  checks, doctor probes, and instinct extraction log the failure and continue. A
+  `/ai-brainstorm` session must never die because a JSON sidecar is locked.
+- **Never silently swallow.** A fail-open path that catches broadly **without
+  logging** is the actual anti-pattern -- not the broad `except` itself. The log
+  line is what turns a swallowed error into an observable one.
+- **A security gate that cannot run is a fail-open hole -- a bug, not a design.**
+  `docs/ci-branch-protection.md` and `docs/supply-chain-control-matrix.md` spell
+  this out: a required gate the aggregate never inspects silently regresses the
+  whole policy. Treat any fail-open on a security boundary as a defect.
+
+A path that *hardens* an otherwise-open default to closed exposes a tunable
+(`AIENG_IOC_FAIL_CLOSED` makes the IOC denylist fail closed on a missing or
+corrupt `iocs.json`, default off); the baseline posture still follows the
+blast-radius rule above.
+
+**Mechanical backing, not a blanket lint.** `ruff` `TRY004` (raise the correct
+exception type) and `TRY400` (`logging.exception` preserves the traceback) back
+the "log, don't swallow" half. `BLE001` (blind-except) is deliberately **not**
+enabled: it would force suppression on the intentional fail-open plumbing layer,
+which the no-suppression hard rule forbids. Audited deviations are recorded inline
+with `# audit:exempt:<reason>` markers (e.g.
+`audit:exempt:typer-cli-3-fail-closed-gates-...`); this section is the written
+doctrine those fail-closed-gate justifications point at.
+
 ## Watch loop and CI autofix
 
 When CI fails after `git push`, `/ai-pr` step 14 enters its watch loop. The loop:
