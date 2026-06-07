@@ -7,11 +7,11 @@ cadence: weekly
 
 # Architecture Drift
 
-## Objetivo
+## Objective
 
 Detect deviations between the running codebase and the declared architecture in `docs/solution-intent.md`, `CONSTITUTION.md`, and `.ai-engineering/state/decision-store.json`. This includes import-cycle violations, layer-boundary crossings, undocumented structural changes, and decisions that no longer match code reality. Runs weekly; produces task work items for every confirmed finding.
 
-## Precondiciones
+## Prerequisites
 
 - `docs/solution-intent.md` exists with a mermaid module graph (section 2.2) defining layers and allowed dependency directions
 - `CONSTITUTION.md` exists with boundary rules. If only `.ai-engineering/CONSTITUTION.md` exists, treat it as a legacy compatibility input.
@@ -20,7 +20,7 @@ Detect deviations between the running codebase and the declared architecture in 
 - CLI access: `gh` for GitHub, `az` for Azure DevOps
 - Python 3.11+ available (Steps 4, 5, 7 use `ast` stdlib)
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Extract documented architecture layers
 

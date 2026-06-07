@@ -7,18 +7,18 @@ cadence: daily
 
 # Stale Issues
 
-## Objetivo
+## Objective
 
 Detect open issues with no activity for 14+ days, label them `stale`, and auto-close after a 7-day grace period (21 days total).
 Exempt issues are never touched. Mutations are applied automatically.
 
-## Precondiciones
+## Prerequisites
 
 - Work item provider configured in `manifest.yml` field `work_items.provider` (GitHub or Azure DevOps).
 - CLI tools available: `gh` (GitHub) or `az` (Azure DevOps) authenticated for the target repository.
 - Labels `stale`, `p1-critical`, `pinned`, and `security` exist in the issue tracker.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Fetch all open issues
 

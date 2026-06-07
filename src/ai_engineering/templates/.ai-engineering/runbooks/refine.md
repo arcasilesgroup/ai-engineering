@@ -8,20 +8,20 @@ cadence: daily
 
 # Refine
 
-## Objetivo
+## Objective
 
 Take issues labeled `needs-refinement`, gather codebase and provider context, draft
 acceptance criteria, propose a spec outline as a comment, and mark `handoff-ai-eng`
 when the issue is ready for local execution.
 
-## Precondiciones
+## Prerequisites
 
 - Authenticated CLI session: `gh auth status` (GitHub) or `az account show` (Azure DevOps).
 - Repository cloned locally with at least 30 days of git history (required for Step 2b codebase search).
 - Issues have been processed by the triage runbook (carrying `needs-refinement` label).
 - `CONSTITUTION.md` exists for boundary constraint extraction. If only `.ai-engineering/CONSTITUTION.md` exists, treat it as a legacy compatibility input.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Fetch refinement candidates
 

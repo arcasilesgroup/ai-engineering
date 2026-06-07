@@ -38,9 +38,9 @@ VALID_TYPES = {"intake", "operational"}
 VALID_CADENCES = {"daily", "weekly"}
 
 REQUIRED_SECTIONS = (
-    "## Objetivo",
-    "## Precondiciones",
-    "## Procedimiento",
+    "## Objective",
+    "## Prerequisites",
+    "## Procedure",
     "## Output",
     "## Guardrails",
 )
@@ -120,3 +120,23 @@ def test_no_legacy_runbooks() -> None:
 def test_no_workflow_adapters() -> None:
     adapters = list((ROOT / ".github" / "workflows").glob("ai-eng-*.md"))
     assert not adapters, f"Workflow adapters should be deleted: {[p.name for p in adapters]}"
+
+
+@pytest.mark.parametrize("name", ALL_RUNBOOKS)
+def test_runbook_template_byte_parity(name: str) -> None:
+    """Each live runbook must be byte-identical to its install-template twin.
+
+    Guards the silent drift fixed in PR #585: a live edit (e.g. a header
+    translation) that never reached ``src/ai_engineering/templates/`` would
+    ship stale content (Spanish headers) to downstream installs. The two trees
+    have no auto-sync, so only this assertion catches the gap.
+    (spec runbook-template-parity D-runbook-template-parity-02.)
+    """
+    live = RUNBOOK_ROOT / f"{name}.md"
+    template = TEMPLATE_ROOT / f"{name}.md"
+    assert live.read_bytes() == template.read_bytes(), (
+        f"runbook drift: {name}.md differs between .ai-engineering/runbooks/ "
+        f"and the install template at "
+        f"src/ai_engineering/templates/.ai-engineering/runbooks/ — "
+        f"re-sync the template twin."
+    )

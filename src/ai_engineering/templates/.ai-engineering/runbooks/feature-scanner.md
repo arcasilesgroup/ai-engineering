@@ -7,18 +7,18 @@ cadence: daily
 
 # Feature Scanner
 
-## Objetivo
+## Objective
 
 Detect unimplemented features, uncovered acceptance criteria, and spec-vs-code regressions by cross-referencing recent commits and merged PRs against completed spec history. Runs daily on a 24-hour lookback window and produces task work items for every verified gap.
 
-## Precondiciones
+## Prerequisites
 
 - Git repository with commit history accessible via `git log`.
 - `.ai-engineering/specs/_history.md` exists with at least one spec in `done` status.
 - Work item provider configured in `manifest.yml` field `work_items.provider` (GitHub or Azure DevOps).
 - CLI tools available: `gh` (GitHub) or `az` (Azure DevOps) authenticated for the target repository.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Collect recent commits
 
