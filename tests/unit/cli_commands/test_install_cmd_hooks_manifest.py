@@ -15,10 +15,12 @@ from __future__ import annotations
 
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
 
+from ai_engineering.cli_commands import core as core_mod
 from ai_engineering.cli_commands.core import _finalize_hooks_manifest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -127,4 +129,104 @@ def test_finalize_hooks_manifest_script_fails(
     captured = capsys.readouterr()
     assert "regenerate-hooks-manifest" in captured.err, (
         f"expected warning about 'regenerate-hooks-manifest' in stderr; got: {captured.err!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 4 — clean write but --check reports drift: stale-after-regen warning
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_finalize_warns_when_manifest_stale_after_regen(
+    tmp_path: Path, capsys: pytest.CaptureFixture
+) -> None:
+    """spec-168 post-condition: a regen that exits 0 but still fails ``--check``.
+
+    This is the exact silent dead-hooks state — a clean write whose manifest
+    does not match the bytes. The helper must emit the loud recovery block
+    naming the stale manifest, and must NOT raise.
+    """
+    scripts_dir = tmp_path / ".ai-engineering" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    regen_stub = scripts_dir / "regenerate-hooks-manifest.py"
+    # Plain run: succeed (exit 0). With --check: report drift (exit 1).
+    regen_stub.write_text(
+        "import sys\nsys.exit(1 if '--check' in sys.argv else 0)\n",
+        encoding="utf-8",
+    )
+
+    _finalize_hooks_manifest(tmp_path)
+
+    captured = capsys.readouterr()
+    assert "still stale after regeneration" in captured.err, (
+        f"expected stale-after-regen warning in stderr; got: {captured.err!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 5 — regen subprocess raises OSError: fail-open with recovery block
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_finalize_warns_when_subprocess_raises(
+    tmp_path: Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """spec-168: an OSError launching the regen must fail-open with a warning.
+
+    Covers the ``except (TimeoutExpired, OSError)`` guard around the regen
+    invocation — the install must never abort on a launch failure.
+    """
+    scripts_dir = tmp_path / ".ai-engineering" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "regenerate-hooks-manifest.py").write_text(
+        "import sys\nsys.exit(0)\n", encoding="utf-8"
+    )
+
+    def _boom(*_args: object, **_kwargs: object) -> subprocess.CompletedProcess:
+        raise OSError("simulated exec failure")
+
+    monkeypatch.setattr(core_mod.subprocess, "run", _boom)
+
+    _finalize_hooks_manifest(tmp_path)
+
+    captured = capsys.readouterr()
+    assert "failed to run" in captured.err, (
+        f"expected fail-open warning in stderr; got: {captured.err!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Test 6 — --check subprocess raises: verification fail-open warning
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_finalize_warns_when_check_subprocess_raises(
+    tmp_path: Path, capsys: pytest.CaptureFixture, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """spec-168: a clean regen then an OSError on the ``--check`` verification.
+
+    Covers the second ``except (TimeoutExpired, OSError)`` guard — the
+    post-write verification must also fail-open with a recovery block.
+    """
+    scripts_dir = tmp_path / ".ai-engineering" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "regenerate-hooks-manifest.py").write_text(
+        "import sys\nsys.exit(0)\n", encoding="utf-8"
+    )
+
+    def _run(cmd: list[str], **_kwargs: object) -> subprocess.CompletedProcess:
+        if "--check" in cmd:
+            raise OSError("simulated verification failure")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(core_mod.subprocess, "run", _run)
+
+    _finalize_hooks_manifest(tmp_path)
+
+    captured = capsys.readouterr()
+    assert "verification failed to run" in captured.err, (
+        f"expected verification fail-open warning in stderr; got: {captured.err!r}"
     )

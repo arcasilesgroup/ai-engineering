@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(spec-168): make the architecture map discoverable and define the
+  fail-open/closed doctrine — without authoring a duplicate `ARCHITECTURE.md`.
+  `.ai-engineering/solution-intent.md` §3.1 stays the single matklad-style
+  layered module map (the source of the four `import-linter` contracts);
+  spec-168 adds a one-line **Surface Index pointer** to it from the repo-root
+  canonical surface (so a newcomer finds the map from the front door, zero
+  content duplicated, §13.7 preserved) and states the **error-handling posture
+  doctrine** once in `.ai-engineering/reference/gate-policy.md`:
+  security/integrity boundaries fail **closed**; framework plumbing fails
+  **open and must log**; never silently swallow; a security gate that cannot
+  run is a fail-open hole; the `audit:exempt:…-fail-closed-gates` marker is the
+  named escape hatch. Cross-linked from CANONICAL §13 and `principles.md`.
+  Enables `ruff` `TRY004` + `TRY400` to mechanically encode the fail-loud half.
 - feat(spec-165): close the session-watch consolidation trigger gap with a
   SessionStart **observation-nudge** (surfaces the pending `--review`
   backlog; O(1) `stat`-based, fail-open, never scans the event stream) plus
@@ -54,6 +67,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(spec-168): unbreak the weekly architecture-drift runbook and re-pin three
+  latent correctness bugs. The `CHANGELOG` move of the solution-intent doc from
+  `docs/` to `.ai-engineering/` left stragglers — including the
+  **architecture-drift runbook**, which `cat`/`grep`'d the now-nonexistent
+  `docs/solution-intent.md` on its weekly run, so drift detection silently
+  no-op'd. All stale references are reconciled to the canonical path (the doc's
+  own SoT table, both runbooks, their `templates/` twins in lockstep, and the
+  template manifest comment), and the runbook's stale `(section 2.2)` anchor is
+  corrected to `§3.1`. The two `TRY004` wrong-exception-type bugs
+  (`installer/phases/pipeline.py`, `validator/categories/manifest_coherence.py`
+  raised `RuntimeError`/`ValueError` for invalid-type input → `TypeError`) and
+  the `TRY400` traceback-loss in `hook-common.py` (`logger.error` →
+  `logger.exception` in an `except`, both twin copies + manifest re-pinned) are
+  fixed; `ruff check` passes clean. Also hardens fresh installs: the
+  hooks-manifest regen is now py3.9-portable (`datetime.UTC` →
+  `datetime.timezone.utc`, so bare-`python3` hosts no longer crash the re-pin),
+  `_finalize_hooks_manifest` emits a loud, actionable recovery block (and adds a
+  post-write `--check` post-condition) instead of a missable one-liner when the
+  manifest is stale/unpinned, and `__pycache__/*.pyc` from the shipped hook
+  scripts is now gitignored so installs stop perpetually dirtying the tree.
 - fix(installer): `SOUL.md` now ships to target projects on install. spec-164
   added `SOUL.md` to the template tree and wired the §0 Bootstrap read-list of
   every IDE mirror, but never registered it in any installer file-map — so

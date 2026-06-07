@@ -161,5 +161,6 @@ Completed specs. Details in git history.
 | spec-164 | Agent soul.md values persona layer | shipped | 2026-06-03 | 2026-06-03 | 583 | claude/spec-164-soul-md |
 | spec-165 | Observation consolidation nudge + scheduled sweep | shipped | 2026-06-03 | 2026-06-04 | 586 | fix/soul-md-install-wiring |
 | spec-167 | Session-watch sweep engine + brainstorm slot-clobber guard | shipped | 2026-06-04 | 2026-06-04 | 588 | claude/spec-167-lifecycle-execution-gaps |
+| spec-168 | ARCHITECTURE.md and error-handling fail-open/closed policy | shipped | 2026-06-04 | 2026-06-07 | 589 | spec-168-arch-docs-error-policy |
 
 ---

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-04T13:09:59Z",
+  "generatedAt": "2026-06-04T16:47:31Z",
   "hookCount": 76,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -8,12 +8,12 @@
     ".ai-engineering/scripts/hooks/_lib/copilot-common.sh": "0249a872a2760f35fb0ee5f734dadeb75d39a62e4b4d65e53583ca96e9033bea",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.ps1": "576913bb87dc2b8767d432404278c42d4115b2894b4b8f52adcc13eef3a08624",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.sh": "736c8c834b3712f7a70be237cd97df19092f01944c986d256384aa81951cf2f8",
-    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "64aeaa8ea421e8f3878d723ea759600bb5aa47377721db7a473d6f18a191cd00",
+    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "f703df7d0059ed055aecfa37598aae777eb3df1bb290aa0f34a5d92384a3aacb",
     ".ai-engineering/scripts/hooks/_lib/hook_context.py": "fff7fbd6a26e681771b21d30c2bfc35a05e1e59a5ef7cf019c02385608177735",
     ".ai-engineering/scripts/hooks/_lib/hook_http.py": "1f9a541a3d38bc3be967de875105aed06a9768476eeaf75a74715f172fc4d5e1",
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",
     ".ai-engineering/scripts/hooks/_lib/instincts.py": "e63d3184cc844eb68e56bb091ff3f070490989d565e1b6ccc192f9b56fec45d2",
-    ".ai-engineering/scripts/hooks/_lib/integrity.py": "65b5b1c40f57c9814ca61e81fc8ea6e443d447273a3f94dbf45925db23255372",
+    ".ai-engineering/scripts/hooks/_lib/integrity.py": "a5defae1065cf0413616568a6aa0fd08324bb1a290027ec3a6a463671710c3a2",
     ".ai-engineering/scripts/hooks/_lib/locked_append.py": "7b1fcfc49524eb465b17a381e65872f9a9458b4f0d040cb40072721f995b4ff5",
     ".ai-engineering/scripts/hooks/_lib/locking.py": "33717578f361f9518dd016a21ccf5d2359ab25801557801cd2a7b07f32f0ba7f",
     ".ai-engineering/scripts/hooks/_lib/observability.py": "9127759e5ac67ee8f4c921dc700f9f9521be6bafdec30d7517e0738acbfdffc0",

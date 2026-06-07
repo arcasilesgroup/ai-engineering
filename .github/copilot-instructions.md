@@ -111,6 +111,7 @@ its own context window — offload research and parallel analysis to them.
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Config | `.ai-engineering/manifest.yml` |
 | Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
+| Architecture / solution intent | [.ai-engineering/solution-intent.md](.ai-engineering/solution-intent.md) (§3.1 layered module map) |
 
 ## 13. Hard Rules
 
@@ -157,6 +158,9 @@ mirrors stay lean (spec-134 sub-005 mirror diet). Authoritative homes:
 - **§16 Surface Axioms** (A1 / A2) →
   [.ai-engineering/reference/surface-axioms.md](.ai-engineering/reference/surface-axioms.md) (Surface Axiom and
   No-Twin Axiom; D-133-04 enforcement at `test_surface_parity.py`).
+- **Error-handling posture** (fail-open vs fail-closed) →
+  [.ai-engineering/reference/gate-policy.md](.ai-engineering/reference/gate-policy.md)
+  (security/integrity boundaries fail closed; plumbing fails open and must log).
 
 <!-- ide-extras:start -->
 ## First Action (GitHub Copilot)

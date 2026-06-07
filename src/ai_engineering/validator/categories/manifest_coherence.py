@@ -107,7 +107,7 @@ def _template_manifest_path(target: Path) -> Path:
 def _read_manifest_payload(manifest_path: Path) -> dict[str, object]:
     payload = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(payload, dict):
-        raise ValueError(f"Manifest payload must be a mapping: {manifest_path}")
+        raise TypeError(f"Manifest payload must be a mapping: {manifest_path}")
     return payload
 
 

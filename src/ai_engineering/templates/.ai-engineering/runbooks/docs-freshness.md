@@ -15,7 +15,7 @@ Detect stale documentation, missing coverage for recently shipped features, and 
 
 - `git` available for commit history and diff analysis.
 - `gh` or `az` CLI authenticated for merged PR queries and work item creation.
-- Scan targets exist: `README.md`, `.ai-engineering/README.md`, `CHANGELOG.md`, `docs/solution-intent.md`.
+- Scan targets exist: `README.md`, `.ai-engineering/README.md`, `CHANGELOG.md`, `.ai-engineering/solution-intent.md`.
 - `.ai-engineering/manifest.yml` present for count verification in Step 4.
 
 ## Procedimiento
@@ -25,7 +25,7 @@ Detect stale documentation, missing coverage for recently shipped features, and 
 For each scan target, retrieve the last commit date and compute days since modification:
 
 ```bash
-for DOC in README.md .ai-engineering/README.md CHANGELOG.md docs/solution-intent.md; do
+for DOC in README.md .ai-engineering/README.md CHANGELOG.md .ai-engineering/solution-intent.md; do
   LAST_EPOCH=$(git log -1 --format="%at" -- "$DOC")
   NOW_EPOCH=$(date +%s)
   DAYS_STALE=$(( (NOW_EPOCH - LAST_EPOCH) / 86400 ))
@@ -89,12 +89,12 @@ For each merged PR, search `CHANGELOG.md` for the PR number or a keyword match o
 
 ### Step 6 -- Verify solution-intent architecture alignment
 
-Check that `docs/solution-intent.md` references the current directory structure:
+Check that `.ai-engineering/solution-intent.md` references the current directory structure:
 
 ```bash
 for DIR in $(ls -d */ 2>/dev/null); do
   DIR_NAME=$(basename "$DIR")
-  if ! grep -q "$DIR_NAME" docs/solution-intent.md; then
+  if ! grep -q "$DIR_NAME" .ai-engineering/solution-intent.md; then
     echo "DRIFT: directory '$DIR_NAME' not referenced in solution-intent.md"
   fi
 done
