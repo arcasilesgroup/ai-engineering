@@ -9,11 +9,11 @@ cadence: weekly
 
 ## Objetivo
 
-Detect deviations between the running codebase and the declared architecture in `docs/solution-intent.md`, `CONSTITUTION.md`, and `.ai-engineering/state/decision-store.json`. This includes import-cycle violations, layer-boundary crossings, undocumented structural changes, and decisions that no longer match code reality. Runs weekly; produces task work items for every confirmed finding.
+Detect deviations between the running codebase and the declared architecture in `.ai-engineering/solution-intent.md`, `CONSTITUTION.md`, and `.ai-engineering/state/decision-store.json`. This includes import-cycle violations, layer-boundary crossings, undocumented structural changes, and decisions that no longer match code reality. Runs weekly; produces task work items for every confirmed finding.
 
 ## Precondiciones
 
-- `docs/solution-intent.md` exists with a mermaid module graph (section 2.2) defining layers and allowed dependency directions
+- `.ai-engineering/solution-intent.md` exists with a mermaid module graph (section 3.1) defining layers and allowed dependency directions
 - `CONSTITUTION.md` exists with boundary rules. If only `.ai-engineering/CONSTITUTION.md` exists, treat it as a legacy compatibility input.
 - `.ai-engineering/state/decision-store.json` exists with active architecture decisions
 - Work items provider configured in `manifest.yml` (`github` or `azure_devops`)
@@ -24,10 +24,10 @@ Detect deviations between the running codebase and the declared architecture in 
 
 ### Step 1 -- Extract documented architecture layers
 
-Read the solution-intent to build the authoritative layer map. The module graph in section 2.2 defines five layers and their allowed dependency directions.
+Read the solution-intent to build the authoritative layer map. The module graph in section 3.1 defines five layers and their allowed dependency directions.
 
 ```bash
-cat docs/solution-intent.md
+cat .ai-engineering/solution-intent.md
 ```
 
 Parse the mermaid graph to extract:
@@ -205,7 +205,7 @@ Compare the current module tree against what solution-intent documents. New top-
 ls -d src/ai_engineering/*/  2>/dev/null | xargs -I{} basename {} | sort > /tmp/drift_current_modules.txt
 
 # Extract modules documented in solution-intent (from the mermaid graph labels)
-grep -oP '(?<=subgraph |^\s{8})\w+(?=\[")' docs/solution-intent.md | sort -u > /tmp/drift_documented_modules.txt
+grep -oP '(?<=subgraph |^\s{8})\w+(?=\[")' .ai-engineering/solution-intent.md | sort -u > /tmp/drift_documented_modules.txt
 
 # Modules in code but not in docs
 comm -23 /tmp/drift_current_modules.txt /tmp/drift_documented_modules.txt
@@ -213,7 +213,7 @@ comm -23 /tmp/drift_current_modules.txt /tmp/drift_documented_modules.txt
 
 ```bash
 # Detect files moved or renamed since the last solution-intent review date
-LAST_REVIEW=$(grep -oP '(?<=Last Review: )\d{4}-\d{2}-\d{2}' docs/solution-intent.md)
+LAST_REVIEW=$(grep -oP '(?<=Last Review: )\d{4}-\d{2}-\d{2}' .ai-engineering/solution-intent.md)
 git log --since="$LAST_REVIEW" --diff-filter=R --name-status --format="" -- src/
 ```
 

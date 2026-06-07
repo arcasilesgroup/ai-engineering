@@ -217,7 +217,7 @@ class PipelineRunner:
             verdict_payload = run.verification.payload
             if not isinstance(verdict_payload, PhaseVerdict):
                 msg = f"reconciler did not verify install phase {phase.name!r}"
-                raise RuntimeError(msg)
+                raise TypeError(msg)
             verdict = verdict_payload
             summary.verdicts.append(verdict)
 

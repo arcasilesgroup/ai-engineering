@@ -252,3 +252,6 @@ the commit.
   prohibitions); AI-behaviour headers live here, not there.
 - `docs/mirror-authoring.md` — per-file authoring contract.
 - `docs/surface-axioms.md` — Surface / No-Twin axioms.
+- `.ai-engineering/reference/gate-policy.md` — fail-open/closed error-handling
+  posture (security/integrity boundaries fail closed; plumbing fails open and
+  must log).

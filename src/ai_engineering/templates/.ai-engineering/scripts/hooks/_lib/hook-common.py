@@ -256,7 +256,7 @@ def emit_event(project_root: Path, event: dict) -> bool:
             with path.open("a", encoding="utf-8") as f:
                 f.write(line + "\n")
     except OSError as exc:
-        logger.error("hook-common: failed to append event: %s", exc)
+        logger.exception("hook-common: failed to append event: %s", exc)
         return False
     return True
 

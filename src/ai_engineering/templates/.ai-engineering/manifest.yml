@@ -55,7 +55,7 @@ gates:
 # readme: true — recursively scans ALL README*.md files and updates
 #   each in context of its directory.
 # changelog: true — keeps CHANGELOG.md current with each PR.
-# solution_intent: true — syncs docs/solution-intent.md on architecture changes.
+# solution_intent: true — syncs .ai-engineering/solution-intent.md on architecture changes.
 documentation:
   auto_update:
     readme: true

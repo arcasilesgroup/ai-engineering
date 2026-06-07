@@ -74,6 +74,11 @@ runs/
 cache/
 .cache/
 
+# Python bytecode — the shipped .ai-engineering/scripts/*.py hooks compile
+# __pycache__/*.pyc on every run; never commit it (spec-168).
+__pycache__/
+*.pyc
+
 # Per-machine local config override
 local.yml
 
