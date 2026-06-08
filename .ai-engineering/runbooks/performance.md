@@ -7,18 +7,18 @@ cadence: weekly
 
 # Performance Runbook
 
-## Objetivo
+## Objective
 
 Detect performance regressions across CI pipelines, test suites, and build artifacts on a weekly cadence. The runbook compares recent metrics against historical baselines, flags regressions that exceed configured thresholds, and creates task work items for each finding. It never modifies code, tests, or build configuration -- it only observes and reports.
 
-## Precondiciones
+## Prerequisites
 
 - `gh` or `az` CLI authenticated for fetching CI run data and creating work items.
 - `pytest` installed for test suite timing (optional; Step 3 is skipped if unavailable).
 - `python3` available for manifest parsing in Step 7.
 - `git` available for causal commit analysis in Step 6.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Fetch recent CI run times
 
@@ -54,7 +54,7 @@ pytest tests/ --durations=20 -q 2>&1
 
 Parse the `slowest 20 durations` output. For each test, extract the module path, test name, and duration in seconds. Store as `$TEST_TIMINGS`.
 
-If `pytest` is unavailable on the host (see Precondiciones), skip this step and note the gap in the report.
+If `pytest` is unavailable on the host (see Prerequisites), skip this step and note the gap in the report.
 
 ### Step 4 -- Compare test timing against baseline
 

@@ -7,17 +7,17 @@ cadence: daily
 
 # Triage Runbook
 
-## Objetivo
+## Objective
 
 Scan all open issues and backlog items across GitHub and Azure DevOps, classify each by type and priority, detect duplicates, discard noise, and label triaged items for refinement. Mutations are applied automatically. It runs daily on any of the four registered hosts.
 
-## Precondiciones
+## Prerequisites
 
 - Authenticated CLI session: `gh auth status` (GitHub) or `az account show` (Azure DevOps).
 - Repository cloned locally with issue-tracker access (issues:write permission for GitHub, Work Items Read & Write for Azure DevOps).
 - Labels `bug`, `feature`, `enhancement`, `question`, `chore`, `p1-critical`, `p2-high`, `p3-normal`, `p4-low`, `triaged`, `needs-refinement`, and `duplicate` exist in the issue tracker.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Fetch open issues
 

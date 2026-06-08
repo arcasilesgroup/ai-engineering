@@ -7,19 +7,19 @@ cadence: weekly
 
 # Code Quality Runbook
 
-## Objetivo
+## Objective
 
 Detect complexity hotspots, duplication above threshold, cognitive complexity violations,
 and tech debt accumulation. Produce actionable work items for sprint planning.
 
-## Precondiciones
+## Prerequisites
 
 - `ruff` installed (minimum version 0.4.0 for JSON output). Install via `uv tool install ruff`.
 - `jq` installed for the fallback path (Step 6). Pre-installed on most CI runners.
 - `gh` or `az` CLI authenticated for work item creation and deduplication.
 - `ai-eng` CLI is optional. Step 5 replaces Steps 1-4 when available; Step 6 provides equivalent coverage via ruff alone.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Run Linter
 

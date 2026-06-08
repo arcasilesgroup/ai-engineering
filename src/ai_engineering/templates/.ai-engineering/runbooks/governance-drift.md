@@ -7,11 +7,11 @@ cadence: weekly
 
 # Governance Drift
 
-## Objetivo
+## Objective
 
 Detect configuration and content drift between framework-managed surfaces: IDE mirror sync, quality gate thresholds, hook script integrity, manifest internal consistency, and template-vs-installed divergence. Runs weekly and produces task work items for every verified drift finding. This runbook is strictly read-only against framework files -- it reports drift but never auto-fixes it.
 
-## Precondiciones
+## Prerequisites
 
 - `python3` with `pyyaml` installed for manifest parsing.
 - `shasum` available for hook integrity verification.
@@ -20,7 +20,7 @@ Detect configuration and content drift between framework-managed surfaces: IDE m
 - `scripts/sync_command_mirrors.py` present for mirror sync checks.
 - `ai-eng` CLI is optional; Step 3 provides equivalent manual checks when unavailable.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Run mirror sync check
 

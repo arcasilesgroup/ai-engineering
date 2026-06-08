@@ -7,18 +7,18 @@ cadence: weekly
 
 # Wiring Scanner
 
-## Objetivo
+## Objective
 
 Detect implemented but disconnected code -- functions, modules, or exports that exist in the codebase but are never reached from any entry point, CLI command, or external consumer. This runbook does not delete code; it classifies each public symbol's connectivity and creates task work items for confirmed disconnections so the team can decide whether to wire, document, or remove them.
 
-## Precondiciones
+## Prerequisites
 
 - `grep` available for symbol search and reference counting.
 - `python3` available if using dynamic import detection.
 - `gh` or `az` CLI authenticated for work item creation and deduplication.
 - Source code organized under `src/` with Python modules.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Enumerate public functions and classes
 

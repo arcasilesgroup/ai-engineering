@@ -7,18 +7,18 @@ cadence: weekly
 
 # Docs Freshness
 
-## Objetivo
+## Objective
 
 Detect stale documentation, missing coverage for recently shipped features, and drift between documentation claims and actual codebase state. This runbook never modifies documentation -- it reports findings and creates task work items for human authors.
 
-## Precondiciones
+## Prerequisites
 
 - `git` available for commit history and diff analysis.
 - `gh` or `az` CLI authenticated for merged PR queries and work item creation.
 - Scan targets exist: `README.md`, `.ai-engineering/README.md`, `CHANGELOG.md`, `.ai-engineering/solution-intent.md`.
 - `.ai-engineering/manifest.yml` present for count verification in Step 4.
 
-## Procedimiento
+## Procedure
 
 ### Step 1 -- Check doc file last-modified dates
 
