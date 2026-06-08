@@ -1,0 +1,11 @@
+{
+  "branch": "feat_translations",
+  "created": "2026-06-07T21:36:41.553921+00:00",
+  "extra": {},
+  "pr": "585",
+  "shipped": "2026-06-08T08:59:20.329242+00:00",
+  "slug": "runbook-template-parity",
+  "spec_id": "spec-169",
+  "state": "shipped",
+  "title": "Runbook header translations: template parity + cross-IDE"
+}
