@@ -668,15 +668,48 @@ def _render_install_success(
     )
 
 
+def _warn_hooks_unpinned(root: Path, detail: str) -> None:
+    """Loud, actionable stderr block when the hook manifest is not pinned.
+
+    spec-168: a stale or unpinned manifest silently disables every hook
+    under ``AIENG_HOOK_INTEGRITY_MODE=enforce`` (the default). The previous
+    one-line ``warning:`` was easy to miss, so installs slid into a
+    dead-hooks state unnoticed. Make it impossible to miss and name the
+    one-line recovery command. ASCII-only — install stderr is non-tty on
+    Windows where non-ASCII glyphs crash the cp1252 console.
+    """
+    repin = "python3 .ai-engineering/scripts/regenerate-hooks-manifest.py"
+    print(
+        "\n".join(
+            [
+                "",
+                "  WARNING: ai-engineering hooks-manifest may be STALE or UNPINNED.",
+                f"    cause:  {detail}",
+                "    effect: under AIENG_HOOK_INTEGRITY_MODE=enforce (default) every",
+                "            hook REFUSES to run until the manifest is re-pinned.",
+                f"    fix:    cd {root} && {repin}",
+                "",
+            ]
+        ),
+        file=sys.stderr,
+    )
+
+
 def _finalize_hooks_manifest(root: Path) -> None:
     """spec-142 D-142-05: regenerate hooks-manifest after install.
 
-    Fail-open: if the script is missing, exits non-zero, or times out,
-    emit a one-line stderr warning and continue. The dashboard's
-    ``unverified`` state (D-142-04) covers the partial case.
+    Re-pins every hook's sha256 against the bytes just written so
+    ``AIENG_HOOK_INTEGRITY_MODE=enforce`` does not kill freshly-installed
+    hooks. Fail-open (never aborts the install) but FAIL-LOUD (spec-168):
+    a missing script, a non-zero exit, OR a post-write ``--check`` that
+    still reports drift emits the recovery block via
+    :func:`_warn_hooks_unpinned`. The post-condition matters because a
+    clean write whose manifest still mismatches the bytes is the exact
+    silent state that disabled hooks in fresh installs.
     """
     regen = root / ".ai-engineering" / "scripts" / "regenerate-hooks-manifest.py"
     if not regen.is_file():
+        _warn_hooks_unpinned(root, f"{regen} is missing")
         return
     try:
         result = subprocess.run(
@@ -688,13 +721,33 @@ def _finalize_hooks_manifest(root: Path) -> None:
             text=True,
         )
     except (subprocess.TimeoutExpired, OSError) as exc:
-        print(f"warning: regenerate-hooks-manifest failed: {exc}", file=sys.stderr)
+        _warn_hooks_unpinned(root, f"regenerate-hooks-manifest failed to run: {exc}")
         return
     if result.returncode != 0:
-        print(
-            f"warning: regenerate-hooks-manifest exited {result.returncode}; "
-            f"hooks-manifest.json may be missing or stale",
-            file=sys.stderr,
+        _warn_hooks_unpinned(
+            root,
+            f"regenerate-hooks-manifest exited {result.returncode}: "
+            f"{(result.stderr or '').strip()[:200]}",
+        )
+        return
+    # Post-condition: a clean write that still fails --check means the
+    # manifest is stale vs the written bytes — the silent dead-hooks state.
+    try:
+        check = subprocess.run(
+            [sys.executable, str(regen), "--check"],
+            cwd=root,
+            check=False,
+            timeout=30,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        _warn_hooks_unpinned(root, f"hooks-manifest verification failed to run: {exc}")
+        return
+    if check.returncode != 0:
+        _warn_hooks_unpinned(
+            root,
+            f"hooks-manifest still stale after regeneration ({(check.stderr or '').strip()[:200]})",
         )
 
 

@@ -80,7 +80,7 @@ checkpoints. It does NOT appear in the canonical chain (D-131-07).
 
 ## 12. Surface Index
 
-## Skills (53)
+## Skills (54)
 
 Canonical skills and agents live under `.claude/`; mirror surfaces under
 `.codex/`, `.agents/`, and `.github/` are byte-equivalent regenerations
@@ -102,7 +102,7 @@ its own context window — offload research and parallel analysis to them.
 
 | Surface | Where |
 |---------|-------|
-| Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (54) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/reference/knowledge-placement.md` |
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
@@ -111,6 +111,7 @@ its own context window — offload research and parallel analysis to them.
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Config | `.ai-engineering/manifest.yml` |
 | Constitution | [CONSTITUTION.md](CONSTITUTION.md) |
+| Architecture / solution intent | [.ai-engineering/solution-intent.md](.ai-engineering/solution-intent.md) (§3.1 layered module map) |
 
 ## 13. Hard Rules
 
@@ -157,6 +158,9 @@ mirrors stay lean (spec-134 sub-005 mirror diet). Authoritative homes:
 - **§16 Surface Axioms** (A1 / A2) →
   [.ai-engineering/reference/surface-axioms.md](.ai-engineering/reference/surface-axioms.md) (Surface Axiom and
   No-Twin Axiom; D-133-04 enforcement at `test_surface_parity.py`).
+- **Error-handling posture** (fail-open vs fail-closed) →
+  [.ai-engineering/reference/gate-policy.md](.ai-engineering/reference/gate-policy.md)
+  (security/integrity boundaries fail closed; plumbing fails open and must log).
 
 <!-- ide-extras:start -->
 ## Hot-Path Discipline (Claude Code)

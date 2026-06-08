@@ -115,7 +115,11 @@ def test_combined_skill_lines_under_372() -> None:
         assert path.exists(), f"missing skill file: {path}"
     combined = _line_count(AI_COMMIT_SKILL) + _line_count(AI_PR_SKILL) + _line_count(WATCH_HANDLER)
     # spec-133 D-133-24 brief Drift recovery section adds 10 lines combined.
-    assert combined <= 410, (
+    # spec-167 D-167-07 adds /ai-pr Step 14b (pre-merge consolidation, a new
+    # load-bearing step); ceiling raised 410 -> 414 to absorb it (compressed to
+    # a single dense paragraph first). Per-file ceilings below remain the real
+    # bloat guard.
+    assert combined <= 414, (
         f"Combined skill line count {combined} exceeds spec-104 G-6 target of "
         f"400. Phase 7 trims must hold; new content must justify the line cost."
     )

@@ -669,6 +669,49 @@ def status(spec_id: str, project_root: Path) -> SpecRecord:
     return _load_state(project_root, spec_id)
 
 
+def slot_status(project_root: Path) -> dict:
+    """Read-only: report whether the live spec slot holds an un-shipped spec.
+
+    Returns a JSON-able dict so ``/ai-brainstorm`` Step -1 (D-167-05) can warn
+    before overwriting ``spec.md``. Fail-open: never raises — a missing or
+    malformed buffer/sidecar yields a conservative shape rather than an
+    exception, so the guard can never block interrogation. ``occupied`` means
+    the buffer carries real (non-placeholder) content; ``state`` carries the
+    sidecar lifecycle state (e.g. ``shipped``) so the caller can decide that a
+    shipped-but-not-cleared slot is safe to overwrite.
+    """
+    buffer = _spec_buffer_path(project_root)
+    try:
+        text = buffer.read_text(encoding="utf-8") if buffer.exists() else ""
+    except OSError:
+        text = ""
+    if _buffer_is_placeholder(text):
+        return {
+            "occupied": False,
+            "idle": True,
+            "spec_id": None,
+            "slug": None,
+            "state": None,
+        }
+    spec_id = _spec_frontmatter_id(project_root)
+    slug: str | None = None
+    state: str | None = None
+    if spec_id is not None:
+        try:
+            record = _load_state(project_root, spec_id)
+            slug = record.slug
+            state = record.state.value
+        except (FileNotFoundError, KeyError, ValueError):
+            pass
+    return {
+        "occupied": True,
+        "idle": False,
+        "spec_id": spec_id,
+        "slug": slug,
+        "state": state,
+    }
+
+
 # --- manifest lifecycle retention (spec-153 D-153-07 / D-153-08) -----------
 
 # Fail-open defaults when the manifest or its ``lifecycle:`` block is absent.
@@ -1587,6 +1630,8 @@ def _build_parser() -> argparse.ArgumentParser:
     st = sub.add_parser("status", help="Read record state")
     st.add_argument("spec_id")
     _common(st)
+    ss = sub.add_parser("slot_status", help="Report whether the live spec slot is occupied")
+    _common(ss)
     mh = sub.add_parser("migrate-history", help="One-shot legacy history migration")
     _common(mh)
     cs = sub.add_parser("consolidate_shipped", help="Append missing history rows for SHIPPED specs")
@@ -1639,6 +1684,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "status":
             record = status(args.spec_id, project_root)
             print(json.dumps(record.to_json(), indent=2))
+        elif args.cmd == "slot_status":
+            print(json.dumps(slot_status(project_root), indent=2))
         elif args.cmd == "migrate-history":
             migrate_history(project_root)
             print("migrated _history.md to 7-col canonical layout")

@@ -1,9 +1,9 @@
 ---
 name: ai-simplify-sweep
-description: Sweeps stale code complexity weekly via a scheduled /ai-simplify wrapper, gates the diff, and opens a draft PR for human review. Trigger for 'weekly simplify sweep', 'scheduled simplification', 'simplification sweep', 'simplify pass'. Never auto-merges. Not for in-flight feature work; use /ai-simplify instead. Not for security cleanup; use /ai-security instead.
+description: Sweeps stale code complexity on demand via an /ai-simplify wrapper, gates the diff, and opens a draft PR for human review. Trigger for 'run the simplify sweep', 'simplification sweep', 'simplify pass'. Never auto-merges, never runs unattended. Not for in-flight feature work; use /ai-simplify instead. Not for security cleanup; use /ai-security instead.
 effort: cheap
 argument-hint: "[--dry-run] [--no-pr]"
-tags: [meta, simplification, scheduled, autonomous]
+tags: [meta, simplification]
 model_tier: haiku
 mirror_family: cursor-skills
 generated_by: ai-eng sync
@@ -16,11 +16,11 @@ edit_policy: generated-do-not-edit
 
 ## Purpose
 
-Codebases accumulate entropy: dead branches, redundant guards, copy-pasted helpers, layers of indirection. `/ai-simplify` already exists to fight that, but it requires manual invocation and humans rarely remember. This skill is a scheduled wrapper that runs simplify on a cadence, gates the diff, and opens a draft PR so a human reviews the proposed reductions before merge.
+Codebases accumulate entropy: dead branches, redundant guards, copy-pasted helpers, layers of indirection. `/ai-simplify` already exists to fight that, but it requires manual invocation and humans rarely remember. This skill is a manual wrapper that runs simplify, gates the diff, and opens a draft PR so a human reviews the proposed reductions before merge. It has no scheduler — an operator triggers it.
 
 ## When to Use
 
-- Weekly automated maintenance pass (recommended cadence).
+- Periodic manual maintenance pass (weekly cadence recommended).
 - Before a release-cut to clear obvious simplifications.
 - NOT for in-flight feature work — those should call `/ai-simplify` directly.
 
@@ -55,21 +55,11 @@ If the gate fails, emit `operation=simplify_sweep_gate_failed` with the failure 
 ### Step 3 — Commit + open draft PR
 
 ```bash
-/ai-commit "chore(simplify-sweep): weekly automated simplification sweep"
-/ai-pr --draft --title "chore(simplify-sweep): weekly simplification" --body "Automated weekly entropy sweep. Review the diff before merge."
+/ai-commit "chore(simplify-sweep): conservative simplification sweep"
+/ai-pr --draft --title "chore(simplify-sweep): simplification" --body "Manual entropy sweep. Review the diff before merge."
 ```
 
-The PR title and body explicitly mark this as an automated entropy GC pass so reviewers can apply lighter scrutiny than for feature PRs but still verify the simplifications preserve behaviour.
-
-## Scheduling
-
-Recommended invocation pattern (run once to register the routine):
-
-```
-/schedule weekly /ai-simplify-sweep
-```
-
-This skill does NOT auto-create the cron entry — that requires user authorization via `/ai-schedule`. Operators register the routine after reviewing the skill behaviour.
+The PR title and body explicitly mark this as an entropy GC pass so reviewers can apply lighter scrutiny than for feature PRs but still verify the simplifications preserve behaviour.
 
 ## Telemetry
 
@@ -84,7 +74,7 @@ Each run emits one of:
 
 - Auto-merging the resulting PR. The skill MUST open a draft; merge requires a human.
 - Running aggressive simplify modes. Conservative only — simplify-sweep trades surface area for safety.
-- Scheduling more frequently than weekly. Sub-weekly cadence floods reviewers with noisy PRs.
+- Running more frequently than weekly. Sub-weekly runs flood reviewers with noisy PRs.
 
 ## Examples
 
@@ -96,39 +86,26 @@ User: "run the weekly simplify sweep on this repo"
 /ai-simplify-sweep
 ```
 
-Invokes `/ai-simplify --conservative`, gates the diff, and opens a draft PR titled `chore(simplify-sweep): weekly simplification`.
+Invokes `/ai-simplify --conservative`, gates the diff, and opens a draft PR titled `chore(simplify-sweep): simplification`.
 
-### Example 2 — dry-run before scheduling
+### Example 2 — dry-run preview
 
-User: "preview what the simplify sweep would touch this week"
+User: "preview what the simplify sweep would touch"
 
 ```
 /ai-simplify-sweep --dry-run
 ```
 
-Runs the simplify pass and prints the diff without staging a commit or PR — useful for reviewing scope before enabling a cron entry.
+Runs the simplify pass and prints the diff without staging a commit or PR — useful for reviewing scope before a full run.
 
 ## Integration
 
-Called by: `/ai-schedule` (weekly cron) or operator manually. Calls: `/ai-simplify` (conservative mode), `/ai-commit`, `/ai-pr --draft`. See also: `/ai-branch-cleanup` (lifecycle sweep), `/ai-skill-improve` (skill-level improvement).
+Called by: operator manually. Calls: `/ai-simplify` (conservative mode), `/ai-commit`, `/ai-pr --draft`. See also: `/ai-branch-cleanup` (lifecycle sweep), `/ai-skill-improve` (skill-level improvement).
 
 - Telemetry: `framework_operation` events aggregated from `framework-events.ndjson`.
-
-## Scheduled cadence (spec-121)
-
-The schedule layer should call the deterministic wrapper, not the slash command directly:
-
-```
-0 4 * * 1   <project>/.ai-engineering/scripts/scheduled/simplify-sweep.sh
-```
-
-The wrapper resolves `$AIENG_PROJECT_ROOT` (or falls back to `git rev-parse --show-toplevel`), invokes `ai-eng simplify --conservative --no-pr` when the CLI is on PATH, and emits a `framework_operation` event (`operation=simplify_sweep_scheduled_run`) with `outcome=success|failure|skipped` for every cycle. Never auto-merges; PR opening stays the responsibility of the slash-command path.
-
-Activate via `/ai-schedule weekly <project>/.ai-engineering/scripts/scheduled/simplify-sweep.sh` or copy the cron line above into your scheduler.
 
 ## References
 
 - Skill source of truth: `.cursor/skills/ai-simplify-sweep/SKILL.md`
-- Related: `.cursor/skills/ai-simplify/SKILL.md`, `.cursor/skills/ai-schedule/SKILL.md`
+- Related: `.cursor/skills/ai-simplify/SKILL.md`
 - Manifest entry: `.ai-engineering/manifest.yml` `skills.registry.ai-simplify-sweep`
-- Scheduled wrapper: `.ai-engineering/scripts/scheduled/simplify-sweep.sh`

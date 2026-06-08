@@ -29,6 +29,16 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
 
 ## Process
 
+-1. **Live-slot guard** (D-167-05) — UNLESS invoked with `--consolidate-spec`,
+   run `python .ai-engineering/scripts/spec_lifecycle.py slot_status` BEFORE any
+   `spec.md` write (Step 6 and the Step 0b condensed-spec path both write it).
+   If the JSON reports `occupied: true` AND `state` is not `shipped`, the slot
+   already holds an un-shipped spec — surface its `spec_id`, `slug`, and `state`
+   and ask the operator to either consolidate it first
+   (`/ai-brainstorm --consolidate-spec <slug>`) or explicitly confirm the
+   overwrite. On `occupied: false`, a `shipped` state, or any script error,
+   proceed silently. **Fail-open**: this guard is advisory and never blocks
+   interrogation — a non-zero exit logs and continues.
 0a. **Fast-path — `--consolidate-spec <slug>`**: when invoked with the
    `--consolidate-spec` flag, read `.github/skills/_shared/consolidate-spec.md`
    and execute the shared handler (resolve record, append `_history.md` row

@@ -83,6 +83,14 @@ def test_ignores_transient_and_per_install_artifacts() -> None:
     assert must_ignore <= active
 
 
+def test_ignores_python_bytecode() -> None:
+    """spec-168: shipped .ai-engineering/scripts/*.py hooks compile bytecode
+    on every run; __pycache__/*.pyc must be ignored or it dirties the tree
+    perpetually (and operators end up committing it)."""
+    active = _active_patterns(MANAGED_GITIGNORE_CONTENT)
+    assert {"__pycache__/", "*.pyc"} <= active
+
+
 def test_secret_material_safety_net() -> None:
     active = _active_patterns(MANAGED_GITIGNORE_CONTENT)
     assert {"*.pem", "*.key", "*.p12", "*.pfx", "credentials*.json"} <= active
@@ -156,6 +164,7 @@ def test_git_check_ignore_matches_intended_paths(tmp_path: Path) -> None:
     assert is_ignored(".ai-engineering/policies/.signatures.json")
     assert is_ignored(".ai-engineering/policies/.manifest")
     assert is_ignored(".ai-engineering/security/leaked.pem")  # safety net
+    assert is_ignored(".ai-engineering/scripts/hooks/_lib/__pycache__/x.pyc")  # spec-168
 
     # Sources of truth must NOT be ignored.
     assert not is_ignored(".ai-engineering/policies/branch_protection.rego")

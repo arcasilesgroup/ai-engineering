@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from spec_lint import cli as _spec_lint_cli
 from spec_lint.checks.decisions import check_decisions
 from spec_lint.checks.frontmatter import (
     EXTRAS_ALLOWLIST,
@@ -594,6 +595,43 @@ def test_plan_active_without_tasks_is_blocker(tmp_path: Path) -> None:
     spec_path = _spec_and_plan(tmp_path, plan)
     results = check_plan(spec_path)
     assert any(r.check_name == "plan_tasks_missing" and r.severity == "BLOCKER" for r in results)
+
+
+# ---------------------------------------------------------------------------
+# spec-167 D-167-07 — pre-merge consolidation makes the feature PR run CI
+# against the idle (`# No active spec`) slot. Pin that spec_lint stays green on
+# that state so a consolidated feature PR never reds its own CI.
+# ---------------------------------------------------------------------------
+
+_IDLE_SPEC = "# No active spec\n\nRun /ai-brainstorm to start one.\n"
+_IDLE_PLAN = "# No active plan\n\nRun /ai-plan after brainstorm approval.\n"
+
+
+@pytest.mark.unit
+def test_consolidated_feature_pr_idle_slot_passes_spec_lint(tmp_path: Path) -> None:
+    """A consolidated feature PR (slot cleared to placeholder + archived spec
+    dir present) must keep ``spec_lint --check`` at exit 0. Mirrors the
+    post-Step-14b state of every D-167-07 feature PR."""
+    spec_path = _write(tmp_path, _IDLE_SPEC)
+    (tmp_path / "plan.md").write_text(_IDLE_PLAN, encoding="utf-8")
+    # The consolidation archived the real spec under archive/spec-NNN-<slug>/.
+    archive = tmp_path / "archive" / "spec-167-lifecycle-execution-gaps"
+    archive.mkdir(parents=True)
+    (archive / "spec.md").write_text("---\nspec: spec-167\n---\n# shipped\n", "utf-8")
+
+    rc = _spec_lint_cli.main(["--check", str(spec_path)])
+    assert rc == 0, "idle slot after consolidation must not red the gate"
+
+
+@pytest.mark.unit
+def test_non_idle_malformed_spec_still_blocks(tmp_path: Path) -> None:
+    """Control: the exit-0 above is the idle short-circuit, NOT a blanket pass.
+    A non-placeholder spec missing required sections must still fail."""
+    spec_path = _write(
+        tmp_path, "---\nspec: spec-9\ntitle: t\nstatus: approved\neffort: small\n---\n# X\n"
+    )
+    rc = _spec_lint_cli.main(["--check", str(spec_path)])
+    assert rc != 0, "a real but malformed spec must still block"
 
 
 @pytest.mark.unit

@@ -201,6 +201,32 @@ class TestCopyProjectTemplates:
         assert (tmp_path / ".github" / "copilot-instructions.md").is_file()
         assert len(result.created) >= 3  # at least CLAUDE, AGENTS, copilot-instructions
 
+    def test_installs_common_root_instruction_files(self, tmp_path: Path) -> None:
+        """Provider-agnostic root instruction files land for every surface.
+
+        Regression for spec-164: SOUL.md was added to the template tree
+        (``templates/project/SOUL.md``) and wired into the §0 Bootstrap
+        read-list of every IDE mirror, but never registered in the
+        installer file maps — so ``ai-eng install`` / ``--fresh`` /
+        ``config reconfigure`` shipped a CLAUDE.md that tells the agent
+        to read a SOUL.md that was never copied. SOUL.md is a sibling of
+        CONSTITUTION.md: model-agnostic, single canonical copy, shipped
+        to all installs regardless of selected surface.
+        """
+        copy_project_templates(tmp_path, surfaces=["claude-code"])
+
+        assert (tmp_path / "SOUL.md").is_file(), (
+            "SOUL.md must ship to every install (it is read each session "
+            "per §0 Bootstrap); register it in _COMMON_FILE_MAPS."
+        )
+        # CONSTITUTION.md is the working sibling — guards the mechanism.
+        assert (tmp_path / "CONSTITUTION.md").is_file()
+
+    def test_common_file_map_contains_soul(self) -> None:
+        """SOUL.md is declared in the surface-independent common file map."""
+        maps = resolve_template_maps(surfaces=["claude-code"])
+        assert maps.common_file_map.get("SOUL.md") == "SOUL.md"
+
     def test_skips_existing_project_files(self, tmp_path: Path) -> None:
         # Pre-create CLAUDE.md
         (tmp_path / "CLAUDE.md").write_text("custom")

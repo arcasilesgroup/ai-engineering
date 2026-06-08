@@ -1,0 +1,11 @@
+{
+  "branch": "fix/soul-md-install-wiring",
+  "created": "2026-06-03T22:43:28.670631+00:00",
+  "extra": {},
+  "pr": "586",
+  "shipped": "2026-06-04T12:04:22.522396+00:00",
+  "slug": "consolidation-trigger",
+  "spec_id": "spec-165",
+  "state": "shipped",
+  "title": "Observation consolidation nudge + scheduled sweep"
+}

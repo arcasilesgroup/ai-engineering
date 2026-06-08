@@ -37,6 +37,12 @@ dev = [
   "ruff>=0.6.0",
   "ty>=0.0.1a1",
   "pip-audit>=2.7.0",
+  # spec-168 — pin pip past PYSEC-2026-196 (pip 26.1 archive-handling CVE,
+  # fixed in 26.1.2). pip enters the resolved env transitively via pip-api/
+  # pip-audit; the Security Audit gate (`tls_pip_audit`) audits that env, so a
+  # direct floor forces the patched version rather than risk-accepting a
+  # finding that already has a fix.
+  "pip>=26.1.2",
   "types-pyyaml>=6.0,<7.0",
   "pytest-xdist>=3.5,<4.0",
   # spec-132 sub-005 D-132-13 — hexagonal direction contract enforcement.
@@ -104,7 +110,7 @@ target-version = "py311"
 extend-exclude = ["tests/fixtures/**/*.json"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF", "TRY004", "TRY400"]
 
 [tool.ruff.lint.per-file-ignores]
 # D-135-13 — `.ai-engineering/scripts/spec_lifecycle.py` is invoked via
@@ -120,6 +126,15 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RUF"]
 # need the same 3.9 `timezone.utc` compat). Byte-parity is the install contract,
 # so the same UP017 ignore applies to the template copy.
 "src/ai_engineering/templates/.ai-engineering/scripts/spec_lifecycle.py" = ["UP017"]
+# spec-168 — `regenerate-hooks-manifest.py` is the hook self-heal command,
+# invoked as `python3 .ai-engineering/scripts/regenerate-hooks-manifest.py`;
+# on macOS that bare `python3` is system 3.9, where `datetime.UTC` does not
+# exist. UP017 would force the 3.11-only alias and crash the re-pin on stock
+# hosts. The script uses `timezone.utc` to stay 3.9-importable, guarded by
+# `tests/unit/hooks/test_regen_manifest_portable.py`. Template copy is the
+# byte-identical install payload, so the same ignore applies.
+".ai-engineering/scripts/regenerate-hooks-manifest.py" = ["UP017"]
+"src/ai_engineering/templates/.ai-engineering/scripts/regenerate-hooks-manifest.py" = ["UP017"]
 
 [tool.ruff.lint.isort]
 known-first-party = [

@@ -24,7 +24,7 @@ import argparse
 import hashlib
 import json
 import sys
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -115,7 +115,7 @@ def _build_manifest() -> dict:
         hooks[rel] = _sha256_file(path)
     return {
         "schemaVersion": SCHEMA_VERSION,
-        "generatedAt": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generatedAt": datetime.now(tz=timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "hookCount": len(hooks),
         "hooks": hooks,
         # spec-131 sub-004 T-4.D additive keys (backwards-compatible).

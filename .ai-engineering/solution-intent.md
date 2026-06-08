@@ -780,4 +780,4 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 | CLI source | `src/ai_engineering/` |
 | Tests (123 files) | `tests/{unit,integration,e2e}/` |
 | Board config | `.ai-engineering/manifest.yml` (work_items section) |
-| This document | `docs/solution-intent.md` |
+| This document | `.ai-engineering/solution-intent.md` |

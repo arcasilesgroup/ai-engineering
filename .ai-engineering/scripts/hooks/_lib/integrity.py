@@ -48,8 +48,8 @@ _VALID_MODES: frozenset[str] = frozenset({"enforce", "warn", "off"})
 # hatch and the recovery command. ``run_hook_safe`` writes the reason
 # verbatim to stderr before exiting non-zero.
 _ENFORCE_HINT = (
-    "set AIENG_HOOK_INTEGRITY_MODE=warn to bypass during dev, "
-    "or run python scripts/regenerate-hooks-manifest.py after an intentional edit"
+    "set AIENG_HOOK_INTEGRITY_MODE=warn to bypass during dev, or re-pin with "
+    "python3 .ai-engineering/scripts/regenerate-hooks-manifest.py after an intentional edit"
 )
 
 # Module-level cache: load_manifest is called on every hook invocation. Cache
