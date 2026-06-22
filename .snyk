@@ -15,5 +15,5 @@ ignore:
           privileges -- outside this project's threat model. Dependency
           coverage is retained via pip-audit, semgrep, gitleaks, SBOM, and
           Scorecard. Remove this ignore once pip publishes a fixed release.
-        expires: 2026-06-29T00:00:00.000Z
+        expires: 2026-07-22T00:00:00.000Z
 patch: {}

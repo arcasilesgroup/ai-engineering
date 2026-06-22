@@ -163,5 +163,6 @@ Completed specs. Details in git history.
 | spec-167 | Session-watch sweep engine + brainstorm slot-clobber guard | shipped | 2026-06-04 | 2026-06-04 | 588 | claude/spec-167-lifecycle-execution-gaps |
 | spec-168 | ARCHITECTURE.md and error-handling fail-open/closed policy | shipped | 2026-06-04 | 2026-06-07 | 589 | spec-168-arch-docs-error-policy |
 | spec-169 | Runbook header translations: template parity + cross-IDE | shipped | 2026-06-07 | 2026-06-08 | 585 | feat_translations |
+| spec-172 | ai-research: Tavily web provider + NotebookLM Tier-3 reliability | shipped | 2026-06-22 | 2026-06-22 | 594 | spec-172-ai-research-tavily-tier3-reliability |
 
 ---

@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(spec-172): make `/ai-research` web search + NotebookLM deep-research
+  reliable. **Tavily** becomes the primary Tier-2 web provider
+  (Tavily → Exa → built-in `WebSearch`/`WebFetch`, capability-detected) with
+  ONE bounded fall-through when the selected provider raises or returns zero
+  results (supersedes the former no-fall-through rule); wired via
+  `mcp__tavily__tavily_search`/`tavily_extract`, a repo `.mcp.json` (canonical
+  server name `tavily`, key from `${TAVILY_API_KEY}`), and the permissions
+  allowlist + installer template. **NotebookLM Tier 3** is bug-fixed (fail-soft
+  kept): the phantom `job_status` poll is replaced by a real status-poll loop
+  (`nlm_research(mode=deep)` is non-blocking — completion is the `status`
+  field, not source count), terminal `failed`/`error` and `[AUTH_REQUIRED]`
+  short-circuit instead of draining the wait budget, capped exponential
+  back-off replaces the tight spin, launch wraps
+  `nlm_create_notebook`/`nlm_research` in a bounded retry that never
+  propagates, the 404 `uvx notebooklm login` recovery hint is corrected to
+  `uvx --from notebooklm-skill notebooklm login` across all sites, and the
+  permissions allowlist is aligned to the real `mcp__notebooklm__nlm_*` tool
+  names (dropping the wrong `mcp__notebooklm-mcp__*` prefix). Adds the
+  `AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC` tunable (default 5, ceiling 60).
 - feat(spec-168): make the architecture map discoverable and define the
   fail-open/closed doctrine — without authoring a duplicate `ARCHITECTURE.md`.
   `.ai-engineering/solution-intent.md` §3.1 stays the single matklad-style

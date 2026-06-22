@@ -19,11 +19,17 @@ Algorithm under test:
   tool is available (D3 default-on; no depth/comparative/source gating).
 * ``tier3_launch(...)`` -- probe ``nlm_list`` (capability/auth); if
   unavailable, return degraded and call NOTHING else; otherwise create (or
-  reuse) a notebook and start ``nlm_research(mode='deep')``.
-* ``tier3_harvest(...)`` -- bounded poll of ``job_status`` against an
-  injected monotonic ``clock`` until the job completes (read
-  ``report_markdown`` + ``sources``) or the wait budget is exceeded
-  (``timed_out=True``, ``notebook_id`` preserved).
+  reuse) a notebook and start ``nlm_research(mode='deep')`` (the launch
+  wraps create/research in a bounded retry, fail-soft on exhaustion).
+* ``tier3_harvest(...)`` -- bounded *status* poll of ``poll_status`` against
+  an injected monotonic ``clock`` until a terminal status. ``nlm_research``
+  is NON-blocking and there is NO ``mcp__notebooklm__job_status`` tool, so
+  completion is detected by re-polling the research status (D-172-05):
+  ``status == "completed"`` reads ``report_markdown`` + ``sources``;
+  ``failed``/``error`` or an ``[AUTH_REQUIRED]`` signal stops and degrades;
+  exceeding the wait budget yields ``timed_out=True`` with the
+  ``notebook_id`` preserved. Polls are spaced by a capped back-off so the
+  loop never spins without sleeping (D-172-08).
 """
 
 from __future__ import annotations
@@ -68,27 +74,59 @@ class _RecordingNlmList:
 
 
 class _RecordingCreateNotebook:
-    """Stand-in for ``mcp__notebooklm__nlm_create_notebook``."""
+    """Stand-in for ``mcp__notebooklm__nlm_create_notebook``.
 
-    def __init__(self, returned_id: str = "nb-fresh-123") -> None:
+    ``raises_n`` makes the first ``raises_n`` calls raise (transient create
+    failure) before the remaining calls return the notebook id -- so a test
+    can exercise the bounded launch retry (T-14, D-172-08).
+    """
+
+    def __init__(self, returned_id: str = "nb-fresh-123", *, raises_n: int = 0) -> None:
         self.calls: list[dict] = []
         self.returned_id = returned_id
+        self.raises_n = raises_n
 
     def __call__(self, *, title: str) -> dict:
         self.calls.append({"title": title})
+        if len(self.calls) <= self.raises_n:
+            raise RuntimeError("nlm_create_notebook transient failure")
         return {"notebook_id": self.returned_id}
 
 
 class _RecordingResearch:
-    """Stand-in for ``mcp__notebooklm__nlm_research`` (deep mode)."""
+    """Stand-in for ``mcp__notebooklm__nlm_research`` (deep mode).
 
-    def __init__(self, job_id: str = "job-deep-1") -> None:
+    ``raises_n`` makes the first ``raises_n`` calls raise (transient research
+    failure); set it higher than the retry budget to exhaust the bounded
+    launch retry (T-14, D-172-08). ``nlm_research(mode="deep")`` is
+    NON-blocking -- it returns an immediate ``status="in_progress"`` ack.
+    """
+
+    def __init__(self, job_id: str = "job-deep-1", *, raises_n: int = 0) -> None:
         self.calls: list[dict] = []
         self.job_id = job_id
+        self.raises_n = raises_n
 
     def __call__(self, *, notebook: str, query: str, mode: str) -> dict:
         self.calls.append({"notebook": notebook, "query": query, "mode": mode})
-        return {"job_id": self.job_id, "status": "running"}
+        if len(self.calls) <= self.raises_n:
+            raise RuntimeError("nlm_research transient failure")
+        return {"job_id": self.job_id, "status": "in_progress"}
+
+
+class _RecordingSleep:
+    """Recording stand-in for the injected ``sleep(seconds)`` back-off.
+
+    Captures every requested delay so a test can assert the harvest spaces
+    its polls with a non-decreasing, capped interval and never spins without
+    sleeping (T-13, D-172-08). It does NOT actually sleep.
+    """
+
+    def __init__(self) -> None:
+        self.delays: list[float] = []
+
+    def __call__(self, seconds: float) -> None:
+        self.delays.append(seconds)
 
 
 class _RecordingAsk:
@@ -122,14 +160,18 @@ class _FakeClock:
         return self._ticks[-1]
 
 
-class _ScriptedJobStatus:
-    """Stand-in for the injected ``job_status(notebook_id)`` poll callable.
+class _ScriptedPollStatus:
+    """Stand-in for the injected ``poll_status(notebook_id)`` status callable.
 
     Yields each scripted payload in turn (then repeats the last one), so a
-    test can model "running, running, completed" or "running forever".
+    test can model "in_progress, in_progress, completed" or "in_progress
+    forever". There is NO ``mcp__notebooklm__job_status`` tool -- completion
+    is observed by re-polling the research status (D-172-05). A scripted
+    entry that is an ``Exception`` instance (or class) is *raised* instead of
+    returned, so a test can model an ``[AUTH_REQUIRED]`` exception mid-poll.
     """
 
-    def __init__(self, payloads: list[dict]) -> None:
+    def __init__(self, payloads: list[object]) -> None:
         self._payloads = list(payloads)
         self._i = 0
         self.calls: list[str] = []
@@ -139,8 +181,13 @@ class _ScriptedJobStatus:
         if self._i < len(self._payloads):
             payload = self._payloads[self._i]
             self._i += 1
-            return payload
-        return self._payloads[-1]
+        else:
+            payload = self._payloads[-1]
+        if isinstance(payload, BaseException) or (
+            isinstance(payload, type) and issubclass(payload, BaseException)
+        ):
+            raise payload
+        return payload  # type: ignore[return-value]
 
 
 # ---------------------------------------------------------------------------
@@ -279,7 +326,7 @@ def test_launch_capability_probe_unavailable_degrades_without_side_effects() -> 
     assert launch["notebook_id"] == ""
     assert launch["warnings"], "A degraded launch must carry a visible warning"
     joined = " ".join(launch["warnings"])
-    assert "uvx notebooklm login" in joined, (
+    assert "uvx --from notebooklm-skill notebooklm login" in joined, (
         f"Warning must reference the operator login command; got {launch['warnings']!r}"
     )
     assert "~/.notebooklm/storage_state.json" in joined, (
@@ -319,9 +366,9 @@ def test_launch_capability_probe_raises_degrades_without_side_effects() -> None:
 def test_harvest_success_populates_report_and_sources() -> None:
     """A job that completes within budget yields the deep report + sources.
 
-    Arrange: ``job_status`` returns running, running, completed (with a
-    report and autonomously-discovered sources). The clock advances within
-    the 300s budget.
+    Arrange: ``poll_status`` returns in_progress, in_progress, completed
+    (with a report and autonomously-discovered sources). The clock advances
+    within the 300s budget.
 
     Act: invoke ``tier3_harvest`` on a healthy launch.
 
@@ -332,10 +379,10 @@ def test_harvest_success_populates_report_and_sources() -> None:
       * ``timed_out`` and ``degraded`` are False; no warnings.
     """
     launch = {"notebook_id": "nb-fresh-123", "degraded": False, "warnings": []}
-    job_status = _ScriptedJobStatus(
+    poll_status = _ScriptedPollStatus(
         [
-            {"status": "running"},
-            {"status": "running"},
+            {"status": "in_progress"},
+            {"status": "in_progress"},
             {
                 "status": "completed",
                 "report_markdown": "# Deep report\n\nFindings with [1] and [2].",
@@ -350,9 +397,10 @@ def test_harvest_success_populates_report_and_sources() -> None:
 
     result = tier3_harvest(
         launch,
-        job_status=job_status,
+        poll_status=poll_status,
         clock=clock,
         wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
     )
 
     assert isinstance(result, Tier3Result)
@@ -365,23 +413,83 @@ def test_harvest_success_populates_report_and_sources() -> None:
     assert result.timed_out is False
     assert result.degraded is False
     assert result.warnings == []
-    assert job_status.calls, "job_status must be polled at least once"
-    assert all(nb == "nb-fresh-123" for nb in job_status.calls)
+    assert poll_status.calls, "poll_status must be polled at least once"
+    assert all(nb == "nb-fresh-123" for nb in poll_status.calls)
 
 
-def test_harvest_reads_report_alias_field() -> None:
-    """The completed payload may carry the report under ``report``.
+def test_harvest_does_not_terminate_on_early_sources_only_status() -> None:
+    """Sources stream mid-run; only ``status=="completed"`` terminates.
 
-    The harvester accepts either ``report_markdown`` or ``report`` (backend
-    field name variance) and normalises onto ``report_markdown``.
+    Regression for the D-172-05 weak-heuristic trap: an early ``in_progress``
+    payload that *already* carries a non-empty ``sources`` list MUST NOT be
+    treated as complete -- NotebookLM streams sources while the job is still
+    running, so the source/artifact count is only a weak secondary heuristic.
+    The loop keeps polling until the status field itself says ``completed``.
+    """
+    launch = {"notebook_id": "nb-stream", "degraded": False, "warnings": []}
+    poll_status = _ScriptedPollStatus(
+        [
+            # Sources already present but the job is NOT done -- must not stop.
+            {
+                "status": "in_progress",
+                "sources": ["https://nlm.example.com/early-1"],
+            },
+            {
+                "status": "in_progress",
+                "sources": [
+                    "https://nlm.example.com/early-1",
+                    "https://nlm.example.com/early-2",
+                ],
+            },
+            {
+                "status": "completed",
+                "report_markdown": "# Final report\n\nBody [1][2].",
+                "sources": [
+                    "https://nlm.example.com/early-1",
+                    "https://nlm.example.com/early-2",
+                ],
+            },
+        ]
+    )
+    clock = _FakeClock([0.0, 10.0, 20.0, 30.0])
+
+    result = tier3_harvest(
+        launch,
+        poll_status=poll_status,
+        clock=clock,
+        wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
+    )
+
+    assert len(poll_status.calls) == 3, (
+        "Harvest must keep polling past in_progress payloads that already carry "
+        f"sources; only status==completed terminates. Got {len(poll_status.calls)} polls"
+    )
+    assert result.report_markdown == "# Final report\n\nBody [1][2]."
+    assert result.degraded is False
+    assert result.timed_out is False
+
+
+@pytest.mark.parametrize(
+    "report_field",
+    ["report", "report_markdown", "summary"],
+)
+def test_harvest_reads_report_alias_field(report_field: str) -> None:
+    """The completed payload may carry the report under any alias field.
+
+    The harvester accepts the report under ``report_markdown``, ``report``,
+    or ``summary`` (backend field-name variance, D-172-08) and normalises
+    onto ``report_markdown``. Sources read tuple OR list with the same
+    tolerance.
     """
     launch = {"notebook_id": "nb-alias", "degraded": False, "warnings": []}
-    job_status = _ScriptedJobStatus(
+    poll_status = _ScriptedPollStatus(
         [
             {
                 "status": "completed",
-                "report": "# Aliased report\n\nBody [1].",
-                "sources": ["https://nlm.example.com/x"],
+                report_field: "# Aliased report\n\nBody [1].",
+                # sources delivered as a tuple, not a list.
+                "sources": ("https://nlm.example.com/x",),
             }
         ]
     )
@@ -389,12 +497,92 @@ def test_harvest_reads_report_alias_field() -> None:
 
     result = tier3_harvest(
         launch,
-        job_status=job_status,
+        poll_status=poll_status,
         clock=clock,
         wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
     )
 
     assert result.report_markdown == "# Aliased report\n\nBody [1]."
+    assert result.sources_discovered == ["https://nlm.example.com/x"]
+    assert result.timed_out is False
+
+
+class _AttrStatusPayload:
+    """A status payload exposed via *attributes* rather than dict keys.
+
+    Models a backend that returns an object (e.g. a pydantic/SDK model). The
+    harvester prefers attribute access, then ``.get`` -- dict subscript is
+    deprecated (D-172-08 alias tolerance).
+    """
+
+    def __init__(self, **kwargs: object) -> None:
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+
+def test_harvest_reads_status_and_report_via_attribute_access() -> None:
+    """An attribute-exposing payload is read via attributes, not subscript.
+
+    The status, report, and sources are read with attribute access taking
+    precedence so an SDK model (no ``__getitem__``) is tolerated.
+    """
+    launch = {"notebook_id": "nb-attr", "degraded": False, "warnings": []}
+    poll_status = _ScriptedPollStatus(
+        [
+            _AttrStatusPayload(status="in_progress"),
+            _AttrStatusPayload(
+                status="completed",
+                report_markdown="# Attr report\n\nBody [1].",
+                sources=["https://nlm.example.com/attr-1"],
+            ),
+        ]
+    )
+    clock = _FakeClock([0.0, 5.0, 10.0])
+
+    result = tier3_harvest(
+        launch,
+        poll_status=poll_status,
+        clock=clock,
+        wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
+    )
+
+    assert result.report_markdown == "# Attr report\n\nBody [1]."
+    assert result.sources_discovered == ["https://nlm.example.com/attr-1"]
+    assert result.degraded is False
+    assert result.timed_out is False
+
+
+@pytest.mark.parametrize("completed_literal", ["COMPLETED", "Completed", "completed"])
+def test_harvest_status_is_case_insensitive(completed_literal: str) -> None:
+    """The status literal is matched case-insensitively (D-172-05).
+
+    ``"COMPLETED"`` / ``"Completed"`` / ``"completed"`` all terminate the
+    poll loop and read the report (normalised ``str(...).strip().lower()``).
+    """
+    launch = {"notebook_id": "nb-case", "degraded": False, "warnings": []}
+    poll_status = _ScriptedPollStatus(
+        [
+            {
+                "status": completed_literal,
+                "report_markdown": "# Cased report\n\nBody [1].",
+                "sources": ["https://nlm.example.com/c"],
+            }
+        ]
+    )
+    clock = _FakeClock([0.0, 5.0])
+
+    result = tier3_harvest(
+        launch,
+        poll_status=poll_status,
+        clock=clock,
+        wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
+    )
+
+    assert result.report_markdown == "# Cased report\n\nBody [1]."
+    assert result.degraded is False
     assert result.timed_out is False
 
 
@@ -404,7 +592,7 @@ def test_harvest_optional_ask_followup() -> None:
     The optional cited follow-up runs only after the deep job completes.
     """
     launch = {"notebook_id": "nb-ask", "degraded": False, "warnings": []}
-    job_status = _ScriptedJobStatus(
+    poll_status = _ScriptedPollStatus(
         [
             {
                 "status": "completed",
@@ -418,10 +606,11 @@ def test_harvest_optional_ask_followup() -> None:
 
     result = tier3_harvest(
         launch,
-        job_status=job_status,
+        poll_status=poll_status,
         clock=clock,
         wait_budget_sec=300.0,
         nlm_ask=nlm_ask,
+        sleep=_RecordingSleep(),
     )
 
     assert len(nlm_ask.calls) == 1
@@ -444,19 +633,20 @@ def test_harvest_timeout_preserves_notebook_id_and_degrades() -> None:
     ``--reuse-notebook`` harvest) and a degraded note in ``warnings``. The
     deep report is necessarily absent.
 
-    Arrange: ``job_status`` always returns running; the clock jumps past
-    the 60s budget.
+    Arrange: ``poll_status`` always returns in_progress; the clock jumps
+    past the 60s budget.
     """
     launch = {"notebook_id": "nb-slow-77", "degraded": False, "warnings": []}
-    job_status = _ScriptedJobStatus([{"status": "running"}])
+    poll_status = _ScriptedPollStatus([{"status": "in_progress"}])
     # Budget is 60s; clock crosses it on the second reading.
     clock = _FakeClock([0.0, 70.0, 80.0])
 
     result = tier3_harvest(
         launch,
-        job_status=job_status,
+        poll_status=poll_status,
         clock=clock,
         wait_budget_sec=60.0,
+        sleep=_RecordingSleep(),
     )
 
     assert isinstance(result, Tier3Result)
@@ -474,33 +664,283 @@ def test_harvest_timeout_preserves_notebook_id_and_degrades() -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# tier3_harvest -- terminal-status branches (D-172-08): stop early, degrade
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("terminal_status", ["failed", "error"])
+def test_harvest_failed_status_stops_and_degrades(terminal_status: str) -> None:
+    """A terminal ``failed``/``error`` status stops the poll and degrades.
+
+    D-172-08: a dead job must NOT be polled until the wait budget drains.
+    The first poll that reports a terminal failure short-circuits with
+    ``degraded=True``, ``timed_out=False`` (terminal, not wall-clock), the
+    ``notebook_id`` preserved, an empty report, and a failure warning.
+    """
+    launch = {"notebook_id": "nb-dead-9", "degraded": False, "warnings": []}
+    poll_status = _ScriptedPollStatus([{"status": terminal_status}])
+    clock = _FakeClock([0.0, 5.0, 10.0])
+
+    result = tier3_harvest(
+        launch,
+        poll_status=poll_status,
+        clock=clock,
+        wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
+    )
+
+    assert poll_status.calls == ["nb-dead-9"], (
+        "A terminal failure must short-circuit on the first poll without burning "
+        f"the wait budget; got {poll_status.calls}"
+    )
+    assert result.degraded is True, "A failed job must degrade"
+    assert result.timed_out is False, "A terminal failure is not a wall-clock timeout"
+    assert result.notebook_id == "nb-dead-9", "notebook_id must be preserved"
+    assert result.report_markdown == "", "No report from a failed job"
+    assert result.warnings, "A failed harvest must surface a visible note"
+
+
+def test_harvest_auth_required_escalates_not_keep_polling() -> None:
+    """An ``[AUTH_REQUIRED]`` signal mid-poll escalates immediately.
+
+    D-172-06 / D-172-08: when ``poll_status`` reports/raises an
+    ``[AUTH_REQUIRED]`` signal, the harvest stops on the FIRST poll (not
+    "still running"), degrades, and surfaces the CORRECT login command.
+    Pinned in lockstep with the helper ``_UNAVAILABLE_WARNING`` (T-19).
+    """
+    launch = {"notebook_id": "nb-auth-1", "degraded": False, "warnings": []}
+    # The status payload carries the [AUTH_REQUIRED] sentinel string.
+    poll_status = _ScriptedPollStatus([{"status": "[AUTH_REQUIRED]"}])
+    clock = _FakeClock([0.0, 5.0, 10.0])
+
+    result = tier3_harvest(
+        launch,
+        poll_status=poll_status,
+        clock=clock,
+        wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
+    )
+
+    assert poll_status.calls == ["nb-auth-1"], (
+        f"[AUTH_REQUIRED] must stop on the first poll; got {poll_status.calls}"
+    )
+    assert result.degraded is True
+    assert result.timed_out is False, "Auth escalation is not a wall-clock timeout"
+    joined = " ".join(result.warnings)
+    assert "uvx --from notebooklm-skill notebooklm login" in joined, (
+        f"Auth warning must carry the CORRECT login command; got {result.warnings!r}"
+    )
+
+
+def test_harvest_auth_required_raised_escalates() -> None:
+    """An ``[AUTH_REQUIRED]`` *exception* mid-poll is caught and escalated.
+
+    The MCP may raise an ``[AUTH_REQUIRED]`` error rather than return it. The
+    harvest catches it, stops, degrades, and surfaces the correct login
+    command -- never propagating the exception (fail-soft D-172-09).
+    """
+    launch = {"notebook_id": "nb-auth-2", "degraded": False, "warnings": []}
+    poll_status = _ScriptedPollStatus([RuntimeError("[AUTH_REQUIRED] session expired")])
+    clock = _FakeClock([0.0, 5.0, 10.0])
+
+    result = tier3_harvest(
+        launch,
+        poll_status=poll_status,
+        clock=clock,
+        wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
+    )
+
+    assert poll_status.calls == ["nb-auth-2"]
+    assert result.degraded is True
+    assert result.timed_out is False
+    joined = " ".join(result.warnings)
+    assert "uvx --from notebooklm-skill notebooklm login" in joined, (
+        f"Auth warning must carry the CORRECT login command; got {result.warnings!r}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# tier3_harvest -- capped back-off cadence (D-172-08): no tight while-True
+# ---------------------------------------------------------------------------
+
+
+def test_harvest_polls_with_capped_backoff() -> None:
+    """The harvest spaces polls with a capped, non-decreasing back-off.
+
+    D-172-08: the former tight ``while True`` with no sleep risked MCP
+    rate-limits + context blowup. Now a ``sleep(seconds)`` is injected and
+    called between polls with a non-decreasing interval that never exceeds a
+    cap -- the loop never spins without sleeping. The budget check uses the
+    injected clock.
+    """
+    launch = {"notebook_id": "nb-backoff", "degraded": False, "warnings": []}
+    poll_status = _ScriptedPollStatus(
+        [
+            {"status": "in_progress"},
+            {"status": "in_progress"},
+            {"status": "in_progress"},
+            {
+                "status": "completed",
+                "report_markdown": "# Done\n\nBody [1].",
+                "sources": ["https://nlm.example.com/b"],
+            },
+        ]
+    )
+    # Plenty of budget so the loop runs to completion, not to timeout.
+    clock = _FakeClock([0.0, 5.0, 10.0, 15.0, 20.0, 25.0])
+    sleep = _RecordingSleep()
+
+    result = tier3_harvest(
+        launch,
+        poll_status=poll_status,
+        clock=clock,
+        wait_budget_sec=900.0,
+        sleep=sleep,
+    )
+
+    assert result.report_markdown == "# Done\n\nBody [1]."
+    assert result.degraded is False
+    # The loop polled 4 times (3 in_progress + 1 completed) -> at least one
+    # sleep between the non-terminal polls; the loop never spun without sleeping.
+    assert sleep.delays, "The harvest must sleep between polls, never tight-loop"
+    assert all(d > 0 for d in sleep.delays), "Every back-off interval must be positive"
+    # Non-decreasing (fixed OR capped exponential both satisfy this).
+    assert sleep.delays == sorted(sleep.delays), (
+        f"Back-off must be non-decreasing; got {sleep.delays}"
+    )
+    # Capped: no interval may exceed the documented 60s ceiling.
+    assert max(sleep.delays) <= 60, f"Back-off must be capped at 60s; got {sleep.delays}"
+
+
 def test_harvest_skips_when_launch_degraded() -> None:
     """A degraded launch is passed straight through without polling.
 
     If ``tier3_launch`` already short-circuited (NotebookLM unavailable),
-    ``tier3_harvest`` performs no ``job_status`` polling and propagates the
+    ``tier3_harvest`` performs no ``poll_status`` polling and propagates the
     degraded launch warnings.
     """
     launch = {
         "notebook_id": "",
         "degraded": True,
-        "warnings": ["notebooklm unavailable -- run `uvx notebooklm login`"],
+        "warnings": [
+            "notebooklm unavailable -- run `uvx --from notebooklm-skill notebooklm login`"
+        ],
     }
-    job_status = _ScriptedJobStatus([{"status": "running"}])
+    poll_status = _ScriptedPollStatus([{"status": "in_progress"}])
     clock = _FakeClock([0.0, 1.0])
 
     result = tier3_harvest(
         launch,
-        job_status=job_status,
+        poll_status=poll_status,
         clock=clock,
         wait_budget_sec=300.0,
+        sleep=_RecordingSleep(),
     )
 
     assert result.degraded is True
     assert result.notebook_id == ""
     assert result.report_markdown == ""
-    assert job_status.calls == [], "A degraded launch must not poll job_status"
+    assert poll_status.calls == [], "A degraded launch must not poll poll_status"
     assert result.warnings == launch["warnings"]
+
+
+# ---------------------------------------------------------------------------
+# tier3_launch -- bounded retry + subagent MCP pre-check (D-172-08, D-172-11)
+# ---------------------------------------------------------------------------
+
+
+def test_launch_retries_transient_create_then_succeeds() -> None:
+    """A transient ``nlm_create_notebook`` failure is retried once, succeeds.
+
+    D-172-08: ``nlm_create_notebook`` is wrapped in a bounded retry. A single
+    transient failure is retried (<=2 attempts) and the launch then succeeds
+    with no degrade.
+    """
+    nlm_list = _RecordingNlmList(available=True)
+    nlm_create_notebook = _RecordingCreateNotebook(returned_id="nb-retry-ok", raises_n=1)
+    nlm_research = _RecordingResearch()
+
+    launch = tier3_launch(
+        "retry transient create",
+        timestamp_iso="2026-04-28T12:00:00+00:00",
+        nlm_list=nlm_list,
+        nlm_create_notebook=nlm_create_notebook,
+        nlm_research=nlm_research,
+    )
+
+    assert len(nlm_create_notebook.calls) == 2, (
+        f"A transient create failure must be retried once; got {nlm_create_notebook.calls}"
+    )
+    assert launch["notebook_id"] == "nb-retry-ok"
+    assert launch["degraded"] is False, "A successful retry must not degrade"
+    assert launch["warnings"] == []
+    assert len(nlm_research.calls) == 1, "Research must run after a successful create retry"
+
+
+def test_launch_degrades_after_retry_budget_exhausted() -> None:
+    """An always-raising ``nlm_research`` exhausts the retry and degrades.
+
+    D-172-08 / D-172-09: when a launch step keeps failing past the bounded
+    retry, the launch returns ``degraded=True`` with a warning naming the
+    failed step and NEVER propagates the exception (fail-soft).
+    """
+    nlm_list = _RecordingNlmList(available=True)
+    nlm_create_notebook = _RecordingCreateNotebook(returned_id="nb-created")
+    nlm_research = _RecordingResearch(raises_n=99)  # always raises
+
+    launch = tier3_launch(
+        "research always fails",
+        timestamp_iso="2026-04-28T12:00:00+00:00",
+        nlm_list=nlm_list,
+        nlm_create_notebook=nlm_create_notebook,
+        nlm_research=nlm_research,
+    )
+
+    assert launch["degraded"] is True, "An exhausted launch retry must degrade"
+    # notebook_id is the created id (so a later --reuse-notebook can retry).
+    assert launch["notebook_id"] == "nb-created"
+    assert launch["warnings"], "A degraded launch must carry a visible warning"
+    # Bounded: research attempted at most twice (attempts=2), never propagated.
+    assert len(nlm_research.calls) <= 2, (
+        f"Launch retry must be bounded to <=2 attempts; got {nlm_research.calls}"
+    )
+
+
+def test_launch_subagent_mcp_unavailable_degrades_at_launch() -> None:
+    """The ``nlm_list`` probe is the in-subagent D-172-11 availability gate.
+
+    When the background subagent's ``nlm_list`` probe reports unavailable (or
+    raises), the launch degrades at T0 with the CORRECT login warning and
+    ZERO ``nlm_create_notebook``/``nlm_research`` calls -- no empty
+    ``notebook_id`` reaches the harvest.
+    """
+    nlm_list = _RecordingNlmList(available=False)
+    nlm_create_notebook = _RecordingCreateNotebook()
+    nlm_research = _RecordingResearch()
+
+    launch = tier3_launch(
+        "subagent has no notebooklm mcp",
+        timestamp_iso="2026-04-28T12:00:00+00:00",
+        nlm_list=nlm_list,
+        nlm_create_notebook=nlm_create_notebook,
+        nlm_research=nlm_research,
+    )
+
+    assert len(nlm_list.calls) == 1, "The availability gate probes exactly once"
+    assert nlm_create_notebook.calls == [], (
+        "An unavailable subagent MCP must not create a notebook (D-172-11)"
+    )
+    assert nlm_research.calls == [], (
+        "An unavailable subagent MCP must not start research (D-172-11)"
+    )
+    assert launch["degraded"] is True
+    assert launch["notebook_id"] == ""
+    joined = " ".join(launch["warnings"])
+    assert "uvx --from notebooklm-skill notebooklm login" in joined, (
+        f"Degrade warning must carry the CORRECT login command; got {launch['warnings']!r}"
+    )
 
 
 # ---------------------------------------------------------------------------

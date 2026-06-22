@@ -4,7 +4,8 @@ Spec-107 D-107-02 requires that
 ``src/ai_engineering/templates/.claude/settings.json`` ships with an
 explicit narrow ``permissions.allow`` list (Read, Write, Edit,
 MultiEdit, Bash, Agent, Glob, Grep, Skill, TaskCreate, TaskUpdate,
-mcp__context7__*, mcp__notebooklm-mcp__*) instead of the over-broad
+mcp__context7__*, plus — per spec-172 D-172-07/D-172-04 — the six explicit
+mcp__notebooklm__nlm_* names and mcp__tavily__*) instead of the over-broad
 ``["*"]`` wildcard. Existing project settings.json files MUST NOT be
 modified by ``ai-eng install`` / ``ai-eng update`` (NG-1, decision Q3-C).
 
@@ -22,7 +23,10 @@ TEMPLATE_PATH = (
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "settings.json"
 )
 
-# Canonical narrow allow list per D-107-02.
+# Canonical narrow allow list per D-107-02, updated for spec-172 D-172-07:
+# the wrong ``mcp__notebooklm-mcp__*`` prefix is replaced by the six explicit
+# real ``mcp__notebooklm__nlm_*`` tool names, and ``mcp__tavily__*`` is added
+# for the Tavily Tier-2 web provider (D-172-04).
 EXPECTED_ALLOW = frozenset(
     {
         "Read",
@@ -37,7 +41,13 @@ EXPECTED_ALLOW = frozenset(
         "TaskCreate",
         "TaskUpdate",
         "mcp__context7__*",
-        "mcp__notebooklm-mcp__*",
+        "mcp__notebooklm__nlm_list",
+        "mcp__notebooklm__nlm_create_notebook",
+        "mcp__notebooklm__nlm_research",
+        "mcp__notebooklm__nlm_ask",
+        "mcp__notebooklm__nlm_list_sources",
+        "mcp__notebooklm__nlm_list_artifacts",
+        "mcp__tavily__*",
     }
 )
 
@@ -53,7 +63,7 @@ def test_template_no_wildcard_allow() -> None:
 
 
 def test_template_ships_canonical_narrow_list() -> None:
-    """G-2: template ``allow`` list must be the canonical 13-entry set."""
+    """G-2: template ``allow`` list must be the canonical 19-entry set."""
     payload = json.loads(TEMPLATE_PATH.read_text(encoding="utf-8"))
     allow = frozenset(payload.get("permissions", {}).get("allow", []))
     missing = EXPECTED_ALLOW - allow

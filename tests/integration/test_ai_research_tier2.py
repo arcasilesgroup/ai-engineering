@@ -33,6 +33,18 @@ from tests.integration._ai_research_tier2_helper import (
     tier2_web,
 )
 
+
+def test_tier2_web_accepts_tavily_provider_params() -> None:
+    """RED: tier2_web must accept tavily_search/tavily_fetch + tavily_available (D-172-01)."""
+    import inspect
+
+    from tests.integration._ai_research_tier2_helper import tier2_web as _fn
+
+    params = inspect.signature(_fn).parameters
+    for name in ("tavily_search", "tavily_fetch", "tavily_available"):
+        assert name in params, f"tier2_web missing required Tavily param {name!r}"
+
+
 # ---------------------------------------------------------------------------
 # Fakes
 # ---------------------------------------------------------------------------
@@ -114,13 +126,24 @@ def _call_tier2(
     web_search: _RecordingSearch,
     web_fetch: _RecordingFetch,
     exa_available: bool,
+    tavily_search: _RecordingSearch | None = None,
+    tavily_fetch: _RecordingFetch | None = None,
+    tavily_available: bool = False,
     allowed_domains: list[str] | None = None,
     blocked_domains: list[str] | None = None,
 ) -> Tier2Result:
-    """Thin wrapper to keep the new keyword-only signature DRY in tests."""
+    """Thin wrapper to keep the new keyword-only signature DRY in tests.
+
+    Tavily is the primary Tier-2 provider (D-172-01). It defaults to
+    ``tavily_available=False`` with no-op recorders so the legacy Exa /
+    built-in tests exercise the same cascade without per-call edits.
+    """
     return tier2_web(
         query,
         tier1_hits=tier1_hits,
+        tavily_search=tavily_search if tavily_search is not None else _RecordingSearch(),
+        tavily_fetch=tavily_fetch if tavily_fetch is not None else _RecordingFetch(),
+        tavily_available=tavily_available,
         exa_search=exa_search,
         exa_fetch=exa_fetch,
         web_search=web_search,
@@ -254,7 +277,14 @@ def test_fallback_fetch_to_builtin_when_exa_unavailable() -> None:
 
 
 def test_exa_available_does_not_record_degraded() -> None:
-    """When Exa is available and succeeds, ``degraded_sources`` stays empty."""
+    """When the primary is available and succeeds, ``degraded_sources`` stays empty.
+
+    Under the cascade default (D-172-01) Tavily is the primary; with
+    ``tavily_available=True`` it succeeds, so the empty-list invariant still
+    means "primary succeeded with nothing skipped".
+    """
+    tavily_search = _RecordingSearch([_stub_web_hit()])
+    tavily_fetch = _RecordingFetch()
     exa_search = _RecordingSearch([_stub_web_hit()])
     exa_fetch = _RecordingFetch()
     web_search = _RecordingSearch()
@@ -263,6 +293,9 @@ def test_exa_available_does_not_record_degraded() -> None:
     result = _call_tier2(
         "neutral query",
         tier1_hits=_make_tier1_hits(2),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
         exa_search=exa_search,
         exa_fetch=exa_fetch,
         web_search=web_search,
@@ -276,9 +309,13 @@ def test_exa_available_does_not_record_degraded() -> None:
 def test_exa_search_exception_records_tool_name_and_continues() -> None:
     """A per-call Exa search failure records the Exa tool name and never raises.
 
-    The chosen provider's search call raises; the result must carry the
+    The selected provider's search call raises; the result must carry the
     failing tool's name in ``degraded_sources`` and still return (no
-    re-raise). The surviving fetch (if any) is preserved.
+    re-raise). Under D-172-02 the raise triggers ONE bounded fall-through to
+    the next available provider, but the surviving Exa fetch is preserved.
+
+    Exa is the selected provider here (``tavily_available`` defaults False,
+    so Tavily is skipped and recorded; ``exa_available=True``).
     """
     exa_search = _RaisingSearch()
     exa_fetch = _RecordingFetch([_stub_web_hit("https://example.org/article")])
@@ -298,14 +335,19 @@ def test_exa_search_exception_records_tool_name_and_continues() -> None:
     assert "mcp__exa__web_search_exa" in result.degraded_sources, (
         f"Exa search failure must record the tool name; got {result.degraded_sources}"
     )
-    # Surviving Exa fetch result is preserved.
-    assert result.hits == [_stub_web_hit("https://example.org/article")]
-    # Built-in fallback must NOT be invoked just because the Exa call failed.
-    assert web_search.calls == []
+    # Surviving Exa fetch result is preserved across the bounded fall-through.
+    assert _stub_web_hit("https://example.org/article") in result.hits
+    # D-172-02: the raise falls through to the built-in EXACTLY once.
+    assert len(web_search.calls) == 1
 
 
 def test_builtin_search_exception_records_tool_name_and_continues() -> None:
-    """A per-call built-in search failure (fallback path) records the tool name."""
+    """A per-call built-in search failure records the tool name (terminal fallback).
+
+    The built-in is the LAST candidate in the cascade (Tavily/Exa both
+    unavailable). Its raise has no further provider to fall through to, so
+    the tool name is recorded and the run returns whatever survived.
+    """
     exa_search = _RecordingSearch([_stub_web_hit()])
     exa_fetch = _RecordingFetch()
     web_search = _RaisingSearch()
@@ -328,6 +370,346 @@ def test_builtin_search_exception_records_tool_name_and_continues() -> None:
         f"Built-in search failure must record the tool name; got {result.degraded_sources}"
     )
     assert result.hits == []
+
+
+# ---------------------------------------------------------------------------
+# spec-172 WS-A T-2: 3-provider cascade (Tavily primary → Exa → built-in)
+# ---------------------------------------------------------------------------
+
+
+def _tavily_hit() -> dict:
+    return _stub_web_hit("https://tavily.example/a", "Tavily")
+
+
+def _exa_hit() -> dict:
+    return _stub_web_hit("https://exa.example/a", "Exa")
+
+
+def _builtin_hit() -> dict:
+    return _stub_web_hit("https://builtin.example/a", "Builtin")
+
+
+def test_tavily_used_as_primary_when_available() -> None:
+    """When Tavily is available it is the primary; Exa/built-in do NOT run (D-172-01)."""
+    tavily_search = _RecordingSearch([_tavily_hit()])
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    result = _call_tier2(
+        "best practices for retries",
+        tier1_hits=_make_tier1_hits(3),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert len(tavily_search.calls) == 1, "Tavily must be the primary provider"
+    assert exa_search.calls == [], "Exa must NOT run when Tavily succeeds"
+    assert web_search.calls == [], "Built-in must NOT run when Tavily succeeds"
+    assert "tavily" not in result.degraded_sources
+    assert result.hits == [_tavily_hit()]
+
+
+def test_tavily_fetch_used_for_explicit_url() -> None:
+    """With an explicit URL + Tavily available, ``tavily_fetch`` handles the URL."""
+    tavily_search = _RecordingSearch([_tavily_hit()])
+    tavily_fetch = _RecordingFetch([_tavily_hit()])
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch([_exa_hit()])
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch([_builtin_hit()])
+
+    result = _call_tier2(
+        "what does https://example.org/article say about retries",
+        tier1_hits=_make_tier1_hits(2),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert tavily_fetch.calls == ["https://example.org/article"]
+    assert exa_fetch.calls == [], "Exa fetch must not run when Tavily is primary"
+    assert web_fetch.calls == [], "Built-in fetch must not run when Tavily is primary"
+    assert result.skipped is False
+
+
+def test_falls_to_exa_when_tavily_unavailable() -> None:
+    """Tavily absent → Exa is the selected provider; ``"tavily"`` recorded (D-172-01)."""
+    tavily_search = _RecordingSearch([_tavily_hit()])
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    result = _call_tier2(
+        "best practices for retries",
+        tier1_hits=_make_tier1_hits(3),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=False,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert len(exa_search.calls) == 1, "Exa must run when Tavily is unavailable"
+    assert tavily_search.calls == [], "Tavily must NOT run when unavailable"
+    assert "tavily" in result.degraded_sources
+    assert "exa" not in result.degraded_sources
+    assert result.hits == [_exa_hit()]
+
+
+def test_falls_to_builtin_when_tavily_and_exa_unavailable() -> None:
+    """Tavily + Exa absent → built-in selected; both markers recorded (D-172-01)."""
+    tavily_search = _RecordingSearch([_tavily_hit()])
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    result = _call_tier2(
+        "best practices for retries",
+        tier1_hits=_make_tier1_hits(3),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=False,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=False,
+    )
+
+    assert len(web_search.calls) == 1, "Built-in must run when Tavily+Exa unavailable"
+    assert tavily_search.calls == []
+    assert exa_search.calls == []
+    assert "tavily" in result.degraded_sources
+    assert "exa" in result.degraded_sources
+    assert result.hits == [_builtin_hit()]
+
+
+def test_tavily_available_does_not_record_degraded() -> None:
+    """Tavily success records nothing in ``degraded_sources`` (D-172-01)."""
+    tavily_search = _RecordingSearch([_tavily_hit()])
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    result = _call_tier2(
+        "neutral query",
+        tier1_hits=_make_tier1_hits(2),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert result.degraded_sources == []
+
+
+def test_tavily_domain_filters_pass_through_to_selected_provider() -> None:
+    """Domain filters pass through to the SELECTED provider (Tavily when primary)."""
+    tavily_search = _RecordingSearch([_tavily_hit()])
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    _call_tier2(
+        "best practices for retries",
+        tier1_hits=_make_tier1_hits(3),
+        allowed_domains=["a.com", "b.com"],
+        blocked_domains=["x.com"],
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert tavily_search.calls[0].get("allowed_domains") == ["a.com", "b.com"]
+    assert tavily_search.calls[0].get("blocked_domains") == ["x.com"]
+    assert exa_search.calls == []
+
+
+# ---------------------------------------------------------------------------
+# spec-172 WS-A T-3: ONE bounded fall-through on raise-OR-empty (D-172-02)
+# ---------------------------------------------------------------------------
+
+
+def test_tavily_raise_falls_through_to_exa_once() -> None:
+    """Tavily search raises → fall through to Exa EXACTLY once; built-in untouched."""
+    tavily_search = _RaisingSearch()
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    result = _call_tier2(
+        "best practices for retries",
+        tier1_hits=_make_tier1_hits(3),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert len(exa_search.calls) == 1, "Exa runs once as the bounded fall-through"
+    assert web_search.calls == [], "No second fall-through to built-in (bounded = one)"
+    assert "mcp__tavily__tavily_search" in result.degraded_sources, (
+        f"Tavily raise must record the tool name; got {result.degraded_sources}"
+    )
+    assert result.hits == [_exa_hit()]
+
+
+def test_tavily_empty_falls_through_to_exa_once() -> None:
+    """Tavily returns 0 results → fall through to Exa once; Tavily marker recorded."""
+    tavily_search = _RecordingSearch([])
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    result = _call_tier2(
+        "best practices for retries",
+        tier1_hits=_make_tier1_hits(3),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert len(exa_search.calls) == 1
+    assert web_search.calls == []
+    assert "mcp__tavily__tavily_search" in result.degraded_sources
+    assert result.hits == [_exa_hit()]
+
+
+def test_exa_empty_falls_through_to_builtin_once_when_tavily_absent() -> None:
+    """Tavily absent, Exa empty → fall through to built-in once; both markers present."""
+    tavily_search = _RecordingSearch([_tavily_hit()])
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    result = _call_tier2(
+        "best practices for retries",
+        tier1_hits=_make_tier1_hits(3),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=False,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert len(web_search.calls) == 1, "Built-in runs once as the bounded fall-through"
+    assert "tavily" in result.degraded_sources, "Absent Tavily recorded"
+    assert "mcp__exa__web_search_exa" in result.degraded_sources, "Empty Exa recorded"
+    assert result.hits == [_builtin_hit()]
+
+
+def test_second_provider_empty_does_NOT_fall_through_again() -> None:
+    """Tavily empty → Exa empty → built-in NOT called (bounded = exactly one)."""
+    tavily_search = _RecordingSearch([])
+    tavily_fetch = _RecordingFetch()
+    exa_search = _RecordingSearch([])
+    exa_fetch = _RecordingFetch()
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch()
+
+    result = _call_tier2(
+        "best practices for retries",
+        tier1_hits=_make_tier1_hits(3),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert len(exa_search.calls) == 1, "Exa runs once as the single fall-through"
+    assert web_search.calls == [], "Second empty does NOT trigger a further fall-through"
+    assert result.hits == []
+    assert "mcp__tavily__tavily_search" in result.degraded_sources
+    assert "mcp__exa__web_search_exa" in result.degraded_sources
+
+
+def test_fall_through_preserves_explicit_url_fetch() -> None:
+    """Tavily search raises but its fetch returned the explicit-URL hit → preserved.
+
+    The surviving Tavily fetch hit is kept AND Exa search runs once as the
+    bounded fall-through (D-172-02).
+    """
+    explicit_hit = _stub_web_hit("https://example.org/article", "FetchedTavily")
+    tavily_search = _RaisingSearch()
+    tavily_fetch = _RecordingFetch([explicit_hit])
+    exa_search = _RecordingSearch([_exa_hit()])
+    exa_fetch = _RecordingFetch([_exa_hit()])
+    web_search = _RecordingSearch([_builtin_hit()])
+    web_fetch = _RecordingFetch([_builtin_hit()])
+
+    result = _call_tier2(
+        "explain https://example.org/article",
+        tier1_hits=_make_tier1_hits(2),
+        tavily_search=tavily_search,
+        tavily_fetch=tavily_fetch,
+        tavily_available=True,
+        exa_search=exa_search,
+        exa_fetch=exa_fetch,
+        web_search=web_search,
+        web_fetch=web_fetch,
+        exa_available=True,
+    )
+
+    assert explicit_hit in result.hits, "Surviving Tavily fetch hit must be preserved"
+    assert _exa_hit() in result.hits, "Exa fall-through search hits are merged in"
+    assert len(exa_search.calls) == 1, "Exa search runs once as the fall-through"
+    assert "mcp__tavily__tavily_search" in result.degraded_sources
 
 
 # ---------------------------------------------------------------------------

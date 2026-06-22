@@ -141,6 +141,11 @@ def _code_default_for(name: str) -> str | None:
             _RUNTIME_STATE,
             r'_env_int\("AIENG_RESEARCH_NLM_WAIT_SEC",\s*(\d+)',
         )
+    if name == "AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC":
+        return _grep_default(
+            _RUNTIME_STATE,
+            r'_env_int\("AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC",\s*(\d+)',
+        )
     if name == "AIENG_LOOP_WINDOW":
         return _grep_default(
             _RUNTIME_STATE,
@@ -243,7 +248,10 @@ _PROMOTED_M5_M6_TUNABLES: tuple[str, ...] = (
 # bounded-wait tunable. Implemented in runtime_state.py with a real default,
 # so it MUST be a default-bearing docs entry (never reserved/pending) whose
 # value matches the code.
-_SPEC_NOTEBOOKLM_TUNABLES: tuple[str, ...] = ("AIENG_RESEARCH_NLM_WAIT_SEC",)
+_SPEC_NOTEBOOKLM_TUNABLES: tuple[str, ...] = (
+    "AIENG_RESEARCH_NLM_WAIT_SEC",
+    "AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC",
+)
 
 _CANONICAL_TUNABLE_DOCS: tuple[Path, ...] = (_CLAUDE_MD, _TEMPLATE_CLAUDE_MD)
 

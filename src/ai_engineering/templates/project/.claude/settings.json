@@ -13,7 +13,13 @@
       "TaskCreate",
       "TaskUpdate",
       "mcp__context7__*",
-      "mcp__notebooklm-mcp__*"
+      "mcp__notebooklm__nlm_list",
+      "mcp__notebooklm__nlm_create_notebook",
+      "mcp__notebooklm__nlm_research",
+      "mcp__notebooklm__nlm_ask",
+      "mcp__notebooklm__nlm_list_sources",
+      "mcp__notebooklm__nlm_list_artifacts",
+      "mcp__tavily__*"
     ],
     "deny": [
       "Bash(rm -rf /)",
