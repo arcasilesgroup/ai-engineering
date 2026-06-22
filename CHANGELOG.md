@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-06-22
+
 ### Added
 
 - feat(spec-172): make `/ai-research` web search + NotebookLM deep-research
@@ -168,7 +170,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drive-letter forms (backslash-normalized, case-insensitive) so trivial
   representation swaps no longer evade credential-path detection. Default
   enforcement behavior is otherwise unchanged.
-
 ## [0.10.1] - 2026-06-02
 
 ### Changed
