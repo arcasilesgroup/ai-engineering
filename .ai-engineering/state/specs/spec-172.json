@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-06-22T11:19:41.838278+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "ai-research-tavily-tier3-reliability",
+  "spec_id": "spec-172",
+  "state": "in_progress",
+  "title": "ai-research: Tavily web provider + NotebookLM Tier-3 reliability"
+}

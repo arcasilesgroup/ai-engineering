@@ -9,7 +9,7 @@ Spec acceptance:
     Tier 3 (NotebookLM, ``claude-world/notebooklm-skill`` backend) MUST
     probe ``nlm_list`` first (capability/auth); if auth is expired (probe
     returns ``authenticated: False``), the launch is skipped (degraded)
-    with a warning suggesting ``uvx notebooklm login`` and no other
+    with a warning suggesting ``uvx --from notebooklm-skill notebooklm login`` and no other
     ``nlm_*`` calls (D7 fail-soft).
 
     All-external-down case: Tier 1 + Tier 2 + Tier 3 all fail -> the
@@ -167,7 +167,7 @@ def test_notebooklm_auth_expired_degrades_to_tier2_only_with_warning() -> None:
     Assert:
       * ``nlm_create_notebook`` and ``nlm_research`` were NOT called.
       * The launch is degraded with an empty ``notebook_id``.
-      * A warning suggests ``uvx notebooklm login`` so the user can recover.
+      * A warning suggests ``uvx --from notebooklm-skill notebooklm login`` so the user can recover.
     """
     create_calls: list[dict] = []
     research_calls: list[dict] = []
@@ -199,8 +199,9 @@ def test_notebooklm_auth_expired_degrades_to_tier2_only_with_warning() -> None:
     assert research_calls == [], (
         f"nlm_research MUST NOT be called when auth expired; got {research_calls}"
     )
-    assert any("uvx notebooklm login" in w for w in launch["warnings"]), (
-        f"Warnings must suggest 'uvx notebooklm login' for recovery; got {launch['warnings']}"
+    assert any("uvx --from notebooklm-skill notebooklm login" in w for w in launch["warnings"]), (
+        "Warnings must suggest 'uvx --from notebooklm-skill notebooklm login' for "
+        f"recovery; got {launch['warnings']}"
     )
 
 
@@ -346,8 +347,8 @@ def test_notebooklm_absent_probe_degrades_tier3_run_proceeds() -> None:
     # (no polling, no raise) so synthesis continues on Tiers 0-2 only.
     harvest = tier3_harvest(
         launch,
-        job_status=lambda _id: (_ for _ in ()).throw(
-            AssertionError("job_status MUST NOT be polled for an absent NotebookLM")
+        poll_status=lambda _id: (_ for _ in ()).throw(
+            AssertionError("poll_status MUST NOT be polled for an absent NotebookLM")
         ),
         clock=lambda: 0.0,
         wait_budget_sec=300.0,
@@ -424,6 +425,12 @@ def test_exa_absent_falls_back_to_builtin_and_records_degraded() -> None:
     exa_calls: list[str] = []
     builtin_calls: list[str] = []
 
+    def tavily_search_absent(_query: str, **_) -> list[dict]:
+        raise AssertionError("Tavily search MUST NOT run when Tavily is absent")
+
+    def tavily_fetch_absent(_url: str, **_) -> list[dict]:
+        raise AssertionError("Tavily fetch MUST NOT run when Tavily is absent")
+
     def exa_search_absent(_query: str, **_) -> list[dict]:
         exa_calls.append(_query)
         raise AssertionError("Exa search MUST NOT run when Exa is absent")
@@ -438,7 +445,8 @@ def test_exa_absent_falls_back_to_builtin_and_records_degraded() -> None:
     def builtin_fetch(_url: str, **_) -> list[dict]:
         return []
 
-    # An absent Exa probe routed through the shared guard -> exa_available False.
+    # Absent Tavily + Exa probes routed through the shared guard -> both
+    # unavailable, so the built-in WebSearch carries the search.
     exa_probe_absent = None
     exa_available = is_available(exa_probe_absent)
     assert exa_available is False, "An absent Exa probe must resolve to unavailable"
@@ -447,6 +455,9 @@ def test_exa_absent_falls_back_to_builtin_and_records_degraded() -> None:
         "best practices for retries",
         # Fewer than the skip threshold so Tier 2 actually runs.
         tier1_hits=[{"title": "h", "url": "https://a"}],
+        tavily_search=tavily_search_absent,
+        tavily_fetch=tavily_fetch_absent,
+        tavily_available=False,
         exa_search=exa_search_absent,
         exa_fetch=exa_fetch_absent,
         web_search=builtin_search,
@@ -461,3 +472,112 @@ def test_exa_absent_falls_back_to_builtin_and_records_degraded() -> None:
     )
     assert result.skipped is False, "Tier 2 must still run and return output"
     assert result.hits, "The built-in fallback must produce hits"
+
+
+# ===========================================================================
+# D-172-09 fail-soft: a degraded Tier-3 NEVER blocks synthesis (no banner)
+#
+# First-class fail-soft contract (closes completeness-critic gap #3). For
+# every Tier-3 degrade terminal -- timeout, failed status, [AUTH_REQUIRED],
+# and launch-retry-exhausted -- the launch/harvest must return a result with
+# ``degraded=True`` and the run is expected to proceed on Tiers 0-2: neither
+# ``tier3_launch`` nor ``tier3_harvest`` may raise, call ``sys.exit``, or
+# return a "blocking" sentinel. The degrade is a WARNING, not a hard stop.
+# ===========================================================================
+
+
+def _healthy_launch(notebook_id: str = "nb-soft") -> dict:
+    """A non-degraded launch dict to feed harvest degrade-terminal cases."""
+    return {"notebook_id": notebook_id, "degraded": False, "warnings": []}
+
+
+def test_degraded_tier3_does_not_block_synthesis() -> None:
+    """Every Tier-3 degrade terminal returns degraded=True without aborting.
+
+    D-172-09: NotebookLM degradation is fail-soft -- it surfaces a warning
+    and the run continues on Tiers 0-2. This pins that NONE of the four
+    degrade terminals raises or returns a blocking sentinel.
+    """
+
+    def _no_sleep(_seconds: float) -> None:
+        return None
+
+    # --- Terminal 1: harvest wall-clock timeout -----------------------------
+    def _always_running(_id: str) -> dict:
+        return {"status": "in_progress"}
+
+    timeout_clock_ticks = iter([0.0, 1000.0, 2000.0])
+
+    def _timeout_clock() -> float:
+        try:
+            return next(timeout_clock_ticks)
+        except StopIteration:
+            return 2000.0
+
+    timeout_result = tier3_harvest(
+        _healthy_launch("nb-timeout"),
+        poll_status=_always_running,
+        clock=_timeout_clock,
+        wait_budget_sec=60.0,
+        sleep=_no_sleep,
+    )
+    assert timeout_result.degraded is True, "A harvest timeout must degrade, not block"
+    assert timeout_result.warnings, "The timeout degrade must be a visible warning"
+
+    # --- Terminal 2: harvest failed status ----------------------------------
+    failed_result = tier3_harvest(
+        _healthy_launch("nb-failed"),
+        poll_status=lambda _id: {"status": "failed"},
+        clock=lambda: 0.0,
+        wait_budget_sec=300.0,
+        sleep=_no_sleep,
+    )
+    assert failed_result.degraded is True, "A failed status must degrade, not block"
+    assert failed_result.warnings, "The failed degrade must be a visible warning"
+
+    # --- Terminal 3: harvest [AUTH_REQUIRED] --------------------------------
+    auth_result = tier3_harvest(
+        _healthy_launch("nb-auth"),
+        poll_status=lambda _id: {"status": "[AUTH_REQUIRED]"},
+        clock=lambda: 0.0,
+        wait_budget_sec=300.0,
+        sleep=_no_sleep,
+    )
+    assert auth_result.degraded is True, "[AUTH_REQUIRED] must degrade, not block"
+    assert any("uvx --from notebooklm-skill notebooklm login" in w for w in auth_result.warnings), (
+        f"Auth degrade must carry the correct login command; got {auth_result.warnings}"
+    )
+
+    # --- Terminal 4: launch retry exhausted (research always raises) --------
+    research_attempts: list[dict] = []
+
+    def _nlm_list_ok() -> dict:
+        return {"authenticated": True, "notebooks": []}
+
+    def _nlm_create(*, title: str) -> dict:
+        return {"notebook_id": "nb-launch-exhausted"}
+
+    def _nlm_research_always_fails(**kwargs: object) -> dict:
+        research_attempts.append(kwargs)
+        raise RuntimeError("nlm_research keeps failing")
+
+    launch = tier3_launch(
+        "launch retry exhausted",
+        timestamp_iso="2026-04-28T12:00:00+00:00",
+        nlm_list=_nlm_list_ok,
+        nlm_create_notebook=_nlm_create,
+        nlm_research=_nlm_research_always_fails,
+    )
+    assert launch["degraded"] is True, "An exhausted launch retry must degrade, not raise"
+    assert launch["warnings"], "The launch degrade must be a visible warning"
+    # And harvesting that degraded launch still passes through cleanly.
+    harvest = tier3_harvest(
+        launch,
+        poll_status=lambda _id: (_ for _ in ()).throw(
+            AssertionError("a degraded launch must not be polled")
+        ),
+        clock=lambda: 0.0,
+        wait_budget_sec=300.0,
+        sleep=_no_sleep,
+    )
+    assert harvest.degraded is True, "The downstream harvest stays degraded, not blocking"

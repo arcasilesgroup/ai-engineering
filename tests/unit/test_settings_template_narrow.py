@@ -2,8 +2,10 @@
 
 Pure structural assertions on the shipped template — no I/O beyond reading
 the template file. Confirms the `permissions.allow` list ships as the
-canonical narrow 13-entry set and that `permissions.deny` keeps every
-canonical guard rule intact (CLAUDE.md Don't #7).
+canonical narrow 19-entry set (spec-172 D-172-07/D-172-04: the six explicit
+`mcp__notebooklm__nlm_*` tools replace the wrong `mcp__notebooklm-mcp__*`
+prefix, plus the `mcp__tavily__*` web-provider glob) and that
+`permissions.deny` keeps every canonical guard rule intact (CLAUDE.md Don't #7).
 
 Companion integration test in
 ``tests/integration/test_settings_template_narrow.py`` covers the same
@@ -36,7 +38,17 @@ CANONICAL_ALLOW = (
     "TaskCreate",
     "TaskUpdate",
     "mcp__context7__*",
-    "mcp__notebooklm-mcp__*",
+    # spec-172 D-172-07: the six explicit NotebookLM tools the skill calls
+    # (replaces the wrong `mcp__notebooklm-mcp__*` prefix that silently
+    # blocked create/research).
+    "mcp__notebooklm__nlm_list",
+    "mcp__notebooklm__nlm_create_notebook",
+    "mcp__notebooklm__nlm_research",
+    "mcp__notebooklm__nlm_ask",
+    "mcp__notebooklm__nlm_list_sources",
+    "mcp__notebooklm__nlm_list_artifacts",
+    # spec-172 D-172-04: Tavily web-provider glob (Tier-2 primary).
+    "mcp__tavily__*",
 )
 
 REQUIRED_DENY_SUBSTRINGS = (
@@ -69,8 +81,8 @@ def test_allow_is_list_not_wildcard(settings_payload: dict) -> None:
 
 
 @pytest.mark.unit
-def test_allow_has_canonical_thirteen_entries(settings_payload: dict) -> None:
-    """All 13 canonical narrow allow entries must be present."""
+def test_allow_has_canonical_nineteen_entries(settings_payload: dict) -> None:
+    """All 19 canonical narrow allow entries must be present."""
     allow = set(settings_payload["permissions"]["allow"])
     for entry in CANONICAL_ALLOW:
         assert entry in allow, f"canonical allow entry {entry!r} missing from narrow template"

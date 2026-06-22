@@ -144,7 +144,7 @@ def test_frontmatter_invalid_effort_enum_is_blocker(tmp_path: Path) -> None:
 def test_frontmatter_unknown_key_is_advisory(tmp_path: Path) -> None:
     text = (
         "---\nspec: spec-131\ntitle: t\nstatus: approved\neffort: large\n"
-        "weird_extra_field: foo\n---\n## Summary\n"
+        "summary: s\nweird_extra_field: foo\n---\n## Summary\n"
     )
     spec_path = _write(tmp_path, text)
     results = check_frontmatter(spec_path)

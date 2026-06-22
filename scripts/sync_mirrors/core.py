@@ -1121,6 +1121,7 @@ AIENG_IOC_FAIL_CLOSED               # set "1" to deny on a missing/corrupt iocs.
 
 # spec notebooklm-async-tier3 — /ai-research Tier 3 deep-research harvest
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; NotebookLM deep-research harvest)
+AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC  # default 5 (ceiling 60; harvest status-poll interval)
 
 # Reserved roadmap — not implemented
 AIENG_HOST_PREFLIGHT_DISABLED       # reserved spec-139 M2
