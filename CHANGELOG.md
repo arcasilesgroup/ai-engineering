@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- fix(spec-173): set the `review-validator` agent `color` to a standard Claude
+  Code palette value (`magenta` → `pink`), propagated across all mirror and
+  install-template twins via `ai-eng dev sync`. Removes the lone off-palette
+  color flagged by external skill-frontmatter validators; no behavior change.
+
 ## [0.11.0] - 2026-06-22
 
 ### Added

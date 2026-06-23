@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-06-23T21:15:14.859275+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "skillmap-validator-triage",
+  "spec_id": "spec-173",
+  "state": "in_progress",
+  "title": "Skill-Map validator triage: fix review-validator color"
+}
