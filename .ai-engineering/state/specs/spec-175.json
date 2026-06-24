@@ -1,0 +1,11 @@
+{
+  "branch": "feat/tier3-notebooklm-cli-migration",
+  "created": "2026-06-24T14:19:00.065198+00:00",
+  "extra": {},
+  "pr": "598",
+  "shipped": "2026-06-24T15:51:45.286303+00:00",
+  "slug": "tier3-notebooklm-cli-migration",
+  "spec_id": "spec-175",
+  "state": "shipped",
+  "title": "ai-research Tier-3 NotebookLM CLI migration"
+}

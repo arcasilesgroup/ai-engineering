@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-06-24T10:27:45.795059+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "ai-research-tier2-parallel-fanout",
+  "spec_id": "spec-174",
+  "state": "approved",
+  "title": "ai-research Tier-2 parallel Tavily+Exa fan-out"
+}

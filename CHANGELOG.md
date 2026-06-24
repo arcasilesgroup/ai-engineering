@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- feat(spec-175): migrate `/ai-research` Tier 3 (NotebookLM deep research) from
+  the MCP to the `notebooklm-py` CLI (hard-cut, no fallback). Deep research now
+  launches + natively waits + **imports** the discovered sources in one command
+  (`source add-research --from web --mode deep --import-all --timeout <N>
+  --json`) — the import step the MCP could not do. The detached job runs with
+  its own `AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC` (default 1800) deadline; the run
+  harvests within `AIENG_RESEARCH_NLM_WAIT_SEC` and degrades + persists
+  `notebook_id` for `--reuse-notebook` on timeout. Capability/auth is gated by
+  `notebooklm doctor`. Removes the hand-rolled MCP status re-poll (supersedes
+  D-172-05) and retires `AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC`. Tier 0/1/2 and
+  the citation / 3-directions contract are unchanged.
+
 ### Fixed
 
 - fix(spec-173): set the `review-validator` agent `color` to a standard Claude
