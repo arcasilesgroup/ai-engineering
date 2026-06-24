@@ -167,5 +167,6 @@ Completed specs. Details in git history.
 | spec-173 | Skill-Map validator triage: fix review-validator color | shipped | 2026-06-23 | 2026-06-23 | 596 | fix/skillmap-validator-triage |
 | spec-175 | ai-research Tier-3 NotebookLM CLI migration | shipped | 2026-06-24 | 2026-06-24 | 598 | feat/tier3-notebooklm-cli-migration |
 | spec-174 | ai-research Tier-2 parallel Tavily+Exa fan-out | shipped | 2026-06-24 | 2026-06-24 | 599 | feat/ai-research-tier2-parallel-fanout |
+| spec-176 | Fix instinct-corpus unicode-escaping churn (allow_unicode) | shipped | 2026-06-24 | 2026-06-24 | 600 | fix/instinct-corpus-unicode-churn |
 
 ---
