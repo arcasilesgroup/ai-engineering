@@ -422,12 +422,15 @@ def test_context7_absent_probe_skipped_silently_and_degraded() -> None:
     assert "context7" not in sources_in_hits, "Absent Context7 contributes zero hits"
 
 
-def test_exa_absent_falls_back_to_builtin_and_records_degraded() -> None:
-    """AC4: ABSENT Exa -> built-in WebSearch fallback + ``exa`` degraded.
+def test_exa_absent_builtin_carries_search_and_records_degraded() -> None:
+    """AC4: ABSENT Exa -> built-in WebSearch carries the fan-out + ``exa`` degraded.
 
-    The Tier 2 capability flag is derived through the shared guard. When Exa
-    is absent the built-in WebSearch carries the search, ``"exa"`` is recorded
-    in ``degraded_sources`` (fail-soft), and the run still returns output.
+    The Tier 2 capability flag is derived through the shared guard. Under the
+    spec-174 fan-out the built-in floor always runs concurrently; with Tavily and
+    Exa both absent it is the only available provider, so it carries the search,
+    ``"exa"`` is recorded in ``degraded_sources`` (fail-soft), and the run still
+    returns output. This is not a cascade fall-through — the built-in is the
+    always-available floor, not a secondary attempted only on a prior failure.
     """
     exa_calls: list[str] = []
     builtin_calls: list[str] = []
@@ -473,7 +476,9 @@ def test_exa_absent_falls_back_to_builtin_and_records_degraded() -> None:
     )
 
     assert exa_calls == [], "Absent Exa must be skipped silently, not invoked"
-    assert len(builtin_calls) == 1, "Built-in WebSearch must carry the fallback"
+    assert len(builtin_calls) == 1, (
+        "Built-in WebSearch (the always-available floor) carries the search"
+    )
     assert "exa" in result.degraded_sources, (
         f"Absent Exa must be recorded in degraded_sources (AC4); got {result.degraded_sources}"
     )

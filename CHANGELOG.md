@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- feat(spec-174): make `/ai-research` Tier 2 (web) a concurrent **fan-out** — run
+  every available provider (Tavily, Exa, built-in WebSearch) at once and merge +
+  dedup by exact URL with a Tavily > Exa > built-in tie-break — replacing the
+  sequential first-available cascade and its one bounded fall-through (supersedes
+  D-172-02). Always-on at `--depth standard`/`deep`; the Tier-1 skip heuristic and
+  the citation / 3-directions contract are unchanged.
 - feat(spec-175): migrate `/ai-research` Tier 3 (NotebookLM deep research) from
   the MCP to the `notebooklm-py` CLI (hard-cut, no fallback). Deep research now
   launches + natively waits + **imports** the discovered sources in one command

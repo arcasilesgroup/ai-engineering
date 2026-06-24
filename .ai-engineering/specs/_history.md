@@ -166,5 +166,6 @@ Completed specs. Details in git history.
 | spec-172 | ai-research: Tavily web provider + NotebookLM Tier-3 reliability | shipped | 2026-06-22 | 2026-06-22 | 594 | spec-172-ai-research-tavily-tier3-reliability |
 | spec-173 | Skill-Map validator triage: fix review-validator color | shipped | 2026-06-23 | 2026-06-23 | 596 | fix/skillmap-validator-triage |
 | spec-175 | ai-research Tier-3 NotebookLM CLI migration | shipped | 2026-06-24 | 2026-06-24 | 598 | feat/tier3-notebooklm-cli-migration |
+| spec-174 | ai-research Tier-2 parallel Tavily+Exa fan-out | shipped | 2026-06-24 | 2026-06-24 | 599 | feat/ai-research-tier2-parallel-fanout |
 
 ---
