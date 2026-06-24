@@ -141,10 +141,10 @@ def _code_default_for(name: str) -> str | None:
             _RUNTIME_STATE,
             r'_env_int\("AIENG_RESEARCH_NLM_WAIT_SEC",\s*(\d+)',
         )
-    if name == "AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC":
+    if name == "AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC":
         return _grep_default(
             _RUNTIME_STATE,
-            r'_env_int\("AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC",\s*(\d+)',
+            r'_env_int\("AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC",\s*(\d+)',
         )
     if name == "AIENG_LOOP_WINDOW":
         return _grep_default(
@@ -244,13 +244,14 @@ _PROMOTED_M5_M6_TUNABLES: tuple[str, ...] = (
     "AIENG_NDJSON_MAX_BYTES",
 )
 
-# spec notebooklm-async-tier3: the /ai-research Tier 3 deep-research harvest
-# bounded-wait tunable. Implemented in runtime_state.py with a real default,
-# so it MUST be a default-bearing docs entry (never reserved/pending) whose
-# value matches the code.
+# spec-175: the /ai-research Tier 3 deep-research (notebooklm-py CLI) tunables --
+# the bounded harvest wait and the detached deep+import job's own --timeout.
+# Both are implemented in runtime_state.py with a real default, so each MUST be
+# a default-bearing docs entry (never reserved/pending) whose value matches the
+# code.
 _SPEC_NOTEBOOKLM_TUNABLES: tuple[str, ...] = (
     "AIENG_RESEARCH_NLM_WAIT_SEC",
-    "AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC",
+    "AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC",
 )
 
 _CANONICAL_TUNABLE_DOCS: tuple[Path, ...] = (_CLAUDE_MD, _TEMPLATE_CLAUDE_MD)
@@ -446,8 +447,8 @@ def test_m6_runtime_rotate_tunable_matches_code_default() -> None:
 @pytest.mark.parametrize("doc_path", _CANONICAL_TUNABLE_DOCS)
 @pytest.mark.parametrize("name", _SPEC_NOTEBOOKLM_TUNABLES)
 def test_spec_notebooklm_tunable_matches_code_default(doc_path: Path, name: str) -> None:
-    """spec notebooklm-async-tier3 Tier 3 harvest tunable is documented with
-    its ``runtime_state.py`` default in both canonical rulebooks.
+    """spec-175 Tier 3 (notebooklm-py CLI) tunable is documented with its
+    ``runtime_state.py`` default in both canonical rulebooks.
     """
     documented = _parse_documented_tunables(doc_path)
     assert name in documented, f"{doc_path} tunables block missing {name}"

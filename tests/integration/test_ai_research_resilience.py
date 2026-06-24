@@ -6,11 +6,13 @@ Spec acceptance:
     ``degraded_sources`` list and the synthesizer surfaces a visible
     warning to the user.
 
-    Tier 3 (NotebookLM, ``claude-world/notebooklm-skill`` backend) MUST
-    probe ``nlm_list`` first (capability/auth); if auth is expired (probe
-    returns ``authenticated: False``), the launch is skipped (degraded)
-    with a warning suggesting ``uvx --from notebooklm-skill notebooklm login`` and no other
-    ``nlm_*`` calls (D7 fail-soft).
+    Tier 3 (NotebookLM, ``notebooklm-py`` CLI backend) MUST probe
+    ``notebooklm doctor`` first (capability/auth, via the injected
+    ``doctor_probe``); if it reports unavailable (non-zero exit -> the probe
+    returns ``False``), the launch is skipped (degraded) with a warning
+    suggesting ``notebooklm login`` / ``notebooklm doctor`` and no other CLI
+    mutation (``create_notebook`` / ``add_research``) -- D7 fail-soft
+    (spec-175 D-175-04).
 
     All-external-down case: Tier 1 + Tier 2 + Tier 3 all fail -> the
     synthesizer falls back to local context (Tier 0 results) and surfaces
@@ -157,51 +159,53 @@ def test_ms_learn_down_continues_with_other_mcps() -> None:
 
 
 def test_notebooklm_auth_expired_degrades_to_tier2_only_with_warning() -> None:
-    """When ``nlm_list`` reports ``authenticated: False``, Tier 3 is skipped.
+    """When ``notebooklm doctor`` reports unavailable, Tier 3 is skipped.
 
-    Arrange: the ``nlm_list`` capability/auth probe returns
-    ``{authenticated: False, ...}``.
+    Arrange: the ``doctor_probe`` capability/auth gate returns ``False`` (a
+    non-zero ``notebooklm doctor`` exit -- expired Google session).
 
     Act: invoke ``tier3_launch`` with the probe injected.
 
     Assert:
-      * ``nlm_create_notebook`` and ``nlm_research`` were NOT called.
+      * ``create_notebook`` and ``add_research`` were NOT called.
       * The launch is degraded with an empty ``notebook_id``.
-      * A warning suggests ``uvx --from notebooklm-skill notebooklm login`` so the user can recover.
+      * A warning suggests ``notebooklm login`` so the user can recover.
     """
     create_calls: list[dict] = []
     research_calls: list[dict] = []
 
-    def nlm_list_unauth() -> dict:
-        return {"authenticated": False, "notebooks": []}
+    def doctor_unavailable() -> bool:
+        return False
 
-    def nlm_create_notebook(*, title: str) -> dict:
+    def create_notebook(*, title: str) -> str:
         create_calls.append({"title": title})
-        return {"notebook_id": "should-not-be-used"}
+        return "should-not-be-used"
 
-    def nlm_research(**kwargs) -> dict:
-        research_calls.append(kwargs)
-        return {"job_id": "should-not-happen", "status": "running"}
+    def add_research(notebook_id: str, query: str, deep_timeout_sec: int) -> str:
+        research_calls.append(
+            {"notebook_id": notebook_id, "query": query, "deep_timeout_sec": deep_timeout_sec}
+        )
+        return "should-not-happen"
 
     launch = tier3_launch(
         "compare A vs B",
         timestamp_iso="2026-04-28T12:00:00+00:00",
-        nlm_list=nlm_list_unauth,
-        nlm_create_notebook=nlm_create_notebook,
-        nlm_research=nlm_research,
+        doctor_probe=doctor_unavailable,
+        create_notebook=create_notebook,
+        add_research=add_research,
+        deep_timeout_sec=1800,
     )
 
     assert launch["degraded"] is True, "Tier 3 must degrade when auth expired"
     assert launch["notebook_id"] == "", "No notebook id when the launch is skipped"
     assert create_calls == [], (
-        f"nlm_create_notebook MUST NOT be called when auth expired; got {create_calls}"
+        f"create_notebook MUST NOT be called when auth expired; got {create_calls}"
     )
     assert research_calls == [], (
-        f"nlm_research MUST NOT be called when auth expired; got {research_calls}"
+        f"add_research MUST NOT be called when auth expired; got {research_calls}"
     )
-    assert any("uvx --from notebooklm-skill notebooklm login" in w for w in launch["warnings"]), (
-        "Warnings must suggest 'uvx --from notebooklm-skill notebooklm login' for "
-        f"recovery; got {launch['warnings']}"
+    assert any("notebooklm login" in w for w in launch["warnings"]), (
+        f"Warnings must suggest 'notebooklm login' for recovery; got {launch['warnings']}"
     )
 
 
@@ -301,56 +305,59 @@ def test_is_available_guard_treats_absence_as_unavailable() -> None:
 
 
 def test_notebooklm_absent_probe_degrades_tier3_run_proceeds() -> None:
-    """AC2: NotebookLM ABSENT (probe falsy) -> Tier 3 degraded, run proceeds.
+    """AC2: NotebookLM ABSENT (``doctor`` non-zero) -> Tier 3 degraded, run proceeds.
 
-    Distinct from ``test_notebooklm_auth_expired_*``: there the probe returns
-    ``{authenticated: False}``; here the probe returns an empty/falsy payload
-    (the tool is simply not present). Either way no ``nlm_*`` mutation runs and
-    the launch degrades silently so Tiers 0-2 can carry the run (exit 0).
+    Distinct from ``test_notebooklm_auth_expired_*`` only in intent: there the
+    ``notebooklm doctor`` gate fails because the Google session expired; here
+    it fails because the ``notebooklm`` binary is simply not installed. Either
+    way ``doctor_probe`` returns ``False``, no CLI mutation runs, and the launch
+    degrades silently so Tiers 0-2 can carry the run (exit 0).
     """
     create_calls: list[dict] = []
     research_calls: list[dict] = []
 
-    def nlm_list_absent() -> dict:
-        # Empty payload: NotebookLM is not present at all.
-        return {}
+    def doctor_absent() -> bool:
+        # notebooklm binary not installed -> doctor exits non-zero.
+        return False
 
-    def nlm_create_notebook(*, title: str) -> dict:
+    def create_notebook(*, title: str) -> str:
         create_calls.append({"title": title})
-        return {"notebook_id": "should-not-be-used"}
+        return "should-not-be-used"
 
-    def nlm_research(**kwargs) -> dict:
-        research_calls.append(kwargs)
-        return {"job_id": "should-not-happen", "status": "running"}
-
-    # Guard agrees the tool is absent before we even launch.
-    assert is_available(nlm_list_absent) is False
+    def add_research(notebook_id: str, query: str, deep_timeout_sec: int) -> str:
+        research_calls.append(
+            {"notebook_id": notebook_id, "query": query, "deep_timeout_sec": deep_timeout_sec}
+        )
+        return "should-not-happen"
 
     launch = tier3_launch(
         "design an async harvest model",
         timestamp_iso="2026-05-22T12:00:00+00:00",
-        nlm_list=nlm_list_absent,
-        nlm_create_notebook=nlm_create_notebook,
-        nlm_research=nlm_research,
+        doctor_probe=doctor_absent,
+        create_notebook=create_notebook,
+        add_research=add_research,
+        deep_timeout_sec=1800,
     )
 
     assert launch["degraded"] is True, "Absent NotebookLM must degrade Tier 3"
     assert launch["notebook_id"] == "", "No notebook id when the tool is absent"
     assert create_calls == [], (
-        f"nlm_create_notebook MUST NOT be called when the tool is absent; got {create_calls}"
+        f"create_notebook MUST NOT be called when the tool is absent; got {create_calls}"
     )
     assert research_calls == [], (
-        f"nlm_research MUST NOT be called when the tool is absent; got {research_calls}"
+        f"add_research MUST NOT be called when the tool is absent; got {research_calls}"
     )
 
     # The run proceeds: harvesting a degraded launch passes through cleanly
-    # (no polling, no raise) so synthesis continues on Tiers 0-2 only.
+    # (no wait, no raise) so synthesis continues on Tiers 0-2 only.
     harvest = tier3_harvest(
         launch,
-        poll_status=lambda _id: (_ for _ in ()).throw(
-            AssertionError("poll_status MUST NOT be polled for an absent NotebookLM")
+        wait_for_job=lambda _job, *, timeout: (_ for _ in ()).throw(
+            AssertionError("wait_for_job MUST NOT run for an absent NotebookLM")
         ),
-        clock=lambda: 0.0,
+        read_result=lambda _id: (_ for _ in ()).throw(
+            AssertionError("read_result MUST NOT run for an absent NotebookLM")
+        ),
         wait_budget_sec=300.0,
     )
     assert harvest.degraded is True
@@ -494,90 +501,84 @@ def _healthy_launch(notebook_id: str = "nb-soft") -> dict:
 def test_degraded_tier3_does_not_block_synthesis() -> None:
     """Every Tier-3 degrade terminal returns degraded=True without aborting.
 
-    D-172-09: NotebookLM degradation is fail-soft -- it surfaces a warning
-    and the run continues on Tiers 0-2. This pins that NONE of the four
-    degrade terminals raises or returns a blocking sentinel.
+    D-172-09 (carried into spec-175): NotebookLM degradation is fail-soft -- it
+    surfaces a warning and the run continues on Tiers 0-2. This pins that NONE
+    of the four degrade terminals raises or returns a blocking sentinel. Under
+    the CLI model the harvest terminals are the ``wait_for_job`` statuses
+    (``timeout`` / ``failed`` / ``auth_required``) and the launch terminal is a
+    failed ``add_research`` (D-175-03).
     """
 
-    def _no_sleep(_seconds: float) -> None:
-        return None
+    def _never_read(_id: str) -> dict:
+        raise AssertionError("read_result MUST NOT run on a degrade terminal")
 
     # --- Terminal 1: harvest wall-clock timeout -----------------------------
-    def _always_running(_id: str) -> dict:
-        return {"status": "in_progress"}
-
-    timeout_clock_ticks = iter([0.0, 1000.0, 2000.0])
-
-    def _timeout_clock() -> float:
-        try:
-            return next(timeout_clock_ticks)
-        except StopIteration:
-            return 2000.0
-
     timeout_result = tier3_harvest(
         _healthy_launch("nb-timeout"),
-        poll_status=_always_running,
-        clock=_timeout_clock,
+        wait_for_job=lambda _job, *, timeout: "timeout",
+        read_result=_never_read,
         wait_budget_sec=60.0,
-        sleep=_no_sleep,
     )
     assert timeout_result.degraded is True, "A harvest timeout must degrade, not block"
+    assert timeout_result.timed_out is True, "A timeout status must set timed_out"
     assert timeout_result.warnings, "The timeout degrade must be a visible warning"
 
     # --- Terminal 2: harvest failed status ----------------------------------
     failed_result = tier3_harvest(
         _healthy_launch("nb-failed"),
-        poll_status=lambda _id: {"status": "failed"},
-        clock=lambda: 0.0,
+        wait_for_job=lambda _job, *, timeout: "failed",
+        read_result=_never_read,
         wait_budget_sec=300.0,
-        sleep=_no_sleep,
     )
     assert failed_result.degraded is True, "A failed status must degrade, not block"
     assert failed_result.warnings, "The failed degrade must be a visible warning"
 
-    # --- Terminal 3: harvest [AUTH_REQUIRED] --------------------------------
+    # --- Terminal 3: harvest auth_required ----------------------------------
     auth_result = tier3_harvest(
         _healthy_launch("nb-auth"),
-        poll_status=lambda _id: {"status": "[AUTH_REQUIRED]"},
-        clock=lambda: 0.0,
+        wait_for_job=lambda _job, *, timeout: "auth_required",
+        read_result=_never_read,
         wait_budget_sec=300.0,
-        sleep=_no_sleep,
     )
-    assert auth_result.degraded is True, "[AUTH_REQUIRED] must degrade, not block"
-    assert any("uvx --from notebooklm-skill notebooklm login" in w for w in auth_result.warnings), (
+    assert auth_result.degraded is True, "auth_required must degrade, not block"
+    assert any("notebooklm login" in w for w in auth_result.warnings), (
         f"Auth degrade must carry the correct login command; got {auth_result.warnings}"
     )
 
-    # --- Terminal 4: launch retry exhausted (research always raises) --------
+    # --- Terminal 4: launch failed (add_research always raises) -------------
     research_attempts: list[dict] = []
 
-    def _nlm_list_ok() -> dict:
-        return {"authenticated": True, "notebooks": []}
+    def _doctor_ok() -> bool:
+        return True
 
-    def _nlm_create(*, title: str) -> dict:
-        return {"notebook_id": "nb-launch-exhausted"}
+    def _create(*, title: str) -> str:
+        return "nb-launch-exhausted"
 
-    def _nlm_research_always_fails(**kwargs: object) -> dict:
-        research_attempts.append(kwargs)
-        raise RuntimeError("nlm_research keeps failing")
+    def _add_research_always_fails(notebook_id: str, query: str, deep_timeout_sec: int) -> str:
+        research_attempts.append(
+            {"notebook_id": notebook_id, "query": query, "deep_timeout_sec": deep_timeout_sec}
+        )
+        raise RuntimeError("add_research keeps failing")
 
     launch = tier3_launch(
-        "launch retry exhausted",
+        "launch exhausted",
         timestamp_iso="2026-04-28T12:00:00+00:00",
-        nlm_list=_nlm_list_ok,
-        nlm_create_notebook=_nlm_create,
-        nlm_research=_nlm_research_always_fails,
+        doctor_probe=_doctor_ok,
+        create_notebook=_create,
+        add_research=_add_research_always_fails,
+        deep_timeout_sec=1800,
     )
-    assert launch["degraded"] is True, "An exhausted launch retry must degrade, not raise"
+    assert launch["degraded"] is True, "A failed launch must degrade, not raise"
     assert launch["warnings"], "The launch degrade must be a visible warning"
     # And harvesting that degraded launch still passes through cleanly.
     harvest = tier3_harvest(
         launch,
-        poll_status=lambda _id: (_ for _ in ()).throw(
-            AssertionError("a degraded launch must not be polled")
+        wait_for_job=lambda _job, *, timeout: (_ for _ in ()).throw(
+            AssertionError("a degraded launch must not wait on a job")
         ),
-        clock=lambda: 0.0,
+        read_result=lambda _id: (_ for _ in ()).throw(
+            AssertionError("a degraded launch must not read a result")
+        ),
         wait_budget_sec=300.0,
-        sleep=_no_sleep,
     )
     assert harvest.degraded is True, "The downstream harvest stays degraded, not blocking"

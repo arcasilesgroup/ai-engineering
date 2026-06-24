@@ -126,10 +126,10 @@ EVENT_SIDECAR_BYTES = _env_int("AIENG_EVENT_SIDECAR_BYTES", 3072, ceiling=64 * 1
 # report. 300s default (≈5 min), 900s ceiling.
 RESEARCH_NLM_WAIT_SEC = _env_int("AIENG_RESEARCH_NLM_WAIT_SEC", 300, ceiling=900)
 
-# spec-172 D-172-08: harvest poll cadence. Initial/fixed back-off interval
-# (seconds) between research status polls; capped so a 900s budget cannot
-# spin. 5s default matches the helper's wait_for_completion interval; 60s ceiling.
-RESEARCH_NLM_POLL_INTERVAL_SEC = _env_int("AIENG_RESEARCH_NLM_POLL_INTERVAL_SEC", 5, ceiling=60)
+# spec-175 D-175-02/03: the DETACHED deep-research job's own deadline (seconds),
+# mapped to the CLI `--timeout`. Deep research needs a real timeout (~1800s) or
+# the `--import-all` step never fires. 1800s default (~30 min), 7200s ceiling.
+RESEARCH_NLM_DEEP_TIMEOUT_SEC = _env_int("AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC", 1800, ceiling=7200)
 
 # Trim threshold: amortise rewrites by only trimming when file grows beyond
 # steady-state (~180 B/line x TOOL_HISTORY_MAX x 1.5 buffer).
@@ -665,7 +665,7 @@ __all__ = [
     "LOOP_WINDOW",
     "PRECOMPACT_SNAPSHOT_REL",
     "RALPH_RESUME_REL",
-    "RESEARCH_NLM_POLL_INTERVAL_SEC",
+    "RESEARCH_NLM_DEEP_TIMEOUT_SEC",
     "RESEARCH_NLM_WAIT_SEC",
     "RUNTIME_DIR_REL",
     "TOOL_HISTORY_MAX",
