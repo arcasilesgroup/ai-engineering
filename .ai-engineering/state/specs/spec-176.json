@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-06-24T18:31:26.240912+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "instinct-corpus-unicode-churn",
+  "spec_id": "spec-176",
+  "state": "in_progress",
+  "title": "Fix instinct-corpus unicode-escaping churn (allow_unicode)"
+}

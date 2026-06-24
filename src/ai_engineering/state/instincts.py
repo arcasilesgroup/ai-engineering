@@ -72,7 +72,7 @@ def ensure_instinct_artifacts(project_root: Path) -> None:
     inst_path.parent.mkdir(parents=True, exist_ok=True)
     if not inst_path.exists():
         inst_path.write_text(
-            yaml.safe_dump(default_instincts_document(), sort_keys=False),
+            yaml.safe_dump(default_instincts_document(), sort_keys=False, allow_unicode=True),
             encoding="utf-8",
         )
 
@@ -147,7 +147,7 @@ def save_instincts_document(project_root: Path, document: dict[str, Any]) -> Non
         return
     document["updatedAt"] = _iso_now()
     instincts_path(project_root).write_text(
-        yaml.safe_dump(document, sort_keys=False),
+        yaml.safe_dump(document, sort_keys=False, allow_unicode=True),
         encoding="utf-8",
     )
 
