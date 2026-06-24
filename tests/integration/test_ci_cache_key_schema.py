@@ -136,21 +136,31 @@ def _iter_cache_steps(workflow: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def _is_supported_cache_version(uses: str, *, workflow_path: Path | None = None) -> bool:
-    """``actions/cache@v4`` or ``@v5`` accepted, as either an explicit tag or
-    a SHA-pinned form annotated with ``# v4.x.y`` / ``# v5.x.y``.
+    """``actions/cache@v4``, ``@v5`` or ``@v6`` accepted, as either an explicit
+    tag or a SHA-pinned form annotated with ``# v4.x.y`` / ``# v5.x.y`` /
+    ``# v6.x.y``.
 
     v4 was the original gate-cache pin (D-104-03); v5 is its maintained
-    successor after GitHub deprecated the v4 cache-service backend. v5 is
-    key+path compatible with the ``gate_cache`` storage contract, so the
-    dependabot v4->v5 bump is accepted (spec-163). Spec-110 (Article VI
-    supply-chain hardening) pins all Actions to commit SHAs with a trailing
-    ``# v<version>`` comment (e.g. ``actions/cache@<sha> # v5.0.5``). PyYAML's
-    ``safe_load`` strips the comment, so for a SHA-pinned form this helper
-    scans the raw workflow text for a line carrying both the SHA and a
-    ``# v4``/``# v5`` annotation. Without that fallback, the test would force
-    an unpinned tag and contradict Article VI.
+    successor after GitHub deprecated the v4 cache-service backend, and v6 is
+    a pure ESM-only refactor of v5 (actions/cache#1760: "Update packages,
+    migrate to ESM" — no change to the cache backend, key schema, or
+    save/restore behavior). v5 and v6 are both key+path compatible with the
+    ``gate_cache`` storage contract, so the dependabot v4->v5 (spec-163) and
+    v5->v6 bumps are accepted. Spec-110 (Article VI supply-chain hardening)
+    pins all Actions to commit SHAs with a trailing ``# v<version>`` comment
+    (e.g. ``actions/cache@<sha> # v6.0.0``). PyYAML's ``safe_load`` strips the
+    comment, so for a SHA-pinned form this helper scans the raw workflow text
+    for a line carrying both the SHA and a ``# v4``/``# v5``/``# v6``
+    annotation. Without that fallback, the test would force an unpinned tag and
+    contradict Article VI.
     """
-    if uses.startswith((f"{CACHE_ACTION_PREFIX}v4", f"{CACHE_ACTION_PREFIX}v5")):
+    if uses.startswith(
+        (
+            f"{CACHE_ACTION_PREFIX}v4",
+            f"{CACHE_ACTION_PREFIX}v5",
+            f"{CACHE_ACTION_PREFIX}v6",
+        )
+    ):
         return True
     if workflow_path is None:
         return False
@@ -160,7 +170,8 @@ def _is_supported_cache_version(uses: str, *, workflow_path: Path | None = None)
     raw = workflow_path.read_text(encoding="utf-8")
     pin_marker = f"{CACHE_ACTION_PREFIX}{sha}"
     return any(
-        pin_marker in line and ("# v4" in line or "# v5" in line) for line in raw.splitlines()
+        pin_marker in line and ("# v4" in line or "# v5" in line or "# v6" in line)
+        for line in raw.splitlines()
     )
 
 
@@ -275,9 +286,9 @@ def test_ci_check_yml_has_cache_step() -> None:
         if _is_supported_cache_version(s["uses"], workflow_path=CI_CHECK_PATH)
     ]
     assert v4_steps, (
-        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache step is not pinned to v4 or v5. "
+        f"{CI_CHECK_PATH.relative_to(REPO_ROOT)} cache step is not pinned to v4, v5, or v6. "
         f"Found: {[s['uses'] for s in cache_steps]}. "
-        "Required: actions/cache@v4 or @v5 (gate-cache storage contract)."
+        "Required: actions/cache@v4, @v5, or @v6 (gate-cache storage contract)."
     )
 
 
