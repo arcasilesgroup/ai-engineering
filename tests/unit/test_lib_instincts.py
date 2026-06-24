@@ -688,3 +688,28 @@ class TestSaveInstinctsDocumentIdempotent:
         instincts.extract_instincts(project)
 
         assert inst_path.read_bytes() == before  # observations.yml untouched
+
+
+def test_spec176_corpus_writer_emits_literal_unicode_and_is_idempotent(project: Path) -> None:
+    """spec-176: the corpus writer must emit LITERAL unicode (allow_unicode=True),
+
+    not escaped ``\\uXXXX`` / ``\\xXX``, so observations.yml never churns against the
+    committed literal-unicode baseline. A second identical save is a no-op.
+    """
+    doc = instincts._default_instincts_document()
+    doc["corrections"] = [
+        {
+            "pattern": "em-dash — and section § stay literal",
+            "trigger": "x",
+            "action": "y",
+            "confidence": 0.5,
+        }
+    ]
+    instincts._save_instincts_document(project, doc)
+    text = instincts._instincts_path(project).read_text(encoding="utf-8")
+    assert "—" in text and "§" in text, "writer must emit literal unicode (allow_unicode=True)"
+    assert "\\u2014" not in text and "\\xa7" not in text.lower(), "no escaped unicode in the corpus"
+
+    before = instincts._instincts_path(project).read_bytes()
+    instincts._save_instincts_document(project, instincts._load_instincts_document(project))
+    assert instincts._instincts_path(project).read_bytes() == before  # idempotent, no churn

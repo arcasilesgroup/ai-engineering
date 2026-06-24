@@ -379,3 +379,31 @@ class TestSaveInstinctsDocumentIdempotent:
 
         assert reloaded["updatedAt"] != first
         assert len(reloaded["corrections"]) == 2
+
+
+def test_spec176_corpus_writer_emits_literal_unicode_and_is_idempotent(tmp_path: Path) -> None:
+    """spec-176: the pip-twin corpus writer emits LITERAL unicode (allow_unicode=True).
+
+    Parity with the hook-lib writer: no escaped ``\\uXXXX`` / ``\\xXX`` so
+    observations.yml never churns against its literal-unicode baseline. A second
+    identical save is a no-op.
+    """
+    import ai_engineering.state.instincts as st
+
+    doc = st.default_instincts_document()
+    doc["corrections"] = [
+        {
+            "pattern": "em-dash — and section § stay literal",
+            "trigger": "x",
+            "action": "y",
+            "confidence": 0.5,
+        }
+    ]
+    st.save_instincts_document(tmp_path, doc)
+    text = st.instincts_path(tmp_path).read_text(encoding="utf-8")
+    assert "—" in text and "§" in text, "pip writer must emit literal unicode (allow_unicode=True)"
+    assert "\\u2014" not in text and "\\xa7" not in text.lower(), "no escaped unicode in the corpus"
+
+    before = st.instincts_path(tmp_path).read_bytes()
+    st.save_instincts_document(tmp_path, st.load_instincts_document(tmp_path))
+    assert st.instincts_path(tmp_path).read_bytes() == before  # idempotent, no churn

@@ -240,7 +240,7 @@ def _dump_yaml_or_json(path: Path, data: dict[str, Any]) -> None:
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     if _HAS_YAML:
-        payload = yaml.safe_dump(data, sort_keys=False)
+        payload = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
     else:
         payload = json.dumps(data, indent=2, sort_keys=False, default=_json_serializer) + "\n"
     tmp = path.with_suffix(path.suffix + ".tmp")

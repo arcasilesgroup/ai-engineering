@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(spec-176): stop the instinct corpus (`observations.yml`) from churning
+  after every `/ai-pr` and `/ai-branch-cleanup`. Both corpus writers (the hook
+  `_lib/instincts.py` + the pip twin `state/instincts.py`) dumped YAML with
+  `yaml.safe_dump` but WITHOUT `allow_unicode=True`, so every genuine write
+  re-escaped literal unicode (`—`→`—`, `§`→`\xA7`) and diverged from the
+  committed literal-unicode baseline — leaving the file perpetually dirty.
+  Adds `allow_unicode=True` to all corpus dump sites, regenerates the sha-pinned
+  hooks-manifest, and pins the behaviour with literal-unicode + idempotent
+  regression tests in both suites. spec-162's content-idempotency guard was
+  never the issue; the serialization was.
 - fix(spec-173): set the `review-validator` agent `color` to a standard Claude
   Code palette value (`magenta` → `pink`), propagated across all mirror and
   install-template twins via `ai-eng dev sync`. Removes the lone off-palette
