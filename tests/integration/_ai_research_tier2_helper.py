@@ -9,24 +9,31 @@ Public API:
 
 * :class:`Tier2Result` -- aggregated dataclass returned to the synthesizer.
 * :func:`detect_explicit_url` -- regex scan for an http(s) URL in the query.
-* :func:`tier2_web` -- run a web search + (optional) fetch concurrently.
+* :func:`tier2_web` -- fan out a web search + (optional) fetch across every
+  available provider concurrently, then merge + dedup by URL.
 
-Web provider selection (spec-172 D-172-01): the Tier 2 web provider is a
-capability-detected cascade -- Tavily (``mcp__tavily__tavily_search`` /
-``mcp__tavily__tavily_extract``) is the PRIMARY provider, Exa
-(``mcp__exa__web_search_exa`` / ``mcp__exa__web_fetch_exa``) is SECONDARY, and
-the built-in WebSearch/WebFetch are the LAST resort. The first available
-candidate is selected; every skipped higher-priority provider is recorded in
-``degraded_sources`` (``"tavily"``, then ``"exa"``) -- a capability degrade,
-never a raise (fail-soft).
+Web provider fan-out (spec-174 D-174-01): the Tier 2 web layer runs EVERY
+available provider CONCURRENTLY -- Tavily (``mcp__tavily__tavily_search`` /
+``mcp__tavily__tavily_extract``), Exa (``mcp__exa__web_search_exa`` /
+``mcp__exa__web_fetch_exa``), and the built-in WebSearch/WebFetch -- rather
+than selecting only the first available. Each provider's search (and, when the
+query references a URL, its single-URL fetch) is dispatched at once on an outer
+executor, so the wall-clock is the slowest provider, not the sum. There is NO
+first-available cascade and NO bounded fall-through: D-174-04 supersedes the
+spec-172 D-172-02 fall-through, because running all providers IS the resilience.
 
-One bounded fall-through (spec-172 D-172-02): if the SELECTED provider's
-search RAISES or returns ZERO results, the failing tool is recorded in
-``degraded_sources`` and the run falls through to the NEXT available provider
-EXACTLY ONCE -- never a second time, even when the fall-through is also empty.
-Surviving explicit-URL fetch hits from the primary are preserved across the
-fall-through. All provider callables are injected by the caller; tests pass
-recording fakes.
+Degraded recording (spec-174 D-174-04): an absent provider appends its marker
+(``"tavily"``, then ``"exa"``; the built-in floor has no marker), and an
+available provider whose search raises OR returns zero hits appends its
+``search_tool`` name -- but it never suppresses the other providers. A degrade
+is a fail-soft note, never a raise.
+
+Merge + dedup by URL (spec-174 D-174-03): the per-provider hits are merged in
+priority order Tavily -> Exa -> built-in; the first row seen for a given ``url``
+wins, so on a duplicate URL the higher-priority provider's row is kept. Hits
+without a ``url`` key carry no dedup key and are always kept.
+
+All provider callables are injected by the caller; tests pass recording fakes.
 """
 
 from __future__ import annotations
@@ -58,8 +65,9 @@ _URL_RE = re.compile(r"https?://\S+")
 _SKIP_THRESHOLD = 5
 
 # Provider tool names recorded in ``degraded_sources`` on a per-call failure.
-# Tavily is the primary provider, Exa the secondary (their MCP tool names); the
-# built-in WebSearch / WebFetch are the last resort (their short names).
+# Tavily, Exa, and the built-in WebSearch/WebFetch all fan out concurrently;
+# their MCP / short tool names are recorded when a provider raises or returns
+# zero hits.
 _TAVILY_SEARCH_TOOL = "mcp__tavily__tavily_search"
 # Single-URL fetch maps to Tavily's ``tavily_extract`` (which wraps a
 # one-element URL array); the injected callable hides that shape.
@@ -85,16 +93,16 @@ _FetchCallable = Callable[..., list]
 
 @dataclass(frozen=True)
 class _Candidate:
-    """A capability-detected provider in the Tier 2 cascade."""
+    """One capability-detected provider in the Tier 2 fan-out (priority order)."""
 
     available: bool
     search_fn: _SearchCallable
     fetch_fn: _FetchCallable
     search_tool: str
     fetch_tool: str
-    # ``degraded_sources`` marker recorded when this provider is skipped
-    # because a higher-priority one was selected. The built-in last resort has
-    # no marker (it is the zero-config floor and is always available).
+    # ``degraded_sources`` marker recorded when this provider is ABSENT (its
+    # capability flag is False). The built-in floor has no marker (it is the
+    # zero-config floor and is always available).
     absent_marker: str | None
 
 
@@ -107,9 +115,10 @@ def _run_provider(
     """Run one provider's search (+ optional fetch) concurrently.
 
     Returns ``(hits, search_failed, failed_tools)`` where ``search_failed`` is
-    True when the search call raised OR returned zero hits (the D-172-02
-    fall-through trigger) and ``failed_tools`` lists the tool names of any
-    call that raised (recorded in ``degraded_sources``).
+    True when the search call raised OR returned zero hits (so the provider's
+    ``search_tool`` is recorded in ``degraded_sources``) and ``failed_tools``
+    lists the tool names of any call that raised. There is no fall-through: a
+    failed provider simply contributes whatever survived and is recorded.
     """
     plan: list[tuple[str, concurrent.futures.Future]] = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
@@ -134,7 +143,8 @@ def _run_provider(
                     search_failed = True
                 continue
             if future is search_future and not returned:
-                # Empty search is a fall-through trigger (D-172-02).
+                # Empty search is a degrade signal (D-174-04) -- recorded, but
+                # it does NOT suppress the other providers.
                 search_failed = True
             if returned:
                 hits.extend(returned)
@@ -156,33 +166,41 @@ def tier2_web(
     allowed_domains: list[str] | None = None,
     blocked_domains: list[str] | None = None,
 ) -> Tier2Result:
-    """Dispatch the chosen web search (and optional fetch) per the Tier 2 algorithm.
+    """Fan out the web search (and optional fetch) across all available providers.
 
-    Skip heuristic: if ``len(tier1_hits) >= 5`` and the query has no
-    explicit URL, return immediately with ``skipped=True`` (no provider is
-    selected, so nothing is degraded).
+    Skip heuristic (D-174-05, unchanged): if ``len(tier1_hits) >= 5`` and the
+    query has no explicit URL, return immediately with ``skipped=True`` (no
+    provider runs, so nothing is degraded).
 
-    Provider selection (D-172-01): a capability-detected cascade -- Tavily
-    primary, Exa secondary, built-in last resort. The first available
-    candidate is the primary; each skipped higher-priority candidate appends
-    its marker (``"tavily"``, then ``"exa"``) to ``degraded_sources`` (the
-    built-in floor is always available and has no marker).
+    Fan-out (D-174-01): build the candidates in priority order Tavily -> Exa ->
+    built-in. Absent providers append their marker (``"tavily"``, then
+    ``"exa"``) to ``degraded_sources`` (the built-in floor is always available
+    and has no marker). EVERY available provider's search (and, when the query
+    has an explicit URL, its fetch) runs CONCURRENTLY -- each ``_run_provider``
+    call is fanned out across an outer ``ThreadPoolExecutor`` so wall-clock is
+    the slowest provider, not the sum. There is no first-available selection and
+    no bounded fall-through (D-174-04 supersedes D-172-02).
 
-    Bounded fall-through (D-172-02): if the selected provider's search raises
-    OR returns zero hits, the failing tool is recorded and the run falls
-    through to the NEXT available provider EXACTLY ONCE -- never a second
-    time. Surviving explicit-URL fetch hits from the primary are preserved.
+    Degraded (D-174-04): for each available provider whose search raised OR
+    returned zero hits, record its ``search_tool``; plus any raised fetch tool.
+    Markers are deduped preserving first-seen order. A degrade never suppresses
+    the other providers.
 
-    When a provider runs, the search is always invoked; if the query has an
-    explicit URL, the fetch is invoked in parallel on that URL. Domain
-    filters pass through to the search call only when set.
+    Merge + dedup by URL (D-174-03): iterate the provider hits in PRIORITY order
+    (Tavily -> Exa -> built-in); add each hit whose ``url`` was not already seen
+    (so Tavily wins a duplicate URL). Hits without a ``url`` key are always kept.
+
+    Domain filters pass through to EVERY available provider's search call only
+    when set.
     """
     explicit_url = detect_explicit_url(query)
 
     if len(tier1_hits) >= _SKIP_THRESHOLD and explicit_url is None:
         return Tier2Result(hits=[], skipped=True, degraded_sources=[])
 
-    # Ordered cascade -- Tavily, Exa, built-in (built-in is always available).
+    # Candidates in priority order -- Tavily, Exa, built-in (built-in is always
+    # available). Priority drives both the fan-out iteration and the dedup
+    # tie-break (Tavily > Exa > built-in).
     candidates = [
         _Candidate(
             available=tavily_available,
@@ -211,19 +229,12 @@ def tier2_web(
     ]
 
     degraded: list[str] = []
-    # Walk the cascade: skipped higher-priority providers record their marker
-    # (capability degrade, NOT the fall-through). The first available
-    # candidate is the primary; the next available one is the bounded
-    # fall-through target.
-    available = [c for c in candidates if c.available]
-    for skipped in candidates:
-        if skipped.available:
-            break
-        if skipped.absent_marker is not None:
-            degraded.append(skipped.absent_marker)
+    # Absent providers record their marker (capability degrade, fail-soft).
+    for candidate in candidates:
+        if not candidate.available and candidate.absent_marker is not None:
+            degraded.append(candidate.absent_marker)
 
-    primary = available[0]
-    fallback = available[1] if len(available) > 1 else None
+    available = [c for c in candidates if c.available]
 
     search_kwargs: dict = {}
     if allowed_domains is not None:
@@ -231,36 +242,42 @@ def tier2_web(
     if blocked_domains is not None:
         search_kwargs["blocked_domains"] = list(blocked_domains)
 
-    hits, search_failed, failed_tools = _run_provider(primary, query, explicit_url, search_kwargs)
-    degraded.extend(failed_tools)
+    # Fan out: run every available provider concurrently on an outer executor.
+    # Each provider keeps the priority-order index so the merge + dedup stays
+    # deterministic regardless of completion order.
+    provider_hits: list[list[dict]] = [[] for _ in available]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(available))) as pool:
+        future_to_index = {
+            pool.submit(_run_provider, candidate, query, explicit_url, dict(search_kwargs)): index
+            for index, candidate in enumerate(available)
+        }
+        for future in concurrent.futures.as_completed(future_to_index):
+            index = future_to_index[future]
+            candidate = available[index]
+            hits, search_failed, failed_tools = future.result()
+            provider_hits[index] = hits
+            for tool in failed_tools:
+                if tool not in degraded:
+                    degraded.append(tool)
+            if search_failed and candidate.search_tool not in degraded:
+                degraded.append(candidate.search_tool)
 
-    if search_failed:
-        # Record the primary's search tool as degraded (covers the empty-result
-        # case; a raise is already captured in ``failed_tools``).
-        if primary.search_tool not in degraded:
-            degraded.append(primary.search_tool)
-        # Single bounded fall-through -- run the next available provider's
-        # search once and merge its hits. NO loop: even an empty fall-through
-        # does not trigger a further one (D-172-02). Surviving primary
-        # explicit-URL fetch hits in ``hits`` are preserved (we merge).
-        if fallback is not None:
-            fb_kwargs = dict(search_kwargs)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                future = pool.submit(fallback.search_fn, query, **fb_kwargs)
-                try:
-                    fb_hits = future.result()
-                except Exception:
-                    degraded.append(fallback.search_tool)
-                    fb_hits = []
-            if fb_hits:
-                hits.extend(fb_hits)
-            elif fallback.search_tool not in degraded:
-                # An empty (or raised) fall-through search records its tool
-                # too -- but does NOT trigger a further fall-through (bounded
-                # = exactly one, D-172-02).
-                degraded.append(fallback.search_tool)
+    # Merge + dedup by URL in priority order (Tavily -> Exa -> built-in). The
+    # first row seen for a given URL wins; url-less hits are always kept.
+    merged: list[dict] = []
+    seen_urls: set[str] = set()
+    for hits in provider_hits:
+        for hit in hits:
+            url = hit.get("url")
+            if url is None:
+                merged.append(hit)
+                continue
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+            merged.append(hit)
 
-    return Tier2Result(hits=hits, skipped=False, degraded_sources=degraded)
+    return Tier2Result(hits=merged, skipped=False, degraded_sources=degraded)
 
 
 __all__: Iterable[str] = (

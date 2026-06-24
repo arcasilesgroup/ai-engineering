@@ -6,15 +6,15 @@ Invoke a web search (raw web results) and a web fetch (specific URL when known) 
 
 Tier 2 is the bridge between curated MCP corpora (Tier 1) and the open web. It adds breadth and recency that Context7/MS Learn/`gh search` can miss, while still avoiding the cost and latency of NotebookLM persistent corpora (Tier 3).
 
-## Web Provider: Tavily Primary, Exa Secondary, Built-in Fallback
+## Web Provider: Concurrent Fan-out (Tavily ‖ Exa ‖ Built-in)
 
-Per spec-172 (D-172-01, D-172-02), the Tier 2 web provider is a capability-detected cascade. The first available of three providers is selected, in priority order:
+Per spec-174 (D-174-01..04, superseding the spec-172 D-172-02 fall-through), the Tier 2 web layer is a **concurrent fan-out**: when Tier 2 runs, EVERY available provider runs at once, and their results are merged and deduped by URL. There is no first-available selection. The three providers (in priority order, which drives only the dedup tie-break) are:
 
-- **PRIMARY -- Tavily.** When the Tavily MCP tools are available, search uses `mcp__tavily__tavily_search` and single-URL fetch uses `mcp__tavily__tavily_extract`.
-- **SECONDARY -- Exa.** When Tavily is unavailable, search uses `mcp__exa__web_search_exa` and single-URL fetch uses `mcp__exa__web_fetch_exa`.
-- **FALLBACK -- built-in.** When neither Tavily nor Exa is available, fall back to the Claude Code built-in `WebSearch` / `WebFetch` (the zero-config last resort, always available).
+- **Tavily.** When the Tavily MCP tools are available, search uses `mcp__tavily__tavily_search` and single-URL fetch uses `mcp__tavily__tavily_extract`.
+- **Exa.** When the Exa MCP tools are available, search uses `mcp__exa__web_search_exa` and single-URL fetch uses `mcp__exa__web_fetch_exa`.
+- **Built-in.** The Claude Code built-in `WebSearch` / `WebFetch` are the zero-config floor; they are always available and always run.
 
-Each absent higher-priority provider is recorded in `degraded_sources` (`"tavily"`, then `"exa"`) so the synthesizer can surface that a preferred provider was skipped. Fail-soft (D-172-01): an absent provider is skipped silently, recorded, and never raises. The run proceeds on the next available provider.
+Every **available** provider's search (and, when the query references an explicit URL, its single-URL fetch) is dispatched CONCURRENTLY, so the wall-clock is the slowest provider, not the sum. Running all providers IS the resilience — D-174-04 supersedes D-172-02, so there is NO bounded fall-through. Each ABSENT provider is recorded in `degraded_sources` (`"tavily"`, then `"exa"`; the built-in floor has no marker) so the synthesizer can surface that a provider was skipped. Fail-soft: an absent provider is skipped silently and never raises.
 
 ## Algorithm
 
@@ -26,11 +26,11 @@ This handler documents the algorithm that the agent (and the lockstep helper at 
 - `tier1_hits` (list): Tier 1 results to use as the skip-heuristic input.
 - `allowed_domains` (list[str]|None): forwarded as the `allowed_domains` parameter on the search call.
 - `blocked_domains` (list[str]|None): forwarded as `blocked_domains` on the search call.
-- `tavily_search`, `tavily_fetch` (callables): tool-shaped handles for `mcp__tavily__tavily_search` / `mcp__tavily__tavily_extract` (the primary provider). `tavily_extract` wraps a one-element URL array for single-URL fetch; the callable hides that shape.
-- `tavily_available` (bool): capability-detection result for Tavily. When True, Tavily is the primary provider; when False, `"tavily"` is recorded in `degraded_sources` and selection falls to Exa.
-- `exa_search`, `exa_fetch` (callables): tool-shaped handles for `mcp__exa__web_search_exa` / `mcp__exa__web_fetch_exa` (the secondary provider).
-- `web_search`, `web_fetch` (callables): tool-shaped handles for the built-in `WebSearch` / `WebFetch` (the last-resort provider, always available).
-- `exa_available` (bool): capability-detection result for Exa. When True (and Tavily absent), the Exa callables are used; when False, `"exa"` is recorded and selection falls to the built-in.
+- `tavily_search`, `tavily_fetch` (callables): tool-shaped handles for `mcp__tavily__tavily_search` / `mcp__tavily__tavily_extract`. `tavily_extract` wraps a one-element URL array for single-URL fetch; the callable hides that shape.
+- `tavily_available` (bool): capability-detection result for Tavily. When True, Tavily fans out with the others; when False, `"tavily"` is recorded in `degraded_sources` and Tavily is skipped.
+- `exa_search`, `exa_fetch` (callables): tool-shaped handles for `mcp__exa__web_search_exa` / `mcp__exa__web_fetch_exa`.
+- `web_search`, `web_fetch` (callables): tool-shaped handles for the built-in `WebSearch` / `WebFetch` (the zero-config floor, always available).
+- `exa_available` (bool): capability-detection result for Exa. When True, the Exa callables fan out with the others; when False, `"exa"` is recorded and Exa is skipped.
 
 All six provider callables are injected as dependencies so tests can substitute mocks.
 
@@ -38,9 +38,9 @@ All six provider callables are injected as dependencies so tests can substitute 
 
 A `Tier2Result` containing:
 
-- `hits` (list[dict]): merged, deduped results from the chosen search and fetch.
+- `hits` (list[dict]): merged, URL-deduped results fanned out across every available provider's search and fetch (tie-break Tavily > Exa > built-in).
 - `skipped` (bool): True when the skip heuristic short-circuited Tier 2.
-- `degraded_sources` (list[str]): markers of absent higher-priority providers (`"tavily"`, then `"exa"`) plus the tool name of any selected provider whose search raised or returned zero results (triggering the bounded fall-through).
+- `degraded_sources` (list[str]): markers of absent providers (`"tavily"`, then `"exa"`) plus the tool name of any available provider whose search raised or returned zero results.
 
 ### Step 1 -- Detect explicit URL in query
 
@@ -54,77 +54,138 @@ explicit_url = url_match.group(0) if url_match else None
 
 If `len(tier1_hits) >= 5` AND `explicit_url is None`, return `Tier2Result(hits=[], skipped=True, degraded_sources=[])` immediately. This is the dominant path for queries already well-covered by Tier 1. The skip runs before provider selection, so nothing is recorded as degraded.
 
-### Step 3 -- Select the web provider (ordered capability cascade)
+### Step 3 -- Build the candidate fan-out (priority order)
 
-Build the candidates in priority order Tavily → Exa → built-in. The first available candidate is the PRIMARY; the next available one is the bounded fall-through target (Step 4). Each skipped higher-priority candidate appends its marker to `degraded` (a capability degrade, not the fall-through). The built-in is always available and has no marker.
+Build the candidates in priority order Tavily → Exa → built-in as named `_Candidate` records (not bare tuples), so the fan-out reads fields by name. Priority drives only the dedup tie-break (Step 5), NOT selection — every available provider runs. Each ABSENT candidate appends its marker to `degraded` (a capability degrade, fail-soft). The built-in is always available and has no marker.
 
 ```python
+from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class _Candidate:
+    available: bool
+    search_fn: callable
+    fetch_fn: callable
+    search_tool: str
+    fetch_tool: str
+    absent_marker: str | None  # None for the always-available built-in floor
+
 candidates = [
-    (tavily_available, tavily_search, tavily_fetch,
-     "mcp__tavily__tavily_search", "mcp__tavily__tavily_extract", "tavily"),
-    (exa_available, exa_search, exa_fetch,
-     "mcp__exa__web_search_exa", "mcp__exa__web_fetch_exa", "exa"),
-    (True, web_search, web_fetch, "web_search", "web_fetch", None),  # always available
+    _Candidate(tavily_available, tavily_search, tavily_fetch,
+               "mcp__tavily__tavily_search", "mcp__tavily__tavily_extract", "tavily"),
+    _Candidate(exa_available, exa_search, exa_fetch,
+               "mcp__exa__web_search_exa", "mcp__exa__web_fetch_exa", "exa"),
+    _Candidate(True, web_search, web_fetch, "web_search", "web_fetch", None),  # always available
 ]
-for available, *_rest, marker in candidates:
-    if available:
-        break
-    if marker is not None:
-        degraded.append(marker)  # D-172-01: absent provider recorded, never raised
-available = [c for c in candidates if c[0]]
-primary, fallback = available[0], (available[1] if len(available) > 1 else None)
+for candidate in candidates:
+    if not candidate.available and candidate.absent_marker is not None:
+        degraded.append(candidate.absent_marker)  # D-174-01: absent recorded, never raised
+available = [c for c in candidates if c.available]  # priority order preserved
 ```
 
-### Step 4 -- Concurrent dispatch (primary) + one bounded fall-through
+### Step 4 -- Concurrent fan-out of every available provider (D-174-01)
 
-When Tier 2 runs, schedule the PRIMARY provider's calls on a `ThreadPoolExecutor`:
+When Tier 2 runs, fan out EVERY available provider concurrently on an outer `ThreadPoolExecutor` (one task per provider). Inside each provider task, schedule its own search (+ optional fetch) on an inner executor:
 
-- The search is ALWAYS invoked when Tier 2 runs. Pass `query` plus `allowed_domains` / `blocked_domains` only when those values are not None.
+- The search is ALWAYS invoked for every available provider. Pass `query` plus `allowed_domains` / `blocked_domains` only when those values are not None.
 - The fetch is invoked ONLY when `explicit_url` is set; it receives the URL.
 
+Running all providers IS the resilience — there is NO bounded fall-through (D-174-04 supersedes D-172-02). For each available provider whose search RAISES or returns ZERO hits, record its `search_tool` in `degraded` (plus any raised fetch tool); a degrade never suppresses the other providers. The wall-clock is the slowest provider, not the sum.
+
+Each provider task runs `run_provider`: it schedules the provider's search (always) and its fetch (only when `explicit_url` is set) on an inner executor, then drains them with `as_completed`. A search that RAISES or returns ZERO hits sets `search_failed`; any call that raises appends its tool name to `failed_tools`. There is no fall-through inside the task either — it returns whatever survived.
+
 ```python
-with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
-    futures = {pool.submit(primary.search_fn, query, **filters): primary.search_tool}
-    if explicit_url:
-        futures[pool.submit(primary.fetch_fn, explicit_url)] = primary.fetch_tool
-    for future in concurrent.futures.as_completed(futures):
-        ...  # record raised tools in degraded; merge surviving hits
-search_failed = (primary search raised) or (primary search returned 0 hits)
-if search_failed and fallback is not None:
-    degraded.append(primary.search_tool)        # record once
-    fb_hits = fallback.search_fn(query, **filters)  # run EXACTLY once
-    hits.extend(fb_hits)                         # preserve surviving primary fetch hits
-    if not fb_hits:
-        degraded.append(fallback.search_tool)   # empty fall-through recorded, no further fall-through
+def run_provider(candidate, query, explicit_url, search_kwargs):
+    plan = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        search_future = pool.submit(candidate.search_fn, query, **search_kwargs)
+        plan.append((candidate.search_tool, search_future))
+        if explicit_url is not None:
+            plan.append((candidate.fetch_tool, pool.submit(candidate.fetch_fn, explicit_url)))
+
+        hits, search_failed, failed_tools = [], False, []
+        future_to_name = {future: name for name, future in plan}
+        for future in concurrent.futures.as_completed(future_to_name):
+            name = future_to_name[future]
+            try:
+                returned = future.result()
+            except Exception:
+                failed_tools.append(name)        # record the raised tool, keep survivors
+                if future is search_future:
+                    search_failed = True
+                continue
+            if future is search_future and not returned:
+                search_failed = True             # empty search is a degrade signal
+            if returned:
+                hits.extend(returned)
+    return hits, search_failed, failed_tools
+
+# Build the shared search kwargs once; pass domain filters only when set.
+search_kwargs = {}
+if allowed_domains is not None:
+    search_kwargs["allowed_domains"] = list(allowed_domains)
+if blocked_domains is not None:
+    search_kwargs["blocked_domains"] = list(blocked_domains)
+
+provider_hits = [[] for _ in available]
+with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, len(available))) as outer:
+    future_to_index = {
+        outer.submit(run_provider, candidate, query, explicit_url, dict(search_kwargs)): index
+        for index, candidate in enumerate(available)
+    }  # run_provider fans search ‖ fetch
+    for future in concurrent.futures.as_completed(future_to_index):
+        index = future_to_index[future]
+        candidate = available[index]             # re-derive the candidate for THIS future
+        hits, search_failed, failed_tools = future.result()
+        provider_hits[index] = hits              # keyed by priority index
+        for tool in failed_tools:
+            if tool not in degraded:
+                degraded.append(tool)
+        if search_failed and candidate.search_tool not in degraded:
+            degraded.append(candidate.search_tool)  # raise OR empty, recorded, no fall-through
 ```
 
-### Step 5 -- Merge results
+### Step 5 -- Merge + dedup by URL (D-174-03)
 
-Collect hits from the primary calls and (if the bounded fall-through ran) the fall-through search, preserving completion order. Surviving explicit-URL fetch hits from the primary are kept across the fall-through. The synthesizer in `synthesize-with-citations.md` handles downstream citation assignment; Tier 2 only returns the merged list.
+Merge the per-provider hits in PRIORITY order (Tavily → Exa → built-in). Dedup by the **exact `url` string** (no URL normalization — compared verbatim). Add each hit whose `url` was not already seen; the first row seen for a URL wins, so on a duplicate URL the higher-priority provider's row is kept (**Tavily > Exa > built-in**). Hits without a `url` key carry no dedup key and are always kept. The synthesizer in `synthesize-with-citations.md` handles downstream citation assignment; Tier 2 only returns the merged, deduped list.
+
+```python
+merged, seen = [], set()
+for hits_i in provider_hits:           # priority order
+    for hit in hits_i:
+        url = hit.get("url")
+        if url is None:
+            merged.append(hit)         # url-less hits always kept
+        elif url not in seen:
+            seen.add(url)
+            merged.append(hit)         # first (highest-priority) row wins
+```
 
 ### Step 6 -- Return
 
-`Tier2Result(hits=merged, skipped=False, degraded_sources=degraded)`, where `degraded` already contains the markers of any absent higher-priority provider (`"tavily"`, `"exa"`) plus the tool name of any selected provider whose search raised or returned zero results.
+`Tier2Result(hits=merged, skipped=False, degraded_sources=degraded)`, where `merged` is the URL-deduped fan-out across all available providers and `degraded` contains the markers of any absent provider (`"tavily"`, `"exa"`) plus the tool name of any available provider whose search raised or returned zero results.
 
 ## Sources Invoked
 
-- `mcp__tavily__tavily_search` (Tavily MCP, PRIMARY) -- raw web results, with optional `allowed_domains` / `blocked_domains` pass-through.
-- `mcp__tavily__tavily_extract` (Tavily MCP, PRIMARY) -- single-URL fetch when the user query mentions a specific URL (wraps a one-element URL array).
-- `mcp__exa__web_search_exa` (Exa MCP, SECONDARY) -- used when Tavily is unavailable.
-- `mcp__exa__web_fetch_exa` (Exa MCP, SECONDARY) -- single-URL fetch when Tavily is unavailable.
-- `WebSearch` (Claude Code built-in, FALLBACK) -- used when neither Tavily nor Exa is available.
-- `WebFetch` (Claude Code built-in, FALLBACK) -- used when neither Tavily nor Exa is available.
+Every available provider's search (+ optional fetch) runs concurrently; priority drives only the dedup tie-break.
+
+- `mcp__tavily__tavily_search` (Tavily MCP) -- raw web results, with optional `allowed_domains` / `blocked_domains` pass-through.
+- `mcp__tavily__tavily_extract` (Tavily MCP) -- single-URL fetch when the user query mentions a specific URL (wraps a one-element URL array).
+- `mcp__exa__web_search_exa` (Exa MCP) -- raw web results, fans out alongside Tavily and the built-in.
+- `mcp__exa__web_fetch_exa` (Exa MCP) -- single-URL fetch alongside the others.
+- `WebSearch` (Claude Code built-in) -- the zero-config floor; always runs.
+- `WebFetch` (Claude Code built-in) -- single-URL fetch on the built-in floor.
 
 ## Domain Filters
 
-- `--allowed-domains a.com,b.com` is parsed to a Python list and forwarded as `allowed_domains` on the search call (whichever provider is selected -- Tavily, Exa, or built-in).
-- `--blocked-domains x.com,y.com` is forwarded as `blocked_domains` on the search call.
+- `--allowed-domains a.com,b.com` is parsed to a Python list and forwarded as `allowed_domains` on the search call of EVERY available provider (Tavily, Exa, and built-in).
+- `--blocked-domains x.com,y.com` is forwarded as `blocked_domains` on every available provider's search call.
 - If a filter combination yields zero results, the synthesizer surfaces a warning suggesting the user remove or relax the filter (handler `synthesize-with-citations.md`).
 
 ## Resilience
 
-- **Absent provider (capability detection).** Each absent higher-priority provider appends its marker (`"tavily"`, then `"exa"`) to `degraded_sources`; the next available provider is selected and the run continues (D-172-01 fail-soft -- never raises).
-- **One bounded fall-through (D-172-02, supersedes the former no-fall-through rule).** If the selected provider's search RAISES or returns ZERO results, record it in `degraded_sources` and fall through to the NEXT available provider EXACTLY ONCE. A second empty/raising result does NOT trigger a further fall-through. Surviving explicit-URL fetch hits from the primary are preserved across the fall-through.
+- **Absent provider (capability detection).** Each absent provider appends its marker (`"tavily"`, then `"exa"`) to `degraded_sources` and is skipped; the available providers fan out and the run continues (fail-soft -- never raises).
+- **Fan-out is the resilience (D-174-04, supersedes the D-172-02 bounded fall-through).** Every available provider runs concurrently, so there is NO fall-through. An available provider whose search RAISES or returns ZERO results records its `search_tool` in `degraded_sources` but never suppresses the others; its surviving explicit-URL fetch hit (if any) is still merged in. Even when every provider is empty, each runs exactly once — no second pass.
 
 ## Implementation Reference
 
@@ -135,10 +196,10 @@ def tier2_web(
     query: str,
     *,
     tier1_hits: list,
-    tavily_search, tavily_fetch,  # mcp__tavily__tavily_search / mcp__tavily__tavily_extract (primary)
+    tavily_search, tavily_fetch,  # mcp__tavily__tavily_search / mcp__tavily__tavily_extract
     tavily_available: bool,
-    exa_search, exa_fetch,        # mcp__exa__web_search_exa / mcp__exa__web_fetch_exa (secondary)
-    web_search, web_fetch,        # built-in WebSearch / WebFetch (fallback)
+    exa_search, exa_fetch,        # mcp__exa__web_search_exa / mcp__exa__web_fetch_exa
+    web_search, web_fetch,        # built-in WebSearch / WebFetch (always-available floor)
     exa_available: bool,
     allowed_domains: list[str] | None = None,
     blocked_domains: list[str] | None = None,
@@ -158,8 +219,8 @@ Tavily is wired but not connected automatically; the operator registers the MCP 
 
 2. **Export the key in the operator shell** -- `export TAVILY_API_KEY=...`. It is resolved from the environment at connect time and never written to a committed file.
 3. **Verify** -- `claude mcp list` shows `tavily` connected, and the tools resolve as `mcp__tavily__tavily_search` / `mcp__tavily__tavily_extract`.
-4. **Fail-soft** -- an absent or unregistered Tavily MCP is fail-soft: the cascade records `"tavily"` in `degraded_sources` and falls through to Exa, then the built-in. No installer-template `.mcp.json` is shipped (a key cannot be committed; D-172-04 scopes registration to the operator).
+4. **Fail-soft** -- an absent or unregistered Tavily MCP is fail-soft: the fan-out records `"tavily"` in `degraded_sources` and skips Tavily; Exa and the built-in still run. No installer-template `.mcp.json` is shipped (a key cannot be committed; D-172-04 scopes registration to the operator).
 
 ## Status
 
-Tavily wired as the PRIMARY Tier 2 web provider (`mcp__tavily__tavily_search` / `mcp__tavily__tavily_extract`), with Exa SECONDARY and the built-in `WebSearch` / `WebFetch` LAST, selected by an ordered capability cascade with one bounded fall-through on raise-or-empty (spec-172, D-172-01..04). The skip heuristic, explicit-URL detection, domain-filter pass-through, parallel dispatch, and `Tier2Result(hits, skipped, degraded_sources)` shape are unchanged from the prior implementation. The user-facing degraded-mode banner lands with the synthesize handler.
+Tier 2 web runs a concurrent fan-out of every available provider — Tavily (`mcp__tavily__tavily_search` / `mcp__tavily__tavily_extract`), Exa (`mcp__exa__web_search_exa` / `mcp__exa__web_fetch_exa`), and the built-in `WebSearch` / `WebFetch` — merged and deduped by URL with the tie-break Tavily > Exa > built-in (spec-174, D-174-01..05; D-174-04 supersedes the spec-172 D-172-02 bounded fall-through). The skip heuristic, explicit-URL detection, domain-filter pass-through, parallel dispatch, and `Tier2Result(hits, skipped, degraded_sources)` shape are unchanged from the prior implementation. The user-facing degraded-mode banner lands with the synthesize handler.

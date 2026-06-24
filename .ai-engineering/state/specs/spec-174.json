@@ -6,6 +6,6 @@
   "shipped": null,
   "slug": "ai-research-tier2-parallel-fanout",
   "spec_id": "spec-174",
-  "state": "approved",
+  "state": "in_progress",
   "title": "ai-research Tier-2 parallel Tavily+Exa fan-out"
 }
