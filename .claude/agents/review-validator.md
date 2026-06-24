@@ -2,7 +2,7 @@
 name: review-validator
 description: "Adversarial validation agent. Receives ONLY the YAML finding block (no reasoning chain) and reads the code fresh to attempt disproof. Dispatched by ai-review after all specialists complete."
 model: opus
-color: magenta
+color: pink
 tools: [Read, Glob, Grep, Bash]
 ---
 
