@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-06-24
+
 ### Changed
 
 - feat(spec-174): make `/ai-research` Tier 2 (web) a concurrent **fan-out** — run
@@ -43,7 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Code palette value (`magenta` → `pink`), propagated across all mirror and
   install-template twins via `ai-eng dev sync`. Removes the lone off-palette
   color flagged by external skill-frontmatter validators; no behavior change.
-
 ## [0.11.0] - 2026-06-22
 
 ### Added
