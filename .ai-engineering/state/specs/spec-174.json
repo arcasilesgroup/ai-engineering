@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "feat/ai-research-tier2-parallel-fanout",
   "created": "2026-06-24T10:27:45.795059+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "599",
+  "shipped": "2026-06-24T17:53:22.474719+00:00",
   "slug": "ai-research-tier2-parallel-fanout",
   "spec_id": "spec-174",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "ai-research Tier-2 parallel Tavily+Exa fan-out"
 }
