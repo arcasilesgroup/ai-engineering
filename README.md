@@ -21,7 +21,12 @@
 
   <p><code>54 skills · 9 agents · 6 surfaces · 1 governed flow</code></p>
 
-  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="Terminal demo: uv tool install ai-engineering, then ai-eng install . and ai-eng doctor both report [PASS], then open your IDE and run /ai-start" width="760">
+  <br>
+
+  <picture>
+    <source srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.webp" type="image/webp">
+    <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="ai-eng install, then ai-eng doctor (warnings are advisory), then exploring the .ai-engineering tree plus 54 skills and 9 agents in VS Code, ending with /ai-start in Claude Code" width="900">
+  </picture>
 </div>
 
 `{ai} engineering` installs a deterministic governance layer into any repository — specs, decisions, skills, agents, hooks, and an audit trail, all as versioned local files. No hosted control plane. No provider lock-in. Every IDE follows the same rules.
@@ -55,9 +60,13 @@ Then open your editor and type `/ai-start`. Prefer to ease in? Start in observe 
 
 You drive the intent and approve each step; the gates catch the rest — no secrets, broken docs, or untested changes reach a merge.
 
+<br>
+
 <div align="center">
   <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/workflow.png" alt="The governed workflow: /ai-brainstorm agrees the spec, /ai-plan breaks it down, /ai-build or /ai-autopilot implements it, /ai-pr ships a reviewed and merged pull request. You approve each step; automatic checks (clean diff, tests, docs, review) must pass before merge." width="820">
 </div>
+
+<br>
 
 The canonical chain is **`/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`**. Use it whenever work changes product behavior, framework behavior, security posture, public docs, or release state. `/ai-commit` stays available for WIP checkpoints; it is not part of the chain.
 
@@ -65,9 +74,13 @@ The canonical chain is **`/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`*
 
 Fifty-four skills and nine agents cover the whole delivery loop — and the same commands work in every supported editor.
 
+<br>
+
 <div align="center">
   <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/toolkit.png" alt="54 skills and 9 agents grouped by what you do: plan and build, ship safely, design and docs, research and learn. The same commands run in Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor." width="820">
 </div>
+
+<br>
 
 Need evidence? `/ai-research` returns cited findings from local context, the web, and async deep research. And because plans carry ready-to-apply patches, mechanical work routes to a smaller model — routine edits stay cheap.
 

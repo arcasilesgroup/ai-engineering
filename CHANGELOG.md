@@ -13,7 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ai-engineering, not how it is built internally. New lean README (<=170
   lines) with a branded, README-native diagram system — install, the governed
   workflow with a shield approve-icon, and the toolkit — rendered from
-  diff-able HTML/CSS source; a VHS-as-code terminal demo; a Highlights section
+  diff-able HTML/CSS source; an animated install-to-start demo reel (with
+  generous spacing around the diagrams); a Highlights section
   surfaced from a codebase-wide feature scan; and a uv-first quickstart with
   pip/pipx behind a toggle. Resolve the 47/53/54 skill-count drift to a
   canonical 54 skills / 9 agents (locked by a regression test); modernize
