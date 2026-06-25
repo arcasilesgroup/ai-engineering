@@ -13,25 +13,39 @@
     <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg?style=flat-square&color=00D4AA&labelColor=0B1120" alt="PyPI version"></a>
     <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-00D4AA.svg?style=flat-square&labelColor=0B1120" alt="Python 3.11+"></a>
     <a href="https://github.com/arcasilesgroup/ai-engineering/actions"><img src="https://img.shields.io/github/actions/workflow/status/arcasilesgroup/ai-engineering/ci-check.yml?branch=main&style=flat-square&labelColor=0B1120" alt="CI"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&metric=alert_status" alt="Quality Gate"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&metric=coverage" alt="Coverage"></a>
+    <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><img src="https://snyk.io/test/github/arcasilesgroup/ai-engineering/badge.svg" alt="Snyk"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-00D4AA.svg?style=flat-square&labelColor=0B1120" alt="License: MIT"></a>
   </p>
 
   <p><code>54 skills · 9 agents · 6 surfaces · 1 governed flow</code></p>
 
-  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="Terminal demo: pip install ai-engineering, then ai-eng install . and ai-eng doctor both report [PASS], then open your IDE and run /ai-start" width="760">
+  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="Terminal demo: uv tool install ai-engineering, then ai-eng install . and ai-eng doctor both report [PASS], then open your IDE and run /ai-start" width="760">
 </div>
 
 `{ai} engineering` installs a deterministic governance layer into any repository — specs, decisions, skills, agents, hooks, and an audit trail, all as versioned local files. No hosted control plane. No provider lock-in. Every IDE follows the same rules.
 
 ## Quickstart
 
-Get a governed repo in under a minute:
+Get a governed repo in under a minute — `{ai} engineering` is uv-first:
 
 ```bash
-pip install ai-engineering   # or: uv tool install ai-engineering
-ai-eng install .             # adds governance to your repo
-ai-eng doctor                # [PASS] hooks, mirrors, manifest, required tools
+uv tool install ai-engineering   # install the CLI
+ai-eng install .                 # add governance to your repo
+ai-eng doctor                    # [PASS] hooks, mirrors, manifest, required tools
 ```
+
+<details>
+<summary>Prefer <code>pip</code> or <code>pipx</code>?</summary>
+
+```bash
+pipx install ai-engineering
+# or
+python -m pip install --user ai-engineering
+```
+
+</details>
 
 Then open your editor and type `/ai-start`. Prefer to ease in? Start in observe mode and enforce only what proves useful.
 
@@ -55,6 +69,8 @@ Fifty-four skills and nine agents cover the whole delivery loop — and the same
   <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/toolkit.png" alt="54 skills and 9 agents grouped by what you do: plan and build, ship safely, design and docs, research and learn. The same commands run in Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor." width="820">
 </div>
 
+Need evidence? `/ai-research` returns cited findings from local context, the web, and async deep research. And because plans carry ready-to-apply patches, mechanical work routes to a smaller model — routine edits stay cheap.
+
 ## Supported surfaces
 
 One canonical payload is mirrored, byte-for-byte, into every enabled surface.
@@ -70,12 +86,14 @@ One canonical payload is mirrored, byte-for-byte, into every enabled surface.
 
 The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibitions live in [CONSTITUTION.md](CONSTITUTION.md). Release history lives in [CHANGELOG.md](CHANGELOG.md).
 
-## Why governance matters
+## Highlights
 
-- **Spec-driven** — every change is tied to an approved scope, so LLM output stays on-task.
-- **Deterministic gates** — secrets, broken mirrors, missing docs, and policy drift are caught before they land.
-- **Local audit trail** — a hash-chained NDJSON log records what happened, with no telemetry by default.
-- **Reviewable everywhere** — skills and agents are file-backed and synchronized across every IDE.
+- **Ship a whole spec in one run** — `/ai-autopilot` decomposes it, builds a dependency DAG, runs parallel waves, and converges on a reviewed PR.
+- **What you approved is what shipped** — a brainstorm hard-gate plus a spec-lifecycle state machine keep every change anchored to the approved spec (Rung 2 SDD — spec and code stay in sync, not just spec-first that drifts).
+- **An audit trail you own** — every AI action lands in a hash-chained NDJSON log you can verify offline, with no telemetry by default.
+- **Every bypass has an owner and an expiry** — no `# noqa` or `@ts-ignore`; findings are refactored or formally risk-accepted with a severity-based TTL.
+- **Every tool call is screened before it runs** — a deterministic guard checks each edit, write, and shell command and stops risky ones.
+- **AI quality is a tested property** — skills are measured with pass@k, and a regression beyond five points blocks the pull request.
 
 ## Documentation
 
@@ -103,3 +121,25 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Star history
+
+<div align="center">
+  <a href="https://star-history.com/#arcasilesgroup/ai-engineering&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date&theme=dark">
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date">
+      <img src="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date" alt="Star history chart for arcasilesgroup/ai-engineering" width="640">
+    </picture>
+  </a>
+</div>
+
+## Contributors
+
+<div align="center">
+  <a href="https://github.com/arcasilesgroup/ai-engineering/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=arcasilesgroup/ai-engineering" alt="ai-engineering contributors">
+  </a>
+</div>
+
+Made with [contrib.rocks](https://contrib.rocks).
