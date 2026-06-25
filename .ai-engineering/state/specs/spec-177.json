@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "feat/spec-177-docs-rewrite-visual-system",
   "created": "2026-06-24T22:27:41.113314+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "603",
+  "shipped": "2026-06-25T02:34:14.258851+00:00",
   "slug": "docs-rewrite-visual-system",
   "spec_id": "spec-177",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Rewrite human-facing docs from scratch with branded hybrid-diagram visual system"
 }
