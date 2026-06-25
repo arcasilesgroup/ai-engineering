@@ -13,9 +13,9 @@
     <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg?style=flat-square&color=00D4AA&labelColor=0B1120" alt="PyPI version"></a>
     <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-00D4AA.svg?style=flat-square&labelColor=0B1120" alt="Python 3.11+"></a>
     <a href="https://github.com/arcasilesgroup/ai-engineering/actions"><img src="https://img.shields.io/github/actions/workflow/status/arcasilesgroup/ai-engineering/ci-check.yml?branch=main&style=flat-square&labelColor=0B1120" alt="CI"></a>
-    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&metric=alert_status" alt="Quality Gate"></a>
-    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&metric=coverage" alt="Coverage"></a>
-    <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><img src="https://snyk.io/test/github/arcasilesgroup/ai-engineering/badge.svg" alt="Snyk"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://img.shields.io/sonar/quality_gate/arcasilesgroup_ai-engineering?server=https%3A%2F%2Fsonarcloud.io&style=flat-square&labelColor=0B1120&color=00D4AA" alt="Quality Gate"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://img.shields.io/sonar/coverage/arcasilesgroup_ai-engineering?server=https%3A%2F%2Fsonarcloud.io&style=flat-square&labelColor=0B1120&color=00D4AA" alt="Coverage"></a>
+    <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><img src="https://img.shields.io/badge/Snyk-monitored-00D4AA?style=flat-square&labelColor=0B1120" alt="Snyk security"></a>
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-00D4AA.svg?style=flat-square&labelColor=0B1120" alt="License: MIT"></a>
   </p>
 
