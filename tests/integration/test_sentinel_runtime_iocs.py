@@ -298,6 +298,65 @@ def test_malicious_domain_payloads_are_denied(
 
 
 # ---------------------------------------------------------------------------
+# Host/TLD boundary matching — regression for the substring-TLD false
+# positive that drove the risk accumulator to a hard block on benign
+# source content (CSS selectors, Tailwind utilities, member access).
+# A suspicious TLD (e.g. `.ga`, `.top`, `.work`) must match ONLY as a
+# real domain suffix, never as a raw substring of a dotted identifier.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        ".gate { color: red; }",  # CSS class — `.ga` substring
+        "const x = obj.gateway();",  # member access — `.ga` substring
+        ".gap-4 { gap: 1rem; }",  # Tailwind gap — `.ga` substring
+        ".ml-4 { margin-left: 1rem; }",  # Tailwind margin-left — `.ml`
+        ".top { top: 0; position: fixed }",  # CSS class — `.top` TLD
+        ".workspace-panel { display: flex }",  # CSS class — `.work` TLD
+        ".clickable:hover { cursor: pointer }",  # CSS class — `.click` TLD
+        "self.xyzservice.connect()",  # identifier — `.xyz` TLD
+        "see canonical-chain.png for the diagram",  # filename — `.work`? no, control
+    ],
+)
+def test_benign_dotted_identifiers_are_not_flagged(
+    hook_module, project_with_iocs: Path, payload: str
+) -> None:
+    """Benign dotted identifiers must NOT trip a suspicious-TLD match.
+
+    Before the boundary fix, a short TLD was matched as a raw
+    substring, so ``.gate`` matched the ``.ga`` TLD and accumulated
+    risk until every tool call was denied. The host matcher now
+    requires a domain label before the dot and a host terminator after.
+    """
+    result = hook_module.evaluate_against_iocs(project_with_iocs, payload)
+    domain_hits = [m for m in result["matches"] if m["category"] == "malicious_domains"]
+    assert not domain_hits, (
+        f"benign payload {payload!r} false-positived on a host IOC: {domain_hits}"
+    )
+
+
+def test_host_ioc_regex_boundary_semantics(hook_module) -> None:
+    """_host_ioc_regex matches real domain suffixes, not embedded text."""
+    import re
+
+    ga = hook_module._host_ioc_regex(".ga")
+    # Real domain suffix at a host boundary -> match.
+    assert re.search(ga, "https://evil.ga/exfil")
+    assert re.search(ga, "MEGA.GA")  # case-insensitive
+    # Embedded in a longer identifier -> no match.
+    assert not re.search(ga, ".gate")
+    assert not re.search(ga, "obj.gateway")
+    assert not re.search(ga, ".gap-4")
+
+    # Full-domain entries match only at boundaries on both ends.
+    pb = hook_module._host_ioc_regex("pastebin.com")
+    assert re.search(pb, "curl https://pastebin.com/raw/abc")
+    assert not re.search(pb, "xpastebin.command")
+
+
+# ---------------------------------------------------------------------------
 # Shell patterns (>=4 fixtures blocked)
 # ---------------------------------------------------------------------------
 

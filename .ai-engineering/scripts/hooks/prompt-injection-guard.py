@@ -810,6 +810,29 @@ def _home_path_regex(pattern: str) -> re.Pattern[str] | None:
     return re.compile(rf"(?:{posix_alt}|{win_alt})", re.IGNORECASE)
 
 
+def _host_ioc_regex(token: str) -> str:
+    """Boundary-anchored regex for a hostname / TLD indicator.
+
+    Host indicators (known-bad domains, suspicious TLDs, paste sites)
+    were previously matched as raw substrings, so a short two- or
+    three-character TLD matched any dotted identifier — style-sheet
+    selectors, utility class names, and member access on a benign
+    source file all matched and drove the risk accumulator to a hard
+    block.
+
+    A bare TLD entry now matches only as a real domain suffix: a domain
+    label must precede the dot AND a host terminator (anything other
+    than ``[A-Za-z0-9-]``) must follow. A full domain entry matches
+    only at host boundaries on both ends. Matching is case-insensitive
+    (hostnames are).
+    """
+    if token.startswith("."):
+        tld = re.escape(token[1:])
+        return rf"(?i)[A-Za-z0-9-]+\.{tld}(?![A-Za-z0-9-])"
+    domain = re.escape(token)
+    return rf"(?i)(?<![A-Za-z0-9-]){domain}(?![A-Za-z0-9-])"
+
+
 def _category_patterns(catalog: dict[str, Any], category: str) -> list[tuple[str, str]]:
     """Return ``[(kind, pattern), ...]`` tuples for a category.
 
@@ -844,21 +867,25 @@ def _category_patterns(catalog: dict[str, Any], category: str) -> list[tuple[str
             if isinstance(p, str) and p:
                 out.append(("regex", p))
     # malicious_domains-specific schema: nested dicts + alias lists.
+    # Host/TLD entries use the ``host`` kind (boundary-anchored match,
+    # not raw substring) so a short TLD can't false-positive on a
+    # benign dotted identifier. The display token is preserved verbatim
+    # so finding_id / risk-accept keys / telemetry are unchanged.
     domains = section.get("known_malicious_domains") or []
     if isinstance(domains, list):
         for entry in domains:
             if isinstance(entry, dict):
                 domain = entry.get("domain")
                 if isinstance(domain, str) and domain:
-                    out.append(("literal", domain))
+                    out.append(("host", domain))
             elif isinstance(entry, str) and entry:
-                out.append(("literal", entry))
+                out.append(("host", entry))
     for alias_key in ("suspicious_tlds", "pastebin_style"):
         alias = section.get(alias_key) or []
         if isinstance(alias, list):
             for p in alias:
                 if isinstance(p, str) and p:
-                    out.append(("literal", p))
+                    out.append(("host", p))
     sus_patterns = section.get("suspicious_patterns") or []
     if isinstance(sus_patterns, list):
         for p in sus_patterns:
@@ -869,6 +896,11 @@ def _category_patterns(catalog: dict[str, Any], category: str) -> list[tuple[str
 
 def _match_pattern(content: str, kind: str, pattern: str) -> bool:
     """Return True when ``content`` matches ``pattern`` per ``kind`` rules."""
+    if kind == "host":
+        # Hostname / TLD IOC: boundary-anchored so a short TLD can't
+        # match a benign dotted identifier (see _host_ioc_regex). The
+        # built pattern is cached by the re module across calls.
+        return re.search(_host_ioc_regex(pattern), content) is not None
     if kind == "literal":
         # spec-160 D-160-07: a ``~/X`` catalog literal is matched against its
         # full equivalence set — the ``~/``/``$HOME/``/``${HOME}/`` literal
