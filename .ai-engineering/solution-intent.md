@@ -25,7 +25,7 @@
 
 ### 1.2 Objective
 
-Deterministic CLI tooling, 47 AI skills, 10 agents (+ 15 specialist sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, and Antigravity. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
+Deterministic CLI tooling, 54 AI skills, 9 agents (+ specialist review/verifier sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, and Antigravity. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
 
 ### 1.3 Problem Statement
 
@@ -427,8 +427,8 @@ mindmap
             No transcripts
         Capability Catalog
             framework-capabilities.json
-            47 skills
-            10 agents
+            54 skills
+            9 agents
             39 contexts
             11 hooks
         Telemetry Scripts
@@ -765,8 +765,8 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 
 | What | Where |
 |------|-------|
-| Skills (47) | `.claude/skills/ai-<name>/SKILL.md` |
-| Agents (10) | `.claude/agents/ai-<name>.md` |
+| Skills (54) | `.claude/skills/ai-<name>/SKILL.md` |
+| Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Constitution | `CONSTITUTION.md` |
 | Workspace charter (compatibility alias) | `.ai-engineering/CONSTITUTION.md` |

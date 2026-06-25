@@ -1,0 +1,24 @@
+# {ai} engineering
+
+> An open-source CLI that installs a deterministic governance layer into any repository — specs, decisions, skills, agents, hooks, and a hash-chained audit trail as versioned local files. No hosted control plane, no provider lock-in; every IDE follows the same rules. 54 skills, 9 agents, 6 surfaces, 1 governed flow.
+
+Install with `pip install ai-engineering`, then `ai-eng install .` and `ai-eng doctor`. Drive work through the canonical chain `/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`; `/ai-commit` is an off-chain WIP checkpoint. The same commands run in Claude Code, GitHub Copilot, OpenAI Codex, Antigravity, OpenCode, and Cursor.
+
+## Docs
+
+- [README](README.md): what it is, install, the governed workflow, the toolkit, supported surfaces.
+- [Getting started](docs/guides/getting-started.md): install, first session, and shipping the governed way.
+- [Documentation index](docs/index.md): the full doc map.
+- [Architecture](docs/architecture/index.md): how it is built, for contributors.
+- [Solution intent](.ai-engineering/solution-intent.md): the authoritative architecture document with embedded diagrams.
+- [Persistence doctrine](docs/persistence-doctrine.md): the files-only, three-tier persistence model.
+- [Brand tokens](docs/architecture/brand-tokens.md): palette, type, status grammar, asset rules.
+- [CONSTITUTION](CONSTITUTION.md): mission, stakeholders, vocabulary, prohibitions, compliance gates.
+- [AGENTS](AGENTS.md): the canonical cross-IDE ruleset.
+
+## Optional
+
+- [CHANGELOG](CHANGELOG.md): full release history and breakage notes.
+- [Contributing](CONTRIBUTING.md): development setup, style, testing, and the PR process.
+- [Supply-chain control matrix](docs/supply-chain-control-matrix.md): provenance and scanning controls.
+- [CI branch protection](docs/ci-branch-protection.md): required checks and merge policy.

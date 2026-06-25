@@ -9,7 +9,7 @@ versioned files — specs, plans, skills, agents, runbooks, hooks, and an audit
 trail. Nothing is hidden in a hosted control plane. You drive it from your IDE
 agent surface with `/ai-<name>` skills.
 
-`53 skills · 9 agents · 6 surfaces · 1 governed flow`
+`54 skills · 9 agents · 6 surfaces · 1 governed flow`
 
 See also: [root README](../README.md) | [AGENTS.md](../AGENTS.md) | [CONSTITUTION.md](../CONSTITUTION.md) | [persistence doctrine](../docs/persistence-doctrine.md)
 

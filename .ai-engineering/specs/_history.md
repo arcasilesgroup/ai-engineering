@@ -168,5 +168,6 @@ Completed specs. Details in git history.
 | spec-175 | ai-research Tier-3 NotebookLM CLI migration | shipped | 2026-06-24 | 2026-06-24 | 598 | feat/tier3-notebooklm-cli-migration |
 | spec-174 | ai-research Tier-2 parallel Tavily+Exa fan-out | shipped | 2026-06-24 | 2026-06-24 | 599 | feat/ai-research-tier2-parallel-fanout |
 | spec-176 | Fix instinct-corpus unicode-escaping churn (allow_unicode) | shipped | 2026-06-24 | 2026-06-24 | 600 | fix/instinct-corpus-unicode-churn |
+| spec-177 | Rewrite human-facing docs from scratch with branded hybrid-diagram visual system | shipped | 2026-06-24 | 2026-06-25 | 603 | feat/spec-177-docs-rewrite-visual-system |
 
 ---

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- spec-177: Rewrite the human-facing documentation around how you *use*
+  ai-engineering, not how it is built internally. New lean README (<=170
+  lines) with a branded, README-native diagram system — install, the governed
+  workflow with a shield approve-icon, and the toolkit — rendered from
+  diff-able HTML/CSS source; a VHS-as-code terminal demo; a Highlights section
+  surfaced from a codebase-wide feature scan; and a uv-first quickstart with
+  pip/pipx behind a toggle. Resolve the 47/53/54 skill-count drift to a
+  canonical 54 skills / 9 agents (locked by a regression test); modernize
+  `solution-intent.md` and the governance README; repoint `brand-voice.md`
+  to the committed brand assets; unify the badge row in one branded style.
+
+### Added
+
+- `llms.txt` and `llms-full.txt` for AI-agent documentation ingestion.
+- `docs/` information architecture: an index, a getting-started guide, and an
+  architecture overview, with brand-token and diagram-builder sources under
+  `docs/architecture/`.
+
+### Removed
+
+- The opaque `.pen` design files, a stray `.DS_Store`, the empty
+  `docs/presentations/` directory, and the Remotion `demo.webp` (replaced by
+  the VHS-rendered `demo.gif`).
+
 ## [0.12.0] - 2026-06-24
 
 ### Changed

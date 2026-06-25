@@ -6,6 +6,10 @@
       "headers": {
         "Authorization": "Bearer ${TAVILY_API_KEY}"
       }
+    },
+    "svgicons": {
+      "type": "http",
+      "url": "https://svgicons.com/mcp"
     }
   }
 }

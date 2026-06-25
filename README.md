@@ -3,163 +3,143 @@
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/banner-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/banner-light.svg">
-      <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/banner-light.svg" alt="ai-engineering — AI governance framework" width="700">
+      <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/banner-light.svg" alt="{ai} engineering" width="720">
     </picture>
   </a>
 
-  <p><strong>{ai} engineering turns AI-assisted delivery into a governed local workflow.</strong></p>
+  <p><strong>Turn AI-assisted delivery into a governed local workflow — in any repo, any IDE.</strong></p>
 
   <p>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License: MIT"></a>
-    <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg" alt="PyPI"></a>
-    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-blue.svg" alt="Python 3.11+"></a>
-    <a href="https://github.com/arcasilesgroup/ai-engineering/actions"><img src="https://github.com/arcasilesgroup/ai-engineering/actions/workflows/ci-check.yml/badge.svg" alt="CI"></a>
-    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&metric=alert_status" alt="Quality Gate"></a>
-    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://sonarcloud.io/api/project_badges/measure?project=arcasilesgroup_ai-engineering&metric=coverage" alt="Coverage"></a>
-    <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><img src="https://snyk.io/test/github/arcasilesgroup/ai-engineering/badge.svg" alt="Snyk"></a>
+    <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg?style=flat-square&color=00D4AA&labelColor=0B1120" alt="PyPI version"></a>
+    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-00D4AA.svg?style=flat-square&labelColor=0B1120" alt="Python 3.11+"></a>
+    <a href="https://github.com/arcasilesgroup/ai-engineering/actions"><img src="https://img.shields.io/github/actions/workflow/status/arcasilesgroup/ai-engineering/ci-check.yml?branch=main&style=flat-square&labelColor=0B1120" alt="CI"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://img.shields.io/sonar/quality_gate/arcasilesgroup_ai-engineering?server=https%3A%2F%2Fsonarcloud.io&style=flat-square&labelColor=0B1120&color=00D4AA" alt="Quality Gate"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://img.shields.io/sonar/coverage/arcasilesgroup_ai-engineering?server=https%3A%2F%2Fsonarcloud.io&style=flat-square&labelColor=0B1120&color=00D4AA" alt="Coverage"></a>
+    <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><img src="https://img.shields.io/badge/Snyk-monitored-00D4AA?style=flat-square&labelColor=0B1120" alt="Snyk security"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-00D4AA.svg?style=flat-square&labelColor=0B1120" alt="License: MIT"></a>
   </p>
+
+  <p><code>54 skills · 9 agents · 6 surfaces · 1 governed flow</code></p>
+
+  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="Terminal demo: uv tool install ai-engineering, then ai-eng install . and ai-eng doctor both report [PASS], then open your IDE and run /ai-start" width="760">
 </div>
 
-<div align="center">
-  <picture>
-    <source srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.webp" type="image/webp">
-    <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="ai-eng install, then ai-eng doctor (warnings are advisory, non-blocking), then exploring the .ai-engineering tree plus 54 skills and 9 agents in VS Code, ending with /ai-start in Claude Code" width="900">
-  </picture>
-</div>
+`{ai} engineering` installs a deterministic governance layer into any repository — specs, decisions, skills, agents, hooks, and an audit trail, all as versioned local files. No hosted control plane. No provider lock-in. Every IDE follows the same rules.
 
-54 skills · 9 agents · 6 surfaces · 1 governed flow
+## Quickstart
 
-{ai} engineering installs a deterministic governance layer into any repository: specs, decisions, skills, agents, runbooks, hooks, and audit trails as versioned local files. No hosted control plane. No provider lock-in. Every IDE follows the same rules.
-
-## Install
-
-### 1.1 — Prerequisites
-
-Python 3.11+ and Git.
-
-### 1.2 — Install ai-engineering
-
-1. If you use `uv`, install the published PyPI release as a managed tool:
+Get a governed repo in under a minute — `{ai} engineering` is uv-first:
 
 ```bash
-uv tool install --force ai-engineering
-uv tool update-shell
-exec "$SHELL" -l
+uv tool install ai-engineering   # install the CLI
+ai-eng install .                 # add governance to your repo
+ai-eng doctor                    # [PASS] hooks, mirrors, manifest, required tools
 ```
 
-2. If you do not use `uv`, install with `pipx`:
+<details>
+<summary>Prefer <code>pip</code> or <code>pipx</code>?</summary>
 
 ```bash
 pipx install ai-engineering
-```
-
-3. If you do not use `uv` or `pipx`, install with `pip`:
-
-```bash
+# or
 python -m pip install --user ai-engineering
 ```
 
-If `ai-eng` is not available after the `pip` install, add Python's user scripts directory to your `PATH`, then reopen your shell.
+</details>
 
-4. Verify the CLI:
+Then open your editor and type `/ai-start`. Prefer to ease in? Start in observe mode and enforce only what proves useful.
 
-```bash
-ai-eng version
-```
+**What you get:** 54 skills and 9 agents you invoke with `/ai-<name>` · a spec-driven workflow · automatic checks on every change · versioned local files you own. Update any time with `ai-eng update`.
 
-5. Install governance into a repository:
+## The governed workflow
 
-```bash
-cd your-project
-ai-eng install .
-ai-eng doctor
-```
+You drive the intent and approve each step; the gates catch the rest — no secrets, broken docs, or untested changes reach a merge.
 
-[PASS] `doctor` confirms hooks, mirrors, manifest defaults, and required tools.
+<div align="center">
+  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/workflow.png" alt="The governed workflow: /ai-brainstorm agrees the spec, /ai-plan breaks it down, /ai-build or /ai-autopilot implements it, /ai-pr ships a reviewed and merged pull request. You approve each step; automatic checks (clean diff, tests, docs, review) must pass before merge." width="820">
+</div>
 
-To update later from PyPI:
+The canonical chain is **`/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`**. Use it whenever work changes product behavior, framework behavior, security posture, public docs, or release state. `/ai-commit` stays available for WIP checkpoints; it is not part of the chain.
 
-1. Upgrade the installed CLI with the command that matches your install method:
+## Your toolkit
 
-```bash
-uv tool upgrade ai-engineering
-# or
-pipx upgrade ai-engineering
-# or
-python -m pip install --user --upgrade ai-engineering
-```
+Fifty-four skills and nine agents cover the whole delivery loop — and the same commands work in every supported editor.
 
-These commands fetch the latest published `ai-engineering` release from PyPI.
+<div align="center">
+  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/toolkit.png" alt="54 skills and 9 agents grouped by what you do: plan and build, ship safely, design and docs, research and learn. The same commands run in Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor." width="820">
+</div>
 
-2. Verify that the new version is available:
+Need evidence? `/ai-research` returns cited findings from local context, the web, and async deep research. And because plans carry ready-to-apply patches, mechanical work routes to a smaller model — routine edits stay cheap.
 
-```bash
-ai-eng version
-```
+## Supported surfaces
 
-3. In each governed project, refresh the installed framework files:
-
-```bash
-cd your-project
-ai-eng update
-ai-eng doctor
-```
-
-## Governed Flow
-
-The canonical chain is:
-
-```text
-/ai-brainstorm → /ai-plan → /ai-build → /ai-pr
-```
-
-Use it when work changes product behavior, framework behavior, security posture, public docs, or release state. `/ai-commit` remains available for WIP checkpoints; it is not part of the canonical delivery chain.
-
-## Supported Surfaces
-
-One canonical payload is mirrored into all enabled surfaces:
+One canonical payload is mirrored, byte-for-byte, into every enabled surface.
 
 | Surface | Entry point |
 |---------|-------------|
 | Claude Code | [CLAUDE.md](CLAUDE.md) |
 | GitHub Copilot | [.github/copilot-instructions.md](.github/copilot-instructions.md) |
 | OpenAI Codex | [AGENTS.md](AGENTS.md) |
-| Antigravity | [AGENTS.md](AGENTS.md) + `.agents/` skills and agents |
-| OpenCode | `.opencode/` skills and commands |
-| Cursor | `.cursor/` skills |
+| Antigravity | [AGENTS.md](AGENTS.md) + `.agents/` |
+| OpenCode | `.opencode/` |
+| Cursor | `.cursor/` |
 
-The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibitions live in [CONSTITUTION.md](CONSTITUTION.md). Release history and breakage notes live in [CHANGELOG.md](CHANGELOG.md).
+The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibitions live in [CONSTITUTION.md](CONSTITUTION.md). Release history lives in [CHANGELOG.md](CHANGELOG.md).
 
-## Why Governance Matters
+## Highlights
 
-- Spec-driven work keeps LLM output tied to approved scope.
-- Deterministic gates catch secrets, broken mirrors, missing docs, and policy drift.
-- The local NDJSON audit chain records what happened without sending telemetry by default.
-- Skills and agents are file-backed, reviewable, and synchronized across IDEs.
+- **Ship a whole spec in one run** — `/ai-autopilot` decomposes it, builds a dependency DAG, runs parallel waves, and converges on a reviewed PR.
+- **What you approved is what shipped** — a brainstorm hard-gate plus a spec-lifecycle state machine keep every change anchored to the approved spec (Rung 2 SDD — spec and code stay in sync, not just spec-first that drifts).
+- **An audit trail you own** — every AI action lands in a hash-chained NDJSON log you can verify offline, with no telemetry by default.
+- **Every bypass has an owner and an expiry** — no `# noqa` or `@ts-ignore`; findings are refactored or formally risk-accepted with a severity-based TTL.
+- **Every tool call is screened before it runs** — a deterministic guard checks each edit, write, and shell command and stops risky ones.
+- **AI quality is a tested property** — skills are measured with pass@k, and a regression beyond five points blocks the pull request.
 
-## Standing on the shoulders of...
+## Documentation
 
-ai-engineering builds on ideas, patterns, and principles from these projects:
+- [docs/](docs/) — architecture, getting started, and the diagram set
+- [CONSTITUTION.md](CONSTITUTION.md) — mission, stakeholders, prohibitions
+- [CHANGELOG.md](CHANGELOG.md) — release history and breakage notes
+
+## Standing on the shoulders of
+
+`{ai} engineering` builds on ideas and patterns from these projects:
 
 | Project | What we learned |
 |---------|----------------|
 | [Superpowers](https://github.com/NicolasMontworker/superpowers) | Brainstorm hard-gate, TDD-for-skills patterns |
-| [review-code](https://github.com/peterknights1/review-code) | Handler-as-workflow architecture, parallel specialist agents, finding-validator |
-| [dotfiles/ai](https://github.com/ericbuess/dotfiles) | Agent matrix, SDLC coverage patterns |
+| [review-code](https://github.com/peterknights1/review-code) | Handler-as-workflow, parallel specialist agents |
+| [dotfiles/ai](https://github.com/ericbuess/dotfiles) | Agent matrix, SDLC coverage |
 | [autoresearch](https://github.com/vgel/autoresearch) | Radical simplicity as a design principle |
-| [Emil Kowalski](https://emilkowal.ski) | Motion principles, spring physics, easing strategy |
 | [SpecKit](https://github.com/speckit/speckit) | Spec-driven workflow inspiration |
-| [GSD](https://github.com/open-gsd/get-shit-done-redux) | Autonomous execution patterns |
-| [Anthropic Skills](https://github.com/anthropics/claude-code-skills) | Frontend-design, canvas, skill-creator — absorbed and extended |
+| [Anthropic Skills](https://github.com/anthropics/claude-code-skills) | Frontend-design, skill-creator — absorbed and extended |
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, testing, and the pull request process.
-
-## Code of conduct
-
-This project follows the Contributor Covenant Code of Conduct. See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, testing, and the pull request process. This project follows the Contributor Covenant [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Star history
+
+<div align="center">
+  <a href="https://star-history.com/#arcasilesgroup/ai-engineering&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date&theme=dark">
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date">
+      <img src="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date" alt="Star history chart for arcasilesgroup/ai-engineering" width="640">
+    </picture>
+  </a>
+</div>
+
+## Contributors
+
+<div align="center">
+  <a href="https://github.com/arcasilesgroup/ai-engineering/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=arcasilesgroup/ai-engineering" alt="ai-engineering contributors">
+  </a>
+</div>
+
+Made with [contrib.rocks](https://contrib.rocks).
