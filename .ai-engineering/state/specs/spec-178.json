@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "chore/spec-178-landing-site",
   "created": "2026-06-25T03:53:32.482270+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "607",
+  "shipped": "2026-06-25T08:05:04.016990+00:00",
   "slug": "ai-engineering-website",
   "spec_id": "spec-178",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Public landing site for {ai} engineering on Cloudflare Pages"
 }
