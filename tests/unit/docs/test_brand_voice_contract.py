@@ -17,8 +17,12 @@ PII_PATTERNS = (
 def test_brand_voice_reference_exists_and_cites_design_sources() -> None:
     text = BRAND.read_text(encoding="utf-8")
     for needle in (
-        "docs/design.pen:",
-        "docs/untitled.pen:",
+        # spec-177 D-177-08: the opaque .pen design files were retired; the live
+        # visual source of truth is now the committed banner SVG, the brand-token
+        # reference, and the diagram builder.
+        ".github/assets/banner-dark.svg",
+        "docs/architecture/brand-tokens.md",
+        "docs/architecture/diagrams/build_diagrams.py",
         # spec-153 W3: the design-intent doc was reaped into the uniform
         # per-spec archive directory (D-153-06); the brand-voice reference
         # tracks its canonical archived home.

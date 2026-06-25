@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-06-24T22:27:41.113314+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "docs-rewrite-visual-system",
+  "spec_id": "spec-177",
+  "state": "in_progress",
+  "title": "Rewrite human-facing docs from scratch with branded hybrid-diagram visual system"
+}

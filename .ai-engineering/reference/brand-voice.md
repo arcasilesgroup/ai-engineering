@@ -1,15 +1,13 @@
 # Brand Voice
 
-This is the prose authority for spec-144 README and onboarding copy. The visual sources remain `docs/design.pen` and `docs/untitled.pen`; this Markdown file is the small, reviewable Tier 4 reference that writers and agents should use for text-only documentation.
+This is the prose authority for README and onboarding copy. The visual sources are the committed, reviewable brand assets (the opaque `.pen` design files were retired in spec-177); this Markdown file is the small Tier 4 reference that writers and agents should use for text-only documentation.
 
 ## Evidence
 
 - `.ai-engineering/specs/archive/spec-144-readme-rewrite-and-branch-cleanup-rename/design-intent.md` defines the approved direction: terminal-native editorial governance.
-- `docs/design.pen:40` and `docs/design.pen:3291` are the captured design-source evidence for the `{ai} engineering` wordmark.
-- `docs/design.pen:3862-3911` is the captured evidence for `[PASS]`, `[WARN]`, and `[FAIL]` status grammar.
-- `docs/untitled.pen:522` is the captured evidence for shell-prompt CTAs.
-- `docs/untitled.pen:1517` is the captured evidence for code-comment headers.
-- `docs/untitled.pen:1944` is the captured evidence for the mid-dot stat line pattern.
+- `.github/assets/banner-dark.svg` is the canonical source for the `{ai} engineering` wordmark and the navy/teal palette.
+- `docs/architecture/brand-tokens.md` codifies the palette, JetBrains-Mono type, `[PASS]`/`[WARN]`/`[FAIL]` status grammar, and the mid-dot stat line.
+- `docs/architecture/diagrams/build_diagrams.py` is the source for the README diagram system (shell-prompt CTAs, code-comment headers, branded figures).
 
 ## Naming
 
@@ -64,4 +62,4 @@ Root README copy should be concise: hero, install, canonical chain, current surf
 - Do not add machine-specific paths, names, or conversational references.
 - Do not make image-only onboarding paths.
 - Do not use decorative symbols where text carries the meaning.
-- Do not edit `.pen` files when updating prose.
+- Do not hand-edit rendered brand assets (SVGs, diagram PNGs); change the source (`build_diagrams.py`, `brand-tokens.md`, the banner SVGs) and re-render in CI.
