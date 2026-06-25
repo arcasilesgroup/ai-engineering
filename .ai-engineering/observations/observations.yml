@@ -1,5 +1,5 @@
 schemaVersion: '2.0'
-updatedAt: '2026-06-07T20:40:00Z'
+updatedAt: '2026-06-25T02:54:31Z'
 corrections:
 - pattern: Verify file naming convention (underscore vs hyphen) before asserting files
     are missing
@@ -23,9 +23,9 @@ corrections:
   action: Stay on the active branch, push commits to it, retitle the existing PR via
     `gh pr edit`, do NOT invoke /ai-pr in 'create PR' mode
   relatedSkill: ai-build
-  diagnostic: "User said 'Super importante! No crear nueva rama, ni crear nuevo pr.'\
-    \ before /ai-build. Default ai-build/ai-pr flow would have created new PR \u2014\
-    \ explicit constraint required overriding the default deliver path"
+  diagnostic: User said 'Super importante! No crear nueva rama, ni crear nuevo pr.'
+    before /ai-build. Default ai-build/ai-pr flow would have created new PR — explicit
+    constraint required overriding the default deliver path
   skillIssue: Deliver phase default assumes new PR creation; needs to detect user-prohibited
     PR creation and switch to 'update existing PR' mode
   confidence: 0.7
@@ -40,9 +40,9 @@ corrections:
     eval gate); (3) items that LOOK cuttable but are DANGEROUS to cut (would silently
     break invariants). Per item: effort, risk, what-breaks, what-mitigates'
   relatedSkill: ai-explain
-  diagnostic: "User invoked /ai-explain twice \u2014 once for full gap analysis, once\
-    \ for cut decision. Three-bucket model with effort+risk+dependencies surfaced\
-    \ the right scope reduction"
+  diagnostic: User invoked /ai-explain twice — once for full gap analysis, once for
+    cut decision. Three-bucket model with effort+risk+dependencies surfaced the right
+    scope reduction
   skillIssue: ai-explain didn't surface 'depends on missing infra' as a first-class
     trade-off axis without prompting
   confidence: 0.3
@@ -91,9 +91,9 @@ corrections:
     + same pytest selection on baseline; if baseline PASSES, reclassify as introduced
     regression (blocker); cross-reference across all wave Self-Reports
   relatedSkill: ai-verify
-  diagnostic: "spec-131 Phase 5 found 17 tests classified 'pre-existing' across 3\
-    \ Self-Reports (sub-003 x5, sub-005 x9, sub-001+sub-004 x3); baseline `f7de1cfb`\
-    \ PASSED all 17 \u2014 pre-existing claims were inaccurate at scale"
+  diagnostic: spec-131 Phase 5 found 17 tests classified 'pre-existing' across 3 Self-Reports
+    (sub-003 x5, sub-005 x9, sub-001+sub-004 x3); baseline `f7de1cfb` PASSED all 17
+    — pre-existing claims were inaccurate at scale
   skillIssue: ai-build agents trust their own pre-existing classification; ai-verify
     Phase 5 protocol does not mandate baseline cross-check by default
   confidence: 0.3
@@ -120,15 +120,15 @@ corrections:
   lastSeen: '2026-05-14T15:00:00Z'
 - pattern: Lifecycle CLI needs `mark_done` verb for operator manual completion (no
     PR-merge required)
-  trigger: "User declares 'spec-NNN ya est\xE1 done/completada' but the spec_lifecycle\
-    \ JSON shows `state=draft`"
+  trigger: User declares 'spec-NNN ya está done/completada' but the spec_lifecycle
+    JSON shows `state=draft`
   action: Add `python3 spec_lifecycle.py mark_done <slug> --reason "operator declaration"`
     verb to spec_lifecycle.py CLI that transitions DRAFT -> DONE without requiring
     --pr / --branch; mark_shipped remains separate (post-merge with PR sha)
   relatedSkill: ai-brainstorm
-  diagnostic: "spec-129 stayed at state=draft after operator said 'ya est\xE1 done'\
-    \ (2026-05-11); spec_lifecycle.py only has start_new / mark_shipped / archive\
-    \ / sweep / status / migrate-history"
+  diagnostic: spec-129 stayed at state=draft after operator said 'ya está done' (2026-05-11);
+    spec_lifecycle.py only has start_new / mark_shipped / archive / sweep / status
+    / migrate-history
   skillIssue: Lifecycle FSM lacks DONE-without-merge transition; operator declarations
     have no CLI verb
   confidence: 0.3
@@ -145,8 +145,8 @@ corrections:
   relatedSkill: ai-autopilot
   diagnostic: sub-006 + sub-007 Phase 2 emitted heading-form tasks; orchestrator checkbox
     grep returned 0/0; had to fall back to Self-Report-only verification
-  skillIssue: "phase-deep-plan.md example block is ambiguous \u2014 shows both forms;\
-    \ doesn't enforce checkbox-form via gate"
+  skillIssue: phase-deep-plan.md example block is ambiguous — shows both forms; doesn't
+    enforce checkbox-form via gate
   confidence: 0.3
   evidenceCount: 1
   domain: project
@@ -176,9 +176,9 @@ corrections:
     whether the happy path is already correct; scope the fix to the real gap (often
     edge-case-only), not a rewrite of working behavior
   relatedSkill: ai-brainstorm
-  diagnostic: "spec-167 slot-clobber question \u2014 user redirected from 'design\
-    \ the guard' to 'is current consolidation fine?'; answering surfaced that /ai-pr\
-    \ already auto-consolidates and the gap was edge-case-only"
+  diagnostic: spec-167 slot-clobber question — user redirected from 'design the guard'
+    to 'is current consolidation fine?'; answering surfaced that /ai-pr already auto-consolidates
+    and the gap was edge-case-only
   skillIssue: ai-brainstorm interrogation jumps to solution options without first
     confirming and presenting the current-state baseline the user is implicitly questioning
   confidence: 0.3
@@ -212,10 +212,10 @@ recoveries:
     once with the parent dir. Document the reconciliation in the package's `__init__.py`
     docstring
   relatedSkill: ai-build
-  diagnostic: "spec-129 brief \xA714.1 wrote `_lib/manifest_reader.py` but T-1 tests\
-    \ pinned `from skill_scripts_lib.manifest_reader import ...`. T-2 reconciled by\
-    \ creating `skill_scripts_lib/` dir + pythonpath extension; documented in __init__.py\
-    \ why _lib was a placeholder"
+  diagnostic: spec-129 brief §14.1 wrote `_lib/manifest_reader.py` but T-1 tests pinned
+    `from skill_scripts_lib.manifest_reader import ...`. T-2 reconciled by creating
+    `skill_scripts_lib/` dir + pythonpath extension; documented in __init__.py why
+    _lib was a placeholder
   skillIssue: Spec writers use `_lib/` as conceptual shorthand for 'internal helpers'
     but Python package naming requires the importable name match the dir; ai-build
     needs to surface this reconciliation early in Wave 1
@@ -298,10 +298,9 @@ recoveries:
     exemption and combined ceiling, cp live .ai-engineering/README catalog to its
     template twin, bump root README stat+alt-text, confirm `ai-eng check` 7/7
   relatedSkill: ai-build
-  diagnostic: "spec-165 /ai-session-watch-sweep (54th skill) bounced CI on hardcoded\
-    \ \"53\" count assertions; spec-167 /ai-pr Step 14b bounced CI on the combined\
-    \ skill-line budget (416 > 410) \u2014 both invisible to a touched-dir subset\
-    \ verify"
+  diagnostic: spec-165 /ai-session-watch-sweep (54th skill) bounced CI on hardcoded
+    "53" count assertions; spec-167 /ai-pr Step 14b bounced CI on the combined skill-line
+    budget (416 > 410) — both invisible to a touched-dir subset verify
   skillIssue: ai-build/ai-pr quality-check verifies touched dirs only; count + line-budget
     gates live elsewhere and only fire in full CI
   confidence: 0.3
@@ -309,81 +308,85 @@ recoveries:
   domain: project
   lastSeen: '2026-06-04T15:02:25Z'
 - pattern: rtk rewrites gh/git subcommands and injects --no-verify into git commit/push;
-    full-path binary is NOT enough for commit/push — run git from a script FILE by path
+    full-path binary is NOT enough for commit/push — run git from a script FILE by
+    path
   trigger: A gh/git command fails with an rtk-origin error (rtk 'Run ID required'),
     OR `git commit`/`git push` is denied by the repo §13.6 guard ('git --no-verify
     is denied') because rtk silently injected --no-verify
   action: For read-only gh/git, `command "$(/usr/bin/which gh)" ...` suffices. For
     `git commit`/`git push` that is NOT enough — rtk still matches the literal 'git
     commit'/'git push' in the Bash command STRING and injects --no-verify. Write the
-    full `/usr/bin/git commit -F <msgfile>` invocation into a script file (via the Write
-    tool, so the bytes never pass through the Bash hook) and run it as `sh <path>`; the
-    rtk hook sees only `sh <path>` and cannot rewrite it. Native pre-commit/pre-push
+    full `/usr/bin/git commit -F <msgfile>` invocation into a script file (via the
+    Write tool, so the bytes never pass through the Bash hook) and run it as `sh <path>`;
+    the rtk hook sees only `sh <path>` and cannot rewrite it. Native pre-commit/pre-push
     hooks then run normally
   relatedSkill: ai-pr
   diagnostic: spec-168 /ai-pr — `command "$(/usr/bin/which git)" commit` STILL got
     --no-verify injected (repo guard denied 'spec-131 sub-004 T-4.E'); the script-file
     `sh .ai-engineering/runtime/commit168.sh` evasion committed cleanly with all native
-    gate hooks passing. Also tmp files vanish across Bash calls (isolated /tmp) — write
-    the msg + commit in ONE script or under .ai-engineering/runtime/
-  skillIssue: ai-pr commit/push steps assume vanilla git; the rtk Bash-hook rewrite of
-    the command STRING (not just the binary) is invisible until the guard denies it
-  confidence: 0.5
+    gate hooks passing. Also tmp files vanish across Bash calls (isolated /tmp) —
+    write the msg + commit in ONE script or under .ai-engineering/runtime/
+  skillIssue: ai-pr commit/push steps assume vanilla git; the rtk Bash-hook rewrite
+    of the command STRING (not just the binary) is invisible until the guard denies
+    it
+  confidence: 0.3
   evidenceCount: 2
   domain: team
   lastSeen: '2026-06-07T20:40:00Z'
-- pattern: ruff UP017 (pyupgrade, target py311) reverts timezone.utc -> datetime.UTC during
-    gate auto-fix; py3.9-portable scripts need a per-file UP017 ignore, not an inline noqa
+- pattern: ruff UP017 (pyupgrade, target py311) reverts timezone.utc -> datetime.UTC
+    during gate auto-fix; py3.9-portable scripts need a per-file UP017 ignore, not
+    an inline noqa
   trigger: A script that must run under bare `python3` (system 3.9 on macOS — hooks,
     spec_lifecycle, regenerate-hooks-manifest) uses `timezone.utc`, but the gate's
-    `ruff check --fix` keeps rewriting it to the 3.11-only `datetime.UTC`, breaking a
-    portability test on the mac/win CI matrix
+    `ruff check --fix` keeps rewriting it to the 3.11-only `datetime.UTC`, breaking
+    a portability test on the mac/win CI matrix
   action: Add the path to `[tool.ruff.lint.per-file-ignores]` with `["UP017"]` (config
     ignore is allowed; inline `# noqa` is §13.2-forbidden), then restore `from datetime
     import datetime, timezone` + `datetime.now(tz=timezone.utc)`. Follow the existing
     spec_lifecycle.py precedent and add BOTH the canonical and templates/ twin paths
   relatedSkill: ai-pr
-  diagnostic: spec-168 Hook Tests (mac+win) failed test_regen_manifest_portable after the
-    gate's ruff auto-fix flipped regenerate-hooks-manifest.py back to datetime.UTC; per-file
-    UP017 ignore on both copies + timezone.utc restore fixed it
-  skillIssue: the gate's Wave-1 ruff --fix and the portability test enforce opposite things;
-    no guard warns that editing a 3.9 script's datetime import will be auto-reverted
+  diagnostic: spec-168 Hook Tests (mac+win) failed test_regen_manifest_portable after
+    the gate's ruff auto-fix flipped regenerate-hooks-manifest.py back to datetime.UTC;
+    per-file UP017 ignore on both copies + timezone.utc restore fixed it
+  skillIssue: the gate's Wave-1 ruff --fix and the portability test enforce opposite
+    things; no guard warns that editing a 3.9 script's datetime import will be auto-reverted
   confidence: 0.3
   evidenceCount: 1
   domain: stack
   lastSeen: '2026-06-07T20:40:00Z'
 - pattern: Mid-session 'No stderr output' tool denials (Edit/Write/Bash) are the PRISM
     risk-accumulator lockout, not a real policy block; clear the score file to unblock
-  trigger: Edit/Write/Bash calls start failing with a PreToolUse hook error showing 'No
-    stderr output' (often after many external curls / IOC-adjacent strings in one session)
+  trigger: Edit/Write/Bash calls start failing with a PreToolUse hook error showing
+    'No stderr output' (often after many external curls / IOC-adjacent strings in
+    one session)
   action: '`rm -f .ai-engineering/runtime/risk-score.json` to reset the accumulated
-    risk score below the block threshold (it is gitignored session state, not source of
-    truth), then retry the tool call'
+    risk score below the block threshold (it is gitignored session state, not source
+    of truth), then retry the tool call'
   relatedSkill: ai-pr
-  diagnostic: spec-168 — curl to sonarcloud.io for the quality-gate JSON was denied with
-    'prompt-injection-guard.py -> No stderr output'; removing risk-score.json unblocked the
-    fetch (it had crossed threshold from IOC false-positives)
+  diagnostic: spec-168 — curl to sonarcloud.io for the quality-gate JSON was denied
+    with 'prompt-injection-guard.py -> No stderr output'; removing risk-score.json
+    unblocked the fetch (it had crossed threshold from IOC false-positives)
   skillIssue: the risk accumulator gives no actionable message on lockout; the operator
     must know the runtime score file is the reset lever
   confidence: 0.3
   evidenceCount: 1
   domain: project
   lastSeen: '2026-06-07T20:40:00Z'
-- pattern: SonarCloud quality gate fails new PRs on new_coverage < 80% — new code branches
-    (esp. fail-loud except/post-condition paths) need explicit tests even when the happy
-    path is covered
-  trigger: All functional CI is green but the SonarCloud / CI Result checks fail; the PR
-    added new code with conditional error-handling branches
+- pattern: SonarCloud quality gate fails new PRs on new_coverage < 80% — new code
+    branches (esp. fail-loud except/post-condition paths) need explicit tests even
+    when the happy path is covered
+  trigger: All functional CI is green but the SonarCloud / CI Result checks fail;
+    the PR added new code with conditional error-handling branches
   action: Query `https://sonarcloud.io/api/qualitygates/project_status?projectKey=<key>&pullRequest=<N>`
     to read the failing condition; for new_coverage, add targeted tests (monkeypatch
-    subprocess to raise for OSError/Timeout branches; stub a script that exits 0 then 1
-    on --check for post-condition branches) until the new block is fully covered
+    subprocess to raise for OSError/Timeout branches; stub a script that exits 0 then
+    1 on --check for post-condition branches) until the new block is fully covered
   relatedSkill: ai-pr
   diagnostic: spec-168 — Sonar new_coverage was 62.5% < 80% on the new _finalize_hooks_manifest
     fail-loud branches; 3 added tests (stale-after-regen, regen OSError, check OSError)
     closed the gap and the gate passed
-  skillIssue: the local fast-slice gate has no new-code-coverage check; Sonar's 80% new-code
-    floor only surfaces in the cloud run after push
+  skillIssue: the local fast-slice gate has no new-code-coverage check; Sonar's 80%
+    new-code floor only surfaces in the cloud run after push
   confidence: 0.3
   evidenceCount: 1
   domain: project
@@ -415,9 +418,9 @@ recoveries:
     route through `_shared/consolidate-spec.md`, whose SHIPPED-precondition guard
     refuses a non-SHIPPED record
   relatedSkill: ai-pr
-  diagnostic: "spec-167 D-167-07 dogfood \u2014 Step 14b first said 'run the shared\
-    \ handler', which would reject the in_progress pre-merge spec; corrected to mark_shipped\
-    \ direct, the guarded handler stays the manual/backstop path"
+  diagnostic: spec-167 D-167-07 dogfood — Step 14b first said 'run the shared handler',
+    which would reject the in_progress pre-merge spec; corrected to mark_shipped direct,
+    the guarded handler stays the manual/backstop path
   skillIssue: the shared consolidate-spec handler is post-merge-shaped (refuse-if-not-SHIPPED);
     the new pre-merge flow needed the load-bearing call directly
   confidence: 0.3
@@ -455,8 +458,8 @@ workflows:
   evidenceCount: 1
   domain: project
   lastSeen: '2026-05-14T14:30:00Z'
-- pattern: "Seven-step chain executes partial: /ai-explain \u2192 /ai-brainstorm \u2192\
-    \ /ai-plan \u2192 /ai-build, ending without /ai-pr when user prohibits new PR"
+- pattern: 'Seven-step chain executes partial: /ai-explain → /ai-brainstorm → /ai-plan
+    → /ai-build, ending without /ai-pr when user prohibits new PR'
   trigger: User asks 'is this implemented' followed by 'reduce scope' followed by
     'execute the plan' with explicit constraint to land on existing branch + PR
   action: 'Replace deliver step''s ''/ai-pr'' invocation with: commit chunks via direct
@@ -481,13 +484,13 @@ workflows:
   lastSeen: '2026-05-14T15:00:00Z'
 - pattern: Staged autopilot delivery on existing PR aggregate (multiple specs same
     PR)
-  trigger: "Operator constraint 'todo aqu\xED, mismo PR' across multiple sequential\
-    \ /ai-autopilot dispatches on the same branch"
-  action: "Per spec: Phase 1-6 produces wave commits + closure commit chain. After\
-    \ each spec's Phase 6 ships, `gh pr edit <num> --title <combined> --body-file\
-    \ <combined.md>` to reflect aggregate scope. Skip Phase 6 cleanup (rm runtime/autopilot/,\
-    \ clear spec.md/plan.md) until aggregate PR merges \u2014 operator declares stages\
-    \ complete manually via lifecycle mark_done"
+  trigger: Operator constraint 'todo aquí, mismo PR' across multiple sequential /ai-autopilot
+    dispatches on the same branch
+  action: 'Per spec: Phase 1-6 produces wave commits + closure commit chain. After
+    each spec''s Phase 6 ships, `gh pr edit <num> --title <combined> --body-file <combined.md>`
+    to reflect aggregate scope. Skip Phase 6 cleanup (rm runtime/autopilot/, clear
+    spec.md/plan.md) until aggregate PR merges — operator declares stages complete
+    manually via lifecycle mark_done'
   relatedSkill: ai-autopilot
   confidence: 0.3
   evidenceCount: 1

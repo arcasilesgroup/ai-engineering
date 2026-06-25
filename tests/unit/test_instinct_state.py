@@ -380,6 +380,44 @@ class TestSaveInstinctsDocumentIdempotent:
         assert reloaded["updatedAt"] != first
         assert len(reloaded["corrections"]) == 2
 
+    def test_noop_session_with_stale_confidence_does_not_rewrite(self, tmp_path: Path) -> None:
+        """Regression: a no-merge session must NOT rescore confidence.
+
+        Parity with the hook-lib guard: a stored confidence that disagrees with
+        ``confidence_for_count`` (e.g. a hand-authored / consolidated value) was
+        flipped on every session by the unconditional rescore loop, bypassing the
+        spec-162 idempotency guard and churning the tracked corpus. The rescore
+        now only runs when a merge actually changed an evidenceCount.
+        """
+        from ai_engineering.state import instincts as st
+
+        _seed_manifest(tmp_path)
+        doc = st.default_instincts_document()
+        doc["recoveries"] = [
+            {
+                "pattern": "stale-confidence recovery",
+                "trigger": "x",
+                "action": "y",
+                "confidence": 0.5,  # disagrees with confidence_for_count(2) == 0.3
+                "evidenceCount": 2,
+                "domain": "project",
+            }
+        ]
+        st.save_instincts_document(tmp_path, doc)
+        before = st.instincts_path(tmp_path).read_bytes()
+
+        # A lone Read yields no error-recovery and no skill-workflow to merge.
+        append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PreToolUse",
+            session_id="session-stale",
+            data={"tool_name": "Read", "tool_input": {"file_path": "README.md"}},
+        )
+        extract_instincts(tmp_path)
+
+        assert st.instincts_path(tmp_path).read_bytes() == before  # no rescore, no churn
+
 
 def test_spec176_corpus_writer_emits_literal_unicode_and_is_idempotent(tmp_path: Path) -> None:
     """spec-176: the pip-twin corpus writer emits LITERAL unicode (allow_unicode=True).
