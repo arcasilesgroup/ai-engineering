@@ -689,6 +689,36 @@ class TestSaveInstinctsDocumentIdempotent:
 
         assert inst_path.read_bytes() == before  # observations.yml untouched
 
+    def test_noop_session_with_stale_confidence_does_not_rewrite(self, project: Path) -> None:
+        """Regression: a no-merge session must NOT rescore confidence.
+
+        A stored confidence that disagrees with ``confidence_for_count`` (e.g. a
+        hand-authored / consolidated value) used to be flipped on every session
+        by the unconditional rescore loop, bypassing the spec-162 idempotency
+        guard and churning the tracked corpus forever. The rescore now only runs
+        when a merge actually changed an evidenceCount.
+        """
+        doc = instincts._default_instincts_document()
+        doc["recoveries"] = [
+            {
+                "pattern": "stale-confidence recovery",
+                "trigger": "x",
+                "action": "y",
+                "confidence": 0.5,  # disagrees with confidence_for_count(2) == 0.3
+                "evidenceCount": 2,
+                "domain": "project",
+            }
+        ]
+        instincts._save_instincts_document(project, doc)
+        inst_path = project / instincts.INSTINCTS_REL
+        before = inst_path.read_bytes()
+
+        # A lone Read yields no error-recovery and no skill-workflow to merge.
+        _write_obs(project, [_make_obs(tool="Read", kind="tool_start")])
+        instincts.extract_instincts(project)
+
+        assert inst_path.read_bytes() == before  # no rescore, no churn
+
 
 def test_spec176_corpus_writer_emits_literal_unicode_and_is_idempotent(project: Path) -> None:
     """spec-176: the corpus writer must emit LITERAL unicode (allow_unicode=True),

@@ -226,10 +226,15 @@ def extract_instincts(project_root: Path) -> bool:
         builder=_build_workflow_entry,
     )
 
-    # Apply confidence scoring to all merged entries
-    for family in ("recoveries", "workflows"):
-        for entry in document[family]:
-            entry["confidence"] = confidence_for_count(entry.get("evidenceCount", 1))
+    # Rescore confidence only when a merge actually changed an evidenceCount.
+    # Rescoring on a no-op session would flip any stale stored confidence (e.g.
+    # a hand-authored value that disagrees with confidence_for_count) on every
+    # run, defeating the spec-162 idempotency guard and churning the tracked
+    # corpus every session. ponytail: gate on merge, not per-entry rescope.
+    if recovery_counts or workflow_counts:
+        for family in ("recoveries", "workflows"):
+            for entry in document[family]:
+                entry["confidence"] = confidence_for_count(entry.get("evidenceCount", 1))
 
     save_instincts_document(project_root, document)
 
