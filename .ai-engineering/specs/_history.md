@@ -186,5 +186,6 @@ Completed specs. Details in git history.
 | spec-154 | Resolve Python >=3.11 interpreter for Claude Code hook dispatch | shipped | 2026-05-29 | 2026-06-26 | — | — |
 | spec-166 | Exempt docs-only and fork PRs from gate-trailer CI gate | shipped | 2026-06-03 | 2026-06-26 | — | — |
 | spec-180 | Normalize spec-state ledger and dogfood template parity | shipped | 2026-06-26 | 2026-06-26 | 612 | spec-180-state-ledger-normalization |
+| spec-181 | ai-pr small-model robustness | shipped | 2026-06-26 | 2026-06-26 | 613 | refactor/ai-pr-small-model-robustness |
 
 ---
