@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-06-25
+
 ### Changed
 
 - spec-177: Rewrite the human-facing documentation around how you *use*
@@ -33,6 +35,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The opaque `.pen` design files, a stray `.DS_Store`, the empty
   `docs/presentations/` directory, and the Remotion `demo.webp` (replaced by
   the VHS-rendered `demo.gif`).
+
+### Fixed
+
+- fix(instincts): gate the Stop-hook confidence rescore so no-op sessions stop
+  churning the instinct corpus (`observations.yml`). `extract_instincts` rewrote
+  `confidence = confidence_for_count(evidenceCount)` for every entry
+  unconditionally, flipping a hand-authored consolidation value
+  (`recoveries[7]` 0.5→0.3) on every session — defeating the spec-162
+  idempotency guard and re-dumping the whole file as perpetual git-noise.
+  Rescore now runs only when a merge actually changed an `evidenceCount`; the
+  corpus is drained to a self-consistent fixpoint. Touches both writers
+  (`_lib/instincts.py` + the pip-twin `state/instincts.py`) and the template
+  mirror in byte-parity, regenerates the sha-pinned hooks-manifest, and pins
+  the behaviour with idempotency regression tests in both suites. spec-176
+  follow-up.
 
 ## [0.12.0] - 2026-06-24
 
