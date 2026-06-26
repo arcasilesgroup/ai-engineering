@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- spec-181: Hardened the `/ai-pr` skill for small-model (sonnet-tier)
+  reliability — a prose-layer restructure with no behavior change. Added a
+  terminal self-verify step that fails loud when the spec/plan slot, the
+  `_history.md` row, the staged docs, or the PR are missing (catching the
+  silently-skipped consolidation class behind PR #190); collapsed the pre-push
+  gate's duplicate description to a single canonical Step 9 (the label
+  `ai-build/handlers/deliver.md` cites) plus a concurrent-dispatch pointer;
+  removed a dead pointer step; and hoisted the `--draft` / existing-PR /
+  placeholder-spec conditionals into one up-front decision preamble. SKILL.md
+  only, line-neutral within the skill-line budget.
 - spec-180: Normalize the spec-state ledger and guard dogfood template parity.
   Reconciled the 40 `.ai-engineering/state/specs/*.json` sidecars to their true
   state via a three-signal evidence test (merged PR / `_history` row / archive /

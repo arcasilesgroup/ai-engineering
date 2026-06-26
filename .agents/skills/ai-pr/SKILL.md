@@ -33,6 +33,10 @@ Governed PR creation: full commit pipeline, pre-push gates, structured PR with s
 
 ## Process
 
+### Decision preamble (resolve once)
+
+Resolve before Step 0; later steps read these, never re-decide. `draft?` (`--draft`) → skip review request, consolidation (Step 14b), watch loop. `existing_pr?` (`gh pr list --head <branch>` / `az repos pr list` finds a PR) → extend, never overwrite. `placeholder_spec?` (`spec.md` = `# No active spec`) → skip spec ops + consolidation, fall back to label-based PR body.
+
 ### Steps 0-6: Inline Commit Pipeline
 
 Step 0 — **Auto-branch** from `main`/`master`: infer type (`feat/`, `fix/`, `chore/`, `docs/`, `refactor/`), generate slug with `python3 .ai-engineering/scripts/branch_slug.py --prefix <type>`, then `git checkout -b <output>`.
@@ -52,16 +56,10 @@ Total wall-clock = `max(docs, pre-push)`, NOT `sum`. Docs subagents and the pre-
 3. **Dispatch 3 concurrent lanes**, block on `max(lane1, lane2, lane3)`:
    - **Lane 1 -- docs A1**: `/ai-docs changelog` + `/ai-docs readme` (if enabled).
    - **Lane 2 -- docs A2**: `/ai-docs solution-intent-sync` (if architecture changed) + `/ai-docs docs-portal` + `/ai-docs docs-quality-gate`. Zero uncovered items required.
-
-- **Lane 3 -- pre-push gate**: `ai-eng gate run --cache-aware --json --mode=local` (orchestrator delivers Wave 1 fixers serial then Wave 2 checkers parallel; see step 9).
-
+   - **Lane 3 -- pre-push gate**: dispatched concurrently here; Step 9 owns the full description. Do not restate the gate command in both places.
 4. **Stage all docs files** produced by lanes 1-2 BEFORE PR creation. spec-104 NG-7 forbids deferring docs to a separate commit -- regulated audience requires clean audit history.
 
-### 8. Instinct consolidation
-
-See Step 2 — `/ai-session-watch --review` runs once before commit if `.ai-engineering/observations/observations.yml` exists.
-
-### 9. Pre-push gate (concurrent Lane 3 of step 7)
+### 9. Pre-push gate (canonical description; concurrent Lane 3 of step 7)
 
 Dispatched concurrently with the docs lanes — total wall-clock is `max(docs, pre-push)`, not the legacy sum. `ai-eng gate run --cache-aware --json --mode=local` runs Wave 1 fixers (`ruff format` → `ruff check --fix` → `spec verify --fix`) in parallel with Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate). CI uses `--mode=ci` (adds `semgrep`, `pip-audit`, full `pytest` matrix). Non-zero exit → parse `gate-findings.json`, report, STOP; resolve or accept via `ai-eng risk accept-all` (see `.ai-engineering/reference/risk-acceptance-flow.md`).
 
@@ -106,6 +104,10 @@ For new PRs with `refs`: invoke `/ai-board sync in_review <ref>` for each non-`n
 Auto-complete only queues the merge -- CI must pass first. The Step 14b consolidation commit is already part of the branch, so the CI run the loop watches is the FINAL commit set — and it now runs against the idle `# No active spec` slot (D-167-07); every spec.md-reading gate must tolerate that placeholder. Enter the watch-and-fix loop following `handlers/watch.md`. The loop polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
 
 Once `state == "MERGED"`: run `/ai-branch-cleanup --all` and report.
+
+### 17. Self-verify (terminal)
+
+Turn "did every step run?" into a checkable post-condition — the catch for a silently-skipped consolidation (the PR #190 class). Re-read + assert; any failure → STOP loud, naming the skip. **Always** assert: the step-7 CHANGELOG/README edits rode this commit (not deferred); the Step 14 PR number resolves (`gh pr view <N>` / `az repos pr show`). **Unless** `draft?` or `placeholder_spec?` (nothing consolidated), also assert: `spec.md`/`plan.md` cleared to the `# No active spec`/`# No active plan` placeholders; `_history.md` carries the `spec-NNN` row.
 
 ### `/pr --only` / `/pr --draft`
 
