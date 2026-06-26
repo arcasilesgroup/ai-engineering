@@ -32,11 +32,12 @@ if str(_REPO_ROOT) not in sys.path:
 _REMEDY = "run: python scripts/sync_mirrors/core.py"
 
 
-def test_sync_all_check_mode_reports_clean() -> None:
+def test_sync_all_check_mode_reports_clean(template_hooks_lock) -> None:
     """``sync_all(check_only=True)`` must exit 0 -- no tracked drift."""
     from scripts.sync_command_mirrors import sync_all
 
-    exit_code = sync_all(check_only=True)
+    with template_hooks_lock():  # serialize vs test_orphan_* probe writes
+        exit_code = sync_all(check_only=True)
     assert exit_code == 0, f"Mirror drift detected -- {_REMEDY}"
 
 
@@ -102,7 +103,9 @@ def test_specialist_agent_claude_template_carries_provenance() -> None:
     )
 
 
-def test_orphan_py_in_template_hooks_is_flagged_but_launchers_are_safe() -> None:
+def test_orphan_py_in_template_hooks_is_flagged_but_launchers_are_safe(
+    template_hooks_lock,
+) -> None:
     """spec-159 D-159-04: orphan cleanup of the template hooks subtree is
     scoped to ``*.py`` ONLY.
 
@@ -119,6 +122,11 @@ def test_orphan_py_in_template_hooks_is_flagged_but_launchers_are_safe() -> None
     stray_sh = TPL_HOOK_SCRIPTS / "spec159_stray_launcher_probe.sh"
     stray_ps1 = TPL_HOOK_SCRIPTS / "spec159_stray_launcher_probe.ps1"
     created = [stray_py, stray_sh, stray_ps1]
+    # Hold the cross-process mutex for the whole probes-on-disk window so a
+    # parallel worker running test_template_parity cannot read the shared
+    # template hooks dir mid-write (spec-181 follow-up: parallel-isolation race).
+    _lock = template_hooks_lock()
+    _lock.__enter__()
     try:
         stray_py.write_text("# stray\n", encoding="utf-8")
         stray_sh.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
@@ -166,3 +174,4 @@ def test_orphan_py_in_template_hooks_is_flagged_but_launchers_are_safe() -> None
         for probe in created:
             if probe.exists():
                 probe.unlink()
+        _lock.__exit__(None, None, None)

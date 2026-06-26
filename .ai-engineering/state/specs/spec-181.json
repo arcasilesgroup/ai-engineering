@@ -1,0 +1,11 @@
+{
+  "branch": "refactor/ai-pr-small-model-robustness",
+  "created": "2026-06-26T14:13:29.951759+00:00",
+  "extra": {},
+  "pr": "613",
+  "shipped": "2026-06-26T21:27:00.996625+00:00",
+  "slug": "ai-pr-small-model-robustness",
+  "spec_id": "spec-181",
+  "state": "shipped",
+  "title": "ai-pr small-model robustness"
+}
