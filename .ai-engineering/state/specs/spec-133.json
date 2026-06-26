@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "\u2014",
   "created": "2026-05-12T15:41:35.193689+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "#509",
+  "shipped": "2026-06-26T12:09:48.270730+00:00",
   "slug": "spec-133-surface-primitive-rearch",
   "spec_id": "spec-133",
-  "state": "draft",
+  "state": "shipped",
   "title": "Surface Primitive Re-architecture (CLI UX + Cross-IDE)"
 }

@@ -171,5 +171,20 @@ Completed specs. Details in git history.
 | spec-177 | Rewrite human-facing docs from scratch with branded hybrid-diagram visual system | shipped | 2026-06-24 | 2026-06-25 | 603 | feat/spec-177-docs-rewrite-visual-system |
 | spec-178 | Public landing site for {ai} engineering on Cloudflare Pages | shipped | 2026-06-25 | 2026-06-25 | 607 | chore/spec-178-landing-site |
 | spec-179 | Exclude sha-pinned hook scripts from framework formatters | shipped | 2026-06-26 | 2026-06-26 | 611 | spec-179-pin-safe-format |
+| spec-129 | Skills + Agents Excellence Refactor — Pragmatic Scope (no M6, scope-cut) | shipped | 2026-05-11 | 2026-06-26 | #509 | — |
+| spec-131 | DX Excellence Refactor — Trimmed (M2 + M4-residual + M5 + M7 + M6-residual + M1-residual) | shipped | 2026-05-11 | 2026-06-26 | #509 | — |
+| spec-132 | CLI UX & Architecture Overhaul | shipped | 2026-05-11 | 2026-06-26 | #509 | — |
+| spec-133 | Surface Primitive Re-architecture (CLI UX + Cross-IDE) | shipped | 2026-05-12 | 2026-06-26 | #509 | — |
+| spec-136 | Prune docs/, contexts/, research/, evals/ — single .ai-engineering/reference/ home | shipped | 2026-05-16 | 2026-06-26 | #514 | spec-136/prune-low-value-surfaces |
+| spec-143 | Release/version CI/CD and PyPI publishing spine | shipped | 2026-05-18 | 2026-06-26 | #517 | — |
+| spec-144 | README rewrite and branch cleanup rename | shipped | 2026-05-19 | 2026-06-26 | #530 | — |
+| spec-145 | Standard Flow Executor Routing | shipped | 2026-05-19 | 2026-06-26 | #530 | — |
+| spec-146 | Framework Simplification — Less is More | shipped | 2026-05-19 | 2026-06-26 | #530 | — |
+| spec-148 | Files-only persistence — retire state.db | shipped | 2026-05-21 | 2026-06-26 | — | — |
+| spec-149 | Obvious-by-default essentials (trimmed) | shipped | 2026-05-21 | 2026-06-26 | — | — |
+| spec-150 | Async-first NotebookLM autonomous deep research (Tier 3 redesign) | shipped | 2026-05-21 | 2026-06-26 | — | — |
+| spec-154 | Resolve Python >=3.11 interpreter for Claude Code hook dispatch | shipped | 2026-05-29 | 2026-06-26 | — | — |
+| spec-166 | Exempt docs-only and fork PRs from gate-trailer CI gate | shipped | 2026-06-03 | 2026-06-26 | — | — |
+| spec-180 | Normalize spec-state ledger and dogfood template parity | shipped | 2026-06-26 | 2026-06-26 | 612 | spec-180-state-ledger-normalization |
 
 ---

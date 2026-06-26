@@ -1,14 +1,14 @@
 {
-  "branch": null,
+  "branch": "\u2014",
   "created": "2026-05-18T18:16:39.608834+00:00",
   "extra": {
     "approved_at": "2026-05-18",
     "approved_by": "operator"
   },
-  "pr": null,
-  "shipped": null,
+  "pr": "#517",
+  "shipped": "2026-06-26T12:09:51.503754+00:00",
   "slug": "ai-engineering-release-version-cicd-pypi",
-  "spec_id": "ai-engineering-release-version-cicd-pypi",
-  "state": "approved",
+  "spec_id": "spec-143",
+  "state": "shipped",
   "title": "Release/version CI/CD and PyPI publishing spine"
 }

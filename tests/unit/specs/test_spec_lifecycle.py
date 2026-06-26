@@ -464,6 +464,66 @@ class TestSweep:
         elapsed = time.monotonic() - start
         assert elapsed < _PERF_BUDGET_S, f"sweep took {elapsed:.3f}s (>{_PERF_BUDGET_S}s budget)"
 
+    def _backdate(self, project_root, spec_id: str, *, days: int) -> None:
+        from datetime import timedelta
+
+        sidecar = project_root / ".ai-engineering" / "state" / "specs" / f"{spec_id}.json"
+        data = json.loads(sidecar.read_text())
+        data["created"] = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+        sidecar.write_text(json.dumps(data))
+
+    def test_stale_draft_with_ship_signal_is_not_abandoned(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        # A stale DRAFT whose archive dir proves it shipped must NOT be abandoned.
+        record = lifecycle.start_new("ship-signal", "Ship Signal", project_root)
+        self._backdate(project_root, record.spec_id, days=30)
+        arch = (
+            project_root / ".ai-engineering" / "specs" / "archive" / f"{record.spec_id}-ship-signal"
+        )
+        arch.mkdir(parents=True, exist_ok=True)
+        (arch / "spec.md").write_text("# shipped\n", encoding="utf-8")
+        # Off a git repo: branch detection returns None -> not protected.
+        result = lifecycle.sweep(project_root)
+        assert result.get("abandoned", 0) == 0
+        assert result.get("skipped_shipped", 0) >= 1
+        assert (
+            lifecycle.status(record.spec_id, project_root).state
+            is not lifecycle.LifecycleState.ABANDONED
+        )
+
+    def test_protected_branch_refuses_inplace_writes(self, lifecycle, project_root, monkeypatch):
+        record = lifecycle.start_new("stale-on-main", "Stale On Main", project_root)
+        self._backdate(project_root, record.spec_id, days=30)
+
+        def _fake_run(cmd, *args, **kwargs):
+            from subprocess import CompletedProcess
+
+            argv = [str(c) for c in cmd]
+            if "rev-parse" in argv and "--abbrev-ref" in argv:
+                return CompletedProcess(argv, 0, stdout="main\n", stderr="")
+            return CompletedProcess(argv, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(lifecycle.subprocess, "run", _fake_run)
+        result = lifecycle.sweep(project_root)
+        assert result.get("protected_branch") == "main"
+        assert result.get("skipped") == "on-protected-branch"
+        assert result.get("abandoned", 0) == 0
+        # No mutation: the stale draft remains DRAFT.
+        assert (
+            lifecycle.status(record.spec_id, project_root).state is lifecycle.LifecycleState.DRAFT
+        )
+
+    def test_dry_run_mutates_nothing(self, lifecycle, project_root, monkeypatch):
+        record = lifecycle.start_new("dry-stale", "Dry Stale", project_root)
+        self._backdate(project_root, record.spec_id, days=30)
+        result = lifecycle.sweep(project_root, dry_run=True)
+        # Reports the would-be abandon but does NOT write.
+        assert result.get("abandoned", 0) >= 1
+        assert (
+            lifecycle.status(record.spec_id, project_root).state is lifecycle.LifecycleState.DRAFT
+        )
+
 
 # ---------------------------------------------------------------------------
 # status
@@ -2469,3 +2529,538 @@ class TestSlotStatus:
         assert rc == 0
         payload = json.loads(capsys.readouterr().out)
         assert payload["occupied"] is False
+
+
+# ---------------------------------------------------------------------------
+# check_ledger — ledger-consistency guard verb (spec-180 D-180-04)
+# ---------------------------------------------------------------------------
+
+
+def _seed_shipped_sidecar(
+    project_root: Path,
+    spec_id: str,
+    *,
+    slug: str,
+    title: str,
+    pr: str | None = None,
+    branch: str | None = None,
+    state: str = "shipped",
+) -> Path:
+    """Seed a sidecar in an arbitrary state with optional pr/branch metadata."""
+    specs = project_root / ".ai-engineering" / "state" / "specs"
+    specs.mkdir(parents=True, exist_ok=True)
+    payload: dict[str, object] = {
+        "spec_id": spec_id,
+        "slug": slug,
+        "title": title,
+        "state": state,
+        "created": datetime.now(UTC).isoformat(),
+    }
+    if state == "shipped":
+        payload["shipped"] = datetime.now(UTC).isoformat()
+    if pr is not None:
+        payload["pr"] = pr
+    if branch is not None:
+        payload["branch"] = branch
+    path = specs / f"{spec_id}.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def _make_spec_archive_dir(project_root: Path, spec_id: str, slug: str) -> Path:
+    """Create a ``specs/archive/<spec_id>-<slug>/`` dir with a spec.md."""
+    d = project_root / ".ai-engineering" / "specs" / "archive" / f"{spec_id}-{slug}"
+    d.mkdir(parents=True, exist_ok=True)
+    (d / "spec.md").write_text(f"# {spec_id}\n", encoding="utf-8")
+    return d
+
+
+class TestLedgerConsistencyGuard:
+    """`check_ledger` flags structural inconsistencies between sidecars,
+    archive dirs and slug↔id numbering. Read-only: never mutates state.
+    """
+
+    def _rules(self, result: dict, spec_id: str) -> set[str]:
+        return {v["rule"] for v in result["violations"] if v["spec_id"] == spec_id}
+
+    def test_shipped_with_null_pr_and_no_archive_is_flagged(self, lifecycle, project_root):
+        _seed_shipped_sidecar(
+            project_root, "spec-300", slug="ghost-ship", title="Ghost Ship", pr=None
+        )
+        result = lifecycle.check_ledger(project_root)
+        assert "shipped-no-evidence" in self._rules(result, "spec-300")
+
+    def test_shipped_with_archive_present_is_not_flagged(self, lifecycle, project_root):
+        _seed_shipped_sidecar(
+            project_root, "spec-301", slug="real-ship", title="Real Ship", pr=None
+        )
+        _make_spec_archive_dir(project_root, "spec-301", "real-ship")
+        result = lifecycle.check_ledger(project_root)
+        assert "shipped-no-evidence" not in self._rules(result, "spec-301")
+
+    def test_shipped_with_pr_is_not_flagged(self, lifecycle, project_root):
+        _seed_shipped_sidecar(project_root, "spec-302", slug="pr-ship", title="PR Ship", pr="900")
+        result = lifecycle.check_ledger(project_root)
+        assert "shipped-no-evidence" not in self._rules(result, "spec-302")
+
+    def test_shipped_with_ledger_row_only_is_not_flagged(self, lifecycle, project_root):
+        # Null PR, no archive — but a _history done-row is evidence enough.
+        _seed_shipped_sidecar(project_root, "spec-320", slug="ledgered", title="Ledgered", pr=None)
+        _write_history_done_row(project_root, "spec-320", "Ledgered", pr="—")
+        result = lifecycle.check_ledger(project_root)
+        assert "shipped-no-evidence" not in self._rules(result, "spec-320")
+
+    def test_shipped_with_decision_ref_only_is_not_flagged(self, lifecycle, project_root):
+        # Null PR, no archive, no ledger row — a live D-<num>- anchor is evidence.
+        _seed_shipped_sidecar(project_root, "spec-154", slug="dec-only", title="Dec Only", pr=None)
+        _write_decision_ref(project_root, "D-154-03")
+        result = lifecycle.check_ledger(project_root)
+        assert "shipped-no-evidence" not in self._rules(result, "spec-154")
+
+    def test_shipped_with_zero_evidence_is_flagged(self, lifecycle, project_root):
+        # Truly zero evidence: null PR, no archive, no ledger row, no decision ref.
+        _seed_shipped_sidecar(project_root, "spec-321", slug="zero-ev", title="Zero Ev", pr=None)
+        result = lifecycle.check_ledger(project_root)
+        assert "shipped-no-evidence" in self._rules(result, "spec-321")
+
+    def test_shipped_em_dash_pr_with_ledger_row_is_not_flagged(self, lifecycle, project_root):
+        # The em-dash PR sentinel is not real evidence, but a ledger row is.
+        _seed_shipped_sidecar(project_root, "spec-322", slug="dashed", title="Dashed", pr="—")
+        _write_history_done_row(project_root, "spec-322", "Dashed", pr="—")
+        result = lifecycle.check_ledger(project_root)
+        assert "shipped-no-evidence" not in self._rules(result, "spec-322")
+
+    def test_nonterminal_with_archive_dir_is_flagged(self, lifecycle, project_root):
+        _seed_shipped_sidecar(project_root, "spec-303", slug="early", title="Early", state="draft")
+        _make_spec_archive_dir(project_root, "spec-303", "early")
+        result = lifecycle.check_ledger(project_root)
+        assert "nonterminal-with-archive" in self._rules(result, "spec-303")
+
+    def test_approved_with_archive_dir_is_flagged(self, lifecycle, project_root):
+        _seed_shipped_sidecar(project_root, "spec-304", slug="appr", title="Appr", state="approved")
+        _make_spec_archive_dir(project_root, "spec-304", "appr")
+        result = lifecycle.check_ledger(project_root)
+        assert "nonterminal-with-archive" in self._rules(result, "spec-304")
+
+    def test_id_slug_numeric_mismatch_is_flagged(self, lifecycle, project_root):
+        _seed_shipped_sidecar(
+            project_root, "spec-158", slug="spec-159-renamed", title="Mismatch", pr="800"
+        )
+        result = lifecycle.check_ledger(project_root)
+        assert "id-slug-mismatch" in self._rules(result, "spec-158")
+
+    def test_id_slug_match_is_not_flagged(self, lifecycle, project_root):
+        _seed_shipped_sidecar(
+            project_root, "spec-159", slug="spec-159-renamed", title="Match", pr="801"
+        )
+        result = lifecycle.check_ledger(project_root)
+        assert "id-slug-mismatch" not in self._rules(result, "spec-159")
+
+    def test_inflight_draft_null_pr_is_clean(self, lifecycle, project_root):
+        _seed_shipped_sidecar(project_root, "spec-305", slug="wip", title="WIP", state="draft")
+        result = lifecycle.check_ledger(project_root)
+        assert self._rules(result, "spec-305") == set()
+
+    def test_inflight_approved_null_pr_is_clean(self, lifecycle, project_root):
+        _seed_shipped_sidecar(project_root, "spec-306", slug="wip2", title="WIP2", state="approved")
+        result = lifecycle.check_ledger(project_root)
+        assert self._rules(result, "spec-306") == set()
+
+    def test_inflight_in_progress_null_pr_is_clean(self, lifecycle, project_root):
+        _seed_shipped_sidecar(
+            project_root, "spec-307", slug="wip3", title="WIP3", state="in_progress"
+        )
+        result = lifecycle.check_ledger(project_root)
+        assert self._rules(result, "spec-307") == set()
+
+    def test_abandoned_null_pr_no_ship_is_clean(self, lifecycle, project_root):
+        _seed_shipped_sidecar(
+            project_root, "spec-308", slug="dead", title="Dead", state="abandoned"
+        )
+        result = lifecycle.check_ledger(project_root)
+        assert self._rules(result, "spec-308") == set()
+
+    def test_shipped_absent_from_history_is_not_flagged(self, lifecycle, project_root):
+        # Shipped with archive evidence but no ledger row -> ledger absence is
+        # NOT a check_ledger violation (that is consolidate_shipped's job).
+        _seed_shipped_sidecar(project_root, "spec-309", slug="unrowed", title="Unrowed", pr="700")
+        result = lifecycle.check_ledger(project_root)
+        assert self._rules(result, "spec-309") == set()
+
+    def test_checked_count_reflects_sidecars(self, lifecycle, project_root):
+        _seed_shipped_sidecar(project_root, "spec-310", slug="a", title="A", pr="1")
+        _seed_shipped_sidecar(project_root, "spec-311", slug="b", title="B", pr="2")
+        result = lifecycle.check_ledger(project_root)
+        assert result["checked"] == 2
+
+    def test_result_is_json_serializable(self, lifecycle, project_root):
+        _seed_shipped_sidecar(project_root, "spec-312", slug="ser", title="Ser", pr=None)
+        json.dumps(lifecycle.check_ledger(project_root))
+
+    def test_cli_exits_nonzero_when_violations_present(self, lifecycle, project_root, capsys):
+        _seed_shipped_sidecar(project_root, "spec-313", slug="bad", title="Bad", pr=None)
+        rc = lifecycle.main(["check_ledger", "--project-root", str(project_root)])
+        assert rc != 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["violations"]
+
+    def test_cli_exits_zero_when_clean(self, lifecycle, project_root, capsys):
+        _seed_shipped_sidecar(project_root, "spec-314", slug="ok", title="OK", pr="500")
+        rc = lifecycle.main(["check_ledger", "--project-root", str(project_root)])
+        assert rc == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert payload["violations"] == []
+
+
+# ---------------------------------------------------------------------------
+# reconcile_all — 3-signal reconcile verb (spec-180 D-180-03)
+# ---------------------------------------------------------------------------
+
+
+def _write_history_done_row(
+    project_root: Path, spec_id: str, title: str, *, pr: str = "500"
+) -> None:
+    """Append a ``done`` ledger row for ``spec_id`` to ``_history.md``.
+
+    The PR cell (column 6) defaults to ``500`` but can be overridden (or set to
+    the em-dash ``—`` sentinel) so backfill tests can exercise both branches.
+    """
+    history = project_root / ".ai-engineering" / "specs" / "_history.md"
+    existing = (
+        history.read_text(encoding="utf-8")
+        if history.exists()
+        else (
+            "# Spec History\n\nCompleted specs. Details in git history.\n\n"
+            "| ID | Title | Status | Created | Shipped | PR | Branch |\n"
+            "|----|-------|--------|---------|---------|----|--------|\n"
+        )
+    )
+    existing += f"| {spec_id} | {title} | done | 2026-04-02 | 2026-04-03 | {pr} | feat/x |\n"
+    history.write_text(existing, encoding="utf-8")
+
+
+def _write_decision_ref(project_root: Path, anchor: str) -> Path:
+    """Write a docs file carrying a live ``D-<NNN>-`` decision anchor."""
+    docs = project_root / "docs"
+    docs.mkdir(parents=True, exist_ok=True)
+    p = docs / "ref.md"
+    p.write_text(f"# Refs\n\nSee {anchor} for the rationale.\n", encoding="utf-8")
+    return p
+
+
+class TestReconcileAll:
+    """`reconcile_all` classifies non-terminal sidecars SHIPPED when ANY of
+    four signals hold (gh PR, ledger row, archive dir, live decision ref) and
+    ABANDONED only when ALL signals are absent AND (superseded or stale).
+    Terminal states are never downgraded; ``dry_run`` mutates nothing.
+    """
+
+    def _ship_ids(self, report: dict) -> set[str]:
+        return {r["spec_id"] for r in report["shipped"]}
+
+    def _abandon_ids(self, report: dict) -> set[str]:
+        return {r["spec_id"] for r in report["abandoned"]}
+
+    def test_gh_pr_signal_classifies_shipped(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-400",
+            slug="gh-spec",
+            title="GH Spec",
+            state="in_progress",
+            branch="spec-400-gh-spec",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(
+                merged_branches={"spec-400-gh-spec"},
+                pr_for_branch={"spec-400-gh-spec": 600},
+            ),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        assert "spec-400" in self._ship_ids(report)
+        assert lifecycle.status("spec-400", project_root).state is lifecycle.LifecycleState.SHIPPED
+
+    def test_ledger_row_signal_classifies_shipped(self, lifecycle, project_root, monkeypatch):
+        # Bundle-PR case: branch yields an EMPTY gh result, but the ledger row
+        # still classifies the spec as shipped.
+        _seed_branch_sidecar(
+            project_root,
+            "spec-401",
+            slug="ledger-spec",
+            title="Ledger Spec",
+            state="in_progress",
+            branch="spec-401-ledger-spec",
+        )
+        _write_history_done_row(project_root, "spec-401", "Ledger Spec", pr="#509")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set(), pr_for_branch={}),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        assert "spec-401" in self._ship_ids(report)
+        assert lifecycle.status("spec-401", project_root).state is lifecycle.LifecycleState.SHIPPED
+        # The PR is backfilled from the ledger row, not the em-dash sentinel.
+        entry = next(r for r in report["shipped"] if r["spec_id"] == "spec-401")
+        assert entry["pr"] == "#509"
+        assert lifecycle.status("spec-401", project_root).pr == "#509"
+
+    def test_bundle_pr_backfilled_from_ledger_when_gh_empty(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        # A bundle-merged spec: gh returns no PR for the branch, but the ledger
+        # row carries the bundle PR (#586). reconcile_all must backfill it.
+        _seed_branch_sidecar(
+            project_root,
+            "spec-410",
+            slug="bundle-spec",
+            title="Bundle Spec",
+            state="in_progress",
+            branch="spec-410-bundle-spec",
+        )
+        _write_history_done_row(project_root, "spec-410", "Bundle Spec", pr="#586")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set(), pr_for_branch={}),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        entry = next(r for r in report["shipped"] if r["spec_id"] == "spec-410")
+        assert entry["pr"] == "#586"
+        assert lifecycle.status("spec-410", project_root).pr == "#586"
+
+    def test_ledger_row_without_pr_falls_back_to_em_dash(
+        self, lifecycle, project_root, monkeypatch
+    ):
+        # Ledger row marks done but its PR cell is the em-dash placeholder.
+        _seed_branch_sidecar(
+            project_root,
+            "spec-411",
+            slug="no-pr-spec",
+            title="No PR Spec",
+            state="in_progress",
+            branch=None,
+        )
+        _write_history_done_row(project_root, "spec-411", "No PR Spec", pr="—")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set(), pr_for_branch={}),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        entry = next(r for r in report["shipped"] if r["spec_id"] == "spec-411")
+        assert entry["pr"] == "—"
+
+    def test_gh_pr_wins_over_ledger_backfill(self, lifecycle, project_root, monkeypatch):
+        # When the branch resolves a gh PR, that takes precedence over the
+        # ledger row PR (the gh signal is the most direct evidence).
+        _seed_branch_sidecar(
+            project_root,
+            "spec-412",
+            slug="gh-wins",
+            title="GH Wins",
+            state="in_progress",
+            branch="spec-412-gh-wins",
+        )
+        _write_history_done_row(project_root, "spec-412", "GH Wins", pr="#509")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(
+                merged_branches={"spec-412-gh-wins"},
+                pr_for_branch={"spec-412-gh-wins": 999},
+            ),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        entry = next(r for r in report["shipped"] if r["spec_id"] == "spec-412")
+        assert entry["pr"] == "999"
+
+    def test_archive_dir_signal_classifies_shipped(self, lifecycle, project_root, monkeypatch):
+        # No branch, no gh row -> archive dir alone classifies shipped.
+        _seed_branch_sidecar(
+            project_root,
+            "spec-402",
+            slug="arch-spec",
+            title="Arch Spec",
+            state="approved",
+            branch=None,
+        )
+        _make_spec_archive_dir(project_root, "spec-402", "arch-spec")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set()),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        assert "spec-402" in self._ship_ids(report)
+
+    def test_archive_dir_resolves_prefixed_slug(self, lifecycle, project_root):
+        # spec-180 review hardening: a sidecar whose slug already carries the
+        # ``spec-NNN-`` prefix (e.g. spec-133 ``spec-133-surface-primitive-rearch``)
+        # has an archive dir named verbatim as the slug. ``group(2)`` is the bare
+        # trailing slug and can never equal the prefixed slug, so this used to be
+        # a silent blind spot. The verbatim ``child.name == slug`` fallback fixes it.
+        slug = "spec-404-prefixed-rearch"
+        archive = project_root / ".ai-engineering" / "specs" / "archive" / slug
+        archive.mkdir(parents=True)
+        assert lifecycle._resolve_via_archive_dir(project_root, slug) == "spec-404"
+
+    def test_decision_ref_signal_classifies_shipped(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-403",
+            slug="dec-spec",
+            title="Dec Spec",
+            state="in_progress",
+            branch=None,
+        )
+        _write_decision_ref(project_root, "D-403-01")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set()),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        assert "spec-403" in self._ship_ids(report)
+
+    def test_no_signal_and_stale_classifies_abandoned(self, lifecycle, project_root, monkeypatch):
+        path = _seed_branch_sidecar(
+            project_root,
+            "spec-404",
+            slug="dead-spec",
+            title="Dead Spec",
+            state="draft",
+            branch=None,
+        )
+        # Backdate created far past the staleness threshold.
+        from datetime import timedelta
+
+        data = json.loads(path.read_text())
+        data["created"] = (datetime.now(UTC) - timedelta(days=120)).isoformat()
+        path.write_text(json.dumps(data), encoding="utf-8")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set()),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        assert "spec-404" in self._abandon_ids(report)
+        assert (
+            lifecycle.status("spec-404", project_root).state is lifecycle.LifecycleState.ABANDONED
+        )
+
+    def test_no_signal_but_fresh_is_left_untouched(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-405",
+            slug="fresh-spec",
+            title="Fresh Spec",
+            state="draft",
+            branch=None,
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set()),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        assert "spec-405" not in self._ship_ids(report)
+        assert "spec-405" not in self._abandon_ids(report)
+        assert lifecycle.status("spec-405", project_root).state is lifecycle.LifecycleState.DRAFT
+
+    def test_terminal_state_never_downgraded(self, lifecycle, project_root, monkeypatch):
+        _seed_shipped_sidecar(project_root, "spec-406", slug="terminal", title="Terminal", pr="900")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set()),
+        )
+        report = lifecycle.reconcile_all(project_root)
+        assert "spec-406" not in self._abandon_ids(report)
+        assert lifecycle.status("spec-406", project_root).state is lifecycle.LifecycleState.SHIPPED
+
+    def test_dry_run_mutates_nothing(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-407",
+            slug="dry-spec",
+            title="Dry Spec",
+            state="in_progress",
+            branch="spec-407-dry-spec",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(
+                merged_branches={"spec-407-dry-spec"},
+                pr_for_branch={"spec-407-dry-spec": 600},
+            ),
+        )
+        report = lifecycle.reconcile_all(project_root, dry_run=True)
+        assert "spec-407" in self._ship_ids(report)
+        # State untouched on disk.
+        assert (
+            lifecycle.status("spec-407", project_root).state is lifecycle.LifecycleState.IN_PROGRESS
+        )
+
+    def test_dry_run_report_carries_evidence(self, lifecycle, project_root, monkeypatch):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-408",
+            slug="ev-spec",
+            title="Ev Spec",
+            state="in_progress",
+            branch=None,
+        )
+        _make_spec_archive_dir(project_root, "spec-408", "ev-spec")
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(merged_branches=set()),
+        )
+        report = lifecycle.reconcile_all(project_root, dry_run=True)
+        entry = next(r for r in report["shipped"] if r["spec_id"] == "spec-408")
+        assert "evidence" in entry
+        assert entry["evidence"]
+
+    def test_explicit_id_map_has_release_spec(self, lifecycle):
+        assert (
+            lifecycle._EXPLICIT_ID_MAP.get("ai-engineering-release-version-cicd-pypi") == "spec-143"
+        )
+
+    def test_live_decision_refs_helper_detects_anchor(self, lifecycle, project_root):
+        _write_decision_ref(project_root, "D-180-04")
+        assert lifecycle._live_decision_refs(project_root, "spec-180") is True
+
+    def test_live_decision_refs_helper_no_false_positive(self, lifecycle, project_root):
+        _write_decision_ref(project_root, "D-180-04")
+        # spec-999 has no anchor anywhere.
+        assert lifecycle._live_decision_refs(project_root, "spec-999") is False
+
+    def test_cli_dry_run_flag(self, lifecycle, project_root, monkeypatch, capsys):
+        _seed_branch_sidecar(
+            project_root,
+            "spec-409",
+            slug="cli-spec",
+            title="CLI Spec",
+            state="in_progress",
+            branch="spec-409-cli-spec",
+        )
+        monkeypatch.setattr(
+            lifecycle.subprocess,
+            "run",
+            _FakeGit(
+                merged_branches={"spec-409-cli-spec"},
+                pr_for_branch={"spec-409-cli-spec": 600},
+            ),
+        )
+        rc = lifecycle.main(["reconcile_all", "--dry-run", "--project-root", str(project_root)])
+        assert rc == 0
+        payload = json.loads(capsys.readouterr().out)
+        assert "spec-409" in {r["spec_id"] for r in payload["shipped"]}
+        # dry-run: no mutation.
+        assert (
+            lifecycle.status("spec-409", project_root).state is lifecycle.LifecycleState.IN_PROGRESS
+        )

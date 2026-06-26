@@ -1,5 +1,5 @@
 {
-  "branch": null,
+  "branch": "\u2014",
   "created": "2026-05-19T23:34:05.194495+00:00",
   "extra": {
     "active_spec": "spec-146",
@@ -21,10 +21,10 @@
     "safe_next_command": "/ai-autopilot",
     "source_brief": ".ai-engineering/specs/drafts/framework-simplification-less-is-more-brief.md"
   },
-  "pr": null,
-  "shipped": null,
+  "pr": "#530",
+  "shipped": "2026-06-26T12:09:51.978415+00:00",
   "slug": "framework-simplification-less-is-more",
   "spec_id": "spec-146",
-  "state": "approved",
+  "state": "shipped",
   "title": "Framework Simplification \u2014 Less is More"
 }

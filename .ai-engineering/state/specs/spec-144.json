@@ -1,15 +1,15 @@
 {
-  "branch": null,
+  "branch": "\u2014",
   "created": "2026-05-19T13:35:26.484447+00:00",
   "extra": {
     "active_spec": "spec-144",
     "approved_at": "2026-05-19",
     "approved_by": "operator-via-ai-plan"
   },
-  "pr": null,
-  "shipped": null,
+  "pr": "#530",
+  "shipped": "2026-06-26T12:09:51.659701+00:00",
   "slug": "readme-rewrite-and-branch-cleanup-rename",
   "spec_id": "spec-144",
-  "state": "approved",
+  "state": "shipped",
   "title": "README rewrite and branch cleanup rename"
 }

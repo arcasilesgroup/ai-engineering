@@ -24,6 +24,6 @@
   "shipped": null,
   "slug": "spec-135-framework-performance-hardening",
   "spec_id": "spec-135",
-  "state": "approved",
+  "state": "abandoned",
   "title": "Framework Performance Hardening \u2014 Concurrency Budget, Host Preflight, Hook Hot-Path Discipline"
 }
