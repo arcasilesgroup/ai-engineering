@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "spec-180-state-ledger-normalization",
   "created": "2026-06-26T11:06:03.096384+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "612",
+  "shipped": "2026-06-26T12:33:17.578122+00:00",
   "slug": "state-ledger-normalization",
   "spec_id": "spec-180",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Normalize spec-state ledger and dogfood template parity"
 }
