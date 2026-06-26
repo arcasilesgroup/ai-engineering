@@ -734,6 +734,96 @@ def test_wave1_passes_only_python_files_to_ruff_for_mixed_staged_set(
         assert str(md_file) not in args
 
 
+def test_wave1_scripts_exclusion_skips_pinned_scripts_from_ruff(tmp_path: Path) -> None:
+    """spec-179 D-179-01: sha-pinned files under ``.ai-engineering/scripts/`` are
+    byte-locked in hooks-manifest.json. The Wave 1 formatter MUST never pass them
+    to ``ruff format`` / ``ruff check`` — a width mismatch with a consumer repo's
+    ruff config would reflow them and break hook integrity for the whole tree.
+    A normal staged ``.py`` still goes through ruff.
+    """
+    from ai_engineering.policy.orchestrator import run_wave1
+
+    observed_ruff_args: list[list[str]] = []
+
+    def fake_run(args: list[str], *_: Any, **__: Any) -> _CompletedProcessStub:
+        token = _classify_fixer(list(args))
+        if token in {"ruff-format", "ruff-check"}:
+            observed_ruff_args.append(list(args))
+            return (
+                _ruff_format_pass(list(args))
+                if token == "ruff-format"
+                else _ruff_check_pass(list(args))
+            )
+        if token == "spec-verify":
+            return _spec_verify_pass(list(args))
+        return _CompletedProcessStub(returncode=0, args=list(args))
+
+    normal_py = tmp_path / "src" / "main.py"
+    normal_py.parent.mkdir(parents=True)
+    normal_py.write_text("x=1\n", encoding="utf-8")
+
+    pinned_py = tmp_path / ".ai-engineering" / "scripts" / "hooks" / "auto-format.py"
+    pinned_py.parent.mkdir(parents=True)
+    pinned_py.write_text("y=2\n", encoding="utf-8")
+
+    with mock.patch(
+        "ai_engineering.policy.orchestrator.subprocess.run",
+        side_effect=fake_run,
+    ):
+        result = run_wave1([normal_py, pinned_py])
+
+    assert result.return_code == 0
+    assert observed_ruff_args, "ruff should still run for the non-pinned python file"
+    for args in observed_ruff_args:
+        assert str(normal_py) in args
+        assert str(pinned_py) not in args, (
+            f"pinned script must be excluded from ruff args; got {args!r}"
+        )
+
+
+def test_wave1_skips_ruff_when_only_pinned_scripts_staged(tmp_path: Path) -> None:
+    """spec-179 D-179-01: when the ONLY staged ``.py`` files are sha-pinned scripts,
+    ``py_paths`` is empty after the exclusion and ruff must NOT be invoked at all
+    (no empty ``ruff format`` invocation)."""
+    from ai_engineering.policy.orchestrator import run_wave1
+
+    invocations: list[str] = []
+
+    def fake_run(args: list[str], *_: Any, **__: Any) -> _CompletedProcessStub:
+        invocations.append(_classify_fixer(list(args)))
+        return _CompletedProcessStub(returncode=0, args=list(args))
+
+    pinned_py = tmp_path / ".ai-engineering" / "scripts" / "hooks" / "memory-stop.py"
+    pinned_py.parent.mkdir(parents=True)
+    pinned_py.write_text("z=3\n", encoding="utf-8")
+
+    with mock.patch(
+        "ai_engineering.policy.orchestrator.subprocess.run",
+        side_effect=fake_run,
+    ):
+        result = run_wave1([pinned_py])
+
+    assert "ruff-format" not in invocations
+    assert "ruff-check" not in invocations
+    assert "ruff-format" not in result.fixers_run
+    assert "ruff-check" not in result.fixers_run
+    assert result.return_code == 0
+
+
+def test_is_pinned_script_normalizes_separators(tmp_path: Path) -> None:
+    """spec-179 R4: the exclusion predicate matches the ``.ai-engineering/scripts/``
+    segment regardless of absolute/relative form or OS separator (``as_posix``)."""
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    from ai_engineering.policy.orchestrator import _is_pinned_script
+
+    assert _is_pinned_script(tmp_path / ".ai-engineering" / "scripts" / "hooks" / "x.py")
+    assert _is_pinned_script(PurePosixPath(".ai-engineering/scripts/runtime-stop.py"))
+    assert _is_pinned_script(PureWindowsPath(r"C:\proj\.ai-engineering\scripts\hooks\x.py"))
+    assert not _is_pinned_script(PurePosixPath("src/main.py"))
+    assert not _is_pinned_script(tmp_path / "src" / "ai-engineering-helper.py")
+
+
 def test_wave1_handles_no_active_spec(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """When ``.ai-engineering/specs/spec.md`` is the "No active spec" placeholder,
     skip ``spec verify --fix`` gracefully (no subprocess invoked).

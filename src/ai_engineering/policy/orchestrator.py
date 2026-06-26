@@ -270,6 +270,18 @@ def _resolve_wave1_path(path: Path, project_root: Path | None) -> Path:
     return path
 
 
+def _is_pinned_script(path: Path) -> bool:
+    """True when ``path`` lives under ``.ai-engineering/scripts/``.
+
+    Those files are sha256-pinned in ``hooks-manifest.json`` for integrity
+    (spec-179 D-179-01), so they must stay byte-stable. A formatter run with a
+    consumer repo's ruff width would reflow them and break hook integrity for
+    the whole tree — so the Wave 1 fixer skips them. ``as_posix`` normalizes
+    separators so the match holds for absolute/relative/Windows inputs (R4).
+    """
+    return ".ai-engineering/scripts/" in path.as_posix()
+
+
 def _run_pass(
     fixer_specs: list[tuple[str, list[str]]],
     fixers_run: list[str],
@@ -320,9 +332,14 @@ def run_wave1(
 
     fixer_specs: list[tuple[str, list[str]]] = []
     if has_python:
-        py_paths = [str(path) for path in resolved_staged_files if path.suffix == ".py"]
-        fixer_specs.append(("ruff-format", ["ruff", "format", *py_paths]))
-        fixer_specs.append(("ruff-check", ["ruff", "check", "--fix", *py_paths]))
+        py_paths = [
+            str(path)
+            for path in resolved_staged_files
+            if path.suffix == ".py" and not _is_pinned_script(path)
+        ]
+        if py_paths:
+            fixer_specs.append(("ruff-format", ["ruff", "format", *py_paths]))
+            fixer_specs.append(("ruff-check", ["ruff", "check", "--fix", *py_paths]))
     if has_active_spec:
         fixer_specs.append(("spec-verify", ["ai-eng", "spec", "verify", "--fix"]))
 

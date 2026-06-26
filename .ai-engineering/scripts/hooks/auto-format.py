@@ -90,6 +90,18 @@ def _record_format(file_path: str, *, now: float | None = None) -> None:
     _LAST_FORMAT_TIMES[file_path] = now if now is not None else time.monotonic()
 
 
+def _is_under_pinned_scripts(path: Path) -> bool:
+    """True when ``path`` lives under ``.ai-engineering/scripts/``.
+
+    Those files are sha256-pinned in ``hooks-manifest.json`` for integrity
+    (spec-179 D-179-01), so they must stay byte-stable. Reformatting them with
+    the consumer repo's ruff width would reflow them and break hook integrity
+    for the whole tree -- so this hook skips them. ``as_posix`` normalizes
+    separators so the match holds for absolute/relative/Windows inputs.
+    """
+    return ".ai-engineering/scripts/" in path.as_posix()
+
+
 _PROJECT_ROOT_MARKERS = {
     "package.json",
     "pyproject.toml",
@@ -311,6 +323,14 @@ def main() -> None:
 
     file_path_obj = Path(file_path)
     extension = file_path_obj.suffix.lower()
+
+    # spec-179 D-179-01: never reformat sha-pinned framework hook scripts.
+    # They are byte-locked in hooks-manifest.json; reformatting with the
+    # consumer's ruff width would break hook integrity for the whole tree.
+    resolved = file_path_obj.resolve() if file_path_obj.exists() else file_path_obj
+    if _is_under_pinned_scripts(resolved):
+        passthrough_stdin(data)
+        return
 
     formatter_fn = _EXTENSION_FORMATTERS.get(extension)
     if formatter_fn is None:
