@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- spec-179: Hook scripts under `.ai-engineering/scripts/` are now excluded from
+  the pre-commit gate (`run_wave1`) and the PostToolUse `auto-format` hook, so
+  installing onto a project whose ruff width differs from the framework's
+  (e.g. a JS/Astro repo using ruff's default 88 vs the canonical 100) no longer
+  reflows the sha-pinned scripts and breaks hook integrity for the whole tree.
+  `ai-eng doctor` now detects formatter-induced manifest drift and, under
+  `--fix`, re-pins it safely — only when the on-disk script is AST-equivalent to
+  the framework's bundled reference (pure reflow); substantive or unprovable
+  drift is reported, never auto-pinned.
+
 ## [0.12.1] - 2026-06-25
 
 ### Changed

@@ -52,3 +52,23 @@ def test_live_hook_and_template_are_byte_equivalent() -> None:
         f"  template: {template_path} ({len(template_bytes)} bytes)\n"
         f"Run scripts/sync-hook-template.sh or copy the live hook over the template."
     )
+
+
+def test_both_hook_copies_carry_scripts_exclusion_guard() -> None:
+    """spec-179 D-179-04: both the live hook and its template twin MUST carry the
+    ``.ai-engineering/scripts/`` exclusion guard.
+
+    Byte-equivalence alone would pass if a refactor deleted the guard from BOTH
+    copies in lockstep. This guard-TEXT assertion fails loudly if the exclusion
+    is dropped, independent of byte parity.
+    """
+    live_path = _repo_root() / _LIVE_HOOK_REL
+    template_path = _package_root() / _TEMPLATE_HOOK_REL
+
+    needle = ".ai-engineering/scripts/"
+    for label, path in (("live", live_path), ("template", template_path)):
+        text = path.read_text(encoding="utf-8")
+        assert needle in text and "_is_under_pinned_scripts" in text, (
+            f"{label} auto-format.py is missing the spec-179 pinned-scripts "
+            f"exclusion guard ({path})"
+        )

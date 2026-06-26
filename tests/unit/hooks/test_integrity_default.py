@@ -170,3 +170,39 @@ def test_run_hook_safe_fails_closed_with_unset_env(
     captured = capsys.readouterr()
     assert "[hook-integrity]" in captured.err
     assert "regenerate-hooks-manifest.py" in captured.err
+
+
+# ── spec-179: formatter reflow drifts the sha; re-pin recovers ───────────
+
+
+def test_formatter_reflow_drifts_then_repin_recovers(
+    integ, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """spec-179: reformatting a pinned script (100-col → 88-col reflow) changes
+    its sha, so integrity fails closed; re-pinning the manifest to the on-disk
+    bytes recovers it. Integrity code itself is UNCHANGED (D-179-05) — this pins
+    the defect + the recovery semantics the doctor self-heal automates.
+    """
+    monkeypatch.delenv("AIENG_HOOK_INTEGRITY_MODE", raising=False)
+    integ._MANIFEST_CACHE.clear()
+    project = tmp_path
+    hook = project / "auto-format.py"
+
+    # 88-col reflow of a logically-identical 100-col canonical line.
+    canonical = "value = ctx.project_root / '.ai-engineering' / 'state' / 'telemetry-debug.log'\n"
+    reflow = (
+        "value = (\n    ctx.project_root / '.ai-engineering' / 'state' / 'telemetry-debug.log'\n)\n"
+    )
+    hook.write_text(reflow, encoding="utf-8")
+
+    # Manifest pins the canonical (committed) sha → on-disk reflow drifts.
+    _write_manifest(project, {"auto-format.py": _sha(canonical)})
+    ok, reason = integ.verify_hook_integrity(hook, project)
+    assert ok is False
+    assert reason is not None and "sha256 mismatch" in reason
+
+    # Re-pin to the on-disk bytes (what `regenerate-hooks-manifest.py` writes).
+    integ._MANIFEST_CACHE.clear()
+    _write_manifest(project, {"auto-format.py": integ.compute_file_sha256(hook)})
+    ok2, _ = integ.verify_hook_integrity(hook, project)
+    assert ok2 is True, "re-pinning the manifest to on-disk bytes must recover integrity"

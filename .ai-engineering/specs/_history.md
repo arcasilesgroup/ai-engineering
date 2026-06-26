@@ -170,5 +170,6 @@ Completed specs. Details in git history.
 | spec-176 | Fix instinct-corpus unicode-escaping churn (allow_unicode) | shipped | 2026-06-24 | 2026-06-24 | 600 | fix/instinct-corpus-unicode-churn |
 | spec-177 | Rewrite human-facing docs from scratch with branded hybrid-diagram visual system | shipped | 2026-06-24 | 2026-06-25 | 603 | feat/spec-177-docs-rewrite-visual-system |
 | spec-178 | Public landing site for {ai} engineering on Cloudflare Pages | shipped | 2026-06-25 | 2026-06-25 | 607 | chore/spec-178-landing-site |
+| spec-179 | Exclude sha-pinned hook scripts from framework formatters | shipped | 2026-06-26 | 2026-06-26 | 611 | spec-179-pin-safe-format |
 
 ---
