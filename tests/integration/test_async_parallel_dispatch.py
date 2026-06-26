@@ -427,11 +427,14 @@ def test_ai_pr_skill_step_8_pr_creation_after_max_wall() -> None:
 
     # Step 6.5 must appear before step 12 (PR creation).
     step_65 = re.search(r"^###\s+7\.", text, flags=re.MULTILINE)
-    step_7 = re.search(r"^###\s+8\.", text, flags=re.MULTILINE)
+    # spec-181 collapsed the dead "### 8." pointer step; the pre-push gate this
+    # ordering guard depends on is the canonical "### 9." (the docstring's
+    # "step 7's pre-push completion").
+    step_7 = re.search(r"^###\s+9\.", text, flags=re.MULTILINE)
     step_12 = re.search(r"^###\s+14\.", text, flags=re.MULTILINE)
 
     assert step_65 is not None, "ai-pr SKILL.md must declare step 6.5"
-    assert step_7 is not None, "ai-pr SKILL.md must declare step 7"
+    assert step_7 is not None, "ai-pr SKILL.md must declare step 9 (pre-push gate)"
     assert step_12 is not None, "ai-pr SKILL.md must declare step 12 (PR creation)"
 
     assert step_65.start() < step_7.start() < step_12.start(), (
