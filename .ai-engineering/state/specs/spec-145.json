@@ -1,5 +1,5 @@
 {
-  "branch": null,
+  "branch": "\u2014",
   "created": "2026-05-19T15:39:33.150787+00:00",
   "extra": {
     "active_spec": "spec-145",
@@ -14,10 +14,10 @@
     "scope_correction": "route-only-no-host-admission",
     "source_brief": ".ai-engineering/specs/drafts/standard-flow-execution-admission-control-brief.md"
   },
-  "pr": null,
-  "shipped": null,
+  "pr": "#530",
+  "shipped": "2026-06-26T12:09:51.810835+00:00",
   "slug": "standard-flow-execution-admission-control",
   "spec_id": "spec-145",
-  "state": "approved",
+  "state": "shipped",
   "title": "Standard Flow Executor Routing"
 }

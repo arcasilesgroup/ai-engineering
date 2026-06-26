@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "\u2014",
   "created": "2026-05-21T21:29:17.627318+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "\u2014",
+  "shipped": "2026-06-26T12:09:52.034443+00:00",
   "slug": "obvious-by-default-essentials",
   "spec_id": "spec-149",
-  "state": "draft",
+  "state": "shipped",
   "title": "Obvious-by-default essentials (trimmed)"
 }

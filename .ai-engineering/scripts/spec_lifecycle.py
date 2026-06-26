@@ -618,26 +618,63 @@ def archive(spec_id: str, project_root: Path) -> SpecRecord:
     return record
 
 
-def sweep(project_root: Path) -> dict:
+def _current_branch(project_root: Path) -> str | None:
+    """Return the checked-out branch name, or ``None`` off a git worktree."""
+    out = _git_stdout(project_root, "rev-parse", "--abbrev-ref", "HEAD")
+    if out is None:
+        return None
+    name = out.strip()
+    return name or None
+
+
+def sweep(
+    project_root: Path,
+    *,
+    default_branch: str | None = None,
+    dry_run: bool = False,
+) -> dict:
     """Reap stale DRAFTs → ABANDONED and stray root spec files → archive.
 
     Retention is read from the manifest ``lifecycle:`` block (``draft_ttl_days``,
-    ``reap_orphans``), fail-open to 14 days / reaping enabled (D-153-08). The
-    DRAFT→ABANDONED pass runs first; then, when ``reap_orphans`` is set, the
-    orphan reaper moves any stray ``specs/spec-*.md`` into its archive directory
-    (D-153-07) and the draft reaper moves stale ``specs/drafts/*-brief.md`` files
-    (older than ``draft_ttl_days`` by mtime) into ``specs/archive/drafts/``.
-    Idempotent re-runs: an empty root reaps nothing. The summary — and the
-    ``spec_sweep`` event detail — carries ``reaped`` (stray specs) and
+    ``reap_orphans``), fail-open to 14 days / reaping enabled (D-153-08).
+
+    Safety guards (spec-180 D-180-05):
+
+    - **Protected-branch refusal**: when the checkout is ``main``/``master``/
+      ``default_branch`` the sweep makes NO in-place writes and returns
+      ``{"protected_branch": <name>, "skipped": "on-protected-branch",
+      "abandoned": 0}`` so it can never abandon specs on a shared branch.
+    - **Shipped-detection before abandon**: a stale DRAFT whose branch/ledger/
+      archive/decision signal proves it shipped is routed away from abandonment
+      (counted under ``skipped_shipped``) rather than mislabeled ABANDONED.
+    - **dry_run**: classify and count without writing any sidecar.
+
+    The DRAFT→ABANDONED pass runs first; then, when ``reap_orphans`` is set and
+    this is not a dry run, the orphan reaper moves any stray ``specs/spec-*.md``
+    into its archive directory (D-153-07) and the draft reaper moves stale
+    ``specs/drafts/*-brief.md`` files into ``specs/archive/drafts/``. The summary
+    — and the ``spec_sweep`` event detail — carries ``reaped`` (stray specs) and
     ``drafts_reaped`` (stale briefs) counts.
     """
+    if default_branch is None:
+        default_branch = _DEFAULT_BRANCH
+    branch = _current_branch(project_root)
+    if branch in {"main", "master", default_branch}:
+        return {
+            "protected_branch": branch,
+            "skipped": "on-protected-branch",
+            "abandoned": 0,
+        }
+
     draft_ttl_days, reap_orphans = _read_lifecycle_config(project_root)
     summary: dict[str, int] = {
         "abandoned": 0,
         "archived": 0,
         "reaped": 0,
         "drafts_reaped": 0,
+        "skipped_shipped": 0,
     }
+    ledger_done = _history_done_ids(project_root)
     d = _specs_dir(project_root)
     if d.exists():
         cutoff = datetime.now(timezone.utc) - timedelta(days=draft_ttl_days)
@@ -653,14 +690,28 @@ def sweep(project_root: Path) -> dict:
                     continue
                 if created.tzinfo is None:
                     created = created.replace(tzinfo=timezone.utc)
-                if created < cutoff:
+                if created >= cutoff:
+                    continue
+                # Shipped-detection guard: never abandon a stale DRAFT that the
+                # signals prove landed. Route it to skipped_shipped instead.
+                evidence, _pr = _reconcile_signals(
+                    project_root,
+                    record,
+                    default_branch=default_branch,
+                    ledger_done=ledger_done,
+                )
+                if evidence:
+                    summary["skipped_shipped"] += 1
+                    continue
+                summary["abandoned"] += 1
+                if not dry_run:
                     record.state = transition(record.state, LifecycleState.ABANDONED)
                     _write_state(project_root, record)
-                    summary["abandoned"] += 1
-    if reap_orphans:
+    if reap_orphans and not dry_run:
         summary["reaped"] = _reap_orphans(project_root)
         summary["drafts_reaped"] = _reap_stale_drafts(project_root, draft_ttl_days)
-    _append_event(project_root, "spec_sweep", summary)
+    if not dry_run:
+        _append_event(project_root, "spec_sweep", summary)
     return summary
 
 
@@ -984,6 +1035,125 @@ def consolidate_shipped(project_root: Path, *, dry_run: bool = False) -> dict:
     return summary
 
 
+# --- ledger-consistency guard (spec-180 D-180-04) --------------------------
+
+# Leading ``spec-NNN`` extracted from a slug so we can compare its number to the
+# sidecar id (e.g. id ``spec-158`` vs slug ``spec-159-renamed`` is a mismatch).
+_SLUG_LEADING_NUM_RE = re.compile(r"^spec-(\d+)\b")
+
+
+def _shipped_evidence_labels(
+    project_root: Path,
+    record: SpecRecord,
+    *,
+    ledger_done: set[str],
+) -> list[str]:
+    """Return the on-disk SHIPPED-evidence labels for ``record`` (no network).
+
+    The shared, network-free evidence definition (FIX 2, D-180-04) so
+    ``check_ledger`` flags a SHIPPED sidecar ONLY when it has NONE of these:
+
+    - ``pr``: a real (non-empty, non em-dash) PR value on the sidecar.
+    - ``ledger-row``: a ``_history.md`` done/shipped row for the id.
+    - ``archive-dir``: a unique ``archive/spec-NNN-<slug>/`` directory.
+    - ``decision-ref``: a live ``D-<num>-`` anchor across the fixed surface.
+
+    This mirrors ``_reconcile_signals`` minus the ``gh-pr`` git/gh signal, which
+    is irrelevant once the sidecar is already SHIPPED (and keeps the guard off
+    the network so it can gate CI deterministically).
+    """
+    labels: list[str] = []
+    pr = (record.pr or "").strip()
+    if pr and pr != "—":
+        labels.append("pr")
+    if _spec_id_in_ledger(record.spec_id, ledger_done):
+        labels.append("ledger-row")
+    if _resolve_via_archive_dir(project_root, record.slug) is not None:
+        labels.append("archive-dir")
+    if _live_decision_refs(project_root, record.spec_id):
+        labels.append("decision-ref")
+    return labels
+
+
+def check_ledger(project_root: Path) -> dict:
+    """Read-only guard: flag structural inconsistencies across the spec ledger.
+
+    Walks every sidecar and emits a ``violations`` list (each entry is
+    ``{spec_id, rule, detail}``) plus a ``checked`` count. Three rules
+    (spec-180 D-180-04), all derived from on-disk state — never a network call,
+    never a mutation:
+
+    - ``shipped-no-evidence``: a SHIPPED sidecar with NONE of the four on-disk
+      evidences (a real PR, a ``_history`` done-row, an archive directory, or a
+      live ``D-<num>-`` decision-ref). This uses the SAME evidence definition as
+      ``reconcile_all`` (FIX 2, D-180-04), so a freshly-reconciled-correct ledger
+      — including ledger-row-only or decision-ref-only specs — never false-flags.
+    - ``nonterminal-with-archive``: a DRAFT/APPROVED/IN_PROGRESS sidecar whose
+      archive directory already exists (the work shipped but the sidecar never
+      advanced — a stuck-open record).
+    - ``id-slug-mismatch``: the numeric prefix embedded in the slug
+      (``spec-NNN-…``) disagrees with the sidecar's own ``spec-NNN`` id.
+
+    Designed to gate CI: ``main`` prints the JSON and exits non-zero when any
+    violation is present.
+    """
+    violations: list[dict[str, str]] = []
+    checked = 0
+    specs_dir = _specs_dir(project_root)
+    if not specs_dir.exists():
+        return {"violations": violations, "checked": checked}
+
+    ledger_done = _history_done_ids(project_root)
+    for path in sorted(specs_dir.glob("*.json")):
+        try:
+            record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError, KeyError, ValueError):
+            continue
+        checked += 1
+        archived_number = _resolve_via_archive_dir(project_root, record.slug)
+        has_archive = archived_number is not None
+
+        if record.state is LifecycleState.SHIPPED:
+            if not _shipped_evidence_labels(project_root, record, ledger_done=ledger_done):
+                violations.append(
+                    {
+                        "spec_id": record.spec_id,
+                        "rule": "shipped-no-evidence",
+                        "detail": (
+                            "shipped sidecar has no evidence: null PR, no archive "
+                            "directory, no _history done-row, no live decision-ref"
+                        ),
+                    }
+                )
+        elif record.state in _NON_TERMINAL_STATES and has_archive:
+            violations.append(
+                {
+                    "spec_id": record.spec_id,
+                    "rule": "nonterminal-with-archive",
+                    "detail": (
+                        f"{record.state.value} sidecar has an archive directory "
+                        f"({archived_number}); it shipped but never advanced"
+                    ),
+                }
+            )
+
+        slug_match = _SLUG_LEADING_NUM_RE.match(record.slug)
+        id_match = _SPEC_NUMBER_RE.match(record.spec_id)
+        if slug_match and id_match and int(slug_match.group(1)) != int(id_match.group(1)):
+            violations.append(
+                {
+                    "spec_id": record.spec_id,
+                    "rule": "id-slug-mismatch",
+                    "detail": (
+                        f"slug {record.slug!r} embeds spec-{int(slug_match.group(1)):03d} "
+                        f"but the sidecar id is {record.spec_id}"
+                    ),
+                }
+            )
+
+    return {"violations": violations, "checked": checked}
+
+
 # --- merged-branch reconcile backstop (spec-153 D-153-03) ------------------
 
 # Default branch a spec PR merges into. The classification below mirrors
@@ -1235,6 +1405,248 @@ def reconcile_merged(project_root: Path, *, default_branch: str = _DEFAULT_BRANC
     return {"shipped": shipped, "skipped": skipped, "unmerged": unmerged}
 
 
+# --- 3-signal reconcile (spec-180 D-180-03) --------------------------------
+
+# Ledger row statuses that mean the spec landed (any case).
+_DONE_STATUSES = frozenset({"done", "shipped", "implemented"})
+
+# Sidecars older than this (and with no shipped signal) are abandonment-eligible.
+_RECONCILE_STALE_DAYS = 30
+
+# Fixed surface scanned for live ``D-<NNN>-`` decision anchors. Root files are
+# scanned directly; the directory entries are walked recursively. Kept stdlib
+# only (os.walk / Path.rglob) so the script stays import-light.
+_DECISION_REF_FILES = (
+    "CLAUDE.md",
+    "CONSTITUTION.md",
+    "SOUL.md",
+    "CHANGELOG.md",
+    ".ai-engineering/solution-intent.md",
+    ".ai-engineering/LESSONS.md",
+)
+_DECISION_REF_GLOBS = (
+    (".ai-engineering/reference", "*.md"),
+    ("docs", "*.md"),
+)
+_DECISION_REF_TREES = ("src", ".github")
+
+
+def _history_done_ids(project_root: Path) -> set[str]:
+    """Return spec ids whose ``_history.md`` row status reads done/shipped/etc.
+
+    Matches the ledger row status cell (column 3) against ``_DONE_STATUSES``
+    case-insensitively. Both ``spec-NNN`` and bare-numeric ids are returned so
+    the caller can match either historical row shape via ``_spec_id_in_ledger``.
+    """
+    history = _history_path(project_root)
+    if not history.exists():
+        return set()
+    rows, _tail = _split_history(history.read_text(encoding="utf-8"))
+    data_rows = _migrate_rows(rows)
+    ids: set[str] = set()
+    for row in data_rows:
+        cells = _normalize_row(row)
+        if len(cells) >= 3 and cells[2].strip().lower() in _DONE_STATUSES:
+            ids.add(cells[0])
+    return ids
+
+
+def _history_pr_for(project_root: Path, spec_id: str) -> str | None:
+    """Return the PR cell (column 6) of ``spec_id``'s ``_history.md`` row, or None.
+
+    Resolves the row by id under either the ``spec-NNN`` or bare-numeric shape
+    (mirroring ``_spec_id_in_ledger``). A real PR value (e.g. ``#509``, ``517``)
+    is returned verbatim; the em-dash placeholder ``—`` and an empty cell both
+    yield ``None`` so the caller falls back to its own sentinel. This is the
+    bundle-PR backfill source (spec-180 FIX 1): a bundle-merged spec whose branch
+    yields no ``gh`` PR still adopts the bundle PR recorded in the ledger row.
+    """
+    history = _history_path(project_root)
+    if not history.exists():
+        return None
+    rows, _tail = _split_history(history.read_text(encoding="utf-8"))
+    data_rows = _migrate_rows(rows)
+    match = _SPEC_NUMBER_RE.match(spec_id)
+    bare = str(int(match.group(1))) if match else None
+    raw = match.group(1) if match else None
+    for row in data_rows:
+        cells = _normalize_row(row)
+        if not cells:
+            continue
+        row_id = cells[0]
+        if row_id == spec_id or (bare is not None and row_id in {bare, raw}):
+            pr = cells[5].strip() if len(cells) >= 6 else ""
+            if pr and pr != "—":
+                return pr
+            return None
+    return None
+
+
+def _live_decision_refs(project_root: Path, spec_id: str) -> bool:
+    """True when a live ``D-<NNN>-`` decision anchor for ``spec_id`` exists.
+
+    ``NNN`` is the spec number (``spec-180`` -> ``180``). We match ``D-180-``
+    (the trailing hyphen anchors the decision index) across a FIXED surface list
+    so a plain prose mention of ``spec-180`` never counts as a live decision.
+    Fail-open: an unreadable file is skipped, never raised.
+    """
+    match = _SPEC_NUMBER_RE.match(spec_id)
+    if not match:
+        return False
+    needle = f"D-{int(match.group(1))}-"
+    candidates: list[Path] = []
+    for rel in _DECISION_REF_FILES:
+        candidates.append(project_root / rel)
+    for rel_dir, pattern in _DECISION_REF_GLOBS:
+        base = project_root / rel_dir
+        if base.is_dir():
+            candidates.extend(sorted(base.rglob(pattern)))
+    for rel_tree in _DECISION_REF_TREES:
+        base = project_root / rel_tree
+        if not base.is_dir():
+            continue
+        for root, dirs, files in os.walk(base):
+            dirs[:] = [d for d in dirs if d != "__pycache__"]
+            for name in files:
+                if name.endswith((".pyc", ".pyo")):
+                    continue
+                candidates.append(Path(root) / name)
+    for path in candidates:
+        if path.is_symlink() or not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        if needle in text:
+            return True
+    return False
+
+
+def _reconcile_signals(
+    project_root: Path,
+    record: SpecRecord,
+    *,
+    default_branch: str,
+    ledger_done: set[str],
+) -> tuple[list[str], str | None]:
+    """Collect SHIPPED evidence for ``record``; return ``(evidence, pr)``.
+
+    Evidence labels (in precedence order for the resolved PR): ``gh-pr``,
+    ``ledger-row``, ``archive-dir``, ``decision-ref``. ``pr`` is the gh-resolved
+    number when a branch classified as merged, else ``None`` (the caller falls
+    back to a sentinel). An empty evidence list means no shipped signal.
+    """
+    evidence: list[str] = []
+    pr: str | None = None
+    if record.branch and (
+        _pr_merged_via_gh(project_root, record.branch)
+        or _branch_is_merged(project_root, record.branch, default_branch)
+    ):
+        evidence.append("gh-pr")
+        pr = _resolve_merged_pr(project_root, record.branch)
+    if _spec_id_in_ledger(record.spec_id, ledger_done):
+        evidence.append("ledger-row")
+    if _resolve_via_archive_dir(project_root, record.slug) is not None:
+        evidence.append("archive-dir")
+    if _live_decision_refs(project_root, record.spec_id):
+        evidence.append("decision-ref")
+    return evidence, pr
+
+
+def reconcile_all(
+    project_root: Path,
+    *,
+    default_branch: str = _DEFAULT_BRANCH,
+    dry_run: bool = False,
+) -> dict:
+    """Classify every non-terminal sidecar via four independent signals.
+
+    A non-terminal (DRAFT/APPROVED/IN_PROGRESS) sidecar is classified SHIPPED
+    when ANY signal holds: (1) a ``gh`` merged PR / merged branch, (2) a
+    ``_history.md`` ledger row marking it done/shipped/implemented, (3) a
+    ``archive/<spec_id>-<slug>/`` directory, or (4) a live ``D-<NNN>-`` decision
+    anchor. It is classified ABANDONED only when ALL four signals are absent AND
+    the sidecar is superseded (``extra.superseded_by``) OR older than the
+    staleness threshold. Terminal states (SHIPPED/ABANDONED/ARCHIVED) are never
+    downgraded — they are skipped before any signal work.
+
+    ``dry_run=True`` returns the full report (with per-spec ``evidence``) and
+    mutates NOTHING. On a live run shipped sidecars advance via ``mark_shipped``
+    (PR = gh-resolved value or the ``—`` sentinel) and abandoned sidecars
+    transition DRAFT/APPROVED/IN_PROGRESS → ABANDONED.
+
+    Returns ``{"shipped": [...], "abandoned": [...], "skipped": [...]}``.
+    """
+    shipped: list[dict[str, str | list[str]]] = []
+    abandoned: list[dict[str, str]] = []
+    skipped: list[dict[str, str]] = []
+
+    specs = _specs_dir(project_root)
+    if not specs.exists():
+        return {"shipped": shipped, "abandoned": abandoned, "skipped": skipped}
+
+    ledger_done = _history_done_ids(project_root)
+    cutoff = datetime.now(timezone.utc) - timedelta(days=_RECONCILE_STALE_DAYS)
+
+    for path in sorted(specs.glob("*.json")):
+        try:
+            record = SpecRecord.from_json(json.loads(path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError, KeyError, ValueError):
+            skipped.append({"spec_id": path.stem, "reason": "unreadable"})
+            continue
+        if record.state not in _NON_TERMINAL_STATES:
+            skipped.append({"spec_id": record.spec_id, "reason": "terminal-state"})
+            continue
+
+        evidence, pr = _reconcile_signals(
+            project_root, record, default_branch=default_branch, ledger_done=ledger_done
+        )
+        if evidence:
+            # PR precedence: a real gh-resolved value (most direct) wins; the
+            # em-dash sentinel from a gh miss does NOT, so a bundle-merged spec
+            # backfills its bundle PR from the ledger row (FIX 1, D-180-03). Only
+            # when neither yields a real number do we fall back to the sentinel.
+            gh_pr = pr if (pr and pr != "—") else None
+            resolved_pr = gh_pr or _history_pr_for(project_root, record.spec_id) or "—"
+            if not dry_run:
+                mark_shipped(record.spec_id, resolved_pr, record.branch or "—", project_root)
+            shipped.append({"spec_id": record.spec_id, "pr": resolved_pr, "evidence": evidence})
+            continue
+
+        # No shipped signal — abandon only when superseded or stale.
+        superseded = bool(record.extra.get("superseded_by"))
+        stale = False
+        try:
+            created = datetime.fromisoformat(record.created)
+            if created.tzinfo is None:
+                created = created.replace(tzinfo=timezone.utc)
+            stale = created < cutoff
+        except ValueError:
+            stale = False
+        if superseded or stale:
+            if not dry_run:
+                record.state = transition(record.state, LifecycleState.ABANDONED)
+                _write_state(project_root, record)
+            abandoned.append(
+                {"spec_id": record.spec_id, "reason": "superseded" if superseded else "stale"}
+            )
+        else:
+            skipped.append({"spec_id": record.spec_id, "reason": "no-signal-fresh"})
+
+    if not dry_run and (shipped or abandoned):
+        _append_event(
+            project_root,
+            "spec_reconciled_all",
+            {
+                "shipped": len(shipped),
+                "abandoned": len(abandoned),
+                "default_branch": default_branch,
+            },
+        )
+    return {"shipped": shipped, "abandoned": abandoned, "skipped": skipped}
+
+
 # --- sidecar id migration (spec-153 D-153-01 / D-153-10) -------------------
 
 # Explicit slug→number mappings for sidecars with no resolvable ``_history.md``
@@ -1242,6 +1654,7 @@ def reconcile_merged(project_root: Path, *, default_branch: str = _DEFAULT_BRANC
 # sidecar was minted slug-keyed before numeric identity existed (D-153-02).
 _EXPLICIT_ID_MAP: dict[str, str] = {
     "github-actions-supply-chain-hardening": "spec-152",
+    "ai-engineering-release-version-cicd-pypi": "spec-143",
 }
 
 # The slug→spec-NNN- prefix is a deterministic numeric signal (the number is
@@ -1272,7 +1685,11 @@ def _resolve_via_archive_dir(project_root: Path, slug: str) -> str | None:
         if not child.is_dir():
             continue
         match = _ARCHIVE_DIR_RE.match(child.name)
-        if match and match.group(2) == slug:
+        # ``group(2)`` is the BARE trailing slug; match it for plain slugs, and
+        # also accept a verbatim ``child.name == slug`` so a sidecar whose slug
+        # already carries the ``spec-NNN-`` prefix (e.g. spec-133) still resolves
+        # its archive dir (spec-180 review hardening — was a silent blind spot).
+        if match and (match.group(2) == slug or child.name == slug):
             numbers.add(int(match.group(1)))
     if len(numbers) == 1:
         return f"spec-{next(iter(numbers)):03d}"
@@ -1626,6 +2043,16 @@ def _build_parser() -> argparse.ArgumentParser:
     ar.add_argument("spec_id")
     _common(ar)
     sw = sub.add_parser("sweep", help="Reap stale DRAFT > 14d → ABANDONED")
+    sw.add_argument(
+        "--default-branch",
+        default=_DEFAULT_BRANCH,
+        help=f"Protected branch the sweep refuses to write on (default: {_DEFAULT_BRANCH})",
+    )
+    sw.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report would-be abandons without mutating sidecars",
+    )
     _common(sw)
     st = sub.add_parser("status", help="Read record state")
     st.add_argument("spec_id")
@@ -1650,6 +2077,26 @@ def _build_parser() -> argparse.ArgumentParser:
         help=f"Branch PRs merge into (default: {_DEFAULT_BRANCH})",
     )
     _common(rm)
+    cl = sub.add_parser(
+        "check_ledger",
+        help="Flag ledger inconsistencies (exits non-zero when any violation)",
+    )
+    _common(cl)
+    ra = sub.add_parser(
+        "reconcile_all",
+        help="Classify non-terminal specs SHIPPED/ABANDONED via 4 signals",
+    )
+    ra.add_argument(
+        "--default-branch",
+        default=_DEFAULT_BRANCH,
+        help=f"Branch PRs merge into (default: {_DEFAULT_BRANCH})",
+    )
+    ra.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Report classifications without mutating sidecars",
+    )
+    _common(ra)
     return p
 
 
@@ -1680,7 +2127,16 @@ def main(argv: list[str] | None = None) -> int:
             record = archive(args.spec_id, project_root)
             print(json.dumps(record.to_json(), indent=2))
         elif args.cmd == "sweep":
-            print(json.dumps(sweep(project_root), indent=2))
+            print(
+                json.dumps(
+                    sweep(
+                        project_root,
+                        default_branch=args.default_branch,
+                        dry_run=args.dry_run,
+                    ),
+                    indent=2,
+                )
+            )
         elif args.cmd == "status":
             record = status(args.spec_id, project_root)
             print(json.dumps(record.to_json(), indent=2))
@@ -1697,6 +2153,22 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 json.dumps(
                     reconcile_merged(project_root, default_branch=args.default_branch),
+                    indent=2,
+                )
+            )
+        elif args.cmd == "check_ledger":
+            ledger_report = check_ledger(project_root)
+            print(json.dumps(ledger_report, indent=2))
+            if ledger_report["violations"]:
+                return 1
+        elif args.cmd == "reconcile_all":
+            print(
+                json.dumps(
+                    reconcile_all(
+                        project_root,
+                        default_branch=args.default_branch,
+                        dry_run=args.dry_run,
+                    ),
                     indent=2,
                 )
             )

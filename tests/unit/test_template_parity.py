@@ -88,3 +88,46 @@ class TestSettingsJsonParity:
             f"Deny rules differ. Missing in template: {live_deny - tmpl_deny}. "
             f"Extra in template: {tmpl_deny - live_deny}."
         )
+
+
+# spec-180 D-180-06: the top-level ``.ai-engineering/scripts/*.py`` scripts ship
+# to consumers and MUST stay byte-identical to their template twin. Until now
+# only session_bootstrap.py + auto-format.py were byte-guarded; spec_lifecycle.py
+# and the rest drifted silently. ``glob("*.py")`` is top-level only, so the
+# hooks/ and skills/ subtrees (guarded elsewhere) and the spec-131/ one-time
+# migration subdir (no twin, project-specific) are excluded automatically.
+_LIVE_SCRIPTS = _ROOT / ".ai-engineering" / "scripts"
+_TEMPLATE_SCRIPTS = _ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "scripts"
+
+
+def _top_level_scripts(root: Path) -> list[str]:
+    return sorted(p.name for p in root.glob("*.py"))
+
+
+def _norm_bytes(path: Path) -> bytes:
+    """CRLF-normalized bytes so Windows checkouts do not spuriously differ."""
+    return path.read_bytes().replace(b"\r\n", b"\n")
+
+
+class TestTopLevelScriptsParity:
+    """Top-level .ai-engineering/scripts/*.py must match the template twin."""
+
+    def test_top_level_script_names_match(self) -> None:
+        live = set(_top_level_scripts(_LIVE_SCRIPTS))
+        template = set(_top_level_scripts(_TEMPLATE_SCRIPTS))
+        assert live == template, (
+            f"Top-level script set differs. Missing in template: {live - template}. "
+            f"Extra in template: {template - live}."
+        )
+
+    @pytest.mark.parametrize("name", _top_level_scripts(_LIVE_SCRIPTS))
+    def test_top_level_script_bytes_match(self, name: str) -> None:
+        live = _LIVE_SCRIPTS / name
+        template = _TEMPLATE_SCRIPTS / name
+        assert template.exists(), f"missing template twin for {name}"
+        assert _norm_bytes(live) == _norm_bytes(template), (
+            f"{name} drifted between live and template "
+            f"(live={len(_norm_bytes(live))}B, template={len(_norm_bytes(template))}B). "
+            f"Re-sync: cp .ai-engineering/scripts/{name} "
+            f"src/ai_engineering/templates/.ai-engineering/scripts/{name}"
+        )

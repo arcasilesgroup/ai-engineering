@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- spec-180: Normalize the spec-state ledger and guard dogfood template parity.
+  Reconciled the 40 `.ai-engineering/state/specs/*.json` sidecars to their true
+  state via a three-signal evidence test (merged PR / `_history` row / archive /
+  live `D-NNN` decision refs) — 14 bundle- or evidence-merged specs marked
+  SHIPPED with their PR backfilled, dead drafts marked ABANDONED, the legacy
+  `ai-engineering-release-version-cicd-pypi` sidecar migrated to `spec-143`, and
+  the `spec-158`/`spec-159` id↔slug mismatch resolved. New `spec_lifecycle.py`
+  verbs `reconcile_all` and `check_ledger` (the latter fails CI on any
+  state↔evidence contradiction); `sweep` now refuses to write on a protected
+  branch and runs shipped-detection before abandoning, so cleanup never
+  mislabels a shipped spec or dumps uncommitted state on `main`. Added a
+  byte-parity guard over all top-level `.ai-engineering/scripts/*.py` against
+  their installer template twin (previously only `session_bootstrap.py` and
+  `auto-format.py` were guarded; `spec_lifecycle.py` had drifted).
+
 ### Fixed
 
 - spec-179: Hook scripts under `.ai-engineering/scripts/` are now excluded from

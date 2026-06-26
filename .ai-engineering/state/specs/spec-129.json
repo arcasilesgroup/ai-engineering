@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "\u2014",
   "created": "2026-05-11T11:36:51.091521+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "#509",
+  "shipped": "2026-06-26T12:09:48.206623+00:00",
   "slug": "skills-agents-excellence-pragmatic",
   "spec_id": "spec-129",
-  "state": "draft",
+  "state": "shipped",
   "title": "Skills + Agents Excellence Refactor \u2014 Pragmatic Scope (no M6, scope-cut)"
 }

@@ -232,3 +232,32 @@ def test_no_unexpected_top_level() -> None:
         "or migrate the data into state.db. spec-125 D-125-09 forbids "
         "accidental new JSON fallbacks."
     )
+
+
+def test_spec_state_ledger_is_consistent() -> None:
+    """spec-180 D-180-04: the shared spec-state ledger must match reality.
+
+    ``check_ledger`` flags a sidecar whose state contradicts its evidence — a
+    SHIPPED with no PR/archive/ledger/decision-ref, a non-terminal whose archive
+    snapshot exists, or an id↔slug numeric mismatch. A multi-agent team relies
+    on this ledger being provably consistent, so any violation fails CI here.
+    """
+    import importlib.util
+    import sys
+
+    script = PROJECT_ROOT / ".ai-engineering" / "scripts" / "spec_lifecycle.py"
+    spec = importlib.util.spec_from_file_location("spec_lifecycle_ledger_guard", script)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    # Register before exec so dataclasses can resolve field annotations via
+    # ``sys.modules[cls.__module__]`` (InitVar/ClassVar lookup).
+    sys.modules["spec_lifecycle_ledger_guard"] = module
+    spec.loader.exec_module(module)
+
+    report = module.check_ledger(PROJECT_ROOT)
+    assert report["violations"] == [], (
+        f"spec-state ledger has {len(report['violations'])} consistency violation(s): "
+        f"{report['violations']}. Run "
+        "`python .ai-engineering/scripts/spec_lifecycle.py reconcile_all` "
+        "then re-check; do not hand-edit sidecars."
+    )

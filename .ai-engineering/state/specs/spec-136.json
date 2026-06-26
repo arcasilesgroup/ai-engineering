@@ -15,10 +15,10 @@
     "source_brief": ".ai-engineering/specs/drafts/prune-contexts-docs-research-evals-brief.md",
     "target_dispatch": "/ai-autopilot"
   },
-  "pr": null,
-  "shipped": null,
+  "pr": "#514",
+  "shipped": "2026-06-26T12:09:51.338840+00:00",
   "slug": "spec-136-prune-low-value-surfaces",
   "spec_id": "spec-136",
-  "state": "approved",
+  "state": "shipped",
   "title": "Prune docs/, contexts/, research/, evals/ \u2014 single .ai-engineering/reference/ home"
 }
