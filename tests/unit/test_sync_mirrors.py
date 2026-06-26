@@ -188,11 +188,12 @@ class TestCrossReferenceResolution:
 class TestSyncDriftDetection:
     """Verify sync --check reports zero drift against real repo."""
 
-    def test_check_mode_returns_zero(self) -> None:
+    def test_check_mode_returns_zero(self, template_hooks_lock) -> None:
         """sync_command_mirrors.py --check should exit 0 (no drift)."""
         from scripts.sync_command_mirrors import sync_all
 
-        exit_code = sync_all(check_only=True)
+        with template_hooks_lock():  # serialize vs test_orphan_* probe writes
+            exit_code = sync_all(check_only=True)
         assert exit_code == 0, (
             "Mirror drift detected -- run: python scripts/sync_command_mirrors.py"
         )

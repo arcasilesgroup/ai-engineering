@@ -142,6 +142,56 @@ def _detect_git_config_contamination():
             )
 
 
+@pytest.fixture(scope="session")
+def template_hooks_lock():
+    """Cross-process mutex serializing tests that MUTATE vs READ the shared
+    installer template hooks dir
+    (``src/ai_engineering/templates/.ai-engineering/scripts/hooks``).
+
+    ``test_surface_drift::test_orphan_*`` writes spec-159 orphan probe
+    ``.py``/``.sh``/``.ps1`` files into that real shared tree — it must, to
+    prove the *live* sync registry detects them — and removes them in a
+    ``finally``. Under ``pytest -n auto --dist worksteal`` another worker
+    process that reads or asserts-clean the global sync surface inside that
+    write→cleanup window sees the probes and fails spuriously (observed:
+    ``test_template_parity::TestHookScriptParity`` reports "extra in template";
+    ``sync_all(check_only=True)`` clean-asserters return 1, not 0). The
+    invariant: every test that MUTATES or asserts-CLEAN the global sync surface
+    enters this mutex, so a write window never overlaps a read across worker
+    processes. Dependency-free
+    (``O_CREAT|O_EXCL`` atomic create works on POSIX and Windows); a timeout
+    reclaims a stale lock rather than hanging CI.
+    """
+    import os
+    import tempfile
+    import time
+    from contextlib import contextmanager, suppress
+
+    lock_path = os.path.join(tempfile.gettempdir(), "aieng_template_hooks_parity.lock")
+
+    @contextmanager
+    def _acquire(timeout: float = 60.0):
+        deadline = time.monotonic() + timeout
+        fd = None
+        while fd is None:
+            try:
+                fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+            except FileExistsError:
+                if time.monotonic() > deadline:
+                    with suppress(OSError):
+                        os.unlink(lock_path)  # reclaim a stale lock, then retry
+                else:
+                    time.sleep(0.05)
+        try:
+            yield
+        finally:
+            os.close(fd)
+            with suppress(OSError):
+                os.unlink(lock_path)
+
+    return _acquire
+
+
 @pytest.fixture()
 def installed_project(tmp_path: Path) -> Path:
     """Create a fully installed project in a temporary directory.

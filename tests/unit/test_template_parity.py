@@ -34,18 +34,20 @@ def _count_scripts(root: Path) -> set[str]:
 class TestHookScriptParity:
     """Hook script files in templates/ must match scripts/hooks/ exactly."""
 
-    def test_hook_script_count_matches(self) -> None:
-        live = _count_scripts(_LIVE_HOOKS)
-        template = _count_scripts(_TEMPLATE_HOOKS)
+    def test_hook_script_count_matches(self, template_hooks_lock) -> None:
+        with template_hooks_lock():  # serialize vs test_surface_drift probe writes
+            live = _count_scripts(_LIVE_HOOKS)
+            template = _count_scripts(_TEMPLATE_HOOKS)
         assert len(live) == len(template), (
             f"Hook script count mismatch: live={len(live)}, template={len(template)}. "
             f"Missing in template: {live - template}. "
             f"Extra in template: {template - live}."
         )
 
-    def test_hook_script_names_match(self) -> None:
-        live = _count_scripts(_LIVE_HOOKS)
-        template = _count_scripts(_TEMPLATE_HOOKS)
+    def test_hook_script_names_match(self, template_hooks_lock) -> None:
+        with template_hooks_lock():  # serialize vs test_surface_drift probe writes
+            live = _count_scripts(_LIVE_HOOKS)
+            template = _count_scripts(_TEMPLATE_HOOKS)
         assert live == template, (
             f"Hook scripts differ. Missing in template: {live - template}. "
             f"Extra in template: {template - live}."
