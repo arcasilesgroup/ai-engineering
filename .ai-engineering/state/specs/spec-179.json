@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "spec-179-pin-safe-format",
   "created": "2026-06-26T07:25:27.486777+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "611",
+  "shipped": "2026-06-26T09:57:41.779306+00:00",
   "slug": "pin-safe-format",
   "spec_id": "spec-179",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Exclude sha-pinned hook scripts from framework formatters"
 }
