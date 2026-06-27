@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.2] - 2026-06-27
+
 ### Changed
 
 - spec-181: Hardened the `/ai-pr` skill for small-model (sonnet-tier)
@@ -45,7 +47,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `--fix`, re-pins it safely — only when the on-disk script is AST-equivalent to
   the framework's bundled reference (pure reflow); substantive or unprovable
   drift is reported, never auto-pinned.
-
 ## [0.12.1] - 2026-06-25
 
 ### Changed
