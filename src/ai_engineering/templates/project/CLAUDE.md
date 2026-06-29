@@ -228,6 +228,9 @@ AIENG_EVENT_SIDECAR_BYTES           # 3072 bytes; event sidecar threshold
 AIE_MCP_HEALTH_FAIL_OPEN            # "1" pass-through MCP health gate; SECURITY RISK
 AIENG_IOC_FAIL_CLOSED               # set "1" to deny on a missing/corrupt iocs.json (default off)
 
+# spec-182 — governed-git advisory nudge
+AIENG_GOVERNED_GIT_ADVISOR_DISABLED  # set "1" to disable the raw-git -> skill advisory nudge (PreToolUse:Bash)
+
 # spec-175 — /ai-research Tier 3 deep-research (notebooklm-py CLI)
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; bounded harvest wait)
 AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC  # default 1800 (ceiling 7200; detached deep+import job deadline, CLI --timeout)
