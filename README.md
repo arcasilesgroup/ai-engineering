@@ -10,6 +10,7 @@
   <p><strong>Turn AI-assisted delivery into a governed local workflow — in any repo, any IDE.</strong></p>
 
   <p>
+    <a href="https://ai-engineering.arcasiles.com"><img src="https://img.shields.io/badge/Website-ai--engineering.arcasiles.com-2C7E6D?style=flat-square&labelColor=0B1120" alt="Website"></a>
     <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg?style=flat-square&color=2C7E6D&labelColor=0B1120" alt="PyPI version"></a>
     <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-2C7E6D.svg?style=flat-square&labelColor=0B1120" alt="Python 3.11+"></a>
     <a href="https://github.com/arcasilesgroup/ai-engineering/actions"><img src="https://img.shields.io/github/actions/workflow/status/arcasilesgroup/ai-engineering/ci-check.yml?branch=main&style=flat-square&labelColor=0B1120" alt="CI"></a>
@@ -110,6 +111,7 @@ The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibiti
 
 ## Documentation
 
+- [ai-engineering.arcasiles.com](https://ai-engineering.arcasiles.com) — the website: what it is, why it's governed, and how to install
 - [docs/](docs/) — architecture, getting started, and the diagram set
 - [CONSTITUTION.md](CONSTITUTION.md) — mission, stakeholders, prohibitions
 - [CHANGELOG.md](CHANGELOG.md) — release history and breakage notes
