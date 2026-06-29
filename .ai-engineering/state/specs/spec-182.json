@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "feat/spec-182-governed-git-advisory",
   "created": "2026-06-29T11:46:51.020707+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "617",
+  "shipped": "2026-06-29T14:22:44.401411+00:00",
   "slug": "governed-git-advisory",
   "spec_id": "spec-182",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Advisory nudge routing raw git/gh to /ai-commit and /ai-pr"
 }
