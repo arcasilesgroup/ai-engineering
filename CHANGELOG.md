@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- spec-182: Non-blocking `governed-git-advisor` `PreToolUse:Bash` hook that
+  steers the agent toward `/ai-commit` and `/ai-pr` when it issues a raw
+  `git commit`, `git push`, or `gh pr create`, naming the governed pipeline it
+  would skip (secret scan, docs gate, spec consolidation, audit chain). It
+  detects compound `&&` chains and `git -C <path>` forms, allows the call (never
+  blocks — the skills run these verbs internally), and logs each detection to
+  the audit ledger as evidence for a future data-justified hard-block decision.
+  Disable with `AIENG_GOVERNED_GIT_ADVISOR_DISABLED=1`.
+
 ## [0.12.2] - 2026-06-27
 
 ### Changed

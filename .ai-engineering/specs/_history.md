@@ -187,5 +187,6 @@ Completed specs. Details in git history.
 | spec-166 | Exempt docs-only and fork PRs from gate-trailer CI gate | shipped | 2026-06-03 | 2026-06-26 | — | — |
 | spec-180 | Normalize spec-state ledger and dogfood template parity | shipped | 2026-06-26 | 2026-06-26 | 612 | spec-180-state-ledger-normalization |
 | spec-181 | ai-pr small-model robustness | shipped | 2026-06-26 | 2026-06-26 | 613 | refactor/ai-pr-small-model-robustness |
+| spec-182 | Advisory nudge routing raw git/gh to /ai-commit and /ai-pr | shipped | 2026-06-29 | 2026-06-29 | 617 | feat/spec-182-governed-git-advisory |
 
 ---

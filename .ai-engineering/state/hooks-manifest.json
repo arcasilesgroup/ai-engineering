@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-26T09:19:32Z",
-  "hookCount": 76,
+  "generatedAt": "2026-06-29T13:18:41Z",
+  "hookCount": 77,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "dcbd09918b15ac925a3bbe36075d801cd6956ad99c3f3498ed37c1cbf2760b34",
@@ -58,6 +58,7 @@
     ".ai-engineering/scripts/hooks/copilot-strategic-compact.ps1": "2ab31e5b2847cf09d29bbb1e270abb5909a498462717c4cc2a8576dad62a49b1",
     ".ai-engineering/scripts/hooks/copilot-strategic-compact.sh": "387235c2057cb4c159005b4d33503cf4ac016e5ea2ff5a8f0f1feede444dca44",
     ".ai-engineering/scripts/hooks/cursor-hook-bridge.py": "9ae6e342c63500d0af5acd61364cd2144a1cd83aa6c7e6b74fa0dbb5f160020b",
+    ".ai-engineering/scripts/hooks/governed-git-advisor.py": "2627007136d77652bd8abd5ae7245eee6dcfbc923de86f31d41a87397053334a",
     ".ai-engineering/scripts/hooks/instinct-extract.py": "2643bb8703efc5eec88451e2281292e1e05c78f6b6dac6776b032ec6c7c23fa4",
     ".ai-engineering/scripts/hooks/instinct-observe.py": "084d54ee9ae9f35e2122380e1c1e15619e8faede8fed6731bf7e2e37049eb53a",
     ".ai-engineering/scripts/hooks/mcp-health.py": "ddca871cb12ca26e09735b408895627b184129d5a53cc09be25825bb160c738f",
