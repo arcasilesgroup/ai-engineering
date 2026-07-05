@@ -627,6 +627,17 @@ class ToolsPhase:
         if resolve_user_scope_binary(tool.name) is None:
             return False
 
+        # Honour the ``AIENG_TEST_SIMULATE_FAIL`` seam (ARC-300): a tool flagged
+        # to simulate an install failure must be driven through the (failing)
+        # dispatch path, never adopted as pre-existing-healthy. Otherwise the
+        # EXIT-80 integration tests silently pass on runners that pre-provision
+        # the tool user-scoped (e.g. ``ruff`` in ``~/.local/bin`` on macOS),
+        # where adoption would fire before the failure injection. The seam is
+        # inert outside ``AIENG_TEST=1`` (returns ``None``), so production
+        # adoption behaviour is unchanged.
+        if _check_simulate_fail(tool.name) is not None:
+            return False
+
         try:
             verify_result = run_verify(tool_spec or registry_entry)
         except Exception:

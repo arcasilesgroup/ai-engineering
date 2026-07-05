@@ -597,12 +597,61 @@ class TestPreexistingUserScopeAdoption:
                 "resolve_user_scope_binary",
                 return_value=Path.home() / ".local" / "bin" / "gitleaks",
             ),
-            patch.object(
-                tools_phase, "run_verify", side_effect=RuntimeError("probe blew up")
-            ),
+            patch.object(tools_phase, "run_verify", side_effect=RuntimeError("probe blew up")),
         ):
             phase = tools_phase.ToolsPhase()
             plan = phase.plan(context)
             phase.execute(plan, context)
 
         mech.install.assert_called_once()
+
+    def test_simulate_fail_seam_defeats_adoption(
+        self, context: InstallContext, monkeypatch: Any
+    ) -> None:
+        """A tool flagged via ``AIENG_TEST_SIMULATE_FAIL`` is NOT adopted.
+
+        Regression (ARC-300): on runners that pre-provision a healthy
+        user-scope binary (e.g. ``ruff`` in ``~/.local/bin`` on macOS), the
+        adoption path fired *before* the simulate-fail injection and returned
+        exit 0 -- silently defeating the EXIT-80 integration tests. Adoption
+        must defer to the failure seam so the (failing) dispatch path runs.
+        """
+        from ai_engineering.installer.phases import tools as tools_phase
+        from ai_engineering.installer.user_scope_install import VerifyResult
+        from ai_engineering.state.models import InstallState
+
+        monkeypatch.setenv("AIENG_TEST", "1")
+        monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "gitleaks")
+
+        install_state = InstallState()  # FRESH: no prior record
+        context.existing_state = install_state
+
+        mech = MagicMock()
+        with (
+            patch.object(
+                tools_phase, "load_required_tools", return_value=_single_gitleaks_load_result()
+            ),
+            patch.object(tools_phase, "TOOL_REGISTRY", self._registry(mech)),
+            # Healthy, user-scope, verify-passing -- adoption WOULD fire if the
+            # simulate-fail seam were not honoured first.
+            patch.object(
+                tools_phase,
+                "resolve_user_scope_binary",
+                return_value=Path.home() / ".local" / "bin" / "gitleaks",
+            ),
+            patch.object(
+                tools_phase,
+                "run_verify",
+                return_value=VerifyResult(passed=True, version="8.30.0"),
+            ),
+        ):
+            phase = tools_phase.ToolsPhase()
+            plan = phase.plan(context)
+            result = phase.execute(plan, context)
+
+        # Not adopted: the failure seam drove the dispatch path to FAILED.
+        record = install_state.required_tools_state["gitleaks"]
+        assert record.state == ToolInstallState.FAILED_NEEDS_MANUAL
+        assert any("simulated-fail" in f for f in result.failed)
+        # The real mechanism is never invoked (the seam short-circuits it).
+        mech.install.assert_not_called()
