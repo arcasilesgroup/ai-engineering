@@ -94,8 +94,17 @@ jobs:
       - name: T-4.7 median-of-3 install + smoke commit
         run: |
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
-          # Stage a bare repo from the fixture so `git clone` is realistic.
-          git clone --bare "$FIXTURE_DIR" fixture.git
+          # The fixture is tracked as plain files inside this repo, not as a
+          # nested git repo, so `git clone --bare "$FIXTURE_DIR"` fails with
+          # `fatal: repository '<dir>' does not exist` (exit 128). Stage the
+          # fixture into a throwaway repo first, then bare-clone from that so
+          # the per-run `git clone` stays realistic. Staging is outside the
+          # timed loop, so it does not count against the G-11 budget.
+          rm -rf fixture-src fixture.git
+          mkdir -p fixture-src
+          cp -R "$FIXTURE_DIR"/. fixture-src/
+          (cd fixture-src && git init -b main -q && git add -A && git commit -q -m "chore: fixture init")
+          git clone --bare fixture-src fixture.git
           declare -a TIMINGS
           for run in 1 2 3; do
             rm -rf "run-$run"
