@@ -579,3 +579,113 @@ def test_all_12_mechanisms_have_install_method() -> None:
         install = getattr(cls, "install", None)
         assert install is not None, f"{cls.__name__} is missing `install`"
         assert callable(install), f"{cls.__name__}.install is not callable"
+
+
+# ---------------------------------------------------------------------------
+# ARC-300 bug #2: _download_release_binary must be clobber-safe (atomic)
+# ---------------------------------------------------------------------------
+
+
+class TestDownloadReleaseBinaryAtomicity:
+    """`_download_release_binary` writes into a sibling temp and only
+    ``os.replace`` on the first non-failed outcome.
+
+    Regression: ``curl --output`` / ``wget -O`` create+truncate the
+    destination BEFORE the transfer, so a 404 left a pre-existing healthy
+    binary at 0 bytes. The atomic path must leave ``target_path``
+    byte-for-byte unchanged on failure and land the new bytes on success.
+    """
+
+    _URL = "https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks"
+
+    def _import(self):
+        from ai_engineering.installer import mechanisms
+
+        return mechanisms
+
+    def test_failed_download_leaves_preexisting_target_byte_for_byte(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mechanisms = self._import()
+        target = tmp_path / "gitleaks"
+        healthy = b"HEALTHY-GITLEAKS-BINARY-v8.30.0\x00\x01\x02"
+        target.write_bytes(healthy)
+
+        def _truncating_fail(driver: str, _url: str, temp_path: Path) -> Any:
+            # Mimic curl --output / wget -O: create+truncate the destination
+            # to 0 bytes up front, THEN report the 404. If the temp were the
+            # real target, the healthy binary would now be gone.
+            Path(temp_path).write_bytes(b"")
+            return mechanisms.InstallResult(
+                failed=True, stderr=f"{driver}: HTTP 404", mechanism="GitHubReleaseBinaryMechanism"
+            )
+
+        monkeypatch.setattr(mechanisms.shutil, "which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr(mechanisms, "_try_subprocess_download", _truncating_fail)
+        monkeypatch.setattr(
+            mechanisms,
+            "_download_via_urllib",
+            lambda _url, _tp: mechanisms.InstallResult(
+                failed=True, stderr="urllib: HTTP 404", mechanism="GitHubReleaseBinaryMechanism"
+            ),
+        )
+
+        result = mechanisms._download_release_binary(self._URL, target)
+
+        assert result.failed is True
+        assert target.exists(), "failed download must NOT delete the pre-existing binary"
+        assert target.read_bytes() == healthy, "target must be unchanged (not 0 bytes)"
+        # No temp residue left behind in the target directory.
+        residue = sorted(p.name for p in tmp_path.iterdir() if p.name != "gitleaks")
+        assert residue == [], f"temp download artefacts leaked: {residue}"
+
+    def test_successful_download_replaces_atomically(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mechanisms = self._import()
+        target = tmp_path / "gitleaks"
+        target.write_bytes(b"OLD-BINARY")
+        new_bytes = b"NEW-GITLEAKS-BINARY-v9.0.0"
+
+        def _writing_ok(_driver: str, _url: str, temp_path: Path) -> Any:
+            Path(temp_path).write_bytes(new_bytes)
+            return mechanisms.InstallResult(failed=False, mechanism="GitHubReleaseBinaryMechanism")
+
+        monkeypatch.setattr(mechanisms.shutil, "which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr(mechanisms, "_try_subprocess_download", _writing_ok)
+
+        result = mechanisms._download_release_binary(self._URL, target)
+
+        assert result.failed is False
+        assert target.read_bytes() == new_bytes, "successful download must land the new bytes"
+        residue = sorted(p.name for p in tmp_path.iterdir() if p.name != "gitleaks")
+        assert residue == [], f"temp download artefacts leaked: {residue}"
+
+    def test_failed_download_no_preexisting_target_creates_nothing(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mechanisms = self._import()
+        target = tmp_path / "gitleaks"  # does not exist
+
+        monkeypatch.setattr(mechanisms.shutil, "which", lambda name: f"/usr/bin/{name}")
+        monkeypatch.setattr(
+            mechanisms,
+            "_try_subprocess_download",
+            lambda driver, _url, _tp: mechanisms.InstallResult(
+                failed=True, stderr=f"{driver}: HTTP 404", mechanism="GitHubReleaseBinaryMechanism"
+            ),
+        )
+        monkeypatch.setattr(
+            mechanisms,
+            "_download_via_urllib",
+            lambda _url, _tp: mechanisms.InstallResult(
+                failed=True, stderr="urllib: HTTP 404", mechanism="GitHubReleaseBinaryMechanism"
+            ),
+        )
+
+        result = mechanisms._download_release_binary(self._URL, target)
+
+        assert result.failed is True
+        assert not target.exists(), "a failed fresh download must not leave a partial target"
+        residue = sorted(p.name for p in tmp_path.iterdir())
+        assert residue == [], f"temp download artefacts leaked: {residue}"
