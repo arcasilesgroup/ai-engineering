@@ -25,7 +25,13 @@ jobs:
   nightly-matrix:
     name: Nightly Matrix (Python ${{ matrix.python-version }} / ${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # Windows cells legitimately run the full unit+integration suite in ~29min
+    # (2x ubuntu; no compiled-wheel cache parity). A 30min cap cancelled the
+    # slowest Windows cell mid-run every night, and a *cancelled* job forces the
+    # whole run's conclusion to `cancelled` even under continue-on-error — which
+    # masked the real advisory signal. 45min leaves headroom without hiding a
+    # genuine hang (GitHub's hard job ceiling is 6h).
+    timeout-minutes: 45
     # spec-140 W2 D-140-03: advisory only — cell failures do not block.
     continue-on-error: true
     defaults:
@@ -47,8 +53,12 @@ jobs:
           git config --global user.email "ci@test.com"
           git config --global user.name "CI"
       - name: Run unit + integration tests (advisory)
+        # No `-x`: `-x` is `--maxfail=1` and silently overrode `--maxfail=3`,
+        # aborting the sweep at the first failing test and hiding every later
+        # cell result. Let the intended 3-failure budget stand so one flaky
+        # cell no longer masks real regressions elsewhere in the suite.
         run: |
-          uv run pytest tests/unit tests/integration -q -x --maxfail=3
+          uv run pytest tests/unit tests/integration -q --maxfail=3
 
   reachability-audit:
     name: Pinned-SHA reachability audit (advisory)

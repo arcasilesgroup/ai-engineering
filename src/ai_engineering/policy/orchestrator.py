@@ -242,21 +242,30 @@ def _has_active_spec(project_root: Path | None = None) -> bool:
     return active_work_plane_has_active_spec(root)
 
 
-def _snapshot_mtimes(paths: list[Path]) -> dict[Path, int]:
-    snapshot: dict[Path, int] = {}
+# Snapshot both mtime and size. Relying on ``st_mtime_ns`` alone is unreliable
+# on filesystems with coarse timestamp resolution (notably Windows/NTFS via
+# Python's stat): a fixer that rewrites a file within the same mtime tick as the
+# pre-snapshot leaves ``mtime_ns`` unchanged and the edit goes undetected. Size
+# is a cheap, resolution-independent tie-breaker — a real reformat/autofix
+# almost always changes the byte count — so a change in *either* field flags the
+# file as modified.
+def _snapshot_mtimes(paths: list[Path]) -> dict[Path, tuple[int, int]]:
+    snapshot: dict[Path, tuple[int, int]] = {}
     for p in paths:
         try:
-            snapshot[p] = p.stat().st_mtime_ns
+            st = p.stat()
+            snapshot[p] = (st.st_mtime_ns, st.st_size)
         except FileNotFoundError:
-            snapshot[p] = 0
+            snapshot[p] = (0, -1)
     return snapshot
 
 
-def _modified_since(pre: dict[Path, int]) -> list[str]:
+def _modified_since(pre: dict[Path, tuple[int, int]]) -> list[str]:
     modified: list[str] = []
     for p, before in pre.items():
         try:
-            now = p.stat().st_mtime_ns
+            st = p.stat()
+            now = (st.st_mtime_ns, st.st_size)
         except FileNotFoundError:
             continue
         if now != before:
@@ -636,7 +645,30 @@ def _atomic_write_text(path: Path, payload: str) -> None:
             with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
         raise
-    os.replace(tmp_path, str(path))
+    _replace_with_retry(tmp_path, str(path))
+
+
+# Windows does not allow ``os.replace`` to atomically clobber a destination
+# that another handle currently holds open (a concurrent reader, or a racing
+# replace onto the same target). POSIX has no such restriction. The failure
+# surfaces as ``PermissionError(13, 'Access is denied')`` and is transient:
+# the conflicting handle is released within microseconds. Retry with a short
+# bounded back-off so concurrent atomic publishes converge on every platform.
+# On POSIX the first attempt always succeeds, so this is a no-op there.
+_REPLACE_RETRIES: int = 10
+_REPLACE_BACKOFF_S: float = 0.01
+
+
+def _replace_with_retry(src: str, dst: str) -> None:
+    """``os.replace`` with a bounded retry on transient Windows lock errors."""
+    for attempt in range(_REPLACE_RETRIES):
+        try:
+            os.replace(src, dst)
+            return
+        except PermissionError:
+            if attempt == _REPLACE_RETRIES - 1:
+                raise
+            time.sleep(_REPLACE_BACKOFF_S * (attempt + 1))
 
 
 def publish_gate_document(
