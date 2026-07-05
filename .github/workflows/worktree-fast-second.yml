@@ -84,6 +84,23 @@ jobs:
           pip install dist/*.whl
           which ai-eng
 
+      # Provision the prereq security binaries the G-12 "clean machine with
+      # prereqs" scenario assumes. ai-eng's installer has no real network
+      # mechanism to fetch gitleaks (see install-smoke.yml), and semgrep ships
+      # as a Python package; without them on PATH `ai-eng install` exits 80 on
+      # unresolved tool gaps before it can wire the post-install gate. ubuntu
+      # runners do not prebake gitleaks. Provisioned outside the timed loop so
+      # the G-12 wall-clock budget is unaffected.
+      - name: Install prereq binaries (gitleaks + semgrep)
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | sudo tar xz -C /usr/local/bin gitleaks
+          gitleaks version
+          python -m pip install --quiet semgrep
+          semgrep --version
+
       - name: Stage primary worktree
         run: |
           . .smoke-venv/bin/activate
