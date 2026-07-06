@@ -74,12 +74,6 @@ _RE_SEMVER: str = r"v?\d+\.\d+(?:\.\d+)?(?:[-+][\w.\-]+)?"
 # optional so future jq-2.0.0 stays matched.
 _RE_JQ: str = r"jq-\d+(?:\.\d+)*"
 
-# gitleaks `detect --no-git --source /dev/null --no-banner` exits 0 with
-# the literal "no leaks found" line printed to stdout/stderr. Used as the
-# functional probe per D-101-04 -- exit-code-only would not catch broken
-# binaries.
-_RE_GITLEAKS_FUNCTIONAL: str = r"no leaks found"
-
 # Project marker probe shape for stacks whose tool surface is entirely
 # project-local (D-101-15). The "marker" tool exists so the manifest's
 # `required_tools.<stack>` list is non-empty, which keeps the validate-
@@ -133,8 +127,12 @@ _SWIFT_SKIP: dict[str, Any] = {
 # `unsupported_reason` to the user.
 #
 # Tools whose verify cmd / regex are spec-mandated (D-101-04):
-#   gitleaks: ["gitleaks", "detect", "--no-git", "--source", "/dev/null",
-#              "--no-banner"], r"no leaks found"
+#   gitleaks: ["gitleaks", "version"], r"v?\d+\.\d+..."  (ARC-319: the older
+#              `detect --source /dev/null` probe was not cross-platform --
+#              `/dev/null` is not a valid path for native `gitleaks.exe`, so
+#              the verify failed on Windows and the tool never resolved.
+#              `gitleaks version` is offline-safe + runnable per D-101-04 and
+#              matches how every other tool (incl. semgrep) is verified.)
 #   semgrep:  ["semgrep", "--version"], r"v?\d+\.\d+..."
 #   jq:       ["jq", "--version"], r"jq-\d+..."
 #   pip-audit:["pip-audit", "--version"]   (NOT --strict / --refresh)
@@ -164,10 +162,13 @@ TOOL_REGISTRY: dict[str, dict[str, Any]] = {
             WingetMechanism("gitleaks.gitleaks"),
             ScoopMechanism("gitleaks"),
         ],
-        "verify": _verify(
-            ["gitleaks", "detect", "--no-git", "--source", "/dev/null", "--no-banner"],
-            _RE_GITLEAKS_FUNCTIONAL,
-        ),
+        # ARC-319: cross-platform verify. `gitleaks version` is offline-safe
+        # (no egress) and runnable per D-101-04 -- unlike the previous
+        # `detect --no-git --source /dev/null` probe, whose `/dev/null` path
+        # is invalid for native `gitleaks.exe` on Windows, so verify failed,
+        # the pre-existing user-scope binary was never adopted, and the tool
+        # was reported as a MISSING gap (EXIT 80, windows-only).
+        "verify": _semver_verify("gitleaks", flag="version"),
     },
     "semgrep": {
         # D-101-02: semgrep ships only as a Python wheel, so uv tool install

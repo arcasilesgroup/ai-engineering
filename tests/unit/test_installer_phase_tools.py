@@ -438,9 +438,9 @@ class TestPreexistingUserScopeAdoption:
                 "darwin": [mech],
                 "linux": [mech],
                 "win32": [mech],
-                # spec: verify probe gitleaks detect --no-git --source /dev/null
+                # spec (ARC-319): cross-platform verify probe `gitleaks version`
                 "verify": {
-                    "cmd": ["gitleaks", "detect", "--no-git", "--source", "/dev/null"],
+                    "cmd": ["gitleaks", "version"],
                     "regex": r"\d+\.\d+\.\d+",
                 },
             }
