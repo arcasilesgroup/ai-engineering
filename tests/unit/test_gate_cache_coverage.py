@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import logging
+from contextlib import ExitStack, contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -141,7 +142,7 @@ def test_atomic_write_cleans_up_tempfile_on_replace_failure(tmp_path: Path) -> N
 def test_read_safe_returns_none_on_permission_error(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """``_read_safe`` returns None + warns when read_bytes raises OSError.
+    """``_read_safe`` returns None + warns when the read primitive raises OSError.
 
     Simulates Linux/macOS chmod-0 unreadable file, Windows file-locked, or
     similar low-level I/O failures distinct from FileNotFoundError.
@@ -154,10 +155,13 @@ def test_read_safe_returns_none_on_permission_error(
 
     boom = PermissionError("simulated permission denied")
 
-    # Patch ONLY the bound read_bytes on this specific path so other
-    # filesystem ops in the test (cleanup) keep working.
+    # Patch the single read seam ``_read_safe`` delegates to
+    # (``_read_bytes_shared``, which wraps read_bytes on POSIX and a
+    # FILE_SHARE_DELETE handle on Windows). Patching there — rather than
+    # ``Path.read_bytes`` — exercises the OSError->None contract identically
+    # on every OS, including the Windows branch that never touches read_bytes.
     with (
-        mock.patch.object(Path, "read_bytes", side_effect=boom),
+        mock.patch("ai_engineering.policy.gate_cache._read_bytes_shared", side_effect=boom),
         caplog.at_level(logging.WARNING, logger="ai_engineering.policy.gate_cache"),
     ):
         result = _read_safe(path)
@@ -888,3 +892,177 @@ def test_prune_handles_concurrent_unlink_during_lru_eviction(tmp_path: Path) -> 
     # Assert -- one of the two LRU evictions was raced (not counted), the
     # other succeeded -> evicted == 1.
     assert removed == 1, f"LRU prune must count only successful unlinks under race; got {removed}"
+
+
+# ---------------------------------------------------------------------------
+# _read_bytes_shared Windows FILE_SHARE_DELETE branch (lines 268-320)
+#
+# ARC-320: the share-delete read primitive fixes the Windows concurrent-persist
+# flake, but its body is a Windows-only ctypes/msvcrt path that the POSIX CI
+# coverage runners never execute (``sys.platform != "win32"`` short-circuits at
+# line 265-266). The new-code coverage quality gate therefore reads the whole
+# branch as uncovered. These tests drive that branch on any OS by faking the
+# Windows environment (``sys.platform``, a stub ``msvcrt`` module, and a mocked
+# ``kernel32``), exercising the success path plus all three error exits so the
+# fix is genuinely covered — no coverage suppression, no skip-on-windows shim.
+# ---------------------------------------------------------------------------
+
+
+@contextmanager
+def _fake_win32_env(
+    *,
+    create_file_return: Any,
+    open_osfhandle: Any,
+):
+    """Make ``_read_bytes_shared`` take its Windows branch on any platform.
+
+    Patches the three seams the branch reaches for that do not exist (or would
+    behave differently) off-Windows:
+
+    * ``gate_cache.sys.platform`` -> ``"win32"`` so line 265 falls through.
+    * a stub ``msvcrt`` module in ``sys.modules`` (``import msvcrt`` inside the
+      function would otherwise ``ImportError`` on POSIX).
+    * ``ctypes.WinDLL`` / ``ctypes.WinError`` created on the real ``ctypes``
+      module (Windows-only attributes) returning a mock ``kernel32``.
+
+    ``create_file_return`` is what the faked ``CreateFileW`` yields (an int
+    handle, or ``INVALID_HANDLE_VALUE`` to force the error exit).
+    ``open_osfhandle`` becomes ``msvcrt.open_osfhandle`` (an int fd or a
+    ``side_effect``).
+    """
+    import ctypes as _ctypes
+    import sys as _sys
+    import types as _types
+
+    from ai_engineering.policy import gate_cache
+
+    kernel32 = mock.MagicMock(name="kernel32")
+    kernel32.CreateFileW.return_value = create_file_return
+
+    fake_msvcrt = _types.ModuleType("msvcrt")
+    fake_msvcrt.open_osfhandle = open_osfhandle  # type: ignore[attr-defined]
+
+    def _win_error(code: Any) -> OSError:
+        # Mirror the real ctypes.WinError mapping enough for assertions: a
+        # sharing/lock code -> PermissionError, everything else -> generic OSError.
+        return PermissionError(f"simulated WinError({code})")
+
+    with ExitStack() as stack:
+        stack.enter_context(mock.patch.object(gate_cache.sys, "platform", "win32"))
+        stack.enter_context(mock.patch.dict(_sys.modules, {"msvcrt": fake_msvcrt}))
+        stack.enter_context(
+            mock.patch.object(_ctypes, "WinDLL", create=True, return_value=kernel32)
+        )
+        stack.enter_context(
+            mock.patch.object(_ctypes, "WinError", create=True, side_effect=_win_error)
+        )
+        stack.enter_context(
+            mock.patch.object(_ctypes, "get_last_error", create=True, return_value=32)
+        )
+        yield kernel32
+
+
+def test_read_bytes_shared_windows_success_reads_all_bytes(tmp_path: Path) -> None:
+    """Windows branch returns the file's bytes via the FILE_SHARE_DELETE handle.
+
+    Drives lines 268-300 (imports/constants/CreateFileW), the pass-through of
+    the handle check (301), and the msvcrt.open_osfhandle -> fdopen -> read
+    happy path (307-320). A real fd is handed back from the stubbed
+    ``open_osfhandle`` so ``os.fdopen(...).read()`` returns the actual content.
+    """
+    import os as _os
+
+    from ai_engineering.policy.gate_cache import _read_bytes_shared
+
+    payload = b'{"check_name": "ruff", "verified_at": "2026-07-06T00:00:00+00:00"}'
+    target = tmp_path / "entry.json"
+    target.write_bytes(payload)
+
+    # A genuine read-only fd; the production code takes ownership and closes it.
+    real_fd = _os.open(target, _os.O_RDONLY)
+
+    with _fake_win32_env(
+        create_file_return=0x1234, open_osfhandle=lambda handle, flags: real_fd
+    ) as kernel32:
+        result = _read_bytes_shared(target)
+
+    assert result == payload, f"share-delete read must return full file bytes; got {result!r}"
+    kernel32.CreateFileW.assert_called_once()
+    # FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE == 0x7 is the 3rd arg.
+    share_mode = kernel32.CreateFileW.call_args.args[2]
+    assert share_mode == 0x00000007, (
+        f"read handle must request SHARE_READ|WRITE|DELETE (0x7); got {share_mode:#x}"
+    )
+
+
+def test_read_bytes_shared_windows_invalid_handle_raises(tmp_path: Path) -> None:
+    """INVALID_HANDLE_VALUE from CreateFileW raises a mapped OSError (301-305)."""
+    import ctypes
+
+    from ai_engineering.policy.gate_cache import _read_bytes_shared
+
+    invalid = ctypes.c_void_p(-1).value
+
+    def _should_not_open(handle: Any, flags: Any) -> int:  # pragma: no cover - guard
+        raise AssertionError("open_osfhandle must not run when the handle is invalid")
+
+    with (
+        _fake_win32_env(create_file_return=invalid, open_osfhandle=_should_not_open),
+        pytest.raises(OSError) as excinfo,
+    ):
+        _read_bytes_shared(tmp_path / "missing.json")
+
+    assert "WinError" in str(excinfo.value), (
+        f"invalid handle must surface a ctypes.WinError-mapped OSError; got {excinfo.value!r}"
+    )
+
+
+def test_read_bytes_shared_windows_open_osfhandle_failure_closes_handle(tmp_path: Path) -> None:
+    """open_osfhandle OSError closes the OS handle then re-raises (310-313)."""
+    from ai_engineering.policy.gate_cache import _read_bytes_shared
+
+    boom = OSError("simulated open_osfhandle failure")
+
+    def _raising_open(handle: Any, flags: Any) -> int:
+        raise boom
+
+    with (
+        _fake_win32_env(create_file_return=0x1234, open_osfhandle=_raising_open) as kernel32,
+        pytest.raises(OSError) as excinfo,
+    ):
+        _read_bytes_shared(tmp_path / "entry.json")
+
+    assert excinfo.value is boom, "the original open_osfhandle OSError must propagate unchanged"
+    # the leaked OS handle must be closed before re-raising
+    kernel32.CloseHandle.assert_called_once_with(0x1234)
+
+
+def test_read_bytes_shared_windows_fdopen_failure_closes_fd(tmp_path: Path) -> None:
+    """fdopen OSError closes the fd then re-raises (314-318)."""
+    import os as _os
+
+    from ai_engineering.policy import gate_cache
+    from ai_engineering.policy.gate_cache import _read_bytes_shared
+
+    target = tmp_path / "entry.json"
+    target.write_bytes(b"{}")
+    real_fd = _os.open(target, _os.O_RDONLY)
+
+    boom = OSError("simulated fdopen failure")
+    closed: list[int] = []
+    real_close = _os.close  # capture before patching to avoid recursing into the mock
+
+    def _tracking_close(fd: int) -> None:
+        closed.append(fd)
+        real_close(fd)
+
+    with (
+        _fake_win32_env(create_file_return=0x1234, open_osfhandle=lambda handle, flags: real_fd),
+        mock.patch.object(gate_cache._stdlib_os, "fdopen", side_effect=boom),
+        mock.patch.object(gate_cache._stdlib_os, "close", side_effect=_tracking_close),
+        pytest.raises(OSError) as excinfo,
+    ):
+        _read_bytes_shared(target)
+
+    assert excinfo.value is boom, "the original fdopen OSError must propagate unchanged"
+    assert closed == [real_fd], f"the orphaned fd must be closed exactly once; got {closed!r}"
