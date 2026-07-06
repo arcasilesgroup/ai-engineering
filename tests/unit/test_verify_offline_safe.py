@@ -87,22 +87,21 @@ def _get_unsafe_verify_command() -> Any:
 # `tool_spec` is the registry entry's verify block plus the tool name; tests
 # build minimal fixtures that the wrapper can consume.
 _CANONICAL_VERIFY_SPECS: dict[str, dict[str, Any]] = {
-    # D-101-04: end-to-end offline-safe functional probe.
+    # D-101-04 (ARC-319): offline-safe + runnable, cross-platform. The old
+    # `detect --source /dev/null` probe failed on Windows (`/dev/null` is not a
+    # valid path for native gitleaks.exe); `gitleaks version` is equivalent to
+    # how every other tool is verified.
     "gitleaks": {
         "name": "gitleaks",
         "verify": {
             "cmd": [
                 "gitleaks",
-                "detect",
-                "--no-git",
-                "--source",
-                "/dev/null",
-                "--no-banner",
+                "version",
             ],
-            "regex": r"no leaks found",
+            "regex": r"v?\d+\.\d+\.\d+",
         },
         # Sample stdout that the canonical cmd produces offline.
-        "stdout_sample": "no leaks found in 0 commits\n",
+        "stdout_sample": "8.30.0\n",
     },
     # D-101-04: semgrep phones home on broader invocations; --version only.
     "semgrep": {
@@ -332,9 +331,9 @@ class TestVerifyRegexMatch:
         )
 
     def test_regex_match_on_stderr_also_marks_passed(self) -> None:
-        """spec-109 follow-up: tools that emit success markers to stderr
-        (e.g. gitleaks logs ``no leaks found`` on stderr) must still be
-        considered verified. ``run_verify`` searches both stdout and stderr.
+        """spec-109 follow-up: tools that emit their version/success marker to
+        stderr instead of stdout must still be considered verified.
+        ``run_verify`` searches both stdout and stderr.
         """
         run_verify = _get_run_verify()
         spec = _CANONICAL_VERIFY_SPECS["jq"]

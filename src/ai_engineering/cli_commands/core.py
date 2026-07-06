@@ -213,6 +213,7 @@ def install_cmd(  # audit:exempt:pre-existing-debt-out-of-spec-114-G7-scope
     )
 
     _emit_noninteractive_skipped_tools(summary, non_interactive=non_interactive)
+    _emit_noninteractive_failed_tools(summary, non_interactive=non_interactive)
 
     non_critical_failures_list = _coerce_non_critical_failures(summary)
     auto_remediation_report = _run_auto_remediation(
@@ -580,6 +581,30 @@ def _emit_noninteractive_skipped_tools(summary: Any, *, non_interactive: bool) -
     for skipped_entry in tools_phase_result.skipped:
         if skipped_entry.startswith("tool:"):
             print_stderr(skipped_entry)
+
+
+def _emit_noninteractive_failed_tools(summary: Any, *, non_interactive: bool) -> None:
+    """Print failed tool markers so non-interactive logs name the gap.
+
+    Symmetrical to :func:`_emit_noninteractive_skipped_tools`. Without this
+    the install pipeline surfaces the aggregate ``EXIT 80`` ("unresolved
+    issues") but never names WHICH required tool failed, forcing operators to
+    reverse-engineer the gap from CI logs. Emitting the per-tool
+    ``tool:<name>:<reason>`` markers (recorded by ``ToolsPhase`` in
+    ``result.failed``) makes the failing tool observable on every OS -- the
+    same contract the skipped markers already provide.
+    """
+    if not non_interactive:
+        return
+    tools_phase_result = next(
+        (r for r in summary.results if r.phase_name == PHASE_TOOLS),
+        None,
+    )
+    if tools_phase_result is None or not tools_phase_result.failed:
+        return
+    for failed_entry in tools_phase_result.failed:
+        if failed_entry.startswith("tool:"):
+            print_stderr(failed_entry)
 
 
 def _coerce_non_critical_failures(summary: Any) -> list[Any]:

@@ -9,8 +9,8 @@ Verifies the contract described in spec D-101-06 + D-101-04 + D-101-13:
 * Each entry exposes a ``verify`` block of shape ``{"cmd": list[str],
   "regex": str}`` for offline-safe post-install verification (D-101-04).
 * Per-tool ``verify.cmd`` is the canonical offline-safe invocation (e.g.
-  ``gitleaks detect --no-git --source /dev/null --no-banner`` for gitleaks
-  per D-101-04; ``semgrep --version`` for semgrep — never ``--config auto``).
+  ``gitleaks version`` for gitleaks per D-101-04 (ARC-319: cross-platform;
+  ``semgrep --version`` for semgrep — never ``--config auto``).
 * swift entries (swiftlint, swift-format) carry stack-level skip metadata
   pointing to D-101-13 (``platform_unsupported_stack: [linux, windows]``).
 * A parametric loop covers >= 12 named tools spanning 14 stacks and asserts
@@ -126,8 +126,10 @@ _SWIFT_STACK_TOOLS: tuple[str, ...] = ("swiftlint", "swift-format")
 # Specific verify.cmd shapes called out by spec D-101-04 + task description.
 # Tools NOT listed here are validated by the generic regex-shape check below.
 _EXPECTED_VERIFY_CMDS: dict[str, list[str]] = {
-    # D-101-04: end-to-end offline-safe functional probe, not just --version.
-    "gitleaks": ["gitleaks", "detect", "--no-git", "--source", "/dev/null", "--no-banner"],
+    # D-101-04 (ARC-319): offline-safe + runnable. `gitleaks version` replaces
+    # the old `detect --source /dev/null` probe, which was not cross-platform
+    # (`/dev/null` is invalid for native gitleaks.exe on Windows).
+    "gitleaks": ["gitleaks", "version"],
     # D-101-04: semgrep phones home on broader invocations; --version only.
     "semgrep": ["semgrep", "--version"],
     # Task description: jq verify regex must match `jq-\d+`.
@@ -362,18 +364,16 @@ class TestVerifyCmdSpecCompliance:
     """Contract: D-101-04 mandates specific offline-safe verify invocations."""
 
     def test_gitleaks_verify_cmd_exact_match(self) -> None:
-        # D-101-04: "gitleaks detect --no-git --source /dev/null --no-banner"
-        # is the canonical offline-safe functional probe.
+        # D-101-04 (ARC-319): `gitleaks version` is the canonical offline-safe,
+        # cross-platform probe. The prior `detect --source /dev/null` probe was
+        # windows-hostile -- `/dev/null` is not a valid path for the native
+        # `gitleaks.exe`, so verify failed and the tool never resolved (EXIT 80).
         registry = _get_registry()
         verify = _get_verify(registry["gitleaks"])
         assert verify["cmd"] == [
             "gitleaks",
-            "detect",
-            "--no-git",
-            "--source",
-            "/dev/null",
-            "--no-banner",
-        ], f"D-101-04 mandates the exact gitleaks offline-safe probe; got {verify['cmd']!r}"
+            "version",
+        ], f"D-101-04 mandates the offline-safe gitleaks probe; got {verify['cmd']!r}"
 
     def test_semgrep_verify_cmd_is_version_only(self) -> None:
         # D-101-04: semgrep phones home on broader invocations; --version only.
