@@ -195,15 +195,16 @@ class TestInstallHooksInLinkedWorktree:
         assert len(removed) == 3
 
 
-class TestResolveHooksDirCoreHooksPath:
-    """``resolve_hooks_dir`` honours ``core.hooksPath`` relocation."""
+class TestResolveHooksDirPrimaryTree:
+    """``resolve_hooks_dir`` fast-paths a primary working tree."""
 
-    def test_custom_hooks_path(self, git_repo: Path, tmp_path: Path) -> None:
-        custom = tmp_path / "custom-hooks"
-        custom.mkdir()
-        subprocess.run(
-            ["git", "-C", str(git_repo), "config", "core.hooksPath", str(custom)],
-            check=True,
-            capture_output=True,
-        )
-        assert resolve_hooks_dir(git_repo) == custom
+    def test_primary_tree_returns_literal_hooks_dir(self, git_repo: Path) -> None:
+        # ``.git`` is a real directory -> literal path, no git subprocess.
+        assert resolve_hooks_dir(git_repo) == git_repo / ".git" / "hooks"
+
+    def test_non_git_dir_falls_back_to_legacy_path(self, tmp_path: Path) -> None:
+        # No ``.git`` at all: fall back to the legacy path so callers still
+        # get the "not a git repository" signal (dir will not exist).
+        resolved = resolve_hooks_dir(tmp_path)
+        assert resolved == tmp_path / ".git" / "hooks"
+        assert not resolved.exists()

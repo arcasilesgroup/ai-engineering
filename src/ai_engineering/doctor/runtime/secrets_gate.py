@@ -31,12 +31,13 @@ import subprocess
 from pathlib import Path
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
+from ai_engineering.hooks.manager import resolve_hooks_dir
 
 _GITLEAKS_CONFIG_FILENAME = ".gitleaks.toml"
 _GITLEAKS_IGNORE_FILENAME = ".gitleaksignore"
 _SEMGREP_CONFIG_FILENAME = ".semgrep.yml"
-_PRE_COMMIT_HOOK = Path(".git") / "hooks" / "pre-commit"
-_PRE_PUSH_HOOK = Path(".git") / "hooks" / "pre-push"
+_PRE_COMMIT_HOOK_NAME = "pre-commit"
+_PRE_PUSH_HOOK_NAME = "pre-push"
 _PRE_COMMIT_MARKER = "ai-eng gate pre-commit"
 _PRE_PUSH_MARKER = "ai-eng gate pre-push"
 
@@ -193,8 +194,13 @@ def _check_gitleaks_config(results: list[CheckResult], target: Path) -> None:
 
 
 def _check_pre_commit_hook(results: list[CheckResult], target: Path) -> None:
-    """Probe 6: ``.git/hooks/pre-commit`` is wired to ``ai-eng gate pre-commit``."""
-    hook_path = target / _PRE_COMMIT_HOOK
+    """Probe 6: ``.git/hooks/pre-commit`` is wired to ``ai-eng gate pre-commit``.
+
+    Resolves the hooks dir via git so a linked worktree (where
+    ``<target>/.git`` is a pointer file) probes the shared common-dir hook
+    rather than a non-existent ``<target>/.git/hooks/`` (ARC-314).
+    """
+    hook_path = resolve_hooks_dir(target) / _PRE_COMMIT_HOOK_NAME
     _check_hook_marker(
         results,
         hook_path,
@@ -209,8 +215,11 @@ def _check_pre_commit_hook(results: list[CheckResult], target: Path) -> None:
 
 
 def _check_pre_push_hook(results: list[CheckResult], target: Path) -> None:
-    """Probe 7: ``.git/hooks/pre-push`` is wired to ``ai-eng gate pre-push``."""
-    hook_path = target / _PRE_PUSH_HOOK
+    """Probe 7: ``.git/hooks/pre-push`` is wired to ``ai-eng gate pre-push``.
+
+    Worktree-aware via :func:`resolve_hooks_dir` (see probe 6, ARC-314).
+    """
+    hook_path = resolve_hooks_dir(target) / _PRE_PUSH_HOOK_NAME
     _check_hook_marker(
         results,
         hook_path,

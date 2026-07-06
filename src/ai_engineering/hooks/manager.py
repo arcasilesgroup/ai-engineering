@@ -215,23 +215,31 @@ def resolve_hooks_dir(project_root: Path) -> Path:
     """Resolve the git hooks directory for ``project_root``.
 
     ``<root>/.git/hooks`` only holds for a *primary* working tree. It breaks
-    for two real configurations the installer must support:
+    for **linked worktrees** (``git worktree add wt-1``), where ``wt-1/.git``
+    is a pointer *file* (``gitdir: …/.git/worktrees/wt-1``), not a directory,
+    so ``wt-1/.git/hooks`` does not exist — hooks live in the shared common
+    dir.
 
-    * **Linked worktrees** (``git worktree add wt-1``): ``wt-1/.git`` is a
-      pointer *file* (``gitdir: …/.git/worktrees/wt-1``), not a directory, so
-      ``wt-1/.git/hooks`` does not exist. Hooks live in the shared common dir.
-    * **``core.hooksPath``**: relocates hooks to an arbitrary directory.
+    Fast path: when ``<root>/.git`` is a real directory (the overwhelmingly
+    common primary-worktree case) we return ``<root>/.git/hooks`` directly.
+    This keeps resolution allocation- and subprocess-free on the install hot
+    path and keeps the mocked-``.git`` unit-test setups byte-identical.
 
-    ``git rev-parse --git-path hooks`` resolves both cases natively, so we ask
-    git first. The result is rebased to an absolute path against
-    ``project_root`` (git returns a relative ``.git/hooks`` for the primary
-    tree).
+    Only when ``<root>/.git`` is *not* a plain directory — a linked-worktree
+    pointer file, or an unusual/bare layout — do we ask git via
+    ``git rev-parse --git-path hooks``, which resolves the shared common-dir
+    hooks. The result is rebased to an absolute path against ``project_root``.
 
     Total -- never raises. Falls back to ``<root>/.git/hooks`` when git is
-    unavailable or ``project_root`` is not inside a git repository (e.g. a
-    mocked ``.git`` with no HEAD, or a genuinely non-git target). That fallback
-    preserves the legacy "Is this a git repository?" signal callers rely on.
+    unavailable or ``project_root`` is not inside a git repository, preserving
+    the legacy "Is this a git repository?" signal callers rely on.
     """
+    legacy = project_root / ".git" / "hooks"
+    # Primary working tree: ``.git`` is a real directory. Return the literal
+    # hooks path without shelling out to git.
+    if (project_root / ".git").is_dir():
+        return legacy
+
     git_path = shutil.which("git")
     if git_path is not None:
         try:
@@ -252,7 +260,7 @@ def resolve_hooks_dir(project_root: Path) -> Path:
                 if not candidate.is_absolute():
                     candidate = (project_root / candidate).resolve()
                 return candidate
-    return project_root / ".git" / "hooks"
+    return legacy
 
 
 def detect_conflicts(project_root: Path) -> list[HookConflict]:
