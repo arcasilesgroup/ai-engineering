@@ -156,3 +156,77 @@ class TestNonInteractiveSkipsPrompts:
             assert call_kwargs.kwargs.get("surfaces") == ["claude-code"] or (
                 len(call_kwargs.args) > 0 and "claude-code" in str(call_kwargs)
             )
+
+
+# ---------------------------------------------------------------------------
+# Test 3: failed tools are named on stderr in non-interactive mode (ARC-319)
+# ---------------------------------------------------------------------------
+
+
+class _FakePhaseResult:
+    """Minimal stand-in for a PhaseResult carrying tool markers."""
+
+    def __init__(self, phase_name: str, *, failed: list[str], skipped: list[str]) -> None:
+        self.phase_name = phase_name
+        self.failed = failed
+        self.skipped = skipped
+
+
+class _FakeSummary:
+    def __init__(self, results: list[_FakePhaseResult]) -> None:
+        self.results = results
+
+
+class TestFailedToolsAreNamed:
+    """ARC-319: exit-80 install logs must NAME the unresolved tool.
+
+    Regression guard for the windows-only latent tool-gap where the
+    aggregate EXIT 80 fired but stdout never named which required tool
+    failed (only skipped markers were emitted).
+    """
+
+    def test_failed_tool_markers_emitted_to_stderr(self) -> None:
+        from ai_engineering.cli_commands import core
+        from ai_engineering.installer.phases import PHASE_TOOLS
+
+        summary = _FakeSummary(
+            [
+                _FakePhaseResult(
+                    PHASE_TOOLS,
+                    failed=["tool:gitleaks:install-failed", "not-a-tool-line"],
+                    skipped=["tool:jq:preexisting-user-scope"],
+                )
+            ]
+        )
+
+        with patch(f"{_CORE}.print_stderr") as mock_stderr:
+            core._emit_noninteractive_failed_tools(summary, non_interactive=True)
+
+        emitted = [c.args[0] for c in mock_stderr.call_args_list]
+        assert "tool:gitleaks:install-failed" in emitted
+        # Only ``tool:``-prefixed markers are surfaced.
+        assert "not-a-tool-line" not in emitted
+
+    def test_no_emission_when_interactive(self) -> None:
+        from ai_engineering.cli_commands import core
+        from ai_engineering.installer.phases import PHASE_TOOLS
+
+        summary = _FakeSummary(
+            [_FakePhaseResult(PHASE_TOOLS, failed=["tool:gitleaks:install-failed"], skipped=[])]
+        )
+
+        with patch(f"{_CORE}.print_stderr") as mock_stderr:
+            core._emit_noninteractive_failed_tools(summary, non_interactive=False)
+
+        mock_stderr.assert_not_called()
+
+    def test_no_emission_when_no_failures(self) -> None:
+        from ai_engineering.cli_commands import core
+        from ai_engineering.installer.phases import PHASE_TOOLS
+
+        summary = _FakeSummary([_FakePhaseResult(PHASE_TOOLS, failed=[], skipped=[])])
+
+        with patch(f"{_CORE}.print_stderr") as mock_stderr:
+            core._emit_noninteractive_failed_tools(summary, non_interactive=True)
+
+        mock_stderr.assert_not_called()
