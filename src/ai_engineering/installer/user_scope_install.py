@@ -51,6 +51,7 @@ __all__ = (
     "capture_os_release",
     "emit_path_snippet",
     "resolve_driver",
+    "resolve_user_scope_binary",
     "run_verify",
 )
 
@@ -496,6 +497,28 @@ def _is_under_user_scope(resolved: Path) -> bool:
     # ``.venv/bin/...`` segments are also accepted via marker detection so
     # any ancestor virtualenv (not just CWD-rooted) is honoured.
     return ".venv" in resolved.parts
+
+
+def resolve_user_scope_binary(name: str) -> Path | None:
+    """Return the resolved Path for ``name`` when it lives in user scope.
+
+    Resolves ``name`` on ``PATH`` (``shutil.which``) and returns the
+    absolute Path only when it lands under one of the D-101-02 (a)
+    install-target prefixes (``~/.local``, ``~/.cargo``, an active venv,
+    ...). Returns ``None`` when the tool is absent, or resolves to a
+    system / privileged location outside user scope.
+
+    Single source of truth for "is this tool already a healthy user-scope
+    install?" -- delegates the prefix decision to :func:`_is_under_user_scope`
+    so callers never hand-roll the ``~/.local/bin`` check (ARC-300 bug #4).
+    """
+    located = shutil.which(name)
+    if located is None:
+        return None
+    resolved = Path(located)
+    if not resolved.is_absolute():
+        resolved = resolved.resolve()
+    return resolved if _is_under_user_scope(resolved) else None
 
 
 def _is_under_driver_allowlist(resolved: Path) -> bool:

@@ -416,3 +416,242 @@ class TestStackLevelPlatformSkip:
         records = context.existing_state.required_tools_state
         assert "swiftlint" not in records
         assert "swift-format" not in records
+
+
+# ---------------------------------------------------------------------------
+# ARC-300 bug #4: adopt a healthy pre-existing user-scope tool on a FRESH
+# install (no prior state record) instead of re-provisioning + clobbering it.
+# ---------------------------------------------------------------------------
+
+
+def _single_gitleaks_load_result() -> _FakeLoadResult:
+    """Fake ``LoadResult`` carrying only gitleaks (USER_GLOBAL)."""
+    return _FakeLoadResult(tools=[ToolSpec(name="gitleaks", scope=ToolScope.USER_GLOBAL)])
+
+
+class TestPreexistingUserScopeAdoption:
+    """Fresh install + healthy user-scope binary => INSTALLED, no install()."""
+
+    def _registry(self, mech: Any) -> dict[str, Any]:
+        return {
+            "gitleaks": {
+                "darwin": [mech],
+                "linux": [mech],
+                "win32": [mech],
+                # spec: verify probe gitleaks detect --no-git --source /dev/null
+                "verify": {
+                    "cmd": ["gitleaks", "detect", "--no-git", "--source", "/dev/null"],
+                    "regex": r"\d+\.\d+\.\d+",
+                },
+            }
+        }
+
+    def test_healthy_user_scope_recorded_installed_without_install_call(
+        self, context: InstallContext
+    ) -> None:
+        from ai_engineering.installer.phases import tools as tools_phase
+        from ai_engineering.installer.user_scope_install import VerifyResult
+        from ai_engineering.state.models import InstallState
+
+        install_state = InstallState()  # FRESH: no prior record for gitleaks
+        context.existing_state = install_state
+        assert "gitleaks" not in install_state.required_tools_state
+
+        mech = MagicMock()
+        with (
+            patch.object(
+                tools_phase, "load_required_tools", return_value=_single_gitleaks_load_result()
+            ),
+            patch.object(tools_phase, "TOOL_REGISTRY", self._registry(mech)),
+            patch.object(
+                tools_phase,
+                "resolve_user_scope_binary",
+                return_value=Path.home() / ".local" / "bin" / "gitleaks",
+            ),
+            patch.object(
+                tools_phase,
+                "run_verify",
+                return_value=VerifyResult(passed=True, version="8.30.0"),
+            ),
+        ):
+            phase = tools_phase.ToolsPhase()
+            plan = phase.plan(context)
+            result = phase.execute(plan, context)
+
+        record = install_state.required_tools_state["gitleaks"]
+        assert record.state == ToolInstallState.INSTALLED
+        assert record.mechanism == "preexisting-user-scope"
+        assert record.version == "8.30.0"
+        # The load-bearing assertion: the broken download is NEVER reached.
+        mech.install.assert_not_called()
+        assert any("preexisting-user-scope" in s for s in result.skipped)
+
+    def test_force_still_installs_over_healthy_user_scope(self, context: InstallContext) -> None:
+        from ai_engineering.installer.phases import tools as tools_phase
+        from ai_engineering.installer.user_scope_install import VerifyResult
+        from ai_engineering.state.models import InstallState
+
+        install_state = InstallState()
+        context.existing_state = install_state
+        context.force = True  # --force must bypass the adoption skip
+
+        mech = MagicMock()
+        mech.install.return_value = _ok_install_result("GitHubReleaseBinaryMechanism")
+        with (
+            patch.object(
+                tools_phase, "load_required_tools", return_value=_single_gitleaks_load_result()
+            ),
+            patch.object(tools_phase, "TOOL_REGISTRY", self._registry(mech)),
+            patch.object(
+                tools_phase,
+                "resolve_user_scope_binary",
+                return_value=Path.home() / ".local" / "bin" / "gitleaks",
+            ),
+            patch.object(
+                tools_phase,
+                "run_verify",
+                return_value=VerifyResult(passed=True, version="8.30.0"),
+            ),
+        ):
+            phase = tools_phase.ToolsPhase()
+            plan = phase.plan(context)
+            phase.execute(plan, context)
+
+        # --force ignores the adoption path and re-installs via the mechanism.
+        mech.install.assert_called_once()
+
+    def test_not_user_scope_falls_through_to_install(self, context: InstallContext) -> None:
+        """A system-scope (non-user) gitleaks is NOT adopted -> mechanism runs."""
+        from ai_engineering.installer.phases import tools as tools_phase
+        from ai_engineering.state.models import InstallState
+
+        install_state = InstallState()
+        context.existing_state = install_state
+
+        mech = MagicMock()
+        mech.install.return_value = _ok_install_result("GitHubReleaseBinaryMechanism")
+        with (
+            patch.object(
+                tools_phase, "load_required_tools", return_value=_single_gitleaks_load_result()
+            ),
+            patch.object(tools_phase, "TOOL_REGISTRY", self._registry(mech)),
+            # Resolver returns None -> not under user scope (e.g. /usr/bin).
+            patch.object(tools_phase, "resolve_user_scope_binary", return_value=None),
+        ):
+            phase = tools_phase.ToolsPhase()
+            plan = phase.plan(context)
+            phase.execute(plan, context)
+
+        mech.install.assert_called_once()
+
+    def test_user_scope_but_verify_fails_falls_through_to_install(
+        self, context: InstallContext
+    ) -> None:
+        """A user-scope gitleaks whose verify FAILS is not adopted."""
+        from ai_engineering.installer.phases import tools as tools_phase
+        from ai_engineering.installer.user_scope_install import VerifyResult
+        from ai_engineering.state.models import InstallState
+
+        install_state = InstallState()
+        context.existing_state = install_state
+
+        mech = MagicMock()
+        mech.install.return_value = _ok_install_result("GitHubReleaseBinaryMechanism")
+        with (
+            patch.object(
+                tools_phase, "load_required_tools", return_value=_single_gitleaks_load_result()
+            ),
+            patch.object(tools_phase, "TOOL_REGISTRY", self._registry(mech)),
+            patch.object(
+                tools_phase,
+                "resolve_user_scope_binary",
+                return_value=Path.home() / ".local" / "bin" / "gitleaks",
+            ),
+            patch.object(tools_phase, "run_verify", return_value=VerifyResult(passed=False)),
+        ):
+            phase = tools_phase.ToolsPhase()
+            plan = phase.plan(context)
+            phase.execute(plan, context)
+
+        mech.install.assert_called_once()
+
+    def test_user_scope_but_verify_raises_falls_through_to_install(
+        self, context: InstallContext
+    ) -> None:
+        """A raising verify probe (e.g. UnsafeVerifyCommand) is not adopted."""
+        from ai_engineering.installer.phases import tools as tools_phase
+        from ai_engineering.state.models import InstallState
+
+        install_state = InstallState()
+        context.existing_state = install_state
+
+        mech = MagicMock()
+        mech.install.return_value = _ok_install_result("GitHubReleaseBinaryMechanism")
+        with (
+            patch.object(
+                tools_phase, "load_required_tools", return_value=_single_gitleaks_load_result()
+            ),
+            patch.object(tools_phase, "TOOL_REGISTRY", self._registry(mech)),
+            patch.object(
+                tools_phase,
+                "resolve_user_scope_binary",
+                return_value=Path.home() / ".local" / "bin" / "gitleaks",
+            ),
+            patch.object(tools_phase, "run_verify", side_effect=RuntimeError("probe blew up")),
+        ):
+            phase = tools_phase.ToolsPhase()
+            plan = phase.plan(context)
+            phase.execute(plan, context)
+
+        mech.install.assert_called_once()
+
+    def test_simulate_fail_seam_defeats_adoption(
+        self, context: InstallContext, monkeypatch: Any
+    ) -> None:
+        """A tool flagged via ``AIENG_TEST_SIMULATE_FAIL`` is NOT adopted.
+
+        Regression (ARC-300): on runners that pre-provision a healthy
+        user-scope binary (e.g. ``ruff`` in ``~/.local/bin`` on macOS), the
+        adoption path fired *before* the simulate-fail injection and returned
+        exit 0 -- silently defeating the EXIT-80 integration tests. Adoption
+        must defer to the failure seam so the (failing) dispatch path runs.
+        """
+        from ai_engineering.installer.phases import tools as tools_phase
+        from ai_engineering.installer.user_scope_install import VerifyResult
+        from ai_engineering.state.models import InstallState
+
+        monkeypatch.setenv("AIENG_TEST", "1")
+        monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "gitleaks")
+
+        install_state = InstallState()  # FRESH: no prior record
+        context.existing_state = install_state
+
+        mech = MagicMock()
+        with (
+            patch.object(
+                tools_phase, "load_required_tools", return_value=_single_gitleaks_load_result()
+            ),
+            patch.object(tools_phase, "TOOL_REGISTRY", self._registry(mech)),
+            # Healthy, user-scope, verify-passing -- adoption WOULD fire if the
+            # simulate-fail seam were not honoured first.
+            patch.object(
+                tools_phase,
+                "resolve_user_scope_binary",
+                return_value=Path.home() / ".local" / "bin" / "gitleaks",
+            ),
+            patch.object(
+                tools_phase,
+                "run_verify",
+                return_value=VerifyResult(passed=True, version="8.30.0"),
+            ),
+        ):
+            phase = tools_phase.ToolsPhase()
+            plan = phase.plan(context)
+            result = phase.execute(plan, context)
+
+        # Not adopted: the failure seam drove the dispatch path to FAILED.
+        record = install_state.required_tools_state["gitleaks"]
+        assert record.state == ToolInstallState.FAILED_NEEDS_MANUAL
+        assert any("simulated-fail" in f for f in result.failed)
+        # The real mechanism is never invoked (the seam short-circuits it).
+        mech.install.assert_not_called()

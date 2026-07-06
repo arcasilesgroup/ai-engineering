@@ -127,7 +127,13 @@ def test_wget_used_when_curl_absent(tmp_path: Path) -> None:
     assert seen_argv[0][0] == "wget"
     # BusyBox-safe argv: only ``-O <path> <url>`` (no --show-progress).
     assert seen_argv[0][1] == "-O"
-    assert seen_argv[0][2] == str(target)
+    # ARC-300 bug #2 (atomic download): the driver writes into a sibling temp
+    # in ``target.parent``, NOT straight into ``target`` -- so a 404 can't
+    # truncate a pre-existing binary. ``os.replace`` lands it on ``target``
+    # only on success. wget's ``-O`` destination is therefore that temp path.
+    wget_dest = Path(seen_argv[0][2])
+    assert wget_dest.parent == target.parent
+    assert wget_dest.name.startswith(f".{target.name}.download-")
     assert seen_argv[0][3].startswith("https://github.com/")
 
 
