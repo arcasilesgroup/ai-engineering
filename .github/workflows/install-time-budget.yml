@@ -111,6 +111,7 @@ jobs:
       - name: Install prereq binaries (gitleaks + jq [+ semgrep])
         env:
           GITLEAKS_VERSION: "8.30.0"
+          JQ_VERSION: "1.7.1"
         run: |
           set -euo pipefail
           BIN="$HOME/.local/bin"
@@ -144,7 +145,11 @@ jobs:
               # Git-bash `tar` is GNU tar (no zip support); use PowerShell.
               powershell -NoProfile -Command "Expand-Archive -Force gitleaks.zip gitleaks_unzip"
               cp gitleaks_unzip/gitleaks.exe "$BIN/gitleaks.exe"
-              cp "$(command -v jq)" "$BIN/jq.exe"
+              # The runner's `jq` on Windows is a Chocolatey shim that resolves
+              # the real exe relative to its own location, so copying the shim
+              # breaks it (exit 127: "Cannot find file ..\lib\jq\tools\jq.exe").
+              # Download the real jq binary instead, matching the gitleaks path.
+              curl -sSfL -o "$BIN/jq.exe" "https://github.com/jqlang/jq/releases/download/jq-${JQ_VERSION}/jq-windows-amd64.exe"
               ;;
           esac
 
@@ -186,7 +191,12 @@ jobs:
             START=$(date +%s)
             git clone fixture.git "run-$run"
             (cd "run-$run" && ai-eng install . --non-interactive)
-            (cd "run-$run" && git commit --allow-empty -m "chore: smoke commit")
+            # `ai-eng install` configures branch protection on `main`, so the
+            # first commit must land on a feature branch -- the governed model
+            # a real user follows. Committing on `main` trips the just-installed
+            # commit-msg gate ("branch-protection: Direct commits to 'main' are
+            # blocked"). Branch creation is a local no-cost op inside the loop.
+            (cd "run-$run" && git checkout -q -b smoke && git commit --allow-empty -m "chore: smoke commit")
             END=$(date +%s)
             ELAPSED=$((END - START))
             echo "Run $run: ${ELAPSED}s"
