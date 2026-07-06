@@ -85,8 +85,16 @@ _CI_CHECKERS: tuple[str, ...] = _LOCAL_CHECKERS + _CI_EXTRA_CHECKERS
 # would gap by check duration (>=100ms typical).
 _PARALLEL_SPAWN_WINDOW_S: float = 0.100  # 100 ms
 
-# Wall-clock parallelism overhead allowance: total <= 1.5x slowest checker.
-_PARALLEL_OVERHEAD_FACTOR: float = 1.5
+# Wall-clock parallelism discriminator. The test proves the run is *parallel*
+# (~max of the checker durations) and not *serial* (~sum). Rather than pin an
+# absolute-ms ceiling off the slowest checker — which is dominated by
+# ThreadPool spawn + scheduler jitter and flakes on shared macOS/Windows CI
+# runners (observed 95-130ms against a 90ms 1.5x bound) — we assert the run
+# lands comfortably inside the parallel regime: at most this fraction of the
+# serial sum. A genuinely serial implementation physically cannot beat the
+# serial sum, so 0.7x is impossible to reach serially while leaving generous
+# headroom for runner noise.
+_MAX_FRACTION_OF_SERIAL: float = 0.7
 
 
 # ---------------------------------------------------------------------------
@@ -541,13 +549,14 @@ def test_wave2_wall_clock_ms_is_max_not_sum(tmp_path: Path) -> None:
         result = run_wave2(staged_files=[tmp_path / "f.py"], mode="local")
     elapsed_s = time.monotonic() - t0
 
-    upper_bound_s = slowest_s * _PARALLEL_OVERHEAD_FACTOR
+    upper_bound_s = sum_s * _MAX_FRACTION_OF_SERIAL
     assert elapsed_s <= upper_bound_s, (
-        f"Wave 2 wall-clock MUST be max-not-sum: parallel run should "
-        f"finish in <= {upper_bound_s * 1000:.1f}ms ("
-        f"{_PARALLEL_OVERHEAD_FACTOR}x slowest = {slowest_s * 1000:.1f}ms); "
-        f"observed {elapsed_s * 1000:.1f}ms (serial sum would be "
-        f"{sum_s * 1000:.1f}ms)"
+        f"Wave 2 wall-clock MUST be max-not-sum: a parallel run finishes near "
+        f"the slowest checker ({slowest_s * 1000:.1f}ms) plus pool overhead, "
+        f"well under the serial sum ({sum_s * 1000:.1f}ms). Observed "
+        f"{elapsed_s * 1000:.1f}ms, which exceeds the {_MAX_FRACTION_OF_SERIAL:g}x "
+        f"serial-sum ceiling of {upper_bound_s * 1000:.1f}ms — the run is not "
+        f"parallel."
     )
     # And the orchestrator's reported wall_clock_ms MUST be <= same bound.
     assert result.wall_clock_ms <= int(upper_bound_s * 1000) + 50, (
