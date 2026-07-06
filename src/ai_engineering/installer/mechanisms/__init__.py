@@ -514,6 +514,41 @@ def _download_release_binary(url: str, target_path: Path) -> InstallResult:
     driver actually used inside ``stderr`` of a failed result so callers
     can surface the diagnostic. Raises :class:`SecurityError` only when
     the urllib path triggers a hostname / scheme / cap guard.
+
+    The download is **atomic** (spec: ARC-300 bug #2). Every driver writes
+    into a sibling temp path in ``target_path.parent`` -- ``curl --output`` /
+    ``wget -O`` create+truncate their destination up front, so writing them
+    straight into ``target_path`` would leave a pre-existing binary at 0
+    bytes the instant the transfer 404s. We only ``os.replace(tmp, target)``
+    on the first non-failed outcome (an atomic rename on one filesystem);
+    on failure the temp is unlinked and ``target_path`` is left untouched.
+    The temp lives in the same directory as the target so the rename never
+    crosses a filesystem boundary.
+    """
+    # Sibling temp in the SAME directory so ``os.replace`` is atomic. The
+    # leading dot + pid keeps it out of the way and unique per process; we
+    # do NOT pre-create it (a bare name), so a driver that reports success
+    # without producing a file leaves ``target_path`` genuinely untouched.
+    tmp_path = target_path.parent / f".{target_path.name}.download-{os.getpid()}"
+    try:
+        outcome = _run_download_drivers(url, tmp_path)
+        if not outcome.failed and tmp_path.exists():
+            # First non-failed driver produced bytes -- land them atomically.
+            os.replace(tmp_path, target_path)
+        return outcome
+    finally:
+        # Failure (or a success that already renamed the temp away) leaves no
+        # residue: unlink any leftover temp, never touching ``target_path``.
+        with contextlib.suppress(OSError):
+            tmp_path.unlink()
+
+
+def _run_download_drivers(url: str, tmp_path: Path) -> InstallResult:
+    """Run the curl -> wget -> urllib chain against ``tmp_path``.
+
+    Returns the first non-failed :class:`InstallResult`, else the last
+    failure. The caller owns the atomic rename of ``tmp_path`` onto the
+    real target; this helper only drives the download into the temp.
     """
     last_failure: InstallResult | None = None
     for driver in _DOWNLOAD_DRIVER_PREFERENCE:
@@ -526,7 +561,7 @@ def _download_release_binary(url: str, target_path: Path) -> InstallResult:
                 )
                 continue
             try:
-                outcome = _try_subprocess_download(driver, url, target_path)
+                outcome = _try_subprocess_download(driver, url, tmp_path)
             except Exception as exc:
                 # _safe_run can raise UserScopeViolation / MissingDriverError
                 # before any subprocess fires. Treat as soft failure so the
@@ -542,7 +577,7 @@ def _download_release_binary(url: str, target_path: Path) -> InstallResult:
             last_failure = outcome
             continue
         # urllib branch
-        outcome = _download_via_urllib(url, target_path)
+        outcome = _download_via_urllib(url, tmp_path)
         if not outcome.failed:
             return outcome
         last_failure = outcome

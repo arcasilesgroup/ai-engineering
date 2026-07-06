@@ -1,0 +1,64 @@
+# Worktree-fast fixture for spec-101 G-12 (T-4.8).
+#
+# Purpose: drive `.github/workflows/worktree-fast-second.yml`. The workflow
+# copies this fixture into a `primary` worktree, primes the user-global uv
+# tool cache once, then measures median-of-3 second-worktree
+# `ai-eng install` + commit wall-clock. G-12 budget: <= 30s when
+# `python_env.mode: uv-tool` (D-101-12), because Python tools live in
+# `~/.local/share/uv/tools/` instead of a per-cwd `.venv/`.
+#
+# Kept intentionally lean and mirrored on the canonical manifest so the
+# fail surface stays small. Sibling of
+# `tests/fixtures/install-time-budget/python-single-stack` and
+# `tests/fixtures/install-smoke/clean-project`.
+#
+# Layout invariants (mirrored from the canonical manifest):
+# - `required_tools:` MUST stay the LAST top-level key (lint normaliser
+#   contract — see `validator/categories/required_tools.py:88-115`).
+# - `prereqs:` and `python_env:` precede it and exercise the same loaders
+#   the production manifest uses (D-101-12 + D-101-14).
+
+schema_version: "2.0"
+framework_version: "0.4.0"
+name: worktree-fast-python-multi-worktree
+version: "0.0.1"
+
+providers:
+  vcs: github
+  ides: [terminal]
+  stacks: [python]
+
+ai_providers:
+  enabled: [claude_code]
+  primary: claude_code
+
+# Quality gates — kept identical to canonical to avoid divergent thresholds.
+quality:
+  coverage: 80
+  duplication: 3
+  cyclomatic: 10
+  cognitive: 15
+
+# Prereqs — pin uv to the supported range so the install exercises the
+# version-range probe (R-8).
+prereqs:
+  uv:
+    version_range: ">=0.4.0,<1.0"
+
+# uv-tool mode is the whole point of G-12: Python tools install to
+# ~/.local/share/uv/tools/ (user-global), so a fresh worktree reuses the hot
+# cache instead of rebuilding a per-cwd .venv/.
+python_env:
+  mode: uv-tool
+
+# Required tools — minimal baseline + python only.
+required_tools:
+  baseline:
+    - {name: gitleaks}
+    - {name: semgrep, platform_unsupported: [windows], unsupported_reason: "semgrep has no Windows release"}
+    - {name: jq}
+  python:
+    - {name: ruff}
+    - {name: ty}
+    - {name: pip-audit}
+    - {name: pytest, scope: user_global}
