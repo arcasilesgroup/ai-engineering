@@ -19,6 +19,7 @@ from ai_engineering.detector.readiness import (
     _STACK_TOOLS,
     ReadinessReport,
     ToolInfo,
+    _get_version,
     check_all_tools,
     check_operational_readiness,
     check_tool,
@@ -129,6 +130,54 @@ class TestCheckTool:
         assert info.available is False
         assert info.version is None
         assert info.path is None
+
+
+# ---------------------------------------------------------------------------
+# _get_version() robustness (ARC-292)
+# ---------------------------------------------------------------------------
+
+
+class TestGetVersionRobustness:
+    """A version probe must never abort the install on a bad binary on PATH."""
+
+    @patch("ai_engineering.detector.readiness.subprocess.run")
+    def test_enoexec_returns_none(self, mock_run: MagicMock) -> None:
+        """ARC-292: an ENOEXEC (Errno 8) binary on PATH must not propagate.
+
+        Regression for the ``worktree-fast`` install crash where ``gitleaks``
+        resolved to a mis-formatted target inside ``ai-eng install`` and
+        ``_get_version`` re-raised ``OSError: [Errno 8] Exec format error``,
+        tearing down the entire install.
+        """
+        import errno
+
+        mock_run.side_effect = OSError(errno.ENOEXEC, "Exec format error")
+        assert _get_version("gitleaks") is None
+
+    @patch("ai_engineering.detector.readiness.subprocess.run")
+    def test_generic_oserror_returns_none(self, mock_run: MagicMock) -> None:
+        mock_run.side_effect = OSError("permission denied")
+        assert _get_version("gitleaks") is None
+
+    @patch("ai_engineering.detector.readiness.subprocess.run")
+    def test_file_not_found_still_returns_none(self, mock_run: MagicMock) -> None:
+        # FileNotFoundError is an OSError subclass; behaviour must be preserved.
+        mock_run.side_effect = FileNotFoundError("no such file")
+        assert _get_version("gitleaks") is None
+
+    @patch("ai_engineering.detector.readiness.shutil.which")
+    @patch("ai_engineering.detector.readiness.subprocess.run")
+    def test_check_tool_survives_enoexec(self, mock_run: MagicMock, mock_which: MagicMock) -> None:
+        """End-to-end: a resolvable-but-unexecutable binary stays 'available'."""
+        import errno
+
+        resolved = "/home/runner/.local/bin/gitleaks"
+        mock_which.return_value = resolved
+        mock_run.side_effect = OSError(errno.ENOEXEC, "Exec format error")
+        info = check_tool("gitleaks")
+        assert info.available is True
+        assert info.version is None
+        assert info.path == resolved
 
 
 # ---------------------------------------------------------------------------
