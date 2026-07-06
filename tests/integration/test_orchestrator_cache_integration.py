@@ -233,6 +233,32 @@ def _clean_cache_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AIENG_CACHE_DEBUG", raising=False)
 
 
+@pytest.fixture(autouse=True)
+def _serialize_gate_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Force serial Wave 2 dispatch for the cache-semantics suite.
+
+    ``run_gate`` fans the 5 Wave 2 checks out across a ``ThreadPoolExecutor``
+    (default 4 workers, spec-139 M1.T5). Each check's cache-miss path calls
+    ``gate_cache.persist`` → ``_atomic_write`` → ``os.replace``. On Windows,
+    concurrent ``persist`` calls against neighbouring keys race an AV scanner /
+    Search indexer that momentarily locks freshly-created entries; under
+    pytest-xdist load the transient lock can outlast the bounded replace retry,
+    the orchestrator swallows the resulting error (best-effort cache contract),
+    and one ``<key>.json`` never lands. The suite's assertions count persisted
+    files (and expect all-hits on an identical re-run), so a single dropped
+    write flips them — the observed ``found 4`` flake in
+    ``test_run_gate_mixed_hit_miss`` on ``Integration (windows)``.
+
+    Cache hit/miss semantics are independent of dispatch concurrency, so we pin
+    ``AIENG_MAX_THREAD_WORKERS=1`` here to serialize the writes and make the
+    file-count preconditions deterministic on every platform. The parallel
+    dispatch path itself is covered by the dedicated ``run_wave2`` (T-2.4)
+    tests, so this loses no coverage.
+    """
+
+    monkeypatch.setenv("AIENG_MAX_THREAD_WORKERS", "1")
+
+
 def _findings_doc_dict(doc: object) -> dict[str, object]:
     """Coerce the orchestrator's return value to a plain dict.
 
