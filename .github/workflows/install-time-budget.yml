@@ -86,6 +86,81 @@ jobs:
           pip install dist/*.whl
           which ai-eng
 
+      # Provision the fixture's baseline prereq binaries (gitleaks + jq +
+      # semgrep) into a user-scope prefix BEFORE the timed loop. Same root
+      # cause as worktree-fast (ARC-268), now across the full 3-OS matrix:
+      # the fixture manifest sets `python_env.mode: uv-tool`, so the installer
+      # verify guard (D-101-02 user-scope allowlist,
+      # user_scope_install.py::_install_target_prefixes) accepts a tool ONLY
+      # when it resolves under a user-scope prefix. Runner-prebaked binaries in
+      # /usr/bin or /usr/local/bin raise UserScopeViolation and are counted
+      # MISSING even though they are on PATH -- `ai-eng install` then exits 80
+      # on unresolved tool gaps before wiring the post-install gate.
+      #
+      # `$HOME/.local` is an allowlisted install-target prefix on EVERY OS, so
+      # we land gitleaks + jq there uniformly (Linux/macOS/Windows) rather than
+      # depending on OS-specific brew/scoop prefixes. semgrep goes through
+      # `uv tool install` (shim -> the uv user-executable dir under ~/.local),
+      # NOT `pip install` -- pip would drop the console script in the
+      # hosted-toolcache Python bin, which is OUTSIDE the allowlist and would
+      # itself trip UserScopeViolation. semgrep has no Windows release, so it
+      # is skipped there (fixture manifest: platform_unsupported: [windows]).
+      #
+      # All provisioning is outside the timed loop, so the G-11 600s budget is
+      # unaffected.
+      - name: Install prereq binaries (gitleaks + jq [+ semgrep])
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+        run: |
+          set -euo pipefail
+          BIN="$HOME/.local/bin"
+          mkdir -p "$BIN"
+          # Prepend the user-scope bin to PATH for all later steps. On Windows,
+          # translate the msys path to a native Windows path so the (native)
+          # Python installer resolves it via shutil.which -- a raw /c/... msys
+          # entry is invisible to native-Windows PATH lookup.
+          if [ "${RUNNER_OS}" = "Windows" ]; then
+            cygpath -w "$BIN" >> "$GITHUB_PATH"
+          else
+            echo "$BIN" >> "$GITHUB_PATH"
+          fi
+
+          case "${RUNNER_OS}" in
+            Linux)
+              curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+                | tar xz -C "$BIN" gitleaks
+              chmod +x "$BIN/gitleaks"
+              install -m 0755 "$(command -v jq)" "$BIN/jq"
+              ;;
+            macOS)
+              # macos-latest runners are Apple Silicon (arm64).
+              curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_darwin_arm64.tar.gz" \
+                | tar xz -C "$BIN" gitleaks
+              chmod +x "$BIN/gitleaks"
+              install -m 0755 "$(command -v jq)" "$BIN/jq"
+              ;;
+            Windows)
+              curl -sSfL -o gitleaks.zip "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_windows_x64.zip"
+              # Git-bash `tar` is GNU tar (no zip support); use PowerShell.
+              powershell -NoProfile -Command "Expand-Archive -Force gitleaks.zip gitleaks_unzip"
+              cp gitleaks_unzip/gitleaks.exe "$BIN/gitleaks.exe"
+              cp "$(command -v jq)" "$BIN/jq.exe"
+              ;;
+          esac
+
+          # gitleaks + jq land user-scoped on every OS; verify from ~/.local/bin.
+          "$BIN/gitleaks" version
+          "$BIN/jq" --version
+
+          # semgrep: Linux + macOS only (no Windows release). uv is provisioned
+          # by ./.github/actions/setup-env; `uv tool install` shims semgrep into
+          # the user-scope executable dir under ~/.local so the verify guard
+          # accepts it.
+          if [ "${RUNNER_OS}" != "Windows" ]; then
+            uv tool install --quiet semgrep
+            semgrep --version
+          fi
+
       # T-4.7: median-of-3. Each run is `git clone <fixture> && cd <fixture>
       # && ai-eng install . && git commit --allow-empty -m "chore: smoke"`.
       # The conventional-commit prefix satisfies the framework's own
