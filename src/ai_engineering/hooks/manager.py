@@ -10,7 +10,9 @@ Provides:
 from __future__ import annotations
 
 import hashlib
+import shutil
 import stat
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -209,6 +211,50 @@ def generate_dispatcher_hook(hook: GateHook, mode: PythonEnvMode = PythonEnvMode
     return generate_bash_hook(hook, mode=mode)
 
 
+def resolve_hooks_dir(project_root: Path) -> Path:
+    """Resolve the git hooks directory for ``project_root``.
+
+    ``<root>/.git/hooks`` only holds for a *primary* working tree. It breaks
+    for two real configurations the installer must support:
+
+    * **Linked worktrees** (``git worktree add wt-1``): ``wt-1/.git`` is a
+      pointer *file* (``gitdir: …/.git/worktrees/wt-1``), not a directory, so
+      ``wt-1/.git/hooks`` does not exist. Hooks live in the shared common dir.
+    * **``core.hooksPath``**: relocates hooks to an arbitrary directory.
+
+    ``git rev-parse --git-path hooks`` resolves both cases natively, so we ask
+    git first. The result is rebased to an absolute path against
+    ``project_root`` (git returns a relative ``.git/hooks`` for the primary
+    tree).
+
+    Total -- never raises. Falls back to ``<root>/.git/hooks`` when git is
+    unavailable or ``project_root`` is not inside a git repository (e.g. a
+    mocked ``.git`` with no HEAD, or a genuinely non-git target). That fallback
+    preserves the legacy "Is this a git repository?" signal callers rely on.
+    """
+    git_path = shutil.which("git")
+    if git_path is not None:
+        try:
+            completed = subprocess.run(
+                [git_path, "rev-parse", "--git-path", "hooks"],
+                cwd=project_root,
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.SubprocessError):
+            completed = None
+        if completed is not None and completed.returncode == 0:
+            raw = (completed.stdout or "").strip()
+            if raw:
+                candidate = Path(raw)
+                if not candidate.is_absolute():
+                    candidate = (project_root / candidate).resolve()
+                return candidate
+    return project_root / ".git" / "hooks"
+
+
 def detect_conflicts(project_root: Path) -> list[HookConflict]:
     """Detect third-party hook managers that may conflict.
 
@@ -289,7 +335,7 @@ def install_hooks(
     Raises:
         FileNotFoundError: If ``.git/hooks/`` directory does not exist.
     """
-    hooks_dir = project_root / ".git" / "hooks"
+    hooks_dir = resolve_hooks_dir(project_root)
     if not hooks_dir.is_dir():
         msg = f"Git hooks directory not found: {hooks_dir}. Is this a git repository?"
         raise FileNotFoundError(msg)
@@ -341,7 +387,7 @@ def uninstall_hooks(
     Returns:
         List of hook names that were removed.
     """
-    hooks_dir = project_root / ".git" / "hooks"
+    hooks_dir = resolve_hooks_dir(project_root)
     if not hooks_dir.is_dir():
         return []
 
@@ -371,7 +417,7 @@ def verify_hooks(project_root: Path) -> dict[str, bool]:
     Returns:
         Dict mapping hook name to verification status (True = valid).
     """
-    hooks_dir = project_root / ".git" / "hooks"
+    hooks_dir = resolve_hooks_dir(project_root)
     status: dict[str, bool] = {}
 
     expected_hashes = _load_expected_hook_hashes(project_root)
@@ -425,7 +471,7 @@ def _record_hook_hashes(project_root: Path) -> None:
     from ai_engineering.state.repository import DurableStateRepository
     from ai_engineering.state.service import save_install_state
 
-    hooks_dir = project_root / ".git" / "hooks"
+    hooks_dir = resolve_hooks_dir(project_root)
     if not hooks_dir.is_dir():
         return
 

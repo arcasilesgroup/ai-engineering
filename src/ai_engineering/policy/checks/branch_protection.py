@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from ai_engineering.git.operations import PROTECTED_BRANCHES, current_branch
-from ai_engineering.hooks.manager import verify_hooks
+from ai_engineering.hooks.manager import resolve_hooks_dir, verify_hooks
 from ai_engineering.policy.gates import GateCheckResult, GateResult
 
 
@@ -102,7 +102,7 @@ def check_version_deprecation(result: GateResult) -> None:
 
 def check_hook_integrity(project_root: Path, result: GateResult) -> None:
     """Verify managed hooks are intact (marker + optional hash check)."""
-    hooks_dir = project_root / ".git" / "hooks"
+    hooks_dir = resolve_hooks_dir(project_root)
     if not hooks_dir.is_dir():
         result.checks.append(
             GateCheckResult(

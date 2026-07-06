@@ -15,6 +15,7 @@ from ai_engineering.hooks.manager import (
     _HOOK_MARKER,
     install_hooks,
     is_managed_hook,
+    resolve_hooks_dir,
     uninstall_hooks,
     verify_hooks,
 )
@@ -115,3 +116,94 @@ class TestInstallHooksInRealRepo:
         assert result.conflicts[0].manager == "husky"
         # Hooks still installed despite conflicts (just warned)
         assert len(result.installed) == 3
+
+
+@pytest.fixture()
+def linked_worktree(git_repo: Path) -> Path:
+    """Add a linked worktree ``wt-1`` and return its path.
+
+    In a linked worktree ``wt-1/.git`` is a pointer *file* (not a directory),
+    so ``wt-1/.git/hooks`` does not exist — the exact CI configuration
+    (``Worktree Fast (Second)``, ARC-314) that broke the naive
+    ``<root>/.git/hooks`` assumption.
+    """
+    subprocess.run(
+        ["git", "-C", str(git_repo), "config", "user.email", "t@example.com"],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(git_repo), "config", "user.name", "Test"],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(git_repo), "commit", "--allow-empty", "-m", "init"],
+        check=True,
+        capture_output=True,
+    )
+    subprocess.run(
+        ["git", "-C", str(git_repo), "worktree", "add", "wt-1"],
+        check=True,
+        capture_output=True,
+    )
+    return git_repo / "wt-1"
+
+
+class TestInstallHooksInLinkedWorktree:
+    """Hook lifecycle from a linked worktree (ARC-314 regression).
+
+    ``git worktree add`` makes ``wt-1/.git`` a pointer file; hooks live in the
+    shared common dir. Every hook operation must resolve that shared dir via
+    ``git rev-parse --git-path hooks`` instead of assuming ``<root>/.git/hooks``.
+    """
+
+    def test_worktree_git_is_a_pointer_file(self, linked_worktree: Path) -> None:
+        # Guard the premise: if this ever became a directory the regression
+        # would silently stop being exercised.
+        assert (linked_worktree / ".git").is_file()
+        assert not (linked_worktree / ".git" / "hooks").exists()
+
+    def test_resolve_points_at_shared_common_hooks(
+        self, git_repo: Path, linked_worktree: Path
+    ) -> None:
+        resolved = resolve_hooks_dir(linked_worktree)
+        assert resolved.is_dir()
+        # Hooks are shared: the worktree resolves to the primary tree's dir.
+        assert resolved == (git_repo / ".git" / "hooks")
+
+    def test_install_from_worktree_succeeds(self, linked_worktree: Path) -> None:
+        # Previously raised FileNotFoundError: "Git hooks directory not found".
+        result = install_hooks(linked_worktree)
+        assert len(result.installed) == 3
+
+        hooks_dir = resolve_hooks_dir(linked_worktree)
+        for hook in GateHook:
+            hook_path = hooks_dir / hook.value
+            assert hook_path.is_file()
+            assert _HOOK_MARKER in hook_path.read_text(encoding="utf-8")
+
+    def test_verify_and_uninstall_from_worktree(self, linked_worktree: Path) -> None:
+        state_dir = linked_worktree / ".ai-engineering" / "state"
+        state_dir.mkdir(parents=True, exist_ok=True)
+        save_install_state(state_dir, default_install_state())
+
+        install_hooks(linked_worktree)
+        assert all(verify_hooks(linked_worktree).values())
+
+        removed = uninstall_hooks(linked_worktree)
+        assert len(removed) == 3
+
+
+class TestResolveHooksDirCoreHooksPath:
+    """``resolve_hooks_dir`` honours ``core.hooksPath`` relocation."""
+
+    def test_custom_hooks_path(self, git_repo: Path, tmp_path: Path) -> None:
+        custom = tmp_path / "custom-hooks"
+        custom.mkdir()
+        subprocess.run(
+            ["git", "-C", str(git_repo), "config", "core.hooksPath", str(custom)],
+            check=True,
+            capture_output=True,
+        )
+        assert resolve_hooks_dir(git_repo) == custom
