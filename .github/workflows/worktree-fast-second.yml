@@ -84,6 +84,39 @@ jobs:
           pip install dist/*.whl
           which ai-eng
 
+      # Provision the fixture's baseline prereq binaries the G-12 "clean
+      # machine with prereqs" scenario assumes. ai-eng's installer has no real
+      # network mechanism to fetch gitleaks (see install-smoke.yml), and
+      # semgrep ships as a Python package; without them `ai-eng install` exits
+      # 80 on unresolved tool gaps before it can wire the post-install gate.
+      #
+      # CRITICAL (ARC-268): the fixture manifest sets `python_env.mode: uv-tool`,
+      # so the installer's verify guard (D-101-02 user-scope allowlist) ONLY
+      # accepts tools resolved under a user-scope prefix (~/.local, the uv tools
+      # dir, ...). Binaries in /usr/local/bin or /usr/bin (jq is prebaked there)
+      # raise UserScopeViolation at verify time and are counted MISSING even
+      # though they are on PATH -- the real cause of the never-green exit 80.
+      # Install gitleaks AND jq into ~/.local/bin and put it ahead on PATH so
+      # the verify guard accepts them. semgrep flows through uv-tool user-scope
+      # already. Provisioned outside the timed loop so the G-12 budget is
+      # unaffected.
+      - name: Install prereq binaries (gitleaks + jq + semgrep)
+        env:
+          GITLEAKS_VERSION: "8.30.0"
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+            | tar xz -C "$HOME/.local/bin" gitleaks
+          chmod +x "$HOME/.local/bin/gitleaks"
+          "$HOME/.local/bin/gitleaks" version
+          # jq is prebaked at /usr/bin/jq (outside the user-scope allowlist);
+          # copy it into ~/.local/bin so it resolves user-scoped for verify.
+          install -m 0755 "$(command -v jq)" "$HOME/.local/bin/jq"
+          "$HOME/.local/bin/jq" --version
+          python -m pip install --quiet semgrep
+          semgrep --version
+
       - name: Stage primary worktree
         run: |
           . .smoke-venv/bin/activate
