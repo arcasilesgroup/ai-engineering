@@ -94,6 +94,11 @@ jobs:
       - name: T-4.7 median-of-3 install + smoke commit
         run: |
           . .smoke-venv/bin/activate || . .smoke-venv/Scripts/activate
+          # Fixture is a plain directory (git doesn't track nested .git dirs).
+          # Init a throwaway git repo inside it so `git clone --bare` works.
+          git -C "$FIXTURE_DIR" init
+          git -C "$FIXTURE_DIR" add .
+          git -C "$FIXTURE_DIR" commit -m "chore: fixture initial commit" --allow-empty
           # Stage a bare repo from the fixture so `git clone` is realistic.
           git clone --bare "$FIXTURE_DIR" fixture.git
           declare -a TIMINGS
