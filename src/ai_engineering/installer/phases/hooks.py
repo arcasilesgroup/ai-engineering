@@ -15,7 +15,11 @@ import stat
 from contextlib import suppress
 from pathlib import Path
 
-from ai_engineering.hooks.manager import HookInstallResult, install_hooks
+from ai_engineering.hooks.manager import (
+    HookInstallResult,
+    install_hooks,
+    resolve_hooks_dir,
+)
 from ai_engineering.installer.merge import merge_settings
 from ai_engineering.installer.templates import (
     copy_file_if_missing,
@@ -157,7 +161,12 @@ class HooksPhase:
         w: list[str] = []
         errors: list[str] = []
         passed = True
-        if not (context.target / ".git/hooks/pre-commit").exists():
+        # Resolve the real hooks dir via git: in a linked worktree
+        # ``<target>/.git`` is a pointer file, so ``<target>/.git/hooks``
+        # does not exist even though the hook was installed into the shared
+        # common dir. Assuming the literal path here failed the whole phase
+        # (exit 80) in the Worktree Fast health workflow (ARC-314).
+        if not (resolve_hooks_dir(context.target) / "pre-commit").exists():
             errors.append("pre-commit hook not installed")
             passed = False
         hd = context.target / ".ai-engineering" / "scripts" / "hooks"
