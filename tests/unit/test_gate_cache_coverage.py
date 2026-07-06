@@ -141,7 +141,7 @@ def test_atomic_write_cleans_up_tempfile_on_replace_failure(tmp_path: Path) -> N
 def test_read_safe_returns_none_on_permission_error(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """``_read_safe`` returns None + warns when read_bytes raises OSError.
+    """``_read_safe`` returns None + warns when the read primitive raises OSError.
 
     Simulates Linux/macOS chmod-0 unreadable file, Windows file-locked, or
     similar low-level I/O failures distinct from FileNotFoundError.
@@ -154,10 +154,13 @@ def test_read_safe_returns_none_on_permission_error(
 
     boom = PermissionError("simulated permission denied")
 
-    # Patch ONLY the bound read_bytes on this specific path so other
-    # filesystem ops in the test (cleanup) keep working.
+    # Patch the single read seam ``_read_safe`` delegates to
+    # (``_read_bytes_shared``, which wraps read_bytes on POSIX and a
+    # FILE_SHARE_DELETE handle on Windows). Patching there — rather than
+    # ``Path.read_bytes`` — exercises the OSError->None contract identically
+    # on every OS, including the Windows branch that never touches read_bytes.
     with (
-        mock.patch.object(Path, "read_bytes", side_effect=boom),
+        mock.patch("ai_engineering.policy.gate_cache._read_bytes_shared", side_effect=boom),
         caplog.at_level(logging.WARNING, logger="ai_engineering.policy.gate_cache"),
     ):
         result = _read_safe(path)

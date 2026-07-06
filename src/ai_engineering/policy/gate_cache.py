@@ -31,6 +31,7 @@ import hashlib
 import json
 import logging
 import os as _stdlib_os
+import sys
 import tempfile
 import types
 from datetime import UTC, datetime, timedelta
@@ -240,6 +241,85 @@ def _parse_cache_bytes(raw_bytes: bytes, path: Path) -> dict | None:
     return parsed
 
 
+def _read_bytes_shared(path: Path) -> bytes:
+    """Read all bytes from *path*, tolerating a concurrent atomic replace.
+
+    On POSIX, ``os.replace`` over a file that a reader holds open is always
+    permitted, so a plain read is already race-free.
+
+    On Windows, CPython's ``open`` acquires the file WITHOUT
+    ``FILE_SHARE_DELETE``. While a reader holds that handle, the writer's
+    publish step (:func:`os.replace`) fails with ``PermissionError`` and is
+    forced into its retry/backoff budget; under a hot reader that backoff
+    accumulates and can stall the writer past a join deadline (the spec-104
+    concurrent-persist flake in
+    ``test_lookup_handles_concurrent_persist_safely``). Opening the read handle
+    with ``FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE`` lets the
+    publish proceed while the reader reads, eliminating the race at its source
+    instead of paying for it in writer-side retries.
+
+    Raises the same ``OSError`` family as :meth:`Path.read_bytes`
+    (``FileNotFoundError`` for a missing path, ``PermissionError`` for a true
+    lock), so every existing caller keeps its error handling unchanged.
+    """
+    if sys.platform != "win32":
+        return path.read_bytes()
+
+    import ctypes
+    import msvcrt
+    from ctypes import wintypes
+
+    generic_read = 0x80000000
+    share_read = 0x00000001
+    share_write = 0x00000002
+    share_delete = 0x00000004
+    open_existing = 3
+    attr_normal = 0x00000080
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    create_file = kernel32.CreateFileW
+    create_file.restype = wintypes.HANDLE
+    create_file.argtypes = [
+        wintypes.LPCWSTR,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.LPVOID,
+        wintypes.DWORD,
+        wintypes.DWORD,
+        wintypes.HANDLE,
+    ]
+
+    handle = create_file(
+        str(path),
+        generic_read,
+        share_read | share_write | share_delete,
+        None,
+        open_existing,
+        attr_normal,
+        None,
+    )
+    if not handle or handle == ctypes.c_void_p(-1).value:
+        # Map to the same OSError subclasses Path.read_bytes would raise
+        # (ERROR_FILE_NOT_FOUND -> FileNotFoundError, ERROR_SHARING_VIOLATION
+        # -> PermissionError) so callers' except clauses are unaffected.
+        raise ctypes.WinError(ctypes.get_last_error())
+
+    # ``open_osfhandle`` transfers ownership of the OS handle to the returned
+    # fd; closing the fd then closes the underlying handle exactly once.
+    try:
+        fd = msvcrt.open_osfhandle(handle, _stdlib_os.O_RDONLY)
+    except OSError:
+        kernel32.CloseHandle(handle)
+        raise
+    try:
+        fh = _stdlib_os.fdopen(fd, "rb", closefd=True)
+    except OSError:
+        _stdlib_os.close(fd)
+        raise
+    with fh:
+        return fh.read()
+
+
 def _read_safe(path: Path) -> dict | None:
     """Return the parsed JSON dict, or ``None`` for missing/empty/corrupt files.
 
@@ -248,7 +328,7 @@ def _read_safe(path: Path) -> dict | None:
     decode errors.
     """
     try:
-        raw_bytes = path.read_bytes()
+        raw_bytes = _read_bytes_shared(path)
     except FileNotFoundError:
         return None
     except OSError as exc:
@@ -556,7 +636,7 @@ def _prune_if_oversize(cache_dir: Path, max_entries: int = MAX_ENTRIES) -> int:
         if not child.is_file() or child.suffix != ".json":
             continue
         try:
-            raw_bytes = child.read_bytes()
+            raw_bytes = _read_bytes_shared(child)
         except FileNotFoundError:
             # Concurrently removed between iterdir and read — nothing to prune.
             continue
