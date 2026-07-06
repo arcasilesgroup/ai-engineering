@@ -202,20 +202,14 @@ def _replace_with_retry(src: str, dst: Path) -> None:
         raise last_exc
 
 
-def _read_safe(path: Path) -> dict | None:
-    """Return the parsed JSON dict, or ``None`` for missing/empty/corrupt files.
+def _parse_cache_bytes(raw_bytes: bytes, path: Path) -> dict | None:
+    """Parse cache-entry bytes into a dict, or ``None`` for corrupt *content*.
 
-    Logs a WARNING on corruption so operators see drift; never raises. Handles
-    binary garbage (invalid UTF-8) and truncated JSON in addition to standard
-    decode errors.
+    Pure — does no I/O and never raises, so callers can distinguish a genuine
+    content problem (empty / invalid UTF-8 / invalid JSON / non-object) from a
+    file that merely could not be opened (an ``OSError`` at the I/O layer).
+    Logs a WARNING on corruption so operators see drift.
     """
-    try:
-        raw_bytes = path.read_bytes()
-    except FileNotFoundError:
-        return None
-    except OSError as exc:
-        logger.warning("gate-cache entry unreadable at %s: %s", path, exc)
-        return None
     if not raw_bytes:
         return None
     try:
@@ -244,6 +238,23 @@ def _read_safe(path: Path) -> dict | None:
         )
         return None
     return parsed
+
+
+def _read_safe(path: Path) -> dict | None:
+    """Return the parsed JSON dict, or ``None`` for missing/empty/corrupt files.
+
+    Logs a WARNING on corruption so operators see drift; never raises. Handles
+    binary garbage (invalid UTF-8) and truncated JSON in addition to standard
+    decode errors.
+    """
+    try:
+        raw_bytes = path.read_bytes()
+    except FileNotFoundError:
+        return None
+    except OSError as exc:
+        logger.warning("gate-cache entry unreadable at %s: %s", path, exc)
+        return None
+    return _parse_cache_bytes(raw_bytes, path)
 
 
 # ---------------------------------------------------------------------------
@@ -526,6 +537,13 @@ def _prune_if_oversize(cache_dir: Path, max_entries: int = MAX_ENTRIES) -> int:
     are evicted unconditionally — they can't participate in LRU ordering and
     shouldn't waste disk space.
 
+    A file that is present but momentarily *unreadable* (``OSError`` — a
+    transient Windows share-lock from an AV scanner, indexer, or a concurrent
+    ``os.replace`` publishing a sibling entry) is NOT corruption: deleting it
+    would evict a healthy just-written entry (the spec-104 Windows flake where
+    a parallel persist+prune left 4 of 5 cache files). Such files are skipped
+    and left for a later prune to revisit once the lock clears.
+
     Returns the number of files removed (corrupted + LRU-evicted).
     """
     if not cache_dir.exists():
@@ -537,7 +555,20 @@ def _prune_if_oversize(cache_dir: Path, max_entries: int = MAX_ENTRIES) -> int:
     for child in cache_dir.iterdir():
         if not child.is_file() or child.suffix != ".json":
             continue
-        raw = _read_safe(child)
+        try:
+            raw_bytes = child.read_bytes()
+        except FileNotFoundError:
+            # Concurrently removed between iterdir and read — nothing to prune.
+            continue
+        except OSError as exc:
+            # Present-but-unreadable: transient lock, not corruption. Keep it.
+            logger.debug(
+                "gate-cache prune skipping momentarily-unreadable entry %s: %s",
+                child,
+                exc,
+            )
+            continue
+        raw = _parse_cache_bytes(raw_bytes, child)
         if raw is None:
             corrupted.append(child)
             continue
