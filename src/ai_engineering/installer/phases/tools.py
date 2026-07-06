@@ -50,6 +50,7 @@ from ai_engineering.installer.user_scope_install import (
     _check_simulate_fail,
     _check_simulate_install_ok,
     capture_os_release,
+    resolve_user_scope_binary,
     run_verify,
 )
 from ai_engineering.state.manifest import load_python_env_mode, load_required_tools
@@ -603,6 +604,60 @@ class ToolsPhase:
         return bool(getattr(verify_result, "passed", False))
 
     @staticmethod
+    def _adopt_preexisting_user_scope(
+        tool: ToolSpec,
+        *,
+        registry_entry: dict[str, Any],
+        tool_spec: dict[str, Any] | None,
+        state: InstallState,
+        result: PhaseResult,
+        current_os_release: str,
+    ) -> bool:
+        """Adopt an already-healthy user-scope binary on a fresh install.
+
+        Returns True (and records ``INSTALLED``) when ``tool`` resolves to a
+        user-scope path AND its offline-safe verify probe passes -- so the
+        caller skips ``mechanism.install()`` entirely (ARC-300 bug #4).
+        Returns False otherwise, leaving the caller to dispatch the install.
+
+        The user-scope decision is delegated to
+        :func:`resolve_user_scope_binary` so the ``~/.local/bin`` prefix
+        logic stays single-sourced in ``user_scope_install``.
+        """
+        if resolve_user_scope_binary(tool.name) is None:
+            return False
+
+        # Honour the ``AIENG_TEST_SIMULATE_FAIL`` seam (ARC-300): a tool flagged
+        # to simulate an install failure must be driven through the (failing)
+        # dispatch path, never adopted as pre-existing-healthy. Otherwise the
+        # EXIT-80 integration tests silently pass on runners that pre-provision
+        # the tool user-scoped (e.g. ``ruff`` in ``~/.local/bin`` on macOS),
+        # where adoption would fire before the failure injection. The seam is
+        # inert outside ``AIENG_TEST=1`` (returns ``None``), so production
+        # adoption behaviour is unchanged.
+        if _check_simulate_fail(tool.name) is not None:
+            return False
+
+        try:
+            verify_result = run_verify(tool_spec or registry_entry)
+        except Exception:
+            # ``run_verify`` raises ``UnsafeVerifyCommand`` on a forbidden
+            # probe; any raise means we cannot prove health, so fall through
+            # to a normal install rather than adopt an unverified binary.
+            return False
+        if not getattr(verify_result, "passed", False):
+            return False
+
+        state.required_tools_state[tool.name] = _build_record(
+            state=ToolInstallState.INSTALLED,
+            mechanism="preexisting-user-scope",
+            version=getattr(verify_result, "version", None),
+            os_release=current_os_release,
+        )
+        result.skipped.append(f"tool:{tool.name}:preexisting-user-scope")
+        return True
+
+    @staticmethod
     def _should_skip_idempotent(
         tool: ToolSpec,
         *,
@@ -622,7 +677,23 @@ class ToolsPhase:
         """
         existing_record = state.required_tools_state.get(tool.name)
         if existing_record is None:
-            return False
+            # ARC-300 bug #4: on a FRESH install (no prior state record) a
+            # functional user-scope binary may already exist on the machine
+            # (e.g. the CI runner pre-provisions a healthy gitleaks). Without
+            # this guard the phase falls through to ``mechanism.install()``
+            # and the download clobbers the healthy binary. If the tool
+            # already resolves user-scoped AND its verify probe passes, adopt
+            # it as INSTALLED and skip -- never hand it to a mechanism.
+            # ``--force`` is honoured upstream (the caller skips this whole
+            # predicate when force is set), so a forced run still re-installs.
+            return ToolsPhase._adopt_preexisting_user_scope(
+                tool,
+                registry_entry=registry_entry,
+                tool_spec=tool_spec,
+                state=state,
+                result=result,
+                current_os_release=current_os_release,
+            )
         if existing_record.state != ToolInstallState.INSTALLED:
             return False
 

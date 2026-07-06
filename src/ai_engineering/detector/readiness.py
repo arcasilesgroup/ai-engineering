@@ -234,7 +234,12 @@ def _get_version(name: str) -> str | None:
             line = line.strip()
             if line:
                 return line
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
+    except (subprocess.CalledProcessError, OSError, subprocess.TimeoutExpired):
+        # OSError subsumes FileNotFoundError and also covers exec anomalies such
+        # as ``Errno 8 ENOEXEC`` ("Exec format error") from a mis-formatted or
+        # wrong-arch binary that happens to be resolvable on PATH. A version
+        # probe must never abort the install because of a bad binary on PATH:
+        # treat any of these as "version unavailable" and return None.
         pass
     return None
 
