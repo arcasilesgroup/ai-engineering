@@ -122,12 +122,12 @@ The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibiti
 
 | Project | What we learned |
 |---------|----------------|
-| [Superpowers](https://github.com/NicolasMontworker/superpowers) | Brainstorm hard-gate, TDD-for-skills patterns |
-| [review-code](https://github.com/peterknights1/review-code) | Handler-as-workflow, parallel specialist agents |
-| [dotfiles/ai](https://github.com/ericbuess/dotfiles) | Agent matrix, SDLC coverage |
-| [autoresearch](https://github.com/vgel/autoresearch) | Radical simplicity as a design principle |
-| [SpecKit](https://github.com/speckit/speckit) | Spec-driven workflow inspiration |
-| [Anthropic Skills](https://github.com/anthropics/claude-code-skills) | Frontend-design, skill-creator — absorbed and extended |
+| [Superpowers](https://github.com/obra/superpowers) | Brainstorm hard-gate, TDD-for-skills patterns |
+| review-code | Handler-as-workflow, parallel specialist agents |
+| dotfiles/ai | Agent matrix, SDLC coverage |
+| autoresearch | Radical simplicity as a design principle |
+| [SpecKit](https://github.com/github/spec-kit) | Spec-driven workflow inspiration |
+| [Anthropic Skills](https://github.com/anthropics/skills) | Frontend-design, skill-creator — absorbed and extended |
 
 ## Contributing
 

@@ -4,6 +4,7 @@
 
 ## Get going
 
+- [ai-engineering.arcasiles.com](https://ai-engineering.arcasiles.com) — the website: what it is and how to install.
 - [Getting started](guides/getting-started.md) — install, your first session, the governed workflow.
 - [The architecture](architecture/index.md) — how the pieces fit, for contributors.
 
@@ -17,6 +18,7 @@
 
 ## Project identity
 
+- [SOUL.md](../SOUL.md) — the agent's collaborator values (the judgment layer above the gates).
 - [CONSTITUTION.md](../CONSTITUTION.md) — mission, stakeholders, prohibitions.
 - [CHANGELOG.md](../CHANGELOG.md) — release history and breakage notes.
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — development setup and the pull request process.

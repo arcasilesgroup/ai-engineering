@@ -1,7 +1,7 @@
 # Solution Intent -- ai-engineering
 
 > Status: Evolving
-> Last Review: 2026-04-29
+> Last Review: 2026-07-06
 
 ---
 
@@ -13,7 +13,7 @@
 |-------|-------|
 | Name | ai-engineering |
 | Organization | arcasilesgroup/ai-engineering |
-| Versions | 0.10.1 (framework), 2.0 (manifest schema), 0.10.1 (pyproject) |
+| Versions | 0.12.3 (framework/pyproject), 2.0 (manifest schema) |
 | Description | AI governance framework for secure software delivery |
 | License | MIT |
 | Python | >= 3.11 |
@@ -25,7 +25,7 @@
 
 ### 1.2 Objective
 
-Deterministic CLI tooling, 54 AI skills, 9 agents (+ specialist review/verifier sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, and Antigravity. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
+Deterministic CLI tooling, 54 AI skills, 9 agents (+ specialist review/verifier sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
 
 ### 1.3 Problem Statement
 
@@ -35,7 +35,7 @@ AI coding assistants operate without guardrails. In regulated industries, this c
 
 - Zero secret leaks in committed code
 - >= 80% test coverage enforced at every PR
-- Consistent governance across 4 IDE surfaces from a single source
+- Consistent governance across 6 IDE surfaces from a single source
 - Auditable decision trail with expiry-based lifecycle
 - Environment-aware failure handling: fail fast for runtime integrity, repair framework packaging drift when possible, and block only when security or feed validation cannot be trusted
 
@@ -44,8 +44,8 @@ AI coding assistants operate without guardrails. In regulated industries, this c
 | In scope | Out of scope |
 |----------|-------------|
 | CLI tooling (`ai-eng`) | Runtime application code |
-| AI skill definitions (47) | AI model training or fine-tuning |
-| Agent orchestration (10) | Custom IDE plugin development |
+| AI skill definitions (54) | AI model training or fine-tuning |
+| Agent orchestration (9) | Custom IDE plugin development |
 | Quality gates and hooks | SonarCloud/Snyk platform management |
 | Multi-IDE mirror generation | IDE-specific UI extensions |
 | GitHub + Azure DevOps providers | Other VCS providers |
@@ -83,6 +83,8 @@ C4Context
     System_Ext(copilot, "GitHub Copilot", "Secondary IDE integration")
     System_Ext(codex, "Codex", "Tertiary IDE integration")
     System_Ext(antigravity, "Antigravity", "Google IDE/CLI integration")
+    System_Ext(opencode, "OpenCode", "IDE integration")
+    System_Ext(cursor, "Cursor", "IDE integration")
 
     Rel(dev, framework, "ai-eng CLI + /ai-* skills")
     Rel(framework, github, "gh CLI / REST API")
@@ -94,24 +96,23 @@ C4Context
     Rel(framework, copilot, "Skills, agents, instructions")
     Rel(framework, codex, "Skills, agents")
     Rel(framework, antigravity, "Skills, agents")
+    Rel(framework, opencode, "Skills, agents")
+    Rel(framework, cursor, "Skills, agents")
 ```
 
 ### 2.2 Functional Requirements by Domain
 
-#### Skills (47)
+#### Skills (54)
 
 | Type | Skills | Count |
 |------|--------|-------|
-| Workflow | brainstorm, plan, build, code, test, debug, verify, review, schema | 9 |
-| Delivery | commit, pr, cleanup, gtm | 4 |
-| Enterprise | security, governance, pipeline, docs, board, ide-audit | 6 |
-| Teaching | explain, guide, write, slides, media, video-editing | 6 |
+| Workflow | brainstorm, plan, build, code, test, debug, verify, review, schema, spec-draft | 10 |
+| Delivery | commit, pr, branch-cleanup, resolve-conflicts | 4 |
+| Enterprise | security, governance, pipeline, docs, board, ide-audit, mcp-audit, reliability-eval | 8 |
+| Teaching | explain, prose, slides, media, video-editing, learn | 6 |
 | Design | design, animation, visual | 3 |
-| SDLC | note, standup, sprint, postmortem, support, resolve-conflicts | 6 |
-| Meta | create, learn, prompt, start, analyze-permissions, autopilot, constitution, skill-improve, mcp-audit, observe, simplify-sweep, research, help | 13 |
-
-**Effort distribution** (post spec-122-a): `eval` skill removed with the
-`evals/` directory; net count reflects current `.claude/skills/`.
+| SDLC | note, standup, sprint, postmortem, support, issue, engineering-issue, scaffold | 8 |
+| Meta | advise, prompt-tune, start, onboard, analyze-permissions, autopilot, constitution, skill-improve, simplify, simplify-sweep, session-watch, session-watch-sweep, research, marketing, explore | 15 |
 
 #### Agents (9)
 
@@ -119,65 +120,64 @@ C4Context
 |-------|-------|------|----------|
 | plan | opus | Spec creation, architecture design | Plans but does NOT execute |
 | build | opus | Code implementation | ONLY agent with write permissions |
-| verify | opus | Quality + security assessment | Read-only, dispatches 4 sub-agents |
-| guard | sonnet | Governance advisory | Advisory, never blocking |
-| review | opus | Parallel code review | Read-only, dispatches 8 specialists |
+| verify | opus | Quality + security assessment | Read-only, dispatches verifier sub-agents |
+| review | opus | Parallel code review | Read-only, dispatches reviewer specialists |
 | explore | sonnet | Deep codebase research | Read-only exploration |
-| guide | sonnet | Teaching and onboarding | Read-only, educational |
+| advise | sonnet | Governance + decision advisory | Advisory, never blocking |
+| onboard | sonnet | Teaching and onboarding | Read-only, educational |
 | simplify | sonnet | Code simplification | Proposes changes, build executes |
 | autopilot | opus | Autonomous multi-spec orchestrator + backlog execution | Decomposes, plans, builds, verifies |
 
-**Specialist sub-agents (15):**
+**Specialist sub-agents (10):**
 
 | Sub-agent | Parent | Focus |
 |-----------|--------|-------|
 | review-context | review | Pre-review architectural context |
 | review-validator | review | Adversarial finding disproof |
-| reviewer-architecture | review | Necessity, simplicity, patterns |
-| reviewer-backend | review | API boundaries, persistence |
 | reviewer-compatibility | review | Breaking changes to shipped code |
 | reviewer-correctness | review | Functional correctness |
 | reviewer-frontend | review | React, hooks, accessibility |
-| reviewer-maintainability | review | Readability, clarity |
 | reviewer-performance | review | Bottlenecks, optimization |
 | reviewer-security | review | Vulnerabilities, exploits |
 | reviewer-testing | review | Test coverage, quality |
+| verifier-acceptance | verify | Spec coverage, acceptance criteria |
 | verifier-deterministic | verify | Tool-driven checks (gitleaks, ruff, pytest) |
-| verifier-architecture | verify | Solution-intent alignment |
-| verifier-feature | verify | Spec coverage, acceptance criteria |
-| verifier-governance | verify | Compliance, integrity |
 
-#### CLI Commands (~47)
+#### CLI Commands (24 top-level)
 
 ```mermaid
 mindmap
     root((ai-eng))
-        Top-level
+        Lifecycle
             install
             update
             doctor
-            validate
+            check
             verify
-            version
             release
-            guide
-            sync
-        Groups
-            stack(3)
-            ide(3)
-            gate(5)
-            skill(1)
-            maintenance(8)
-            provider(3)
-            vcs(2)
-            review(1)
-            cicd(1)
-            setup(5)
-            decision(3)
-            scan-report(1)
-            metrics(1)
-            work-item(1)
-            workflow(1)
+            status
+            version
+        Off-chain
+            commit
+            pr
+        Config
+            config
+            gate
+            skill
+            host
+            setup
+        Maintenance
+            cleanup
+            maintenance
+        Governance
+            decision
+            ownership
+            audit
+            risk
+        Work planes
+            spec
+            plan
+            issue
 ```
 
 ### 2.3 Non-Functional Requirements
@@ -213,6 +213,8 @@ flowchart LR
     Skills -->|SKILL.md| Copilot["GitHub Copilot"]
     Skills -->|SKILL.md| Codex
     Skills -->|SKILL.md| Antigravity
+    Skills -->|SKILL.md| OpenCode
+    Skills -->|SKILL.md| Cursor
 ```
 
 | System A | System B | Protocol | Contract | SLA |
@@ -234,7 +236,7 @@ flowchart LR
 graph TB
     subgraph CLI["Interface Layer"]
         cli_preflight["cli_preflight<br/>bootstrap runtime + dependency closure"]
-        cli_commands["cli_commands<br/>16 command groups, ~47 commands"]
+        cli_commands["cli_commands<br/>24 top-level commands"]
         commands["commands<br/>Low-level wrappers"]
     end
 
@@ -687,20 +689,20 @@ sequenceDiagram
 
 | Epic | Description | Priority | Status | Target |
 |------|-------------|----------|--------|--------|
-| Board lifecycle | Full issue lifecycle automation via Projects v2 | P1 | In progress | Q2 2026 |
-| Runbook automation | Scheduled execution via GitHub Agentic Workflows | P1 | In progress (DEC-022) | Q2 2026 |
-| Autopilot maturity | Multi-spec autonomous delivery refinement | P2 | Active (DEC-023) | Q2 2026 |
+| Board lifecycle | Full issue lifecycle automation via Projects v2 | P1 | In progress | Q3 2026 |
+| Runbook automation | Scheduled execution via GitHub Agentic Workflows | P1 | Planned (`.github/aw/` not yet wired) | Q3 2026 |
+| Autopilot maturity | Multi-spec autonomous delivery refinement | P2 | Active (DEC-023) | Q3 2026 |
 
 ### 7.3 KPIs
 
 | Metric | Target | Current |
 |--------|--------|---------|
 | Test coverage | >= 80% | **TBD -- pending measurement** |
-| Skills count | 47 | 47 |
-| Agent count | 10 | 10 |
+| Skills count | 54 | 54 |
+| Agent count | 9 | 9 |
 | Active decisions | Tracked with expiry | 23 active, 5 superseded |
 | Runbook coverage | All operational areas | 14 runbooks |
-| IDE surfaces | 4 | 6 (Claude Code, Copilot, Codex, OpenCode, Cursor, Antigravity) |
+| IDE surfaces | 6 | 6 (Claude Code, Copilot, Codex, OpenCode, Cursor, Antigravity) |
 | Context files | Comprehensive | 39 (14 lang, 15 framework, 10 other) |
 
 ### 7.4 Active Spec
@@ -775,9 +777,9 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 | Decisions | `.ai-engineering/state/decision-store.json` |
 | Framework events | `.ai-engineering/state/framework-events.ndjson` |
 | Framework capabilities | `.ai-engineering/state/framework-capabilities.json` |
-| Reference (18) | `.ai-engineering/reference/*.md` (spec-136 D-136-03 collapsed contexts/ + framework docs/ into a single flat home) |
+| Reference (19) | `.ai-engineering/reference/*.md` (spec-136 D-136-03 collapsed contexts/ + framework docs/ into a single flat home) |
 | Runbooks (14) | `.ai-engineering/runbooks/` |
 | CLI source | `src/ai_engineering/` |
-| Tests (123 files) | `tests/{unit,integration,e2e}/` |
+| Tests (592 files) | `tests/{unit,integration,e2e,architecture,conformance,perf,mirrors,adapters,docs}/` |
 | Board config | `.ai-engineering/manifest.yml` (work_items section) |
 | This document | `.ai-engineering/solution-intent.md` |
