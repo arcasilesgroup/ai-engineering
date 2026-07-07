@@ -21,8 +21,8 @@ When the user corrects AI behavior:
 
 ### Plan tasks must have checkboxes for progress tracking
 
-**Context**: `/ai-plan` generates `plan.md` as the contract for `/ai-dispatch`.
-**Learning**: Every task line MUST use `- [ ] T-N.N:` format, not `- T-N.N:`. Without checkboxes, `/ai-dispatch` cannot track progress and the user cannot see completion state at a glance.
+**Context**: `/ai-plan` generates `plan.md` as the contract for `/ai-build`.
+**Learning**: Every task line MUST use `- [ ] T-N.N:` format, not `- T-N.N:`. Without checkboxes, `/ai-build` cannot track progress and the user cannot see completion state at a glance.
 **Rule**: When writing plan.md, always prefix tasks with `- [ ]`.
 
 ### /ai-pr MUST clear spec.md and plan.md after PR creation

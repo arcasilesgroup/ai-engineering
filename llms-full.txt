@@ -2,7 +2,7 @@
 
 > Derived cache: concatenated user-facing and canonical docs for AI agent ingestion.
 > Regenerate from: README, docs/guides/getting-started, docs/index, docs/architecture/index, docs/architecture/brand-tokens, docs/persistence-doctrine, CONSTITUTION, AGENTS.
-
+> Rebuild command: `python -m scripts.gen_llms_full`.
 
 
 ================================================================
@@ -21,28 +21,48 @@
   <p><strong>Turn AI-assisted delivery into a governed local workflow — in any repo, any IDE.</strong></p>
 
   <p>
-    <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg?style=flat-square&color=00D4AA&labelColor=0B1120" alt="PyPI version"></a>
-    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-00D4AA.svg?style=flat-square&labelColor=0B1120" alt="Python 3.11+"></a>
+    <a href="https://ai-engineering.arcasiles.com"><img src="https://img.shields.io/badge/Website-ai--engineering.arcasiles.com-2C7E6D?style=flat-square&labelColor=0B1120" alt="Website"></a>
+    <a href="https://pypi.org/project/ai-engineering/"><img src="https://img.shields.io/pypi/v/ai-engineering.svg?style=flat-square&color=2C7E6D&labelColor=0B1120" alt="PyPI version"></a>
+    <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/Python-3.11%2B-2C7E6D.svg?style=flat-square&labelColor=0B1120" alt="Python 3.11+"></a>
     <a href="https://github.com/arcasilesgroup/ai-engineering/actions"><img src="https://img.shields.io/github/actions/workflow/status/arcasilesgroup/ai-engineering/ci-check.yml?branch=main&style=flat-square&labelColor=0B1120" alt="CI"></a>
-    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-00D4AA.svg?style=flat-square&labelColor=0B1120" alt="License: MIT"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://img.shields.io/sonar/quality_gate/arcasilesgroup_ai-engineering?server=https%3A%2F%2Fsonarcloud.io&style=flat-square&labelColor=0B1120&color=2C7E6D" alt="Quality Gate"></a>
+    <a href="https://sonarcloud.io/summary/overall?id=arcasilesgroup_ai-engineering"><img src="https://img.shields.io/sonar/coverage/arcasilesgroup_ai-engineering?server=https%3A%2F%2Fsonarcloud.io&style=flat-square&labelColor=0B1120&color=2C7E6D" alt="Coverage"></a>
+    <a href="https://snyk.io/test/github/arcasilesgroup/ai-engineering"><img src="https://img.shields.io/badge/Snyk-monitored-2C7E6D?style=flat-square&labelColor=0B1120" alt="Snyk security"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2C7E6D.svg?style=flat-square&labelColor=0B1120" alt="License: MIT"></a>
   </p>
 
   <p><code>54 skills · 9 agents · 6 surfaces · 1 governed flow</code></p>
 
-  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="Terminal demo: pip install ai-engineering, then ai-eng install . and ai-eng doctor both report [PASS], then open your IDE and run /ai-start" width="760">
+  <br>
+
+  <picture>
+    <source srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.webp" type="image/webp">
+    <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="ai-eng install, then ai-eng doctor (warnings are advisory), then exploring the .ai-engineering tree plus 54 skills and 9 agents in VS Code, ending with /ai-start in Claude Code" width="900">
+  </picture>
 </div>
 
 `{ai} engineering` installs a deterministic governance layer into any repository — specs, decisions, skills, agents, hooks, and an audit trail, all as versioned local files. No hosted control plane. No provider lock-in. Every IDE follows the same rules.
 
 ## Quickstart
 
-Get a governed repo in under a minute:
+Get a governed repo in under a minute — `{ai} engineering` is uv-first:
 
 ```bash
-pip install ai-engineering   # or: uv tool install ai-engineering
-ai-eng install .             # adds governance to your repo
-ai-eng doctor                # [PASS] hooks, mirrors, manifest, required tools
+uv tool install ai-engineering   # install the CLI
+ai-eng install .                 # add governance to your repo
+ai-eng doctor                    # [PASS] hooks, mirrors, manifest, required tools
 ```
+
+<details>
+<summary>Prefer <code>pip</code> or <code>pipx</code>?</summary>
+
+```bash
+pipx install ai-engineering
+# or
+python -m pip install --user ai-engineering
+```
+
+</details>
 
 Then open your editor and type `/ai-start`. Prefer to ease in? Start in observe mode and enforce only what proves useful.
 
@@ -52,9 +72,13 @@ Then open your editor and type `/ai-start`. Prefer to ease in? Start in observe 
 
 You drive the intent and approve each step; the gates catch the rest — no secrets, broken docs, or untested changes reach a merge.
 
+<br>
+
 <div align="center">
   <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/workflow.png" alt="The governed workflow: /ai-brainstorm agrees the spec, /ai-plan breaks it down, /ai-build or /ai-autopilot implements it, /ai-pr ships a reviewed and merged pull request. You approve each step; automatic checks (clean diff, tests, docs, review) must pass before merge." width="820">
 </div>
+
+<br>
 
 The canonical chain is **`/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`**. Use it whenever work changes product behavior, framework behavior, security posture, public docs, or release state. `/ai-commit` stays available for WIP checkpoints; it is not part of the chain.
 
@@ -62,9 +86,15 @@ The canonical chain is **`/ai-brainstorm → /ai-plan → /ai-build → /ai-pr`*
 
 Fifty-four skills and nine agents cover the whole delivery loop — and the same commands work in every supported editor.
 
+<br>
+
 <div align="center">
   <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/toolkit.png" alt="54 skills and 9 agents grouped by what you do: plan and build, ship safely, design and docs, research and learn. The same commands run in Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor." width="820">
 </div>
+
+<br>
+
+Need evidence? `/ai-research` returns cited findings from local context, the web, and async deep research. And because plans carry ready-to-apply patches, mechanical work routes to a smaller model — routine edits stay cheap.
 
 ## Supported surfaces
 
@@ -81,15 +111,18 @@ One canonical payload is mirrored, byte-for-byte, into every enabled surface.
 
 The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibitions live in [CONSTITUTION.md](CONSTITUTION.md). Release history lives in [CHANGELOG.md](CHANGELOG.md).
 
-## Why governance matters
+## Highlights
 
-- **Spec-driven** — every change is tied to an approved scope, so LLM output stays on-task.
-- **Deterministic gates** — secrets, broken mirrors, missing docs, and policy drift are caught before they land.
-- **Local audit trail** — a hash-chained NDJSON log records what happened, with no telemetry by default.
-- **Reviewable everywhere** — skills and agents are file-backed and synchronized across every IDE.
+- **Ship a whole spec in one run** — `/ai-autopilot` decomposes it, builds a dependency DAG, runs parallel waves, and converges on a reviewed PR.
+- **What you approved is what shipped** — a brainstorm hard-gate plus a spec-lifecycle state machine keep every change anchored to the approved spec (Rung 2 SDD — spec and code stay in sync, not just spec-first that drifts).
+- **An audit trail you own** — every AI action lands in a hash-chained NDJSON log you can verify offline, with no telemetry by default.
+- **Every bypass has an owner and an expiry** — no `# noqa` or `@ts-ignore`; findings are refactored or formally risk-accepted with a severity-based TTL.
+- **Every tool call is screened before it runs** — a deterministic guard checks each edit, write, and shell command and stops risky ones.
+- **AI quality is a tested property** — skills are measured with pass@k, and a regression beyond five points blocks the pull request.
 
 ## Documentation
 
+- [ai-engineering.arcasiles.com](https://ai-engineering.arcasiles.com) — the website: what it is, why it's governed, and how to install
 - [docs/](docs/) — architecture, getting started, and the diagram set
 - [CONSTITUTION.md](CONSTITUTION.md) — mission, stakeholders, prohibitions
 - [CHANGELOG.md](CHANGELOG.md) — release history and breakage notes
@@ -100,12 +133,12 @@ The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibiti
 
 | Project | What we learned |
 |---------|----------------|
-| [Superpowers](https://github.com/NicolasMontworker/superpowers) | Brainstorm hard-gate, TDD-for-skills patterns |
-| [review-code](https://github.com/peterknights1/review-code) | Handler-as-workflow, parallel specialist agents |
-| [dotfiles/ai](https://github.com/ericbuess/dotfiles) | Agent matrix, SDLC coverage |
-| [autoresearch](https://github.com/vgel/autoresearch) | Radical simplicity as a design principle |
-| [SpecKit](https://github.com/speckit/speckit) | Spec-driven workflow inspiration |
-| [Anthropic Skills](https://github.com/anthropics/claude-code-skills) | Frontend-design, skill-creator — absorbed and extended |
+| [Superpowers](https://github.com/obra/superpowers) | Brainstorm hard-gate, TDD-for-skills patterns |
+| review-code | Handler-as-workflow, parallel specialist agents |
+| dotfiles/ai | Agent matrix, SDLC coverage |
+| autoresearch | Radical simplicity as a design principle |
+| [SpecKit](https://github.com/github/spec-kit) | Spec-driven workflow inspiration |
+| [Anthropic Skills](https://github.com/anthropics/skills) | Frontend-design, skill-creator — absorbed and extended |
 
 ## Contributing
 
@@ -114,6 +147,28 @@ Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for developmen
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Star history
+
+<div align="center">
+  <a href="https://star-history.com/#arcasilesgroup/ai-engineering&Date">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date&theme=dark">
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date">
+      <img src="https://api.star-history.com/svg?repos=arcasilesgroup/ai-engineering&type=Date" alt="Star history chart for arcasilesgroup/ai-engineering" width="640">
+    </picture>
+  </a>
+</div>
+
+## Contributors
+
+<div align="center">
+  <a href="https://github.com/arcasilesgroup/ai-engineering/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=arcasilesgroup/ai-engineering" alt="ai-engineering contributors">
+  </a>
+</div>
+
+Made with [contrib.rocks](https://contrib.rocks).
 
 
 ================================================================
@@ -131,9 +186,9 @@ Install `{ai} engineering` and get a governed repository in under a minute.
 ## 1 — Install the CLI
 
 ```bash
-pip install ai-engineering
-# or, with uv:
 uv tool install ai-engineering
+# or, with pip:
+pip install ai-engineering
 ```
 
 Verify it:
@@ -197,6 +252,7 @@ Next: [the architecture](../architecture/index.md).
 
 ## Get going
 
+- [ai-engineering.arcasiles.com](https://ai-engineering.arcasiles.com) — the website: what it is and how to install.
 - [Getting started](guides/getting-started.md) — install, your first session, the governed workflow.
 - [The architecture](architecture/index.md) — how the pieces fit, for contributors.
 
@@ -210,6 +266,7 @@ Next: [the architecture](../architecture/index.md).
 
 ## Project identity
 
+- [SOUL.md](../SOUL.md) — the agent's collaborator values (the judgment layer above the gates).
 - [CONSTITUTION.md](../CONSTITUTION.md) — mission, stakeholders, prohibitions.
 - [CHANGELOG.md](../CHANGELOG.md) — release history and breakage notes.
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — development setup and the pull request process.
@@ -580,7 +637,7 @@ None of these run on the hot path; all are idempotent and safe to re-run.
 > (engineering principles, plan-mode default, subagent strategy,
 > commit conventions, etc.) live in
 > [CANONICAL.md](src/ai_engineering/templates/project/CANONICAL.md)
-> and its byte-equivalent mirrors (AGENTS.md, CLAUDE.md, GEMINI.md,
+> and its byte-equivalent mirrors (AGENTS.md, CLAUDE.md,
 > .github/copilot-instructions.md). This file owns "what THIS project
 > IS" — Mission, Stakeholders, Vocabulary, Prohibitions, Compliance
 > gates, Anti-goals, Boundaries, Escalation, Language, Lifecycle phase.
@@ -606,7 +663,7 @@ AI authoring is the cost-driver and auditability is the bar.
 ## Stakeholders
 
 - **Operator engineers** consuming the framework through their IDE
-  host (Claude Code, Codex, Gemini CLI, GitHub Copilot, OpenCode, Cursor).
+  host (Claude Code, Codex, Antigravity, GitHub Copilot, OpenCode, Cursor).
 - **Security + compliance reviewers** auditing the deterministic
   plane (policy engine, prompt-injection guard, append-only NDJSON
   audit chain).
@@ -661,7 +718,7 @@ AI authoring is the cost-driver and auditability is the bar.
    one canonical writable store. Derived caches are explicitly
    labelled (named, with a rebuild command) and rebuildable on
    demand. See [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
-   for the four-tier model and the rebuild semantics.
+   for the three-tier files-only model and the rebuild semantics.
 
 ## Compliance gates
 
@@ -709,10 +766,10 @@ AI authoring is the cost-driver and auditability is the bar.
 ## Boundaries
 
 - **Framework-owned** — every file under
-  `.ai-engineering/`, `.claude/`, `.codex/`, `.gemini/`,
-  `.github/skills/`, `.github/agents/`,
+  `.ai-engineering/`, `.claude/`, `.codex/`, `.agents/`, `.opencode/`,
+  `.cursor/`, `.github/skills/`, `.github/agents/`,
   `.github/copilot-instructions.md`, AGENTS.md, CLAUDE.md,
-  GEMINI.md, CANONICAL.md, this CONSTITUTION.md, and
+  CANONICAL.md, this CONSTITUTION.md, and
   `scripts/sync_mirrors/`. Operators MUST NOT hand-edit generated
   mirrors; `sync_command_mirrors.py` regenerates from canonical
   sources.
@@ -749,7 +806,7 @@ written CONSTITUTION.md stays in English for cross-team review.
 ## Lifecycle phase
 
 **Stabilising** — the framework has shipped its canonical chain
-(spec-127 / spec-128 / spec-129) and is now hardening DX (spec-131).
+(spec-127 / spec-128 / spec-129) and is now hardening DX and reliability (spec-131 through spec-182, v0.12.3).
 Breaking changes still land without backwards-compat shims (anti-goal
 above), but the deterministic plane contract (audit chain shape,
 risk-acceptance ledger, hooks manifest) is frozen modulo ADR.

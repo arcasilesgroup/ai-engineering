@@ -138,7 +138,7 @@ Common types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`.
 
 ## Project structure
 
-Top-level: `src/ai_engineering/` (CLI, installer, updater, doctor, hooks, policy, state, git, pipeline, skills, maintenance, detector, and bundled templates); `tests/` (unit, integration, conformance, perf, docs); `.ai-engineering/` (governance root: reference, evals, runtime, scripts, specs, state, team); `.claude/` plus the `.github/`, `.codex/`, `.agents/` IDE mirrors (skills + agents); `templates/` (consumer-project assets); `scripts/` (sync utilities); `tools/` (linters, no-suppression gate); `docs/` (operator dogfooding artifacts only; framework reference content lives under `.ai-engineering/reference/`).
+Top-level: `src/ai_engineering/` (CLI, installer, updater, doctor, hooks, policy, state, git, pipeline, skills, maintenance, detector, and bundled templates); `tests/` (unit, integration, e2e, architecture, conformance, perf, mirrors, adapters, docs); `.ai-engineering/` (governance root: reference, evals, runtime, scripts, specs, state, team); `.claude/` plus the `.github/`, `.codex/`, `.agents/`, `.opencode/` IDE mirrors (skills + agents); consumer-project templates bundled at `src/ai_engineering/templates/project/`; `scripts/` (sync utilities, mirror generation); `tools/` (linters, no-suppression gate); `docs/` (human-facing docs: getting started, architecture, persistence doctrine, CI and supply-chain references; framework reference content lives under `.ai-engineering/reference/`).
 
 See [AGENTS.md](AGENTS.md) for the full architecture map and canonical chain.
 

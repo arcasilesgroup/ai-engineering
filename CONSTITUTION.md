@@ -4,7 +4,7 @@
 > (engineering principles, plan-mode default, subagent strategy,
 > commit conventions, etc.) live in
 > [CANONICAL.md](src/ai_engineering/templates/project/CANONICAL.md)
-> and its byte-equivalent mirrors (AGENTS.md, CLAUDE.md, GEMINI.md,
+> and its byte-equivalent mirrors (AGENTS.md, CLAUDE.md,
 > .github/copilot-instructions.md). This file owns "what THIS project
 > IS" — Mission, Stakeholders, Vocabulary, Prohibitions, Compliance
 > gates, Anti-goals, Boundaries, Escalation, Language, Lifecycle phase.
@@ -30,7 +30,7 @@ AI authoring is the cost-driver and auditability is the bar.
 ## Stakeholders
 
 - **Operator engineers** consuming the framework through their IDE
-  host (Claude Code, Codex, Gemini CLI, GitHub Copilot, OpenCode, Cursor).
+  host (Claude Code, Codex, Antigravity, GitHub Copilot, OpenCode, Cursor).
 - **Security + compliance reviewers** auditing the deterministic
   plane (policy engine, prompt-injection guard, append-only NDJSON
   audit chain).
@@ -85,7 +85,7 @@ AI authoring is the cost-driver and auditability is the bar.
    one canonical writable store. Derived caches are explicitly
    labelled (named, with a rebuild command) and rebuildable on
    demand. See [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
-   for the four-tier model and the rebuild semantics.
+   for the three-tier files-only model and the rebuild semantics.
 
 ## Compliance gates
 
@@ -133,10 +133,10 @@ AI authoring is the cost-driver and auditability is the bar.
 ## Boundaries
 
 - **Framework-owned** — every file under
-  `.ai-engineering/`, `.claude/`, `.codex/`, `.gemini/`,
-  `.github/skills/`, `.github/agents/`,
+  `.ai-engineering/`, `.claude/`, `.codex/`, `.agents/`, `.opencode/`,
+  `.cursor/`, `.github/skills/`, `.github/agents/`,
   `.github/copilot-instructions.md`, AGENTS.md, CLAUDE.md,
-  GEMINI.md, CANONICAL.md, this CONSTITUTION.md, and
+  CANONICAL.md, this CONSTITUTION.md, and
   `scripts/sync_mirrors/`. Operators MUST NOT hand-edit generated
   mirrors; `sync_command_mirrors.py` regenerates from canonical
   sources.
@@ -173,7 +173,7 @@ written CONSTITUTION.md stays in English for cross-team review.
 ## Lifecycle phase
 
 **Stabilising** — the framework has shipped its canonical chain
-(spec-127 / spec-128 / spec-129) and is now hardening DX (spec-131).
+(spec-127 / spec-128 / spec-129) and is now hardening DX and reliability (spec-131 through spec-182, v0.12.3).
 Breaking changes still land without backwards-compat shims (anti-goal
 above), but the deterministic plane contract (audit chain shape,
 risk-acceptance ledger, hooks manifest) is frozen modulo ADR.

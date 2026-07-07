@@ -9,9 +9,9 @@ Install `{ai} engineering` and get a governed repository in under a minute.
 ## 1 — Install the CLI
 
 ```bash
-pip install ai-engineering
-# or, with uv:
 uv tool install ai-engineering
+# or, with pip:
+pip install ai-engineering
 ```
 
 Verify it:
