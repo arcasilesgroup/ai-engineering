@@ -45,6 +45,25 @@ class SmartTyperGroup(typer.core.TyperGroup):
     is ``ai-eng gate risk-check``.
     """
 
+    def get_help(self, ctx: click.Context) -> str:
+        """Render the ROOT help as spec-183 colour-grouped panels.
+
+        Both entry paths converge here: the bare ``ai-eng`` invocation
+        (``_app_callback`` echoes ``ctx.get_help()``) and Click's eager
+        ``--help`` option. Only the root group is a ``SmartTyperGroup``, so
+        subcommand ``--help`` never reaches this override (Non-Goal 1); the
+        ``ctx.parent is None`` guard is belt-and-braces. Fail-open: any error
+        falls back to Typer's default rendering.
+        """
+        if ctx.parent is None:
+            try:
+                from ai_engineering.cli_help_render import render_root_help
+
+                return render_root_help(ctx)
+            except Exception:
+                return super().get_help(ctx)
+        return super().get_help(ctx)
+
     def resolve_command(
         self,
         ctx: click.Context,
