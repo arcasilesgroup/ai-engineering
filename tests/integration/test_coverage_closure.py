@@ -101,25 +101,9 @@ def test_skills_status_empty_and_all_eligible(
 
 
 def test_branch_cleanup_remaining_paths(tmp_path: Path) -> None:
-    result = branch_cleanup.CleanupResult(
-        errors=["x"], deleted_branches=["a"], skipped_branches=["b"]
-    )
-    md = result.to_markdown()
-    assert "### Errors" in md
-
     with patch("ai_engineering.maintenance.branch_cleanup.run_git", return_value=(False, "err")):
         ok, count = branch_cleanup.fetch_and_prune(tmp_path)
     assert ok is False and count == 0
-
-    with (
-        patch("ai_engineering.maintenance.branch_cleanup.current_branch", return_value="feature"),
-        patch(
-            "ai_engineering.maintenance.branch_cleanup.run_git",
-            return_value=(False, "cannot checkout"),
-        ),
-    ):
-        res = branch_cleanup.run_branch_cleanup(tmp_path, base_branch="main")
-    assert res.success is False
 
 
 def test_doctor_remaining_branches(tmp_path: Path) -> None:

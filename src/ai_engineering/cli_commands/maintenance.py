@@ -1,7 +1,7 @@
 """Maintenance CLI commands: report, pr, risk-status, repo-status, all.
 
 Framework maintenance operations including health reports, PR creation,
-branch cleanup, risk governance status, and combined dashboard.
+risk governance status, event-log reset, and combined dashboard.
 """
 
 from __future__ import annotations
