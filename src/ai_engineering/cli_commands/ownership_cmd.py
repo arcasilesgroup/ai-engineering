@@ -130,6 +130,9 @@ def ownership_import(
     Exits 0 on success even when CODEOWNERS is missing (the table just
     stays at its previous state). Prints a one-line summary on success.
     """
+    from ai_engineering.cli_ui import render_deprecation_notice
+
+    render_deprecation_notice("ai-eng ownership import")
     root = find_project_root()
     if source:
         codeowners_path = Path(source)

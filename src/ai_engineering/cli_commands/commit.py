@@ -18,6 +18,9 @@ def commit_cmd(
     target: Annotated[Path | None, typer.Option("--target")] = None,
 ) -> None:
     """Standalone off-chain commit."""
+    from ai_engineering.cli_ui import render_deprecation_notice
+
+    render_deprecation_notice("ai-eng commit", "/ai-commit")
     root = resolve_project_root(target)
     renderer = Renderer.from_app("commit")
     result = workflows.run_commit_workflow(root, message, push=not only)

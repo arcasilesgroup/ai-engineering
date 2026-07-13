@@ -1373,10 +1373,7 @@ def doctor_cmd(
         str | None,
         typer.Option(
             "--check",
-            help=(
-                "Run a focused sub-check: 'hot-path' (SLO budgets, advisory) "
-                "or 'state-db' (table-by-table health report, informational)."
-            ),
+            help="Run a focused sub-check: 'hot-path' (SLO budgets, advisory).",
         ),
     ] = None,
 ) -> None:
@@ -1385,8 +1382,7 @@ def doctor_cmd(
     Exit codes: 0 (pass), 1 (fail), 2 (warnings only). When ``--check
     hot-path`` is passed, runs the spec-114 advisory hot-path SLO
     audit and always exits 0 per D-114-03 (advisory through
-    2026-05-31). When ``--check state-db`` is passed, runs the spec-138
-    M5.T3 informational state.db health report and always exits 0.
+    2026-05-31). ``--check`` supports only 'hot-path'.
     """
     if output_json:
         set_json_mode(True)

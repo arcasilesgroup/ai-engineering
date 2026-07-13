@@ -27,6 +27,9 @@ def issue_sync(
     ] = False,
 ) -> None:
     """Sync specs to external issues (GitHub Issues / Azure DevOps Boards)."""
+    from ai_engineering.cli_ui import render_deprecation_notice
+
+    render_deprecation_notice("ai-eng issue sync", "/ai-issue")
     root = resolve_project_root(target)
     renderer = Renderer.from_app("issue sync")
 

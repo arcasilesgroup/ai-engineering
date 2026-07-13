@@ -1,4 +1,4 @@
-"""Maintenance CLI commands: report, pr, branch-cleanup, risk-status, all.
+"""Maintenance CLI commands: report, pr, risk-status, repo-status, all.
 
 Framework maintenance operations including health reports, PR creation,
 branch cleanup, risk governance status, and combined dashboard.
@@ -30,7 +30,6 @@ from ai_engineering.cli_ui import (
     suggest_next,
     warning,
 )
-from ai_engineering.maintenance.branch_cleanup import run_branch_cleanup
 from ai_engineering.maintenance.repo_status import run_repo_status
 from ai_engineering.maintenance.report import (
     create_maintenance_pr,
@@ -94,6 +93,9 @@ def maintenance_pr(
     ] = "maintenance/framework-update",
 ) -> None:
     """Generate a maintenance report and create a PR."""
+    from ai_engineering.cli_ui import render_deprecation_notice
+
+    render_deprecation_notice("ai-eng maintenance pr", "/ai-pr")
     root = resolve_project_root(target)
     report = generate_report(root)
     result = create_maintenance_pr(root, report, branch_name=branch)
@@ -118,52 +120,6 @@ def maintenance_pr(
         else:
             error("Failed to create maintenance PR")
             raise typer.Exit(code=1)
-
-
-def maintenance_branch_cleanup(
-    target: Annotated[
-        Path | None,
-        typer.Option("--target", "-t", help="Target project root."),
-    ] = None,
-    base: Annotated[
-        str,
-        typer.Option("--base", "-b", help="Base branch for merge check."),
-    ] = "main",
-    force: Annotated[
-        bool,
-        typer.Option("--force", help="Force-delete unmerged branches."),
-    ] = False,
-    dry_run: Annotated[
-        bool,
-        typer.Option("--dry-run", help="List branches without deleting."),
-    ] = False,
-) -> None:
-    """Clean up stale local branches (fetch, prune, delete merged)."""
-    root = resolve_project_root(target)
-    with spinner("Cleaning up branches..."):
-        result = run_branch_cleanup(
-            root,
-            base_branch=base,
-            force=force,
-            dry_run=dry_run,
-        )
-
-    if is_json_mode():
-        emit_success(
-            "ai-eng maintenance branch-cleanup",
-            result.to_dict(),
-            [
-                NextAction(
-                    command="ai-eng maintenance repo-status",
-                    description="View branch status",
-                ),
-            ],
-        )
-    else:
-        typer.echo(result.to_markdown())
-
-    if not result.success:
-        raise typer.Exit(code=1)
 
 
 def _collect_risk_status(root: Path) -> dict[str, Any]:
@@ -278,39 +234,13 @@ def maintenance_repo_status(
             result.to_dict(),
             [
                 NextAction(
-                    command="ai-eng maintenance branch-cleanup",
+                    command="ai-eng cleanup branches",
                     description="Clean up stale branches",
                 ),
             ],
         )
     else:
         typer.echo(result.to_markdown())
-
-
-def maintenance_spec_reset(
-    target: Annotated[
-        Path | None,
-        typer.Option("--target", "-t", help="Target project root."),
-    ] = None,
-    dry_run: Annotated[
-        bool,
-        typer.Option("--dry-run", help="Report findings without modifying files."),
-    ] = False,
-) -> None:
-    """Reset spec state: append to history, clear spec buffer."""
-    root = resolve_project_root(target)
-    result = run_spec_reset(root, dry_run=dry_run)
-
-    if is_json_mode():
-        emit_success(
-            "ai-eng maintenance spec-reset",
-            result.to_dict(),
-        )
-    else:
-        typer.echo(result.to_markdown())
-
-    if not result.success:
-        raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------
@@ -450,6 +380,9 @@ def maintenance_reset_events(  # audit:exempt:typer-cli-3-fail-closed-gates-json
     Both gates are *fail-closed*: an error refuses the reset, exits
     non-zero, and surfaces the actionable hint to the operator.
     """
+    from ai_engineering.cli_ui import render_deprecation_notice
+
+    render_deprecation_notice("ai-eng maintenance reset-events")
     root = resolve_project_root(target)
 
     if print_eligible_date:
@@ -561,7 +494,7 @@ def maintenance_all(  # audit:exempt:typer-cli-aggregator-4-subcommands-json-tex
 ) -> None:
     """Run all maintenance checks and produce a combined report.
 
-    Executes: report, risk-status, repo-status, and spec-reset (dry-run).
+    Executes: report, risk-status, repo-status, and spec buffer reset (dry-run).
     Intended for dashboard overview.
     """
     root = resolve_project_root(target)
@@ -590,8 +523,8 @@ def maintenance_all(  # audit:exempt:typer-cli-aggregator-4-subcommands-json-tex
             },
             [
                 NextAction(
-                    command="ai-eng maintenance spec-reset",
-                    description="Apply spec reset",
+                    command="ai-eng cleanup specs",
+                    description="Consolidate shipped specs",
                 ),
                 NextAction(command="ai-eng doctor", description="Run health diagnostics"),
             ],
@@ -615,7 +548,7 @@ def maintenance_all(  # audit:exempt:typer-cli-aggregator-4-subcommands-json-tex
         suggest_next(
             [
                 ("ai-eng maintenance report", "Detailed framework health report"),
-                ("ai-eng maintenance spec-reset", "Apply spec reset"),
+                ("ai-eng cleanup specs", "Consolidate shipped specs"),
                 ("ai-eng doctor", "Run health diagnostics"),
             ]
         )

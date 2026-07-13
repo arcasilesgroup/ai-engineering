@@ -228,26 +228,6 @@ class TestSpecVerifyCli:
         assert "auto-fixed" in err.lower()
 
 
-class TestSpecActivateCli:
-    """Tests for spec_activate CLI function."""
-
-    def test_activate_work_plane(self, tmp_path: Path, capsys: pytest.CaptureFixture) -> None:
-        from unittest.mock import patch
-
-        from ai_engineering.cli_commands.spec_cmd import spec_activate
-        from ai_engineering.state.work_plane import resolve_active_work_plane
-
-        with patch("ai_engineering.cli_commands.spec_cmd.find_project_root", return_value=tmp_path):
-            spec_activate(specs_dir=Path(".ai-engineering/specs/spec-117-hx-02"))
-
-        err = capsys.readouterr().err
-        assert "Active spec buffer updated" in err
-        assert "spec-117-hx-02" in err
-        assert resolve_active_work_plane(tmp_path).specs_dir == (
-            tmp_path / ".ai-engineering" / "specs" / "spec-117-hx-02"
-        )
-
-
 class TestSpecListCli:
     """Tests for spec_list CLI function."""
 

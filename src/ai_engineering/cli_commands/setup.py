@@ -184,14 +184,14 @@ def _run_github_setup(root: Path) -> None:
     else:
         success(f"Scopes OK: {', '.join(status.scopes or [])}")
 
-    # Update install_state.platforms (state.db singleton row).
+    # Update install_state.platforms (files-only state store).
     state = load_install_state(_state_dir(root))
     state.platforms["github"] = PlatformEntry(
         configured=status.authenticated,
         url="https://github.com",
     )
     save_install_state(_state_dir(root), state)
-    success("State saved to install_state table")
+    success("State saved to .ai-engineering/state (install-state records)")
 
 
 # ------------------------------------------------------------------
@@ -283,7 +283,7 @@ def _run_sonar_setup(
     project_key = project_key_override or _read_sonar_property(root, "sonar.projectKey") or ""
     organization = organization_override or _read_sonar_property(root, "sonar.organization") or ""
 
-    # 7. Update install_state.platforms (state.db singleton row).
+    # 7. Update install_state.platforms (files-only state store).
     state = load_install_state(_state_dir(root))
     state.platforms["sonar"] = PlatformEntry(
         configured=True,
@@ -296,7 +296,7 @@ def _run_sonar_setup(
         ),
     )
     save_install_state(_state_dir(root), state)
-    success("State saved to install_state table")
+    success("State saved to .ai-engineering/state (install-state records)")
 
 
 def _read_sonar_property(root: Path, key: str) -> str | None:
@@ -373,7 +373,7 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
     azdo.store_pat(pat)
     success("PAT stored in OS secret store")
 
-    # 6. Update install_state.platforms (state.db singleton row).
+    # 6. Update install_state.platforms (files-only state store).
     state = load_install_state(_state_dir(root))
     state.platforms["azure_devops"] = PlatformEntry(
         configured=True,
@@ -384,7 +384,7 @@ def _run_azure_devops_setup(root: Path, *, org_url_override: str | None = None) 
         ),
     )
     save_install_state(_state_dir(root), state)
-    success("State saved to install_state table")
+    success("State saved to .ai-engineering/state (install-state records)")
 
 
 # ------------------------------------------------------------------

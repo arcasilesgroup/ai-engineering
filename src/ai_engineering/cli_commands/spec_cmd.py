@@ -2,7 +2,7 @@
 
 Provides deterministic, zero-token commands for spec management:
 
-- ``ai-eng spec activate`` -- point runtime consumers at a work-plane root.
+- ``ai-eng spec start`` -- point runtime consumers at a work-plane root.
 - ``ai-eng spec verify``  -- count checkboxes in plan.md, auto-correct frontmatter.
 - ``ai-eng spec verify --sections <path>`` -- deterministic section header
   pre-flight per ``.ai-engineering/reference/spec-schema.md`` (spec-139 M7.T1).
@@ -172,23 +172,6 @@ def spec_start(
             "pointer_enabled": result.pointer_enabled,
         },
     )
-
-
-def spec_activate(
-    path: Annotated[
-        Path | None,
-        typer.Argument(help="Project-relative specs dir to mark active."),
-    ] = None,
-    specs_dir: Annotated[
-        Path | None,
-        typer.Option(
-            "--specs-dir",
-            help="Deprecated alias for the positional <path> argument.",
-        ),
-    ] = None,
-) -> None:
-    """Deprecated alias for ``ai-eng spec start`` (one-release deprecation)."""
-    spec_start(path=path, specs_dir=specs_dir)
 
 
 def _classify_sections(text: str) -> tuple[list[str], list[str]]:
@@ -385,6 +368,9 @@ def spec_list() -> None:
 
 def spec_show() -> None:
     """Print the active spec handoff surface (paths + progress)."""
+    from ai_engineering.cli_ui import render_deprecation_notice
+
+    render_deprecation_notice("ai-eng spec show", "ai-eng spec list")
     root = find_project_root()
     specs_dir = _specs_dir(root)
     spec_path = specs_dir / _SPEC_FILENAME
