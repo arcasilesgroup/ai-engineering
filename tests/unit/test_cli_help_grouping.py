@@ -114,3 +114,34 @@ def test_subcommand_help_is_not_grouped() -> None:
     assert result.exit_code == 0
     for panel in _PANELS:
         assert panel not in result.output
+
+
+def test_render_root_help_does_not_raise_on_typer_group() -> None:
+    """Regression: an ``isinstance(click.Group)`` assert used to raise on
+    Typer >= 0.26 (its TyperGroup is not that class), silently falling back
+    to the flat panel in real installs while CI (older Typer) stayed green."""
+    from ai_engineering.cli_help_render import render_root_help
+
+    cmd = typer.main.get_command(create_app())
+    ctx = click.Context(cmd, info_name="ai-eng")
+    out = render_root_help(ctx)
+    for panel in _PANELS:
+        assert panel in out
+
+
+def test_format_help_path_renders_grouped() -> None:
+    """Typer >= 0.26 renders root help via ``format_help`` (not ``get_help``),
+    so the ``format_help`` override must carry the grouping too."""
+    import contextlib
+    import io
+
+    cmd = typer.main.get_command(create_app())
+    ctx = click.Context(cmd, info_name="ai-eng")
+    formatter = ctx.make_formatter()
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        cmd.format_help(ctx, formatter)
+    out = buf.getvalue() + formatter.getvalue()
+    for panel in _PANELS:
+        assert panel in out
+    assert "─ Commands" not in out

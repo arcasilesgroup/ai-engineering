@@ -24,6 +24,7 @@ from __future__ import annotations
 import io
 import shutil
 import sys
+from typing import cast
 
 import click
 from rich.box import ROUNDED
@@ -113,8 +114,11 @@ def render_root_help(ctx: click.Context) -> str:
     Returns a ready-to-echo string. Fails loud to the caller (raises) so the
     ``get_help`` override can fall back to Typer's default rendering.
     """
-    group = ctx.command
-    assert isinstance(group, click.Group)
+    # ctx.command is the root group. Use ``cast`` (compile-time only), NOT a
+    # runtime ``isinstance(click.Group)`` — Typer's TyperGroup fails that check
+    # on some Typer versions (>= 0.26) even though it exposes every attribute
+    # used below, which previously raised and silently fell back to flat help.
+    group = cast(click.Group, ctx.command)
     no_color = _should_disable_color()
     width = shutil.get_terminal_size((80, 24)).columns if not no_color else 80
     # file=StringIO: record only, never write live to stdout — the caller

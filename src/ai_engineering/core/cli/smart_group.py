@@ -48,12 +48,15 @@ class SmartTyperGroup(typer.core.TyperGroup):
     def get_help(self, ctx: click.Context) -> str:
         """Render the ROOT help as spec-183 colour-grouped panels.
 
-        Both entry paths converge here: the bare ``ai-eng`` invocation
-        (``_app_callback`` echoes ``ctx.get_help()``) and Click's eager
-        ``--help`` option. Only the root group is a ``SmartTyperGroup``, so
-        subcommand ``--help`` never reaches this override (Non-Goal 1); the
-        ``ctx.parent is None`` guard is belt-and-braces. Fail-open: any error
-        falls back to Typer's default rendering.
+        Covers the code path (Typer <= 0.21, and the bare ``ai-eng``
+        invocation where ``_app_callback`` echoes ``ctx.get_help()``) that
+        renders help from ``get_help``'s *return value*. Newer Typer (>= 0.26)
+        renders help through ``format_help`` instead and discards this return,
+        so the sibling ``format_help`` override below is what carries those
+        versions — both call the same renderer. Only the root group is a
+        ``SmartTyperGroup``, so subcommand ``--help`` never reaches either
+        override (Non-Goal 1); the ``ctx.parent is None`` guard is
+        belt-and-braces. Fail-open: any error falls back to Typer's default.
         """
         if ctx.parent is None:
             try:
@@ -63,6 +66,27 @@ class SmartTyperGroup(typer.core.TyperGroup):
             except Exception:
                 return super().get_help(ctx)
         return super().get_help(ctx)
+
+    def format_help(self, ctx: click.Context, formatter: click.HelpFormatter) -> None:
+        """Render grouped root help for Typer versions that print via ``format_help``.
+
+        Typer >= 0.26 renders ``--help`` by calling ``format_help`` (which
+        prints Rich output directly to the console) and ignores ``get_help``'s
+        return, so the ``get_help`` override alone is a silent no-op there.
+        Print the grouped panels directly for the root group; the
+        ``get_help`` override still short-circuits the bare / Typer <= 0.21
+        paths before ``format_help`` is reached, so exactly one render fires.
+        Fail-open: fall back to Typer's default panel on any error.
+        """
+        if ctx.parent is None:
+            try:
+                from ai_engineering.cli_help_render import render_root_help
+
+                click.echo(render_root_help(ctx))
+                return
+            except Exception:
+                pass
+        super().format_help(ctx, formatter)
 
     def resolve_command(
         self,
