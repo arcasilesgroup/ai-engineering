@@ -402,34 +402,6 @@ def maybe_render_update_notice(config: object | None = None, *, force: bool = Fa
         return
 
 
-def render_deprecation_notice(command: str, alternative: str | None = None) -> None:
-    """Emit a one-line, non-blocking deprecation notice to stderr.
-
-    spec-183 D-183-04: a handful of low-signal commands carry a visible
-    deprecation warning (not a hard removal) so external consumers get real
-    signal before a future spec revisits deletion. Suppressed in JSON mode
-    (the stdout data contract stays clean) and fail-open — the notice never
-    breaks the command it decorates. Shown once per invocation.
-    """
-    try:
-        from ai_engineering.cli_output import is_json_mode
-
-        if is_json_mode():
-            return
-        suffix = f" Consider [bold]{alternative}[/bold] instead." if alternative else ""
-        msg = (
-            f"[yellow]deprecated:[/yellow] [bold]{command}[/bold] is a low-signal "
-            f"command and may be removed in a future release.{suffix}"
-        )
-        try:
-            # soft_wrap: emit a single logical line (no width-driven hard wrap).
-            get_console().print(msg, soft_wrap=True)
-        except (ImportError, ModuleNotFoundError):
-            sys.stderr.write(_MARKUP_RE.sub("", msg) + "\n")
-    except Exception:
-        return
-
-
 def _render_update_notice(config: object | None = None, *, force: bool = False) -> None:
     from ai_engineering.cli_output import is_json_mode
     from ai_engineering.version import cache, resolve_latest_known

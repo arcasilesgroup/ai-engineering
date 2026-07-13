@@ -368,9 +368,6 @@ def spec_list() -> None:
 
 def spec_show() -> None:
     """Print the active spec handoff surface (paths + progress)."""
-    from ai_engineering.cli_ui import render_deprecation_notice
-
-    render_deprecation_notice("ai-eng spec show", "ai-eng spec list")
     root = find_project_root()
     specs_dir = _specs_dir(root)
     spec_path = specs_dir / _SPEC_FILENAME

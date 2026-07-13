@@ -6,7 +6,7 @@ status: approved
 effort: large
 branch: main
 target_dispatch: /ai-autopilot
-summary: Prune 3 stale CLI commands, fix 4 docstring bugs, rewrite the stale cli-reference.md (canonical + template mirror), add deprecation notices to 9 low-signal commands, then group ai-eng --help into 4 color-coded functional panels (Lifecycle/Governance/Inspection/Maintenance). All claims live-verified.
+summary: Prune 3 stale CLI commands, fix 4 docstring bugs, rewrite the stale cli-reference.md (canonical + template mirror), leave 9 low-signal commands clean (no deprecation notices), then group ai-eng --help into 4 color-coded functional panels (Lifecycle/Governance/Inspection/Maintenance).
 ---
 
 ## Summary
@@ -107,19 +107,19 @@ to match reality rather than restate the audit.
    appears at least once in `cli-reference.md` — a coarse but
    CI-enforced parity floor, not just manual review.
 
-5. A one-line, non-blocking stderr deprecation notice (suppressed in
-   `--json` mode) is added to the 9 confirmed-live low-signal
-   commands: `commit` (`cli_factory.py:433`), `status` (`:432`),
-   `verify` (bare/default path only — NOT the `--release` subflag,
-   `:419`), `ownership import` (`:551`), `issue sync` (`:615`), `spec
-   show` (`:597`), `pr` (`:434`), `maintenance pr` (`:501`),
-   `maintenance reset-events` (`:506`). Each notice names the low-usage
-   signal found and, where one exists, the suggested alternative.
+5. The 9 low-signal commands surfaced by the audit (`commit`, `status`,
+   `verify` bare, `ownership import`, `issue sync`, `spec show`, `pr`,
+   `maintenance pr`, `maintenance reset-events`) are left CLEAN — no
+   deprecation notice, no warning noise on invocation (D-183-04, reversed
+   from the original soft-deprecation plan). Per this project's principle
+   they are either kept as-is or hard-removed in a later spec once real
+   usage signal exists; the framework does not carry per-invocation
+   deprecation cruft.
 
 6. Full existing test suite stays green. New/updated tests cover: each
-   deletion's `removed; use X` contract, removal of
-   `TestSpecActivate`, each new deprecation notice (stderr-only,
-   JSON-suppressed), and each corrected docstring/help string.
+   deletion's `removed; use X` contract (including the old-flag path),
+   removal of `TestSpecActivate`, and each corrected docstring/help
+   string.
 
 ### Phase 2 — Functional color grouping (depends on Phase 1)
 
@@ -155,10 +155,11 @@ to match reality rather than restate the audit.
    the top-level listing only (matches observed `bun info --help`
    behavior: subcommand screens get Typer's own default flag/option
    coloring, not the parent's category hue).
-2. No blanket hard-delete of the 9 "Bucket 4" commands in goal 5 —
-   deprecation notice only, pending real external-usage signal. No
-   backwards-compat *shim* is created either; the notice is new,
-   additive, honest text, not a redirect.
+2. No hard-delete of the 9 "Bucket 4" commands in goal 5 this release —
+   they stay live and CLEAN. No deprecation notice either (D-183-04,
+   reversed): this project does not carry per-invocation deprecation
+   warnings; a command is either kept clean or hard-removed. Deleting
+   these awaits real external-usage signal in a follow-up spec.
 3. No new CLI framework — stays on Typer; the Phase 2 renderer is an
    additive interception at the existing bare/`--help` root paths, not
    a replacement of Typer's formatter.
@@ -267,22 +268,22 @@ releases already know the command exists and can still run it. Building
 a conditional `_is_source_repo` wire-up into `cli_factory` for that
 marginal benefit was explicitly rejected.
 
-### D-183-04 — Bucket-4 commands get a deprecation notice, not deletion, this release
+### D-183-04 — Bucket-4 commands stay CLEAN (no deprecation notice) — reversed
 
-**Choice**: `commit`, `status`, `verify` (bare path only), `ownership
-import`, `issue sync`, `spec show`, `pr`, `maintenance pr`, `maintenance
-reset-events` print a one-line, non-blocking stderr notice on invocation
-(not at `--help` time), naming the low-usage signal and, where
-applicable, the suggested alternative. All 9 targets were verified to
-exist as live commands/subcommands by the evidence sweep.
-**Rationale**: Operator decision after reviewing the full parallel audit.
-This repo's internal evidence (tests, skills, docs) cannot rule out
-external consumer usage of a public PyPI package's CLI — the audit's own
-stated caveat. A visible, honest deprecation warning is the responsible
-middle ground between silently keeping known-questionable commands
-indefinitely and hard-deleting on internal-only evidence, and it gives
-real signal (issue reports, if anyone depends on them) before a future
-spec revisits deletion.
+**Choice**: `commit`, `status`, `verify` (bare path), `ownership import`,
+`issue sync`, `spec show`, `pr`, `maintenance pr`, `maintenance
+reset-events` are left untouched and clean — NO per-invocation
+deprecation notice. (The original spec added a one-line stderr notice to
+each; that was reversed during delivery.)
+**Rationale**: Operator principle (2026-07-13): this framework does not do
+soft-deprecation. A command is either kept clean or hard-removed — a
+warning printed on every invocation is exactly the kind of cruft the
+project avoids ("no ensuciar, mantener todo limpio"), and it conflicts
+with CONSTITUTION Hard Rule 3 (hard delete, no compat shims, no
+soft-deprecation middle ground). The 9 commands therefore ship live and
+silent this release; a future spec may hard-remove any that real
+external-usage signal shows are genuinely dead, with no interim warning
+phase. The evidence sweep confirmed all 9 exist as live commands.
 
 ### D-183-05 — `cli-reference.md` gets a full rewrite (canonical + template mirror), not incremental patches
 
@@ -390,16 +391,12 @@ lookup required. (c) A MINOR version bump signals the change, consistent
 with this repo's own precedent for pre-1.0 hard renames (spec-132 →
 v0.7.0).
 
-### R-183-02 — Deprecation notices add stderr noise to automation parsing `ai-eng` output
+### R-183-02 — (void) Deprecation notices removed
 
-**Risk**: A CI script piping e.g. `ai-eng status` output may see
-unexpected stderr lines.
-**Mitigation**: (a) Notice is stderr-only, never stdout — matches this
-CLI's existing message/data separation (`cli_ui.py`: "All messaging goes
-to stderr; data goes to stdout"). (b) Suppressed in `--json` mode,
-mirroring the existing `is_json_mode()` gating pattern already used for
-the update-available notice. (c) One line, shown once per invocation,
-not repeated per sub-step.
+The original spec added per-invocation deprecation notices to 9 commands,
+which risked stderr noise. That feature was reversed (D-183-04) — no
+notices ship — so this risk no longer applies. The 9 commands run clean
+and silent.
 
 ### R-183-03 — Custom help renderer drifts from the real command tree over time
 

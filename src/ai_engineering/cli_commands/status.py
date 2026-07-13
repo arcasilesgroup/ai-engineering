@@ -25,9 +25,6 @@ def status_cmd(
     ] = None,
 ) -> None:
     """Show summary of the installed framework configuration."""
-    from ai_engineering.cli_ui import render_deprecation_notice
-
-    render_deprecation_notice("ai-eng status")
     root = resolve_project_root(target)
     renderer = Renderer.from_app("status")
     try:

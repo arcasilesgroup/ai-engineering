@@ -10,7 +10,7 @@ execution_route:
   automation: assisted
   concern_count: 5
   estimated_files: 20
-  reason: "Five distinct concerns (hard-deletes + release-hide, docstring fixes, cli-reference rewrite, deprecation notices, Phase-2 visual renderer) across ~20 files, spanning a gated 2-phase boundary. Multi-concern + large surface → autopilot with wave decomposition."
+  reason: "Distinct concerns (hard-deletes + release-hide, docstring fixes, cli-reference rewrite, Phase-2 visual renderer) across ~20 files, spanning a gated 2-phase boundary. Multi-concern + large surface → autopilot with wave decomposition. (The original deprecation-notice concern was reversed per D-183-04.)"
   safe_next_command: "/ai-autopilot"
 ---
 
@@ -164,21 +164,13 @@ Gate boundary: **Phase 1 (A–D) MUST be fully green before Phase 2 (E) starts.*
 - Patch (deterministic): none — copy the corrected canonical content into the template mirror; ensure the deleted commands (was :110-118) are gone.
 - Gate: `diff` canonical vs template (allowing only intended install-path deltas) shows no stale-command residue; docs tests green
 
-## Phase D — Deprecation notices (Goal 5)
+## Phase D — (dropped) Deprecation notices
 
-- [ ] T-D1 — RED: assert stderr notice on 9 targets, suppressed in --json, one line, stdout clean
-- Agent: build
-- Files: tests/unit/test_cli_deprecation_notices.py (new)
-- Principles applied: §10.5 TDD
-- Patch (deterministic): none — for each of the 9 (commit, status, verify bare, ownership import, issue sync, spec show, pr, maintenance pr, maintenance reset-events): assert a one-line stderr notice fires on plain invoke, is ABSENT under `--json`, and stdout is unpolluted.
-- Gate: pytest tests/unit/test_cli_deprecation_notices.py (RED)
-
-- [ ] T-D2 — GREEN: add reusable deprecation-notice helper + wire the 9 targets
-- Agent: build
-- Files: src/ai_engineering/cli_ui.py (new `render_deprecation_notice(name, alt)` modeled on maybe_render_update_notice json-gating); src/ai_engineering/cli_commands/{commit,status,verify_cmd,ownership_cmd,issue,spec_cmd,pr}.py + maintenance.py (pr, reset-events)
-- Principles applied: §10.4 DRY (one helper, 9 call-sites), §10.1 KISS
-- Patch (deterministic): none (synthesis) — helper writes ONE stderr line, suppressed when json mode active (reuse existing json-suppression signal used by the update notice). `verify` notice fires on bare/default path ONLY, never on `--release`. Each notice names the low-usage signal + alternative where one exists.
-- Gate: pytest tests/unit/test_cli_deprecation_notices.py (GREEN); full suite green
+Reversed per operator principle (D-183-04): this framework does not do
+soft-deprecation. The 9 low-signal commands are left clean and silent —
+no per-invocation notice, no helper, no test. A future spec may
+hard-remove any that prove dead. Originally shipped then removed during
+delivery; the commands themselves are untouched and fully functional.
 
 ## Phase E — Phase-2 renderer + palette + golden test (Goals 7–10) [GATED on A–D green]
 

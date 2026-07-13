@@ -45,12 +45,6 @@ def verify_cmd(
         _verify_release_cmd(renderer, root, release)
         return
 
-    # spec-183 D-183-04: bare `ai-eng verify` is low-signal (the /ai-verify
-    # skill is the canonical path). The --release subflag above is exempt.
-    from ai_engineering.cli_ui import render_deprecation_notice
-
-    render_deprecation_notice("ai-eng verify", "/ai-verify")
-
     t0 = _time.monotonic()
     renderer.header()
     renderer.action("Verifying", "all specialists", detail=str(root))

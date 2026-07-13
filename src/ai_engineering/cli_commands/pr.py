@@ -23,9 +23,6 @@ def pr_cmd(
     target: Annotated[Path | None, typer.Option("--target")] = None,
 ) -> None:
     """Standalone off-chain PR open."""
-    from ai_engineering.cli_ui import render_deprecation_notice
-
-    render_deprecation_notice("ai-eng pr", "/ai-pr")
     root = resolve_project_root(target)
     renderer = Renderer.from_app("pr")
     result = workflows.run_pr_workflow(root, message)

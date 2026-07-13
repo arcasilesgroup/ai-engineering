@@ -93,9 +93,6 @@ def maintenance_pr(
     ] = "maintenance/framework-update",
 ) -> None:
     """Generate a maintenance report and create a PR."""
-    from ai_engineering.cli_ui import render_deprecation_notice
-
-    render_deprecation_notice("ai-eng maintenance pr", "/ai-pr")
     root = resolve_project_root(target)
     report = generate_report(root)
     result = create_maintenance_pr(root, report, branch_name=branch)
@@ -380,9 +377,6 @@ def maintenance_reset_events(  # audit:exempt:typer-cli-3-fail-closed-gates-json
     Both gates are *fail-closed*: an error refuses the reset, exits
     non-zero, and surfaces the actionable hint to the operator.
     """
-    from ai_engineering.cli_ui import render_deprecation_notice
-
-    render_deprecation_notice("ai-eng maintenance reset-events")
     root = resolve_project_root(target)
 
     if print_eligible_date:
