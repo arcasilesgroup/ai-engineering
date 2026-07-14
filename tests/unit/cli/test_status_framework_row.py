@@ -29,13 +29,22 @@ def test_payload_missing_version_not_behind() -> None:
     assert payload["framework"]["applied"] is None
 
 
+def test_payload_exposes_three_version_axes() -> None:
+    fw = render_config_payload(ManifestConfig(framework_version="0.0.1"))["framework"]
+    # applied (project) · installed (machine) · latest (PyPI) — the full chain
+    assert set(fw) >= {"applied", "installed", "latest", "behind", "upgrade_available"}
+    assert fw["installed"] == __version__
+    # latest is a string (cached/registry) or None offline — never crashes
+    assert fw["latest"] is None or isinstance(fw["latest"], str)
+
+
 def test_status_row_shows_behind_recovery(capsys: pytest.CaptureFixture) -> None:
     render_config(ManifestConfig(framework_version="0.0.1"), Renderer.from_app("status"))
     out = capsys.readouterr()
     combined = out.out + out.err
     assert "Framework" in combined
     assert f"installed {__version__}" in combined
-    assert "behind — run ai-eng update" in combined
+    assert "run ai-eng update" in combined  # project-behind recovery (⟳ axis)
     # no ⟳ glyph in the plain status path (Windows cp1252 safety)
     assert "⟳" not in combined
 

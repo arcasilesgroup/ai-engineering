@@ -16,7 +16,19 @@ from ai_engineering.config.manifest import ManifestConfig
 from ai_engineering.core.output import Renderer
 from ai_engineering.domain.surface import SURFACE_REGISTRY
 from ai_engineering.installer.operations import get_available_stacks
+from ai_engineering.version.compare import is_newer
 from ai_engineering.version.framework_drift import framework_is_behind
+
+
+def _latest_known_or_none() -> str | None:
+    """Cached (non-blocking) latest-known version, or None offline / on error."""
+    try:
+        from ai_engineering.version import resolve_latest_known
+
+        latest = resolve_latest_known()
+        return latest if isinstance(latest, str) and latest else None
+    except Exception:
+        return None
 
 
 def _format_checked_row(selected: bool, label: str, detail: str | None = None) -> str:
@@ -67,13 +79,27 @@ def render_config(cfg: ManifestConfig, renderer: Renderer) -> None:
     # `ai-eng update`); `behind` means the installed package is newer. Text +
     # verb are the primary signal (no ⟳ glyph here — plain path may be piped /
     # Windows cp1252; see D-184-04). Advise-only, never blocks.
+    # Full version chain, three axes in one place:
+    #   latest (PyPI)  →  installed (this machine)  →  project (these files)
+    # gap installed<latest  = run `ai-eng version upgrade` (upgrade the tool);
+    # gap project<installed = run `ai-eng update` (update the project files).
+    # Text + verb are the primary signal (no ⟳/◈ glyph — plain path may be
+    # piped / Windows cp1252). Advise-only, never blocks. `latest` is the
+    # cached, non-blocking resolver (may be None offline).
     applied = cfg.framework_version or "?"
-    behind = framework_is_behind(cfg.framework_version, __version__)
+    latest = _latest_known_or_none()
+    project_behind = framework_is_behind(cfg.framework_version, __version__)
+    upgrade_available = bool(latest and is_newer(latest, __version__))
+
     renderer.section("Framework")
-    version_line = f"project {applied} · installed {__version__}"
-    if behind:
-        version_line += " · behind — run ai-eng update"
-    renderer.kv("Version", version_line)
+    chain = f"project {applied} · installed {__version__}"
+    if latest:
+        chain += f" · latest {latest}"
+    renderer.kv("Version", chain)
+    if project_behind:
+        renderer.kv("Project", "behind installed — run ai-eng update")
+    if upgrade_available:
+        renderer.kv("Package", "newer release on PyPI — run ai-eng version upgrade")
 
 
 def render_config_payload(cfg: ManifestConfig) -> dict[str, object]:
@@ -109,7 +135,11 @@ def render_config_payload(cfg: ManifestConfig) -> dict[str, object]:
         "framework": {
             "applied": cfg.framework_version or None,
             "installed": __version__,
+            "latest": _latest_known_or_none(),
             "behind": framework_is_behind(cfg.framework_version, __version__),
+            "upgrade_available": bool(
+                _latest_known_or_none() and is_newer(_latest_known_or_none() or "", __version__)
+            ),
         },
     }
 
