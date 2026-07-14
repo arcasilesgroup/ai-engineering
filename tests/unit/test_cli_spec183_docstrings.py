@@ -41,8 +41,17 @@ def test_doctor_check_state_db_rejected() -> None:
 def test_cleanup_reset_help_is_accurate() -> None:
     result = runner.invoke(create_app(), ["cleanup", "branches", "--help"])
     assert result.exit_code == 0
-    assert "Force re-sync to remote state" not in result.output
-    assert "alias of --untracked" in result.output
+    # Strip ANSI escape codes + box-drawing chars + normalize whitespace: CI
+    # renders with colour at 80 cols (SGR codes split the substring) and on
+    # Windows the ROUNDED box borders (│) interleave between wrapped lines.
+    import re
+
+    plain = re.sub(r"\x1b\[[0-9;]*m", "", result.output)
+    plain = re.sub(r"[\u2500-\u257f]", "", plain)
+    plain = " ".join(plain.split())
+    assert "Force re-sync to remote state" not in plain
+    assert "alias of" in plain
+    assert "--untracked" in plain
 
 
 def test_gate_pre_push_docstring_discloses_scope() -> None:
