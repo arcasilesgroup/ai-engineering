@@ -103,7 +103,9 @@ def load_manifest_root_entry_points(root: Path) -> dict[str, RootEntryPointConfi
     return load_manifest_config(root).ownership.root_entry_points
 
 
-def update_manifest_field(root: Path, field_path: str, value: Any) -> None:
+def update_manifest_field(
+    root: Path, field_path: str, value: Any, *, insert_missing: bool = False
+) -> None:
     """Update a specific field in manifest.yml preserving comments.
 
     Uses ``ruamel.yaml`` round-trip mode so existing comments, blank
@@ -149,7 +151,7 @@ def update_manifest_field(root: Path, field_path: str, value: Any) -> None:
         target = target[key]
 
     final_key = keys[-1]
-    if final_key not in target:
+    if final_key not in target and not insert_missing:
         msg = f"Key '{final_key}' not found while navigating '{field_path}'"
         raise KeyError(msg)
 

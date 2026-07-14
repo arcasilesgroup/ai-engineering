@@ -482,6 +482,14 @@ def update(
     # visibility); write + back up only on apply.
     hook_migration = migrate_hook_commands(target, dry_run=dry_run)
 
+    # spec-184 D-184-06: advance the framework-owned `framework_version` key in
+    # the ownership-protected manifest.yml. Like migrate_hook_commands this is a
+    # field write outside the DENY-gated FileChange path — computed always,
+    # written only on apply, fail-open, restricted to the writable allowlist.
+    from ai_engineering.updater.framework_version_advance import advance_framework_version
+
+    advance_framework_version(target, dry_run=dry_run)
+
     if dry_run:
         payload = _UpdateAdapter._coerce_plan_payload(run.plan.payload)
         payload.result.hook_migration = hook_migration
