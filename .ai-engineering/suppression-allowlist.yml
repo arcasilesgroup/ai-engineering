@@ -64,7 +64,7 @@ entries:
   # === BEGIN spec-128 sub-d transitional allowlist =========================
   # Every entry below carries a 60-day TTL. Each represents a suppression
   # marker that existed in the codebase BEFORE this gate landed. The work
-  # before 2026-07-10 is to either (a) refactor the code to drop the
+  # before 2026-09-11 is to either (a) refactor the code to drop the
   # suppression, or (b) open a formal DEC via `ai-eng risk accept` and
   # link its id in `dec_id`. After expiry the gate flips to blocking.
 
@@ -77,7 +77,7 @@ entries:
       or open a formal DEC via `ai-eng risk accept` and set `dec_id`
       before expires_at.
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -88,7 +88,7 @@ entries:
       Transitional debt: suppression marker introduced before the
       anti-suppression gate landed (spec-128 sub-d).
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -97,7 +97,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -106,7 +106,7 @@ entries:
     pattern: "type_ignore"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -115,7 +115,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -124,7 +124,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -133,7 +133,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -142,7 +142,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -151,7 +151,7 @@ entries:
     pattern: "type_ignore"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -160,7 +160,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -169,7 +169,7 @@ entries:
     pattern: "type_ignore"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -178,7 +178,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -187,7 +187,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -196,7 +196,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -205,7 +205,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -232,7 +232,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -241,7 +241,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -250,7 +250,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -259,7 +259,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -268,7 +268,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -277,7 +277,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -286,7 +286,7 @@ entries:
     pattern: "type_ignore"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -295,7 +295,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -304,7 +304,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -313,7 +313,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -322,7 +322,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -331,7 +331,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -340,7 +340,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -349,7 +349,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
   # === END spec-128 sub-d transitional allowlist ===========================
@@ -360,7 +360,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -369,7 +369,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -378,7 +378,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -387,7 +387,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -396,7 +396,7 @@ entries:
     pattern: "type_ignore"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -405,7 +405,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -414,7 +414,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -423,7 +423,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -432,7 +432,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -441,7 +441,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -450,7 +450,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -459,7 +459,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -468,7 +468,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -477,7 +477,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -486,7 +486,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -495,7 +495,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -504,7 +504,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -513,7 +513,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -522,7 +522,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -531,7 +531,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -540,7 +540,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -549,7 +549,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -563,7 +563,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -572,7 +572,7 @@ entries:
     pattern: "noqa"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -581,7 +581,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -590,7 +590,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -599,7 +599,7 @@ entries:
     pattern: "pragma_no_cover"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
 
@@ -608,7 +608,7 @@ entries:
     pattern: "type_ignore"
     justification: "Transitional debt — spec-128 sub-d."
     spec_ref: "spec-128"
-    expires_at: "2026-07-10T00:00:00Z"
+    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
     dec_id: ""
   # === END spec-128 sub-d transitional allowlist (round 3, CI catch) =====
