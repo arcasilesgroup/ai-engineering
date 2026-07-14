@@ -38,8 +38,6 @@ THEME = {
     "muted": "dim",
     "path": f"{BRAND_TEAL} underline",
     "key": "bold",
-    # spec-183 D-183-07: Governance category accent for the grouped --help.
-    "governance": "#A78BFA",
 }
 
 _MARKUP_RE = re.compile(r"\[/?[^\]]*\]")

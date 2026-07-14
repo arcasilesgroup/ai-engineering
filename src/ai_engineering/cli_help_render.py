@@ -32,7 +32,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from ai_engineering.cli_ui import THEME, _is_no_color
+from ai_engineering.cli_ui import _is_no_color
 
 # Ordered so panels render Lifecycle → Governance → Inspection → Maintenance,
 # with the "Other" catch-all last. D-183-08 taxonomy.
@@ -73,12 +73,15 @@ COMMAND_CATEGORY: dict[str, str] = {
     "cleanup": "Maintenance",
 }
 
+# ai-engineering design system (DESIGN.md — the One-Hue Rule: teal is the ONLY
+# chromatic voice, never a second accent hue). Categories differentiate by teal
+# SHADE + the neutral slate + the panel title text — never blue/violet.
 _CATEGORY_STYLE: dict[str, str] = {
-    "Lifecycle": THEME["brand"],
-    "Governance": THEME["governance"],
-    "Inspection": THEME["info"],
-    "Maintenance": THEME["muted"],
-    "Other": THEME["muted"],
+    "Lifecycle": "#00D4AA",  # Terminal Teal (accent) — the vivid signal
+    "Governance": "#5FE6C6",  # Reading Mint (accent-text) — softer teal
+    "Inspection": "#2EB39A",  # Border Teal — deeper teal
+    "Maintenance": "#A9BBD0",  # Muted Slate — the neutral, housekeeping
+    "Other": "#A9BBD0",  # Muted Slate
 }
 
 

@@ -11,8 +11,12 @@ import typer
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-from ai_engineering.cli_help_render import CATEGORY_ORDER, COMMAND_CATEGORY, categorize
-from ai_engineering.cli_ui import THEME
+from ai_engineering.cli_help_render import (
+    _CATEGORY_STYLE,
+    CATEGORY_ORDER,
+    COMMAND_CATEGORY,
+    categorize,
+)
 
 runner = CliRunner()
 _PANELS = ("Lifecycle", "Governance", "Inspection", "Maintenance")
@@ -28,12 +32,18 @@ def _visible_top_level() -> list[str]:
     ]
 
 
-# --- T-E1: palette ---------------------------------------------------------
+# --- palette: design-system One-Hue Rule (teal shades + slate, no blue/violet) ---
 
 
-def test_governance_token_added() -> None:
-    assert "governance" in THEME
-    assert THEME["governance"] == "#A78BFA"
+def test_category_palette_is_one_hue_teal_family() -> None:
+    # DESIGN.md: teal is the only chromatic voice — no blue, no violet.
+    assert _CATEGORY_STYLE["Lifecycle"] == "#00D4AA"  # Terminal Teal (accent)
+    assert _CATEGORY_STYLE["Governance"] == "#5FE6C6"  # Reading Mint
+    assert _CATEGORY_STYLE["Inspection"] == "#2EB39A"  # Border Teal
+    assert _CATEGORY_STYLE["Maintenance"] == "#A9BBD0"  # Muted Slate
+    # the forbidden off-brand hues must be gone
+    for style in _CATEGORY_STYLE.values():
+        assert style not in {"#A78BFA", "bold blue", "info"}
 
 
 # --- T-E2: taxonomy completeness (R-183-03) --------------------------------
