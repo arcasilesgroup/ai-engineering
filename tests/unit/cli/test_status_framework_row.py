@@ -42,11 +42,14 @@ def test_status_row_shows_behind_recovery(capsys: pytest.CaptureFixture) -> None
     render_config(ManifestConfig(framework_version="0.0.1"), Renderer.from_app("status"))
     out = capsys.readouterr()
     combined = out.out + out.err
-    assert "Framework" in combined
-    assert f"installed {__version__}" in combined
-    assert "run ai-eng update" in combined  # project-behind recovery (⟳ axis)
-    # no ⟳ glyph in the plain status path (Windows cp1252 safety)
+    # human-labeled axes so it's self-evident which is which
+    assert "your ai-eng" in combined
+    assert "this project" in combined
+    assert __version__ in combined
+    assert "behind — run ai-eng update" in combined  # project-behind recovery
+    # no glyph in the plain status path (Windows cp1252 safety)
     assert "⟳" not in combined
+    assert "↑" not in combined
 
 
 def test_status_row_current_no_recovery(capsys: pytest.CaptureFixture) -> None:

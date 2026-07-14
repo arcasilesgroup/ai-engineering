@@ -39,6 +39,12 @@ def _format_checked_row(selected: bool, label: str, detail: str | None = None) -
     return f"  {marker} {label}"
 
 
+def _fw_row(label: str, version: str, note: str = "") -> str:
+    """Render one aligned Framework version row (``label  version  · note``)."""
+    line = f"  {label:<15}{version}"
+    return f"{line}   · {note}" if note else line
+
+
 def render_config(cfg: ManifestConfig, renderer: Renderer) -> None:
     """Render the user-facing posture (surfaces x stacks x VCS x policy).
 
@@ -91,15 +97,23 @@ def render_config(cfg: ManifestConfig, renderer: Renderer) -> None:
     project_behind = framework_is_behind(cfg.framework_version, __version__)
     upgrade_available = bool(latest and is_newer(latest, __version__))
 
+    # Three human-labeled axes so it is self-evident which version is which:
+    #   latest (PyPI)  ·  your ai-eng (this machine)  ·  this project (files here).
+    # Each behind-row names its own fix. Labels + text are the signal — no
+    # ↑/glyph (plain path may be piped / Windows cp1252, D-184-04). Advise-only.
     renderer.section("Framework")
-    chain = f"project {applied} · installed {__version__}"
     if latest:
-        chain += f" · latest {latest}"
-    renderer.kv("Version", chain)
-    if project_behind:
-        renderer.kv("Project", "behind installed — run ai-eng update")
-    if upgrade_available:
-        renderer.kv("Package", "newer release on PyPI — run ai-eng version upgrade")
+        renderer.step(_fw_row("latest (PyPI)", latest))
+    renderer.step(
+        _fw_row(
+            "your ai-eng",
+            __version__,
+            "upgrade available — run ai-eng version upgrade" if upgrade_available else "",
+        )
+    )
+    renderer.step(
+        _fw_row("this project", applied, "behind — run ai-eng update" if project_behind else "")
+    )
 
 
 def render_config_payload(cfg: ManifestConfig) -> dict[str, object]:
