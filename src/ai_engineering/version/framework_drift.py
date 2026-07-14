@@ -47,6 +47,16 @@ def _read_applied(root: Path) -> str | None:
     return str(value) if value is not None else None
 
 
+def framework_is_behind(applied: str | None, installed: str) -> bool:
+    """True iff the installed package is strictly newer than the applied version.
+
+    The single drift predicate, shared by :func:`detect_framework_drift` and the
+    surfaces (status/doctor/dashboard) so the comparison lives in one place. Any
+    missing / unparseable value yields False — never nag on missing data.
+    """
+    return bool(applied and is_newer(installed, applied))
+
+
 def detect_framework_drift(root: Path) -> FrameworkDrift:
     """Return the applied-vs-installed framework drift for a project.
 
@@ -57,5 +67,8 @@ def detect_framework_drift(root: Path) -> FrameworkDrift:
     from ai_engineering import __version__
 
     applied = _read_applied(root)
-    behind = bool(applied and is_newer(__version__, applied))
-    return FrameworkDrift(applied=applied, installed=__version__, behind=behind)
+    return FrameworkDrift(
+        applied=applied,
+        installed=__version__,
+        behind=framework_is_behind(applied, __version__),
+    )

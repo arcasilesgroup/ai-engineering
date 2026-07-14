@@ -11,10 +11,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from ai_engineering import __version__
 from ai_engineering.config.manifest import ManifestConfig
 from ai_engineering.core.output import Renderer
 from ai_engineering.domain.surface import SURFACE_REGISTRY
 from ai_engineering.installer.operations import get_available_stacks
+from ai_engineering.version.framework_drift import framework_is_behind
 
 
 def _format_checked_row(selected: bool, label: str, detail: str | None = None) -> str:
@@ -60,6 +62,19 @@ def render_config(cfg: ManifestConfig, renderer: Renderer) -> None:
         f"{cfg.telemetry.consent} · default={cfg.telemetry.default}",
     )
 
+    # spec-184 D-184-05: project-vs-installed framework version. The applied
+    # value is the framework version that last wrote these files (advanced by
+    # `ai-eng update`); `behind` means the installed package is newer. Text +
+    # verb are the primary signal (no ⟳ glyph here — plain path may be piped /
+    # Windows cp1252; see D-184-04). Advise-only, never blocks.
+    applied = cfg.framework_version or "?"
+    behind = framework_is_behind(cfg.framework_version, __version__)
+    renderer.section("Framework")
+    version_line = f"project {applied} · installed {__version__}"
+    if behind:
+        version_line += " · behind — run ai-eng update"
+    renderer.kv("Version", version_line)
+
 
 def render_config_payload(cfg: ManifestConfig) -> dict[str, object]:
     """Return the same posture as :func:`render_config` as a JSON-friendly dict.
@@ -90,6 +105,11 @@ def render_config_payload(cfg: ManifestConfig) -> dict[str, object]:
         "telemetry": {
             "consent": cfg.telemetry.consent,
             "default": cfg.telemetry.default,
+        },
+        "framework": {
+            "applied": cfg.framework_version or None,
+            "installed": __version__,
+            "behind": framework_is_behind(cfg.framework_version, __version__),
         },
     }
 

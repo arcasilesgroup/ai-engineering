@@ -324,7 +324,7 @@ class TestStackDrift:
 
 
 # ---------------------------------------------------------------------------
-# check() returns exactly 4 results
+# check() returns exactly 5 results (spec-184 added framework-drift)
 # ---------------------------------------------------------------------------
 
 
@@ -343,11 +343,12 @@ class TestCheckReturnsAllResults:
             ),
         ):
             results = detect.check(ctx)
-        assert len(results) == 4
+        assert len(results) == 5
         names = {r.name for r in results}
         assert names == {
             "install-state-exists",
             "install-state-coherent",
             "detection-current",
             "stack-drift",
+            "framework-drift",
         }

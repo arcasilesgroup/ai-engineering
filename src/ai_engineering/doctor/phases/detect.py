@@ -34,6 +34,7 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
     results.append(_check_install_state_coherent(ctx))
     results.append(_check_detection_current(ctx))
     results.append(_check_stack_drift(ctx))
+    results.append(_check_framework_drift(ctx))
     return results
 
 
@@ -167,6 +168,33 @@ def _check_detection_current(ctx: DoctorContext) -> CheckResult:
         name="detection-current",
         status=CheckStatus.OK,
         message=f"VCS provider matches: {current_vcs}",
+    )
+
+
+def _check_framework_drift(ctx: DoctorContext) -> CheckResult:
+    """Advise (WARN) when the project's applied framework version is behind
+    the installed ai-eng package — run ``ai-eng update`` to refresh (spec-184).
+
+    Advise-only (D-184-03): WARN, never FAIL, never changes doctor's exit
+    posture. Distinct from the stack-drift check (files vs manifest) and from
+    the PyPI update notice (package vs PyPI).
+    """
+    from ai_engineering import __version__
+    from ai_engineering.version.framework_drift import framework_is_behind
+
+    applied = ctx.manifest_config.framework_version if ctx.manifest_config else None
+    if not framework_is_behind(applied, __version__):
+        return CheckResult(
+            name="framework-drift",
+            status=CheckStatus.OK,
+            message=f"framework files current ({applied or __version__})",
+        )
+    return CheckResult(
+        name="framework-drift",
+        status=CheckStatus.WARN,
+        message=(
+            f"project framework {applied} is behind installed {__version__} — run `ai-eng update`"
+        ),
     )
 
 
