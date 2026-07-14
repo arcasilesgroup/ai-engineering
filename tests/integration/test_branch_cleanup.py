@@ -5,8 +5,6 @@ Covers:
 - list_merged_branches: merged vs unmerged detection.
 - list_all_local_branches: listing accuracy.
 - delete_branches: safe and force delete, protected branch skip.
-- run_branch_cleanup: full orchestration and dry_run mode.
-- CleanupResult: Markdown rendering.
 """
 
 from __future__ import annotations
@@ -17,13 +15,11 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.maintenance.branch_cleanup import (
-    CleanupResult,
     delete_branches,
     has_unmerged_changes,
     list_all_local_branches,
     list_gone_branches,
     list_merged_branches,
-    run_branch_cleanup,
 )
 
 
@@ -165,62 +161,6 @@ class TestDeleteBranches:
         )
         assert deleted == []
         assert "main" in failed
-
-
-# ── run_branch_cleanup ──────────────────────────────────────────────────
-
-
-class TestRunBranchCleanup:
-    """Tests for run_branch_cleanup orchestration."""
-
-    def test_dry_run_does_not_delete(self, git_repo_with_branches: Path) -> None:
-        result = run_branch_cleanup(
-            git_repo_with_branches,
-            base_branch="main",
-            dry_run=True,
-        )
-        assert result.success
-        assert len(result.skipped_branches) >= 2
-        assert result.deleted_branches == []
-        # Branches still exist
-        branches = list_all_local_branches(git_repo_with_branches)
-        assert "feature/a" in branches
-
-    def test_cleanup_deletes_merged(self, git_repo_with_branches: Path) -> None:
-        result = run_branch_cleanup(
-            git_repo_with_branches,
-            base_branch="main",
-        )
-        assert result.success
-        assert "feature/a" in result.deleted_branches
-        assert "feature/b" in result.deleted_branches
-
-
-# ── CleanupResult ───────────────────────────────────────────────────────
-
-
-class TestCleanupResult:
-    """Tests for CleanupResult."""
-
-    def test_success_when_no_errors(self) -> None:
-        result = CleanupResult(fetched=True, deleted_branches=["a"])
-        assert result.success is True
-
-    def test_failure_when_errors_exist(self) -> None:
-        result = CleanupResult(errors=["git fetch failed"])
-        assert result.success is False
-
-    def test_to_markdown_includes_summary(self) -> None:
-        result = CleanupResult(
-            fetched=True,
-            pruned_refs=2,
-            deleted_branches=["feature/a"],
-            skipped_branches=["feature/b"],
-        )
-        md = result.to_markdown()
-        assert "Branch Cleanup Summary" in md
-        assert "feature/a" in md
-        assert "Deleted" in md
 
 
 # ── Gone branch fixtures ──────────────────────────────────────────────
@@ -377,28 +317,3 @@ class TestHasUnmergedChanges:
     def test_has_unmerged_for_ahead_branch(self, git_repo_with_gone_branch: Path) -> None:
         result = has_unmerged_changes(git_repo_with_gone_branch, "origin/main", "feat/gone-ahead")
         assert result is True
-
-
-# ── run_branch_cleanup with gone branches ──────────────────────────────
-
-
-class TestRunBranchCleanupGone:
-    """Tests for run_branch_cleanup with gone branches."""
-
-    def test_deletes_safe_gone_branch(self, git_repo_with_gone_branch: Path) -> None:
-        result = run_branch_cleanup(git_repo_with_gone_branch, base_branch="main")
-        assert result.success
-        assert "feat/gone-safe" in result.deleted_branches
-        # Verify branch is actually deleted
-        branches = list_all_local_branches(git_repo_with_gone_branch)
-        assert "feat/gone-safe" not in branches
-
-    def test_skips_gone_branch_with_commits_ahead(self, git_repo_with_gone_branch: Path) -> None:
-        result = run_branch_cleanup(git_repo_with_gone_branch, base_branch="main")
-        assert result.success
-        # feat/gone-ahead should be skipped (has commits ahead)
-        skipped_names = [s.split(" ")[0] for s in result.skipped_branches]
-        assert "feat/gone-ahead" in skipped_names
-        # Verify branch still exists
-        branches = list_all_local_branches(git_repo_with_gone_branch)
-        assert "feat/gone-ahead" in branches

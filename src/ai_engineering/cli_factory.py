@@ -237,7 +237,6 @@ def _app_callback(
                         "skill",
                         "maintenance",
                         "setup",
-                        "release",
                         "decision",
                         "audit",
                         "commit",
@@ -387,6 +386,12 @@ _REMOVED_VERBS: dict[str, str] = {
 }
 
 
+# spec-183 D-183-02: let a removed verb's old flags (e.g. ``--dry-run``) pass
+# through to the tombstone handler so a verbatim migration invocation still
+# prints ``removed; use <new>`` instead of a confusing "No such option" error.
+_REMOVED_VERB_CTX = {"allow_extra_args": True, "ignore_unknown_options": True}
+
+
 def _build_removed_handler(old: str, new: str) -> Callable[..., None]:
     """Build a Typer-compatible handler that surfaces the rename."""
 
@@ -413,7 +418,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     - Stack/IDE commands: stack add/remove/list, ide add/remove/list.
     - Gate commands: gate pre-commit/commit-msg/pre-push/risk-check.
     - Skills commands: skill status.
-    - Maintenance commands: maintenance report/pr/branch-cleanup/risk-status/repo-status/spec-reset.
+    - Maintenance commands: maintenance report/pr/risk-status/repo-status/reset-events/all.
 
     Returns:
         Configured Typer application instance.
@@ -448,7 +453,10 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     version_app.callback(invoke_without_command=True)(_safe(core.version_cmd))
     version_app.command("upgrade")(_safe(core.version_upgrade_cmd))
     app.add_typer(version_app, name="version")
-    app.command("release")(_safe(release.release_cmd))
+    # spec-183 D-183-03: `release` is framework-internal (publishes the
+    # ai-engineering package itself). Hidden unconditionally like dev/internal
+    # -- suppressed from --help everywhere, still fully invocable.
+    app.command("release", hidden=True)(_safe(release.release_cmd))
     app.command("status")(_safe(status_cmd_mod.status_cmd))
     app.command("commit")(_safe(commit_cmd_mod.commit_cmd))
     app.command("pr")(_safe(pr_cmd_mod.pr_cmd))
@@ -519,10 +527,19 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     )
     maint_app.command("report")(_safe(maintenance.maintenance_report))
     maint_app.command("pr")(_safe(maintenance.maintenance_pr))
-    maint_app.command("branch-cleanup")(_safe(maintenance.maintenance_branch_cleanup))
+    # spec-183 D-183-02: `branch-cleanup` / `spec-reset` removed. Hidden
+    # tombstones print ``removed; use <new>`` and exit 2 (spec-132 contract).
+    # ``_REMOVED_VERB_CTX`` lets the old flags (e.g. ``--dry-run``) pass through
+    # so a verbatim migration invocation still hits the removal message instead
+    # of a confusing "No such option" usage error.
+    maint_app.command("branch-cleanup", hidden=True, context_settings=_REMOVED_VERB_CTX)(
+        _build_removed_handler("maintenance-branch-cleanup", "cleanup branches")
+    )
     maint_app.command("risk-status")(_safe(maintenance.maintenance_risk_status))
     maint_app.command("repo-status")(_safe(maintenance.maintenance_repo_status))
-    maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
+    maint_app.command("spec-reset", hidden=True, context_settings=_REMOVED_VERB_CTX)(
+        _build_removed_handler("maintenance-spec-reset", "cleanup specs")
+    )
     maint_app.command("reset-events")(_safe(maintenance.maintenance_reset_events))
     maint_app.command("all")(_safe(maintenance.maintenance_all))
     cleanup_app = typer.Typer(
@@ -611,7 +628,11 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         no_args_is_help=True,
     )
     spec_app.command("start")(_safe(spec_cmd.spec_start))
-    spec_app.command("activate", hidden=True)(_safe(spec_cmd.spec_activate))
+    # spec-183 D-183-02: `spec activate` removed (was a one-release alias for
+    # `spec start`). Hidden tombstone prints ``removed; use 'spec start'``.
+    spec_app.command("activate", hidden=True, context_settings=_REMOVED_VERB_CTX)(
+        _build_removed_handler("spec-activate", "spec start")
+    )
     spec_app.command("verify")(_safe(spec_cmd.spec_verify))
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     spec_app.command("show")(_safe(spec_cmd.spec_show))

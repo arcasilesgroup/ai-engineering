@@ -230,7 +230,13 @@ def cleanup_branches_cmd(
     untracked: Annotated[
         bool, typer.Option("--untracked", help="Delete branches with no upstream ref.")
     ] = False,
-    reset: Annotated[bool, typer.Option("--reset", help="Force re-sync to remote state.")] = False,
+    reset: Annotated[
+        bool,
+        typer.Option(
+            "--reset",
+            help="Target branches with no upstream (alias of --untracked; no force re-sync).",
+        ),
+    ] = False,
     all_modes: Annotated[bool, typer.Option("--all", help="All 7 cleanup modes combined.")] = False,
     dry_run: Annotated[bool, typer.Option("--dry-run", help="Preview without deleting.")] = False,
     output_json: Annotated[bool, typer.Option("--json", help="Output structured JSON.")] = False,

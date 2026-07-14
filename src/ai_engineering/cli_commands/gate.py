@@ -121,7 +121,13 @@ def gate_pre_push(
         typer.Option("--target", "-t", help="Target project root."),
     ] = None,
 ) -> None:
-    """Run pre-push gate checks (semgrep, pip-audit, tests, ty)."""
+    """Run pre-push gate checks.
+
+    Enforces, in order: the Article VII no-suppression scan (blocks on
+    unallowed suppression markers), risk-acceptance expiry (blocks on
+    expired AND expiring-soon acceptances), then semgrep, pip-audit,
+    tests, and ty.
+    """
     root = resolve_project_root(target)
     _run_no_suppression(root)
     # spec-147 G1 T-1.7/1.8: an expired risk-acceptance must block the push
@@ -221,13 +227,17 @@ def gate_risk_check(
     ] = None,
     strict: Annotated[
         bool,
-        typer.Option("--strict", help="Fail on any expired risk acceptance."),
+        typer.Option(
+            "--strict",
+            help="Fail on expired OR expiring-soon risk acceptances.",
+        ),
     ] = False,
 ) -> None:
     """Check risk acceptance status (expired and expiring-soon).
 
     Without --strict: reports status, exits 0 unless expired.
-    With --strict: exits 1 if any expired risk acceptances exist.
+    With --strict: exits 1 if any expired OR expiring-soon risk
+    acceptances exist.
     """
     root = resolve_project_root(target)
     failed = _check_risk_inline(root, strict)

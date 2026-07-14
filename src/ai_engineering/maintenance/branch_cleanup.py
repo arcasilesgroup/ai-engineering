@@ -10,13 +10,11 @@ Functions:
 - ``list_gone_branches`` — branches whose upstream is ``[gone]``.
 - ``commits_ahead`` — count commits a branch has ahead of a base ref.
 - ``delete_branches`` — safely remove a list of local branches.
-- ``run_branch_cleanup`` — orchestrate the full cleanup flow.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from ai_engineering.git.operations import (
@@ -24,71 +22,6 @@ from ai_engineering.git.operations import (
     current_branch,
     run_git,
 )
-
-
-@dataclass
-class CleanupResult:
-    """Result of a branch cleanup operation."""
-
-    fetched: bool = False
-    pruned_refs: int = 0
-    deleted_branches: list[str] = field(default_factory=list)
-    skipped_branches: list[str] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-
-    @property
-    def success(self) -> bool:
-        """True if cleanup completed without errors."""
-        return len(self.errors) == 0
-
-    def to_dict(self) -> dict[str, object]:
-        """Serialize the cleanup result as a plain dictionary for JSON output."""
-        return {
-            "success": self.success,
-            "fetched": self.fetched,
-            "pruned_refs": self.pruned_refs,
-            "deleted_branches": self.deleted_branches,
-            "skipped_branches": self.skipped_branches,
-            "errors": self.errors,
-        }
-
-    def to_markdown(self) -> str:
-        """Render cleanup result as Markdown summary.
-
-        Returns:
-            Markdown-formatted cleanup summary.
-        """
-        lines: list[str] = []
-        lines.append("## Branch Cleanup Summary")
-        lines.append("")
-        lines.append(f"- **Fetched**: {'yes' if self.fetched else 'no'}")
-        lines.append(f"- **Pruned remote refs**: {self.pruned_refs}")
-        lines.append(f"- **Deleted branches**: {len(self.deleted_branches)}")
-        lines.append(f"- **Skipped branches**: {len(self.skipped_branches)}")
-        lines.append("")
-
-        if self.deleted_branches:
-            lines.append("### Deleted")
-            lines.append("")
-            for b in sorted(self.deleted_branches):
-                lines.append(f"- `{b}`")
-            lines.append("")
-
-        if self.skipped_branches:
-            lines.append("### Skipped")
-            lines.append("")
-            for b in sorted(self.skipped_branches):
-                lines.append(f"- `{b}`")
-            lines.append("")
-
-        if self.errors:
-            lines.append("### Errors")
-            lines.append("")
-            for e in self.errors:
-                lines.append(f"- {e}")
-            lines.append("")
-
-        return "\n".join(lines)
 
 
 def fetch_and_prune(project_root: Path) -> tuple[bool, int]:
@@ -266,97 +199,3 @@ def delete_branches(
             failed.append(branch)
 
     return deleted, failed
-
-
-def run_branch_cleanup(
-    project_root: Path,
-    *,
-    base_branch: str = "main",
-    force: bool = False,
-    dry_run: bool = False,
-) -> CleanupResult:
-    """Run the full branch cleanup flow.
-
-    Steps:
-    1. Switch to base branch if not already on it.
-    2. Fetch and prune remote refs.
-    3. List merged branches.
-    4. Delete merged branches (unless dry_run).
-
-    Args:
-        project_root: Root directory of the git repository.
-        base_branch: Branch to use as merge base.
-        force: Force-delete unmerged branches too.
-        dry_run: If True, list branches but don't delete.
-
-    Returns:
-        CleanupResult with operation details.
-    """
-    result = CleanupResult()
-
-    # Ensure we're on the base branch before cleanup
-    active = current_branch(project_root)
-    if active != base_branch:
-        ok, output = run_git(["checkout", base_branch], project_root)
-        if not ok:
-            result.errors.append(f"Cannot switch to {base_branch}: {output}")
-            return result
-
-    # Pull latest on base branch (non-fatal — may fail without a remote)
-    ok, _ = run_git(["pull", "--ff-only"], project_root, timeout=60)
-
-    # Fetch and prune (non-fatal — may fail without a remote)
-    fetched, pruned = fetch_and_prune(project_root)
-    result.fetched = fetched
-    result.pruned_refs = pruned
-
-    # Identify candidates: merged branches
-    merged = list_merged_branches(project_root, base_branch)
-
-    # Identify candidates: gone branches (squash-merged, remote deleted)
-    gone = list_gone_branches(project_root)
-    # Exclude branches already in merged list to avoid double-processing
-    gone = [b for b in gone if b not in set(merged)]
-
-    # Safety check: skip gone branches that have unmerged changes vs origin/<base>
-    safe_gone: list[str] = []
-    for branch in gone:
-        diverges = has_unmerged_changes(project_root, f"origin/{base_branch}", branch)
-        if diverges is False:
-            safe_gone.append(branch)
-        elif diverges is True:
-            ahead = commits_ahead(project_root, f"origin/{base_branch}", branch)
-            label = f"{ahead} ahead" if ahead > 0 else "unmerged changes"
-            result.skipped_branches.append(f"{branch} ({label})")
-        else:
-            # Fallback: compare against local base if origin ref missing
-            diverges_local = has_unmerged_changes(project_root, base_branch, branch)
-            if diverges_local is False:
-                safe_gone.append(branch)
-            else:
-                result.skipped_branches.append(f"{branch} (cannot verify merge status)")
-
-    if dry_run:
-        result.skipped_branches.extend(merged)
-        result.skipped_branches.extend(safe_gone)
-        return result
-
-    # Delete merged branches (safe -d)
-    deleted, failed = delete_branches(
-        project_root,
-        merged,
-        force=force,
-    )
-    result.deleted_branches.extend(deleted)
-    result.skipped_branches.extend(failed)
-
-    # Delete gone branches (force -D, already verified safe)
-    gone_deleted, gone_failed = delete_branches(
-        project_root,
-        safe_gone,
-        force=True,
-    )
-    result.deleted_branches.extend(gone_deleted)
-    result.skipped_branches.extend(gone_failed)
-
-    return result
