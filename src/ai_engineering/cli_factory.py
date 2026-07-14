@@ -67,6 +67,12 @@ _EXEMPT_COMMANDS: frozenset[str] = frozenset({"version", "update", "doctor", "in
 # per-command ``--json`` is fully resolved via is_json_mode), never in the
 # pre-command callback.
 _NOTICE_EXEMPT: frozenset[str] = frozenset({"version", "internal", "gate"})
+# spec-184 D-184-05: the framework-drift banner additionally skips commands that
+# already surface drift inline (status/doctor) or ARE the fix (update/install),
+# plus the base automation/hot-path exempt set.
+_DRIFT_NOTICE_EXEMPT: frozenset[str] = _NOTICE_EXEMPT | frozenset(
+    {"update", "install", "doctor", "status"}
+)
 
 # The subcommand resolved by the app callback, read by the error boundary to
 # decide whether to render the post-command update notice. Module-level because
@@ -148,6 +154,20 @@ def _maybe_render_post_command_notice() -> None:
     if _invoked_command is None or _invoked_command in _NOTICE_EXEMPT:
         return
     _render_update_notice_gated()
+
+    # spec-184 D-184-05: advise-only ⟳ framework-drift banner (distinct axis /
+    # mark / verb from the ◈ PyPI notice). Throttled + gated inside the renderer.
+    if _invoked_command not in _DRIFT_NOTICE_EXEMPT:
+        from pathlib import Path
+
+        from ai_engineering.cli_ui import maybe_render_framework_drift_notice
+        from ai_engineering.paths import resolve_project_root
+
+        try:
+            drift_target = resolve_project_root(None)
+        except Exception:
+            drift_target = Path.cwd()
+        maybe_render_framework_drift_notice(drift_target)
 
 
 def _render_update_notice_gated(*, force: bool = False) -> None:

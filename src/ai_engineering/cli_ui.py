@@ -463,6 +463,80 @@ def _render_update_notice(config: object | None = None, *, force: bool = False) 
     cache.mark_shown()
 
 
+def _drift_cache_path() -> Path:
+    return Path.home() / ".ai-engineering" / "state" / "framework-drift.json"
+
+
+def _drift_shown_recently(ttl_hours: int = 24) -> bool:
+    import json
+    from datetime import datetime
+
+    try:
+        data = json.loads(_drift_cache_path().read_text(encoding="utf-8"))
+        last = datetime.fromisoformat(data["last_shown_at"])
+        return (datetime.now(UTC) - last).total_seconds() < ttl_hours * 3600
+    except Exception:
+        return False
+
+
+def _drift_mark_shown() -> None:
+    import json
+    from datetime import datetime
+
+    try:
+        path = _drift_cache_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps({"last_shown_at": datetime.now(UTC).isoformat()}), encoding="utf-8"
+        )
+    except Exception:
+        return
+
+
+def maybe_render_framework_drift_notice(target: object, *, force: bool = False) -> None:
+    """spec-184 D-184-05: advise-only ``⟳`` banner when the project's framework
+    files are behind the installed package (run ``ai-eng update``).
+
+    Distinct from the ◈ PyPI notice — different mark (``⟳``) and verb
+    (``ai-eng update``, not ``version upgrade``). Never blocks (advise-only),
+    suppressed in JSON mode and under ``AIENG_NO_UPDATE_CHECK``, throttled
+    once-per-``ttl_hours`` (``force`` bypasses only the throttle), and
+    fail-open. Plain-ASCII (no ``⟳`` glyph) on non-TTY / NO_COLOR so a
+    non-UTF-8 stream never raises.
+    """
+    try:
+        from ai_engineering.cli_output import is_json_mode
+        from ai_engineering.version.framework_drift import detect_framework_drift
+
+        if is_json_mode() or _truthy_env("AIENG_NO_UPDATE_CHECK"):
+            return
+        drift = detect_framework_drift(Path(str(target)))
+        if not drift.behind:
+            return
+        if not force and _drift_shown_recently():
+            return
+
+        con = get_console()
+        plain = (
+            f"ai-engineering project {drift.applied} -> installed {drift.installed} "
+            "(run: ai-eng update)"
+        )
+        if con.is_terminal and not _is_no_color():
+            markup = (
+                f"[warning]⟳ ai-engineering project {drift.applied} → {drift.installed}[/warning]"
+                " [muted]· run [warning]`ai-eng update`[/warning][/muted]"
+            )
+            try:
+                con.print(markup)
+            except (ImportError, ModuleNotFoundError):
+                sys.stderr.write(plain + "\n")
+        else:
+            sys.stderr.write(plain + "\n")
+        _drift_mark_shown()
+    except Exception:
+        return
+
+
 def render_version_status(installed: str, latest: str | None) -> None:
     """Render the ``ai-eng version`` status block — coherent, single-source.
 
