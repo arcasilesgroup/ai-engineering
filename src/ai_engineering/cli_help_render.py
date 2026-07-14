@@ -37,6 +37,7 @@ from ai_engineering.cli_ui import _is_no_color
 # Ordered so panels render Lifecycle → Governance → Inspection → Maintenance,
 # with the "Other" catch-all last. D-183-08 taxonomy.
 CATEGORY_ORDER: tuple[str, ...] = (
+    "Essentials",
     "Lifecycle",
     "Governance",
     "Inspection",
@@ -48,9 +49,12 @@ CATEGORY_ORDER: tuple[str, ...] = (
 # `release`, `dev`, `internal`, and the removed-verb tombstones are hidden and
 # never reach this map (they are filtered out before categorisation).
 COMMAND_CATEGORY: dict[str, str] = {
-    "install": "Lifecycle",
-    "update": "Lifecycle",
-    "doctor": "Lifecycle",
+    # Essentials: what a new user reaches for first — get it, keep it current,
+    # check it, know its version. Rendered first + brightest (see below).
+    "install": "Essentials",
+    "update": "Essentials",
+    "doctor": "Essentials",
+    "version": "Essentials",
     "check": "Lifecycle",
     "verify": "Lifecycle",
     "gate": "Lifecycle",
@@ -58,7 +62,6 @@ COMMAND_CATEGORY: dict[str, str] = {
     "setup": "Lifecycle",
     "commit": "Lifecycle",
     "pr": "Lifecycle",
-    "version": "Lifecycle",
     "spec": "Governance",
     "plan": "Governance",
     "decision": "Governance",
@@ -81,6 +84,7 @@ COMMAND_CATEGORY: dict[str, str] = {
 # → violet → slate are well-separated on the wheel yet harmonious. Colour is
 # reinforcement; the panel TITLE remains the primary signal (a11y).
 _CATEGORY_STYLE: dict[str, str] = {
+    "Essentials": "bold #7EF7DE",  # Aurora Mint (brightest/hero) + bold — start here
     "Lifecycle": "#00D4AA",  # Terminal Teal — the brand signal
     "Governance": "#7AA2F7",  # soft blue — authority / rules
     "Inspection": "#BB9AF7",  # soft violet — read-only insight

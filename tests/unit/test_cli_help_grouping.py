@@ -36,15 +36,26 @@ def _visible_top_level() -> list[str]:
 
 
 def test_category_palette_is_distinct_and_teal_anchored() -> None:
-    # Teal anchors the brand; the other categories take distinct cool hues so
-    # the four panels are visually separable (not an all-teal blur).
+    # Essentials is the brightest (hero) + bold so it draws the eye first; teal
+    # anchors the brand; the rest take distinct cool hues so panels are separable.
+    assert _CATEGORY_STYLE["Essentials"] == "bold #7EF7DE"  # Aurora Mint, hero
     assert _CATEGORY_STYLE["Lifecycle"] == "#00D4AA"  # brand teal
     assert _CATEGORY_STYLE["Governance"] == "#7AA2F7"  # blue
     assert _CATEGORY_STYLE["Inspection"] == "#BB9AF7"  # violet
     assert _CATEGORY_STYLE["Maintenance"] == "#9AA5B1"  # slate
     # every category has a distinct colour (no accidental duplicate blur)
     non_other = [v for k, v in _CATEGORY_STYLE.items() if k != "Other"]
-    assert len(set(non_other)) == 4
+    assert len(set(non_other)) == 5
+
+
+def test_essentials_render_first_and_hold_the_starter_commands() -> None:
+    # the four commands a new user needs first are their own top group
+    for cmd in ("install", "update", "doctor", "version"):
+        assert categorize(cmd) == "Essentials"
+    assert CATEGORY_ORDER[0] == "Essentials"
+    # and they left Lifecycle (no duplication)
+    for cmd in ("install", "update", "doctor", "version"):
+        assert COMMAND_CATEGORY[cmd] == "Essentials"
 
 
 # --- T-E2: taxonomy completeness (R-183-03) --------------------------------
