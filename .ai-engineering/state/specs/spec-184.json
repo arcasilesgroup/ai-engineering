@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "\u2014",
   "created": "2026-07-14T00:01:34.735107+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "\u2014",
+  "shipped": "2026-07-14T16:17:00.387675+00:00",
   "slug": "manifest-field-ownership",
   "spec_id": "spec-184",
-  "state": "approved",
+  "state": "shipped",
   "title": "Field-level manifest ownership + framework version-drift UX"
 }
