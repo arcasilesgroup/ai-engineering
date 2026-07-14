@@ -73,15 +73,19 @@ COMMAND_CATEGORY: dict[str, str] = {
     "cleanup": "Maintenance",
 }
 
-# ai-engineering design system (DESIGN.md — the One-Hue Rule: teal is the ONLY
-# chromatic voice, never a second accent hue). Categories differentiate by teal
-# SHADE + the neutral slate + the panel title text — never blue/violet.
+# CLI-adapted category palette. The website DESIGN.md is strict one-hue (teal),
+# but in a terminal the panel colour IS the grouping signal — a teal-only
+# gradient reads as "all green". So: teal ANCHORS the brand (Lifecycle), and the
+# other categories take distinct, restrained cool hues (soft pastels, so they
+# never buzz on the dark field per DESIGN.md's anti-buzz principle). Teal → blue
+# → violet → slate are well-separated on the wheel yet harmonious. Colour is
+# reinforcement; the panel TITLE remains the primary signal (a11y).
 _CATEGORY_STYLE: dict[str, str] = {
-    "Lifecycle": "#00D4AA",  # Terminal Teal (accent) — the vivid signal
-    "Governance": "#5FE6C6",  # Reading Mint (accent-text) — softer teal
-    "Inspection": "#2EB39A",  # Border Teal — deeper teal
-    "Maintenance": "#A9BBD0",  # Muted Slate — the neutral, housekeeping
-    "Other": "#A9BBD0",  # Muted Slate
+    "Lifecycle": "#00D4AA",  # Terminal Teal — the brand signal
+    "Governance": "#7AA2F7",  # soft blue — authority / rules
+    "Inspection": "#BB9AF7",  # soft violet — read-only insight
+    "Maintenance": "#9AA5B1",  # muted slate — quiet housekeeping
+    "Other": "#9AA5B1",  # muted slate
 }
 
 
