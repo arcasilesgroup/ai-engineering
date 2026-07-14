@@ -1,19 +1,32 @@
 """spec-183 D-183-06/07/08: functional colour-grouped root ``--help``.
 
-The root ``ai-eng`` help lists ~23 commands. A single flat panel gives an
+The root ``ai-eng`` help lists ~23 commands. A single flat list gives an
 operator no signal for *which* command solves their problem. This module
-renders the top-level command list as four titled, distinctly-coloured
-panels driven by one ``{command: category}`` map:
+renders the top-level command list as titled, distinctly-coloured **panels**
+(one bordered box per category) driven by one ``{command: category}`` map:
 
-- **Lifecycle** (brand teal) — install/build/verify/ship the framework.
-- **Governance** (violet) — specs, decisions, risk, audit, ownership.
-- **Inspection** (info blue) — read-only status/capacity/skill probes.
-- **Maintenance** (muted grey) — repo/runtime/spec housekeeping.
+- **Essentials** (aurora mint, hero) — get it, keep it current, check it.
+- **Lifecycle** (brand teal) — build/verify/ship the framework.
+- **Governance** (soft blue) — specs, decisions, risk, audit, ownership.
+- **Inspection** (soft violet) — read-only status/capacity/skill probes.
+- **Maintenance** (muted slate) — repo/runtime/spec housekeeping.
 
-The panel TITLE (text) is always the primary grouping signal; colour is
+Design intent (boxed panels, seam fixed): the boxes give the ai-engineering
+surface its grouped "flow", but naive per-panel auto-sizing makes each panel
+size its own name column — so descriptions never share a vertical seam. The
+fix is a single GLOBAL name-column width applied to every panel's inner grid,
+so all descriptions align across boxes (the seam fix is orthogonal to the
+box decision). Each panel title carries the bold category colour + a faint
+inline subtitle (only where it adds non-obvious info); Options is demoted to
+a quiet slate panel last (commands are what an operator scans for).
+
+The panel LABEL (text) is always the primary grouping signal; colour is
 reinforcement only, never the sole indicator (accessibility gate S1). Any
 unmapped visible command falls into a dim "Other" catch-all panel so a
-forgotten mapping is visible noise, not a silent gap (R-183-03).
+forgotten mapping is visible noise, not a silent gap (R-183-03). Box-drawing
+glyphs use ``ROUNDED`` on the colour/TTY path and fold to ``ASCII`` on the
+NO_COLOR / piped path so it never crashes a Windows cp1252 stdout. Secondary
+text uses explicit hex tokens (never Rich "dim", which fails WCAG 1.4.3).
 
 Only the ROOT group is rendered this way (it is the sole ``SmartTyperGroup``);
 subcommand ``--help`` screens keep Typer's native rendering (Non-Goal 1).
@@ -22,20 +35,36 @@ subcommand ``--help`` screens keep Typer's native rendering (Non-Goal 1).
 from __future__ import annotations
 
 import io
+import re
 import shutil
 import sys
 from typing import cast
 
 import click
-from rich.box import ROUNDED
+from rich.box import ASCII, ROUNDED
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
+from ai_engineering import __version__
 from ai_engineering.cli_ui import _is_no_color
 
-# Ordered so panels render Lifecycle → Governance → Inspection → Maintenance,
-# with the "Other" catch-all last. D-183-08 taxonomy.
+# Brand teal — anchors the header + the Lifecycle band (matches the SVG banner).
+BRAND_TEAL = "#00D4AA"
+
+# Secondary-text tokens with EXPLICIT hex, never Rich "dim". Rich "dim" hard-
+# blends ~50% toward the background (#6d728d ≈ 3.62:1 on the dark field), which
+# fails WCAG 1.4.3 (4.5:1) for meaningful body text. These pass:
+_MUTED = "#9AA5B1"  # slate, 6.83:1 — readable secondary (usage, options, quiet tier)
+_FAINT = "#7F85A0"  # 4.69:1 — quietest tier that still passes (subtitles, tagline)
+
+# Trailing grid-cell pad, ANSI-aware: spaces optionally followed by SGR resets
+# at end of line. Keeps the reset, drops the spaces (see the export trim below).
+_TRAILING_PAD = re.compile(r"[ \t]+((?:\x1b\[[0-9;]*m)*)$")
+
+# Ordered so bands render Essentials → Lifecycle → Governance → Inspection →
+# Maintenance, with the "Other" catch-all last. D-183-08 taxonomy.
 CATEGORY_ORDER: tuple[str, ...] = (
     "Essentials",
     "Lifecycle",
@@ -77,12 +106,12 @@ COMMAND_CATEGORY: dict[str, str] = {
 }
 
 # CLI-adapted category palette. The website DESIGN.md is strict one-hue (teal),
-# but in a terminal the panel colour IS the grouping signal — a teal-only
+# but in a terminal the band colour IS the grouping signal — a teal-only
 # gradient reads as "all green". So: teal ANCHORS the brand (Lifecycle), and the
 # other categories take distinct, restrained cool hues (soft pastels, so they
 # never buzz on the dark field per DESIGN.md's anti-buzz principle). Teal → blue
 # → violet → slate are well-separated on the wheel yet harmonious. Colour is
-# reinforcement; the panel TITLE remains the primary signal (a11y).
+# reinforcement; the band LABEL remains the primary signal (a11y).
 _CATEGORY_STYLE: dict[str, str] = {
     "Essentials": "bold #7EF7DE",  # Aurora Mint (brightest/hero) + bold — start here
     "Lifecycle": "#00D4AA",  # Terminal Teal — the brand signal
@@ -90,6 +119,19 @@ _CATEGORY_STYLE: dict[str, str] = {
     "Inspection": "#BB9AF7",  # soft violet — read-only insight
     "Maintenance": "#9AA5B1",  # muted slate — quiet housekeeping
     "Other": "#9AA5B1",  # muted slate
+}
+
+# One-line navigational subtitle — only where it carries NON-obvious info
+# (which commands live in the group / their nature). Maintenance and Options
+# are deliberately bare: "housekeeping"/"flags" just restate the label (garnish).
+# `·` separators render only on the colour path (ASCII-folded to commas
+# when NO_COLOR).
+_CATEGORY_SUBTITLE: dict[str, str] = {
+    "Essentials": "start here",
+    "Lifecycle": "build · verify · ship",
+    "Governance": "specs · decisions · risk · audit",
+    "Inspection": "read-only probes",
+    "Other": "uncategorised",
 }
 
 
@@ -108,19 +150,62 @@ def _should_disable_color() -> bool:
         return True
 
 
-def _visible_commands(group: click.Group, ctx: click.Context) -> list[tuple[str, str]]:
-    """Return ``(name, short_help)`` for every non-hidden child command."""
+def _visible_commands(group: click.Group, ctx: click.Context, limit: int) -> list[tuple[str, str]]:
+    """Return ``(name, short_help)`` for every non-hidden child command.
+
+    ``limit`` caps the short-help length; the caller sizes it to the render
+    width so descriptions fill the available space before truncating.
+    """
     out: list[tuple[str, str]] = []
     for name in group.list_commands(ctx):
         cmd = group.get_command(ctx, name)
         if cmd is None or getattr(cmd, "hidden", False):
             continue
-        out.append((name, cmd.get_short_help_str(limit=70)))
+        out.append((name, cmd.get_short_help_str(limit=limit)))
     return out
 
 
+def _bold(style: str) -> str:
+    """Bold variant of a colour style (idempotent if already bold)."""
+    return style if "bold" in style else f"bold {style}"
+
+
+def _print_brand_header(console: Console, no_color: bool) -> None:
+    """Print the branded logo: corner-bracket banner + version + tagline.
+
+    Mirrors ``cli_ui.show_logo`` (which itself mirrors the SVG banner
+    ``.github/assets/banner-dark.svg``): corner brackets, ``{ai}`` mark with
+    teal braces, letter-spaced engineering text. Shown on both bare ``ai-eng``
+    and ``ai-eng --help`` (single source of branding for the root surface).
+    ASCII on the NO_COLOR / piped path. The corner brackets are decorative
+    chrome (WCAG 1.4.3 exempt); the tagline uses ``_FAINT`` so it still passes.
+    """
+    ver = f"v{__version__}"
+    if no_color:
+        console.print()
+        console.print("  +--                                  --+")
+        console.print("      { ai }   e n g i n e e r i n g")
+        console.print("  +--                                  --+")
+        console.print(f"  {ver} - AI Governance Framework")
+        console.print()
+        return
+    console.print()
+    console.print(Text("  \u250c\u2500" + " " * 34 + "\u2500\u2510", style="dim #00D4AA"))
+    console.print(
+        Text.assemble(
+            ("      { ", f"bold {BRAND_TEAL}"),
+            ("ai", "bold white"),
+            (" }", f"bold {BRAND_TEAL}"),
+            ("   e n g i n e e r i n g", f"bold {BRAND_TEAL}"),
+        )
+    )
+    console.print(Text("  \u2514\u2500" + " " * 34 + "\u2500\u2518", style="dim #00D4AA"))
+    console.print(Text(f"  {ver} \u00b7 AI Governance Framework", style=_FAINT))
+    console.print()
+
+
 def render_root_help(ctx: click.Context) -> str:
-    """Render the root help as four colour-grouped command panels.
+    """Render the root help as colour-grouped, bordered command panels.
 
     Returns a ready-to-echo string. Fails loud to the caller (raises) so the
     ``get_help`` override can fall back to Typer's default rendering.
@@ -131,7 +216,11 @@ def render_root_help(ctx: click.Context) -> str:
     # used below, which previously raised and silently fell back to flat help.
     group = cast(click.Group, ctx.command)
     no_color = _should_disable_color()
-    width = shutil.get_terminal_size((80, 24)).columns if not no_color else 80
+    # Cap colour width at 100ch: past that, description lines are too long to
+    # scan comfortably (impeccable line-length rule), but never exceed the
+    # actual terminal. Floor at 40 so a tiny pane can't collapse the name
+    # column. NO_COLOR / piped keeps the classic 80-col default.
+    width = 80 if no_color else max(40, min(shutil.get_terminal_size((80, 24)).columns, 100))
     # file=StringIO: record only, never write live to stdout — the caller
     # (get_help) echoes the returned string exactly once.
     console = Console(
@@ -143,47 +232,107 @@ def render_root_help(ctx: click.Context) -> str:
         emoji=False,
     )
 
-    console.print(f"[b]Usage:[/b] {ctx.command_path} [OPTIONS] COMMAND [ARGS]...")
+    _print_brand_header(console, no_color)
+
+    console.print(
+        Text.assemble(
+            ("Usage  ", "bold"),
+            (f"{ctx.command_path} [OPTIONS] COMMAND [ARGS]...", _MUTED),
+        )
+    )
     if group.help:
         console.print()
-        console.print(f" {group.help.strip()}")
+        console.print(f"  {group.help.strip()}")
+    console.print()
 
-    options = Table.grid(padding=(0, 2))
-    options.add_column(no_wrap=True)
-    options.add_column()
-    for param in group.get_params(ctx):
-        record = param.get_help_record(ctx)
-        if record:
-            options.add_row(*record)
-    console.print(
-        Panel(options, title="Options", title_align="left", border_style="dim", box=ROUNDED)
-    )
-
+    # One global name-column width across every panel → all descriptions share
+    # a single vertical seam (the biggest designed-vs-generated tell). The seam
+    # fix is orthogonal to the box: each panel's inner grid uses this same
+    # width, so descriptions align across boxes.
+    names = [n for n, _ in _visible_commands(group, ctx, limit=1)]
+    name_w = max((len(n) for n in names), default=8)
+    # Size the short-help limit to the space left of the description seam so
+    # descriptions fill the width before truncating (indent 2 + name + gutter 2).
+    # Clamp to the real column (floor 8) so a narrow pane never sets a limit
+    # wider than the space and forces an ugly mid-word wrap.
+    help_limit = max(8, width - (2 + name_w + 2) - 1)
+    visible = _visible_commands(group, ctx, limit=help_limit)
     grouped: dict[str, list[tuple[str, str]]] = {cat: [] for cat in CATEGORY_ORDER}
-    for name, short_help in _visible_commands(group, ctx):
+    for name, short_help in visible:
         grouped[categorize(name)].append((name, short_help))
 
+    box = ASCII if no_color else ROUNDED
     for category in CATEGORY_ORDER:
         rows = grouped[category]
         if not rows:
             continue
         style = _CATEGORY_STYLE[category]
-        table = Table.grid(padding=(0, 2))
-        table.add_column(no_wrap=True, style=style)
-        table.add_column()
+        table = Table.grid()
+        # width = indent(2) + name + gutter(2); spaces carry no ink, so the
+        # whole cell can take the panel colour without tinting the padding.
+        table.add_column(width=2 + name_w + 2, no_wrap=True, style=style)
+        # Maintenance is the quiet tier: recede its descriptions to slate too
+        # (not bright fg) so the whole row is uniformly quiet, matching intent.
+        desc_style = _MUTED if category == "Maintenance" else None
+        table.add_column(overflow="fold", style=desc_style)
         for name, short_help in rows:
-            table.add_row(name, short_help)
+            table.add_row(f"  {name}", short_help)
+        sub = _CATEGORY_SUBTITLE.get(category, "")
+        sub_display = sub.replace(" \u00b7 ", ", ") if no_color else sub
+        title = Text.assemble(
+            (category, _bold(style)),
+            (f"   {sub_display}" if sub_display else "", _FAINT),
+        )
         console.print(
             Panel(
                 table,
-                title=category,
+                title=title,
                 title_align="left",
                 border_style=style,
-                box=ROUNDED,
+                box=box,
+                padding=(1, 1),
             )
         )
+        console.print()
 
+    # Options last + slate: commands are what an operator scans for; the meta
+    # flags are reference, not the lede. No subtitle — "flags" restates "Options".
+    option_records = [p.get_help_record(ctx) for p in group.get_params(ctx)]
+    option_rows = [rec for rec in option_records if rec]
+    if option_rows:
+        opts = Table.grid(padding=(0, 2))
+        opts.add_column(no_wrap=True, style=_MUTED)
+        opts.add_column(overflow="fold", style=_MUTED)
+        for flag, help_text in option_rows:
+            opts.add_row(f"  {flag}", help_text)
+        console.print(
+            Panel(
+                opts,
+                title=Text("Options", style=_bold(_MUTED)),
+                title_align="left",
+                border_style=_MUTED,
+                box=box,
+                padding=(1, 1),
+            )
+        )
+        console.print()
+
+    # Footer: how to drill into a command (every premium CLI closes with this),
+    # then where to get help online.
+    console.print(
+        Text.assemble(
+            ("Run  ", _MUTED),
+            (f"{ctx.command_path} COMMAND --help", BRAND_TEAL),
+            ("  for details on a command.", _MUTED),
+        )
+    )
     if group.epilog:
+        # console.print (not Text()) so the epilog's own markup is parsed.
         console.print(group.epilog)
 
-    return console.export_text(styles=not no_color)
+    text = console.export_text(styles=not no_color)
+    # Strip the pad Rich adds to each grid cell. ANSI-aware: on the colour path
+    # a styled cell's trailing pad sits *before* the reset code, so a plain
+    # rstrip is a no-op — match trailing spaces with any following SGR resets
+    # and drop only the spaces.
+    return "\n".join(_TRAILING_PAD.sub(r"\1", ln) for ln in text.splitlines()) + "\n"

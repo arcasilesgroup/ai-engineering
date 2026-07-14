@@ -249,9 +249,9 @@ def _app_callback(
             )
             raise typer.Exit(code=0)
         else:
-            from ai_engineering.cli_ui import show_logo
-
-            show_logo()
+            # render_root_help owns the brand header now (shown on both bare
+            # `ai-eng` and `ai-eng --help`), so no separate show_logo() here —
+            # it would double the mark.
             typer.echo(ctx.get_help())
             # Bare `ai-eng` exits here, never reaching the error boundary, so
             # render the update notice inline before exiting. force=True: it is
@@ -432,7 +432,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         rich_markup_mode="rich",
         callback=_app_callback,
         invoke_without_command=True,
-        epilog="[dim]Docs & issues:[/dim] https://github.com/arcasilesgroup/ai-engineering",
+        epilog="[#9AA5B1]Docs & issues:[/] https://github.com/arcasilesgroup/ai-engineering",
         cls=SmartTyperGroup,
     )
 
@@ -592,10 +592,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     # spec-148: token rollups + replay computed over framework-events.ndjson)
     audit_app = typer.Typer(
         name="audit",
-        help=(
-            "Verify the hash-chained audit trail and report token usage over "
-            "framework-events.ndjson."
-        ),
+        help="Verify the hash-chained audit trail; report token usage.",
         no_args_is_help=True,
     )
     # spec-148 (files-only): framework-events.ndjson is the single ledger.
