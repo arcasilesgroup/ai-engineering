@@ -182,7 +182,7 @@ def _check_framework_drift(ctx: DoctorContext) -> CheckResult:
     from ai_engineering import __version__
     from ai_engineering.version.framework_drift import framework_is_behind
 
-    applied = ctx.manifest_config.framework_version if ctx.manifest_config else None
+    applied = getattr(ctx.manifest_config, "framework_version", None)
     if not framework_is_behind(applied, __version__):
         return CheckResult(
             name="framework-drift",

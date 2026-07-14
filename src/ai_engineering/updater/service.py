@@ -483,14 +483,16 @@ def update(
     hook_migration = migrate_hook_commands(target, dry_run=dry_run)
 
     # spec-184 D-184-06: advance the framework-owned `framework_version` key in
-    # the ownership-protected manifest.yml. Like migrate_hook_commands this is a
-    # field write outside the DENY-gated FileChange path — computed always,
-    # written only on apply, fail-open, restricted to the writable allowlist.
+    # the ownership-protected manifest.yml — a field write outside the DENY-gated
+    # FileChange path, restricted to the writable allowlist, fail-open. Computed
+    # (not written) on dry-run; on apply it is written only AFTER the reconciler's
+    # rollback/verification checks pass, so a rolled-back apply never bumps the
+    # manifest version while the files stay old (which would falsely silence the
+    # drift signal).
     from ai_engineering.updater.framework_version_advance import advance_framework_version
 
-    advance_framework_version(target, dry_run=dry_run)
-
     if dry_run:
+        advance_framework_version(target, dry_run=True)
         payload = _UpdateAdapter._coerce_plan_payload(run.plan.payload)
         payload.result.hook_migration = hook_migration
         return payload.result
@@ -504,6 +506,9 @@ def update(
             details.extend(run.verification.errors)
         message = "; ".join(details) or "update verification failed"
         raise RuntimeError(f"update verification failed; rolled back changes: {message}")
+
+    # Apply verified & not rolled back -> now it is safe to advance the version.
+    advance_framework_version(target, dry_run=False)
     payload = _UpdateAdapter._coerce_apply_payload(run.apply_result.payload)
     payload.result.hook_migration = hook_migration
     return payload.result

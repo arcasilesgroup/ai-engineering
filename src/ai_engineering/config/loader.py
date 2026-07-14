@@ -157,5 +157,20 @@ def update_manifest_field(
 
     target[final_key] = value
 
-    with manifest_path.open("w", encoding="utf-8") as fh:
-        rt_yaml.dump(data, fh)
+    # Atomic write: dump to a temp file in the same directory, then os.replace.
+    # manifest.yml holds ALL of the user's config; a plain truncating open("w")
+    # would leave it corrupt/empty if the process is interrupted mid-write. This
+    # matters most for the unattended `ai-eng update` field-advance (spec-184).
+    import contextlib
+    import os
+    import tempfile
+
+    fd, tmp_name = tempfile.mkstemp(dir=manifest_path.parent, prefix=".manifest-", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            rt_yaml.dump(data, fh)
+        os.replace(tmp_name, manifest_path)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp_name)
+        raise

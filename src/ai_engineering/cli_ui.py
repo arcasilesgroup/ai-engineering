@@ -467,28 +467,36 @@ def _drift_cache_path() -> Path:
     return Path.home() / ".ai-engineering" / "state" / "framework-drift.json"
 
 
-def _drift_shown_recently(ttl_hours: int = 24) -> bool:
+def _drift_shown_recently(key: str, ttl_hours: int = 24) -> bool:
+    # Per-project throttle: drift is a per-project axis, so the timestamp is
+    # keyed by project root — a drifted project B is not silenced because a
+    # sibling project A showed the banner within the window.
     import json
     from datetime import datetime
 
     try:
         data = json.loads(_drift_cache_path().read_text(encoding="utf-8"))
-        last = datetime.fromisoformat(data["last_shown_at"])
+        last = datetime.fromisoformat(data[key])
         return (datetime.now(UTC) - last).total_seconds() < ttl_hours * 3600
     except Exception:
         return False
 
 
-def _drift_mark_shown() -> None:
+def _drift_mark_shown(key: str) -> None:
     import json
     from datetime import datetime
 
     try:
         path = _drift_cache_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps({"last_shown_at": datetime.now(UTC).isoformat()}), encoding="utf-8"
-        )
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                data = {}
+        except Exception:
+            data = {}
+        data[key] = datetime.now(UTC).isoformat()
+        path.write_text(json.dumps(data), encoding="utf-8")
     except Exception:
         return
 
@@ -510,10 +518,12 @@ def maybe_render_framework_drift_notice(target: object, *, force: bool = False) 
 
         if is_json_mode() or _truthy_env("AIENG_NO_UPDATE_CHECK"):
             return
-        drift = detect_framework_drift(Path(str(target)))
+        root = Path(str(target))
+        key = str(root.resolve())
+        drift = detect_framework_drift(root)
         if not drift.behind:
             return
-        if not force and _drift_shown_recently():
+        if not force and _drift_shown_recently(key):
             return
 
         con = get_console()
@@ -532,7 +542,7 @@ def maybe_render_framework_drift_notice(target: object, *, force: bool = False) 
                 sys.stderr.write(plain + "\n")
         else:
             sys.stderr.write(plain + "\n")
-        _drift_mark_shown()
+        _drift_mark_shown(key)
     except Exception:
         return
 
