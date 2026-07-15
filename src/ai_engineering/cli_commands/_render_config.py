@@ -11,10 +11,24 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from ai_engineering import __version__
 from ai_engineering.config.manifest import ManifestConfig
 from ai_engineering.core.output import Renderer
 from ai_engineering.domain.surface import SURFACE_REGISTRY
 from ai_engineering.installer.operations import get_available_stacks
+from ai_engineering.version.compare import is_newer
+from ai_engineering.version.framework_drift import framework_is_behind
+
+
+def _latest_known_or_none() -> str | None:
+    """Cached (non-blocking) latest-known version, or None offline / on error."""
+    try:
+        from ai_engineering.version import resolve_latest_known
+
+        latest = resolve_latest_known()
+        return latest if isinstance(latest, str) and latest else None
+    except Exception:
+        return None
 
 
 def _format_checked_row(selected: bool, label: str, detail: str | None = None) -> str:
@@ -23,6 +37,12 @@ def _format_checked_row(selected: bool, label: str, detail: str | None = None) -
     if detail:
         return f"  {marker} {label:<18} {detail}"
     return f"  {marker} {label}"
+
+
+def _fw_row(label: str, version: str, note: str = "") -> str:
+    """Render one aligned Framework version row (``label  version  · note``)."""
+    line = f"  {label:<15}{version}"
+    return f"{line}   · {note}" if note else line
 
 
 def render_config(cfg: ManifestConfig, renderer: Renderer) -> None:
@@ -60,6 +80,41 @@ def render_config(cfg: ManifestConfig, renderer: Renderer) -> None:
         f"{cfg.telemetry.consent} · default={cfg.telemetry.default}",
     )
 
+    # spec-184 D-184-05: project-vs-installed framework version. The applied
+    # value is the framework version that last wrote these files (advanced by
+    # `ai-eng update`); `behind` means the installed package is newer. Text +
+    # verb are the primary signal (no ⟳ glyph here — plain path may be piped /
+    # Windows cp1252; see D-184-04). Advise-only, never blocks.
+    # Full version chain, three axes in one place:
+    #   latest (PyPI)  →  installed (this machine)  →  project (these files)
+    # gap installed<latest  = run `ai-eng version upgrade` (upgrade the tool);
+    # gap project<installed = run `ai-eng update` (update the project files).
+    # Text + verb are the primary signal (no ⟳/◈ glyph — plain path may be
+    # piped / Windows cp1252). Advise-only, never blocks. `latest` is the
+    # cached, non-blocking resolver (may be None offline).
+    applied = cfg.framework_version or "?"
+    latest = _latest_known_or_none()
+    project_behind = framework_is_behind(cfg.framework_version, __version__)
+    upgrade_available = bool(latest and is_newer(latest, __version__))
+
+    # Three human-labeled axes so it is self-evident which version is which:
+    #   latest (PyPI)  ·  your ai-eng (this machine)  ·  this project (files here).
+    # Each behind-row names its own fix. Labels + text are the signal — no
+    # ↑/glyph (plain path may be piped / Windows cp1252, D-184-04). Advise-only.
+    renderer.section("Framework")
+    if latest:
+        renderer.step(_fw_row("latest (PyPI)", latest))
+    renderer.step(
+        _fw_row(
+            "your ai-eng",
+            __version__,
+            "upgrade available — run ai-eng version upgrade" if upgrade_available else "",
+        )
+    )
+    renderer.step(
+        _fw_row("this project", applied, "behind — run ai-eng update" if project_behind else "")
+    )
+
 
 def render_config_payload(cfg: ManifestConfig) -> dict[str, object]:
     """Return the same posture as :func:`render_config` as a JSON-friendly dict.
@@ -90,6 +145,15 @@ def render_config_payload(cfg: ManifestConfig) -> dict[str, object]:
         "telemetry": {
             "consent": cfg.telemetry.consent,
             "default": cfg.telemetry.default,
+        },
+        "framework": {
+            "applied": cfg.framework_version or None,
+            "installed": __version__,
+            "latest": _latest_known_or_none(),
+            "behind": framework_is_behind(cfg.framework_version, __version__),
+            "upgrade_available": bool(
+                _latest_known_or_none() and is_newer(_latest_known_or_none() or "", __version__)
+            ),
         },
     }
 

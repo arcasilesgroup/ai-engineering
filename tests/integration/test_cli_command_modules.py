@@ -135,15 +135,6 @@ def test_maintenance_pr_success_and_failure(tmp_path: Path) -> None:
         maintenance.maintenance_pr(target=tmp_path)
 
 
-def test_maintenance_branch_cleanup_fail_exits(tmp_path: Path) -> None:
-    result = SimpleNamespace(success=False, to_markdown=lambda: "cleanup")
-    with (
-        patch("ai_engineering.cli_commands.maintenance.run_branch_cleanup", return_value=result),
-        pytest.raises(typer.Exit),
-    ):
-        maintenance.maintenance_branch_cleanup(target=tmp_path)
-
-
 def test_check_unknown_category_exits(tmp_path: Path) -> None:
     with pytest.raises(SystemExit):
         check.check_cmd(target=tmp_path, category="nope")

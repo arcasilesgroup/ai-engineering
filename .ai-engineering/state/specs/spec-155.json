@@ -6,6 +6,6 @@
   "shipped": null,
   "slug": "cli-scope-version-hardening",
   "spec_id": "spec-155",
-  "state": "draft",
+  "state": "abandoned",
   "title": "Harden version-notice + global-install CLI"
 }

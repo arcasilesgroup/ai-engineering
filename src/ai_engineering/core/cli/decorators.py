@@ -43,7 +43,7 @@ class HelpOnNoArgsCommand(typer.core.TyperCommand):
     and a red error panel. Per D-132-11 we treat "no args provided" as an
     implicit help request whenever the command has at least one required
     parameter — positional :class:`click.Argument` or required
-    :class:`click.Option` (e.g. ``--specs-dir`` on ``spec activate``) — with
+    :class:`click.Option` (e.g. ``--specs-dir`` on ``spec start``) — with
     no default value.
 
     The short-circuit applies *only* to the bare-no-args case. Any other

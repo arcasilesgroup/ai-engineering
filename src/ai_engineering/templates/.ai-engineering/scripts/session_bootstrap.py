@@ -918,6 +918,26 @@ def _version_status() -> dict | None:
         return None
 
 
+def _framework_drift(root: Path) -> dict | None:
+    """Project-vs-installed framework drift for the dashboard, or None.
+
+    spec-184: the LOCAL version axis — the project's applied framework_version
+    vs the installed package. Distinct from _version_status (package vs PyPI).
+    Fail-open: any import/IO error yields None so the dashboard still renders.
+    """
+    try:
+        from ai_engineering.version.framework_drift import detect_framework_drift
+
+        drift = detect_framework_drift(root)
+        return {
+            "applied": drift.applied,
+            "installed": drift.installed,
+            "behind": drift.behind,
+        }
+    except Exception:
+        return None
+
+
 def _render_markdown(d: dict) -> str:
     lines: list[str] = []
     name = d.get("project_name") or "(unnamed)"
@@ -979,6 +999,12 @@ def _render_markdown(d: dict) -> str:
             )
         else:
             lines.append(f"> ◈ ai-engineering {installed} · up to date")
+    fd = d.get("framework_drift") or {}
+    if fd.get("behind"):
+        lines.append(
+            f"> ⟳ Framework drift — project on {fd.get('applied')}, "
+            f"ai-eng {fd.get('installed')} · run `ai-eng update`"
+        )
     lines.append("")
     lines.append("---")
     lines.append("")
@@ -1135,6 +1161,7 @@ def build_dashboard(repo_root: Path | None = None) -> dict:
         "manifest_summary": _manifest_summary(manifest),
         "compat_warnings": _compat_warnings(manifest),
         "version_status": _version_status(),
+        "framework_drift": _framework_drift(root),
     }
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0

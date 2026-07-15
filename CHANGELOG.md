@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- spec-183: Three stale CLI commands were removed (hard delete, no compat
+  shim — CONSTITUTION Hard Rule 3). Each removed verb prints
+  `removed; use '<replacement>'` and exits 2:
+  - `ai-eng spec activate` → use `ai-eng spec start` (was a one-release alias).
+  - `ai-eng maintenance branch-cleanup` → use `ai-eng cleanup branches`.
+    **Behavior drop**: the removed command force-checked-out and
+    `pull --ff-only`'d the base branch before pruning; `cleanup branches` does
+    NOT touch the working tree that way. That auto base-sync is gone.
+  - `ai-eng maintenance spec-reset` → use `ai-eng cleanup specs` (common case)
+    or `ai-eng maintenance all` (full parity). **Behavior drop**: the removed
+    command unconditionally reset the live `spec.md`/`plan.md` buffer;
+    `cleanup specs` only consolidates already-shipped sidecars. The live-buffer
+    reset now happens through the normal consolidation path (`mark_shipped` /
+    `maintenance all`).
+- The historical spec-101 release-contract guard keywords remain documented for
+  continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
+
+### Changed
+
+- spec-183: `ai-eng release` is now hidden from `--help` and the JSON command
+  list in every install (it publishes the framework package itself and is not
+  a consumer-facing command). It remains fully invocable — `hidden` is not
+  `disabled`.
+
 ## [0.12.3] - 2026-06-29
 
 ### Added

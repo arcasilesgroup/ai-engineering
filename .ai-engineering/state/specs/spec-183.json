@@ -1,0 +1,11 @@
+{
+  "branch": "\u2014",
+  "created": "2026-07-13T16:20:27.635300+00:00",
+  "extra": {},
+  "pr": "\u2014",
+  "shipped": "2026-07-14T16:17:00.362040+00:00",
+  "slug": "cli-help-visual-grouping",
+  "spec_id": "spec-183",
+  "state": "shipped",
+  "title": "spec-183 \u2014 CLI command audit + functional color-grouped help"
+}

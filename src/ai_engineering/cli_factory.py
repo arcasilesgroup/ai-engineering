@@ -67,6 +67,12 @@ _EXEMPT_COMMANDS: frozenset[str] = frozenset({"version", "update", "doctor", "in
 # per-command ``--json`` is fully resolved via is_json_mode), never in the
 # pre-command callback.
 _NOTICE_EXEMPT: frozenset[str] = frozenset({"version", "internal", "gate"})
+# spec-184 D-184-05: the framework-drift banner additionally skips commands that
+# already surface drift inline (status/doctor) or ARE the fix (update/install),
+# plus the base automation/hot-path exempt set.
+_DRIFT_NOTICE_EXEMPT: frozenset[str] = _NOTICE_EXEMPT | frozenset(
+    {"update", "install", "doctor", "status"}
+)
 
 # The subcommand resolved by the app callback, read by the error boundary to
 # decide whether to render the post-command update notice. Module-level because
@@ -149,6 +155,20 @@ def _maybe_render_post_command_notice() -> None:
         return
     _render_update_notice_gated()
 
+    # spec-184 D-184-05: advise-only ⟳ framework-drift banner (distinct axis /
+    # mark / verb from the ◈ PyPI notice). Throttled + gated inside the renderer.
+    if _invoked_command not in _DRIFT_NOTICE_EXEMPT:
+        from pathlib import Path
+
+        from ai_engineering.cli_ui import maybe_render_framework_drift_notice
+        from ai_engineering.paths import resolve_project_root
+
+        try:
+            drift_target = resolve_project_root(None)
+        except Exception:
+            drift_target = Path.cwd()
+        maybe_render_framework_drift_notice(drift_target)
+
 
 def _render_update_notice_gated(*, force: bool = False) -> None:
     """Shared notice gate: JSON / env opt-out / manifest flag → cli_ui renderer.
@@ -217,7 +237,6 @@ def _app_callback(
                         "skill",
                         "maintenance",
                         "setup",
-                        "release",
                         "decision",
                         "audit",
                         "commit",
@@ -230,9 +249,9 @@ def _app_callback(
             )
             raise typer.Exit(code=0)
         else:
-            from ai_engineering.cli_ui import show_logo
-
-            show_logo()
+            # render_root_help owns the brand header now (shown on both bare
+            # `ai-eng` and `ai-eng --help`), so no separate show_logo() here —
+            # it would double the mark.
             typer.echo(ctx.get_help())
             # Bare `ai-eng` exits here, never reaching the error boundary, so
             # render the update notice inline before exiting. force=True: it is
@@ -367,6 +386,12 @@ _REMOVED_VERBS: dict[str, str] = {
 }
 
 
+# spec-183 D-183-02: let a removed verb's old flags (e.g. ``--dry-run``) pass
+# through to the tombstone handler so a verbatim migration invocation still
+# prints ``removed; use <new>`` instead of a confusing "No such option" error.
+_REMOVED_VERB_CTX = {"allow_extra_args": True, "ignore_unknown_options": True}
+
+
 def _build_removed_handler(old: str, new: str) -> Callable[..., None]:
     """Build a Typer-compatible handler that surfaces the rename."""
 
@@ -393,7 +418,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     - Stack/IDE commands: stack add/remove/list, ide add/remove/list.
     - Gate commands: gate pre-commit/commit-msg/pre-push/risk-check.
     - Skills commands: skill status.
-    - Maintenance commands: maintenance report/pr/branch-cleanup/risk-status/repo-status/spec-reset.
+    - Maintenance commands: maintenance report/pr/risk-status/repo-status/reset-events/all.
 
     Returns:
         Configured Typer application instance.
@@ -407,7 +432,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         rich_markup_mode="rich",
         callback=_app_callback,
         invoke_without_command=True,
-        epilog="[dim]Docs & issues:[/dim] https://github.com/arcasilesgroup/ai-engineering",
+        epilog="[#9AA5B1]Docs & issues:[/] https://github.com/arcasilesgroup/ai-engineering",
         cls=SmartTyperGroup,
     )
 
@@ -428,7 +453,10 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     version_app.callback(invoke_without_command=True)(_safe(core.version_cmd))
     version_app.command("upgrade")(_safe(core.version_upgrade_cmd))
     app.add_typer(version_app, name="version")
-    app.command("release")(_safe(release.release_cmd))
+    # spec-183 D-183-03: `release` is framework-internal (publishes the
+    # ai-engineering package itself). Hidden unconditionally like dev/internal
+    # -- suppressed from --help everywhere, still fully invocable.
+    app.command("release", hidden=True)(_safe(release.release_cmd))
     app.command("status")(_safe(status_cmd_mod.status_cmd))
     app.command("commit")(_safe(commit_cmd_mod.commit_cmd))
     app.command("pr")(_safe(pr_cmd_mod.pr_cmd))
@@ -499,10 +527,19 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     )
     maint_app.command("report")(_safe(maintenance.maintenance_report))
     maint_app.command("pr")(_safe(maintenance.maintenance_pr))
-    maint_app.command("branch-cleanup")(_safe(maintenance.maintenance_branch_cleanup))
+    # spec-183 D-183-02: `branch-cleanup` / `spec-reset` removed. Hidden
+    # tombstones print ``removed; use <new>`` and exit 2 (spec-132 contract).
+    # ``_REMOVED_VERB_CTX`` lets the old flags (e.g. ``--dry-run``) pass through
+    # so a verbatim migration invocation still hits the removal message instead
+    # of a confusing "No such option" usage error.
+    maint_app.command("branch-cleanup", hidden=True, context_settings=_REMOVED_VERB_CTX)(
+        _build_removed_handler("maintenance-branch-cleanup", "cleanup branches")
+    )
     maint_app.command("risk-status")(_safe(maintenance.maintenance_risk_status))
     maint_app.command("repo-status")(_safe(maintenance.maintenance_repo_status))
-    maint_app.command("spec-reset")(_safe(maintenance.maintenance_spec_reset))
+    maint_app.command("spec-reset", hidden=True, context_settings=_REMOVED_VERB_CTX)(
+        _build_removed_handler("maintenance-spec-reset", "cleanup specs")
+    )
     maint_app.command("reset-events")(_safe(maintenance.maintenance_reset_events))
     maint_app.command("all")(_safe(maintenance.maintenance_all))
     cleanup_app = typer.Typer(
@@ -555,10 +592,7 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     # spec-148: token rollups + replay computed over framework-events.ndjson)
     audit_app = typer.Typer(
         name="audit",
-        help=(
-            "Verify the hash-chained audit trail and report token usage over "
-            "framework-events.ndjson."
-        ),
+        help="Verify the hash-chained audit trail; report token usage.",
         no_args_is_help=True,
     )
     # spec-148 (files-only): framework-events.ndjson is the single ledger.
@@ -591,7 +625,11 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
         no_args_is_help=True,
     )
     spec_app.command("start")(_safe(spec_cmd.spec_start))
-    spec_app.command("activate", hidden=True)(_safe(spec_cmd.spec_activate))
+    # spec-183 D-183-02: `spec activate` removed (was a one-release alias for
+    # `spec start`). Hidden tombstone prints ``removed; use 'spec start'``.
+    spec_app.command("activate", hidden=True, context_settings=_REMOVED_VERB_CTX)(
+        _build_removed_handler("spec-activate", "spec start")
+    )
     spec_app.command("verify")(_safe(spec_cmd.spec_verify))
     spec_app.command("list")(_safe(spec_cmd.spec_list))
     spec_app.command("show")(_safe(spec_cmd.spec_show))
