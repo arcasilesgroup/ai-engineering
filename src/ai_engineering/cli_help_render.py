@@ -59,6 +59,7 @@ BRAND_TEAL = "#00D4AA"
 _MUTED = "#9AA5B1"  # slate, 6.83:1 — readable secondary (usage, options, quiet tier)
 _FAINT = "#7F85A0"  # 4.69:1 — quietest tier that still passes (subtitles, tagline)
 
+
 # Trailing grid-cell pad removal: two simple passes (no backtracking).
 # 1) Strip trailing spaces/tabs. 2) Strip trailing ANSI resets at EOL.
 def _strip_trailing_pad(text: str) -> str:
@@ -67,6 +68,7 @@ def _strip_trailing_pad(text: str) -> str:
     # Pass 2: remove trailing ANSI reset sequences (if any remain after pass 1)
     text = re.sub(r"(\x1b\[[0-9;]*m)+$", "", text)
     return text
+
 
 # Ordered so bands render Essentials → Lifecycle → Governance → Inspection →
 # Maintenance, with the "Other" catch-all last. D-183-08 taxonomy.
@@ -264,12 +266,12 @@ def _render_command_panels(
     for name, short_help in visible:
         grouped[categorize(name)].append((name, short_help))
 
-    box = ASCII if no_color else ROUNDED
+    box_style = ASCII if no_color else ROUNDED
     for category in CATEGORY_ORDER:
         rows = grouped[category]
         if not rows:
             continue
-        _render_single_category_panel(console, category, rows, name_w, box, no_color)
+        _render_single_category_panel(console, category, rows, name_w, box_style, no_color)
 
 
 def _render_single_category_panel(
@@ -277,7 +279,7 @@ def _render_single_category_panel(
     category: str,
     rows: list[tuple[str, str]],
     name_w: int,
-    box: type,
+    box_style,
     no_color: bool,
 ) -> None:
     """Render a single category panel."""
@@ -300,7 +302,7 @@ def _render_single_category_panel(
             title=title,
             title_align="left",
             border_style=style,
-            box=box,
+            box=box_style,
             padding=(1, 1),
         )
     )
@@ -319,7 +321,7 @@ def _render_options_panel(
     if not option_rows:
         return
 
-    box = ASCII if no_color else ROUNDED
+    box_style = ASCII if no_color else ROUNDED
     opts = Table.grid(padding=(0, 2))
     opts.add_column(no_wrap=True, style=_MUTED)
     opts.add_column(overflow="fold", style=_MUTED)
@@ -331,7 +333,7 @@ def _render_options_panel(
             title=Text("Options", style=_bold(_MUTED)),
             title_align="left",
             border_style=_MUTED,
-            box=box,
+            box=box_style,
             padding=(1, 1),
         )
     )
