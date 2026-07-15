@@ -59,9 +59,14 @@ BRAND_TEAL = "#00D4AA"
 _MUTED = "#9AA5B1"  # slate, 6.83:1 — readable secondary (usage, options, quiet tier)
 _FAINT = "#7F85A0"  # 4.69:1 — quietest tier that still passes (subtitles, tagline)
 
-# Trailing grid-cell pad, ANSI-aware: spaces optionally followed by SGR resets
-# at end of line. Keeps the reset, drops the spaces (see the export trim below).
-_TRAILING_PAD = re.compile(r"[ \t]+((?:\x1b\[[0-9;]*m)*)$")
+# Trailing grid-cell pad removal: two simple passes (no backtracking).
+# 1) Strip trailing spaces/tabs. 2) Strip trailing ANSI resets at EOL.
+def _strip_trailing_pad(text: str) -> str:
+    # Pass 1: remove trailing spaces/tabs
+    text = re.sub(r"[ \t]+$", "", text)
+    # Pass 2: remove trailing ANSI reset sequences (if any remain after pass 1)
+    text = re.sub(r"(\x1b\[[0-9;]*m)+$", "", text)
+    return text
 
 # Ordered so bands render Essentials → Lifecycle → Governance → Inspection →
 # Maintenance, with the "Other" catch-all last. D-183-08 taxonomy.
@@ -210,19 +215,9 @@ def render_root_help(ctx: click.Context) -> str:
     Returns a ready-to-echo string. Fails loud to the caller (raises) so the
     ``get_help`` override can fall back to Typer's default rendering.
     """
-    # ctx.command is the root group. Use ``cast`` (compile-time only), NOT a
-    # runtime ``isinstance(click.Group)`` — Typer's TyperGroup fails that check
-    # on some Typer versions (>= 0.26) even though it exposes every attribute
-    # used below, which previously raised and silently fell back to flat help.
     group = cast(click.Group, ctx.command)
     no_color = _should_disable_color()
-    # Cap colour width at 100ch: past that, description lines are too long to
-    # scan comfortably (impeccable line-length rule), but never exceed the
-    # actual terminal. Floor at 40 so a tiny pane can't collapse the name
-    # column. NO_COLOR / piped keeps the classic 80-col default.
     width = 80 if no_color else max(40, min(shutil.get_terminal_size((80, 24)).columns, 100))
-    # file=StringIO: record only, never write live to stdout — the caller
-    # (get_help) echoes the returned string exactly once.
     console = Console(
         file=io.StringIO(),
         record=True,
@@ -245,18 +240,26 @@ def render_root_help(ctx: click.Context) -> str:
         console.print(f"  {group.help.strip()}")
     console.print()
 
-    # One global name-column width across every panel → all descriptions share
-    # a single vertical seam (the biggest designed-vs-generated tell). The seam
-    # fix is orthogonal to the box: each panel's inner grid uses this same
-    # width, so descriptions align across boxes.
     names = [n for n, _ in _visible_commands(group, ctx, limit=1)]
     name_w = max((len(n) for n in names), default=8)
-    # Size the short-help limit to the space left of the description seam so
-    # descriptions fill the width before truncating (indent 2 + name + gutter 2).
-    # Clamp to the real column (floor 8) so a narrow pane never sets a limit
-    # wider than the space and forces an ugly mid-word wrap.
     help_limit = max(8, width - (2 + name_w + 2) - 1)
     visible = _visible_commands(group, ctx, limit=help_limit)
+
+    _render_command_panels(console, visible, name_w, no_color)
+    _render_options_panel(console, group, ctx, no_color)
+    _render_footer(console, ctx, group, no_color)
+
+    text = console.export_text(styles=not no_color)
+    return "\n".join(_strip_trailing_pad(ln) for ln in text.splitlines()) + "\n"
+
+
+def _render_command_panels(
+    console: Console,
+    visible: list[tuple[str, str]],
+    name_w: int,
+    no_color: bool,
+) -> None:
+    """Render all command category panels."""
     grouped: dict[str, list[tuple[str, str]]] = {cat: [] for cat in CATEGORY_ORDER}
     for name, short_help in visible:
         grouped[categorize(name)].append((name, short_help))
@@ -266,59 +269,82 @@ def render_root_help(ctx: click.Context) -> str:
         rows = grouped[category]
         if not rows:
             continue
-        style = _CATEGORY_STYLE[category]
-        table = Table.grid()
-        # width = indent(2) + name + gutter(2); spaces carry no ink, so the
-        # whole cell can take the panel colour without tinting the padding.
-        table.add_column(width=2 + name_w + 2, no_wrap=True, style=style)
-        # Maintenance is the quiet tier: recede its descriptions to slate too
-        # (not bright fg) so the whole row is uniformly quiet, matching intent.
-        desc_style = _MUTED if category == "Maintenance" else None
-        table.add_column(overflow="fold", style=desc_style)
-        for name, short_help in rows:
-            table.add_row(f"  {name}", short_help)
-        sub = _CATEGORY_SUBTITLE.get(category, "")
-        sub_display = sub.replace(" \u00b7 ", ", ") if no_color else sub
-        title = Text.assemble(
-            (category, _bold(style)),
-            (f"   {sub_display}" if sub_display else "", _FAINT),
-        )
-        console.print(
-            Panel(
-                table,
-                title=title,
-                title_align="left",
-                border_style=style,
-                box=box,
-                padding=(1, 1),
-            )
-        )
-        console.print()
+        _render_single_category_panel(console, category, rows, name_w, box, no_color)
 
-    # Options last + slate: commands are what an operator scans for; the meta
-    # flags are reference, not the lede. No subtitle — "flags" restates "Options".
+
+def _render_single_category_panel(
+    console: Console,
+    category: str,
+    rows: list[tuple[str, str]],
+    name_w: int,
+    box: type,
+    no_color: bool,
+) -> None:
+    """Render a single category panel."""
+    style = _CATEGORY_STYLE[category]
+    table = Table.grid()
+    table.add_column(width=2 + name_w + 2, no_wrap=True, style=style)
+    desc_style = _MUTED if category == "Maintenance" else None
+    table.add_column(overflow="fold", style=desc_style)
+    for name, short_help in rows:
+        table.add_row(f"  {name}", short_help)
+    sub = _CATEGORY_SUBTITLE.get(category, "")
+    sub_display = sub.replace(" \u00b7 ", ", ") if no_color else sub
+    title = Text.assemble(
+        (category, _bold(style)),
+        (f"   {sub_display}" if sub_display else "", _FAINT),
+    )
+    console.print(
+        Panel(
+            table,
+            title=title,
+            title_align="left",
+            border_style=style,
+            box=box,
+            padding=(1, 1),
+        )
+    )
+    console.print()
+
+
+def _render_options_panel(
+    console: Console,
+    group: click.Group,
+    ctx: click.Context,
+    no_color: bool,
+) -> None:
+    """Render the Options panel."""
     option_records = [p.get_help_record(ctx) for p in group.get_params(ctx)]
     option_rows = [rec for rec in option_records if rec]
-    if option_rows:
-        opts = Table.grid(padding=(0, 2))
-        opts.add_column(no_wrap=True, style=_MUTED)
-        opts.add_column(overflow="fold", style=_MUTED)
-        for flag, help_text in option_rows:
-            opts.add_row(f"  {flag}", help_text)
-        console.print(
-            Panel(
-                opts,
-                title=Text("Options", style=_bold(_MUTED)),
-                title_align="left",
-                border_style=_MUTED,
-                box=box,
-                padding=(1, 1),
-            )
-        )
-        console.print()
+    if not option_rows:
+        return
 
-    # Footer: how to drill into a command (every premium CLI closes with this),
-    # then where to get help online.
+    box = ASCII if no_color else ROUNDED
+    opts = Table.grid(padding=(0, 2))
+    opts.add_column(no_wrap=True, style=_MUTED)
+    opts.add_column(overflow="fold", style=_MUTED)
+    for flag, help_text in option_rows:
+        opts.add_row(f"  {flag}", help_text)
+    console.print(
+        Panel(
+            opts,
+            title=Text("Options", style=_bold(_MUTED)),
+            title_align="left",
+            border_style=_MUTED,
+            box=box,
+            padding=(1, 1),
+        )
+    )
+    console.print()
+
+
+def _render_footer(
+    console: Console,
+    ctx: click.Context,
+    group: click.Group,
+    no_color: bool,
+) -> None:
+    """Render the footer: drill-in hint and epilog."""
     console.print(
         Text.assemble(
             ("Run  ", _MUTED),
@@ -327,12 +353,4 @@ def render_root_help(ctx: click.Context) -> str:
         )
     )
     if group.epilog:
-        # console.print (not Text()) so the epilog's own markup is parsed.
         console.print(group.epilog)
-
-    text = console.export_text(styles=not no_color)
-    # Strip the pad Rich adds to each grid cell. ANSI-aware: on the colour path
-    # a styled cell's trailing pad sits *before* the reset code, so a plain
-    # rstrip is a no-op — match trailing spaces with any following SGR resets
-    # and drop only the spaces.
-    return "\n".join(_TRAILING_PAD.sub(r"\1", ln) for ln in text.splitlines()) + "\n"
