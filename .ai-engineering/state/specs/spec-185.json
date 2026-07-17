@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-07-16T18:11:38.121241+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "open-model-resilience",
+  "spec_id": "spec-185",
+  "state": "approved",
+  "title": "Open-Model Resilience: Model-Tier-Aware Adaptation Layer"
+}

@@ -73,6 +73,23 @@ def _safe_init_trace_context(project_root: Path) -> str | None:
         return trace_id
 
 
+def _safe_stamp_driver_tier(project_root: Path, data: object) -> str | None:
+    """Best-effort resolve + persist of the driver-capability tier sidecar.
+
+    Reads the optional Claude Code ``SessionStart`` ``model`` field (absent
+    after /clear or resume); falls through to the conservative default in the
+    resolver. Returns the resolved tier or None on failure. Fail-open — a
+    detection error never blocks session boot (spec-185 T-0.4).
+    """
+    try:
+        from _lib.driver_tier import write_driver_tier
+
+        model_id = data.get("model") if isinstance(data, dict) else None
+        return write_driver_tier(project_root, model_id)
+    except Exception:
+        return None
+
+
 def main() -> None:
     ctx = get_hook_context()
     if ctx.event_name != "SessionStart":
@@ -85,6 +102,7 @@ def main() -> None:
 
     trace_id = _safe_init_trace_context(project_root)
     instincts_count = _safe_count_instincts(project_root)
+    driver_tier = _safe_stamp_driver_tier(project_root, ctx.data)
 
     metadata: dict[str, object] = {
         "engine": ctx.engine,
@@ -94,6 +112,8 @@ def main() -> None:
         metadata["trace_id_initialized"] = trace_id
     if instincts_count is not None:
         metadata["instincts_count"] = instincts_count
+    if driver_tier is not None:
+        metadata["driver_tier"] = driver_tier
 
     try:
         from _lib.observability import emit_framework_operation

@@ -162,6 +162,12 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
         rationale="Spec-116 runtime layer state (checkpoint, tool history) must be writable from standalone hooks.",  # noqa: E501
     ),
     HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "driver_tier.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale="Spec-185 driver-tier sidecar publish runs at SessionStart before the package is importable.",  # noqa: E501
+    ),
+    HookRuntimeAsset(
         relative_path=_HOOK_LIB_REL / "trace_context.py",
         runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
         import_policy=_STDLIB_ONLY,

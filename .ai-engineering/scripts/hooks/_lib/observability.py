@@ -61,7 +61,23 @@ _MAX_SUMMARY_LEN = 200
 # below enforce these enums so callers cannot smuggle drifted values
 # into the audit chain. The schema version stays 1.0 (additive
 # ``detail.*`` per spec-120 precedent + R-131-09 grace).
-_VALID_MODEL_TIERS: frozenset[str] = frozenset({"haiku", "sonnet", "opus"})
+#
+# spec-185 D-185-01: ``model_tier`` spans TWO axes recorded on events — the
+# dispatch-effort tier (Anthropic reference names haiku/sonnet/opus) and the
+# vendor-neutral driver-capability tier (frontier/standard-floor/stretch-floor)
+# resolved from the active engine's model id (D-185-03). The set is additive,
+# not a shim: both axes are legal event values so a non-Anthropic driver never
+# raises ``ValueError`` in ``build_framework_event``.
+_VALID_MODEL_TIERS: frozenset[str] = frozenset(
+    {
+        "haiku",
+        "sonnet",
+        "opus",
+        "frontier",
+        "standard-floor",
+        "stretch-floor",
+    }
+)
 _VALID_EFFORTS: frozenset[str] = frozenset({"cheap", "mid", "high"})
 
 

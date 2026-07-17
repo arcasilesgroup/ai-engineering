@@ -123,6 +123,65 @@ def test_non_session_event_passes_through(
     )
 
 
+def test_driver_tier_stamped_from_session_model(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A SessionStart ``model`` id resolves and lands in detail + the sidecar."""
+    monkeypatch.delenv("AIENG_DRIVER_TIER", raising=False)
+    ctx = _make_ctx(
+        project,
+        data={"hook_event_name": "SessionStart", "model": "claude-fable-5"},
+    )
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    events = _read_events(project)
+    matching = [
+        e
+        for e in events
+        if e.get("component") == "hook.runtime-session-start"
+        and e.get("detail", {}).get("operation") == "session_started"
+    ]
+    assert matching, "expected session_started event"
+    assert matching[-1]["detail"].get("driver_tier") == "frontier"
+
+    sidecar = project / ".ai-engineering" / "runtime" / "driver-tier.json"
+    assert sidecar.exists(), "driver-tier.json should be published at SessionStart"
+    payload = json.loads(sidecar.read_text(encoding="utf-8"))
+    assert payload == {
+        "model_id": "claude-fable-5",
+        "schema_version": "1.0",
+        "tier": "frontier",
+    }
+
+
+def test_driver_tier_fail_open_on_non_string_model(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A malformed ``model`` value stamps nothing and never blocks boot."""
+    monkeypatch.delenv("AIENG_DRIVER_TIER", raising=False)
+    ctx = _make_ctx(
+        project,
+        data={"hook_event_name": "SessionStart", "model": {"id": "x"}},
+    )
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    events = _read_events(project)
+    matching = [
+        e
+        for e in events
+        if e.get("component") == "hook.runtime-session-start"
+        and e.get("detail", {}).get("operation") == "session_started"
+    ]
+    assert matching, "session boot must complete despite the bad model value"
+    assert "driver_tier" not in matching[-1]["detail"]
+
+
 def test_instincts_count_logged_when_available(
     hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
