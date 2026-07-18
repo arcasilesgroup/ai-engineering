@@ -32,8 +32,8 @@ cleverness):
 
 | Mode | Procedure |
 |------|-----------|
-| `tour` | Glob dirs/entry points/config; detect stack; ASCII diagram (boundaries, deps, data flow); explain key patterns; `git log --oneline` for evolution; flag gotchas; suggest next paths. |
-| `find [topic]` | Grep/Glob source+config+docs; check `decision-store.json` + `.ai-engineering/specs/`; present `file:line` refs + context; answer "where does X happen?". |
+| `tour` | Map dirs/entry points/config; detect stack; ASCII diagram (boundaries, deps, data flow); explain key patterns; `git log --oneline` for evolution; flag gotchas; suggest next paths. |
+| `find [topic]` | Search source+config+docs; check `decision-store.json` + `.ai-engineering/specs/`; present `file:line` refs + context; answer "where does X happen?". |
 | `history [decision]` | Search `decision-store.json`, `git log --all --grep`, `specs/`; reconstruct what was known + constraints + alternatives; assess current relevance; do NOT recommend — present analysis, let the developer decide. |
 | `onboard` | Map structure; identify stack; discover patterns; find key files; review `.ai-engineering/standards/`; Socratic checkpoint per phase (max 2 questions); personalize to the developer's interest. |
 

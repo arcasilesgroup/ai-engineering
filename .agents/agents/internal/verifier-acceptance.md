@@ -87,7 +87,7 @@ Group findings by `lens` (feature first, then governance) and within each lens b
 **Feature half**
 
 1. Extract and number goals from the spec — this is your checklist.
-2. For each goal, find the implementing files (Glob + Grep).
+2. For each goal, find the implementing files (file globbing + text search).
 3. Verify quality criteria (e.g. spec says "150-300 lines" → count them).
 4. Deletion manifest: for each file to delete, verify it no longer exists.
 5. Creation manifest: for each file to create, verify it exists and meets criteria.
@@ -98,14 +98,14 @@ Group findings by `lens` (feature first, then governance) and within each lens b
 
 1. Load active decisions from `decision-store.json`; filter status=active; sort by criticality.
 2. For each changed file, check whether it touches a decision-governed surface.
-3. Grep the diff for suppression additions: noqa, nosec, type: ignore, pragma: no cover, NOSONAR, nolint.
-4. Grep the diff for threshold changes: coverage, duplication, complexity numbers.
+3. Search the diff for suppression additions: noqa, nosec, type: ignore, pragma: no cover, NOSONAR, nolint.
+4. Search the diff for threshold changes: coverage, duplication, complexity numbers.
 5. Verify scripts/hooks/ files are unchanged.
 6. Cross-reference agent/skill counts across CLAUDE.md, manifest.yml, and actual files.
 
 ## Verification Techniques
 
-- File existence: `ls -la <path>` or Glob
+- File existence: `ls -la <path>` or a file glob
 - Line count: `wc -l <file>`
 - Content structure: read the file, check for required sections
 - Mirror sync: `ai-eng dev sync --check`

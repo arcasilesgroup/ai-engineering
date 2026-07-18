@@ -27,12 +27,12 @@ Read-only; §10.7 Clean Code — clarity over cleverness.
 
 1. **Identify subject** — classify into Code / Concept / Pattern /
    Architecture / Error / Difference. If ambiguous, ask ONE question.
-2. **Search codebase** — Grep/Glob for real instances; `file:line` refs
+2. **Search codebase** — search the tree for real instances; `file:line` refs
    are primary evidence. If none, use a generic stack example and say so.
 3. **Select depth** (per cue table) and deliver only that depth's sections.
 4. **Follow-up** — "what about X?" extend at depth; "go deeper" +1 level,
    only new sections; "trace a different path" re-run Trace; "show me in
-   my code" Grep/Glob the concept.
+   my code" search the codebase for the concept.
 
 | Depth | Cues | Sections |
 |-------|------|----------|

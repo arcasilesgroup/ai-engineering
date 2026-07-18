@@ -48,6 +48,9 @@ def _exit_code(
     principles_results: list | None = None,
     effort_results: list | None = None,
     value_block_results: list | None = None,
+    portability_results: list | None = None,
+    structure_results: list | None = None,
+    token_budget_results: list | None = None,
 ) -> int:
     """Map grade counts + extra-check severities to a CLI exit code.
 
@@ -70,6 +73,18 @@ def _exit_code(
     spec-186 addition:
       * Any CRITICAL from ``value_block`` → exit 1 (D-186-06). A chain
         skill that omits the ``value-lens.md`` citation hard-fails.
+
+    spec-187 W5 additions (D-187-07 — flip warn-only lints to blocking):
+      * Any MAJOR / CRITICAL from ``portability`` → exit 1. An un-gated
+        Claude-only tool literal in canonical prose is a portability
+        hazard on open-weight harnesses.
+      * Any MAJOR / CRITICAL from ``structure`` → exit 1. Crisp caps
+        (body over 500 lines, references deeper than one level) block;
+        the ``## Workflow`` procedure-ratio stays MINOR-advisory (a
+        graduated flip — the ratio is a heuristic).
+      * Any MAJOR / CRITICAL from ``token_budget`` → exit 1. The
+        Anthropic frontmatter caps (description over 1024 chars, name
+        over 64 chars, reserved word) are crisp and hard-fail.
     """
     # principles_results intentionally consumed for signature parity;
     # advisory-only in sub-001 (R-1.6).
@@ -90,6 +105,14 @@ def _exit_code(
         getattr(r, "severity", "OK") == "CRITICAL" for _path, r in value_block_results
     ):
         return 1
+    # spec-187 W5 (D-187-07): portability / structure / token_budget are
+    # BLOCKING on MAJOR / CRITICAL. The structure procedure-ratio heuristic
+    # is emitted at MINOR and stays advisory (graduated flip).
+    for spec187_results in (portability_results, structure_results, token_budget_results):
+        if spec187_results and any(
+            getattr(r, "severity", "OK") in ("MAJOR", "CRITICAL") for _path, r in spec187_results
+        ):
+            return 1
     if grade_counts.get("C", 0) > 2:
         return 2
     return 0
@@ -211,11 +234,11 @@ def main(argv: list[str] | None = None) -> int:
     # chain skills omitting the value-lens.md citation surfaces CRITICAL
     # and drives exit 1 (D-186-06).
     value_block_results = check_value_block_citations(args.skills_root)
-    # spec-187 W1 (D-187-07): portability / structure / token-budget lints.
-    # WARN-ONLY this wave — severity counts surface in the summary line but
-    # NONE of them drive the exit code. They flip to blocking in W5. All
-    # reason strings are pure ASCII so the summary stays cp1252-safe
-    # (D-187-10).
+    # spec-187 W5 (D-187-07): portability / structure / token-budget lints,
+    # BLOCKING. A MAJOR / CRITICAL from any of the three drives the exit
+    # code; the structure procedure-ratio heuristic stays MINOR-advisory
+    # (graduated flip). All reason strings are pure ASCII so the summary
+    # stays cp1252-safe (D-187-10).
     portability_results = check_portability(args.skills_root, args.agents_root)
     structure_results = check_structure(args.skills_root, args.agents_root)
     token_budget_results = check_token_budget(args.skills_root, args.agents_root)
@@ -256,8 +279,9 @@ def main(argv: list[str] | None = None) -> int:
         value_block_counts: dict[str, int] = {}
         for _path, result in value_block_results:
             value_block_counts[result.severity] = value_block_counts.get(result.severity, 0) + 1
-        # spec-187 W1 (D-187-07): warn-only portability/structure/token-budget
-        # counters. Surfaced for visibility; NOT wired into _exit_code.
+        # spec-187 W5 (D-187-07): BLOCKING portability/structure/token-budget
+        # counters. MAJOR / CRITICAL from any of the three drives _exit_code;
+        # structure MINOR (procedure-ratio heuristic) stays advisory.
         portability_counts: dict[str, int] = {}
         for _path, result in portability_results:
             portability_counts[result.severity] = portability_counts.get(result.severity, 0) + 1
@@ -297,15 +321,16 @@ def main(argv: list[str] | None = None) -> int:
             f"OK={value_block_counts.get('OK', 0)} "
             f"INFO={value_block_counts.get('INFO', 0)} "
             f"CRITICAL={value_block_counts.get('CRITICAL', 0)} "
-            f"| portability(warn) "
+            f"| portability(block) "
             f"OK={portability_counts.get('OK', 0)} "
-            f"MINOR={portability_counts.get('MINOR', 0)} "
-            f"| structure(warn) "
+            f"MAJOR={portability_counts.get('MAJOR', 0)} "
+            f"| structure(block) "
             f"OK={structure_counts.get('OK', 0)} "
             f"MINOR={structure_counts.get('MINOR', 0)} "
-            f"| token_budget(warn) "
+            f"MAJOR={structure_counts.get('MAJOR', 0)} "
+            f"| token_budget(block) "
             f"OK={token_budget_counts.get('OK', 0)} "
-            f"MINOR={token_budget_counts.get('MINOR', 0)} "
+            f"MAJOR={token_budget_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
         return _exit_code(
@@ -314,6 +339,9 @@ def main(argv: list[str] | None = None) -> int:
             principles_results=principles_results,
             effort_results=effort_results,
             value_block_results=value_block_results,
+            portability_results=portability_results,
+            structure_results=structure_results,
+            token_budget_results=token_budget_results,
         )
 
     return 0

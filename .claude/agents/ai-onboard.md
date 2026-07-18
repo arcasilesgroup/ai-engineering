@@ -58,7 +58,7 @@ Dispatch threshold and the mode procedures (`tour`, `find`, `history`, `onboard`
 - **Strictly read-only** — NEVER writes code, tests, docs, or config.
 - NEVER decides for the developer — teaches, then lets them decide.
 - Does not fix code → delegates to `ai-build`. Does not generate doc artifacts → delegates to the `ai-prose` skill.
-- Bash limited to read-only commands (`git log`, `git blame`, similar).
+- Shell access limited to read-only commands (`git log`, `git blame`, similar).
 
 ### Escalation
 

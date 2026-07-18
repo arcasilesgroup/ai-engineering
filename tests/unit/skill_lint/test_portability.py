@@ -1,9 +1,12 @@
-"""spec-187 W1 (T-2/T-3) — portability lint tests.
+"""spec-187 (W1 T-2/T-3, W5 flip) — portability lint tests.
 
-RED-first: asserts ``check_portability`` flags un-gated Claude-only tool
-literals and bare ``/ai-*`` dispatch idioms in canonical prose, stays
-clean on a neutral (gated) fixture, and emits pure-ASCII findings on a
-non-tty / raw stream (D-187-10, Windows cp1252 safety).
+Locks the W5 false-positive fix: ``check_portability`` flags a genuine
+Claude-only tool literal used *as a tool* (a "tool"-qualified mention, a
+clause-leading command, an arrow/slash map, a call form) but leaves the
+ambiguous English verbs ``Read`` / ``Write`` / ``Edit`` alone, and does
+not flag ``/ai-*`` slash idioms (documented harness-provided, AGENTS.md
+W4). Findings are MAJOR (blocking) and pure-ASCII on a raw stream
+(D-187-10, Windows cp1252 safety).
 """
 
 from __future__ import annotations
@@ -29,38 +32,69 @@ def _write_skill(root: Path, name: str, body: str) -> Path:
     return md
 
 
-def test_flags_ungated_tool_literal(tmp_path: Path) -> None:
-    """A bare Claude tool literal in prose surfaces a warn finding."""
+def test_flags_tool_literal_in_tool_context(tmp_path: Path) -> None:
+    """A distinctive Claude tool literal used as a tool surfaces MAJOR."""
     skills = tmp_path / "skills"
     agents = tmp_path / "agents"
     agents.mkdir()
     _write_skill(
         skills,
         "ai-bad",
-        "Use the Bash tool to run the suite, then Read the output file.\n",
+        "Run the Grep tool over the repo to find every call site.\n",
+    )
+
+    results = check_portability(skills, agents)
+    flagged = [r for _p, r in results if r.severity == "MAJOR"]
+    assert flagged, "expected an un-gated tool-literal finding"
+    assert any("Grep" in r.reason for _p, r in results)
+
+
+def test_flags_clause_leading_tool_command(tmp_path: Path) -> None:
+    """A clause-leading imperative tool command (``Grep the diff``) flags."""
+    skills = tmp_path / "skills"
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    _write_skill(skills, "ai-bad2", "1. Grep the diff for suppression additions.\n")
+
+    results = check_portability(skills, agents)
+    flagged = [r for _p, r in results if r.severity == "MAJOR"]
+    assert flagged, "expected a clause-leading tool-command finding"
+    assert any("Grep" in r.reason for _p, r in results)
+
+
+def test_english_verbs_are_not_flagged(tmp_path: Path) -> None:
+    """``Read``/``Write``/``Edit`` as English verbs must NOT flag (FP fix)."""
+    skills = tmp_path / "skills"
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    _write_skill(
+        skills,
+        "ai-prose",
+        (
+            "1. Read the file and the spec gates before touching any code.\n"
+            "2. Write the minimal implementation, then Edit the draft for clarity.\n"
+        ),
     )
 
     results = check_portability(skills, agents)
     flagged = [r for _p, r in results if r.severity in ("MINOR", "MAJOR")]
-    assert flagged, "expected an un-gated tool-literal finding"
-    assert any("Bash" in r.reason or "Read" in r.reason for _p, r in results)
+    assert not flagged, [r.reason for _p, r in results if r.severity != "OK"]
 
 
-def test_flags_bare_slash_dispatch(tmp_path: Path) -> None:
-    """A bare (non-code) /ai-* dispatch idiom surfaces a warn finding."""
+def test_slash_idiom_is_not_flagged(tmp_path: Path) -> None:
+    """``/ai-*`` slash idioms are host-provided conventions — not findings."""
     skills = tmp_path / "skills"
     agents = tmp_path / "agents"
     agents.mkdir()
-    _write_skill(skills, "ai-bad2", "When ready, invoke /ai-build to run the plan.\n")
+    _write_skill(skills, "ai-slash", "When ready, invoke /ai-build to run the plan.\n")
 
     results = check_portability(skills, agents)
     flagged = [r for _p, r in results if r.severity in ("MINOR", "MAJOR")]
-    assert flagged, "expected an un-gated /ai-* dispatch finding"
-    assert any("/ai-build" in r.reason for _p, r in results)
+    assert not flagged, [r.reason for _p, r in results if r.severity != "OK"]
 
 
 def test_neutral_fixture_is_clean(tmp_path: Path) -> None:
-    """Gated prose + code-fenced slash idioms produce no warn findings."""
+    """Gated prose produces no findings."""
     skills = tmp_path / "skills"
     agents = tmp_path / "agents"
     agents.mkdir()
@@ -83,7 +117,7 @@ def test_output_is_pure_ascii_on_non_tty(tmp_path: Path) -> None:
     skills = tmp_path / "skills"
     agents = tmp_path / "agents"
     agents.mkdir()
-    _write_skill(skills, "ai-bad3", "Use the Bash tool and invoke /ai-build now.\n")
+    _write_skill(skills, "ai-bad3", "Use the Bash tool to run the suite.\n")
 
     results = check_portability(skills, agents)
     buf = io.StringIO()
@@ -94,7 +128,7 @@ def test_output_is_pure_ascii_on_non_tty(tmp_path: Path) -> None:
 
 
 def test_live_corpus_runs_without_crashing() -> None:
-    """The lint executes over the real canonical corpus (warn-only)."""
+    """The lint executes over the real canonical corpus (blocking-green)."""
     results = check_portability(
         _REPO_ROOT / ".claude" / "skills",
         _REPO_ROOT / ".claude" / "agents",
@@ -102,6 +136,8 @@ def test_live_corpus_runs_without_crashing() -> None:
     assert isinstance(results, list)
     for _path, result in results:
         assert result.reason.isascii()
+    # W5 blocking-green: the neutralised canonical corpus emits 0 MAJOR.
+    assert not [r for _p, r in results if r.severity in ("MAJOR", "CRITICAL")]
 
 
 def test_rejects_bad_severity() -> None:

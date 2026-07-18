@@ -1,7 +1,7 @@
-"""token_budget checker — spec-187 W1 (T-6/T-7) authoring-cap lint.
+"""token_budget checker — spec-187 authoring-cap lint (W1 T-6/T-7, W5 flip).
 
-Encodes the Anthropic frontmatter caps as an advisory lint (spec-187
-D-187-06, research §Authoring contract):
+Encodes the Anthropic frontmatter caps (spec-187 D-187-06, research
+SS Authoring contract):
 
 * ``description`` <= 1024 chars (the sole routing signal; over-budget
   descriptions inflate the session routing tax).
@@ -9,10 +9,10 @@ D-187-06, research §Authoring contract):
 * ``name`` carries no reserved word (``anthropic`` / ``claude``).
 
 Runs over all canonical skills (``<root>/ai-*/SKILL.md``) and agents
-(``<agents_root>/*.md``). Posture: WARN-ONLY in W1 (advisory; never
-drives the CLI exit code); flips to blocking in W5 (D-187-07). All reason
-strings are pure ASCII so raw / non-tty writes stay cp1252-safe
-(D-187-10). Pure stdlib (``re`` + ``pathlib``).
+(``<agents_root>/*.md``). Posture: BLOCKING (MAJOR) in W5 — these are
+crisp Anthropic caps, so a violation drives the CLI exit code (D-187-07).
+All reason strings are pure ASCII so raw / non-tty writes stay
+cp1252-safe (D-187-10). Pure stdlib (``re`` + ``pathlib``).
 """
 
 from __future__ import annotations
@@ -86,7 +86,7 @@ def check_file_token_budget(md_path: Path) -> list[RubricResult]:
         findings.append(
             RubricResult(
                 "token_budget_description",
-                "MINOR",
+                "MAJOR",
                 f"description is {len(description)} chars (over {_DESCRIPTION_MAX_CHARS})",
             )
         )
@@ -96,7 +96,7 @@ def check_file_token_budget(md_path: Path) -> list[RubricResult]:
             findings.append(
                 RubricResult(
                     "token_budget_name_length",
-                    "MINOR",
+                    "MAJOR",
                     f"name is {len(name)} chars (over {_NAME_MAX_CHARS})",
                 )
             )
@@ -106,7 +106,7 @@ def check_file_token_budget(md_path: Path) -> list[RubricResult]:
             findings.append(
                 RubricResult(
                     "token_budget_reserved_word",
-                    "MINOR",
+                    "MAJOR",
                     f"name contains reserved word {hit!r}",
                 )
             )

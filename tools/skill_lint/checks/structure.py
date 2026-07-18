@@ -1,23 +1,30 @@
-"""structure checker — spec-187 W1 (T-4/T-5) structure/procedure lint.
+"""structure checker — spec-187 structure/procedure lint (W1 T-4/T-5, W5 flip).
 
-Encodes the Anthropic authoring contract's structural levers as an
-advisory lint (spec-187 D-187-06, research §Determinism):
+Encodes the Anthropic authoring contract's structural levers (spec-187
+D-187-06, research SS Determinism):
 
-* **Workflow procedure-ratio** — checklist / numbered / tabular steps
-  outperform free prose (7.50/8 vs 5.67, arXiv 2605.20149) at fewer
-  tokens. The ``## Workflow`` section is scored: if the share of
-  procedure lines (``1.``/``- ``/``- [ ]``/table rows) among its
-  content lines falls below the threshold, the section is flagged as
-  prose-heavy.
 * **Body under 500 lines** — the instruction-complexity cliff sits at
   ~500 rules; bodies over 500 lines are flagged (split into
-  ``references/``).
+  ``references/``). BLOCKING (MAJOR) in W5 — a crisp cap.
 * **References one level deep** — a relative ``.md`` reference whose
   path is more than one level deep breaks progressive disclosure.
+  BLOCKING (MAJOR) in W5 — a crisp rule.
+* **Workflow procedure-ratio** — checklist / numbered / tabular steps
+  outperform free prose (7.50/8 vs 5.67, arXiv 2605.20149) at fewer
+  tokens. The ``## Workflow`` section is flagged prose-heavy only when
+  BOTH its procedure-line share is below the threshold AND it carries
+  fewer than two structural anchors (a ``### Step``/``### N.`` header, a
+  table row, a top-level numbered line, or a ``- [ ]`` checklist item).
+  The anchor gate keeps explicitly-structured Workflows (a mode table, a
+  ``### Step 1/2/3`` walkthrough) from being flagged for their step
+  *detail* prose. ADVISORY (MINOR) — the ratio is a heuristic, so it
+  surfaces in the summary but does not drive the exit code (a graduated
+  W5 flip, D-187-07).
 
-Posture: WARN-ONLY in W1 (advisory; never drives the CLI exit code);
-flips to blocking in W5 (D-187-07). All reason strings are pure ASCII so
-raw / non-tty writes stay cp1252-safe (D-187-10). Pure stdlib.
+Posture: BLOCKING in W5 for the crisp caps (body length, ref depth);
+advisory for the procedure-ratio heuristic (D-187-07). All reason strings
+are pure ASCII so raw / non-tty writes stay cp1252-safe (D-187-10). Pure
+stdlib.
 """
 
 from __future__ import annotations
@@ -57,6 +64,15 @@ _WORKFLOW_RE = re.compile(
 )
 # Procedural line shapes: numbered step, bullet, checklist, or table row.
 _PROCEDURE_LINE_RE = re.compile(r"^[ \t]*(\d+\.|[-*]\s|[-*]\s\[.\]|\|)")
+# Structural anchors: an explicit step/section scaffold. A Workflow with
+# two or more anchors is treated as structured (its step-detail prose is
+# fine) even if the raw procedure-line ratio is low.
+_ANCHOR_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^[ \t]*#{2,6}\s+(?:Step\b|\d+[.)]|\d+\s*[-—])"),  # ### Step / ### 1.
+    re.compile(r"^[ \t]*\|.*\|"),  # table row
+    re.compile(r"^[ \t]*\d+[.)]\s"),  # top-level numbered step
+    re.compile(r"^[ \t]*[-*]\s\[.\]"),  # checklist item
+)
 _FENCE_RE = re.compile(r"^```")
 # Relative markdown .md link (skip http(s) + anchors).
 _MD_LINK_RE = re.compile(r"\]\((?!https?:)(?P<path>[^)#]+\.md)(?:#[^)]*)?\)")
@@ -90,6 +106,21 @@ def _procedure_ratio(section_body: str) -> tuple[float, int]:
     return (procedural / content, content)
 
 
+def _structural_anchor_count(section_body: str) -> int:
+    """Count explicit step/section-scaffold anchors outside fenced code."""
+    count = 0
+    in_fence = False
+    for raw in section_body.splitlines():
+        if _FENCE_RE.match(raw.strip()):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        if any(anchor.match(raw) for anchor in _ANCHOR_RES):
+            count += 1
+    return count
+
+
 def _ref_depth(path: str) -> int:
     """Depth of a relative reference path = number of path separators.
 
@@ -116,35 +147,40 @@ def check_file_structure(md_path: Path) -> list[RubricResult]:
     body = _body_after_frontmatter(text)
     findings: list[RubricResult] = []
 
-    # Body length.
+    # Body length — crisp cap, BLOCKING (MAJOR) in W5.
     line_count = len(body.splitlines())
     if line_count > _BODY_MAX_LINES:
         findings.append(
             RubricResult(
                 "structure_body_length",
-                "MINOR",
+                "MAJOR",
                 f"body is {line_count} lines (over 500 - split into references/)",
             )
         )
 
-    # Workflow procedure-ratio.
+    # Workflow procedure-ratio — advisory (MINOR) heuristic, gated by the
+    # structural-anchor count so explicitly-structured Workflows are not
+    # flagged for step-detail prose.
     match = _WORKFLOW_RE.search(text)
     if match:
-        ratio, content_lines = _procedure_ratio(match.group("body") or "")
-        if content_lines >= _MIN_WORKFLOW_LINES and ratio < _MIN_PROCEDURE_RATIO:
+        section_body = match.group("body") or ""
+        ratio, content_lines = _procedure_ratio(section_body)
+        anchors = _structural_anchor_count(section_body)
+        if content_lines >= _MIN_WORKFLOW_LINES and ratio < _MIN_PROCEDURE_RATIO and anchors < 2:
             findings.append(
                 RubricResult(
                     "structure_workflow_procedure",
                     "MINOR",
                     (
                         f"## Workflow is prose-heavy (procedure ratio "
-                        f"{ratio:.2f} < {_MIN_PROCEDURE_RATIO:.2f}) - "
+                        f"{ratio:.2f} < {_MIN_PROCEDURE_RATIO:.2f}, "
+                        f"{anchors} structural anchors) - "
                         f"convert to numbered/checklist/table"
                     ),
                 )
             )
 
-    # Reference depth.
+    # Reference depth — crisp rule, BLOCKING (MAJOR) in W5.
     deep_refs = sorted(
         {m.group("path") for m in _MD_LINK_RE.finditer(body) if _ref_depth(m.group("path")) > 1}
     )
@@ -152,7 +188,7 @@ def check_file_structure(md_path: Path) -> list[RubricResult]:
         findings.append(
             RubricResult(
                 "structure_ref_depth",
-                "MINOR",
+                "MAJOR",
                 "references deeper than one level: " + ", ".join(deep_refs),
             )
         )

@@ -40,9 +40,9 @@ Source-of-truth **inside** the repo (files, imports, patterns, history) → stay
 
 ### 2. Map architecture
 
-- Glob → discover file-structure patterns.
-- Grep → trace imports/exports/dependency relationships.
-- Read → key files (entry points, config, barrel files).
+- File globbing → discover file-structure patterns.
+- Code search → trace imports/exports/dependency relationships.
+- Key-file reads → entry points, config, barrel files.
 - Identify layers, boundaries, coupling points; produce ASCII diagrams when they clarify relationships.
 
 ### 3. Trace dependencies
@@ -62,8 +62,8 @@ Source-of-truth **inside** the repo (files, imports, patterns, history) → stay
 
 ### 6. Techniques
 
-- **Breadth-first**: Glob the tree, then narrow to interesting areas.
-- **Import tracing**: Grep import/require/use statements to build the dependency graph.
+- **Breadth-first**: glob the tree, then narrow to interesting areas.
+- **Import tracing**: search import/require/use statements to build the dependency graph.
 - **Convention detection**: sample 5–10 representative files.
 - **Boundary detection**: packages, namespaces, barrel files, API surfaces.
 - **History correlation**: `git log --oneline --since="3 months ago"` for hot spots.
