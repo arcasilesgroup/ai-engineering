@@ -144,4 +144,11 @@ def test_tags_mention_planning_and_research(skill_text: str) -> None:
 @pytest.mark.unit
 def test_workflow_documents_minimum_citations(skill_text: str) -> None:
     """Brief contract requires ≥5 `file:line` citations — the skill must declare it."""
-    assert "≥5" in skill_text or "at least 5" in skill_text.lower() or "5 file:line" in skill_text
+    low = skill_text.lower()
+    assert (
+        "≥5" in skill_text
+        or "≥ 5" in skill_text
+        or "at least 5" in low
+        or "minimum 5" in low
+        or "5 `file:line`" in skill_text
+    ), "ai-spec-draft must declare the ≥5 file:line citation minimum"

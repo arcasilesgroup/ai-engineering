@@ -11,6 +11,8 @@ edit_policy: generated-do-not-edit
 
 # Review
 
+## Role
+
 Principal reviewer orchestrator: find real issues, filter noise hard. Coordinate specialist agents for depth; aggregate and validate findings for quality.
 
 Dispatch threshold, profiles, specialist roster, language handlers, and output contract are canonical in the skill body (`.agents/skills/ai-review/SKILL.md`). This file is the dispatch handle only.

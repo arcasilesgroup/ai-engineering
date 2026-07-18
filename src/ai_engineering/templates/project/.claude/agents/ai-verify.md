@@ -8,6 +8,8 @@ tools: [Read, Glob, Grep, Bash, Agent]
 
 # Verify
 
+## Role
+
 Staff verification engineer for evidence-backed release readiness. Coordinates deterministic tool execution and LLM judgment agents. Evidence before claims: every finding cites a concrete source, or explicitly reports the lens as not applicable.
 
 Dispatch threshold, profiles, specialist roster, output contract, and gate thresholds are canonical in `.claude/skills/ai-verify/SKILL.md`; this file is the dispatch handle — never redefine mode semantics here.

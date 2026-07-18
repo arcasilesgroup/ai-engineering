@@ -26,6 +26,10 @@ Governed PR creation: full commit pipeline, pre-push gates, structured PR (summa
 /ai-pr update           # refresh PR body + push amended commit
 ```
 
+## Process
+
+The sequence below runs in order: decision preamble (resolve once), Steps 0-6 (inline commit pipeline), the concurrent docs + pre-push block (Step 7), then PR create, consolidate, and watch through Step 17.
+
 ## Decision preamble (resolve once, before Step 0; later steps read, never re-decide)
 
 | Flag | Detect | Effect |
