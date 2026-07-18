@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "spec-186/client-value-comms-lens",
   "created": "2026-07-18T07:35:44.640765+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "640",
+  "shipped": "2026-07-18T09:01:24.675005+00:00",
   "slug": "client-value-comms-lens",
   "spec_id": "spec-186",
-  "state": "approved",
+  "state": "shipped",
   "title": "Client-Value Lens \u2014 Stakeholder-Legible Communication for the Skill Chain"
 }
