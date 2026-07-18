@@ -28,7 +28,10 @@ from skill_lint.checks.effort import load_policy as load_dispatch_policy
 from skill_lint.checks.md_mirror import check_md_mirror_consistency
 from skill_lint.checks.naming import check_naming
 from skill_lint.checks.pair_aware import check_pair_consistency
+from skill_lint.checks.portability import check_portability
 from skill_lint.checks.principles import check_principles_citations
+from skill_lint.checks.structure import check_structure
+from skill_lint.checks.token_budget import check_token_budget
 from skill_lint.checks.value_block import check_value_block_citations
 
 _DEFAULT_SKILLS_ROOT = Path(".claude/skills")
@@ -208,6 +211,14 @@ def main(argv: list[str] | None = None) -> int:
     # chain skills omitting the value-lens.md citation surfaces CRITICAL
     # and drives exit 1 (D-186-06).
     value_block_results = check_value_block_citations(args.skills_root)
+    # spec-187 W1 (D-187-07): portability / structure / token-budget lints.
+    # WARN-ONLY this wave — severity counts surface in the summary line but
+    # NONE of them drive the exit code. They flip to blocking in W5. All
+    # reason strings are pure ASCII so the summary stays cp1252-safe
+    # (D-187-10).
+    portability_results = check_portability(args.skills_root, args.agents_root)
+    structure_results = check_structure(args.skills_root, args.agents_root)
+    token_budget_results = check_token_budget(args.skills_root, args.agents_root)
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -245,6 +256,17 @@ def main(argv: list[str] | None = None) -> int:
         value_block_counts: dict[str, int] = {}
         for _path, result in value_block_results:
             value_block_counts[result.severity] = value_block_counts.get(result.severity, 0) + 1
+        # spec-187 W1 (D-187-07): warn-only portability/structure/token-budget
+        # counters. Surfaced for visibility; NOT wired into _exit_code.
+        portability_counts: dict[str, int] = {}
+        for _path, result in portability_results:
+            portability_counts[result.severity] = portability_counts.get(result.severity, 0) + 1
+        structure_counts: dict[str, int] = {}
+        for _path, result in structure_results:
+            structure_counts[result.severity] = structure_counts.get(result.severity, 0) + 1
+        token_budget_counts: dict[str, int] = {}
+        for _path, result in token_budget_results:
+            token_budget_counts[result.severity] = token_budget_counts.get(result.severity, 0) + 1
         # Print a one-line summary so CI logs surface the result.
         sys.stdout.write(
             "skill_lint: skills "
@@ -275,6 +297,15 @@ def main(argv: list[str] | None = None) -> int:
             f"OK={value_block_counts.get('OK', 0)} "
             f"INFO={value_block_counts.get('INFO', 0)} "
             f"CRITICAL={value_block_counts.get('CRITICAL', 0)} "
+            f"| portability(warn) "
+            f"OK={portability_counts.get('OK', 0)} "
+            f"MINOR={portability_counts.get('MINOR', 0)} "
+            f"| structure(warn) "
+            f"OK={structure_counts.get('OK', 0)} "
+            f"MINOR={structure_counts.get('MINOR', 0)} "
+            f"| token_budget(warn) "
+            f"OK={token_budget_counts.get('OK', 0)} "
+            f"MINOR={token_budget_counts.get('MINOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
         return _exit_code(
