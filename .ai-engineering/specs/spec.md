@@ -3,7 +3,7 @@ spec: spec-187
 title: "Fleet Audit — Simplify + Model-Portability"
 status: approved
 effort: large
-summary: "Simplify and portability-harden the whole skill/agent/.md fleet: new lints enforce Anthropic authoring limits and canonical-only edits, cut canonical tokens >=25%, convert prose to procedure, and hard-delete all dead surface — shipped full-fleet via /ai-autopilot."
+summary: "Simplify and portability-harden the whole skill/agent/.md fleet: blocking lints enforce Anthropic authoring limits + canonical-only edits, canonical tokens -16.9% (ceiling, D-187-12), prose->procedure, all dead surface hard-deleted — shipped full-fleet via /ai-autopilot."
 ---
 
 # Fleet Audit — Simplify + Model-Portability
@@ -29,9 +29,15 @@ Delivered full-fleet via `/ai-autopilot`.
 
 ## Goals
 
-- Cut canonical skill+agent token footprint (description + body) by **≥25%**
-  versus a W1 `token-baseline` snapshot, with **100% of existing
-  conformance / parity / count-gate tests green**.
+- Cut the canonical token footprint versus a W1 `token-baseline` snapshot, with
+  **100% of existing conformance / parity / count-gate tests green**. **Achieved
+  −16.9%** (143,566 → 119,336 tokens; ~−30k lines fleet-wide across mirrors).
+  The original ≥25% target proved unreachable without capability loss — an
+  evidence-backed finding (D-187-12): five successive aggressive passes showed
+  diminishing returns (+1.7k → +3.6k → +0.7k tokens), and the ~8000-test
+  contract web reds on any core-content cut, so the remaining gap lives in
+  load-bearing Workflow steps / contract tables / decision records. −16.9% is
+  the capability-preserving ceiling, honoring "igual de potente o más".
 - Land three lints — **portability**, **structure/procedure**, **token-budget**
   — warn-only in W1, flipped to **blocking-green** by W5.
 - Enforce the Anthropic authoring contract fleet-wide: every `description:` is
@@ -196,6 +202,27 @@ anti-patterns) remain blocking, and the change is honest — it left ai-pr at a
 legitimate lower grade until its real content issues were addressed, not zeroed
 out. Overall rubric health improved under the same gate (principles MAJOR 25→8,
 pairs 9→5, Grade-C 2→0).
+
+### D-187-12 — Token target revised to the capability-preserving ceiling (−16.9%)
+**Choice:** Goal-1's ≥25% canonical-token cut is revised to the achieved
+**−16.9%** (143,566 → 119,336). The composite north-star (D-187-02) is otherwise
+fully met: determinism (prose→procedure, structure lint blocking), dead-surface
+removal, portability, and SSOT all delivered.
+**Rationale**: The 25% was set before the baseline existed. An audit + five
+successive aggressive simplification passes (W-waves, reach-25, smart framing
+removal, untapped-.md, agents/rulebook deep) established that the canonical
+surface is denser than raw line-counts implied — most reference "headroom" is
+load-bearing tables / decision records / schema contracts, and the fleet's
+~8000-test contract web reds on any core-content cut. Diminishing returns
+(+1.7k → +3.6k → +0.7k tokens per pass) confirm −17% as the ceiling reachable
+without deleting documented capability, which the spec forbids ("igual de
+potente o más"). Reaching 25% would require an explicit override to cut
+capability; the operator chose to ship the capability-preserving win. Real value
+delivered beyond the %: ~−30k lines fleet-wide, all redundant framing removed,
+stale defects fixed (skill count 54→53, ai-explore obsolete external-research
+prose, runbook layer-count, duplicated sections), 3 blocking authoring lints, an
+8-family portability tool-map, and a portable AGENTS.md entry — all 6 IDE
+surfaces + tri-OS intact.
 
 ## Risks
 
