@@ -19,7 +19,7 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 2. Read the manifest's `## Quality Outcome` and optional `quality_remediation` section. Extract the consolidated findings from Phase 5: final state (CLEAN or remaining medium/low issues), whether the bounded remediation pass was used, and the final reassessment result.
 3. If any sub-specs have status `blocked` or `cascade-blocked` in the manifest: collect their ID, title, scope, and blocking reason. These form the "Blocked / Undelivered" section.
 4. Aggregate all classifications across sub-specs into totals. Cross-reference against quality findings -- a file classified as "real" in a Self-Report but failing checks in Phase 5 should be reclassified as "failing".
-5. Produce the `## Integrity Report` section:
+5. Produce the `## Integrity Report` section. Lead the human-facing transparency report with the 6-field value block (Bottom line / Why it matters / What's done / Risk / Next / Details) per `.ai-engineering/reference/value-lens.md` at the resolved audience level (default `full`) so the sponsor sees what shipped and its residual risk before the classification detail. Quality convergence verdicts and blocked-sub-spec reasons stay a carve-out -- reported exactly.
 
 ```markdown
 ## Integrity Report

@@ -190,3 +190,8 @@ security:
     # missing/corrupt iocs.json never locks out the host. Env
     # AIENG_IOC_FAIL_CLOSED overrides this (env wins).
     fail_closed: false
+
+# Client-Value Lens default audience level (spec-186 D-186-02).
+# AIENG_VALUE_LENS_LEVEL env overrides this. One of: lite | full | ultra.
+value_lens:
+  default_level: full

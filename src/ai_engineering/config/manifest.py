@@ -373,6 +373,18 @@ class HotPathSlosConfig(BaseModel):
     rolling_window_events: int = 100
 
 
+class ValueLensConfig(BaseModel):
+    """Client-Value Lens audience-level default (spec-186 D-186-02).
+
+    ``default_level`` selects the sponsor-facing framing depth
+    (``lite`` | ``full`` | ``ultra``) when ``AIENG_VALUE_LENS_LEVEL`` is
+    unset. Resolved by :func:`ai_engineering.value_lens.resolve_level`, which
+    falls back to ``full`` on any unknown value.
+    """
+
+    default_level: str = "full"
+
+
 # --- Root model ---
 
 
@@ -406,3 +418,4 @@ class ManifestConfig(BaseModel):
     brainstorm: BrainstormConfig = Field(default_factory=BrainstormConfig)
     lifecycle: LifecycleConfig = Field(default_factory=LifecycleConfig)
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
+    value_lens: ValueLensConfig = Field(default_factory=ValueLensConfig)

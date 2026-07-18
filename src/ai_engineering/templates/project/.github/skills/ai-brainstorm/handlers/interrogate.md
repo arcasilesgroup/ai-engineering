@@ -56,6 +56,10 @@ D) Something else -- describe
 ```
 
 **Rules**:
+- Frame every user-facing question per `.ai-engineering/reference/value-lens.md`:
+  plain language (jargon translated or defined inline), with per-option
+  trade-offs (impact, effort, risk) so a non-technical sponsor can answer
+  meaningfully. Gate verdicts and security warnings stay precise (carve-outs).
 - ONE question per message. Wait for the answer.
 - Start with the highest-impact unknowns (architecture > behavior > naming).
 - Challenge vague answers: "Can you be more specific about what 'fast' means? Under 100ms? Under 1s?"
