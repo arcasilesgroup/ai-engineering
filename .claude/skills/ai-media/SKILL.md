@@ -10,21 +10,19 @@ requires: { mcp: ["fal-ai"] }
 
 # Media
 
-## Purpose
-
-Generate images, videos, and audio using fal.ai models via MCP. Progressive quality pattern: iterate cheap, finalize expensive. Covers text-to-image, text/image-to-video, text-to-speech, and video-to-audio.
+Generate images, videos, and audio via fal.ai models over MCP. Progressive quality: iterate cheap, finalize expensive.
 
 ## When to Use
 
-- `image`: generating images from text prompts (thumbnails, hero images, insert shots)
-- `video`: creating videos from text or images (demos, b-roll, social clips)
-- `audio`: generating speech, music, or sound effects (voiceover, background music, SFX)
+- `image`: text-to-image (thumbnails, hero images, insert shots) + image editing.
+- `video`: text/image-to-video (demos, b-roll, social clips).
+- `audio`: speech, music, SFX (voiceover, background music, video-to-audio).
 
-## Process
+## Workflow
 
-### Step 1 -- Gate Check (MCP Required)
+Applies §10.2 YAGNI (don't pay for production models until composition is locked) and §10.1 KISS (simplest model that meets the need).
 
-Verify the fal.ai MCP server is configured. If not available, inform the user and provide setup instructions:
+1. **Gate: MCP** — verify the fal.ai MCP server is configured. If missing, give setup instructions (key at [fal.ai](https://fal.ai)):
 
 ```json
 "fal-ai": {
@@ -34,38 +32,14 @@ Verify the fal.ai MCP server is configured. If not available, inform the user an
 }
 ```
 
-Get an API key at [fal.ai](https://fal.ai).
+2. **Estimate cost** before generating; report the estimate for expensive runs (video especially): `estimate_cost(model_name: "fal-ai/...", input: {...})`.
+3. **Gate: ElevenLabs** — for TTS via ElevenLabs, verify `ELEVENLABS_API_KEY`; else fall back to `csm-1b` or inform the user.
+4. **Generate progressively** — cheap model for prompt iteration, lock with `seed`, then switch to the production model for finals.
+5. **Deliver** — file path/URL, model + parameters, cost incurred, iteration suggestions if quality is low.
 
-### Step 2 -- Estimate Cost
+Progression: nano-banana-2 -> nano-banana-pro · seedance-1-0-pro -> veo-3 · csm-1b -> ElevenLabs.
 
-Before generating, always check estimated cost:
-
-```
-estimate_cost(model_name: "fal-ai/...", input: {...})
-```
-
-Inform the user of the estimate before proceeding with expensive generations (video especially).
-
-### Step 3 -- ElevenLabs Gate Check
-
-Before using ElevenLabs, verify `ELEVENLABS_API_KEY` is set. If not, fall back to csm-1b or inform the user.
-
-### Step 4 -- Generate with Progressive Quality
-
-Start with cheaper models for prompt iteration, then switch to production models for finals.
-
-### Step 5 -- Deliver
-
-Provide the generated media with:
-
-- file path or URL
-- model used and parameters
-- cost incurred
-- suggestions for iteration if quality is not satisfactory
-
-## Quick Reference
-
-### Model Table
+## Model Reference
 
 | Model                       | Type  | Best For                                        | Cost Tier |
 | --------------------------- | ----- | ----------------------------------------------- | --------- |
@@ -77,47 +51,13 @@ Provide the generated media with:
 | `fal-ai/csm-1b`             | Audio | Conversational text-to-speech                   | Low       |
 | `fal-ai/thinksound`         | Audio | Video-to-audio (matching sounds from video)     | Medium    |
 
-### Image Parameters
-
-| Param            | Type   | Options                                                                      | Notes                                                    |
-| ---------------- | ------ | ---------------------------------------------------------------------------- | -------------------------------------------------------- |
-| `prompt`         | string | required                                                                     | Describe what you want                                   |
-| `image_size`     | string | `square`, `portrait_4_3`, `landscape_16_9`, `portrait_16_9`, `landscape_4_3` | Aspect ratio                                             |
-| `num_images`     | number | 1-4                                                                          | How many to generate                                     |
-| `seed`           | number | any integer                                                                  | Reproducibility                                          |
-| `guidance_scale` | number | 1-20                                                                         | How closely to follow the prompt (higher = more literal) |
-
-### Video Parameters
-
-| Param          | Type   | Options                     | Notes                           |
-| -------------- | ------ | --------------------------- | ------------------------------- |
-| `prompt`       | string | required                    | Describe the video              |
-| `duration`     | string | `"5s"`, `"10s"`             | Video length                    |
-| `aspect_ratio` | string | `"16:9"`, `"9:16"`, `"1:1"` | Frame ratio                     |
-| `seed`         | number | any integer                 | Reproducibility                 |
-| `image_url`    | string | URL                         | Source image for image-to-video |
-
-### MCP Tools Available
-
-| Tool            | Purpose                          |
-| --------------- | -------------------------------- |
-| `search`        | Find available models by keyword |
-| `find`          | Get model details and parameters |
-| `generate`      | Run a model with parameters      |
-| `result`        | Check async generation status    |
-| `status`        | Check job status                 |
-| `cancel`        | Cancel a running job             |
-| `estimate_cost` | Estimate generation cost         |
-| `models`        | List popular models              |
-| `upload`        | Upload files for use as inputs   |
-
-## Progressive Quality Pattern
-
-Iteration (low-cost) -> Production (high-cost): nano-banana-2 -> nano-banana-pro · seedance-1-0-pro -> veo-3 · csm-1b -> ElevenLabs. Use `seed` for reproducible results when iterating; lock once composition works, then switch to the production model.
+- **Image params**: `prompt` (required); `image_size` (`square`, `portrait_4_3`, `landscape_16_9`, `portrait_16_9`, `landscape_4_3`); `num_images` (1-4); `seed`; `guidance_scale` (1-20, higher = more literal).
+- **Video params**: `prompt` (required); `duration` (`"5s"`, `"10s"`); `aspect_ratio` (`"16:9"`, `"9:16"`, `"1:1"`); `seed`; `image_url` (source for image-to-video).
+- **MCP tools**: `search`, `find`, `generate`, `result`, `status`, `cancel`, `estimate_cost`, `models`, `upload`.
 
 ## Image Editing
 
-Use Nano Banana 2 with an input image for inpainting, outpainting, or style transfer:
+Nano Banana 2 with an input image for inpainting, outpainting, or style transfer:
 
 ```
 upload(file_path: "/path/to/image.png")
@@ -132,32 +72,20 @@ For non-MCP integrations (ElevenLabs, VideoDB), follow `handlers/external-apis.m
 
 ## Common Mistakes
 
-Do not skip `estimate_cost`, use production models for first-pass iteration, ignore `seed`, choose pure text-to-video when image-to-video is more controlled, or assume fal.ai access covers ElevenLabs credentials.
+Skipping `estimate_cost`; production models for first-pass iteration; ignoring `seed`; pure text-to-video when image-to-video is more controlled; assuming fal.ai access covers ElevenLabs credentials.
+
+## Integration
+
+- **Called by**: user directly, `/ai-build`, `ai-video-editing` (Layer 5 generated assets)
+- **Calls**: fal.ai MCP, ElevenLabs API, VideoDB API
+- **See also**: `/ai-visual` (composed visuals), `/ai-slides` (deck visuals), `/ai-animation`
 
 ## Examples
-
-### Example 1 — generate a hero image for a blog post
-
-User: "create a hero image for the blog post about parallel agent planning"
 
 ```
 /ai-media image hero for parallel agent planning blog
 ```
 
 Iterates with `nano-banana-2` (cheap), locks composition with `seed`, switches to `nano-banana-pro` for the production final, returns URL + cost.
-
-### Example 2 — voiceover for a demo video
-
-User: "make a 30-second voiceover for the v1.0 demo"
-
-```
-/ai-media audio voiceover for v1.0 demo
-```
-
-Iterates with `csm-1b` for cheap previews, finalizes with ElevenLabs for production-quality output.
-
-## Integration
-
-Called by: user directly, `/ai-build`, `ai-video-editing` (Layer 5 generated assets). Calls: fal.ai MCP, ElevenLabs API, VideoDB API. See also: `/ai-visual` (composed visuals), `/ai-slides` (deck visuals), `/ai-animation`.
 
 $ARGUMENTS

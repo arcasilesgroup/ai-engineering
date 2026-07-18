@@ -15,67 +15,46 @@ edit_policy: generated-do-not-edit
 
 # Postmortem
 
-## Purpose
+Structured, blameless incident postmortem using the DERP model (Detection, Escalation, Recovery, Prevention). Storage: `.ai-engineering/postmortems/{id}.md`, ID format `PM-YYYY-NNN` (sequential within year). Status: `draft` → `in-review` (all DERP sections complete) → `complete` (action items assigned).
 
-Structured incident postmortem using the DERP model. Guides through Detection, Escalation, Recovery, and Prevention phases with targeted questions. Produces blameless, actionable postmortem documents.
-
-## Trigger
-
-- Command: `/ai-postmortem start|continue|find|generate`
-- Context: incident occurred, production failure, outage resolution, near-miss analysis.
+```
+/ai-postmortem start                  # begin new postmortem
+/ai-postmortem continue PM-2026-001   # resume in-progress postmortem
+/ai-postmortem find database          # search past postmortems
+/ai-postmortem generate               # generate from existing context
+```
 
 ## Workflow
 
-Four modes follow the DERP loop:
+Principles: §10.4 DRY (one DERP template + interview script, no per-incident ad-hoc format).
 
-1. `start` — scaffold a new postmortem under `.ai-engineering/postmortems/PM-YYYY-NNN.md` from the template; pose Detection-phase questions.
-2. `continue <id>` — resume an in-progress postmortem; advance through Escalation → Recovery → Prevention.
-3. `generate` — synthesize from existing session context (recent commits, alerts, logs).
-4. `find [query]` — search past postmortems for similar patterns.
+Interview rule: ask ONE DERP section at a time; wait for answers before advancing. If the user pastes a timeline covering multiple phases, extract into each section rather than re-asking. Only interview for sections that remain incomplete.
 
-## Modes
+### start — new postmortem
 
-### start -- New postmortem
+1. **Assign ID** `PM-YYYY-NNN`; set status `draft`.
+2. **Scaffold** `.ai-engineering/postmortems/{id}.md` from the DERP template.
+3. **Detection** — when first detected? how (monitoring / user report / manual)? time from start to detection? what monitoring should have caught it earlier?
+4. **Escalation** — who was notified and when? was the escalation path appropriate? were the right people involved at the right time?
+5. **Recovery** — what actions restored service? total downtime/impact duration? was there a rollback, and what was the procedure?
+6. **Prevention** — root cause (5-Whys if needed); what changes prevent recurrence; action items with owners + deadlines.
 
-1. **Assign ID** -- generate `PM-YYYY-NNN` (sequential within year).
-2. **Set status** -- `draft`.
-3. **Scaffold** -- create `.ai-engineering/postmortems/{id}.md` with DERP template.
-4. **Interview -- Detection**:
-   - When was the incident first detected?
-   - How was it detected? (monitoring, user report, manual discovery)
-   - What was the time between incident start and detection?
-   - What monitoring should have caught it earlier?
-5. **Interview -- Escalation**:
-   - Who was notified and when?
-   - Was the escalation path appropriate?
-   - Were the right people involved at the right time?
-6. **Interview -- Recovery**:
-   - What actions were taken to restore service?
-   - What was the total downtime/impact duration?
-   - Was there a rollback? What was the rollback procedure?
-7. **Interview -- Prevention**:
-   - Root cause (use 5-Whys if needed)
-   - What changes prevent recurrence?
-   - Action items with owners and deadlines
+### continue <id> — resume
 
-Ask ONE section at a time. Wait for answers before proceeding to the next DERP phase. If the user provides answers for multiple DERP phases at once (e.g., pastes an incident timeline), extract the relevant information into each section rather than re-asking. Only interview for sections that remain incomplete.
+1. **Load** `.ai-engineering/postmortems/{id}.md`.
+2. **Find gap** — first incomplete DERP section.
+3. **Resume interview** from that section.
 
-### continue <id> -- Resume postmortem
+### generate — from existing notes
 
-1. **Load** -- read `.ai-engineering/postmortems/{id}.md`.
-2. **Find gap** -- identify the first incomplete DERP section.
-3. **Resume interview** -- continue from the incomplete section.
+1. **Collect** incident-related commits, PRs, pasted Slack threads, and context notes.
+2. **Draft** DERP sections from available data; mark gaps `[NEEDS INPUT]`.
+3. **Review** — present the draft for validation before saving.
 
-### find [query] -- Search postmortems
+### find [query] — search
 
-1. **Search** -- scan `.ai-engineering/postmortems/*.md` for matching content.
-2. **List** -- show ID, title, date, status, and root cause summary.
-
-### generate -- Create from existing notes
-
-1. **Collect** -- gather incident-related commits, PRs, Slack threads (if provided by the user as pasted text), and notes from context.
-2. **Draft** -- populate DERP sections from available data, mark gaps as `[NEEDS INPUT]`.
-3. **Review** -- present draft for user validation before saving.
+1. **Search** `.ai-engineering/postmortems/*.md` for matching content.
+2. **List** ID, title, date, status, root-cause summary.
 
 ## Document Template
 
@@ -109,24 +88,7 @@ Ask ONE section at a time. Wait for answers before proceeding to the next DERP p
 |------|-------|
 ```
 
-## Status Progression
-
-`draft` -> `in-review` (all DERP sections complete) -> `complete` (action items assigned)
-
-## Quick Reference
-
-```
-/ai-postmortem start                  # begin new postmortem
-/ai-postmortem continue PM-2026-001   # resume in-progress postmortem
-/ai-postmortem find database           # search past postmortems
-/ai-postmortem generate               # generate from existing context
-```
-
-Storage: `.ai-engineering/postmortems/{id}.md` (ID format `PM-YYYY-NNN`).
-
 ## Examples
-
-### Example 1 — start a new postmortem after an outage
 
 User: "we had an outage in checkout this morning, write it up"
 
@@ -134,17 +96,7 @@ User: "we had an outage in checkout this morning, write it up"
 /ai-postmortem start
 ```
 
-Scaffolds `PM-2026-001.md`, asks Detection-phase interview questions (when/how detected, time-to-page, alert quality), advances to Escalation when answered.
-
-### Example 2 — generate from session context
-
-User: "synthesize a near-miss postmortem from this debug session"
-
-```
-/ai-postmortem generate
-```
-
-Reads recent debug session, alerts, commits; drafts DERP sections with TBD markers where data is incomplete.
+Scaffolds `PM-2026-001.md`, asks Detection-phase questions (when/how detected, time-to-page, alert quality), advances to Escalation once answered.
 
 ## Integration
 

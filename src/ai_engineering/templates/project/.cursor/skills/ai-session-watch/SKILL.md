@@ -176,17 +176,7 @@ Structured summary: observations extracted (count per family), entries upserted 
 
 ## Examples
 
-### Example 1 — start a passive observation session
-
-User: "begin observing this session for pattern learning"
-
-```
-/ai-session-watch
-```
-
-Outputs `observing the session...` and goes silent. The model passively notes corrections, error recoveries, and workflow sequences as the session continues. No further output until `--review`.
-
-### Example 2 — consolidate before committing
+### Example — consolidate before committing
 
 User: "review what was learned in this session before I commit"
 
@@ -194,7 +184,7 @@ User: "review what was learned in this session before I commit"
 /ai-session-watch --review
 ```
 
-Runs the 5-step consolidation: extract observations from the conversation, enrich with hook events, upsert into `observations.yml`, evaluate against LESSONS.md, and create work items for high-confidence proposals.
+Runs the 5-step consolidation: extract observations from the conversation, enrich with hook events, upsert into `observations.yml`, evaluate against LESSONS.md, and create work items for high-confidence proposals. (Bare `/ai-session-watch` instead just prints `observing the session...` and goes silent until `--review`.)
 
 ## Integration
 

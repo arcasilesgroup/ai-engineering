@@ -120,25 +120,24 @@ def test_rule_4_line_and_token_budget(skills_report) -> None:
 
 
 def test_rule_5_required_sections(skills_report) -> None:
-    """`## Quick start`, `## Workflow`, `## Examples`, `## Integration` headings.
+    """`## Workflow`, `## Examples`, `## Integration` headings present.
 
-    Post-M2 contract: every skill carries `## Examples` and
-    `## Integration`. Rule 5 must therefore pass (OK severity) on the
-    majority of skills — anything missing either section is a
-    regression to flag, not the universal gap of the M1 baseline.
+    spec-187 D-187-11 contract: "Quick start" is no longer required
+    (redundant with the description under the leaner standard). Every
+    skill must still carry Workflow (procedure), Examples, and
+    Integration. A MAJOR/CRITICAL rule_5 (a genuinely missing core
+    section) is a regression; residual MINORs are tolerated.
     """
     rule = _get_rule("rule_5_required_sections")
     assert rule is not None
-    flagged = [
+    hard = [
         r
         for r in skills_report.per_skill
-        if r.rule_for("rule_5_required_sections")
-        and r.rule_for("rule_5_required_sections").severity != "OK"
+        if (rr := r.rule_for("rule_5_required_sections")) and rr.severity in {"MAJOR", "CRITICAL"}
     ]
-    assert len(flagged) <= 5, (
-        "M2 added ## Examples + ## Integration to all skills; rule_5 "
-        f"flags must be ≤5 (any leftover is a regression); got {len(flagged)}/49: "
-        f"{[r.path.name for r in flagged][:10]}"
+    assert len(hard) <= 2, (
+        "rule_5: MAJOR/CRITICAL missing-section flags must be ≤2; got "
+        f"{len(hard)}: {[(r.path.name, r.rule_for('rule_5_required_sections').reason) for r in hard][:10]}"
     )
 
 
@@ -148,24 +147,25 @@ def test_rule_5_required_sections(skills_report) -> None:
 
 
 def test_rule_6_examples_count(skills_report) -> None:
-    """`## Examples` ≥2 invocations with expected output style.
+    """`## Examples` carries ≥1 canonical invocation.
 
-    Post-M2 contract: every SKILL.md ships `## Examples` with ≥2
-    invocations after Wave 2 CSO sweep. Rule 6 must pass on the vast
-    majority of skills; failures are regressions to investigate.
+    spec-187 D-187-06 contract: one canonical example is the standard
+    (the prior ≥2 requirement rewarded copy-paste boilerplate). rule_6
+    is OK at ≥1 example and a visible-but-unpenalised INFO at 0
+    (example moved to references/). It never emits a penalty severity,
+    so no skill may carry a MINOR/MAJOR/CRITICAL rule_6 result.
     """
     rule = _get_rule("rule_6_examples_count")
     assert rule is not None
-    failures = [
+    penalised = [
         r
         for r in skills_report.per_skill
-        if r.rule_for("rule_6_examples_count")
-        and r.rule_for("rule_6_examples_count").severity != "OK"
+        if (rr := r.rule_for("rule_6_examples_count"))
+        and rr.severity in {"MINOR", "MAJOR", "CRITICAL"}
     ]
-    assert len(failures) <= 5, (
-        "M2 appended ≥2 examples to every skill; rule_6 failures must "
-        f"be ≤5 (any leftover is a regression); got {len(failures)}/49: "
-        f"{[r.path.name for r in failures][:10]}"
+    assert not penalised, (
+        "spec-187 D-187-06: rule_6 is OK at ≥1 example, INFO at 0 — never "
+        f"penalised; got {len(penalised)}: {[r.path.name for r in penalised][:10]}"
     )
 
 

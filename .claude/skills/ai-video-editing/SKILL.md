@@ -10,46 +10,40 @@ requires: { bins: ["ffmpeg"], anyBins: ["npx"] }
 
 # Video Editing
 
-## Quick start
-
-```
-/ai-video-editing plan recording.mp4               # plan structure from raw footage
-/ai-video-editing organize raw.mp4                 # transcribe + edit decision list
-/ai-video-editing cut --edl cuts.txt               # deterministic FFmpeg cuts
-/ai-video-editing compose --source demo.mp4 --aspect 9:16
-```
-
-## Workflow
-
-AI-assisted editing for real footage. Not generation from prompts. Core thesis: **the value is not generation. The value is compression.**
-
-1. **Gate check** — verify `ffmpeg` is available (`ffmpeg -version`); install via `brew install ffmpeg` / `apt install ffmpeg` / `choco install ffmpeg`.
-2. **Pick mode** — `plan` (structure), `organize` (transcribe + EDL), `cut` (FFmpeg deterministic), `compose` (Remotion overlays, optional).
-3. **Run the 6-layer pipeline** — Capture → Organization → Deterministic Cuts → Programmable Composition → Generated Assets → Final Polish (human).
-4. **Cross-reference** `ai-media` for Layer 5 generated assets (voiceover, music/SFX, b-roll).
-
-> Detail: see [the 6-layer pipeline + tool table](references/six-layer-pipeline.md), [FFmpeg recipes (extract / batch-cut / concat / proxy / silence detect)](references/ffmpeg-recipes.md), [social-platform reframing presets](references/social-presets.md).
+AI-assisted editing for real footage — not generation from prompts. Core thesis: the value is not generation, it is compression.
 
 ## When to Use
 
-- `plan`: designing the overall edit structure from raw footage or transcript
-- `organize`: transcribing, labeling, identifying segments, generating edit decision lists
+- `plan`: design the overall edit structure from raw footage or transcript
+- `organize`: transcribe, label, identify segments, generate edit decision lists (EDL)
 - `cut`: deterministic FFmpeg operations (trim, split, concatenate, reframe, normalize)
 - `compose`: programmable overlays and compositions via Remotion (optional)
 
-Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
+## Workflow
+
+Applies §10.1 KISS (deterministic FFmpeg cuts over reinvented pipelines) and §10.2 YAGNI (compress real footage; generate assets only where footage is missing).
+
+0. Load contexts: read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` per stack + `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md`.
+1. **Gate** — verify `ffmpeg` (`ffmpeg -version`); install via `brew install ffmpeg` / `apt install ffmpeg` / `choco install ffmpeg`.
+2. **Pick mode** — `plan`, `organize`, `cut`, or `compose`.
+3. **Run the 6-layer pipeline** — Capture → Organization → Deterministic Cuts → Programmable Composition → Generated Assets → Final Polish (human).
+4. **Cross-reference** `ai-media` for Layer 5 generated assets (voiceover, music/SFX, b-roll).
+
+Detail: [6-layer pipeline + tool table](references/six-layer-pipeline.md), [FFmpeg recipes: extract / batch-cut / concat / proxy / silence detect](references/ffmpeg-recipes.md), [social-platform reframing presets](references/social-presets.md).
 
 ## Common Mistakes
 
-- Trying to generate the whole video instead of compressing real footage.
+- Generating the whole video instead of compressing real footage.
 - Skipping organization or final polish.
 - Forcing one tool to span every layer.
 - Ignoring proxy / audio-normalization hygiene.
 - Replacing usable footage with generated assets.
 
-## Examples
+## Integration
 
-### Example 1 — highlight reel from a recording
+Called by: user directly, `/ai-build`. Calls: `ffmpeg` (deterministic cuts), Remotion (compositions), `/ai-media` (Layer 5 generated assets). See also: `/ai-media` (asset generation), `/ai-slides` (deck embeds), `/ai-visual` (cover art).
+
+## Examples
 
 User: "cut this 60-minute talk into a 90-second highlight reel"
 
@@ -58,19 +52,5 @@ User: "cut this 60-minute talk into a 90-second highlight reel"
 ```
 
 Plans cuts, transcribes, identifies highlight beats, runs FFmpeg trim+concat, normalizes audio, outputs the reel.
-
-### Example 2 — reframe for TikTok
-
-User: "reframe this 16:9 demo for TikTok 9:16"
-
-```
-/ai-video-editing compose --source demo.mp4 --aspect 9:16
-```
-
-Center-crop reframe with subject tracking via Remotion overlay, audio normalization, social-platform-ready output.
-
-## Integration
-
-Called by: user directly, `/ai-build`. Calls: `ffmpeg` (deterministic cuts), Remotion (compositions), `/ai-media` (Layer 5 generated assets). See also: `/ai-media` (asset generation), `/ai-slides` (deck embeds), `/ai-visual` (cover art).
 
 $ARGUMENTS

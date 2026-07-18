@@ -24,65 +24,60 @@ edit_policy: generated-do-not-edit
 
 ## Workflow
 
-High-signal code review with full specialist coverage and aggressive false-positive control. `review` is review-only. This SKILL.md owns the user-facing contract; reviewer agent files provide specialist lenses and validation stages, not a competing surface.
+Principles applied: §10.7 Clean Code (readability, naming, single-responsibility); §10.4 DRY (flag duplication and missed reuse). High-signal review with full specialist coverage and aggressive false-positive control. This SKILL.md owns the user-facing contract; reviewer agent files provide specialist lenses and validation stages.
 
-1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` for each stack.
+1. **Step 0 — load contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; apply `.ai-engineering/overrides/<stack>/conventions.md` per stack.
 2. **Detect target** — PR number, file paths, or current diff.
-3. **Dependency preflight** — verify `review-context.md`, `review-validator.md`, plus required `.cursor/agents/internal/reviewer-*.md` files for the selected mode and detected diff scope (`frontend` conditional on UI work — covers React, hooks, animation, typography, forms, a11y). STOP and report exact missing path(s) — never paraphrase missing reviewer instructions inline.
-4. **Pre-review** — dispatch `review-context.md` via Agent tool; serialize output for every specialist.
+3. **Dependency preflight** — verify `review-context.md`, `review-validator.md`, plus the `.cursor/agents/internal/reviewer-*.md` files the selected mode + diff scope need (`frontend` conditional on UI work — React, hooks, animation, typography, forms, a11y). STOP and report the exact missing path — never paraphrase reviewer instructions inline.
+4. **Pre-review** — dispatch `review-context.md` via the Agent tool; serialize its output for every specialist.
 5. **Specialists** — `normal` = 3 macro-agents; `--full` = one agent per specialist. Both run the full roster — grouping controls cost only.
 6. **Validate** — dispatch `review-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
 7. **Emit** — Findings / Risks / Recommendations / Self-Challenge, attributed by original specialist lens.
 
 ## Dispatch threshold
 
-Dispatch the `ai-review` agent for any narrative review (PR, branch, diff, or path scope). Each specialist runs in its own context window via the Agent tool. The agent file (`.cursor/agents/ai-review.mdc`) is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
+Dispatch the `ai-review` agent for any narrative review over ≥ 1 changed file (PR, branch, diff, or path scope). Each specialist runs in its own context window via the Agent tool. `.cursor/agents/ai-review.mdc` is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
 
 ## When to Use
 
-- Before merging a PR
-- After completing a feature
-- When reviewing someone else's code
-- When you need architecture-aware feedback instead of deterministic gates (use `/ai-verify` for evidence gates).
+- Before merging a PR, after completing a feature, or reviewing someone else's code.
+- When you need architecture-aware feedback instead of deterministic gates.
+- NOT for evidence-backed gates (use /ai-verify); NOT for narrative writing (use /ai-prose).
 
 ## Specialist Roster
 
-Spec-140 W3 collapsed the roster from 11 specialists to 6. `reviewer-architecture` (DRY/reuse/proportionality) and `reviewer-maintainability` (readability/naming) heuristics are absorbed into `reviewer-correctness`. `reviewer-backend` was deleted outright (categorically mismatched: this repo is a Python CLI, no separate backend tier).
+Spec-140 W3 collapsed the roster from 11 specialists to 6. `reviewer-architecture` (DRY/reuse/proportionality) and `reviewer-maintainability` (readability/naming) are absorbed into `reviewer-correctness`. `reviewer-backend` was deleted (this repo is a Python CLI, no separate backend tier).
 
 | Specialist | Agent File | Focus |
 | --- | --- | --- |
-| `correctness` | `reviewer-correctness.md` | logic bugs, null handling, races, edge cases + absorbed architecture (DRY/reuse/proportionality) + maintainability (readability/naming) lenses |
+| `correctness` | `reviewer-correctness.md` | logic bugs, null handling, races, edge cases + absorbed architecture (DRY/reuse) + maintainability (readability/naming) |
 | `security` | `reviewer-security.md` | vulnerabilities, auth, data exposure, dependency risk |
 | `testing` | `reviewer-testing.md` | coverage, quality, edge cases, mocking patterns |
 | `performance` | `reviewer-performance.md` | query shape, complexity, hot paths, memory |
-| `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript, animation, typography, forms (conditional; absorbs the legacy `design` lens per D-127-10) |
+| `frontend` | `reviewer-frontend.md` | React, hooks, a11y, TypeScript, animation, typography, forms (conditional; absorbs legacy `design` lens, D-127-10) |
 | `compatibility` | `reviewer-compatibility.md` | breaking changes, backwards compat, migrations |
 
 `normal` macro-agent grouping: (1) correctness + testing + compatibility, (2) security + performance, (3) frontend (conditional on UI diff; merges with macro-agent-2 when not dispatched).
 
 ## Output Contract
 
-Group findings by severity first, then specialist lens. Keep attribution by original specialist even in `normal`. Include `not_applicable` / `low_signal` outcomes when a specialist had little to contribute. Show which findings survived adversarial validation.
+Group findings by severity first, then original specialist lens (keep attribution even in `normal`). Include `not_applicable` / `low_signal` outcomes where a specialist had little to contribute. Show which findings survived adversarial validation.
 
 ## Stack-specific review guidance
 
-spec-133 D-133-10 consolidates stack-specific review guidance into the
-`.ai-engineering/overrides/<stack>/review.md` files. For each stack
-detected in the diff, load `overrides/<stack>/review.md`. Greenfield
-mode (stacks=[]): use generic review criteria + hint
-"add a project file and run `ai-eng doctor --fix`".
+For each stack in the diff, load `.ai-engineering/overrides/<stack>/review.md` (D-133-10). Greenfield mode (stacks=[]): use generic review criteria + hint "add a project file and run `ai-eng doctor --fix`".
 
 ## Common Mistakes
 
 - Treating the 3 macro-agents in `normal` as reduced coverage — they are not.
 - Reporting by macro-agent instead of original specialist lens.
-- Skipping context exploration before review, or skipping the validator stage.
+- Skipping context exploration or the validator stage.
 - Treating style preferences as blocking findings.
-- Reading specialist agent files inline instead of dispatching via Agent tool.
+- Reading specialist agent files inline instead of dispatching via the Agent tool.
 
 ## Examples
 
-### Example 1 — review a PR before approval
+### Example — review a PR before approval
 
 User: "review PR #42"
 
@@ -90,17 +85,7 @@ User: "review PR #42"
 /ai-review 42
 ```
 
-Dispatches the 3 macro-agents (correctness, frontend, security/perf) over the diff, aggregates findings with corroboration, emits the Findings table with severity + remediation.
-
-### Example 2 — full-coverage review on a complex diff
-
-User: "do the full reviewer roster on this branch"
-
-```
-/ai-review --full
-```
-
-Dispatches one agent per specialist (correctness, security, testing, performance, frontend, compatibility — 6 post-W3), runs the validator stage, deduplicates and ranks findings.
+Dispatches the 3 macro-agents (correctness/testing/compat, security/perf, conditional frontend) over the diff, aggregates findings with corroboration, runs the validator stage, and emits the Findings table with severity + remediation.
 
 ## Integration
 

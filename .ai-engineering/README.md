@@ -62,7 +62,7 @@ Invoke a skill with `/ai-<name>` in your IDE agent surface.
 | Name | What it does |
 | --- | --- |
 | `/ai-advise` | Proactive governance advisor — checks standards, decisions, and quality trends during development. |
-| `/ai-animation` | Designs motion, transitions, and micro-interactions for UI components: spring animations, gestures, easing, staggers — taste-driven detail compounding. |
+| `/ai-animation` | Designs motion, transitions, and micro-interactions for UI components: spring animations, gestures, easing, staggers. |
 | `/ai-autopilot` | Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs a single final quality loop with one bounded quality-remediation pass (verify+guard+review on full changeset), delivers via PR. |
 | `/ai-board` | Operates the project board (GitHub Projects v2 or Azure DevOps): discovers configuration after install (fields, state mappings, process templates) and syncs work-item state at lifecycle transitions. |
 | `/ai-brainstorm` | Forces rigorous design interrogation BEFORE any code: explores approaches, surfaces ambiguity, gathers evidence, produces an approved spec that becomes the contract for /ai-plan. |
@@ -72,7 +72,7 @@ Invoke a skill with `/ai-<name>` in your IDE agent surface.
 | `/ai-commit` | Runs the governed commit pipeline: auto-branches from protected, stages selectively, formats and lints, scans for secrets, gates docs, composes a conventional message, pushes. |
 | `/ai-constitution` | Interviews the operator to produce a project-identity CONSTITUTION.md (Mission / Stakeholders / Vocabulary / Prohibitions / Compliance gates / Anti-goals / Boundaries / Escalation / Language / Lifecycle phase). |
 | `/ai-debug` | Diagnoses broken behavior systematically with a 4-phase root-cause loop: test failures, runtime errors, crashes, regressions. |
-| `/ai-design` | Designs user interfaces and design systems for web, mobile, CLI, and documentation-heavy experiences: aesthetic direction, color palettes, typography, spatial composition, information architecture. |
+| `/ai-design` | Designs user interfaces and design systems: aesthetic direction, color palettes, typography, spatial composition, information architecture for web, mobile, CLI, and docs-heavy experiences. |
 | `/ai-docs` | Manages the documentation lifecycle: CHANGELOG, README, solution-intent architecture docs, external docs portals, and documentation quality gates. |
 | `/ai-engineering-issue` | Files an upstream bug or improvement report against `arcasilesgroup/ai-engineering` (the framework repo) with strict seven-vector redaction, mandatory human confirmation, and an archived sanitized copy. |
 | `/ai-explain` | Explains code, concepts, patterns, and architecture with engineer-grade depth: 3-tier control (brief/standard/deep), ASCII diagrams, execution traces, anchored to real file:line references. |
@@ -111,9 +111,9 @@ Invoke a skill with `/ai-<name>` in your IDE agent surface.
 | `/ai-start` | Bootstraps a coding session: loads project context and displays a welcome dashboard with recent activity, board items, and available commands. |
 | `/ai-support` | Investigates customer-reported issues with structure: reproduces, traces to code, documents resolution, builds a searchable knowledge base organized by ticket ID. |
 | `/ai-test` | Writes tests, enforces TDD (RED-GREEN-REFACTOR), analyzes coverage gaps, defines test strategy across Python, TypeScript, .NET, Rust, Go. |
-| `/ai-verify` | Use when verification with evidence is needed — not assumptions. |
+| `/ai-verify` | Verifies claims with evidence, not assumptions: runs deterministic + acceptance specialists post-W3 (`normal` implicit, `--full` explicit), plus a `--release` mode aggregating 8-dimension release readiness (coverage, security, tests, lint, dependencies, types, docs, packaging) into a GO/CONDITIONAL GO/NO-GO verdict. |
 | `/ai-video-editing` | Edits real video footage: cuts recordings into highlights, transcribes and structures raw footage, runs FFmpeg operations (trim, concat, reframe, normalize audio), creates Remotion overlays, prepares social-platform cuts. |
-| `/ai-visual` | Produces static visual design artifacts (posters, banners, flyers, branding pieces, cover art, identity compositions) by composing aesthetic philosophies into HTML/SVG and rendering to PDF/PNG. |
+| `/ai-visual` | Produces static visual design artifacts (posters, banners, flyers, branding, cover art, identity compositions) by composing named aesthetic philosophies into HTML/SVG, rendered to PDF/PNG. |
 
 ### Agents (9)
 

@@ -16,46 +16,46 @@ edit_policy: generated-do-not-edit
 
 # Advise
 
-Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the Agent tool, captures findings with severity (`info | warn | concern`), and renders an advisory output. Never blocks. Never modifies code.
+Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the Agent tool, captures findings with severity (`info | warn | concern`), renders an advisory. Never blocks. Never modifies code.
 
 ## Quick start
 
 ```
-/ai-advise                                # default: advise mode on staged changes
-/ai-advise advise src/auth/               # post-edit advisory, scoped to paths
-/ai-advise gate                           # pre-dispatch governance check
-/ai-advise drift                          # compare implementation to active decisions
+/ai-advise                    # advise mode on staged changes (default)
+/ai-advise advise src/auth/   # post-edit advisory, scoped to paths
+/ai-advise gate               # pre-dispatch governance check
+/ai-advise drift              # compare implementation to active decisions
 ```
 
 ## Workflow
 
-Principles applied: §10.6 SDD (the advisory output traces every warning to an active decision or stack standard — no advice without a documented anchor); §10.4 DRY (the agent contract owns the analysis loop — the skill never paraphrases standards inline).
+Principles: §10.6 SDD (every warning traces to an active decision or stack standard — no advice without a documented anchor); §10.4 DRY (the agent contract owns the analysis loop — the skill never paraphrases standards inline).
 
-1. **Step 0** — load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` so stack-specific standards are in scope when guard analyses changed files.
-2. **Detect mode** — first positional argument is `advise` (default), `gate`, or `drift`. Anything else is treated as a path filter and the mode defaults to `advise`.
-3. **Dependency preflight** — verify `.github/agents/advise.agent.md` (or, post-rename, `.github/agents/advise.agent.md`) is on disk. STOP and report the exact missing path if absent — never paraphrase agent instructions inline.
-4. **Dispatch** — invoke the `ai-advise` agent (or post-rename `ai-advise` agent) via the Agent tool with `{mode, paths, severity_floor}`. The agent runs in its own context window and returns the structured advisory.
-5. **Render** — emit the advisory table grouped by severity (`concern` first, then `warn`, then `info`). Every row carries `File | Finding | Recommendation | Anchor` where `Anchor` is the standard or active decision the finding traces to.
-6. **Audit** — emit `framework_event` `kind=advisory_emitted` with `{mode, file_count, warning_count, severity_distribution}`. Never emits `BLOCK` or `FAIL` outcomes — those belong to `/ai-verify` and git hooks.
+1. **Load stack contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; apply `.ai-engineering/overrides/<stack>/conventions.md` so stack-specific standards are in scope.
+2. **Detect mode** — first positional arg is `advise` (default), `gate`, or `drift`. Anything else is a path filter; mode defaults to `advise`.
+3. **Dependency preflight** — verify `.github/agents/advise.agent.md` exists. STOP and report the exact missing path if absent; never paraphrase agent instructions inline.
+4. **Dispatch** — invoke the `ai-advise` agent via the Agent tool with `{mode, paths, severity_floor}`. It runs in its own context window and returns the structured advisory.
+5. **Render** — emit the advisory table grouped by severity (`concern` → `warn` → `info`). Each row: `File | Finding | Recommendation | Anchor`, where Anchor is the standard or active decision the finding traces to.
+6. **Audit** — emit `framework_event` `kind=advisory_emitted` with `{mode, file_count, warning_count, severity_distribution}`. Never emit `BLOCK`/`FAIL` outcomes — those belong to `/ai-verify` and git hooks.
 
 ## When to Use
 
-- During an in-flight feature edit, to catch standard drift before commit time.
-- Before dispatching a multi-task plan to confirm scope respects governance boundaries (`gate` mode).
-- On-demand to audit how well current code aligns with the active architectural decision set (`drift` mode).
-- When you need advisory feedback instead of an evidence-backed BLOCK verdict (use `/ai-verify` for the latter).
+- In-flight feature edit — catch standard drift before commit.
+- Before dispatching a multi-task plan — confirm scope respects governance boundaries (`gate`).
+- On-demand — audit code alignment with the active architectural decision set (`drift`).
+- When you want advisory feedback, not an evidence-backed BLOCK verdict (use `/ai-verify` for that).
 
 ## Modes
 
-| Mode | Trigger | What the agent does |
+| Mode | Trigger | Agent action |
 |---|---|---|
-| `advise` (default) | Post-edit in build | Scan changed files against stack standards + active decisions; emit warnings with severity and recommendation. |
+| `advise` (default) | Post-edit in build | Scan changed files against stack standards + active decisions; emit severity-tagged warnings with recommendation. |
 | `gate` | Pre-dispatch | Validate the proposed task respects governance boundaries (agent capabilities, expired risk acceptances, scope leakage). |
-| `drift` | On-demand | Compare implementation against active architectural decisions; classify drift `none | minor | major | critical`. **Spec-140 W3** absorbed the former `verifier-architecture` heuristics: in `drift` mode also surface solution-intent alignment gaps, layer violations, structural drift, dependency-health concerns (circular imports, deep dependency chains), and boundary integrity (agents/skills/handlers staying within declared scope). All advisory only -- `drift` never emits BLOCK. |
+| `drift` | On-demand | Compare implementation against active architectural decisions; classify drift `none | minor | major | critical`. **Spec-140 W3** absorbed the former `verifier-architecture` heuristics: in `drift` mode also surface solution-intent alignment gaps, layer violations, structural drift, dependency-health concerns (circular imports, deep dependency chains), and boundary integrity (agents/skills/handlers staying within declared scope). Advisory only — `drift` never emits BLOCK. |
 
 ## Output Contract
 
-The advisory is grouped by severity and rendered as a markdown table. Severity scale: `info` < `warn` < `concern`. Guard never uses `error`, `critical`, or `blocker` — those vocabularies belong to verify and git hooks.
+Grouped by severity, rendered as a markdown table. Severity scale: `info` < `warn` < `concern`. Never `error`/`critical`/`blocker` — those belong to verify and git hooks.
 
 ```markdown
 # Guard Advisory: <mode>
@@ -73,7 +73,7 @@ The advisory is grouped by severity and rendered as a markdown table. Severity s
 
 ## Differentiation
 
-| Aspect | `/ai-advise` (this skill) | `/ai-verify` | `/ai-review` |
+| Aspect | `/ai-advise` | `/ai-verify` | `/ai-review` |
 |---|---|---|---|
 | When | During development | Pre-release / pre-merge | Pre-merge narrative review |
 | Blocking | Never (fail-open) | Can BLOCK on FAIL | Never (judgement only) |
@@ -81,19 +81,17 @@ The advisory is grouped by severity and rendered as a markdown table. Severity s
 | Output | Severity-tagged warnings | Scored evidence-backed verdicts | Specialist-attributed findings |
 | Engine | `ai-advise` agent (read-only) | `ai-verify` agent + specialists | `ai-review` agent + 9 specialists |
 
-`/ai-advise` is the shift-left lane: catch friction before it reaches the gates. `/ai-verify` is the gate itself. `/ai-review` is the human-judgement lane that asks "would a staff engineer approve this?".
+Shift-left lane: catch friction before it reaches the gates. `/ai-verify` is the gate; `/ai-review` asks "would a staff engineer approve this?".
 
 ## Boundaries
 
 - **Never modifies code** — advisory only.
 - **Never blocks execution** — fail-open always.
-- **Never emits FAIL / BLOCK / CRITICAL** — those vocabularies are reserved for `/ai-verify` and git hooks.
+- **Never emits FAIL / BLOCK / CRITICAL** — reserved for `/ai-verify` and git hooks.
 - **Read-only** for all files except `decision-store.json` (drift annotations only, via the audit API) and `state/framework-events.ndjson` (canonical outcomes).
-- **Single agent dispatch** — the SKILL.md never reads the agent file inline; it dispatches via the Agent tool so the agent runs in its own context window.
+- **Single agent dispatch** — never reads the agent file inline; dispatches via the Agent tool so the agent runs in its own context window.
 
 ## Examples
-
-### Example 1 — post-edit advisory after a feature change
 
 User: "advise on the changes I just made under src/auth/"
 
@@ -101,17 +99,7 @@ User: "advise on the changes I just made under src/auth/"
 /ai-advise advise src/auth/
 ```
 
-Skill dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`. The agent loads cross-cutting standards (`core.md`, `quality/core.md`) plus the Python stack overrides, checks decision drift against the active `decision-store.json` rows that intersect `src/auth/`, and returns an advisory listing two `warn` findings (a complexity trend approaching the cyclomatic ceiling, and a missing telemetry field per an active observability decision). The skill renders the advisory and emits a `framework_event`. No code is modified.
-
-### Example 2 — drift scan against active architectural decisions
-
-User: "do a drift check across the persistence layer"
-
-```
-/ai-advise drift src/persistence/
-```
-
-Skill dispatches the `ai-advise` agent in `drift` mode. The agent loads active decisions tagged with persistence-layer scope (e.g. "repositories return entities, not rows"), maps each decision to governed locations, and classifies alignment per location. The skill renders a drift table showing one `minor` cosmetic drift (a repository method returning a dataclass instead of the documented domain entity) and zero `critical` contradictions. Recommendation: open a refactor ticket; no immediate action required.
+Dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`. The agent loads cross-cutting standards (`core.md`, `quality/core.md`) plus the Python stack overrides, checks decision drift against `decision-store.json` rows intersecting `src/auth/`, and returns two `warn` findings (a complexity trend near the cyclomatic ceiling; a missing telemetry field per an active observability decision). The skill renders the advisory and emits a `framework_event`. No code modified.
 
 ## Integration
 

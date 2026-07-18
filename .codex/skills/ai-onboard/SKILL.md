@@ -12,7 +12,6 @@ edit_policy: generated-do-not-edit
 ---
 
 
-
 # Onboard
 
 ## Quick start
@@ -24,37 +23,32 @@ edit_policy: generated-do-not-edit
 /ai-onboard onboard             # structured new-member onboarding
 ```
 
+Optimized for the human, not the code: reads everything, modifies
+nothing, teaches understanding over artifacts. Not for writing code
+(`/ai-build`), generating docs (`/ai-prose`), or agent bootstrap
+(`/ai-start`).
+
 ## Workflow
 
-Project onboarding, architecture tours, and decision archaeology. Optimized for the human, not the code. Reads everything, modifies nothing. Teaches understanding, not artifacts.
+Dispatch the `ai-onboard` agent (`.codex/agents/ai-onboard.md`) for any
+tour / find / history / onboard request touching >= 1 subsystem —
+strictly read-only. Mode procedures (§10.7 Clean Code — clarity over
+cleverness):
 
-1. **`tour`** — Glob/identify directories, entry points, config; detect stack; present overview with ASCII diagram (component boundaries, dependencies, data flow); explain key patterns; `git log --oneline` for evolution; flag gotchas; suggest next paths.
-2. **`find [topic]`** — Grep/Glob across source/config/docs; check `decision-store.json` and `.ai-engineering/specs/`; present file:line refs and context; answer "where does X happen?".
-3. **`history [decision]`** — search `decision-store.json`, `git log --all --grep`, and `specs/`; reconstruct what was known, constraints, alternatives considered; assess current relevance; **do NOT recommend** — present analysis, let developer decide.
-4. **`onboard`** — map structure; identify stack; discover patterns; find key files; review `.ai-engineering/standards/`; Socratic checkpoint per phase; personalize path to developer's interest.
+| Mode | Procedure |
+|------|-----------|
+| `tour` | Glob dirs/entry points/config; detect stack; ASCII diagram (boundaries, deps, data flow); explain key patterns; `git log --oneline` for evolution; flag gotchas; suggest next paths. |
+| `find [topic]` | Grep/Glob source+config+docs; check `decision-store.json` + `.ai-engineering/specs/`; present `file:line` refs + context; answer "where does X happen?". |
+| `history [decision]` | Search `decision-store.json`, `git log --all --grep`, `specs/`; reconstruct what was known + constraints + alternatives; assess current relevance; do NOT recommend — present analysis, let the developer decide. |
+| `onboard` | Map structure; identify stack; discover patterns; find key files; review `.ai-engineering/standards/`; Socratic checkpoint per phase (max 2 questions); personalize to the developer's interest. |
 
-## Dispatch threshold
-
-Dispatch the `ai-onboard` agent for any human-onboarding, archaeology, or codebase-tour request. Strictly read-only. The agent file (`.codex/agents/ai-onboard.md`) is the dispatch handle; mode procedures and pedagogical principles live here.
-
-## When to Use
-
-- New to a project and need orientation.
-- Want to understand component relationships and data flow.
-- Asking "why was X chosen over Y?".
-- NOT for writing code — use `/ai-build`.
-- NOT for generating docs — use `/ai-prose`.
-
-## Common Mistakes
-
-- Making decisions for the developer — present tradeoffs, let them decide.
-- Writing code during a tour — guide is strictly read-only.
-- Over-quizzing — max 2 Socratic questions per interaction.
-- Teaching below the developer's level — match cues to Bloom's taxonomy.
+Pitfalls: never decide for the developer (present tradeoffs); never write
+code during a tour; cap Socratic questions at 2 per interaction; match
+teaching to the developer's level (Bloom's cues).
 
 ## Examples
 
-### Example 1 — onboard a new team member
+### Example — architecture tour for a new team member
 
 User: "give me an architecture tour of this repo, I'm new"
 
@@ -62,26 +56,20 @@ User: "give me an architecture tour of this repo, I'm new"
 /ai-onboard tour
 ```
 
-High-level overview, module ownership map, key boundaries, suggested deeper-dive paths. Read-only.
-
-### Example 2 — decision archaeology
-
-User: "why did we choose hexagonal architecture for this codebase?"
-
-```
-/ai-onboard history hexagonal-architecture
-```
-
-Reads `decision-store.json` for the matching record, surfaces the original tradeoffs, links to the spec or commit that ratified it.
+High-level overview, module ownership map, key boundaries, ASCII data
+flow, suggested deeper-dive paths. Read-only.
 
 ## Integration
 
-Calls: `/ai-explain` (3-tier depth). Reads: `decision-store.json`, `framework-events.ndjson`, `manifest.yml`. See also: `/ai-start` (agent session bootstrap), `/ai-explain` (code-level), `/ai-research` (external evidence).
+Calls: `/ai-explain` (3-tier depth). Reads: `decision-store.json`,
+`framework-events.ndjson`, `manifest.yml`. See also: `/ai-start` (agent
+bootstrap), `/ai-explain` (code-level), `/ai-research` (external
+evidence).
 
 ## References
 
-- `.codex/skills/ai-explain/SKILL.md` -- 3-tier depth model.
-- `.ai-engineering/manifest.yml` -- governance structure.
-- `.ai-engineering/state/decision-store.json` -- decision records.
+- `.codex/skills/ai-explain/SKILL.md` — 3-tier depth model.
+- `.ai-engineering/manifest.yml` — governance structure.
+- `.ai-engineering/state/decision-store.json` — decision records.
 
 $ARGUMENTS

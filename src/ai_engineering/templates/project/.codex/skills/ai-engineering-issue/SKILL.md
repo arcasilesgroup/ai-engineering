@@ -18,37 +18,29 @@ edit_policy: generated-do-not-edit
 
 # Upstream Bug Report
 
-Files a bug or improvement against the ai-engineering framework with strict redaction and explicit consent. Runs the shared redactor in strict mode, renders the body for review, requires a typed `confirm` token, then shells `gh issue create --repo arcasilesgroup/ai-engineering`. A sanitized copy is archived under `.ai-engineering/support/upstream-reports/` for post-hoc audit.
+Files a bug/improvement against the ai-engineering framework with strict redaction and explicit consent. Runs the shared redactor in strict mode, renders the body for review, requires a typed `confirm` token, then shells `gh issue create --repo arcasilesgroup/ai-engineering`. A sanitized copy is archived under `.ai-engineering/support/upstream-reports/`.
 
 ```
 /ai-engineering-issue "<short-title>"
 /ai-engineering-issue "<short-title>" --include path/to/file.py:42
 ```
 
-## Quick Start
-
-1. Confirm authentication: `gh auth status` must succeed.
-2. Invoke the skill with a short title. Optionally pass `--include` references to file:line locations whose surrounding context the skill captures (already redacted before display).
-3. Review the rendered preview. The skill displays the exact body that would be posted publicly. Type `confirm` to proceed; type anything else to abort.
-4. On confirmation, the skill shells `gh issue create --repo arcasilesgroup/ai-engineering` with the redacted body and labels `ai-engineering,bug`.
-5. The sanitized body is also archived to `.ai-engineering/support/upstream-reports/{YYYY-MM-DD}-{slug}.md`.
-
 ## Workflow
 
-Principles applied: §10.4 DRY (single redactor service `_shared/redactor.py:redact` per D-134-09 — no per-skill regex sprawl); §13.4 anonymous content (no PII / no machine paths / no operator names ever lands in the upstream repo, enforced before render not just after click).
+Principles: §10.4 DRY (single redactor service `_shared/redactor.py:redact`, D-134-09 — no per-skill regex sprawl); §13.4 anonymous content (no PII / machine paths / operator names reach the upstream repo, enforced before render).
 
-1. **Preflight auth.** `gh auth status`. On failure, refuse with the remediation hint and exit non-zero.
-2. **Capture context.** Read the active spec frontmatter, the latest `framework-events.ndjson` tail (≤10 entries), any `--include` targets, plus the user-supplied title from `$ARGUMENTS`. Coerce everything to text.
-3. **Strict redaction.** Call `python -c "from ai_engineering._shared.redactor import redact; print(redact(text, strictness='strict'))"` (or import directly in skill orchestration). Strict mode applies all seven vectors — see the Sanitization Vectors section.
-4. **Compose body.** Use the upstream-report template: summary (≤3 sentences), reproduction steps, expected vs actual, environment metadata (only redacted values), references (commit SHA + spec ID + framework version from `.ai-engineering/manifest.yml`).
-5. **Render preview.** Print the full composed body to the operator. The render uses the SAME string that will be posted — there is no second pass between confirmation and `gh issue create`.
-6. **Human-confirmation gate.** Prompt: "type `confirm` to file this issue, or anything else to abort". On any input other than the literal token `confirm`, exit non-zero with the message "report not filed". This step is mandatory — automated callers must also pass `confirm` explicitly.
-7. **Submit.** `gh issue create --repo arcasilesgroup/ai-engineering --title "<t>" --body "<redacted>" --label "ai-engineering,bug"`. Capture the returned issue URL.
-8. **Archive.** Write the redacted body to `.ai-engineering/support/upstream-reports/{date}-{slug}.md`. Slugify the title (kebab-case, ≤50 chars). Append a `Submitted-Issue:` trailer with the URL from step 7. Audit via `framework_event kind=upstream_bug_filed`.
+1. **Preflight auth.** `gh auth status`. On failure, refuse with the fix hint and exit non-zero.
+2. **Capture context.** Read active spec frontmatter, latest `framework-events.ndjson` tail (≤10 entries), any `--include` targets, plus the title from `$ARGUMENTS`. Coerce to text.
+3. **Strict redaction.** Call `python -c "from ai_engineering._shared.redactor import redact; print(redact(text, strictness='strict'))"`. Strict mode applies all seven vectors (see table).
+4. **Compose body.** Upstream-report template: summary (≤3 sentences), reproduction steps, expected vs actual, environment metadata (redacted values only), references (commit SHA + spec ID + framework version from `manifest.yml`).
+5. **Render preview.** Print the full composed body. The render uses the SAME string that will be posted — no second pass between confirmation and `gh issue create`.
+6. **Confirmation gate.** Prompt: "type `confirm` to file, or anything else to abort." Any input other than the literal `confirm` → exit non-zero "report not filed". Mandatory — automated callers must also pass `confirm`. Rejects empty input, `y`, `yes`, quoted/capitalized variants. No `--force` flag. If the preview shows a missed leak: abort, edit the source context, re-invoke.
+7. **Submit.** `gh issue create --repo arcasilesgroup/ai-engineering --title <t> --body <redacted> --label "ai-engineering,bug"`. Capture URL.
+8. **Archive.** Write the redacted body to `.ai-engineering/support/upstream-reports/{date}-{slug}.md` (slug = kebab-case title, ≤50 chars). Append a `Submitted-Issue:` trailer with the step-7 URL. Audit via `framework_event kind=upstream_bug_filed`.
 
 ## Sanitization Vectors
 
-Strict mode (`_shared.redactor.redact(text, strictness="strict")`) enforces seven patterns. Reviewers may check each against the rendered preview before confirming.
+Strict mode (`_shared.redactor.redact(text, strictness="strict")`) enforces seven patterns. Verify each against the rendered preview before confirming.
 
 | Vector | Pattern | Replacement |
 |--------|---------|-------------|
@@ -60,17 +52,9 @@ Strict mode (`_shared.redactor.redact(text, strictness="strict")`) enforces seve
 | 6. username / hostname CLI | `whoami=|hostname=|user_name=` assignments | `key=[REDACTED-USER]` / `[REDACTED-HOST]` |
 | 7. state.db SQL | line containing both `state.db` AND a SQL keyword | `[REDACTED-DB]` |
 
-The redactor is best-effort regex. Reviewers MUST still scan the preview for context-specific leaks (project names, customer references, business logic) before typing `confirm`.
-
-## Human Confirmation Gate
-
-A typed `confirm` token is required. The skill rejects every other input including empty input, "y", "yes", quoted forms, capitalized variants. This is intentional — operators must read the rendered preview, not muscle-memory through it.
-
-If the preview shows a leak the redactor missed, abort with anything other than `confirm`, edit the source context, and re-invoke. There is no `--force` flag.
+Redaction is best-effort regex. Reviewers MUST still scan the preview for context-specific leaks (project names, customer references, business logic) before typing `confirm`.
 
 ## Examples
-
-### Example 1 — file a framework bug
 
 User: "report upstream — the `/ai-build` skill hangs when the patch block is empty"
 
@@ -78,31 +62,13 @@ User: "report upstream — the `/ai-build` skill hangs when the patch block is e
 /ai-engineering-issue "/ai-build hangs on empty patch block"
 ```
 
-Skill runs `gh auth status` (green), captures the last 10 framework events plus active spec frontmatter, redacts everything with strict mode (the spec frontmatter contains a `/Users/...` path that becomes `$HOME/...`), renders the preview, waits for `confirm`. On `confirm`, files the issue and archives the sanitized copy.
-
-### Example 2 — abort on preview
-
-User: "actually that body has my customer's project name in it — abort"
-
-```
-abort
-```
-
-Skill exits non-zero with "report not filed". No issue is created. The operator edits the source context (removes the customer reference) and re-invokes the skill.
-
-## Quick Reference
-
-| Goal | Command |
-|------|---------|
-| File an upstream bug | `/ai-engineering-issue "<title>"` |
-| Include specific files | `/ai-engineering-issue "<title>" --include src/foo.py:42` |
-| Abort during preview | type anything other than `confirm` |
+Runs `gh auth status` (green), captures the last 10 framework events + active spec frontmatter, redacts everything strict (a `/Users/...` path becomes `$HOME/...`), renders the preview, waits for `confirm`. On `confirm`, files the issue and archives the sanitized copy. Any other input aborts with "report not filed".
 
 ## Common Mistakes
 
-- Confusing this skill with `/ai-issue` — that one creates issues on **your project's** board with no redaction. This skill targets the framework's upstream repo and applies strict redaction.
-- Skipping the preview — there is no automated mode. The skill refuses to submit without a typed `confirm`.
-- Assuming redaction is bulletproof — regex is best-effort. Always read the preview.
+- Confusing with `/ai-issue` — that creates issues on **your** project's board with no redaction. This targets the framework repo with strict redaction.
+- Skipping the preview — no automated mode; the skill refuses without a typed `confirm`.
+- Assuming redaction is bulletproof — regex is best-effort; always read the preview.
 
 ## Integration
 

@@ -88,7 +88,7 @@ Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; 
 
 ## Examples
 
-### Example 1 — design + safe migration
+### Example — safe migration with backfill
 
 User: "we need to add a soft-delete column to users with a backfill"
 
@@ -96,17 +96,7 @@ User: "we need to add a soft-delete column to users with a backfill"
 /ai-schema migrate
 ```
 
-Generates the up + down migration, default-backed-fill-strategy, lock-impact analysis, rollback script, dry-run preview.
-
-### Example 2 — optimize a slow query
-
-User: "this analytics query is 5 seconds — make it fast"
-
-```
-/ai-schema optimize
-```
-
-EXPLAIN ANALYZE, identifies missing indexes, recommends index with write-impact estimate, verifies with re-run.
+Generates up + down migration, default-backfill strategy, lock-impact analysis, rollback script, and a dry-run preview.
 
 ## Integration
 

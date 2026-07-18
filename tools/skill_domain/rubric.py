@@ -197,23 +197,17 @@ def _rule_1_frontmatter_valid(skill: Skill) -> RubricResult:
                 "MAJOR",
                 f"frontmatter has non-standard fields {non_tolerated!r}",
             )
-        if len(extras) >= 5:
-            return RubricResult(
-                "rule_1_frontmatter_valid",
-                "MAJOR",
-                f"frontmatter has {len(extras)} extra fields {sorted(extras)!r}",
-            )
-        if len(extras) == 4:
-            return RubricResult(
-                "rule_1_frontmatter_valid",
-                "MINOR",
-                f"frontmatter has 4 extra fields {sorted(extras)!r}",
-            )
-        # 1-3 tolerated extras → INFO (visible, not penalised at M1).
+        # spec-187 D-187-11: every remaining extra here is in the sanctioned
+        # _TOLERATED_EXTRA_FIELDS set (non-tolerated + agent-shape already
+        # returned MAJOR/CRITICAL above). Penalising the COUNT of sanctioned
+        # framework fields contradicts tolerating them by name — a skill that
+        # legitimately carries effort/model_tier/argument-hint/tags/requires is
+        # not a quality defect. Tolerated extras are always INFO (visible, no
+        # penalty), regardless of how many.
         return RubricResult(
             "rule_1_frontmatter_valid",
             "INFO",
-            f"frontmatter has tolerated extra fields {sorted(extras)!r}",
+            f"frontmatter has {len(extras)} tolerated extra field(s) {sorted(extras)!r}",
         )
     return RubricResult("rule_1_frontmatter_valid", "OK", "frontmatter clean")
 
@@ -358,7 +352,11 @@ def _rule_4_line_and_token_budget(skill: Skill) -> RubricResult:
     return RubricResult("rule_4_line_and_token_budget", "OK", f"{skill.line_count} lines")
 
 
-_REQUIRED_SECTIONS = ("Quick start", "Workflow", "Examples", "Integration")
+# spec-187 D-187-11: "Quick start" dropped from required sections — under the
+# leaner authoring standard the third-person description already states the
+# what/when, so a separate Quick-start heading is redundant verbosity. Workflow
+# (the procedure), Examples (one canonical example), and Integration remain.
+_REQUIRED_SECTIONS = ("Workflow", "Examples", "Integration")
 
 
 def _rule_5_required_sections(skill: Skill) -> RubricResult:
@@ -435,23 +433,20 @@ def _rule_5_required_sections(skill: Skill) -> RubricResult:
 
 
 def _rule_6_examples_count(skill: Skill) -> RubricResult:
-    if skill.examples_count >= 2:
+    # spec-187 D-187-06: one canonical example is the standard. The prior
+    # ≥2 requirement rewarded the identical 22-line double-example boilerplate
+    # the audit found in 44/54 skills; a single concrete example preserves the
+    # few-shot signal without the copy-paste bulk. OK at ≥1; 0 is a visible gap.
+    if skill.examples_count >= 1:
         return RubricResult(
             "rule_6_examples_count",
             "OK",
-            f"{skill.examples_count} examples",
+            f"{skill.examples_count} example(s)",
         )
-    if skill.examples_count == 1:
-        return RubricResult(
-            "rule_6_examples_count",
-            "MINOR",
-            "only 1 example (need ≥2)",
-        )
-    # Universal §2.1 gap — visible (INFO), not penalised at M1 baseline.
     return RubricResult(
         "rule_6_examples_count",
         "INFO",
-        "no ## Examples section — universal §2.1 gap",
+        "no ## Examples section — §2.1 gap (visible, unpenalised)",
     )
 
 

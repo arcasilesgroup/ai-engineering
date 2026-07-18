@@ -15,123 +15,96 @@ edit_policy: generated-do-not-edit
 
 # Scaffold
 
-## Purpose
+Create new skills and agents for the ai-engineering framework. Owns the ai-engineering
+context layer (governance, manifest registration, IDE mirrors, pain sources); delegates
+skill drafting, TDD pressure-testing, eval pipeline, and description optimization to
+Anthropic's `skill-creator`.
 
-Create new skills and agents for the ai-engineering framework. Owns the ai-engineering context layer (governance, manifest registration, IDE mirrors, pain sources). Delegates skill drafting, TDD pressure testing, eval pipeline, and description optimization to Anthropic's `skill-creator`.
-
-## Trigger
-
-`/ai-scaffold skill <name>` or `/ai-scaffold agent <name>` — when the framework needs a new capability that no existing skill or agent covers.
-
----
-
-## Start Here — Registration Checklist
-
-This is the invariant checklist that must be satisfied regardless of whether you're creating a skill or an agent. Write it at the top and check items off as you go:
+## Quick start
 
 ```
+/ai-scaffold skill <name>     # new skill (delegates TDD + evals to skill-creator)
+/ai-scaffold agent <name>     # new agent (direct scaffold, no skill-creator)
+```
+
+Invoke when the framework needs a capability no existing skill or agent covers.
+
 ## Registration Checklist — [NAME]
-- [ ] No overlap with existing skills (checked skill list in manifest.yml)
-- [ ] File created at correct path (.github/skills/ai-{name}/SKILL.md or .github/agents/{name}.agent.md)
-- [ ] Frontmatter has name, description, argument-hint
-- [ ] Description is CSO-optimized (triggering conditions, not summary)
-- [ ] IDE-compatibility fields set if needed (copilot_compatible, disable-model-invocation)
-- [ ] Registered in .ai-engineering/manifest.yml (skills.registry or agents.names + total)
-- [ ] Mirror sync run: python scripts/sync_command_mirrors.py
-- [ ] Tests pass: source .venv/bin/activate && python -m pytest tests/unit/ -q
-- [ ] Pain sources consulted (decision-store, LESSONS.md) for constraints
-```
 
----
+Write at top; check off regardless of skill vs agent:
+
+- [ ] No overlap with existing skills (checked `manifest.yml` registry)
+- [ ] File at correct path (`.github/skills/ai-<name>/SKILL.md` or `.github/agents/<name>.agent.md`)
+- [ ] Frontmatter has name, description, argument-hint
+- [ ] Description CSO-optimized (triggering conditions, not summary)
+- [ ] IDE-compatibility fields set if needed (copilot_compatible, disable-model-invocation)
+- [ ] Registered in `.ai-engineering/manifest.yml` (skills.registry or agents.names + total)
+- [ ] Mirror sync run: `python scripts/sync_command_mirrors.py`
+- [ ] Tests pass: `source .venv/bin/activate && python -m pytest tests/unit/ -q`
+- [ ] Pain sources consulted (decision-store, LESSONS.md) for constraints
 
 ## Workflow
 
-Two modes:
+- Principles applied: §10.6 SDD (every new capability traces to a documented gap — no
+  scaffold without one); §10.4 DRY (a capability lives in exactly one skill; overlap
+  routes to /ai-skill-improve).
 
-- **skill `<name>`** — context load (overlap check + pain sources), delegate to skill-creator for TDD + evals, register in `manifest.yml`, sync mirrors.
-- **agent `<name>`** — scaffold the agent file, declare frontmatter (description, model, tools, dispatch source), register in `manifest.yml`, sync mirrors.
+### Mode: skill <name>
 
-## Mode: skill <name>
+1. **Context (owned here)** — follow `handlers/create-skill.md`:
+   - Check overlap: read `manifest.yml` skill registry; if the capability is covered, STOP and route to `/ai-skill-improve`.
+   - Load pain sources: `decision-store.json`, `LESSONS.md`, `observations.yml` (e.g. DEC-003 plan/execute split, similar-skill failures, instinct sequences to optimize).
+   - Determine IDE compatibility (see table below).
+2. **Delegate to skill-creator** — invoke Anthropic `skill-creator` with the context block below. It owns drafting, TDD pressure-testing, the eval pipeline (grader/analyzer/benchmark/HTML viewer), description optimization, and iteration.
+3. **Verify return** — SKILL.md follows ai-engineering conventions (Step 0 context loading, output contract); frontmatter has all required fields; description is CSO-optimized.
+4. **Register + sync (owned here)** — walk the Registration Checklist and `handlers/validate.md`. Manifest entry: `ai-<name>: { type: <type>, tags: [<tags>] }`; bump `skills.total`. Run `python scripts/sync_command_mirrors.py`; run unit tests; update README skill counts if they changed.
 
-### Phase 1 — ai-engineering Context (this skill owns this)
-
-Follow `handlers/create-skill.md`. Before creating anything, load project context:
-
-1. **Check for overlap** — read `.ai-engineering/manifest.yml` skill registry. If a skill already covers this capability, evolve it with `/ai-skill-improve` instead.
-2. **Load pain sources** — read decision-store.json, LESSONS.md, observations.yml for constraints (e.g., DEC-003 plan/execute split, similar-skill failures, instinct sequences this skill should optimize).
-3. **Determine IDE compatibility** — see IDE-Compatibility Frontmatter below.
-
-### Phase 2 — Delegate to skill-creator for TDD + Evals
-
-Invoke Anthropic's `skill-creator` with this context:
+skill-creator context block:
 
 ```
-Create a new skill called "ai-{name}" for the ai-engineering framework.
-
-Context about the framework:
-- Skills live in .github/skills/ai-{name}/SKILL.md
-- They follow this frontmatter format: name, description (CSO-optimized), effort, argument-hint, tags
-- The description field is the primary triggering mechanism — it must describe WHEN to use, not WHAT it does
-- Pain sources found: [pass relevant lessons, decisions, instinct patterns from Phase 1]
-
-The skill should:
-[pass the user's requirements]
-
-Look at existing skills like .github/skills/ai-security/SKILL.md or .github/skills/ai-review/SKILL.md
-for format reference.
+Create a new skill called "ai-<name>" for the ai-engineering framework.
+- Skills live in .github/skills/ai-<name>/SKILL.md
+- Frontmatter: name, description (CSO-optimized), effort, argument-hint, tags
+- description is the primary triggering mechanism — describe WHEN to use, not WHAT it does
+- Pain sources found: [lessons, decisions, instinct patterns from Step 1]
+The skill should: [pass the user's requirements]
+Format reference: .github/skills/ai-security/SKILL.md or .github/skills/ai-review/SKILL.md
 ```
 
-skill-creator owns drafting, TDD pressure testing, eval pipeline (grader/analyzer/benchmark/HTML viewer), description-optimization, and iteration. After it returns, verify the SKILL.md follows ai-engineering conventions (Step 0 context loading, output contract), frontmatter has all required fields, and description is CSO-optimized.
+### Mode: agent <name>
 
-### Phase 3 — Register and Sync (this skill owns this)
-
-Walk the Registration Checklist (Start Here) and `handlers/validate.md`. Manifest entry shape: `ai-{name}: { type: <type>, tags: [<tags>] }`; bump `skills.total`. Mirror sync: `python scripts/sync_command_mirrors.py`. Tests: `source .venv/bin/activate && python -m pytest tests/unit/ -q`. Update README.md skill counts if they changed.
-
----
-
-## Mode: agent <name>
-
-Follow `handlers/create-agent.md`. Agents don't go through skill-creator (they're not skills) — create them directly:
+Agents skip skill-creator (they are not skills). Follow `handlers/create-agent.md`:
 
 1. **Define mandate** — singular responsibility (one thing).
-2. **Load pain sources** — same as skill Phase 1; check decision-store for agent-architecture constraints (e.g., DEC-019).
-3. **Scaffold** `.github/agents/{name}.agent.md` with: Identity (role/experience/specialization), Mandate (owns/does-not-own), Capabilities (declared permissions: read-only/read-write/paths), Behavior (modes/procedures), Output Contract (structured format), Boundaries (hard limits/escalation), Self-challenge protocol (pre-action questions).
+2. **Load pain sources** — as skill Step 1; check decision-store for agent-architecture constraints (e.g. DEC-019).
+3. **Scaffold** `.github/agents/<name>.agent.md` — frontmatter (CSO description, `model`, `tools` whitelist, dispatch-source comment) plus body: Identity (role/experience/specialization), Mandate (owns/does-not-own), Capabilities (read-only/read-write/paths), Behavior (modes/procedures), Output Contract, Boundaries (limits/escalation), Self-challenge protocol.
 4. **Register** in `manifest.yml` agents section (names array + total count).
-5. **Create matching skill** — if `/ai-{name}` entry point is needed, scaffold via `/ai-scaffold skill {name}`.
-6. **Sync and test** — same as skill Phase 3.
-
----
+5. **Create matching skill** — if a `/ai-<name>` entry point is needed, scaffold via `/ai-scaffold skill <name>`.
+6. **Sync + test** — as skill Step 4.
 
 ## CSO Description Patterns
 
-The `description` field is the skill's search ranking — it determines whether the skill triggers. It must describe **triggering conditions**, not summarize functionality.
+The `description` field is the skill's search ranking — describe triggering conditions, not functionality.
 
-| Bad (summary)             | Good (CSO trigger)                                                          |
-| ------------------------- | --------------------------------------------------------------------------- |
-| "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity"  |
-| "Sprint planning tool"    | "Use when planning a new sprint or running a retrospective"                 |
-| "Resolves git conflicts"  | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
+| Bad (summary) | Good (CSO trigger) |
+| --- | --- |
+| "Generates standup notes" | "Use when preparing daily standup notes or summarizing recent PR activity" |
+| "Sprint planning tool" | "Use when planning a new sprint or running a retrospective" |
+| "Resolves git conflicts" | "Use when git reports merge conflicts during rebase, merge, or cherry-pick" |
 
 ## IDE-Compatibility Frontmatter
 
-| Field                            | Effect                                                           |
-| -------------------------------- | ---------------------------------------------------------------- |
-| `copilot_compatible: false`      | Excludes from `.github/skills/` mirror (Claude Code-only skills) |
-| `codex_compatible: false`        | Excludes from `.codex/skills/` mirror                            |
-| `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills)      |
+| Field | Effect |
+| --- | --- |
+| `copilot_compatible: false` | Excludes from `.github/skills/` mirror (Claude Code-only) |
+| `codex_compatible: false` | Excludes from `.codex/skills/` mirror |
+| `disable-model-invocation: true` | Tells GitHub Copilot not to invoke LLM (script-only skills) |
 
-A provider-scoped skill sets these fields to opt out of the GitHub Copilot and Codex mirrors while staying available in Claude Code; no skill currently uses this scoping.
-
-## Quick Reference
-
-```
-/ai-scaffold skill standup     # create a new standup skill (delegates TDD to skill-creator)
-/ai-scaffold agent reviewer    # create a new reviewer agent (direct scaffold)
-```
+Provider-scoped skills set these to opt out of the Copilot and Codex mirrors while staying available in Claude Code; no skill currently uses this scoping.
 
 ## Examples
 
-### Example 1 — create a brand-new skill
+### Example — create a brand-new skill
 
 User: "the framework needs a capability for OpenAPI schema validation — create the skill"
 
@@ -140,16 +113,6 @@ User: "the framework needs a capability for OpenAPI schema validation — create
 ```
 
 Loads pain context, delegates draft + TDD to `skill-creator`, registers in `manifest.yml`, runs `sync_command_mirrors.py`, verifies tests still pass.
-
-### Example 2 — scaffold a new specialist agent
-
-User: "add a new reviewer agent for accessibility"
-
-```
-/ai-scaffold agent reviewer-accessibility
-```
-
-Scaffolds the agent file with CSO description, `tools` whitelist, `model: sonnet`, dispatch-source comment; registers in manifest; syncs mirrors.
 
 ## Integration
 

@@ -12,32 +12,49 @@ edit_policy: generated-do-not-edit
 ---
 
 
-
 # Reliability Eval
 
-## Purpose
+Eval-Driven Development (EDD): evals are the unit tests of AI development. Define pass/fail
+criteria before writing code; measure AI reliability with pass@k metrics; track regressions
+across prompt, agent, and model changes. Evals answer: "Can the AI do this reliably?"
 
-Eval-Driven Development (EDD) treats evals as the unit tests of AI development. Define pass/fail criteria before writing code. Measure AI reliability with pass@k metrics. Track regressions across prompt, agent, and model changes. Evals answer the question: "Can the AI do this reliably?"
+Distinction: `/ai-verify` checks current code quality (linting, coverage, security).
+`/ai-reliability-eval` measures AI reliability over time (can the agent complete this task
+consistently?).
 
-**Key distinction**: `ai-verify` checks current code quality (linting, coverage, security). `ai-reliability-eval` measures AI reliability over time (can the agent complete this task consistently?).
+## Quick start
 
-## When to Use
+```
+/ai-reliability-eval define <feature>   # write pass/fail criteria before coding
+/ai-reliability-eval check <feature>    # run evals mid-implementation, report status
+/ai-reliability-eval report <feature>   # full report after implementation
+/ai-reliability-eval regression         # compare against baseline, flag degradation
+/ai-reliability-eval --skill-set        # optimize each skill's eval corpus, gate pass@1
+```
 
-- `define`: defining pass/fail criteria before implementation (EDD principle)
-- `check`: running current evals and reporting status mid-implementation
-- `report`: generating full eval report after implementation
-- `regression`: ensuring changes to prompts, agents, or models don't break existing capabilities
-- `--skill-set`: skill-set mode — runs the optimizer over each skill's eval corpus under `.ai-engineering/evals/<skill>.jsonl` and gates pass@1 vs `.ai-engineering/evals/baseline.json`. Combine with `--regression` to fail on >5 pp pass@1 drop (sub-007 M6, D-127-07). Wired into `.github/workflows/skill-evals.yml` on PRs touching `.cursor/skills/**`.
+## Workflow
 
-## Process
+Principles applied: §10.5 TDD — EDD mirrors TDD: define the pass/fail criteria BEFORE the
+code, then let evals drive iteration; writing evals after implementation is the same
+anti-pattern as tests-after.
 
-### Mode: define (Before Coding)
+| Mode | When | Action |
+| --- | --- | --- |
+| `define` | before implementation | write capability + regression evals, set pass@k targets |
+| `check` | during implementation | run current evals, report pass@k, list failures |
+| `report` | after implementation | run all evals, compute pass@k + pass^k, render report |
+| `regression` | prompt/agent/model change | run regression evals vs baseline, flag degradation |
+| `--skill-set` | PR touching `.cursor/skills/**` | optimizer over each `.ai-engineering/evals/<skill>.jsonl`, gate pass@1 vs `baseline.json` |
 
-1. Identify the capability being built or changed
-2. Write capability evals (can the AI do this new thing?)
-3. Write regression evals (do existing things still work?)
-4. Set success metrics (pass@k targets)
-5. Store eval definition at `.ai-engineering/evals/<feature-name>.md`
+`--skill-set` combined with `--regression` fails on >5 pp pass@1 drop (sub-007 M6, D-127-07). Wired into `.github/workflows/skill-evals.yml`.
+
+### Mode: define (before coding)
+
+1. Identify the capability being built or changed.
+2. Write capability evals (can the AI do this new thing?).
+3. Write regression evals (do existing things still work?).
+4. Set success metrics (pass@k targets).
+5. Store at `.ai-engineering/evals/<feature-name>.md`:
 
 ```markdown
 ## EVAL DEFINITION: feature-xyz
@@ -57,17 +74,17 @@ Eval-Driven Development (EDD) treats evals as the unit tests of AI development. 
 - pass^3 = 100% for regression evals
 ```
 
-### Mode: check (During Implementation)
+### Mode: check (during implementation)
 
-1. Read the eval definition from `.ai-engineering/evals/<feature-name>.md`
-2. Run each capability eval, record PASS/FAIL
-3. Run regression evals via existing test suites
-4. Report current status with pass@k counts
-5. Identify which evals still fail and why
+1. Read the eval definition from `.ai-engineering/evals/<feature-name>.md`.
+2. Run each capability eval; record PASS/FAIL.
+3. Run regression evals via existing test suites.
+4. Report current status with pass@k counts.
+5. Identify which evals still fail and why.
 
-### Mode: report (After Implementation)
+### Mode: report (after implementation)
 
-Run all capability + regression evals (per Mode: check), calculate pass@k and pass^k metrics, then generate the structured report:
+Run all capability + regression evals (per `check`), compute pass@k + pass^k, render, then store at `.ai-engineering/evals/<feature-name>.log`:
 
 ```markdown
 EVAL REPORT: feature-xyz
@@ -92,16 +109,14 @@ Metrics:
 Status: READY FOR REVIEW
 ```
 
-Store the rendered report at `.ai-engineering/evals/<feature-name>.log`.
-
 ### Mode: regression
 
-Baseline is created automatically on the first `report` run. If `baseline.json` does not exist, the current run becomes the initial baseline.
+Baseline is created automatically on the first `report` run — if `baseline.json` does not exist, the current run becomes the initial baseline.
 
-1. Load baseline from `.ai-engineering/evals/baseline.json`
-2. Run all regression evals against current state
-3. Compare against baseline results
-4. Flag any degradation
+1. Load baseline from `.ai-engineering/evals/baseline.json`.
+2. Run all regression evals against current state.
+3. Compare against baseline results.
+4. Flag any degradation:
 
 ```markdown
 [REGRESSION EVAL: feature-name]
@@ -113,20 +128,18 @@ Tests:
 Result: X/Y passed (previously Y/Y)
 ```
 
-## Quick Reference
+## Grader Types
 
-### Grader Types
-
-| Grader | How It Works | When to Use | Example |
-|--------|-------------|-------------|---------|
-| Code | Deterministic checks (grep, test runners, build) | Verifiable outputs, structured results | `grep -q "export function handleAuth" src/auth.ts && echo "PASS"` |
+| Grader | How it works | When to use | Example |
+| --- | --- | --- | --- |
+| Code | Deterministic checks (grep, test runners, build) | Verifiable / structured outputs | `grep -q "export function handleAuth" src/auth.ts && echo "PASS"` |
 | Model | Claude evaluates open-ended output (score 1-5) | Prose quality, code style, creative output | Prompt: "Does it solve the stated problem? Score 1-5" |
 | Human | Flag for manual review with risk level | Security decisions, UX judgment, ambiguous cases | `[HUMAN REVIEW REQUIRED] Risk Level: HIGH` |
 
-### Metrics
+## Metrics
 
-| Metric | Definition | Typical Target |
-|--------|-----------|----------------|
+| Metric | Definition | Typical target |
+| --- | --- | --- |
 | pass@1 | First attempt success rate | Varies by difficulty |
 | pass@3 | At least one success in 3 attempts | > 90% |
 | pass@k | At least one success in k attempts | Depends on criticality |
@@ -136,23 +149,29 @@ Result: X/Y passed (previously Y/Y)
 ## Storage
 
 ```
-.ai-engineering/
-  evals/
-    <feature-name>.md      # Eval definition
-    <feature-name>.log     # Eval run history
-    baseline.json           # Regression baselines
+.ai-engineering/evals/
+  <feature-name>.md      # Eval definition
+  <feature-name>.log     # Eval run history
+  baseline.json          # Regression baselines
 ```
 
 ## Best Practices
 
-1. **Use code graders when possible** -- deterministic > probabilistic
-2. **Human review for security** -- never fully automate security checks
-3. **Keep evals fast** -- slow evals don't get run
-4. **Version evals with code** -- evals are first-class artifacts
+- Use code graders when possible — deterministic > probabilistic.
+- Human review for security — never fully automate security checks.
+- Keep evals fast — slow evals don't get run.
+- Version evals with code — evals are first-class artifacts.
+
+## Common Mistakes
+
+- Skipping `define` and writing evals after implementation (tests-after anti-pattern).
+- Using only model graders when code graders would be deterministic and faster.
+- Conflating evals with tests (tests verify code, evals verify AI capability).
+- Setting pass@1 targets too high for genuinely hard tasks (use pass@3 instead).
 
 ## Examples
 
-### Example 1 — define evals before implementing
+### Example — define evals before implementing
 
 User: "I'm about to add a new auth flow. Define evals first."
 
@@ -162,25 +181,8 @@ User: "I'm about to add a new auth flow. Define evals first."
 
 Walks through capability evals (can-create-account, can-validate-email, can-hash-password) and regression evals (login-still-works), sets pass@3 targets, writes `.ai-engineering/evals/auth-flow.md`.
 
-### Example 2 — regression check after model change
-
-User: "I bumped the model version, did anything regress?"
-
-```
-/ai-reliability-eval regression
-```
-
-Loads `.ai-engineering/evals/baseline.json`, runs all regression evals against the new model, flags degradation.
-
 ## Integration
 
 Called by: user directly, `/ai-build`, `/ai-verify` (regression mode). Calls: test runners (code graders), the model (model graders), stack-specific tools. See also: `/ai-test` (code correctness), `/ai-verify` (current quality gates).
-
-## Common Mistakes
-
-- Skipping the define phase and writing evals after implementation (same anti-pattern as tests-after)
-- Using only model graders when code graders would be deterministic and faster
-- Conflating evals with tests (tests verify code, evals verify AI capability)
-- Setting pass@1 targets too high for genuinely hard tasks (use pass@3 instead)
 
 $ARGUMENTS

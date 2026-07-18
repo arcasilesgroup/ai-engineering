@@ -119,7 +119,6 @@ _R4_KEBAB_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _R5_DEFERRED_SKILL_SCRIPTS = frozenset(
     {
         "board-sync-github",
-        "cleanup-settings-local",
         "scaffold-skill",
     }
 )

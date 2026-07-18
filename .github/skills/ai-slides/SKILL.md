@@ -13,92 +13,33 @@ edit_policy: generated-do-not-edit
 ---
 
 
-
 # Slides
 
-## Purpose
-
-Create zero-dependency, animation-rich HTML presentations that run entirely in the browser. Helps non-designers discover their aesthetic through visual exploration rather than abstract choices. Converts PowerPoint decks to web. Enforces viewport fit as a hard gate.
+Zero-dependency, animation-rich HTML presentations that run entirely in the browser. Non-designers discover their aesthetic through visual exploration, not abstract choices. Viewport fit is a hard gate.
 
 ## When to Use
 
-- `new`: creating a talk deck, pitch deck, workshop deck, or internal presentation from scratch
-- `convert`: converting `.ppt` or `.pptx` slides into an HTML presentation
-- `enhance`: improving an existing HTML presentation's layout, motion, or typography
+- `new`: talk/pitch/workshop/internal deck from scratch
+- `convert`: `.ppt` / `.pptx` → HTML presentation
+- `enhance`: improve an existing HTML deck's layout, motion, or typography
 
-## Process
+## Workflow
 
-### Step 1 -- Detect Mode
+Applies §10.1 KISS (zero dependencies; inline CSS/JS) and §10.7 Clean Code (commented, accessible, viewport-safe).
 
-Choose one path based on user input:
-- **New presentation**: user has a topic, notes, or full draft
-- **PPT conversion**: user has `.ppt` or `.pptx`
-- **Enhancement**: user already has HTML slides and wants improvements
+1. **Detect mode** — new (topic/notes/draft), convert (`.ppt`/`.pptx`), or enhance (existing HTML).
+2. **Discover content** — ask only the minimum: purpose (pitch/teaching/talk/update), length (short 5–10 / medium 10–20 / long 20+), content state (finished copy / rough notes / topic only). If the user has content, have them paste it before styling.
+3. **Discover style (preview-first)** — if a preset is named, skip previews. Else: ask the target feeling (impressed/energized/focused/inspired), generate 3 self-contained single-slide previews in `slide-previews/` (each < ~100 lines, showing typography/color/motion), ask which to keep or mix. Map mood → style via `STYLE_PRESETS.md`.
+4. **Build** — output `presentation.html` (or `[name].html`); `assets/` only for extracted/user images. Required: semantic sections (`main`/`section`/`nav`), viewport-safe CSS base from `STYLE_PRESETS.md` (copy verbatim, theme on top), CSS custom properties, a presentation-controller class, Intersection Observer reveals, `prefers-reduced-motion`.
+5. **Enforce viewport fit (hard gate)**:
+   - every `.slide`: `height: 100vh; height: 100dvh; overflow: hidden;`
+   - all type/spacing scales with `clamp()` — never `-clamp(...)` (browsers silently ignore negated CSS functions; use `calc(-1 * clamp(...))`)
+   - overflow → split into more slides; never shrink text below readable; never allow in-slide scrollbars
+   - use the density limits + mandatory CSS block in `STYLE_PRESETS.md`
+6. **Validate at 8 sizes** — 1920x1080, 1440x900, 1280x720, 1024x768, 768x1024, 375x667, 414x896, 667x375. With browser automation: verify no overflow + keyboard nav. Without: review CSS against the density limits and flag un-verified sizes for manual QA.
+7. **Deliver** — delete preview files unless the user keeps them; open with the platform opener (`open`/`xdg-open`/`start`); summarize file path, preset, slide count, theme customization points.
 
-### Step 2 -- Discover Content
-
-Ask only the minimum needed:
-- purpose: pitch, teaching, conference talk, internal update
-- length: short (5-10 slides), medium (10-20), long (20+)
-- content state: finished copy, rough notes, topic only
-
-If the user has content, ask them to paste it before styling.
-
-### Step 3 -- Discover Style (Preview-First)
-
-Default to visual exploration. If the user already knows the desired preset, skip previews and use it directly.
-
-Otherwise:
-1. Ask what feeling the deck should create: impressed, energized, focused, inspired
-2. Generate **3 single-slide preview files** in a `slide-previews/` directory
-3. Each preview must be self-contained, show typography/color/motion clearly, and stay under roughly 100 lines of slide content
-4. Ask the user which preview to keep or what elements to mix
-
-Use the preset guide in `STYLE_PRESETS.md` when mapping mood to style.
-
-### Step 4 -- Build the Presentation
-
-Output either `presentation.html` or `[presentation-name].html`. Use an `assets/` folder only when the deck contains extracted or user-supplied images.
-
-Required structure:
-- semantic slide sections (`main`, `section`, `nav`)
-- viewport-safe CSS base from `STYLE_PRESETS.md` (copy verbatim, then theme on top)
-- CSS custom properties for theme values
-- presentation controller class (see JS requirements below)
-- Intersection Observer for reveal animations
-- `prefers-reduced-motion` support
-
-### Step 5 -- Enforce Viewport Fit (Hard Gate)
-
-Rules (non-negotiable):
-- every `.slide` must use `height: 100vh; height: 100dvh; overflow: hidden;`
-- all type and spacing must scale with `clamp()` (**Warning:** never use `-clamp(...)` -- browsers ignore negated CSS functions silently. Use `calc(-1 * clamp(...))` instead.)
-- when content does not fit, split into multiple slides
-- never solve overflow by shrinking text below readable sizes
-- never allow scrollbars inside a slide
-
-Use the density limits and mandatory CSS block in `STYLE_PRESETS.md`.
-
-### Step 6 -- Validate at 8 Viewport Sizes
-
-Check the finished deck at these sizes:
-- Desktop: 1920x1080, 1440x900, 1280x720
-- Tablet: 1024x768, 768x1024
-- Mobile: 375x667, 414x896
-- Landscape phone: 667x375
-
-If browser automation is available, verify no slide overflows and that keyboard navigation works.
-
-If no browser automation is available: manually review CSS for viewport fit using the density limits in STYLE_PRESETS.md. Document which sizes were NOT verified and flag for manual QA.
-
-### Step 7 -- Deliver
-
-At handoff:
-- delete temporary preview files unless the user wants to keep them
-- open the deck with the platform-appropriate opener (`open` on macOS, `xdg-open` on Linux, `start` on Windows)
-- summarize file path, preset used, slide count, and easy theme customization points
-
-## Quick Reference
+## Content Density
 
 | Slide Type | Maximum Content |
 |------------|-----------------|
@@ -109,57 +50,28 @@ At handoff:
 | Quote | 1 quote + attribution |
 | Image | 1 image, ideally under 60vh |
 
-## Non-Negotiables
+## Requirements
 
-1. **Distinctive design**: avoid generic purple-gradient, Inter-on-white, template-looking decks
-2. **Production quality**: code commented, accessible, responsive, performant
-
-## JavaScript Requirements
-
-Every presentation must include:
-- keyboard navigation (arrow keys, space, escape)
-- touch / swipe navigation
-- mouse wheel navigation
-- progress indicator or slide index
-- reveal-on-enter animation triggers via Intersection Observer
+- **Design**: distinctive — avoid purple-gradient, Inter-on-white, template decks. Production quality: commented, accessible, responsive, performant.
+- **JS (every deck)**: keyboard nav (arrows, space, escape), touch/swipe, mouse wheel, progress/slide index, reveal-on-enter via Intersection Observer.
+- **Aesthetics**: fonts from Google Fonts / Fontshare; atmospheric backgrounds, strong type hierarchy; abstract shapes/gradients/grids/noise/geometry over illustrations; inline CSS/JS unless a multi-file project is requested.
 
 ## PPT / PPTX Conversion
 
-1. Prefer `python3` with `python-pptx` to extract text, images, and notes
-2. If `python-pptx` is unavailable, ask whether to install it or fall back to manual workflow
-3. Preserve slide order, speaker notes, and extracted assets
-4. After extraction, run the same style-selection workflow as a new presentation
-
-## Implementation Details
-
-- Fonts from Google Fonts or Fontshare
-- Prefer atmospheric backgrounds, strong type hierarchy, clear visual direction
-- Use abstract shapes, gradients, grids, noise, and geometry rather than illustrations
-- Use inline CSS and JS unless the user explicitly wants a multi-file project
+1. Prefer `python3` + `python-pptx` to extract text, images, notes.
+2. If `python-pptx` is unavailable, ask whether to install it or fall back to a manual workflow.
+3. Preserve slide order, speaker notes, extracted assets.
+4. Run the same style-selection workflow as a new presentation.
 
 ## Common Mistakes
 
-- Generic startup gradients with no visual identity
-- System-font decks unless intentionally editorial
-- Long bullet walls that break viewport fit
-- Code blocks that need scrolling
-- Fixed-height content boxes that break on short screens
-- Skipping the viewport validation step
-- Generating previews when the user already named a preset
+Generic startup gradients; system-font decks (unless intentionally editorial); bullet walls that break viewport fit; code blocks that scroll; fixed-height boxes that break on short screens; skipping viewport validation; generating previews when a preset was named.
+
+## Integration
+
+Called by: user directly, `/ai-build`. References: `STYLE_PRESETS.md`. See also: `/ai-prose` (prose content), `/ai-visual` (visual artifacts), `/ai-media` (generated insert visuals), `/ai-design` (aesthetic direction).
 
 ## Examples
-
-### Example 1 — pitch deck from scratch
-
-User: "create a pitch deck for our seed round"
-
-```
-/ai-slides new "seed round pitch deck"
-```
-
-Picks aesthetic preset, generates self-contained HTML with viewport-safe layout, keyboard/touch navigation, and inline CSS/JS.
-
-### Example 2 — convert a PowerPoint
 
 User: "convert this PPTX to browser-native HTML"
 
@@ -167,10 +79,6 @@ User: "convert this PPTX to browser-native HTML"
 /ai-slides convert /path/to/deck.pptx
 ```
 
-Parses the PPTX, maps each slide to the HTML template, preserves images, validates viewport fit per slide.
-
-## Integration
-
-Called by: user directly, `/ai-build`. References: `STYLE_PRESETS.md`. See also: `/ai-prose` (prose content), `/ai-visual` (visual artifacts), `/ai-media` (generated insert visuals), `/ai-design` (aesthetic direction).
+Parses the PPTX, maps each slide to the HTML template, preserves images + notes, then validates viewport fit per slide at all 8 sizes.
 
 $ARGUMENTS

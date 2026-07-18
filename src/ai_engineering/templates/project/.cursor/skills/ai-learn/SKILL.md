@@ -17,7 +17,7 @@ edit_policy: generated-do-not-edit
 
 ## Purpose
 
-Continuous improvement from delivery outcomes. Analyzes merged PRs to find where AI missed what human reviewers caught, identifies false positives, and writes lessons directly to `.ai-engineering/LESSONS.md`. The feedback loop that makes the framework smarter over time.
+Continuous improvement from delivery outcomes: analyzes merged PRs to find where AI missed what human reviewers caught, identifies false positives, and writes lessons directly to `.ai-engineering/LESSONS.md`.
 
 ## Trigger
 
@@ -28,13 +28,7 @@ Step 0: read `.ai-engineering/LESSONS.md` for pre-existing patterns; load stack 
 
 ## Workflow
 
-Two modes: `single <pr>` (analyze one PR) and `batch` (analyze all merged PRs since last lesson update). Both follow the same loop:
-
-1. Read PR review comments + code-change diff.
-2. For each comment, classify the lesson category (Pattern Categories below).
-3. Check for duplicates against existing LESSONS.md entries.
-4. Append new lessons with category + evidence link.
-5. When enough lessons accumulate per category, optionally draft an AGENTS.md proposal.
+Two modes — `single <pr>` (one PR) and `batch` (all merged PRs since last lesson update) — share one loop: read PR comments + diff → classify each into a Pattern Category → dedupe against existing LESSONS.md entries → append new lessons with category + evidence link → sweep for AGENTS.md proposals. Authoritative per-mode steps below.
 
 ## Modes
 
@@ -127,25 +121,7 @@ Emit a `framework_operation` event with `operation=agents_proposal_drafted`, `ca
 
 ## Examples
 
-### Example 1 — extract lessons from a single merged PR
-
-User: "learn from PR #128"
-
-```
-/ai-learn single 128
-```
-
-Reads PR #128 review comments, classifies each into pattern categories, appends new entries to LESSONS.md, deduplicates against existing entries.
-
-### Example 2 — batch analysis of recent merges
-
-User: "synthesize lessons from everything merged this sprint"
-
-```
-/ai-learn batch
-```
-
-Walks merged PRs since last lesson update, applies the loop per PR, drafts AGENTS.md proposals when categories accumulate enough evidence.
+User: "synthesize lessons from everything merged this sprint" → `/ai-learn batch` walks merged PRs since last lesson update, runs single-mode analysis per PR (classify into pattern categories, dedupe, append to LESSONS.md), and drafts AGENTS.md proposals when categories accumulate enough evidence.
 
 ## Integration
 

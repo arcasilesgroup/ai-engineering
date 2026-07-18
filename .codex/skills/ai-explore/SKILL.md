@@ -24,34 +24,38 @@ edit_policy: generated-do-not-edit
 
 ## When to Use
 
-- Architecture mapping: "How is the X module structured?"
-- Dependency tracing: "What imports Y? What does Y import?"
-- Pattern identification: "How do we typically handle Z?"
-- Risk surfacing: "What's load-bearing in this code path?"
+| Use for | Example |
+|---------|---------|
+| Architecture mapping | "How is the X module structured?" |
+| Dependency tracing | "What imports Y? What does Y import?" |
+| Pattern identification | "How do we typically handle Z?" |
+| Risk surfacing | "What is load-bearing in this code path?" |
 
-## When NOT to Use
+Dispatch for any question spanning >= 1 file, module, or import edge.
 
-- External evidence + citations needed -> use `/ai-research` instead.
-- Code change needed -> use `/ai-build` or `/ai-simplify` instead.
-- LLM-style code review -> use `/ai-review` instead.
+Not for: external evidence + citations (`/ai-research`); code changes
+(`/ai-build`, `/ai-simplify`); LLM-style review (`/ai-review`).
 
-## Process
+## Workflow
 
-Per D-133-09 this is a thin wrapper: dispatches the existing
-`ai-explore` agent (`.codex/agents/ai-explore.md`) with the user's
-question. The agent owns the heavy lifting (file-reading + grep tools
-structured findings output).
+Thin wrapper (D-133-09), §10.1 KISS — fewest moving parts. The
+`ai-explore` agent (`.codex/agents/ai-explore.md`) owns file-reading +
+grep and the structured findings output.
 
-1. **Capture the question.** Take the entire argument as the question.
-2. **Dispatch agent.** Invoke `ai-explore` agent with the question.
-3. **Report.** Return the agent's structured findings to the user.
+1. **Capture** — take the entire argument as the question.
+2. **Dispatch** — invoke the `ai-explore` agent with the question.
+3. **Report** — pass the agent's structured findings through unchanged.
 
 ## Output Contract
 
-The agent emits structured Findings / Dependencies / Risks /
-Recommendations sections. Wrapper passes them through unchanged.
+Agent emits Findings / Dependencies / Risks / Recommendations; the
+wrapper returns them verbatim. Pure read-only — never edits code, never
+fetches external sources.
 
-## Common Mistakes
+## Integration
 
-- Treating this skill as an external-research tool. It is codebase-only.
-- Asking it to make changes. Pure read-only.
+Called by: user directly. Dispatches: `ai-explore` agent
+(`.codex/agents/ai-explore.md`). See also: `/ai-research` (external
+evidence), `/ai-review` (LLM review), `/ai-build` (code changes).
+
+$ARGUMENTS

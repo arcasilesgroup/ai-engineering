@@ -23,45 +23,17 @@ edit_policy: generated-do-not-edit
 
 ## Workflow
 
-Apply §10.6 (SDD) — every CONSTITUTION.md write is traceable to a spec
-decision (D-131-04 anchored this rewrite). Apply §10.4 (DRY) — project
-identity lives ONCE in CONSTITUTION.md; AI-behaviour content lives in
-CANONICAL.md. The two never overlap.
+Principles: §10.6 (SDD) — every write traces to a spec decision (D-131-04 anchored this rewrite). §10.4 (DRY) — project identity lives ONCE in CONSTITUTION.md; AI-behaviour content lives in CANONICAL.md; the two never overlap.
 
-1. **Auto-detect** — read `.ai-engineering/manifest.yml`, package files
-   (`pyproject.toml` / `package.json` / `Cargo.toml`) to seed the
-   interview with project name, stack, version.
-2. **Read existing** — if `CONSTITUTION.md` exists, load it and show
-   the operator the diff BEFORE any overwrite. NEVER overwrite without
-   diff + explicit confirm (R-131-03 mitigation).
+1. **Auto-detect** — read `.ai-engineering/manifest.yml` + package files (`pyproject.toml` / `package.json` / `Cargo.toml`) to seed name, stack, version.
+2. **Read existing** — if `CONSTITUTION.md` exists, load it and show the operator the diff BEFORE any overwrite. NEVER overwrite without diff + explicit confirm (R-131-03 mitigation).
 3. **Interview the 10 sections** — see "Interview" below.
-4. **Write** — emit `CONSTITUTION.md` using the 10-section skeleton.
-   Refuse to write any AI-behaviour / engineering-principle header —
-   those belong to CANONICAL.md; CONSTITUTION owns project identity
-   only: Think Before Coding, Simplicity First, Surgical Changes,
-   Goal-Driven Execution, Plan-Mode Default, Subagent Strategy,
-   Self-Improvement Loop, Demand Elegance, Autonomous Bug Fixing,
-   KISS, YAGNI, SOLID, DRY, TDD, SDD, Clean Code, Hexagonal
-   Architecture. (Framework dev repo: the canonical list lives at
-   `tools/skill_lint/checks/md_mirror.py:FORBIDDEN_CONSTITUTION_HEADERS`.)
-5. **Rotate** — when `update` or `amend` replaces operator-authored
-   content, copy the pre-write body to
-   `.ai-engineering/specs/_history-constitution-<YYYY-MM-DD>.md` so
-   the prior identity is recoverable.
-6. **Verify + record** — confirm inline that the file you just wrote
-   carries only the 10 project-identity sections and none of the
-   AI-behaviour headers from Step 4 (re-read `CONSTITUTION.md`; do NOT
-   shell out to `skill_lint` — that is a framework-dev mirror-parity
-   gate whose module is absent on a consumer's bare `python3` and which
-   false-fails on the `.codex`/`.github` mirror surfaces a consuming
-   project legitimately lacks). The `/ai-constitution` run is already
-   audited automatically as a `skill_invoked` event by the
-   UserPromptSubmit hook — no manual emit is required. If a distinct
-   marker is wanted, emit a `framework_event` `kind=framework_operation`
-   (`operation=constitution_update`, `component: ai-constitution`,
-   `detail: {version, sections_changed, mode}`); it chains into the
-   standard audit pipeline. **Fail-open**: never block the
-   `CONSTITUTION.md` write on a verification or audit failure.
+4. **Write** — emit `CONSTITUTION.md` on the 10-section skeleton. Refuse to write any AI-behaviour / engineering-principle header (those belong to CANONICAL.md): Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution, Plan-Mode Default, Subagent Strategy, Self-Improvement Loop, Demand Elegance, Autonomous Bug Fixing, KISS, YAGNI, SOLID, DRY, TDD, SDD, Clean Code, Hexagonal Architecture. (Framework dev repo canonical list: `tools/skill_lint/checks/md_mirror.py:FORBIDDEN_CONSTITUTION_HEADERS`.)
+5. **Rotate** — on `update`/`amend` that replaces operator-authored content, copy the pre-write body to `.ai-engineering/specs/_history-constitution-<YYYY-MM-DD>.md` so prior identity is recoverable.
+6. **Verify + record** (fail-open — never block the write on verify/audit failure):
+   - Re-read `CONSTITUTION.md`; confirm it carries only the 10 identity sections and none of the Step 4 AI-behaviour headers.
+   - Do NOT shell out to `skill_lint`: it is a framework-dev mirror-parity gate whose module is absent on a consumer's bare `python3` and which false-fails on `.codex`/`.github` mirror surfaces a consumer legitimately lacks.
+   - The run is already audited as a `skill_invoked` event by the UserPromptSubmit hook — no manual emit required. Optional distinct marker: emit `framework_event` `kind=framework_operation` (`operation=constitution_update`, `component: ai-constitution`, `detail: {version, sections_changed, mode}`).
 
 ## Interview
 
@@ -80,31 +52,7 @@ CANONICAL.md. The two never overlap.
 
 ## Examples
 
-### Example 1 — first install, no prior CONSTITUTION
-
-User: "set up the constitution for this project"
-
-```
-/ai-constitution generate
-```
-
-Interviews the 10 sections, seeds defaults from `manifest.yml`, writes
-`CONSTITUTION.md` v1.0.0 with the ratified date stamped. The run is
-audited automatically as a `skill_invoked` event.
-
-### Example 2 — formal amendment with version bump
-
-User: "amend the constitution to add 'no LLM-generated production
-secrets' to prohibitions"
-
-```
-/ai-constitution amend
-```
-
-Loads the existing body, presents the diff for the Prohibitions
-section, applies the amendment, bumps the minor version, records the
-amendment row in the governance footer, rotates the pre-amendment
-body into `_history-constitution-<date>.md`.
+User: "amend the constitution to add 'no LLM-generated production secrets' to prohibitions" → `/ai-constitution amend` loads the existing body, presents the diff for the Prohibitions section, applies the amendment, bumps the minor version, records the amendment row in the governance footer, and rotates the pre-amendment body into `_history-constitution-<date>.md`.
 
 ## Integration
 

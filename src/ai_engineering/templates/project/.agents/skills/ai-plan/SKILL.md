@@ -13,70 +13,55 @@ edit_policy: generated-do-not-edit
 
 # Plan
 
-## Quick start
+Decomposes an approved spec into a phased, patch-ready execution plan — the contract `/ai-build` executes. **HARD GATE**: operator approves before `/ai-build` runs.
 
 ```
-/ai-plan                            # plan from approved spec
-/ai-plan --pipeline=hotfix          # override classification
-/ai-plan --skip-design              # skip design routing
+/ai-plan                    # plan from approved spec
+/ai-plan --pipeline=hotfix  # override classification
+/ai-plan --skip-design      # skip design routing
 ```
 
 ## Workflow
 
-Takes an approved spec and produces a phased execution plan — bite-sized tasks, agent assignments, gate criteria. The plan is the contract `/ai-build` executes. **HARD GATE**: operator must approve before `/ai-build` runs (§10.6 SDD).
+Principles: §10.6 SDD (approved spec is the contract), §10.3 SOLID (single-concern tasks), §10.5 TDD (RED before GREEN), §10.7 Clean Code (self-review).
 
-1. **Approval gate (HARD STOP, no escape hatch)** — BEFORE reading the spec for decomposition, resolve the active spec's CANONICAL lifecycle state. Read `<spec_id>` from `.ai-engineering/specs/spec.md` frontmatter `spec:` (fallback `slug:`), then run `python .ai-engineering/scripts/spec_lifecycle.py status <spec_id>` to read the sidecar `state`.
-   - **Sidecar resolves to a known state ≠ `approved`** → HARD STOP. Write NO `plan.md`. Emit exactly:
+1. **Approval gate (HARD STOP, no escape hatch)** — before decomposing, resolve the spec's CANONICAL state. Read `<spec_id>` from `.ai-engineering/specs/spec.md` frontmatter `spec:` (fallback `slug:`); run `python .ai-engineering/scripts/spec_lifecycle.py status <spec_id>`.
+   - Sidecar state ≠ `approved` → HARD STOP, write NO `plan.md`, emit exactly:
      ```
      Error: spec-<id> is in '<state>' state.
      Complete /ai-brainstorm approval before running /ai-plan.
      ```
-   - **No sidecar exists** → fall back to `spec.md` frontmatter `status:`; block (same HARD STOP) unless `status: approved`.
-   - **Neither sidecar NOR frontmatter `status:` resolves** → this is indeterminate plumbing only (D-161-03): emit a LOUD warning and proceed (fail-open).
-   - Vocab: sidecar `approved` ⇔ frontmatter `status: approved`. There is NO `--force` / escape hatch — the ONLY bypass is approving the spec via `/ai-brainstorm`.
-2. **Read spec** — load `.ai-engineering/specs/spec.md`; flag missing sections per `spec-schema.md`.
-3. **Explore codebase** (read-only) — current architecture, patterns, affected files (§10.3 SOLID).
-4. **Classify pipeline** — full / standard / hotfix / trivial.
-5. **Classify executor route** — write `execution_route` frontmatter: `executor: build` + `safe_next_command: "/ai-build"` for single-concern plans, or `executor: autopilot` + `safe_next_command: "/ai-autopilot"` for multi-concern/large plans. `status` remains the only approval field; draft plans are recommendations only. Emit `framework_operation` detail `operation=execution_routed`.
-6. **Design routing** — invoke `handlers/design-routing.md`; capture output at `.ai-engineering/specs/<spec-id>/design-intent.md` under `## Design`. `--skip-design` logs reason and proceeds.
-7. **Identify architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`. Record under `## Architecture` BEFORE decomposition.
-8. **Decompose into tasks** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered. Apply the **exhaustive patch-ready output template** below (D-131-08 / sub-003).
+   - No sidecar → fall back to `spec.md` frontmatter `status:`; block (same HARD STOP) unless `status: approved`.
+   - Neither resolves → indeterminate plumbing (D-161-03): LOUD warning, proceed (fail-open).
+   - Vocab: sidecar `approved` ⇔ frontmatter `status: approved`. The ONLY bypass is approving the spec via `/ai-brainstorm`.
+2. **Read spec** — load `spec.md`; flag missing sections per `spec-schema.md`.
+3. **Explore** (read-only) — current architecture, patterns, affected files.
+4. **Classify pipeline** — full / standard / hotfix / trivial (table below).
+5. **Classify executor route** — write `execution_route` frontmatter: `executor: build` + `safe_next_command: "/ai-build"` for single-concern, or `executor: autopilot` + `safe_next_command: "/ai-autopilot"` for multi-concern/large. `status` stays the only approval field; drafts are recommendations. Emit `framework_operation` detail `operation=execution_routed`.
+6. **Design routing** — invoke `handlers/design-routing.md`; capture at `.ai-engineering/specs/<spec-id>/design-intent.md` under `## Design`. `--skip-design` logs reason + proceeds.
+7. **Architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`; record under `## Architecture` BEFORE decomposition.
+8. **Decompose** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered; apply the patch-ready template below (D-131-08 / sub-003).
 9. **Assign agents** — capability-match (build = code; verify = read-only; guard = advisory).
-10. **Order phases** + gate criteria. **TDD pairs** (§10.5): write a RED test task before any GREEN implementation task.
-11. **Self-review** (§10.7 Clean Code) — spec-reviewer pattern, max 2 iterations.
-12. **Write** to `.ai-engineering/specs/plan.md`, then emit the 6-field value
-    block (Bottom line / Why it matters / What's done / Risk / Next / Details)
-    per `.ai-engineering/reference/value-lens.md` at the resolved audience level
-    (default `full`) alongside the `safe_next_command`, and **STOP** — operator
-    approves and runs that command. The `safe_next_command` string itself stays
-    a carve-out (exact, machine-runnable).
+10. **Order phases + gates** — TDD pairs: a RED test task before any GREEN implementation task.
+11. **Self-review** — spec-reviewer pattern, max 2 iterations.
+12. **Write + STOP** — write `.ai-engineering/specs/plan.md`, then emit the 6-field value block (Bottom line / Why it matters / What's done / Risk / Next / Details) per `.ai-engineering/reference/value-lens.md` at the resolved audience level (default `full`) alongside the `safe_next_command`, and STOP — operator approves and runs that command. The `safe_next_command` string itself stays a carve-out (exact, machine-runnable).
 
-### Output template — exhaustive patch-ready (D-131-08)
+### Output template — patch-ready (D-131-08)
 
-Each task block carries five lines so `/ai-build` can route to the cheap model tier when the work is mechanical:
+Each task block carries five lines so `/ai-build` can route mechanical work to the cheap tier:
 
 - `- [ ] T-N — <task title>`
 - `- Agent: <build/verify/guard>`
 - `- Files: <path/to/file:line>`
-- `- Principles applied: §10.x ...` — cite at least one anchor from CANONICAL.md §10 (e.g., §10.3 SOLID, §10.5 TDD, §10.7 Clean Code).
-- `- Patch (deterministic):` — include a unified-diff hunk when the edit is mechanical (rename, copy, frontmatter add); omit and add prose only when judgment is required.
+- `- Principles applied: §10.x ...` — cite ≥ 1 CANONICAL §10 anchor (e.g. §10.3 SOLID, §10.5 TDD, §10.7 Clean Code).
+- `- Patch (deterministic):` — a unified-diff hunk when the edit is mechanical (rename, copy, frontmatter add); omit and add prose only when judgment is required.
 - `- Gate: <test/check>`
 
-Patch hunk present → `/ai-build` dispatches `effort: cheap / model_tier: haiku`. Absent patch or synthesis hint → `effort: mid / model_tier: sonnet`. Operator `--max-effort` → `effort: high / model_tier: opus`.
+Routing: patch present → `effort: cheap / model_tier: haiku`; patch absent or synthesis hint → `effort: mid / model_tier: sonnet`; operator `--max-effort` → `effort: high / model_tier: opus`.
 
-Plan frontmatter MUST include `execution_route.version`, `spec`, `executor`, `automation`, `concern_count`, `estimated_files`, `reason`, and `safe_next_command`. Do not add `approved`/`approval` under `execution_route`; plan `status` is the approval source of truth.
+Plan frontmatter MUST include `execution_route.version`, `spec`, `executor`, `automation`, `concern_count`, `estimated_files`, `reason`, `safe_next_command`. Do NOT add `approved`/`approval` under `execution_route`; plan `status` is the approval source of truth.
 
-## Dispatch threshold
-
-Dispatch the `ai-plan` agent for any approved spec needing decomposition. Hand off to `/ai-build` only after explicit user approval. The agent file (`.agents/agents/ai-plan.md`) is the interrogator handle; pipeline classification, decomposition rules, and the no-execution protocol live here.
-
-## When to Use
-
-- After `/ai-brainstorm` produces an approved spec.
-- When a spec exists but plan.md has placeholder content.
-- When re-planning is needed (plan failed, scope changed).
-
-## Pipeline Classification
+## Pipeline classification
 
 | Pipeline | Trigger | Steps |
 | --- | --- | --- |
@@ -85,22 +70,21 @@ Dispatch the `ai-plan` agent for any approved spec needing decomposition. Hand o
 | `hotfix` | Bug fix, security patch, <3 files | discover, risk, spec, dispatch |
 | `trivial` | Typo, comment, single-line | spec, dispatch |
 
-## No-Execution Protocol
+## No-execution protocol
 
-`/ai-plan` is planning-only. MUST NOT invoke `ai-build agent` or `/ai-build` for task execution; MUST NOT modify source code; MUST NOT check off implementation tasks. MAY write `.ai-engineering/specs/plan.md` and run read-only codebase exploration.
+`/ai-plan` is planning-only. MUST NOT invoke `ai-build` / `/ai-build`, modify source, or check off implementation tasks. MAY write `plan.md` and run read-only exploration. Dispatch the `ai-plan` agent (`.agents/agents/ai-plan.md`, the interrogator handle) for any approved spec needing decomposition; hand off to `/ai-build` only after explicit approval.
 
-## Common Mistakes
+## When to use
 
-- Tasks too large (>5 min) — split them.
-- Missing dependencies between tasks.
-- Assigning code-write tasks to verify (verify is read-only).
-- Not pairing RED/GREEN tasks for TDD.
-- Planning implementation details (plan says WHAT, code says HOW).
-- Omitting the `Patch (deterministic):` block when the edit is mechanical — costs `/ai-build` the cheap-tier dispatch.
+After `/ai-brainstorm` approval; when `plan.md` holds placeholder content; or to re-plan (plan failed / scope changed) — diff against the existing plan, regenerate affected phases, preserve completed checkboxes where the task is unchanged.
+
+## Common mistakes
+
+- Tasks too large (>5 min) — split them. Missing task dependencies.
+- Code-write tasks assigned to verify (read-only). Unpaired RED/GREEN.
+- Planning HOW instead of WHAT. Omitting the `Patch (deterministic):` block on mechanical edits — costs `/ai-build` the cheap-tier dispatch.
 
 ## Examples
-
-### Example 1 — plan from an approved spec
 
 User: "the spec is approved, break it down into a phased plan"
 
@@ -108,17 +92,7 @@ User: "the spec is approved, break it down into a phased plan"
 /ai-plan
 ```
 
-Reads `.ai-engineering/specs/spec.md`, runs read-only exploration, decomposes into phases with task assignments + gates, writes `plan.md`, presents for approval.
-
-### Example 2 — re-plan after scope change
-
-User: "scope changed — re-plan from the updated spec"
-
-```
-/ai-plan
-```
-
-Diffs against the existing plan, regenerates affected phases, preserves completed checkboxes where the task is unchanged.
+Reads `spec.md`, runs read-only exploration, decomposes into phases with agent assignments + gates, writes `plan.md`, emits the value block, and STOPs for approval.
 
 ## Integration
 

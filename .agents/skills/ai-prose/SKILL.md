@@ -12,41 +12,28 @@ edit_policy: generated-do-not-edit
 ---
 
 
-
 # Prose
 
-## Quick start
-
-```
-/ai-prose content blog
-/ai-prose content sprint-review --audience manager
-/ai-prose content architecture-board
-```
-
-## Workflow
-
-1. Detect content type from prompt (blog / pitch / sprint-review / architecture-board / solution-intent / presentation).
-2. Read existing source material — notes, transcripts, data, real output.
-3. Pick audience (developer / manager / executive); apply tone + jargon table.
-4. Edit, do not generate. Every sentence earns its place.
-5. Apply shared rules: active voice, present tense, no filler ("basically", "simply", "just").
-
-Router skill for content writing. Dispatches to handler files based on content type. Always: clear structure, audience-appropriate, no fluff.
+Content writing with automatic audience targeting. Edit, don't generate — start from what exists (notes, transcripts, data, real output). Template language is a failure mode.
 
 ## When to Use
 
-- Creating pitch decks, sprint reviews, blog posts, architecture board presentations, solution intent documents.
-- NOT for documentation artifacts (README, CHANGELOG, API docs) -- use `/ai-docs`.
-- NOT for marketing content (social posts, investor materials, outreach) -- use `/ai-marketing`.
-- NOT for code explanations -- use `/ai-explain`.
+- Pitch decks, sprint reviews, blog posts, architecture board docs, solution intent documents.
+- NOT documentation artifacts (README, CHANGELOG, API docs) — use `/ai-docs`.
+- NOT marketing content (social, investor, outreach) — use `/ai-marketing`.
+- NOT code explanations — use `/ai-explain`.
 
-## Writing Philosophy
+## Workflow
 
-Edit, don't generate. Start from what exists: notes, transcripts, data, examples, real output. Every sentence must earn its place. Template language is a failure mode, not a starting point.
+Applies §10.7 Clean Code (every sentence earns its place; cut filler) and §10.4 DRY (one source of truth — reuse real output, don't regenerate).
 
-## Routing
+1. Detect content type: blog / pitch / sprint-review / architecture-board / solution-intent / presentation.
+2. Gather source material — notes, transcripts, data, real output.
+3. Pick audience (developer / manager / executive; default developer); apply the tone + jargon table.
+4. Edit, don't generate — every sentence earns its place.
+5. Apply shared rules (active voice, present tense, no filler).
 
-Single sub-command `content` (default) — handler `handlers/content.md` covers articles, pitches, presentations, sprint reviews, architecture board, solution intent. The handler dispatches to sub-types internally based on the content type in the user's prompt.
+Routing: single sub-command `content` (default) → `handlers/content.md`, which dispatches to sub-types internally by the content type in the prompt.
 
 ## Audience Targeting
 
@@ -56,18 +43,16 @@ Single sub-command `content` (default) — handler `handlers/content.md` covers 
 | `manager` | Results-oriented | Impact and timeline | Minimal, explained when used |
 | `executive` | Strategic | Business value and risk | None |
 
-Default: `developer`.
-
-## Quick Reference
+## Commands
 
 ```
+/ai-prose content blog                      # blog post
 /ai-prose content pitch                     # elevator pitch
 /ai-prose content sprint-review             # sprint review summary
-/ai-prose content blog                      # blog post
-/ai-prose content presentation              # presentation outline
-/ai-prose content architecture-board        # architecture decision for review
-/ai-prose content solution-intent           # solution intent document
-/ai-prose content blog --audience manager   # manager-targeted blog post
+/ai-prose content presentation             # presentation outline
+/ai-prose content architecture-board       # architecture decision for review
+/ai-prose content solution-intent          # solution intent document
+/ai-prose content blog --audience manager  # manager-targeted variant
 ```
 
 ## Shared Rules
@@ -75,12 +60,14 @@ Default: `developer`.
 - Write what users can DO, not what you BUILT.
 - Active voice. Present tense.
 - No "basically", "simply", "just".
-- Every section earns its place -- cut anything that does not serve the reader.
+- Every section earns its place — cut anything that doesn't serve the reader.
 - Audience determines vocabulary, not quality.
 
-## Examples
+## Integration
 
-### Example 1 — sprint review for a manager audience
+Called by: user directly. Dispatches to: `handlers/content.md`. See also: `/ai-docs` (CHANGELOG/README), `/ai-marketing` (social/outreach), `/ai-explain` (code-level), `/ai-slides` (deck rendering).
+
+## Examples
 
 User: "write the sprint review summary for this week"
 
@@ -88,20 +75,6 @@ User: "write the sprint review summary for this week"
 /ai-prose content sprint-review --audience manager
 ```
 
-Reads recent commits + closed issues, generates a results-oriented summary with impact + timeline framing, omits implementation jargon.
-
-### Example 2 — pitch deck for executive review
-
-User: "draft an elevator pitch for the new auth product"
-
-```
-/ai-prose content pitch --audience executive
-```
-
-Strategic framing, business value first, no technical vocabulary, ≤90 words.
-
-## Integration
-
-Called by: user directly. Dispatches to: `handlers/content.md`. See also: `/ai-docs` (CHANGELOG/README), `/ai-marketing` (social/outreach), `/ai-explain` (code-level), `/ai-slides` (deck rendering).
+Reads recent commits + closed issues, produces a results-oriented summary with impact + timeline framing, omits implementation jargon.
 
 $ARGUMENTS

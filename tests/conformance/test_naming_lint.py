@@ -268,10 +268,11 @@ def test_r4_kebab_case_flags_underscore_synthetic(tmp_path: Path) -> None:
 def test_r5_parity_allowlists_skill_scripts_as_info(
     skills_root: Path, agents_root: Path, project_root: Path
 ) -> None:
-    """The three deferred skill-script `.sh` files emit INFO, not MAJOR.
+    """The deferred skill-script `.sh` files emit INFO, not MAJOR.
 
-    `board-sync-github.sh`, `cleanup-settings-local.sh`, `scaffold-skill.sh`
-    have no `.ps1` siblings; the allow-list keeps them advisory.
+    `board-sync-github.sh`, `scaffold-skill.sh` have no `.ps1` siblings;
+    the allow-list keeps them advisory. (`cleanup-settings-local.sh` was
+    removed with the ai-analyze-permissions skill in spec-187 D-187-04.)
     """
     from skill_lint.checks.naming import check_naming
 
@@ -285,7 +286,6 @@ def test_r5_parity_allowlists_skill_scripts_as_info(
     info_stems = {p.stem for p, r in r5_results if r.severity == "INFO" and p.suffix == ".sh"}
     expected_info = {
         "board-sync-github",
-        "cleanup-settings-local",
         "scaffold-skill",
     }
     assert expected_info.issubset(info_stems), (

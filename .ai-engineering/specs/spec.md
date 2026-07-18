@@ -176,6 +176,27 @@ cp1252 consoles; a new lint printing `◈`/`→` to a non-tty stream would crash
 install-smoke on Windows (a recorded failure class). Deterministic ASCII keeps the
 tri-OS guarantee (D-187-09).
 
+### D-187-11 — Recalibrate the skill rubric to the new authoring standard
+**Choice:** The `tools/skill_domain/rubric.py` grade rubric (+ its conformance
+tests) enforced the retired M1/M2 standard and conflicts with D-187-06. Three
+aligned changes: (a) `rule_6` — one canonical example is OK (was ≥2; the ≥2 rule
+rewarded the identical 22-line double-example boilerplate the audit found in
+44/54 skills); 0 examples is a visible INFO, never penalised. (b) `rule_1` —
+sanctioned framework frontmatter (`effort`, `model_tier`, `argument-hint`,
+`tags`, `requires` — all already in `_TOLERATED_EXTRA_FIELDS`) is INFO
+regardless of count; penalising the *count* of fields the rubric tolerates by
+*name* was internally inconsistent. (c) `rule_5` — `Quick start` dropped from
+required sections (redundant with the description under the leaner standard);
+`Workflow` / `Examples` / `Integration` stay required.
+**Rationale**: spec-187 redefines what a good skill looks like (D-187-06), so
+the gate that enforces the old shape must move with it — this is the spec doing
+its job, not loosening a gate to hide a defect. Genuinely-substandard skills
+still surface: real MAJOR/CRITICAL issues (missing `Workflow`, over-long bodies,
+anti-patterns) remain blocking, and the change is honest — it left ai-pr at a
+legitimate lower grade until its real content issues were addressed, not zeroed
+out. Overall rubric health improved under the same gate (principles MAJOR 25→8,
+pairs 9→5, Grade-C 2→0).
+
 ## Risks
 
 - **This 6th attempt also dies unconsumed** — likelihood High, impact High.
