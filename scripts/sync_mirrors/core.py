@@ -99,6 +99,22 @@ TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agents" / "agents"
 # be orphan-deleted by this sync step.
 TPL_HOOK_SCRIPTS = TPL_PROJECT.parent / ".ai-engineering" / "scripts" / "hooks"
 
+# spec-187 follow-up (doc-twin root fix): the installer ships the
+# `.ai-engineering/{reference,runbooks}/**.md` docs verbatim, so every
+# canonical edit must reach its install-template twin under
+# `src/ai_engineering/templates/.ai-engineering/**` or it drifts silently
+# (previously caught only by full-suite byte-parity tests and hand-`cp`'d each
+# wave). Surface 11 makes `dev sync` the single regen command for these twins.
+#
+# The allowlist is DELIBERATELY narrow: `reference/` and `runbooks/` are the
+# only `.ai-engineering/**` doc trees that are byte-identical mirrors. Siblings
+# such as `overrides/`, `specs/`, and `LESSONS.md` are intentionally divergent
+# (generic starter template / placeholder / project-accumulated state, not a
+# verbatim mirror) and MUST NOT be blanket-synced from the live tree.
+CANONICAL_AIENG = ROOT / ".ai-engineering"
+TPL_AIENG = TPL_PROJECT.parent / ".ai-engineering"
+_DOC_TWIN_SUBTREES: tuple[str, ...] = ("reference", "runbooks")
+
 
 # ── Dataclasses ─────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
@@ -2176,6 +2192,31 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                 diffs,
             )
 
+    # Surface 11: .ai-engineering doc twins (spec-187 follow-up).
+    # The `.ai-engineering/{reference,runbooks}/**.md` docs ship to consumers
+    # byte-identical, but no propagation path existed into the installer
+    # template, so a canonical edit silently drifted the packaged copy (caught
+    # only by full-suite byte-parity tests + a manual `cp` every wave). Mirror
+    # every canonical `.md` in the allowlisted doc subtrees to its twin so
+    # `dev sync` is the single regen command. Fail-open on consumer projects:
+    # `src/…/templates` is absent there, so the loop is a no-op (no twin root).
+    if TPL_AIENG.is_dir():
+        for subtree in _DOC_TWIN_SUBTREES:
+            canonical_subtree = CANONICAL_AIENG / subtree
+            if not canonical_subtree.is_dir():
+                continue
+            for src_file in sorted(canonical_subtree.rglob("*.md")):
+                relative = src_file.relative_to(CANONICAL_AIENG)
+                dst_file = TPL_AIENG / relative
+                _generate_surface(
+                    dst_file,
+                    src_file.read_text(encoding="utf-8"),
+                    check_only,
+                    verbose,
+                    generated_paths,
+                    diffs,
+                )
+
     # ── Phase 3: Orphan detection ───────────────────────────────────────
     orphan_diffs = _handle_orphans(generated_paths, check_only, verbose)
 
@@ -2290,6 +2331,16 @@ def _handle_orphans(
         # shipping in the wheel. The `.sh/.ps1` launchers in this same tree are
         # a separate packaging concern and must NEVER be orphan-deleted.
         (TPL_HOOK_SCRIPTS, "rglob", "*.py"),
+        # spec-187 follow-up: Surface 11 doc twins. Scope orphan cleanup to
+        # `*.md` in the two allowlisted subtrees so a renamed/deleted canonical
+        # doc does not leave a stale twin shipping in the wheel. Only these two
+        # subtree roots are scanned (never the divergent overrides/specs/
+        # LESSONS siblings, which have no canonical mirror to compare against).
+        *(
+            (TPL_AIENG / subtree, "rglob", "*.md")
+            for subtree in _DOC_TWIN_SUBTREES
+            if (TPL_AIENG / subtree).is_dir()
+        ),
     ]
 
     # spec-187 D-187-04: the flat-path reviewer-*/verifier-* forwarder stubs

@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "spec-187/fleet-simplify-portability",
   "created": "2026-07-18T10:11:05.726765+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "641",
+  "shipped": "2026-07-18T19:55:05.528412+00:00",
   "slug": "fleet-simplify-portability",
   "spec_id": "spec-187",
-  "state": "approved",
+  "state": "shipped",
   "title": "Fleet Audit \u2014 Simplify + Model-Portability"
 }

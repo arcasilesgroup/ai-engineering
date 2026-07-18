@@ -98,7 +98,7 @@ install = f"""
   </div>
   <div style="flex:1;border-left:1px solid #1E3A4F;padding-left:34px">
     <div class="kick" style="margin-bottom:10px">what you get</div>
-    {get("54 skills &middot; 9 agents", "run /ai-&lt;name&gt; in your editor")}
+    {get("53 skills &middot; 9 agents", "run /ai-&lt;name&gt; in your editor")}
     {get("a governed workflow", "spec &rarr; plan &rarr; build &rarr; reviewed PR")}
     {get("automatic checks", "clean diffs, fresh docs, on every change")}
     {get("versioned local files", "no cloud, no lock-in, you own it all")}
@@ -121,7 +121,7 @@ toolkit = f"""
 <div class="glow" style="width:280px;height:190px;left:60px;top:40px"></div>
 <div style="display:flex;gap:36px;align-items:center">
   <div style="flex:0 0 250px">
-    <div style="font-size:58px;font-weight:700;color:#00D4AA;line-height:.95">54</div>
+    <div style="font-size:58px;font-weight:700;color:#00D4AA;line-height:.95">53</div>
     <div class="k" style="font-size:19px;margin-top:2px">skills</div>
     <div style="font-size:40px;font-weight:700;color:#00D4AA;line-height:1;margin-top:16px">9</div>
     <div class="k" style="font-size:19px;margin-top:2px">agents</div>

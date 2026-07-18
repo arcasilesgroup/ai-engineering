@@ -191,5 +191,6 @@ Completed specs. Details in git history.
 | spec-183 | spec-183 — CLI command audit + functional color-grouped help | shipped | 2026-07-13 | 2026-07-14 | 637 | spec-manifest-field-ownership |
 | spec-184 | Field-level manifest ownership + framework version-drift UX | shipped | 2026-07-14 | 2026-07-14 | 637 | spec-manifest-field-ownership |
 | spec-186 | Client-Value Lens — Stakeholder-Legible Communication for the Skill Chain | shipped | 2026-07-18 | 2026-07-18 | 640 | spec-186/client-value-comms-lens |
+| spec-187 | Fleet Audit — Simplify + Model-Portability | shipped | 2026-07-18 | 2026-07-18 | 641 | spec-187/fleet-simplify-portability |
 
 ---
