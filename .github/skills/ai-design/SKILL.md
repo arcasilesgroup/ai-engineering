@@ -17,12 +17,6 @@ edit_policy: generated-do-not-edit
 
 Aesthetic direction, design systems, component/UI/UX, and information architecture. Every output declares a conceptual direction and executes it with named tokens — never vague suggestions.
 
-## When to Use
-
-- Interfaces (web/mobile), design systems, project-wide aesthetic direction.
-- Text-heavy or CLI information architecture (hierarchy, framing, flow).
-- Component/layout/responsive decisions; typography + color; spatial composition + visual hierarchy.
-
 ## Workflow
 
 Applies §10.1 KISS (fewest moving parts; no decorative complexity) and §10.7 Clean Code (specific named tokens, not vague advice).
@@ -62,16 +56,12 @@ Applies §10.1 KISS (fewest moving parts; no decorative complexity) and §10.7 C
 ## Common Mistakes
 
 - Generic AI aesthetics (purple gradients, Inter font, centered hero, 3-column features).
-- Defaulting to Inter/Roboto/Arial over distinctive typography.
 - Vague advice ("use a clean design") instead of specific tokens.
-- Skipping the differentiation question.
 - Accessibility not treated as a hard gate (contrast, touch targets, keyboard nav).
 
 ## Integration
 
-- **Called by**: user directly, `/ai-slides`, `/ai-media`, `/ai-build`
-- **Calls**: `handlers/aesthetics.md`, `handlers/design-system.md`, `handlers/checklist.md`, `/ai-animation`, `/ai-visual`
-- **Consumed by**: `/ai-slides` (presentation aesthetics), `/ai-media` (visual asset direction)
+Called by: user, `/ai-slides`, `/ai-media`, `/ai-build`. Calls: `handlers/aesthetics.md`, `handlers/design-system.md`, `handlers/checklist.md`, `/ai-animation`, `/ai-visual`. Consumed by: `/ai-slides` (presentation aesthetics), `/ai-media` (visual asset direction).
 
 ## Examples
 

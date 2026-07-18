@@ -172,7 +172,7 @@ written CONSTITUTION.md stays in English for cross-team review.
 ## Lifecycle phase
 
 **Stabilising** — the framework has shipped its canonical chain
-(spec-127 / spec-128 / spec-129) and is now hardening DX and reliability (spec-131 through spec-182, v0.12.3).
+(spec-127 / spec-128 / spec-129) and is now hardening DX and reliability (spec-131 through spec-186, v0.12.3).
 Breaking changes still land without backwards-compat shims (anti-goal
 above), but the deterministic plane contract (audit chain shape,
 risk-acceptance ledger, hooks manifest) is frozen modulo ADR.
@@ -188,7 +188,7 @@ verbatim to
 `.ai-engineering/specs/archive/constitution-rotations/2026-05-11.md`
 (traceability per R-131-03). AI-behaviour content migrated to
 `src/ai_engineering/templates/project/CANONICAL.md` §§1-13, mirrored
-byte-equivalent into AGENTS.md / CLAUDE.md / GEMINI.md /
+byte-equivalent into AGENTS.md / CLAUDE.md /
 .github/copilot-instructions.md by `scripts/sync_mirrors/core.py`.
 
 Governance metadata:

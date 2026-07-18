@@ -15,18 +15,11 @@ edit_policy: generated-do-not-edit
 
 # Learn
 
-## Purpose
-
-Continuous improvement from delivery outcomes: analyzes merged PRs to find where AI missed what human reviewers caught, identifies false positives, and writes lessons directly to `.ai-engineering/LESSONS.md`.
-
-## Trigger
-
-- Command: `/ai-learn single <pr>|batch`
-- Context: after PR merge (single), periodic review (batch).
-
-Step 0: read `.ai-engineering/LESSONS.md` for pre-existing patterns; load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` for each stack.
+Continuous improvement from delivery outcomes: analyzes merged PRs to find where AI missed what human reviewers caught, identifies false positives, and writes lessons directly to `.ai-engineering/LESSONS.md`. Command: `/ai-learn single <pr>|batch` (single = after a PR merge; batch = periodic).
 
 ## Workflow
+
+Step 0: read `.ai-engineering/LESSONS.md` for pre-existing patterns; load stack contexts: read `.ai-engineering/manifest.yml` `providers.stacks` and apply `.ai-engineering/overrides/<stack>/conventions.md` for each stack.
 
 Two modes — `single <pr>` (one PR) and `batch` (all merged PRs since last lesson update) — share one loop: read PR comments + diff → classify each into a Pattern Category → dedupe against existing LESSONS.md entries → append new lessons with category + evidence link → sweep for AGENTS.md proposals. Authoritative per-mode steps below.
 
@@ -74,19 +67,6 @@ Two modes — `single <pr>` (one PR) and `batch` (all merged PRs since last less
 | Over-flagging | AI flags every single-letter variable in list comprehensions | Write lesson noting the exception |
 | Missing context | Reviewers always explain why a specific pattern is used in this codebase | Write lesson adding the context |
 | Style drift | Reviewers consistently request a style AI does not enforce | Write lesson with the style rule |
-
-## Quick Reference
-
-```
-/ai-learn single 123         # analyze PR #123, write lessons to LESSONS.md
-/ai-learn batch               # process all unanalyzed merged PRs
-```
-
-## Storage
-
-- All lessons written to: `.ai-engineering/LESSONS.md`
-- Batch tracking: `lastAnalyzedAt` field in LESSONS.md YAML frontmatter
-- Format: Markdown with Context/Learning/Rule sections (same as manually-written lessons)
 
 ## AGENTS.md proposal mode (spec-121)
 

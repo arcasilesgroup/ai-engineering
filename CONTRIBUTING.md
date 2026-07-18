@@ -1,6 +1,6 @@
 # Contributing to ai-engineering
 
-Thank you for your interest in contributing. This guide covers everything you need to get started — from setting up a development environment to submitting a pull request.
+Thank you for contributing. This guide covers development setup through opening a pull request.
 
 ## Development setup
 
@@ -50,7 +50,7 @@ ruff check .
 
 ## Code style
 
-This project uses strict automated tooling. All checks run locally through git hooks — you don't need to remember them manually.
+Automated tooling runs locally through git hooks — you don't need to run these manually.
 
 **Formatting and linting** — `ruff` with a 100-character line length:
 

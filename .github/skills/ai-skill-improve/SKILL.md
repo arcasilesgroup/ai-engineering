@@ -23,21 +23,11 @@ edit_policy: generated-do-not-edit
 /ai-skill-improve all              # batch evolve with evals
 ```
 
-Accepts a single skill name or `all` (batch mode). Improves existing skills from
-real project pain — prior eval corpora under `.ai-engineering/evals/`, Engram
-cross-session observations (via `MemoryPort`), `LESSONS.md` operator notes,
-decision-store, instincts, proposals. The skill owns pain diagnosis and rewrite
-strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's
-`skill-creator`. **Output is PR-comment only — never auto-merged** (sub-007 M6).
-
-## When to Use
-
-- A skill keeps producing bad output despite correct instructions.
-- Corrections accumulated in LESSONS.md that a skill should already know.
-- The same skill pattern failed repeatedly across a batch of sessions.
-- Periodic hygiene: evolve the top 10 skills once a month.
-- NOT for creating new skills from scratch — use `/ai-scaffold`.
-- NOT for platform audit — use `/ai-ide-audit`.
+Pain sources: eval corpora (`.ai-engineering/evals/`), Engram observations (via
+`MemoryPort`), `LESSONS.md`, decision-store, instincts, proposals. Owns pain
+diagnosis + rewrite strategy; delegates the eval/grade/benchmark pipeline to
+Anthropic's `skill-creator`. **Output is PR-comment only — never auto-merged**
+(sub-007 M6).
 
 ## Workflow
 
@@ -57,7 +47,6 @@ strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's
 - Rewriting before reading the pain profile.
 - Skipping `--dry-run` on batch (you'll burn rate limits).
 - Inventing test prompts that mirror the skill's own examples (no drift signal).
-- Leaving Phase 5 evals unrun and declaring the skill "improved".
 
 ## Examples
 
@@ -69,9 +58,8 @@ User: "the /ai-plan skill keeps producing decomposition that ignores constraint 
 
 Loads pain context (LESSONS.md, proposals.md), scores ai-plan on 5 dimensions,
 generates 2-3 test prompts that exercise the failing pattern, rewrites SKILL.md,
-hands off to skill-creator for eval, reports the delta. Batch preview —
-`/ai-skill-improve all --dry-run` — walks every skill in priority-tier order,
-shows the proposed diff per skill, and stops short of running the eval pipeline.
+hands off to skill-creator for eval, reports the delta. `all --dry-run` walks
+every skill in priority-tier order and stops short of the eval pipeline.
 
 ## Integration
 

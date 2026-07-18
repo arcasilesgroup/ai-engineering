@@ -143,8 +143,6 @@ Run complete. Targets checked: <N>. Findings: <warning_count> warnings, <info_co
 Work items created: <N>/10 — <list issue URLs>.
 ```
 
-This is the only output. No local files are written.
-
 ## Output
 
 Freshness report to stdout. Work items created for stale or missing docs. No local files are written.

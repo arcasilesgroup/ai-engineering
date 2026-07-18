@@ -38,20 +38,10 @@ never re-derive).
 
 > Detail: see [evidence collection (instruction surfaces, hooks, mirrors, sync script)](references/evidence-collection.md), [capability matrix + advisory checks + auto-fix policy](references/capability-matrix.md), [audit document skeleton](references/report-template.md).
 
-## When to Use
-
-- Verifying an IDE is genuinely wired end-to-end (instruction surface → hooks → skills → agents → installer).
-- After any change to `scripts/sync_command_mirrors.py`, `src/ai_engineering/installer/templates.py`, or hook files.
-- When skill or agent counts look wrong across IDEs.
-- When a hook exists in `scripts/hooks/` but isn't firing.
-- NOT for general code quality — use `/ai-verify`. NOT for security scanning — use `/ai-security`.
-
 ## Common Mistakes
 
-- Filling the matrix before collecting evidence (write the skeleton first).
 - Marking SUPPORTED on partial wiring just because a file exists.
 - Auto-fixing P1/P2 issues with `--fix` (it only touches P0).
-- Skipping the post-fix unit test run.
 
 ## Examples
 
@@ -67,6 +57,6 @@ Walks every IDE surface, scores SUPPORTED / PARTIAL / UNSUPPORTED per capability
 
 ## Integration
 
-Triggered after: installer changes, `sync_command_mirrors.py` runs, new hooks added. Calls: `python scripts/sync_command_mirrors.py` (with `--fix`). Feeds into: `/ai-governance` (risk acceptance for UNSUPPORTED gaps). See also: `/ai-verify`, `/ai-security`.
+Triggered after: installer changes (`src/ai_engineering/installer/templates.py`), `scripts/sync_command_mirrors.py` runs, new hooks added. Calls: `python scripts/sync_command_mirrors.py` (with `--fix`). Feeds into: `/ai-governance` (risk acceptance for UNSUPPORTED gaps). See also: `/ai-verify`, `/ai-security`.
 
 $ARGUMENTS

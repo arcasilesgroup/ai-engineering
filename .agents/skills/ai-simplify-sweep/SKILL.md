@@ -57,12 +57,6 @@ The title/body mark this as an entropy GC pass so reviewers apply lighter scruti
 - Conservative defaults only — guard clauses, early returns, dead-code removal, single-call-site inlines. No aggressive refactors.
 - Empty simplify diff: exit cleanly with a status event; do NOT open an empty PR.
 
-## When to Use
-
-- Periodic manual maintenance pass (weekly cadence recommended).
-- Before a release-cut to clear obvious simplifications.
-- NOT for in-flight feature work — call `/ai-simplify` directly.
-
 ## Telemetry
 
 Each run emits one `framework_operation`:

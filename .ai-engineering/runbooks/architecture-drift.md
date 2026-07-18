@@ -24,7 +24,7 @@ Detect deviations between the running codebase and the declared architecture in 
 
 ### Step 1 -- Extract documented architecture layers
 
-Read the solution-intent to build the authoritative layer map. The module graph in section 3.1 defines five layers and their allowed dependency directions.
+Read the solution-intent to build the authoritative layer map from the section 3.1 module graph (layers and allowed dependency directions).
 
 ```bash
 cat .ai-engineering/solution-intent.md

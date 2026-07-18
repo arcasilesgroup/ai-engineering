@@ -12,20 +12,13 @@ requires: { bins: ["ffmpeg"], anyBins: ["npx"] }
 
 AI-assisted editing for real footage — not generation from prompts. Core thesis: the value is not generation, it is compression.
 
-## When to Use
-
-- `plan`: design the overall edit structure from raw footage or transcript
-- `organize`: transcribe, label, identify segments, generate edit decision lists (EDL)
-- `cut`: deterministic FFmpeg operations (trim, split, concatenate, reframe, normalize)
-- `compose`: programmable overlays and compositions via Remotion (optional)
-
 ## Workflow
 
 Applies §10.1 KISS (deterministic FFmpeg cuts over reinvented pipelines) and §10.2 YAGNI (compress real footage; generate assets only where footage is missing).
 
 0. Load contexts: read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` per stack + `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md`.
 1. **Gate** — verify `ffmpeg` (`ffmpeg -version`); install via `brew install ffmpeg` / `apt install ffmpeg` / `choco install ffmpeg`.
-2. **Pick mode** — `plan`, `organize`, `cut`, or `compose`.
+2. **Pick mode** — `plan` (design the edit structure from raw footage/transcript), `organize` (transcribe, label, identify segments, generate edit decision lists/EDL), `cut` (deterministic FFmpeg trim/split/concat/reframe/normalize), `compose` (programmable Remotion overlays + compositions, optional).
 3. **Run the 6-layer pipeline** — Capture → Organization → Deterministic Cuts → Programmable Composition → Generated Assets → Final Polish (human).
 4. **Cross-reference** `ai-media` for Layer 5 generated assets (voiceover, music/SFX, b-roll).
 
@@ -33,11 +26,8 @@ Detail: [6-layer pipeline + tool table](references/six-layer-pipeline.md), [FFmp
 
 ## Common Mistakes
 
-- Generating the whole video instead of compressing real footage.
-- Skipping organization or final polish.
 - Forcing one tool to span every layer.
 - Ignoring proxy / audio-normalization hygiene.
-- Replacing usable footage with generated assets.
 
 ## Integration
 

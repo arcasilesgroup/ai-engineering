@@ -17,17 +17,6 @@ edit_policy: generated-do-not-edit
 
 Unified documentation lifecycle skill. Seven handlers manage changelogs, READMEs, solution intent documents, external docs portals, and doc quality verification.
 
-## When to Use
-
-- Changelog stale after code changes → `changelog`
-- README needs to reflect project state → `readme`
-- New project needs a solution intent doc → `solution-intent-init`
-- Architectural changes require sync → `solution-intent-sync`
-- Pre-release / periodic health check → `solution-intent-validate`
-- External docs portal update → `docs-portal`
-- Verify docs cover semantic changes → `docs-quality-gate`
-- Auto-invoked by `/ai-pr` via parallel subagent dispatch
-
 ## Workflow
 
 Applies §10.4 DRY (docs mirror one canonical source; never duplicate or invent data) and §10.6 SDD (documentation follows the spec/decision record).

@@ -32,11 +32,6 @@ Full repository hygiene: safely migrate to the default branch, delete merged and
 /ai-branch-cleanup --all        # explicit full cleanup
 ```
 
-## When to Use
-
-- Session start, after merging PRs, between tasks, before `/ai-brainstorm`.
-- NOT for committing — use `/ai-commit`.
-
 ## Process
 
 Default (no flags) ≡ `--all`: runs Phase 0a → 0 → 1 → 3 → 4 → 5 → 2. Single-purpose flags run only their phase.
@@ -117,10 +112,6 @@ Hot-path budget <100 ms; stdlib only; idempotent; fail-open on missing dirs; emi
 ### Phase 6 — Spec consolidation (`--consolidate-spec <slug>`)
 
 Read `.agents/skills/_shared/consolidate-spec.md` and execute the shared handler: resolve the spec record, append/upsert the `_history.md` row via `spec_lifecycle.py mark_shipped`, clear `.ai-engineering/specs/spec.md` and `plan.md` to placeholders. Fail-open on missing script.
-
-## Common Mistakes
-
-- Force-pulling when ff-only fails — STOP and resolve manually.
 
 ## Examples
 

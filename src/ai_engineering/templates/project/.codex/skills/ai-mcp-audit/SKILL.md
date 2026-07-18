@@ -14,15 +14,6 @@ edit_policy: generated-do-not-edit
 
 # MCP Audit — On-Demand Skill & MCP Server Security Audit
 
-## Quick start
-
-```
-/ai-mcp-audit scan                          # coherence analysis (all surfaces)
-/ai-mcp-audit scan --target <skill-name>    # scoped scan (cost-saving)
-/ai-mcp-audit audit-update <skill-name>     # rug-pull detection vs baseline
-/ai-mcp-audit baseline set --target all     # anchor known-good snapshot
-```
-
 ## Workflow
 
 Cold-path LLM-driven security audit (spec-107 D-107-08). Principles applied: §10.1 KISS
@@ -43,17 +34,6 @@ Three modes:
 3. **baseline set** — anchor a tamper-evident reference for future audits.
 
 Does NOT replace `/ai-security` (CVE/SBOM), `/ai-governance` (compliance), or `/ai-verify` (quality).
-
-## When to Use
-
-| Situation | Mode |
-| --- | --- |
-| After installing a new skill / MCP server | `scan` (or `scan --target <new>`) |
-| After updating a skill, especially auto-update | `audit-update <skill>` |
-| After fresh-clone / anchoring known-good | `baseline set` |
-| Before merging PRs touching `.codex/skills/`, `.codex/skills/`, `.agents/skills/`, `.github/skills/` | `scan` |
-| Runtime payload inspection | NOT this — use prompt-injection-guard hook |
-| CVE / dependency vulnerabilities | NOT this — use `/ai-security` |
 
 ## Modes
 
@@ -99,7 +79,7 @@ Does NOT replace `/ai-security` (CVE/SBOM), `/ai-governance` (compliance), or `/
 
 ## Integration
 
-`/ai-security` adds CVE/SBOM/secrets; MCP-audit adds coherence/rug-pull. `/ai-governance` consumes VERDE/ROJO verdicts. `/ai-ide-audit` verifies platform support; MCP-audit verifies skill behavior. `prompt-injection-guard` hook (D-107-06) is the hot-path runtime; MCP-audit is its cold-path counterpart.
+Complements `/ai-security` (CVE/SBOM/secrets) with coherence/rug-pull; feeds VERDE/ROJO verdicts to `/ai-governance`; pairs with `/ai-ide-audit` (platform vs. behavior). Cold-path counterpart to the `prompt-injection-guard` hot-path hook (D-107-06).
 
 ## Examples
 

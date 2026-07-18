@@ -20,15 +20,6 @@ context layer (governance, manifest registration, IDE mirrors, pain sources); de
 skill drafting, TDD pressure-testing, eval pipeline, and description optimization to
 Anthropic's `skill-creator`.
 
-## Quick start
-
-```
-/ai-scaffold skill <name>     # new skill (delegates TDD + evals to skill-creator)
-/ai-scaffold agent <name>     # new agent (direct scaffold, no skill-creator)
-```
-
-Invoke when the framework needs a capability no existing skill or agent covers.
-
 ## Registration Checklist — [NAME]
 
 Write at top; check off regardless of skill vs agent:

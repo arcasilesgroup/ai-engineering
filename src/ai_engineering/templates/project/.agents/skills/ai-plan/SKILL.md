@@ -46,6 +46,8 @@ Principles: §10.6 SDD (approved spec is the contract), §10.3 SOLID (single-con
 11. **Self-review** — spec-reviewer pattern, max 2 iterations.
 12. **Write + STOP** — write `.ai-engineering/specs/plan.md`, then emit the 6-field value block (Bottom line / Why it matters / What's done / Risk / Next / Details) per `.ai-engineering/reference/value-lens.md` at the resolved audience level (default `full`) alongside the `safe_next_command`, and STOP — operator approves and runs that command. The `safe_next_command` string itself stays a carve-out (exact, machine-runnable).
 
+**Re-plan** (plan failed / scope changed, or `plan.md` holds placeholder content): diff against the existing plan, regenerate affected phases, and preserve completed checkboxes where the task is unchanged.
+
 ### Output template — patch-ready (D-131-08)
 
 Each task block carries five lines so `/ai-build` can route mechanical work to the cheap tier:
@@ -74,15 +76,10 @@ Plan frontmatter MUST include `execution_route.version`, `spec`, `executor`, `au
 
 `/ai-plan` is planning-only. MUST NOT invoke `ai-build` / `/ai-build`, modify source, or check off implementation tasks. MAY write `plan.md` and run read-only exploration. Dispatch the `ai-plan` agent (`.agents/agents/ai-plan.md`, the interrogator handle) for any approved spec needing decomposition; hand off to `/ai-build` only after explicit approval.
 
-## When to use
-
-After `/ai-brainstorm` approval; when `plan.md` holds placeholder content; or to re-plan (plan failed / scope changed) — diff against the existing plan, regenerate affected phases, preserve completed checkboxes where the task is unchanged.
-
 ## Common mistakes
 
-- Tasks too large (>5 min) — split them. Missing task dependencies.
-- Code-write tasks assigned to verify (read-only). Unpaired RED/GREEN.
-- Planning HOW instead of WHAT. Omitting the `Patch (deterministic):` block on mechanical edits — costs `/ai-build` the cheap-tier dispatch.
+- Planning HOW instead of WHAT.
+- Omitting the `Patch (deterministic):` block on mechanical edits — costs `/ai-build` the cheap-tier dispatch.
 
 ## Examples
 

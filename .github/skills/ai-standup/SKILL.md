@@ -23,11 +23,6 @@ Generate copy-paste-ready standup notes from actual PR + commit activity, groupe
 /ai-standup --author @alice   # standup for a specific team member
 ```
 
-| Argument | Default | Description |
-|----------|---------|-------------|
-| `--days N` | 1 | Lookback period in working days |
-| `--author <name>` | current user | Filter by author name or GitHub handle |
-
 ## Pre-conditions (MANDATORY)
 
 1. Read `manifest.yml` `work_items` section.

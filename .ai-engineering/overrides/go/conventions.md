@@ -2,8 +2,7 @@
 
 # Go — Build Conventions
 
-Authoritative reference for the `ai-build` agent when generating Go
-code.
+Reference for `ai-build` when generating Go code.
 
 ## Toolchain
 

@@ -11,10 +11,6 @@ tags: [planning, brief, research, sdd]
 
 Researches a problem, surveys the surface, and writes a 14-section brief to `.ai-engineering/specs/drafts/<topic>-brief.md` for handoff to `/ai-brainstorm`. The brief is the human-readable contract between idea and spec: every architectural claim cites `file:line`; machine-absolute paths become `$HOME/...`; no emoji (team convention).
 
-```
-/ai-spec-draft "installer-windows-support"
-```
-
 ## Workflow
 
 Principles: §10.6 SDD (the brief precedes and feeds the spec), §10.5 TDD (a structural test pins the 14-section shape), §10.1 KISS (one file, one location, one handoff token).
@@ -69,7 +65,6 @@ Interviews intent (collect operator feedback; operator; single-skill), dispatche
 - Drafting from session context alone — unciteable claims. Always run `/ai-explore` + `/ai-research`.
 - Emojis or machine paths — both fail later checks.
 - Dropping sections to save lines — the 14-section shape is the contract.
-- Confusing this with `/ai-brainstorm` — that approves the spec and writes `spec.md` + decisions; this produces the *brief* that feeds it.
 
 ## Integration
 

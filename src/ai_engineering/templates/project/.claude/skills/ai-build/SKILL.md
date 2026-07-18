@@ -8,13 +8,7 @@ argument-hint: "[spec-NNN | --resume | --no-hitl]"
 
 # Build
 
-Execution engine for approved plans: reads plan.md, dispatches one subagent per task (fresh context, TDD self-validation), then a single final quality loop with one bounded quality-remediation pass on the full changeset before `/ai-pr`. If stuck: STOP and re-plan.
-
-## When to Use
-
-- After `/ai-plan` produces an approved plan. Resume with `/ai-build --resume`.
-- Never without an approved plan — run `/ai-plan` first.
-- Route multi-concern plans (≥ 3 concerns or ≥ 10 files) to `/ai-autopilot`, not `/ai-build`.
+Execution engine for approved plans: reads plan.md, dispatches one subagent per task (fresh context, TDD self-validation), then a single final quality loop with one bounded quality-remediation pass on the full changeset before `/ai-pr`. Requires an approved plan — run `/ai-plan` first; resume with `/ai-build --resume`. Route multi-concern plans (≥ 3 concerns or ≥ 10 files) to `/ai-autopilot`, not `/ai-build`. If stuck: STOP and re-plan.
 
 ## Workflow
 
@@ -55,8 +49,8 @@ Principles: §10.5 TDD (per-task RED/GREEN/REFACTOR self-validation), §10.4 DRY
 
 ## Common Mistakes
 
-- Dispatching without an approved plan. Giving subagents the whole codebase (scope tightly).
-- Continuing past a BLOCKED task without user input. Skipping the final quality loop.
+- Giving subagents the whole codebase — scope tightly.
+- Continuing past a BLOCKED task without user input.
 - Batch-updating `plan.md` at the end instead of per task close.
 - Modifying RED-phase test files during a GREEN-phase task.
 - Invoking `--no-hitl` on a multi-concern plan — use `/ai-autopilot`.

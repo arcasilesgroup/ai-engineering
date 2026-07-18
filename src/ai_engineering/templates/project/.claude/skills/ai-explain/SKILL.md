@@ -17,10 +17,6 @@ tags: [explanation, teaching, analysis, architecture]
 /ai-explain "spec lifecycle FSM" --depth deep
 ```
 
-Engineer-grade explanations anchored in the real codebase (`file:line`,
-ASCII diagrams, execution traces). Not for generating docs
-(`/ai-prose`, `/ai-docs`) or fixing code (`/ai-build`, `/ai-debug`).
-
 ## Workflow
 
 Read-only; §10.7 Clean Code — clarity over cleverness.

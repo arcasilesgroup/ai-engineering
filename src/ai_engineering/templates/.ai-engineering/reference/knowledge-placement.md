@@ -1,10 +1,10 @@
 # Framework Knowledge Placement
 
-Shared reference for where durable framework knowledge belongs. This file captures the phase-1 placement contract from spec-116 so later cleanup tasks promote rules into the right governed surface instead of copying them across lessons, contexts, overlays, and generated mirrors.
+Where durable framework knowledge belongs. Captures the phase-1 placement contract from spec-116 so cleanup tasks promote rules into the right governed surface instead of copying them across lessons, contexts, overlays, and generated mirrors.
 
 ## 30-Second Decision Flow
 
-Most contributors only need to answer three questions:
+Most contributors only need three questions:
 
 1. **Is this a hard rule the framework MUST enforce across IDEs?** → `CONSTITUTION.md`
 2. **Is this a one-time architecture or governance decision (with rationale)?** → `.ai-engineering/state/decision-store.json`
@@ -12,7 +12,7 @@ Most contributors only need to answer three questions:
 
 Skill / agent / manifest entries follow the matrix below; those are schema homes, not knowledge homes.
 
-> **`memory.db` is read-side only.** It is a retrieval index over the surfaces above (episodes + knowledge objects ingested from `LESSONS.md`, `decision-store.json`, instincts). It is **never** the canonical home for a new rule. `/ai-dream` proposes promotions in `instincts/memory-proposals.md`; humans curate from there.
+> **`memory.db` is read-side only.** A retrieval index over the surfaces above (episodes + knowledge objects ingested from `LESSONS.md`, `decision-store.json`, instincts) — **never** the canonical home for a new rule. `/ai-dream` proposes promotions in `instincts/memory-proposals.md`; humans curate from there.
 
 ## Worked Examples
 
@@ -48,7 +48,7 @@ Skill / agent / manifest entries follow the matrix below; those are schema homes
 
 ## Promotion Test
 
-Move a finding out of `.ai-engineering/LESSONS.md`, `.ai-engineering/observations/observations.yml`, or `.ai-engineering/observations/proposals.md` only when all of these are true:
+Move a finding out of `.ai-engineering/LESSONS.md`, `.ai-engineering/observations/observations.yml`, or `.ai-engineering/observations/proposals.md` only when all are true:
 
 1. The pattern repeated across more than one task, review, or framework surface.
 2. A governed canonical home can own or validate it today.
@@ -59,5 +59,5 @@ Retain the finding in the funnel when any condition fails. Drop it instead of pr
 ## Governance Notes
 
 - Rationale: give spec-116 a single placement contract before cleanup moves content.
-- Expected gain: later tasks can classify rules consistently and avoid recreating mirror or ownership drift.
-- Potential impact: future promotion, cleanup, and metadata tasks should use this matrix before moving content between governed surfaces.
+- Expected gain: consistent rule classification, no recreated mirror or ownership drift.
+- Impact: promotion, cleanup, and metadata tasks should use this matrix before moving content between governed surfaces.

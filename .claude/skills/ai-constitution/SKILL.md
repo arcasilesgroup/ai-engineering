@@ -51,15 +51,6 @@ User: "amend the constitution to add 'no LLM-generated production secrets' to pr
 
 ## Integration
 
-Called by: `ai-eng install` (governance phase), `/ai-start` (cold-load
-identity context). Reads: `manifest.yml`, package files, existing
-`CONSTITUTION.md`, `decision-store.json`. Writes: `CONSTITUTION.md`,
-`_history-constitution-<date>.md` (when rotating). CI-guarded
-(framework dev repo only) by
-`tools/skill_lint/checks/md_mirror.py:check_constitution_clean` — any
-AI-behaviour header fails that gate; consumer projects rely on the
-inline Step 6 self-check. Consumed by: every skill at Step 0. See also: `/ai-governance` (compliance against the
-constitution), CANONICAL.md (AI-behaviour layer — never written by
-this skill).
+Called by: `ai-eng install` (governance phase), `/ai-start` (cold-load identity). Reads: `manifest.yml`, package files, existing `CONSTITUTION.md`, `decision-store.json`. Writes: `CONSTITUTION.md`, `_history-constitution-<date>.md` (on rotate). Consumed by: every skill at Step 0. CI-guarded (framework dev repo only) by `tools/skill_lint/checks/md_mirror.py:check_constitution_clean` — any AI-behaviour header fails that gate; consumers rely on the inline Step 6 self-check. See also: `/ai-governance` (compliance against the constitution), CANONICAL.md (AI-behaviour layer — never written by this skill).
 
 $ARGUMENTS

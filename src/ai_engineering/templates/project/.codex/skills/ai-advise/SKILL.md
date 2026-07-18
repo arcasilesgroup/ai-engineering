@@ -17,15 +17,6 @@ edit_policy: generated-do-not-edit
 
 Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the Agent tool, captures findings with severity (`info | warn | concern`), renders an advisory. Never blocks. Never modifies code.
 
-## Quick start
-
-```
-/ai-advise                    # advise mode on staged changes (default)
-/ai-advise advise src/auth/   # post-edit advisory, scoped to paths
-/ai-advise gate               # pre-dispatch governance check
-/ai-advise drift              # compare implementation to active decisions
-```
-
 ## Workflow
 
 Principles: §10.6 SDD (every warning traces to an active decision or stack standard — no advice without a documented anchor); §10.4 DRY (the agent contract owns the analysis loop — the skill never paraphrases standards inline).
@@ -95,16 +86,6 @@ Dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`: it load
 
 ## Integration
 
-**Called by**: operators directly via `/ai-advise`; auto-invoked by `/ai-build`
-+ `/ai-autopilot` as the wave-end advisory pass.
-
-**Calls**: the `ai-advise` agent (`.codex/agents/ai-advise.md`) via the Agent
-tool. Never reads or executes the agent body inline — strictly dispatch.
-
-**See also**:
-- `.codex/skills/ai-verify/SKILL.md` — evidence-backed BLOCK lane (different engine).
-- `.codex/skills/ai-review/SKILL.md` — narrative human-judgment review.
-- `.ai-engineering/overrides/<stack>/conventions.md` — stack overrides the agent consults.
-- D-134-06 (rename direction `ai-guard` agent → `ai-advise`), D-134-07 (cohesion test enforcement).
+**Called by**: operators via `/ai-advise`; `/ai-build` + `/ai-autopilot` (wave-end advisory pass). **Calls**: the `ai-advise` agent (`.codex/agents/ai-advise.md`) via the Agent tool — strictly dispatch, never inline. **See also**: `.codex/skills/ai-verify/SKILL.md` (evidence-backed BLOCK lane), `.codex/skills/ai-review/SKILL.md` (narrative review), `.ai-engineering/overrides/<stack>/conventions.md` (stack overrides); D-134-06 (`ai-guard` agent → `ai-advise` rename), D-134-07 (cohesion test enforcement).
 
 $ARGUMENTS

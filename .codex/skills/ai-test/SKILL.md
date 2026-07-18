@@ -65,8 +65,6 @@ If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to
 
 - Writing tests after implementation (tests-after prove what IS, not what SHOULD be).
 - Testing private methods (test the public API).
-- 100% coverage with meaningless assertions.
-- Skipping edge cases (null, empty, boundary, concurrent access).
 - Not running ALL tests after changes.
 
 ## Handlers
@@ -90,6 +88,6 @@ RED: writes failing tests for valid token, expired token, malformed signature; c
 
 ## Integration
 
-Called by: `/ai-build` (build tasks), `/ai-build` (TDD mode), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-reliability-eval`.
+Called by: `/ai-build` (build + TDD tasks), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-reliability-eval`.
 
 $ARGUMENTS

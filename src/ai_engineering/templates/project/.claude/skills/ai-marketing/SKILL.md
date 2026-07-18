@@ -1,6 +1,6 @@
 ---
 name: ai-marketing
-description: "Drives go-to-market execution and marketing content: blog posts for distribution, social crossposts, investor materials, market research, outreach campaigns, X/Twitter automation. Trigger for 'go to market', 'marketing plan', 'write a blog post to publish', 'crosspost to socials', 'market research for', 'investor deck', 'outreach campaign', 'content engine'. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-prose instead."
+description: "Drives go-to-market execution and marketing content: blog posts for distribution, social crossposts, investor materials, market research, outreach campaigns, X/Twitter automation. Trigger for 'go to market', 'marketing plan', 'write a blog post to publish', 'crosspost to socials', 'market research for', 'investor deck', 'outreach campaign', 'content engine'. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-prose instead. Not for code explanations; use /ai-explain instead."
 effort: mid
 model_tier: sonnet
 argument-hint: "[mode] [topic]"
@@ -10,19 +10,6 @@ tags: [gtm, marketing, content, social, investor, go-to-market]
 # Marketing
 
 Router for marketing content + go-to-market execution. Dispatches to handler files by mode.
-
-## When to Use
-
-- Platform-native social content + repurposing cascades; multi-platform distribution
-- Market research + competitive analysis
-- Investor pitch decks, one-pagers, financial models; investor outreach (cold/warm/follow-up)
-- X/Twitter API automation
-
-## When NOT to Use
-
-- Internal documentation (README, CHANGELOG, API docs) — use `/ai-docs`
-- Reports, solution intent, architecture board docs — use `/ai-prose`
-- Code explanations — use `/ai-explain`
 
 ## Workflow
 
@@ -48,7 +35,7 @@ No sub-command → display the routing table and ask which mode to use.
 
 ## Integration
 
-Calls: x-api handler (X/Twitter), platform-specific handlers. See When NOT to Use for boundaries with `/ai-docs`, `/ai-prose`, `/ai-explain`. See also: `/ai-prose` (sprint review, solution intent), `/ai-visual` (visual collateral).
+Calls the mode handlers (x-api → X/Twitter; per-platform handlers). See also `/ai-prose` (sprint review, solution intent), `/ai-visual` (visual collateral), `/ai-docs` and `/ai-explain` (boundaries).
 
 ## Examples
 

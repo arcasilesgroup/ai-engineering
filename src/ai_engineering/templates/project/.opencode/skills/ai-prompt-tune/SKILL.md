@@ -19,8 +19,6 @@ Improves prompts, skill `description` fields, and agent instructions using prove
 - `/ai-prompt-tune "<text>"` — optimize arbitrary text
 - `/ai-prompt-tune --skill <name>` — CSO-optimize a skill's `description` field
 
-Use when writing/refining a skill description, crafting a system prompt for an AI integration, improving agent-instruction clarity, or before publishing any prompt-based artifact.
-
 ## Optimization Techniques (apply in order of impact)
 
 **1. Explicit over implicit** — replace vague directives with concrete, observable instructions.
@@ -62,7 +60,6 @@ Use when writing/refining a skill description, crafting a system prompt for an A
 
 | Mistake | Fix |
 |---------|-----|
-| Optimizing for length (longer = better) | Concise and specific beats long and vague |
 | Hedging language ("try to", "if possible") | Be direct: state the expected behavior |
 | Removing context while shortening | Keep the WHY, remove the fluff |
 

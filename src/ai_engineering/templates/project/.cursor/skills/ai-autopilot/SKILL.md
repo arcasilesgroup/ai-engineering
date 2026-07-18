@@ -20,17 +20,10 @@ Autonomous execution of large approved specs via a 6-phase pipeline: decompose i
 
 Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions into subagent prompts (no inline implementation), so autopilot inherits their improvements.
 
-## When to Use
-
-- Spec has ≥3 independent concerns or touches ≥10 files.
-- After `/ai-brainstorm` approval (spec.md exists, not a placeholder).
-- Backlog runs via `--backlog --source <github|ado|local>` — absorb GitHub issues, Azure Boards items, or a markdown task list into the DAG (D-127-12; replaces the legacy `/ai-run` skill).
-- Manual `/ai-build` would overflow a single context window, or the work benefits from parallel intelligence gathering + DAG-driven execution.
-
 ## When NOT to Use
 
-- <3 concerns — use `/ai-build` directly (autopilot overhead not justified).
-- Draft or unapproved spec — run `/ai-brainstorm` first.
+Triggers (≥3 concerns / ≥10 files, post-`/ai-brainstorm` approval, `--backlog`) live in the description + Dispatch threshold. Do NOT use for:
+
 - Need human review between phases — use `/ai-build` with manual checkpoints.
 - Cross-repo changes — coordinate manually.
 - Data migrations with destructive DDL — require explicit user approval per step.
@@ -63,7 +56,7 @@ Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions int
 
 ## Dispatch threshold
 
-Dispatch the `ai-autopilot` agent when work matches "When to Use" (≥3 concerns, ≥10 files, post-`/ai-brainstorm` approval, or any `--backlog`); smaller scope hands off to `/ai-build`. The agent handle is `.cursor/agents/ai-autopilot.mdc`; the procedural contract lives in this SKILL.md.
+Dispatch the `ai-autopilot` agent when work has ≥3 independent concerns, touches ≥10 files, follows `/ai-brainstorm` approval (spec.md exists, not a placeholder), or runs any `--backlog`; smaller scope hands off to `/ai-build`. The agent handle is `.cursor/agents/ai-autopilot.mdc`; the procedural contract lives in this SKILL.md.
 
 ## Governance
 

@@ -10,13 +10,7 @@ requires: { mcp: ["fal-ai"] }
 
 # Media
 
-Generate images, videos, and audio via fal.ai models over MCP. Progressive quality: iterate cheap, finalize expensive.
-
-## When to Use
-
-- `image`: text-to-image (thumbnails, hero images, insert shots) + image editing.
-- `video`: text/image-to-video (demos, b-roll, social clips).
-- `audio`: speech, music, SFX (voiceover, background music, video-to-audio).
+Generate images, videos, and audio via fal.ai models over MCP. Progressive quality: iterate cheap, finalize expensive. Modes: `image` (text-to-image + editing), `video` (text/image-to-video), `audio` (speech, music, SFX, video-to-audio).
 
 ## Workflow
 
@@ -72,7 +66,7 @@ For non-MCP integrations (ElevenLabs, VideoDB), follow `handlers/external-apis.m
 
 ## Common Mistakes
 
-Skipping `estimate_cost`; production models for first-pass iteration; ignoring `seed`; pure text-to-video when image-to-video is more controlled; assuming fal.ai access covers ElevenLabs credentials.
+Using pure text-to-video when image-to-video would be more controllable; assuming fal.ai access covers ElevenLabs credentials (separate key).
 
 ## Integration
 

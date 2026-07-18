@@ -1,6 +1,6 @@
 ---
 name: ai-code
-description: "Writes production code that satisfies stack-context standards on the first pass: interface-first design, backward-compatibility checks, lightweight self-review. Trigger for 'implement this', 'write the code for', 'add X to Y', 'build this function', 'make this work'. Not for tests; use /ai-test instead. Not for debugging; use /ai-debug instead. Not for refactoring; use /ai-simplify instead. Not for executing an approved plan end-to-end; use /ai-build (the gateway)."
+description: "Writes production code that satisfies stack-context standards on the first pass: interface-first design, backward-compatibility checks, lightweight self-review. Trigger for 'implement this', 'write the code for', 'add X to Y', 'build this function', 'make this work'. Not for tests; use /ai-test instead. Not for debugging; use /ai-debug instead. Not for refactoring; use /ai-simplify instead. Not for schema work; use /ai-schema instead. Not for executing an approved plan end-to-end; use /ai-build (the gateway)."
 effort: mid
 argument-hint: "[task description or file:target]"
 mode: agent
@@ -14,9 +14,7 @@ edit_policy: generated-do-not-edit
 
 # Code
 
-## Purpose
-
-Writes code that satisfies loaded context standards on the first pass. Lightweight self-review at build-time; full validation deferred to /ai-review.
+Writes code that satisfies loaded context standards on the first pass — lightweight self-review at build-time; full validation deferred to `/ai-review`.
 
 ## Workflow
 
@@ -31,18 +29,10 @@ Step 0 — load contexts: read `.ai-engineering/manifest.yml` `providers.stacks`
 5. **Backward compatibility** — public signature change: add a deprecation path or confirm the break is intentional; config format: parse backward-compatible; renamed exports: grep for and update every caller. Skip for internal/private code.
 6. **Self-review** — run the compliance trace per `.ai-engineering/overrides/_shared/compliance-trace.md`.
 
-## When to Use
-
-- New features and implementing approved plan tasks.
-- Adding functionality to existing modules; utility/helper code.
-- NOT for tests (/ai-test), debugging (/ai-debug), refactoring (/ai-simplify), schema work (/ai-schema).
-
 ## Common Mistakes
 
 - Writing code before loading contexts (standards drift).
 - Inventing new file paths instead of following existing project structure.
-- Skipping interface definition for non-trivial features.
-- Not checking callers when changing public signatures.
 - Self-reviewing against general knowledge instead of loaded context rules.
 
 ## Examples

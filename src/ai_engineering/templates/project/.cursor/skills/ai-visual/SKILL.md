@@ -16,12 +16,6 @@ edit_policy: generated-do-not-edit
 
 Static visual artifacts: generate a custom, named design philosophy, then express it as 90% visual / 10% essential text. User input is foundation, not constraint.
 
-## When to Use
-
-- Posters, banners, flyers for events or campaigns.
-- Branding/identity materials; marketing + communication visuals.
-- Art-directed pieces with a strong aesthetic philosophy; any static PDF/PNG output.
-
 ## Workflow
 
 Applies §10.1 KISS (restraint; polish what exists over adding graphics) and §10.7 Clean Code (every spacing, color, alignment is deliberate craft).
@@ -45,15 +39,11 @@ Output rules:
 ## Common Mistakes
 
 - Generic stock-photo aesthetics instead of a named philosophy.
-- Lack of craftsmanship — spacing, color, alignment must scream expertise.
 - Announcing the conceptual reference instead of embedding it subtly.
 
 ## Integration
 
-- **Called by**: user directly, `/ai-design`, `/ai-media`
-- **Consumed by**: `/ai-slides` (aesthetic philosophy), `/ai-media` (visual direction)
-- **Calls**: none — produces final artifacts
-- **See also**: `/ai-design` (UI), `/ai-animation` (motion)
+Called by: user directly, `/ai-design`, `/ai-media`. Consumed by: `/ai-slides` (aesthetic philosophy), `/ai-media` (visual direction). Calls: none — produces final artifacts. See also: `/ai-design` (UI), `/ai-animation` (motion).
 
 ## Examples
 

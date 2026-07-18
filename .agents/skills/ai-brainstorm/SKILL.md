@@ -15,13 +15,6 @@ edit_policy: generated-do-not-edit
 
 Design-interrogation skill: forces rigorous thinking BEFORE any code and produces an approved spec — the contract for `/ai-plan`.
 
-## When to Use
-
-- "I want to build...", "how should we...", "let's design..."
-- New feature, architecture change, or ambiguous requirement.
-- Spec depends on evidence scattered across repo / governance surfaces.
-- Any work where jumping straight to code is premature.
-
 ## Workflow
 
 Principle: §10.6 SDD — this skill produces the spec. **HARD GATE**: no implementation runs until the operator explicitly approves it.
@@ -57,15 +50,11 @@ Principle: §10.6 SDD — this skill produces the spec. **HARD GATE**: no implem
 
 ## Common Mistakes
 
-- Skipping interrogation and jumping to the spec. Proposing only one approach (always 2-3).
-- Writing implementation details in the spec (specs describe WHAT, not HOW).
-- Not challenging assumptions. Producing a spec without the review loop.
+- Writing implementation details in the spec — specs describe WHAT, not HOW.
 
 ## Integration
 
-- **Called by**: user directly, or `/ai-plan` when requirements are unclear.
-- **Calls**: `handlers/auto-spec-gate.md` (Step 0b classifier via `ai_engineering.brainstorm.auto_spec_gate.classify_diff`), `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board sync` (refinement + ready), `.ai-engineering/scripts/spec_lifecycle.py start_new` (fail-open bootstrap) + `approve` (Step 9 DRAFT→APPROVED, fail-open).
-- **Transitions to**: `/ai-plan` (ONLY — never directly to `/ai-build`).
+**Called by**: user, or `/ai-plan` when requirements are unclear. **Calls**: `handlers/auto-spec-gate.md` (Step 0b classifier via `ai_engineering.brainstorm.auto_spec_gate.classify_diff`), `handlers/prompt-enhance.md`, `handlers/interrogate.md`, `handlers/spec-review.md`, `/ai-board sync` (refinement + ready), `.ai-engineering/scripts/spec_lifecycle.py start_new` (fail-open bootstrap) + `approve` (Step 9 DRAFT→APPROVED, fail-open). **Transitions to**: `/ai-plan` (ONLY — never directly to `/ai-build`).
 
 ## Examples
 

@@ -1,6 +1,6 @@
 ---
 name: ai-security
-description: "Runs security gates: SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, SBOM generation for compliance, pre-release security verdict. Trigger for 'is this secure', 'audit dependencies', 'check for secrets', 'security report', 'is this package safe', 'compliance review'. Not for governance process; use /ai-governance instead. Not for runtime payload inspection; use prompt-injection-guard hook instead."
+description: "Runs security gates: SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, SBOM generation for compliance, pre-release security verdict. Trigger for 'is this secure', 'audit dependencies', 'check for secrets', 'security report', 'is this package safe', 'compliance review'. Not for governance process; use /ai-governance instead. Not for runtime payload inspection; use prompt-injection-guard hook instead. Not for code quality metrics; use /ai-verify quality instead."
 effort: mid
 model_tier: sonnet
 argument-hint: "all|static|deps|secrets|sbom|--fix"
@@ -66,12 +66,6 @@ Step 0 — load contexts: read `.ai-engineering/manifest.yml` `providers.stacks`
 - semgrep: [N findings / clean]
 - pip-audit: [N findings / clean]
 ```
-
-## When to Use
-
-- Security review, pre-release gate, dependency audit, compliance reporting.
-- NOT for code quality metrics — use `/ai-verify quality`.
-- NOT for governance compliance — use `/ai-governance`.
 
 ## Common Mistakes
 

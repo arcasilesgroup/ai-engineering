@@ -17,15 +17,6 @@ Multi-tier, multi-source, citation-first research with persistent artifact reuse
 - **Fail-soft capability detection.** Every external tier (NotebookLM, Context7, Exa, MS Learn, Tavily) is capability-detected; absent/unauthenticated tools are skipped silently, recorded in `degraded_sources`, and NEVER error the run (D7). Tier 3 is gated by `notebooklm doctor` (exit 0 = available).
 - **Reuse.** Runs persist to `.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md` (deep report + `notebook_id`) so later sessions short-circuit at Tier 0 or harvest via `--reuse-notebook`.
 
-## When to Use
-
-- Evidence questions: "what does the industry do for X", "state of the art on Y", "compare A vs B", "find sources on Z".
-- `/ai-brainstorm` interrogation flags a question needing external evidence (handler `interrogate.md` invokes this skill).
-- User wants a verifiable, cited answer over training-data recall.
-- Research worth archiving (deep investigations, library comparisons, architecture decisions).
-
-**Off-ramp — use `/ai-explore` instead** when the source-of-truth lives INSIDE this repo (architecture, dependency graph, pattern usage): it is read-only, codebase-only, and produces a structured architecture map, not a cited narrative.
-
 ## Process
 
 Order is the **execution timeline**, not a strict gate sequence — Tier 3 is *launched* first (step 2) and *harvested* last (step 6), running concurrently with fast Tiers 0-2.

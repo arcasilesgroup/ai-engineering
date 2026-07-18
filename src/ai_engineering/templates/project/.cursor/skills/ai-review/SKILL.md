@@ -13,15 +13,6 @@ edit_policy: generated-do-not-edit
 
 # Review
 
-## Quick start
-
-```
-/ai-review                      # normal: 3 macro-agents, validator stage
-/ai-review --full               # one agent per specialist (6 post-W3)
-/ai-review 42                   # review PR #42
-/ai-review src/auth/            # review specific paths
-```
-
 ## Workflow
 
 Principles applied: §10.7 Clean Code (readability, naming, single-responsibility); §10.4 DRY (flag duplication and missed reuse). High-signal review with full specialist coverage and aggressive false-positive control. This SKILL.md owns the user-facing contract; reviewer agent files provide specialist lenses and validation stages.
@@ -37,12 +28,6 @@ Principles applied: §10.7 Clean Code (readability, naming, single-responsibilit
 ## Dispatch threshold
 
 Dispatch the `ai-review` agent for any narrative review over ≥ 1 changed file (PR, branch, diff, or path scope). Each specialist runs in its own context window via the Agent tool. `.cursor/agents/ai-review.mdc` is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
-
-## When to Use
-
-- Before merging a PR, after completing a feature, or reviewing someone else's code.
-- When you need architecture-aware feedback instead of deterministic gates.
-- NOT for evidence-backed gates (use /ai-verify); NOT for narrative writing (use /ai-prose).
 
 ## Specialist Roster
 
@@ -71,7 +56,6 @@ For each stack in the diff, load `.ai-engineering/overrides/<stack>/review.md` (
 
 - Treating the 3 macro-agents in `normal` as reduced coverage — they are not.
 - Reporting by macro-agent instead of original specialist lens.
-- Skipping context exploration or the validator stage.
 - Treating style preferences as blocking findings.
 - Reading specialist agent files inline instead of dispatching via the Agent tool.
 

@@ -62,7 +62,7 @@ Invoke a skill with `/ai-<name>` in your IDE agent surface.
 | Name | What it does |
 | --- | --- |
 | `/ai-advise` | Proactive governance advisor — checks standards, decisions, and quality trends during development. |
-| `/ai-animation` | Designs motion, transitions, and micro-interactions for UI components: spring animations, gestures, easing, staggers. |
+| `/ai-animation` | Designs motion, transitions, and micro-interactions for UI components: spring animations, gestures, easing, staggers, scroll-triggered and loading/skeleton motion. |
 | `/ai-autopilot` | Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs a single final quality loop with one bounded quality-remediation pass (verify+guard+review on full changeset), delivers via PR. |
 | `/ai-board` | Operates the project board (GitHub Projects v2 or Azure DevOps): discovers configuration after install (fields, state mappings, process templates) and syncs work-item state at lifecycle transitions. |
 | `/ai-brainstorm` | Forces rigorous design interrogation BEFORE any code: explores approaches, surfaces ambiguity, gathers evidence, produces an approved spec that becomes the contract for /ai-plan. |

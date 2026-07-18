@@ -65,12 +65,6 @@ User: "report upstream — the `/ai-build` skill hangs when the patch block is e
 
 Runs `gh auth status` (green), captures the last 10 framework events + active spec frontmatter, redacts everything strict (a `/Users/...` path becomes `$HOME/...`), renders the preview, waits for `confirm`. On `confirm`, files the issue and archives the sanitized copy. Any other input aborts with "report not filed".
 
-## Common Mistakes
-
-- Confusing with `/ai-issue` — that creates issues on **your** project's board with no redaction. This targets the framework repo with strict redaction.
-- Skipping the preview — no automated mode; the skill refuses without a typed `confirm`.
-- Assuming redaction is bulletproof — regex is best-effort; always read the preview.
-
 ## Integration
 
 Called by: user directly (after they encounter a framework bug). Reads: `.ai-engineering/manifest.yml`, `.ai-engineering/state/framework-events.ndjson` (tail), active spec frontmatter, optional `--include` targets. Writes: `.ai-engineering/support/upstream-reports/{date}-{slug}.md`. Audited: `framework_event kind=upstream_bug_filed`. Pairs with: `_shared/redactor.py` (single redaction service per D-134-09). See also: `/ai-issue` (project-board issues, no redaction).

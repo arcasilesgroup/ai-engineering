@@ -22,10 +22,9 @@ acceptable.
 ## The three tiers
 
 The framework stores state across three tiers chosen by the *shape* of
-the data, not by convenience. A datum belongs to exactly one tier, and
-within that tier to exactly one canonical file. There is **no database**:
-spec-148 removed the embedded SQLite `state.db` so the obvious reading of
-every store is a plain file on disk.
+the data. A datum belongs to exactly one tier, and within it to exactly
+one canonical file. There is **no database** — spec-148 removed the
+embedded SQLite `state.db`; every store is a plain file on disk.
 
 ### Tier 1 — NDJSON audit log
 

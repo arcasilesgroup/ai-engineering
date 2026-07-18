@@ -11,13 +11,6 @@ tags: [writing, content, communication]
 
 Content writing with automatic audience targeting. Edit, don't generate — start from what exists (notes, transcripts, data, real output). Template language is a failure mode.
 
-## When to Use
-
-- Pitch decks, sprint reviews, blog posts, architecture board docs, solution intent documents.
-- NOT documentation artifacts (README, CHANGELOG, API docs) — use `/ai-docs`.
-- NOT marketing content (social, investor, outreach) — use `/ai-marketing`.
-- NOT code explanations — use `/ai-explain`.
-
 ## Workflow
 
 Applies §10.7 Clean Code (every sentence earns its place; cut filler) and §10.4 DRY (one source of truth — reuse real output, don't regenerate).

@@ -1,6 +1,6 @@
 ---
 name: ai-explore
-description: "Codebase-only read-only research dispatcher. Thin wrapper around the ai-explore agent for architecture mapping, dependency tracing, pattern identification, and risk surfacing. Trigger for 'explore the codebase', 'where does X live', 'map this module', 'what depends on Y', 'trace this import chain'. Not for external evidence with citations; use /ai-research instead."
+description: "Codebase-only read-only research dispatcher. Thin wrapper around the ai-explore agent for architecture mapping, dependency tracing, pattern identification, and risk surfacing — dispatch for any question spanning >= 1 file, module, or import edge. Trigger for 'explore the codebase', 'where does X live', 'map this module', 'what depends on Y', 'trace this import chain'. Not for external evidence with citations; use /ai-research instead."
 effort: cheap
 model_tier: haiku
 argument-hint: "[question]"
@@ -16,20 +16,6 @@ tags: [exploration, research, codebase, architecture, mapping]
 /ai-explore "trace the import chain from cli_factory to the durable repository"
 /ai-explore "what files reference the legacy ai_providers schema?"
 ```
-
-## When to Use
-
-| Use for | Example |
-|---------|---------|
-| Architecture mapping | "How is the X module structured?" |
-| Dependency tracing | "What imports Y? What does Y import?" |
-| Pattern identification | "How do we typically handle Z?" |
-| Risk surfacing | "What is load-bearing in this code path?" |
-
-Dispatch for any question spanning >= 1 file, module, or import edge.
-
-Not for: external evidence + citations (`/ai-research`); code changes
-(`/ai-build`, `/ai-simplify`); LLM-style review (`/ai-review`).
 
 ## Workflow
 

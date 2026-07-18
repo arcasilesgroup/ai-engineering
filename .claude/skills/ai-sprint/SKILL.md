@@ -85,11 +85,6 @@ Branded PowerPoint via python-pptx. NEW script each invocation tailored to curre
 
 Review common mistakes: reusing an old script verbatim, missing speaker notes, wrong palette, skipping pre-conditions, hardcoding dates.
 
-## Arguments
-
-- `--sprint <name>` — sprint id (`2026-w12`) or month (`YYYY-MM`); defaults to current.
-- `--iteration <name>` — iteration name (queries provider for dates; used with `review`).
-
 ## Examples
 
 User: "lets do the retro for the sprint that just ended"

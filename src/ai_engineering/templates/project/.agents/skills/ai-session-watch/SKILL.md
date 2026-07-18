@@ -16,13 +16,6 @@ edit_policy: generated-do-not-edit
 
 Project-local instinct learning for `ai-engineering`. Two modes: passive observation during a session, and active consolidation on demand. No daemons, no background workers -- the LLM itself is the observer.
 
-## Quick start
-
-```
-/ai-session-watch           # passive observation mode (silent until --review)
-/ai-session-watch --review  # consolidate observations into observations.yml
-```
-
 ## Workflow
 
 1. Observation is **always-on** via the `instinct-observe.py` hooks (PreToolUse + PostToolUse) — no manual activation, and `/ai-start` does NOT start it. Invoking bare `/ai-session-watch` is optional and only emits a one-line acknowledgement.

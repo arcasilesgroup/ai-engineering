@@ -32,13 +32,6 @@ Principles applied: §10.1 KISS (the simplified version must actually be simpler
 6. **Render report** — grouped by file: `File | Change | Complexity Before | After | Lines Saved`.
 7. **No PR, no commit** — the in-flight lane; the operator owns the next commit.
 
-## When to Use
-
-- Mid-feature, when a function you just wrote feels deeper than it should.
-- After a review round flagged complexity above cyclomatic ≤ 10 or cognitive ≤ 15.
-- To reduce nesting or extract a helper before shipping the current diff.
-- NOT for repo-wide entropy sweeps (use `/ai-simplify-sweep`); NOT for structural moves/renames/splits (refactor, not simplification).
-
 ## Distinction from /ai-simplify-sweep
 
 | Aspect | `/ai-simplify` | `/ai-simplify-sweep` |
@@ -94,13 +87,6 @@ Dispatches the agent scoped to the file. It inverts the outer `if user is not No
 
 ## Integration
 
-**Called by**: operators directly via `/ai-simplify` (single-file or diff-scoped). Not auto-invoked by any other skill.
-
-**Calls**: the `ai-simplify` agent (`.claude/agents/ai-simplify.md`) via the Agent tool with the operator-chosen scope; validation runs after each edit; the agent rolls back on test failure.
-
-**See also**:
-- `.claude/skills/ai-simplify-sweep/SKILL.md` — scheduled wrapper with draft-PR side effect.
-- `.ai-engineering/manifest.yml` `quality` — thresholds the agent consults (cyclomatic ≤ 10, cognitive ≤ 15, nesting ≤ 3, method length ≤ 50).
-- Engineering anchors: CLAUDE.md §10.1 KISS, §10.7 Clean Code. D-134-07 (agents need a discoverable slash-skill).
+Called by: operators directly via `/ai-simplify` (single-file or diff-scoped) — not auto-invoked by any other skill. Calls: the `ai-simplify` agent (`.claude/agents/ai-simplify.md`) via the Agent tool with the operator-chosen scope; validates after each edit, rolls back on test failure. See also: `.claude/skills/ai-simplify-sweep/SKILL.md` (scheduled draft-PR wrapper); `.ai-engineering/manifest.yml` `quality` thresholds (cyclomatic ≤ 10, cognitive ≤ 15, nesting ≤ 3, method length ≤ 50). Anchors: §10.1 KISS, §10.7 Clean Code; D-134-07 (agents need a discoverable slash-skill).
 
 $ARGUMENTS

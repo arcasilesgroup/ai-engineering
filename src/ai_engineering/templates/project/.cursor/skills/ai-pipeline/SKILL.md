@@ -17,7 +17,7 @@ edit_policy: generated-do-not-edit
 
 # CI/CD Pipeline
 
-Router skill for CI/CD pipeline generation. Dispatches to a handler by sub-command. NOT for running pipelines — that is the CI system's job.
+Router skill for CI/CD pipeline generation. Dispatches to a handler by sub-command.
 
 ```
 /ai-pipeline generate --provider github   # scaffold a new GHA workflow

@@ -20,16 +20,6 @@ criteria before writing code; measure AI reliability with pass@k metrics; track 
 across prompt, agent, and model changes. Evals answer "Can the AI do this reliably?" —
 distinct from `/ai-verify`, which checks current code quality (linting, coverage, security).
 
-## Quick start
-
-```
-/ai-reliability-eval define <feature>   # write pass/fail criteria before coding
-/ai-reliability-eval check <feature>    # run evals mid-implementation, report status
-/ai-reliability-eval report <feature>   # full report after implementation
-/ai-reliability-eval regression         # compare against baseline, flag degradation
-/ai-reliability-eval --skill-set        # optimize each skill's eval corpus, gate pass@1
-```
-
 ## Workflow
 
 Principles applied: §10.5 TDD — EDD mirrors TDD: define the pass/fail criteria BEFORE the
@@ -163,8 +153,6 @@ Result: X/Y passed (previously Y/Y)
 ## Common Mistakes
 
 - Skipping `define` and writing evals after implementation (tests-after anti-pattern).
-- Using only model graders when code graders would be deterministic and faster.
-- Conflating evals with tests (tests verify code, evals verify AI capability).
 - Setting pass@1 targets too high for genuinely hard tasks (use pass@3 instead).
 
 ## Examples

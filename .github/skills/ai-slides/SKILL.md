@@ -17,12 +17,6 @@ edit_policy: generated-do-not-edit
 
 Zero-dependency, animation-rich HTML presentations that run entirely in the browser. Non-designers discover their aesthetic through visual exploration, not abstract choices. Viewport fit is a hard gate.
 
-## When to Use
-
-- `new`: talk/pitch/workshop/internal deck from scratch
-- `convert`: `.ppt` / `.pptx` → HTML presentation
-- `enhance`: improve an existing HTML deck's layout, motion, or typography
-
 ## Workflow
 
 Applies §10.1 KISS (zero dependencies; inline CSS/JS) and §10.7 Clean Code (commented, accessible, viewport-safe).
@@ -65,7 +59,7 @@ Applies §10.1 KISS (zero dependencies; inline CSS/JS) and §10.7 Clean Code (co
 
 ## Common Mistakes
 
-Generic startup gradients; system-font decks (unless intentionally editorial); bullet walls that break viewport fit; code blocks that scroll; fixed-height boxes that break on short screens; skipping viewport validation; generating previews when a preset was named.
+Generic startup gradients; system-font decks (unless intentionally editorial); bullet walls that break viewport fit; code blocks that scroll; fixed-height boxes that break on short screens.
 
 ## Integration
 

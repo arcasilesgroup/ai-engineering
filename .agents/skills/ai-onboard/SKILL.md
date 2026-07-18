@@ -23,11 +23,6 @@ edit_policy: generated-do-not-edit
 /ai-onboard onboard             # structured new-member onboarding
 ```
 
-Optimized for the human, not the code: reads everything, modifies
-nothing, teaches understanding over artifacts. Not for writing code
-(`/ai-build`), generating docs (`/ai-prose`), or agent bootstrap
-(`/ai-start`).
-
 ## Workflow
 
 Dispatch the `ai-onboard` agent (`.agents/agents/ai-onboard.md`) for any
@@ -65,11 +60,5 @@ Calls: `/ai-explain` (3-tier depth). Reads: `decision-store.json`,
 `framework-events.ndjson`, `manifest.yml`. See also: `/ai-start` (agent
 bootstrap), `/ai-explain` (code-level), `/ai-research` (external
 evidence).
-
-## References
-
-- `.agents/skills/ai-explain/SKILL.md` — 3-tier depth model.
-- `.ai-engineering/manifest.yml` — governance structure.
-- `.ai-engineering/state/decision-store.json` — decision records.
 
 $ARGUMENTS

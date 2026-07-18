@@ -125,7 +125,7 @@ Follow `handlers/dedup-check.md` to process all findings through the dedup casca
 
 Each new issue is labeled `tech-debt` and enters the triage lifecycle phase.
 
-### Step 9 -- Generate Report
+### Step 8 -- Generate Report
 
 Produce a summary report with hotspot map, worst offenders, and trend analysis.
 
@@ -147,8 +147,7 @@ echo "Pre-existing (open issues): $EXISTING_COUNT"
 echo "Total active: $((NEW_COUNT + EXISTING_COUNT))"
 ```
 
-The report distinguishes new findings from pre-existing ones so the team can track
-whether debt is growing or shrinking.
+New-vs-pre-existing split lets the team track whether debt is growing or shrinking.
 
 ## Output
 

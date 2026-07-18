@@ -14,9 +14,7 @@ edit_policy: generated-do-not-edit
 
 # Debug
 
-## Purpose
-
-Systematic debugging. Four phases, always in order. NEVER fix symptoms — always find and fix the root cause. After 2 failed fix attempts, escalate to the user.
+Systematic 4-phase debugging, always in order. NEVER fix symptoms — always find and fix the root cause. After 2 failed fix attempts, escalate to the user.
 
 ## Workflow
 
@@ -85,7 +83,6 @@ When a stack is active, apply `.ai-engineering/overrides/<stack>/conventions.md`
 ## Common Mistakes
 
 - Fixing the symptom (e.g., add a try/except) instead of the root cause.
-- Not writing a regression test for the fix.
 - Changing multiple things at once (change one thing, verify, repeat).
 
 ## Examples

@@ -19,12 +19,6 @@ lessons before merge (keeps consolidation off feature branches). No scheduler �
 an operator runs it; the SessionStart observation-nudge (spec-165 D-165-03)
 surfaces the pending backlog.
 
-## When to Use
-
-- Periodic manual consolidation (weekly cadence recommended).
-- Before a release-cut, to capture accumulated session lessons.
-- NOT for interactive review — call `/ai-session-watch --review` directly (that path keeps work-item creation).
-
 ## Hard Rules
 
 - Never auto-merge — the PR is always `--draft`.

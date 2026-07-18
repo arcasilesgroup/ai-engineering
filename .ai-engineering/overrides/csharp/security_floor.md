@@ -1,7 +1,7 @@
 # C# — Security Floor
 
-Minimum bar for `ai-build` output in C# / .NET. Every control below
-is mandatory; the agent escalates when it cannot meet a control.
+Mandatory security bar for `ai-build` C# / .NET output; escalate when a
+control cannot be met.
 
 ## Input validation
 

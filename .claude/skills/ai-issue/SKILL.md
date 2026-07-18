@@ -44,14 +44,8 @@ User: "open an issue: pre-commit hook times out on macOS arm64"
 
 Reads `work_items.provider: github`, runs `gh auth status` (green), composes the body from session context, shells `gh issue create --label "bug,p1,team:core"`, attaches to the GitHub Project, prints the URL.
 
-## Common Mistakes
-
-- Skipping `/ai-board discover` — the manifest needs `work_items.provider` before routing.
-- Bypassing the auth preflight — an unauthenticated `gh`/`az` fails partially; the skill refuses on purpose.
-- Confusing with `/ai-engineering-issue` — that files upstream framework bugs with strict redaction. This targets **your** project's board.
-
 ## Integration
 
-Called by: user directly. Reads: `.ai-engineering/manifest.yml` (`work_items` section). Writes: project board (GitHub Projects v2 item OR Azure Boards work item). Audited: `framework_event kind=work_item_created`. Pairs with: `/ai-board discover` (one-time provider configuration), `/ai-board sync` (lifecycle state transitions). See also: `/ai-engineering-issue` for upstream framework bug reports with strict redaction.
+Called by user. Reads `.ai-engineering/manifest.yml` (`work_items`). Writes the project board (GitHub Projects v2 item OR Azure Boards work item). Audits `framework_event kind=work_item_created`. Pairs with `/ai-board discover` (one-time provider config) + `/ai-board sync` (lifecycle state transitions). See also `/ai-engineering-issue` (upstream framework bugs, strict redaction — distinct from **your** project's board).
 
 $ARGUMENTS

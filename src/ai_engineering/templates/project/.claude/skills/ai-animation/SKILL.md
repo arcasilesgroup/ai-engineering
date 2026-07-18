@@ -1,6 +1,6 @@
 ---
 name: ai-animation
-description: "Designs motion, transitions, and micro-interactions for UI components: spring animations, gestures, easing, staggers. Trigger for 'animate this', 'add transitions', 'micro-interactions for', 'gesture design', 'swipe to dismiss', 'easing for this'. Not for design systems; use /ai-design instead. Not for visual art; use /ai-visual instead. Not for testing animation code; use /ai-test instead."
+description: "Designs motion, transitions, and micro-interactions for UI components: spring animations, gestures, easing, staggers, scroll-triggered and loading/skeleton motion. Trigger for 'animate this', 'add transitions', 'micro-interactions for', 'gesture design', 'swipe to dismiss', 'easing for this', 'review this motion for polish'. Not for design systems; use /ai-design instead. Not for visual art; use /ai-visual instead. Not for testing animation code; use /ai-test instead."
 effort: high
 model_tier: opus
 argument-hint: "[component or interaction to animate]"
@@ -10,12 +10,6 @@ tags: [animation, motion, transitions, micro-interactions, css]
 # Animation
 
 Motion design on Emil Kowalski's philosophy: animation is feel, not decoration. When functionality is table-stakes, taste is the differentiator.
-
-## When to Use
-
-- Animations/transitions on components; micro-interactions (press, hover, focus).
-- Gesture interactions (swipe, drag, pinch); scroll-triggered or loading/skeleton motion.
-- Reviewing existing motion for polish + performance; choosing easing, duration, spring config.
 
 ## Workflow
 
@@ -49,9 +43,7 @@ Detail: [decision framework](references/decision-framework.md), [easing curves +
 
 ## Integration
 
-- **Called by**: user directly, `/ai-design` (motion direction), `/ai-slides` (transitions), `/ai-code` (frontend micro-interactions)
-- **Hands off**: CSS/JSX specs to `/ai-code` or `/ai-build`
-- **See also**: `/ai-design`, `/ai-test` (animation code), `/ai-debug` (broken motion)
+**Called by**: user, `/ai-design` (motion direction), `/ai-slides` (transitions), `/ai-code` (micro-interactions). **Hands off**: CSS/JSX specs to `/ai-code` or `/ai-build`. **See also**: `/ai-design`, `/ai-test` (animation code), `/ai-debug` (broken motion).
 
 ## Examples
 

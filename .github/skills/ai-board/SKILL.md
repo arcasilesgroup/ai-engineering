@@ -30,15 +30,6 @@ Two subcommands (collapsed from separate skills in spec-127 D-127-10):
 /ai-board sync in_review AB#100    # transition Azure Boards work item
 ```
 
-## When to Use
-
-| Situation | Command |
-|-----------|---------|
-| After `ai-eng install` | `/ai-board discover` |
-| Board config changed (new project/fields) | `/ai-board discover --refresh` |
-| Lifecycle transition (or rely on auto-invoke) | `/ai-board sync <phase> <ref>` |
-| `/ai-start` reports missing board config | `/ai-board discover` |
-
 ## Workflow
 
 Principles: §10.1 KISS (subcommand dispatch, no provider rediscovery); §10.4 DRY (reuses `manifest.yml work_items` config, not per-skill routing).
@@ -61,7 +52,6 @@ Looks up the project item, applies the configured state transition, optionally p
 
 ## Common Mistakes
 
-- Calling `/ai-board` with no subcommand — needs `discover` or `sync` to dispatch.
 - Treating `sync` failures as blockers — fail-open by design; callers log and proceed.
 - Running `discover` unauthenticated — `gh auth status` or `az account show` must succeed first.
 

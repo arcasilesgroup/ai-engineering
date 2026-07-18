@@ -6,7 +6,7 @@ How `{ai} engineering` is built, for contributors. (Using the framework? Start w
 
 `{ai} engineering` is a deterministic governance layer materialized as versioned local files: specs, decisions, skills, agents, hooks, and a hash-chained audit trail. There is no hosted control plane — every IDE reads the same canonical payload.
 
-The authoritative architecture document is [solution-intent.md](../../.ai-engineering/solution-intent.md) (§3.1 carries the layered module map). It embeds the system-context, module-map, IDE-mirror, publication, observability, and security/quality diagrams as Mermaid, so they version with the code.
+The authoritative architecture document is [solution-intent.md](../../.ai-engineering/solution-intent.md) (§3.1 carries the layered module map). It embeds the architecture diagrams as Mermaid, so they version with the code.
 
 ## Core ideas
 

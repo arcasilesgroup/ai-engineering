@@ -100,13 +100,13 @@ operator-applied repo-settings change; it is not enforced by code.
 
 ## Environment deployment policies (release publishing)
 
-> The 0.8.0 release nearly failed here. Spec-152 made
+> The 0.8.0 release nearly failed here: spec-152 made
 > [`release.yml`](../.github/workflows/release.yml) **tag-triggered**
 > (`on: push: tags: ['v*']`), but the `pypi` environment still allowed only
-> the `main` *branch* (correct for the pre-spec-152 branch-triggered
-> workflow). The first tag-triggered publish was rejected with *"Tag v0.8.0
-> is not allowed to deploy to pypi due to environment protection rules."*
-> This section is the operator contract that keeps that from recurring.
+> the `main` *branch*, so the first tag-triggered publish was rejected —
+> *"Tag v0.8.0 is not allowed to deploy to pypi due to environment
+> protection rules."* This section is the operator contract that keeps that
+> from recurring.
 
 The Release workflow runs from a **tag ref** (`refs/tags/vX.Y.Z`) and
 deploys through three GitHub **deployment environments**, each with its own

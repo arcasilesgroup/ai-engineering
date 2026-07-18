@@ -37,12 +37,6 @@ Principles applied: §10.5 TDD (tests and gates ARE the evidence — run the com
 
 Dispatch the `ai-verify` agent for any merge-readiness check, scan, or evidence-backed claim over ≥ 1 changed file. Each specialist runs in its own context window via the Agent tool. `.github/agents/verify.agent.md` is the orchestrator handle; the procedural contract lives here.
 
-## When to Use
-
-- Before claiming "it works" / "it's secure" / "Done!" — run the test/scan, show the output, verify every acceptance criterion with evidence.
-- Running quality/security/governance scans on a codebase.
-- NOT for narrative code review with human judgment; use /ai-review.
-
 ## Specialist Roster (post-W3: 2)
 
 Spec-140 W3: `verifier-governance` + `verifier-feature` merged into `verifier-acceptance`; `verifier-architecture` heuristics moved to `/ai-advise` (advisory) and the standalone verifier deleted.
@@ -86,7 +80,6 @@ Every scan mode emits: score / verdict (PASS/WARN/FAIL) / profile / specialist t
 
 ## Common Mistakes
 
-- Claiming success without running the command.
 - Assuming `--full` adds specialist coverage instead of changing decomposition.
 - Reporting a specialist as skipped instead of `not applicable`.
 - Ignoring warnings when the exit code is 0.
