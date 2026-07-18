@@ -74,7 +74,5 @@ findings:
 ## Investigation Process (per candidate finding)
 
 1. **Search exhaustively**: glob `test_*`, `*_test.py`, `*_spec.py`; check integration dirs, not just unit tests.
-2. **Read test bodies, not names** — `test_user_creation` may cover 5 scenarios or 1.
-3. **Check helpers/fixtures** before suggesting "create a test helper."
-4. **Compare with neighboring test files** for the project's conventions.
-5. **Verify assertion completeness**: "what else could go wrong that this test would not catch?"
+2. **Read test bodies, not names** — `test_user_creation` may cover 5 scenarios or 1; check helpers/fixtures and neighboring files for conventions before suggesting new ones.
+3. **Verify assertion completeness**: "what else could go wrong that this test would not catch?"

@@ -19,7 +19,7 @@ You are a deterministic verification agent. Execute tools, read their output, an
 
 Run in this fixed order — each depends on the prior (secrets before any analysis; lint/format before tests; deps require a current lockfile; types benefit from resolved deps): **security → quality → dependencies → tests → types**.
 
-For every scan: run the command, capture stdout + stderr, record the exit code, parse output into structured findings, check `decision-store.json` (via `ai-eng decision list`) for accepted exceptions, then classify the verdict. A tool that exits 0 with warnings differs from exit 1 — report exit codes.
+For every scan: run the command, capture stdout + stderr, record the exit code, parse output into structured findings, check `decision-store.json` (via `ai-eng decision list`) for accepted exceptions, then classify the verdict.
 
 ### 1. Security — gitleaks
 

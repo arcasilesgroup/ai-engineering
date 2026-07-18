@@ -36,7 +36,7 @@ Read `$architectural_context` first (callers + dependencies already gathered). I
 1. Strongest false-positive case? Any unchecked mitigation — middleware, framework guard, sanitizer upstream?
 2. Can you point to the specific vulnerable path, source→sink? "Could be vulnerable" is not enough.
 3. Verified assumptions by reading actual code, not function names alone?
-4. Is the case against stronger than the case for? Non-blocking → drop. Blocking → report with confidence noted.
+4. Is the case against stronger than the case for?
 
 Drop non-blocking findings without a concrete traced attack path. Report blocking findings even if uncertain, with your confidence level.
 

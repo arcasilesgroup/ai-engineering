@@ -17,8 +17,7 @@ semantics (decisions live in spec markdown; the `decision-store.json`
 cache is populated after `ai-eng decision backfill` or `/ai-brainstorm`
 approval per spec-138 M3 follow-up); (4) no implementation without an
 approved spec — invoke `/ai-brainstorm` first; (5) read [SOUL.md](SOUL.md)
-(the agent's collaborator values — the judgment layer above the
-deterministic plane).
+(the agent's collaborator values).
 
 ## Operating Mindset (§1–§9 condensed)
 

@@ -28,16 +28,7 @@ Scan changed files (post-build) or the specified scope. Prioritize by:
 
 ## 2. Apply Simplifications
 
-- **Guard clauses** — convert nested if/else to early returns:
-  ```python
-  # Before                     # After
-  def process(x):              def process(x):
-      if x is not None:            if x is None:
-          if x.valid:                  return None
-              return x.value       if not x.valid:
-      return None                      return None
-                                   return x.value
-  ```
+- **Guard clauses** — convert nested if/else to early returns.
 - **Extract methods** — pull complex expressions into named functions (the name IS the documentation).
 - **Flatten nesting** — reduce indentation via early returns and extraction.
 - **Remove dead code** — unreachable branches, unused imports, commented-out blocks.
@@ -52,13 +43,7 @@ Scan changed files (post-build) or the specified scope. Prioritize by:
 
 ## 4. Self-Check Protocol
 
-Before committing to any simplification, ask:
-1. Is the simplified version actually simpler, or just different?
-2. Would a newcomer find it easier to understand?
-3. Did I introduce a new abstraction? If so, does it earn its existence?
-4. Am I reducing complexity or just moving it elsewhere?
-
-If any answer is unfavorable, revert and move to the next target.
+Before keeping a simplification, confirm it is genuinely simpler (not just different), easier for a newcomer, and does not merely move complexity elsewhere or add an unearned abstraction. If any check fails, revert and move to the next target.
 
 ## 5. Report
 
