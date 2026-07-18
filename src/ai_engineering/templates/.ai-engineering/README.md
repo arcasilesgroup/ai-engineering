@@ -123,10 +123,10 @@ Agents run in their own context window; dispatched by the skills above.
 | --- | --- |
 | `ai-advise` | Proactive governance advisor. |
 | `ai-autopilot` | Autonomous 6-phase orchestrator. |
-| `ai-build` | Implementation coordinator. |
+| `ai-build` | Implementation coordinator — the ONLY agent with code write permissions. |
 | `ai-explore` | Codebase-only read-only research. |
 | `ai-onboard` | Project onboarding and teaching. |
-| `ai-plan` | Relentless interrogator. |
+| `ai-plan` | Relentless interrogator and principal delivery architect. |
 | `ai-review` | Code review orchestrator. |
 | `ai-simplify` | Code simplification and complexity reduction. |
 | `ai-verify` | Evidence-first verification orchestrator. |
