@@ -299,16 +299,44 @@ def _emit_node_missing(project_root: Path, *, session_id: str | None, correlatio
     emit_event(project_root, event)
 
 
-def main() -> None:
-    ctx = get_hook_context()
-    if ctx.event_name != "UserPromptSubmit":
-        passthrough_stdin(ctx.data)
-        return
+# spec-186 D-186-05: the Client-Value Lens reminder is emitted on EVERY
+# UserPromptSubmit — independent of skill ranking — so the sponsor-framing
+# discipline is reinforced turn by turn. The ``reference/value-lens.md``
+# citation is the load-bearing adoption marker shared across the surfaces.
+_VALUE_LENS_REMINDER_TEMPLATE = (
+    "[client-value-lens:{level}] Frame user-facing reports and questions as "
+    "sponsor value — bottom line, impact, risk, next — per reference/value-lens.md. "
+    "Carve-outs stay precise/normal: code, commits, patch hunks, security warnings, "
+    "gate verdicts."
+)
 
-    # spec-131 sub-004 T-4.G: empty payload on UserPromptSubmit signals
-    # an upstream-shim failure; emit telemetry and passthrough so the
-    # audit chain captures the symptom even when the operator sees the
-    # raw "node: command not found" IDE error.
+
+def _value_lens_reminder() -> str:
+    """Return the Client-Value Lens reminder with the active level interpolated.
+
+    The resolver is imported lazily and guarded so a bare-``python3`` host
+    without the ``ai_engineering`` package on its path degrades to ``full``
+    rather than breaking the UserPromptSubmit hook.
+    """
+    try:
+        from ai_engineering.value_lens import resolve_level
+
+        level = resolve_level()
+    except Exception:
+        level = "full"
+    return _VALUE_LENS_REMINDER_TEMPLATE.format(level=level)
+
+
+def _compute_skill_hint(ctx) -> str | None:
+    """Return the ranked-skills hint block, or ``None`` when none applies.
+
+    Carries the spec-131 node-missing telemetry (empty payload) and the
+    skill-match telemetry as side effects. Every branch that previously
+    short-circuited to ``passthrough_stdin`` now returns ``None`` — the
+    caller still emits the unconditional Client-Value Lens reminder.
+    """
+    # spec-131 sub-004 T-4.G: empty payload on UserPromptSubmit signals an
+    # upstream-shim failure; capture the symptom for the audit chain.
     if not ctx.data:
         with contextlib.suppress(Exception):
             _emit_node_missing(
@@ -316,33 +344,27 @@ def main() -> None:
                 session_id=ctx.session_id,
                 correlation_id=get_correlation_id(),
             )
-        passthrough_stdin(ctx.data)
-        return
+        return None
 
     raw_prompt = ctx.data.get("prompt") or ctx.data.get("user_prompt") or ""
     if not isinstance(raw_prompt, str):
-        passthrough_stdin(ctx.data)
-        return
+        return None
 
     stripped = raw_prompt.strip()
     if not stripped or stripped.startswith("/ai-") or stripped.startswith("/"):
-        passthrough_stdin(ctx.data)
-        return
+        return None
 
     prompt_tokens = _tokenise(stripped)
     if len(prompt_tokens) < _MIN_PROMPT_TOKENS:
-        passthrough_stdin(ctx.data)
-        return
+        return None
 
     skills = _load_skill_index(ctx.project_root)
     if not skills:
-        passthrough_stdin(ctx.data)
-        return
+        return None
 
     ranked = _rank_skills(prompt_tokens, skills)
     if not ranked:
-        passthrough_stdin(ctx.data)
-        return
+        return None
 
     top = ranked[:_TOP_K]
     _emit_telemetry(
@@ -357,16 +379,32 @@ def main() -> None:
         f"- /{name} — {description[:140].rstrip()}{'…' if len(description) > 140 else ''}"
         for _score, name, description in top
     ]
-    hint = (
+    return (
         "[runtime-progressive-disclosure] Skills ranked by relevance to your "
         "prompt (consider invoking one of these instead of free-form work):\n" + "\n".join(lines)
     )
+
+
+def main() -> None:
+    ctx = get_hook_context()
+    if ctx.event_name != "UserPromptSubmit":
+        passthrough_stdin(ctx.data)
+        return
+
+    # Ranked-skill hint is optional; the Client-Value Lens reminder is not.
+    hint = _compute_skill_hint(ctx)
+    additional_context = _value_lens_reminder()
+    if hint:
+        additional_context = f"{additional_context}\n\n{hint}"
+
+    # Claude Code accepts exactly one stdout JSON object per hook invocation,
+    # so both signals ride in a single ``additionalContext``.
     sys.stdout.write(
         json.dumps(
             {
                 "hookSpecificOutput": {
                     "hookEventName": "UserPromptSubmit",
-                    "additionalContext": hint,
+                    "additionalContext": additional_context,
                 }
             },
             separators=(",", ":"),

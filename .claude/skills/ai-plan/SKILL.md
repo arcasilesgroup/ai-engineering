@@ -39,7 +39,12 @@ Takes an approved spec and produces a phased execution plan — bite-sized tasks
 9. **Assign agents** — capability-match (build = code; verify = read-only; guard = advisory).
 10. **Order phases** + gate criteria. **TDD pairs** (§10.5): write a RED test task before any GREEN implementation task.
 11. **Self-review** (§10.7 Clean Code) — spec-reviewer pattern, max 2 iterations.
-12. **Write** to `.ai-engineering/specs/plan.md`, print `safe_next_command`, and **STOP** — operator approves and runs that command.
+12. **Write** to `.ai-engineering/specs/plan.md`, then emit the 6-field value
+    block (Bottom line / Why it matters / What's done / Risk / Next / Details)
+    per `.ai-engineering/reference/value-lens.md` at the resolved audience level
+    (default `full`) alongside the `safe_next_command`, and **STOP** — operator
+    approves and runs that command. The `safe_next_command` string itself stays
+    a carve-out (exact, machine-runnable).
 
 ### Output template — exhaustive patch-ready (D-131-08)
 

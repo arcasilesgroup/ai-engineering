@@ -29,6 +29,7 @@ from skill_lint.checks.md_mirror import check_md_mirror_consistency
 from skill_lint.checks.naming import check_naming
 from skill_lint.checks.pair_aware import check_pair_consistency
 from skill_lint.checks.principles import check_principles_citations
+from skill_lint.checks.value_block import check_value_block_citations
 
 _DEFAULT_SKILLS_ROOT = Path(".claude/skills")
 _DEFAULT_AGENTS_ROOT = Path(".claude/agents")
@@ -43,6 +44,7 @@ def _exit_code(
     md_mirror_results: list | None = None,
     principles_results: list | None = None,
     effort_results: list | None = None,
+    value_block_results: list | None = None,
 ) -> int:
     """Map grade counts + extra-check severities to a CLI exit code.
 
@@ -61,6 +63,10 @@ def _exit_code(
       * Any MAJOR / CRITICAL from ``effort`` → exit 1 (D-131-08).
         ``model_tier`` MINORs stay advisory during the R-131-09 grace
         window — they surface in the summary but do not block.
+
+    spec-186 addition:
+      * Any CRITICAL from ``value_block`` → exit 1 (D-186-06). A chain
+        skill that omits the ``value-lens.md`` citation hard-fails.
     """
     # principles_results intentionally consumed for signature parity;
     # advisory-only in sub-001 (R-1.6).
@@ -73,6 +79,12 @@ def _exit_code(
         return 1
     if effort_results and any(
         getattr(r, "severity", "OK") in ("MAJOR", "CRITICAL") for _path, r in effort_results
+    ):
+        return 1
+    # spec-186: value_block is BLOCKING — any chain skill omitting the
+    # value-lens.md citation surfaces as CRITICAL and hard-fails (D-186-06).
+    if value_block_results and any(
+        getattr(r, "severity", "OK") == "CRITICAL" for _path, r in value_block_results
     ):
         return 1
     if grade_counts.get("C", 0) > 2:
@@ -192,6 +204,10 @@ def main(argv: list[str] | None = None) -> int:
         dispatch_policy,
         enforce_tier=args.enforce_tier,
     )
+    # spec-186: value_block adoption check. BLOCKING — any of the five
+    # chain skills omitting the value-lens.md citation surfaces CRITICAL
+    # and drives exit 1 (D-186-06).
+    value_block_results = check_value_block_citations(args.skills_root)
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -225,6 +241,10 @@ def main(argv: list[str] | None = None) -> int:
         effort_counts: dict[str, int] = {}
         for _path, result in effort_results:
             effort_counts[result.severity] = effort_counts.get(result.severity, 0) + 1
+        # spec-186: value_block counters (BLOCKING on CRITICAL).
+        value_block_counts: dict[str, int] = {}
+        for _path, result in value_block_results:
+            value_block_counts[result.severity] = value_block_counts.get(result.severity, 0) + 1
         # Print a one-line summary so CI logs surface the result.
         sys.stdout.write(
             "skill_lint: skills "
@@ -251,6 +271,10 @@ def main(argv: list[str] | None = None) -> int:
             f"OK={effort_counts.get('OK', 0)} "
             f"MINOR={effort_counts.get('MINOR', 0)} "
             f"MAJOR={effort_counts.get('MAJOR', 0)} "
+            f"| value_block "
+            f"OK={value_block_counts.get('OK', 0)} "
+            f"INFO={value_block_counts.get('INFO', 0)} "
+            f"CRITICAL={value_block_counts.get('CRITICAL', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
         return _exit_code(
@@ -258,6 +282,7 @@ def main(argv: list[str] | None = None) -> int:
             md_mirror_results=md_mirror_results,
             principles_results=principles_results,
             effort_results=effort_results,
+            value_block_results=value_block_results,
         )
 
     return 0

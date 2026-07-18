@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-14T01:05:11Z",
+  "generatedAt": "2026-07-18T08:12:11Z",
   "hookCount": 77,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "fdb45c8915600885edc9bc8d0a82ec0b8a4fa6d7f31200bf184c36433b93fa9d",
@@ -71,10 +71,10 @@
     ".ai-engineering/scripts/hooks/runtime-guard.py": "ed4fdcb7b8ae95619cd3070fad439e11f3778076ebef8b088aecb0caddfc3c83",
     ".ai-engineering/scripts/hooks/runtime-notification.py": "82d0b13d64598f7cd475d874ac69b7698a3195c635bff14f2f880765739ceed6",
     ".ai-engineering/scripts/hooks/runtime-observation-nudge.py": "a998be1fae5f196e7edaf1ffe80cbda603269a41d64f785aa203887f670bc6d9",
-    ".ai-engineering/scripts/hooks/runtime-progressive-disclosure.py": "a7b5108602ef961317a2b1f9e6ec886c360075721295e8c9b2c3ed85ad860edd",
+    ".ai-engineering/scripts/hooks/runtime-progressive-disclosure.py": "87c5cb16304277fbdda48a77e159290da0ef8ea85e3a3355a74f6728befdd412",
     ".ai-engineering/scripts/hooks/runtime-rotate-throttled.py": "0a9173fbccd68754c43d067d711c089f45588aa60676fd633bc7b7acbe0e3a29",
     ".ai-engineering/scripts/hooks/runtime-session-end.py": "52a8aa184a9bad8e3f629f32058ed6a7b328d741daabf99ddffdef37fb0300e2",
-    ".ai-engineering/scripts/hooks/runtime-session-start.py": "2f8d497f55a031f2df7e6a36c30fcf95a129c9dab127cc447eab83d2fbe3b90f",
+    ".ai-engineering/scripts/hooks/runtime-session-start.py": "b8b438c1b6d26d521bc9470be77cc46933d888e4a3c7be7671407100ad432583",
     ".ai-engineering/scripts/hooks/runtime-stop.py": "302817e179a730d8e2841b2cf01bf1fa79201f54fc10550a8c329eba6802de55",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "5a82796a795012b300cbb40e9d0b41c62fa856828f635e8d7c0eeb087f0d4f6d",
     ".ai-engineering/scripts/hooks/strategic-compact.py": "5d1619adb316e3cfb481ac6cae58ac84057b38304b039398fc971a601be582eb",

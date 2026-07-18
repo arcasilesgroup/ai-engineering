@@ -85,7 +85,7 @@ Compose the commit subject deterministically (spec-139 M8 D-139-06): derive the 
 
 ### 14. Create or update PR
 
-Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README staged, gate passed). Compose body deterministically: `python3 .ai-engineering/scripts/pr_body_compose.py` reads `.ai-engineering/specs/spec.md` frontmatter (`summary:` field — mandatory per spec-139 M8 D-139-06 after the 2026-06-16 cutover) plus plan.md `[ ]` rows and emits Summary, Test Plan, Work Items, Checklist sections. **When `summary:` is present in the spec frontmatter the PR body Summary section is composed without any LLM call.** Legacy specs that predate the field fall back to `--bullets-prompt "<llm-bullets>"`; emit an advisory warning prompting the operator to backfill the spec frontmatter `summary:` field. Do NOT pass `--bullets-prompt` when the active spec already declares `summary:`.
+Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README staged, gate passed). Compose body deterministically: `python3 .ai-engineering/scripts/pr_body_compose.py` reads `.ai-engineering/specs/spec.md` frontmatter (`summary:` field — mandatory per spec-139 M8 D-139-06 after the 2026-06-16 cutover) plus plan.md `[ ]` rows and emits Summary, Test Plan, Work Items, Checklist sections. **When `summary:` is present in the spec frontmatter the PR body Summary section is composed without any LLM call.** Legacy specs that predate the field fall back to `--bullets-prompt "<llm-bullets>"`; emit an advisory warning prompting the operator to backfill the spec frontmatter `summary:` field. Do NOT pass `--bullets-prompt` when the active spec already declares `summary:`. The PR body itself (`## Summary` and every other composed section) is a deterministic machine artifact — a carve-out — and is emitted exactly as `pr_body_compose.py` renders it; the value lens is applied only to the operator-facing status report (Step 16), never to the PR body, commit messages, or gate verdicts.
 
 **New**: `gh pr create --title "<t>" --body "<b>"` or `az repos pr create --source-branch <b> --target-branch <t> --title "<t>" --description "<b>"`.
 
@@ -103,7 +103,7 @@ For new PRs with `refs`: invoke `/ai-board sync in_review <ref>` for each non-`n
 
 Auto-complete only queues the merge -- CI must pass first. The Step 14b consolidation commit is already part of the branch, so the CI run the loop watches is the FINAL commit set — and it now runs against the idle `# No active spec` slot (D-167-07); every spec.md-reading gate must tolerate that placeholder. Enter the watch-and-fix loop following `handlers/watch.md`. The loop polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
 
-Once `state == "MERGED"`: run `/ai-branch-cleanup --all` and report.
+Once `state == "MERGED"`: run `/ai-branch-cleanup --all` and report to the operator using the value block per `.ai-engineering/reference/value-lens.md` (bottom line, impact, risk, next) at the resolved audience level (default `full`). This report — and the PR-opened status at Step 14 — is the user-facing surface the lens governs; the PR body, commit messages, and gate verdicts stay exact machine carve-outs.
 
 ### 17. Self-verify (terminal)
 

@@ -24,6 +24,7 @@ booting a new session.
 
 from __future__ import annotations
 
+import contextlib
 import sys
 from pathlib import Path
 
@@ -34,6 +35,31 @@ from _lib.hook_common import get_correlation_id, run_hook_safe
 from _lib.hook_context import get_hook_context
 
 _COMPONENT = "hook.runtime-session-start"
+
+# spec-186 D-186-05: one-shot Client-Value Lens contract, injected at session
+# boot so the sponsor-framing discipline is established before the first turn.
+# The ``reference/value-lens.md`` citation is the load-bearing adoption marker.
+_VALUE_LENS_CONTRACT_TEMPLATE = (
+    "[client-value-lens] Active. Reports + questions use the value block "
+    "(reference/value-lens.md); default level {level}. Carve-outs "
+    "(code/commits/security/verdicts) stay precise."
+)
+
+
+def _value_lens_contract() -> str:
+    """Return the Client-Value Lens contract with the active level interpolated.
+
+    The resolver is imported lazily and guarded so a bare-``python3`` host
+    without the ``ai_engineering`` package degrades to ``full`` rather than
+    breaking session start.
+    """
+    try:
+        from ai_engineering.value_lens import resolve_level
+
+        level = resolve_level()
+    except Exception:
+        level = "full"
+    return _VALUE_LENS_CONTRACT_TEMPLATE.format(level=level)
 
 
 def _safe_count_instincts(project_root: Path) -> int | None:
@@ -109,6 +135,12 @@ def main() -> None:
     except Exception:
         # Fail-open: never block the IDE booting a session.
         pass
+
+    # spec-186: inject the one-shot Client-Value Lens contract as plain-text
+    # additionalContext. Guarded + fail-open — a resolver hiccup must never
+    # block session start.
+    with contextlib.suppress(Exception):
+        sys.stdout.write(_value_lens_contract() + "\n")
 
     passthrough_stdin(ctx.data)
 

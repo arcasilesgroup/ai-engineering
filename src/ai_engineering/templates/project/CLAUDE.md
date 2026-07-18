@@ -161,6 +161,10 @@ mirrors stay lean (spec-134 sub-005 mirror diet). Authoritative homes:
 - **Error-handling posture** (fail-open vs fail-closed) →
   [.ai-engineering/reference/gate-policy.md](.ai-engineering/reference/gate-policy.md)
   (security/integrity boundaries fail closed; plumbing fails open and must log).
+- **Client-Value communication** (stakeholder-legible reports + questions) →
+  [.ai-engineering/reference/value-lens.md](.ai-engineering/reference/value-lens.md)
+  (the 6-field value block, lite/full/ultra audience ladder, and carve-outs;
+  the 5 chain skills cite it, enforced by `tests/conformance/test_value_block.py`).
 
 <!-- ide-extras:start -->
 ## Hot-Path Discipline (Claude Code)

@@ -76,7 +76,11 @@ After 3 rounds, or when no concerns remain: STOP.
 
 ### Step 4 -- Present to User
 
-Present the reviewed spec with a summary:
+Present the reviewed spec with a summary. Lead with the 6-field value
+block (Bottom line / Why it matters / What's done / Risk / Next / Details)
+per `.ai-engineering/reference/value-lens.md` at the resolved audience level
+(default `full`) so the sponsor grasps what the spec delivers before the
+technical detail. The spec text itself stays a carve-out — presented exactly.
 
 ```markdown
 ## Spec Review Summary
@@ -86,7 +90,7 @@ Present the reviewed spec with a summary:
 - Concerns resolved: N
 - Remaining open items: [list, if any]
 
-[Full spec text follows]
+[Value block per reference/value-lens.md, then full spec text follows]
 ```
 
 The user must explicitly approve before proceeding to `/ai-plan`.

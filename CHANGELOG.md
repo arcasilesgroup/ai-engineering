@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- spec-186: Client-Value Lens adopted across the 5 chain skills
+  (`/ai-brainstorm`, `/ai-plan`, `/ai-build`, `/ai-autopilot`, `/ai-pr`).
+  These skills now emit a fixed value block (bottom line, impact, risk,
+  next) in every user-facing report and question. Hard-adopt: no
+  dual-tone toggle, no legacy verbose mode. The new reference
+  `.ai-engineering/reference/value-lens.md` is the contract; a blocking
+  `skill_lint` check fails if a chain skill omits it. Default audience
+  level `full` (PO/stakeholder), selectable via `AIENG_VALUE_LENS_LEVEL`
+  or `manifest.value_lens.default_level`.
+
 - spec-183: Three stale CLI commands were removed (hard delete, no compat
   shim — CONSTITUTION Hard Rule 3). Each removed verb prints
   `removed; use '<replacement>'` and exits 2:

@@ -208,6 +208,12 @@ After Step 2 completes (PASS or STOP), write a single outcome to
 `plan.md` under `## Quality Outcome` and, if used, `## Quality
 Remediation`.
 
+When reporting the outcome to the human, lead with the 6-field value block
+(Bottom line / Why it matters / What's done / Risk / Next / Details) per
+`.ai-engineering/reference/value-lens.md` at the resolved audience level
+(default `full`). Gate verdicts (PASS/STOP and the finding reasons) stay a
+carve-out — reported exactly, never softened by the value framing.
+
 PASS example:
 
 ```markdown

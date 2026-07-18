@@ -72,8 +72,11 @@ HARD GATE: this skill produces a spec. No implementation happens until the user 
    (read `<spec_id>` from the spec frontmatter `spec:`, fallback `slug:`) to
    transition the canonical sidecar DRAFT→APPROVED, which also mirrors
    `status: approved` into `spec.md` frontmatter. **Fail-open** (D-161-08): a
-   non-zero exit logs and does NOT block the STOP. Then present the approved
-   spec — User runs `/ai-plan` to continue.
+   non-zero exit logs and does NOT block the STOP. Present the approval ask
+   with the 6-field value block (Bottom line / Why it matters / What's done /
+   Risk / Next / Details) per `.ai-engineering/reference/value-lens.md` at the
+   resolved audience level (default `full`) — the spec text stays a carve-out.
+   Then present the approved spec — User runs `/ai-plan` to continue.
 
 ## Questioning Rules
 
