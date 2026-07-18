@@ -108,6 +108,11 @@ def apply_capability_catalog(project_root: Path, target: Path | None = None) -> 
         )
         logger.info(msg)
         return CatalogResult(CatalogStatus.SKIPPED_NO_MARKERS, resolved, msg)
+    # Default-target runs also regenerate the source-repo install-template twin
+    # so it never drifts from the live manual (spec-187 W4; fail-open when the
+    # twin is absent, i.e. every consumer project).
+    if target is None:
+        generator.apply_template_twin(project_root)
     return CatalogResult(
         CatalogStatus.APPLIED, resolved, f"capability catalog regenerated in {resolved}."
     )
@@ -142,12 +147,17 @@ def check_capability_catalog(project_root: Path, target: Path | None = None) -> 
         )
         logger.info(msg)
         return CatalogResult(CatalogStatus.SKIPPED_NO_MARKERS, resolved, msg)
-    if in_sync:
+    # Default-target checks also cover the source-repo install-template twin so
+    # `dev sync --check` fails on a manually-drifted twin (spec-187 W4;
+    # fail-open when the twin is absent).
+    twin_in_sync = generator.check_template_twin(project_root) if target is None else True
+    if in_sync and twin_in_sync:
         return CatalogResult(
             CatalogStatus.IN_SYNC, resolved, f"capability catalog in sync: {resolved}."
         )
+    drift_target = resolved if not in_sync else generator.template_twin_path(project_root)
     return CatalogResult(
         CatalogStatus.DRIFT,
-        resolved,
-        f"capability catalog drift detected in {resolved}; run 'ai-eng dev sync'.",
+        drift_target,
+        f"capability catalog drift detected in {drift_target}; run 'ai-eng dev sync'.",
     )

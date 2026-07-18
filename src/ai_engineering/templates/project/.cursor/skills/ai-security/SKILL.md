@@ -98,12 +98,13 @@ Runs SAST + deps + secrets (+ optional SBOM), scores against the gate, and emits
 
 ## Integration
 
-Called by: `/ai-verify` (security mode delegation), `/ai-verify --release` (aggregates results), pre-commit hooks (gitleaks protect --staged), pre-push hooks (semgrep, pip-audit). Risk acceptances go to `decision-store.json` via `/ai-governance risk`. See also: `/ai-governance`, `/ai-mcp-audit` (skill behavior), `/ai-pipeline` (CI security).
+Called by: `/ai-verify` (security mode delegation), `/ai-verify --release` (aggregates results), pre-commit hooks (gitleaks protect --staged), pre-push hooks (semgrep, pip-audit). Risk acceptances go to `decision-store.json` via `/ai-governance risk`. See also: `/ai-governance`, `/ai-mcp-audit` (skill behavior), `/ai-pipeline` (CI security), `/ai-schema` (DB schema/injection review).
 
 ## References
 
 - Per-stack security minimums: `.ai-engineering/overrides/<stack>/security_floor.md`.
 - `.ai-engineering/overrides/_shared/security_floor.md` — cross-stack security floor.
 - `.ai-engineering/manifest.yml` — non-negotiables and gate thresholds.
+- `.ai-engineering/reference/semgrep-update-model.md` — two-tier Semgrep scan + manual version-bump model.
 
 $ARGUMENTS

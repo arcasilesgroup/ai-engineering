@@ -29,6 +29,19 @@ from pathlib import Path
 CATALOG_START = "<!-- catalog:start -->"
 CATALOG_END = "<!-- catalog:end -->"
 
+# The live client manual and its install-template twin are byte-identical
+# surfaces (guarded by tests/unit/docs/test_governance_readme_template_parity.py).
+# Both carry the catalog block, so every regeneration MUST write BOTH or the
+# parity gate breaks and drops the fix onto a manual `cp` (spec-187 W4).
+_LIVE_TARGET_REL = (".ai-engineering", "README.md")
+_TEMPLATE_TWIN_REL = (
+    "src",
+    "ai_engineering",
+    "templates",
+    ".ai-engineering",
+    "README.md",
+)
+
 # Canonical glob patterns. The agent glob ``ai-*.md`` intentionally EXCLUDES the
 # internal review-*/reviewer-*/verifier-* families (they do not start with
 # ``ai-``); only the 9 user-facing agents match.
@@ -202,13 +215,52 @@ def check(path: Path, root: Path | None = None) -> bool:
     return block == render_section(root)
 
 
+def template_twin_path(root: Path) -> Path:
+    """Return the install-template twin of the live client manual for *root*."""
+    return root.joinpath(*_TEMPLATE_TWIN_REL)
+
+
+def apply_template_twin(root: Path) -> Path | None:
+    """Regenerate the catalog block in the install-template twin, if present.
+
+    The twin (``src/ai_engineering/templates/.ai-engineering/README.md``) is a
+    source-repo-only file; consumer projects have no ``src/`` tree. Fail-open:
+    an absent or marker-less twin is skipped (returns None), so this is safe to
+    call from any project root. Renders from *root* so the twin's catalog block
+    is byte-identical to the live one.
+    """
+    twin = template_twin_path(root)
+    if not twin.is_file():
+        return None
+    try:
+        apply_to(twin, root)
+    except MarkersNotFoundError:
+        return None
+    return twin
+
+
+def check_template_twin(root: Path) -> bool:
+    """Return True when the twin is absent (nothing to check) or in sync.
+
+    Returns False only when the twin exists, carries the catalog markers, and
+    its block diverges from a fresh render (fail-open on absence/no-markers).
+    """
+    twin = template_twin_path(root)
+    if not twin.is_file():
+        return True
+    try:
+        return check(twin, root)
+    except MarkersNotFoundError:
+        return True
+
+
 def _repo_root() -> Path:
     """Resolve the repository root (two levels up from this script)."""
     return Path(__file__).resolve().parents[1]
 
 
 def _default_target(root: Path) -> Path:
-    return root / ".ai-engineering" / "README.md"
+    return root.joinpath(*_LIVE_TARGET_REL)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -229,6 +281,9 @@ def main(argv: list[str] | None = None) -> int:
 
     root = _repo_root()
     target = args.target or _default_target(root)
+    # Only the default (live-manual) run mirrors into the install-template twin;
+    # an explicit target is applied/checked in isolation.
+    sync_twin = args.target is None
 
     if not target.is_file():
         print(f"error: target not found: {target}", file=sys.stderr)
@@ -236,12 +291,19 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         if args.check:
-            if check(target, root):
+            live_ok = check(target, root)
+            twin_ok = check_template_twin(root) if sync_twin else True
+            if live_ok and twin_ok:
                 print(f"catalog in sync: {target}")
                 return 0
-            print(f"catalog drift detected: {target}", file=sys.stderr)
+            drifted = target if not live_ok else template_twin_path(root)
+            print(f"catalog drift detected: {drifted}", file=sys.stderr)
             return 1
         apply_to(target, root)
+        if sync_twin:
+            twin = apply_template_twin(root)
+            if twin is not None:
+                print(f"catalog applied: {twin}")
         print(f"catalog applied: {target}")
         return 0
     except MarkersNotFoundError as exc:

@@ -105,6 +105,7 @@ its own context window — offload research and parallel analysis to them.
 | Skills (__SKILL_COUNT__) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (__AGENT_COUNT__) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/reference/knowledge-placement.md` |
+| Runbooks index | [.ai-engineering/reference/runbook-index.md](.ai-engineering/reference/runbook-index.md) (14 cadence-driven intake/operational procedures) |
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
 | CLI | `ai-eng <command>` |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |

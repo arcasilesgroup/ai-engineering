@@ -322,7 +322,7 @@ class TestGenerationFunctions:
         assert "generated_by: ai-eng sync" in content
         assert "canonical_source: .claude/agents/reviewer-correctness.md" in content
         assert "edit_policy: generated-do-not-edit" in content
-        assert "You are a senior code reviewer specializing in FUNCTIONAL CORRECTNESS" in content
+        assert "You are a senior reviewer specializing in FUNCTIONAL CORRECTNESS" in content
 
     def test_install_claude_specialist_template_carries_provenance(self) -> None:
         # spec-159 D-159-05 (corrected): the `.claude` install TEMPLATE for a

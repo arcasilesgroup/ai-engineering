@@ -130,3 +130,4 @@ Runs LLM coherence analysis comparing the declared `description` against actual 
 - `.ai-engineering/specs/spec.md` — D-107-08 design rationale.
 - `.ai-engineering/scripts/hooks/prompt-injection-guard.py` — hot-path runtime counterpart.
 - `.ai-engineering/security/iocs/IOCS_ATTRIBUTION.md` — IOC catalog provenance.
+- `.ai-engineering/reference/mcp-binary-policy.md` — MCP binary allowlist policy (spec-107).
