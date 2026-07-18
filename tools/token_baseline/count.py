@@ -87,7 +87,7 @@ def _load_encoder():
 
         enc = tiktoken.get_encoding("cl100k_base")
         return (lambda text: len(enc.encode(text))), "cl100k_base"
-    except Exception:  # pragma: no cover - exercised only without tiktoken
+    except Exception:
         return (lambda text: (len(text) + 3) // 4), "char4-heuristic"
 
 
