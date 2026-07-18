@@ -38,10 +38,11 @@ MANIFEST = REPO_ROOT / ".ai-engineering" / "manifest.yml"
 
 
 # Provider-scoped skills that opt out of specific IDE mirrors.
-# Documented in `.claude/skills/ai-scaffold/SKILL.md`. ai-analyze-permissions
-# is Claude-Code-only and never appears in `.github/`, `.codex/`, `.agents/`.
+# spec-187 D-187-04: the sole provider-scoped skill was hard-deleted, so no
+# skill currently opts out of any mirror. The map is retained so a future
+# Claude-Code-only skill can re-register its opt-out.
 PROVIDER_SCOPED_SKIPS: dict[str, set[str]] = {
-    "github": {"ai-analyze-permissions"},
+    "github": set(),
     "codex": set(),
     "antigravity": set(),
 }

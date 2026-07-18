@@ -2,8 +2,7 @@
 
 # C# — Build Conventions
 
-Authoritative reference for the `ai-build` agent when generating C#
-code.
+`ai-build` reference for generating C# code.
 
 ## Toolchain
 

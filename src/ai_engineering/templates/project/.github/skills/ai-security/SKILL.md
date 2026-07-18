@@ -1,6 +1,6 @@
 ---
 name: ai-security
-description: "Runs security gates: SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, SBOM generation for compliance, pre-release security verdict. Trigger for 'is this secure', 'audit dependencies', 'check for secrets', 'security report', 'is this package safe', 'compliance review'. Not for governance process; use /ai-governance instead. Not for runtime payload inspection; use prompt-injection-guard hook instead."
+description: "Runs security gates: SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, SBOM generation for compliance, pre-release security verdict. Trigger for 'is this secure', 'audit dependencies', 'check for secrets', 'security report', 'is this package safe', 'compliance review'. Not for governance process; use /ai-governance instead. Not for runtime payload inspection; use prompt-injection-guard hook instead. Not for code quality metrics; use /ai-verify quality instead."
 effort: mid
 argument-hint: "all|static|deps|secrets|sbom|--fix"
 mode: agent
@@ -20,76 +20,34 @@ edit_policy: generated-do-not-edit
 ---
 
 
-
 # Security Scanning
 
 ## Quick start
 
 ```
-/ai-security all       # full sweep (static + deps + secrets + sbom)
+/ai-security all       # full sweep: static + deps + secrets (aggregated report)
+/ai-security static    # SAST only (semgrep)
 /ai-security deps      # dependency audit only
 /ai-security secrets   # gitleaks scan
 /ai-security sbom      # CycloneDX SBOM for compliance
-/ai-security --fix     # auto-remediate where safe
+/ai-security deps --fix  # audit + auto-fix where safe
 ```
 
-Unified security assessment for regulated industries. Modes: `static` (SAST with semgrep), `deps` (pip-audit/npm audit), `secrets` (gitleaks), `sbom` (CycloneDX). Zero tolerance for medium+ findings. Each finding includes severity, location, fix suggestion, and CWE reference.
+Unified security assessment for regulated industries. Zero tolerance for medium+ findings. Each finding carries severity, location, fix suggestion, and CWE reference.
 
-## When to Use
+## Workflow
 
-- Security review, pre-release gate, dependency audit, compliance reporting.
-- NOT for code quality metrics -- use `/ai-verify quality`.
-- NOT for governance compliance -- use `/ai-governance`.
+Principles applied: §10.2 YAGNI (every dependency and exposed endpoint is attack surface — the smallest surface is the safest).
 
-## Process
+Step 0 — load contexts: read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` per stack + `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md`.
 
-Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
+`all` (default) runs static -> deps -> secrets in sequence and emits one aggregated report. Per-mode procedure:
 
-## Modes
-
-### all -- Full Scan (default)
-
-The `all` mode runs static, deps, and secrets in sequence and produces an aggregated report. This is the default when `/ai-security` is invoked without a mode argument.
-
-### static -- SAST
-
-1. **Read stacks** -- read `.ai-engineering/manifest.yml` field `providers.stacks` for active languages.
-2. **Secret detection** -- `gitleaks detect --source . --no-git`. Any finding is critical. Note: this is intentional for full-repo SAST scans, distinct from the `gitleaks protect --staged` pattern used in pre-commit hooks.
-3. **Semgrep** -- `semgrep scan --config auto --json`. Parse for rule IDs, severity, CWE.
-4. **Manual analysis** -- review what tools miss:
-   - Authentication on every endpoint (A01)
-   - Parameterized queries only (A03)
-   - Secrets from env/vault, never hardcoded (A02)
-   - HTTP security headers (A05)
-   - No user-controlled URLs in HTTP clients (A10)
-5. **Classify** -- severity + OWASP category per finding.
-
-### deps -- Dependency Audit
-
-1. **Identify lock files** -- read `providers.stacks` from `.ai-engineering/manifest.yml`, then check for matching lock files (`uv.lock`, `package-lock.json`, `Cargo.lock`, `*.csproj`).
-2. **Run audit** -- Python: `uv run python -m ai_engineering.verify.tls_pip_audit --strict --desc`. Node: `npm audit --json`. Rust: `cargo audit --json`.
-3. **Assess exploitability** -- mark unreachable paths as reduced severity with justification.
-4. **Report** with upgrade paths.
-
-### secrets -- Secret Detection
-
-1. **Full scan** -- `gitleaks detect --source . --no-git --report-format json`.
-2. **Staged scan** -- `gitleaks protect --staged --no-banner`.
-3. **For each finding**: file, line, rule, remediation (rotate credential, store in vault).
-
-### sbom -- Software Bill of Materials
-
-1. **Generate** -- `cdxgen -o sbom.json --spec-version 1.5` (CycloneDX JSON).
-2. **Validate** -- all direct deps with versions, license info, package URLs.
-3. **Flag license risks** -- copyleft (GPL, AGPL) conflicting with project license.
-
-### `--fix` -- Auto-fix
-
-When `--fix` is passed, attempt automatic remediation:
-- Secrets: remove from source, add to `.gitignore`, warn to rotate.
-- Dependencies: `pip install --upgrade <pkg>` for fixable vulns.
-- Lint findings: `semgrep --autofix` where rules support it.
-- Report what was fixed and what requires manual intervention.
+1. **static (SAST)** — run `gitleaks detect --source . --no-git` (any finding critical; full-repo scan, distinct from the pre-commit `gitleaks protect --staged`); run `semgrep scan --config auto --json` (parse rule IDs, severity, CWE); manual review of what tools miss — auth on every endpoint (A01), parameterized queries only (A03), secrets from env/vault never hardcoded (A02), HTTP security headers (A05), no user-controlled URLs in HTTP clients (A10); classify severity + OWASP per finding.
+2. **deps** — identify lock files (`uv.lock` / `package-lock.json` / `Cargo.lock` / `*.csproj`) from `providers.stacks`; run Python `uv run python -m ai_engineering.verify.tls_pip_audit --strict --desc`, Node `npm audit --json`, Rust `cargo audit --json`; mark unreachable paths reduced-severity with justification; report upgrade paths.
+3. **secrets** — `gitleaks detect --source . --no-git --report-format json` (full) + `gitleaks protect --staged --no-banner` (staged); per finding: file, line, rule, remediation (rotate credential, move to vault).
+4. **sbom** — `cdxgen -o sbom.json --spec-version 1.5` (CycloneDX JSON); validate every direct dep has version + license + package URL; flag copyleft (GPL/AGPL) conflicting with the project license.
+5. **`--fix`** — secrets: remove from source, add to `.gitignore`, warn to rotate; deps: `pip install --upgrade <pkg>` for fixable vulns; lint: `semgrep --autofix` where rules support it; report what was fixed vs what needs manual work.
 
 ## Severity Classification
 
@@ -104,40 +62,26 @@ When `--fix` is passed, attempt automatic remediation:
 
 ```markdown
 # Security Report: [mode]
-
 ## Score: N/100
 ## Verdict: PASS (>=80) | WARN (60-79) | FAIL (<60)
-
 ## Findings
 | # | Severity | OWASP | CWE | Description | Location | Fix |
 |---|----------|-------|-----|-------------|----------|-----|
-
 ## Tool Outputs
 - gitleaks: [N findings / clean]
 - semgrep: [N findings / clean]
 - pip-audit: [N findings / clean]
 ```
 
-## Quick Reference
-
-```
-/ai-security              # run all modes (static, deps, secrets in sequence; aggregated report)
-/ai-security static       # SAST only
-/ai-security deps         # dependency audit only
-/ai-security secrets      # secret detection only
-/ai-security sbom         # generate SBOM
-/ai-security deps --fix   # audit + auto-fix
-```
-
 ## Common Mistakes
 
-- Suppressing findings with `# nosec` -- fix the root cause or use risk acceptance.
-- Ignoring transitive dependency vulns -- they are still exploitable.
-- Running `gitleaks detect` on the full repo for pre-commit -- use `gitleaks protect --staged`.
+- Suppressing findings with `# nosec` — fix the root cause or use risk acceptance.
+- Ignoring transitive dependency vulns — they are still exploitable.
+- Running `gitleaks detect` on the full repo for pre-commit — use `gitleaks protect --staged`.
 
 ## Examples
 
-### Example 1 — pre-merge security sweep
+### Example — pre-merge security sweep
 
 User: "is this PR secure to merge?"
 
@@ -145,26 +89,17 @@ User: "is this PR secure to merge?"
 /ai-security all
 ```
 
-Runs SAST + deps + secrets + (optional) SBOM, scores against the gate, emits PASS / WARN / FAIL with fix hints per finding.
-
-### Example 2 — dependency audit before adding a new package
-
-User: "is this new npm package safe?"
-
-```
-/ai-security deps
-```
-
-Runs pip-audit / npm audit / cargo-audit per stack, flags CVEs with severity + remediation.
+Runs SAST + deps + secrets (+ optional SBOM), scores against the gate, and emits PASS / WARN / FAIL with a fix hint per finding.
 
 ## Integration
 
-Called by: `/ai-verify` (security mode delegation), `/ai-verify --release` (aggregates results), pre-commit hooks (gitleaks protect --staged), pre-push hooks (semgrep, pip-audit). Risk acceptances go to: `decision-store.json` via `/ai-governance risk`. See also: `/ai-governance`, `/ai-mcp-audit` (skill behavior), `/ai-pipeline` (CI security).
+Called by: `/ai-verify` (security mode delegation), `/ai-verify --release` (aggregates results), pre-commit hooks (gitleaks protect --staged), pre-push hooks (semgrep, pip-audit). Risk acceptances go to `decision-store.json` via `/ai-governance risk`. See also: `/ai-governance`, `/ai-mcp-audit` (skill behavior), `/ai-pipeline` (CI security), `/ai-schema` (DB schema/injection review).
 
 ## References
 
-- Per-stack security minimums under `.ai-engineering/overrides/` (each `<stack>/security_floor.md`).
-- `.ai-engineering/overrides/_shared/security_floor.md` -- cross-stack security floor.
-- `.ai-engineering/manifest.yml` -- non-negotiables and gate thresholds.
+- Per-stack security minimums: `.ai-engineering/overrides/<stack>/security_floor.md`.
+- `.ai-engineering/overrides/_shared/security_floor.md` — cross-stack security floor.
+- `.ai-engineering/manifest.yml` — non-negotiables and gate thresholds.
+- `.ai-engineering/reference/semgrep-update-model.md` — two-tier Semgrep scan + manual version-bump model.
 
 $ARGUMENTS

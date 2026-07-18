@@ -21,38 +21,31 @@ tags: [audit, ide, copilot, claude-code, governance]
 
 ## Workflow
 
-Strict evidence-based audit of IDE support in ai-engineering. No assumptions — every claim cites a file path. Output is always the structured audit document, no matter how many IDEs are requested.
+Strict evidence-based audit of IDE support. No assumptions — every claim cites a file path.
+Output is always the structured audit document, no matter how many IDEs are requested.
+Principles applied: §10.1 KISS (write the report skeleton first, fail fast on missing
+evidence); §10.4 DRY (skill/agent counts have one canonical source — mirrors must match it,
+never re-derive).
 
-1. **Write the report skeleton first** from `references/report-template.md` BEFORE collecting evidence.
-2. **Dispatch a single `Explore` subagent** to read instruction surfaces, hook configs, mirror dirs, and `manifest.yml` counts.
-3. **Classify each capability per platform** (SUPPORTED / PARTIAL / UNSUPPORTED) using the capability matrix.
-4. **Run spec-107 advisory checks** (advisory-only per NG-11):
+1. **Step 0 — load contexts**: read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` per stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md`.
+2. **Write the report skeleton first** from `references/report-template.md` BEFORE collecting evidence.
+3. **Dispatch a single `Explore` subagent** to read instruction surfaces, hook configs, mirror dirs, and `manifest.yml` counts.
+4. **Classify each capability per platform** — SUPPORTED / PARTIAL / UNSUPPORTED — using the capability matrix.
+5. **Run spec-107 advisory checks** (advisory-only per NG-11):
    - **Check 6** — agent naming consistency cross-IDE: every agent file's frontmatter `name:` must equal its slug.
-   - **Check 8** — generic instruction-file count scan: walk every CLAUDE.md / AGENTS.md / copilot-instructions.md and validate `## Skills (N)` + `## Agents (N)` headers vs canonical counts.
-5. **With `--fix`**, auto-remediate P0 issues only; re-run mirror sync; verify tests still pass.
+   - **Check 8** — instruction-file count scan: walk every CLAUDE.md / AGENTS.md / copilot-instructions.md and validate `## Skills (N)` + `## Agents (N)` headers vs canonical counts.
+6. **With `--fix`**: auto-remediate P0 issues only; re-run mirror sync; verify tests still pass.
 
 > Detail: see [evidence collection (instruction surfaces, hooks, mirrors, sync script)](references/evidence-collection.md), [capability matrix + advisory checks + auto-fix policy](references/capability-matrix.md), [audit document skeleton](references/report-template.md).
 
-## When to Use
-
-- Verifying an IDE is genuinely wired end-to-end (instruction surface → hooks → skills → agents → installer).
-- After any change to `scripts/sync_command_mirrors.py`, `src/ai_engineering/installer/templates.py`, or hook files.
-- When skill or agent counts look wrong across IDEs.
-- When a hook exists in `scripts/hooks/` but isn't firing.
-- NOT for general code quality — use `/ai-verify`. NOT for security scanning — use `/ai-security`.
-
-Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
-
 ## Common Mistakes
 
-- Filling the matrix before collecting evidence (write the skeleton first).
 - Marking SUPPORTED on partial wiring just because a file exists.
 - Auto-fixing P1/P2 issues with `--fix` (it only touches P0).
-- Skipping the post-fix unit test run.
 
 ## Examples
 
-### Example 1 — full IDE sweep before a release
+### Example — full IDE sweep before a release
 
 User: "audit every IDE we ship support for, then auto-fix the P0 issues"
 
@@ -62,18 +55,8 @@ User: "audit every IDE we ship support for, then auto-fix the P0 issues"
 
 Walks every IDE surface, scores SUPPORTED / PARTIAL / UNSUPPORTED per capability, fixes orphaned hooks and stale counts, re-runs mirror sync, re-runs unit tests.
 
-### Example 2 — quick Copilot health check after sync
-
-User: "did the sync_command_mirrors run leave Copilot in a good state?"
-
-```
-/ai-ide-audit github-copilot
-```
-
-Verifies `.github/copilot-instructions.md`, `.github/hooks/hooks.json`, `.github/skills/`, `.github/agents/` against the canonical formula and flags any drift.
-
 ## Integration
 
-Triggered after: installer changes, `sync_command_mirrors.py` runs, new hooks added. Calls: `python scripts/sync_command_mirrors.py` (with `--fix`). Feeds into: `/ai-governance` (risk acceptance for UNSUPPORTED gaps). See also: `/ai-verify`, `/ai-security`.
+Triggered after: installer changes (`src/ai_engineering/installer/templates.py`), `scripts/sync_command_mirrors.py` runs, new hooks added. Calls: `python scripts/sync_command_mirrors.py` (with `--fix`). Feeds into: `/ai-governance` (risk acceptance for UNSUPPORTED gaps). See also: `/ai-verify`, `/ai-security`.
 
 $ARGUMENTS

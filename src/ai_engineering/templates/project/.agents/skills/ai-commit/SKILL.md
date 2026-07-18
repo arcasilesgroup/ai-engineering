@@ -18,13 +18,7 @@ edit_policy: generated-do-not-edit
 
 # Commit Workflow
 
-Governed commit pipeline: stage, format, lint, secret-detect, compose message, push. Honors CLAUDE.md Don't rules (binding). Use `/ai-pr` when the goal is a pull request.
-
-```
-/ai-commit                          # auto-stage, format, lint, scan, commit, push
-/ai-commit --only path/to/file.py   # stage only the named files
-/ai-commit "fix(auth): ..."         # provide a message hint
-```
+Governed commit pipeline: stage, format, lint, secret-detect, compose message, push. Honors CLAUDE.md Don't rules (binding). Use `/ai-pr` when the goal is a pull request. See Quick Reference for invocation forms.
 
 ## Process
 
@@ -86,25 +80,7 @@ Exit 78 = stack drift. Run `ai-eng doctor --fix` in shell, retry. Never `--no-ve
 
 ## Examples
 
-### Example 1 — full happy path
-
-User: "commit and push these changes"
-
-```
-/ai-commit
-```
-
-Auto-branches from `main` if needed, stages, runs ruff format + lint, gitleaks scan, doc gate, composes conventional message, commits, pushes.
-
-### Example 2 — staged subset only, no push
-
-User: "commit only the spec files and don't push yet"
-
-```
-/ai-commit --only .ai-engineering/specs/
-```
-
-Stages only the named paths, runs the pipeline through commit, stops before push.
+User: "commit only the spec files and don't push yet" → `/ai-commit --only .ai-engineering/specs/` stages only the named paths, runs the full pipeline (auto-branch, ruff format + lint, gitleaks scan, doc gate, conventional message) through commit, and stops before push.
 
 ## Quick Reference
 

@@ -217,6 +217,68 @@ class TestCatalogBridge:
         assert checked.status is CatalogStatus.IN_SYNC
         assert checked.ok
 
+    def _template_twin(self, root: Path) -> Path:
+        return root / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "README.md"
+
+    def test_apply_regenerates_template_twin(self, tmp_path: Path) -> None:
+        """A default apply writes BOTH the live manual and its install-template twin.
+
+        spec-187 W4 root-cause fix: before, `ai-eng dev sync` regenerated only
+        the live `.ai-engineering/README.md`, so the twin at
+        `src/ai_engineering/templates/.ai-engineering/README.md` drifted every
+        regen and had to be manually `cp`-ed. The generator now writes both,
+        byte-identical.
+        """
+        from ai_engineering.installer.capability_catalog import (
+            CatalogStatus,
+            apply_capability_catalog,
+        )
+
+        root = self._fake_root_with_markers(tmp_path, "stale-live")
+        twin = self._template_twin(root)
+        twin.parent.mkdir(parents=True)
+        twin.write_text(
+            f"# Twin\n\nIntro.\n\n{CATALOG_START}\nstale-twin\n{CATALOG_END}\n\nFooter.\n",
+            encoding="utf-8",
+        )
+
+        applied = apply_capability_catalog(root)
+        assert applied.status is CatalogStatus.APPLIED
+
+        live_text = (root / ".ai-engineering" / "README.md").read_text(encoding="utf-8")
+        twin_text = twin.read_text(encoding="utf-8")
+        # Twin was regenerated (stale sentinel gone, real content in).
+        assert "stale-twin" not in twin_text
+        assert "ai-build" in twin_text
+        # Both catalog blocks are byte-identical (parity guarantee).
+        live_block = live_text.split(CATALOG_START, 1)[1].split(CATALOG_END, 1)[0]
+        twin_block = twin_text.split(CATALOG_START, 1)[1].split(CATALOG_END, 1)[0]
+        assert live_block == twin_block
+
+    def test_check_detects_twin_drift(self, tmp_path: Path) -> None:
+        """`dev sync --check` fails when only the install-template twin drifts."""
+        from ai_engineering.installer.capability_catalog import (
+            CatalogStatus,
+            apply_capability_catalog,
+            check_capability_catalog,
+        )
+
+        root = self._fake_root_with_markers(tmp_path, "stale-live")
+        twin = self._template_twin(root)
+        twin.parent.mkdir(parents=True)
+        twin.write_text(
+            f"# Twin\n\nIntro.\n\n{CATALOG_START}\nstale-twin\n{CATALOG_END}\n\nFooter.\n",
+            encoding="utf-8",
+        )
+        # Regenerate both, then corrupt ONLY the twin block.
+        apply_capability_catalog(root)
+        good = twin.read_text(encoding="utf-8")
+        twin.write_text(good.replace("ai-build", "ai-build-CORRUPTED", 1), encoding="utf-8")
+
+        checked = check_capability_catalog(root)
+        assert checked.status is CatalogStatus.DRIFT
+        assert checked.ok is False
+
     def test_check_detects_drift(self, tmp_path: Path) -> None:
         from ai_engineering.installer.capability_catalog import (
             CatalogStatus,

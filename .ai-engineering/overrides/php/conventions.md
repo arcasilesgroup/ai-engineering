@@ -1,18 +1,17 @@
-        <!-- source: php overrides v1 (spec-133 D-133-12) -->
+<!-- source: php overrides v1 (spec-133 D-133-12) -->
 
-        # Php — Build Conventions
+# Php — Build Conventions
 
-        Authoritative reference for the `ai-build` agent when generating
-        php code.
+`ai-build` reference for generating php code.
 
-        ## Toolchain
+## Toolchain
 
-        - **Build / dependency**: Composer (`composer.json`)
-        - **Lint / format**: stack-canonical linter (see `tdd_harness.md`)
-        - **Type checker**: enabled where the stack supports it
+- **Build / dependency**: Composer (`composer.json`)
+- **Lint / format**: stack-canonical linter (see `tdd_harness.md`)
+- **Type checker**: enabled where the stack supports it
 
-        ## Patterns
+## Patterns
 
-        - PSR-12 coding style; ban camelCase for filenames.
+- PSR-12 coding style; ban camelCase for filenames.
 - Laravel: prefer Eloquent over raw queries; sanitize all input via Request validation.
 - Symfony: use DI container; never `new` in controllers.

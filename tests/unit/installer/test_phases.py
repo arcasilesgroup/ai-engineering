@@ -172,7 +172,6 @@ class TestGovernancePhase:
         # docs now live under reference/ (cli-ux.md and mcp-integrations.md were
         # part of the pruned contexts/ surface and are gone).
         assert (ai_dir / "reference" / "principles.md").is_file()
-        assert (ai_dir / "reference" / "engineering-standards.md").is_file()
         # Canonical two-file specs buffer (spec-133)
         assert (ai_dir / "specs" / "spec.md").is_file()
         assert (ai_dir / "specs" / "plan.md").is_file()

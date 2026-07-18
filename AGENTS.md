@@ -11,17 +11,13 @@
 Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
 identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
 (3) consult [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
-for the canonical store of each datum (decisions live in spec markdown;
-the `decision-store.json` cache is populated after `ai-eng decision
-backfill` or `/ai-brainstorm` approval per spec-138 M3 follow-up);
-(4) no implementation without an approved spec — invoke
-`/ai-brainstorm` first when a task has no spec; (5) read
-[SOUL.md](SOUL.md) (the agent's collaborator values — the judgment
-layer above the deterministic plane).
-
-See [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-the three-tier files-only model (NDJSON audit, JSON/YAML
-records+config, Markdown) and the SSOT-PD rebuild semantics.
+for the canonical store of each datum — the three-tier files-only model
+(NDJSON audit, JSON/YAML records+config, Markdown) and SSOT-PD rebuild
+semantics (decisions live in spec markdown; the `decision-store.json`
+cache is populated after `ai-eng decision backfill` or `/ai-brainstorm`
+approval per spec-138 M3 follow-up); (4) no implementation without an
+approved spec — invoke `/ai-brainstorm` first; (5) read [SOUL.md](SOUL.md)
+(the agent's collaborator values).
 
 ## Operating Mindset (§1–§9 condensed)
 
@@ -42,8 +38,8 @@ in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principle
 
 The agent's collaborator values — Pragmatic Helpfulness, Honest &
 Direct, Collaborative Partner, Learn & Grow — live in
-[SOUL.md](SOUL.md). They are the judgment layer above the deterministic
-plane (gates, Prohibitions), read each session per §0. SOUL.md owns the
+[SOUL.md](SOUL.md), the judgment layer above the deterministic plane
+(gates, Prohibitions), read each session per §0. SOUL.md owns the
 *values framing*; the Operating Mindset (§1-9) and §10 principles own
 the engineering prose.
 
@@ -51,9 +47,8 @@ the engineering prose.
 
 The eight first-class principles (§10.1 KISS, §10.2 YAGNI, §10.3 SOLID,
 §10.4 DRY, §10.5 TDD, §10.6 SDD, §10.7 Clean Code, §10.8 Hexagonal
-Architecture) live in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md). Every
-SKILL.md `## Workflow` cites at least one §10.x anchor; anchors are
-stable at the new home.
+Architecture) live in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md).
+Every SKILL.md `## Workflow` cites at least one §10.x anchor.
 
 ## 11. Canonical Chain
 
@@ -80,7 +75,7 @@ checkpoints. It does NOT appear in the canonical chain (D-131-07).
 
 ## 12. Surface Index
 
-## Skills (54)
+## Skills (53)
 
 Canonical skills and agents live under `.claude/`; mirror surfaces under
 `.codex/`, `.agents/`, and `.github/` are byte-equivalent regenerations
@@ -102,9 +97,10 @@ its own context window — offload research and parallel analysis to them.
 
 | Surface | Where |
 |---------|-------|
-| Skills (54) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/reference/knowledge-placement.md` |
+| Runbooks index | [.ai-engineering/reference/runbook-index.md](.ai-engineering/reference/runbook-index.md) (14 cadence-driven intake/operational procedures) |
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
 | CLI | `ai-eng <command>` |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |
@@ -167,4 +163,21 @@ mirrors stay lean (spec-134 sub-005 mirror diet). Authoritative homes:
   the 5 chain skills cite it, enforced by `tests/conformance/test_value_block.py`).
 
 <!-- ide-extras:start -->
+## Hooks & Hot-Path (portable entry point)
+
+AGENTS.md is the engine-neutral surface. Claude Code and Copilot ship
+their own hook wiring in their mirrors; other engines (Codex, OpenCode,
+Cursor, Antigravity, raw-API hosts) apply the same discipline through
+whatever session-lifecycle mechanism they provide:
+
+- Keep any pre-commit / pre-save gate under ~1s and any pre-push gate
+  under ~5s; move the full test suite, dependency audit, and governance
+  evaluation into CI, never onto the local hot path.
+- Canonical hook scripts live under `.ai-engineering/scripts/hooks/` and
+  are byte-pinned in `.ai-engineering/state/hooks-manifest.json`; invoke
+  them through the integrity-checked runner (or the host's equivalent) so
+  the pin stays enforced. IDE-specific hook config is per-surface.
+- The `/ai-*` slash idiom and the trailing `$ARGUMENTS` token are provided
+  by the host agent surface. On a host with no slash layer, invoke the
+  skill body at `.claude/skills/ai-<name>/SKILL.md` directly.
 <!-- ide-extras:end -->

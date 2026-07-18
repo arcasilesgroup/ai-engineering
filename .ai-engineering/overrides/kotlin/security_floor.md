@@ -1,7 +1,7 @@
 # Kotlin — Security Floor
 
-Minimum bar for `ai-build` output in Kotlin. Every control below is
-mandatory; the agent escalates when it cannot meet a control.
+Mandatory security bar for `ai-build` Kotlin output; escalate when a
+control cannot be met.
 
 ## Input validation
 

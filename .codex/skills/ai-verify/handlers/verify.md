@@ -34,7 +34,7 @@ Dispatch `verifier-deterministic.md` via the **Agent** tool:
 
 ```
 Agent prompt: "You are the deterministic verification agent.
-Read and follow .codex/agents/verifier-deterministic.md
+Read and follow .codex/agents/internal/verifier-deterministic.md
 Execute all tool-driven checks against the current codebase.
 Query decision-store.json (via `ai-eng decision list`) for accepted exceptions.
 Produce structured YAML output."
@@ -49,7 +49,7 @@ Wait for deterministic results before dispatching LLM judgment agents.
 ```
 Agent prompt: "You are the acceptance verification specialist.
 [deterministic evidence from Step 2]
-Read and follow .codex/agents/verifier-acceptance.md
+Read and follow .codex/agents/internal/verifier-acceptance.md
 Cover both lenses (feature + governance) and produce findings in YAML
 format with `lens: feature|governance` attribution preserved per finding."
 ```

@@ -2,8 +2,7 @@
 
 # Swift — Build Conventions
 
-Authoritative reference for the `ai-build` agent when generating
-Swift code.
+`ai-build` reference for generating Swift code.
 
 ## Toolchain
 

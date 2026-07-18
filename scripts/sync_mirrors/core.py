@@ -526,6 +526,16 @@ def translate_refs(content: str, target_ide: str) -> str:
         # had their subpath segment rewritten by the rules above.
         content = re.sub(r"\.claude/skills/(ai-[^/\s`]+)", rf"{target_root}/skills/\1", content)
         content = re.sub(r"\.claude/agents/(ai-[^/\s`]+)", rf"{target_root}/agents/\1", content)
+        # spec-187 D-187-04: specialist agents (reviewer-*/verifier-*/review-*/
+        # verify-*) live under <surface>/agents/internal/ in every mirror tree;
+        # the flat forwarder stubs were hard-deleted. Route references there so
+        # regeneration yields no dangling flat-path ref. Must run before the
+        # broad `.claude/agents/(?!ai-)` directory translation below.
+        content = re.sub(
+            r"\.claude/agents/((?:reviewer|verifier|review|verify)-[^/\s`]+\.md)",
+            rf"{target_root}/agents/internal/\1",
+            content,
+        )
 
     # Spec-107 D-107-03: explore agent reference path adjustment for copilot.
     # The block path translations below (.claude/agents/ -> .github/agents/)
@@ -1208,14 +1218,45 @@ primitive degrades gracefully.
 """
 
 
+# AGENTS.md is the engine-neutral surface: Claude Code and Copilot carry
+# their own hook wiring in their mirrors, so a generic (Codex / OpenCode /
+# Cursor / Antigravity / raw-API) host got NO hook or hot-path guidance
+# before spec-187 W4. This portable pointer names where the wiring and
+# budgets live without any engine-specific tool name (D-187-09 portability;
+# ASCII-only per D-187-10). The fence is stripped before the surface-parity
+# sha, so this content does not break byte-equivalence with the other roots.
+_AGENTS_EXTRAS = """\
+## Hooks & Hot-Path (portable entry point)
+
+AGENTS.md is the engine-neutral surface. Claude Code and Copilot ship
+their own hook wiring in their mirrors; other engines (Codex, OpenCode,
+Cursor, Antigravity, raw-API hosts) apply the same discipline through
+whatever session-lifecycle mechanism they provide:
+
+- Keep any pre-commit / pre-save gate under ~1s and any pre-push gate
+  under ~5s; move the full test suite, dependency audit, and governance
+  evaluation into CI, never onto the local hot path.
+- Canonical hook scripts live under `.ai-engineering/scripts/hooks/` and
+  are byte-pinned in `.ai-engineering/state/hooks-manifest.json`; invoke
+  them through the integrity-checked runner (or the host's equivalent) so
+  the pin stays enforced. IDE-specific hook config is per-surface.
+- The `/ai-*` slash idiom and the trailing `$ARGUMENTS` token are provided
+  by the host agent surface. On a host with no slash layer, invoke the
+  skill body at `.claude/skills/ai-<name>/SKILL.md` directly.
+"""
+
+
 def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
     """Generate AGENTS.md as the byte-equivalent base mirror (spec-131 D-131-14).
 
-    AGENTS.md is the base mirror — no IDE-extras block. The canonical
-    payload (CANONICAL.md) carries the full "how AI works in this repo"
-    contract; AGENTS.md is what Codex and any future native-AGENTS.md
-    consumer reads. CLAUDE.md / copilot-instructions.md
-    carry the same payload + their IDE-extras fence.
+    AGENTS.md is the engine-neutral base mirror. The canonical payload
+    (CANONICAL.md) carries the full "how AI works in this repo" contract;
+    AGENTS.md is what Codex and any future native-AGENTS.md consumer reads.
+    CLAUDE.md / copilot-instructions.md carry the same payload + their own
+    IDE-extras fence. AGENTS.md's fence now carries a *portable* hook /
+    hot-path pointer (``_AGENTS_EXTRAS``) so non-Claude/non-Copilot engines
+    are not left without guidance; the fence is still stripped before the
+    surface-parity sha, so byte-equivalence with the other roots holds.
 
     The function preserves the test-asserted invariants:
     - ``## Skills ({skill_count})`` header (after placeholder
@@ -1227,7 +1268,7 @@ def generate_agents_md(*, skill_count: int, agent_count: int) -> str:
     payload = read_canonical_payload()
     return assemble_mirror_payload(
         payload,
-        ide_extras="",
+        ide_extras=_AGENTS_EXTRAS,
         skill_count=skill_count,
         agent_count=agent_count,
     )
@@ -2251,23 +2292,11 @@ def _handle_orphans(
         (TPL_HOOK_SCRIPTS, "rglob", "*.py"),
     ]
 
-    # Legacy reviewer/verifier path forwarders: spec-116 moved these agents
-    # from <surface>/agents/<name>.md to <surface>/agents/internal/<name>.md.
-    # The flat-path stubs are kept as deprecation aliases so external configs
-    # that reference the old path still resolve. They carry `deprecated: true`
-    # in their YAML frontmatter; treat them as legitimate, not orphan drift.
-    def _is_legacy_alias(path: Path) -> bool:
-        if path.suffix != ".md":
-            return False
-        name = path.name
-        if not any(name.startswith(p) for p in ("reviewer-", "verifier-", "review-", "verify-")):
-            return False
-        try:
-            head = path.read_text(encoding="utf-8", errors="replace")[:300]
-        except OSError:
-            return False
-        return "deprecated: true" in head and "canonical: agents/internal/" in head
-
+    # spec-187 D-187-04: the flat-path reviewer-*/verifier-* forwarder stubs
+    # (the legacy deprecation aliases) were hard-deleted — CLAUDE.md §13.3
+    # forbids backwards-compat shims. The former `_is_legacy_alias` exemption
+    # is gone, so any surviving flat stub is now treated as orphan drift and
+    # cleaned on regen. Real specialist bodies live under `<surface>/agents/internal/`.
     orphans: list[Path] = []
     for root, mode, pattern in _ORPHAN_SURFACES:
         if not root.is_dir():
@@ -2275,8 +2304,6 @@ def _handle_orphans(
         if mode == "glob":
             for f in root.glob(str(pattern)):
                 if f in generated:
-                    continue
-                if _is_legacy_alias(f):
                     continue
                 orphans.append(f)
         elif mode == "rglob_subdirs":

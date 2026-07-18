@@ -1,19 +1,16 @@
 # Mirror Authoring Contract
 
-> Authoritative per-file authoring contract for the three root IDE
-> mirrors (`AGENTS.md` / `CLAUDE.md` /
-> `.github/copilot-instructions.md`) and the IDE-extras escape
-> hatch. Extracted from `CANONICAL.md` §14 / §15 by spec-134
-> sub-005 so the mirrors stay lean (§10.4 DRY — one canonical home).
-> The mechanically-checkable rows are enforced by
-> `tools/skill_lint/checks/md_mirror.py`.
+> Authoritative per-file authoring contract for the three root IDE mirrors
+> (`AGENTS.md` / `CLAUDE.md` / `.github/copilot-instructions.md`) and the
+> IDE-extras escape hatch. Extracted from `CANONICAL.md` §14 / §15 by spec-134
+> sub-005 (§10.4 DRY — one canonical home). Mechanically-checkable rows are
+> enforced by `tools/skill_lint/checks/md_mirror.py`.
 
 ## Strict Content Contracts (per-file authoring reference)
 
-The three root IDE mirrors are byte-equivalent in canonical payload
-(generated from `src/ai_engineering/templates/project/CANONICAL.md`).
-Each mirror appends an IDE-extras fence with content unique to that
-IDE. **Authoring contract** (brief §2.3 verbatim):
+The three root IDE mirrors carry byte-equivalent canonical payload (generated
+from `src/ai_engineering/templates/project/CANONICAL.md`); each appends an
+IDE-extras fence unique to that IDE. **Authoring contract** (brief §2.3 verbatim):
 
 | File | MUST contain | MUST NOT contain |
 |------|--------------|------------------|
@@ -35,8 +32,7 @@ IDE. **Authoring contract** (brief §2.3 verbatim):
 | `<repo>/CONTRIBUTING.md` | Dev setup, PR process, test commands, repo layout. | Duplication of canonical content. |
 | `<repo>/docs/getting-started.md` | 3-minute path: install → `/ai-start` → first `/ai-brainstorm` → first PR. | Internals. Skill list. |
 
-This table is the authoring reference. Mechanically-checkable rows
-are enforced by `tools/skill_lint/checks/md_mirror.py`:
+Mechanically-checkable rows are enforced by `tools/skill_lint/checks/md_mirror.py`:
 
 - sha256 equivalence across the three root mirrors (canonical payload
   bytes, fence stripped).
@@ -51,10 +47,10 @@ are enforced by `tools/skill_lint/checks/md_mirror.py`:
 
 ## IDE-Extras Escape Hatch (R-1.1 / R-131-02 mitigation)
 
-Each IDE mirror MAY append a fenced block carrying content unique to
-that IDE (Hot-Path tuning for Claude Code, Hooks Wiring table for
-Copilot, etc.). The fence is recognised by `md_mirror.py`
-and stripped before the sha256 equivalence check.
+Each IDE mirror MAY append a fenced block carrying content unique to that IDE
+(Hot-Path tuning for Claude Code, Hooks Wiring table for Copilot, etc.).
+`md_mirror.py` recognises the fence and strips it before the sha256 equivalence
+check.
 
 ```
 <!-- ide-extras:start -->
@@ -63,5 +59,5 @@ runtime tunables)…
 <!-- ide-extras:end -->
 ```
 
-The block is OPTIONAL — `AGENTS.md` carries no extras (it is the base
-mirror). All other mirrors carry at most one fence block.
+The block is OPTIONAL — `AGENTS.md` (the base mirror) carries no extras; all
+other mirrors carry at most one fence block.

@@ -40,10 +40,10 @@ _VALID_SEVERITIES = {"OK", "INFO", "MINOR", "MAJOR", "CRITICAL"}
 VALID_EFFORTS: frozenset[str] = frozenset({"cheap", "mid", "high"})
 VALID_MODEL_TIERS: frozenset[str] = frozenset({"haiku", "sonnet", "opus"})
 
-# Allow-listed mirror gaps. The .github surface intentionally omits
-# ``ai-analyze-permissions``; the driver must tolerate the absence
-# without flagging it as a violation.
-GITHUB_MIRROR_ALLOWLIST: frozenset[str] = frozenset({"ai-analyze-permissions"})
+# Allow-listed mirror gaps. The .github surface may omit any Claude-Code-only
+# skill (``copilot_compatible: false``); the driver tolerates such absences
+# without flagging them. No skill currently uses this scoping.
+GITHUB_MIRROR_ALLOWLIST: frozenset[str] = frozenset()
 
 
 # Frontmatter delimiter regex — reuses the pair_aware shape.
@@ -297,10 +297,10 @@ def check_all_skills(
     """Walk every ``<skills_root>/ai-*/SKILL.md`` and run the contract.
 
     Returns ``[(skill_md_path, result), ...]`` sorted by path so CI
-    output stays stable. The known ``ai-analyze-permissions`` gap on
-    ``.github/skills/`` is allow-listed: if the skill is absent under
-    the walked root, no result rows are emitted for it (other mirrors
-    are responsible for surfacing the absence if applicable).
+    output stays stable. A Claude-Code-only skill absent from
+    ``.github/skills/`` is an allow-listed gap: if the skill is absent
+    under the walked root, no result rows are emitted for it (other
+    mirrors are responsible for surfacing the absence if applicable).
     """
     if not skills_root.is_dir():
         raise FileNotFoundError(f"skills root {skills_root} does not exist")

@@ -14,7 +14,7 @@
     }
   },
   {
-    "skill": "ai-analyze-permissions",
+    "skill": "ai-reliability-eval",
     "result": {
       "score": 0,
       "reason": "eval-failed-cli-missing"

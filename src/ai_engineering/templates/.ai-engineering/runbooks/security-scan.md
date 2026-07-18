@@ -11,7 +11,7 @@ cadence: weekly
 
 Detect leaked secrets, SAST/OWASP code-level vulnerabilities, and compliance gaps across source code, configuration files, CI/CD workflows, and scripts. Findings above the severity threshold are filed as task work items with full remediation context.
 
-This runbook does **not** scan for dependency CVEs or vulnerable package versions. That responsibility belongs to the `dependency-health` runbook, which owns the supply-chain surface. The boundary is strict: if the finding originates from a project dependency rather than authored code or configuration, it is out of scope here.
+Dependency CVEs and vulnerable package versions are out of scope -- they belong to `dependency-health` (see the Scope Boundary section below).
 
 ## Prerequisites
 
@@ -119,9 +119,9 @@ body: |
 
 Follow `handlers/dedup-check.md` to process all findings through the dedup cascade (max 20 per run). The handler labels new issues with `security-finding` and `sev-$SEVERITY`.
 
-### Step 8 -- Emit run summary to stdout
+### Step 7 -- Emit run summary to stdout
 
-Print a brief run summary to stdout. Do **not** write a local report file -- findings are tracked exclusively in GitHub Issues / Azure DevOps work items created in Step 7.
+Print a brief run summary to stdout. Do **not** write a local report file -- findings are tracked exclusively in the GitHub Issues / Azure DevOps work items created in Step 6.
 
 ```bash
 echo "=== Security Scan Run $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="

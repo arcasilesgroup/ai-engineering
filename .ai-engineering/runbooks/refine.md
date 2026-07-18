@@ -5,7 +5,6 @@ type: intake
 cadence: daily
 ---
 
-
 # Refine
 
 ## Objective

@@ -11,49 +11,24 @@ edit_policy: generated-do-not-edit
 ---
 
 
-
 # Test
 
 ## Purpose
 
-TDD enforcement and testing skill. Tests are executable specifications -- they define what the system does before the system does it. Maximum confidence per minute of developer time.
+TDD enforcement and testing. Tests are executable specifications — they define what the system does before the system does it. Maximum confidence per minute of developer time.
 
-## When to Use
+## Workflow
 
-- `tdd`: driving new features test-first (RED-GREEN-REFACTOR)
-- `run`: writing and executing tests for existing code
-- `gap`: analyzing coverage gaps and missing edge cases
-- `plan`: designing test strategy before writing tests
+Principles applied: §10.5 TDD (tests are executable specifications; RED-GREEN-REFACTOR drives new code).
 
-## Process
+Step 0 — load contexts: read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` per stack + `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md`.
 
-Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
-
-### Mode: tdd (RED-GREEN-REFACTOR)
-
-For TDD mode, follow `handlers/tdd.md` for the full RED-GREEN-REFACTOR flow.
-
-### Mode: run
-
-1. Detect test framework from project files
-2. Follow existing conventions (directory structure, naming, fixtures)
-3. Write tests using AAA pattern with descriptive names
-4. Run with stack-appropriate command
-5. Report results: pass/fail count, coverage delta
-
-### Mode: gap
-
-1. Run coverage tool with branch coverage enabled
-2. Identify untested critical paths (business logic > glue code)
-3. Check for missing edge cases: null, empty, boundary, error paths
-4. Produce gap report with prioritized recommendations
-
-### Mode: plan
-
-1. Map the testing surface (modules, public APIs, critical paths)
-2. Assign test categories: unit, integration, e2e
-3. Define coverage targets per module
-4. Identify infrastructure needs (test containers, fixtures, fakes)
+| Mode | Steps |
+| --- | --- |
+| `tdd` | Follow `handlers/tdd.md` for the full RED-GREEN-REFACTOR flow. |
+| `run` | 1. detect framework from project files. 2. follow existing conventions (dirs, naming, fixtures). 3. write tests AAA-style with descriptive names. 4. run with the stack command. 5. report pass/fail count + coverage delta. |
+| `gap` | 1. run coverage with branch coverage on. 2. identify untested critical paths (business logic > glue). 3. check missing edge cases: null, empty, boundary, error. 4. produce a prioritized gap report. |
+| `plan` | 1. map the testing surface (modules, public APIs, critical paths). 2. assign categories: unit, integration, e2e. 3. set coverage targets per module. 4. identify infra needs (containers, fixtures, fakes). |
 
 ## Stack Commands
 
@@ -67,24 +42,9 @@ For TDD mode, follow `handlers/tdd.md` for the full RED-GREEN-REFACTOR flow.
 
 ## Testing Rules
 
-**Fakes over mocks**. Mocks test implementation details. Fakes implement the same interface.
-
-Mocks are acceptable ONLY for:
-1. Verifying something was NOT called
-2. Simulating transient errors for retry logic
-3. Third-party libraries (but wrap in your own adapter first)
-
-**AAA pattern** (non-negotiable):
-
-```python
-# Arrange -- set up inputs and dependencies
-# Act -- call the function under test
-# Assert -- verify the outcome
-```
-
-**Name pattern**: `test_<unit>_<scenario>_<expected_outcome>`
-- Good: `test_parse_email_rejects_missing_at_symbol`
-- Bad: `test_parse_email`, `test_1`, `test_it_works`
+- **Fakes over mocks** — mocks test implementation details; fakes implement the same interface. Mocks are acceptable ONLY for: (1) verifying something was NOT called, (2) simulating transient errors for retry logic, (3) third-party libraries (wrap in your own adapter first).
+- **AAA pattern** (non-negotiable) — Arrange (inputs + deps), Act (call the unit), Assert (verify the outcome).
+- **Name pattern** — `test_<unit>_<scenario>_<expected_outcome>`. Good: `test_parse_email_rejects_missing_at_symbol`. Bad: `test_parse_email`, `test_1`, `test_it_works`.
 
 ## Anti-Patterns (Reject These)
 
@@ -93,32 +53,30 @@ Mocks are acceptable ONLY for:
 | Testing the mock | Proves the mock works, not the code |
 | No-op test (assert True) | Tests nothing, inflates coverage |
 | Testing implementation | Breaks on refactor, proves nothing about behavior |
-| Huge test setup | Design is too coupled -- simplify the interface |
-| sleep() for sync | Flaky -- use events, barriers, wait_for |
-| Exact float comparison | Flaky -- use approx/closeTo |
+| Huge test setup | Design is too coupled — simplify the interface |
+| sleep() for sync | Flaky — use events, barriers, wait_for |
+| Exact float comparison | Flaky — use approx/closeTo |
 
 ## Iron Law
 
-If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to make implementation easier -- tests are the contract; bending them hides bugs. "Tests are wrong" means the requirement changed -- not that passing them is hard.
+If tests are wrong, escalate to the user. NEVER weaken, skip, or modify tests to make implementation easier — tests are the contract; bending them hides bugs. "Tests are wrong" means the requirement changed, not that passing them is hard.
 
 ## Common Mistakes
 
-- Writing tests after implementation (tests-after prove what IS, not what SHOULD be)
-- Testing private methods (test the public API)
-- 100% coverage with meaningless assertions
-- Skipping edge cases (null, empty, boundary, concurrent access)
-- Not running ALL tests after changes
+- Writing tests after implementation (tests-after prove what IS, not what SHOULD be).
+- Testing private methods (test the public API).
+- Not running ALL tests after changes.
 
 ## Handlers
 
 | Handler | File | Activation |
 |---------|------|-----------|
-| E2E Testing | `handlers/e2e.md` | Activated when `*.spec.ts`, `playwright.config.ts`, or `e2e/` directory detected |
-| TDD Mode | `handlers/tdd.md` | Activated when `mode=tdd` |
+| E2E Testing | `handlers/e2e.md` | `*.spec.ts`, `playwright.config.ts`, or `e2e/` detected |
+| TDD Mode | `handlers/tdd.md` | `mode=tdd` |
 
 ## Examples
 
-### Example 1 — TDD a new feature
+### Example — TDD a new feature
 
 User: "I'm building a JWT validator. Walk me through TDD."
 
@@ -126,20 +84,10 @@ User: "I'm building a JWT validator. Walk me through TDD."
 /ai-test tdd jwt-validator
 ```
 
-RED: writes failing tests for valid token, expired token, malformed signature. Confirms FAIL for the expected reason. GREEN: hands off to `ai-build` for minimal implementation. REFACTOR: stays green.
-
-### Example 2 — coverage gap analysis
-
-User: "where am I light on tests?"
-
-```
-/ai-test gap
-```
-
-Runs the stack-specific coverage tool, ranks files by coverage delta, suggests the highest-leverage test to add next.
+RED: writes failing tests for valid token, expired token, malformed signature; confirms FAIL for the expected reason. GREEN: hands off to `ai-build` for minimal implementation. REFACTOR: stays green.
 
 ## Integration
 
-Called by: `/ai-build` (build tasks), `/ai-build` (TDD mode), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-reliability-eval`.
+Called by: `/ai-build` (build + TDD tasks), user directly. Calls: stack-specific test runners. See also: `/ai-debug`, `/ai-verify`, `/ai-reliability-eval`.
 
 $ARGUMENTS

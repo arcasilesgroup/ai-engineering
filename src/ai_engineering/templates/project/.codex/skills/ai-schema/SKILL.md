@@ -1,6 +1,6 @@
 ---
 name: ai-schema
-description: Designs schemas, plans safe migrations with rollback scripts, optimizes slow queries with index recommendations, defines data retention and GDPR right-to-erasure policies. Supports PostgreSQL, MySQL, SQLite, MongoDB. Trigger for 'add a column', 'we need a migration', 'the query is slow', 'define a retention policy', 'GDPR compliance for data'. Not for application-layer ORMs without DB schema; use /ai-code instead. Not for security audits; use /ai-security instead.
+description: Designs schemas, plans safe migrations with rollback scripts, optimizes slow queries with index recommendations, defines data retention and GDPR right-to-erasure policies. Supports PostgreSQL, MySQL, SQLite, MongoDB. Trigger for 'add a column', 'we need a migration', 'the query is slow', 'define a retention policy', 'GDPR compliance for data'. Not for application-layer ORMs without DB schema; use /ai-code instead. Not for security audits; use /ai-security instead. Not for infrastructure provisioning — no infra skill exists.
 effort: mid
 argument-hint: "design|migrate|optimize|lifecycle"
 tags: [database, sql, migration, schema, optimization, enterprise]
@@ -22,14 +22,6 @@ edit_policy: generated-do-not-edit
 # Database Engineering
 
 Schema design, safe migration generation, query optimization, and data lifecycle management. Multi-DB: PostgreSQL, MySQL, SQLite, MongoDB. Multi-ORM: SQLAlchemy, Prisma, TypeORM, Drizzle, Entity Framework, Diesel.
-
-## When to Use
-
-- Designing or modifying database schemas.
-- Planning safe migrations with rollback.
-- Optimizing slow queries.
-- Defining retention policies or archival strategies.
-- NOT for infrastructure provisioning -- no infra skill exists.
 
 ## Process
 
@@ -70,25 +62,14 @@ Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; 
 4. **Multi-DB architecture** -- read replicas, caching layers, write distribution.
 5. **Output**: lifecycle policy document, archival procedures.
 
-## Quick Reference
-
-```
-/ai-schema design           # schema design with normalization
-/ai-schema migrate          # safe migration with rollback
-/ai-schema optimize         # query optimization with EXPLAIN
-/ai-schema lifecycle        # retention and archival policies
-```
-
 ## Common Mistakes
 
-- Shipping migrations without rollback scripts -- always generate both.
 - Adding indexes without checking write impact -- indexes speed reads but slow writes.
-- Denormalizing without documenting why -- future developers will re-normalize.
 - Running DDL without `--dry-run` first -- destructive DDL requires explicit user approval.
 
 ## Examples
 
-### Example 1 — design + safe migration
+### Example — safe migration with backfill
 
 User: "we need to add a soft-delete column to users with a backfill"
 
@@ -96,17 +77,7 @@ User: "we need to add a soft-delete column to users with a backfill"
 /ai-schema migrate
 ```
 
-Generates the up + down migration, default-backed-fill-strategy, lock-impact analysis, rollback script, dry-run preview.
-
-### Example 2 — optimize a slow query
-
-User: "this analytics query is 5 seconds — make it fast"
-
-```
-/ai-schema optimize
-```
-
-EXPLAIN ANALYZE, identifies missing indexes, recommends index with write-impact estimate, verifies with re-run.
+Generates up + down migration, default-backfill strategy, lock-impact analysis, rollback script, and a dry-run preview.
 
 ## Integration
 

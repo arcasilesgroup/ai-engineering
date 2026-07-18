@@ -184,8 +184,8 @@ def _resolve_instruction_files(target: Path) -> list[str]:
 
 
 # Platform-filtered instruction files may intentionally have a lower skill count
-# because some skills are excluded per platform (e.g. Copilot excludes
-# ai-analyze-permissions, Antigravity has its own subset).
+# because some skills are excluded per platform (Copilot and Antigravity each
+# expose their own skill subset).
 # These files are checked separately and excluded from cross-file consistency.
 _PLATFORM_FILTERED_INSTRUCTION_FILES: frozenset[str] = frozenset(
     {

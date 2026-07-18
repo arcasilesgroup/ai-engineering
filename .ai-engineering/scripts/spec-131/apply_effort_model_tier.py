@@ -23,9 +23,8 @@ Idempotency:
     integration test asserts.
 
 Allow-list:
-    ``.github/skills/`` deliberately omits ``ai-analyze-permissions``.
-    The script tolerates this gap (does not regenerate the missing
-    mirror).
+    ``.github/skills/`` may omit any Claude-Code-only skill. The script
+    tolerates such a gap (does not regenerate the missing mirror).
 """
 
 from __future__ import annotations

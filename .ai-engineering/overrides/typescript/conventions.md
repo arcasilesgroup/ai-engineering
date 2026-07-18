@@ -2,8 +2,7 @@
 
 # TypeScript — Build Conventions
 
-Authoritative reference for the `ai-build` agent when generating
-TypeScript code.
+Reference for `ai-build` when generating TypeScript code.
 
 ## Toolchain
 

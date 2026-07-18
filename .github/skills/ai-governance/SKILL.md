@@ -27,22 +27,17 @@ edit_policy: generated-do-not-edit
 
 ## Workflow
 
+Principles applied: §10.4 DRY (the manifest and decision-store are the single canonical stores this validates — governance confirms every datum has one authoritative home).
+
 Compliance validation for regulated industries. Default mode is `compliance`. Pick a mode, run the checks, surface findings; with `--report`, generate a scored audit document.
 
+0. **Load contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` per stack + `_shared/conventions.md`; load `.ai-engineering/team/*.md`.
 1. **compliance** — verify quality-gate enforcement (hooks, CI workflows, non-negotiables, security contract).
 2. **ownership** — map files to ownership zones (framework / team / project / system); verify modification history.
 3. **risk** — record / resolve / renew risk acceptances in `decision-store.json` with severity-based TTL.
 4. **integrity** — manifest counters vs disk reality; agent-skill cross-refs; state-file schemas.
 
-> Detail: see [the four modes (compliance/ownership/risk/integrity)](references/modes.md), [OPA policy-engine integration](references/policy-engine.md), [`--report` format and scoring](references/formal-report.md).
-
-## When to Use
-
-- Governance audit, pre-release check, post-install verification.
-- NOT for code quality — use `/ai-verify quality`.
-- NOT for security scanning — use `/ai-security`.
-
-Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
+Detail: [the four modes](references/modes.md), [OPA policy-engine integration](references/policy-engine.md), [`--report` format and scoring](references/formal-report.md).
 
 ## Common Mistakes
 
@@ -52,7 +47,7 @@ Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; 
 
 ## Examples
 
-### Example 1 — pre-release compliance report
+### Example — pre-release compliance report
 
 User: "generate a formal compliance report I can hand to auditors"
 
@@ -60,25 +55,11 @@ User: "generate a formal compliance report I can hand to auditors"
 /ai-governance --report
 ```
 
-Walks the compliance checks, scores against the rubric, emits a Markdown report with findings table, gate status, and verdict (PASS / WARN / FAIL).
-
-### Example 2 — accept a known risk
-
-User: "we've reviewed the gitleaks finding and want to accept it for 30 days"
-
-```
-/ai-governance risk accept
-```
-
-Records a risk-acceptance entry in `decision-store.json` with severity-based TTL, mandatory `follow_up_action`, and an audit trail consumed by pre-push.
+Walks the compliance checks, scores against the rubric, emits a Markdown report with findings table, gate status, and verdict (PASS / WARN / FAIL). (`/ai-governance risk accept` instead records a risk-acceptance entry in `decision-store.json` with severity-based TTL, a mandatory `follow_up_action`, and a pre-push-consumed audit trail.)
 
 ## Integration
 
-- **Called by**: `/ai-verify` (governance mode delegation).
-- CLI layer: `ai-eng validate --category <mode>`, `ai-eng doctor`, `ai-eng maintenance risk-status`. The LLM performs checks directly by reading files and running tools; `ai-eng validate` and `ai-eng doctor` are CLI equivalents for non-interactive use.
-- Risk acceptances block pre-push when expired.
-- Release gate (`/ai-verify --release`) checks governance status.
-- **Boundary**: `/ai-pipeline` generates workflow files; `/ai-governance` validates that governance gates are enforced in them.
+Called by: `/ai-verify` (governance-mode delegation); release gate `/ai-verify --release` checks governance status. CLI equivalents (non-interactive; the LLM performs checks directly): `ai-eng validate --category <mode>`, `ai-eng doctor`, `ai-eng maintenance risk-status`. Risk acceptances block pre-push when expired. Boundary: `/ai-pipeline` generates workflow files; `/ai-governance` validates the governance gates in them are enforced.
 
 ## Key Files
 

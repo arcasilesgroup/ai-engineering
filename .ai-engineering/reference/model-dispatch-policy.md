@@ -35,7 +35,6 @@ economics rubric: deterministic execution → cheap, synthesis with judgment
 
 | Skill | effort | model_tier | Rationale |
 |---|---|---|---|
-| ai-analyze-permissions | high | opus | Audit / governance posture — deep judgment. |
 | ai-animation | high | opus | Multi-frame design synthesis with motion judgment. |
 | ai-autopilot | high | opus | Decomposition into N sub-spec waves; architecture. |
 | ai-board | cheap | haiku | Deterministic board sync against work-item refs. |
@@ -92,6 +91,7 @@ frontmatter against its row. Mismatch is MAJOR (effort) or MINOR
 
 ## Mirror gap
 
-`.github/skills/` deliberately omits `ai-analyze-permissions` (Copilot
-surface intentionally excludes it). The lint and the migration script
-both treat this as an allow-listed gap, not a violation.
+`.github/skills/` omits any Claude-Code-only skill (those marked
+`copilot_compatible: false`). The lint and the migration script both
+treat such an absence as an allow-listed gap, not a violation. No skill
+currently uses this scoping.

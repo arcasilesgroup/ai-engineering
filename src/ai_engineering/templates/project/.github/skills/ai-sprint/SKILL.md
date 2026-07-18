@@ -21,101 +21,7 @@ edit_policy: generated-do-not-edit
 
 # Sprint
 
-## Purpose
-
-Sprint lifecycle management: plan new sprints from backlog, run data-driven retrospectives comparing planned vs shipped, and track sprint-level goals. Bridges the gap between spec-level planning and day-to-day delivery.
-
-## Trigger
-
-- Command: `/ai-sprint plan|retro|goals`
-- Context: sprint boundary (start or end of sprint), goal tracking mid-sprint.
-
-## Pre-conditions (MANDATORY)
-
-1. Read `.ai-engineering/manifest.yml` — `work_items` section.
-2. Determine active provider (`github` or `azure_devops`).
-3. Read `.ai-engineering/reference/gather-activity-data.md` for the canonical git log, PR query, and work item commands.
-4. Use provider-specific config:
-   - **Azure DevOps**: filter by `area_path`, auto-detect current `iteration_path`
-   - **GitHub**: filter by `team_label`, use milestones for sprint boundaries
-5. Use all standard and custom fields the platform provides.
-
-## Workflow
-
-Four modes follow the sprint lifecycle:
-
-1. `plan` — read backlog, propose sprint goals, scope items, write sprint file.
-2. `goals` — mid-sprint progress check vs the planned goals.
-3. `retro` — data-driven retrospective comparing planned vs shipped.
-4. `review` — generate the sprint review deck (delegates to `/ai-slides`).
-
-## Modes
-
-### plan -- New sprint planning
-
-1. **Review backlog** -- read open specs, GitHub Issues/Projects, and prioritized items from the backlog (GitHub Issues with priority labels or manual ranking).
-2. **Assess capacity** -- count working days in sprint, factor in known absences or blockers from decision-store.
-3. **Select items** -- pull highest-priority items that fit capacity. Apply RICE scores from backlog prioritization.
-4. **Estimate effort** -- use size labels (XS/S/M/L/XL) from issue standard. Flag items missing size estimates.
-5. **Draft sprint board** -- output planned items grouped by priority:
-
-```markdown
-## Sprint: {name} ({start} - {end})
-
-### Goals
-1. {Goal 1 -- measurable outcome}
-2. {Goal 2 -- measurable outcome}
-
-### Planned Items
-| # | Priority | Size | Item | Spec |
-|---|----------|------|------|------|
-| 1 | p1 | M | Fix hook installation on Windows | spec-054 |
-| 2 | p2 | L | Add telemetry dashboard | spec-054 |
-```
-
-6. **Store** -- save sprint plan to `.ai-engineering/sprints/{name}.md`.
-
-### retro -- Sprint retrospective
-
-1. **Load sprint plan** -- read `.ai-engineering/sprints/{name}.md`.
-2. **Collect actuals** -- use the commands from `.ai-engineering/reference/gather-activity-data.md` to scan merged PRs, completed spec tasks, and commit history for the sprint period.
-3. **Compare planned vs shipped**:
-   - Items completed as planned
-   - Items carried over (not finished)
-   - Side quests (unplanned work that entered the sprint)
-   - Items descoped or deprioritized
-4. **Analyze patterns**:
-   - Estimation accuracy: actual effort vs estimated size
-   - Side quest ratio: unplanned / total items delivered
-   - Velocity trend: items completed vs previous sprints
-5. **Document learnings** -- what went well, what to change, action items.
-6. **Output** -- retrospective report appended to `.ai-engineering/sprints/{name}.md`.
-
-### goals -- Sprint goal tracking
-
-1. **Load active sprint** -- find current sprint from `.ai-engineering/sprints/`.
-2. **Check goal progress** -- for each goal, assess completion signals (merged PRs, closed issues, spec task status).
-3. **Report** -- traffic-light status per goal: green (on track), yellow (at risk), red (blocked/behind).
-
-### review -- Sprint review presentation
-
-Generate a branded sprint review PowerPoint deck using python-pptx. Each invocation produces a NEW script tailored to current data — never reused from a static template.
-
-1. **Determine sprint period** — resolve date range: `--sprint YYYY-MM` (calendar month), `--iteration <name>` (query provider for dates), or default to current month.
-2. **Gather data** — use commands from `.ai-engineering/reference/gather-activity-data.md` for work items and git activity. Collect quality metrics via `pytest --co -q` and `ruff check . --statistics`. Compare against thresholds in `manifest.yml`.
-3. **Generate python-pptx script** — new script each time. Brand constants: `AI_BG_DARK=#0B1120`, `AI_ACCENT=#00D4AA`, `AI_PRIMARY=#1E3A5F`. Typography: `JetBrains Mono` (headings), `Inter` (body). Layout: 16:9, 13.333"×7.5".
-4. **Slide structure (8-14 slides)**: Title → Sprint Overview (KPI cards) → Feature Deep-Dives (one per major spec) → Quality Metrics → Risks & Next Sprint → Q&A. Every slide requires `set_notes()` for presenter view.
-5. **Execute** — write to `.ai-engineering/runtime/presentations/generate_sprint_review.py`, run it, output `.ai-engineering/runtime/presentations/sprint-review-YYYY-MM.pptx`.
-
-**Common mistakes**: reusing old script verbatim, missing speaker notes, wrong color palette, skipping pre-conditions, hardcoding dates.
-
-## Arguments
-
-Modes (`plan`, `retro`, `goals`, `review`) per Modes above. Flags:
-- `--sprint <name>` — sprint identifier (e.g., `2026-w12`) or month (`YYYY-MM`); defaults to current.
-- `--iteration <name>` — iteration name (queries provider for dates, used with `review` mode).
-
-## Quick Reference
+Sprint lifecycle: plan from backlog, run data-driven retros (planned vs shipped), track goals, generate review decks. Bridges spec-level planning and day-to-day delivery. Storage: `.ai-engineering/sprints/{name}.md` (naming `YYYY-wNN` ISO week, or custom).
 
 ```
 /ai-sprint plan --sprint 2026-w12          # plan sprint for week 12
@@ -125,24 +31,67 @@ Modes (`plan`, `retro`, `goals`, `review`) per Modes above. Flags:
 /ai-sprint review --iteration "Sprint 12"  # named iteration review deck
 ```
 
-## Storage
+## Pre-conditions (MANDATORY)
 
-- Sprint files: `.ai-engineering/sprints/{name}.md`
-- Naming convention: `YYYY-wNN` (ISO week) or custom names
+1. Read `manifest.yml` `work_items` section; determine active provider (`github` | `azure_devops`).
+2. Read `.ai-engineering/reference/gather-activity-data.md` for canonical git log, PR query, and work-item commands.
+3. Provider config: **Azure DevOps** filters by `area_path`, auto-detects current `iteration_path`; **GitHub** filters by `team_label`, uses milestones for sprint boundaries.
+4. Use all standard and custom fields the platform provides.
+
+## Workflow
+
+Principles: §10.4 DRY (single `gather-activity-data.md` source for all activity queries); §10.1 KISS (each mode is one linear pass).
+
+### plan — new sprint planning
+
+1. **Review backlog** — open specs, GitHub Issues/Projects, prioritized items (priority labels or manual ranking).
+2. **Assess capacity** — count working days; factor known absences/blockers from decision-store.
+3. **Select items** — highest-priority items that fit capacity; apply RICE scores.
+4. **Estimate effort** — size labels (XS/S/M/L/XL); flag items missing estimates.
+5. **Draft board** — planned items grouped by priority:
+
+```markdown
+## Sprint: {name} ({start} - {end})
+
+### Goals
+1. {Goal 1 -- measurable outcome}
+
+### Planned Items
+| # | Priority | Size | Item | Spec |
+|---|----------|------|------|------|
+| 1 | p1 | M | Fix hook installation on Windows | spec-054 |
+```
+
+6. **Store** — save to `.ai-engineering/sprints/{name}.md`.
+
+### retro — sprint retrospective
+
+1. **Load plan** — read `.ai-engineering/sprints/{name}.md`.
+2. **Collect actuals** — via `gather-activity-data.md` commands: merged PRs, completed spec tasks, commit history for the period.
+3. **Compare planned vs shipped** — completed / carried-over / side quests (unplanned) / descoped.
+4. **Analyze patterns** — estimation accuracy (actual vs size), side-quest ratio (unplanned/total), velocity trend vs prior sprints.
+5. **Document learnings** — what went well, what to change, action items.
+6. **Output** — append retro section to the sprint file.
+
+### goals — goal tracking
+
+1. **Load active sprint** from `.ai-engineering/sprints/`.
+2. **Check progress** — per goal, assess signals (merged PRs, closed issues, spec-task status).
+3. **Report** — traffic-light per goal: green (on track) / yellow (at risk) / red (blocked).
+
+### review — review presentation
+
+Branded PowerPoint via python-pptx. NEW script each invocation tailored to current data — never reuse a static template.
+
+1. **Determine period** — `--sprint YYYY-MM` (calendar month), `--iteration <name>` (query provider for dates), or default to current month.
+2. **Gather data** — `gather-activity-data.md` commands for work items + git activity; quality metrics via `pytest --co -q` and `ruff check . --statistics`; compare against `manifest.yml` thresholds.
+3. **Generate script** — brand constants `AI_BG_DARK=#0B1120`, `AI_ACCENT=#00D4AA`, `AI_PRIMARY=#1E3A5F`; typography `JetBrains Mono` (headings), `Inter` (body); layout 16:9, 13.333"×7.5".
+4. **Slide structure (8-14)** — Title → Sprint Overview (KPI cards) → Feature Deep-Dives (one per major spec) → Quality Metrics → Risks & Next Sprint → Q&A. Every slide requires `set_notes()`.
+5. **Execute** — write `.ai-engineering/runtime/presentations/generate_sprint_review.py`, run it, output `sprint-review-YYYY-MM.pptx` alongside.
+
+Review common mistakes: reusing an old script verbatim, missing speaker notes, wrong palette, skipping pre-conditions, hardcoding dates.
 
 ## Examples
-
-### Example 1 — plan a new sprint
-
-User: "kick off sprint 2026-w19 from the backlog"
-
-```
-/ai-sprint plan --sprint 2026-w19
-```
-
-Reads the backlog (GitHub Projects v2 or Azure Boards), proposes sprint goals, scopes items, writes `.ai-engineering/sprints/2026-w19.md`.
-
-### Example 2 — retro at sprint end
 
 User: "lets do the retro for the sprint that just ended"
 
@@ -150,7 +99,7 @@ User: "lets do the retro for the sprint that just ended"
 /ai-sprint retro --sprint 2026-w18
 ```
 
-Compares planned vs shipped, surfaces velocity trends, identifies blockers, writes the retro section.
+Compares planned vs shipped, surfaces velocity trends, identifies blockers, writes the retro section into `.ai-engineering/sprints/2026-w18.md`.
 
 ## Integration
 

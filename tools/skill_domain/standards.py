@@ -81,9 +81,13 @@ _VERIFY_MODES = (
     "platform",
 )
 
+# spec-187 D-187-04: the late-wave reference triad was hard-deleted
+# (enumerated Bucket-B scope cut). The standards matrix is now consumed
+# directly through ``ai_engineering.standards``; the canonical prose homes
+# for these standards are the surviving §10 principles reference and the
+# Constitution.
 _OPERATIONAL_PRINCIPLES = ".ai-engineering/reference/operational-principles.md"
-_ENGINEERING_STANDARDS = ".ai-engineering/reference/engineering-standards.md"
-_HARNESS_ENGINEERING = ".ai-engineering/reference/harness-engineering.md"
+_ENGINEERING_STANDARDS = ".ai-engineering/reference/principles.md"
 _CONSTITUTION = "CONSTITUTION.md"
 
 _T = TypeVar("_T")
@@ -165,7 +169,7 @@ def build_engineering_standards_matrix() -> tuple[EngineeringStandardSpec, ...]:
             standard=EngineeringStandard.HARNESS_ENGINEERING,
             title="Harness Engineering",
             summary="Deterministic gates, work-plane state, mirrors, and evals remain governed.",
-            canonical_refs=(_HARNESS_ENGINEERING, _ENGINEERING_STANDARDS),
+            canonical_refs=(_CONSTITUTION, _ENGINEERING_STANDARDS),
             review_lenses=(
                 "security",
                 "architecture",
@@ -299,7 +303,7 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             status=LegacyRetirementStatus.PRESERVED,
             replacement_owner="HX-12",
             current_surfaces=("README.md", "GETTING_STARTED.md"),
-            replacement_refs=(".ai-engineering/reference/harness-adoption.md",),
+            replacement_refs=(".ai-engineering/reference/cli-reference.md",),
             parity_proofs=(
                 ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx12_engineering_standards_and_legacy_retirement.md",
             ),

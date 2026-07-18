@@ -162,14 +162,11 @@ def _write_manifest_with_capabilities(ai: Path) -> None:
     manifest.write_text(
         manifest.read_text(encoding="utf-8")
         + "skills:\n"
-        + "  total: 2\n"
+        + "  total: 1\n"
         + "  registry:\n"
         + "    ai-code:\n"
         + "      type: workflow\n"
         + "      tags: [implementation]\n"
-        + "    ai-analyze-permissions:\n"
-        + "      type: meta\n"
-        + "      tags: [permissions]\n"
         + "agents:\n"
         + "  total: 3\n"
         + "  names: [plan, build, explore]\n",

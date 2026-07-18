@@ -161,10 +161,6 @@ gh issue comment "$NUMBER" --body "## Triage Summary
 az boards work-item update --id "$ID" --discussion "## Triage Summary\n\n- **Type:** $TYPE\n- **Priority:** $PRIORITY\n- **Duplicate:** $DUPLICATE_STATUS\n- **Age:** $AGE_DAYS days\n- **Next step:** refinement"
 ```
 
-### Step 8 -- Done
-
-No report is generated. The mutations applied (labels, comments, closures) are the sole output. Stop after step 7.
-
 ## Output
 
 No local files. Mutations (labels, comments, closures) are the sole output.

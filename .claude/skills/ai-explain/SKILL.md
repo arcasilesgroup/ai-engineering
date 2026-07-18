@@ -7,7 +7,6 @@ argument-hint: "[topic]|--depth brief|standard|deep"
 tags: [explanation, teaching, analysis, architecture]
 ---
 
-
 # Explain
 
 ## Quick start
@@ -18,69 +17,45 @@ tags: [explanation, teaching, analysis, architecture]
 /ai-explain "spec lifecycle FSM" --depth deep
 ```
 
-Engineer-grade technical explanations of code, concepts, patterns, and architecture. 3-tier depth control scales detail to what the developer needs. Anchored in the actual codebase with `file:line` references, ASCII diagrams, and execution traces.
+## Workflow
 
-## When to Use
+Read-only; §10.7 Clean Code — clarity over cleverness.
 
-- "How does this work?", "What is this?", "Why does this do X?", "Trace this."
-- NOT for generating documentation -- use `/ai-prose`.
-- NOT for writing/fixing code -- use `/ai-build` or `/ai-debug`.
+1. **Identify subject** — classify into Code / Concept / Pattern /
+   Architecture / Error / Difference. If ambiguous, ask ONE question.
+2. **Search codebase** — search the tree for real instances; `file:line` refs
+   are primary evidence. If none, use a generic stack example and say so.
+3. **Select depth** (per cue table) and deliver only that depth's sections.
+4. **Follow-up** — "what about X?" extend at depth; "go deeper" +1 level,
+   only new sections; "trace a different path" re-run Trace; "show me in
+   my code" search the codebase for the concept.
 
-## Process
-
-### 1. Identify subject
-
-Classify into: Code, Concept, Pattern, Architecture, Error, or Difference. If ambiguous, ask ONE clarifying question.
-
-### 2. Search codebase
-
-Use Grep/Glob to find real instances. Codebase examples with `file:line` references are primary evidence. If not found, use generic example in project's stack and note it.
-
-### 3. Select depth
-
-| Depth | Trigger cues | Sections |
-|-------|-------------|----------|
+| Depth | Cues | Sections |
+|-------|------|----------|
 | Brief | "TL;DR", "brief", "short" | Summary + Walkthrough (3-5 steps) |
-| Standard | General question (DEFAULT) | Summary + Walkthrough + Diagram + Gotchas + Trace |
-| Deep | "deep dive", "everything", "teach me" | All above + Context Map + Complexity Notes |
+| Standard (default) | general question | + Diagram + Gotchas + Trace |
+| Deep | "deep dive", "everything", "teach me" | + Context Map + Complexity Notes |
 
-### 4. Deliver explanation
+Section contract:
 
-Sections (depth selection per step 3 table):
+- **Summary** — 1-2 technical sentences: what it does + why it exists.
+- **Walkthrough** — numbered `file:line` steps in execution order.
+- **Diagram** — ASCII (data flow / call chain / state machine / sequence),
+  width < 70 chars, no Mermaid.
+- **Gotchas** — specific edge cases / perf traps / concurrency hazards in
+  THIS code, not generic advice.
+- **Trace It** — execution trace of a concrete scenario; show data
+  transformation per step, highlight decision points.
+- **Context Map** — when to use / when NOT / alternatives with tradeoffs.
+- **Complexity Notes** — cyclomatic complexity, nesting, time/space of hot
+  paths, concurrency assessment.
 
-- **Summary**: 1-2 technical sentences -- what it does and why it exists.
-- **Walkthrough**: numbered steps with `file:line` references, following execution order. Brief: 3-5 steps max.
-- **Diagram**: ASCII art reflecting actual code structure. Choose type: data flow, call chain, state machine, sequence. Width under 70 chars. No Mermaid.
-- **Gotchas**: specific pitfalls in this code -- edge cases, performance traps, concurrency hazards. Not generic advice.
-- **Trace It**: execution trace through a concrete scenario. Show data transformation at each step, highlight decision points.
-- **Context Map**: when to use, when NOT to use, alternatives with tradeoff comparison.
-- **Complexity Notes**: cyclomatic complexity, nesting depth, time/space complexity of hot paths, concurrency assessment.
-
-### 5. Follow-up
-
-- "What about X?" -- extend at same depth.
-- "Go deeper" -- increase one level, deliver only new sections.
-- "Trace a different path" -- re-run Trace with different scenario.
-- "Show me in my code" -- find the concept via Grep/Glob.
-
-## Quick Reference
-
-```
-/ai-explain <topic>                  # standard depth (default)
-/ai-explain <topic> --depth brief
-/ai-explain <topic> --depth deep
-```
-Sections per depth: see step 3 table.
-
-## Common Mistakes
-
-- Over-explaining standard concepts -- assume technical competence.
-- Generic gotchas ("be careful with null") -- must be specific to the code under review.
-- Using "basically", "simply", "just" -- these minimize real complexity.
+Pitfalls: don't over-explain standard concepts (assume competence); no
+generic gotchas; avoid "basically" / "simply" / "just".
 
 ## Examples
 
-### Example 1 — quick orientation on an unfamiliar pattern
+### Example — quick orientation on an unfamiliar pattern
 
 User: "how does the audit chain work in this repo?"
 
@@ -88,20 +63,13 @@ User: "how does the audit chain work in this repo?"
 /ai-explain "audit chain" --depth brief
 ```
 
-Anchors to `framework-events.ndjson`; emits a 3-paragraph overview with a small ASCII flow.
-
-### Example 2 — deep walk-through of a tricky function
-
-User: "trace through how spec_lifecycle.start_new handles the FSM"
-
-```
-/ai-explain spec_lifecycle.py:start_new --depth deep
-```
-
-Reads the function, produces an execution trace per state transition, calls out the atomic-write boundary, references tests that exercise each branch.
+Anchors to `framework-events.ndjson`; emits a 3-paragraph overview with a
+small ASCII flow.
 
 ## Integration
 
-Called by: user directly, `/ai-onboard` (teaching mode). Read-only. See also: `/ai-debug`, `/ai-prose content blog`, `/ai-verify` (architecture assessment).
+Called by: user directly, `/ai-onboard` (teaching mode). Read-only. See
+also: `/ai-debug`, `/ai-prose content blog`, `/ai-verify` (architecture
+assessment).
 
 $ARGUMENTS

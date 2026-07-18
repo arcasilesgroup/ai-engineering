@@ -1,13 +1,12 @@
 # Surface Axioms (spec-133 D-133-04)
 
 > Canonical home for the Surface / No-Twin Axioms. Extracted from
-> `CANONICAL.md` §16 by spec-134 sub-005 so the four IDE mirrors stay
-> lean (§10.4 DRY — one canonical source) and operator-facing CLI/
-> skill design has a stable reference.
+> `CANONICAL.md` §16 by spec-134 sub-005 (§10.4 DRY — one canonical source)
+> so the four IDE mirrors stay lean.
 
-The **Surface Axiom** + **No-Twin Axiom** are first-class design
-rules. The skill/CLI confusion (B17 root) is eliminated at the
-design layer, not just the lint layer.
+The **Surface Axiom** + **No-Twin Axiom** are first-class design rules that
+eliminate the skill/CLI confusion (B17 root) at the design layer, not just the
+lint layer.
 
 ## A1 — Surface Axiom (when may a capability expose `ai-eng <verb>`?)
 
@@ -27,8 +26,8 @@ no structured data) — correctly remains skill-only.
 
 ## A2 — No-Twin Axiom (when does the same verb name appear in both surfaces?)
 
-A capability has **one canonical surface per role**. Skill = chat
-entry; CLI = shell entry. The same verb name appears in BOTH iff
+A capability has **one canonical surface per role**: skill = chat entry, CLI =
+shell entry. The same verb name appears in BOTH iff
 
 1. **Same engine** — both surfaces dispatch the same Python code path
    (skill orchestrator invokes the CLI under the hood OR both wrap a
@@ -37,9 +36,8 @@ entry; CLI = shell entry. The same verb name appears in BOTH iff
    are byte-equivalent.
 
 Otherwise the verbs MUST be distinct. `/ai-branch-cleanup` (LLM-orchestrated)
-and `ai-eng cleanup` (deterministic 7-mode CLI) are distinct verbs by
-A2 because the engines differ — the skill calls the CLI but adds AI
-judgment on top.
+and `ai-eng cleanup` (deterministic 7-mode CLI) are A2-distinct because the
+engines differ — the skill calls the CLI but adds AI judgment on top.
 
 ## Enforcement
 

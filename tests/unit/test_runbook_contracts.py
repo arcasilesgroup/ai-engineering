@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -8,6 +9,16 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 RUNBOOK_ROOT = ROOT / ".ai-engineering" / "runbooks"
 TEMPLATE_ROOT = ROOT / "src" / "ai_engineering" / "templates" / ".ai-engineering" / "runbooks"
+RUNBOOK_INDEX = ROOT / ".ai-engineering" / "reference" / "runbook-index.md"
+RUNBOOK_INDEX_TEMPLATE = (
+    ROOT
+    / "src"
+    / "ai_engineering"
+    / "templates"
+    / ".ai-engineering"
+    / "reference"
+    / "runbook-index.md"
+)
 
 # spec-085 + spec-091: 14 runbooks with minimal frontmatter schema
 ALL_RUNBOOKS = [
@@ -139,4 +150,46 @@ def test_runbook_template_byte_parity(name: str) -> None:
         f"and the install template at "
         f"src/ai_engineering/templates/.ai-engineering/runbooks/ — "
         f"re-sync the template twin."
+    )
+
+
+# spec-187 W4: a discovery index ties every runbook to its type/cadence/purpose
+# so the 14 consumer-shipped survivors are not operationally orphaned.
+_INDEX_LINK_RE = re.compile(r"\]\(\.\./runbooks/([a-z0-9-]+)\.md\)")
+
+
+def test_runbook_index_exists() -> None:
+    assert RUNBOOK_INDEX.is_file(), f"runbook discovery index missing: {RUNBOOK_INDEX}"
+
+
+def test_runbook_index_lists_all_survivors() -> None:
+    """The index must link exactly the 14 ALL_RUNBOOKS survivors, no extras."""
+    text = RUNBOOK_INDEX.read_text(encoding="utf-8")
+    linked = {m.group(1) for m in _INDEX_LINK_RE.finditer(text)}
+    assert linked == set(ALL_RUNBOOKS), (
+        f"runbook-index drift: linked {sorted(linked)} != survivors {sorted(ALL_RUNBOOKS)}"
+    )
+
+
+def test_runbook_index_links_resolve() -> None:
+    """Every runbook linked from the index resolves to a real file."""
+    text = RUNBOOK_INDEX.read_text(encoding="utf-8")
+    for stem in _INDEX_LINK_RE.findall(text):
+        target = (RUNBOOK_INDEX.parent / ".." / "runbooks" / f"{stem}.md").resolve()
+        assert target.is_file(), f"runbook-index links missing file: {stem}.md"
+
+
+def test_runbook_index_ascii_only() -> None:
+    """The index is ASCII-only (D-187-10 safe-output posture)."""
+    text = RUNBOOK_INDEX.read_text(encoding="utf-8")
+    assert text.isascii(), "runbook-index.md must be ASCII-only"
+
+
+def test_runbook_index_template_byte_parity() -> None:
+    """The index and its install-template twin must be byte-identical."""
+    assert RUNBOOK_INDEX_TEMPLATE.is_file(), (
+        f"runbook-index template twin missing: {RUNBOOK_INDEX_TEMPLATE}"
+    )
+    assert RUNBOOK_INDEX.read_bytes() == RUNBOOK_INDEX_TEMPLATE.read_bytes(), (
+        "runbook-index.md differs from its install-template twin — re-sync."
     )

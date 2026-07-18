@@ -270,7 +270,6 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     "ai-learn": {"type": "meta", "tags": ["improvement"]},
     "ai-prompt-tune": {"type": "meta", "tags": ["optimization"]},
     "ai-start": {"type": "meta", "tags": ["bootstrap"]},
-    "ai-analyze-permissions": {"type": "meta", "tags": ["permissions"]},
     "ai-session-watch": {
         "type": "meta",
         "tags": ["meta", "learning", "continuous-improvement", "observe"],

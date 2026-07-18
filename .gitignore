@@ -210,3 +210,5 @@ state.db-shm
 .ai-engineering/runtime/presentations/
 .ai-engineering/runtime/reports/
 .claude/scheduled_tasks.lock
+.skill-map/serve.json
+.skill-map/backups/

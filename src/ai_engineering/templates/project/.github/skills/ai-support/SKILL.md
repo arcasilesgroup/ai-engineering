@@ -1,6 +1,6 @@
 ---
 name: ai-support
-description: "Investigates customer-reported issues with structure: reproduces, traces to code, documents resolution, builds a searchable knowledge base organized by ticket ID. Trigger for 'a user is reporting that', 'customer complaint', 'support ticket', 'investigate this bug report', 'search past support cases'. Not for production incidents; use /ai-postmortem instead. Not for internal dev bugs; use /ai-debug instead."
+description: "Investigates customer-reported issues with structure: reproduces, traces to code, documents resolution, builds a searchable knowledge base organized by ticket ID. Trigger for 'a user is reporting that', 'customer complaint', 'support ticket', 'investigate this bug report', 'search past support cases'. Not for production incidents; use /ai-postmortem instead. Not for internal dev bugs; use /ai-debug instead. Not for feature requests; open a GitHub Issue with the enhancement label."
 effort: mid
 argument-hint: "start [ticket-id]|find [query]"
 mode: agent
@@ -15,35 +15,21 @@ edit_policy: generated-do-not-edit
 
 # Support
 
-## Purpose
+Structured customer-support investigation: organize findings by ticket, link to code + PRs, build a searchable knowledge base of resolved issues. Storage: `.ai-engineering/support/{YYYY-MM-DD}/{ticket-id}/investigation.md` (date-organized for chronological browsing).
 
-Structured customer support investigation. Organizes findings by ticket, links to relevant code and PRs, and builds a searchable knowledge base of resolved issues.
-
-## Trigger
-
-- Command: `/ai-support start <ticket-id>` or `/ai-support find [query]`
-- Context: customer-reported issue, support ticket investigation, escalation from support team.
-
-## When to Use
-
-- Investigating a customer-reported bug or behavior
-- Reproducing an issue from a support ticket
-- Documenting resolution for future reference
-- Escalation requiring code-level investigation
-
-## When NOT to Use
-
-- **Production incidents** -- use `/ai-postmortem`
-- **Internal bugs found during development** -- use `/ai-debug`
-- **Feature requests** -- create a GitHub Issue with the `enhancement` label
+```
+/ai-support start TICKET-4521    # start investigation (any ID format)
+/ai-support find timeout         # search past investigations
+/ai-support find                 # list all investigations
+```
 
 ## Modes
 
-### start <ticket-id> -- New investigation
+### start <ticket-id> — new investigation
 
-1. **Check for existing investigation** -- if a `{ticket-id}` directory already exists under `.ai-engineering/support/`, resume the existing investigation rather than creating a duplicate.
-2. **Create structure** -- create `.ai-engineering/support/{date}/{ticket-id}/` directory.
-3. **Scaffold investigation** -- create `investigation.md` from template:
+1. **Check existing** — if a `{ticket-id}` directory exists under `.ai-engineering/support/`, resume it instead of duplicating.
+2. **Create** — `.ai-engineering/support/{date}/{ticket-id}/`.
+3. **Scaffold** `investigation.md` from template:
 
 ```markdown
 # {ticket-id}: {title}
@@ -63,14 +49,13 @@ Structured customer support investigation. Organizes findings by ticket, links t
 
 ## Steps to Reproduce
 1. {Step}
-2. {Step}
-3. {Expected vs actual behavior}
+2. {Expected vs actual behavior}
 
 ## Findings
-{Investigation results, root cause analysis}
+{Root cause analysis}
 
 ## Resolution
-{Fix applied, workaround provided, or escalation path}
+{Fix applied, workaround, or escalation path}
 
 ## Related
 - Code: {file paths}
@@ -78,43 +63,24 @@ Structured customer support investigation. Organizes findings by ticket, links t
 - Notes: {links to /ai-note entries}
 ```
 
-4. **Investigate** -- explore codebase for relevant code paths, check recent changes to affected areas, review error patterns.
-5. **Update** -- keep `investigation.md` current as findings emerge.
+4. **Investigate + update** — explore relevant code paths, check recent changes and error patterns; keep `investigation.md` current as findings emerge.
 
-### find [query] -- Search investigations
+### find [query] — search investigations
 
-1. **Search** -- scan `.ai-engineering/support/` directories for matching content.
-2. **Rank** -- prioritize by recency, then relevance.
-3. **Present** -- list ticket-id, date, title, status, and resolution summary.
+1. **Search** — scan `.ai-engineering/support/` for matching content.
+2. **Rank** — recency, then relevance.
+3. **Present** — ticket-id, date, title, status, resolution summary.
 
 ## Workflow
 
-1. **Reproduce** -- attempt to reproduce the issue locally using the reported steps.
-2. **Isolate** -- narrow down to the specific code path, configuration, or data condition.
-3. **Root cause** -- identify why the behavior occurs (bug, misconfiguration, edge case, expected behavior).
-4. **Resolve** -- one of:
-   - **Fix**: create a PR via `/ai-pr` and link it in the investigation
-   - **Workaround**: document the workaround steps
-   - **Escalate**: mark as `escalated` with reason and target team
-   - **Won't fix**: document rationale
+Principles: §10.4 DRY (one investigation template + knowledge base, no per-ticket ad-hoc format).
 
-## Quick Reference
-
-```
-/ai-support start TICKET-4521         # start investigation
-/ai-support start SUP-123             # any ticket ID format works
-/ai-support find timeout              # search past investigations
-/ai-support find                      # list all investigations
-```
-
-## Storage
-
-- Location: `.ai-engineering/support/{YYYY-MM-DD}/{ticket-id}/investigation.md`
-- Organized by date for natural chronological browsing
+1. **Reproduce** — attempt to reproduce locally using the reported steps.
+2. **Isolate** — narrow to the specific code path, configuration, or data condition.
+3. **Root cause** — identify why (bug, misconfiguration, edge case, expected behavior).
+4. **Resolve** — one of: **Fix** (open a PR via `/ai-pr`, link it), **Workaround** (document steps), **Escalate** (mark `escalated` + reason + target team), **Won't fix** (document rationale).
 
 ## Examples
-
-### Example 1 — start a new investigation from a ticket
 
 User: "a user is reporting timeouts on TICKET-4521, investigate"
 
@@ -122,17 +88,7 @@ User: "a user is reporting timeouts on TICKET-4521, investigate"
 /ai-support start TICKET-4521
 ```
 
-Scaffolds `.ai-engineering/support/2026-05-08/TICKET-4521/investigation.md`, attempts to reproduce the issue, traces affected code paths, documents findings.
-
-### Example 2 — search past cases for a recurring symptom
-
-User: "have we seen timeouts in this area before?"
-
-```
-/ai-support find timeout
-```
-
-Scans the support directory tree for matches, ranks by recency + relevance, lists ticket-id, date, status, and resolution summary.
+Scaffolds `.ai-engineering/support/2026-05-08/TICKET-4521/investigation.md`, attempts to reproduce, traces affected code paths, documents findings.
 
 ## Integration
 

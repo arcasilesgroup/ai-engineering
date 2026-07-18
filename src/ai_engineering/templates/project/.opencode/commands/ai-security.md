@@ -1,5 +1,5 @@
 ---
-description: 'Runs security gates: SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, SBOM generation for compliance, pre-release security verdict. Trigger for ''is this secure'', ''audit dependencies'', ''check for secrets'', ''security report'', ''is this package safe'', ''compliance review''. Not for governance process; use /ai-governance instead. Not for runtime payload inspection; use prompt-injection-guard hook instead.'
+description: 'Runs security gates: SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, SBOM generation for compliance, pre-release security verdict. Trigger for ''is this secure'', ''audit dependencies'', ''check for secrets'', ''security report'', ''is this package safe'', ''compliance review''. Not for governance process; use /ai-governance instead. Not for runtime payload inspection; use prompt-injection-guard hook instead. Not for code quality metrics; use /ai-verify quality instead.'
 mirror_family: opencode-commands
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-security/SKILL.md

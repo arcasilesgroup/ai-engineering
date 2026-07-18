@@ -2,12 +2,11 @@
 
 # Rust — Build Conventions
 
-Authoritative reference for the `ai-build` agent when generating Rust
-code.
+Reference for `ai-build` when generating Rust code.
 
 ## Toolchain
 
-- **Rust edition**: `edition = "2021"` minimum; `2024` once stable.
+- **Rust edition**: `edition = "2021"` minimum; `2024` is stable (1.85+).
 - **Channel**: stable. Pin via `rust-toolchain.toml` so contributors
   match CI.
 - **Formatter**: `cargo fmt --all -- --check` blocks CI.
