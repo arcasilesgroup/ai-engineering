@@ -220,27 +220,28 @@ def test_policy_match_is_ok(tmp_path: Path) -> None:
 
 @pytest.mark.unit
 def test_github_mirror_gap_tolerated(tmp_path: Path) -> None:
-    """``.github/skills/ai-analyze-permissions`` absence is allow-listed.
+    """A policy skill absent from a mirror is allow-listed, not an error.
 
-    The driver walks every mirror but must not raise on the known gap;
-    the skill simply does not appear in the result set for that mirror.
+    The driver walks every mirror but must not raise when a policy lists a
+    skill that a given mirror does not carry; the skill simply does not
+    appear in the result set for that mirror.
     """
     skills_root = tmp_path / ".github" / "skills"
     skills_root.mkdir(parents=True, exist_ok=True)
-    # Only ai-demo lives in the gap-mirror; ai-analyze-permissions absent.
+    # Only ai-demo lives in the gap-mirror; ai-absent is policy-only.
     _write_skill(skills_root / "ai-demo", effort="mid", model_tier="sonnet")
     policy = _write_policy(
         tmp_path / "policy.md",
-        [("ai-demo", "mid", "sonnet"), ("ai-analyze-permissions", "high", "opus")],
+        [("ai-demo", "mid", "sonnet"), ("ai-absent", "high", "opus")],
     )
     from skill_lint.checks.effort import check_all_skills, load_policy
 
     results = check_all_skills(skills_root, load_policy(policy))
     # Driver returns one entry per skill present; the absent skill is
-    # silently skipped (it is an allow-listed gap for the .github mirror).
+    # silently skipped (an allow-listed mirror gap).
     skill_paths = {p.parent.name for p, _r in results}
     assert "ai-demo" in skill_paths
-    assert "ai-analyze-permissions" not in skill_paths
+    assert "ai-absent" not in skill_paths
 
 
 # ---------------------------------------------------------------------------

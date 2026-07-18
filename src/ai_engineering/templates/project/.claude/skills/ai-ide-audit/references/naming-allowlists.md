@@ -36,7 +36,6 @@ visible without breaking CI; spec-132 closes the parity.
 | Filename                    | Owning skill              |
 |-----------------------------|---------------------------|
 | `board-sync-github.sh`      | `/ai-board`               |
-| `cleanup-settings-local.sh` | `/ai-analyze-permissions` |
 | `scaffold-skill.sh`         | `/ai-scaffold`              |
 
 ## Lock-step contract

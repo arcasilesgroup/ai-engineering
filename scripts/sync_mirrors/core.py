@@ -526,6 +526,16 @@ def translate_refs(content: str, target_ide: str) -> str:
         # had their subpath segment rewritten by the rules above.
         content = re.sub(r"\.claude/skills/(ai-[^/\s`]+)", rf"{target_root}/skills/\1", content)
         content = re.sub(r"\.claude/agents/(ai-[^/\s`]+)", rf"{target_root}/agents/\1", content)
+        # spec-187 D-187-04: specialist agents (reviewer-*/verifier-*/review-*/
+        # verify-*) live under <surface>/agents/internal/ in every mirror tree;
+        # the flat forwarder stubs were hard-deleted. Route references there so
+        # regeneration yields no dangling flat-path ref. Must run before the
+        # broad `.claude/agents/(?!ai-)` directory translation below.
+        content = re.sub(
+            r"\.claude/agents/((?:reviewer|verifier|review|verify)-[^/\s`]+\.md)",
+            rf"{target_root}/agents/internal/\1",
+            content,
+        )
 
     # Spec-107 D-107-03: explore agent reference path adjustment for copilot.
     # The block path translations below (.claude/agents/ -> .github/agents/)
@@ -2251,23 +2261,11 @@ def _handle_orphans(
         (TPL_HOOK_SCRIPTS, "rglob", "*.py"),
     ]
 
-    # Legacy reviewer/verifier path forwarders: spec-116 moved these agents
-    # from <surface>/agents/<name>.md to <surface>/agents/internal/<name>.md.
-    # The flat-path stubs are kept as deprecation aliases so external configs
-    # that reference the old path still resolve. They carry `deprecated: true`
-    # in their YAML frontmatter; treat them as legitimate, not orphan drift.
-    def _is_legacy_alias(path: Path) -> bool:
-        if path.suffix != ".md":
-            return False
-        name = path.name
-        if not any(name.startswith(p) for p in ("reviewer-", "verifier-", "review-", "verify-")):
-            return False
-        try:
-            head = path.read_text(encoding="utf-8", errors="replace")[:300]
-        except OSError:
-            return False
-        return "deprecated: true" in head and "canonical: agents/internal/" in head
-
+    # spec-187 D-187-04: the flat-path reviewer-*/verifier-* forwarder stubs
+    # (the legacy deprecation aliases) were hard-deleted — CLAUDE.md §13.3
+    # forbids backwards-compat shims. The former `_is_legacy_alias` exemption
+    # is gone, so any surviving flat stub is now treated as orphan drift and
+    # cleaned on regen. Real specialist bodies live under `<surface>/agents/internal/`.
     orphans: list[Path] = []
     for root, mode, pattern in _ORPHAN_SURFACES:
         if not root.is_dir():
@@ -2275,8 +2273,6 @@ def _handle_orphans(
         if mode == "glob":
             for f in root.glob(str(pattern)):
                 if f in generated:
-                    continue
-                if _is_legacy_alias(f):
                     continue
                 orphans.append(f)
         elif mode == "rglob_subdirs":

@@ -2,8 +2,8 @@
 
 `/ai-spec-draft` is the canonical producer of
 ``.ai-engineering/specs/drafts/<topic>-brief.md`` artifacts. The brief
-shape is the 14-section template documented in
-``.ai-engineering/specs/drafts/skills-agents-excellence-v2-brief.md``.
+shape is the 14-section template documented in the ``## Brief Shape``
+section of ``.claude/skills/ai-spec-draft/SKILL.md``.
 
 These tests assert the SKILL.md surface (the canonical source per the
 skill-creator contract). Rendered-brief structural assertions live

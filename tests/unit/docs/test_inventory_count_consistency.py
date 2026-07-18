@@ -15,10 +15,10 @@ def _agent_count() -> int:
     return len(list((ROOT / ".claude" / "agents").glob("ai-*.md")))
 
 
-def test_canonical_inventory_is_54_skills_9_agents() -> None:
+def test_canonical_inventory_is_53_skills_9_agents() -> None:
     # Ground-truth from the filesystem. If the real counts change, update the
     # surfaces below in the same change (that is the point of this gate).
-    assert _skill_count() == 54
+    assert _skill_count() == 53
     assert _agent_count() == 9
 
 
@@ -35,4 +35,4 @@ def test_surfaces_state_the_same_counts() -> None:
         assert f"{agents} agents" in text, f"{path.name} missing '{agents} agents'"
         # the superseded counts must not linger anywhere
         assert "47 skills" not in text, f"{path.name} still says '47 skills'"
-        assert "53 skills" not in text, f"{path.name} still says '53 skills'"
+        assert "54 skills" not in text, f"{path.name} still says '54 skills'"

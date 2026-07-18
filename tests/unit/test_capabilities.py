@@ -19,7 +19,6 @@ from ai_engineering.state.models import (
     CapabilityTaskPacket,
     CapabilityToolScope,
     MutationClass,
-    ProviderCompatibilityStatus,
     TopologyRole,
     WriteScopeClass,
 )
@@ -28,10 +27,9 @@ from ai_engineering.state.models import (
 def _manifest_config() -> ManifestConfig:
     return ManifestConfig(
         skills=SkillsConfig(
-            total=2,
+            total=1,
             registry={
                 "ai-code": SkillEntry(type="workflow", tags=["implementation"]),
-                "ai-analyze-permissions": SkillEntry(type="meta", tags=["permissions"]),
             },
         ),
         agents=AgentsConfig(total=3, names=["plan", "build", "explore"]),
@@ -55,15 +53,6 @@ def test_infer_mutation_classes_from_write_scopes() -> None:
     assert infer_mutation_classes(
         ["src/ai_engineering/state/models.py", ".ai-engineering/specs/plan.md"]
     ) == [MutationClass.CODE_WRITE, MutationClass.READ, MutationClass.SPEC_WRITE]
-
-
-def test_build_capability_cards_models_provider_scoped_skills() -> None:
-    cards = build_capability_cards(_manifest_config())
-    permissions_card = next(card for card in cards if card.name == "ai-analyze-permissions")
-    statuses = {entry.provider: entry.status for entry in permissions_card.provider_compatibility}
-
-    assert statuses["claude-code"] == ProviderCompatibilityStatus.COMPATIBLE
-    assert statuses["github-copilot"] == ProviderCompatibilityStatus.UNSUPPORTED
 
 
 def test_internal_specialist_agent_names_never_become_public_capabilities() -> None:
@@ -122,20 +111,6 @@ def test_read_only_agent_packet_rejects_edit_tool_request() -> None:
 
     assert result.accepted is False
     assert any("cannot request tool scopes: edit" in error for error in result.errors)
-
-
-def test_provider_incompatible_skill_packet_rejects_provider_binding() -> None:
-    cards = build_capability_cards(_manifest_config())
-    packet = CapabilityTaskPacket(
-        taskId="T-provider",
-        ownerRole="ai-analyze-permissions",
-        provider="github-copilot",
-    )
-
-    result = validate_task_packet_acceptance(cards, packet)
-
-    assert result.accepted is False
-    assert any("incompatible with provider github-copilot" in error for error in result.errors)
 
 
 def test_unknown_owner_rejects_packet() -> None:

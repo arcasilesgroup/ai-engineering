@@ -38,7 +38,7 @@ Principles applied: §10.6 SDD (every brief precedes a spec — the spec phase c
 2. **Dispatch parallel research.** Invoke `/ai-explore` (codebase evidence — read-only research) and `/ai-research` (external evidence — multi-tier citation) in parallel. Each runs in its own context window. Wait for both to complete before drafting.
 3. **Compose the 14 sections.** Use the canonical template documented in Brief Shape. Cite at least 5 `file:line` evidence locations across the body. Use placeholder paths (`$HOME/...`) instead of machine-absolute `/Users/...` paths. No emoji per team convention.
 4. **Write the brief.** Output path: `.ai-engineering/specs/drafts/<topic>-brief.md`. YAML frontmatter declares `title`, `status: draft`, `audience`, `branch`, `length_estimate`, `authoring_style`, `principles_required`, `delivery_mode`, `mantra`. Filename slug must be kebab-case.
-5. **Emit handoff token.** Print the relative file path plus the command `/ai-brainstorm --consume <topic>-brief.md` so the operator can advance to the spec phase with a single invocation.
+5. **Emit handoff token.** Print the relative file path plus the command `/ai-brainstorm` so the operator can advance to the spec phase; brainstorm reads the drafted brief as its problem statement.
 6. **Audit.** Emit `framework_event kind=brief_drafted`, `component: ai-spec-draft`, `detail: {topic, path, citations_count}`. The event chains into the standard audit pipeline.
 
 ## Brief Shape (14 canonical sections)
@@ -60,7 +60,7 @@ The brief contract is byte-equivalent across drafts so reviewers and downstream 
 13. **Glossary** — domain terms introduced by the brief.
 14. **Acceptance** — checklist version of Definition of Done.
 
-Existing drafts that follow this shape: `.ai-engineering/specs/drafts/skills-agents-excellence-v2-brief.md`, `cli-ux-overhaul-brief.md`, `dx-excellence-refactor-brief.md`.
+Existing drafts that follow this shape: `.ai-engineering/specs/drafts/cli-ux-overhaul-brief.md`, `dx-excellence-refactor-brief.md`.
 
 ## Citation Discipline
 
@@ -93,7 +93,7 @@ Same flow with broader research scope. The brief lands with 30+ citations spanni
 | Goal | Command |
 |------|---------|
 | Draft a brief | `/ai-spec-draft "<topic>"` |
-| Hand off to spec | `/ai-brainstorm --consume <topic>-brief.md` |
+| Hand off to spec | `/ai-brainstorm` |
 | Survey existing drafts | `ls .ai-engineering/specs/drafts/` |
 
 ## Common Mistakes

@@ -710,7 +710,7 @@ class TestPlatformNeutralContent:
     """Verify canonical skills avoid Claude Code-specific tool references."""
 
     _FORBIDDEN_PATTERNS = ("Agent(", "Write tool", "Read tool", "Bash tool", "run_in_background")
-    _ALLOWED_EXCEPTIONS = frozenset({"ai-analyze-permissions"})
+    _ALLOWED_EXCEPTIONS: frozenset[str] = frozenset()
 
     def test_platform_neutral_content(self) -> None:
         from scripts.sync_command_mirrors import CLAUDE_SKILLS

@@ -130,14 +130,11 @@ _ORCHESTRATOR_TOOLS = {
     CapabilityToolScope.SUBAGENT,
 }
 
-_PROVIDER_SCOPED_SKILLS = {
-    "ai-analyze-permissions": {
-        "claude-code": ProviderCompatibilityStatus.COMPATIBLE,
-        "github-copilot": ProviderCompatibilityStatus.UNSUPPORTED,
-        "codex": ProviderCompatibilityStatus.UNSUPPORTED,
-        "antigravity": ProviderCompatibilityStatus.UNSUPPORTED,
-    }
-}
+# spec-187 D-187-04: the sole provider-scoped skill was hard-deleted. No skill
+# is provider-scoped today; the provider-compatibility card path defaults every
+# skill to COMPATIBLE. Re-add an entry here when a future skill needs
+# per-provider scoping.
+_PROVIDER_SCOPED_SKILLS: dict[str, dict[str, ProviderCompatibilityStatus]] = {}
 
 _SKILL_TYPE_MUTATIONS = {
     "workflow": {MutationClass.READ, MutationClass.ADVISE, MutationClass.SPEC_WRITE},

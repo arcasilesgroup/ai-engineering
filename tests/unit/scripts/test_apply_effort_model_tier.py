@@ -80,19 +80,19 @@ def _build_tree(tmp_path: Path) -> tuple[Path, Path]:
     """Build a synthetic 4-mirror tree under ``tmp_path``.
 
     Returns ``(repo_root, policy_path)``. The ``.github`` mirror omits
-    ``ai-analyze-permissions`` to simulate the live gap.
+    ``ai-claude-only`` to simulate the live gap.
     """
     repo_root = tmp_path / "repo"
     for mirror in [".claude", ".codex", ".agents", ".github"]:
-        for skill in ["ai-demo", "ai-analyze-permissions"]:
-            if mirror == ".github" and skill == "ai-analyze-permissions":
+        for skill in ["ai-demo", "ai-claude-only"]:
+            if mirror == ".github" and skill == "ai-claude-only":
                 continue
             _write_skill_with_legacy(repo_root / mirror / "skills" / skill)
     policy = _write_policy(
         repo_root / "docs" / "model-dispatch-policy.md",
         [
             ("ai-demo", "mid", "sonnet"),
-            ("ai-analyze-permissions", "high", "opus"),
+            ("ai-claude-only", "high", "opus"),
         ],
     )
     return repo_root, policy
@@ -150,7 +150,7 @@ def test_write_mode_is_idempotent(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Test 4 — github mirror gap (ai-analyze-permissions absence) tolerated.
+# Test 4 — github mirror gap (ai-claude-only absence) tolerated.
 # ---------------------------------------------------------------------------
 
 
@@ -159,7 +159,7 @@ def test_github_mirror_gap_tolerated(tmp_path: Path) -> None:
     repo_root, policy = _build_tree(tmp_path)
     mod = _load_script()
     mod.apply_migration(repo_root, policy, check_only=False)
-    gap_path = repo_root / ".github" / "skills" / "ai-analyze-permissions"
+    gap_path = repo_root / ".github" / "skills" / "ai-claude-only"
     assert not gap_path.exists(), "script must not regenerate the github gap"
 
 

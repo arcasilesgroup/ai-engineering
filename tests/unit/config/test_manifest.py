@@ -328,7 +328,8 @@ class TestSkills:
         # /ai-engineering-issue, /ai-spec-draft. spec-134 wave 2 (D-134-07):
         # 51 -> 53 with /ai-advise, /ai-simplify (orphan-agent slash surfaces).
         # spec-165: 53 -> 54 with /ai-session-watch-sweep (scheduled sweep).
-        assert config.skills.total == len(config.skills.registry) == 54
+        # spec-187 D-187-04: 54 -> 53 with /ai-analyze-permissions hard-deleted.
+        assert config.skills.total == len(config.skills.registry) == 53
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

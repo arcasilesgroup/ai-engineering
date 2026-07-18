@@ -112,13 +112,10 @@ Fix: add `config = yaml.safe_load(f) or {}` instead of `config = yaml.safe_load(
 
 ## Stack-specific guidance
 
-spec-133 D-133-10 consolidates stack-specific debug guidance into the
-`.ai-engineering/overrides/<stack>/debug.md` files. When debugging a
-build / compilation failure, load `overrides/<stack>/debug.md` for the
-relevant stack (python, typescript, rust, go, java, kotlin, csharp,
-swift, flutter, react-native, php, ruby). Greenfield mode (stacks=[]):
-follow the generic procedure above and hint
-"add a project file and run `ai-eng doctor --fix`".
+When a stack is active, apply its conventions from
+`.ai-engineering/overrides/<stack>/conventions.md` while isolating the
+fault. Greenfield mode (stacks=[]): follow the generic procedure above
+and run `ai-eng doctor --fix` to seed stack detection.
 
 ## Examples
 

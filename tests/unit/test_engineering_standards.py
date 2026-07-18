@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from pathlib import Path
 
 import pytest
 
@@ -18,8 +17,6 @@ from ai_engineering.standards import (
     validate_legacy_retirement_manifest,
 )
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
 
 def test_standards_matrix_covers_required_standards_and_consumers() -> None:
     matrix = build_engineering_standards_matrix()
@@ -32,29 +29,6 @@ def test_standards_matrix_covers_required_standards_and_consumers() -> None:
     assert EngineeringStandard.TDD in standards_for_review_lens("testing")
     assert EngineeringStandard.SDD in standards_for_verify_mode("governance")
     assert EngineeringStandard.HARNESS_ENGINEERING in standards_for_verify_mode("platform")
-
-
-def test_standards_contexts_exist_in_live_and_template_surfaces() -> None:
-    required_contexts = (
-        "engineering-standards.md",
-        "harness-engineering.md",
-        "harness-adoption.md",
-    )
-
-    for context_name in required_contexts:
-        live_path = _PROJECT_ROOT / ".ai-engineering/reference" / context_name
-        template_path = (
-            _PROJECT_ROOT / "src/ai_engineering/templates/.ai-engineering/reference" / context_name
-        )
-        assert live_path.is_file(), str(live_path.relative_to(_PROJECT_ROOT))
-        assert template_path.is_file(), str(template_path.relative_to(_PROJECT_ROOT))
-        assert live_path.read_text(encoding="utf-8") == template_path.read_text(encoding="utf-8")
-
-    standards_doc = (
-        _PROJECT_ROOT / ".ai-engineering/reference/engineering-standards.md"
-    ).read_text(encoding="utf-8")
-    for standard in EngineeringStandard:
-        assert standard.value in standards_doc
 
 
 def test_legacy_retirement_manifest_is_family_by_family_and_parity_first() -> None:

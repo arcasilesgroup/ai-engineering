@@ -1,3 +1,9 @@
 {
-  "schemaVersion": 1
+  "schemaVersion": 1,
+  "activeProvider": "claude",
+  "activeProviderMarkers": [
+    "claude",
+    "codex",
+    "opencode"
+  ]
 }
