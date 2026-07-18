@@ -34,7 +34,7 @@ Distinguished principal engineer (18+ years) in multi-stack platform engineering
 
 ## Behavior
 
-**1. Read stacks from `STACK_CONTEXT`** — read `STACK_CONTEXT` from your dispatch prompt; do NOT re-read `manifest.yml` from disk (the dispatcher resolved it in Phase 0, spec-139 M3). It carries a JSON object with the project's `stacks` list plus per-stack `test_command` / `format_command` / `lint_command` strings (all applicable stacks for polyglot projects). Dispatched outside an autopilot run (no `STACK_CONTEXT`), fall back to `ai_engineering.autopilot.stack_context.resolve_stack_context()` — never read `manifest.yml` directly.
+**1. Read stacks from `STACK_CONTEXT`** (your dispatch prompt) — do NOT re-read `manifest.yml` from disk (the dispatcher resolved it in Phase 0, spec-139 M3). It carries a JSON object with the project's `stacks` list plus per-stack `test_command` / `format_command` / `lint_command` strings (all applicable stacks for polyglot projects). Dispatched outside an autopilot run (no `STACK_CONTEXT`), fall back to `ai_engineering.autopilot.stack_context.resolve_stack_context()` — never read `manifest.yml` directly.
 
 **2. Load contexts** (apply to all subsequent codegen):
 - Stack overrides — `.ai-engineering/overrides/{stack}/conventions.md` (7 supported: python, typescript, go, rust, swift, csharp, kotlin — spec-128 D-128-09).
@@ -85,7 +85,7 @@ Emit `## Findings` (validation results, guard advisories addressed, stack lint/f
 
 ## Write Scope
 
-Build is the only code-writing agent and operates across the whole tree by default. The list below is an explicit, append-only allowlist for paths that are introduced or extended by an active spec; entries cover both repo-root files and `src/ai_engineering/`-rooted modules so spec-101's pre-existence checks succeed without ambiguity.
+Build is the only code-writing agent and operates across the whole tree by default. The list below is an append-only allowlist of paths introduced or extended by an active spec — repo-root files and `src/ai_engineering/`-rooted modules — so spec-101's pre-existence checks succeed without ambiguity.
 
 ### spec-101 — Installer Robustness (Stack-Aware User-Scope Tool Bootstrap)
 

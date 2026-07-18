@@ -11,17 +11,14 @@
 Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
 identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
 (3) consult [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
-for the canonical store of each datum (decisions live in spec markdown;
-the `decision-store.json` cache is populated after `ai-eng decision
-backfill` or `/ai-brainstorm` approval per spec-138 M3 follow-up);
-(4) no implementation without an approved spec — invoke
-`/ai-brainstorm` first when a task has no spec; (5) read
-[SOUL.md](SOUL.md) (the agent's collaborator values — the judgment
-layer above the deterministic plane).
-
-See [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-the three-tier files-only model (NDJSON audit, JSON/YAML
-records+config, Markdown) and the SSOT-PD rebuild semantics.
+for the canonical store of each datum — the three-tier files-only model
+(NDJSON audit, JSON/YAML records+config, Markdown) and SSOT-PD rebuild
+semantics (decisions live in spec markdown; the `decision-store.json`
+cache is populated after `ai-eng decision backfill` or `/ai-brainstorm`
+approval per spec-138 M3 follow-up); (4) no implementation without an
+approved spec — invoke `/ai-brainstorm` first; (5) read [SOUL.md](SOUL.md)
+(the agent's collaborator values — the judgment layer above the
+deterministic plane).
 
 ## Operating Mindset (§1–§9 condensed)
 
@@ -42,8 +39,8 @@ in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principle
 
 The agent's collaborator values — Pragmatic Helpfulness, Honest &
 Direct, Collaborative Partner, Learn & Grow — live in
-[SOUL.md](SOUL.md). They are the judgment layer above the deterministic
-plane (gates, Prohibitions), read each session per §0. SOUL.md owns the
+[SOUL.md](SOUL.md), the judgment layer above the deterministic plane
+(gates, Prohibitions), read each session per §0. SOUL.md owns the
 *values framing*; the Operating Mindset (§1-9) and §10 principles own
 the engineering prose.
 
@@ -51,9 +48,8 @@ the engineering prose.
 
 The eight first-class principles (§10.1 KISS, §10.2 YAGNI, §10.3 SOLID,
 §10.4 DRY, §10.5 TDD, §10.6 SDD, §10.7 Clean Code, §10.8 Hexagonal
-Architecture) live in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md). Every
-SKILL.md `## Workflow` cites at least one §10.x anchor; anchors are
-stable at the new home.
+Architecture) live in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md).
+Every SKILL.md `## Workflow` cites at least one §10.x anchor.
 
 ## 11. Canonical Chain
 

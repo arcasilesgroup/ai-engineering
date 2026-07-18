@@ -38,13 +38,6 @@ Principles: §10.6 SDD (every warning traces to an active decision or stack stan
 5. **Render** — emit the advisory table grouped by severity (`concern` → `warn` → `info`). Each row: `File | Finding | Recommendation | Anchor`, where Anchor is the standard or active decision the finding traces to.
 6. **Audit** — emit `framework_event` `kind=advisory_emitted` with `{mode, file_count, warning_count, severity_distribution}`. Never emit `BLOCK`/`FAIL` outcomes — those belong to `/ai-verify` and git hooks.
 
-## When to Use
-
-- In-flight feature edit — catch standard drift before commit.
-- Before dispatching a multi-task plan — confirm scope respects governance boundaries (`gate`).
-- On-demand — audit code alignment with the active architectural decision set (`drift`).
-- When you want advisory feedback, not an evidence-backed BLOCK verdict (use `/ai-verify` for that).
-
 ## Modes
 
 | Mode | Trigger | Agent action |
@@ -55,7 +48,7 @@ Principles: §10.6 SDD (every warning traces to an active decision or stack stan
 
 ## Output Contract
 
-Grouped by severity, rendered as a markdown table. Severity scale: `info` < `warn` < `concern`. Never `error`/`critical`/`blocker` — those belong to verify and git hooks.
+Grouped by severity, rendered as a markdown table. Severity scale: `info` < `warn` < `concern` (never `error`/`critical`/`blocker`).
 
 ```markdown
 # Guard Advisory: <mode>
@@ -99,7 +92,7 @@ User: "advise on the changes I just made under src/auth/"
 /ai-advise advise src/auth/
 ```
 
-Dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`. The agent loads cross-cutting standards (`core.md`, `quality/core.md`) plus the Python stack overrides, checks decision drift against `decision-store.json` rows intersecting `src/auth/`, and returns two `warn` findings (a complexity trend near the cyclomatic ceiling; a missing telemetry field per an active observability decision). The skill renders the advisory and emits a `framework_event`. No code modified.
+Dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`: it loads cross-cutting + Python-stack standards, checks decision drift against `decision-store.json` rows intersecting `src/auth/`, and returns severity-tagged `warn` findings. The skill renders the advisory and emits a `framework_event`. No code modified.
 
 ## Integration
 

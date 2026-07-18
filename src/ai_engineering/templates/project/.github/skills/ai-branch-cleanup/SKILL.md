@@ -44,7 +44,7 @@ Default (no flags) ≡ `--all`: runs Phase 0a → 0 → 1 → 3 → 4 → 5 → 
 
 ### Phase 0a — Instinct consolidation (default / `--all`, fail-open)
 
-- Consolidate session learnings BEFORE switching branches: if `.ai-engineering/observations/observations.yml` exists, run `/ai-session-watch --review` to fold this session's observations (especially the LLM-only `corrections` family) into the corpus. Closes the no-commit/no-PR gap so a session ending at tidy-up — without a `/ai-commit` or `/ai-pr` having run `--review` — still consolidates instead of losing its learnings. Skip silently when the file is absent (fail-open) or when a single-purpose flag (`--branches`/`--sync`/`--specs`/`--runtime`/`--consolidate-spec`) was passed without `--all`. Mirrors `/ai-pr` Step 2 and `/ai-commit` Step 2.
+- Consolidate session learnings BEFORE switching branches: if `.ai-engineering/observations/observations.yml` exists, run `/ai-session-watch --review` to fold this session's observations (especially the LLM-only `corrections` family) into the corpus — closing the no-commit/no-PR gap where a tidy-up ends a session that never ran `--review`. Skip silently when the file is absent (fail-open) or when a single-purpose flag (`--branches`/`--sync`/`--specs`/`--runtime`/`--consolidate-spec`) ran without `--all`. Mirrors `/ai-pr` Step 2 and `/ai-commit` Step 2.
 
 ### Phase 0 — Safe migration (`--sync` or `--all`)
 

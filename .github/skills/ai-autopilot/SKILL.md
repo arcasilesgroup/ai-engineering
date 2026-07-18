@@ -17,17 +17,16 @@ edit_policy: generated-do-not-edit
 
 ## Purpose
 
-Autonomous execution of large approved specs via a 6-phase pipeline: decompose a spec into N focused sub-specs, deep-plan each with parallel agents, orchestrate a dependency-aware execution DAG, implement in waves, run a single final verify+guard+review pass with one bounded quality-remediation pass on the full changeset, and deliver via PR with a transparency report. One invocation, zero interruptions, full disclosure. Not complete until sub-spec work converges into a final delivery PR against protected main.
+Autonomous execution of large approved specs via a 6-phase pipeline: decompose into N focused sub-specs, deep-plan each with parallel agents, orchestrate a dependency-aware DAG, implement in waves, run one final verify+guard+review pass (with one bounded quality-remediation pass on the full changeset), deliver via PR with a transparency report. One invocation, full disclosure. Done only when sub-spec work converges into a delivery PR against protected main.
 
-Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions into subagent prompts (no inline implementation). When those skills improve, autopilot inherits it.
+Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions into subagent prompts (no inline implementation), so autopilot inherits their improvements.
 
 ## When to Use
 
 - Spec has ≥3 independent concerns or touches ≥10 files.
 - After `/ai-brainstorm` approval (spec.md exists, not a placeholder).
 - Backlog runs via `--backlog --source <github|ado|local>` — absorb GitHub issues, Azure Boards items, or a markdown task list into the DAG (D-127-12; replaces the legacy `/ai-run` skill).
-- Manual `/ai-build` would overflow context in a single session.
-- Multi-concern work benefiting from parallel intelligence gathering + DAG-driven execution.
+- Manual `/ai-build` would overflow a single context window, or the work benefits from parallel intelligence gathering + DAG-driven execution.
 
 ## When NOT to Use
 
@@ -65,7 +64,7 @@ Thin orchestrator: phases READ other skills' SKILL.md and EMBED instructions int
 
 ## Dispatch threshold
 
-Dispatch the `ai-autopilot` agent when work matches "When to Use" (≥3 concerns, ≥10 files, post-`/ai-brainstorm` approval, or any `--backlog`). For smaller scope, hand off to `/ai-build`. The agent file (`.github/agents/autopilot.agent.md`) is the orchestrator handle; the procedural contract lives in this SKILL.md.
+Dispatch the `ai-autopilot` agent when work matches "When to Use" (≥3 concerns, ≥10 files, post-`/ai-brainstorm` approval, or any `--backlog`); smaller scope hands off to `/ai-build`. The agent handle is `.github/agents/autopilot.agent.md`; the procedural contract lives in this SKILL.md.
 
 ## Governance
 

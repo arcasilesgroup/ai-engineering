@@ -74,9 +74,7 @@ Each run emits one `framework_operation`:
 
 ## Common Mistakes
 
-- Auto-merging the resulting PR — the skill MUST open a draft; merge requires a human.
-- Running aggressive simplify modes — conservative only.
-- Running more often than weekly — sub-weekly runs flood reviewers with noisy PRs.
+- Running more often than weekly — sub-weekly runs flood reviewers with noisy PRs (auto-merge and aggressive modes are already barred by Hard Rules).
 
 ## Examples
 
@@ -98,6 +96,5 @@ Called by: operator manually. Calls: `/ai-simplify` (conservative mode), `/ai-co
 
 ## References
 
-- Skill source of truth: `.agents/skills/ai-simplify-sweep/SKILL.md`
 - Related: `.agents/skills/ai-simplify/SKILL.md`
 - Manifest entry: `.ai-engineering/manifest.yml` `skills.registry.ai-simplify-sweep`

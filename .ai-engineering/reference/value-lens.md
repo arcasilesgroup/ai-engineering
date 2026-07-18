@@ -4,28 +4,26 @@
 
 The chain skills (`/ai-brainstorm`, `/ai-plan`, `/ai-build`, `/ai-autopilot`,
 `/ai-pr`) produce excellent machine artifacts, but every human-facing moment is
-authored for an engineer. A non-technical sponsor — a product owner, a client,
-or an autonomous agentic company acting as one — must be able to answer three
-questions without decoding the mechanism: **what changed, why it matters, and
-what it risks or unlocks.**
+authored for an engineer. A non-technical sponsor — product owner, client, or an
+autonomous agentic company acting as one — must answer three questions without
+decoding the mechanism: **what changed, why it matters, and what it risks or
+unlocks.**
 
-The Client-Value Lens is the discipline that makes that true. It renders every
-user-facing report *and every question a skill asks* as a concise,
-non-technical, agile-framed value statement — answer first, detail on request,
-jargon on a leash — and never at the cost of a precise gate, commit, or security
-warning.
+The lens renders every user-facing report *and every question a skill asks* as a
+concise, non-technical, agile-framed value statement — answer first, detail on
+request, jargon on a leash — never at the cost of a precise gate, commit, or
+security warning.
 
-It is orthogonal to the caveman (how you talk — terse) and ponytail (what you
-build — minimal) plugins: the lens governs *how you frame value*. Unlike those
-host-level plugins, it ships with the framework, so an autonomous consumer gets
-the value signal with nothing extra installed.
+It is orthogonal to the caveman (terse) and ponytail (minimal) plugins: the lens
+governs *how you frame value*. Unlike those host-level plugins it ships with the
+framework, so an autonomous consumer gets the value signal with nothing extra
+installed.
 
 ## The value block (canonical form)
 
 A fixed-field, BLUF-ordered form — not free prose. Answer first (Field 1),
-support (Fields 2-5), evidence (Field 6). An exec reads Field 1 and stops; a PO
-reads 1-5; an engineer expands Field 6. Each field is length-capped to fight
-verbosity.
+support (Fields 2-5), evidence (Field 6): an exec reads Field 1 and stops, a PO
+reads 1-5, an engineer expands Field 6. Each field is length-capped.
 
 | # | Field | Holds | Cap |
 |---|-------|-------|-----|
@@ -38,7 +36,7 @@ verbosity.
 
 ## Audience ladder
 
-Repurposed from caveman's intensity levels to audience depth. Selected via
+Audience depth (from caveman's intensity levels). Selected via
 `AIENG_VALUE_LENS_LEVEL` env, then `manifest.value_lens.default_level`, then the
 built-in default `full`.
 
@@ -51,19 +49,19 @@ built-in default `full`.
 ## Applies to questions, not only reports
 
 The lens governs every point where a skill addresses the human — interrogation
-questions, approach proposals, and approval asks — as well as end-of-phase
-report blocks. A value block on the report is worthless if the sponsor could not
-understand the question that shaped it. Questions carry plain-language framing
-and per-option trade-offs (impact, effort, risk) so a PO can answer meaningfully.
+questions, approach proposals, approval asks — as well as end-of-phase report
+blocks. A value block is worthless if the sponsor could not understand the
+question that shaped it, so questions carry plain-language framing and per-option
+trade-offs (impact, effort, risk).
 
 Cadence: every user-facing interaction point (question or report), NOT internal
 working turns (tool calls, intermediate reasoning, routine acknowledgements).
 
 ## Carve-outs (load-bearing)
 
-The lens is applied to the *summary for the sponsor*. It is **never** applied to
-the exact output it summarizes. The following stay precise and normal — write
-them exactly as you would with no lens active:
+The lens applies to the *summary for the sponsor*, **never** to the exact output
+it summarizes. These stay precise and normal — write them exactly as with no
+lens active:
 
 - source code
 - commit messages
@@ -73,13 +71,13 @@ them exactly as you would with no lens active:
 - gate verdicts (pass/block and the reason)
 - irreversible-action confirmations
 
-Value framing that softened a security warning or blurred a gate verdict would
-be a governance regression. The block *summarizes* exact output for the sponsor;
-it never replaces or softens it.
+Value framing that softened a security warning or blurred a gate verdict is a
+governance regression. The block *summarizes* exact output; it never replaces or
+softens it.
 
 When caveman is also active, the value block is a carve-out from caveman
-compression: it renders in full (a fragment-compressed block would destroy the
-sponsor framing) while surrounding chatter may stay terse.
+compression: it renders in full (fragment-compression would destroy the sponsor
+framing) while surrounding chatter may stay terse.
 
 ## Anti-verbosity guardrails
 
@@ -94,8 +92,7 @@ sponsor framing) while surrounding chatter may stay terse.
 ## Adoption contract
 
 A chain skill adopts the lens by citing this document
-(`reference/value-lens.md`) at its user-facing report step and, where it asks
-the human anything, at its question step. Adoption is enforced by a blocking
-`skill_lint` check (`tools/skill_lint/checks/value_block.py`) that fails if any
-of the five chain skills omits the citation. See `spec-186` decisions
-D-186-01 through D-186-10.
+(`reference/value-lens.md`) at its user-facing report step and, where it asks the
+human anything, at its question step. Enforced by a blocking `skill_lint` check
+(`tools/skill_lint/checks/value_block.py`) that fails if any of the five chain
+skills omits the citation. See `spec-186` decisions D-186-01 through D-186-10.

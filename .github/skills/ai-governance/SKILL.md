@@ -54,7 +54,7 @@ Step 0 — load contexts: read `.ai-engineering/manifest.yml` `providers.stacks`
 
 ## Examples
 
-### Example 1 — pre-release compliance report
+### Example — pre-release compliance report
 
 User: "generate a formal compliance report I can hand to auditors"
 
@@ -62,17 +62,7 @@ User: "generate a formal compliance report I can hand to auditors"
 /ai-governance --report
 ```
 
-Walks the compliance checks, scores against the rubric, emits a Markdown report with findings table, gate status, and verdict (PASS / WARN / FAIL).
-
-### Example 2 — accept a known risk
-
-User: "we've reviewed the gitleaks finding and want to accept it for 30 days"
-
-```
-/ai-governance risk accept
-```
-
-Records a risk-acceptance entry in `decision-store.json` with severity-based TTL, mandatory `follow_up_action`, and an audit trail consumed by pre-push.
+Walks the compliance checks, scores against the rubric, emits a Markdown report with findings table, gate status, and verdict (PASS / WARN / FAIL). (`/ai-governance risk accept` instead records a risk-acceptance entry in `decision-store.json` with severity-based TTL, a mandatory `follow_up_action`, and a pre-push-consumed audit trail.)
 
 ## Integration
 

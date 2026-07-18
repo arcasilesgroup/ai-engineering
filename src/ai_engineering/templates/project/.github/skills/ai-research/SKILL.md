@@ -32,8 +32,6 @@ Multi-tier, multi-source, citation-first research with persistent artifact reuse
 
 **Off-ramp — use `/ai-explore` instead** when the source-of-truth lives INSIDE this repo (architecture, dependency graph, pattern usage): it is read-only, codebase-only, and produces a structured architecture map, not a cited narrative.
 
-Do NOT use for: refactoring, writing scripts from scratch, debugging business logic, code review, or general programming concepts.
-
 ## Process
 
 Order is the **execution timeline**, not a strict gate sequence — Tier 3 is *launched* first (step 2) and *harvested* last (step 6), running concurrently with fast Tiers 0-2.
@@ -51,7 +49,7 @@ Order is the **execution timeline**, not a strict gate sequence — Tier 3 is *l
 
 - **Tier 3 is default-on when available** — no flag enables it. It launches whenever `notebooklm doctor` exits 0 (D-175-04); the old source-count / comparative heuristics are gone (count is unknowable at T0).
 - `--depth quick|standard|deep` (default `standard`). Controls **Tier 0-2** escalation only: `quick` = Tier 0+1; `standard` adds Tier 2; `deep` widens the fast tiers. Does NOT gate Tier 3.
-- `--reuse-notebook=<id>` (opt-in). Re-attach to an existing notebook (CLI `-n <id>`) instead of creating one, and harvest its report. Primary use: following up a prior run whose harvest timed out — the earlier run persisted `notebook_id` while the detached `--import-all` job kept running, and this retrieves the now-finished report (AC6).
+- `--reuse-notebook=<id>` (opt-in). Re-attach to an existing notebook (CLI `-n <id>`) and harvest its report instead of creating one. Primary use: a prior run whose harvest timed out persisted `notebook_id` while the detached `--import-all` job kept running — this retrieves the now-finished report (AC6).
 - `--persist` (opt-in). Forces persistence even when Tier 3 was not invoked (Tier-3 runs auto-persist).
 - `--allowed-domains a.com,b.com` / `--blocked-domains x.com,y.com` — pass-through to every available provider (Tavily, Exa, built-in).
 
@@ -82,7 +80,7 @@ Synthesized response in agent context PLUS, when persisted, a Markdown artifact 
 <verbatim deep-research report>  # bounded harvest completed within the wait window
 ```
 
-`## Question`, `## Findings`, `## Recommended Directions`, `## Sources`, `## Notebook Reference` are always present. `## Deep Research Report` is appended only when the harvest completed (non-empty `report_markdown`); on timeout it is absent but `notebook_id` is recorded so a `--reuse-notebook=<id>` follow-up can retrieve it.
+All sections except `## Deep Research Report` are always present; it is appended only when the harvest completed (non-empty `report_markdown`). On timeout it is absent but `notebook_id` is recorded so a `--reuse-notebook=<id>` follow-up retrieves it.
 
 ## Common Mistakes
 
@@ -104,7 +102,7 @@ User: "deep research on event-sourcing vs CQRS for fintech ledgers, save it for 
 /ai-research "event sourcing vs CQRS for fintech ledgers" --depth deep --persist
 ```
 
-NotebookLM deep research launches at T0 (no flag — default-on when available) and overlaps Tiers 0-2 (Tier 2 fans out Tavily ‖ Exa ‖ built-in WebSearch concurrently). The harvested report and discovered sources fuse with the tier sources; the artifact at `.ai-engineering/runtime/research/<slug>-<date>.md` carries `## Deep Research Report` and `notebook_id` so future invocations short-circuit at Tier 0. If NotebookLM is absent the run completes on Tiers 0-2 and notes the degraded source. If a prior harvest timed out, follow up with `--reuse-notebook=<id>` to retrieve the now-finished report (AC6).
+NotebookLM launches at T0 (default-on) and overlaps Tiers 0-2 (Tavily ‖ Exa ‖ built-in WebSearch fan out concurrently). The harvested report + discovered sources fuse with tier sources; the artifact at `.ai-engineering/runtime/research/<slug>-<date>.md` carries `## Deep Research Report` and `notebook_id`, so future runs short-circuit at Tier 0. NotebookLM absent → run completes on Tiers 0-2, degraded source noted. Prior harvest timed out → `--reuse-notebook=<id>` retrieves the now-finished report (AC6).
 
 ## Integration
 

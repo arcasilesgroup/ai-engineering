@@ -16,11 +16,8 @@ edit_policy: generated-do-not-edit
 
 Eval-Driven Development (EDD): evals are the unit tests of AI development. Define pass/fail
 criteria before writing code; measure AI reliability with pass@k metrics; track regressions
-across prompt, agent, and model changes. Evals answer: "Can the AI do this reliably?"
-
-Distinction: `/ai-verify` checks current code quality (linting, coverage, security).
-`/ai-reliability-eval` measures AI reliability over time (can the agent complete this task
-consistently?).
+across prompt, agent, and model changes. Evals answer "Can the AI do this reliably?" —
+distinct from `/ai-verify`, which checks current code quality (linting, coverage, security).
 
 ## Quick start
 

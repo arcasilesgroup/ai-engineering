@@ -78,9 +78,7 @@ Each run emits one `framework_operation` event:
 
 ## Common Mistakes
 
-- Auto-merging the resulting PR — must stay draft; merge requires a human.
-- Auto-filing work items in the unattended run — suppressed by design (D-164 board-spam risk).
-- Running more frequently than weekly — sub-weekly runs flood reviewers with noisy PRs.
+- Running more frequently than weekly — sub-weekly runs flood reviewers with noisy PRs (auto-merge and auto-file are already barred by Hard Rules; D-164 board-spam risk).
 
 ## Examples
 
@@ -107,6 +105,5 @@ review).
 
 ## References
 
-- Skill source of truth: `.cursor/skills/ai-session-watch-sweep/SKILL.md`
 - Related: `.cursor/skills/ai-session-watch/SKILL.md`, `.cursor/skills/ai-simplify-sweep/SKILL.md`
 - Manifest entry: `.ai-engineering/manifest.yml` `skills.registry.ai-session-watch-sweep`

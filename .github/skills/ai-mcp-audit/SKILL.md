@@ -85,17 +85,6 @@ Does NOT replace `/ai-security` (CVE/SBOM), `/ai-governance` (compliance), or `/
 - `--target all` regenerates the entire baseline (confirmation prompt). Without a baseline, Mode 2 errors.
 - Canonical-JSON `sort_keys=True` for stability; candidate for H2 hash-chained audit trail (D-107-10).
 
-## Triggering Patterns
-
-| User intent | Mode |
-| --- | --- |
-| "audit this skill", "is this safe?", "check coherence" | `scan` |
-| post-install of new skill or MCP server | `scan --target <new-skill>` |
-| "did this rug-pull?", "what changed semantically?" | `audit-update <skill>` |
-| post-update of existing skill (especially auto-update) | `audit-update <skill>` |
-| "anchor baseline", "snapshot known-good" | `baseline set` |
-| post-fresh-clone | `baseline set --target all` |
-
 ## Non-Goals
 
 - No automatic invocation (Q6-3B + OQ-2) — cold-path on-demand only.

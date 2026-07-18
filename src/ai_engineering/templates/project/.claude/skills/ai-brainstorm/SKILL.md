@@ -19,7 +19,7 @@ Design-interrogation skill: forces rigorous thinking BEFORE any code and produce
 
 ## Workflow
 
-Principle: §10.6 SDD — this skill produces the spec; **HARD GATE**: no implementation runs until the operator explicitly approves it. Steps keep their historical labels.
+Principle: §10.6 SDD — this skill produces the spec. **HARD GATE**: no implementation runs until the operator explicitly approves it.
 
 - **-1. Live-slot guard** (D-167-05) — UNLESS `--consolidate-spec`, run `python .ai-engineering/scripts/spec_lifecycle.py slot_status` BEFORE any `spec.md` write (Step 6 and the Step 0b condensed path both write). If JSON reports `occupied: true` AND `state` ≠ `shipped`: surface `spec_id`/`slug`/`state` and ask the operator to consolidate first (`/ai-brainstorm --consolidate-spec <slug>`) or confirm the overwrite. On `occupied: false`, `shipped`, or any script error: proceed silently. Fail-open — advisory, never blocks interrogation.
 - **0a. Fast-path `--consolidate-spec <slug>`** — read `.claude/skills/_shared/consolidate-spec.md` and run the shared handler (resolve record, append `_history.md` row via `spec_lifecycle.py mark_shipped`, clear `spec.md`/`plan.md` to placeholders). STOP after consolidation — no interrogation. Fail-open on missing script.

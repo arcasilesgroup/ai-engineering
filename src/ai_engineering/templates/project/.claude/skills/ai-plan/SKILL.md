@@ -34,8 +34,8 @@ Principles: §10.6 SDD (approved spec is the contract), §10.3 SOLID (single-con
 4. **Classify pipeline** — full / standard / hotfix / trivial (table below).
 5. **Classify executor route** — write `execution_route` frontmatter: `executor: build` + `safe_next_command: "/ai-build"` for single-concern, or `executor: autopilot` + `safe_next_command: "/ai-autopilot"` for multi-concern/large. `status` stays the only approval field; drafts are recommendations. Emit `framework_operation` detail `operation=execution_routed`.
 6. **Design routing** — invoke `handlers/design-routing.md`; capture at `.ai-engineering/specs/<spec-id>/design-intent.md` under `## Design`. `--skip-design` logs reason + proceeds.
-7. **Architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`; record under `## Architecture` BEFORE decomposition.
-8. **Decompose** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered; apply the patch-ready template below (D-131-08 / sub-003).
+7. **Identify architecture pattern** — read `architecture-patterns.md`; pick a canonical pattern or `ad-hoc`; record under `## Architecture` BEFORE decomposition.
+8. **Decompose into tasks** — bite-sized (2-5 min), single-agent, single-concern, verifiable, ordered; apply the patch-ready template below (D-131-08 / sub-003).
 9. **Assign agents** — capability-match (build = code; verify = read-only; guard = advisory).
 10. **Order phases + gates** — TDD pairs: a RED test task before any GREEN implementation task.
 11. **Self-review** — spec-reviewer pattern, max 2 iterations.

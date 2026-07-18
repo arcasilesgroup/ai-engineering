@@ -54,11 +54,11 @@ Anything outside those families is out of scope.
 
 ### `/ai-session-watch` (listening mode)
 
-Enter passive observation mode for the session. Output ONLY this single line, then go silent:
+Enter passive observation mode. Output ONLY this single line, then go silent:
 
 > observing the session...
 
-Do nothing else. Do not read files. Do not produce analysis. The LLM passively observes corrections, error recoveries, and workflow patterns as the session continues. Observations are consolidated only when `--review` is invoked.
+Do nothing else — no file reads, no analysis. The LLM passively notes corrections, recoveries, and workflow patterns; consolidation happens only on `--review`.
 
 ### `/ai-session-watch --review` (consolidation)
 
@@ -185,7 +185,7 @@ User: "review what was learned in this session before I commit"
 /ai-session-watch --review
 ```
 
-Runs the 5-step consolidation: extract observations from the conversation, enrich with hook events, upsert into `observations.yml`, evaluate against LESSONS.md, and create work items for high-confidence proposals. (Bare `/ai-session-watch` instead just prints `observing the session...` and goes silent until `--review`.)
+Runs the 5-step consolidation: extract → enrich with hook events → upsert into `observations.yml` → evaluate against LESSONS.md → create work items for high-confidence proposals. (Bare `/ai-session-watch` just prints `observing the session...` and stays silent until `--review`.)
 
 ## Integration
 

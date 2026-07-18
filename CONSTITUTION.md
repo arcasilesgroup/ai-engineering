@@ -144,8 +144,7 @@ AI authoring is the cost-driver and auditability is the bar.
   application source, tests, configuration, CI workflows
   specific to the team's product surface.
 - **Generated mirrors carry `DO NOT EDIT` headers** and
-  `linguist-generated=true`. The deterministic plane reverts
-  manual edits on the next sync.
+  `linguist-generated=true`.
 
 ## Escalation
 
@@ -183,15 +182,14 @@ risk-acceptance ledger, hooks manifest) is frozen modulo ADR.
 <!--
 ADAPTATION NOTE (spec-131 D-131-04)
 
-This CONSTITUTION.md was rescoped on 2026-05-11 from a 13-Article
-AI-behaviour document into a 10-section project-identity contract.
-The pre-migration body is rotated verbatim to
-`.ai-engineering/specs/archive/constitution-rotations/2026-05-11.md` for
-traceability per R-131-03. All AI-behaviour content migrated to
-`src/ai_engineering/templates/project/CANONICAL.md` §§1-13 and is
-mirrored byte-equivalent into AGENTS.md / CLAUDE.md / GEMINI.md /
-.github/copilot-instructions.md by
-`scripts/sync_mirrors/core.py`.
+Rescoped 2026-05-11 from a 13-Article AI-behaviour document into a
+10-section project-identity contract. Pre-migration body rotated
+verbatim to
+`.ai-engineering/specs/archive/constitution-rotations/2026-05-11.md`
+(traceability per R-131-03). AI-behaviour content migrated to
+`src/ai_engineering/templates/project/CANONICAL.md` §§1-13, mirrored
+byte-equivalent into AGENTS.md / CLAUDE.md / GEMINI.md /
+.github/copilot-instructions.md by `scripts/sync_mirrors/core.py`.
 
 Governance metadata:
 - spec_ref: spec-131 (DX Excellence Refactor)
