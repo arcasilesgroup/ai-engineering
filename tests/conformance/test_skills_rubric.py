@@ -135,9 +135,9 @@ def test_rule_5_required_sections(skills_report) -> None:
         for r in skills_report.per_skill
         if (rr := r.rule_for("rule_5_required_sections")) and rr.severity in {"MAJOR", "CRITICAL"}
     ]
+    detail = [(r.path.name, r.rule_for("rule_5_required_sections").reason) for r in hard]
     assert len(hard) <= 2, (
-        "rule_5: MAJOR/CRITICAL missing-section flags must be ≤2; got "
-        f"{len(hard)}: {[(r.path.name, r.rule_for('rule_5_required_sections').reason) for r in hard][:10]}"
+        f"rule_5: MAJOR/CRITICAL missing-section flags must be ≤2; got {len(hard)}: {detail[:10]}"
     )
 
 
