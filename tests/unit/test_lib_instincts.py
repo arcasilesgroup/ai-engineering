@@ -168,6 +168,45 @@ class TestDeriveOutcome:
     def test_unknown_without_tool_name(self) -> None:
         assert instincts._derive_outcome({}) == "unknown"
 
+    def test_tool_response_dict_is_error_means_failure(self) -> None:
+        # A real tool failure envelope: is_error is truthy even though
+        # tool_name is set (which would otherwise fall through to success).
+        assert (
+            instincts._derive_outcome(
+                {
+                    "tool_name": "Bash",
+                    "tool_response": {"is_error": True, "stderr": "boom"},
+                }
+            )
+            == "failure"
+        )
+
+    def test_tool_response_string_error_hint_means_failure(self) -> None:
+        assert (
+            instincts._derive_outcome(
+                {"tool_name": "Read", "tool_response": "File read error occurred"}
+            )
+            == "failure"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 4b. _build_observation_detail surfaces tool_response text
+# ---------------------------------------------------------------------------
+
+
+class TestBuildObservationDetailToolResponse:
+    def test_tool_response_text_reaches_output_summary(self) -> None:
+        detail = instincts._build_observation_detail(
+            {
+                "tool_name": "Bash",
+                "tool_response": {"is_error": True, "stderr": "boom happened"},
+            },
+            hook_event="PostToolUse",
+        )
+        assert "boom happened" in detail["output_summary"]
+        assert detail["error_flag"] is True
+
 
 # ---------------------------------------------------------------------------
 # 5. _sanitize_text truncates at 160 chars and redacts secrets

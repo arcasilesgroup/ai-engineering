@@ -228,6 +228,64 @@ class TestSpecVerifyCli:
         assert "auto-fixed" in err.lower()
 
 
+class TestSpecVerifySignalOutcome:
+    """spec-190 D-190-04: spec_verified emit outcome reflects drift correction."""
+
+    def _drifting_plan(self, root: Path) -> None:
+        _create_plan_md(root, total=5, completed=2)
+        plan_path = root / ".ai-engineering" / "specs" / "plan.md"
+        plan_path.write_text(
+            "---\ntotal: 5\ncompleted: 2\n---\n\n- [x] A\n- [x] B\n- [x] C\n- [ ] D\n- [ ] E\n"
+        )
+
+    def test_uncorrected_drift_emits_failure_outcome(self, tmp_path: Path) -> None:
+        """Drift present with no --fix must emit outcome='failure'."""
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands import spec_cmd
+
+        self._drifting_plan(tmp_path)
+        with (
+            patch.object(spec_cmd, "find_project_root", return_value=tmp_path),
+            patch.object(spec_cmd, "emit_framework_operation") as emit,
+        ):
+            spec_cmd.spec_verify()
+
+        emit.assert_called_once()
+        assert emit.call_args.kwargs["outcome"] == "failure"
+
+    def test_corrected_drift_emits_success_outcome(self, tmp_path: Path) -> None:
+        """Drift auto-corrected with --fix must emit outcome='success'."""
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands import spec_cmd
+
+        self._drifting_plan(tmp_path)
+        with (
+            patch.object(spec_cmd, "find_project_root", return_value=tmp_path),
+            patch.object(spec_cmd, "emit_framework_operation") as emit,
+        ):
+            spec_cmd.spec_verify(fix=True)
+
+        emit.assert_called_once()
+        assert emit.call_args.kwargs["outcome"] == "success"
+
+    def test_no_drift_does_not_emit(self, tmp_path: Path) -> None:
+        """Clean counters must not emit a spec_verified heartbeat at all."""
+        from unittest.mock import patch
+
+        from ai_engineering.cli_commands import spec_cmd
+
+        _create_plan_md(tmp_path, total=3, completed=1)
+        with (
+            patch.object(spec_cmd, "find_project_root", return_value=tmp_path),
+            patch.object(spec_cmd, "emit_framework_operation") as emit,
+        ):
+            spec_cmd.spec_verify()
+
+        emit.assert_not_called()
+
+
 class TestSpecListCli:
     """Tests for spec_list CLI function."""
 

@@ -225,6 +225,21 @@ skillAgentPreferences:
         assert obs is not None
         assert obs.outcome == "failure"
 
+    def test_derive_outcome_failure_from_tool_response(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        obs = append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PostToolUse",
+            session_id="session-resp-err",
+            data={
+                "tool_name": "Bash",
+                "tool_response": {"is_error": True, "stderr": "boom"},
+            },
+        )
+        assert obs is not None
+        assert obs.outcome == "failure"
+
     def test_coerce_text_with_list_and_dict_without_output_keys(self, tmp_path: Path) -> None:
         from ai_engineering.state.instincts import _coerce_text
 
