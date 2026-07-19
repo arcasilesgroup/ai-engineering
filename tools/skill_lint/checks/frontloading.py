@@ -147,9 +147,9 @@ def check_frontloading(
 ) -> list[tuple[Path, RubricResult]]:
     """Walk canonical skills + agents and run the front-loading rule.
 
-    Returns ``[(path, RubricResult), ...]`` sorted by path. Advisory in
-    Phase 1 (``required=False``) — a follow-up flips it to blocking once
-    the fleet baseline is clean (spec-189 T-17).
+    Returns ``[(path, RubricResult), ...]`` sorted by path. BLOCKING as of
+    spec-189 T-17 (D-189-08): a MAJOR / CRITICAL drives ``skill_lint``
+    exit 1 now that the fleet baseline is clean.
     """
     results: list[tuple[Path, RubricResult]] = []
 

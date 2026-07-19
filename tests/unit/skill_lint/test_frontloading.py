@@ -137,6 +137,22 @@ def test_live_corpus_runs_without_crashing() -> None:
         assert result.reason.isascii()
 
 
+def test_live_corpus_is_blocking_green() -> None:
+    """The real fleet baseline is clean: 0 MAJOR/CRITICAL front-loading findings.
+
+    T-17 (D-189-08) flipped this lint to BLOCKING once Wave 3 fixed all 49
+    violations. This locks the clean baseline so a future regression
+    (a body that buries its bottom-line) reds CI, mirroring the W5
+    blocking-green assertion in ``test_portability.py``.
+    """
+    results = check_frontloading(
+        _REPO_ROOT / ".claude" / "skills",
+        _REPO_ROOT / ".claude" / "agents",
+    )
+    blocking = [(path, r) for path, r in results if r.severity in ("MAJOR", "CRITICAL")]
+    assert not blocking, [f"{path}: {r.reason}" for path, r in blocking]
+
+
 def test_rejects_bad_severity() -> None:
     from skill_lint.checks.frontloading import RubricResult
 

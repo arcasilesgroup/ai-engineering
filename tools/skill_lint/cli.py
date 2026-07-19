@@ -52,6 +52,7 @@ def _exit_code(
     portability_results: list | None = None,
     structure_results: list | None = None,
     token_budget_results: list | None = None,
+    frontloading_results: list | None = None,
 ) -> int:
     """Map grade counts + extra-check severities to a CLI exit code.
 
@@ -86,6 +87,12 @@ def _exit_code(
       * Any MAJOR / CRITICAL from ``token_budget`` → exit 1. The
         Anthropic frontmatter caps (description over 1024 chars, name
         over 64 chars, reserved word) are crisp and hard-fail.
+
+    spec-189 T-17 (D-189-08 — flip the front-loading/BLUF lint to blocking):
+      * Any MAJOR / CRITICAL from ``front_loading`` → exit 1. The fleet
+        baseline is clean (Wave 3 fixed all 49 violations), so a MAJOR
+        now means a real regression: a body that buries the bottom-line
+        instead of front-loading it for weaker open-weight models.
     """
     # principles_results intentionally consumed for signature parity;
     # advisory-only in sub-001 (R-1.6).
@@ -109,9 +116,16 @@ def _exit_code(
     # spec-187 W5 (D-187-07): portability / structure / token_budget are
     # BLOCKING on MAJOR / CRITICAL. The structure procedure-ratio heuristic
     # is emitted at MINOR and stays advisory (graduated flip).
-    for spec187_results in (portability_results, structure_results, token_budget_results):
-        if spec187_results and any(
-            getattr(r, "severity", "OK") in ("MAJOR", "CRITICAL") for _path, r in spec187_results
+    # spec-189 T-17 (D-189-08): front_loading joins the same blocking tally
+    # now that the fleet baseline is clean — a MAJOR is a real regression.
+    for blocking_results in (
+        portability_results,
+        structure_results,
+        token_budget_results,
+        frontloading_results,
+    ):
+        if blocking_results and any(
+            getattr(r, "severity", "OK") in ("MAJOR", "CRITICAL") for _path, r in blocking_results
         ):
             return 1
     if grade_counts.get("C", 0) > 2:
@@ -237,11 +251,11 @@ def main(argv: list[str] | None = None) -> int:
     portability_results = check_portability(args.skills_root, args.agents_root)
     structure_results = check_structure(args.skills_root, args.agents_root)
     token_budget_results = check_token_budget(args.skills_root, args.agents_root)
-    # spec-189 (D-189-08): front-loading/BLUF lint. ADVISORY this wave —
-    # it RUNS and REPORTS (counts surface in the summary line) but is NOT
-    # passed to _exit_code, so a MAJOR does not drive the exit code while
-    # the fleet baseline is still being brought into contract (Phase 4).
-    # spec-189: flip to blocking in T-17.
+    # spec-189 T-17 (D-189-08): front-loading/BLUF lint, BLOCKING. Wave 3
+    # brought the fleet baseline into contract (all 49 violations fixed), so
+    # a MAJOR / CRITICAL now drives the exit code — a buried bottom-line is a
+    # real regression. Reason strings are pure ASCII so the summary stays
+    # cp1252-safe (D-187-10).
     frontloading_results = check_frontloading(args.skills_root, args.agents_root)
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
@@ -292,9 +306,9 @@ def main(argv: list[str] | None = None) -> int:
         token_budget_counts: dict[str, int] = {}
         for _path, result in token_budget_results:
             token_budget_counts[result.severity] = token_budget_counts.get(result.severity, 0) + 1
-        # spec-189 (D-189-08): front-loading/BLUF counters. ADVISORY this
-        # wave — reported in the summary but NOT fed to _exit_code (a MAJOR
-        # does not block until the Phase 4 baseline is clean; flip in T-17).
+        # spec-189 T-17 (D-189-08): front-loading/BLUF counters. BLOCKING —
+        # a MAJOR / CRITICAL feeds _exit_code (baseline is clean, so any
+        # finding is a regression).
         frontloading_counts: dict[str, int] = {}
         for _path, result in frontloading_results:
             frontloading_counts[result.severity] = frontloading_counts.get(result.severity, 0) + 1
@@ -338,7 +352,7 @@ def main(argv: list[str] | None = None) -> int:
             f"| token_budget(block) "
             f"OK={token_budget_counts.get('OK', 0)} "
             f"MAJOR={token_budget_counts.get('MAJOR', 0)} "
-            f"| front_loading(advisory) "
+            f"| front_loading(block) "
             f"OK={frontloading_counts.get('OK', 0)} "
             f"MAJOR={frontloading_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
@@ -352,6 +366,7 @@ def main(argv: list[str] | None = None) -> int:
             portability_results=portability_results,
             structure_results=structure_results,
             token_budget_results=token_budget_results,
+            frontloading_results=frontloading_results,
         )
 
     return 0
