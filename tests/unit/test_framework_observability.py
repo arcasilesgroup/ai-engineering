@@ -338,3 +338,35 @@ class TestErrorStormCoalescing:
             )
         errors = [e for e in self._events(tmp_path) if e.get("kind") == "framework_error"]
         assert len(errors) == 3
+
+    def test_coalescer_failure_fails_open_and_still_emits(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """A raising ``record_error`` must not drop the event (``_coalesce_framework_error``).
+
+        The coalescer is a best-effort optimization; if it blows up the full
+        framework_error must still land in the audit chain (fail-open verdict
+        ``emit_full=True``).
+        """
+        from ai_engineering.state import error_coalesce
+        from ai_engineering.state.observability import emit_framework_error
+
+        _write_manifest(tmp_path)
+
+        def _boom(*_args: object, **_kwargs: object) -> dict:
+            raise RuntimeError("simulated coalescer failure")
+
+        monkeypatch.setattr(error_coalesce, "record_error", _boom)
+
+        emit_framework_error(
+            tmp_path,
+            engine="ai_engineering",
+            component="pip.storm",
+            error_code="hook_execution_failed",
+            summary="boom",
+            session_id="sess-1",
+        )
+
+        errors = [e for e in self._events(tmp_path) if e.get("kind") == "framework_error"]
+        assert len(errors) == 1
+        assert errors[0]["detail"]["error_code"] == "hook_execution_failed"
