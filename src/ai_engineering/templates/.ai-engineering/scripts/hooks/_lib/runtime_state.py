@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import re
+import tempfile
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -688,11 +689,19 @@ def error_fingerprint(
 
 
 def _atomic_write_json(path: Path, payload: dict) -> None:
-    """Atomic JSON write via tmp + os.replace. Caller wraps for fail-open."""
+    """Atomic JSON write via a UNIQUE tmp + os.replace. Caller wraps for fail-open.
+
+    FINDING 7: a fixed shared ``.tmp`` name races concurrent writers and can
+    corrupt/lose the ledger (degrading the coalescer to over-emit).
+    ``tempfile.mkstemp`` mints a per-writer temp in the target dir; ``os.replace``
+    makes the swap atomic.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    tmp = Path(tmp_name)
     try:
-        tmp.write_text(json.dumps(payload, sort_keys=True, default=str), encoding="utf-8")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, sort_keys=True, default=str))
         os.replace(tmp, path)
     finally:
         if tmp.exists():

@@ -177,6 +177,11 @@ def _read_session_pointer() -> str | None:
     ``session-pointer.json``. This reads it back through the same
     project-root resolver used by every other helper here. Stdlib-only,
     never raises — any miss / corruption degrades to None.
+
+    Best-effort only: on a worktree shared by concurrent sessions the
+    pointer names whichever session started last, so it is a FALLBACK —
+    the current invocation's own session id (env or stdin/ctx) is
+    authoritative and always preferred (FINDING 3).
     """
     try:
         path = _resolve_project_root() / _SESSION_POINTER_REL
@@ -191,16 +196,25 @@ def _read_session_pointer() -> str | None:
     return session_id if isinstance(session_id, str) and session_id else None
 
 
-def get_session_id() -> str | None:
-    """Resolve the IDE-provided session id or return None.
+def get_session_id(current: str | None = None) -> str | None:
+    """Resolve the session id for the CURRENT invocation, else None.
 
-    Order: ``CLAUDE_SESSION_ID`` / ``ANTIGRAVITY_SESSION_ID`` env vars
-    (authoritative when present), then the durable ``session-pointer.json``
-    stamped at SessionStart (D-190-01 part 2), else None.
+    Resolution order (FINDING 3 — the current invocation's own id wins over
+    the shared pointer so concurrent sessions on one worktree are not
+    misattributed):
+
+    1. ``CLAUDE_SESSION_ID`` / ``ANTIGRAVITY_SESSION_ID`` env vars
+       (authoritative when present);
+    2. ``current`` — the session id carried by this invocation's own
+       stdin / ctx, threaded in by hot-path emit sites that have it;
+    3. the durable ``session-pointer.json`` stamped at SessionStart
+       (D-190-01 part 2) — a best-effort FALLBACK only;
+    4. else None.
     """
     return (
         os.environ.get("CLAUDE_SESSION_ID")
         or os.environ.get("ANTIGRAVITY_SESSION_ID")
+        or current
         or _read_session_pointer()
         or None
     )
@@ -451,10 +465,14 @@ def _emit_error_storm_control(
     operator sees the storm without scanning the raw NDJSON. Fail-open.
     """
     try:
-        engine = "ai_engineering"
+        # FINDING 6: match the accompanying framework_error engine (env or
+        # claude_code) instead of the divergent "ai_engineering" so the two
+        # hook-side dual-writer events carry a consistent engine.
+        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
         event = {
             "kind": "control_outcome",
             "engine": engine,
+            "frameworkVersion": _resolve_framework_version(project_root),
             "timestamp": _now_iso(),
             "component": component,
             "outcome": "failure",
@@ -511,6 +529,7 @@ def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> N
             event = {
                 "kind": "framework_error",
                 "engine": engine,
+                "frameworkVersion": _resolve_framework_version(project_root),
                 "timestamp": _now_iso(),
                 "component": component,
                 "outcome": "failure",
@@ -634,6 +653,7 @@ def _emit_integrity_violation(*, component: str, hook_kind: str, reason: str, mo
             event = {
                 "kind": "framework_error",
                 "engine": engine,
+                "frameworkVersion": _resolve_framework_version(project_root),
                 "timestamp": _now_iso(),
                 "component": component,
                 "outcome": "failure",
@@ -765,6 +785,24 @@ def _now_iso() -> str:
     from datetime import UTC, datetime
 
     return datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _resolve_framework_version(project_root: Path) -> str:
+    """Resolve the pinned framework version for inline event stamping (FINDING 5).
+
+    Reuses the stdlib ``_read_framework_version`` resolver from the sibling
+    ``_lib/observability`` hook module (stdlib-only — NOT the pip package) so
+    the hot-path ``framework_error`` / ``control_outcome`` events this module
+    emits inline carry ``frameworkVersion`` like every other framework event.
+    Fail-open: any import / resolution failure degrades to the ``"0.0.0"``
+    sentinel so an error/control emit is never blocked.
+    """
+    try:
+        from _lib.observability import _read_framework_version
+
+        return _read_framework_version(project_root)
+    except Exception:
+        return "0.0.0"
 
 
 __all__ = [

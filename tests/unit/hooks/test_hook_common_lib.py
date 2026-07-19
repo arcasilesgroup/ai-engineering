@@ -269,6 +269,27 @@ def test_get_session_id_prefers_env_over_pointer(
     assert hc.get_session_id() == "sess-env"
 
 
+def test_get_session_id_prefers_current_over_pointer(
+    hc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FINDING 3: the current invocation's own session id wins over the shared
+    pointer, so concurrent sessions on one worktree are not misattributed.
+
+    Two different sessions are 'active': the persisted pointer belongs to
+    ``sess-pointer`` (whoever started the shared worktree last), but the
+    current invocation carries ``sess-current`` from its own stdin/ctx.
+    """
+    monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
+    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "session-pointer.json").write_text(
+        json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert hc.get_session_id(current="sess-current") == "sess-current"
+
+
 # ---------------------------------------------------------------------------
 # 6. validate_event_schema (3 cases) -- delegates to event_schema.py
 # ---------------------------------------------------------------------------

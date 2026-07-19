@@ -19,6 +19,7 @@ import contextlib
 import hashlib
 import json
 import os
+import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -89,10 +90,16 @@ def _read_json(path: Path) -> dict | None:
 
 
 def _atomic_write_json(path: Path, payload: dict) -> None:
+    # FINDING 7: a fixed shared ``.tmp`` name races concurrent writers and can
+    # corrupt/lose the ledger. ``tempfile.mkstemp`` mints a per-writer temp in the
+    # target dir; ``os.replace`` makes the swap atomic. Parity with the hook-side
+    # ``_lib.runtime_state._atomic_write_json``.
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    tmp = Path(tmp_name)
     try:
-        tmp.write_text(json.dumps(payload, sort_keys=True, default=str), encoding="utf-8")
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(payload, sort_keys=True, default=str))
         os.replace(tmp, path)
     finally:
         if tmp.exists():

@@ -181,12 +181,41 @@ class TestDeriveOutcome:
             == "failure"
         )
 
-    def test_tool_response_string_error_hint_means_failure(self) -> None:
+    def test_tool_response_explicit_error_field_means_failure(self) -> None:
+        # An explicit structured error field is authoritative.
+        assert (
+            instincts._derive_outcome({"tool_name": "Read", "tool_response": {"error": "ENOENT"}})
+            == "failure"
+        )
+
+    # spec-190 remediation (FINDING 1/2): authoritative-signal-only. A genuine
+    # success whose free-form tool_response text merely CONTAINS an error word
+    # must stay "success" — never substring-scan free-form stdout / file content.
+    def test_tool_response_free_form_error_word_stays_success(self) -> None:
         assert (
             instincts._derive_outcome(
-                {"tool_name": "Read", "tool_response": "File read error occurred"}
+                {"tool_name": "Read", "tool_response": {"stdout": "error handling done"}}
             )
-            == "failure"
+            == "success"
+        )
+
+    def test_tool_response_is_error_false_is_authoritative_success(self) -> None:
+        assert (
+            instincts._derive_outcome(
+                {
+                    "tool_name": "Bash",
+                    "tool_response": {"is_error": False, "stdout": "1 error suppressed"},
+                }
+            )
+            == "success"
+        )
+
+    def test_tool_response_plain_string_error_word_stays_success(self) -> None:
+        assert (
+            instincts._derive_outcome(
+                {"tool_name": "Read", "tool_response": "raise ValueError on failed timeout"}
+            )
+            == "success"
         )
 
 

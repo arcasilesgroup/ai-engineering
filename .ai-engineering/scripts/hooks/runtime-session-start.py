@@ -28,6 +28,8 @@ import contextlib
 import json
 import os
 import sys
+import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -90,6 +92,12 @@ def _safe_write_session_pointer(project_root: Path, session_id: str | None) -> N
     env. Stamping ``.ai-engineering/state/runtime/session-pointer.json`` at
     SessionStart gives them a stable fallback pointer for the whole session.
 
+    Best-effort only: on a worktree shared by concurrent sessions the pointer
+    names whichever session started last, so it is a shared-worktree FALLBACK
+    (FINDING 3) — a hook's own stdin/ctx/env session id always wins over it.
+    The record is stamped with ``{session_id, pid, ts}`` so an operator can
+    tell which process last claimed the pointer.
+
     Fail-open: any error (unwritable runtime dir, encoding issue) degrades
     silently so a broken pointer never blocks session boot. A missing /
     empty ``session_id`` writes nothing — a null pointer is worse than none.
@@ -99,9 +107,19 @@ def _safe_write_session_pointer(project_root: Path, session_id: str | None) -> N
     try:
         path = project_root / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
+        payload = {
+            "session_id": session_id,
+            "pid": os.getpid(),
+            "ts": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        # Unique temp per writer (FINDING 7): a fixed ``.tmp`` name races
+        # concurrent writers and can corrupt/lose the pointer. mkstemp mints a
+        # per-writer temp in the target dir; os.replace makes the swap atomic.
+        fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+        tmp = Path(tmp_name)
         try:
-            tmp.write_text(json.dumps({"session_id": session_id}), encoding="utf-8")
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(json.dumps(payload))
             os.replace(tmp, path)
         finally:
             if tmp.exists():

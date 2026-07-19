@@ -703,6 +703,9 @@ class TestStdlibOnly:
             "hashlib",
             "contextlib",
             "importlib",
+            # spec-190 FINDING 8: functools.cache memoizes _read_framework_version
+            # (pure stdlib, no third-party dep).
+            "functools",
             "_lib",
         }
         import ast

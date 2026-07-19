@@ -140,6 +140,10 @@ def test_session_start_persists_session_pointer(
     assert pointer_path.exists(), "session-pointer.json should be written at SessionStart"
     payload = json.loads(pointer_path.read_text(encoding="utf-8"))
     assert payload.get("session_id") == "sess-DURABLE"
+    # FINDING 3: the pointer is stamped with {session_id, pid, ts} so an
+    # operator can tell which process last claimed a shared-worktree pointer.
+    assert isinstance(payload.get("pid"), int)
+    assert isinstance(payload.get("ts"), str) and payload["ts"]
 
 
 def test_no_pointer_written_when_session_id_absent(

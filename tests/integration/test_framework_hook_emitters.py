@@ -737,3 +737,50 @@ class TestCodexHookEmitters:
 
         assert result.returncode == 0
         assert result.stdout == ""
+
+
+# 11 canonical hook events (CLAUDE.md §"Hooks Configuration"; spec-122-d D-122-27).
+_CANONICAL_HOOK_EVENTS = frozenset(
+    {
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "PostToolUseFailure",
+        "Stop",
+        "PreCompact",
+        "PostCompact",
+        "SessionStart",
+        "SubagentStop",
+        "Notification",
+        "SessionEnd",
+    }
+)
+
+
+def test_wired_python_hook_enumeration_is_non_empty_and_complete() -> None:
+    """FINDING 4: fail loudly if the smoke harness enumeration ever green-skips.
+
+    ``TestWiredHookSmoke`` is parametrized over ``_wired_python_hooks()``; if that
+    enumeration ever returns empty (a settings.json parse regression) the
+    parametrized test would collect zero cases and pass vacuously. Derive the
+    expected wired-.py pairs from the SAME settings.json parse (no brittle
+    hardcoded count) and assert the enumeration is non-empty, matches, and
+    represents all 11 canonical hook events.
+    """
+    data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    expected: set[tuple[str, str]] = set()
+    for event, matchers in data.get("hooks", {}).items():
+        for matcher in matchers:
+            for hook in matcher.get("hooks", []):
+                rel = _last_project_dir_target(hook.get("command", ""))
+                if rel is None or not rel.endswith(".py"):
+                    continue
+                expected.add((event, rel))
+
+    enumerated = set(_wired_python_hooks())
+    assert enumerated, "wired python hook enumeration must not be empty"
+    assert len(_wired_python_hooks()) >= len(expected)
+    assert enumerated == expected
+    events_present = {event for event, _ in enumerated}
+    missing = _CANONICAL_HOOK_EVENTS - events_present
+    assert not missing, f"canonical events missing a wired .py hook: {sorted(missing)}"

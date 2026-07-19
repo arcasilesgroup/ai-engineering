@@ -507,11 +507,17 @@ def _derive_outcome(data: dict[str, Any]) -> str:
     tool_response = data.get("tool_response")
     if tool_response is not None:
         response_mapping = _coerce_mapping(tool_response)
-        if response_mapping.get("is_error"):
-            return "failure"
-        response_text = _coerce_text(response_mapping or tool_response)
-        if response_text and any(token in response_text.lower() for token in _ERROR_HINTS):
-            return "failure"
+        # spec-190 (FINDING 1): authoritative-signal-only. NEVER substring-scan
+        # free-form stdout / file content of tool_response — a successful
+        # Read/Grep/Bash whose output merely contains an error word must stay
+        # "success". ``is_error`` is authoritative in BOTH directions (an
+        # explicit False is a success, not a fall-through); a truthy structured
+        # error field also marks failure.
+        if "is_error" in response_mapping:
+            return "failure" if response_mapping.get("is_error") else "success"
+        for key in ("error", "errorType", "interrupted"):
+            if response_mapping.get(key):
+                return "failure"
     return "success" if data.get("tool_name") else "unknown"
 
 

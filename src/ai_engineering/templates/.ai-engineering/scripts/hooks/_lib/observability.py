@@ -9,6 +9,7 @@ Zero imports from ai_engineering.* -- hooks can run without pip install.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
@@ -301,6 +302,7 @@ def _shape_genai_block(usage: dict) -> dict | None:
     return block
 
 
+@functools.cache
 def _read_framework_version(project_root: Path) -> str:
     """Return the pinned framework version for event stamping (never raises).
 
@@ -314,6 +316,12 @@ def _read_framework_version(project_root: Path) -> str:
 
     Every branch is guarded so a missing file, an unreadable file, or an
     uninstalled package can never derail hook event emission.
+
+    FINDING 8: memoized per process (``functools.cache`` keyed on
+    ``project_root``) so the VERSION file read / importlib.metadata scan runs at
+    most once per process instead of on every event. Hook processes are
+    short-lived and the pinned version is stable for a process's lifetime, so
+    caching is safe.
     """
     version_file = project_root / ".ai-engineering" / "state" / "runtime" / "VERSION"
     try:
