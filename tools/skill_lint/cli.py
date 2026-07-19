@@ -25,6 +25,7 @@ from skill_infra.fs_scanner import FilesystemAgentScanner, FilesystemSkillScanne
 from skill_infra.markdown_reporter import MarkdownReporter
 from skill_lint.checks.effort import check_all_skills as check_effort_all
 from skill_lint.checks.effort import load_policy as load_dispatch_policy
+from skill_lint.checks.frontloading import check_frontloading
 from skill_lint.checks.md_mirror import check_md_mirror_consistency
 from skill_lint.checks.naming import check_naming
 from skill_lint.checks.pair_aware import check_pair_consistency
@@ -242,6 +243,12 @@ def main(argv: list[str] | None = None) -> int:
     portability_results = check_portability(args.skills_root, args.agents_root)
     structure_results = check_structure(args.skills_root, args.agents_root)
     token_budget_results = check_token_budget(args.skills_root, args.agents_root)
+    # spec-189 (D-189-08): front-loading/BLUF lint. ADVISORY this wave —
+    # it RUNS and REPORTS (counts surface in the summary line) but is NOT
+    # passed to _exit_code, so a MAJOR does not drive the exit code while
+    # the fleet baseline is still being brought into contract (Phase 4).
+    # spec-189: flip to blocking in T-17.
+    frontloading_results = check_frontloading(args.skills_root, args.agents_root)
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -291,6 +298,12 @@ def main(argv: list[str] | None = None) -> int:
         token_budget_counts: dict[str, int] = {}
         for _path, result in token_budget_results:
             token_budget_counts[result.severity] = token_budget_counts.get(result.severity, 0) + 1
+        # spec-189 (D-189-08): front-loading/BLUF counters. ADVISORY this
+        # wave — reported in the summary but NOT fed to _exit_code (a MAJOR
+        # does not block until the Phase 4 baseline is clean; flip in T-17).
+        frontloading_counts: dict[str, int] = {}
+        for _path, result in frontloading_results:
+            frontloading_counts[result.severity] = frontloading_counts.get(result.severity, 0) + 1
         # Print a one-line summary so CI logs surface the result.
         sys.stdout.write(
             "skill_lint: skills "
@@ -331,6 +344,9 @@ def main(argv: list[str] | None = None) -> int:
             f"| token_budget(block) "
             f"OK={token_budget_counts.get('OK', 0)} "
             f"MAJOR={token_budget_counts.get('MAJOR', 0)} "
+            f"| front_loading(advisory) "
+            f"OK={frontloading_counts.get('OK', 0)} "
+            f"MAJOR={frontloading_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
         return _exit_code(
