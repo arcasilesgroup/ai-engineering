@@ -329,7 +329,9 @@ class TestSkills:
         # 51 -> 53 with /ai-advise, /ai-simplify (orphan-agent slash surfaces).
         # spec-165: 53 -> 54 with /ai-session-watch-sweep (scheduled sweep).
         # spec-187 D-187-04: 54 -> 53 with /ai-analyze-permissions hard-deleted.
-        assert config.skills.total == len(config.skills.registry) == 53
+        # spec-189 D-189-03: 53 -> 54 with /ai-fundraising (structural split of
+        # /ai-marketing into growth vs investor/IR skills).
+        assert config.skills.total == len(config.skills.registry) == 54
 
     def test_prefix(self, real_manifest_data: dict) -> None:
         config = ManifestConfig.model_validate(real_manifest_data)

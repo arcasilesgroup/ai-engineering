@@ -1,5 +1,5 @@
 ---
-description: 'Drives go-to-market execution and marketing content: blog posts for distribution, social crossposts, investor materials, market research, outreach campaigns, X/Twitter automation. Trigger for ''go to market'', ''marketing plan'', ''write a blog post to publish'', ''crosspost to socials'', ''market research for'', ''investor deck'', ''outreach campaign'', ''content engine''. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-prose instead. Not for code explanations; use /ai-explain instead.'
+description: 'Drives go-to-market execution and marketing content: blog posts for distribution, social crossposts, X/Twitter automation, platform-native content engines. Trigger for ''go to market'', ''marketing plan'', ''write a blog post to publish'', ''crosspost to socials'', ''content engine'', ''post a thread on X''. Not for fundraising/investor materials; use /ai-fundraising instead. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-prose instead. Not for code explanations; use /ai-explain instead.'
 mirror_family: opencode-commands
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-marketing/SKILL.md

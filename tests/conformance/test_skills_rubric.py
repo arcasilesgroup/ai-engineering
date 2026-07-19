@@ -87,12 +87,11 @@ def test_rule_3_negative_scoping(skills_report) -> None:
     """Description states what NOT to use the skill for when adjacent skills exist."""
     rule = _get_rule("rule_3_negative_scoping")
     assert rule is not None
-    # All 53 live skills are AI-discoverable and graded. spec-187 D-187-04
-    # deleted the sole disable-model-invocation skill, so no skill is currently
-    # excluded from the AI-discovery (§2.1) audit; per_skill == the live surface
-    # count. Update this alongside any skill add/remove (never loosen).
-    assert len(skills_report.per_skill) == 53, (
-        f"expected 53 skills evaluated, got {len(skills_report.per_skill)}"
+    # All 54 live skills are AI-discoverable and graded. spec-189 D-189-03
+    # split /ai-marketing into growth + /ai-fundraising, so per_skill == the
+    # live surface count. Update this alongside any skill add/remove (never loosen).
+    assert len(skills_report.per_skill) == 54, (
+        f"expected 54 skills evaluated, got {len(skills_report.per_skill)}"
     )
 
 
@@ -242,18 +241,18 @@ def test_rule_10_no_anti_patterns(skills_report) -> None:
 
     * Grade D = 0 (eliminated by Wave 2).
     * Grade C ≤ 2 (D-127-08 hard ceiling).
-    * Grade A ≥ 32 (≥60% of 53 graded skills, post-spec-134).
+    * Grade A ≥ 32 (≥60% of 54 graded skills, post-spec-134).
     * Grade A is the largest bucket.
-    * Total graded skills = 53 (spec-187 D-187-04 removed the sole
-      disable-model-invocation skill, so per_skill == the live surface
-      count; no skill is excluded from the §2.1 audit).
+    * Total graded skills = 54 (spec-189 D-189-03 split /ai-marketing into
+      growth + /ai-fundraising, so per_skill == the live surface count; no
+      skill is excluded from the §2.1 audit).
     """
     rule = _get_rule("rule_10_no_anti_patterns")
     assert rule is not None
     summary = skills_report.summary
 
     total = sum(summary.values())
-    assert total == 53, f"expected 53 graded skills, got {total}: {summary}"
+    assert total == 54, f"expected 54 graded skills, got {total}: {summary}"
     assert summary.get("D", 0) == 0, (
         f"M2 must eliminate Grade D; got {summary.get('D', 0)}: {summary}"
     )

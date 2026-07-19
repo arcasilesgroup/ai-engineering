@@ -49,6 +49,7 @@ economics rubric: deterministic execution → cheap, synthesis with judgment
 | ai-explain | mid | Pedagogical narrative; audience-aware. |
 | ai-governance | high | Compliance posture; risk acceptance. |
 | ai-marketing | mid | Go-to-market narrative + positioning. |
+| ai-fundraising | mid | Investor narrative + market-sizing + financial-model judgment. |
 | ai-onboard | mid | Step-by-step authoring with audience judgment. |
 | ai-ide-audit | high | Cross-IDE matrix audit; architectural posture. |
 | ai-learn | mid | Retro synthesis + lesson extraction. |

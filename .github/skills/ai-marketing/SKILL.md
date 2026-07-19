@@ -1,10 +1,10 @@
 ---
 name: ai-marketing
-description: "Drives go-to-market execution and marketing content: blog posts for distribution, social crossposts, investor materials, market research, outreach campaigns, X/Twitter automation. Trigger for 'go to market', 'marketing plan', 'write a blog post to publish', 'crosspost to socials', 'market research for', 'investor deck', 'outreach campaign', 'content engine'. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-prose instead. Not for code explanations; use /ai-explain instead."
+description: "Drives go-to-market execution and marketing content: blog posts for distribution, social crossposts, X/Twitter automation, platform-native content engines. Trigger for 'go to market', 'marketing plan', 'write a blog post to publish', 'crosspost to socials', 'content engine', 'post a thread on X'. Not for fundraising/investor materials; use /ai-fundraising instead. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-prose instead. Not for code explanations; use /ai-explain instead."
 effort: mid
 argument-hint: "[mode] [topic]"
 mode: agent
-tags: [gtm, marketing, content, social, investor, go-to-market]
+tags: [gtm, marketing, content, social, go-to-market]
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-marketing/SKILL.md
@@ -31,16 +31,13 @@ Applies §10.4 DRY (write once, adapt across platforms — the repurposing casca
 |-------------|---------|---------|
 | `content-engine` | `handlers/content-engine.md` | Platform-native social content with repurposing cascade |
 | `crosspost` | `handlers/crosspost.md` | Multi-platform content distribution and adaptation |
-| `market-research` | `handlers/market-research.md` | Research-to-decision synthesis (diligence, competitive, sizing) |
-| `investor-materials` | `handlers/investor-materials.md` | Pitch decks, one-pagers, financial models, applications |
-| `investor-outreach` | `handlers/investor-outreach.md` | Cold emails, warm intros, follow-ups |
 | `x-api` | `handlers/x-api.md` | X API v2 posting, threads, media |
 
 No sub-command → display the routing table and ask which mode to use.
 
 ## Integration
 
-Calls the mode handlers (x-api → X/Twitter; per-platform handlers). See also `/ai-prose` (sprint review, solution intent), `/ai-visual` (visual collateral), `/ai-docs` and `/ai-explain` (boundaries).
+Calls the mode handlers (x-api → X/Twitter; per-platform handlers). See also `/ai-fundraising` (investor materials, market research, outreach), `/ai-prose` (sprint review, solution intent), `/ai-visual` (visual collateral), `/ai-docs` and `/ai-explain` (boundaries).
 
 ## Examples
 

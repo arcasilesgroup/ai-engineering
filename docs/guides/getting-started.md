@@ -3,7 +3,7 @@
 Install `{ai} engineering` and get a governed repository in under a minute.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/install.png" alt="Install in seconds: pip install ai-engineering, ai-eng install . adds governance to your repo, ai-eng doctor reports [PASS], then open your IDE and type /ai-start. What you get: 53 skills and 9 agents, a governed workflow, automatic checks, and versioned local files." width="820">
+  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/install.png" alt="Install in seconds: pip install ai-engineering, ai-eng install . adds governance to your repo, ai-eng doctor reports [PASS], then open your IDE and type /ai-start. What you get: 54 skills and 9 agents, a governed workflow, automatic checks, and versioned local files." width="820">
 </div>
 
 ## 1 — Install the CLI

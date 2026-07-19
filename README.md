@@ -20,13 +20,13 @@
     <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-2C7E6D.svg?style=flat-square&labelColor=0B1120" alt="License: MIT"></a>
   </p>
 
-  <p><code>53 skills · 9 agents · 6 surfaces · 1 governed flow</code></p>
+  <p><code>54 skills · 9 agents · 6 surfaces · 1 governed flow</code></p>
 
   <br>
 
   <picture>
     <source srcset="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.webp" type="image/webp">
-    <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="ai-eng install, then ai-eng doctor (warnings are advisory), then exploring the .ai-engineering tree plus 53 skills and 9 agents in VS Code, ending with /ai-start in Claude Code" width="900">
+    <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/demo.gif" alt="ai-eng install, then ai-eng doctor (warnings are advisory), then exploring the .ai-engineering tree plus 54 skills and 9 agents in VS Code, ending with /ai-start in Claude Code" width="900">
   </picture>
 </div>
 
@@ -55,7 +55,7 @@ python -m pip install --user ai-engineering
 
 Then open your editor and type `/ai-start`. Prefer to ease in? Start in observe mode and enforce only what proves useful.
 
-**What you get:** 53 skills and 9 agents you invoke with `/ai-<name>` · a spec-driven workflow · automatic checks on every change · versioned local files you own. Update any time with `ai-eng update`.
+**What you get:** 54 skills and 9 agents you invoke with `/ai-<name>` · a spec-driven workflow · automatic checks on every change · versioned local files you own. Update any time with `ai-eng update`.
 
 ## The governed workflow
 
@@ -78,7 +78,7 @@ Fifty-four skills and nine agents cover the whole delivery loop — and the same
 <br>
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/toolkit.png" alt="53 skills and 9 agents grouped by what you do: plan and build, ship safely, design and docs, research and learn. The same commands run in Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor." width="820">
+  <img src="https://raw.githubusercontent.com/arcasilesgroup/ai-engineering/main/.github/assets/diagrams/toolkit.png" alt="54 skills and 9 agents grouped by what you do: plan and build, ship safely, design and docs, research and learn. The same commands run in Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor." width="820">
 </div>
 
 <br>
