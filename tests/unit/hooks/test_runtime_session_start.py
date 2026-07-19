@@ -123,6 +123,39 @@ def test_non_session_event_passes_through(
     )
 
 
+def test_session_start_persists_session_pointer(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-190-01 part 2: SessionStart writes a durable session-pointer.json."""
+    ctx = _make_ctx(
+        project,
+        data={"hook_event_name": "SessionStart", "session_id": "sess-DURABLE"},
+    )
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    pointer_path = project / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
+    assert pointer_path.exists(), "session-pointer.json should be written at SessionStart"
+    payload = json.loads(pointer_path.read_text(encoding="utf-8"))
+    assert payload.get("session_id") == "sess-DURABLE"
+
+
+def test_no_pointer_written_when_session_id_absent(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A missing session_id must not persist a null pointer."""
+    ctx = _make_ctx(project, data={"hook_event_name": "SessionStart"})
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    pointer_path = project / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
+    assert not pointer_path.exists()
+
+
 def test_instincts_count_logged_when_available(
     hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -689,6 +689,9 @@ class TestStdlibOnly:
         # ``contextlib.suppress`` defensive shield around the malformed
         # `usage` framework_error emit (and `_lib.trace_context` is the
         # relative-import sibling that drives auto-fill).
+        # Spec-190 D-190-01 added ``importlib`` (``importlib.metadata``)
+        # for the framework-version fallback when no VERSION file exists --
+        # pure stdlib, no third-party dep.
         allowed = {
             "json",
             "os",
@@ -699,6 +702,7 @@ class TestStdlibOnly:
             "__future__",
             "hashlib",
             "contextlib",
+            "importlib",
             "_lib",
         }
         import ast

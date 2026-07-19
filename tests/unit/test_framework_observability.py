@@ -23,6 +23,7 @@ from ai_engineering.state.observability import (
     append_framework_event,
     append_framework_events,
     build_framework_capabilities,
+    build_framework_event,
     framework_capabilities_path,
     framework_events_path,
     write_framework_capabilities,
@@ -155,6 +156,21 @@ class TestFrameworkEvents:
         second_payload = json.loads(raw_lines[1])
         assert first_payload["prev_event_hash"] is None
         assert second_payload["prev_event_hash"] == compute_entry_hash(first_payload)
+
+
+class TestFrameworkVersionStamp:
+    """spec-190 D-190-01: the pip build path stamps frameworkVersion."""
+
+    def test_pip_envelope_carries_non_empty_framework_version(self, tmp_path: Path) -> None:
+        event = build_framework_event(
+            tmp_path,
+            engine="claude_code",
+            kind="skill_invoked",
+            component="hook.skill",
+        )
+        dumped = event.model_dump(by_alias=True)
+        assert dumped["frameworkVersion"]
+        assert isinstance(dumped["frameworkVersion"], str)
 
 
 class TestFrameworkCapabilities:

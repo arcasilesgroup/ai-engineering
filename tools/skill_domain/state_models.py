@@ -345,6 +345,7 @@ class FrameworkEvent(BaseModel):
     """
 
     schema_version: str = Field(default="1.0", alias="schemaVersion")
+    framework_version: str | None = Field(default=None, alias="frameworkVersion")
     timestamp: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
     project: str
     engine: str

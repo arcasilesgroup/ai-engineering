@@ -25,6 +25,8 @@ booting a new session.
 from __future__ import annotations
 
 import contextlib
+import json
+import os
 import sys
 from pathlib import Path
 
@@ -80,6 +82,36 @@ def _safe_count_instincts(project_root: Path) -> int | None:
     return total
 
 
+def _safe_write_session_pointer(project_root: Path, session_id: str | None) -> None:
+    """Persist a durable ``session-pointer.json`` for hot-path hooks (D-190-01).
+
+    ``CLAUDE_SESSION_ID`` is usually unset on the hot path, so downstream
+    hooks that call ``get_session_id`` recover only ~1.3% coverage from
+    env. Stamping ``.ai-engineering/state/runtime/session-pointer.json`` at
+    SessionStart gives them a stable fallback pointer for the whole session.
+
+    Fail-open: any error (unwritable runtime dir, encoding issue) degrades
+    silently so a broken pointer never blocks session boot. A missing /
+    empty ``session_id`` writes nothing — a null pointer is worse than none.
+    """
+    if not isinstance(session_id, str) or not session_id:
+        return
+    try:
+        path = project_root / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        try:
+            tmp.write_text(json.dumps({"session_id": session_id}), encoding="utf-8")
+            os.replace(tmp, path)
+        finally:
+            if tmp.exists():
+                with contextlib.suppress(OSError):
+                    tmp.unlink()
+    except Exception:
+        # Fail-open: never block the IDE booting a session.
+        return
+
+
 def _safe_init_trace_context(project_root: Path) -> str | None:
     """Best-effort fresh-trace stamping. Returns the new traceId or None."""
     try:
@@ -109,6 +141,7 @@ def main() -> None:
     session_id = ctx.session_id
     correlation_id = get_correlation_id()
 
+    _safe_write_session_pointer(project_root, session_id)
     trace_id = _safe_init_trace_context(project_root)
     instincts_count = _safe_count_instincts(project_root)
 

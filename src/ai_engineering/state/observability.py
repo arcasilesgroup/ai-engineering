@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+from ai_engineering import __version__
 from ai_engineering._shared.redactor import redact_normal
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.capabilities import build_capability_cards
@@ -388,6 +389,7 @@ def build_framework_event(
 
     event_data: dict[str, object] = {
         "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
+        "frameworkVersion": __version__,
         "timestamp": datetime.now(tz=UTC),
         "project": _project_name(project_root),
         "engine": canonical_engine,

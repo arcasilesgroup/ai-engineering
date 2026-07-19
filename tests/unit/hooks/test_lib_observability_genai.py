@@ -90,6 +90,45 @@ def test_lib_no_pkg_imports() -> None:
 
 
 # ---------------------------------------------------------------------------
+# spec-190 D-190-01: frameworkVersion stamp on the hook-lib envelope
+# ---------------------------------------------------------------------------
+
+
+def test_lib_reads_version_file_when_present(project_root: Path, lib_obs) -> None:
+    """A ``state/runtime/VERSION`` file supplies frameworkVersion verbatim."""
+    version_file = project_root / ".ai-engineering" / "state" / "runtime" / "VERSION"
+    version_file.parent.mkdir(parents=True, exist_ok=True)
+    version_file.write_text("7.7.7\n", encoding="utf-8")
+
+    event = lib_obs.build_framework_event(
+        project_root,
+        engine="claude_code",
+        kind="skill_invoked",
+        component="hook.telemetry-skill",
+    )
+    assert event["frameworkVersion"] == "7.7.7"
+
+
+def test_lib_version_fallback_importlib_metadata_non_empty(project_root: Path, lib_obs) -> None:
+    """With no VERSION file, the importlib.metadata fallback stays non-empty."""
+    event = lib_obs.build_framework_event(
+        project_root,
+        engine="claude_code",
+        kind="skill_invoked",
+        component="hook.telemetry-skill",
+    )
+    assert event["frameworkVersion"]
+    assert isinstance(event["frameworkVersion"], str)
+
+
+def test_lib_read_framework_version_helper_non_empty(project_root: Path, lib_obs) -> None:
+    """The stdlib helper never raises and returns a non-empty string."""
+    value = lib_obs._read_framework_version(project_root)
+    assert isinstance(value, str)
+    assert value
+
+
+# ---------------------------------------------------------------------------
 # T-A5: build_framework_event(usage=...) reshapes into detail.genai
 # ---------------------------------------------------------------------------
 

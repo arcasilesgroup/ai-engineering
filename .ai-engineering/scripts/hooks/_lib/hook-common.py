@@ -166,9 +166,44 @@ def get_correlation_id() -> str:
 # ---------------------------------------------------------------------------
 
 
+_SESSION_POINTER_REL = Path(".ai-engineering") / "state" / "runtime" / "session-pointer.json"
+
+
+def _read_session_pointer() -> str | None:
+    """Return the session id persisted at SessionStart, or None (D-190-01).
+
+    ``CLAUDE_SESSION_ID`` is usually unset on the hot path, so the
+    ``runtime-session-start`` hook stamps a durable
+    ``session-pointer.json``. This reads it back through the same
+    project-root resolver used by every other helper here. Stdlib-only,
+    never raises — any miss / corruption degrades to None.
+    """
+    try:
+        path = _resolve_project_root() / _SESSION_POINTER_REL
+        if not path.exists():
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    session_id = payload.get("session_id")
+    return session_id if isinstance(session_id, str) and session_id else None
+
+
 def get_session_id() -> str | None:
-    """Resolve the IDE-provided session id or return None."""
-    return os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("ANTIGRAVITY_SESSION_ID") or None
+    """Resolve the IDE-provided session id or return None.
+
+    Order: ``CLAUDE_SESSION_ID`` / ``ANTIGRAVITY_SESSION_ID`` env vars
+    (authoritative when present), then the durable ``session-pointer.json``
+    stamped at SessionStart (D-190-01 part 2), else None.
+    """
+    return (
+        os.environ.get("CLAUDE_SESSION_ID")
+        or os.environ.get("ANTIGRAVITY_SESSION_ID")
+        or _read_session_pointer()
+        or None
+    )
 
 
 # ---------------------------------------------------------------------------

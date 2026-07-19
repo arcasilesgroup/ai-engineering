@@ -226,7 +226,47 @@ def test_get_session_id_from_antigravity_env(hc, monkeypatch: pytest.MonkeyPatch
 def test_get_session_id_returns_none_when_unset(hc, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(_isolated_root(monkeypatch)))
     assert hc.get_session_id() is None
+
+
+def _isolated_root(monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A throwaway dir with a marker but no session pointer (D-190-01 part 2)."""
+    import tempfile
+
+    root = Path(tempfile.mkdtemp())
+    (root / ".ai-engineering" / "state" / "runtime").mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def test_get_session_id_from_pointer_when_env_unset(
+    hc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-190-01 part 2: pointer file is the durable fallback when env is unset."""
+    monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
+    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "session-pointer.json").write_text(
+        json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert hc.get_session_id() == "sess-pointer"
+
+
+def test_get_session_id_prefers_env_over_pointer(
+    hc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Env var wins over the persisted pointer when both are present."""
+    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "session-pointer.json").write_text(
+        json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "sess-env")
+    monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
+    assert hc.get_session_id() == "sess-env"
 
 
 # ---------------------------------------------------------------------------

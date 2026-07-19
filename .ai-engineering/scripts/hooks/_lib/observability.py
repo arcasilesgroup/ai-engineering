@@ -301,6 +301,38 @@ def _shape_genai_block(usage: dict) -> dict | None:
     return block
 
 
+def _read_framework_version(project_root: Path) -> str:
+    """Return the pinned framework version for event stamping (never raises).
+
+    Spec-190 D-190-01. Stdlib-only resolution order:
+
+    1. the text of ``<root>/.ai-engineering/state/runtime/VERSION`` written
+       by the installer/updater at pin time;
+    2. else ``importlib.metadata.version("ai-engineering")`` for the
+       installed package;
+    3. else the ``"0.0.0"`` sentinel.
+
+    Every branch is guarded so a missing file, an unreadable file, or an
+    uninstalled package can never derail hook event emission.
+    """
+    version_file = project_root / ".ai-engineering" / "state" / "runtime" / "VERSION"
+    try:
+        text = version_file.read_text(encoding="utf-8").strip()
+        if text:
+            return text
+    except OSError:
+        pass
+    try:
+        import importlib.metadata
+
+        pinned = importlib.metadata.version("ai-engineering")
+        if pinned:
+            return pinned
+    except Exception:
+        pass
+    return "0.0.0"
+
+
 def build_framework_event(
     project_root: Path,
     *,
@@ -393,6 +425,7 @@ def build_framework_event(
 
     entry: dict = {
         "schemaVersion": FRAMEWORK_EVENT_SCHEMA_VERSION,
+        "frameworkVersion": _read_framework_version(project_root),
         "timestamp": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "project": project_root.name,
         "engine": canonical_engine,
