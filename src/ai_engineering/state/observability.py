@@ -733,6 +733,44 @@ def emit_ide_hook_outcome(
     return entry
 
 
+def _coalesce_framework_error(
+    project_root: Path,
+    *,
+    component: str,
+    error_code: str,
+    summary: str | None,
+    session_id: str | None,
+) -> dict[str, object]:
+    """Route a framework_error through the spec-190 storm coalescer (pip twin).
+
+    Returns the ``record_error`` verdict augmented with ``fingerprint``.
+    Fail-open: any failure yields a first-occurrence verdict so no incident is
+    dropped and the audit chain keeps its entry.
+    """
+    try:
+        from ai_engineering.state.error_coalesce import error_fingerprint, record_error
+
+        fingerprint = error_fingerprint(component, error_code, session_id, summary)
+        verdict = record_error(
+            project_root,
+            fingerprint,
+            component=component,
+            error_code=error_code,
+            summary=summary,
+        )
+        verdict["fingerprint"] = fingerprint
+    except Exception:
+        return {
+            "emit_full": True,
+            "occurrences": 1,
+            "storm_triggered": False,
+            "is_rollup": False,
+            "fingerprint": "",
+        }
+    else:
+        return verdict
+
+
 def emit_framework_error(
     project_root: Path,
     *,
@@ -746,13 +784,30 @@ def emit_framework_error(
     correlation_id: str | None = None,
     metadata: dict[str, object] | None = None,
 ) -> FrameworkEvent:
-    """Emit a canonical framework error event with stable codes and bounded summary."""
+    """Emit a canonical framework error event with stable codes and bounded summary.
+
+    spec-190 D-190-02: repeated errors are coalesced through the shared storm
+    coalescer (functional twin of the hook ``_lib`` path). The first occurrence
+    in a window emits the full event; repeats are suppressed but a rollup
+    carrying ``detail.occurrences`` is emitted on the threshold cadence, and a
+    single ``framework_error_storm`` control_outcome fires per window when
+    repeats cross ``AIENG_ERROR_STORM_THRESHOLD``.
+    """
     detail: dict[str, object] = {"error_code": error_code}
     bounded = _bounded_summary(summary)
     if bounded:
         detail["summary"] = bounded
     if metadata:
         detail.update(metadata)
+    verdict = _coalesce_framework_error(
+        project_root,
+        component=component,
+        error_code=error_code,
+        summary=bounded,
+        session_id=session_id,
+    )
+    if verdict.get("is_rollup"):
+        detail["occurrences"] = verdict.get("occurrences")
     entry = build_framework_event(
         project_root,
         engine=engine,
@@ -765,7 +820,23 @@ def emit_framework_error(
         force_outcome="failure",
         detail=detail,
     )
-    append_framework_event(project_root, entry)
+    if verdict.get("emit_full", True):
+        append_framework_event(project_root, entry)
+    if verdict.get("storm_triggered"):
+        emit_control_outcome(
+            project_root,
+            category="observability",
+            control="framework_error_storm",
+            component=component,
+            outcome="failure",
+            source=source,
+            correlation_id=correlation_id,
+            metadata={
+                "error_code": error_code,
+                "fingerprint": verdict.get("fingerprint", ""),
+                "occurrences": verdict.get("occurrences", 0),
+            },
+        )
     return entry
 
 

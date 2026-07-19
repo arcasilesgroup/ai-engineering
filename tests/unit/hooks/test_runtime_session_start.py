@@ -186,3 +186,46 @@ def test_instincts_count_logged_when_available(
     assert matching, "expected session_started event"
     detail = matching[-1]["detail"]
     assert detail.get("instincts_count") == 3
+
+
+# ---------------------------------------------------------------------------
+# spec-190 D-190-02: SessionStart storm banner
+# ---------------------------------------------------------------------------
+
+
+def _seed_storm(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from _lib.runtime_state import error_fingerprint, record_error
+
+    monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "3")
+    fp = error_fingerprint("hook.x", "hook_integrity_violation", None, "sha mismatch")
+    for _ in range(3):
+        record_error(project, fp, component="hook.x", error_code="hook_integrity_violation")
+
+
+def test_session_start_prints_storm_banner(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    _seed_storm(project, monkeypatch)
+    ctx = _make_ctx(project, data={"hook_event_name": "SessionStart", "session_id": "s"})
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    out = capsys.readouterr().out
+    assert "error-storm" in out
+    assert "hook.x" in out
+    assert "hook_integrity_violation" in out
+
+
+def test_session_start_no_banner_when_clean(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    ctx = _make_ctx(project, data={"hook_event_name": "SessionStart", "session_id": "s"})
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    out = capsys.readouterr().out
+    assert "error-storm" not in out

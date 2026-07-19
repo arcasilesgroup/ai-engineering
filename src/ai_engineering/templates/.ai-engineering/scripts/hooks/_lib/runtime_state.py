@@ -19,6 +19,7 @@ import hashlib
 import json
 import os
 import re
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -51,6 +52,10 @@ _CHECKPOINT_NAME = "checkpoint.json"
 _RALPH_RESUME_NAME = "ralph-resume.json"
 _PRECOMPACT_SNAPSHOT_NAME = "precompact-snapshot.json"
 _EVENT_SIDECARS_NAME = "event-sidecars"
+# spec-190 D-190-02: error/integrity coalescer ledger. One atomic JSON sidecar
+# keyed by fingerprint so repeated error/integrity emits collapse into a single
+# full event per window plus periodic rollups instead of one NDJSON line each.
+_ERROR_LEDGER_NAME = "error-coalesce.json"
 
 # Legacy ``*_REL`` constants retained for backwards-compatible re-export
 # only -- do NOT use these for new code. They reference the pre-Wave-2b
@@ -626,6 +631,212 @@ def maybe_offload_event(
 
 
 # ---------------------------------------------------------------------------
+# Error / integrity storm coalescer (spec-190 D-190-02)
+# ---------------------------------------------------------------------------
+#
+# ~10 real incidents produced ~18,400 NDJSON lines because every hook
+# invocation re-emitted the same integrity / crash event. The coalescer
+# collapses repeats keyed by a stable fingerprint: the first occurrence in a
+# window emits the full event, subsequent ones are suppressed, and a rollup is
+# emitted every AIENG_ERROR_STORM_THRESHOLD occurrences carrying the running
+# count. When repeats cross the threshold the first time, a storm alarm fires.
+#
+# The whole surface is fail-open: any read/write/parse failure degrades to
+# "emit_full=True" so no incident is ever silently dropped.
+
+# Default rollup + storm threshold. Reused as the rollup cadence so a storm and
+# its first rollup coincide on the threshold-crossing occurrence.
+_DEFAULT_ERROR_STORM_THRESHOLD = 20
+# Default coalescing window (seconds); reuses the shared hot-path cache TTL.
+_DEFAULT_ERROR_WINDOW_SEC = 300
+
+
+def _error_storm_threshold() -> int:
+    return _env_int("AIENG_ERROR_STORM_THRESHOLD", _DEFAULT_ERROR_STORM_THRESHOLD)
+
+
+def _error_window_sec() -> int:
+    return _env_int("AIENG_HOOK_CACHE_TTL_SEC", _DEFAULT_ERROR_WINDOW_SEC)
+
+
+def error_ledger_path(project_root: Path) -> Path:
+    return RUNTIME_DIR(project_root) / _ERROR_LEDGER_NAME
+
+
+def error_fingerprint(
+    component: str | None,
+    error_code: str | None,
+    session_id: str | None,
+    summary: str | None,
+) -> str:
+    """Stable 16-hex fingerprint over the coalescing key.
+
+    Same ``(component, error_code, session_id, bounded_summary)`` tuple always
+    hashes to the same value so identical incidents coalesce. The summary is
+    bounded before hashing so a long, mostly-stable traceback still groups.
+    """
+    bounded = (summary or "")[:200]
+    raw = "\x1f".join(
+        (
+            component or "",
+            error_code or "",
+            session_id or "",
+            bounded,
+        )
+    )
+    return hashlib.sha1(raw.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
+
+
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    """Atomic JSON write via tmp + os.replace. Caller wraps for fail-open."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        tmp.write_text(json.dumps(payload, sort_keys=True, default=str), encoding="utf-8")
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            with contextlib.suppress(OSError):
+                tmp.unlink()
+
+
+def _prune_error_entries(entries: dict, now: float, window: int) -> None:
+    """Drop fingerprint records whose window has fully expired (bounds the file)."""
+    stale = [
+        fp
+        for fp, rec in list(entries.items())
+        if not isinstance(rec, dict)
+        or not isinstance(rec.get("first_seen"), (int, float))
+        or (now - float(rec["first_seen"])) > window
+    ]
+    for fp in stale:
+        entries.pop(fp, None)
+
+
+def record_error(
+    project_root: Path,
+    fingerprint: str,
+    *,
+    component: str | None = None,
+    error_code: str | None = None,
+    summary: str | None = None,
+) -> dict[str, Any]:
+    """Record one error/integrity occurrence; decide whether to emit.
+
+    Returns a dict with:
+      * ``emit_full``       -- caller should write the full event this time.
+      * ``occurrences``     -- running count in the current window.
+      * ``storm_triggered`` -- True exactly once, when repeats first cross
+                               ``AIENG_ERROR_STORM_THRESHOLD`` in the window.
+      * ``is_rollup``       -- ``emit_full`` was granted by the rollup cadence
+                               (a repeat), not the first occurrence.
+
+    Fail-open: any failure returns a first-occurrence verdict so nothing is
+    lost. Backed by an atomic JSON sidecar under ``runtime/`` (gitignored).
+    """
+    fallback = {"emit_full": True, "occurrences": 1, "storm_triggered": False, "is_rollup": False}
+    try:
+        threshold = _error_storm_threshold()
+        window = _error_window_sec()
+        now = time.time()
+        path = error_ledger_path(project_root)
+        ledger = read_json(path) or {}
+        entries = ledger.get("fingerprints")
+        if not isinstance(entries, dict):
+            entries = {}
+
+        rec = entries.get(fingerprint)
+        if isinstance(rec, dict):
+            first_seen = rec.get("first_seen")
+            if not isinstance(first_seen, (int, float)) or (now - float(first_seen)) > window:
+                rec = None  # window expired -> re-anchor
+        else:
+            rec = None
+
+        if rec is None:
+            entries[fingerprint] = {
+                "first_seen": now,
+                "last_seen": now,
+                "count": 1,
+                "storm_notified": False,
+                "component": component,
+                "error_code": error_code,
+                "summary": (summary or "")[:200] or None,
+            }
+            _prune_error_entries(entries, now, window)
+            ledger["fingerprints"] = entries
+            _atomic_write_json(path, ledger)
+            return {
+                "emit_full": True,
+                "occurrences": 1,
+                "storm_triggered": False,
+                "is_rollup": False,
+            }
+
+        count = int(rec.get("count", 0)) + 1
+        rec["count"] = count
+        rec["last_seen"] = now
+        if component is not None:
+            rec["component"] = component
+        if error_code is not None:
+            rec["error_code"] = error_code
+
+        storm_triggered = False
+        if count >= threshold and not rec.get("storm_notified"):
+            storm_triggered = True
+            rec["storm_notified"] = True
+
+        is_rollup = count % threshold == 0
+        emit_full = is_rollup or storm_triggered
+
+        entries[fingerprint] = rec
+        _prune_error_entries(entries, now, window)
+        ledger["fingerprints"] = entries
+        _atomic_write_json(path, ledger)
+        return {
+            "emit_full": emit_full,
+            "occurrences": count,
+            "storm_triggered": storm_triggered,
+            "is_rollup": is_rollup,
+        }
+    except Exception:
+        return dict(fallback)
+
+
+def active_error_storms(project_root: Path) -> list[dict[str, Any]]:
+    """Return fingerprints with an active storm in the current window.
+
+    Consumed by the SessionStart banner so the operator sees a storm without
+    running ``ai-eng doctor``. Fail-open: any error returns ``[]``.
+    """
+    try:
+        window = _error_window_sec()
+        now = time.time()
+        ledger = read_json(error_ledger_path(project_root)) or {}
+        entries = ledger.get("fingerprints")
+        if not isinstance(entries, dict):
+            return []
+        out: list[dict[str, Any]] = []
+        for fingerprint, rec in entries.items():
+            if not isinstance(rec, dict) or not rec.get("storm_notified"):
+                continue
+            first_seen = rec.get("first_seen")
+            if not isinstance(first_seen, (int, float)) or (now - float(first_seen)) > window:
+                continue
+            out.append(
+                {
+                    "fingerprint": fingerprint,
+                    "count": int(rec.get("count", 0)),
+                    "component": rec.get("component"),
+                    "error_code": rec.get("error_code"),
+                }
+            )
+        return out
+    except Exception:
+        return []
+
+
+# ---------------------------------------------------------------------------
 # Misc helpers consumed by hooks
 # ---------------------------------------------------------------------------
 
@@ -678,12 +889,15 @@ __all__ = [
     "TOOL_OUTPUTS_FILE_CAP",
     "TOOL_RESPONSE_FLATTEN_CAP",
     "ToolHistoryEntry",
+    "active_error_storms",
     "append_ndjson",
     "append_tool_history",
     "checkpoint_path",
     "derive_outcome",
     "detect_repetition",
     "ensure_runtime_dirs",
+    "error_fingerprint",
+    "error_ledger_path",
     "event_sidecars_dir",
     "extract_error_summary",
     "iso_now",
@@ -694,6 +908,7 @@ __all__ = [
     "read_json",
     "read_ndjson_tail",
     "recent_tool_history",
+    "record_error",
     "redact",
     "runtime_dir",
     "tool_history_path",

@@ -112,6 +112,31 @@ def _safe_write_session_pointer(project_root: Path, session_id: str | None) -> N
         return
 
 
+def _storm_banner(project_root: Path) -> str | None:
+    """Return a bounded one-line error-storm warning, or None when clean.
+
+    spec-190 D-190-02: reads the coalescer sidecar and, if any fingerprint has
+    an active storm in the current window, names the loudest one (count +
+    component + error_code). Fail-open — any error returns None so a broken
+    sidecar never blocks session boot.
+    """
+    try:
+        from _lib.runtime_state import active_error_storms
+
+        storms = active_error_storms(project_root)
+    except Exception:
+        return None
+    if not storms:
+        return None
+    top = max(storms, key=lambda s: s.get("count", 0))
+    line = (
+        f"[error-storm] {top.get('count')} repeated errors "
+        f"(component={top.get('component')} error_code={top.get('error_code')}) "
+        "in the last window — run 'ai-eng doctor'"
+    )
+    return line[:240]
+
+
 def _safe_init_trace_context(project_root: Path) -> str | None:
     """Best-effort fresh-trace stamping. Returns the new traceId or None."""
     try:
@@ -174,6 +199,14 @@ def main() -> None:
     # block session start.
     with contextlib.suppress(Exception):
         sys.stdout.write(_value_lens_contract() + "\n")
+
+    # spec-190 D-190-02: surface an active error/integrity storm so the
+    # operator sees it at session boot without running ``ai-eng doctor``.
+    # Suppressed (nothing printed) when clean. Fail-open: never raise.
+    with contextlib.suppress(Exception):
+        banner = _storm_banner(project_root)
+        if banner:
+            sys.stdout.write(banner + "\n")
 
     passthrough_stdin(ctx.data)
 

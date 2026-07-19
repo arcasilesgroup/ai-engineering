@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import ast
 import importlib
+import itertools
 import json
 import sys
 from pathlib import Path
@@ -358,3 +359,80 @@ def test_lib_malformed_usage_missing_token_counts_skipped(project_root: Path, li
         and e.get("detail", {}).get("error_code") == "genai_usage_malformed"
         for e in errors
     )
+
+
+# ---------------------------------------------------------------------------
+# spec-190 D-190-02: error-storm coalescing in emit_framework_error
+# ---------------------------------------------------------------------------
+
+
+def _events(ndjson_path: Path) -> list[dict]:
+    if not ndjson_path.exists():
+        return []
+    return [
+        json.loads(line)
+        for line in ndjson_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+
+
+def _emit_error(lib_obs, project_root: Path) -> None:
+    lib_obs.emit_framework_error(
+        project_root,
+        engine="claude_code",
+        component="hook.storm",
+        error_code="hook_execution_failed",
+        summary="identical boom",
+        session_id="sess-1",
+    )
+
+
+def test_emit_framework_error_coalesces(
+    lib_obs, project_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+    ndjson_path = project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
+    for _ in range(5):
+        _emit_error(lib_obs, project_root)
+    errors = [e for e in _events(ndjson_path) if e.get("kind") == "framework_error"]
+    assert len(errors) == 2
+    assert errors[-1]["detail"].get("occurrences") == 5
+
+
+def test_emit_framework_error_storm_control(
+    lib_obs, project_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+    ndjson_path = project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
+    for _ in range(12):
+        _emit_error(lib_obs, project_root)
+    controls = [
+        e
+        for e in _events(ndjson_path)
+        if e.get("kind") == "control_outcome"
+        and e.get("detail", {}).get("control") == "framework_error_storm"
+    ]
+    assert len(controls) == 1
+    assert controls[0]["detail"]["category"] == "observability"
+    assert controls[0]["detail"]["error_code"] == "hook_execution_failed"
+
+
+def _strip_chain(event: dict) -> str:
+    stripped = {k: v for k, v in event.items() if k not in ("prev_event_hash", "prevEventHash")}
+    import hashlib
+
+    canonical = json.dumps(stripped, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def test_emit_framework_error_preserves_hash_chain(
+    lib_obs, project_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+    ndjson_path = project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
+    for _ in range(6):
+        _emit_error(lib_obs, project_root)
+    events = _events(ndjson_path)
+    assert len(events) >= 2
+    for prev, curr in itertools.pairwise(events):
+        assert curr.get("prev_event_hash") == _strip_chain(prev)

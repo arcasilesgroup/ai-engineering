@@ -398,13 +398,62 @@ def _emit_hook_heartbeat(
         pass
 
 
-def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> None:
-    """Append the framework_error event when main_fn raised (spec-112 D-112-04)."""
+def _record_error_coalesced(
+    project_root: Path,
+    *,
+    component: str,
+    error_code: str,
+    summary: str,
+    session_id: str | None,
+) -> dict:
+    """Route an error/integrity emit through the storm coalescer (spec-190 D-190-02).
+
+    Returns the ``record_error`` verdict augmented with the ``fingerprint``.
+    Fail-open: any import/compute failure yields a first-occurrence verdict so
+    no incident is dropped and the audit chain keeps its entry.
+    """
     try:
-        project_root = _resolve_project_root()
-        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        from _lib.runtime_state import error_fingerprint, record_error
+
+        fingerprint = error_fingerprint(component, error_code, session_id, summary)
+        verdict = record_error(
+            project_root,
+            fingerprint,
+            component=component,
+            error_code=error_code,
+            summary=summary,
+        )
+        verdict["fingerprint"] = fingerprint
+    except Exception:
+        return {
+            "emit_full": True,
+            "occurrences": 1,
+            "storm_triggered": False,
+            "is_rollup": False,
+            "fingerprint": "",
+        }
+    else:
+        return verdict
+
+
+def _emit_error_storm_control(
+    project_root: Path,
+    *,
+    component: str,
+    error_code: str,
+    fingerprint: str,
+    occurrences: int,
+    hook_kind: str,
+) -> None:
+    """Emit ONE control_outcome storm alarm (spec-190 D-190-02).
+
+    Fired the first time repeats cross ``AIENG_ERROR_STORM_THRESHOLD`` so the
+    operator sees the storm without scanning the raw NDJSON. Fail-open.
+    """
+    try:
+        engine = "ai_engineering"
         event = {
-            "kind": "framework_error",
+            "kind": "control_outcome",
             "engine": engine,
             "timestamp": _now_iso(),
             "component": component,
@@ -414,8 +463,11 @@ def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> N
             "project": project_root.name,
             "source": "hook",
             "detail": {
-                "error_code": "hook_execution_failed",
-                "summary": str(exc)[:200],
+                "category": "observability",
+                "control": "framework_error_storm",
+                "error_code": error_code,
+                "fingerprint": fingerprint,
+                "occurrences": occurrences,
                 "hook_kind": hook_kind,
             },
         }
@@ -423,6 +475,63 @@ def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> N
         if session_id:
             event["sessionId"] = session_id
         emit_event(project_root, event)
+    except Exception:
+        pass
+
+
+def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> None:
+    """Append the framework_error event when main_fn raised (spec-112 D-112-04).
+
+    Repeats are coalesced via the spec-190 storm coalescer: the first crash in
+    a window emits the full event, subsequent identical crashes are suppressed
+    but a rollup carrying ``detail.occurrences`` is emitted on the threshold
+    cadence, and a storm alarm fires once per window.
+    """
+    try:
+        project_root = _resolve_project_root()
+        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        summary = str(exc)[:200]
+        session_id = get_session_id()
+        error_code = "hook_execution_failed"
+        verdict = _record_error_coalesced(
+            project_root,
+            component=component,
+            error_code=error_code,
+            summary=summary,
+            session_id=session_id,
+        )
+        if verdict.get("emit_full", True):
+            detail: dict = {
+                "error_code": error_code,
+                "summary": summary,
+                "hook_kind": hook_kind,
+            }
+            if verdict.get("is_rollup"):
+                detail["occurrences"] = verdict.get("occurrences")
+            event = {
+                "kind": "framework_error",
+                "engine": engine,
+                "timestamp": _now_iso(),
+                "component": component,
+                "outcome": "failure",
+                "correlationId": get_correlation_id(),
+                "schemaVersion": "1.0",
+                "project": project_root.name,
+                "source": "hook",
+                "detail": detail,
+            }
+            if session_id:
+                event["sessionId"] = session_id
+            emit_event(project_root, event)
+        if verdict.get("storm_triggered"):
+            _emit_error_storm_control(
+                project_root,
+                component=component,
+                error_code=error_code,
+                fingerprint=verdict.get("fingerprint", ""),
+                occurrences=verdict.get("occurrences", 0),
+                hook_kind=hook_kind,
+            )
     except Exception:
         pass
 
@@ -494,31 +603,58 @@ def _verify_caller_integrity(
 
 
 def _emit_integrity_violation(*, component: str, hook_kind: str, reason: str, mode: str) -> None:
-    """Log integrity mismatch as ``framework_error`` regardless of mode."""
+    """Log integrity mismatch as ``framework_error`` regardless of mode.
+
+    Routed through the spec-190 storm coalescer so a mis-pinned manifest (which
+    re-fires on every hook invocation, historically ~15k lines) collapses into
+    one full event + periodic rollups + a single storm alarm per window.
+    """
     try:
         project_root = _resolve_project_root()
         engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
-        event = {
-            "kind": "framework_error",
-            "engine": engine,
-            "timestamp": _now_iso(),
-            "component": component,
-            "outcome": "failure",
-            "correlationId": get_correlation_id(),
-            "schemaVersion": "1.0",
-            "project": project_root.name,
-            "source": "hook",
-            "detail": {
-                "error_code": "hook_integrity_violation",
-                "summary": reason[:200],
+        summary = reason[:200]
+        session_id = get_session_id()
+        error_code = "hook_integrity_violation"
+        verdict = _record_error_coalesced(
+            project_root,
+            component=component,
+            error_code=error_code,
+            summary=summary,
+            session_id=session_id,
+        )
+        if verdict.get("emit_full", True):
+            detail: dict = {
+                "error_code": error_code,
+                "summary": summary,
                 "hook_kind": hook_kind,
                 "mode": mode,
-            },
-        }
-        session_id = get_session_id()
-        if session_id:
-            event["sessionId"] = session_id
-        emit_event(project_root, event)
+            }
+            if verdict.get("is_rollup"):
+                detail["occurrences"] = verdict.get("occurrences")
+            event = {
+                "kind": "framework_error",
+                "engine": engine,
+                "timestamp": _now_iso(),
+                "component": component,
+                "outcome": "failure",
+                "correlationId": get_correlation_id(),
+                "schemaVersion": "1.0",
+                "project": project_root.name,
+                "source": "hook",
+                "detail": detail,
+            }
+            if session_id:
+                event["sessionId"] = session_id
+            emit_event(project_root, event)
+        if verdict.get("storm_triggered"):
+            _emit_error_storm_control(
+                project_root,
+                component=component,
+                error_code=error_code,
+                fingerprint=verdict.get("fingerprint", ""),
+                occurrences=verdict.get("occurrences", 0),
+                hook_kind=hook_kind,
+            )
     except Exception:
         pass
 
