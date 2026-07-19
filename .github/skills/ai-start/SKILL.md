@@ -4,7 +4,6 @@ description: "Bootstraps a coding session: loads project context and displays a 
 effort: mid
 argument-hint: 
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-start/SKILL.md
@@ -14,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Start
 
-Session welcome dashboard. The dashboard is fully rendered by a deterministic Python script (`session_bootstrap.py`) — the agent runs one command, prints the markdown verbatim, and stops. Re-probing git/sqlite/manifests/board APIs from the agent side blows the latency budget (operator-pain #18b); the script collects every field and caches the board call. Cold path <3 s (with board); warm path <500 ms.
+Bootstraps a coding session: a deterministic Python script (`session_bootstrap.py`) renders the whole welcome dashboard, so the agent runs one command, prints the markdown verbatim, and stops. Re-probing git/sqlite/manifests/board APIs agent-side blows the latency budget (operator-pain #18b), so the script collects every field and caches the board call — cold path <3 s with board, warm path <500 ms.
 
 ## Workflow
 

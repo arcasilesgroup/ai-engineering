@@ -1,7 +1,7 @@
 ---
 name: "ai-explore"
 description: "Context gatherer -- deep codebase research, architecture mapping, dependency tracing, pattern identification, risk surfacing. Read-only."
-model: opus
+model: sonnet
 tools: [codebase, githubRepo, readFile, search]
 mirror_family: copilot-agents
 generated_by: ai-eng sync
@@ -12,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # Explore
+
+Read-only codebase research: maps architecture, traces dependencies, identifies patterns, and surfaces risks for questions whose answer lives inside this repository's files. Dispatch it before build/verify/review for structured context; use `/ai-research` instead when the source of truth is external.
 
 ## Identity
 

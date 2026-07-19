@@ -2,14 +2,13 @@
 name: ai-prose
 description: "Writes content (blog posts, pitch decks, sprint review summaries, architecture board reports, solution intent documents) with automatic audience targeting (developer/manager/executive). Trigger for 'write a blog post', 'pitch this', 'sprint review summary', 'architecture board doc', 'solution intent for'. Not for documentation artifacts like CHANGELOG or README; use /ai-docs instead. Not for marketing/social content; use /ai-marketing instead. Not for code-level explanations; use /ai-explain instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "content [type] [--audience developer|manager|executive]"
 tags: [writing, content, communication]
 ---
 
 # Prose
 
-Content writing with automatic audience targeting. Edit, don't generate — start from what exists (notes, transcripts, data, real output). Template language is a failure mode.
+Content writing (blog, pitch, sprint-review, architecture-board, solution-intent) with automatic audience targeting. Edit, don't generate — start from what exists (notes, transcripts, data, real output); template language is a failure mode.
 
 ## Workflow
 

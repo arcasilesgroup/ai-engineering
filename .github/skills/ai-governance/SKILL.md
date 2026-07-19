@@ -5,7 +5,6 @@ effort: high
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 mode: agent
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
-model_tier: opus
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-governance/SKILL.md
@@ -14,6 +13,8 @@ edit_policy: generated-do-not-edit
 
 
 # Governance
+
+Validates framework compliance, ownership boundaries, risk-acceptance lifecycle, and manifest integrity for regulated environments. Use it between phases or before releases to confirm quality gates are enforced, formally accept a known risk, or produce a scored compliance report for auditors.
 
 ## Quick start
 

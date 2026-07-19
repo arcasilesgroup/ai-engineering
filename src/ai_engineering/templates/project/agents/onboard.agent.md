@@ -1,7 +1,7 @@
 ---
 name: "Onboard"
 description: "Developer education and onboarding -- architecture tours, decision archaeology, knowledge transfer."
-model: opus
+model: sonnet
 tools: [codebase, fetch, githubRepo, readFile, search]
 mirror_family: copilot-agents
 generated_by: ai-eng sync
@@ -12,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # Onboard
+
+Onboards humans to a project through architecture tours, decision archaeology, and knowledge transfer. Strictly read-only — reads everything, writes nothing.
 
 ## Identity
 

@@ -3,7 +3,6 @@ name: ai-plan
 description: "Decomposes an approved spec into a phased execution plan with bite-sized tasks, agent assignments, and gate criteria — the contract /ai-build executes. Trigger for 'break this down', 'create a plan', 'what tasks do we need', 'lets start implementing', 'scope changed re-plan'. Hard gate: user approves before /ai-build can run. Not for ambiguous requirements; use /ai-brainstorm instead. Not for execution; use /ai-build instead."
 effort: high
 argument-hint: "[spec-NNN or topic]"
-model_tier: opus
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-plan/SKILL.md
@@ -59,7 +58,7 @@ Each task block carries five lines so `/ai-build` can route mechanical work to t
 - `- Patch (deterministic):` — a unified-diff hunk when the edit is mechanical (rename, copy, frontmatter add); omit and add prose only when judgment is required.
 - `- Gate: <test/check>`
 
-Routing: patch present → `effort: cheap / model_tier: haiku`; patch absent or synthesis hint → `effort: mid / model_tier: sonnet`; operator `--max-effort` → `effort: high / model_tier: opus`.
+Routing: patch present → `effort: cheap`; patch absent or synthesis hint → `effort: mid`; operator `--max-effort` → `effort: high`.
 
 Plan frontmatter MUST include `execution_route.version`, `spec`, `executor`, `automation`, `concern_count`, `estimated_files`, `reason`, `safe_next_command`. Do NOT add `approved`/`approval` under `execution_route`; plan `status` is the approval source of truth.
 

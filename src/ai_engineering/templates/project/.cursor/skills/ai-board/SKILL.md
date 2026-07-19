@@ -4,7 +4,6 @@ description: "Operates the project board (GitHub Projects v2 or Azure DevOps): d
 effort: cheap
 argument-hint: "discover [--refresh] | sync <phase> <work-item-ref> [--comment text]"
 tags: [board, discovery, sync, work-items, configuration]
-model_tier: haiku
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-board/SKILL.md
@@ -15,7 +14,9 @@ edit_policy: generated-do-not-edit
 
 # Board
 
-Two subcommands (collapsed from separate skills in spec-127 D-127-10):
+Operates the project board (GitHub Projects v2 or Azure DevOps) through two subcommands — `discover` writes board config after install and `sync` transitions work-item state at lifecycle points. Use it to set up the board, discover fields, or move an issue between states (collapsed from separate skills in spec-127 D-127-10).
+
+## Subcommands
 
 | Subcommand | Detail file | Purpose |
 | ---------- | ----------- | ------- |

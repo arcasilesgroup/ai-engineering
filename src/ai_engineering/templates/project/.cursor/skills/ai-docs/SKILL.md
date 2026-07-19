@@ -4,7 +4,6 @@ description: "Manages the documentation lifecycle: CHANGELOG, README, solution-i
 effort: mid
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 tags: [documentation, architecture, governance]
-model_tier: sonnet
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-docs/SKILL.md

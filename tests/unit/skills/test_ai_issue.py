@@ -7,7 +7,7 @@ skill body is the canonical source (skill-creator contract). We assert:
 
 * SKILL.md exists at ``.claude/skills/ai-issue/SKILL.md``.
 * Frontmatter declares ``name``, ``description``, ``effort: cheap``,
-  ``model_tier: haiku``, ``argument-hint``, ``tags``.
+  ``argument-hint``, ``tags``.
 * ``## Workflow`` cites a §10.x engineering anchor.
 * Body documents both GitHub and Azure DevOps provider paths.
 * Body documents the ``--dry-run`` mode and authentication preconditions.
@@ -55,7 +55,7 @@ def test_skill_md_exists() -> None:
 @pytest.mark.unit
 def test_frontmatter_required_fields(frontmatter: dict[str, str]) -> None:
     """Frontmatter carries the skill-authoring contract fields (D-134-08)."""
-    for field in ("name", "description", "effort", "model_tier", "argument-hint"):
+    for field in ("name", "description", "effort", "argument-hint"):
         assert field in frontmatter, f"frontmatter missing required field {field!r}"
 
 
@@ -63,12 +63,6 @@ def test_frontmatter_required_fields(frontmatter: dict[str, str]) -> None:
 def test_frontmatter_effort_cheap(frontmatter: dict[str, str]) -> None:
     """`/ai-issue` is a thin deterministic wrapper — effort: cheap."""
     assert frontmatter.get("effort") == "cheap"
-
-
-@pytest.mark.unit
-def test_frontmatter_model_tier_haiku(frontmatter: dict[str, str]) -> None:
-    """Cheap effort routes to haiku per .ai-engineering/reference/model-dispatch-policy.md."""
-    assert frontmatter.get("model_tier") == "haiku"
 
 
 @pytest.mark.unit

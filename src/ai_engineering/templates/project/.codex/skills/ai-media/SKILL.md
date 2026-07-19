@@ -7,7 +7,6 @@ tags: [media, generation, fal-ai]
 requires:
   mcp:
   - fal-ai
-model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-media/SKILL.md
@@ -17,7 +16,7 @@ edit_policy: generated-do-not-edit
 
 # Media
 
-Generate images, videos, and audio via fal.ai models over MCP. Progressive quality: iterate cheap, finalize expensive. Modes: `image` (text-to-image + editing), `video` (text/image-to-video), `audio` (speech, music, SFX, video-to-audio).
+Generate images, videos, and audio via fal.ai models over MCP with progressive quality — iterate cheap, finalize expensive. Modes: `image` (text-to-image + editing), `video` (text/image-to-video), `audio` (speech, music, SFX, video-to-audio).
 
 ## Workflow
 

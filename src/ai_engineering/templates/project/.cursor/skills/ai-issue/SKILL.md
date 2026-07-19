@@ -7,7 +7,6 @@ tags: [work-items, board, issue, github, azure_devops]
 requires:
   bins:
   - gh
-model_tier: haiku
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-issue/SKILL.md

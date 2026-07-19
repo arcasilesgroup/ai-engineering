@@ -2,7 +2,6 @@
 name: ai-media
 description: "Generates images, videos, and audio via AI models (fal-ai MCP): cheap iteration models, expensive production finals, cost-estimate before generation. Trigger for 'generate an image', 'create a thumbnail', 'make a voiceover', 'AI video', 'text to speech for'. Not for design composition; use /ai-visual instead. Not for animation specs; use /ai-animation instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "image|video|audio [description]"
 tags: [media, generation, fal-ai]
 requires: { mcp: ["fal-ai"] }
@@ -10,7 +9,7 @@ requires: { mcp: ["fal-ai"] }
 
 # Media
 
-Generate images, videos, and audio via fal.ai models over MCP. Progressive quality: iterate cheap, finalize expensive. Modes: `image` (text-to-image + editing), `video` (text/image-to-video), `audio` (speech, music, SFX, video-to-audio).
+Generate images, videos, and audio via fal.ai models over MCP with progressive quality — iterate cheap, finalize expensive. Modes: `image` (text-to-image + editing), `video` (text/image-to-video), `audio` (speech, music, SFX, video-to-audio).
 
 ## Workflow
 

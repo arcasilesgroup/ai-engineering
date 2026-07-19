@@ -3,7 +3,6 @@ name: ai-resolve-conflicts
 description: "Resolves git conflicts intent-aware: categorizes by type (lock files, migrations, generated, config, code), regenerates or merges per category, never blindly accepts. Trigger for 'I have conflicts', 'rebase failed', 'merge conflict', 'cherry-pick failed', 'unmerged paths'. Not for branch hygiene; use /ai-branch-cleanup instead. Not for committing the resolution; use /ai-commit instead."
 effort: cheap
 argument-hint: 
-model_tier: haiku
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-resolve-conflicts/SKILL.md
@@ -14,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Resolve Conflicts
 
-Intent-aware git conflict resolution: detect the operation, categorize files by strategy, resolve with awareness of both sides. Handles lock files, migrations, generated, config, and code differently. No arguments — reads git state directly. Auto-detect trigger: `git status` shows "Unmerged paths" or "both modified" after rebase/merge/cherry-pick/revert.
+Intent-aware git conflict resolution: detect the operation, categorize files by strategy (lock, migration, generated, config, code), and resolve with awareness of both sides — never blindly accept. Use it whenever `git status` shows unmerged paths after a rebase, merge, cherry-pick, or revert.
 
 ```
 /ai-resolve-conflicts     # auto-detect and resolve current conflicts

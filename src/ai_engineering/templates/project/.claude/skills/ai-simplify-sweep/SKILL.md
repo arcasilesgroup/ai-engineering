@@ -2,12 +2,13 @@
 name: ai-simplify-sweep
 description: "Sweeps stale code complexity on demand via an /ai-simplify wrapper, gates the diff, and opens a draft PR for human review. Trigger for 'run the simplify sweep', 'simplification sweep', 'simplify pass'. Never auto-merges, never runs unattended. Not for in-flight feature work; use /ai-simplify instead. Not for security cleanup; use /ai-security instead."
 effort: cheap
-model_tier: haiku
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, simplification]
 ---
 
 # Simplify Sweep
+
+Sweeps stale code complexity on demand via an `/ai-simplify` wrapper, gates the diff, and opens a draft PR for human review. Use it for an operator-triggered simplification pass — never auto-merges, never runs unattended.
 
 ## Purpose
 

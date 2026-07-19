@@ -3,7 +3,6 @@ name: ai-standup
 description: Generates standup notes and status updates from actual git commits and PRs — never reconstructed from memory. Trigger for 'write my standup', 'what did I do today', 'what did I ship this week', 'status update', 'handoff notes', 'end of day summary'. Not for pitch or blog content; use /ai-prose instead. Not for sprint retrospectives; use /ai-sprint instead.
 effort: cheap
 argument-hint: "--days N|--author [name]"
-model_tier: haiku
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-standup/SKILL.md
@@ -14,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Standup
 
-Generate copy-paste-ready standup notes from actual PR + commit activity, grouped by status. Output is markdown to stdout (not saved), designed for Slack/Teams/standup tools, one link per item. For sprint-level summaries use `/ai-sprint retro`; for incident timelines use `/ai-postmortem`.
+Generate copy-paste-ready standup notes from actual PR + commit activity grouped by status, emitted as markdown to stdout for Slack/Teams/standup tools with one link per item. For sprint-level summaries use `/ai-sprint retro`; for incident timelines use `/ai-postmortem`.
 
 ```
 /ai-standup                   # today's standup (1 working day)

@@ -27,7 +27,7 @@ and `.ai-engineering/reference/brand-voice.md`. Authority for prose: `brand-voic
 
 ## Stat line
 
-Mid-dot inventory: `53 skills · 9 agents · 6 surfaces · 1 governed flow`.
+Mid-dot inventory: `54 skills · 9 agents · 6 surfaces · 1 governed flow`.
 
 ## Asset rules
 

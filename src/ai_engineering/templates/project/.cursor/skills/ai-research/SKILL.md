@@ -3,7 +3,6 @@ name: ai-research
 description: "External evidence with citations via a 4-tier escalation (local → free MCPs → web/Exa → NotebookLM autonomous deep research, launched first / harvested last). Every claim sourced [N] or marked [unsourced]; output ends with 3 cited recommended directions. Trigger for 'what does the state of the art say about', 'compare options for', 'find sources on', 'investigate this question', 'research this'. Use for questions whose answer lives OUTSIDE the codebase. Not for codebase exploration; use /ai-explore instead. Not for refactors; use /ai-simplify instead. Not for business-logic debugging; use /ai-debug instead."
 effort: mid
 argument-hint: "[query] [--depth quick|standard|deep] [--reuse-notebook=id] [--persist]"
-model_tier: sonnet
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-research/SKILL.md
@@ -14,13 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Research
 
-Multi-tier, multi-source, citation-first research with persistent artifact reuse. Replaces ad-hoc `WebSearch` with a disciplined escalation. Invariants:
-
-- **Async-first Tier 3.** NotebookLM autonomous deep research launches FIRST at T0 (background subagent) so its slow job overlaps the fast tiers, then is harvested LAST with a bounded wait.
-- **Citation hard-rule.** Every external claim carries `[N]` or is marked `[unsourced]`.
-- **Always 3 directions.** Output ends with EXACTLY 3 cited recommended directions.
-- **Fail-soft capability detection.** Every external tier (NotebookLM, Context7, Exa, MS Learn, Tavily) is capability-detected; absent/unauthenticated tools are skipped silently, recorded in `degraded_sources`, and NEVER error the run (D7). Tier 3 is gated by `notebooklm doctor` (exit 0 = available).
-- **Reuse.** Runs persist to `.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md` (deep report + `notebook_id`) so later sessions short-circuit at Tier 0 or harvest via `--reuse-notebook`.
+Multi-tier, multi-source, citation-first research with persistent artifact reuse. Replaces ad-hoc `WebSearch` with a disciplined escalation that launches slow NotebookLM deep research first, harvests it last, and sources every claim `[N]` or `[unsourced]`.
 
 ## Process
 

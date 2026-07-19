@@ -2,7 +2,6 @@
 name: ai-sprint
 description: "Manages sprint lifecycle: plans a new sprint from backlog, runs data-driven retros comparing planned vs shipped, checks mid-sprint goal status, generates sprint review presentations. Works with GitHub Projects and Azure DevOps. Trigger for 'start sprint planning', 'kick off the sprint', 'lets do the retro', 'what did we deliver last sprint', 'sprint goals check', 'generate the sprint review deck'. Not for daily standup; use /ai-standup instead. Not for solo PR retro; use /ai-learn instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "plan|retro|goals|review [--sprint name]"
 requires:
   bins:
@@ -15,7 +14,7 @@ requires:
 
 # Sprint
 
-Sprint lifecycle: plan from backlog, run data-driven retros (planned vs shipped), track goals, generate review decks. Bridges spec-level planning and day-to-day delivery. Storage: `.ai-engineering/sprints/{name}.md` (naming `YYYY-wNN` ISO week, or custom).
+Sprint lifecycle: plan from backlog, run data-driven retros (planned vs shipped), track goals, generate review decks. Bridges spec-level planning and day-to-day delivery, storing each sprint at `.ai-engineering/sprints/{name}.md` (naming `YYYY-wNN` ISO week, or custom).
 
 ```
 /ai-sprint plan --sprint 2026-w12          # plan sprint for week 12

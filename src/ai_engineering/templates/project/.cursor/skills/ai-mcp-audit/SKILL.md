@@ -4,7 +4,6 @@ description: "Audits MCP servers and skills on demand using LLM coherence analys
 effort: high
 argument-hint: "scan|audit-update [skill]|baseline set [--target skill-or-all]"
 tags: [security, mcp, audit, governance]
-model_tier: opus
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-mcp-audit/SKILL.md
@@ -13,6 +12,10 @@ edit_policy: generated-do-not-edit
 
 
 # MCP Audit — On-Demand Skill & MCP Server Security Audit
+
+Audits MCP servers and skills on demand using LLM coherence analysis to
+catch capability drift and rug-pulls. Use it to scan declared-vs-observed
+behavior, diff post-update files, or set a known-good baseline.
 
 ## Workflow
 

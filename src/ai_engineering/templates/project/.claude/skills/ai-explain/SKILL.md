@@ -2,12 +2,13 @@
 name: ai-explain
 description: "Explains code, concepts, patterns, and architecture with engineer-grade depth: 3-tier control (brief/standard/deep), ASCII diagrams, execution traces, anchored to real file:line references. Trigger for 'how does this work', 'why does it do X', 'trace through this', 'explain this pattern', 'walk me through'. Not for documentation artifacts; use /ai-prose or /ai-docs instead. Not for fixing code; use /ai-debug or /ai-build instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "[topic]|--depth brief|standard|deep"
 tags: [explanation, teaching, analysis, architecture]
 ---
 
 # Explain
+
+Explains code, concepts, patterns, and architecture with engineer-grade depth — 3-tier control (brief/standard/deep), ASCII diagrams, and execution traces anchored to real `file:line` references. Use it for "how does this work", "why does it do X", "trace through this", or "walk me through" — not for producing docs (`/ai-prose`, `/ai-docs`) or fixing code (`/ai-debug`, `/ai-build`).
 
 ## Quick start
 

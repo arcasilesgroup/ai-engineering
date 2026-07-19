@@ -4,7 +4,6 @@ description: "Reviews code changes with human-quality judgment: PR reviews, file
 effort: mid
 argument-hint: "[--full] [PR number or file paths]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-review/SKILL.md
@@ -13,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # Review
+
+Reviews code changes with human-quality judgment — PR reviews, file reviews, diff analysis, architecture feedback — dispatching a full specialist roster through macro-agents with aggressive false-positive control. Use it for "review this", "look over my PR", or "is this merge-ready".
 
 ## Workflow
 
@@ -75,5 +76,7 @@ Dispatches the 3 macro-agents (correctness/testing/compat, security/perf, condit
 ## Integration
 
 Called by: user directly, `/ai-pr`, `/ai-build`, `/ai-autopilot` (Phase 5). Dispatches: `review-context`, `reviewer-*`, `review-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
+
+**Inline fallback.** Agent-tool dispatch is the primary path. On a harness without a subagent/Agent-tool primitive, execute this skill by reading the specialist agent file(s) (`review-context.md`, the selected `reviewer-*.md`, `review-validator.md`) inline and running their steps in-context, sequentially — inline-sequential is the floor, not a substitute for the dispatch when it is available.
 
 $ARGUMENTS

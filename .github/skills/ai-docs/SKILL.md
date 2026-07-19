@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "changelog|readme|solution-intent-init|solution-intent-sync|solution-intent-validate|docs-portal|docs-quality-gate"
 mode: agent
 tags: [documentation, architecture, governance]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-docs/SKILL.md

@@ -235,7 +235,7 @@ DEFAULT_REQUIRED_TOOLS: dict[str, Any] = {
 }
 
 
-# --- skills registry (53 entries, kept here so /ai-scaffold maintains a single source) ---
+# --- skills registry (54 entries, kept here so /ai-scaffold maintains a single source) ---
 
 DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     "ai-brainstorm": {"type": "workflow", "tags": ["planning"]},
@@ -260,6 +260,7 @@ DEFAULT_SKILLS_REGISTRY: dict[str, dict[str, Any]] = {
     "ai-onboard": {"type": "teaching", "tags": ["onboarding"]},
     "ai-prose": {"type": "writing", "tags": ["content"]},
     "ai-marketing": {"type": "writing", "tags": ["gtm", "marketing", "go-to-market"]},
+    "ai-fundraising": {"type": "writing", "tags": ["fundraising", "investor", "pitch", "research"]},
     "ai-note": {"type": "sdlc", "tags": ["knowledge"]},
     "ai-standup": {"type": "sdlc", "tags": ["reporting"]},
     "ai-sprint": {"type": "sdlc", "tags": ["planning", "presentation"]},

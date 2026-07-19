@@ -7,7 +7,6 @@ tags: [git, branch, cleanup, hygiene, status, delivery]
 requires:
   bins:
   - git
-model_tier: haiku
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-branch-cleanup/SKILL.md

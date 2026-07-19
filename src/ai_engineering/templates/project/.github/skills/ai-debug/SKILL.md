@@ -4,7 +4,6 @@ description: "Diagnoses broken behavior systematically with a 4-phase root-cause
 effort: mid
 argument-hint: "[error description or file:line]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-debug/SKILL.md
@@ -14,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Debug
 
-Systematic 4-phase debugging, always in order. NEVER fix symptoms — always find and fix the root cause. After 2 failed fix attempts, escalate to the user.
+Systematic 4-phase debugging, always in order, that finds and fixes the root cause instead of patching symptoms. After 2 failed fix attempts, escalate to the user.
 
 ## Workflow
 

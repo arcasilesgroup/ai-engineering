@@ -2,17 +2,16 @@
 name: ai-reliability-eval
 description: "Measures AI system reliability over time by defining pass/fail criteria before implementation, running capability checks, and tracking regression via pass@k metrics. Trigger for 'how reliable is this', 'did my changes break anything', 'measure AI performance', 'define success criteria', 'eval this feature', 'check skill regression'. Not for code correctness; use /ai-test instead. Not for quality gates; use /ai-verify instead — evals measure AI task completion consistency."
 effort: mid
-model_tier: sonnet
 argument-hint: "define|check|report|regression|--skill-set [feature]"
 tags: [quality, evals, improvement]
 ---
 
 # Reliability Eval
 
-Eval-Driven Development (EDD): evals are the unit tests of AI development. Define pass/fail
-criteria before writing code; measure AI reliability with pass@k metrics; track regressions
-across prompt, agent, and model changes. Evals answer "Can the AI do this reliably?" —
-distinct from `/ai-verify`, which checks current code quality (linting, coverage, security).
+Eval-Driven Development (EDD): define pass/fail criteria before writing code, then measure AI
+reliability with pass@k metrics and track regressions across prompt, agent, and model changes.
+Evals answer "Can the AI do this reliably?" — distinct from `/ai-verify`, which checks current
+code quality (linting, coverage, security).
 
 ## Workflow
 

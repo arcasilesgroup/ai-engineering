@@ -10,7 +10,6 @@ requires:
   - mysql
   - sqlite3
   - mongosh
-model_tier: sonnet
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-schema/SKILL.md
@@ -21,7 +20,7 @@ edit_policy: generated-do-not-edit
 
 # Database Engineering
 
-Schema design, safe migration generation, query optimization, and data lifecycle management. Multi-DB: PostgreSQL, MySQL, SQLite, MongoDB. Multi-ORM: SQLAlchemy, Prisma, TypeORM, Drizzle, Entity Framework, Diesel.
+Schema design, safe migration generation, query optimization, and data lifecycle management across PostgreSQL, MySQL, SQLite, and MongoDB. Multi-ORM: SQLAlchemy, Prisma, TypeORM, Drizzle, Entity Framework, Diesel.
 
 ## Process
 

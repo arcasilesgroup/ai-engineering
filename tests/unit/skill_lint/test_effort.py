@@ -1,21 +1,13 @@
-"""effort lint conformance — spec-131 S3 contract (sub-003 T-3.2 RED).
+"""effort lint conformance — spec-131 S3 / spec-189 (D-189-04) contract.
 
 The effort checker (``tools/skill_lint/checks/effort.py``) verifies that
-every SKILL.md frontmatter declares:
-
-* ``effort: cheap|mid|high`` — enforced (MAJOR on miss / invalid).
-* ``model_tier: haiku|sonnet|opus`` — observation-only (MINOR on miss /
-  invalid) during the R-131-09 grace window; flipped to MAJOR via the
-  ``enforce_tier=True`` parameter once the dispatch logic has been live
-  and audited.
+every SKILL.md frontmatter declares ``effort: cheap|mid|high`` — enforced
+(MAJOR on miss / invalid). Per spec-189 (D-189-04) ``effort`` is the sole
+skill dispatch axis; the former ``model_tier`` field is deleted.
 
 It also cross-checks each skill's declaration against the per-skill row in
-``.ai-engineering/reference/model-dispatch-policy.md`` (SSOT) — declaration / policy mismatch
-is MAJOR (effort) or MINOR (model_tier, grace window).
-
-This is the TDD RED partner of T-3.3. **DO NOT MODIFY THIS FILE during
-T-3.3 GREEN.** The checker implementation must change to satisfy these
-assertions.
+``.ai-engineering/reference/model-dispatch-policy.md`` (SSOT) — declaration
+/ policy mismatch is MAJOR.
 """
 
 from __future__ import annotations
@@ -33,17 +25,14 @@ def _write_skill(
     skill_dir: Path,
     *,
     effort: str | None = "mid",
-    model_tier: str | None = "sonnet",
     name: str | None = None,
 ) -> Path:
-    """Write a minimal SKILL.md fixture with optional frontmatter knobs."""
+    """Write a minimal SKILL.md fixture with an optional ``effort:`` knob."""
     skill_dir.mkdir(parents=True, exist_ok=True)
     skill_name = name or skill_dir.name
     fm_lines = [f"name: {skill_name}", "description: synthetic effort fixture"]
     if effort is not None:
         fm_lines.append(f"effort: {effort}")
-    if model_tier is not None:
-        fm_lines.append(f"model_tier: {model_tier}")
     fm_block = "\n".join(fm_lines)
     md = skill_dir / "SKILL.md"
     md.write_text(
@@ -53,23 +42,23 @@ def _write_skill(
     return md
 
 
-def _write_policy(path: Path, rows: list[tuple[str, str, str]]) -> Path:
-    """Write a minimal model-dispatch policy doc with table rows.
+def _write_policy(path: Path, rows: list[tuple[str, str]]) -> Path:
+    """Write a minimal model-dispatch policy doc with 2-column table rows.
 
-    ``rows`` is a list of ``(skill, effort, model_tier)`` tuples. The
-    parser tolerates additional table columns (rationale) but the test
-    rows ship the minimum surface.
+    ``rows`` is a list of ``(skill, effort)`` tuples. The parser tolerates
+    the trailing rationale column but the test rows ship the minimum
+    surface.
     """
     body = [
         "# Policy",
         "",
         "## Mapping",
         "",
-        "| Skill | effort | model_tier | Rationale |",
-        "|---|---|---|---|",
+        "| Skill | effort | Rationale |",
+        "|---|---|---|",
     ]
-    for skill, effort, tier in rows:
-        body.append(f"| {skill} | {effort} | {tier} | n/a |")
+    for skill, effort in rows:
+        body.append(f"| {skill} | {effort} | n/a |")
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(body) + "\n", encoding="utf-8")
     return path
@@ -84,7 +73,7 @@ def _write_policy(path: Path, rows: list[tuple[str, str, str]]) -> Path:
 def test_effort_missing_field_is_major(tmp_path: Path) -> None:
     """MAJOR when SKILL.md frontmatter has no ``effort:`` field."""
     skill_md = _write_skill(tmp_path / "ai-demo", effort=None)
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", "sonnet")])
+    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid")])
     from skill_lint.checks.effort import check_effort, load_policy
 
     results = check_effort(skill_md, load_policy(policy))
@@ -96,7 +85,7 @@ def test_effort_missing_field_is_major(tmp_path: Path) -> None:
 def test_effort_invalid_enum_is_major(tmp_path: Path) -> None:
     """MAJOR when ``effort:`` carries the legacy ``medium`` vocabulary."""
     skill_md = _write_skill(tmp_path / "ai-demo", effort="medium")
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", "sonnet")])
+    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid")])
     from skill_lint.checks.effort import check_effort, load_policy
 
     results = check_effort(skill_md, load_policy(policy))
@@ -109,7 +98,7 @@ def test_effort_invalid_enum_is_major(tmp_path: Path) -> None:
 def test_effort_valid_enum_is_ok(tmp_path: Path, value: str) -> None:
     """OK when ``effort:`` carries one of the three valid values."""
     skill_md = _write_skill(tmp_path / "ai-demo", effort=value)
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", value, "sonnet")])
+    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", value)])
     from skill_lint.checks.effort import check_effort, load_policy
 
     results = check_effort(skill_md, load_policy(policy))
@@ -118,61 +107,7 @@ def test_effort_valid_enum_is_ok(tmp_path: Path, value: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Check 2 — model_tier field; observation-only during grace.
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-def test_model_tier_missing_is_minor_during_grace(tmp_path: Path) -> None:
-    """MINOR when ``model_tier:`` is missing — observation-only per R-131-09."""
-    skill_md = _write_skill(tmp_path / "ai-demo", model_tier=None)
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", "sonnet")])
-    from skill_lint.checks.effort import check_effort, load_policy
-
-    results = check_effort(skill_md, load_policy(policy), enforce_tier=False)
-    sev = {r.rule_name: r.severity for r in results}
-    assert sev["model_tier_declared"] == "MINOR", sev
-
-
-@pytest.mark.unit
-def test_model_tier_missing_is_major_when_enforce_tier(tmp_path: Path) -> None:
-    """MAJOR when ``model_tier:`` is missing and enforce_tier=True (post-grace)."""
-    skill_md = _write_skill(tmp_path / "ai-demo", model_tier=None)
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", "sonnet")])
-    from skill_lint.checks.effort import check_effort, load_policy
-
-    results = check_effort(skill_md, load_policy(policy), enforce_tier=True)
-    sev = {r.rule_name: r.severity for r in results}
-    assert sev["model_tier_declared"] == "MAJOR", sev
-
-
-@pytest.mark.unit
-def test_model_tier_invalid_enum_is_major(tmp_path: Path) -> None:
-    """MAJOR when ``model_tier:`` carries an unknown value (e.g. ``gpt4``)."""
-    skill_md = _write_skill(tmp_path / "ai-demo", model_tier="gpt4")
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", "sonnet")])
-    from skill_lint.checks.effort import check_effort, load_policy
-
-    results = check_effort(skill_md, load_policy(policy))
-    sev = {r.rule_name: r.severity for r in results}
-    assert sev["model_tier_declared"] == "MAJOR", sev
-
-
-@pytest.mark.unit
-@pytest.mark.parametrize("value", ["haiku", "sonnet", "opus"])
-def test_model_tier_valid_enum_is_ok(tmp_path: Path, value: str) -> None:
-    """OK when ``model_tier:`` carries one of the three valid values."""
-    skill_md = _write_skill(tmp_path / "ai-demo", model_tier=value)
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", value)])
-    from skill_lint.checks.effort import check_effort, load_policy
-
-    results = check_effort(skill_md, load_policy(policy))
-    sev = {r.rule_name: r.severity for r in results}
-    assert sev["model_tier_declared"] == "OK", sev
-
-
-# ---------------------------------------------------------------------------
-# Check 3 — policy mismatch.
+# Check 2 — policy mismatch.
 # ---------------------------------------------------------------------------
 
 
@@ -180,7 +115,7 @@ def test_model_tier_valid_enum_is_ok(tmp_path: Path, value: str) -> None:
 def test_policy_mismatch_effort_is_major(tmp_path: Path) -> None:
     """MAJOR when declared effort differs from the policy row."""
     skill_md = _write_skill(tmp_path / "ai-demo", effort="cheap")
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "high", "opus")])
+    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "high")])
     from skill_lint.checks.effort import check_effort, load_policy
 
     results = check_effort(skill_md, load_policy(policy))
@@ -189,32 +124,31 @@ def test_policy_mismatch_effort_is_major(tmp_path: Path) -> None:
 
 
 @pytest.mark.unit
-def test_policy_mismatch_model_tier_is_minor_during_grace(tmp_path: Path) -> None:
-    """MINOR when declared model_tier differs from the policy row (grace)."""
-    skill_md = _write_skill(tmp_path / "ai-demo", model_tier="haiku")
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", "sonnet")])
-    from skill_lint.checks.effort import check_effort, load_policy
-
-    results = check_effort(skill_md, load_policy(policy), enforce_tier=False)
-    sev = {r.rule_name: r.severity for r in results}
-    assert sev["model_tier_policy_match"] == "MINOR", sev
-
-
-@pytest.mark.unit
 def test_policy_match_is_ok(tmp_path: Path) -> None:
     """OK when declared frontmatter matches the policy row exactly."""
-    skill_md = _write_skill(tmp_path / "ai-demo", effort="mid", model_tier="sonnet")
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", "sonnet")])
+    skill_md = _write_skill(tmp_path / "ai-demo", effort="mid")
+    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid")])
     from skill_lint.checks.effort import check_effort, load_policy
 
     results = check_effort(skill_md, load_policy(policy))
     sev = {r.rule_name: r.severity for r in results}
     assert sev["effort_policy_match"] == "OK", sev
-    assert sev["model_tier_policy_match"] == "OK", sev
+
+
+@pytest.mark.unit
+def test_policy_absent_is_minor_advisory(tmp_path: Path) -> None:
+    """MINOR when the skill is not listed in the policy (advisory)."""
+    skill_md = _write_skill(tmp_path / "ai-demo", effort="mid")
+    policy = _write_policy(tmp_path / "policy.md", [("ai-other", "high")])
+    from skill_lint.checks.effort import check_effort, load_policy
+
+    results = check_effort(skill_md, load_policy(policy))
+    sev = {r.rule_name: r.severity for r in results}
+    assert sev["effort_policy_match"] == "MINOR", sev
 
 
 # ---------------------------------------------------------------------------
-# Check 4 — GitHub mirror gap (allow-listed absence).
+# Check 3 — GitHub mirror gap (allow-listed absence).
 # ---------------------------------------------------------------------------
 
 
@@ -229,10 +163,10 @@ def test_github_mirror_gap_tolerated(tmp_path: Path) -> None:
     skills_root = tmp_path / ".github" / "skills"
     skills_root.mkdir(parents=True, exist_ok=True)
     # Only ai-demo lives in the gap-mirror; ai-absent is policy-only.
-    _write_skill(skills_root / "ai-demo", effort="mid", model_tier="sonnet")
+    _write_skill(skills_root / "ai-demo", effort="mid")
     policy = _write_policy(
         tmp_path / "policy.md",
-        [("ai-demo", "mid", "sonnet"), ("ai-absent", "high", "opus")],
+        [("ai-demo", "mid"), ("ai-absent", "high")],
     )
     from skill_lint.checks.effort import check_all_skills, load_policy
 
@@ -245,7 +179,7 @@ def test_github_mirror_gap_tolerated(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Check 5 — driver shape parity with pair_aware.check_pair_consistency.
+# Check 4 — driver shape parity with pair_aware.check_pair_consistency.
 # ---------------------------------------------------------------------------
 
 
@@ -253,17 +187,17 @@ def test_github_mirror_gap_tolerated(tmp_path: Path) -> None:
 def test_check_all_skills_returns_per_skill_results(tmp_path: Path) -> None:
     """Driver yields ``[(Path, RubricResult)]`` matching pair_aware shape."""
     skills_root = tmp_path / "skills"
-    _write_skill(skills_root / "ai-foo", effort="mid", model_tier="sonnet")
-    _write_skill(skills_root / "ai-bar", effort="cheap", model_tier="haiku")
+    _write_skill(skills_root / "ai-foo", effort="mid")
+    _write_skill(skills_root / "ai-bar", effort="cheap")
     policy = _write_policy(
         tmp_path / "policy.md",
-        [("ai-foo", "mid", "sonnet"), ("ai-bar", "cheap", "haiku")],
+        [("ai-foo", "mid"), ("ai-bar", "cheap")],
     )
     from skill_lint.checks.effort import check_all_skills, load_policy
 
     results = check_all_skills(skills_root, load_policy(policy))
-    # Multiple results per skill (effort_declared + model_tier_declared +
-    # effort_policy_match + model_tier_policy_match); shape is uniform.
+    # Multiple results per skill (effort_declared + effort_policy_match);
+    # shape is uniform.
     assert results, "driver returned no results"
     for path, rubric in results:
         assert isinstance(path, Path)
@@ -277,29 +211,29 @@ def test_check_all_skills_handles_missing_root(tmp_path: Path) -> None:
     """Driver raises ``FileNotFoundError`` when ``skills_root`` is absent."""
     from skill_lint.checks.effort import check_all_skills, load_policy
 
-    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid", "sonnet")])
+    policy = _write_policy(tmp_path / "policy.md", [("ai-demo", "mid")])
     missing = tmp_path / "does-not-exist"
     with pytest.raises(FileNotFoundError):
         check_all_skills(missing, load_policy(policy))
 
 
 # ---------------------------------------------------------------------------
-# Check 6 — policy loader.
+# Check 5 — policy loader.
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.unit
 def test_load_policy_parses_table_rows(tmp_path: Path) -> None:
-    """``load_policy`` reads the markdown table and returns ``{skill: (effort, tier)}``."""
+    """``load_policy`` reads the markdown table and returns ``{skill: effort}``."""
     policy_path = _write_policy(
         tmp_path / "policy.md",
-        [("ai-foo", "mid", "sonnet"), ("ai-bar", "cheap", "haiku")],
+        [("ai-foo", "mid"), ("ai-bar", "cheap")],
     )
     from skill_lint.checks.effort import load_policy
 
     policy = load_policy(policy_path)
-    assert policy["ai-foo"] == ("mid", "sonnet")
-    assert policy["ai-bar"] == ("cheap", "haiku")
+    assert policy["ai-foo"] == "mid"
+    assert policy["ai-bar"] == "cheap"
 
 
 @pytest.mark.unit
@@ -307,7 +241,7 @@ def test_load_policy_ignores_header_row(tmp_path: Path) -> None:
     """Header / separator rows must not pollute the parsed mapping."""
     policy_path = _write_policy(
         tmp_path / "policy.md",
-        [("ai-foo", "mid", "sonnet")],
+        [("ai-foo", "mid")],
     )
     from skill_lint.checks.effort import load_policy
 

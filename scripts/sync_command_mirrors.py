@@ -29,7 +29,10 @@ from scripts.sync_mirrors.core import main  # noqa: E402
 # Re-export underscore-prefixed helpers that `*` does not export.
 # Tests use these as documented internal entry points.
 _check_or_write = _core._check_or_write
+_effort_model_for_agent = _core._effort_model_for_agent
+_effort_to_model = _core._effort_to_model
 _format_yaml_field = _core._format_yaml_field
+_model_to_effort = _core._model_to_effort
 _resolve_cross_reference_files = _core._resolve_cross_reference_files
 _serialize_frontmatter = _core._serialize_frontmatter
 

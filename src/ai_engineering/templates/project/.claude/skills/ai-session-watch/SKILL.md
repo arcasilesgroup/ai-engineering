@@ -2,14 +2,13 @@
 name: ai-session-watch
 description: "Observes session corrections, recoveries, and workflow patterns silently, then consolidates them into project-local observations on demand. Trigger for 'start observing', 'learn from this session', 'consolidate observations', 'review what was learned', 'observe this session'. Listening mode is passive; review mode extracts and writes. Not for cross-project learning; use /ai-learn instead. Not for skill rewrites; use /ai-skill-improve instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "[--review]"
 tags: [meta, learning, continuous-improvement, observe]
 ---
 
 # ai-session-watch
 
-Project-local instinct learning for `ai-engineering`. Two modes: passive observation during a session, and active consolidation on demand. No daemons, no background workers -- the LLM itself is the observer.
+Project-local instinct learning for `ai-engineering` with two modes: passive observation during a session, and active consolidation on demand. No daemons or background workers -- the LLM itself is the observer.
 
 ## Workflow
 

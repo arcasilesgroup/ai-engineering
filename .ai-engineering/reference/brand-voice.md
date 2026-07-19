@@ -31,7 +31,7 @@ pipx install ai-engineering
 - Prefer imperative second-person copy: install, run, verify, ship.
 - Keep paragraphs short enough to scan in a terminal or GitHub markdown viewport.
 - Use code-comment headers when a section benefits from a compact label, for example `// Governed flow`.
-- Use a mid-dot stat line for compact inventories, for example `53 skills · 9 agents · 6 surfaces · 1 governed flow`.
+- Use a mid-dot stat line for compact inventories, for example `54 skills · 9 agents · 6 surfaces · 1 governed flow`.
 - Use bracket status tags for semantic state: `[PASS]`, `[WARN]`, `[FAIL]`, and `[PENDING]`.
 - Use no emoji. Status and emphasis must be textual, not decorative or color-only.
 

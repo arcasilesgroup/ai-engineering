@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "[text]|--skill [name]"
 mode: agent
 tags: [meta, optimization, prompts]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-prompt-tune/SKILL.md
@@ -15,10 +14,7 @@ edit_policy: generated-do-not-edit
 
 # Prompt Tune
 
-Improves prompts, skill `description` fields, and agent instructions using proven techniques. Two modes:
-
-- `/ai-prompt-tune "<text>"` — optimize arbitrary text
-- `/ai-prompt-tune --skill <name>` — CSO-optimize a skill's `description` field
+Improves prompts, skill `description` fields, and agent instructions using proven techniques. Run `/ai-prompt-tune "<text>"` to optimize arbitrary text, or `/ai-prompt-tune --skill <name>` to CSO-optimize a skill's `description` field.
 
 ## Optimization Techniques (apply in order of impact)
 

@@ -4,7 +4,6 @@ description: Sweeps stale code complexity on demand via an /ai-simplify wrapper,
 effort: cheap
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, simplification]
-model_tier: haiku
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-simplify-sweep/SKILL.md
@@ -13,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # Simplify Sweep
+
+Sweeps stale code complexity on demand via an `/ai-simplify` wrapper, gates the diff, and opens a draft PR for human review. Use it for an operator-triggered simplification pass — never auto-merges, never runs unattended.
 
 ## Purpose
 

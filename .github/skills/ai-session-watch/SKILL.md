@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "[--review]"
 mode: agent
 tags: [meta, learning, continuous-improvement, observe]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-session-watch/SKILL.md
@@ -15,7 +14,7 @@ edit_policy: generated-do-not-edit
 
 # ai-session-watch
 
-Project-local instinct learning for `ai-engineering`. Two modes: passive observation during a session, and active consolidation on demand. No daemons, no background workers -- the LLM itself is the observer.
+Project-local instinct learning for `ai-engineering` with two modes: passive observation during a session, and active consolidation on demand. No daemons or background workers -- the LLM itself is the observer.
 
 ## Workflow
 

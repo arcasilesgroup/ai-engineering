@@ -2,7 +2,6 @@
 name: ai-simplify
 description: "On-demand code simplification — guard clauses, method extraction, nesting flattening, dead code removal, conditional simplification. Behavior preserved; tests pass after every change. Scoped to operator-chosen files or current diff. No PR, no auto-commit. Trigger for 'simplify this file', 'reduce complexity here', 'clean up the in-flight diff', 'flatten this nesting'. Not for scheduled repo-wide sweeps — use /ai-simplify-sweep. Not for structural changes (file moves, renames) — use /ai-refactor."
 effort: mid
-model_tier: sonnet
 argument-hint: "[paths|--diff] [--conservative|--aggressive]"
 tags: [refactor, complexity, simplification]
 ---
@@ -88,5 +87,7 @@ Dispatches the agent scoped to the file. It inverts the outer `if user is not No
 ## Integration
 
 Called by: operators directly via `/ai-simplify` (single-file or diff-scoped) — not auto-invoked by any other skill. Calls: the `ai-simplify` agent (`.claude/agents/ai-simplify.md`) via the Agent tool with the operator-chosen scope; validates after each edit, rolls back on test failure. See also: `.claude/skills/ai-simplify-sweep/SKILL.md` (scheduled draft-PR wrapper); `.ai-engineering/manifest.yml` `quality` thresholds (cyclomatic ≤ 10, cognitive ≤ 15, nesting ≤ 3, method length ≤ 50). Anchors: §10.1 KISS, §10.7 Clean Code; D-134-07 (agents need a discoverable slash-skill).
+
+**Inline fallback** — Agent-tool dispatch is the primary path. On a harness without a subagent/Agent-tool primitive, execute this skill by reading the specialist agent file (`.claude/agents/ai-simplify.md`) inline and running its steps in-context, sequentially, applying the same per-edit validation and self-check; inline-sequential execution is the floor, not an alternate behaviour.
 
 $ARGUMENTS

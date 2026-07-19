@@ -1,24 +1,19 @@
-"""effort checker — spec-131 S3 (sub-003) frontmatter contract.
+"""effort checker — spec-131 S3 (sub-003) / spec-189 (D-189-04) contract.
 
-Every SKILL.md must declare ``effort:`` and ``model_tier:`` in its
-YAML frontmatter, drawn from the closed vocabularies:
+Every SKILL.md must declare ``effort:`` in its YAML frontmatter, drawn
+from the closed vocabulary ``effort: cheap | mid | high`` (D-131-08).
+Per spec-189 (D-189-04) ``effort`` is the SOLE skill dispatch axis; the
+legacy per-model tier field is retired fleet-wide.
 
-* ``effort: cheap | mid | high`` (D-131-08)
-* ``model_tier: haiku | sonnet | opus``
+Posture:
 
-Posture (per R-131-09 grace window):
-
-* ``effort:`` enforcement is blocking from day one. Missing field or
-  invalid enum → MAJOR.
-* ``model_tier:`` is observation-only during the grace window. Missing
-  field or invalid enum → MINOR. ``enforce_tier=True`` (driven by the
-  CLI ``--enforce-tier`` flag, post-grace) promotes both to MAJOR.
+* ``effort:`` enforcement is blocking. Missing field or invalid enum →
+  MAJOR.
 
 In addition the declaration is cross-checked against
-``.ai-engineering/reference/model-dispatch-policy.md`` (SSOT). Mismatch surfaces as MAJOR
-(effort) or MINOR (model_tier, grace window). The policy doc is parsed
-once via ``load_policy`` and threaded through the driver to avoid
-per-skill re-reads.
+``.ai-engineering/reference/model-dispatch-policy.md`` (SSOT). Mismatch
+surfaces as MAJOR. The policy doc is parsed once via ``load_policy`` and
+threaded through the driver to avoid per-skill re-reads.
 
 Pure stdlib (re + pathlib + dataclasses). Returns ``RubricResult``
 records identical in shape to ``no_nested_refs.py`` /
@@ -36,9 +31,9 @@ from pathlib import Path
 
 _VALID_SEVERITIES = {"OK", "INFO", "MINOR", "MAJOR", "CRITICAL"}
 
-# Closed vocabularies (D-131-08).
+# Closed vocabulary (D-131-08). ``effort`` is the sole skill dispatch axis
+# (spec-189 D-189-04).
 VALID_EFFORTS: frozenset[str] = frozenset({"cheap", "mid", "high"})
-VALID_MODEL_TIERS: frozenset[str] = frozenset({"haiku", "sonnet", "opus"})
 
 # Allow-listed mirror gaps. The .github surface may omit any Claude-Code-only
 # skill (``copilot_compatible: false``); the driver tolerates such absences
@@ -51,10 +46,14 @@ _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---", re.DOTALL)
 # Field line: ``key: value`` with optional inline comment. Value captured
 # verbatim; quoting (``"value"`` or ``'value'``) stripped downstream.
 _FIELD_RE = re.compile(r"^([A-Za-z_][\w-]*)\s*:\s*(.+?)\s*$", re.MULTILINE)
-# Policy table row: pipe-delimited markdown, with leading whitespace
-# tolerance.
+# Policy table row: pipe-delimited markdown ``| ai-<skill> | <effort> | ... |``
+# with leading whitespace tolerance. Trailing columns (Rationale) are
+# tolerated by the ``.*\|`` tail. CRITICAL (spec-189 D-189-04): this
+# 2-column shape MUST stay in lockstep with the SSOT policy table column
+# count — a 3-column regex against a 2-column table (or vice versa) makes
+# ``findall`` return zero rows, silently marking every skill "not in policy".
 _POLICY_ROW_RE = re.compile(
-    r"^\|\s*(ai-[\w-]+)\s*\|\s*(cheap|mid|high)\s*\|\s*(haiku|sonnet|opus)\s*\|.*\|\s*$",
+    r"^\|\s*(ai-[\w-]+)\s*\|\s*(cheap|mid|high)\s*\|.*\|\s*$",
     re.MULTILINE,
 )
 
@@ -77,8 +76,8 @@ class RubricResult:
 # ---------------------------------------------------------------------------
 
 
-def load_policy(policy_path: Path) -> dict[str, tuple[str, str]]:
-    """Parse the model-dispatch policy markdown into ``{skill: (effort, tier)}``.
+def load_policy(policy_path: Path) -> dict[str, str]:
+    """Parse the model-dispatch policy markdown into ``{skill: effort}``.
 
     The expected shape is a markdown table whose rows match
     ``_POLICY_ROW_RE``. Header / separator rows that fall outside the
@@ -88,9 +87,9 @@ def load_policy(policy_path: Path) -> dict[str, tuple[str, str]]:
     if not policy_path.is_file():
         return {}
     text = policy_path.read_text(encoding="utf-8")
-    out: dict[str, tuple[str, str]] = {}
-    for skill, effort, tier in _POLICY_ROW_RE.findall(text):
-        out[skill] = (effort, tier)
+    out: dict[str, str] = {}
+    for skill, effort in _POLICY_ROW_RE.findall(text):
+        out[skill] = effort
     return out
 
 
@@ -103,9 +102,9 @@ def _read_frontmatter(skill_md: Path) -> dict[str, str]:
     """Return the YAML frontmatter as a flat ``{key: value}`` mapping.
 
     Handles only the subset we care about (scalar string values for the
-    ``effort`` / ``model_tier`` keys). Quoted values have their outer
-    quotes stripped. Returns an empty dict when the file is missing or
-    has no frontmatter — call-site decides how to surface that.
+    ``effort`` key). Quoted values have their outer quotes stripped.
+    Returns an empty dict when the file is missing or has no frontmatter —
+    call-site decides how to surface that.
     """
     if not skill_md.is_file():
         return {}
@@ -151,98 +150,33 @@ def _check_effort_declared(fm: dict[str, str]) -> RubricResult:
     )
 
 
-def _check_model_tier_declared(fm: dict[str, str], *, enforce: bool) -> RubricResult:
-    """Validate the ``model_tier:`` field declaration.
-
-    Posture:
-    * Missing field → MINOR during R-131-09 grace (``enforce=False``),
-      MAJOR once enforcement flips on.
-    * Invalid enum value → always MAJOR (drift from the closed vocabulary
-      is a hard violation regardless of grace).
-    """
-    missing_severity = "MAJOR" if enforce else "MINOR"
-    value = fm.get("model_tier")
-    if value is None:
-        return RubricResult(
-            "model_tier_declared",
-            missing_severity,
-            "frontmatter missing field `model_tier:` (haiku | sonnet | opus)",
-        )
-    if value not in VALID_MODEL_TIERS:
-        return RubricResult(
-            "model_tier_declared",
-            "MAJOR",
-            f"model_tier {value!r} not in {sorted(VALID_MODEL_TIERS)}",
-        )
-    return RubricResult(
-        "model_tier_declared",
-        "OK",
-        f"model_tier: {value}",
-    )
-
-
 def _check_effort_policy_match(
     fm: dict[str, str],
-    policy_row: tuple[str, str] | None,
+    policy_effort: str | None,
 ) -> RubricResult:
-    if policy_row is None:
+    if policy_effort is None:
         return RubricResult(
             "effort_policy_match",
             "MINOR",
             "skill not listed in .ai-engineering/reference/model-dispatch-policy.md (advisory)",
         )
-    expected_effort, _ = policy_row
     declared = fm.get("effort")
     if declared is None:
         return RubricResult(
             "effort_policy_match",
             "MAJOR",
-            f"cannot match policy ({expected_effort}) — effort missing",
+            f"cannot match policy ({policy_effort}) — effort missing",
         )
-    if declared != expected_effort:
+    if declared != policy_effort:
         return RubricResult(
             "effort_policy_match",
             "MAJOR",
-            f"declared effort {declared!r} != policy {expected_effort!r}",
+            f"declared effort {declared!r} != policy {policy_effort!r}",
         )
     return RubricResult(
         "effort_policy_match",
         "OK",
-        f"declared effort matches policy ({expected_effort})",
-    )
-
-
-def _check_model_tier_policy_match(
-    fm: dict[str, str],
-    policy_row: tuple[str, str] | None,
-    *,
-    enforce: bool,
-) -> RubricResult:
-    severity_for_violation = "MAJOR" if enforce else "MINOR"
-    if policy_row is None:
-        return RubricResult(
-            "model_tier_policy_match",
-            "MINOR",
-            "skill not listed in .ai-engineering/reference/model-dispatch-policy.md (advisory)",
-        )
-    _, expected_tier = policy_row
-    declared = fm.get("model_tier")
-    if declared is None:
-        return RubricResult(
-            "model_tier_policy_match",
-            severity_for_violation,
-            f"cannot match policy ({expected_tier}) — model_tier missing",
-        )
-    if declared != expected_tier:
-        return RubricResult(
-            "model_tier_policy_match",
-            severity_for_violation,
-            f"declared model_tier {declared!r} != policy {expected_tier!r}",
-        )
-    return RubricResult(
-        "model_tier_policy_match",
-        "OK",
-        f"declared model_tier matches policy ({expected_tier})",
+        f"declared effort matches policy ({policy_effort})",
     )
 
 
@@ -253,16 +187,13 @@ def _check_model_tier_policy_match(
 
 def check_effort(
     skill_md: Path,
-    policy: dict[str, tuple[str, str]],
-    *,
-    enforce_tier: bool = False,
+    policy: dict[str, str],
 ) -> list[RubricResult]:
-    """Run the four sub-checks against a single SKILL.md path.
+    """Run the two sub-checks against a single SKILL.md path.
 
     Returns a list of ``RubricResult`` records — one per sub-check
-    (``effort_declared``, ``model_tier_declared``, ``effort_policy_match``,
-    ``model_tier_policy_match``). ``CRITICAL`` is returned only when the
-    file itself is unreadable.
+    (``effort_declared``, ``effort_policy_match``). ``CRITICAL`` is
+    returned only when the file itself is unreadable.
     """
     if not skill_md.is_file():
         return [
@@ -274,12 +205,10 @@ def check_effort(
         ]
     fm = _read_frontmatter(skill_md)
     skill_slug = skill_md.parent.name
-    policy_row = policy.get(skill_slug)
+    policy_effort = policy.get(skill_slug)
     return [
         _check_effort_declared(fm),
-        _check_model_tier_declared(fm, enforce=enforce_tier),
-        _check_effort_policy_match(fm, policy_row),
-        _check_model_tier_policy_match(fm, policy_row, enforce=enforce_tier),
+        _check_effort_policy_match(fm, policy_effort),
     ]
 
 
@@ -290,9 +219,7 @@ def check_effort(
 
 def check_all_skills(
     skills_root: Path,
-    policy: dict[str, tuple[str, str]],
-    *,
-    enforce_tier: bool = False,
+    policy: dict[str, str],
 ) -> list[tuple[Path, RubricResult]]:
     """Walk every ``<skills_root>/ai-*/SKILL.md`` and run the contract.
 
@@ -311,6 +238,6 @@ def check_all_skills(
         skill_md = skill_dir / "SKILL.md"
         if not skill_md.is_file():
             continue
-        for rubric in check_effort(skill_md, policy, enforce_tier=enforce_tier):
+        for rubric in check_effort(skill_md, policy):
             results.append((skill_md, rubric))
     return results

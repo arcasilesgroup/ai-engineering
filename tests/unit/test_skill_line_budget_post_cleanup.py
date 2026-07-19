@@ -44,6 +44,7 @@ SKILLS_ADDED_POST_BASELINE: tuple[str, ...] = (
     "ai-advise",  # spec-134 D-134-07 (advisory governance skill surface)
     "ai-simplify",  # spec-134 D-134-07 (on-demand simplification skill surface)
     "ai-session-watch-sweep",  # spec-165 (scheduled observation-consolidation sweep)
+    "ai-fundraising",  # spec-189 D-189-03 (structural split of /ai-marketing into growth vs IR)
 )
 
 # Functional additions to existing skills AFTER the spec-106 P5 baseline.

@@ -2,14 +2,13 @@
 name: ai-postmortem
 description: "Documents production incidents, outages, degradations, and near-misses using the DERP format (Detection, Escalation, Recovery, Prevention) with targeted interview questions per phase. Trigger for 'we had an incident', 'write up the outage', 'something went wrong in prod', 'postmortem', 'near-miss analysis', 'incident report'. Not for customer support investigations; use /ai-support instead. Not for internal dev bugs; use /ai-debug instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "start|continue [id]|find [query]|generate"
 ---
 
 
 # Postmortem
 
-Structured, blameless incident postmortem using the DERP model (Detection, Escalation, Recovery, Prevention). Storage: `.ai-engineering/postmortems/{id}.md`, ID format `PM-YYYY-NNN` (sequential within year). Status: `draft` → `in-review` (all DERP sections complete) → `complete` (action items assigned).
+Use this to document a production incident, outage, degradation, or near-miss as a structured, blameless postmortem using the DERP model (Detection, Escalation, Recovery, Prevention). Postmortems are stored at `.ai-engineering/postmortems/{id}.md` (ID `PM-YYYY-NNN`) and move `draft` → `in-review` (all DERP sections complete) → `complete` (action items assigned).
 
 ```
 /ai-postmortem start                  # begin new postmortem

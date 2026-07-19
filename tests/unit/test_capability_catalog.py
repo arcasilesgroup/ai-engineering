@@ -161,7 +161,7 @@ def test_drift_check_fails_on_count_divergence(gen, tmp_path: Path, monkeypatch)
     skills_dir.mkdir(parents=True)
     agents_dir.mkdir(parents=True)
 
-    # Only two skills on disk — fewer than the 53-entry registry.
+    # Only two skills on disk — fewer than the 54-entry registry.
     for name in ("ai-foo", "ai-bar"):
         d = skills_dir / name
         d.mkdir()

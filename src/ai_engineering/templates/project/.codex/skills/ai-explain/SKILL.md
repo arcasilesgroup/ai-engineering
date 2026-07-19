@@ -4,7 +4,6 @@ description: "Explains code, concepts, patterns, and architecture with engineer-
 effort: mid
 argument-hint: "[topic]|--depth brief|standard|deep"
 tags: [explanation, teaching, analysis, architecture]
-model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-explain/SKILL.md
@@ -13,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # Explain
+
+Explains code, concepts, patterns, and architecture with engineer-grade depth — 3-tier control (brief/standard/deep), ASCII diagrams, and execution traces anchored to real `file:line` references. Use it for "how does this work", "why does it do X", "trace through this", or "walk me through" — not for producing docs (`/ai-prose`, `/ai-docs`) or fixing code (`/ai-debug`, `/ai-build`).
 
 ## Quick start
 

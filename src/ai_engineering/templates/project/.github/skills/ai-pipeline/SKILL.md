@@ -8,7 +8,6 @@ tags: [ci-cd, github-actions, azure-pipelines, enterprise]
 requires:
   bins:
   - actionlint
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-pipeline/SKILL.md

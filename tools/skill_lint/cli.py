@@ -25,6 +25,7 @@ from skill_infra.fs_scanner import FilesystemAgentScanner, FilesystemSkillScanne
 from skill_infra.markdown_reporter import MarkdownReporter
 from skill_lint.checks.effort import check_all_skills as check_effort_all
 from skill_lint.checks.effort import load_policy as load_dispatch_policy
+from skill_lint.checks.frontloading import check_frontloading
 from skill_lint.checks.md_mirror import check_md_mirror_consistency
 from skill_lint.checks.naming import check_naming
 from skill_lint.checks.pair_aware import check_pair_consistency
@@ -51,6 +52,7 @@ def _exit_code(
     portability_results: list | None = None,
     structure_results: list | None = None,
     token_budget_results: list | None = None,
+    frontloading_results: list | None = None,
 ) -> int:
     """Map grade counts + extra-check severities to a CLI exit code.
 
@@ -65,10 +67,10 @@ def _exit_code(
         blocking once every shipped SKILL.md emits the "Principles
         applied" line via the patch-ready ``/ai-plan`` output.
 
-    spec-131 S3 (sub-003) addition:
+    spec-131 S3 (sub-003) / spec-189 (D-189-04) addition:
       * Any MAJOR / CRITICAL from ``effort`` → exit 1 (D-131-08).
-        ``model_tier`` MINORs stay advisory during the R-131-09 grace
-        window — they surface in the summary but do not block.
+        ``effort`` is the sole skill dispatch axis; policy-mismatch
+        MINORs (skill not listed) surface in the summary but do not block.
 
     spec-186 addition:
       * Any CRITICAL from ``value_block`` → exit 1 (D-186-06). A chain
@@ -85,6 +87,12 @@ def _exit_code(
       * Any MAJOR / CRITICAL from ``token_budget`` → exit 1. The
         Anthropic frontmatter caps (description over 1024 chars, name
         over 64 chars, reserved word) are crisp and hard-fail.
+
+    spec-189 T-17 (D-189-08 — flip the front-loading/BLUF lint to blocking):
+      * Any MAJOR / CRITICAL from ``front_loading`` → exit 1. The fleet
+        baseline is clean (Wave 3 fixed all 49 violations), so a MAJOR
+        now means a real regression: a body that buries the bottom-line
+        instead of front-loading it for weaker open-weight models.
     """
     # principles_results intentionally consumed for signature parity;
     # advisory-only in sub-001 (R-1.6).
@@ -108,9 +116,16 @@ def _exit_code(
     # spec-187 W5 (D-187-07): portability / structure / token_budget are
     # BLOCKING on MAJOR / CRITICAL. The structure procedure-ratio heuristic
     # is emitted at MINOR and stays advisory (graduated flip).
-    for spec187_results in (portability_results, structure_results, token_budget_results):
-        if spec187_results and any(
-            getattr(r, "severity", "OK") in ("MAJOR", "CRITICAL") for _path, r in spec187_results
+    # spec-189 T-17 (D-189-08): front_loading joins the same blocking tally
+    # now that the fleet baseline is clean — a MAJOR is a real regression.
+    for blocking_results in (
+        portability_results,
+        structure_results,
+        token_budget_results,
+        frontloading_results,
+    ):
+        if blocking_results and any(
+            getattr(r, "severity", "OK") in ("MAJOR", "CRITICAL") for _path, r in blocking_results
         ):
             return 1
     if grade_counts.get("C", 0) > 2:
@@ -178,11 +193,6 @@ def _build_parser() -> argparse.ArgumentParser:
             "(default: .ai-engineering/reference/model-dispatch-policy.md)."
         ),
     )
-    parser.add_argument(
-        "--enforce-tier",
-        action="store_true",
-        help="Promote `model_tier:` violations from MINOR to MAJOR (flip after R-131-09 grace).",
-    )
     return parser
 
 
@@ -221,14 +231,13 @@ def main(argv: list[str] | None = None) -> int:
         args.hooks_root,
         args.scheduled_root,
     )
-    # spec-131 S3 (sub-003): effort + model_tier frontmatter contract.
-    # MAJOR (effort_declared, policy mismatch) blocks; model_tier MINOR
-    # stays advisory during the R-131-09 grace window.
+    # spec-131 S3 (sub-003) / spec-189 (D-189-04): effort frontmatter
+    # contract. MAJOR (effort_declared, policy mismatch) blocks. ``effort``
+    # is the sole skill dispatch axis (D-189-04).
     dispatch_policy = load_dispatch_policy(args.policy_path)
     effort_results = check_effort_all(
         args.skills_root,
         dispatch_policy,
-        enforce_tier=args.enforce_tier,
     )
     # spec-186: value_block adoption check. BLOCKING — any of the five
     # chain skills omitting the value-lens.md citation surfaces CRITICAL
@@ -242,6 +251,12 @@ def main(argv: list[str] | None = None) -> int:
     portability_results = check_portability(args.skills_root, args.agents_root)
     structure_results = check_structure(args.skills_root, args.agents_root)
     token_budget_results = check_token_budget(args.skills_root, args.agents_root)
+    # spec-189 T-17 (D-189-08): front-loading/BLUF lint, BLOCKING. Wave 3
+    # brought the fleet baseline into contract (all 49 violations fixed), so
+    # a MAJOR / CRITICAL now drives the exit code — a buried bottom-line is a
+    # real regression. Reason strings are pure ASCII so the summary stays
+    # cp1252-safe (D-187-10).
+    frontloading_results = check_frontloading(args.skills_root, args.agents_root)
 
     elapsed_ms = (time.perf_counter() - started) * 1000.0
 
@@ -271,7 +286,7 @@ def main(argv: list[str] | None = None) -> int:
         naming_counts: dict[str, int] = {}
         for _path, result in naming_results:
             naming_counts[result.severity] = naming_counts.get(result.severity, 0) + 1
-        # spec-131 S3 (sub-003): effort + model_tier counters.
+        # spec-131 S3 (sub-003) / spec-189 (D-189-04): effort counters.
         effort_counts: dict[str, int] = {}
         for _path, result in effort_results:
             effort_counts[result.severity] = effort_counts.get(result.severity, 0) + 1
@@ -291,6 +306,12 @@ def main(argv: list[str] | None = None) -> int:
         token_budget_counts: dict[str, int] = {}
         for _path, result in token_budget_results:
             token_budget_counts[result.severity] = token_budget_counts.get(result.severity, 0) + 1
+        # spec-189 T-17 (D-189-08): front-loading/BLUF counters. BLOCKING —
+        # a MAJOR / CRITICAL feeds _exit_code (baseline is clean, so any
+        # finding is a regression).
+        frontloading_counts: dict[str, int] = {}
+        for _path, result in frontloading_results:
+            frontloading_counts[result.severity] = frontloading_counts.get(result.severity, 0) + 1
         # Print a one-line summary so CI logs surface the result.
         sys.stdout.write(
             "skill_lint: skills "
@@ -331,6 +352,9 @@ def main(argv: list[str] | None = None) -> int:
             f"| token_budget(block) "
             f"OK={token_budget_counts.get('OK', 0)} "
             f"MAJOR={token_budget_counts.get('MAJOR', 0)} "
+            f"| front_loading(block) "
+            f"OK={frontloading_counts.get('OK', 0)} "
+            f"MAJOR={frontloading_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
         return _exit_code(
@@ -342,6 +366,7 @@ def main(argv: list[str] | None = None) -> int:
             portability_results=portability_results,
             structure_results=structure_results,
             token_budget_results=token_budget_results,
+            frontloading_results=frontloading_results,
         )
 
     return 0

@@ -2,13 +2,12 @@
 name: ai-debug
 description: "Diagnoses broken behavior systematically with a 4-phase root-cause loop: test failures, runtime errors, crashes, regressions. Never patches symptoms. Trigger for 'it is not working', 'something broke', 'this used to work', 'I am getting an error', 'CI is failing', 'why is X happening'. Not for adding tests; use /ai-test instead. Not for security findings; use /ai-security instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "[error description or file:line]"
 ---
 
 # Debug
 
-Systematic 4-phase debugging, always in order. NEVER fix symptoms — always find and fix the root cause. After 2 failed fix attempts, escalate to the user.
+Systematic 4-phase debugging, always in order, that finds and fixes the root cause instead of patching symptoms. After 2 failed fix attempts, escalate to the user.
 
 ## Workflow
 

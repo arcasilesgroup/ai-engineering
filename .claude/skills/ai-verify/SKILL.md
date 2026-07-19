@@ -2,11 +2,12 @@
 name: ai-verify
 description: "Verifies claims with evidence, not assumptions: runs deterministic + acceptance specialists post-W3 (`normal` implicit, `--full` explicit), plus a `--release` mode aggregating 8-dimension release readiness (coverage, security, tests, lint, dependencies, types, docs, packaging) into a GO/CONDITIONAL GO/NO-GO verdict. Trigger for 'check my code', 'is this ready to merge', 'run the tests', 'is coverage good enough', 'scan for security issues', 'prove it works', 'pre-release checklist', 'GO/NO-GO'. Not for narrative code review with human judgment; use /ai-review instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "claim|governance|security|quality|feature|architecture|platform|--release [version] [--full]"
 ---
 
 # Verify
+
+Verifies merge-readiness claims with evidence instead of assumptions, dispatching deterministic and acceptance specialists over changed files. Use it to check code, prove tests pass, scan for security issues, or run the 8-dimension `--release` GO/NO-GO gate.
 
 ## Quick start
 
@@ -94,5 +95,7 @@ Dispatches deterministic + acceptance in parallel (post-W3 roster of 2), aggrega
 ## Integration
 
 Called by: `/ai-build` (post-task), `/ai-autopilot` (Phase 5), user directly. Dispatches: `verifier-deterministic`, `verifier-acceptance` agents. Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-advise` (advisory architecture lens), `/ai-reliability-eval`, `/ai-security` (deep CVE/SBOM only), `/ai-governance` (compliance, risk acceptance).
+
+Inline fallback: Agent-tool dispatch is the primary path. On a harness with no subagent/Agent-tool primitive, execute this skill by reading the needed `.claude/agents/verifier-*.md` specialist file(s) and running their steps inline, in-context, sequentially — inline-sequential is the floor, not the default.
 
 $ARGUMENTS

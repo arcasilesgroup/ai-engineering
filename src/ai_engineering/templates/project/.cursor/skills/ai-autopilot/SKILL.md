@@ -4,7 +4,6 @@ description: "Delivers large multi-concern specs and backlog runs autonomously: 
 effort: high
 argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 tags: [orchestration, autonomous, multi-spec, backlog, pipeline, execution, dag, transparency]
-model_tier: opus
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-autopilot/SKILL.md
@@ -13,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # Autopilot v2
+
+Delivers large multi-concern specs and backlog runs autonomously — decomposing into sub-specs (or a backlog DAG), deep-planning with parallel agents, implementing in waves, and shipping via PR with one bounded quality-remediation pass. Use it for end-to-end delivery of specs with ≥3 concerns or ≥10 file changes; use /ai-build for smaller single-concern work.
 
 ## Purpose
 

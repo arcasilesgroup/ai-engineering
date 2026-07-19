@@ -25,7 +25,7 @@
 
 ### 1.2 Objective
 
-Deterministic CLI tooling, 53 AI skills, 9 agents (+ specialist review/verifier sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
+Deterministic CLI tooling, 54 AI skills, 9 agents (+ specialist review/verifier sub-agents), and a governance surface that spans Claude Code, GitHub Copilot, Codex, Antigravity, OpenCode, and Cursor. Targets regulated enterprises (banking, healthcare, investment) that require auditable, governed AI-assisted software delivery.
 
 ### 1.3 Problem Statement
 
@@ -44,7 +44,7 @@ AI coding assistants operate without guardrails. In regulated industries, this c
 | In scope | Out of scope |
 |----------|-------------|
 | CLI tooling (`ai-eng`) | Runtime application code |
-| AI skill definitions (53) | AI model training or fine-tuning |
+| AI skill definitions (54) | AI model training or fine-tuning |
 | Agent orchestration (9) | Custom IDE plugin development |
 | Quality gates and hooks | SonarCloud/Snyk platform management |
 | Multi-IDE mirror generation | IDE-specific UI extensions |
@@ -102,7 +102,7 @@ C4Context
 
 ### 2.2 Functional Requirements by Domain
 
-#### Skills (53)
+#### Skills (54)
 
 | Type | Skills | Count |
 |------|--------|-------|
@@ -429,7 +429,7 @@ mindmap
             No transcripts
         Capability Catalog
             framework-capabilities.json
-            53 skills
+            54 skills
             9 agents
             39 contexts
             11 hooks
@@ -698,7 +698,7 @@ sequenceDiagram
 | Metric | Target | Current |
 |--------|--------|---------|
 | Test coverage | >= 80% | **TBD -- pending measurement** |
-| Skills count | 53 | 53 |
+| Skills count | 54 | 54 |
 | Agent count | 9 | 9 |
 | Active decisions | Tracked with expiry | 23 active, 5 superseded |
 | Runbook coverage | All operational areas | 14 runbooks |
@@ -767,7 +767,7 @@ No active spec. Run `/ai-brainstorm` to start a new spec.
 
 | What | Where |
 |------|-------|
-| Skills (53) | `.claude/skills/ai-<name>/SKILL.md` |
+| Skills (54) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Config | `.ai-engineering/manifest.yml` |
 | Constitution | `CONSTITUTION.md` |

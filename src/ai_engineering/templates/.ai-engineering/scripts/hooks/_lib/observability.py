@@ -57,27 +57,23 @@ _SECRET_RE = re.compile(
 )
 _MAX_SUMMARY_LEN = 200
 
-# Spec-131 D-131-08 (sub-003) dispatch-metadata vocabulary. Validators
-# below enforce these enums so callers cannot smuggle drifted values
-# into the audit chain. The schema version stays 1.0 (additive
-# ``detail.*`` per spec-120 precedent + R-131-09 grace).
-_VALID_MODEL_TIERS: frozenset[str] = frozenset({"haiku", "sonnet", "opus"})
+# Spec-131 D-131-08 (sub-003) / spec-189 (D-189-04) dispatch-metadata
+# vocabulary. The validator below enforces the enum so callers cannot
+# smuggle drifted values into the audit chain. ``effort`` is the sole
+# dispatch axis (spec-189 D-189-04). The schema version stays 1.0
+# (additive ``detail.*`` per spec-120 precedent).
 _VALID_EFFORTS: frozenset[str] = frozenset({"cheap", "mid", "high"})
 
 
 def _validate_dispatch_metadata(detail: dict) -> None:
-    """Enum-validate ``model_tier`` + ``effort`` when present in ``detail``.
+    """Enum-validate ``effort`` when present in ``detail``.
 
-    spec-131 D-131-08 (sub-003): ``emit_agent_dispatched`` /
-    ``emit_skill_invoked`` may carry the dispatch-economics metadata
-    ``{"model_tier": <h|s|o>, "effort": <c|m|h>}``. Invalid enums raise
-    ``ValueError`` so the audit chain stays drift-free. Absent keys are
-    fine — the metadata block is optional per R-131-09.
+    spec-131 D-131-08 (sub-003) / spec-189 (D-189-04):
+    ``emit_agent_dispatched`` / ``emit_skill_invoked`` may carry the
+    dispatch-economics metadata ``{"effort": <c|m|h>}``. Invalid enums
+    raise ``ValueError`` so the audit chain stays drift-free. Absent keys
+    are fine — the metadata block is optional.
     """
-    tier = detail.get("model_tier")
-    if tier is not None and tier not in _VALID_MODEL_TIERS:
-        msg = f"model_tier {tier!r} not in {sorted(_VALID_MODEL_TIERS)} (D-131-08)"
-        raise ValueError(msg)
     effort = detail.get("effort")
     if effort is not None and effort not in _VALID_EFFORTS:
         msg = f"effort {effort!r} not in {sorted(_VALID_EFFORTS)} (D-131-08)"
@@ -352,10 +348,10 @@ def build_framework_event(
         trace_id=trace_id,
     )
     payload = dict(detail or {})
-    # spec-131 D-131-08 (sub-003): enum-validate dispatch metadata before
-    # the event is written so drifted values fail loud at call-site
-    # rather than poison the audit chain. Absent keys are fine
-    # (additive contract; R-131-09 grace).
+    # spec-131 D-131-08 (sub-003) / spec-189 (D-189-04): enum-validate
+    # dispatch metadata before the event is written so drifted values fail
+    # loud at call-site rather than poison the audit chain. Absent keys are
+    # fine (additive contract).
     _validate_dispatch_metadata(payload)
     if missing_fields:
         payload["degraded_reason"] = "missing-host-metadata"

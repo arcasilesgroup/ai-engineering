@@ -4,7 +4,6 @@ description: Audits an IDE end-to-end (instruction surface, hooks, skills, agent
 effort: high
 argument-hint: "claude-code|github-copilot|codex|antigravity|all [--fix]"
 tags: [audit, ide, copilot, claude-code, governance]
-model_tier: opus
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-ide-audit/SKILL.md
@@ -13,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # IDE Support Audit
+
+Audits an IDE end-to-end — instruction surface, hooks, skills, agents, installer wiring — using strict file-evidence rather than assumptions. Use it to verify IDE setup for Claude Code, GitHub Copilot, Codex, Antigravity, or all at once, optionally auto-fixing P0 gaps.
 
 ## Quick start
 

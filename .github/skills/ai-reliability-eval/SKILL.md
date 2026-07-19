@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "define|check|report|regression|--skill-set [feature]"
 mode: agent
 tags: [quality, evals, improvement]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-reliability-eval/SKILL.md
@@ -15,10 +14,10 @@ edit_policy: generated-do-not-edit
 
 # Reliability Eval
 
-Eval-Driven Development (EDD): evals are the unit tests of AI development. Define pass/fail
-criteria before writing code; measure AI reliability with pass@k metrics; track regressions
-across prompt, agent, and model changes. Evals answer "Can the AI do this reliably?" —
-distinct from `/ai-verify`, which checks current code quality (linting, coverage, security).
+Eval-Driven Development (EDD): define pass/fail criteria before writing code, then measure AI
+reliability with pass@k metrics and track regressions across prompt, agent, and model changes.
+Evals answer "Can the AI do this reliably?" — distinct from `/ai-verify`, which checks current
+code quality (linting, coverage, security).
 
 ## Workflow
 

@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "new|convert|enhance [topic]"
 mode: agent
 tags: [presentation, html, css]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-slides/SKILL.md
@@ -15,7 +14,7 @@ edit_policy: generated-do-not-edit
 
 # Slides
 
-Zero-dependency, animation-rich HTML presentations that run entirely in the browser. Non-designers discover their aesthetic through visual exploration, not abstract choices. Viewport fit is a hard gate.
+Generates zero-dependency, animation-rich HTML presentations that run entirely in the browser, with viewport fit as a hard gate. Non-designers discover their aesthetic through visual exploration rather than abstract choices.
 
 ## Workflow
 

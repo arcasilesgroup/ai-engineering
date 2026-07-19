@@ -1,7 +1,7 @@
 """audit tokens --by skill smoke — spec-131 S3 (sub-003 T-3.13).
 
 Smoke test that proves the dispatch metadata
-(``model_tier`` + ``effort``) emitted by ``_lib.observability`` is
+(``effort``) emitted by ``_lib.observability`` is
 observable end-to-end through the ``ai-eng audit`` surface.
 
 Posture (per R-131-05 mitigation): if the audit subcommand surface is
@@ -47,7 +47,6 @@ def test_dispatch_metadata_lands_in_audit_chain(project_root: Path) -> None:
         agent_name="ai-build",
         component="dispatch",
         metadata={
-            "model_tier": "haiku",
             "effort": "cheap",
             "patch_present": True,
         },
@@ -56,9 +55,7 @@ def test_dispatch_metadata_lands_in_audit_chain(project_root: Path) -> None:
     assert ndjson.is_file()
     entries = [json.loads(line) for line in ndjson.read_text().splitlines() if line]
     assert any(
-        e.get("kind") == "agent_dispatched"
-        and e["detail"].get("model_tier") == "haiku"
-        and e["detail"].get("effort") == "cheap"
+        e.get("kind") == "agent_dispatched" and e["detail"].get("effort") == "cheap"
         for e in entries
     ), f"dispatch metadata missing from audit chain: {entries}"
 
@@ -74,7 +71,7 @@ def test_audit_tokens_subcommand_smoke(project_root: Path) -> None:
         engine="claude_code",
         skill_name="ai-build",
         component="dispatch",
-        metadata={"model_tier": "haiku", "effort": "cheap"},
+        metadata={"effort": "cheap"},
     )
 
     # Try the CLI surface — if the entry point is missing this build,

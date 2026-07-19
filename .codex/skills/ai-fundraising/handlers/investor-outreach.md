@@ -6,7 +6,7 @@ Draft cold emails, warm intro requests, follow-ups, and post-meeting updates for
 
 ## Activation
 
-Dispatched when the write skill involves investor communication: cold emails, warm introductions, follow-up sequences, investor updates, or any reference to fundraising outreach.
+Dispatched by /ai-fundraising when the request involves investor communication: cold emails, warm introductions, follow-up sequences, investor updates, or any reference to fundraising outreach.
 
 ## Procedure
 

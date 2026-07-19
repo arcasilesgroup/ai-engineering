@@ -4,7 +4,6 @@ description: On-demand code simplification — guard clauses, method extraction,
 effort: mid
 argument-hint: "[paths|--diff] [--conservative|--aggressive]"
 tags: [refactor, complexity, simplification]
-model_tier: sonnet
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-simplify/SKILL.md
@@ -93,5 +92,7 @@ Dispatches the agent scoped to the file. It inverts the outer `if user is not No
 ## Integration
 
 Called by: operators directly via `/ai-simplify` (single-file or diff-scoped) — not auto-invoked by any other skill. Calls: the `ai-simplify` agent (`.cursor/agents/ai-simplify.mdc`) via the Agent tool with the operator-chosen scope; validates after each edit, rolls back on test failure. See also: `.cursor/skills/ai-simplify-sweep/SKILL.md` (scheduled draft-PR wrapper); `.ai-engineering/manifest.yml` `quality` thresholds (cyclomatic ≤ 10, cognitive ≤ 15, nesting ≤ 3, method length ≤ 50). Anchors: §10.1 KISS, §10.7 Clean Code; D-134-07 (agents need a discoverable slash-skill).
+
+**Inline fallback** — Agent-tool dispatch is the primary path. On a harness without a subagent/Agent-tool primitive, execute this skill by reading the specialist agent file (`.cursor/agents/ai-simplify.mdc`) inline and running its steps in-context, sequentially, applying the same per-edit validation and self-check; inline-sequential execution is the floor, not an alternate behaviour.
 
 $ARGUMENTS

@@ -2,17 +2,13 @@
 name: ai-prompt-tune
 description: "Optimizes prompts, system messages, and skill descriptions using explicit-over-implicit, show-do-not-tell, and rationale-embedding techniques. Trigger for 'this prompt is not working', 'optimize this skill description', 'improve triggering', 'rewrite this instruction', 'CSO-optimize'. Pass `--skill name` to optimize any skill's description field. Not for creating new skills; use /ai-scaffold instead. Not for evolving the entire skill body; use /ai-skill-improve instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "[text]|--skill [name]"
 tags: [meta, optimization, prompts]
 ---
 
 # Prompt Tune
 
-Improves prompts, skill `description` fields, and agent instructions using proven techniques. Two modes:
-
-- `/ai-prompt-tune "<text>"` — optimize arbitrary text
-- `/ai-prompt-tune --skill <name>` — CSO-optimize a skill's `description` field
+Improves prompts, skill `description` fields, and agent instructions using proven techniques. Run `/ai-prompt-tune "<text>"` to optimize arbitrary text, or `/ai-prompt-tune --skill <name>` to CSO-optimize a skill's `description` field.
 
 ## Optimization Techniques (apply in order of impact)
 

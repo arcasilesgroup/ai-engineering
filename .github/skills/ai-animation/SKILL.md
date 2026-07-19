@@ -5,7 +5,6 @@ effort: high
 argument-hint: "[component or interaction to animate]"
 mode: agent
 tags: [animation, motion, transitions, micro-interactions, css]
-model_tier: opus
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-animation/SKILL.md

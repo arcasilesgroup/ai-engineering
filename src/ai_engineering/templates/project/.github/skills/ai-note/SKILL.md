@@ -4,7 +4,6 @@ description: "Saves persistent technical discoveries (debugging insights, non-ob
 effort: cheap
 argument-hint: "find [query]|[slug]"
 mode: agent
-model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-note/SKILL.md
@@ -14,9 +13,9 @@ edit_policy: generated-do-not-edit
 
 # Note
 
-Captures technical discoveries — debugging insights, non-obvious
-behaviors, integration gotchas — that cost 30+ minutes to re-discover.
-Flat files, persistent across sessions, searched by content.
+Saves technical discoveries — debugging insights, non-obvious behaviors,
+integration gotchas that cost 30+ minutes — as flat files searchable
+across sessions, and searches them on demand.
 
 ```
 /ai-note find ruff          # search notes mentioning ruff

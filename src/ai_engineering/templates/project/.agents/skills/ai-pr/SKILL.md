@@ -10,7 +10,6 @@ requires:
   - az
   bins:
   - gitleaks
-model_tier: sonnet
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-pr/SKILL.md

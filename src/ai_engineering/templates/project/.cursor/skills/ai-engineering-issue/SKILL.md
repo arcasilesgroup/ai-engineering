@@ -7,7 +7,6 @@ tags: [security, support, upstream, redaction, framework]
 requires:
   bins:
   - gh
-model_tier: sonnet
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-engineering-issue/SKILL.md
@@ -18,7 +17,7 @@ edit_policy: generated-do-not-edit
 
 # Upstream Bug Report
 
-Files a bug/improvement against the ai-engineering framework with strict redaction and explicit consent. Runs the shared redactor in strict mode, renders the body for review, requires a typed `confirm` token, then shells `gh issue create --repo arcasilesgroup/ai-engineering`. A sanitized copy is archived under `.ai-engineering/support/upstream-reports/`.
+Files a bug/improvement against the ai-engineering framework with strict redaction and explicit consent: runs the shared redactor in strict mode, renders the body for review, requires a typed `confirm` token, then shells `gh issue create --repo arcasilesgroup/ai-engineering`. A sanitized copy is archived under `.ai-engineering/support/upstream-reports/`.
 
 ```
 /ai-engineering-issue "<short-title>"

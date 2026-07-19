@@ -2,7 +2,6 @@
 name: ai-support
 description: "Investigates customer-reported issues with structure: reproduces, traces to code, documents resolution, builds a searchable knowledge base organized by ticket ID. Trigger for 'a user is reporting that', 'customer complaint', 'support ticket', 'investigate this bug report', 'search past support cases'. Not for production incidents; use /ai-postmortem instead. Not for internal dev bugs; use /ai-debug instead. Not for feature requests; open a GitHub Issue with the enhancement label."
 effort: mid
-model_tier: sonnet
 argument-hint: "start [ticket-id]|find [query]"
 ---
 

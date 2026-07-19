@@ -4,7 +4,6 @@ description: Documents production incidents, outages, degradations, and near-mis
 effort: mid
 argument-hint: "start|continue [id]|find [query]|generate"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-postmortem/SKILL.md
@@ -15,7 +14,7 @@ edit_policy: generated-do-not-edit
 
 # Postmortem
 
-Structured, blameless incident postmortem using the DERP model (Detection, Escalation, Recovery, Prevention). Storage: `.ai-engineering/postmortems/{id}.md`, ID format `PM-YYYY-NNN` (sequential within year). Status: `draft` → `in-review` (all DERP sections complete) → `complete` (action items assigned).
+Use this to document a production incident, outage, degradation, or near-miss as a structured, blameless postmortem using the DERP model (Detection, Escalation, Recovery, Prevention). Postmortems are stored at `.ai-engineering/postmortems/{id}.md` (ID `PM-YYYY-NNN`) and move `draft` → `in-review` (all DERP sections complete) → `complete` (action items assigned).
 
 ```
 /ai-postmortem start                  # begin new postmortem

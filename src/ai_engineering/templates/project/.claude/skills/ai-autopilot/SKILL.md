@@ -2,7 +2,6 @@
 name: ai-autopilot
 description: "Delivers large multi-concern specs and backlog runs autonomously: decomposes specs into sub-specs (or normalizes work items into a backlog DAG), deep-plans with parallel agents, builds a dependency DAG, implements in waves, runs a single final quality loop with one bounded quality-remediation pass (verify+guard+review on full changeset), delivers via PR. Trigger for 'implement spec-NNN end to end', 'autopilot this', 'autonomous delivery', 'decompose and ship', 'run the backlog', 'execute these GitHub issues', 'process the sprint backlog'. Invocation is the approval gate. Not for small or single-concern tasks; use /ai-build instead. Not for ambiguous requirements; use /ai-brainstorm first."
 effort: high
-model_tier: opus
 argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 tags:
   [
@@ -18,6 +17,8 @@ tags:
 ---
 
 # Autopilot v2
+
+Delivers large multi-concern specs and backlog runs autonomously — decomposing into sub-specs (or a backlog DAG), deep-planning with parallel agents, implementing in waves, and shipping via PR with one bounded quality-remediation pass. Use it for end-to-end delivery of specs with ≥3 concerns or ≥10 file changes; use /ai-build for smaller single-concern work.
 
 ## Purpose
 

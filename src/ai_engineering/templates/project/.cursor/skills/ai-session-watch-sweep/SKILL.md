@@ -4,7 +4,6 @@ description: "Consolidates the session-watch observation backlog on demand: runs
 effort: cheap
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, session-watch]
-model_tier: haiku
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-session-watch-sweep/SKILL.md
@@ -13,6 +12,11 @@ edit_policy: generated-do-not-edit
 
 
 # Session-Watch Sweep
+
+Consolidates the session-watch observation backlog on demand — runs
+`/ai-session-watch --review`, gates the result, and opens a draft chore PR for
+human review. Use it to clear accumulated corrections; it never auto-merges,
+auto-files work items, or runs unattended.
 
 ## Purpose
 

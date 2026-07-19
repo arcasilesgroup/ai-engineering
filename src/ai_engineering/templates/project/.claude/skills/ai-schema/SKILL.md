@@ -2,7 +2,6 @@
 name: ai-schema
 description: "Designs schemas, plans safe migrations with rollback scripts, optimizes slow queries with index recommendations, defines data retention and GDPR right-to-erasure policies. Supports PostgreSQL, MySQL, SQLite, MongoDB. Trigger for 'add a column', 'we need a migration', 'the query is slow', 'define a retention policy', 'GDPR compliance for data'. Not for application-layer ORMs without DB schema; use /ai-code instead. Not for security audits; use /ai-security instead. Not for infrastructure provisioning — no infra skill exists."
 effort: mid
-model_tier: sonnet
 argument-hint: "design|migrate|optimize|lifecycle"
 tags: [database, sql, migration, schema, optimization, enterprise]
 requires:
@@ -12,7 +11,7 @@ requires:
 
 # Database Engineering
 
-Schema design, safe migration generation, query optimization, and data lifecycle management. Multi-DB: PostgreSQL, MySQL, SQLite, MongoDB. Multi-ORM: SQLAlchemy, Prisma, TypeORM, Drizzle, Entity Framework, Diesel.
+Schema design, safe migration generation, query optimization, and data lifecycle management across PostgreSQL, MySQL, SQLite, and MongoDB. Multi-ORM: SQLAlchemy, Prisma, TypeORM, Drizzle, Entity Framework, Diesel.
 
 ## Process
 

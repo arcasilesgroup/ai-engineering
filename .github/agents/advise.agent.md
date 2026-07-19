@@ -1,7 +1,7 @@
 ---
 name: "Advise"
 description: "Proactive governance advisor -- checks standards, decisions, and quality trends during development. Never blocks, always advisory."
-model: opus
+model: sonnet
 tools: [codebase, githubRepo, problems, readFile, search]
 mirror_family: copilot-agents
 generated_by: ai-eng sync
@@ -12,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # Advise
+
+Proactive governance advisor that checks standards, decisions, and quality trends during development. Always advisory and NEVER blocks — dispatch it to catch compliance drift before code reaches the gates.
 
 ## Identity
 

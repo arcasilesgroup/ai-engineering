@@ -2,12 +2,16 @@
 name: ai-explore
 description: "Codebase-only read-only research dispatcher. Thin wrapper around the ai-explore agent for architecture mapping, dependency tracing, pattern identification, and risk surfacing — dispatch for any question spanning >= 1 file, module, or import edge. Trigger for 'explore the codebase', 'where does X live', 'map this module', 'what depends on Y', 'trace this import chain'. Not for external evidence with citations; use /ai-research instead."
 effort: cheap
-model_tier: haiku
 argument-hint: "[question]"
 tags: [exploration, research, codebase, architecture, mapping]
 ---
 
 # Explore
+
+Read-only codebase research dispatcher: a thin wrapper around the
+`ai-explore` agent for architecture mapping, dependency tracing, pattern
+identification, and risk surfacing. Use it for any question spanning one
+or more files, modules, or import edges.
 
 ## Quick start
 

@@ -4,7 +4,6 @@ description: "Canonical implementation gateway: reads approved plan.md, resolves
 effort: cheap
 argument-hint: "[spec-NNN | --resume | --no-hitl]"
 mode: agent
-model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-build/SKILL.md
@@ -14,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Build
 
-Execution engine for approved plans: reads plan.md, dispatches one subagent per task (fresh context, TDD self-validation), then a single final quality loop with one bounded quality-remediation pass on the full changeset before `/ai-pr`. Requires an approved plan — run `/ai-plan` first; resume with `/ai-build --resume`. Route multi-concern plans (≥ 3 concerns or ≥ 10 files) to `/ai-autopilot`, not `/ai-build`. If stuck: STOP and re-plan.
+Execution engine for approved plans: reads plan.md, dispatches one subagent per task (fresh context, TDD self-validation), then runs a single final quality loop with one bounded remediation pass on the full changeset before `/ai-pr`. Requires an approved plan (run `/ai-plan` first; resume with `/ai-build --resume`); route multi-concern plans (≥ 3 concerns or ≥ 10 files) to `/ai-autopilot` instead, and STOP to re-plan if stuck.
 
 ## Workflow
 
@@ -26,10 +25,10 @@ Principles: §10.5 TDD (per-task RED/GREEN/REFACTOR self-validation), §10.4 DRY
 2. **Advise advisory** — invoke the `ai-advise` agent in `gate` mode before dispatching any build task (fail-open: log + continue, never block dispatch).
 2b. **Stack routing** (D-127-06 / sub-008, spec-128 D-128-01) — per task, call `tools.skill_app.deterministic_router.resolve_adapter(task_path, spec_stack)` for the overrides dir `.ai-engineering/overrides/<stack>/`; pass it to the build agent to load `conventions.md`, `tdd_harness.md`, `security_floor.md`, `examples/` before writing code. `spec_stack` precedence: spec frontmatter `stack:` over file-extension inference. `UnknownStackError` halts the task ("no overrides for this stack").
 2c. **Model dispatch** (D-131-08 / sub-003, §10.4 DRY) — per task, inspect the plan.md block:
-    - `Patch (deterministic):` present AND no synthesis hint → `model_tier=haiku, effort=cheap` (mechanical).
-    - patch absent OR synthesis hint present → `model_tier=sonnet, effort=mid` (judgment).
-    - operator `--max-effort` OR task tagged `architecture: true` → `model_tier=opus, effort=high` (deep-architecture override).
-    Log via `emit_agent_dispatched(..., metadata={"model_tier": <tier>, "effort": <effort>, "patch_present": <bool>})`. Investing in `/ai-plan` (exhaustive patch-ready output) is what unlocks cheap-tier execution downstream (D-131-08).
+    - `Patch (deterministic):` present AND no synthesis hint → `effort=cheap` (mechanical).
+    - patch absent OR synthesis hint present → `effort=mid` (judgment).
+    - operator `--max-effort` OR task tagged `architecture: true` → `effort=high` (deep-architecture override).
+    Log via `emit_agent_dispatched(..., metadata={"effort": <effort>, "patch_present": <bool>})`. Investing in `/ai-plan` (exhaustive patch-ready output) is what unlocks cheap-tier execution downstream (D-131-08).
 2d. **No-HITL contract** (D-134-03) — if `--no-hitl` is set, read `handlers/no-hitl.md` and apply: single-concern gate, `NEEDS_CONTEXT → BLOCKED` promotion, `quality_loop_blocked → exit 78`, `--no-watch` implied for delivery, no auto-retry. Absent flag → default behavior unchanged.
 3. **Execute kernel** — `.github/skills/_shared/execution-kernel.md`. Wrap each task (Sub-flow 1 dispatch → 2 build self-validation TDD RED/GREEN/REFACTOR → 3 artifact collection → 4 board sync). As each task reaches a terminal state, update `.ai-engineering/specs/plan.md` immediately before dispatching the next task. Do not defer checkbox/status writes to the end of the phase or the end of the spec.
 4. **Quality check** — read `handlers/quality.md`: Verify+Review on the full changeset, single round, fail-loud with ONE bounded quality-remediation pass. Blocker/critical/high findings may be fixed once when scoped to quality-loop evidence; remaining blocker/critical/high findings → STOP + escalate (no second remediation pass).

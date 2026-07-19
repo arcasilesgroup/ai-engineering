@@ -5,7 +5,6 @@ effort: cheap
 argument-hint: "[question]"
 mode: agent
 tags: [exploration, research, codebase, architecture, mapping]
-model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-explore/SKILL.md
@@ -14,6 +13,11 @@ edit_policy: generated-do-not-edit
 
 
 # Explore
+
+Read-only codebase research dispatcher: a thin wrapper around the
+`ai-explore` agent for architecture mapping, dependency tracing, pattern
+identification, and risk surfacing. Use it for any question spanning one
+or more files, modules, or import edges.
 
 ## Quick start
 

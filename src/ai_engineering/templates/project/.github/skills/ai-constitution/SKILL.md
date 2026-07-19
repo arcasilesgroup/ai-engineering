@@ -4,7 +4,6 @@ description: Interviews the operator to produce a project-identity CONSTITUTION.
 effort: mid
 argument-hint: "[generate|update|amend]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-constitution/SKILL.md
@@ -13,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 
 # Constitution
+
+Interviews the operator to produce (or amend) a project-identity CONSTITUTION.md covering Mission, Stakeholders, Vocabulary, Prohibitions, Compliance gates, Anti-goals, Boundaries, Escalation, Language, and Lifecycle phase. Use it to set up or change project identity — not AI-behaviour rules (those live in CANONICAL.md).
 
 ## Quick start
 

@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "single [pr]|batch"
 mode: agent
 tags: [meta, learning, continuous-improvement]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-learn/SKILL.md

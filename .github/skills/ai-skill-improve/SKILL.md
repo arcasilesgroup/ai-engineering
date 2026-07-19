@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "[skill-name]|all [--dry-run]"
 mode: agent
 tags: [meta, improvement, skills, optimization, improve]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-skill-improve/SKILL.md
@@ -14,6 +13,8 @@ edit_policy: generated-do-not-edit
 
 
 # ai-skill-improve
+
+Evolves an existing skill by diagnosing real project pain (eval corpora, Engram observations, LESSONS.md, decisions, instincts, proposals), rewriting its SKILL.md, and emitting the delta as a PR comment only — never auto-merged. Use it to improve one named skill or `all` skills in batch.
 
 ## Quick start
 

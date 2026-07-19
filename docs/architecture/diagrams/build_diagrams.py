@@ -98,7 +98,7 @@ install = f"""
   </div>
   <div style="flex:1;border-left:1px solid #1E3A4F;padding-left:34px">
     <div class="kick" style="margin-bottom:10px">what you get</div>
-    {get("53 skills &middot; 9 agents", "run /ai-&lt;name&gt; in your editor")}
+    {get("54 skills &middot; 9 agents", "run /ai-&lt;name&gt; in your editor")}
     {get("a governed workflow", "spec &rarr; plan &rarr; build &rarr; reviewed PR")}
     {get("automatic checks", "clean diffs, fresh docs, on every change")}
     {get("versioned local files", "no cloud, no lock-in, you own it all")}

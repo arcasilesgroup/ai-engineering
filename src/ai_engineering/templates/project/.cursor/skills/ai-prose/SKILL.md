@@ -4,7 +4,6 @@ description: Writes content (blog posts, pitch decks, sprint review summaries, a
 effort: mid
 argument-hint: "content [type] [--audience developer|manager|executive]"
 tags: [writing, content, communication]
-model_tier: sonnet
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-prose/SKILL.md
@@ -14,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Prose
 
-Content writing with automatic audience targeting. Edit, don't generate — start from what exists (notes, transcripts, data, real output). Template language is a failure mode.
+Content writing (blog, pitch, sprint-review, architecture-board, solution-intent) with automatic audience targeting. Edit, don't generate — start from what exists (notes, transcripts, data, real output); template language is a failure mode.
 
 ## Workflow
 
