@@ -158,3 +158,38 @@ def test_rejects_bad_severity() -> None:
 
     with pytest.raises(ValueError):
         RubricResult("front_loading_bluf", "FATAL", "bogus")
+
+
+def test_abbreviations_do_not_overcount_sentences(tmp_path: Path) -> None:
+    """A 2-sentence BLUF using e.g./i.e. must not trip the blocking cap.
+
+    Regression for the /ai-review MEDIUM finding: the sentence terminator
+    regex used to count the dot in ``e.g.``/``i.e.``/``etc.``/``vs.`` as a
+    sentence boundary, hard-failing a legitimate 2-sentence BLUF once the
+    lint went blocking (T-17).
+    """
+    _write_skill(
+        tmp_path,
+        "ai-abbr",
+        "Do a thing, e.g. edge cases, i.e. the hard parts. "
+        "It also handles B.\n\n## Workflow\n\n1. Step.\n",
+    )
+    sev = [r.severity for _p, r in check_frontloading(tmp_path, tmp_path / "none")]
+    assert "MAJOR" not in sev, sev
+
+
+def test_decimal_opening_is_not_a_list_line(tmp_path: Path) -> None:
+    """A BLUF opening with a decimal (``3.5x``) must not read as a list line.
+
+    Regression for the /ai-review LOW finding: the list-line regex lacked a
+    trailing-space requirement after ``\\d+\\.``, so a decimal at line start
+    tripped the "BLUF contains a list" MAJOR.
+    """
+    _write_skill(
+        tmp_path,
+        "ai-dec",
+        "3.5x faster than the baseline on cold starts. "
+        "Measured across the whole suite.\n\n## Workflow\n\n1. Step.\n",
+    )
+    sev = [r.severity for _p, r in check_frontloading(tmp_path, tmp_path / "none")]
+    assert "MAJOR" not in sev, sev

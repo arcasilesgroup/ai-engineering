@@ -51,10 +51,15 @@ _FRONTMATTER_RE = re.compile(r"^---\n.*?\n---\n", re.DOTALL)
 _H1_RE = re.compile(r"^#\s+\S")
 # First section header (``## ``) — the recap region ends here.
 _H2_RE = re.compile(r"^##\s")
-# A list line: bullet (``- ``/``* ``) or numbered step (``N.``).
-_LIST_LINE_RE = re.compile(r"^(?:[-*]\s|\d+\.)")
-# Sentence terminator followed by whitespace or end-of-string.
-_SENTENCE_RE = re.compile(r"[.!?]+(?=\s|$)")
+# A list line: bullet (``- ``/``* ``/``+ ``) or numbered step (``N. ``).
+# The trailing ``\s`` after ``\d+\.`` keeps decimals/years (``3.5x``, ``2024.``)
+# from being misread as a numbered-list line.
+_LIST_LINE_RE = re.compile(r"^(?:[-*+]\s|\d+\.\s)")
+# Sentence terminator followed by whitespace or end-of-string. The negative
+# lookbehinds stop common abbreviations (``e.g.``/``i.e.``/``etc.``/``vs.``)
+# from being counted as sentence boundaries, so a legitimate 2-sentence BLUF
+# that uses one does not trip the blocking cap.
+_SENTENCE_RE = re.compile(r"(?<!\be\.g)(?<!\bi\.e)(?<!\betc)(?<!\bvs)[.!?]+(?=\s|$)")
 
 
 def _bluf_region(text: str) -> list[str]:
