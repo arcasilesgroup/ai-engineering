@@ -1,7 +1,7 @@
 ---
 name: "Simplifier"
 description: "Background code simplifier -- guard clauses, extract methods, flatten nesting, remove dead code. Runs post-build or continuous."
-model: opus
+model: sonnet
 tools: [codebase, editFiles, problems, readFile, runCommands, search, testFailures]
 mirror_family: copilot-agents
 generated_by: ai-eng sync

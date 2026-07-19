@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 _MANIFEST_TEMPLATE = """\
@@ -94,9 +96,80 @@ class TestSyncScriptMetadata:
             assert meta.display_name, f"{name}: missing display_name"
             assert meta.description, f"{name}: missing description"
             assert meta.model, f"{name}: missing model"
+            assert meta.effort, f"{name}: missing effort"
             assert meta.color, f"{name}: missing color"
             assert meta.copilot_tools, f"{name}: empty copilot_tools"
             assert meta.claude_tools, f"{name}: empty claude_tools"
+
+
+class TestEffortModelSemantics:
+    """spec-189 D-189-04: `effort` is the sole semantic source for agent model."""
+
+    def test_every_agent_has_valid_effort(self) -> None:
+        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors.core import VALID_EFFORTS
+
+        assert sorted(VALID_EFFORTS) == ["cheap", "high", "mid"]
+        for name, meta in AGENT_METADATA.items():
+            assert meta.effort in VALID_EFFORTS, (
+                f"{name}: effort {meta.effort!r} not in {sorted(VALID_EFFORTS)}"
+            )
+
+    def test_effort_to_model_round_trips(self) -> None:
+        from scripts.sync_command_mirrors import _effort_to_model, _model_to_effort
+
+        # Forward mapping is the documented Claude-valid contract.
+        assert _effort_to_model("high") == "opus"
+        assert _effort_to_model("mid") == "sonnet"
+        assert _effort_to_model("cheap") == "haiku"
+        # Round-trip: effort -> model -> effort is the identity.
+        for effort in ("cheap", "mid", "high"):
+            assert _model_to_effort(_effort_to_model(effort)) == effort
+        # Unknown inputs fail loudly rather than silently defaulting.
+        with pytest.raises(ValueError):
+            _effort_to_model("gigantic")
+        with pytest.raises(ValueError):
+            _model_to_effort("gpt-9")
+
+    def test_agent_meta_model_matches_effort(self) -> None:
+        # The retained `model` literal must mirror the effort-derived model so
+        # AGENT_METADATA never carries internally contradictory data.
+        from scripts.sync_command_mirrors import AGENT_METADATA, _effort_to_model
+
+        for name, meta in AGENT_METADATA.items():
+            assert meta.model == _effort_to_model(meta.effort), (
+                f"{name}: model {meta.model!r} != effort-derived {_effort_to_model(meta.effort)!r}"
+            )
+
+    def test_validator_passes_on_canonical_sources(self) -> None:
+        from scripts.sync_command_mirrors import (
+            discover_agents,
+            discover_skills,
+            validate_canonical,
+        )
+
+        errors, _warnings = validate_canonical(discover_skills(), discover_agents())
+        drift = [e for e in errors if "disagrees with effort" in e]
+        assert not drift, f"canonical model/effort drift: {drift}"
+
+    def test_validator_fires_on_model_effort_mismatch(self) -> None:
+        # Seed a synthetic canonical agent whose hand-typed model disagrees with
+        # its AGENT_METADATA effort. `build` is effort=high (-> opus); claiming
+        # `model: sonnet` MUST be flagged as a build-time canonical error.
+        from scripts.sync_command_mirrors import CLAUDE_AGENTS, validate_canonical
+
+        seeded = [("build", {"name": "Build", "model": "sonnet"}, CLAUDE_AGENTS / "ai-build.md")]
+        errors, _warnings = validate_canonical([], seeded)
+        assert any("disagrees with effort" in e for e in errors), (
+            "validator did not fire on a seeded model/effort mismatch"
+        )
+
+    def test_validator_quiet_on_matching_model(self) -> None:
+        from scripts.sync_command_mirrors import CLAUDE_AGENTS, validate_canonical
+
+        matched = [("build", {"name": "Build", "model": "opus"}, CLAUDE_AGENTS / "ai-build.md")]
+        errors, _warnings = validate_canonical([], matched)
+        assert not any("disagrees with effort" in e for e in errors)
 
 
 class TestCrossReferenceResolution:
@@ -305,7 +378,9 @@ class TestGenerationFunctions:
         # cross-IDE parity (Claude/Codex/Antigravity already use the canonical
         # ai-explore slug).
         assert 'name: "ai-explore"' in content
-        assert "model: opus" in content
+        # spec-189 D-189-04: copilot model: is derived from effort. explore is
+        # effort=mid -> sonnet (was hard-coded opus before the effort source).
+        assert "model: sonnet" in content
         # `color` is intentionally omitted: GitHub Copilot's documented
         # custom-agents schema does not include a color field, matching
         # the Cursor/Antigravity strip policy.

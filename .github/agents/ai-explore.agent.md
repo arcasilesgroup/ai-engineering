@@ -1,7 +1,7 @@
 ---
 name: "ai-explore"
 description: "Context gatherer -- deep codebase research, architecture mapping, dependency tracing, pattern identification, risk surfacing. Read-only."
-model: opus
+model: sonnet
 tools: [codebase, githubRepo, readFile, search]
 mirror_family: copilot-agents
 generated_by: ai-eng sync

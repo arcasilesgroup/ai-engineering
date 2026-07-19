@@ -119,11 +119,22 @@ _DOC_TWIN_SUBTREES: tuple[str, ...] = ("reference", "runbooks")
 # ── Dataclasses ─────────────────────────────────────────────────────────────
 @dataclass(frozen=True)
 class AgentMeta:
-    """Per-agent metadata for all mirror surfaces."""
+    """Per-agent metadata for all mirror surfaces.
+
+    spec-189 D-189-04: ``effort`` (cheap | mid | high) is the SOLE semantic
+    source of truth for agent model selection. Every mirror surface derives
+    its Claude-valid ``model:`` literal from ``effort`` via ``_effort_to_model``
+    so no per-surface literal can drift from the semantic intent. The ``model``
+    field is retained only to mirror the hand-typed Claude ``model:`` in
+    ``.claude/agents/<name>.md`` (which is never regenerated) and is not read by
+    any generator; the build-time validator cross-checks that hand-typed model
+    against ``effort``.
+    """
 
     display_name: str
     description: str
     model: str
+    effort: str
     color: str
     copilot_tools: tuple[str, ...]
     claude_tools: tuple[str, ...]
@@ -138,6 +149,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         display_name="Build",
         description="Implementation across all stacks -- the only code write agent",
         model="opus",
+        effort="high",
         color="blue",
         copilot_tools=(
             "codebase",
@@ -178,7 +190,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " dependency tracing, pattern identification, risk surfacing."
             " Read-only."
         ),
-        model="opus",
+        model="sonnet",
+        effort="mid",
         color="cyan",
         copilot_tools=("codebase", "githubRepo", "readFile", "search"),
         claude_tools=("Read", "Glob", "Grep"),
@@ -190,7 +203,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " and quality trends during development."
             " Never blocks, always advisory."
         ),
-        model="opus",
+        model="sonnet",
+        effort="mid",
         color="yellow",
         copilot_tools=(
             "codebase",
@@ -207,7 +221,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             "Developer education and onboarding -- architecture tours,"
             " decision archaeology, knowledge transfer."
         ),
-        model="opus",
+        model="sonnet",
+        effort="mid",
         color="cyan",
         copilot_tools=(
             "codebase",
@@ -222,6 +237,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         display_name="Plan",
         description="Advisory planning: classify scope, assess risks, and recommend pipeline",
         model="opus",
+        effort="high",
         color="purple",
         copilot_tools=(
             "codebase",
@@ -253,6 +269,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " for deep parallel review with context isolation."
         ),
         model="opus",
+        effort="high",
         color="red",
         copilot_tools=(
             "codebase",
@@ -279,7 +296,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " flatten nesting, remove dead code."
             " Runs post-build or continuous."
         ),
-        model="opus",
+        model="sonnet",
+        effort="mid",
         color="green",
         copilot_tools=(
             "codebase",
@@ -299,6 +317,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " deterministic + LLM judgment agents for merge readiness."
         ),
         model="opus",
+        effort="high",
         color="green",
         copilot_tools=(
             "codebase",
@@ -327,6 +346,7 @@ AGENT_METADATA: dict[str, AgentMeta] = {
             " agents, verifies anti-hallucination gates, delivers via PR."
         ),
         model="opus",
+        effort="high",
         color="purple",
         copilot_tools=(
             "codebase",
@@ -349,6 +369,55 @@ AGENT_METADATA: dict[str, AgentMeta] = {
     # Note: `run-orchestrator` AgentMeta deleted per spec-127 D-127-12.
     # Functionality absorbed by `ai-autopilot --backlog --source <github|ado|local>`.
 }
+
+
+# ── effort <-> model mapping (spec-189 D-189-04) ─────────────────────────────
+# ``effort`` is the SOLE semantic source of truth for agent model selection.
+# Every mirror surface derives its Claude-valid ``model:`` literal from
+# ``effort`` through this ONE mapping so no per-surface model literal can drift
+# from the semantic intent. The build-time validator (``validate_canonical``)
+# cross-checks each hand-typed ``.claude/agents/<name>.md`` ``model:`` against
+# the model derived from ``AGENT_METADATA[name].effort``.
+_EFFORT_TO_MODEL: dict[str, str] = {
+    "high": "opus",
+    "mid": "sonnet",
+    "cheap": "haiku",
+}
+_MODEL_TO_EFFORT: dict[str, str] = {model: effort for effort, model in _EFFORT_TO_MODEL.items()}
+VALID_EFFORTS: frozenset[str] = frozenset(_EFFORT_TO_MODEL)
+
+
+def _effort_to_model(effort: str) -> str:
+    """Map a semantic ``effort`` (cheap|mid|high) to its Claude-valid model literal."""
+    try:
+        return _EFFORT_TO_MODEL[effort]
+    except KeyError:
+        raise ValueError(
+            f"unknown effort {effort!r}; expected one of {sorted(_EFFORT_TO_MODEL)}"
+        ) from None
+
+
+def _model_to_effort(model: str) -> str:
+    """Map a Claude-valid model literal (opus|sonnet|haiku) back to its ``effort``."""
+    try:
+        return _MODEL_TO_EFFORT[model]
+    except KeyError:
+        raise ValueError(
+            f"unknown model {model!r}; expected one of {sorted(_MODEL_TO_EFFORT)}"
+        ) from None
+
+
+def _effort_model_for_agent(name: str, fallback: str | None) -> str | None:
+    """Return the effort-derived ``model:`` for a registered agent, else ``fallback``.
+
+    spec-189 D-189-04: mirror surfaces derive ``model:`` from the single
+    ``effort`` source. Specialist agents (no ``AgentMeta``) are not
+    effort-governed and keep their canonical passthrough ``model:``.
+    """
+    meta = AGENT_METADATA.get(name)
+    if meta is None:
+        return fallback
+    return _effort_to_model(meta.effort)
 
 
 # ── Cross-reference validation targets ──────────────────────────────────────
@@ -779,6 +848,11 @@ def generate_codex_agent(name: str, agent_path: Path) -> str:
     # Keep ai- prefix for agents in .codex/ surface
     fm.pop("tools", None)  # tools are IDE-specific
     fm.pop("metadata", None)
+    # spec-189 D-189-04: derive model: from the single `effort` source so all
+    # surfaces share one derivation. Specialists (no AgentMeta) keep canonical.
+    derived_model = _effort_model_for_agent(name, fm.get("model"))
+    if derived_model is not None:
+        fm["model"] = derived_model
     fm.update(
         get_generated_provenance_fields(
             "codex-agents",
@@ -829,6 +903,11 @@ def _generate_translated_agent(
     fm.pop("tools", None)  # tools are IDE-specific
     fm.pop("metadata", None)
     fm.pop("color", None)  # not in Cursor/Antigravity schemas
+    # spec-189 D-189-04: derive model: from the single `effort` source so all
+    # surfaces share one derivation. Specialists (no AgentMeta) keep canonical.
+    derived_model = _effort_model_for_agent(name, fm.get("model"))
+    if derived_model is not None:
+        fm["model"] = derived_model
     fm.update(
         get_generated_provenance_fields(
             family_id,
@@ -933,7 +1012,8 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
         "---",
         f'name: "{meta.display_name}"',
         f'description: "{meta.description}"',
-        f"model: {meta.model}",
+        # spec-189 D-189-04: derive model: from the single `effort` source.
+        f"model: {_effort_to_model(meta.effort)}",
         f"tools: [{tools_str}]",
     ]
 
@@ -1529,9 +1609,26 @@ def validate_canonical(
         rel = path.relative_to(ROOT)
         if not fm.get("description"):
             errors.append(f"{rel}: missing 'description' in frontmatter")
-    for name, fm, _path in agents:
+    for name, fm, path in agents:
         if not fm.get("name"):
             warnings.append(f"Agent '{name}': missing 'name' in frontmatter")
+        # spec-189 D-189-04: `effort` is the sole SEMANTIC source of truth. The
+        # hand-typed Claude-valid `model:` in .claude/agents/<name>.md is never
+        # regenerated, so it must agree with the model derived from
+        # AGENT_METADATA[name].effort. This build-time cross-check (mirror
+        # generation, NOT the pre-commit hot path) catches drift between the
+        # hand-typed model and the semantic effort before it reaches any mirror.
+        meta = AGENT_METADATA.get(name)
+        if meta is not None:
+            expected_model = _effort_to_model(meta.effort)
+            declared_model = fm.get("model")
+            if declared_model != expected_model:
+                rel = path.relative_to(ROOT)
+                errors.append(
+                    f"{rel}: model: {declared_model!r} disagrees with effort "
+                    f"{meta.effort!r} (expected model: {expected_model!r}). Fix the "
+                    f"hand-typed model: or AGENT_METADATA[{name!r}].effort."
+                )
     return errors, warnings
 
 
