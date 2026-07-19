@@ -98,7 +98,8 @@ class TestSyncScriptMetadata:
             assert meta.model, f"{name}: missing model"
             assert meta.effort, f"{name}: missing effort"
             assert meta.color, f"{name}: missing color"
-            assert meta.copilot_tools, f"{name}: empty copilot_tools"
+            assert meta.copilot_renamed_tools, f"{name}: empty copilot_renamed_tools"
+            assert meta.copilot_native_tools, f"{name}: empty copilot_native_tools"
             assert meta.claude_tools, f"{name}: empty claude_tools"
 
 
@@ -430,11 +431,18 @@ class TestGenerationFunctions:
             CLAUDE_AGENTS,
             generate_copilot_agent,
         )
+        from scripts.sync_mirrors.core import _translate_copilot_tools
 
         for name, meta in AGENT_METADATA.items():
             content = generate_copilot_agent(name, meta, CLAUDE_AGENTS / f"ai-{name}.md")
             frontmatter = content.split("---", 2)[1]
-            expected_tools = list(meta.copilot_tools)
+            # spec-189 D-189-06: the emitted tools are the map-translated renamed
+            # tools merged with the passthrough native tools, then the injected
+            # delegation `agent` tool when subagents are declared.
+            expected_tools = sorted(
+                _translate_copilot_tools(meta.copilot_renamed_tools)
+                | set(meta.copilot_native_tools)
+            )
             if meta.copilot_agents:
                 expected_tools.append("agent")
 

@@ -53,6 +53,7 @@ from ai_engineering.config.mirror_inventory import (  # noqa: E402
     get_generated_provenance_fields,
     get_internal_specialist_agent_targets,
 )
+from scripts.sync_mirrors.tool_name_map import TOOL_FAMILY_MAP  # noqa: E402
 
 # ── Canonical source paths (repo root .claude/) ──────────────────────────
 CLAUDE_SKILLS = ROOT / ".claude" / "skills"
@@ -129,6 +130,16 @@ class AgentMeta:
     ``.claude/agents/<name>.md`` (which is never regenerated) and is not read by
     any generator; the build-time validator cross-checks that hand-typed model
     against ``effort``.
+
+    spec-189 D-189-06: the Copilot ``tools:`` list is split into its two honest
+    halves so the canonical→VS-Code translation is sourced from a single place.
+    ``copilot_renamed_tools`` holds CANONICAL tool names (a subset of
+    ``CANONICAL_TOOLS``); ``generate_copilot_agent`` translates them to VS Code
+    ids via ``tool_name_map`` — the translated ids live only in that map, never
+    here (DRY). ``copilot_native_tools`` holds the Copilot-native context tools
+    (``codebase``, ``githubRepo``, …) that have no canonical equivalent and pass
+    through unchanged. The delegation ``agent`` tool is injected separately when
+    ``copilot_agents`` is non-empty.
     """
 
     display_name: str
@@ -136,11 +147,26 @@ class AgentMeta:
     model: str
     effort: str
     color: str
-    copilot_tools: tuple[str, ...]
+    copilot_renamed_tools: tuple[str, ...]
+    copilot_native_tools: tuple[str, ...]
     claude_tools: tuple[str, ...]
     copilot_agents: tuple[str, ...] = ()
     copilot_handoffs: tuple[dict, ...] = ()
     copilot_hooks: dict | None = None
+
+
+# ── Copilot tool-name translation (spec-189 D-189-06) ───────────────────────
+# The copilot mirror is the ONE renaming surface. Its canonical→VS-Code
+# tool-name translation is sourced from the single documented map in
+# ``tool_name_map`` — the translated ids (readFile, editFiles, runCommands,
+# search, agent) live there, not re-encoded here (DRY). Open-weight /
+# pass-through families keep canonical names, which is correct, not a gap.
+_COPILOT_NAME_MAP: dict[str, str] = dict(TOOL_FAMILY_MAP["copilot"].name_map or {})
+
+
+def _translate_copilot_tools(canonical_tools: tuple[str, ...]) -> set[str]:
+    """Rename canonical tool names to their VS Code Copilot ids via the map."""
+    return {_COPILOT_NAME_MAP[tool] for tool in canonical_tools}
 
 
 # ── Agent metadata (single source for all surfaces) ────────────────────────
@@ -151,15 +177,12 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="opus",
         effort="high",
         color="blue",
-        copilot_tools=(
+        copilot_renamed_tools=("Read", "Write", "Edit", "Bash", "Glob", "Grep"),
+        copilot_native_tools=(
             "codebase",
-            "editFiles",
             "fetch",
             "githubRepo",
             "problems",
-            "readFile",
-            "runCommands",
-            "search",
             "terminalLastCommand",
             "testFailures",
         ),
@@ -193,7 +216,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="sonnet",
         effort="mid",
         color="cyan",
-        copilot_tools=("codebase", "githubRepo", "readFile", "search"),
+        copilot_renamed_tools=("Read", "Glob", "Grep"),
+        copilot_native_tools=("codebase", "githubRepo"),
         claude_tools=("Read", "Glob", "Grep"),
     ),
     "advise": AgentMeta(
@@ -206,13 +230,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="sonnet",
         effort="mid",
         color="yellow",
-        copilot_tools=(
-            "codebase",
-            "githubRepo",
-            "problems",
-            "readFile",
-            "search",
-        ),
+        copilot_renamed_tools=("Read", "Glob", "Grep"),
+        copilot_native_tools=("codebase", "githubRepo", "problems"),
         claude_tools=("Read", "Glob", "Grep"),
     ),
     "onboard": AgentMeta(
@@ -224,13 +243,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="sonnet",
         effort="mid",
         color="cyan",
-        copilot_tools=(
-            "codebase",
-            "fetch",
-            "githubRepo",
-            "readFile",
-            "search",
-        ),
+        copilot_renamed_tools=("Read", "Glob", "Grep"),
+        copilot_native_tools=("codebase", "fetch", "githubRepo"),
         claude_tools=("Read", "Glob", "Grep"),
     ),
     "plan": AgentMeta(
@@ -239,15 +253,12 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="opus",
         effort="high",
         color="purple",
-        copilot_tools=(
+        copilot_renamed_tools=("Read", "Write", "Edit", "Bash", "Glob", "Grep"),
+        copilot_native_tools=(
             "codebase",
-            "editFiles",
             "fetch",
             "githubRepo",
             "problems",
-            "readFile",
-            "runCommands",
-            "search",
             "terminalLastCommand",
             "testFailures",
         ),
@@ -271,13 +282,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="opus",
         effort="high",
         color="red",
-        copilot_tools=(
-            "codebase",
-            "githubRepo",
-            "problems",
-            "readFile",
-            "search",
-        ),
+        copilot_renamed_tools=("Read", "Glob", "Grep"),
+        copilot_native_tools=("codebase", "githubRepo", "problems"),
         claude_tools=("Read", "Glob", "Grep", "Bash", "Agent"),
         copilot_agents=("ai-explore",),
         copilot_handoffs=(
@@ -299,15 +305,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="sonnet",
         effort="mid",
         color="green",
-        copilot_tools=(
-            "codebase",
-            "editFiles",
-            "problems",
-            "readFile",
-            "runCommands",
-            "search",
-            "testFailures",
-        ),
+        copilot_renamed_tools=("Read", "Edit", "Bash", "Glob", "Grep"),
+        copilot_native_tools=("codebase", "problems", "testFailures"),
         claude_tools=("Read", "Glob", "Grep", "Edit"),
     ),
     "verify": AgentMeta(
@@ -319,14 +318,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="opus",
         effort="high",
         color="green",
-        copilot_tools=(
-            "codebase",
-            "githubRepo",
-            "problems",
-            "readFile",
-            "runCommands",
-            "search",
-        ),
+        copilot_renamed_tools=("Read", "Bash", "Glob", "Grep"),
+        copilot_native_tools=("codebase", "githubRepo", "problems"),
         claude_tools=("Read", "Glob", "Grep", "Bash", "Agent"),
         copilot_agents=("ai-explore",),
         copilot_handoffs=(
@@ -348,13 +341,8 @@ AGENT_METADATA: dict[str, AgentMeta] = {
         model="opus",
         effort="high",
         color="purple",
-        copilot_tools=(
-            "codebase",
-            "githubRepo",
-            "readFile",
-            "runCommands",
-            "search",
-        ),
+        copilot_renamed_tools=("Read", "Bash", "Glob", "Grep"),
+        copilot_native_tools=("codebase", "githubRepo"),
         claude_tools=("Read", "Glob", "Grep", "Bash"),
         copilot_agents=("Build", "ai-explore", "Verify", "Plan", "Guard"),
         copilot_handoffs=(
@@ -998,10 +986,15 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
     body = read_body(agent_path)
     body = translate_refs(body, "copilot")
 
-    # Build tools list — inject "agent" when subagents are declared
-    tools = list(meta.copilot_tools)
+    # Build tools list — translate canonical renamed tools via the single
+    # `tool_name_map` source, merge the Copilot-native context tools, then
+    # inject the delegation `agent` tool (also map-sourced) when subagents are
+    # declared. spec-189 D-189-06: the translated ids live only in the map.
+    tools = sorted(
+        _translate_copilot_tools(meta.copilot_renamed_tools) | set(meta.copilot_native_tools)
+    )
     if meta.copilot_agents:
-        tools.append("agent")
+        tools.append(_COPILOT_NAME_MAP["Agent"])
     tools_str = ", ".join(tools)
 
     # ``color`` is intentionally omitted: GitHub Copilot's documented

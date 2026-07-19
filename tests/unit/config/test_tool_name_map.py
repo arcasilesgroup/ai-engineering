@@ -1,8 +1,10 @@
-"""Contract tests for the spec-187 D-187-03 tool-name reference map.
+"""Contract tests for the spec-187 D-187-03 tool-name map (wired spec-189 D-189-06).
 
-The map at ``scripts/sync_mirrors/tool_name_map.py`` is a DOCUMENTED reference
-artifact (no mirror family consumes it yet). These tests pin its invariants so
-it cannot silently drift from the canonical agent tool vocabulary.
+The map at ``scripts/sync_mirrors/tool_name_map.py`` is the SINGLE SOURCE the
+copilot mirror generator consumes to translate canonical tool names into VS Code
+Copilot tool ids. These tests pin its invariants so it cannot silently drift
+from the canonical agent tool vocabulary, and assert that ``core.py`` actually
+consumes it for that translation (not a dormant reference artifact).
 """
 
 from __future__ import annotations
@@ -90,3 +92,48 @@ def test_copilot_name_map_covers_canonical_tools() -> None:
     for tool in CANONICAL_TOOLS:
         assert tool in name_map, f"copilot name_map missing {tool!r}"
         assert name_map[tool].strip(), f"copilot name_map has empty target for {tool!r}"
+
+
+# ── Consumption: core.py sources its copilot translation from THIS map ───────
+# spec-189 D-189-06: the map is no longer inert — the mirror generator reads it
+# as the single source for canonical→VS-Code tool-name translation.
+
+
+def test_core_translation_source_is_this_map() -> None:
+    """`core.py` builds its copilot translation FROM `TOOL_FAMILY_MAP` (no dupe)."""
+    from scripts.sync_mirrors.core import _COPILOT_NAME_MAP
+
+    assert TOOL_FAMILY_MAP["copilot"].name_map == _COPILOT_NAME_MAP
+
+
+def test_core_translate_helper_renames_via_map() -> None:
+    """`core._translate_copilot_tools` yields exactly the map's target ids."""
+    from scripts.sync_mirrors.core import _translate_copilot_tools
+
+    name_map = TOOL_FAMILY_MAP["copilot"].name_map
+    assert name_map is not None
+    assert _translate_copilot_tools(CANONICAL_TOOLS) == set(name_map.values())
+
+
+def test_generated_copilot_agent_emits_mapped_tool_names() -> None:
+    """Generating a copilot agent yields mapped ids, not canonical tool names."""
+    from scripts.sync_mirrors.core import (
+        AGENT_METADATA,
+        CLAUDE_AGENTS,
+        generate_copilot_agent,
+    )
+
+    meta = AGENT_METADATA["build"]
+    content = generate_copilot_agent("build", meta, CLAUDE_AGENTS / "ai-build.md")
+    tools_line = next(line for line in content.splitlines() if line.startswith("tools: ["))
+
+    name_map = TOOL_FAMILY_MAP["copilot"].name_map
+    assert name_map is not None
+    # Every renamed canonical tool surfaces as its MAPPED id, never the
+    # canonical name, and the mapped id is sourced from THIS map.
+    for canonical in meta.copilot_renamed_tools:
+        mapped = name_map[canonical]
+        assert mapped in tools_line, f"expected mapped {mapped!r} in {tools_line!r}"
+        assert f" {canonical}" not in tools_line and f"[{canonical}" not in tools_line, (
+            f"canonical {canonical!r} leaked untranslated into {tools_line!r}"
+        )

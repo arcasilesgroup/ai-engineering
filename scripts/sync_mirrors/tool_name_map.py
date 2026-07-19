@@ -1,32 +1,34 @@
-"""Documented tool-name / tool-call-convention reference map (spec-187 D-187-03).
+"""Tool-name / tool-call-convention map (spec-187 D-187-03; wired spec-189 D-189-06).
 
-This module is a REFERENCE artifact, not an active code path. It records, in one
-place, how the canonical Claude-Code agent tool vocabulary surfaces on each model
-family we care about, plus each family's tool-CALL format quirk drawn from the
-spec-187 fleet-audit research ("Cross-model portability" section).
+This module records, in one place, how the canonical Claude-Code agent tool
+vocabulary surfaces on each model family we care about, plus each family's
+tool-CALL format quirk drawn from the spec-187 fleet-audit research
+("Cross-model portability" section).
 
-**No mirror family consumes this map yet.** Per D-187-03, portability this cycle
-is achieved by keeping canonical prose model-neutral and *documenting* the mapping
-— NOT by widening the mirror tree with new open-weight directories (`.kimi/`,
-`.glm/`, …). Wiring is deferred until a real open-weight execution harness exists;
-YAGNI until then (spec Non-Goals: "No live open-weight model execution").
+**The copilot ``name_map`` is the SINGLE SOURCE consumed at build time.** The
+mirror generator (``scripts/sync_mirrors/core.py``) reads
+``TOOL_FAMILY_MAP["copilot"].name_map`` to translate each agent's canonical
+tool names into the VS Code Copilot tool ids emitted in
+``.github/agents/*.agent.md`` frontmatter — the translated ids (``readFile``,
+``editFiles``, ``runCommands``, ``search``, ``agent``) live ONLY here and are
+never re-encoded per-agent (spec-189 D-189-06 DRY). Open-weight families carry
+no ``name_map`` (``None``): their tool NAMES pass through unchanged on a generic
+``tools`` param, which is correct — not a gap.
 
-How a future harness would use it:
+How the generator uses it:
     1. Read ``CANONICAL_TOOLS`` — the tool literals actually declared in
        ``.claude/agents/*.md`` ``tools:`` frontmatter (the source of truth).
     2. Look up the target family in ``TOOL_FAMILY_MAP``.
-    3. For families with a ``name_map`` (currently only ``copilot``), translate
+    3. For a family with a ``name_map`` (currently only ``copilot``), translate
        each canonical tool name to the family-native name; for open-weight
-       families the tool NAMES pass through unchanged (they ride a generic
-       ``tools`` param), so ``name_map`` is ``None``.
-    4. Apply ``call_format_notes`` when constructing the tool-call request /
-       parsing the tool-call response for that family (e.g. Kimi special-token
-       IDs, GLM ``tool_stream``, DeepSeek JSON-string args).
-
-The ``copilot`` ``name_map`` is the same canonical→VS-Code translation already
-encoded per-agent in ``core.py`` (Read→readFile, Write/Edit→editFiles,
-Bash→runCommands, Glob/Grep→search, Agent→agent, always-present ``codebase``
-context tool). It is reproduced here as the single documented per-tool form.
+       families the tool NAMES pass through unchanged (generic ``tools`` param),
+       so ``name_map`` is ``None``.
+    4. Apply ``call_format_notes`` when constructing / parsing the tool-call
+       request-response for that family (e.g. Kimi special-token IDs, GLM
+       ``tool_stream``, DeepSeek JSON-string args). These call-FORMAT quirks are
+       documentation only — no per-family runtime quirk fields are modelled here
+       (spec-189 Non-Goal: no per-family temperature / reasoning / tool_choice
+       plumbing).
 
 MiMo is present but flagged ``verified=False`` (D-187-08): no primary portability
 source surfaced in research, so no live-behavior claim is made — it is covered
@@ -53,9 +55,11 @@ CANONICAL_TOOLS: tuple[str, ...] = (
 )
 
 # Canonical Claude → GitHub Copilot (VS Code) per-tool name translation.
-# This is the documented single form of the per-agent mapping already encoded
-# in `core.py` AGENT_METADATA (claude_tools → copilot_tools). `codebase` is the
-# always-present context tool Copilot agents carry regardless of canonical set.
+# This is the SINGLE source of the copilot tool-name translation: the mirror
+# generator (`core.py`) reads `TOOL_FAMILY_MAP["copilot"].name_map` (built from
+# this dict) to rename each agent's canonical tools into VS Code ids. `codebase`
+# and the other Copilot-native context tools are NOT renames — the generator
+# passes them through as authored (`AgentMeta.copilot_native_tools`).
 _COPILOT_NAME_MAP: dict[str, str] = {
     "Read": "readFile",
     "Write": "editFiles",
