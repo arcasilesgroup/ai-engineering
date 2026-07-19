@@ -139,7 +139,7 @@ load-bearing text); SVG infographics = labelled "wow" visuals; Mermaid = technic
   - Agent: build
   - Files: `README.md`
   - Principles applied: §10.1 KISS, §10.7 Clean Code, §10.4 DRY
-  - Patch (deterministic): omit — judgment-heavy. Order: SVG wordmark banner → mid-dot stat line (`54 skills · 9 agents · 6 surfaces · 1 governed flow`) → one-line value prop → VHS demo → thesis SVG (`<picture>`) → canonical-chain SVG replacing the plain ```text block → bounded observe-mode quickstart showing `[PASS]` → 54·9 taxonomy SVG → 6-surface table → "Why Governance Matters" → links to `docs/`, `AGENTS.md`, `CONSTITUTION.md`, `CHANGELOG.md`, `CONTRIBUTING.md`. All image URLs absolute `raw.githubusercontent .../main/...`. ≤170 lines. No emoji.
+  - Patch (deterministic): omit — judgment-heavy. Order: SVG wordmark banner → mid-dot stat line (`54 skills · 9 agents · 6 surfaces · 1 governed flow`) → one-line value prop → VHS demo → thesis SVG (`<picture>`) → canonical-chain SVG replacing the plain text block → bounded observe-mode quickstart showing `[PASS]` → 54·9 taxonomy SVG → 6-surface table → "Why Governance Matters" → links to `docs/`, `AGENTS.md`, `CONSTITUTION.md`, `CHANGELOG.md`, `CONTRIBUTING.md`. All image URLs absolute `raw.githubusercontent .../main/...`. ≤170 lines. No emoji.
   - Gate: `pytest tests/unit/docs/test_readme_brand_contract.py tests/docs/test_links.py` green; `wc -l README.md` ≤170
 
 - [ ] T-2.3 — Rewrite solution-intent.md: embed assets, modernize, fix counts

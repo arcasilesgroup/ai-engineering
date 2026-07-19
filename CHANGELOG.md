@@ -43,6 +43,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   a consumer-facing command). It remains fully invocable — `hidden` is not
   `disabled`.
 
+- spec-188: `spec_lint`'s frontmatter check now strict-parses the YAML block and
+  fails closed on malformed frontmatter (new `frontmatter_yaml_invalid` BLOCKER).
+  The previous stdlib partition parser silently accepted invalid YAML (e.g. an
+  unquoted `title:` whose mid-value colon breaks the block). Fixed two such
+  invalid titles in the archived spec-186 and one unbalanced inline backtick in
+  the archived spec-177 plan. skill-map (`sm`) stays a one-off tool — no `sm`
+  config or CI gate added (reaffirms D-173-03).
+
 ## [0.12.3] - 2026-06-29
 
 ### Added
