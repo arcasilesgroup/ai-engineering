@@ -7,9 +7,9 @@ argument-hint: "find [query]|[slug]"
 
 # Note
 
-Captures technical discoveries — debugging insights, non-obvious
-behaviors, integration gotchas — that cost 30+ minutes to re-discover.
-Flat files, persistent across sessions, searched by content.
+Saves technical discoveries — debugging insights, non-obvious behaviors,
+integration gotchas that cost 30+ minutes — as flat files searchable
+across sessions, and searches them on demand.
 
 ```
 /ai-note find ruff          # search notes mentioning ruff

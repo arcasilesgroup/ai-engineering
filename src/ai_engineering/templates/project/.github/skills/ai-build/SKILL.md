@@ -13,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Build
 
-Execution engine for approved plans: reads plan.md, dispatches one subagent per task (fresh context, TDD self-validation), then a single final quality loop with one bounded quality-remediation pass on the full changeset before `/ai-pr`. Requires an approved plan — run `/ai-plan` first; resume with `/ai-build --resume`. Route multi-concern plans (≥ 3 concerns or ≥ 10 files) to `/ai-autopilot`, not `/ai-build`. If stuck: STOP and re-plan.
+Execution engine for approved plans: reads plan.md, dispatches one subagent per task (fresh context, TDD self-validation), then runs a single final quality loop with one bounded remediation pass on the full changeset before `/ai-pr`. Requires an approved plan (run `/ai-plan` first; resume with `/ai-build --resume`); route multi-concern plans (≥ 3 concerns or ≥ 10 files) to `/ai-autopilot` instead, and STOP to re-plan if stuck.
 
 ## Workflow
 

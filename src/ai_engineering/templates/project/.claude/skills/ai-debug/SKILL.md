@@ -7,7 +7,7 @@ argument-hint: "[error description or file:line]"
 
 # Debug
 
-Systematic 4-phase debugging, always in order. NEVER fix symptoms — always find and fix the root cause. After 2 failed fix attempts, escalate to the user.
+Systematic 4-phase debugging, always in order, that finds and fixes the root cause instead of patching symptoms. After 2 failed fix attempts, escalate to the user.
 
 ## Workflow
 

@@ -13,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Prose
 
-Content writing with automatic audience targeting. Edit, don't generate — start from what exists (notes, transcripts, data, real output). Template language is a failure mode.
+Content writing (blog, pitch, sprint-review, architecture-board, solution-intent) with automatic audience targeting. Edit, don't generate — start from what exists (notes, transcripts, data, real output); template language is a failure mode.
 
 ## Workflow
 

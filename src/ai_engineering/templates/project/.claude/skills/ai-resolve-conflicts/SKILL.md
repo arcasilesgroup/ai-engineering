@@ -8,7 +8,7 @@ argument-hint: ""
 
 # Resolve Conflicts
 
-Intent-aware git conflict resolution: detect the operation, categorize files by strategy, resolve with awareness of both sides. Handles lock files, migrations, generated, config, and code differently. No arguments — reads git state directly. Auto-detect trigger: `git status` shows "Unmerged paths" or "both modified" after rebase/merge/cherry-pick/revert.
+Intent-aware git conflict resolution: detect the operation, categorize files by strategy (lock, migration, generated, config, code), and resolve with awareness of both sides — never blindly accept. Use it whenever `git status` shows unmerged paths after a rebase, merge, cherry-pick, or revert.
 
 ```
 /ai-resolve-conflicts     # auto-detect and resolve current conflicts

@@ -19,7 +19,7 @@ edit_policy: generated-do-not-edit
 
 # Sprint
 
-Sprint lifecycle: plan from backlog, run data-driven retros (planned vs shipped), track goals, generate review decks. Bridges spec-level planning and day-to-day delivery. Storage: `.ai-engineering/sprints/{name}.md` (naming `YYYY-wNN` ISO week, or custom).
+Sprint lifecycle: plan from backlog, run data-driven retros (planned vs shipped), track goals, generate review decks. Bridges spec-level planning and day-to-day delivery, storing each sprint at `.ai-engineering/sprints/{name}.md` (naming `YYYY-wNN` ISO week, or custom).
 
 ```
 /ai-sprint plan --sprint 2026-w12          # plan sprint for week 12

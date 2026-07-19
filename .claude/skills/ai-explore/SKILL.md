@@ -8,6 +8,11 @@ tags: [exploration, research, codebase, architecture, mapping]
 
 # Explore
 
+Read-only codebase research dispatcher: a thin wrapper around the
+`ai-explore` agent for architecture mapping, dependency tracing, pattern
+identification, and risk surfacing. Use it for any question spanning one
+or more files, modules, or import edges.
+
 ## Quick start
 
 ```

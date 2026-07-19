@@ -13,7 +13,7 @@ edit_policy: generated-do-not-edit
 
 # Standup
 
-Generate copy-paste-ready standup notes from actual PR + commit activity, grouped by status. Output is markdown to stdout (not saved), designed for Slack/Teams/standup tools, one link per item. For sprint-level summaries use `/ai-sprint retro`; for incident timelines use `/ai-postmortem`.
+Generate copy-paste-ready standup notes from actual PR + commit activity grouped by status, emitted as markdown to stdout for Slack/Teams/standup tools with one link per item. For sprint-level summaries use `/ai-sprint retro`; for incident timelines use `/ai-postmortem`.
 
 ```
 /ai-standup                   # today's standup (1 working day)

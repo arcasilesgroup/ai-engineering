@@ -14,6 +14,8 @@ edit_policy: generated-do-not-edit
 
 # Onboard
 
+Onboards humans to a project through architecture tours, topic search, decision archaeology, and structured new-team-member orientation. Read-only — never modifies code; use for questions like "where does auth happen" or "tour this codebase".
+
 ## Quick start
 
 ```

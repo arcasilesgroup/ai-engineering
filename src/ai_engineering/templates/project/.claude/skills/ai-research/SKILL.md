@@ -8,13 +8,7 @@ argument-hint: "[query] [--depth quick|standard|deep] [--reuse-notebook=id] [--p
 
 # Research
 
-Multi-tier, multi-source, citation-first research with persistent artifact reuse. Replaces ad-hoc `WebSearch` with a disciplined escalation. Invariants:
-
-- **Async-first Tier 3.** NotebookLM autonomous deep research launches FIRST at T0 (background subagent) so its slow job overlaps the fast tiers, then is harvested LAST with a bounded wait.
-- **Citation hard-rule.** Every external claim carries `[N]` or is marked `[unsourced]`.
-- **Always 3 directions.** Output ends with EXACTLY 3 cited recommended directions.
-- **Fail-soft capability detection.** Every external tier (NotebookLM, Context7, Exa, MS Learn, Tavily) is capability-detected; absent/unauthenticated tools are skipped silently, recorded in `degraded_sources`, and NEVER error the run (D7). Tier 3 is gated by `notebooklm doctor` (exit 0 = available).
-- **Reuse.** Runs persist to `.ai-engineering/runtime/research/<topic-slug>-<YYYY-MM-DD>.md` (deep report + `notebook_id`) so later sessions short-circuit at Tier 0 or harvest via `--reuse-notebook`.
+Multi-tier, multi-source, citation-first research with persistent artifact reuse. Replaces ad-hoc `WebSearch` with a disciplined escalation that launches slow NotebookLM deep research first, harvests it last, and sources every claim `[N]` or `[unsourced]`.
 
 ## Process
 

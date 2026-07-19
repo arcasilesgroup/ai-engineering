@@ -8,6 +8,8 @@ tags: [meta, improvement, skills, optimization, improve]
 
 # ai-skill-improve
 
+Evolves an existing skill by diagnosing real project pain (eval corpora, Engram observations, LESSONS.md, decisions, instincts, proposals), rewriting its SKILL.md, and emitting the delta as a PR comment only — never auto-merged. Use it to improve one named skill or `all` skills in batch.
+
 ## Quick start
 
 ```

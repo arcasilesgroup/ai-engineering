@@ -8,7 +8,7 @@ tags: [presentation, html, css]
 
 # Slides
 
-Zero-dependency, animation-rich HTML presentations that run entirely in the browser. Non-designers discover their aesthetic through visual exploration, not abstract choices. Viewport fit is a hard gate.
+Generates zero-dependency, animation-rich HTML presentations that run entirely in the browser, with viewport fit as a hard gate. Non-designers discover their aesthetic through visual exploration rather than abstract choices.
 
 ## Workflow
 

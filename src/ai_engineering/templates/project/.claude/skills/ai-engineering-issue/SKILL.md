@@ -12,7 +12,7 @@ requires:
 
 # Upstream Bug Report
 
-Files a bug/improvement against the ai-engineering framework with strict redaction and explicit consent. Runs the shared redactor in strict mode, renders the body for review, requires a typed `confirm` token, then shells `gh issue create --repo arcasilesgroup/ai-engineering`. A sanitized copy is archived under `.ai-engineering/support/upstream-reports/`.
+Files a bug/improvement against the ai-engineering framework with strict redaction and explicit consent: runs the shared redactor in strict mode, renders the body for review, requires a typed `confirm` token, then shells `gh issue create --repo arcasilesgroup/ai-engineering`. A sanitized copy is archived under `.ai-engineering/support/upstream-reports/`.
 
 ```
 /ai-engineering-issue "<short-title>"

@@ -13,6 +13,10 @@ edit_policy: generated-do-not-edit
 
 # MCP Audit — On-Demand Skill & MCP Server Security Audit
 
+Audits MCP servers and skills on demand using LLM coherence analysis to
+catch capability drift and rug-pulls. Use it to scan declared-vs-observed
+behavior, diff post-update files, or set a known-good baseline.
+
 ## Workflow
 
 Cold-path LLM-driven security audit (spec-107 D-107-08). Principles applied: §10.1 KISS

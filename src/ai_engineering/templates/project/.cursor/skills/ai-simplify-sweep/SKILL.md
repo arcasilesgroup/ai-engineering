@@ -13,6 +13,8 @@ edit_policy: generated-do-not-edit
 
 # Simplify Sweep
 
+Sweeps stale code complexity on demand via an `/ai-simplify` wrapper, gates the diff, and opens a draft PR for human review. Use it for an operator-triggered simplification pass — never auto-merges, never runs unattended.
+
 ## Purpose
 
 Codebases accumulate entropy: dead branches, redundant guards, copy-pasted helpers, layers of indirection. `/ai-simplify` fights that but needs manual invocation. This skill is a manual wrapper that runs simplify, gates the diff, and opens a draft PR so a human reviews the proposed reductions before merge. No scheduler — an operator triggers it.

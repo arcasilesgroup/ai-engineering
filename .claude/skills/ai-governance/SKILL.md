@@ -8,6 +8,8 @@ tags: [governance, compliance, ownership, risk, integrity, enterprise]
 
 # Governance
 
+Validates framework compliance, ownership boundaries, risk-acceptance lifecycle, and manifest integrity for regulated environments. Use it between phases or before releases to confirm quality gates are enforced, formally accept a known risk, or produce a scored compliance report for auditors.
+
 ## Quick start
 
 ```

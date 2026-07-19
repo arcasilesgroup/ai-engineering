@@ -14,6 +14,8 @@ edit_policy: generated-do-not-edit
 
 # IDE Support Audit
 
+Audits an IDE end-to-end — instruction surface, hooks, skills, agents, installer wiring — using strict file-evidence rather than assumptions. Use it to verify IDE setup for Claude Code, GitHub Copilot, Codex, Antigravity, or all at once, optionally auto-fixing P0 gaps.
+
 ## Quick start
 
 ```

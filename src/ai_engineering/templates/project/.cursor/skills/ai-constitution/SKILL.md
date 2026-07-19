@@ -12,6 +12,8 @@ edit_policy: generated-do-not-edit
 
 # Constitution
 
+Interviews the operator to produce (or amend) a project-identity CONSTITUTION.md covering Mission, Stakeholders, Vocabulary, Prohibitions, Compliance gates, Anti-goals, Boundaries, Escalation, Language, and Lifecycle phase. Use it to set up or change project identity — not AI-behaviour rules (those live in CANONICAL.md).
+
 ## Quick start
 
 ```

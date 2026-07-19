@@ -18,7 +18,7 @@ edit_policy: generated-do-not-edit
 
 # Commit Workflow
 
-Governed commit pipeline: stage, format, lint, secret-detect, compose message, push. Honors CLAUDE.md Don't rules (binding). Use `/ai-pr` when the goal is a pull request. See Quick Reference for invocation forms.
+Runs the governed commit pipeline -- stage, format, lint, secret-detect, compose a conventional message, push -- honoring CLAUDE.md Don't rules (binding). Use `/ai-pr` when the goal is a pull request; see Quick Reference for invocation forms.
 
 ## Process
 

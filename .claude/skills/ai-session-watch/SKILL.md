@@ -8,7 +8,7 @@ tags: [meta, learning, continuous-improvement, observe]
 
 # ai-session-watch
 
-Project-local instinct learning for `ai-engineering`. Two modes: passive observation during a session, and active consolidation on demand. No daemons, no background workers -- the LLM itself is the observer.
+Project-local instinct learning for `ai-engineering` with two modes: passive observation during a session, and active consolidation on demand. No daemons or background workers -- the LLM itself is the observer.
 
 ## Workflow
 

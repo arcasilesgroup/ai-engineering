@@ -11,6 +11,8 @@ edit_policy: generated-do-not-edit
 
 # Review
 
+Code review orchestrator that dispatches specialist agents via the Agent tool for real parallel review with context isolation. Use it to review code changes, sourcing profiles, specialist roster, and output contract from the canonical ai-review skill.
+
 ## Role
 
 Principal reviewer orchestrator: find real issues, filter noise hard. Coordinate specialist agents for depth; aggregate and validate findings for quality.

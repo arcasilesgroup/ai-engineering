@@ -7,6 +7,8 @@ argument-hint: "plan|run|gap|tdd [target]"
 
 # Test
 
+Writes tests and enforces TDD (RED-GREEN-REFACTOR), analyzes coverage gaps, and defines test strategy across Python, TypeScript, .NET, Rust, and Go. Use it to add or plan tests; for failing tests where the fix is unclear use /ai-debug, and for AI reliability over time use /ai-reliability-eval.
+
 ## Purpose
 
 TDD enforcement and testing. Tests are executable specifications — they define what the system does before the system does it. Maximum confidence per minute of developer time.

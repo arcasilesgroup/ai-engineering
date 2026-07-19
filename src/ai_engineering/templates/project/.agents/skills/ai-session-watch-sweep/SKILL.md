@@ -13,6 +13,11 @@ edit_policy: generated-do-not-edit
 
 # Session-Watch Sweep
 
+Consolidates the session-watch observation backlog on demand — runs
+`/ai-session-watch --review`, gates the result, and opens a draft chore PR for
+human review. Use it to clear accumulated corrections; it never auto-merges,
+auto-files work items, or runs unattended.
+
 ## Purpose
 
 The session-watch `corrections` loop consolidates only when a human runs

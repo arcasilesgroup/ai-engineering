@@ -7,6 +7,8 @@ argument-hint: "[--full] [PR number or file paths]"
 
 # Review
 
+Reviews code changes with human-quality judgment — PR reviews, file reviews, diff analysis, architecture feedback — dispatching a full specialist roster through macro-agents with aggressive false-positive control. Use it for "review this", "look over my PR", or "is this merge-ready".
+
 ## Workflow
 
 Principles applied: §10.7 Clean Code (readability, naming, single-responsibility); §10.4 DRY (flag duplication and missed reuse). High-signal review with full specialist coverage and aggressive false-positive control. This SKILL.md owns the user-facing contract; reviewer agent files provide specialist lenses and validation stages.
@@ -68,5 +70,7 @@ Dispatches the 3 macro-agents (correctness/testing/compat, security/perf, condit
 ## Integration
 
 Called by: user directly, `/ai-pr`, `/ai-build`, `/ai-autopilot` (Phase 5). Dispatches: `review-context`, `reviewer-*`, `review-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
+
+**Inline fallback.** Agent-tool dispatch is the primary path. On a harness without a subagent/Agent-tool primitive, execute this skill by reading the specialist agent file(s) (`review-context.md`, the selected `reviewer-*.md`, `review-validator.md`) inline and running their steps in-context, sequentially — inline-sequential is the floor, not a substitute for the dispatch when it is available.
 
 $ARGUMENTS

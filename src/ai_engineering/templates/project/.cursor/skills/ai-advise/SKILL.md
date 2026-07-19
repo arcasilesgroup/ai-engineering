@@ -14,7 +14,7 @@ edit_policy: generated-do-not-edit
 
 # Advise
 
-Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the Agent tool, captures findings with severity (`info | warn | concern`), renders an advisory. Never blocks. Never modifies code.
+Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the Agent tool and renders a severity-tagged advisory (`info | warn | concern`). Never blocks, never modifies code.
 
 ## Workflow
 
@@ -85,6 +85,6 @@ Dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`: it load
 
 ## Integration
 
-**Called by**: operators via `/ai-advise`; `/ai-build` + `/ai-autopilot` (wave-end advisory pass). **Calls**: the `ai-advise` agent (`.cursor/agents/ai-advise.mdc`) via the Agent tool — strictly dispatch, never inline. **See also**: `.cursor/skills/ai-verify/SKILL.md` (evidence-backed BLOCK lane), `.cursor/skills/ai-review/SKILL.md` (narrative review), `.ai-engineering/overrides/<stack>/conventions.md` (stack overrides); D-134-06 (`ai-guard` agent → `ai-advise` rename), D-134-07 (cohesion test enforcement).
+**Called by**: operators via `/ai-advise`; `/ai-build` + `/ai-autopilot` (wave-end advisory pass). **Calls**: the `ai-advise` agent (`.cursor/agents/ai-advise.mdc`) via the Agent tool — Agent-tool dispatch is the primary path. **Inline fallback**: on a harness WITHOUT a subagent/Agent-tool primitive, this skill is executed by reading the `.cursor/agents/ai-advise.mdc` specialist file inline and running its steps in-context sequentially — inline-sequential is the floor, not a substitute for the isolated dispatch. **See also**: `.cursor/skills/ai-verify/SKILL.md` (evidence-backed BLOCK lane), `.cursor/skills/ai-review/SKILL.md` (narrative review), `.ai-engineering/overrides/<stack>/conventions.md` (stack overrides); D-134-06 (`ai-guard` agent → `ai-advise` rename), D-134-07 (cohesion test enforcement).
 
 $ARGUMENTS

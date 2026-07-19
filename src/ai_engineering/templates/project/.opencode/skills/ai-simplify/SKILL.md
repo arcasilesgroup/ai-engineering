@@ -93,4 +93,6 @@ Dispatches the agent scoped to the file. It inverts the outer `if user is not No
 
 Called by: operators directly via `/ai-simplify` (single-file or diff-scoped) — not auto-invoked by any other skill. Calls: the `ai-simplify` agent (`.codex/agents/ai-simplify.md`) via the Agent tool with the operator-chosen scope; validates after each edit, rolls back on test failure. See also: `.codex/skills/ai-simplify-sweep/SKILL.md` (scheduled draft-PR wrapper); `.ai-engineering/manifest.yml` `quality` thresholds (cyclomatic ≤ 10, cognitive ≤ 15, nesting ≤ 3, method length ≤ 50). Anchors: §10.1 KISS, §10.7 Clean Code; D-134-07 (agents need a discoverable slash-skill).
 
+**Inline fallback** — Agent-tool dispatch is the primary path. On a harness without a subagent/Agent-tool primitive, execute this skill by reading the specialist agent file (`.codex/agents/ai-simplify.md`) inline and running its steps in-context, sequentially, applying the same per-edit validation and self-check; inline-sequential execution is the floor, not an alternate behaviour.
+
 $ARGUMENTS

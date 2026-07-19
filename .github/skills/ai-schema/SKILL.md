@@ -21,7 +21,7 @@ edit_policy: generated-do-not-edit
 
 # Database Engineering
 
-Schema design, safe migration generation, query optimization, and data lifecycle management. Multi-DB: PostgreSQL, MySQL, SQLite, MongoDB. Multi-ORM: SQLAlchemy, Prisma, TypeORM, Drizzle, Entity Framework, Diesel.
+Schema design, safe migration generation, query optimization, and data lifecycle management across PostgreSQL, MySQL, SQLite, and MongoDB. Multi-ORM: SQLAlchemy, Prisma, TypeORM, Drizzle, Entity Framework, Diesel.
 
 ## Process
 

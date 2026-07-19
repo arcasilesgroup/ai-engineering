@@ -15,6 +15,8 @@ requires:
 
 # Security Scanning
 
+Runs the repo's security gates — SAST with OWASP/CWE mapping, dependency vulnerability scans, secret detection, and SBOM generation — to produce a pre-release security verdict. Use it to answer "is this secure", audit dependencies, check for secrets, or run a compliance review.
+
 ## Quick start
 
 ```

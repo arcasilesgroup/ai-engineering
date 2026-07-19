@@ -16,7 +16,7 @@ edit_policy: generated-do-not-edit
 
 # Media
 
-Generate images, videos, and audio via fal.ai models over MCP. Progressive quality: iterate cheap, finalize expensive. Modes: `image` (text-to-image + editing), `video` (text/image-to-video), `audio` (speech, music, SFX, video-to-audio).
+Generate images, videos, and audio via fal.ai models over MCP with progressive quality — iterate cheap, finalize expensive. Modes: `image` (text-to-image + editing), `video` (text/image-to-video), `audio` (speech, music, SFX, video-to-audio).
 
 ## Workflow
 
