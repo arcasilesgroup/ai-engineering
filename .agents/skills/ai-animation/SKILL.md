@@ -4,7 +4,6 @@ description: "Designs motion, transitions, and micro-interactions for UI compone
 effort: high
 argument-hint: "[component or interaction to animate]"
 tags: [animation, motion, transitions, micro-interactions, css]
-model_tier: opus
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-animation/SKILL.md

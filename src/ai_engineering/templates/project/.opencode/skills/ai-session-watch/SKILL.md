@@ -4,7 +4,6 @@ description: Observes session corrections, recoveries, and workflow patterns sil
 effort: mid
 argument-hint: "[--review]"
 tags: [meta, learning, continuous-improvement, observe]
-model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-session-watch/SKILL.md

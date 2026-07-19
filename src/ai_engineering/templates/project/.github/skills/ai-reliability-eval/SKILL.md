@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "define|check|report|regression|--skill-set [feature]"
 mode: agent
 tags: [quality, evals, improvement]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-reliability-eval/SKILL.md

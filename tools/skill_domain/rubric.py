@@ -108,12 +108,12 @@ _DESCRIPTION_MAX_CHARS = 1024
 # Frontmatter fields beyond ``name`` and ``description`` that are common
 # in the live surface but technically violate the Anthropic minimum
 # spec. Treated as INFO (visible, no penalty) for ≤2 extras.
-# ``model_tier`` added by spec-131 D-131-08 (sub-003) so the dispatch
-# economics contract does not bump every shipped SKILL.md down a grade.
+# ``effort`` is the sole dispatch axis (spec-131 D-131-08 / spec-189
+# D-189-04) so the dispatch contract does not bump every shipped SKILL.md
+# down a grade.
 _TOLERATED_EXTRA_FIELDS = frozenset(
     {
         "effort",
-        "model_tier",
         "argument-hint",
         "tags",
         "requires",
@@ -201,8 +201,8 @@ def _rule_1_frontmatter_valid(skill: Skill) -> RubricResult:
         # _TOLERATED_EXTRA_FIELDS set (non-tolerated + agent-shape already
         # returned MAJOR/CRITICAL above). Penalising the COUNT of sanctioned
         # framework fields contradicts tolerating them by name — a skill that
-        # legitimately carries effort/model_tier/argument-hint/tags/requires is
-        # not a quality defect. Tolerated extras are always INFO (visible, no
+        # legitimately carries effort/argument-hint/tags/requires is not a
+        # quality defect. Tolerated extras are always INFO (visible, no
         # penalty), regardless of how many.
         return RubricResult(
             "rule_1_frontmatter_valid",

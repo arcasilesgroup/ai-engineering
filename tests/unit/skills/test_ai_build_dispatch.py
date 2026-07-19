@@ -1,11 +1,12 @@
-"""ai-build dispatch routing — spec-131 S3 (sub-003 T-3.9 RED).
+"""ai-build dispatch routing — spec-131 S3 / spec-189 (D-189-04).
 
 Asserts that ``/ai-build`` SKILL.md (and its active IDE mirrors) declare
-the cheap/mid/high dispatch routing required by D-131-08:
+the cheap/mid/high dispatch routing required by D-131-08. Per spec-189
+(D-189-04) ``effort`` is the sole dispatch axis:
 
-* ``model_tier=haiku`` mentioned in the cheap-tier branch.
-* ``model_tier=sonnet`` mentioned in the mid-tier branch.
-* ``model_tier=opus`` mentioned in the high-tier branch.
+* ``effort=cheap`` mentioned in the mechanical (patch-present) branch.
+* ``effort=mid`` mentioned in the judgment branch.
+* ``effort=high`` mentioned in the deep-architecture override branch.
 * The decision matrix names the operator opt-in flag (``--max-effort``)
   and the ``Patch (deterministic):`` plan-side marker so the chain
   between ``/ai-plan`` and ``/ai-build`` is documented end-to-end.
@@ -29,9 +30,9 @@ _AI_BUILD_MIRRORS = (
 
 
 _REQUIRED_MARKERS = (
-    "model_tier=haiku",
-    "model_tier=sonnet",
-    "model_tier=opus",
+    "effort=cheap",
+    "effort=mid",
+    "effort=high",
     "Patch (deterministic)",
     "--max-effort",
 )

@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "[mode] [topic]"
 mode: agent
 tags: [gtm, marketing, content, social, investor, go-to-market]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-marketing/SKILL.md

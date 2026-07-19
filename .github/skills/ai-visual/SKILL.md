@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "[visual artifact description or brief]"
 mode: agent
 tags: [visual-design, poster, banner, branding, artifact]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-visual/SKILL.md

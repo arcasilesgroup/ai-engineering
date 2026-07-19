@@ -4,7 +4,6 @@ description: Validates framework compliance, ownership boundaries, risk acceptan
 effort: high
 argument-hint: "all|compliance|ownership|risk|integrity|--report"
 tags: [governance, compliance, ownership, risk, integrity, enterprise]
-model_tier: opus
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-governance/SKILL.md

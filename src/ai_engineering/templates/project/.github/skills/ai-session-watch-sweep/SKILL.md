@@ -5,7 +5,6 @@ effort: cheap
 argument-hint: "[--dry-run] [--no-pr]"
 mode: agent
 tags: [meta, session-watch]
-model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-session-watch-sweep/SKILL.md

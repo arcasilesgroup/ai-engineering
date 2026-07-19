@@ -20,10 +20,9 @@ _MANIFEST_PATH = (
 )
 
 _REQUIRED_FIELDS = {"name"}
-# spec-131 D-131-08 (sub-003): vocabulary migrated to cheap|mid|high
-# (haiku|sonnet|opus model_tier mirror). Legacy {max, high, medium, low}
-# retired by the migration script; ``high`` survives the rename as the
-# top tier.
+# spec-131 D-131-08 (sub-003) / spec-189 (D-189-04): ``effort`` is the
+# sole skill dispatch vocabulary — cheap|mid|high. Legacy {max, high,
+# medium, low} retired; ``high`` survives the rename as the top tier.
 _VALID_EFFORT_LEVELS = {"cheap", "mid", "high"}
 
 

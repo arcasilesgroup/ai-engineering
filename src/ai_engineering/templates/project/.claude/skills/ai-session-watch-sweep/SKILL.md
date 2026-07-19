@@ -2,7 +2,6 @@
 name: ai-session-watch-sweep
 description: "Consolidates the session-watch observation backlog on demand: runs /ai-session-watch --review, gates the result, and opens a draft chore PR for human review. Trigger for 'run the observation sweep', 'consolidate observations', 'session-watch sweep'. Never auto-merges, never auto-files work items, never runs unattended. Not for interactive review; use /ai-session-watch --review instead."
 effort: cheap
-model_tier: haiku
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, session-watch]
 ---

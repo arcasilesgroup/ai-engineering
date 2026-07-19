@@ -4,7 +4,6 @@ description: "Codebase-only read-only research dispatcher. Thin wrapper around t
 effort: cheap
 argument-hint: "[question]"
 tags: [exploration, research, codebase, architecture, mapping]
-model_tier: haiku
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-explore/SKILL.md

@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "[paths|--diff] [--conservative|--aggressive]"
 mode: agent
 tags: [refactor, complexity, simplification]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-simplify/SKILL.md

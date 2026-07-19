@@ -2,7 +2,6 @@
 name: ai-skill-improve
 description: "Improves an existing skill based on real project pain (prior eval corpora under .ai-engineering/evals/, Engram cross-session observations, LESSONS.md, decision-store, instincts, proposals) by analysing the failure pattern, rewriting SKILL.md, and emitting the proposed delta as a PR comment only — no auto-merge. Trigger for 'improve this skill', 'improve /ai-plan', 'make /ai-review better', 'optimize all skills', 'batch improve skills'. Accepts a single skill name or 'all' for batch mode. Not for creating new skills from scratch; use /ai-scaffold instead. Not for platform audit; use /ai-ide-audit instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "[skill-name]|all [--dry-run]"
 tags: [meta, improvement, skills, optimization, improve]
 ---

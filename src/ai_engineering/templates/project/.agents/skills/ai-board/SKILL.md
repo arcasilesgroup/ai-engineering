@@ -4,7 +4,6 @@ description: "Operates the project board (GitHub Projects v2 or Azure DevOps): d
 effort: cheap
 argument-hint: "discover [--refresh] | sync <phase> <work-item-ref> [--comment text]"
 tags: [board, discovery, sync, work-items, configuration]
-model_tier: haiku
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-board/SKILL.md

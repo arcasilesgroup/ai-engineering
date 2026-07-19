@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "[skill-name]|all [--dry-run]"
 mode: agent
 tags: [meta, improvement, skills, optimization, improve]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-skill-improve/SKILL.md

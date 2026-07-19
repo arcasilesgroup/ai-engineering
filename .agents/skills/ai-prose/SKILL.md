@@ -4,7 +4,6 @@ description: Writes content (blog posts, pitch decks, sprint review summaries, a
 effort: mid
 argument-hint: "content [type] [--audience developer|manager|executive]"
 tags: [writing, content, communication]
-model_tier: sonnet
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-prose/SKILL.md

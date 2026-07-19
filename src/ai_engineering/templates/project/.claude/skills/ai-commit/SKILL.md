@@ -2,7 +2,6 @@
 name: ai-commit
 description: "Runs the governed commit pipeline: auto-branches from protected, stages selectively, formats and lints, scans for secrets, gates docs, composes a conventional message, pushes. Trigger for 'commit my changes', 'save my work', 'push this to remote', 'stage these files', 'ship it'. Not for opening a PR; use /ai-pr instead. Not for branch hygiene; use /ai-branch-cleanup instead."
 effort: cheap
-model_tier: haiku
 argument-hint: "--force|--only|[message hint]"
 tags: [git, commit, push, hooks, delivery]
 requires:

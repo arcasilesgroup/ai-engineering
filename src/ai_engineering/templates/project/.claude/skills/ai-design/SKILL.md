@@ -2,7 +2,6 @@
 name: ai-design
 description: "Designs user interfaces and design systems: aesthetic direction, color palettes, typography, spatial composition, information architecture for web, mobile, CLI, and docs-heavy experiences. Trigger for 'design this page', 'create a design system', 'color palette for', 'typography for', 'UI for this feature'. Not for animation; use /ai-animation instead. Not for static visual art (posters, banners); use /ai-visual instead. Not for slide decks; use /ai-slides instead."
 effort: high
-model_tier: opus
 argument-hint: "[UI or design task description]"
 tags: [design, ui, ux, design-system, aesthetics]
 ---

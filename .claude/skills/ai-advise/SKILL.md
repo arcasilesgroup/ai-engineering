@@ -2,7 +2,6 @@
 name: ai-advise
 description: "Proactive governance advisor — checks standards, decisions, and quality trends during development. Always advisory, NEVER blocks. Three modes: `advise` (post-edit), `gate` (pre-dispatch), `drift` (on-demand decision audit). Trigger for 'governance check', 'advise on this change', 'check for drift', 'is this aligned with active decisions', 'shift-left advisory'. Not for blocking gates — use /ai-verify. Not for narrative code review — use /ai-review."
 effort: cheap
-model_tier: sonnet
 argument-hint: "[advise|gate|drift] [paths...]"
 tags: [governance, advisory, proactive]
 ---

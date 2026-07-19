@@ -5,7 +5,6 @@ effort: cheap
 argument-hint: "[--dry-run] [--no-pr]"
 mode: agent
 tags: [meta, simplification]
-model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-simplify-sweep/SKILL.md

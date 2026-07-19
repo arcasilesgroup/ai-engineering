@@ -4,7 +4,6 @@ description: "Verifies claims with evidence, not assumptions: runs deterministic
 effort: mid
 argument-hint: "claim|governance|security|quality|feature|architecture|platform|--release [version] [--full]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-verify/SKILL.md

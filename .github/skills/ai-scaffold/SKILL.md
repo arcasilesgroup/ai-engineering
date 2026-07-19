@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "skill [name]|agent [name]"
 mode: agent
 tags: [meta, framework, creation]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-scaffold/SKILL.md

@@ -4,7 +4,6 @@ description: Writes tests, enforces TDD (RED-GREEN-REFACTOR), analyzes coverage 
 effort: mid
 argument-hint: "plan|run|gap|tdd [target]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-test/SKILL.md

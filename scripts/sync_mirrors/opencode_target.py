@@ -150,7 +150,7 @@ def generate_opencode_command(name: str, skill_path: Path) -> str:
     The frontmatter carries only ``description`` (mandatory per
     https://opencode.ai/docs/commands/). No ``agent`` / ``model``
     override — the user's default agent picks up the skill's own
-    ``model_tier`` advice from the lazy-loaded SKILL.md.
+    ``effort`` advice from the lazy-loaded SKILL.md.
     """
     description = _extract_skill_description(name, skill_path)
     # Force a single-line scalar (width=inf) and strip the trailing newline

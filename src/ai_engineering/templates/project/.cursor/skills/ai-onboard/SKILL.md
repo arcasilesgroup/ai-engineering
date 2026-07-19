@@ -4,7 +4,6 @@ description: "Onboards humans to a project: architecture tours, topic search, de
 effort: mid
 argument-hint: "tour|find [topic]|history [decision]|onboard"
 tags: [onboarding, architecture, teaching, archaeology]
-model_tier: sonnet
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-onboard/SKILL.md

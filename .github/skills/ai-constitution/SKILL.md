@@ -4,7 +4,6 @@ description: Interviews the operator to produce a project-identity CONSTITUTION.
 effort: mid
 argument-hint: "[generate|update|amend]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-constitution/SKILL.md

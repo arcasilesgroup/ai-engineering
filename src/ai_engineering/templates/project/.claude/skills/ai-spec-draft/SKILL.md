@@ -2,7 +2,6 @@
 name: ai-spec-draft
 description: "Produces a 14-section spec brief in `.ai-engineering/specs/drafts/<topic>-brief.md` so an operator can hand off a fully-researched problem statement to `/ai-brainstorm`. Trigger for 'draft a spec brief', 'put together a one-pager for this idea', 'research and write up the problem before brainstorming', 'capture the diagnostic for this work'. Not for executing the spec (use /ai-brainstorm → /ai-plan → /ai-build); not for ad-hoc notes (use /ai-note)."
 effort: mid
-model_tier: sonnet
 argument-hint: "<topic>"
 tags: [planning, brief, research, sdd]
 ---

@@ -8,7 +8,6 @@ requires:
   bins:
   - gitleaks
   - ruff
-model_tier: haiku
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-commit/SKILL.md

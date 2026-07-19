@@ -2,7 +2,6 @@
 name: ai-engineering-issue
 description: "Files an upstream bug or improvement report against `arcasilesgroup/ai-engineering` (the framework repo) with strict seven-vector redaction, mandatory human confirmation, and an archived sanitized copy. Trigger for 'report this upstream', 'file an ai-engineering bug', 'this looks like a framework bug', 'tell anthropic / arcasiles about this'. Not for your own project's board (use /ai-issue); not for security disclosure (use the private channel listed in CONSTITUTION.md)."
 effort: mid
-model_tier: sonnet
 argument-hint: "<short-title> [--include <file:line> ...]"
 tags: [security, support, upstream, redaction, framework]
 requires:

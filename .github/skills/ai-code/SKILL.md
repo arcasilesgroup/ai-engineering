@@ -4,7 +4,6 @@ description: "Writes production code that satisfies stack-context standards on t
 effort: mid
 argument-hint: "[task description or file:target]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-code/SKILL.md

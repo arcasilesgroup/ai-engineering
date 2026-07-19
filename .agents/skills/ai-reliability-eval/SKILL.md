@@ -4,7 +4,6 @@ description: "Measures AI system reliability over time by defining pass/fail cri
 effort: mid
 argument-hint: "define|check|report|regression|--skill-set [feature]"
 tags: [quality, evals, improvement]
-model_tier: sonnet
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-reliability-eval/SKILL.md

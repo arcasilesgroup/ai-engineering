@@ -43,8 +43,8 @@ AI authoring is the cost-driver and auditability is the bar.
 
 - **Skill** — a `.claude/skills/ai-<name>/SKILL.md` capability invoked
   via `/ai-<name>`. Skills carry frontmatter (`name`, `description`,
-  `effort`, `model_tier`, `argument-hint`) plus a layout-conformant
-  body (`## Quick start` / `## Workflow` / `## Examples` /
+  `effort`, `argument-hint`) plus a layout-conformant body
+  (`## Quick start` / `## Workflow` / `## Examples` /
   `## Integration`).
 - **Agent** — a `.claude/agents/ai-<name>.md` persona dispatched in a
   fresh context window. Build is the only agent with write

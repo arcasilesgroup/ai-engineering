@@ -4,7 +4,6 @@ description: "Consolidates the session-watch observation backlog on demand: runs
 effort: cheap
 argument-hint: "[--dry-run] [--no-pr]"
 tags: [meta, session-watch]
-model_tier: haiku
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-session-watch-sweep/SKILL.md

@@ -2,7 +2,6 @@
 name: ai-branch-cleanup
 description: "Cleans branches safely: switches to the default branch, prunes merged and squash-merged branches, syncs to remote, sweeps stale specs, rotates `.ai-engineering/runtime/` per retention policy. Trigger for 'tidy up', 'tidy branches', 'sync to main', 'delete old branches', 'start fresh', 'rotate runtime'. Auto-invoked by /ai-pr after merge. Not for committing changes; use /ai-commit instead. Not for code-level dead-code removal; use /ai-simplify instead."
 effort: cheap
-model_tier: haiku
 argument-hint: "--branches|--sync|--specs|--runtime|--consolidate-spec <slug>|--all"
 tags: [git, branch, cleanup, hygiene, status, delivery]
 requires:

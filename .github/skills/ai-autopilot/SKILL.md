@@ -5,7 +5,6 @@ effort: high
 argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 mode: agent
 tags: [orchestration, autonomous, multi-spec, backlog, pipeline, execution, dag, transparency]
-model_tier: opus
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-autopilot/SKILL.md

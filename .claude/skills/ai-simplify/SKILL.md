@@ -2,7 +2,6 @@
 name: ai-simplify
 description: "On-demand code simplification — guard clauses, method extraction, nesting flattening, dead code removal, conditional simplification. Behavior preserved; tests pass after every change. Scoped to operator-chosen files or current diff. No PR, no auto-commit. Trigger for 'simplify this file', 'reduce complexity here', 'clean up the in-flight diff', 'flatten this nesting'. Not for scheduled repo-wide sweeps — use /ai-simplify-sweep. Not for structural changes (file moves, renames) — use /ai-refactor."
 effort: mid
-model_tier: sonnet
 argument-hint: "[paths|--diff] [--conservative|--aggressive]"
 tags: [refactor, complexity, simplification]
 ---

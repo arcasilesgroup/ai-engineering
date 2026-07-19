@@ -4,7 +4,6 @@ description: "Bootstraps a coding session: loads project context and displays a 
 effort: mid
 argument-hint: 
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-start/SKILL.md

@@ -2,7 +2,6 @@
 name: ai-marketing
 description: "Drives go-to-market execution and marketing content: blog posts for distribution, social crossposts, investor materials, market research, outreach campaigns, X/Twitter automation. Trigger for 'go to market', 'marketing plan', 'write a blog post to publish', 'crosspost to socials', 'market research for', 'investor deck', 'outreach campaign', 'content engine'. Not for internal docs; use /ai-docs instead. Not for sprint reviews or solution intent; use /ai-prose instead. Not for code explanations; use /ai-explain instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "[mode] [topic]"
 tags: [gtm, marketing, content, social, investor, go-to-market]
 ---

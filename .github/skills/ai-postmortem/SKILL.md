@@ -4,7 +4,6 @@ description: Documents production incidents, outages, degradations, and near-mis
 effort: mid
 argument-hint: "start|continue [id]|find [query]|generate"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-postmortem/SKILL.md

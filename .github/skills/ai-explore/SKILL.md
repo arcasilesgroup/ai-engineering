@@ -5,7 +5,6 @@ effort: cheap
 argument-hint: "[question]"
 mode: agent
 tags: [exploration, research, codebase, architecture, mapping]
-model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-explore/SKILL.md

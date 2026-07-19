@@ -4,7 +4,6 @@ description: "Delivers large multi-concern specs and backlog runs autonomously: 
 effort: high
 argument-hint: "'implement spec-NNN'|--backlog --source <github|ado|local>|--resume|--no-watch"
 tags: [orchestration, autonomous, multi-spec, backlog, pipeline, execution, dag, transparency]
-model_tier: opus
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-autopilot/SKILL.md

@@ -4,7 +4,6 @@ description: "Reviews code changes with human-quality judgment: PR reviews, file
 effort: mid
 argument-hint: "[--full] [PR number or file paths]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-review/SKILL.md

@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "[text]|--skill [name]"
 mode: agent
 tags: [meta, optimization, prompts]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-prompt-tune/SKILL.md

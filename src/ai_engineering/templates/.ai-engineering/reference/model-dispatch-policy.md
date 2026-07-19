@@ -1,30 +1,27 @@
-# Model Dispatch Policy (spec-131 S3 / M5)
+# Model Dispatch Policy (spec-131 S3 / M5; spec-189 D-189-04)
 
-> SSOT for `effort:` and `model_tier:` per skill. Consumed by
-> `tools/skill_lint/checks/effort.py` (frontmatter enforcement) and
-> `.ai-engineering/scripts/spec-131/apply_effort_model_tier.py` (migration).
+> SSOT for `effort:` per skill. Consumed by
+> `tools/skill_lint/checks/effort.py` (frontmatter enforcement).
 
 ## Vocabulary (D-131-08)
 
-| `effort:` | `model_tier:` | Intent |
-|---|---|---|
-| `cheap` | `haiku` | Deterministic execution. Patch-ready plan; no judgment. |
-| `mid` | `sonnet` | Synthesis with judgment. Review, brainstorm, debug, narrative. |
-| `high` | `opus` | Deep architecture. Decompose, gate, audit, multi-round. |
+| `effort:` | Intent |
+|---|---|
+| `cheap` | Deterministic execution. Patch-ready plan; no judgment. |
+| `mid` | Synthesis with judgment. Review, brainstorm, debug, narrative. |
+| `high` | Deep architecture. Decompose, gate, audit, multi-round. |
 
-Investing more in `/ai-plan` (high tier, exhaustive patch-ready output) is
-what unlocks cheap-tier execution everywhere downstream. The policy below
+Investing more in `/ai-plan` (high effort, exhaustive patch-ready output) is
+what unlocks cheap-effort execution everywhere downstream. The policy below
 codifies the cheap/mid/high decision per skill so the dispatch logic in
 `/ai-build` can route mechanically.
 
-## Posture (R-131-09 grace)
+## Posture
 
-* `effort:` enforcement is **blocking** from day one (lint MAJOR on missing
-  / invalid / policy-mismatch).
-* `model_tier:` enforcement is **observation-only** for one release cycle
-  (lint MINOR on missing). The `--enforce-tier` CLI flag on
-  `tools/skill_lint` flips it to MAJOR once the dispatch logic has been
-  live and audited.
+`effort:` enforcement is **blocking** (lint MAJOR on missing / invalid /
+policy-mismatch). Per spec-189 (D-189-04) `effort` is the sole skill dispatch
+axis — the former per-model tier field is retired fleet-wide, so agents own
+their `model:` declaration independently.
 
 ## Mapping (47 skills)
 
@@ -33,65 +30,63 @@ The vocabulary migration is NOT a 1-to-1 rename of the legacy
 economics rubric: deterministic execution → cheap, synthesis with judgment
 → mid, deep architecture / multi-round dispatch → high.
 
-| Skill | effort | model_tier | Rationale |
-|---|---|---|---|
-| ai-animation | high | opus | Multi-frame design synthesis with motion judgment. |
-| ai-autopilot | high | opus | Decomposition into N sub-spec waves; architecture. |
-| ai-board | cheap | haiku | Deterministic board sync against work-item refs. |
-| ai-brainstorm | mid | sonnet | Synthesis + interrogation; multi-turn judgment. |
-| ai-build | cheap | haiku | Executes patch-ready plan; mechanical when patches present. |
-| ai-branch-cleanup | cheap | haiku | Mechanical hygiene (rotate `_history.md`, delete shipped). |
-| ai-code | mid | sonnet | Targeted code writes with stack-overrides judgment. |
-| ai-commit | cheap | haiku | Deterministic stage + compose commit. |
-| ai-constitution | mid | sonnet | Interview-driven; project-identity judgment. |
-| ai-scaffold | mid | sonnet | Scaffold with framework + convention judgment. |
-| ai-debug | mid | sonnet | Reproduce + isolate + fix; targeted judgment. |
-| ai-design | high | opus | Deep design space exploration. |
-| ai-docs | mid | sonnet | Narrative authoring with placement judgment. |
-| ai-reliability-eval | mid | sonnet | Scenario synthesis + scoring. |
-| ai-explain | mid | sonnet | Pedagogical narrative; audience-aware. |
-| ai-governance | high | opus | Compliance posture; risk acceptance. |
-| ai-marketing | mid | sonnet | Go-to-market narrative + positioning. |
-| ai-onboard | mid | sonnet | Step-by-step authoring with audience judgment. |
-| ai-ide-audit | high | opus | Cross-IDE matrix audit; architectural posture. |
-| ai-learn | mid | sonnet | Retro synthesis + lesson extraction. |
-| ai-mcp-audit | high | opus | Security skill: coherence analysis + rug-pull detection vs trusted baseline (spec-107 D-107-08). Elevated to `opus` per spec-131 closure (C2) so judgment quality matches the security-impact ceiling. |
-| ai-media | mid | sonnet | Media synthesis with style judgment. |
-| ai-note | cheap | haiku | Deterministic capture into note store. |
-| ai-session-watch | mid | sonnet | Telemetry surface review + reporting. |
-| ai-pipeline | mid | sonnet | CI/CD workflow design with stack judgment. |
-| ai-plan | high | opus | Deep architecture; exhaustive patch-ready output unlocks cheap downstream. |
-| ai-postmortem | mid | sonnet | Incident retro synthesis. |
-| ai-pr | mid | sonnet | PR composition + body synthesis. |
-| ai-prompt-tune | mid | sonnet | Prompt engineering technique synthesis. |
-| ai-research | mid | sonnet | External evidence synthesis (Tier 0-2). |
-| ai-resolve-conflicts | cheap | haiku | Deterministic conflict resolution against rules. |
-| ai-review | mid | sonnet | 8-agent parallel review + corroboration judgment. |
-| ai-schema | mid | sonnet | Schema design + migration synthesis. |
-| ai-security | mid | sonnet | Security posture review with threat-model judgment. |
-| ai-simplify-sweep | cheap | haiku | Mechanical guard-clause / early-return rewrites. |
-| ai-skill-improve | mid | sonnet | Skill refinement; rubric-driven judgment. |
-| ai-slides | mid | sonnet | Deck synthesis with narrative judgment. |
-| ai-sprint | mid | sonnet | Sprint planning narrative. |
-| ai-standup | cheap | haiku | Deterministic per-spec digest from telemetry. |
-| ai-start | mid | sonnet | Session bootstrap with context loading. |
-| ai-support | mid | sonnet | Support narrative; audience-aware. |
-| ai-test | mid | sonnet | Test plan + write + run; judgment on coverage. |
-| ai-verify | mid | sonnet | 7-scan IRRV with severity mapping; judgment. |
-| ai-video-editing | mid | sonnet | Video assembly with edit-decision judgment. |
-| ai-visual | mid | sonnet | Visual synthesis with composition judgment. |
-| ai-prose | mid | sonnet | Long-form narrative authoring. |
+| Skill | effort | Rationale |
+|---|---|---|
+| ai-animation | high | Multi-frame design synthesis with motion judgment. |
+| ai-autopilot | high | Decomposition into N sub-spec waves; architecture. |
+| ai-board | cheap | Deterministic board sync against work-item refs. |
+| ai-brainstorm | mid | Synthesis + interrogation; multi-turn judgment. |
+| ai-build | cheap | Executes patch-ready plan; mechanical when patches present. |
+| ai-branch-cleanup | cheap | Mechanical hygiene (rotate `_history.md`, delete shipped). |
+| ai-code | mid | Targeted code writes with stack-overrides judgment. |
+| ai-commit | cheap | Deterministic stage + compose commit. |
+| ai-constitution | mid | Interview-driven; project-identity judgment. |
+| ai-scaffold | mid | Scaffold with framework + convention judgment. |
+| ai-debug | mid | Reproduce + isolate + fix; targeted judgment. |
+| ai-design | high | Deep design space exploration. |
+| ai-docs | mid | Narrative authoring with placement judgment. |
+| ai-reliability-eval | mid | Scenario synthesis + scoring. |
+| ai-explain | mid | Pedagogical narrative; audience-aware. |
+| ai-governance | high | Compliance posture; risk acceptance. |
+| ai-marketing | mid | Go-to-market narrative + positioning. |
+| ai-onboard | mid | Step-by-step authoring with audience judgment. |
+| ai-ide-audit | high | Cross-IDE matrix audit; architectural posture. |
+| ai-learn | mid | Retro synthesis + lesson extraction. |
+| ai-mcp-audit | high | Security skill: coherence analysis + rug-pull detection vs trusted baseline (spec-107 D-107-08). Elevated to `high` per spec-131 closure (C2) so judgment quality matches the security-impact ceiling. |
+| ai-media | mid | Media synthesis with style judgment. |
+| ai-note | cheap | Deterministic capture into note store. |
+| ai-session-watch | mid | Telemetry surface review + reporting. |
+| ai-pipeline | mid | CI/CD workflow design with stack judgment. |
+| ai-plan | high | Deep architecture; exhaustive patch-ready output unlocks cheap downstream. |
+| ai-postmortem | mid | Incident retro synthesis. |
+| ai-pr | mid | PR composition + body synthesis. |
+| ai-prompt-tune | mid | Prompt engineering technique synthesis. |
+| ai-research | mid | External evidence synthesis (Tier 0-2). |
+| ai-resolve-conflicts | cheap | Deterministic conflict resolution against rules. |
+| ai-review | mid | 8-agent parallel review + corroboration judgment. |
+| ai-schema | mid | Schema design + migration synthesis. |
+| ai-security | mid | Security posture review with threat-model judgment. |
+| ai-simplify-sweep | cheap | Mechanical guard-clause / early-return rewrites. |
+| ai-skill-improve | mid | Skill refinement; rubric-driven judgment. |
+| ai-slides | mid | Deck synthesis with narrative judgment. |
+| ai-sprint | mid | Sprint planning narrative. |
+| ai-standup | cheap | Deterministic per-spec digest from telemetry. |
+| ai-start | mid | Session bootstrap with context loading. |
+| ai-support | mid | Support narrative; audience-aware. |
+| ai-test | mid | Test plan + write + run; judgment on coverage. |
+| ai-verify | mid | 7-scan IRRV with severity mapping; judgment. |
+| ai-video-editing | mid | Video assembly with edit-decision judgment. |
+| ai-visual | mid | Visual synthesis with composition judgment. |
+| ai-prose | mid | Long-form narrative authoring. |
 
 ## Lint contract
 
-`tools/skill_lint/checks/effort.py` parses this table on every run
-(cached via `functools.lru_cache`) and cross-checks each skill's declared
-frontmatter against its row. Mismatch is MAJOR (effort) or MINOR
-(model_tier, during R-131-09 grace).
+`tools/skill_lint/checks/effort.py` parses this table on every run and
+cross-checks each skill's declared frontmatter against its row. Mismatch is
+MAJOR.
 
 ## Mirror gap
 
 `.github/skills/` omits any Claude-Code-only skill (those marked
-`copilot_compatible: false`). The lint and the migration script both
-treat such an absence as an allow-listed gap, not a violation. No skill
-currently uses this scoping.
+`copilot_compatible: false`). The lint treats such an absence as an
+allow-listed gap, not a violation. No skill currently uses this scoping.

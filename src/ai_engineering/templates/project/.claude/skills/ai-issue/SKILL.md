@@ -2,7 +2,6 @@
 name: ai-issue
 description: "Creates a project work-item (issue / task / story) on the user's configured board: routes by manifest `work_items.provider` (GitHub Projects v2 or Azure DevOps), composes title + body + labels, attaches to the active board, and confirms a clickable link. Trigger for 'open an issue', 'file a bug', 'create a task', 'add this to the backlog', 'log a work item'. Not for upstream framework bugs (use /ai-engineering-issue); not for board configuration (use /ai-board discover); not for committing code (use /ai-commit)."
 effort: cheap
-model_tier: haiku
 argument-hint: "<title> [--body <text>] [--labels a,b] [--dry-run]"
 tags: [work-items, board, issue, github, azure_devops]
 requires:

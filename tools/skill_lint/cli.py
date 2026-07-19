@@ -66,10 +66,10 @@ def _exit_code(
         blocking once every shipped SKILL.md emits the "Principles
         applied" line via the patch-ready ``/ai-plan`` output.
 
-    spec-131 S3 (sub-003) addition:
+    spec-131 S3 (sub-003) / spec-189 (D-189-04) addition:
       * Any MAJOR / CRITICAL from ``effort`` → exit 1 (D-131-08).
-        ``model_tier`` MINORs stay advisory during the R-131-09 grace
-        window — they surface in the summary but do not block.
+        ``effort`` is the sole skill dispatch axis; policy-mismatch
+        MINORs (skill not listed) surface in the summary but do not block.
 
     spec-186 addition:
       * Any CRITICAL from ``value_block`` → exit 1 (D-186-06). A chain
@@ -179,11 +179,6 @@ def _build_parser() -> argparse.ArgumentParser:
             "(default: .ai-engineering/reference/model-dispatch-policy.md)."
         ),
     )
-    parser.add_argument(
-        "--enforce-tier",
-        action="store_true",
-        help="Promote `model_tier:` violations from MINOR to MAJOR (flip after R-131-09 grace).",
-    )
     return parser
 
 
@@ -222,14 +217,13 @@ def main(argv: list[str] | None = None) -> int:
         args.hooks_root,
         args.scheduled_root,
     )
-    # spec-131 S3 (sub-003): effort + model_tier frontmatter contract.
-    # MAJOR (effort_declared, policy mismatch) blocks; model_tier MINOR
-    # stays advisory during the R-131-09 grace window.
+    # spec-131 S3 (sub-003) / spec-189 (D-189-04): effort frontmatter
+    # contract. MAJOR (effort_declared, policy mismatch) blocks. ``effort``
+    # is the sole skill dispatch axis (D-189-04).
     dispatch_policy = load_dispatch_policy(args.policy_path)
     effort_results = check_effort_all(
         args.skills_root,
         dispatch_policy,
-        enforce_tier=args.enforce_tier,
     )
     # spec-186: value_block adoption check. BLOCKING — any of the five
     # chain skills omitting the value-lens.md citation surfaces CRITICAL
@@ -278,7 +272,7 @@ def main(argv: list[str] | None = None) -> int:
         naming_counts: dict[str, int] = {}
         for _path, result in naming_results:
             naming_counts[result.severity] = naming_counts.get(result.severity, 0) + 1
-        # spec-131 S3 (sub-003): effort + model_tier counters.
+        # spec-131 S3 (sub-003) / spec-189 (D-189-04): effort counters.
         effort_counts: dict[str, int] = {}
         for _path, result in effort_results:
             effort_counts[result.severity] = effort_counts.get(result.severity, 0) + 1

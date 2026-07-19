@@ -4,7 +4,6 @@ description: "Generates zero-dependency self-contained HTML presentations with k
 effort: mid
 argument-hint: "new|convert|enhance [topic]"
 tags: [presentation, html, css]
-model_tier: sonnet
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-slides/SKILL.md

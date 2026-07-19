@@ -4,7 +4,6 @@ description: "Creates new ai-engineering skills or agents end-to-end: scaffold, 
 effort: mid
 argument-hint: "skill [name]|agent [name]"
 tags: [meta, framework, creation]
-model_tier: sonnet
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-scaffold/SKILL.md

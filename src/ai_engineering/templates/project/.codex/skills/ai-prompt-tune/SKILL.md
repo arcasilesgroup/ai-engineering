@@ -4,7 +4,6 @@ description: "Optimizes prompts, system messages, and skill descriptions using e
 effort: mid
 argument-hint: "[text]|--skill [name]"
 tags: [meta, optimization, prompts]
-model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-prompt-tune/SKILL.md

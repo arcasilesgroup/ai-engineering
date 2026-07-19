@@ -4,7 +4,6 @@ description: "Saves persistent technical discoveries (debugging insights, non-ob
 effort: cheap
 argument-hint: "find [query]|[slug]"
 mode: agent
-model_tier: haiku
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-note/SKILL.md

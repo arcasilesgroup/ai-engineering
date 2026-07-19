@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "<topic>"
 mode: agent
 tags: [planning, brief, research, sdd]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-spec-draft/SKILL.md

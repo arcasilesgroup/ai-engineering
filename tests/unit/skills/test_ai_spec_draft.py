@@ -49,7 +49,7 @@ def test_skill_md_exists() -> None:
 
 @pytest.mark.unit
 def test_frontmatter_required_fields(frontmatter: dict[str, str]) -> None:
-    for field in ("name", "description", "effort", "model_tier", "argument-hint"):
+    for field in ("name", "description", "effort", "argument-hint"):
         assert field in frontmatter, f"frontmatter missing {field!r}"
 
 
@@ -62,11 +62,6 @@ def test_frontmatter_name(frontmatter: dict[str, str]) -> None:
 def test_frontmatter_effort_mid(frontmatter: dict[str, str]) -> None:
     """Brief authoring involves synthesis judgment — mid tier."""
     assert frontmatter.get("effort") == "mid"
-
-
-@pytest.mark.unit
-def test_frontmatter_model_tier_sonnet(frontmatter: dict[str, str]) -> None:
-    assert frontmatter.get("model_tier") == "sonnet"
 
 
 @pytest.mark.unit

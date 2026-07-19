@@ -2,7 +2,6 @@
 name: ai-postmortem
 description: "Documents production incidents, outages, degradations, and near-misses using the DERP format (Detection, Escalation, Recovery, Prevention) with targeted interview questions per phase. Trigger for 'we had an incident', 'write up the outage', 'something went wrong in prod', 'postmortem', 'near-miss analysis', 'incident report'. Not for customer support investigations; use /ai-support instead. Not for internal dev bugs; use /ai-debug instead."
 effort: mid
-model_tier: sonnet
 argument-hint: "start|continue [id]|find [query]|generate"
 ---
 

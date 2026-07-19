@@ -11,7 +11,6 @@ requires:
   - mysql
   - sqlite3
   - mongosh
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-schema/SKILL.md

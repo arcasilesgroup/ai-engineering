@@ -4,7 +4,6 @@ description: "External evidence with citations via a 4-tier escalation (local â†
 effort: mid
 argument-hint: "[query] [--depth quick|standard|deep] [--reuse-notebook=id] [--persist]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-research/SKILL.md

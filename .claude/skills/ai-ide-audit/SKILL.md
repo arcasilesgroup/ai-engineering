@@ -2,7 +2,6 @@
 name: ai-ide-audit
 description: "Audits an IDE end-to-end (instruction surface, hooks, skills, agents, installer wiring) using strict file-evidence — never assumptions. Trigger for 'audit IDE support', 'is Copilot wired up correctly', 'check Claude Code integration', 'are there orphaned hooks', 'verify IDE setup'. Accepts Claude Code, GitHub Copilot, Codex, Antigravity, or all. Not for code quality; use /ai-verify instead. Not for security scanning; use /ai-security instead."
 effort: high
-model_tier: opus
 argument-hint: "claude-code|github-copilot|codex|antigravity|all [--fix]"
 tags: [audit, ide, copilot, claude-code, governance]
 ---

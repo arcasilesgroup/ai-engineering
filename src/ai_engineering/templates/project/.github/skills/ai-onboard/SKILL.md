@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "tour|find [topic]|history [decision]|onboard"
 mode: agent
 tags: [onboarding, architecture, teaching, archaeology]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-onboard/SKILL.md

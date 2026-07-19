@@ -4,7 +4,6 @@ description: "Investigates customer-reported issues with structure: reproduces, 
 effort: mid
 argument-hint: "start [ticket-id]|find [query]"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-support/SKILL.md

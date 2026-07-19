@@ -5,7 +5,6 @@ effort: mid
 argument-hint: "content [type] [--audience developer|manager|executive]"
 mode: agent
 tags: [writing, content, communication]
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-prose/SKILL.md

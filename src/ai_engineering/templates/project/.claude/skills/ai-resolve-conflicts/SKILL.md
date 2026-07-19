@@ -2,7 +2,6 @@
 name: ai-resolve-conflicts
 description: "Resolves git conflicts intent-aware: categorizes by type (lock files, migrations, generated, config, code), regenerates or merges per category, never blindly accepts. Trigger for 'I have conflicts', 'rebase failed', 'merge conflict', 'cherry-pick failed', 'unmerged paths'. Not for branch hygiene; use /ai-branch-cleanup instead. Not for committing the resolution; use /ai-commit instead."
 effort: cheap
-model_tier: haiku
 argument-hint: ""
 ---
 

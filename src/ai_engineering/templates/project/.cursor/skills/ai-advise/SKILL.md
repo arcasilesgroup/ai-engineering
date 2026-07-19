@@ -4,7 +4,6 @@ description: "Proactive governance advisor — checks standards, decisions, and 
 effort: cheap
 argument-hint: "[advise|gate|drift] [paths...]"
 tags: [governance, advisory, proactive]
-model_tier: sonnet
 mirror_family: cursor-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-advise/SKILL.md

@@ -4,7 +4,6 @@ description: "Forces rigorous design interrogation BEFORE any code: explores app
 effort: mid
 argument-hint: "[feature or problem description] [work item ID] | --consolidate-spec <slug>"
 mode: agent
-model_tier: sonnet
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-brainstorm/SKILL.md

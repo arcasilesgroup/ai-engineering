@@ -5,7 +5,6 @@ effort: high
 argument-hint: "claude-code|github-copilot|codex|antigravity|all [--fix]"
 mode: agent
 tags: [audit, ide, copilot, claude-code, governance]
-model_tier: opus
 mirror_family: copilot-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-ide-audit/SKILL.md

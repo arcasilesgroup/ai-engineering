@@ -2,7 +2,6 @@
 name: ai-board
 description: "Operates the project board (GitHub Projects v2 or Azure DevOps): discovers configuration after install (fields, state mappings, process templates) and syncs work-item state at lifecycle transitions. Trigger for 'set up the board', 'configure our ADO board', 'discover board fields', 'move this issue to in-review', 'update the board', 'mark as in progress', 'sync the work item state'. Two subcommands: `discover` (post-install configuration write) and `sync` (lifecycle state transitions). Auto-invoked via `sync` by /ai-brainstorm, /ai-build, and /ai-pr; fail-open. Not for backlog execution; use /ai-autopilot --backlog instead."
 effort: cheap
-model_tier: haiku
 argument-hint: "discover [--refresh] | sync <phase> <work-item-ref> [--comment text]"
 tags: [board, discovery, sync, work-items, configuration]
 ---

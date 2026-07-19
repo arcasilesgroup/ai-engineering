@@ -3,7 +3,6 @@ name: ai-constitution
 description: Interviews the operator to produce a project-identity CONSTITUTION.md (Mission / Stakeholders / Vocabulary / Prohibitions / Compliance gates / Anti-goals / Boundaries / Escalation / Language / Lifecycle phase). Trigger for 'set up the constitution', 'define project identity', 'who is this project for', 'what does this project never do', 'amend the constitution'. Not for AI-behaviour rules — those live in CANONICAL.md / AGENTS.md. Not for spec governance; use /ai-governance instead.
 effort: mid
 argument-hint: "[generate|update|amend]"
-model_tier: sonnet
 mirror_family: antigravity-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-constitution/SKILL.md
