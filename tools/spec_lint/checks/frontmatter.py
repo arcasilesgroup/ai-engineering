@@ -21,6 +21,8 @@ import datetime as _dt
 from dataclasses import dataclass
 from pathlib import Path
 
+import yaml
+
 _VALID_SEVERITIES = {"OK", "ADVISORY", "BLOCKER"}
 
 # spec-139 M8 D-139-06 — date on which the ``summary`` advisory promotes
@@ -127,6 +129,8 @@ def check_frontmatter(spec_path: Path) -> list[CheckResult]:
     Emits:
 
     * ``BLOCKER frontmatter_missing`` if no ``---`` fence is present.
+    * ``BLOCKER frontmatter_yaml_invalid`` if the block is not valid YAML
+      (spec-188 D-188-02 — integrity gate, fails closed).
     * ``BLOCKER frontmatter_missing_required`` per absent required key.
     * ``BLOCKER frontmatter_invalid_enum`` per enum violation.
     * ``ADVISORY frontmatter_unknown_key`` per unknown key (not in
@@ -159,6 +163,24 @@ def check_frontmatter(spec_path: Path) -> list[CheckResult]:
         ]
 
     results: list[CheckResult] = []
+
+    # spec-188 D-188-02 — strict YAML validation of the frontmatter block.
+    # The stdlib partition parser above tolerates malformed YAML (e.g. an
+    # unquoted value whose mid-value colon starts a phantom key). spec_lint
+    # is an integrity gate and must fail closed on frontmatter a real YAML
+    # parser rejects (gate-policy.md). The block spans the lines between the
+    # opening fence (line 1) and the closing fence (``fence_line``).
+    block = "\n".join(text.splitlines()[1 : fence_line - 1])
+    try:
+        yaml.safe_load(block)
+    except yaml.YAMLError as exc:
+        results.append(
+            CheckResult(
+                "frontmatter_yaml_invalid",
+                "BLOCKER",
+                f"frontmatter is not valid YAML: {str(exc).splitlines()[0]}",
+            )
+        )
 
     for required in sorted(REQUIRED_FIELDS):
         if required not in fields or not fields[required]:

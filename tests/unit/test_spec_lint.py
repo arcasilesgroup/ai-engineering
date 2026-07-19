@@ -797,3 +797,46 @@ def test_plan_execution_route_cannot_duplicate_approval_state(tmp_path: Path) ->
         r.check_name == "plan_execution_route_approval_duplicate" and r.severity == "BLOCKER"
         for r in results
     )
+
+
+# ---------------------------------------------------------------------------
+# spec-188 D-188-02 — strict YAML frontmatter validation (fail closed)
+# ---------------------------------------------------------------------------
+
+
+def test_frontmatter_malformed_yaml_colon_title_is_blocker(tmp_path: Path) -> None:
+    # An unquoted title whose mid-value colon breaks YAML must be a BLOCKER.
+    # The stdlib partition parser silently accepted it (that is how the
+    # spec-186 bug shipped); spec_lint now strict-parses the block.
+    spec_path = tmp_path / "spec.md"
+    spec_path.write_text(
+        "---\n"
+        "spec: spec-999\n"
+        "title: spec-999 — Thing: subtitle that breaks yaml\n"
+        "status: approved\n"
+        "effort: small\n"
+        "summary: valid one-line summary\n"
+        "---\n\n# Body\n",
+        encoding="utf-8",
+    )
+    results = check_frontmatter(spec_path)
+    assert any(
+        r.check_name == "frontmatter_yaml_invalid" and r.severity == "BLOCKER" for r in results
+    )
+
+
+def test_frontmatter_quoted_colon_title_passes_yaml(tmp_path: Path) -> None:
+    # The quoted form (the spec-186 fix) parses cleanly — no yaml_invalid finding.
+    spec_path = tmp_path / "spec.md"
+    spec_path.write_text(
+        "---\n"
+        "spec: spec-999\n"
+        'title: "spec-999 — Thing: subtitle that is now quoted"\n'
+        "status: approved\n"
+        "effort: small\n"
+        "summary: valid one-line summary\n"
+        "---\n\n# Body\n",
+        encoding="utf-8",
+    )
+    results = check_frontmatter(spec_path)
+    assert not any(r.check_name == "frontmatter_yaml_invalid" for r in results)

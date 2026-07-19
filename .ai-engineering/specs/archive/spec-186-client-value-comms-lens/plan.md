@@ -1,5 +1,5 @@
 ---
-title: spec-186 — Client-Value Lens: stakeholder-legible communication — execution plan
+title: "spec-186 — Client-Value Lens: stakeholder-legible communication — execution plan"
 spec: spec-186
 status: draft
 pipeline: full

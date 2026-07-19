@@ -1,7 +1,7 @@
 ---
 spec: spec-186
 slug: client-value-comms-lens
-title: spec-186 — Client-Value Lens: stakeholder-legible communication for the skill chain
+title: "spec-186 — Client-Value Lens: stakeholder-legible communication for the skill chain"
 status: approved
 effort: medium
 branch: TBD
