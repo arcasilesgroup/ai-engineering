@@ -166,9 +166,58 @@ def get_correlation_id() -> str:
 # ---------------------------------------------------------------------------
 
 
-def get_session_id() -> str | None:
-    """Resolve the IDE-provided session id or return None."""
-    return os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("ANTIGRAVITY_SESSION_ID") or None
+_SESSION_POINTER_REL = Path(".ai-engineering") / "state" / "runtime" / "session-pointer.json"
+
+
+def _read_session_pointer() -> str | None:
+    """Return the session id persisted at SessionStart, or None (D-190-01).
+
+    ``CLAUDE_SESSION_ID`` is usually unset on the hot path, so the
+    ``runtime-session-start`` hook stamps a durable
+    ``session-pointer.json``. This reads it back through the same
+    project-root resolver used by every other helper here. Stdlib-only,
+    never raises — any miss / corruption degrades to None.
+
+    Best-effort only: on a worktree shared by concurrent sessions the
+    pointer names whichever session started last, so it is a FALLBACK —
+    the current invocation's own session id (env or stdin/ctx) is
+    authoritative and always preferred (FINDING 3).
+    """
+    try:
+        path = _resolve_project_root() / _SESSION_POINTER_REL
+        if not path.exists():
+            return None
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    session_id = payload.get("session_id")
+    return session_id if isinstance(session_id, str) and session_id else None
+
+
+def get_session_id(current: str | None = None) -> str | None:
+    """Resolve the session id for the CURRENT invocation, else None.
+
+    Resolution order (FINDING 3 — the current invocation's own id wins over
+    the shared pointer so concurrent sessions on one worktree are not
+    misattributed):
+
+    1. ``CLAUDE_SESSION_ID`` / ``ANTIGRAVITY_SESSION_ID`` env vars
+       (authoritative when present);
+    2. ``current`` — the session id carried by this invocation's own
+       stdin / ctx, threaded in by hot-path emit sites that have it;
+    3. the durable ``session-pointer.json`` stamped at SessionStart
+       (D-190-01 part 2) — a best-effort FALLBACK only;
+    4. else None.
+    """
+    return (
+        os.environ.get("CLAUDE_SESSION_ID")
+        or os.environ.get("ANTIGRAVITY_SESSION_ID")
+        or current
+        or _read_session_pointer()
+        or None
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -363,14 +412,67 @@ def _emit_hook_heartbeat(
         pass
 
 
-def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> None:
-    """Append the framework_error event when main_fn raised (spec-112 D-112-04)."""
+def _record_error_coalesced(
+    project_root: Path,
+    *,
+    component: str,
+    error_code: str,
+    summary: str,
+    session_id: str | None,
+) -> dict:
+    """Route an error/integrity emit through the storm coalescer (spec-190 D-190-02).
+
+    Returns the ``record_error`` verdict augmented with the ``fingerprint``.
+    Fail-open: any import/compute failure yields a first-occurrence verdict so
+    no incident is dropped and the audit chain keeps its entry.
+    """
     try:
-        project_root = _resolve_project_root()
+        from _lib.runtime_state import error_fingerprint, record_error
+
+        fingerprint = error_fingerprint(component, error_code, session_id, summary)
+        verdict = record_error(
+            project_root,
+            fingerprint,
+            component=component,
+            error_code=error_code,
+            summary=summary,
+        )
+        verdict["fingerprint"] = fingerprint
+    except Exception:
+        return {
+            "emit_full": True,
+            "occurrences": 1,
+            "storm_triggered": False,
+            "is_rollup": False,
+            "fingerprint": "",
+        }
+    else:
+        return verdict
+
+
+def _emit_error_storm_control(
+    project_root: Path,
+    *,
+    component: str,
+    error_code: str,
+    fingerprint: str,
+    occurrences: int,
+    hook_kind: str,
+) -> None:
+    """Emit ONE control_outcome storm alarm (spec-190 D-190-02).
+
+    Fired the first time repeats cross ``AIENG_ERROR_STORM_THRESHOLD`` so the
+    operator sees the storm without scanning the raw NDJSON. Fail-open.
+    """
+    try:
+        # FINDING 6: match the accompanying framework_error engine (env or
+        # claude_code) instead of the divergent "ai_engineering" so the two
+        # hook-side dual-writer events carry a consistent engine.
         engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
         event = {
-            "kind": "framework_error",
+            "kind": "control_outcome",
             "engine": engine,
+            "frameworkVersion": _resolve_framework_version(project_root),
             "timestamp": _now_iso(),
             "component": component,
             "outcome": "failure",
@@ -379,8 +481,11 @@ def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> N
             "project": project_root.name,
             "source": "hook",
             "detail": {
-                "error_code": "hook_execution_failed",
-                "summary": str(exc)[:200],
+                "category": "observability",
+                "control": "framework_error_storm",
+                "error_code": error_code,
+                "fingerprint": fingerprint,
+                "occurrences": occurrences,
                 "hook_kind": hook_kind,
             },
         }
@@ -388,6 +493,64 @@ def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> N
         if session_id:
             event["sessionId"] = session_id
         emit_event(project_root, event)
+    except Exception:
+        pass
+
+
+def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> None:
+    """Append the framework_error event when main_fn raised (spec-112 D-112-04).
+
+    Repeats are coalesced via the spec-190 storm coalescer: the first crash in
+    a window emits the full event, subsequent identical crashes are suppressed
+    but a rollup carrying ``detail.occurrences`` is emitted on the threshold
+    cadence, and a storm alarm fires once per window.
+    """
+    try:
+        project_root = _resolve_project_root()
+        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        summary = str(exc)[:200]
+        session_id = get_session_id()
+        error_code = "hook_execution_failed"
+        verdict = _record_error_coalesced(
+            project_root,
+            component=component,
+            error_code=error_code,
+            summary=summary,
+            session_id=session_id,
+        )
+        if verdict.get("emit_full", True):
+            detail: dict = {
+                "error_code": error_code,
+                "summary": summary,
+                "hook_kind": hook_kind,
+            }
+            if verdict.get("is_rollup"):
+                detail["occurrences"] = verdict.get("occurrences")
+            event = {
+                "kind": "framework_error",
+                "engine": engine,
+                "frameworkVersion": _resolve_framework_version(project_root),
+                "timestamp": _now_iso(),
+                "component": component,
+                "outcome": "failure",
+                "correlationId": get_correlation_id(),
+                "schemaVersion": "1.0",
+                "project": project_root.name,
+                "source": "hook",
+                "detail": detail,
+            }
+            if session_id:
+                event["sessionId"] = session_id
+            emit_event(project_root, event)
+        if verdict.get("storm_triggered"):
+            _emit_error_storm_control(
+                project_root,
+                component=component,
+                error_code=error_code,
+                fingerprint=verdict.get("fingerprint", ""),
+                occurrences=verdict.get("occurrences", 0),
+                hook_kind=hook_kind,
+            )
     except Exception:
         pass
 
@@ -459,31 +622,59 @@ def _verify_caller_integrity(
 
 
 def _emit_integrity_violation(*, component: str, hook_kind: str, reason: str, mode: str) -> None:
-    """Log integrity mismatch as ``framework_error`` regardless of mode."""
+    """Log integrity mismatch as ``framework_error`` regardless of mode.
+
+    Routed through the spec-190 storm coalescer so a mis-pinned manifest (which
+    re-fires on every hook invocation, historically ~15k lines) collapses into
+    one full event + periodic rollups + a single storm alarm per window.
+    """
     try:
         project_root = _resolve_project_root()
         engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
-        event = {
-            "kind": "framework_error",
-            "engine": engine,
-            "timestamp": _now_iso(),
-            "component": component,
-            "outcome": "failure",
-            "correlationId": get_correlation_id(),
-            "schemaVersion": "1.0",
-            "project": project_root.name,
-            "source": "hook",
-            "detail": {
-                "error_code": "hook_integrity_violation",
-                "summary": reason[:200],
+        summary = reason[:200]
+        session_id = get_session_id()
+        error_code = "hook_integrity_violation"
+        verdict = _record_error_coalesced(
+            project_root,
+            component=component,
+            error_code=error_code,
+            summary=summary,
+            session_id=session_id,
+        )
+        if verdict.get("emit_full", True):
+            detail: dict = {
+                "error_code": error_code,
+                "summary": summary,
                 "hook_kind": hook_kind,
                 "mode": mode,
-            },
-        }
-        session_id = get_session_id()
-        if session_id:
-            event["sessionId"] = session_id
-        emit_event(project_root, event)
+            }
+            if verdict.get("is_rollup"):
+                detail["occurrences"] = verdict.get("occurrences")
+            event = {
+                "kind": "framework_error",
+                "engine": engine,
+                "frameworkVersion": _resolve_framework_version(project_root),
+                "timestamp": _now_iso(),
+                "component": component,
+                "outcome": "failure",
+                "correlationId": get_correlation_id(),
+                "schemaVersion": "1.0",
+                "project": project_root.name,
+                "source": "hook",
+                "detail": detail,
+            }
+            if session_id:
+                event["sessionId"] = session_id
+            emit_event(project_root, event)
+        if verdict.get("storm_triggered"):
+            _emit_error_storm_control(
+                project_root,
+                component=component,
+                error_code=error_code,
+                fingerprint=verdict.get("fingerprint", ""),
+                occurrences=verdict.get("occurrences", 0),
+                hook_kind=hook_kind,
+            )
     except Exception:
         pass
 
@@ -594,6 +785,24 @@ def _now_iso() -> str:
     from datetime import UTC, datetime
 
     return datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _resolve_framework_version(project_root: Path) -> str:
+    """Resolve the pinned framework version for inline event stamping (FINDING 5).
+
+    Reuses the stdlib ``_read_framework_version`` resolver from the sibling
+    ``_lib/observability`` hook module (stdlib-only — NOT the pip package) so
+    the hot-path ``framework_error`` / ``control_outcome`` events this module
+    emits inline carry ``frameworkVersion`` like every other framework event.
+    Fail-open: any import / resolution failure degrades to the ``"0.0.0"``
+    sentinel so an error/control emit is never blocked.
+    """
+    try:
+        from _lib.observability import _read_framework_version
+
+        return _read_framework_version(project_root)
+    except Exception:
+        return "0.0.0"
 
 
 __all__ = [

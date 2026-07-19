@@ -23,6 +23,7 @@ from ai_engineering.state.observability import (
     append_framework_event,
     append_framework_events,
     build_framework_capabilities,
+    build_framework_event,
     framework_capabilities_path,
     framework_events_path,
     write_framework_capabilities,
@@ -157,6 +158,21 @@ class TestFrameworkEvents:
         assert second_payload["prev_event_hash"] == compute_entry_hash(first_payload)
 
 
+class TestFrameworkVersionStamp:
+    """spec-190 D-190-01: the pip build path stamps frameworkVersion."""
+
+    def test_pip_envelope_carries_non_empty_framework_version(self, tmp_path: Path) -> None:
+        event = build_framework_event(
+            tmp_path,
+            engine="claude_code",
+            kind="skill_invoked",
+            component="hook.skill",
+        )
+        dumped = event.model_dump(by_alias=True)
+        assert dumped["frameworkVersion"]
+        assert isinstance(dumped["frameworkVersion"], str)
+
+
 class TestFrameworkCapabilities:
     def test_build_framework_capabilities_uses_manifest_registry_and_static_taxonomy(
         self, tmp_path: Path
@@ -249,3 +265,108 @@ class TestFrameworkCapabilities:
             "ai-build",
             "ai-plan",
         }
+
+
+# ---------------------------------------------------------------------------
+# spec-190 D-190-02: error-storm coalescing (pip functional twin)
+# ---------------------------------------------------------------------------
+
+
+class TestErrorStormCoalescing:
+    """emit_framework_error must mirror the hook _lib coalescer semantics."""
+
+    @staticmethod
+    def _emit(tmp_path: Path) -> None:
+        from ai_engineering.state.observability import emit_framework_error
+
+        emit_framework_error(
+            tmp_path,
+            engine="ai_engineering",
+            component="pip.storm",
+            error_code="hook_execution_failed",
+            summary="identical boom",
+            session_id="sess-1",
+        )
+
+    @staticmethod
+    def _events(tmp_path: Path) -> list[dict]:
+        path = tmp_path / FRAMEWORK_EVENTS_REL
+        if not path.exists():
+            return []
+        return [
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+
+    def test_repeats_coalesce(self, tmp_path: Path, monkeypatch) -> None:
+        _write_manifest(tmp_path)
+        monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+        for _ in range(5):
+            self._emit(tmp_path)
+        errors = [e for e in self._events(tmp_path) if e.get("kind") == "framework_error"]
+        assert len(errors) == 2
+        assert errors[-1]["detail"].get("occurrences") == 5
+
+    def test_storm_control_emitted_once(self, tmp_path: Path, monkeypatch) -> None:
+        _write_manifest(tmp_path)
+        monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+        for _ in range(12):
+            self._emit(tmp_path)
+        controls = [
+            e
+            for e in self._events(tmp_path)
+            if e.get("kind") == "control_outcome"
+            and e.get("detail", {}).get("control") == "framework_error_storm"
+        ]
+        assert len(controls) == 1
+        assert controls[0]["detail"]["category"] == "observability"
+
+    def test_distinct_summaries_do_not_coalesce(self, tmp_path: Path, monkeypatch) -> None:
+        from ai_engineering.state.observability import emit_framework_error
+
+        _write_manifest(tmp_path)
+        monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+        for i in range(3):
+            emit_framework_error(
+                tmp_path,
+                engine="ai_engineering",
+                component="pip.storm",
+                error_code="hook_execution_failed",
+                summary=f"distinct-{i}",
+                session_id="sess-1",
+            )
+        errors = [e for e in self._events(tmp_path) if e.get("kind") == "framework_error"]
+        assert len(errors) == 3
+
+    def test_coalescer_failure_fails_open_and_still_emits(
+        self, tmp_path: Path, monkeypatch
+    ) -> None:
+        """A raising ``record_error`` must not drop the event (``_coalesce_framework_error``).
+
+        The coalescer is a best-effort optimization; if it blows up the full
+        framework_error must still land in the audit chain (fail-open verdict
+        ``emit_full=True``).
+        """
+        from ai_engineering.state import error_coalesce
+        from ai_engineering.state.observability import emit_framework_error
+
+        _write_manifest(tmp_path)
+
+        def _boom(*_args: object, **_kwargs: object) -> dict:
+            raise RuntimeError("simulated coalescer failure")
+
+        monkeypatch.setattr(error_coalesce, "record_error", _boom)
+
+        emit_framework_error(
+            tmp_path,
+            engine="ai_engineering",
+            component="pip.storm",
+            error_code="hook_execution_failed",
+            summary="boom",
+            session_id="sess-1",
+        )
+
+        errors = [e for e in self._events(tmp_path) if e.get("kind") == "framework_error"]
+        assert len(errors) == 1
+        assert errors[0]["detail"]["error_code"] == "hook_execution_failed"

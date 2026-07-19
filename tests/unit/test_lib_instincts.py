@@ -168,6 +168,74 @@ class TestDeriveOutcome:
     def test_unknown_without_tool_name(self) -> None:
         assert instincts._derive_outcome({}) == "unknown"
 
+    def test_tool_response_dict_is_error_means_failure(self) -> None:
+        # A real tool failure envelope: is_error is truthy even though
+        # tool_name is set (which would otherwise fall through to success).
+        assert (
+            instincts._derive_outcome(
+                {
+                    "tool_name": "Bash",
+                    "tool_response": {"is_error": True, "stderr": "boom"},
+                }
+            )
+            == "failure"
+        )
+
+    def test_tool_response_explicit_error_field_means_failure(self) -> None:
+        # An explicit structured error field is authoritative.
+        assert (
+            instincts._derive_outcome({"tool_name": "Read", "tool_response": {"error": "ENOENT"}})
+            == "failure"
+        )
+
+    # spec-190 remediation (FINDING 1/2): authoritative-signal-only. A genuine
+    # success whose free-form tool_response text merely CONTAINS an error word
+    # must stay "success" — never substring-scan free-form stdout / file content.
+    def test_tool_response_free_form_error_word_stays_success(self) -> None:
+        assert (
+            instincts._derive_outcome(
+                {"tool_name": "Read", "tool_response": {"stdout": "error handling done"}}
+            )
+            == "success"
+        )
+
+    def test_tool_response_is_error_false_is_authoritative_success(self) -> None:
+        assert (
+            instincts._derive_outcome(
+                {
+                    "tool_name": "Bash",
+                    "tool_response": {"is_error": False, "stdout": "1 error suppressed"},
+                }
+            )
+            == "success"
+        )
+
+    def test_tool_response_plain_string_error_word_stays_success(self) -> None:
+        assert (
+            instincts._derive_outcome(
+                {"tool_name": "Read", "tool_response": "raise ValueError on failed timeout"}
+            )
+            == "success"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 4b. _build_observation_detail surfaces tool_response text
+# ---------------------------------------------------------------------------
+
+
+class TestBuildObservationDetailToolResponse:
+    def test_tool_response_text_reaches_output_summary(self) -> None:
+        detail = instincts._build_observation_detail(
+            {
+                "tool_name": "Bash",
+                "tool_response": {"is_error": True, "stderr": "boom happened"},
+            },
+            hook_event="PostToolUse",
+        )
+        assert "boom happened" in detail["output_summary"]
+        assert detail["error_flag"] is True
+
 
 # ---------------------------------------------------------------------------
 # 5. _sanitize_text truncates at 160 chars and redacts secrets

@@ -226,7 +226,68 @@ def test_get_session_id_from_antigravity_env(hc, monkeypatch: pytest.MonkeyPatch
 def test_get_session_id_returns_none_when_unset(hc, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(_isolated_root(monkeypatch)))
     assert hc.get_session_id() is None
+
+
+def _isolated_root(monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A throwaway dir with a marker but no session pointer (D-190-01 part 2)."""
+    import tempfile
+
+    root = Path(tempfile.mkdtemp())
+    (root / ".ai-engineering" / "state" / "runtime").mkdir(parents=True, exist_ok=True)
+    return root
+
+
+def test_get_session_id_from_pointer_when_env_unset(
+    hc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-190-01 part 2: pointer file is the durable fallback when env is unset."""
+    monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
+    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "session-pointer.json").write_text(
+        json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert hc.get_session_id() == "sess-pointer"
+
+
+def test_get_session_id_prefers_env_over_pointer(
+    hc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Env var wins over the persisted pointer when both are present."""
+    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "session-pointer.json").write_text(
+        json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    monkeypatch.setenv("CLAUDE_SESSION_ID", "sess-env")
+    monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
+    assert hc.get_session_id() == "sess-env"
+
+
+def test_get_session_id_prefers_current_over_pointer(
+    hc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """FINDING 3: the current invocation's own session id wins over the shared
+    pointer, so concurrent sessions on one worktree are not misattributed.
+
+    Two different sessions are 'active': the persisted pointer belongs to
+    ``sess-pointer`` (whoever started the shared worktree last), but the
+    current invocation carries ``sess-current`` from its own stdin/ctx.
+    """
+    monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
+    monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
+    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime.mkdir(parents=True, exist_ok=True)
+    (runtime / "session-pointer.json").write_text(
+        json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"
+    )
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
+    assert hc.get_session_id(current="sess-current") == "sess-current"
 
 
 # ---------------------------------------------------------------------------
@@ -267,3 +328,81 @@ def test_validate_event_schema_rejects_bad_engine(hc) -> None:
         "detail": {},
     }
     assert hc.validate_event_schema(event) is False
+
+
+# ---------------------------------------------------------------------------
+# spec-190 D-190-02: error / integrity storm coalescing
+# ---------------------------------------------------------------------------
+
+_HOOKS_DIR = HOOK_COMMON_PATH.parent.parent
+if str(_HOOKS_DIR) not in sys.path:
+    sys.path.insert(0, str(_HOOKS_DIR))
+
+
+def _framework_errors(project_root: Path) -> list[dict]:
+    path = project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
+    if not path.exists():
+        return []
+    events = [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    return [e for e in events if e.get("kind") == "framework_error"]
+
+
+def _storm_controls(project_root: Path) -> list[dict]:
+    path = project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
+    if not path.exists():
+        return []
+    events = [
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
+    ]
+    return [
+        e
+        for e in events
+        if e.get("kind") == "control_outcome"
+        and e.get("detail", {}).get("control") == "framework_error_storm"
+    ]
+
+
+def test_hook_error_emits_coalesce(hc, project_root: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project_root))
+    monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+    exc = RuntimeError("identical boom")
+    for _ in range(5):
+        hc._emit_hook_error(component="hook.x", hook_kind="stop", exc=exc)
+
+    errors = _framework_errors(project_root)
+    # 1 full + 1 rollup out of 5 identical crashes.
+    assert len(errors) == 2
+    rollup = errors[-1]
+    assert rollup["detail"].get("occurrences") == 5
+
+
+def test_hook_error_raises_storm_control(
+    hc, project_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project_root))
+    monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+    exc = RuntimeError("identical boom")
+    for _ in range(12):
+        hc._emit_hook_error(component="hook.x", hook_kind="stop", exc=exc)
+
+    controls = _storm_controls(project_root)
+    assert len(controls) == 1
+    assert controls[0]["detail"]["error_code"] == "hook_execution_failed"
+    assert controls[0]["detail"]["occurrences"] >= 5
+
+
+def test_integrity_violation_coalesces(
+    hc, project_root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(project_root))
+    monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "5")
+    for _ in range(5):
+        hc._emit_integrity_violation(
+            component="hook.x", hook_kind="stop", reason="sha mismatch", mode="enforce"
+        )
+    errors = _framework_errors(project_root)
+    integrity = [e for e in errors if e["detail"].get("error_code") == "hook_integrity_violation"]
+    assert len(integrity) == 2
+    assert integrity[-1]["detail"].get("occurrences") == 5

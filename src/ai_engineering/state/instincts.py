@@ -331,6 +331,20 @@ def _derive_outcome(data: dict[str, Any]) -> str:
     result = _coerce_text(data.get("result") or data.get("tool_result"))
     if result and any(token in result.lower() for token in _ERROR_HINTS):
         return "failure"
+    tool_response = data.get("tool_response")
+    if tool_response is not None:
+        response_mapping = _coerce_mapping(tool_response)
+        # spec-190 (FINDING 1): authoritative-signal-only. NEVER substring-scan
+        # free-form stdout / file content of tool_response — a successful
+        # Read/Grep/Bash whose output merely contains an error word must stay
+        # "success". ``is_error`` is authoritative in BOTH directions (an
+        # explicit False is a success, not a fall-through); a truthy structured
+        # error field also marks failure.
+        if "is_error" in response_mapping:
+            return "failure" if response_mapping.get("is_error") else "success"
+        for key in ("error", "errorType", "interrupted"):
+            if response_mapping.get(key):
+                return "failure"
     return "success" if data.get("tool_name") else "unknown"
 
 
@@ -344,7 +358,9 @@ def _build_observation_detail(data: dict[str, Any], *, hook_event: str) -> dict[
     detail: dict[str, Any] = {
         "hook_event": hook_event,
         "input_summary": _summarize_mapping(tool_input, keys=_INPUT_KEYS),
-        "output_summary": _sanitize_text(_coerce_text(tool_output or data.get("error"))),
+        "output_summary": _sanitize_text(
+            _coerce_text(tool_output or data.get("tool_response") or data.get("error"))
+        ),
         "error_flag": _derive_outcome(data) == "failure",
     }
     if file_path := tool_input.get("file_path"):

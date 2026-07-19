@@ -230,3 +230,40 @@ def test_finalize_warns_when_check_subprocess_raises(
     assert "verification failed to run" in captured.err, (
         f"expected verification fail-open warning in stderr; got: {captured.err!r}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Test 7 — spec-190: VERSION pin write raises OSError -> swallowed, no abort
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_finalize_swallows_version_write_oserror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """spec-190 D-190-01: an unwritable ``runtime/VERSION`` must fail-open.
+
+    The framework-version pin is best-effort; an OSError writing it must be
+    swallowed (``except OSError: pass``) so the install/update never aborts.
+    Only the ``VERSION`` write is forced to fail — the regen path is untouched.
+    """
+    scripts_dir = tmp_path / ".ai-engineering" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "regenerate-hooks-manifest.py").write_text(
+        "import sys\nsys.exit(0)\n", encoding="utf-8"
+    )
+
+    version_file = tmp_path / ".ai-engineering" / "state" / "runtime" / "VERSION"
+    real_write_text = Path.write_text
+
+    def _guarded_write_text(self: Path, *args: object, **kwargs: object) -> int:
+        if self.name == "VERSION":
+            raise OSError("simulated version write failure")
+        return real_write_text(self, *args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(Path, "write_text", _guarded_write_text)
+
+    # Must not raise even though the VERSION write fails.
+    _finalize_hooks_manifest(tmp_path)
+
+    assert not version_file.exists(), "VERSION must not exist after a swallowed write failure"

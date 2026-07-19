@@ -4,17 +4,78 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import stat
 import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 from ai_engineering.state.io import read_ndjson_entries
 from ai_engineering.state.models import FrameworkEvent, InstinctObservation
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOKS_ROOT = REPO_ROOT / ".ai-engineering" / "scripts" / "hooks"
+SETTINGS_PATH = REPO_ROOT / ".claude" / "settings.json"
+
+# Regex over a wired hook `command` string. The command wraps the real hook in
+# run-hook.sh: `bash "$CLAUDE_PROJECT_DIR/.../run-hook.sh" "$CLAUDE_PROJECT_DIR/.../<hook>.py"`.
+# The LAST $CLAUDE_PROJECT_DIR match is the actual hook target (the first is the
+# run-hook.sh wrapper).
+_PROJECT_DIR_TARGET_RE = re.compile(r"\$CLAUDE_PROJECT_DIR/([^\"\s]+)")
+
+# Minimal valid stdin envelope per hook event. Enough to drive each wired hook
+# past its input parsing without a crash; PreToolUse/PostToolUse carry a tool
+# name + input/response, UserPromptSubmit a prompt, the rest are minimal.
+_EVENT_ENVELOPES: dict[str, dict[str, object]] = {
+    "UserPromptSubmit": {"prompt": "/ai-brainstorm"},
+    "PreToolUse": {"tool_name": "Bash", "tool_input": {"command": "echo hello"}},
+    "PostToolUse": {
+        "tool_name": "Bash",
+        "tool_input": {"command": "echo hello"},
+        "tool_response": {"text": "hello"},
+    },
+    "PostToolUseFailure": {
+        "tool_name": "mcp__demo__ping",
+        "tool_input": {},
+        "tool_response": {},
+    },
+    "Stop": {},
+    "PreCompact": {},
+    "PostCompact": {},
+    "SessionStart": {},
+    "SubagentStop": {},
+    "Notification": {},
+    "SessionEnd": {},
+}
+
+
+def _last_project_dir_target(command: str) -> str | None:
+    matches = _PROJECT_DIR_TARGET_RE.findall(command)
+    if not matches:
+        return None
+    return matches[-1]
+
+
+def _wired_python_hooks() -> list[tuple[str, str]]:
+    """Enumerate every (event, relative-script-path) Python hook from settings.json."""
+    data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    pairs: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for event, matchers in data.get("hooks", {}).items():
+        for matcher in matchers:
+            for hook in matcher.get("hooks", []):
+                rel = _last_project_dir_target(hook.get("command", ""))
+                if rel is None or not rel.endswith(".py"):
+                    continue
+                key = (event, rel)
+                if key in seen:
+                    continue
+                seen.add(key)
+                pairs.append(key)
+    return pairs
 
 
 def _project_runtime_path(project_root: Path) -> Path:
@@ -50,38 +111,15 @@ def _copilot_env(project_root: Path, tmp_path: Path, **extra: str) -> dict[str, 
 
 
 def _prepare_project(tmp_path: Path) -> Path:
+    # Copy the WHOLE hooks tree (every wired hook + its _lib deps) so any
+    # settings.json-wired hook can be smoke-tested, not just a hand-picked
+    # subset (spec-190 D-190-05).
     hooks_dir = tmp_path / ".ai-engineering" / "scripts" / "hooks"
-    hooks_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copytree(HOOKS_ROOT / "_lib", hooks_dir / "_lib")
-
-    for script_name in (
-        "telemetry-skill.py",
-        "observe.py",
-        "instinct-observe.py",
-        "instinct-extract.py",
-        "prompt-injection-guard.py",
-        "strategic-compact.py",
-        "auto-format.py",
-        "mcp-health.py",
-        "copilot-adapter.py",
-        "copilot-skill.sh",
-        "copilot-skill.ps1",
-        "copilot-agent.sh",
-        "copilot-agent.ps1",
-        "copilot-error.sh",
-        "copilot-error.ps1",
-        "copilot-mcp-health.sh",
-        "copilot-mcp-health.ps1",
-        "copilot-injection-guard.sh",
-        "copilot-injection-guard.ps1",
-        "copilot-instinct-observe.sh",
-        "copilot-instinct-observe.ps1",
-        "copilot-instinct-extract.sh",
-        "copilot-instinct-extract.ps1",
-    ):
-        target = hooks_dir / script_name
-        shutil.copy2(HOOKS_ROOT / script_name, target)
-        target.chmod(target.stat().st_mode | stat.S_IXUSR)
+    hooks_dir.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(HOOKS_ROOT, hooks_dir)
+    for path in hooks_dir.rglob("*"):
+        if path.is_file():
+            path.chmod(path.stat().st_mode | stat.S_IXUSR)
 
     if os.name == "nt":
         subprocess.run(
@@ -557,6 +595,56 @@ class TestCopilotHookEmitters:
         assert result.returncode == 0
 
 
+class TestWiredHookSmoke:
+    """Subprocess-execute every hook wired in .claude/settings.json against a
+    synthetic per-event envelope, asserting no crash (spec-190 D-190-05).
+
+    This closes the gap that let a crashing hook ship undetected for six weeks:
+    prior coverage only exercised a hand-picked ~9-script subset, so the
+    runtime-*/memory-* hooks were never smoke-tested. Each wired .py target is
+    invoked DIRECTLY (not through run-hook.sh) so hooks-manifest integrity exits
+    in the throwaway project cannot mask a real crash.
+    """
+
+    @pytest.mark.parametrize(
+        ("event", "rel"),
+        _wired_python_hooks(),
+        ids=[f"{event}:{Path(rel).name}" for event, rel in _wired_python_hooks()],
+    )
+    def test_wired_hook_runs_without_crash(self, event: str, rel: str, tmp_path: Path) -> None:
+        project_root = _prepare_project(tmp_path)
+        script = project_root / rel
+        assert script.exists(), f"wired hook not copied into project: {rel}"
+
+        env = os.environ | {
+            "CLAUDE_PROJECT_DIR": str(project_root),
+            "CLAUDE_SESSION_ID": "smoke-session",
+            "CLAUDE_HOOK_EVENT_NAME": event,
+            "PYTHONPATH": str(REPO_ROOT / "src"),
+            "HOME": str(project_root),
+        }
+
+        result = subprocess.run(
+            [sys.executable, str(script)],
+            input=json.dumps(_EVENT_ENVELOPES[event]),
+            text=True,
+            capture_output=True,
+            cwd=project_root,
+            env=env,
+            check=False,
+            # memory-session-start.py and other fail-open hooks may spawn a
+            # bounded (~4s) subprocess; allow generous headroom.
+            timeout=60,
+        )
+
+        assert result.returncode == 0, (
+            f"{rel} on {event} exited {result.returncode}\nstderr:\n{result.stderr}"
+        )
+        assert "Traceback (most recent call last)" not in result.stderr, (
+            f"{rel} on {event} raised an unhandled exception:\n{result.stderr}"
+        )
+
+
 class TestCodexHookEmitters:
     def test_pre_tool_use_allow_is_silent_for_codex(self, tmp_path: Path) -> None:
         project_root = _prepare_project(tmp_path)
@@ -649,3 +737,50 @@ class TestCodexHookEmitters:
 
         assert result.returncode == 0
         assert result.stdout == ""
+
+
+# 11 canonical hook events (CLAUDE.md §"Hooks Configuration"; spec-122-d D-122-27).
+_CANONICAL_HOOK_EVENTS = frozenset(
+    {
+        "UserPromptSubmit",
+        "PreToolUse",
+        "PostToolUse",
+        "PostToolUseFailure",
+        "Stop",
+        "PreCompact",
+        "PostCompact",
+        "SessionStart",
+        "SubagentStop",
+        "Notification",
+        "SessionEnd",
+    }
+)
+
+
+def test_wired_python_hook_enumeration_is_non_empty_and_complete() -> None:
+    """FINDING 4: fail loudly if the smoke harness enumeration ever green-skips.
+
+    ``TestWiredHookSmoke`` is parametrized over ``_wired_python_hooks()``; if that
+    enumeration ever returns empty (a settings.json parse regression) the
+    parametrized test would collect zero cases and pass vacuously. Derive the
+    expected wired-.py pairs from the SAME settings.json parse (no brittle
+    hardcoded count) and assert the enumeration is non-empty, matches, and
+    represents all 11 canonical hook events.
+    """
+    data = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
+    expected: set[tuple[str, str]] = set()
+    for event, matchers in data.get("hooks", {}).items():
+        for matcher in matchers:
+            for hook in matcher.get("hooks", []):
+                rel = _last_project_dir_target(hook.get("command", ""))
+                if rel is None or not rel.endswith(".py"):
+                    continue
+                expected.add((event, rel))
+
+    enumerated = set(_wired_python_hooks())
+    assert enumerated, "wired python hook enumeration must not be empty"
+    assert len(_wired_python_hooks()) >= len(expected)
+    assert enumerated == expected
+    events_present = {event for event, _ in enumerated}
+    missing = _CANONICAL_HOOK_EVENTS - events_present
+    assert not missing, f"canonical events missing a wired .py hook: {sorted(missing)}"

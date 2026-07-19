@@ -225,6 +225,21 @@ skillAgentPreferences:
         assert obs is not None
         assert obs.outcome == "failure"
 
+    def test_derive_outcome_failure_from_tool_response(self, tmp_path: Path) -> None:
+        _seed_manifest(tmp_path)
+        obs = append_instinct_observation(
+            tmp_path,
+            engine="claude_code",
+            hook_event="PostToolUse",
+            session_id="session-resp-err",
+            data={
+                "tool_name": "Bash",
+                "tool_response": {"is_error": True, "stderr": "boom"},
+            },
+        )
+        assert obs is not None
+        assert obs.outcome == "failure"
+
     def test_coerce_text_with_list_and_dict_without_output_keys(self, tmp_path: Path) -> None:
         from ai_engineering.state.instincts import _coerce_text
 
@@ -445,3 +460,59 @@ def test_spec176_corpus_writer_emits_literal_unicode_and_is_idempotent(tmp_path:
     before = st.instincts_path(tmp_path).read_bytes()
     st.save_instincts_document(tmp_path, st.load_instincts_document(tmp_path))
     assert st.instincts_path(tmp_path).read_bytes() == before  # idempotent, no churn
+
+
+class TestDeriveOutcomeAuthoritativeSignalOnly:
+    """spec-190 remediation (FINDING 1/2): pip-twin parity for authoritative-only
+    outcome classification. A genuine success must never flip to "failure" just
+    because free-form tool_response text contains an error word.
+    """
+
+    def test_is_error_true_is_failure(self) -> None:
+        import ai_engineering.state.instincts as st
+
+        assert (
+            st._derive_outcome({"tool_name": "Bash", "tool_response": {"is_error": True}})
+            == "failure"
+        )
+
+    def test_explicit_error_field_is_failure(self) -> None:
+        import ai_engineering.state.instincts as st
+
+        assert (
+            st._derive_outcome({"tool_name": "Read", "tool_response": {"error": "ENOENT"}})
+            == "failure"
+        )
+
+    def test_free_form_error_word_stays_success(self) -> None:
+        import ai_engineering.state.instincts as st
+
+        assert (
+            st._derive_outcome(
+                {"tool_name": "Read", "tool_response": {"stdout": "error handling done"}}
+            )
+            == "success"
+        )
+
+    def test_is_error_false_is_authoritative_success(self) -> None:
+        import ai_engineering.state.instincts as st
+
+        assert (
+            st._derive_outcome(
+                {
+                    "tool_name": "Bash",
+                    "tool_response": {"is_error": False, "stdout": "1 error suppressed"},
+                }
+            )
+            == "success"
+        )
+
+    def test_plain_string_error_word_stays_success(self) -> None:
+        import ai_engineering.state.instincts as st
+
+        assert (
+            st._derive_outcome(
+                {"tool_name": "Read", "tool_response": "raise ValueError on failed timeout"}
+            )
+            == "success"
+        )

@@ -732,6 +732,17 @@ def _finalize_hooks_manifest(root: Path) -> None:
     clean write whose manifest still mismatches the bytes is the exact
     silent state that disabled hooks in fresh installs.
     """
+    # spec-190 D-190-01: pin the framework version for hook-lib event
+    # stamping. The stdlib hook builder reads this file first (before the
+    # importlib.metadata fallback) so events carry the installed version
+    # even in checkouts where the package is not importable. Fail-open.
+    version_file = root / ".ai-engineering" / "state" / "runtime" / "VERSION"
+    try:
+        version_file.parent.mkdir(parents=True, exist_ok=True)
+        version_file.write_text(f"{__version__}\n", encoding="utf-8")
+    except OSError:
+        pass
+
     regen = root / ".ai-engineering" / "scripts" / "regenerate-hooks-manifest.py"
     if not regen.is_file():
         _warn_hooks_unpinned(root, f"{regen} is missing")

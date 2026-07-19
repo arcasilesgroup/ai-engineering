@@ -49,7 +49,7 @@ def _specs_dir(root: Path) -> Path:
     return resolve_active_work_plane(root).specs_dir
 
 
-def _emit_signal(root: Path, event: str, detail: dict) -> None:
+def _emit_signal(root: Path, event: str, detail: dict, outcome: str = "success") -> None:
     """Emit a framework operation event if observability is available."""
     with suppress(OSError):
         emit_framework_operation(
@@ -57,6 +57,7 @@ def _emit_signal(root: Path, event: str, detail: dict) -> None:
             operation=event,
             component="cli.spec",
             source="cli",
+            outcome=outcome,
             metadata=detail,
         )
 
@@ -285,6 +286,7 @@ def spec_verify(
                 "completed": real_completed,
                 "drift_detected": drift_detected,
             },
+            outcome="success" if corrected else "failure",
         )
 
 

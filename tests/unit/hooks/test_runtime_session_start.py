@@ -123,6 +123,43 @@ def test_non_session_event_passes_through(
     )
 
 
+def test_session_start_persists_session_pointer(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """D-190-01 part 2: SessionStart writes a durable session-pointer.json."""
+    ctx = _make_ctx(
+        project,
+        data={"hook_event_name": "SessionStart", "session_id": "sess-DURABLE"},
+    )
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    pointer_path = project / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
+    assert pointer_path.exists(), "session-pointer.json should be written at SessionStart"
+    payload = json.loads(pointer_path.read_text(encoding="utf-8"))
+    assert payload.get("session_id") == "sess-DURABLE"
+    # FINDING 3: the pointer is stamped with {session_id, pid, ts} so an
+    # operator can tell which process last claimed a shared-worktree pointer.
+    assert isinstance(payload.get("pid"), int)
+    assert isinstance(payload.get("ts"), str) and payload["ts"]
+
+
+def test_no_pointer_written_when_session_id_absent(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A missing session_id must not persist a null pointer."""
+    ctx = _make_ctx(project, data={"hook_event_name": "SessionStart"})
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    pointer_path = project / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
+    assert not pointer_path.exists()
+
+
 def test_instincts_count_logged_when_available(
     hookmod, project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -153,3 +190,46 @@ def test_instincts_count_logged_when_available(
     assert matching, "expected session_started event"
     detail = matching[-1]["detail"]
     assert detail.get("instincts_count") == 3
+
+
+# ---------------------------------------------------------------------------
+# spec-190 D-190-02: SessionStart storm banner
+# ---------------------------------------------------------------------------
+
+
+def _seed_storm(project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from _lib.runtime_state import error_fingerprint, record_error
+
+    monkeypatch.setenv("AIENG_ERROR_STORM_THRESHOLD", "3")
+    fp = error_fingerprint("hook.x", "hook_integrity_violation", None, "sha mismatch")
+    for _ in range(3):
+        record_error(project, fp, component="hook.x", error_code="hook_integrity_violation")
+
+
+def test_session_start_prints_storm_banner(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    _seed_storm(project, monkeypatch)
+    ctx = _make_ctx(project, data={"hook_event_name": "SessionStart", "session_id": "s"})
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    out = capsys.readouterr().out
+    assert "error-storm" in out
+    assert "hook.x" in out
+    assert "hook_integrity_violation" in out
+
+
+def test_session_start_no_banner_when_clean(
+    hookmod, project: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    ctx = _make_ctx(project, data={"hook_event_name": "SessionStart", "session_id": "s"})
+    monkeypatch.setattr(hookmod, "get_hook_context", lambda: ctx)
+    monkeypatch.setattr(hookmod, "passthrough_stdin", lambda _data: None)
+
+    hookmod.main()
+
+    out = capsys.readouterr().out
+    assert "error-storm" not in out
