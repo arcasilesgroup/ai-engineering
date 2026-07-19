@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-07-19T11:34:52.400094+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "observability-integrity",
+  "spec_id": "spec-190",
+  "state": "approved",
+  "title": "Observability Integrity: attributable, deduplicated, fail-loud framework telemetry"
+}
