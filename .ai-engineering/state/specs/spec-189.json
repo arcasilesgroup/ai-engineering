@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "feat/spec-189-open-model-portability",
   "created": "2026-07-19T03:36:37.234218+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "644",
+  "shipped": "2026-07-19T10:47:19.339093+00:00",
   "slug": "open-model-portability",
   "spec_id": "spec-189",
-  "state": "approved",
+  "state": "shipped",
   "title": "Open-Model Portability"
 }

@@ -193,5 +193,6 @@ Completed specs. Details in git history.
 | spec-186 | Client-Value Lens — Stakeholder-Legible Communication for the Skill Chain | shipped | 2026-07-18 | 2026-07-18 | 640 | spec-186/client-value-comms-lens |
 | spec-187 | Fleet Audit — Simplify + Model-Portability | shipped | 2026-07-18 | 2026-07-18 | 641 | spec-187/fleet-simplify-portability |
 | spec-188 | Skill-Map (sm) Signal Recovery | shipped | 2026-07-18 | 2026-07-19 | 643 | chore/skillmap-signal-recovery |
+| spec-189 | Open-Model Portability | shipped | 2026-07-19 | 2026-07-19 | 644 | feat/spec-189-open-model-portability |
 
 ---
