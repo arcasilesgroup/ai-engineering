@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "chore/skillmap-signal-recovery",
   "created": "2026-07-18T23:39:31.655052+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "643",
+  "shipped": "2026-07-19T00:30:55.873526+00:00",
   "slug": "skillmap-signal-recovery",
   "spec_id": "spec-188",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Skill-Map (sm) Signal Recovery"
 }
