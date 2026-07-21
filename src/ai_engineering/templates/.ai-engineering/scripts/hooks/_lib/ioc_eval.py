@@ -577,11 +577,7 @@ def _load_allowlist(
         if isinstance(domains, list)
         else frozenset()
     )
-    allow_paths = (
-        tuple(p for p in paths if isinstance(p, str))
-        if isinstance(paths, list)
-        else ()
-    )
+    allow_paths = tuple(p for p in paths if isinstance(p, str)) if isinstance(paths, list) else ()
     return allow_domains, allow_paths
 
 
@@ -599,13 +595,11 @@ def _is_allowlisted(
     ``allowlist.paths`` entry, is dropped before adjudication — no ``deny`` and
     no risk accumulation.
     """
-    if kind == "host" and pattern.lower() in allow_domains:
-        return True
-    if category == "sensitive_paths" and allow_paths and any(
-        pattern.startswith(p) for p in allow_paths
-    ):
-        return True
-    return False
+    return (kind == "host" and pattern.lower() in allow_domains) or (
+        category == "sensitive_paths"
+        and allow_paths
+        and any(pattern.startswith(p) for p in allow_paths)
+    )
 
 
 def evaluate_against_iocs(
