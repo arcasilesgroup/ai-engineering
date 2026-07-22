@@ -1,153 +1,124 @@
 ---
-spec: spec-191
-title: "Injection Guard: read-side coverage + risk-accumulator precision"
-status: approved
-effort: large
-summary: "Close the guard's read-side blind spot (PostToolUse scan of fetched web/file content, warn + flag-untrusted, no block) and wire the dead allowlist so known-good hosts/paths stop driving false-positive deny/risk. Two verified-live gaps; four already-fixed items fenced out."
+spec: spec-192
+slug: telemetry-followup
+title: "Telemetry deck follow-up — 5 deferred gaps"
+summary: "5 surgical telemetry fixes: instinct-observe dedup, mandatory verify gate, ruff --fix pre-ralph, risk accumulator precision, auto re-pin manifest"
+status: in-progress
+date: 2026-07-22
+concerns: 5
+route: /ai-build
+effort: medium
 ---
 
-Run /ai-brainstorm to start one.
-# Injection Guard: read-side coverage + risk-accumulator precision
+# spec-192 — Telemetry deck follow-up
 
 ## Summary
 
-The Prompt-Injection Guard (`prompt-injection-guard.py`, PreToolUse) only inspects
-**tool inputs** for Bash/Write/Edit/MultiEdit. Content that arrives back *from* a tool —
-a `Read` of a fetched file, a `WebFetch`/`WebSearch` result, or `exa`/`tavily` MCP output —
-is delivered into context with **zero inspection**, so an injected instruction or malicious
-domain embedded in fetched content has no guard coverage at all. Separately, the guard's IOC
-layer carries a dead `allowlist` block in `iocs.json` (`allowlist.domains` /
-`allowlist.paths`) that it never consults, so a legitimate citation of `github.com`,
-`raw.githubusercontent.com`, or a `pastebin_style` host in fetched content drives a `deny` /
-risk escalation. Both are verified-live findings from the fleet telemetry deck (claude.ai
-artifact 216ac1f9), ground-truthed against current `main` on 2026-07-21. This spec closes the
-read-side gap (warn + flag-untrusted, never block) and wires the allowlist for precision.
-Four other B2 sub-claims were already fixed in `main` and are fenced under Non-Goals.
+Five surgical fixes deferred from the telemetry deck analysis (19 jul 2026).
+All are low-to-medium effort with high signal-to-noise ratio. No new subsystems —
+each item touches 1–3 files and has a clear acceptance criterion.
 
 ## Goals
 
-- A `PostToolUse` read-side scan inspects `tool_response` for the external-content tools
-  `Read`, `WebFetch`, `WebSearch`, and the `exa`/`tavily` MCP tools, evaluating the fetched
-  text against the IOC catalog (host/domain/TLD + suspicious patterns) and the
-  prompt-injection phrase set.
-- On a read-side match the hook **does not block** (the content is already in context) — it
-  emits a `content_untrusted` `control_outcome` (`outcome=warning`) plus a visible
-  `additionalContext` banner so the operator/agent treats the content cautiously ("flag as
-  untrusted").
-- Known-good hosts in `iocs.json` `allowlist.domains` (e.g. `api.anthropic.com`,
-  `github.com`, `raw.githubusercontent.com`, `pypi.org`) and paths in `allowlist.paths`
-  (`/tmp/`, `/var/tmp/`) no longer produce a `deny` verdict or accumulate risk score.
-- The IOC evaluation core shared by the write-side and read-side guards lives in one module
-  (no duplicated logic, no hidden drift).
-- Every change holds the framework's own invariants: byte-twin parity, regenerated
-  hooks-manifest, stdlib-only hot path, additive-only telemetry.
+1. **Cut 65% of hook cost** — remove instinct-observe from PreToolUse (keep PostToolUse only).
+2. **Close the 48% verify gap** — ai-build auto-dispatches ai-verify; ai-pr gates on prior verify.
+3. **Eliminate wasted retries** — run `ruff --fix` before ralph consumes retries on lint findings.
+4. **Reduce false-positive blocks** — risk accumulator per-command score floor + faster decay.
+5. **Eliminate integrity drift at source** — auto re-pin manifest sha on update/install/dev-sync.
 
 ## Non-Goals
 
-- Re-tightening the host-IOC boundary regex so a short TLD no longer matches a benign dotted
-  identifier / member access. **Already shipped** in spec-177 (PR #603, 2026-06-25) — the
-  regex is boundary-anchored (`(?i)[A-Za-z0-9-]+\.{tld}(?![A-Za-z0-9-])`), so the gap is
-  closed. Do not reopen.
-- Replacing the risk-accumulator's TTL decay. Decay (`DECAY_PER_MINUTE = 0.95`, ~13.5 min
-  half-life) has been present since spec-128/129 and is correct; this spec is *precision*
-  (the dead allowlist), not a decay rewrite.
-- Blocking read-side results. `PostToolUse` fires after the content is delivered to context;
-  Claude Code offers no deny path there. The fix is warn + flag-untrusted, not block.
-- Extending `PreToolUse` coverage. `Bash`/`Write`/`Edit`/`MultiEdit` are already scanned
-  (spec-105/107); this spec adds the read side only.
-- Removing the cumulative-same-IOC `force_stop` ladder. Decay already mitigates runaway
-  escalation; this spec reduces false positives via the allowlist, not by relaxing `force_stop`.
-- `B3` — running `ruff --fix` before consuming a ralph retry. Separate follow-on spec.
-- Scanning `Agent` sub-agent responses or non-external tools. The external-content list
-  (Read/WebFetch/WebSearch/exa/tavily) is the operator-confirmed scope.
+- Skill consolidation (#12 from deck) — separate spec.
+- Dead install cleanup (#14) — operational, no spec needed.
+- Background runtime-stop / async auto-format (#15) — lower ROI, deferred.
+- Read-side injection coverage (#13) — shipped in spec-191.
+- Intent router for no_ai_prefix (#6) — medium effort, separate spec.
 
 ## Decisions
 
-### D-191-01 — Read-side PostToolUse scan: external content only, warn + flag-untrusted
+### D-192-01 — instinct-observe PostToolUse-only
 
-Add a `PostToolUse` hook (`injection-read-guard.py`) that extracts `tool_response` for the
-external-content tools (`Read`, `WebFetch`, `WebSearch`, `exa`, `tavily`), evaluates it with
-the shared IOC core (host/domain/TLD + suspicious patterns) **and** the prompt-injection
-phrase set, and on any match emits `control_outcome` `category=security`,
-`control=content_untrusted`, `outcome=warning` plus a one-line `additionalContext` banner
-(exit 0). It never exits 2. The Agent tool and non-external tools pass through untouched.
+**Rationale**: The hook is registered in both PreToolUse and PostToolUse, causing
+2× executions per tool call (82,617 total, 65% of all hook wall-clock). Its output
+(instincts) is only consumed at session-start, not mid-turn. PostToolUse captures
+the same tool_response data. Removing PreToolUse registration halves the cost with
+zero behavioral change.
 
-**Rationale**: The guard is write/exec-only today (`_GUARDED_TOOLS` = Bash/Write/Edit/MultiEdit),
-so a malicious domain or an embedded directive payload in a fetched web
-page or file enters context with no inspection — a genuine injection gap, and the highest-value
-security item in the deck. `PostToolUse` cannot deny (content already delivered), so "flag as
-untrusted" is realized as a warn `control_outcome` + visible banner the agent can heed. Scope
-is operator-confirmed to external content: `Bash` output stays under the existing PreToolUse
-command scan, and scanning every tool response would add latency with little signal.
+**Change:** Remove the PreToolUse entry from `.claude/settings.json` (and the
+template mirror). Keep the PostToolUse entry. Update hooks-manifest.
 
-### D-191-02 — Wire the dead `allowlist` into IOC evaluation
+### D-192-02 — mandatory verify — dual gate
 
-Load the `allowlist` block from `iocs.json` once (reusing the existing IOC mtime-LRU cache)
-and consult it inside the shared IOC core: a host/TLD match whose domain is in
-`allowlist.domains`, or a path match rooted at an `allowlist.paths` entry, is marked
-`allowlisted=True` and dropped from the `deny`/`warn` verdict (and never fed to the risk
-accumulator). Absent/malformed allowlist fails open to current behavior (match stands).
+**Rationale**: 48% of builds ship without verify/review. Two complementary gates:
 
-**Rationale**: `allowlist.domains`/`allowlist.paths` exist in `iocs.json` but the guard never
-reads them (grep-confirmed dead across `.ai-engineering/scripts/hooks/`). Consequently a
-legitimate README that cites `raw.githubusercontent.com` or mentions a `pastebin_style` host,
-or a `/tmp/` scratch read, drives a `deny` and risk escalation — exactly the false-positive
-class the telemetry deck flagged under "risk accumulator still escalates". Wiring the allowlist
-is the precision fix the deck asked for; it is additive (a new drop path) and fails open.
+1. **ai-build auto-dispatch:** At the end of a successful build phase, ai-build
+   dispatches ai-verify automatically (like ai-autopilot already does). This covers
+   the manual `ai-build` path.
+2. **ai-pr gate:** ai-pr checks for a verify outcome in the current session or
+   branch. If none found, it runs ai-verify inline before proceeding. This is the
+   safety net for edge cases where ai-build's dispatch was skipped or failed.
 
-### D-191-03 — Extract the IOC core into `_lib/ioc_eval.py` (single source)
+**Change:** Edit ai-build and ai-pr skill definitions. ai-build: add verify
+dispatch in post-build step. ai-pr: add verify-absent check in pre-flight.
 
-Move `evaluate_against_iocs`, `_host_ioc_regex`, `_category_patterns`, and `_match_pattern`
-out of `prompt-injection-guard.py` into `_lib/ioc_eval.py` (byte-twinned to the template),
-and import them from both the write-side guard and the new read-side guard. The move is a
-refactor only — identical logic, identical `finding_id`/telemetry — plus the D-191-02
-allowlist drop.
+### D-192-03 — ruff --fix before ralph retries
 
-**Rationale**: Those four functions live *inside* the write-side hook script, so a second
-read-side hook would either duplicate them (drift risk — the exact 3-copy pain spec-190 hit)
-or import a hook script with `main()` side effects. Extracting to `_lib` gives one source of
-truth with a single byte-twin, and the allowlist wiring lands in exactly one place. The
-risk-accumulator decay is untouched.
+**Rationale**: 31 ralph stops were caused by auto-fixable lint findings (E501,
+UP017). The ralph loop retries the same code 5 times then gives up. Running
+`ruff check --fix` once before the first retry resolves these mechanically.
 
-### D-191-04 — Hold the framework's own invariants
+**Change:** In the ralph convergence loop, after a lint-related finding, run
+`ruff check --quiet --fix .` on the changed files before the next retry. Only
+for lint findings (ruff exit codes), not for test failures or other errors.
 
-The new read-side hook and every guard edit are copied byte-identical to their
-`src/ai_engineering/templates/.ai-engineering/scripts/hooks/**` twins; any hook byte change
-regenerates `.ai-engineering/state/hooks-manifest.json`; hooks stay stdlib-only on the hot
-path with pre-commit under 1s; new telemetry fields are additive.
+### D-192-04 — risk accumulator per-command floor + decay acceleration
 
-**Rationale**: This spec touches the security plane itself; byte-twin parity, manifest
-integrity, and the hot-path budget are the invariants that keep installs from breaking (the
-same class of pain the deck measured). A fix to the guard must not regress the guard's own
-guarantees.
+**Rationale**: The risk accumulator uses session-scoped cumulative scoring with
+0.95/minute decay. Benign IOC matches (CSS classes, PyPI curl, env var names)
+accumulate across a session and can reach block/force_stop thresholds. The
+allowlist from spec-191 helps but doesn't cover all benign patterns.
+
+**Change:**
+- Add a per-command score floor: if the last N commands had 0 findings, decay
+  the score by an additional 50% (floor at 0).
+- Increase base decay from 0.95 to 0.90/min (halves in ~6.6 min instead of
+  ~13.5 min).
+- Scope IOC patterns: require env-var patterns to match exfiltration forms
+  (`curl`, `wget`, `requests.post`, `base64`, pipe-to-shell) rather than bare
+  `os.environ` or `process.env`.
+
+### D-192-05 — auto re-pin manifest on update/install/dev-sync
+
+**Rationale**: 15,368 integrity violations (80.5% of all errors) come from
+stale manifest sha256 hashes. The coalescer from spec-190 deduplicates the noise
+but doesn't fix the root cause. Auto re-pinning eliminates the drift entirely.
+
+**Change:** In `ai-eng update`, `ai-eng install` finalize, and `ai-eng dev sync`,
+after writing hook files, regenerate the manifest (sha256 per hook). This is
+already the behavior of `regenerate-hooks-manifest.py` — wire it into the
+finalize step of each entry point. Add a `--no-repin` flag for explicit override.
 
 ## Risks
 
-- **Read-side latency per fetched result.** Mitigation: reuse the mtime-LRU IOC cache; bound
-  scanned text to `_MAX_CONTENT_LEN`; only external tools; always exit 0 (warn-only, never
-  blocks the host).
-- **New read-side false positives on benign fetched content.** Mitigation: warn-only (no
-  block), the D-191-02 allowlist applies symmetrically, and the scan fails open on parse error.
-- **Extraction changes write-side behavior.** Mitigation: refactor-only (logic identical),
-  byte-twin parity + the existing write-side guard test suite must stay green before the
-  read-side hook is added.
-- **Manifest staleness self-disables hooks** if a twin `cp`/regen is skipped. Mitigation:
-  regen per hook edit + the spec-190 byte-parity guard (now green) + a per-task regen gate.
+- **D-192-01:** If any hook logic depends on PreToolUse instinct data mid-turn,
+  removing it could break. Evidence: 129 session-starts show instincts only from
+  ai-engineering (the dogfood repo), and the hook writes to a file read at
+  session-start, not mid-turn. Low risk.
+- **D-192-02:** Auto-dispatch adds ~1 agent spawn to every build. ai-autopilot
+  already does this successfully. Cost is one extra context window per build.
+- **D-192-03:** `ruff --fix` modifies files in-place. On a dirty working tree this
+  could interact with concurrent edits. Mitigation: only fix files that ruff
+  already flagged (not a full-project fix).
+- **D-192-04:** Faster decay means real findings lose weight sooner. The per-command
+  floor partially compensates. Monitor false-negative rate post-ship.
+- **D-192-05:** Auto re-pin in dev-sync could mask intentional hook edits during
+  development. The `--no-repin` flag provides an escape hatch.
 
 ## References
 
-- doc: claude.ai artifact 216ac1f9 — fleet telemetry analysis (B2 = "guard blind to read-side" + "risk accumulator still escalates" live findings)
-- doc: 16-agent ground-truth (this session, 2026-07-21) — read-side absent, allowlist dead, host-IOC boundary regex already anchored (spec-177), decay present (spec-128/129)
-- doc: `.ai-engineering/scripts/hooks/prompt-injection-guard.py` — `evaluate_against_iocs` :930, `_host_ioc_regex` :813, `_match_pattern` :897, `_GUARDED_TOOLS` :203, `_IOC_CATEGORIES` :210
-- doc: `.ai-engineering/scripts/hooks/_lib/risk_accumulator.py` — `DECAY_PER_MINUTE = 0.95` :91 (decay already present)
-- doc: `.ai-engineering/security/iocs/iocs.json` — `allowlist.domains`/`allowlist.paths` :120-135 (dead config)
-
-## Open Questions
-
-- Should the read-side hook scan **both** the IOC host/domain set **and** the
-  `prompt_injection_phrases` category, or IOC only? (Recommend: both — the phrase set catches
-  instruction-style injection in fetched content, the strongest read-side signal.)
-- Banner verbosity, and whether `content_untrusted` should also persist a per-session
-  "untrusted sources" marker for downstream hooks to read.
-- Should repeated `content_untrusted` on the same source coalesce via the spec-190 dedup
-  sidecar (reuse `framework_error_storm` shape) rather than emit per result?
+- Telemetry deck: `~/Downloads/ai-engineering · Telemetría del framework.html`
+  (19 jul 2026, 234k events, 18 repos, 16 recommendations)
+- pr:646 — spec-190: observability integrity — attributable, deduplicated, fail-loud telemetry
+- pr:648 — spec-191: injection guard read-side coverage + allowlist wiring
+- Risk accumulator: `.ai-engineering/scripts/hooks/_lib/risk_accumulator.py`
+- Convergence loop: `.ai-engineering/scripts/hooks/_lib/convergence.py`

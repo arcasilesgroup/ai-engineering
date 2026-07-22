@@ -87,7 +87,7 @@ def test_threshold_ladder(risk) -> None:
 
 
 def test_decay_on_read(risk, project: Path) -> None:
-    """A score of 20, 30 minutes old, must decay to ~6.96 (= 20 * 0.95**30)."""
+    """A score of 20, 30 minutes old, must decay per DECAY_PER_MINUTE."""
     past = datetime.now(UTC) - timedelta(minutes=30)
     iso = past.strftime("%Y-%m-%dT%H:%M:%SZ")
     payload = {
@@ -100,7 +100,7 @@ def test_decay_on_read(risk, project: Path) -> None:
     _state_path(project).write_text(json.dumps(payload), encoding="utf-8")
 
     state = risk.get(project, session_id="s1")
-    expected = 20.0 * (0.95**30)  # ≈ 6.96
+    expected = 20.0 * (risk.DECAY_PER_MINUTE**30)
     assert abs(state.score - expected) < 0.5, (
         f"decay mismatch: got {state.score}, expected ~{expected}"
     )
@@ -206,3 +206,91 @@ def test_reset_clears_state(risk, project: Path) -> None:
     assert not _state_path(project).exists()
     state = risk.get(project, session_id="s1")
     assert state.score == 0.0
+
+
+# ---------------------------------------------------------------------------
+# T-3.1 RED: accelerated decay + clean bonus (spec-192 Phase 3)
+# These tests will FAIL until the implementation changes in T-3.2.
+# ---------------------------------------------------------------------------
+
+
+def test_decay_rate_is_0_90(risk) -> None:
+    """DECAY_PER_MINUTE must be 0.90 (accelerated from 0.95).
+
+    0.90^minute -> half-life ≈ 6.6 min, forgiving quiet sessions
+    faster than the old 13.5-min half-life.
+    """
+    assert risk.DECAY_PER_MINUTE == 0.90
+
+
+def test_clean_bonus_halves_score(risk, project: Path) -> None:
+    """A score of 20 becomes ~10 after clean bonus.
+
+    The clean bonus is a 0.5x multiplier applied when the session has
+    been clean (no real findings in recent events).  We seed a state
+    file with score 20 and a stale event (no severity), then call
+    get() — the clean bonus should halve the score to ~10.
+    """
+    now = datetime.now(UTC)
+    old_event = now - timedelta(minutes=30)
+    iso_old = old_event.strftime("%Y-%m-%dT%H:%M:%SZ")
+    iso_now = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    payload = {
+        "schemaVersion": "1.0",
+        "session_id": "s1",
+        "score": 20.0,
+        "last_update_ts": iso_now,
+        "events": [
+            {
+                "ts": iso_old,
+                "ioc_id": "ioc-old",
+                "severity": "silent",
+                "score_added": 0.0,
+                "source": "prompt-injection-guard",
+            }
+        ],
+    }
+    _state_path(project).write_text(json.dumps(payload), encoding="utf-8")
+
+    state = risk.get(project, session_id="s1")
+    # 20 * CLEAN_BONUS(0.5) = 10.0  (no decay since last_update_ts=now).
+    assert abs(state.score - 10.0) < 0.1, (
+        f"clean bonus should halve score: got {state.score}, expected ~10.0"
+    )
+
+
+def test_block_threshold_not_reached_after_clean(risk, project: Path) -> None:
+    """A score of 35 (block tier) drops below 30 after clean bonus.
+
+    Clean bonus halves 35 to 17.5, which is in the warn band (< 30),
+    so threshold_action must return ``'warn'`` not ``'block'``.
+    """
+    now = datetime.now(UTC)
+    iso_now = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+    # Event is recent enough to still be in the buffer but old enough
+    # that the clean window considers the session quiet.
+    recent = now - timedelta(minutes=15)
+    iso_recent = recent.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    payload = {
+        "schemaVersion": "1.0",
+        "session_id": "s1",
+        "score": 35.0,
+        "last_update_ts": iso_now,
+        "events": [
+            {
+                "ts": iso_recent,
+                "ioc_id": "ioc-old",
+                "severity": "silent",
+                "score_added": 0.0,
+                "source": "prompt-injection-guard",
+            }
+        ],
+    }
+    _state_path(project).write_text(json.dumps(payload), encoding="utf-8")
+
+    state = risk.get(project, session_id="s1")
+    # 35 * CLEAN_BONUS(0.5) = 17.5 -> below block threshold (30).
+    assert state.score < 30.0, f"clean bonus should push score below block: got {state.score}"
+    assert risk.threshold_action(state.score) == "warn"

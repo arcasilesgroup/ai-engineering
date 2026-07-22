@@ -89,6 +89,11 @@ def dev_sync_cmd(
             catalog_verb = "Updating"
         renderer.action(catalog_verb, catalog.message)
 
+        # spec-192 D-192-05: re-pin hooks-manifest after mirror sync
+        from ai_engineering.cli_commands.core import _finalize_hooks_manifest
+
+        _finalize_hooks_manifest(root)
+
         if catalog.status is CatalogStatus.DRIFT:
             renderer.error(
                 "Capability catalog drift detected",

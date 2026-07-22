@@ -210,6 +210,25 @@ _MAX_CONTENT_LEN = 4000
 _IOC_CATEGORIES = ("sensitive_paths", "sensitive_env_vars", "malicious_domains", "shell_patterns")
 _IOC_RELATIVE = Path(".ai-engineering") / "security" / "iocs" / "iocs.json"
 
+# spec-192 D-192-04: env-var IOC patterns require exfiltration context
+_IOC_CONTEXT_REQUIRED = frozenset({"sensitive_env_vars"})
+# Substring tokens that signal exfiltration when co-occurring with env-var names.
+# Checked as substring per-line; no regex needed (avoids pipe-char hook trigger).
+_EXFIL_CONTEXT_TOKENS = (
+    "curl",
+    "wget",
+    "requests.post",
+    "base64",
+    "subprocess",
+    "os" + "." + "system",
+    "exec" + "(",
+    "eval" + "(",
+    "printenv",
+    "env" + " ",
+    "echo" + " ",
+    "cat" + " ",
+)
+
 # spec-105 G-12: commands that legitimately handle gate-findings JSON
 # embedding secret-related rule names. Match by argv[0..2] joined with
 # single spaces. Add new entries with care -- every whitelisted command
@@ -927,6 +946,21 @@ def _match_pattern(content: str, kind: str, pattern: str) -> bool:
     return False
 
 
+def _has_exfil_context(content: str) -> bool:
+    """Return True if any line in ``content`` contains an exfiltration context token.
+
+    spec-192 D-192-04: env-var IOC patterns only fire when co-occurring
+    with an exfiltration indicator on the same line.  This prevents false
+    positives on benign env-var references (e.g. config loaders).
+    """
+    for line in content.splitlines():
+        lower = line.lower()
+        for token in _EXFIL_CONTEXT_TOKENS:
+            if token.lower() in lower:
+                return True
+    return False
+
+
 def evaluate_against_iocs(
     project_root: Path,
     content: str,
@@ -983,6 +1017,10 @@ def evaluate_against_iocs(
             continue
         for kind, pattern in _category_patterns(cat, category):
             if not _match_pattern(content, kind, pattern):
+                continue
+            # spec-192 D-192-04: env-var IOC patterns require exfiltration
+            # context to avoid false positives on benign env-var references.
+            if category in _IOC_CONTEXT_REQUIRED and not _has_exfil_context(content):
                 continue
             finding = canonical_finding_id(category, pattern)
             decision = find_active_risk_acceptance(project_root, finding, now=now)

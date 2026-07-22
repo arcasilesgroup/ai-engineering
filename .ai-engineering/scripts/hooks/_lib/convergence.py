@@ -143,6 +143,25 @@ def _check_ruff(project_root: Path) -> str | None:
     return f"ruff check: {summary}"
 
 
+def _fix_ruff(project_root: Path) -> bool:
+    """Run ``ruff check --quiet --fix .``; return True on success (rc 0).
+
+    Non-Python projects or missing ``ruff`` binary return False (nothing
+    to fix). A non-zero exit from ``ruff check --fix`` also returns False
+    (unfixable issues remain).
+    """
+    if not _is_python_project(project_root):
+        return False
+    if shutil.which("ruff") is None:
+        return False
+    rc, _stdout, _stderr = _run(
+        ["ruff", "check", "--quiet", "--fix", "."],
+        cwd=project_root,
+        timeout=_TIMEOUT_RUFF_S,
+    )
+    return rc == 0
+
+
 def _check_pytest_collect(project_root: Path) -> str | None:
     """``pytest --collect-only`` to verify the suite imports.
 
@@ -248,7 +267,12 @@ def check_convergence(project_root: Path, *, fast: bool = True) -> ConvergenceRe
     _git_diff_quiet(project_root)
 
     if (msg := _check_ruff(project_root)) is not None:
-        failures.append(msg)
+        # spec-192 D-192-03: auto-fix ruff findings before reporting failure
+        if _fix_ruff(project_root):
+            # Re-check after fix — only keep failure if ruff still complains
+            msg = _check_ruff(project_root)
+        if msg is not None:
+            failures.append(msg)
 
     if (msg := _check_pytest_collect(project_root)) is not None:
         failures.append(msg)
