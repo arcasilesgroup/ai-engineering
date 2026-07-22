@@ -2,6 +2,7 @@
 spec: spec-192
 slug: telemetry-followup
 title: "Telemetry deck follow-up — 5 deferred gaps"
+summary: "5 surgical telemetry fixes: instinct-observe dedup, mandatory verify gate, ruff --fix pre-ralph, risk accumulator precision, auto re-pin manifest"
 status: in-progress
 date: 2026-07-22
 concerns: 5
