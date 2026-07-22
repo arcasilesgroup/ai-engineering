@@ -218,6 +218,15 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
             "writes from concurrent hook invocations."
         ),
     ),
+    HookRuntimeAsset(
+        relative_path=_HOOK_LIB_REL / "ioc_eval.py",
+        runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
+        import_policy=_STDLIB_ONLY,
+        rationale=(
+            "Spec-191 IOC evaluation subsystem extracted from prompt-injection-guard; "
+            "must be importable from standalone hooks before the package is available."
+        ),
+    ),
 )
 
 
