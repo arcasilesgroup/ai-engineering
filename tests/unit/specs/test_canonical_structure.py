@@ -45,11 +45,17 @@ ALLOWED_DIRS = frozenset({"archive", "drafts"})
 # spec-131 closure-sweep C1: permitted sibling-file patterns.
 _CONSTITUTION_HISTORY_RE = re.compile(r"^_history-constitution-\d{4}-\d{2}-\d{2}\.md$")
 _NUMBERED_SPEC_RE = re.compile(r"^spec-\d{3}(?:-[a-z0-9-]+)?\.md$")
+# spec-191: per-spec design-intent directories (e.g. spec-191/)
+_NUMBERED_SPEC_DIR_RE = re.compile(r"^spec-\d{3}$")
 
 
 def _entry_is_permitted_sibling(name: str) -> bool:
     """Return ``True`` if *name* matches a spec-131-permitted pattern."""
-    return bool(_CONSTITUTION_HISTORY_RE.match(name)) or bool(_NUMBERED_SPEC_RE.match(name))
+    return (
+        bool(_CONSTITUTION_HISTORY_RE.match(name))
+        or bool(_NUMBERED_SPEC_RE.match(name))
+        or bool(_NUMBERED_SPEC_DIR_RE.match(name))
+    )
 
 
 def test_specs_directory_exists() -> None:

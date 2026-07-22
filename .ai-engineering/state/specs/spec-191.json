@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-07-19T14:56:25.489587+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "injection-guard-coverage",
+  "spec_id": "spec-191",
+  "state": "approved",
+  "title": "Injection Guard: read-side coverage + risk-accumulator precision"
+}
