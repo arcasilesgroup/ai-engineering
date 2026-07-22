@@ -325,8 +325,7 @@ def get(project_root: Path, *, session_id: str, now: datetime | None = None) -> 
     # sessions.  Checked here (read path) so both add() and get() benefit.
     recent = events[-3:] if events else []
     if recent and all(
-        e.get("severity", "").upper() not in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
-        for e in recent
+        e.get("severity", "").upper() not in ("LOW", "MEDIUM", "HIGH", "CRITICAL") for e in recent
     ):
         decayed *= CLEAN_BONUS
 
