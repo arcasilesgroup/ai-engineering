@@ -223,6 +223,10 @@ _EXFIL_CONTEXT_TOKENS = (
     "os" + "." + "system",
     "exec" + "(",
     "eval" + "(",
+    "printenv",
+    "env" + " ",
+    "echo" + " ",
+    "cat" + " ",
 )
 
 # spec-105 G-12: commands that legitimately handle gate-findings JSON

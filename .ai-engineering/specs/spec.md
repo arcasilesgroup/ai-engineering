@@ -7,6 +7,7 @@ status: in-progress
 date: 2026-07-22
 concerns: 5
 route: /ai-build
+effort: medium
 ---
 
 # spec-192 — Telemetry deck follow-up
@@ -35,9 +36,9 @@ each item touches 1–3 files and has a clear acceptance criterion.
 
 ## Decisions
 
-### D-192-01: instinct-observe PostToolUse-only
+### D-192-01 — instinct-observe PostToolUse-only
 
-**Rationale:** The hook is registered in both PreToolUse and PostToolUse, causing
+**Rationale**: The hook is registered in both PreToolUse and PostToolUse, causing
 2× executions per tool call (82,617 total, 65% of all hook wall-clock). Its output
 (instincts) is only consumed at session-start, not mid-turn. PostToolUse captures
 the same tool_response data. Removing PreToolUse registration halves the cost with
@@ -46,9 +47,9 @@ zero behavioral change.
 **Change:** Remove the PreToolUse entry from `.claude/settings.json` (and the
 template mirror). Keep the PostToolUse entry. Update hooks-manifest.
 
-### D-192-02: mandatory verify — dual gate
+### D-192-02 — mandatory verify — dual gate
 
-**Rationale:** 48% of builds ship without verify/review. Two complementary gates:
+**Rationale**: 48% of builds ship without verify/review. Two complementary gates:
 
 1. **ai-build auto-dispatch:** At the end of a successful build phase, ai-build
    dispatches ai-verify automatically (like ai-autopilot already does). This covers
@@ -60,9 +61,9 @@ template mirror). Keep the PostToolUse entry. Update hooks-manifest.
 **Change:** Edit ai-build and ai-pr skill definitions. ai-build: add verify
 dispatch in post-build step. ai-pr: add verify-absent check in pre-flight.
 
-### D-192-03: ruff --fix before ralph retries
+### D-192-03 — ruff --fix before ralph retries
 
-**Rationale:** 31 ralph stops were caused by auto-fixable lint findings (E501,
+**Rationale**: 31 ralph stops were caused by auto-fixable lint findings (E501,
 UP017). The ralph loop retries the same code 5 times then gives up. Running
 `ruff check --fix` once before the first retry resolves these mechanically.
 
@@ -70,9 +71,9 @@ UP017). The ralph loop retries the same code 5 times then gives up. Running
 `ruff check --quiet --fix .` on the changed files before the next retry. Only
 for lint findings (ruff exit codes), not for test failures or other errors.
 
-### D-192-04: risk accumulator per-command floor + decay acceleration
+### D-192-04 — risk accumulator per-command floor + decay acceleration
 
-**Rationale:** The risk accumulator uses session-scoped cumulative scoring with
+**Rationale**: The risk accumulator uses session-scoped cumulative scoring with
 0.95/minute decay. Benign IOC matches (CSS classes, PyPI curl, env var names)
 accumulate across a session and can reach block/force_stop thresholds. The
 allowlist from spec-191 helps but doesn't cover all benign patterns.
@@ -86,9 +87,9 @@ allowlist from spec-191 helps but doesn't cover all benign patterns.
   (`curl`, `wget`, `requests.post`, `base64`, pipe-to-shell) rather than bare
   `os.environ` or `process.env`.
 
-### D-192-05: auto re-pin manifest on update/install/dev-sync
+### D-192-05 — auto re-pin manifest on update/install/dev-sync
 
-**Rationale:** 15,368 integrity violations (80.5% of all errors) come from
+**Rationale**: 15,368 integrity violations (80.5% of all errors) come from
 stale manifest sha256 hashes. The coalescer from spec-190 deduplicates the noise
 but doesn't fix the root cause. Auto re-pinning eliminates the drift entirely.
 
@@ -117,7 +118,7 @@ finalize step of each entry point. Add a `--no-repin` flag for explicit override
 
 - Telemetry deck: `~/Downloads/ai-engineering · Telemetría del framework.html`
   (19 jul 2026, 234k events, 18 repos, 16 recommendations)
-- spec-190: observability integrity — attributable, deduplicated, fail-loud telemetry
-- spec-191: injection guard read-side coverage + allowlist wiring
+- pr:646 — spec-190: observability integrity — attributable, deduplicated, fail-loud telemetry
+- pr:648 — spec-191: injection guard read-side coverage + allowlist wiring
 - Risk accumulator: `.ai-engineering/scripts/hooks/_lib/risk_accumulator.py`
 - Convergence loop: `.ai-engineering/scripts/hooks/_lib/convergence.py`

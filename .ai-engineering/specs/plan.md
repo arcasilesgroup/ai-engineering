@@ -1,5 +1,7 @@
 ---
 spec: spec-192
+title: "Telemetry deck follow-up — 5 deferred gaps"
+status: in-progress
 executor: build
 safe_next_command: "/ai-build"
 automation: standard
@@ -7,6 +9,7 @@ concern_count: 5
 estimated_files: 10
 reason: "5 surgical fixes from telemetry deck; each 1–3 files, independent, verifiable"
 version: 1
+effort: medium
 ---
 
 # Plan — spec-192: Telemetry deck follow-up
