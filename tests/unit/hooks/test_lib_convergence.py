@@ -387,3 +387,76 @@ def test_pytest_runner_absent_is_fail_open(
     result = conv.check_convergence(tmp_path, fast=True)
     assert result.converged is True
     assert result.failures == []
+
+
+# ---------------------------------------------------------------------------
+# spec-192 T-2.1: auto-fix before retry (RED — _fix_ruff not yet implemented)
+# ---------------------------------------------------------------------------
+
+
+def test_fix_ruff_calls_ruff_fix(
+    conv,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """_fix_ruff should invoke ``ruff check --fix`` and return True on success."""
+    monkeypatch.setattr(conv.shutil, "which", lambda _name: f"/usr/bin/{_name}")
+    calls: list[list[str]] = []
+
+    def _run(cmd, **_kwargs):
+        calls.append(list(cmd))
+        return _CompletedProcStub(returncode=0)
+
+    monkeypatch.setattr(conv.subprocess, "run", _run)
+    # RED: _fix_ruff does not exist yet — raises AttributeError.
+    result = conv._fix_ruff(tmp_path)
+    assert result is True
+    assert any("--fix" in c and "ruff" in c for c in calls)
+
+
+def test_check_convergence_retries_after_ruff_fix(
+    conv,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """After _fix_ruff auto-fixes, convergence retries ruff and succeeds."""
+    monkeypatch.setattr(conv.shutil, "which", lambda _name: f"/usr/bin/{_name}")
+
+    call_count = {"ruff": 0}
+
+    def _run(cmd, **_kwargs):
+        if cmd and cmd[0] == "ruff":
+            call_count["ruff"] += 1
+            if call_count["ruff"] == 1:
+                # First ruff check (no-fix) — failure.
+                return _CompletedProcStub(returncode=1, stderr="found 1 issue\n")
+            elif "--fix" in cmd:
+                # _fix_ruff auto-fix — success.
+                return _CompletedProcStub(returncode=0)
+            else:
+                # Retry ruff check (no-fix) — success.
+                return _CompletedProcStub(returncode=0)
+        return _CompletedProcStub(returncode=0)
+
+    monkeypatch.setattr(conv.subprocess, "run", _run)
+    result = conv.check_convergence(tmp_path, fast=True)
+    # RED: check_convergence does not retry after ruff failure yet.
+    assert result.converged is True
+    assert result.failures == []
+
+
+def test_fix_ruff_returns_false_on_failure(
+    conv,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """_fix_ruff returns False when ``ruff check --fix`` exits non-zero."""
+    monkeypatch.setattr(conv.shutil, "which", lambda _name: f"/usr/bin/{_name}")
+    monkeypatch.setattr(
+        conv.subprocess,
+        "run",
+        _stub_run({"ruff": _CompletedProcStub(returncode=1, stderr="unfixable error\n")}),
+    )
+    # RED: _fix_ruff does not exist yet — raises AttributeError.
+    result = conv._fix_ruff(tmp_path)
+    assert result is False

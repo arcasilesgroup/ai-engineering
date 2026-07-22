@@ -43,7 +43,7 @@ Threshold ladder:
 * 30 <= score < 60     -> ``block``
 * score >= 60          -> ``force_stop``
 
-TTL decay: ``decay_per_minute = 0.95`` (score halves in ~13.5 min).
+TTL decay: ``decay_per_minute = 0.90`` (score halves in ~6.6 min).
 Applied each time state is read; below the 0.1 noise floor the
 score clamps to 0.
 
@@ -87,12 +87,15 @@ SEVERITY_SCORES: dict[str, float] = {
 }
 
 # Decay per minute. score(t) = score(0) * DECAY_PER_MINUTE ** elapsed_minutes
-# 0.95^minute -> half-life ≈ 13.5 minutes.
-DECAY_PER_MINUTE = 0.95
+# 0.90^minute -> half-life ≈ 6.6 minutes.
+DECAY_PER_MINUTE = 0.90
 
 # Below this floor, decay clamps to zero so we don't carry vanishingly small
 # rounding noise forward forever.
 NOISE_FLOOR = 0.1
+
+# spec-192 D-192-04: extra decay when session is clean (no recent findings).
+CLEAN_BONUS = 0.5
 
 # Repeat-signal weighting window (seconds) -- 60 minutes.
 REPEAT_WINDOW_SECONDS = 60 * 60
@@ -316,6 +319,16 @@ def get(project_root: Path, *, session_id: str, now: datetime | None = None) -> 
     last_update = payload.get("last_update_ts") or payload.get("lastUpdateTs") or _iso(reference)
     decayed = _apply_decay(score, last_update, now=reference)
     events = _coerce_events(payload.get("events"))
+
+    # spec-192 D-192-04: clean-session bonus — if the last 3 events are
+    # absent or have no real severity, apply extra decay to reward clean
+    # sessions.  Checked here (read path) so both add() and get() benefit.
+    recent = events[-3:] if events else []
+    if recent and all(
+        e.get("severity", "").upper() not in ("LOW", "MEDIUM", "HIGH", "CRITICAL")
+        for e in recent
+    ):
+        decayed *= CLEAN_BONUS
 
     return RiskState(
         session_id=session_id,

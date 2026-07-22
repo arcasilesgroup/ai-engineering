@@ -33,13 +33,13 @@ Canonical chain step `brainstorm → plan → build → pr`: runs the commit pip
 
 ## Process
 
-In order: decision preamble (resolve once), Steps 0-6 (inline commit pipeline), the concurrent docs + pre-push block (Step 7), then PR create, consolidate, and watch through Step 17.
+In order: decision preamble (resolve once), Steps 0-6b (inline commit pipeline), the concurrent docs + pre-push block (Step 8), then PR create, consolidate, and watch through Step 18.
 
 ### Decision preamble (resolve once, before Step 0; later steps read, never re-decide)
 
 | Flag | Detect | Effect |
 |------|--------|--------|
-| `draft?` | `--draft` | skip review request, consolidation (Step 14b), watch loop |
+| `draft?` | `--draft` | skip review request, consolidation (Step 15b), watch loop |
 | `existing_pr?` | `gh pr list --head <branch>` / `az repos pr list` finds a PR | extend, never overwrite |
 | `placeholder_spec?` | `spec.md` == `# No active spec` | skip spec ops + consolidation, fall back to label-based PR body |
 
@@ -53,7 +53,15 @@ In order: decision preamble (resolve once), Steps 0-6 (inline commit pipeline), 
 5. **Handle gate**: exit 0 → continue. Exit non-zero → STOP, fix root cause, re-run. Publish-window override: `ai-eng risk accept-all .ai-engineering/state/gate-findings.json --justification "<reason>" --spec <id> --follow-up "<plan>"` (see `.ai-engineering/reference/risk-acceptance-flow.md`).
 6. **Docs gate** inside the orchestrator is mandatory; see `.ai-engineering/reference/gate-policy.md` for the local fast-slice + CI authoritative split.
 
-### 7. Concurrent dispatch — docs + pre-push gate (3 lanes)
+### 6b. Verify gate (mandatory)
+
+Before proceeding to commit pipeline, check whether ai-verify has run on the
+current changeset this session. If no verify outcome exists (no prior ai-verify
+dispatch on this branch), dispatch ai-verify inline and wait for completion.
+Log the auto-dispatch as a framework_operation. Never skip this gate — it is
+the safety net for direct /ai-pr invocations outside the canonical chain.
+
+### 8. Concurrent dispatch — docs + pre-push gate (3 lanes)
 
 Docs subagents and the pre-push gate run in parallel — wall-clock = `max(docs, pre-push)`, NOT `sum`. Docs are produced and staged BEFORE PR creation so the description stays coherent.
 
@@ -62,22 +70,22 @@ Docs subagents and the pre-push gate run in parallel — wall-clock = `max(docs,
 3. **Dispatch 3 concurrent lanes**, block on `max(lane1, lane2, lane3)`:
    - **Lane 1 — docs A1**: `/ai-docs changelog` + `/ai-docs readme` (if enabled).
    - **Lane 2 — docs A2**: `/ai-docs solution-intent-sync` (if architecture changed) + `/ai-docs docs-portal` + `/ai-docs docs-quality-gate`. Zero uncovered items required.
-   - **Lane 3 — pre-push gate**: dispatched concurrently here; Step 9 owns the full description. Do not restate the gate command in both places.
+   - **Lane 3 — pre-push gate**: dispatched concurrently here; Step 10 owns the full description. Do not restate the gate command in both places.
 4. **Stage all docs files** produced by lanes 1-2 BEFORE PR creation. spec-104 NG-7 forbids deferring docs to a separate commit — regulated audience requires clean audit history.
 
-### 9. Pre-push gate (canonical description; concurrent Lane 3 of step 7)
+### 10. Pre-push gate (canonical description; concurrent Lane 3 of step 8)
 
 `ai-eng gate run --cache-aware --json --mode=local` runs Wave 1 fixers (`ruff format` → `ruff check --fix` → `spec verify --fix`) in parallel with Wave 2 checkers (`gitleaks protect --staged`, `ty check src/`, `pytest -m smoke`, `ai-eng validate`, docs gate). CI uses `--mode=ci` (adds `semgrep`, `pip-audit`, full `pytest` matrix). Non-zero exit → parse `gate-findings.json`, report, STOP; resolve or accept via `ai-eng risk accept-all` (see `.ai-engineering/reference/risk-acceptance-flow.md`).
 
-### 10. Work item context
+### 11. Work item context
 
 Read `.ai-engineering/manifest.yml` `work_items` and spec.md frontmatter `refs` (yaml shape: `features` never close; `user_stories`/`tasks`/`bugs`/`issues` close on PR merge).
 
-### 11. Spec operations (PR body)
+### 12. Spec operations (PR body)
 
-If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate the PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use the updated content for the PR body (Summary from spec, Test Plan from plan). Consolidation does NOT happen here — per D-167-07 it runs pre-merge on the feature branch in **Step 14b**, so the archive + slot-clear ride this same PR (no separate follow-up chore PR).
+If `.ai-engineering/specs/spec.md` is non-placeholder: read spec.md + plan.md to generate the PR description; run `ai-eng spec verify --fix`; update spec.md/plan.md to reflect ACTUAL scope; use the updated content for the PR body (Summary from spec, Test Plan from plan). Consolidation does NOT happen here — per D-167-07 it runs pre-merge on the feature branch in **Step 15b**, so the archive + slot-clear ride this same PR (no separate follow-up chore PR).
 
-### 12. Work item references
+### 13. Work item references
 
 If frontmatter has `refs`:
 
@@ -85,11 +93,11 @@ If frontmatter has `refs`:
 - `never_close` items (features): `Related: AB#100` only — NEVER close features (absolute rule).
 - No `refs`: fall back to spec-label-based linking.
 
-### 13. Commit, push, detect VCS, find existing PR
+### 14. Commit, push, detect VCS, find existing PR
 
 Compose the commit subject deterministically (spec-139 M8 D-139-06): derive the description from the current `.ai-engineering/specs/plan.md` task title (`grep -m1 '^- \[ \] ' .ai-engineering/specs/plan.md`) and pass it via `python3 .ai-engineering/scripts/commit_compose.py --type <type> [--task X.Y] --desc "$TASK_TITLE"`. `--desc` is mandatory; the legacy `<DESC>` placeholder fallback is deprecated for the PR pipeline. Push to current branch (block on `main`/`master`). Detect provider via `manifest.yml` `providers.vcs.primary`, fallback to `git remote get-url origin` parsing (`github.com` → `gh`, `dev.azure.com` → `az repos`). Find existing PR with `gh pr list --head <branch>` or `az repos pr list --source-branch <branch>`.
 
-### 14. Create or update PR
+### 15. Create or update PR
 
 Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README staged, gate passed). Compose body deterministically: `python3 .ai-engineering/scripts/pr_body_compose.py` reads `.ai-engineering/specs/spec.md` frontmatter (`summary:` field — mandatory per spec-139 M8 D-139-06 after the 2026-06-16 cutover) plus plan.md `[ ]` rows and emits Summary, Test Plan, Work Items, Checklist sections.
 
@@ -101,25 +109,25 @@ Runs after the 3-lane block resolves so the body is coherent (CHANGELOG/README s
 
 **Existing** (extend, NEVER overwrite): read existing body; if `## Additional Changes` exists, append a `### <date> / <commit-range>` sub-heading underneath; otherwise append `\n\n---\n\n## Additional Changes` first. Update via `gh pr edit` or `az repos pr update`.
 
-### 14b. Consolidate on the feature branch (pre-merge, D-167-07)
+### 15b. Consolidate on the feature branch (pre-merge, D-167-07)
 
-Runs after Step 14 (PR number `N` known), before Step 15 auto-complete; **skip for `--draft`** (a draft is not merging — consolidate on promotion, else it sits SHIPPED while open). If `.ai-engineering/specs/spec.md` is non-placeholder, resolve the numeric id from its frontmatter `spec:` (canonical `spec-NNN`, not the slug — D-153-01) and run `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-NNN> N <branch>` **directly** — NOT via `_shared/consolidate-spec.md`, whose SHIPPED-precondition guard would reject the still-IN_PROGRESS pre-merge spec (marking it SHIPPED as the ship-PR opens is the intent). It walks state→SHIPPED, appends the 7-col `_history.md` row, snapshots spec.md+plan.md into `archive/spec-NNN-<slug>/`, clears both to placeholders, and emits the audit event. Then `git add` the archived+cleared files, commit `chore(spec-NNN): consolidate (archive + clear live slot)`, and push so the open PR updates. **Fail-open**: a write failure logs, never blocks. Consolidation rides the PR regardless of `gh`/`az`/web-UI merge — no separate chore PR; the same handler stays manual via `/ai-pr --consolidate-spec`, and `/ai-branch-cleanup` `reconcile_merged` is now a no-op backstop.
+Runs after Step 15 (PR number `N` known), before Step 16 auto-complete; **skip for `--draft`** (a draft is not merging — consolidate on promotion, else it sits SHIPPED while open). If `.ai-engineering/specs/spec.md` is non-placeholder, resolve the numeric id from its frontmatter `spec:` (canonical `spec-NNN`, not the slug — D-153-01) and run `python .ai-engineering/scripts/spec_lifecycle.py mark_shipped <spec-NNN> N <branch>` **directly** — NOT via `_shared/consolidate-spec.md`, whose SHIPPED-precondition guard would reject the still-IN_PROGRESS pre-merge spec (marking it SHIPPED as the ship-PR opens is the intent). It walks state→SHIPPED, appends the 7-col `_history.md` row, snapshots spec.md+plan.md into `archive/spec-NNN-<slug>/`, clears both to placeholders, and emits the audit event. Then `git add` the archived+cleared files, commit `chore(spec-NNN): consolidate (archive + clear live slot)`, and push so the open PR updates. **Fail-open**: a write failure logs, never blocks. Consolidation rides the PR regardless of `gh`/`az`/web-UI merge — no separate chore PR; the same handler stays manual via `/ai-pr --consolidate-spec`, and `/ai-branch-cleanup` `reconcile_merged` is now a no-op backstop.
 
-### 15. Board sync + enable auto-complete
+### 16. Board sync + enable auto-complete
 
 For new PRs with `refs`: invoke `/ai-board sync in_review <ref>` for each non-`never_close` ref (fail-open: never block on failure). Then enable auto-complete: `gh pr merge --auto --squash --delete-branch` or `az repos pr update --id <id> --auto-complete true --squash true --delete-source-branch true`.
 
-### 16. Watch and fix until merge
+### 17. Watch and fix until merge
 
-Auto-complete only queues the merge — CI must pass first. The Step 14b consolidation commit is already on the branch, so the CI run the loop watches is the FINAL commit set — and it runs against the idle `# No active spec` slot (D-167-07); every spec.md-reading gate must tolerate that placeholder. Enter the watch-and-fix loop per `handlers/watch.md`. It polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
+Auto-complete only queues the merge — CI must pass first. The Step 15b consolidation commit is already on the branch, so the CI run the loop watches is the FINAL commit set — and it runs against the idle `# No active spec` slot (D-167-07); every spec.md-reading gate must tolerate that placeholder. Enter the watch-and-fix loop per `handlers/watch.md`. It polls every 1 min (active) or 3 min (passive), autonomously fixes CI failures and merge conflicts, handles team/org-internal-bot review comments, and escalates after 3 failed attempts on the same check or wall-clock cap. Drafts skip the loop entirely.
 
-Once `state == "MERGED"`: run `/ai-branch-cleanup --all` and report to the operator using the value block per `.ai-engineering/reference/value-lens.md` (bottom line, impact, risk, next) at the resolved audience level (default `full`). This report and the Step 14 PR-opened status are the user-facing surface the lens governs; the PR body, commit messages, and gate verdicts stay machine carve-outs.
+Once `state == "MERGED"`: run `/ai-branch-cleanup --all` and report to the operator using the value block per `.ai-engineering/reference/value-lens.md` (bottom line, impact, risk, next) at the resolved audience level (default `full`). This report and the Step 15 PR-opened status are the user-facing surface the lens governs; the PR body, commit messages, and gate verdicts stay machine carve-outs.
 
-### 17. Self-verify (terminal)
+### 18. Self-verify (terminal)
 
 Turn "did every step run?" into a checkable post-condition — the catch for a silently-skipped consolidation (the PR #190 class). Re-read + assert; any failure → STOP loud, naming the skip.
 
-- **Always** assert: the step-7 CHANGELOG/README edits rode this commit (not deferred); the Step 14 PR number resolves (`gh pr view <N>` / `az repos pr show`).
+- **Always** assert: the step-8 CHANGELOG/README edits rode this commit (not deferred); the Step 15 PR number resolves (`gh pr view <N>` / `az repos pr show`).
 - **Unless** `draft?` or `placeholder_spec?` (nothing consolidated), also assert: `spec.md`/`plan.md` cleared to the `# No active spec`/`# No active plan` placeholders; `_history.md` carries the `spec-NNN` row.
 
 ### `/pr --only` / `/pr --draft`
