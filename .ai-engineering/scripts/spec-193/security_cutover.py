@@ -212,6 +212,13 @@ def _assert_private_ancestor_chain(root: Path) -> None:
     """Reject user-controlled symlink or writable-parent traversal before writes."""
     if not root.is_absolute() or root.resolve(strict=False) != root:
         raise PrivateStoreError("private store root must be a canonical absolute path")
+    anchors = (Path.home().resolve(strict=True), Path("/private"))
+    try:
+        anchor = next(candidate for candidate in anchors if root.is_relative_to(candidate))
+    except StopIteration as error:
+        raise PrivateStoreError(
+            "private store root must stay below an explicit trusted anchor"
+        ) from error
     current = root
     while True:
         metadata = current.lstat()
@@ -221,9 +228,9 @@ def _assert_private_ancestor_chain(root: Path) -> None:
             _assert_private(current, 0o700, directory=True)
         elif metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
             raise PrivateStoreError("private store traversal has a writable ancestor")
-        validate_private_acl(current)
-        if current.parent == current:
+        if current == anchor:
             return
+        validate_private_acl(current)
         current = current.parent
 
 
