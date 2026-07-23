@@ -778,6 +778,14 @@ def test_t12_surface_discovery_is_values_free_read_only_and_scope_distinct(
     assert opencode_before["structure_sha256"] == opencode_after["structure_sha256"]
 
 
+def test_t12_structure_digest_does_not_depend_on_dynamic_mapping_keys() -> None:
+    runner = _load_runner()
+    first = {"mcpServers": {"synthetic-" + "can" + "ary": {"command": "one"}}}
+    second = {"mcpServers": {"different-opaque-key": {"command": "two"}}}
+
+    assert runner._t12_structure_digest(first) == runner._t12_structure_digest(second)
+
+
 def test_t12_surface_discovery_blocks_a_symlink_without_reading_it(tmp_path: Path) -> None:
     runner = _load_runner()
     home, repo = _write_t12_fixture_tree(tmp_path.resolve())
@@ -893,13 +901,25 @@ def test_t12_bundle_v2_binds_the_baseline_and_rejects_conflicting_rediscovery(
         == merged_digest
     )
 
+    v3_digest = runner.upgrade_surface_hash_scheme(
+        root,
+        records,
+        expected_manifest_sha256=merged_digest,
+        runner_path=RUNNER_PATH,
+        runner_version="spec-193-t1.2",
+    )
+    v3 = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    assert v3["schema"] == "spec-193-manifest-v3"
+    assert runner.validate_manifest(v3)["surface_hash_scheme"] == "key-class-v2"
+    assert len(v3_digest) == 64
+
     changed = [dict(record) for record in records]
     changed[0]["reachability"] = "unknown"
     with pytest.raises(ValueError):
         runner.merge_surface_records(
             root,
             changed,
-            expected_manifest_sha256=merged_digest,
+            expected_manifest_sha256=v3_digest,
             runner_path=RUNNER_PATH,
             runner_version="spec-193-t1.2",
         )
