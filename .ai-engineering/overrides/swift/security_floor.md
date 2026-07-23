@@ -1,7 +1,7 @@
 # Swift — Security Floor
 
-Mandatory security bar for `ai-build` Swift / iOS output; escalate when
-a control cannot be met.
+Minimum bar for `ai-build` output in Swift / iOS. Every control below
+is mandatory; the agent escalates when it cannot meet a control.
 
 ## Input validation
 

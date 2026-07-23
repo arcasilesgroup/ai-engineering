@@ -1,615 +1,204 @@
-# Suppression allowlist (CONSTITUTION.md Article VII enforcement).
+# Suppression allowlist — ai-engineering shipped baseline (CONSTITUTION.md Article VII).
 #
-# Every entry below is a TIME-BOXED exception to the no-suppression rule.
-# `no_suppression` (tools/no_suppression) scans the repo and blocks any
-# suppression marker whose (path, pattern, rule_target) tuple is not
-# covered by an active, non-expired entry in this file.
+# This file is deployed by `ai-eng install` alongside the framework's
+# vendored scripts under `.ai-engineering/scripts/`. Those scripts carry
+# a small, fixed set of suppression markers that are INTRINSIC to the
+# tooling (optional-dependency import fallbacks, self-bootstrapping
+# `E402` imports, `__main__` CLI shims, validated-SSRF egress). Each
+# entry below authorizes exactly one such marker family on exactly one
+# shipped script so the Article VII pre-push gate passes out of the box.
 #
-# Lifecycle:
-# 1. Open a DEC via `ai-eng risk accept --finding-id <rule> ...` whenever
-#    possible so the binding lives in `state.db::risk_acceptances`.
-# 2. Add an entry below that references the DEC id (`dec_id:`) so the gate
-#    can verify the DEC status (active + not expired) at scan time.
-# 3. Renew via `ai-eng risk renew` before `expires_at`; otherwise the
-#    gate flips the entry to `expired` and blocks the next commit.
+# Contract:
+#   * These are PERMANENT framework authorizations, NOT time-boxed risk
+#     acceptances — `expires_at` and `dec_id` are intentionally empty.
+#   * Scope is limited to `.ai-engineering/scripts/**` (framework-vendored
+#     code). It never pre-authorizes a consumer's own `src/`, `tools/`,
+#     `tests/`, workflows, or `pyproject.toml` — those remain fully
+#     governed by the consumer's gate.
+#   * `tests/architecture/test_template_tree_completeness.py` asserts this
+#     file covers every suppression the scanner finds in the shipped
+#     `scripts/` tree, so the baseline can never drift out of sync.
 #
-# Schema (per entry):
-#   path:           glob matching the file(s) carrying the suppression.
-#   rule:           bypassed analyser rule. Use ``*`` to wildcard, or an
-#                   exact code like ``python:S5852`` for precise binding.
-#   pattern:        marker family — must match a ``rule_id`` from the
-#                   scanner (see `tools/no_suppression/scanner.py`).
-#                   Currently: nosonar | noqa | nosec | type_ignore |
-#                              pragma_no_cover | ts_ignore | nolint_hash |
-#                              nolint_slash | eslint_disable_hash |
-#                              eslint_disable_slash | sonar_multicriteria |
-#                              nosemgrep_hash (spec-141 M3 — Article VII parity).
-#   justification:  WHY the bypass is required (full sentence).
-#   spec_ref:       owning spec or DEC reference.
-#   expires_at:     ISO-8601 expiry. Optional but recommended.
-#   dec_id:         optional foreign key into state.db risk_acceptances.
-#   severity:       informational; one of critical|high|medium|low.
+# Entry keys: path (glob, consumer-relative) · rule (engine rule or "*")
+#   · pattern (scanner rule_id family) · justification · spec_ref
+#   · expires_at ("" = permanent) · dec_id ("" = no DEC binding)
+#   · severity.
 
 entries:
-  # === spec-141 M3 — Article VII parity for `# nosemgrep:` markers =========
-  # Pre-existing nosemgrep markers in the codebase. The new scanner family
-  # (spec-141 M3) surfaces them now; both are legitimate suppressions of
-  # ssrf-urllib-request on a controlled-scheme code path where the URL is
-  # operator-supplied via AIENG_HOOK_HTTP_SINK_URL (opt-in) and validated
-  # via urllib.parse.urlsplit BEFORE reaching urlopen.
+  # --- branch_slug.py: optional PyYAML import fallback -------------------
+  - path: ".ai-engineering/scripts/branch_slug.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Optional-dependency import fallback: PyYAML is imported defensively
+      and rebound to None when absent. The type-checker cannot model the
+      conditional rebind, so the import and the None assignment carry
+      `type: ignore`.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+  - path: ".ai-engineering/scripts/branch_slug.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      Defensive `except ImportError` fallback branch — not exercised when
+      the optional dependency is present, so it is excluded from coverage.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
 
+  # --- commit_compose.py: optional skill_scripts_lib import fallback -----
+  - path: ".ai-engineering/scripts/commit_compose.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Optional-dependency import fallback for skill_scripts_lib: the
+      symbols are rebound to None / Exception when the lib is unavailable.
+      The type-checker cannot model the rebind.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+  - path: ".ai-engineering/scripts/commit_compose.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      Defensive `except ImportError` fallback branch — not exercised when
+      skill_scripts_lib is present.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- pr_body_compose.py: self-bootstrap import ordering ----------------
+  - path: ".ai-engineering/scripts/pr_body_compose.py"
+    rule: "*"
+    pattern: "noqa"
+    justification: >-
+      `E402` module-level import after a runtime `sys.path` bootstrap. A
+      deployed standalone script must extend its own import path before
+      importing skill_scripts_lib, so import-at-top is not possible.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- session_bootstrap.py: optional import + self-bootstrap ordering ---
+  - path: ".ai-engineering/scripts/session_bootstrap.py"
+    rule: "*"
+    pattern: "type_ignore"
+    justification: >-
+      Optional-dependency import fallback: PyYAML is imported defensively
+      and rebound to None when absent.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+  - path: ".ai-engineering/scripts/session_bootstrap.py"
+    rule: "*"
+    pattern: "noqa"
+    justification: >-
+      `E402` module-level imports after a runtime `sys.path` bootstrap, so
+      the script can resolve skill_scripts_lib once its path is extended.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- hooks/_lib/hook-common.py: defensive guard ------------------------
+  - path: ".ai-engineering/scripts/hooks/_lib/hook-common.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      Defensive `except Exception` guard in shared hook plumbing — the
+      failure branch is intentionally uncovered.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"
+
+  # --- hooks/_lib/hook_http.py: validated SSRF egress --------------------
   - path: ".ai-engineering/scripts/hooks/_lib/hook_http.py"
     rule: "ssrf-urllib-request"
     pattern: "nosemgrep_hash"
     justification: >-
-      Scheme + netloc are validated above via urllib.parse.urlsplit so
-      only http/https endpoints reach urlopen. The sink URL itself is
-      operator-supplied via AIENG_HOOK_HTTP_SINK_URL (opt-in).
+      The sink URL is operator-supplied via AIENG_HOOK_HTTP_SINK_URL
+      (opt-in) and its scheme + netloc are validated with
+      urllib.parse.urlsplit before reaching urlopen, so only http/https
+      endpoints are ever requested.
     spec_ref: "spec-141"
-    expires_at: "2026-08-16T00:00:00Z"
-    severity: "low"
+    expires_at: ""
     dec_id: ""
-
-  - path: "src/ai_engineering/templates/.ai-engineering/scripts/hooks/_lib/hook_http.py"
-    rule: "ssrf-urllib-request"
-    pattern: "nosemgrep_hash"
-    justification: >-
-      Template mirror of the canonical hook above; dogfood-parity test
-      enforces byte-equivalence so the suppression must coexist.
-    spec_ref: "spec-141"
-    expires_at: "2026-08-16T00:00:00Z"
     severity: "low"
-    dec_id: ""
 
-  # === BEGIN spec-128 sub-d transitional allowlist =========================
-  # Every entry below carries a 60-day TTL. Each represents a suppression
-  # marker that existed in the codebase BEFORE this gate landed. The work
-  # before 2026-09-11 is to either (a) refactor the code to drop the
-  # suppression, or (b) open a formal DEC via `ai-eng risk accept` and
-  # link its id in `dec_id`. After expiry the gate flips to blocking.
-
-  - path: ".ai-engineering/scripts/branch_slug.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: >-
-      Transitional debt: suppression marker introduced before the
-      anti-suppression gate landed (spec-128 sub-d). Refactor the code
-      or open a formal DEC via `ai-eng risk accept` and set `dec_id`
-      before expires_at.
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/branch_slug.py"
-    rule: "*"
-    pattern: "type_ignore"
-    justification: >-
-      Transitional debt: suppression marker introduced before the
-      anti-suppression gate landed (spec-128 sub-d).
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/commit_compose.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/commit_compose.py"
-    rule: "*"
-    pattern: "type_ignore"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/hooks/_lib/hook-common.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
+  # --- hooks/_lib/instincts.py: defensive import fallback ----------------
   - path: ".ai-engineering/scripts/hooks/_lib/instincts.py"
     rule: "*"
     pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
+    justification: >-
+      Defensive `except ImportError` fallback branch — uncovered when the
+      optional import succeeds.
+    spec_ref: "spec-133"
+    expires_at: ""
     dec_id: ""
+    severity: "low"
 
+  # --- hooks/mcp-health.py: Windows import fallback ----------------------
   - path: ".ai-engineering/scripts/hooks/mcp-health.py"
     rule: "*"
     pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/pr_body_compose.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/pr_body_compose.py"
-    rule: "*"
-    pattern: "type_ignore"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/session_bootstrap.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/session_bootstrap.py"
-    rule: "*"
-    pattern: "type_ignore"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "scripts/run_loop_skill_evals.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "scripts/run_loop_skill_evals.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "scripts/sync_command_mirrors.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "scripts/sync_mirrors/core.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "sonar-project.properties"
-    rule: "*"
-    pattern: "sonar_multicriteria"
     justification: >-
-      Sonar `multicriteria` block in sonar-project.properties suppresses
-      python:S5852 (regex-as-security in `_shell_patterns.py`) and
-      pythonsecurity:S2083 (path-traversal sink in `updater/service.py`).
-      Both are tracked under spec-128: S5852 is a regex module whose
-      purpose is the patterns themselves (ReDoS mitigated by bounded
-      char-classes); S2083 is a taint false positive after the
-      `safe_realpath_within` sanitiser refactor. Migrate each to a
-      formal DEC (`ai-eng risk accept --finding-id pythonsecurity:S2083`
-      / `python:S5852`) and link `dec_id` here before expires_at.
-    spec_ref: "spec-128"
-    expires_at: "2026-08-09T00:00:00Z"
-    severity: "low"
+      Defensive `except ImportError` Windows fallback branch — uncovered
+      on the primary posix path.
+    spec_ref: "spec-133"
+    expires_at: ""
     dec_id: ""
-
-  - path: "src/ai_engineering/cli_commands/audit_cmd.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
-    dec_id: ""
 
-  - path: "src/ai_engineering/cli_commands/core.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/doctor/phases/tools.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/hooks/asset_runtime.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/hooks/manager.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/installer/auto_remediate.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/installer/auto_remediate.py"
-    rule: "*"
-    pattern: "type_ignore"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/installer/mechanisms/__init__.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/installer/phases/state.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/installer/phases/tools.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/installer/service.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/installer/user_scope_install.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/migrations/_runner.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/service.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-  # === END spec-128 sub-d transitional allowlist ===========================
-
-  # === BEGIN spec-128 sub-d transitional allowlist (round 2) =============
-  - path: "src/ai_engineering/installer/user_scope_install.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/maintenance/report.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/policy/gates.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/standards.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/audit_replay.py"
-    rule: "*"
-    pattern: "type_ignore"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/decision_logic.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/defaults.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/event_schema.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/manifest.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/migrations/0003_replay_ndjson.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/migrations/_runner.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/models.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/retention.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/state/service.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/templates/.ai-engineering/scripts/hooks/runtime-stop.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/validator/categories/counter_accuracy.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/validator/categories/cross_references.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/validator/categories/manifest_coherence.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/validator/categories/skill_frontmatter.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "src/ai_engineering/validator/service.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "tools/skill_domain/event_schema.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: "tools/skill_domain/standards.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  # === END spec-128 sub-d transitional allowlist (round 2) ===============
-
-  # === BEGIN spec-128 sub-d transitional allowlist (round 3, CI catch) ===
-  # Entries surfaced by the CI run that local catalog missed (new files
-  # introduced after the initial scan + scripts/skills/ subtree).
-  - path: ".ai-engineering/scripts/pr_body_compose.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
-  - path: ".ai-engineering/scripts/session_bootstrap.py"
-    rule: "*"
-    pattern: "noqa"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
-    dec_id: ""
-
+  # --- skills/skill_scripts/cleanup_run.py: CLI entrypoint shim ----------
   - path: ".ai-engineering/scripts/skills/skill_scripts/cleanup_run.py"
     rule: "*"
     pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
+    justification: >-
+      `if __name__ == "__main__"` CLI entrypoint shim — exercised via
+      subprocess invocation, not unit coverage.
+    spec_ref: "spec-133"
+    expires_at: ""
     dec_id: ""
+    severity: "low"
 
+  # --- skills/skill_scripts/resolve_classify.py: CLI entrypoint shim -----
   - path: ".ai-engineering/scripts/skills/skill_scripts/resolve_classify.py"
     rule: "*"
     pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
+    justification: >-
+      `if __name__ == "__main__"` CLI entrypoint shim — exercised via
+      subprocess invocation, not unit coverage.
+    spec_ref: "spec-133"
+    expires_at: ""
     dec_id: ""
-
-  - path: ".ai-engineering/scripts/skills/skill_scripts/standup_render.py"
-    rule: "*"
-    pattern: "pragma_no_cover"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
     severity: "low"
-    dec_id: ""
 
+  # --- skills/skill_scripts/standup_render.py: dynamic typing + CLI shim -
   - path: ".ai-engineering/scripts/skills/skill_scripts/standup_render.py"
     rule: "*"
     pattern: "type_ignore"
-    justification: "Transitional debt — spec-128 sub-d."
-    spec_ref: "spec-128"
-    expires_at: "2026-09-11T00:00:00Z"
-    severity: "low"
+    justification: >-
+      Type-checker limitation at a dynamically-typed mapping access
+      (`index`) on a heterogeneous record.
+    spec_ref: "spec-133"
+    expires_at: ""
     dec_id: ""
-  # === END spec-128 sub-d transitional allowlist (round 3, CI catch) =====
-
+    severity: "low"
+  - path: ".ai-engineering/scripts/skills/skill_scripts/standup_render.py"
+    rule: "*"
+    pattern: "pragma_no_cover"
+    justification: >-
+      `if __name__ == "__main__"` CLI entrypoint shim — exercised via
+      subprocess invocation, not unit coverage.
+    spec_ref: "spec-133"
+    expires_at: ""
+    dec_id: ""
+    severity: "low"

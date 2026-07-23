@@ -11,7 +11,8 @@ Tests are deterministic, parallel-safe, and never reach the network.
 - **Node-only legacy**: `node --test` is the fallback when adding a
   dependency is forbidden.
 
-Never introduce Jest in new code.
+Never introduce Jest in new code — it's slower, ESM-hostile, and
+duplicates Vitest's API.
 
 ## Layout
 

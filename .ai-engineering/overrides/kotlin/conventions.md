@@ -2,7 +2,8 @@
 
 # Kotlin — Build Conventions
 
-`ai-build` reference for generating Kotlin code.
+Authoritative reference for the `ai-build` agent when generating
+Kotlin code.
 
 ## Toolchain
 

@@ -2,7 +2,8 @@
 
 # Python — Build Conventions
 
-Reference for `ai-build` when generating Python code.
+Authoritative reference for the `ai-build` agent when generating
+Python code.
 
 ## Toolchain
 
@@ -11,7 +12,7 @@ Reference for `ai-build` when generating Python code.
 - **Package manager**: `uv` for new repos; `pip` + `pip-tools` is
   acceptable in legacy. Never mix `poetry` and `uv` lockfiles.
 - **Linter / formatter**: `ruff check` + `ruff format`. Ban `flake8`,
-  `black`, `isort` — one binary replaces all three.
+  `black`, `isort` — `ruff` replaces all three with one binary.
 - **Type checker**: `mypy --strict` for libraries; `pyright` is
   acceptable for apps when the team prefers it.
 
@@ -27,7 +28,8 @@ tests/
 pyproject.toml
 ```
 
-- `src/` layout mandatory — keeps `import <package>` off the CWD.
+- `src/` layout mandatory — keeps `import <package>` from picking up
+  the working directory by accident.
 - One package per repo; sub-packages by domain, not by layer.
 
 ## Naming (PEP 8)
@@ -47,7 +49,8 @@ pyproject.toml
   type-only symbols (Python 3.12 still needs it for `TYPE_CHECKING`).
 - `Any` is forbidden in new code; reach for `object`, `TypedDict`, or
   `Protocol`.
-- `Optional[X]` or `X | None`, but be consistent within a module.
+- `Optional[X]` over `X | None` is fine, but be consistent within a
+  module.
 - Generics: parameterise (`list[int]`, `Mapping[str, User]`), don't
   use bare `list` / `dict`.
 

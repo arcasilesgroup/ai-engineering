@@ -1,10 +1,9 @@
 ---
 name: ai-visual
-description: Produces static visual design artifacts (posters, banners, flyers, branding pieces, cover art, identity compositions) by composing aesthetic philosophies into HTML/SVG and rendering to PDF/PNG. Trigger for 'create a poster', 'design a banner', 'branding visual', 'marketing graphic', 'cover art for', 'identity composition'. Not for UI interfaces; use /ai-design instead. Not for animation; use /ai-animation instead. Not for presentation decks; use /ai-slides instead. Not for AI-generated photographs; use /ai-media instead.
+description: Produces static visual design artifacts (posters, banners, flyers, branding, cover art, identity compositions) by composing named aesthetic philosophies into HTML/SVG, rendered to PDF/PNG. Trigger for 'create a poster', 'design a banner', 'branding visual', 'cover art for', 'identity composition'. Not for UI interfaces; use /ai-design instead. Not for animation; use /ai-animation instead. Not for presentation decks; use /ai-slides instead. Not for AI-generated photographs; use /ai-media instead.
 effort: mid
 argument-hint: "[visual artifact description or brief]"
 tags: [visual-design, poster, banner, branding, artifact]
-model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-visual/SKILL.md
@@ -14,47 +13,32 @@ edit_policy: generated-do-not-edit
 
 # Visual
 
-## Purpose
+Static visual artifacts: generate a custom, named design philosophy, then express it as 90% visual / 10% essential text. User input is foundation, not constraint.
 
-Visual design artifact creation. Generates custom design philosophies (aesthetic movements interpreted through form/space/color/composition + images/graphics/shapes/patterns) and expresses them visually with minimal text accent (90% visual, 10% essential text). User input is foundation, not constraint — the philosophy emphasizes visual expression and artistic interpretation.
+## Workflow
 
-## When to Use
+Applies §10.1 KISS (restraint; polish what exists over adding graphics) and §10.7 Clean Code (every spacing, color, alignment is deliberate craft).
 
-- Creating posters, banners, flyers for events or campaigns
-- Designing branding pieces and identity materials
-- Building marketing and communication visuals
-- Composing visual artifacts for presentations or reports
-- Creating art-directed pieces with strong aesthetic philosophy
-- Any static visual output (PDF, PNG) with high artistic direction
+1. Understand the brief — purpose, audience, feeling to evoke.
+2. Load `handlers/philosophy.md`; create + name a design movement (1-2 words, e.g. "Brutalist Joy", "Chromatic Silence").
+3. Articulate the philosophy (4-6 paragraphs): space/form, color/material, scale/rhythm, composition/balance, visual hierarchy.
+4. Load `handlers/canvas-creation.md`; apply visual standards + craftsmanship rules.
+5. Deduce the subtle reference — embed conceptual threads within the art (sophisticated for those who know the subject, masterful abstract composition for others). Never announce it.
+6. Create the canvas — 90% visual, 10% essential text.
+7. Self-review — museum/magazine bar? If not, refine. Consult `handlers/examples.md` for inspiration.
 
-## Process
+Output rules:
 
-1. **Understand the brief** -- what is the artifact for? Who is the audience? What feeling should it evoke?
-2. **Read handlers/philosophy.md** -- create a design philosophy (aesthetic movement) for this artifact
-3. **Name the movement** (1-2 words) -- e.g., "Brutalist Joy", "Chromatic Silence", "Metabolist Dreams"
-4. **Articulate the philosophy** (4-6 paragraphs covering: space/form, color/material, scale/rhythm, composition/balance, visual hierarchy)
-5. **Read handlers/canvas-creation.md** -- apply the visual standards and craftsmanship rules
-6. **Deduce the subtle reference** -- identify conceptual threads from the brief. Embed within the art -- sophisticated for those who know the subject, masterful abstract composition for others
-7. **Create the canvas** -- express the philosophy visually. 90% visual design, 10% essential text
-8. **Self-review** -- does this look like it belongs in a museum or magazine? If not, refine.
-9. **Read handlers/examples.md** for inspiration if needed
+| Mode | Rule |
+| --- | --- |
+| Render | Self-contained HTML -> PDF (browser print / Puppeteer); SVG for vector output. |
+| Refine | Polish existing elements only — no new graphics/functions/shapes; make composition more cohesive. |
+| Multi-page | One philosophy, distinct variation per page; bundle as one PDF or multiple PNGs; pages tell a story. |
 
-## Rendering
+## Common Mistakes
 
-Generate as self-contained HTML, then render to PDF via browser print or Puppeteer. For vector output, use SVG.
-
-## Refinement Rules
-
-When told work isn't perfect enough:
-
-- Refine what exists rather than adding new graphics
-- Make composition more cohesive with the art
-- Ask: "How can I make what's already here more of a piece of art?"
-- Avoid new functions or shapes -- polish existing elements
-
-## Multi-Page Support
-
-Additional pages should follow the same design philosophy but distinctly vary. Bundle in same PDF or multiple PNGs. Pages should almost tell a story in tasteful way while exercising full creative freedom.
+- Generic stock-photo aesthetics instead of a named philosophy.
+- Announcing the conceptual reference instead of embedding it subtly.
 
 ## Integration
 
@@ -62,30 +46,10 @@ Called by: user directly, `/ai-design`, `/ai-media`. Consumed by: `/ai-slides` (
 
 ## Examples
 
-### Example 1 — event poster
-
-User: "design a poster for a developer conference called 'Edge Runtime 2026'"
-
 ```
 /ai-visual event poster for Edge Runtime 2026 developer conference
 ```
 
-Defines a movement (e.g. "Brutalist Compute"), articulates philosophy across space/color/composition, and renders an HTML→PDF poster with 90% visual / 10% text emphasis.
-
-### Example 2 — branding piece for product launch
-
-User: "create cover art for the v1.0 release announcement"
-
-```
-/ai-visual cover art for product v1.0 release announcement
-```
-
-Generates a multi-page PDF where each page follows the same philosophy with distinct variation, suitable for press kit and social.
-
-## Common Mistakes
-
-- Using generic stock photo aesthetics instead of creating a philosophy
-- Lack of craftsmanship -- every spacing, color choice, and alignment must scream expertise
-- Announcing the conceptual reference instead of embedding it subtly
+Names a movement (e.g. "Brutalist Compute"), articulates philosophy across space/color/composition, and renders an HTML->PDF poster at 90% visual / 10% text.
 
 $ARGUMENTS

@@ -1,9 +1,9 @@
-# ai-engineering manifest (dogfood)
+# ai-engineering manifest
 #
 # This file holds USER configuration only. Framework-managed sections
 # (skills, agents, control_plane, ownership.root_entry_points, prereqs,
 # required_tools, tooling, hot_path_slos, session.context_files,
-# contexts.precedence, python_env) are injected by the loader from
+# contexts.precedence) are injected by the loader from
 # `ai_engineering.config.framework_defaults`. Declare those sections
 # here only when overriding a default.
 
@@ -13,18 +13,17 @@ name: ai-engineering
 version: "1.0.0"
 
 # Providers
-# spec-128 D-128-09, D-128-11: stacks accepts bare-language tokens
+# spec-128 D-128-09/D-128-11: stacks accepts bare-language tokens
 # matching .ai-engineering/overrides/<stack>/ directory names.
+# Supported: python, typescript, go, rust, swift, csharp, kotlin, etc.
 providers:
   vcs: github
   stacks:
   - python
 
-# Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16,
-# spec-128 Wave 4 supersedes D-133-06/D-133-07: OpenCode + Cursor now activated
-# with native skills at .{ide}/skills/<name>/SKILL.md, folder per skill).
-# Closed enum: claude-code, codex, github-copilot, opencode, cursor,
-# antigravity. Gemini CLI was retired pre-release in favor of Antigravity.
+# Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16).
+# Closed enum of 6: claude-code, codex, github-copilot,
+# opencode, cursor, antigravity. The first entry is the implicit primary.
 surfaces:
   enabled:
   - claude-code
@@ -34,48 +33,17 @@ surfaces:
   - cursor
   - antigravity
 
-# Work items — board/issue tracker integration (project-specific overrides)
+# Artifact feeds — configure your private feed in pyproject.toml [tool.uv.index]
+# See the commented section in pyproject.toml for instructions.
+artifact_feeds:
+  python: pyproject.toml
+
+# Work items — board/issue tracker integration.
+# Run `ai-eng board configure` to populate provider-specific details
+# (azure_devops.area_path, github.team_label, state mappings,
+# custom fields, hierarchy, etc.).
 work_items:
-  provider: github
-  azure_devops:
-    area_path: "Project\\TeamName"
-  github:
-    team_label: "team:core"
-  state_mapping:
-    refinement: "Backlog"
-    ready: "Ready"
-    in_progress: "In progress"
-    in_review: "In review"
-    done: "Done"
-  process_template: "github_projects_v2"
-  custom_fields:
-  - id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuM"
-    name: "Priority"
-    type: "single_select"
-    options: ["P0", "P1", "P2"]
-  - id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcuQ"
-    name: "Size"
-    type: "single_select"
-    options: ["XS", "S", "M", "L", "XL"]
-  - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuU"
-    name: "Estimate"
-    type: "number"
-  - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuY"
-    name: "Start date"
-    type: "date"
-  - id: "PVTF_lADOC-uI1c4BQt9Azg-wcuc"
-    name: "Target date"
-    type: "date"
-  github_project:
-    owner: arcasilesgroup
-    number: 4
-    status_field_id: "PVTSSF_lADOC-uI1c4BQt9Azg-wcrY"
-    status_options:
-      refinement: "f75ad846"
-      ready: "61e4505c"
-      in_progress: "47fc9ee4"
-      in_review: "df73e18b"
-      done: "98236657"
+  provider: github # 'github' or 'azure_devops'
 
 # Quality gates
 quality:
@@ -84,11 +52,17 @@ quality:
   cyclomatic: 10
   cognitive: 15
 
-# Gate execution mode (spec-105 D-105-02): regulated | prototyping.
+# Gate execution mode (spec-105 D-105-02).
+# - regulated (default): runs Tier 0 + Tier 1 + Tier 2 (full surface).
+# - prototyping: skips Tier 2 governance checks for fast iteration.
 gates:
   mode: regulated
 
 # Documentation auto-update
+# readme: true — recursively scans ALL README*.md files and updates
+#   each in context of its directory.
+# changelog: true — keeps CHANGELOG.md current with each PR.
+# solution_intent: true — syncs .ai-engineering/solution-intent.md on architecture changes.
 documentation:
   auto_update:
     readme: true
@@ -107,22 +81,10 @@ telemetry:
   default: disabled
 
 # spec-137 D-137-01 -- Event Relevance Discipline.
-# Manifest-driven relevance contract enforced at the writer boundary
-# (src/ai_engineering/state/relevance.py). Three layers:
-#   1. kind_allowlist -- empty means "no restriction" (allow every
-#      declared kind in ALLOWED_EVENT_KINDS). Operators shrink the
-#      list to silence categories.
-#   2. severity_floor -- per-kind severity floor (S0..S3, S0 highest
-#      signal). Events at or above the floor pass; below the floor
-#      drop, except when failure-emission asymmetry fires.
-#   3. failure_emission=always -- a failure outcome (anything other
-#      than "success" or "allow") emits regardless of the floor, so
-#      failures never get silenced by the gate.
-# Default block below preserves the existing behaviour for every
-# emit site that has not yet been migrated to set severity
-# explicitly; it raises the floor for the two noisiest categories
-# (framework_operation, ide_hook) to S2 so future S3 debug-tier
-# emissions can be added without re-touching the manifest.
+# Manifest-driven relevance contract enforced at the writer boundary.
+# Empty kind_allowlist means "no restriction". Operators shrink the
+# list to silence categories. Severity floors are per-kind; failure
+# outcomes always emit regardless of the floor.
 audit_policy:
   kind_allowlist:
   - skill_invoked
@@ -147,51 +109,9 @@ audit_policy:
     policy_decision_allow: 0.10
   failure_emission: always
 
-# /ai-build operator defaults (spec-134 D-134-03).
-# Reserved namespace: `no_hitl_default` is documentation-only today; the
-# canonical gate for unattended single-concern builds is the `--no-hitl`
-# flag. Flipping the default to `true` is out-of-scope for spec-134.
-build:
-  no_hitl_default: false
-
-# /ai-brainstorm auto-spec gate (spec-134 D-134-04).
-# The gate classifies the working-tree diff BEFORE interrogation begins;
-# trivial changes route to the condensed-spec path, everything else
-# enters full interrogation. `enabled: false` is the opt-out knob.
-# `regulated_overrides` is substituted over `thresholds` when
-# `gates.mode == "regulated"` (currently regulated by default).
-brainstorm:
-  auto_spec_gate:
-    enabled: true
-    thresholds:
-      files: 3
-      loc: 50
-      cross_module: 1
-    hard_triggers:
-      public_api: true
-      state_or_schema: true
-      new_dependency: true
-      security_surface: true
-    regulated_overrides:
-      files: 1
-      loc: 20
-      cross_module: 1
-
 # Spec lifecycle retention + archival knobs (spec-153 D-153-08).
+# Makes spec-retention windows SSOT config rather than hardcoded constants.
 lifecycle:
   draft_ttl_days: 30        # DRAFT sidecars older than this sweep to ABANDONED
   archive_layout: per-spec-dir  # archive/spec-NNN-<slug>/{spec.md,plan.md}
   reap_orphans: true        # sweep stray spec-*.md from specs/ root
-
-# Sentinel IOC runtime posture (spec-160 D-160-01).
-security:
-  iocs:
-    # Opt-in fail-closed. Default false = bootstrap-safe fail-open: a
-    # missing/corrupt iocs.json never locks out the host. Env
-    # AIENG_IOC_FAIL_CLOSED overrides this (env wins).
-    fail_closed: false
-
-# Client-Value Lens default audience level (spec-186 D-186-02).
-# AIENG_VALUE_LENS_LEVEL env overrides this. One of: lite | full | ultra.
-value_lens:
-  default_level: full

@@ -1,7 +1,25 @@
 {
   "permissions": {
     "allow": [
-      "*"
+      "Read",
+      "Write",
+      "Edit",
+      "MultiEdit",
+      "Bash",
+      "Agent",
+      "Glob",
+      "Grep",
+      "Skill",
+      "TaskCreate",
+      "TaskUpdate",
+      "mcp__context7__*",
+      "mcp__notebooklm__nlm_list",
+      "mcp__notebooklm__nlm_create_notebook",
+      "mcp__notebooklm__nlm_research",
+      "mcp__notebooklm__nlm_ask",
+      "mcp__notebooklm__nlm_list_sources",
+      "mcp__notebooklm__nlm_list_artifacts",
+      "mcp__tavily__*"
     ],
     "deny": [
       "Bash(rm -rf /)",
@@ -60,7 +78,7 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh\" \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-progressive-disclosure.py\"",
-            "timeout": 5
+            "timeout": 10
           }
         ]
       }
@@ -271,11 +289,6 @@
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh\" \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-session-end.py\"",
             "timeout": 5
-          },
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh\" \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/runtime-rotate-throttled.py\"",
-            "timeout": 30
           }
         ]
       }

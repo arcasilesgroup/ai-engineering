@@ -4,7 +4,6 @@ description: Improves an existing skill based on real project pain (prior eval c
 effort: mid
 argument-hint: "[skill-name]|all [--dry-run]"
 tags: [meta, improvement, skills, optimization, improve]
-model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-skill-improve/SKILL.md
@@ -14,6 +13,8 @@ edit_policy: generated-do-not-edit
 
 # ai-skill-improve
 
+Evolves an existing skill by diagnosing real project pain (eval corpora, Engram observations, LESSONS.md, decisions, instincts, proposals), rewriting its SKILL.md, and emitting the delta as a PR comment only — never auto-merged. Use it to improve one named skill or `all` skills in batch.
+
 ## Quick start
 
 ```
@@ -22,41 +23,32 @@ edit_policy: generated-do-not-edit
 /ai-skill-improve all              # batch evolve with evals
 ```
 
+Pain sources: eval corpora (`.ai-engineering/evals/`), Engram observations (via
+`MemoryPort`), `LESSONS.md`, decision-store, instincts, proposals. Owns pain
+diagnosis + rewrite strategy; delegates the eval/grade/benchmark pipeline to
+Anthropic's `skill-creator`. **Output is PR-comment only — never auto-merged**
+(sub-007 M6).
+
 ## Workflow
 
-Improve existing skills using evidence from real project pain (prior eval corpora under `.ai-engineering/evals/`, Engram cross-session observations via `MemoryPort`, `LESSONS.md` operator notes, decision-store, instincts, proposals). The skill owns pain diagnosis and rewrite strategy; it delegates the eval/grade/benchmark pipeline to Anthropic's `skill-creator`. **Output is PR-comment only — never auto-merged** (sub-007 M6).
-
+0. **Load contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack plus `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
 1. **Phase 0.5** — load corpora (`.ai-engineering/evals/<skill>.jsonl`), Engram observations (`/ai-memory` MCP), and `LESSONS.md` H3 sections that mention the target skill.
 2. **Phase 1** — load remaining pain context (decision-store, observations.yml, proposals.md).
-3. **Phase 2** — analyze the target skill, score the 5 dimensions.
+3. **Phase 2** — analyze the target skill; score the 5 dimensions.
 4. **Phase 3** — generate test prompts that exercise the failing pattern.
 5. **Phase 4** — rewrite the skill (Start-Here, pain-injection, scope-gates, structured classification).
 6. **Phase 5** — emit the proposed SKILL.md diff as a PR comment via `gh pr comment`. **Do not commit or push.** Operator review is the merge gate.
 7. **Phase 6** — verify improvement on the operator's branch (pass-rate delta vs prior iteration).
 
-> Detail: see [audit document skeleton](references/output-skeleton.md), [the six-phase protocol (load → analyze → generate → rewrite → eval → verify)](references/six-phase-protocol.md), [batch mode for `all`](references/batch-mode.md).
-
-## When to Use
-
-- A skill keeps producing bad output despite correct instructions.
-- You've accumulated corrections in LESSONS.md that a skill should already know.
-- After a batch of sessions where the same skill pattern failed repeatedly.
-- Periodic hygiene: evolve the top 10 skills once a month.
-- NOT for creating new skills from scratch — use `/ai-scaffold`.
-- NOT for platform audit — use `/ai-ide-audit`.
-
-Step 0 (load contexts): read `.ai-engineering/manifest.yml` `providers.stacks`; load `.ai-engineering/overrides/<stack>/conventions.md` for each stack and `.ai-engineering/overrides/_shared/conventions.md`; load `.ai-engineering/team/*.md` for team conventions.
+> Detail: [audit document skeleton](references/output-skeleton.md), [six-phase protocol (load → analyze → generate → rewrite → eval → verify)](references/six-phase-protocol.md), [batch mode for `all`](references/batch-mode.md).
 
 ## Common Mistakes
 
 - Rewriting before reading the pain profile.
 - Skipping `--dry-run` on batch (you'll burn rate limits).
 - Inventing test prompts that mirror the skill's own examples (no drift signal).
-- Leaving Phase 5 evals unrun and declaring the skill "improved".
 
 ## Examples
-
-### Example 1 — single-skill evolution from accumulated pain
 
 User: "the /ai-plan skill keeps producing decomposition that ignores constraint X. Improve it."
 
@@ -64,17 +56,10 @@ User: "the /ai-plan skill keeps producing decomposition that ignores constraint 
 /ai-skill-improve ai-plan
 ```
 
-Loads pain context from LESSONS.md and proposals.md, scores ai-plan on 5 dimensions, generates 2-3 test prompts that exercise the failing pattern, rewrites SKILL.md, hands off to skill-creator for eval, reports the delta.
-
-### Example 2 — dry-run batch preview
-
-User: "preview what improving every skill would change before I commit time to running evals"
-
-```
-/ai-skill-improve all --dry-run
-```
-
-Walks every skill in priority tier order, shows the proposed diff per skill, and stops short of running the eval pipeline.
+Loads pain context (LESSONS.md, proposals.md), scores ai-plan on 5 dimensions,
+generates 2-3 test prompts that exercise the failing pattern, rewrites SKILL.md,
+hands off to skill-creator for eval, reports the delta. `all --dry-run` walks
+every skill in priority-tier order and stops short of the eval pipeline.
 
 ## Integration
 

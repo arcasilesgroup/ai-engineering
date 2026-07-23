@@ -4,7 +4,6 @@ description: Observes session corrections, recoveries, and workflow patterns sil
 effort: mid
 argument-hint: "[--review]"
 tags: [meta, learning, continuous-improvement, observe]
-model_tier: sonnet
 mirror_family: codex-skills
 generated_by: ai-eng sync
 canonical_source: .claude/skills/ai-session-watch/SKILL.md
@@ -14,18 +13,11 @@ edit_policy: generated-do-not-edit
 
 # ai-session-watch
 
-Project-local instinct learning for `ai-engineering`. Two modes: passive observation during a session, and active consolidation on demand. No daemons, no background workers -- the LLM itself is the observer.
-
-## Quick start
-
-```
-/ai-session-watch           # passive observation mode (silent until --review)
-/ai-session-watch --review  # consolidate observations into observations.yml
-```
+Project-local instinct learning for `ai-engineering` with two modes: passive observation during a session, and active consolidation on demand. No daemons or background workers -- the LLM itself is the observer.
 
 ## Workflow
 
-1. Session start: invoke `/ai-session-watch` to enter listening mode.
+1. Observation is **always-on** via the `instinct-observe.py` hooks (PreToolUse + PostToolUse) — no manual activation, and `/ai-start` does NOT start it. Invoking bare `/ai-session-watch` is optional and only emits a one-line acknowledgement.
 2. As work happens, the model passively notes corrections, error recoveries, and skill-invocation sequences.
 3. Before a commit or PR, invoke `/ai-session-watch --review` to run the 5-step consolidation: extract → enrich → write → evaluate → create work items.
 4. High-confidence proposals (>= 0.7, evidence >= 3) auto-generate work items via `gh issue create` or `az boards work-item create`.
@@ -53,11 +45,11 @@ Anything outside those families is out of scope.
 
 ### `/ai-session-watch` (listening mode)
 
-Enter passive observation mode for the session. Output ONLY this single line, then go silent:
+Enter passive observation mode. Output ONLY this single line, then go silent:
 
 > observing the session...
 
-Do nothing else. Do not read files. Do not produce analysis. The LLM passively observes corrections, error recoveries, and workflow patterns as the session continues. Observations are consolidated only when `--review` is invoked.
+Do nothing else — no file reads, no analysis. The LLM passively notes corrections, recoveries, and workflow patterns; consolidation happens only on `--review`.
 
 ### `/ai-session-watch --review` (consolidation)
 
@@ -115,7 +107,11 @@ Merge rules:
 - If an existing entry matches the same pattern (fuzzy match on trigger + action), increment `evidenceCount` and update `lastSeen`. Match if the trigger and action describe the same behavioral pattern using different wording. When in doubt, increment the existing entry rather than creating a duplicate.
 - Apply confidence scoring: `confidence_for_count(evidenceCount)` yields 0.3/0.5/0.7/0.85 at thresholds 1/2/3/5+.
 - Drop entries with confidence below 0.2 (decay threshold).
-- Update `.ai-engineering/observations/meta.json` with new checkpoint.
+- Update `.ai-engineering/observations/meta.json` with new checkpoint. MUST
+  stamp `lastReviewedAt` (ISO 8601, now) on a successful review (spec-165
+  D-165-05) — the System-B checkpoint the SessionStart observation-nudge
+  reads to decide whether the backlog is stale (distinct from System-A
+  `lastExtractedAt`, owned by the Stop-hook instinct extractor).
 
 #### Step 4: EVALUATE
 
@@ -172,17 +168,7 @@ Structured summary: observations extracted (count per family), entries upserted 
 
 ## Examples
 
-### Example 1 — start a passive observation session
-
-User: "begin observing this session for pattern learning"
-
-```
-/ai-session-watch
-```
-
-Outputs `observing the session...` and goes silent. The model passively notes corrections, error recoveries, and workflow sequences as the session continues. No further output until `--review`.
-
-### Example 2 — consolidate before committing
+### Example — consolidate before committing
 
 User: "review what was learned in this session before I commit"
 
@@ -190,7 +176,7 @@ User: "review what was learned in this session before I commit"
 /ai-session-watch --review
 ```
 
-Runs the 5-step consolidation: extract observations from the conversation, enrich with hook events, upsert into `observations.yml`, evaluate against LESSONS.md, and create work items for high-confidence proposals.
+Runs the 5-step consolidation: extract → enrich with hook events → upsert into `observations.yml` → evaluate against LESSONS.md → create work items for high-confidence proposals. (Bare `/ai-session-watch` just prints `observing the session...` and stays silent until `--review`.)
 
 ## Integration
 

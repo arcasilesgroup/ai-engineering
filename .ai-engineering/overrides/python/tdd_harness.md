@@ -5,7 +5,9 @@ deterministic, parallel-safe, and never reach the network.
 
 ## Runner
 
-- **Default**: `pytest`. No `unittest`-style test classes in new tests.
+- **Default**: `pytest`. Do not introduce `unittest`-style test
+  classes for new tests; pytest collects free functions and
+  parametrises them more cleanly.
 - **Plugins permitted by default**: `pytest-cov`, `pytest-xdist`
   (parallel), `pytest-asyncio` (async tests), `pytest-mock` (cleaner
   monkeypatch).

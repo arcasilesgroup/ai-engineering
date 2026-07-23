@@ -1,20 +1,23 @@
 # AI Engineering Framework - Code Owners
 # See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Uncomment and replace @your-org/your-team with your GitHub team or handles.
 
-# Default: maintainers own everything
-# Specific paths below can override this for finer-grained ownership
-*                                    @arcasilesgroup/maintainers
+# Framework governance (framework-managed)
+# /.ai-engineering/                    @your-org/your-team
+# /.ai-engineering/standards/          @your-org/your-team
+# /.ai-engineering/runbooks/           @your-org/your-team
 
-# spec-101 governance: required_tools + python_env.mode + platform_unsupported
-# changes go through the maintainers' review (D-101-03 + D-101-13). The
-# manifest is the single source of truth for installer + doctor tool
-# resolution -- accidental edits can break install across 14 stacks.
-.ai-engineering/manifest.yml         @arcasilesgroup/maintainers
+# IDE mirror surfaces (generated — do not edit manually)
+# /.claude/skills/                     @your-org/your-team
+# /.claude/agents/                     @your-org/your-team
+# /.agents/                            @your-org/your-team
 
-# spec-152: supply-chain-sensitive paths require explicit maintainer review
-/.github/**                          @arcasilesgroup/maintainers
-/.github/actions/**                  @arcasilesgroup/maintainers
-/.github/workflows/release.yml       @arcasilesgroup/maintainers
-/scripts/check_workflow_policy.py    @arcasilesgroup/maintainers
-/pyproject.toml                      @arcasilesgroup/maintainers
-/uv.lock                             @arcasilesgroup/maintainers
+# Root governance files
+# /CLAUDE.md                           @your-org/your-team
+# /AGENTS.md                           @your-org/your-team
+
+# Security-sensitive
+# /.gitleaks.toml                      @your-org/your-team
+# /.semgrep.yml                        @your-org/your-team
+# /scripts/                            @your-org/your-team
