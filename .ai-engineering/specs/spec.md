@@ -1,83 +1,87 @@
 ---
-spec: spec-196
-slug: lean-bootstrap-and-observation
-title: "Lean Bootstrap, Session Ticket, and Opt-In Observation"
+spec: spec-194
+slug: deterministic-context-safety-harness
+title: "Deterministic Context and Safety Harness"
 status: draft
 effort: large
-summary: "Root budget ≤2 KiB/≤500 tokens, no mandatory reads, deterministic session ticket, zero happy-path context injection, opt-in deduplicated observation."
+summary: "Read-only baseline collector that measures root-instruction bytes/tokens, mandatory reads, discovered catalog metadata, duplicate identities, hook injection cost, automatic writes and reachable MCP residue; produces redacted receipts; gates all six follow-on specs."
 stack: python
 ---
 
-# spec-196 — Lean Bootstrap, Session Ticket, and Opt-In Observation
+# spec-194 — Deterministic Context and Safety Harness
 
 ## Summary
 
-A new session receives only a compact root rulebook: identity, irreversible-action gates, canonical lifecycle commands and a pointer to a deterministic task ticket. Long doctrine, memory and framework context are fetched only after an explicit `/ai-*` workflow needs them. Healthy sessions write nothing automatically; learning is a deliberate, deduplicated cold-path operation.
+Before any context, MCP, surface or integration migration, ai-engineering needs a values-free harness that reports the actual host-visible prompt cost, discovery collisions, hook injection, automatic writes, MCP residue and command-output bounds. The harness supports preview, apply and verify workflows but makes no policy decision itself. A change is accepted only when the harness proves its claimed token, safety and compatibility effect on a clean host.
 
-Depends on spec-194 (harness) for baseline measurement. Independent of spec-195 (MCP removal).
+This is the **prerequisite for all five follow-on specs** (195–199). No mutation to roots, MCPs, surfaces, bootstrap, commands or packs may proceed without a passing baseline from this harness.
 
 ## Goals
 
-- Each generated root is at most 2 KiB or 500 estimated tokens and has no "read every session" directive.
-- A session ticket is deterministic, bounded and task-specific; it loads no full reference unless an invoked workflow requests it.
-- Normal hooks add zero model-visible context and make no tracked learning/work-item write.
-- Observation review is explicit, deduplicated and confirmation-gated.
-- Review routing uses changed path/risk with a deliberate full-review override.
-- Normal/list/error output obeys 8 KiB/200, 4 KiB/100 and 2 KiB/50 limits respectively.
+- Produce a stable JSON schema (`ContextSafetyReport`) covering: root bytes/tokens, mandatory reads, unique and duplicate visible IDs, command metadata cost, hook injection, automatic writes, MCP operational residue and bounded output.
+- Implement read-only collectors for roots, instructions, skills, commands, hooks, MCP configuration classes and output samples.
+- Add clean fixtures for every enabled host plus an `UNVERIFIED` fixture mode that cannot claim support.
+- Add compare/receipt output and tests for determinism, redaction, caps and false-negative-resistant duplicate detection.
+- Reports contain no secret value, home path, credential key material or raw environment value.
+- Same fixture and inputs produce byte-identical normalized JSON.
+- Each enabled surface has a fixture result or an explicit `UNVERIFIED` result; no inferred pass.
+- A baseline/compare regression fails on a budget or duplicate regression and leaves the target unchanged.
+- The harness is a required pre/post gate for the five follow-on briefs.
 
 ## Non-Goals
 
-- Third-party MCP deletion (spec-195).
-- Host command/skill roots (spec-197).
-- New CLI packs (spec-198/199).
-- A semantic router.
-- Changes to project-domain instructions owned by consumers.
+- Do not remove MCPs, change root prose, generate commands, author CLI skills, rotate credentials, or change user-owned configuration. Those are separate specs that consume this evidence.
+- Do not build a new control plane, daemon, registry or LLM intent router.
+- Do not introduce a compatibility shim for old audit scripts.
+- Do not mutate any target configuration during baseline or verify.
 
 ## Decisions
 
-### D-196-01 — Session ticket replaces mandatory reads
+### D-194-01 — Pure domain collector with adapter pattern
 
-A deterministic `session ticket` generated from task type, changed paths, active approved artifact, stack and risk replaces implicit document reads. The ticket contains bounded pointers and only the minimum digest needed to choose a workflow.
+The harness uses a pure domain collector that receives a repository root, declared host adapter and explicit fixture inputs, then emits a redacted `ContextSafetyReport`. Adapters own host-specific probes; the domain owns normalization, duplicate detection, budgets and verdicts. The command layer offers only `baseline`, `verify` and `compare` with deterministic JSON and concise human output.
 
-**Rationale**: Mandatory reads force every session to pay for context before task work begins.
+**Rationale**: §10.8 Hexagonal Architecture isolates host differences in adapters. §10.1 KISS: one normalized report instead of host-specific ad-hoc audits.
 
-### D-196-02 — Hooks emit zero model context on happy path
+### D-194-02 — Fixtures are disposable synthetic directories
 
-Normal successful actions emit no `additionalContext` and no tracked write. Hook scripts may collect privacy-safe technical receipts, but the model sees nothing unless an error occurs.
+Fixtures are disposable directories with synthetic safe configurations; the harness never scans or serializes credential values. Each enabled surface must have a passing fixture or an explicit `UNVERIFIED` result.
 
-**Rationale**: Progressive-disclosure injection adds ~252 tokens per prompt across 238 prompts.
+**Rationale**: §10.5 TDD: fixtures pin each classifier and redaction edge. No host can claim support without evidence.
 
-### D-196-03 — Observation is opt-in cold-path
+### D-194-03 — Budget and redaction are versioned and documented
 
-Learning changes to an operator-invoked sweep that performs deterministic deduplication and requires explicit confirmation before any tracked write or work-item creation.
+Budgets (token ceilings, output caps, duplicate thresholds) live in a versioned configuration file. Redaction rules are explicit and tested. Reports are capped at 8 KiB or 200 lines.
 
-**Rationale**: Always-on observation creates noise and unexpected file mutations.
+**Rationale**: §10.6 SDD: no remediation begins without evidence. Versioned budgets allow progressive tightening.
 
-### D-196-04 — Hard-delete mandatory-read wording
+### D-194-04 — Harness is read-only and file-based
 
-Delete mandatory-read wording rather than adding compatibility prose. No long-root compatibility mode.
+The harness is read-only, file-based and command-driven. It never writes to target configurations, never caches state between runs, and never invokes LLMs. It may read only what is necessary for its probes.
 
-**Rationale**: §10.1 KISS — remove bootstrap rather than inventing another layer.
+**Rationale**: Risk mitigation: harness becomes a new control plane. Keeping it deterministic and stateless prevents scope creep.
 
 ## Risks
 
-- **Lean root omits an irreversible gate**: low likelihood, critical impact. Mitigation: enumerate gates, test them, retain only those in root.
-- **Ticket is too generic to guide work**: medium likelihood, medium impact. Mitigation: require path/risk evidence and measure task success.
-- **Removing prompt hooks weakens security**: medium likelihood, high impact. Mitigation: keep deterministic enforcement at CLI/hook/CI boundaries; remove prose injection only.
-- **Learning signal is lost**: medium likelihood, low impact. Mitigation: explicit sweep with receipts and deduplication.
+- **Metadata estimate differs from real prompt input**: medium likelihood, high impact. Mitigation: require clean-host probes where available; label estimates explicitly.
+- **Scanner reads a secret**: low likelihood, critical impact. Mitigation: parse structure only; redact before persistence; test known secret-shaped fixtures.
+- **Harness becomes a new control plane**: medium likelihood, medium impact. Mitigation: keep it read-only, file-based and command-driven.
+- **Fixture claims unsupported host behavior**: medium likelihood, high impact. Mitigation: `UNVERIFIED` is terminal for that adapter; no inferred pass.
 
 ## References
 
-- brief: `.ai-engineering/specs/drafts/lean-bootstrap-and-observation-brief.md`
+- brief: `.ai-engineering/specs/drafts/deterministic-context-safety-harness-brief.md`
+- audit: `.ai-engineering/runtime/audits/cli-first-context-audit-2026-07-23.md`
+- existing tests: `tests/architecture/test_surface_parity.py`, `tests/perf/test_skill_lint_budget.py`
+- gate policy: `.ai-engineering/reference/gate-policy.md`
+- generator: `scripts/sync_mirrors/core.py`
 - template: `src/ai_engineering/templates/project/CANONICAL.md`
-- hooks: `.ai-engineering/scripts/hooks/runtime-progressive-disclosure.py`
-- session-watch: `.claude/skills/ai-session-watch/SKILL.md`
 
 ## Acceptance
 
-- [ ] Root size/token gates pass on all generated mirrors.
-- [ ] No generated root mandates session-wide document reads.
-- [ ] Ticket tests prove bounded and task-relevant output.
-- [ ] Normal hooks emit no `additionalContext` and no tracked write.
-- [ ] Observation is explicit, deduplicated and confirmation-gated.
-- [ ] Output and review-selection tests pass.
+- [ ] Schema and budget file are versioned and documented.
+- [ ] Structure-only parsing and redaction tests pass.
+- [ ] All enabled-surface fixtures emit pass, fail or `UNVERIFIED` deterministically.
+- [ ] Compare output is capped and receipt-bound.
+- [ ] Existing parity and skill-budget tests still pass.
+- [ ] No target configuration is mutated by baseline or verify.
