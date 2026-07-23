@@ -29,6 +29,7 @@ from ai_engineering.cli_commands import (
     decisions_cmd,
     dev_sync,
     gate,
+    harness_cmd,
     host_cmd,
     internal,
     issue,
@@ -643,6 +644,17 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     )
     plan_app.command("dag-build")(_safe(plan_cmd.plan_dag_build))
     app.add_typer(plan_app, name="plan")
+
+    # Harness sub-group (spec-194: deterministic context and safety harness)
+    harness_app = typer.Typer(
+        name="harness",
+        help="Deterministic context and safety harness (baseline, verify, compare).",
+        no_args_is_help=True,
+    )
+    harness_app.command("baseline")(_safe(harness_cmd.baseline))
+    harness_app.command("verify")(_safe(harness_cmd.verify))
+    harness_app.command("compare")(_safe(harness_cmd.compare))
+    app.add_typer(harness_app, name="harness")
 
     # Issue sub-group (D-132-03 -- renamed from work-item).
     issue_app = typer.Typer(
