@@ -221,6 +221,7 @@ def _assert_private_ancestor_chain(root: Path) -> None:
             _assert_private(current, 0o700, directory=True)
         elif metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
             raise PrivateStoreError("private store traversal has a writable ancestor")
+        validate_private_acl(current)
         if current.parent == current:
             return
         current = current.parent
