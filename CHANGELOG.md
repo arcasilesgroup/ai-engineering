@@ -45,8 +45,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- spec-193: Added the isolated, values-free Phase 0 security-cutover harness: owner-only external state, exact receipt schema and durable indexing, closed credential FSM, bounded allowlisted probes, synthetic discovery/restart contracts, autoload isolation, and persistence doctrine. No personal host configuration or credential was mutated.
-
 - Removed all ungoverned lint, type, coverage, and Sonar suppressions. The
   shell guard now detects netcat execution flags and socat `EXEC:` sinks with
   bounded deterministic scans, and updater writes use the validated path string
