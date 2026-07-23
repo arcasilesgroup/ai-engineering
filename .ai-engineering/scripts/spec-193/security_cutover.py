@@ -1103,71 +1103,6 @@ def _canonical_baseline_digest(baseline: Mapping[str, object]) -> str:
     return hashlib.sha256(_json_payload(validated)).hexdigest()
 
 
-_BUNDLE_RECORD_FIELDS: Final[frozenset[str]] = frozenset(
-    {
-        "bundle",
-        "surface",
-        "scope",
-        "root_token",
-        "location_fingerprint",
-        "owner_class",
-        "mode_class",
-        "acl_state",
-        "structure_sha256",
-        "discovery_state",
-        "reachability",
-        "proposed_action",
-        "survivor_status",
-    }
-)
-_BUNDLE_NAMES: Final[frozenset[str]] = frozenset(
-    {"context7-mcp", "notebooklm-mcp", "use-railway", "unrelated-skill"}
-)
-
-
-def _validate_bundle_inventory(records: object) -> list[dict[str, object]]:
-    """Validate opaque physical-bundle inventory rows without accepting content or paths."""
-    if not isinstance(records, list):
-        raise PrivateStoreError("bundle inventory must be a list")
-    validated: list[dict[str, object]] = []
-    fingerprints: set[str] = set()
-    for record in records:
-        if not isinstance(record, Mapping) or set(record) != _BUNDLE_RECORD_FIELDS:
-            raise PrivateStoreError("bundle record fields differ from the T1.3 allowlist")
-        row = dict(cast(Mapping[str, object], record))
-        if not isinstance(row["bundle"], str) or row["bundle"] not in _BUNDLE_NAMES:
-            raise PrivateStoreError("bundle record name is invalid")
-        if not isinstance(row["surface"], str) or row["surface"] not in {
-            "cursor", "copilot-cli", "vscode-copilot", "shared-root"
-        }:
-            raise PrivateStoreError("bundle record surface is invalid")
-        for name, allowed in (
-            ("scope", {"user", "shared", "generated"}),
-            ("owner_class", _T12_OWNER_CLASSES),
-            ("mode_class", _T12_MODE_CLASSES),
-            ("acl_state", _T12_ACL_STATES),
-            ("discovery_state", {"present", "absent", "unsafe", "truncated"}),
-            ("reachability", _T12_REACHABILITY),
-            ("proposed_action", _T12_ACTIONS),
-            ("survivor_status", {"targeted", "preserve", "unclassified", "blocked"}),
-        ):
-            if not isinstance(row[name], str) or row[name] not in allowed:
-                raise PrivateStoreError("bundle record enumeration is invalid")
-        if not isinstance(row["root_token"], str) or not re.fullmatch(
-            r"\$HOME/[A-Za-z0-9._/ -]+", row["root_token"]
-        ):
-            raise PrivateStoreError("bundle record root token is invalid")
-        for name in ("location_fingerprint", "structure_sha256"):
-            if not isinstance(row[name], str) or not re.fullmatch(r"[0-9a-f]{64}", row[name]):
-                raise PrivateStoreError("bundle record digest is invalid")
-        fingerprint = cast(str, row["location_fingerprint"])
-        if fingerprint in fingerprints:
-            raise PrivateStoreError("bundle inventory has a duplicate physical location")
-        fingerprints.add(fingerprint)
-        validated.append(row)
-    return validated
-
-
 def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
     """Validate the T0.0 or canonical upgraded values-free manifest schema."""
     schema = document.get("schema")
@@ -1175,7 +1110,6 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
         "spec-193-manifest-v1",
         "spec-193-manifest-v2",
         "spec-193-manifest-v3",
-        "spec-193-manifest-v4",
     }:
         expected = {
             "schema",
@@ -1189,12 +1123,10 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
             "receipt_index",
             "runner_sha256",
         }
-        if schema in {"spec-193-manifest-v2", "spec-193-manifest-v3", "spec-193-manifest-v4"}:
+        if schema in {"spec-193-manifest-v2", "spec-193-manifest-v3"}:
             expected |= {"baseline_canonical_sha256", "runner_version"}
-        if schema in {"spec-193-manifest-v3", "spec-193-manifest-v4"}:
+        if schema == "spec-193-manifest-v3":
             expected |= {"surface_hash_scheme"}
-        if schema == "spec-193-manifest-v4":
-            expected |= {"bundle_inventory", "runner_history"}
         if set(document) != expected:
             raise PrivateStoreError("canonical manifest fields differ from the schema allowlist")
         baseline = document["baseline"]
@@ -1211,7 +1143,7 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
         ):
             raise PrivateStoreError("canonical manifest runner digest is invalid")
         validated_baseline = _validate_preflight_baseline(cast(Mapping[str, object], baseline))
-        if schema in {"spec-193-manifest-v2", "spec-193-manifest-v3", "spec-193-manifest-v4"}:
+        if schema in {"spec-193-manifest-v2", "spec-193-manifest-v3"}:
             canonical_digest = document["baseline_canonical_sha256"]
             runner_version = document["runner_version"]
             if not isinstance(canonical_digest, str) or not re.fullmatch(
@@ -1228,7 +1160,7 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
             canonical_digest = None
             runner_version = None
         if (
-            schema in {"spec-193-manifest-v3", "spec-193-manifest-v4"}
+            schema == "spec-193-manifest-v3"
             and document["surface_hash_scheme"] != "key-class-v2"
         ):
             raise PrivateStoreError("canonical manifest surface hash scheme is invalid")
@@ -1263,35 +1195,6 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
             result["runner_version"] = runner_version
             if schema == "spec-193-manifest-v3":
                 result["surface_hash_scheme"] = "key-class-v2"
-            if schema == "spec-193-manifest-v4":
-                result["surface_hash_scheme"] = "key-class-v2"
-                result["bundle_inventory"] = _validate_bundle_inventory(
-                    document["bundle_inventory"]
-                )
-                history = document["runner_history"]
-                if (
-                    not isinstance(history, list)
-                    or len(history) != 2
-                    or any(
-                        not isinstance(entry, Mapping) or set(entry) != {"version", "sha256"}
-                        for entry in history
-                    )
-                ):
-                    raise PrivateStoreError("T1.3 runner history is invalid")
-                previous, current = cast(list[Mapping[str, object]], history)
-                if (
-                    previous.get("version") != "spec-193-t1.2"
-                    or current.get("version") != "spec-193-t1.3"
-                    or current.get("sha256") != runner_digest
-                ):
-                    raise PrivateStoreError("T1.3 runner history is not monotonic")
-                if not all(
-                    isinstance(entry.get("sha256"), str)
-                    and re.fullmatch(r"[0-9a-f]{64}", cast(str, entry["sha256"]))
-                    for entry in (previous, current)
-                ):
-                    raise PrivateStoreError("T1.3 runner history digests are invalid")
-                result["runner_history"] = [dict(previous), dict(current)]
         return result
 
     expected = {"schema", "records", "receipt_index"}
@@ -1681,50 +1584,6 @@ def upgrade_surface_hash_scheme(
         upgraded["schema"] = "spec-193-manifest-v3"
         upgraded["surface_hash_scheme"] = "key-class-v2"
         upgraded["surfaces"] = validated_records
-        return session.write_manifest(upgraded, expected_digest=actual_digest)
-
-
-def prepare_t13_bundle_inventory(
-    root: Path,
-    *,
-    expected_manifest_sha256: str,
-    expected_previous_runner_sha256: str,
-    expected_previous_runner_version: str,
-    expected_current_runner_sha256: str,
-    runner_path: Path,
-) -> str:
-    """Allow exactly the T1.2→T1.3 identity transition before any T1.3 host read."""
-    if expected_previous_runner_version != "spec-193-t1.2":
-        raise PrivateStoreError("T1.3 requires the exact T1.2 runner predecessor")
-    for digest in (
-        expected_manifest_sha256,
-        expected_previous_runner_sha256,
-        expected_current_runner_sha256,
-    ):
-        if not re.fullmatch(r"[0-9a-f]{64}", digest):
-            raise PrivateStoreError("T1.3 runner migration digest is invalid")
-    current_digest = _runner_digest(runner_path)
-    if current_digest != expected_current_runner_sha256:
-        raise PrivateStoreError("current runner differs from the explicitly approved next identity")
-    with private_store_session(root) as session:
-        manifest, actual_digest = _load_private_manifest(session.paths)
-        if actual_digest != expected_manifest_sha256:
-            raise PrivateStoreError("private bundle changed before T1.3 preparation")
-        if (
-            manifest["schema"] != "spec-193-manifest-v3"
-            or manifest["runner_sha256"] != expected_previous_runner_sha256
-            or manifest["runner_version"] != expected_previous_runner_version
-        ):
-            raise PrivateStoreError("T1.3 predecessor identity does not match the private bundle")
-        upgraded = dict(manifest)
-        upgraded["schema"] = "spec-193-manifest-v4"
-        upgraded["runner_sha256"] = current_digest
-        upgraded["runner_version"] = "spec-193-t1.3"
-        upgraded["runner_history"] = [
-            {"version": "spec-193-t1.2", "sha256": expected_previous_runner_sha256},
-            {"version": "spec-193-t1.3", "sha256": current_digest},
-        ]
-        upgraded["bundle_inventory"] = []
         return session.write_manifest(upgraded, expected_digest=actual_digest)
 
 

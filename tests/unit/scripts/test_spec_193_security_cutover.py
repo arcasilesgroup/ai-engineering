@@ -913,19 +913,6 @@ def test_t12_bundle_v2_binds_the_baseline_and_rejects_conflicting_rediscovery(
     assert runner.validate_manifest(v3)["surface_hash_scheme"] == "key-class-v2"
     assert len(v3_digest) == 64
 
-    v4_digest = runner.prepare_t13_bundle_inventory(
-        root,
-        expected_manifest_sha256=v3_digest,
-        expected_previous_runner_sha256=v3["runner_sha256"],
-        expected_previous_runner_version="spec-193-t1.2",
-        expected_current_runner_sha256=hashlib.sha256(RUNNER_PATH.read_bytes()).hexdigest(),
-        runner_path=RUNNER_PATH,
-    )
-    v4 = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
-    assert v4["schema"] == "spec-193-manifest-v4"
-    assert runner.validate_manifest(v4)["runner_history"][1]["version"] == "spec-193-t1.3"
-    assert len(v4_digest) == 64
-
     changed = [dict(record) for record in records]
     changed[0]["reachability"] = "unknown"
     with pytest.raises(ValueError):
