@@ -214,7 +214,7 @@ workflow, unrelated skills, and the three Codex vendor components must survive.
   - Implementation (judgment-bound): add fake CLIs and credential-manager adapters that leak canaries to streams/argv, exceed 64 KiB, time out, spawn children, fail between quarantine create/source removal, or request `ctx7 setup`, `mcp`, `setup agent`, shell execution, env dumps, or secret argv.
   - Gate: runner-policy tests fail RED.
 
-- [x] T-0.6 — GREEN: implement bounded no-shell probes and ACL validation — DONE (explicit executable allowlist, shell/MCP/env/secret-argv denial, DEVNULL output discard, process-group timeout kill, 64 KiB cap, and fail-closed ACL inspection: 51 focused tests GREEN)
+- [x] T-0.6 — GREEN: implement bounded no-shell probes and ACL validation — DONE (explicit executable allowlist, shell/MCP/env/secret-argv denial, DEVNULL output discard, process-group timeout kill, 64 KiB cap, and fail-closed ACL inspection with bounded native macOS fallback: 62 focused tests GREEN)
   - Agent: build
   - Files: `.ai-engineering/scripts/spec-193/security_cutover.py`
   - Principles applied: §10.1 KISS, §10.8 Hexagonal Architecture

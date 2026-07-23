@@ -513,6 +513,58 @@ def test_acl_validation_fails_closed_without_a_native_inspection_backend(
 ) -> None:
     runner = _load_runner()
     monkeypatch.delattr(runner.os, "listxattr", raising=False)
+    monkeypatch.setattr(runner.sys, "platform", "linux")
+
+    with pytest.raises(ValueError):
+        runner.validate_private_acl(tmp_path.resolve())
+
+
+class _AclStdout:
+    def __init__(self, payload: bytes) -> None:
+        self._payload = payload
+
+    def read(self, _limit: int) -> bytes:
+        return self._payload
+
+
+class _AclProcess:
+    def __init__(self, payload: bytes) -> None:
+        self.pid = 1
+        self.stdout = _AclStdout(payload)
+
+    def wait(self, timeout: float) -> int:
+        del timeout
+        return 0
+
+
+def test_acl_validation_uses_bounded_native_macos_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner = _load_runner()
+    monkeypatch.delattr(runner.os, "listxattr", raising=False)
+    monkeypatch.setattr(runner.sys, "platform", "darwin")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: _AclProcess(b"drwx------@ fixture\n"),
+    )
+
+    runner.validate_private_acl(tmp_path.resolve())
+
+
+def test_acl_validation_rejects_native_macos_acl_entries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner = _load_runner()
+    monkeypatch.delattr(runner.os, "listxattr", raising=False)
+    monkeypatch.setattr(runner.sys, "platform", "darwin")
+    monkeypatch.setattr(
+        runner.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: _AclProcess(
+            b"drwx------+ fixture\n 0: group: staff allow read\n"
+        ),
+    )
 
     with pytest.raises(ValueError):
         runner.validate_private_acl(tmp_path.resolve())

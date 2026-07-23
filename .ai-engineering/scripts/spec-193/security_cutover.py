@@ -16,6 +16,7 @@ import re
 import signal
 import stat
 import subprocess
+import sys
 import tempfile
 from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
@@ -735,23 +736,64 @@ def run_bounded_probe(
     )
 
 
+MAX_ACL_OUTPUT_BYTES: Final[int] = 8 * 1024
+
+
+def _macos_acl_output(path: Path) -> bytes:
+    """Read a bounded native ACL listing without persisting or printing it."""
+    if sys.platform != "darwin":
+        raise PrivateStoreError("extended ACL inspection is unavailable")
+    try:
+        process = subprocess.Popen(
+            ("/bin/ls", "-lde", str(path)),
+            shell=False,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            close_fds=True,
+            env=_MINIMAL_PROBE_ENV,
+            start_new_session=True,
+        )
+        if process.stdout is None:
+            raise PrivateStoreError("native ACL inspection has no bounded output stream")
+        output = process.stdout.read(MAX_ACL_OUTPUT_BYTES + 1)
+        if len(output) > MAX_ACL_OUTPUT_BYTES:
+            _kill_probe_group(process)
+            raise PrivateStoreError("native ACL inspection exceeded its output cap")
+        if process.wait(timeout=2.0) != 0:
+            raise PrivateStoreError("native ACL inspection failed")
+        return output
+    except subprocess.TimeoutExpired as error:
+        _kill_probe_group(process)
+        raise PrivateStoreError("native ACL inspection timed out") from error
+    except OSError as error:
+        raise PrivateStoreError("native ACL inspection could not start") from error
+
+
 def validate_private_acl(path: Path) -> None:
-    """Fail closed on the ACL forms that could widen a private-state path."""
+    """Fail closed on extended access ACLs using a native macOS fallback if needed."""
     if stat.S_ISLNK(path.lstat().st_mode):
         raise PrivateStoreError("ACL validation refuses symlink paths")
     listxattr = getattr(os, "listxattr", None)
-    if not callable(listxattr):
-        raise PrivateStoreError("extended ACL inspection is unavailable")
+    if callable(listxattr):
+        try:
+            attributes = listxattr(path, follow_symlinks=False)
+        except (OSError, TypeError) as error:
+            raise PrivateStoreError("extended ACL inspection failed") from error
+        unsafe = {
+            "com.apple.acl.text",
+            "system.posix_acl_access",
+            "system.posix_acl_default",
+        }
+        if any(attribute in unsafe for attribute in attributes):
+            raise PrivateStoreError("private-state path has an extended access ACL")
+        return
+    output = _macos_acl_output(path)
     try:
-        attributes = listxattr(path, follow_symlinks=False)
-    except (OSError, TypeError) as error:
-        raise PrivateStoreError("extended ACL inspection failed") from error
-    unsafe = {
-        "com.apple.acl.text",
-        "system.posix_acl_access",
-        "system.posix_acl_default",
-    }
-    if any(attribute in unsafe for attribute in attributes):
+        lines = output.decode("utf-8").splitlines()
+    except UnicodeDecodeError as error:
+        raise PrivateStoreError("native ACL inspection returned non-text output") from error
+    if any(re.match(r"^\s*\d+:", line) for line in lines[1:]):
         raise PrivateStoreError("private-state path has an extended access ACL")
 
 

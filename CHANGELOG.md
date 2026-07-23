@@ -65,6 +65,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the archived spec-177 plan. skill-map (`sm`) stays a one-off tool — no `sm`
   config or CI gate added (reaffirms D-173-03).
 
+### Fixed
+
+- spec-193: macOS ACL validation now uses a bounded native `ls -le` fallback when Python lacks `os.listxattr`; unsupported platforms still fail closed.
+
 ## [0.12.3] - 2026-06-29
 
 ### Added
