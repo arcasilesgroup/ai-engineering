@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.state import observability as runtime_obs
-from ai_engineering.state.event_schema import validate_event_schema
+from skill_domain.event_schema import validate_event_schema
 
 _HOOKS_DIR = Path(__file__).parents[2] / ".ai-engineering" / "scripts" / "hooks"
 if str(_HOOKS_DIR) not in sys.path:

@@ -21,7 +21,7 @@ import typer
 from ai_engineering.core.output import NextAction, Renderer
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.state.locking import artifact_lock
-from ai_engineering.validator.service import (
+from skill_app.lint_service import (
     IntegrityCategory,
     validate_content_integrity,
 )

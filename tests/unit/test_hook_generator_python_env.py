@@ -28,7 +28,7 @@ from ai_engineering.hooks.manager import (
     generate_bash_hook,
     generate_powershell_hook,
 )
-from ai_engineering.state.models import GateHook, PythonEnvMode
+from skill_domain.state_models import GateHook, PythonEnvMode
 
 # ---------------------------------------------------------------------------
 # Fixture: the three modes get their own preamble snapshot per shell

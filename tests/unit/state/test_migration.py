@@ -230,8 +230,8 @@ class TestOldOverwritesNew:
         state_dir = ai_eng / "state"
 
         # Spec-125: pre-existing state is a state.db row, not a JSON file.
-        from ai_engineering.state.models import InstallState as _IS
         from ai_engineering.state.service import save_install_state as _save_is
+        from skill_domain.state_models import InstallState as _IS
 
         _existing_state = {
             "schema_version": "2.0",
@@ -339,8 +339,8 @@ class TestToolsMergedIntoExisting:
             "release": {"last_version": "0.3.0"},
         }
         # Spec-125: pre-existing state lives in state.db, not a JSON file.
-        from ai_engineering.state.models import InstallState as _IS2
         from ai_engineering.state.service import save_install_state as _save_is2
+        from skill_domain.state_models import InstallState as _IS2
 
         _save_is2(state_dir, _IS2.model_validate(existing_state))
         _write_json(state_dir / "tools.json", _TOOLS_JSON)

@@ -389,7 +389,7 @@ class TestIdeConfigReconfigure:
         import yaml
 
         from ai_engineering.installer.phases.ide_config import IdeConfigPhase
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         # Write a manifest.yml with previously-enabled Surfaces; reconfigure
         # narrows to claude-code only, so github-copilot must be planned for delete.

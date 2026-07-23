@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ai_engineering.validator.service import (
+from skill_app.lint_service import (
     IntegrityCategory,
     IntegrityStatus,
     validate_content_integrity,

@@ -6,7 +6,7 @@ from dataclasses import replace
 
 import pytest
 
-from ai_engineering.standards import (
+from skill_domain.standards import (
     EngineeringStandard,
     LegacyRetirementStatus,
     build_engineering_standards_matrix,

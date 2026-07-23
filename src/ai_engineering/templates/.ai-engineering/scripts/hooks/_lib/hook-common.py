@@ -7,7 +7,7 @@ otherwise pull state writers into hook scripts that intentionally run
 outside the package install (per D-112-04 + R-9 mitigation).
 
 The schema validator delegates to a stdlib mirror of
-`ai_engineering.state.event_schema.validate_event_schema` so the wire
+`skill_domain.event_schema.validate_event_schema` so the wire
 contract stays in sync without crossing the seal.
 
 Six functions per G-12:
@@ -85,7 +85,7 @@ def _normalize_engine_id(engine: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# 1. validate_event_schema -- mirrors src/ai_engineering/state/event_schema.py
+# 1. validate_event_schema -- mirrors tools/skill_domain/event_schema.py
 # ---------------------------------------------------------------------------
 
 

@@ -29,7 +29,7 @@ from typing import TYPE_CHECKING, Any
 
 from pydantic import BaseModel
 
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     Platform,
     PythonEnvMode,
     RequiredToolsBlock,
@@ -38,7 +38,7 @@ from ai_engineering.state.models import (
     ToolSpec,
 )
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from collections.abc import Iterable
 
 __all__ = [

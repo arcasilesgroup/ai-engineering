@@ -232,10 +232,12 @@ def _ts_unix_ms_or_zero(event: dict[str, Any]) -> int:
         return 0
     if isinstance(raw, int):
         return raw
-    try:
-        return int(raw)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return 0
+    if isinstance(raw, (str, float)):
+        try:
+            return int(raw)
+        except ValueError:
+            return 0
+    return 0
 
 
 def _short_timestamp(event: dict[str, Any]) -> str:

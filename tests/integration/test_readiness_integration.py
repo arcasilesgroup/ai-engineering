@@ -320,8 +320,8 @@ class TestCheckOperationalReadiness:
         assert report.tools == []
 
     def test_reads_state_auth_cicd_policy(self, tmp_path) -> None:
-        from ai_engineering.state.models import ToolEntry
         from ai_engineering.state.service import save_install_state
+        from skill_domain.state_models import ToolEntry
 
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True, exist_ok=True)

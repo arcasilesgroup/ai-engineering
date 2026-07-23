@@ -58,6 +58,6 @@ every skill in priority-tier order and stops short of the eval pipeline.
 
 ## Integration
 
-Reads: decision-store.json, LESSONS.md, observations.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `python scripts/sync_command_mirrors.py` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-scaffold` (new skills), `/ai-ide-audit` (cross-IDE).
+Reads: decision-store.json, LESSONS.md, observations.yml, proposals.md, manifest.yml. Writes: target SKILL.md files. Calls: `uv run python -m scripts.sync_mirrors` after rewrites. Delegates to: Anthropic `skill-creator` (eval/grade/benchmark, Phase 5). Feeds into: `/ai-learn`. See also: `/ai-scaffold` (new skills), `/ai-ide-audit` (cross-IDE).
 
 $ARGUMENTS

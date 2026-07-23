@@ -64,7 +64,6 @@ from ai_engineering.state.defaults import (
 )
 from ai_engineering.state.instincts import ensure_instinct_artifacts
 from ai_engineering.state.manifest import compute_tool_spec_hash
-from ai_engineering.state.models import DecisionStatus, InstallState, RiskCategory
 from ai_engineering.state.observability import (
     emit_framework_operation,
     write_framework_capabilities,
@@ -75,6 +74,7 @@ from ai_engineering.state.service import (
     save_install_state,
 )
 from ai_engineering.vcs.factory import get_provider
+from skill_domain.state_models import DecisionStatus, InstallState, RiskCategory
 
 from .auth import check_vcs_auth
 from .branch_policy import apply_branch_policy
@@ -563,7 +563,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
             tool_entry.installed = is_available
             tool_entry.mode = "cli" if is_available else "api"
         else:
-            from ai_engineering.state.models import ToolEntry
+            from skill_domain.state_models import ToolEntry
 
             state.tooling[tool] = ToolEntry(
                 installed=is_available,
@@ -609,7 +609,7 @@ def _run_operational_phases(target: Path, *, vcs_provider: str, result: InstallR
         vcs_entry.authenticated = auth_result.authenticated
         vcs_entry.mode = auth_result.mode
     else:
-        from ai_engineering.state.models import ToolEntry
+        from skill_domain.state_models import ToolEntry
 
         state.tooling[tool_key] = ToolEntry(
             authenticated=auth_result.authenticated,

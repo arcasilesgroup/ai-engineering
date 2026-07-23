@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ai_engineering.validator.service import (
+from skill_app.lint_service import (
     IntegrityCategory,
     validate_content_integrity,
 )

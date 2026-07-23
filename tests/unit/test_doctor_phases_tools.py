@@ -29,7 +29,7 @@ import pytest
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.doctor.phases import tools as tools_phase
 from ai_engineering.state.manifest import LoadResult
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     InstallState,
     PythonEnvMode,
     ToolSpec,

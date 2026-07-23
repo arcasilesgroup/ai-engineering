@@ -54,7 +54,7 @@ import pytest
 from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
-from ai_engineering.state.models import GateFindingsDocument
+from skill_domain.state_models import GateFindingsDocument
 
 runner = CliRunner()
 

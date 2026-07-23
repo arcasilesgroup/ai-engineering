@@ -34,7 +34,7 @@ from ai_engineering.installer.phases import (
 )
 from ai_engineering.installer.phases.hooks import HooksPhase
 from ai_engineering.installer.phases.tools import ToolsPhase
-from ai_engineering.state.models import ToolScope, ToolSpec
+from skill_domain.state_models import ToolScope, ToolSpec
 
 # ---------------------------------------------------------------------------
 # Helpers

@@ -51,10 +51,10 @@ Severity: advisory WARN. Remediation: re-run `ai-eng sync`.
 When TARGET_PLATFORM matches the fix scope, auto-fix these unambiguous P0s:
 
 - Orphaned `copilot-*` hook → add entry to `.github/hooks/hooks.json`.
-- Wrong skill count in instruction file → run `python scripts/sync_command_mirrors.py`.
+- Wrong skill count in instruction file → run `uv run python -m scripts.sync_mirrors`.
 - AGENTS.md Source-of-Truth uses `.<ide>/` placeholder → revert to `.codex/`.
 
-After fixing: re-run `python scripts/sync_command_mirrors.py` then verify:
+After fixing: re-run `uv run python -m scripts.sync_mirrors` then verify:
 
 ```bash
 source .venv/bin/activate && python -m pytest tests/unit/ -q

@@ -36,7 +36,7 @@ from ai_engineering.policy.gates import (
     _get_active_stacks,
     run_gate,
 )
-from ai_engineering.state.models import GateHook
+from skill_domain.state_models import GateHook
 
 
 @pytest.fixture()

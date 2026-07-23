@@ -32,7 +32,7 @@ Any violation of the four checks below (paths use `.codex/`, copilot count formu
 - Expected: canonical mirrors (Claude/Codex/Antigravity) match manifest totals exactly; `.github/skills/` is lower by exactly the `copilot_compatible: false` count.
 - Cross-check `Skills (N)` and `Agents (N)` extracted from each instruction file against the same formula.
 
-## Sync Script (`scripts/sync_command_mirrors.py`)
+## Sync Script (`scripts/sync_mirrors/core.py`)
 
 - `generate_agents_md()` — AGENTS.md Source-of-Truth paths must use `.codex/` (not `.<ide>/`).
 - `generate_copilot_instructions()` — must call `is_copilot_compatible()` to filter count.

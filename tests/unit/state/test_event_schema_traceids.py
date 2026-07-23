@@ -37,7 +37,7 @@ def _minimal_event() -> dict:
 
 def test_valid_trace_id_accepted() -> None:
     """A 32-hex traceId is accepted when present."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["traceId"] = "0123456789abcdef0123456789abcdef"
@@ -60,7 +60,7 @@ def test_valid_trace_id_accepted() -> None:
 )
 def test_invalid_trace_id_rejected(trace_id) -> None:
     """Malformed traceId fails closed."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["traceId"] = trace_id
@@ -74,7 +74,7 @@ def test_invalid_trace_id_rejected(trace_id) -> None:
 
 def test_valid_span_id_accepted() -> None:
     """A 16-hex spanId is accepted when present."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["spanId"] = "abcdef0123456789"
@@ -95,7 +95,7 @@ def test_valid_span_id_accepted() -> None:
 )
 def test_invalid_span_id_rejected(span_id) -> None:
     """Malformed spanId fails closed."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["spanId"] = span_id
@@ -109,7 +109,7 @@ def test_invalid_span_id_rejected(span_id) -> None:
 
 def test_valid_parent_span_id_accepted() -> None:
     """A 16-hex parentSpanId is accepted when present."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["parentSpanId"] = "0011223344556677"
@@ -118,7 +118,7 @@ def test_valid_parent_span_id_accepted() -> None:
 
 def test_null_parent_span_id_accepted() -> None:
     """parentSpanId=None is the legal root-span signal and must validate."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["parentSpanId"] = None
@@ -138,7 +138,7 @@ def test_null_parent_span_id_accepted() -> None:
 )
 def test_invalid_parent_span_id_rejected(parent_span_id) -> None:
     """Malformed parentSpanId fails closed (None remains accepted)."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["parentSpanId"] = parent_span_id
@@ -154,7 +154,7 @@ def test_invalid_parent_span_id_rejected(parent_span_id) -> None:
 
 def test_all_three_absent_is_still_valid() -> None:
     """Legacy events without any trace context must keep validating."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     # Sanity: none of the new keys are present.
@@ -167,7 +167,7 @@ def test_all_three_absent_is_still_valid() -> None:
 def test_trace_id_only_no_span_id_accepted() -> None:
     """Mixed presence (traceId without spanId) is permitted; the validator
     only enforces the shape of fields that are present."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["traceId"] = "00112233445566778899aabbccddeeff"
@@ -178,7 +178,7 @@ def test_trace_id_only_no_span_id_accepted() -> None:
 
 def test_full_trace_context_round_trip_accepted() -> None:
     """All three fields present and well-formed: accepted."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["traceId"] = "ffeeddccbbaa99887766554433221100"

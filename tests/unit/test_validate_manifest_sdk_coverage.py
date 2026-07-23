@@ -33,7 +33,7 @@ def _run_lint(root: Path):
     from ai_engineering.validator.categories.required_tools import (
         _check_required_tools,
     )
-    from ai_engineering.validator.service import IntegrityReport
+    from skill_app.lint_service import IntegrityReport
 
     report = IntegrityReport()
     _check_required_tools(root, report)

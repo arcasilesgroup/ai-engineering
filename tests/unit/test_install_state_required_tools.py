@@ -29,7 +29,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     InstallState,
     PythonEnvMode,
     ToolInstallRecord,

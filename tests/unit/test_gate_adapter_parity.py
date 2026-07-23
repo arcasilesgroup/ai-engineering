@@ -34,7 +34,7 @@ from typer.testing import CliRunner
 
 from ai_engineering.cli_factory import create_app
 from ai_engineering.hooks.manager import generate_bash_hook
-from ai_engineering.state.models import GateFindingsDocument, GateHook
+from skill_domain.state_models import GateFindingsDocument, GateHook
 
 runner = CliRunner()
 

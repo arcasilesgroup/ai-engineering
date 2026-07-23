@@ -13,15 +13,15 @@ from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.capabilities import build_capability_cards
 from ai_engineering.state.control_plane import resolve_constitution_context_path
 from ai_engineering.state.defaults import projection_update_metadata
-from ai_engineering.state.event_schema import ALLOWED_EVENT_KINDS, normalize_engine_id
 from ai_engineering.state.io import _json_serializer
 from ai_engineering.state.locking import artifact_lock
-from ai_engineering.state.models import (
+from ai_engineering.state.work_plane import resolve_active_work_plane
+from skill_domain.event_schema import ALLOWED_EVENT_KINDS, normalize_engine_id
+from skill_domain.state_models import (
     CapabilityDescriptor,
     FrameworkCapabilitiesCatalog,
     FrameworkEvent,
 )
-from ai_engineering.state.work_plane import resolve_active_work_plane
 
 FRAMEWORK_EVENT_SCHEMA_VERSION = "1.0"
 FRAMEWORK_CAPABILITIES_SCHEMA_VERSION = "1.0"

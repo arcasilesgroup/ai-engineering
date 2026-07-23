@@ -68,7 +68,7 @@ class TestTemplateSkillParity:
                 divergent.append(rel.as_posix())
         assert not divergent, (
             f"Content diverged for {len(divergent)} skill file(s): {divergent}. "
-            "Run: python scripts/sync_command_mirrors.py"
+            "Run: uv run python -m scripts.sync_mirrors"
         )
 
     # -- No extra templates without a canonical root file -------------------
@@ -98,7 +98,7 @@ class TestTemplateSkillParity:
             f"Missing template copy: {template_file.relative_to(_PROJECT_ROOT)}"
         )
         assert _sha256(root_file) == _sha256(template_file), (
-            f"Content mismatch for {skill_rel}. Run: python scripts/sync_command_mirrors.py"
+            f"Content mismatch for {skill_rel}. Run: uv run python -m scripts.sync_mirrors"
         )
 
 

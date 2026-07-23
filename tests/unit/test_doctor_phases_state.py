@@ -132,7 +132,7 @@ class TestOwnershipCoverageCheck:
     def test_warn_when_patterns_missing(self, project: Path) -> None:
         sd = project / ".ai-engineering" / "state"
         # Write an ownership map with only one pattern
-        from ai_engineering.state.models import (
+        from skill_domain.state_models import (
             FrameworkUpdatePolicy,
             OwnershipEntry,
             OwnershipLevel,

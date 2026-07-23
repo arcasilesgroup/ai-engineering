@@ -9,14 +9,16 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from ai_engineering.config.manifest import RootEntryPointConfig
-
-from .control_plane import resolve_control_plane_contract
-from .models import (
+from skill_domain.state_models import (
     DecisionStore,
+    FrameworkUpdatePolicy,
     InstallState,
+    OwnershipLevel,
     OwnershipMap,
     UpdateMetadata,
 )
+
+from .control_plane import resolve_control_plane_contract
 
 
 def default_update_metadata(*, context: str) -> UpdateMetadata:
@@ -56,7 +58,7 @@ def default_install_state() -> InstallState:
 def default_ownership_paths(
     *,
     root_entry_points: Mapping[str, RootEntryPointConfig] | None = None,
-) -> list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]]:  # noqa: F821  # ty:ignore[unresolved-reference]
+) -> list[tuple[str, OwnershipLevel, FrameworkUpdatePolicy]]:
     """Return the default ownership rule table for bootstrap and repair flows."""
     return [
         (entry.pattern, entry.owner, entry.framework_update)

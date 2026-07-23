@@ -43,7 +43,7 @@ Apply `/ai-prompt-tune` techniques plus these skill-specific patterns (validated
 5. **Explain the why** — every instruction includes its motivation.
 6. **Remove dead weight** — drop instructions that change no behavior.
 
-If `--dry-run`, stop after showing the diff. Otherwise apply, run `python scripts/sync_command_mirrors.py`, verify `python -m pytest tests/unit/ -q`.
+If `--dry-run`, stop after showing the diff. Otherwise apply, run `uv run python -m scripts.sync_mirrors`, verify `python -m pytest tests/unit/ -q`.
 
 ## Phase 5 — Eval with skill-creator
 

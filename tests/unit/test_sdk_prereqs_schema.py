@@ -23,7 +23,7 @@ from pydantic import ValidationError
 # These imports intentionally fail until T-0.10 lands. Pytest collection will
 # raise ImportError, which is the RED-phase signal.
 from ai_engineering.state.manifest import load_sdk_prereqs  # type: ignore[import-not-found]
-from ai_engineering.state.models import SdkPrereq  # type: ignore[import-not-found]
+from skill_domain.state_models import SdkPrereq  # type: ignore[import-not-found]
 
 # ---------------------------------------------------------------------------
 # Constants — canonical 9 SDK-required stacks (matches spec.md L114-126).

@@ -86,7 +86,7 @@ def test_ownership_import_collapses_owner_to_level(
     CODEOWNERS @team/@user owners are not OwnershipLevel enum values, so
     they collapse to TEAM_MANAGED (matching the prior state.db semantics).
     """
-    from ai_engineering.state.models import FrameworkUpdatePolicy, OwnershipLevel
+    from skill_domain.state_models import FrameworkUpdatePolicy, OwnershipLevel
 
     _seed_codeowners(tmp_path)
     monkeypatch.setattr(ownership_cmd, "find_project_root", lambda: tmp_path)

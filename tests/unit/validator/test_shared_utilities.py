@@ -62,7 +62,7 @@ class TestInstructionFiles:
             "        mirror_paths: []\n"
             "    AGENTS.md:\n"
             "      owner: framework\n"
-            "      canonical_source: scripts/sync_command_mirrors.py:generate_agents_md\n"
+            "      canonical_source: scripts/sync_mirrors/core.py:generate_agents_md\n"
             "      runtime_role: shared-runtime-contract\n"
             "      sync:\n"
             "        mode: generate\n"

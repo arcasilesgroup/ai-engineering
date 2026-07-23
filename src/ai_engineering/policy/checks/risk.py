@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.policy.gates import GateCheckResult, GateResult
-from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
 from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import DecisionStore
+from skill_domain.decision_logic import list_expired_decisions, list_expiring_soon
+from skill_domain.state_models import DecisionStore
 
 
 def load_decision_store(project_root: Path) -> DecisionStore | None:

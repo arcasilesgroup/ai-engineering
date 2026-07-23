@@ -28,13 +28,13 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 # Modules whose public API surfaces must remain stable.
 _GUARDED_MODULES = (
     "ai_engineering.validator.categories",
-    "ai_engineering.validator.categories.counter_accuracy",
-    "ai_engineering.validator.categories.cross_references",
+    "skill_domain.validator_counter_accuracy",
+    "skill_domain.validator_cross_references",
     "ai_engineering.validator.categories.file_existence",
     "ai_engineering.validator.categories.manifest_coherence",
     "ai_engineering.validator.categories.mirror_sync",
     "ai_engineering.validator.categories.required_tools",
-    "ai_engineering.validator.categories.skill_frontmatter",
+    "skill_domain.validator_skill_frontmatter",
 )
 
 

@@ -31,8 +31,8 @@ from ai_engineering.installer.launchers import (
 )
 from ai_engineering.policy.gates import GateCheckResult, GateResult
 from ai_engineering.state.manifest import load_required_tools
-from ai_engineering.state.models import GateHook, ToolScope, ToolSpec
 from ai_engineering.verify.tls_pip_audit import pip_audit_command
+from skill_domain.state_models import GateHook, ToolScope, ToolSpec
 
 
 @dataclass

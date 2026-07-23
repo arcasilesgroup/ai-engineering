@@ -61,8 +61,8 @@ required_tools:
     state_dir = project / ".ai-engineering" / "state"
     state_dir.mkdir()
     # Spec-125: install_state lives in state.db, not a JSON file.
-    from ai_engineering.state.models import InstallState
     from ai_engineering.state.service import save_install_state
+    from skill_domain.state_models import InstallState
 
     save_install_state(
         state_dir,
@@ -92,7 +92,7 @@ def test_doctor_fix_go_dispatches_go_install_staticcheck(go_project: Path) -> No
     from ai_engineering.doctor.phases import tools as tools_phase
     from ai_engineering.installer import mechanisms as mechanisms_module
     from ai_engineering.state.manifest import LoadResult
-    from ai_engineering.state.models import ToolSpec
+    from skill_domain.state_models import ToolSpec
 
     captured_argvs: list[list[str]] = []
 
@@ -169,7 +169,7 @@ def test_doctor_fix_go_uses_go_install_mechanism_class(go_project: Path) -> None
     from ai_engineering.installer import mechanisms as mechanisms_module
     from ai_engineering.installer.mechanisms import GoInstallMechanism
     from ai_engineering.state.manifest import LoadResult
-    from ai_engineering.state.models import ToolSpec
+    from skill_domain.state_models import ToolSpec
 
     captured_argvs: list[list[str]] = []
 

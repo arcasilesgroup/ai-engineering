@@ -16,7 +16,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ai_engineering.state.models import GateHook, PythonEnvMode
+from skill_domain.state_models import GateHook, PythonEnvMode
 
 # Third-party hook managers that may conflict with our hooks.
 _KNOWN_HOOK_MANAGERS: dict[str, list[str]] = {
@@ -312,7 +312,7 @@ def _resolve_python_env_mode(project_root: Path) -> PythonEnvMode:
         from ai_engineering.state.manifest import load_python_env_mode
 
         return load_python_env_mode(project_root)
-    except Exception:  # pragma: no cover - defensive: never block hook install
+    except Exception:
         return PythonEnvMode.UV_TOOL
 
 
@@ -475,9 +475,9 @@ def _record_hook_hashes(project_root: Path) -> None:
     Spec-125 D-125-01: install_state lives in state.db; the JSON fallback
     was deleted in wave 1. Reads/writes go through the state.db repository.
     """
-    from ai_engineering.state.models import ToolEntry
     from ai_engineering.state.repository import DurableStateRepository
     from ai_engineering.state.service import save_install_state
+    from skill_domain.state_models import ToolEntry
 
     hooks_dir = resolve_hooks_dir(project_root)
     if not hooks_dir.is_dir():

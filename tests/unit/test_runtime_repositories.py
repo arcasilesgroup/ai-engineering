@@ -7,12 +7,12 @@ from pathlib import Path
 from ai_engineering.config.manifest import ManifestConfig
 from ai_engineering.state.defaults import default_ownership_map
 from ai_engineering.state.io import write_json_model
-from ai_engineering.state.models import (
+from ai_engineering.state.repository import DurableStateRepository, ManifestRepository
+from ai_engineering.state.service import StateService
+from skill_domain.state_models import (
     DecisionStore,
     FrameworkCapabilitiesCatalog,
 )
-from ai_engineering.state.repository import DurableStateRepository, ManifestRepository
-from ai_engineering.state.service import StateService
 
 
 def _write_manifest(root: Path) -> Path:

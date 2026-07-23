@@ -29,9 +29,9 @@ from ai_engineering.credentials.models import (
 from ai_engineering.credentials.service import CredentialService
 from ai_engineering.paths import resolve_project_root
 from ai_engineering.platforms.detector import detect_platforms
-from ai_engineering.state.models import CredentialRef as StateCredentialRef
-from ai_engineering.state.models import PlatformEntry
 from ai_engineering.state.service import load_install_state, save_install_state
+from skill_domain.state_models import CredentialRef as StateCredentialRef
+from skill_domain.state_models import PlatformEntry
 
 
 def _state_dir(root: Path) -> Path:

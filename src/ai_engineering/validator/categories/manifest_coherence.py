@@ -21,7 +21,15 @@ from ai_engineering.state.context_packs import (
 )
 from ai_engineering.state.defaults import default_ownership_map
 from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import (
+from ai_engineering.state.observability import build_framework_capabilities
+from ai_engineering.state.work_plane import read_task_ledger, resolve_active_work_plane
+from ai_engineering.validator._shared import (
+    IntegrityCategory,
+    IntegrityCheckResult,
+    IntegrityReport,
+    IntegrityStatus,
+)
+from skill_domain.state_models import (
     CapabilityKind,
     CapabilityTaskPacket,
     ContextPackManifest,
@@ -30,14 +38,6 @@ from ai_engineering.state.models import (
     TaskLedger,
     TaskLedgerTask,
     TaskLifecycleState,
-)
-from ai_engineering.state.observability import build_framework_capabilities
-from ai_engineering.state.work_plane import read_task_ledger, resolve_active_work_plane
-from ai_engineering.validator._shared import (
-    IntegrityCategory,
-    IntegrityCheckResult,
-    IntegrityReport,
-    IntegrityStatus,
 )
 
 _AI_ENGINEERING_DIRNAME = ".ai-engineering"
@@ -179,7 +179,9 @@ def _check_source_repo_control_plane_contract(target: Path, report: IntegrityRep
             category=IntegrityCategory.MANIFEST_COHERENCE,
             name="control-plane-authority-contract",
             status=IntegrityStatus.OK,
-            message="Root and template manifests carry the normalized control-plane authority contract",  # noqa: E501
+            message=(
+                "Root and template manifests carry the normalized control-plane authority contract"
+            ),
         )
     )
 

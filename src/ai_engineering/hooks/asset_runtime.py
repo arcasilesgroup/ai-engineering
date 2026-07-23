@@ -106,7 +106,9 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
         relative_path=_HOOK_LIB_REL / "copilot-common.ps1",
         runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
         import_policy=_POWERSHELL_STDLIB_ONLY,
-        rationale="PowerShell hook support runs outside the Python package in installed workspaces.",  # noqa: E501
+        rationale=(
+            "PowerShell hook support runs outside the Python package in installed workspaces."
+        ),
     ),
     HookRuntimeAsset(
         relative_path=_HOOK_LIB_REL / "copilot-runtime.ps1",
@@ -118,8 +120,11 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
         relative_path=_HOOK_LIB_REL / "hook-common.py",
         runtime_class=HookAssetRuntimeClass.STDLIB_MIRROR,
         import_policy=_STDLIB_ONLY,
-        rationale="Mirrors event schema and audit-chain behavior for hooks that cannot import the package.",  # noqa: E501
-        packaged_counterpart="ai_engineering.state.event_schema; ai_engineering.state.audit_chain",
+        rationale=(
+            "Mirrors event schema and audit-chain behavior for hooks that cannot import "
+            "the package."
+        ),
+        packaged_counterpart="skill_domain.event_schema; ai_engineering.state.audit_chain",
     ),
     HookRuntimeAsset(
         relative_path=_HOOK_LIB_REL / "observability.py",
@@ -159,19 +164,27 @@ _HOOK_ASSET_REGISTRY: tuple[HookRuntimeAsset, ...] = (
         relative_path=_HOOK_LIB_REL / "runtime_state.py",
         runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
         import_policy=_STDLIB_ONLY,
-        rationale="Spec-116 runtime layer state (checkpoint, tool history) must be writable from standalone hooks.",  # noqa: E501
+        rationale=(
+            "Spec-116 runtime layer state (checkpoint, tool history) must be writable from "
+            "standalone hooks."
+        ),
     ),
     HookRuntimeAsset(
         relative_path=_HOOK_LIB_REL / "trace_context.py",
         runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
         import_policy=_STDLIB_ONLY,
-        rationale="Spec-120 trace-context propagation must run before the packaged runtime is trusted.",  # noqa: E501
+        rationale=(
+            "Spec-120 trace-context propagation must run before the packaged runtime is trusted."
+        ),
     ),
     HookRuntimeAsset(
         relative_path=_HOOK_LIB_REL / "transcript_usage.py",
         runtime_class=HookAssetRuntimeClass.RUNTIME_NATIVE,
         import_policy=_STDLIB_ONLY,
-        rationale="Spec-120 transcript/token-usage capture runs from standalone hooks before the package is importable.",  # noqa: E501
+        rationale=(
+            "Spec-120 transcript/token-usage capture runs from standalone hooks before "
+            "the package is importable."
+        ),
     ),
     HookRuntimeAsset(
         relative_path=_HOOK_LIB_REL / "convergence.py",

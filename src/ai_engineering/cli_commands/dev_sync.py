@@ -52,17 +52,17 @@ def dev_sync_cmd(
     Use --check to verify without writing changes.
     """
     root = resolve_project_root(target)
-    script = root / "scripts" / "sync_command_mirrors.py"
+    module_entry = root / "scripts" / "sync_mirrors" / "__main__.py"
     renderer = Renderer.from_app("dev sync")
 
-    if not script.is_file():
+    if not module_entry.is_file():
         renderer.error(
-            f"Sync script not found: {script}",
-            code="SCRIPT_NOT_FOUND",
-            fix="Ensure scripts/sync_command_mirrors.py exists in the project root.",
+            f"Sync module not found: {module_entry}",
+            code="MODULE_NOT_FOUND",
+            fix="Ensure scripts/sync_mirrors/__main__.py exists in the project root.",
         )
 
-    cmd = [sys.executable, str(script)]
+    cmd = [sys.executable, "-m", "scripts.sync_mirrors"]
     if check:
         cmd.append("--check")
     if verbose:

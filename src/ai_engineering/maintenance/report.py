@@ -18,15 +18,15 @@ from typing import Any
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.io import read_json_model, read_ndjson_entries
 from ai_engineering.state.locking import artifact_lock
-from ai_engineering.state.models import (
+from ai_engineering.state.work_plane import read_task_ledger
+from ai_engineering.vcs.factory import get_provider
+from ai_engineering.vcs.protocol import VcsContext
+from skill_domain.state_models import (
     DecisionStore,
     FrameworkEvent,
     TaskLedgerTask,
     TaskLifecycleState,
 )
-from ai_engineering.state.work_plane import read_task_ledger
-from ai_engineering.vcs.factory import get_provider
-from ai_engineering.vcs.protocol import VcsContext
 
 
 @dataclass
@@ -137,7 +137,8 @@ class MaintenanceReport:
         if self.version_status:
             lines.append(f"- Version status: {self.version_status}")
         lines.append(
-            f"- Task resolution: {self.task_scorecard.resolved_tasks}/{self.task_scorecard.total_tasks} "  # noqa: E501
+            f"- Task resolution: {self.task_scorecard.resolved_tasks}/"
+            f"{self.task_scorecard.total_tasks} "
             f"({self.task_scorecard.resolution_score:.0%})"
         )
         lines.append(f"- Retrying tasks: {self.task_scorecard.retry_tasks}")
@@ -400,7 +401,7 @@ def generate_report(
     ds_path = ai_eng_dir / "state" / "decision-store.json"
     if ds_path.exists():
         try:
-            from ai_engineering.state.decision_logic import (
+            from skill_domain.decision_logic import (
                 list_expired_decisions,
                 list_expiring_soon,
             )

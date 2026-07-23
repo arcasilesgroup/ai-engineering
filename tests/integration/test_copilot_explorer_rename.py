@@ -6,7 +6,7 @@ Spec-107 D-107-03 renames `.github/agents/explore.agent.md` to
 `.github/chatmodes/ai-explore.chatmode.md` so Copilot users get parity
 with Claude / Codex / Antigravity (`@ai-explore` and `/ai-explore`).
 
-`scripts/sync_command_mirrors.py` `AGENT_METADATA["explore"]["name"]`
+`scripts/sync_mirrors/core.py` `AGENT_METADATA["explore"]["name"]`
 must change from `"Explorer"` to `"ai-explore"` so every IDE mirror
 regenerates with the canonical slug.
 
@@ -68,7 +68,7 @@ def test_sync_metadata_canonical_name() -> None:
     """G-4: `AGENT_METADATA["explore"]["display_name"]` is `ai-explore`, not Explorer.
 
     Spec-122-d D-122-24 moved `AGENT_METADATA` from
-    ``scripts/sync_command_mirrors.py`` (now a thin shim) to
+    ``scripts/sync_mirrors/core.py`` (now a thin shim) to
     ``scripts/sync_mirrors/core.py``. The shim re-exports the table via
     ``from scripts.sync_mirrors.core import *`` so a textual grep on the
     shim itself no longer surfaces the canonical name. This test follows

@@ -247,7 +247,7 @@ def test_corruption_uses_canonical_helper_when_available(tmp_path: Path) -> None
     This is the "happy path" of the fallback chain: we land here in normal
     operation. The line should still validate against the unified schema.
     """
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     # Seed an unparseable file.
     path = tc.trace_context_path(tmp_path)

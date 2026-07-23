@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any
 
 from ai_engineering.policy import orchestrator as orchestrator_module
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     GateFinding,
     GateFindingsDocument,
     GateProducedBy,

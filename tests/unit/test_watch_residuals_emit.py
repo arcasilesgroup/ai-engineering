@@ -301,7 +301,7 @@ def test_emit_round_trip_via_pydantic(tmp_path: Path) -> None:
     """
     # Arrange
     from ai_engineering.policy.watch_residuals import emit
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     output = tmp_path / "watch-residuals.json"
 

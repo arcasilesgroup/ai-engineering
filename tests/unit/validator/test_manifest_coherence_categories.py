@@ -12,7 +12,7 @@ from ai_engineering.config.loader import load_manifest_root_entry_points
 from ai_engineering.state.defaults import default_ownership_map
 from ai_engineering.state.io import write_json_model
 from ai_engineering.state.observability import write_framework_capabilities
-from ai_engineering.validator.service import (
+from skill_app.lint_service import (
     IntegrityCategory,
     IntegrityStatus,
     validate_content_integrity,

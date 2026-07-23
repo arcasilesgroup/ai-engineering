@@ -106,7 +106,7 @@ def _run_lint(root: Path):
     from ai_engineering.validator.categories.required_tools import (
         _check_required_tools,
     )
-    from ai_engineering.validator.service import IntegrityReport
+    from skill_app.lint_service import IntegrityReport
 
     report = IntegrityReport()
     _check_required_tools(root, report)
@@ -454,7 +454,7 @@ class TestAggregatorIntegration:
         strict=False,
     )
     def test_aggregator_surfaces_required_tools_violation(self, tmp_path: Path) -> None:
-        from ai_engineering.validator.service import validate_content_integrity
+        from skill_app.lint_service import validate_content_integrity
 
         body = _valid_manifest_body(
             stacks="[java]",

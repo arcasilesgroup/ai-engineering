@@ -52,7 +52,7 @@ def test_mirror_matches_translated_canonical(mirror_path: Path, target_ide: str)
     against the canonical source is wrong; equality against the translated
     canonical is the correct invariant.
     """
-    from scripts.sync_command_mirrors import translate_refs
+    from scripts.sync_mirrors import translate_refs
 
     assert mirror_path.exists(), (
         f"missing mirror for IDE '{target_ide}': {mirror_path}. "

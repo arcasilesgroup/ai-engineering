@@ -69,7 +69,7 @@ def test_state_phase_ownership_map_parses_as_model(tmp_path: Path) -> None:
     phase.execute(phase.plan(ctx), ctx)
 
     from ai_engineering.state.io import read_json_model
-    from ai_engineering.state.models import OwnershipMap
+    from skill_domain.state_models import OwnershipMap
 
     store_path = tmp_path / ".ai-engineering" / "state" / "ownership-map.json"
     ownership = read_json_model(store_path, OwnershipMap)

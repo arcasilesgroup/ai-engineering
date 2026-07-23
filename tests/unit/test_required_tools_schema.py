@@ -5,8 +5,8 @@ These tests assert the shape and governance rules of the 15-key
 D-101-01 + D-101-03 + D-101-13.
 
 Models under test (created in T-0.4):
-    - ``ai_engineering.state.models.ToolSpec`` — single tool entry.
-    - ``ai_engineering.state.models.StackSpec`` — stack-level wrapper that
+    - ``skill_domain.state_models.ToolSpec`` — single tool entry.
+    - ``skill_domain.state_models.StackSpec`` — stack-level wrapper that
       may carry ``platform_unsupported_stack`` + ``unsupported_reason``.
 
 Both are Pydantic ``BaseModel`` subclasses with
@@ -36,7 +36,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from ai_engineering.state.models import StackSpec, ToolSpec
+from skill_domain.state_models import StackSpec, ToolSpec
 
 # ---------------------------------------------------------------------------
 # Constants -- the 15 keys per D-101-01
@@ -139,7 +139,7 @@ class TestBaselineKeyMandatory:
         # cannot be constructed -- the absence is detected during
         # block-level validation. We model it as a Pydantic validation
         # failure on a top-level "RequiredToolsBlock" (T-0.6).
-        from ai_engineering.state.models import RequiredToolsBlock
+        from skill_domain.state_models import RequiredToolsBlock
 
         with pytest.raises(ValidationError):
             RequiredToolsBlock.model_validate(block)

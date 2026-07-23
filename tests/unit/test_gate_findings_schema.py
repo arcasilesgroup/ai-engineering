@@ -6,13 +6,13 @@ These tests assert the shape and governance rules of the canonical
 by wall-clock).
 
 Models under test (created in T-0.4):
-    - ``ai_engineering.state.models.GateFinding`` — single finding record.
-    - ``ai_engineering.state.models.AutoFixedEntry`` — auto-fix metadata.
-    - ``ai_engineering.state.models.GateFindingsDocument`` — top-level
+    - ``skill_domain.state_models.GateFinding`` — single finding record.
+    - ``skill_domain.state_models.AutoFixedEntry`` — auto-fix metadata.
+    - ``skill_domain.state_models.GateFindingsDocument`` — top-level
       schema container emitted at
       ``.ai-engineering/state/gate-findings.json`` and
       ``.ai-engineering/state/watch-residuals.json``.
-    - ``ai_engineering.state.models.WatchLoopState`` — watch loop runtime
+    - ``skill_domain.state_models.WatchLoopState`` — watch loop runtime
       state used by handlers/watch.md (Phase 6 implementation).
 
 All four are Pydantic ``BaseModel`` subclasses (existing convention in
@@ -55,7 +55,7 @@ from datetime import UTC, datetime
 import pytest
 from pydantic import ValidationError
 
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     AutoFixedEntry,
     GateFinding,
     GateFindingsDocument,

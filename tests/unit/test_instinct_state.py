@@ -16,7 +16,7 @@ from ai_engineering.state.instincts import (
     instincts_path,
 )
 from ai_engineering.state.io import append_ndjson, read_ndjson_entries
-from ai_engineering.state.models import FrameworkEvent, InstinctMeta, InstinctObservation
+from skill_domain.state_models import FrameworkEvent, InstinctMeta, InstinctObservation
 
 
 def _seed_manifest(tmp_path: Path) -> None:

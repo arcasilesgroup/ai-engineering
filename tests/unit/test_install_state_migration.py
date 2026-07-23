@@ -23,9 +23,9 @@ import re
 from pathlib import Path
 
 from ai_engineering.state.io import read_ndjson_entries
-from ai_engineering.state.models import FrameworkEvent, InstallState
 from ai_engineering.state.observability import framework_events_path
 from ai_engineering.state.service import load_install_state
+from skill_domain.state_models import FrameworkEvent, InstallState
 
 # Windows-safe timestamp -- ``:`` is illegal in NTFS filenames, so the
 # legacy backup uses ``-`` separators between H/M/S. Both expressions

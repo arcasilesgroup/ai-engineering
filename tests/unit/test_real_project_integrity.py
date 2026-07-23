@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.validator._shared import IntegrityCategory, IntegrityStatus
-from ai_engineering.validator.service import validate_content_integrity
+from skill_app.lint_service import validate_content_integrity
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

@@ -20,7 +20,7 @@ from ai_engineering.policy.checks.stack_runner import (
     detect_python_test_dir,
 )
 from ai_engineering.policy.gates import GateResult
-from ai_engineering.state.models import GateHook
+from skill_domain.state_models import GateHook
 
 # -- detect_python_source_root ------------------------------------------------
 

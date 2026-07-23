@@ -1,6 +1,6 @@
 """Per-mode Python environment configurator (spec-101 D-101-12, T-2.20).
 
-Dispatches on :class:`ai_engineering.state.models.PythonEnvMode` and returns
+Dispatches on :class:`skill_domain.state_models.PythonEnvMode` and returns
 a frozen :class:`PythonEnvConfig` describing the venv root, PATH additions,
 and env vars the downstream tools / hooks phases consume.
 
@@ -30,7 +30,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from ai_engineering.state.models import PythonEnvMode
+from skill_domain.state_models import PythonEnvMode
 
 __all__ = (
     "NonGitFallbackError",

@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from ai_engineering.doctor.models import CheckStatus, DoctorContext
 from ai_engineering.doctor.phases import detect
-from ai_engineering.state.models import InstallState
+from skill_domain.state_models import InstallState
 
 
 def test_ok_when_vcs_provider_set_and_no_remote(tmp_path: Path) -> None:

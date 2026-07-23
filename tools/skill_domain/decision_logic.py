@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 from datetime import UTC, datetime, timedelta
 
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     Decision,
     DecisionStatus,
     DecisionStore,

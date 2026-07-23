@@ -112,7 +112,7 @@ def test_doctor_remaining_branches(tmp_path: Path) -> None:
     from ai_engineering.doctor.runtime import branch_policy as doctor_branch
     from ai_engineering.doctor.runtime import version as doctor_version
     from ai_engineering.state.manifest import LoadResult
-    from ai_engineering.state.models import ToolSpec
+    from skill_domain.state_models import ToolSpec
 
     ctx = DoctorContext(target=tmp_path)
 

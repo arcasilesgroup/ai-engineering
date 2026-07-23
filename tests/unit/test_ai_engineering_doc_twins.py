@@ -100,7 +100,7 @@ def test_drift_caught_by_sync_check(template_hooks_lock) -> None:
     Holds the shared template mutex so the drift window never overlaps another
     worker asserting the global sync surface clean (see conftest fixture).
     """
-    from scripts.sync_command_mirrors import sync_all
+    from scripts.sync_mirrors import sync_all
 
     twin = _TWIN / "reference" / "value-lens.md"
     assert twin.is_file(), "fixture twin missing — pick another allowlisted doc"

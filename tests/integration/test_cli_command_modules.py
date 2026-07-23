@@ -23,9 +23,9 @@ from ai_engineering.cli_commands import (
 from ai_engineering.cli_output import set_json_mode
 from ai_engineering.policy.gates import GateCheckResult, GateHook, GateResult
 from ai_engineering.state.defaults import default_install_state
-from ai_engineering.state.models import GateFindingsDocument
 from ai_engineering.state.service import save_install_state
 from ai_engineering.updater.service import FileChange, UpdateResult
+from skill_domain.state_models import GateFindingsDocument
 
 
 @pytest.fixture(autouse=True)

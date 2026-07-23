@@ -32,7 +32,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ai_engineering.state.models import ToolSpec
+from skill_domain.state_models import ToolSpec
 
 # Marker token returned as ``argv[0]`` when the launcher's prerequisite is
 # missing. Callers detect this token to surface the rest of argv as a

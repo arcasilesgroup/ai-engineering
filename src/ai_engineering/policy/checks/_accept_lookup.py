@@ -26,16 +26,16 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ai_engineering.state.decision_logic import compute_context_hash
-from ai_engineering.state.models import (
+from ai_engineering.state.observability import emit_control_outcome
+from skill_domain.decision_logic import compute_context_hash
+from skill_domain.state_models import (
     AcceptedFinding,
     DecisionStatus,
     RiskCategory,
 )
-from ai_engineering.state.observability import emit_control_outcome
 
 if TYPE_CHECKING:
-    from ai_engineering.state.models import Decision, DecisionStore, GateFinding
+    from skill_domain.state_models import Decision, DecisionStore, GateFinding
 
 
 def finding_is_accepted(

@@ -4,8 +4,9 @@ Per spec D-101-02 Hardening 3, the user-scope guard (``_safe_run`` in
 ``user_scope_install``) inspects the FULL argv whenever ``argv[0]`` resolves
 to an allowlisted shell or interpreter driver (``bash``/``sh``/``zsh``/
 ``fish``/``pwsh``). The patterns published here are the single source of
-truth for compound-shell rejection so the runtime guard and any future
-static-analysis lint share the same regex set.
+truth for compound-shell rejection. Most checks are regexes; the two
+command patterns that could otherwise invite regex-backtracking ambiguity use
+bounded token inspection instead.
 
 Each pattern targets ONE exfiltration class with conservative wording:
 
@@ -39,7 +40,7 @@ import re
 __all__ = ("BLOCK_PATTERNS", "matches_any_block_pattern")
 
 
-# Frozen tuple so consumers cannot mutate the source of truth in place.
+# Frozen tuple so consumers cannot mutate the regex source of truth in place.
 BLOCK_PATTERNS: tuple[re.Pattern[str], ...] = (
     # Pipe-to-shell: ``curl X | bash``, ``wget -O- X | bash``, ``... | sh``.
     re.compile(r"\|\s*(bash|sh|zsh|fish)\b"),
@@ -50,27 +51,6 @@ BLOCK_PATTERNS: tuple[re.Pattern[str], ...] = (
     # so ``echo "go|run"`` / ``ls|grep`` benign argv stay clear because their
     # right-hand-sides do not match a shell/interpreter token.
     re.compile(r"\|\s*(?:/\S+/)?(?:bash|sh|zsh|fish|python3?|perl|ruby|node)\b"),
-    # Netcat with -e flag (reverse-shell primitive).
-    #
-    # Wave 23 broaden: the original ``\bnc\s+-[A-Za-z]*e[A-Za-z]*\b`` only
-    # matched when ``-e`` was the *first* flag after ``nc`` -- real-world
-    # exploit invocations interleave other flags AND positional args first
-    # (``nc -nlvp 4444 -e /bin/sh``, ``nc -lvp 4444 -e bash``,
-    # ``nc -nv -e /bin/sh``). The relaxed pattern walks any number of
-    # whitespace-separated tokens between ``nc`` and a short-flag bundle
-    # containing ``e`` (e.g. ``-e``, ``-ne``, ``-Ee``) OR the long flag
-    # ``--exec``. The trailing word boundary plus the explicit ``-{1,2}``
-    # alternation keep ``nc --version`` / ``nc --verbose`` /
-    # ``nc -h``-style benign argv from matching: ``--version`` lacks the
-    # ``[A-Za-z]*e[A-Za-z]*`` short-flag shape because it has too many
-    # post-prefix characters that don't form a valid short-flag bundle.
-    # Wave 35 (Sonar S5852 ReDoS hotspot): replaced ``(?:\S+\s+){0,N}`` nested
-    # quantifier with a bounded char-class run ``[^\n]{0,160}`` so the regex is
-    # provably linear-time. A 160-byte window comfortably covers real argv
-    # shapes (`nc -nlvp 4444 -e /bin/sh` is ~28 bytes; CI/exploit payloads top
-    # out around 80). The ``[^\n]`` excludes newlines so multiline argv input
-    # cannot smuggle additional flags between ``nc`` and ``-e``.
-    re.compile(r"\bnc\b[^\n]{0,160}\s-(?:[A-Za-z]*e[A-Za-z]*|-exec)\b"),
     # Wave 27 (Sec-3): netcat called with a literal IPv4 address +
     # numeric port -- the connect-only shape used in script-driven
     # reverse-shell trampolines. Catches ``nc 10.0.0.1 4444`` /
@@ -89,9 +69,6 @@ BLOCK_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bbase64\s+-d\b"),
     # Process substitution: ``< <(curl evil.sh)``.
     re.compile(r"<\s*<\("),
-    # Wave 27 (Sec-3): socat with ``EXEC:`` payload -- the modern
-    # reverse-shell primitive that replaces ``nc -e``.
-    re.compile(r"\bsocat\b.*\bexec:", re.IGNORECASE),
     # PowerShell: ``iwr ... | iex`` (Invoke-WebRequest piped to Invoke-Expression).
     re.compile(r"(?i)\biwr\b[^|]*\|\s*\biex\b"),
     # PowerShell: explicit Invoke-Expression alias call.
@@ -103,6 +80,42 @@ BLOCK_PATTERNS: tuple[re.Pattern[str], ...] = (
     # over-matched.
     re.compile(r"(?i)(?:^|[^A-Za-z])iex(?:[^A-Za-z]|$)"),
 )
+
+_NETCAT_COMMAND = re.compile(r"\bnc\b")
+_SOCAT_COMMAND = re.compile(r"\bsocat\b", re.IGNORECASE)
+_EXEC_TOKEN = re.compile(r"\bexec:", re.IGNORECASE)
+_COMMAND_WINDOW_BYTES = 160
+
+
+def _match_netcat_exec(text: str) -> tuple[re.Pattern[str], str] | None:
+    """Detect netcat execution flags without a variable-width regex scan."""
+    for line in text.splitlines() or (text,):
+        command = _NETCAT_COMMAND.search(line)
+        if command is None:
+            continue
+        window = line[command.end() : command.end() + _COMMAND_WINDOW_BYTES]
+        for token in window.split():
+            if token.startswith("--"):
+                if token[2:].casefold() == "exec":
+                    return _NETCAT_COMMAND, f"nc {token}"
+                continue
+            if token.startswith("-"):
+                flag_bundle = token[1:]
+                if flag_bundle.isalpha() and "e" in flag_bundle.casefold():
+                    return _NETCAT_COMMAND, f"nc {token}"
+    return None
+
+
+def _match_socat_exec(text: str) -> tuple[re.Pattern[str], str] | None:
+    """Detect a socat ``EXEC:`` sink with deterministic bounded matching."""
+    for line in text.splitlines() or (text,):
+        command = _SOCAT_COMMAND.search(line)
+        if command is None:
+            continue
+        exec_token = _EXEC_TOKEN.search(line, command.end())
+        if exec_token is not None:
+            return _SOCAT_COMMAND, line[command.start() : exec_token.end()]
+    return None
 
 
 def matches_any_block_pattern(text: str) -> tuple[re.Pattern[str], str] | None:
@@ -124,4 +137,8 @@ def matches_any_block_pattern(text: str) -> tuple[re.Pattern[str], str] | None:
         match = pattern.search(text)
         if match is not None:
             return pattern, match.group(0)
+    for matcher in (_match_netcat_exec, _match_socat_exec):
+        match = matcher(text)
+        if match is not None:
+            return match
     return None

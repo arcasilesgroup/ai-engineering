@@ -27,7 +27,7 @@ from ai_engineering.policy.checks.stack_runner import (
 )
 from ai_engineering.policy.gates import GateResult
 from ai_engineering.state.manifest import LoadResult
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     GateHook,
     ToolScope,
     ToolSpec,

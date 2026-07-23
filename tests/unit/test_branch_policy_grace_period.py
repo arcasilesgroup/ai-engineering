@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 from ai_engineering.doctor.models import CheckStatus, DoctorContext
 from ai_engineering.doctor.runtime import branch_policy
-from ai_engineering.state.models import InstallState
+from skill_domain.state_models import InstallState
 
 
 def _git_inside_main(_args: list[str], _cwd: Path) -> subprocess.CompletedProcess[str]:

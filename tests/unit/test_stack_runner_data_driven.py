@@ -31,7 +31,7 @@ import pytest
 
 from ai_engineering.policy.gates import GateResult
 from ai_engineering.state.manifest import LoadResult, UnknownStackError
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     GateHook,
     ToolScope,
     ToolSpec,

@@ -33,7 +33,7 @@ import pytest
 from ai_engineering.state import observability as pkg_obs
 from ai_engineering.state import trace_context as tc
 from ai_engineering.state.audit_chain import verify_audit_chain
-from ai_engineering.state.event_schema import validate_event_schema
+from skill_domain.event_schema import validate_event_schema
 
 
 @pytest.fixture()

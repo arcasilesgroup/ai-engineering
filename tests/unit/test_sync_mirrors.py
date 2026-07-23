@@ -1,4 +1,4 @@
-"""Validate sync_command_mirrors.py metadata and drift detection.
+"""Validate canonical mirror-sync metadata and drift detection.
 
 Tests the sync script's internal constants match the current architecture
 and verifies --check mode reports zero drift against the real repo.
@@ -37,7 +37,7 @@ ownership:
                 mirror_paths: [".claude/ignored-CLAUDE.md"]
         "AGENTS.md":
             owner: framework
-            canonical_source: scripts/sync_command_mirrors.py:generate_agents_md
+            canonical_source: scripts/sync_mirrors/core.py:generate_agents_md
             runtime_role: shared-runtime-contract
             sync:
                 mode: generate
@@ -75,14 +75,14 @@ class TestSyncScriptMetadata:
     """Verify sync script constants match current architecture."""
 
     def test_agent_metadata_count(self) -> None:
-        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors import AGENT_METADATA
 
         assert len(AGENT_METADATA) == _EXPECTED_AGENT_COUNT, (
             f"AGENT_METADATA has {len(AGENT_METADATA)} entries, expected {_EXPECTED_AGENT_COUNT}"
         )
 
     def test_agent_metadata_names(self) -> None:
-        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors import AGENT_METADATA
 
         names = set(AGENT_METADATA.keys())
         assert names == _EXPECTED_AGENT_NAMES, (
@@ -90,7 +90,7 @@ class TestSyncScriptMetadata:
         )
 
     def test_all_agents_have_required_meta_fields(self) -> None:
-        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors import AGENT_METADATA
 
         for name, meta in AGENT_METADATA.items():
             assert meta.display_name, f"{name}: missing display_name"
@@ -107,7 +107,7 @@ class TestEffortModelSemantics:
     """spec-189 D-189-04: `effort` is the sole semantic source for agent model."""
 
     def test_every_agent_has_valid_effort(self) -> None:
-        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors import AGENT_METADATA
         from scripts.sync_mirrors.core import VALID_EFFORTS
 
         assert sorted(VALID_EFFORTS) == ["cheap", "high", "mid"]
@@ -117,7 +117,7 @@ class TestEffortModelSemantics:
             )
 
     def test_effort_to_model_round_trips(self) -> None:
-        from scripts.sync_command_mirrors import _effort_to_model, _model_to_effort
+        from scripts.sync_mirrors import _effort_to_model, _model_to_effort
 
         # Forward mapping is the documented Claude-valid contract.
         assert _effort_to_model("high") == "opus"
@@ -135,7 +135,7 @@ class TestEffortModelSemantics:
     def test_agent_meta_model_matches_effort(self) -> None:
         # The retained `model` literal must mirror the effort-derived model so
         # AGENT_METADATA never carries internally contradictory data.
-        from scripts.sync_command_mirrors import AGENT_METADATA, _effort_to_model
+        from scripts.sync_mirrors import AGENT_METADATA, _effort_to_model
 
         for name, meta in AGENT_METADATA.items():
             assert meta.model == _effort_to_model(meta.effort), (
@@ -143,7 +143,7 @@ class TestEffortModelSemantics:
             )
 
     def test_validator_passes_on_canonical_sources(self) -> None:
-        from scripts.sync_command_mirrors import (
+        from scripts.sync_mirrors import (
             discover_agents,
             discover_skills,
             validate_canonical,
@@ -157,7 +157,7 @@ class TestEffortModelSemantics:
         # Seed a synthetic canonical agent whose hand-typed model disagrees with
         # its AGENT_METADATA effort. `build` is effort=high (-> opus); claiming
         # `model: sonnet` MUST be flagged as a build-time canonical error.
-        from scripts.sync_command_mirrors import CLAUDE_AGENTS, validate_canonical
+        from scripts.sync_mirrors import CLAUDE_AGENTS, validate_canonical
 
         seeded = [("build", {"name": "Build", "model": "sonnet"}, CLAUDE_AGENTS / "ai-build.md")]
         errors, _warnings = validate_canonical([], seeded)
@@ -166,7 +166,7 @@ class TestEffortModelSemantics:
         )
 
     def test_validator_quiet_on_matching_model(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_AGENTS, validate_canonical
+        from scripts.sync_mirrors import CLAUDE_AGENTS, validate_canonical
 
         matched = [("build", {"name": "Build", "model": "opus"}, CLAUDE_AGENTS / "ai-build.md")]
         errors, _warnings = validate_canonical([], matched)
@@ -203,7 +203,7 @@ class TestCrossReferenceResolution:
     ) -> None:
         self._write_manifest(tmp_path, ["claude-code", "github-copilot", "antigravity"])
 
-        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+        from scripts.sync_mirrors import _resolve_cross_reference_files
 
         resolved = {
             path.relative_to(tmp_path).as_posix()
@@ -223,7 +223,7 @@ class TestCrossReferenceResolution:
     ) -> None:
         self._write_manifest(tmp_path, ["github-copilot"])
 
-        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+        from scripts.sync_mirrors import _resolve_cross_reference_files
 
         resolved = {
             path.relative_to(tmp_path).as_posix()
@@ -243,7 +243,7 @@ class TestCrossReferenceResolution:
             ["github-copilot", "antigravity"],
         )
 
-        from scripts.sync_command_mirrors import _resolve_cross_reference_files
+        from scripts.sync_mirrors import _resolve_cross_reference_files
 
         resolved = {
             path.relative_to(tmp_path).as_posix()
@@ -263,18 +263,16 @@ class TestSyncDriftDetection:
     """Verify sync --check reports zero drift against real repo."""
 
     def test_check_mode_returns_zero(self, template_hooks_lock) -> None:
-        """sync_command_mirrors.py --check should exit 0 (no drift)."""
-        from scripts.sync_command_mirrors import sync_all
+        """The canonical sync --check entry point should report no drift."""
+        from scripts.sync_mirrors import sync_all
 
         with template_hooks_lock():  # serialize vs test_orphan_* probe writes
             exit_code = sync_all(check_only=True)
-        assert exit_code == 0, (
-            "Mirror drift detected -- run: python scripts/sync_command_mirrors.py"
-        )
+        assert exit_code == 0, "Mirror drift detected -- run: uv run python -m scripts.sync_mirrors"
 
     def test_discover_skills_matches_filesystem(self) -> None:
         """Discovered skills match canonical .claude/skills/ai-* directories."""
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, discover_skills
+        from scripts.sync_mirrors import CLAUDE_SKILLS, discover_skills
 
         skills = discover_skills()
         expected = {
@@ -289,7 +287,7 @@ class TestSyncDriftDetection:
 
     def test_discover_agents_matches_filesystem(self) -> None:
         """Discovered agents match canonical .claude/agents/ai-*.md files."""
-        from scripts.sync_command_mirrors import CLAUDE_AGENTS, discover_agents
+        from scripts.sync_mirrors import CLAUDE_AGENTS, discover_agents
 
         agents = discover_agents()
         expected = {f.stem.removeprefix("ai-") for f in CLAUDE_AGENTS.glob("ai-*.md")}
@@ -304,7 +302,7 @@ class TestGenerationFunctions:
     """Test content generation -- pure functions, no filesystem access."""
 
     def test_generate_codex_skill_includes_frontmatter(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_codex_skill
+        from scripts.sync_mirrors import CLAUDE_SKILLS, generate_codex_skill
 
         # Arrange -- use real canonical skill
         skill_path = CLAUDE_SKILLS / "ai-commit" / "SKILL.md"
@@ -319,7 +317,7 @@ class TestGenerationFunctions:
         assert len(content) > 100
 
     def test_generate_copilot_skill_includes_frontmatter(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_copilot_skill
+        from scripts.sync_mirrors import CLAUDE_SKILLS, generate_copilot_skill
 
         # Arrange
         skill_path = CLAUDE_SKILLS / "ai-commit" / "SKILL.md"
@@ -334,7 +332,7 @@ class TestGenerationFunctions:
         assert len(content) > 100
 
     def test_generate_copilot_instructions_preserves_slash_command_boundary(self) -> None:
-        from scripts.sync_command_mirrors import (
+        from scripts.sync_mirrors import (
             discover_agents,
             discover_skills,
             generate_copilot_instructions,
@@ -350,7 +348,7 @@ class TestGenerationFunctions:
         assert "not `ai-eng` CLI subcommands" in content
 
     def test_generate_codex_agent_wrapper_format(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_codex_agent
+        from scripts.sync_mirrors import CLAUDE_AGENTS, generate_codex_agent
 
         # Arrange
         agent_path = CLAUDE_AGENTS / "ai-build.md"
@@ -362,7 +360,7 @@ class TestGenerationFunctions:
         assert len(content) > 100
 
     def test_generate_copilot_agent_includes_per_agent_metadata(self) -> None:
-        from scripts.sync_command_mirrors import (
+        from scripts.sync_mirrors import (
             AGENT_METADATA,
             CLAUDE_AGENTS,
             generate_copilot_agent,
@@ -390,7 +388,7 @@ class TestGenerationFunctions:
         assert "editFiles" not in content  # explore is read-only
 
     def test_generate_specialist_agent_adds_internal_provenance(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_specialist_agent
+        from scripts.sync_mirrors import CLAUDE_AGENTS, generate_specialist_agent
 
         content = generate_specialist_agent(CLAUDE_AGENTS / "reviewer-correctness.md")
 
@@ -409,7 +407,7 @@ class TestGenerationFunctions:
         # dogfood `ai-eng update --preview` "updated" delta on these files is
         # by design. An earlier draft wrote the template verbatim; that violated
         # the mirror-sync governance contract and is reverted.
-        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_specialist_agent
+        from scripts.sync_mirrors import CLAUDE_AGENTS, generate_specialist_agent
 
         canonical = CLAUDE_AGENTS / "reviewer-correctness.md"
 
@@ -426,7 +424,7 @@ class TestGenerationFunctions:
         assert "edit_policy: generated-do-not-edit" in provenance
 
     def test_copilot_agent_tools_and_delegation_match_metadata(self) -> None:
-        from scripts.sync_command_mirrors import (
+        from scripts.sync_mirrors import (
             AGENT_METADATA,
             CLAUDE_AGENTS,
             generate_copilot_agent,
@@ -453,7 +451,7 @@ class TestGenerationFunctions:
                 assert "\nagents:" not in frontmatter
 
     def test_generate_install_claude_skill_copies_content(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_install_claude_skill
+        from scripts.sync_mirrors import CLAUDE_SKILLS, generate_install_claude_skill
 
         skill_path = CLAUDE_SKILLS / "ai-commit" / "SKILL.md"
         content = generate_install_claude_skill(skill_path)
@@ -461,14 +459,14 @@ class TestGenerationFunctions:
         assert content == skill_path.read_text(encoding="utf-8")
 
     def test_generate_install_codex_surface_copies_content(self) -> None:
-        from scripts.sync_command_mirrors import ROOT, generate_install_codex_surface
+        from scripts.sync_mirrors import ROOT, generate_install_codex_surface
 
         surface_path = ROOT / ".codex" / "hooks.json"
         content = generate_install_codex_surface(surface_path)
         assert content == surface_path.read_text(encoding="utf-8")
 
     def test_generate_agents_md_preserves_provider_rows_and_counts(self) -> None:
-        from scripts.sync_command_mirrors import (
+        from scripts.sync_mirrors import (
             discover_agents,
             discover_skills,
             generate_agents_md,
@@ -532,8 +530,8 @@ class TestValidationFunctions:
     def test_validate_runbooks_warns_when_empty(self, tmp_path: Path) -> None:
         # Arrange -- empty runbooks dir (monkeypatch RUNBOOKS_ROOT on the
         # canonical core module; the legacy shim re-exports from there).
-        from scripts.sync_command_mirrors import validate_runbooks
         from scripts.sync_mirrors import core as mod
+        from scripts.sync_mirrors import validate_runbooks
 
         original = mod.RUNBOOKS_ROOT
         mod.RUNBOOKS_ROOT = tmp_path / "nonexistent"
@@ -548,7 +546,7 @@ class TestValidationFunctions:
         mod.RUNBOOKS_ROOT = original
 
     def test_check_or_write_unchanged_returns_none(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import _check_or_write
         from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with same content
@@ -567,7 +565,7 @@ class TestValidationFunctions:
             mod.ROOT = original_root
 
     def test_check_or_write_drift_updates_file(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import _check_or_write
         from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with different content
@@ -588,7 +586,7 @@ class TestValidationFunctions:
             mod.ROOT = original_root
 
     def test_check_or_write_missing_creates_file(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import _check_or_write
         from scripts.sync_mirrors import core as mod
 
         # Arrange -- file doesn't exist
@@ -608,7 +606,7 @@ class TestValidationFunctions:
             mod.ROOT = original_root
 
     def test_check_or_write_check_only_does_not_write(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import _check_or_write
+        from scripts.sync_mirrors import _check_or_write
         from scripts.sync_mirrors import core as mod
 
         # Arrange -- file exists with different content
@@ -635,7 +633,7 @@ class TestCanonicalHelpers:
     """Test read/serialize/format helpers for canonical frontmatter."""
 
     def test_read_frontmatter_returns_dict(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, read_frontmatter
+        from scripts.sync_mirrors import CLAUDE_SKILLS, read_frontmatter
 
         fm = read_frontmatter(CLAUDE_SKILLS / "ai-commit" / "SKILL.md")
         assert "name" in fm
@@ -645,7 +643,7 @@ class TestCanonicalHelpers:
         f = tmp_path / "no-fm.md"
         f.write_text("# No frontmatter here\n")
 
-        from scripts.sync_command_mirrors import read_frontmatter
+        from scripts.sync_mirrors import read_frontmatter
 
         fm = read_frontmatter(f)
         assert fm == {}
@@ -654,13 +652,13 @@ class TestCanonicalHelpers:
         f = tmp_path / "bad-fm.md"
         f.write_text("---\nname: broken\n# No closing fence\n")
 
-        from scripts.sync_command_mirrors import read_frontmatter
+        from scripts.sync_mirrors import read_frontmatter
 
         fm = read_frontmatter(f)
         assert fm == {}
 
     def test_serialize_frontmatter_round_trip(self) -> None:
-        from scripts.sync_command_mirrors import _serialize_frontmatter
+        from scripts.sync_mirrors import _serialize_frontmatter
 
         data = {
             "name": "test",
@@ -675,7 +673,7 @@ class TestCanonicalHelpers:
         assert "tags: [a, b]" in result
 
     def test_serialize_frontmatter_preserves_key_order(self) -> None:
-        from scripts.sync_command_mirrors import _serialize_frontmatter
+        from scripts.sync_mirrors import _serialize_frontmatter
 
         data = {"tags": ["x"], "name": "first", "version": "2.0.0"}
         result = _serialize_frontmatter(data)
@@ -685,31 +683,31 @@ class TestCanonicalHelpers:
         assert name_idx < tags_idx
 
     def test_format_yaml_field_string(self) -> None:
-        from scripts.sync_command_mirrors import _format_yaml_field
+        from scripts.sync_mirrors import _format_yaml_field
 
         assert _format_yaml_field("name", "test") == "name: test"
 
     def test_format_yaml_field_string_with_special_chars(self) -> None:
-        from scripts.sync_command_mirrors import _format_yaml_field
+        from scripts.sync_mirrors import _format_yaml_field
 
         result = _format_yaml_field("description", "Run tests: unit + integration")
         assert result == 'description: "Run tests: unit + integration"'
 
     def test_format_yaml_field_list(self) -> None:
-        from scripts.sync_command_mirrors import _format_yaml_field
+        from scripts.sync_mirrors import _format_yaml_field
 
         result = _format_yaml_field("tags", ["a", "b", "c"])
         assert result == "tags: [a, b, c]"
 
     def test_format_yaml_field_dict(self) -> None:
-        from scripts.sync_command_mirrors import _format_yaml_field
+        from scripts.sync_mirrors import _format_yaml_field
 
         result = _format_yaml_field("requires", {"bins": ["ruff"]})
         assert "requires:" in result
         assert "bins:" in result
 
     def test_format_yaml_field_integer(self) -> None:
-        from scripts.sync_command_mirrors import _format_yaml_field
+        from scripts.sync_mirrors import _format_yaml_field
 
         assert _format_yaml_field("count", 42) == "count: 42"
 
@@ -721,7 +719,7 @@ class TestCrossReferenceTranslation:
     """Test translate_refs path translation for each IDE target."""
 
     def test_translate_skill_path_claude(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "Read `.claude/skills/ai-plan/SKILL.md` for details."
         result = translate_refs(content, "claude")
@@ -729,49 +727,49 @@ class TestCrossReferenceTranslation:
         assert "`.claude/skills/ai-plan/SKILL.md`" in result
 
     def test_translate_skill_path_copilot(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "Read `.claude/skills/ai-plan/SKILL.md` for details."
         result = translate_refs(content, "copilot")
         assert "`.github/skills/ai-plan/SKILL.md`" in result
 
     def test_translate_skill_path_codex(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "Read `.claude/skills/ai-plan/SKILL.md` for details."
         result = translate_refs(content, "codex")
         assert "`.codex/skills/ai-plan/SKILL.md`" in result
 
     def test_translate_agent_path_claude(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "Delegates to `.claude/agents/ai-build.md`."
         result = translate_refs(content, "claude")
         assert "`.claude/agents/ai-build.md`" in result
 
     def test_translate_agent_path_copilot(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "Delegates to `.claude/agents/ai-build.md`."
         result = translate_refs(content, "copilot")
         assert "`.github/agents/build.agent.md`" in result
 
     def test_translate_agent_path_codex(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "Delegates to `.claude/agents/ai-build.md`."
         result = translate_refs(content, "codex")
         assert "`.codex/agents/ai-build.md`" in result
 
     def test_specs_not_translated(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "Check `.ai-engineering/specs/_active.md`."
         result = translate_refs(content, "claude")
         assert ".ai-engineering/specs/_active.md" in result
 
     def test_multiple_references_in_one_line(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "See `.claude/skills/ai-plan/SKILL.md` and `.claude/agents/ai-build.md`."
         result = translate_refs(content, "copilot")
@@ -779,7 +777,7 @@ class TestCrossReferenceTranslation:
         assert ".github/agents/build.agent.md" in result
 
     def test_no_translation_for_bare_text(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
+        from scripts.sync_mirrors import translate_refs
 
         content = "No references here, just plain text."
         result = translate_refs(content, "claude")
@@ -796,7 +794,7 @@ class TestPlatformNeutralContent:
     _ALLOWED_EXCEPTIONS: frozenset[str] = frozenset()
 
     def test_platform_neutral_content(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS
+        from scripts.sync_mirrors import CLAUDE_SKILLS
 
         violations: list[str] = []
         for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
@@ -825,7 +823,7 @@ class TestHandlerParity:
     """Verify handler mirrors exist for every canonical handler."""
 
     def test_handler_parity(self) -> None:
-        from scripts.sync_command_mirrors import (
+        from scripts.sync_mirrors import (
             CLAUDE_SKILLS,
             discover_handlers,
             is_copilot_compatible,
@@ -863,7 +861,7 @@ class TestReferenceParity:
     """Verify reference mirrors exist for every canonical reference file."""
 
     def test_reference_parity(self) -> None:
-        from scripts.sync_command_mirrors import (
+        from scripts.sync_mirrors import (
             CLAUDE_SKILLS,
             discover_reference_files,
             is_copilot_compatible,
@@ -905,28 +903,28 @@ class TestCopilotCompatibility:
     """Test is_copilot_compatible frontmatter check."""
 
     def test_compatible_when_field_absent(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import is_copilot_compatible
+        from scripts.sync_mirrors import is_copilot_compatible
 
         f = tmp_path / "SKILL.md"
         f.write_text("---\nname: test\n---\n\n# Test\n")
         assert is_copilot_compatible(f) is True
 
     def test_compatible_when_explicitly_true(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import is_copilot_compatible
+        from scripts.sync_mirrors import is_copilot_compatible
 
         f = tmp_path / "SKILL.md"
         f.write_text("---\nname: test\ncopilot_compatible: true\n---\n\n# Test\n")
         assert is_copilot_compatible(f) is True
 
     def test_incompatible_when_false(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import is_copilot_compatible
+        from scripts.sync_mirrors import is_copilot_compatible
 
         f = tmp_path / "SKILL.md"
         f.write_text("---\nname: test\ncopilot_compatible: false\n---\n\n# Test\n")
         assert is_copilot_compatible(f) is False
 
     def test_incompatible_when_false_uppercase(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import is_copilot_compatible
+        from scripts.sync_mirrors import is_copilot_compatible
 
         f = tmp_path / "SKILL.md"
         f.write_text("---\nname: test\ncopilot_compatible: False\n---\n\n# Test\n")
@@ -940,7 +938,7 @@ class TestCopilotHandlerGeneration:
     """Test generate_copilot_handler cross-reference translation."""
 
     def test_generate_copilot_handler_translates_refs(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import generate_copilot_handler
+        from scripts.sync_mirrors import generate_copilot_handler
 
         handler = tmp_path / "handler.md"
         handler.write_text(

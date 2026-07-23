@@ -5,7 +5,12 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.state.io import write_json_model
-from ai_engineering.state.models import (
+from ai_engineering.state.work_plane import (
+    ActiveWorkPlane,
+    read_task_ledger,
+    resolve_active_work_plane,
+)
+from skill_domain.state_models import (
     ContextPackCeilings,
     ContextPackManifest,
     ContextPackSource,
@@ -17,11 +22,6 @@ from ai_engineering.state.models import (
     LearningFunnelAdvisoryResult,
     LearningFunnelArtifact,
     TaskLedgerTask,
-)
-from ai_engineering.state.work_plane import (
-    ActiveWorkPlane,
-    read_task_ledger,
-    resolve_active_work_plane,
 )
 
 CONTEXT_PACKS_DIRNAME = "context-packs"

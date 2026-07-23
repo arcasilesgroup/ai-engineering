@@ -84,7 +84,7 @@ class TestCheckUnpushedDecision:
 
     def test_matching_decision_returned(self, tmp_path: Path) -> None:
         # Arrange
-        from ai_engineering.state.decision_logic import compute_context_hash
+        from skill_domain.decision_logic import compute_context_hash
 
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True)

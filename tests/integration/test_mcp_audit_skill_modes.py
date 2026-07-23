@@ -36,7 +36,7 @@ def test_skill_exists_in_all_four_ide_surfaces() -> None:
         f"ai-mcp-audit skill missing from: {[str(p) for p in missing]} "
         "— Phase 5 T-5.1 / T-5.5 must create the canonical Claude Code "
         "SKILL.md and sync it to .github/.codex/.agents/ via "
-        "scripts/sync_command_mirrors.py"
+        "scripts/sync_mirrors/core.py"
     )
 
 

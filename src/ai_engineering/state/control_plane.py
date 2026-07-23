@@ -13,8 +13,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from ai_engineering.config.manifest import RootEntryPointConfig
-
-from .models import FrameworkUpdatePolicy, OwnershipEntry, OwnershipLevel
+from skill_domain.state_models import FrameworkUpdatePolicy, OwnershipEntry, OwnershipLevel
 
 _CONSTITUTIONAL_PRIMARY = "CONSTITUTION.md"
 _CONSTITUTIONAL_ALIASES: tuple[str, ...] = ()

@@ -43,7 +43,7 @@ import logging
 import platform
 from contextlib import suppress
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from ai_engineering.installer.tool_registry import TOOL_REGISTRY
 from ai_engineering.installer.user_scope_install import (
@@ -54,7 +54,8 @@ from ai_engineering.installer.user_scope_install import (
     run_verify,
 )
 from ai_engineering.state.manifest import load_python_env_mode, load_required_tools
-from ai_engineering.state.models import (
+from ai_engineering.state.service import save_install_state
+from skill_domain.state_models import (
     InstallState,
     PythonEnvMode,
     ToolInstallRecord,
@@ -62,7 +63,6 @@ from ai_engineering.state.models import (
     ToolScope,
     ToolSpec,
 )
-from ai_engineering.state.service import save_install_state
 
 from . import (
     InstallContext,
@@ -71,9 +71,6 @@ from . import (
     PhaseVerdict,
     PlannedAction,
 )
-
-if TYPE_CHECKING:  # pragma: no cover - typing-only
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -599,7 +596,7 @@ class ToolsPhase:
         """Return True when the offline-safe verify probe passes."""
         try:
             verify_result = run_verify(spec_for_verify)
-        except Exception:  # pragma: no cover - run_verify is total
+        except Exception:
             return False
         return bool(getattr(verify_result, "passed", False))
 

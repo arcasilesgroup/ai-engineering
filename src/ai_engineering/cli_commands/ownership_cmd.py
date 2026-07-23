@@ -25,14 +25,14 @@ import typer
 
 from ai_engineering.cli_ui import error, header, info, status_line, success
 from ai_engineering.paths import find_project_root
-from ai_engineering.state.models import (
+from ai_engineering.state.observability import emit_control_outcome
+from ai_engineering.state.repository import DurableStateRepository
+from skill_domain.state_models import (
     FrameworkUpdatePolicy,
     OwnershipEntry,
     OwnershipLevel,
     OwnershipMap,
 )
-from ai_engineering.state.observability import emit_control_outcome
-from ai_engineering.state.repository import DurableStateRepository
 
 __all__ = [
     "ownership_import",

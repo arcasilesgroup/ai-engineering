@@ -43,7 +43,7 @@ For each mode: create `handlers/<mode>.md` with Purpose, Procedure sections.
 - Increment `total` count
 
 ### 6. Generate mirrors
-- Run `python scripts/sync_command_mirrors.py`
+- Run `uv run python -m scripts.sync_mirrors`
 
 ### 7. Pressure-test
 Present 5 example prompts that SHOULD trigger this skill. Verify the CSO description would match.

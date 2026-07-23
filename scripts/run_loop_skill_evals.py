@@ -26,22 +26,22 @@ import json
 import sys
 from pathlib import Path
 
-# pyproject.toml pins ``pythonpath = ["src", "tools"]``; running this
-# script directly via ``python scripts/...`` does not honour that
-# pin, so we extend ``sys.path`` defensively. CI invokes via
-# ``pytest`` or via ``python -m`` so this branch is rarely taken.
-_TOOLS = Path(__file__).resolve().parents[1] / "tools"
-if str(_TOOLS) not in sys.path:
-    sys.path.insert(0, str(_TOOLS))
 
-from skill_app.eval_runner import (  # noqa: E402 — sys.path bootstrap above.
-    load_baseline,
-    load_corpora,
-    run_skill_set_regression,
-)
-from skill_infra.skill_creator_adapter import (  # noqa: E402
-    StubSkillCreatorAdapter,
-)
+def _load_eval_dependencies() -> tuple[object, object, object, object]:
+    """Load tools-only dependencies for direct script execution.
+
+    ``python scripts/run_loop_skill_evals.py`` does not honour pytest's
+    configured ``pythonpath``. Keeping the narrowly-scoped bootstrap here
+    leaves module imports deterministic for all normal package entry points.
+    """
+    tools_root = Path(__file__).resolve().parents[1] / "tools"
+    if str(tools_root) not in sys.path:
+        sys.path.insert(0, str(tools_root))
+
+    from skill_app.eval_runner import load_baseline, load_corpora, run_skill_set_regression
+    from skill_infra.skill_creator_adapter import StubSkillCreatorAdapter
+
+    return load_baseline, load_corpora, run_skill_set_regression, StubSkillCreatorAdapter
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -81,6 +81,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    load_baseline, load_corpora, run_skill_set_regression, stub_adapter = _load_eval_dependencies()
 
     baseline = load_baseline(args.baseline)
     if not baseline:
@@ -112,7 +113,7 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
     corpora = load_corpora(args.corpus_root)
-    optimizer = StubSkillCreatorAdapter(fixed_pass_at_1=1.0)
+    optimizer = stub_adapter(fixed_pass_at_1=1.0)
     report = run_skill_set_regression(
         optimizer=optimizer,
         baseline=baseline,
@@ -129,5 +130,5 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__":
     sys.exit(main())

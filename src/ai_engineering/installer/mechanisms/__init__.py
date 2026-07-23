@@ -303,7 +303,7 @@ def _emit_sha_pin_skipped_audit(*, tool: str, mechanism: str) -> None:
     _SHA_PIN_SKIPPED_AUDIT_SEEN.add(key)
     try:
         from ai_engineering.state.observability import emit_framework_operation
-    except ImportError:  # pragma: no cover - circular guard
+    except ImportError:
         return
     try:
         emit_framework_operation(
@@ -318,7 +318,7 @@ def _emit_sha_pin_skipped_audit(*, tool: str, mechanism: str) -> None:
                 "type": "sha_pin_skipped",
             },
         )
-    except Exception:  # pragma: no cover - fail-open audit trail
+    except Exception:
         return
 
 
@@ -459,7 +459,7 @@ class _AllowlistRedirectHandler(urllib.request.HTTPRedirectHandler):
         msg: str,
         headers: Any,
         newurl: str,
-    ) -> urllib.request.Request | None:  # pragma: no cover - thin wrapper
+    ) -> urllib.request.Request | None:
         self._redirect_count += 1
         if self._redirect_count > self._max_redirects:
             raise SecurityError(f"download exceeded redirect cap of {self._max_redirects}")
@@ -497,7 +497,7 @@ def _try_subprocess_download(
         # NG-8: only flags both GNU wget and BusyBox wget honour are used
         # (-O <path> <url>). No --show-progress / --no-verbose / etc.
         argv = ["wget", "-O", str(target_path), url]
-    else:  # pragma: no cover - defensive guard
+    else:
         return InstallResult(
             failed=True,
             stderr=f"unsupported subprocess driver {driver!r}",
@@ -581,7 +581,7 @@ def _run_download_drivers(url: str, tmp_path: Path) -> InstallResult:
         if not outcome.failed:
             return outcome
         last_failure = outcome
-    if last_failure is None:  # pragma: no cover - urllib always returns something
+    if last_failure is None:
         return InstallResult(
             failed=True,
             stderr="no download driver available",

@@ -13,7 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
-from ai_engineering.state.models import InstallState
+from skill_domain.state_models import InstallState
 
 # ---------------------------------------------------------------------------
 # Phase name constants

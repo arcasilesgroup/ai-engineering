@@ -64,8 +64,8 @@ def _export_install_state(conn: sqlite3.Connection, state_dir: Path) -> None:
     rows = _read_rows(conn, "SELECT state_json FROM install_state WHERE id = 1")
     if not rows or not rows[0].get("state_json"):
         return
-    from ai_engineering.state.models import InstallState
     from ai_engineering.state.service import save_install_state
+    from skill_domain.state_models import InstallState
 
     payload = json.loads(rows[0]["state_json"])
     save_install_state(state_dir, InstallState.model_validate(payload))
@@ -83,8 +83,8 @@ def _export_decisions(conn: sqlite3.Connection, project_root: Path, state_dir: P
     if not rows:
         return
     from ai_engineering.state.defaults import default_decision_store
-    from ai_engineering.state.models import Decision
     from ai_engineering.state.repository import DurableStateRepository
+    from skill_domain.state_models import Decision
 
     decisions: list[Decision] = []
     for row in rows:
@@ -122,7 +122,7 @@ def _export_decisions(conn: sqlite3.Connection, project_root: Path, state_dir: P
 
 
 def _ownership_level(value: str | None) -> Any:
-    from ai_engineering.state.models import OwnershipLevel
+    from skill_domain.state_models import OwnershipLevel
 
     try:
         return OwnershipLevel(value or "")
@@ -131,7 +131,7 @@ def _ownership_level(value: str | None) -> Any:
 
 
 def _framework_update_policy(value: str | None) -> Any:
-    from ai_engineering.state.models import FrameworkUpdatePolicy
+    from skill_domain.state_models import FrameworkUpdatePolicy
 
     try:
         return FrameworkUpdatePolicy(value or "")
@@ -149,8 +149,8 @@ def _export_ownership(conn: sqlite3.Connection, project_root: Path, state_dir: P
     )
     if not rows:
         return
-    from ai_engineering.state.models import OwnershipEntry, OwnershipMap
     from ai_engineering.state.repository import DurableStateRepository
+    from skill_domain.state_models import OwnershipEntry, OwnershipMap
 
     entries: list[OwnershipEntry] = []
     for row in rows:

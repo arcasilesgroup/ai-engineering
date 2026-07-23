@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Core sync logic (moved from scripts/sync_command_mirrors.py).
+"""Core mirror synchronization logic.
 
 This module owns the full discovery + generator pipeline. Per-concern
 modules in this package re-export from here for organizational clarity.
@@ -29,9 +29,9 @@ Generates mirrors in:
   - src/ai_engineering/templates/project/.agents/           (install template)
 
 Usage:
-  python scripts/sync_command_mirrors.py            # generate all mirrors
-  python scripts/sync_command_mirrors.py --check    # verify, exit 1 on drift
-  python scripts/sync_command_mirrors.py --verbose  # show detailed info
+  uv run python -m scripts.sync_mirrors            # generate all mirrors
+  uv run python -m scripts.sync_mirrors --check    # verify, exit 1 on drift
+  uv run python -m scripts.sync_mirrors --verbose  # show detailed info
 """
 
 from __future__ import annotations
@@ -40,20 +40,16 @@ import argparse
 import hashlib
 import json
 import re
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-
-# Allow importing from src/ for shared utilities
-sys.path.insert(0, str(ROOT / "src"))
-
-from ai_engineering.config.mirror_inventory import (  # noqa: E402
+from ai_engineering.config.mirror_inventory import (
     get_generated_provenance_fields,
     get_internal_specialist_agent_targets,
 )
-from scripts.sync_mirrors.tool_name_map import TOOL_FAMILY_MAP  # noqa: E402
+from scripts.sync_mirrors.tool_name_map import TOOL_FAMILY_MAP
+
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 # ── Canonical source paths (repo root .claude/) ──────────────────────────
 CLAUDE_SKILLS = ROOT / ".claude" / "skills"
@@ -1219,14 +1215,15 @@ AIE_MCP_HEALTH_FAIL_OPEN            # "1" pass-through MCP health gate; SECURITY
 AIENG_IOC_FAIL_CLOSED               # set "1" to deny on a missing/corrupt iocs.json (default off)
 
 # spec-182 — governed-git advisory nudge
-AIENG_GOVERNED_GIT_ADVISOR_DISABLED  # set "1" to disable the raw-git -> skill advisory nudge (PreToolUse:Bash)
+AIENG_GOVERNED_GIT_ADVISOR_DISABLED  # "1" disables the raw-git advisory (PreToolUse:Bash)
 
 # spec-190 D-190-02 — error/integrity storm coalescer
-AIENG_ERROR_STORM_THRESHOLD         # default 20; repeats crossing this in the window raise a storm alarm (window reuses AIENG_HOOK_CACHE_TTL_SEC)
+AIENG_ERROR_STORM_THRESHOLD         # default 20; repeated errors raise a storm alarm
+                                  # in the AIENG_HOOK_CACHE_TTL_SEC window
 
 # spec-175 — /ai-research Tier 3 deep-research (notebooklm-py CLI)
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; bounded harvest wait)
-AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC  # default 1800 (ceiling 7200; detached deep+import job deadline, CLI --timeout)
+AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC  # default 1800; ceiling 7200 for the detached job
 
 # Reserved roadmap — not implemented
 AIENG_HOST_PREFLIGHT_DISABLED       # reserved spec-139 M2

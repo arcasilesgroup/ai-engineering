@@ -14,7 +14,6 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.state.models import GateFindingsDocument
 from ai_engineering.verify.scoring import FindingSeverity, Verdict
 from ai_engineering.verify.service import (
     MODES,
@@ -25,6 +24,7 @@ from ai_engineering.verify.service import (
     verify_quality,
     verify_security,
 )
+from skill_domain.state_models import GateFindingsDocument
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 

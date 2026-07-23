@@ -5,7 +5,7 @@ Split from tests/unit/test_validator.py during spec-140 W2.5.T4.
 
 from __future__ import annotations
 
-from ai_engineering.validator.service import (
+from skill_app.lint_service import (
     IntegrityCategory,
     IntegrityCheckResult,
     IntegrityReport,

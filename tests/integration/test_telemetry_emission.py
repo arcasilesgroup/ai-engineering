@@ -34,8 +34,8 @@ def _seed_decision_store(root: Path, dec_id: str, rule_id: str) -> None:
     orchestrator's risk-acceptance lookup reads it through the durable
     repository, so seeding writes the file directly.
     """
-    from ai_engineering.state.models import DecisionStore
     from ai_engineering.state.repository import DurableStateRepository
+    from skill_domain.state_models import DecisionStore
 
     state_dir = root / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)

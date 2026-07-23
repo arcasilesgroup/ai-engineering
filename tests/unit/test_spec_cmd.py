@@ -14,8 +14,8 @@ import pytest
 
 from ai_engineering.cli_commands.spec_cmd import _auto_correct_frontmatter
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
-from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
 from ai_engineering.state.work_plane import write_task_ledger
+from skill_domain.state_models import TaskLedger, TaskLedgerTask, TaskLifecycleState
 
 
 def _create_plan_md(

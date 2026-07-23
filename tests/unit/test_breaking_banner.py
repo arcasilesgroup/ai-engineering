@@ -32,8 +32,8 @@ from ai_engineering.installer.phases import (
     PhaseVerdict,
 )
 from ai_engineering.installer.phases.pipeline import PipelineRunner
-from ai_engineering.state.models import InstallState
 from ai_engineering.state.service import load_install_state, save_install_state
+from skill_domain.state_models import InstallState
 
 
 @pytest.fixture(autouse=True)

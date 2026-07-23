@@ -151,7 +151,7 @@ class TestCopyProjectTemplates:
         root_entry_points = {
             "AGENTS.md": RootEntryPointConfig(
                 owner="framework",
-                canonical_source="scripts/sync_command_mirrors.py:generate_agents_md",
+                canonical_source="scripts/sync_mirrors/core.py:generate_agents_md",
                 runtime_role="shared-runtime-contract",
                 sync={
                     "mode": "generate",

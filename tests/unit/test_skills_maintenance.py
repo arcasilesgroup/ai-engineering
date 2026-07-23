@@ -27,7 +27,7 @@ from ai_engineering.skills.service import (
     list_local_skill_status,
 )
 from ai_engineering.state.io import write_json_model
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     TaskLedger,
     TaskLedgerTask,
     TaskLifecycleState,

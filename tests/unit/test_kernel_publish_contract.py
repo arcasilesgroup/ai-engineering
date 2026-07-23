@@ -12,7 +12,7 @@ import pytest
 
 import ai_engineering.cli_commands.gate as gate_module
 import ai_engineering.policy.watch_residuals as watch_residuals_module
-from ai_engineering.state.models import GateFindingsDocument, GateProducedBy
+from skill_domain.state_models import GateFindingsDocument, GateProducedBy
 
 
 def _make_document(

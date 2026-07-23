@@ -13,9 +13,9 @@ from ai_engineering.issues.service import (
     resolve_closeable_refs,
     sync_spec_issues,
 )
-from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
 from ai_engineering.state.work_plane import write_task_ledger
 from ai_engineering.vcs.protocol import VcsResult
+from skill_domain.state_models import TaskLedger, TaskLedgerTask, TaskLifecycleState
 
 
 def _make_spec_dir(root: Path, spec_id: str, *, done: bool = False, spec_text: str = "") -> Path:

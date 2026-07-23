@@ -68,7 +68,7 @@ def test_emit_v1_1_when_accepted_findings_populated(
     from datetime import UTC, datetime
 
     from ai_engineering.policy import orchestrator
-    from ai_engineering.state.models import (
+    from skill_domain.state_models import (
         AcceptedFinding,
         GateFindingsDocument,
         GateSeverity,
@@ -112,7 +112,7 @@ def test_emit_v1_1_when_expiring_soon_populated(
 ) -> None:
     """Populated ``expiring_soon`` → ``schema: v1.1`` emitted even if accepted empty."""
     from ai_engineering.policy import orchestrator
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     # Builder path: empty accepted but non-empty expiring still bumps schema.
     wave1 = orchestrator.Wave1Result(wall_clock_ms=1)
@@ -153,7 +153,7 @@ def test_v1_consumer_reads_v1_1_payload_silently(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Consumers that only know v1 fields can still read a v1.1 payload."""
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     monkeypatch.chdir(tmp_path)
     fixture_path = Path(__file__).parent.parent / "fixtures" / "gate_findings_v1_1.json"

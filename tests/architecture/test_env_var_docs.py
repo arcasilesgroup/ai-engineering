@@ -71,7 +71,7 @@ def test_every_hook_read_env_var_is_documented() -> None:
     assert not missing, (
         "Hook-read env vars missing from CLAUDE.md Runtime Layer Tunables: "
         f"{missing}. Document them in scripts/sync_mirrors/core.py `_CLAUDE_EXTRAS` "
-        "and regenerate mirrors (`python scripts/sync_command_mirrors.py`)."
+        "and regenerate mirrors (`uv run python -m scripts.sync_mirrors`)."
     )
 
 

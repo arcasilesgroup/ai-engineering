@@ -28,7 +28,7 @@ from ai_engineering.installer.templates import (
     get_project_template_root,
     resolve_template_maps,
 )
-from ai_engineering.state.models import GateHook
+from skill_domain.state_models import GateHook
 
 from . import InstallContext, InstallMode, PhasePlan, PhaseResult, PhaseVerdict, PlannedAction
 

@@ -14,7 +14,7 @@ from pathlib import Path
 import pytest
 
 from ai_engineering.state.io import read_ndjson_entries
-from ai_engineering.state.models import FrameworkEvent, InstinctObservation
+from skill_domain.state_models import FrameworkEvent, InstinctObservation
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOKS_ROOT = REPO_ROOT / ".ai-engineering" / "scripts" / "hooks"

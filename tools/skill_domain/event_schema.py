@@ -164,9 +164,10 @@ def validate_event_schema(event: Any) -> bool:
         parent_span_id = event["parentSpanId"]
         # `parentSpanId` is allowed to be None (root span); otherwise it
         # must match the same 16-hex shape as `spanId`.
-        if parent_span_id is not None:  # noqa: SIM102
-            if not isinstance(parent_span_id, str) or not _SPAN_ID_RE.match(parent_span_id):
-                return False
+        if parent_span_id is not None and (
+            not isinstance(parent_span_id, str) or not _SPAN_ID_RE.match(parent_span_id)
+        ):
+            return False
     return True
 
 

@@ -771,7 +771,7 @@ AI authoring is the cost-driver and auditability is the bar.
   `.github/copilot-instructions.md`, AGENTS.md, CLAUDE.md,
   CANONICAL.md, this CONSTITUTION.md, and
   `scripts/sync_mirrors/`. Operators MUST NOT hand-edit generated
-  mirrors; `sync_command_mirrors.py` regenerates from canonical
+  mirrors; `uv run python -m scripts.sync_mirrors` regenerates from canonical
   sources.
 - **Team-owned** — every other file in the repository:
   application source, tests, configuration, CI workflows

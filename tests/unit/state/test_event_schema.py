@@ -1,4 +1,4 @@
-"""Tests for src/ai_engineering/state/event_schema.py (spec-112 T-1.4..T-1.6).
+"""Tests for tools/skill_domain/event_schema.py (spec-112 T-1.4..T-1.6).
 
 Covers G-4: schema validator for the unified `FrameworkEvent` shape.
 Required fields, engine enum, and explicit failure (not silent drop) are
@@ -28,7 +28,7 @@ def _minimal_event() -> dict:
 
 def test_validate_minimal_event() -> None:
     """A minimal but complete event must validate."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     assert validate_event_schema(event) is True
@@ -49,7 +49,7 @@ def test_validate_minimal_event() -> None:
 )
 def test_reject_missing_required_field(missing: str) -> None:
     """Each required field is non-optional; absence must produce False."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event.pop(missing)
@@ -64,7 +64,7 @@ def test_reject_missing_required_field(missing: str) -> None:
 )
 def test_engine_value_must_be_in_enum(engine) -> None:
     """`engine` field must be one of the v2 allowed values."""
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["engine"] = engine
@@ -78,7 +78,7 @@ def test_engine_value_must_be_in_enum(engine) -> None:
     ["claude_code", "codex", "antigravity", "copilot", "ai_engineering"],
 )
 def test_engine_enum_accepts_valid_values(engine: str) -> None:
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     event = _minimal_event()
     event["engine"] = engine

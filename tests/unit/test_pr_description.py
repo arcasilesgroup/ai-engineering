@@ -6,7 +6,6 @@ import json
 from pathlib import Path
 from unittest.mock import patch
 
-from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
 from ai_engineering.state.work_plane import write_active_work_plane_pointer, write_task_ledger
 from ai_engineering.vcs.pr_description import (
     _build_spec_url,
@@ -20,6 +19,7 @@ from ai_engineering.vcs.pr_description import (
     build_pr_description,
     build_pr_title,
 )
+from skill_domain.state_models import TaskLedger, TaskLedgerTask, TaskLifecycleState
 
 # ---------------------------------------------------------------------------
 # _humanize_branch

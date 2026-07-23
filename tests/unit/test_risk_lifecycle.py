@@ -1,4 +1,4 @@
-"""Tests for risk acceptance lifecycle in ai_engineering.state.decision_logic.
+"""Tests for risk acceptance lifecycle in skill_domain.decision_logic.
 
 Covers:
 - default_expiry_for_severity: all severity levels and custom config.
@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from ai_engineering.state.decision_logic import (
+from skill_domain.decision_logic import (
     _SEVERITY_EXPIRY_DAYS,
     create_risk_acceptance,
     default_expiry_for_severity,
@@ -27,7 +27,7 @@ from ai_engineering.state.decision_logic import (
     renew_decision,
     revoke_decision,
 )
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     Decision,
     DecisionStatus,
     DecisionStore,

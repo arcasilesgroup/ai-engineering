@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Protocol
 
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.doctor.phases import hooks as doctor_hooks
@@ -28,9 +29,27 @@ __all__ = (
 )
 
 
+class _DoctorCheckPhase(Protocol):
+    """Minimal doctor-phase check contract used by auto-remediation."""
+
+    def check(self, ctx: DoctorContext) -> list[CheckResult]: ...
+
+
+class _DoctorFixPhase(Protocol):
+    """Minimal doctor-phase fix contract used by auto-remediation."""
+
+    def fix(
+        self,
+        ctx: DoctorContext,
+        failed: list[CheckResult],
+        *,
+        dry_run: bool = False,
+    ) -> list[CheckResult]: ...
+
+
 # Mapping from non-critical phase name -> (check_module, fix_module).
 # Centralised so adding a new auto-remediable phase is a one-line addition.
-_REMEDIATION_TABLE: dict[str, tuple[object, object]] = {
+_REMEDIATION_TABLE: dict[str, tuple[_DoctorCheckPhase, _DoctorFixPhase]] = {
     PHASE_TOOLS: (doctor_tools, doctor_tools),
     PHASE_HOOKS: (doctor_hooks, doctor_hooks),
 }
@@ -130,14 +149,14 @@ def auto_remediate_after_install(
 def _remediate_phase(
     ctx: DoctorContext,
     phase_name: str,
-    check_mod: object,
-    fix_mod: object,
+    check_mod: _DoctorCheckPhase,
+    fix_mod: _DoctorFixPhase,
     report: AutoRemediateReport,
 ) -> None:
     """Run check() + fix() for one phase and record the outcome."""
     try:
-        results: list[CheckResult] = check_mod.check(ctx)  # type: ignore[attr-defined]
-    except Exception as exc:  # pragma: no cover - defensive
+        results = check_mod.check(ctx)
+    except Exception as exc:
         report.errors.append(f"{phase_name}.check raised: {exc}")
         report.failed.append(f"{phase_name}: check failed")
         return
@@ -171,10 +190,8 @@ def _remediate_phase(
         return
 
     try:
-        fixed_results: list[CheckResult] = fix_mod.fix(  # type: ignore[attr-defined]
-            ctx, failed_checks, dry_run=False
-        )
-    except Exception as exc:  # pragma: no cover - defensive
+        fixed_results = fix_mod.fix(ctx, failed_checks, dry_run=False)
+    except Exception as exc:
         report.errors.append(f"{phase_name}.fix raised: {exc}")
         report.failed.append(f"{phase_name}: fix failed")
         return

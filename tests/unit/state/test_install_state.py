@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from datetime import UTC, datetime
 
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     BranchPolicyState,
     CredentialRef,
     InstallState,

@@ -35,7 +35,7 @@ from ai_engineering.validator._shared import (
 )
 
 # Closed enum of supported OS names (D-101-03). Mirrors
-# :class:`ai_engineering.state.models.Platform`.
+# :class:`skill_domain.state_models.Platform`.
 _VALID_OSES: frozenset[str] = frozenset({"darwin", "linux", "windows"})
 
 # Stacks whose toolchain the framework intentionally never auto-installs

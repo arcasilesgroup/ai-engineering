@@ -6,15 +6,6 @@ import json
 from pathlib import Path
 
 from ai_engineering.state.io import read_ndjson_entries
-from ai_engineering.state.models import (
-    CapabilityKind,
-    CapabilityToolScope,
-    FrameworkCapabilitiesCatalog,
-    FrameworkEvent,
-    MutationClass,
-    TopologyRole,
-    WriteScopeClass,
-)
 from ai_engineering.state.observability import (
     FRAMEWORK_CAPABILITIES_REL,
     FRAMEWORK_CAPABILITIES_SCHEMA_VERSION,
@@ -27,6 +18,15 @@ from ai_engineering.state.observability import (
     framework_capabilities_path,
     framework_events_path,
     write_framework_capabilities,
+)
+from skill_domain.state_models import (
+    CapabilityKind,
+    CapabilityToolScope,
+    FrameworkCapabilitiesCatalog,
+    FrameworkEvent,
+    MutationClass,
+    TopologyRole,
+    WriteScopeClass,
 )
 
 

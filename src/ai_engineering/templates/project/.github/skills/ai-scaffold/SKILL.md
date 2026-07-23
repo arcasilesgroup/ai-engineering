@@ -29,7 +29,7 @@ Write at top; check off regardless of skill vs agent:
 - [ ] Description CSO-optimized (triggering conditions, not summary)
 - [ ] IDE-compatibility fields set if needed (copilot_compatible, disable-model-invocation)
 - [ ] Registered in `.ai-engineering/manifest.yml` (skills.registry or agents.names + total)
-- [ ] Mirror sync run: `python scripts/sync_command_mirrors.py`
+- [ ] Mirror sync run: `uv run python -m scripts.sync_mirrors`
 - [ ] Tests pass: `source .venv/bin/activate && python -m pytest tests/unit/ -q`
 - [ ] Pain sources consulted (decision-store, LESSONS.md) for constraints
 
@@ -47,7 +47,7 @@ Write at top; check off regardless of skill vs agent:
    - Determine IDE compatibility (see table below).
 2. **Delegate to skill-creator** — invoke Anthropic `skill-creator` with the context block below. It owns drafting, TDD pressure-testing, the eval pipeline (grader/analyzer/benchmark/HTML viewer), description optimization, and iteration.
 3. **Verify return** — SKILL.md follows ai-engineering conventions (Step 0 context loading, output contract); frontmatter has all required fields; description is CSO-optimized.
-4. **Register + sync (owned here)** — walk the Registration Checklist and `handlers/validate.md`. Manifest entry: `ai-<name>: { type: <type>, tags: [<tags>] }`; bump `skills.total`. Run `python scripts/sync_command_mirrors.py`; run unit tests; update README skill counts if they changed.
+4. **Register + sync (owned here)** — walk the Registration Checklist and `handlers/validate.md`. Manifest entry: `ai-<name>: { type: <type>, tags: [<tags>] }`; bump `skills.total`. Run `uv run python -m scripts.sync_mirrors`; run unit tests; update README skill counts if they changed.
 
 skill-creator context block:
 
@@ -102,10 +102,10 @@ User: "the framework needs a capability for OpenAPI schema validation — create
 /ai-scaffold skill ai-openapi
 ```
 
-Loads pain context, delegates draft + TDD to `skill-creator`, registers in `manifest.yml`, runs `sync_command_mirrors.py`, verifies tests still pass.
+Loads pain context, delegates draft + TDD to `skill-creator`, registers in `manifest.yml`, runs `sync_mirrors module`, verifies tests still pass.
 
 ## Integration
 
-Delegates to: Anthropic `skill-creator` (TDD + evals + description optimization). Reads: `manifest.yml`, `decision-store.json`, `LESSONS.md`. Calls: `python scripts/sync_command_mirrors.py`. See also: `/ai-skill-improve` (improve existing), `/ai-prompt-tune` (description-only).
+Delegates to: Anthropic `skill-creator` (TDD + evals + description optimization). Reads: `manifest.yml`, `decision-store.json`, `LESSONS.md`. Calls: `uv run python -m scripts.sync_mirrors`. See also: `/ai-skill-improve` (improve existing), `/ai-prompt-tune` (description-only).
 
 $ARGUMENTS

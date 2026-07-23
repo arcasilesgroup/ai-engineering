@@ -37,11 +37,11 @@ from ai_engineering.maintenance.report import (
 )
 from ai_engineering.maintenance.spec_reset import run_spec_reset
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.state.decision_logic import (
+from ai_engineering.state.service import StateService
+from skill_domain.decision_logic import (
     list_expired_decisions,
     list_expiring_soon,
 )
-from ai_engineering.state.service import StateService
 
 # spec-114 G-5 / G-6 -- NDJSON reset constants.
 _FRAMEWORK_EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"

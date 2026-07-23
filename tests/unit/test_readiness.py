@@ -323,7 +323,7 @@ class TestCheckOperationalReadiness:
 
     def test_reads_state_and_returns_status(self, tmp_path: Path) -> None:
         """When install-state.json exists and is valid, returns provider/cicd/branch checks."""
-        from ai_engineering.state.models import InstallState, ToolEntry
+        from skill_domain.state_models import InstallState, ToolEntry
 
         state_dir = tmp_path / ".ai-engineering" / "state"
         state_dir.mkdir(parents=True, exist_ok=True)

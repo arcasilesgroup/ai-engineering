@@ -18,7 +18,7 @@ from ai_engineering.state.defaults import (
     default_ownership_paths,
 )
 from ai_engineering.state.io import write_json_model
-from ai_engineering.state.models import InstallState
+from skill_domain.state_models import InstallState
 
 
 def _state_dir(ctx: DoctorContext) -> Path:

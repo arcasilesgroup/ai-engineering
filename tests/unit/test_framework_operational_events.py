@@ -5,13 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from ai_engineering.state.io import read_ndjson_entries
-from ai_engineering.state.models import FrameworkEvent
 from ai_engineering.state.observability import (
     emit_framework_error,
     emit_git_hook_outcome,
     emit_ide_hook_outcome,
     framework_events_path,
 )
+from skill_domain.state_models import FrameworkEvent
 
 
 def _write_manifest(tmp_path: Path) -> None:

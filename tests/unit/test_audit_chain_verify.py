@@ -77,7 +77,7 @@ def test_compute_entry_hash_function_exists() -> None:
 
 def test_decision_model_carries_prev_event_hash_field() -> None:
     """G-12: Decision model has additive `prev_event_hash` field (D-107-10)."""
-    from ai_engineering.state.models import Decision
+    from skill_domain.state_models import Decision
 
     fields = Decision.model_fields
     assert "prev_event_hash" in fields, (

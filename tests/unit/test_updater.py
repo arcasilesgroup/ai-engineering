@@ -9,12 +9,6 @@ from unittest.mock import patch
 import pytest
 
 from ai_engineering.config.manifest import RootEntryPointConfig, RootEntryPointSyncConfig
-from ai_engineering.state.models import (
-    FrameworkUpdatePolicy,
-    OwnershipEntry,
-    OwnershipLevel,
-    OwnershipMap,
-)
 from ai_engineering.state.repository import DurableStateRepository
 from ai_engineering.updater.service import (
     _evaluate_file_change,
@@ -22,6 +16,12 @@ from ai_engineering.updater.service import (
     _merge_missing_ownership_rules,
     _migrate_legacy_dirs,
     update,
+)
+from skill_domain.state_models import (
+    FrameworkUpdatePolicy,
+    OwnershipEntry,
+    OwnershipLevel,
+    OwnershipMap,
 )
 
 

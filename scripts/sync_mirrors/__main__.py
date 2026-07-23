@@ -1,8 +1,6 @@
-"""CLI entry point for the mirror sync package.
+"""CLI entry point for canonical mirror synchronization.
 
-Invoked as `python -m scripts.sync_mirrors [args]`. The legacy
-`scripts/sync_command_mirrors.py` shim delegates here so external CI
-and skill invocations keep working unchanged.
+Invoke with ``uv run python -m scripts.sync_mirrors [args]``.
 """
 
 from __future__ import annotations

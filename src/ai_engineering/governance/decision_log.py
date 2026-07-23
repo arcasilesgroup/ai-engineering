@@ -34,10 +34,10 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from ai_engineering.state.models import FrameworkEvent
 from ai_engineering.state.observability import (
     append_framework_event,
 )
+from skill_domain.state_models import FrameworkEvent
 
 __all__ = [
     "emit_policy_decision",

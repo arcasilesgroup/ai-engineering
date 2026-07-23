@@ -23,20 +23,20 @@ _REMEDY = "run: python scripts/sync_mirrors/core.py"
 
 
 def _root_hooks_json() -> Path:
-    from scripts.sync_command_mirrors import ROOT
+    from scripts.sync_mirrors import ROOT
 
     return ROOT / ".github" / "hooks" / "hooks.json"
 
 
 def _template_hooks_json() -> Path:
-    from scripts.sync_command_mirrors import TPL_PROJECT
+    from scripts.sync_mirrors import TPL_PROJECT
 
     return TPL_PROJECT / ".github" / "hooks" / "hooks.json"
 
 
 def test_generator_matches_root_copy() -> None:
     """The generator reproduces the canonical root copy byte-for-byte."""
-    from scripts.sync_command_mirrors import generate_copilot_hooks_json
+    from scripts.sync_mirrors import generate_copilot_hooks_json
 
     generated = generate_copilot_hooks_json()
     root_bytes = _root_hooks_json().read_text(encoding="utf-8")
@@ -56,7 +56,7 @@ def test_root_and_template_copies_are_byte_identical() -> None:
 
 def test_both_copies_equal_generator_output() -> None:
     """Both on-disk copies equal the single generated source."""
-    from scripts.sync_command_mirrors import generate_copilot_hooks_json
+    from scripts.sync_mirrors import generate_copilot_hooks_json
 
     generated = generate_copilot_hooks_json()
     assert _root_hooks_json().read_text(encoding="utf-8") == generated, (

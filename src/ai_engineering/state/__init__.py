@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ai_engineering.state.decision_logic import (
+from skill_domain.decision_logic import (
     create_decision,
     create_risk_acceptance,
     list_expired_decisions,

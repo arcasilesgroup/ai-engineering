@@ -16,7 +16,7 @@ from ai_engineering.state.context_packs import (
     write_context_pack,
 )
 from ai_engineering.state.io import write_json_model
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     HandoffCompact,
     HandoffRef,
     LearningArtifactKind,

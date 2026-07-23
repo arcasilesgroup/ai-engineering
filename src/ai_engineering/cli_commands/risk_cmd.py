@@ -42,14 +42,14 @@ import typer
 from pydantic import ValidationError
 
 from ai_engineering.cli_ui import error, header, info, kv, status_line, success, warning
-from ai_engineering.state.decision_logic import (
+from ai_engineering.state.observability import emit_control_outcome
+from ai_engineering.state.service import StateService
+from skill_domain.decision_logic import (
     create_risk_acceptance,
     mark_remediated,
     renew_decision,
     revoke_decision,
 )
-from ai_engineering.state.observability import emit_control_outcome
-from ai_engineering.state.service import StateService
 
 # --- Constants --------------------------------------------------------------
 
@@ -141,7 +141,7 @@ def _parse_expires_at(expires_at: str | None) -> datetime | None:
 
 def _validate_severity(value: str) -> str:
     """Confirm ``--severity`` is one of the canonical values (exit 2 otherwise)."""
-    from ai_engineering.state.models import RiskSeverity
+    from skill_domain.state_models import RiskSeverity
 
     try:
         return RiskSeverity(value).value
@@ -163,7 +163,7 @@ def _generate_dec_id(now: datetime, store_existing_ids: set[str]) -> str:
 
 def _load_or_create_store(svc: StateService):
     """Load the decision store, creating an empty one if no file exists."""
-    from ai_engineering.state.models import DecisionStore
+    from skill_domain.state_models import DecisionStore
 
     store_path = svc.state_dir / "decision-store.json"
     if not store_path.exists():
@@ -271,7 +271,7 @@ def risk_accept(
     ] = None,
 ) -> None:
     """Accept a single gate finding as a tracked risk acceptance."""
-    from ai_engineering.state.models import RiskSeverity
+    from skill_domain.state_models import RiskSeverity
 
     _validate_justification(justification)
     if not (spec or "").strip():
@@ -385,7 +385,7 @@ def risk_accept_all(
     ] = None,
 ) -> None:
     """Bulk-accept all findings in a ``gate-findings.json`` document."""
-    from ai_engineering.state.models import GateFindingsDocument, RiskSeverity
+    from skill_domain.state_models import GateFindingsDocument, RiskSeverity
 
     _validate_justification(justification)
     if not (spec or "").strip():
@@ -697,7 +697,7 @@ def risk_list(
     ] = "table",
 ) -> None:
     """List risk-acceptance decisions filtered by status/severity/expiry."""
-    from ai_engineering.state.models import DecisionStatus
+    from skill_domain.state_models import DecisionStatus
 
     if output_format not in {"table", "json", "markdown"}:
         error("--format must be one of: table, json, markdown.")

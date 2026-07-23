@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from ai_engineering.state.models import GateFindingsDocument
+from skill_domain.state_models import GateFindingsDocument
 
 FIXTURE_PATH = Path(__file__).parent.parent / "fixtures" / "gate_findings_v1.json"
 

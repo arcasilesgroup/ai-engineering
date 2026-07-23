@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from ai_engineering.config.manifest import ManifestConfig, SkillEntry
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     CapabilityAcceptanceResult,
     CapabilityCard,
     CapabilityKind,

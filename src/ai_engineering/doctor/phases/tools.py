@@ -48,14 +48,14 @@ from ai_engineering.installer.user_scope_install import (
     run_verify,
 )
 from ai_engineering.state.manifest import load_python_env_mode, load_required_tools
-from ai_engineering.state.models import (
+from ai_engineering.state.service import save_install_state
+from skill_domain.state_models import (
     PythonEnvMode,
     ToolInstallRecord,
     ToolInstallState,
     ToolScope,
     ToolSpec,
 )
-from ai_engineering.state.service import save_install_state
 
 logger = logging.getLogger(__name__)
 
@@ -183,7 +183,7 @@ def _recover_externally_installed_tools(
     state_dir = ctx.target / ".ai-engineering" / "state"
     try:
         save_install_state(state_dir, state)
-    except OSError as exc:  # pragma: no cover - defensive fail-open
+    except OSError as exc:
         logger.debug("doctor: could not persist external-recovery records: %s", exc)
 
 

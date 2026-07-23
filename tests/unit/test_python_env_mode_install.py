@@ -37,7 +37,7 @@ from ai_engineering.installer.python_env import (
     _detect_git_common_dir,
     configure_python_env,
 )
-from ai_engineering.state.models import PythonEnvMode
+from skill_domain.state_models import PythonEnvMode
 
 # ---------------------------------------------------------------------------
 # Helpers

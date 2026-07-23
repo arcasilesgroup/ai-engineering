@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from ai_engineering.state.models import TaskLedger, TaskLedgerTask, TaskLifecycleState
+from skill_domain.state_models import TaskLedger, TaskLedgerTask, TaskLifecycleState
 
 
 def test_task_ledger_task_accepts_artifact_refs_and_alias_fields() -> None:

@@ -23,14 +23,14 @@ from unittest.mock import patch
 import pytest
 
 from ai_engineering.installer.service import install
-from ai_engineering.state.models import (
+from ai_engineering.state.repository import DurableStateRepository
+from ai_engineering.updater.service import FileChange, UpdateResult, update
+from skill_domain.state_models import (
     FrameworkUpdatePolicy,
     OwnershipEntry,
     OwnershipLevel,
     OwnershipMap,
 )
-from ai_engineering.state.repository import DurableStateRepository
-from ai_engineering.updater.service import FileChange, UpdateResult, update
 
 
 @pytest.fixture()

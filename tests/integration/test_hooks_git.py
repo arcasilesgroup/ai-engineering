@@ -20,8 +20,8 @@ from ai_engineering.hooks.manager import (
     verify_hooks,
 )
 from ai_engineering.state.defaults import default_install_state
-from ai_engineering.state.models import GateHook
 from ai_engineering.state.service import save_install_state
+from skill_domain.state_models import GateHook
 
 
 @pytest.fixture()

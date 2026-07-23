@@ -10,7 +10,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from ai_engineering.config.manifest import ManifestConfig
-from ai_engineering.state.models import InstallState
+from skill_domain.state_models import InstallState
 
 
 class CheckStatus(StrEnum):

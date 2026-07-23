@@ -37,8 +37,8 @@ def _seed_decision_for_finding(root: Path, dec_id: str, rule_id: str) -> None:
     orchestrator's risk-acceptance lookup reads it through the durable
     repository, so seeding writes the file directly.
     """
-    from ai_engineering.state.models import DecisionStore
     from ai_engineering.state.repository import DurableStateRepository
+    from skill_domain.state_models import DecisionStore
 
     state_dir = root / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -222,7 +222,7 @@ def test_gate_compact_output_renders_accepted_section(
     from datetime import UTC, datetime
 
     from ai_engineering.policy import orchestrator
-    from ai_engineering.state.models import (
+    from skill_domain.state_models import (
         AcceptedFinding,
         GateFinding,
         GateSeverity,

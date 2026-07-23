@@ -13,7 +13,7 @@ from pathlib import Path
 from ai_engineering.config.mirror_inventory import get_generated_provenance_fields
 from ai_engineering.state.defaults import default_ownership_map
 from ai_engineering.state.io import write_json_model
-from ai_engineering.state.models import EvidenceRef, HandoffRef
+from skill_domain.state_models import EvidenceRef, HandoffRef
 
 # Dynamic discovery from real project -- never hardcode lists that can drift.
 # Canonical source is templates/project/.claude/ (skills and agents live here post spec-055).
@@ -135,7 +135,7 @@ def _write_manifest(
         "        mirror_paths: []\n"
         "    AGENTS.md:\n"
         "      owner: framework\n"
-        "      canonical_source: scripts/sync_command_mirrors.py:generate_agents_md\n"
+        "      canonical_source: scripts/sync_mirrors/core.py:generate_agents_md\n"
         "      runtime_role: shared-runtime-contract\n"
         "      sync:\n"
         "        mode: generate\n"

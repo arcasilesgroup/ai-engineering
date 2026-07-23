@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     Decision,
     DecisionStatus,
     DecisionStore,

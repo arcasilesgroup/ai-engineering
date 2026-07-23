@@ -181,7 +181,7 @@ def test_lib_corruption_writes_stdlib_framework_error(tmp_path: Path, lib_tc) ->
     (the pkg-side validator) so downstream consumers (audit_chain reader,
     schema validator) treat hook-emitted errors uniformly.
     """
-    from ai_engineering.state.event_schema import validate_event_schema
+    from skill_domain.event_schema import validate_event_schema
 
     path = lib_tc.trace_context_path(tmp_path)
     path.parent.mkdir(parents=True, exist_ok=True)

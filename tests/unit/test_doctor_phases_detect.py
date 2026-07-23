@@ -10,7 +10,7 @@ import pytest
 from ai_engineering.config.manifest import ManifestConfig, ProvidersConfig
 from ai_engineering.doctor.models import CheckResult, CheckStatus, DoctorContext
 from ai_engineering.doctor.phases import detect
-from ai_engineering.state.models import InstallState
+from skill_domain.state_models import InstallState
 
 # ---------------------------------------------------------------------------
 # Fixtures

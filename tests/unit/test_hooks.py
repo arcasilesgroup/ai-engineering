@@ -27,8 +27,8 @@ from ai_engineering.hooks.manager import (
     verify_hooks,
 )
 from ai_engineering.state.defaults import default_install_state
-from ai_engineering.state.models import GateHook, PythonEnvMode
 from ai_engineering.state.service import load_install_state, save_install_state
+from skill_domain.state_models import GateHook, PythonEnvMode
 
 # ---------------------------------------------------------------------------
 # Script generation

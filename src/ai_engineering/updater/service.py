@@ -15,6 +15,7 @@ from __future__ import annotations
 import difflib
 import json
 import logging
+import os
 import shutil
 import tempfile
 from collections.abc import Mapping
@@ -41,11 +42,6 @@ from ai_engineering.reconciler import (
     ResourceReconciler,
 )
 from ai_engineering.state.defaults import default_ownership_map
-from ai_engineering.state.models import (
-    InstallState,
-    OwnershipEntry,
-    OwnershipMap,
-)
 from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.state.repository import DurableStateRepository
 from ai_engineering.state.service import (
@@ -56,6 +52,11 @@ from ai_engineering.state.service import (
 from ai_engineering.updater.hook_command_migration import (
     HookMigrationReport,
     migrate_hook_commands,
+)
+from skill_domain.state_models import (
+    InstallState,
+    OwnershipEntry,
+    OwnershipMap,
 )
 
 logger = logging.getLogger(__name__)
@@ -525,12 +526,13 @@ def _apply_actionable_file_changes(changes: list[FileChange], target: Path) -> P
             if change.src is None:
                 continue
             try:
-                safe_path = Path(safe_realpath_within(change.path, target))
+                safe_path = safe_realpath_within(change.path, target)
             except PathTraversalError as exc:
                 msg = f"refusing to write outside target: {change.path} (target={target})"
                 raise RuntimeError(msg) from exc
-            safe_path.parent.mkdir(parents=True, exist_ok=True)
-            safe_path.write_bytes(change.src.read_bytes())
+            os.makedirs(os.path.dirname(safe_path), exist_ok=True)
+            with open(safe_path, "wb") as destination:
+                destination.write(change.src.read_bytes())
     except Exception:
         _rollback_created_files(changes)
         if backup_dir is not None:
@@ -1169,7 +1171,7 @@ def _migrate_tools_json(ai_eng_dir: Path) -> bool:
     install_state = load_install_state(state_dir)
 
     # Extract platforms from tools.json via the dict-based helper
-    from ai_engineering.state.models import _extract_platforms_from_dict
+    from skill_domain.state_models import _extract_platforms_from_dict
 
     merged_platforms = _extract_platforms_from_dict(tools_data)
 

@@ -22,7 +22,7 @@ FIXTURES = Path(__file__).resolve().parent.parent / "fixtures"
 
 def test_v1_1_schema_literal_accepted() -> None:
     """`schema: ai-engineering/gate-findings/v1.1` parses successfully."""
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     payload = {
         "schema": "ai-engineering/gate-findings/v1.1",
@@ -45,7 +45,7 @@ def test_v1_1_schema_literal_accepted() -> None:
 
 def test_v1_schema_literal_still_accepted_for_backward_compat() -> None:
     """`schema: v1` (legacy) still parses — Literal Union, not breaking change."""
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     payload = {
         "schema": "ai-engineering/gate-findings/v1",
@@ -66,7 +66,7 @@ def test_v1_schema_literal_still_accepted_for_backward_compat() -> None:
 
 def test_v1_fixture_roundtrips() -> None:
     """Canonical v1 fixture (Phase 1 fixture) parses + dumps without loss."""
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     payload = json.loads((FIXTURES / "gate_findings_v1.json").read_text(encoding="utf-8"))
     doc = GateFindingsDocument.model_validate(payload)
@@ -82,7 +82,7 @@ def test_v1_fixture_roundtrips() -> None:
 
 def test_v1_1_fixture_roundtrips_with_populated_arrays() -> None:
     """v1.1 fixture round-trips with `accepted_findings` + `expiring_soon`."""
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     payload = json.loads((FIXTURES / "gate_findings_v1_1.json").read_text(encoding="utf-8"))
     doc = GateFindingsDocument.model_validate(payload)
@@ -106,7 +106,7 @@ def test_accepted_finding_round_trips() -> None:
     """`AcceptedFinding` is frozen, round-trips via dump/validate."""
     from pydantic import ValidationError
 
-    from ai_engineering.state.models import AcceptedFinding
+    from skill_domain.state_models import AcceptedFinding
 
     af = AcceptedFinding(
         check="ruff",
@@ -130,7 +130,7 @@ def test_accepted_finding_round_trips() -> None:
 
 def test_accepted_finding_expires_at_optional() -> None:
     """`expires_at` is optional (None means no expiry)."""
-    from ai_engineering.state.models import AcceptedFinding
+    from skill_domain.state_models import AcceptedFinding
 
     af = AcceptedFinding(
         check="gitleaks",
@@ -146,7 +146,7 @@ def test_accepted_finding_expires_at_optional() -> None:
 
 def test_expiring_soon_field_defaults_to_empty_list() -> None:
     """`expiring_soon` defaults to empty list when not provided."""
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     payload = {
         "schema": "ai-engineering/gate-findings/v1.1",
@@ -174,7 +174,7 @@ def test_v1_consumer_silently_drops_unknown_fields_from_v1_1() -> None:
     dropped and the rest of the document parses normally. This is the R-2
     backward-compat guarantee.
     """
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     # Take v1.1 fixture but synthesise a "v1 reader expecting v1 schema":
     # the schema literal is a Union, so even when the doc is labelled v1.1

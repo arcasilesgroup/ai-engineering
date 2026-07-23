@@ -26,7 +26,7 @@ from ai_engineering.doctor.service import (
     diagnose,
 )
 from ai_engineering.installer.phases import PHASE_ORDER
-from ai_engineering.state.models import InstallState
+from skill_domain.state_models import InstallState
 
 # ---------------------------------------------------------------------------
 # Helpers

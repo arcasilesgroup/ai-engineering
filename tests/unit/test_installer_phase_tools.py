@@ -32,7 +32,7 @@ from ai_engineering.installer.phases import (
     InstallContext,
     InstallMode,
 )
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     ToolInstallRecord,
     ToolInstallState,
     ToolScope,
@@ -205,7 +205,7 @@ class TestStateRecording:
         context: InstallContext,
     ) -> None:
         from ai_engineering.installer.phases import tools as tools_phase
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         install_state = InstallState()
         context.existing_state = install_state
@@ -248,7 +248,7 @@ class TestStateRecording:
     ) -> None:
         """A mechanism returning ``failed=True`` -> state failed_needs_manual."""
         from ai_engineering.installer.phases import tools as tools_phase
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         install_state = InstallState()
         context.existing_state = install_state
@@ -300,7 +300,7 @@ class TestPhaseResultAggregation:
         context: InstallContext,
     ) -> None:
         from ai_engineering.installer.phases import tools as tools_phase
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         context.existing_state = InstallState()
 
@@ -343,7 +343,7 @@ class TestPhaseResultAggregation:
         context: InstallContext,
     ) -> None:
         from ai_engineering.installer.phases import tools as tools_phase
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         context.existing_state = InstallState()
 
@@ -392,7 +392,7 @@ class TestStackLevelPlatformSkip:
     ) -> None:
         from ai_engineering.installer.phases import tools as tools_phase
         from ai_engineering.state.manifest import StackSkip
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         context.stacks = ["swift"]
         context.existing_state = InstallState()
@@ -451,7 +451,7 @@ class TestPreexistingUserScopeAdoption:
     ) -> None:
         from ai_engineering.installer.phases import tools as tools_phase
         from ai_engineering.installer.user_scope_install import VerifyResult
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         install_state = InstallState()  # FRESH: no prior record for gitleaks
         context.existing_state = install_state
@@ -489,7 +489,7 @@ class TestPreexistingUserScopeAdoption:
     def test_force_still_installs_over_healthy_user_scope(self, context: InstallContext) -> None:
         from ai_engineering.installer.phases import tools as tools_phase
         from ai_engineering.installer.user_scope_install import VerifyResult
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         install_state = InstallState()
         context.existing_state = install_state
@@ -523,7 +523,7 @@ class TestPreexistingUserScopeAdoption:
     def test_not_user_scope_falls_through_to_install(self, context: InstallContext) -> None:
         """A system-scope (non-user) gitleaks is NOT adopted -> mechanism runs."""
         from ai_engineering.installer.phases import tools as tools_phase
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         install_state = InstallState()
         context.existing_state = install_state
@@ -550,7 +550,7 @@ class TestPreexistingUserScopeAdoption:
         """A user-scope gitleaks whose verify FAILS is not adopted."""
         from ai_engineering.installer.phases import tools as tools_phase
         from ai_engineering.installer.user_scope_install import VerifyResult
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         install_state = InstallState()
         context.existing_state = install_state
@@ -580,7 +580,7 @@ class TestPreexistingUserScopeAdoption:
     ) -> None:
         """A raising verify probe (e.g. UnsafeVerifyCommand) is not adopted."""
         from ai_engineering.installer.phases import tools as tools_phase
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         install_state = InstallState()
         context.existing_state = install_state
@@ -618,7 +618,7 @@ class TestPreexistingUserScopeAdoption:
         """
         from ai_engineering.installer.phases import tools as tools_phase
         from ai_engineering.installer.user_scope_install import VerifyResult
-        from ai_engineering.state.models import InstallState
+        from skill_domain.state_models import InstallState
 
         monkeypatch.setenv("AIENG_TEST", "1")
         monkeypatch.setenv("AIENG_TEST_SIMULATE_FAIL", "gitleaks")

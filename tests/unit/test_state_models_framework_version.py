@@ -8,7 +8,7 @@ version stamp round-trips through validate -> dump(by_alias=True).
 
 from __future__ import annotations
 
-from ai_engineering.state.models import FrameworkEvent
+from skill_domain.state_models import FrameworkEvent
 
 
 def test_framework_version_alias_round_trip() -> None:

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ai_engineering.validator.service import (
+from skill_app.lint_service import (
     IntegrityCategory,
     IntegrityStatus,
     validate_content_integrity,
@@ -251,7 +251,7 @@ class TestClaudeSpecialistAgentsMirror:
     """Tests for generated Claude specialist agent mirror-sync validation."""
 
     def test_claude_specialist_agents_mirror_sync_ok(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import generate_specialist_agent
+        from scripts.sync_mirrors import generate_specialist_agent
 
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)

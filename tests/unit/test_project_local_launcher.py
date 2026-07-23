@@ -52,7 +52,7 @@ from ai_engineering.installer.launchers import (
     MISSING_DEP_SENTINEL,
     resolve_project_local,
 )
-from ai_engineering.state.models import ToolScope, ToolSpec
+from skill_domain.state_models import ToolScope, ToolSpec
 
 # ---------------------------------------------------------------------------
 # Helpers -- minimal project-tree scaffolding under tmp_path

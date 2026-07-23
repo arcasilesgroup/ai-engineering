@@ -31,7 +31,7 @@ from ai_engineering.installer.service import (
     _has_active_finding_dec,
 )
 from ai_engineering.state.manifest import compute_tool_spec_hash
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     Decision,
     DecisionStatus,
     DecisionStore,
@@ -64,7 +64,7 @@ def test_compute_tool_spec_hash_helper_exists() -> None:
 def test_install_state_carries_tool_spec_hashes_field() -> None:
     """G-11: InstallState model has `tool_spec_hashes: dict[str, str]` field."""
     # spec-127 D-127-13 hex move: canonical state model lives under
-    # tools/skill_domain/; src/ai_engineering/state/models.py is now a
+    # tools/skill_domain/; tools/skill_domain/state_models.py is now a
     # re-export shim. Grep the canonical source for the field declaration.
     models_path = REPO_ROOT / "tools" / "skill_domain" / "state_models.py"
     assert models_path.is_file(), f"state_models missing: {models_path}"

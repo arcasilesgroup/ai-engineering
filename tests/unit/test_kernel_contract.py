@@ -42,7 +42,7 @@ from unittest import mock
 
 import pytest
 
-from ai_engineering.state.models import GateFindingsDocument
+from skill_domain.state_models import GateFindingsDocument
 
 _LOCAL_REGULATED_REGISTRATION: tuple[str, ...] = (
     "gitleaks",

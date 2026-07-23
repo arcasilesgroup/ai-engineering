@@ -34,7 +34,7 @@ _REMEDY = "run: python scripts/sync_mirrors/core.py"
 
 def test_sync_all_check_mode_reports_clean(template_hooks_lock) -> None:
     """``sync_all(check_only=True)`` must exit 0 -- no tracked drift."""
-    from scripts.sync_command_mirrors import sync_all
+    from scripts.sync_mirrors import sync_all
 
     with template_hooks_lock():  # serialize vs test_orphan_* probe writes
         exit_code = sync_all(check_only=True)
@@ -43,7 +43,7 @@ def test_sync_all_check_mode_reports_clean(template_hooks_lock) -> None:
 
 def test_hook_scripts_template_matches_canonical() -> None:
     """Every canonical hook ``.py`` (incl. ``_lib/``) is byte-identical in template."""
-    from scripts.sync_command_mirrors import ROOT
+    from scripts.sync_mirrors import ROOT
 
     canonical_root = ROOT / ".ai-engineering" / "scripts" / "hooks"
     template_root = (
@@ -78,7 +78,7 @@ def test_specialist_agent_claude_template_carries_provenance() -> None:
     governance contract and was reverted. Each template must match
     ``generate_specialist_agent`` output byte-for-byte.
     """
-    from scripts.sync_command_mirrors import (
+    from scripts.sync_mirrors import (
         TPL_CLAUDE_AGENTS,
         discover_specialist_agents,
         generate_specialist_agent,
@@ -114,7 +114,7 @@ def test_orphan_py_in_template_hooks_is_flagged_but_launchers_are_safe(
     (b) ``.sh``/``.ps1`` launchers living in the same tree are NEVER orphan
         candidates -- they are a separate packaging concern and must survive.
     """
-    from scripts.sync_command_mirrors import TPL_HOOK_SCRIPTS, sync_all
+    from scripts.sync_mirrors import TPL_HOOK_SCRIPTS, sync_all
     from scripts.sync_mirrors.core import _handle_orphans
 
     TPL_HOOK_SCRIPTS.mkdir(parents=True, exist_ok=True)

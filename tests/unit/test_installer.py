@@ -188,8 +188,8 @@ class TestGenerateStateFiles:
         # spec-148 P3: ownership now lives in ownership-map.json. Read the
         # entry through the durable repository to confirm the manifest
         # root-entry rule survived the install path.
-        from ai_engineering.state.models import FrameworkUpdatePolicy
         from ai_engineering.state.repository import DurableStateRepository
+        from skill_domain.state_models import FrameworkUpdatePolicy
 
         store = DurableStateRepository(ai_eng_dir.parent).load_ownership()
         by_pattern = {entry.pattern: entry for entry in store.paths}

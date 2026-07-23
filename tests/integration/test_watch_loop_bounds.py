@@ -12,7 +12,7 @@ these assertions has two surfaces:
    distinct from spec-101's exits 80/81. The file is the single source of
    truth for the watch-loop's behavior across all four IDE engines.
 
-2. **Python state model** ``ai_engineering.state.models.WatchLoopState``
+2. **Python state model** ``skill_domain.state_models.WatchLoopState``
    (already landed in T-0.4) carries the two anchor timestamps. Tests 7
    and 8 verify that wall-clock age can be computed correctly from those
    stored datetimes against the caps documented in the markdown contract.
@@ -73,7 +73,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.state.models import WatchLoopState
+from skill_domain.state_models import WatchLoopState
 
 # ---------------------------------------------------------------------------
 # Path to the markdown handler under test.

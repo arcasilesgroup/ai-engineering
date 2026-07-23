@@ -34,7 +34,7 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.state.models import GateFindingsDocument
+from skill_domain.state_models import GateFindingsDocument
 
 # ---------------------------------------------------------------------------
 # Constants — canonical artefact path the skills are documented to read.

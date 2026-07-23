@@ -30,11 +30,11 @@ from ai_engineering.git.operations import (
 )
 from ai_engineering.policy import orchestrator as orchestrator_module
 from ai_engineering.state.io import read_json_model
-from ai_engineering.state.models import DecisionStore, GateFindingsDocument, GateSeverity
 from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.vcs.factory import get_provider
 from ai_engineering.vcs.pr_description import build_pr_description, build_pr_title
 from ai_engineering.vcs.protocol import VcsContext
+from skill_domain.state_models import DecisionStore, GateFindingsDocument, GateSeverity
 
 logger = logging.getLogger(__name__)
 
@@ -657,7 +657,7 @@ def _check_unpushed_decision(
         return None
 
     try:
-        from ai_engineering.state.decision_logic import (
+        from skill_domain.decision_logic import (
             compute_context_hash,
         )
 

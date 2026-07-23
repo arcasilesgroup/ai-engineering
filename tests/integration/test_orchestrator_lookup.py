@@ -32,8 +32,8 @@ def _seed_decision_store(root: Path, dec_id: str, finding_rule_id: str) -> None:
     orchestrator's lookup reads it through the durable repository, so
     seeding writes the file directly.
     """
-    from ai_engineering.state.models import DecisionStore
     from ai_engineering.state.repository import DurableStateRepository
+    from skill_domain.state_models import DecisionStore
 
     state_dir = root / ".ai-engineering" / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
@@ -64,8 +64,8 @@ def test_orchestrator_partitions_accepted_findings_post_wave2(
 ) -> None:
     """After Wave 2 the orchestrator partitions findings via the lookup."""
     from ai_engineering.policy.checks._accept_lookup import apply_risk_acceptances
-    from ai_engineering.state.models import GateFinding, GateSeverity
     from ai_engineering.state.service import StateService
+    from skill_domain.state_models import GateFinding, GateSeverity
 
     _seed_decision_store(tmp_path, dec_id="DEC-2026-04-26-DEAD", finding_rule_id="E501")
     monkeypatch.chdir(tmp_path)
@@ -106,8 +106,8 @@ def test_orchestrator_emit_telemetry_per_accepted_finding(
 ) -> None:
     """Each accepted finding produces a ``finding-bypassed`` telemetry event."""
     from ai_engineering.policy.checks._accept_lookup import apply_risk_acceptances
-    from ai_engineering.state.models import GateFinding, GateSeverity
     from ai_engineering.state.service import StateService
+    from skill_domain.state_models import GateFinding, GateSeverity
 
     _seed_decision_store(tmp_path, dec_id="DEC-2026-04-26-FEED", finding_rule_id="E501")
     monkeypatch.chdir(tmp_path)
@@ -160,7 +160,7 @@ def test_orchestrator_run_gate_invokes_lookup_after_wave2(
     from unittest.mock import patch
 
     from ai_engineering.policy import orchestrator
-    from ai_engineering.state.models import GateSeverity
+    from skill_domain.state_models import GateSeverity
 
     _seed_decision_store(tmp_path, dec_id="DEC-2026-04-26-AAAA", finding_rule_id="E501")
     monkeypatch.chdir(tmp_path)

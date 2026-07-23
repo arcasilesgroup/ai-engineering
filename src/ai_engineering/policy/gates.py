@@ -23,7 +23,7 @@ from pathlib import Path
 
 from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.audit import emit_gate_event
-from ai_engineering.state.models import GateHook
+from skill_domain.state_models import GateHook
 
 
 @dataclass
@@ -145,7 +145,8 @@ def run_gate(
         GateResult with all check outcomes.
     """
     warnings.warn(
-        "policy.gates.run_gate is the legacy gate engine and is deprecated; route CLI and hook flows through policy.orchestrator.run_gate instead.",  # noqa: E501
+        "policy.gates.run_gate is the legacy gate engine and is deprecated; route CLI and hook "
+        "flows through policy.orchestrator.run_gate instead.",
         DeprecationWarning,
         stacklevel=2,
     )

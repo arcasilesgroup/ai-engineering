@@ -15,7 +15,7 @@ from ai_engineering.state.audit import (
     emit_scan_event,
 )
 from ai_engineering.state.io import read_ndjson_entries
-from ai_engineering.state.models import FrameworkEvent, GateHook
+from skill_domain.state_models import FrameworkEvent, GateHook
 
 
 def _entries(path: Path) -> list[FrameworkEvent]:

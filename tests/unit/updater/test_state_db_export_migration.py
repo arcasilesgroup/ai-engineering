@@ -115,8 +115,8 @@ def test_does_not_clobber_existing_files(tmp_path: Path) -> None:
     _make_legacy_state_db(tmp_path)
     state_dir = tmp_path / ".ai-engineering" / "state"
     # A newer install-state.json already on disk (schema_version 9.9).
-    from ai_engineering.state.models import InstallState
     from ai_engineering.state.service import load_install_state, save_install_state
+    from skill_domain.state_models import InstallState
 
     save_install_state(state_dir, InstallState.model_validate({"schema_version": "9.9"}))
 

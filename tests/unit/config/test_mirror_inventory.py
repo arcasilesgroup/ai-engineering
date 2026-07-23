@@ -146,7 +146,7 @@ def test_validator_pairs_and_sync_roots_follow_inventory_contract() -> None:
         _COPILOT_AGENTS_MIRROR,
         _COPILOT_SKILLS_MIRROR,
     )
-    from scripts.sync_command_mirrors import (
+    from scripts.sync_mirrors import (
         ANTIGRAVITY_AGENTS,
         ANTIGRAVITY_SKILLS,
         CODEX_AGENTS,

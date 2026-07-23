@@ -43,7 +43,7 @@ from ai_engineering.installer.phases import (
     InstallContext,
     InstallMode,
 )
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     InstallState,
     PythonEnvMode,
     ToolInstallRecord,

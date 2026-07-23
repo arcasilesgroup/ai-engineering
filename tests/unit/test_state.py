@@ -8,12 +8,6 @@ from pathlib import Path
 
 import pytest
 
-from ai_engineering.state.decision_logic import (
-    compute_context_hash,
-    create_decision,
-    find_reusable_decision,
-    next_decision_id,
-)
 from ai_engineering.state.defaults import (
     default_decision_store,
     default_install_state,
@@ -25,7 +19,13 @@ from ai_engineering.state.io import (
     read_ndjson_entries,
     write_json_model,
 )
-from ai_engineering.state.models import (
+from skill_domain.decision_logic import (
+    compute_context_hash,
+    create_decision,
+    find_reusable_decision,
+    next_decision_id,
+)
+from skill_domain.state_models import (
     AuditEntry,
     DecisionStore,
     InstallState,
@@ -596,7 +596,7 @@ class TestSchema11BackwardCompat:
         assert store.schema_version == "1.1"
 
     def test_old_decision_validates(self) -> None:
-        from ai_engineering.state.models import Decision, DecisionStatus
+        from skill_domain.state_models import Decision, DecisionStatus
 
         raw = {
             "id": "S1-001",
@@ -612,7 +612,7 @@ class TestSchema11BackwardCompat:
         assert d.renewal_count == 0
 
     def test_risk_decisions_empty_for_old_data(self) -> None:
-        from ai_engineering.state.models import DecisionStore
+        from skill_domain.state_models import DecisionStore
 
         store = DecisionStore.model_validate(
             {
@@ -631,7 +631,7 @@ class TestSchema11BackwardCompat:
         assert store.risk_decisions() == []
 
     def test_risk_decisions_returns_risk_acceptance(self) -> None:
-        from ai_engineering.state.models import DecisionStore, RiskCategory
+        from skill_domain.state_models import DecisionStore, RiskCategory
 
         store = DecisionStore.model_validate(
             {
@@ -660,7 +660,7 @@ class TestAiProvider:
     """Tests for AiProvider enum."""
 
     def test_enum_values(self) -> None:
-        from ai_engineering.state.models import AiProvider
+        from skill_domain.state_models import AiProvider
 
         assert AiProvider.CLAUDE_CODE == "claude-code"
         assert AiProvider.GITHUB_COPILOT == "github-copilot"
@@ -668,7 +668,7 @@ class TestAiProvider:
         assert AiProvider.ANTIGRAVITY == "antigravity"
 
     def test_is_str_enum(self) -> None:
-        from ai_engineering.state.models import AiProvider
+        from skill_domain.state_models import AiProvider
 
         assert isinstance(AiProvider.CLAUDE_CODE, str)
 

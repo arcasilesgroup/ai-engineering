@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- Removed the forbidden compatibility module paths
+  `ai_engineering.standards`, `ai_engineering.state.{models,decision_logic,event_schema}`
+  and `ai_engineering.validator.{service,categories.*}`. Consumers now import
+  the canonical `skill_domain.*` or `skill_app.lint_service` APIs directly.
+  The legacy `scripts/sync_command_mirrors.py` entry point is also removed;
+  use `uv run python -m scripts.sync_mirrors` or `ai-eng dev sync`.
+
 - spec-186: Client-Value Lens adopted across the 5 chain skills
   (`/ai-brainstorm`, `/ai-plan`, `/ai-build`, `/ai-autopilot`, `/ai-pr`).
   These skills now emit a fixed value block (bottom line, impact, risk,
@@ -37,6 +44,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
 
 ### Changed
+
+- Removed all ungoverned lint, type, coverage, and Sonar suppressions. The
+  shell guard now detects netcat execution flags and socat `EXEC:` sinks with
+  bounded deterministic scans, and updater writes use the validated path string
+  directly at the filesystem sink.
 
 - spec-183: `ai-eng release` is now hidden from `--help` and the JSON command
   list in every install (it publishes the framework package itself and is not

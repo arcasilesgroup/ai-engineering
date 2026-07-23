@@ -489,7 +489,7 @@ def test_emit_findings_validates_against_pydantic(tmp_path: Path) -> None:
     """Emitted JSON validates via ``GateFindingsDocument.model_validate_json``."""
     # Arrange
     from ai_engineering.policy.orchestrator import _emit_findings
-    from ai_engineering.state.models import GateFindingsDocument
+    from skill_domain.state_models import GateFindingsDocument
 
     output = tmp_path / "gf.json"
 

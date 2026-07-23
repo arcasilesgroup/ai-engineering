@@ -9,8 +9,8 @@ from math import comb
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from ai_engineering.policy.orchestrator import CI_EXTRA_CHECKERS, LOCAL_CHECKERS
-from ai_engineering.standards import EngineeringStandard, standards_for_verify_mode
 from ai_engineering.validator._shared import IntegrityCategory
+from skill_domain.standards import EngineeringStandard, standards_for_verify_mode
 
 _TESTS_PERF_PATH = "tests/perf"
 

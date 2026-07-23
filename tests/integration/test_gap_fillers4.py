@@ -17,15 +17,15 @@ from ai_engineering.policy import duplication, gates
 from ai_engineering.skills import service as skills_service
 from ai_engineering.state import decision_logic, defaults
 from ai_engineering.state import io as state_io
-from ai_engineering.state.models import (
-    AuditEntry,
-    DecisionStore,
-    InstallState,
-)
 from ai_engineering.updater import service as updater
 from ai_engineering.validator import service as validator
 from ai_engineering.vcs import azure_devops, factory, pr_description
 from ai_engineering.vcs.protocol import VcsContext
+from skill_domain.state_models import (
+    AuditEntry,
+    DecisionStore,
+    InstallState,
+)
 
 
 def test_hooks_and_installer_templates_missing_inputs(tmp_path: Path) -> None:

@@ -42,9 +42,9 @@ from ai_engineering.policy import gate_cache as gate_cache_module
 from ai_engineering.policy import mode_dispatch
 from ai_engineering.policy import orchestrator as orchestrator_module
 from ai_engineering.policy.gates import GateResult, run_commit_msg_gate
-from ai_engineering.state.decision_logic import list_expired_decisions, list_expiring_soon
-from ai_engineering.state.models import GateFindingsDocument, GateHook, GateSeverity
 from ai_engineering.state.service import StateService
+from skill_domain.decision_logic import list_expired_decisions, list_expiring_soon
+from skill_domain.state_models import GateFindingsDocument, GateHook, GateSeverity
 
 # spec-104 D-104-10: severity threshold for gate exit-code-1 failures.
 _FAILURE_SEVERITIES: frozenset[GateSeverity] = frozenset(

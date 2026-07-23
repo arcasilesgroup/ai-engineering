@@ -58,6 +58,6 @@ Walks every IDE surface, scores SUPPORTED / PARTIAL / UNSUPPORTED per capability
 
 ## Integration
 
-Triggered after: installer changes (`src/ai_engineering/installer/templates.py`), `scripts/sync_command_mirrors.py` runs, new hooks added. Calls: `python scripts/sync_command_mirrors.py` (with `--fix`). Feeds into: `/ai-governance` (risk acceptance for UNSUPPORTED gaps). See also: `/ai-verify`, `/ai-security`.
+Triggered after: installer changes (`src/ai_engineering/installer/templates.py`), `scripts/sync_mirrors/core.py` runs, new hooks added. Calls: `uv run python -m scripts.sync_mirrors` (with `--fix`). Feeds into: `/ai-governance` (risk acceptance for UNSUPPORTED gaps). See also: `/ai-verify`, `/ai-security`.
 
 $ARGUMENTS

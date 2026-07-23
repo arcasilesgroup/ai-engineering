@@ -42,7 +42,7 @@ ownership:
     root_entry_points:
         "AGENTS.md":
             owner: framework
-            canonical_source: scripts/sync_command_mirrors.py:generate_agents_md
+            canonical_source: scripts/sync_mirrors/core.py:generate_agents_md
             runtime_role: shared-runtime-contract
             sync:
                 mode: generate
@@ -213,7 +213,7 @@ class TestValidatorErrorOnMissingInstructionFile:
 
         report = IntegrityReport()
         # Import the counter accuracy checker which iterates _instruction_files
-        from ai_engineering.validator.categories.counter_accuracy import (
+        from skill_domain.validator_counter_accuracy import (
             _check_counter_accuracy,
         )
 
@@ -262,7 +262,7 @@ class TestValidatorNoErrorForDisabledProvider:
 
         # Also verify that the validator does not report errors for them
         report = IntegrityReport()
-        from ai_engineering.validator.categories.counter_accuracy import (
+        from skill_domain.validator_counter_accuracy import (
             _check_counter_accuracy,
         )
 

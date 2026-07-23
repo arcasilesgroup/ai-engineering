@@ -9,10 +9,8 @@ from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
 
-from ai_engineering.state.models import GateFinding, GateFindingsDocument
 from ai_engineering.state.work_plane import resolve_active_work_plane
 from ai_engineering.validator._shared import IntegrityStatus
-from ai_engineering.validator.service import validate_content_integrity
 from ai_engineering.verify.scoring import (
     FindingSeverity,
     SpecialistResult,
@@ -20,6 +18,8 @@ from ai_engineering.verify.scoring import (
 )
 from ai_engineering.verify.taxonomy import classify_check_name
 from ai_engineering.verify.tls_pip_audit import pip_audit_command
+from skill_app.lint_service import validate_content_integrity
+from skill_domain.state_models import GateFinding, GateFindingsDocument
 
 SPECIALIST_ORDER = (
     "governance",

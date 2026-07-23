@@ -16,8 +16,8 @@ from pydantic import ValidationError
 
 from ai_engineering._shared.redactor import redact_normal
 from ai_engineering.state.io import read_ndjson_entries, write_json_model
-from ai_engineering.state.models import FrameworkEvent, InstinctMeta, InstinctObservation
 from ai_engineering.state.observability import framework_events_path
+from skill_domain.state_models import FrameworkEvent, InstinctMeta, InstinctObservation
 
 OBSERVATION_RETENTION_DAYS = 30
 MAX_SUMMARY_LEN = 160

@@ -83,7 +83,7 @@ _VERIFY_MODES = (
 
 # spec-187 D-187-04: the late-wave reference triad was hard-deleted
 # (enumerated Bucket-B scope cut). The standards matrix is now consumed
-# directly through ``ai_engineering.standards``; the canonical prose homes
+# directly through ``skill_domain.standards``; the canonical prose homes
 # for these standards are the surviving §10 principles reference and the
 # Constitution.
 _OPERATIONAL_PRINCIPLES = ".ai-engineering/reference/operational-principles.md"
@@ -307,7 +307,9 @@ def build_legacy_retirement_manifest() -> tuple[LegacyRetirementFamily, ...]:
             parity_proofs=(
                 ".ai-engineering/state/archive/delivery-logs/spec-117/verify_hx12_engineering_standards_and_legacy_retirement.md",
             ),
-            rollback="Keep root docs trailing framework contexts until runtime commands are proven.",  # noqa: E501
+            rollback=(
+                "Keep root docs trailing framework contexts until runtime commands are proven."
+            ),
         ),
     )
     validate_legacy_retirement_manifest(manifest)

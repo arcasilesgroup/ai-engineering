@@ -22,9 +22,9 @@ from ai_engineering.cli_ui import error, info, kv, status_line, success, warning
 from ai_engineering.lib.parsing import count_checkboxes, parse_frontmatter
 from ai_engineering.maintenance.spec_activate import run_spec_activate
 from ai_engineering.paths import find_project_root
-from ai_engineering.state.models import TaskLifecycleState
 from ai_engineering.state.observability import emit_framework_operation
 from ai_engineering.state.work_plane import read_task_ledger, resolve_active_work_plane
+from skill_domain.state_models import TaskLifecycleState
 
 _SPEC_FILENAME = "spec.md"
 _PLAN_FILENAME = "plan.md"

@@ -14,7 +14,7 @@ from unittest.mock import patch
 
 from ai_engineering.doctor.models import DoctorContext
 from ai_engineering.doctor.phases import tools as doctor_tools
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     InstallState,
     ToolInstallRecord,
     ToolInstallState,

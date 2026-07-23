@@ -15,7 +15,7 @@ from ai_engineering.state.capabilities import (
     infer_mutation_classes,
     validate_task_packet_acceptance,
 )
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     CapabilityTaskPacket,
     CapabilityToolScope,
     MutationClass,
@@ -40,7 +40,7 @@ def _manifest_config() -> ManifestConfig:
 
 
 def test_classify_write_scope_uses_hx06_taxonomy() -> None:
-    assert classify_write_scope("src/ai_engineering/state/models.py") == WriteScopeClass.SOURCE
+    assert classify_write_scope("tools/skill_domain/state_models.py") == WriteScopeClass.SOURCE
     assert classify_write_scope("tests/unit/test_capabilities.py") == WriteScopeClass.TEST
     assert classify_write_scope(".ai-engineering/specs/plan.md") == WriteScopeClass.SPEC
     assert classify_write_scope(".ai-engineering/state/framework-events.ndjson") == (
@@ -51,7 +51,7 @@ def test_classify_write_scope_uses_hx06_taxonomy() -> None:
 
 def test_infer_mutation_classes_from_write_scopes() -> None:
     assert infer_mutation_classes(
-        ["src/ai_engineering/state/models.py", ".ai-engineering/specs/plan.md"]
+        ["tools/skill_domain/state_models.py", ".ai-engineering/specs/plan.md"]
     ) == [MutationClass.CODE_WRITE, MutationClass.READ, MutationClass.SPEC_WRITE]
 
 
@@ -73,7 +73,7 @@ def test_build_agent_packet_accepts_source_write_and_edit_tool() -> None:
         taskId="T-build",
         ownerRole="Build",
         mutationClasses=[MutationClass.CODE_WRITE],
-        writeScope=["src/ai_engineering/state/models.py"],
+        writeScope=["tools/skill_domain/state_models.py"],
         toolRequests=[CapabilityToolScope.EDIT],
     )
 
@@ -89,7 +89,7 @@ def test_plan_packet_rejects_source_code_write() -> None:
         taskId="T-plan",
         ownerRole="Plan",
         mutationClasses=[MutationClass.CODE_WRITE],
-        writeScope=["src/ai_engineering/state/models.py"],
+        writeScope=["tools/skill_domain/state_models.py"],
     )
 
     result = validate_task_packet_acceptance(cards, packet)

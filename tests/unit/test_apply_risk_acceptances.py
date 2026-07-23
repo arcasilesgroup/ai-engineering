@@ -26,7 +26,7 @@ def _make_finding(
     auto_fixable: bool = False,
 ):
     """Build a ``GateFinding`` for tests."""
-    from ai_engineering.state.models import GateFinding
+    from skill_domain.state_models import GateFinding
 
     return GateFinding(
         check=check,
@@ -43,7 +43,7 @@ def _make_finding(
 
 def _make_store(decisions=None):
     """Build a ``DecisionStore`` for tests."""
-    from ai_engineering.state.models import DecisionStore
+    from skill_domain.state_models import DecisionStore
 
     return DecisionStore(decisions=decisions or [])
 
@@ -57,8 +57,8 @@ def _accept_decision(
     status: str = "active",
 ):
     """Build an active risk-acceptance ``Decision`` covering ``rule_id``."""
-    from ai_engineering.state.decision_logic import compute_context_hash
-    from ai_engineering.state.models import Decision, DecisionStatus, RiskCategory, RiskSeverity
+    from skill_domain.decision_logic import compute_context_hash
+    from skill_domain.state_models import Decision, DecisionStatus, RiskCategory, RiskSeverity
 
     expires_at = (
         None if expires_in_days is None else datetime.now(tz=UTC) + timedelta(days=expires_in_days)
@@ -130,8 +130,8 @@ def test_apply_skips_revoked_or_remediated_decisions() -> None:
 def test_apply_treats_non_risk_acceptance_categories_as_blocking() -> None:
     """A flow-decision in the store does not bypass a matching finding."""
     from ai_engineering.policy.checks._accept_lookup import apply_risk_acceptances
-    from ai_engineering.state.decision_logic import compute_context_hash
-    from ai_engineering.state.models import Decision, DecisionStatus, RiskCategory
+    from skill_domain.decision_logic import compute_context_hash
+    from skill_domain.state_models import Decision, DecisionStatus, RiskCategory
 
     finding = _make_finding(rule_id="E501")
     flow_decision = Decision(

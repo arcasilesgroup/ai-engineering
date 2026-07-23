@@ -39,9 +39,15 @@ from typing import Any
 
 from ai_engineering.policy import auto_stage, gate_cache, mode_dispatch
 from ai_engineering.policy.checks._accept_lookup import apply_risk_acceptances
-from ai_engineering.state.decision_logic import _WARN_BEFORE_EXPIRY_DAYS
 from ai_engineering.state.locking import artifact_lock
-from ai_engineering.state.models import (
+from ai_engineering.state.work_plane import (
+    ACTIVE_WORK_PLANE_POINTER_KEY,
+    ACTIVE_WORK_PLANE_POINTER_REL,
+    active_work_plane_has_active_spec,
+    resolve_active_work_plane,
+)
+from skill_domain.decision_logic import _WARN_BEFORE_EXPIRY_DAYS
+from skill_domain.state_models import (
     AcceptedFinding,
     DecisionStatus,
     DecisionStore,
@@ -49,12 +55,6 @@ from ai_engineering.state.models import (
     GateFindingsDocument,
     RiskCategory,
     WallClockMs,
-)
-from ai_engineering.state.work_plane import (
-    ACTIVE_WORK_PLANE_POINTER_KEY,
-    ACTIVE_WORK_PLANE_POINTER_REL,
-    active_work_plane_has_active_spec,
-    resolve_active_work_plane,
 )
 
 logger = logging.getLogger(__name__)

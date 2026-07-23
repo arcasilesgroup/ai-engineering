@@ -14,7 +14,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
-from ai_engineering.state.models import TaskLedger
+from skill_domain.state_models import TaskLedger
 
 ACTIVE_WORK_PLANE_POINTER_REL = Path(".ai-engineering") / "specs" / "active-work-plane.json"
 # POSIX-style relative key used by gate config-hash maps so the dictionary

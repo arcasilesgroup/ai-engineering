@@ -10,7 +10,7 @@ and by ``brainstorm.spec_approval``.
 The CLI vocabulary is a flat row dict
 (``decision_id``/``spec_id``/``status``/``title``/``rationale``/``context``/
 ``consequences``/``superseded_by``/``expires_at``); the canonical store holds
-:class:`~ai_engineering.state.models.Decision` models. The row-only fields
+:class:`~skill_domain.state_models.Decision` models. The row-only fields
 (``rationale``/``consequences``/``superseded_by``/``title``/``updated_at``)
 have no first-class ``Decision`` field, so they ride as ledger extras —
 ``Decision`` is declared ``extra="allow"`` and preserves them verbatim across
@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ai_engineering.state.models import Decision
+from skill_domain.state_models import Decision
 
 if TYPE_CHECKING:
     from ai_engineering.state.repository import DurableStateRepository

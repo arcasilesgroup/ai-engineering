@@ -1244,7 +1244,7 @@ def _emit_simulate_event(*, tool_name: str, mechanism: str, outcome: str) -> Non
         return
     try:
         from ai_engineering.state.observability import emit_framework_operation
-    except ImportError:  # pragma: no cover - circular guard
+    except ImportError:
         return
     try:
         emit_framework_operation(
@@ -1257,7 +1257,7 @@ def _emit_simulate_event(*, tool_name: str, mechanism: str, outcome: str) -> Non
                 "mechanism": mechanism,
             },
         )
-    except Exception:  # pragma: no cover - fail-open audit trail
+    except Exception:
         return
 
 

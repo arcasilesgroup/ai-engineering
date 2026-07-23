@@ -29,8 +29,8 @@ from ai_engineering.commands.workflows import (
     run_pr_workflow,
 )
 from ai_engineering.installer.service import install
-from ai_engineering.state.models import GateFindingsDocument
 from ai_engineering.vcs.protocol import VcsResult
+from skill_domain.state_models import GateFindingsDocument
 
 
 def _kernel_gate_document() -> GateFindingsDocument:

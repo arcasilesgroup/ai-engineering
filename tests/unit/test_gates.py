@@ -45,7 +45,7 @@ from ai_engineering.policy.gates import (
     _get_active_stacks,
     run_gate,
 )
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     Decision,
     DecisionStatus,
     DecisionStore,

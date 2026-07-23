@@ -16,7 +16,7 @@ import ai_engineering.cli_commands.dev_sync as dev_sync_module
 import ai_engineering.cli_commands.gate as gate_module
 import ai_engineering.cli_commands.verify_cmd as verify_cmd_module
 import ai_engineering.state.observability as observability_module
-from ai_engineering.state.models import FrameworkEvent, GateFindingsDocument
+from skill_domain.state_models import FrameworkEvent, GateFindingsDocument
 
 
 def _lock_spy(calls: list[tuple[Path, str]]):
@@ -47,9 +47,9 @@ def _gate_document() -> GateFindingsDocument:
 
 
 def test_sync_uses_mirror_lock(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    script = tmp_path / "scripts" / "sync_command_mirrors.py"
-    script.parent.mkdir(parents=True, exist_ok=True)
-    script.write_text("print('ok')\n", encoding="utf-8")
+    module_entry = tmp_path / "scripts" / "sync_mirrors" / "__main__.py"
+    module_entry.parent.mkdir(parents=True, exist_ok=True)
+    module_entry.write_text("print('ok')\n", encoding="utf-8")
 
     calls: list[tuple[Path, str]] = []
     monkeypatch.setattr(dev_sync_module, "artifact_lock", _lock_spy(calls))

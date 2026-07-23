@@ -10,14 +10,14 @@ import yaml
 from ai_engineering.config.loader import load_manifest_config, update_manifest_field
 from ai_engineering.config.manifest import ManifestConfig
 from ai_engineering.state.io import read_json_model, write_json_model
-from ai_engineering.state.models import (
+from ai_engineering.state.service import load_install_state
+from skill_domain.state_models import (
     DecisionStore,
     FrameworkCapabilitiesCatalog,
     FrameworkEvent,
     InstallState,
     OwnershipMap,
 )
-from ai_engineering.state.service import load_install_state
 
 _MANIFEST_REL = Path(".ai-engineering") / "manifest.yml"
 _STATE_REL = Path(".ai-engineering") / "state"

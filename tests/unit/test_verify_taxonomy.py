@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from ai_engineering.standards import EngineeringStandard
 from ai_engineering.verify.taxonomy import (
     ReportingSurface,
     VerificationCheckSpec,
@@ -18,6 +17,7 @@ from ai_engineering.verify.taxonomy import (
     summarize_replay_outcomes,
     validate_verification_registry,
 )
+from skill_domain.standards import EngineeringStandard
 
 
 def test_registry_assigns_stable_ids_and_primary_planes() -> None:

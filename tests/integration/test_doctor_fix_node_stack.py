@@ -72,8 +72,8 @@ required_tools:
     # Spec-125: install_state lives in state.db, not a JSON file.
     state_dir = project / ".ai-engineering" / "state"
     state_dir.mkdir()
-    from ai_engineering.state.models import InstallState
     from ai_engineering.state.service import save_install_state
+    from skill_domain.state_models import InstallState
 
     save_install_state(
         state_dir,
@@ -124,7 +124,7 @@ def test_doctor_fix_node_dispatches_npm_install_save_dev_prettier(
         DoctorContext,
     )
     from ai_engineering.state.manifest import LoadResult
-    from ai_engineering.state.models import ToolScope, ToolSpec
+    from skill_domain.state_models import ToolScope, ToolSpec
 
     # Project-local tools are normally NOT registered in TOOL_REGISTRY (the
     # framework defers them to npm/composer/maven). For the doctor's --fix
@@ -215,7 +215,7 @@ def test_doctor_fix_node_uses_npm_dev_mechanism_class(node_project: Path) -> Non
     from ai_engineering.installer import mechanisms as mechanisms_module
     from ai_engineering.installer.mechanisms import NpmDevMechanism
     from ai_engineering.state.manifest import LoadResult
-    from ai_engineering.state.models import ToolScope, ToolSpec
+    from skill_domain.state_models import ToolScope, ToolSpec
 
     captured_argvs: list[list[str]] = []
 

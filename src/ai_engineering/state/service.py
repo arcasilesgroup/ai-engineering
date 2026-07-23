@@ -12,7 +12,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from ai_engineering.state.models import (
+from skill_domain.state_models import (
     DecisionStore,
     FrameworkCapabilitiesCatalog,
     FrameworkEvent,
@@ -22,7 +22,7 @@ from ai_engineering.state.models import (
 
 logger = logging.getLogger(__name__)
 
-if TYPE_CHECKING:  # pragma: no cover - typing only
+if TYPE_CHECKING:
     from ai_engineering.state.repository import DurableStateRepository
 
 
@@ -261,7 +261,7 @@ def _migrate_legacy_install_state(path: Path, data: dict[str, Any]) -> dict[str,
                 "trigger": _legacy_trigger_reason(data),
             },
         )
-    except Exception:  # pragma: no cover - observability is fail-open
+    except Exception:
         logger.debug("Failed to emit state_migration event", exc_info=True)
 
     return merged_dict

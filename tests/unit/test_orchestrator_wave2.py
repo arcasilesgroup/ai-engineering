@@ -61,7 +61,7 @@ from pathlib import Path
 from typing import Any
 from unittest import mock
 
-from ai_engineering.state.models import GateFinding
+from skill_domain.state_models import GateFinding
 
 # ---------------------------------------------------------------------------
 # Constants documenting the D-104-01 / D-104-02 contract.

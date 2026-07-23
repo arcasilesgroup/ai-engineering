@@ -1,20 +1,112 @@
-"""Mirror sync package.
+"""Canonical mirror-sync package public API.
 
-Splits the legacy `scripts/sync_command_mirrors.py` monolith (~82 KB,
-~50 top-level callables) into a small package with one logic module
-(`core`) plus thin per-concern facades (`frontmatter`, `manifest_sync`,
-`claude_target`, `codex_target`, `antigravity_target`, `copilot_target`).
-
-The original entry point at `scripts/sync_command_mirrors.py` is now a
-backwards-compat shim (<= 2 KB) that delegates to `__main__:main`.
-
-Per spec-122-d D-122-24. Splitting concerns this way preserves
-byte-for-byte parity (verified by `tests/integration/sync/test_sync_compat.py`)
-while giving downstream readers a navigable surface.
+Invoke synchronization with ``uv run python -m scripts.sync_mirrors``. The
+package exports the supported programmatic API from the canonical core module;
+callers never depend on a legacy script path.
 """
 
 from __future__ import annotations
 
-from scripts.sync_mirrors.core import main, sync_all
+from scripts.sync_mirrors import core as core
+from scripts.sync_mirrors.core import (
+    AGENT_METADATA,
+    ANTIGRAVITY_AGENTS,
+    ANTIGRAVITY_SKILLS,
+    CLAUDE_AGENTS,
+    CLAUDE_SKILLS,
+    CODEX_AGENTS,
+    CODEX_SKILLS,
+    GITHUB_AGENTS,
+    GITHUB_SKILLS,
+    ROOT,
+    TPL_ANTIGRAVITY_AGENTS,
+    TPL_ANTIGRAVITY_SKILLS,
+    TPL_CLAUDE_AGENTS,
+    TPL_CODEX_AGENTS,
+    TPL_CODEX_SKILLS,
+    TPL_GITHUB_AGENTS,
+    TPL_GITHUB_SKILLS,
+    TPL_HOOK_SCRIPTS,
+    TPL_PROJECT,
+    _check_or_write,
+    _effort_to_model,
+    _format_yaml_field,
+    _model_to_effort,
+    _resolve_cross_reference_files,
+    _serialize_frontmatter,
+    discover_agents,
+    discover_handlers,
+    discover_reference_files,
+    discover_skills,
+    discover_specialist_agents,
+    generate_agents_md,
+    generate_codex_agent,
+    generate_codex_skill,
+    generate_copilot_agent,
+    generate_copilot_handler,
+    generate_copilot_hooks_json,
+    generate_copilot_instructions,
+    generate_copilot_skill,
+    generate_install_claude_skill,
+    generate_install_codex_surface,
+    generate_specialist_agent,
+    is_copilot_compatible,
+    main,
+    read_frontmatter,
+    sync_all,
+    translate_refs,
+    validate_canonical,
+    validate_runbooks,
+)
 
-__all__ = ["main", "sync_all"]
+__all__ = [
+    "AGENT_METADATA",
+    "ANTIGRAVITY_AGENTS",
+    "ANTIGRAVITY_SKILLS",
+    "CLAUDE_AGENTS",
+    "CLAUDE_SKILLS",
+    "CODEX_AGENTS",
+    "CODEX_SKILLS",
+    "GITHUB_AGENTS",
+    "GITHUB_SKILLS",
+    "ROOT",
+    "TPL_ANTIGRAVITY_AGENTS",
+    "TPL_ANTIGRAVITY_SKILLS",
+    "TPL_CLAUDE_AGENTS",
+    "TPL_CODEX_AGENTS",
+    "TPL_CODEX_SKILLS",
+    "TPL_GITHUB_AGENTS",
+    "TPL_GITHUB_SKILLS",
+    "TPL_HOOK_SCRIPTS",
+    "TPL_PROJECT",
+    "_check_or_write",
+    "_effort_to_model",
+    "_format_yaml_field",
+    "_model_to_effort",
+    "_resolve_cross_reference_files",
+    "_serialize_frontmatter",
+    "core",
+    "discover_agents",
+    "discover_handlers",
+    "discover_reference_files",
+    "discover_skills",
+    "discover_specialist_agents",
+    "generate_agents_md",
+    "generate_codex_agent",
+    "generate_codex_skill",
+    "generate_copilot_agent",
+    "generate_copilot_handler",
+    "generate_copilot_hooks_json",
+    "generate_copilot_instructions",
+    "generate_copilot_skill",
+    "generate_install_claude_skill",
+    "generate_install_codex_surface",
+    "generate_specialist_agent",
+    "is_copilot_compatible",
+    "main",
+    "read_frontmatter",
+    "sync_all",
+    "translate_refs",
+    "validate_canonical",
+    "validate_runbooks",
+]

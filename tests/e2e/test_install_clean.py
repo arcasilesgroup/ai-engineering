@@ -13,8 +13,8 @@ from pathlib import Path
 
 from ai_engineering.installer.service import install
 from ai_engineering.state.io import read_ndjson_entries
-from ai_engineering.state.models import FrameworkEvent
 from ai_engineering.updater.service import update
+from skill_domain.state_models import FrameworkEvent
 
 
 class TestInstallClean:
