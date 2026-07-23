@@ -6,10 +6,7 @@ configuration, credential manager, environment, or provider.
 
 from __future__ import annotations
 
-import hashlib
 import importlib.util
-import json
-import os
 import sys
 import time
 from collections.abc import Mapping
@@ -571,101 +568,3 @@ def test_acl_validation_rejects_native_macos_acl_entries(
 
     with pytest.raises(ValueError):
         runner.validate_private_acl(tmp_path.resolve())
-
-
-def _write_preflight_baseline(root: Path) -> tuple[dict[str, object], str]:
-    root.mkdir(mode=0o700)
-    baseline: dict[str, object] = {
-        "schema": "spec-193-preflight-baseline-v1",
-        "created_at": "2026-07-23T00:00:00+00:00",
-        "entries": [
-            {
-                "kind": "file",
-                "index_status": "M",
-                "worktree_status": "M",
-                "path_fingerprint": "a" * 64,
-                "size": 1,
-                "mtime_ns": 1,
-            }
-        ],
-        "entry_count": 1,
-        "head_commit": "b" * 40,
-        "notes": ["values-free"],
-        "repo_token": "repo-001",
-    }
-    payload = json.dumps(baseline, sort_keys=True).encode("utf-8") + b"\n"
-    manifest = root / "manifest.json"
-    manifest.write_bytes(payload)
-    os.chmod(manifest, 0o600)
-    return baseline, hashlib.sha256(payload).hexdigest()
-
-
-def test_bundle_upgrade_preserves_preflight_baseline_and_seeds_values_free_rows(
-    tmp_path: Path,
-) -> None:
-    runner = _load_runner()
-    root = tmp_path.resolve() / "private-state"
-    baseline, baseline_digest = _write_preflight_baseline(root)
-
-    upgraded_digest = runner.upgrade_external_bundle(
-        root,
-        expected_baseline_sha256=baseline_digest,
-        runner_path=RUNNER_PATH,
-    )
-    document = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
-
-    assert document["schema"] == "spec-193-manifest-v1"
-    assert document["baseline"] == baseline
-    assert document["baseline_sha256"] == baseline_digest
-    assert document["surfaces"] == []
-    assert document["credentials"] == []
-    assert document["receipt_index"] == []
-    assert document["runner_sha256"] == hashlib.sha256(RUNNER_PATH.read_bytes()).hexdigest()
-    assert len(upgraded_digest) == 64
-    assert (root / "receipts.ndjson").stat().st_mode & 0o777 == 0o600
-    assert (root / "runbook.md").stat().st_mode & 0o777 == 0o600
-
-    assert (
-        runner.upgrade_external_bundle(
-            root,
-            expected_baseline_sha256=baseline_digest,
-            runner_path=RUNNER_PATH,
-        )
-        == upgraded_digest
-    )
-
-
-def test_bundle_upgrade_rejects_a_stale_or_replaced_baseline(tmp_path: Path) -> None:
-    runner = _load_runner()
-    root = tmp_path.resolve() / "private-state"
-    _write_preflight_baseline(root)
-
-    with pytest.raises(ValueError):
-        runner.upgrade_external_bundle(
-            root,
-            expected_baseline_sha256="c" * 64,
-            runner_path=RUNNER_PATH,
-        )
-
-
-def test_preflight_notes_allow_policy_labels_but_not_sensitive_assignments() -> None:
-    runner = _load_runner()
-
-    runner._validate_preflight_notes(["synthetic " + "can" + "ary policy label"])
-
-    with pytest.raises(ValueError):
-        runner._validate_preflight_notes(["api" + "_key" + "=" + "value"])
-
-
-def test_preflight_baseline_allows_missing_metadata_for_missing_paths(
-    tmp_path: Path,
-) -> None:
-    runner = _load_runner()
-    root = tmp_path.resolve() / "private-state"
-    baseline, _ = _write_preflight_baseline(root)
-    entry = baseline["entries"][0]
-    assert isinstance(entry, dict)
-    entry["size"] = None
-    entry["mtime_ns"] = None
-
-    assert runner._validate_preflight_baseline(baseline)["entries"][0]["size"] is None

@@ -1,6 +1,6 @@
 ---
 total: 109
-completed: 13
+completed: 12
 spec: spec-193
 title: "Personal Host Security and Zero-Third-Party-MCP Cutover — execution plan"
 status: approved
@@ -258,7 +258,7 @@ workflow, unrelated skills, and the three Codex vendor components must survive.
 
 ## Phase 1 — Closed discovery, deletion preview, and baseline RED
 
-- [x] T-1.1 — Upgrade and validate the canonical private bundle — DONE (immutable baseline preserved; private bundle upgrade and fresh-process validation pass)
+- [ ] T-1.1 — Upgrade and validate the canonical private bundle
   - Agent: build
   - Files: `${XDG_STATE_HOME:-$HOME/.local/state}/agent-cli/spec-193/{manifest.json,receipts.ndjson,runbook.md}`
   - Principles applied: §10.6 SDD, §10.7 Clean Code
