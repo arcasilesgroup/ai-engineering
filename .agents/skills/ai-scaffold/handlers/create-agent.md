@@ -41,4 +41,4 @@ Body structure:
 - Increment `total` count
 
 ### 5. Generate mirrors
-- Run `python scripts/sync_command_mirrors.py`
+- Run `uv run python -m scripts.sync_mirrors`

@@ -17,7 +17,7 @@ Detect configuration and content drift between framework-managed surfaces: IDE m
 - `shasum` available for hook integrity verification.
 - `diff` available for file comparison.
 - `gh` or `az` CLI authenticated for work item creation.
-- `scripts/sync_mirrors/core.py` present for mirror sync checks.
+- `scripts/sync_command_mirrors.py` present for mirror sync checks.
 - `ai-eng` CLI is optional; Step 3 provides equivalent manual checks when unavailable.
 
 ## Procedure
@@ -27,7 +27,7 @@ Detect configuration and content drift between framework-managed surfaces: IDE m
 Verify that `.claude/` canonical sources are in sync with their mirrors in `.codex/`, `.github/`, and `src/ai_engineering/templates/`.
 
 ```bash
-uv run python -m scripts.sync_mirrors --check
+python scripts/sync_command_mirrors.py --check
 ```
 
 Exit code 0 means all mirrors match. Exit code 1 means drift exists -- capture the diff output listing each file with a content mismatch. Record every drifted file path and its mirror counterpart.
@@ -284,8 +284,8 @@ Framework health score and findings to stdout. Work items created for drift find
 
 ## Guardrails
 
-1. **Never auto-fixes drift.** This runbook detects and reports drift. It does not run `sync_mirrors module` without `--check`, does not overwrite framework files, and does not modify hook scripts.
-2. **Never modifies framework files.** No write operations target `.claude/`, `.agents/`, `.github/`, `.ai-engineering/`, or `src/ai_engineering/templates/`. Remediation is delegated to a human or to `sync_mirrors module` (without `--check`) after review.
+1. **Never auto-fixes drift.** This runbook detects and reports drift. It does not run `sync_command_mirrors.py` without `--check`, does not overwrite framework files, and does not modify hook scripts.
+2. **Never modifies framework files.** No write operations target `.claude/`, `.agents/`, `.github/`, `.ai-engineering/`, or `src/ai_engineering/templates/`. Remediation is delegated to a human or to `sync_command_mirrors.py` (without `--check`) after review.
 3. **Mutations enabled by default.** Work items are created automatically.
 4. **Bounded mutations.** A maximum of 15 work items are created per run. If findings exceed this limit, the report notes the overflow and stops creating items.
 5. **Protected states.** Items in `closed` or `resolved` state are never reopened or modified. Labels `p1-critical` and `pinned` are never removed.

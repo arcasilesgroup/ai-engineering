@@ -61,7 +61,7 @@ Improves prompts, skill `description` fields, and agent instructions using prove
 
 ## Examples
 
-User: "optimize the description for /ai-governance" → `/ai-prompt-tune --skill ai-governance`. Reads `.agents/skills/ai-governance/SKILL.md`, rewrites the description with explicit triggers + negative scoping, presents before/after, applies on approval, runs `sync_mirrors module`.
+User: "optimize the description for /ai-governance" → `/ai-prompt-tune --skill ai-governance`. Reads `.agents/skills/ai-governance/SKILL.md`, rewrites the description with explicit triggers + negative scoping, presents before/after, applies on approval, runs `scripts.sync_mirrors`.
 
 ## Integration
 

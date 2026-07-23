@@ -50,7 +50,7 @@ Improves prompts, skill `description` fields, and agent instructions using prove
 3. **CSO-optimize** using the triggering-condition pattern.
 4. **Present** before/after for approval.
 5. **Apply** — update the frontmatter if approved.
-6. **Sync mirrors** — run `python scripts/sync_command_mirrors.py` to propagate the updated description to `.github/`, `.codex/`, and `.agents/` mirrors. Verify no tests break.
+6. **Sync mirrors** — run `uv run python -m scripts.sync_mirrors` to propagate the updated description to `.github/`, `.codex/`, and `.agents/` mirrors. Verify no tests break.
 
 ## Common Mistakes
 
@@ -61,10 +61,10 @@ Improves prompts, skill `description` fields, and agent instructions using prove
 
 ## Examples
 
-User: "optimize the description for /ai-governance" → `/ai-prompt-tune --skill ai-governance`. Reads `.agents/skills/ai-governance/SKILL.md`, rewrites the description with explicit triggers + negative scoping, presents before/after, applies on approval, runs `sync_command_mirrors.py`.
+User: "optimize the description for /ai-governance" → `/ai-prompt-tune --skill ai-governance`. Reads `.agents/skills/ai-governance/SKILL.md`, rewrites the description with explicit triggers + negative scoping, presents before/after, applies on approval, runs `scripts.sync_mirrors`.
 
 ## Integration
 
-Called by: user directly, `/ai-skill-improve` (Phase 4 rewrite). Calls: `python scripts/sync_command_mirrors.py` (after `--skill` updates). See also: `/ai-scaffold` (new skills), `/ai-skill-improve` (full skill rewrite from pain).
+Called by: user directly, `/ai-skill-improve` (Phase 4 rewrite). Calls: `uv run python -m scripts.sync_mirrors` (after `--skill` updates). See also: `/ai-scaffold` (new skills), `/ai-skill-improve` (full skill rewrite from pain).
 
 $ARGUMENTS

@@ -1,15 +1,10 @@
 ---
 name: review-context
-description: Pre-review architectural context gatherer. Explores the codebase beyond the diff to produce a structured summary that all review specialists consume. Dispatched by ai-review before any specialist runs.
+description: "Pre-review architectural context gatherer. Explores the codebase beyond the diff to produce a structured summary that all review specialists consume. Dispatched by ai-review before any specialist runs."
 model: opus
 color: cyan
 tools: [Read, Glob, Grep, Bash]
-mirror_family: specialist-agents
-generated_by: ai-eng sync
-canonical_source: .claude/agents/review-context.md
-edit_policy: generated-do-not-edit
 ---
-
 
 Runs **before** the review specialists to gather the context they need. Explore the codebase beyond the diff and produce a structured summary — do not perform the review itself.
 

@@ -101,7 +101,7 @@ User: "the framework needs a capability for OpenAPI schema validation — create
 /ai-scaffold skill ai-openapi
 ```
 
-Loads pain context, delegates draft + TDD to `skill-creator`, registers in `manifest.yml`, runs `sync_mirrors module`, verifies tests still pass.
+Loads pain context, delegates draft + TDD to `skill-creator`, registers in `manifest.yml`, runs `scripts.sync_mirrors`, verifies tests still pass.
 
 ## Integration
 
