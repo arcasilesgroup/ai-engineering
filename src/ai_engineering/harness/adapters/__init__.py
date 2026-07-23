@@ -29,6 +29,13 @@ from ..schema import (
 class HostAdapter(ABC):
     """Base class for host-specific adapters."""
 
+    def __init__(self) -> None:
+        self._override_root_paths: list[Path] | None = None
+        self._override_skills_dir: Path | None = None
+        self._override_commands_dir: Path | None = None
+        self._override_hooks_dir: Path | None = None
+        self._override_mcp_config_paths: list[Path] | None = None
+
     @property
     @abstractmethod
     def host_id(self) -> str:
@@ -36,28 +43,68 @@ class HostAdapter(ABC):
 
     @property
     @abstractmethod
+    def _default_root_paths(self) -> list[Path]:
+        """Default paths to root instruction files for this host."""
+
+    @property
     def root_paths(self) -> list[Path]:
-        """Paths to root instruction files for this host."""
+        return (
+            self._override_root_paths
+            if self._override_root_paths is not None
+            else self._default_root_paths
+        )
 
     @property
     @abstractmethod
-    def skills_dir(self) -> Path:
-        """Path to the skills directory."""
+    def _default_skills_dir(self) -> Path:
+        """Default path to the skills directory."""
 
     @property
-    def commands_dir(self) -> Path | None:
-        """Path to commands directory (if any)."""
+    def skills_dir(self) -> Path:
+        return (
+            self._override_skills_dir
+            if self._override_skills_dir is not None
+            else self._default_skills_dir
+        )
+
+    @property
+    def _default_commands_dir(self) -> Path | None:
+        """Default path to commands directory (if any)."""
         return None
 
     @property
-    def hooks_dir(self) -> Path:
-        """Path to hooks directory."""
+    def commands_dir(self) -> Path | None:
+        return (
+            self._override_commands_dir
+            if self._override_commands_dir is not None
+            else self._default_commands_dir
+        )
+
+    @property
+    def _default_hooks_dir(self) -> Path:
+        """Default path to hooks directory."""
         return Path(".ai-engineering/scripts/hooks")
 
     @property
-    def mcp_config_paths(self) -> list[Path]:
-        """Paths to MCP configuration files."""
+    def hooks_dir(self) -> Path:
+        return (
+            self._override_hooks_dir
+            if self._override_hooks_dir is not None
+            else self._default_hooks_dir
+        )
+
+    @property
+    def _default_mcp_config_paths(self) -> list[Path]:
+        """Default paths to MCP configuration files."""
         return []
+
+    @property
+    def mcp_config_paths(self) -> list[Path]:
+        return (
+            self._override_mcp_config_paths
+            if self._override_mcp_config_paths is not None
+            else self._default_mcp_config_paths
+        )
 
     def collect(self, fixture_name: str = "live") -> ContextSafetyReport:
         """Collect metrics from this host's configuration."""

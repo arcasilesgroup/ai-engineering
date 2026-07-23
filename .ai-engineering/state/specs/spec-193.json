@@ -1,0 +1,11 @@
+{
+  "branch": null,
+  "created": "2026-07-23T12:20:28.684619+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "global-context-cli-optimization",
+  "spec_id": "spec-193",
+  "state": "draft",
+  "title": "Global context efficiency and CLI-first skill architecture"
+}

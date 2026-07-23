@@ -14,15 +14,15 @@ class CursorAdapter(HostAdapter):
         return "cursor"
 
     @property
-    def root_paths(self) -> list[Path]:
+    def _default_root_paths(self) -> list[Path]:
         return [Path(".cursor/AGENTS.md"), Path("AGENTS.md")]
 
     @property
-    def skills_dir(self) -> Path:
+    def _default_skills_dir(self) -> Path:
         return Path(".cursor/skills")
 
     @property
-    def mcp_config_paths(self) -> list[Path]:
+    def _default_mcp_config_paths(self) -> list[Path]:
         return [Path(".cursor/mcp.json")]
 
     def _determine_verdict(

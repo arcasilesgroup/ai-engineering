@@ -24,26 +24,26 @@ class OpenCodeAdapter(HostAdapter):
         return "opencode"
 
     @property
-    def root_paths(self) -> list[Path]:
+    def _default_root_paths(self) -> list[Path]:
         return [
             Path(".opencode/AGENTS.md"),
             Path("AGENTS.md"),
         ]
 
     @property
-    def skills_dir(self) -> Path:
+    def _default_skills_dir(self) -> Path:
         return Path(".opencode/skills")
 
     @property
-    def commands_dir(self) -> Path | None:
+    def _default_commands_dir(self) -> Path | None:
         return Path(".opencode/commands")
 
     @property
-    def hooks_dir(self) -> Path:
+    def _default_hooks_dir(self) -> Path:
         return Path(".ai-engineering/scripts/hooks")
 
     @property
-    def mcp_config_paths(self) -> list[Path]:
+    def _default_mcp_config_paths(self) -> list[Path]:
         return [
             Path(".opencode/mcp.json"),
         ]
