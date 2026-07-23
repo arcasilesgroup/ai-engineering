@@ -63,6 +63,9 @@ _HASH_LIKE: Final[re.Pattern[str]] = re.compile(r"(?:sha256:)?[0-9a-fA-F]{64}\Z"
 _SECRET_MARKER: Final[re.Pattern[str]] = re.compile(
     r"(?:canary|secret|api[_-]?key|password)", re.IGNORECASE
 )
+_SENSITIVE_ASSIGNMENT: Final[re.Pattern[str]] = re.compile(
+    r"(?:api[_-]?key|password|secret|token)\s*(?:=|:)\s*\S+", re.IGNORECASE
+)
 
 
 @dataclass(frozen=True)
@@ -265,14 +268,25 @@ def _json_payload(document: Mapping[str, object]) -> bytes:
 def _manifest_digest(path: Path) -> str | None:
     if not _exists_without_following(path):
         return None
-    _assert_private(path, 0o600, directory=False)
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return hashlib.sha256(_read_private_bytes(path)).hexdigest()
 
 
-def _atomic_write_json(path: Path, document: Mapping[str, object]) -> None:
-    """Durably replace an already-validated private JSON document."""
+def _read_private_bytes(path: Path) -> bytes:
+    """Read one existing private regular file through a no-follow descriptor."""
+    descriptor, existed = _open_private_file(path, os.O_RDONLY)
+    if not existed:
+        os.close(descriptor)
+        raise PrivateStoreError("private store file is missing")
+    try:
+        with os.fdopen(descriptor, "rb") as handle:
+            return handle.read()
+    except OSError as error:
+        raise PrivateStoreError("private store file could not be read safely") from error
+
+
+def _atomic_write_bytes(path: Path, payload: bytes) -> None:
+    """Durably replace an already-validated owner-only private file."""
     _assert_private(path.parent, 0o700, directory=True)
-    payload = _json_payload(document)
     descriptor, temporary_name = tempfile.mkstemp(prefix=".pending-", dir=path.parent)
     temporary = Path(temporary_name)
     try:
@@ -291,6 +305,38 @@ def _atomic_write_json(path: Path, document: Mapping[str, object]) -> None:
             temporary.unlink()
 
 
+def _atomic_write_json(path: Path, document: Mapping[str, object]) -> None:
+    """Durably replace an already-validated private JSON document."""
+    _atomic_write_bytes(path, _json_payload(document))
+
+
+def _ensure_private_file(path: Path, payload: bytes) -> None:
+    """Create a private auxiliary file exactly once under the held store lock."""
+    _assert_private(path.parent, 0o700, directory=True)
+    if _exists_without_following(path):
+        _assert_private(path, 0o600, directory=False)
+        return
+    try:
+        descriptor = os.open(
+            path,
+            os.O_CREAT | os.O_EXCL | os.O_WRONLY | _no_follow_flag(),
+            0o600,
+        )
+    except FileExistsError:
+        _assert_private(path, 0o600, directory=False)
+        return
+    except OSError as error:
+        raise PrivateStoreError("private auxiliary file could not be created safely") from error
+    try:
+        os.fchmod(descriptor, 0o600)
+        _write_all(descriptor, payload)
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+    _assert_private(path, 0o600, directory=False)
+    _fsync_directory(path.parent)
+
+
 def _append_receipt(receipts_path: Path, receipt: Mapping[str, object]) -> tuple[int, str]:
     """Append and fsync one exact receipt before its manifest index update."""
     serialized = _json_payload(validate_receipt(receipt))
@@ -307,20 +353,10 @@ def _append_receipt(receipts_path: Path, receipt: Mapping[str, object]) -> tuple
     return offset, hashlib.sha256(serialized).hexdigest()
 
 
-def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
-    """Validate the minimal values-free manifest schema used before discovery."""
-    expected = {"schema", "records", "receipt_index"}
-    if set(document) != expected:
-        raise PrivateStoreError("manifest fields differ from the pre-discovery allowlist")
-    schema = document["schema"]
-    records = document["records"]
-    receipt_index = document["receipt_index"]
-    if not isinstance(schema, str) or not schema:
-        raise PrivateStoreError("manifest schema must be a non-empty string")
-    if not isinstance(records, list) or not isinstance(receipt_index, list):
-        raise PrivateStoreError("manifest collections must be lists")
-    validate_values_free(schema)
-    validate_values_free(records)
+def _validate_receipt_index(receipt_index: object) -> list[dict[str, object]]:
+    """Validate the only permitted manifest-owned receipt reference format."""
+    if not isinstance(receipt_index, list):
+        raise PrivateStoreError("receipt index must be a list")
     validated_index: list[dict[str, object]] = []
     for entry in receipt_index:
         if not isinstance(entry, Mapping) or set(entry) != {"offset", "sha256"}:
@@ -333,7 +369,171 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
         if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
             raise PrivateStoreError("receipt index digest is invalid")
         validated_index.append({"offset": offset, "sha256": digest})
-    return {"schema": schema, "records": list(records), "receipt_index": validated_index}
+    return validated_index
+
+
+def _validate_preflight_baseline(document: Mapping[str, object]) -> dict[str, object]:
+    """Validate the immutable T0.0 baseline without treating structural hashes as values."""
+    expected = {
+        "schema",
+        "created_at",
+        "entries",
+        "entry_count",
+        "head_commit",
+        "notes",
+        "repo_token",
+    }
+    if set(document) != expected:
+        raise PrivateStoreError("preflight baseline fields differ from the T0.0 allowlist")
+    schema = document["schema"]
+    created_at = document["created_at"]
+    entries = document["entries"]
+    entry_count = document["entry_count"]
+    head_commit = document["head_commit"]
+    notes = document["notes"]
+    repo_token = document["repo_token"]
+    if schema != "spec-193-preflight-baseline-v1":
+        raise PrivateStoreError("preflight baseline schema is invalid")
+    if not isinstance(created_at, str) or not isinstance(repo_token, str):
+        raise PrivateStoreError("preflight baseline text fields are invalid")
+    if not isinstance(entries, list) or not isinstance(notes, list):
+        raise PrivateStoreError("preflight baseline collections are invalid")
+    if isinstance(entry_count, bool) or not isinstance(entry_count, int):
+        raise PrivateStoreError("preflight baseline entry count is invalid")
+    if entry_count != len(entries):
+        raise PrivateStoreError("preflight baseline entry count does not match entries")
+    if not isinstance(head_commit, str) or not re.fullmatch(r"[0-9a-f]{40}", head_commit):
+        raise PrivateStoreError("preflight baseline head commit is invalid")
+    validate_values_free(created_at)
+    validate_values_free(repo_token)
+    _validate_preflight_notes(cast(list[object], notes))
+    validated_entries: list[dict[str, object]] = []
+    for entry in entries:
+        if not isinstance(entry, Mapping) or set(entry) != {
+            "kind",
+            "index_status",
+            "worktree_status",
+            "path_fingerprint",
+            "size",
+            "mtime_ns",
+        }:
+            raise PrivateStoreError("preflight baseline entry fields are invalid")
+        entry_values = cast(Mapping[str, object], entry)
+        fingerprint = entry_values["path_fingerprint"]
+        if not isinstance(fingerprint, str) or not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+            raise PrivateStoreError("preflight baseline path fingerprint is invalid")
+        for name in ("kind", "index_status", "worktree_status"):
+            value = entry_values[name]
+            if not isinstance(value, str):
+                raise PrivateStoreError("preflight baseline entry text is invalid")
+            validate_values_free(value)
+        size = entry_values["size"]
+        modified_at = entry_values["mtime_ns"]
+        if (size is None) != (modified_at is None):
+            raise PrivateStoreError("preflight baseline file metadata must be jointly present")
+        for name in ("size", "mtime_ns"):
+            value = entry_values[name]
+            if value is None:
+                continue
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise PrivateStoreError("preflight baseline entry numeric field is invalid")
+        validated_entries.append(
+            {
+                "kind": entry_values["kind"],
+                "index_status": entry_values["index_status"],
+                "worktree_status": entry_values["worktree_status"],
+                "path_fingerprint": fingerprint,
+                "size": entry_values["size"],
+                "mtime_ns": entry_values["mtime_ns"],
+            }
+        )
+    return {
+        "schema": schema,
+        "created_at": created_at,
+        "entries": validated_entries,
+        "entry_count": entry_count,
+        "head_commit": head_commit,
+        "notes": list(notes),
+        "repo_token": repo_token,
+    }
+
+
+def _validate_preflight_notes(notes: list[object]) -> None:
+    """Permit short policy labels while rejecting values in the immutable T0.0 notes."""
+    for note in notes:
+        if not isinstance(note, str) or not note or len(note) > 256:
+            raise PrivateStoreError("preflight baseline note is invalid")
+        if Path(note).is_absolute() or "\x00" in note or "\n" in note:
+            raise PrivateStoreError("preflight baseline note is unsafe")
+        if _SENSITIVE_ASSIGNMENT.search(note):
+            raise PrivateStoreError("preflight baseline note resembles a sensitive assignment")
+
+
+def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
+    """Validate the T0.0 or canonical upgraded values-free manifest schema."""
+    schema = document.get("schema")
+    if schema == "spec-193-manifest-v1":
+        expected = {
+            "schema",
+            "baseline",
+            "baseline_sha256",
+            "surfaces",
+            "credentials",
+            "deletions",
+            "cli_ownership",
+            "checkpoints",
+            "receipt_index",
+            "runner_sha256",
+        }
+        if set(document) != expected:
+            raise PrivateStoreError("canonical manifest fields differ from the T1.1 allowlist")
+        baseline = document["baseline"]
+        baseline_digest = document["baseline_sha256"]
+        runner_digest = document["runner_sha256"]
+        if not isinstance(baseline, Mapping):
+            raise PrivateStoreError("canonical manifest baseline is invalid")
+        if not isinstance(baseline_digest, str) or not re.fullmatch(
+            r"[0-9a-f]{64}", baseline_digest
+        ):
+            raise PrivateStoreError("canonical manifest baseline digest is invalid")
+        if not isinstance(runner_digest, str) or not re.fullmatch(
+            r"[0-9a-f]{64}", runner_digest
+        ):
+            raise PrivateStoreError("canonical manifest runner digest is invalid")
+        for name in ("surfaces", "credentials", "deletions", "cli_ownership"):
+            if document[name] != []:
+                raise PrivateStoreError("canonical manifest discovery rows must be empty at T1.1")
+        if document["checkpoints"] != {}:
+            raise PrivateStoreError("canonical manifest checkpoints must be empty at T1.1")
+        return {
+            "schema": schema,
+            "baseline": _validate_preflight_baseline(cast(Mapping[str, object], baseline)),
+            "baseline_sha256": baseline_digest,
+            "surfaces": [],
+            "credentials": [],
+            "deletions": [],
+            "cli_ownership": [],
+            "checkpoints": {},
+            "receipt_index": _validate_receipt_index(document["receipt_index"]),
+            "runner_sha256": runner_digest,
+        }
+
+    expected = {"schema", "records", "receipt_index"}
+    if set(document) != expected:
+        raise PrivateStoreError("manifest fields differ from the pre-discovery allowlist")
+    records = document["records"]
+    receipt_index = document["receipt_index"]
+    if not isinstance(schema, str) or not schema:
+        raise PrivateStoreError("manifest schema must be a non-empty string")
+    if not isinstance(records, list) or not isinstance(receipt_index, list):
+        raise PrivateStoreError("manifest collections must be lists")
+    validate_values_free(schema)
+    validate_values_free(records)
+    return {
+        "schema": schema,
+        "records": list(records),
+        "receipt_index": _validate_receipt_index(receipt_index),
+    }
 
 
 @dataclass(frozen=True)
@@ -373,6 +573,13 @@ class PrivateStoreSession:
         if new_digest is None:
             raise PrivateStoreError("manifest write did not persist")
         return new_digest
+
+    def ensure_auxiliary_file(self, path: Path, payload: bytes) -> None:
+        """Create an approved private bundle file if it does not already exist."""
+        self._require_active()
+        if path.parent != self.paths.root:
+            raise PrivateStoreError("private auxiliary file must remain inside the store root")
+        _ensure_private_file(path, payload)
 
     def append_receipt_and_index(
         self, receipt: Mapping[str, object], *, expected_manifest_digest: str
@@ -420,6 +627,83 @@ def private_store_session(root: Path) -> Iterator[PrivateStoreSession]:
             fcntl.flock(descriptor, fcntl.LOCK_UN)
         finally:
             os.close(descriptor)
+
+
+def _runner_digest(runner_path: Path) -> str:
+    """Hash the explicit, non-symlinked migration runner for audit identity."""
+    if not runner_path.is_absolute() or runner_path.resolve(strict=True) != runner_path:
+        raise PrivateStoreError("runner path must be a canonical absolute path")
+    metadata = runner_path.lstat()
+    if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
+        raise PrivateStoreError("runner path must be a regular non-symlinked file")
+    if metadata.st_uid != os.getuid():
+        raise PrivateStoreError("runner path has an unexpected owner")
+    try:
+        payload = runner_path.read_bytes()
+    except OSError as error:
+        raise PrivateStoreError("runner file could not be read safely") from error
+    return hashlib.sha256(payload).hexdigest()
+
+
+def upgrade_external_bundle(
+    root: Path, *, expected_baseline_sha256: str, runner_path: Path
+) -> str:
+    """Atomically promote the immutable T0.0 bundle to the canonical T1.1 shape.
+
+    The caller supplies a previously recorded baseline digest.  No baseline is
+    ever recaptured: a mismatch stops the migration before any durable write.
+    """
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_baseline_sha256):
+        raise PrivateStoreError("expected preflight baseline digest is invalid")
+    runner_sha256 = _runner_digest(runner_path)
+    with private_store_session(root) as session:
+        paths = session.paths
+        raw_manifest = _read_private_bytes(paths.manifest)
+        manifest_digest = hashlib.sha256(raw_manifest).hexdigest()
+        try:
+            loaded = json.loads(raw_manifest)
+        except json.JSONDecodeError as error:
+            raise PrivateStoreError("private bundle manifest is not valid JSON") from error
+        if not isinstance(loaded, Mapping):
+            raise PrivateStoreError("private bundle manifest is not a mapping")
+
+        schema = loaded.get("schema")
+        if schema == "spec-193-preflight-baseline-v1":
+            if manifest_digest != expected_baseline_sha256:
+                raise PrivateStoreError("preflight baseline was replaced or is stale")
+            baseline = _validate_preflight_baseline(cast(Mapping[str, object], loaded))
+            upgraded: dict[str, object] = {
+                "schema": "spec-193-manifest-v1",
+                "baseline": baseline,
+                "baseline_sha256": expected_baseline_sha256,
+                "surfaces": [],
+                "credentials": [],
+                "deletions": [],
+                "cli_ownership": [],
+                "checkpoints": {},
+                "receipt_index": [],
+                "runner_sha256": runner_sha256,
+            }
+            session.ensure_auxiliary_file(paths.receipts, b"")
+            session.ensure_auxiliary_file(
+                paths.runbook,
+                b"# Spec-193 migration runbook\n\nValues-free transition record.\n",
+            )
+            return session.write_manifest(upgraded, expected_digest=manifest_digest)
+
+        manifest = validate_manifest(cast(Mapping[str, object], loaded))
+        if manifest["schema"] != "spec-193-manifest-v1":
+            raise PrivateStoreError("private bundle schema is not eligible for T1.1")
+        if manifest["baseline_sha256"] != expected_baseline_sha256:
+            raise PrivateStoreError("preflight baseline digest does not match the approved record")
+        if manifest["runner_sha256"] != runner_sha256:
+            raise PrivateStoreError("runner changed after the approved bundle upgrade")
+        session.ensure_auxiliary_file(paths.receipts, b"")
+        session.ensure_auxiliary_file(
+            paths.runbook,
+            b"# Spec-193 migration runbook\n\nValues-free transition record.\n",
+        )
+        return manifest_digest
 
 
 class CredentialState(StrEnum):
