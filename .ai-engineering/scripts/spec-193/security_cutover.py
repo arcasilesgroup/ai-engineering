@@ -801,23 +801,12 @@ def _read_bounded_surface_file(path: Path) -> bytes:
 
 
 def _redacted_shape(value: object) -> object:
-    """Return a deterministic schema-only representation without preserving keys or values."""
+    """Return a deterministic schema-only representation without preserving values."""
     if isinstance(value, Mapping):
-        grouped: dict[str, list[object]] = {}
-        for key, nested in value.items():
-            key_class = _redacted_key_class(key)
-            grouped.setdefault(key_class, []).append(_redacted_shape(nested))
         return {
             "object": {
-                key_class: sorted(
-                    nested_shapes,
-                    key=lambda nested_shape: json.dumps(
-                        nested_shape,
-                        sort_keys=True,
-                        separators=(",", ":"),
-                    ),
-                )
-                for key_class, nested_shapes in sorted(grouped.items())
+                str(key): _redacted_shape(nested)
+                for key, nested in sorted(value.items(), key=lambda item: str(item[0]))
             }
         }
     if isinstance(value, list):
@@ -831,30 +820,6 @@ def _redacted_shape(value: object) -> object:
     if isinstance(value, str):
         return "string"
     return f"unsupported:{type(value).__name__}"
-
-
-def _redacted_key_class(key: object) -> str:
-    """Classify a configuration key without preserving a caller-controlled identifier."""
-    if not isinstance(key, str):
-        return "non-string-key"
-    lowered = key.lower()
-    if lowered in {"mcp", "mcpservers", "mcp_servers"}:
-        return "mcp-key"
-    if lowered in {
-        "hooks",
-        "providers",
-        "tools",
-        "enabled",
-        "command",
-        "args",
-        "env",
-        "options",
-        "plugins",
-        "settings",
-        "servers",
-    }:
-        return "known-key"
-    return "unknown-key"
 
 
 def _contains_mcp_shape(value: object) -> bool:
@@ -1105,11 +1070,7 @@ def _canonical_baseline_digest(baseline: Mapping[str, object]) -> str:
 def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
     """Validate the T0.0 or canonical upgraded values-free manifest schema."""
     schema = document.get("schema")
-    if schema in {
-        "spec-193-manifest-v1",
-        "spec-193-manifest-v2",
-        "spec-193-manifest-v3",
-    }:
+    if schema in {"spec-193-manifest-v1", "spec-193-manifest-v2"}:
         expected = {
             "schema",
             "baseline",
@@ -1122,10 +1083,8 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
             "receipt_index",
             "runner_sha256",
         }
-        if schema in {"spec-193-manifest-v2", "spec-193-manifest-v3"}:
+        if schema == "spec-193-manifest-v2":
             expected |= {"baseline_canonical_sha256", "runner_version"}
-        if schema == "spec-193-manifest-v3":
-            expected |= {"surface_hash_scheme"}
         if set(document) != expected:
             raise PrivateStoreError("canonical manifest fields differ from the schema allowlist")
         baseline = document["baseline"]
@@ -1142,7 +1101,7 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
         ):
             raise PrivateStoreError("canonical manifest runner digest is invalid")
         validated_baseline = _validate_preflight_baseline(cast(Mapping[str, object], baseline))
-        if schema in {"spec-193-manifest-v2", "spec-193-manifest-v3"}:
+        if schema == "spec-193-manifest-v2":
             canonical_digest = document["baseline_canonical_sha256"]
             runner_version = document["runner_version"]
             if not isinstance(canonical_digest, str) or not re.fullmatch(
@@ -1158,11 +1117,6 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
         else:
             canonical_digest = None
             runner_version = None
-        if (
-            schema == "spec-193-manifest-v3"
-            and document["surface_hash_scheme"] != "key-class-v2"
-        ):
-            raise PrivateStoreError("canonical manifest surface hash scheme is invalid")
         if any(
             document[name] != []
             for name in ("credentials", "deletions", "cli_ownership")
@@ -1192,8 +1146,6 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
         else:
             result["baseline_canonical_sha256"] = canonical_digest
             result["runner_version"] = runner_version
-            if schema == "spec-193-manifest-v3":
-                result["surface_hash_scheme"] = "key-class-v2"
         return result
 
     expected = {"schema", "records", "receipt_index"}
@@ -1535,7 +1487,7 @@ def merge_surface_records(
         if actual_digest != expected_manifest_sha256:
             raise PrivateStoreError("private bundle changed before surface record merge")
         if (
-            manifest["schema"] not in {"spec-193-manifest-v2", "spec-193-manifest-v3"}
+            manifest["schema"] != "spec-193-manifest-v2"
             or manifest["runner_sha256"] != actual_runner_sha256
             or manifest["runner_version"] != runner_version
         ):
@@ -1554,36 +1506,6 @@ def merge_surface_records(
         updated = dict(manifest)
         updated["surfaces"] = merged
         return session.write_manifest(updated, expected_digest=actual_digest)
-
-
-def upgrade_surface_hash_scheme(
-    root: Path,
-    records: Sequence[Mapping[str, object]],
-    *,
-    expected_manifest_sha256: str,
-    runner_path: Path,
-    runner_version: str,
-) -> str:
-    """Replace legacy key-dependent surface hashes with audited key-class hashes once."""
-    if not re.fullmatch(r"[0-9a-f]{64}", expected_manifest_sha256):
-        raise PrivateStoreError("expected surface hash migration digest is invalid")
-    validated_records = _validate_surface_records(list(records))
-    actual_runner_sha256 = _runner_digest(runner_path)
-    with private_store_session(root) as session:
-        manifest, actual_digest = _load_private_manifest(session.paths)
-        if actual_digest != expected_manifest_sha256:
-            raise PrivateStoreError("private bundle changed before surface hash migration")
-        if (
-            manifest["schema"] != "spec-193-manifest-v2"
-            or manifest["runner_sha256"] != actual_runner_sha256
-            or manifest["runner_version"] != runner_version
-        ):
-            raise PrivateStoreError("surface hash migration lacks verified v2 runner authorization")
-        upgraded = dict(manifest)
-        upgraded["schema"] = "spec-193-manifest-v3"
-        upgraded["surface_hash_scheme"] = "key-class-v2"
-        upgraded["surfaces"] = validated_records
-        return session.write_manifest(upgraded, expected_digest=actual_digest)
 
 
 class CredentialState(StrEnum):
