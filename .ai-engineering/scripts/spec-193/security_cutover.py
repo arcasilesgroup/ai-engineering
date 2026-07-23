@@ -18,7 +18,8 @@ import stat
 import subprocess
 import sys
 import tempfile
-from collections.abc import Iterator, Mapping
+import tomllib
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from enum import StrEnum
@@ -81,6 +82,10 @@ class PrivateStorePaths:
 
 class PrivateStoreError(ValueError):
     """A path, schema, or privacy invariant failed closed."""
+
+
+class DiscoveryInputTooLargeError(PrivateStoreError):
+    """A declared read-only loader exceeded its fixed discovery byte limit."""
 
 
 def validate_values_free(value: object) -> None:
@@ -337,6 +342,17 @@ def _ensure_private_file(path: Path, payload: bytes) -> None:
     _fsync_directory(path.parent)
 
 
+def assert_private_bundle(paths: PrivateStorePaths) -> None:
+    """Prove every present bundle member has private traversal, mode, owner, and ACLs."""
+    _assert_private_ancestor_chain(paths.root)
+    validate_private_acl(paths.root)
+    for path in (paths.manifest, paths.receipts, paths.runbook, paths.lock):
+        if not _exists_without_following(path):
+            continue
+        _assert_private(path, 0o600, directory=False)
+        validate_private_acl(path)
+
+
 def _append_receipt(receipts_path: Path, receipt: Mapping[str, object]) -> tuple[int, str]:
     """Append and fsync one exact receipt before its manifest index update."""
     serialized = _json_payload(validate_receipt(receipt))
@@ -469,10 +485,592 @@ def _validate_preflight_notes(notes: list[object]) -> None:
             raise PrivateStoreError("preflight baseline note resembles a sensitive assignment")
 
 
+_SURFACE_RECORD_FIELDS: Final[frozenset[str]] = frozenset(
+    {
+        "surface",
+        "scope",
+        "loader_kind",
+        "path_token",
+        "owner_class",
+        "mode_class",
+        "acl_state",
+        "structure_sha256",
+        "component",
+        "component_version",
+        "discovery_state",
+        "reachability",
+        "proposed_action",
+    }
+)
+_T12_SURFACES: Final[frozenset[str]] = frozenset({"claude", "codex", "opencode", "pi"})
+_T12_SCOPES: Final[frozenset[str]] = frozenset(
+    {"user", "project", "shared", "generated"}
+)
+_T12_LOADER_KINDS: Final[frozenset[str]] = frozenset(
+    {"settings-json", "config-toml", "mcp-json", "auth-json", "metadata-tree"}
+)
+_T12_OWNER_CLASSES: Final[frozenset[str]] = frozenset(
+    {"current-user", "unexpected-owner", "absent", "unsafe"}
+)
+_T12_MODE_CLASSES: Final[frozenset[str]] = frozenset(
+    {"owner-only", "group-accessible", "other-accessible", "absent", "unsafe"}
+)
+_T12_ACL_STATES: Final[frozenset[str]] = frozenset(
+    {"none-observed", "extended", "deferred", "absent", "unsafe"}
+)
+_T12_COMPONENTS: Final[frozenset[str]] = frozenset(
+    {"mcp-configured", "mcp-not-observed", "unknown"}
+)
+_T12_DISCOVERY_STATES: Final[frozenset[str]] = frozenset(
+    {"parsed", "absent", "unsafe", "unparseable", "oversized"}
+)
+_T12_REACHABILITY: Final[frozenset[str]] = frozenset(
+    {"potential", "not-observed", "unknown", "none"}
+)
+_T12_ACTIONS: Final[frozenset[str]] = frozenset(
+    {"preserve", "preview-disable", "block"}
+)
+MAX_DISCOVERY_FILE_BYTES: Final[int] = 64 * 1024
+MAX_DISCOVERY_TREE_NODES: Final[int] = 128
+MAX_DISCOVERY_TREE_DEPTH: Final[int] = 3
+
+
+@dataclass(frozen=True)
+class SurfaceCandidate:
+    """One explicit T1.2 loader; roots are supplied by the caller, never inferred."""
+
+    surface: str
+    scope: str
+    loader_kind: str
+    root: str
+    relative_path: str
+    path_token: str
+    parser: str
+
+
+T12_SURFACE_CANDIDATES: Final[tuple[SurfaceCandidate, ...]] = (
+    SurfaceCandidate(
+        "claude",
+        "user",
+        "settings-json",
+        "home",
+        ".claude/settings.json",
+        "$HOME/.claude/settings.json",
+        "json",
+    ),
+    SurfaceCandidate(
+        "claude",
+        "project",
+        "settings-json",
+        "repo",
+        ".claude/settings.json",
+        "$REPO/.claude/settings.json",
+        "json",
+    ),
+    SurfaceCandidate(
+        "claude",
+        "project",
+        "mcp-json",
+        "repo",
+        ".mcp.json",
+        "$REPO/.mcp.json",
+        "json",
+    ),
+    SurfaceCandidate(
+        "codex",
+        "user",
+        "config-toml",
+        "home",
+        ".codex/config.toml",
+        "$HOME/.codex/config.toml",
+        "toml",
+    ),
+    SurfaceCandidate(
+        "opencode",
+        "user",
+        "settings-json",
+        "home",
+        ".config/opencode/opencode.json",
+        "$HOME/.config/opencode/opencode.json",
+        "json",
+    ),
+    SurfaceCandidate(
+        "opencode",
+        "shared",
+        "auth-json",
+        "home",
+        ".local/share/opencode/auth.json",
+        "$HOME/.local/share/opencode/auth.json",
+        "json",
+    ),
+    SurfaceCandidate(
+        "pi",
+        "user",
+        "settings-json",
+        "home",
+        ".pi/agent/settings.json",
+        "$HOME/.pi/agent/settings.json",
+        "json",
+    ),
+    SurfaceCandidate(
+        "claude",
+        "generated",
+        "metadata-tree",
+        "home",
+        ".claude",
+        "$HOME/.claude/**",
+        "metadata-tree",
+    ),
+    SurfaceCandidate(
+        "codex",
+        "generated",
+        "metadata-tree",
+        "home",
+        ".codex",
+        "$HOME/.codex/**",
+        "metadata-tree",
+    ),
+    SurfaceCandidate(
+        "opencode",
+        "generated",
+        "metadata-tree",
+        "home",
+        ".config/opencode",
+        "$HOME/.config/opencode/**",
+        "metadata-tree",
+    ),
+    SurfaceCandidate(
+        "pi",
+        "generated",
+        "metadata-tree",
+        "home",
+        ".pi",
+        "$HOME/.pi/**",
+        "metadata-tree",
+    ),
+)
+
+
+def _validated_t12_token(
+    path_token: str, *, root: str, relative_path: str, metadata_tree: bool
+) -> str:
+    expected_prefix = "$HOME/" if root == "home" else "$REPO/"
+    if root not in {"home", "repo"} or not path_token.startswith(expected_prefix):
+        raise PrivateStoreError("surface candidate root token is invalid")
+    relative = Path(relative_path)
+    if relative.is_absolute() or ".." in relative.parts or not relative.parts:
+        raise PrivateStoreError("surface candidate relative path is invalid")
+    expected_token = expected_prefix + relative.as_posix() + ("/**" if metadata_tree else "")
+    if path_token != expected_token:
+        raise PrivateStoreError("surface candidate path token is not canonical")
+    return path_token
+
+
+def _validate_surface_record(record: Mapping[str, object]) -> dict[str, object]:
+    """Validate one values-free loader record before it enters the private manifest."""
+    if set(record) != _SURFACE_RECORD_FIELDS:
+        raise PrivateStoreError("surface record fields differ from the T1.2 allowlist")
+    result = dict(record)
+    enumerations: tuple[tuple[str, frozenset[str]], ...] = (
+        ("surface", _T12_SURFACES),
+        ("scope", _T12_SCOPES),
+        ("loader_kind", _T12_LOADER_KINDS),
+        ("owner_class", _T12_OWNER_CLASSES),
+        ("mode_class", _T12_MODE_CLASSES),
+        ("acl_state", _T12_ACL_STATES),
+        ("component", _T12_COMPONENTS),
+        ("discovery_state", _T12_DISCOVERY_STATES),
+        ("reachability", _T12_REACHABILITY),
+        ("proposed_action", _T12_ACTIONS),
+    )
+    for name, allowed in enumerations:
+        value = result[name]
+        if not isinstance(value, str) or value not in allowed:
+            raise PrivateStoreError("surface record enumeration is invalid")
+    path_token = result["path_token"]
+    if not isinstance(path_token, str) or not re.fullmatch(
+        r"\$(?:HOME|REPO)/(?:[A-Za-z0-9._-]+/)*[A-Za-z0-9._-]+(?:/\*\*)?",
+        path_token,
+    ):
+        raise PrivateStoreError("surface record path token is invalid")
+    version = result["component_version"]
+    if not isinstance(version, str) or version not in {"not-declared", "redacted"}:
+        raise PrivateStoreError("surface record component version is invalid")
+    digest = result["structure_sha256"]
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        raise PrivateStoreError("surface record structure digest is invalid")
+    return result
+
+
+def _validate_surface_records(records: object) -> list[dict[str, object]]:
+    if not isinstance(records, list):
+        raise PrivateStoreError("surface records must be a list")
+    validated: list[dict[str, object]] = []
+    identifiers: set[tuple[str, str, str, str]] = set()
+    for record in records:
+        if not isinstance(record, Mapping):
+            raise PrivateStoreError("surface record must be a mapping")
+        copied = _validate_surface_record(cast(Mapping[str, object], record))
+        identifier = cast(
+            tuple[str, str, str, str],
+            tuple(
+                cast(str, copied[name])
+                for name in ("surface", "scope", "loader_kind", "path_token")
+            ),
+        )
+        if identifier in identifiers:
+            raise PrivateStoreError("surface records must not duplicate a loader")
+        identifiers.add(identifier)
+        validated.append(copied)
+    return validated
+
+
+def _safe_candidate_lstat(
+    root: Path, relative_path: str
+) -> tuple[Path | None, os.stat_result | None, str]:
+    """Traverse an explicit root without following symlinks or parent escapes."""
+    relative = Path(relative_path)
+    if not root.is_absolute() or relative.is_absolute() or ".." in relative.parts:
+        raise PrivateStoreError("surface discovery path is not rooted safely")
+    try:
+        root_metadata = root.lstat()
+    except FileNotFoundError:
+        return None, None, "absent"
+    if stat.S_ISLNK(root_metadata.st_mode) or not stat.S_ISDIR(root_metadata.st_mode):
+        return None, None, "unsafe"
+    current = root
+    for index, part in enumerate(relative.parts):
+        current = current / part
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            return None, None, "absent"
+        if stat.S_ISLNK(metadata.st_mode):
+            return None, None, "unsafe"
+        if index < len(relative.parts) - 1 and not stat.S_ISDIR(metadata.st_mode):
+            return None, None, "unsafe"
+    return current, metadata, "present"
+
+
+def _mode_class(metadata: os.stat_result) -> str:
+    mode = stat.S_IMODE(metadata.st_mode)
+    if mode & 0o007:
+        return "other-accessible"
+    if mode & 0o070:
+        return "group-accessible"
+    return "owner-only"
+
+
+def _surface_acl_state(path: Path) -> str:
+    """Collect a best-effort ACL signal without spawning a host command during discovery."""
+    listxattr = getattr(os, "listxattr", None)
+    if not callable(listxattr):
+        return "deferred"
+    try:
+        attributes = listxattr(path, follow_symlinks=False)
+    except (OSError, TypeError):
+        return "deferred"
+    unsafe = {
+        "com.apple.acl.text",
+        "system.posix_acl_access",
+        "system.posix_acl_default",
+    }
+    return "extended" if any(attribute in unsafe for attribute in attributes) else "none-observed"
+
+
+def _read_bounded_surface_file(path: Path) -> bytes:
+    """Read one regular loader file through a no-follow descriptor and a hard cap."""
+    try:
+        descriptor = os.open(path, os.O_RDONLY | _no_follow_flag())
+    except OSError as error:
+        raise PrivateStoreError("surface loader could not be opened safely") from error
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode):
+            raise PrivateStoreError("surface loader is not a regular file")
+        payload = os.read(descriptor, MAX_DISCOVERY_FILE_BYTES + 1)
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    stable_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if any(getattr(metadata, field) != getattr(after, field) for field in stable_fields):
+        raise PrivateStoreError("surface loader changed during bounded read")
+    if len(payload) > MAX_DISCOVERY_FILE_BYTES:
+        raise DiscoveryInputTooLargeError("surface loader exceeds the discovery output cap")
+    return payload
+
+
+def _redacted_shape(value: object) -> object:
+    """Return a deterministic schema-only representation without preserving values."""
+    if isinstance(value, Mapping):
+        return {
+            "object": {
+                str(key): _redacted_shape(nested)
+                for key, nested in sorted(value.items(), key=lambda item: str(item[0]))
+            }
+        }
+    if isinstance(value, list):
+        return {"array": [_redacted_shape(nested) for nested in value]}
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    return f"unsupported:{type(value).__name__}"
+
+
+def _contains_mcp_shape(value: object) -> bool:
+    if isinstance(value, Mapping):
+        return any(
+            str(key).lower() in {"mcp", "mcpservers", "mcp_servers"}
+            or _contains_mcp_shape(nested)
+            for key, nested in value.items()
+        )
+    if isinstance(value, list):
+        return any(_contains_mcp_shape(nested) for nested in value)
+    return False
+
+
+def _t12_structure_digest(value: object) -> str:
+    shape = {"shape": _redacted_shape(value)}
+    return hashlib.sha256(_json_payload(shape)).hexdigest()
+
+
+def _metadata_name_class(name: str) -> str:
+    lowered = name.lower()
+    if "mcp" in lowered:
+        return "mcp-named"
+    if "plugin" in lowered:
+        return "plugin-named"
+    if "hook" in lowered:
+        return "hook-named"
+    return "other"
+
+
+def _bounded_metadata_tree_shape(root: Path) -> tuple[dict[str, object], bool, bool]:
+    """Summarize an explicit generated tree without persisting any file names or contents."""
+    node_count = 0
+    mcp_named = False
+    truncated = False
+
+    def visit(directory: Path, depth: int) -> list[dict[str, object]]:
+        nonlocal node_count, mcp_named, truncated
+        if depth >= MAX_DISCOVERY_TREE_DEPTH or node_count >= MAX_DISCOVERY_TREE_NODES:
+            truncated = True
+            return []
+        try:
+            with os.scandir(directory) as entries:
+                ordered = sorted(entries, key=lambda entry: entry.name)
+        except OSError as error:
+            raise PrivateStoreError("generated metadata tree could not be inspected") from error
+        shape: list[dict[str, object]] = []
+        for entry in ordered:
+            if node_count >= MAX_DISCOVERY_TREE_NODES:
+                truncated = True
+                break
+            node_count += 1
+            try:
+                metadata = entry.stat(follow_symlinks=False)
+            except OSError as error:
+                raise PrivateStoreError(
+                    "generated metadata entry could not be inspected"
+                ) from error
+            name_class = _metadata_name_class(entry.name)
+            mcp_named = mcp_named or name_class == "mcp-named"
+            if stat.S_ISLNK(metadata.st_mode):
+                kind = "symlink"
+            elif stat.S_ISDIR(metadata.st_mode):
+                kind = "directory"
+            elif stat.S_ISREG(metadata.st_mode):
+                kind = "file"
+            else:
+                kind = "other"
+            node: dict[str, object] = {"kind": kind, "name_class": name_class}
+            if kind == "directory":
+                node["children"] = visit(Path(entry.path), depth + 1)
+            shape.append(node)
+        return shape
+
+    return {"entries": visit(root, 0)}, mcp_named, truncated
+
+
+def _generated_tree_record(
+    candidate: SurfaceCandidate, path: Path, metadata: os.stat_result, path_token: str
+) -> dict[str, object]:
+    """Return one bounded values-free record for a generated host subtree."""
+    try:
+        shape, mcp_named, truncated = _bounded_metadata_tree_shape(path)
+    except PrivateStoreError:
+        shape, mcp_named, truncated = {"state": "unparseable"}, False, False
+    if shape == {"state": "unparseable"} or truncated or mcp_named:
+        component = "unknown"
+        reachability = "unknown"
+        action = "block"
+    else:
+        component = "mcp-not-observed"
+        reachability = "none"
+        action = "preserve"
+    return {
+        "surface": candidate.surface,
+        "scope": candidate.scope,
+        "loader_kind": candidate.loader_kind,
+        "path_token": path_token,
+        "owner_class": "current-user" if metadata.st_uid == os.getuid() else "unexpected-owner",
+        "mode_class": _mode_class(metadata),
+        "acl_state": _surface_acl_state(path),
+        "structure_sha256": _t12_structure_digest(shape),
+        "component": component,
+        "component_version": "not-declared",
+        "discovery_state": "unparseable" if shape == {"state": "unparseable"} else "parsed",
+        "reachability": reachability,
+        "proposed_action": action,
+    }
+
+
+def _surface_record_for_candidate(
+    candidate: SurfaceCandidate, *, home_root: Path, repo_root: Path
+) -> dict[str, object]:
+    """Inspect one declared loader and emit values-free metadata only."""
+    path_token = _validated_t12_token(
+        candidate.path_token,
+        root=candidate.root,
+        relative_path=candidate.relative_path,
+        metadata_tree=candidate.parser == "metadata-tree",
+    )
+    if candidate.surface not in _T12_SURFACES or candidate.scope not in _T12_SCOPES:
+        raise PrivateStoreError("surface candidate identity is invalid")
+    if candidate.loader_kind not in _T12_LOADER_KINDS or candidate.parser not in {
+        "json",
+        "toml",
+        "metadata-tree",
+    }:
+        raise PrivateStoreError("surface candidate loader definition is invalid")
+    root = home_root if candidate.root == "home" else repo_root
+    path, metadata, status = _safe_candidate_lstat(root, candidate.relative_path)
+    absent = status == "absent"
+    if absent or status == "unsafe" or path is None or metadata is None:
+        state = "absent" if absent else "unsafe"
+        return {
+            "surface": candidate.surface,
+            "scope": candidate.scope,
+            "loader_kind": candidate.loader_kind,
+            "path_token": path_token,
+            "owner_class": "absent" if absent else "unsafe",
+            "mode_class": "absent" if absent else "unsafe",
+            "acl_state": "absent" if absent else "unsafe",
+            "structure_sha256": _t12_structure_digest({"state": state}),
+            "component": "unknown" if status == "unsafe" else "mcp-not-observed",
+            "component_version": "not-declared",
+            "discovery_state": state,
+            "reachability": "unknown" if status == "unsafe" else "none",
+            "proposed_action": "block" if status == "unsafe" else "preserve",
+        }
+    if candidate.parser == "metadata-tree":
+        if not stat.S_ISDIR(metadata.st_mode):
+            return {
+                "surface": candidate.surface,
+                "scope": candidate.scope,
+                "loader_kind": candidate.loader_kind,
+                "path_token": path_token,
+                "owner_class": (
+                    "current-user" if metadata.st_uid == os.getuid() else "unexpected-owner"
+                ),
+                "mode_class": _mode_class(metadata),
+                "acl_state": _surface_acl_state(path),
+                "structure_sha256": _t12_structure_digest({"state": "unsafe"}),
+                "component": "unknown",
+                "component_version": "not-declared",
+                "discovery_state": "unsafe",
+                "reachability": "unknown",
+                "proposed_action": "block",
+            }
+        return _generated_tree_record(candidate, path, metadata, path_token)
+    if not stat.S_ISREG(metadata.st_mode):
+        return {
+            "surface": candidate.surface,
+            "scope": candidate.scope,
+            "loader_kind": candidate.loader_kind,
+            "path_token": path_token,
+            "owner_class": "current-user" if metadata.st_uid == os.getuid() else "unexpected-owner",
+            "mode_class": _mode_class(metadata),
+            "acl_state": _surface_acl_state(path),
+            "structure_sha256": _t12_structure_digest({"state": "unsafe"}),
+            "component": "unknown",
+            "component_version": "not-declared",
+            "discovery_state": "unsafe",
+            "reachability": "unknown",
+            "proposed_action": "block",
+        }
+    try:
+        payload = _read_bounded_surface_file(path)
+        decoded = payload.decode("utf-8")
+        parsed: object = (
+            json.loads(decoded) if candidate.parser == "json" else tomllib.loads(decoded)
+        )
+        if not isinstance(parsed, Mapping):
+            raise PrivateStoreError("surface loader root is not a mapping")
+    except DiscoveryInputTooLargeError:
+        state = "oversized"
+    except (PrivateStoreError, UnicodeDecodeError, json.JSONDecodeError, tomllib.TOMLDecodeError):
+        state = "unparseable"
+    else:
+        has_mcp = _contains_mcp_shape(parsed)
+        return {
+            "surface": candidate.surface,
+            "scope": candidate.scope,
+            "loader_kind": candidate.loader_kind,
+            "path_token": path_token,
+            "owner_class": "current-user" if metadata.st_uid == os.getuid() else "unexpected-owner",
+            "mode_class": _mode_class(metadata),
+            "acl_state": _surface_acl_state(path),
+            "structure_sha256": _t12_structure_digest(parsed),
+            "component": "mcp-configured" if has_mcp else "mcp-not-observed",
+            "component_version": "redacted" if has_mcp else "not-declared",
+            "discovery_state": "parsed",
+            "reachability": "potential" if has_mcp else "not-observed",
+            "proposed_action": "preview-disable" if has_mcp else "preserve",
+        }
+    return {
+        "surface": candidate.surface,
+        "scope": candidate.scope,
+        "loader_kind": candidate.loader_kind,
+        "path_token": path_token,
+        "owner_class": "current-user" if metadata.st_uid == os.getuid() else "unexpected-owner",
+        "mode_class": _mode_class(metadata),
+        "acl_state": _surface_acl_state(path),
+        "structure_sha256": _t12_structure_digest({"state": state}),
+        "component": "unknown",
+        "component_version": "not-declared",
+        "discovery_state": state,
+        "reachability": "unknown",
+        "proposed_action": "block",
+    }
+
+
+def discover_surface_records(
+    candidates: Sequence[SurfaceCandidate], *, home_root: Path, repo_root: Path
+) -> list[dict[str, object]]:
+    """Read explicit T1.2 candidates only; never infer home, environment, or commands."""
+    records = [
+        _surface_record_for_candidate(candidate, home_root=home_root, repo_root=repo_root)
+        for candidate in candidates
+    ]
+    return _validate_surface_records(records)
+
+
+def _canonical_baseline_digest(baseline: Mapping[str, object]) -> str:
+    """Bind the preserved baseline structure without replacing its original raw digest."""
+    validated = _validate_preflight_baseline(baseline)
+    return hashlib.sha256(_json_payload(validated)).hexdigest()
+
+
 def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
     """Validate the T0.0 or canonical upgraded values-free manifest schema."""
     schema = document.get("schema")
-    if schema == "spec-193-manifest-v1":
+    if schema in {"spec-193-manifest-v1", "spec-193-manifest-v2"}:
         expected = {
             "schema",
             "baseline",
@@ -485,8 +1083,10 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
             "receipt_index",
             "runner_sha256",
         }
+        if schema == "spec-193-manifest-v2":
+            expected |= {"baseline_canonical_sha256", "runner_version"}
         if set(document) != expected:
-            raise PrivateStoreError("canonical manifest fields differ from the T1.1 allowlist")
+            raise PrivateStoreError("canonical manifest fields differ from the schema allowlist")
         baseline = document["baseline"]
         baseline_digest = document["baseline_sha256"]
         runner_digest = document["runner_sha256"]
@@ -500,16 +1100,39 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
             r"[0-9a-f]{64}", runner_digest
         ):
             raise PrivateStoreError("canonical manifest runner digest is invalid")
-        for name in ("surfaces", "credentials", "deletions", "cli_ownership"):
-            if document[name] != []:
-                raise PrivateStoreError("canonical manifest discovery rows must be empty at T1.1")
+        validated_baseline = _validate_preflight_baseline(cast(Mapping[str, object], baseline))
+        if schema == "spec-193-manifest-v2":
+            canonical_digest = document["baseline_canonical_sha256"]
+            runner_version = document["runner_version"]
+            if not isinstance(canonical_digest, str) or not re.fullmatch(
+                r"[0-9a-f]{64}", canonical_digest
+            ):
+                raise PrivateStoreError("canonical baseline digest is invalid")
+            if canonical_digest != _canonical_baseline_digest(validated_baseline):
+                raise PrivateStoreError("canonical baseline contents no longer match its digest")
+            if not isinstance(runner_version, str) or not re.fullmatch(
+                r"spec-193-t1\.\d+", runner_version
+            ):
+                raise PrivateStoreError("canonical manifest runner version is invalid")
+        else:
+            canonical_digest = None
+            runner_version = None
+        if any(
+            document[name] != []
+            for name in ("credentials", "deletions", "cli_ownership")
+        ):
+            raise PrivateStoreError("canonical manifest non-surface discovery rows must be empty")
         if document["checkpoints"] != {}:
-            raise PrivateStoreError("canonical manifest checkpoints must be empty at T1.1")
-        return {
+            raise PrivateStoreError(
+                "canonical manifest checkpoints must be empty before containment"
+            )
+        result: dict[str, object] = {
             "schema": schema,
-            "baseline": _validate_preflight_baseline(cast(Mapping[str, object], baseline)),
+            "baseline": validated_baseline,
             "baseline_sha256": baseline_digest,
-            "surfaces": [],
+            "surfaces": []
+            if schema == "spec-193-manifest-v1"
+            else _validate_surface_records(document["surfaces"]),
             "credentials": [],
             "deletions": [],
             "cli_ownership": [],
@@ -517,6 +1140,13 @@ def validate_manifest(document: Mapping[str, object]) -> dict[str, object]:
             "receipt_index": _validate_receipt_index(document["receipt_index"]),
             "runner_sha256": runner_digest,
         }
+        if schema == "spec-193-manifest-v1":
+            if document["surfaces"] != []:
+                raise PrivateStoreError("T1.1 manifest surface rows must be empty")
+        else:
+            result["baseline_canonical_sha256"] = canonical_digest
+            result["runner_version"] = runner_version
+        return result
 
     expected = {"schema", "records", "receipt_index"}
     if set(document) != expected:
@@ -572,14 +1202,22 @@ class PrivateStoreSession:
         new_digest = _manifest_digest(self.paths.manifest)
         if new_digest is None:
             raise PrivateStoreError("manifest write did not persist")
+        assert_private_bundle(self.paths)
         return new_digest
 
     def ensure_auxiliary_file(self, path: Path, payload: bytes) -> None:
-        """Create an approved private bundle file if it does not already exist."""
+        """Create only the fixed values-free bundle scaffolding under the held lock."""
         self._require_active()
-        if path.parent != self.paths.root:
-            raise PrivateStoreError("private auxiliary file must remain inside the store root")
+        approved_payloads = {
+            self.paths.receipts: b"",
+            self.paths.runbook: b"# Spec-193 migration runbook\n\nValues-free transition record.\n",
+        }
+        if path not in approved_payloads or payload != approved_payloads[path]:
+            raise PrivateStoreError(
+                "private auxiliary file is not an approved values-free scaffold"
+            )
         _ensure_private_file(path, payload)
+        assert_private_bundle(self.paths)
 
     def append_receipt_and_index(
         self, receipt: Mapping[str, object], *, expected_manifest_digest: str
@@ -605,6 +1243,7 @@ class PrivateStoreSession:
         manifest_digest = self.write_manifest(
             manifest, expected_digest=expected_manifest_digest
         )
+        assert_private_bundle(self.paths)
         return ReceiptCommit(
             manifest=manifest,
             manifest_digest=manifest_digest,
@@ -616,33 +1255,64 @@ class PrivateStoreSession:
 def private_store_session(root: Path) -> Iterator[PrivateStoreSession]:
     """Yield the sole writer capability while the owner-only lock is held."""
     paths = ensure_private_store(root)
+    assert_private_bundle(paths)
     descriptor, _ = _open_private_file(paths.lock, os.O_CREAT | os.O_RDWR)
     session = PrivateStoreSession(paths)
     try:
         fcntl.flock(descriptor, fcntl.LOCK_EX)
+        assert_private_bundle(paths)
         yield session
     finally:
         session.close()
         try:
+            assert_private_bundle(paths)
             fcntl.flock(descriptor, fcntl.LOCK_UN)
         finally:
             os.close(descriptor)
 
 
 def _runner_digest(runner_path: Path) -> str:
-    """Hash the explicit, non-symlinked migration runner for audit identity."""
-    if not runner_path.is_absolute() or runner_path.resolve(strict=True) != runner_path:
+    """Hash a stable, non-symlinked runner after checking its writable ancestry."""
+    try:
+        canonical_path = runner_path.resolve(strict=True)
+    except OSError as error:
+        raise PrivateStoreError("runner path could not be resolved safely") from error
+    if not runner_path.is_absolute() or canonical_path != runner_path:
         raise PrivateStoreError("runner path must be a canonical absolute path")
     metadata = runner_path.lstat()
     if stat.S_ISLNK(metadata.st_mode) or not stat.S_ISREG(metadata.st_mode):
         raise PrivateStoreError("runner path must be a regular non-symlinked file")
     if metadata.st_uid != os.getuid():
         raise PrivateStoreError("runner path has an unexpected owner")
+    if metadata.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+        raise PrivateStoreError("runner path is writable by group or other")
+    current = runner_path.parent
+    while True:
+        ancestor = current.lstat()
+        if stat.S_ISLNK(ancestor.st_mode) or not stat.S_ISDIR(ancestor.st_mode):
+            raise PrivateStoreError("runner traversal contains an unsafe component")
+        if ancestor.st_mode & (stat.S_IWGRP | stat.S_IWOTH):
+            raise PrivateStoreError("runner traversal has a writable ancestor")
+        if current.parent == current:
+            break
+        current = current.parent
     try:
-        payload = runner_path.read_bytes()
+        validate_private_acl(runner_path)
+        descriptor = os.open(runner_path, os.O_RDONLY | _no_follow_flag())
     except OSError as error:
         raise PrivateStoreError("runner file could not be read safely") from error
-    return hashlib.sha256(payload).hexdigest()
+    try:
+        before = os.fstat(descriptor)
+        digest = hashlib.sha256()
+        while chunk := os.read(descriptor, 64 * 1024):
+            digest.update(chunk)
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    stable_fields = ("st_dev", "st_ino", "st_size", "st_mtime_ns")
+    if any(getattr(before, field) != getattr(after, field) for field in stable_fields):
+        raise PrivateStoreError("runner file changed during hashing")
+    return digest.hexdigest()
 
 
 def upgrade_external_bundle(
@@ -704,6 +1374,138 @@ def upgrade_external_bundle(
             b"# Spec-193 migration runbook\n\nValues-free transition record.\n",
         )
         return manifest_digest
+
+
+def _load_private_manifest(paths: PrivateStorePaths) -> tuple[dict[str, object], str]:
+    raw_manifest = _read_private_bytes(paths.manifest)
+    digest = hashlib.sha256(raw_manifest).hexdigest()
+    try:
+        loaded = json.loads(raw_manifest)
+    except json.JSONDecodeError as error:
+        raise PrivateStoreError("private bundle manifest is not valid JSON") from error
+    if not isinstance(loaded, Mapping):
+        raise PrivateStoreError("private bundle manifest is not a mapping")
+    return validate_manifest(cast(Mapping[str, object], loaded)), digest
+
+
+def prepare_surface_discovery_bundle(
+    root: Path,
+    *,
+    expected_manifest_sha256: str,
+    expected_previous_runner_sha256: str,
+    expected_current_runner_sha256: str,
+    runner_path: Path,
+    runner_version: str,
+) -> str:
+    """Atomically authorize T1.2 after an explicit, values-free runner identity update."""
+    for digest in (
+        expected_manifest_sha256,
+        expected_previous_runner_sha256,
+        expected_current_runner_sha256,
+    ):
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise PrivateStoreError("surface discovery digest input is invalid")
+    if not re.fullmatch(r"spec-193-t1\.\d+", runner_version):
+        raise PrivateStoreError("surface discovery runner version is invalid")
+    actual_runner_sha256 = _runner_digest(runner_path)
+    if actual_runner_sha256 != expected_current_runner_sha256:
+        raise PrivateStoreError("current runner does not match the explicitly approved identity")
+    with private_store_session(root) as session:
+        manifest, actual_digest = _load_private_manifest(session.paths)
+        if actual_digest != expected_manifest_sha256:
+            raise PrivateStoreError("private bundle changed before surface discovery preparation")
+        if manifest["schema"] == "spec-193-manifest-v2":
+            if manifest["runner_sha256"] != expected_previous_runner_sha256:
+                raise PrivateStoreError(
+                    "previous runner identity does not match the v2 bundle"
+                )
+            if (
+                manifest["runner_sha256"] == actual_runner_sha256
+                and manifest["runner_version"] == runner_version
+            ):
+                return actual_digest
+            updated = dict(manifest)
+            updated["runner_sha256"] = actual_runner_sha256
+            updated["runner_version"] = runner_version
+            return session.write_manifest(updated, expected_digest=actual_digest)
+        if manifest["schema"] != "spec-193-manifest-v1":
+            raise PrivateStoreError("private bundle schema is not eligible for surface discovery")
+        if manifest["runner_sha256"] != expected_previous_runner_sha256:
+            raise PrivateStoreError("previous runner identity does not match the bundle")
+        upgraded = dict(manifest)
+        upgraded["schema"] = "spec-193-manifest-v2"
+        upgraded["baseline_canonical_sha256"] = _canonical_baseline_digest(
+            cast(Mapping[str, object], manifest["baseline"])
+        )
+        upgraded["runner_sha256"] = actual_runner_sha256
+        upgraded["runner_version"] = runner_version
+        return session.write_manifest(upgraded, expected_digest=actual_digest)
+
+
+def verify_surface_discovery_bundle(
+    root: Path, *, runner_path: Path, runner_version: str
+) -> str:
+    """Authorize one host-discovery pass only when bundle ACLs and runner identity match."""
+    actual_runner_sha256 = _runner_digest(runner_path)
+    with private_store_session(root) as session:
+        manifest, digest = _load_private_manifest(session.paths)
+        if (
+            manifest["schema"] != "spec-193-manifest-v2"
+            or manifest["runner_sha256"] != actual_runner_sha256
+            or manifest["runner_version"] != runner_version
+        ):
+            raise PrivateStoreError("host discovery is not authorized by the private bundle")
+        assert_private_bundle(session.paths)
+        return digest
+
+
+def _surface_identifier(record: Mapping[str, object]) -> tuple[str, str, str, str]:
+    return cast(
+        tuple[str, str, str, str],
+        tuple(
+            cast(str, record[name])
+            for name in ("surface", "scope", "loader_kind", "path_token")
+        ),
+    )
+
+
+def merge_surface_records(
+    root: Path,
+    records: Sequence[Mapping[str, object]],
+    *,
+    expected_manifest_sha256: str,
+    runner_path: Path,
+    runner_version: str,
+) -> str:
+    """CAS-merge stable T1.2 loader rows; conflicting rediscovery fails closed."""
+    if not re.fullmatch(r"[0-9a-f]{64}", expected_manifest_sha256):
+        raise PrivateStoreError("expected surface manifest digest is invalid")
+    validated_records = _validate_surface_records(list(records))
+    actual_runner_sha256 = _runner_digest(runner_path)
+    with private_store_session(root) as session:
+        manifest, actual_digest = _load_private_manifest(session.paths)
+        if actual_digest != expected_manifest_sha256:
+            raise PrivateStoreError("private bundle changed before surface record merge")
+        if (
+            manifest["schema"] != "spec-193-manifest-v2"
+            or manifest["runner_sha256"] != actual_runner_sha256
+            or manifest["runner_version"] != runner_version
+        ):
+            raise PrivateStoreError("surface record merge lacks verified runner authorization")
+        existing = _validate_surface_records(manifest["surfaces"])
+        by_identifier = {_surface_identifier(record): record for record in existing}
+        for record in validated_records:
+            identifier = _surface_identifier(record)
+            previous = by_identifier.get(identifier)
+            if previous is not None and previous != record:
+                raise PrivateStoreError("surface rediscovery changed an existing record")
+            by_identifier[identifier] = record
+        merged = [by_identifier[identifier] for identifier in sorted(by_identifier)]
+        if merged == existing:
+            return actual_digest
+        updated = dict(manifest)
+        updated["surfaces"] = merged
+        return session.write_manifest(updated, expected_digest=actual_digest)
 
 
 class CredentialState(StrEnum):

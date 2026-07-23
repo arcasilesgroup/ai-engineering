@@ -669,3 +669,242 @@ def test_preflight_baseline_allows_missing_metadata_for_missing_paths(
     entry["mtime_ns"] = None
 
     assert runner._validate_preflight_baseline(baseline)["entries"][0]["size"] is None
+
+
+def test_private_store_session_rejects_an_acl_verdict_before_writes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner = _load_runner()
+    root = tmp_path.resolve() / "private-state"
+    runner.ensure_private_store(root)
+
+    def reject_acl(_path: Path) -> None:
+        raise runner.PrivateStoreError("synthetic acl rejection")
+
+    monkeypatch.setattr(runner, "validate_private_acl", reject_acl)
+
+    with pytest.raises(ValueError), runner.private_store_session(root):
+        pytest.fail("unsafe ACL must not yield a writer session")
+
+
+def test_private_store_auxiliary_writer_rejects_unapproved_path_and_payload(
+    tmp_path: Path,
+) -> None:
+    runner = _load_runner()
+    root = tmp_path.resolve() / "private-state"
+    runner.ensure_private_store(root)
+
+    with runner.private_store_session(root) as session:
+        with pytest.raises(ValueError):
+            session.ensure_auxiliary_file(root / "unexpected.txt", b"")
+        with pytest.raises(ValueError):
+            session.ensure_auxiliary_file(session.paths.receipts, b"not-approved")
+
+    assert not (root / "unexpected.txt").exists()
+
+
+def _write_t12_fixture_tree(root: Path) -> tuple[Path, Path]:
+    home = root / "home"
+    repo = root / "repo"
+    fixtures = {
+        home / ".claude/settings.json": {"mcpServers": {"server": {"token": SYNTHETIC_CANARY}}},
+        repo / ".claude/settings.json": {"hooks": {"event": "one"}},
+        repo / ".mcp.json": {"mcpServers": {"server": {"command": "one"}}},
+        home / ".codex/config.toml": '[mcp_servers.server]\ncommand = "one"\n',
+        home / ".config/opencode/opencode.json": {"mcp": {"server": {"key": SYNTHETIC_CANARY}}},
+        home / ".local/share/opencode/auth.json": {"providers": {"service": "one"}},
+        home / ".pi/agent/settings.json": {"tools": {"enabled": True}},
+    }
+    for path, content in fixtures.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if isinstance(content, str):
+            path.write_text(content, encoding="utf-8")
+        else:
+            path.write_text(json.dumps(content), encoding="utf-8")
+        os.chmod(path, 0o600)
+    return home, repo
+
+
+def test_t12_surface_discovery_is_values_free_read_only_and_scope_distinct(
+    tmp_path: Path,
+) -> None:
+    runner = _load_runner()
+    home, repo = _write_t12_fixture_tree(tmp_path.resolve())
+    before = {
+        path: path.read_bytes() for path in (*home.rglob("*"), *repo.rglob("*")) if path.is_file()
+    }
+
+    records = runner.discover_surface_records(
+        runner.T12_SURFACE_CANDIDATES,
+        home_root=home.resolve(),
+        repo_root=repo.resolve(),
+    )
+    serialized = json.dumps(records, sort_keys=True)
+    after = {path: path.read_bytes() for path in before}
+
+    assert before == after
+    assert SYNTHETIC_CANARY not in serialized
+    assert str(tmp_path) not in serialized
+    assert {record["surface"] for record in records} == {"claude", "codex", "opencode", "pi"}
+    assert {record["scope"] for record in records} == {
+        "user",
+        "project",
+        "shared",
+        "generated",
+    }
+    assert len({(record["scope"], record["path_token"]) for record in records}) == len(records)
+
+    opencode_before = next(
+        record
+        for record in records
+        if record["path_token"] == "$HOME/.config/opencode/opencode.json"
+    )
+    config = home / ".config/opencode/opencode.json"
+    config.write_text(
+        json.dumps({"mcp": {"server": {"key": "replacement-value"}}}),
+        encoding="utf-8",
+    )
+    os.chmod(config, 0o600)
+    rediscovered = runner.discover_surface_records(
+        runner.T12_SURFACE_CANDIDATES,
+        home_root=home.resolve(),
+        repo_root=repo.resolve(),
+    )
+    opencode_after = next(
+        record
+        for record in rediscovered
+        if record["path_token"] == "$HOME/.config/opencode/opencode.json"
+    )
+    assert opencode_before["structure_sha256"] == opencode_after["structure_sha256"]
+
+
+def test_t12_surface_discovery_blocks_a_symlink_without_reading_it(tmp_path: Path) -> None:
+    runner = _load_runner()
+    home, repo = _write_t12_fixture_tree(tmp_path.resolve())
+    target = home / ".claude/settings.json"
+    target.unlink()
+    target.symlink_to(home / ".pi/agent/settings.json")
+
+    records = runner.discover_surface_records(
+        runner.T12_SURFACE_CANDIDATES,
+        home_root=home.resolve(),
+        repo_root=repo.resolve(),
+    )
+    claude_user = next(
+        record for record in records if record["surface"] == "claude" and record["scope"] == "user"
+    )
+
+    assert claude_user["discovery_state"] == "unsafe"
+    assert claude_user["proposed_action"] == "block"
+
+
+def test_t12_generated_tree_marks_mcp_named_or_oversized_inputs_blocking(
+    tmp_path: Path,
+) -> None:
+    runner = _load_runner()
+    home, repo = _write_t12_fixture_tree(tmp_path.resolve())
+    generated = home / ".claude/plugins/third-party-mcp.json"
+    generated.parent.mkdir(parents=True)
+    generated.write_text("{}", encoding="utf-8")
+    os.chmod(generated, 0o600)
+    oversized = home / ".pi/agent/settings.json"
+    oversized.write_bytes(b"x" * (runner.MAX_DISCOVERY_FILE_BYTES + 1))
+    os.chmod(oversized, 0o600)
+
+    records = runner.discover_surface_records(
+        runner.T12_SURFACE_CANDIDATES,
+        home_root=home.resolve(),
+        repo_root=repo.resolve(),
+    )
+    claude_generated = next(
+        record
+        for record in records
+        if record["surface"] == "claude" and record["scope"] == "generated"
+    )
+    pi_user = next(
+        record for record in records if record["surface"] == "pi" and record["scope"] == "user"
+    )
+
+    assert claude_generated["proposed_action"] == "block"
+    assert pi_user["discovery_state"] == "oversized"
+    assert pi_user["proposed_action"] == "block"
+
+
+def test_t12_bundle_v2_binds_the_baseline_and_rejects_conflicting_rediscovery(
+    tmp_path: Path,
+) -> None:
+    runner = _load_runner()
+    root = tmp_path.resolve() / "private-state"
+    _, baseline_digest = _write_preflight_baseline(root)
+    runner.upgrade_external_bundle(
+        root,
+        expected_baseline_sha256=baseline_digest,
+        runner_path=RUNNER_PATH,
+    )
+    v1_payload = (root / "manifest.json").read_bytes()
+    v1 = json.loads(v1_payload)
+    v2_digest = runner.prepare_surface_discovery_bundle(
+        root,
+        expected_manifest_sha256=hashlib.sha256(v1_payload).hexdigest(),
+        expected_previous_runner_sha256=v1["runner_sha256"],
+        expected_current_runner_sha256=hashlib.sha256(RUNNER_PATH.read_bytes()).hexdigest(),
+        runner_path=RUNNER_PATH,
+        runner_version="spec-193-t1.2",
+    )
+    v2 = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    assert v2["schema"] == "spec-193-manifest-v2"
+    assert runner.validate_manifest(v2)["baseline"] == v1["baseline"]
+    assert (
+        runner.verify_surface_discovery_bundle(
+            root,
+            runner_path=RUNNER_PATH,
+            runner_version="spec-193-t1.2",
+        )
+        == v2_digest
+    )
+    with pytest.raises(ValueError):
+        runner.verify_surface_discovery_bundle(
+            root,
+            runner_path=RUNNER_PATH,
+            runner_version="spec-193-t1.3",
+        )
+
+    home, repo = _write_t12_fixture_tree(tmp_path.resolve() / "fixtures")
+    records = runner.discover_surface_records(
+        runner.T12_SURFACE_CANDIDATES,
+        home_root=home.resolve(),
+        repo_root=repo.resolve(),
+    )
+    merged_digest = runner.merge_surface_records(
+        root,
+        records,
+        expected_manifest_sha256=v2_digest,
+        runner_path=RUNNER_PATH,
+        runner_version="spec-193-t1.2",
+    )
+    assert (
+        runner.merge_surface_records(
+            root,
+            records,
+            expected_manifest_sha256=merged_digest,
+            runner_path=RUNNER_PATH,
+            runner_version="spec-193-t1.2",
+        )
+        == merged_digest
+    )
+
+    changed = [dict(record) for record in records]
+    changed[0]["reachability"] = "unknown"
+    with pytest.raises(ValueError):
+        runner.merge_surface_records(
+            root,
+            changed,
+            expected_manifest_sha256=merged_digest,
+            runner_path=RUNNER_PATH,
+            runner_version="spec-193-t1.2",
+        )
+
+    document = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+    document["baseline"]["notes"] = ["changed"]
+    with pytest.raises(ValueError):
+        runner.validate_manifest(document)
