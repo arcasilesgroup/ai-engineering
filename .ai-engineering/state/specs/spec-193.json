@@ -1,0 +1,21 @@
+{
+  "branch": null,
+  "created": "2026-07-22T22:07:50.325218+00:00",
+  "extra": {
+    "program_followups": [
+      "personal-cli-skill-pilot",
+      "ai-engineering-context-diet",
+      "risk-selected-review-fanout",
+      "fleet-context-propagation"
+    ],
+    "retitle_reason": "Operator-approved five-spec split",
+    "retitled_at": "2026-07-22T23:50:11.834437+00:00",
+    "retitled_from": "CLI-first zero-MCP context optimization"
+  },
+  "pr": null,
+  "shipped": null,
+  "slug": "cli-first-context-optimization",
+  "spec_id": "spec-193",
+  "state": "in_progress",
+  "title": "Personal Host Security and Zero-Third-Party-MCP Cutover"
+}

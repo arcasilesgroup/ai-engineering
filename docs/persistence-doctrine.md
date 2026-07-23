@@ -163,6 +163,34 @@ they do not become audit or compliance witnesses.
 - **State boundary:** old `.ai-engineering/state/gate-cache/` remains
   forbidden; the live cache belongs under `.ai-engineering/cache/gate/`.
 
+
+## Spec-193 external migration bundle
+
+The **Spec-193 external migration bundle** is the temporary canonical witness
+for the supervised personal-host security cutover. It lives outside every
+repository at `${XDG_STATE_HOME:-$HOME/.local/state}/agent-cli/spec-193`, never
+under `.ai-engineering/`, an installer template, an autoload surface, or an
+agent skill. The external root is owner-only; its manifest, receipt log and
+runbook are values-free and are written only through the one-shot migration
+runner's lock-held capability.
+
+- `manifest.json` is the one mutable canonical state for sanitized surface,
+  credential-lane, deletion, CLI-ownership and checkpoint state.
+- `receipts.ndjson` is the append-only transition witness. A receipt is fsynced
+  before its offset/hash is atomically indexed in the manifest; an orphan is
+  reconciled only after its real postcondition is re-proven.
+- `runbook.md` is the human-readable, values-free projection of that same
+  manifest/receipt state.
+- `.ai-engineering/runtime/audits/spec-193-handoff.json`, when produced, is a
+  **derived, rebuildable projection** only. It is never a second writable
+  source of truth and cannot hold raw streams, account identity, endpoints,
+  paths, credentials or secret-derived values.
+
+Private manifests, receipts and runbooks must never appear in `git status`, be
+copied into templates, or be read by session bootstrap/hooks. If owner,
+symlink, parent traversal or supported ACL inspection cannot be proven, the
+migration blocks before an external action.
+
 ## Transient runtime state
 
 Some paths under `.ai-engineering/` are **not** a tier at all: they are
