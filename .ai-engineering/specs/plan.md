@@ -1,6 +1,6 @@
 ---
 total: 109
-completed: 14
+completed: 13
 spec: spec-193
 title: "Personal Host Security and Zero-Third-Party-MCP Cutover — execution plan"
 status: approved
@@ -265,7 +265,7 @@ workflow, unrelated skills, and the three Codex vendor components must survive.
   - Implementation (judgment-bound): validate the minimal bundle created by T-0.0 with `lstat`, preserve its immutable dirty-worktree baseline, then atomically upgrade the manifest schema and seed approved host/credential enums plus runner hash without values or personal identity; create missing `receipts.ndjson`/`runbook.md` only under the existing safe root.
   - Gate: T-0.0 hashes are unchanged, root is `0700`, files `0600`, parent traversal is safe, and store validation passes from a fresh process.
 
-- [x] T-1.2 — Manifest Claude, Codex, OpenCode, and Pi surfaces — DONE (11 values-free user/project/shared/generated loader rows; unknown generated rows remain blocking)
+- [ ] T-1.2 — Manifest Claude, Codex, OpenCode, and Pi surfaces
   - Agent: build
   - Files: `$STATE_ROOT/manifest.json`; `$HOME/.claude/**`; `$HOME/.codex/**`; `$HOME/.config/opencode/**`; `$HOME/.pi/**`; `$REPO/.mcp.json`; `$REPO/.claude/settings.json`
   - Principles applied: §10.1 KISS, §10.6 SDD
