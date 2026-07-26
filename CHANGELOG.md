@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-07-26
+
 ### Breaking changes
 
 - spec-189: the `model_tier` frontmatter key is deleted from every skill and
@@ -105,7 +107,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invalid titles in the archived spec-186 and one unbalanced inline backtick in
   the archived spec-177 plan. skill-map (`sm`) stays a one-off tool — no `sm`
   config or CI gate added (reaffirms D-173-03).
-
 ## [0.12.3] - 2026-06-29
 
 ### Added
