@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "feat/spec-192-telemetry-followup",
   "created": "2026-07-22T10:42:14.449486+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "649",
+  "shipped": "2026-07-26T22:31:32.602408+00:00",
   "slug": "telemetry-followup",
   "spec_id": "spec-192",
-  "state": "in_progress",
+  "state": "shipped",
   "title": "Telemetry deck follow-up \u2014 5 deferred gaps"
 }

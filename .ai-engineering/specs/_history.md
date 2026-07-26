@@ -195,5 +195,6 @@ Completed specs. Details in git history.
 | spec-188 | Skill-Map (sm) Signal Recovery | shipped | 2026-07-18 | 2026-07-19 | 643 | chore/skillmap-signal-recovery |
 | spec-189 | Open-Model Portability | shipped | 2026-07-19 | 2026-07-19 | 644 | feat/spec-189-open-model-portability |
 | spec-190 | Observability Integrity: attributable, deduplicated, fail-loud framework telemetry | shipped | 2026-07-19 | 2026-07-19 | 646 | feat/spec-190-observability-integrity |
+| spec-192 | Telemetry deck follow-up — 5 deferred gaps | shipped | 2026-07-22 | 2026-07-26 | 649 | feat/spec-192-telemetry-followup |
 
 ---
