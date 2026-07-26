@@ -171,4 +171,6 @@ def test_redacts_subject_and_justification(tmp_path: Path) -> None:
 
 def test_should_sample_is_deterministic() -> None:
     cid = "abc123"
-    assert decision_log.should_sample(cid) == decision_log.should_sample(cid)
+    observed = {decision_log.should_sample(cid) for _ in range(10)}
+    assert len(observed) == 1, f"same correlation id yielded both outcomes: {observed}"
+    assert observed <= {True, False}

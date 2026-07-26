@@ -356,6 +356,7 @@ def test_lookup_handles_concurrent_persist_safely(tmp_path: Path) -> None:
     inputs = _baseline_inputs()
     iterations = 25
     results_observed: list[dict[str, object]] = []
+    outcomes_observed: list[object] = []
     exceptions: list[Exception] = []
 
     def writer() -> None:
@@ -374,8 +375,9 @@ def test_lookup_handles_concurrent_persist_safely(tmp_path: Path) -> None:
                 entry = lookup(cache_dir=cache_dir, **inputs)
                 if entry is not None:
                     # Touch the result dict to force any lazy decoding errors.
-                    outcome = entry.result["outcome"]
-                    assert outcome in {"pass", "fail"}
+                    # Collect only -- the main thread owns every assertion so a
+                    # bad outcome cannot be conflated with a raised exception.
+                    outcomes_observed.append(entry.result["outcome"])
                     results_observed.append(entry.result)
         except Exception as exc:
             exceptions.append(exc)
@@ -391,6 +393,8 @@ def test_lookup_handles_concurrent_persist_safely(tmp_path: Path) -> None:
 
     # Assert
     assert not exceptions, f"Concurrent persist/lookup raised: {exceptions!r}"
+    bad_outcomes = [o for o in outcomes_observed if o not in {"pass", "fail"}]
+    assert not bad_outcomes, f"Reader observed torn/unknown outcomes: {bad_outcomes!r}"
     assert not writer_thread.is_alive()
     assert not reader_thread.is_alive()
     final = lookup(cache_dir=cache_dir, **inputs)
