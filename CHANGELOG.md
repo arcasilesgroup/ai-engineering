@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking changes
 
+- spec-189: the `model_tier` frontmatter key is deleted from every skill and
+  agent across the fleet and replaced by a neutral `effort` axis. Any consumer
+  reading `model_tier` out of a skill or agent file must read `effort` instead.
+  This is a content-only change — no model-management runtime was added — and
+  its goal is that any harness's model can follow the fleet's instructions
+  without Claude-Code-only assumptions. Enforced by static lints plus review.
+
+- spec-187: all dead surface identified by the fleet audit is hard-deleted (no
+  compat shim, per Hard Rule 3), canonical tokens are down 16.9% against a
+  ceiling set by D-187-12, and prose was converted to procedure. New blocking
+  lints enforce the Anthropic authoring limits and canonical-only edits, so a
+  generated mirror can no longer be edited directly.
+
 - spec-186: Client-Value Lens adopted across the 5 chain skills
   (`/ai-brainstorm`, `/ai-plan`, `/ai-build`, `/ai-autopilot`, `/ai-pr`).
   These skills now emit a fixed value block (bottom line, impact, risk,
@@ -35,6 +48,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     `maintenance all`).
 - The historical spec-101 release-contract guard keywords remain documented for
   continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
+
+### Added
+
+- spec-184: `manifest.yml` gains field-level ownership — system keys the
+  framework maintains are now distinguished from user keys it never touches, so
+  an update can advance framework-managed fields without trampling operator
+  configuration. `ai-eng update` advances `framework_version` accordingly, and
+  drift between the project's recorded framework version and the installed one
+  is detected and surfaced with a differentiated prompt: `◈` for a package
+  upgrade, `⟳` for a project update.
+
+- spec-191: the prompt-injection guard gains read-side coverage. A new
+  `PostToolUse` hook (`injection-read-guard.py`) scans `tool_response` for
+  external-content tools, warns and flags the content untrusted, and never
+  blocks — closing the blind spot where fetched web or file content was
+  adjudicated only on the write side.
+
+### Fixed
+
+- spec-190: framework telemetry is now attributable and trustworthy. Every
+  event carries `sessionId` and `framework_version`; error storms are
+  deduplicated through a runtime sidecar rather than flooding the log; real
+  tool failures are captured from the authoritative `is_error` field instead of
+  being inferred; `spec-verify` reports pass and fail honestly rather than
+  always reporting success; and every wired hook is smoke-run in CI.
+
+- spec-191: `allowlist.domains` and `allowlist.paths` were dead configuration —
+  declared but never consulted. They are now wired, so a known-good host or
+  path drops out before adjudication with no deny and no risk accumulation.
+  The IOC-evaluation subsystem was extracted into `_lib/ioc_eval.py` as the
+  single source of truth.
+
+- spec-192: five telemetry gaps closed. `instinct-observe` no longer runs on
+  both `PreToolUse` and `PostToolUse` (it was executing twice per tool call for
+  ~65% of all hook wall-clock, and its output is only consumed at session
+  start). `/ai-build` now auto-dispatches `/ai-verify` and `/ai-pr` gates on a
+  prior verify, closing the gap where builds shipped unverified. `ruff --fix`
+  runs before the ralph loop consumes retries on mechanically fixable lint
+  findings. The risk accumulator gained a per-command score floor and faster
+  decay so benign IOC matches stop accumulating into a spurious block. The
+  hooks manifest is auto re-pinned on update, install and dev-sync, removing
+  the stale-sha integrity drift at its source.
 
 ### Changed
 
