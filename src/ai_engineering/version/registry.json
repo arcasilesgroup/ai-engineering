@@ -2,8 +2,13 @@
   "schemaVersion": "1.0",
   "versions": [
     {
-      "version": "0.12.3",
+      "version": "0.13.0",
       "status": "current",
+      "released": "2026-07-26"
+    },
+    {
+      "version": "0.12.3",
+      "status": "supported",
       "released": "2026-06-29"
     },
     {
