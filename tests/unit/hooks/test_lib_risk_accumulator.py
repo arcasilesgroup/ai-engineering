@@ -294,3 +294,33 @@ def test_block_threshold_not_reached_after_clean(risk, project: Path) -> None:
     # 35 * CLEAN_BONUS(0.5) = 17.5 -> below block threshold (30).
     assert state.score < 30.0, f"clean bonus should push score below block: got {state.score}"
     assert risk.threshold_action(state.score) == "warn"
+
+
+# ---------------------------------------------------------------------------
+# spec-200 D-200-04: the legacy ``*_REL`` re-exports are gone
+# ---------------------------------------------------------------------------
+
+
+def test_legacy_rel_constants_deleted(risk) -> None:
+    """``RUNTIME_DIR_REL`` / ``RISK_STATE_REL`` must not exist.
+
+    Both were spec-125 Wave 2 backwards-compatible re-exports pointing at the
+    retired ``state/runtime`` location while ``_state_path`` already resolved
+    through ``hook_context.RUNTIME_DIR()``. §13.3 forbids the shim; spec-200
+    D-200-04 deletes it. ``_RISK_STATE_FILENAME`` stays — the leaf name is the
+    single source of truth for the basename.
+    """
+    deleted = ("RUNTIME_DIR_REL", "RISK_STATE_REL")
+    present = [name for name in deleted if hasattr(risk, name)]
+    assert not present, (
+        f"legacy *_REL constants still exported: {present}. "
+        "Use hook_context.RUNTIME_DIR(project_root) instead. spec-200 D-200-04."
+    )
+
+    exported = set(getattr(risk, "__all__", ()))
+    leaked = sorted(exported & set(deleted))
+    assert not leaked, f"__all__ still advertises deleted constants: {leaked}"
+
+    assert hasattr(risk, "_RISK_STATE_FILENAME"), (
+        "the risk-score basename constant must survive the *_REL deletion"
+    )

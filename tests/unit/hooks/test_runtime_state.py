@@ -32,6 +32,12 @@ RUNTIME_STATE_PATH = REPO / ".ai-engineering" / "scripts" / "hooks" / "_lib" / "
 @pytest.fixture
 def rs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Load runtime_state.py with offload threshold pinned for boundary tests."""
+    # ``runtime_state`` imports ``_lib.hook_context``, so the hooks dir must be
+    # importable. Without this the whole module only passes when a sibling test
+    # has already left ``_lib`` in ``sys.modules`` — running this file alone
+    # errored on all 11 tests (spec-200 drive-by; mirrors the risk_accumulator
+    # fixture, which always did this).
+    monkeypatch.syspath_prepend(str(REPO / ".ai-engineering" / "scripts" / "hooks"))
     monkeypatch.setenv("AIENG_TOOL_OFFLOAD_BYTES", "100")
     monkeypatch.setenv("AIENG_TOOL_OFFLOAD_HEAD", "32")
     monkeypatch.setenv("AIENG_TOOL_OFFLOAD_TAIL", "16")
@@ -52,7 +58,7 @@ def rs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    (tmp_path / ".ai-engineering" / "state" / "runtime").mkdir(parents=True, exist_ok=True)
+    (tmp_path / ".ai-engineering" / "runtime").mkdir(parents=True, exist_ok=True)
     return tmp_path
 
 
@@ -175,3 +181,42 @@ def test_append_tool_history_omits_file_path_when_none(rs, project: Path) -> Non
     history = rs.recent_tool_history(project, session_id="sess", limit=6)
     assert history
     assert "filePath" not in history[-1]
+
+
+# ---------------------------------------------------------------------------
+# spec-200 D-200-04: the legacy ``*_REL`` re-exports are gone
+# ---------------------------------------------------------------------------
+
+_DELETED_REL_CONSTANTS = (
+    "RUNTIME_DIR_REL",
+    "TOOL_OUTPUTS_DIR_REL",
+    "TOOL_HISTORY_REL",
+    "CHECKPOINT_REL",
+    "RALPH_RESUME_REL",
+    "PRECOMPACT_SNAPSHOT_REL",
+    "EVENT_SIDECARS_DIR_REL",
+)
+
+
+def test_legacy_rel_constants_deleted(rs) -> None:
+    """The seven pre-spec-125 ``*_REL`` constants must not exist.
+
+    spec-125 Wave 2b kept them as backwards-compatible re-exports of the
+    ``state/runtime`` location, self-documented as "do NOT use these for new
+    code" and unused by every helper in this module. §13.3 forbids compat
+    shims for migrated content, so spec-200 D-200-04 hard-deletes them.
+
+    They are not harmless dead weight: a constant named ``RUNTIME_DIR_REL``
+    holding the forbidden path is how a future writer resurrects it, and
+    ``test_forbidden_dirs_absent`` would then blame the writer rather than the
+    bait. Active resolution goes through ``hook_context.RUNTIME_DIR()``.
+    """
+    present = [name for name in _DELETED_REL_CONSTANTS if hasattr(rs, name)]
+    assert not present, (
+        f"legacy *_REL constants still exported: {present}. "
+        "Use hook_context.RUNTIME_DIR(project_root) instead. spec-200 D-200-04."
+    )
+
+    exported = set(getattr(rs, "__all__", ()))
+    leaked = sorted(exported & set(_DELETED_REL_CONSTANTS))
+    assert not leaked, f"__all__ still advertises deleted constants: {leaked}"

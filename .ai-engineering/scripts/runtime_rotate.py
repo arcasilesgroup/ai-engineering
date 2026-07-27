@@ -48,6 +48,37 @@ TOOL_HISTORY_MAX_BYTES = 5 * 1024 * 1024
 # (install-state / decision-store / ownership-map) are never matched.
 STALE_STATE_DB_NAMES = ("state.db", "state.db-wal", "state.db-shm")
 
+# spec-200 D-200-06: spec-125 relocated the runtime subtree to
+# `.ai-engineering/runtime/`, and spec-200 D-200-03 moved the last writers off
+# the old `.ai-engineering/state/runtime/` path. What survives on an upgraded
+# machine is an orphan directory of transient session files. It is gitignored,
+# so git never sees it — but `test_forbidden_dirs_absent` asserts on the
+# filesystem, so an operator who keeps the orphan keeps failing that guard on
+# correct code.
+#
+# The reap removes a whole tree rather than named files, so scope is confirmed
+# first: every entry must be a known transient. Anything else means a human (or
+# an unknown writer) put it there, and a cleanup pass is the wrong place to
+# discover what it was.
+LEGACY_RUNTIME_DIR_REL = ("state", "runtime")
+LEGACY_RUNTIME_KNOWN_ENTRIES = frozenset(
+    {
+        "VERSION",
+        "bundle.tar.gz",
+        "checkpoint.json",
+        "error-coalesce.json",
+        "event-sidecars",
+        "precompact-snapshot.json",
+        "ralph-resume.json",
+        "risk-score.json",
+        "session-pointer.json",
+        "skills-index.json",
+        "tool-history.ndjson",
+        "tool-outputs",
+        "trace-context.json",
+    }
+)
+
 
 def _now() -> float:
     return time.time()
@@ -169,6 +200,37 @@ def _remove_stale_state_db(root: Path) -> dict[str, int]:
     return {"deleted": deleted, "bytes_freed": bytes_freed}
 
 
+def _remove_legacy_runtime_dir(root: Path) -> dict[str, int]:
+    """Delete the orphaned ``state/runtime/`` tree under *root* (spec-200 D-200-06).
+
+    Nothing has written this directory since spec-200 D-200-03 moved the last
+    five hook resolvers and three installer sites onto the canonical
+    ``.ai-engineering/runtime/`` path. Removing the leftover is what lets
+    ``test_forbidden_dirs_absent`` pass on a machine that ran the old code.
+
+    Refuses to act unless every entry is a known transient
+    (``LEGACY_RUNTIME_KNOWN_ENTRIES``) — an unrecognised file means something
+    unexpected lives there and is worth a human's attention, not a silent
+    ``rmtree``. Fail-open: any ``OSError`` is a silent skip. Idempotent: a tree
+    that is already gone reaps nothing.
+
+    Returns ``{"deleted": 1|0, "bytes_freed": N}`` — ``deleted`` counts the
+    directory, not its contents, so the payload reads as "the orphan is gone".
+    """
+    legacy = root.joinpath(".ai-engineering", *LEGACY_RUNTIME_DIR_REL)
+    try:
+        if not legacy.is_dir():
+            return {"deleted": 0, "bytes_freed": 0}
+        entries = list(legacy.iterdir())
+        if any(entry.name not in LEGACY_RUNTIME_KNOWN_ENTRIES for entry in entries):
+            return {"deleted": 0, "bytes_freed": 0}
+        bytes_freed = sum(p.stat().st_size for p in legacy.rglob("*") if p.is_file())
+        shutil.rmtree(legacy)
+    except OSError:
+        return {"deleted": 0, "bytes_freed": 0}
+    return {"deleted": 1, "bytes_freed": bytes_freed}
+
+
 def _emit_event(payload: dict[str, object]) -> None:
     events_path = ROOT / ".ai-engineering" / "state" / "framework-events.ndjson"
     events_path.parent.mkdir(parents=True, exist_ok=True)
@@ -194,6 +256,7 @@ def main(argv: list[str] | None = None) -> int:
         "autopilot": _rotate_autopilot(started),
         "tool_history": _truncate_tool_history(),
         "stale_state_db": _remove_stale_state_db(ROOT),
+        "legacy_runtime_dir": _remove_legacy_runtime_dir(ROOT),
         "elapsed_ms": int((_now() - started) * 1000),
     }
     _emit_event(payload)

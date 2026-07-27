@@ -473,7 +473,7 @@ def test_atomic_write_cleans_tmp_on_fsync_failure(tmp_path: Path, monkeypatch) -
 
     monkeypatch.setattr(_os, "fsync", boom_fsync)
 
-    runtime_dir = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime_dir = tmp_path / ".ai-engineering" / "runtime"
     try:
         tc.write_trace_context(tmp_path, {"traceId": tc.new_trace_id(), "span_stack": []})
     except OSError:

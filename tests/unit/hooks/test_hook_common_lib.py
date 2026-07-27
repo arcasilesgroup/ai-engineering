@@ -235,7 +235,7 @@ def _isolated_root(monkeypatch: pytest.MonkeyPatch) -> Path:
     import tempfile
 
     root = Path(tempfile.mkdtemp())
-    (root / ".ai-engineering" / "state" / "runtime").mkdir(parents=True, exist_ok=True)
+    (root / ".ai-engineering" / "runtime").mkdir(parents=True, exist_ok=True)
     return root
 
 
@@ -245,7 +245,7 @@ def test_get_session_id_from_pointer_when_env_unset(
     """D-190-01 part 2: pointer file is the durable fallback when env is unset."""
     monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
-    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime = tmp_path / ".ai-engineering" / "runtime"
     runtime.mkdir(parents=True, exist_ok=True)
     (runtime / "session-pointer.json").write_text(
         json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"
@@ -258,7 +258,7 @@ def test_get_session_id_prefers_env_over_pointer(
     hc, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Env var wins over the persisted pointer when both are present."""
-    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime = tmp_path / ".ai-engineering" / "runtime"
     runtime.mkdir(parents=True, exist_ok=True)
     (runtime / "session-pointer.json").write_text(
         json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"
@@ -281,7 +281,7 @@ def test_get_session_id_prefers_current_over_pointer(
     """
     monkeypatch.delenv("CLAUDE_SESSION_ID", raising=False)
     monkeypatch.delenv("ANTIGRAVITY_SESSION_ID", raising=False)
-    runtime = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime = tmp_path / ".ai-engineering" / "runtime"
     runtime.mkdir(parents=True, exist_ok=True)
     (runtime / "session-pointer.json").write_text(
         json.dumps({"session_id": "sess-pointer"}), encoding="utf-8"

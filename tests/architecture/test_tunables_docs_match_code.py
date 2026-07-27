@@ -254,6 +254,14 @@ _SPEC_NOTEBOOKLM_TUNABLES: tuple[str, ...] = (
     "AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC",
 )
 
+# spec-190 D-190-02: the error/integrity storm coalescer threshold. Implemented
+# in the hook lib with a real default, so it is a default-bearing docs entry.
+#
+# Classified here by spec-200: spec-190 documented the var in CLAUDE.md without
+# adding it to any group, which left `test_every_documented_var_classified` red
+# on main. Unrelated to spec-200's own change, but it blocks every PR's gate.
+_SPEC_190_TUNABLES: tuple[str, ...] = ("AIENG_ERROR_STORM_THRESHOLD",)
+
 _CANONICAL_TUNABLE_DOCS: tuple[Path, ...] = (_CLAUDE_MD, _TEMPLATE_CLAUDE_MD)
 
 
@@ -396,6 +404,7 @@ def test_every_documented_var_classified() -> None:
         | set(_M6_TUNABLES)
         | set(_PROMOTED_M5_M6_TUNABLES)
         | set(_SPEC_NOTEBOOKLM_TUNABLES)
+        | set(_SPEC_190_TUNABLES)
         | set(_RESERVED_TUNABLES)
     )
     for name, (_default, marker_kind, _milestone) in documented.items():

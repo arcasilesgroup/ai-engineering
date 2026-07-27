@@ -2,7 +2,7 @@
 
 ``ai-eng install`` generates transient, per-install, and derived artifacts
 under ``.ai-engineering/`` — append-only audit streams, per-install state
-SoTs, the compiled & signed OPA bundle (``state/runtime/bundle.tar.gz``),
+SoTs, the compiled & signed OPA bundle (``runtime/bundle.tar.gz``),
 and per-install OPA signing outputs. None of those belong in version
 control: they are machine-specific and rebuildable from the committed
 sources of truth (``policies/*.rego``, ``manifest.yml``, ``specs/*.md``).
@@ -65,7 +65,10 @@ state/gate-findings.json
 state/strategic-compact.json
 state/locks/
 
-# Runtime working dirs + compiled & signed OPA bundle (bundle.tar.gz lives here)
+# Runtime working dirs. runtime/ is the canonical home (spec-125) and holds the
+# compiled & signed OPA bundle plus the pinned VERSION. state/runtime/ is the
+# retired location: nothing writes it since spec-200, but the rule stays so an
+# install whose orphaned directory has not been reaped yet keeps it untracked.
 state/runtime/
 runtime/
 runs/

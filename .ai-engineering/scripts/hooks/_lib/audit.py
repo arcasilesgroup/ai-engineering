@@ -13,7 +13,7 @@ _AIE_MARKER = ".ai-engineering"
 # Sidecar overflow ceiling (spec-122-b D-122-23). Override via
 # ``AIENG_EVENT_SIDECAR_BYTES`` for ops that need a different threshold.
 _DEFAULT_EVENT_SIDECAR_BYTES = 3072
-_SIDECAR_DIR_REL = (".ai-engineering", "state", "runtime", "event-sidecars")
+_SIDECAR_DIR_REL = (".ai-engineering", "runtime", "event-sidecars")
 
 
 def _event_sidecar_ceiling() -> int:

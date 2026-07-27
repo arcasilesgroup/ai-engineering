@@ -75,7 +75,7 @@ def test_happy_path_initializes_trace_and_emits_event(
     hookmod.main()
 
     # Trace context file must exist with a valid traceId.
-    trace_path = project / ".ai-engineering" / "state" / "runtime" / "trace-context.json"
+    trace_path = project / ".ai-engineering" / "runtime" / "trace-context.json"
     assert trace_path.exists(), "trace-context.json should be created at SessionStart"
     payload = json.loads(trace_path.read_text(encoding="utf-8"))
     trace_id = payload.get("traceId")
@@ -113,7 +113,7 @@ def test_non_session_event_passes_through(
     hookmod.main()
 
     # No trace-context written, no session_started event emitted.
-    trace_path = project / ".ai-engineering" / "state" / "runtime" / "trace-context.json"
+    trace_path = project / ".ai-engineering" / "runtime" / "trace-context.json"
     assert not trace_path.exists()
     events = _read_events(project)
     assert all(
@@ -136,7 +136,7 @@ def test_session_start_persists_session_pointer(
 
     hookmod.main()
 
-    pointer_path = project / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
+    pointer_path = project / ".ai-engineering" / "runtime" / "session-pointer.json"
     assert pointer_path.exists(), "session-pointer.json should be written at SessionStart"
     payload = json.loads(pointer_path.read_text(encoding="utf-8"))
     assert payload.get("session_id") == "sess-DURABLE"
@@ -156,7 +156,7 @@ def test_no_pointer_written_when_session_id_absent(
 
     hookmod.main()
 
-    pointer_path = project / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
+    pointer_path = project / ".ai-engineering" / "runtime" / "session-pointer.json"
     assert not pointer_path.exists()
 
 

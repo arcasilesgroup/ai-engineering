@@ -71,12 +71,11 @@ from _lib.hook_context import RUNTIME_DIR
 # ---------------------------------------------------------------------------
 
 SCHEMA_VERSION = "1.0"
-# Spec-125 Wave 2: legacy ``state/runtime`` constants retained for
-# backwards-compatible re-export only. Active path resolution flows through
-# the ``RUNTIME_DIR(project_root)`` factory in ``_lib/hook_context.py``
-# (canonical ``.ai-engineering/runtime/``); see ``_state_path`` below.
-RUNTIME_DIR_REL = Path(".ai-engineering") / "state" / "runtime"
-RISK_STATE_REL = RUNTIME_DIR_REL / "risk-score.json"
+# Spec-200 D-200-04: the ``RUNTIME_DIR_REL`` / ``RISK_STATE_REL`` re-exports
+# that used to sit here pointed at the retired ``state/runtime`` location while
+# ``_state_path`` already resolved through the ``RUNTIME_DIR(project_root)``
+# factory in ``_lib/hook_context.py``. Deleted as compat shims (§13.3); the
+# leaf name below is the single source of truth for the basename.
 _RISK_STATE_FILENAME = "risk-score.json"
 
 SEVERITY_SCORES: dict[str, float] = {
@@ -487,8 +486,6 @@ __all__ = [
     "REPEAT_MULT_TWO_OR_MORE_PRIORS",
     "REPEAT_WINDOW_SECONDS",
     "RING_BUFFER_CAP",
-    "RISK_STATE_REL",
-    "RUNTIME_DIR_REL",
     "SCHEMA_VERSION",
     "SEVERITY_SCORES",
     "RiskState",

@@ -34,7 +34,7 @@ from uuid import uuid4
 # Paths + constants (parity with pkg ai_engineering.state.trace_context)
 # ---------------------------------------------------------------------------
 
-TRACE_CONTEXT_REL = Path(".ai-engineering") / "state" / "runtime" / "trace-context.json"
+TRACE_CONTEXT_REL = Path(".ai-engineering") / "runtime" / "trace-context.json"
 FRAMEWORK_EVENTS_REL = Path(".ai-engineering") / "state" / "framework-events.ndjson"
 SCHEMA_VERSION = "1.0"
 

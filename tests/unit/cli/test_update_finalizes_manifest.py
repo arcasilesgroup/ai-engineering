@@ -192,3 +192,68 @@ def test_preview_helper_is_noop_on_disk(tmp_path: Path) -> None:
     core_mod._finalize_update_hooks_manifest(wfr, tmp_path)
 
     assert not manifest_path.exists(), "preview must not write a manifest"
+
+
+# ---------------------------------------------------------------------------
+# spec-200 D-200-05 — the update path must reach the VERSION stamp
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+def test_update_apply_stamps_version_at_canonical_path(tmp_path: Path) -> None:
+    """An apply that mutates files re-stamps ``.ai-engineering/runtime/VERSION``.
+
+    This is the load-bearing test for spec-200 D-200-05, which argues that no
+    migration is needed when the runtime path moves. The argument: hook scripts
+    are project-deployed, so a consumer receives new-path hooks only via
+    ``ai-eng install``/``update``, and both funnel through
+    ``_finalize_hooks_manifest`` — which stamps ``VERSION`` in the same run,
+    before any new-path hook can execute. Old scripts read the old file, new
+    scripts read the new one, and no intermediate state exists.
+
+    That guarantee holds only while the stamp lives inside
+    ``_finalize_hooks_manifest``. A future refactor that narrows the stamp to a
+    single install-only call site reopens the window silently — every consumer
+    would fall back to the importlib-metadata version with no failure anywhere.
+    This test is what makes that refactor fail loudly instead (spec-200 Risk 3).
+    """
+    from ai_engineering import __version__
+
+    scripts_dir = tmp_path / ".ai-engineering" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(REGEN_SCRIPT_SRC, scripts_dir / "regenerate-hooks-manifest.py")
+
+    wfr = UpdateWorkflowResult(
+        status=UpdateWorkflowStatus.APPLIED,
+        result=_make_result(dry_run=False, applied=1),
+    )
+    core_mod._finalize_update_hooks_manifest(wfr, tmp_path)
+
+    version_file = tmp_path / ".ai-engineering" / "runtime" / "VERSION"
+    assert version_file.is_file(), (
+        "an apply that deploys new hook bytes must re-stamp VERSION in the same "
+        "run — spec-200 D-200-05 zero-window guarantee"
+    )
+    assert version_file.read_text(encoding="utf-8").strip() == __version__
+    assert not (tmp_path / ".ai-engineering" / "state" / "runtime").exists()
+
+
+@pytest.mark.integration
+def test_noop_apply_does_not_stamp_version(tmp_path: Path) -> None:
+    """A no-op apply writes no VERSION — the early return is deliberate.
+
+    ``_finalize_update_hooks_manifest`` returns before finalizing when an apply
+    mutated nothing, so a clean preview or no-op never rewrites state. Pinned
+    here so the D-200-05 test above is not "fixed" by removing that guard.
+    """
+    scripts_dir = tmp_path / ".ai-engineering" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy(REGEN_SCRIPT_SRC, scripts_dir / "regenerate-hooks-manifest.py")
+
+    wfr = UpdateWorkflowResult(
+        status=UpdateWorkflowStatus.APPLIED,
+        result=_make_result(dry_run=False),
+    )
+    core_mod._finalize_update_hooks_manifest(wfr, tmp_path)
+
+    assert not (tmp_path / ".ai-engineering" / "runtime" / "VERSION").exists()
