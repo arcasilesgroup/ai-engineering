@@ -450,25 +450,33 @@ recoveries:
   evidenceCount: 1
   domain: project
   lastSeen: '2026-06-07T20:40:00Z'
-- pattern: Local tests/unit JSON-CLI failures (JSONDecodeError 'Extra data') are
-    stack-drift banner pollution, not real regressions
+- pattern: A local-only test failure that CI cannot reproduce is evidence of an
+    environment-dependent BUG, not proof the failure is noise
   trigger: CLI tests that parse command JSON fail locally with 'Extra data' while the
     same tests pass in clean CI
-  action: Recognize the appended 'WARNING stack drift detected, Detected stack
-    javascript' banner (from untracked node_modules e.g. a workshop build) on stdout as
-    LOCAL-ONLY env noise; do not spend a remediation pass; triage real failures by
-    env-independence (line-budget, count gates)
+  action: "RESOLVED by spec-200 (PR #665) — this failure mode no longer exists. Kept as a
+    triage lesson: the original call was to dismiss it as LOCAL-ONLY env noise and skip
+    remediation. That was wrong twice. (1) The drift banner is on stderr, not stdout; the
+    tests broke because Typer's CliRunner merges stderr into result.output, so ANY
+    diagnostic broke them — they were fragile outright, and a project legitimately gaining
+    a second stack would have broken them with correct code on both sides. (2) It was not
+    local-only: it hit every user with OpenCode installed, and it BLOCKS commit/pr/gate
+    under AIENG_STACK_DRIFT_STRICT=1. When CI cannot reproduce a local failure, ask what
+    CI lacks that the user's machine has — do not treat CI as ground truth."
   relatedSkill: ai-verify
   diagnostic: "spec-167 local tests/unit -n auto showed 15 JSONDecodeError fails (host_probe,
     plan_dag, spec_verify, release CLIs) plus report.md operator-path; all absent in clean
-    CI; only the skill-line-budget failure was real Root cause identified 2026-07-27: _WALK_EXCLUDE
-    (installer/autodetect.py:118) prunes node_modules/.venv/build but NOT the AI surface dirs,
-    so OpenCode's own .opencode/package.json is read as a project JavaScript marker. Consumer-facing:
-    blocking on commit/pr/gate under AIENG_STACK_DRIFT_STRICT=1."
-  skillIssue: ai-build/ai-verify triage does not flag stack-drift stdout pollution as a
-    known local-only false-positive class
-  confidence: 0.5
-  evidenceCount: 2
+    CI; only the skill-line-budget failure was real. Root cause identified 2026-07-27:
+    _WALK_EXCLUDE (installer/autodetect.py) prunes node_modules/.venv/build but NOT the AI
+    surface dirs, so OpenCode's own .opencode/package.json is read as a project JavaScript
+    marker. Consumer-facing: blocking on commit/pr/gate under AIENG_STACK_DRIFT_STRICT=1.
+    FIXED 2026-07-27 by spec-200 D-200-01 (surface dirs joined _WALK_EXCLUDE) and D-200-02
+    (envelope tests assert on stdout, so no stderr diagnostic can ever break them again —
+    proven by inducing real drift and watching all 131 envelope tests stay green)."
+  skillIssue: ai-build/ai-verify triage treated 'passes in CI' as proof of a false
+    positive; the missing check is 'what does the developer machine have that CI does not'
+  confidence: 0.9
+  evidenceCount: 3
   domain: project
   lastSeen: '2026-07-27T04:30:00Z'
 - pattern: Pre-merge spec consolidation must call spec_lifecycle mark_shipped directly,
