@@ -27,7 +27,12 @@ dependencies = [
 # stubs). Deterministic graders ship with the core extra; LLM graders are
 # follow-up work and would land under a separate `eval-llm` extra.
 eval = [
-  "deepeval>=2.0,<5.0",
+  # Floor at 4.1.3 — the 2.x line pulls a langchain/langsmith/nltk/pillow
+  # subtree with 38 known advisories (pillow 20, aiohttp 11). 4.x drops that
+  # subtree, taking pip-audit from 38 findings to 0. Same reasoning as the pip
+  # and setuptools floors in the dev group: force the patched tree rather than
+  # accept findings that already have a fix.
+  "deepeval>=4.1.3,<5.0",
 ]
 
 [dependency-groups]
