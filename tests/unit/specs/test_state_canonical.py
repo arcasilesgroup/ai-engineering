@@ -42,6 +42,8 @@ The legacy ``instinct-observations.ndjson`` (superseded by
 
 from __future__ import annotations
 
+import ast
+import itertools
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -159,30 +161,19 @@ def test_forbidden_dirs_absent() -> None:
     (``archive/``, ``audit-archive/``) in spec-125. Reappearance signals
     a writer that still references the old path.
 
-    spec-131 closure-sweep C1: the test cleans up a session-scoped
-    ``state/runtime/`` directory that the hooks library
-    (``.ai-engineering/scripts/hooks/_lib/trace_context.py`` and
-    ``_lib/audit.py``) still writes to as a pre-existing spec-127
-    leftover. The directory holds only ``trace-context.json`` and
-    ``event-sidecars/*`` — gitignored session state, safe to remove
-    at test entry. The proper fix (rewriting the hook lib targets to
-    ``.ai-engineering/runtime/``) is tracked separately and out of
-    scope for the spec-131 closure sweep.
+    spec-200 D-200-03 removed the tolerance workaround this test used to carry.
+    It cleaned up ``state/runtime/`` at test entry when the directory held only
+    ``trace-context.json`` or ``event-sidecars/``, because the hook library
+    still wrote there. Two problems with that: it hid a live violation the test
+    exists to catch, and its two-name allowlist silently stopped working when
+    spec-190 added a third writer (``session-pointer.json``) — the cleanup was
+    skipped and the assertion failed on correct code, which read as flakiness.
+
+    Both are moot now: no writer targets the path, and the SessionEnd rotation
+    reaper (``runtime_rotate._remove_legacy_runtime_dir``) removes an orphan
+    left over from before the upgrade. The assertion stands on its own, so a
+    future writer that resurrects the directory fails here — as intended.
     """
-    import shutil
-
-    runtime_dir = STATE_DIR / "runtime"
-    if runtime_dir.exists():
-        # Session-scoped cleanup — never deletes the canonical state.db
-        # or audit ledgers since those live at STATE_DIR root, not inside
-        # runtime/. Confirms scope before unlink.
-        only_session_artefacts = all(
-            entry.name in ("trace-context.json", "event-sidecars")
-            for entry in runtime_dir.iterdir()
-        )
-        if only_session_artefacts:
-            shutil.rmtree(runtime_dir)
-
     for forbidden in FORBIDDEN_DIRS:
         assert not (STATE_DIR / forbidden).exists(), f"{forbidden}/ resurrected — see spec-125"
 
@@ -260,4 +251,139 @@ def test_spec_state_ledger_is_consistent() -> None:
         f"{report['violations']}. Run "
         "`python .ai-engineering/scripts/spec_lifecycle.py reconcile_all` "
         "then re-check; do not hand-edit sidecars."
+    )
+
+
+# ---------------------------------------------------------------------------
+# spec-200 D-200-03: the forbidden path has no live resolver anywhere
+# ---------------------------------------------------------------------------
+
+# Files allowed to name the retired path in CODE, each for a stated reason.
+#
+# ``installer/gitignore.py`` emits a ``state/runtime/`` ignore rule so a
+# consumer whose orphan has not been reaped yet keeps it untracked — an ignore
+# rule, not a path resolution.
+#
+# ``scripts/runtime_rotate.py`` is the reaper: deleting the orphan requires
+# naming it. It is the one module whose correctness depends on knowing the old
+# location, and ``tests/unit/test_runtime_rotate_state_db.py`` pins its scope.
+_LEGACY_RUNTIME_EXEMPT = (
+    "installer/gitignore.py",
+    "scripts/runtime_rotate.py",
+)
+
+_LIVE_CODE_ROOTS = (
+    PROJECT_ROOT / "src",
+    PROJECT_ROOT / ".ai-engineering" / "scripts",
+)
+
+
+def _string_constants(node: ast.AST, docstrings: set[int]) -> list[str]:
+    """String literals inside ``node`` in SOURCE order, skipping docstrings.
+
+    Sorted by position because ``ast.walk`` is breadth-first: walking the
+    ``Path(...) / "state" / "runtime" / "x"`` chain yields the leaves out of
+    source order, which silently defeats the adjacency check below and makes
+    this whole guard vacuous.
+    """
+    found = [
+        child
+        for child in ast.walk(node)
+        if isinstance(child, ast.Constant)
+        and isinstance(child.value, str)
+        and id(child) not in docstrings
+    ]
+    found.sort(key=lambda c: (getattr(c, "lineno", 0), getattr(c, "col_offset", 0)))
+    return [child.value for child in found]
+
+
+def _docstring_ids(tree: ast.AST) -> set[int]:
+    """Identity set of every docstring Constant node in ``tree``.
+
+    Prose may discuss the retired path freely — the comments explaining why it
+    was retired are the main reason this exclusion exists. Only code that
+    *builds* the path is a defect.
+    """
+    holders = (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    out: set[int] = set()
+    for node in ast.walk(tree):
+        if not isinstance(node, holders):
+            continue
+        body = getattr(node, "body", [])
+        if not body or not isinstance(body[0], ast.Expr):
+            continue
+        value = body[0].value
+        if isinstance(value, ast.Constant) and isinstance(value.value, str):
+            out.add(id(value))
+    return out
+
+
+def _resolves_legacy_runtime(source: str) -> bool:
+    """True when *source* contains code that builds ``state/runtime``.
+
+    Catches both spellings the codebase used: the ``Path`` division chain
+    (``Path(".ai-engineering") / "state" / "runtime"``) and the tuple form
+    (``(".ai-engineering", "state", "runtime", ...)``) — in each case ``"state"``
+    is immediately followed by ``"runtime"`` in the expression's literals — plus
+    a single literal that embeds the joined path.
+    """
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:  # pragma: no cover - unparseable file is not a hit
+        return False
+    docstrings = _docstring_ids(tree)
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.BinOp, ast.Tuple, ast.List, ast.Call)):
+            continue
+        literals = _string_constants(node, docstrings)
+        for first, second in itertools.pairwise(literals):
+            if first == "state" and second == "runtime":
+                return True
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.Constant)
+            and isinstance(node.value, str)
+            and id(node) not in docstrings
+            and "state/runtime" in node.value
+        ):
+            return True
+    return False
+
+
+def test_no_live_code_resolves_legacy_runtime_path() -> None:
+    """No writer, reader, or constant may build ``.ai-engineering/state/runtime``.
+
+    spec-125 relocated the runtime subtree to ``.ai-engineering/runtime/`` but
+    left ten sites behind — five live hook resolvers, nine dead ``*_REL``
+    re-exports across two modules, and three package-side installer sites.
+    spec-200 D-200-03 retires all of them, and this guard is what stops the path
+    returning: ``test_forbidden_dirs_absent`` only catches a writer that already
+    ran on this machine, which is how the leftovers survived two specs of CI.
+
+    Parses code rather than grepping text, so the comments documenting the
+    retirement are free and only a real path construction fails. Scoped to
+    shipped code (``src/`` including the installer template tree, and the
+    canonical script tree); tests may name the path to assert its absence, and
+    CHANGELOG plus archived specs are frozen history.
+    """
+    offenders: list[str] = []
+    for root in _LIVE_CODE_ROOTS:
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob("*.py")):
+            rel = path.relative_to(PROJECT_ROOT).as_posix()
+            if any(rel.endswith(exempt) for exempt in _LEGACY_RUNTIME_EXEMPT):
+                continue
+            try:
+                source = path.read_text(encoding="utf-8")
+            except OSError:  # pragma: no cover - unreadable file is not a hit
+                continue
+            if _resolves_legacy_runtime(source):
+                offenders.append(rel)
+
+    assert not offenders, (
+        "live code still resolves the forbidden .ai-engineering/state/runtime/ "
+        f"path ({len(offenders)} file(s)): {offenders}. The canonical location "
+        "is .ai-engineering/runtime/ — hook-side code goes through "
+        "hook_context.RUNTIME_DIR(project_root). spec-200 D-200-03."
     )

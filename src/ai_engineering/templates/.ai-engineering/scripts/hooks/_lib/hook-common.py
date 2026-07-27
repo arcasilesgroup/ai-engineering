@@ -166,7 +166,7 @@ def get_correlation_id() -> str:
 # ---------------------------------------------------------------------------
 
 
-_SESSION_POINTER_REL = Path(".ai-engineering") / "state" / "runtime" / "session-pointer.json"
+_SESSION_POINTER_REL = Path(".ai-engineering") / "runtime" / "session-pointer.json"
 
 
 def _read_session_pointer() -> str | None:

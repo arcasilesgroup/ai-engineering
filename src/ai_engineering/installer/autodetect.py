@@ -135,6 +135,17 @@ _WALK_EXCLUDE: frozenset[str] = frozenset(
         "Pods",
         ".dart_tool",
         ".build",
+        # spec-200 D-200-01: AI surface directories hold host tooling this
+        # framework generates, never project source. A host may install its own
+        # runtime there (OpenCode ships `.opencode/package.json`), and reading
+        # that as a project marker made every python-configured repo with
+        # OpenCode installed report permanent stack drift. Surfaces are
+        # discovered separately by `detect_surfaces`, root-level and by design.
+        ".opencode",
+        ".claude",
+        ".codex",
+        ".agents",
+        ".cursor",
     }
 )
 

@@ -36,11 +36,17 @@ LIB_TRACE_CONTEXT_PATH = (
 
 
 @pytest.fixture
-def lib_tc():
+def lib_tc(monkeypatch: pytest.MonkeyPatch):
     """Load the stdlib-only mirror as `aieng_lib_trace_context`.
 
     Loaded fresh for every test so module-level state cannot leak.
+
+    The hooks dir must be importable: ``trace_context`` reaches for
+    ``_lib.locked_append`` on the append path, so without this the corruption
+    test only passes when a sibling test has already left ``_lib`` in
+    ``sys.modules`` (spec-200 drive-by — it failed running this file alone).
     """
+    monkeypatch.syspath_prepend(str(REPO / ".ai-engineering" / "scripts" / "hooks"))
     sys.modules.pop("aieng_lib_trace_context", None)
     spec = importlib.util.spec_from_file_location("aieng_lib_trace_context", LIB_TRACE_CONTEXT_PATH)
     assert spec is not None and spec.loader is not None
@@ -231,6 +237,6 @@ def test_lib_atomic_write_no_tmp_leftover(tmp_path: Path, lib_tc) -> None:
         tmp_path,
         {"traceId": lib_tc.new_trace_id(), "span_stack": []},
     )
-    runtime_dir = tmp_path / ".ai-engineering" / "state" / "runtime"
+    runtime_dir = tmp_path / ".ai-engineering" / "runtime"
     leftovers = [p for p in runtime_dir.iterdir() if p.suffix == ".tmp" or ".tmp" in p.name]
     assert leftovers == [], f"unexpected leftover tmp files: {leftovers}"

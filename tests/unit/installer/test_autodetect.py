@@ -429,6 +429,34 @@ class TestWalkMarkers:
         stacks, _ides = _walk_markers(tmp_path)
         assert "python" not in stacks
 
+    @pytest.mark.parametrize("surface", [".opencode", ".claude", ".codex", ".agents", ".cursor"])
+    def test_ai_surface_dirs_excluded(self, tmp_path: Path, surface: str) -> None:
+        """A surface's own tooling manifest is not project stack evidence.
+
+        spec-200 D-200-01: OpenCode installs its plugin runtime as
+        ``.opencode/package.json``; reading that as a JavaScript project marker
+        made every python-configured repo with OpenCode installed report
+        permanent stack drift — blocking under ``AIENG_STACK_DRIFT_STRICT=1``.
+        """
+        (tmp_path / "pyproject.toml").touch()
+        surface_dir = tmp_path / surface
+        surface_dir.mkdir()
+        (surface_dir / "package.json").touch()
+
+        stacks, _ides = _walk_markers(tmp_path)
+        assert "javascript" not in stacks
+        assert "python" in stacks
+
+    def test_surface_exclusion_does_not_hide_the_surface(self, tmp_path: Path) -> None:
+        """Excluding surfaces from stack detection must not unregister them."""
+        (tmp_path / "pyproject.toml").touch()
+        opencode = tmp_path / ".opencode"
+        opencode.mkdir()
+        (opencode / "package.json").touch()
+
+        assert "javascript" not in detect_stacks(tmp_path)
+        assert "opencode" in detect_surfaces(tmp_path)
+
     def test_vendor_excluded(self, tmp_path: Path) -> None:
         vendor = tmp_path / "vendor" / "pkg"
         vendor.mkdir(parents=True)

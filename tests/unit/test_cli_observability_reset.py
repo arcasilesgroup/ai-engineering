@@ -21,7 +21,7 @@ class TestLegacyCommandsRemoved:
     def test_json_root_command_list_excludes_legacy_observability_commands(self) -> None:
         result = runner.invoke(create_app(), ["--json"])
         assert result.exit_code == 0
-        payload = json.loads(result.output)
+        payload = json.loads(result.stdout)
         commands = payload["result"]["commands"]
         assert "observe" not in commands
         assert "signals" not in commands

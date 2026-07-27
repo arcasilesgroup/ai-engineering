@@ -78,7 +78,7 @@ def test_verify_release_json_includes_readiness_evidence(tmp_path: Path) -> None
         result = runner.invoke(app, ["--json", "verify", "--release", "0.5.0"])
 
     assert result.exit_code == 0
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     assert payload["result"]["release_readiness"]["verdict"] == "GO"
     assert payload["result"]["release_readiness"]["artifact_path"].endswith(
         "release-readiness.json"

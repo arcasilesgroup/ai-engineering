@@ -83,7 +83,7 @@ def test_release_cli_json_exposes_dry_run_readiness_and_packet_fields(
         result = runner.invoke(app, ["--json", "release", "v0.2.0", "--dry-run"])
 
     assert result.exit_code == 0
-    envelope = json.loads(result.output)
+    envelope = json.loads(result.stdout)
     release = envelope["result"]
     assert release["dry_run_plan"]["target_version"] == "0.2.0"
     assert release["readiness"]["verdict"] == "CONDITIONAL GO"

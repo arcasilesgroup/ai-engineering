@@ -308,7 +308,7 @@ def _read_framework_version(project_root: Path) -> str:
 
     Spec-190 D-190-01. Stdlib-only resolution order:
 
-    1. the text of ``<root>/.ai-engineering/state/runtime/VERSION`` written
+    1. the text of ``<root>/.ai-engineering/runtime/VERSION`` written
        by the installer/updater at pin time;
     2. else ``importlib.metadata.version("ai-engineering")`` for the
        installed package;
@@ -323,7 +323,7 @@ def _read_framework_version(project_root: Path) -> str:
     short-lived and the pinned version is stable for a process's lifetime, so
     caching is safe.
     """
-    version_file = project_root / ".ai-engineering" / "state" / "runtime" / "VERSION"
+    version_file = project_root / ".ai-engineering" / "runtime" / "VERSION"
     try:
         text = version_file.read_text(encoding="utf-8").strip()
         if text:

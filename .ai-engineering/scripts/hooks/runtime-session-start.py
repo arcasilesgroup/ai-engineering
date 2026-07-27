@@ -89,7 +89,7 @@ def _safe_write_session_pointer(project_root: Path, session_id: str | None) -> N
 
     ``CLAUDE_SESSION_ID`` is usually unset on the hot path, so downstream
     hooks that call ``get_session_id`` recover only ~1.3% coverage from
-    env. Stamping ``.ai-engineering/state/runtime/session-pointer.json`` at
+    env. Stamping ``.ai-engineering/runtime/session-pointer.json`` at
     SessionStart gives them a stable fallback pointer for the whole session.
 
     Best-effort only: on a worktree shared by concurrent sessions the pointer
@@ -105,7 +105,7 @@ def _safe_write_session_pointer(project_root: Path, session_id: str | None) -> N
     if not isinstance(session_id, str) or not session_id:
         return
     try:
-        path = project_root / ".ai-engineering" / "state" / "runtime" / "session-pointer.json"
+        path = project_root / ".ai-engineering" / "runtime" / "session-pointer.json"
         path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "session_id": session_id,

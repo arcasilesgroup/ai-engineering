@@ -161,7 +161,7 @@ def ensure_bundle_signed(project_root: Path) -> dict[str, object]:
     secret = secret_key_path()
     public = public_key_path(project_root)
     policies_dir = project_root / ".ai-engineering" / "policies"
-    bundle_out = project_root / ".ai-engineering" / "state" / "runtime" / "bundle.tar.gz"
+    bundle_out = project_root / ".ai-engineering" / "runtime" / "bundle.tar.gz"
 
     result: dict[str, object] = {
         "signed": False,

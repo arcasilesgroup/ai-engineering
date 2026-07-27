@@ -253,7 +253,7 @@ def test_finalize_swallows_version_write_oserror(
         "import sys\nsys.exit(0)\n", encoding="utf-8"
     )
 
-    version_file = tmp_path / ".ai-engineering" / "state" / "runtime" / "VERSION"
+    version_file = tmp_path / ".ai-engineering" / "runtime" / "VERSION"
     real_write_text = Path.write_text
 
     def _guarded_write_text(self: Path, *args: object, **kwargs: object) -> int:
@@ -267,3 +267,42 @@ def test_finalize_swallows_version_write_oserror(
     _finalize_hooks_manifest(tmp_path)
 
     assert not version_file.exists(), "VERSION must not exist after a swallowed write failure"
+
+
+# ---------------------------------------------------------------------------
+# Test 8 — spec-200 D-200-03: the VERSION pin lands at the canonical path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_finalize_pins_version_at_canonical_runtime_path(tmp_path: Path) -> None:
+    """``_finalize_hooks_manifest`` writes ``.ai-engineering/runtime/VERSION``.
+
+    spec-200 D-200-03. The hook observability library reads this file to stamp
+    ``frameworkVersion`` on every telemetry event (spec-190 D-190-01). Reader
+    and writer are one datum: if the reader moves to the canonical runtime dir
+    and this write does not, telemetry silently degrades to the
+    importlib-metadata fallback with no failure anywhere — spec-200 Risk 2.
+
+    The legacy ``state/runtime/`` location must not be created at all; nothing
+    reads it after this spec, and a resurrected directory fails
+    ``test_forbidden_dirs_absent``.
+    """
+    from ai_engineering import __version__
+
+    scripts_dir = tmp_path / ".ai-engineering" / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    (scripts_dir / "regenerate-hooks-manifest.py").write_text(
+        "import sys\nsys.exit(0)\n", encoding="utf-8"
+    )
+
+    _finalize_hooks_manifest(tmp_path)
+
+    version_file = tmp_path / ".ai-engineering" / "runtime" / "VERSION"
+    assert version_file.is_file(), (
+        f"VERSION must be pinned at {version_file}; hook event stamping reads it"
+    )
+    assert version_file.read_text(encoding="utf-8").strip() == __version__
+
+    legacy = tmp_path / ".ai-engineering" / "state" / "runtime"
+    assert not legacy.exists(), f"the retired {legacy} must not be created"

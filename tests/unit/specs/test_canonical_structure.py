@@ -26,7 +26,7 @@ violates the workflow contract.
 
 Numbered specs are recoverable from git history. Decisions live in
 `state.db.decisions`. Autopilot transient state lives under
-`.ai-engineering/state/runtime/autopilot/` (gitignored).
+`.ai-engineering/runtime/autopilot/` (gitignored).
 """
 
 from __future__ import annotations

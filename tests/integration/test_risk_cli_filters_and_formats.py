@@ -91,7 +91,7 @@ def test_risk_list_severity_filter_excludes_other_levels(
     app = create_app()
     result = runner.invoke(app, ["risk", "list", "--severity", "medium", "--format", "json"])
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     assert all(d.get("severity") == "medium" for d in payload)
     assert any(d.get("findingId") == "MED-1" for d in payload)
 
@@ -105,7 +105,7 @@ def test_risk_list_expires_within_filters_to_window(
     app = create_app()
     result = runner.invoke(app, ["risk", "list", "--expires-within", "365", "--format", "json"])
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     # Default TTL puts low-severity acceptances within the year window.
     assert any(d.get("findingId") == "EXP-1" for d in payload)
 
@@ -121,7 +121,7 @@ def test_risk_list_status_all_includes_revoked(
     assert revoke.exit_code == 0, revoke.output
     result = runner.invoke(app, ["risk", "list", "--status", "all", "--format", "json"])
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     statuses = {d.get("status") for d in payload}
     assert "revoked" in statuses
 
@@ -135,7 +135,7 @@ def test_risk_show_json_returns_full_payload(
     app = create_app()
     result = runner.invoke(app, ["risk", "show", dec_id, "--format", "json"])
     assert result.exit_code == 0, result.output
-    payload = json.loads(result.output)
+    payload = json.loads(result.stdout)
     assert payload.get("id") == dec_id
     assert payload.get("findingId") == "SHOW-1"
 

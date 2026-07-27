@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking changes
+
+- spec-200: nine legacy `*_REL` constants are removed from the hook library.
+  From `_lib/runtime_state.py`: `RUNTIME_DIR_REL`, `TOOL_OUTPUTS_DIR_REL`,
+  `TOOL_HISTORY_REL`, `CHECKPOINT_REL`, `RALPH_RESUME_REL`,
+  `PRECOMPACT_SNAPSHOT_REL`, `EVENT_SIDECARS_DIR_REL`. From
+  `_lib/risk_accumulator.py`: `RUNTIME_DIR_REL`, `RISK_STATE_REL`. All nine were
+  backwards-compatible re-exports of the pre-spec-125 `state/runtime` location,
+  unused by every helper in their own modules and self-documented as "do NOT use
+  these for new code". Out-of-tree code that imported them must call
+  `hook_context.RUNTIME_DIR(project_root)` instead. Hard delete per Hard Rule 3
+  — a constant named `RUNTIME_DIR_REL` holding the retired path is how a future
+  writer resurrects it.
+
+- The historical spec-101 release-contract guard keywords remain documented for
+  continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
+
+### Fixed
+
+- spec-200: the stack detector no longer reads an AI surface directory's own
+  package manifest as project-stack evidence. `.opencode`, `.claude`, `.codex`,
+  `.agents` and `.cursor` join `_WALK_EXCLUDE`, so a python-configured repo that
+  also has OpenCode installed (which ships `.opencode/package.json`) stops
+  reporting permanent stack drift on every `ai-eng` invocation — drift that is
+  *blocking* on `commit`, `pr` and `gate` under `AIENG_STACK_DRIFT_STRICT=1`.
+  Surfaces are still discovered by `detect_surfaces`, unchanged.
+
+- spec-200: CLI tests that assert on a JSON envelope now parse stdout instead of
+  Typer's merged `result.output`, so any diagnostic written to stderr — present
+  or future — can no longer break them. Seventeen tests were failing on correct
+  code whenever a warning was emitted.
+
+- spec-200: hook session state, the installer's pinned `VERSION` and the
+  compiled OPA bundle all move to `.ai-engineering/runtime/`, completing the
+  spec-125 relocation across the five live hook resolvers and three
+  package-side installer sites that never followed. No migration is required:
+  hook scripts are project-deployed, so a consumer receives the new path only
+  via `ai-eng install`/`update`, and both re-stamp `VERSION` in the same run
+  before any new-path hook executes. The SessionEnd rotation pass reaps an
+  orphaned `state/runtime/` directory left from before the upgrade.
+
 ## [0.13.0] - 2026-07-26
 
 ### Breaking changes

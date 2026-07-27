@@ -31,18 +31,29 @@ def app() -> typer.Typer:
     return create_app()
 
 
-def _invoke(app: typer.Typer, spec_path: Path) -> tuple[int, str]:
-    """Invoke ``spec verify --sections <path>`` and return (exit, combined_output).
+def _envelope(stream: str) -> str:
+    """Return the JSON object embedded in *stream*, ignoring any diagnostic lines."""
+    start = stream.find("{")
+    return stream[start:] if start != -1 else stream
 
-    Older Typer (0.21.x) does not support ``mix_stderr=False`` on
-    ``CliRunner``; stdout and stderr land in the same ``result.output``
-    string. Tests inspect that combined stream — the JSON payload is the
-    only line either path emits, so a single ``json.loads`` works for
-    success and failure cases alike.
+
+def _invoke(app: typer.Typer, spec_path: Path) -> tuple[int, str]:
+    """Invoke ``spec verify --sections <path>`` and return (exit, envelope_json).
+
+    spec-200 D-200-02: never hand ``result.output`` to ``json.loads``. It
+    concatenates stderr, so any diagnostic the CLI legitimately emits there — a
+    stack-drift warning, for instance — lands inside the parsed string and
+    fails these tests on correct code.
+
+    The success envelope is written to stdout and the error envelope to stderr,
+    so the stream is chosen accordingly and the payload is sliced from the
+    first ``{``. That slice is what makes the tests indifferent to a preceding
+    diagnostic; it is not a workaround for malformed JSON.
     """
     runner = CliRunner()
     result = runner.invoke(app, ["spec", "verify", "--sections", str(spec_path)])
-    return result.exit_code, result.output
+    stream = result.stdout if "{" in result.stdout else result.stderr
+    return result.exit_code, _envelope(stream)
 
 
 class TestSpecVerifySections:

@@ -736,7 +736,7 @@ def _finalize_hooks_manifest(root: Path) -> None:
     # stamping. The stdlib hook builder reads this file first (before the
     # importlib.metadata fallback) so events carry the installed version
     # even in checkouts where the package is not importable. Fail-open.
-    version_file = root / ".ai-engineering" / "state" / "runtime" / "VERSION"
+    version_file = root / ".ai-engineering" / "runtime" / "VERSION"
     try:
         version_file.parent.mkdir(parents=True, exist_ok=True)
         version_file.write_text(f"{__version__}\n", encoding="utf-8")

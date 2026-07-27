@@ -96,8 +96,8 @@ def test_lib_no_pkg_imports() -> None:
 
 
 def test_lib_reads_version_file_when_present(project_root: Path, lib_obs) -> None:
-    """A ``state/runtime/VERSION`` file supplies frameworkVersion verbatim."""
-    version_file = project_root / ".ai-engineering" / "state" / "runtime" / "VERSION"
+    """A ``runtime/VERSION`` file supplies frameworkVersion verbatim."""
+    version_file = project_root / ".ai-engineering" / "runtime" / "VERSION"
     version_file.parent.mkdir(parents=True, exist_ok=True)
     version_file.write_text("7.7.7\n", encoding="utf-8")
 

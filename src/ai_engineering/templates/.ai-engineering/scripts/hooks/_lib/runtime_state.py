@@ -32,13 +32,15 @@ from _lib.hook_context import RUNTIME_DIR
 # Paths
 # ---------------------------------------------------------------------------
 #
-# Spec-125 Wave 2b corrective: every active path resolution flows through
-# the ``RUNTIME_DIR(project_root)`` factory in ``_lib/hook_context.py``
-# (canonical ``.ai-engineering/runtime/...``). The ``*_REL`` constants
-# below are retained as backwards-compatible re-exports in ``__all__`` so
-# any out-of-tree consumer that imports them keeps loading, but they are
-# *not* used by the helper functions. Updating a path now means editing
+# Spec-125 Wave 2b corrective: every path resolution flows through the
+# ``RUNTIME_DIR(project_root)`` factory in ``_lib/hook_context.py``
+# (canonical ``.ai-engineering/runtime/...``). Updating a path means editing
 # ``hook_context.RUNTIME_DIR`` plus the per-file leaf names below.
+#
+# Spec-200 D-200-04: the ``*_REL`` constants that used to sit here were
+# backwards-compatible re-exports of the pre-Wave-2b ``state/runtime``
+# location — unused by every helper in this module and forbidden as compat
+# shims by CONSTITUTION §13.3. They are deleted; only the leaf names remain.
 #
 # Choice: factory-functions-take-project-root. Selected because every
 # existing call site already passes ``project_root`` to the helpers
@@ -52,27 +54,14 @@ _TOOL_HISTORY_NAME = "tool-history.ndjson"
 _CHECKPOINT_NAME = "checkpoint.json"
 _RALPH_RESUME_NAME = "ralph-resume.json"
 _PRECOMPACT_SNAPSHOT_NAME = "precompact-snapshot.json"
+# spec-123 D-123-23: oversized framework events offload to a content-addressed
+# sidecar dir under runtime/ so the inline NDJSON line stays under the
+# POSIX_BUF (4 KB) atomic-append guarantee.
 _EVENT_SIDECARS_NAME = "event-sidecars"
 # spec-190 D-190-02: error/integrity coalescer ledger. One atomic JSON sidecar
 # keyed by fingerprint so repeated error/integrity emits collapse into a single
 # full event per window plus periodic rollups instead of one NDJSON line each.
 _ERROR_LEDGER_NAME = "error-coalesce.json"
-
-# Legacy ``*_REL`` constants retained for backwards-compatible re-export
-# only -- do NOT use these for new code. They reference the pre-Wave-2b
-# ``state/runtime`` location and are kept solely so any external import
-# path keeps resolving. Active path resolution flows through the
-# helper functions below (which use ``RUNTIME_DIR``).
-RUNTIME_DIR_REL = Path(".ai-engineering") / "state" / "runtime"
-TOOL_OUTPUTS_DIR_REL = RUNTIME_DIR_REL / _TOOL_OUTPUTS_NAME
-TOOL_HISTORY_REL = RUNTIME_DIR_REL / _TOOL_HISTORY_NAME
-CHECKPOINT_REL = RUNTIME_DIR_REL / _CHECKPOINT_NAME
-RALPH_RESUME_REL = RUNTIME_DIR_REL / _RALPH_RESUME_NAME
-PRECOMPACT_SNAPSHOT_REL = RUNTIME_DIR_REL / _PRECOMPACT_SNAPSHOT_NAME
-# spec-123 D-123-23: oversized framework events offload to a content-addressed
-# sidecar dir under runtime/ so the inline NDJSON line stays under the
-# POSIX_BUF (4 KB) atomic-append guarantee.
-EVENT_SIDECARS_DIR_REL = RUNTIME_DIR_REL / _EVENT_SIDECARS_NAME
 
 # ---------------------------------------------------------------------------
 # Tunables (override via env if site needs different thresholds)
@@ -878,23 +867,16 @@ def extract_error_summary(data: dict) -> str | None:
 
 
 __all__ = [
-    "CHECKPOINT_REL",
-    "EVENT_SIDECARS_DIR_REL",
     "EVENT_SIDECAR_BYTES",
     "LOOP_REPEAT_THRESHOLD",
     "LOOP_WINDOW",
-    "PRECOMPACT_SNAPSHOT_REL",
-    "RALPH_RESUME_REL",
     "RESEARCH_NLM_DEEP_TIMEOUT_SEC",
     "RESEARCH_NLM_WAIT_SEC",
-    "RUNTIME_DIR_REL",
     "TOOL_HISTORY_MAX",
-    "TOOL_HISTORY_REL",
     "TOOL_OFFLOAD_BYTES",
     "TOOL_OFFLOAD_HEAD",
     "TOOL_OFFLOAD_SKIP",
     "TOOL_OFFLOAD_TAIL",
-    "TOOL_OUTPUTS_DIR_REL",
     "TOOL_OUTPUTS_FILE_CAP",
     "TOOL_RESPONSE_FLATTEN_CAP",
     "ToolHistoryEntry",

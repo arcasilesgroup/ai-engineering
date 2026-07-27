@@ -1,0 +1,11 @@
+{
+  "branch": "feat/spec-200-local-env-correctness",
+  "created": "2026-07-27T09:00:00.000000+00:00",
+  "extra": {},
+  "pr": null,
+  "shipped": null,
+  "slug": "local-env-correctness",
+  "spec_id": "spec-200",
+  "state": "in_progress",
+  "title": "Local-environment correctness: surface-aware stack detection and canonical hook state"
+}

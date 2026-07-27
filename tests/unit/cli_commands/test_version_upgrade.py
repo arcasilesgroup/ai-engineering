@@ -100,7 +100,7 @@ class TestVersionShow:
         ):
             result = runner.invoke(app, ["--json", "version"])
         assert result.exit_code == 0
-        payload = json.loads(result.output)
+        payload = json.loads(result.stdout)
         assert payload["result"]["version"] == __version__
         assert payload["result"]["latest"] == "999.0.0"
         assert payload["result"]["update_available"] is True
@@ -135,7 +135,7 @@ class TestVersionUpgradeDryRun:
         ):
             result = runner.invoke(app, ["--json", "version", "upgrade", "--dry-run"])
         assert result.exit_code == 0
-        payload = json.loads(result.output)
+        payload = json.loads(result.stdout)
         assert payload["result"]["command"] == "pipx upgrade ai-engineering"
         assert payload["result"]["dry_run"] is True
         run_mock.assert_not_called()
@@ -188,7 +188,7 @@ class TestVersionUpgradeExecute:
             run_mock.return_value.returncode = 0
             result = runner.invoke(app, ["--json", "version", "upgrade"])
         assert result.exit_code == 0
-        payload = json.loads(result.output)
+        payload = json.loads(result.stdout)
         assert payload["result"]["upgraded"] is True
         assert payload["result"]["method"] == "pipx"
         kwargs = run_mock.call_args.kwargs
@@ -229,7 +229,7 @@ class TestVersionUpgradeUnknownMethod:
             result = runner.invoke(app, ["--json", "version", "upgrade"])
         assert result.exit_code != 0
         run_mock.assert_not_called()
-        payload = json.loads(result.output)
+        payload = json.loads(result.stdout)
         assert payload["ok"] is False
         blob = json.dumps(payload)
         assert "pipx upgrade ai-engineering" in blob
@@ -276,6 +276,6 @@ class TestVersionUpgradeFailLoud:
             run_mock.return_value.returncode = 1
             result = runner.invoke(app, ["--json", "version", "upgrade"])
         assert result.exit_code != 0
-        payload = json.loads(result.output)
+        payload = json.loads(result.stdout)
         assert payload["ok"] is False
         assert "pipx upgrade ai-engineering" in json.dumps(payload)

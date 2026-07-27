@@ -182,7 +182,7 @@ class TestDoctorCommand:
         )
         assert result.exit_code in (0, 1, 2)
         # JSON output should be parseable (envelope wraps result)
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         report = data["result"]
         assert "passed" in report
         assert "phases" in report
