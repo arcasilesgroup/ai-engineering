@@ -43,6 +43,13 @@ dev = [
   # direct floor forces the patched version rather than risk-accepting a
   # finding that already has a fix.
   "pip>=26.1.2",
+  # Pin setuptools past PYSEC-2026-3447 (fixed in 83.0.0). setuptools enters
+  # the resolved env transitively as a build backend dependency, and the
+  # release readiness `security` dimension audits that env — so the release
+  # gate blocks on it. Same reasoning as the pip floor directly above: a
+  # direct floor forces the patched version rather than risk-accepting a
+  # finding that already has a fix.
+  "setuptools>=83.0.0",
   "types-pyyaml>=6.0,<7.0",
   "pytest-xdist>=3.5,<4.0",
   # spec-132 sub-005 D-132-13 — hexagonal direction contract enforcement.
