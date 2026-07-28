@@ -17,10 +17,7 @@ from ai_engineering.validator._shared import (
     _CLAUDE_AGENTS_MIRROR,
     _CLAUDE_COMMANDS_MIRROR,
     _CLAUDE_SKILLS_MIRROR,
-    _CODEX_AGENTS_MIRROR,
-    _CODEX_SKILLS_MIRROR,
     _COPILOT_AGENTS_MIRROR,
-    _COPILOT_SKILLS_MIRROR,
     _GOVERNANCE_MIRROR,
     FileCache,
     IntegrityCategory,
@@ -62,11 +59,8 @@ _ROOT_PARITY_SOURCE_FALLBACKS: dict[str, str] = {
 _SPECIALIST_AGENT_PREFIXES = ("reviewer-", "verifier-", "review-", "verify-")
 _FRONTMATTER_BLOCK_RE = re.compile(r"^---\n(.*?)\n---\n?", re.DOTALL)
 _PROVENANCE_GLOB_BY_FAMILY: dict[str, str] = {
-    "codex-skills": "SKILL.md",
-    "codex-agents": "ai-*.md",
     "antigravity-skills": "SKILL.md",
     "antigravity-agents": "ai-*.md",
-    "copilot-skills": "SKILL.md",
     "copilot-agents": "*.agent.md",
 }
 # Spec-119 introduced specialist review/verifier agents that mirror from
@@ -74,14 +68,6 @@ _PROVENANCE_GLOB_BY_FAMILY: dict[str, str] = {
 # Claude mirror, so extend allowed patterns rather than relocating them
 # under `internal/` (which would break the parity contract).
 _PUBLIC_AGENT_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    (
-        _CODEX_AGENTS_MIRROR[0],
-        ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
-    ),
-    (
-        _CODEX_AGENTS_MIRROR[1],
-        ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
-    ),
     (
         _ANTIGRAVITY_AGENTS_MIRROR[0],
         ("ai-*.md", "review-*.md", "reviewer-*.md", "verifier-*.md", "verify-*.md"),
@@ -100,25 +86,15 @@ _PUBLIC_AGENT_ROOTS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ),
 )
 _PUBLIC_SKILL_ROOTS: tuple[str, ...] = (
-    _CODEX_SKILLS_MIRROR[0],
-    _CODEX_SKILLS_MIRROR[1],
     _ANTIGRAVITY_SKILLS_MIRROR[0],
     _ANTIGRAVITY_SKILLS_MIRROR[1],
-    _COPILOT_SKILLS_MIRROR[0],
-    _COPILOT_SKILLS_MIRROR[1],
 )
 _PUBLIC_SKILL_ROOT_PREFIXES = ("ai-", "_shared")
 _NON_CLAUDE_LOCAL_REFERENCE_ROOTS: tuple[str, ...] = (
-    _CODEX_SKILLS_MIRROR[0],
-    _CODEX_SKILLS_MIRROR[1],
-    _CODEX_AGENTS_MIRROR[0],
-    _CODEX_AGENTS_MIRROR[1],
     _ANTIGRAVITY_SKILLS_MIRROR[0],
     _ANTIGRAVITY_SKILLS_MIRROR[1],
     _ANTIGRAVITY_AGENTS_MIRROR[0],
     _ANTIGRAVITY_AGENTS_MIRROR[1],
-    _COPILOT_SKILLS_MIRROR[0],
-    _COPILOT_SKILLS_MIRROR[1],
     _COPILOT_AGENTS_MIRROR[0],
     _COPILOT_AGENTS_MIRROR[1],
 )
@@ -240,16 +216,11 @@ def _check_mirror_sync(
     _check_claude_agents_mirror(target, report, _sha)
     _check_claude_specialist_agents_mirror(target, report)
 
-    # Codex skills/agents mirrors
-    _check_codex_skills_mirror(target, report, _sha)
-    _check_codex_agents_mirror(target, report, _sha)
-
     # Antigravity skills/agents mirrors
     _check_antigravity_skills_mirror(target, report, _sha)
     _check_antigravity_agents_mirror(target, report, _sha)
 
-    # Copilot skills and agents mirrors
-    _check_copilot_skills_mirror(target, report, _sha)
+    # Copilot agents mirror (spec-201 D-201-04: skills moved to .agents)
     _check_copilot_agents_mirror(target, report, _sha)
     # spec-128 D-128-04, D-128-07: generated-instructions mirror surface removed.
     _check_generated_mirror_provenance(target, report)
@@ -359,23 +330,6 @@ def _check_claude_commands_mirror(
         "*.md",
         "claude-cmd",
         "Claude command",
-        sha_fn=sha_fn,
-    )
-
-
-def _check_copilot_skills_mirror(
-    target: Path,
-    report: IntegrityReport,
-    sha_fn: Callable[[Path], str] = _sha256,
-) -> None:
-    """Check .github/skills/ mirror sync with templates."""
-    _check_pair_mirror(
-        target,
-        report,
-        *_COPILOT_SKILLS_MIRROR,
-        "*.md",
-        "copilot-skill",
-        "Copilot skill",
         sha_fn=sha_fn,
     )
 
@@ -777,9 +731,9 @@ def _check_non_claude_local_reference_leaks(
 def _expected_generated_canonical_source(family_id: str, relative: Path) -> str:
     """Return the canonical source path encoded into generated provenance."""
     rel = relative.as_posix()
-    if family_id in {"codex-skills", "antigravity-skills", "copilot-skills"}:
+    if family_id == "antigravity-skills":
         return f".claude/skills/{rel}"
-    if family_id in {"codex-agents", "antigravity-agents"}:
+    if family_id == "antigravity-agents":
         return f".claude/agents/{rel}"
     if family_id == "copilot-agents":
         agent_name = relative.name.removesuffix(".agent.md")
@@ -802,40 +756,6 @@ def _split_frontmatter(text: str) -> tuple[dict[str, object], str]:
     if not isinstance(frontmatter, dict):
         frontmatter = {}
     return frontmatter, text[match.end() :]
-
-
-def _check_codex_skills_mirror(
-    target: Path,
-    report: IntegrityReport,
-    sha_fn: Callable[[Path], str] = _sha256,
-) -> None:
-    """Check .codex/skills/ mirror sync with templates."""
-    _check_pair_mirror(
-        target,
-        report,
-        *_CODEX_SKILLS_MIRROR,
-        "*.md",
-        "codex-skill",
-        "Codex skill",
-        sha_fn=sha_fn,
-    )
-
-
-def _check_codex_agents_mirror(
-    target: Path,
-    report: IntegrityReport,
-    sha_fn: Callable[[Path], str] = _sha256,
-) -> None:
-    """Check .codex/agents/ mirror sync with templates."""
-    _check_pair_mirror(
-        target,
-        report,
-        *_CODEX_AGENTS_MIRROR,
-        "*.md",
-        "codex-agent",
-        "Codex agent",
-        sha_fn=sha_fn,
-    )
 
 
 def _check_antigravity_skills_mirror(

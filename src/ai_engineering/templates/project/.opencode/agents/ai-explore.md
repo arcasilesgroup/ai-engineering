@@ -3,7 +3,7 @@ name: ai-explore
 description: Codebase-only read-only research. Architecture mapping, dependency tracing, pattern identification, risk surfacing. Use for questions whose answer lives INSIDE this repository's files. Not for external evidence with citations; use /ai-research instead.
 model: sonnet
 color: info
-mirror_family: codex-agents
+mirror_family: opencode-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-explore.md
 edit_policy: generated-do-not-edit
@@ -92,8 +92,8 @@ Source-of-truth **inside** the repo (files, imports, patterns, history) → stay
 
 ## Referenced Skills
 
-- `.codex/skills/ai-onboard/SKILL.md` — user-facing onboarding / codebase discovery
-- `.codex/skills/ai-review/SKILL.md` — review workflow that dispatches Explore for architecture context
+- `.agents/skills/ai-onboard/SKILL.md` — user-facing onboarding / codebase discovery
+- `.agents/skills/ai-review/SKILL.md` — review workflow that dispatches Explore for architecture context
 
 ## Boundaries
 

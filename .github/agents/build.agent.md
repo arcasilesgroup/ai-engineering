@@ -76,7 +76,7 @@ Emit `## Findings` (validation results, guard advisories addressed, stack lint/f
 
 ## Referenced Skills
 
-`.github/skills/ai-code/SKILL.md`, `.github/skills/ai-test/SKILL.md`, `.github/skills/ai-debug/SKILL.md`, `.github/skills/ai-schema/SKILL.md`, `.github/skills/ai-pipeline/SKILL.md`, and `.github/skills/ai-build/SKILL.md` (task dispatch and agent coordination — canonical gateway, D-127-11).
+`.agents/skills/ai-code/SKILL.md`, `.agents/skills/ai-test/SKILL.md`, `.agents/skills/ai-debug/SKILL.md`, `.agents/skills/ai-schema/SKILL.md`, `.agents/skills/ai-pipeline/SKILL.md`, and `.agents/skills/ai-build/SKILL.md` (task dispatch and agent coordination — canonical gateway, D-127-11).
 
 ## Boundaries
 

@@ -129,7 +129,9 @@ class TestProviderTemplates:
         github_dir = tmp_path / ".github"
         (github_dir / "copilot-instructions.md").parent.mkdir(parents=True, exist_ok=True)
         (github_dir / "copilot-instructions.md").write_text("# Copilot\n", encoding="utf-8")
-        (github_dir / "skills").mkdir(parents=True, exist_ok=True)
+        # spec-201 D-201-04: Copilot resolves skills from the shared
+        # `.agents/skills` tree, not `.github/skills`.
+        (tmp_path / ".agents" / "skills").mkdir(parents=True, exist_ok=True)
         (github_dir / "hooks").mkdir(parents=True, exist_ok=True)
         (github_dir / "agents").mkdir(parents=True, exist_ok=True)
         (github_dir / "instructions").mkdir(parents=True, exist_ok=True)

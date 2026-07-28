@@ -19,10 +19,10 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
 SKILL_TREES = [
     REPO_ROOT / ".claude" / "skills",
     REPO_ROOT / ".agents" / "skills",
-    REPO_ROOT / ".codex" / "skills",
 ]
 
 # Negative-lookbehind: match `specs/spec.md`, `specs/plan.md`, or

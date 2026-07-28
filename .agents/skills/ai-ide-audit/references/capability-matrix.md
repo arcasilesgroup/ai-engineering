@@ -19,9 +19,16 @@ Mark PARTIAL whenever you find evidence of the capability but with a measurable 
 | IDE | Native instruction path | Workspace assets | md_mirror / sync contract |
 |-----|-------------------------|------------------|---------------------------|
 | Claude Code | `<repo>/CLAUDE.md` | `<repo>/.claude/skills`, `<repo>/.claude/agents` | Enforced — byte-equivalent canonical payload (sha256) |
-| GitHub Copilot | `<repo>/.github/copilot-instructions.md` | `<repo>/.github/skills`, `<repo>/.github/agents` | Enforced — byte-equivalent canonical payload (sha256) |
-| Codex | `<repo>/AGENTS.md` | `<repo>/.codex/skills`, `<repo>/.codex/agents` | Enforced — `<repo>/.codex/AGENTS.md` MUST NOT exist |
+| GitHub Copilot | `<repo>/.github/copilot-instructions.md` | `<repo>/.agents/skills`, `<repo>/.github/agents` | Enforced — byte-equivalent canonical payload (sha256) |
+| Codex | `<repo>/AGENTS.md` | `<repo>/.agents/skills` | Enforced — `<repo>/.codex/AGENTS.md` MUST NOT exist; Codex's agent namespace accepts TOML only, so it has no markdown agent tree |
+| OpenCode | `<repo>/AGENTS.md` | `<repo>/.agents/skills`, `<repo>/.opencode/agents`, `<repo>/.opencode/commands` | Enforced — commands supply the `/ai-<name>` slash surface |
+| Cursor | `<repo>/.cursor/rules/` | `<repo>/.agents/skills`, `<repo>/.cursor/agents` | Enforced — generated from canonical `.claude/` |
 | Antigravity | `<repo>/AGENTS.md` | `<repo>/.agents/skills`, `<repo>/.agents/agents`, `agy` runtime diagnostics | Enforced — `.agents/` generated from canonical `.claude/`; audit remains PARTIAL until hook fixtures prove full coverage |
+
+Skill trees collapsed to two in spec-201 (D-201-04): `.claude/skills` for
+Claude Code, whose search paths are compiled in, and `.agents/skills` for
+every other surface. Per-surface agent, command and hook trees did NOT
+collapse (D-201-22).
 
 ## Spec-151 Antigravity Probe
 

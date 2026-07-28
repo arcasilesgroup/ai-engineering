@@ -1,4 +1,10 @@
-"""Tests for new Surface mirror targets (spec-133 D-133-06)."""
+"""Tests for the per-Surface mirror targets (spec-133 D-133-06).
+
+spec-201 D-201-04 collapsed the skill trees to two, so the OpenCode
+and Cursor skill generators were deleted with their trees; both
+surfaces now read the shared ``.agents/skills`` payload. Their
+agent (and, for OpenCode, command) generators survive per D-201-22.
+"""
 
 from __future__ import annotations
 
@@ -6,25 +12,29 @@ from pathlib import Path
 
 
 def test_opencode_target_module_imports() -> None:
+    from scripts.sync_mirrors import opencode_target
     from scripts.sync_mirrors.opencode_target import (
         generate_opencode_agent,
         generate_opencode_command,
-        generate_opencode_skill,
     )
 
-    assert callable(generate_opencode_skill)
     assert callable(generate_opencode_agent)
     assert callable(generate_opencode_command)
+    assert not hasattr(opencode_target, "generate_opencode_skill"), (
+        "spec-201 D-201-04 deleted the OpenCode skill generator with "
+        ".opencode/skills; OpenCode reads .agents/skills now."
+    )
 
 
 def test_cursor_target_module_imports() -> None:
-    from scripts.sync_mirrors.cursor_target import (
-        generate_cursor_agent,
-        generate_cursor_skill,
-    )
+    from scripts.sync_mirrors import cursor_target
+    from scripts.sync_mirrors.cursor_target import generate_cursor_agent
 
-    assert callable(generate_cursor_skill)
     assert callable(generate_cursor_agent)
+    assert not hasattr(cursor_target, "generate_cursor_skill"), (
+        "spec-201 D-201-04 deleted the Cursor skill generator with "
+        ".cursor/skills; Cursor reads .agents/skills now."
+    )
 
 
 def test_antigravity_target_module_imports() -> None:
@@ -35,19 +45,6 @@ def test_antigravity_target_module_imports() -> None:
 
     assert callable(generate_antigravity_skill)
     assert callable(generate_antigravity_agent)
-
-
-def test_opencode_skill_generation_smoke(tmp_path: Path) -> None:
-    skill = tmp_path / "SKILL.md"
-    skill.write_text(
-        "---\nname: ai-foo\ndescription: smoke\n---\n\n# Foo\n",
-        encoding="utf-8",
-    )
-    from scripts.sync_mirrors.opencode_target import generate_opencode_skill
-
-    out = generate_opencode_skill("foo", skill)
-    assert "ai-foo" in out
-    assert "Foo" in out
 
 
 def test_opencode_command_wraps_skill_with_description(tmp_path: Path) -> None:
@@ -79,18 +76,6 @@ def test_opencode_command_handles_malformed_skill_frontmatter(tmp_path: Path) ->
 
     out = generate_opencode_command("broken", skill)
     assert "Invoke the ai-broken skill" in out
-
-
-def test_cursor_skill_generation_smoke(tmp_path: Path) -> None:
-    skill = tmp_path / "SKILL.md"
-    skill.write_text(
-        "---\nname: ai-bar\ndescription: smoke\n---\n\n# Bar\n",
-        encoding="utf-8",
-    )
-    from scripts.sync_mirrors.cursor_target import generate_cursor_skill
-
-    out = generate_cursor_skill("bar", skill)
-    assert "ai-bar" in out
 
 
 def test_antigravity_skill_generation_smoke(tmp_path: Path) -> None:

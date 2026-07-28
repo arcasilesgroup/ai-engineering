@@ -263,8 +263,12 @@ class TestTemplateTrees:
         assert len(denied) == 1
 
     def test_update_handles_skill_files(self, installed_project: Path) -> None:
-        """Modify a .github/skills/ file and verify update restores it."""
-        skills_dir = installed_project / ".github" / "skills"
+        """Modify a shared-skill file and verify update restores it.
+
+        spec-201 D-201-04: the skill payload moved from `.github/skills`
+        to the shared `.agents/skills` tree.
+        """
+        skills_dir = installed_project / ".agents" / "skills"
         if not skills_dir.is_dir():
             pytest.skip("skills directory not found in installed project")
 
@@ -402,11 +406,12 @@ class TestCleanupLegacyPrompts:
         assert not prompts.exists()
 
     def test_keeps_prompts_when_no_skills_dir(self, tmp_path: Path) -> None:
+        # spec-201 D-201-04: the presence probe is the shared skill tree.
         install(tmp_path)
         prompts = tmp_path / ".github" / "prompts"
         prompts.mkdir(parents=True, exist_ok=True)
         (prompts / "ai-commit.prompt.md").write_text("legacy", encoding="utf-8")
-        skills = tmp_path / ".github" / "skills"
+        skills = tmp_path / ".agents" / "skills"
         if skills.exists():
             import shutil
 

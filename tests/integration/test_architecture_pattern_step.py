@@ -18,11 +18,8 @@ ARCH_PATTERNS_CONTEXT = REPO_ROOT / ".ai-engineering" / "reference" / "architect
 PLAN_SKILL = REPO_ROOT / ".claude" / "skills" / "ai-plan" / "SKILL.md"
 
 # Mirrored copies of the ai-plan SKILL.md propagated by `ai-eng sync`.
-MIRROR_PLAN_SKILLS = (
-    REPO_ROOT / ".github" / "skills" / "ai-plan" / "SKILL.md",
-    REPO_ROOT / ".codex" / "skills" / "ai-plan" / "SKILL.md",
-    REPO_ROOT / ".agents" / "skills" / "ai-plan" / "SKILL.md",
-)
+# spec-201 D-201-04: the sole generated skill tree is .agents/skills.
+MIRROR_PLAN_SKILLS = (REPO_ROOT / ".agents" / "skills" / "ai-plan" / "SKILL.md",)
 
 
 def test_architecture_patterns_context_exists() -> None:

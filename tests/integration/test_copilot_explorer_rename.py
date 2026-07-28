@@ -1,10 +1,14 @@
 """RED skeleton for spec-107 G-4 (Phase 3) — Copilot Explorer rename.
 
 Spec-107 D-107-03 renames `.github/agents/explore.agent.md` to
-`.github/agents/ai-explore.agent.md`, updates the front-matter
-`name: ai-explore`, and ships a new chatmode alias
-`.github/chatmodes/ai-explore.chatmode.md` so Copilot users get parity
-with Claude / Codex / Antigravity (`@ai-explore` and `/ai-explore`).
+`.github/agents/ai-explore.agent.md` and updates the front-matter
+`name: ai-explore` so Copilot users get parity with Claude / Codex /
+Antigravity (`@ai-explore`).
+
+spec-201 D-201-04 hard-deleted the hand-maintained
+`.github/chatmodes/ai-explore.chatmode.md` alias along with the rest of
+the Copilot skill surface: it had no generator write site, so it could
+only ever drift from the agent file it aliased.
 
 `scripts/sync_command_mirrors.py` `AGENT_METADATA["explore"]["name"]`
 must change from `"Explorer"` to `"ai-explore"` so every IDE mirror
@@ -21,7 +25,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GITHUB_AGENTS_DIR = REPO_ROOT / ".github" / "agents"
-CHATMODES_DIR = REPO_ROOT / ".github" / "chatmodes"
 
 
 def test_renamed_agent_file_exists() -> None:
@@ -52,15 +55,6 @@ def test_renamed_agent_front_matter_name() -> None:
         f"front-matter `name:` not set to canonical `ai-explore` in {renamed}. "
         "Spec-107 D-107-03 requires the slug to be ai-explore for cross-IDE "
         "parity (Claude / Codex / Antigravity already use ai-explore)."
-    )
-
-
-def test_chatmode_alias_exists() -> None:
-    """G-4: `.github/chatmodes/ai-explore.chatmode.md` provides slash alias."""
-    chatmode = CHATMODES_DIR / "ai-explore.chatmode.md"
-    assert chatmode.is_file(), (
-        f"chatmode alias missing: {chatmode} — Phase 3 T-3.3 must create "
-        "this file so Copilot users can invoke `/ai-explore` Claude-style"
     )
 
 

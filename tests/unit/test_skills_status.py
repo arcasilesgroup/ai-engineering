@@ -151,9 +151,13 @@ class TestMultiDirScanning:
         names = [s.name for s in statuses]
         assert "code" in names
 
-    def test_codex_skills_dir_found(self, tmp_path: Path) -> None:
-        """Skills in .codex/skills/ are discovered."""
-        skill_dir = tmp_path / ".codex" / "skills" / "debug"
+    def test_shared_skills_dir_found(self, tmp_path: Path) -> None:
+        """Skills in the shared .agents/skills/ tree are discovered.
+
+        spec-201 D-201-04 collapsed `.codex/skills` into
+        `.agents/skills`; the resolver scans the two surviving trees.
+        """
+        skill_dir = tmp_path / ".agents" / "skills" / "debug"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text(
             "---\nname: debug\nversion: 1.0.0\n---\n\n# Debug\n",

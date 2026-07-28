@@ -22,6 +22,23 @@ _AI_ENGINEERING_DIR = Path(".ai-engineering")
 FRAMEWORK_EVENTS_REL = _AI_ENGINEERING_DIR / "state" / "framework-events.ndjson"
 _ACTIVE_WORK_PLANE_POINTER = _AI_ENGINEERING_DIR / "specs" / "active-work-plane.json"
 _ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
+# spec-201 D-201-06 — mirrors tools/skill_domain/event_schema.py.
+# This writer enum-checked ``kind`` and normalised ``engine`` without ever
+# checking it, so every emit_skill_invoked / emit_agent_dispatched /
+# emit_context_load call site (10 of them) could write an arbitrary engine
+# string straight into the audit chain. Drift across the three sites is
+# guarded by tests/unit/state/test_engine_enum_single_source.py.
+_ALLOWED_ENGINES: frozenset[str] = frozenset(
+    {
+        "claude_code",
+        "codex",
+        "antigravity",
+        "copilot",
+        "ai_engineering",
+        "openai_compatible",
+        "unknown",
+    }
+)
 _ALLOWED_KINDS: frozenset[str] = frozenset(
     {
         "skill_invoked",
@@ -47,6 +64,8 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
         # ``ai_engineering.adapters.host.probe`` when a skill consults the
         # host before dispatch.
         "host_capacity",
+        # spec-201 D-201-07 — emitted by /ai-spec-draft step 6.
+        "brief_drafted",
     }
 )
 
@@ -228,6 +247,37 @@ def _compute_prev_event_hash(path: Path) -> str | None:
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
+def _coerce_engine(payload: dict, engine: str) -> str:
+    """Return an admitted engine label, coercing an unknown one (spec-201 D-201-06).
+
+    COERCE-AND-LOG, deliberately not fail-closed. This writer is reached
+    from every hook via ``emit_skill_invoked`` / ``emit_agent_dispatched`` /
+    ``emit_context_load``; raising there would crash a hook over a
+    *labelling* problem, and dropping the write would lose exactly the
+    telemetry D-201-06 exists to capture. Coercion gives zero event loss AND
+    zero mislabelling-as-Claude.
+
+    The coercion is LOGGED, per gate-policy ("plumbing fails open and must
+    log"), on the audit plane rather than on stderr: the original label is
+    preserved at ``detail.engine_raw``, which is durable, queryable and
+    travels with the affected event instead of scrolling past once. stdout
+    is unusable here (it is the hook protocol channel) and a stderr write
+    would need ``import sys``, which the stdlib-allowlist test for this
+    module does not admit.
+
+    The package-side twin ``ai_engineering.state.observability`` is
+    deliberately asymmetric — it raises, because its callers are CLI and
+    library code, not a sub-second hook hot path.
+    """
+    if engine in _ALLOWED_ENGINES:
+        return engine
+    detail = payload.get("detail")
+    detail = dict(detail) if isinstance(detail, dict) else {}
+    detail["engine_raw"] = engine
+    payload["detail"] = detail
+    return "unknown"
+
+
 def append_framework_event(project_root: Path, entry: dict) -> None:
     path = framework_events_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -244,7 +294,7 @@ def append_framework_event(project_root: Path, entry: dict) -> None:
     if kind not in _ALLOWED_KINDS:
         msg = f"Unsupported framework event kind: {kind!r}"
         raise ValueError(msg)
-    payload["engine"] = _normalize_engine_id(str(payload["engine"]))
+    payload["engine"] = _coerce_engine(payload, _normalize_engine_id(str(payload["engine"])))
 
     # Spec-126 D-126-05 / T-3.3: hash compute + write must be inside the
     # same critical section to prevent the TOCTOU race where two

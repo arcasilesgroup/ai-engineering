@@ -177,6 +177,13 @@ def _check_audit_chain_events(ctx: DoctorContext) -> CheckResult:
     block. A missing file (no events emitted yet) is OK. A chain break
     surfaces as WARN with the first break index + reason so operators
     can investigate without blocking the install/doctor flow.
+
+    DO NOT escalate this to FAIL (spec-201, Trap 4). The ledger is
+    gitignored, so CI has no file and reports the chain vacuously valid,
+    while every developer machine carries tens of thousands of local
+    entries and any historical break. A FAIL here reds every dev box on
+    correct code and is green in CI -- the worst possible split. The
+    git-tracked ``decision-store.json`` check is the one that blocks.
     """
     from ai_engineering.state.audit_chain import verify_audit_chain
 
@@ -206,17 +213,23 @@ def _check_audit_chain_events(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
-    """Advisory check (spec-107 D-107-10 / G-12, H2): hash-chain over decisions.
+    """Blocking check (spec-201 D-201-09): hash-chain over decisions.
 
     Verifies the ``decision-store.json`` audit chain by walking
-    ``prev_event_hash`` pointers across the ``decisions`` array. Pure
-    WARN advisory: never FAIL, never block. Legacy decisions written
-    before spec-107 lack the field and are treated as valid by the
-    verifier (additive backward-compat per D-107-10).
+    ``prev_event_hash`` pointers across the ``decisions`` array. A break
+    is a FAIL: ``decision-store.json`` is git-tracked, so a break is
+    reviewable in a diff and repairable by a command. The events chain
+    stays WARN because ``framework-events.ndjson`` is gitignored --
+    CI never sees a file at all, so escalating it would red every
+    developer machine while CI stayed green (spec-201, Trap 4).
 
-    spec-124 D-124-12: ``decision-store.json`` migrated to state.db; the
-    JSON-array hash-chain check no longer applies on disk. State.db
-    rows carry their own audit hash via the ``decisions`` table.
+    Legacy decisions written before spec-107 lack the field and are
+    treated as valid by the verifier (additive backward-compat per
+    D-107-10).
+
+    ``fix()`` cannot repair this, so the FAIL message names the command
+    that can -- an unfixable FAIL with no stated remedy is a dead end
+    for every consumer install, not just this repo.
     """
     from ai_engineering.state.audit_chain import verify_audit_chain
 
@@ -241,10 +254,11 @@ def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
         )
     return CheckResult(
         name=advisory_name,
-        status=CheckStatus.WARN,
+        status=CheckStatus.FAIL,
         message=(
             f"decisions chain break at index {verdict.first_break_index}: "
-            f"{verdict.first_break_reason}"
+            f"{verdict.first_break_reason}; "
+            "repair with `ai-eng audit relink --file decisions`"
         ),
     )
 

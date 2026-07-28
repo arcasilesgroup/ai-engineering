@@ -114,74 +114,6 @@ class TestMirrorSync:
         assert len(desync_checks) >= 1
 
 
-class TestCopilotSkillsMirror:
-    """Tests for Copilot skills mirror-sync validation."""
-
-    def test_copilot_skills_mirror_sync_ok(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        _setup_governance_mirror(tmp_path)
-        canonical, mirror = _mirror_pair(tmp_path, ".github", "skills", "ai-test")
-        _mkdirs(canonical, mirror)
-        content = _frontmatter_with_provenance(
-            [("name", "ai-test"), ("mode", "agent")],
-            family_id="copilot-skills",
-            canonical_source=".claude/skills/ai-test/SKILL.md",
-            body="Test skill.\n",
-        )
-        (canonical / "SKILL.md").write_text(content, encoding="utf-8")
-        (mirror / "SKILL.md").write_text(content, encoding="utf-8")
-        ok_checks = [
-            c
-            for c in _mirror_report(tmp_path).checks
-            if c.name == "copilot-skills-mirrors" and c.status == IntegrityStatus.OK
-        ]
-        assert len(ok_checks) == 1
-
-    def test_copilot_skills_mirror_desync(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        _setup_governance_mirror(tmp_path)
-        canonical, mirror = _mirror_pair(tmp_path, ".github", "skills", "ai-test")
-        _mkdirs(canonical, mirror)
-        (canonical / "SKILL.md").write_text("canonical", encoding="utf-8")
-        (mirror / "SKILL.md").write_text("different", encoding="utf-8")
-        fail_checks = [
-            c
-            for c in _mirror_report(tmp_path).checks
-            if c.status == IntegrityStatus.FAIL and "copilot-skill-desync" in c.name
-        ]
-        assert len(fail_checks) >= 1
-
-    def test_copilot_skills_mirror_missing_root(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        _setup_governance_mirror(tmp_path)
-        # Create canonical skills but no mirror directory
-        canonical, _mirror = _mirror_pair(tmp_path, ".github", "skills", "ai-test")
-        canonical.mkdir(parents=True)
-        (canonical / "SKILL.md").write_text("content", encoding="utf-8")
-        fail_checks = [
-            c
-            for c in _mirror_report(tmp_path).checks
-            if c.name == "copilot-skill-mirror-root" and c.status == IntegrityStatus.FAIL
-        ]
-        assert len(fail_checks) == 1
-
-    def test_copilot_skills_missing_mirror_file(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        _setup_governance_mirror(tmp_path)
-        canonical, _ = _mirror_pair(tmp_path, ".github", "skills", "ai-orphan")
-        _, mirror_parent = _mirror_pair(tmp_path, ".github", "skills")
-        canonical.mkdir(parents=True)
-        mirror_parent.mkdir(parents=True, exist_ok=True)
-        # File exists in canonical but not in mirror
-        (canonical / "SKILL.md").write_text("content", encoding="utf-8")
-        fail_checks = [
-            c
-            for c in _mirror_report(tmp_path).checks
-            if c.status == IntegrityStatus.FAIL and "copilot-skill-missing" in c.name
-        ]
-        assert len(fail_checks) >= 1
-
-
 class TestClaudeSkillsMirror:
     """Tests for Claude skills mirror-sync validation."""
 
@@ -299,54 +231,6 @@ class TestClaudeSpecialistAgentsMirror:
         assert len(fail_checks) >= 1
 
 
-class TestCodexSkillsMirror:
-    """Tests for .codex skills mirror-sync validation."""
-
-    def test_codex_skills_mirror_sync_ok(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        _setup_governance_mirror(tmp_path)
-        canonical, mirror = _mirror_pair(tmp_path, ".codex", "skills", "ai-test")
-        _mkdirs(canonical, mirror)
-        content = _frontmatter_with_provenance(
-            [("name", "ai-test"), ("mode", "agent")],
-            family_id="codex-skills",
-            canonical_source=".claude/skills/ai-test/SKILL.md",
-            body="Skill.\n",
-        )
-        (canonical / "SKILL.md").write_text(content, encoding="utf-8")
-        (mirror / "SKILL.md").write_text(content, encoding="utf-8")
-        ok_checks = [
-            c
-            for c in _mirror_report(tmp_path).checks
-            if c.name == "codex-skills-mirrors" and c.status == IntegrityStatus.OK
-        ]
-        assert len(ok_checks) == 1
-
-
-class TestCodexAgentsMirror:
-    """Tests for .codex agents mirror-sync validation."""
-
-    def test_codex_agents_mirror_sync_ok(self, tmp_path: Path) -> None:
-        _setup_full_project(tmp_path)
-        _setup_governance_mirror(tmp_path)
-        canonical, mirror = _mirror_pair(tmp_path, ".codex", "agents")
-        _mkdirs(canonical, mirror)
-        content = _frontmatter_with_provenance(
-            [("name", "ai-test"), ("description", "test")],
-            family_id="codex-agents",
-            canonical_source=".claude/agents/ai-test.md",
-            body="Agent.\n",
-        )
-        (canonical / "ai-test.md").write_text(content, encoding="utf-8")
-        (mirror / "ai-test.md").write_text(content, encoding="utf-8")
-        ok_checks = [
-            c
-            for c in _mirror_report(tmp_path).checks
-            if c.name == "codex-agents-mirrors" and c.status == IntegrityStatus.OK
-        ]
-        assert len(ok_checks) == 1
-
-
 class TestCopilotAgentsMirror:
     """Tests for Copilot agents mirror-sync validation."""
 
@@ -414,12 +298,14 @@ class TestCopilotAgentsMirror:
 class TestGeneratedMirrorProvenance:
     """Tests for negative provenance validation on generated mirrors."""
 
-    def test_generated_codex_skill_missing_provenance_fails_even_when_pair_matches(
+    def test_generated_shared_skill_missing_provenance_fails_even_when_pair_matches(
         self, tmp_path: Path
     ) -> None:
+        # spec-201 D-201-04: the shared `.agents/skills` tree replaced the
+        # per-surface codex/copilot trees this contract used to cover.
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        canonical, mirror = _mirror_pair(tmp_path, ".codex", "skills", "ai-test")
+        canonical, mirror = _mirror_pair(tmp_path, ".agents", "skills", "ai-test")
         _mkdirs(canonical, mirror)
         content = "---\nname: ai-test\nmode: agent\n---\n\nSkill.\n"
         (canonical / "SKILL.md").write_text(content, encoding="utf-8")
@@ -430,7 +316,7 @@ class TestGeneratedMirrorProvenance:
             c
             for c in report.checks
             if c.status == IntegrityStatus.FAIL
-            and c.name.startswith("generated-provenance-codex-skills")
+            and c.name.startswith("generated-provenance-antigravity-skills")
         ]
         assert len(fail_checks) >= 1
         assert report.category_passed(IntegrityCategory.MIRROR_SYNC) is False
@@ -463,10 +349,12 @@ class TestPublicAgentRootContract:
 class TestPublicSkillRootContract:
     """Tests for rejecting ungoverned entries in public skill roots."""
 
-    def test_copilot_public_skill_root_rejects_ungoverned_directory(self, tmp_path: Path) -> None:
+    def test_shared_public_skill_root_rejects_ungoverned_directory(self, tmp_path: Path) -> None:
+        # spec-201 D-201-04: the shared `.agents/skills` tree is the sole
+        # public skill root left to govern.
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        canonical, mirror = _mirror_pair(tmp_path, ".github", "skills", "reviewer-bad")
+        canonical, mirror = _mirror_pair(tmp_path, ".agents", "skills", "reviewer-bad")
         _mkdirs(canonical, mirror)
         (canonical / "SKILL.md").write_text("# Bad skill\n", encoding="utf-8")
         (mirror / "SKILL.md").write_text("# Bad skill\n", encoding="utf-8")
@@ -485,12 +373,13 @@ class TestPublicSkillRootContract:
 class TestNonClaudeLocalReferenceLeaks:
     """Tests for rejecting leaked Claude-local skill/agent paths."""
 
-    def test_copilot_skill_script_rejects_claude_skill_path_leak_even_when_pair_matches(
+    def test_shared_skill_script_rejects_claude_skill_path_leak_even_when_pair_matches(
         self, tmp_path: Path
     ) -> None:
+        # spec-201 D-201-04: leak detection now guards `.agents/skills`.
         _setup_full_project(tmp_path)
         _setup_governance_mirror(tmp_path)
-        canonical, mirror = _mirror_pair(tmp_path, ".github", "skills", "ai-test")
+        canonical, mirror = _mirror_pair(tmp_path, ".agents", "skills", "ai-test")
         canonical = canonical / "scripts"
         mirror = mirror / "scripts"
         _mkdirs(canonical, mirror)

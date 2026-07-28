@@ -599,6 +599,10 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     # `verify` checks the hash chain; `tokens`/`replay` compute over the NDJSON.
     # The SQLite-backed index/query/health/vacuum/retention verbs were removed.
     audit_app.command("verify")(_safe(audit_cmd.audit_verify))
+    # spec-201 D-201-09: `relink` is the repair counterpart to `verify` --
+    # the only write verb on the ledgers, and the command the doctor
+    # `audit-chain-decisions` FAIL names as its fix.
+    audit_app.command("relink")(_safe(audit_cmd.audit_relink))
     audit_app.command("tokens")(_safe(audit_cmd.audit_tokens))
     audit_app.command("replay")(_safe(audit_cmd.audit_replay))
     app.add_typer(audit_app, name="audit")

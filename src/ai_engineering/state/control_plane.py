@@ -135,7 +135,8 @@ _DEFAULT_CONTROL_PLANE_RULES: tuple[tuple[str, OwnershipLevel, FrameworkUpdatePo
         OwnershipLevel.TEAM_MANAGED,
         FrameworkUpdatePolicy.DENY,
     ),
-    (".github/skills/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
+    # spec-201 D-201-04: `.github/skills/**` hard-deleted — Copilot reads
+    # the shared `.agents/**` tree already covered above.
     (".github/agents/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (".github/instructions/**", OwnershipLevel.FRAMEWORK_MANAGED, FrameworkUpdatePolicy.ALLOW),
     (

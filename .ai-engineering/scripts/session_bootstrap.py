@@ -102,12 +102,16 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 # src/ai_engineering/config/mirror_inventory.py (`_PROVIDER_TREE_MAPS` keys
 # plus the no-mirror-tree surfaces). CI test in
 # tests/unit/scripts/test_session_bootstrap.py::TestSurfaceDirs enforces parity.
+# spec-201 D-201-04: skill trees collapsed to two. Every non-Claude
+# surface resolves its skills from the shared `.agents/skills` tree;
+# agent trees did NOT collapse (D-201-22) and stay surface-local, except
+# `.codex/agents` which was hard-deleted as a namespace squat (D-201-23).
 _SURFACE_DIRS: dict[str, tuple[str, str]] = {
     "claude-code": (".claude/skills", ".claude/agents"),
-    "codex": (".codex/skills", ".codex/agents"),
-    "github-copilot": (".github/skills", ".github/agents"),
-    "opencode": (".opencode/skills", ".opencode/agents"),
-    "cursor": (".cursor/skills", ".cursor/agents"),
+    "codex": (".agents/skills", ".agents/agents"),
+    "github-copilot": (".agents/skills", ".github/agents"),
+    "opencode": (".agents/skills", ".opencode/agents"),
+    "cursor": (".agents/skills", ".cursor/agents"),
     "antigravity": (".agents/skills", ".agents/agents"),
 }
 _DEFAULT_SURFACE = "claude-code"  # spec-133 D-133-16 fallback when surfaces.enabled is empty

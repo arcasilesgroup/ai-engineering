@@ -31,7 +31,12 @@ import typer
 
 from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_ui import header, kv, status_line, success, warning
-from ai_engineering.state.audit_chain import AuditChainVerdict, verify_audit_chain
+from ai_engineering.state.audit_chain import (
+    AuditChainVerdict,
+    RelinkResult,
+    relink_audit_chain,
+    verify_audit_chain,
+)
 from ai_engineering.state.audit_replay import (
     build_span_tree,
     render_json,
@@ -81,30 +86,13 @@ def _verify_one(label: str, path: Path, mode: _AuditMode) -> tuple[str, AuditCha
     return label, verify_audit_chain(path, mode=mode)
 
 
-def audit_verify(
-    file_filter: Annotated[
-        str,
-        typer.Option(
-            "--file",
-            help="Which audit file to verify: events, decisions, or all.",
-        ),
-    ] = "all",
-) -> None:
-    """Verify the hash-chained audit trail (events and/or decisions).
+def _audit_targets(file_filter: str, root: Path) -> list[tuple[str, Path, _AuditMode]]:
+    """Resolve ``--file`` to the (label, path, mode) ledgers it selects.
 
-    Always exits 0 -- this is a pure advisory surface per D-107-10.
-    Operators inspect the output to investigate any reported chain
-    breaks; CI / doctor / install flows never get blocked.
+    One table for every audit verb so ``verify`` and ``relink`` can never
+    disagree about which files the audit surface owns.
     """
-    if file_filter not in {"events", "decisions", "all"}:
-        # Even input validation stays advisory: surface the typo, default
-        # to ``all`` so the user still sees a verdict.
-        warning(f"Unknown --file value {file_filter!r}; defaulting to 'all'.")
-        file_filter = "all"
-
-    root = _resolve_project_root()
     state_dir = root / ".ai-engineering" / "state"
-
     targets: list[tuple[str, Path, _AuditMode]] = []
     if file_filter in {"events", "all"}:
         targets.append(
@@ -114,8 +102,49 @@ def audit_verify(
         targets.append(
             ("decisions", state_dir / "decision-store.json", cast(_AuditMode, "json_array"))
         )
+    return targets
+
+
+def audit_verify(
+    file_filter: Annotated[
+        str,
+        typer.Option(
+            "--file",
+            help="Which audit file to verify: events, decisions, or all.",
+        ),
+    ] = "all",
+    strict: Annotated[
+        bool,
+        typer.Option(
+            "--strict",
+            help="Exit non-zero when any chain break is reported.",
+        ),
+    ] = False,
+) -> None:
+    """Verify the hash-chained audit trail (events and/or decisions).
+
+    Exits 0 by default -- the plain surface stays a pure advisory per
+    D-107-10, so CI / doctor / install flows are never blocked and every
+    existing caller keeps its contract. ``--strict`` opts into the gate:
+    an integrity boundary is allowed to fail closed once the caller has
+    asked for it.
+
+    The gate applies on BOTH output paths. The ``--json`` branch returns
+    early after emitting its envelope, so a ``--strict`` that only
+    guarded the text path would ship silently broken in the mode every
+    agent surface uses.
+    """
+    if file_filter not in {"events", "decisions", "all"}:
+        # Even input validation stays advisory: surface the typo, default
+        # to ``all`` so the user still sees a verdict.
+        warning(f"Unknown --file value {file_filter!r}; defaulting to 'all'.")
+        file_filter = "all"
+
+    root = _resolve_project_root()
+    targets = _audit_targets(file_filter, root)
 
     verdicts = [_verify_one(label, path, mode) for label, path, mode in targets]
+    all_intact = all(v.ok for _, v in verdicts)
 
     if is_json_mode():
         from ai_engineering.cli_envelope import emit_success
@@ -124,6 +153,8 @@ def audit_verify(
             "audit-verify",
             {"verdicts": [_verdict_payload(name, v) for name, v in verdicts]},
         )
+        if strict and not all_intact:
+            raise typer.Exit(code=1)
         return
 
     header("Audit chain verification")
@@ -136,14 +167,20 @@ def audit_verify(
             )
         else:
             status_line(
-                "warn",
+                "fail" if strict else "warn",
                 name,
                 f"chain break at index {verdict.first_break_index}",
             )
             kv("Reason", verdict.first_break_reason or "-")
 
-    if all(v.ok for _, v in verdicts):
+    if all_intact:
         success("All requested audit chains are intact.")
+    elif strict:
+        warning(
+            "One or more audit chains reported a break. "
+            "Repair with `ai-eng audit relink --file <events|decisions>`."
+        )
+        raise typer.Exit(code=1)
     else:
         warning("One or more audit chains reported a break -- advisory only, exit 0.")
 
@@ -155,20 +192,15 @@ def _audit_verify_machine_readable(file_filter: str = "all") -> dict:
     Identifier ``audit verify`` and the docstring marker are scanned by
     spec-107 RED tests to confirm the CLI registration -- searching for
     ``"audit verify"`` and ``audit_app`` strings inside the cli tree.
+
+    ``ok`` is the aggregate ``--strict`` gates on, so this third copy of
+    the verdict logic cannot drift from the two the command itself uses.
     """
     root = _resolve_project_root()
-    state_dir = root / ".ai-engineering" / "state"
-    targets: list[tuple[str, Path, _AuditMode]] = []
-    if file_filter in {"events", "all"}:
-        targets.append(
-            ("events", state_dir / "framework-events.ndjson", cast(_AuditMode, "ndjson"))
-        )
-    if file_filter in {"decisions", "all"}:
-        targets.append(
-            ("decisions", state_dir / "decision-store.json", cast(_AuditMode, "json_array"))
-        )
+    targets = _audit_targets(file_filter, root)
     verdicts = [_verify_one(label, path, mode) for label, path, mode in targets]
     return {
+        "ok": all(v.ok for _, v in verdicts),
         "verdicts": [_verdict_payload(name, v) for name, v in verdicts],
         "raw": json.dumps({"file_filter": file_filter}, sort_keys=True),
     }
@@ -178,6 +210,101 @@ def _audit_verify_machine_readable(file_filter: str = "all") -> dict:
 # audit verify subcommand handle is exposed both as a callable and
 # via the ``audit_app`` Typer namespace registered in cli_factory.
 audit_app_marker = "audit verify"
+
+
+def _relink_payload(name: str, result: RelinkResult) -> dict:
+    """Render a relink result as a JSON-friendly dict for the envelope."""
+    return {
+        "file": name,
+        "ok": result.ok,
+        "entries_total": result.entries_total,
+        "relinked": result.relinked,
+        "written": result.written,
+        "reason": result.reason,
+    }
+
+
+def audit_relink(
+    file_filter: Annotated[
+        str,
+        typer.Option(
+            "--file",
+            help="Which audit file to repair: events, decisions, or all.",
+        ),
+    ] = "all",
+    dry_run: Annotated[
+        bool,
+        typer.Option(
+            "--dry-run",
+            help="Report what would be repaired without writing. Run this first.",
+        ),
+    ] = False,
+) -> None:
+    """Repair a broken hash chain by re-stamping ``prev_event_hash`` pointers.
+
+    The repair counterpart to ``audit verify`` (spec-201 D-201-09). Only
+    chain-pointer fields move: entry payloads are never touched, an
+    unparseable ledger is refused rather than rewritten, and the rewrite
+    is atomic under the same lock every event writer takes.
+
+    This is a write verb on tamper-evidence, so ``--dry-run`` is the
+    documented first step and an unknown ``--file`` value is a hard error
+    rather than the advisory default ``audit verify`` uses.
+    """
+    if file_filter not in {"events", "decisions", "all"}:
+        typer.echo(
+            f"Error: --file must be one of ['all', 'decisions', 'events'], got {file_filter!r}.",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    root = _resolve_project_root()
+    results = [
+        (
+            label,
+            relink_audit_chain(path, mode=mode, project_root=root, dry_run=dry_run),
+        )
+        for label, path, mode in _audit_targets(file_filter, root)
+    ]
+
+    if is_json_mode():
+        from ai_engineering.cli_envelope import emit_success
+
+        emit_success(
+            "audit-relink",
+            {
+                "dry_run": dry_run,
+                "relinks": [_relink_payload(name, r) for name, r in results],
+            },
+        )
+    else:
+        header("Audit chain relink" + (" (dry run)" if dry_run else ""))
+        for name, result in results:
+            if not result.ok:
+                status_line("fail", name, "refused: ledger is unreadable")
+                kv("Reason", result.reason or "-")
+            elif result.relinked == 0:
+                status_line(
+                    "ok",
+                    name,
+                    f"chain already intact ({result.entries_total} entries)",
+                )
+            else:
+                status_line(
+                    "warn" if dry_run else "ok",
+                    name,
+                    f"{result.relinked} of {result.entries_total} entries "
+                    f"{'need relinking' if dry_run else 'relinked'}",
+                )
+
+        if all(r.ok for _, r in results):
+            if dry_run:
+                warning("Dry run: nothing was written. Re-run without --dry-run to repair.")
+            else:
+                success("Audit chains relinked.")
+
+    if not all(r.ok for _, r in results):
+        raise typer.Exit(code=1)
 
 
 # ---------------------------------------------------------------------------
@@ -349,6 +476,7 @@ def audit_replay(
 
 __all__ = [
     "audit_app_marker",
+    "audit_relink",
     "audit_replay",
     "audit_tokens",
     "audit_verify",

@@ -49,13 +49,17 @@ def _ensure_git_repo(path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 _CLAUDE_PREFIXES = (".claude/", "CLAUDE.md")
+# spec-201 D-201-04: `.github/skills` was hard-deleted; every non-Claude
+# surface — Copilot included — now carries the shared `.agents/skills`
+# payload. `_ANTIGRAVITY_ONLY_PREFIXES` is what remains exclusive to the
+# antigravity surface once the shared skill tree is discounted.
 _COPILOT_PREFIXES = (
     ".github/copilot-instructions.md",
-    ".github/skills/",
     ".github/agents/",
     "AGENTS.md",
 )
 _ANTIGRAVITY_PREFIXES = (".agents/",)
+_ANTIGRAVITY_ONLY_PREFIXES = (".agents/agents/",)
 _CODEX_PREFIXES = (".codex/",)
 
 
@@ -160,14 +164,15 @@ class TestUpdateProviderFiltering:
         claude_copilot_project: Path,
     ) -> None:
         """T2: When claude-code + github-copilot are enabled, update must
-        include .claude/ and .github/ paths but NOT .codex/ or .agents/.
+        include .claude/, .github/ and the shared .agents/skills paths,
+        but NOT .codex/ or the antigravity-only .agents/agents tree.
         """
         result = update(claude_copilot_project, dry_run=True)
         paths = _changed_relative_paths(result, claude_copilot_project)
 
-        assert not _has_provider_paths(paths, _ANTIGRAVITY_PREFIXES), (
-            f"Found antigravity paths in claude+copilot update: "
-            f"{[p for p in paths if _has_provider_paths({p}, _ANTIGRAVITY_PREFIXES)]}"
+        assert not _has_provider_paths(paths, _ANTIGRAVITY_ONLY_PREFIXES), (
+            f"Found antigravity-only paths in claude+copilot update: "
+            f"{[p for p in paths if _has_provider_paths({p}, _ANTIGRAVITY_ONLY_PREFIXES)]}"
         )
         assert not _has_provider_paths(paths, _CODEX_PREFIXES), (
             f"Found codex paths in claude+copilot update: "

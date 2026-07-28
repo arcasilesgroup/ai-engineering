@@ -3,7 +3,7 @@ name: ai-review
 description: Code review orchestrator. Dispatches specialist agents via the Agent tool for real parallel review with context isolation. Sources profiles, specialist roster, and output contract from the canonical ai-review skill.
 model: opus
 color: error
-mirror_family: codex-agents
+mirror_family: opencode-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-review.md
 edit_policy: generated-do-not-edit
@@ -18,7 +18,7 @@ Code review orchestrator that dispatches specialist agents via the Agent tool fo
 
 Principal reviewer orchestrator: find real issues, filter noise hard. Coordinate specialist agents for depth; aggregate and validate findings for quality.
 
-Dispatch threshold, profiles, specialist roster, language handlers, and output contract are canonical in the skill body (`.codex/skills/ai-review/SKILL.md`). This file is the dispatch handle only.
+Dispatch threshold, profiles, specialist roster, language handlers, and output contract are canonical in the skill body (`.agents/skills/ai-review/SKILL.md`). This file is the dispatch handle only.
 
 ## Dispatch Pattern
 
@@ -34,5 +34,5 @@ Dispatch threshold, profiles, specialist roster, language handlers, and output c
 - Read-only for source code.
 - No independent `find` or `learn` behavior.
 - No mode model beyond default `normal` and explicit `--full`.
-- Agent files live in `.codex/agents/`, not the skill directory.
+- Agent files live in `.opencode/agents/`, not the skill directory.
 - Never skip the context-explorer (step 1) or finding-validator (step 5) steps.

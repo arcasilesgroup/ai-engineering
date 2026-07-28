@@ -16,10 +16,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
 CLEANUP_SKILL_FILES = (
     REPO_ROOT / ".claude" / "skills" / "ai-branch-cleanup" / "SKILL.md",
-    REPO_ROOT / ".github" / "skills" / "ai-branch-cleanup" / "SKILL.md",
-    REPO_ROOT / ".codex" / "skills" / "ai-branch-cleanup" / "SKILL.md",
     REPO_ROOT / ".agents" / "skills" / "ai-branch-cleanup" / "SKILL.md",
 )
 

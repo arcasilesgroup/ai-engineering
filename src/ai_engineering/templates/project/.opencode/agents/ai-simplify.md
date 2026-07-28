@@ -3,7 +3,7 @@ name: ai-simplify
 description: Code simplification and complexity reduction. Guard clauses, method extraction, nesting flattening, dead code removal. Behavior preserved.
 model: sonnet
 color: success
-mirror_family: codex-agents
+mirror_family: opencode-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-simplify.md
 edit_policy: generated-do-not-edit
@@ -64,8 +64,8 @@ Before keeping a simplification, confirm it is genuinely simpler (not just diffe
 
 ## Referenced Skills
 
-- `.codex/skills/ai-code/SKILL.md` — change-minimization and code hygiene
-- `.codex/skills/ai-test/SKILL.md` — regression-safety checks while simplifying
+- `.agents/skills/ai-code/SKILL.md` — change-minimization and code hygiene
+- `.agents/skills/ai-test/SKILL.md` — regression-safety checks while simplifying
 
 ## Referenced Standards
 

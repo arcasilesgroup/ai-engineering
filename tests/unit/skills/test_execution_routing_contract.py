@@ -8,7 +8,8 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
-_SURFACES = (".claude", ".codex", ".agents", ".github")
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
+_SURFACES = (".claude", ".agents")
 
 
 def _read(path: Path) -> str:

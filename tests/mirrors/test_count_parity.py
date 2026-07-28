@@ -2,10 +2,11 @@
 
 Asserts the canonical surface counts are stable across all IDE mirror trees:
 
-* `.claude/skills/` (canonical source)
-* `.github/skills/` (Copilot Agent Skills mirror)
-* `.codex/skills/` (Codex IDE skills mirror)
-* `.agents/skills/` (Antigravity skills mirror)
+* `.claude/skills/` (canonical source, Claude Code only)
+* `.agents/skills/` (the shared tree every other surface reads)
+
+spec-201 D-201-04 collapsed the seven skill trees to those two, so the
+former `.github/skills/` and `.codex/skills/` legs are gone.
 
 The disk count target landed by sub-005 is documented in
 `.ai-engineering/manifest.yml skills.total`. The umbrella spec target was
@@ -31,8 +32,6 @@ from ai_engineering.config.loader import load_manifest_config
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CLAUDE_SKILLS = REPO_ROOT / ".claude" / "skills"
 CLAUDE_AGENTS = REPO_ROOT / ".claude" / "agents"
-GITHUB_SKILLS = REPO_ROOT / ".github" / "skills"
-CODEX_SKILLS = REPO_ROOT / ".codex" / "skills"
 ANTIGRAVITY_SKILLS = REPO_ROOT / ".agents" / "skills"
 MANIFEST = REPO_ROOT / ".ai-engineering" / "manifest.yml"
 
@@ -42,8 +41,6 @@ MANIFEST = REPO_ROOT / ".ai-engineering" / "manifest.yml"
 # skill currently opts out of any mirror. The map is retained so a future
 # Claude-Code-only skill can re-register its opt-out.
 PROVIDER_SCOPED_SKIPS: dict[str, set[str]] = {
-    "github": set(),
-    "codex": set(),
     "antigravity": set(),
 }
 
@@ -101,22 +98,6 @@ class TestSkillCountParity:
         assert actual == expected, (
             f"manifest.skills.total = {expected} but `.claude/skills/` "
             f"contains {actual} skill directories on disk"
-        )
-
-    def test_github_mirror_count_matches_canonical(self) -> None:
-        canonical = _count_skill_dirs(CLAUDE_SKILLS, ide="github")
-        mirror = _count_skill_dirs(GITHUB_SKILLS, ide="github")
-        assert mirror == canonical, (
-            f".github/skills/ has {mirror} entries; canonical .claude/skills/ has {canonical} "
-            f"(provider-scoped opt-outs applied)"
-        )
-
-    def test_codex_mirror_count_matches_canonical(self) -> None:
-        canonical = _count_skill_dirs(CLAUDE_SKILLS, ide="codex")
-        mirror = _count_skill_dirs(CODEX_SKILLS, ide="codex")
-        assert mirror == canonical, (
-            f".codex/skills/ has {mirror} entries; canonical .claude/skills/ has {canonical} "
-            f"(provider-scoped opt-outs applied)"
         )
 
     def test_antigravity_mirror_count_matches_canonical(self) -> None:

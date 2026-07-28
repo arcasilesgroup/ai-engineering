@@ -56,9 +56,10 @@ def _collect_skill_files(skills_root: Path, *, include_flat_files: bool = False)
 
 
 # Skill directories to scan, in priority order.
+# spec-201 D-201-04: skill trees collapse to `.claude/skills` (Claude Code)
+# and `.agents/skills` (every other surface).
 _SKILL_DIRS: list[str] = [
     ".claude/skills",
-    ".codex/skills",
     ".agents/skills",
     ".ai-engineering/skills",  # legacy, backwards compat
 ]
@@ -67,8 +68,8 @@ _SKILL_DIRS: list[str] = [
 def list_local_skill_status(target: Path) -> list[SkillStatus]:
     """Evaluate local skill requirement eligibility.
 
-    Scans ``.claude/skills/``, ``.codex/skills/``, ``.agents/skills/``,
-    and legacy ``.ai-engineering/skills/`` for SKILL.md files.
+    Scans ``.claude/skills/``, ``.agents/skills/``, and legacy
+    ``.ai-engineering/skills/`` for SKILL.md files.
     """
     manifest = load_manifest_config(target).model_dump()
     install_state = _safe_json_load(target / ".ai-engineering" / "state" / "install-state.json")

@@ -48,7 +48,7 @@
       "findingId": "SNYK-PYTHON-PIP-16964647",
       "followUpAction": "Remove .snyk ignore and this acceptance once pip publishes a fixed CVE-2026-8643 release; re-run snyk to confirm green.",
       "id": "DEC-2026-06-22-DE51947D",
-      "prevEventHash": "feead46cd6388d60ca86d3bb9f031ab150afe754707413eb52ced5f19e3b3812",
+      "prevEventHash": "401d734f1965006c2c10479e5c0df4964c87f96bf3ae937e98962fc79eca8be3",
       "renewalCount": 0,
       "riskCategory": "risk-acceptance",
       "severity": "high",

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-27T10:35:16Z",
+  "generatedAt": "2026-07-28T00:48:09Z",
   "hookCount": 79,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "d1edab1ec6b001bb05d90ab36e3adee795661cd6a9a5aa05ae75fa08896fd936",
@@ -8,8 +8,8 @@
     ".ai-engineering/scripts/hooks/_lib/copilot-common.sh": "0249a872a2760f35fb0ee5f734dadeb75d39a62e4b4d65e53583ca96e9033bea",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.ps1": "576913bb87dc2b8767d432404278c42d4115b2894b4b8f52adcc13eef3a08624",
     ".ai-engineering/scripts/hooks/_lib/copilot-runtime.sh": "736c8c834b3712f7a70be237cd97df19092f01944c986d256384aa81951cf2f8",
-    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "f542f163d38d90749176c14d76539757f8a78177dccc71c4022ab5ce2ab23e4a",
-    ".ai-engineering/scripts/hooks/_lib/hook_context.py": "fff7fbd6a26e681771b21d30c2bfc35a05e1e59a5ef7cf019c02385608177735",
+    ".ai-engineering/scripts/hooks/_lib/hook-common.py": "2ebfe9038e8470e8ab493cb1210cab5caede77885174cec88dc24a1a96bf1c6b",
+    ".ai-engineering/scripts/hooks/_lib/hook_context.py": "d20e81511efe859f25bae4880466ef3e32c863c36182317d32e59de8931b4900",
     ".ai-engineering/scripts/hooks/_lib/hook_http.py": "1f9a541a3d38bc3be967de875105aed06a9768476eeaf75a74715f172fc4d5e1",
     ".ai-engineering/scripts/hooks/_lib/injection_patterns.py": "b04be25e5cddb003208cc8bd9f89902b38f569ca2b88880455b84a7d25d2d120",
     ".ai-engineering/scripts/hooks/_lib/instincts.py": "a3ee6ed53b967bda9754f089e8fa750a9801440f9840d59ef4acb8e072c48df7",
@@ -17,7 +17,7 @@
     ".ai-engineering/scripts/hooks/_lib/ioc_eval.py": "6ef358e4013ee8a56bfe415171e16f010913622d8b35050773c68cb00cea7ada",
     ".ai-engineering/scripts/hooks/_lib/locked_append.py": "7b1fcfc49524eb465b17a381e65872f9a9458b4f0d040cb40072721f995b4ff5",
     ".ai-engineering/scripts/hooks/_lib/locking.py": "33717578f361f9518dd016a21ccf5d2359ab25801557801cd2a7b07f32f0ba7f",
-    ".ai-engineering/scripts/hooks/_lib/observability.py": "55ad7706aa53aace269c7b0a1e7ea0606b2ff88651b77541ed2c2c2ca851f484",
+    ".ai-engineering/scripts/hooks/_lib/observability.py": "c9a6adca9b61602961160288234d3dba76e10637cb9592940183f0fc35509ea9",
     ".ai-engineering/scripts/hooks/_lib/relevance.py": "f0e0b8cae628c6ca739e3919fbef04e02ed48a715a87209a3c6caa8958c04014",
     ".ai-engineering/scripts/hooks/_lib/resolve-python.sh": "9241824de15afd70600fc6f4023516b2174926e3b9a1aa5c06ca69d128602c47",
     ".ai-engineering/scripts/hooks/_lib/risk_accumulator.py": "4be592ac6b22a3b181b3dc3665c78c30bafb0505b77bb4df773aec51b249148f",
@@ -90,6 +90,6 @@
   ],
   "trustedScripts": {
     ".ai-engineering/scripts/hooks/no-verify-guard.py": "38cf04d30f394d74e95904a9a7b532fa1e02a1038869ed98c5e1274264d3c00f",
-    ".ai-engineering/scripts/session_bootstrap.py": "f04e5b587849102912e80c303e46858548f95cb47bb4f9e391da81362e92a1ac"
+    ".ai-engineering/scripts/session_bootstrap.py": "8cba4aea62ec2fe1990ce1c979f76d3cc3fda9b17f57d8450489e13f1e44d8dc"
   }
 }

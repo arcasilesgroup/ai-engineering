@@ -225,9 +225,9 @@ def check_all_skills(
 
     Returns ``[(skill_md_path, result), ...]`` sorted by path so CI
     output stays stable. A Claude-Code-only skill absent from
-    ``.github/skills/`` is an allow-listed gap: if the skill is absent
-    under the walked root, no result rows are emitted for it (other
-    mirrors are responsible for surfacing the absence if applicable).
+    ``.agents/skills/`` is an allow-listed gap: if the skill is absent
+    under the walked root, no result rows are emitted for it (the other
+    tree is responsible for surfacing the absence if applicable).
     """
     if not skills_root.is_dir():
         raise FileNotFoundError(f"skills root {skills_root} does not exist")

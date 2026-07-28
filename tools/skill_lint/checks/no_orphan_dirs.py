@@ -52,15 +52,13 @@ class RubricResult:
 # Surfaces that mirror the canonical .claude/skills/ tree. ai-debug and
 # ai-review live in each of these as part of the mirror-sync output, so
 # their handlers/ dirs must not reappear in any of them either.
+# spec-201 D-201-04: skill trees collapsed to two — .claude/skills
+# (Claude Code) and .agents/skills (every other surface).
 _SURFACE_SKILLS_ROOTS: tuple[str, ...] = (
     ".claude/skills",
-    ".codex/skills",
     ".agents/skills",
-    ".github/skills",
     "src/ai_engineering/templates/project/.claude/skills",
-    "src/ai_engineering/templates/project/.codex/skills",
     "src/ai_engineering/templates/project/.agents/skills",
-    "src/ai_engineering/templates/project/.github/skills",
 )
 
 _HANDLERS_OWNERS: tuple[str, ...] = ("ai-debug", "ai-review")

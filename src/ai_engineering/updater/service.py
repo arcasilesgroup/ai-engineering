@@ -1187,14 +1187,19 @@ def _migrate_tools_json(ai_eng_dir: Path) -> bool:
 
 
 def _cleanup_legacy_prompts(target: Path) -> None:
-    """Remove legacy ``.github/prompts/`` when ``.github/skills/`` exists.
+    """Remove legacy ``.github/prompts/`` once the skill payload is installed.
 
     The framework migrated from flat prompt files to directory-based Agent
     Skills in spec-077.  Projects that upgrade retain orphaned prompt files
     that may confuse Copilot if both directories are present.
+
+    spec-201 D-201-04: the presence probe moved from ``.github/skills`` —
+    hard-deleted with the collapse — to the shared ``.agents/skills`` tree
+    Copilot now reads. Leaving it on the old path would have made this
+    cleanup a silent no-op for every upgrading consumer.
     """
     legacy = target / _GITHUB_DIR / "prompts"
-    new = target / _GITHUB_DIR / "skills"
+    new = target / ".agents" / "skills"
     if not legacy.is_dir() or not new.is_dir():
         return
     for f in sorted(legacy.rglob("*"), reverse=True):

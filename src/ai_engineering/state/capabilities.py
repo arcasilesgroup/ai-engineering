@@ -289,7 +289,9 @@ def classify_write_scope(scope: str) -> WriteScopeClass:
         return WriteScopeClass.GENERATED
     if normalized.startswith((".claude/", ".codex/", ".agents/")):
         return WriteScopeClass.MIRROR
-    if normalized.startswith((".github/agents/", ".github/skills/")):
+    # spec-201 D-201-04: `.github/skills/` was hard-deleted; Copilot now
+    # reads the shared `.agents/skills` tree classified above.
+    if normalized.startswith(".github/agents/"):
         return WriteScopeClass.MIRROR
     if normalized.startswith((".github/hooks/", ".ai-engineering/scripts/hooks/")):
         return WriteScopeClass.HOOK

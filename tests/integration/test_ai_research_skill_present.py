@@ -46,23 +46,19 @@ EXPECTED_HANDLER_FILES = (
     "persist-artifact.md",
 )
 
-MIRROR_SKILL_FILES = (
-    REPO_ROOT / ".codex" / "skills" / "ai-research" / "SKILL.md",
-    REPO_ROOT / ".agents" / "skills" / "ai-research" / "SKILL.md",
-    REPO_ROOT / ".github" / "skills" / "ai-research" / "SKILL.md",
-)
+# spec-201 D-201-04: the sole generated skill tree is .agents/skills.
+MIRROR_SKILL_FILES = (REPO_ROOT / ".agents" / "skills" / "ai-research" / "SKILL.md",)
 
 
 def test_skill_and_mirrors_exist() -> None:
-    """Canonical /ai-research SKILL.md, 7 handlers, and 3 IDE mirrors are present.
+    """Canonical /ai-research SKILL.md, 7 handlers, and the shared mirror are present.
 
     Asserts:
     1. ``.claude/skills/ai-research/SKILL.md`` is a regular file at the
        repository root.
     2. Each of the 7 expected handler files exists under
        ``.claude/skills/ai-research/handlers/``.
-    3. Mirror ``SKILL.md`` exists at ``.codex/skills/ai-research/``,
-       ``.agents/skills/ai-research/``, and ``.github/skills/ai-research/``.
+    3. Mirror ``SKILL.md`` exists at ``.agents/skills/ai-research/``.
     """
     assert CLAUDE_SKILL_FILE.is_file(), (
         f"Canonical /ai-research SKILL.md must exist at: {CLAUDE_SKILL_FILE}. "
@@ -80,8 +76,8 @@ def test_skill_and_mirrors_exist() -> None:
 
     missing_mirrors = [str(path) for path in MIRROR_SKILL_FILES if not path.is_file()]
     assert not missing_mirrors, (
-        "Full IDE-adapted mirrors of /ai-research SKILL.md must exist for "
-        "Codex, Antigravity, and GitHub Copilot. "
+        "The IDE-adapted mirror of /ai-research SKILL.md must exist in the "
+        "shared .agents/skills tree. "
         f"Missing: {missing_mirrors}. "
         "Run sync-mirrors per spec-111 T-1.4."
     )

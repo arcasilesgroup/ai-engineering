@@ -48,7 +48,17 @@ _REQUIRED_KEYS: tuple[str, ...] = (
     "project",
 )
 _ALLOWED_ENGINES: frozenset[str] = frozenset(
-    {"claude_code", "codex", "antigravity", "copilot", "ai_engineering"}
+    {
+        "claude_code",
+        "codex",
+        "antigravity",
+        "copilot",
+        "ai_engineering",
+        # spec-201 D-201-06 — mirrors tools/skill_domain/event_schema.py.
+        # Drift is guarded by tests/unit/state/test_engine_enum_single_source.py.
+        "openai_compatible",
+        "unknown",
+    }
 )
 _ENGINE_ALIASES: dict[str, str] = {"github_copilot": "copilot"}
 _ALLOWED_KINDS: frozenset[str] = frozenset(
@@ -74,6 +84,8 @@ _ALLOWED_KINDS: frozenset[str] = frozenset(
         # ``ai_engineering.adapters.host.probe`` when a skill consults the
         # host before dispatch.
         "host_capacity",
+        # spec-201 D-201-07 — emitted by /ai-spec-draft step 6.
+        "brief_drafted",
     }
 )
 
@@ -257,7 +269,16 @@ def emit_event(project_root: Path, event: dict) -> bool:
     Spec-112 G-4: malformed events are refused (logged to stderr) so the
     audit stream stays trustworthy. Spec-110 D-110-03: stamps
     `prev_event_hash` at the **root** of the on-disk JSON object.
+
+    Spec-201 D-201-07: an ENUM refusal — a structurally complete event whose
+    `kind` or `engine` the frozensets do not admit — additionally emits a
+    `framework_error` so the refusal is visible on the audit plane it
+    protects. All four callers in this module discard the boolean, so the
+    return value alone never surfaced anything.
     """
+    if not isinstance(event, dict):
+        logger.error("hook-common: refusing to emit non-dict event (%s)", type(event).__name__)
+        return False
     normalized_event = dict(event)
     engine = normalized_event.get("engine")
     if isinstance(engine, str):
@@ -265,9 +286,10 @@ def emit_event(project_root: Path, event: dict) -> bool:
     if not validate_event_schema(normalized_event):
         logger.error(
             "hook-common: refusing to emit malformed event (kind=%s engine=%s)",
-            normalized_event.get("kind") if isinstance(normalized_event, dict) else None,
-            normalized_event.get("engine") if isinstance(normalized_event, dict) else None,
+            normalized_event.get("kind"),
+            normalized_event.get("engine"),
         )
+        _emit_schema_refusal(project_root, normalized_event)
         return False
     path = _events_path(project_root)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -346,6 +368,67 @@ def _load_with_lock_retry():
                     sys.path.remove(hooks_parent)
 
 
+def _load_detect_engine():
+    """Resolve ``detect_engine`` even when ``_lib`` is not on ``sys.path``.
+
+    Same shape as ``_load_with_lock_retry`` above and for the same reason:
+    this module is sometimes loaded via ``spec_from_file_location`` under a
+    synthetic package name, so the canonical ``_lib.hook_context`` import
+    raises ``ModuleNotFoundError``. Returns ``None`` when the sibling
+    module cannot be resolved at all — the caller degrades rather than
+    blocking an emit.
+    """
+    import importlib
+
+    try:
+        return importlib.import_module("_lib.hook_context").detect_engine
+    except ModuleNotFoundError:
+        import contextlib
+
+        hooks_parent = str(Path(__file__).parent.parent)
+        added = hooks_parent not in sys.path
+        if added:
+            sys.path.insert(0, hooks_parent)
+        try:
+            return importlib.import_module("_lib.hook_context").detect_engine
+        except Exception:
+            return None
+        finally:
+            if added:
+                with contextlib.suppress(ValueError):
+                    sys.path.remove(hooks_parent)
+    except Exception:
+        return None
+
+
+def _resolve_engine() -> str:
+    """Return the engine label for the inline emits in this module.
+
+    Spec-201 D-201-06: the four emit sites below each hardcoded
+    ``os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"``, while
+    ``_lib.hook_context`` terminated its detection ladder at ``unknown``.
+    On a foreign harness that split dropped some events (``unknown`` was
+    outside the engine enum) and **mislabelled the rest as Claude Code**,
+    which makes multi-harness attribution impossible. One ladder, two
+    callers.
+
+    Degraded path: when ``_lib.hook_context`` cannot be imported, resolve
+    from the same two env vars and terminate at the same ``unknown`` — a
+    ``claude_code`` fallback here would reintroduce the exact defect.
+    """
+    detect = _load_detect_engine()
+    if detect is not None:
+        try:
+            return detect()
+        except Exception:
+            pass
+    return (
+        os.environ.get("AIENG_HOOK_ENGINE", "").strip()
+        or os.environ.get("AIENG_HOOK_ENGINE_DEFAULT", "").strip()
+        or "unknown"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Convenience: hot-path duration timer (used by Phase 3 SLO instrumentation
 # but exposed here so hooks can wrap their work without re-importing time).
@@ -383,7 +466,7 @@ def _emit_hook_heartbeat(
     """
     try:
         project_root = _resolve_project_root()
-        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        engine = _resolve_engine()
         detail: dict = {
             "hook_kind": hook_kind,
             "outcome": outcome,
@@ -450,6 +533,113 @@ def _record_error_coalesced(
         return verdict
 
 
+def _is_enum_refusal(event: dict) -> bool:
+    """True when an otherwise well-formed event was refused for its LABEL only.
+
+    Spec-201 D-201-07 scope boundary. Two refusal classes reach
+    ``emit_event``:
+
+    * A structurally complete event carrying a ``kind`` / ``engine`` the
+      frozensets do not admit. This is the defect class spec-201 exists to
+      close — ``brief_drafted`` was refused on every ``/ai-spec-draft`` run
+      and every foreign-harness engine label was refused outright — and it
+      is invisible without an audit-plane record, because the producer is a
+      correct caller and the fault is fleet configuration.
+    * A caller that omitted a required key. That is a local programming
+      error, it is already named on stderr by the ``logger.error`` above,
+      and its silent-refusal contract is pinned by
+      ``tests/unit/hooks/test_hook_common_lib.py`` (the NDJSON must stay
+      empty). It stays silent.
+    """
+    for key in _REQUIRED_KEYS:
+        value = event.get(key)
+        if value is None or value == "":
+            return False
+    if not isinstance(event.get("detail", {}), dict):
+        return False
+    return event.get("kind") not in _ALLOWED_KINDS or event.get("engine") not in _ALLOWED_ENGINES
+
+
+# Re-entrancy sentinel for ``_emit_schema_refusal``. The refusal is itself
+# announced with an event, so a refusal event that were also refused would
+# re-enter ``emit_event`` forever. Hooks are single-process and
+# single-threaded, so a module-level flag is sufficient and cheaper than a
+# lock on the hot path.
+_IN_SCHEMA_REFUSAL = False
+
+
+def _emit_schema_refusal(project_root: Path, refused: dict) -> None:
+    """Announce a schema-refused emit on the audit plane (spec-201 D-201-07).
+
+    Routed through the spec-190 storm coalescer so a systematically refused
+    kind (the ``brief_drafted`` case: every ``/ai-spec-draft`` run, forever)
+    collapses into one full event plus periodic rollups instead of one line
+    per emit.
+
+    Fail-open per ``.ai-engineering/reference/gate-policy.md``: this is
+    plumbing, so it must LOG but must never block or raise — ``emit_event``
+    is reached from four hook paths that only wrap it in a bare
+    ``except Exception``.
+    """
+    global _IN_SCHEMA_REFUSAL
+
+    if _IN_SCHEMA_REFUSAL or not _is_enum_refusal(refused):
+        return
+    _IN_SCHEMA_REFUSAL = True
+    try:
+        component = refused.get("component") or "hook.emit_event"
+        error_code = "event_schema_refused"
+        refused_kind = str(refused.get("kind"))
+        refused_engine = str(refused.get("engine"))
+        summary = f"refused kind={refused_kind} engine={refused_engine}"[:200]
+        session_id = get_session_id()
+        verdict = _record_error_coalesced(
+            project_root,
+            component=str(component),
+            error_code=error_code,
+            summary=summary,
+            session_id=session_id,
+        )
+        if verdict.get("emit_full", True):
+            detail: dict = {
+                "error_code": error_code,
+                "summary": summary,
+                "refused_kind": refused_kind,
+                "refused_engine": refused_engine,
+            }
+            if verdict.get("is_rollup"):
+                detail["occurrences"] = verdict.get("occurrences")
+            event = {
+                "kind": "framework_error",
+                "engine": _resolve_engine(),
+                "frameworkVersion": _resolve_framework_version(project_root),
+                "timestamp": _now_iso(),
+                "component": str(component),
+                "outcome": "failure",
+                "correlationId": get_correlation_id(),
+                "schemaVersion": "1.0",
+                "project": project_root.name,
+                "source": "hook",
+                "detail": detail,
+            }
+            if session_id:
+                event["sessionId"] = session_id
+            emit_event(project_root, event)
+        if verdict.get("storm_triggered"):
+            _emit_error_storm_control(
+                project_root,
+                component=str(component),
+                error_code=error_code,
+                fingerprint=verdict.get("fingerprint", ""),
+                occurrences=verdict.get("occurrences", 0),
+                hook_kind="emit_event",
+            )
+    except Exception:
+        pass
+    finally:
+        _IN_SCHEMA_REFUSAL = False
+
+
 def _emit_error_storm_control(
     project_root: Path,
     *,
@@ -465,10 +655,10 @@ def _emit_error_storm_control(
     operator sees the storm without scanning the raw NDJSON. Fail-open.
     """
     try:
-        # FINDING 6: match the accompanying framework_error engine (env or
-        # claude_code) instead of the divergent "ai_engineering" so the two
-        # hook-side dual-writer events carry a consistent engine.
-        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        # FINDING 6: match the accompanying framework_error engine (the
+        # resolved harness) instead of the divergent "ai_engineering" so the
+        # two hook-side dual-writer events carry a consistent engine.
+        engine = _resolve_engine()
         event = {
             "kind": "control_outcome",
             "engine": engine,
@@ -507,7 +697,7 @@ def _emit_hook_error(*, component: str, hook_kind: str, exc: BaseException) -> N
     """
     try:
         project_root = _resolve_project_root()
-        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        engine = _resolve_engine()
         summary = str(exc)[:200]
         session_id = get_session_id()
         error_code = "hook_execution_failed"
@@ -630,7 +820,7 @@ def _emit_integrity_violation(*, component: str, hook_kind: str, reason: str, mo
     """
     try:
         project_root = _resolve_project_root()
-        engine = os.environ.get("AIENG_HOOK_ENGINE") or "claude_code"
+        engine = _resolve_engine()
         summary = reason[:200]
         session_id = get_session_id()
         error_code = "hook_integrity_violation"

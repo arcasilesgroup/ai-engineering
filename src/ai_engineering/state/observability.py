@@ -13,7 +13,11 @@ from ai_engineering.config.loader import load_manifest_config
 from ai_engineering.state.capabilities import build_capability_cards
 from ai_engineering.state.control_plane import resolve_constitution_context_path
 from ai_engineering.state.defaults import projection_update_metadata
-from ai_engineering.state.event_schema import ALLOWED_EVENT_KINDS, normalize_engine_id
+from ai_engineering.state.event_schema import (
+    ALLOWED_ENGINES,
+    ALLOWED_EVENT_KINDS,
+    normalize_engine_id,
+)
 from ai_engineering.state.io import _json_serializer
 from ai_engineering.state.locking import artifact_lock
 from ai_engineering.state.models import (
@@ -127,7 +131,16 @@ def _append_framework_events_locked(project_root: Path, entries: list[FrameworkE
         if kind not in ALLOWED_EVENT_KINDS:
             msg = f"Unsupported framework event kind: {kind!r}"
             raise ValueError(msg)
-        data["engine"] = normalize_engine_id(str(data["engine"]))
+        engine = normalize_engine_id(str(data["engine"]))
+        # Spec-201 D-201-06: fail CLOSED, symmetric with the kind check above.
+        # ``kind`` was enum-checked here and ``engine`` was only normalised,
+        # so any string reached the audit chain unchallenged. Callers on this
+        # path are CLI / library code, not a sub-second hook hot path, so an
+        # explicit raise is correct; the stdlib hook twin coerces instead.
+        if engine not in ALLOWED_ENGINES:
+            msg = f"Unsupported framework event engine: {engine!r}"
+            raise ValueError(msg)
+        data["engine"] = engine
         data["prev_event_hash"] = previous_hash
         line = json.dumps(data, sort_keys=True, default=_json_serializer)
         lines.append(line)

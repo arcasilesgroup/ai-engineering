@@ -1,10 +1,11 @@
-"""Verify Copilot skill template copies are byte-for-byte identical to root.
+"""Verify shared skill template copies are byte-for-byte identical to root.
 
-The project maintains a three-platform mirror system.  Copilot skill files
-live in two locations:
+spec-201 D-201-04 collapsed the seven skill trees to two. ``.agents/skills``
+is the shared tree every non-Claude surface reads, and it lives in two
+locations:
 
-  - Root (canonical): ``.github/skills/ai-*/SKILL.md`` (plus handlers)
-  - Template (installed copy): ``src/ai_engineering/templates/project/.github/skills/ai-*/SKILL.md``
+  - Root (canonical): ``.agents/skills/ai-*/SKILL.md`` (plus handlers)
+  - Template (installed copy): ``src/ai_engineering/templates/project/.agents/skills/ai-*/SKILL.md``
 
 Template copies MUST be identical to the canonical root files so that
 ``ai-eng install`` delivers the exact same skills to downstream projects.
@@ -18,9 +19,9 @@ from pathlib import Path
 import pytest
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
-_ROOT_SKILLS = _PROJECT_ROOT / ".github" / "skills"
+_ROOT_SKILLS = _PROJECT_ROOT / ".agents" / "skills"
 _TEMPLATE_SKILLS = (
-    _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".github" / "skills"
+    _PROJECT_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".agents" / "skills"
 )
 
 

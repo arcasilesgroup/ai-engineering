@@ -183,8 +183,13 @@ _SURFACE_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     "claude-code": [
         (".claude", ".claude"),
     ],
+    # spec-201 D-201-04/D-201-05: skills collapse to two trees. Every
+    # non-Claude surface carries `.agents/skills` as its skill payload;
+    # its own tree keeps only the parts that did not collapse (agents,
+    # commands, hooks). Re-pointing here is what stops a consumer who
+    # installed with `--surfaces <x>` from receiving zero skills (RK-13).
     "github-copilot": [
-        (".github/skills", ".github/skills"),
+        (".agents/skills", ".agents/skills"),
         (".github/hooks", ".github/hooks"),
         ("agents", ".github/agents"),
         # spec-128 D-128-04: `.github/instructions/` deleted entirely.
@@ -193,17 +198,25 @@ _SURFACE_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     ],
     "codex": [
         (".codex", ".codex"),
+        (".agents/skills", ".agents/skills"),
     ],
     # spec-133 D-133-06: 3 new Surfaces. Tree destinations match
     # tree_dir in the Surface registry (domain/surface.py).
     "opencode": [
         (".opencode", ".opencode"),
+        (".agents/skills", ".agents/skills"),
     ],
     "cursor": [
         (".cursor", ".cursor"),
+        (".agents/skills", ".agents/skills"),
     ],
+    # spec-201: split into its two real subtrees rather than the whole
+    # `.agents` root so the shared skills row deduplicates against the other
+    # surfaces' entries (a whole-tree row would make the updater visit every
+    # shared skill file twice).
     "antigravity": [
-        (".agents", ".agents"),
+        (".agents/skills", ".agents/skills"),
+        (".agents/agents", ".agents/agents"),
     ],
 }
 

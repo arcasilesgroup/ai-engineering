@@ -107,7 +107,9 @@ def test_copilot_color_stripped(agent_path: Path) -> None:
     )
 
 
-# ── Claude (canonical) + Codex (passthrough): names preserved ─────────────
+# ── Claude (canonical): names preserved ───────────────────────────────────
+# spec-201 D-201-23 deleted `.codex/agents`, so the Codex colour-passthrough
+# leg went with it. Codex's agent namespace accepts TOML only.
 
 
 @pytest.mark.parametrize("agent_path", _iter_agent_files(TPL / ".claude" / "agents"))
@@ -117,13 +119,4 @@ def test_claude_color_is_valid_name(agent_path: Path) -> None:
         return  # specialist agents may carry no color — tolerable
     assert value in _CLAUDE_VALID_NAMES, (
         f"{agent_path.name}: color={value!r} not in Claude's 8-name enum"
-    )
-
-
-@pytest.mark.parametrize("agent_path", _iter_agent_files(TPL / ".codex" / "agents"))
-def test_codex_color_passthrough(agent_path: Path) -> None:
-    value = _extract_color(agent_path)
-    assert value is not None, f"{agent_path.name}: codex must passthrough color"
-    assert value in _CLAUDE_VALID_NAMES, (
-        f"{agent_path.name}: codex color={value!r} not in canonical enum"
     )

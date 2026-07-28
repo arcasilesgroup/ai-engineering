@@ -69,14 +69,31 @@ def _compute_prev_decision_hash(store: DecisionStore) -> str | None:
     the prior decision (excluding the field itself). The chain anchor
     is ``None``; legacy stores remain untouched and the chain simply
     starts from the next write.
+
+    Spec-201: the hash is taken over the prior decision's **on-disk**
+    payload. A ``mode="json"`` dump keeps the microseconds that
+    ``datetime.now(tz=UTC)`` produces, but the disk writer truncates to
+    seconds — so hashing the in-memory form pointed every freshly
+    created decision at a payload that never reached the file, breaking
+    the chain on its own first write.
     """
     from ai_engineering.state.audit_chain import compute_entry_hash
+    from ai_engineering.state.decision_store_io import decision_disk_payload
 
     if not store.decisions:
         return None
-    prior = store.decisions[-1]
-    payload = prior.model_dump(by_alias=True, exclude_none=True, mode="json")
-    return compute_entry_hash(payload)
+    return compute_entry_hash(decision_disk_payload(store.decisions[-1]))
+
+
+def _relink_tail(store: DecisionStore) -> int:
+    """Re-stamp chain pointers after an in-place mutation (spec-201).
+
+    Mutating a decision changes its hash, which invalidates the pointer
+    of every decision after it. Whoever mutates owns the re-link.
+    """
+    from ai_engineering.state.decision_store_io import relink_decision_tail
+
+    return relink_decision_tail(store)
 
 
 def find_reusable_decision(
@@ -367,6 +384,9 @@ def renew_decision(
     # Mark original as superseded and preserve the successor link on the ledger.
     original.status = DecisionStatus.SUPERSEDED
     original.superseded_by = new_id  # ty:ignore[unresolved-attribute]
+    # The mutation above invalidates every pointer after ``original``;
+    # repair them before the new entry chains onto the tail.
+    _relink_tail(store)
 
     renewed = Decision(
         id=new_id,
@@ -409,6 +429,7 @@ def revoke_decision(store: DecisionStore, *, decision_id: str) -> Decision:
         msg = f"Decision '{decision_id}' not found"
         raise ValueError(msg)
     decision.status = DecisionStatus.REVOKED
+    _relink_tail(store)
     store.refresh_active_decisions()
     return decision
 
@@ -431,5 +452,6 @@ def mark_remediated(store: DecisionStore, *, decision_id: str) -> Decision:
         msg = f"Decision '{decision_id}' not found"
         raise ValueError(msg)
     decision.status = DecisionStatus.REMEDIATED
+    _relink_tail(store)
     store.refresh_active_decisions()
     return decision

@@ -15,8 +15,9 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BUILD_HANDLER_REL = Path("skills/ai-build/handlers/quality.md")
-ROOT_SURFACES = (".claude", ".codex", ".agents", ".github")
-TEMPLATE_HANDLER_SURFACES = (".claude", ".codex", ".agents", ".github")
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
+ROOT_SURFACES = (".claude", ".agents")
+TEMPLATE_HANDLER_SURFACES = (".claude", ".agents")
 
 _ADVISORY_MARKERS = (
     "Advisory + conservative",

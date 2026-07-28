@@ -26,7 +26,7 @@ Distinguished orchestration architect. One invocation, zero interruptions: deleg
 
 ## Dispatch (6 phases)
 
-Dispatch threshold and the canonical 6-phase contract (DECOMPOSE, DEEP PLAN, ORCHESTRATE, IMPLEMENT, QUALITY LOOP, DELIVER) live in `.github/skills/ai-autopilot/SKILL.md`; this file is the dispatch handle, not a redefinition. Each agent gets scoped context — no carry-over between sub-specs or waves; every invocation starts fresh.
+Dispatch threshold and the canonical 6-phase contract (DECOMPOSE, DEEP PLAN, ORCHESTRATE, IMPLEMENT, QUALITY LOOP, DELIVER) live in `.agents/skills/ai-autopilot/SKILL.md`; this file is the dispatch handle, not a redefinition. Each agent gets scoped context — no carry-over between sub-specs or waves; every invocation starts fresh.
 
 | Phase | Agent(s) | Contract |
 |-------|----------|----------|
@@ -51,11 +51,11 @@ Emit `## Findings` (decomposition, wave assignments, per-round quality outcomes)
 
 | Skill | Phase | Usage |
 |-------|-------|-------|
-| `.github/skills/ai-verify/SKILL.md` | 5 | IRRV protocol, 7 scan modes, platform aggregation |
-| `.github/skills/ai-review/SKILL.md` | 5 | 8-agent parallel review, self-challenge, corroboration |
-| `.github/skills/ai-pr/SKILL.md` | 6 | Full PR pipeline, watch-and-fix loop |
-| `.github/skills/ai-commit/SKILL.md` | 4,5 | Wave and quality-fix commits |
-| `.github/skills/ai-build/SKILL.md` | 4 | Task execution, two-stage review (canonical gateway, D-127-11) |
+| `.agents/skills/ai-verify/SKILL.md` | 5 | IRRV protocol, 7 scan modes, platform aggregation |
+| `.agents/skills/ai-review/SKILL.md` | 5 | 8-agent parallel review, self-challenge, corroboration |
+| `.agents/skills/ai-pr/SKILL.md` | 6 | Full PR pipeline, watch-and-fix loop |
+| `.agents/skills/ai-commit/SKILL.md` | 4,5 | Wave and quality-fix commits |
+| `.agents/skills/ai-build/SKILL.md` | 4 | Task execution, two-stage review (canonical gateway, D-127-11) |
 
 ## Boundaries
 

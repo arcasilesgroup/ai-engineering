@@ -1,8 +1,9 @@
 """Phase 1 GREEN: shared handlers propagate to all IDE mirrors (spec-106 R-1).
 
 R-1 mitigation: ``_shared/execution-kernel.md`` MUST exist in every IDE
-mirror surface (.codex/, .agents/, .github/) so cross-IDE consumers see the
-same canonical kernel that the .claude/ orchestrators delegate to.
+mirror surface so cross-IDE consumers see the same canonical kernel that
+the .claude/ orchestrators delegate to. spec-201 D-201-04 collapsed the
+skill trees to two, so the sole mirror surface is now ``.agents/``.
 
 Mirror sync applies ``translate_refs()`` per-target IDE so canonical
 ``.claude/`` paths inside the kernel body get rewritten to the IDE-specific
@@ -21,9 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 CANONICAL = REPO_ROOT / ".claude" / "skills" / "_shared" / "execution-kernel.md"
 MIRROR_TARGETS = (
-    (REPO_ROOT / ".codex" / "skills" / "_shared" / "execution-kernel.md", "codex"),
     (REPO_ROOT / ".agents" / "skills" / "_shared" / "execution-kernel.md", "antigravity"),
-    (REPO_ROOT / ".github" / "skills" / "_shared" / "execution-kernel.md", "copilot"),
 )
 INSTALL_TEMPLATE = (
     REPO_ROOT

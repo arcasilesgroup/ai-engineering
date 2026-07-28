@@ -3,38 +3,22 @@
 Maps the canonical ``.claude/`` tree to ``.opencode/`` per OpenCode's
 native skills convention (folder per skill, agent-discovered lazy-load):
 
-  .claude/skills/ai-<name>/SKILL.md  ->  .opencode/skills/ai-<name>/SKILL.md
   .claude/skills/ai-<name>/SKILL.md  ->  .opencode/commands/ai-<name>.md
   .claude/agents/ai-<name>.md        ->  .opencode/agents/ai-<name>.md
 
-OpenCode separates two surfaces (https://opencode.ai/docs/skills/ +
-https://opencode.ai/docs/commands/):
-
-* ``skills/`` — agent-discovered, lazy-loaded, NOT visible in the ``/``
-  slash menu. The agent sees ``name`` + ``description`` and loads the
-  full body via the ``skill`` tool when relevant.
-* ``commands/`` — saved-prompt slash commands that DO appear in ``/``
-  menu. Each command body is a prompt template.
-
-Both surfaces are required: skills give the agent on-demand expertise,
-commands give the human the muscle-memory ``/ai-<name>`` entry point
-they expect from Claude Code parity. The command body is a thin
-wrapper that invokes the skill by name (the agent then lazy-loads the
-canonical body via the ``skill`` tool), so the skill remains SSOT.
+spec-201 D-201-04 collapsed the skill trees to two, so OpenCode reads
+its skills from the shared ``.agents/skills`` tree that the installer
+now ships. Only ``commands/`` remains OpenCode-local (D-201-22): those
+saved-prompt slash commands DO appear in the ``/`` menu and supply the
+``/ai-<name>`` muscle-memory entry point Claude Code parity requires.
+Each command body is a thin wrapper that invokes the skill by name, so
+the canonical SKILL.md remains SSOT.
 
 OpenCode reads ``AGENTS.md`` (project root, primary) + ``CLAUDE.md``
 (fallback) for primary instructions; both are byte-equivalent to the
 canonical payload, so no per-surface root rewrite is required.
 
-The skill generator reuses ``generate_codex_skill`` (structural
-equivalence with the AGENTS.md-rooted convention). OpenCode's SKILL.md
-schema recognises ``name`` (1-64 chars, lowercase-alphanumeric-hyphen,
-matches dir name), ``description`` (mandatory), ``license``,
-``compatibility``, and ``metadata`` (string-to-string map). The Codex
-generator already produces ``name`` + ``description``; extra Claude
-fields are ignored gracefully.
-
-The agent generator post-processes Codex output to translate
+The agent generator post-processes the translated output to map
 Claude-style color names (``red``, ``green``, ...) into OpenCode's
 schema. OpenCode validates ``color`` strictly (Zod) and rejects
 unrecognised values, so passthrough is not possible:
@@ -53,10 +37,7 @@ from pathlib import Path
 
 import yaml
 
-from scripts.sync_mirrors.core import (
-    generate_codex_agent,
-    generate_codex_skill,
-)
+from scripts.sync_mirrors.core import generate_opencode_agent_markdown
 
 # Maps Claude Code's 8 named colors to OpenCode semantic tokens that
 # preserve intent (success/error/warning/info) where possible. Names
@@ -94,20 +75,9 @@ def _translate_opencode_color(content: str) -> str:
     return _COLOR_LINE_RE.sub(_repl, content)
 
 
-def generate_opencode_skill(name: str, skill_path: Path) -> str:
-    """Generate .opencode/skills/ai-<name>/SKILL.md (native agent-discovered skill).
-
-    OpenCode reads on-demand skills from ``.opencode/skills/<name>/SKILL.md``
-    (folder per skill). The agent scans ``name`` + ``description`` and lazy-
-    loads the full file body when relevant. Frontmatter contract matches
-    ``.codex/`` (AGENTS.md-rooted).
-    """
-    return generate_codex_skill(name, skill_path)
-
-
 def generate_opencode_agent(name: str, agent_path: Path) -> str:
     """Generate .opencode/agents/ai-<name>.md with translated color."""
-    return _translate_opencode_color(generate_codex_agent(name, agent_path))
+    return _translate_opencode_color(generate_opencode_agent_markdown(name, agent_path))
 
 
 _FRONTMATTER_RE = re.compile(r"^---\n(.*?)\n---\n", re.DOTALL)
@@ -183,5 +153,4 @@ def generate_opencode_command(name: str, skill_path: Path) -> str:
 __all__ = [
     "generate_opencode_agent",
     "generate_opencode_command",
-    "generate_opencode_skill",
 ]

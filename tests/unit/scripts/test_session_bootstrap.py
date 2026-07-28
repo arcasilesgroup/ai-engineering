@@ -136,12 +136,15 @@ _EXPECTED_SURFACES: set[str] = {
     "antigravity",
 }
 
+# spec-201 D-201-04: skills collapse to `.claude/skills` (Claude Code) and
+# `.agents/skills` (every other surface). Agent trees stay surface-local
+# (D-201-22), except `.codex/agents` which was hard-deleted (D-201-23).
 _EXPECTED_SURFACE_DIRS: dict[str, tuple[str, str]] = {
     "claude-code": (".claude/skills", ".claude/agents"),
-    "codex": (".codex/skills", ".codex/agents"),
-    "github-copilot": (".github/skills", ".github/agents"),
-    "opencode": (".opencode/skills", ".opencode/agents"),
-    "cursor": (".cursor/skills", ".cursor/agents"),
+    "codex": (".agents/skills", ".agents/agents"),
+    "github-copilot": (".agents/skills", ".github/agents"),
+    "opencode": (".agents/skills", ".opencode/agents"),
+    "cursor": (".agents/skills", ".cursor/agents"),
     "antigravity": (".agents/skills", ".agents/agents"),
 }
 
@@ -219,7 +222,7 @@ class TestSurfaceDirs:
         )
 
     def test_surface_dirs_codex_layout(self) -> None:
-        """``codex`` must map to ``.codex/skills`` / ``.codex/agents``."""
+        """``codex`` must map to ``.agents/skills`` / ``.agents/agents``."""
         mod = _load_session_bootstrap_module()
         surface_dirs: dict = mod._SURFACE_DIRS
         assert surface_dirs["codex"] == _EXPECTED_SURFACE_DIRS["codex"], (
@@ -227,7 +230,7 @@ class TestSurfaceDirs:
         )
 
     def test_surface_dirs_github_copilot_layout(self) -> None:
-        """``github-copilot`` must map to ``.github/skills`` / ``.github/agents``."""
+        """``github-copilot`` must map to ``.agents/skills`` / ``.github/agents``."""
         mod = _load_session_bootstrap_module()
         surface_dirs: dict = mod._SURFACE_DIRS
         assert surface_dirs["github-copilot"] == _EXPECTED_SURFACE_DIRS["github-copilot"], (
@@ -235,7 +238,7 @@ class TestSurfaceDirs:
         )
 
     def test_surface_dirs_opencode_layout(self) -> None:
-        """``opencode`` must map to ``.opencode/skills`` / ``.opencode/agents``."""
+        """``opencode`` must map to ``.agents/skills`` / ``.opencode/agents``."""
         mod = _load_session_bootstrap_module()
         surface_dirs: dict = mod._SURFACE_DIRS
         assert surface_dirs["opencode"] == _EXPECTED_SURFACE_DIRS["opencode"], (
@@ -243,7 +246,7 @@ class TestSurfaceDirs:
         )
 
     def test_surface_dirs_cursor_layout(self) -> None:
-        """``cursor`` must map to ``.cursor/skills`` / ``.cursor/agents``."""
+        """``cursor`` must map to ``.agents/skills`` / ``.cursor/agents``."""
         mod = _load_session_bootstrap_module()
         surface_dirs: dict = mod._SURFACE_DIRS
         assert surface_dirs["cursor"] == _EXPECTED_SURFACE_DIRS["cursor"], (
@@ -296,7 +299,11 @@ class TestSurfaceAwareCounts:
     # case 1 — github-copilot surface
     # ------------------------------------------------------------------
     def test_github_copilot_surface_skills_and_agents(self, tmp_path: Path) -> None:
-        """github-copilot surface: 3 skills + 2 ``*.agent.md`` agents under .github/."""
+        """github-copilot: 3 shared skills + 2 ``*.agent.md`` agents under .github/.
+
+        spec-201 D-201-04: Copilot resolves its skills from the shared
+        ``.agents/skills`` tree; only its agent tree stays surface-local.
+        """
         manifest = self._write_manifest(
             tmp_path,
             "surfaces:\n  enabled:\n  - github-copilot\n",
@@ -304,7 +311,7 @@ class TestSurfaceAwareCounts:
 
         # stub skills
         for name in ("skill-a", "skill-b", "skill-c"):
-            skill_dir = tmp_path / ".github" / "skills" / name
+            skill_dir = tmp_path / ".agents" / "skills" / name
             skill_dir.mkdir(parents=True)
             (skill_dir / "SKILL.md").write_text(f"# {name}\n")
 
@@ -338,7 +345,7 @@ class TestSurfaceAwareCounts:
         ("surface", "agents_dir", "counted_name", "ignored_name"),
         [
             ("claude-code", ".claude/agents", "ai-build.md", "build.agent.md"),
-            ("codex", ".codex/agents", "ai-build.md", "build.agent.md"),
+            ("codex", ".agents/agents", "ai-build.md", "build.agent.md"),
             ("github-copilot", ".github/agents", "build.agent.md", "ai-build.md"),
             ("opencode", ".opencode/agents", "ai-build.md", "build.agent.md"),
             ("cursor", ".cursor/agents", "ai-build.mdc", "ai-build.md"),
@@ -396,17 +403,22 @@ class TestSurfaceAwareCounts:
     # case 3 — codex surface
     # ------------------------------------------------------------------
     def test_codex_surface(self, tmp_path: Path) -> None:
-        """codex surface: 1 skill + 1 agent under .codex/."""
+        """codex surface: 1 skill + 1 agent under the shared .agents/ tree.
+
+        spec-201 D-201-04 collapsed ``.codex/skills`` into ``.agents/skills``
+        and D-201-23 hard-deleted ``.codex/agents`` as a namespace squat, so
+        Codex resolves both from ``.agents/``.
+        """
         manifest = self._write_manifest(
             tmp_path,
             "surfaces:\n  enabled:\n  - codex\n",
         )
 
-        skill_dir = tmp_path / ".codex" / "skills" / "skill-x"
+        skill_dir = tmp_path / ".agents" / "skills" / "skill-x"
         skill_dir.mkdir(parents=True)
         (skill_dir / "SKILL.md").write_text("# skill-x\n")
 
-        agents_dir = tmp_path / ".codex" / "agents"
+        agents_dir = tmp_path / ".agents" / "agents"
         agents_dir.mkdir(parents=True)
         (agents_dir / "ai-x.md").write_text("# ai-x\n")
 

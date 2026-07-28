@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import hashlib
 import json
 import os
 import re
@@ -258,8 +259,72 @@ def _find_by_slug(project_root: Path, slug: str) -> SpecRecord | None:
     return None
 
 
+# Chain-pointer field names stripped before hashing (canonical + camelCase
+# alias), mirroring ``ai_engineering.state.audit_chain``.
+_PREV_HASH_KEYS = ("prev_event_hash", "prevEventHash")
+
+# Bytes read from the tail of the ledger to locate the last event. The file
+# runs to tens of MB, so reading it whole just to hash the final line would
+# blow the <500ms budget every lifecycle verb holds.
+_EVENT_TAIL_BYTES = 65_536
+
+
+def _compute_event_hash(event: dict) -> str:
+    """SHA-256 of the canonical-JSON form of *event*, chain pointers stripped.
+
+    Stdlib-only twin of ``audit_chain.compute_entry_hash``: identical
+    canonicalization (sorted keys, compact separators, UTF-8 bytes) so a
+    pointer written here verifies against the same hash the framework
+    verifier computes.
+    """
+    stripped = {k: v for k, v in event.items() if k not in _PREV_HASH_KEYS}
+    canonical = json.dumps(stripped, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _read_prev_event_hash(path: Path) -> str | None:
+    """Hash of the last event on disk, or ``None`` to anchor the chain.
+
+    Reads a bounded tail. If the final record is larger than that window
+    the read falls back to the whole file rather than hashing a partial
+    line -- a truncated hash would write a pointer that verifies as a
+    break.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return None
+    if size == 0:
+        return None
+    try:
+        with path.open("rb") as fh:
+            if size > _EVENT_TAIL_BYTES:
+                fh.seek(-_EVENT_TAIL_BYTES, os.SEEK_END)
+            chunk = fh.read()
+        if size > _EVENT_TAIL_BYTES and b"\n" not in chunk.rstrip(b"\n"):
+            chunk = path.read_bytes()
+    except OSError:
+        return None
+    lines = [ln for ln in chunk.decode("utf-8", errors="replace").splitlines() if ln.strip()]
+    if not lines:
+        return None
+    try:
+        prior = json.loads(lines[-1])
+    except ValueError:
+        return None
+    if not isinstance(prior, dict):
+        return None
+    return _compute_event_hash(prior)
+
+
 def _append_event(project_root: Path, operation: str, detail: dict) -> None:
-    """Append one ``framework_operation`` NDJSON event under the events lock."""
+    """Append one *chained* ``framework_operation`` event under the events lock.
+
+    The pointer is read and stamped inside the lock this function already
+    held: computing it outside would race any concurrent writer, and
+    omitting it (the pre-spec-201 behaviour) left pointer-less rows that
+    the verifier can only treat as legacy anchors.
+    """
     payload = {
         "id": str(uuid.uuid4()),
         "timestamp": _utcnow_iso(),
@@ -267,14 +332,12 @@ def _append_event(project_root: Path, operation: str, detail: dict) -> None:
         "outcome": "success",
         "detail": {"operation": operation, **detail},
     }
-    line = json.dumps(payload, sort_keys=True) + "\n"
     target = _events_path(project_root)
     target.parent.mkdir(parents=True, exist_ok=True)
-    with (
-        artifact_lock(project_root, "framework-events"),
-        target.open("a", encoding="utf-8") as f,
-    ):
-        f.write(line)
+    with artifact_lock(project_root, "framework-events"):
+        payload["prev_event_hash"] = _read_prev_event_hash(target)
+        with target.open("a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, sort_keys=True) + "\n")
 
 
 # --- _history.md projection ------------------------------------------------

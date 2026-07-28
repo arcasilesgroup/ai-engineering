@@ -266,16 +266,6 @@ _CLAUDE_AGENTS_MIRROR = (
     "src/ai_engineering/templates/project/.claude/agents",
 )
 
-_CODEX_SKILLS_MIRROR = (
-    ".codex/skills",
-    "src/ai_engineering/templates/project/.codex/skills",
-)
-
-_CODEX_AGENTS_MIRROR = (
-    ".codex/agents",
-    "src/ai_engineering/templates/project/.codex/agents",
-)
-
 _ANTIGRAVITY_SKILLS_MIRROR: tuple[str, str] = (
     ".agents/skills",
     "src/ai_engineering/templates/project/.agents/skills",
@@ -284,11 +274,6 @@ _ANTIGRAVITY_SKILLS_MIRROR: tuple[str, str] = (
 _ANTIGRAVITY_AGENTS_MIRROR: tuple[str, str] = (
     ".agents/agents",
     "src/ai_engineering/templates/project/.agents/agents",
-)
-
-_COPILOT_SKILLS_MIRROR = (
-    ".github/skills",
-    "src/ai_engineering/templates/project/.github/skills",
 )
 
 _COPILOT_AGENTS_MIRROR = (
@@ -302,11 +287,11 @@ _MANUAL_INSTRUCTION_FILES = get_manual_instruction_files()
 
 # Skill/agent listing patterns in instruction files (IDE-specific paths)
 _SKILL_PATH_PATTERN = re.compile(
-    r"^- `(?:\.claude|\.codex|\.agents)/skills/([^`/]+)/SKILL\.md`",
+    r"^- `(?:\.claude|\.agents)/skills/([^`/]+)/SKILL\.md`",
     re.MULTILINE,
 )
 _AGENT_PATH_PATTERN = re.compile(
-    r"^- `(?:\.claude|\.codex|\.agents)/agents/([^`/]+)\.md`",
+    r"^- `(?:\.claude|\.agents)/agents/([^`/]+)\.md`",
     re.MULTILINE,
 )
 _SKILL_NAME_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
