@@ -161,6 +161,15 @@ exists to correct.
   Codex ships no hook-listing verb and a live `codex exec` needs auth plus network, so the
   gate proves the guard fires when the event is delivered; that Codex delivers `PostToolUse`
   for non-shell tools (`web_search`) is an operator acceptance item.
+- **Codex needs a one-time re-trust for the new PostToolUse entry.** Codex trusts hook
+  entries by position — `<event>:<group>:<index>` — so an upgrade that reorders groups
+  silently invalidates every existing trust entry and the plane comes up inert with no
+  warning. `no-verify-guard` is therefore APPENDED to the existing `PreToolUse` group
+  (`pretooluse:0:3`), leaving `0:0`–`0:2` and their trust entries exactly where they were.
+  The read-side guard at `posttooluse:1:0` (`injection-read-guard`) is genuinely new and has
+  no trust entry: an upgrading operator must approve it once, at the first `PostToolUse`
+  prompt, or that lane stays inert. Nothing in `.codex/hooks.json` may be re-ordered or
+  inserted before an existing entry without paying this cost again.
 - **`cursor-hook-bridge.py`'s sha pin is stale until the terminal manifest regen.** Its
   bytes changed in this spec. This does **not** open the Cursor plane: the bridge does not
   run under `run_hook_safe`, and the guards it spawns (`no-verify-guard.py`,

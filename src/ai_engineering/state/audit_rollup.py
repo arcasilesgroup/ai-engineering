@@ -22,9 +22,13 @@ spec-201 (sub-003) adds two session-level semantics:
 * **Summary de-duplication.** A ``session_token_rollup`` event restates the
   whole session, so adding it to the members it summarises would double-count.
   Its usage accumulates separately and each field is reported as
-  ``max(member_sum, summary)`` — the same "never undercount" rule the emitter
-  uses when merging its two sources. Members carry no usage today, so the
-  summary supplies the number; the max rule stays correct once they do.
+  ``max(member_sum, summary_max)`` — the same "never undercount" rule the
+  emitter uses when merging its two sources. Members carry no usage today, so
+  the summary supplies the number; the max rule stays correct once they do.
+  The summary bucket itself reduces with MAX, not SUM: one summary is emitted
+  per turn and each restates the *cumulative* session total, so N of them are
+  a monotone series whose sum overstates by roughly the turn count
+  (spec-201 B1).
 * **``genai_system`` column.** Comma-joined sorted distinct
   ``detail.genai.system`` values seen in the session, ``""`` when none. A
   session can legitimately span several drivers (subagents on different
@@ -95,6 +99,23 @@ def _new_acc() -> dict[str, Any]:
     return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost_usd": 0.0}
 
 
+def _absorb_summary(event: dict[str, Any], acc: dict[str, Any]) -> None:
+    """Field-wise MAX of a session summary into ``acc``.
+
+    Every turn emits a ``session_token_rollup`` restating the session's
+    *cumulative* total, so N summaries form a monotone series. Summing them
+    reports the series' sum instead of its last value — an overstatement that
+    grows with turn count and multiplies any reported cost by the same factor
+    (spec-201 B1). Max is the correct reduction and is idempotent under
+    repeat emission.
+    """
+    usage = _usage(event)
+    acc["input_tokens"] = max(acc["input_tokens"], _int(usage.get("input_tokens")))
+    acc["output_tokens"] = max(acc["output_tokens"], _int(usage.get("output_tokens")))
+    acc["total_tokens"] = max(acc["total_tokens"], _int(usage.get("total_tokens")))
+    acc["cost_usd"] = max(acc["cost_usd"], _float(usage.get("cost_usd")))
+
+
 def _is_session_summary(event: dict[str, Any]) -> bool:
     """True for the ``session_token_rollup`` event, which restates a session."""
     detail = event.get("detail")
@@ -156,9 +177,11 @@ def agent_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
 def session_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
     """Per-session token rollup; ``started_at``/``ended_at`` = MIN/MAX timestamp.
 
-    Member usage and ``session_token_rollup`` summary usage accumulate
-    separately and are reconciled as ``max(member, summary)`` per field so a
-    summary can never double-count the events it summarises.
+    Member usage SUMS; ``session_token_rollup`` summary usage reduces with MAX
+    (each summary restates the cumulative session total, so summing them
+    inflates by the turn count); the two are reconciled as
+    ``max(member_sum, summary_max)`` per field so a summary can never
+    double-count the events it summarises.
     """
     meta: dict[str, dict[str, Any]] = {}
     members: dict[str, dict[str, Any]] = {}
@@ -185,8 +208,10 @@ def session_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
         system = _genai_system(event)
         if system:
             systems[session_id].add(system)
-        bucket = summaries if _is_session_summary(event) else members
-        _accumulate(event, bucket[session_id])
+        if _is_session_summary(event):
+            _absorb_summary(event, summaries[session_id])
+        else:
+            _accumulate(event, members[session_id])
     rows: list[dict[str, Any]] = []
     for sid, row in sorted(meta.items()):
         member = members[sid]

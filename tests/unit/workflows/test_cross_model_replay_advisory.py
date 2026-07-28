@@ -30,7 +30,29 @@ REPLAY_PATH = REPO_ROOT / ".github" / "workflows" / "cross-model-replay.yml"
 SKILL_EVALS_PATH = REPO_ROOT / ".github" / "workflows" / "skill-evals.yml"
 CI_CHECK_PATH = REPO_ROOT / ".github" / "workflows" / "ci-check.yml"
 SPEC_PATH = REPO_ROOT / ".ai-engineering" / "specs" / "spec.md"
+ARCHIVE_DIR = REPO_ROOT / ".ai-engineering" / "specs" / "archive"
 CORPUS_DIR = REPO_ROOT / ".ai-engineering" / "evals" / "cross-model-replay"
+_PLACEHOLDER_PREFIX = "# No active spec"
+
+
+def _spec_text() -> str | None:
+    """The spec-201 spec, wherever the lifecycle currently keeps it.
+
+    D-167 consolidation runs ``mark_shipped`` on this branch BEFORE the merge:
+    it snapshots the spec into ``specs/archive/spec-201-<slug>/spec.md`` and
+    overwrites the live slot with the ``# No active spec`` placeholder. A test
+    bound to the live slot alone reds this PR, then reds ``main``, then blocks
+    every subsequent PR — the idle-slot regression already paid for once in
+    PR#565. Archive first, live slot second, placeholder tolerated.
+    """
+    candidates = [*sorted(ARCHIVE_DIR.glob("spec-201-*/spec.md")), SPEC_PATH]
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        text = candidate.read_text(encoding="utf-8")
+        if not text.lstrip().startswith(_PLACEHOLDER_PREFIX):
+            return text
+    return None
 
 
 def _uses(workflow: dict) -> set[str]:
@@ -105,7 +127,9 @@ def test_introduces_no_new_action_reference(workflow: dict) -> None:
 
 def test_spec_records_the_data_governance_posture() -> None:
     """RK-11: retention, tenancy, jurisdiction and model licences, in the spec."""
-    spec = SPEC_PATH.read_text(encoding="utf-8")
+    spec = _spec_text()
+    if spec is None:
+        pytest.skip("spec-201 is neither in the live slot nor in the archive")
     assert "## Data Governance" in spec
     section = spec.split("## Data Governance", 1)[1].split("\n## ", 1)[0].lower()
     for item in ("retention", "tenancy", "jurisdiction", "licen"):

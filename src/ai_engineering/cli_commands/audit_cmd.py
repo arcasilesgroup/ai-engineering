@@ -24,6 +24,7 @@ surface reads ``framework-events.ndjson`` directly:
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Annotated, Any, Literal, cast
 
@@ -49,6 +50,7 @@ from ai_engineering.state.audit_rollup import (
     session_token_rollup,
     skill_token_rollup,
 )
+from ai_engineering.state.observability import emit_framework_operation
 
 _AuditMode = Literal["ndjson", "json_array"]
 
@@ -177,8 +179,8 @@ def audit_verify(
         success("All requested audit chains are intact.")
     elif strict:
         warning(
-            "One or more audit chains reported a break. "
-            "Repair with `ai-eng audit relink --file <events|decisions>`."
+            "One or more audit chains reported a break. Review with "
+            "`ai-eng audit relink --file <events|decisions>`, then apply with --write."
         )
         raise typer.Exit(code=1)
     else:
@@ -224,6 +226,63 @@ def _relink_payload(name: str, result: RelinkResult) -> dict:
     }
 
 
+def _backup_ledger(path: Path) -> Path:
+    """Copy ``path`` to ``<name>.bak`` before a repair rewrites it.
+
+    ``framework-events.ndjson`` is gitignored, so a relink of it is otherwise
+    unrecoverable — there is no second copy anywhere (spec-201 H9). Raises
+    ``OSError`` on failure; the caller refuses the repair rather than mutating
+    tamper-evidence with no way back.
+    """
+    backup = path.with_name(path.name + ".bak")
+    shutil.copy2(path, backup)
+    return backup
+
+
+def _emit_relink_event(
+    root: Path,
+    *,
+    file_filter: str,
+    before: list[tuple[str, AuditChainVerdict]],
+    results: list[tuple[str, RelinkResult]],
+    backups: dict[str, str],
+) -> None:
+    """Record the repair in the audit chain itself.
+
+    The only write verb on the integrity plane used to leave no trace at all:
+    doctor FAILed, the operator ran the printed remedy, the chain verified
+    clean, and nothing anywhere said a repair had happened (spec-201 H9).
+    Emitted AFTER the rewrite so the event chains onto the repaired ledger.
+    """
+    verdicts = dict(before)
+    emit_framework_operation(
+        root,
+        operation="audit_relink",
+        component="cli.audit-relink",
+        source="cli",
+        metadata={
+            "file_filter": file_filter,
+            "files": [
+                {
+                    "file": name,
+                    "entries_checked_before": (
+                        verdicts[name].entries_checked if name in verdicts else None
+                    ),
+                    "chain_ok_before": verdicts[name].ok if name in verdicts else None,
+                    "first_break_index_before": (
+                        verdicts[name].first_break_index if name in verdicts else None
+                    ),
+                    "entries_after": result.entries_total,
+                    "relinked": result.relinked,
+                    "written": result.written,
+                    "backup": backups.get(name),
+                }
+                for name, result in results
+            ],
+        },
+    )
+
+
 def audit_relink(
     file_filter: Annotated[
         str,
@@ -232,11 +291,11 @@ def audit_relink(
             help="Which audit file to repair: events, decisions, or all.",
         ),
     ] = "all",
-    dry_run: Annotated[
+    write: Annotated[
         bool,
         typer.Option(
-            "--dry-run",
-            help="Report what would be repaired without writing. Run this first.",
+            "--write",
+            help="Apply the repair. Without it the verb only reports (the default).",
         ),
     ] = False,
 ) -> None:
@@ -247,8 +306,12 @@ def audit_relink(
     unparseable ledger is refused rather than rewritten, and the rewrite
     is atomic under the same lock every event writer takes.
 
-    This is a write verb on tamper-evidence, so ``--dry-run`` is the
-    documented first step and an unknown ``--file`` value is a hard error
+    This is the only write verb on the integrity plane, so it is
+    report-only until ``--write`` says otherwise (spec-201 H9), it copies
+    each ledger to ``<name>.bak`` before touching it — ``framework-events.ndjson``
+    is gitignored, so a repair is otherwise unrecoverable — and it records the
+    repair as an ``audit_relink`` ``framework_operation`` carrying the
+    before/after entry counts. An unknown ``--file`` value is a hard error
     rather than the advisory default ``audit verify`` uses.
     """
     if file_filter not in {"events", "decisions", "all"}:
@@ -258,14 +321,52 @@ def audit_relink(
         )
         raise typer.Exit(code=2)
 
+    dry_run = not write
     root = _resolve_project_root()
+    targets = _audit_targets(file_filter, root)
+
+    # Record the pre-repair state before anything moves: once the chain is
+    # re-stamped the break it repaired is unreconstructable.
+    before = [_verify_one(label, path, mode) for label, path, mode in targets]
+
+    backups: dict[str, str] = {}
+    if not dry_run:
+        for label, path, _mode in targets:
+            if not path.exists():
+                continue
+            try:
+                backups[label] = _backup_ledger(path).name
+            except OSError as exc:
+                typer.echo(
+                    f"Error: cannot back up {path} before repairing it ({exc}). "
+                    "Refusing to rewrite tamper-evidence with no way back.",
+                    err=True,
+                )
+                raise typer.Exit(code=1) from exc
+
     results = [
         (
             label,
             relink_audit_chain(path, mode=mode, project_root=root, dry_run=dry_run),
         )
-        for label, path, mode in _audit_targets(file_filter, root)
+        for label, path, mode in targets
     ]
+
+    event_recorded = True
+    if not dry_run and any(r.written for _, r in results):
+        try:
+            _emit_relink_event(
+                root,
+                file_filter=file_filter,
+                before=before,
+                results=results,
+                backups=backups,
+            )
+        except Exception:
+            # The rewrite already happened; an unrecorded repair on
+            # tamper-evidence must stay visible, so surface it below rather
+            # than crash with a traceback the operator can ignore.
+            event_recorded = False
 
     if is_json_mode():
         from ai_engineering.cli_envelope import emit_success
@@ -274,11 +375,13 @@ def audit_relink(
             "audit-relink",
             {
                 "dry_run": dry_run,
+                "backups": backups,
+                "event_recorded": event_recorded,
                 "relinks": [_relink_payload(name, r) for name, r in results],
             },
         )
     else:
-        header("Audit chain relink" + (" (dry run)" if dry_run else ""))
+        header("Audit chain relink" + (" (report only)" if dry_run else ""))
         for name, result in results:
             if not result.ok:
                 status_line("fail", name, "refused: ledger is unreadable")
@@ -296,14 +399,22 @@ def audit_relink(
                     f"{result.relinked} of {result.entries_total} entries "
                     f"{'need relinking' if dry_run else 'relinked'}",
                 )
+        for name, backup in sorted(backups.items()):
+            kv(f"Backup ({name})", backup)
 
         if all(r.ok for _, r in results):
             if dry_run:
-                warning("Dry run: nothing was written. Re-run without --dry-run to repair.")
+                warning("Report only: nothing was written. Re-run with --write to repair.")
             else:
                 success("Audit chains relinked.")
 
-    if not all(r.ok for _, r in results):
+    if not event_recorded:
+        warning(
+            "The repair was applied but could NOT be recorded as an audit_relink event. "
+            "Note it manually: an unrecorded repair on tamper-evidence is invisible."
+        )
+
+    if not all(r.ok for _, r in results) or not event_recorded:
         raise typer.Exit(code=1)
 
 

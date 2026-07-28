@@ -4,7 +4,10 @@ The operator-facing repair verb for the two hash-chained ledgers. It is a
 *write* verb on tamper-evidence, so the CLI contract pinned here is
 deliberately narrow:
 
-* ``--dry-run`` reports without touching a byte (the documented first step);
+* it is report-only until ``--write`` (spec-201 H9): the default invocation
+  cannot consume tamper-evidence;
+* ``--write`` leaves a ``<name>.bak`` beside each ledger it rewrites and
+  records the repair as an ``audit_relink`` ``framework_operation``;
 * ``--file`` targets one ledger, and an unknown value is a hard error
   rather than a silent default (unlike the read-only ``audit verify``);
 * the repaired ledger verifies clean afterwards;
@@ -78,12 +81,26 @@ def _seed_broken_decisions(project_root: Path) -> Path:
     return path
 
 
+def _relink_events(project_root: Path) -> dict:
+    """Return the ``audit_relink`` event recorded in the events ledger."""
+    path = project_root / ".ai-engineering" / "state" / "framework-events.ndjson"
+    if not path.exists():
+        return {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        event = json.loads(line)
+        if (event.get("detail") or {}).get("operation") == "audit_relink":
+            return event
+    return {}
+
+
 def test_relink_events_repairs_the_chain(project_root: Path) -> None:
-    """The default text path repairs the events ledger and exits 0."""
+    """``--write`` repairs the events ledger and exits 0."""
     path = _seed_broken_events(project_root)
     assert not verify_audit_chain(path, mode="ndjson").ok
 
-    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events"])
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events", "--write"])
 
     assert result.exit_code == 0, result.output
     assert verify_audit_chain(path, mode="ndjson").ok
@@ -94,59 +111,107 @@ def test_relink_decisions_repairs_the_chain(project_root: Path) -> None:
     """``--file decisions`` repairs the git-tracked ledger."""
     path = _seed_broken_decisions(project_root)
 
-    result = runner.invoke(create_app(), ["audit", "relink", "--file", "decisions"])
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "decisions", "--write"])
 
     assert result.exit_code == 0, result.output
     assert verify_audit_chain(path, mode="json_array").ok
 
 
 def test_relink_file_filter_scopes_the_repair(project_root: Path) -> None:
-    """``--file decisions`` leaves the events ledger untouched."""
+    """``--file decisions`` never re-stamps the events ledger.
+
+    The events ledger does gain the ``audit_relink`` record — that is where the
+    audit chain lives — so the assertion is on the seeded entries: every one of
+    them, including the break, must survive byte-identical.
+    """
     events = _seed_broken_events(project_root)
     _seed_broken_decisions(project_root)
-    before = events.read_bytes()
+    seeded = events.read_text(encoding="utf-8").splitlines()
 
-    result = runner.invoke(create_app(), ["audit", "relink", "--file", "decisions"])
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "decisions", "--write"])
 
     assert result.exit_code == 0, result.output
-    assert events.read_bytes() == before
+    after = events.read_text(encoding="utf-8").splitlines()
+    assert after[: len(seeded)] == seeded
+    assert not verify_audit_chain(events, mode="ndjson").ok, "the events break must survive"
 
 
-def test_relink_dry_run_writes_nothing(project_root: Path) -> None:
-    """``--dry-run`` reports the count without touching the ledger."""
+def test_relink_without_write_reports_and_writes_nothing(project_root: Path) -> None:
+    """The DEFAULT invocation cannot consume tamper-evidence (spec-201 H9).
+
+    Doctor FAILs, the operator pastes the printed remedy — and before this the
+    chain was silently re-stamped with no record, no backup and no prompt. The
+    default now reports; ``--write`` is the deliberate second step.
+    """
     path = _seed_broken_events(project_root)
     before = path.read_bytes()
 
-    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events", "--dry-run"])
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events"])
 
     assert result.exit_code == 0, result.output
     assert path.read_bytes() == before
     assert not verify_audit_chain(path, mode="ndjson").ok
+    assert not list(path.parent.glob("*.bak"))
+    assert not _relink_events(project_root)
+
+
+def test_relink_write_leaves_a_backup_beside_the_ledger(project_root: Path) -> None:
+    """``framework-events.ndjson`` is gitignored: the .bak is the only way back."""
+    path = _seed_broken_events(project_root)
+    before = path.read_bytes()
+
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events", "--write"])
+
+    assert result.exit_code == 0, result.output
+    backup = path.with_name(path.name + ".bak")
+    assert backup.is_file()
+    assert backup.read_bytes() == before, "the backup must hold the PRE-repair bytes"
+
+
+def test_relink_write_records_the_repair_in_the_chain(project_root: Path) -> None:
+    """A repair that leaves no trace is indistinguishable from a clean chain."""
+    _seed_broken_events(project_root)
+
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events", "--write"])
+
+    assert result.exit_code == 0, result.output
+    event = _relink_events(project_root)
+    assert event, "no audit_relink event recorded"
+    recorded = event["detail"]["files"][0]
+    assert recorded["file"] == "events"
+    assert recorded["chain_ok_before"] is False
+    assert recorded["first_break_index_before"] == 2
+    assert recorded["relinked"] == 1
+    assert recorded["entries_after"] == 4
+    assert recorded["backup"] == "framework-events.ndjson.bak"
 
 
 def test_relink_json_envelope(project_root: Path) -> None:
     """The global ``--json`` flag emits a machine-readable envelope."""
     _seed_broken_events(project_root)
 
-    result = runner.invoke(create_app(), ["--json", "audit", "relink", "--file", "events"])
+    result = runner.invoke(
+        create_app(), ["--json", "audit", "relink", "--file", "events", "--write"]
+    )
 
     assert result.exit_code == 0, result.output
     payload = json.loads(result.output[result.output.index("{") :])
     assert payload["ok"] is True
+    assert payload["result"]["event_recorded"] is True
+    assert payload["result"]["backups"] == {"events": "framework-events.ndjson.bak"}
     relinks = payload["result"]["relinks"]
     assert [r["file"] for r in relinks] == ["events"]
     assert relinks[0]["relinked"] == 1
     assert relinks[0]["written"] is True
 
 
-def test_relink_json_dry_run_reports_written_false(project_root: Path) -> None:
+def test_relink_json_report_only_reports_written_false(project_root: Path) -> None:
     _seed_broken_events(project_root)
 
-    result = runner.invoke(
-        create_app(), ["--json", "audit", "relink", "--file", "events", "--dry-run"]
-    )
+    result = runner.invoke(create_app(), ["--json", "audit", "relink", "--file", "events"])
 
     payload = json.loads(result.output[result.output.index("{") :])
+    assert payload["result"]["dry_run"] is True
     relinks = payload["result"]["relinks"]
     assert relinks[0]["relinked"] == 1
     assert relinks[0]["written"] is False
@@ -157,7 +222,7 @@ def test_relink_defaults_to_both_ledgers(project_root: Path) -> None:
     events = _seed_broken_events(project_root)
     decisions = _seed_broken_decisions(project_root)
 
-    result = runner.invoke(create_app(), ["audit", "relink"])
+    result = runner.invoke(create_app(), ["audit", "relink", "--write"])
 
     assert result.exit_code == 0, result.output
     assert verify_audit_chain(events, mode="ndjson").ok
@@ -169,7 +234,7 @@ def test_relink_rejects_unknown_file_filter(project_root: Path) -> None:
     path = _seed_broken_events(project_root)
     before = path.read_bytes()
 
-    result = runner.invoke(create_app(), ["audit", "relink", "--file", "evnts"])
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "evnts", "--write"])
 
     assert result.exit_code == 2
     assert path.read_bytes() == before
@@ -177,7 +242,7 @@ def test_relink_rejects_unknown_file_filter(project_root: Path) -> None:
 
 def test_relink_missing_ledger_is_a_noop(project_root: Path) -> None:
     """A repo with no ledger yet exits 0 and creates nothing."""
-    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events"])
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events", "--write"])
 
     assert result.exit_code == 0, result.output
     assert not (project_root / ".ai-engineering" / "state" / "framework-events.ndjson").exists()
@@ -189,7 +254,7 @@ def test_relink_refuses_an_unparseable_ledger(project_root: Path) -> None:
     path.write_text('{"kind": "a"}\nnot json\n', encoding="utf-8")
     before = path.read_bytes()
 
-    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events"])
+    result = runner.invoke(create_app(), ["audit", "relink", "--file", "events", "--write"])
 
     assert result.exit_code == 1
     assert path.read_bytes() == before

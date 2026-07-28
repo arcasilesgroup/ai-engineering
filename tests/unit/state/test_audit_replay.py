@@ -239,6 +239,99 @@ def test_token_rollup_sums_subtree(project_root: Path) -> None:
     assert rollup["cost_usd"] == pytest.approx(0.06)
 
 
+def _summary_detail(*, input_tokens: int, output_tokens: int, total_tokens: int, cost_usd: float):
+    """A ``session_token_rollup`` detail: it restates the whole session."""
+    detail = _genai_detail(
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        cost_usd=cost_usd,
+    )
+    detail["operation"] = "session_token_rollup"
+    return detail
+
+
+def test_token_rollup_reduces_repeated_session_summaries_with_max(
+    project_root: Path,
+) -> None:
+    """Four per-turn summaries are one cumulative series, not four sessions.
+
+    ``ai-eng audit replay`` shared ``ai-eng audit tokens``' defect: each turn's
+    ``session_token_rollup`` restates the cumulative session total, and summing
+    them reported the sum of a monotone series. Live evidence for session
+    ``69b84fb2``: ``[170922, 189500, 360422, 720844]`` rendered as 1441688
+    (spec-201 B1).
+    """
+    events = [
+        _make_event(
+            index=index,
+            span_id=_hex16(f"summary-{index}"),
+            detail=_summary_detail(
+                input_tokens=inp,
+                output_tokens=out,
+                total_tokens=total,
+                cost_usd=cost,
+            ),
+        )
+        for index, (inp, out, total, cost) in enumerate(
+            [
+                (120000, 50922, 170922, 0.10),
+                (130000, 59500, 189500, 0.20),
+                (250000, 110422, 360422, 0.40),
+                (500000, 220844, 720844, 0.80),
+            ]
+        )
+    ]
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
+
+    rollup = token_rollup(roots)
+
+    assert rollup["total_tokens"] == 720844, "the cumulative total, not the sum of the series"
+    assert rollup["input_tokens"] == 500000
+    assert rollup["output_tokens"] == 220844
+    assert rollup["cost_usd"] == pytest.approx(0.80)
+
+
+def test_token_rollup_summary_never_undercounts_members(project_root: Path) -> None:
+    """Excluding summaries from the sum must not drop real member usage."""
+    events = [
+        _make_event(
+            index=0,
+            span_id=_hex16("member-1"),
+            detail=_genai_detail(input_tokens=400, output_tokens=200, total_tokens=600),
+        ),
+        _make_event(
+            index=1,
+            span_id=_hex16("member-2"),
+            detail=_genai_detail(input_tokens=400, output_tokens=200, total_tokens=600),
+        ),
+        _make_event(
+            index=2,
+            span_id=_hex16("summary-1"),
+            detail=_summary_detail(
+                input_tokens=100, output_tokens=50, total_tokens=150, cost_usd=0.01
+            ),
+        ),
+        _make_event(
+            index=3,
+            span_id=_hex16("summary-2"),
+            detail=_summary_detail(
+                input_tokens=200, output_tokens=100, total_tokens=300, cost_usd=0.02
+            ),
+        ),
+    ]
+    ndjson_path = _seed_ndjson(project_root, events)
+    roots = build_span_tree(ndjson_path, session_id="session-A")
+
+    rollup = token_rollup(roots)
+
+    assert rollup["total_tokens"] == 1200  # member sum wins over summary max
+    # cost = max(member_sum 2x0.001, summary_max 0.02): the larger source wins
+    # per field, so a summary can still supply a cost members never carried.
+    assert rollup["cost_usd"] == pytest.approx(0.02)
+
+
 def test_token_rollup_ignores_missing_usage(project_root: Path) -> None:
     """Nodes without genai usage contribute zero to the sums."""
     events = [

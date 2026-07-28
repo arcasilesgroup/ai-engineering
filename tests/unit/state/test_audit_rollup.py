@@ -167,6 +167,57 @@ def test_session_summary_does_not_double_count_members(tmp_path: Path) -> None:
     assert row["output_tokens"] == 110
 
 
+def test_repeated_session_summaries_report_the_last_total_not_their_sum(
+    tmp_path: Path,
+) -> None:
+    """N summaries per session are a monotone cumulative series, not N sessions.
+
+    ``runtime-stop.py`` emits one ``session_token_rollup`` per turn and each
+    restates the session's *cumulative* total. Summing them reported the sum of
+    the series instead of its maximum — an overstatement that grows with turn
+    count and multiplies any reported cost by the same factor (spec-201 B1).
+    Every pre-existing summary test used exactly ONE summary, which is why the
+    bug shipped; this one uses four, matching the live evidence for session
+    ``69b84fb2`` (``[170922, 189500, 360422, 720844]`` reported as 1441688).
+    """
+    p = tmp_path / "framework-events.ndjson"
+    _write(
+        p,
+        [
+            _summary("s1", "2026-05-21T10:00:00Z", tokens=(120000, 50922, 170922), cost=0.10),
+            _summary("s1", "2026-05-21T10:01:00Z", tokens=(130000, 59500, 189500), cost=0.20),
+            _summary("s1", "2026-05-21T10:02:00Z", tokens=(250000, 110422, 360422), cost=0.40),
+            _summary("s1", "2026-05-21T10:03:00Z", tokens=(500000, 220844, 720844), cost=0.80),
+        ],
+    )
+
+    row = {r["session_id"]: r for r in session_token_rollup(p)}["s1"]
+
+    assert row["total_tokens"] == 720844, "the cumulative total, not the sum of the series"
+    assert row["input_tokens"] == 500000
+    assert row["output_tokens"] == 220844
+    assert abs(row["cost_usd"] - 0.80) < 1e-9, "dollars inherit the same multiplier"
+
+
+def test_repeated_summaries_still_never_undercount_members(tmp_path: Path) -> None:
+    """MAX over summaries must not shadow members that carry more usage."""
+    p = tmp_path / "framework-events.ndjson"
+    _write(
+        p,
+        [
+            _member("s1", "2026-05-21T10:00:00Z", tokens=(400, 200, 600), cost=0.05),
+            _member("s1", "2026-05-21T10:01:00Z", tokens=(400, 200, 600), cost=0.05),
+            _summary("s1", "2026-05-21T10:02:00Z", tokens=(100, 50, 150), cost=0.01),
+            _summary("s1", "2026-05-21T10:03:00Z", tokens=(200, 100, 300), cost=0.02),
+        ],
+    )
+
+    row = {r["session_id"]: r for r in session_token_rollup(p)}["s1"]
+
+    assert row["total_tokens"] == 1200  # member sum wins over summary max
+    assert abs(row["cost_usd"] - 0.10) < 1e-9
+
+
 def test_session_summary_cost_is_max_not_sum(tmp_path: Path) -> None:
     p = tmp_path / "framework-events.ndjson"
     _write(

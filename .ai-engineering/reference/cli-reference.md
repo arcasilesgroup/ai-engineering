@@ -146,8 +146,8 @@ except `relink`, which repairs a broken chain in place.
 ai-eng audit verify                # Verify the hash-chained audit trail (events and/or decisions)
 ai-eng audit verify --file decisions   # Decision ledger only (events | decisions | all)
 ai-eng audit verify --strict       # Exit non-zero on any chain break (default stays exit 0)
-ai-eng audit relink --dry-run      # Report what a repair would re-stamp; run this first
-ai-eng audit relink --file decisions   # Repair the chain in place (events | decisions | all)
+ai-eng audit relink                # Report what a repair would re-stamp (report-only default)
+ai-eng audit relink --file decisions --write   # Apply the repair (events | decisions | all)
 ai-eng audit tokens --by skill     # Aggregate token usage by skill
 ai-eng audit tokens --by agent     # Aggregate token usage by agent
 ai-eng audit tokens --by session   # Aggregate token usage by session
@@ -158,6 +158,13 @@ ai-eng audit replay --session <id> # Walk a session (or trace) as a span tree
 entry payloads, refuses an unparseable ledger rather than rewriting it,
 and holds the events lock for the whole rewrite. It is the repair the
 `audit-chain-decisions` doctor check names when it fails.
+
+Because it is the only write verb on the integrity plane, it is
+report-only until `--write` is passed, it copies each ledger to
+`<name>.bak` before touching it (`framework-events.ndjson` is gitignored,
+so a repair is otherwise unrecoverable), and it records the repair as an
+`audit_relink` `framework_operation` carrying the before/after entry
+counts and the break index it repaired.
 
 ## Risk acceptance
 

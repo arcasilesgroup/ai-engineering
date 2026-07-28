@@ -258,7 +258,8 @@ def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
         message=(
             f"decisions chain break at index {verdict.first_break_index}: "
             f"{verdict.first_break_reason}; "
-            "repair with `ai-eng audit relink --file decisions`"
+            "review with `ai-eng audit relink --file decisions`, "
+            "then apply with `ai-eng audit relink --file decisions --write`"
         ),
     )
 
