@@ -21,7 +21,21 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# These tests replay the command strings out of `.cursor/hooks.json` verbatim —
+# that is the point, since asserting on the config text would prove only that a
+# key exists, not that the guard denies. Those command strings are POSIX shell
+# invoking `_lib/run-hook.sh`, which has no PowerShell twin, so on Windows there
+# is nothing to replay. The bridge itself is stdlib-only Python and
+# platform-neutral; it is the launcher Cursor is configured to call that is
+# POSIX-only.
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="replays POSIX command strings from .cursor/hooks.json; no PowerShell launcher twin",
+)
 CURSOR_HOOKS = REPO_ROOT / ".cursor" / "hooks.json"
 
 _TIMEOUT_SEC = 120

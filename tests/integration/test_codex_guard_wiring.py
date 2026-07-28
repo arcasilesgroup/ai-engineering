@@ -24,6 +24,18 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+# These tests replay the command strings out of `.codex/hooks.json` verbatim —
+# that is the point, since asserting on the config text would prove only that a
+# key exists, not that the guard denies. Those command strings are POSIX shell
+# invoking `_lib/run-hook.sh`, which has no PowerShell twin, so on Windows there
+# is nothing to replay. The guards themselves are stdlib-only Python and
+# platform-neutral; it is the launcher Codex is configured to call that is
+# POSIX-only.
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="replays POSIX command strings from .codex/hooks.json; no PowerShell launcher twin",
+)
 CODEX_HOOKS = REPO_ROOT / ".codex" / "hooks.json"
 
 _TIMEOUT_SEC = 120
