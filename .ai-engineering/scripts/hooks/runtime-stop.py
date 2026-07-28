@@ -571,6 +571,18 @@ def _emit_summary_event(
     emit_event(project_root, event)
 
 
+def _is_session_summary(event: dict) -> bool:
+    """True for a ``session_token_rollup`` event, which restates a session.
+
+    Mirrors ``ai_engineering.state.audit_rollup._is_session_summary`` on the
+    reader side; the hook is stdlib-only and cannot import it.
+    """
+    detail = event.get("detail")
+    if not isinstance(detail, dict):
+        return False
+    return detail.get("operation") == "session_token_rollup"
+
+
 def _ndjson_session_rollup(project_root: Path, session_id: str) -> dict | None:
     """Stdlib NDJSON rollup for ``session_id`` (spec-148).
 
@@ -579,6 +591,14 @@ def _ndjson_session_rollup(project_root: Path, session_id: str) -> dict | None:
     ``None`` when the NDJSON is absent or the session has no events. Token
     counts are usually zero today — the transcript is the real source and
     is merged by the caller.
+
+    Prior ``session_token_rollup`` events are skipped (spec-201 B1): each one
+    restates the session's *cumulative* usage, so counting a summary as a
+    member folds the previous total back into the next one. Once that
+    polluted sum overtakes the transcript truth it wins the caller's
+    ``max()`` reconciliation and the reported total doubles every turn.
+    A summary is computed from real per-turn usage only, never from
+    previous summaries.
     """
     ndjson_path = project_root / _NDJSON_REL
     try:
@@ -600,6 +620,8 @@ def _ndjson_session_rollup(project_root: Path, session_id: str) -> dict | None:
         except (json.JSONDecodeError, ValueError):
             continue
         if not isinstance(event, dict) or event.get("sessionId") != session_id:
+            continue
+        if _is_session_summary(event):
             continue
         events += 1
         ts = event.get("timestamp")

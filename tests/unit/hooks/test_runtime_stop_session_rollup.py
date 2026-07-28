@@ -378,6 +378,94 @@ def test_session_rollup_prefers_transcript_cost_over_ndjson(
 
 
 # ---------------------------------------------------------------------------
+# Self-summing regression (spec-201 B1)
+# ---------------------------------------------------------------------------
+
+
+def _rollup_totals(project_root: Path) -> list[int]:
+    """Every emitted rollup's ``total_tokens``, in emission order."""
+    return [
+        e["detail"]["genai"]["usage"]["total_tokens"]
+        for e in _read_events(project_root)
+        if e.get("kind") == "framework_operation"
+        and (e.get("detail") or {}).get("operation") == "session_token_rollup"
+    ]
+
+
+def test_rollup_never_folds_its_own_previous_summaries_into_the_next(
+    rstop, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """spec-201 B1: the emitted total tracks cumulative truth, never doubles.
+
+    Every turn appends a ``session_token_rollup`` restating the session's
+    *cumulative* usage to the same NDJSON the emitter reads. Counting those
+    summaries as members makes the sum absorb the previous total each turn;
+    once it overtakes the transcript it wins the ``max()`` reconciliation and
+    the reported total doubles per turn. The live series on session
+    ``69b84fb2`` was 170922, 189500, 360422, 720844, 1441688, 2883376.
+
+    Four turns are the minimum that shows it: the naive sum only overtakes
+    the transcript on turn 4, so a 3-turn fixture passes either way.
+    """
+    session_id = "sess-multi-turn"
+    turns = [(100_000, 10_000), (110_000, 12_000), (120_000, 14_000), (130_000, 16_000)]
+
+    truth: list[int] = []
+    for turn in range(1, len(turns) + 1):
+        # The transcript is cumulative: it holds every message so far.
+        _write_transcript(
+            tmp_path,
+            monkeypatch,
+            model="claude-opus-5",
+            messages=turns[:turn],
+        )
+        rstop._emit_session_token_rollup(
+            project, session_id=session_id, correlation_id=f"corr-{turn}"
+        )
+        truth.append(sum(i + o for i, o in turns[:turn]))
+
+    emitted = _rollup_totals(project)
+    assert emitted == truth, (
+        f"emitted {emitted} != cumulative truth {truth}; "
+        "the rollup is aggregating its own previous summaries"
+    )
+
+    # The naive sum is what the bug produced -- pin the divergence explicitly
+    # so a regression cannot pass by coincidence.
+    assert emitted[-1] < sum(truth[:-1]), "final total must not absorb the earlier summaries"
+
+
+def test_rollup_excludes_prior_summaries_from_the_event_count(
+    rstop, project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A prior summary is not a member of the session it summarises.
+
+    ``detail.events`` counts real per-turn events only; a summary counting
+    previous summaries inflates the same way the token totals did.
+    """
+    session_id = "sess-event-count"
+    _seed_ndjson(
+        project,
+        session_id=session_id,
+        totals={"input_tokens": 10, "output_tokens": 20, "total_tokens": 30},
+    )
+    _write_transcript(tmp_path, monkeypatch, model="claude-opus-5", messages=[(100, 200)])
+
+    for turn in range(3):
+        rstop._emit_session_token_rollup(
+            project, session_id=session_id, correlation_id=f"corr-{turn}"
+        )
+
+    counts = [
+        e["detail"]["events"]
+        for e in _read_events(project)
+        if e.get("kind") == "framework_operation"
+        and (e.get("detail") or {}).get("operation") == "session_token_rollup"
+    ]
+    assert counts == [1, 1, 1], f"event count grew with emitted summaries: {counts}"
+
+
+# ---------------------------------------------------------------------------
 # Branch 2: NDJSON exists, no event for this session_id
 # ---------------------------------------------------------------------------
 

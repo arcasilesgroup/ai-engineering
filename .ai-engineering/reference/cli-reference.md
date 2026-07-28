@@ -145,7 +145,6 @@ except `relink`, which repairs a broken chain in place.
 ```bash
 ai-eng audit verify                # Verify the hash-chained audit trail (events and/or decisions)
 ai-eng audit verify --file decisions   # Decision ledger only (events | decisions | all)
-ai-eng audit verify --strict       # Exit non-zero on any chain break (default stays exit 0)
 ai-eng audit relink                # Report what a repair would re-stamp (report-only default)
 ai-eng audit relink --file decisions --write   # Apply the repair (events | decisions | all)
 ai-eng audit tokens --by skill     # Aggregate token usage by skill
@@ -157,7 +156,12 @@ ai-eng audit replay --session <id> # Walk a session (or trace) as a span tree
 `relink` re-stamps `prev_event_hash` pointers only — it never touches
 entry payloads, refuses an unparseable ledger rather than rewriting it,
 and holds the events lock for the whole rewrite. It is the repair the
-`audit-chain-decisions` doctor check names when it fails.
+`audit-chain-decisions` doctor check names when it warns.
+
+`verify` is advisory on both ledgers and always exits 0. An entry with no
+`prev_event_hash` re-anchors the chain rather than breaking it (legacy
+backward-compat), so the verifier cannot yet distinguish a legacy entry
+from a deliberately unlinked one — it reports, it does not gate.
 
 Because it is the only write verb on the integrity plane, it is
 report-only until `--write` is passed, it copies each ledger to

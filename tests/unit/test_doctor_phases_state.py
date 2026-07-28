@@ -346,32 +346,65 @@ def _result(ctx: DoctorContext, name: str):
 
 
 class TestAuditChainSeverity:
-    """The two chain checks carry deliberately different severities.
+    """Both chain checks are WARN, for two different reasons.
 
-    ``decision-store.json`` is git-tracked: a break there is reviewable
-    in a diff and repairable by a command, so it FAILs. The events
-    ledger is gitignored, so CI never sees a file at all and reports the
-    chain vacuously valid — escalating it would red every developer
-    machine (tens of thousands of local entries) while CI stayed green.
-    That asymmetry IS the decision, so both halves are asserted here: a
-    future reader cannot escalate the events check without deleting the
-    test that explains why it must not be escalated.
+    The events ledger is gitignored, so CI never sees a file at all and
+    reports the chain vacuously valid — escalating it would red every
+    developer machine (tens of thousands of local entries) while CI
+    stayed green.
+
+    ``decision-store.json`` is git-tracked and so has no such asymmetry,
+    but its verifier can be defeated: an entry carrying no pointer field
+    re-anchors the chain, so deleting that key from the entry after a
+    tampered one verifies the whole ledger clean. spec-201 sub-001
+    escalated it to FAIL and the escalation was reverted — a gate an
+    editor defeats by removing a field asserts an integrity it cannot
+    check, which is strictly worse than reporting honestly. Escalate only
+    once every entry is pointer-stamped and a missing pointer is itself a
+    break.
+
+    Both halves are asserted here, bypass included: a future reader
+    cannot escalate either check without deleting the test that explains
+    why it must not be escalated.
     """
 
-    def test_broken_decisions_chain_fails(self, project: Path) -> None:
+    def test_broken_decisions_chain_warns(self, project: Path) -> None:
         _write_decisions(project, broken=True)
 
         result = _result(DoctorContext(target=project), "audit-chain-decisions")
 
-        assert result.status == CheckStatus.FAIL
+        assert result.status == CheckStatus.WARN
 
-    def test_decisions_fail_message_names_the_repair_command(self, project: Path) -> None:
+    def test_decisions_warn_message_names_the_repair_command(self, project: Path) -> None:
         """``doctor --fix`` cannot repair this, so the message must say what can."""
         _write_decisions(project, broken=True)
 
         result = _result(DoctorContext(target=project), "audit-chain-decisions")
 
         assert "ai-eng audit relink --file decisions" in result.message
+
+    def test_deleting_a_pointer_hides_a_tampered_decision(self, project: Path) -> None:
+        """Why this check must not gate: the verifier is defeated by a delete.
+
+        Tamper with an entry, then drop ``prevEventHash`` from the entry
+        that followed it. The verifier re-anchors on the pointer-less
+        entry and reports the ledger intact. Until that is closed, a FAIL
+        here would be a green light on a tampered store.
+        """
+        rows = _chained_rows(3, field="prevEventHash")
+        rows[1]["context"] = "TAMPERED"
+        del rows[2]["prevEventHash"]
+        (project / ".ai-engineering" / "state" / "decision-store.json").write_text(
+            json.dumps({"decisions": rows, "schemaVersion": "1.1"}, indent=2, sort_keys=True)
+            + "\n",
+            encoding="utf-8",
+        )
+
+        result = _result(DoctorContext(target=project), "audit-chain-decisions")
+
+        assert result.status == CheckStatus.OK, (
+            "the bypass is closed -- re-evaluate whether this check can now gate"
+        )
 
     def test_intact_decisions_chain_is_ok(self, project: Path) -> None:
         _write_decisions(project, broken=False)
@@ -401,7 +434,7 @@ class TestAuditChainSeverity:
 
         assert result.status == CheckStatus.OK
 
-    def test_decisions_fail_is_not_advertised_as_auto_fixable(self, project: Path) -> None:
+    def test_decisions_warn_is_not_advertised_as_auto_fixable(self, project: Path) -> None:
         """``fix()`` only handles state-files-parseable -- do not promise more."""
         _write_decisions(project, broken=True)
 

@@ -49,6 +49,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the canonical `detail.genai.usage` shape the rollup actually reads, so token
   totals stop being silently dropped.
 
+- spec-201: **`ai-eng update` does not remove the four retired skill trees or
+  `.codex/agents` from an existing project — clean them up by hand.** The
+  updater's orphan sweep only visits providers you have *disabled*, and it
+  enumerates paths from the current surface map, which no longer names any
+  retired tree; nothing can reach them. Upgrading from 0.13.0 with
+  `github-copilot` and `codex` enabled therefore gains `.agents/skills` while
+  leaving 137 files in `.github/skills`, 137 in `.codex/skills` and 19 in
+  `.codex/agents` frozen at 0.13.0. Both agents natively discover both trees, so
+  they read two divergent copies of every skill and the stale copies still
+  cross-reference the deleted `.codex/agents/`. Fix it after updating with
+  `rm -rf .github/skills .codex/skills .opencode/skills .cursor/skills .codex/agents`.
+  `ai-eng doctor` now warns and names whichever of those trees it finds. An
+  automated sweep is deliberately not shipped here: deleting directories in a
+  consumer repo needs its own spec with backup and rollback.
+
 - The historical spec-101 release-contract guard keywords remain documented for
   continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
 
@@ -133,17 +148,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   lock without stamping a `prevEventHash` are fixed, including one that hashed a
   payload with microseconds the disk writer truncates — so every freshly created
   decision chained to a hash that never reached the file, breaking the ledger on
-  its own first write. `ai-eng audit verify --strict` now exits non-zero on a
-  broken chain instead of always exiting 0.
+  its own first write. `ai-eng audit relink` is the new repair verb: report-only
+  until `--write`, backing each ledger up first and recording the repair as an
+  `audit_relink` event.
+
+  Verification stays **advisory** on both ledgers, deliberately. An in-flight
+  `ai-eng audit verify --strict` flag and a FAIL-severity `audit-chain-decisions`
+  doctor check were both cut before release: the verifier treats an entry with no
+  `prev_event_hash` as a legitimate re-anchor (legacy backward-compat), so
+  deleting that one key from the entry following a tampered one makes the whole
+  ledger verify clean. The live ledger already carries 122 pointer-less entries
+  reported as intact. A gate an editor defeats by removing a field asserts an
+  integrity it cannot check, which is worse than reporting honestly. Stamping
+  every legacy entry so that a missing pointer is itself a break — and only then
+  gating — is a follow-up spec.
 
 - spec-201: the event plane stops silently dropping events. The engine enum
   admits `openai_compatible` and `unknown`, the two hook/pip twins agree on the
   default, `session_token_rollup` and every `framework_operation` carry a
   `sessionId`, and a refused event now surfaces as a visible `framework_error`
-  rather than vanishing. `skill_lint` widens from 73 to all 154 canonical files
-  and is promoted to a required pre-commit check, with its interpreter head
-  pinned to `sys.executable` so it stops silently passing on a host where
-  `which python` finds nothing.
+  rather than vanishing. The session token rollup also stops counting its own
+  previous summaries: each turn emits a rollup restating the session's
+  cumulative usage into the same ledger the next rollup reads, so the reported
+  total absorbed the previous one and doubled every turn once it overtook the
+  transcript (one live session reached 2,883,376 tokens against a true 170,922).
+
+- spec-201: `skill_lint` widens its portability corpus from 73 to all 154
+  canonical files, and its check entry is marked required with the interpreter
+  head pinned to `sys.executable` so it cannot silently pass on a host where
+  `which python` finds nothing. **It is not yet enforced anywhere**: that entry
+  lives in the legacy `PRE_COMMIT_CHECKS` registry, which today is read only by
+  the deprecated `policy.gates.run_gate`, while the live hook path runs
+  `policy.orchestrator.LOCAL_CHECKERS` — and no CI workflow invokes it either.
+  Wiring it to the live path is blocked on two defects that would brick
+  consumers: the mirror check hard-requires all three of `AGENTS.md`,
+  `CLAUDE.md` and `.github/copilot-instructions.md`, so a `claude-code`-only
+  install fails at commit time, and an empty corpus raises an unhandled
+  `FileNotFoundError`. Run it manually with `python -m skill_lint --check`.
 
 - spec-201 — residual exposures, stated rather than implied: the OpenCode
   plugin and the `.ts` hook bridge load **unsigned**, because

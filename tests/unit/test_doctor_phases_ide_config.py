@@ -218,6 +218,73 @@ class TestSettingsMerge:
 
 
 # ---------------------------------------------------------------------------
+# check() -- retired-surface-trees (spec-201 H6)
+# ---------------------------------------------------------------------------
+
+
+class TestRetiredSurfaceTrees:
+    """`ai-eng update` cannot remove the trees spec-201 retired.
+
+    ``_detect_orphan_files`` sweeps *disabled* providers only, and it
+    enumerates destinations from the current ``_SURFACE_TREE_MAPS``, which
+    no longer names ``.github/skills``, ``.codex/skills`` or
+    ``.codex/agents``. A consumer upgrading from 0.13.0 with copilot and
+    codex enabled therefore keeps every retired tree on disk, frozen and
+    still discovered by both agents. Removing them is a destructive sweep
+    over consumer repos and needs its own spec; until then doctor has to
+    say so rather than leave the operator to find two divergent copies of
+    every skill.
+    """
+
+    def test_warns_and_names_each_retired_tree_on_disk(
+        self, claude_project: Path, claude_manifest: ManifestConfig
+    ):
+        for rel in (".github/skills", ".codex/skills", ".codex/agents"):
+            (claude_project / rel).mkdir(parents=True)
+            (claude_project / rel / "ai-build.md").write_text("stale\n", encoding="utf-8")
+
+        ctx = DoctorContext(target=claude_project, manifest_config=claude_manifest)
+        result = next(r for r in ide_config.check(ctx) if r.name == "retired-surface-trees-present")
+
+        assert result.status == CheckStatus.WARN
+        for rel in (".github/skills", ".codex/skills", ".codex/agents"):
+            assert rel in result.message
+        assert "ai-eng update" in result.message
+
+    def test_ok_when_no_retired_tree_is_present(
+        self, claude_project: Path, claude_manifest: ManifestConfig
+    ):
+        ctx = DoctorContext(target=claude_project, manifest_config=claude_manifest)
+        result = next(r for r in ide_config.check(ctx) if r.name == "retired-surface-trees-present")
+
+        assert result.status == CheckStatus.OK
+
+    def test_an_empty_retired_tree_is_not_a_finding(
+        self, claude_project: Path, claude_manifest: ManifestConfig
+    ):
+        """A bare directory left by a cleanup is not a divergent skill copy."""
+        (claude_project / ".codex" / "skills").mkdir(parents=True)
+
+        ctx = DoctorContext(target=claude_project, manifest_config=claude_manifest)
+        result = next(r for r in ide_config.check(ctx) if r.name == "retired-surface-trees-present")
+
+        assert result.status == CheckStatus.OK
+
+    def test_never_fails_because_doctor_cannot_remove_them(
+        self, claude_project: Path, claude_manifest: ManifestConfig
+    ):
+        """WARN, not FAIL: there is no automated removal to point at."""
+        (claude_project / ".opencode" / "skills").mkdir(parents=True)
+        (claude_project / ".opencode" / "skills" / "ai-pr.md").write_text("x", encoding="utf-8")
+
+        ctx = DoctorContext(target=claude_project, manifest_config=claude_manifest)
+        result = next(r for r in ide_config.check(ctx) if r.name == "retired-surface-trees-present")
+
+        assert result.status == CheckStatus.WARN
+        assert result.fixable is False
+
+
+# ---------------------------------------------------------------------------
 # fix() -- returns failed unchanged
 # ---------------------------------------------------------------------------
 
@@ -260,16 +327,18 @@ class TestIdeConfigFix:
 
 
 class TestCheckReturnsAllResults:
-    def test_check_returns_three_results(
+    def test_check_returns_four_results(
         self, claude_project: Path, claude_manifest: ManifestConfig
     ):
         ctx = DoctorContext(target=claude_project, manifest_config=claude_manifest)
         results = ide_config.check(ctx)
-        # spec-107 D-107-02 added permissions-wildcard-detected advisory.
-        assert len(results) == 3
+        # spec-107 D-107-02 added permissions-wildcard-detected advisory;
+        # spec-201 H6 added retired-surface-trees-present.
+        assert len(results) == 4
         names = {r.name for r in results}
         assert names == {
             "surface-templates",
             "settings-merge",
             "permissions-wildcard-detected",
+            "retired-surface-trees-present",
         }

@@ -6,7 +6,9 @@ Original surface (spec-107 D-107-10 / G-12, H2):
   :func:`ai_engineering.state.audit_chain.verify_audit_chain` for both
   ``framework-events.ndjson`` (mode=ndjson) and ``decision-store.json``
   (mode=json_array). Intentionally advisory: it always exits 0 so it
-  never blocks installs, doctor flows, or CI.
+  never blocks installs, doctor flows, or CI. It stays advisory while a
+  missing ``prev_event_hash`` re-anchors the chain -- see
+  :func:`audit_verify`.
 
 spec-148 (files-only): the SQLite projection is retired. The audit
 surface reads ``framework-events.ndjson`` directly:
@@ -115,26 +117,20 @@ def audit_verify(
             help="Which audit file to verify: events, decisions, or all.",
         ),
     ] = "all",
-    strict: Annotated[
-        bool,
-        typer.Option(
-            "--strict",
-            help="Exit non-zero when any chain break is reported.",
-        ),
-    ] = False,
 ) -> None:
     """Verify the hash-chained audit trail (events and/or decisions).
 
-    Exits 0 by default -- the plain surface stays a pure advisory per
-    D-107-10, so CI / doctor / install flows are never blocked and every
-    existing caller keeps its contract. ``--strict`` opts into the gate:
-    an integrity boundary is allowed to fail closed once the caller has
-    asked for it.
+    Always exits 0 -- this is a pure advisory surface per D-107-10.
+    Operators inspect the output to investigate any reported chain
+    breaks; CI / doctor / install flows never get blocked.
 
-    The gate applies on BOTH output paths. The ``--json`` branch returns
-    early after emitting its envelope, so a ``--strict`` that only
-    guarded the text path would ship silently broken in the mode every
-    agent surface uses.
+    spec-201 sub-001 added a ``--strict`` flag that made this fail closed;
+    it was removed rather than shipped. The verifier treats a *missing*
+    ``prev_event_hash`` as a legitimate re-anchor, so deleting that key
+    from the entry after a tampered one verifies the whole ledger clean --
+    a gate an editor can defeat by removing a field asserts integrity it
+    cannot check. It can return once every entry is pointer-stamped and a
+    missing pointer is itself a break (follow-up spec).
     """
     if file_filter not in {"events", "decisions", "all"}:
         # Even input validation stays advisory: surface the typo, default
@@ -146,7 +142,6 @@ def audit_verify(
     targets = _audit_targets(file_filter, root)
 
     verdicts = [_verify_one(label, path, mode) for label, path, mode in targets]
-    all_intact = all(v.ok for _, v in verdicts)
 
     if is_json_mode():
         from ai_engineering.cli_envelope import emit_success
@@ -155,8 +150,6 @@ def audit_verify(
             "audit-verify",
             {"verdicts": [_verdict_payload(name, v) for name, v in verdicts]},
         )
-        if strict and not all_intact:
-            raise typer.Exit(code=1)
         return
 
     header("Audit chain verification")
@@ -169,22 +162,20 @@ def audit_verify(
             )
         else:
             status_line(
-                "fail" if strict else "warn",
+                "warn",
                 name,
                 f"chain break at index {verdict.first_break_index}",
             )
             kv("Reason", verdict.first_break_reason or "-")
 
-    if all_intact:
+    if all(v.ok for _, v in verdicts):
         success("All requested audit chains are intact.")
-    elif strict:
-        warning(
-            "One or more audit chains reported a break. Review with "
-            "`ai-eng audit relink --file <events|decisions>`, then apply with --write."
-        )
-        raise typer.Exit(code=1)
     else:
-        warning("One or more audit chains reported a break -- advisory only, exit 0.")
+        warning(
+            "One or more audit chains reported a break -- advisory only, exit 0. "
+            "Review with `ai-eng audit relink --file <events|decisions>`, "
+            "then apply with --write."
+        )
 
 
 def _audit_verify_machine_readable(file_filter: str = "all") -> dict:
@@ -194,15 +185,11 @@ def _audit_verify_machine_readable(file_filter: str = "all") -> dict:
     Identifier ``audit verify`` and the docstring marker are scanned by
     spec-107 RED tests to confirm the CLI registration -- searching for
     ``"audit verify"`` and ``audit_app`` strings inside the cli tree.
-
-    ``ok`` is the aggregate ``--strict`` gates on, so this third copy of
-    the verdict logic cannot drift from the two the command itself uses.
     """
     root = _resolve_project_root()
     targets = _audit_targets(file_filter, root)
     verdicts = [_verify_one(label, path, mode) for label, path, mode in targets]
     return {
-        "ok": all(v.ok for _, v in verdicts),
         "verdicts": [_verdict_payload(name, v) for name, v in verdicts],
         "raw": json.dumps({"file_filter": file_filter}, sort_keys=True),
     }

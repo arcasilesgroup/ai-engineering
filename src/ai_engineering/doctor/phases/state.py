@@ -213,23 +213,26 @@ def _check_audit_chain_events(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
-    """Blocking check (spec-201 D-201-09): hash-chain over decisions.
+    """Advisory check (spec-107 D-107-10): hash-chain over decisions.
 
     Verifies the ``decision-store.json`` audit chain by walking
-    ``prev_event_hash`` pointers across the ``decisions`` array. A break
-    is a FAIL: ``decision-store.json`` is git-tracked, so a break is
-    reviewable in a diff and repairable by a command. The events chain
-    stays WARN because ``framework-events.ndjson`` is gitignored --
-    CI never sees a file at all, so escalating it would red every
-    developer machine while CI stayed green (spec-201, Trap 4).
+    ``prev_event_hash`` pointers across the ``decisions`` array.
+
+    DO NOT escalate this to FAIL. spec-201 sub-001 briefly did, and it was
+    reverted: the verifier treats a *missing* pointer field as a legitimate
+    re-anchor (legacy backward-compat per D-107-10), so deleting the key
+    from the entry after a tampered one makes the whole ledger verify
+    clean. A gate whose verifier is defeated by removing a field is worse
+    than no gate -- it converts "unverified" into a green light. Escalate
+    only once every entry is pointer-stamped and a missing pointer is
+    itself a break; that migration is a follow-up spec.
 
     Legacy decisions written before spec-107 lack the field and are
     treated as valid by the verifier (additive backward-compat per
     D-107-10).
 
-    ``fix()`` cannot repair this, so the FAIL message names the command
-    that can -- an unfixable FAIL with no stated remedy is a dead end
-    for every consumer install, not just this repo.
+    ``fix()`` cannot repair this, so the WARN message names the command
+    that can.
     """
     from ai_engineering.state.audit_chain import verify_audit_chain
 
@@ -254,7 +257,7 @@ def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
         )
     return CheckResult(
         name=advisory_name,
-        status=CheckStatus.FAIL,
+        status=CheckStatus.WARN,
         message=(
             f"decisions chain break at index {verdict.first_break_index}: "
             f"{verdict.first_break_reason}; "
