@@ -71,7 +71,7 @@ Shift-left lane: catch friction before it reaches the gates. `/ai-verify` is the
 - **Never blocks execution** — fail-open always.
 - **Never emits FAIL / BLOCK / CRITICAL** — reserved for `/ai-verify` and git hooks.
 - **Read-only** for all files except `decision-store.json` (drift annotations only, via the audit API) and `state/framework-events.ndjson` (canonical outcomes).
-- **Single agent dispatch** — never reads the agent file inline; dispatches via the Agent tool so the agent runs in its own context window.
+- **Single agent dispatch** — one dispatch per invocation so the agent runs in its own context window; the agent file is read inline only on a host without a subagent primitive.
 
 ## Examples
 
@@ -85,6 +85,6 @@ Dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`: it load
 
 ## Integration
 
-**Called by**: operators via `/ai-advise`; `/ai-build` + `/ai-autopilot` (wave-end advisory pass). **Calls**: the `ai-advise` agent (`.agents/agents/ai-advise.md`) via the Agent tool — Agent-tool dispatch is the primary path. **Inline fallback**: on a harness WITHOUT a subagent/Agent-tool primitive, this skill is executed by reading the `.agents/agents/ai-advise.md` specialist file inline and running its steps in-context sequentially — inline-sequential is the floor, not a substitute for the isolated dispatch. **See also**: `.agents/skills/ai-verify/SKILL.md` (evidence-backed BLOCK lane), `.agents/skills/ai-review/SKILL.md` (narrative review), `.ai-engineering/overrides/<stack>/conventions.md` (stack overrides); D-134-06 (`ai-guard` agent → `ai-advise` rename), D-134-07 (cohesion test enforcement).
+**Called by**: operators via `/ai-advise`; `/ai-build` + `/ai-autopilot` (wave-end advisory pass). **Calls**: the `ai-advise` agent (`.agents/agents/ai-advise.md`) via the host subagent primitive — subagent dispatch is the primary path. **Inline fallback**: on a host without a subagent primitive, this skill is executed by reading the `.agents/agents/ai-advise.md` specialist file inline and running its steps in-context sequentially; inline-sequential is the floor, not an alternate behaviour. **See also**: `.agents/skills/ai-verify/SKILL.md` (evidence-backed BLOCK lane), `.agents/skills/ai-review/SKILL.md` (narrative review), `.ai-engineering/overrides/<stack>/conventions.md` (stack overrides); D-134-06 (`ai-guard` agent → `ai-advise` rename), D-134-07 (cohesion test enforcement).
 
 $ARGUMENTS

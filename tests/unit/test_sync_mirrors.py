@@ -6,6 +6,7 @@ and verifies --check mode reports zero drift against the real repo.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from pathlib import Path
@@ -153,7 +154,15 @@ class TestSyncScriptMetadata:
 
 
 class TestEffortModelSemantics:
-    """spec-189 D-189-04: `effort` is the sole semantic source for agent model."""
+    """Agent model resolution: effort tier (D-189-04) + model axis (D-201-16).
+
+    spec-189 D-189-04 made `effort` the sole semantic source for the agent
+    model. spec-201 D-201-16 adds an INDEPENDENT model axis: a non-empty
+    `AgentMeta.model` is an explicit override that wins over the
+    effort-derived tier alias. The drift guard D-189-04 exists for is kept
+    intact by re-expressing every assertion against the single resolver
+    (`resolve_agent_model`) rather than against `_effort_to_model` directly.
+    """
 
     def test_every_agent_has_valid_effort(self) -> None:
         from scripts.sync_command_mirrors import AGENT_METADATA
@@ -172,7 +181,10 @@ class TestEffortModelSemantics:
         assert _effort_to_model("high") == "opus"
         assert _effort_to_model("mid") == "sonnet"
         assert _effort_to_model("cheap") == "haiku"
-        # Round-trip: effort -> model -> effort is the identity.
+        # Round-trip: effort -> model -> effort is the identity OVER THE TIER
+        # ALIAS VOCABULARY. spec-201 D-201-16: `_model_to_effort` stops being a
+        # total inverse once model overrides exist, because an override is by
+        # definition outside this vocabulary (asserted below with "gpt-9").
         for effort in ("cheap", "mid", "high"):
             assert _model_to_effort(_effort_to_model(effort)) == effort
         # Unknown inputs fail loudly rather than silently defaulting.
@@ -181,15 +193,39 @@ class TestEffortModelSemantics:
         with pytest.raises(ValueError):
             _model_to_effort("gpt-9")
 
-    def test_agent_meta_model_matches_effort(self) -> None:
-        # The retained `model` literal must mirror the effort-derived model so
-        # AGENT_METADATA never carries internally contradictory data.
+    def test_agent_meta_model_resolves_through_the_resolver(self) -> None:
+        # spec-201 D-201-16 retune of `test_agent_meta_model_matches_effort`:
+        # the invariant is no longer "model mirrors effort" (an override
+        # falsifies that by construction) but "the resolver is the single
+        # derivation" — an explicit model wins, an empty one derives from
+        # effort. AGENT_METADATA still may not carry contradictory data.
         from scripts.sync_command_mirrors import AGENT_METADATA, _effort_to_model
+        from scripts.sync_mirrors.core import resolve_agent_model
 
         for name, meta in AGENT_METADATA.items():
-            assert meta.model == _effort_to_model(meta.effort), (
-                f"{name}: model {meta.model!r} != effort-derived {_effort_to_model(meta.effort)!r}"
+            expected = meta.model or _effort_to_model(meta.effort)
+            assert resolve_agent_model(meta) == expected, (
+                f"{name}: resolve_agent_model -> {resolve_agent_model(meta)!r} != {expected!r}"
             )
+
+    def test_resolver_honours_an_explicit_model_override(self) -> None:
+        # spec-201 D-201-16: the axis is real — a model that is NOT the
+        # effort-derived tier alias wins, without touching the effort tier.
+        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors.core import resolve_agent_model
+
+        base = AGENT_METADATA["review"]
+        assert base.effort == "high"
+        overridden = dataclasses.replace(base, model="some-provider/some-model-2026")
+        assert resolve_agent_model(overridden) == "some-provider/some-model-2026"
+        assert overridden.effort == "high", "override must not disturb the effort tier"
+
+    def test_resolver_derives_from_effort_without_an_override(self) -> None:
+        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors.core import resolve_agent_model
+
+        unset = dataclasses.replace(AGENT_METADATA["review"], model="")
+        assert resolve_agent_model(unset) == "opus"
 
     def test_validator_passes_on_canonical_sources(self) -> None:
         from scripts.sync_command_mirrors import (
@@ -199,7 +235,7 @@ class TestEffortModelSemantics:
         )
 
         errors, _warnings = validate_canonical(discover_skills(), discover_agents())
-        drift = [e for e in errors if "disagrees with effort" in e]
+        drift = [e for e in errors if "disagrees with the resolved model" in e]
         assert not drift, f"canonical model/effort drift: {drift}"
 
     def test_validator_fires_on_model_effort_mismatch(self) -> None:
@@ -210,7 +246,7 @@ class TestEffortModelSemantics:
 
         seeded = [("build", {"name": "Build", "model": "sonnet"}, CLAUDE_AGENTS / "ai-build.md")]
         errors, _warnings = validate_canonical([], seeded)
-        assert any("disagrees with effort" in e for e in errors), (
+        assert any("disagrees with the resolved model" in e for e in errors), (
             "validator did not fire on a seeded model/effort mismatch"
         )
 
@@ -219,7 +255,7 @@ class TestEffortModelSemantics:
 
         matched = [("build", {"name": "Build", "model": "opus"}, CLAUDE_AGENTS / "ai-build.md")]
         errors, _warnings = validate_canonical([], matched)
-        assert not any("disagrees with effort" in e for e in errors)
+        assert not any("disagrees with the resolved model" in e for e in errors)
 
 
 class TestCrossReferenceResolution:

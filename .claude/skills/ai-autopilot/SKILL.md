@@ -76,4 +76,6 @@ See `references/examples.md` for the three canonical invocations (end-to-end del
 
 Called by: user directly post-`/ai-brainstorm` approval (or with `--backlog` for backlog runs). Reads: `_shared/execution-kernel.md`, `ai-verify/SKILL.md`, `ai-review/SKILL.md`, `ai-governance/SKILL.md`, `ai-pr/SKILL.md`, `ai-commit/SKILL.md`. Delegates to: `ai-explore`, `ai-build`, `ai-verify`, `ai-advise`, `ai-review` agents. Transitions to: `/ai-branch-cleanup`. See also: `/ai-build` (smaller scope), `/ai-board sync` (lifecycle transitions for backlog mode), `references/examples.md`.
 
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by running each phase handler inline, in-context, one sub-spec at a time in wave order, with the same per-phase gates and the same manifest writes; inline-sequential is the floor, not an alternate behaviour.
+
 $ARGUMENTS

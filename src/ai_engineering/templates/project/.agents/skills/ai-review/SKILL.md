@@ -58,7 +58,7 @@ For each stack in the diff, load `.ai-engineering/overrides/<stack>/review.md` (
 - Treating the 3 macro-agents in `normal` as reduced coverage — they are not.
 - Reporting by macro-agent instead of original specialist lens.
 - Treating style preferences as blocking findings.
-- Reading specialist agent files inline instead of dispatching via the Agent tool.
+- Reading specialist agent files inline on a host that provides a subagent primitive — inline-sequential is the documented floor only on a host without one.
 
 ## Examples
 
@@ -76,6 +76,6 @@ Dispatches the 3 macro-agents (correctness/testing/compat, security/perf, condit
 
 Called by: user directly, `/ai-pr`, `/ai-build`, `/ai-autopilot` (Phase 5). Dispatches: `review-context`, `reviewer-*`, `review-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
 
-**Inline fallback.** Agent-tool dispatch is the primary path. On a harness without a subagent/Agent-tool primitive, execute this skill by reading the specialist agent file(s) (`review-context.md`, the selected `reviewer-*.md`, `review-validator.md`) inline and running their steps in-context, sequentially — inline-sequential is the floor, not a substitute for the dispatch when it is available.
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by reading the specialist agent file(s) (`review-context.md`, the selected `reviewer-*.md`, `review-validator.md`) inline and running their steps in-context, sequentially; inline-sequential is the floor, not an alternate behaviour.
 
 $ARGUMENTS

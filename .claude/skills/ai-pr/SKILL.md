@@ -154,4 +154,6 @@ User: "I'm ready for review on this branch" → `/ai-pr`: runs the commit pipeli
 
 Calls: `/ai-docs` subagents (CHANGELOG, README, portal, quality-gate), `/ai-board sync` (post-create), `gh pr create` / `az repos pr create`. Runs inline: commit pipeline (Steps 0-6 — same logic as the standalone `/ai-commit` skill, copied for chain clarity). Watches: CI via `handlers/watch.md`. Reads: `manifest.yml`, spec frontmatter for linked work items. See also: `/ai-commit` (off-chain WIP-only), `/ai-review`, `/ai-resolve-conflicts`.
 
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by running the three concurrent lanes sequentially in the documented order, in-context, with the same per-lane gates before the PR is opened; inline-sequential is the floor, not an alternate behaviour.
+
 $ARGUMENTS

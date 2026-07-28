@@ -78,7 +78,7 @@ Every scan mode emits: score / verdict (PASS/WARN/FAIL) / profile / specialist t
 - Assuming `--full` adds specialist coverage instead of changing decomposition.
 - Reporting a specialist as skipped instead of `not applicable`.
 - Ignoring warnings when the exit code is 0.
-- Reading specialist agent files inline instead of dispatching via the Agent tool.
+- Reading specialist agent files inline on a host that provides a subagent primitive — inline-sequential is the documented floor only on a host without one.
 
 ## Examples
 
@@ -96,6 +96,6 @@ Dispatches deterministic + acceptance in parallel (post-W3 roster of 2), aggrega
 
 Called by: `/ai-build` (post-task), `/ai-autopilot` (Phase 5), user directly. Dispatches: `verifier-deterministic`, `verifier-acceptance` agents. Read-only: never modifies code. See also: `/ai-review` (narrative review), `/ai-advise` (advisory architecture lens), `/ai-reliability-eval`, `/ai-security` (deep CVE/SBOM only), `/ai-governance` (compliance, risk acceptance).
 
-Inline fallback: Agent-tool dispatch is the primary path. On a harness with no subagent/Agent-tool primitive, execute this skill by reading the needed `.claude/agents/verifier-*.md` specialist file(s) and running their steps inline, in-context, sequentially — inline-sequential is the floor, not the default.
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by reading the needed `.claude/agents/verifier-*.md` specialist file(s) and running their steps inline, in-context, sequentially; inline-sequential is the floor, not an alternate behaviour.
 
 $ARGUMENTS

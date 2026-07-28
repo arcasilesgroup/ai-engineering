@@ -132,14 +132,23 @@ _DOC_TWIN_SUBTREES: tuple[str, ...] = ("reference", "runbooks")
 class AgentMeta:
     """Per-agent metadata for all mirror surfaces.
 
-    spec-189 D-189-04: ``effort`` (cheap | mid | high) is the SOLE semantic
-    source of truth for agent model selection. Every mirror surface derives
-    its Claude-valid ``model:`` literal from ``effort`` via ``_effort_to_model``
-    so no per-surface literal can drift from the semantic intent. The ``model``
-    field is retained only to mirror the hand-typed Claude ``model:`` in
-    ``.claude/agents/<name>.md`` (which is never regenerated) and is not read by
-    any generator; the build-time validator cross-checks that hand-typed model
-    against ``effort``.
+    spec-189 D-189-04: ``effort`` (cheap | mid | high) is the semantic source
+    of truth for agent CAPABILITY, and every mirror surface derives its
+    ``model:`` literal through the single ``resolve_agent_model`` resolver so
+    no per-surface literal can drift from the semantic intent.
+
+    spec-201 D-201-16: ``model`` is the INDEPENDENT MODEL AXIS, not a passive
+    mirror of ``effort``. When non-empty it is an explicit override that WINS
+    over ``_effort_to_model(effort)``; when empty the model is derived from
+    ``effort`` as before. This is what makes "different model, same
+    capability" expressible — the effort-to-model map is a closed
+    three-value tier vocabulary (``opus``/``sonnet``/``haiku``), so without
+    the axis the only way to move a judge off the generator's model is to
+    lower its effort tier, which is a capability regression on exactly the
+    agents whose job is catching what the generator missed. The build-time
+    validator cross-checks the hand-typed ``model:`` in
+    ``.claude/agents/<name>.md`` (which is never regenerated) against the
+    resolved model.
 
     spec-189 D-189-06: the Copilot ``tools:`` list is split into its two honest
     halves so the canonical→VS-Code translation is sourced from a single place.
@@ -396,7 +405,14 @@ def _effort_to_model(effort: str) -> str:
 
 
 def _model_to_effort(model: str) -> str:
-    """Map a Claude-valid model literal (opus|sonnet|haiku) back to its ``effort``."""
+    """Map a tier alias (opus|sonnet|haiku) back to its ``effort``.
+
+    spec-201 D-201-16: this is the inverse of ``_EFFORT_TO_MODEL`` over the
+    TIER-ALIAS vocabulary only. An ``AgentMeta.model`` override is by
+    definition outside that vocabulary and has no effort to map back to, so
+    it raises here exactly as any other unknown literal does. Call this only
+    where an effort is genuinely required.
+    """
     try:
         return _MODEL_TO_EFFORT[model]
     except KeyError:
@@ -405,17 +421,30 @@ def _model_to_effort(model: str) -> str:
         ) from None
 
 
-def _effort_model_for_agent(name: str, fallback: str | None) -> str | None:
-    """Return the effort-derived ``model:`` for a registered agent, else ``fallback``.
+def resolve_agent_model(meta: AgentMeta) -> str:
+    """Resolve the ``model:`` literal for a registered agent.
 
-    spec-189 D-189-04: mirror surfaces derive ``model:`` from the single
-    ``effort`` source. Specialist agents (no ``AgentMeta``) are not
-    effort-governed and keep their canonical passthrough ``model:``.
+    spec-201 D-201-16: ``AgentMeta.model`` is an INDEPENDENT axis. A
+    non-empty value is an explicit override and WINS; an empty value derives
+    the model from ``effort`` (spec-189 D-189-04). Every mirror surface and
+    the canonical validator resolve through this ONE function, so an override
+    reaches all surfaces at once and none can silently keep the tier alias.
+    """
+    if meta.model:
+        return meta.model
+    return _effort_to_model(meta.effort)
+
+
+def _effort_model_for_agent(name: str, fallback: str | None) -> str | None:
+    """Return the resolved ``model:`` for a registered agent, else ``fallback``.
+
+    Specialist agents (no ``AgentMeta``) are not metadata-governed and keep
+    their canonical passthrough ``model:``.
     """
     meta = AGENT_METADATA.get(name)
     if meta is None:
         return fallback
-    return _effort_to_model(meta.effort)
+    return resolve_agent_model(meta)
 
 
 # ── Cross-reference validation targets ──────────────────────────────────────
@@ -946,8 +975,10 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
         "---",
         f'name: "{meta.display_name}"',
         f'description: "{meta.description}"',
-        # spec-189 D-189-04: derive model: from the single `effort` source.
-        f"model: {_effort_to_model(meta.effort)}",
+        # spec-189 D-189-04 / spec-201 D-201-16: resolve model: through the
+        # single resolver so an explicit model override reaches this surface
+        # too rather than leaving it pinned to the effort-derived tier alias.
+        f"model: {resolve_agent_model(meta)}",
         f"tools: [{tools_str}]",
     ]
 
@@ -1549,22 +1580,29 @@ def validate_canonical(
     for name, fm, path in agents:
         if not fm.get("name"):
             warnings.append(f"Agent '{name}': missing 'name' in frontmatter")
-        # spec-189 D-189-04: `effort` is the sole SEMANTIC source of truth. The
-        # hand-typed Claude-valid `model:` in .claude/agents/<name>.md is never
-        # regenerated, so it must agree with the model derived from
-        # AGENT_METADATA[name].effort. This build-time cross-check (mirror
-        # generation, NOT the pre-commit hot path) catches drift between the
-        # hand-typed model and the semantic effort before it reaches any mirror.
+        # spec-189 D-189-04 / spec-201 D-201-16: the hand-typed `model:` in
+        # .claude/agents/<name>.md is never regenerated, so it must agree with
+        # the model the generators resolve. `resolve_agent_model` is that one
+        # resolver: an explicit AGENT_METADATA[name].model override wins,
+        # otherwise the model derives from `effort`. This build-time
+        # cross-check (mirror generation, NOT the pre-commit hot path) catches
+        # drift before it reaches any mirror.
         meta = AGENT_METADATA.get(name)
         if meta is not None:
-            expected_model = _effort_to_model(meta.effort)
+            expected_model = resolve_agent_model(meta)
             declared_model = fm.get("model")
             if declared_model != expected_model:
                 rel = path.relative_to(ROOT)
+                source = (
+                    f"AGENT_METADATA[{name!r}].model override"
+                    if meta.model
+                    else f"effort {meta.effort!r}"
+                )
                 errors.append(
-                    f"{rel}: model: {declared_model!r} disagrees with effort "
-                    f"{meta.effort!r} (expected model: {expected_model!r}). Fix the "
-                    f"hand-typed model: or AGENT_METADATA[{name!r}].effort."
+                    f"{rel}: model: {declared_model!r} disagrees with the resolved "
+                    f"model {expected_model!r} (source: {source}). Fix the hand-typed "
+                    f"model:, AGENT_METADATA[{name!r}].model, or "
+                    f"AGENT_METADATA[{name!r}].effort."
                 )
     return errors, warnings
 
