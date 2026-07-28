@@ -8,7 +8,7 @@ tags: [refactor, complexity, simplification]
 
 # Simplify
 
-Discoverable wrapper around the `ai-simplify` agent: dispatches it via the Agent tool, validates after every change, applies the self-check protocol, and reports the simplifications made. On-demand only — no scheduling, no PR, no auto-commit (the complement of `/ai-simplify-sweep`, which IS scheduled, repo-wide, and opens a draft PR).
+Discoverable wrapper around the `ai-simplify` agent: dispatches it via the host subagent primitive, validates after every change, applies the self-check protocol, and reports the simplifications made. On-demand only — no scheduling, no PR, no auto-commit (the complement of `/ai-simplify-sweep`, which IS scheduled, repo-wide, and opens a draft PR).
 
 ## Quick start
 
@@ -26,7 +26,7 @@ Principles applied: §10.1 KISS (the simplified version must actually be simpler
 1. **Step 0 — load contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; apply `.ai-engineering/overrides/<stack>/conventions.md` so the stack linter is wired before any edit.
 2. **Detect target** — `$ARGUMENTS` resolves to explicit paths, `--diff` (staged changes), or empty (current diff, the default).
 3. **Dependency preflight** — verify `.claude/agents/ai-simplify.md` exists. STOP and report the exact missing path if absent.
-4. **Dispatch** — invoke the `ai-simplify` agent via the Agent tool with `{paths, aggressiveness}`. It applies guard clauses, extracts methods, flattens nesting, removes dead code, simplifies conditionals — validating after EVERY change (stack linter + fast tests).
+4. **Dispatch** — invoke the `ai-simplify` agent via the host subagent primitive with `{paths, aggressiveness}`. It applies guard clauses, extracts methods, flattens nesting, removes dead code, simplifies conditionals — validating after EVERY change (stack linter + fast tests).
 5. **Self-check** (per simplification; any No -> revert) — (a) is it actually simpler, or just different? (b) would a newcomer find it easier? (c) if it adds an abstraction, does that abstraction earn its existence? (d) is complexity reduced, or just moved?
 6. **Render report** — grouped by file: `File | Change | Complexity Before | After | Lines Saved`.
 7. **No PR, no commit** — the in-flight lane; the operator owns the next commit.
@@ -86,7 +86,7 @@ Dispatches the agent scoped to the file. It inverts the outer `if user is not No
 
 ## Integration
 
-Called by: operators directly via `/ai-simplify` (single-file or diff-scoped) — not auto-invoked by any other skill. Calls: the `ai-simplify` agent (`.claude/agents/ai-simplify.md`) via the Agent tool with the operator-chosen scope; validates after each edit, rolls back on test failure. See also: `.claude/skills/ai-simplify-sweep/SKILL.md` (scheduled draft-PR wrapper); `.ai-engineering/manifest.yml` `quality` thresholds (cyclomatic ≤ 10, cognitive ≤ 15, nesting ≤ 3, method length ≤ 50). Anchors: §10.1 KISS, §10.7 Clean Code; D-134-07 (agents need a discoverable slash-skill).
+Called by: operators directly via `/ai-simplify` (single-file or diff-scoped) — not auto-invoked by any other skill. Calls: the `ai-simplify` agent (`.claude/agents/ai-simplify.md`) via the host subagent primitive with the operator-chosen scope; validates after each edit, rolls back on test failure. See also: `.claude/skills/ai-simplify-sweep/SKILL.md` (scheduled draft-PR wrapper); `.ai-engineering/manifest.yml` `quality` thresholds (cyclomatic ≤ 10, cognitive ≤ 15, nesting ≤ 3, method length ≤ 50). Anchors: §10.1 KISS, §10.7 Clean Code; D-134-07 (agents need a discoverable slash-skill).
 
 **Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by reading the specialist agent file (`.claude/agents/ai-simplify.md`) inline and running its steps in-context, sequentially, applying the same per-edit validation and self-check; inline-sequential is the floor, not an alternate behaviour.
 

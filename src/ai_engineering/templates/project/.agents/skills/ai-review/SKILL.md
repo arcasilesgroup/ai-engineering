@@ -21,14 +21,14 @@ Principles applied: §10.7 Clean Code (readability, naming, single-responsibilit
 1. **Step 0 — load contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; apply `.ai-engineering/overrides/<stack>/conventions.md` per stack.
 2. **Detect target** — PR number, file paths, or current diff.
 3. **Dependency preflight** — verify `review-context.md`, `review-validator.md`, plus the `.agents/agents/internal/reviewer-*.md` files the selected mode + diff scope need (`frontend` conditional on UI work — React, hooks, animation, typography, forms, a11y). STOP and report the exact missing path — never paraphrase reviewer instructions inline.
-4. **Pre-review** — dispatch `review-context.md` via the Agent tool; serialize its output for every specialist.
+4. **Pre-review** — dispatch `review-context.md` via the host subagent primitive; serialize its output for every specialist.
 5. **Specialists** — `normal` = 3 macro-agents; `--full` = one agent per specialist. Both run the full roster — grouping controls cost only.
 6. **Validate** — dispatch `review-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
 7. **Emit** — Findings / Risks / Recommendations / Self-Challenge, attributed by original specialist lens.
 
 ## Dispatch threshold
 
-Dispatch the `ai-review` agent for any narrative review over ≥ 1 changed file (PR, branch, diff, or path scope). Each specialist runs in its own context window via the Agent tool. `.agents/agents/ai-review.md` is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
+Dispatch the `ai-review` agent for any narrative review over ≥ 1 changed file (PR, branch, diff, or path scope). Each specialist runs in its own context window via the host subagent primitive. `.agents/agents/ai-review.md` is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
 
 ## Specialist Roster
 

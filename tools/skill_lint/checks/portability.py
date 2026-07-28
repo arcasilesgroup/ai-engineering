@@ -13,9 +13,7 @@ W5 tuning (D-187-07 flip to blocking):
 * **Ambiguous English-verb literals are NOT matched.** ``Read`` / ``Write``
   / ``Edit`` are everyday English verbs ("Read the spec", "Write the
   report") — matching them produced ~47 false positives dominated by
-  sentence-leading prose. They are dropped from the literal set. So are
-  ``Task`` / ``Agent``: in this repo they are core *domain* vocabulary
-  ("Task statuses", "the build agent") rather than tool references.
+  sentence-leading prose. They are dropped from the literal set.
 * **Only distinctive Claude tool names are matched** — ``Bash`` / ``Glob``
   / ``Grep`` / ``TodoWrite`` / ``NotebookEdit`` / ``MultiEdit`` /
   ``WebFetch`` / ``WebSearch`` plus the MCP ``mcp__*`` literal — and only
@@ -26,6 +24,27 @@ W5 tuning (D-187-07 flip to blocking):
 * **``/ai-*`` slash idioms and ``$ARGUMENTS`` are NOT flagged.** They are
   documented harness-provided conventions (AGENTS.md portable fence, W4),
   not portability hazards, so the lint does not treat them as findings.
+
+spec-201 sub-007 (D-201-15) — partial reversal of the W5 ``Task``/``Agent``
+exclusion, plus a widened corpus:
+
+* **``Agent`` / ``Task`` return as a SECOND literal tier**
+  (``_DISPATCH_LITERALS``). W5 dropped them wholesale because in this repo
+  they are also core *domain* vocabulary ("Task statuses", "Agent files
+  live in ..."). Measurement over the real tree showed a blunt re-add
+  reinstates exactly that false-positive class: 6 of 38 findings across 3
+  whole files, every one of them flagged *only* by the clause-start
+  signal. So the dispatch tier participates in ``_LITERAL_RE`` and
+  ``_SLASH_PAIR_RE`` — a call form (``Agent(Build)``), a "tool"-qualified
+  mention (``via the Agent tool``), an arrow map, or a slash pair all flag
+  — but **NOT** in ``_CLAUSE_START_RE``, so clause-leading domain prose
+  does not. D-201-15 asks for the literals to be *evaluated*; they are,
+  under the same tool-signal architecture the module already uses.
+* **The corpus is every ``*.md`` under the skills root**, not only
+  ``<skill-dir>/SKILL.md``. The pre-widening walk saw 73 files and was
+  blind to 58 handler files, 18 reference files and 5 shared documents —
+  a blocking gate that could not see three quarters of the prose it
+  governs. With the 19 agent files the corpus is 154.
 
 A line carrying a documented gate phrase ("or the engine equivalent",
 "host-provided", a tool-name/family map, ...) suppresses its findings.
@@ -60,8 +79,8 @@ class RubricResult:
 
 
 # Distinctive Claude-native tool literals (case-sensitive, word-boundary).
-# Ambiguous English words (Read/Write/Edit/Task/Agent) are deliberately
-# excluded — see the module docstring.
+# Ambiguous English words (Read/Write/Edit) are deliberately excluded —
+# see the module docstring.
 _TOOL_LITERALS: tuple[str, ...] = (
     "Bash",
     "Glob",
@@ -72,7 +91,17 @@ _TOOL_LITERALS: tuple[str, ...] = (
     "WebFetch",
     "WebSearch",
 )
+# Claude dispatch-primitive literals (spec-201 D-201-15). Second tier:
+# they carry a tool signal like any other literal, but they are ALSO core
+# domain vocabulary in this repo, so they are excluded from the
+# clause-start signal — "Task statuses ..." and "Agent files live in ..."
+# are prose, not tool calls.
+_DISPATCH_LITERALS: tuple[str, ...] = (
+    "Agent",
+    "Task",
+)
 _TOOL_ALT = "|".join(_TOOL_LITERALS)
+_ALL_ALT = "|".join(_TOOL_LITERALS + _DISPATCH_LITERALS)
 
 # A finding is suppressed when its line carries a portability qualifier —
 # the author has already signalled the host-neutral escape hatch.
@@ -93,13 +122,15 @@ _GATE_PHRASES: tuple[str, ...] = (
     "or the engine",
 )
 
-_LITERAL_RE = re.compile(r"\b(" + _TOOL_ALT + r")\b")
+_LITERAL_RE = re.compile(r"\b(" + _ALL_ALT + r")\b")
 # MCP tool literal (``mcp__server__tool``) — unambiguous tool reference.
 _MCP_RE = re.compile(r"\bmcp__[A-Za-z0-9_]+\b")
 # A tool literal slash-joined with another tool literal ("Grep/Glob").
-_SLASH_PAIR_RE = re.compile(r"\b(" + _TOOL_ALT + r")\s*/\s*(" + _TOOL_ALT + r")\b")
+_SLASH_PAIR_RE = re.compile(r"\b(" + _ALL_ALT + r")\s*/\s*(" + _ALL_ALT + r")\b")
 # A tool literal leading the clause (optionally after a list/step marker
 # and/or bold lead-in) — an imperative tool command ("Grep every ...").
+# Built from ``_TOOL_LITERALS`` ONLY: the dispatch tier is domain
+# vocabulary at clause start (D-201-15, see the module docstring).
 _CLAUSE_START_RE = re.compile(r"^[ \t]*(?:(?:[-*>]|\d+[.)])\s+)?(?:\*\*\s*)?(" + _TOOL_ALT + r")\b")
 _FENCE_RE = re.compile(r"^```")
 _INLINE_CODE_RE = re.compile(r"`[^`]*`")
@@ -205,14 +236,15 @@ def check_portability(
 
     Returns ``[(path, RubricResult), ...]`` sorted by path. Blocking in W5
     — a MAJOR finding drives the CLI exit code (D-187-07).
+
+    The skills walk is recursive (spec-201 D-201-15): handlers, references
+    and shared documents carry the same portability hazard as a
+    ``SKILL.md`` and were previously invisible to a blocking gate.
     """
     results: list[tuple[Path, RubricResult]] = []
 
     if skills_root.is_dir():
-        for skill_dir in sorted(skills_root.iterdir()):
-            if not skill_dir.is_dir():
-                continue
-            skill_md = skill_dir / "SKILL.md"
+        for skill_md in sorted(skills_root.rglob("*.md")):
             if not skill_md.is_file():
                 continue
             results.append((skill_md, check_file_portability(skill_md)))

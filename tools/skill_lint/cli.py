@@ -29,7 +29,7 @@ from skill_lint.checks.frontloading import check_frontloading
 from skill_lint.checks.md_mirror import check_md_mirror_consistency
 from skill_lint.checks.naming import check_naming
 from skill_lint.checks.pair_aware import check_pair_consistency
-from skill_lint.checks.portability import check_portability
+from skill_lint.checks.portability import check_portability, write_findings
 from skill_lint.checks.principles import check_principles_citations
 from skill_lint.checks.structure import check_structure
 from skill_lint.checks.token_budget import check_token_budget
@@ -79,7 +79,11 @@ def _exit_code(
     spec-187 W5 additions (D-187-07 — flip warn-only lints to blocking):
       * Any MAJOR / CRITICAL from ``portability`` → exit 1. An un-gated
         Claude-only tool literal in canonical prose is a portability
-        hazard on open-weight harnesses.
+        hazard on open-weight harnesses. spec-201 (D-201-15) widened that
+        corpus from 73 files to every ``*.md`` under ``.claude/skills``
+        plus ``.claude/agents/*.md`` (154), so ``--check`` also prints one
+        line per portability finding — an aggregate ``MAJOR=3`` over 154
+        files names nothing an operator can act on.
       * Any MAJOR / CRITICAL from ``structure`` → exit 1. Crisp caps
         (body over 500 lines, references deeper than one level) block;
         the ``## Workflow`` procedure-ratio stays MINOR-advisory (a
@@ -357,6 +361,11 @@ def main(argv: list[str] | None = None) -> int:
             f"MAJOR={frontloading_counts.get('MAJOR', 0)} "
             f"({elapsed_ms:.1f} ms)\n"
         )
+        # spec-201 (D-201-15): portability is a blocking gate over 154
+        # files, so name the offenders. Without this an operator blocked at
+        # pre-commit gets an aggregate count and no path.
+        if portability_counts.get("MAJOR", 0) or portability_counts.get("CRITICAL", 0):
+            write_findings(portability_results, sys.stdout)
         return _exit_code(
             skills_report.summary,
             md_mirror_results=md_mirror_results,

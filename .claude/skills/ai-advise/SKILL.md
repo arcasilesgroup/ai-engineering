@@ -9,7 +9,7 @@ tags: [governance, advisory, proactive]
 
 # Advise
 
-Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the Agent tool and renders a severity-tagged advisory (`info | warn | concern`). Never blocks, never modifies code.
+Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the host subagent primitive and renders a severity-tagged advisory (`info | warn | concern`). Never blocks, never modifies code.
 
 ## Workflow
 
@@ -18,7 +18,7 @@ Principles: §10.6 SDD (every warning traces to an active decision or stack stan
 1. **Load stack contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; apply `.ai-engineering/overrides/<stack>/conventions.md` so stack-specific standards are in scope.
 2. **Detect mode** — first positional arg is `advise` (default), `gate`, or `drift`. Anything else is a path filter; mode defaults to `advise`.
 3. **Dependency preflight** — verify `.claude/agents/ai-advise.md` exists. STOP and report the exact missing path if absent; never paraphrase agent instructions inline.
-4. **Dispatch** — invoke the `ai-advise` agent via the Agent tool with `{mode, paths, severity_floor}`. It runs in its own context window and returns the structured advisory.
+4. **Dispatch** — invoke the `ai-advise` agent via the host subagent primitive with `{mode, paths, severity_floor}`. It runs in its own context window and returns the structured advisory.
 5. **Render** — emit the advisory table grouped by severity (`concern` → `warn` → `info`). Each row: `File | Finding | Recommendation | Anchor`, where Anchor is the standard or active decision the finding traces to.
 6. **Audit** — emit `framework_event` `kind=advisory_emitted` with `{mode, file_count, warning_count, severity_distribution}`. Never emit `BLOCK`/`FAIL` outcomes — those belong to `/ai-verify` and git hooks.
 

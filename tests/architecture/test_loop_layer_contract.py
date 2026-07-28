@@ -12,8 +12,9 @@ layer executable on a host that has no subagent primitive:
 3. No dispatch-only skill contradicts its own fallback elsewhere in
    the same file — two conflicting instructions are worse than none
    (D-201-14 rationale).
-4. The unbacked "isolated worktree" claim is absent from every tracked
-   file outside the spec record.
+4. The unbacked worktree-isolation claim (see ``WORKTREE_CLAIM``) is absent
+   from every tracked file outside the spec record. The phrase is not spelled
+   out anywhere in this module on purpose — see the note on ``WORKTREE_CLAIM``.
 
 Roster note (sub-006 Risk 1): ``spec.md:41-43``, ``spec.md:319``
 (D-201-14) and the parent plan's T-22 all say *five* skills lack a
@@ -66,7 +67,11 @@ CONTRADICTION_MARKERS: tuple[str, ...] = (
 )
 
 # The claim: no code anywhere creates a worktree for a build dispatch.
-WORKTREE_CLAIM = "isolated worktree"
+# Assembled at runtime rather than written as one literal: this module is tracked,
+# so a spelled-out literal would make `git grep` below match this very file and the
+# test could never pass for any tree state. Joining at import keeps the search honest
+# without punching an allowlist hole that would also hide a real claim added here.
+WORKTREE_CLAIM = "isolated" + " " + "worktree"
 
 # The spec record documents the removal and must keep the phrase.
 _CLAIM_ALLOWED_PREFIXES: tuple[str, ...] = (".ai-engineering/specs/",)
