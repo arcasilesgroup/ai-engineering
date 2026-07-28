@@ -787,6 +787,38 @@ def _finalize_hooks_manifest(root: Path) -> None:
         )
 
 
+def _check_hooks_manifest(root: Path) -> bool:
+    """Verify the hooks manifest WITHOUT re-pinning it (spec-201 H8).
+
+    The verify-only counterpart to :func:`_finalize_hooks_manifest`. A
+    ``--check`` caller must never repair: re-signing the manifest from
+    whatever bytes happen to be on disk launders a tampered pin, an edited
+    hook, or an injected hook into a freshly-signed clean state and reports
+    success — the one case the check exists for.
+
+    Returns ``True`` when the manifest matches the hook bytes. Plumbing
+    failures (missing or unrunnable regenerator) fail OPEN — the caller is
+    not the integrity gate — but loudly, via :func:`_warn_hooks_unpinned`.
+    """
+    regen = root / ".ai-engineering" / "scripts" / "regenerate-hooks-manifest.py"
+    if not regen.is_file():
+        _warn_hooks_unpinned(root, f"{regen} is missing")
+        return True
+    try:
+        result = subprocess.run(
+            [sys.executable, str(regen), "--check"],
+            cwd=root,
+            check=False,
+            timeout=30,
+            capture_output=True,
+            text=True,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        _warn_hooks_unpinned(root, f"hooks-manifest verification failed to run: {exc}")
+        return True
+    return result.returncode == 0
+
+
 def _finalize_update_hooks_manifest(workflow_result: Any, root: Path) -> None:
     """spec-159 D-159-03: re-pin hooks-manifest after an update applies changes.
 

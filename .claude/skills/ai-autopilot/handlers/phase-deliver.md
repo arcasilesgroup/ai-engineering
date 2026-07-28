@@ -15,7 +15,7 @@ Build the Integrity Report from Phase 4 Self-Reports and Phase 5 quality audit, 
 
 ### Step 1: Build Transparency Report
 
-1. Glob `.ai-engineering/runtime/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
+1. Enumerate `.ai-engineering/runtime/autopilot/sub-*/plan.md`. For each sub-spec, read the `## Self-Report` section. Extract per-file/function classifications: real, aspirational, stub, failing, invented, hallucinated.
 2. Read the manifest's `## Quality Outcome` and optional `quality_remediation` section. Extract the consolidated findings from Phase 5: final state (CLEAN or remaining medium/low issues), whether the bounded remediation pass was used, and the final reassessment result.
 3. If any sub-specs have status `blocked` or `cascade-blocked` in the manifest: collect their ID, title, scope, and blocking reason. These form the "Blocked / Undelivered" section.
 4. Aggregate all classifications across sub-specs into totals. Cross-reference against quality findings -- a file classified as "real" in a Self-Report but failing checks in Phase 5 should be reclassified as "failing".
@@ -81,7 +81,7 @@ This step follows the thin orchestrator principle. Do NOT duplicate PR logic.
 
 ### Step 3: Cleanup
 
-Execute after the PR merges (detected by the watch loop), or immediately after PR creation if `--no-watch` was passed. **Each sub-step MUST be invoked explicitly via the Bash/Write tools — no implicit assumptions.** Per spec-123 D-123-27, this section was historically skipped; the verification gate in Step 3.6 now asserts the actual on-disk state.
+Execute after the PR merges (detected by the watch loop), or immediately after PR creation if `--no-watch` was passed. **Each sub-step MUST be invoked explicitly via the Bash/Write tools, or the engine equivalent — no implicit assumptions.** Per spec-123 D-123-27, this section was historically skipped; the verification gate in Step 3.6 now asserts the actual on-disk state.
 
 1. **Delete autopilot transient directory** (NEW path per spec-123 D-123-05; was `.ai-engineering/specs/autopilot/` pre-spec-123):
    ```bash

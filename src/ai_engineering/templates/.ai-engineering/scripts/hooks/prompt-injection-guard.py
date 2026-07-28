@@ -200,7 +200,10 @@ def _apply_risk(
         sys.exit(2)
 
 
-_GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit"}
+# ``patch`` is OpenCode's diff-apply tool. The bridge canonicalises it to
+# ``Edit``, but a host that forwards the raw name must not fall off the
+# guarded surface (spec-201 H5).
+_GUARDED_TOOLS = {"Bash", "Write", "Edit", "MultiEdit", "patch"}
 _MIN_CONTENT_LEN = 10
 _MAX_CONTENT_LEN = 4000
 
@@ -241,14 +244,28 @@ WHITELISTED_COMMANDS = frozenset(
 )
 
 
+# Per-tool scannable payload keys, first match wins. Both spellings are
+# listed because hosts differ: Claude Code sends snake_case, OpenCode sends
+# camelCase (`newString`, `patchText`) and the bridge translates tool *names*
+# only -- `args` pass through verbatim. Reading snake_case alone extracted ""
+# on OpenCode, so its whole edit/patch lane fell under the
+# `_MIN_CONTENT_LEN` short-circuit: no IOC scan, no injection scan, no log,
+# on a surface gate-policy.md tiers GUARDED (spec-201 H5).
+_CONTENT_KEYS = {
+    "Write": ("content",),
+    "MultiEdit": ("content",),
+    "Edit": ("new_string", "newString", "patchText", "content"),
+    "patch": ("patchText", "new_string", "newString", "content"),
+    "Bash": ("command",),
+}
+
+
 def _extract_content(tool_name: str, tool_input: dict) -> str:
     """Extract scannable content from tool input based on tool type."""
-    if tool_name in ("Write", "MultiEdit"):
-        return tool_input.get("content", "")
-    if tool_name == "Edit":
-        return tool_input.get("new_string", "")
-    if tool_name == "Bash":
-        return tool_input.get("command", "")
+    for key in _CONTENT_KEYS.get(tool_name, ()):
+        value = tool_input.get(key)
+        if isinstance(value, str) and value:
+            return value
     return ""
 
 

@@ -12,21 +12,22 @@ Canonical source (repo root):
   .claude/skills/ai-*/SKILL.md   (+ optional handlers/, references/, scripts/)
   .claude/agents/ai-*.md
 
+spec-201 D-201-04 collapsed the skill trees from seven to two. `.claude/skills`
+stays canonical for Claude Code (its search paths are compiled in); every other
+surface reads the shared `.agents/skills` tree. Per-surface agent, command and
+hook trees did NOT collapse (D-201-22).
+
 Generates mirrors in:
-  - .codex/skills/           (Codex IDE skills -- keep ai- prefix, + handlers/references/)
-  - .codex/agents/           (Codex IDE agents -- copy as-is)
+  - .agents/skills/ and .agents/agents/  (the shared skill tree + Antigravity agents)
+  - .github/agents/                      (GitHub Copilot agent personas)
+  - .opencode/commands/ and .opencode/agents/  (slash surface + agent personas)
+  - src/ai_engineering/templates/project/.claude/{skills,agents}/  (install template)
+  - src/ai_engineering/templates/project/.agents/                  (install template)
+  - src/ai_engineering/templates/project/.opencode/{commands,agents}/
+  - src/ai_engineering/templates/project/.cursor/agents/
+  - src/ai_engineering/templates/project/agents/                   (install template)
   - src/ai_engineering/templates/project/.codex/hooks.json
   - src/ai_engineering/templates/project/.codex/config.toml
-  - .github/skills/          (Copilot Agent Skills -- per skill dir + handlers/)
-  - .github/agents/          (GitHub Copilot agent personas)
-  - src/ai_engineering/templates/project/.claude/skills/   (install template)
-  - src/ai_engineering/templates/project/.claude/agents/   (install template)
-  - src/ai_engineering/templates/project/.codex/skills/    (install template)
-  - src/ai_engineering/templates/project/.codex/agents/    (install template)
-  - src/ai_engineering/templates/project/.github/skills/   (install template)
-  - src/ai_engineering/templates/project/agents/           (install template)
-  - .agents/skills/ and .agents/agents/                    (Antigravity)
-  - src/ai_engineering/templates/project/.agents/           (install template)
 
 Usage:
   python scripts/sync_command_mirrors.py            # generate all mirrors
@@ -62,23 +63,24 @@ MANIFEST_PATH = ROOT / ".ai-engineering" / "manifest.yml"
 RUNBOOKS_ROOT = ROOT / ".ai-engineering" / "runbooks"
 
 # ── Mirror surface paths ────────────────────────────────────────────────
-CODEX_SKILLS = ROOT / ".codex" / "skills"
-CODEX_AGENTS = ROOT / ".codex" / "agents"
 ANTIGRAVITY_SKILLS = ROOT / ".agents" / "skills"
 ANTIGRAVITY_AGENTS = ROOT / ".agents" / "agents"
-GITHUB_SKILLS = ROOT / ".github" / "skills"
 GITHUB_AGENTS = ROOT / ".github" / "agents"
+# spec-201: repo-root `.opencode/` had no write site and drifted silently
+# against its template twin. Surface 5b now dual-writes both roots.
+OPENCODE_COMMANDS = ROOT / ".opencode" / "commands"
+OPENCODE_AGENTS = ROOT / ".opencode" / "agents"
+# spec-201 sub-005: OpenCode auto-discovers `*.ts` under `.opencode/plugin/`.
+# This is the entry that makes the guard plane load at all.
+OPENCODE_PLUGIN = ROOT / ".opencode" / "plugin"
 # spec-128 D-128-04, D-128-07: .github/instructions/ surface deleted entirely.
 
 # ── Template project paths (for ai-eng install) ────────────────────────
 TPL_PROJECT = ROOT / "src" / "ai_engineering" / "templates" / "project"
 TPL_CLAUDE_SKILLS = TPL_PROJECT / ".claude" / "skills"
 TPL_CLAUDE_AGENTS = TPL_PROJECT / ".claude" / "agents"
-TPL_CODEX_SKILLS = TPL_PROJECT / ".codex" / "skills"
-TPL_CODEX_AGENTS = TPL_PROJECT / ".codex" / "agents"
 TPL_CODEX_HOOKS = TPL_PROJECT / ".codex" / "hooks.json"
 TPL_CODEX_CONFIG = TPL_PROJECT / ".codex" / "config.toml"
-TPL_GITHUB_SKILLS = TPL_PROJECT / ".github" / "skills"
 TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
 # spec-128 Wave 4 (supersedes spec-133 D-133-06, D-133-07): install templates
 # for OpenCode + Cursor + Antigravity surfaces. OpenCode, Cursor, and
@@ -87,18 +89,26 @@ TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
 # skills supersede the prior ``.cursor/rules/`` and ``.opencode/commands/``
 # mappings, which were saved-prompt and always-included patterns respectively
 # — wrong fit for 48 on-demand skills.
-TPL_OPENCODE_SKILLS = TPL_PROJECT / ".opencode" / "skills"
 TPL_OPENCODE_COMMANDS = TPL_PROJECT / ".opencode" / "commands"
 TPL_OPENCODE_AGENTS = TPL_PROJECT / ".opencode" / "agents"
-TPL_CURSOR_SKILLS = TPL_PROJECT / ".cursor" / "skills"
+TPL_OPENCODE_PLUGIN = TPL_PROJECT / ".opencode" / "plugin"
 TPL_CURSOR_AGENTS = TPL_PROJECT / ".cursor" / "agents"
+# spec-201 D-201-17: the hook config that was never emitted, which is why the
+# Cursor bridge has never fired once since spec-133.
+CURSOR_HOOKS = ROOT / ".cursor" / "hooks.json"
+TPL_CURSOR_HOOKS = TPL_PROJECT / ".cursor" / "hooks.json"
 TPL_ANTIGRAVITY_SKILLS = TPL_PROJECT / ".agents" / "skills"
 TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agents" / "agents"
 # spec-159 D-159-04: installer template copy of the canonical hook-scripts
-# subtree. Surface 10 mirrors only the `.py` files here; the `.sh/.ps1`
+# subtree. Surface 10 mirrors the `.py` and `.ts` files here; the `.sh/.ps1`
 # launchers in the same tree are a separate packaging concern and must never
 # be orphan-deleted by this sync step.
 TPL_HOOK_SCRIPTS = TPL_PROJECT.parent / ".ai-engineering" / "scripts" / "hooks"
+
+# spec-201 sub-005 T-5.4: the OpenCode plugin bridge is TypeScript, so a
+# `*.py`-only mirror left `opencode-hook-bridge.ts` a hand-copied twin with no
+# parity gate — the same unguarded-twin class as `session_bootstrap.py`.
+_HOOK_SCRIPT_PATTERNS = ("*.py", "*.ts")
 
 # spec-187 follow-up (doc-twin root fix): the installer ships the
 # `.ai-engineering/{reference,runbooks}/**.md` docs verbatim, so every
@@ -122,14 +132,23 @@ _DOC_TWIN_SUBTREES: tuple[str, ...] = ("reference", "runbooks")
 class AgentMeta:
     """Per-agent metadata for all mirror surfaces.
 
-    spec-189 D-189-04: ``effort`` (cheap | mid | high) is the SOLE semantic
-    source of truth for agent model selection. Every mirror surface derives
-    its Claude-valid ``model:`` literal from ``effort`` via ``_effort_to_model``
-    so no per-surface literal can drift from the semantic intent. The ``model``
-    field is retained only to mirror the hand-typed Claude ``model:`` in
-    ``.claude/agents/<name>.md`` (which is never regenerated) and is not read by
-    any generator; the build-time validator cross-checks that hand-typed model
-    against ``effort``.
+    spec-189 D-189-04: ``effort`` (cheap | mid | high) is the semantic source
+    of truth for agent CAPABILITY, and every mirror surface derives its
+    ``model:`` literal through the single ``resolve_agent_model`` resolver so
+    no per-surface literal can drift from the semantic intent.
+
+    spec-201 D-201-16: ``model`` is the INDEPENDENT MODEL AXIS, not a passive
+    mirror of ``effort``. When non-empty it is an explicit override that WINS
+    over ``_effort_to_model(effort)``; when empty the model is derived from
+    ``effort`` as before. This is what makes "different model, same
+    capability" expressible — the effort-to-model map is a closed
+    three-value tier vocabulary (``opus``/``sonnet``/``haiku``), so without
+    the axis the only way to move a judge off the generator's model is to
+    lower its effort tier, which is a capability regression on exactly the
+    agents whose job is catching what the generator missed. The build-time
+    validator cross-checks the hand-typed ``model:`` in
+    ``.claude/agents/<name>.md`` (which is never regenerated) against the
+    resolved model.
 
     spec-189 D-189-06: the Copilot ``tools:`` list is split into its two honest
     halves so the canonical→VS-Code translation is sourced from a single place.
@@ -386,7 +405,14 @@ def _effort_to_model(effort: str) -> str:
 
 
 def _model_to_effort(model: str) -> str:
-    """Map a Claude-valid model literal (opus|sonnet|haiku) back to its ``effort``."""
+    """Map a tier alias (opus|sonnet|haiku) back to its ``effort``.
+
+    spec-201 D-201-16: this is the inverse of ``_EFFORT_TO_MODEL`` over the
+    TIER-ALIAS vocabulary only. An ``AgentMeta.model`` override is by
+    definition outside that vocabulary and has no effort to map back to, so
+    it raises here exactly as any other unknown literal does. Call this only
+    where an effort is genuinely required.
+    """
     try:
         return _MODEL_TO_EFFORT[model]
     except KeyError:
@@ -395,17 +421,30 @@ def _model_to_effort(model: str) -> str:
         ) from None
 
 
-def _effort_model_for_agent(name: str, fallback: str | None) -> str | None:
-    """Return the effort-derived ``model:`` for a registered agent, else ``fallback``.
+def resolve_agent_model(meta: AgentMeta) -> str:
+    """Resolve the ``model:`` literal for a registered agent.
 
-    spec-189 D-189-04: mirror surfaces derive ``model:`` from the single
-    ``effort`` source. Specialist agents (no ``AgentMeta``) are not
-    effort-governed and keep their canonical passthrough ``model:``.
+    spec-201 D-201-16: ``AgentMeta.model`` is an INDEPENDENT axis. A
+    non-empty value is an explicit override and WINS; an empty value derives
+    the model from ``effort`` (spec-189 D-189-04). Every mirror surface and
+    the canonical validator resolve through this ONE function, so an override
+    reaches all surfaces at once and none can silently keep the tier alias.
+    """
+    if meta.model:
+        return meta.model
+    return _effort_to_model(meta.effort)
+
+
+def _effort_model_for_agent(name: str, fallback: str | None) -> str | None:
+    """Return the resolved ``model:`` for a registered agent, else ``fallback``.
+
+    Specialist agents (no ``AgentMeta``) are not metadata-governed and keep
+    their canonical passthrough ``model:``.
     """
     meta = AGENT_METADATA.get(name)
     if meta is None:
         return fallback
-    return _effort_to_model(meta.effort)
+    return resolve_agent_model(meta)
 
 
 # ── Cross-reference validation targets ──────────────────────────────────────
@@ -536,11 +575,15 @@ def translate_refs(content: str, target_ide: str) -> str:
 
     Canonical form: .claude/skills/ai-X/SKILL.md, .claude/agents/ai-X.md
     Target surfaces:
-      - codex (.codex/): .codex/skills/ai-X/SKILL.md, .codex/agents/ai-X.md
-      - cursor (.cursor/): .cursor/skills/ai-X/SKILL.md, .cursor/agents/ai-X.mdc
+      - opencode (.opencode/): .agents/skills/ai-X/SKILL.md, .opencode/agents/ai-X.md
+      - cursor (.cursor/): .agents/skills/ai-X/SKILL.md, .cursor/agents/ai-X.mdc
       - antigravity (.agents/): .agents/skills/ai-X/SKILL.md, .agents/agents/ai-X.md
-      - copilot (.github/): .github/skills/ai-X/SKILL.md, .github/agents/X.agent.md
+      - copilot (.github/): .agents/skills/ai-X/SKILL.md, .github/agents/X.agent.md
       - claude: unchanged (canonical)
+
+    spec-201 D-201-04 collapsed the skill trees to two, so every
+    non-Claude target resolves skills from ``.agents/skills``; agent
+    paths stay surface-local (D-201-22).
     """
     if target_ide == "claude":
         return content
@@ -548,21 +591,16 @@ def translate_refs(content: str, target_ide: str) -> str:
     def _replace_skill(m: re.Match[str]) -> str:
         bt = m.group(1)
         name = m.group(2)
-        if target_ide == "codex":
-            path = f".codex/skills/ai-{name}/SKILL.md"
-        elif target_ide == "cursor":
-            path = f".cursor/skills/ai-{name}/SKILL.md"
-        elif target_ide == "antigravity":
-            path = f".agents/skills/ai-{name}/SKILL.md"
-        else:  # copilot
-            path = f".github/skills/ai-{name}/SKILL.md"
+        # spec-201 D-201-04: every non-Claude surface resolves skills
+        # from the single shared tree.
+        path = f".agents/skills/ai-{name}/SKILL.md"
         return f"{bt}{path}{bt}" if bt else path
 
     def _replace_agent(m: re.Match[str]) -> str:
         bt = m.group(1)
         name = m.group(2)
-        if target_ide == "codex":
-            path = f".codex/agents/ai-{name}.md"
+        if target_ide == "opencode":
+            path = f".opencode/agents/ai-{name}.md"
         elif target_ide == "cursor":
             path = f".cursor/agents/ai-{name}.mdc"
         elif target_ide == "antigravity":
@@ -584,7 +622,7 @@ def translate_refs(content: str, target_ide: str) -> str:
     # explicit rewrite. The bare-prefix rewrite runs second so the
     # subpath rewrite (with trailing `/`) wins where applicable.
     ide_target_map = {
-        "codex": ".codex",
+        "opencode": ".opencode",
         "cursor": ".cursor",
         "antigravity": ".agents",
         "copilot": ".github",
@@ -622,20 +660,17 @@ def translate_refs(content: str, target_ide: str) -> str:
         )
 
     # Directory path translations (broader patterns -- run AFTER specific file translations)
-    if target_ide == "codex":
-        # .claude/skills/ -> .codex/skills/
-        content = re.sub(r"\.claude/skills/(?!ai-)", ".codex/skills/", content)
-        # .claude/agents/ -> .codex/agents/
-        content = re.sub(r"\.claude/agents/(?!ai-)", ".codex/agents/", content)
+    if target_ide == "opencode":
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".agents/skills/", content)
+        content = re.sub(r"\.claude/agents/(?!ai-)", ".opencode/agents/", content)
     elif target_ide == "cursor":
-        content = re.sub(r"\.claude/skills/(?!ai-)", ".cursor/skills/", content)
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".agents/skills/", content)
         content = re.sub(r"\.claude/agents/(?!ai-)", ".cursor/agents/", content)
     elif target_ide == "antigravity":
         content = re.sub(r"\.claude/skills/(?!ai-)", ".agents/skills/", content)
         content = re.sub(r"\.claude/agents/(?!ai-)", ".agents/agents/", content)
     elif target_ide == "copilot":
-        # .claude/skills/ -> .github/skills/
-        content = re.sub(r"\.claude/skills/(?!ai-)", ".github/skills/", content)
+        content = re.sub(r"\.claude/skills/(?!ai-)", ".agents/skills/", content)
         # .claude/agents/ -> .github/agents/
         content = re.sub(r"\.claude/agents/(?!ai-)", ".github/agents/", content)
 
@@ -664,12 +699,6 @@ def parse_frontmatter_simple(path: Path) -> dict[str, str]:
         elif value is not None:
             result[key] = str(value)
     return result
-
-
-def is_copilot_compatible(skill_path: Path) -> bool:
-    """Return True if the skill's frontmatter does not opt out of Copilot."""
-    fm = read_frontmatter(skill_path)
-    return str(fm.get("copilot_compatible", "true")).lower() != "false"
 
 
 def discover_skills() -> list[tuple[str, dict[str, str], Path]]:
@@ -807,33 +836,12 @@ def discover_scripts(skill_dir: Path) -> list[tuple[str, Path]]:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def generate_codex_skill(name: str, skill_path: Path) -> str:
-    """Generate .codex/skills/ai-<name>/SKILL.md -- translated refs, keep ai- prefix."""
-    fm = read_frontmatter(skill_path)
-    body = read_body(skill_path)
-
-    # Keep ai- prefix for skills in .codex/ surface
-    fm["name"] = f"ai-{name}"
-    fm.pop("metadata", None)
-    fm.update(
-        get_generated_provenance_fields(
-            "codex-skills",
-            canonical_source=f".claude/skills/ai-{name}/SKILL.md",
-        )
-    )
-
-    header = _serialize_frontmatter(fm)
-    body = translate_refs(body, "codex")
-
-    return f"{header}\n\n{body.rstrip()}\n"
-
-
-def generate_codex_agent(name: str, agent_path: Path) -> str:
-    """Generate .codex/agents/ai-<name>.md -- translated refs."""
+def generate_opencode_agent_markdown(name: str, agent_path: Path) -> str:
+    """Generate .opencode/agents/ai-<name>.md -- translated refs."""
     fm = read_frontmatter(agent_path)
     body = read_body(agent_path)
 
-    # Keep ai- prefix for agents in .codex/ surface
+    # Keep ai- prefix for agents in the .opencode/ surface
     fm.pop("tools", None)  # tools are IDE-specific
     fm.pop("metadata", None)
     # spec-189 D-189-04: derive model: from the single `effort` source so all
@@ -843,13 +851,13 @@ def generate_codex_agent(name: str, agent_path: Path) -> str:
         fm["model"] = derived_model
     fm.update(
         get_generated_provenance_fields(
-            "codex-agents",
+            "opencode-agents",
             canonical_source=f".claude/agents/ai-{name}.md",
         )
     )
 
     header = _serialize_frontmatter(fm)
-    body = translate_refs(body, "codex")
+    body = translate_refs(body, "opencode")
 
     return f"{header}\n\n{body.rstrip()}\n"
 
@@ -909,13 +917,6 @@ def _generate_translated_agent(
     return f"{header}\n\n{body.rstrip()}\n"
 
 
-def generate_cursor_skill(name: str, skill_path: Path) -> str:
-    """Generate .cursor/skills/ai-<name>/SKILL.md."""
-    return _generate_translated_skill(
-        name, skill_path, target_ide="cursor", family_id="cursor-skills"
-    )
-
-
 def generate_cursor_agent(name: str, agent_path: Path) -> str:
     """Generate .cursor/agents/ai-<name>.mdc."""
     return _generate_translated_agent(
@@ -948,37 +949,6 @@ def generate_antigravity_agent(name: str, agent_path: Path) -> str:
 # ═══════════════════════════════════════════════════════════════════════════
 
 
-def generate_copilot_skill(name: str, skill_path: Path) -> str:
-    """Generate .github/skills/ai-<name>/SKILL.md -- directory-based Agent Skill.
-
-    Keeps SKILL.md as a standalone file. Handlers are copied separately.
-    """
-    fm = read_frontmatter(skill_path)
-    body = read_body(skill_path)
-
-    # Adapt frontmatter for Copilot Agent Skills
-    fm["name"] = f"ai-{name}"
-    fm["mode"] = "agent"
-    fm.pop("metadata", None)
-    fm.update(
-        get_generated_provenance_fields(
-            "copilot-skills",
-            canonical_source=f".claude/skills/ai-{name}/SKILL.md",
-        )
-    )
-
-    header = _serialize_frontmatter(fm)
-    body = translate_refs(body, "copilot")
-
-    return f"{header}\n\n{body.rstrip()}\n"
-
-
-def generate_copilot_handler(handler_path: Path) -> str:
-    """Generate a handler file for .github/skills/ai-<name>/handlers/."""
-    content = handler_path.read_text(encoding="utf-8")
-    return translate_refs(content, "copilot")
-
-
 def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
     """Generate .github/agents/<name>.agent.md with full embedded content."""
     import yaml
@@ -1005,8 +975,10 @@ def generate_copilot_agent(name: str, meta: AgentMeta, agent_path: Path) -> str:
         "---",
         f'name: "{meta.display_name}"',
         f'description: "{meta.description}"',
-        # spec-189 D-189-04: derive model: from the single `effort` source.
-        f"model: {_effort_to_model(meta.effort)}",
+        # spec-189 D-189-04 / spec-201 D-201-16: resolve model: through the
+        # single resolver so an explicit model override reaches this surface
+        # too rather than leaving it pinned to the effort-derived tier alias.
+        f"model: {resolve_agent_model(meta)}",
         f"tools: [{tools_str}]",
     ]
 
@@ -1223,6 +1195,12 @@ AIENG_GOVERNED_GIT_ADVISOR_DISABLED  # set "1" to disable the raw-git -> skill a
 
 # spec-190 D-190-02 — error/integrity storm coalescer
 AIENG_ERROR_STORM_THRESHOLD         # default 20; repeats crossing this in the window raise a storm alarm (window reuses AIENG_HOOK_CACHE_TTL_SEC)
+
+# spec-201 D-201-13 — PreToolUse token spend cap (ships DISABLED)
+AIENG_MAX_SESSION_TOKENS            # default 0 = off; a positive int denies an Agent
+                                    # dispatch past that many session tokens. Overrides
+                                    # performance.budget.max_session_tokens; a literal
+                                    # "0" disables even a configured cap.
 
 # spec-175 — /ai-research Tier 3 deep-research (notebooklm-py CLI)
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; bounded harvest wait)
@@ -1608,22 +1586,29 @@ def validate_canonical(
     for name, fm, path in agents:
         if not fm.get("name"):
             warnings.append(f"Agent '{name}': missing 'name' in frontmatter")
-        # spec-189 D-189-04: `effort` is the sole SEMANTIC source of truth. The
-        # hand-typed Claude-valid `model:` in .claude/agents/<name>.md is never
-        # regenerated, so it must agree with the model derived from
-        # AGENT_METADATA[name].effort. This build-time cross-check (mirror
-        # generation, NOT the pre-commit hot path) catches drift between the
-        # hand-typed model and the semantic effort before it reaches any mirror.
+        # spec-189 D-189-04 / spec-201 D-201-16: the hand-typed `model:` in
+        # .claude/agents/<name>.md is never regenerated, so it must agree with
+        # the model the generators resolve. `resolve_agent_model` is that one
+        # resolver: an explicit AGENT_METADATA[name].model override wins,
+        # otherwise the model derives from `effort`. This build-time
+        # cross-check (mirror generation, NOT the pre-commit hot path) catches
+        # drift before it reaches any mirror.
         meta = AGENT_METADATA.get(name)
         if meta is not None:
-            expected_model = _effort_to_model(meta.effort)
+            expected_model = resolve_agent_model(meta)
             declared_model = fm.get("model")
             if declared_model != expected_model:
                 rel = path.relative_to(ROOT)
+                source = (
+                    f"AGENT_METADATA[{name!r}].model override"
+                    if meta.model
+                    else f"effort {meta.effort!r}"
+                )
                 errors.append(
-                    f"{rel}: model: {declared_model!r} disagrees with effort "
-                    f"{meta.effort!r} (expected model: {expected_model!r}). Fix the "
-                    f"hand-typed model: or AGENT_METADATA[{name!r}].effort."
+                    f"{rel}: model: {declared_model!r} disagrees with the resolved "
+                    f"model {expected_model!r} (source: {source}). Fix the hand-typed "
+                    f"model:, AGENT_METADATA[{name!r}].model, or "
+                    f"AGENT_METADATA[{name!r}].effort."
                 )
     return errors, warnings
 
@@ -1847,54 +1832,6 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
 
     # ── Phase 2: Generate surfaces ──────────────────────────────────────
 
-    # Surface 1: .codex/skills/ai-<name>/SKILL.md (keep ai- prefix)
-    for name, _fm, skill_path in skills:
-        path = CODEX_SKILLS / f"ai-{name}" / "SKILL.md"
-        tpl = TPL_CODEX_SKILLS / f"ai-{name}" / "SKILL.md"
-        content = generate_codex_skill(name, skill_path)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
-
-        for handler_name, handler_path in skill_handlers[name]:
-            translated = translate_refs(skill_raw[handler_path], "codex")
-            for target in (
-                CODEX_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
-                TPL_CODEX_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-        for ref_name, ref_path in skill_references[name]:
-            translated = translate_refs(skill_raw[ref_path], "codex")
-            for target in (
-                CODEX_SKILLS / f"ai-{name}" / "references" / ref_name,
-                TPL_CODEX_SKILLS / f"ai-{name}" / "references" / ref_name,
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-        for script_name, script_path in skill_scripts[name]:
-            translated = translate_refs(skill_raw[script_path], "codex")
-            for target in (
-                CODEX_SKILLS / f"ai-{name}" / "scripts" / script_name,
-                TPL_CODEX_SKILLS / f"ai-{name}" / "scripts" / script_name,
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-        for res_name, res_path in skill_resources[name]:
-            translated = translate_refs(skill_raw[res_path], "codex")
-            for target in (
-                CODEX_SKILLS / f"ai-{name}" / res_name,
-                TPL_CODEX_SKILLS / f"ai-{name}" / res_name,
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-    # Surface 2: .codex/agents/ai-<name>.md
-    for name, _fm, agent_path in agents:
-        path = CODEX_AGENTS / f"ai-{name}.md"
-        tpl = TPL_CODEX_AGENTS / f"ai-{name}.md"
-        content = generate_codex_agent(name, agent_path)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
-
     # Surface 2a: provider-owned Codex config/hooks mirrored into install templates.
     for root_path, tpl_path in (
         (ROOT / ".codex" / "hooks.json", TPL_CODEX_HOOKS),
@@ -1941,50 +1878,6 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
                 ROOT / template_rel / specialist_path.name,
             ):
                 _generate_surface(target, provenance, check_only, verbose, generated_paths, diffs)
-
-    # Surface 3: .github/skills/ai-<name>/SKILL.md + handlers/ (Agent Skills)
-    for name, _fm, skill_path in skills:
-        if not is_copilot_compatible(skill_path):
-            continue
-        path = GITHUB_SKILLS / f"ai-{name}" / "SKILL.md"
-        tpl = TPL_GITHUB_SKILLS / f"ai-{name}" / "SKILL.md"
-        content = generate_copilot_skill(name, skill_path)
-        _generate_surface(path, content, check_only, verbose, generated_paths, diffs)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
-
-        for handler_name, handler_path in skill_handlers[name]:
-            handler_content = generate_copilot_handler(handler_path)
-            for target in (
-                GITHUB_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
-                TPL_GITHUB_SKILLS / f"ai-{name}" / "handlers" / f"{handler_name}.md",
-            ):
-                _generate_surface(
-                    target, handler_content, check_only, verbose, generated_paths, diffs
-                )
-
-        for ref_name, ref_path in skill_references[name]:
-            ref_content = translate_refs(skill_raw[ref_path], "copilot")
-            for target in (
-                GITHUB_SKILLS / f"ai-{name}" / "references" / ref_name,
-                TPL_GITHUB_SKILLS / f"ai-{name}" / "references" / ref_name,
-            ):
-                _generate_surface(target, ref_content, check_only, verbose, generated_paths, diffs)
-
-        for script_name, script_path in skill_scripts[name]:
-            translated = translate_refs(skill_raw[script_path], "copilot")
-            for target in (
-                GITHUB_SKILLS / f"ai-{name}" / "scripts" / script_name,
-                TPL_GITHUB_SKILLS / f"ai-{name}" / "scripts" / script_name,
-            ):
-                _generate_surface(target, translated, check_only, verbose, generated_paths, diffs)
-
-        for res_name, res_path in skill_resources[name]:
-            res_content = translate_refs(skill_raw[res_path], "copilot")
-            for target in (
-                GITHUB_SKILLS / f"ai-{name}" / res_name,
-                TPL_GITHUB_SKILLS / f"ai-{name}" / res_name,
-            ):
-                _generate_surface(target, res_content, check_only, verbose, generated_paths, diffs)
 
     # Surface 4: .github/agents/<name>.agent.md
     # Spec-107 D-107-03: explore is renamed to ai-explore for cross-IDE parity.
@@ -2036,51 +1929,68 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         content = generate_install_claude_agent(agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 5b: templates/project/.opencode/ (spec-128 Wave 4 + Wave 5).
-    # OpenCode separates two skill surfaces (researched 2026-05-14 against
-    # https://opencode.ai/docs/skills/ + https://opencode.ai/docs/commands/):
+    # Surface 5b: .opencode/ at repo root AND in templates/project/.
+    # OpenCode reads its skills from the shared `.agents/skills` tree
+    # (spec-201 D-201-04); `commands/<name>.md` stays OpenCode-local because
+    # it is the only surface that puts `/ai-<name>` in the slash menu
+    # (D-201-22). Each command body is a one-liner that invokes the matching
+    # skill by name, so SKILL.md remains the single source of truth.
     #
-    #   * skills/<name>/SKILL.md — agent-discovered lazy-load (not in `/` menu)
-    #   * commands/<name>.md     — slash-menu prompts (visible in `/` menu)
-    #
-    # Wave 4 emitted skills only. Operators hitting the TUI with `/ai-` saw
-    # "No matching items" because OpenCode does not surface skills in the
-    # slash menu. Wave 5 (this surface) adds thin saved-prompt commands so
-    # the `/ai-<name>` UX is restored. The command body is a one-liner that
-    # invokes the matching skill by name; OpenCode lazy-loads the skill body
-    # via the `skill` tool, so SKILL.md remains the single source of truth.
+    # spec-201: the repo-root `.opencode/` tree had NO generator write site at
+    # all — 61 unmanaged files that `dev sync --check` reported clean while
+    # they drifted from their template twins. Both roots are dual-written here
+    # and both participate in the orphan sweep below.
     from scripts.sync_mirrors.opencode_target import (
         generate_opencode_agent,
         generate_opencode_command,
-        generate_opencode_skill,
+        generate_opencode_plugin,
     )
 
-    for name, _fm, skill_path in skills:
-        tpl_skill = TPL_OPENCODE_SKILLS / f"ai-{name}" / "SKILL.md"
-        skill_content = generate_opencode_skill(name, skill_path)
-        _generate_surface(tpl_skill, skill_content, check_only, verbose, generated_paths, diffs)
+    # spec-201 sub-005: the guard-plane entry. Without a file under
+    # `.opencode/plugin/` nothing ever loads `opencode-hook-bridge.ts`, so the
+    # OpenCode surface shipped two specs' worth of "guarded" claims with no
+    # loader at all.
+    plugin_content = generate_opencode_plugin()
+    for target in (
+        OPENCODE_PLUGIN / "ai-engineering.ts",
+        TPL_OPENCODE_PLUGIN / "ai-engineering.ts",
+    ):
+        _generate_surface(target, plugin_content, check_only, verbose, generated_paths, diffs)
 
-        tpl_cmd = TPL_OPENCODE_COMMANDS / f"ai-{name}.md"
+    for name, _fm, skill_path in skills:
         cmd_content = generate_opencode_command(name, skill_path)
-        _generate_surface(tpl_cmd, cmd_content, check_only, verbose, generated_paths, diffs)
+        for target in (
+            OPENCODE_COMMANDS / f"ai-{name}.md",
+            TPL_OPENCODE_COMMANDS / f"ai-{name}.md",
+        ):
+            _generate_surface(target, cmd_content, check_only, verbose, generated_paths, diffs)
     for name, _fm, agent_path in agents:
-        tpl = TPL_OPENCODE_AGENTS / f"ai-{name}.md"
         content = generate_opencode_agent(name, agent_path)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+        for target in (
+            OPENCODE_AGENTS / f"ai-{name}.md",
+            TPL_OPENCODE_AGENTS / f"ai-{name}.md",
+        ):
+            _generate_surface(target, content, check_only, verbose, generated_paths, diffs)
 
-    # Surface 5c: templates/project/.cursor/ (spec-128 Wave 4, supersedes D-133-07).
-    # Cursor 2.4+ reads native skills from .cursor/skills/<name>/SKILL.md (folder
-    # per skill, agent-discovered lazy-load). Per https://cursor.com/help/customization/skills
-    # skills are the on-demand counterpart to always-included rules. Agents stay
-    # at .cursor/agents/<name>.mdc.
-    for name, _fm, skill_path in skills:
-        tpl = TPL_CURSOR_SKILLS / f"ai-{name}" / "SKILL.md"
-        content = generate_cursor_skill(name, skill_path)
-        _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+    # Surface 5c: templates/project/.cursor/ agents.
+    # spec-201 D-201-04: the Cursor discovery allowlist contains
+    # .agents/skills/, so Cursor skills now come from the shared tree
+    # the installer ships; only agents stay at .cursor/agents/<name>.mdc
+    # (D-201-22).
     for name, _fm, agent_path in agents:
         tpl = TPL_CURSOR_AGENTS / f"ai-{name}.mdc"
         content = generate_cursor_agent(name, agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # spec-201 D-201-17: `.cursor/hooks.json`, dual-written to root + template.
+    # Cursor discovers `<workspaceFolder>/.cursor/hooks.json`; without it the
+    # bridge is unreachable, so the Cursor surface had a hook adapter and no
+    # way to invoke it.
+    from scripts.sync_mirrors.cursor_target import generate_cursor_hooks_json
+
+    cursor_hooks_content = generate_cursor_hooks_json()
+    for target in (CURSOR_HOOKS, TPL_CURSOR_HOOKS):
+        _generate_surface(target, cursor_hooks_content, check_only, verbose, generated_paths, diffs)
 
     # Surface 5d: .agents/ + templates/project/.agents/ (Antigravity app + agy CLI).
     # Antigravity uses AGENTS.md for root context and .agents/ for workspace skills.
@@ -2170,17 +2080,6 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
             TPL_CLAUDE_SKILLS / "_shared" / rel_path,
         ):
             _generate_surface(target, raw, check_only, verbose, generated_paths, diffs)
-        # Codex
-        codex_content = translate_refs(raw, "codex")
-        for target in (
-            CODEX_SKILLS / "_shared" / rel_path,
-            TPL_CODEX_SKILLS / "_shared" / rel_path,
-        ):
-            _generate_surface(target, codex_content, check_only, verbose, generated_paths, diffs)
-        # Cursor
-        cursor_content = translate_refs(raw, "cursor")
-        for target in (TPL_CURSOR_SKILLS / "_shared" / rel_path,):
-            _generate_surface(target, cursor_content, check_only, verbose, generated_paths, diffs)
         # Antigravity
         antigravity_content = translate_refs(raw, "antigravity")
         for target in (
@@ -2190,14 +2089,6 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
             _generate_surface(
                 target, antigravity_content, check_only, verbose, generated_paths, diffs
             )
-        # GitHub Copilot
-        copilot_content = translate_refs(raw, "copilot")
-        for target in (
-            GITHUB_SKILLS / "_shared" / rel_path,
-            TPL_GITHUB_SKILLS / "_shared" / rel_path,
-        ):
-            _generate_surface(target, copilot_content, check_only, verbose, generated_paths, diffs)
-
     # spec-128 D-128-07: lang instructions generator removed.
     # spec-128 D-128-04: Manual instruction files (testing/markdown/sonarqube_mcp)
     # also removed — copilot-instructions.md + AGENTS.md provide coverage.
@@ -2265,13 +2156,17 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     # The canonical `.ai-engineering/scripts/hooks/` tree (incl. the `_lib/`
     # shared lib) had no propagation path into the installer template, so every
     # hook edit silently drifted the packaged copy (the updater's comparison
-    # baseline). Mirror every `.py` (incl. `_lib/`, skipping `__pycache__`) so
-    # `dev sync` is the single regen command for hook parity. The `.sh/.ps1`
-    # launchers are a separate packaging concern and are not touched here.
+    # baseline). Mirror every `.py` and `.ts` (incl. `_lib/`, skipping
+    # `__pycache__`) so `dev sync` is the single regen command for hook parity.
+    # The `.sh/.ps1` launchers are a separate packaging concern and are not
+    # touched here.
     hook_scripts_src = ROOT / ".ai-engineering" / "scripts" / "hooks"
     hook_scripts_dst = TPL_HOOK_SCRIPTS
     if hook_scripts_src.is_dir():
-        for src_file in sorted(hook_scripts_src.rglob("*.py")):
+        hook_sources = sorted(
+            {path for pattern in _HOOK_SCRIPT_PATTERNS for path in hook_scripts_src.rglob(pattern)}
+        )
+        for src_file in hook_sources:
             if "__pycache__" in src_file.parts:
                 continue
             relative = src_file.relative_to(hook_scripts_src)
@@ -2386,44 +2281,45 @@ def _handle_orphans(
     # prefixes, so cross-IDE shared handlers do not get flagged as orphans.
     _SKILL_SUBDIR_PREFIXES = ("ai-", "_shared")
     _ORPHAN_SURFACES: list[tuple[Path, str, object]] = [
-        (CODEX_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
-        (CODEX_AGENTS, "glob", "*.md"),
-        (CODEX_AGENTS / "internal", "glob", "*.md"),
         (ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (ANTIGRAVITY_AGENTS, "glob", "*.md"),
         (ANTIGRAVITY_AGENTS / "internal", "glob", "*.md"),
         # spec-128 D-128-07: GITHUB_INSTRUCTIONS orphan surface entry removed.
-        (GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (GITHUB_AGENTS, "glob", "*.md"),
         (GITHUB_AGENTS / "internal", "glob", "*.md"),
         (TPL_CLAUDE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CLAUDE_AGENTS, "glob", "*.md"),
-        (TPL_CURSOR_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CURSOR_AGENTS, "glob", "*.mdc"),
-        (TPL_CODEX_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
-        (TPL_CODEX_AGENTS, "glob", "*.md"),
-        (TPL_CODEX_AGENTS / "internal", "glob", "*.md"),
+        # spec-201 D-201-17: a renamed/deleted cursor hook config must not
+        # leave a stale copy Cursor would keep loading.
+        (CURSOR_HOOKS.parent, "glob", "hooks.json"),
+        (TPL_CURSOR_HOOKS.parent, "glob", "hooks.json"),
         (TPL_CODEX_HOOKS.parent, "glob", "hooks.json"),
         (TPL_CODEX_CONFIG.parent, "glob", "config.toml"),
-        (TPL_GITHUB_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_GITHUB_AGENTS, "glob", "*.md"),
         (TPL_GITHUB_AGENTS / "internal", "glob", "*.md"),
         # spec-144: newer installer-template provider surfaces must also
         # participate in orphan cleanup. Otherwise a canonical skill rename
         # creates the new OpenCode/Cursor/Agent files while stale old-slug
         # template files survive indefinitely.
-        (TPL_OPENCODE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
+        (OPENCODE_COMMANDS, "glob", "*.md"),
+        (OPENCODE_AGENTS, "glob", "*.md"),
         (TPL_OPENCODE_COMMANDS, "glob", "*.md"),
         (TPL_OPENCODE_AGENTS, "glob", "*.md"),
+        # spec-201 sub-005: a renamed plugin entry must self-clean, or OpenCode
+        # auto-discovery loads BOTH the stale and the current file.
+        (OPENCODE_PLUGIN, "glob", "*.ts"),
+        (TPL_OPENCODE_PLUGIN, "glob", "*.ts"),
         (TPL_ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_ANTIGRAVITY_AGENTS, "glob", "*.md"),
         (TPL_ANTIGRAVITY_AGENTS / "internal", "glob", "*.md"),
         # spec-159 D-159-04: Surface 10 mirrors the canonical hook-scripts
         # subtree into the installer template. Scope orphan cleanup to `*.py`
-        # ONLY so a renamed/deleted canonical hook does not leave a stale copy
-        # shipping in the wheel. The `.sh/.ps1` launchers in this same tree are
-        # a separate packaging concern and must NEVER be orphan-deleted.
-        (TPL_HOOK_SCRIPTS, "rglob", "*.py"),
+        # and `*.ts` ONLY so a renamed/deleted canonical hook does not leave a
+        # stale copy shipping in the wheel. The `.sh/.ps1` launchers in this
+        # same tree are a separate packaging concern and must NEVER be
+        # orphan-deleted.
+        *((TPL_HOOK_SCRIPTS, "rglob", pattern) for pattern in _HOOK_SCRIPT_PATTERNS),
         # spec-187 follow-up: Surface 11 doc twins. Scope orphan cleanup to
         # `*.md` in the two allowlisted subtrees so a renamed/deleted canonical
         # doc does not leave a stale twin shipping in the wheel. Only these two

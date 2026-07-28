@@ -20,11 +20,10 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
 _AI_PLAN_MIRRORS = (
     _REPO_ROOT / ".claude" / "skills" / "ai-plan" / "SKILL.md",
-    _REPO_ROOT / ".codex" / "skills" / "ai-plan" / "SKILL.md",
     _REPO_ROOT / ".agents" / "skills" / "ai-plan" / "SKILL.md",
-    _REPO_ROOT / ".github" / "skills" / "ai-plan" / "SKILL.md",
 )
 
 

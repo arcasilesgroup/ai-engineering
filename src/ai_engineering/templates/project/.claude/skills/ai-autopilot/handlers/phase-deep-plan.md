@@ -46,7 +46,7 @@ is the N-reads-per-run regression spec-139 M3 closes.
 
 ### Step 1: Load Sub-Specs
 
-1. Glob `.ai-engineering/runtime/autopilot/sub-*/spec.md`. Collect the full list of sub-spec directories.
+1. Enumerate `.ai-engineering/runtime/autopilot/sub-*/spec.md`. Collect the full list of sub-spec directories.
 2. For each `sub-NNN/spec.md`, extract:
    - `id` from frontmatter (e.g., `sub-001`)
    - `title` from frontmatter

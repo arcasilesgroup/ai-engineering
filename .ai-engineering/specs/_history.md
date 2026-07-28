@@ -197,5 +197,6 @@ Completed specs. Details in git history.
 | spec-190 | Observability Integrity: attributable, deduplicated, fail-loud framework telemetry | shipped | 2026-07-19 | 2026-07-19 | 646 | feat/spec-190-observability-integrity |
 | spec-192 | Telemetry deck follow-up — 5 deferred gaps | shipped | 2026-07-22 | 2026-07-26 | 649 | feat/spec-192-telemetry-followup |
 | spec-200 | Local-environment correctness: surface-aware stack detection and canonical hook state | shipped | 2026-07-27 | 2026-07-27 | 665 | feat/spec-200-local-env-correctness |
+| spec-201 | Three-Layer Open-Model Harness | shipped | 2026-07-27 | 2026-07-28 | 671 | feat/three-layer-open-model-harness |
 
 ---

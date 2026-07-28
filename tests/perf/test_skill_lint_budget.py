@@ -1,8 +1,21 @@
 """spec-127 M1 (sub-002 T-G.1): hot-path budget for ``skill_lint --check``.
 
-D-127-08 budget: ≤200 ms wall-time over the live `.claude/skills/`
-surface (50 skills). With 25% CI tolerance per brief §14.3, the hard
-ceiling is 250 ms.
+D-127-08 budget: ≤200 ms wall-time over the live canonical surface. With
+25% CI tolerance per brief §14.3, the hard ceiling is 250 ms.
+
+Surface as of spec-201 sub-007 (D-201-15): the portability walk covers
+every ``*.md`` under `.claude/skills/` (135 — 54 SKILL.md, 58 handlers,
+18 references, 5 shared) plus every `.claude/agents/*.md` (19) = **154
+files**; the structure / token-budget / front-loading walks stay on the
+73-file SKILL.md-and-agents corpus (they parse SKILL.md frontmatter that
+handlers and shared documents do not carry).
+
+Widening cost, measured not assumed: the portability walk went 25.5 ms
+at 73 files to 57.7 ms at 154 (+32.2 ms). Three post-widening
+three-run medians on the reference dev host: 201.1 / 185.6 / 207.8 ms,
+inside the 250 ms ceiling with roughly 20% headroom (was ~35%). The
+budget constants are therefore UNCHANGED — a pre-emptive raise would be
+a silent gate weakening (D-127-08).
 
 The test invokes the CLI in a child process via ``subprocess.run`` so
 import cost is included in the measurement (mirrors the pre-commit

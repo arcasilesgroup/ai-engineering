@@ -21,14 +21,14 @@ Principles applied: §10.7 Clean Code (readability, naming, single-responsibilit
 1. **Step 0 — load contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; apply `.ai-engineering/overrides/<stack>/conventions.md` per stack.
 2. **Detect target** — PR number, file paths, or current diff.
 3. **Dependency preflight** — verify `review-context.md`, `review-validator.md`, plus the `.agents/agents/internal/reviewer-*.md` files the selected mode + diff scope need (`frontend` conditional on UI work — React, hooks, animation, typography, forms, a11y). STOP and report the exact missing path — never paraphrase reviewer instructions inline.
-4. **Pre-review** — dispatch `review-context.md` via the Agent tool; serialize its output for every specialist.
+4. **Pre-review** — dispatch `review-context.md` via the host subagent primitive; serialize its output for every specialist.
 5. **Specialists** — `normal` = 3 macro-agents; `--full` = one agent per specialist. Both run the full roster — grouping controls cost only.
 6. **Validate** — dispatch `review-validator.md` with YAML finding blocks only (no reasoning chain). Code is read fresh; verdict CONFIRMED or DISMISSED per finding.
 7. **Emit** — Findings / Risks / Recommendations / Self-Challenge, attributed by original specialist lens.
 
 ## Dispatch threshold
 
-Dispatch the `ai-review` agent for any narrative review over ≥ 1 changed file (PR, branch, diff, or path scope). Each specialist runs in its own context window via the Agent tool. `.agents/agents/ai-review.md` is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
+Dispatch the `ai-review` agent for any narrative review over ≥ 1 changed file (PR, branch, diff, or path scope). Each specialist runs in its own context window via the host subagent primitive. `.agents/agents/ai-review.md` is the orchestrator handle; profiles, roster, output contract, and validator stage live here.
 
 ## Specialist Roster
 
@@ -58,7 +58,7 @@ For each stack in the diff, load `.ai-engineering/overrides/<stack>/review.md` (
 - Treating the 3 macro-agents in `normal` as reduced coverage — they are not.
 - Reporting by macro-agent instead of original specialist lens.
 - Treating style preferences as blocking findings.
-- Reading specialist agent files inline instead of dispatching via the Agent tool.
+- Reading specialist agent files inline on a host that provides a subagent primitive — inline-sequential is the documented floor only on a host without one.
 
 ## Examples
 
@@ -76,6 +76,6 @@ Dispatches the 3 macro-agents (correctness/testing/compat, security/perf, condit
 
 Called by: user directly, `/ai-pr`, `/ai-build`, `/ai-autopilot` (Phase 5). Dispatches: `review-context`, `reviewer-*`, `review-validator` agents. Read-only: never modifies code. See also: `/ai-verify` (evidence-backed gates), `/ai-learn` (extract review patterns post-merge).
 
-**Inline fallback.** Agent-tool dispatch is the primary path. On a harness without a subagent/Agent-tool primitive, execute this skill by reading the specialist agent file(s) (`review-context.md`, the selected `reviewer-*.md`, `review-validator.md`) inline and running their steps in-context, sequentially — inline-sequential is the floor, not a substitute for the dispatch when it is available.
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by reading the specialist agent file(s) (`review-context.md`, the selected `reviewer-*.md`, `review-validator.md`) inline and running their steps in-context, sequentially; inline-sequential is the floor, not an alternate behaviour.
 
 $ARGUMENTS

@@ -81,7 +81,12 @@ Canonical skills and agents live under `.claude/`; mirror surfaces under
 `.codex/`, `.agents/`, and `.github/` are byte-equivalent regenerations
 written by `scripts/sync_mirrors/core.py`. Invoke a skill via
 `/ai-<name>` in the IDE agent surface — never via a synthetic terminal
-equivalent.
+equivalent. Carve-out (D-201-11): driving a real IDE agent surface
+headlessly is explicitly permitted — handing a resolved `SKILL.md` body
+to the harness that owns it, for example via `ai-eng skill resolve`, is
+not a synthetic terminal equivalent. What stays prohibited is inventing
+a terminal command that re-implements a skill outside its agent
+surface.
 
 ## Agents (__AGENT_COUNT__)
 

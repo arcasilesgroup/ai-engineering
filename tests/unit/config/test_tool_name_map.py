@@ -1,10 +1,16 @@
-"""Contract tests for the spec-187 D-187-03 tool-name map (wired spec-189 D-189-06).
+"""Contract tests for the capability table (spec-201 D-201-12).
 
 The map at ``scripts/sync_mirrors/tool_name_map.py`` is the SINGLE SOURCE the
 copilot mirror generator consumes to translate canonical tool names into VS Code
 Copilot tool ids. These tests pin its invariants so it cannot silently drift
 from the canonical agent tool vocabulary, and assert that ``core.py`` actually
 consumes it for that translation (not a dormant reference artifact).
+
+spec-201 D-201-12 replaced the four-field ``FamilyToolProfile`` with
+``FamilyCapability``, which additionally carries the runtime quirks measured
+against a live OpenAI-compatible aggregator (brief evidence E1, E5-E9, E12) and
+a three-stage ``resolve_capability`` lookup. Per Hard Rule 3 the old record was
+replaced, not wrapped — no alias survives.
 """
 
 from __future__ import annotations
@@ -15,7 +21,8 @@ from pathlib import Path
 from scripts.sync_mirrors.tool_name_map import (
     CANONICAL_TOOLS,
     TOOL_FAMILY_MAP,
-    FamilyToolProfile,
+    FamilyCapability,
+    resolve_capability,
 )
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -25,6 +32,10 @@ _AGENTS_DIR = _PROJECT_ROOT / ".claude" / "agents"
 # already-supported surfaces (claude native, copilot mirror, gemini).
 _OPEN_WEIGHT_FAMILIES = ("kimi", "glm", "deepseek", "qwen", "mimo")
 _EXPECTED_FAMILIES = ("claude", "copilot", "gemini", *_OPEN_WEIGHT_FAMILIES)
+
+# The families whose runtime behaviour was measured directly (brief E4-E12),
+# as opposed to being documented from a secondary portability source.
+_PROBED_FAMILIES = ("deepseek", "gemini", "qwen", "mimo")
 
 
 def _agent_declared_tools() -> set[str]:
@@ -57,25 +68,66 @@ def test_canonical_tools_are_real_agent_literals() -> None:
         assert tool in declared, f"{tool!r} not declared in any .claude/agents/*.md"
 
 
-def test_mimo_flagged_unverified() -> None:
-    """MiMo carries no live-behavior claim (D-187-08)."""
-    assert TOOL_FAMILY_MAP["mimo"].verified is False
+def test_mimo_row_is_backed_by_a_direct_probe() -> None:
+    """spec-201 measured mimo-v2.5 live, superseding D-187-08's "unverified".
+
+    D-187-08 flagged MiMo ``verified=False`` because no secondary portability
+    source surfaced in research. Brief E4-E6, E8-E11 probed the model directly,
+    so the row now carries live-behaviour claims and must not simultaneously
+    disclaim them.
+    """
+    mimo = TOOL_FAMILY_MAP["mimo"]
+    assert mimo.verified is True
+    assert "mimo-v2.5" in mimo.model_ids
+    assert mimo.reasoning_field == "reasoning_content"
+    assert mimo.prompt_cache is True
 
 
-def test_non_mimo_families_are_verified() -> None:
-    """Every family except MiMo is backed by a primary portability source."""
-    for family, profile in TOOL_FAMILY_MAP.items():
-        if family == "mimo":
-            continue
-        assert profile.verified is True, f"{family} unexpectedly unverified"
+def test_named_families_are_verified() -> None:
+    """Every named family is backed by research or a direct probe.
+
+    ``verified`` means "a primary source backs this row". Unverified is
+    reserved for the conservative default an unknown model id resolves to.
+    """
+    for family, capability in TOOL_FAMILY_MAP.items():
+        assert capability.verified is True, f"{family} unexpectedly unverified"
 
 
 def test_records_are_internally_consistent() -> None:
-    """No record is empty; every field carries real content."""
-    for family, profile in TOOL_FAMILY_MAP.items():
-        assert isinstance(profile, FamilyToolProfile)
-        assert profile.tool_name_style.strip(), f"{family}: empty tool_name_style"
-        assert profile.call_format_notes.strip(), f"{family}: empty call_format_notes"
+    """Every row carries real content, and the measured fields agree with each other."""
+    for family, capability in TOOL_FAMILY_MAP.items():
+        assert isinstance(capability, FamilyCapability)
+        assert capability.tool_name_style.strip(), f"{family}: empty tool_name_style"
+        assert capability.call_format_notes.strip(), f"{family}: empty call_format_notes"
+        # E9: a reasoning pass consumes the completion budget, so a row that
+        # declares a reasoning field cannot also declare a tiny floor.
+        if capability.reasoning_field is not None:
+            assert capability.min_completion_budget >= 1024, (
+                f"{family}: reasoning row with a sub-1024 completion floor"
+            )
+        # A row resolvable only by pattern is legitimate; a row resolvable by
+        # nothing at all is dead data.
+        if not capability.model_ids:
+            assert capability.model_pattern or family in ("claude", "copilot"), (
+                f"{family}: unreachable row — no model_ids and no model_pattern"
+            )
+
+    # E8: reasoning text leaks into `reasoning_content` on deepseek and mimo only.
+    reasoning_rows = {f for f, c in TOOL_FAMILY_MAP.items() if c.reasoning_field}
+    assert reasoning_rows == {"deepseek", "mimo"}
+    # E12: only qwen3.6 was observed fabricating an absolute working directory.
+    fabricating_rows = {f for f, c in TOOL_FAMILY_MAP.items() if c.fabricates_absolute_paths}
+    assert fabricating_rows == {"qwen"}
+    # E6: prompt caching observed on the rows that report cache counters —
+    # plus claude, whose transcripts carry `cache_creation_input_tokens`
+    # (`.ai-engineering/scripts/hooks/_lib/transcript_usage.py:24-25`).
+    cache_rows = {f for f, c in TOOL_FAMILY_MAP.items() if c.prompt_cache}
+    assert cache_rows == {"claude", "deepseek", "mimo"}
+    # E7 / D-201-13: `usage.cost` exists on the OpenAI-compatible path only,
+    # which is what makes the spend cap's "tokens, not USD" unit legible here.
+    cost_rows = {f for f, c in TOOL_FAMILY_MAP.items() if c.per_request_cost}
+    assert cost_rows == set(_OPEN_WEIGHT_FAMILIES) | {"gemini"}
+    assert TOOL_FAMILY_MAP["claude"].per_request_cost is False
 
 
 def test_only_copilot_renames_tools() -> None:
@@ -92,6 +144,61 @@ def test_copilot_name_map_covers_canonical_tools() -> None:
     for tool in CANONICAL_TOOLS:
         assert tool in name_map, f"copilot name_map missing {tool!r}"
         assert name_map[tool].strip(), f"copilot name_map has empty target for {tool!r}"
+
+
+# ── Measured runtime quirks (spec-201 D-201-12) ──────────────────────────────
+
+
+def test_mimo_schema_is_not_server_enforced() -> None:
+    """E5: mimo-v2.5 returned HTTP 200 for `strict:true` with violating content.
+
+    The status code is not the contract. RK-1's mitigation ("never trust the
+    status code; validate client-side") is encoded as data so a caller cannot
+    infer schema safety from a successful response.
+    """
+    assert resolve_capability("mimo-v2.5").schema_enforced_server_side is False
+    # The three families measured schema-valid at E5 must not be flattened with it.
+    for model_id in ("deepseek-v4-flash", "qwen3.6", "gemma4"):
+        assert resolve_capability(model_id).schema_enforced_server_side is True, model_id
+
+
+def test_every_family_declares_a_min_completion_budget() -> None:
+    """E9: `max_tokens=16` with thinking on returned empty content + `length` stop.
+
+    A completion budget too small for the reasoning pass is a distinct failure
+    class (RK-2), so every row carries a usable floor rather than leaving it
+    implicit.
+    """
+    for family, capability in TOOL_FAMILY_MAP.items():
+        assert capability.min_completion_budget >= 1, f"{family}: no completion floor"
+    for family in _PROBED_FAMILIES:
+        assert TOOL_FAMILY_MAP[family].min_completion_budget >= 512, family
+
+
+# ── Three-stage resolution ───────────────────────────────────────────────────
+
+
+def test_resolve_capability_falls_back_exact_then_pattern_then_default() -> None:
+    """Exact model id, then regex pattern in declaration order, then the default."""
+    # 1. Exact id (brief E1 `GET /v1/models`).
+    assert resolve_capability("deepseek-v4-flash") is TOOL_FAMILY_MAP["deepseek"]
+    # 2. Pattern only — this id is never enumerated in any `model_ids`.
+    assert not any("kimi-k3" in c.model_ids for c in TOOL_FAMILY_MAP.values())
+    assert resolve_capability("moonshotai/kimi-k3") is TOOL_FAMILY_MAP["kimi"]
+    # 3. An unknown id lands on the default and does not raise.
+    assert resolve_capability("totally-unknown-model-9000") not in TOOL_FAMILY_MAP.values()
+
+
+def test_default_capability_is_conservative() -> None:
+    """An unresolvable model id gets the safest row, never a guess — and never raises."""
+    default = resolve_capability("totally-unknown-model-9000")
+    assert default.verified is False
+    assert default.schema_enforced_server_side is False
+    # Conservative also means assuming the measured failure modes are present.
+    assert default.fabricates_absolute_paths is True
+    assert default.min_completion_budget >= 1024
+    for degenerate in ("", "   ", "/"):
+        assert resolve_capability(degenerate) is default, repr(degenerate)
 
 
 # ── Consumption: core.py sources its copilot translation from THIS map ───────

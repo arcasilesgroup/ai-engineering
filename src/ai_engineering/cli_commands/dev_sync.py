@@ -89,10 +89,22 @@ def dev_sync_cmd(
             catalog_verb = "Updating"
         renderer.action(catalog_verb, catalog.message)
 
-        # spec-192 D-192-05: re-pin hooks-manifest after mirror sync
-        from ai_engineering.cli_commands.core import _finalize_hooks_manifest
+        # spec-192 D-192-05: re-pin hooks-manifest after mirror sync.
+        # spec-201 H8: under --check this VERIFIES instead. Re-signing the
+        # integrity manifest from a verify-only command silently launders a
+        # corrupted pin, an edited hook, or an injected hook into a freshly
+        # signed clean state — invisible on a clean tree (generatedAt is
+        # preserved) and catastrophic on the drifted tree that matters.
+        from ai_engineering.cli_commands.core import (
+            _check_hooks_manifest,
+            _finalize_hooks_manifest,
+        )
 
-        _finalize_hooks_manifest(root)
+        if check:
+            hooks_pinned = _check_hooks_manifest(root)
+        else:
+            _finalize_hooks_manifest(root)
+            hooks_pinned = True
 
         if catalog.status is CatalogStatus.DRIFT:
             renderer.error(
@@ -101,6 +113,22 @@ def dev_sync_cmd(
                 fix="Run 'ai-eng dev sync' without --check to regenerate the catalog.",
                 next_actions=[
                     NextAction(label="Regenerate catalog", command="ai-eng dev sync"),
+                ],
+            )
+
+        if not hooks_pinned:
+            renderer.error(
+                "Hook integrity manifest drift detected",
+                code="HOOKS_MANIFEST_DRIFT",
+                fix=(
+                    "A hook script no longer matches its pinned sha256. Review the "
+                    "change (git diff .ai-engineering/scripts/hooks/) BEFORE re-pinning."
+                ),
+                next_actions=[
+                    NextAction(
+                        label="Re-pin after reviewing the hook diff",
+                        command="python3 .ai-engineering/scripts/regenerate-hooks-manifest.py",
+                    ),
                 ],
             )
 

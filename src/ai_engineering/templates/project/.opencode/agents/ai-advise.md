@@ -3,7 +3,7 @@ name: ai-advise
 description: Proactive governance advisor. Checks standards, decisions, and quality trends during development. Always advisory, NEVER blocks.
 model: sonnet
 color: warning
-mirror_family: codex-agents
+mirror_family: opencode-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-advise.md
 edit_policy: generated-do-not-edit
@@ -89,8 +89,8 @@ Severity scale: `info` (awareness) < `warn` (should address) < `concern` (likely
 
 ## Referenced Skills
 
-- `.codex/skills/ai-build/SKILL.md` — guard advisory entry point during build execution
-- `.codex/skills/ai-governance/SKILL.md` — shared governance validation patterns
+- `.agents/skills/ai-build/SKILL.md` — guard advisory entry point during build execution
+- `.agents/skills/ai-governance/SKILL.md` — shared governance validation patterns
 
 ## Boundaries
 

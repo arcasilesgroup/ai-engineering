@@ -40,6 +40,11 @@
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/instinct-observe.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/no-verify-guard.py",
+            "timeout": 5
           }
         ]
       }
@@ -56,6 +61,16 @@
           {
             "type": "command",
             "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/runtime-guard.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "AIENG_HOOK_ENGINE=codex bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/injection-read-guard.py",
             "timeout": 10
           }
         ]

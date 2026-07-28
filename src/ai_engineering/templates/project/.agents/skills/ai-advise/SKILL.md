@@ -14,7 +14,7 @@ edit_policy: generated-do-not-edit
 
 # Advise
 
-Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the Agent tool and renders a severity-tagged advisory (`info | warn | concern`). Never blocks, never modifies code.
+Discoverable wrapper around the `ai-advise` governance advisor: dispatches the agent via the host subagent primitive and renders a severity-tagged advisory (`info | warn | concern`). Never blocks, never modifies code.
 
 ## Workflow
 
@@ -23,7 +23,7 @@ Principles: §10.6 SDD (every warning traces to an active decision or stack stan
 1. **Load stack contexts** — read `.ai-engineering/manifest.yml` `providers.stacks`; apply `.ai-engineering/overrides/<stack>/conventions.md` so stack-specific standards are in scope.
 2. **Detect mode** — first positional arg is `advise` (default), `gate`, or `drift`. Anything else is a path filter; mode defaults to `advise`.
 3. **Dependency preflight** — verify `.agents/agents/ai-advise.md` exists. STOP and report the exact missing path if absent; never paraphrase agent instructions inline.
-4. **Dispatch** — invoke the `ai-advise` agent via the Agent tool with `{mode, paths, severity_floor}`. It runs in its own context window and returns the structured advisory.
+4. **Dispatch** — invoke the `ai-advise` agent via the host subagent primitive with `{mode, paths, severity_floor}`. It runs in its own context window and returns the structured advisory.
 5. **Render** — emit the advisory table grouped by severity (`concern` → `warn` → `info`). Each row: `File | Finding | Recommendation | Anchor`, where Anchor is the standard or active decision the finding traces to.
 6. **Audit** — emit `framework_event` `kind=advisory_emitted` with `{mode, file_count, warning_count, severity_distribution}`. Never emit `BLOCK`/`FAIL` outcomes — those belong to `/ai-verify` and git hooks.
 
@@ -71,7 +71,7 @@ Shift-left lane: catch friction before it reaches the gates. `/ai-verify` is the
 - **Never blocks execution** — fail-open always.
 - **Never emits FAIL / BLOCK / CRITICAL** — reserved for `/ai-verify` and git hooks.
 - **Read-only** for all files except `decision-store.json` (drift annotations only, via the audit API) and `state/framework-events.ndjson` (canonical outcomes).
-- **Single agent dispatch** — never reads the agent file inline; dispatches via the Agent tool so the agent runs in its own context window.
+- **Single agent dispatch** — one dispatch per invocation so the agent runs in its own context window; the agent file is read inline only on a host without a subagent primitive.
 
 ## Examples
 
@@ -85,6 +85,6 @@ Dispatches the `ai-advise` agent in `advise` mode scoped to `src/auth/`: it load
 
 ## Integration
 
-**Called by**: operators via `/ai-advise`; `/ai-build` + `/ai-autopilot` (wave-end advisory pass). **Calls**: the `ai-advise` agent (`.agents/agents/ai-advise.md`) via the Agent tool — Agent-tool dispatch is the primary path. **Inline fallback**: on a harness WITHOUT a subagent/Agent-tool primitive, this skill is executed by reading the `.agents/agents/ai-advise.md` specialist file inline and running its steps in-context sequentially — inline-sequential is the floor, not a substitute for the isolated dispatch. **See also**: `.agents/skills/ai-verify/SKILL.md` (evidence-backed BLOCK lane), `.agents/skills/ai-review/SKILL.md` (narrative review), `.ai-engineering/overrides/<stack>/conventions.md` (stack overrides); D-134-06 (`ai-guard` agent → `ai-advise` rename), D-134-07 (cohesion test enforcement).
+**Called by**: operators via `/ai-advise`; `/ai-build` + `/ai-autopilot` (wave-end advisory pass). **Calls**: the `ai-advise` agent (`.agents/agents/ai-advise.md`) via the host subagent primitive — subagent dispatch is the primary path. **Inline fallback**: on a host without a subagent primitive, this skill is executed by reading the `.agents/agents/ai-advise.md` specialist file inline and running its steps in-context sequentially; inline-sequential is the floor, not an alternate behaviour. **See also**: `.agents/skills/ai-verify/SKILL.md` (evidence-backed BLOCK lane), `.agents/skills/ai-review/SKILL.md` (narrative review), `.ai-engineering/overrides/<stack>/conventions.md` (stack overrides); D-134-06 (`ai-guard` agent → `ai-advise` rename), D-134-07 (cohesion test enforcement).
 
 $ARGUMENTS

@@ -6,12 +6,62 @@ and verifies --check mode reports zero drift against the real repo.
 
 from __future__ import annotations
 
+import dataclasses
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# Per-command matcher contract for Codex tool events (spec-201 sub-005, Trap 8).
+# Codex delivers non-Bash tool events too (`shell`, `web_search`), so the invariant
+# is "no hook declares a matcher its own guard cannot honour" -- not "everything is
+# Bash". A guard registered under the wrong matcher lands wired-and-dead, which
+# reads as protection while providing none.
+_CODEX_TOOL_MATCHERS = {
+    "codex-hook-bridge.py": "Bash",
+    "prompt-injection-guard.py": "Bash",
+    "instinct-observe.py": "Bash",
+    "runtime-guard.py": "Bash",
+    "no-verify-guard.py": "Bash",
+    # injection-read-guard.py:31-32 allowlists Read/WebFetch/WebSearch/mcp__* and
+    # never Bash; its own _is_external() does the filtering, so it must be wired
+    # under the match-all matcher or it passes through on every invocation.
+    "injection-read-guard.py": "",
+}
+
+_HOOK_SCRIPT_RE = re.compile(r"([\w.-]+\.py)")
+
+
+def _read_codex_hooks() -> dict:
+    return json.loads((_PROJECT_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8"))
+
+
+def _guard_basename(command: str) -> str:
+    """Return the guard script a Codex hook command ultimately executes."""
+    scripts = _HOOK_SCRIPT_RE.findall(command)
+    assert scripts, f"hook command names no python script: {command!r}"
+    return scripts[-1]
+
+
+def _assert_codex_tool_matchers(config: dict) -> None:
+    """Every Codex tool-event hook is registered under the matcher its guard needs."""
+    for event in ("PreToolUse", "PostToolUse"):
+        for group in config["hooks"].get(event, []):
+            matcher = group["matcher"]
+            for hook in group["hooks"]:
+                script = _guard_basename(hook["command"])
+                expected = _CODEX_TOOL_MATCHERS.get(script)
+                assert expected is not None, (
+                    f"{event}: {script} is not in _CODEX_TOOL_MATCHERS -- declare the "
+                    "matcher Codex must deliver for it before wiring it"
+                )
+                assert matcher == expected, (
+                    f"{event}: {script} must be wired under matcher {expected!r}, found {matcher!r}"
+                )
+
 
 _MANIFEST_TEMPLATE = """\
 name: test-project
@@ -104,7 +154,15 @@ class TestSyncScriptMetadata:
 
 
 class TestEffortModelSemantics:
-    """spec-189 D-189-04: `effort` is the sole semantic source for agent model."""
+    """Agent model resolution: effort tier (D-189-04) + model axis (D-201-16).
+
+    spec-189 D-189-04 made `effort` the sole semantic source for the agent
+    model. spec-201 D-201-16 adds an INDEPENDENT model axis: a non-empty
+    `AgentMeta.model` is an explicit override that wins over the
+    effort-derived tier alias. The drift guard D-189-04 exists for is kept
+    intact by re-expressing every assertion against the single resolver
+    (`resolve_agent_model`) rather than against `_effort_to_model` directly.
+    """
 
     def test_every_agent_has_valid_effort(self) -> None:
         from scripts.sync_command_mirrors import AGENT_METADATA
@@ -123,7 +181,10 @@ class TestEffortModelSemantics:
         assert _effort_to_model("high") == "opus"
         assert _effort_to_model("mid") == "sonnet"
         assert _effort_to_model("cheap") == "haiku"
-        # Round-trip: effort -> model -> effort is the identity.
+        # Round-trip: effort -> model -> effort is the identity OVER THE TIER
+        # ALIAS VOCABULARY. spec-201 D-201-16: `_model_to_effort` stops being a
+        # total inverse once model overrides exist, because an override is by
+        # definition outside this vocabulary (asserted below with "gpt-9").
         for effort in ("cheap", "mid", "high"):
             assert _model_to_effort(_effort_to_model(effort)) == effort
         # Unknown inputs fail loudly rather than silently defaulting.
@@ -132,15 +193,39 @@ class TestEffortModelSemantics:
         with pytest.raises(ValueError):
             _model_to_effort("gpt-9")
 
-    def test_agent_meta_model_matches_effort(self) -> None:
-        # The retained `model` literal must mirror the effort-derived model so
-        # AGENT_METADATA never carries internally contradictory data.
+    def test_agent_meta_model_resolves_through_the_resolver(self) -> None:
+        # spec-201 D-201-16 retune of `test_agent_meta_model_matches_effort`:
+        # the invariant is no longer "model mirrors effort" (an override
+        # falsifies that by construction) but "the resolver is the single
+        # derivation" — an explicit model wins, an empty one derives from
+        # effort. AGENT_METADATA still may not carry contradictory data.
         from scripts.sync_command_mirrors import AGENT_METADATA, _effort_to_model
+        from scripts.sync_mirrors.core import resolve_agent_model
 
         for name, meta in AGENT_METADATA.items():
-            assert meta.model == _effort_to_model(meta.effort), (
-                f"{name}: model {meta.model!r} != effort-derived {_effort_to_model(meta.effort)!r}"
+            expected = meta.model or _effort_to_model(meta.effort)
+            assert resolve_agent_model(meta) == expected, (
+                f"{name}: resolve_agent_model -> {resolve_agent_model(meta)!r} != {expected!r}"
             )
+
+    def test_resolver_honours_an_explicit_model_override(self) -> None:
+        # spec-201 D-201-16: the axis is real — a model that is NOT the
+        # effort-derived tier alias wins, without touching the effort tier.
+        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors.core import resolve_agent_model
+
+        base = AGENT_METADATA["review"]
+        assert base.effort == "high"
+        overridden = dataclasses.replace(base, model="some-provider/some-model-2026")
+        assert resolve_agent_model(overridden) == "some-provider/some-model-2026"
+        assert overridden.effort == "high", "override must not disturb the effort tier"
+
+    def test_resolver_derives_from_effort_without_an_override(self) -> None:
+        from scripts.sync_command_mirrors import AGENT_METADATA
+        from scripts.sync_mirrors.core import resolve_agent_model
+
+        unset = dataclasses.replace(AGENT_METADATA["review"], model="")
+        assert resolve_agent_model(unset) == "opus"
 
     def test_validator_passes_on_canonical_sources(self) -> None:
         from scripts.sync_command_mirrors import (
@@ -150,7 +235,7 @@ class TestEffortModelSemantics:
         )
 
         errors, _warnings = validate_canonical(discover_skills(), discover_agents())
-        drift = [e for e in errors if "disagrees with effort" in e]
+        drift = [e for e in errors if "disagrees with the resolved model" in e]
         assert not drift, f"canonical model/effort drift: {drift}"
 
     def test_validator_fires_on_model_effort_mismatch(self) -> None:
@@ -161,7 +246,7 @@ class TestEffortModelSemantics:
 
         seeded = [("build", {"name": "Build", "model": "sonnet"}, CLAUDE_AGENTS / "ai-build.md")]
         errors, _warnings = validate_canonical([], seeded)
-        assert any("disagrees with effort" in e for e in errors), (
+        assert any("disagrees with the resolved model" in e for e in errors), (
             "validator did not fire on a seeded model/effort mismatch"
         )
 
@@ -170,7 +255,7 @@ class TestEffortModelSemantics:
 
         matched = [("build", {"name": "Build", "model": "opus"}, CLAUDE_AGENTS / "ai-build.md")]
         errors, _warnings = validate_canonical([], matched)
-        assert not any("disagrees with effort" in e for e in errors)
+        assert not any("disagrees with the resolved model" in e for e in errors)
 
 
 class TestCrossReferenceResolution:
@@ -303,33 +388,24 @@ class TestSyncDriftDetection:
 class TestGenerationFunctions:
     """Test content generation -- pure functions, no filesystem access."""
 
-    def test_generate_codex_skill_includes_frontmatter(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_codex_skill
+    def test_generate_shared_skill_includes_frontmatter(self) -> None:
+        # spec-201 D-201-04: the codex and copilot skill generators were
+        # deleted with their trees; .agents/skills is the sole generated
+        # skill surface left.
+        from scripts.sync_command_mirrors import (
+            CLAUDE_SKILLS,
+            generate_antigravity_skill,
+        )
 
         # Arrange -- use real canonical skill
         skill_path = CLAUDE_SKILLS / "ai-commit" / "SKILL.md"
 
         # Act
-        content = generate_codex_skill("commit", skill_path)
+        content = generate_antigravity_skill("commit", skill_path)
 
         # Assert -- frontmatter comes from canonical
         assert "---" in content
         assert "name: ai-commit" in content
-        assert "tags:" in content
-        assert len(content) > 100
-
-    def test_generate_copilot_skill_includes_frontmatter(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_SKILLS, generate_copilot_skill
-
-        # Arrange
-        skill_path = CLAUDE_SKILLS / "ai-commit" / "SKILL.md"
-
-        # Act
-        content = generate_copilot_skill("commit", skill_path)
-
-        # Assert -- standalone SKILL.md with adapted frontmatter
-        assert "name: ai-commit" in content
-        assert "mode: agent" in content
         assert "tags:" in content
         assert len(content) > 100
 
@@ -349,17 +425,24 @@ class TestGenerationFunctions:
         assert "`/ai-*` are IDE slash" in content
         assert "not `ai-eng` CLI subcommands" in content
 
-    def test_generate_codex_agent_wrapper_format(self) -> None:
-        from scripts.sync_command_mirrors import CLAUDE_AGENTS, generate_codex_agent
+    def test_generate_opencode_agent_wrapper_format(self) -> None:
+        # spec-201 D-201-23: `.codex/agents` was a namespace squat Codex
+        # never read. The generator survives only for OpenCode, whose
+        # files previously claimed the codex-agents family.
+        from scripts.sync_command_mirrors import (
+            CLAUDE_AGENTS,
+            generate_opencode_agent_markdown,
+        )
 
         # Arrange
         agent_path = CLAUDE_AGENTS / "ai-build.md"
 
         # Act
-        content = generate_codex_agent("build", agent_path)
+        content = generate_opencode_agent_markdown("build", agent_path)
 
         # Assert -- content is fully embedded from canonical source
         assert len(content) > 100
+        assert "mirror_family: opencode-agents" in content
 
     def test_generate_copilot_agent_includes_per_agent_metadata(self) -> None:
         from scripts.sync_command_mirrors import (
@@ -514,13 +597,71 @@ class TestGenerationFunctions:
         assert root_hooks == tpl_hooks
         assert root_config == tpl_config
 
-    def test_codex_hooks_are_bash_only_for_tool_events(self) -> None:
-        hooks = json.loads((_PROJECT_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8"))
-        pre = hooks["hooks"]["PreToolUse"]
-        post = hooks["hooks"]["PostToolUse"]
+    def test_codex_tool_hook_matchers_follow_the_guard_allowlist(self) -> None:
+        _assert_codex_tool_matchers(_read_codex_hooks())
 
-        assert all(entry["matcher"] == "Bash" for entry in pre)
-        assert all(entry["matcher"] == "Bash" for entry in post)
+    def test_codex_matcher_allowlist_rejects_a_bash_guard_moved_off_bash(self) -> None:
+        # Arrange -- in-memory mutation only; the on-disk config is never written.
+        config = _read_codex_hooks()
+        moved = False
+        for group in config["hooks"]["PreToolUse"]:
+            for hook in group["hooks"]:
+                if _guard_basename(hook["command"]) == "prompt-injection-guard.py":
+                    group["matcher"] = ""
+                    moved = True
+        assert moved, "fixture precondition: prompt-injection-guard.py must be wired PreToolUse"
+
+        # Act / Assert -- the invariant still bites for a Bash-only guard.
+        with pytest.raises(AssertionError):
+            _assert_codex_tool_matchers(config)
+
+    def test_codex_matcher_allowlist_admits_the_read_guard_on_the_empty_matcher(self) -> None:
+        # Arrange -- injection-read-guard.py allowlists Read/WebFetch/WebSearch/mcp__*
+        # and never Bash, so it MUST be registered under matcher "".
+        config = _read_codex_hooks()
+        config["hooks"]["PostToolUse"].append(
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": (
+                            "AIENG_HOOK_ENGINE=codex bash "
+                            ".ai-engineering/scripts/hooks/_lib/run-hook.sh "
+                            ".ai-engineering/scripts/hooks/injection-read-guard.py"
+                        ),
+                        "timeout": 10,
+                    }
+                ],
+            }
+        )
+
+        # Act / Assert -- does not raise.
+        _assert_codex_tool_matchers(config)
+
+    def test_codex_matcher_allowlist_rejects_the_read_guard_on_bash(self) -> None:
+        # Arrange -- a Bash-matched read guard lands wired-and-dead (Trap 8).
+        config = _read_codex_hooks()
+        config["hooks"]["PostToolUse"].append(
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": (
+                            "AIENG_HOOK_ENGINE=codex bash "
+                            ".ai-engineering/scripts/hooks/_lib/run-hook.sh "
+                            ".ai-engineering/scripts/hooks/injection-read-guard.py"
+                        ),
+                        "timeout": 10,
+                    }
+                ],
+            }
+        )
+
+        # Act / Assert
+        with pytest.raises(AssertionError):
+            _assert_codex_tool_matchers(config)
 
 
 # -- Validation functions --
@@ -728,19 +869,15 @@ class TestCrossReferenceTranslation:
         # Claude is the canonical form -- unchanged
         assert "`.claude/skills/ai-plan/SKILL.md`" in result
 
-    def test_translate_skill_path_copilot(self) -> None:
+    # spec-201 D-201-04: every non-Claude target resolves skills from
+    # the single shared `.agents/skills` tree.
+    @pytest.mark.parametrize("target_ide", ["copilot", "cursor", "opencode", "antigravity"])
+    def test_translate_skill_path_uses_shared_tree(self, target_ide: str) -> None:
         from scripts.sync_command_mirrors import translate_refs
 
         content = "Read `.claude/skills/ai-plan/SKILL.md` for details."
-        result = translate_refs(content, "copilot")
-        assert "`.github/skills/ai-plan/SKILL.md`" in result
-
-    def test_translate_skill_path_codex(self) -> None:
-        from scripts.sync_command_mirrors import translate_refs
-
-        content = "Read `.claude/skills/ai-plan/SKILL.md` for details."
-        result = translate_refs(content, "codex")
-        assert "`.codex/skills/ai-plan/SKILL.md`" in result
+        result = translate_refs(content, target_ide)
+        assert "`.agents/skills/ai-plan/SKILL.md`" in result
 
     def test_translate_agent_path_claude(self) -> None:
         from scripts.sync_command_mirrors import translate_refs
@@ -756,12 +893,13 @@ class TestCrossReferenceTranslation:
         result = translate_refs(content, "copilot")
         assert "`.github/agents/build.agent.md`" in result
 
-    def test_translate_agent_path_codex(self) -> None:
+    def test_translate_agent_path_opencode(self) -> None:
+        # D-201-22: agent trees stay surface-local through the collapse.
         from scripts.sync_command_mirrors import translate_refs
 
         content = "Delegates to `.claude/agents/ai-build.md`."
-        result = translate_refs(content, "codex")
-        assert "`.codex/agents/ai-build.md`" in result
+        result = translate_refs(content, "opencode")
+        assert "`.opencode/agents/ai-build.md`" in result
 
     def test_specs_not_translated(self) -> None:
         from scripts.sync_command_mirrors import translate_refs
@@ -775,7 +913,7 @@ class TestCrossReferenceTranslation:
 
         content = "See `.claude/skills/ai-plan/SKILL.md` and `.claude/agents/ai-build.md`."
         result = translate_refs(content, "copilot")
-        assert ".github/skills/ai-plan/SKILL.md" in result
+        assert ".agents/skills/ai-plan/SKILL.md" in result
         assert ".github/agents/build.agent.md" in result
 
     def test_no_translation_for_bare_text(self) -> None:
@@ -822,38 +960,29 @@ class TestPlatformNeutralContent:
 
 
 class TestHandlerParity:
-    """Verify handler mirrors exist for every canonical handler."""
+    """Verify handler mirrors exist for every canonical handler.
+
+    spec-201 D-201-04: the only generated skill tree is ``.agents/skills``
+    (``.claude/skills`` is canonical, not a mirror).
+    """
 
     def test_handler_parity(self) -> None:
-        from scripts.sync_command_mirrors import (
-            CLAUDE_SKILLS,
-            discover_handlers,
-            is_copilot_compatible,
-        )
+        from scripts.sync_command_mirrors import CLAUDE_SKILLS, discover_handlers
 
         missing: list[str] = []
-        github_skills = _PROJECT_ROOT / ".github" / "skills"
-        codex_skills = _PROJECT_ROOT / ".codex" / "skills"
+        antigravity_skills = _PROJECT_ROOT / ".agents" / "skills"
 
         for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
             if not skill_dir.is_dir() or not skill_dir.name.startswith("ai-"):
                 continue
             bare_name = skill_dir.name.removeprefix("ai-")
-            skill_file = skill_dir / "SKILL.md"
-            copilot_ok = skill_file.is_file() and is_copilot_compatible(skill_file)
             handlers = discover_handlers(skill_dir)
             for handler_name, _ in handlers:
-                # Check .github/skills mirror (only for copilot-compatible skills)
-                if copilot_ok:
-                    gh_handler = (
-                        github_skills / f"ai-{bare_name}" / "handlers" / f"{handler_name}.md"
-                    )
-                    if not gh_handler.is_file():
-                        missing.append(f".github/skills/ai-{bare_name}/handlers/{handler_name}.md")
-                # Check .codex/skills mirror (always generated)
-                cx_handler = codex_skills / f"ai-{bare_name}" / "handlers" / f"{handler_name}.md"
-                if not cx_handler.is_file():
-                    missing.append(f".codex/skills/ai-{bare_name}/handlers/{handler_name}.md")
+                ag_handler = (
+                    antigravity_skills / f"ai-{bare_name}" / "handlers" / f"{handler_name}.md"
+                )
+                if not ag_handler.is_file():
+                    missing.append(f".agents/skills/ai-{bare_name}/handlers/{handler_name}.md")
         assert not missing, f"{len(missing)} handler mirror(s) missing:\n" + "\n".join(
             f"  - {m}" for m in missing
         )
@@ -863,94 +992,21 @@ class TestReferenceParity:
     """Verify reference mirrors exist for every canonical reference file."""
 
     def test_reference_parity(self) -> None:
-        from scripts.sync_command_mirrors import (
-            CLAUDE_SKILLS,
-            discover_reference_files,
-            is_copilot_compatible,
-        )
+        from scripts.sync_command_mirrors import CLAUDE_SKILLS, discover_reference_files
 
         missing: list[str] = []
-        github_skills = _PROJECT_ROOT / ".github" / "skills"
-        codex_skills = _PROJECT_ROOT / ".codex" / "skills"
         antigravity_skills = _PROJECT_ROOT / ".agents" / "skills"
 
         for skill_dir in sorted(CLAUDE_SKILLS.iterdir()):
             if not skill_dir.is_dir() or not skill_dir.name.startswith("ai-"):
                 continue
             bare_name = skill_dir.name.removeprefix("ai-")
-            skill_file = skill_dir / "SKILL.md"
-            copilot_ok = skill_file.is_file() and is_copilot_compatible(skill_file)
             references = discover_reference_files(skill_dir)
             for ref_name, _ in references:
-                cx_ref = codex_skills / f"ai-{bare_name}" / "references" / ref_name
                 ag_ref = antigravity_skills / f"ai-{bare_name}" / "references" / ref_name
-                if not cx_ref.is_file():
-                    missing.append(f".codex/skills/ai-{bare_name}/references/{ref_name}")
                 if not ag_ref.is_file():
                     missing.append(f".agents/skills/ai-{bare_name}/references/{ref_name}")
-                if copilot_ok:
-                    gh_ref = github_skills / f"ai-{bare_name}" / "references" / ref_name
-                    if not gh_ref.is_file():
-                        missing.append(f".github/skills/ai-{bare_name}/references/{ref_name}")
 
         assert not missing, f"{len(missing)} reference mirror(s) missing:\n" + "\n".join(
             f"  - {m}" for m in missing
         )
-
-
-# -- Copilot compatibility --
-
-
-class TestCopilotCompatibility:
-    """Test is_copilot_compatible frontmatter check."""
-
-    def test_compatible_when_field_absent(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import is_copilot_compatible
-
-        f = tmp_path / "SKILL.md"
-        f.write_text("---\nname: test\n---\n\n# Test\n")
-        assert is_copilot_compatible(f) is True
-
-    def test_compatible_when_explicitly_true(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import is_copilot_compatible
-
-        f = tmp_path / "SKILL.md"
-        f.write_text("---\nname: test\ncopilot_compatible: true\n---\n\n# Test\n")
-        assert is_copilot_compatible(f) is True
-
-    def test_incompatible_when_false(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import is_copilot_compatible
-
-        f = tmp_path / "SKILL.md"
-        f.write_text("---\nname: test\ncopilot_compatible: false\n---\n\n# Test\n")
-        assert is_copilot_compatible(f) is False
-
-    def test_incompatible_when_false_uppercase(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import is_copilot_compatible
-
-        f = tmp_path / "SKILL.md"
-        f.write_text("---\nname: test\ncopilot_compatible: False\n---\n\n# Test\n")
-        assert is_copilot_compatible(f) is False
-
-
-# -- Handler generation --
-
-
-class TestCopilotHandlerGeneration:
-    """Test generate_copilot_handler cross-reference translation."""
-
-    def test_generate_copilot_handler_translates_refs(self, tmp_path: Path) -> None:
-        from scripts.sync_command_mirrors import generate_copilot_handler
-
-        handler = tmp_path / "handler.md"
-        handler.write_text(
-            "Read `.claude/skills/ai-plan/SKILL.md` for the plan.\n"
-            "Delegate to `.claude/agents/ai-build.md`.\n",
-            encoding="utf-8",
-        )
-
-        content = generate_copilot_handler(handler)
-
-        assert ".github/skills/ai-plan/SKILL.md" in content
-        assert ".github/agents/build.agent.md" in content
-        assert ".claude/" not in content

@@ -1,8 +1,13 @@
-"""Local skill eligibility diagnostics.
+"""Local skill eligibility diagnostics and read-only skill resolution.
 
-Evaluates which skills in `.claude/skills/`, `.codex/skills/`, `.agents/skills/`, or
-legacy `.ai-engineering/skills/` meet their runtime requirements
-(binaries, environment variables, config paths, OS).
+Evaluates which skills in `.claude/skills/`, `.agents/skills/`, or legacy
+`.ai-engineering/skills/` meet their runtime requirements (binaries,
+environment variables, config paths, OS), and resolves a skill NAME to the
+canonical `SKILL.md` that defines it plus the handler / reference files beside
+it (spec-201 D-201-11).
+
+Resolution is metadata only: it reads the tree and reports paths. Nothing here
+executes a skill, assembles a prompt, or dispatches an agent.
 """
 
 from __future__ import annotations
@@ -38,6 +43,27 @@ class SkillStatus:
     errors: list[str] = field(default_factory=list)
 
 
+@dataclass(frozen=True)
+class SkillResolution:
+    """Where a skill lives and what ships beside it (spec-201 D-201-11).
+
+    Attributes:
+        name: The resolved skill id — the directory name for a directory-based
+            skill, the file stem for a legacy flat one.
+        file_path: Project-relative POSIX path of the defining `SKILL.md`.
+        surface: The `_SKILL_DIRS` entry that owns the match, so a caller knows
+            which tree answered without re-deriving the priority order.
+        handlers: Project-relative POSIX paths of `<skill_dir>/handlers/*.md`.
+        references: Project-relative POSIX paths of `<skill_dir>/references/*.md`.
+    """
+
+    name: str
+    file_path: str
+    surface: str
+    handlers: list[str] = field(default_factory=list)
+    references: list[str] = field(default_factory=list)
+
+
 def _collect_skill_files(skills_root: Path, *, include_flat_files: bool = False) -> list[Path]:
     """Collect skill definition files from a single skills directory."""
     if not skills_root.is_dir():
@@ -56,9 +82,10 @@ def _collect_skill_files(skills_root: Path, *, include_flat_files: bool = False)
 
 
 # Skill directories to scan, in priority order.
+# spec-201 D-201-04: skill trees collapse to `.claude/skills` (Claude Code)
+# and `.agents/skills` (every other surface).
 _SKILL_DIRS: list[str] = [
     ".claude/skills",
-    ".codex/skills",
     ".agents/skills",
     ".ai-engineering/skills",  # legacy, backwards compat
 ]
@@ -67,8 +94,8 @@ _SKILL_DIRS: list[str] = [
 def list_local_skill_status(target: Path) -> list[SkillStatus]:
     """Evaluate local skill requirement eligibility.
 
-    Scans ``.claude/skills/``, ``.codex/skills/``, ``.agents/skills/``,
-    and legacy ``.ai-engineering/skills/`` for SKILL.md files.
+    Scans ``.claude/skills/``, ``.agents/skills/``, and legacy
+    ``.ai-engineering/skills/`` for SKILL.md files.
     """
     manifest = load_manifest_config(target).model_dump()
     install_state = _safe_json_load(target / ".ai-engineering" / "state" / "install-state.json")
@@ -140,6 +167,76 @@ def list_local_skill_status(target: Path) -> list[SkillStatus]:
         )
 
     return statuses
+
+
+def skill_surfaces() -> tuple[str, ...]:
+    """The skill trees searched, in priority order.
+
+    Public so a CLI adapter can name the searched surfaces in a not-found
+    message without re-deriving (or duplicating) the priority order.
+    """
+    return tuple(_SKILL_DIRS)
+
+
+def _name_candidates(name: str) -> tuple[str, ...]:
+    """Accepted spellings of a skill id: as given, and with the `ai-` prefix.
+
+    One normalisation site — `demo` and `ai-demo` must never diverge.
+    """
+    cleaned = name.strip().strip("/")
+    if not cleaned:
+        return ()
+    if cleaned.startswith("ai-"):
+        return (cleaned,)
+    return (cleaned, f"ai-{cleaned}")
+
+
+def _sibling_markdown(skill_dir: Path, subdir: str, target: Path) -> list[str]:
+    """Project-relative paths of `<skill_dir>/<subdir>/*.md`, sorted."""
+    folder = skill_dir / subdir
+    if not folder.is_dir():
+        return []
+    return [md.relative_to(target).as_posix() for md in sorted(folder.glob("*.md")) if md.is_file()]
+
+
+def resolve_skill(target: Path, name: str) -> SkillResolution | None:
+    """Resolve a skill name to its canonical definition file. READ-ONLY.
+
+    Walks ``_SKILL_DIRS`` in priority order and returns the first surface that
+    owns a matching skill, so `.claude/skills` wins over `.agents/skills` for a
+    skill present in both. A skill matches on its directory name (or file stem,
+    for a legacy flat skill) or on its frontmatter ``name``.
+
+    Returns ``None`` when nothing matches — the caller owns the exit code
+    (§10.8: the domain layer reports, the CLI adapter decides).
+    """
+    candidates = _name_candidates(name)
+    if not candidates:
+        return None
+
+    for rel_dir in _SKILL_DIRS:
+        include_flat_files = rel_dir == ".ai-engineering/skills"
+        surface_root = target / rel_dir
+        for skill_file in _collect_skill_files(surface_root, include_flat_files=include_flat_files):
+            directory_form = skill_file.name == "SKILL.md"
+            skill_dir = skill_file.parent
+            identifier = skill_dir.name if directory_form else skill_file.stem
+            frontmatter, _ = _load_skill_frontmatter(skill_file)
+            declared = str(frontmatter.get("name") or "").strip()
+            if identifier not in candidates and declared not in candidates:
+                continue
+            return SkillResolution(
+                name=identifier,
+                file_path=skill_file.relative_to(target).as_posix(),
+                surface=rel_dir,
+                handlers=(
+                    _sibling_markdown(skill_dir, "handlers", target) if directory_form else []
+                ),
+                references=(
+                    _sibling_markdown(skill_dir, "references", target) if directory_form else []
+                ),
+            )
+    return None
 
 
 def _safe_yaml_load(path: Path) -> dict[str, object]:

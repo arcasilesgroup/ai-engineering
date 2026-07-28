@@ -108,14 +108,56 @@ def _resolve_agent_kind(data: dict) -> str:
     return "main"
 
 
-def get_hook_context() -> HookContext:
-    """Detect IDE and return normalized hook context.
+def detect_engine() -> str:
+    """Return the active IDE / harness engine label. **Reads no stdin.**
 
     Detection priority:
     1. AIENG_HOOK_ENGINE env var (explicitly set in hook command strings)
     2. CLAUDE_PROJECT_DIR -> claude_code
     3. ANTIGRAVITY_PROJECT_DIR -> antigravity
-    4. Fallback: check CWD for .codex/ or .agents/ markers
+    4. CWD markers: .codex/ -> codex, .agents/ -> antigravity, .claude/ -> claude_code
+    5. AIENG_HOOK_ENGINE_DEFAULT, else the terminal literal ``unknown``
+
+    Extracted from ``get_hook_context`` by spec-201 D-201-06 so the four
+    inline emit sites in ``_lib/hook-common.py`` — which each guessed
+    ``claude_code`` — resolve through the same ladder. Two implementations
+    of "which engine am I?" is worse than either one alone: under a foreign
+    harness the ladder produced ``unknown`` while hook-common produced
+    ``claude_code``, so some events were dropped and the rest were
+    mislabelled as Claude Code.
+
+    Honest ``unknown`` beats a guess: misconfiguration surfaces instead of
+    silently attributing a foreign host's telemetry to Claude Code.
+
+    Hot path: the env branches short-circuit before any filesystem access,
+    so the dominant surface (Claude Code sets CLAUDE_PROJECT_DIR) costs
+    zero ``is_dir()`` syscalls. The three stats are paid only by a host
+    with neither an engine env var nor a project-dir env var.
+    """
+    engine = os.environ.get("AIENG_HOOK_ENGINE", "").strip()
+    if engine:
+        return engine
+    if os.environ.get("CLAUDE_PROJECT_DIR"):
+        return "claude_code"
+    if os.environ.get("ANTIGRAVITY_PROJECT_DIR"):
+        return "antigravity"
+    # Infer from project markers
+    cwd = Path.cwd()
+    if (cwd / ".codex").is_dir():
+        return "codex"
+    if (cwd / ".agents").is_dir():
+        return "antigravity"
+    if (cwd / ".claude").is_dir():
+        return "claude_code"
+    return os.environ.get("AIENG_HOOK_ENGINE_DEFAULT", "").strip() or "unknown"
+
+
+def get_hook_context() -> HookContext:
+    """Detect IDE and return normalized hook context.
+
+    Engine detection is delegated to :func:`detect_engine` (spec-201
+    D-201-06) — this function adds the stdin read, the project root, the
+    session id and the event-name normalization on top.
     """
     # Read stdin
     try:
@@ -124,27 +166,7 @@ def get_hook_context() -> HookContext:
     except (json.JSONDecodeError, OSError):
         data = {}
 
-    # Detect engine. Earlier versions silently fell back to "claude_code"
-    # whenever no env var or filesystem marker matched, which misclassified
-    # any future runtime in audit telemetry. Now require an explicit env-var
-    # opt-in for the silent fallback so misconfiguration surfaces loudly.
-    engine = os.environ.get("AIENG_HOOK_ENGINE", "").strip()
-    if not engine:
-        if os.environ.get("CLAUDE_PROJECT_DIR"):
-            engine = "claude_code"
-        elif os.environ.get("ANTIGRAVITY_PROJECT_DIR"):
-            engine = "antigravity"
-        else:
-            # Infer from project markers
-            cwd = Path.cwd()
-            if (cwd / ".codex").is_dir():
-                engine = "codex"
-            elif (cwd / ".agents").is_dir():
-                engine = "antigravity"
-            elif (cwd / ".claude").is_dir():
-                engine = "claude_code"
-            else:
-                engine = os.environ.get("AIENG_HOOK_ENGINE_DEFAULT", "").strip() or "unknown"
+    engine = detect_engine()
 
     # Detect project root
     project_root_str = (

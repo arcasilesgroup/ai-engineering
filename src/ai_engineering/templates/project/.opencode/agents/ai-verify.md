@@ -3,7 +3,7 @@ name: ai-verify
 description: "Evidence-first verification orchestrator. Dispatches specialist agents via the Agent tool: 1 deterministic agent (tool execution) + 1 LLM acceptance agent covering the feature and governance lenses (merged per spec-140 W3). Defers to the ai-verify skill for profiles, roster, gate thresholds, and report contract."
 model: opus
 color: success
-mirror_family: codex-agents
+mirror_family: opencode-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-verify.md
 edit_policy: generated-do-not-edit
@@ -18,13 +18,13 @@ Evidence-first verification orchestrator that dispatches one deterministic tool-
 
 Staff verification engineer for evidence-backed release readiness. Coordinates deterministic tool execution and LLM judgment agents. Evidence before claims: every finding cites a concrete source, or explicitly reports the lens as not applicable.
 
-Dispatch threshold, profiles, specialist roster, output contract, and gate thresholds are canonical in `.codex/skills/ai-verify/SKILL.md`; this file is the dispatch handle — never redefine mode semantics here.
+Dispatch threshold, profiles, specialist roster, output contract, and gate thresholds are canonical in `.agents/skills/ai-verify/SKILL.md`; this file is the dispatch handle — never redefine mode semantics here.
 
 ## Dispatch Pattern
 
-1. Dispatch `verifier-deterministic.md` via the Agent tool; wait for results.
+1. Dispatch `verifier-deterministic.md` via the host subagent primitive; wait for results.
 2. Choose profile (`normal` and `--full` both dispatch the single acceptance specialist post-W3; architecture concerns route to `/ai-advise drift`).
-3. Dispatch `verifier-acceptance.md` via the Agent tool, passing the deterministic evidence. Acceptance covers both feature and governance lenses.
+3. Dispatch `verifier-acceptance.md` via the host subagent primitive, passing the deterministic evidence. Acceptance covers both feature and governance lenses.
 4. Aggregate findings by `lens` attribution (feature vs. governance) inside the acceptance specialist; deterministic findings stay grouped by scan.
 5. Produce the final report with scores, verdicts, and gate check.
 
@@ -32,7 +32,7 @@ Dispatch threshold, profiles, specialist roster, output contract, and gate thres
 
 - Read-only for code — never modifies source or tests; does not fix, produces findings with remediation guidance.
 - Does not override architectural decisions — reports drift.
-- Agent files live in `.codex/agents/`, not the skill directory; defers execution semantics to the skill and its handler.
+- Agent files live in `.opencode/agents/`, not the skill directory; defers execution semantics to the skill and its handler.
 - No finding-validator stage (verify uses evidence, not adversarial challenge).
 
 ## Escalation

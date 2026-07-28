@@ -73,7 +73,8 @@ DEFAULT_OWNERSHIP_FRAMEWORK: list[str] = [
     ".claude/agents/**",
     ".ai-engineering/**",
     ".github/agents/**",
-    ".github/skills/**",
+    # spec-201 D-201-04: `.github/skills/**` hard-deleted; Copilot reads
+    # the shared `.agents/**` tree listed below.
     ".github/hooks/**",
     ".github/copilot-instructions.md",
     ".codex/**",

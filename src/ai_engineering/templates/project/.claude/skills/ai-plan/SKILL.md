@@ -89,4 +89,6 @@ Reads `spec.md`, runs read-only exploration, decomposes into phases with agent a
 
 Called by: user directly, post-`/ai-brainstorm` approval. Calls: `ai-explore` agent (codebase context). Transitions to: `/ai-build` (only after user approves). See also: `/ai-brainstorm`, `/ai-build`, `/ai-autopilot` (multi-concern alternative).
 
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by reading `.claude/agents/ai-plan.md` inline and running the interrogation + decomposition in-context, sequentially, with the same approval STOP; inline-sequential is the floor, not an alternate behaviour.
+
 $ARGUMENTS

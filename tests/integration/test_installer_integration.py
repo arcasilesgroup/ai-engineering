@@ -236,19 +236,23 @@ class TestCopyProjectTemplates:
         assert any(p.name == "CLAUDE.md" for p in result.skipped)
 
     def test_project_template_trees_include_skills_and_agents(self) -> None:
+        # spec-201 D-201-04: skills ship from the shared `.agents/skills`
+        # tree; only the agent tree stays Copilot-local.
         maps = resolve_template_maps()
         tree_map = dict(maps.tree_list)
-        assert ".github/skills" in tree_map
-        assert tree_map[".github/skills"] == ".github/skills"
+        assert ".agents/skills" in tree_map
+        assert tree_map[".agents/skills"] == ".agents/skills"
+        assert ".github/skills" not in tree_map
         assert "agents" in tree_map
         assert tree_map["agents"] == ".github/agents"
 
-    def test_install_creates_github_skills_dir(self, tmp_path: Path) -> None:
+    def test_install_creates_shared_skills_dir(self, tmp_path: Path) -> None:
         copy_project_templates(tmp_path)
-        skills_dir = tmp_path / ".github" / "skills"
+        skills_dir = tmp_path / ".agents" / "skills"
         assert skills_dir.is_dir()
         skill_files = list(skills_dir.rglob("SKILL.md"))
         assert len(skill_files) >= 1
+        assert not (tmp_path / ".github" / "skills").exists()
 
     def test_install_creates_github_agents_dir(self, tmp_path: Path) -> None:
         copy_project_templates(tmp_path)
@@ -285,11 +289,14 @@ class TestCopyProjectTemplates:
         assert not issue_dir.exists()
 
     def test_codex_provider_copies_codex_tree(self, tmp_path: Path) -> None:
+        # spec-201 D-201-04/D-201-23: `.codex/skills` and `.codex/agents`
+        # were hard-deleted. Codex keeps its provider-owned config/hooks
+        # and resolves skills from the shared tree.
         copy_project_templates(tmp_path, surfaces=["codex"])
-        codex_dir = tmp_path / ".codex" / "skills"
-        assert codex_dir.is_dir()
-        skill_files = list(codex_dir.glob("*/SKILL.md"))
-        assert len(skill_files) >= 28  # skills in .codex/skills/
+        assert not (tmp_path / ".codex" / "skills").exists()
+        assert not (tmp_path / ".codex" / "agents").exists()
+        skill_files = list((tmp_path / ".agents" / "skills").glob("*/SKILL.md"))
+        assert len(skill_files) >= 28
         assert (tmp_path / ".codex" / "hooks.json").is_file()
         assert (tmp_path / ".codex" / "config.toml").is_file()
 

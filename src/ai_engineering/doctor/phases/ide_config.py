@@ -22,6 +22,7 @@ def check(ctx: DoctorContext) -> list[CheckResult]:
     results.append(_check_provider_templates(ctx))
     results.append(_check_settings_merge(ctx))
     results.append(_check_permissions_wildcard(ctx))
+    results.append(_check_retired_surface_trees(ctx))
     return results
 
 
@@ -170,4 +171,59 @@ def _check_permissions_wildcard(ctx: DoctorContext) -> CheckResult:
         name=advisory_name,
         status=CheckStatus.OK,
         message=".claude/settings.json uses an explicit allow list",
+    )
+
+
+# Trees spec-201 retired (D-201-04 / D-201-05). Skills collapsed to
+# `.claude/skills` + `.agents/skills`, and `.codex/agents` was a namespace
+# squat Codex never read.
+_RETIRED_SURFACE_TREES: tuple[str, ...] = (
+    ".github/skills",
+    ".codex/skills",
+    ".opencode/skills",
+    ".cursor/skills",
+    ".codex/agents",
+)
+
+
+def _check_retired_surface_trees(ctx: DoctorContext) -> CheckResult:
+    """Advisory check (spec-201 H6): retired surface trees left on disk.
+
+    ``ai-eng update`` cannot remove these. Its orphan sweep only visits
+    *disabled* providers, and it enumerates destinations from the current
+    ``_SURFACE_TREE_MAPS`` — which no longer names any of these paths, so
+    nothing can reach them. A consumer upgrading from 0.13.0 with copilot
+    and codex enabled gains ``.agents/skills`` and keeps ``.github/skills``,
+    ``.codex/skills`` and ``.codex/agents`` frozen at 0.13.0. Both agents
+    natively discover both trees, so they read two divergent copies of
+    every skill, the stale ones still cross-referencing ``.codex/agents/``.
+
+    WARN, never FAIL, and not ``fixable``: deleting trees in a consumer
+    repo is a destructive sweep that needs its own spec with backup and
+    rollback. Until that exists the honest move is to name the paths and
+    hand the operator the ``rm``. An empty directory is ignored — it holds
+    no divergent copy of anything.
+    """
+    advisory_name = "retired-surface-trees-present"
+    present = [
+        rel
+        for rel in _RETIRED_SURFACE_TREES
+        if (ctx.target / rel).is_dir() and any((ctx.target / rel).rglob("*.md"))
+    ]
+    if not present:
+        return CheckResult(
+            name=advisory_name,
+            status=CheckStatus.OK,
+            message="No retired surface trees on disk",
+        )
+    return CheckResult(
+        name=advisory_name,
+        status=CheckStatus.WARN,
+        message=(
+            f"Retired surface trees still on disk: {', '.join(present)}. "
+            "`ai-eng update` cannot remove them, so they stay frozen at the "
+            "version that wrote them while your agents keep discovering them "
+            "alongside the current .claude/skills and .agents/skills. Remove "
+            f"them manually: rm -rf {' '.join(present)}"
+        ),
     )

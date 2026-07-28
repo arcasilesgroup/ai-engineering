@@ -35,10 +35,13 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
+
+from ai_engineering.lib.path_safety import safe_resolve_within
 
 logger = logging.getLogger(__name__)
 
@@ -476,11 +479,290 @@ def verify_audit_chain(  # audit:exempt:hash-chain-walker-head-truncation-mismat
     )
 
 
+@dataclass(frozen=True)
+class RelinkResult:
+    """Outcome of :func:`relink_audit_chain` over an audit file.
+
+    Attributes
+    ----------
+    ok:
+        ``True`` when the file was readable and the repair completed (or
+        was a no-op). ``False`` only when the file could not be parsed --
+        an unreadable ledger is reported, never rewritten.
+    entries_total:
+        Number of entries the repair walked.
+    relinked:
+        Number of entries whose chain pointer was re-stamped.
+    written:
+        ``True`` when the file was actually rewritten. Always ``False``
+        under ``dry_run`` and when nothing needed repair.
+    reason:
+        Human-readable failure reason. ``None`` when ``ok`` is ``True``.
+    """
+
+    ok: bool
+    entries_total: int
+    relinked: int
+    written: bool
+    reason: str | None
+
+
+def _pointer_field(entry: dict) -> str | None:
+    """Return the chain-pointer key ``entry`` uses, or ``None`` when absent.
+
+    Resolution order mirrors :func:`verify_audit_chain` exactly: the
+    canonical snake_case field wins over the camelCase Pydantic alias.
+    Returning ``None`` means the entry is legacy (pre-spec-107) and must
+    stay pointer-less -- stamping one would forge a claim that a chained
+    writer produced it.
+    """
+    if _CHAIN_FIELD in entry:
+        return _CHAIN_FIELD
+    if _CHAIN_FIELD_ALIAS in entry:
+        return _CHAIN_FIELD_ALIAS
+    return None
+
+
+def relink_entries(entries: list[dict]) -> tuple[list[dict], int]:
+    """Re-stamp chain pointers so every entry chains to its predecessor.
+
+    The pure repair core behind ``ai-eng audit relink`` and behind the
+    decision writers (which must re-link the tail after mutating an entry
+    in place). Resolution rules mirror :func:`verify_audit_chain` so a
+    relinked file verifies clean by construction:
+
+    * entry 0 anchors at ``None``;
+    * an entry with no pointer field is legacy: it keeps no pointer and
+      re-anchors the chain for the entry after it (D-107-10);
+    * the field spelling an entry already uses is preserved -- decisions
+      carry the camelCase ``prevEventHash`` alias, events carry
+      snake_case ``prev_event_hash``, and writing both would leave two
+      pointer surfaces where the verifier reads one.
+
+    Payload fields are never touched. Because :func:`compute_entry_hash`
+    strips the pointer before hashing, re-stamping a pointer cannot
+    change any entry's hash -- so one pass repairs every downstream
+    entry and a second pass is a no-op.
+
+    Copy-on-write: unchanged entries are returned as the *same object*
+    and the input list is never mutated, so a caller can detect the
+    repaired slots with ``before is not after`` without holding a second
+    full copy of a large ledger in memory.
+
+    Args:
+        entries: Audit entries in file order.
+
+    Returns:
+        ``(relinked_entries, changed_count)``.
+    """
+    relinked: list[dict] = []
+    prior_hash: str | None = None
+    changed = 0
+    for index, entry in enumerate(entries):
+        field = _pointer_field(entry)
+        if field is None:
+            relinked.append(entry)
+            prior_hash = compute_entry_hash(entry)
+            continue
+        expected = None if index == 0 else prior_hash
+        if entry[field] == expected:
+            relinked.append(entry)
+        else:
+            repaired = dict(entry)
+            repaired[field] = expected
+            relinked.append(repaired)
+            changed += 1
+        prior_hash = compute_entry_hash(entry)
+    return relinked, changed
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Replace ``path`` with ``content`` via a same-directory temp file.
+
+    The ledger path reaches here from the ``--file`` CLI option, which today
+    only selects among fixed filenames under ``.ai-engineering/state``. That
+    constraint lives at the call site, not here, so this function re-establishes
+    it locally: the target is validated to sit inside its own parent before any
+    name is derived from it. A future caller that forwards an operator-supplied
+    path therefore cannot walk out of the state directory through this writer.
+    """
+    validated = safe_resolve_within(path, path.parent)
+    tmp = validated.with_name(validated.name + ".relink.tmp")
+    tmp.write_text(content, encoding="utf-8")
+    os.replace(tmp, validated)
+
+
+def _relink_ndjson(path: Path, *, dry_run: bool) -> RelinkResult:
+    """Repair a line-delimited ledger, rewriting only the broken lines."""
+    raw_lines = path.read_text(encoding="utf-8").splitlines()
+    slots: list[int] = []
+    entries: list[dict] = []
+    for offset, raw in enumerate(raw_lines):
+        stripped = raw.strip()
+        if not stripped:
+            continue
+        try:
+            entry = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            return RelinkResult(
+                ok=False,
+                entries_total=0,
+                relinked=0,
+                written=False,
+                reason=f"line {offset + 1}: malformed JSON: {exc.msg}",
+            )
+        if not isinstance(entry, dict):
+            return RelinkResult(
+                ok=False,
+                entries_total=0,
+                relinked=0,
+                written=False,
+                reason=f"line {offset + 1}: entry is not a JSON object",
+            )
+        slots.append(offset)
+        entries.append(entry)
+
+    repaired, changed = relink_entries(entries)
+    if not changed or dry_run:
+        return RelinkResult(
+            ok=True,
+            entries_total=len(entries),
+            relinked=changed,
+            written=False,
+            reason=None,
+        )
+
+    for slot, before, after in zip(slots, entries, repaired, strict=True):
+        if before is not after:
+            raw_lines[slot] = json.dumps(after, sort_keys=True, default=str)
+    _atomic_write(path, "\n".join(raw_lines) + "\n")
+    return RelinkResult(
+        ok=True,
+        entries_total=len(entries),
+        relinked=changed,
+        written=True,
+        reason=None,
+    )
+
+
+def _relink_json_array(path: Path, *, dry_run: bool) -> RelinkResult:
+    """Repair a decision-store-style ledger, preserving every other key."""
+    text = path.read_text(encoding="utf-8")
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return RelinkResult(
+            ok=False,
+            entries_total=0,
+            relinked=0,
+            written=False,
+            reason=f"malformed JSON: {exc.msg}",
+        )
+
+    if isinstance(payload, list):
+        container_key = None
+        candidate = payload
+    elif isinstance(payload, dict):
+        container_key = "decisions" if "decisions" in payload else "entries"
+        candidate = payload.get(container_key) or []
+    else:
+        return RelinkResult(
+            ok=False,
+            entries_total=0,
+            relinked=0,
+            written=False,
+            reason="json_array mode expected a list or an object with a 'decisions' key",
+        )
+
+    if not isinstance(candidate, list) or any(not isinstance(e, dict) for e in candidate):
+        return RelinkResult(
+            ok=False,
+            entries_total=0,
+            relinked=0,
+            written=False,
+            reason="json_array mode expected an array of JSON objects",
+        )
+
+    repaired, changed = relink_entries(list(candidate))
+    if not changed or dry_run:
+        return RelinkResult(
+            ok=True,
+            entries_total=len(candidate),
+            relinked=changed,
+            written=False,
+            reason=None,
+        )
+
+    if container_key is None:
+        payload = repaired
+    else:
+        payload[container_key] = repaired
+    _atomic_write(path, json.dumps(payload, indent=2, sort_keys=True, default=str) + "\n")
+    return RelinkResult(
+        ok=True,
+        entries_total=len(candidate),
+        relinked=changed,
+        written=True,
+        reason=None,
+    )
+
+
+def relink_audit_chain(
+    file_path: Path,
+    *,
+    mode: Literal["ndjson", "json_array"] = "ndjson",
+    project_root: Path | None = None,
+    dry_run: bool = False,
+) -> RelinkResult:
+    """Repair the hash chain of ``file_path`` in place (spec-201 D-201-09).
+
+    A write verb on an audit ledger, so the blast radius is deliberately
+    minimal: only chain-pointer fields move, entry payloads are never
+    touched, an unparseable file is refused rather than rewritten, and
+    the rewrite is atomic (temp file + :func:`os.replace`).
+
+    The events ledger is appended to by live sessions, so the whole
+    read-modify-write runs under ``artifact_lock(project_root,
+    "framework-events")`` -- the same lock every event writer takes.
+    Without it a relink of a live file silently drops concurrent appends.
+
+    Args:
+        file_path: Path to the audit ledger.
+        mode: ``"ndjson"`` for the events stream, ``"json_array"`` for
+            the decision store.
+        project_root: Project root owning the lock directory. Defaults to
+            the grandparent of the state dir holding ``file_path``.
+        dry_run: Report what would change without writing.
+
+    Returns:
+        :class:`RelinkResult` describing the repair.
+    """
+    if not file_path.exists():
+        return RelinkResult(ok=True, entries_total=0, relinked=0, written=False, reason=None)
+
+    def _run() -> RelinkResult:
+        if mode == "ndjson":
+            return _relink_ndjson(file_path, dry_run=dry_run)
+        return _relink_json_array(file_path, dry_run=dry_run)
+
+    if mode != "ndjson":
+        return _run()
+
+    from ai_engineering.state.locking import artifact_lock
+
+    root = project_root or file_path.parent.parent.parent
+    with artifact_lock(root, "framework-events"):
+        return _run()
+
+
 __all__ = [
     "AuditChainVerdict",
+    "RelinkResult",
     "ValidationResult",
     "compute_entry_hash",
     "compute_event_hash",
     "iter_validate_chain",
+    "relink_audit_chain",
+    "relink_entries",
     "verify_audit_chain",
 ]

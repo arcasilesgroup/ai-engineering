@@ -343,7 +343,9 @@ class TestCopilotInstructionsTreeMap:
         from ai_engineering.installer.templates import _SURFACE_TREE_MAPS
 
         copilot_trees = _SURFACE_TREE_MAPS["github-copilot"]
-        assert (".github/skills", ".github/skills") in copilot_trees
+        # spec-201 D-201-04: Copilot's skill payload is the shared tree.
+        assert (".agents/skills", ".agents/skills") in copilot_trees
+        assert (".github/skills", ".github/skills") not in copilot_trees
         assert ("agents", ".github/agents") in copilot_trees
         # spec-128 D-128-04: legacy `instructions/` tree mapping deleted.
         assert ("instructions", ".github/instructions") not in copilot_trees

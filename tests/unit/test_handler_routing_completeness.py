@@ -21,16 +21,17 @@ import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
 _SKILL_ROOTS: list[tuple[str, Path]] = [
     ("root/.claude", _REPO_ROOT / ".claude" / "skills"),
-    ("root/.codex", _REPO_ROOT / ".codex" / "skills"),
+    ("root/.agents", _REPO_ROOT / ".agents" / "skills"),
     (
         "template/.claude",
         _REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "skills",
     ),
     (
-        "template/.codex",
-        _REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".codex" / "skills",
+        "template/.agents",
+        _REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".agents" / "skills",
     ),
 ]
 

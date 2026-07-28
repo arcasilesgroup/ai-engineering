@@ -28,9 +28,9 @@ Run the IRRV protocol before making claims: per claim, identify command → run 
 - Use `--full` only when the caller explicitly wants maximum decomposition.
 - Direct specialist modes stay callable without `platform`.
 
-### Step 2: Dispatch deterministic agent via Agent tool
+### Step 2: Dispatch the deterministic agent
 
-Dispatch `verifier-deterministic.md` via the **Agent** tool:
+Dispatch `verifier-deterministic.md` via the host subagent primitive:
 
 ```
 Agent prompt: "You are the deterministic verification agent.
@@ -42,7 +42,7 @@ Produce structured YAML output."
 
 Wait for deterministic results before dispatching LLM judgment agents.
 
-### Step 3: Dispatch LLM judgment agent via Agent tool
+### Step 3: Dispatch the LLM judgment agent
 
 **Normal mode** -- Dispatch the single acceptance specialist (covers both feature + governance lenses post-W3):
 
@@ -82,4 +82,4 @@ Emit:
 - Evidence before claims.
 - No work-item writes.
 - No confidence bonuses or aspirational scoring claims the runtime cannot prove.
-- All specialists dispatched via Agent tool, not read inline.
+- All specialists dispatched via the host subagent primitive, not read inline.

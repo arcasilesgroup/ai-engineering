@@ -16,6 +16,26 @@ Token fields live at ``detail.genai.usage.{input,output,total}_tokens``
 and ``detail.genai.usage.cost_usd`` (nullable; treated as 0 for sums,
 matching ``SUM`` over a column where NULLs do not contribute). A missing
 file yields an empty list; a malformed line is skipped, never fatal.
+
+spec-201 (sub-003) adds two session-level semantics:
+
+* **Summary de-duplication.** A ``session_token_rollup`` event restates the
+  whole session, so adding it to the members it summarises would double-count.
+  Its usage accumulates separately and each field is reported as
+  ``max(member_sum, summary_max)`` — the same "never undercount" rule the
+  emitter uses when merging its two sources. Members carry no usage today, so
+  the summary supplies the number; the max rule stays correct once they do.
+  The summary bucket itself reduces with MAX, not SUM: one summary is emitted
+  per turn and each restates the *cumulative* session total, so N of them are
+  a monotone series whose sum overstates by roughly the turn count
+  (spec-201 B1).
+* **``genai_system`` column.** Comma-joined sorted distinct
+  ``detail.genai.system`` values seen in the session, ``""`` when none. A
+  session can legitimately span several drivers (subagents on different
+  models); a single last-write-wins value would hide one.
+
+``skill_token_rollup`` / ``agent_token_rollup`` are unchanged: they group by
+kind and never see the summary event.
 """
 
 from __future__ import annotations
@@ -79,6 +99,43 @@ def _new_acc() -> dict[str, Any]:
     return {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0, "cost_usd": 0.0}
 
 
+def _absorb_summary(event: dict[str, Any], acc: dict[str, Any]) -> None:
+    """Field-wise MAX of a session summary into ``acc``.
+
+    Every turn emits a ``session_token_rollup`` restating the session's
+    *cumulative* total, so N summaries form a monotone series. Summing them
+    reports the series' sum instead of its last value — an overstatement that
+    grows with turn count and multiplies any reported cost by the same factor
+    (spec-201 B1). Max is the correct reduction and is idempotent under
+    repeat emission.
+    """
+    usage = _usage(event)
+    acc["input_tokens"] = max(acc["input_tokens"], _int(usage.get("input_tokens")))
+    acc["output_tokens"] = max(acc["output_tokens"], _int(usage.get("output_tokens")))
+    acc["total_tokens"] = max(acc["total_tokens"], _int(usage.get("total_tokens")))
+    acc["cost_usd"] = max(acc["cost_usd"], _float(usage.get("cost_usd")))
+
+
+def _is_session_summary(event: dict[str, Any]) -> bool:
+    """True for the ``session_token_rollup`` event, which restates a session."""
+    detail = event.get("detail")
+    if not isinstance(detail, dict):
+        return False
+    return detail.get("operation") == "session_token_rollup"
+
+
+def _genai_system(event: dict[str, Any]) -> str:
+    """Return ``detail.genai.system``, or ``""`` when absent/malformed."""
+    detail = event.get("detail")
+    if not isinstance(detail, dict):
+        return ""
+    genai = detail.get("genai")
+    if not isinstance(genai, dict):
+        return ""
+    system = genai.get("system")
+    return system if isinstance(system, str) else ""
+
+
 def skill_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
     """Per-skill token rollup over ``skill_invoked`` events."""
     groups: dict[str | None, dict[str, Any]] = defaultdict(lambda: {**_new_acc(), "invocations": 0})
@@ -118,25 +175,57 @@ def agent_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
 
 
 def session_token_rollup(ndjson_path: Path) -> list[dict[str, Any]]:
-    """Per-session token rollup; ``started_at``/``ended_at`` = MIN/MAX timestamp."""
-    groups: dict[str, dict[str, Any]] = {}
+    """Per-session token rollup; ``started_at``/``ended_at`` = MIN/MAX timestamp.
+
+    Member usage SUMS; ``session_token_rollup`` summary usage reduces with MAX
+    (each summary restates the cumulative session total, so summing them
+    inflates by the turn count); the two are reconciled as
+    ``max(member_sum, summary_max)`` per field so a summary can never
+    double-count the events it summarises.
+    """
+    meta: dict[str, dict[str, Any]] = {}
+    members: dict[str, dict[str, Any]] = {}
+    summaries: dict[str, dict[str, Any]] = {}
+    systems: dict[str, set[str]] = {}
     for event in _iter_events(ndjson_path):
         session_id = event.get("sessionId")
         if not isinstance(session_id, str) or not session_id:
             continue
         ts = event.get("timestamp")
         ts = ts if isinstance(ts, str) else ""
-        acc: dict[str, Any] | None = groups.get(session_id)
-        if acc is None:
-            acc = {**_new_acc(), "events": 0, "started_at": ts, "ended_at": ts}
-            groups[session_id] = acc
-        acc["events"] += 1
-        if ts and (not acc["started_at"] or ts < acc["started_at"]):
-            acc["started_at"] = ts
-        if ts and ts > acc["ended_at"]:
-            acc["ended_at"] = ts
-        _accumulate(event, acc)
-    return [{"session_id": sid, **acc} for sid, acc in sorted(groups.items())]
+        row: dict[str, Any] | None = meta.get(session_id)
+        if row is None:
+            row = {"events": 0, "started_at": ts, "ended_at": ts}
+            meta[session_id] = row
+            members[session_id] = _new_acc()
+            summaries[session_id] = _new_acc()
+            systems[session_id] = set()
+        row["events"] += 1
+        if ts and (not row["started_at"] or ts < row["started_at"]):
+            row["started_at"] = ts
+        if ts and ts > row["ended_at"]:
+            row["ended_at"] = ts
+        system = _genai_system(event)
+        if system:
+            systems[session_id].add(system)
+        if _is_session_summary(event):
+            _absorb_summary(event, summaries[session_id])
+        else:
+            _accumulate(event, members[session_id])
+    rows: list[dict[str, Any]] = []
+    for sid, row in sorted(meta.items()):
+        member = members[sid]
+        summary = summaries[sid]
+        merged = {key: max(member[key], summary[key]) for key in member}
+        rows.append(
+            {
+                "session_id": sid,
+                **merged,
+                **row,
+                "genai_system": ",".join(sorted(systems[sid])),
+            }
+        )
+    return rows
 
 
 __all__ = [

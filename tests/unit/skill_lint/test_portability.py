@@ -127,8 +127,109 @@ def test_output_is_pure_ascii_on_non_tty(tmp_path: Path) -> None:
     out.encode("cp1252")  # must not raise
 
 
+def test_widened_corpus_includes_handlers_and_references(tmp_path: Path) -> None:
+    """Discovery walks every ``*.md`` under the skills root, not just SKILL.md.
+
+    spec-201 D-201-15 / sub-007 T-7.5: the pre-widening walk took only
+    ``<skill-dir>/SKILL.md``, so 58 handler files and 18 reference files
+    were invisible to a blocking gate. Both must now surface.
+    """
+    skills = tmp_path / "skills"
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    skill_md = _write_skill(skills, "ai-deep", "Nothing to see here.\n")
+    handler = skill_md.parent / "handlers" / "h.md"
+    handler.parent.mkdir()
+    handler.write_text("Run the Grep tool over the repo.\n", encoding="utf-8")
+    reference = skill_md.parent / "references" / "r.md"
+    reference.parent.mkdir()
+    reference.write_text("Run the Grep tool over the repo.\n", encoding="utf-8")
+
+    by_path = dict(check_portability(skills, agents))
+    assert handler in by_path, sorted(str(p) for p in by_path)
+    assert reference in by_path, sorted(str(p) for p in by_path)
+    assert by_path[handler].severity == "MAJOR"
+    assert by_path[reference].severity == "MAJOR"
+
+
+def test_widened_corpus_size_is_pinned() -> None:
+    """Every canonical ``*.md`` is linted — computed, never hardcoded.
+
+    Closes sub-007 spec R-7: no CI workflow runs ``skill_lint``, so
+    ``test_live_corpus_runs_without_crashing`` is the sole enforcement
+    point. A regression of discovery back to ``iterdir()``/``SKILL.md``
+    would leave that zero-MAJOR assertion trivially green over a subset of
+    the tree with no failure anywhere.
+    """
+    skills_root = _REPO_ROOT / ".claude" / "skills"
+    agents_root = _REPO_ROOT / ".claude" / "agents"
+    expected = len(list(skills_root.rglob("*.md"))) + len(list(agents_root.glob("*.md")))
+
+    results = check_portability(skills_root, agents_root)
+
+    assert len(results) == expected
+    assert len(results) == len({path for path, _r in results}), "duplicate corpus entry"
+
+
+def test_dispatch_literal_flags_on_explicit_tool_signal(tmp_path: Path) -> None:
+    """``Agent``/``Task`` flag when a genuine tool signal is present.
+
+    spec-201 D-201-15 requires the dispatch literals to be evaluated. They
+    participate in ``_LITERAL_RE`` and ``_SLASH_PAIR_RE``, so a
+    "tool"-qualified mention and a call form both surface.
+    """
+    skills = tmp_path / "skills"
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    qualified = _write_skill(
+        skills,
+        "ai-dispatch-tool",
+        "4. Dispatch the specialist via the Agent tool with the shared context.\n",
+    )
+    call_form = _write_skill(skills, "ai-dispatch-call", "- Delegate to Agent(Build).\n")
+
+    by_path = dict(check_portability(skills, agents))
+    assert by_path[qualified].severity == "MAJOR"
+    assert "Agent" in by_path[qualified].reason
+    assert by_path[call_form].severity == "MAJOR"
+    assert "Agent" in by_path[call_form].reason
+
+
+def test_dispatch_literal_does_not_flag_clause_leading_domain_prose(tmp_path: Path) -> None:
+    """Clause-leading ``Agent``/``Task`` stays domain vocabulary, not a finding.
+
+    ``portability.py`` module docstring (D-187-07, W5) dropped these two
+    literals because clause-leading prose produced ~47 false positives.
+    sub-007 spec V-6 re-measured it: a blunt re-add reinstates 6 findings
+    over 3 files that are ordinary domain vocabulary. ``_DISPATCH_LITERALS``
+    therefore stays OUT of ``_CLAUSE_START_RE``.
+    """
+    skills = tmp_path / "skills"
+    agents = tmp_path / "agents"
+    agents.mkdir()
+    _write_skill(
+        skills,
+        "ai-domain-prose",
+        (
+            "Task statuses (all consumers honor the same vocabulary):\n"
+            "\n"
+            "- Agent files live in the agents directory.\n"
+        ),
+    )
+
+    results = check_portability(skills, agents)
+    flagged = [r for _p, r in results if r.severity in ("MINOR", "MAJOR")]
+    assert not flagged, [r.reason for _p, r in results if r.severity != "OK"]
+
+
 def test_live_corpus_runs_without_crashing() -> None:
-    """The lint executes over the real canonical corpus (blocking-green)."""
+    """The lint executes over the real widened corpus (blocking-green).
+
+    Post sub-007 T-7.5 the corpus is every ``*.md`` under
+    ``.claude/skills`` (135: 54 SKILL.md + 58 handlers + 18 references + 5
+    other) plus every ``.claude/agents/*.md`` (19) = 154 files, not the 73
+    SKILL.md + agent files the pre-widening walk saw.
+    """
     results = check_portability(
         _REPO_ROOT / ".claude" / "skills",
         _REPO_ROOT / ".claude" / "agents",

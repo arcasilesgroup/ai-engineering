@@ -3,7 +3,7 @@ name: ai-build
 description: Implementation coordinator — the ONLY agent with code write permissions. Auto-detects the active stack, loads matching standards, and executes approved plans test-first, dispatch-driven, and quality-gated across 20 supported stacks. Escalates after 2 failed attempts; never brute-forces.
 model: opus
 color: info
-mirror_family: codex-agents
+mirror_family: opencode-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-build.md
 edit_policy: generated-do-not-edit
@@ -62,7 +62,7 @@ Emit `## Findings` (validation results, guard advisories addressed, stack lint/f
 
 ## Referenced Skills
 
-`.codex/skills/ai-code/SKILL.md`, `.codex/skills/ai-test/SKILL.md`, `.codex/skills/ai-debug/SKILL.md`, `.codex/skills/ai-schema/SKILL.md`, `.codex/skills/ai-pipeline/SKILL.md`, and `.codex/skills/ai-build/SKILL.md` (task dispatch and agent coordination — canonical gateway, D-127-11).
+`.agents/skills/ai-code/SKILL.md`, `.agents/skills/ai-test/SKILL.md`, `.agents/skills/ai-debug/SKILL.md`, `.agents/skills/ai-schema/SKILL.md`, `.agents/skills/ai-pipeline/SKILL.md`, and `.agents/skills/ai-build/SKILL.md` (task dispatch and agent coordination — canonical gateway, D-127-11).
 
 ## Boundaries
 

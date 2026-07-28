@@ -36,17 +36,12 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 # Every committed skill surface plus the project templates. Each entry
 # is a directory root; the scanner walks `*.md` recursively. Missing
 # directories are tolerated so partial IDE rollouts do not break CI.
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
 SKILL_ROOTS = [
     REPO_ROOT / ".claude" / "skills",
-    REPO_ROOT / ".codex" / "skills",
     REPO_ROOT / ".agents" / "skills",
-    REPO_ROOT / ".github" / "skills",
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".claude" / "skills",
-    REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".codex" / "skills",
     REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".agents" / "skills",
-    REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".github" / "skills",
-    REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".cursor" / "skills",
-    REPO_ROOT / "src" / "ai_engineering" / "templates" / "project" / ".opencode" / "skills",
 ]
 
 # Pattern 1: an invocation of ``commit_compose.py`` followed (on the

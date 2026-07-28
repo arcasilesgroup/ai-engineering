@@ -31,7 +31,21 @@ _SPAN_ID_RE: re.Pattern[str] = re.compile(r"^[0-9a-f]{16}$")
 # the values below. Adding a 5th IDE means appending here AND adding the
 # adapter; the validator keeps the surface honest.
 ALLOWED_ENGINES: frozenset[str] = frozenset(
-    {"claude_code", "codex", "antigravity", "copilot", "ai_engineering"}
+    {
+        "claude_code",
+        "codex",
+        "antigravity",
+        "copilot",
+        "ai_engineering",
+        # spec-201 D-201-06: any OpenAI-shaped host (OpenCode, Cursor, a bare
+        # /v1/chat/completions driver). The closed enum is what made every
+        # foreign-harness event silently unwritable.
+        "openai_compatible",
+        # spec-201 D-201-06: the terminal fallback produced by
+        # ``_lib/hook_context.detect_engine`` when no marker matches. Refusing
+        # it turned an attribution gap into total event loss.
+        "unknown",
+    }
 )
 
 ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(
@@ -67,6 +81,10 @@ ALLOWED_EVENT_KINDS: frozenset[str] = frozenset(
         # host before dispatch. CLI invocations of ``ai-eng host probe``
         # do not emit (caller is the operator, no skill dispatched).
         "host_capacity",
+        # spec-201 D-201-07: emitted by /ai-spec-draft step 6. The skill has
+        # instructed this kind since it shipped and the schema refused it on
+        # every run; zero brief_drafted events exist in the live stream.
+        "brief_drafted",
     }
 )
 

@@ -411,7 +411,7 @@ def _perf_entries() -> list[VerificationCheckSpec]:
             testShape=VerificationTestShape.SCENARIO,
             blocking=False,
             derived=True,
-            provenanceRefs=(".github/skills/ai-reliability-eval/SKILL.md",),
+            provenanceRefs=(".agents/skills/ai-reliability-eval/SKILL.md",),
             standards=(EngineeringStandard.TDD, EngineeringStandard.HARNESS_ENGINEERING),
         ),
     ]

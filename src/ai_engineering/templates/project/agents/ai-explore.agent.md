@@ -92,8 +92,8 @@ Source-of-truth **inside** the repo (files, imports, patterns, history) → stay
 
 ## Referenced Skills
 
-- `.github/skills/ai-onboard/SKILL.md` — user-facing onboarding / codebase discovery
-- `.github/skills/ai-review/SKILL.md` — review workflow that dispatches Explore for architecture context
+- `.agents/skills/ai-onboard/SKILL.md` — user-facing onboarding / codebase discovery
+- `.agents/skills/ai-review/SKILL.md` — review workflow that dispatches Explore for architecture context
 
 ## Boundaries
 

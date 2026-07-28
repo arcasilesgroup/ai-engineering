@@ -64,8 +64,8 @@ Before keeping a simplification, confirm it is genuinely simpler (not just diffe
 
 ## Referenced Skills
 
-- `.github/skills/ai-code/SKILL.md` — change-minimization and code hygiene
-- `.github/skills/ai-test/SKILL.md` — regression-safety checks while simplifying
+- `.agents/skills/ai-code/SKILL.md` — change-minimization and code hygiene
+- `.agents/skills/ai-test/SKILL.md` — regression-safety checks while simplifying
 
 ## Referenced Standards
 

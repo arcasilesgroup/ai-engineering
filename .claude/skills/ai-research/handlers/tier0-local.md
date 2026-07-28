@@ -54,7 +54,7 @@ A `Tier0Result` shaped as:
        return slug[:40].rstrip("-")
    ```
 
-2. Glob `repo_root / ".ai-engineering" / "research" / "*.md"`. If the directory does not exist, return an empty list.
+2. Enumerate `repo_root / ".ai-engineering" / "research" / "*.md"`. If the directory does not exist, return an empty list.
 3. For each artifact, derive its `artifact_slug` by stripping the `-<YYYY-MM-DD>.md` suffix from the filename.
 4. Compute similarity via `difflib.SequenceMatcher(None, query_slug, artifact_slug).ratio()`.
 5. Keep artifacts where `similarity >= min_similarity`. Sort descending by similarity.

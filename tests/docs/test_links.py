@@ -64,8 +64,9 @@ EXCLUDED_PATH_FRAGMENTS = (
     "/build/",
     "/.github/ISSUE_TEMPLATE/",
     "/.github/copilot-instructions.md",
-    "/.codex/",
-    # Lean SKILL.md-only generated mirror surfaces (no sibling refs).
+    # spec-201 D-201-04: `.codex/skills`, `.github/skills` and
+    # `.opencode/skills` were hard-deleted; `.opencode/` still holds
+    # generated command + agent mirrors with no sibling reference files.
     "/.opencode/",
 )
 
@@ -336,7 +337,8 @@ def test_ai_ide_audit_skill_lists_antigravity() -> None:
 
 
 def test_ai_ide_audit_mirrors_carry_antigravity() -> None:
-    for mirror in (".github", ".codex", ".agents"):
+    # spec-201 D-201-04: the sole generated skill tree is .agents/skills.
+    for mirror in (".agents",):
         skill_md = (REPO_ROOT / mirror / "skills" / "ai-ide-audit" / "SKILL.md").read_text()
         assert "antigravity" in skill_md.lower(), f"{mirror} mirror SKILL.md missing Antigravity"
 

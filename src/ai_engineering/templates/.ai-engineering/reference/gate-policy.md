@@ -102,6 +102,80 @@ forbids. Audited deviations are recorded inline with `# audit:exempt:<reason>` m
 (e.g. `audit:exempt:typer-cli-3-fail-closed-gates-...`); this section is the doctrine those
 fail-closed-gate justifications point at.
 
+## Surface support tiers (spec-201 D-201-03)
+
+`manifest.yml` enables six surfaces with no stated difference between them, which invites
+an inference of parity only Claude Code earns. Two tiers, declared:
+
+- **GUARDED** — content mirrors PLUS an enforced hook plane that can deny a tool call:
+  `claude-code`, `codex`, `cursor`, `github-copilot` (**best-effort**), and `opencode`
+  (**best-effort**).
+- **CONTENT-ONLY** — skills, agents and instruction mirrors, **no enforcement**:
+  `antigravity`. Nothing on that surface blocks a `--no-verify`, and no hook scans fetched
+  content.
+
+| Surface | Tier | Hook config | Enforcement proof |
+|---|---|---|---|
+| `claude-code` | GUARDED | `.claude/settings.json` | Hook bytes sha-pinned in `hooks-manifest.json`, `AIENG_HOOK_INTEGRITY_MODE=enforce` by default. |
+| `codex` | GUARDED | `.codex/hooks.json` | `tests/integration/test_codex_guard_wiring.py` replays the config's own command string: `git commit --no-verify` returns exit 2 with a `decision: block` body. |
+| `cursor` | GUARDED | `.cursor/hooks.json` | `tests/integration/test_cursor_guard_wiring.py` replays the config's own command string: the bridge emits `{"permission":"deny", …}`, Cursor's documented deny envelope. |
+| `github-copilot` | GUARDED (**best-effort**) | `.github/hooks/hooks.json` | `tests/architecture/test_surface_support_tiers.py` runs `copilot-deny.sh`: `git commit --no-verify` yields `{"permissionDecision":"deny", …}`. `copilot-injection-guard.sh` delegates to `prompt-injection-guard.py` preserving exit 2. |
+| `opencode` | GUARDED (**best-effort**) | `.opencode/plugin/ai-engineering.ts` | `tests/integration/hooks/test_opencode_plugin_guard.py` loads the real plugin in a JS runtime: `tool.execute.before` throws and `permission.ask` sets `status:"deny"`. |
+| `antigravity` | CONTENT-ONLY | — | No deny plane. |
+
+**Why Copilot is best-effort.** `copilot-deny.sh` opens with `trap 'exit 0' ERR` and exits 0
+when `jq` is absent, so a host without `jq` silently allows everything the deny-list covers.
+The delegating `copilot-injection-guard.sh` does preserve exit 2, so the injection lane is
+hard; the deny-list lane is advisory in practice.
+
+**Why OpenCode is best-effort, stated plainly rather than implied.** Claude Code hook bytes
+are sha-pinned and integrity-enforced with a hard failure on mismatch. The OpenCode plugin
+loads **unsigned**: `regenerate-hooks-manifest.py`'s `INCLUDE_SUFFIXES` is `{".py",".sh",
+".ps1"}`, `.ts` is absent, and adding it would pin bytes nothing verifies — OpenCode loads
+the plugin in its own JS runtime and nothing on that path reads `hooks-manifest.json`. The
+signing half stays open on purpose; claiming equivalence without an integrity story for the
+plugin would be an overclaim on a security boundary.
+
+### Residual gaps this spec does NOT close
+
+Named in words, because a security posture left implicit is the failure mode this work
+exists to correct.
+
+- **OpenCode plugins load unsigned** (above). A tampered `.opencode/plugin/*.ts` or
+  `opencode-hook-bridge.ts` is detected by nothing at load time.
+- **OpenCode plugin-load failures are silent-ish.** The 1.18.5 loader logs
+  `Failed to load plugin …` and continues; a broken plugin degrades to no enforcement
+  rather than refusing to start the session.
+- **Event coverage is partial, deliberately.** Codex 0.145.0 exposes 7 hook events and
+  `.codex/hooks.json` wires 5 (`SessionStart` is empty). OpenCode registers 3 of its hook
+  surfaces. Cursor exposes 21 steps and `.cursor/hooks.json` registers 2. Widening event
+  coverage is not in spec-201's goals.
+- **Cursor registers only the two steps that have no Claude projection.** Cursor also loads
+  `<workspace>/.claude/settings.json` natively and projects Claude's events onto its own
+  `stop` / `sessionStart` / `sessionEnd` / `beforeSubmitPrompt` / `preCompact` /
+  `preToolUse` / `postToolUse` / `subagentStop`; its dedupe keys on the literal command
+  string, so registering those steps in `.cursor/hooks.json` would double-fire them rather
+  than add coverage. A Cursor consumer WITHOUT a `.claude/settings.json` therefore gets the
+  two guard lanes only.
+- **Codex `matcher: ""` delivery on `PostToolUse` is operator-verified, not CI-gated.**
+  Codex ships no hook-listing verb and a live `codex exec` needs auth plus network, so the
+  gate proves the guard fires when the event is delivered; that Codex delivers `PostToolUse`
+  for non-shell tools (`web_search`) is an operator acceptance item.
+- **Codex needs a one-time re-trust for the new PostToolUse entry.** Codex trusts hook
+  entries by position — `<event>:<group>:<index>` — so an upgrade that reorders groups
+  silently invalidates every existing trust entry and the plane comes up inert with no
+  warning. `no-verify-guard` is therefore APPENDED to the existing `PreToolUse` group
+  (`pretooluse:0:3`), leaving `0:0`–`0:2` and their trust entries exactly where they were.
+  The read-side guard at `posttooluse:1:0` (`injection-read-guard`) is genuinely new and has
+  no trust entry: an upgrading operator must approve it once, at the first `PostToolUse`
+  prompt, or that lane stays inert. Nothing in `.codex/hooks.json` may be re-ordered or
+  inserted before an existing entry without paying this cost again.
+- **`cursor-hook-bridge.py`'s sha pin is stale until the terminal manifest regen.** Its
+  bytes changed in this spec. This does **not** open the Cursor plane: the bridge does not
+  run under `run_hook_safe`, and the guards it spawns (`no-verify-guard.py`,
+  `prompt-injection-guard.py`) are unchanged, so their pins hold and the deny was verified
+  under `AIENG_HOOK_INTEGRITY_MODE=enforce`.
+
 ## Watch loop and CI autofix
 
 When CI fails after `git push`, `/ai-pr` step 14 enters its watch loop:

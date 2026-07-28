@@ -43,8 +43,9 @@ class Surface:
         instruction_files: Tuple of relative paths the surface reads
             for its persistent instructions (CLAUDE.md, AGENTS.md,
             ``.cursor/rules/*.mdc`` always-included patterns, etc.).
-            Per-skill on-demand files (``.cursor/skills/<name>/SKILL.md``,
-            ``.opencode/skills/<name>/SKILL.md``) are NOT listed here —
+            Per-skill on-demand files (``.claude/skills/<name>/SKILL.md``
+            for Claude Code, ``.agents/skills/<name>/SKILL.md`` for every
+            other surface per spec-201 D-201-04) are NOT listed here —
             they are lazy-loaded by the agent, not always-included.
         tree_dir: Relative path to the surface's tree-root directory
             (e.g. ``".claude/"``, ``".cursor/"``).

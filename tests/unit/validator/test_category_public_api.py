@@ -148,8 +148,9 @@ def test_lint_service_imports_resolve() -> None:
         "_check_required_tools",
         "_check_skill_frontmatter",
         "_check_claude_commands_mirror",
+        # spec-201 D-201-04: `_check_copilot_skills_mirror` deleted with
+        # the `.github/skills` tree it validated.
         "_check_copilot_agents_mirror",
-        "_check_copilot_skills_mirror",
         "validate_content_integrity",
     ):
         assert hasattr(lint_service, name), f"lint_service lost public symbol: {name}"

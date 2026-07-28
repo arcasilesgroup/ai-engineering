@@ -70,35 +70,6 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
         template_surface_rel="src/ai_engineering/templates/project/.claude/agents",
     ),
     MirrorFamily(
-        family_id="codex-skills",
-        provider="codex",
-        public=True,
-        generated=True,
-        edit_policy="generated-do-not-edit",
-        transform_mode="translate",
-        repo_surface_rel=".codex/skills",
-        template_surface_rel="src/ai_engineering/templates/project/.codex/skills",
-    ),
-    MirrorFamily(
-        family_id="codex-agents",
-        provider="codex",
-        public=True,
-        generated=True,
-        edit_policy="generated-do-not-edit",
-        transform_mode="translate",
-        repo_surface_rel=".codex/agents",
-        template_surface_rel="src/ai_engineering/templates/project/.codex/agents",
-    ),
-    MirrorFamily(
-        family_id="cursor-skills",
-        provider="cursor",
-        public=True,
-        generated=True,
-        edit_policy="generated-do-not-edit",
-        transform_mode="translate",
-        template_surface_rel="src/ai_engineering/templates/project/.cursor/skills",
-    ),
-    MirrorFamily(
         family_id="cursor-agents",
         provider="cursor",
         public=True,
@@ -106,6 +77,21 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
         edit_policy="generated-do-not-edit",
         transform_mode="translate",
         template_surface_rel="src/ai_engineering/templates/project/.cursor/agents",
+    ),
+    # spec-201 D-201-23: `.codex/agents` was hard-deleted, and OpenCode's
+    # agent files had been claiming the `codex-agents` family (which also
+    # rewrote their cross-references into `.codex/agents/`, the live
+    # `/ai-review` preflight bug D-201-04 names). OpenCode agents now own
+    # their family; per D-201-22 the agent tree itself does NOT collapse.
+    MirrorFamily(
+        family_id="opencode-agents",
+        provider="opencode",
+        public=True,
+        generated=True,
+        edit_policy="generated-do-not-edit",
+        transform_mode="translate",
+        repo_surface_rel=".opencode/agents",
+        template_surface_rel="src/ai_engineering/templates/project/.opencode/agents",
     ),
     MirrorFamily(
         family_id="antigravity-skills",
@@ -126,16 +112,6 @@ _MIRROR_FAMILIES: tuple[MirrorFamily, ...] = (
         transform_mode="translate",
         repo_surface_rel=".agents/agents",
         template_surface_rel="src/ai_engineering/templates/project/.agents/agents",
-    ),
-    MirrorFamily(
-        family_id="copilot-skills",
-        provider="github-copilot",
-        public=True,
-        generated=True,
-        edit_policy="generated-do-not-edit",
-        transform_mode="render-filtered",
-        repo_surface_rel=".github/skills",
-        template_surface_rel="src/ai_engineering/templates/project/.github/skills",
     ),
     MirrorFamily(
         family_id="copilot-agents",
@@ -181,21 +157,15 @@ _VALIDATOR_PAIR_ROOTS: dict[str, tuple[str, str]] = {
         ".claude/agents",
         "src/ai_engineering/templates/project/.claude/agents",
     ),
-    "codex-skills": (
-        ".codex/skills",
-        "src/ai_engineering/templates/project/.codex/skills",
-    ),
-    "codex-agents": (
-        ".codex/agents",
-        "src/ai_engineering/templates/project/.codex/agents",
-    ),
-    "cursor-skills": (
-        "src/ai_engineering/templates/project/.cursor/skills",
-        "src/ai_engineering/templates/project/.cursor/skills",
-    ),
     "cursor-agents": (
         "src/ai_engineering/templates/project/.cursor/agents",
         "src/ai_engineering/templates/project/.cursor/agents",
+    ),
+    # spec-201: repo-root `.opencode/agents` is dual-written by Surface 5b,
+    # so it can finally be pair-validated against its template twin.
+    "opencode-agents": (
+        ".opencode/agents",
+        "src/ai_engineering/templates/project/.opencode/agents",
     ),
     "antigravity-skills": (
         ".agents/skills",
@@ -204,10 +174,6 @@ _VALIDATOR_PAIR_ROOTS: dict[str, tuple[str, str]] = {
     "antigravity-agents": (
         ".agents/agents",
         "src/ai_engineering/templates/project/.agents/agents",
-    ),
-    "copilot-skills": (
-        ".github/skills",
-        "src/ai_engineering/templates/project/.github/skills",
     ),
     # spec-128 D-128-04, D-128-07: generated-instructions removed.
     "copilot-agents": (
@@ -235,21 +201,37 @@ _PROVIDER_FILE_MAPS: dict[str, dict[str, str]] = {
     },
 }
 
+# spec-201 D-201-05: every enabled surface is registered here, and every
+# non-Claude surface carries the shared `.agents/skills` payload. The
+# validator previously knew four providers while the manifest enabled
+# six, which is why `dev sync --check` reported clean over a rotting
+# surface.
 _PROVIDER_TREE_MAPS: dict[str, list[tuple[str, str]]] = {
     "claude-code": [
         (".claude", ".claude"),
     ],
     "github-copilot": [
-        (".github/skills", ".github/skills"),
+        (".agents/skills", ".agents/skills"),
         (".github/hooks", ".github/hooks"),
         ("agents", ".github/agents"),
-        ("instructions", ".github/instructions"),
     ],
     "codex": [
         (".codex", ".codex"),
+        (".agents/skills", ".agents/skills"),
     ],
+    "opencode": [
+        (".opencode", ".opencode"),
+        (".agents/skills", ".agents/skills"),
+    ],
+    "cursor": [
+        (".cursor", ".cursor"),
+        (".agents/skills", ".agents/skills"),
+    ],
+    # spec-201: mirrors installer/templates.py — the two real subtrees, so
+    # the shared skills row deduplicates against the other surfaces.
     "antigravity": [
-        (".agents", ".agents"),
+        (".agents/skills", ".agents/skills"),
+        (".agents/agents", ".agents/agents"),
     ],
 }
 
@@ -257,10 +239,6 @@ _SPECIALIST_AGENT_TARGETS: dict[str, tuple[str, str]] = {
     "github-copilot": (
         ".github/agents/internal",
         "src/ai_engineering/templates/project/agents/internal",
-    ),
-    "codex": (
-        ".codex/agents/internal",
-        "src/ai_engineering/templates/project/.codex/agents/internal",
     ),
     "antigravity": (
         ".agents/agents/internal",

@@ -105,6 +105,16 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/_lib/run-hook.sh\" \"$CLAUDE_PROJECT_DIR/.ai-engineering/scripts/hooks/spend-cap-guard.py\"",
+            "timeout": 5
+          }
+        ]
       }
     ],
     "PostToolUse": [

@@ -87,16 +87,16 @@ Need evidence? `/ai-research` returns cited findings from local context, the web
 
 ## Supported surfaces
 
-One canonical payload is mirrored, byte-for-byte, into every enabled surface.
+One canonical payload is mirrored, byte-for-byte, into every enabled surface. Skills live in two trees: `.claude/skills` for Claude Code, whose search paths are compiled in, and `.agents/skills` for every other surface. Only agents, commands and hooks stay surface-local.
 
-| Surface | Entry point |
-|---------|-------------|
-| Claude Code | [CLAUDE.md](CLAUDE.md) |
-| GitHub Copilot | [.github/copilot-instructions.md](.github/copilot-instructions.md) |
-| OpenAI Codex | [AGENTS.md](AGENTS.md) |
-| Antigravity | [AGENTS.md](AGENTS.md) + `.agents/` |
-| OpenCode | `.opencode/` |
-| Cursor | `.cursor/` |
+| Surface | Entry point | Skills | Surface-local |
+|---------|-------------|--------|---------------|
+| Claude Code | [CLAUDE.md](CLAUDE.md) | `.claude/skills/` | `.claude/agents/`, `.claude/commands/` |
+| GitHub Copilot | [.github/copilot-instructions.md](.github/copilot-instructions.md) | `.agents/skills/` | `.github/agents/`, `.github/hooks/` |
+| OpenAI Codex | [AGENTS.md](AGENTS.md) | `.agents/skills/` | `.codex/config.toml`, `.codex/hooks.json` |
+| Antigravity | [AGENTS.md](AGENTS.md) | `.agents/skills/` | `.agents/agents/` |
+| OpenCode | [AGENTS.md](AGENTS.md) | `.agents/skills/` | `.opencode/agents/`, `.opencode/commands/` |
+| Cursor | `.cursor/rules/` | `.agents/skills/` | `.cursor/agents/` |
 
 The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibitions live in [CONSTITUTION.md](CONSTITUTION.md). Release history lives in [CHANGELOG.md](CHANGELOG.md).
 

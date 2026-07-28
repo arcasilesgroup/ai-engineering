@@ -21,21 +21,20 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
 SKILL_PATHS = [
     REPO_ROOT / ".claude" / "skills" / "ai-mcp-audit" / "SKILL.md",
-    REPO_ROOT / ".github" / "skills" / "ai-mcp-audit" / "SKILL.md",
-    REPO_ROOT / ".codex" / "skills" / "ai-mcp-audit" / "SKILL.md",
     REPO_ROOT / ".agents" / "skills" / "ai-mcp-audit" / "SKILL.md",
 ]
 
 
-def test_skill_exists_in_all_four_ide_surfaces() -> None:
-    """G-10: ai-mcp-audit skill must ship in 4 IDE surface directories."""
+def test_skill_exists_in_all_skill_surfaces() -> None:
+    """G-10: ai-mcp-audit skill must ship in both surviving skill trees."""
     missing = [p for p in SKILL_PATHS if not p.is_file()]
     assert not missing, (
         f"ai-mcp-audit skill missing from: {[str(p) for p in missing]} "
         "— Phase 5 T-5.1 / T-5.5 must create the canonical Claude Code "
-        "SKILL.md and sync it to .github/.codex/.agents/ via "
+        "SKILL.md and sync it to .agents/ via "
         "scripts/sync_command_mirrors.py"
     )
 

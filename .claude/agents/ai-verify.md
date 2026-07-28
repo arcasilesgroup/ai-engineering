@@ -18,9 +18,9 @@ Dispatch threshold, profiles, specialist roster, output contract, and gate thres
 
 ## Dispatch Pattern
 
-1. Dispatch `verifier-deterministic.md` via the Agent tool; wait for results.
+1. Dispatch `verifier-deterministic.md` via the host subagent primitive; wait for results.
 2. Choose profile (`normal` and `--full` both dispatch the single acceptance specialist post-W3; architecture concerns route to `/ai-advise drift`).
-3. Dispatch `verifier-acceptance.md` via the Agent tool, passing the deterministic evidence. Acceptance covers both feature and governance lenses.
+3. Dispatch `verifier-acceptance.md` via the host subagent primitive, passing the deterministic evidence. Acceptance covers both feature and governance lenses.
 4. Aggregate findings by `lens` attribution (feature vs. governance) inside the acceptance specialist; deterministic findings stay grouped by scan.
 5. Produce the final report with scores, verdicts, and gate check.
 

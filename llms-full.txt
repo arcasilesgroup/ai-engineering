@@ -98,16 +98,16 @@ Need evidence? `/ai-research` returns cited findings from local context, the web
 
 ## Supported surfaces
 
-One canonical payload is mirrored, byte-for-byte, into every enabled surface.
+One canonical payload is mirrored, byte-for-byte, into every enabled surface. Skills live in two trees: `.claude/skills` for Claude Code, whose search paths are compiled in, and `.agents/skills` for every other surface. Only agents, commands and hooks stay surface-local.
 
-| Surface | Entry point |
-|---------|-------------|
-| Claude Code | [CLAUDE.md](CLAUDE.md) |
-| GitHub Copilot | [.github/copilot-instructions.md](.github/copilot-instructions.md) |
-| OpenAI Codex | [AGENTS.md](AGENTS.md) |
-| Antigravity | [AGENTS.md](AGENTS.md) + `.agents/` |
-| OpenCode | `.opencode/` |
-| Cursor | `.cursor/` |
+| Surface | Entry point | Skills | Surface-local |
+|---------|-------------|--------|---------------|
+| Claude Code | [CLAUDE.md](CLAUDE.md) | `.claude/skills/` | `.claude/agents/`, `.claude/commands/` |
+| GitHub Copilot | [.github/copilot-instructions.md](.github/copilot-instructions.md) | `.agents/skills/` | `.github/agents/`, `.github/hooks/` |
+| OpenAI Codex | [AGENTS.md](AGENTS.md) | `.agents/skills/` | `.codex/config.toml`, `.codex/hooks.json` |
+| Antigravity | [AGENTS.md](AGENTS.md) | `.agents/skills/` | `.agents/agents/` |
+| OpenCode | [AGENTS.md](AGENTS.md) | `.agents/skills/` | `.opencode/agents/`, `.opencode/commands/` |
+| Cursor | `.cursor/rules/` | `.agents/skills/` | `.cursor/agents/` |
 
 The ruleset lives in [AGENTS.md](AGENTS.md). Project identity and hard prohibitions live in [CONSTITUTION.md](CONSTITUTION.md). Release history lives in [CHANGELOG.md](CHANGELOG.md).
 
@@ -286,7 +286,7 @@ How `{ai} engineering` is built, for contributors. (Using the framework? Start w
 
 `{ai} engineering` is a deterministic governance layer materialized as versioned local files: specs, decisions, skills, agents, hooks, and a hash-chained audit trail. There is no hosted control plane — every IDE reads the same canonical payload.
 
-The authoritative architecture document is [solution-intent.md](../../.ai-engineering/solution-intent.md) (§3.1 carries the layered module map). It embeds the system-context, module-map, IDE-mirror, publication, observability, and security/quality diagrams as Mermaid, so they version with the code.
+The authoritative architecture document is [solution-intent.md](../../.ai-engineering/solution-intent.md) (§3.1 carries the layered module map). It embeds the architecture diagrams as Mermaid, so they version with the code.
 
 ## Core ideas
 
@@ -378,10 +378,9 @@ acceptable.
 ## The three tiers
 
 The framework stores state across three tiers chosen by the *shape* of
-the data, not by convenience. A datum belongs to exactly one tier, and
-within that tier to exactly one canonical file. There is **no database**:
-spec-148 removed the embedded SQLite `state.db` so the obvious reading of
-every store is a plain file on disk.
+the data. A datum belongs to exactly one tier, and within it to exactly
+one canonical file. There is **no database** — spec-148 removed the
+embedded SQLite `state.db`; every store is a plain file on disk.
 
 ### Tier 1 — NDJSON audit log
 
@@ -676,8 +675,8 @@ AI authoring is the cost-driver and auditability is the bar.
 
 - **Skill** — a `.claude/skills/ai-<name>/SKILL.md` capability invoked
   via `/ai-<name>`. Skills carry frontmatter (`name`, `description`,
-  `effort`, `model_tier`, `argument-hint`) plus a layout-conformant
-  body (`## Quick start` / `## Workflow` / `## Examples` /
+  `effort`, `argument-hint`) plus a layout-conformant body
+  (`## Quick start` / `## Workflow` / `## Examples` /
   `## Integration`).
 - **Agent** — a `.claude/agents/ai-<name>.md` persona dispatched in a
   fresh context window. Build is the only agent with write
@@ -777,8 +776,7 @@ AI authoring is the cost-driver and auditability is the bar.
   application source, tests, configuration, CI workflows
   specific to the team's product surface.
 - **Generated mirrors carry `DO NOT EDIT` headers** and
-  `linguist-generated=true`. The deterministic plane reverts
-  manual edits on the next sync.
+  `linguist-generated=true`.
 
 ## Escalation
 
@@ -806,7 +804,7 @@ written CONSTITUTION.md stays in English for cross-team review.
 ## Lifecycle phase
 
 **Stabilising** — the framework has shipped its canonical chain
-(spec-127 / spec-128 / spec-129) and is now hardening DX and reliability (spec-131 through spec-182, v0.12.3).
+(spec-127 / spec-128 / spec-129) and is now hardening DX and reliability (spec-131 through spec-186, v0.12.3).
 Breaking changes still land without backwards-compat shims (anti-goal
 above), but the deterministic plane contract (audit chain shape,
 risk-acceptance ledger, hooks manifest) is frozen modulo ADR.
@@ -816,15 +814,14 @@ risk-acceptance ledger, hooks manifest) is frozen modulo ADR.
 <!--
 ADAPTATION NOTE (spec-131 D-131-04)
 
-This CONSTITUTION.md was rescoped on 2026-05-11 from a 13-Article
-AI-behaviour document into a 10-section project-identity contract.
-The pre-migration body is rotated verbatim to
-`.ai-engineering/specs/archive/constitution-rotations/2026-05-11.md` for
-traceability per R-131-03. All AI-behaviour content migrated to
-`src/ai_engineering/templates/project/CANONICAL.md` §§1-13 and is
-mirrored byte-equivalent into AGENTS.md / CLAUDE.md / GEMINI.md /
-.github/copilot-instructions.md by
-`scripts/sync_mirrors/core.py`.
+Rescoped 2026-05-11 from a 13-Article AI-behaviour document into a
+10-section project-identity contract. Pre-migration body rotated
+verbatim to
+`.ai-engineering/specs/archive/constitution-rotations/2026-05-11.md`
+(traceability per R-131-03). AI-behaviour content migrated to
+`src/ai_engineering/templates/project/CANONICAL.md` §§1-13, mirrored
+byte-equivalent into AGENTS.md / CLAUDE.md /
+.github/copilot-instructions.md by `scripts/sync_mirrors/core.py`.
 
 Governance metadata:
 - spec_ref: spec-131 (DX Excellence Refactor)
@@ -852,17 +849,13 @@ Governance metadata:
 Every session: (1) read [CONSTITUTION.md](CONSTITUTION.md) (project
 identity); (2) read `.ai-engineering/manifest.yml` (config SoT);
 (3) consult [docs/persistence-doctrine.md](docs/persistence-doctrine.md)
-for the canonical store of each datum (decisions live in spec markdown;
-the `decision-store.json` cache is populated after `ai-eng decision
-backfill` or `/ai-brainstorm` approval per spec-138 M3 follow-up);
-(4) no implementation without an approved spec — invoke
-`/ai-brainstorm` first when a task has no spec; (5) read
-[SOUL.md](SOUL.md) (the agent's collaborator values — the judgment
-layer above the deterministic plane).
-
-See [docs/persistence-doctrine.md](docs/persistence-doctrine.md) for
-the three-tier files-only model (NDJSON audit, JSON/YAML
-records+config, Markdown) and the SSOT-PD rebuild semantics.
+for the canonical store of each datum — the three-tier files-only model
+(NDJSON audit, JSON/YAML records+config, Markdown) and SSOT-PD rebuild
+semantics (decisions live in spec markdown; the `decision-store.json`
+cache is populated after `ai-eng decision backfill` or `/ai-brainstorm`
+approval per spec-138 M3 follow-up); (4) no implementation without an
+approved spec — invoke `/ai-brainstorm` first; (5) read [SOUL.md](SOUL.md)
+(the agent's collaborator values).
 
 ## Operating Mindset (§1–§9 condensed)
 
@@ -883,8 +876,8 @@ in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principle
 
 The agent's collaborator values — Pragmatic Helpfulness, Honest &
 Direct, Collaborative Partner, Learn & Grow — live in
-[SOUL.md](SOUL.md). They are the judgment layer above the deterministic
-plane (gates, Prohibitions), read each session per §0. SOUL.md owns the
+[SOUL.md](SOUL.md), the judgment layer above the deterministic plane
+(gates, Prohibitions), read each session per §0. SOUL.md owns the
 *values framing*; the Operating Mindset (§1-9) and §10 principles own
 the engineering prose.
 
@@ -892,9 +885,8 @@ the engineering prose.
 
 The eight first-class principles (§10.1 KISS, §10.2 YAGNI, §10.3 SOLID,
 §10.4 DRY, §10.5 TDD, §10.6 SDD, §10.7 Clean Code, §10.8 Hexagonal
-Architecture) live in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md). Every
-SKILL.md `## Workflow` cites at least one §10.x anchor; anchors are
-stable at the new home.
+Architecture) live in [.ai-engineering/reference/principles.md](.ai-engineering/reference/principles.md).
+Every SKILL.md `## Workflow` cites at least one §10.x anchor.
 
 ## 11. Canonical Chain
 
@@ -927,7 +919,12 @@ Canonical skills and agents live under `.claude/`; mirror surfaces under
 `.codex/`, `.agents/`, and `.github/` are byte-equivalent regenerations
 written by `scripts/sync_mirrors/core.py`. Invoke a skill via
 `/ai-<name>` in the IDE agent surface — never via a synthetic terminal
-equivalent.
+equivalent. Carve-out (D-201-11): driving a real IDE agent surface
+headlessly is explicitly permitted — handing a resolved `SKILL.md` body
+to the harness that owns it, for example via `ai-eng skill resolve`, is
+not a synthetic terminal equivalent. What stays prohibited is inventing
+a terminal command that re-implements a skill outside its agent
+surface.
 
 ## Agents (9)
 
@@ -946,6 +943,7 @@ its own context window — offload research and parallel analysis to them.
 | Skills (54) | `.claude/skills/ai-<name>/SKILL.md` |
 | Agents (9) | `.claude/agents/ai-<name>.md` |
 | Placement contract | `.ai-engineering/reference/knowledge-placement.md` |
+| Runbooks index | [.ai-engineering/reference/runbook-index.md](.ai-engineering/reference/runbook-index.md) (14 cadence-driven intake/operational procedures) |
 | Hook scripts | `.ai-engineering/scripts/hooks/` |
 | CLI | `ai-eng <command>` |
 | Audit chain | `.ai-engineering/state/framework-events.ndjson` |
@@ -1002,6 +1000,27 @@ mirrors stay lean (spec-134 sub-005 mirror diet). Authoritative homes:
 - **Error-handling posture** (fail-open vs fail-closed) →
   [.ai-engineering/reference/gate-policy.md](.ai-engineering/reference/gate-policy.md)
   (security/integrity boundaries fail closed; plumbing fails open and must log).
+- **Client-Value communication** (stakeholder-legible reports + questions) →
+  [.ai-engineering/reference/value-lens.md](.ai-engineering/reference/value-lens.md)
+  (the 6-field value block, lite/full/ultra audience ladder, and carve-outs;
+  the 5 chain skills cite it, enforced by `tests/conformance/test_value_block.py`).
 
 <!-- ide-extras:start -->
+## Hooks & Hot-Path (portable entry point)
+
+AGENTS.md is the engine-neutral surface. Claude Code and Copilot ship
+their own hook wiring in their mirrors; other engines (Codex, OpenCode,
+Cursor, Antigravity, raw-API hosts) apply the same discipline through
+whatever session-lifecycle mechanism they provide:
+
+- Keep any pre-commit / pre-save gate under ~1s and any pre-push gate
+  under ~5s; move the full test suite, dependency audit, and governance
+  evaluation into CI, never onto the local hot path.
+- Canonical hook scripts live under `.ai-engineering/scripts/hooks/` and
+  are byte-pinned in `.ai-engineering/state/hooks-manifest.json`; invoke
+  them through the integrity-checked runner (or the host's equivalent) so
+  the pin stays enforced. IDE-specific hook config is per-surface.
+- The `/ai-*` slash idiom and the trailing `$ARGUMENTS` token are provided
+  by the host agent surface. On a host with no slash layer, invoke the
+  skill body at `.claude/skills/ai-<name>/SKILL.md` directly.
 <!-- ide-extras:end -->

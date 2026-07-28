@@ -177,6 +177,13 @@ def _check_audit_chain_events(ctx: DoctorContext) -> CheckResult:
     block. A missing file (no events emitted yet) is OK. A chain break
     surfaces as WARN with the first break index + reason so operators
     can investigate without blocking the install/doctor flow.
+
+    DO NOT escalate this to FAIL (spec-201, Trap 4). The ledger is
+    gitignored, so CI has no file and reports the chain vacuously valid,
+    while every developer machine carries tens of thousands of local
+    entries and any historical break. A FAIL here reds every dev box on
+    correct code and is green in CI -- the worst possible split. The
+    git-tracked ``decision-store.json`` check is the one that blocks.
     """
     from ai_engineering.state.audit_chain import verify_audit_chain
 
@@ -206,17 +213,26 @@ def _check_audit_chain_events(ctx: DoctorContext) -> CheckResult:
 
 
 def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
-    """Advisory check (spec-107 D-107-10 / G-12, H2): hash-chain over decisions.
+    """Advisory check (spec-107 D-107-10): hash-chain over decisions.
 
     Verifies the ``decision-store.json`` audit chain by walking
-    ``prev_event_hash`` pointers across the ``decisions`` array. Pure
-    WARN advisory: never FAIL, never block. Legacy decisions written
-    before spec-107 lack the field and are treated as valid by the
-    verifier (additive backward-compat per D-107-10).
+    ``prev_event_hash`` pointers across the ``decisions`` array.
 
-    spec-124 D-124-12: ``decision-store.json`` migrated to state.db; the
-    JSON-array hash-chain check no longer applies on disk. State.db
-    rows carry their own audit hash via the ``decisions`` table.
+    DO NOT escalate this to FAIL. spec-201 sub-001 briefly did, and it was
+    reverted: the verifier treats a *missing* pointer field as a legitimate
+    re-anchor (legacy backward-compat per D-107-10), so deleting the key
+    from the entry after a tampered one makes the whole ledger verify
+    clean. A gate whose verifier is defeated by removing a field is worse
+    than no gate -- it converts "unverified" into a green light. Escalate
+    only once every entry is pointer-stamped and a missing pointer is
+    itself a break; that migration is a follow-up spec.
+
+    Legacy decisions written before spec-107 lack the field and are
+    treated as valid by the verifier (additive backward-compat per
+    D-107-10).
+
+    ``fix()`` cannot repair this, so the WARN message names the command
+    that can.
     """
     from ai_engineering.state.audit_chain import verify_audit_chain
 
@@ -244,7 +260,9 @@ def _check_audit_chain_decisions(ctx: DoctorContext) -> CheckResult:
         status=CheckStatus.WARN,
         message=(
             f"decisions chain break at index {verdict.first_break_index}: "
-            f"{verdict.first_break_reason}"
+            f"{verdict.first_break_reason}; "
+            "review with `ai-eng audit relink --file decisions`, "
+            "then apply with `ai-eng audit relink --file decisions --write`"
         ),
     )
 

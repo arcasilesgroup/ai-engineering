@@ -20,11 +20,20 @@ providers:
   stacks:
   - python
 
-# Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16,
-# spec-128 Wave 4 supersedes D-133-06/D-133-07: OpenCode + Cursor now activated
-# with native skills at .{ide}/skills/<name>/SKILL.md, folder per skill).
+# Surfaces — unified AI Provider + IDE Integration axis (spec-133 D-133-16).
 # Closed enum: claude-code, codex, github-copilot, opencode, cursor,
 # antigravity. Gemini CLI was retired pre-release in favor of Antigravity.
+#
+# spec-201 D-201-04: skills live in TWO trees only — `.claude/skills/` and the
+# shared `.agents/skills/`. OpenCode, Cursor and Antigravity read the shared
+# tree; there is no `.{ide}/skills/<name>/SKILL.md` per surface.
+#
+# spec-201 D-201-03: enabling a surface does NOT imply parity. Surfaces split
+# into GUARDED (content mirrors PLUS an enforced hook plane) and CONTENT-ONLY
+# (mirrors, no enforcement), and the OpenCode guarantee is best-effort. The
+# authoritative tier table, with every residual gap named, is the
+# "Surface support tiers" section of
+# `.ai-engineering/reference/gate-policy.md`.
 surfaces:
   enabled:
   - claude-code

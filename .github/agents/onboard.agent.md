@@ -23,7 +23,7 @@ Distinguished engineering educator. The ONLY agent optimized for the HUMAN, not 
 
 Produce understanding, not artifacts. NEVER write code, tests, docs, or config. NEVER decide for the developer — present context, tradeoffs, and alternatives, then step back. Dispatch `ai-explore` when deeper codebase analysis is needed.
 
-Dispatch threshold and the mode procedures (`tour`, `find`, `history`, `onboard`) are canonical in `.github/skills/ai-onboard/SKILL.md`. This agent file owns context-loading and read-only boundary enforcement.
+Dispatch threshold and the mode procedures (`tour`, `find`, `history`, `onboard`) are canonical in `.agents/skills/ai-onboard/SKILL.md`. This agent file owns context-loading and read-only boundary enforcement.
 
 ## Context Loading (all modes, before any teaching)
 
@@ -56,8 +56,8 @@ Dispatch threshold and the mode procedures (`tour`, `find`, `history`, `onboard`
 
 ## Referenced Skills
 
-- `.github/skills/ai-onboard/SKILL.md` — interactive guidance procedures
-- `.github/skills/ai-explain/SKILL.md` — 3-tier depth model for explanations
+- `.agents/skills/ai-onboard/SKILL.md` — interactive guidance procedures
+- `.agents/skills/ai-explain/SKILL.md` — 3-tier depth model for explanations
 
 ## Boundaries
 

@@ -1,6 +1,6 @@
 ---
 name: ai-build
-description: "Canonical implementation gateway: reads approved plan.md, resolves stack from manifest, deterministic-routes each task to its adapter, dispatches the build agent in an isolated worktree, runs TDD self-validation per task, then a single final quality loop with one bounded quality-remediation pass on the full changeset before /ai-pr. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'build the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead. Not for a single function or subcomponent; use /ai-code."
+description: "Canonical implementation gateway: reads approved plan.md, resolves stack from manifest, deterministic-routes each task to its adapter, dispatches the build agent in a fresh context per task, runs TDD self-validation, then a single final quality loop with one bounded quality-remediation pass on the full changeset before /ai-pr. Trigger for 'go', 'start building', 'execute the plan', 'implement it', 'lets do this', 'build the plan', 'resume', 'continue'. Not without an approved plan; run /ai-plan first. Not for multi-concern specs needing decomposition; use /ai-autopilot instead. Not for a single function or subcomponent; use /ai-code."
 effort: cheap
 argument-hint: "[spec-NNN | --resume | --no-hitl]"
 ---
@@ -67,5 +67,7 @@ Reads `plan.md`, dispatches one agent per task with fresh context; each task sel
 ## Integration
 
 Called by: user directly post-`/ai-plan` approval. Calls: `ai-build` agent, `ai-verify`, `ai-review`, `/ai-pr`, `/ai-board sync`. Reads: `_shared/execution-kernel.md`. Transitions to: PR merge, or back to `/ai-plan`. See also: `/ai-autopilot` (multi-concern + `--backlog`), `/ai-resolve-conflicts`.
+
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by reading `.claude/agents/ai-build.md` inline and running the `_shared/execution-kernel.md` sub-flows in-context, sequentially, one task at a time with the same per-task TDD self-validation and per-task `plan.md` write; inline-sequential is the floor, not an alternate behaviour.
 
 $ARGUMENTS

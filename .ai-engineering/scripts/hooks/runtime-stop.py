@@ -571,6 +571,18 @@ def _emit_summary_event(
     emit_event(project_root, event)
 
 
+def _is_session_summary(event: dict) -> bool:
+    """True for a ``session_token_rollup`` event, which restates a session.
+
+    Mirrors ``ai_engineering.state.audit_rollup._is_session_summary`` on the
+    reader side; the hook is stdlib-only and cannot import it.
+    """
+    detail = event.get("detail")
+    if not isinstance(detail, dict):
+        return False
+    return detail.get("operation") == "session_token_rollup"
+
+
 def _ndjson_session_rollup(project_root: Path, session_id: str) -> dict | None:
     """Stdlib NDJSON rollup for ``session_id`` (spec-148).
 
@@ -579,6 +591,14 @@ def _ndjson_session_rollup(project_root: Path, session_id: str) -> dict | None:
     ``None`` when the NDJSON is absent or the session has no events. Token
     counts are usually zero today — the transcript is the real source and
     is merged by the caller.
+
+    Prior ``session_token_rollup`` events are skipped (spec-201 B1): each one
+    restates the session's *cumulative* usage, so counting a summary as a
+    member folds the previous total back into the next one. Once that
+    polluted sum overtakes the transcript truth it wins the caller's
+    ``max()`` reconciliation and the reported total doubles every turn.
+    A summary is computed from real per-turn usage only, never from
+    previous summaries.
     """
     ndjson_path = project_root / _NDJSON_REL
     try:
@@ -600,6 +620,8 @@ def _ndjson_session_rollup(project_root: Path, session_id: str) -> dict | None:
         except (json.JSONDecodeError, ValueError):
             continue
         if not isinstance(event, dict) or event.get("sessionId") != session_id:
+            continue
+        if _is_session_summary(event):
             continue
         events += 1
         ts = event.get("timestamp")
@@ -653,6 +675,18 @@ def _emit_session_token_rollup(
     ``framework_error`` (``error_code = session_rollup_skipped``) and
     continue. ``session_id is None`` → silent skip (no error event;
     nothing meaningful to roll up).
+
+    spec-201 (sub-003) reshaped the payload, breaking, no shim:
+
+    * the event carries a top-level ``sessionId`` so ``session_token_rollup``
+      can see it at all (it groups by that field);
+    * token counts live in the canonical ``detail.genai.usage`` block instead
+      of flat ``detail`` keys — one canonical store per datum;
+    * ``genai.system`` is derived from the transcript's real model string and
+      floors to ``"unknown"``; the old unconditional ``"anthropic"`` was
+      wrong for every non-Anthropic driver;
+    * ``cost_usd`` is emitted only when a source actually reported one.
+      Absent cost is absent, never ``0.0`` — no price table is ever applied.
     """
     if not session_id:
         return
@@ -683,17 +717,21 @@ def _emit_session_token_rollup(
         # emitting a zeroed event.
         return
 
+    # `metadata` carries the non-token facts only; every token/cost/model
+    # datum belongs to the canonical `usage` payload below.
     if rollup is not None:
         metadata = {
             "session_id": rollup["session_id"],
             "started_at": rollup["started_at"],
             "ended_at": rollup["ended_at"],
             "events": rollup["events"],
+        }
+        usage_payload: dict = {
             "input_tokens": rollup["input_tokens"],
             "output_tokens": rollup["output_tokens"],
             "total_tokens": rollup["total_tokens"],
-            "cost_usd": rollup["cost_usd"],
         }
+        ndjson_cost = rollup["cost_usd"]
         usage_source = "ndjson"
     else:
         # Synthesise the rollup from the transcript only.
@@ -702,12 +740,15 @@ def _emit_session_token_rollup(
             "started_at": None,
             "ended_at": None,
             "events": 0,
-            "input_tokens": 0,
-            "output_tokens": 0,
-            "total_tokens": 0,
-            "cost_usd": None,
         }
+        usage_payload = {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0}
+        ndjson_cost = None
         usage_source = "transcript"
+
+    # No transcript means no model signal at all. Floor to "unknown" rather
+    # than guessing a vendor -- an honest gap beats a confident lie.
+    genai_system = "unknown"
+    transcript_cost = None
 
     if transcript_payload is not None:
         # Merge: index numbers are usually zero today, so transcript wins on
@@ -715,13 +756,25 @@ def _emit_session_token_rollup(
         # take the larger of the two so we never undercount.
         for key in ("input_tokens", "output_tokens", "total_tokens"):
             transcript_val = transcript_payload.get(key, 0)
-            current = metadata.get(key) or 0
-            metadata[key] = max(current, transcript_val)
-        if transcript_payload.get("model"):
-            metadata["genai_model"] = transcript_payload["model"]
-        metadata["genai_system"] = transcript_payload.get("system", "anthropic")
+            current = usage_payload.get(key) or 0
+            usage_payload[key] = max(current, transcript_val)
+        model = transcript_payload.get("model")
+        if model:
+            # Only when truthy: an empty model would emit `request.model: ""`.
+            usage_payload["model"] = model
+        genai_system = transcript_payload.get("system") or "unknown"
+        transcript_cost = transcript_payload.get("cost_usd")
         if usage_source == "ndjson":
             usage_source = "merged"
+
+    usage_payload["system"] = genai_system
+
+    # Per-request provider cost is primary; the NDJSON sum is the fallback.
+    # When neither reports a cost the key is simply absent -- "unknown" must
+    # never render as "free", and no price table is ever applied.
+    cost = transcript_cost if _is_number(transcript_cost) else ndjson_cost
+    if _is_number(cost):
+        usage_payload["cost_usd"] = cost
 
     metadata["usage_source"] = usage_source
 
@@ -731,8 +784,15 @@ def _emit_session_token_rollup(
         component=_HOOK_COMPONENT,
         source="hook",
         correlation_id=correlation_id,
+        session_id=session_id,
+        usage=usage_payload,
         metadata=metadata,
     )
+
+
+def _is_number(value: object) -> bool:
+    """True for a real int/float cost. ``bool`` is an ``int`` subclass; reject it."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
 def _safe_transcript_aggregate(project_root: Path, *, session_id: str | None) -> dict | None:

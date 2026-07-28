@@ -12,16 +12,11 @@ AUTO_DELIVER_REL = Path("skills/ai-autopilot/handlers/phase-deliver.md")
 AUTO_SKILL_REL = Path("skills/ai-autopilot/SKILL.md")
 BUILD_SKILL_REL = Path("skills/ai-build/SKILL.md")
 
-ROOT_SURFACES = (".claude", ".codex", ".agents", ".github")
-TEMPLATE_HANDLER_SURFACES = (".claude", ".codex", ".agents", ".github")
-TEMPLATE_SKILL_SURFACES = (
-    ".agents",
-    ".claude",
-    ".codex",
-    ".cursor",
-    ".github",
-    ".opencode",
-)
+# spec-201 D-201-04: skill trees collapse to two — .claude (Claude Code,
+# whose search paths are compiled in) and .agents (every other surface).
+ROOT_SURFACES = (".claude", ".agents")
+TEMPLATE_HANDLER_SURFACES = (".claude", ".agents")
+TEMPLATE_SKILL_SURFACES = (".agents", ".claude")
 
 
 def _read(path: Path) -> str:

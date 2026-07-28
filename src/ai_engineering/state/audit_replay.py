@@ -190,6 +190,9 @@ def _event_to_row(event: dict[str, Any]) -> dict[str, Any]:
         "kind": _s(event.get("kind")) or "unknown",
         "component": _s(event.get("component")) or "unknown",
         "outcome": _s(event.get("outcome")) or "unknown",
+        # spec-201 B1: `token_rollup` needs to tell a per-turn session summary
+        # (which restates the cumulative total) from a member event.
+        "operation": _s(detail.get("operation")),
         "genai_system": _s(genai.get("system")),
         "genai_model": _s(request.get("model")),
         "input_tokens": _i(usage.get("input_tokens")),
@@ -513,6 +516,10 @@ def _render_node_json(node: SpanNode) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
+_SESSION_SUMMARY_OPERATION = "session_token_rollup"
+_TOKEN_FIELDS = ("input_tokens", "output_tokens", "total_tokens")
+
+
 def token_rollup(roots: list[SpanNode]) -> dict[str, Any]:
     """Sum token usage and cost across the forest.
 
@@ -520,35 +527,44 @@ def token_rollup(roots: list[SpanNode]) -> dict[str, Any]:
     ``input_tokens``, ``output_tokens``, ``total_tokens``, ``cost_usd``.
     Missing fields contribute zero.
 
+    ``session_token_rollup`` events are excluded from that sum and reduced
+    with MAX instead, then reconciled as ``max(member_sum, summary_max)`` —
+    the identical rule :func:`ai_engineering.state.audit_rollup.session_token_rollup`
+    applies. One summary is emitted per turn and each restates the session's
+    *cumulative* total, so summing them (and summing them alongside the
+    members they restate) overstates by roughly the turn count, dollars
+    included (spec-201 B1).
+
     Returns
     -------
     dict
         ``{"input_tokens": int, "output_tokens": int, "total_tokens": int, "cost_usd": float}``
     """
-    total_in = 0
-    total_out = 0
-    total_total = 0
-    total_cost = 0.0
+    members = dict.fromkeys(_TOKEN_FIELDS, 0)
+    summaries = dict.fromkeys(_TOKEN_FIELDS, 0)
+    member_cost = 0.0
+    summary_cost = 0.0
     for node in walk_tree(roots):
         event = node.event
-        in_tokens = event.get("input_tokens")
-        out_tokens = event.get("output_tokens")
-        tot_tokens = event.get("total_tokens")
+        is_summary = event.get("operation") == _SESSION_SUMMARY_OPERATION
+        bucket = summaries if is_summary else members
+        for token_field in _TOKEN_FIELDS:
+            value = event.get(token_field)
+            if isinstance(value, int) and not isinstance(value, bool):
+                bucket[token_field] = (
+                    max(bucket[token_field], value) if is_summary else bucket[token_field] + value
+                )
         cost = event.get("cost_usd")
-        if isinstance(in_tokens, int) and not isinstance(in_tokens, bool):
-            total_in += in_tokens
-        if isinstance(out_tokens, int) and not isinstance(out_tokens, bool):
-            total_out += out_tokens
-        if isinstance(tot_tokens, int) and not isinstance(tot_tokens, bool):
-            total_total += tot_tokens
         if isinstance(cost, (int, float)) and not isinstance(cost, bool):
-            total_cost += float(cost)
-    return {
-        "input_tokens": total_in,
-        "output_tokens": total_out,
-        "total_tokens": total_total,
-        "cost_usd": total_cost,
+            if is_summary:
+                summary_cost = max(summary_cost, float(cost))
+            else:
+                member_cost += float(cost)
+    rollup: dict[str, Any] = {
+        field: max(members[field], summaries[field]) for field in _TOKEN_FIELDS
     }
+    rollup["cost_usd"] = max(member_cost, summary_cost)
+    return rollup
 
 
 __all__ = [

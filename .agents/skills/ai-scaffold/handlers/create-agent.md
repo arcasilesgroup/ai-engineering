@@ -13,7 +13,7 @@ Scaffold a new agent with standardized frontmatter, defined mandate, referenced 
 - What is the agent's singular responsibility?
 - What model? (opus for complex tasks, sonnet for simple/fast)
 - What color? (check existing agents to avoid duplicates)
-- What tools? (Read, Write, Edit, Bash, Glob, Grep — pick minimum needed)
+- What tools? (Read, Write, Edit, Bash, Glob, Grep, or the engine equivalent — pick minimum needed)
 
 ### 3. Scaffold agent file
 Frontmatter order (mandatory):

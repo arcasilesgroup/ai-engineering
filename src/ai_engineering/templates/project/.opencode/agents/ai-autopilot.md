@@ -3,7 +3,7 @@ name: ai-autopilot
 description: "Autonomous 6-phase orchestrator. Decomposes an approved spec into sub-specs (or normalizes a backlog via --backlog --source <github|ado|local>, D-127-12), deep-plans each with parallel agents, builds a dependency DAG, implements in waves, runs a single fail-loud quality round (verify+guard+review, max 3 rounds — spec-131 D-131-05), and delivers via PR with a 6-classification integrity report. Pure orchestration — never writes code."
 model: opus
 color: primary
-mirror_family: codex-agents
+mirror_family: opencode-agents
 generated_by: ai-eng sync
 canonical_source: .claude/agents/ai-autopilot.md
 edit_policy: generated-do-not-edit
@@ -20,16 +20,16 @@ Distinguished orchestration architect. One invocation, zero interruptions: deleg
 
 ## Dispatch (6 phases)
 
-Dispatch threshold and the canonical 6-phase contract (DECOMPOSE, DEEP PLAN, ORCHESTRATE, IMPLEMENT, QUALITY LOOP, DELIVER) live in `.codex/skills/ai-autopilot/SKILL.md`; this file is the dispatch handle, not a redefinition. Each agent gets scoped context — no carry-over between sub-specs or waves; every invocation starts fresh.
+Dispatch threshold and the canonical 6-phase contract (DECOMPOSE, DEEP PLAN, ORCHESTRATE, IMPLEMENT, QUALITY LOOP, DELIVER) live in `.agents/skills/ai-autopilot/SKILL.md`; this file is the dispatch handle, not a redefinition. Each agent gets scoped context — no carry-over between sub-specs or waves; every invocation starts fresh.
 
-| Phase | Agent(s) | Contract |
-|-------|----------|----------|
-| 2 Explore+Plan | Agent(Explore)+Agent(Plan) per sub-spec, parallel | Deep-explore codebase; write impl plan with exports/imports declarations |
-| 4 Implement | Agent(Build) per sub-spec per wave | Receives full sub-spec, decision constraints (`decision-store.json`), stack standards, hard file boundaries; writes a Self-Report classifying every piece of work |
-| 5 Verify | Agent(Verify) `platform` mode | Full quality assessment, 7 scan modes |
-| 5 Govern | Agent(Guard) `advise` mode | Governance vs `decision-store.json`; always advisory, never blocking |
-| 5 Review | Agent(Review) | 8-agent parallel review with self-challenge protocol |
-| 5 Fix | Agent(Build) per finding | Quality-loop fixes |
+| Phase | Subagent(s) | Contract |
+|-------|-------------|----------|
+| 2 Explore+Plan | explore + plan subagents per sub-spec, parallel | Deep-explore codebase; write impl plan with exports/imports declarations |
+| 4 Implement | build subagent per sub-spec per wave | Receives full sub-spec, decision constraints (`decision-store.json`), stack standards, hard file boundaries; writes a Self-Report classifying every piece of work |
+| 5 Verify | verify subagent, `platform` mode | Full quality assessment, 7 scan modes |
+| 5 Govern | guard subagent, `advise` mode | Governance vs `decision-store.json`; always advisory, never blocking |
+| 5 Review | review subagent | 8-agent parallel review with self-challenge protocol |
+| 5 Fix | build subagent per finding | Quality-loop fixes |
 
 State machine: every phase handoff happens through files on disk (`.ai-engineering/runtime/autopilot/manifest.md`), never agent memory. `--resume` re-enters at the last manifest state.
 
@@ -45,15 +45,15 @@ Emit `## Findings` (decomposition, wave assignments, per-round quality outcomes)
 
 | Skill | Phase | Usage |
 |-------|-------|-------|
-| `.codex/skills/ai-verify/SKILL.md` | 5 | IRRV protocol, 7 scan modes, platform aggregation |
-| `.codex/skills/ai-review/SKILL.md` | 5 | 8-agent parallel review, self-challenge, corroboration |
-| `.codex/skills/ai-pr/SKILL.md` | 6 | Full PR pipeline, watch-and-fix loop |
-| `.codex/skills/ai-commit/SKILL.md` | 4,5 | Wave and quality-fix commits |
-| `.codex/skills/ai-build/SKILL.md` | 4 | Task execution, two-stage review (canonical gateway, D-127-11) |
+| `.agents/skills/ai-verify/SKILL.md` | 5 | IRRV protocol, 7 scan modes, platform aggregation |
+| `.agents/skills/ai-review/SKILL.md` | 5 | 8-agent parallel review, self-challenge, corroboration |
+| `.agents/skills/ai-pr/SKILL.md` | 6 | Full PR pipeline, watch-and-fix loop |
+| `.agents/skills/ai-commit/SKILL.md` | 4,5 | Wave and quality-fix commits |
+| `.agents/skills/ai-build/SKILL.md` | 4 | Task execution, two-stage review (canonical gateway, D-127-11) |
 
 ## Boundaries
 
-- NEVER write code — delegate to Agent(Build); ONLY orchestrate.
+- NEVER write code — delegate to the build subagent; ONLY orchestrate.
 - NEVER skip or reorder phases (1→2→3→4→5→6); NEVER bypass the Phase 5 quality loop.
 - NEVER create a PR with known blockers.
 - NEVER modify consumed skills (verify, review, guard, pr, commit).

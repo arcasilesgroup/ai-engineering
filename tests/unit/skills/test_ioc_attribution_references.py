@@ -15,11 +15,10 @@ TEMPLATE_LEGACY_ATTRIBUTION = (
     "src/ai_engineering/templates/.ai-engineering/references/IOCS_ATTRIBUTION.md"
 )
 
+# spec-201 D-201-04: skill trees collapse to .claude and .agents only.
 ACTIVE_SKILL_FILES = (
     ".claude/skills/ai-mcp-audit/SKILL.md",
-    ".codex/skills/ai-mcp-audit/SKILL.md",
     ".agents/skills/ai-mcp-audit/SKILL.md",
-    ".github/skills/ai-mcp-audit/SKILL.md",
 )
 
 

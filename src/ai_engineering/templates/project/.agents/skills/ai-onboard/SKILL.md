@@ -62,4 +62,6 @@ Calls: `/ai-explain` (3-tier depth). Reads: `decision-store.json`,
 bootstrap), `/ai-explain` (code-level), `/ai-research` (external
 evidence).
 
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by reading `.agents/agents/ai-onboard.md` inline and running the selected mode procedure in-context, sequentially; inline-sequential is the floor, not an alternate behaviour.
+
 $ARGUMENTS

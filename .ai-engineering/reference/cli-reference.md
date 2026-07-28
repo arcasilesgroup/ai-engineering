@@ -76,6 +76,8 @@ ai-eng gate cache                  # Inspect or clear the gate cache (D-104-10)
 ```bash
 ai-eng skill status                # Check which local skills meet their runtime requirements
 ai-eng skill status --all          # Include all eligible skills in output
+ai-eng skill resolve <name>        # Map a skill name to its SKILL.md, handlers and references
+ai-eng --json skill resolve <name> # Same, as a JSON envelope for a headless caller
 ```
 
 ## Host capacity
@@ -136,17 +138,37 @@ ai-eng ownership import            # Import CODEOWNERS into state.db.ownership_m
 ## Audit and observability
 
 The audit chain is the append-only ledger at
-`.ai-engineering/state/framework-events.ndjson` (files-only per spec-148).
-All commands are read-only.
+`.ai-engineering/state/framework-events.ndjson` (files-only per spec-148),
+plus the git-tracked `decision-store.json`. Every command is read-only
+except `relink`, which repairs a broken chain in place.
 
 ```bash
 ai-eng audit verify                # Verify the hash-chained audit trail (events and/or decisions)
-ai-eng audit verify --decisions    # Decision ledger only
+ai-eng audit verify --file decisions   # Decision ledger only (events | decisions | all)
+ai-eng audit relink                # Report what a repair would re-stamp (report-only default)
+ai-eng audit relink --file decisions --write   # Apply the repair (events | decisions | all)
 ai-eng audit tokens --by skill     # Aggregate token usage by skill
 ai-eng audit tokens --by agent     # Aggregate token usage by agent
 ai-eng audit tokens --by session   # Aggregate token usage by session
 ai-eng audit replay --session <id> # Walk a session (or trace) as a span tree
 ```
+
+`relink` re-stamps `prev_event_hash` pointers only — it never touches
+entry payloads, refuses an unparseable ledger rather than rewriting it,
+and holds the events lock for the whole rewrite. It is the repair the
+`audit-chain-decisions` doctor check names when it warns.
+
+`verify` is advisory on both ledgers and always exits 0. An entry with no
+`prev_event_hash` re-anchors the chain rather than breaking it (legacy
+backward-compat), so the verifier cannot yet distinguish a legacy entry
+from a deliberately unlinked one — it reports, it does not gate.
+
+Because it is the only write verb on the integrity plane, it is
+report-only until `--write` is passed, it copies each ledger to
+`<name>.bak` before touching it (`framework-events.ndjson` is gitignored,
+so a repair is otherwise unrecoverable), and it records the repair as an
+`audit_relink` `framework_operation` carrying the before/after entry
+counts and the break index it repaired.
 
 ## Risk acceptance
 

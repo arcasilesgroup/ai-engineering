@@ -43,4 +43,6 @@ Called by: user directly. Dispatches: `ai-explore` agent
 (`.claude/agents/ai-explore.md`). See also: `/ai-research` (external
 evidence), `/ai-review` (LLM review), `/ai-build` (code changes).
 
+**Inline fallback** — subagent dispatch is the primary path. On a host without a subagent primitive, execute this skill by reading `.claude/agents/ai-explore.md` inline and answering in-context, sequentially, under the same read-only scope; inline-sequential is the floor, not an alternate behaviour.
+
 $ARGUMENTS

@@ -239,7 +239,7 @@ class TestParseNamesFromSubsection:
         assert names == {"ai-test"}
 
     def test_agent_names_from_subsection(self) -> None:
-        content = "#### Skills\n\n\n#### Agents\n\n- `.codex/agents/ai-build.md`\n"
+        content = "#### Skills\n\n\n#### Agents\n\n- `.agents/agents/ai-build.md`\n"
         names = _parse_agent_names_from_subsection(content, "Agents")
         assert names == {"ai-build"}
 
@@ -268,7 +268,7 @@ class TestExtractListings:
             "#### Skills\n\n"
             "- `.claude/skills/ai-debug/SKILL.md`\n\n"
             "#### Agents\n\n"
-            "- `.codex/agents/ai-plan.md`\n"
+            "- `.agents/agents/ai-plan.md`\n"
         )
         skills, agents = _extract_listings(content)
         assert skills == {"ai-debug"}

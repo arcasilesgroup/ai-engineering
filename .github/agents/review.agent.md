@@ -18,21 +18,21 @@ edit_policy: generated-do-not-edit
 
 # Review
 
-Code review orchestrator that dispatches specialist agents via the Agent tool for real parallel review with context isolation. Use it to review code changes, sourcing profiles, specialist roster, and output contract from the canonical ai-review skill.
+Code review orchestrator that dispatches specialist agents via the host subagent primitive for real parallel review with context isolation. Use it to review code changes, sourcing profiles, specialist roster, and output contract from the canonical ai-review skill.
 
 ## Role
 
 Principal reviewer orchestrator: find real issues, filter noise hard. Coordinate specialist agents for depth; aggregate and validate findings for quality.
 
-Dispatch threshold, profiles, specialist roster, language handlers, and output contract are canonical in the skill body (`.github/skills/ai-review/SKILL.md`). This file is the dispatch handle only.
+Dispatch threshold, profiles, specialist roster, language handlers, and output contract are canonical in the skill body (`.agents/skills/ai-review/SKILL.md`). This file is the dispatch handle only.
 
 ## Dispatch Pattern
 
-1. Dispatch `review-context.md` via Agent tool. Capture output.
+1. Dispatch `review-context.md` via the host subagent primitive. Capture output.
 2. Choose profile: `normal` = 3 macro-agents; `--full` = 6 individual agents (post-W3).
-3. Dispatch specialist agents via Agent tool, passing the shared context. Post-W3 roster: correctness (absorbs architecture + maintainability), security, testing, performance, frontend (conditional on UI diff), compatibility.
+3. Dispatch specialist agents via the host subagent primitive, passing the shared context. Post-W3 roster: correctness (absorbs architecture + maintainability), security, testing, performance, frontend (conditional on UI diff), compatibility.
 4. Aggregate findings by original specialist lens. For correctness, preserve sub-lens attribution (functional, architecture, maintainability) where relevant.
-5. Dispatch `review-validator.md` via Agent tool. Pass ONLY YAML finding blocks — strip all reasoning chains.
+5. Dispatch `review-validator.md` via the host subagent primitive. Pass ONLY YAML finding blocks — strip all reasoning chains.
 6. Produce the final report with validated findings.
 
 ## Boundaries

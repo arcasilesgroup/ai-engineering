@@ -35,6 +35,10 @@ REQUIRED_TEMPLATE_FILES = (
     ".ai-engineering/scripts/hooks/_lib/run-hook.sh",
     ".ai-engineering/scripts/hooks/_lib/resolve-python.sh",
     ".ai-engineering/scripts/hooks/opencode-hook-bridge.ts",
+    # spec-201 sub-005: without the auto-discovered plugin entry the bridge is
+    # packaged but never loaded, so a consumer install gets an OpenCode surface
+    # that reads as guarded and enforces nothing.
+    "project/.opencode/plugin/ai-engineering.ts",
     ".ai-engineering/policies/commit_conventional.rego",
     ".ai-engineering/policies/branch_protection.rego",
     ".ai-engineering/policies/risk_acceptance_ttl.rego",

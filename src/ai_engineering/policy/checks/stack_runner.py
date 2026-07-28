@@ -21,6 +21,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
@@ -150,16 +151,25 @@ PRE_COMMIT_CHECKS: dict[str, list[CheckConfig]] = {
             name="gitleaks",
             cmd=["gitleaks", "protect", "--staged", "--no-banner"],
         ),
-        # spec-127 M1 (sub-002 T-F.1): conformance lint over SKILL.md +
-        # agent .md files. Runs in parallel with the other common checks
-        # (executor parallelises common entries). Hot-path budget per
-        # D-127-08: ≤200 ms over 50 skills. Required because the
-        # rubric is the gate that surfaces Grade D / >2 Grade C
-        # violations before they reach review.
+        # spec-127 M1 (sub-002 T-F.1): conformance lint over the canonical
+        # skills + agents surface. Runs in parallel with the other common
+        # checks (the executor parallelises common entries). Hot-path
+        # budget per D-127-08: ≤200 ms; measured median ~200 ms over the
+        # spec-201 widened 154-file portability corpus, inside the 250 ms
+        # ceiling asserted by tests/perf/test_skill_lint_budget.py.
+        #
+        # spec-201 D-201-15 promoted this entry to required=True (the
+        # CheckConfig default). That is only safe alongside the
+        # sys.executable head: `required` is consulted solely in the
+        # missing-binary branches, and `which python` finds nothing on a
+        # plain shell with no venv activated, so a bare "python" head plus
+        # required=True is a hard pre-commit block on every such host,
+        # consumers included. sys.executable always resolves and always
+        # carries skill_lint (it ships as a top-level wheel package) —
+        # same fix already applied to pytest and ty below.
         CheckConfig(
             name="skill_lint",
-            cmd=["python", "-m", "skill_lint", "--check"],
-            required=False,
+            cmd=[sys.executable, "-m", "skill_lint", "--check"],
             timeout=10,
         ),
         # spec-131 S7 (sub-007 T-7.10): schema validator over
