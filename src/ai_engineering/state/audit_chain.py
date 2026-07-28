@@ -41,6 +41,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from ai_engineering.lib.path_safety import safe_resolve_within
+
 logger = logging.getLogger(__name__)
 
 # Field name carrying the chain pointer in canonical-JSON entries.
@@ -575,10 +577,19 @@ def relink_entries(entries: list[dict]) -> tuple[list[dict], int]:
 
 
 def _atomic_write(path: Path, content: str) -> None:
-    """Replace ``path`` with ``content`` via a same-directory temp file."""
-    tmp = path.with_name(path.name + ".relink.tmp")
+    """Replace ``path`` with ``content`` via a same-directory temp file.
+
+    The ledger path reaches here from the ``--file`` CLI option, which today
+    only selects among fixed filenames under ``.ai-engineering/state``. That
+    constraint lives at the call site, not here, so this function re-establishes
+    it locally: the target is validated to sit inside its own parent before any
+    name is derived from it. A future caller that forwards an operator-supplied
+    path therefore cannot walk out of the state directory through this writer.
+    """
+    validated = safe_resolve_within(path, path.parent)
+    tmp = validated.with_name(validated.name + ".relink.tmp")
     tmp.write_text(content, encoding="utf-8")
-    os.replace(tmp, path)
+    os.replace(tmp, validated)
 
 
 def _relink_ndjson(path: Path, *, dry_run: bool) -> RelinkResult:
