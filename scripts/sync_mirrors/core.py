@@ -70,6 +70,9 @@ GITHUB_AGENTS = ROOT / ".github" / "agents"
 # against its template twin. Surface 5b now dual-writes both roots.
 OPENCODE_COMMANDS = ROOT / ".opencode" / "commands"
 OPENCODE_AGENTS = ROOT / ".opencode" / "agents"
+# spec-201 sub-005: OpenCode auto-discovers `*.ts` under `.opencode/plugin/`.
+# This is the entry that makes the guard plane load at all.
+OPENCODE_PLUGIN = ROOT / ".opencode" / "plugin"
 # spec-128 D-128-04, D-128-07: .github/instructions/ surface deleted entirely.
 
 # ── Template project paths (for ai-eng install) ────────────────────────
@@ -88,14 +91,24 @@ TPL_GITHUB_AGENTS = TPL_PROJECT / "agents"
 # — wrong fit for 48 on-demand skills.
 TPL_OPENCODE_COMMANDS = TPL_PROJECT / ".opencode" / "commands"
 TPL_OPENCODE_AGENTS = TPL_PROJECT / ".opencode" / "agents"
+TPL_OPENCODE_PLUGIN = TPL_PROJECT / ".opencode" / "plugin"
 TPL_CURSOR_AGENTS = TPL_PROJECT / ".cursor" / "agents"
+# spec-201 D-201-17: the hook config that was never emitted, which is why the
+# Cursor bridge has never fired once since spec-133.
+CURSOR_HOOKS = ROOT / ".cursor" / "hooks.json"
+TPL_CURSOR_HOOKS = TPL_PROJECT / ".cursor" / "hooks.json"
 TPL_ANTIGRAVITY_SKILLS = TPL_PROJECT / ".agents" / "skills"
 TPL_ANTIGRAVITY_AGENTS = TPL_PROJECT / ".agents" / "agents"
 # spec-159 D-159-04: installer template copy of the canonical hook-scripts
-# subtree. Surface 10 mirrors only the `.py` files here; the `.sh/.ps1`
+# subtree. Surface 10 mirrors the `.py` and `.ts` files here; the `.sh/.ps1`
 # launchers in the same tree are a separate packaging concern and must never
 # be orphan-deleted by this sync step.
 TPL_HOOK_SCRIPTS = TPL_PROJECT.parent / ".ai-engineering" / "scripts" / "hooks"
+
+# spec-201 sub-005 T-5.4: the OpenCode plugin bridge is TypeScript, so a
+# `*.py`-only mirror left `opencode-hook-bridge.ts` a hand-copied twin with no
+# parity gate — the same unguarded-twin class as `session_bootstrap.py`.
+_HOOK_SCRIPT_PATTERNS = ("*.py", "*.ts")
 
 # spec-187 follow-up (doc-twin root fix): the installer ships the
 # `.ai-engineering/{reference,runbooks}/**.md` docs verbatim, so every
@@ -1886,7 +1899,19 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     from scripts.sync_mirrors.opencode_target import (
         generate_opencode_agent,
         generate_opencode_command,
+        generate_opencode_plugin,
     )
+
+    # spec-201 sub-005: the guard-plane entry. Without a file under
+    # `.opencode/plugin/` nothing ever loads `opencode-hook-bridge.ts`, so the
+    # OpenCode surface shipped two specs' worth of "guarded" claims with no
+    # loader at all.
+    plugin_content = generate_opencode_plugin()
+    for target in (
+        OPENCODE_PLUGIN / "ai-engineering.ts",
+        TPL_OPENCODE_PLUGIN / "ai-engineering.ts",
+    ):
+        _generate_surface(target, plugin_content, check_only, verbose, generated_paths, diffs)
 
     for name, _fm, skill_path in skills:
         cmd_content = generate_opencode_command(name, skill_path)
@@ -1912,6 +1937,16 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
         tpl = TPL_CURSOR_AGENTS / f"ai-{name}.mdc"
         content = generate_cursor_agent(name, agent_path)
         _generate_surface(tpl, content, check_only, verbose, generated_paths, diffs)
+
+    # spec-201 D-201-17: `.cursor/hooks.json`, dual-written to root + template.
+    # Cursor discovers `<workspaceFolder>/.cursor/hooks.json`; without it the
+    # bridge is unreachable, so the Cursor surface had a hook adapter and no
+    # way to invoke it.
+    from scripts.sync_mirrors.cursor_target import generate_cursor_hooks_json
+
+    cursor_hooks_content = generate_cursor_hooks_json()
+    for target in (CURSOR_HOOKS, TPL_CURSOR_HOOKS):
+        _generate_surface(target, cursor_hooks_content, check_only, verbose, generated_paths, diffs)
 
     # Surface 5d: .agents/ + templates/project/.agents/ (Antigravity app + agy CLI).
     # Antigravity uses AGENTS.md for root context and .agents/ for workspace skills.
@@ -2077,13 +2112,17 @@ def sync_all(*, check_only: bool = False, verbose: bool = False) -> int:
     # The canonical `.ai-engineering/scripts/hooks/` tree (incl. the `_lib/`
     # shared lib) had no propagation path into the installer template, so every
     # hook edit silently drifted the packaged copy (the updater's comparison
-    # baseline). Mirror every `.py` (incl. `_lib/`, skipping `__pycache__`) so
-    # `dev sync` is the single regen command for hook parity. The `.sh/.ps1`
-    # launchers are a separate packaging concern and are not touched here.
+    # baseline). Mirror every `.py` and `.ts` (incl. `_lib/`, skipping
+    # `__pycache__`) so `dev sync` is the single regen command for hook parity.
+    # The `.sh/.ps1` launchers are a separate packaging concern and are not
+    # touched here.
     hook_scripts_src = ROOT / ".ai-engineering" / "scripts" / "hooks"
     hook_scripts_dst = TPL_HOOK_SCRIPTS
     if hook_scripts_src.is_dir():
-        for src_file in sorted(hook_scripts_src.rglob("*.py")):
+        hook_sources = sorted(
+            {path for pattern in _HOOK_SCRIPT_PATTERNS for path in hook_scripts_src.rglob(pattern)}
+        )
+        for src_file in hook_sources:
             if "__pycache__" in src_file.parts:
                 continue
             relative = src_file.relative_to(hook_scripts_src)
@@ -2207,6 +2246,10 @@ def _handle_orphans(
         (TPL_CLAUDE_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_CLAUDE_AGENTS, "glob", "*.md"),
         (TPL_CURSOR_AGENTS, "glob", "*.mdc"),
+        # spec-201 D-201-17: a renamed/deleted cursor hook config must not
+        # leave a stale copy Cursor would keep loading.
+        (CURSOR_HOOKS.parent, "glob", "hooks.json"),
+        (TPL_CURSOR_HOOKS.parent, "glob", "hooks.json"),
         (TPL_CODEX_HOOKS.parent, "glob", "hooks.json"),
         (TPL_CODEX_CONFIG.parent, "glob", "config.toml"),
         (TPL_GITHUB_AGENTS, "glob", "*.md"),
@@ -2219,15 +2262,20 @@ def _handle_orphans(
         (OPENCODE_AGENTS, "glob", "*.md"),
         (TPL_OPENCODE_COMMANDS, "glob", "*.md"),
         (TPL_OPENCODE_AGENTS, "glob", "*.md"),
+        # spec-201 sub-005: a renamed plugin entry must self-clean, or OpenCode
+        # auto-discovery loads BOTH the stale and the current file.
+        (OPENCODE_PLUGIN, "glob", "*.ts"),
+        (TPL_OPENCODE_PLUGIN, "glob", "*.ts"),
         (TPL_ANTIGRAVITY_SKILLS, "rglob_subdirs_multi", _SKILL_SUBDIR_PREFIXES),
         (TPL_ANTIGRAVITY_AGENTS, "glob", "*.md"),
         (TPL_ANTIGRAVITY_AGENTS / "internal", "glob", "*.md"),
         # spec-159 D-159-04: Surface 10 mirrors the canonical hook-scripts
         # subtree into the installer template. Scope orphan cleanup to `*.py`
-        # ONLY so a renamed/deleted canonical hook does not leave a stale copy
-        # shipping in the wheel. The `.sh/.ps1` launchers in this same tree are
-        # a separate packaging concern and must NEVER be orphan-deleted.
-        (TPL_HOOK_SCRIPTS, "rglob", "*.py"),
+        # and `*.ts` ONLY so a renamed/deleted canonical hook does not leave a
+        # stale copy shipping in the wheel. The `.sh/.ps1` launchers in this
+        # same tree are a separate packaging concern and must NEVER be
+        # orphan-deleted.
+        *((TPL_HOOK_SCRIPTS, "rglob", pattern) for pattern in _HOOK_SCRIPT_PATTERNS),
         # spec-187 follow-up: Surface 11 doc twins. Scope orphan cleanup to
         # `*.md` in the two allowlisted subtrees so a renamed/deleted canonical
         # doc does not leave a stale twin shipping in the wheel. Only these two

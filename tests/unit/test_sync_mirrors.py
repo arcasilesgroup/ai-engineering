@@ -7,11 +7,60 @@ and verifies --check mode reports zero drift against the real repo.
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+# Per-command matcher contract for Codex tool events (spec-201 sub-005, Trap 8).
+# Codex delivers non-Bash tool events too (`shell`, `web_search`), so the invariant
+# is "no hook declares a matcher its own guard cannot honour" -- not "everything is
+# Bash". A guard registered under the wrong matcher lands wired-and-dead, which
+# reads as protection while providing none.
+_CODEX_TOOL_MATCHERS = {
+    "codex-hook-bridge.py": "Bash",
+    "prompt-injection-guard.py": "Bash",
+    "instinct-observe.py": "Bash",
+    "runtime-guard.py": "Bash",
+    "no-verify-guard.py": "Bash",
+    # injection-read-guard.py:31-32 allowlists Read/WebFetch/WebSearch/mcp__* and
+    # never Bash; its own _is_external() does the filtering, so it must be wired
+    # under the match-all matcher or it passes through on every invocation.
+    "injection-read-guard.py": "",
+}
+
+_HOOK_SCRIPT_RE = re.compile(r"([\w.-]+\.py)")
+
+
+def _read_codex_hooks() -> dict:
+    return json.loads((_PROJECT_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8"))
+
+
+def _guard_basename(command: str) -> str:
+    """Return the guard script a Codex hook command ultimately executes."""
+    scripts = _HOOK_SCRIPT_RE.findall(command)
+    assert scripts, f"hook command names no python script: {command!r}"
+    return scripts[-1]
+
+
+def _assert_codex_tool_matchers(config: dict) -> None:
+    """Every Codex tool-event hook is registered under the matcher its guard needs."""
+    for event in ("PreToolUse", "PostToolUse"):
+        for group in config["hooks"].get(event, []):
+            matcher = group["matcher"]
+            for hook in group["hooks"]:
+                script = _guard_basename(hook["command"])
+                expected = _CODEX_TOOL_MATCHERS.get(script)
+                assert expected is not None, (
+                    f"{event}: {script} is not in _CODEX_TOOL_MATCHERS -- declare the "
+                    "matcher Codex must deliver for it before wiring it"
+                )
+                assert matcher == expected, (
+                    f"{event}: {script} must be wired under matcher {expected!r}, found {matcher!r}"
+                )
+
 
 _MANIFEST_TEMPLATE = """\
 name: test-project
@@ -512,13 +561,71 @@ class TestGenerationFunctions:
         assert root_hooks == tpl_hooks
         assert root_config == tpl_config
 
-    def test_codex_hooks_are_bash_only_for_tool_events(self) -> None:
-        hooks = json.loads((_PROJECT_ROOT / ".codex" / "hooks.json").read_text(encoding="utf-8"))
-        pre = hooks["hooks"]["PreToolUse"]
-        post = hooks["hooks"]["PostToolUse"]
+    def test_codex_tool_hook_matchers_follow_the_guard_allowlist(self) -> None:
+        _assert_codex_tool_matchers(_read_codex_hooks())
 
-        assert all(entry["matcher"] == "Bash" for entry in pre)
-        assert all(entry["matcher"] == "Bash" for entry in post)
+    def test_codex_matcher_allowlist_rejects_a_bash_guard_moved_off_bash(self) -> None:
+        # Arrange -- in-memory mutation only; the on-disk config is never written.
+        config = _read_codex_hooks()
+        moved = False
+        for group in config["hooks"]["PreToolUse"]:
+            for hook in group["hooks"]:
+                if _guard_basename(hook["command"]) == "prompt-injection-guard.py":
+                    group["matcher"] = ""
+                    moved = True
+        assert moved, "fixture precondition: prompt-injection-guard.py must be wired PreToolUse"
+
+        # Act / Assert -- the invariant still bites for a Bash-only guard.
+        with pytest.raises(AssertionError):
+            _assert_codex_tool_matchers(config)
+
+    def test_codex_matcher_allowlist_admits_the_read_guard_on_the_empty_matcher(self) -> None:
+        # Arrange -- injection-read-guard.py allowlists Read/WebFetch/WebSearch/mcp__*
+        # and never Bash, so it MUST be registered under matcher "".
+        config = _read_codex_hooks()
+        config["hooks"]["PostToolUse"].append(
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": (
+                            "AIENG_HOOK_ENGINE=codex bash "
+                            ".ai-engineering/scripts/hooks/_lib/run-hook.sh "
+                            ".ai-engineering/scripts/hooks/injection-read-guard.py"
+                        ),
+                        "timeout": 10,
+                    }
+                ],
+            }
+        )
+
+        # Act / Assert -- does not raise.
+        _assert_codex_tool_matchers(config)
+
+    def test_codex_matcher_allowlist_rejects_the_read_guard_on_bash(self) -> None:
+        # Arrange -- a Bash-matched read guard lands wired-and-dead (Trap 8).
+        config = _read_codex_hooks()
+        config["hooks"]["PostToolUse"].append(
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": (
+                            "AIENG_HOOK_ENGINE=codex bash "
+                            ".ai-engineering/scripts/hooks/_lib/run-hook.sh "
+                            ".ai-engineering/scripts/hooks/injection-read-guard.py"
+                        ),
+                        "timeout": 10,
+                    }
+                ],
+            }
+        )
+
+        # Act / Assert
+        with pytest.raises(AssertionError):
+            _assert_codex_tool_matchers(config)
 
 
 # -- Validation functions --

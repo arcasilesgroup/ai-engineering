@@ -57,7 +57,75 @@ __all__ = [
     "find_active_transcript",
     "iter_assistant_usages",
     "read_latest_usage",
+    "resolve_genai_system",
 ]
+
+# spec-201 (sub-003): model-string -> OTel ``gen_ai.system`` value. Matched as
+# a substring against ``model.lower()``, first hit wins, so order matters when
+# two needles could overlap. Values are the OTel GenAI ``gen_ai.system``
+# vocabulary (``anthropic`` / ``openai`` / ``gcp.gemini`` / ``deepseek`` /
+# ``mistral_ai`` / ``xai``), NOT vendor marketing names.
+#
+# There is deliberately no env override: the model string is the only runtime
+# signal available to a stdlib-only hook, and it already covers every case a
+# tunable would.
+_GENAI_SYSTEM_NEEDLES: tuple[tuple[str, str], ...] = (
+    ("claude", "anthropic"),
+    ("codex", "openai"),
+    ("gpt", "openai"),
+    ("o1-", "openai"),
+    ("o3-", "openai"),
+    ("o4-", "openai"),
+    ("gemini", "gcp.gemini"),
+    ("deepseek", "deepseek"),
+    ("mistral", "mistral_ai"),
+    ("grok", "xai"),
+)
+
+# Terminal floor. An unrecognised model reads ``unknown`` -- honest, and
+# strictly better than the confidently-wrong vendor literal this replaces.
+_GENAI_SYSTEM_UNKNOWN = "unknown"
+
+# Per-request cost aliases, scanned in order. Which key an OpenAI-compatible
+# harness writes into a Claude-shaped transcript is unverified, so all three
+# spellings are accepted; the cost is best-effort and never fabricated.
+_COST_KEYS: tuple[str, ...] = ("cost_usd", "cost", "costUSD")
+
+
+def resolve_genai_system(model: object) -> str:
+    """Return the OTel ``gen_ai.system`` value implied by ``model``.
+
+    Case-insensitive substring match over :data:`_GENAI_SYSTEM_NEEDLES`.
+    Anything unrecognised -- including an empty, blank, or non-string model --
+    returns ``"unknown"``. Never guesses a vendor.
+    """
+    if not isinstance(model, str):
+        return _GENAI_SYSTEM_UNKNOWN
+    needle_haystack = model.strip().lower()
+    if not needle_haystack:
+        return _GENAI_SYSTEM_UNKNOWN
+    for needle, system in _GENAI_SYSTEM_NEEDLES:
+        if needle in needle_haystack:
+            return system
+    return _GENAI_SYSTEM_UNKNOWN
+
+
+def _usage_cost(usage: dict) -> float | None:
+    """Return the per-request cost carried by ``usage``, else ``None``.
+
+    ``None`` means "this provider did not report a cost" -- it is NOT ``0.0``.
+    Claude Code transcripts never carry a cost field, so this returns ``None``
+    on the surface used most; the OpenAI-compatible path does supply one.
+    ``bool`` is rejected (it is an ``int`` subclass), mirroring
+    :func:`_safe_int`.
+    """
+    for key in _COST_KEYS:
+        value = usage.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, (int, float)):
+            return float(value)
+    return None
 
 
 def _project_slug(project_root: Path) -> str:
@@ -183,35 +251,45 @@ def read_latest_usage(transcript_path: Path) -> dict | None:
 
 
 def aggregate_session_usage(transcript_path: Path) -> dict:
-    """Sum ``input_tokens`` and ``output_tokens`` across every assistant
-    message in the transcript. Returns the canonical shape::
+    """Sum ``input_tokens``, ``output_tokens`` and per-request cost across
+    every assistant message in the transcript. Returns the canonical shape::
 
         {
           "input_tokens": int,
           "output_tokens": int,
           "total_tokens": int,
-          "model": str,        # most recent assistant model
-          "system": "anthropic",
+          "cost_usd": float | None,   # None == provider reported no cost
+          "model": str,               # most recent assistant model
+          "system": str,              # derived from `model`, floor "unknown"
         }
 
-    Empty transcripts produce a zeroed payload (NOT ``None``) so callers can
-    safely merge into a rollup dict.
+    ``cost_usd`` is ``None`` -- not ``0.0`` -- when no message carried a cost,
+    so "the provider does not report cost" never renders as "this session was
+    free". Empty transcripts produce a zeroed payload (NOT ``None``) so callers
+    can safely merge into a rollup dict.
     """
     total_in = 0
     total_out = 0
+    total_cost = 0.0
+    seen_cost = False
     latest_model = ""
     if transcript_path.is_file():
         for usage, model in iter_assistant_usages(transcript_path):
             total_in += _safe_int(usage.get("input_tokens"))
             total_out += _safe_int(usage.get("output_tokens"))
+            cost = _usage_cost(usage)
+            if cost is not None:
+                total_cost += cost
+                seen_cost = True
             if model:
                 latest_model = model
     return {
         "input_tokens": total_in,
         "output_tokens": total_out,
         "total_tokens": total_in + total_out,
+        "cost_usd": total_cost if seen_cost else None,
         "model": latest_model,
-        "system": "anthropic",
+        "system": resolve_genai_system(latest_model),
     }
 
 
@@ -222,8 +300,9 @@ def _shape_usage(usage: dict, model: str) -> dict:
         "input_tokens": in_tok,
         "output_tokens": out_tok,
         "total_tokens": in_tok + out_tok,
+        "cost_usd": _usage_cost(usage),
         "model": model,
-        "system": "anthropic",
+        "system": resolve_genai_system(model),
     }
 
 

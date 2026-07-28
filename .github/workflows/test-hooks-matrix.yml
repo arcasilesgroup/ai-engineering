@@ -17,9 +17,16 @@ on:
     paths:
       - '.ai-engineering/scripts/hooks/**'
       - 'src/ai_engineering/templates/.ai-engineering/scripts/hooks/**'
+      - '.opencode/plugin/**'
+      - 'src/ai_engineering/templates/project/.opencode/plugin/**'
+      - '.codex/hooks.json'
+      - '.cursor/hooks.json'
       - 'tests/unit/_lib/**'
       - 'tests/unit/hooks/**'
+      - 'tests/integration/hooks/**'
       - 'tests/integration/test_codex_hooks.py'
+      - 'tests/integration/test_codex_guard_wiring.py'
+      - 'tests/integration/test_cursor_guard_wiring.py'
       - 'tests/integration/test_copilot_*'
       - '.github/workflows/test-hooks-matrix.yml'
   pull_request:
@@ -27,9 +34,16 @@ on:
     paths:
       - '.ai-engineering/scripts/hooks/**'
       - 'src/ai_engineering/templates/.ai-engineering/scripts/hooks/**'
+      - '.opencode/plugin/**'
+      - 'src/ai_engineering/templates/project/.opencode/plugin/**'
+      - '.codex/hooks.json'
+      - '.cursor/hooks.json'
       - 'tests/unit/_lib/**'
       - 'tests/unit/hooks/**'
+      - 'tests/integration/hooks/**'
       - 'tests/integration/test_codex_hooks.py'
+      - 'tests/integration/test_codex_guard_wiring.py'
+      - 'tests/integration/test_cursor_guard_wiring.py'
       - 'tests/integration/test_copilot_*'
       - '.github/workflows/test-hooks-matrix.yml'
 
@@ -70,6 +84,14 @@ jobs:
           git config --global init.defaultBranch main
           git config --global user.email "ci@test.com"
           git config --global user.name "CI"
+      - name: Report JS runtime for the OpenCode guard plane
+        # spec-201 sub-005 R4: the OpenCode plugin guard test needs bun or
+        # node >= 22.18 (native TypeScript stripping). A permanently-silent
+        # skip is a failed guard, so print the runtime unconditionally and let
+        # `-rs` below name the skip reason when there is none.
+        run: |
+          node --version || echo "no node on this runner"
+          bun --version || echo "no bun on this runner"
       - name: Run hook tests
         # D-114-04: scope intentionally narrow to the hook surface.
         # Full-suite cross-OS continues to live in ci-check.yml.
@@ -77,9 +99,12 @@ jobs:
           uv run pytest \
             tests/unit/_lib \
             tests/unit/hooks \
+            tests/integration/hooks \
             tests/integration/test_codex_hooks.py \
+            tests/integration/test_codex_guard_wiring.py \
+            tests/integration/test_cursor_guard_wiring.py \
             tests/integration/test_copilot_explorer_rename.py \
-            -v --durations=10
+            -v -rs --durations=10
       - name: Run slow hook tests
         # spec-126 D-126-03: the slow concurrent-append stress test
         # (tests/unit/hooks/test_ndjson_concurrent_append.py) is

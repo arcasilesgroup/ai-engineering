@@ -911,7 +911,20 @@ def emit_framework_operation(
     source: str | None = None,
     correlation_id: str | None = None,
     metadata: dict | None = None,
+    session_id: str | None = None,
+    usage: dict | None = None,
 ) -> dict:
+    """Emit a canonical framework lifecycle or maintenance operation event.
+
+    spec-201 (sub-003) additive, keyword-only, defaulted:
+
+    * ``session_id`` -- stamped at the **top level** as ``sessionId`` by
+      ``build_framework_event``. Without it a framework operation is invisible
+      to ``session_token_rollup``, which groups by that field.
+    * ``usage`` -- flat token/model dict reshaped into ``detail.genai`` by
+      ``_shape_genai_block``. This is the canonical slot the rollup reads;
+      tokens must not also be written as flat ``detail`` keys.
+    """
     detail: dict = {"operation": operation}
     if metadata:
         detail.update(metadata)
@@ -921,9 +934,11 @@ def emit_framework_operation(
         kind="framework_operation",
         component=component,
         source=source,
+        session_id=session_id,
         correlation_id=correlation_id,
         force_outcome=outcome,
         detail=detail,
+        usage=usage,
     )
     append_framework_event(project_root, entry)
     return entry

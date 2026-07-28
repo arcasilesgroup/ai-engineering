@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "type": "command",
+        "command": "AIENG_HOOK_ENGINE=openai_compatible bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/cursor-hook-bridge.py",
+        "matcher": "",
+        "timeout": 15,
+        "comment": "Deny --no-verify and prompt-injection attempts before the shell runs"
+      }
+    ],
+    "beforeReadFile": [
+      {
+        "type": "command",
+        "command": "AIENG_HOOK_ENGINE=openai_compatible bash .ai-engineering/scripts/hooks/_lib/run-hook.sh .ai-engineering/scripts/hooks/cursor-hook-bridge.py",
+        "matcher": "",
+        "timeout": 10,
+        "comment": "Scan file content for injected instructions before it enters context"
+      }
+    ]
+  }
+}
