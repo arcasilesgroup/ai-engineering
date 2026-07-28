@@ -1,6 +1,6 @@
-"""Skills CLI commands: status.
+"""Skills CLI commands: status, resolve.
 
-Provides local skill eligibility diagnostics.
+Provides local skill eligibility diagnostics and read-only skill resolution.
 """
 
 from __future__ import annotations
@@ -10,12 +10,16 @@ from typing import Annotated
 
 import typer
 
-from ai_engineering.cli_envelope import emit_success
+from ai_engineering.cli_envelope import emit_error, emit_success
 from ai_engineering.cli_output import is_json_mode
 from ai_engineering.cli_progress import spinner
-from ai_engineering.cli_ui import header, info, kv, status_line, success
+from ai_engineering.cli_ui import error, header, info, kv, status_line, success
 from ai_engineering.paths import resolve_project_root
-from ai_engineering.skills.service import list_local_skill_status
+from ai_engineering.skills.service import (
+    list_local_skill_status,
+    resolve_skill,
+    skill_surfaces,
+)
 
 
 def skill_status(
@@ -96,3 +100,57 @@ def skill_status(
     kv("Eligible", len(statuses) - len(ineligible))
     kv("Ineligible", len(ineligible))
     kv("Total", len(statuses))
+
+
+def skill_resolve(
+    name: Annotated[
+        str,
+        typer.Argument(help="Skill name, with or without the `ai-` prefix."),
+    ],
+    target: Annotated[
+        Path | None,
+        typer.Option("--target", "-t", help="Target project root."),
+    ] = None,
+) -> None:
+    """Resolve a skill name to its SKILL.md path, handlers, and references.
+
+    Read-only metadata (spec-201 D-201-11): reports where a skill lives so a
+    caller can hand the resolved body to the agent surface that owns it. It
+    never executes a skill.
+    """
+    root = resolve_project_root(target)
+    resolution = resolve_skill(root, name)
+    surfaces = ", ".join(skill_surfaces())
+
+    if resolution is None:
+        message = f"No skill named {name!r} under: {surfaces}"
+        if is_json_mode():
+            emit_error(
+                "ai-eng skill resolve",
+                message,
+                "SKILL_NOT_FOUND",
+                "Run `ai-eng skill status` to list the skills this project can see.",
+            )
+        else:
+            error(message)
+        raise typer.Exit(code=1)
+
+    if is_json_mode():
+        emit_success(
+            "ai-eng skill resolve",
+            {
+                "name": resolution.name,
+                "file_path": resolution.file_path,
+                "surface": resolution.surface,
+                "handlers": resolution.handlers,
+                "references": resolution.references,
+            },
+        )
+        return
+
+    status_line("ok", resolution.name, resolution.surface)
+    kv("  file", resolution.file_path)
+    for handler in resolution.handlers:
+        kv("  handler", handler)
+    for reference in resolution.references:
+        kv("  reference", reference)

@@ -34,6 +34,15 @@ eval = [
   # accept findings that already have a fix.
   "deepeval>=4.1.3,<5.0",
 ]
+# spec-201 D-201-19: exact BPE token counting for `tools/token_baseline`.
+# Deliberately NOT a core dependency — tiktoken is a compiled wheel whose
+# encoding downloads its BPE file on first use unless the cache is pre-seeded,
+# which would put a network call inside offline installs and install-smoke CI,
+# in a package whose hooks are deliberately stdlib-only. Without it the counter
+# still works and labels its output an approximation.
+tokens = [
+  "tiktoken>=0.8,<1.0",
+]
 
 [dependency-groups]
 dev = [

@@ -1,0 +1,52 @@
+{
+  "_header": {
+    "spec": "spec-201",
+    "decision": "D-201-18",
+    "purpose": "Advisory cross-model routing replay. Fixture text only.",
+    "egress": "Every prompt below is a committed fixture. Nothing derived from the working tree — no source, no diffs, no spec bodies — is ever sent. See the `## Data Governance` section of .ai-engineering/specs/spec.md.",
+    "grading": "A model answers correctly when its reply names the expected skill token. Case-insensitive substring match; nothing else is graded.",
+    "provenance": "The eight routing questions of brief E10. Each expected answer is fixed by the canonical chain in CLAUDE.md 11 and the surface index in 12, so correctness is checkable against the rulebook rather than against an opinion."
+  },
+  "questions": [
+    {
+      "id": "q1-draft",
+      "prompt": "I have a rough, under-researched problem and want a cited problem brief before anyone writes a spec. Which ai-engineering skill do I invoke? Answer with the slash command only.",
+      "expected": "/ai-spec-draft"
+    },
+    {
+      "id": "q2-spec",
+      "prompt": "The problem is already well scoped and I need an approved spec. Which ai-engineering skill do I invoke? Answer with the slash command only.",
+      "expected": "/ai-brainstorm"
+    },
+    {
+      "id": "q3-plan",
+      "prompt": "The spec is approved and I need an exhaustive patch-ready implementation plan. Which ai-engineering skill do I invoke? Answer with the slash command only.",
+      "expected": "/ai-plan"
+    },
+    {
+      "id": "q4-build",
+      "prompt": "The plan is approved and routed to build. Which ai-engineering skill executes it? Answer with the slash command only.",
+      "expected": "/ai-build"
+    },
+    {
+      "id": "q5-pr",
+      "prompt": "Implementation is finished and I need the final quality loop plus the pull request opened. Which ai-engineering skill do I invoke? Answer with the slash command only.",
+      "expected": "/ai-pr"
+    },
+    {
+      "id": "q6-commit",
+      "prompt": "I want a work-in-progress checkpoint commit and explicitly no pull request. Which off-chain ai-engineering skill do I invoke? Answer with the slash command only.",
+      "expected": "/ai-commit"
+    },
+    {
+      "id": "q7-explore",
+      "prompt": "I need deep read-only research across the codebase in a fresh context window, with no edits. Which ai-engineering skill do I invoke? Answer with the slash command only.",
+      "expected": "/ai-explore"
+    },
+    {
+      "id": "q8-autopilot",
+      "prompt": "The spec has five concerns and about forty file changes, so the whole chain should be wrapped end to end. Which ai-engineering skill do I invoke? Answer with the slash command only.",
+      "expected": "/ai-autopilot"
+    }
+  ]
+}

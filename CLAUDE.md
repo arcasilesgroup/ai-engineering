@@ -81,7 +81,12 @@ Canonical skills and agents live under `.claude/`; mirror surfaces under
 `.codex/`, `.agents/`, and `.github/` are byte-equivalent regenerations
 written by `scripts/sync_mirrors/core.py`. Invoke a skill via
 `/ai-<name>` in the IDE agent surface — never via a synthetic terminal
-equivalent.
+equivalent. Carve-out (D-201-11): driving a real IDE agent surface
+headlessly is explicitly permitted — handing a resolved `SKILL.md` body
+to the harness that owns it, for example via `ai-eng skill resolve`, is
+not a synthetic terminal equivalent. What stays prohibited is inventing
+a terminal command that re-implements a skill outside its agent
+surface.
 
 ## Agents (9)
 
@@ -233,6 +238,12 @@ AIENG_GOVERNED_GIT_ADVISOR_DISABLED  # set "1" to disable the raw-git -> skill a
 
 # spec-190 D-190-02 — error/integrity storm coalescer
 AIENG_ERROR_STORM_THRESHOLD         # default 20; repeats crossing this in the window raise a storm alarm (window reuses AIENG_HOOK_CACHE_TTL_SEC)
+
+# spec-201 D-201-13 — PreToolUse token spend cap (ships DISABLED)
+AIENG_MAX_SESSION_TOKENS            # default 0 = off; a positive int denies an Agent
+                                    # dispatch past that many session tokens. Overrides
+                                    # performance.budget.max_session_tokens; a literal
+                                    # "0" disables even a configured cap.
 
 # spec-175 — /ai-research Tier 3 deep-research (notebooklm-py CLI)
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; bounded harvest wait)

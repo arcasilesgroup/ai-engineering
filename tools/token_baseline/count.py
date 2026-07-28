@@ -13,10 +13,14 @@ CANONICAL surface (nothing else — mirrors are derived and excluded):
   ``SOUL.md``
 * ``.ai-engineering/reference/*.md``
 
-Tokeniser: tiktoken ``cl100k_base``. If tiktoken is unavailable the
-counter falls back to a documented ``len(text) / 4`` heuristic and marks
-the snapshot header ``tokenizer: "char4-heuristic"`` so the number is
-never silently mistaken for a real BPE count.
+Tokeniser: tiktoken ``cl100k_base`` (optional extra — ``uv sync --extra
+tokens``). If tiktoken is unavailable the counter falls back to a documented
+``len(text) / 4`` heuristic, which measured roughly 3.6% off a real BPE count.
+
+spec-201 D-201-19: the fallback is labelled AT THE VALUE, not only in the
+header — ``grand_total_tokens_are_estimated`` rides beside the total and the
+summary line prints ``grand_total=~N`` — so an estimate can never be read as a
+measurement. The label describes the number; it never changes it.
 
 Tool choice is DEFERRED (spec-187 Open Question — build vs buy): this
 thin in-repo counter vs the external ``token-baseline`` CLI. Both are
@@ -76,11 +80,21 @@ def canonical_files(repo_root: Path) -> list[Path]:
     return files
 
 
+_HEURISTIC_LABEL = "char4-heuristic"
+
+_ESTIMATE_NOTE = (
+    "APPROXIMATE (~): token counts come from the char4-heuristic fallback, "
+    "measured roughly 3.6% off a real BPE count. Install the optional extra "
+    "(uv sync --extra tokens) for an exact cl100k_base count."
+)
+
+
 def _load_encoder():
     """Return ``(counter, tokenizer_label)``.
 
     Prefers tiktoken ``cl100k_base``; falls back to a documented
-    ``len(text) / 4`` heuristic when tiktoken is unavailable.
+    ``len(text) / 4`` heuristic when tiktoken is unavailable. tiktoken is an
+    OPTIONAL extra (D-201-19), so the fallback is the default path.
     """
     try:
         import tiktoken
@@ -88,12 +102,13 @@ def _load_encoder():
         enc = tiktoken.get_encoding("cl100k_base")
         return (lambda text: len(enc.encode(text))), "cl100k_base"
     except Exception:
-        return (lambda text: (len(text) + 3) // 4), "char4-heuristic"
+        return (lambda text: (len(text) + 3) // 4), _HEURISTIC_LABEL
 
 
 def build_snapshot(repo_root: Path) -> dict:
     """Compute the token snapshot dict over the canonical surface."""
     counter, tokenizer = _load_encoder()
+    estimated = tokenizer == _HEURISTIC_LABEL
 
     per_file: dict[str, int] = {}
     total = 0
@@ -103,20 +118,26 @@ def build_snapshot(repo_root: Path) -> dict:
         per_file[path.relative_to(repo_root).as_posix()] = tokens
         total += tokens
 
+    header: dict[str, object] = {
+        "spec": "spec-187",
+        "task": "T-1",
+        "purpose": (
+            "Canonical token-baseline snapshot; later waves diff against "
+            "this to prove the >=25% reduction target (D-187-02)."
+        ),
+        "surface": "CANONICAL only (mirrors excluded)",
+        "tokenizer": tokenizer,
+        "estimated": estimated,
+        "candidate_tools": _CANDIDATE_TOOLS,
+        "reproducible": "Re-running the counter over the same corpus yields the same total.",
+    }
+    if estimated:
+        header["estimate_note"] = _ESTIMATE_NOTE
+
     return {
-        "_header": {
-            "spec": "spec-187",
-            "task": "T-1",
-            "purpose": (
-                "Canonical token-baseline snapshot; later waves diff against "
-                "this to prove the >=25% reduction target (D-187-02)."
-            ),
-            "surface": "CANONICAL only (mirrors excluded)",
-            "tokenizer": tokenizer,
-            "candidate_tools": _CANDIDATE_TOOLS,
-            "reproducible": "Re-running the counter over the same corpus yields the same total.",
-        },
+        "_header": header,
         "grand_total_tokens": total,
+        "grand_total_tokens_are_estimated": estimated,
         "file_count": len(per_file),
         "per_file_tokens": per_file,
     }
@@ -155,10 +176,12 @@ def main(argv: list[str] | None = None) -> int:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(payload, encoding="utf-8")
         # Pure-ASCII summary line (D-187-10 — safe on cp1252 / non-tty).
+        # `~` marks an unmeasured count at the value itself (D-201-19).
+        marker = "~" if snapshot["grand_total_tokens_are_estimated"] else ""
         sys.stdout.write(
             f"token-baseline: {snapshot['file_count']} canonical files "
             f"({snapshot['_header']['tokenizer']}) "
-            f"grand_total={snapshot['grand_total_tokens']} tokens "
+            f"grand_total={marker}{snapshot['grand_total_tokens']} tokens "
             f"-> {args.output.relative_to(args.repo_root).as_posix()}\n"
         )
     return 0

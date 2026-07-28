@@ -476,6 +476,48 @@ tree, the generator's self-reference rewrite already resolves correctly.
 | RK-15 | `skill_lint` widening blocks the very commit that fixes the corpus, because the linter already gates pre-commit | High | High | D-201-15 fixes the ordering: corpus, then widening, then promotion, in three commits, with the widened linter verified exit-zero before it is committed. |
 | RK-16 | Regenerating mirrors resurrects a just-deleted tree, because the generator's write site is still live | High | Medium | Every tree deletion removes its generator write site in the same commit. A deletion that lags its write site by even one commit is silently undone by the next sync. |
 
+## Data Governance
+
+RK-11 requires the provider-egress posture to be written down before any CI matrix run.
+This section is that record, and it binds the advisory replay job
+(`.github/workflows/cross-model-replay.yml`, D-201-18) — the only surface in this spec
+that talks to a third party.
+
+**What is sent.** Only `.ai-engineering/evals/cross-model-replay/corpus.json`: eight
+committed routing questions plus the model id and a completion budget. **Source, diffs,
+specs, transcripts, audit events and any other working-tree content are NOT egressed.**
+The corpus is a fixture precisely so the payload is reviewable in the diff rather than
+assembled at run time. The runner posts to one endpoint shape,
+`POST {base}/v1/chat/completions`, and constructs its request body from the corpus file
+alone — it never reads the repository.
+
+**Retention.** Nothing is retained by this project beyond the CI run: the replay report
+is a build artifact with a 14-day expiry and is never committed. Provider-side retention
+is the operator's to establish before provisioning `AIENG_REPLAY_API_KEY`; the probed
+endpoint is an aggregator, so the retention window is the aggregator's AND the upstream
+model host's, and both must be checked. This spec makes no claim about either.
+
+**Tenancy.** The endpoint is a shared, multi-tenant aggregator reached with a bearer
+token (brief E3: `gen-`-prefixed ids carrying `provider_specific_fields` and `is_byok`).
+It is not a dedicated or single-tenant deployment, and must not be treated as one.
+
+**Jurisdiction.** Undetermined, and deliberately not guessed. The aggregator does not
+declare a processing region on the response, and the upstream host is selected per
+request, so the data-residency jurisdiction cannot be derived from anything measured.
+An operator with a residency obligation must resolve this with the provider BEFORE
+provisioning the credential — the job stays skipped until they do, which is the point of
+the unprovisioned SKIP path.
+
+**Model licences.** The replayed models are open-weight releases served through the
+aggregator (`deepseek-v4-flash`, `gemma4`). Their weights carry their own upstream
+licences, which govern any redistribution or fine-tuning; this spec neither
+redistributes weights nor fine-tunes, so it relies on inference-only access under the
+provider's terms. No model output is committed to this repository.
+
+**Consequence.** Because none of retention, jurisdiction or upstream licence terms is
+established by measurement here, the job ships advisory and unprovisioned. Provisioning
+the credential is a deliberate operator act that accepts the posture above.
+
 ## Open Questions
 
 Deferred with explicit re-entry triggers, per D-201-20 and D-201-21:

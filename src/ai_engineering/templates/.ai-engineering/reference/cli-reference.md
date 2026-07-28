@@ -76,6 +76,8 @@ ai-eng gate cache                  # Inspect or clear the gate cache (D-104-10)
 ```bash
 ai-eng skill status                # Check which local skills meet their runtime requirements
 ai-eng skill status --all          # Include all eligible skills in output
+ai-eng skill resolve <name>        # Map a skill name to its SKILL.md, handlers and references
+ai-eng --json skill resolve <name> # Same, as a JSON envelope for a headless caller
 ```
 
 ## Host capacity

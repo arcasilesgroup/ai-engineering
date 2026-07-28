@@ -1,0 +1,68 @@
+name: Cross-model replay (advisory)
+
+# spec-201 D-201-18 — replay the committed routing corpus against two
+# OpenAI-compatible models and REPORT. It never blocks a merge:
+#
+#   * `continue-on-error: true` on the job, and
+#   * the job lives in its own workflow file, so the required `CI Result`
+#     aggregate — which enumerates its dependencies from ci-check.yml alone —
+#     structurally cannot include it. Advisory by construction, not by a flag
+#     somebody has to remember to keep set.
+#
+# Unprovisioned is a first-class outcome: with no `AIENG_REPLAY_*` secret the
+# runner prints a SKIPPED line and exits 0. Fork PRs never receive secrets, and
+# a workflow that reds on a withheld secret teaches people to ignore it.
+#
+# Egress (RK-11): the corpus is a committed fixture of routing questions.
+# Nothing derived from the working tree is transmitted. See the
+# `## Data Governance` section of .ai-engineering/specs/spec.md.
+#
+# Every action reference below is byte-identical to one already used by
+# skill-evals.yml, at the same SHA — the repository Actions allowlist
+# therefore cannot produce a `startup_failure` for a new action name.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.ai-engineering/evals/cross-model-replay/**'
+      - 'scripts/run_cross_model_replay.py'
+      - '.github/workflows/cross-model-replay.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-model-replay-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  replay:
+    name: Cross-model routing replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-env
+        with:
+          sync: "false"
+
+      - name: Replay the routing corpus
+        env:
+          AIENG_REPLAY_BASE_URL: ${{ secrets.AIENG_REPLAY_BASE_URL }}
+          AIENG_REPLAY_API_KEY: ${{ secrets.AIENG_REPLAY_API_KEY }}
+        run: |
+          python3 scripts/run_cross_model_replay.py --json cross-model-replay-report.json
+
+      - name: Upload replay report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: cross-model-replay-report
+          path: cross-model-replay-report.json
+          if-no-files-found: ignore
+          retention-days: 14

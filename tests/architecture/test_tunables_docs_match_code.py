@@ -262,6 +262,14 @@ _SPEC_NOTEBOOKLM_TUNABLES: tuple[str, ...] = (
 # on main. Unrelated to spec-200's own change, but it blocks every PR's gate.
 _SPEC_190_TUNABLES: tuple[str, ...] = ("AIENG_ERROR_STORM_THRESHOLD",)
 
+# spec-201 D-201-13: the PreToolUse token spend cap. Implemented in
+# `.ai-engineering/scripts/hooks/spend-cap-guard.py` (which resolves it through
+# `_lib/runtime_state._env_int`) and mirrored by the pydantic default
+# `performance.budget.max_session_tokens`. It is a real, default-bearing entry
+# — the default is 0, which means the cap is DISABLED as shipped — so it is
+# classified here rather than left reserved.
+_SPEC_201_TUNABLES: tuple[str, ...] = ("AIENG_MAX_SESSION_TOKENS",)
+
 _CANONICAL_TUNABLE_DOCS: tuple[Path, ...] = (_CLAUDE_MD, _TEMPLATE_CLAUDE_MD)
 
 
@@ -405,6 +413,7 @@ def test_every_documented_var_classified() -> None:
         | set(_PROMOTED_M5_M6_TUNABLES)
         | set(_SPEC_NOTEBOOKLM_TUNABLES)
         | set(_SPEC_190_TUNABLES)
+        | set(_SPEC_201_TUNABLES)
         | set(_RESERVED_TUNABLES)
     )
     for name, (_default, marker_kind, _milestone) in documented.items():
@@ -472,4 +481,29 @@ def test_spec_notebooklm_tunable_matches_code_default(doc_path: Path, name: str)
     assert doc_default == code_default, (
         f"{name} doc/code drift in {doc_path}: docs say default={doc_default!r}, "
         f"code says default={code_default!r}."
+    )
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("doc_path", _CANONICAL_TUNABLE_DOCS)
+@pytest.mark.parametrize("name", _SPEC_201_TUNABLES)
+def test_spec_201_spend_cap_documented_default_is_disabled(doc_path: Path, name: str) -> None:
+    """spec-201 D-201-13: the spend cap is documented as 0 — DISABLED as shipped.
+
+    The doc default is checked against the pydantic default that actually
+    ships, so this classification is a live gate rather than an allowlist
+    entry. A non-zero default would begin denying agent dispatches in every
+    consumer repository at a number nobody chose, which is exactly what the
+    documented value must keep visible.
+    """
+    from ai_engineering.config.manifest import PerformanceBudgetConfig
+
+    documented = _parse_documented_tunables(doc_path)
+    assert name in documented, f"{doc_path} tunables block missing {name}"
+    doc_default, marker_kind, _milestone = documented[name]
+    assert marker_kind is None, f"{name} is implemented but marked {marker_kind} in {doc_path}"
+    code_default = str(PerformanceBudgetConfig().max_session_tokens)
+    assert doc_default == code_default == "0", (
+        f"{name} doc/code drift in {doc_path}: docs say default={doc_default!r}, "
+        f"code says default={code_default!r}; the shipped cap must stay disabled."
     )

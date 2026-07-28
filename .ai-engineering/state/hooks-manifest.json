@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-28T02:01:19Z",
-  "hookCount": 79,
+  "generatedAt": "2026-07-28T03:07:17Z",
+  "hookCount": 80,
   "hooks": {
     ".ai-engineering/scripts/hooks/_lib/audit.py": "d1edab1ec6b001bb05d90ab36e3adee795661cd6a9a5aa05ae75fa08896fd936",
     ".ai-engineering/scripts/hooks/_lib/convergence.py": "c73d6f9f20349d28b734d61900ad81d460ee39d773e81a0e708b035b4b86de34",
@@ -79,6 +79,7 @@
     ".ai-engineering/scripts/hooks/runtime-session-start.py": "259abc0dc5bbd3c1cf430a998783bdc0bd5b267b794cc63edcc89f1ac87db53f",
     ".ai-engineering/scripts/hooks/runtime-stop.py": "20b58fc543b46da074a781e299de690731da4e010c2796a43ff027e5948ae49e",
     ".ai-engineering/scripts/hooks/runtime-subagent-stop.py": "5a82796a795012b300cbb40e9d0b41c62fa856828f635e8d7c0eeb087f0d4f6d",
+    ".ai-engineering/scripts/hooks/spend-cap-guard.py": "b24396d98d6198fdbbf246f89156093d97e6f825246faa8c568912b2cc4ad458",
     ".ai-engineering/scripts/hooks/strategic-compact.py": "5d1619adb316e3cfb481ac6cae58ac84057b38304b039398fc971a601be582eb",
     ".ai-engineering/scripts/hooks/telemetry-skill.py": "b400039e292936d8ab4aa03cd0a7e07e9e7c557d73f712ff3d58ff99cf190254"
   },

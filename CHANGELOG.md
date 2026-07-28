@@ -21,8 +21,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   — a constant named `RUNTIME_DIR_REL` holding the retired path is how a future
   writer resurrects it.
 
+- spec-201: four redundant skill trees are hard-deleted at repo root and in the
+  template tree — `.codex/skills`, `.github/skills`, `.opencode/skills`,
+  `.cursor/skills`. Skills collapse to two: `.claude/skills` for Claude Code,
+  `.agents/skills` for every other surface. Discovery was proven in the
+  installed binaries (OpenCode 1.18.5, Cursor 3.12.17, Codex 0.145.0, Copilot
+  CLI 1.0.71), not assumed. `.codex/agents/` is deleted too — live probing
+  showed Codex discovers none of those 19 markdown files, so they were a
+  namespace squat. Per-surface agent trees, OpenCode `commands/` and every hook
+  configuration are unaffected.
+
+- spec-201: `scripts/sync_mirrors/tool_name_map.FamilyToolProfile` is replaced
+  by `FamilyCapability` with no alias and no shim. The four original fields
+  (`tool_name_style`, `call_format_notes`, `verified`, `name_map`) survive
+  verbatim; the record additionally carries the runtime quirks measured against
+  a live OpenAI-compatible endpoint — `schema_enforced_server_side`,
+  `min_completion_budget`, `reasoning_field`, `prompt_cache`,
+  `per_request_cost`, `fabricates_absolute_paths` — plus `model_ids` /
+  `model_pattern` and a three-stage `resolve_capability(model_id)` (exact id,
+  then pattern, then a conservative default; it never raises). Out-of-tree code
+  importing `FamilyToolProfile` must import `FamilyCapability`. Build-time data
+  only: nothing here detects, routes, selects, ranks or calls a model
+  (D-189-01 upheld unamended).
+
+- spec-201: `/ai-build`'s claim of per-task worktree isolation is retired,
+  because nothing mechanised it. The `session_token_rollup` payload moves under
+  the canonical `detail.genai.usage` shape the rollup actually reads, so token
+  totals stop being silently dropped.
+
 - The historical spec-101 release-contract guard keywords remain documented for
   continuity: `EXIT 80`, `EXIT 81`, `python_env.mode`, and `14 stacks`.
+
+### Added
+
+- spec-201: `ai-eng skill resolve <name>` — a read-only resolver mapping a skill
+  name to its canonical `SKILL.md`, the surface that owns it, and the handler /
+  reference files beside it (`--json` emits the standard envelope). Metadata
+  only: there is deliberately no `ai-eng skill run`. The rulebook's prohibition
+  on synthetic terminal invocation gains a matching carve-out — driving a real
+  IDE agent surface headlessly is explicitly permitted; inventing a terminal
+  command that re-implements a skill outside its agent surface stays
+  prohibited.
+
+- spec-201: a token-denominated session spend cap on `PreToolUse`
+  (`spend-cap-guard.py`, matcher `Agent`), which can deny a dispatch rather than
+  merely record one. **It ships DISABLED**: `performance.budget.max_session_tokens`
+  defaults to `0`, which means no cap, because a non-zero default would begin
+  denying dispatches in every consumer repository at a number nobody chose. Set
+  it in `manifest.yml`, or `AIENG_MAX_SESSION_TOKENS` to override (a literal
+  `0` in the env disables even a configured cap). The unit is tokens, not
+  currency: a per-request cost exists only on the OpenAI-compatible path.
+  Accounting is incremental — a persisted `{transcript, offset,
+  cumulative_tokens}` and a bounded first-sight window — so the hook stays
+  under its 250 ms budget on a 40 MB transcript instead of the ~176 ms and
+  growing that a full re-read costs.
+
+- spec-201: `tiktoken` ships as an optional extra (`uv sync --extra tokens`),
+  never a core dependency — it is a compiled wheel whose encoding downloads its
+  BPE file on first use, which would put a network call inside offline installs
+  and install-smoke CI. Without it `tools/token_baseline` still works and now
+  labels its numbers honestly: `grand_total_tokens_are_estimated` rides beside
+  the total and the summary prints `grand_total=~N`, so a roughly 3.6%-wrong
+  character heuristic can no longer read as a measurement.
+
+- spec-201: an advisory cross-model replay job
+  (`.github/workflows/cross-model-replay.yml`) that replays a committed corpus
+  of routing questions against two OpenAI-compatible models and reports.
+  Advisory by construction — a job in its own workflow file cannot join the
+  required `CI Result` aggregate. Only fixture text is egressed; the spec's new
+  `## Data Governance` section records retention, tenancy, jurisdiction and
+  model licences. With no credential provisioned the runner prints `SKIPPED`
+  and exits 0.
 
 ### Fixed
 
@@ -47,6 +116,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   via `ai-eng install`/`update`, and both re-stamp `VERSION` in the same run
   before any new-path hook executes. The SessionEnd rotation pass reaps an
   orphaned `state/runtime/` directory left from before the upgrade.
+
+- spec-201: three guard planes that were wired but could not block now do, each
+  proven by executing the surface's own committed command string rather than a
+  mock. Codex gains the `--no-verify` deny and the injected-content read guard
+  it was missing. The OpenCode plugin bridge stopped returning success
+  unconditionally and now maps the blocking hook (`permission.ask`) instead of
+  the passive one, with OpenCode's lowercase tool ids translated — without that
+  translation the whole plane was wired-and-dead. The Cursor bridge had four
+  defects at once: it dispatched to handler filenames that do not exist, spawned
+  a literal `python` absent on macOS, never read the event key Cursor actually
+  sends, and emitted no deny envelope at all.
+
+- spec-201: the audit chain verifies again. Twenty-three of 73,314 event
+  entries and one decision entry are relinked, and three writers that took the
+  lock without stamping a `prevEventHash` are fixed, including one that hashed a
+  payload with microseconds the disk writer truncates — so every freshly created
+  decision chained to a hash that never reached the file, breaking the ledger on
+  its own first write. `ai-eng audit verify --strict` now exits non-zero on a
+  broken chain instead of always exiting 0.
+
+- spec-201: the event plane stops silently dropping events. The engine enum
+  admits `openai_compatible` and `unknown`, the two hook/pip twins agree on the
+  default, `session_token_rollup` and every `framework_operation` carry a
+  `sessionId`, and a refused event now surfaces as a visible `framework_error`
+  rather than vanishing. `skill_lint` widens from 73 to all 154 canonical files
+  and is promoted to a required pre-commit check, with its interpreter head
+  pinned to `sys.executable` so it stops silently passing on a host where
+  `which python` finds nothing.
+
+- spec-201 — residual exposures, stated rather than implied: the OpenCode
+  plugin and the `.ts` hook bridge load **unsigned**, because
+  `regenerate-hooks-manifest.py` signs `.py`/`.sh`/`.ps1` only and the manifest
+  has no JS-side verifier; adding a `.ts` pin would be verified by nothing. The
+  Codex `matcher: ""` PostToolUse delivery is operator-verified, not CI-gated.
+  Copilot's deny lane is best-effort — `copilot-deny.sh` exits 0 without `jq`.
+  The cross-model replay job cannot demonstrate its acceptance criterion until a
+  provider credential is provisioned; it ships correct and honestly skipped.
+  Per D-201-03 the OpenCode guarantee is documented as best-effort, explicitly
+  not equivalent to Claude Code.
 
 ## [0.13.0] - 2026-07-26
 

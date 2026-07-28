@@ -1196,6 +1196,12 @@ AIENG_GOVERNED_GIT_ADVISOR_DISABLED  # set "1" to disable the raw-git -> skill a
 # spec-190 D-190-02 — error/integrity storm coalescer
 AIENG_ERROR_STORM_THRESHOLD         # default 20; repeats crossing this in the window raise a storm alarm (window reuses AIENG_HOOK_CACHE_TTL_SEC)
 
+# spec-201 D-201-13 — PreToolUse token spend cap (ships DISABLED)
+AIENG_MAX_SESSION_TOKENS            # default 0 = off; a positive int denies an Agent
+                                    # dispatch past that many session tokens. Overrides
+                                    # performance.budget.max_session_tokens; a literal
+                                    # "0" disables even a configured cap.
+
 # spec-175 — /ai-research Tier 3 deep-research (notebooklm-py CLI)
 AIENG_RESEARCH_NLM_WAIT_SEC         # default 300 (ceiling 900; bounded harvest wait)
 AIENG_RESEARCH_NLM_DEEP_TIMEOUT_SEC  # default 1800 (ceiling 7200; detached deep+import job deadline, CLI --timeout)

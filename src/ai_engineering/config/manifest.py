@@ -344,10 +344,29 @@ class PerformanceConcurrencyConfig(BaseModel):
     max_thread_workers: int = 4
 
 
+class PerformanceBudgetConfig(BaseModel):
+    """Session spend budget (spec-201 D-201-13).
+
+    * ``max_session_tokens`` -- the token spend at which
+      ``spend-cap-guard.py`` denies an ``Agent`` dispatch on ``PreToolUse``.
+      **Ships at 0, which means DISABLED**: a non-zero default would begin
+      denying dispatches in every consumer repository at a number nobody
+      chose. ``AIENG_MAX_SESSION_TOKENS`` overrides this field, and a literal
+      ``0`` in the env disables the cap even when the manifest configures one.
+
+    The unit is tokens, not currency: a per-request cost exists only on the
+    OpenAI-compatible path, so a USD cap would be absent on the surface used
+    most, while tokens are present on every path.
+    """
+
+    max_session_tokens: int = 0
+
+
 class PerformanceConfig(BaseModel):
-    """``performance.*`` manifest block (spec-139)."""
+    """``performance.*`` manifest block (spec-139, spec-201)."""
 
     concurrency: PerformanceConcurrencyConfig = Field(default_factory=PerformanceConcurrencyConfig)
+    budget: PerformanceBudgetConfig = Field(default_factory=PerformanceBudgetConfig)
 
 
 class HotPathSlosConfig(BaseModel):

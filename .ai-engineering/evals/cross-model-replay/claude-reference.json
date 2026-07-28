@@ -1,0 +1,55 @@
+{
+  "_header": {
+    "spec": "spec-201",
+    "decision": "D-201-18",
+    "purpose": "The reference result every replayed model is scored against.",
+    "method": "CANONICAL, not a transcript. Each answer is the routing the rulebook prescribes (CLAUDE.md 11 canonical chain, 12 surface index), so the reference is checkable against a committed document rather than against a recorded model run. It is deliberately NOT presented as a live probe log.",
+    "recorded_at": "2026-07-28",
+    "corpus": ".ai-engineering/evals/cross-model-replay/corpus.json"
+  },
+  "model": "claude (reference)",
+  "score": 8,
+  "total": 8,
+  "answers": [
+    {
+      "id": "q1-draft",
+      "answer": "/ai-spec-draft",
+      "why": "CLAUDE.md 11: the OPTIONAL pre-step producing a researched problem brief."
+    },
+    {
+      "id": "q2-spec",
+      "answer": "/ai-brainstorm",
+      "why": "CLAUDE.md 11: produces the approved spec at .ai-engineering/specs/spec.md."
+    },
+    {
+      "id": "q3-plan",
+      "answer": "/ai-plan",
+      "why": "CLAUDE.md 11: produces the patch-ready plan and records the executor route."
+    },
+    {
+      "id": "q4-build",
+      "answer": "/ai-build",
+      "why": "CLAUDE.md 11: executes plans routed to build (D-127-11)."
+    },
+    {
+      "id": "q5-pr",
+      "answer": "/ai-pr",
+      "why": "CLAUDE.md 11: runs the final quality loop internally and opens the PR."
+    },
+    {
+      "id": "q6-commit",
+      "answer": "/ai-commit",
+      "why": "CLAUDE.md 11: preserved as a standalone off-chain skill for WIP checkpoints (D-131-07)."
+    },
+    {
+      "id": "q7-explore",
+      "answer": "/ai-explore",
+      "why": "CLAUDE.md Token Efficiency: dispatch ai-explore for deep codebase research (read-only, fresh context)."
+    },
+    {
+      "id": "q8-autopilot",
+      "answer": "/ai-autopilot",
+      "why": "CLAUDE.md 11: for specs with 3 or more concerns or 10 or more file changes, /ai-autopilot wraps the chain."
+    }
+  ]
+}

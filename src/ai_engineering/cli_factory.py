@@ -501,10 +501,12 @@ def create_app() -> typer.Typer:  # audit:exempt:pre-existing-debt-out-of-spec-1
     # Skill sub-group
     skill_app = typer.Typer(
         name="skill",
-        help="Manage local skill eligibility diagnostics.",
+        help="Inspect local skills: eligibility diagnostics and read-only resolution.",
         no_args_is_help=True,
     )
     skill_app.command("status")(_safe(skills.skill_status))
+    # spec-201 D-201-11: read-only resolver — name -> SKILL.md + handler set.
+    skill_app.command("resolve")(_safe(skills.skill_resolve))
     app.add_typer(skill_app, name="skill")
 
     # Host sub-group (spec-139 M2 D-139-02): resource preflight probe.
