@@ -1,11 +1,11 @@
 {
-  "branch": null,
+  "branch": "feat/three-layer-open-model-harness",
   "created": "2026-07-27T18:54:12.764304+00:00",
   "extra": {},
-  "pr": null,
-  "shipped": null,
+  "pr": "671",
+  "shipped": "2026-07-28T12:15:14.876255+00:00",
   "slug": "three-layer-open-model-harness",
   "spec_id": "spec-201",
-  "state": "approved",
+  "state": "shipped",
   "title": "Three-Layer Open-Model Harness"
 }
