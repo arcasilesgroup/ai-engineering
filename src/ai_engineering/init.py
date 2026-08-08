@@ -109,9 +109,20 @@ def global_step(args) -> None:
         f"   Nothing else is touched. Undo: `ai-eng uninstall`.\n"
     )
 
-    if args.dry or not ask("Set up this machine?", True, args):
+    if args.dry:
         out("   → skipped.")
         return
+    if only or args.yes or not sys.stdin.isatty():
+        # Named, unattended, or piped: the flags already said which surfaces, and a widget
+        # with nobody in front of it is a hang.
+        if not ask("Set up this machine?", True, args):
+            out("   → skipped.")
+            return
+    else:
+        found = surfaces_picked(found)
+        if not found:
+            out("   → skipped.")
+            return
 
     written = wiring.install_skills(found)
     ui.step("ok", "8 skills  ", f"→ {paths.home() / 'skills'}/ai-*/")
@@ -137,6 +148,25 @@ def global_step(args) -> None:
         ]
     )
     ui.step("ok", "receipt   ", f"→ {wiring.receipt_path()}")
+
+
+def surfaces_picked(found: list[dict]) -> list[dict]:
+    """The machine question, as a list you move a cursor over rather than a yes to a table
+    you have just read. Every surface is offered and only the ones actually detected here
+    arrive ticked — a widget that pre-ticks all eight is a widget whose default writes into
+    eight places.
+
+    Ctrl-C is not the empty selection. One means stop, the other means "none of these", and
+    `cli.main` already turns the interrupt into exit 130 and one honest line."""
+    rows = wiring.table()["surface"]
+    chosen = ui.pick(
+        "Set up which surfaces?",
+        [(row["id"], row["detect"] or "wired by name only") for row in rows],
+        {row["id"] for row in found},
+    )
+    if chosen is None:
+        raise KeyboardInterrupt
+    return [row for row in rows if row["id"] in chosen]
 
 
 def existing(root: Path) -> list[tuple[str, int, str]]:
@@ -171,16 +201,22 @@ def select(reply: str, rows: list[tuple[str, int, str]]) -> tuple[set[str], list
 
 
 def choose(rows: list[tuple[str, int, str]], args) -> set[str]:
+    """Which of your own files to overwrite. At a keyboard that is a list you move a cursor
+    over, with nothing ticked; everywhere else it is the parser, which is what `--overwrite`
+    and `-y` and every piped run go through."""
     if not rows:
         return set()
-    if args.overwrite.strip() or args.yes or not sys.stdin.isatty():
-        picked, ignored = select(args.overwrite, rows)
-    else:
+    if not (args.overwrite.strip() or args.yes or not sys.stdin.isatty()):
         ui.section(f"◇ {len(rows)} files already exist and are not ours")
-        out("   Type the numbers to overwrite, separated by spaces. Enter selects none.\n")
-        for index, (name, lines, becomes) in enumerate(rows, 1):
-            out(f"   {index}. {name:<18} {lines:>4} lines  →  {becomes}")
-        picked, ignored = select(input("\n◆ Overwrite which? (Enter = none) › "), rows)
+        chosen = ui.pick(
+            "Overwrite which? Each one is copied to a dated backup first.",
+            [(name, f"{lines:>4} lines  →  {becomes}") for name, lines, becomes in rows],
+            set(),
+        )
+        if chosen is None:
+            raise KeyboardInterrupt
+        return set(chosen)
+    picked, ignored = select(args.overwrite, rows)
     if ignored:
         out(f"   → ignored, nothing on the list matches: {', '.join(ignored)}")
     return picked

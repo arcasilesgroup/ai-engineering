@@ -220,12 +220,23 @@ def test_a_receipt_from_an_older_version_is_installed_over_rather_than_believed(
     assert wiring.receipt()["version"] == __version__, "a stale install reported itself ready"
 
 
-def test_the_overwrite_checklist_picks_the_file_whose_number_was_typed(keyboard):
-    """The numbers on that screen are the only thing between "overwrite 2" and losing the
-    file printed on line 1, and it is the one prompt here that destroys something."""
-    keyboard("2")
+def test_the_overwrite_question_only_returns_what_was_actually_chosen(keyboard, monkeypatch):
+    """This is the one prompt in this product that destroys a file, so what comes back out
+    of it has to be exactly what went in. It is a checkbox now rather than typed numbers;
+    the widget itself is stood in for, because a real one needs a real terminal and this
+    suite is the matrix that runs where there is none."""
+    keyboard("")
+    monkeypatch.setattr(init.ui, "pick", lambda question, rows, checked: ["justfile"])
     rows = [("CLAUDE.md", 1, "one line"), ("justfile", 9, "5 recipes")]
     assert init.choose(rows, SimpleNamespace(overwrite="", yes=False)) == {"justfile"}
+
+
+def test_the_overwrite_flag_answers_without_a_terminal_at_all(tmp_path):
+    """The matrix runs where there is no keyboard, and every platform in it drives the
+    installer with flags. That path must never construct a widget: it is the parser."""
+    rows = [("CLAUDE.md", 1, "one line"), ("justfile", 9, "5 recipes")]
+    picked = init.choose(rows, SimpleNamespace(overwrite="justfile", yes=False))
+    assert picked == {"justfile"}
 
 
 def test_uninstall_strips_our_entries_and_keeps_everyone_else_s(tmp_path):

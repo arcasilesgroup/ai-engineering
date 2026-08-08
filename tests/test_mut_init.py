@@ -62,6 +62,20 @@ def typed(monkeypatch):
 
 
 @pytest.fixture
+def picker(monkeypatch):
+    """Stands in for the checkbox. Records the question, the rows offered and which of them
+    arrived ticked, and answers whatever the test put in `answer` — None being Ctrl-C."""
+    box = SimpleNamespace(question="", rows=[], checked=set(), answer=[])
+
+    def fake(question, rows, checked):
+        box.question, box.rows, box.checked = question, rows, checked
+        return box.answer
+
+    monkeypatch.setattr(init.ui, "pick", fake)
+    return box
+
+
+@pytest.fixture
 def no_keyboard(monkeypatch):
     """Any question asked here is the bug: these paths must decide without a human."""
 
@@ -283,13 +297,51 @@ def test_harness_narrows_the_survey_to_the_surface_ids_you_name(home, capsys):
     assert marks["~/.codex"] == "not installed — skipped"
 
 
-def test_the_machine_setup_asks_first_and_a_no_leaves_the_machine_untouched(
-    home, tty, typed, capsys
+def test_the_machine_question_offers_every_surface_and_ticks_only_the_ones_found(
+    home, tty, no_keyboard, picker, capsys
 ):
-    """Catches the installer writing into a machine before the person said yes."""
+    """The machine question is the list, and it is the whole of the first question. Every
+    surface is offered because a person knows what they have installed better than a path
+    check does; only the detected ones arrive ticked, because a widget that pre-ticks all
+    eight has a default that writes into eight places."""
+    (home / ".claude").mkdir()
+    picker.answer = []
+    init.global_step(init.parse(["--global"]))
+    assert picker.question == "Set up which surfaces?"
+    assert [row[0] for row in picker.rows] == [s["id"] for s in wiring.table()["surface"]]
+    assert picker.checked == {"claude-code"}
+    assert "   → skipped.\n" in capsys.readouterr().err
+    assert not wiring.receipt_path().exists()
+
+
+def test_choosing_one_surface_wires_that_one_and_no_other(home, tty, no_keyboard, picker):
+    """Catches the answer being read and then ignored, which would wire whatever the path
+    check found and make the question decoration."""
+    for folder in (".claude", ".codex"):
+        (home / folder).mkdir()
+    picker.answer = ["codex-cli"]
+    init.global_step(init.parse(["--global"]))
+    assert [row["path"] for row in wiring.receipt()["wrote"] if row["kind"] == "guard"] == [
+        "~/.codex/hooks.json"
+    ]
+
+
+def test_an_interrupted_machine_question_writes_nothing_and_stops(home, tty, no_keyboard, picker):
+    """Ctrl-C is not the empty selection: one means stop, the other means "none of these"
+    and carry on to the project half."""
+    (home / ".claude").mkdir()
+    picker.answer = None
+    with pytest.raises(KeyboardInterrupt):
+        init.global_step(init.parse(["--global"]))
+    assert not wiring.receipt_path().exists()
+
+
+def test_unattended_and_piped_runs_never_reach_the_widget(home, tty, typed, capsys):
+    """-y, --harness and a run with no terminal each already said which surfaces, and a
+    widget with nobody in front of it is a hang rather than a question."""
     (home / ".claude").mkdir()
     typed.replies.append("n")
-    init.global_step(init.parse(["--global"]))
+    init.global_step(init.parse(["--global", "--harness", "claude-code"]))
     assert typed.prompts == ["◆ Set up this machine? (Y/n) › "]
     assert "   → skipped.\n" in capsys.readouterr().err
     assert not wiring.receipt_path().exists()
@@ -364,19 +416,27 @@ def test_dash_y_selects_nothing_and_asks_nothing_even_on_a_terminal(tty, no_keyb
     assert init.choose(ROWS, init.parse(["-y"])) == set()
 
 
-def test_the_checklist_shows_every_file_numbered_from_one_with_what_it_would_become(
-    tty, typed, capsys
-):
-    """Catches the numbering starting anywhere but 1, which makes the number a user types
-    overwrite a different file than the one they read."""
-    init.choose(ROWS, init.parse([]))
-    text = capsys.readouterr().err
-    assert "\n◇ 2 files already exist and are not ours\n" in text
-    assert "   Type the numbers to overwrite, separated by spaces. Enter selects none.\n\n" in text
-    assert "   1. CLAUDE.md" in text
-    assert "   2. justfile" in text
-    assert "one line: @./AGENTS.md" in text
-    assert typed.prompts == ["\n◆ Overwrite which? (Enter = none) › "]
+def test_the_overwrite_question_is_a_list_with_nothing_ticked(tty, no_keyboard, capsys, picker):
+    """At a keyboard the question is a list you move a cursor over. Nothing is ticked, which
+    is the same default the typed prompt had and the same promise: pressing Enter without
+    reading destroys nothing."""
+    picker.answer = ["CLAUDE.md"]
+    assert init.choose(ROWS, init.parse([])) == {"CLAUDE.md"}
+    assert "\n◇ 2 files already exist and are not ours\n" in capsys.readouterr().err
+    assert picker.question.startswith("Overwrite which?")
+    assert picker.rows == [
+        ("CLAUDE.md", "   3 lines  →  one line: @./AGENTS.md"),
+        ("justfile", "  12 lines  →  5 recipes + the RAN lines"),
+    ]
+    assert picker.checked == set()
+
+
+def test_an_interrupted_overwrite_question_writes_nothing_and_stops(tty, no_keyboard, picker):
+    """Ctrl-C is not "overwrite none of them". One means stop; the other means carry on
+    having written nothing, and only the second should reach the rest of the install."""
+    picker.answer = None
+    with pytest.raises(KeyboardInterrupt):
+        init.choose(ROWS, init.parse([]))
 
 
 @pytest.mark.parametrize(
@@ -389,38 +449,25 @@ def test_the_checklist_shows_every_file_numbered_from_one_with_what_it_would_bec
         ("0", set()),
         ("3", set()),
         ("x 1", {"CLAUDE.md"}),
-    ],
-)
-def test_only_a_number_on_the_list_selects_a_file_and_enter_selects_none(reply, picked, tty, typed):
-    """Catches an out-of-range or non-numeric answer either crashing the installer or
-    wrapping round to select a file the user never pointed at."""
-    typed.replies.append(reply)
-    assert init.choose(ROWS, init.parse([])) == picked
-
-
-@pytest.mark.parametrize(
-    ("reply", "picked"),
-    [
         ("1, 2", {"CLAUDE.md", "justfile"}),
         ("1,2", {"CLAUDE.md", "justfile"}),
         ("all", {"CLAUDE.md", "justfile"}),
         ("CLAUDE.md", {"CLAUDE.md"}),
     ],
 )
-def test_the_prompt_accepts_every_spelling_the_same_command_teaches(reply, picked, tty, typed):
-    """Catches the typed reply and --overwrite drifting back into two parsers. Each of
-    these four selected one file, nothing, nothing and nothing while they were: the comma
-    is what `--overwrite CLAUDE.md,justfile` teaches in the same command's own help, and
-    `all` is a valid spelling of the same intent five lines away."""
-    typed.replies.append(reply)
-    assert init.choose(ROWS, init.parse([])) == picked
+def test_the_parser_takes_every_spelling_and_nothing_off_the_list(reply, picked):
+    """The parser is still the answer for `--overwrite`, for -y and for every run with no
+    terminal, so all eleven spellings stay held. It is driven directly now rather than
+    through a prompt the picker replaced — a test that reaches its subject through a
+    widget is a test of the widget."""
+    assert init.select(reply, ROWS)[0] == picked
 
 
-def test_anything_it_could_not_use_is_named_rather_than_dropped(tty, typed, capsys):
-    """Catches a selection prompt that takes half of what you typed and says nothing —
-    the failure mode of a parser that filters instead of refusing."""
-    typed.replies.append("1 9 nope.md")
-    assert init.choose(ROWS, init.parse([])) == {"CLAUDE.md"}
+def test_anything_it_could_not_use_is_named_rather_than_dropped(repo, capsys, no_keyboard):
+    """Catches a selection that takes half of what you asked for and says nothing — the
+    failure mode of a parser that filters instead of refusing."""
+    (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
+    init.project_step(init.parse(["--project", str(repo), "--overwrite", "CLAUDE.md,9,nope.md"]))
     assert "   → ignored, nothing on the list matches: 9, nope.md\n" in capsys.readouterr().err
 
 
