@@ -1,23 +1,8 @@
 # Our own rules, pinned here: a gate that fetches its policy at run time is a gate
-# somebody else can change. No `p/` pack for the same reason — semgrep does not cache
-# registry rules — and trivy's misconfig scanner buys the Terraform and Kubernetes ground
-# instead. A rule that forbids something in every language and is declared for one scans
-# zero targets elsewhere, so those two are `generic`.
+# somebody else can change, which also rules out a registry pack. A rule that forbids
+# something in every language and is declared for one scans zero targets elsewhere.
 
 rules:
-  - id: guard-exits-zero
-    languages: [python]
-    severity: ERROR
-    message: >-
-      A guard that exits zero without having decided reports "no objection, go ahead".
-      That is the root pattern this framework exists to cure. Raise, or exit 2.
-    patterns:
-      - pattern-inside: |
-          @guard(...)
-          def $F(...):
-            ...
-      - pattern: sys.exit(0)
-
   - id: suppression-comment
     languages: [generic]
     severity: ERROR

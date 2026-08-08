@@ -17,12 +17,11 @@ import sys
 from pathlib import Path
 
 RAN = re.compile(r"^RAN\s+([\w.-]+)=(\d+)\s*$", re.M)
+# This check only ever runs on this repository — it is not in the wheel and does not reach
+# a user's. So it covers the two manifests that can appear here, and no more.
 MANIFESTS = {
     "pyproject.toml": ("uv.lock", "poetry.lock", "requirements.txt"),
     "package.json": ("package-lock.json", "pnpm-lock.yaml", "yarn.lock", "bun.lockb"),
-    "Cargo.toml": ("Cargo.lock",),
-    "go.mod": ("go.sum",),
-    "Gemfile": ("Gemfile.lock",),
 }
 
 

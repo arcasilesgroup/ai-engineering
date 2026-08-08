@@ -12,3 +12,4 @@ build/
 check.log
 uv.lock
 .DS_Store
+.git-msg.tmp

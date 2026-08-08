@@ -39,12 +39,10 @@ where documented is never reported as proven.
 | Rust | **detected** — `Cargo.toml` | `cargo build` · `cargo clippy` · `cargo test` |
 | Java | **detected** — `pom.xml`; Gradle documented only | `mvn package` · `mvn checkstyle:check` · `mvn test` |
 | Ruby | **detected** — `Gemfile` | `bundle exec rake build` · `rubocop` · `rspec` |
-| .NET | documented only — needs a `*.csproj` glob | `dotnet build` · `dotnet format --verify-no-changes` · `dotnet test` |
-| PHP | documented only | `composer install` · `phpstan analyse` · `phpunit` |
-| Elixir | documented only | `mix compile` · `mix credo` · `mix test` |
-| Swift | documented only | `swift build` · `swiftlint` · `swift test` |
-| Kotlin | documented only | `gradle build` · `ktlint` · `gradle test` |
-| Terraform | documented only | `terraform validate` · `tflint` · `terraform plan` |
+
+Detected by nothing, and each works identically once you have written its three recipes:
+.NET (`dotnet build` · `dotnet format --verify-no-changes` · `dotnet test`), PHP, Elixir,
+Swift, Kotlin and Terraform.
 
 Detection only decides what `init` prints. Every stack above gets the same floor: the
 three git hooks, the guards, the specs and the record.

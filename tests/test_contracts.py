@@ -41,6 +41,15 @@ def test_every_hook_is_classified_and_blocking_events_are_guards():
                 assert kind == "telemetry", f"{name} is listed as telemetry and is a guard"
 
 
+def test_no_guard_exits_zero_without_deciding():
+    """Moved here from a semgrep rule, which meant it only ran where semgrep was installed:
+    a guard that exits zero reports "no objection, go ahead", and that is the root pattern."""
+    for path in paths.hooks().glob("*.py"):
+        body = path.read_text()
+        if "@guard(" in body:
+            assert "sys.exit(0)" not in body, f"{path.name}: a guard exits zero somewhere"
+
+
 def test_no_hook_exists_outside_the_dispatcher_table():
     """You cannot add an entry point without instrumentation, because the entry point
     does not exist until it is in that table, and that table is what emits."""

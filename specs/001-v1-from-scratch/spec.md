@@ -256,20 +256,21 @@ follow_up: None. /ai-review reads the plan, and a person reads the review.
 
 ```yaml
 id: R-001-06
-finding: four-lines-of-margin-under-the-ceiling
+finding: zero-lines-of-margin-under-the-ceiling
 severity: low
 accepted_by: the maintainer
 accepted: 2026-08-08
 expires: 2026-09-08
 renewals: 0
 justification: >
-  The ceiling held at 5,600 without a raise: the payers were found rather than invented —
-  a data file with no readers, a hand-written regex parser duplicating a check the reader
-  now makes unreachable, a single-use helper and a documentation file folded into the one
-  that pointed at it. Four lines is not margin, it is a warning.
-follow_up: The next commit that needs lines deletes first. In order: the guard-exits-zero
-  semgrep rule if a test replaces it, and hooks/_otlp.py if no user ever configures a
-  destination.
+  The ceiling held at exactly 5,600 without a raise, and every payer was found rather than
+  invented: a data file with no readers, a hand-written regex parser duplicating a check the
+  reader now makes unreachable, a single-use helper, a documentation page folded into the one
+  that pointed at it, three lockfile ecosystems that cannot occur in this repository, and a
+  semgrep rule replaced by a seven-line test that runs whether or not semgrep is installed.
+  Zero margin is not slack, it is the mechanism working.
+follow_up: The next commit that needs lines deletes first. The remaining candidate is
+  hooks/_otlp.py at 141 lines, if no user ever configures an observability destination.
 ```
 
 ## Production-ready

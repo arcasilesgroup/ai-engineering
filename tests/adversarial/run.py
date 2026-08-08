@@ -13,6 +13,7 @@ able to fire a guard turns doctor red rather than going quietly green.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import shutil
@@ -146,11 +147,12 @@ def staged_secret(tmp: Path) -> bool:
     if shutil.which("gitleaks") is None:
         raise RuntimeError("gitleaks is not installed, so this guard cannot be fired here")
     work = repo(tmp)
-    # Joined at run time, not concatenated: the compiler folds adjacent literals into one
-    # constant and writes it into __pycache__, where `gitleaks dir` finds it and fails the
-    # security recipe on this repository's own test fixture. Fix the fixture, not the scanner.
-    key = "".join(("AK", "IA", "3T7K2QW9XZ4RJ8LM"))
-    token = "".join(("gh", "p_", "9fK2mQ7xB4nR8tY6wZ1aC3eD5gH0jL2pN4sV"))
+    # Derived, never written down. Any literal that looks like a key ends up in a marshalled
+    # constant in __pycache__, where the secret scanner finds it and fails this repository's
+    # own security recipe on its own test fixture. Fix the fixture, not the scanner.
+    noise = hashlib.sha256(b"ai-engineering adversarial suite").hexdigest()
+    key = "AK" + "IA" + noise[:16].upper()
+    token = "gh" + "p_" + noise[:36]
     (work / "conf.py").write_text(f'ACCESS_KEY_ID = "{key}"\nTOKEN = "{token}"\n')
     git(work, "add", "-A")
     return git(work, "commit", "-m", "chore: add config").returncode != 0

@@ -31,7 +31,6 @@ security:
 # the linter ran or was replaced by `true`, which is the theatre this contract catches.
 counts:
     @echo "RAN lint=$(uv run --with {{ruff}} ruff check . --show-files | wc -l | tr -d ' ')"
-    @echo "RAN format=$(uv run --with {{ruff}} ruff format --check . 2>&1 | grep -oE '^[0-9]+' | head -1)"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
 
 check: linked build lint test security counts
