@@ -8,7 +8,7 @@ description: >-
   "trace this import chain", "onboard me". Not for evidence from outside this repository —
   use /ai-research. Not for diagnosing a failure — use /ai-debug. Not for judging a diff —
   use /ai-review.
-license: MIT
+license: Apache-2.0
 compatibility: needs git
 context: fork
 background: false

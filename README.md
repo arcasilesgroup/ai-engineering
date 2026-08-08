@@ -59,4 +59,4 @@ any agent surface at all.
 - `SECURITY.md` — how to report something, and what this cannot protect you from.
 - `docs/tools.md` — the binaries each stack needs. `init` installs none of them.
 
-MIT.
+Apache 2.0. See LICENSE.

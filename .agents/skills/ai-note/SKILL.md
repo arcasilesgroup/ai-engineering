@@ -8,7 +8,7 @@ description: >-
   worked this out the hard way", "do we have notes on", "what did we find about". Not for
   project decisions — use /ai-spec, which is where a decision has its context. Not for
   documentation somebody reads to learn the system — that belongs in the repository's docs.
-license: MIT
+license: Apache-2.0
 compatibility: needs git
 disable-model-invocation: true
 ---

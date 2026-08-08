@@ -8,7 +8,7 @@ description: >-
   "is this still true", "what do the docs say about". Not for questions whose answer is in
   this repository — use /ai-explore. Not for diagnosing a failure here — use /ai-debug. Not
   for deciding what to build — use /ai-spec.
-license: MIT
+license: Apache-2.0
 compatibility: needs network access for anything beyond the local machine
 context: fork
 background: false
@@ -47,3 +47,6 @@ An answer where every claim carries `[N]` and a source list, or carries `[unsour
 ## What this is not
 
 Not a survey for its own sake. If the answer turns out to be short, the report is short.
+And `[unsourced]` says which kind it is: no source exists, or there was no way to look
+from here. A report of unsourced markers that never says the network was unreachable is
+reporting green while blind.

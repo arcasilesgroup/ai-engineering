@@ -8,7 +8,7 @@ description: >-
   conflicts", "the rebase failed". Not for adding test coverage to working code — use
   /ai-review. Not for exploring an unfamiliar area — use /ai-explore. Not for designing the
   fix — once the cause is named, use /ai-plan.
-license: MIT
+license: Apache-2.0
 compatibility: needs git
 disable-model-invocation: true
 ---

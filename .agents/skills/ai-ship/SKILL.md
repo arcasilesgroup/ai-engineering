@@ -7,7 +7,7 @@ description: >-
   afterwards. Trigger for "ship it", "open a PR", "I'm ready for review", "commit this",
   "merge it". Not for judging the diff — use /ai-review first. Not for writing the spec —
   use /ai-spec. Not for finding the bug — use /ai-debug.
-license: MIT
+license: Apache-2.0
 compatibility: needs git; needs gh for the pull request
 disable-model-invocation: true
 ---

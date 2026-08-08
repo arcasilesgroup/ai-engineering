@@ -9,3 +9,5 @@ Read for what the change claims, then for what it does.
 - Concurrency: two of these at once. Which write wins, and does anybody notice.
 - Behaviour that used to be true and is not any more, whether or not it was intended.
 - Error paths run too. Read them as code, not as decoration.
+- A changed signature, return shape or precondition: grep the name and read every call
+  site. The diff shows you the change and hides the callers it breaks.

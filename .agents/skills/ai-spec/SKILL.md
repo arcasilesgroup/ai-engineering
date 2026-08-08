@@ -9,7 +9,7 @@ description: >-
   about", "what should we build for", "write the spec". Not for turning a spec into tasks —
   use /ai-plan. Not for writing code — use /ai-plan then say go. Not for judging what was
   built — use /ai-review.
-license: MIT
+license: Apache-2.0
 compatibility: needs git; needs the ai-eng CLI on PATH
 disable-model-invocation: true
 ---

@@ -93,6 +93,86 @@ rationale: >
   conversation the mechanism exists to force.
 ```
 
+```yaml
+decision: Apache-2.0, and the classifier is deleted rather than swapped
+date: 2026-08-08
+rationale: >
+  PEP 639 makes a License-Expression field plus a "License ::" classifier a hard PyPI
+  rejection for new uploads, and the release workflow would have died on the v1.0.0 tag
+  after build and attestation had already succeeded — a failure that reads like an outage.
+  hatchling ships LICENSE and NOTICE inside the wheel's dist-info, which satisfies Apache
+  section 4(d) at zero lines. Those two files are excluded from the line ceiling because
+  nobody here wrote them and nobody here can shorten them; that and the record are the
+  only two exclusions, and treating either as precedent for a third would end the ceiling.
+```
+
+```yaml
+decision: contract.JARGON is the single store of banned words
+date: 2026-08-08
+rationale: >
+  policy/glossary.yml had zero consumers across src, hooks, tests, CI and the justfile,
+  while its own header named two readers that do not exist: vale is not installed
+  anywhere and the skill checker reads a hardcoded tuple whose ten words were identical
+  in content and order. A data file with no reader that advertises a gate is not dead
+  weight, it is a claimed gate that never fired — the failure this product exists to cure.
+```
+
+```yaml
+decision: No vendor name appears in any SKILL.md
+date: 2026-08-08
+rationale: >
+  Exa and Tavily sit on the same rung with no discriminator, so naming one is arbitrary
+  endorsement and naming both is advertising; MCP already delivers each tool's name and
+  schema into context at run time, for free. The other four were rejected on their own
+  terms: academic-research-skills is CC BY-NC, which bars a commercially installable
+  framework, and is 2,170 files; obscura spoofs TLS fingerprints to defeat bot detection,
+  which a product whose mission is about not doing harm silently cannot instruct an agent
+  to do; notebooklm-py is an unofficial cookie-jar client with an interactive login and no
+  CI path; agent-browser is a good tool whose own skill is six times our line cap. The
+  gain was one sentence, not six integrations: an unsourced claim must say which kind it
+  is — no source exists, or there was no way to look from here.
+```
+
+```yaml
+decision: The shipped security recipe is gitleaks and trivy only
+date: 2026-08-08
+rationale: >
+  The skeleton ran semgrep against a config file nothing writes and the allow-list in
+  .ai/.gitignore could not have committed, so semgrep exited 7 and just stopped on the
+  first failure — `just check` had failed on line one in every repository this tool ever
+  initialised, and the CI it hands the user was red on first push. Those two scanners are
+  the ones that genuinely read files rather than languages. We cannot ship a credible
+  cross-language static-analysis baseline in a 25-line skeleton, and a recipe that fails
+  on line one teaches people the gate is noise, which is worse than one fewer scanner.
+```
+
+```yaml
+decision: Languages are documented-not-proven, the same discipline surfaces already get
+date: 2026-08-08
+rationale: >
+  policy/surfaces.toml carries a proven flag per surface and doctor prints UNPROVEN for
+  anything a denial has not executed on. docs/tools.md now applies that to stacks: six are
+  detected, the rest are documented only, and detection is disclosed as deciding nothing
+  but what init prints. The enforcement plane was already language-neutral — the git
+  hooks, the five guards and all eight skills contain no language-specific token — but two
+  semgrep rules were declared for python while forbidding something in every language, so
+  the whole policy scanned zero targets in a Go, Rust, C# or Java tree.
+```
+
+```yaml
+decision: v1 never sits in the API data path
+date: 2026-08-08
+rationale: >
+  The orchestrator proposed for comparison turned out to be an HTTP model router — an
+  OpenAI-compatible proxy that grades an answer and escalates to a stronger model — with
+  no concept of an agent, a subagent or fan-out, 2,647 lines of TypeScript, three npm
+  dependencies and an always-on localhost daemon in the request path. Its verifier
+  defaults to accepting unparseable output, which is a fail-open decision-maker: exactly
+  what the guard decorator exists to make unwritable. No proxy, no daemon, no model
+  routing and no cost telemetry. A user who wants any of it points their own base URL at
+  their own proxy and needs nothing from us.
+```
+
 ## Accepted risks
 
 ```yaml
@@ -124,6 +204,72 @@ justification: >
   real injection is actually blocked needs a key and spend, and cannot run under the
   author's subscription on somebody else's behalf.
 follow_up: Publish the harness so a buyer can run it against their own key.
+```
+
+```yaml
+id: R-001-03
+finding: no-static-analysis-in-a-users-repository
+severity: medium
+accepted_by: the maintainer
+accepted: 2026-08-08
+expires: 2026-11-08
+renewals: 0
+justification: >
+  The shipped security recipe is gitleaks and trivy, both of which read files rather than
+  languages. Shipping a semgrep config would need an eighth landed file and a change to
+  the .ai/ allow-list, and shipping a broken one made the whole gate fail on line one.
+follow_up: Revisit when a user reports it, or when an ai-eng verb that prints the policy
+  path finds a payer in the line budget.
+```
+
+```yaml
+id: R-001-04
+finding: ioc-catalogue-is-precise-not-evasion-resistant
+severity: medium
+accepted_by: the maintainer
+accepted: 2026-08-08
+expires: 2027-02-08
+renewals: 0
+justification: >
+  The catalogue states precision as its design constraint and SECURITY.md makes no claim
+  against a determined attacker. Unicode normalisation and an invisible-character strip
+  would raise obfuscated recall from roughly one in ten to seven, and the character-collapse
+  variant that gets it higher silently destroys two of the patterns just repaired.
+follow_up: Add the normalisation pair with a measurement, and never close this by
+  broadening patterns into topic matching.
+```
+
+```yaml
+id: R-001-05
+finding: design-gate-checks-that-a-plan-exists-not-that-it-is-good
+severity: low
+accepted_by: the maintainer
+accepted: 2026-08-08
+expires: 2027-08-08
+renewals: 0
+justification: >
+  This is rule 12's own escape clause exercised honestly: the judgement cannot be made to
+  fail closed, so it stays a prompt and the reason is written down. A script scoring a
+  plan's quality would be judging judgement.
+follow_up: None. /ai-review reads the plan, and a person reads the review.
+```
+
+```yaml
+id: R-001-06
+finding: four-lines-of-margin-under-the-ceiling
+severity: low
+accepted_by: the maintainer
+accepted: 2026-08-08
+expires: 2026-09-08
+renewals: 0
+justification: >
+  The ceiling held at 5,600 without a raise: the payers were found rather than invented —
+  a data file with no readers, a hand-written regex parser duplicating a check the reader
+  now makes unreachable, a single-use helper and a documentation file folded into the one
+  that pointed at it. Four lines is not margin, it is a warning.
+follow_up: The next commit that needs lines deletes first. In order: the guard-exits-zero
+  semgrep rule if a test replaces it, and hooks/_otlp.py if no user ever configures a
+  destination.
 ```
 
 ## Production-ready

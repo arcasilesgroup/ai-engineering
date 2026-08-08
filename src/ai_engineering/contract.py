@@ -95,11 +95,10 @@ def audit_one(path: Path) -> list[str]:
     return found
 
 
-# The record is not the product. specs/ and docs/adr/ grow by one entry every time a
-# decision is written down, which is the behaviour this framework asks for — a ceiling
-# that tightened each time you recorded a decision would be a ceiling that discourages
-# recording them. Everything else counts.
-NOT_THE_PRODUCT = ("specs/", "docs/adr/")
+# Not the product, so not counted, and these two reasons are the only ones that qualify:
+# the record grows by design every time a decision is written down, and nobody here wrote
+# the licence or can shorten it. Everything we chose to write, documentation included, counts.
+NOT_THE_PRODUCT = ("specs/", "docs/adr/", "LICENSE", "NOTICE")
 
 
 def repo_lines(root: Path) -> int:

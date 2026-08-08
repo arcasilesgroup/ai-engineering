@@ -7,7 +7,7 @@ description: >-
   "break this down", "what tasks do we need", "let's start implementing", "the scope
   changed, re-plan". Not for exploring the problem — use /ai-spec. Not for writing the
   code — say go once this is approved. Not for judging what was built — use /ai-review.
-license: MIT
+license: Apache-2.0
 compatibility: needs git; an approved spec under specs/
 disable-model-invocation: true
 ---
