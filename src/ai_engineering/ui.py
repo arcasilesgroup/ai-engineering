@@ -24,7 +24,6 @@ import sys
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.table import Table
 from rich.text import Text
 from rich.theme import Theme
 
@@ -126,15 +125,17 @@ def note(text: str, style: str = "muted") -> None:
 
 
 def survey(rows: list[tuple[str, str, str, str]]) -> None:
-    """One row per surface: the name, the path that proves it, and the verdict. Aligned by
-    a table rather than by three format widths that drifted apart."""
-    table = Table.grid(padding=(0, 2))
-    table.add_column(width=18)
-    table.add_column(width=26, style="path")
-    table.add_column()
+    """One row per surface: the name, the path that proves it is there, and the verdict.
+
+    Widths, and not a `Table.grid`, which was the first attempt: rich pads the final column
+    out to its own width, so every row ends in a run of spaces nobody can see and every
+    whole-line assertion trips on. The widths live here, once, which was the only thing the
+    table was buying — they were three format strings at three call sites that drifted."""
     for name, path, mark, style in rows:
-        table.add_row(Text(f"   {name}"), Text(path), Text(mark, style=style))
-    console().print(table)
+        line = Text(f"   {name:<18} ")
+        line.append(f"{path:<26} ", style="path")
+        line.append(mark, style=style)
+        console().print(line, soft_wrap=True)
 
 
 def block(text: str, data: bool = True) -> None:

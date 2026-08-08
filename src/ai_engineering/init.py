@@ -90,15 +90,19 @@ def global_step(args) -> None:
 
     only = [s for s in args.harness.split(",") if s] or None
     found = wiring.detect(only)
-    out("\n◇ Global")
+    ui.section("◇ Global")
+    rows = []
     for surface in wiring.table()["surface"]:
         if surface in found:
-            mark = "found"
+            mark, style = "found", "ok"
+        elif surface["detect"]:
+            mark, style = "not installed — skipped", "muted"
         else:
             # A row with no detect path is not absent, it is unanswerable: the only
             # candidate was a file we write ourselves, so it is wired on your word.
-            mark = "not installed — skipped" if surface["detect"] else "wired by name only"
-        out(f"   {surface['name']:<18} {surface['detect'] or '—':<26} {mark}")
+            mark, style = "wired by name only", "warn"
+        rows.append((surface["name"], surface["detect"] or "—", mark, style))
+    ui.survey(rows)
     out(
         f"\n   Writes 8 skills into {paths.home() / 'skills'}, symlinks from the roots above,\n"
         f"   and one guard entry in each found surface's own settings file.\n"
@@ -110,16 +114,19 @@ def global_step(args) -> None:
         return
 
     written = wiring.install_skills(found)
-    out(f"   ✓ 8 skills   → {paths.home() / 'skills'}/ai-*/")
+    ui.step("ok", "8 skills  ", f"→ {paths.home() / 'skills'}/ai-*/")
     for row in written[1:]:
-        out(f"   ✓ {row['how']:<8} → {row['path']}")
+        ui.step("ok", f"{row['how']:<8}", f"→ {row['path']}")
     for name, target, detail in wiring.install_guards(found):
-        flag = "⚠" if "append" in detail else "✓"
-        out(f"   {flag} guards     → {target or name} ({detail})")
-        if "append" in detail:
-            out(
-                "     Codex will not run it until you approve it: type /hooks in Codex.\n"
-                "     `doctor` reports it as INERT until then."
+        # Appended and not merged means a person has to approve it before it runs, which
+        # is a warning and not a tick: the difference between installed and running is the
+        # whole subject of assertion 21.
+        pending = "append" in detail
+        ui.step("warn" if pending else "ok", "guards    ", f"→ {target or name} ({detail})")
+        if pending:
+            ui.note(
+                "Codex will not run it until you approve it: type /hooks in Codex.\n"
+                "`doctor` reports it as INERT until then."
             )
     wiring.record(
         written
@@ -129,7 +136,7 @@ def global_step(args) -> None:
             if s["writer"] != "none"
         ]
     )
-    out(f"   ✓ receipt    → {wiring.receipt_path()}")
+    ui.step("ok", "receipt   ", f"→ {wiring.receipt_path()}")
 
 
 def existing(root: Path) -> list[tuple[str, int, str]]:
@@ -169,7 +176,7 @@ def choose(rows: list[tuple[str, int, str]], args) -> set[str]:
     if args.overwrite.strip() or args.yes or not sys.stdin.isatty():
         picked, ignored = select(args.overwrite, rows)
     else:
-        out(f"\n◇ {len(rows)} files already exist and are not ours")
+        ui.section(f"◇ {len(rows)} files already exist and are not ours")
         out("   Type the numbers to overwrite, separated by spaces. Enter selects none.\n")
         for index, (name, lines, becomes) in enumerate(rows, 1):
             out(f"   {index}. {name:<18} {lines:>4} lines  →  {becomes}")
@@ -180,11 +187,14 @@ def choose(rows: list[tuple[str, int, str]], args) -> set[str]:
 
 
 def marks(args) -> tuple[str, str]:
-    """The tick and the verb, in the tense the run is actually in. The writes were guarded
+    """The state and the verb, in the tense the run is actually in. The writes were guarded
     by --dry-run and the printing was not, so a preview reported a backup written and a
     file written having written neither, and the test that covered it asserted the files
-    were absent rather than that the output had stopped saying otherwise."""
-    return ("·", "would be created") if args.dry else ("✓", "written")
+    were absent rather than that the output had stopped saying otherwise.
+
+    A state and not a glyph: which character stands for "this happened" is the renderer's
+    business, and this file no longer spells one."""
+    return ("would", "would be created") if args.dry else ("ok", "written")
 
 
 def backup(path: Path, args) -> str:
@@ -202,9 +212,9 @@ def backup(path: Path, args) -> str:
 
 def write_offer(root: Path, name: str, args) -> None:
     path = root / name
-    tick, verb = marks(args)
+    state, verb = marks(args)
     if path.exists():
-        out(f"   {tick} {name} backup → {backup(path, args)} {verb}")
+        ui.step(state, f"{name} backup", f"→ {backup(path, args)} {verb}")
     if not args.dry:
         path.write_text(OFFERS[name][1](), encoding="utf-8")
 
@@ -227,7 +237,7 @@ def project_step(args) -> int:
     where = Path(args.project or ".").resolve()
     root = paths.repo_root(where)
     if root is None:
-        out(f"\n◇ Project   {where}   not a git repository")
+        ui.section(f"◇ Project   {where}   not a git repository")
         # A literal False, and not sys.stdin.isatty(): `ask` returns the default under -y,
         # so a terminal-shaped default would make `cd ~ && ai-eng init -y` create a
         # repository in whatever directory the person happened to be standing in.
@@ -235,7 +245,7 @@ def project_step(args) -> int:
             out("   → skipped. There is nothing to set up outside a repository.")
             return 0
         subprocess.run(["git", "-C", str(where), "init", "-b", "main"], check=True, timeout=10)
-        out(f"   ✓ git init   → {where}")
+        ui.step("ok", "git init  ", f"→ {where}")
         root = where  # git init put .git directly here, so there is nothing to walk up to
     pinned = root / ".ai" / "config.toml"
     if pinned.exists() and args.project is None:
@@ -245,12 +255,12 @@ def project_step(args) -> int:
         )
         return 0
 
-    out(f"\n◇ Project   {root}   git repository, not set up")
+    ui.section(f"◇ Project   {root}   git repository, not set up")
     if not (args.project is not None or ask("Set up this project too?", sys.stdin.isatty(), args)):
         out("   → skipped. Nothing was written.")
         return 0
 
-    tick, verb = marks(args)
+    state, verb = marks(args)
     # The pin, and it is backed up before it is replaced for the same reason the four
     # instruction files are. A re-run rewrote both of these unconditionally, with no copy
     # and no line of its own, so a hand-edited pin went back to defaults in silence — and
@@ -263,16 +273,16 @@ def project_step(args) -> int:
     for name, body in pins.items():
         path = root / name
         if path.exists() and path.read_text(errors="replace") != body:
-            out(f"   {tick} {name} backup → {backup(path, args)} {verb}")
+            ui.step(state, f"{name} backup", f"→ {backup(path, args)} {verb}")
     if not args.dry:
         pinned.parent.mkdir(parents=True, exist_ok=True)
         for name, body in pins.items():
             (root / name).write_text(body, encoding="utf-8")
         (root / "specs").mkdir(exist_ok=True)
         (root / "specs" / ".gitkeep").touch()
-    out(f"   {tick} .ai/config.toml · .ai/.gitignore · specs/")
+    ui.step(state, ".ai/config.toml · .ai/.gitignore · specs/")
     hooks = wiring.hooks_path_for(root) if args.dry else wiring.wire_git(root)
-    out(f"   {tick} core.hooksPath → {hooks}")
+    ui.step(state, "core.hooksPath", f"→ {hooks}")
     # One `which`, at the moment the wall is built rather than at the person's next
     # commit. Wiring sets ai.managed, and the shipped pre-commit exits 1 when that flag is
     # set and gitleaks is absent, so this used to leave a repository that refused every
@@ -297,7 +307,7 @@ def project_step(args) -> int:
         if not (root / name).exists():
             write_offer(root, name, args)
             files += 1
-            out(f"   {tick} {name} {verb} ({OFFERS[name][0]})")
+            ui.step(state, name, f"{verb} ({OFFERS[name][0]})")
     picked = choose(rows, args)
     for name in sorted(picked):
         write_offer(root, name, args)
@@ -335,15 +345,23 @@ def report(files: int, waiting: list[str], args) -> None:
     _, verb = marks(args)
     guards = sum(1 for row in wiring.receipt().get("wrote", []) if row["kind"] == "guard")
     entries = "entry" if guards == 1 else "entries"
-    out(f"\n◇ Done   {files} files {verb} · {guards} guard {entries} on this machine")
-    for item in waiting:
-        out(f"   ⚠ still on you: {item}")
-    out("\n   Next:")
-    out("     1. The skeletons carry TODO: markers on purpose. `ai-eng doctor` fails while")
-    out("        CONSTITUTION.md still has them — that is the design, not a broken install.")
-    out("     2. `ai-eng doctor` — every assertion, and the coverage line under it.")
-    out("     3. Paste the block above into .github/workflows/check.yml and push it.")
-    out("     4. `ai-eng spec new <slug>` — the first spec, and the chain starts there.")
+    ui.report(
+        f"{files} files {verb} · {guards} guard {entries} on this machine",
+        waiting,
+        [
+            # First, because the alternative is a stranger pasting the CI block and
+            # watching a first build go red for a reason nobody named. Kept inside the
+            # panel's width on purpose: a line that wraps loses its indent and reads as
+            # a fifth item.
+            (
+                "fill in the TODO: markers",
+                "on purpose; `ai-eng doctor` fails until CONSTITUTION.md has none",
+            ),
+            ("ai-eng doctor", "every assertion, and the coverage line under it"),
+            ("paste the block above", "into .github/workflows/check.yml, and push it"),
+            ("ai-eng spec new <slug>", "the first spec, and the chain starts there"),
+        ],
+    )
 
 
 def main(argv: list[str]) -> int:

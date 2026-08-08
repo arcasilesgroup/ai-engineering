@@ -823,14 +823,13 @@ def test_a_dry_run_over_an_empty_repository_prints_the_checklist_it_promises(
         assert f"   · {name} would be created ({becomes})\n" in text
 
 
-NEXT = (
-    "\n   Next:\n"
-    "     1. The skeletons carry TODO: markers on purpose. `ai-eng doctor` fails while\n"
-    "        CONSTITUTION.md still has them — that is the design, not a broken install.\n"
-    "     2. `ai-eng doctor` — every assertion, and the coverage line under it.\n"
-    "     3. Paste the block above into .github/workflows/check.yml and push it.\n"
-    "     4. `ai-eng spec new <slug>` — the first spec, and the chain starts there.\n"
-)
+def framed(text: str) -> list[str]:
+    """The panel's contents, with the border and its padding taken off. Asserting the box
+    characters would pin rich's drawing rather than this product's words, and the widths
+    move with the terminal; asserting nothing about the panel is how three of its lines
+    went unheld the first time."""
+    inside = text.split("╭─ Done ")[1].splitlines()[1:]
+    return [row.strip("│").strip() for row in inside if row.startswith("│")]
 
 
 def test_the_last_screen_says_what_happened_and_what_to_run_next(
@@ -840,15 +839,29 @@ def test_the_last_screen_says_what_happened_and_what_to_run_next(
     only the last screen now knows how many files were written, how many guard entries
     exist, and what to do — starting with the fact that the skeleton's TODO: markers are
     deliberate, because the alternative is pasting the CI block and watching a first build
-    go red for a reason nobody named. Asserted whole and to the end of the output, because
-    a closing panel matched by fragments is a closing panel three of whose five lines
-    nothing is holding."""
+    go red for a reason nobody named. Every line of it is asserted, in order: a closing
+    panel matched by two fragments is a closing panel most of which nothing is holding."""
     monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
     init.main(["--no-global", "--project", str(repo), "-y"])
-    text = capsys.readouterr().err
-    assert text.endswith(f"\n◇ Done   7 files written · 0 guard entries on this machine\n{NEXT}")
-    # The YAML stays, above the report rather than as the final word.
-    assert text.index("Paste these lines") < text.index("◇ Done")
+    caught = capsys.readouterr()
+    assert framed(caught.err) == [
+        "7 files written · 0 guard entries on this machine",
+        "",
+        "Next:",
+        "1. fill in the TODO: markers",
+        "on purpose; `ai-eng doctor` fails until CONSTITUTION.md has none",
+        "2. ai-eng doctor",
+        "every assertion, and the coverage line under it",
+        "3. paste the block above",
+        "into .github/workflows/check.yml, and push it",
+        "4. ai-eng spec new <slug>",
+        "the first spec, and the chain starts there",
+    ]
+    # The panel is the last word on the terminal, and the block a person pastes is above
+    # it — on the other stream, which is why "above" is asserted against the run and not
+    # against one string.
+    assert caught.err.rstrip().endswith("╯")
+    assert caught.err.index("Paste these lines") < caught.err.index("╭─ Done ")
 
 
 def test_the_last_screen_counts_the_guard_entries_that_are_actually_there(
@@ -859,7 +872,7 @@ def test_the_last_screen_counts_the_guard_entries_that_are_actually_there(
     "1 guard entry", because a closing panel that says "1 entries" was written by nobody."""
     monkeypatch.setattr(init.shutil, "which", lambda name: f"/opt/bin/{name}")
     init.main(["--global", "--harness", "claude-code", "--project", str(repo), "-y"])
-    assert "\n◇ Done   7 files written · 1 guard entry on this machine\n" in capsys.readouterr().err
+    assert framed(capsys.readouterr().err)[0] == ("7 files written · 1 guard entry on this machine")
 
 
 def test_a_run_that_overwrites_counts_the_files_it_overwrote(
@@ -871,7 +884,7 @@ def test_a_run_that_overwrites_counts_the_files_it_overwrote(
     for name in ("CLAUDE.md", "justfile"):
         (repo / name).write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo), "--overwrite", "all"]))
-    assert "\n◇ Done   7 files written · " in capsys.readouterr().err
+    assert framed(capsys.readouterr().err)[0].startswith("7 files written · ")
 
 
 def test_what_is_still_on_a_person_reaches_the_last_screen(repo, capsys, no_keyboard, monkeypatch):
@@ -881,9 +894,10 @@ def test_what_is_still_on_a_person_reaches_the_last_screen(repo, capsys, no_keyb
     for name in ("justfile", "CLAUDE.md"):
         (repo / name).write_text("mine\n", encoding="utf-8")
     init.project_step(init.parse(["--project", str(repo), "-y"]))
-    text = capsys.readouterr().err.split("\n◇ Done   ")[1]
-    assert "   ⚠ still on you: install gitleaks, or every commit here is refused\n" in text
-    assert "   ⚠ still on you: 2 of your own files were left alone: CLAUDE.md, justfile\n" in text
+    assert framed(capsys.readouterr().err)[1:3] == [
+        "⚠ still on you: install gitleaks, or every commit here is refused",
+        "⚠ still on you: 2 of your own files were left alone: CLAUDE.md, justfile",
+    ]
 
 
 # ── main ────────────────────────────────────────────────────────────────────────────

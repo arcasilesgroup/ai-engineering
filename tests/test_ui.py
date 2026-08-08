@@ -94,6 +94,9 @@ def test_the_survey_lines_its_three_columns_up(capsys):
     assert lines[0].startswith("   Claude Code")
     assert lines[0].index("~/.claude") == lines[1].index("—")
     assert lines[0].index("found") == lines[1].index("wired by name only")
+    # No row ends in whitespace. rich's grid pads the last column out to its own width,
+    # which is invisible on screen and is a run of spaces in every log and every assertion.
+    assert [line for line in lines if line != line.rstrip()] == []
 
 
 def test_a_block_survives_square_brackets(capsys):
