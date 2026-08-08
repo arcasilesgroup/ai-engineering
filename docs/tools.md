@@ -27,9 +27,11 @@ credible cross-language one, so that line is yours to add.
 
 ## Per stack
 
-`init` prints a line for the stacks marked **detected**. The rest are documented here and
-detected by nothing — the same discipline `policy/surfaces.toml` applies to agent surfaces,
-where documented is never reported as proven.
+Every stack is one table, because they are one class of thing. Detection is a column and
+not a tier: a dash in that cell means `init` will not name the stack in the line it prints,
+and nothing else — it is the same discipline `policy/surfaces.toml` applies to agent
+surfaces, where documented is never reported as proven. Where a linter has not been run
+here it is named without its flags, because a flag nobody ran is a claim nobody checked.
 
 | Stack | Detected by | Build · lint · test |
 |---|---|---|
@@ -39,13 +41,19 @@ where documented is never reported as proven.
 | Rust | **detected** — `Cargo.toml` | `cargo build` · `cargo clippy` · `cargo test` |
 | Java | **detected** — `pom.xml`; Gradle documented only | `mvn package` · `mvn checkstyle:check` · `mvn test` |
 | Ruby | **detected** — `Gemfile` | `bundle exec rake build` · `rubocop` · `rspec` |
+| .NET | — | `dotnet build` · `dotnet format --verify-no-changes` · `dotnet test` |
+| PHP | — | `composer install` · `php-cs-fixer` · `phpunit` |
+| Elixir | — | `mix compile` · `mix format --check-formatted` · `mix test` |
+| Swift | — | `swift build` · `swift-format` · `swift test` |
+| Kotlin | — | `gradle build` · `ktlint` · `gradle test` |
+| Terraform | — | `terraform validate` · `terraform fmt -check` · `terraform test` |
 
-Detected by nothing, and each works identically once you have written its three recipes:
-.NET (`dotnet build` · `dotnet format --verify-no-changes` · `dotnet test`), PHP, Elixir,
-Swift, Kotlin and Terraform.
-
-Detection only decides what `init` prints. Every stack above gets the same floor: the
-three git hooks, the guards, the specs and the record.
+The six with a dash are not second class. Every stack in this table gets the same floor —
+the three git hooks, the guards, the specs and the record — and the six differ in exactly
+one respect: you write the three recipes yourself instead of reading them off a line `init`
+printed. Detection is six filename lookups in `init`, and two of the six cannot be
+expressed as one: a .NET project file sits at `src/Foo/Foo.csproj` more often than at the
+root, and Kotlin and Java share `build.gradle`.
 
 ## A lockfile is not optional
 
