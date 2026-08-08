@@ -319,7 +319,7 @@ follow_up: Revisit when a plan item is claimed done, the claim is false, and the
 
 ```yaml
 id: R-001-09
-finding: no-tdd-order-guard-no-coverage-target-and-no-mutation-gate
+finding: no-tdd-order-guard-and-no-mutation-gate
 severity: medium
 accepted_by: the maintainer
 accepted: 2026-08-08
@@ -333,19 +333,26 @@ justification: >
   the check and the work are mutually exclusive. It stays a prompt, and the substitute is
   named: a fixture that carries the fields the real surface sends. The loop_guard case was
   written before its guard shipped and the guard was still dead, because the payload was
-  one no surface delivers; ordering was not the property that was missing. On the number:
-  the gate is 35% branch coverage measured with the subprocess patch, not 80% line
-  coverage. The 17% this started from was a measurement error — the fourteen-case suite
-  fires every guard through a subprocess and contributed nothing to the total — and fixing
-  the measurement moved it to 36% with no test written. Eighty per cent of these lines is
-  reachable only by characterising straight-line file writers, and the evidence against
-  buying that is in this commit: three live bypasses were found in code measured at 81 to
-  96 per cent. On mutation testing: we did not evaluate it. Saying that is the honest state,
-  and asserting a version-specific limitation nobody ran is the failure this product cures.
+  one no surface delivers; ordering was not the property that was missing. On mutation
+  testing: no tool was evaluated and none is installed. Saying that is the honest state, and
+  asserting a version-specific limitation nobody ran is the failure this product cures.
+  Amended the same day, because two thirds of this acceptance did not survive the afternoon.
+  The coverage refusal is withdrawn: the operator read the argument and asked for 80%
+  anyway, which is his to decide, and the outcome says the argument was half wrong. The
+  17% was a measurement error, and fixing the measurement alone moved it to 36% with no
+  test written — that part stands. But the 2,660 lines the refusal called characterisation
+  of straight-line file writers found nine defects nothing else had, and one of them handed
+  every user this tool has ever initialised a CI workflow that fails on its first step. The
+  gate is 80% branch coverage, the number he asked for; 95% is what landed. And mutation
+  testing was run after all, by hand, 126 mutants across the four new files: 113 died on
+  the first pass and twelve more after the tests were strengthened. It is not a gate and it
+  is not scheduled — it was a one-off pass whose finding is that boundaries and constants
+  are where tests stop being able to fail.
 follow_up: Raise the floor in a commit that states the arithmetic, the same discipline as
-  the line ceiling. Evaluate a mutation run when a module is over 90% branch coverage and a
-  guard's deny path changes twice without a test going red — scoped to that module, nightly,
-  zero survivors, never inside `just check`.
+  the line ceiling. The ceiling is now 8,441 and the test plane is larger than the product:
+  the next commit that needs lines deletes a test that kills no mutant. Seven strict xfail
+  markers name seven live defects — each one is a commit, and the marker turns red the day
+  it is fixed without being removed.
 ```
 
 ```yaml
