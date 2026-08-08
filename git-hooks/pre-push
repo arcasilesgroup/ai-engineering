@@ -3,19 +3,26 @@
 # ever made were this file, and this file is twenty lines.
 set -euo pipefail
 protected="$(git config --get ai.protected || echo 'main master')"
-while read -r _ _ remote_ref _; do
-  branch="${remote_ref##*/}"
+while read -r _ local_sha remote_ref _; do
+  # Strip the whole prefix, not through the last slash: feature/main is not main, and a
+  # tag called main is not a branch at all. The old form was wrong in both directions.
+  case "$remote_ref" in refs/heads/*) branch="${remote_ref#refs/heads/}" ;; *) continue ;; esac
   for name in $protected; do
     [ "$branch" = "$name" ] && {
       echo "pre-push: $branch is protected. Open a pull request; that is where review happens." >&2
       exit 1
     }
   done
+  case "$local_sha" in *[!0]*) ;; *) continue ;; esac # an all-zero sha is a deletion
+  # Exactly the commits going to the server. Scanning the working directory instead read
+  # files git will never send, and missed a secret added in one commit and deleted in the
+  # next — which is the one the server keeps.
+  if command -v gitleaks >/dev/null 2>&1; then
+    gitleaks git --log-opts="$local_sha --not --remotes" --redact --no-banner --exit-code 1 ||
+      exit 1
+  fi
 done
-if command -v gitleaks >/dev/null 2>&1; then
-  gitleaks dir . --redact --no-banner --exit-code 1 || exit 1
-fi
-AI_ENG="${AI_ENG:-ai-eng}"
+AI_ENG="${AI_ENG:-$(git config --get ai.eng || echo ai-eng)}"
 if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then
   $AI_ENG accept --expired || exit 1
 fi

@@ -79,6 +79,11 @@ def normalise(raw: dict) -> dict:
     out.setdefault("tool_input", out.get("input") or {})
     if isinstance(out["tool_input"], dict):
         out["tool_input"] = {ALIASES.get(k, k): v for k, v in out["tool_input"].items()}
+        # The notebook tools send notebook_path and nothing else. Both guards on their
+        # rows read file_path, so without this the table claimed coverage of two tools
+        # that always passed.
+        if not out["tool_input"].get("file_path"):
+            out["tool_input"]["file_path"] = out["tool_input"].get("notebook_path", "")
     return out
 
 

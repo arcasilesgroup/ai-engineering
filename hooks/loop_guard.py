@@ -45,7 +45,10 @@ def signature(payload: dict) -> str:
     if isinstance(args, dict):
         for key in ("command", "file_path", "path", "pattern", "url", "query"):
             if args.get(key):
-                first = str(args[key]).split()[0][:60]
+                # The last sixty characters, not the first. A path is discriminated by its
+                # tail, so truncating from the left made every file under one long
+                # temporary directory the same call; a command is one token by then.
+                first = str(args[key]).split()[0][-60:]
                 break
     return f"{payload.get('tool_name', '')}:{first}"
 
@@ -77,10 +80,13 @@ def run(payload: dict) -> str | None:
         save(state)
         return None
 
-    state["recent"] = (state["recent"] + [payload.get("_fp", sig)])[-window:]
+    # By signature, never by the dispatcher's fingerprint: that fingerprint carries the
+    # surface's own tool_use_id, which is unique per call, so counting it made every
+    # repeat look like a first call and this rule never fired on Claude Code.
+    state["recent"] = (state["recent"] + [sig])[-window:]
     save(state)
 
-    seen = state["recent"].count(payload.get("_fp", sig))
+    seen = state["recent"].count(sig)
     if seen >= repeats:
         return (
             f"this exact call has been made {seen} times in the last {window}. Repeating "

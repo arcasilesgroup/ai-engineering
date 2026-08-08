@@ -229,7 +229,16 @@ def hooks_path_for(root: Path) -> str:
 
 def wire_git(root: Path) -> str:
     """Repository-scoped, absolute, expanded. A global core.hooksPath would impose our
-    commit convention on every foreign clone on the machine, forks included."""
-    for key, value in (("core.hooksPath", hooks_path_for(root)), ("ai.managed", "true")):
+    commit convention on every foreign clone on the machine, forks included.
+
+    ai.eng records which CLI wrote these hooks. `command -v ai-eng` proves a binary exists
+    and never that it is this one: an older install on the PATH has no `accept` verb, so
+    pre-push refused every push in the repository it had just been installed into."""
+    rows = (
+        ("core.hooksPath", hooks_path_for(root)),
+        ("ai.managed", "true"),
+        ("ai.eng", f"{sys.executable} -m ai_engineering.cli"),
+    )
+    for key, value in rows:
         subprocess.run(["git", "-C", str(root), "config", key, value], check=True, timeout=10)
     return hooks_path_for(root)

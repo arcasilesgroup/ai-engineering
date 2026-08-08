@@ -8,7 +8,13 @@ if command -v gitleaks >/dev/null 2>&1; then
     echo "pre-commit: a secret is staged. Unstage it and rotate it; it never reached history." >&2
     exit 1
   }
+elif [ "$(git config --get ai.managed || echo false)" = "true" ]; then
+  # Managed means this repository asked for the floor, so a missing scanner is a broken
+  # install and not a stranger's fork. A guard that exits zero without deciding is the
+  # pattern this whole rebuild exists to delete, and this file calls itself the floor.
+  echo "pre-commit: managed here and gitleaks is not installed, so nothing scanned this" >&2
+  echo "            commit. Install it, or 'git config --unset ai.managed' and own the hole." >&2
+  exit 1
 else
   echo "pre-commit: gitleaks is not installed, so nothing scanned this commit for secrets." >&2
-  echo "            install it, or accept that this repository's floor has a hole in it." >&2
 fi

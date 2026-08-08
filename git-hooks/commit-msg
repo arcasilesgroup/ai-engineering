@@ -4,12 +4,16 @@
 set -euo pipefail
 [ "$(git config --get ai.managed || echo false)" = "true" ] || exit 0
 subject="$(head -n1 "$1")"
+# git writes these subjects itself. Refusing one strands a merge with MERGE_HEAD still
+# set and kills rebase --autosquash, and the only escape a person finds is --no-verify,
+# which rule 3 forbids and a guard blocks: a hook whose bug forces its own bypass.
+if grep -Eq '^(Merge |Revert |Reapply |fixup!|squash!|amend!)' <<<"$subject"; then exit 0; fi
 grep -Eq '^(feat|fix|docs|refactor|test|chore|ci|perf|build|revert)(\([a-z0-9./-]+\))?!?: .{1,}' <<<"$subject" || {
   echo "commit-msg: the subject must read <type>(<scope>): <what changed>, in the imperative." >&2
   exit 1
 }
 # The anchor is a footer, not a gate: if it cannot be written the commit still stands.
 # A record that refuses commits is a record people delete.
-AI_ENG="${AI_ENG:-ai-eng}"
+AI_ENG="${AI_ENG:-$(git config --get ai.eng || echo ai-eng)}"
 if command -v "${AI_ENG%% *}" >/dev/null 2>&1; then $AI_ENG audit --anchor >>"$1" || true; fi
 exit 0

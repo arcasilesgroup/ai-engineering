@@ -26,9 +26,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 HOOKS = ROOT / "hooks"
 
-# The git hooks call the CLI. Point them at the one in this checkout rather than at
-# whatever `ai-eng` happens to be on PATH, or the suite measures somebody else's install.
-os.environ.setdefault("AI_ENG", f"{sys.executable} -m ai_engineering.cli")
 os.environ["PYTHONPATH"] = os.pathsep.join(
     [str(ROOT / "src"), os.environ.get("PYTHONPATH", "")]
 ).strip(os.pathsep)
@@ -67,6 +64,10 @@ def repo(tmp: Path) -> Path:
         ("user.name", "suite"),
         ("core.hooksPath", str(ROOT / "git-hooks")),
         ("ai.managed", "true"),
+        # Written the way the installer writes it. Exporting AI_ENG instead made the suite
+        # blind to PATH resolving `ai-eng` to somebody else's install, which is a refused
+        # push in every repository that has an older one on the PATH.
+        ("ai.eng", f"{sys.executable} -m ai_engineering.cli"),
     ):
         subprocess.run(["git", "-C", str(work), "config", key, value], capture_output=True)
     subprocess.run(
@@ -112,18 +113,21 @@ def loop(tmp: Path) -> bool:
     session = f"loop-{time.time_ns()}"
     os.environ["AI_ENG_SESSION"] = session
     payload = {"tool_name": "Read", "tool_input": {"file_path": str(tmp / "same.txt")}}
+    # Every call carries its own tool_use_id, which is what a real surface sends and what
+    # this fixture omitted for as long as the guard was dead. Exact codes, not "2 is in
+    # there somewhere": otherwise the threshold moves and nothing says so.
     codes = [
         subprocess.run(
             [sys.executable, str(HOOKS / "chain.py"), "PreToolUse"],
-            input=json.dumps(payload),
+            input=json.dumps({**payload, "tool_use_id": f"toolu_{index}"}),
             text=True,
             capture_output=True,
             env={**os.environ, "AI_ENG_SESSION": session},
         ).returncode
-        for _ in range(4)
+        for index in range(4)
     ]
     os.environ.pop("AI_ENG_SESSION", None)
-    return 2 in codes
+    return codes == [0, 0, 2, 2]
 
 
 @case("protected branch", "pre-push")
@@ -157,6 +161,27 @@ def staged_secret(tmp: Path) -> bool:
     (work / "conf.py").write_text(f'ACCESS_KEY_ID = "{key}"\nTOKEN = "{token}"\n')
     git(work, "add", "-A")
     return git(work, "commit", "-m", "chore: add config").returncode != 0
+
+
+@case("pushed secret", "pre-push")
+def pushed_secret(tmp: Path) -> bool:
+    """Added in one commit and deleted in the next. The staged scan never saw it because
+    the commit that carried it was made before the scanner was installed — or with the
+    flag, or on another machine — and the worktree scan cannot see it because the file is
+    gone. The server keeps both commits, so this is the one that matters."""
+    if shutil.which("gitleaks") is None:
+        raise RuntimeError("gitleaks is not installed, so this guard cannot be fired here")
+    work = repo(tmp)
+    git(work, "checkout", "-b", "topic")
+    noise = hashlib.sha256(b"ai-engineering adversarial suite").hexdigest()
+    key, token = "AK" + "IA" + noise[:16].upper(), "gh" + "p_" + noise[:36]
+    (work / "conf.py").write_text(f'ACCESS_KEY_ID = "{key}"\nTOKEN = "{token}"\n')
+    git(work, "add", "-A")
+    git(work, "commit", "--no-verify", "-m", "feat: conf")
+    (work / "conf.py").unlink()
+    git(work, "add", "-A")
+    git(work, "commit", "-m", "fix: drop conf")
+    return git(work, "push", "origin", "topic").returncode != 0
 
 
 @case("exhausted retries", "loop_guard")
@@ -202,13 +227,24 @@ def guard_crashes(tmp: Path) -> bool:
 
 @case("no plan", "design_gate")
 def no_plan(tmp: Path) -> bool:
+    """A plan from a spec this branch never touched sits on main first. The gate used to
+    accept any plan.md anywhere under specs/, so the first spec a repository ever wrote
+    opened it permanently — including in this repository, where it has been inert since
+    001 landed. Then the budget itself: the third file passes and the fourth denies."""
     work = repo(tmp)
+    (work / "specs" / "001-old").mkdir(parents=True)
+    (work / "specs" / "001-old" / "plan.md").write_text("# a plan for something else\n")
+    git(work, "add", "-A")
+    if git(work, "commit", "-m", "docs: a plan this branch does not touch").returncode != 0:
+        raise RuntimeError("the old plan never landed, so the stale case was never asked")
     git(work, "checkout", "-b", "feature")
-    for name in "abcd":
+    for name in "abc":
         (work / f"{name}.py").write_text("x = 1\n")
     git(work, "add", "-A")
-    if git(work, "commit", "-m", "feat: four files").returncode != 0:
-        raise RuntimeError("the four files never landed, so the gate was never asked")
+    if git(work, "commit", "-m", "feat: three files").returncode != 0:
+        raise RuntimeError("the three files never landed, so the gate was never asked")
+    if pre("Edit", {"file_path": str(work / "c.py")}, cwd=work) != 0:
+        return False  # three is the budget, and a guard that denies at three is a bug
     return pre("Edit", {"file_path": str(work / "e.py")}, cwd=work) == 2
 
 
@@ -219,7 +255,13 @@ def skipping_hooks(tmp: Path) -> bool:
 
 @case("self-protection", "self_protect")
 def self_protection(tmp: Path) -> bool:
-    return pre("Edit", {"file_path": str(HOOKS / "injection_guard.py")}) == 2
+    """Both spellings. NotebookEdit is on this guard's row and sends notebook_path, so
+    until the normaliser learned that key the table claimed a tool nothing judged."""
+    guard = str(HOOKS / "injection_guard.py")
+    return all(
+        pre(tool, {key: guard}) == 2
+        for tool, key in (("Edit", "file_path"), ("NotebookEdit", "notebook_path"))
+    )
 
 
 @case("the guard goes inert", "doctor-21")
@@ -269,7 +311,14 @@ def negative_control(tmp: Path) -> bool:
     git(work, "add", "-A")
     if git(work, "commit", "-m", "feat(x): add two files").returncode != 0:
         return False
-    return git(work, "push", "origin", "quiet").returncode == 0
+    if git(work, "push", "origin", "quiet").returncode != 0:
+        return False
+    # Two allows the hooks used to refuse: a branch whose last segment is a protected name
+    # is not that branch, and git's own fixup subject is not a convention violation.
+    git(work, "checkout", "-b", "feature/main")
+    if git(work, "push", "origin", "feature/main").returncode != 0:
+        return False
+    return git(work, "commit", "--allow-empty", "--fixup=HEAD").returncode == 0
 
 
 def main() -> int:
@@ -288,8 +337,9 @@ def main() -> int:
         print(f"  {'caught ' if caught else 'MISSED '} {name}{note}")
 
     passed = sum(results.values())
-    bar = "the bar is 12 of 12, and no false positive on the control"
+    bar = f"the bar is {len(results)} of {len(results)}, and no false positive on the control"
     print(f"\n  {passed} of {len(results)} — {bar if passed < len(results) else 'green'}")
+    print(f"RAN suite={passed}")  # anti_theatre requires this name, so deleting it is red
 
     home = Path(os.environ.get("AI_ENGINEERING_HOME") or Path.home() / ".ai-engineering")
     stamp = home / "cache" / "suite.json"

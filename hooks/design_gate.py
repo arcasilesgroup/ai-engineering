@@ -29,7 +29,7 @@ def default_branch(root: Path) -> str:
     return ref.rsplit("/", 1)[-1] if ref else "main"
 
 
-def touched(root: Path) -> set[str]:
+def changed(root: Path) -> set[str]:
     """Files this branch changed, not files the working tree happens to have dirty."""
     head = default_branch(root)
     base = git(root, "merge-base", "HEAD", head) or git(
@@ -38,11 +38,15 @@ def touched(root: Path) -> set[str]:
     names = git(root, "diff", "--name-only", base, "HEAD") if base else ""
     names += "\n" + git(root, "diff", "--name-only", "HEAD")
     names += "\n" + git(root, "ls-files", "--others", "--exclude-standard")
-    return {n for n in names.split("\n") if n and not n.startswith(SKIP)}
+    return {n for n in names.split("\n") if n}
 
 
-def has_plan(root: Path) -> bool:
-    return any(root.glob("specs/*/plan.md"))
+def has_plan(names: set[str]) -> bool:
+    """The plan that opens the gate has to belong to the branch it opens. The glob this
+    replaces asked only whether any plan.md existed anywhere under specs/, so the first
+    spec a repository ever wrote opened the gate for every branch after it — which is why
+    this guard had not fired in its own repository since 001 landed."""
+    return any(name.startswith("specs/") and name.endswith("plan.md") for name in names)
 
 
 @guard("design_gate")
@@ -56,7 +60,8 @@ def run(payload: dict) -> str | None:
     branch = git(root, "rev-parse", "--abbrev-ref", "HEAD")
     if branch in (default_branch(root), "HEAD"):
         return None  # pre-push owns the default branch; this gate does not duplicate it
-    if has_plan(root):
+    names = changed(root)
+    if has_plan(names):
         return None
 
     target = (payload.get("tool_input") or {}).get("file_path", "")
@@ -64,7 +69,8 @@ def run(payload: dict) -> str | None:
         target = str(Path(target).resolve().relative_to(root))
     except (ValueError, OSError):
         target = ""
-    files = touched(root) | ({target} if target and not target.startswith(SKIP) else set())
+    files = {name for name in names if not name.startswith(SKIP)}
+    files |= {target} if target and not target.startswith(SKIP) else set()
     if len(files) <= budget:
         return None
     return f"this branch has changed {len(files)} files and has no plan. Write one with /ai-plan."
