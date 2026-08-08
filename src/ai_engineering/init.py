@@ -172,7 +172,10 @@ def choose(rows: list[tuple[str, int, str]], args) -> set[str]:
 def write_offer(root: Path, name: str, args) -> None:
     path = root / name
     if path.exists():
-        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+        # Sub-second, because whole seconds are not resolution enough for a name whose
+        # only job is to be unique: two overwrites of one file inside the same second
+        # gave the same name, and the second copy destroyed the first backup.
+        stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S-%f")
         backup = path.with_name(f"{name}.bak-{stamp}")
         if not args.dry:
             shutil.copy2(path, backup)

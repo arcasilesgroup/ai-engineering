@@ -553,10 +553,22 @@ def test_an_overwritten_file_is_copied_to_a_timestamped_backup_first(repo, capsy
     init.project_step(init.parse(["--project", str(repo), "--overwrite", "CLAUDE.md"]))
     backups = [p.name for p in repo.iterdir() if p.name.startswith("CLAUDE.md.bak-")]
     assert len(backups) == 1
-    assert re.fullmatch(r"CLAUDE\.md\.bak-\d{8}-\d{6}", backups[0])
+    assert re.fullmatch(r"CLAUDE\.md\.bak-\d{8}-\d{6}-\d{6}", backups[0])
     assert (repo / backups[0]).read_text() == "mine\n"
     assert (repo / "CLAUDE.md").read_text() == skeletons.CLAUDE_MD
     assert f"   ✓ CLAUDE.md backup → {backups[0]} written\n" in capsys.readouterr().out
+
+
+def test_two_overwrites_inside_one_second_leave_two_backups(repo, no_keyboard):
+    """The docstring above says the timestamp is what stops the second overwrite
+    destroying the first backup, and until the stamp had sub-second resolution that was
+    the one thing it did not do. This is the test that makes it mean what it says."""
+    (repo / "CLAUDE.md").write_text("mine\n", encoding="utf-8")
+    for _ in range(2):
+        init.project_step(init.parse(["--project", str(repo), "--overwrite", "CLAUDE.md"]))
+    backups = sorted(p for p in repo.iterdir() if p.name.startswith("CLAUDE.md.bak-"))
+    assert len(backups) == 2
+    assert backups[0].read_text() == "mine\n"
 
 
 def test_the_stacks_it_found_are_named_and_it_installs_none_of_them(repo, capsys, no_keyboard):
