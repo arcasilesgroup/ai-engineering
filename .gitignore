@@ -14,3 +14,4 @@ mutants/
 uv.lock
 .DS_Store
 .git-msg.tmp
+coverage.xml

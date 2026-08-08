@@ -194,4 +194,9 @@ counts:
     @echo "RAN lint=$(uv run --with {{ruff}} ruff format --check . | grep -oE '^[0-9]+')"
     @echo "RAN tests=$(uv run --with {{pytest}} pytest -q --collect-only 2>/dev/null | grep -cE '::')"
 
+# Where things stand, from the tree, with no model doing the arithmetic. Not in `check`:
+# it asserts nothing and a report inside a gate is a report people read as a gate.
+stats:
+    @uv run python tests/stats.py
+
 check: build lint test cover security counts

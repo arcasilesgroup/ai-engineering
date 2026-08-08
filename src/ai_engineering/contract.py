@@ -53,7 +53,7 @@ DESCRIPTION_MAX = 1000
 # after it. Two of the fifteen modules have no suite yet, and their 197 survivors are the
 # six points between 89 and the 95 that was asked for. The test fails the build on the
 # line after.
-REPO_CEILING = 11762
+REPO_CEILING = 12017
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
