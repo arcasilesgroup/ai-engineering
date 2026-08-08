@@ -81,7 +81,10 @@ def pin_matches(root: Path | None) -> str | None:
     if not pinned:
         raise Undecidable("this repository has no .ai/config.toml, so nothing is pinned here")
     if pinned != __version__:
-        return f"the wheel running is {__version__} and this repository pins {pinned}"
+        return (
+            f"the wheel running is {__version__} and this repository pins {pinned}. "
+            f"`ai-eng update` migrates the pin."
+        )
     installed = str(paths.hooks())
     for surface in wiring.detect():
         path = wiring.expand(surface["settings"]) if surface["settings"] else None
@@ -89,7 +92,10 @@ def pin_matches(root: Path | None) -> str | None:
             continue
         blob = path.read_text(errors="replace")
         if wiring.MARK in blob and installed not in blob:
-            return f"{surface['name']}'s guard entry points at another install, not {installed}"
+            return (
+                f"{surface['name']}'s guard entry points at another install, not "
+                f"{installed}. `ai-eng init --global` repoints it."
+            )
     return None
 
 
@@ -131,7 +137,9 @@ def wiring_present(root: Path | None) -> str | None:
         path = wiring.expand(surface["settings"])
         if not path.exists() or wiring.MARK not in path.read_text(errors="replace"):
             broken.append(f"{surface['name']} has no entry")
-    return None if not broken else "; ".join(broken)
+    if not broken:
+        return None
+    return "; ".join(broken) + ". `ai-eng init --global` writes the entries again."
 
 
 @check(3, "The wiring", "Every hook that can block is a guard, and all are classified")
@@ -157,10 +165,11 @@ def git_hook_fires(root: Path | None) -> str | None:
     configured = git(root, "config", "--get", "core.hooksPath")
     if not configured:
         raise Undecidable("core.hooksPath is not set here: this repository has no floor")
+    cure = "`ai-eng init --project` sets it again."
     if configured.startswith("~"):
-        return "core.hooksPath holds a tilde. Git never expands it: the hooks never fire."
+        return f"core.hooksPath holds a tilde. Git never expands it: the hooks never fire. {cure}"
     if not (Path(configured) / "pre-commit").exists():
-        return f"core.hooksPath points at {configured}, which has no pre-commit in it"
+        return f"core.hooksPath points at {configured}, which has no pre-commit in it. {cure}"
     return None
 
 
@@ -179,7 +188,12 @@ def links_resolve(root: Path | None) -> str | None:
             f"nothing here to resolve. An empty loop is not a passing check."
         )
     broken = [row["path"] for row in links if not Path(row["path"]).exists()]
-    return f"{len(broken)} skill roots no longer resolve: {broken[0]}" if broken else None
+    if not broken:
+        return None
+    return (
+        f"{len(broken)} skill roots no longer resolve: {broken[0]}. "
+        f"`ai-eng init --global` links them again."
+    )
 
 
 @check(21, "The wiring", "Per-surface liveness: installed is not the same as running")

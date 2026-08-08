@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -406,7 +407,7 @@ def test_assertion_2_a_surface_with_no_entry_in_its_own_settings_file_is_named(
         {"name": "VS Code Copilot", "settings": str(settings), "writer": "none"},
     ]
     monkeypatch.setattr(wiring, "detect", lambda only=None: rows)
-    assert doctor.wiring_present(None) == "Claude Code has no entry"
+    assert (doctor.wiring_present(None) or "").startswith("Claude Code has no entry")
     settings.write_text('{"hooks": {"PreToolUse": ["ai-engineering"]}}')
     assert doctor.wiring_present(None) is None
     monkeypatch.setattr(paths, "hooks", lambda: tmp_path / "nowhere")
@@ -545,6 +546,51 @@ def test_three_assertions_that_used_to_pass_by_iterating_an_empty_list(
     got, detail = verdict(assertion, repo)
     assert got == "undecidable"
     assert fragment in detail
+
+
+def break_the_guard_entry(home, repo, monkeypatch) -> None:
+    settings = home / "settings.json"
+    settings.write_text('{"hooks": {"PreToolUse": []}}')
+    rows = [{"name": "Claude Code", "settings": str(settings), "writer": "json_claude"}]
+    monkeypatch.setattr(wiring, "detect", lambda only=None: rows)
+
+
+def break_the_hooks_path(home, repo, monkeypatch) -> None:
+    git(repo, "config", "core.hooksPath", str(repo / "no-hooks-here"))
+
+
+def break_the_skills_link(home, repo, monkeypatch) -> None:
+    receipt = paths.home() / "machine.json"
+    receipt.write_text(json.dumps({"wrote": [{"path": str(home / "gone"), "kind": "link"}]}))
+
+
+def break_the_pin(home, repo, monkeypatch) -> None:
+    (repo / ".ai" / "config.toml").write_text('[framework]\nversion = "0.0.1"\n')
+
+
+@pytest.mark.parametrize(
+    "assertion, arrange",
+    [
+        (doctor.wiring_present, break_the_guard_entry),
+        (doctor.git_hook_fires, break_the_hooks_path),
+        (doctor.links_resolve, break_the_skills_link),
+        (doctor.pin_matches, break_the_pin),
+    ],
+    ids=["2 the guard entry", "11 the hooks path", "13 the skills link", "12 the pin"],
+)
+def test_every_failure_a_command_can_repair_names_that_command(
+    home, repo, monkeypatch, assertion, arrange
+):
+    """ADR 0002 as an exit code. `doctor --fix` was refused because a diagnostic that
+    mutates is `init` and `update` behind a third door with the consent taken out — but
+    what that proposal was reaching for is real: not one check in this file named a command
+    to run. These four have a cure, so they say it, and adding a fifth check with a cure
+    and no command fails here. The set is named in this list rather than inferred, because
+    "does this check have a cure" is a judgement no script can make."""
+    arrange(home, repo, monkeypatch)
+    got, detail = verdict(assertion, repo)
+    assert got == "fail", detail
+    assert re.search(r"`ai-eng [^`]+`", detail), detail
 
 
 def test_the_summary_counts_an_unanswerable_wiring_section_as_not_evaluated(
