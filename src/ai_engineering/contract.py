@@ -53,7 +53,21 @@ DESCRIPTION_MAX = 1000
 # after it. Two of the fifteen modules have no suite yet, and their 197 survivors are the
 # six points between 89 and the 95 that was asked for. The test fails the build on the
 # line after.
-REPO_CEILING = 12017
+#
+# 11,587 to 12,017 happened with no line here: the last figure this comment named and the
+# constant under it disagreed by 430, which is this comment's own failure mode, one level up.
+# 12,017 to 12,686 for spec 005 — thirteen defects in `init` and `doctor`, every one of them a
+# statement the software made about itself that was not true, or a green nobody had earned.
+# 466 of those lines are test against 154 of product, three to one inside a branch on a tree
+# the ratio gate caps at two to one, and that shape is the work: four of the seven reported
+# defects had a test sitting beside them asserting the wrong half, and one carried a strict
+# xfail this branch deleted. 116 of the 466 were not planned at all — the mutation floor went
+# red at 88%, and what it had caught was two new screens asserted by fragment, where every line
+# the fragment did not name could be emptied with the suite still green. The other 35 lines are
+# package.json and tsconfig.json, an in-flight lane of the operator's that this branch's first
+# commit swept up out of an index that already held them — named here rather than absorbed,
+# because a ceiling quietly carrying somebody else's lines has already stopped meaning anything.
+REPO_CEILING = 12686
 
 # The shape of that total, not just its size. This began as a sentence in the comment above
 # saying the test plane was three times the product; it was written from no measurement and
