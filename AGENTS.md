@@ -66,9 +66,10 @@ from 528 files, which is where the previous version ended up.
 ## Working here
 
 - `just check` is what CI runs. Run it before saying anything is done, and show the output.
-- The line ceiling is 5,000 and CI fails the build on line 5,001. When it is genuinely too
-  low, raise it in a commit whose message says why — that commit is the conversation you
-  would otherwise never have had.
+- The line ceiling lives in `contract.REPO_CEILING` and CI fails the build on the line
+  after it. When it is genuinely too low, raise it in a commit whose message says why —
+  that commit is the conversation you would otherwise never have had. It has moved once,
+  from 5,000 to 5,600, and specs/001-v1-from-scratch records the arithmetic.
 - `AGENTS.md` is capped at 150 lines by a test. Everything that is not true in every
   session belongs in a skill.
 - Every `SKILL.md` is capped at 80 lines. Longer means it is a procedure that should be a

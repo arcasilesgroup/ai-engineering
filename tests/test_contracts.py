@@ -18,7 +18,7 @@ from ai_engineering import contract, paths
 
 ROOT = Path(__file__).resolve().parents[1]
 
-CEILING = 5000
+CEILING = contract.REPO_CEILING
 DOCTRINE_CEILING = 150
 
 

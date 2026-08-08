@@ -334,7 +334,7 @@ def doctrine(root: Path | None) -> str | None:
     return None if not problems else "; ".join(problems)
 
 
-@check(5, "The context", "The product repository is under 5,000 lines")
+@check(5, "The context", "The product repository is under its line ceiling")
 def line_budget(root: Path | None) -> str | None:
     if root is None or not (root / "src" / "ai_engineering").exists():
         raise Undecidable("this check only means anything inside the product repository")
@@ -342,7 +342,12 @@ def line_budget(root: Path | None) -> str | None:
 
     total = contract.repo_lines(root)
     return (
-        None if total <= 5000 else f"{total} lines. The ceiling is 5,000 and it is the mechanism."
+        None
+        if total <= contract.REPO_CEILING
+        else (
+            f"{total} lines against a ceiling of {contract.REPO_CEILING}. Raise it in a commit "
+            f"whose message says why, or delete something."
+        )
     )
 
 

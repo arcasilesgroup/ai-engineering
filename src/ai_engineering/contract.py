@@ -31,6 +31,11 @@ JARGON = (
 CEILING = 80
 DESCRIPTION_MAX = 1000
 
+# The line ceiling for the whole repository, in one place so that raising it is a single
+# reviewable edit. It moved from 5,000 to 5,600 once — see specs/001-v1-from-scratch, and
+# the commit that did it. The test fails the build on the line after.
+REPO_CEILING = 5600
+
 
 def audit(root: Path) -> list[str]:
     problems: list[str] = []
