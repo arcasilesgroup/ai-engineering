@@ -727,8 +727,11 @@ def test_an_unknown_verb_exits_non_zero_and_says_so_on_stderr(capsys):
     """Exiting zero on a typo makes a script that calls `ai-eng` believe a gate ran."""
     assert cli.main(["nope"]) == 2
     captured = capsys.readouterr()
+    # The complaint is on stderr and the verb list is on stdout: `ai-eng nope | grep spec`
+    # still finds the verb you meant, and `2>/dev/null` still hides the scolding.
     assert "there is no verb 'nope'" in captured.err
-    assert captured.out == ""
+    assert "there is no verb" not in captured.out
+    assert all(verb in captured.out for verb in cli.VERBS)
     assert cli.main(["--version"]) == 0
     assert "ai-engineering" in capsys.readouterr().out
 

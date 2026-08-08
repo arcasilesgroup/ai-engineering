@@ -27,31 +27,39 @@ VERBS: dict[str, str] = {
     "uninstall": "Undo everything the receipt lists. The no-lock-in promise, as a command.",
 }
 
-BANNER = f"""
-  ┌─                    ─┐
-    {{ ai }} e n g i n e e r i n g
-  └─                    ─┘
-   v{__version__} · AI Governance Framework
-"""
 
+def usage() -> None:
+    """The ten verbs, with the verb itself in the brand style so the eye lands on the word
+    you are going to type. The banner sits above it, on a terminal only.
 
-def usage() -> str:
-    rows = "\n".join(f"  {verb:<10} {text}" for verb, text in VERBS.items())
-    return f"ai-eng <verb> [options]\n\n{rows}\n\n  ai-eng <verb> --help for the flags.\n"
+    Still stdout, and still one verb per line: this is what a person pipes into a pager,
+    and `ai-eng --help | grep spec` has to keep working."""
+    from ai_engineering import ui
+
+    ui.banner()
+    ui.write("ai-eng <verb> [options]\n", data=True)
+    for verb, text in VERBS.items():
+        ui.pair(f"  {verb:<10}", text)
+    ui.write("\n  ai-eng <verb> --help for the flags.", data=True)
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if not argv or argv[0] in ("-h", "--help", "help"):
-        sys.stdout.write(usage())
+        usage()
         return 0
     if argv[0] in ("-V", "--version", "version"):
+        # Plain, one line, no styling and no banner. This is the line another program
+        # parses, and it is the only output here that is not for a person.
         sys.stdout.write(f"ai-engineering {__version__}\n")
         return 0
 
     verb, rest = argv[0], argv[1:]
     if verb not in VERBS:
-        sys.stderr.write(f"ai-eng: there is no verb {verb!r}.\n\n{usage()}")
+        # The complaint on stderr, the list on stdout. A typo is not a reason to stop the
+        # verb list being pipeable, and it is a reason for the error itself not to be.
+        sys.stderr.write(f"ai-eng: there is no verb {verb!r}.\n\n")
+        usage()
         return 2
 
     module = importlib.import_module(f"ai_engineering.{verb}")

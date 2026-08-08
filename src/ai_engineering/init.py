@@ -37,15 +37,7 @@ def out(text: str = "", data: bool = False) -> None:
     ui.write(text, data=data)
 
 
-def banner() -> None:
-    """It costs four lines and it is the only moment the product has a face. To stderr,
-    on a TTY only, so it never lands in a log or a CI transcript."""
-    if not sys.stderr.isatty():
-        return
-    sys.stderr.write(
-        f"\n  ┌─                    ─┐\n    {{ ai }} e n g i n e e r i n g\n"
-        f"  └─                    ─┘\n   v{__version__} · AI Governance Framework\n\n"
-    )
+banner = ui.banner  # one drawing of the product's face, and it lives with the rest of it
 
 
 def ask(question: str, default: bool, args) -> bool:

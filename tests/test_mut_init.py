@@ -120,17 +120,17 @@ def test_the_banner_stays_out_of_logs_and_ci_transcripts(capsys):
     assert capsys.readouterr().err == ""
 
 
-def test_the_banner_names_the_product_and_this_version_on_a_terminal(monkeypatch):
-    """Catches a banner that goes blank on the one screen it exists for."""
-    written: list[str] = []
-    monkeypatch.setattr(
-        sys,
-        "stderr",
-        SimpleNamespace(isatty=lambda: True, write=written.append, flush=lambda: None),
-    )
+def test_the_banner_names_the_product_and_this_version_on_a_terminal(monkeypatch, capsys):
+    """Catches a banner that goes blank on the one screen it exists for. FORCE_COLOR is how
+    a terminal says it wants decoration past a pipe, and it is what makes the console call
+    itself a terminal here."""
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.setenv("FORCE_COLOR", "1")
+    init.ui.reset()
     init.banner()
-    assert "e n g i n e e r i n g" in written[0]
-    assert f"v{__version__} · AI Governance Framework" in written[0]
+    written = capsys.readouterr().err
+    assert "e n g i n e e r i n g" in written
+    assert f"v{__version__} · AI Governance Framework" in written
 
 
 # ── ask ─────────────────────────────────────────────────────────────────────────────

@@ -139,6 +139,15 @@ def verdict(number: int, state: str, title: str, detail: str = "") -> None:
         console(data=True).print(Text(f"      {detail}", style="muted"), soft_wrap=True)
 
 
+def pair(key: str, text: str, data: bool = True) -> None:
+    """A name and what it does, on one line: the ten verbs, and anything else shaped the
+    same. The key carries the brand style, because it is the part you are going to type."""
+    line = Text()
+    line.append(key, style="brand")
+    line.append(text)
+    console(data).print(line, soft_wrap=True)
+
+
 def note(text: str, style: str = "muted") -> None:
     """A continuation under the step it belongs to, indented past the mark."""
     for row in text.splitlines():
