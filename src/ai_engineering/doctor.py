@@ -117,16 +117,20 @@ def no_double_decision(root: Path | None) -> str | None:
 
 @check(2, "The wiring", "Every guard is registered, and points at a file that exists")
 def wiring_present(root: Path | None) -> str | None:
-    broken = []
-    for surface in wiring.detect():
-        if surface["writer"] == "none" or not surface["settings"]:
-            continue
+    dispatcher = paths.hooks() / "chain.py"
+    broken = [] if dispatcher.exists() else [f"the dispatcher is missing at {dispatcher}"]
+    wired = [s for s in wiring.detect() if s["writer"] != "none" and s["settings"]]
+    if not wired and not broken:
+        raise Undecidable(
+            "no surface that takes a guard entry is installed here, so this looked at "
+            "nothing. Declining the machine half of `ai-eng init` still wires the "
+            "repository, which is how a governed repository ends up on a machine with "
+            "no guards at all."
+        )
+    for surface in wired:
         path = wiring.expand(surface["settings"])
         if not path.exists() or wiring.MARK not in path.read_text(errors="replace"):
             broken.append(f"{surface['name']} has no entry")
-    dispatcher = paths.hooks() / "chain.py"
-    if not dispatcher.exists():
-        broken.append(f"the dispatcher is missing at {dispatcher}")
     return None if not broken else "; ".join(broken)
 
 
@@ -162,23 +166,29 @@ def git_hook_fires(root: Path | None) -> str | None:
 
 @check(13, "The wiring", "Every symlink resolves and the doctrine is loaded")
 def links_resolve(root: Path | None) -> str | None:
-    broken = [
-        row["path"]
-        for row in wiring.receipt().get("wrote", [])
-        if row["kind"] == "link" and not Path(row["path"]).exists()
-    ]
-    if broken:
-        return f"{len(broken)} skill roots no longer resolve: {broken[0]}"
+    """The doctrine half is answered first, because it can be answered without a receipt
+    and dropping a real failure to report could-not-evaluate would be the same trade in
+    the other direction."""
     claude = (root / "CLAUDE.md") if root is not None else None
     if claude and claude.exists() and "@./AGENTS.md" not in claude.read_text(errors="replace"):
         return "CLAUDE.md does not import AGENTS.md, so the doctrine never reaches the model"
-    return None
+    links = [row for row in wiring.receipt().get("wrote", []) if row["kind"] == "link"]
+    if not links:
+        raise Undecidable(
+            f"the receipt at {wiring.receipt_path()} records no skill root, so there is "
+            f"nothing here to resolve. An empty loop is not a passing check."
+        )
+    broken = [row["path"] for row in links if not Path(row["path"]).exists()]
+    return f"{len(broken)} skill roots no longer resolve: {broken[0]}" if broken else None
 
 
 @check(21, "The wiring", "Per-surface liveness: installed is not the same as running")
 def surfaces_alive(root: Path | None) -> str | None:
+    found = wiring.detect()
+    if not found:
+        raise Undecidable("no surface is installed here, so none of them can be running")
     problems = []
-    for surface in wiring.detect():
+    for surface in found:
         if surface.get("trust_required"):
             trusted = any(
                 (wiring.expand("~/.codex") / name).exists()
@@ -429,7 +439,10 @@ def coverage(root: Path | None) -> list[str]:
         f"{'  OK' if pinned == __version__ else '  MISMATCH'}"
     ]
     installed = {s["id"] for s in wiring.detect()}
-    inert = surfaces_alive(root) or ""
+    try:
+        inert = surfaces_alive(root) or ""
+    except Undecidable:
+        inert = ""  # nothing installed, so every row below already reads UNPROVEN
     for surface in wiring.table()["surface"]:
         if surface["id"] not in installed:
             state = "not installed        UNPROVEN"

@@ -524,6 +524,55 @@ def test_assertion_12_also_catches_an_entry_left_pointing_at_an_install_that_mov
     assert "OpenCode" not in verdict(doctor.pin_matches, repo)[1]
 
 
+@pytest.mark.parametrize(
+    "assertion, fragment",
+    [
+        (doctor.wiring_present, "no surface that takes a guard entry"),
+        (doctor.links_resolve, "records no skill root"),
+        (doctor.surfaces_alive, "no surface is installed here"),
+    ],
+    ids=["2 the guard entries", "13 the skill roots", "21 the liveness"],
+)
+def test_three_assertions_that_used_to_pass_by_iterating_an_empty_list(
+    home, repo, assertion, fragment
+):
+    """Decline the machine half of `ai-eng init`, or pass --no-global, and the project half
+    still wires the repository: core.hooksPath is set and ai.managed goes true. No receipt
+    is written and no surface is installed, and these three then looped over nothing and
+    printed ok — a governed repository on a machine with no guards, reporting a green
+    wiring section that had earned nothing. An empty loop is not a passing check, it is a
+    question nobody asked, and this doctor already had the state for that answer."""
+    got, detail = verdict(assertion, repo)
+    assert got == "undecidable"
+    assert fragment in detail
+
+
+def test_the_summary_counts_an_unanswerable_wiring_section_as_not_evaluated(
+    home, repo, monkeypatch, capsys
+):
+    """The three above have to reach the printed summary as "not evaluated" rather than
+    disappearing into the passed count, which is the number a person actually reads."""
+    monkeypatch.setattr(paths, "repo_root", lambda start=None: repo)
+    monkeypatch.setattr(
+        doctor,
+        "CHECKS",
+        [row for row in doctor.CHECKS if row[4] in (doctor.wiring_present, doctor.links_resolve)],
+    )
+    doctor.main([])
+    out = capsys.readouterr().out
+    assert "0 passed · 0 failed · 2 not evaluated" in out
+    assert " ok " not in out
+
+
+def test_the_coverage_line_survives_a_machine_with_nothing_installed(home, repo):
+    """coverage() reads assertion 21 to mark a surface INERT. Now that 21 refuses to answer
+    on an empty machine, the coverage line has to keep printing rather than take the
+    exception with it — every row there already reads UNPROVEN for the same reason."""
+    lines = doctor.coverage(repo)
+    assert len(lines) == len(wiring.table()["surface"]) + 2
+    assert all("INERT" not in line for line in lines)
+
+
 def test_assertion_13_a_skill_root_that_stopped_resolving_and_a_doctrine_nobody_imports(home, repo):
     """Skills are linked, or copied where links do not work, and the surface's own updater
     can delete either. And a CLAUDE.md that does not import AGENTS.md means the doctrine
