@@ -31,19 +31,17 @@ JARGON = (
 CEILING = 80
 DESCRIPTION_MAX = 1000
 
-# The line ceiling for the whole repository, in one place so that raising it is a single
-# reviewable edit. It moved from 5,000 to 5,600 once — see specs/001-v1-from-scratch, and
-# the commit that did it. The test fails the build on the line after.
-REPO_CEILING = 5600
+# The line ceiling, in one place so raising it is a single reviewable edit. 5,000 to 5,600 in
+# specs/001; 5,600 to 5,610 for the test plane named in that commit, while the product itself
+# lost nine lines. The test fails the build on the line after.
+REPO_CEILING = 5610
 
 
 def audit(root: Path) -> list[str]:
-    problems: list[str] = []
-    for skill in sorted(root.glob("ai-*/SKILL.md")):
-        problems += audit_one(skill)
-    if not problems and not list(root.glob("ai-*/SKILL.md")):
-        problems.append(f"no skills found under {root}")
-    return problems
+    skills = sorted(root.glob("ai-*/SKILL.md"))
+    if not skills:
+        return [f"no skills found under {root}"]
+    return [problem for skill in skills for problem in audit_one(skill)]
 
 
 def audit_one(path: Path) -> list[str]:
@@ -107,6 +105,8 @@ def repo_lines(root: Path) -> int:
     names = subprocess.run(
         ["git", "-C", str(root), "ls-files"], capture_output=True, text=True, timeout=30
     ).stdout.split()
+    if not names:
+        raise ValueError(f"git listed no files under {root}, so this counted zero lines")
     total = 0
     for name in names:
         if name.startswith(NOT_THE_PRODUCT):
