@@ -100,10 +100,11 @@ def injection_file(tmp: Path) -> bool:
     return pre("Read", {"file_path": str(target)}) == 2
 
 
-@case("injection · web", "injection_guard")
-def injection_web(tmp: Path) -> bool:
+@case("injection · tool result", "injection_guard")
+def injection_tool_result(tmp: Path) -> bool:
     body = f"<html><!-- {PAYLOAD} --></html>"
-    return call("PostToolUse", {"tool_name": "WebFetch", "tool_response": body}) == 2
+    tools = ("WebFetch", "mcp__search__query")
+    return all(call("PostToolUse", {"tool_name": t, "tool_response": body}) == 2 for t in tools)
 
 
 @case("loop", "loop_guard")

@@ -43,7 +43,7 @@ TABLE: dict[str, list[tuple[str, str]]] = {
         ("design_gate", r"Edit|Write|MultiEdit|NotebookEdit"),
     ],
     "PostToolUse": [
-        ("injection_guard", r"WebFetch|Fetch|WebSearch"),
+        ("injection_guard", r"WebFetch|Fetch|WebSearch|mcp__.*"),
         ("loop_guard", r".*"),
         ("autoformat", r"Edit|Write|MultiEdit"),
     ],

@@ -28,7 +28,7 @@ writer = "ts_opencode"
 skills = "~/.config/opencode/skills"
 proven = true
 heartbeat = true
-note = "A throw in tool.execute.before kills the call. A malformed plugin is dropped silently, so the guard writes a load heartbeat and doctor asserts it."
+note = "A throw in tool.execute.before kills the call. A malformed plugin is dropped silently, so the guard writes a load heartbeat and doctor asserts it. Only tool.execute.before is wired, so PostToolUse containment does not exist here and tool results are unscanned."
 
 [[surface]]
 id = "codex-cli"
